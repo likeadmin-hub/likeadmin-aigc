@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "登录",
+  "usingComponents": {
+    "u-button": "../../uni_modules/vk-uview-ui/components/u-button/u-button",
+    "u-input": "../../uni_modules/vk-uview-ui/components/u-input/u-input",
+    "u-verification-code": "../../uni_modules/vk-uview-ui/components/u-verification-code/u-verification-code",
+    "u-checkbox": "../../uni_modules/vk-uview-ui/components/u-checkbox/u-checkbox",
+    "u-modal": "../../uni_modules/vk-uview-ui/components/u-modal/u-modal",
+    "mplogin-popup": "../../components/mplogin-popup/mplogin-popup"
+  }
+}

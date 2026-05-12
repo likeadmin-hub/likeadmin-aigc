@@ -1,0 +1,513 @@
+<?php
+
+namespace app\common\service\app;
+
+use app\common\model\app\App;
+use app\common\model\app\AppApi;
+use app\common\model\app\AppFrontendEntry;
+use app\common\model\app\AppInstall;
+use app\common\model\app\AppCase;
+use app\common\model\app\AppVersion;
+use app\common\model\app\TenantApp;
+use app\common\model\app\aigc_image\AigcImageConfig;
+use app\common\model\app\aigc_image\AigcImageBilling;
+use app\common\model\app\aigc_image\AigcImageChannel;
+use app\common\model\app\aigc_image\AigcImageChannelSpec;
+use app\common\model\app\aigc_image\AigcImageQuota;
+use app\common\model\app\aigc_image\AigcImageResult;
+use app\common\model\app\aigc_image\AigcImageSensitiveWord;
+use app\common\model\app\aigc_image\AigcImageTask;
+use app\common\model\app\aigc_video\AigcVideoConfig;
+use app\common\model\app\aigc_video\AigcVideoBilling;
+use app\common\model\app\aigc_video\AigcVideoChannel;
+use app\common\model\app\aigc_video\AigcVideoChannelSpec;
+use app\common\model\app\aigc_video\AigcVideoQuota;
+use app\common\model\app\aigc_video\AigcVideoResult;
+use app\common\model\app\aigc_video\AigcVideoSensitiveWord;
+use app\common\model\app\aigc_video\AigcVideoTask;
+use app\common\model\app\aigc_llm\AigcLlmChannel;
+use app\common\model\app\aigc_llm\AigcLlmConfig;
+use app\common\model\app\aigc_llm\AigcLlmMessage;
+use app\common\model\app\aigc_llm\AigcLlmModel;
+use app\common\model\app\aigc_llm\AigcLlmSensitiveWord;
+use app\common\model\app\aigc_llm\AigcLlmSession;
+use app\common\model\app\aigc_llm\AigcLlmUsage;
+use app\common\model\app\aigc_canvas\AigcCanvasProject;
+use app\common\model\app\aigc_canvas\AigcCanvasRun;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanAvatar;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanBilling;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanChannel;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanChannelSpec;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanConfig;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanQuota;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanResult;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanSensitiveWord;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanTask;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanVoice;
+use app\common\model\auth\SystemMenu;
+use app\common\model\auth\TenantSystemMenu;
+use app\common\model\tenant\Tenant;
+use think\facade\Db;
+use RuntimeException;
+use Throwable;
+
+class AppRegistryService
+{
+    public const STATUS_INSTALLED = 'installed';
+    public const STATUS_DISABLED = 'disabled';
+    public const STATUS_REMOVED = 'removed';
+
+    public static function manifestPath(string $appCode): string
+    {
+        self::assertValidCode($appCode);
+        return root_path() . 'app/apps/' . $appCode . '/manifest.json';
+    }
+
+    public static function getManifest(string $appCode): array
+    {
+        $path = self::manifestPath($appCode);
+        if (!is_file($path)) {
+            throw new RuntimeException('应用清单不存在: ' . $appCode);
+        }
+        $manifest = json_decode((string)file_get_contents($path), true);
+        if (!is_array($manifest)) {
+            throw new RuntimeException('应用清单格式错误: ' . $appCode);
+        }
+        self::assertValidCode($manifest['code'] ?? '');
+        if (($manifest['code'] ?? '') !== $appCode) {
+            throw new RuntimeException('应用清单code不匹配: ' . $appCode);
+        }
+        return $manifest;
+    }
+
+    public static function installFromLocal(string $appCode): array
+    {
+        $manifest = self::getManifest($appCode);
+        self::assertCoreCompatible($manifest);
+        self::runLocalMigrations($appCode, (string)($manifest['version'] ?? '1.0.0'));
+        $time = time();
+        $appData = DefaultAppService::normalizeAppData($appCode, [
+            'code' => $appCode,
+            'name' => $manifest['name'] ?? $appCode,
+            'icon' => $manifest['icon'] ?? '',
+            'description' => $manifest['description'] ?? '',
+            'category' => $manifest['category'] ?? 'common',
+            'cover' => $manifest['cover'] ?? '',
+            'client_tags' => implode(',', $manifest['frontends'] ?? []),
+            'is_builtin' => $manifest['is_builtin'] ?? 0,
+            'sort' => $manifest['sort'] ?? 0,
+            'current_version' => $manifest['version'] ?? '1.0.0',
+            'status' => self::STATUS_INSTALLED,
+            'expire_policy' => $manifest['expire_policy'] ?? AppPlanService::EXPIRE_BLOCK,
+            'install_time' => $time,
+            'update_time' => $time,
+        ]);
+        self::saveModel(App::class, ['code' => $appCode], $appData);
+        self::saveModel(AppVersion::class, ['app_code' => $appCode, 'version' => $manifest['version']], [
+            'app_code' => $appCode,
+            'version' => $manifest['version'],
+            'require_core' => $manifest['require_core'] ?? '',
+            'package_path' => 'local',
+            'manifest_json' => $manifest,
+            'changelog' => $manifest['changelog'] ?? '',
+            'status' => 1,
+            'create_time' => $time,
+        ]);
+        self::syncApiSchema($manifest);
+        self::syncFrontendEntries($manifest);
+        AppMenuService::syncPlatformMenus($appCode);
+        if (DefaultAppService::isDefaultApp($appCode)) {
+            DefaultAppService::syncAllTenants($appCode);
+        }
+        self::writeInstallLog($appCode, $manifest['version'] ?? '1.0.0', 'install_success');
+        return $manifest;
+    }
+
+    public static function assertCoreCompatible(array $manifest): void
+    {
+        $current = self::currentCoreVersion();
+        $constraints = self::coreConstraints($manifest);
+        if (empty($constraints)) {
+            throw new RuntimeException('应用清单缺少系统版本兼容声明: require_core/min_core/max_core');
+        }
+        foreach ($constraints as $constraint) {
+            [$operator, $version, $label] = $constraint;
+            if (!version_compare($current, $version, $operator)) {
+                $appCode = (string)($manifest['code'] ?? '');
+                throw new RuntimeException(sprintf(
+                    '当前系统版本 %s 不满足应用 %s 的系统版本要求: %s',
+                    $current,
+                    $appCode ?: '-',
+                    $label
+                ));
+            }
+        }
+    }
+
+    public static function detail(string $appCode): array
+    {
+        self::assertValidCode($appCode);
+        $app = App::where('code', $appCode)->findOrEmpty();
+        if ($app->isEmpty()) {
+            return [
+                'app' => [],
+                'manifest' => is_file(self::manifestPath($appCode)) ? self::getManifest($appCode) : [],
+                'versions' => [],
+                'apis' => [],
+                'frontend_entries' => [],
+                'tenant_count' => 0,
+            ];
+        }
+        return [
+            'app' => $app->toArray(),
+            'manifest' => is_file(self::manifestPath($appCode)) ? self::getManifest($appCode) : [],
+            'versions' => AppVersion::where('app_code', $appCode)->order('id', 'desc')->select()->toArray(),
+            'apis' => AppApi::where('app_code', $appCode)->order('id', 'asc')->select()->toArray(),
+            'frontend_entries' => AppFrontendEntry::where('app_code', $appCode)
+                ->order(['terminal' => 'asc', 'sort' => 'desc'])
+                ->select()
+                ->toArray(),
+            'tenant_count' => TenantApp::where('app_code', $appCode)->count(),
+        ];
+    }
+
+    public static function setStatus(string $appCode, string $status): void
+    {
+        self::assertValidCode($appCode);
+        self::assertNotBuiltin($appCode);
+        if (!in_array($status, [self::STATUS_INSTALLED, self::STATUS_DISABLED], true)) {
+            throw new RuntimeException('应用状态不支持');
+        }
+        $app = App::where('code', $appCode)->findOrEmpty();
+        if ($app->isEmpty()) {
+            throw new RuntimeException('应用不存在');
+        }
+        $app->status = $status;
+        $app->update_time = time();
+        $app->save();
+        self::writeInstallLog(
+            $appCode,
+            (string)$app['current_version'],
+            $status === self::STATUS_INSTALLED ? 'enable_success' : 'disable_success'
+        );
+    }
+
+    public static function uninstall(string $appCode, bool $clearData = false): void
+    {
+        self::assertValidCode($appCode);
+        self::assertNotBuiltin($appCode);
+        $app = App::where('code', $appCode)->findOrEmpty();
+        if ($app->isEmpty()) {
+            throw new RuntimeException('应用不存在');
+        }
+
+        $app->status = self::STATUS_REMOVED;
+        $app->update_time = time();
+        $app->save();
+
+        TenantApp::where('app_code', $appCode)->update([
+            'enable_status' => 'disabled',
+            'shelf_status' => 'off',
+            'update_time' => time(),
+        ]);
+        self::deleteTenantMenusForApp($appCode);
+        SystemMenu::where(['source' => 'app', 'app_code' => $appCode])->delete();
+
+        if ($clearData) {
+            TenantApp::where('app_code', $appCode)->delete();
+            AppApi::where('app_code', $appCode)->delete();
+            AppFrontendEntry::where('app_code', $appCode)->delete();
+            self::clearAppBusinessData($appCode);
+        }
+
+        self::writeInstallLog(
+            $appCode,
+            (string)$app['current_version'],
+            $clearData ? 'uninstall_clear_success' : 'uninstall_soft_success'
+        );
+    }
+
+    public static function isInstalled(string $appCode): bool
+    {
+        return App::where(['code' => $appCode, 'status' => self::STATUS_INSTALLED])->count() > 0;
+    }
+
+    private static function currentCoreVersion(): string
+    {
+        $local = function_exists('local_version') ? local_version() : [];
+        $version = is_array($local) ? (string)($local['version'] ?? '') : '';
+        return $version !== '' ? $version : (string)config('project.version');
+    }
+
+    private static function coreConstraints(array $manifest): array
+    {
+        $constraints = [];
+        if (!empty($manifest['require_core'])) {
+            foreach ((array)$manifest['require_core'] as $require) {
+                $constraints = array_merge($constraints, self::parseCoreConstraint((string)$require));
+            }
+        }
+        if (!empty($manifest['min_core'])) {
+            $version = ltrim(trim((string)$manifest['min_core']), '>= ');
+            $constraints[] = ['>=', $version, '>=' . $version];
+        }
+        if (!empty($manifest['max_core'])) {
+            $raw = trim((string)$manifest['max_core']);
+            if (preg_match('/^(<=|<)\s*(.+)$/', $raw, $match)) {
+                $constraints[] = [$match[1], trim($match[2]), $match[1] . trim($match[2])];
+            } else {
+                $constraints[] = ['<=', $raw, '<=' . $raw];
+            }
+        }
+        return array_values(array_filter($constraints, fn($item) => !empty($item[1])));
+    }
+
+    private static function parseCoreConstraint(string $require): array
+    {
+        $require = trim($require);
+        if ($require === '') {
+            return [];
+        }
+        preg_match_all('/(>=|<=|==|=|>|<)\s*([0-9][0-9A-Za-z._-]*)/', $require, $matches, PREG_SET_ORDER);
+        if (empty($matches) && preg_match('/^[0-9][0-9A-Za-z._-]*$/', $require)) {
+            return [['>=', $require, '>=' . $require]];
+        }
+        return array_map(function ($match) {
+            $operator = $match[1] === '=' ? '==' : $match[1];
+            return [$operator, $match[2], $match[1] . $match[2]];
+        }, $matches);
+    }
+
+    public static function frontendEntries(int $tenantId, string $terminal): array
+    {
+        $apps = AppAccessService::enabledTenantAppCodes($tenantId);
+        if (empty($apps)) {
+            return [];
+        }
+        return AppFrontendEntry::whereIn('app_code', $apps)
+            ->where('terminal', $terminal)
+            ->where('status', 1)
+            ->order(['sort' => 'desc', 'id' => 'asc'])
+            ->select()
+            ->toArray();
+    }
+
+    public static function assertValidCode(string $appCode): void
+    {
+        if (!preg_match('/^[a-z][a-z0-9_]*$/', $appCode)) {
+            throw new RuntimeException('应用标识必须为小写snake_case: ' . $appCode);
+        }
+        if (in_array($appCode, ['core', 'platform', 'tenant', 'api', 'user'], true)) {
+            throw new RuntimeException('应用标识为保留词: ' . $appCode);
+        }
+    }
+
+    private static function syncFrontendEntries(array $manifest): void
+    {
+        $entries = $manifest['frontend_entries'] ?? [];
+        foreach ($entries as $entry) {
+            self::saveModel(AppFrontendEntry::class, [
+                'app_code' => $manifest['code'],
+                'terminal' => $entry['terminal'],
+                'entry_key' => $entry['entry_key'],
+            ], [
+                'app_code' => $manifest['code'],
+                'terminal' => $entry['terminal'],
+                'entry_key' => $entry['entry_key'],
+                'name' => $entry['name'] ?? $manifest['name'],
+                'path' => $entry['path'] ?? '',
+                'icon' => $entry['icon'] ?? '',
+                'sort' => $entry['sort'] ?? 0,
+                'status' => $entry['status'] ?? 1,
+                'meta' => $entry['meta'] ?? [],
+                'update_time' => time(),
+            ]);
+        }
+    }
+
+    private static function runLocalMigrations(string $appCode, string $version): void
+    {
+        $dir = root_path() . 'app/apps/' . $appCode . '/migrations';
+        if (!is_dir($dir)) {
+            return;
+        }
+        foreach (glob($dir . '/*.sql') ?: [] as $file) {
+            $migrationKey = basename($file);
+            $exists = \app\common\model\app\AppMigration::where([
+                'scope' => 'platform',
+                'app_code' => $appCode,
+                'tenant_id' => 0,
+                'migration_key' => $migrationKey,
+                'status' => 'success',
+            ])->findOrEmpty();
+            if (!$exists->isEmpty()) {
+                continue;
+            }
+            $migration = \app\common\model\app\AppMigration::create([
+                'scope' => 'platform',
+                'app_code' => $appCode,
+                'tenant_id' => 0,
+                'version' => $version,
+                'migration_key' => $migrationKey,
+                'batch' => date('YmdHis'),
+                'status' => 'running',
+                'error' => '',
+                'create_time' => time(),
+                'update_time' => time(),
+            ]);
+            $content = trim((string)file_get_contents($file));
+            if ($content === '') {
+                $migration->save(['status' => 'success', 'update_time' => time()]);
+                continue;
+            }
+            try {
+                $sqlPrefix = config('database.connections.mysql.prefix');
+                foreach (array_filter(array_map('trim', explode(';', $content))) as $sql) {
+                    Db::execute(str_replace('`la_', '`' . $sqlPrefix, $sql) . ';');
+                }
+                $migration->save(['status' => 'success', 'error' => '', 'update_time' => time()]);
+            } catch (Throwable $e) {
+                $migration->save(['status' => 'failed', 'error' => $e->getMessage(), 'update_time' => time()]);
+                throw $e;
+            }
+        }
+    }
+
+    private static function assertNotBuiltin(string $appCode): void
+    {
+        if ($appCode === 'system_default' || DefaultAppService::isDefaultApp($appCode)) {
+            throw new RuntimeException('系统应用不允许禁用或卸载');
+        }
+        $app = App::where('code', $appCode)->findOrEmpty();
+        if (!$app->isEmpty() && (int)($app['is_builtin'] ?? 0) === 1) {
+            throw new RuntimeException('内置应用不允许禁用或卸载');
+        }
+    }
+
+    private static function syncApiSchema(array $manifest): void
+    {
+        $path = root_path() . 'app/apps/' . $manifest['code'] . '/api_schema.json';
+        if (!is_file($path)) {
+            return;
+        }
+        $schema = json_decode((string)file_get_contents($path), true);
+        if (!is_array($schema)) {
+            return;
+        }
+        foreach (($schema['apis'] ?? []) as $api) {
+            self::saveModel(AppApi::class, [
+                'app_code' => $manifest['code'],
+                'api_path' => $api['api_path'],
+                'api_method' => strtoupper($api['api_method'] ?? 'GET'),
+                'scene' => $api['scene'] ?? 'tenant_admin',
+            ], [
+                'app_code' => $manifest['code'],
+                'api_path' => $api['api_path'],
+                'api_method' => strtoupper($api['api_method'] ?? 'GET'),
+                'permission_key' => $api['permission_key'] ?? '',
+                'scene' => $api['scene'] ?? 'tenant_admin',
+                'need_login' => $api['need_login'] ?? 1,
+                'need_role_permission' => $api['need_role_permission'] ?? 1,
+                'status' => $api['status'] ?? 1,
+                'create_time' => time(),
+                'update_time' => time(),
+            ]);
+        }
+    }
+
+    private static function clearAppBusinessData(string $appCode): void
+    {
+        if ($appCode === 'aigc_image') {
+            AigcImageConfig::where('id', '>', 0)->delete();
+            AigcImageTask::where('id', '>', 0)->delete();
+            AigcImageResult::where('id', '>', 0)->delete();
+            AigcImageQuota::where('id', '>', 0)->delete();
+            AigcImageSensitiveWord::where('id', '>', 0)->delete();
+            AigcImageChannel::where('id', '>', 0)->delete();
+            AigcImageChannelSpec::where('id', '>', 0)->delete();
+            AigcImageBilling::where('id', '>', 0)->delete();
+            AppCase::where('app_code', $appCode)->delete();
+            return;
+        }
+        if ($appCode === 'aigc_video') {
+            AigcVideoConfig::where('id', '>', 0)->delete();
+            AigcVideoTask::where('id', '>', 0)->delete();
+            AigcVideoResult::where('id', '>', 0)->delete();
+            AigcVideoQuota::where('id', '>', 0)->delete();
+            AigcVideoSensitiveWord::where('id', '>', 0)->delete();
+            AigcVideoChannel::where('id', '>', 0)->delete();
+            AigcVideoChannelSpec::where('id', '>', 0)->delete();
+            AigcVideoBilling::where('id', '>', 0)->delete();
+            AppCase::where('app_code', $appCode)->delete();
+        }
+        if ($appCode === 'aigc_llm') {
+            AigcLlmConfig::where('id', '>', 0)->delete();
+            AigcLlmChannel::where('id', '>', 0)->delete();
+            AigcLlmModel::where('id', '>', 0)->delete();
+            AigcLlmSensitiveWord::where('id', '>', 0)->delete();
+            AigcLlmSession::where('id', '>', 0)->delete();
+            AigcLlmMessage::where('id', '>', 0)->delete();
+            AigcLlmUsage::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_canvas') {
+            AigcCanvasProject::where('id', '>', 0)->delete();
+            AigcCanvasRun::where('id', '>', 0)->delete();
+            AppCase::where('app_code', $appCode)->delete();
+        }
+        if ($appCode === 'aigc_digital_human') {
+            AigcDigitalHumanConfig::where('id', '>', 0)->delete();
+            AigcDigitalHumanTask::where('id', '>', 0)->delete();
+            AigcDigitalHumanResult::where('id', '>', 0)->delete();
+            AigcDigitalHumanAvatar::where('id', '>', 0)->delete();
+            AigcDigitalHumanVoice::where('id', '>', 0)->delete();
+            AigcDigitalHumanQuota::where('id', '>', 0)->delete();
+            AigcDigitalHumanSensitiveWord::where('id', '>', 0)->delete();
+            AigcDigitalHumanChannel::where('id', '>', 0)->delete();
+            AigcDigitalHumanChannelSpec::where('id', '>', 0)->delete();
+            AigcDigitalHumanBilling::where('id', '>', 0)->delete();
+            AppCase::where('app_code', $appCode)->delete();
+        }
+    }
+
+    private static function deleteTenantMenusForApp(string $appCode): void
+    {
+        TenantSystemMenu::where(['source' => 'app', 'app_code' => $appCode])->delete();
+        $tenants = Tenant::field('id,sn,tactics')->select()->toArray();
+        foreach ($tenants as $tenant) {
+            if ((int)($tenant['tactics'] ?? 0) !== 1 || empty($tenant['sn'])) {
+                Db::name('tenant_system_menu')
+                    ->where(['tenant_id' => (int)$tenant['id'], 'source' => 'app', 'app_code' => $appCode])
+                    ->delete();
+                continue;
+            }
+            $table = env('database.prefix', 'la_') . 'tenant_system_menu_' . $tenant['sn'];
+            try {
+                Db::table($table)->where(['source' => 'app', 'app_code' => $appCode])->delete();
+            } catch (Throwable) {
+            }
+        }
+    }
+
+    private static function writeInstallLog(string $appCode, string $version, string $status, string $error = ''): void
+    {
+        AppInstall::create([
+            'app_code' => $appCode,
+            'version' => $version,
+            'status' => $status,
+            'error' => $error,
+            'create_time' => time(),
+            'update_time' => time(),
+        ]);
+    }
+
+    private static function saveModel(string $modelClass, array $where, array $data): void
+    {
+        $model = new $modelClass();
+        $row = $model->where($where)->findOrEmpty();
+        if ($row->isEmpty()) {
+            $model->create($data);
+            return;
+        }
+        $row->save($data);
+    }
+}

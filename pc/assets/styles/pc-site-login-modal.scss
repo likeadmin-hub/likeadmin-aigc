@@ -1,0 +1,590 @@
+.site-login-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    overscroll-behavior: contain;
+
+    &__backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(20, 20, 20, 0.5);
+        backdrop-filter: blur(6px);
+    }
+
+    &__panel {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: 1.08fr 1fr;
+        width: min(960px, calc(100vw - 48px));
+        min-height: 520px;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 40px 120px rgba(0, 0, 0, 0.24);
+
+        /** 小弹窗：单列、无左侧 hero */
+        &--compact {
+            grid-template-columns: 1fr;
+            width: min(440px, calc(100vw - 48px));
+            min-height: 0;
+            border-radius: 10px;
+        }
+    }
+
+    &__compact-close {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: #6a6a6a;
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease;
+
+        svg {
+            display: block;
+        }
+
+        &:hover {
+            background: rgba(34, 34, 34, 0.06);
+            color: #1f1f1f;
+        }
+
+        &:focus-visible {
+            outline: 2px solid #1f1f1f;
+            outline-offset: 2px;
+        }
+    }
+
+    &__close {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        z-index: 4;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(31, 31, 31, 0.06);
+        color: #4a4a4a;
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+
+        &:hover {
+            background: rgba(31, 31, 31, 0.12);
+            color: #1f1f1f;
+            transform: rotate(90deg);
+        }
+
+        &:focus-visible {
+            outline: 2px solid #1f1f1f;
+            outline-offset: 2px;
+        }
+    }
+
+    &__hero {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 36px 40px 40px;
+        background: #ededed;
+        color: #1f1f1f;
+    }
+
+    &__hero-top {
+        font-size: 14px;
+        color: #1f1f1f;
+    }
+
+    &__hero-greeting {
+        font-weight: 500;
+    }
+
+    &__hero-visual {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding: 40px 0;
+    }
+
+    &__hero-mark {
+        display: inline-flex;
+        align-items: baseline;
+        font-family: 'Helvetica Neue', 'Arial', sans-serif;
+        font-size: 96px;
+        font-weight: 900;
+        line-height: 1;
+        color: #1f1f1f;
+        letter-spacing: -0.04em;
+
+        .dot {
+            color: #1f1f1f;
+        }
+    }
+
+    &__hero-smiley {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+
+        svg {
+            display: block;
+        }
+    }
+
+    &__hero-foot {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    &__hero-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 320px;
+    }
+
+    &__hero-eyebrow {
+        font-size: 12px;
+        color: #666;
+        letter-spacing: 0.02em;
+    }
+
+    &__hero-copy h2 {
+        margin: 0;
+        font-size: 26px;
+        line-height: 1.25;
+        font-weight: 800;
+        color: #1f1f1f;
+        letter-spacing: -0.02em;
+        white-space: pre-line;
+    }
+
+    &__hero-copy p {
+        margin: 0;
+        color: #6f6f6f;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    &__hero-switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #6f6f6f;
+        font-size: 13px;
+    }
+
+    &__hero-link {
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #1f1f1f;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        cursor: pointer;
+    }
+
+    &__content {
+        display: flex;
+        flex-direction: column;
+        padding: 36px 44px 40px;
+        background: #fff;
+    }
+
+    &__content-head {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    &__content-title {
+        margin: 0;
+        font-size: 22px;
+        line-height: 1.2;
+        font-weight: 700;
+        color: #1f1f1f;
+        letter-spacing: -0.01em;
+    }
+
+    &__content-sub {
+        color: #9a9a9a;
+        font-size: 12px;
+    }
+
+    &__auth,
+    &__register {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+    }
+
+    &__tabs {
+        display: flex;
+        gap: 22px;
+        margin-top: 22px;
+    }
+
+    &__tab {
+        padding: 0 0 6px;
+        border: 0;
+        background: transparent;
+        color: #a0a0a0;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: color 0.2s ease, border-color 0.2s ease;
+
+        &.is-active {
+            color: #1f1f1f;
+            border-bottom-color: #1f1f1f;
+        }
+
+        &:hover:not(.is-active) {
+            color: #555;
+        }
+    }
+
+    &__form,
+    &__wechat-pane,
+    &__register {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        padding-top: 22px;
+    }
+
+    &__fields {
+        display: flex;
+        flex-direction: column;
+    }
+
+    &__field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 16px;
+
+        &:first-child {
+            margin-top: 0;
+        }
+    }
+
+    &__field-extra {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 6px;
+    }
+
+    &__field-label {
+        color: #8a8a8a;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+
+    &__input {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        min-height: 46px;
+        padding: 0 14px;
+        background: #fff;
+        border: 1px solid #dcdcdc;
+        border-radius: 6px;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+        input {
+            flex: 1;
+            width: 100%;
+            height: 44px;
+            padding: 0;
+            border: 0;
+            outline: none;
+            background: transparent;
+            color: #1f1f1f;
+            font-size: 14px;
+
+            &::placeholder {
+                color: #bdbdbd;
+            }
+        }
+
+        &:focus-within {
+            border-color: #1f1f1f;
+            box-shadow: 0 0 0 3px rgba(31, 31, 31, 0.08);
+        }
+
+        /** Element Plus ElInput：外框由本类模拟原生 input 容器 */
+        &--el {
+            padding: 0 10px 0 14px;
+
+            .el-input {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .el-input__wrapper {
+                box-shadow: none !important;
+                background: transparent !important;
+                border: 0 !important;
+                padding-left: 0 !important;
+                padding-right: 4px !important;
+                min-height: 44px;
+            }
+
+            .el-input__inner {
+                height: 44px;
+                color: #1f1f1f;
+                font-size: 14px;
+            }
+        }
+
+        &--phone {
+            padding-left: 14px;
+        }
+
+        &--code {
+            padding-right: 4px;
+        }
+    }
+
+    &__phone-prefix {
+        display: inline-flex;
+        align-items: center;
+        padding-right: 10px;
+        margin-right: 10px;
+        border-right: 1px solid #e3e3e3;
+        color: #1f1f1f;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    &__code-btn {
+        flex-shrink: 0;
+        height: 36px;
+        padding: 0 14px;
+        border: 1px solid #dcdcdc;
+        border-radius: 4px;
+        background: #fff;
+        color: #1f1f1f;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover:not(:disabled) {
+            border-color: #1f1f1f;
+        }
+
+        &:disabled {
+            cursor: not-allowed;
+            color: #b5b5b5;
+            border-color: #e6e6e6;
+        }
+    }
+
+    &__form-footer {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        margin-top: auto;
+        padding-top: 28px;
+    }
+
+    &__submit {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        width: 100%;
+        height: 52px;
+        border: 0;
+        border-radius: 8px;
+        background: #1f1f1f;
+        color: #fff;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+
+        &:hover:not(:disabled) {
+            background: #000;
+            transform: translateY(-1px);
+        }
+
+        &:disabled {
+            cursor: not-allowed;
+            opacity: 0.55;
+        }
+    }
+
+    &__forgot {
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #6f6f6f;
+        font-size: 12px;
+        font-weight: 500;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        cursor: pointer;
+        transition: color 0.2s ease;
+
+        &:hover {
+            color: #1f1f1f;
+        }
+    }
+
+    &__agreement {
+        margin: 14px 0 0;
+        color: #9a9a9a;
+        font-size: 12px;
+        line-height: 1.8;
+        text-align: center;
+
+        a {
+            color: #1f1f1f;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+    }
+
+    &__wechat-pane {
+        align-items: center;
+        justify-content: center;
+    }
+
+    &__wechat-box {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 220px;
+        height: 220px;
+        margin-top: 12px;
+        border: 1px solid #e3e3e3;
+        border-radius: 4px;
+        background: #fff;
+    }
+
+    &__wechat-qr {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 190px;
+        height: 190px;
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+    }
+
+    &__wechat-loading {
+        color: #9a9a9a;
+        font-size: 13px;
+    }
+
+    &__wechat-text {
+        margin: 20px 0 0;
+        color: #6f6f6f;
+        font-size: 13px;
+        line-height: 1.8;
+        text-align: center;
+    }
+}
+
+.login-modal-fade-enter-active,
+.login-modal-fade-leave-active {
+    transition: opacity 0.22s ease;
+}
+
+.login-modal-fade-enter-from,
+.login-modal-fade-leave-to {
+    opacity: 0;
+}
+
+@media (max-width: 900px) {
+    .site-login-modal {
+        padding: 20px;
+        align-items: flex-start;
+
+        &__panel {
+            grid-template-columns: 1fr;
+            min-height: unset;
+            max-height: calc(100vh - 40px);
+            overflow: auto;
+        }
+
+        &__hero {
+            padding: 28px 28px 32px;
+        }
+
+        &__hero-visual {
+            padding: 24px 0;
+        }
+
+        &__hero-mark {
+            font-size: 72px;
+        }
+
+        &__close {
+            top: 12px;
+            right: 12px;
+        }
+    }
+}
+
+@media (max-width: 640px) {
+    .site-login-modal {
+        padding: 12px;
+
+        &__panel {
+            width: 100%;
+            border-radius: 4px;
+        }
+
+        &__hero,
+        &__content {
+            padding: 24px 20px;
+        }
+
+        &__tabs {
+            gap: 18px;
+        }
+
+        &__wechat-box {
+            width: 200px;
+            height: 200px;
+        }
+
+        &__wechat-qr {
+            width: 170px;
+            height: 170px;
+        }
+    }
+}

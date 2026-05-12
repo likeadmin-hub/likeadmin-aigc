@@ -1,0 +1,40 @@
+[
+  {
+    "source_menu_key": "aigc_video",
+    "app_code": "aigc_video",
+    "source": "app",
+    "type": "M",
+    "name": "AIGC视频",
+    "icon": "el-icon-Picture",
+    "sort": 100,
+    "perms": "",
+    "paths": "aigc-video",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_video_task",
+        "type": "C",
+        "name": "视频任务",
+        "perms": "app.aigc_video.admin_task/lists",
+        "paths": "task",
+        "component": "apps/aigc_video/task"
+      },
+      {
+        "source_menu_key": "aigc_video_channel_price",
+        "type": "C",
+        "name": "通道调价",
+        "perms": "app.aigc_video.channel/lists",
+        "paths": "channel-price",
+        "component": "apps/aigc_video/channel-price"
+      },
+      {
+        "source_menu_key": "aigc_video_stat",
+        "type": "C",
+        "name": "用量统计",
+        "perms": "app.aigc_video.admin/stat",
+        "paths": "stat",
+        "component": "apps/aigc_video/stat"
+      }
+    ]
+  }
+]

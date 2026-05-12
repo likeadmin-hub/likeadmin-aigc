@@ -1,0 +1,9 @@
+{
+  "navigationBarTitleText": "支付结果",
+  "usingComponents": {
+    "u-empty": "../../uni_modules/vk-uview-ui/components/u-empty/u-empty",
+    "u-image": "../../uni_modules/vk-uview-ui/components/u-image/u-image",
+    "u-button": "../../uni_modules/vk-uview-ui/components/u-button/u-button",
+    "page-status": "../../components/page-status/page-status"
+  }
+}

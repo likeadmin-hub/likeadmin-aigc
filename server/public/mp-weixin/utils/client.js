@@ -1,0 +1,1 @@
+"use strict";const n=require("../enums/appEnums.js"),I=({MP_WEIXIN:n,OA_WEIXIN:I,H5:e,IOS:E,ANDROID:t,OTHER:O})=>n(),e=I({MP_WEIXIN:()=>n.ClientEnum.MP_WEIXIN,OA_WEIXIN:()=>n.ClientEnum.OA_WEIXIN,H5:()=>n.ClientEnum.H5,IOS:()=>n.ClientEnum.IOS,ANDROID:()=>n.ClientEnum.ANDROID,OTHER:()=>null});exports.client=e,exports.handleClientEvent=I;

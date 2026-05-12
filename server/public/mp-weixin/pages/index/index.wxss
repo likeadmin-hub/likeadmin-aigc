@@ -1,0 +1,1 @@
+.index.data-v-e1de0313{position:relative;background-repeat:no-repeat;background-size:100% auto;overflow:hidden;width:100%;transition:all 1s;min-height:calc(100vh - env(safe-area-inset-bottom))}.article-title.data-v-e1de0313:before{content:"";width:8rpx;height:34rpx;display:block;margin-right:10rpx;background-color:var(--color-primary)}

@@ -1,0 +1,66 @@
+{
+  "code": "aigc_canvas",
+  "name": "无限画布",
+  "version": "1.0.2",
+  "require_core": ">=1.0.0",
+  "description": "面向多节点编排创作的无限画布应用，复用对话、生图和生视频应用完成生成能力。",
+  "changelog": "PC端项目回退为浏览器本地存储，租户后台移除项目管理，平台与租户统计统一改为运行记录口径。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 880,
+  "frontends": ["platform", "tenant", "pc"],
+  "api_prefix": "/app/aigc_canvas",
+  "platform_menus": "menus/platform.json",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "platform",
+      "entry_key": "aigc_canvas_platform",
+      "name": "无限画布",
+      "path": "/app/aigc_canvas",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_canvas_admin",
+      "name": "无限画布",
+      "path": "/app/aigc_canvas",
+      "icon": "el-icon-Share",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_canvas",
+      "name": "无限画布",
+      "path": "/app/aigc_canvas",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 95,
+      "status": 1
+    }
+  ],
+  "dependencies": [
+    {
+      "app_code": "aigc_llm",
+      "name": "AIGC对话",
+      "required_for": "文本生成"
+    },
+    {
+      "app_code": "aigc_image",
+      "name": "AIGC生图",
+      "required_for": "图片生成"
+    },
+    {
+      "app_code": "aigc_video",
+      "name": "AIGC视频",
+      "required_for": "视频生成"
+    }
+  ]
+}
