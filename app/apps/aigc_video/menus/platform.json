@@ -1,0 +1,40 @@
+[
+  {
+    "source_menu_key": "aigc_video_platform",
+    "app_code": "aigc_video",
+    "source": "app",
+    "type": "M",
+    "name": "AIGC视频",
+    "icon": "el-icon-Picture",
+    "sort": 90,
+    "perms": "",
+    "paths": "aigc-video",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_video_platform_channel",
+        "type": "C",
+        "name": "通道管理",
+        "perms": "app.aigc_video.channel/lists",
+        "paths": "channel",
+        "component": "apps/aigc_video/channel"
+      },
+      {
+        "source_menu_key": "aigc_video_platform_spec",
+        "type": "C",
+        "name": "规格价格",
+        "perms": "app.aigc_video.spec/lists",
+        "paths": "spec",
+        "component": "apps/aigc_video/spec"
+      },
+      {
+        "source_menu_key": "aigc_video_platform_tenant_usage",
+        "type": "C",
+        "name": "租户用量",
+        "perms": "app.aigc_video.tenant/stat",
+        "paths": "tenant-usage",
+        "component": "apps/aigc_video/tenant-usage"
+      }
+    ]
+  }
+]

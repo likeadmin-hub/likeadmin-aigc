@@ -1,0 +1,1 @@
+<view class="page data-v-dd77cbd8"><view wx:for="{{a}}" wx:for-item="item" wx:key="f" class="item data-v-dd77cbd8"><view class="prompt data-v-dd77cbd8">{{item.a}}</view><view class="meta data-v-dd77cbd8">{{item.b}} / {{item.c}} / {{item.d}}张</view><view class="status data-v-dd77cbd8">{{item.e}}</view></view></view>

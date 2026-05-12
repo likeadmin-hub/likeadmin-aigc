@@ -1,0 +1,48 @@
+[
+  {
+    "source_menu_key": "aigc_image",
+    "app_code": "aigc_image",
+    "source": "app",
+    "type": "M",
+    "name": "AIGC生图",
+    "icon": "el-icon-Picture",
+    "sort": 100,
+    "perms": "",
+    "paths": "aigc-image",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_image_task",
+        "type": "C",
+        "name": "生图任务",
+        "perms": "app.aigc_image.admin_task/lists",
+        "paths": "task",
+        "component": "apps/aigc_image/task"
+      },
+      {
+        "source_menu_key": "aigc_image_case",
+        "type": "C",
+        "name": "案例广场",
+        "perms": "app.aigc_image.case/lists",
+        "paths": "case",
+        "component": "apps/aigc_image/case"
+      },
+      {
+        "source_menu_key": "aigc_image_channel_price",
+        "type": "C",
+        "name": "通道调价",
+        "perms": "app.aigc_image.channel/lists",
+        "paths": "channel-price",
+        "component": "apps/aigc_image/channel-price"
+      },
+      {
+        "source_menu_key": "aigc_image_stat",
+        "type": "C",
+        "name": "用量统计",
+        "perms": "app.aigc_image.admin/stat",
+        "paths": "stat",
+        "component": "apps/aigc_image/stat"
+      }
+    ]
+  }
+]

@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "充值",
+  "usingComponents": {
+    "u-button": "../../../uni_modules/vk-uview-ui/components/u-button/u-button",
+    "payment": "../../../components/payment/payment"
+  }
+}
