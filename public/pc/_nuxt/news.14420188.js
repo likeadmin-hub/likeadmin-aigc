@@ -1,0 +1,1 @@
+function t(){return $request.get({url:"/article/cate"})}function c(e){return $request.post({url:"/article/cancelCollect",params:e})}function l(e){return $request.get({url:"/article/collect",params:e})}export{t as a,c,l as g};
