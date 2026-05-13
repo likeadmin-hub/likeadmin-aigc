@@ -1,0 +1,9 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "white",
+  "navigationBarTitleText": "数字人视频",
+  "usingComponents": {
+    "u-icon": "../../../../uni_modules/vk-uview-ui/components/u-icon/u-icon",
+    "u-loading": "../../../../uni_modules/vk-uview-ui/components/u-loading/u-loading"
+  }
+}

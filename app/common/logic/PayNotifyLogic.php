@@ -1,0 +1,106 @@
+<?php
+// +----------------------------------------------------------------------
+// | likeadmin快速开发前后端分离管理后台（PHP版）
+// +----------------------------------------------------------------------
+// | 欢迎阅读学习系统程序代码，建议反馈是我们前进的动力
+// | 开源版本可自由商用，可去除界面版权logo
+// | gitee下载：https://gitee.com/likeshop_gitee/likeadmin
+// | github下载：https://github.com/likeshop-github/likeadmin
+// | 访问官网：https://www.likeadmin.cn
+// | likeadmin团队 版权所有 拥有最终解释权
+// +----------------------------------------------------------------------
+// | author: likeadminTeam
+// +----------------------------------------------------------------------
+
+namespace app\common\logic;
+
+use app\common\enum\PayEnum;
+use app\common\enum\user\AccountLogEnum;
+use app\common\logic\BaseLogic;
+use app\common\service\membership\MembershipService;
+use app\common\model\recharge\RechargeOrder;
+use app\common\logic\AccountLogLogic;
+use app\common\model\user\User;
+use think\facade\Db;
+use think\facade\Log;
+
+/**
+ * 支付成功后处理订单状态
+ * Class PayNotifyLogic
+ * @package app\api\logic
+ */
+class PayNotifyLogic extends BaseLogic
+{
+
+    public static function handle($action, $orderSn, $extra = [])
+    {
+        Db::startTrans();
+        try {
+            self::$action($orderSn, $extra);
+            Db::commit();
+            return true;
+        } catch (\Exception $e) {
+            Db::rollback();
+            Log::write(implode('-', [
+                __CLASS__,
+                __FUNCTION__,
+                $e->getFile(),
+                $e->getLine(),
+                $e->getMessage()
+            ]));
+            self::setError($e->getMessage());
+            return $e->getMessage();
+        }
+    }
+
+
+    /**
+     * @notes 充值回调
+     * @param $orderSn
+     * @param array $extra
+     * @author 段誉
+     * @date 2023/2/27 15:28
+     */
+    public static function recharge($orderSn, array $extra = [])
+    {
+        $order = RechargeOrder::where('sn', $orderSn)->lock(true)->findOrEmpty();
+        if ((int)$order->pay_status === PayEnum::ISPAID) {
+            return;
+        }
+        $rechargePoints = (float)($order->recharge_points ?? 0);
+        if ($rechargePoints <= 0) {
+            $rechargePoints = (float)$order->order_amount;
+        }
+        // 增加用户累计充值点数及用户点数
+        $user = User::where('id', $order->user_id)->lock(true)->findOrEmpty();
+        $user->total_recharge_amount += $rechargePoints;
+        $user->user_money += $rechargePoints;
+        $user->save();
+
+        // 记录账户流水
+        AccountLogLogic::add(
+            $order->user_id,
+            AccountLogEnum::UM_INC_RECHARGE,
+            AccountLogEnum::INC,
+            $rechargePoints,
+            $order->sn,
+            '用户充值'
+        );
+
+        // 更新充值订单状态
+        $order->transaction_id = $extra['transaction_id'] ?? '';
+        $order->pay_status = PayEnum::ISPAID;
+        $order->pay_time = time();
+        $order->save();
+    }
+
+    /**
+     * @notes 会员订单回调
+     */
+    public static function membership($orderSn, array $extra = [])
+    {
+        MembershipService::handlePaid($orderSn, $extra);
+    }
+
+
+}

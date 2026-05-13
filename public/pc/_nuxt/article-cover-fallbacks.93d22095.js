@@ -1,0 +1,1 @@
+const e=["/figma-home/76_259.png","/figma-home/76_297.png","/figma-home/76_313.png","/figma-home/76_321.png","/figma-home/9_253.png"];function m(n){const o=typeof n=="number"?n:typeof n=="string"&&parseInt(n,10)||0,g=Math.abs(o)%e.length;return e[g]}export{m as h};

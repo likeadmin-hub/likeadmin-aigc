@@ -1,0 +1,103 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/news/news",
+    "pages/user/user",
+    "pages/diy/diy",
+    "pages/login/login",
+    "pages/register/register",
+    "pages/forget_pwd/forget_pwd",
+    "pages/customer_service/customer_service",
+    "pages/news_detail/news_detail",
+    "pages/user_set/user_set",
+    "pages/collection/collection",
+    "pages/as_us/as_us",
+    "pages/agreement/agreement",
+    "pages/change_password/change_password",
+    "pages/user_data/user_data",
+    "pages/search/search",
+    "pages/webview/webview",
+    "pages/bind_mobile/bind_mobile",
+    "pages/empty/empty",
+    "pages/payment_result/payment_result",
+    "uni_modules/vk-uview-ui/components/u-avatar-cropper/u-avatar-cropper"
+  ],
+  "subPackages": [
+    {
+      "root": "packages",
+      "pages": [
+        "pages/404/404",
+        "pages/user_wallet/user_wallet",
+        "pages/recharge/recharge",
+        "pages/membership/membership",
+        "pages/recharge_record/recharge_record"
+      ]
+    },
+    {
+      "root": "apps/aigc_image",
+      "pages": [
+        "pages/index/index",
+        "pages/tasks/tasks",
+        "pages/results/results"
+      ]
+    },
+    {
+      "root": "apps/aigc_video",
+      "pages": [
+        "pages/index/index",
+        "pages/tasks/tasks",
+        "pages/results/results"
+      ]
+    },
+    {
+      "root": "apps/aigc_llm",
+      "pages": [
+        "pages/index/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_digital_human",
+      "pages": [
+        "pages/index/index",
+        "pages/assets/avatar/avatar",
+        "pages/assets/voice/voice",
+        "pages/clone/avatar/avatar",
+        "pages/clone/voice/voice",
+        "pages/tasks/tasks",
+        "pages/results/results",
+        "pages/results/detail/detail"
+      ]
+    }
+  ],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "商城",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#F8F8F8"
+  },
+  "tabBar": {
+    "custom": true,
+    "list": [
+      {
+        "iconPath": "static/images/tabbar/home.png",
+        "selectedIconPath": "static/images/tabbar/home_s.png",
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "iconPath": "static/images/tabbar/news.png",
+        "selectedIconPath": "static/images/tabbar/news_s.png",
+        "pagePath": "pages/news/news",
+        "text": "资讯"
+      },
+      {
+        "iconPath": "static/images/tabbar/user.png",
+        "selectedIconPath": "static/images/tabbar/user_s.png",
+        "pagePath": "pages/user/user",
+        "text": "我的"
+      }
+    ]
+  },
+  "__usePrivacyCheck__": true,
+  "usingComponents": {}
+}

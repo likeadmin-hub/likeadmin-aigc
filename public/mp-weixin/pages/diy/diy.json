@@ -1,0 +1,8 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "tabbar": "../../components/tabbar/tabbar",
+    "diy-page-nav": "../../components/diy/diy-page-nav",
+    "diy-render": "../../components/diy/diy-render"
+  }
+}

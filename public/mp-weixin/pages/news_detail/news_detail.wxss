@@ -1,0 +1,1 @@
+.news-detail{height:100%}.news-detail-header{border-bottom:2rpx solid #f8f8f8}.news-detail-section .summary{border-radius:12rpx;background-color:#f7f7f7}.news-detail .panel-btn{position:fixed;right:30rpx;height:80rpx;bottom:80rpx;border-radius:40rpx;background:rgba(255,255,255,.95);box-shadow:0 0 10px rgba(0,0,0,.16)}

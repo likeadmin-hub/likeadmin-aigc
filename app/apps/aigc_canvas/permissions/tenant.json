@@ -1,0 +1,20 @@
+[
+  {
+    "permission_key": "aigc_canvas:stat",
+    "name": "查看无限画布统计",
+    "api_path": "app.aigc_canvas.admin/stat",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:run:lists",
+    "name": "查看无限画布运行记录",
+    "api_path": "app.aigc_canvas.admin_run/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:dependencies",
+    "name": "查看无限画布依赖状态",
+    "api_path": "app.aigc_canvas.config/dependencies",
+    "api_method": "GET"
+  }
+]

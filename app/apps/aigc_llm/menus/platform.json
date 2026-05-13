@@ -1,0 +1,48 @@
+[
+  {
+    "source_menu_key": "aigc_llm_platform",
+    "app_code": "aigc_llm",
+    "source": "app",
+    "type": "M",
+    "name": "AIGC对话",
+    "icon": "el-icon-ChatDotRound",
+    "sort": 88,
+    "perms": "",
+    "paths": "aigc-llm",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_llm_platform_config",
+        "type": "C",
+        "name": "基础配置",
+        "perms": "app.aigc_llm.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_llm/config"
+      },
+      {
+        "source_menu_key": "aigc_llm_platform_channel",
+        "type": "C",
+        "name": "通道管理",
+        "perms": "app.aigc_llm.channel/lists",
+        "paths": "channel",
+        "component": "apps/aigc_llm/channel"
+      },
+      {
+        "source_menu_key": "aigc_llm_platform_model",
+        "type": "C",
+        "name": "模型管理",
+        "perms": "app.aigc_llm.model/lists",
+        "paths": "model",
+        "component": "apps/aigc_llm/model"
+      },
+      {
+        "source_menu_key": "aigc_llm_platform_tenant_usage",
+        "type": "C",
+        "name": "租户统计",
+        "perms": "app.aigc_llm.tenant/stat",
+        "paths": "tenant-usage",
+        "component": "apps/aigc_llm/tenant-usage"
+      }
+    ]
+  }
+]
