@@ -1,7 +1,7 @@
 {
   "code": "aigc_canvas",
   "name": "无限画布",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "require_core": ">=1.0.0",
   "description": "面向多节点编排创作的无限画布应用，复用对话、生图和生视频应用完成生成能力。",
   "changelog": "PC端项目回退为浏览器本地存储，租户后台移除项目管理，平台与租户统计统一改为运行记录口径。",
@@ -11,7 +11,11 @@
   "is_builtin": 1,
   "expire_policy": "allow",
   "sort": 880,
-  "frontends": ["platform", "tenant", "pc"],
+  "frontends": [
+    "platform",
+    "tenant",
+    "pc"
+  ],
   "api_prefix": "/app/aigc_canvas",
   "platform_menus": "menus/platform.json",
   "menus": "menus/tenant.json",

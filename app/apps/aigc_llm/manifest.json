@@ -1,7 +1,7 @@
 {
   "code": "aigc_llm",
   "name": "AIGC对话",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "require_core": ">=1.0.0",
   "description": "AIGC large model conversation application with multi-session, multi-turn context and SSE streaming.",
   "changelog": "作为系统默认AIGC基础应用随新装系统预安装启用；保留Token计费、OpenAI兼容流式通道和默认Qwen3.6-Plus模型能力。",
@@ -11,7 +11,11 @@
   "is_builtin": 1,
   "expire_policy": "allow",
   "sort": 880,
-  "frontends": ["tenant", "pc", "uniapp"],
+  "frontends": [
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
   "api_prefix": "/app/aigc_llm",
   "platform_menus": "menus/platform.json",
   "menus": "menus/tenant.json",
