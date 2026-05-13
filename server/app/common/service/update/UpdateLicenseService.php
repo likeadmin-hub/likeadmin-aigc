@@ -96,9 +96,6 @@ class UpdateLicenseService
         if ($status !== 'active') {
             throw new RuntimeException('授权不可用: ' . $status);
         }
-        if (!empty($payload['max_core_version']) && $targetVersion !== '' && version_compare($targetVersion, (string)$payload['max_core_version'], '>')) {
-            throw new RuntimeException('授权不包含该系统版本更新权益');
-        }
         if (!empty($payload['update_until']) && time() > (int)$payload['update_until']) {
             throw new RuntimeException('系统更新权益已过期');
         }
