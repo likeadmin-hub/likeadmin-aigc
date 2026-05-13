@@ -1652,6 +1652,10 @@ INSERT INTO `la_tenant_pay_way`
 VALUES (6, 0, 2, 3, 1, 1);
 INSERT INTO `la_tenant_pay_way`
 VALUES (7, 0, 3, 3, 0, 1);
+INSERT INTO `la_tenant_pay_way`
+VALUES (8, 0, 2, 4, 1, 1);
+INSERT INTO `la_tenant_pay_way`
+VALUES (9, 0, 3, 4, 0, 1);
 COMMIT;
 
 -- ----------------------------

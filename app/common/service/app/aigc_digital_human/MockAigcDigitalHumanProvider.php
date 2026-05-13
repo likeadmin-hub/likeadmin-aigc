@@ -10,7 +10,7 @@ class MockAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterface
         $height = (int)($request->spec['height'] ?? 1024);
         return new AigcDigitalHumanGenerateResult(true, [
             [
-                'uri' => 'pc/academy/course-preview.mp4',
+                'uri' => 'pc/media/aigc-preview.mp4',
                 'cover_uri' => $request->avatar['cover_uri'] ?? $request->avatar['media_uri'] ?? '',
                 'width' => $width,
                 'height' => $height,

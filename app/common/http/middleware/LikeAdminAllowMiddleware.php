@@ -36,7 +36,7 @@ class LikeAdminAllowMiddleware
         'Authorization', 'Sec-Fetch-Mode', 'DNT', 'X-Mx-ReqToken', 'Keep-Alive', 'User-Agent',
         'If-Match', 'If-None-Match', 'If-Unmodified-Since', 'X-Requested-With', 'If-Modified-Since',
         'Cache-Control', 'Content-Type', 'Accept-Language', 'Origin', 'Accept-Encoding', 'Access-Token',
-        'token', 'version', 'tenant-id', 'Tenant-Id',
+        'token', 'version', 'terminal', 'Terminal', 'tenant-id', 'Tenant-Id',
     ];
 
     /**

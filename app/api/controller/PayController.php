@@ -40,7 +40,7 @@ class PayController extends BaseApiController
     public function payWay()
     {
         $params = (new PayValidate())->goCheck('payway');
-        $result = PaymentLogic::getPayWay($this->userId, $this->userInfo['terminal'], $params);
+        $result = PaymentLogic::getPayWay($this->userId, $this->getUserTerminal(), $params);
         if ($result === false) {
             return $this->fail(PaymentLogic::getError());
         }
@@ -64,7 +64,7 @@ class PayController extends BaseApiController
         }
         //支付流程
         $redirectUrl = $params['redirect'] ?? '/pages/payment/payment';
-        $result = PaymentLogic::pay($params['pay_way'], $params['from'], $order, $this->userInfo['terminal'], $redirectUrl);
+        $result = PaymentLogic::pay($params['pay_way'], $params['from'], $order, $this->getUserTerminal(), $redirectUrl);
         if (false === $result) {
             return $this->fail(PaymentLogic::getError(), $params);
         }

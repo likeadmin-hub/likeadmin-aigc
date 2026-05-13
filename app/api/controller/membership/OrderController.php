@@ -17,7 +17,7 @@ class OrderController extends BaseApiController
             $result = MembershipService::createOrder(
                 (int)$this->request->tenantId,
                 $this->userId,
-                (int)$this->userInfo['terminal'],
+                $this->getUserTerminal(),
                 $planId,
                 $cycle
             );
