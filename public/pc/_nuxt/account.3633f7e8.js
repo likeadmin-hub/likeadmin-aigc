@@ -1,1 +1,0 @@
-import{dt as t}from"./entry.6a843149.js";function n(r){return $request.post({url:"/login/account",params:{...r,terminal:t()}})}function o(){return $request.post({url:"/login/logout"})}function u(r){return $request.post({url:"/login/register",params:{...r,channel:t()}})}export{n as a,o as l,u as r};

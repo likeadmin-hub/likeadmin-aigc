@@ -10,6 +10,8 @@ use WpOrg\Requests\Requests;
 class UpdateSourceClient
 {
     public const PRODUCT_CODE = 'likeadmin_aigc_saas';
+    private const API_REQUEST_TIMEOUT = 15;
+    private const PACKAGE_DOWNLOAD_TIMEOUT = 300;
 
     public static function getSource(): array
     {
@@ -103,7 +105,7 @@ class UpdateSourceClient
             $headers['Authorization'] = 'Bearer ' . $apiKey;
         }
         $response = Requests::post($url, $headers, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), [
-            'timeout' => 15,
+            'timeout' => self::API_REQUEST_TIMEOUT,
             'verify' => self::sslVerify($source),
         ]);
         $body = json_decode($response->body, true);
@@ -222,7 +224,7 @@ class UpdateSourceClient
         $filename = date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . ($ext ?: 'zip');
         $path = $dir . $filename;
         $response = Requests::get($url, [], [
-            'timeout' => 60,
+            'timeout' => self::PACKAGE_DOWNLOAD_TIMEOUT,
             'verify' => self::sslVerify(self::getSource()),
         ]);
         if ((int)$response->status_code !== 200) {

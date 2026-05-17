@@ -20,17 +20,20 @@ $tenantFrontendRedirect = function (string $frontend, string $childPath = '') {
 };
 
 // 平台管理后台
-Route::rule('platform/:any', function () {
+Route::get('platform', function () {
     return view(app()->getRootPath() . 'public/platform/index.html');
-})->pattern(['any' => '[\w\/\.\-]+']);
+});
+Route::get('platform/:path', function () {
+    return view(app()->getRootPath() . 'public/platform/index.html');
+})->pattern(['path' => '.*']);
 
 // 租户管理后台
-Route::rule('admin', function () {
+Route::get('admin', function () {
     return view(app()->getRootPath() . 'public/admin/index.html');
 });
-Route::rule('admin/:any', function () {
+Route::get('admin/:path', function () {
     return view(app()->getRootPath() . 'public/admin/index.html');
-})->pattern(['any' => '[\w\/\.\-]+']);
+})->pattern(['path' => '.*']);
 
 Route::rule('t/:tenant_id/admin/:any', function () use ($tenantFrontendRedirect) {
     return $tenantFrontendRedirect('admin', (string)request()->param('any', ''));
@@ -40,12 +43,12 @@ Route::rule('t/:tenant_id/admin', function () use ($tenantFrontendRedirect) {
 })->pattern(['tenant_id' => '\d+']);
 
 // 手机端
-Route::rule('mobile', function () {
+Route::get('mobile', function () {
     return view(app()->getRootPath() . 'public/mobile/index.html');
 });
-Route::rule('mobile/:any', function () {
+Route::get('mobile/:path', function () {
     return view(app()->getRootPath() . 'public/mobile/index.html');
-})->pattern(['any' => '[\w\/\.\-]+']);
+})->pattern(['path' => '.*']);
 
 Route::rule('t/:tenant_id/mobile/:any', function () use ($tenantFrontendRedirect) {
     return $tenantFrontendRedirect('mobile', (string)request()->param('any', ''));
@@ -55,12 +58,12 @@ Route::rule('t/:tenant_id/mobile', function () use ($tenantFrontendRedirect) {
 })->pattern(['tenant_id' => '\d+']);
 
 // PC端
-Route::rule('pc', function () {
+Route::get('pc', function () {
     return view(app()->getRootPath() . 'public/pc/index.html');
 });
-Route::rule('pc/:any', function () {
+Route::get('pc/:path', function () {
     return view(app()->getRootPath() . 'public/pc/index.html');
-})->pattern(['any' => '[\w\/\.\-]+']);
+})->pattern(['path' => '.*']);
 
 Route::rule('t/:tenant_id/pc/:any', function () use ($tenantFrontendRedirect) {
     return $tenantFrontendRedirect('pc', (string)request()->param('any', ''));

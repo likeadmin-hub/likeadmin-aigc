@@ -82,8 +82,7 @@ class LikeAdminAllowMiddleware
             if ($firstSegment !== 'platform') {
                 return $this->handleTenantAccess($tenantModel, $domain, $request, $next, true);
             } else {
-                $platformHost = TenantUrlService::normalizeHost((string)Config::get('project.http_host'));
-                if ($platformHost !== '' && $domain !== $platformHost) {
+                if (!$this->isAllowedPlatformHost($domain)) {
                     return view(app()->getRootPath() . 'public/error/platform/404.html');
                 }else{
                     $this->resolveTenantFromPayload($tenantModel, $request);
@@ -93,6 +92,36 @@ class LikeAdminAllowMiddleware
         }
 
         return $next($request);
+    }
+
+    private function isAllowedPlatformHost(string $domain): bool
+    {
+        $domain = TenantUrlService::normalizeHost($domain);
+        $allowedHosts = $this->parseConfiguredHosts((string)Config::get('project.http_host'));
+        if (empty($allowedHosts)) {
+            return true;
+        }
+        foreach ($allowedHosts as $allowedHost) {
+            if ($domain === $allowedHost || str_ends_with($domain, '.' . $allowedHost)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @return string[]
+     */
+    private function parseConfiguredHosts(string $hosts): array
+    {
+        $result = [];
+        foreach (preg_split('/\s*,\s*/', trim($hosts)) as $host) {
+            $host = TenantUrlService::normalizeHost($host);
+            if ($host !== '') {
+                $result[] = $host;
+            }
+        }
+        return array_values(array_unique($result));
     }
 
     /**

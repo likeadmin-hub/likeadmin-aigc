@@ -840,6 +840,7 @@ class AigcDigitalHumanService
             $row['video_uri'] = (string)($first['video_uri'] ?? '');
             $row['video_url'] = (string)($first['video_url'] ?? '');
             $row['cover_url'] = (string)($first['cover_url'] ?? '');
+            $row['tts_audio_url'] = self::fileUrlForTenant((string)($row['tts_audio_uri'] ?? ''), $tenantId, $row);
             $row['width'] = (int)($first['width'] ?? 0);
             $row['height'] = (int)($first['height'] ?? 0);
         }
