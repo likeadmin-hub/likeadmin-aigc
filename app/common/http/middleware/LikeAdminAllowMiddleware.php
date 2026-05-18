@@ -68,10 +68,12 @@ class LikeAdminAllowMiddleware
         $tenantModel = new Tenant();
         $domain = TenantUrlService::normalizeHost($request->domain());
         $pathSegments = explode('/', trim($request->pathinfo(), '/'));
+        $baseUrlSegments = explode('/', trim((string)$request->baseUrl(), '/'));
         $firstSegment = $pathSegments[0] ?? '';
+        $firstOriginalSegment = $baseUrlSegments[0] ?? '';
         // 处理API请求
-        if (str_contains($firstSegment, 'api')) {
-            if ($firstSegment !== 'platformapi') {
+        if (str_contains($firstSegment, 'api') || str_contains($firstOriginalSegment, 'api')) {
+            if ($firstSegment !== 'platformapi' && $firstOriginalSegment !== 'platformapi') {
                 return $this->handleTenantAccess($tenantModel, $domain, $request, $next);
             }else{
                 $this->resolveTenantFromPayload($tenantModel, $request);

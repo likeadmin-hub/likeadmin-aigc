@@ -146,6 +146,11 @@ class UpgradeController extends BaseAdminController
         }
     }
 
+    public function import_license(): Json
+    {
+        return $this->importLicense();
+    }
+
     public function logs(): Json
     {
         try {
