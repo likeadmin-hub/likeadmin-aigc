@@ -1,0 +1,125 @@
+{
+  "app_code": "image_human",
+  "apis": [
+    {
+      "api_path": "app.image_human.admin_task/lists",
+      "api_method": "GET",
+      "permission_key": "image_human:task:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.admin_task/detail",
+      "api_method": "GET",
+      "permission_key": "image_human:task:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.admin_task/delete",
+      "api_method": "POST",
+      "permission_key": "image_human:task:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.generate/estimate",
+      "api_method": "POST",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.generate/submit",
+      "api_method": "POST",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.task/lists",
+      "api_method": "GET",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.task/detail",
+      "api_method": "GET",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.result/lists",
+      "api_method": "GET",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.result/delete",
+      "api_method": "POST",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.avatar/lists",
+      "api_method": "GET",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.avatar/save",
+      "api_method": "POST",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.avatar/delete",
+      "api_method": "POST",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.voice/lists",
+      "api_method": "GET",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.voice/save",
+      "api_method": "POST",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.voice/delete",
+      "api_method": "POST",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    }
+  ]
+}

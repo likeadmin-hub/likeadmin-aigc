@@ -1,0 +1,20 @@
+[
+  {
+    "permission_key": "image_human:task:lists",
+    "name": "查看全驱动数字人任务",
+    "api_path": "app.image_human.admin_task/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "image_human:task:detail",
+    "name": "查看全驱动数字人任务详情",
+    "api_path": "app.image_human.admin_task/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "image_human:task:delete",
+    "name": "删除全驱动数字人任务",
+    "api_path": "app.image_human.admin_task/delete",
+    "api_method": "POST"
+  }
+]

@@ -44,6 +44,12 @@ use app\common\model\app\aigc_digital_human\AigcDigitalHumanResult;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanSensitiveWord;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanTask;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanVoice;
+use app\common\model\app\image_human\ImageHumanBilling;
+use app\common\model\app\image_human\ImageHumanAvatar;
+use app\common\model\app\image_human\ImageHumanConfig;
+use app\common\model\app\image_human\ImageHumanResult;
+use app\common\model\app\image_human\ImageHumanTask;
+use app\common\model\app\image_human\ImageHumanVoice;
 use app\common\model\auth\SystemMenu;
 use app\common\model\auth\TenantSystemMenu;
 use app\common\model\tenant\Tenant;
@@ -465,6 +471,15 @@ class AppRegistryService
             AigcDigitalHumanChannel::where('id', '>', 0)->delete();
             AigcDigitalHumanChannelSpec::where('id', '>', 0)->delete();
             AigcDigitalHumanBilling::where('id', '>', 0)->delete();
+            AppCase::where('app_code', $appCode)->delete();
+        }
+        if ($appCode === 'image_human') {
+            ImageHumanConfig::where('id', '>', 0)->delete();
+            ImageHumanTask::where('id', '>', 0)->delete();
+            ImageHumanResult::where('id', '>', 0)->delete();
+            ImageHumanAvatar::where('id', '>', 0)->delete();
+            ImageHumanVoice::where('id', '>', 0)->delete();
+            ImageHumanBilling::where('id', '>', 0)->delete();
             AppCase::where('app_code', $appCode)->delete();
         }
     }

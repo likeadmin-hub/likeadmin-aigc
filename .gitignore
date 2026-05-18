@@ -4,8 +4,6 @@
 /.env
 /public/uploads/*
 !/public/uploads/index.html
-!/public/uploads/.gitkeep
 /runtime/*
 !/runtime/index.html
-!/runtime/.gitkeep
 /config/install.lock

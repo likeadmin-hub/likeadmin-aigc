@@ -1,0 +1,42 @@
+{
+  "code": "image_human",
+  "name": "全驱动数字人",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "基于人物图片和参考音频生成全驱动数字人视频，首版提供PC端创作、任务轮询和作品展示。",
+  "changelog": "新增全驱动数字人内置默认应用，支持PC端上传图片与音频、选择快速/标准模式并对接 xhadmin image_human submit/query 接口。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 890,
+  "frontends": [
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/image_human",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "image_human_admin",
+      "name": "全驱动数字人",
+      "path": "/app/image_human",
+      "icon": "el-icon-VideoCamera",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "image_human",
+      "name": "全驱动数字人",
+      "path": "/ai/avatar?tab=image_human",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 98,
+      "status": 1
+    }
+  ]
+}

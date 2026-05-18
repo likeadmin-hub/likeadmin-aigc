@@ -6,6 +6,7 @@ use app\common\model\update\UpdatePackage;
 use app\common\model\update\UpdateTask;
 use app\common\service\ConfigService;
 use app\common\service\app\DefaultAppService;
+use app\common\service\billing\PackageProvisionService;
 use app\platformapi\logic\upgrade\UpgradeLogic;
 use RuntimeException;
 use think\facade\Db;
@@ -261,6 +262,7 @@ class SystemPackageUpdateService
                 throw new RuntimeException('更新数据库结构失败');
             }
             DefaultAppService::syncAllTenants();
+            PackageProvisionService::syncAllTenants();
             $package->save(['status' => 'applied', 'error' => '', 'update_time' => time()]);
             $this->writeLocalVersion((string)$package['version']);
             $result = ['version' => $package['version'], 'extract_path' => $extractPath];
