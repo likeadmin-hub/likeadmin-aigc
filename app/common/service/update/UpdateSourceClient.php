@@ -11,7 +11,7 @@ class UpdateSourceClient
 {
     public const PRODUCT_CODE = 'likeadmin_aigc_saas';
     private const API_REQUEST_TIMEOUT = 15;
-    private const PACKAGE_DOWNLOAD_TIMEOUT = 300;
+    private const PACKAGE_DOWNLOAD_TIMEOUT = 600;
 
     public static function getSource(): array
     {

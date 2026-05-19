@@ -14,6 +14,8 @@ use Throwable;
 
 class SystemPackageUpdateService
 {
+    private const UPDATE_EXECUTION_TIMEOUT = 600;
+
     public function versions(array $params = []): array
     {
         return (new UpdateSourceClient())->request(UpdateSourceClient::path('system/versions'), $params);
@@ -49,6 +51,7 @@ class SystemPackageUpdateService
 
     public function downloadPackage(string $targetVersion, string $currentVersion = ''): array
     {
+        $this->extendExecutionTimeout();
         try {
             if ($targetVersion === '') {
                 throw new RuntimeException('请选择目标版本');
@@ -163,6 +166,7 @@ class SystemPackageUpdateService
 
     public function preflight(int $packageId): array
     {
+        $this->extendExecutionTimeout();
         try {
             $package = $this->getPackage($packageId);
             $extractor = new PackageExtractService();
@@ -234,6 +238,7 @@ class SystemPackageUpdateService
 
     public function apply(int $packageId): array
     {
+        $this->extendExecutionTimeout();
         $package = $this->getPackage($packageId);
         $task = $this->createTask($package, 'apply');
         $lock = $this->acquireLock('system_update');
@@ -288,6 +293,12 @@ class SystemPackageUpdateService
             }
             return UpdateSourceClient::download((string)$data['fallback_url'], (string)($data['fallback_sha256'] ?? ''), (string)($data['fallback_format'] ?? 'tar.gz'));
         }
+    }
+
+    private function extendExecutionTimeout(): void
+    {
+        ini_set('max_execution_time', (string)self::UPDATE_EXECUTION_TIMEOUT);
+        set_time_limit(self::UPDATE_EXECUTION_TIMEOUT);
     }
 
     private function normalizeVersions(array $data): array
