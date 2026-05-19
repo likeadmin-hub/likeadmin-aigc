@@ -49,7 +49,6 @@ use app\common\model\app\image_human\ImageHumanAvatar;
 use app\common\model\app\image_human\ImageHumanConfig;
 use app\common\model\app\image_human\ImageHumanResult;
 use app\common\model\app\image_human\ImageHumanTask;
-use app\common\model\app\image_human\ImageHumanVoice;
 use app\common\model\auth\SystemMenu;
 use app\common\model\auth\TenantSystemMenu;
 use app\common\model\tenant\Tenant;
@@ -478,7 +477,6 @@ class AppRegistryService
             ImageHumanTask::where('id', '>', 0)->delete();
             ImageHumanResult::where('id', '>', 0)->delete();
             ImageHumanAvatar::where('id', '>', 0)->delete();
-            ImageHumanVoice::where('id', '>', 0)->delete();
             ImageHumanBilling::where('id', '>', 0)->delete();
             AppCase::where('app_code', $appCode)->delete();
         }

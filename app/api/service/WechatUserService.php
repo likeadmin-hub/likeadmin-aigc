@@ -17,6 +17,7 @@ namespace app\api\service;
 
 use app\common\enum\YesNoEnum;
 use app\common\model\user\User;
+use app\common\service\user\RegisterBonusService;
 use app\common\service\storage\Driver as StorageDriver;
 use think\db\exception\DataNotFoundException;
 use think\db\exception\DbException;
@@ -160,6 +161,7 @@ class WechatUserService
         }
 
         $this->user->save();
+        RegisterBonusService::grantIfEnabled((int)$this->user->id);
 
         UserAuth::create([
             'user_id' => $this->user->id,

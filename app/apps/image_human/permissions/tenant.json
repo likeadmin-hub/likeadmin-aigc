@@ -1,20 +1,104 @@
 [
   {
+    "permission_key": "image_human:config:detail",
+    "name": "查看全驱数字人配置",
+    "api_path": "app.image_human.config/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "image_human:config:setup",
+    "name": "保存全驱数字人配置",
+    "api_path": "app.image_human.config/setup",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "image_human:stat",
+    "name": "查看全驱数字人统计",
+    "api_path": "app.image_human.admin/stat",
+    "api_method": "GET"
+  },
+  {
     "permission_key": "image_human:task:lists",
-    "name": "查看全驱动数字人任务",
+    "name": "查看全驱数字人任务",
     "api_path": "app.image_human.admin_task/lists",
     "api_method": "GET"
   },
   {
     "permission_key": "image_human:task:detail",
-    "name": "查看全驱动数字人任务详情",
+    "name": "查看全驱数字人任务详情",
     "api_path": "app.image_human.admin_task/detail",
     "api_method": "GET"
   },
   {
     "permission_key": "image_human:task:delete",
-    "name": "删除全驱动数字人任务",
+    "name": "删除全驱数字人任务",
     "api_path": "app.image_human.admin_task/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "image_human:public_avatar:lists",
+    "name": "查看全驱动公共形象",
+    "api_path": "app.image_human.public_avatar/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "image_human:public_avatar:save",
+    "name": "保存全驱动公共形象",
+    "api_path": "app.image_human.public_avatar/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "image_human:public_avatar:delete",
+    "name": "删除全驱动公共形象",
+    "api_path": "app.image_human.public_avatar/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "image_human:user_avatar:lists",
+    "name": "查看全驱动用户形象",
+    "api_path": "app.image_human.user_avatar/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "image_human:user_avatar:delete",
+    "name": "删除全驱动用户形象",
+    "api_path": "app.image_human.user_avatar/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "image_human:public_voice:lists",
+    "name": "查看共享公共音色",
+    "api_path": "app.image_human.public_voice/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "image_human:public_voice:save",
+    "name": "保存共享公共音色",
+    "api_path": "app.image_human.public_voice/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "image_human:public_voice:delete",
+    "name": "删除共享公共音色",
+    "api_path": "app.image_human.public_voice/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "image_human:user_voice:lists",
+    "name": "查看共享用户音色",
+    "api_path": "app.image_human.user_voice/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "image_human:user_voice:publish",
+    "name": "用户音色设为公共",
+    "api_path": "app.image_human.user_voice/publish",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "image_human:user_voice:delete",
+    "name": "删除共享用户音色",
+    "api_path": "app.image_human.user_voice/delete",
     "api_method": "POST"
   }
 ]

@@ -34,6 +34,7 @@ class AppAccessService
     public static function tenantCanManage(int $tenantId, string $appCode): bool
     {
         if (self::isDefaultAigcApp($appCode) && self::isInstalled($appCode)) {
+            DefaultAppService::ensureTenantDefaultApp($tenantId, $appCode);
             return true;
         }
         return in_array($appCode, self::purchasedTenantAppCodes($tenantId), true);
@@ -42,6 +43,7 @@ class AppAccessService
     public static function tenantCanUse(int $tenantId, string $appCode): bool
     {
         if (self::isDefaultAigcApp($appCode) && self::isInstalled($appCode)) {
+            DefaultAppService::ensureTenantDefaultApp($tenantId, $appCode);
             return true;
         }
         return in_array($appCode, self::enabledTenantAppCodes($tenantId), true);

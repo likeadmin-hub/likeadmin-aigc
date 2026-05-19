@@ -197,7 +197,16 @@ class AigcVideoService
                 }
             });
         }
-        $rows = $query->limit(100)->select()->toArray();
+        $usePage = isset($params['page_no']) || isset($params['page_size']);
+        $pageNo = max(1, (int)($params['page_no'] ?? 1));
+        $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15)));
+        $count = $usePage ? (int)(clone $query)->count() : 0;
+        if ($usePage) {
+            $query->limit(($pageNo - 1) * $pageSize, $pageSize);
+        } else {
+            $query->limit(100);
+        }
+        $rows = $query->select()->toArray();
         $taskIds = array_values(array_unique(array_filter(array_column($rows, 'id'))));
         $resultMap = [];
         if (!empty($taskIds)) {
@@ -228,6 +237,14 @@ class AigcVideoService
             $row['video_url'] = (string)($first['video_url'] ?? '');
             $row['width'] = (int)($first['width'] ?? 0);
             $row['height'] = (int)($first['height'] ?? 0);
+        }
+        if ($usePage) {
+            return [
+                'lists' => $rows,
+                'count' => $count,
+                'page_no' => $pageNo,
+                'page_size' => $pageSize,
+            ];
         }
         return $rows;
     }
@@ -385,9 +402,9 @@ class AigcVideoService
         ]);
     }
 
-    public static function quotaLists(int $tenantId): array
+    public static function quotaLists(int $tenantId, array $params = []): array
     {
-        return AigcVideoQuota::where('tenant_id', $tenantId)->order('id', 'desc')->limit(100)->select()->toArray();
+        return self::paginateRows(AigcVideoQuota::where('tenant_id', $tenantId)->order('id', 'desc'), $params, 100);
     }
 
     public static function saveQuota(int $tenantId, array $params): void
@@ -413,9 +430,26 @@ class AigcVideoService
         $row->save($data);
     }
 
-    public static function sensitiveWordLists(int $tenantId): array
+    public static function sensitiveWordLists(int $tenantId, array $params = []): array
     {
-        return AigcVideoSensitiveWord::where('tenant_id', $tenantId)->order('id', 'desc')->limit(200)->select()->toArray();
+        return self::paginateRows(AigcVideoSensitiveWord::where('tenant_id', $tenantId)->order('id', 'desc'), $params, 200);
+    }
+
+    private static function paginateRows($query, array $params, int $defaultLimit = 100): array
+    {
+        $usePage = isset($params['page_no']) || isset($params['page_size']);
+        $pageNo = max(1, (int)($params['page_no'] ?? 1));
+        $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15)));
+        if ($usePage) {
+            $count = (int)(clone $query)->count();
+            return [
+                'lists' => $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray(),
+                'count' => $count,
+                'page_no' => $pageNo,
+                'page_size' => $pageSize,
+            ];
+        }
+        return $query->limit($defaultLimit)->select()->toArray();
     }
 
     public static function saveSensitiveWord(int $tenantId, array $params): void

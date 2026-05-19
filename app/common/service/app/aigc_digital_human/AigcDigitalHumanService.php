@@ -359,14 +359,14 @@ class AigcDigitalHumanService
         throw new Exception($lastError !== '' ? self::friendlyStageMessage($lastError) : '试听合成仍在处理中，请稍后重试');
     }
 
-    public static function publicAvatarLists(int $tenantId): array
+    public static function publicAvatarLists(int $tenantId, array $params = []): array
     {
         self::seedOfficialAssets($tenantId);
-        return array_map([self::class, 'formatAvatar'], AigcDigitalHumanAvatar::where([
+        return self::paginateRows(AigcDigitalHumanAvatar::where([
             'tenant_id' => $tenantId,
             'source' => 'official',
             'user_id' => 0,
-        ])->where('delete_time', 0)->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray());
+        ])->where('delete_time', 0)->order(['sort' => 'desc', 'id' => 'desc']), $params, 100, [self::class, 'formatAvatar']);
     }
 
     public static function savePublicAvatar(int $tenantId, array $params): array
@@ -443,7 +443,7 @@ class AigcDigitalHumanService
         if ($status !== '') {
             $query->where('a.status', $status);
         }
-        return array_map([self::class, 'formatAvatar'], $query->order(['a.id' => 'desc'])->limit(100)->select()->toArray());
+        return self::paginateRows($query->order(['a.id' => 'desc']), $params, 100, [self::class, 'formatAvatar']);
     }
 
     public static function deleteUserAvatar(int $tenantId, int $id): void
@@ -455,14 +455,14 @@ class AigcDigitalHumanService
         $row->save(['delete_time' => time(), 'update_time' => time()]);
     }
 
-    public static function publicVoiceLists(int $tenantId): array
+    public static function publicVoiceLists(int $tenantId, array $params = []): array
     {
         self::seedOfficialAssets($tenantId);
-        return array_map([self::class, 'formatVoice'], AigcDigitalHumanVoice::where([
+        return self::paginateRows(AigcDigitalHumanVoice::where([
             'tenant_id' => $tenantId,
             'source' => 'official',
             'user_id' => 0,
-        ])->where('delete_time', 0)->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray());
+        ])->where('delete_time', 0)->order(['sort' => 'desc', 'id' => 'desc']), $params, 100, [self::class, 'formatVoice']);
     }
 
     public static function savePublicVoice(int $tenantId, array $params): array
@@ -546,7 +546,7 @@ class AigcDigitalHumanService
         if ($status !== '') {
             $query->where('v.status', $status);
         }
-        return array_map([self::class, 'formatVoice'], $query->order(['v.id' => 'desc'])->limit(100)->select()->toArray());
+        return self::paginateRows($query->order(['v.id' => 'desc']), $params, 100, [self::class, 'formatVoice']);
     }
 
     public static function publishUserVoice(int $tenantId, int $id): array
@@ -815,7 +815,16 @@ class AigcDigitalHumanService
                 }
             });
         }
-        $rows = $query->limit(100)->select()->toArray();
+        $usePage = isset($params['page_no']) || isset($params['page_size']);
+        $pageNo = max(1, (int)($params['page_no'] ?? 1));
+        $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15)));
+        $count = $usePage ? (int)(clone $query)->count() : 0;
+        if ($usePage) {
+            $query->limit(($pageNo - 1) * $pageSize, $pageSize);
+        } else {
+            $query->limit(100);
+        }
+        $rows = $query->select()->toArray();
         $taskIds = array_values(array_unique(array_filter(array_column($rows, 'id'))));
         $resultMap = [];
         if ($taskIds) {
@@ -843,6 +852,14 @@ class AigcDigitalHumanService
             $row['tts_audio_url'] = self::fileUrlForTenant((string)($row['tts_audio_uri'] ?? ''), $tenantId, $row);
             $row['width'] = (int)($first['width'] ?? 0);
             $row['height'] = (int)($first['height'] ?? 0);
+        }
+        if ($usePage) {
+            return [
+                'lists' => $rows,
+                'count' => $count,
+                'page_no' => $pageNo,
+                'page_size' => $pageSize,
+            ];
         }
         return $rows;
     }
@@ -1044,9 +1061,9 @@ class AigcDigitalHumanService
         ]);
     }
 
-    public static function quotaLists(int $tenantId): array
+    public static function quotaLists(int $tenantId, array $params = []): array
     {
-        return AigcDigitalHumanQuota::where('tenant_id', $tenantId)->order('id', 'desc')->limit(100)->select()->toArray();
+        return self::paginateRows(AigcDigitalHumanQuota::where('tenant_id', $tenantId)->order('id', 'desc'), $params, 100);
     }
 
     public static function saveQuota(int $tenantId, array $params): void
@@ -1072,9 +1089,29 @@ class AigcDigitalHumanService
         $row->save($data);
     }
 
-    public static function sensitiveWordLists(int $tenantId): array
+    public static function sensitiveWordLists(int $tenantId, array $params = []): array
     {
-        return AigcDigitalHumanSensitiveWord::where('tenant_id', $tenantId)->order('id', 'desc')->limit(200)->select()->toArray();
+        return self::paginateRows(AigcDigitalHumanSensitiveWord::where('tenant_id', $tenantId)->order('id', 'desc'), $params, 200);
+    }
+
+    private static function paginateRows($query, array $params, int $defaultLimit = 100, ?callable $formatter = null): array
+    {
+        $format = static function (array $rows) use ($formatter) {
+            return $formatter ? array_map($formatter, $rows) : $rows;
+        };
+        $usePage = isset($params['page_no']) || isset($params['page_size']);
+        $pageNo = max(1, (int)($params['page_no'] ?? 1));
+        $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15)));
+        if ($usePage) {
+            $count = (int)(clone $query)->count();
+            return [
+                'lists' => $format($query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray()),
+                'count' => $count,
+                'page_no' => $pageNo,
+                'page_size' => $pageSize,
+            ];
+        }
+        return $format($query->limit($defaultLimit)->select()->toArray());
     }
 
     public static function saveSensitiveWord(int $tenantId, array $params): void

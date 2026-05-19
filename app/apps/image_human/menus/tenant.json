@@ -4,7 +4,7 @@
     "app_code": "image_human",
     "source": "app",
     "type": "M",
-    "name": "全驱动数字人",
+    "name": "全驱数字人",
     "icon": "el-icon-VideoCamera",
     "sort": 98,
     "perms": "",
@@ -15,9 +15,86 @@
         "source_menu_key": "image_human_task",
         "type": "C",
         "name": "生成任务",
+        "sort": 50,
         "perms": "app.image_human.admin_task/lists",
         "paths": "task",
         "component": "apps/image_human/task"
+      },
+      {
+        "source_menu_key": "image_human_avatar_manage",
+        "type": "M",
+        "name": "形象管理",
+        "sort": 40,
+        "perms": "",
+        "paths": "avatar-manage",
+        "component": "",
+        "children": [
+          {
+            "source_menu_key": "image_human_public_avatar",
+            "type": "C",
+            "name": "公共形象",
+            "sort": 20,
+            "perms": "app.image_human.public_avatar/lists",
+            "paths": "public-avatar",
+            "component": "apps/image_human/public-avatar"
+          },
+          {
+            "source_menu_key": "image_human_user_avatar",
+            "type": "C",
+            "name": "用户形象",
+            "sort": 10,
+            "perms": "app.image_human.user_avatar/lists",
+            "paths": "user-avatar",
+            "component": "apps/image_human/user-avatar"
+          }
+        ]
+      },
+      {
+        "source_menu_key": "image_human_voice_manage",
+        "type": "M",
+        "name": "语音管理",
+        "sort": 30,
+        "perms": "",
+        "paths": "voice-manage",
+        "component": "",
+        "children": [
+          {
+            "source_menu_key": "image_human_public_voice",
+            "type": "C",
+            "name": "公共音色",
+            "sort": 20,
+            "perms": "app.image_human.public_voice/lists",
+            "paths": "public-voice",
+            "component": "apps/image_human/public-voice"
+          },
+          {
+            "source_menu_key": "image_human_user_voice",
+            "type": "C",
+            "name": "用户音色",
+            "sort": 10,
+            "perms": "app.image_human.user_voice/lists",
+            "paths": "user-voice",
+            "component": "apps/image_human/user-voice"
+          }
+        ]
+      },
+      {
+        "source_menu_key": "image_human_config",
+        "type": "C",
+        "name": "应用配置",
+        "sort": 20,
+        "perms": "app.image_human.config/detail",
+        "paths": "config",
+        "component": "apps/image_human/config"
+      },
+      {
+        "source_menu_key": "image_human_stat",
+        "type": "C",
+        "name": "用量统计",
+        "sort": 10,
+        "perms": "app.image_human.admin/stat",
+        "paths": "stat",
+        "component": "apps/image_human/stat"
       }
     ]
   }

@@ -34,11 +34,7 @@ class AppCaseService
             $query->where('status', (int)$params['status']);
         }
 
-        $limit = max(1, min((int)($params['limit'] ?? 50), 100));
-        return array_map(
-            [self::class, 'formatRow'],
-            $query->order(['sort' => 'desc', 'id' => 'desc'])->limit($limit)->select()->toArray()
-        );
+        return self::paginateCaseQuery($query->order(['sort' => 'desc', 'id' => 'desc']), $params);
     }
 
     public static function listsByAppCodes(int $tenantId, array $appCodes, array $params = [], bool $onlyEnabled = false): array
@@ -65,11 +61,26 @@ class AppCaseService
             $query->where('status', (int)$params['status']);
         }
 
+        return self::paginateCaseQuery($query->order(['sort' => 'desc', 'id' => 'desc']), $params);
+    }
+
+    private static function paginateCaseQuery($query, array $params): array
+    {
+        $usePage = isset($params['page_no']) || isset($params['page_size']);
+        $pageNo = max(1, (int)($params['page_no'] ?? 1));
+        $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15)));
+        if ($usePage) {
+            $count = (int)(clone $query)->count();
+            $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
+            return [
+                'lists' => array_map([self::class, 'formatRow'], $rows),
+                'count' => $count,
+                'page_no' => $pageNo,
+                'page_size' => $pageSize,
+            ];
+        }
         $limit = max(1, min((int)($params['limit'] ?? 50), 100));
-        return array_map(
-            [self::class, 'formatRow'],
-            $query->order(['sort' => 'desc', 'id' => 'desc'])->limit($limit)->select()->toArray()
-        );
+        return array_map([self::class, 'formatRow'], $query->limit($limit)->select()->toArray());
     }
 
     public static function detail(int $tenantId, string $appCode, int $id): array

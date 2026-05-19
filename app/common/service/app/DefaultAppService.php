@@ -4,6 +4,7 @@ namespace app\common\service\app;
 
 use app\common\model\app\App;
 use app\common\model\app\TenantApp;
+use app\common\model\auth\TenantSystemRoleMenu;
 use app\common\model\tenant\Tenant;
 use think\facade\Db;
 use Throwable;
@@ -76,6 +77,18 @@ class DefaultAppService
         }
     }
 
+    public static function ensureTenantDefaultApp(int $tenantId, string $appCode): void
+    {
+        if ($tenantId <= 0 || !self::isDefaultApp($appCode)) {
+            return;
+        }
+        $app = App::where(['code' => $appCode, 'status' => AppRegistryService::STATUS_INSTALLED])->findOrEmpty();
+        if ($app->isEmpty()) {
+            return;
+        }
+        self::syncTenant($tenantId, $appCode, (string)$app['current_version'], '', false);
+    }
+
     private static function syncTenant(int $tenantId, string $appCode, string $version, ?string $tenantSn, bool $isSplitTable): void
     {
         self::upsertTenantApp($tenantId, $appCode, $version);
@@ -115,8 +128,46 @@ class DefaultAppService
         if (!is_array($menus)) {
             return;
         }
+        self::pruneTenantMenusInTable($tenantId, $appCode, $table, self::collectMenuKeys($menus));
         foreach ($menus as $menu) {
             self::saveTenantMenu($tenantId, $appCode, $table, $menu, 0);
+        }
+    }
+
+    private static function collectMenuKeys(array $menus): array
+    {
+        $keys = [];
+        foreach ($menus as $menu) {
+            $key = (string)($menu['source_menu_key'] ?? '');
+            if ($key !== '') {
+                $keys[] = $key;
+            }
+            $children = $menu['children'] ?? [];
+            if (is_array($children) && !empty($children)) {
+                $keys = array_merge($keys, self::collectMenuKeys($children));
+            }
+        }
+        return array_values(array_unique($keys));
+    }
+
+    private static function pruneTenantMenusInTable(int $tenantId, string $appCode, string $table, array $sourceMenuKeys): void
+    {
+        if (empty($sourceMenuKeys)) {
+            return;
+        }
+        try {
+            $staleIds = Db::name($table)
+                ->where(['tenant_id' => $tenantId, 'app_code' => $appCode, 'source' => 'app'])
+                ->where('source_menu_key', 'not in', $sourceMenuKeys)
+                ->column('id');
+            if (empty($staleIds)) {
+                return;
+            }
+            Db::name($table)->whereIn('id', $staleIds)->delete();
+            if ($table === 'tenant_system_menu') {
+                TenantSystemRoleMenu::whereIn('menu_id', $staleIds)->delete();
+            }
+        } catch (Throwable) {
         }
     }
 

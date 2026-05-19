@@ -1,7 +1,7 @@
 <?php
 return [
     // 系统版本号
-    'version' => '1.0.22',
+    'version' => '1.0.23',
     'project_name' => 'Likeadmin-SaaS版',
 
     // 官网
@@ -128,6 +128,10 @@ return [
         'qq_auth' => 0,
         // 登录政策协议 0-关闭 1-开启
         'login_agreement' => 1,
+        // 新用户注册赠送 0-关闭 1-开启
+        'register_bonus_status' => 0,
+        // 新用户注册赠送点数
+        'register_bonus_points' => 0,
     ],
 
     // 后台装修
