@@ -43,14 +43,11 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
             ], $config['timeout'], (bool)$config['ssl_verify']);
             $status = $this->normalizeStatus($this->extractStatus($data));
             $videoUrl = $this->extractMediaUrl($data);
-            if ($status === 'pending' || ($status === '' && $videoUrl === '')) {
-                return new ImageHumanGenerateResult(true, [], '', $taskId, true, ['query' => $data]);
-            }
             if ($status === 'failed') {
                 return new ImageHumanGenerateResult(false, [], $this->extractError($data) ?: '供应商任务失败', $taskId, false, ['query' => $data]);
             }
             if ($videoUrl === '') {
-                return new ImageHumanGenerateResult(false, [], $this->extractError($data) ?: '供应商未返回视频', $taskId, false, ['query' => $data]);
+                return new ImageHumanGenerateResult(true, [], '', $taskId, true, ['query' => $data]);
             }
             $stored = ImageHumanAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
             return new ImageHumanGenerateResult(true, [array_merge($stored, [
@@ -188,7 +185,31 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
 
     private function extractMediaUrl(array $data): string
     {
-        foreach ([$data['result'] ?? null, $data['data']['result'] ?? null, $data['output'] ?? null, $data['data']['output'] ?? null, $data['data'] ?? null, $data] as $candidate) {
+        $candidates = [
+            $data['result']['videos'] ?? null,
+            $data['data']['result']['videos'] ?? null,
+            $data['videos'] ?? null,
+            $data['data']['videos'] ?? null,
+            $data['result']['video_url'] ?? null,
+            $data['data']['result']['video_url'] ?? null,
+            $data['output']['video_url'] ?? null,
+            $data['data']['output']['video_url'] ?? null,
+            $data['video_url'] ?? null,
+            $data['data']['video_url'] ?? null,
+            $data['result']['video'] ?? null,
+            $data['data']['result']['video'] ?? null,
+            $data['output']['video'] ?? null,
+            $data['data']['output']['video'] ?? null,
+            $data['result']['url'] ?? null,
+            $data['data']['result']['url'] ?? null,
+            $data['output']['url'] ?? null,
+            $data['data']['output']['url'] ?? null,
+            $data['result'] ?? null,
+            $data['data']['result'] ?? null,
+            $data['output'] ?? null,
+            $data['data']['output'] ?? null,
+        ];
+        foreach ($candidates as $candidate) {
             $url = $this->collectMediaUrl($candidate);
             if ($url !== '') {
                 return $url;
@@ -200,23 +221,39 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
     private function collectMediaUrl(mixed $value): string
     {
         if (is_string($value)) {
-            return $value !== '' ? $value : '';
+            return trim($value);
         }
         if (!is_array($value)) {
             return '';
         }
-        foreach (['video_url', 'video', 'url', 'uri', 'output', 'file_url', 'download_url'] as $key) {
-            if (!empty($value[$key]) && is_string($value[$key])) {
-                return $value[$key];
+        foreach (['video_url', 'video', 'url', 'uri', 'output', 'download_url'] as $key) {
+            if (array_key_exists($key, $value)) {
+                $url = $this->collectMediaUrl($value[$key]);
+                if ($url !== '') {
+                    return $url;
+                }
             }
         }
-        foreach ($value as $item) {
-            $url = $this->collectMediaUrl($item);
-            if ($url !== '') {
-                return $url;
+        if ($this->isListArray($value)) {
+            foreach ($value as $item) {
+                $url = $this->collectMediaUrl($item);
+                if ($url !== '') {
+                    return $url;
+                }
             }
         }
         return '';
+    }
+
+    private function isListArray(array $value): bool
+    {
+        $index = 0;
+        foreach (array_keys($value) as $key) {
+            if ($key !== $index++) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private function extractError(array $data): string
