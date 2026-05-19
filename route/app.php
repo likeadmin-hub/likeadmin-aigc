@@ -19,6 +19,14 @@ $tenantFrontendRedirect = function (string $frontend, string $childPath = '') {
     return redirect($path . '?' . http_build_query($query));
 };
 
+// PC端默认访问站点根路径，平台端固定保留 /platform/
+Route::get('/', function () {
+    return view(app()->getRootPath() . 'public/pc/index.html');
+});
+Route::get(':path', function () {
+    return view(app()->getRootPath() . 'public/pc/index.html');
+})->pattern(['path' => '(ai|app|account|user|page|policy)(/.*)?']);
+
 // 平台管理后台
 Route::get('platform', function () {
     return view(app()->getRootPath() . 'public/platform/index.html');
