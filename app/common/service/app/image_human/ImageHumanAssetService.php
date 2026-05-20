@@ -18,6 +18,9 @@ class ImageHumanAssetService
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
             return self::persistRemoteUrl($url, $tenantId, $userId);
         }
+        if (!self::isAllowedLocalVideoUri($url)) {
+            throw new Exception('供应商返回的视频地址无效');
+        }
         return ['uri' => $url, 'width' => 0, 'height' => 0, 'stored' => false];
     }
 
@@ -107,5 +110,14 @@ class ImageHumanAssetService
             return $pathExt;
         }
         return str_starts_with($content, "\x1A\x45\xDF\xA3") ? 'webm' : 'mp4';
+    }
+
+    private static function isAllowedLocalVideoUri(string $uri): bool
+    {
+        $path = ltrim((string)(parse_url($uri, PHP_URL_PATH) ?: $uri), '/');
+        if ($path === '' || (!str_starts_with($path, 'uploads/') && !str_starts_with($path, 'resource/'))) {
+            return false;
+        }
+        return in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['mp4', 'webm', 'mov', 'm4v'], true);
     }
 }

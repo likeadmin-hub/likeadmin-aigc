@@ -17,6 +17,7 @@ use app\common\enum\user\UserTerminalEnum;
 use app\common\logic\BaseLogic;
 use app\common\model\tenant\Tenant;
 use app\common\model\user\User;
+use app\common\service\storage\StorageConfigService;
 use app\common\service\tenant\TenantUrlService;
 use Exception;
 use think\facade\Db;
@@ -57,6 +58,7 @@ class TenantLogic extends BaseLogic
             'notes'               => $params['notes'] ?? '',
             'tactics'             => $params['tactics'] ?? 0,
             'allow_custom_storage' => $params['allow_custom_storage'] ?? 0,
+            'allow_local_storage'  => $params['allow_local_storage'] ?? 1,
         ]);
     }
 
@@ -70,7 +72,7 @@ class TenantLogic extends BaseLogic
     public static function detail(int $userId)
     {
         try {
-            $field = "id,sn,name,avatar,tel,domain_alias,domain_alias_enable,access_mode,disable,create_time,notes,allow_custom_storage,point_balance";
+            $field = "id,sn,name,avatar,tel,domain_alias,domain_alias_enable,access_mode,disable,create_time,notes,allow_custom_storage,allow_local_storage,point_balance";
 
             $user = Tenant::where(['id' => $userId])->field($field)->findOrEmpty();
             $user['user_total'] = User::where(['tenant_id' => $userId])->count();
@@ -106,8 +108,11 @@ class TenantLogic extends BaseLogic
                 'access_mode'         => $accessMode,
                 'notes'               => $params['notes'] ?? '',
                 'allow_custom_storage' => $params['allow_custom_storage'] ?? 0,
+                'allow_local_storage'  => $params['allow_local_storage'] ?? 1,
             ], ['id' => $params['id']]);
-            self::syncCustomStorageMenu((int)$params['id'], (int)($params['allow_custom_storage'] ?? 0) === 1);
+            $tenantId = (int)$params['id'];
+            StorageConfigService::clearCache($tenantId);
+            self::syncCustomStorageMenu($tenantId, (int)($params['allow_custom_storage'] ?? 0) === 1);
             return true;
         } catch (\Exception $e) {
             self::setError($e->getMessage());

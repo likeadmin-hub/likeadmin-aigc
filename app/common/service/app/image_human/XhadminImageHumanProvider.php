@@ -7,7 +7,6 @@ use Exception;
 
 class XhadminImageHumanProvider implements ImageHumanProviderInterface
 {
-    private const DEFAULT_BASE_URL = 'https://api.xhadmin.cn';
     private const DEFAULT_SUBMIT_PATH = '/api/v1/apps/image_human/submit';
     private const DEFAULT_QUERY_PATH = '/api/v1/apps/image_human/query';
 
@@ -65,6 +64,9 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
         $providerConfig = is_array($config['provider'] ?? null) ? $config['provider'] : [];
         $source = UpdateSourceClient::getSource();
         $baseUrl = $this->sourceBaseUrl((string)($source['active_base_url'] ?? $source['base_url'] ?? ''));
+        if ($baseUrl === '') {
+            throw new Exception('请先在系统服务的接口渠道中配置 Base URL');
+        }
         $apiKey = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? ''));
         if ($apiKey === '') {
             throw new Exception('请先在系统服务的接口渠道中配置 API Key');
@@ -85,7 +87,7 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
     {
         $baseUrl = trim($baseUrl);
         if ($baseUrl === '') {
-            return self::DEFAULT_BASE_URL;
+            return '';
         }
         $parts = parse_url($baseUrl);
         $scheme = (string)($parts['scheme'] ?? 'https');

@@ -1233,6 +1233,7 @@ CREATE TABLE `la_tenant`
     `disable`             tinyint(1) UNSIGNED                                           NULL     DEFAULT 0 COMMENT '是否禁用：0-否；1-是；',
     `tactics`             tinyint(1) UNSIGNED                                           NOT NULL DEFAULT 0 COMMENT '分表策略: [0=否, 1=是]',
     `allow_custom_storage` tinyint(1) UNSIGNED                                          NOT NULL DEFAULT 0 COMMENT '允许租户自定义存储',
+    `allow_local_storage`  tinyint(1) UNSIGNED                                          NOT NULL DEFAULT 1 COMMENT '允许租户使用本地存储',
     `point_balance`       decimal(10, 2)                                                NOT NULL DEFAULT 0.00 COMMENT '租户点数余额',
     `notes`               varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL     DEFAULT NULL COMMENT '租户备注',
     `domain_alias`        varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL     DEFAULT NULL COMMENT '域名别名',
@@ -4154,7 +4155,7 @@ WHERE NOT EXISTS (SELECT 1 FROM `la_aigc_llm_config` WHERE `tenant_id` = 0);
 
 INSERT INTO `la_aigc_llm_channel`
 (`tenant_id`, `code`, `name`, `provider`, `config_json`, `status`, `sort`, `create_time`, `update_time`)
-SELECT 0, 'dashscope_compatible', 'Xhadmin Qwen3.6-Plus', 'openai_compatible', '{"base_url":"https://api.xhadmin.cn","stream_path":"/api/v1/chat/completions","api_key":"","timeout":120,"ssl_verify":0,"remark":"Qwen3.6-Plus DashScope compatible"}', 1, 1000, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
+SELECT 0, 'dashscope_compatible', 'Qwen3.6-Plus 兼容通道', 'openai_compatible', '{"base_url":"","stream_path":"/api/v1/chat/completions","api_key":"","timeout":120,"ssl_verify":0,"remark":"Qwen3.6-Plus OpenAI compatible"}', 1, 1000, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
 WHERE NOT EXISTS (SELECT 1 FROM `la_aigc_llm_channel` WHERE `tenant_id` = 0 AND `code` = 'dashscope_compatible');
 
 INSERT INTO `la_aigc_llm_model`
@@ -4232,7 +4233,7 @@ SET `platform_input_unit_cost` = CASE WHEN `platform_input_unit_cost` = 0 THEN `
 INSERT INTO `la_aigc_llm_channel`
 (`tenant_id`, `code`, `name`, `provider`, `config_json`, `status`, `sort`, `create_time`, `update_time`)
 VALUES
-(0, 'dashscope_compatible', 'Xhadmin Qwen3.6-Plus', 'openai_compatible', '{"base_url":"https://api.xhadmin.cn","stream_path":"/api/v1/chat/completions","api_key":"","timeout":120,"ssl_verify":0,"remark":"Qwen3.6-Plus DashScope compatible"}', 1, 1000, UNIX_TIMESTAMP(), UNIX_TIMESTAMP())
+(0, 'dashscope_compatible', 'Qwen3.6-Plus 兼容通道', 'openai_compatible', '{"base_url":"","stream_path":"/api/v1/chat/completions","api_key":"","timeout":120,"ssl_verify":0,"remark":"Qwen3.6-Plus OpenAI compatible"}', 1, 1000, UNIX_TIMESTAMP(), UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE
 `name`=VALUES(`name`),
 `provider`=VALUES(`provider`),

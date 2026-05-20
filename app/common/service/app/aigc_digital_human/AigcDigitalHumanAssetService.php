@@ -23,16 +23,28 @@ class AigcDigitalHumanAssetService
 
     public static function persistGeneratedVideo(string $url, int $tenantId, int $userId = 0): array
     {
+        if (str_starts_with($url, 'data:video/')) {
+            return self::persistDataUri($url, $tenantId, $userId, 'video');
+        }
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
             return self::persistRemoteUrl($url, $tenantId, $userId, 'video');
+        }
+        if (!self::isAllowedLocalAssetUri($url, 'video')) {
+            throw new Exception('供应商返回的视频地址无效');
         }
         return ['uri' => $url, 'width' => 0, 'height' => 0, 'duration' => 0, 'stored' => false];
     }
 
     public static function persistGeneratedAudio(string $url, int $tenantId, int $userId = 0): array
     {
+        if (str_starts_with($url, 'data:audio/')) {
+            return self::persistDataUri($url, $tenantId, $userId, 'audio');
+        }
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
             return self::persistRemoteUrl($url, $tenantId, $userId, 'audio');
+        }
+        if (!self::isAllowedLocalAssetUri($url, 'audio')) {
+            throw new Exception('供应商返回的音频地址无效');
         }
         return ['uri' => $url, 'duration' => 0, 'stored' => false];
     }
@@ -54,17 +66,17 @@ class AigcDigitalHumanAssetService
         return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content, $kind), $kind);
     }
 
-    private static function persistDataUri(string $dataUri, int $tenantId, int $userId): array
+    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, string $kind = 'image'): array
     {
-        if (!preg_match('/^data:image\/([a-zA-Z0-9.+-]+);base64,(.+)$/', $dataUri, $matches)) {
+        if (!preg_match('/^data:(image|video|audio)\/([a-zA-Z0-9.+-]+);base64,(.+)$/', $dataUri, $matches)) {
             throw new Exception('生成数字人视频格式错误');
         }
-        $content = base64_decode($matches[2], true);
+        $content = base64_decode($matches[3], true);
         if ($content === false || $content === '') {
             throw new Exception('生成数字人视频解析失败');
         }
-        $ext = strtolower($matches[1]);
-        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext);
+        $ext = strtolower($matches[2]);
+        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $kind);
     }
 
     private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, string $kind = 'image'): array
@@ -167,5 +179,20 @@ class AigcDigitalHumanAssetService
             'image/gif' => 'gif',
             default => 'png',
         };
+    }
+
+    private static function isAllowedLocalAssetUri(string $uri, string $kind): bool
+    {
+        $path = ltrim((string)(parse_url($uri, PHP_URL_PATH) ?: $uri), '/');
+        if ($path === '' || (!str_starts_with($path, 'uploads/') && !str_starts_with($path, 'resource/'))) {
+            return false;
+        }
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $allowed = match ($kind) {
+            'video' => ['mp4', 'mov', 'webm', 'm4v'],
+            'audio' => ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'opus'],
+            default => ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+        };
+        return in_array($ext, $allowed, true);
     }
 }
