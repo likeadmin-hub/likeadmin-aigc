@@ -1,20 +1,20 @@
 <?php
 return [
     // 系统版本号
-    'version' => '1.0.27',
+    'version' => '1.0.30',
     'project_name' => 'Likeadmin-SaaS版',
 
     // 官网
     'website' => [
-        'name' => env('project.web_name', 'likeadmin'), // 网站名称
-        'url' => env('project.web_url', 'www.likeadmin.cn/'), // 网站地址
-        'shop_name' => 'likeadmin', // 商城名称
+        'name' => env('project.web_name', '贵州猿创科技有限责任公司'), // 网站名称
+        'url' => env('project.web_url', ''), // 网站地址
+        'shop_name' => '贵州猿创科技有限责任公司', // 商城名称
         'shop_logo' => 'resource/image/common/shop_logo.png', // 商城图标
         'pc_logo' => 'resource/image/tenantapi/default/pc_logo.png', // pc_logo
         'pc_ico' => 'resource/image/tenantapi/default/web_favicon.ico', // pc_ico
-        'pc_title' => 'likeadmin', // PC网站标题
-        'pc_keywords' => 'likeadmin,后台管理系统', // PC网站关键词
-        'pc_desc' => '永久免费开源的likeadmin通用前后端分离管理后台系统', // PC网站描述
+        'pc_title' => '贵州猿创科技有限责任公司', // PC网站标题
+        'pc_keywords' => '贵州猿创科技有限责任公司,后台管理系统', // PC网站关键词
+        'pc_desc' => '贵州猿创科技有限责任公司', // PC网站描述
         'h5_favicon' => 'resource/image/tenantapi/default/web_favicon.ico', // 网站图标
     ],
 
@@ -22,7 +22,7 @@ return [
     'tenant' => [
         'admin_avatar' => 'resource/image/common/shop_logo.png',
         'name' => env('project.web_name', 'SaaS租户端'), // 网站名称
-        'url' => env('project.web_url', 'www.likeadmin.cn/'), // 网站地址
+        'url' => env('project.web_url', ''), // 网站地址
         'login_image' => 'resource/image/tenantapi/default/login_image.png',
         'web_logo' => 'resource/image/tenantapi/default/web_logo.jpg', // 网站logo
         'web_favicon' => 'resource/image/tenantapi/default/web_favicon.ico', // 网站图标
@@ -32,7 +32,7 @@ return [
     'platform' => [
         'admin_avatar' => 'resource/image/common/avatar.png',
         'name' => env('project.web_name', 'SaaS平台端'), // 网站名称
-        'url' => env('project.web_url', 'www.likeadmin.cn/'), // 网站地址
+        'url' => env('project.web_url', ''), // 网站地址
         'login_image' => 'resource/image/platformapi/default/login_image.png',
         'web_logo_light' => 'resource/image/platformapi/default/web_logo_light.png', // 网站logo
         'web_logo_dark' => 'resource/image/platformapi/default/web_logo_dark.png', // 网站logo
@@ -51,6 +51,16 @@ return [
 
     // 唯一标识，密码盐、路径加密等
     'unique_identification' => env('project.unique_identification', 'likeadmin'),
+
+    // 默认版权备案
+    'copyright' => [
+        'config' => [
+            [
+                'key' => '贵州猿创科技有限责任公司',
+                'value' => '',
+            ],
+        ],
+    ],
 
     // 默认密码
     'default_password' => env('project.default_password', '123456'),

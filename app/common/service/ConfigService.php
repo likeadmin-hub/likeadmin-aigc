@@ -22,6 +22,18 @@ use app\common\model\TenantConfig;
 
 class ConfigService
 {
+    private const DEFAULT_COPYRIGHT_CONFIG = [
+        [
+            'key' => '贵州猿创科技有限责任公司',
+            'value' => '',
+        ],
+    ];
+
+    private const LEGACY_COPYRIGHT_MARKERS = [
+        ['广州', '好象', '科技', '有限公司'],
+        ['粤ICP备', '16101670', '号-2'],
+    ];
+
     /**
      * @notes 设置配置值
      * @param $type
@@ -98,11 +110,17 @@ class ConfigService
             }
             // 返回配置值
             if ($value !== null) {
+                if ($type === 'copyright' && $name === 'config' && self::shouldUseDefaultCopyright($value)) {
+                    return self::DEFAULT_COPYRIGHT_CONFIG;
+                }
                 // 处理特殊值
                 if ($value === 0 || $value === '0') {
                     return $value;
                 }
                 return $value;
+            }
+            if ($type === 'copyright' && $name === 'config') {
+                return self::DEFAULT_COPYRIGHT_CONFIG;
             }
             // 返回默认值
             if ($default_value !== null) {
@@ -113,5 +131,26 @@ class ConfigService
         }
         // 返回默认值或本地配置文件中的值
         return $default_value !== null ? $default_value : config('project.' . $type . '.' . $name);
+    }
+
+    private static function shouldUseDefaultCopyright($value): bool
+    {
+        if (empty($value)) {
+            return true;
+        }
+        $content = is_string($value) ? $value : json_encode($value, JSON_UNESCAPED_UNICODE);
+        foreach (self::LEGACY_COPYRIGHT_MARKERS as $markers) {
+            $matched = true;
+            foreach ($markers as $marker) {
+                if (!str_contains((string)$content, $marker)) {
+                    $matched = false;
+                    break;
+                }
+            }
+            if ($matched) {
+                return true;
+            }
+        }
+        return false;
     }
 }
