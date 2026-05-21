@@ -41,18 +41,35 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
                 'elastic_task_id' => is_numeric($taskId) ? (int)$taskId : $taskId,
             ], $config['timeout'], (bool)$config['ssl_verify']);
             $status = $this->normalizeStatus($this->extractStatus($data));
-            $videoUrl = $this->extractMediaUrl($data);
+            $videoUrls = $this->extractMediaUrls($data);
+            if ($status !== 'success' && !empty($videoUrls)) {
+                $status = 'success';
+            }
             if ($status === 'failed') {
                 return new ImageHumanGenerateResult(false, [], $this->extractError($data) ?: '供应商任务失败', $taskId, false, ['query' => $data]);
             }
-            if ($videoUrl === '') {
+            if ($status !== 'success' || empty($videoUrls)) {
                 return new ImageHumanGenerateResult(true, [], '', $taskId, true, ['query' => $data]);
             }
-            $stored = ImageHumanAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
-            return new ImageHumanGenerateResult(true, [array_merge($stored, [
-                'provider_task_id' => $taskId,
-                'duration' => $request->duration,
-            ])], '', $taskId, false, ['query' => $data]);
+            $videos = [];
+            foreach ($videoUrls as $videoUrl) {
+                try {
+                    $stored = ImageHumanAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
+                } catch (\Throwable) {
+                    $stored = [
+                        'uri' => $videoUrl,
+                        'width' => 0,
+                        'height' => 0,
+                        'stored' => false,
+                    ];
+                }
+                $videos[] = array_merge($stored, [
+                    'provider_task_id' => $taskId,
+                    'duration' => $request->duration,
+                ]);
+                break;
+            }
+            return new ImageHumanGenerateResult(true, $videos, '', $taskId, false, ['query' => $data]);
         } catch (\Throwable $e) {
             return new ImageHumanGenerateResult(false, [], $this->friendlyError($e->getMessage()), $taskId);
         }
@@ -166,6 +183,12 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
             $data['data']['state'] ?? null,
             $data['data']['task_status'] ?? null,
             $data['data']['task']['status'] ?? null,
+            $data['data']['task']['state'] ?? null,
+            $data['data']['task']['task_status'] ?? null,
+            $data['result']['status'] ?? null,
+            $data['result']['state'] ?? null,
+            $data['data']['result']['status'] ?? null,
+            $data['data']['result']['state'] ?? null,
         ] as $value) {
             if (is_scalar($value) && (string)$value !== '') {
                 return (string)$value;
@@ -185,19 +208,31 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
         };
     }
 
-    private function extractMediaUrl(array $data): string
+    private function extractMediaUrls(array $data): array
     {
         $candidates = [
             $data['result']['videos'] ?? null,
             $data['data']['result']['videos'] ?? null,
+            $data['results'] ?? null,
+            $data['data']['results'] ?? null,
             $data['videos'] ?? null,
             $data['data']['videos'] ?? null,
+            $data['result']['files'] ?? null,
+            $data['data']['result']['files'] ?? null,
+            $data['files'] ?? null,
+            $data['data']['files'] ?? null,
             $data['result']['video_url'] ?? null,
             $data['data']['result']['video_url'] ?? null,
+            $data['result']['file_url'] ?? null,
+            $data['data']['result']['file_url'] ?? null,
             $data['output']['video_url'] ?? null,
             $data['data']['output']['video_url'] ?? null,
+            $data['output']['file_url'] ?? null,
+            $data['data']['output']['file_url'] ?? null,
             $data['video_url'] ?? null,
             $data['data']['video_url'] ?? null,
+            $data['file_url'] ?? null,
+            $data['data']['file_url'] ?? null,
             $data['result']['video'] ?? null,
             $data['data']['result']['video'] ?? null,
             $data['output']['video'] ?? null,
@@ -210,52 +245,60 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
             $data['data']['result'] ?? null,
             $data['output'] ?? null,
             $data['data']['output'] ?? null,
+            $data['data'] ?? null,
         ];
+        $urls = [];
         foreach ($candidates as $candidate) {
-            $url = $this->collectMediaUrl($candidate);
-            if ($url !== '') {
-                return $url;
+            $this->collectMediaUrls($candidate, $urls);
+            if (!empty($urls)) {
+                break;
             }
         }
-        return '';
+        return array_values(array_unique($urls));
     }
 
-    private function collectMediaUrl(mixed $value): string
+    private function collectMediaUrls(mixed $value, array &$urls): void
     {
         if (is_string($value)) {
-            return trim($value);
+            $url = $this->normalizeMediaUrl($value, false);
+            if ($url !== '') {
+                $urls[] = $url;
+            }
+            return;
         }
         if (!is_array($value)) {
-            return '';
+            return;
         }
-        foreach (['video_url', 'video', 'url', 'uri', 'output', 'download_url'] as $key) {
+        foreach (['video_url', 'video', 'url', 'uri', 'output', 'file_url', 'download_url', 'origin_url', 'src'] as $key) {
             if (array_key_exists($key, $value)) {
-                $url = $this->collectMediaUrl($value[$key]);
+                $url = is_string($value[$key]) ? $this->normalizeMediaUrl($value[$key], true) : '';
                 if ($url !== '') {
-                    return $url;
+                    $urls[] = $url;
                 }
             }
         }
-        if ($this->isListArray($value)) {
-            foreach ($value as $item) {
-                $url = $this->collectMediaUrl($item);
-                if ($url !== '') {
-                    return $url;
-                }
-            }
+        foreach ($value as $item) {
+            $this->collectMediaUrls($item, $urls);
         }
-        return '';
     }
 
-    private function isListArray(array $value): bool
+    private function normalizeMediaUrl(string $url, bool $fromMediaKey): string
     {
-        $index = 0;
-        foreach (array_keys($value) as $key) {
-            if ($key !== $index++) {
-                return false;
-            }
+        $url = trim($url);
+        if ($url === '') {
+            return '';
         }
-        return true;
+        if (preg_match('/^(https?:\/\/|data:video\/)/i', $url)) {
+            return $url;
+        }
+        $path = ltrim((string)(parse_url($url, PHP_URL_PATH) ?: $url), '/');
+        if ($path === '' || (!str_starts_with($path, 'uploads/') && !str_starts_with($path, 'resource/'))) {
+            return '';
+        }
+        if (!$fromMediaKey && !in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['mp4', 'webm', 'mov', 'm4v'], true)) {
+            return '';
+        }
+        return $url;
     }
 
     private function extractError(array $data): string

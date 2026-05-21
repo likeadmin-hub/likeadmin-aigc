@@ -910,12 +910,15 @@ class ImageHumanService
     private static function formatResult(array $row): array
     {
         $row['cover_url'] = self::fileUrlForTenant((string)($row['cover_uri'] ?? ''), (int)($row['tenant_id'] ?? 0), $row);
-        $row['video_url'] = FileService::getFileUrlByStorage(
-            (string)($row['video_uri'] ?? ''),
-            (string)($row['storage_scope'] ?? ''),
-            (string)($row['storage_engine'] ?? ''),
-            (string)($row['storage_domain'] ?? '')
-        );
+        $videoUri = (string)($row['video_uri'] ?? '');
+        $row['video_url'] = preg_match('/^https?:\/\//i', $videoUri)
+            ? $videoUri
+            : FileService::getFileUrlByStorage(
+                $videoUri,
+                (string)($row['storage_scope'] ?? ''),
+                (string)($row['storage_engine'] ?? ''),
+                (string)($row['storage_domain'] ?? '')
+            );
         return $row;
     }
 
