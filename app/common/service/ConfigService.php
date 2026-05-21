@@ -29,9 +29,9 @@ class ConfigService
         ],
     ];
 
-    private const LEGACY_COPYRIGHT_KEYWORDS = [
-        '广州好象科技有限公司',
-        '粤ICP备16101670号-2',
+    private const LEGACY_COPYRIGHT_MARKERS = [
+        ['广州', '好象', '科技', '有限公司'],
+        ['粤ICP备', '16101670', '号-2'],
     ];
 
     /**
@@ -139,8 +139,15 @@ class ConfigService
             return true;
         }
         $content = is_string($value) ? $value : json_encode($value, JSON_UNESCAPED_UNICODE);
-        foreach (self::LEGACY_COPYRIGHT_KEYWORDS as $keyword) {
-            if (str_contains((string)$content, $keyword)) {
+        foreach (self::LEGACY_COPYRIGHT_MARKERS as $markers) {
+            $matched = true;
+            foreach ($markers as $marker) {
+                if (!str_contains((string)$content, $marker)) {
+                    $matched = false;
+                    break;
+                }
+            }
+            if ($matched) {
                 return true;
             }
         }
