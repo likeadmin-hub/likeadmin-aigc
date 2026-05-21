@@ -1,4 +1,7 @@
 import request from '@/utils/request'
+import { ContentTypeEnum } from '@/enums/requestEnums'
+
+const UPDATE_REQUEST_TIMEOUT = 10 * 60 * 1000
 
 export function updateOverview() {
     return request.get({ url: '/upgrade.upgrade/overview' })
@@ -9,15 +12,15 @@ export function updateCloudVersions(params?: any) {
 }
 
 export function updateDownloadPackage(params: any) {
-    return request.post({ url: '/upgrade.upgrade/downloadCloudPackage', params, timeout: 120 * 1000 })
+    return request.post({ url: '/upgrade.upgrade/downloadCloudPackage', params, timeout: UPDATE_REQUEST_TIMEOUT })
 }
 
 export function updatePreflightPackage(params: any) {
-    return request.post({ url: '/upgrade.upgrade/preflightPackage', params, timeout: 120 * 1000 })
+    return request.post({ url: '/upgrade.upgrade/preflightPackage', params, timeout: UPDATE_REQUEST_TIMEOUT })
 }
 
 export function updateApplyPackage(params: any) {
-    return request.post({ url: '/upgrade.upgrade/applyPackage', params, timeout: 120 * 1000 })
+    return request.post({ url: '/upgrade.upgrade/applyPackage', params, timeout: UPDATE_REQUEST_TIMEOUT })
 }
 
 export function updateIgnoreVersion(params: any) {
@@ -30,6 +33,13 @@ export function updateLicenseInfo() {
 
 export function updateMachineCode() {
     return request.get({ url: '/upgrade.upgrade/machineCode' })
+}
+
+export function updateLicenseImport(params: FormData) {
+    return request.post(
+        { url: '/upgrade.upgrade/licenseImport', params, headers: { 'Content-Type': ContentTypeEnum.FORM_DATA } },
+        { isReturnDefaultResponse: true }
+    )
 }
 
 export function updateSource() {

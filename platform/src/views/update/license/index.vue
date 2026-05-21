@@ -59,15 +59,10 @@
 </template>
 
 <script lang="ts" setup name="update-license">
-import axios from 'axios'
-
-import { ContentTypeEnum, RequestCodeEnum } from '@/enums/requestEnums'
-import useUserStore from '@/stores/modules/user'
+import { RequestCodeEnum } from '@/enums/requestEnums'
 import feedback from '@/utils/feedback'
-import { updateLicenseInfo, updateMachineCode } from '@/api/update_service'
-import config from '@/config'
+import { updateLicenseImport, updateLicenseInfo, updateMachineCode } from '@/api/update_service'
 
-const userStore = useUserStore()
 const loading = ref(false)
 const info = ref<any>({})
 
@@ -87,13 +82,7 @@ const getInfo = async () => {
 const uploadLicense = async (options: any) => {
     const form = new FormData()
     form.append('file', options.file)
-    const { data } = await axios.post(`${config.baseUrl}${config.urlPrefix}/upgrade.upgrade/importLicense`, form, {
-        headers: {
-            'Content-Type': ContentTypeEnum.FORM_DATA,
-            token: userStore.token,
-            version: config.version
-        }
-    })
+    const { data } = await updateLicenseImport(form)
     if (data.code === RequestCodeEnum.SUCCESS) {
         feedback.msgSuccess(data.msg || '导入成功')
         getInfo()

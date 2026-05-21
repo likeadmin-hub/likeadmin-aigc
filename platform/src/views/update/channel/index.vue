@@ -34,44 +34,48 @@
                                     inactive-text="关闭"
                                 />
                                 <div class="text-xs text-tx-secondary mt-1">
-                                    开启时使用当前接口地址和 API Key；关闭时使用线上接口地址和线上 API Key。
+                                    开启时使用当前接口地址和 API Key；关闭时使用线上接口地址和线上
+                                    API Key。
                                 </div>
                             </div>
                         </el-form-item>
                         <el-form-item label="接口地址">
-                            <el-input v-model="sourceForm.base_url" placeholder="https://update.example.com 或 https://update.example.com/aigc/v1" />
+                            <el-input
+                                v-model="sourceForm.base_url"
+                                placeholder="https://update.example.com 或 https://update.example.com/aigc/v1"
+                            />
                         </el-form-item>
                         <el-form-item label="API Key">
-                            <el-input v-model="sourceForm.license_key" placeholder="Bearer API Key，可为空" show-password />
+                            <el-input
+                                v-model="sourceForm.license_key"
+                                placeholder="Bearer API Key，可为空"
+                                show-password
+                            />
                         </el-form-item>
                         <el-form-item label="SSL校验">
                             <div class="w-full">
-                                <el-switch v-model="sourceForm.ssl_verify" :active-value="1" :inactive-value="0" />
+                                <el-switch
+                                    v-model="sourceForm.ssl_verify"
+                                    :active-value="1"
+                                    :inactive-value="0"
+                                />
                                 <div class="text-xs text-tx-secondary mt-1">
                                     关闭后仍会保留授权文件和响应签名校验，用于兼容证书链不完整的接口渠道。
                                 </div>
                             </div>
                         </el-form-item>
                         <el-form-item label="线上接口地址">
-                            <el-input v-model="sourceForm.online_base_url" placeholder="https://online.example.com 或 https://online.example.com/aigc/v1" />
+                            <el-input
+                                v-model="sourceForm.online_base_url"
+                                placeholder="https://online.example.com 或 https://online.example.com/aigc/v1"
+                            />
                         </el-form-item>
                         <el-form-item label="线上 API Key">
-                            <el-input v-model="sourceForm.online_license_key" placeholder="线上 Bearer API Key，可为空" show-password />
-                        </el-form-item>
-                        <el-form-item label="验签公钥">
-                            <div class="w-full">
-                                <div class="flex justify-end mb-2">
-                                    <el-upload
-                                        :show-file-list="false"
-                                        :auto-upload="false"
-                                        accept=".pem,.key,.crt,.cer,.txt,.json"
-                                        :on-change="readPublicKeyFile"
-                                    >
-                                        <el-button>上传公钥文件</el-button>
-                                    </el-upload>
-                                </div>
-                                <el-input v-model="sourceForm.public_key" type="textarea" :rows="7" placeholder="可手动输入 PEM 公钥，也可以上传 .pem/.key/.crt/.txt/.json 文件" />
-                            </div>
+                            <el-input
+                                v-model="sourceForm.online_license_key"
+                                placeholder="线上 Bearer API Key，可为空"
+                                show-password
+                            />
                         </el-form-item>
                         <el-form-item>
                             <el-button type="primary" @click="saveSource">保存并下一步</el-button>
@@ -86,17 +90,77 @@
                         type="warning"
                         show-icon
                         :closable="false"
-                        title="请先保存接口地址和验签公钥"
+                        title="请先保存接口地址和 API Key"
                     />
                     <template v-else>
+                        <div class="license-guide mb-4">
+                            <div class="license-guide__main">
+                                <div class="license-guide__title">第二步：配置验签公钥</div>
+                                <div class="license-guide__desc">
+                                    验签公钥通常由授权系统提供，用来校验授权文件和接口响应签名。它不是
+                                    API Key，也不是私钥。
+                                </div>
+                                <div class="license-guide__tips">
+                                    <div>
+                                        文件常见名称：public_key.pem、public.pem、license_public.key。
+                                    </div>
+                                    <div>
+                                        内容通常以 -----BEGIN PUBLIC KEY----- 开始，以 -----END
+                                        PUBLIC KEY----- 结束。
+                                    </div>
+                                    <div>
+                                        也支持上传包含 public_key、publicKey、pem、key 字段的 JSON
+                                        文件。
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="license-guide__actions">
+                                <el-upload
+                                    :show-file-list="false"
+                                    :auto-upload="false"
+                                    accept=".pem,.key,.crt,.cer,.txt,.json"
+                                    :on-change="readPublicKeyFile"
+                                >
+                                    <el-button>上传公钥文件</el-button>
+                                </el-upload>
+                            </div>
+                        </div>
+                        <el-form label-width="110px">
+                            <el-form-item label="验签公钥">
+                                <div class="w-full">
+                                    <el-input
+                                        v-model="sourceForm.public_key"
+                                        type="textarea"
+                                        :rows="7"
+                                        placeholder="粘贴 PEM 公钥内容，或上传 .pem/.key/.crt/.cer/.txt/.json 文件自动读取"
+                                    />
+                                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                                        <el-button type="primary" @click="savePublicKey"
+                                            >保存公钥</el-button
+                                        >
+                                        <span class="text-xs text-tx-secondary">
+                                            保存后再下载申请文件或上传授权文件，系统会使用该公钥完成验签。
+                                        </span>
+                                    </div>
+                                </div>
+                            </el-form-item>
+                        </el-form>
+
                         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                             <div>
                                 <div class="font-medium">授权申请</div>
-                                <div class="text-sm text-tx-secondary mt-1">下载申请文件后交给授权系统生成授权文件，再在这里上传</div>
+                                <div class="text-sm text-tx-secondary mt-1">
+                                    下载申请文件后交给授权系统生成授权文件，再在这里上传
+                                </div>
                             </div>
                             <div class="flex items-center gap-2">
                                 <el-button @click="downloadApplyFile">下载授权申请文件</el-button>
-                                <el-upload :show-file-list="false" :http-request="uploadLicense" accept=".json,.license">
+                                <el-upload
+                                    :show-file-list="false"
+                                    :before-upload="beforeUploadLicense"
+                                    :http-request="uploadLicense"
+                                    accept=".json,.license"
+                                >
                                     <el-button type="primary">上传授权文件</el-button>
                                 </el-upload>
                             </div>
@@ -104,19 +168,45 @@
 
                         <el-descriptions :column="2" border>
                             <el-descriptions-item label="授权状态">
-                                <el-tag :type="licenseStatusType(licenseInfo.status)">{{ licenseStatusText(licenseInfo.status) }}</el-tag>
+                                <el-tag :type="licenseStatusType(licenseInfo.status)">{{
+                                    licenseStatusText(licenseInfo.status)
+                                }}</el-tag>
                             </el-descriptions-item>
-                            <el-descriptions-item label="客户名称">{{ payload.customer_name || '-' }}</el-descriptions-item>
-                            <el-descriptions-item label="授权ID">{{ payload.license_id || '-' }}</el-descriptions-item>
-                            <el-descriptions-item label="产品码">{{ payload.product_code || machine.product_code || '-' }}</el-descriptions-item>
-                            <el-descriptions-item label="绑定域名">{{ (payload.domains || []).join(', ') || '-' }}</el-descriptions-item>
-                            <el-descriptions-item label="当前域名">{{ machine.domain || '-' }}</el-descriptions-item>
-                            <el-descriptions-item label="授权有效期">{{ formatTime(payload.expires_at) }}</el-descriptions-item>
-                            <el-descriptions-item label="更新截止期">{{ formatTime(payload.update_until) }}</el-descriptions-item>
-                            <el-descriptions-item label="最高系统版本">{{ payload.max_core_version || '-' }}</el-descriptions-item>
-                            <el-descriptions-item label="机器指纹">{{ shortHash(machine.machine_fingerprint_hash) }}</el-descriptions-item>
+                            <el-descriptions-item label="客户名称">{{
+                                payload.customer_name || '-'
+                            }}</el-descriptions-item>
+                            <el-descriptions-item label="授权ID">{{
+                                payload.license_id || '-'
+                            }}</el-descriptions-item>
+                            <el-descriptions-item label="产品码">{{
+                                payload.product_code || machine.product_code || '-'
+                            }}</el-descriptions-item>
+                            <el-descriptions-item label="绑定域名">{{
+                                (payload.domains || []).join(', ') || '-'
+                            }}</el-descriptions-item>
+                            <el-descriptions-item label="当前域名">{{
+                                machine.domain || '-'
+                            }}</el-descriptions-item>
+                            <el-descriptions-item label="授权有效期">{{
+                                formatTime(payload.expires_at)
+                            }}</el-descriptions-item>
+                            <el-descriptions-item label="更新截止期">{{
+                                formatTime(payload.update_until)
+                            }}</el-descriptions-item>
+                            <el-descriptions-item label="最高系统版本">{{
+                                payload.max_core_version || '-'
+                            }}</el-descriptions-item>
+                            <el-descriptions-item label="机器指纹">{{
+                                shortHash(machine.machine_fingerprint_hash)
+                            }}</el-descriptions-item>
                         </el-descriptions>
-                        <el-input class="mt-4" :model-value="machine.machine_code || ''" type="textarea" :rows="4" readonly />
+                        <el-input
+                            class="mt-4"
+                            :model-value="machine.machine_code || ''"
+                            type="textarea"
+                            :rows="4"
+                            readonly
+                        />
                     </template>
                 </el-tab-pane>
             </el-tabs>
@@ -127,32 +217,55 @@
                 <div class="font-medium">配置状态</div>
             </template>
             <el-descriptions :column="2" border>
-                <el-descriptions-item label="授权系统">{{ configured ? '已填写' : '未填写' }}</el-descriptions-item>
-                <el-descriptions-item label="开发模式">{{ sourceForm.dev_mode === 0 ? '关闭' : '开启' }}</el-descriptions-item>
-                <el-descriptions-item label="接口地址">{{ sourceForm.base_url || '-' }}</el-descriptions-item>
-                <el-descriptions-item label="API Key">{{ sourceForm.license_key ? '已填写' : '未填写' }}</el-descriptions-item>
-                <el-descriptions-item label="SSL校验">{{ sourceForm.ssl_verify === 1 ? '开启' : '关闭' }}</el-descriptions-item>
-                <el-descriptions-item label="线上接口地址">{{ sourceForm.online_base_url || '-' }}</el-descriptions-item>
-                <el-descriptions-item label="线上 API Key">{{ sourceForm.online_license_key ? '已填写' : '未填写' }}</el-descriptions-item>
-                <el-descriptions-item label="当前使用地址">{{ sourceForm.active_base_url || '-' }}</el-descriptions-item>
-                <el-descriptions-item label="当前使用 Key">{{ sourceForm.active_api_key ? '已填写' : '未填写' }}</el-descriptions-item>
-                <el-descriptions-item label="验签公钥">{{ sourceForm.public_key ? '已填写' : '未填写' }}</el-descriptions-item>
-                <el-descriptions-item label="授权文件">{{ licenseStatusText(licenseInfo.status) }}</el-descriptions-item>
+                <el-descriptions-item label="授权系统">{{
+                    configured ? '已填写' : '未填写'
+                }}</el-descriptions-item>
+                <el-descriptions-item label="开发模式">{{
+                    sourceForm.dev_mode === 0 ? '关闭' : '开启'
+                }}</el-descriptions-item>
+                <el-descriptions-item label="接口地址">{{
+                    sourceForm.base_url || '-'
+                }}</el-descriptions-item>
+                <el-descriptions-item label="API Key">{{
+                    sourceForm.license_key ? '已填写' : '未填写'
+                }}</el-descriptions-item>
+                <el-descriptions-item label="SSL校验">{{
+                    sourceForm.ssl_verify === 1 ? '开启' : '关闭'
+                }}</el-descriptions-item>
+                <el-descriptions-item label="线上接口地址">{{
+                    sourceForm.online_base_url || '-'
+                }}</el-descriptions-item>
+                <el-descriptions-item label="线上 API Key">{{
+                    sourceForm.online_license_key ? '已填写' : '未填写'
+                }}</el-descriptions-item>
+                <el-descriptions-item label="当前使用地址">{{
+                    sourceForm.active_base_url || '-'
+                }}</el-descriptions-item>
+                <el-descriptions-item label="当前使用 Key">{{
+                    sourceForm.active_api_key ? '已填写' : '未填写'
+                }}</el-descriptions-item>
+                <el-descriptions-item label="验签公钥">{{
+                    sourceForm.public_key ? '已填写' : '未填写'
+                }}</el-descriptions-item>
+                <el-descriptions-item label="授权文件">{{
+                    licenseStatusText(licenseInfo.status)
+                }}</el-descriptions-item>
             </el-descriptions>
         </el-card>
     </div>
 </template>
 
 <script lang="ts" setup name="update-channel">
-import axios from 'axios'
-
-import { updateLicenseInfo, updateMachineCode, updateSaveSource, updateSource } from '@/api/update_service'
-import config from '@/config'
-import { ContentTypeEnum, RequestCodeEnum } from '@/enums/requestEnums'
-import useUserStore from '@/stores/modules/user'
+import {
+    updateLicenseImport,
+    updateLicenseInfo,
+    updateMachineCode,
+    updateSaveSource,
+    updateSource
+} from '@/api/update_service'
+import { RequestCodeEnum } from '@/enums/requestEnums'
 import feedback from '@/utils/feedback'
 
-const userStore = useUserStore()
 const loading = ref(false)
 const activeTab = ref('source')
 const sourceForm = ref<any>({})
@@ -200,22 +313,38 @@ const saveSource = async () => {
     activeTab.value = 'license'
 }
 
+const savePublicKey = async () => {
+    if (!String(sourceForm.value.public_key || '').trim()) {
+        feedback.msgError('请先填写或上传验签公钥')
+        return
+    }
+    await updateSaveSource(sourceForm.value)
+    feedback.msgSuccess('公钥已保存')
+    await refreshAll()
+}
+
 const uploadLicense = async (options: any) => {
     const form = new FormData()
     form.append('file', options.file)
-    const { data } = await axios.post(`${config.baseUrl}${config.urlPrefix}/upgrade.upgrade/importLicense`, form, {
-        headers: {
-            'Content-Type': ContentTypeEnum.FORM_DATA,
-            token: userStore.token,
-            version: config.version
-        }
-    })
+    const { data } = await updateLicenseImport(form)
     if (data.code === RequestCodeEnum.SUCCESS) {
         feedback.msgSuccess(data.msg || '导入成功')
         await refreshAll()
         return
     }
     feedback.msgError(data.msg || '导入失败')
+}
+
+const beforeUploadLicense = async () => {
+    const publicKey = String(sourceForm.value.public_key || '').trim()
+    if (!publicKey) {
+        feedback.msgError('请先在第二步保存验签公钥，再上传授权文件')
+        return false
+    }
+    sourceForm.value.public_key = publicKey
+    await updateSaveSource(sourceForm.value)
+    feedback.msgSuccess('公钥已保存，开始上传授权文件')
+    return true
 }
 
 const readPublicKeyFile = (uploadFile: any) => {
@@ -263,16 +392,18 @@ const downloadApplyFile = async () => {
         machine_code: machineData.machine_code || '',
         environment: machineData.environment || {}
     }
-    if (!applyData.product_code || !applyData.domain || !applyData.machine_fingerprint_hash || !applyData.machine_code) {
+    if (
+        !applyData.product_code ||
+        !applyData.domain ||
+        !applyData.machine_fingerprint_hash ||
+        !applyData.machine_code
+    ) {
         feedback.msgError('机器码生成失败，请刷新后重试')
         return
     }
-    const blob = new Blob(
-        [
-            JSON.stringify(applyData, null, 2)
-        ],
-        { type: 'application/json;charset=utf-8' }
-    )
+    const blob = new Blob([JSON.stringify(applyData, null, 2)], {
+        type: 'application/json;charset=utf-8'
+    })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -289,9 +420,12 @@ const licenseStatusText = (status: string) =>
         domain_mismatch: '域名不匹配',
         machine_mismatch: '机器不匹配',
         replaced: '授权已替换'
-    }[status] || status || '授权未导入')
+    })[status] ||
+    status ||
+    '授权未导入'
 
-const licenseStatusType = (status: string) => (status === 'active' ? 'success' : status === 'not_imported' ? 'info' : 'danger')
+const licenseStatusType = (status: string) =>
+    status === 'active' ? 'success' : status === 'not_imported' ? 'info' : 'danger'
 const shortHash = (hash: string) => (hash ? `${hash.slice(0, 10)}...${hash.slice(-8)}` : '-')
 const formatTime = (value: number | string) => {
     const time = Number(value || 0)
@@ -300,3 +434,55 @@ const formatTime = (value: number | string) => {
 
 refreshAll()
 </script>
+
+<style lang="scss" scoped>
+.license-guide {
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+    padding: 16px;
+    background: var(--el-fill-color-lighter);
+    border: 1px solid var(--el-border-color-light);
+    border-radius: 8px;
+}
+
+.license-guide__main {
+    min-width: 0;
+}
+
+.license-guide__title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+}
+
+.license-guide__desc {
+    margin-top: 6px;
+    font-size: 13px;
+    line-height: 20px;
+    color: var(--el-text-color-regular);
+}
+
+.license-guide__tips {
+    display: grid;
+    gap: 4px;
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--el-text-color-secondary);
+}
+
+.license-guide__actions {
+    flex: 0 0 auto;
+}
+
+@media (max-width: 768px) {
+    .license-guide {
+        flex-direction: column;
+    }
+
+    .license-guide__actions {
+        align-self: flex-start;
+    }
+}
+</style>
