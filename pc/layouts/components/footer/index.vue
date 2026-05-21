@@ -16,9 +16,9 @@
         <div class="mt-4 text-tx-secondary">
             <a
                 class="mx-1 hover:underline"
-                :href="item.value"
+                :href="item.value || undefined"
                 target="_blank"
-                v-for="item in appStore.getCopyrightConfig"
+                v-for="item in copyrightConfig"
                 :key="item.key"
             >
                 {{ item.key }}
@@ -30,6 +30,10 @@
 import { useAppStore } from '@/stores/app'
 import { PolicyAgreementEnum } from '@/enums/appEnums'
 const appStore = useAppStore()
+const defaultCopyright = [{ key: '贵州猿创科技有限责任公司', value: '' }]
+const copyrightConfig = computed(() =>
+    appStore.getCopyrightConfig.length ? appStore.getCopyrightConfig : defaultCopyright
+)
 </script>
 
 <style lang="scss" scoped></style>

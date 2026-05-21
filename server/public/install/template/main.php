@@ -527,7 +527,7 @@
         </div>
     </div>
     <footer>
-        Copyright © 2019-<?= date('Y') ?> 广州好象科技有限公司 粤ICP备16101670号-2
+        Copyright © 2019-<?= date('Y') ?> 贵州猿创科技有限责任公司
     </footer>
     <script src="./js/layui.js"></script>
     <?php if (count($successTables) > 0): ?>

@@ -32,7 +32,7 @@
                         url: item.value
                     }
                 }"
-                v-for="item in appStore.getCopyrightConfig"
+                v-for="item in copyrightConfig"
                 :key="item.key"
             >
                 {{ item.key }}
@@ -87,6 +87,10 @@ const state = reactive<{
 })
 const scrollTop = ref<number>(0)
 const percent = ref<number>(0)
+const defaultCopyright = [{ key: '贵州猿创科技有限责任公司', value: '' }]
+const copyrightConfig = computed(() =>
+    appStore.getCopyrightConfig.length ? appStore.getCopyrightConfig : defaultCopyright
+)
 
 // 是否联动背景图
 const isLinkage = computed(() => {
