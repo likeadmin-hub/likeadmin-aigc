@@ -32,7 +32,7 @@ class WorkbenchController extends BaseAdminController
      */
     public function index()
     {
-        $result = WorkbenchLogic::index();
+        $result = WorkbenchLogic::index($this->tenantId);
         return $this->data($result);
     }
 }

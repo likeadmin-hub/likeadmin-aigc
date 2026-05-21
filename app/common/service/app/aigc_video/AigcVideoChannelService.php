@@ -5,6 +5,7 @@ namespace app\common\service\app\aigc_video;
 use app\common\model\app\aigc_video\AigcVideoChannel;
 use app\common\model\app\aigc_video\AigcVideoChannelSpec;
 use Exception;
+use think\facade\Db;
 
 class AigcVideoChannelService
 {
@@ -152,6 +153,22 @@ class AigcVideoChannelService
         ], $data, '内置规格不存在');
     }
 
+    public static function batchSavePlatformSpecs(array $params): void
+    {
+        $specs = $params['specs'] ?? $params['items'] ?? [];
+        if (!is_array($specs) || empty($specs)) {
+            throw new Exception('请选择要保存的规格');
+        }
+        Db::transaction(function () use ($specs) {
+            foreach ($specs as $spec) {
+                if (!is_array($spec)) {
+                    throw new Exception('规格参数格式错误');
+                }
+                self::updatePlatformSpecPatch($spec);
+            }
+        });
+    }
+
     public static function deletePlatform(array $params): void
     {
         throw new Exception('内置通道和规格不允许删除');
@@ -235,6 +252,37 @@ class AigcVideoChannelService
         ], $data);
     }
 
+    public static function batchSaveTenantSpecs(int $tenantId, array $params): void
+    {
+        $specs = $params['specs'] ?? $params['items'] ?? [];
+        if (!is_array($specs) || empty($specs)) {
+            throw new Exception('请选择要保存的规格');
+        }
+        Db::transaction(function () use ($tenantId, $specs) {
+            foreach ($specs as $spec) {
+                if (!is_array($spec)) {
+                    throw new Exception('规格参数格式错误');
+                }
+                $price = $spec['tenant_unit_price'] ?? null;
+                if ($price !== null && (float)$price < 0) {
+                    throw new Exception('用户售价不能小于0');
+                }
+                $payload = [
+                    'type' => 'spec',
+                    'channel_code' => $spec['channel_code'] ?? '',
+                    'quality' => $spec['quality'] ?? '',
+                    'ratio' => $spec['ratio'] ?? '',
+                    'tenant_unit_price' => $price,
+                    'status' => $spec['status'] ?? $spec['tenant_status'] ?? 1,
+                ];
+                if (array_key_exists('sort', $spec)) {
+                    $payload['sort'] = $spec['sort'];
+                }
+                self::saveTenantSpec($tenantId, $payload);
+            }
+        });
+    }
+
     private static function effectiveChannels(int $tenantId, bool $onlyEnabled): array
     {
         $platformChannels = AigcVideoChannel::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
@@ -304,12 +352,15 @@ class AigcVideoChannelService
                     'tenant_status' => (int)($tenantSpec['status'] ?? 1),
                     'sort' => (int)($tenantSpec['sort'] ?? $platformSpec['sort']),
                 ];
+                $spec = array_merge($spec, self::specPresentation($platformSpec));
                 $channel['specs'][] = $spec;
                 $qualityKey = $spec['quality'];
                 if (!isset($channel['qualities'][$qualityKey])) {
                     $channel['qualities'][$qualityKey] = [
                         'value' => $qualityKey,
                         'label' => $spec['quality_label'],
+                        'resolution' => $spec['resolution'],
+                        'duration' => $spec['duration'],
                         'ratios' => [],
                     ];
                 }
@@ -321,6 +372,43 @@ class AigcVideoChannelService
             }
         }
         return $channels;
+    }
+
+    private static function updatePlatformSpecPatch(array $params): void
+    {
+        $channelCode = self::normalizeCode((string)($params['channel_code'] ?? $params['code'] ?? ''));
+        self::assertPlatformChannel($channelCode);
+        $quality = strtolower(trim((string)($params['quality'] ?? '')));
+        $ratio = trim((string)($params['ratio'] ?? ''));
+        if ($quality === '' || $ratio === '') {
+            throw new Exception('请选择视频时长和比例');
+        }
+        $row = AigcVideoChannelSpec::where([
+            'tenant_id' => 0,
+            'channel_code' => $channelCode,
+            'quality' => $quality,
+            'ratio' => $ratio,
+        ])->findOrEmpty();
+        if ($row->isEmpty()) {
+            throw new Exception('内置规格不存在');
+        }
+        $data = ['update_time' => time()];
+        if (array_key_exists('platform_unit_cost', $params)) {
+            if ((float)$params['platform_unit_cost'] < 0) {
+                throw new Exception('平台定价不能小于0');
+            }
+            $data['platform_unit_cost'] = self::formatPoints((float)$params['platform_unit_cost']);
+        }
+        if (array_key_exists('status', $params)) {
+            $data['status'] = (int)$params['status'] === 1 ? 1 : 0;
+        }
+        if (array_key_exists('sort', $params)) {
+            $data['sort'] = (int)$params['sort'];
+        }
+        if (count($data) === 1) {
+            throw new Exception('没有可保存的规格内容');
+        }
+        $row->save($data);
     }
 
     private static function defaults(array $channels): array
@@ -452,17 +540,46 @@ class AigcVideoChannelService
             unset($channel['config_json']);
             if (!$forTenantAdmin) {
                 unset($channel['provider'], $channel['model']);
-            }
-            foreach ($channel['specs'] as &$spec) {
-                unset($spec['provider_params_json']);
-            }
-            foreach ($channel['qualities'] as &$quality) {
-                foreach ($quality['ratios'] as &$ratio) {
-                    unset($ratio['provider_params_json']);
+                foreach ($channel['specs'] as &$spec) {
+                    unset($spec['provider_params_json']);
+                }
+                foreach ($channel['qualities'] as &$quality) {
+                    foreach ($quality['ratios'] as &$ratio) {
+                        unset($ratio['provider_params_json']);
+                    }
                 }
             }
         }
         return $channels;
+    }
+
+    private static function specPresentation(array $spec): array
+    {
+        $params = self::normalizeJson($spec['provider_params_json'] ?? []);
+        $resolution = self::normalizeResolution($params['resolution'] ?? $params['size'] ?? $spec['quality_label'] ?? $spec['quality'] ?? '');
+        $duration = self::normalizeDuration($params['duration'] ?? $spec['quality_label'] ?? $spec['quality'] ?? '');
+        return [
+            'resolution' => $resolution,
+            'duration' => $duration,
+        ];
+    }
+
+    private static function normalizeResolution($value): string
+    {
+        $raw = strtoupper(trim((string)$value));
+        if (preg_match('/(1080P|720P|4K|2K|1K|\d+K)/', $raw, $matches)) {
+            return $matches[1];
+        }
+        return '';
+    }
+
+    private static function normalizeDuration($value): string
+    {
+        $raw = trim((string)$value);
+        if (preg_match('/(?:^|_|\s|·)(\d+)(?:\s*S|秒)?/i', $raw, $matches)) {
+            return ((int)$matches[1]) . '秒';
+        }
+        return '';
     }
 
     private static function saveRow(string $modelClass, array $where, array $data): void

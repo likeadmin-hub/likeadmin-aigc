@@ -818,12 +818,13 @@ class AigcVideoService
 
     private static function isAsyncProvider(string $provider): bool
     {
-        return in_array(strtolower($provider), ['xhadmin', 'xhadmin_grok_video', 'grok_video_xaiq'], true);
+        return in_array(strtolower($provider), ['xhadmin', 'xhadmin_grok_video', 'grok_video_xaiq', 'happyhorse', 'happy_horse'], true);
     }
 
     private static function providerFor(string $provider): AigcVideoProviderInterface
     {
         return match (strtolower($provider)) {
+            'happyhorse', 'happy_horse' => new HappyHorseAigcVideoProvider(),
             'xhadmin', 'xhadmin_grok_video', 'grok_video_xaiq' => new XhadminAigcVideoProvider(),
             default => new MockAigcVideoProvider(),
         };
