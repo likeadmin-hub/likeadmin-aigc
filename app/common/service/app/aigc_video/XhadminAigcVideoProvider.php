@@ -67,21 +67,12 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
             if (!is_string($videoUrl) || $videoUrl === '') {
                 continue;
             }
-            try {
-                $stored = AigcVideoAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
-                $videos[] = array_merge($stored, [
-                    'width' => (int)($stored['width'] ?? 0) ?: (int)($request->spec['width'] ?? 0),
-                    'height' => (int)($stored['height'] ?? 0) ?: (int)($request->spec['height'] ?? 0),
-                    'provider_task_id' => $taskId,
-                ]);
-            } catch (\Throwable) {
-                $videos[] = [
-                    'uri' => $videoUrl,
-                    'width' => (int)($request->spec['width'] ?? 0),
-                    'height' => (int)($request->spec['height'] ?? 0),
-                    'provider_task_id' => $taskId,
-                ];
-            }
+            $stored = AigcVideoAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
+            $videos[] = array_merge($stored, [
+                'width' => (int)($stored['width'] ?? 0) ?: (int)($request->spec['width'] ?? 0),
+                'height' => (int)($stored['height'] ?? 0) ?: (int)($request->spec['height'] ?? 0),
+                'provider_task_id' => $taskId,
+            ]);
         }
         if (empty($videos)) {
             return new AigcVideoGenerateResult(false, [], '供应商视频格式错误', $taskId);

@@ -221,21 +221,12 @@ class HappyHorseAigcVideoProvider implements AigcVideoProviderInterface
         }
         $videos = [];
         foreach ($videoUrls as $videoUrl) {
-            try {
-                $stored = AigcVideoAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
-                $videos[] = array_merge($stored, [
-                    'width' => (int)($stored['width'] ?? 0) ?: (int)($request->spec['width'] ?? 0),
-                    'height' => (int)($stored['height'] ?? 0) ?: (int)($request->spec['height'] ?? 0),
-                    'provider_task_id' => $taskId,
-                ]);
-            } catch (\Throwable) {
-                $videos[] = [
-                    'uri' => $videoUrl,
-                    'width' => (int)($request->spec['width'] ?? 0),
-                    'height' => (int)($request->spec['height'] ?? 0),
-                    'provider_task_id' => $taskId,
-                ];
-            }
+            $stored = AigcVideoAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
+            $videos[] = array_merge($stored, [
+                'width' => (int)($stored['width'] ?? 0) ?: (int)($request->spec['width'] ?? 0),
+                'height' => (int)($stored['height'] ?? 0) ?: (int)($request->spec['height'] ?? 0),
+                'provider_task_id' => $taskId,
+            ]);
         }
         return new AigcVideoGenerateResult(true, $videos, '', $taskId);
     }
@@ -296,6 +287,9 @@ class HappyHorseAigcVideoProvider implements AigcVideoProviderInterface
 
     private function isTaskPending(array $task): bool
     {
+        if (!empty($this->extractVideoUrls($task))) {
+            return false;
+        }
         $status = $this->extractTaskStatus($task);
         return $status === '' || in_array($status, ['pending', 'running', 'processing', 'queued', 'created', 'submitted', 'timeout'], true);
     }
@@ -304,11 +298,16 @@ class HappyHorseAigcVideoProvider implements AigcVideoProviderInterface
     {
         foreach ([
             $data['task_id'] ?? null,
+            $data['upstream_task_id'] ?? null,
+            $data['upstreamTaskId'] ?? null,
             $data['id'] ?? null,
             $data['data']['task_id'] ?? null,
+            $data['data']['upstream_task_id'] ?? null,
+            $data['data']['upstreamTaskId'] ?? null,
             $data['data']['id'] ?? null,
             $data['data']['task']['id'] ?? null,
             $data['data']['task']['task_id'] ?? null,
+            $data['data']['task']['upstream_task_id'] ?? null,
         ] as $value) {
             if (is_scalar($value) && (string)$value !== '') {
                 return (string)$value;
@@ -342,7 +341,7 @@ class HappyHorseAigcVideoProvider implements AigcVideoProviderInterface
         $status = strtolower(trim($status));
         return match ($status) {
             '1', 'ok', 'done', 'finished', 'finish', 'complete' => 'success',
-            '2', '3', 'failure', 'fail' => 'failed',
+            '2', '3', 'failure', 'fail', 'rejected' => 'failed',
             'cancelled', 'cancel' => 'canceled',
             default => $status,
         };
@@ -352,25 +351,36 @@ class HappyHorseAigcVideoProvider implements AigcVideoProviderInterface
     {
         $candidates = [
             $data['video_url'] ?? null,
+            $data['videoUrl'] ?? null,
             $data['data']['video_url'] ?? null,
+            $data['data']['videoUrl'] ?? null,
             $data['url'] ?? null,
             $data['data']['url'] ?? null,
             $data['result']['video_url'] ?? null,
+            $data['result']['videoUrl'] ?? null,
             $data['data']['result']['video_url'] ?? null,
+            $data['data']['result']['videoUrl'] ?? null,
             $data['result']['videos'] ?? null,
             $data['data']['result']['videos'] ?? null,
             $data['videos'] ?? null,
             $data['data']['videos'] ?? null,
             $data['results'] ?? null,
             $data['data']['results'] ?? null,
+            $data['outputs'] ?? null,
+            $data['data']['outputs'] ?? null,
             $data['output'] ?? null,
             $data['data']['output'] ?? null,
+            $data['content'] ?? null,
+            $data['data']['content'] ?? null,
+            $data['display'] ?? null,
+            $data['data']['display'] ?? null,
             $data['result'] ?? null,
             $data['data']['result'] ?? null,
+            $data['data'] ?? null,
         ];
         $urls = [];
         foreach ($candidates as $candidate) {
-            $this->collectVideoUrls($candidate, $urls);
+            $this->collectVideoUrls($candidate, $urls, 0);
             if (!empty($urls)) {
                 break;
             }
@@ -378,31 +388,39 @@ class HappyHorseAigcVideoProvider implements AigcVideoProviderInterface
         return array_values(array_unique($urls));
     }
 
-    private function collectVideoUrls(mixed $value, array &$urls): void
+    private function collectVideoUrls(mixed $value, array &$urls, int $depth = 0): void
     {
+        if ($depth > 8) {
+            return;
+        }
         if (is_string($value)) {
             if ($this->isVideoUrlCandidate($value)) {
-                $urls[] = $value;
+                $urls[] = trim($value);
             }
             return;
         }
         if (!is_array($value)) {
             return;
         }
+        foreach (['url', 'video_url', 'videoUrl', 'video', 'uri', 'src', 'origin_url', 'download_url', 'file_url', 'output_url'] as $key) {
+            if (!empty($value[$key]) && is_string($value[$key]) && $this->isVideoUrlCandidate($value[$key])) {
+                $urls[] = trim($value[$key]);
+            }
+        }
+        foreach (['outputs', 'output', 'videos', 'results', 'result', 'content', 'display', 'data'] as $key) {
+            if (array_key_exists($key, $value)) {
+                $this->collectVideoUrls($value[$key], $urls, $depth + 1);
+            }
+        }
         foreach ($value as $item) {
             if (is_string($item)) {
-                if ($item !== '') {
-                    $urls[] = $item;
+                if ($this->isVideoUrlCandidate($item)) {
+                    $urls[] = trim($item);
                 }
                 continue;
             }
-            if (!is_array($item)) {
-                continue;
-            }
-            foreach (['url', 'video_url', 'video', 'uri', 'src', 'origin_url', 'download_url'] as $key) {
-                if (!empty($item[$key]) && is_string($item[$key]) && $this->isVideoUrlCandidate($item[$key])) {
-                    $urls[] = $item[$key];
-                }
+            if (is_array($item)) {
+                $this->collectVideoUrls($item, $urls, $depth + 1);
             }
         }
     }

@@ -14,9 +14,11 @@
 namespace app\tenantapi\lists\user;
 
 use app\tenantapi\lists\BaseAdminDataLists;
+use app\common\enum\user\AccountLogEnum;
 use app\common\enum\user\UserTerminalEnum;
 use app\common\lists\ListsExcelInterface;
 use app\common\model\user\User;
+use app\common\model\user\UserAccountLog;
 
 
 /**
@@ -51,15 +53,19 @@ class UserLists extends BaseAdminDataLists implements ListsExcelInterface
      */
     public function lists(): array
     {
-        $field = "id,sn,nickname,sex,avatar,account,mobile,channel,create_time,is_disable";
+        $field = "id,sn,nickname,sex,avatar,account,mobile,channel,create_time,is_disable,user_money,total_recharge_amount";
         $lists = User::withSearch($this->setSearch(), $this->params)
             ->limit($this->limitOffset, $this->limitLength)
             ->field($field)
             ->order('id desc')
             ->select()->toArray();
 
+        $usedAmountMap = $this->getUsedAmountMap(array_column($lists, 'id'));
         foreach ($lists as &$item) {
             $item['channel'] = UserTerminalEnum::getTermInalDesc($item['channel']);
+            $item['user_money'] = $this->formatPoints($item['user_money'] ?? 0);
+            $item['total_recharge_amount'] = $this->formatPoints($item['total_recharge_amount'] ?? 0);
+            $item['total_used_amount'] = $this->formatPoints($usedAmountMap[$item['id']] ?? 0);
         }
 
         return $lists;
@@ -103,9 +109,53 @@ class UserLists extends BaseAdminDataLists implements ListsExcelInterface
             'nickname' => '用户昵称',
             'account' => '账号',
             'mobile' => '手机号码',
+            'user_money' => '剩余点数',
+            'total_used_amount' => '已使用点数',
+            'total_recharge_amount' => '累计充值点数',
             'channel' => '注册来源',
             'create_time' => '注册时间',
         ];
+    }
+
+
+    /**
+     * @notes 获取用户累计消费点数
+     * @param array $userIds
+     * @return array
+     */
+    private function getUsedAmountMap(array $userIds): array
+    {
+        $userIds = array_filter(array_map('intval', $userIds));
+        if (empty($userIds)) {
+            return [];
+        }
+
+        $rows = UserAccountLog::whereIn('user_id', $userIds)
+            ->where('tenant_id', (int)$this->adminInfo['tenant_id'])
+            ->where('change_type', AccountLogEnum::UM_DEC_APP_CONSUME)
+            ->where('action', AccountLogEnum::DEC)
+            ->field('user_id,SUM(change_amount) as total_used_amount')
+            ->group('user_id')
+            ->select()
+            ->toArray();
+
+        $map = [];
+        foreach ($rows as $row) {
+            $map[(int)$row['user_id']] = (float)$row['total_used_amount'];
+        }
+        return $map;
+    }
+
+
+    /**
+     * @notes 格式化点数
+     * @param mixed $value
+     * @return string
+     */
+    private function formatPoints(mixed $value): string
+    {
+        $number = round((float)$value, 2);
+        return number_format($number, floor($number) == $number ? 0 : 2, '.', '');
     }
 
 }

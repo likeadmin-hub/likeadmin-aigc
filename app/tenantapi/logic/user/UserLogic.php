@@ -18,6 +18,7 @@ use app\common\enum\user\UserTerminalEnum;
 use app\common\logic\AccountLogLogic;
 use app\common\logic\BaseLogic;
 use app\common\model\user\User;
+use app\common\model\user\UserAccountLog;
 use think\facade\Db;
 
 /**
@@ -40,7 +41,7 @@ class UserLogic extends BaseLogic
         $field = [
             'id', 'sn', 'account', 'nickname', 'avatar', 'real_name',
             'sex', 'mobile', 'create_time', 'login_time', 'channel',
-            'user_money','is_disable'
+            'user_money', 'total_recharge_amount', 'is_disable'
         ];
 
         $user = User::where(['id' => $userId])->field($field)
@@ -48,7 +49,11 @@ class UserLogic extends BaseLogic
 
         $user['channel'] = UserTerminalEnum::getTermInalDesc($user['channel']);
         $user->sexCode = $user->getData('sex');
-        return $user->toArray();
+        $detail = $user->toArray();
+        $detail['user_money'] = self::formatPoints($detail['user_money'] ?? 0);
+        $detail['total_recharge_amount'] = self::formatPoints($detail['total_recharge_amount'] ?? 0);
+        $detail['total_used_amount'] = self::formatPoints(self::getUsedAmount($userId));
+        return $detail;
     }
 
 
@@ -113,6 +118,32 @@ class UserLogic extends BaseLogic
             Db::rollback();
             return $e->getMessage();
         }
+    }
+
+
+    /**
+     * @notes 获取用户累计消费点数
+     * @param int $userId
+     * @return float
+     */
+    private static function getUsedAmount(int $userId): float
+    {
+        return (float)UserAccountLog::where('user_id', $userId)
+            ->where('change_type', AccountLogEnum::UM_DEC_APP_CONSUME)
+            ->where('action', AccountLogEnum::DEC)
+            ->sum('change_amount');
+    }
+
+
+    /**
+     * @notes 格式化点数
+     * @param mixed $value
+     * @return string
+     */
+    private static function formatPoints(mixed $value): string
+    {
+        $number = round((float)$value, 2);
+        return number_format($number, floor($number) == $number ? 0 : 2, '.', '');
     }
 
 }

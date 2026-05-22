@@ -53,16 +53,7 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
             }
             $videos = [];
             foreach ($videoUrls as $videoUrl) {
-                try {
-                    $stored = ImageHumanAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
-                } catch (\Throwable) {
-                    $stored = [
-                        'uri' => $videoUrl,
-                        'width' => 0,
-                        'height' => 0,
-                        'stored' => false,
-                    ];
-                }
+                $stored = ImageHumanAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
                 $videos[] = array_merge($stored, [
                     'provider_task_id' => $taskId,
                     'duration' => $request->duration,
