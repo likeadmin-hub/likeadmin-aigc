@@ -11,7 +11,7 @@
                         <el-avatar :src="formData.avatar" :size="58" />
                     </div>
                     <div class="basis-40 flex flex-col justify-center items-center">
-                        <div class="text-tx-regular">账户点数</div>
+                        <div class="text-tx-regular">剩余点数</div>
                         <div class="mt-2 flex items-center">
                             {{ formData.user_money }}
                             <el-button
@@ -23,6 +23,14 @@
                                 调整
                             </el-button>
                         </div>
+                    </div>
+                    <div class="basis-40 flex flex-col justify-center items-center">
+                        <div class="text-tx-regular">已使用点数</div>
+                        <div class="mt-2">{{ formData.total_used_amount }}</div>
+                    </div>
+                    <div class="basis-40 flex flex-col justify-center items-center">
+                        <div class="text-tx-regular">累计充值</div>
+                        <div class="mt-2">{{ formData.total_recharge_amount }}</div>
                     </div>
                 </div>
                 <el-form-item label="用户昵称：">
@@ -128,7 +136,9 @@ const formData = reactive({
     sex: 0,
     sn: '',
     account: '',
-    user_money: ''
+    user_money: '',
+    total_used_amount: '',
+    total_recharge_amount: ''
 })
 
 const adjustState = reactive({

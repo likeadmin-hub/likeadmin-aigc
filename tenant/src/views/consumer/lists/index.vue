@@ -49,6 +49,9 @@
                 <el-table-column label="昵称" prop="nickname" min-width="100" />
                 <el-table-column label="账号" prop="account" min-width="120" />
                 <el-table-column label="手机号码" prop="mobile" min-width="100" />
+                <el-table-column label="剩余点数" prop="user_money" min-width="100" />
+                <el-table-column label="已使用点数" prop="total_used_amount" min-width="110" />
+                <el-table-column label="累计充值" prop="total_recharge_amount" min-width="100" />
                 <el-table-column label="注册来源" prop="channel" min-width="100" />
                 <el-table-column label="注册时间" prop="create_time" min-width="120" />
                 <el-table-column label="操作" width="120" fixed="right">
