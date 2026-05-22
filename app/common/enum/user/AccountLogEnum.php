@@ -55,6 +55,7 @@ class AccountLogEnum
     const UM_INC_ADMIN = 200;
     const UM_INC_RECHARGE = 201;
     const UM_INC_MEMBERSHIP_BONUS = 202;
+    const UM_INC_REGISTER_BONUS = 203;
 
 
     /**
@@ -74,6 +75,7 @@ class AccountLogEnum
         self::UM_INC_ADMIN,
         self::UM_INC_RECHARGE,
         self::UM_INC_MEMBERSHIP_BONUS,
+        self::UM_INC_REGISTER_BONUS,
     ];
 
 
@@ -113,6 +115,7 @@ class AccountLogEnum
             self::UM_INC_ADMIN => '后台增加点数',
             self::UM_INC_RECHARGE => '充值增加点数',
             self::UM_INC_MEMBERSHIP_BONUS => '会员套餐赠送积分',
+            self::UM_INC_REGISTER_BONUS => '新用户注册赠送积分',
             self::UM_DEC_RECHARGE_REFUND => '充值订单退款减少点数',
             self::UM_DEC_APP_CONSUME => '应用消费扣减点数',
         ];

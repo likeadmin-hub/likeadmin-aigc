@@ -1,6 +1,27 @@
 <IfModule mod_rewrite.c>
   Options +FollowSymlinks -Multiviews
   RewriteEngine On
+  RewriteBase /
+
+  RewriteCond %{REQUEST_URI} ^/platform/
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^platform/ platform/index.html [L]
+
+  RewriteCond %{REQUEST_URI} ^/admin/
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^admin/ admin/index.html [L]
+
+  RewriteCond %{REQUEST_URI} ^/mobile/
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^mobile/ mobile/index.html [L]
+
+  RewriteCond %{REQUEST_URI} ^/pc/
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^pc/ pc/index.html [L]
 
   RewriteRule ^t/[0-9]+/admin(/.*)?$ admin/index.html [QSA,L]
   RewriteRule ^t/[0-9]+/pc(/.*)?$ pc/index.html [QSA,L]

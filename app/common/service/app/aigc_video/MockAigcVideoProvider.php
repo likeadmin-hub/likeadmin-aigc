@@ -11,7 +11,7 @@ class MockAigcVideoProvider implements AigcVideoProviderInterface
         $height = (int)($request->spec['height'] ?? 1024);
         for ($i = 0; $i < max(1, $request->quantity); $i++) {
             $videos[] = [
-                'uri' => 'pc/academy/course-preview.mp4',
+                'uri' => 'pc/media/aigc-preview.mp4',
                 'width' => $width,
                 'height' => $height,
             ];

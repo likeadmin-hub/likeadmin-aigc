@@ -7,7 +7,6 @@ use Exception;
 
 class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
 {
-    private const DEFAULT_BASE_URL = 'https://api.xhadmin.cn';
     private const DEFAULT_STREAM_PATH = '/api/v1/chat/completions';
 
     public function stream(AigcLlmGenerateRequest $request): \Generator
@@ -28,7 +27,10 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
         $source = UpdateSourceClient::getSource();
         $baseUrl = trim((string)($config['base_url'] ?? $config['endpoint'] ?? ''));
         if ($baseUrl === '') {
-            $baseUrl = $this->sourceBaseUrl((string)($source['active_base_url'] ?? $source['base_url'] ?? '')) ?: self::DEFAULT_BASE_URL;
+            $baseUrl = $this->sourceBaseUrl((string)($source['active_base_url'] ?? $source['base_url'] ?? ''));
+        }
+        if ($baseUrl === '') {
+            throw new Exception('请先配置通道 Base URL 或系统服务接口渠道 Base URL');
         }
         $streamPath = (string)($config['stream_path'] ?? $config['path'] ?? self::DEFAULT_STREAM_PATH);
         $apiKey = trim((string)($config['api_key'] ?? ''));

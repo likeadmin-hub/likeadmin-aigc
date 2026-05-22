@@ -17,9 +17,11 @@ namespace app\common\logic;
 
 use app\common\enum\PayEnum;
 use app\common\enum\YesNoEnum;
+use app\common\enum\user\UserTerminalEnum;
 use app\common\logic\BaseLogic;
 use app\common\model\membership\MembershipOrder;
 use app\common\model\pay\PayWay;
+use app\common\model\pay\TenantPayWay;
 use app\common\model\recharge\RechargeOrder;
 use app\common\logic\PayNotifyLogic;
 use app\common\model\user\User;
@@ -61,13 +63,7 @@ class PaymentLogic extends BaseLogic
             }
 
             //获取支付场景
-            $pay_way = PayWay::alias('pw')
-                ->join('tenant_pay_config dp', 'pw.pay_config_id = dp.id')
-                ->where(['pw.scene' => $terminal, 'pw.status' => YesNoEnum::YES])
-                ->field('dp.id,dp.name,dp.pay_way,dp.icon,dp.sort,dp.remark,pw.is_default')
-                ->order('pw.is_default desc,dp.sort desc,id asc')
-                ->select()
-                ->toArray();
+            $pay_way = self::getPayWayByTerminal((int)$terminal);
 
             foreach ($pay_way as $k => &$item) {
                 if ($item['pay_way'] == PayEnum::WECHAT_PAY) {
@@ -95,6 +91,53 @@ class PaymentLogic extends BaseLogic
             self::setError($e->getMessage());
             return false;
         }
+    }
+
+    private static function getPayWayByTerminal(int $terminal): array
+    {
+        $tenantId = (int)(request()->tenantId ?? 0);
+        $tenantPayWay = [];
+        if ($tenantId > 0) {
+            $tenantPayWay = self::queryTenantPayWay($terminal);
+            if (!empty($tenantPayWay)) {
+                return $tenantPayWay;
+            }
+            if ($terminal === UserTerminalEnum::PC) {
+                $tenantPayWay = self::queryTenantPayWay(UserTerminalEnum::H5);
+                if (!empty($tenantPayWay)) {
+                    return $tenantPayWay;
+                }
+            }
+        }
+
+        $payWay = self::queryPlatformPayWay($terminal);
+        if (empty($payWay) && $terminal === UserTerminalEnum::PC) {
+            return self::queryPlatformPayWay(UserTerminalEnum::H5);
+        }
+
+        return $payWay;
+    }
+
+    private static function queryTenantPayWay(int $terminal): array
+    {
+        return TenantPayWay::alias('pw')
+            ->join('tenant_pay_config dp', 'pw.pay_config_id = dp.id')
+            ->where(['pw.scene' => $terminal, 'pw.status' => YesNoEnum::YES])
+            ->field('dp.id,dp.name,dp.pay_way,dp.icon,dp.sort,dp.remark,pw.is_default')
+            ->order('pw.is_default desc,dp.sort desc,dp.id asc')
+            ->select()
+            ->toArray();
+    }
+
+    private static function queryPlatformPayWay(int $terminal): array
+    {
+        return PayWay::alias('pw')
+            ->join('pay_config dp', 'pw.pay_config_id = dp.id')
+            ->where(['pw.scene' => $terminal, 'pw.status' => YesNoEnum::YES])
+            ->field('dp.id,dp.name,dp.pay_way,dp.icon,dp.sort,dp.remark,pw.is_default')
+            ->order('pw.is_default desc,dp.sort desc,dp.id asc')
+            ->select()
+            ->toArray();
     }
 
 

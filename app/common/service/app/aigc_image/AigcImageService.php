@@ -197,9 +197,19 @@ class AigcImageService
                 }
             });
         }
-        $rows = $query->limit(100)->select()->toArray();
+        $usePage = isset($params['page_no']) || isset($params['page_size']);
+        $pageNo = max(1, (int)($params['page_no'] ?? 1));
+        $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15)));
+        $count = $usePage ? (int)(clone $query)->count() : 0;
+        if ($usePage) {
+            $query->limit(($pageNo - 1) * $pageSize, $pageSize);
+        } else {
+            $query->limit(100);
+        }
+        $rows = $query->select()->toArray();
         $taskIds = array_values(array_unique(array_filter(array_column($rows, 'id'))));
         $resultMap = [];
+        $seenResultKeys = [];
         if ($taskIds) {
             $resultRows = AigcImageResult::where('tenant_id', $tenantId)
                 ->where('delete_time', 0)
@@ -214,7 +224,16 @@ class AigcImageService
                     $result['storage_engine'] ?? '',
                     $result['storage_domain'] ?? ''
                 );
-                $resultMap[(int)$result['task_id']][] = $result;
+                $signature = (string)($result['image_uri'] ?: $result['image_url']);
+                if ($signature === '') {
+                    $signature = (string)$result['id'];
+                }
+                $taskKey = (int)$result['task_id'];
+                $dedupeKey = $taskKey . ':' . $signature;
+                if (!isset($seenResultKeys[$dedupeKey])) {
+                    $seenResultKeys[$dedupeKey] = true;
+                    $resultMap[$taskKey][] = $result;
+                }
             }
         }
         foreach ($rows as &$row) {
@@ -228,6 +247,14 @@ class AigcImageService
             $row['image_url'] = (string)($first['image_url'] ?? '');
             $row['width'] = (int)($first['width'] ?? 0);
             $row['height'] = (int)($first['height'] ?? 0);
+        }
+        if ($usePage) {
+            return [
+                'lists' => $rows,
+                'count' => $count,
+                'page_no' => $pageNo,
+                'page_size' => $pageSize,
+            ];
         }
         return $rows;
     }
@@ -385,9 +412,9 @@ class AigcImageService
         ]);
     }
 
-    public static function quotaLists(int $tenantId): array
+    public static function quotaLists(int $tenantId, array $params = []): array
     {
-        return AigcImageQuota::where('tenant_id', $tenantId)->order('id', 'desc')->limit(100)->select()->toArray();
+        return self::paginateRows(AigcImageQuota::where('tenant_id', $tenantId)->order('id', 'desc'), $params, 100);
     }
 
     public static function saveQuota(int $tenantId, array $params): void
@@ -413,9 +440,26 @@ class AigcImageService
         $row->save($data);
     }
 
-    public static function sensitiveWordLists(int $tenantId): array
+    public static function sensitiveWordLists(int $tenantId, array $params = []): array
     {
-        return AigcImageSensitiveWord::where('tenant_id', $tenantId)->order('id', 'desc')->limit(200)->select()->toArray();
+        return self::paginateRows(AigcImageSensitiveWord::where('tenant_id', $tenantId)->order('id', 'desc'), $params, 200);
+    }
+
+    private static function paginateRows($query, array $params, int $defaultLimit = 100): array
+    {
+        $usePage = isset($params['page_no']) || isset($params['page_size']);
+        $pageNo = max(1, (int)($params['page_no'] ?? 1));
+        $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15)));
+        if ($usePage) {
+            $count = (int)(clone $query)->count();
+            return [
+                'lists' => $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray(),
+                'count' => $count,
+                'page_no' => $pageNo,
+                'page_size' => $pageSize,
+            ];
+        }
+        return $query->limit($defaultLimit)->select()->toArray();
     }
 
     public static function saveSensitiveWord(int $tenantId, array $params): void

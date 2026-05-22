@@ -21,6 +21,7 @@ use app\common\enum\user\UserTerminalEnum;
 use app\common\model\user\User;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
+use app\common\service\user\RegisterBonusService;
 use app\common\service\wechat\WeChatConfigService;
 use app\common\service\wechat\WeChatOaService;
 use app\common\service\wechat\WeChatRequestService;
@@ -55,7 +56,7 @@ class LoginLogic extends BaseLogic
             $password = create_password($params['password'], $passwordSalt);
             $avatar = ConfigService::get('default_image', 'user_avatar');
 
-            User::create([
+            $user = User::create([
                 'sn' => $userSn,
                 'tenant_id' => request()->tenantId,
                 'avatar' => $avatar,
@@ -63,7 +64,9 @@ class LoginLogic extends BaseLogic
                 'account' => $params['account'],
                 'password' => $password,
                 'channel' => $params['channel'],
+                'is_new_user' => YesNoEnum::YES,
             ]);
+            RegisterBonusService::grantIfEnabled((int)$user['id']);
 
             return true;
         } catch (\Exception $e) {

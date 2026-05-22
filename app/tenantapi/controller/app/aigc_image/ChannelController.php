@@ -22,6 +22,16 @@ class ChannelController extends BaseAdminController
         }
     }
 
+    public function batchSave()
+    {
+        try {
+            AigcImageChannelService::batchSaveTenantSpecs($this->tenantId, $this->request->post());
+            return $this->success('保存成功', [], 1, 1);
+        } catch (\Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function status()
     {
         try {
@@ -37,4 +47,3 @@ class ChannelController extends BaseAdminController
         }
     }
 }
-

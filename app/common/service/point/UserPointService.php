@@ -47,4 +47,26 @@ class UserPointService
             $extra
         );
     }
+
+    public static function grantRegisterBonus(int $userId, float $points, string $sourceSn, string $remark = '', array $extra = []): void
+    {
+        if ($points <= 0) {
+            throw new RuntimeException('点数必须大于0');
+        }
+        $user = User::where('id', $userId)->lock(true)->findOrEmpty();
+        if ($user->isEmpty()) {
+            throw new RuntimeException('用户不存在');
+        }
+        $user->user_money = number_format((float)$user['user_money'] + $points, 2, '.', '');
+        $user->save();
+        AccountLogLogic::add(
+            $userId,
+            AccountLogEnum::UM_INC_REGISTER_BONUS,
+            AccountLogEnum::INC,
+            $points,
+            $sourceSn,
+            $remark,
+            $extra
+        );
+    }
 }

@@ -178,6 +178,14 @@
       "need_role_permission": 1
     },
     {
+      "api_path": "app.aigc_image.channel/batchSave",
+      "api_method": "POST",
+      "permission_key": "aigc_image:channel_price:batch_save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
       "api_path": "app.aigc_image.channel/status",
       "api_method": "POST",
       "permission_key": "aigc_image:channel_price:status",
@@ -293,6 +301,14 @@
       "api_path": "app.aigc_image.spec/save",
       "api_method": "POST",
       "permission_key": "aigc_image:spec:save",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.spec/batchSave",
+      "api_method": "POST",
+      "permission_key": "aigc_image:spec:batch_save",
       "scene": "platform_admin",
       "need_login": 1,
       "need_role_permission": 1

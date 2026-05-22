@@ -71,7 +71,15 @@ class StorageConfigService
         if ($tenant->isEmpty() || (int)($tenant['allow_custom_storage'] ?? 0) !== 1) {
             return false;
         }
-        return (int)self::getConfig('tenant', $tenantId, 'enable', 0) === 1;
+        $enabled = (int)self::getConfig('tenant', $tenantId, 'enable', 0) === 1;
+        if (!$enabled) {
+            return false;
+        }
+        $default = (string)self::getConfig('tenant', $tenantId, 'default', 'local');
+        if ($default === 'local' && (int)($tenant['allow_local_storage'] ?? 1) !== 1) {
+            return false;
+        }
+        return true;
     }
 
     public static function currentTenantId(): ?int

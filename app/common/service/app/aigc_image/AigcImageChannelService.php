@@ -5,6 +5,7 @@ namespace app\common\service\app\aigc_image;
 use app\common\model\app\aigc_image\AigcImageChannel;
 use app\common\model\app\aigc_image\AigcImageChannelSpec;
 use Exception;
+use think\facade\Db;
 
 class AigcImageChannelService
 {
@@ -152,6 +153,22 @@ class AigcImageChannelService
         ], $data, '内置规格不存在');
     }
 
+    public static function batchSavePlatformSpecs(array $params): void
+    {
+        $specs = $params['specs'] ?? $params['items'] ?? [];
+        if (!is_array($specs) || empty($specs)) {
+            throw new Exception('请选择要保存的规格');
+        }
+        Db::transaction(function () use ($specs) {
+            foreach ($specs as $spec) {
+                if (!is_array($spec)) {
+                    throw new Exception('规格参数格式错误');
+                }
+                self::updatePlatformSpecPatch($spec);
+            }
+        });
+    }
+
     public static function deletePlatform(array $params): void
     {
         throw new Exception('内置通道和规格不允许删除');
@@ -233,6 +250,37 @@ class AigcImageChannelService
             'quality' => $quality,
             'ratio' => $ratio,
         ], $data);
+    }
+
+    public static function batchSaveTenantSpecs(int $tenantId, array $params): void
+    {
+        $specs = $params['specs'] ?? $params['items'] ?? [];
+        if (!is_array($specs) || empty($specs)) {
+            throw new Exception('请选择要保存的规格');
+        }
+        Db::transaction(function () use ($tenantId, $specs) {
+            foreach ($specs as $spec) {
+                if (!is_array($spec)) {
+                    throw new Exception('规格参数格式错误');
+                }
+                $price = $spec['tenant_unit_price'] ?? null;
+                if ($price !== null && (float)$price < 0) {
+                    throw new Exception('用户售价不能小于0');
+                }
+                $payload = [
+                    'type' => 'spec',
+                    'channel_code' => $spec['channel_code'] ?? '',
+                    'quality' => $spec['quality'] ?? '',
+                    'ratio' => $spec['ratio'] ?? '',
+                    'tenant_unit_price' => $price,
+                    'status' => $spec['status'] ?? $spec['tenant_status'] ?? 1,
+                ];
+                if (array_key_exists('sort', $spec)) {
+                    $payload['sort'] = $spec['sort'];
+                }
+                self::saveTenantSpec($tenantId, $payload);
+            }
+        });
     }
 
     private static function effectiveChannels(int $tenantId, bool $onlyEnabled): array
@@ -321,6 +369,43 @@ class AigcImageChannelService
             }
         }
         return $channels;
+    }
+
+    private static function updatePlatformSpecPatch(array $params): void
+    {
+        $channelCode = self::normalizeCode((string)($params['channel_code'] ?? $params['code'] ?? ''));
+        self::assertPlatformChannel($channelCode);
+        $quality = strtolower(trim((string)($params['quality'] ?? '')));
+        $ratio = trim((string)($params['ratio'] ?? ''));
+        if ($quality === '' || $ratio === '') {
+            throw new Exception('请选择分辨率和比例');
+        }
+        $row = AigcImageChannelSpec::where([
+            'tenant_id' => 0,
+            'channel_code' => $channelCode,
+            'quality' => $quality,
+            'ratio' => $ratio,
+        ])->findOrEmpty();
+        if ($row->isEmpty()) {
+            throw new Exception('内置规格不存在');
+        }
+        $data = ['update_time' => time()];
+        if (array_key_exists('platform_unit_cost', $params)) {
+            if ((float)$params['platform_unit_cost'] < 0) {
+                throw new Exception('平台定价不能小于0');
+            }
+            $data['platform_unit_cost'] = self::formatPoints((float)$params['platform_unit_cost']);
+        }
+        if (array_key_exists('status', $params)) {
+            $data['status'] = (int)$params['status'] === 1 ? 1 : 0;
+        }
+        if (array_key_exists('sort', $params)) {
+            $data['sort'] = (int)$params['sort'];
+        }
+        if (count($data) === 1) {
+            throw new Exception('没有可保存的规格内容');
+        }
+        $row->save($data);
     }
 
     private static function defaults(array $channels): array

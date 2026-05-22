@@ -3,6 +3,8 @@
 namespace app\common\service\app;
 
 use app\common\model\app\AppCase;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanResult;
+use app\common\model\app\aigc_video\AigcVideoResult;
 use app\common\service\FileService;
 use Exception;
 
@@ -32,11 +34,7 @@ class AppCaseService
             $query->where('status', (int)$params['status']);
         }
 
-        $limit = max(1, min((int)($params['limit'] ?? 50), 100));
-        return array_map(
-            [self::class, 'formatRow'],
-            $query->order(['sort' => 'desc', 'id' => 'desc'])->limit($limit)->select()->toArray()
-        );
+        return self::paginateCaseQuery($query->order(['sort' => 'desc', 'id' => 'desc']), $params);
     }
 
     public static function listsByAppCodes(int $tenantId, array $appCodes, array $params = [], bool $onlyEnabled = false): array
@@ -63,11 +61,26 @@ class AppCaseService
             $query->where('status', (int)$params['status']);
         }
 
+        return self::paginateCaseQuery($query->order(['sort' => 'desc', 'id' => 'desc']), $params);
+    }
+
+    private static function paginateCaseQuery($query, array $params): array
+    {
+        $usePage = isset($params['page_no']) || isset($params['page_size']);
+        $pageNo = max(1, (int)($params['page_no'] ?? 1));
+        $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15)));
+        if ($usePage) {
+            $count = (int)(clone $query)->count();
+            $rows = $query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
+            return [
+                'lists' => array_map([self::class, 'formatRow'], $rows),
+                'count' => $count,
+                'page_no' => $pageNo,
+                'page_size' => $pageSize,
+            ];
+        }
         $limit = max(1, min((int)($params['limit'] ?? 50), 100));
-        return array_map(
-            [self::class, 'formatRow'],
-            $query->order(['sort' => 'desc', 'id' => 'desc'])->limit($limit)->select()->toArray()
-        );
+        return array_map([self::class, 'formatRow'], $query->limit($limit)->select()->toArray());
     }
 
     public static function detail(int $tenantId, string $appCode, int $id): array
@@ -112,7 +125,7 @@ class AppCaseService
             'update_time' => time(),
         ];
 
-        if ($data['cover_uri'] === '' && $data['media_uri'] !== '') {
+        if ($mediaType === self::MEDIA_IMAGE && $data['cover_uri'] === '' && $data['media_uri'] !== '') {
             $data['cover_uri'] = $data['media_uri'];
         }
 
@@ -202,12 +215,90 @@ class AppCaseService
         $cover = (string)($row['cover_uri'] ?? '');
         $media = (string)($row['media_uri'] ?? '');
         $config = (array)($row['config_json'] ?? []);
+        if ((string)($row['media_type'] ?? '') === self::MEDIA_VIDEO) {
+            if ($cover !== '' && ($cover === $media || self::isVideoUri($cover))) {
+                $cover = '';
+            }
+            $media = self::resolveVideoMediaUri($row, $media);
+        }
         $row['cover_url'] = $cover !== '' ? FileService::getFileUrl($cover) : '';
         $row['media_url'] = $media !== '' ? FileService::getFileUrl($media) : $row['cover_url'];
         $row['cover_path'] = $cover;
         $row['media_path'] = $media !== '' ? $media : $cover;
         $row['config_fields'] = self::configFields($config, (string)($row['media_type'] ?? self::MEDIA_IMAGE));
         return $row;
+    }
+
+    private static function resolveVideoMediaUri(array $row, string $fallback): string
+    {
+        $tenantId = (int)($row['tenant_id'] ?? 0);
+        $taskId = (int)($row['source_task_id'] ?? 0);
+        $resultId = (int)($row['source_result_id'] ?? 0);
+        $appCode = (string)($row['app_code'] ?? '');
+        if ($tenantId <= 0) {
+            return $fallback;
+        }
+
+        if ($appCode === 'aigc_video') {
+            $data = self::findVideoResultRow(AigcVideoResult::class, $tenantId, $taskId, $resultId, $fallback);
+            return $data ? self::videoResultUrl($data) ?: $fallback : $fallback;
+        }
+
+        if ($appCode === 'aigc_digital_human') {
+            $data = self::findVideoResultRow(AigcDigitalHumanResult::class, $tenantId, $taskId, $resultId, $fallback);
+            return $data ? self::videoResultUrl($data) ?: $fallback : $fallback;
+        }
+
+        return $fallback;
+    }
+
+    private static function findVideoResultRow(string $modelClass, int $tenantId, int $taskId, int $resultId, string $fallback): array
+    {
+        if ($resultId > 0) {
+            $result = $modelClass::where(['tenant_id' => $tenantId, 'id' => $resultId])->where('delete_time', 0)->findOrEmpty();
+            if (!$result->isEmpty()) {
+                $data = $result->toArray();
+                if (($taskId <= 0 || (int)($data['task_id'] ?? 0) === $taskId) && ((string)($data['video_uri'] ?? '') === $fallback || $fallback === '')) {
+                    return $data;
+                }
+            }
+        }
+
+        if ($taskId <= 0) {
+            return [];
+        }
+
+        $query = $modelClass::where(['tenant_id' => $tenantId, 'task_id' => $taskId])->where('delete_time', 0);
+        if ($fallback !== '') {
+            $matched = (clone $query)->where('video_uri', $fallback)->findOrEmpty();
+            if (!$matched->isEmpty()) {
+                return $matched->toArray();
+            }
+        }
+
+        $first = $query->order('id', 'asc')->findOrEmpty();
+        return $first->isEmpty() ? [] : $first->toArray();
+    }
+
+    private static function videoResultUrl(array $data): string
+    {
+        return FileService::getFileUrlByStorage(
+            (string)($data['video_uri'] ?? ''),
+            (string)($data['storage_scope'] ?? ''),
+            (string)($data['storage_engine'] ?? ''),
+            (string)($data['storage_domain'] ?? '')
+        );
+    }
+
+    private static function isVideoUri(string $uri): bool
+    {
+        return (bool)preg_match('/\.(mp4|mov|m4v|webm|avi|mkv|flv|3gp)(\?|#|$)/i', $uri);
+    }
+
+    private static function withoutDefaultSeedCases($query): void
+    {
+        $query->whereRaw("(cover_uri = '' OR cover_uri NOT LIKE 'uploads/app_case/%/default/%')")
+            ->whereRaw("(media_uri = '' OR media_uri NOT LIKE 'uploads/app_case/%/default/%')");
     }
 
     private static function configFields(array $config, string $mediaType): array
@@ -241,12 +332,6 @@ class AppCaseService
             return FileService::setFileUrl($uri);
         }
         return ltrim($uri, '/');
-    }
-
-    private static function withoutDefaultSeedCases($query): void
-    {
-        $query->whereRaw("(cover_uri = '' OR cover_uri NOT LIKE 'uploads/app_case/%/default/%')")
-            ->whereRaw("(media_uri = '' OR media_uri NOT LIKE 'uploads/app_case/%/default/%')");
     }
 
     private static function normalizeAllowedAppCodes(array $appCodes): array

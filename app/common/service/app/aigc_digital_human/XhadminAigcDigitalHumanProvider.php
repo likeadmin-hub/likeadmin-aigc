@@ -7,7 +7,6 @@ use Exception;
 
 class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterface
 {
-    private const DEFAULT_BASE_URL = 'https://api.xhadmin.cn';
     private const TTS_PATH = '/api/v1/apps/voice_tts/tts_live';
     private const CLONE_VOICE_PATH = '/api/v1/apps/voice_tts/clone_voice';
     private const LIPSYNC_PATH = '/api/v1/apps/lipsync/submit';
@@ -114,6 +113,9 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
         $source = UpdateSourceClient::getSource();
         $baseUrl = $this->sourceBaseUrl((string)($source['active_base_url'] ?? $source['base_url'] ?? ''));
         $apiKey = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? ''));
+        if ($baseUrl === '') {
+            throw new Exception('请先在系统服务的接口渠道中配置 Base URL');
+        }
         if ($apiKey === '') {
             throw new Exception('请先在系统服务的接口渠道中配置 API Key');
         }
@@ -136,7 +138,7 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
     {
         $baseUrl = trim($baseUrl);
         if ($baseUrl === '') {
-            return self::DEFAULT_BASE_URL;
+            return '';
         }
         $parts = parse_url($baseUrl);
         $scheme = (string)($parts['scheme'] ?? 'https');
@@ -283,14 +285,17 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
     private function collectMediaUrl(mixed $value, array $keys, string $kind): string
     {
         if (is_string($value)) {
-            return $value !== '' ? $value : '';
+            return $this->normalizeMediaUrl($value, $kind, false);
         }
         if (!is_array($value)) {
             return '';
         }
         foreach ($keys as $key) {
             if (!empty($value[$key]) && is_string($value[$key])) {
-                return $value[$key];
+                $url = $this->normalizeMediaUrl($value[$key], $kind, true);
+                if ($url !== '') {
+                    return $url;
+                }
             }
         }
         foreach ($value as $item) {
@@ -300,6 +305,26 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
             }
         }
         return '';
+    }
+
+    private function normalizeMediaUrl(string $url, string $kind, bool $fromMediaKey): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return '';
+        }
+        if (preg_match('/^(https?:\/\/|data:(?:audio|video)\/)/i', $url)) {
+            return $url;
+        }
+        $path = ltrim((string)(parse_url($url, PHP_URL_PATH) ?: $url), '/');
+        if ($path === '' || (!str_starts_with($path, 'uploads/') && !str_starts_with($path, 'resource/'))) {
+            return '';
+        }
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $allowed = $kind === 'audio'
+            ? ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'opus']
+            : ['mp4', 'mov', 'webm', 'm4v'];
+        return in_array($ext, $allowed, true) ? $url : '';
     }
 
     private function extractError(array $data): string

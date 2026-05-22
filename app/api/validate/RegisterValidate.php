@@ -32,6 +32,7 @@ class RegisterValidate extends BaseValidate
 
     protected $rule = [
         'channel' => 'require',
+        'register_way' => 'in:1',
         'account' => 'require|length:3,12|unique:' . User::class . '|regex:register',
         'password' => 'require|length:6,20|regex:password',
         'password_confirm' => 'require|confirm'
@@ -39,6 +40,7 @@ class RegisterValidate extends BaseValidate
 
     protected $message = [
         'channel.require' => '注册来源参数缺失',
+        'register_way.in' => '请使用账号密码注册',
         'account.require' => '请输入账号',
         'account.regex' => '账号须为字母数字组合',
         'account.length' => '账号须为3-12位之间',

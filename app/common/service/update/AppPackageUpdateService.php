@@ -10,6 +10,7 @@ use app\common\model\update\UpdatePackage;
 use app\common\model\update\UpdateTask;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\DefaultAppService;
+use app\common\service\database\SqlMigrationExecutor;
 use RuntimeException;
 use think\facade\Db;
 use Throwable;
@@ -341,9 +342,7 @@ class AppPackageUpdateService
             }
             try {
                 $sqlPrefix = config('database.connections.mysql.prefix');
-                foreach (array_filter(array_map('trim', explode(';', $content))) as $sql) {
-                    Db::execute(str_replace('`la_', '`' . $sqlPrefix, $sql) . ';');
-                }
+                SqlMigrationExecutor::execute($content, $sqlPrefix);
                 $migration->save(['status' => 'success', 'error' => '', 'update_time' => time()]);
             } catch (Throwable $e) {
                 $migration->save(['status' => 'failed', 'error' => $e->getMessage(), 'update_time' => time()]);

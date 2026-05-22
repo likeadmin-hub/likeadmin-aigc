@@ -5,7 +5,10 @@ namespace app\common\service\update;
 use app\common\model\update\UpdatePackage;
 use app\common\model\update\UpdateTask;
 use app\common\service\ConfigService;
+use app\common\service\app\AppAccessService;
 use app\common\service\app\DefaultAppService;
+use app\common\service\app\AppRegistryService;
+use app\common\service\billing\PackageProvisionService;
 use app\platformapi\logic\upgrade\UpgradeLogic;
 use RuntimeException;
 use think\facade\Db;
@@ -13,6 +16,8 @@ use Throwable;
 
 class SystemPackageUpdateService
 {
+    private const UPDATE_EXECUTION_TIMEOUT = 600;
+
     public function versions(array $params = []): array
     {
         return (new UpdateSourceClient())->request(UpdateSourceClient::path('system/versions'), $params);
@@ -48,6 +53,7 @@ class SystemPackageUpdateService
 
     public function downloadPackage(string $targetVersion, string $currentVersion = ''): array
     {
+        $this->extendExecutionTimeout();
         try {
             if ($targetVersion === '') {
                 throw new RuntimeException('请选择目标版本');
@@ -162,6 +168,7 @@ class SystemPackageUpdateService
 
     public function preflight(int $packageId): array
     {
+        $this->extendExecutionTimeout();
         try {
             $package = $this->getPackage($packageId);
             $extractor = new PackageExtractService();
@@ -197,12 +204,14 @@ class SystemPackageUpdateService
                     throw new RuntimeException('系统包 product_code 不一致');
                 }
                 $this->assertCoreRequirement($manifest);
+                $builtinApps = $this->preflightBuiltinApps($extract['path']);
                 $result = [
                     'passed' => true,
                     'errors' => [],
                     'extract' => $extract,
                     'manifest' => $manifest,
                     'environment' => $preflight['environment'],
+                    'builtin_apps' => $builtinApps,
                 ];
                 $package->save([
                     'version' => (string)($manifest['version'] ?? $package['version']),
@@ -233,6 +242,7 @@ class SystemPackageUpdateService
 
     public function apply(int $packageId): array
     {
+        $this->extendExecutionTimeout();
         $package = $this->getPackage($packageId);
         $task = $this->createTask($package, 'apply');
         $lock = $this->acquireLock('system_update');
@@ -260,10 +270,16 @@ class SystemPackageUpdateService
             if (!UpgradeLogic::upgradeSql($extractPath . '/sql/structure/')) {
                 throw new RuntimeException('更新数据库结构失败');
             }
+            $builtinApps = $this->syncBuiltinApps((string)$package['version']);
             DefaultAppService::syncAllTenants();
+            PackageProvisionService::syncAllTenants();
             $package->save(['status' => 'applied', 'error' => '', 'update_time' => time()]);
             $this->writeLocalVersion((string)$package['version']);
-            $result = ['version' => $package['version'], 'extract_path' => $extractPath];
+            $result = [
+                'version' => $package['version'],
+                'extract_path' => $extractPath,
+                'builtin_apps' => $builtinApps,
+            ];
             $this->finishTask($task, 'success', $result);
             return $result;
         } catch (Throwable $e) {
@@ -286,6 +302,78 @@ class SystemPackageUpdateService
             }
             return UpdateSourceClient::download((string)$data['fallback_url'], (string)($data['fallback_sha256'] ?? ''), (string)($data['fallback_format'] ?? 'tar.gz'));
         }
+    }
+
+    private function extendExecutionTimeout(): void
+    {
+        ini_set('max_execution_time', (string)self::UPDATE_EXECUTION_TIMEOUT);
+        set_time_limit(self::UPDATE_EXECUTION_TIMEOUT);
+    }
+
+    private function syncBuiltinApps(string $coreVersion): array
+    {
+        $result = [];
+        foreach (AppAccessService::DEFAULT_AIGC_APP_CODES as $appCode) {
+            $manifestPath = AppRegistryService::manifestPath($appCode);
+            if (!is_file($manifestPath)) {
+                $result[] = [
+                    'app_code' => $appCode,
+                    'version' => '',
+                    'status' => 'skipped',
+                    'error' => '应用目录或清单不存在',
+                ];
+                continue;
+            }
+
+            try {
+                $sync = AppRegistryService::installFromLocalWithResult($appCode, $coreVersion);
+                $manifest = $sync['manifest'] ?? [];
+                $result[] = [
+                    'app_code' => $appCode,
+                    'version' => (string)($manifest['version'] ?? ''),
+                    'status' => 'executed',
+                    'migrations' => $sync['migrations'] ?? [],
+                    'error' => '',
+                ];
+            } catch (Throwable $e) {
+                $result[] = [
+                    'app_code' => $appCode,
+                    'version' => '',
+                    'status' => 'error',
+                    'migrations' => [],
+                    'error' => $e->getMessage(),
+                ];
+                throw new RuntimeException('内置应用同步失败[' . $appCode . ']：' . $e->getMessage(), 0, $e);
+            }
+        }
+        return $result;
+    }
+
+    private function preflightBuiltinApps(string $extractPath): array
+    {
+        $result = [];
+        foreach (AppAccessService::DEFAULT_AIGC_APP_CODES as $appCode) {
+            $appPath = rtrim($extractPath, '/') . '/files/app/apps/' . $appCode;
+            $manifestPath = $appPath . '/manifest.json';
+            if (!is_file($manifestPath)) {
+                throw new RuntimeException('系统包缺少内置应用清单: ' . $appCode);
+            }
+            $manifest = json_decode((string)file_get_contents($manifestPath), true);
+            if (!is_array($manifest) || ($manifest['code'] ?? '') !== $appCode) {
+                throw new RuntimeException('系统包内置应用清单格式错误: ' . $appCode);
+            }
+            $migrations = [];
+            foreach (glob($appPath . '/migrations/*.sql') ?: [] as $file) {
+                $migrations[] = basename($file);
+            }
+            $result[] = [
+                'app_code' => $appCode,
+                'version' => (string)($manifest['version'] ?? ''),
+                'status' => 'present',
+                'migrations' => $migrations,
+            ];
+        }
+        return $result;
     }
 
     private function normalizeVersions(array $data): array
