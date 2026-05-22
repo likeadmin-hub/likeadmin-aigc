@@ -26,6 +26,10 @@ export function saveAigcDigitalHumanAvatar(params: any) {
     return $request.post({ url: '/app.aigc_digital_human.avatar/save', params })
 }
 
+export function deleteAigcDigitalHumanAvatar(params: any) {
+    return $request.post({ url: '/app.aigc_digital_human.user_avatar/delete', params })
+}
+
 export function getAigcDigitalHumanVoices(params?: any) {
     return $request.get({ url: '/app.aigc_digital_human.voice/lists', params })
 }
@@ -37,6 +41,10 @@ export function saveAigcDigitalHumanVoice(params: any) {
         timeout: 60 * 1000,
         retry: 0
     })
+}
+
+export function deleteAigcDigitalHumanVoice(params: any) {
+    return $request.post({ url: '/app.aigc_digital_human.user_voice/delete', params })
 }
 
 export function previewAigcDigitalHumanVoice(params: any) {

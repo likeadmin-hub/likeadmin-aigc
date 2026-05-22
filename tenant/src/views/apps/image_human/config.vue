@@ -1,6 +1,10 @@
 <template>
     <el-card class="!border-none" shadow="never" v-loading="loading">
         <el-form label-width="140px">
+            <el-form-item label="文案字数限制">
+                <el-input-number v-model="baseConfig.prompt_max_length" :min="0" :precision="0" />
+                <span class="ml-2 text-tx-secondary">0 表示不限制</span>
+            </el-form-item>
             <el-form-item label="计费单位">
                 <el-tag>{{ unitText(pricing.billing_unit) }}</el-tag>
             </el-form-item>
@@ -38,6 +42,9 @@
 import { getImageHumanConfig, setImageHumanConfig } from '@/apps/image_human/api'
 
 const loading = ref(false)
+const baseConfig = reactive({
+    prompt_max_length: 200
+})
 const pricing = reactive({
     platform_unit_cost: 1.666667,
     tenant_unit_price: 2,
@@ -63,6 +70,7 @@ const getData = async () => {
     loading.value = true
     try {
         const data = await getImageHumanConfig()
+        Object.assign(baseConfig, data?.base_config || data?.config_json?.base_config || {})
         Object.assign(
             pricing,
             normalizePricing(data?.option_config?.pricing || data?.config_json?.pricing || {})
@@ -96,7 +104,9 @@ const normalizePricing = (value: any) => {
 }
 const handleSubmit = async () => {
     await setImageHumanConfig({
+        base_config: baseConfig,
         config_json: {
+            base_config: baseConfig,
             pricing: {
                 tenant_unit_price: pricing.modes.fast.tenant_unit_price,
                 modes: {

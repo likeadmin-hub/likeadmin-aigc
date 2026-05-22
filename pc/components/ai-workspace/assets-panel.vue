@@ -638,7 +638,7 @@ watch(() => userStore.isLogin, loadAssets)
     width: 100%;
     height: 100%;
     min-height: 0;
-    padding-top: 40px;
+    padding-top: 0;
     overflow: hidden;
     box-sizing: border-box;
 }
@@ -866,7 +866,7 @@ watch(() => userStore.isLogin, loadAssets)
     display: flex;
     flex-direction: column;
     gap: 56px;
-    padding-bottom: 8px;
+    padding-bottom: 0;
 }
 
 .assets-scroll {
@@ -1537,10 +1537,10 @@ watch(() => userStore.isLogin, loadAssets)
 @media (max-width: 1100px) {
     .assets-shell {
         --asset-card-min-width: 210px;
-        height: auto;
-        min-height: auto;
+        height: 100%;
+        min-height: 0;
         padding-top: 0;
-        overflow: visible;
+        overflow: hidden;
     }
 
     .assets-toolbar {
@@ -1564,10 +1564,11 @@ watch(() => userStore.isLogin, loadAssets)
     }
 
     .assets-scroll {
-        flex: none;
-        min-height: auto;
+        flex: 1;
+        min-height: 0;
         padding-right: 0;
-        overflow: visible;
+        overflow-y: auto;
+        overflow-x: hidden;
     }
 
     .assets-tabs {

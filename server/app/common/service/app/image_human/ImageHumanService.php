@@ -18,6 +18,7 @@ use think\facade\Db;
 class ImageHumanService
 {
     public const APP_CODE = 'image_human';
+    private const PROMPT_MAX_LENGTH = 200;
     private const DUPLICATE_WINDOW_SECONDS = 6;
 
     public static function config(int $tenantId): array
@@ -28,6 +29,7 @@ class ImageHumanService
             'model' => $config['model'],
             'status' => $config['status'],
             'config_json' => $config['config_json'],
+            'base_config' => self::baseConfig($tenantId),
             'option_config' => [
                 'modes' => [
                     ['value' => 'fast', 'label' => '快速模式', 'description' => '适合快速预览，生成速度优先'],
@@ -70,6 +72,14 @@ class ImageHumanService
         } else {
             $configJson['provider'] = self::normalizeProviderConfig(array_merge((array)($current['config_json']['provider'] ?? []), (array)($configJson['provider'] ?? [])));
         }
+        if (isset($params['base_config']) && is_array($params['base_config'])) {
+            $configJson['base_config'] = $params['base_config'];
+        }
+        if (isset($configJson['base']) && is_array($configJson['base'])) {
+            $configJson['base_config'] = $configJson['base'];
+            unset($configJson['base']);
+        }
+        $configJson['base_config'] = self::normalizeBaseConfig((array)($configJson['base_config'] ?? []));
         $data = [
             'tenant_id' => $tenantId,
             'provider' => trim((string)($params['provider'] ?? $current['provider'] ?? 'xhadmin')) ?: 'xhadmin',
@@ -95,8 +105,14 @@ class ImageHumanService
         }
         $current = self::effectiveConfig($tenantId);
         $configJson = [];
-        $incomingPricing = (array)($params['pricing'] ?? ($params['config_json']['pricing'] ?? []));
+        $incomingConfigJson = is_array($params['config_json'] ?? null) ? $params['config_json'] : [];
+        $incomingPricing = (array)($params['pricing'] ?? ($incomingConfigJson['pricing'] ?? []));
         $configJson['pricing'] = self::tenantPricingOverrides($incomingPricing, self::normalizePricing((array)($current['config_json']['pricing'] ?? [])));
+        if (isset($params['base_config']) && is_array($params['base_config'])) {
+            $configJson['base_config'] = self::normalizeBaseConfig($params['base_config']);
+        } elseif (isset($incomingConfigJson['base_config']) && is_array($incomingConfigJson['base_config'])) {
+            $configJson['base_config'] = self::normalizeBaseConfig($incomingConfigJson['base_config']);
+        }
         $data = [
             'tenant_id' => $tenantId,
             'provider' => (string)($current['provider'] ?? 'xhadmin'),
@@ -277,6 +293,11 @@ class ImageHumanService
         return AigcDigitalHumanService::saveVoice($tenantId, $userId, $params);
     }
 
+    public static function previewVoice(int $tenantId, int $userId, array $params): array
+    {
+        return AigcDigitalHumanService::previewVoice($tenantId, $userId, $params);
+    }
+
     public static function deleteVoice(int $tenantId, int $userId, int $id): void
     {
         if ($id <= 0) {
@@ -358,7 +379,12 @@ class ImageHumanService
             throw new Exception('请上传参考音频');
         }
         if ($prompt === '') {
-            throw new Exception('请输入提示词');
+            throw new Exception('请输入文案内容');
+        }
+        $baseConfig = self::baseConfig($tenantId);
+        $promptMaxLength = (int)($baseConfig['prompt_max_length'] ?? 0);
+        if ($promptMaxLength > 0 && mb_strlen($prompt) > $promptMaxLength) {
+            throw new Exception('文案不能超过' . $promptMaxLength . '个字');
         }
         $duration = self::normalizeDuration($params['duration'] ?? 0);
         if ($duration <= 0 && !empty($voice['duration'])) {
@@ -732,14 +758,31 @@ class ImageHumanService
         if ($tenant && !$tenant->isEmpty()) {
             $tenantData = $tenant->toArray();
             $tenantPricing = (array)($tenantData['config_json']['pricing'] ?? []);
+            $tenantBaseConfig = (array)($tenantData['config_json']['base_config'] ?? $tenantData['config_json']['base'] ?? []);
             $base['config_json'] = (array)($base['config_json'] ?? []);
             if (!empty($tenantPricing)) {
                 $basePricing = self::normalizePricing((array)($base['config_json']['pricing'] ?? []));
                 $base['config_json']['pricing'] = self::mergeTenantPricing($basePricing, $tenantPricing);
             }
+            if (!empty($tenantBaseConfig)) {
+                $base['config_json']['base_config'] = array_merge((array)($base['config_json']['base_config'] ?? $base['config_json']['base'] ?? []), $tenantBaseConfig);
+            }
         }
         $base['config_json'] = is_array($base['config_json'] ?? null) ? $base['config_json'] : [];
         return $base;
+    }
+
+    private static function baseConfig(int $tenantId): array
+    {
+        $config = self::effectiveConfig($tenantId);
+        return self::normalizeBaseConfig((array)($config['config_json']['base_config'] ?? $config['config_json']['base'] ?? []));
+    }
+
+    private static function normalizeBaseConfig(array $config): array
+    {
+        return [
+            'prompt_max_length' => max(0, (int)($config['prompt_max_length'] ?? $config['script_max_length'] ?? self::PROMPT_MAX_LENGTH)),
+        ];
     }
 
     private static function pricing(int $tenantId): array

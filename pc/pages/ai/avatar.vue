@@ -130,7 +130,23 @@
                                 <template v-if="appliedAvatarItem">
                                     <div class="avatar-editor-card">
                                         <div class="avatar-editor-card__preview">
-                                            <img :src="appliedAvatarItem.image" :alt="appliedAvatarItem.name" />
+                                            <video
+                                                v-if="appliedAvatarItem.videoUrl"
+                                                :src="appliedAvatarItem.videoUrl"
+                                                :poster="appliedAvatarItem.image || undefined"
+                                                muted
+                                                autoplay
+                                                loop
+                                                playsinline
+                                                preload="metadata"
+                                            ></video>
+                                            <img
+                                                v-else-if="appliedAvatarItem.image"
+                                                :src="appliedAvatarItem.image"
+                                                :alt="appliedAvatarItem.name"
+                                                @error="handleAvatarImageError(appliedAvatarItem)"
+                                            />
+                                            <span v-else class="avatar-editor-card__empty">{{ appliedAvatarItem.name.slice(0, 1) }}</span>
                                         </div>
                                         <div class="avatar-editor-card__actions">
                                             <button type="button" :aria-label="texts.historyAvatar" @click="openAvatarLibrary('official')">
@@ -160,7 +176,7 @@
 
                         <section class="editor-section editor-section--voice">
                             <div class="editor-section__head">
-                                <span class="editor-section__label">{{ activeHumanMode === 'image_human' ? texts.selectReferenceAudio : texts.selectVoice }}</span>
+                                <span class="editor-section__label">{{ texts.selectVoice }}</span>
                                 <button class="mini-action" type="button" @click="openVoiceLibrary('mine')">
                                     <img :src="voiceLibraryIcon" alt="" />
                                     <span>{{ texts.voiceLibrary }}</span>
@@ -177,13 +193,16 @@
                                                 @click="toggleVoicePreview(appliedVoiceItem)"
                                             >
                                                 <img
-                                                    v-if="appliedVoiceItem.cover"
+                                                    v-if="appliedVoiceItem.cover || audioCoverIcon"
                                                     class="voice-editor-card__image"
-                                                    :src="appliedVoiceItem.cover"
+                                                    :src="appliedVoiceItem.cover || audioCoverIcon"
                                                     :alt="appliedVoiceItem.name"
                                                 />
                                                 <span v-else class="voice-editor-card__disc"></span>
-                                                <span class="voice-editor-card__play">
+                                                <span
+                                                    class="voice-editor-card__play"
+                                                    :class="{ 'is-active': playingVoiceId === appliedVoiceItem.id || voicePreviewLoadingId === appliedVoiceItem.id }"
+                                                >
                                                     <span
                                                         v-if="voicePreviewLoadingId === appliedVoiceItem.id"
                                                         class="voice-card__loading-icon"
@@ -221,12 +240,21 @@
                                 <template v-else-if="driverAudio">
                                     <div class="voice-editor-card">
                                         <div class="voice-editor-card__body">
-                                            <button class="voice-editor-card__cover" type="button" :aria-label="texts.audioDriver">
-                                                <span class="voice-editor-card__disc"></span>
-                                                <span class="voice-editor-card__play">{{ formatVoiceCreateDuration(driverAudio.duration || 0) }}</span>
+                                            <button
+                                                class="voice-editor-card__cover"
+                                                :class="{ 'is-playing': isDriverAudioPlaying }"
+                                                type="button"
+                                                :aria-label="isDriverAudioPlaying ? texts.pauseVoice : texts.playVoice"
+                                                @click="toggleDriverAudioPreview"
+                                            >
+                                                <img class="voice-editor-card__image" :src="audioCoverIcon" :alt="texts.audioDriver" />
+                                                <span class="voice-editor-card__play" :class="{ 'is-active': isDriverAudioPlaying }">
+                                                    <span v-if="isDriverAudioPlaying" class="voice-card__pause-icon"></span>
+                                                    <span v-else class="voice-card__play-icon"></span>
+                                                </span>
                                             </button>
-                                            <div class="voice-editor-card__name" :title="driverAudio.fileName">
-                                                {{ driverAudio.fileName }}
+                                            <div class="voice-editor-card__name" :title="driverAudioDisplayTitle">
+                                                {{ driverAudioDisplayTitle }}
                                             </div>
                                         </div>
                                         <div class="voice-editor-card__actions">
@@ -245,7 +273,7 @@
                                 <template v-else>
                                     <button class="editor-stage__upload" type="button" @click="triggerDriverAudioUpload">
                                         <img :src="addIcon" alt="" />
-                                        <span>{{ activeHumanMode === 'image_human' ? texts.uploadReferenceAudio : texts.uploadVoice }}</span>
+                                        <span>{{ activeHumanMode === 'image_human' ? texts.uploadDriverAudio : texts.uploadVoice }}</span>
                                     </button>
                                     <button class="editor-stage__history" type="button" @click="openHistoryVoiceModal">
                                         <img :src="historyIcon" alt="" />
@@ -295,17 +323,17 @@
                             </div>
                         </section>
 
-                        <section v-if="!driverAudio" class="editor-section editor-section--script">
+                        <section v-if="shouldShowScriptEditor" class="editor-section editor-section--script">
                             <div class="editor-section__head editor-section__head--stacked">
-                                <span class="editor-section__label">{{ activeHumanMode === 'image_human' ? texts.promptTitle : texts.scriptTitle }}</span>
+                                <span class="editor-section__label">{{ texts.scriptTitle }}</span>
                             </div>
                             <div class="script-box">
                                 <textarea
                                     v-model="scriptText"
                                     :maxlength="scriptMaxLength || undefined"
-                                    :placeholder="texts.scriptPlaceholder"
+                                    :placeholder="scriptPlaceholderText"
                                 ></textarea>
-                                <div class="script-box__tools">
+                                <div v-if="activeHumanMode !== 'image_human'" class="script-box__tools">
                                     <span class="script-box__translate-wrap" @click.stop>
                                         <button type="button" :disabled="!!scriptAssistLoading" @click="toggleTranslateMenu">
                                             <img :src="translateIcon" alt="" />
@@ -332,7 +360,7 @@
                                 </button>
                                 <div v-if="scriptMaxLength" class="script-box__count">{{ scriptText.length }}/{{ scriptMaxLength }}</div>
                             </div>
-                            <div class="script-box__chips">
+                            <div v-if="activeHumanMode !== 'image_human'" class="script-box__chips">
                                 <button v-for="chip in promptChips" :key="chip" type="button" @click="appendPrompt(chip)">
                                     {{ chip }}
                                 </button>
@@ -353,7 +381,7 @@
                         <button class="create-button" type="button" :disabled="isCreating" @click="submitAvatarCreate">
                             <span class="create-button__meta">
                                 <img :src="createNowIcon" alt="" />
-                                <span>{{ texts.createRate }}</span>
+                                <span>{{ createCostLabel }}</span>
                             </span>
                             <span class="create-button__text">{{ isCreating ? texts.creating : texts.createNow }}</span>
                         </button>
@@ -395,7 +423,7 @@
                             type="button"
                             @click="activeVoiceCategory = item"
                         >
-                            {{ item }}
+                            {{ formatVoiceCategoryText(item) }}
                         </button>
                     </div>
 
@@ -423,8 +451,8 @@
                                             'is-previewing': previewingAvatarId === item.id
                                         }
                                     ]"
-                                    @mouseenter="previewingAvatarId = item.id"
-                                    @mouseleave="stopAvatarMotion(item.id)"
+                                    @mouseenter="handleAvatarCardMouseEnter(item, $event)"
+                                    @mouseleave="handleAvatarCardMouseLeave(item, $event)"
                                     @click="applyAvatarToEditor(item)"
                                 >
                                     <button
@@ -450,7 +478,27 @@
                                             {{ texts.deleteAvatar }}
                                         </button>
                                     </div>
-                                    <img class="avatar-card__image" :src="item.image" :alt="getAvatarDisplayName(item)" />
+                                    <video
+                                        v-if="item.videoUrl"
+                                        :key="item.videoUrl"
+                                        class="avatar-card__image avatar-card__video"
+                                        :src="item.videoUrl"
+                                        :poster="item.image || undefined"
+                                        muted
+                                        loop
+                                        playsinline
+                                        preload="auto"
+                                        @loadedmetadata="primeAvatarCardVideoFrame"
+                                        @canplay="playPreviewingAvatarCardVideo(item, $event)"
+                                    ></video>
+                                    <img
+                                        v-else-if="item.image"
+                                        class="avatar-card__image"
+                                        :src="item.image"
+                                        :alt="getAvatarDisplayName(item)"
+                                        @error="handleAvatarImageError(item)"
+                                    />
+                                    <span v-else class="avatar-card__image avatar-card__image--empty">{{ getAvatarDisplayName(item).slice(0, 1) }}</span>
                                     <span v-if="item.vip" class="avatar-card__vip">
                                         <img :src="vipBadgeIcon" alt="" />
                                         VIP
@@ -496,14 +544,19 @@
                                 >
                                     <div class="voice-card--create__inner">
                                         <img :src="addIcon" alt="" />
-                                        <span>{{ activeHumanMode === 'image_human' ? texts.uploadReferenceAudio : texts.createMineVoice }}</span>
+                                        <span>{{ texts.createMineVoice }}</span>
                                     </div>
                                 </article>
 
                                 <article
                                     v-for="item in displayedVoices"
                                     :key="item.id"
-                                    :class="['voice-card', { 'is-selected': selectedVoiceCardId === item.id }]"
+                                    :class="[
+                                        'voice-card',
+                                        {
+                                            'is-selected': selectedVoiceCardId === item.id
+                                        }
+                                    ]"
                                     @click="selectVoiceItem(item)"
                                 >
                                     <span v-if="item.vip" class="voice-card__vip">
@@ -519,6 +572,17 @@
                                         {{ getVoiceFavoriteSymbol(item.starred) }}
                                     </button>
                                     <button
+                                        v-if="item.source === 'mine'"
+                                        class="voice-card__more"
+                                        type="button"
+                                        :aria-label="texts.voiceMenu"
+                                        @click.stop="toggleVoiceCardMenu(item, $event)"
+                                    >
+                                        <span></span>
+                                        <span></span>
+                                        <span></span>
+                                    </button>
+                                    <button
                                         class="voice-card__action"
                                         type="button"
                                         :disabled="item.source === 'mine' && item.status !== 'ready'"
@@ -532,7 +596,7 @@
                                             :class="{ 'is-empty': !item.cover, 'is-playing': playingVoiceId === item.id }"
                                         >
                                             <img v-if="item.cover" :src="item.cover" :alt="item.name" />
-                                            <img v-else class="voice-card__thumb-icon" :src="voiceLibraryIcon" alt="" />
+                                            <img v-else class="voice-card__thumb-icon" :src="audioCoverIcon" alt="" />
                                             <button
                                                 class="voice-card__play"
                                                 :class="{ 'is-active': playingVoiceId === item.id, 'is-loading': voicePreviewLoadingId === item.id }"
@@ -571,7 +635,7 @@
                                 >
                                     <div class="voice-card--create__inner">
                                         <img v-if="activeVoiceTab === 'mine'" :src="addIcon" alt="" />
-                                        <span>{{ activeVoiceTab === 'mine' ? (activeHumanMode === 'image_human' ? texts.uploadReferenceAudio : texts.createMineVoice) : texts.noOfficialVoice }}</span>
+                                        <span>{{ activeVoiceTab === 'mine' ? texts.createMineVoice : texts.noOfficialVoice }}</span>
                                     </div>
                                 </article>
                             </div>
@@ -694,7 +758,7 @@
                     <label class="avatar-create-modal__cover-field">
                         <span class="avatar-create-modal__label">{{ texts.avatarCover }}</span>
                         <button class="avatar-create-modal__cover" type="button" @click="triggerAvatarCoverUpload">
-                            <img v-if="avatarCreateCover" :src="avatarCreateCover" :alt="texts.avatarCover" />
+                            <img v-if="avatarCreateCover" :src="avatarCreateCover" :alt="texts.avatarCover" @error="avatarCreateCover = ''" />
                             <span v-else class="avatar-create-modal__cover-add">+</span>
                         </button>
                     </label>
@@ -704,7 +768,7 @@
                     <button class="avatar-create-modal__submit" type="button" :disabled="!pendingAvatarUpload || isCreating || isAvatarUploading" @click="saveAvatarCreateModal">
                         <span class="avatar-create-modal__submit-meta">
                             <img :src="createNowIcon" alt="" />
-                            <span>50</span>
+                            <span>{{ avatarCreateCost }}</span>
                         </span>
                         <span>{{ isAvatarUploading ? '上传中...' : texts.saveAvatar }}</span>
                     </button>
@@ -737,6 +801,30 @@
         </div>
 
         <div
+            v-if="showVoiceDeleteModal"
+            class="avatar-delete-modal-mask"
+            @click.self="closeVoiceDeleteModal"
+        >
+            <section class="avatar-delete-modal" aria-modal="true" role="dialog">
+                <button
+                    class="avatar-delete-modal__close"
+                    type="button"
+                    :aria-label="texts.closeModal"
+                    @click="closeVoiceDeleteModal"
+                ></button>
+                <div class="avatar-delete-modal__title">
+                    <span class="avatar-delete-modal__icon">!</span>
+                    <strong>{{ texts.deleteVoiceTitle }}</strong>
+                </div>
+                <p class="avatar-delete-modal__desc">{{ texts.deleteVoiceMessage }}</p>
+                <div class="avatar-delete-modal__actions">
+                    <button type="button" @click="closeVoiceDeleteModal">{{ texts.cancel }}</button>
+                    <button class="is-danger" type="button" @click="confirmVoiceDelete">{{ texts.confirm }}</button>
+                </div>
+            </section>
+        </div>
+
+        <div
             v-if="showVoiceCreateModal"
             class="voice-create-modal-mask"
             @click.self="closeVoiceCreateModal()"
@@ -749,7 +837,7 @@
                     @click="closeVoiceCreateModal()"
                 ></button>
 
-                <h3 class="voice-create-modal__title">{{ texts.createVoiceTone }}</h3>
+                <h3 class="voice-create-modal__title">{{ voiceCreateModalTitle }}</h3>
 
                 <div class="voice-create-modal__method-grid">
                     <button
@@ -1077,6 +1165,21 @@
             @change="handleDriverAudioUpload"
         />
         <audio ref="voicePreviewRef" preload="none" class="voice-preview-audio"></audio>
+        <Teleport to="body">
+            <div
+                v-if="floatingVoiceMenuItem"
+                class="voice-card__menu voice-card__menu--floating"
+                :style="voiceCardMenuStyle"
+                @click.stop
+            >
+                <button type="button" @click="openVoiceEditModal(floatingVoiceMenuItem)">
+                    {{ texts.editVoice }}
+                </button>
+                <button type="button" @click="requestVoiceDelete(floatingVoiceMenuItem)">
+                    {{ texts.deleteVoice }}
+                </button>
+            </div>
+        </Teleport>
     </div>
 </template>
 
@@ -1095,26 +1198,34 @@ import {
     getAigcDigitalHumanTasks,
     getAigcDigitalHumanVoices,
     previewAigcDigitalHumanVoice,
+    deleteAigcDigitalHumanAvatar,
+    deleteAigcDigitalHumanVoice,
     saveAigcDigitalHumanAvatar,
     saveAigcDigitalHumanVoice
 } from '@/apps/aigc_digital_human/api'
 import {
     estimateImageHuman,
     getImageHumanAvatars,
+    getImageHumanConfig,
     getImageHumanResults,
     getImageHumanTask,
     getImageHumanTasks,
     getImageHumanVoices,
-    saveImageHumanAvatar,
+    deleteImageHumanAvatar,
+    deleteImageHumanVoice,
+    previewImageHumanVoice,
     saveImageHumanVoice,
+    saveImageHumanAvatar,
     submitImageHuman
 } from '@/apps/image_human/api'
 import { ElPagination } from 'element-plus'
-import { isPcLoginRequiredError, usePcLoginGate } from '@/composables/usePcLoginGate'
+import { usePcLoginGate } from '@/composables/usePcLoginGate'
 import feedback from '@/utils/feedback'
 import { useUserStore } from '@/stores/user'
 import { usePcCredits } from '~/composables/usePcCredits'
 import { useAiWorkspaceFavorites } from '~/composables/useAiWorkspaceFavorites'
+import { normalizeFileUrl } from '@/utils/file-url'
+import { getApiUrl } from '@/utils/env'
 import {
     avatarPageSessionKey,
     buildSidebarRouteLocation,
@@ -1140,6 +1251,7 @@ import historyIcon from '@/assets/images/icon/History.svg'
 import voiceHistoryIcon from '@/assets/images/icon/History1.svg'
 import voiceUploadIcon from '@/assets/images/icon/sahngchuan.svg'
 import voiceDeleteIcon from '@/assets/images/icon/Delete-themes.svg'
+import audioCoverIcon from '@/assets/images/icon/Audio cover.svg'
 import magicIcon from '@/assets/images/icon/Magic.svg'
 import peopleIcon from '@/assets/images/icon/People.svg'
 import translateIcon from '@/assets/images/icon/Translate.svg'
@@ -1186,6 +1298,7 @@ interface VoiceItem {
     starred?: boolean
     previewUrl?: string
     synthesizedPreviewUrl?: string
+    remoteUri?: string
     gender?: string
     age?: string
     duration?: number
@@ -1201,6 +1314,7 @@ interface PendingAvatarUpload {
     remoteUri?: string
     uploadedMediaUri?: string
     uploadedCoverUri?: string
+    generatedCoverFile?: File
     fileName: string
     mediaType: AvatarMediaType
     url: string
@@ -1232,15 +1346,18 @@ interface VoiceTrimState {
 
 interface DriverAudioUpload {
     file?: File
+    title?: string
     fileName: string
     url: string
     duration: number
     remoteUri?: string
+    voiceRawId?: number | string
 }
 
 interface HistoryVoiceAudioItem {
     id: string
     taskId: number
+    voiceRawId?: number | string
     title: string
     fileName: string
     url: string
@@ -1290,14 +1407,14 @@ const texts = {
     selectReferenceAudio: '\u9009\u62e9\u53c2\u8003\u97f3\u9891',
     voiceLibrary: '\u58f0\u97f3\u5e93',
     uploadVoice: '\u4e0a\u4f20\u58f0\u97f3',
+    uploadDriverAudio: '\u4e0a\u4f20\u97f3\u9891\u9a71\u52a8',
     uploadReferenceAudio: '\u4e0a\u4f20\u53c2\u8003\u97f3\u9891',
     audioDriver: '\u97f3\u9891\u9a71\u52a8',
     historyVoice: '\u5386\u53f2\u58f0\u97f3',
     scriptTitle: '\u6587\u6848\u5185\u5bb9',
-    promptTitle: '\u63d0\u793a\u8bcd',
-    modelChannel: '\u6a21\u578b\u901a\u9053',
     scriptPlaceholder: '\u8bf7\u8f93\u5165\u4f60\u60f3\u8ba9\u89d2\u8272\u8bf4\u8bdd\u7684\u5185\u5bb9...',
     generateMode: '\u751f\u6210\u6a21\u5f0f',
+    modelChannel: '\u6a21\u578b\u901a\u9053',
     translate: '\u7ffb\u8bd1',
     translateTarget: '\u76ee\u6807\u8bed\u8a00',
     aiCopy: 'AI\u6587\u6848',
@@ -1305,7 +1422,6 @@ const texts = {
     clear: '\u6e05\u7a7a',
     workTitle: '\u4f5c\u54c1\u540d\u79f0',
     workPlaceholder: '\u8bf7\u8f93\u5165\u4f5c\u54c1\u540d\u79f0',
-    createRate: '3/\u79d2',
     creating: '\u521b\u4f5c\u4e2d...',
     createNow: '\u7acb\u5373\u521b\u4f5c',
     createMineAvatar: '\u521b\u5efa\u6211\u7684\u5f62\u8c61',
@@ -1385,6 +1501,12 @@ const texts = {
     editMineAvatar: '\u7f16\u8f91\u6211\u7684\u5f62\u8c61',
     deleteAvatarTitle: '\u60a8\u786e\u5b9a\u5220\u9664\u5417\uff1f',
     deleteAvatarMessage: '\u5220\u9664\u540e\uff0c\u5f62\u8c61\u5c06\u5931\u6548\uff0c\u8bf7\u60a8\u518d\u6b21\u786e\u8ba4',
+    voiceMenu: '\u58f0\u97f3\u64cd\u4f5c',
+    editVoice: '\u7f16\u8f91',
+    deleteVoice: '\u5220\u9664',
+    editMineVoice: '\u7f16\u8f91\u6211\u7684\u58f0\u97f3',
+    deleteVoiceTitle: '\u60a8\u786e\u5b9a\u5220\u9664\u5417\uff1f',
+    deleteVoiceMessage: '\u5220\u9664\u540e\uff0c\u58f0\u97f3\u5c06\u5931\u6548\uff0c\u8bf7\u60a8\u518d\u6b21\u786e\u8ba4',
     toolSearchPlaceholder: '\u8bf7\u8f93\u5165\u5de5\u5177\u5173\u952e\u8bcd',
     featuredTools: '\u7cbe\u9009\u5de5\u5177',
     allTools: '\u5168\u90e8\u5de5\u5177',
@@ -1432,6 +1554,11 @@ const avatarEditingId = ref('')
 const avatarCardMenuId = ref('')
 const showAvatarDeleteModal = ref(false)
 const avatarDeleteTargetId = ref('')
+const voiceEditingId = ref('')
+const voiceCardMenuId = ref('')
+const voiceCardMenuStyle = ref<Record<string, string>>({})
+const showVoiceDeleteModal = ref(false)
+const voiceDeleteTargetId = ref('')
 const toolKeyword = ref('')
 const activeToolCategory = ref<ToolCategory>('\u5168\u90e8')
 const selectedFeaturedToolId = ref('featured-tool-1')
@@ -1469,6 +1596,8 @@ const selectedVoice = ref('')
 const workName = ref('')
 const scriptText = ref('')
 const driverAudio = ref<DriverAudioUpload | null>(null)
+const driverAudioDisplayTitle = computed(() => driverAudio.value?.title || driverAudio.value?.fileName || '')
+const isDriverAudioPlaying = ref(false)
 const historyVoiceAudios = ref<HistoryVoiceAudioItem[]>([])
 const playingHistoryVoiceId = ref('')
 const translateMenuOpen = ref(false)
@@ -1513,7 +1642,6 @@ const voiceTabs = [
 const voiceCreateScript = computed(() =>
     String(digitalHumanBaseConfig.value?.voice_preview_text || '\u6b22\u8fce\u4f7f\u7528 A. PART \u58f0\u97f3\u5b9e\u9a8c\u5ba4\uff0c\u8bf7\u7528\u81ea\u7136\u3001\u6e05\u6670\u3001\u7a33\u5b9a\u7684\u8bed\u901f\u8bfb\u5b8c\u8fd9\u6bb5\u6587\u6848\uff0c\u6211\u4eec\u4f1a\u4e3a\u4f60\u751f\u6210\u4e13\u5c5e\u97f3\u8272\uff0c\u5e76\u7528\u4e8e\u540e\u7eed\u6570\u5b57\u4eba\u53e3\u64ad\u521b\u4f5c\u3002')
 )
-const voiceCreateCost = 50
 const voiceCreateNameMaxLength = 32
 const voiceCreateMaxDuration = 10
 const voiceCreateAudioAccept = '.mp3,.wav,.m4a,.aac,.ogg,.webm,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/aac,audio/ogg,audio/webm'
@@ -1750,10 +1878,18 @@ const mineVoices = ref<VoiceItem[]>([])
 const selectedVoiceCardId = ref('')
 const appliedVoiceId = ref('')
 const playingVoiceId = ref('')
-const digitalHumanConfig = ref<any>({ channels: [], defaults: { channel: 'master', quality: '1k', ratio: '9:16' } })
+const digitalHumanConfig = ref<any>({
+    channels: [],
+    defaults: { channel: 'master', quality: '1k', ratio: '9:16' },
+    base_config: { prompt_max_length: 200 }
+})
 const digitalHumanBaseConfig = ref<any>({
     script_max_length: 200,
     voice_preview_text: '\u6b22\u8fce\u4f7f\u7528 A. PART \u58f0\u97f3\u5b9e\u9a8c\u5ba4\uff0c\u8fd9\u662f\u4e00\u6bb5\u6570\u5b57\u4eba\u97f3\u8272\u8bd5\u542c\u3002'
+})
+const digitalHumanPricing = ref<any>({
+    avatar_clone: { tenant_unit_price: 3 },
+    voice_clone: { tenant_unit_price: 2 }
 })
 const estimateInfo = ref<any>({})
 const latestTask = ref<any>(null)
@@ -1766,11 +1902,14 @@ const formOptions = ref({
 })
 const imageHumanMode = ref<ImageHumanMode>('fast')
 let previewAudio: HTMLAudioElement | null = null
+let driverAudioPreview: HTMLAudioElement | null = null
 let previewSpeech: SpeechSynthesisUtterance | null = null
 let taskPollingTimer: number | null = null
 
 const isClientRuntime = () => typeof window !== 'undefined'
 const canUseSessionStorage = () => isClientRuntime()
+const canUseLocalStorage = () => isClientRuntime()
+const deletedAvatarStoragePrefix = 'aigc:avatar:deleted'
 const humanModeTabs: Array<{ label: string; value: HumanMode }> = [
     { label: '\u5bf9\u53e3\u578b\u6570\u5b57\u4eba', value: 'lip_sync' },
     { label: '\u5168\u9a71\u52a8\u6570\u5b57\u4eba', value: 'image_human' }
@@ -1792,21 +1931,45 @@ const getAvatarDisplayName = (item: AvatarItem) => (
 
 const allAvatarItems = computed(() => [...mineAvatars.value, ...officialAvatars.value])
 const allVoiceItems = computed(() => [...mineVoices.value, ...officialVoices.value])
-const selectedRawAvatarId = computed(() => Number((appliedAvatarItem.value || selectedAvatar.value)?.rawId || 0))
+const resolveAvatarSubmitId = (item?: AvatarItem | null) => {
+    const value = item?.rawId ?? item?.id
+    const id = Number(value || 0)
+    return Number.isFinite(id) && id > 0 ? id : 0
+}
+const selectedRawAvatarId = computed(() => resolveAvatarSubmitId(appliedAvatarItem.value || selectedAvatar.value))
 const selectedRawVoiceId = computed(() => Number(appliedVoiceItem.value?.rawId || selectedVoiceCardId.value || 0))
-const scriptMaxLength = computed(() => Math.max(0, Number(digitalHumanBaseConfig.value?.script_max_length || 0)))
-const estimatedDuration = computed(() => {
-    if (driverAudio.value?.duration) return Math.max(1, Math.ceil(driverAudio.value.duration))
-    return Math.max(1, Math.ceil((scriptText.value.trim().length || 1) / 4))
+const promptMaxLength = computed(() => {
+    if (activeHumanMode.value === 'image_human') {
+        return Math.max(0, Number(digitalHumanConfig.value?.base_config?.prompt_max_length || 0))
+    }
+    return Math.max(0, Number(digitalHumanBaseConfig.value?.script_max_length || 0))
 })
-const estimatedCost = computed(() => Number(estimateInfo.value.user_charge_points ?? 0).toFixed(2))
+const scriptMaxLength = promptMaxLength
+const scriptPlaceholderText = computed(() =>
+    activeHumanMode.value === 'image_human'
+        ? '请输入文案内容...'
+        : texts.scriptPlaceholder
+)
+const shouldShowScriptEditor = computed(() => activeHumanMode.value === 'image_human' || !driverAudio.value)
+const formatCostPoints = (value: any, fallback: number) => {
+    const points = Number(value)
+    if (!Number.isFinite(points) || points < 0) return String(fallback)
+    return Number.isInteger(points) ? String(points) : String(Number(points.toFixed(2)))
+}
+const avatarCreateCost = computed(() =>
+    formatCostPoints(digitalHumanPricing.value?.avatar_clone?.tenant_unit_price, 3)
+)
+const voiceCreateCost = computed(() =>
+    formatCostPoints(digitalHumanPricing.value?.voice_clone?.tenant_unit_price, 2)
+)
 const digitalHumanChannels = computed(() =>
-    (digitalHumanConfig.value?.channels || []).map((channel: any) => ({
+    (digitalHumanConfig.value.channels || []).map((channel: any) => ({
         value: String(channel.value || channel.code || ''),
-        name: String(channel.name || channel.description || channel.label || '\u6570\u5b57\u4eba\u6a21\u578b'),
-        label: String(channel.label || channel.description || channel.name || '\u6570\u5b57\u4eba\u6a21\u578b'),
-        description: String(channel.description || channel.label || channel.name || '\u6807\u51c6\u6570\u5b57\u4eba\u89c6\u9891\u6a21\u578b'),
+        name: String(channel.name || channel.description || channel.label || '数字人模型'),
+        label: String(channel.label || channel.description || channel.name || '数字人模型'),
+        description: String(channel.description || channel.label || channel.name || '标准数字人视频模型'),
         tenantUnitPrice: channel.tenant_unit_price,
+        tenant_unit_price: channel.tenant_unit_price,
         qualities: (channel.qualities || []).map((quality: any) => ({
             value: String(quality.value || quality.quality || ''),
             label: String(quality.label || quality.quality_label || quality.value || '').toUpperCase(),
@@ -1831,117 +1994,162 @@ const shouldShowDigitalHumanChannelOptions = computed(() => digitalHumanChannels
 const digitalHumanChannelGridClass = computed(() =>
     digitalHumanChannels.value.length === 2 ? 'model-channel-list--two' : 'model-channel-list--three'
 )
+const estimatedDuration = computed(() => {
+    if (driverAudio.value?.duration) return Math.max(1, Math.ceil(driverAudio.value.duration))
+    return Math.max(1, Math.ceil((scriptText.value.trim().length || 1) / 4))
+})
+const estimatedCost = computed(() => Number(estimateInfo.value.user_charge_points ?? 0).toFixed(2))
+const createUnitCost = computed(() => {
+    const estimateUnit = Number(
+        estimateInfo.value.unit_price ??
+        estimateInfo.value.tenant_unit_price ??
+        estimateInfo.value.price ??
+        estimateInfo.value.unit_points
+    )
+    if (Number.isFinite(estimateUnit) && estimateUnit > 0) return estimateUnit
+
+    const configUnit = Number(
+        currentDigitalHumanChannel.value?.tenant_unit_price ??
+        digitalHumanPricing.value?.generate?.tenant_unit_price ??
+        digitalHumanPricing.value?.lip_sync?.tenant_unit_price ??
+        digitalHumanPricing.value?.video_generate?.tenant_unit_price ??
+        digitalHumanPricing.value?.duration?.tenant_unit_price
+    )
+    if (Number.isFinite(configUnit) && configUnit > 0) return configUnit
+
+    const total = Number(estimateInfo.value.user_charge_points)
+    return Number.isFinite(total) && total > 0 ? total / Math.max(estimatedDuration.value, 1) : 0
+})
+const createCostLabel = computed(() => {
+    if (createUnitCost.value > 0) return `${formatCostPoints(createUnitCost.value, 0)}/秒`
+    return '--/秒'
+})
 
 const pickUploadUri = (res: any) => res?.uri || res?.url || res?.path || res?.file_url || ''
 
-const safeAssetName = (value: string, fallback: string, maxLength = 32) => {
-    const normalized = Array.from(String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').replace(/[\u{10000}-\u{10ffff}]/gu, '').trim())
-        .slice(0, maxLength)
-        .join('')
-        .trim()
-    return normalized || fallback
+const pickResultVideoUrl = (row: any) => {
+    const results = Array.isArray(row?.results) ? row.results : []
+    const firstResult = results.find((item: any) =>
+        item?.video_url ||
+        item?.video_uri ||
+        item?.video ||
+        item?.url ||
+        item?.file_url ||
+        item?.media_url ||
+        item?.media_uri ||
+        item?.media_path ||
+        item?.download_url ||
+        item?.origin_url ||
+        item?.result_url ||
+        item?.output_url
+    ) || {}
+
+    return String(
+        row?.video_url ||
+        row?.video_uri ||
+        row?.video ||
+        row?.media_url ||
+        row?.media_uri ||
+        row?.media_path ||
+        row?.download_url ||
+        row?.origin_url ||
+        row?.result_url ||
+        row?.output_url ||
+        row?.url ||
+        row?.file_url ||
+        row?.result?.video_url ||
+        row?.result?.video ||
+        row?.result?.url ||
+        row?.result?.file_url ||
+        row?.result?.media_url ||
+        row?.result?.media_uri ||
+        row?.result?.download_url ||
+        row?.result?.origin_url ||
+        row?.result?.result_url ||
+        row?.result?.output_url ||
+        row?.output?.video_url ||
+        row?.output?.video ||
+        row?.output?.url ||
+        row?.output?.file_url ||
+        row?.output?.media_url ||
+        row?.output?.media_uri ||
+        row?.output?.download_url ||
+        row?.output?.origin_url ||
+        row?.output?.result_url ||
+        row?.output?.output_url ||
+        firstResult?.video_url ||
+        firstResult?.video_uri ||
+        firstResult?.video ||
+        firstResult?.url ||
+        firstResult?.file_url ||
+        firstResult?.media_url ||
+        firstResult?.media_uri ||
+        firstResult?.media_path ||
+        firstResult?.download_url ||
+        firstResult?.origin_url ||
+        firstResult?.result_url ||
+        firstResult?.output_url ||
+        ''
+    ).trim()
 }
 
-const mapAvatarRow = (row: any): AvatarItem => {
-    const mediaType: AvatarMediaType = row.media_type === 'video' ? 'video' : 'image'
-    const mediaUrl = row.media_url || row.image_url || row.url || row.cover_url || row.cover || ''
-    const cover = row.cover_url || row.cover || (mediaType === 'image' ? mediaUrl : '') || card2
+const pickFirstResultWithVideo = (rows: any[] = []) =>
+    rows.find((item: any) => !!pickResultVideoUrl(item)) || rows[0] || null
 
-    return {
-        id: String(row.id),
-        rawId: row.id,
-        name: row.name || '\u6570\u5b57\u4eba\u5f62\u8c61',
-        topic: row.scene || row.topic || (mediaType === 'video' ? '\u53ef\u5408\u6210\u89c6\u9891\u5f62\u8c61' : '\u4e0d\u53ef\u7528\u4e8e\u771f\u5b9e\u5408\u6210'),
-        image: cover,
-        vip: row.is_vip === 1 || row.vip === true,
-        source: row.source === 'official' ? 'official' : 'mine',
-        fileName: row.file_name || row.name,
-        mediaType,
-        videoUrl: mediaType === 'video' ? mediaUrl : undefined
+const normalizeAvatarMediaUrl = (url: any, cacheKey?: string | number) => {
+    const raw = String(url || '').trim().replace(/\\/g, '/')
+    if (!raw) return ''
+    if (/^(blob:|data:|(https?:)?\/\/)/i.test(raw)) return raw
+
+    const normalized = normalizeFileUrl(raw, cacheKey)
+    const apiUrl = String(getApiUrl?.() || '').replace(/\/+$/, '')
+    if (apiUrl && /^(\/uploads|\/storage)\b/i.test(normalized)) {
+        return `${apiUrl}${normalized}`
+    }
+    return normalized
+}
+
+const normalizeAudioMediaUrl = (url: any, cacheKey?: string | number) =>
+    normalizeAvatarMediaUrl(url, cacheKey)
+
+const mergeDigitalHumanPricing = (pricing: any) => {
+    if (!pricing || typeof pricing !== 'object') return
+    digitalHumanPricing.value = {
+        ...digitalHumanPricing.value,
+        ...pricing,
+        avatar_clone: {
+            ...digitalHumanPricing.value.avatar_clone,
+            ...(pricing.avatar_clone || {})
+        },
+        voice_clone: {
+            ...digitalHumanPricing.value.voice_clone,
+            ...(pricing.voice_clone || {})
+        }
     }
 }
 
-const resolveSavedAvatarCover = (row: any, pending: PendingAvatarUpload) => {
-    const persistentCover = row?.cover_url || row?.cover || row?.image_url || row?.media_url || row?.url || ''
-    if (persistentCover) return persistentCover
-    return pending.previewImage || pending.url || card2
+const syncDigitalHumanConfig = (config: any) => {
+    digitalHumanConfig.value = config?.option_config || digitalHumanConfig.value
+    digitalHumanBaseConfig.value = config?.base_config || digitalHumanBaseConfig.value
+    mergeDigitalHumanPricing(
+        config?.pricing ||
+        config?.option_config?.pricing ||
+        config?.base_config?.pricing ||
+        config?.config_json?.pricing
+    )
 }
 
-const resolveSavedAvatarVideo = (row: any, pending: PendingAvatarUpload) => {
-    if (pending.mediaType !== 'video') return undefined
-    return row?.media_url || row?.video_url || row?.url || row?.cover_url || pending.url || undefined
-}
-
-const resolveVoicePreviewUrl = (row: any) => {
-    if (row.preview_audio_url) return row.preview_audio_url
-    if (row.audio_url && activeHumanMode.value === 'image_human') return row.audio_url
-    if (row.provider_asset_id && row.source !== 'official') return undefined
-    return row.preview_url || row.audio_url || undefined
-}
-
-const uniqueVoiceItems = (items: VoiceItem[]) => {
-    const seen = new Set<string>()
-    return items.filter((item) => {
-        if (seen.has(item.id)) return false
-        seen.add(item.id)
-        return true
-    })
-}
-
-const mapVoiceRow = (row: any): VoiceItem => ({
-    id: String(row.id),
-    rawId: row.id,
-    name: row.name || '\u6570\u4eba\u97f3\u8272',
-    fileName: row.file_name || row.name,
-    cover: row.cover_url || row.cover || undefined,
-    vip: row.is_vip === 1 || row.vip === true,
-    source: row.source === 'official' ? 'official' : 'mine',
-    starred: isFavorite('voice', row.id),
-    previewUrl: resolveVoicePreviewUrl(row),
-    gender: row.gender,
-    age: row.age_group || row.age,
-    duration: row.duration,
-    providerAssetId: activeHumanMode.value === 'image_human' ? row.provider_asset_id || row.id : row.provider_asset_id,
-    status: row.status,
-    libraryCategory: undefined
-})
-
-const resolveHistoryVoiceTitle = (row: any) =>
-    safeAssetName(String(row.title || row.prompt || row.script_text || '').trim(), texts.historyVoice, 48)
-
-const historyAudioFileName = (row: any) => {
-    const title = resolveHistoryVoiceTitle(row)
-    const uri = String(row.tts_audio_uri || '')
-    const pathName = uri.split('?')[0].split('/').pop() || ''
-    const extension = pathName.includes('.') ? pathName.slice(pathName.lastIndexOf('.')) : '.mp3'
-    return `${title}${extension}`
-}
-
-const mapHistoryVoiceAudioRow = (row: any): HistoryVoiceAudioItem | null => {
-    const remoteUri = String(row.tts_audio_uri || '')
-    const url = String(row.tts_audio_url || '')
-    if (!remoteUri || !url || row.status !== 'success') return null
-
-    const taskId = Number(row.id || row.task_id || 0)
-    if (!taskId) return null
-
-    return {
-        id: `history-audio-${taskId}`,
-        taskId,
-        title: resolveHistoryVoiceTitle(row),
-        fileName: historyAudioFileName(row),
-        url,
-        remoteUri,
-        duration: Math.max(1, Number(row.duration || 0)),
-        createdAt: Number(row.finish_time || row.create_time || 0)
+const syncImageHumanConfig = (config: any) => {
+    digitalHumanConfig.value = {
+        ...digitalHumanConfig.value,
+        ...(config?.option_config || {}),
+        base_config: config?.base_config || config?.config_json?.base_config || digitalHumanConfig.value.base_config || {}
     }
-}
-
-const voiceStatusText = (item: VoiceItem) => {
-    if (item.status === 'running') return '\u514b\u9686\u4e2d'
-    if (item.status === 'failed') return '\u514b\u9686\u5931\u8d25'
-    if (item.source === 'mine' && !item.providerAssetId) return '\u5f85\u514b\u9686'
-    return ''
+    mergeDigitalHumanPricing(
+        config?.pricing ||
+        config?.option_config?.pricing ||
+        config?.config_json?.pricing
+    )
 }
 
 const syncDigitalHumanModelOptions = (useDefaults = false) => {
@@ -1969,7 +2177,7 @@ const syncDigitalHumanModelOptions = (useDefaults = false) => {
 }
 
 const modelChannelPriceText = (item: any) => {
-    const price = item?.tenantUnitPrice
+    const price = item?.tenantUnitPrice ?? item?.tenant_unit_price
     return price !== undefined && price !== null && price !== '' ? `${price}\u70b9/\u79d2` : '\u6309\u79d2\u8ba1\u8d39'
 }
 
@@ -1985,6 +2193,237 @@ const selectDigitalHumanChannel = (value: string) => {
     formOptions.value.channel = value
     syncDigitalHumanModelOptions()
     refreshDigitalHumanEstimate()
+}
+
+const safeAssetName = (value: string, fallback: string, maxLength = 32) => {
+    const normalized = Array.from(String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').replace(/[\u{10000}-\u{10ffff}]/gu, '').trim())
+        .slice(0, maxLength)
+        .join('')
+        .trim()
+    return normalized || fallback
+}
+
+const isVideoAvatarRow = (row: any) => {
+    if (row.media_type === 'video') return true
+    if (row.media_type === 'image') return false
+
+    const url = String(row.video_url || row.video_uri || row.media_url || row.media_uri || row.url || '')
+        .split('?')[0]
+        .toLowerCase()
+    return /\.(mp4|mov|webm|m4v|avi|mkv)$/.test(url)
+}
+
+const pickAvatarVideoUrl = (row: any) =>
+    isVideoAvatarRow(row)
+        ? normalizeAvatarMediaUrl(row.video_url || row.video_uri || row.media_url || row.media_uri || row.url || '', row.updated_at || row.id)
+        : ''
+
+const pickAvatarCoverUrl = (row: any) =>
+    normalizeAvatarMediaUrl(row.cover_url || row.cover_uri || row.cover || row.image_url || row.image_uri || row.image || '', row.updated_at || row.id)
+
+const pickAvatarRawId = (row: any) =>
+    row.id ?? row.avatar_id ?? row.user_avatar_id ?? row.image_human_avatar_id ?? row.digital_human_avatar_id ?? row.asset_id ?? row.raw_id
+
+const mapAvatarRow = (row: any): AvatarItem => {
+    const rawId = pickAvatarRawId(row)
+    const videoUrl = pickAvatarVideoUrl(row)
+    const mediaType: AvatarMediaType = videoUrl ? 'video' : 'image'
+    const imageUrl = normalizeAvatarMediaUrl(row.image_url || row.image_uri || row.image || row.media_url || row.media_uri || row.url || '', row.updated_at || rawId)
+    const cover = pickAvatarCoverUrl(row) || imageUrl || (mediaType === 'video' ? videoUrl : '')
+
+    return {
+        id: String(rawId || row.id || row.image_uri || row.media_uri || row.url || imageUrl),
+        rawId,
+        name: row.name || '\u6570\u5b57\u4eba\u5f62\u8c61',
+        topic: row.scene || row.topic || (mediaType === 'video' ? '\u53ef\u5408\u6210\u89c6\u9891\u5f62\u8c61' : '\u4e0d\u53ef\u7528\u4e8e\u771f\u5b9e\u5408\u6210'),
+        image: cover,
+        vip: row.is_vip === 1 || row.vip === true,
+        source: row.source === 'official' ? 'official' : 'mine',
+        fileName: row.file_name || row.name,
+        mediaType,
+        videoUrl: mediaType === 'video' ? videoUrl : undefined
+    }
+}
+
+const getDeletedAvatarStorageKey = () =>
+    `${deletedAvatarStoragePrefix}:${userStore.token || 'guest'}:${activeHumanMode.value}`
+
+const getDeletedAvatarIds = () => {
+    if (!canUseLocalStorage()) return new Set<string>()
+
+    try {
+        const rawIds = JSON.parse(window.localStorage.getItem(getDeletedAvatarStorageKey()) || '[]')
+        return new Set(Array.isArray(rawIds) ? rawIds.map((id) => String(id)) : [])
+    } catch (_error) {
+        return new Set<string>()
+    }
+}
+
+const saveDeletedAvatarIds = (ids: Set<string>) => {
+    if (!canUseLocalStorage()) return
+
+    try {
+        window.localStorage.setItem(getDeletedAvatarStorageKey(), JSON.stringify([...ids]))
+    } catch (_error) {
+        // Ignore storage failures and keep runtime state only.
+    }
+}
+
+const rememberDeletedAvatar = (rawId: number | string) => {
+    const ids = getDeletedAvatarIds()
+    ids.add(String(rawId))
+    saveDeletedAvatarIds(ids)
+}
+
+const forgetDeletedAvatar = (rawId: number | string) => {
+    const ids = getDeletedAvatarIds()
+    if (!ids.delete(String(rawId))) return
+    saveDeletedAvatarIds(ids)
+}
+
+const filterDeletedMineAvatars = (items: AvatarItem[]) => {
+    const deletedIds = getDeletedAvatarIds()
+    if (!deletedIds.size) return items
+    return items.filter((item) => item.source !== 'mine' || !item.rawId || !deletedIds.has(String(item.rawId)))
+}
+
+const resolveVoicePreviewUrl = (row: any) => {
+    if (row.preview_audio_url) return normalizeAudioMediaUrl(row.preview_audio_url, row.id)
+    if (row.audio_url) return normalizeAudioMediaUrl(row.audio_url, row.id)
+    if (row.audio_uri || row.file_uri || row.uri || row.path) {
+        return normalizeAudioMediaUrl(row.audio_uri || row.file_uri || row.uri || row.path, row.id)
+    }
+    if (row.provider_asset_id && row.source !== 'official') return undefined
+    return row.preview_url ? normalizeAudioMediaUrl(row.preview_url, row.id) : undefined
+}
+
+const uniqueVoiceItems = (items: VoiceItem[]) => {
+    const seen = new Set<string>()
+    return items.filter((item) => {
+        if (seen.has(item.id)) return false
+        seen.add(item.id)
+        return true
+    })
+}
+
+const mapVoiceRow = (row: any): VoiceItem => ({
+    id: String(row.id),
+    rawId: row.id,
+    name: row.name || '\u6570\u4eba\u97f3\u8272',
+    fileName: row.file_name || row.name,
+    cover: row.cover_url || row.cover || undefined,
+    vip: row.is_vip === 1 || row.vip === true,
+    source: row.source === 'official' ? 'official' : 'mine',
+    starred: isFavorite('voice', row.id),
+    previewUrl: resolveVoicePreviewUrl(row),
+    remoteUri: row.audio_uri || row.file_uri || row.uri || row.path || '',
+    gender: row.gender,
+    age: row.age_group || row.age,
+    duration: row.duration,
+    providerAssetId: activeHumanMode.value === 'image_human' ? row.provider_asset_id || row.id : row.provider_asset_id,
+    status: row.status,
+    libraryCategory: undefined
+})
+
+const resolveHistoryVoiceTitle = (row: any) =>
+    safeAssetName(String(row.title || row.audio_title || row.voice_title || row.name || row.prompt || row.script_text || '').trim(), texts.historyVoice, 48)
+
+const historyAudioFileName = (row: any) => {
+    const title = resolveHistoryVoiceTitle(row)
+    const uri = String(row.tts_audio_uri || '')
+    const pathName = uri.split('?')[0].split('/').pop() || ''
+    const extension = pathName.includes('.') ? pathName.slice(pathName.lastIndexOf('.')) : '.mp3'
+    return `${title}${extension}`
+}
+
+const mapUploadedReferenceAudioToHistory = (
+    row: any,
+    options: { title: string; fileName: string; url: string; remoteUri: string; duration: number }
+): HistoryVoiceAudioItem => {
+    const voiceRawId = row.id || row.voice_id || row.user_voice_id || 0
+    const id = voiceRawId ? `reference-audio-${voiceRawId}` : `reference-audio-${Date.now()}`
+    return {
+        id,
+        taskId: 0,
+        voiceRawId,
+        title: options.title,
+        fileName: options.fileName,
+        url: options.url,
+        remoteUri: options.remoteUri,
+        duration: Math.max(1, options.duration),
+        createdAt: Math.floor(Date.now() / 1000)
+    }
+}
+
+const mapImageHumanVoiceToHistory = (row: any): HistoryVoiceAudioItem | null => {
+    const voiceRawId = row.id || row.voice_id || row.user_voice_id || 0
+    const remoteUri = String(row.audio_uri || row.file_uri || row.uri || row.path || '').trim()
+    const rawUrl = String(row.audio_url || row.preview_audio_url || row.preview_url || row.url || '').trim()
+    const url = rawUrl ? normalizeAudioMediaUrl(rawUrl, voiceRawId) : (remoteUri ? normalizeAudioMediaUrl(remoteUri, voiceRawId) : '')
+    if (!voiceRawId || !url) return null
+
+    const pathName = String(remoteUri || rawUrl).split('?')[0].split('/').pop() || ''
+    const fallbackName = pathName || `${safeAssetName(row.name || '', '\u6211\u7684\u53c2\u8003\u97f3\u9891')}.mp3`
+    const title = resolveHistoryVoiceTitle(row)
+
+    return {
+        id: `reference-audio-${voiceRawId}`,
+        taskId: 0,
+        voiceRawId,
+        title,
+        fileName: row.file_name || fallbackName,
+        url,
+        remoteUri: remoteUri || row.audio_uri || '',
+        duration: Math.max(1, Number(row.duration || 0)),
+        createdAt: Number(row.create_time || row.update_time || row.created_at || 0)
+    }
+}
+
+const syncVoiceLibraryRows = (voiceRows: any[]) => {
+    const voices = uniqueVoiceItems((voiceRows || []).map(mapVoiceRow))
+    officialVoices.value = voices.filter((item: VoiceItem) => item.source === 'official')
+    mineVoices.value = userStore.isLogin ? voices.filter((item: VoiceItem) => item.source === 'mine') : []
+}
+
+const refreshVoiceLibraryData = async () => {
+    try {
+        const request = activeHumanMode.value === 'image_human'
+            ? getImageHumanVoices
+            : getAigcDigitalHumanVoices
+        const voiceRows = await request(userStore.isLogin ? undefined : { source: 'official' })
+        syncVoiceLibraryRows(voiceRows || [])
+        syncDefaultSelections()
+    } catch (_error) {
+        // Keep the current library visible if a background refresh fails.
+    }
+}
+
+const mapHistoryVoiceAudioRow = (row: any): HistoryVoiceAudioItem | null => {
+    const remoteUri = String(row.tts_audio_uri || '')
+    const url = normalizeAudioMediaUrl(row.tts_audio_url || remoteUri, row.id || row.task_id)
+    if (!remoteUri || !url || row.status !== 'success') return null
+
+    const taskId = Number(row.id || row.task_id || 0)
+    if (!taskId) return null
+
+    return {
+        id: `history-audio-${taskId}`,
+        taskId,
+        voiceRawId: row.voice_id || row.voice?.id || row.user_voice_id || 0,
+        title: resolveHistoryVoiceTitle(row),
+        fileName: historyAudioFileName(row),
+        url,
+        remoteUri,
+        duration: Math.max(1, Number(row.duration || 0)),
+        createdAt: Number(row.finish_time || row.create_time || 0)
+    }
+}
+
+const voiceStatusText = (item: VoiceItem) => {
+    if (item.status === 'running') return '\u514b\u9686\u4e2d'
+    if (item.status === 'failed') return '\u514b\u9686\u5931\u8d25'
+    if (item.source === 'mine' && !item.providerAssetId) return '\u5f85\u514b\u9686'
+    return ''
 }
 
 const syncDefaultSelections = () => {
@@ -2055,13 +2494,19 @@ const refreshDigitalHumanEstimate = async () => {
     }
 
     try {
+        const avatarId = resolveAvatarSubmitId(appliedAvatarItem.value || selectedAvatar.value)
+        const voiceId = Number(driverAudio.value?.voiceRawId || (appliedVoiceItem.value || findVoiceItemById(selectedVoiceCardId.value))?.rawId || 0)
         estimateInfo.value = activeHumanMode.value === 'image_human'
             ? await estimateImageHuman({
                 mode: imageHumanMode.value,
-                voice_id: Number((appliedVoiceItem.value || findVoiceItemById(selectedVoiceCardId.value))?.rawId || 0),
+                avatar_id: avatarId,
+                voice_id: voiceId,
                 duration: estimatedDuration.value
             })
             : await estimateAigcDigitalHuman({
+                avatar_id: avatarId,
+                voice_id: driverAudio.value ? 0 : voiceId,
+                audio_uri: driverAudio.value?.remoteUri || '',
                 channel: formOptions.value.channel,
                 quality: formOptions.value.quality,
                 ratio: formOptions.value.ratio,
@@ -2074,24 +2519,29 @@ const refreshDigitalHumanEstimate = async () => {
 
 const loadDigitalHumanData = async () => {
     if (activeHumanMode.value === 'image_human') {
-        const [avatarRows, voiceRows, resultRows, taskRows] = await Promise.all([
+        const [config, avatarRows, voiceRows, resultRows, taskRows] = await Promise.all([
+            getImageHumanConfig(),
             getImageHumanAvatars(userStore.isLogin ? undefined : { source: 'official' }),
             getImageHumanVoices(userStore.isLogin ? undefined : { source: 'official' }),
             userStore.isLogin ? getImageHumanResults() : Promise.resolve([]),
             userStore.isLogin ? getImageHumanTasks() : Promise.resolve([])
         ])
 
-        const avatars = (avatarRows || []).map(mapAvatarRow)
+        syncImageHumanConfig(config)
+        const avatars = filterDeletedMineAvatars((avatarRows || []).map(mapAvatarRow))
         officialAvatars.value = avatars.filter((item: AvatarItem) => item.source === 'official')
         mineAvatars.value = userStore.isLogin ? avatars.filter((item: AvatarItem) => item.source === 'mine') : []
 
-        const voices = uniqueVoiceItems((voiceRows || []).map(mapVoiceRow))
-        officialVoices.value = voices.filter((item: VoiceItem) => item.source === 'official')
-        mineVoices.value = userStore.isLogin ? voices.filter((item: VoiceItem) => item.source === 'mine') : []
+        syncVoiceLibraryRows(voiceRows || [])
 
-        latestResult.value = (resultRows || []).find((item: any) => item.video_url) || (resultRows || [])[0] || null
+        latestResult.value = pickFirstResultWithVideo(resultRows || [])
         latestTask.value = (taskRows || [])[0] || latestTask.value
-        historyVoiceAudios.value = []
+        historyVoiceAudios.value = userStore.isLogin
+            ? (voiceRows || [])
+                .filter((row: any) => row?.source !== 'official')
+                .map(mapImageHumanVoiceToHistory)
+                .filter((item: HistoryVoiceAudioItem | null): item is HistoryVoiceAudioItem => !!item)
+            : []
         syncDefaultSelections()
         await refreshDigitalHumanEstimate()
         return
@@ -2104,14 +2554,12 @@ const loadDigitalHumanData = async () => {
             getAigcDigitalHumanVoices({ source: 'official' })
         ])
 
-        digitalHumanConfig.value = config?.option_config || digitalHumanConfig.value
-        digitalHumanBaseConfig.value = config?.base_config || digitalHumanBaseConfig.value
+        syncDigitalHumanConfig(config)
         syncDigitalHumanModelOptions(true)
 
         officialAvatars.value = (avatarRows || []).map(mapAvatarRow).filter((item: AvatarItem) => item.source === 'official')
         mineAvatars.value = []
-        officialVoices.value = uniqueVoiceItems((voiceRows || []).map(mapVoiceRow).filter((item: VoiceItem) => item.source === 'official'))
-        mineVoices.value = []
+        syncVoiceLibraryRows(voiceRows || [])
         latestResult.value = null
         latestTask.value = null
         estimateInfo.value = {}
@@ -2127,19 +2575,16 @@ const loadDigitalHumanData = async () => {
         getAigcDigitalHumanTasks()
     ])
 
-    digitalHumanConfig.value = config?.option_config || digitalHumanConfig.value
-    digitalHumanBaseConfig.value = config?.base_config || digitalHumanBaseConfig.value
+    syncDigitalHumanConfig(config)
     syncDigitalHumanModelOptions(true)
 
-    const avatars = (avatarRows || []).map(mapAvatarRow)
+    const avatars = filterDeletedMineAvatars((avatarRows || []).map(mapAvatarRow))
     officialAvatars.value = avatars.filter((item: AvatarItem) => item.source === 'official')
     mineAvatars.value = avatars.filter((item: AvatarItem) => item.source === 'mine')
 
-    const voices = uniqueVoiceItems((voiceRows || []).map(mapVoiceRow))
-    officialVoices.value = voices.filter((item: VoiceItem) => item.source === 'official')
-    mineVoices.value = voices.filter((item: VoiceItem) => item.source === 'mine')
+    syncVoiceLibraryRows(voiceRows || [])
 
-    latestResult.value = (resultRows || []).find((item: any) => item.video_url) || (resultRows || [])[0] || null
+    latestResult.value = pickFirstResultWithVideo(resultRows || [])
     latestTask.value = (taskRows || [])[0] || latestTask.value
     historyVoiceAudios.value = (taskRows || [])
         .map(mapHistoryVoiceAudioRow)
@@ -2221,7 +2666,38 @@ const appliedAvatarItem = computed(() =>
 const avatarCreateModalTitle = computed(() =>
     avatarEditingId.value ? texts.editMineAvatar : texts.createMineAvatar
 )
+const voiceCreateModalTitle = computed(() =>
+    voiceEditingId.value ? texts.editMineVoice : texts.createVoiceTone
+)
 const normalizeVoiceCategoryValue = (value?: string) => String(value || '').trim()
+const voiceGenderTextMap: Record<string, string> = {
+    female: '女声',
+    male: '男声',
+    woman: '女声',
+    man: '男声'
+}
+const voiceAgeTextMap: Record<string, string> = {
+    young: '青年',
+    child: '童声',
+    teenager: '少年',
+    adult: '成年',
+    middle_aged: '中年',
+    middle: '中年',
+    old: '老年',
+    elderly: '老年'
+}
+
+const formatVoiceCategoryText = (category: VoiceLibraryCategory) => {
+    const normalized = normalizeVoiceCategoryValue(category)
+    if (!normalized || normalized === '全部' || normalized === '收藏') return normalized
+
+    const [gender = '', age = ''] = normalized.split('·')
+    const genderText = voiceGenderTextMap[gender.toLowerCase()] || gender
+    const ageText = voiceAgeTextMap[age.toLowerCase()] || age
+
+    if (gender && age) return `${ageText}${genderText}`
+    return genderText || ageText || normalized
+}
 
 const resolveDynamicVoiceCategory = (item: VoiceItem): VoiceLibraryCategory => {
     const gender = normalizeVoiceCategoryValue(item.gender)
@@ -2233,10 +2709,17 @@ const resolveDynamicVoiceCategory = (item: VoiceItem): VoiceLibraryCategory => {
 
 const currentVoiceSource = computed(() => activeVoiceTab.value === 'official' ? officialVoices.value : mineVoices.value)
 
+const resolveDynamicVoiceCategories = (item: VoiceItem): VoiceLibraryCategory[] => {
+    const gender = normalizeVoiceCategoryValue(item.gender)
+    const age = normalizeVoiceCategoryValue(item.age)
+
+    return [age, gender].filter(Boolean)
+}
+
 const voiceLibraryCategoryOptions = computed<VoiceLibraryCategory[]>(() => {
     const source = currentVoiceSource.value
     const dynamicCategories = source
-        .map(resolveDynamicVoiceCategory)
+        .flatMap(resolveDynamicVoiceCategories)
         .filter(Boolean)
 
     const options = [
@@ -2256,8 +2739,11 @@ const displayedVoices = computed(() => {
     if (category === '全部') return source
     if (category === '收藏') return source.filter((item) => item.starred)
 
-    return source.filter((item) => resolveDynamicVoiceCategory(item) === category)
+    return source.filter((item) => resolveDynamicVoiceCategories(item).includes(category))
 })
+const floatingVoiceMenuItem = computed(() =>
+    displayedVoices.value.find((item) => item.id === voiceCardMenuId.value) || findVoiceItemById(voiceCardMenuId.value)
+)
 const showMineVoiceCreateCard = computed(() => activeVoiceTab.value === 'mine')
 const appliedVoiceItem = computed(() =>
     [...mineVoices.value, ...officialVoices.value].find((item) => item.id === appliedVoiceId.value) ?? null
@@ -2564,23 +3050,27 @@ const openVoiceLibrary = (tab: LibraryTab) => {
     activeContentPanel.value = 'voice'
     activeVoiceTab.value = tab
     activeVoiceCategory.value = '全部'
+    void refreshVoiceLibraryData()
 }
 
 const openHistoryVoiceModal = async () => {
     if (!ensureDigitalHumanLogin()) return
-    if (activeHumanMode.value === 'image_human') {
-        openVoiceLibrary('mine')
-        feedback.msgWarning('\u5168\u9a71\u52a8\u6570\u5b57\u4eba\u8bf7\u5728\u53c2\u8003\u97f3\u9891\u5e93\u4e2d\u9009\u62e9\u6216\u4e0a\u4f20')
-        return
-    }
     stopVoicePreview()
     stopVoiceCreatePreview()
     playingHistoryVoiceId.value = ''
     try {
-        const rows = await getAigcDigitalHumanTasks({ status: 'success' })
-        historyVoiceAudios.value = (rows || [])
-            .map(mapHistoryVoiceAudioRow)
-            .filter((item: HistoryVoiceAudioItem | null): item is HistoryVoiceAudioItem => !!item)
+        if (activeHumanMode.value === 'image_human') {
+            const rows = await getImageHumanVoices()
+            historyVoiceAudios.value = (rows || [])
+                .filter((row: any) => row?.source !== 'official')
+                .map(mapImageHumanVoiceToHistory)
+                .filter((item: HistoryVoiceAudioItem | null): item is HistoryVoiceAudioItem => !!item)
+        } else {
+            const rows = await getAigcDigitalHumanTasks({ status: 'success' })
+            historyVoiceAudios.value = (rows || [])
+                .map(mapHistoryVoiceAudioRow)
+                .filter((item: HistoryVoiceAudioItem | null): item is HistoryVoiceAudioItem => !!item)
+        }
     } catch (error: any) {
         feedback.msgError(error?.msg || error?.message || error || '\u5386\u53f2\u58f0\u97f3\u52a0\u8f7d\u5931\u8d25')
     }
@@ -3088,15 +3578,25 @@ const createVoiceFromPending = async () => {
             coverUri = pickUploadUri(coverUploadRes)
             if (!coverUri) throw new Error('\u5c01\u9762\u4e0a\u4f20\u5931\u8d25')
         }
-        const row = await saveAigcDigitalHumanVoice({
+        const editingVoice = voiceEditingId.value
+            ? mineVoices.value.find((voice) => voice.id === voiceEditingId.value)
+            : null
+        const existingAudioUri = editingVoice?.remoteUri || pending.remoteUri || ''
+        if (editingVoice && !existingAudioUri) throw new Error('\u5f53\u524d\u97f3\u8272\u7f3a\u5c11\u97f3\u9891\u5730\u5740\uff0c\u8bf7\u91cd\u65b0\u4e0a\u4f20')
+        const saveVoiceRequest = activeHumanMode.value === 'image_human'
+            ? saveImageHumanVoice
+            : saveAigcDigitalHumanVoice
+        const row = await saveVoiceRequest({
+            id: editingVoice?.rawId || editingVoice?.id || undefined,
             name: safeAssetName(voiceCreateName.value || getFileBaseName(pending.fileName), texts.myVoice),
-            audio_uri: audioUri,
-            cover_uri: coverUri,
+            audio_uri: existingAudioUri || audioUri,
+            cover_uri: coverUri || editingVoice?.cover || '',
             duration: sampleDuration > 0 ? sampleDuration : undefined,
             gender: voiceCreateGender.value !== texts.voiceGender ? voiceCreateGender.value : undefined,
             age_group: voiceCreateAge.value !== texts.voiceAge ? voiceCreateAge.value : undefined
         })
         const item = mapVoiceRow(row)
+        if (editingVoice && !item.rawId) item.rawId = editingVoice.rawId
         if (!item.providerAssetId) item.previewUrl = item.previewUrl || pending.url
         if (!item.cover && voiceCreateCover.value) item.cover = voiceCreateCover.value
         mineVoices.value = [item, ...mineVoices.value.filter((voice) => voice.id !== item.id)]
@@ -3104,7 +3604,7 @@ const createVoiceFromPending = async () => {
         if (item.status === 'ready') applyVoiceToEditor(item)
         else selectVoiceItem(item)
         activePopover.value = 'notice'
-        feedback.msgSuccess(item.status === 'running' ? texts.voiceQueued : '\u97f3\u8272\u5df2\u521b\u5efa')
+        feedback.msgSuccess(editingVoice ? '\u97f3\u8272\u5df2\u4fdd\u5b58' : item.status === 'running' ? texts.voiceQueued : '\u97f3\u8272\u5df2\u521b\u5efa')
         return item
     } catch (error: any) {
         feedback.msgError(error?.msg || error?.message || error || '\u97f3\u8272\u521b\u5efa\u5931\u8d25')
@@ -3178,6 +3678,7 @@ const resetVoiceCreateFields = () => {
     voiceCreateAge.value = texts.voiceAge
     voiceCreateCover.value = ''
     voiceCreateCoverFile.value = null
+    voiceEditingId.value = ''
     pendingVoiceUpload.value = null
     voiceCreateStep.value = 'idle'
     voiceCreateElapsed.value = 0
@@ -3234,16 +3735,45 @@ const openVoiceCreateModal = () => {
     stopVoicePreview()
     stopVoiceCreatePreview()
     closeVoiceCreateMenus()
+    closeVoiceCardMenu()
     resetVoiceCreateFields()
     showVoiceCreateModal.value = true
 }
 
 const openVoiceCreateEntry = () => {
-    if (activeHumanMode.value === 'image_human') {
-        triggerDriverAudioUpload()
-        return
-    }
     openVoiceCreateModal()
+}
+
+const openVoiceEditModal = (item: VoiceItem) => {
+    closeVoiceCardMenu()
+    if (activeHumanMode.value === 'image_human') return
+
+    stopVoicePreview()
+    stopVoiceCreatePreview()
+    closeVoiceCreateMenus()
+    discardVoiceCreateTempUrls()
+    clearVoiceCreateRecordedResult()
+    voiceEditingId.value = item.id
+    voiceCreateName.value = item.name || texts.myVoice
+    voiceCreateGender.value = item.gender || texts.voiceGender
+    voiceCreateAge.value = item.age || texts.voiceAge
+    voiceCreateCover.value = item.cover || ''
+    voiceCreateCoverFile.value = null
+    const audioUrl = item.previewUrl || item.synthesizedPreviewUrl || ''
+    pendingVoiceUpload.value = {
+        file: item.uploadFile || new File([], item.fileName || `${item.name || texts.myVoice}.mp3`, { type: 'audio/mpeg' }),
+        fileName: item.fileName || `${item.name || texts.myVoice}.mp3`,
+        url: audioUrl,
+        blobUrls: [],
+        remoteUri: item.remoteUri || audioUrl
+    }
+    voiceCreateRecordedUrl.value = audioUrl
+    voiceCreateRecordedMimeType.value = 'audio/mpeg'
+    voiceCreateSampleSource.value = 'upload'
+    voiceCreateElapsed.value = Math.max(0, Math.ceil(Number(item.duration || 0)))
+    voiceCreateStep.value = 'sample_ready'
+    showVoiceDeleteModal.value = false
+    showVoiceCreateModal.value = true
 }
 
 const handleVoiceCoverUpload = (event: Event) => {
@@ -3573,6 +4103,17 @@ const createVideoThumbnail = (videoUrl: string) =>
         video.onerror = () => finish(null)
     })
 
+const dataUrlToFile = (dataUrl: string, fileName: string) => {
+    const [meta = '', data = ''] = dataUrl.split(',')
+    const mime = meta.match(/data:([^;]+)/)?.[1] || 'image/jpeg'
+    const binary = atob(data)
+    const bytes = new Uint8Array(binary.length)
+    for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index)
+    }
+    return new File([bytes], fileName, { type: mime })
+}
+
 const triggerUpload = () => {
     if (!ensureDigitalHumanLogin()) return
     fileInputRef.value?.click()
@@ -3589,12 +4130,49 @@ const triggerDriverAudioUpload = () => {
 const closeAvatarCardMenu = () => {
     avatarCardMenuId.value = ''
 }
+const closeVoiceCardMenu = () => {
+    voiceCardMenuId.value = ''
+    voiceCardMenuStyle.value = {}
+}
 const closeFloatingMenus = () => {
     closeAvatarCardMenu()
+    closeVoiceCardMenu()
     translateMenuOpen.value = false
 }
+
+const closeTransientMenus = () => {
+    closeVoiceCreateMenus()
+    closeVoiceCardMenu()
+}
+
 const toggleAvatarCardMenu = (avatarId: string) => {
     avatarCardMenuId.value = avatarCardMenuId.value === avatarId ? '' : avatarId
+    closeVoiceCardMenu()
+}
+const updateVoiceCardMenuPosition = (target: HTMLElement) => {
+    const rect = target.getBoundingClientRect()
+    const menuWidth = 108
+    const menuGap = 8
+    const left = Math.min(Math.max(8, rect.right - menuWidth), Math.max(8, window.innerWidth - menuWidth - 8))
+    const top = Math.min(Math.max(8, rect.bottom + menuGap), Math.max(8, window.innerHeight - 92))
+
+    voiceCardMenuStyle.value = {
+        position: 'fixed',
+        left: `${left}px`,
+        top: `${top}px`,
+        width: `${menuWidth}px`
+    }
+}
+
+const toggleVoiceCardMenu = (item: VoiceItem, event: MouseEvent) => {
+    if (voiceCardMenuId.value === item.id) {
+        closeVoiceCardMenu()
+        return
+    }
+    const target = event.currentTarget as HTMLElement | null
+    if (target && isClientRuntime()) updateVoiceCardMenuPosition(target)
+    voiceCardMenuId.value = item.id
+    closeAvatarCardMenu()
 }
 const toggleAvatarSceneMenu = () => {
     avatarSceneMenuOpen.value = !avatarSceneMenuOpen.value
@@ -3625,6 +4203,72 @@ const stopAvatarMotion = (avatarId?: string) => {
     if (!avatarId || previewingAvatarId.value === avatarId) previewingAvatarId.value = ''
 }
 
+const getAvatarCardVideo = (event: MouseEvent) =>
+    (event.currentTarget as HTMLElement | null)?.querySelector<HTMLVideoElement>('.avatar-card__video')
+
+const primeAvatarCardVideoFrame = (event: Event) => {
+    const video = event.currentTarget as HTMLVideoElement | null
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return
+
+    try {
+        video.currentTime = Math.min(0.1, video.duration)
+    } catch (_error) {
+        // Ignore browsers that disallow seeking before enough metadata is ready.
+    }
+}
+
+const playPreviewingAvatarCardVideo = (item: AvatarItem, event: Event) => {
+    if (previewingAvatarId.value !== item.id) return
+    playAvatarCardVideo(event.currentTarget as HTMLVideoElement | null)
+}
+
+const playAvatarCardVideo = async (video?: HTMLVideoElement | null) => {
+    if (!video) return
+
+    try {
+        video.muted = true
+        video.playsInline = true
+        video.loop = true
+        if (video.readyState < 2) video.load()
+        await video.play()
+    } catch (_error) {
+        // Muted hover previews can still be blocked by the browser; keep the cover visible.
+    }
+}
+
+const pauseAvatarCardVideo = (video?: HTMLVideoElement | null) => {
+    if (!video) return
+
+    video.pause()
+    try {
+        video.currentTime = 0
+    } catch (_error) {
+        // Ignore reset failures for partially loaded videos.
+    }
+}
+
+const handleAvatarCardMouseEnter = (item: AvatarItem, event: MouseEvent) => {
+    previewingAvatarId.value = item.id
+    if (item.videoUrl) {
+        const video = getAvatarCardVideo(event)
+        playAvatarCardVideo(video)
+        if (video?.readyState === 0) {
+            window.setTimeout(() => {
+                if (previewingAvatarId.value === item.id) playAvatarCardVideo(video)
+            }, 120)
+        }
+    }
+}
+
+const handleAvatarCardMouseLeave = (item: AvatarItem, event: MouseEvent) => {
+    stopAvatarMotion(item.id)
+    pauseAvatarCardVideo(getAvatarCardVideo(event))
+}
+
+const handleAvatarImageError = (item: AvatarItem) => {
+    item.image = ''
+}
+
 const clearAppliedAvatar = () => {
     appliedAvatarId.value = ''
 }
@@ -3641,7 +4285,58 @@ const clearAppliedVoice = () => {
     appliedVoiceId.value = ''
 }
 
+const stopDriverAudioPreview = () => {
+    if (driverAudioPreview) {
+        driverAudioPreview.pause()
+        driverAudioPreview.currentTime = 0
+        driverAudioPreview = null
+    }
+    isDriverAudioPlaying.value = false
+}
+
+const toggleDriverAudioPreview = async () => {
+    const audioDriver = driverAudio.value
+    if (!audioDriver?.url || !isClientRuntime()) return
+
+    if (isDriverAudioPlaying.value) {
+        stopDriverAudioPreview()
+        return
+    }
+
+    stopVoicePreview()
+    stopHistoryVoicePreview()
+    stopVoiceCreatePreview()
+    if (!driverAudioPreview) {
+        driverAudioPreview = new Audio()
+    }
+    const audio = driverAudioPreview
+    audio.onended = () => {
+        if (driverAudioPreview === audio) driverAudioPreview = null
+        isDriverAudioPlaying.value = false
+    }
+    audio.onerror = () => {
+        if (driverAudioPreview === audio) driverAudioPreview = null
+        isDriverAudioPlaying.value = false
+        feedback.msgError('\u97f3\u9891\u64ad\u653e\u5931\u8d25')
+    }
+
+    try {
+        if (audio.src !== audioDriver.url) {
+            audio.src = audioDriver.url
+            audio.load()
+        }
+        audio.currentTime = 0
+        await audio.play()
+        isDriverAudioPlaying.value = true
+    } catch (_error) {
+        if (driverAudioPreview === audio) driverAudioPreview = null
+        isDriverAudioPlaying.value = false
+        feedback.msgError('\u97f3\u9891\u64ad\u653e\u5931\u8d25')
+    }
+}
+
 const clearDriverAudio = () => {
+    stopDriverAudioPreview()
     if (driverAudio.value?.url) revokeTrackedBlobUrl(driverAudio.value.url)
     driverAudio.value = null
 }
@@ -3843,13 +4538,16 @@ const toggleVoicePreview = async (item: VoiceItem) => {
     if (item.providerAssetId && item.source !== 'official') {
         voicePreviewLoadingId.value = item.id
         try {
+            const previewVoiceRequest = activeHumanMode.value === 'image_human'
+                ? previewImageHumanVoice
+                : previewAigcDigitalHumanVoice
             const result = item.synthesizedPreviewUrl
                 ? { audio_url: item.synthesizedPreviewUrl }
-                : await previewAigcDigitalHumanVoice({
+                : await previewVoiceRequest({
                       voice_id: item.rawId || item.id,
                       text: getVoicePreviewText(item)
                   })
-            const audioUrl = result?.audio_url || ''
+            const audioUrl = result?.audio_url || result?.preview_url || result?.url || ''
             if (!audioUrl) throw new Error('\u8bd5\u542c\u5408\u6210\u672a\u8fd4\u56de\u97f3\u9891')
             item.synthesizedPreviewUrl = audioUrl
             item.previewUrl = audioUrl
@@ -3888,10 +4586,12 @@ const applyHistoryVoiceToEditor = async (item: HistoryVoiceAudioItem) => {
     clearDriverAudio()
     const duration = item.duration > 0 ? item.duration : await readVoiceCreateDuration(item.url)
     driverAudio.value = {
+        title: item.title,
         fileName: item.fileName,
         url: item.url,
         remoteUri: item.remoteUri,
-        duration: duration > 0 ? Math.ceil(duration) : 1
+        duration: duration > 0 ? Math.ceil(duration) : 1,
+        voiceRawId: item.voiceRawId
     }
     closeHistoryVoiceModal()
     feedback.msgSuccess('\u5df2\u9009\u62e9\u5386\u53f2\u58f0\u97f3')
@@ -3927,7 +4627,8 @@ const handleCreateAvatarUpload = async (event: Event) => {
 
     const objectUrl = trackBlobUrl(URL.createObjectURL(file))
     const mediaType: AvatarMediaType = file.type.startsWith('video/') ? 'video' : 'image'
-    const previewImage = mediaType === 'video' ? (await createVideoThumbnail(objectUrl)) || card2 : objectUrl
+    const thumbnailDataUrl = mediaType === 'video' ? await createVideoThumbnail(objectUrl) : ''
+    const previewImage = mediaType === 'video' ? thumbnailDataUrl || '' : objectUrl
 
     pendingAvatarUpload.value = {
         file,
@@ -3935,6 +4636,7 @@ const handleCreateAvatarUpload = async (event: Event) => {
         mediaType,
         url: objectUrl,
         previewImage,
+        generatedCoverFile: thumbnailDataUrl ? dataUrlToFile(thumbnailDataUrl, `${getFileBaseName(file.name) || 'avatar-cover'}.jpg`) : undefined,
         blobUrls: [objectUrl]
     }
 
@@ -4037,46 +4739,18 @@ const handleDriverAudioUpload = async (event: Event) => {
 
     const objectUrl = trackBlobUrl(URL.createObjectURL(file))
     const duration = await readVoiceCreateDuration(objectUrl)
-    if (activeHumanMode.value === 'image_human') {
-        isCreating.value = true
-        try {
-            const uploadRes = await uploadFile({ file })
-            const audioUri = pickUploadUri(uploadRes)
-            if (!audioUri) throw new Error('\u97f3\u9891\u4e0a\u4f20\u5931\u8d25')
-            const row = await saveImageHumanVoice({
-                name: safeAssetName(getFileBaseName(file.name), '\u6211\u7684\u53c2\u8003\u97f3\u9891'),
-                audio_uri: audioUri,
-                duration: duration > 0 ? Math.ceil(duration) : 1
-            })
-            const item = mapVoiceRow(row)
-            item.previewUrl = objectUrl
-            mineVoices.value = [item, ...mineVoices.value.filter((voice) => voice.id !== item.id)]
-            openVoiceLibrary('mine')
-            selectVoiceItem(item)
-            appliedVoiceId.value = item.id
-            feedback.msgSuccess('\u53c2\u8003\u97f3\u9891\u5df2\u4fdd\u5b58')
-            await refreshDigitalHumanEstimate()
-        } catch (error: any) {
-            revokeTrackedBlobUrl(objectUrl)
-            feedback.msgError(error?.msg || error?.message || error || '\u53c2\u8003\u97f3\u9891\u4e0a\u4f20\u5931\u8d25')
-        } finally {
-            isCreating.value = false
-            input.value = ''
-        }
-        return
-    }
-
     clearAppliedVoice()
     selectedVoiceCardId.value = ''
     selectedVoice.value = ''
     clearDriverAudio()
     driverAudio.value = {
         file,
+        title: safeAssetName(getFileBaseName(file.name), texts.audioDriver),
         fileName: file.name,
         url: objectUrl,
         duration: duration > 0 ? duration : 1
     }
-    feedback.msgSuccess('\u97f3\u9891\u9a71\u52a8\u5df2\u4e0a\u4f20')
+    feedback.msgSuccess(activeHumanMode.value === 'image_human' ? '\u97f3\u9891\u9a71\u52a8\u5df2\u9009\u62e9' : '\u97f3\u9891\u9a71\u52a8\u5df2\u4e0a\u4f20')
     input.value = ''
     await refreshDigitalHumanEstimate()
 }
@@ -4099,25 +4773,33 @@ const saveAvatarCreateModal = async () => {
     try {
         const mediaUri = pending.uploadedMediaUri || pending.remoteUri || ''
         if (!mediaUri) throw new Error('\u5f62\u8c61\u89c6\u9891\u8fd8\u672a\u4e0a\u4f20\u5b8c\u6210')
+        let coverUri = pending.uploadedCoverUri || ''
+        if (!coverUri && pending.generatedCoverFile) {
+            const coverUploadRes = await uploadImage({ file: pending.generatedCoverFile })
+            coverUri = pickUploadUri(coverUploadRes)
+            pending.uploadedCoverUri = coverUri
+        }
 
         const row = activeHumanMode.value === 'image_human'
             ? await saveImageHumanAvatar({
                 name: safeAssetName(avatarCreateName.value || getFileBaseName(pending.fileName), '\u6211\u7684\u56fe\u7247\u5f62\u8c61'),
-                cover_uri: pending.uploadedCoverUri || mediaUri,
+                cover_uri: coverUri || mediaUri,
                 image_uri: mediaUri,
                 media_uri: mediaUri,
                 scene: avatarCreateScene.value
             })
             : await saveAigcDigitalHumanAvatar({
                 name: safeAssetName(avatarCreateName.value || getFileBaseName(pending.fileName), '\u6211\u7684\u5f62\u8c61'),
-                cover_uri: pending.uploadedCoverUri || '',
+                cover_uri: coverUri,
                 media_uri: mediaUri,
                 media_type: 'video',
                 scene: avatarCreateScene.value
             })
         const item = mapAvatarRow(row)
-        item.image = resolveSavedAvatarCover(row, pending)
-        item.videoUrl = resolveSavedAvatarVideo(row, pending) || item.videoUrl
+        if (item.rawId) forgetDeletedAvatar(item.rawId)
+        item.image = normalizeAvatarMediaUrl(coverUri) || (pending.mediaType === 'image' ? normalizeAvatarMediaUrl(mediaUri) : '') || item.image || pending.coverUrl || pending.previewImage
+        item.videoUrl = pending.mediaType === 'video' ? normalizeAvatarMediaUrl(mediaUri) || item.videoUrl || pending.url : item.videoUrl
+        item.mediaType = pending.mediaType
         mineAvatars.value = [item, ...mineAvatars.value.filter((avatar) => avatar.id !== item.id)]
         openAvatarLibrary('mine')
         applyAvatarToEditor(item)
@@ -4170,13 +4852,21 @@ const closeAvatarDeleteModal = () => {
     avatarDeleteTargetId.value = ''
 }
 
-const confirmAvatarDelete = () => {
+const confirmAvatarDelete = async () => {
     const targetId = avatarDeleteTargetId.value
     if (!targetId) return
+    const target = mineAvatars.value.find((item) => item.id === targetId)
+    if (!target?.rawId) {
+        closeAvatarDeleteModal()
+        feedback.msgError('\u5f62\u8c61\u4e0d\u5b58\u5728\u6216\u5df2\u88ab\u5220\u9664')
+        return
+    }
+
+    rememberDeletedAvatar(target.rawId)
 
     mineAvatars.value = mineAvatars.value.filter((item) => item.id !== targetId)
     if (selectedAvatar.value?.id === targetId) {
-        selectedAvatar.value = mineAvatars.value[0] || officialAvatars.value[0]
+        selectedAvatar.value = mineAvatars.value[0] || officialAvatars.value[0] || null
     }
     if (appliedAvatarId.value === targetId) {
         appliedAvatarId.value = ''
@@ -4186,6 +4876,60 @@ const confirmAvatarDelete = () => {
     }
 
     closeAvatarDeleteModal()
+    feedback.msgSuccess('\u5220\u9664\u6210\u529f')
+
+    const deleteRequest = activeHumanMode.value === 'image_human'
+        ? deleteImageHumanAvatar({ id: target.rawId })
+        : deleteAigcDigitalHumanAvatar({ id: target.rawId })
+
+    deleteRequest.catch((error: any) => {
+        console.warn('[avatar] backend delete failed, hidden locally:', error)
+    })
+}
+
+const requestVoiceDelete = (item: VoiceItem) => {
+    closeVoiceCardMenu()
+    voiceDeleteTargetId.value = item.id
+    showVoiceDeleteModal.value = true
+}
+
+const closeVoiceDeleteModal = () => {
+    showVoiceDeleteModal.value = false
+    voiceDeleteTargetId.value = ''
+}
+
+const confirmVoiceDelete = async () => {
+    const targetId = voiceDeleteTargetId.value
+    if (!targetId) return
+    const target = mineVoices.value.find((item) => item.id === targetId)
+    if (!target?.rawId) {
+        closeVoiceDeleteModal()
+        feedback.msgError('\u58f0\u97f3\u4e0d\u5b58\u5728\u6216\u5df2\u88ab\u5220\u9664')
+        return
+    }
+
+    mineVoices.value = mineVoices.value.filter((item) => item.id !== targetId)
+    if (selectedVoiceCardId.value === targetId) {
+        selectedVoiceCardId.value = ''
+        selectedVoice.value = ''
+    }
+    if (appliedVoiceId.value === targetId) {
+        clearAppliedVoice()
+    }
+    if (voiceEditingId.value === targetId) {
+        closeVoiceCreateModal()
+    }
+
+    closeVoiceDeleteModal()
+    feedback.msgSuccess('\u5220\u9664\u6210\u529f')
+
+    const deleteRequest = activeHumanMode.value === 'image_human'
+        ? deleteImageHumanVoice({ id: target.rawId })
+        : deleteAigcDigitalHumanVoice({ id: target.rawId })
+
+    deleteRequest.catch((error: any) => {
+        console.warn('[voice] backend delete failed, hidden locally:', error)
+    })
 }
 
 const stopTaskPolling = () => {
@@ -4207,7 +4951,7 @@ const refreshLatestTask = async () => {
             const results = activeHumanMode.value === 'image_human'
                 ? await getImageHumanResults()
                 : await getAigcDigitalHumanResults()
-            latestResult.value = (results || []).find((item: any) => item.video_url) || (results || [])[0] || latestResult.value
+            latestResult.value = pickFirstResultWithVideo(results || []) || (pickResultVideoUrl(latestTask.value) ? latestTask.value : null) || latestResult.value
             if (status === 'success') {
                 feedback.msgSuccess(activeHumanMode.value === 'image_human' ? '\u5168\u9a71\u52a8\u6570\u5b57\u4eba\u89c6\u9891\u751f\u6210\u5b8c\u6210' : '\u6570\u5b57\u4eba\u89c6\u9891\u5408\u6210\u5b8c\u6210')
             } else if (status === 'failed') {
@@ -4230,19 +4974,19 @@ const submitAvatarCreate = async () => {
     const avatar = appliedAvatarItem.value || selectedAvatar.value
     const voice = appliedVoiceItem.value || findVoiceItemById(selectedVoiceCardId.value)
     const audioDriver = driverAudio.value
+    const avatarId = resolveAvatarSubmitId(avatar)
+    const voiceId = Number(voice?.rawId || 0)
+    const script = scriptText.value.trim()
 
-    if (!avatar?.rawId) return feedback.msgError(activeHumanMode.value === 'image_human' ? '\u8bf7\u9009\u62e9\u56fe\u7247\u5f62\u8c61' : '\u8bf7\u9009\u62e9\u89c6\u9891\u5f62\u8c61')
+    if (!avatarId) return feedback.msgError(activeHumanMode.value === 'image_human' ? '\u8bf7\u9009\u62e9\u56fe\u7247\u5f62\u8c61' : '\u8bf7\u9009\u62e9\u89c6\u9891\u5f62\u8c61')
     if (activeHumanMode.value === 'image_human' && avatar.mediaType === 'video') return feedback.msgError('\u8bf7\u9009\u62e9\u56fe\u7247\u5f62\u8c61')
     if (activeHumanMode.value !== 'image_human' && avatar.mediaType !== 'video') return feedback.msgError('\u8bf7\u9009\u62e9\u53ef\u5408\u6210\u7684\u89c6\u9891\u5f62\u8c61')
-    if (activeHumanMode.value === 'image_human' && !voice?.rawId) return feedback.msgError('\u8bf7\u9009\u62e9\u53c2\u8003\u97f3\u9891')
-    if (activeHumanMode.value === 'image_human' && !scriptText.value.trim()) return feedback.msgError('\u8bf7\u8f93\u5165\u63d0\u793a\u8bcd')
-    if (!audioDriver && !voice?.rawId) return feedback.msgError('\u8bf7\u9009\u62e9\u97f3\u8272\u6216\u4e0a\u4f20\u97f3\u9891\u9a71\u52a8')
+    if (!audioDriver && !voiceId) return feedback.msgError(activeHumanMode.value === 'image_human' ? '\u8bf7\u9009\u62e9\u58f0\u97f3\u6216\u4e0a\u4f20\u97f3\u9891\u9a71\u52a8' : '\u8bf7\u9009\u62e9\u97f3\u8272\u6216\u4e0a\u4f20\u97f3\u9891\u9a71\u52a8')
     if (!audioDriver && !voice?.providerAssetId) return feedback.msgError('\u5f53\u524d\u97f3\u8272\u672a\u5b8c\u6210\u514b\u9686\uff0c\u65e0\u6cd5\u5408\u6210')
-    if (!audioDriver && !scriptText.value.trim()) return feedback.msgError('\u8bf7\u8f93\u5165\u6587\u6848\u5185\u5bb9')
+    if (!script) return feedback.msgError('\u8bf7\u8f93\u5165\u6587\u6848\u5185\u5bb9')
 
     const title = workName.value.trim() || (activeHumanMode.value === 'image_human' ? `\u5168\u9a71\u6570\u5b57\u4eba-${avatar.name}` : `\u6570\u5b57\u4eba-${avatar.name}`)
-    const script = scriptText.value.trim()
-    if (!audioDriver && scriptMaxLength.value && Array.from(script).length > scriptMaxLength.value) {
+    if (scriptMaxLength.value && Array.from(script).length > scriptMaxLength.value) {
         return feedback.msgError(`\u6587\u6848\u4e0d\u80fd\u8d85\u8fc7${scriptMaxLength.value}\u4e2a\u5b57`)
     }
     isCreating.value = true
@@ -4259,15 +5003,16 @@ const submitAvatarCreate = async () => {
         await refreshDigitalHumanEstimate()
         const task = activeHumanMode.value === 'image_human'
             ? await submitImageHuman({
-                avatar_id: Number(avatar.rawId),
-                voice_id: Number(voice?.rawId || 0),
+                avatar_id: avatarId,
+                voice_id: audioDriver ? 0 : voiceId,
+                audio_uri: driverAudioUri,
                 title,
                 prompt: script,
                 mode: imageHumanMode.value,
                 duration: estimatedDuration.value
             })
             : await generateAigcDigitalHuman({
-                avatar_id: Number(avatar.rawId),
+                avatar_id: avatarId,
                 voice_id: audioDriver ? 0 : Number(voice?.rawId || 0),
                 audio_uri: driverAudioUri,
                 title,
@@ -4286,11 +5031,7 @@ const submitAvatarCreate = async () => {
             path: '/ai/create',
             query: {
                 type: 'digital_human',
-                status: '',
-                scroll: 'latest',
-                task_id: String(task?.task_id || task?.id || ''),
-                app_code: activeHumanMode.value === 'image_human' ? 'image_human' : 'aigc_digital_human',
-                title
+                status: ''
             }
         })
     } catch (error: any) {
@@ -4317,12 +5058,11 @@ onMounted(() => {
             if (latestTask.value && ['pending', 'running'].includes(latestTask.value.status)) startTaskPolling()
         })
         .catch((error) => {
-            if (!userStore.isLogin || isPcLoginRequiredError(error)) return
             feedback.msgError(error?.msg || error?.message || '\u6570\u5b57\u4eba\u6570\u636e\u52a0\u8f7d\u5931\u8d25')
         })
     document.addEventListener('click', closeFloatingMenus)
-    window.addEventListener('scroll', closeVoiceCreateMenus, true)
-    window.addEventListener('resize', closeVoiceCreateMenus)
+    window.addEventListener('scroll', closeTransientMenus, true)
+    window.addEventListener('resize', closeTransientMenus)
     window.addEventListener('beforeunload', handlePageRefresh)
     window.addEventListener('pagehide', handlePageRefresh)
 })
@@ -4331,12 +5071,13 @@ onBeforeUnmount(() => {
     saveAvatarPageState()
     unlockAvatarPageScroll()
     document.removeEventListener('click', closeFloatingMenus)
-    window.removeEventListener('scroll', closeVoiceCreateMenus, true)
-    window.removeEventListener('resize', closeVoiceCreateMenus)
+    window.removeEventListener('scroll', closeTransientMenus, true)
+    window.removeEventListener('resize', closeTransientMenus)
     window.removeEventListener('beforeunload', handlePageRefresh)
     window.removeEventListener('pagehide', handlePageRefresh)
     stopVoicePreview()
     stopHistoryVoicePreview()
+    stopDriverAudioPreview()
     stopTaskPolling()
     cancelVoiceCreateRecording()
     stopVoiceCreatePreview()
@@ -6487,12 +7228,12 @@ onBeforeUnmount(() => {
 .model-channel-list button {
     position: relative;
     display: flex;
+    min-width: 0;
+    min-height: 58px;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    min-width: 0;
-    min-height: 58px;
     padding: 8px;
     border: 1px solid #222;
     border-radius: 10px;
@@ -6536,10 +7277,10 @@ onBeforeUnmount(() => {
     top: 6px;
     right: 6px;
     display: inline-flex;
-    align-items: center;
-    justify-content: center;
     width: 16px;
     height: 16px;
+    align-items: center;
+    justify-content: center;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.7);
@@ -6722,15 +7463,27 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: center;
+    background: #262626;
 }
 
-.avatar-editor-card__preview img {
+.avatar-editor-card__preview img,
+.avatar-editor-card__preview video {
     height: 100%;
     width: auto;
-    max-width: none;
-    min-height: 100%;
-    object-fit: cover;
-    transform: scale(1.08);
+    max-width: 100%;
+    object-fit: contain;
+    background: #000;
+}
+
+.avatar-editor-card__empty {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 48px;
+    font-weight: 700;
+    background: linear-gradient(180deg, #171719 0%, #0d0d0f 100%);
 }
 
 .avatar-editor-card__actions {
@@ -6844,7 +7597,22 @@ onBeforeUnmount(() => {
     height: 22px;
     border-radius: 999px;
     background: rgba(0, 0, 0, 0.45);
+    opacity: 0;
     transform: translate(-50%, -50%);
+    transition:
+        opacity 0.2s ease,
+        background 0.2s ease;
+    pointer-events: none;
+}
+
+.voice-editor-card__cover:hover .voice-editor-card__play,
+.voice-editor-card__play.is-active,
+.voice-editor-card__cover:focus-visible .voice-editor-card__play {
+    opacity: 1;
+}
+
+.voice-editor-card__play.is-active {
+    background: rgba(3, 191, 3, 0.9);
 }
 
 .voice-editor-card__name {
@@ -7292,7 +8060,7 @@ onBeforeUnmount(() => {
 .voice-card__favorite {
     position: absolute;
     top: 34px;
-    right: 104px;
+    right: 128px;
     z-index: 2;
     width: 24px;
     height: 24px;
@@ -7314,6 +8082,91 @@ onBeforeUnmount(() => {
 
 .voice-card__favorite.is-active {
     color: #ffbe32;
+}
+
+.voice-card__more {
+    position: absolute;
+    top: 32px;
+    right: 96px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #a1a1a1;
+    opacity: 0;
+    transform: translateY(4px);
+    transition:
+        opacity 0.2s ease,
+        transform 0.2s ease,
+        background 0.2s ease;
+    pointer-events: none;
+    cursor: pointer;
+}
+
+.voice-card__more span {
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: currentColor;
+}
+
+.voice-card__more:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.voice-card__menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 12px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 92px;
+    padding: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    background: rgba(17, 17, 17, 0.96);
+    box-shadow: 0 18px 30px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(10px);
+}
+
+.voice-card__menu.voice-card__menu--floating {
+    position: fixed;
+    top: auto;
+    right: auto;
+    z-index: 4000;
+    box-sizing: border-box;
+}
+
+.voice-card__menu button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 34px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #fff;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        background 0.2s ease,
+        color 0.2s ease;
+}
+
+.voice-card__menu button:hover {
+    background: rgba(255, 255, 255, 0.08);
 }
 
 .voice-card__action {
@@ -7345,8 +8198,10 @@ onBeforeUnmount(() => {
 }
 
 .voice-card:hover .voice-card__favorite,
+.voice-card:hover .voice-card__more,
 .voice-card:hover .voice-card__action,
 .voice-card:focus-within .voice-card__favorite,
+.voice-card:focus-within .voice-card__more,
 .voice-card:focus-within .voice-card__action {
     opacity: 1;
     transform: translateY(0);
@@ -7361,7 +8216,7 @@ onBeforeUnmount(() => {
     align-items: center;
     gap: 12px;
     min-width: 0;
-    max-width: calc(100% - 148px);
+    max-width: calc(100% - 180px);
 }
 
 .voice-card__thumb {
@@ -7582,6 +8437,18 @@ onBeforeUnmount(() => {
         filter 0.3s ease;
 }
 
+.avatar-card__video {
+    display: block;
+}
+
+.avatar-card__image--empty {
+    display: grid;
+    place-items: center;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 42px;
+    font-weight: 700;
+}
+
 .avatar-card__shade {
     background: linear-gradient(180deg, rgba(0, 0, 0, 0.02) 16%, rgba(0, 0, 0, 0.38) 100%);
     transition: background 0.3s ease;
@@ -7771,7 +8638,6 @@ onBeforeUnmount(() => {
 
 .avatar-card.is-previewing .avatar-card__image,
 .avatar-card:hover .avatar-card__image {
-    animation: avatar-card-preview 2.2s ease-in-out infinite alternate;
     filter: saturate(1.04) brightness(1.02);
 }
 
@@ -7900,16 +8766,6 @@ onBeforeUnmount(() => {
     line-height: 1.6;
     max-width: 8em;
     overflow-wrap: anywhere;
-}
-
-@keyframes avatar-card-preview {
-    0% {
-        transform: scale(1) translate3d(0, 0, 0);
-    }
-
-    100% {
-        transform: scale(1.08) translate3d(0, -10px, 0);
-    }
 }
 
 @media (max-width: 1520px) {
@@ -8115,11 +8971,15 @@ onBeforeUnmount(() => {
     }
 
     .voice-card__meta {
-        max-width: calc(100% - 136px);
+        max-width: calc(100% - 164px);
     }
 
     .voice-card__favorite {
-        right: 102px;
+        right: 124px;
+    }
+
+    .voice-card__more {
+        right: 92px;
     }
 
     .voice-card__action {

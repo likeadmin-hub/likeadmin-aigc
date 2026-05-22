@@ -6,6 +6,10 @@ export function submitImageHuman(params: any) {
     return $request.post({ url: '/app.image_human.generate/submit', params })
 }
 
+export function getImageHumanConfig() {
+    return $request.get({ url: '/app.image_human.config/detail' })
+}
+
 export function getImageHumanTasks(params?: any, requestOptions?: any) {
     return $request.get({ url: '/app.image_human.task/lists', params }, requestOptions)
 }
@@ -31,7 +35,7 @@ export function saveImageHumanAvatar(params: any) {
 }
 
 export function deleteImageHumanAvatar(params: any) {
-    return $request.post({ url: '/app.image_human.avatar/delete', params })
+    return $request.post({ url: '/app.image_human.user_avatar/delete', params })
 }
 
 export function getImageHumanVoices(params?: any) {
@@ -44,4 +48,8 @@ export function saveImageHumanVoice(params: any) {
 
 export function deleteImageHumanVoice(params: any) {
     return $request.post({ url: '/app.image_human.voice/delete', params })
+}
+
+export function previewImageHumanVoice(params: any) {
+    return $request.post({ url: '/app.image_human.voice/preview', params })
 }

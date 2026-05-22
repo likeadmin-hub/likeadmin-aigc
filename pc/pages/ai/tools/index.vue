@@ -25,7 +25,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePcLoginGate } from '@/composables/usePcLoginGate'
 import { usePcCredits } from '~/composables/usePcCredits'
@@ -76,6 +76,12 @@ const handleSidebar = (key: SidebarKey) => {
     if ((key === 'create' || key === 'assets') && !ensurePcLogin({ redirect: buildSidebarRouteLocation(key).path || route.fullPath })) return
     router.push(buildSidebarRouteLocation(key))
 }
+
+onBeforeUnmount(() => {
+    if (typeof document === 'undefined') return
+    document.documentElement.style.overflow = ''
+    document.body.style.overflow = ''
+})
 </script>
 
 <style lang="scss" scoped>

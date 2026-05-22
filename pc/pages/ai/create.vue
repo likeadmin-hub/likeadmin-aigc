@@ -45,9 +45,9 @@
                 </div>
             </section>
 
-            <section ref="workListRef" class="works">
+            <section ref="workListRef" class="works" :style="worksAlignmentStyle">
                 <template v-if="filteredWorks.length">
-                    <article v-for="work in filteredWorks" :key="work.id" class="work">
+                    <article v-for="work in filteredWorks" :key="work.id" class="work" :data-work-id="work.id">
                         <div class="work__head">
                             <div class="work__text">
                                 <div class="work__title">
@@ -286,7 +286,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type {
     AiCreateDraft,
@@ -328,6 +328,7 @@ type PopoverKey = '' | 'share' | 'api' | 'notice'
 type WorkStatusFilter = '' | 'pending' | 'running' | 'success' | 'failed' | 'canceled' | 'creating' | 'created'
 type WorkTypeFilter = '' | 'image' | 'video' | 'digital_human'
 type WorkCategory = Exclude<WorkTypeFilter, ''>
+type GenerationFilter = 'all' | WorkCategory
 type ConfigOption = {
     key: OptionKey
     value: string
@@ -373,6 +374,7 @@ type BackendWork = AiCreateWork & {
     resultImage?: string
     resultVideo?: string
     coverImage?: string
+    listOrder?: number
 }
 
 type WorkCard = {
@@ -404,9 +406,10 @@ const mainRef = ref<HTMLElement | null>(null)
 const composerShellRef = ref<HTMLElement | null>(null)
 const composerRef = ref<{ focusTextarea: () => Promise<void>; collapseIfEmpty: () => void } | null>(null)
 const generationFilterOpen = ref(false)
-const selectedGenerationFilter = ref<'all' | AiGenerationMode>('all')
+const selectedGenerationFilter = ref<GenerationFilter>('all')
 const emptyImage = 'https://aigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/images/20260519/20260519165642975309142.jpg'
 const pageFitsViewport = ref(false)
+const worksTopSpacer = ref(0)
 const uploadedFileName = ref('')
 const uploadedPreviewUrl = ref('')
 const uploadedReferenceUri = ref('')
@@ -429,6 +432,11 @@ let latestWorkAlignTimers: ReturnType<typeof setTimeout>[] = []
 let isRefreshingBackendWorks = false
 let hasMountedCreatePage = false
 let pendingInitialLatestWorkJump = true
+let isResettingLatestWorkView = false
+let latestWorkResetToken = 0
+let latestWorkGuardTimer: ReturnType<typeof setInterval> | null = null
+let latestWorkGuardUntil = 0
+let latestWorkInputGuardUntil = 0
 const aigcOptionConfig = ref<any>({
     channels: [],
     defaults: {
@@ -592,7 +600,8 @@ const unitPriceLabel = computed(() => (
 const generationFilterOptions = [
     { label: '全部', value: 'all' as const },
     { label: '图片', value: 'image' as const },
-    { label: '视频', value: 'video' as const }
+    { label: '视频', value: 'video' as const },
+    { label: '数字人', value: 'digital_human' as const }
 ]
 const generationFilterLabel = computed(() => generationFilterOptions.find((item) => item.value === selectedGenerationFilter.value)?.label || '全部')
 const syncImageOptionSideEffects = (next: AiCreateOptionState, previous: AiCreateOptionState) => {
@@ -635,11 +644,20 @@ const syncVideoOptionSideEffects = (next: AiCreateOptionState, previous: AiCreat
 const localWorks = computed<BackendWork[]>(() => works.value
     .filter((item) => !backendWorks.value.some((backendItem) => backendItem.task === item.task))
     .map((item) => ({ ...item, source: 'local' as const, category: item.mode === 'video' ? 'video' as const : 'image' as const })))
+const getWorkSortableId = (work: Pick<BackendWork, 'id' | 'task'>) => {
+    const rawValue = work.task || String(work.id || '').match(/\d+/g)?.pop() || 0
+    const value = Number(rawValue)
+    return Number.isFinite(value) ? value : 0
+}
+const getWorkSortTime = (work: BackendWork) => Number(work.createdAt || 0) || Number(work.listOrder || 0) || getWorkSortableId(work)
 const orderedWorks = computed<BackendWork[]>(() => [
     ...optimisticBackendWorks.value.filter((localItem) => !backendWorks.value.some((backendItem) => backendItem.id === localItem.id)),
     ...backendWorks.value,
     ...localWorks.value
-].sort((a, b) => a.createdAt - b.createdAt))
+].sort((a, b) => {
+    const timeDiff = getWorkSortTime(a) - getWorkSortTime(b)
+    return timeDiff || getWorkSortableId(a) - getWorkSortableId(b)
+}))
 const creatingCount = computed(() => orderedWorks.value.filter((item) => isWorkCreating(item)).length)
 const createdCount = computed(() => orderedWorks.value.filter((item) => item.backendStatus === 'success' || item.status === 'created').length)
 const failedCount = computed(() => orderedWorks.value.filter((item) => item.backendStatus === 'failed').length)
@@ -651,9 +669,12 @@ const filterWorksByStatus = (list: BackendWork[], status: WorkStatusFilter) => {
 }
 const generationFilteredWorks = computed(() => {
     if (selectedGenerationFilter.value === 'all') return orderedWorks.value
-    return orderedWorks.value.filter((item) => item.mode === selectedGenerationFilter.value && getWorkCategory(item) !== 'digital_human')
+    return orderedWorks.value.filter((item) => getWorkCategory(item) === selectedGenerationFilter.value)
 })
 const filteredWorks = computed(() => filterWorksByStatus(generationFilteredWorks.value, activeTab.value))
+const worksAlignmentStyle = computed(() => (
+    worksTopSpacer.value > 0 ? { paddingTop: `${worksTopSpacer.value}px` } : undefined
+))
 const chromePopoverContent = computed(() => ({
     share: {
         title: '邀请好友',
@@ -749,7 +770,7 @@ const getReferenceStackItemStyle = (index: number) => ({
     transform: `translateX(${index * referenceStackOffset}px) rotate(${index % 2 === 0 ? -5 : 5}deg)`,
     zIndex: index + 1
 })
-const selectGenerationFilter = (value: 'all' | AiGenerationMode) => {
+const selectGenerationFilter = (value: GenerationFilter) => {
     selectedGenerationFilter.value = value
     generationFilterOpen.value = false
     activeTab.value = ''
@@ -971,7 +992,21 @@ const normalizeResultImage = (item: any) => {
 }
 
 const getFirstDigitalHumanResult = (item: any) => Array.isArray(item.results)
-    ? item.results.find((result: any) => result?.video_url || result?.video_uri || result?.url || result?.cover_url)
+    ? item.results.find((result: any) =>
+        result?.video_url ||
+        result?.video_uri ||
+        result?.video ||
+        result?.url ||
+        result?.file_url ||
+        result?.media_url ||
+        result?.media_uri ||
+        result?.media_path ||
+        result?.download_url ||
+        result?.origin_url ||
+        result?.result_url ||
+        result?.output_url ||
+        result?.cover_url
+    )
     : null
 
 const normalizeDigitalHumanVideo = (item: any) => {
@@ -981,17 +1016,42 @@ const normalizeDigitalHumanVideo = (item: any) => {
         || item.video
         || item.media_url
         || item.media_path
+        || item.media_uri
         || item.download_url
         || item.origin_url
+        || item.result_url
+        || item.output_url
         || item.url
         || item.file_url
         || item.video_uri
+        || item.result?.video_url
+        || item.result?.video
+        || item.result?.file_url
+        || item.result?.media_url
+        || item.result?.media_uri
+        || item.result?.download_url
+        || item.result?.origin_url
+        || item.result?.result_url
+        || item.result?.output_url
+        || item.output?.video_url
+        || item.output?.video
+        || item.output?.url
+        || item.output?.file_url
+        || item.output?.media_url
+        || item.output?.media_uri
+        || item.output?.download_url
+        || item.output?.origin_url
+        || item.output?.result_url
+        || item.output?.output_url
         || firstResult?.video_url
         || firstResult?.video
         || firstResult?.media_url
         || firstResult?.media_path
+        || firstResult?.media_uri
         || firstResult?.download_url
         || firstResult?.origin_url
+        || firstResult?.result_url
+        || firstResult?.output_url
         || firstResult?.url
         || firstResult?.file_url
         || firstResult?.video_uri
@@ -1007,11 +1067,27 @@ const normalizeDigitalHumanCover = (item: any) => {
         || item.image_url
         || item.image
         || item.cover_uri
+        || item.poster_url
+        || item.poster_uri
+        || item.poster
+        || item.thumb_url
+        || item.thumb_uri
+        || item.thumbnail_url
+        || item.thumbnail_uri
+        || item.thumbnail
         || firstResult?.cover_url
         || firstResult?.cover
         || firstResult?.image_url
         || firstResult?.image
         || firstResult?.cover_uri
+        || firstResult?.poster_url
+        || firstResult?.poster_uri
+        || firstResult?.poster
+        || firstResult?.thumb_url
+        || firstResult?.thumb_uri
+        || firstResult?.thumbnail_url
+        || firstResult?.thumbnail_uri
+        || firstResult?.thumbnail
         || ''
     )
 }
@@ -1116,6 +1192,7 @@ const mapBackendWork = (item: any, index: number): BackendWork => {
         source: 'backend',
         category: 'image',
         createdAt: getBackendTimestamp(item),
+        listOrder: Number(item.__list_order || 0),
         seed: index,
         resultImage: imageUrl
     }
@@ -1155,6 +1232,7 @@ const mapBackendVideoWork = (item: any, index: number): BackendWork => {
         source: 'backend',
         category: 'video',
         createdAt: getBackendTimestamp(item),
+        listOrder: Number(item.__list_order || 0),
         seed: index,
         resultImage: coverUrl,
         coverImage: coverUrl,
@@ -1190,8 +1268,9 @@ const mapDigitalHumanWork = (item: any, index: number, appCode: 'aigc_digital_hu
         category: 'digital_human',
         appCode,
         createdAt: getBackendTimestamp(item),
+        listOrder: Number(item.__list_order || 0),
         seed: index,
-        resultImage: coverUrl,
+        resultImage: coverUrl || (videoUrl ? normalizeAigcImageUrl(item.image_url || item.image_uri || item.image || '') : ''),
         coverImage: coverUrl,
         resultVideo: videoUrl
     }
@@ -1207,6 +1286,14 @@ const fetchBackendList = async (loader: () => Promise<any>, label: string): Prom
         console.warn(`refresh ${label} failed`, error)
         return []
     }
+}
+
+const withListOrder = (list: any[], groupIndex: number) => {
+    const total = list.length
+    return list.map((item, index) => ({
+        ...item,
+        __list_order: groupIndex * 1000000 + (total - index)
+    }))
 }
 
 const hasActiveBackendWorks = (list: BackendWork[] = backendWorks.value) =>
@@ -1267,35 +1354,35 @@ const refreshBackendWorks = async () => {
             fetchBackendList(() => getImageHumanTasks(undefined, silentRequestOptions), 'image human tasks')
         ])
         const map = new Map<string, BackendWork>()
-        ;(Array.isArray(taskList) ? taskList : []).forEach((item, index) => {
+        withListOrder(Array.isArray(taskList) ? taskList : [], 1).forEach((item, index) => {
             const work = mapBackendWork(item, index)
             map.set(work.id, work)
         })
-        ;(Array.isArray(resultList) ? resultList : []).forEach((item, index) => {
+        ;withListOrder(Array.isArray(resultList) ? resultList : [], 1).forEach((item, index) => {
             const work = mapBackendWork(item, index)
             map.set(work.id, { ...(map.get(work.id) || {}), ...work })
         })
-        ;(Array.isArray(videoTaskList) ? videoTaskList : []).forEach((item, index) => {
+        ;withListOrder(Array.isArray(videoTaskList) ? videoTaskList : [], 2).forEach((item, index) => {
             const work = mapBackendVideoWork(item, index)
             map.set(work.id, work)
         })
-        ;(Array.isArray(videoResultList) ? videoResultList : []).forEach((item, index) => {
+        ;withListOrder(Array.isArray(videoResultList) ? videoResultList : [], 2).forEach((item, index) => {
             const work = mapBackendVideoWork(item, index)
             map.set(work.id, { ...(map.get(work.id) || {}), ...work })
         })
-        ;(Array.isArray(digitalHumanTaskList) ? digitalHumanTaskList : []).forEach((item, index) => {
+        ;withListOrder(Array.isArray(digitalHumanTaskList) ? digitalHumanTaskList : [], 3).forEach((item, index) => {
             const work = mapDigitalHumanWork(item, index)
             map.set(work.id, work)
         })
-        ;(Array.isArray(digitalHumanResultList) ? digitalHumanResultList : []).forEach((item, index) => {
+        ;withListOrder(Array.isArray(digitalHumanResultList) ? digitalHumanResultList : [], 3).forEach((item, index) => {
             const work = mapDigitalHumanWork(item, index)
             map.set(work.id, { ...(map.get(work.id) || {}), ...work })
         })
-        ;(Array.isArray(imageHumanTaskList) ? imageHumanTaskList : []).forEach((item, index) => {
+        ;withListOrder(Array.isArray(imageHumanTaskList) ? imageHumanTaskList : [], 4).forEach((item, index) => {
             const work = mapDigitalHumanWork(item, index, 'image_human')
             map.set(work.id, work)
         })
-        ;(Array.isArray(imageHumanResultList) ? imageHumanResultList : []).forEach((item, index) => {
+        ;withListOrder(Array.isArray(imageHumanResultList) ? imageHumanResultList : [], 4).forEach((item, index) => {
             const work = mapDigitalHumanWork(item, index, 'image_human')
             map.set(work.id, { ...(map.get(work.id) || {}), ...work })
         })
@@ -1353,27 +1440,6 @@ const addOptimisticBackendVideoWork = (taskId: unknown, status: unknown = 'runni
     syncBackendRefreshPolling()
 }
 
-const addOptimisticDigitalHumanWork = (
-    taskId: unknown,
-    appCode: 'aigc_digital_human' | 'image_human' = 'aigc_digital_human',
-    title = ''
-) => {
-    const id = String(taskId || '')
-    if (!id) return
-    const row = mapDigitalHumanWork({
-        id,
-        task_id: id,
-        title: title || (appCode === 'image_human' ? '全驱动数字人' : '数字人合成'),
-        status: 'running',
-        create_time: Math.floor(Date.now() / 1000)
-    }, optimisticBackendWorks.value.length, appCode)
-    optimisticBackendWorks.value = [
-        row,
-        ...optimisticBackendWorks.value.filter((item) => item.id !== row.id)
-    ]
-    syncBackendRefreshPolling()
-}
-
 const getCards = (work: BackendWork): WorkCard[] => {
     if (getWorkCategory(work) === 'digital_human' && (work.resultVideo || work.resultImage)) {
         return [{ id: `${work.id}-result`, image: work.resultImage || '', video: work.resultVideo || '', alt: '数字人合成结果', ratio: work.ratio }]
@@ -1405,6 +1471,7 @@ const getCardStyle = (card: WorkCard) => {
     return { aspectRatio: `${width} / ${height}` }
 }
 const openWorkDetail = (work: BackendWork, image = '', video = '') => {
+    if (isWorkCreating(work)) return
     detailWork.value = work
     detailImage.value = image || work.resultImage || ''
     detailVideo.value = video || work.resultVideo || ''
@@ -1627,58 +1694,116 @@ const focusComposer = async () => {
     await nextTick()
     window.setTimeout(() => composerRef.value?.focusTextarea?.(), 180)
 }
-const getRouteQueryString = (value: unknown) => Array.isArray(value) ? String(value[0] || '') : String(value || '')
-const shouldAutoScrollToLatestWork = () => {
-    const scroll = getRouteQueryString(route.query.scroll)
-    const type = getRouteQueryString(route.query.type)
-    return scroll === 'latest' || type === 'digital_human'
+const getLatestWorkElement = () => {
+    const latestWork = filteredWorks.value[filteredWorks.value.length - 1]
+    if (!latestWork || !workListRef.value) return null
+    const workElements = Array.from(workListRef.value.querySelectorAll<HTMLElement>('.work'))
+    return workElements.find((element) => element.dataset.workId === latestWork.id) || workElements[workElements.length - 1] || null
 }
-const primeLatestWorkFromRoute = () => {
-    if (!shouldAutoScrollToLatestWork()) return
-    const taskId = getRouteQueryString(route.query.task_id)
-    if (!taskId) return
-    const appCode = getRouteQueryString(route.query.app_code) === 'image_human' ? 'image_human' : 'aigc_digital_human'
-    addOptimisticDigitalHumanWork(taskId, appCode, getRouteQueryString(route.query.title))
+const getLatestWorkAlignedScrollTop = () => {
+    const latestWork = getLatestWorkElement()
+    if (!latestWork) return Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)
+    const composerTop = composerShellRef.value?.getBoundingClientRect().top ?? (window.innerHeight - 112)
+    const latestWorkBottom = latestWork.getBoundingClientRect().bottom + window.scrollY
+    return Math.max(latestWorkBottom - composerTop, 0)
 }
-const getDocumentBottomScrollTop = () => Math.max(
-    document.documentElement.scrollHeight,
-    document.body.scrollHeight
-) - window.innerHeight
+const getLatestWorkViewportGap = () => {
+    const latestWork = getLatestWorkElement()
+    const composerTop = composerShellRef.value?.getBoundingClientRect().top
+    if (!latestWork || composerTop == null) return 0
+    return composerTop - latestWork.getBoundingClientRect().bottom
+}
 const clearLatestWorkAlignTimers = () => {
     latestWorkAlignTimers.forEach((timer) => clearTimeout(timer))
     latestWorkAlignTimers = []
 }
+const stopLatestWorkGuard = () => {
+    if (!latestWorkGuardTimer) return
+    clearInterval(latestWorkGuardTimer)
+    latestWorkGuardTimer = null
+    latestWorkGuardUntil = 0
+}
 const cancelInitialLatestWorkJump = () => {
+    if (Date.now() < latestWorkInputGuardUntil) return
     pendingInitialLatestWorkJump = false
     clearLatestWorkAlignTimers()
+    stopLatestWorkGuard()
 }
-const scheduleLatestWorkBottomScroll = (behavior: ScrollBehavior = 'auto') => {
+const isLatestWorkNearComposer = () => {
+    const latestWork = getLatestWorkElement()
+    const composerTop = composerShellRef.value?.getBoundingClientRect().top
+    if (!latestWork || composerTop == null) return true
+    const bottom = latestWork.getBoundingClientRect().bottom
+    return Math.abs(bottom - composerTop) <= 96 || (bottom <= composerTop && bottom >= 0)
+}
+const alignLatestWorkToComposer = (behavior: ScrollBehavior = 'auto') => {
+    if (!filteredWorks.value.length) {
+        worksTopSpacer.value = 0
+        return
+    }
+    window.scrollTo({ top: getLatestWorkAlignedScrollTop(), behavior })
+    window.requestAnimationFrame(() => {
+        const gap = Math.round(getLatestWorkViewportGap())
+        worksTopSpacer.value = Math.max(gap, 0)
+    })
+}
+const startLatestWorkGuard = () => {
+    stopLatestWorkGuard()
+    if (!filteredWorks.value.length) return
+    latestWorkGuardUntil = Date.now() + 2200
+    latestWorkGuardTimer = setInterval(() => {
+        if (Date.now() > latestWorkGuardUntil || !pendingInitialLatestWorkJump || route.path !== '/ai/create') {
+            stopLatestWorkGuard()
+            return
+        }
+        if (!isLatestWorkNearComposer()) alignLatestWorkToComposer('auto')
+    }, 120)
+}
+const scheduleLatestWorkAlignment = (behavior: ScrollBehavior = 'auto') => {
     clearLatestWorkAlignTimers()
-    const scroll = () => {
-        window.requestAnimationFrame(() => {
-            window.scrollTo({ top: Math.max(getDocumentBottomScrollTop(), 0), behavior })
-        })
+    worksTopSpacer.value = 0
+    const align = () => {
+        window.requestAnimationFrame(() => alignLatestWorkToComposer(behavior))
     }
     nextTick(() => {
-        scroll()
-        ;[80, 180, 360, 720, 1200, 2000].forEach((delay) => {
-            latestWorkAlignTimers.push(window.setTimeout(scroll, delay))
+        align()
+        ;[80, 180, 360, 720, 1200, 2000, 3200].forEach((delay) => {
+            latestWorkAlignTimers.push(window.setTimeout(align, delay))
         })
+        if (behavior === 'auto') startLatestWorkGuard()
     })
 }
 const scrollToLatestWork = async () => {
     await nextTick()
-    scheduleLatestWorkBottomScroll('smooth')
+    scheduleLatestWorkAlignment('smooth')
 }
 const jumpToLatestWork = async () => {
     await nextTick()
-    scheduleLatestWorkBottomScroll('auto')
+    scheduleLatestWorkAlignment('auto')
+}
+const resetAndJumpToLatestWork = async (refresh = true) => {
+    const token = ++latestWorkResetToken
+    pendingInitialLatestWorkJump = true
+    latestWorkInputGuardUntil = Date.now() + 600
+    isResettingLatestWorkView = true
+    activeTab.value = ''
+    activeType.value = ''
+    selectedGenerationFilter.value = 'all'
+    await nextTick()
+    isResettingLatestWorkView = false
+    if (refresh) await refreshBackendWorks()
+    if (token !== latestWorkResetToken) return
+    if (filteredWorks.value.length) await jumpToLatestWork()
+    else worksTopSpacer.value = 0
+    window.setTimeout(() => {
+        if (token === latestWorkResetToken) pendingInitialLatestWorkJump = false
+    }, 2400)
 }
 const handlePageScroll = () => {
     composerRef.value?.collapseIfEmpty()
 }
 const handleWindowResize = () => {
-    if (pendingInitialLatestWorkJump) jumpToLatestWork()
+    if (worksTopSpacer.value > 0 && pendingInitialLatestWorkJump) jumpToLatestWork()
 }
 const submitPrompt = async () => {
     if (submitting.value) return
@@ -1803,6 +1928,12 @@ const unlockCreatePageScroll = () => {
     if (typeof document === 'undefined') return
     document.documentElement.classList.add('ai-create-scrollable')
     document.body.classList.add('ai-create-scrollable')
+    document.documentElement.style.height = ''
+    document.body.style.height = ''
+    document.documentElement.style.position = ''
+    document.body.style.position = ''
+    document.documentElement.style.top = ''
+    document.body.style.top = ''
     if (!detailWork.value) {
         document.documentElement.style.overflow = ''
         document.body.style.overflow = ''
@@ -1844,6 +1975,7 @@ watch(
 watch(
     [activeTab, activeType],
     () => {
+        if (isResettingLatestWorkView) return
         if (hasMountedCreatePage) cancelInitialLatestWorkJump()
     }
 )
@@ -1856,29 +1988,22 @@ watch(
 watch(
     () => route.query,
     (query) => {
-        const type = getRouteQueryString(query.type)
-        const status = getRouteQueryString(query.status)
+        const type = Array.isArray(query.type) ? query.type[0] : query.type
+        const status = Array.isArray(query.status) ? query.status[0] : query.status
         if (type === 'image' || type === 'video' || type === 'digital_human') {
             activeType.value = type
+            selectedGenerationFilter.value = type
         }
         if (status === 'pending' || status === 'running' || status === 'success' || status === 'failed' || status === 'canceled') {
             activeTab.value = status
         } else if (status === '') {
             activeTab.value = ''
         }
-        primeLatestWorkFromRoute()
-        if (hasMountedCreatePage && shouldAutoScrollToLatestWork()) {
-            pendingInitialLatestWorkJump = true
-            jumpToLatestWork().finally(() => {
-                pendingInitialLatestWorkJump = false
-            })
-        }
     },
     { immediate: true }
 )
 onMounted(() => {
     unlockCreatePageScroll()
-    primeLatestWorkFromRoute()
     document.addEventListener('click', closeMenus)
     window.addEventListener('scroll', handlePageScroll, { passive: true })
     window.addEventListener('wheel', cancelInitialLatestWorkJump, { passive: true })
@@ -1887,10 +2012,8 @@ onMounted(() => {
     window.addEventListener('keydown', handleCreatePageKeydown)
     loadAigcConfig()
     loadAigcVideoConfig()
-    refreshBackendWorks().finally(async () => {
+    resetAndJumpToLatestWork().finally(() => {
         hasMountedCreatePage = true
-        if (pendingInitialLatestWorkJump && filteredWorks.value.length) await jumpToLatestWork()
-        pendingInitialLatestWorkJump = false
     })
 })
 
@@ -1901,17 +2024,21 @@ watch(() => userStore.isLogin, (loggedIn) => {
         stopBackendRefreshPolling()
         return
     }
-    pendingInitialLatestWorkJump = true
-    refreshBackendWorks().then(() => {
-        if (pendingInitialLatestWorkJump && filteredWorks.value.length) return jumpToLatestWork()
-        return undefined
-    }).finally(() => {
-        pendingInitialLatestWorkJump = false
-    })
+    resetAndJumpToLatestWork()
+})
+
+watch(() => route.path, (path, previousPath) => {
+    if (path !== '/ai/create' || !previousPath || previousPath === path) return
+    resetAndJumpToLatestWork()
+})
+onActivated(() => {
+    if (!hasMountedCreatePage || route.path !== '/ai/create') return
+    resetAndJumpToLatestWork()
 })
 onBeforeUnmount(() => {
     stopBackendRefreshPolling()
     clearLatestWorkAlignTimers()
+    stopLatestWorkGuard()
     document.removeEventListener('click', closeMenus)
     window.removeEventListener('scroll', handlePageScroll)
     window.removeEventListener('wheel', cancelInitialLatestWorkJump)
@@ -1929,13 +2056,16 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 :global(html),
 :global(body) {
-    overflow: auto;
+    height: auto !important;
+    min-height: 100%;
+    overflow: auto !important;
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
 
 :global(html.ai-create-scrollable),
 :global(body.ai-create-scrollable) {
+    height: auto !important;
     overflow: auto !important;
 }
 
@@ -2284,6 +2414,10 @@ onBeforeUnmount(() => {
     filter: blur(5px) saturate(0.85);
     transform: scale(1.04);
     opacity: 0.82;
+}
+
+.card.is-pending {
+    cursor: default;
 }
 
 .card__state {

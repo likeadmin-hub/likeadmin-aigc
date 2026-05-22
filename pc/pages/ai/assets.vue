@@ -25,7 +25,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePcLoginGate } from '@/composables/usePcLoginGate'
 import { usePcCredits } from '~/composables/usePcCredits'
@@ -56,6 +56,12 @@ const handleSidebar = (key: SidebarKey) => {
     if ((key === 'create' || key === 'assets') && !ensurePcLogin({ redirect: buildSidebarRouteLocation(key).path || route.fullPath })) return
     router.push(buildSidebarRouteLocation(key))
 }
+
+onBeforeUnmount(() => {
+    if (typeof document === 'undefined') return
+    document.documentElement.style.overflow = ''
+    document.body.style.overflow = ''
+})
 </script>
 
 <style lang="scss" scoped>
@@ -68,6 +74,12 @@ const handleSidebar = (key: SidebarKey) => {
 }
 
 .workspace-page {
+    --workspace-header-height: 56px;
+    --workspace-rail-left: 16px;
+    --workspace-rail-width: 76px;
+    --workspace-rail-gap: clamp(12px, 1.25vw, 24px);
+    --workspace-content-left: calc(var(--workspace-rail-left) + var(--workspace-rail-width) + var(--workspace-rail-gap));
+    --workspace-content-right: clamp(16px, 2.2vw, 40px);
     position: relative;
     height: 100vh;
     min-width: 810px;
@@ -150,8 +162,8 @@ const handleSidebar = (key: SidebarKey) => {
     position: relative;
     z-index: 1;
     height: 100%;
-    min-width: 810px;
-    padding: 56px 40px 24px 116px;
+    min-width: 0;
+    padding: var(--workspace-header-height) var(--workspace-content-right) 24px var(--workspace-content-left);
     overflow-y: auto;
     overflow-x: hidden;
     box-sizing: border-box;
@@ -181,6 +193,9 @@ const handleSidebar = (key: SidebarKey) => {
 .workspace-main--assets {
     display: flex;
     flex-direction: column;
+    min-height: 0;
+    padding-top: var(--workspace-header-height);
+    padding-bottom: 0;
     overflow: hidden;
 }
 
@@ -197,30 +212,30 @@ const handleSidebar = (key: SidebarKey) => {
 @media (max-width: 1200px) {
     :global(html),
     :global(body) {
-        overflow: auto;
+        overflow: hidden;
     }
 
     .workspace-page {
-        height: auto;
-        min-width: 0;
-        padding-bottom: 32px;
+        height: 100vh;
+        min-width: 810px;
+        padding-bottom: 0;
     }
 
     .workspace-main {
-        height: auto;
+        height: 100%;
         min-width: 0;
-        padding: 210px 16px 32px;
-        overflow: visible;
+        padding: var(--workspace-header-height) var(--workspace-content-right) 0 var(--workspace-content-left);
+        overflow: hidden;
     }
 }
 
 @media (max-width: 820px) {
     .workspace-page {
-        padding-inline: 16px;
+        padding-inline: 0;
     }
 
     .workspace-main {
-        padding-top: 232px;
+        padding-top: var(--workspace-header-height);
     }
 }
 </style>

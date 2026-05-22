@@ -18,6 +18,11 @@
                         <el-radio :value="0">停用</el-radio>
                     </el-radio-group>
                 </el-form-item>
+                <el-divider content-position="left">基础配置</el-divider>
+                <el-form-item label="文案字数限制">
+                    <el-input-number v-model="baseConfig.prompt_max_length" :min="0" :precision="0" />
+                    <span class="ml-2 text-tx-secondary">0 表示不限制</span>
+                </el-form-item>
                 <el-divider content-position="left">接口路径</el-divider>
                 <el-form-item label="提交路径">
                     <el-input v-model="providerConfig.submit_path" />
@@ -85,6 +90,9 @@ const providerConfig = reactive({
     query_path: '/api/v1/apps/image_human/query',
     timeout: 60
 })
+const baseConfig = reactive({
+    prompt_max_length: 200
+})
 const pricing = reactive({
     platform_unit_cost: 1.666667,
     tenant_unit_price: 2,
@@ -121,6 +129,7 @@ const getData = async () => {
     try {
         const data = await getImageHumanPlatformConfig()
         Object.assign(formData, data)
+        Object.assign(baseConfig, data?.base_config || data?.config_json?.base_config || {})
         Object.assign(providerConfig, data?.config_json?.provider || {})
         Object.assign(pricing, normalizePricing(data?.config_json?.pricing || {}))
         stat.value = await getImageHumanTenantStat()
@@ -158,9 +167,11 @@ const handleSubmit = async () => {
         ...formData,
         config_json: {
             ...(formData.config_json || {}),
+            base_config: baseConfig,
             provider: providerConfig,
             pricing
-        }
+        },
+        base_config: baseConfig
     })
     getData()
 }

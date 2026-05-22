@@ -138,6 +138,10 @@ VALUES (
         JSON_OBJECT('label', '标准模式', 'platform_unit_cost', 2.500000, 'tenant_unit_price', 3.000000)
       )
     ),
+    'base_config',
+    JSON_OBJECT(
+      'prompt_max_length', 200
+    ),
     'provider',
     JSON_OBJECT(
       'submit_path', '/api/v1/apps/image_human/submit',
@@ -168,6 +172,8 @@ ON DUPLICATE KEY UPDATE
       )
     )
   ),
+  '$.base_config',
+  COALESCE(JSON_EXTRACT(`config_json`, '$.base_config'), JSON_OBJECT('prompt_max_length', 200)),
   '$.provider',
   COALESCE(JSON_EXTRACT(`config_json`, '$.provider'), JSON_OBJECT('submit_path', '/api/v1/apps/image_human/submit', 'query_path', '/api/v1/apps/image_human/query', 'timeout', 60))
 ),
