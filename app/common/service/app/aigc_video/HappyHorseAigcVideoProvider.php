@@ -221,21 +221,12 @@ class HappyHorseAigcVideoProvider implements AigcVideoProviderInterface
         }
         $videos = [];
         foreach ($videoUrls as $videoUrl) {
-            try {
-                $stored = AigcVideoAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
-                $videos[] = array_merge($stored, [
-                    'width' => (int)($stored['width'] ?? 0) ?: (int)($request->spec['width'] ?? 0),
-                    'height' => (int)($stored['height'] ?? 0) ?: (int)($request->spec['height'] ?? 0),
-                    'provider_task_id' => $taskId,
-                ]);
-            } catch (\Throwable) {
-                $videos[] = [
-                    'uri' => $videoUrl,
-                    'width' => (int)($request->spec['width'] ?? 0),
-                    'height' => (int)($request->spec['height'] ?? 0),
-                    'provider_task_id' => $taskId,
-                ];
-            }
+            $stored = AigcVideoAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
+            $videos[] = array_merge($stored, [
+                'width' => (int)($stored['width'] ?? 0) ?: (int)($request->spec['width'] ?? 0),
+                'height' => (int)($stored['height'] ?? 0) ?: (int)($request->spec['height'] ?? 0),
+                'provider_task_id' => $taskId,
+            ]);
         }
         return new AigcVideoGenerateResult(true, $videos, '', $taskId);
     }

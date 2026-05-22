@@ -1,6 +1,6 @@
 INSERT INTO `la_aigc_video_channel` (`tenant_id`,`code`,`name`,`provider`,`model`,`max_reference_images`,`config_json`,`status`,`sort`,`create_time`,`update_time`)
 VALUES
-(0,'happy_horse','Happy Horse','happyhorse','happyhorse-1.0-t2v',9,'{"submit_path":"/api/v1/apps/happy_horse/submit","poll_interval":2,"poll_attempts":0,"quantity_options":[1],"resolution":"720P"}',1,300,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
+(0,'happy_horse','Happy Horse','happyhorse','happyhorse-1.0-t2v',9,'{"poll_interval":2,"poll_attempts":0,"quantity_options":[1],"resolution":"720P"}',1,300,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`provider`=VALUES(`provider`),`model`=VALUES(`model`),`max_reference_images`=VALUES(`max_reference_images`),`config_json`=VALUES(`config_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)

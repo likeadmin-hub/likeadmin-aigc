@@ -261,7 +261,7 @@ class AigcVideoService
             throw new Exception('任务不存在');
         }
         $data = $task->toArray();
-        $data['results'] = self::existingResultRows($tenantId, $userId, $taskId);
+        $data['results'] = self::resultLists($tenantId, $userId, $taskId);
         return $data;
     }
 
@@ -643,7 +643,7 @@ class AigcVideoService
             'results' => [],
         ];
         if ($status === 'success') {
-            $response['results'] = self::existingResultRows($tenantId, $userId, (int)$latest['id']);
+            $response['results'] = self::resultLists($tenantId, $userId, (int)$latest['id']);
         } elseif ($status === 'failed') {
             $response['error'] = (string)$latest['error'];
         }

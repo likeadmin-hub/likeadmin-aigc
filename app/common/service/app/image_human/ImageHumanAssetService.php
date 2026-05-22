@@ -38,7 +38,16 @@ class ImageHumanAssetService
         if ($content === false || $content === '') {
             throw new Exception('生成视频下载失败');
         }
-        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content));
+        $headers = $http_response_header ?? [];
+        $httpCode = self::lastHttpStatusCode($headers);
+        if ($httpCode >= 400) {
+            throw new Exception('生成视频下载失败，远程地址返回HTTP ' . $httpCode);
+        }
+        $contentType = self::lastContentType($headers);
+        if (self::isTextResponse($contentType, $content)) {
+            throw new Exception('生成视频下载失败，远程地址返回的不是视频文件');
+        }
+        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content, $contentType));
     }
 
     private static function persistDataUri(string $dataUri, int $tenantId, int $userId): array
@@ -56,7 +65,11 @@ class ImageHumanAssetService
 
     private static function persistBinary(string $content, int $tenantId, int $userId, string $ext): array
     {
-        $ext = in_array($ext, ['mp4', 'webm', 'mov', 'm4v'], true) ? $ext : 'mp4';
+        $detectedExt = self::detectVideoExtension($content);
+        if ($detectedExt === '') {
+            throw new Exception('生成视频文件损坏或格式不支持');
+        }
+        $ext = in_array($ext, ['mp4', 'webm', 'mov', 'm4v'], true) ? $ext : $detectedExt;
         $tmp = tempnam(sys_get_temp_dir(), 'image_human_');
         if ($tmp === false) {
             throw new Exception('生成视频临时文件创建失败');
@@ -103,13 +116,67 @@ class ImageHumanAssetService
         return $uri;
     }
 
-    private static function extensionFromUrl(string $url, string $content): string
+    private static function extensionFromUrl(string $url, string $content, string $contentType = ''): string
     {
         $pathExt = strtolower(pathinfo((string)parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
-        if ($pathExt !== '') {
+        if (in_array($pathExt, ['mp4', 'webm', 'mov', 'm4v'], true)) {
             return $pathExt;
         }
-        return str_starts_with($content, "\x1A\x45\xDF\xA3") ? 'webm' : 'mp4';
+        $mimeExt = match (strtolower(trim(explode(';', $contentType)[0] ?? ''))) {
+            'video/webm' => 'webm',
+            'video/quicktime' => 'mov',
+            'video/x-m4v' => 'm4v',
+            'video/mp4', 'application/mp4' => 'mp4',
+            default => '',
+        };
+        return $mimeExt ?: self::detectVideoExtension($content) ?: 'mp4';
+    }
+
+    private static function lastHttpStatusCode(array $headers): int
+    {
+        $status = 0;
+        foreach ($headers as $header) {
+            if (preg_match('/^HTTP\/\S+\s+(\d{3})/i', (string)$header, $matches)) {
+                $status = (int)$matches[1];
+            }
+        }
+        return $status;
+    }
+
+    private static function lastContentType(array $headers): string
+    {
+        $contentType = '';
+        foreach ($headers as $header) {
+            if (stripos((string)$header, 'Content-Type:') === 0) {
+                $contentType = trim(substr((string)$header, strlen('Content-Type:')));
+            }
+        }
+        return $contentType;
+    }
+
+    private static function isTextResponse(string $contentType, string $content): bool
+    {
+        $mime = strtolower(trim(explode(';', $contentType)[0] ?? ''));
+        if ($mime !== '' && (str_starts_with($mime, 'text/') || in_array($mime, ['application/json', 'application/xml'], true))) {
+            return true;
+        }
+        $prefix = ltrim(substr($content, 0, 64));
+        return str_starts_with($prefix, '<') || str_starts_with($prefix, '{') || str_starts_with($prefix, '[');
+    }
+
+    private static function detectVideoExtension(string $content): string
+    {
+        if (strlen($content) < 16) {
+            return '';
+        }
+        if (str_starts_with($content, "\x1A\x45\xDF\xA3")) {
+            return 'webm';
+        }
+        if (substr($content, 4, 4) === 'ftyp') {
+            $brand = strtolower(substr($content, 8, 4));
+            return str_starts_with($brand, 'qt') ? 'mov' : 'mp4';
+        }
+        return '';
     }
 
     private static function isAllowedLocalVideoUri(string $uri): bool
