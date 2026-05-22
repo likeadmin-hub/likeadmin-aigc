@@ -311,8 +311,8 @@ CREATE TABLE IF NOT EXISTS `la_update_license` (
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='更新服务授权';
 
--- Existing core table changes. Run only for upgraded installations; fresh installs already include these columns in public/install/db/like.sql.
--- On MySQL 5.7, skip any ADD COLUMN statement whose column already exists.
+-- Existing core table changes for upgraded installations.
+-- Duplicate columns are ignored by the migration executor.
 ALTER TABLE `la_tenant` ADD COLUMN `allow_custom_storage` tinyint NOT NULL DEFAULT 0 COMMENT '允许租户自定义存储';
 ALTER TABLE `la_tenant` ADD COLUMN `point_balance` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '租户点数余额';
 ALTER TABLE `la_file` ADD COLUMN `storage_scope` varchar(20) NOT NULL DEFAULT 'platform' COMMENT '存储作用域';

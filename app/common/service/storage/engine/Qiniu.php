@@ -52,7 +52,7 @@ class Qiniu extends Server
         try {
             // 调用 UploadManager 的 putFile 方法进行文件的上传
             $key = $save_dir . '/' . $this->fileName;
-            list(, $error) = $uploadMgr->putFile($token, $key, $realPath);
+            list(, $error) = $uploadMgr->putFile($token, $key, $realPath, null, !empty($this->fileInfo['mime']) ? $this->fileInfo['mime'] : null);
 
             if ($error !== null) {
                 $this->error = $error->message();

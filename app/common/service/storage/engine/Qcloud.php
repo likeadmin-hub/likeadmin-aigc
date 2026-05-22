@@ -56,7 +56,8 @@ class Qcloud extends Server
             $result = $this->cosClient->putObject([
                 'Bucket' => $this->config['bucket'],
                 'Key' => $save_dir . '/' . $this->fileName,
-                'Body' => fopen($this->getRealPath(), 'rb')
+                'Body' => fopen($this->getRealPath(), 'rb'),
+                'ContentType' => $this->fileInfo['mime'] ?? 'application/octet-stream',
             ]);
             return true;
         } catch (Exception $e) {

@@ -52,6 +52,7 @@ use app\common\model\app\image_human\ImageHumanTask;
 use app\common\model\auth\SystemMenu;
 use app\common\model\auth\TenantSystemMenu;
 use app\common\model\tenant\Tenant;
+use app\common\service\database\SqlMigrationExecutor;
 use think\facade\Db;
 use RuntimeException;
 use Throwable;
@@ -388,9 +389,7 @@ class AppRegistryService
             }
             try {
                 $sqlPrefix = config('database.connections.mysql.prefix');
-                foreach (array_filter(array_map('trim', explode(';', $content))) as $sql) {
-                    Db::execute(str_replace('`la_', '`' . $sqlPrefix, $sql) . ';');
-                }
+                SqlMigrationExecutor::execute($content, $sqlPrefix);
                 $migration->save(['status' => 'success', 'error' => '', 'update_time' => time()]);
                 $result[] = [
                     'migration_key' => $migrationKey,

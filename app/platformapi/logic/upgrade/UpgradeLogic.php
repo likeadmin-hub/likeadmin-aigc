@@ -17,6 +17,7 @@ namespace app\platformapi\logic\upgrade;
 use app\common\logic\BaseLogic;
 use app\common\model\auth\TenantSystemMenu;
 use app\common\model\tenant\Tenant;
+use app\common\service\database\SqlMigrationExecutor;
 use app\platformapi\logic\tenant\TenantSystemMenuLogic;
 use Exception;
 use think\facade\Cache;
@@ -441,16 +442,7 @@ class UpgradeLogic extends BaseLogic
             if (empty($sqlContent)) {
                 continue;
             }
-            $sqlLists = explode(';', $sqlContent);
-
-            // 执行sql
-            foreach ($sqlLists as $sql) {
-                $sql = trim($sql);
-                if (!empty($sql)) {
-                    $sql = str_replace('`la_', '`' . $sqlPrefix, $sql) . ';';
-                    Db::execute($sql);
-                }
-            }
+            SqlMigrationExecutor::execute($sqlContent, $sqlPrefix);
         }
         return true;
     }
@@ -487,16 +479,7 @@ class UpgradeLogic extends BaseLogic
             if (empty($sqlContent)) {
                 continue;
             }
-            $sqlLists = explode(';', $sqlContent);
-
-            // 执行sql
-            foreach ($sqlLists as $sql) {
-                $sql = trim($sql);
-                if (!empty($sql)) {
-                    $sql = str_replace('la_', '' . $sqlPrefix, $sql) . ';';
-                    $db->execute($sql);
-                }
-            }
+            SqlMigrationExecutor::execute($sqlContent, $sqlPrefix, $db, false, 'pgsql');
         }
         return true;
     }
