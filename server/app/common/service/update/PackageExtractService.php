@@ -141,9 +141,11 @@ class PackageExtractService
         if (!is_array($signature)) {
             throw new RuntimeException('signature.json 格式错误');
         }
-        foreach (($signature['sha256'] ?? []) as $relative => $hash) {
-            $path = $extractDir . '/' . ltrim((string)$relative, '/');
-            $this->assertSafeRelativePath((string)$relative);
+        foreach ($this->signatureEntries($signature) as $entry) {
+            $relative = $entry['path'];
+            $hash = $entry['sha256'];
+            $path = $extractDir . '/' . ltrim($relative, '/');
+            $this->assertSafeRelativePath($relative);
             if (!is_file($path)) {
                 throw new RuntimeException('签名文件声明的文件不存在: ' . $relative);
             }
@@ -152,6 +154,42 @@ class PackageExtractService
             }
         }
         return $signature;
+    }
+
+    private function signatureEntries(array $signature): array
+    {
+        $entries = [];
+        if (isset($signature['sha256']) && is_array($signature['sha256'])) {
+            foreach ($signature['sha256'] as $relative => $hash) {
+                $entries[] = [
+                    'path' => (string)$relative,
+                    'sha256' => (string)$hash,
+                ];
+            }
+        }
+        if (isset($signature['files']) && is_array($signature['files'])) {
+            foreach ($signature['files'] as $file) {
+                if (!is_array($file)) {
+                    continue;
+                }
+                $entries[] = [
+                    'path' => (string)($file['path'] ?? ''),
+                    'sha256' => (string)($file['sha256'] ?? ''),
+                ];
+            }
+        }
+        $deduped = [];
+        foreach ($entries as $entry) {
+            if ($entry['path'] === '' || $entry['sha256'] === '') {
+                continue;
+            }
+            $deduped[$entry['path']] = $entry;
+        }
+        $entries = array_values($deduped);
+        if (!$entries) {
+            throw new RuntimeException('signature.json 未声明文件校验清单');
+        }
+        return $entries;
     }
 
     public static function assertRequiredFiles(string $extractDir, array $files): void
