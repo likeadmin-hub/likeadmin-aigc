@@ -105,200 +105,259 @@
 
             <section v-else class="avatar-layout">
                 <div class="avatar-editor">
-                    <section class="editor-section editor-section--preview">
-                        <div class="editor-section__head">
-                            <span class="editor-section__label">{{ texts.uploadAvatar }}</span>
-                            <button class="mini-action" type="button" @click="openAvatarLibrary('mine')">
-                                <img :src="avatarLibraryIcon" alt="" />
-                                <span>{{ texts.avatarLibrary }}</span>
+                    <div class="avatar-editor__scroll">
+                        <div class="human-mode-switch">
+                            <button
+                                v-for="item in humanModeTabs"
+                                :key="item.value"
+                                :class="{ 'is-active': activeHumanMode === item.value }"
+                                type="button"
+                                @click="setHumanMode(item.value)"
+                            >
+                                {{ item.label }}
                             </button>
                         </div>
-                        <div class="editor-stage" :class="{ 'editor-stage--avatar-filled': !!appliedAvatarItem }">
-                            <template v-if="appliedAvatarItem">
-                                <div class="avatar-editor-card">
-                                    <div class="avatar-editor-card__preview">
-                                        <img :src="appliedAvatarItem.image" :alt="appliedAvatarItem.name" />
-                                    </div>
-                                    <div class="avatar-editor-card__actions">
-                                        <button type="button" :aria-label="texts.historyAvatar" @click="openAvatarLibrary('official')">
-                                            <img :src="voiceHistoryIcon" alt="" />
-                                        </button>
-                                        <button type="button" :aria-label="texts.uploadAvatar" @click="triggerUpload">
-                                            <img :src="voiceUploadIcon" alt="" />
-                                        </button>
-                                        <button type="button" :aria-label="texts.clear" @click="clearAppliedAvatar">
-                                            <img :src="voiceDeleteIcon" alt="" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </template>
-                            <template v-else>
-                                <button class="editor-stage__upload" type="button" @click="triggerUpload">
-                                    <img :src="addIcon" alt="" />
-                                    <span>{{ texts.uploadAvatar }}</span>
-                                </button>
-                                <button class="editor-stage__history" type="button" @click="togglePopover('notice')">
-                                    <img :src="historyIcon" alt="" />
-                                    <span>{{ texts.historyAvatar }}</span>
-                                </button>
-                            </template>
-                        </div>
-                    </section>
 
-                    <section class="editor-section editor-section--voice">
-                        <div class="editor-section__head">
-                            <span class="editor-section__label">{{ texts.selectVoice }}</span>
-                            <button class="mini-action" type="button" @click="openVoiceLibrary('mine')">
-                                <img :src="voiceLibraryIcon" alt="" />
-                                <span>{{ texts.voiceLibrary }}</span>
-                            </button>
-                        </div>
-                        <div class="editor-stage" :class="{ 'editor-stage--voice-filled': !!appliedVoiceItem || !!driverAudio }">
-                            <template v-if="appliedVoiceItem">
-                                <div class="voice-editor-card">
-                                    <div class="voice-editor-card__body">
-                                        <button
-                                            class="voice-editor-card__cover"
-                                            type="button"
-                                            :aria-label="playingVoiceId === appliedVoiceItem.id ? texts.pauseVoice : texts.playVoice"
-                                            @click="toggleVoicePreview(appliedVoiceItem)"
-                                        >
-                                            <img
-                                                v-if="appliedVoiceItem.cover"
-                                                class="voice-editor-card__image"
-                                                :src="appliedVoiceItem.cover"
-                                                :alt="appliedVoiceItem.name"
-                                            />
-                                            <span v-else class="voice-editor-card__disc"></span>
-                                            <span class="voice-editor-card__play">
-                                                <span
-                                                    v-if="voicePreviewLoadingId === appliedVoiceItem.id"
-                                                    class="voice-card__loading-icon"
-                                                ></span>
-                                                <span
-                                                    v-else-if="playingVoiceId === appliedVoiceItem.id"
-                                                    class="voice-card__pause-icon"
-                                                ></span>
-                                                <span v-else class="voice-card__play-icon"></span>
-                                            </span>
-                                        </button>
-                                        <div class="voice-editor-card__name" :title="appliedVoiceItem.fileName || appliedVoiceItem.name">
-                                            {{ getAppliedVoiceDisplayName(appliedVoiceItem) }}
+                        <section class="editor-section editor-section--preview">
+                            <div class="editor-section__head">
+                                <span class="editor-section__label">{{ activeHumanMode === 'image_human' ? texts.uploadImageAvatar : texts.uploadAvatar }}</span>
+                                <button class="mini-action" type="button" @click="openAvatarLibrary('mine')">
+                                    <img :src="avatarLibraryIcon" alt="" />
+                                    <span>{{ texts.avatarLibrary }}</span>
+                                </button>
+                            </div>
+                            <div class="editor-stage" :class="{ 'editor-stage--avatar-filled': !!appliedAvatarItem }">
+                                <template v-if="appliedAvatarItem">
+                                    <div class="avatar-editor-card">
+                                        <div class="avatar-editor-card__preview">
+                                            <img :src="appliedAvatarItem.image" :alt="appliedAvatarItem.name" />
                                         </div>
-                                        <audio
-                                            :data-voice-audio="appliedVoiceItem.id"
-                                            :src="appliedVoiceItem.previewUrl || undefined"
-                                            preload="metadata"
-                                            class="voice-preview-audio"
-                                        ></audio>
-                                    </div>
-                                    <div class="voice-editor-card__actions">
-                                        <button type="button" :aria-label="texts.historyVoice" @click="openVoiceLibrary('mine')">
-                                            <img :src="voiceHistoryIcon" alt="" />
-                                        </button>
-                                        <button type="button" :aria-label="texts.uploadVoice" @click="triggerDriverAudioUpload">
-                                            <img :src="voiceUploadIcon" alt="" />
-                                        </button>
-                                        <button type="button" :aria-label="texts.clear" @click="clearAppliedVoice">
-                                            <img :src="voiceDeleteIcon" alt="" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </template>
-                            <template v-else-if="driverAudio">
-                                <div class="voice-editor-card">
-                                    <div class="voice-editor-card__body">
-                                        <button class="voice-editor-card__cover" type="button" :aria-label="texts.audioDriver">
-                                            <span class="voice-editor-card__disc"></span>
-                                            <span class="voice-editor-card__play">{{ formatVoiceCreateDuration(driverAudio.duration || 0) }}</span>
-                                        </button>
-                                        <div class="voice-editor-card__name" :title="driverAudio.fileName">
-                                            {{ driverAudio.fileName }}
+                                        <div class="avatar-editor-card__actions">
+                                            <button type="button" :aria-label="texts.historyAvatar" @click="openAvatarLibrary('official')">
+                                                <img :src="voiceHistoryIcon" alt="" />
+                                            </button>
+                                            <button type="button" :aria-label="texts.uploadAvatar" @click="triggerUpload">
+                                                <img :src="voiceUploadIcon" alt="" />
+                                            </button>
+                                            <button type="button" :aria-label="texts.clear" @click="clearAppliedAvatar">
+                                                <img :src="voiceDeleteIcon" alt="" />
+                                            </button>
                                         </div>
                                     </div>
-                                    <div class="voice-editor-card__actions">
-                                        <button type="button" :aria-label="texts.uploadVoice" @click="triggerDriverAudioUpload">
-                                            <img :src="voiceUploadIcon" alt="" />
-                                        </button>
-                                        <button type="button" :aria-label="texts.clear" @click="clearDriverAudio">
-                                            <img :src="voiceDeleteIcon" alt="" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </template>
-                            <template v-else>
-                                <button class="editor-stage__upload" type="button" @click="triggerDriverAudioUpload">
-                                    <img :src="addIcon" alt="" />
-                                    <span>{{ texts.uploadVoice }}</span>
-                                </button>
-                                <button class="editor-stage__history" type="button" @click="openVoiceLibrary('mine')">
-                                    <img :src="historyIcon" alt="" />
-                                    <span>{{ texts.historyVoice }}</span>
-                                </button>
-                            </template>
-                        </div>
-                    </section>
-
-                    <section v-if="!driverAudio" class="editor-section editor-section--script">
-                        <div class="editor-section__head editor-section__head--stacked">
-                            <span class="editor-section__label">{{ texts.scriptTitle }}</span>
-                        </div>
-                        <div class="script-box">
-                            <textarea
-                                v-model="scriptText"
-                                :maxlength="scriptMaxLength || undefined"
-                                :placeholder="texts.scriptPlaceholder"
-                            ></textarea>
-                            <div class="script-box__tools">
-                                <span class="script-box__translate-wrap" @click.stop>
-                                    <button type="button" :disabled="!!scriptAssistLoading" @click="toggleTranslateMenu">
-                                        <img :src="translateIcon" alt="" />
-                                        <span>{{ scriptAssistLoading === 'translate' ? texts.processing : texts.translate }}</span>
+                                </template>
+                                <template v-else>
+                                    <button class="editor-stage__upload" type="button" @click="triggerUpload">
+                                        <img :src="addIcon" alt="" />
+                                        <span>{{ activeHumanMode === 'image_human' ? texts.uploadImageAvatar : texts.uploadAvatar }}</span>
                                     </button>
-                                    <div v-if="translateMenuOpen" class="script-box__language-menu" @click.stop>
-                                        <button
-                                            v-for="item in translateLanguageOptions"
-                                            :key="item.value"
-                                            type="button"
-                                            @click="runScriptAssist('translate', item.value)"
-                                        >
-                                            {{ item.label }}
-                                        </button>
-                                    </div>
-                                </span>
-                                <button type="button" :disabled="!!scriptAssistLoading" @click="runScriptAssist('copywrite')">
-                                    <img :src="magicIcon" alt="" />
-                                    <span>{{ scriptAssistLoading === 'copywrite' ? texts.processing : texts.aiCopy }}</span>
+                                    <button class="editor-stage__history" type="button" @click="openAvatarLibrary('mine')">
+                                        <img :src="historyIcon" alt="" />
+                                        <span>{{ texts.historyAvatar }}</span>
+                                    </button>
+                                </template>
+                            </div>
+                        </section>
+
+                        <section class="editor-section editor-section--voice">
+                            <div class="editor-section__head">
+                                <span class="editor-section__label">{{ activeHumanMode === 'image_human' ? texts.selectReferenceAudio : texts.selectVoice }}</span>
+                                <button class="mini-action" type="button" @click="openVoiceLibrary('mine')">
+                                    <img :src="voiceLibraryIcon" alt="" />
+                                    <span>{{ texts.voiceLibrary }}</span>
                                 </button>
                             </div>
-                            <button class="script-box__clear" type="button" :aria-label="texts.clear" @click="scriptText = ''">
-                                <img :src="clearIcon" alt="" />
-                            </button>
-                            <div v-if="scriptMaxLength" class="script-box__count">{{ scriptText.length }}/{{ scriptMaxLength }}</div>
-                        </div>
-                        <div class="script-box__chips">
-                            <button v-for="chip in promptChips" :key="chip" type="button" @click="appendPrompt(chip)">
-                                {{ chip }}
-                            </button>
-                        </div>
-                    </section>
-
-                    <section class="editor-section editor-section--name">
-                        <div class="editor-section__row">
-                            <span class="editor-section__label">{{ texts.workTitle }}</span>
-                            <div class="work-name">
-                                <input v-model="workName" type="text" maxlength="32" :placeholder="texts.workPlaceholder" />
+                            <div class="editor-stage" :class="{ 'editor-stage--voice-filled': !!appliedVoiceItem || !!driverAudio }">
+                                <template v-if="appliedVoiceItem">
+                                    <div class="voice-editor-card">
+                                        <div class="voice-editor-card__body">
+                                            <button
+                                                class="voice-editor-card__cover"
+                                                type="button"
+                                                :aria-label="playingVoiceId === appliedVoiceItem.id ? texts.pauseVoice : texts.playVoice"
+                                                @click="toggleVoicePreview(appliedVoiceItem)"
+                                            >
+                                                <img
+                                                    v-if="appliedVoiceItem.cover"
+                                                    class="voice-editor-card__image"
+                                                    :src="appliedVoiceItem.cover"
+                                                    :alt="appliedVoiceItem.name"
+                                                />
+                                                <span v-else class="voice-editor-card__disc"></span>
+                                                <span class="voice-editor-card__play">
+                                                    <span
+                                                        v-if="voicePreviewLoadingId === appliedVoiceItem.id"
+                                                        class="voice-card__loading-icon"
+                                                    ></span>
+                                                    <span
+                                                        v-else-if="playingVoiceId === appliedVoiceItem.id"
+                                                        class="voice-card__pause-icon"
+                                                    ></span>
+                                                    <span v-else class="voice-card__play-icon"></span>
+                                                </span>
+                                            </button>
+                                            <div class="voice-editor-card__name" :title="appliedVoiceItem.fileName || appliedVoiceItem.name">
+                                                {{ getAppliedVoiceDisplayName(appliedVoiceItem) }}
+                                            </div>
+                                            <audio
+                                                :data-voice-audio="appliedVoiceItem.id"
+                                                :src="appliedVoiceItem.previewUrl || undefined"
+                                                preload="metadata"
+                                                class="voice-preview-audio"
+                                            ></audio>
+                                        </div>
+                                        <div class="voice-editor-card__actions">
+                                            <button type="button" :aria-label="texts.historyVoice" @click="openHistoryVoiceModal">
+                                                <img :src="voiceHistoryIcon" alt="" />
+                                            </button>
+                                            <button type="button" :aria-label="texts.uploadVoice" @click="triggerDriverAudioUpload">
+                                                <img :src="voiceUploadIcon" alt="" />
+                                            </button>
+                                            <button type="button" :aria-label="texts.clear" @click="clearAppliedVoice">
+                                                <img :src="voiceDeleteIcon" alt="" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template v-else-if="driverAudio">
+                                    <div class="voice-editor-card">
+                                        <div class="voice-editor-card__body">
+                                            <button class="voice-editor-card__cover" type="button" :aria-label="texts.audioDriver">
+                                                <span class="voice-editor-card__disc"></span>
+                                                <span class="voice-editor-card__play">{{ formatVoiceCreateDuration(driverAudio.duration || 0) }}</span>
+                                            </button>
+                                            <div class="voice-editor-card__name" :title="driverAudio.fileName">
+                                                {{ driverAudio.fileName }}
+                                            </div>
+                                        </div>
+                                        <div class="voice-editor-card__actions">
+                                            <button type="button" :aria-label="texts.historyVoice" @click="openHistoryVoiceModal">
+                                                <img :src="voiceHistoryIcon" alt="" />
+                                            </button>
+                                            <button type="button" :aria-label="texts.uploadVoice" @click="triggerDriverAudioUpload">
+                                                <img :src="voiceUploadIcon" alt="" />
+                                            </button>
+                                            <button type="button" :aria-label="texts.clear" @click="clearDriverAudio">
+                                                <img :src="voiceDeleteIcon" alt="" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template v-else>
+                                    <button class="editor-stage__upload" type="button" @click="triggerDriverAudioUpload">
+                                        <img :src="addIcon" alt="" />
+                                        <span>{{ activeHumanMode === 'image_human' ? texts.uploadReferenceAudio : texts.uploadVoice }}</span>
+                                    </button>
+                                    <button class="editor-stage__history" type="button" @click="openHistoryVoiceModal">
+                                        <img :src="historyIcon" alt="" />
+                                        <span>{{ texts.historyVoice }}</span>
+                                    </button>
+                                </template>
                             </div>
-                        </div>
-                    </section>
+                        </section>
 
-                    <button class="create-button" type="button" :disabled="isCreating" @click="submitAvatarCreate">
-                        <span class="create-button__meta">
-                            <img :src="createNowIcon" alt="" />
-                            <span>{{ texts.createRate }}</span>
-                        </span>
-                        <span class="create-button__text">{{ isCreating ? texts.creating : texts.createNow }}</span>
-                    </button>
+                        <section v-if="activeHumanMode === 'image_human'" class="editor-section editor-section--mode">
+                            <div class="editor-section__head editor-section__head--stacked">
+                                <span class="editor-section__label">{{ texts.generateMode }}</span>
+                            </div>
+                            <div class="driver-mode-tabs">
+                                <button
+                                    v-for="item in imageHumanModes"
+                                    :key="item.value"
+                                    :class="{ 'is-active': imageHumanMode === item.value }"
+                                    type="button"
+                                    @click="imageHumanMode = item.value"
+                                >
+                                    <strong>{{ item.label }}</strong>
+                                    <span>{{ item.desc }}</span>
+                                </button>
+                            </div>
+                        </section>
+
+                        <section v-if="activeHumanMode === 'lip_sync' && shouldShowDigitalHumanChannelOptions" class="editor-section editor-section--model">
+                            <div class="editor-section__head editor-section__head--stacked">
+                                <span class="editor-section__label">{{ texts.modelChannel }}</span>
+                            </div>
+                            <div class="model-channel-list" :class="digitalHumanChannelGridClass">
+                                <button
+                                    v-for="item in digitalHumanChannels"
+                                    :key="item.value"
+                                    type="button"
+                                    :class="{ 'is-active': formOptions.channel === item.value }"
+                                    @click="selectDigitalHumanChannel(item.value)"
+                                >
+                                    <strong>{{ item.name }}</strong>
+                                    <small>{{ modelChannelPriceText(item) }}</small>
+                                    <span v-if="modelChannelTipText(item)" class="model-channel-help" @click.stop>
+                                        ?
+                                        <span class="model-channel-tooltip">{{ modelChannelTipText(item) }}</span>
+                                    </span>
+                                </button>
+                            </div>
+                        </section>
+
+                        <section v-if="!driverAudio" class="editor-section editor-section--script">
+                            <div class="editor-section__head editor-section__head--stacked">
+                                <span class="editor-section__label">{{ activeHumanMode === 'image_human' ? texts.promptTitle : texts.scriptTitle }}</span>
+                            </div>
+                            <div class="script-box">
+                                <textarea
+                                    v-model="scriptText"
+                                    :maxlength="scriptMaxLength || undefined"
+                                    :placeholder="texts.scriptPlaceholder"
+                                ></textarea>
+                                <div class="script-box__tools">
+                                    <span class="script-box__translate-wrap" @click.stop>
+                                        <button type="button" :disabled="!!scriptAssistLoading" @click="toggleTranslateMenu">
+                                            <img :src="translateIcon" alt="" />
+                                            <span>{{ scriptAssistLoading === 'translate' ? texts.processing : texts.translate }}</span>
+                                        </button>
+                                        <div v-if="translateMenuOpen" class="script-box__language-menu" @click.stop>
+                                            <button
+                                                v-for="item in translateLanguageOptions"
+                                                :key="item.value"
+                                                type="button"
+                                                @click="runScriptAssist('translate', item.value)"
+                                            >
+                                                {{ item.label }}
+                                            </button>
+                                        </div>
+                                    </span>
+                                    <button type="button" :disabled="!!scriptAssistLoading" @click="runScriptAssist('copywrite')">
+                                        <img :src="magicIcon" alt="" />
+                                        <span>{{ scriptAssistLoading === 'copywrite' ? texts.processing : texts.aiCopy }}</span>
+                                    </button>
+                                </div>
+                                <button class="script-box__clear" type="button" :aria-label="texts.clear" @click="scriptText = ''">
+                                    <img :src="clearIcon" alt="" />
+                                </button>
+                                <div v-if="scriptMaxLength" class="script-box__count">{{ scriptText.length }}/{{ scriptMaxLength }}</div>
+                            </div>
+                            <div class="script-box__chips">
+                                <button v-for="chip in promptChips" :key="chip" type="button" @click="appendPrompt(chip)">
+                                    {{ chip }}
+                                </button>
+                            </div>
+                        </section>
+
+                        <section class="editor-section editor-section--name">
+                            <div class="editor-section__row">
+                                <span class="editor-section__label">{{ texts.workTitle }}</span>
+                                <div class="work-name">
+                                    <input v-model="workName" type="text" maxlength="32" :placeholder="texts.workPlaceholder" />
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="avatar-editor__footer">
+                        <button class="create-button" type="button" :disabled="isCreating" @click="submitAvatarCreate">
+                            <span class="create-button__meta">
+                                <img :src="createNowIcon" alt="" />
+                                <span>{{ texts.createRate }}</span>
+                            </span>
+                            <span class="create-button__text">{{ isCreating ? texts.creating : texts.createNow }}</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="avatar-content">
@@ -355,7 +414,7 @@
                                 </article>
 
                                 <article
-                                    v-for="item in pagedDisplayedAvatars"
+                                    v-for="item in displayedAvatars"
                                     :key="item.id"
                                     :class="[
                                         'avatar-card',
@@ -425,15 +484,6 @@
                                 </article>
                             </div>
                         </div>
-                        <div v-if="displayedAvatars.length > avatarPageSize" class="library-pagination">
-                            <ElPagination
-                                v-model:current-page="avatarPage"
-                                :total="displayedAvatars.length"
-                                :page-size="avatarPageSize"
-                                hide-on-single-page
-                                layout="total, prev, pager, next, jumper"
-                            />
-                        </div>
                     </template>
 
                     <div v-else class="voice-library-panel">
@@ -442,16 +492,16 @@
                                 <article
                                     v-if="showMineVoiceCreateCard"
                                     class="voice-card voice-card--create"
-                                    @click="openVoiceCreateModal"
+                                    @click="openVoiceCreateEntry"
                                 >
                                     <div class="voice-card--create__inner">
                                         <img :src="addIcon" alt="" />
-                                        <span>{{ texts.createMineVoice }}</span>
+                                        <span>{{ activeHumanMode === 'image_human' ? texts.uploadReferenceAudio : texts.createMineVoice }}</span>
                                     </div>
                                 </article>
 
                                 <article
-                                    v-for="item in pagedDisplayedVoices"
+                                    v-for="item in displayedVoices"
                                     :key="item.id"
                                     :class="['voice-card', { 'is-selected': selectedVoiceCardId === item.id }]"
                                     @click="selectVoiceItem(item)"
@@ -468,8 +518,13 @@
                                     >
                                         {{ getVoiceFavoriteSymbol(item.starred) }}
                                     </button>
-                                    <button class="voice-card__action" type="button" @click.stop="applyVoiceToEditor(item)">
-                                        {{ texts.useVoice }}
+                                    <button
+                                        class="voice-card__action"
+                                        type="button"
+                                        :disabled="item.source === 'mine' && item.status !== 'ready'"
+                                        @click.stop="applyVoiceToEditor(item)"
+                                    >
+                                        {{ item.source !== 'mine' || item.status === 'ready' ? texts.useVoice : voiceStatusText(item) }}
                                     </button>
                                     <div class="voice-card__meta">
                                         <div
@@ -490,7 +545,16 @@
                                                 <span v-else class="voice-card__play-icon"></span>
                                             </button>
                                         </div>
-                                        <span class="voice-card__name">{{ item.name }}</span>
+                                        <span class="voice-card__content">
+                                            <span class="voice-card__name">{{ item.name }}</span>
+                                            <span
+                                                v-if="voiceStatusText(item)"
+                                                class="voice-card__status"
+                                                :class="`is-${item.status || 'pending'}`"
+                                            >
+                                                {{ voiceStatusText(item) }}
+                                            </span>
+                                        </span>
                                         <audio
                                             :data-voice-audio="item.id"
                                             :src="item.previewUrl || undefined"
@@ -503,23 +567,14 @@
                                 <article
                                     v-if="!showMineVoiceCreateCard && !displayedVoices.length"
                                     class="voice-card voice-card--empty"
-                                    @click="activeVoiceTab === 'mine' && openVoiceCreateModal()"
+                                    @click="activeVoiceTab === 'mine' && openVoiceCreateEntry()"
                                 >
                                     <div class="voice-card--create__inner">
                                         <img v-if="activeVoiceTab === 'mine'" :src="addIcon" alt="" />
-                                        <span>{{ activeVoiceTab === 'mine' ? texts.createMineVoice : texts.noOfficialVoice }}</span>
+                                        <span>{{ activeVoiceTab === 'mine' ? (activeHumanMode === 'image_human' ? texts.uploadReferenceAudio : texts.createMineVoice) : texts.noOfficialVoice }}</span>
                                     </div>
                                 </article>
                             </div>
-                        </div>
-                        <div v-if="displayedVoices.length > voicePageSize" class="library-pagination library-pagination--voice">
-                            <ElPagination
-                                v-model:current-page="voicePage"
-                                :total="displayedVoices.length"
-                                :page-size="voicePageSize"
-                                hide-on-single-page
-                                layout="total, prev, pager, next, jumper"
-                            />
                         </div>
                     </div>
                 </div>
@@ -554,6 +609,7 @@
                             </button>
                             <img
                                 v-if="pendingAvatarUpload.mediaType === 'image'"
+                                :key="pendingAvatarUpload.url"
                                 class="avatar-create-modal__media"
                                 :src="pendingAvatarUpload.url"
                                 :alt="avatarCreateName || pendingAvatarUpload.fileName"
@@ -561,6 +617,7 @@
                             <video
                                 v-else
                                 ref="avatarModalVideoRef"
+                                :key="pendingAvatarUpload.url"
                                 class="avatar-create-modal__media avatar-create-modal__media--video"
                                 :src="pendingAvatarUpload.url"
                                 :poster="avatarCreateCover || pendingAvatarUpload.previewImage || undefined"
@@ -644,12 +701,12 @@
                 </div>
 
                 <div class="avatar-create-modal__footer">
-                    <button class="avatar-create-modal__submit" type="button" :disabled="!pendingAvatarUpload || isCreating" @click="saveAvatarCreateModal">
+                    <button class="avatar-create-modal__submit" type="button" :disabled="!pendingAvatarUpload || isCreating || isAvatarUploading" @click="saveAvatarCreateModal">
                         <span class="avatar-create-modal__submit-meta">
                             <img :src="createNowIcon" alt="" />
                             <span>50</span>
                         </span>
-                        <span>{{ isCreating ? '保存中...' : texts.saveAvatar }}</span>
+                        <span>{{ isAvatarUploading ? '上传中...' : texts.saveAvatar }}</span>
                     </button>
                 </div>
             </section>
@@ -694,15 +751,20 @@
 
                 <h3 class="voice-create-modal__title">{{ texts.createVoiceTone }}</h3>
 
-                <div class="voice-create-modal__cover-hero">
-                    <span class="voice-create-modal__label">{{ texts.voiceCover }}</span>
-                    <button class="voice-create-modal__cover" type="button" @click="triggerVoiceCoverUpload">
-                        <img v-if="voiceCreateCover" :src="voiceCreateCover" :alt="texts.voiceCover" />
-                        <span v-else class="voice-create-modal__cover-add">+</span>
-                    </button>
-                </div>
-
                 <div class="voice-create-modal__method-grid">
+                    <button
+                        class="voice-create-modal__method-card"
+                        type="button"
+                        :disabled="isVoiceCreateBusy || isVoiceCreateRecording"
+                        @click="triggerVoiceCreateAudioUpload"
+                    >
+                        <span class="voice-create-modal__method-eyebrow">01</span>
+                        <strong>{{ voiceCreateUploadActionText }}</strong>
+                        <span>
+                            {{ texts.uploadAudioTip }}
+                        </span>
+                    </button>
+
                     <button
                         class="voice-create-modal__method-card"
                         :class="{
@@ -712,7 +774,7 @@
                         :disabled="isVoiceCreateBusy"
                         @click="handleVoiceCreateRecordAction"
                     >
-                        <span class="voice-create-modal__method-eyebrow">01</span>
+                        <span class="voice-create-modal__method-eyebrow">02</span>
                         <strong>{{ voiceCreateRecordActionText }}</strong>
                         <span>
                             {{ voiceCreateRecordTip }}
@@ -745,7 +807,6 @@
                             :disabled="!canPreviewVoiceCreate || isVoiceCreateBusy"
                             @click.stop="toggleVoiceCreatePreview"
                         >
-                            <span>{{ voiceCreateSampleSourceText }}</span>
                             <span>{{ isVoiceCreatePreviewPlaying ? texts.pauseVoice : texts.previewVoice }}</span>
                         </button>
                         <span v-else-if="voiceCreateSampleSourceText" class="voice-create-modal__sample-badge">
@@ -787,6 +848,13 @@
                                 :placeholder="texts.voiceNamePlaceholder"
                             />
                         </span>
+                        <span class="voice-create-modal__cover-row">
+                            <span class="voice-create-modal__label">{{ texts.voiceCover }}</span>
+                            <button class="voice-create-modal__cover" type="button" @click="triggerVoiceCoverUpload">
+                                <img v-if="voiceCreateCover" :src="voiceCreateCover" :alt="texts.voiceCover" />
+                                <span v-else class="voice-create-modal__cover-add">+</span>
+                            </button>
+                        </span>
                     </label>
 
                     <label class="voice-create-modal__field voice-create-modal__field--settings">
@@ -797,12 +865,12 @@
                                     class="voice-create-modal__input-shell voice-create-modal__input-shell--select voice-create-modal__input-shell--short"
                                     type="button"
                                     :aria-expanded="voiceCreateGenderMenuOpen"
-                                    @click="toggleVoiceCreateGenderMenu"
+                                    @click="toggleVoiceCreateGenderMenu($event)"
                                 >
                                     <span>{{ voiceCreateGender }}</span>
                                     <img :src="downIcon" alt="" />
                                 </button>
-                                <div v-if="voiceCreateGenderMenuOpen" class="voice-create-modal__menu">
+                                <div v-if="voiceCreateGenderMenuOpen" class="voice-create-modal__menu" :style="voiceCreateMenuStyle">
                                     <button
                                         v-for="item in voiceGenderOptions"
                                         :key="item"
@@ -820,12 +888,12 @@
                                     class="voice-create-modal__input-shell voice-create-modal__input-shell--select voice-create-modal__input-shell--short"
                                     type="button"
                                     :aria-expanded="voiceCreateAgeMenuOpen"
-                                    @click="toggleVoiceCreateAgeMenu"
+                                    @click="toggleVoiceCreateAgeMenu($event)"
                                 >
                                     <span>{{ voiceCreateAge }}</span>
                                     <img :src="downIcon" alt="" />
                                 </button>
-                                <div v-if="voiceCreateAgeMenuOpen" class="voice-create-modal__menu">
+                                <div v-if="voiceCreateAgeMenuOpen" class="voice-create-modal__menu" :style="voiceCreateMenuStyle">
                                     <button
                                         v-for="item in voiceAgeOptions"
                                         :key="item"
@@ -854,6 +922,59 @@
                         </span>
                         <span>{{ isVoiceCreateSaving ? texts.savingVoice : texts.saveVoice }}</span>
                     </button>
+                </div>
+            </section>
+        </div>
+
+        <div
+            v-if="showHistoryVoiceModal"
+            class="history-voice-modal-mask"
+            @click.self="closeHistoryVoiceModal"
+        >
+            <section class="history-voice-modal" aria-modal="true" role="dialog">
+                <button
+                    class="history-voice-modal__close"
+                    type="button"
+                    :aria-label="texts.closeModal"
+                    @click="closeHistoryVoiceModal"
+                ></button>
+                <div class="history-voice-modal__head">
+                    <h3>{{ texts.historyVoice }}</h3>
+                </div>
+
+                <div v-if="historyVoiceAudios.length" class="history-voice-modal__list">
+                    <article
+                        v-for="item in historyVoiceAudios"
+                        :key="item.id"
+                        class="history-voice-card"
+                    >
+                        <button
+                            class="history-voice-card__play"
+                            :class="{ 'is-active': playingHistoryVoiceId === item.id }"
+                            type="button"
+                            :aria-label="playingHistoryVoiceId === item.id ? texts.pauseVoice : texts.playVoice"
+                            @click="toggleHistoryVoicePreview(item)"
+                        >
+                            <span v-if="playingHistoryVoiceId === item.id" class="voice-card__pause-icon"></span>
+                            <span v-else class="voice-card__play-icon"></span>
+                        </button>
+                        <div class="history-voice-card__content">
+                            <strong>{{ item.title }}</strong>
+                            <span>
+                                {{ formatVoiceCreateDuration(item.duration) }}
+                                <template v-if="formatHistoryVoiceDate(item.createdAt)"> · {{ formatHistoryVoiceDate(item.createdAt) }}</template>
+                            </span>
+                        </div>
+                        <button class="history-voice-card__use" type="button" @click="applyHistoryVoiceToEditor(item)">
+                            {{ texts.useHistoryVoice }}
+                        </button>
+                    </article>
+                </div>
+
+                <div v-else class="history-voice-modal__empty">
+                    <img :src="voiceLibraryIcon" alt="" />
+                    <strong>{{ texts.historyVoiceEmpty }}</strong>
+                    <span>{{ texts.historyVoiceEmptyHint }}</span>
                 </div>
             </section>
         </div>
@@ -919,12 +1040,12 @@
             </section>
         </div>
 
-        <input ref="fileInputRef" type="file" class="sr-only" accept="video/*" @change="handleUpload" />
+        <input ref="fileInputRef" type="file" class="sr-only" :accept="activeHumanMode === 'image_human' ? 'image/*' : 'video/*'" @change="handleUpload" />
         <input
             ref="createAvatarInputRef"
             type="file"
             class="sr-only"
-            accept="video/*"
+            :accept="activeHumanMode === 'image_human' ? 'image/*' : 'video/*'"
             @change="handleCreateAvatarUpload"
         />
         <input
@@ -940,6 +1061,13 @@
             class="sr-only"
             accept="image/*"
             @change="handleVoiceCoverUpload"
+        />
+        <input
+            ref="voiceCreateAudioInputRef"
+            type="file"
+            class="sr-only"
+            :accept="voiceCreateAudioAccept"
+            @change="handleVoiceCreateAudioUpload"
         />
         <input
             ref="driverAudioInputRef"
@@ -970,11 +1098,23 @@ import {
     saveAigcDigitalHumanAvatar,
     saveAigcDigitalHumanVoice
 } from '@/apps/aigc_digital_human/api'
+import {
+    estimateImageHuman,
+    getImageHumanAvatars,
+    getImageHumanResults,
+    getImageHumanTask,
+    getImageHumanTasks,
+    getImageHumanVoices,
+    saveImageHumanAvatar,
+    saveImageHumanVoice,
+    submitImageHuman
+} from '@/apps/image_human/api'
 import { ElPagination } from 'element-plus'
-import { usePcLoginGate } from '@/composables/usePcLoginGate'
+import { isPcLoginRequiredError, usePcLoginGate } from '@/composables/usePcLoginGate'
 import feedback from '@/utils/feedback'
 import { useUserStore } from '@/stores/user'
 import { usePcCredits } from '~/composables/usePcCredits'
+import { useAiWorkspaceFavorites } from '~/composables/useAiWorkspaceFavorites'
 import {
     avatarPageSessionKey,
     buildSidebarRouteLocation,
@@ -1015,9 +1155,11 @@ type LibraryTab = 'official' | 'mine'
 type ContentPanel = 'avatar' | 'voice'
 type PopoverKey = '' | 'share' | 'api' | 'notice'
 type AvatarMediaType = 'image' | 'video'
+type HumanMode = 'lip_sync' | 'image_human'
+type ImageHumanMode = 'fast' | 'standard'
 type VoiceCreateStep = 'idle' | 'recording' | 'sample_ready' | 'saving'
 type VoiceCreateSampleSource = '' | 'upload' | 'record'
-type VoiceLibraryCategory = '收藏' | '全部' | '职业' | '少男' | '少女' | '中年' | '老人' | '儿童'
+type VoiceLibraryCategory = string
 type ToolCategory = '\u5168\u90e8' | '\u56fe\u7247\u7f16\u8f91' | '\u7535\u5b50\u5546\u52a1' | '\u5efa\u7b51\u5ba4\u5185' | '\u4eba\u50cf\u6444\u5f71' | '\u6e38\u620f\u52a8\u6f2b' | '\u521b\u610f'
 
 interface AvatarItem {
@@ -1057,6 +1199,8 @@ interface VoiceItem {
 interface PendingAvatarUpload {
     file: File
     remoteUri?: string
+    uploadedMediaUri?: string
+    uploadedCoverUri?: string
     fileName: string
     mediaType: AvatarMediaType
     url: string
@@ -1087,11 +1231,22 @@ interface VoiceTrimState {
 }
 
 interface DriverAudioUpload {
-    file: File
+    file?: File
     fileName: string
     url: string
     duration: number
     remoteUri?: string
+}
+
+interface HistoryVoiceAudioItem {
+    id: string
+    taskId: number
+    title: string
+    fileName: string
+    url: string
+    remoteUri: string
+    duration: number
+    createdAt: number
 }
 
 interface FeaturedToolItem {
@@ -1109,6 +1264,7 @@ interface ToolCardItem {
     badge: string
     category: ToolCategory
     image: string
+    implemented?: boolean
 }
 
 interface PersistedAvatarState {
@@ -1127,15 +1283,21 @@ const avatarPageStateVersion = 4
 
 const texts = {
     uploadAvatar: '\u4e0a\u4f20\u5f62\u8c61',
+    uploadImageAvatar: '\u4e0a\u4f20\u56fe\u7247\u5f62\u8c61',
     avatarLibrary: '\u5f62\u8c61\u5e93',
     historyAvatar: '\u5386\u53f2\u5f62\u8c61',
     selectVoice: '\u9009\u62e9\u58f0\u97f3',
+    selectReferenceAudio: '\u9009\u62e9\u53c2\u8003\u97f3\u9891',
     voiceLibrary: '\u58f0\u97f3\u5e93',
     uploadVoice: '\u4e0a\u4f20\u58f0\u97f3',
+    uploadReferenceAudio: '\u4e0a\u4f20\u53c2\u8003\u97f3\u9891',
     audioDriver: '\u97f3\u9891\u9a71\u52a8',
     historyVoice: '\u5386\u53f2\u58f0\u97f3',
     scriptTitle: '\u6587\u6848\u5185\u5bb9',
+    promptTitle: '\u63d0\u793a\u8bcd',
+    modelChannel: '\u6a21\u578b\u901a\u9053',
     scriptPlaceholder: '\u8bf7\u8f93\u5165\u4f60\u60f3\u8ba9\u89d2\u8272\u8bf4\u8bdd\u7684\u5185\u5bb9...',
+    generateMode: '\u751f\u6210\u6a21\u5f0f',
     translate: '\u7ffb\u8bd1',
     translateTarget: '\u76ee\u6807\u8bed\u8a00',
     aiCopy: 'AI\u6587\u6848',
@@ -1158,6 +1320,8 @@ const texts = {
     noOfficialVoice: '\u6682\u65e0\u516c\u5171\u58f0\u97f3',
     createVoiceTone: '\u65b0\u5efa\u97f3\u8272',
     saveVoice: '\u4fdd\u5b58\u97f3\u8272',
+    voiceQueued: '\u5df2\u63d0\u4ea4\uff0c\u540e\u53f0\u514b\u9686\u4e2d',
+    avatarSaved: '\u5f62\u8c61\u5df2\u4fdd\u5b58',
     savingVoice: '\u514b\u9686\u4e2d...',
     voiceName: '\u58f0\u97f3\u540d\u79f0',
     voiceNamePlaceholder: '\u8bf7\u8f93\u5165\u540d\u79f0',
@@ -1174,6 +1338,7 @@ const texts = {
     previewCreatedVoice: '\u8bd5\u542c\u5f55\u97f3',
     voiceCreateTip: '\u4e3a\u4e86\u83b7\u5f97\u66f4\u7406\u60f3\u7684\u6548\u679c\uff0c\u5b89\u9759\u7684\u73af\u5883\u4e0b\u5f55\u5236~',
     uploadAudioFile: '\u4e0a\u4f20\u97f3\u9891\u6587\u4ef6',
+    uploadAudioTip: '\u652f\u6301 mp3\u3001wav\u3001m4a\u3001aac\u3001ogg\uff0c\u8d85\u8fc710\u79d2\u53ef\u88c1\u526a',
     recordVoiceSample: '\u5f55\u5236\u58f0\u97f3',
     currentSample: '\u5f53\u524d\u6837\u672c',
     sampleEmpty: '\u6682\u65e0\u6837\u672c\uff0c\u8bf7\u5148\u4e0a\u4f20\u97f3\u9891\u6216\u5f00\u59cb\u5f55\u97f3',
@@ -1190,6 +1355,9 @@ const texts = {
     reuploadAudio: '\u91cd\u65b0\u4e0a\u4f20',
     selectedSampleCanSave: '\u6837\u672c\u5df2\u9009\u62e9\uff0c\u53ef\u76f4\u63a5\u4fdd\u5b58',
     samplePreviewUnavailable: '\u5f53\u524d\u73af\u5883\u65e0\u6cd5\u672c\u5730\u8bd5\u542c\u8be5\u97f3\u9891\uff0c\u53ef\u76f4\u63a5\u4fdd\u5b58\u97f3\u8272',
+    historyVoiceEmpty: '\u6682\u65e0\u53ef\u590d\u7528\u5386\u53f2\u58f0\u97f3',
+    historyVoiceEmptyHint: '\u8bf7\u5148\u4e0a\u4f20\u58f0\u97f3\u6216\u5b8c\u6210\u4e00\u6b21\u6570\u5b57\u4eba\u5408\u6210',
+    useHistoryVoice: '\u4f7f\u7528\u6b64\u58f0\u97f3',
     recordUnavailable: '\u5f53\u524d\u73af\u5883\u4e0d\u652f\u6301\u5f55\u97f3\uff0c\u8bf7\u4f7f\u7528\u4e0a\u4f20\u97f3\u9891',
     recordNeedPermission: '\u70b9\u51fb\u540e\u5c06\u8bf7\u6c42\u9ea6\u514b\u98ce\u6743\u9650\uff0c\u8bf7\u9009\u62e9\u5141\u8bb8\u5f55\u97f3',
     recordNeedSecureContext: '\u6d4f\u89c8\u5668\u8981\u6c42 HTTPS \u6216 localhost \u73af\u5883\u624d\u80fd\u5f55\u97f3',
@@ -1199,7 +1367,7 @@ const texts = {
     recordStoppedUnexpectedly: '\u5f55\u97f3\u4e2d\u65ad\uff0c\u8bf7\u91cd\u8bd5\u6216\u6539\u7528\u4e0a\u4f20\u97f3\u9891',
     uploadAudioSuccess: '\u4e0a\u4f20\u5b8c\u6210\uff0c\u8bf7\u8bd5\u542c\u540e\u4fdd\u5b58\u97f3\u8272',
     recordAudioSuccess: '\u5f55\u97f3\u5b8c\u6210\uff0c\u8bf7\u8bd5\u542c\u540e\u4fdd\u5b58\u97f3\u8272',
-    unsupportedAudioFormat: '\u4ec5\u652f\u6301 mp3\u3001wav\u3001m4a\u3001aac\u3001ogg \u97f3\u9891\u6587\u4ef6',
+    unsupportedAudioFormat: '\u4ec5\u652f\u6301 mp3\u3001wav\u3001m4a\u3001aac\u3001ogg\u3001webm \u97f3\u9891\u6587\u4ef6',
     voiceSampleTooLong: '\u514b\u9686\u97f3\u9891\u4e0d\u80fd\u8d85\u8fc710\u79d2\uff0c\u8bf7\u91cd\u65b0\u4e0a\u4f20',
     uploadMineTitle: '\u4e0a\u4f20\u6211\u7684\u5f62\u8c61',
     uploadMineHint: '\u70b9\u51fb\u4e0a\u4f20\u540e\u5373\u53ef\u5728\u8fd9\u91cc\u7ba1\u7406\u81ea\u5b9a\u4e49\u6570\u5b57\u4eba',
@@ -1231,27 +1399,28 @@ const route = useRoute()
 const userStore = useUserStore()
 const { ensurePcLogin } = usePcLoginGate()
 const { remainingCredits, membershipEnabled, refreshCredits } = usePcCredits()
+const { isFavorite, setFavoriteItem } = useAiWorkspaceFavorites()
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const createAvatarInputRef = ref<HTMLInputElement | null>(null)
 const avatarCoverInputRef = ref<HTMLInputElement | null>(null)
 const driverAudioInputRef = ref<HTMLInputElement | null>(null)
 const voiceCoverInputRef = ref<HTMLInputElement | null>(null)
+const voiceCreateAudioInputRef = ref<HTMLInputElement | null>(null)
 const voicePreviewRef = ref<HTMLAudioElement | null>(null)
 const avatarModalVideoRef = ref<HTMLVideoElement | null>(null)
 const avatarMainRef = ref<HTMLElement | null>(null)
 const activeSidebar = ref<SidebarKey>('avatar')
+const activeHumanMode = ref<HumanMode>(route.query.tab === 'image_human' ? 'image_human' : 'lip_sync')
 const activeContentPanel = ref<ContentPanel>('avatar')
 const activeLibraryTab = ref<LibraryTab>('mine')
 const activeVoiceTab = ref<LibraryTab>('mine')
 const activeVoiceCategory = ref<VoiceLibraryCategory>('全部')
 const activePopover = ref<PopoverKey>('')
 const isCreating = ref(false)
-const avatarPage = ref(1)
-const voicePage = ref(1)
-const avatarPageSize = 8
-const voicePageSize = 8
+const isAvatarUploading = ref(false)
 const showAvatarCreateModal = ref(false)
 const showVoiceCreateModal = ref(false)
+const showHistoryVoiceModal = ref(false)
 const pendingAvatarUpload = ref<PendingAvatarUpload | null>(null)
 const pendingVoiceUpload = ref<PendingVoiceUpload | null>(null)
 const avatarCreateName = ref('')
@@ -1284,6 +1453,7 @@ const voiceCreateRecordedUrl = ref('')
 const voiceCreateRecordedMimeType = ref('')
 const voiceCreateTempUrls = ref<string[]>([])
 const voiceCreateSampleSource = ref<VoiceCreateSampleSource>('')
+const voiceCreateMenuStyle = ref<Record<string, string>>({})
 const voiceTrimTrackRef = ref<HTMLElement | null>(null)
 const voiceTrimAudioRef = ref<HTMLAudioElement | null>(null)
 const voiceTrimState = ref<VoiceTrimState>({
@@ -1299,6 +1469,8 @@ const selectedVoice = ref('')
 const workName = ref('')
 const scriptText = ref('')
 const driverAudio = ref<DriverAudioUpload | null>(null)
+const historyVoiceAudios = ref<HistoryVoiceAudioItem[]>([])
+const playingHistoryVoiceId = ref('')
 const translateMenuOpen = ref(false)
 const createdBlobUrls = ref<string[]>([])
 let voiceCreateTimer: number | null = null
@@ -1338,15 +1510,15 @@ const voiceTabs = [
     { key: 'mine' as const, label: texts.myVoice },
     { key: 'official' as const, label: texts.officialVoice }
 ]
-const voiceLibraryCategoryOptions: VoiceLibraryCategory[] = ['收藏', '全部', '职业', '少男', '少女', '中年', '老人', '儿童']
 const voiceCreateScript = computed(() =>
     String(digitalHumanBaseConfig.value?.voice_preview_text || '\u6b22\u8fce\u4f7f\u7528 A. PART \u58f0\u97f3\u5b9e\u9a8c\u5ba4\uff0c\u8bf7\u7528\u81ea\u7136\u3001\u6e05\u6670\u3001\u7a33\u5b9a\u7684\u8bed\u901f\u8bfb\u5b8c\u8fd9\u6bb5\u6587\u6848\uff0c\u6211\u4eec\u4f1a\u4e3a\u4f60\u751f\u6210\u4e13\u5c5e\u97f3\u8272\uff0c\u5e76\u7528\u4e8e\u540e\u7eed\u6570\u5b57\u4eba\u53e3\u64ad\u521b\u4f5c\u3002')
 )
 const voiceCreateCost = 50
 const voiceCreateNameMaxLength = 32
 const voiceCreateMaxDuration = 10
-const voiceCreateAudioAccept = '.mp3,.wav,.m4a,.aac,.ogg,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/aac,audio/ogg'
-const voiceCreateAllowedAudioExtensions = ['mp3', 'wav', 'm4a', 'aac', 'ogg']
+const voiceCreateAudioAccept = '.mp3,.wav,.m4a,.aac,.ogg,.webm,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/aac,audio/ogg,audio/webm'
+const voiceCreateAllowedAudioExtensions = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'webm']
+const voiceCreateUploadAllowedAudioExtensions = ['mp3', 'wav', 'm4a', 'aac', 'ogg']
 const toolCategoryOptions: ToolCategory[] = [
     '\u5168\u90e8',
     '\u56fe\u7247\u7f16\u8f91',
@@ -1356,7 +1528,16 @@ const toolCategoryOptions: ToolCategory[] = [
     '\u6e38\u620f\u52a8\u6f2b',
     '\u521b\u610f'
 ]
+const toolComingSoonMessage = '\u6b64\u80fd\u529b\u6b63\u5728\u9646\u7eed\u8fed\u4ee3\u4e2d\uff0c\u5c06\u4ee5\u66f4\u5b8c\u6574\u3001\u66f4\u5f3a\u5927\u7684\u521b\u4f5c\u4f53\u9a8c\u4e0e\u60a8\u89c1\u9762\u3002'
 const featuredTools = ref<FeaturedToolItem[]>([
+    {
+        id: 'featured-tool-digital-human-driver',
+        title: '\u5168\u9a71\u6570\u5b57\u4eba',
+        description: '\u58f0\u97f3\u3001\u5f62\u8c61\u3001\u52a8\u4f5c\u4e0e\u573a\u666f\u5168\u94fe\u8def\u9a71\u52a8\u3002',
+        image: card2,
+        accent: '#7c5cff',
+        category: '\u521b\u610f'
+    },
     {
         id: 'featured-tool-1',
         title: 'AI\u624b\u638c\u8ff7\u4f60\u7248',
@@ -1423,6 +1604,14 @@ const featuredTools = ref<FeaturedToolItem[]>([
     }
 ])
 const toolCards = ref<ToolCardItem[]>([
+    {
+        id: 'tool-card-digital-human-driver',
+        title: '\u5168\u9a71\u6570\u5b57\u4eba',
+        badge: '\u6570\u5b57\u4eba\u65b0\u80fd\u529b',
+        category: '\u521b\u610f',
+        image: card2,
+        implemented: false
+    },
     {
         id: 'tool-card-1',
         title: '\u4e00\u952e\u590d\u523bDAZZ\u590d\u53e4\u80f6\u7247\u6ee4\u955c',
@@ -1575,12 +1764,21 @@ const formOptions = ref({
     quality: '1k',
     ratio: '9:16'
 })
+const imageHumanMode = ref<ImageHumanMode>('fast')
 let previewAudio: HTMLAudioElement | null = null
 let previewSpeech: SpeechSynthesisUtterance | null = null
 let taskPollingTimer: number | null = null
 
 const isClientRuntime = () => typeof window !== 'undefined'
 const canUseSessionStorage = () => isClientRuntime()
+const humanModeTabs: Array<{ label: string; value: HumanMode }> = [
+    { label: '\u5bf9\u53e3\u578b\u6570\u5b57\u4eba', value: 'lip_sync' },
+    { label: '\u5168\u9a71\u52a8\u6570\u5b57\u4eba', value: 'image_human' }
+]
+const imageHumanModes: Array<{ label: string; value: ImageHumanMode; desc: string }> = [
+    { label: '\u5feb\u901f\u6a21\u5f0f', value: 'fast', desc: '\u901f\u5ea6\u4f18\u5148' },
+    { label: '\u6807\u51c6\u6a21\u5f0f', value: 'standard', desc: '\u7a33\u5b9a\u4f18\u5148' }
+]
 
 const findAvatarItemById = (id: string) =>
     [...mineAvatars.value, ...officialAvatars.value].find((item) => item.id === id) ?? null
@@ -1602,18 +1800,51 @@ const estimatedDuration = computed(() => {
     return Math.max(1, Math.ceil((scriptText.value.trim().length || 1) / 4))
 })
 const estimatedCost = computed(() => Number(estimateInfo.value.user_charge_points ?? 0).toFixed(2))
+const digitalHumanChannels = computed(() =>
+    (digitalHumanConfig.value?.channels || []).map((channel: any) => ({
+        value: String(channel.value || channel.code || ''),
+        name: String(channel.name || channel.description || channel.label || '\u6570\u5b57\u4eba\u6a21\u578b'),
+        label: String(channel.label || channel.description || channel.name || '\u6570\u5b57\u4eba\u6a21\u578b'),
+        description: String(channel.description || channel.label || channel.name || '\u6807\u51c6\u6570\u5b57\u4eba\u89c6\u9891\u6a21\u578b'),
+        tenantUnitPrice: channel.tenant_unit_price,
+        qualities: (channel.qualities || []).map((quality: any) => ({
+            value: String(quality.value || quality.quality || ''),
+            label: String(quality.label || quality.quality_label || quality.value || '').toUpperCase(),
+            ratios: (quality.ratios || []).map((ratio: any) => ({
+                value: String(ratio.value || ratio.ratio || ''),
+                label: String(ratio.label || ratio.ratio || ratio.value || ''),
+                width: Number(ratio.width || 0),
+                height: Number(ratio.height || 0)
+            })).filter((ratio: any) => ratio.value)
+        })).filter((quality: any) => quality.value)
+    })).filter((channel: any) => channel.value)
+)
+const currentDigitalHumanChannel = computed(() =>
+    digitalHumanChannels.value.find((item: any) => item.value === formOptions.value.channel) || digitalHumanChannels.value[0]
+)
+const digitalHumanQualities = computed(() => currentDigitalHumanChannel.value?.qualities || [])
+const currentDigitalHumanQuality = computed(() =>
+    digitalHumanQualities.value.find((item: any) => item.value === formOptions.value.quality) || digitalHumanQualities.value[0]
+)
+const digitalHumanRatios = computed(() => currentDigitalHumanQuality.value?.ratios || [])
+const shouldShowDigitalHumanChannelOptions = computed(() => digitalHumanChannels.value.length > 1)
+const digitalHumanChannelGridClass = computed(() =>
+    digitalHumanChannels.value.length === 2 ? 'model-channel-list--two' : 'model-channel-list--three'
+)
 
 const pickUploadUri = (res: any) => res?.uri || res?.url || res?.path || res?.file_url || ''
 
-const dataUrlToFile = async (dataUrl: string, fileName: string) => {
-    const response = await fetch(dataUrl)
-    const blob = await response.blob()
-    return new File([blob], fileName, { type: blob.type || 'image/jpeg' })
+const safeAssetName = (value: string, fallback: string, maxLength = 32) => {
+    const normalized = Array.from(String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').replace(/[\u{10000}-\u{10ffff}]/gu, '').trim())
+        .slice(0, maxLength)
+        .join('')
+        .trim()
+    return normalized || fallback
 }
 
 const mapAvatarRow = (row: any): AvatarItem => {
     const mediaType: AvatarMediaType = row.media_type === 'video' ? 'video' : 'image'
-    const mediaUrl = row.media_url || row.url || row.cover_url || row.cover || ''
+    const mediaUrl = row.media_url || row.image_url || row.url || row.cover_url || row.cover || ''
     const cover = row.cover_url || row.cover || (mediaType === 'image' ? mediaUrl : '') || card2
 
     return {
@@ -1630,8 +1861,20 @@ const mapAvatarRow = (row: any): AvatarItem => {
     }
 }
 
+const resolveSavedAvatarCover = (row: any, pending: PendingAvatarUpload) => {
+    const persistentCover = row?.cover_url || row?.cover || row?.image_url || row?.media_url || row?.url || ''
+    if (persistentCover) return persistentCover
+    return pending.previewImage || pending.url || card2
+}
+
+const resolveSavedAvatarVideo = (row: any, pending: PendingAvatarUpload) => {
+    if (pending.mediaType !== 'video') return undefined
+    return row?.media_url || row?.video_url || row?.url || row?.cover_url || pending.url || undefined
+}
+
 const resolveVoicePreviewUrl = (row: any) => {
     if (row.preview_audio_url) return row.preview_audio_url
+    if (row.audio_url && activeHumanMode.value === 'image_human') return row.audio_url
     if (row.provider_asset_id && row.source !== 'official') return undefined
     return row.preview_url || row.audio_url || undefined
 }
@@ -1653,15 +1896,96 @@ const mapVoiceRow = (row: any): VoiceItem => ({
     cover: row.cover_url || row.cover || undefined,
     vip: row.is_vip === 1 || row.vip === true,
     source: row.source === 'official' ? 'official' : 'mine',
-    starred: false,
+    starred: isFavorite('voice', row.id),
     previewUrl: resolveVoicePreviewUrl(row),
     gender: row.gender,
     age: row.age_group || row.age,
     duration: row.duration,
-    providerAssetId: row.provider_asset_id,
+    providerAssetId: activeHumanMode.value === 'image_human' ? row.provider_asset_id || row.id : row.provider_asset_id,
     status: row.status,
     libraryCategory: undefined
 })
+
+const resolveHistoryVoiceTitle = (row: any) =>
+    safeAssetName(String(row.title || row.prompt || row.script_text || '').trim(), texts.historyVoice, 48)
+
+const historyAudioFileName = (row: any) => {
+    const title = resolveHistoryVoiceTitle(row)
+    const uri = String(row.tts_audio_uri || '')
+    const pathName = uri.split('?')[0].split('/').pop() || ''
+    const extension = pathName.includes('.') ? pathName.slice(pathName.lastIndexOf('.')) : '.mp3'
+    return `${title}${extension}`
+}
+
+const mapHistoryVoiceAudioRow = (row: any): HistoryVoiceAudioItem | null => {
+    const remoteUri = String(row.tts_audio_uri || '')
+    const url = String(row.tts_audio_url || '')
+    if (!remoteUri || !url || row.status !== 'success') return null
+
+    const taskId = Number(row.id || row.task_id || 0)
+    if (!taskId) return null
+
+    return {
+        id: `history-audio-${taskId}`,
+        taskId,
+        title: resolveHistoryVoiceTitle(row),
+        fileName: historyAudioFileName(row),
+        url,
+        remoteUri,
+        duration: Math.max(1, Number(row.duration || 0)),
+        createdAt: Number(row.finish_time || row.create_time || 0)
+    }
+}
+
+const voiceStatusText = (item: VoiceItem) => {
+    if (item.status === 'running') return '\u514b\u9686\u4e2d'
+    if (item.status === 'failed') return '\u514b\u9686\u5931\u8d25'
+    if (item.source === 'mine' && !item.providerAssetId) return '\u5f85\u514b\u9686'
+    return ''
+}
+
+const syncDigitalHumanModelOptions = (useDefaults = false) => {
+    const defaults = digitalHumanConfig.value?.defaults || {}
+    const defaultChannel = useDefaults ? defaults.channel : formOptions.value.channel
+    if (digitalHumanChannels.value.length && !digitalHumanChannels.value.some((item: any) => item.value === defaultChannel)) {
+        formOptions.value.channel = digitalHumanChannels.value[0].value
+    } else if (defaultChannel) {
+        formOptions.value.channel = defaultChannel
+    }
+
+    const defaultQuality = useDefaults ? defaults.quality : formOptions.value.quality
+    if (digitalHumanQualities.value.length && !digitalHumanQualities.value.some((item: any) => item.value === defaultQuality)) {
+        formOptions.value.quality = digitalHumanQualities.value[0].value
+    } else if (defaultQuality) {
+        formOptions.value.quality = defaultQuality
+    }
+
+    const defaultRatio = useDefaults ? defaults.ratio : formOptions.value.ratio
+    if (digitalHumanRatios.value.length && !digitalHumanRatios.value.some((item: any) => item.value === defaultRatio)) {
+        formOptions.value.ratio = digitalHumanRatios.value[0].value
+    } else if (defaultRatio) {
+        formOptions.value.ratio = defaultRatio
+    }
+}
+
+const modelChannelPriceText = (item: any) => {
+    const price = item?.tenantUnitPrice
+    return price !== undefined && price !== null && price !== '' ? `${price}\u70b9/\u79d2` : '\u6309\u79d2\u8ba1\u8d39'
+}
+
+const modelChannelTipText = (item: any) => {
+    const name = String(item?.name || '').trim()
+    const description = String(item?.description || '').trim()
+    if (!name || name.length <= 5) return ''
+    return description && description !== name ? `${name}\uff1a${description}` : name
+}
+
+const selectDigitalHumanChannel = (value: string) => {
+    if (formOptions.value.channel === value) return
+    formOptions.value.channel = value
+    syncDigitalHumanModelOptions()
+    refreshDigitalHumanEstimate()
+}
 
 const syncDefaultSelections = () => {
     if (selectedAvatar.value && !findAvatarItemById(selectedAvatar.value.id)) selectedAvatar.value = null
@@ -1708,7 +2032,7 @@ const applyDigitalHumanTaskToEditor = (task: any) => {
 }
 
 const loadDigitalHumanTaskForEditing = async () => {
-    if (!ensureDigitalHumanLogin()) return
+    if (!userStore.isLogin) return
     const rawId = Array.isArray(route.query.edit_task_id) ? route.query.edit_task_id[0] : route.query.edit_task_id
     const taskId = Number(rawId || 0)
     if (!Number.isFinite(taskId) || taskId <= 0) return
@@ -1731,18 +2055,48 @@ const refreshDigitalHumanEstimate = async () => {
     }
 
     try {
-        estimateInfo.value = await estimateAigcDigitalHuman({
-            channel: formOptions.value.channel,
-            quality: formOptions.value.quality,
-            ratio: formOptions.value.ratio,
-            duration: estimatedDuration.value
-        })
+        estimateInfo.value = activeHumanMode.value === 'image_human'
+            ? await estimateImageHuman({
+                mode: imageHumanMode.value,
+                voice_id: Number((appliedVoiceItem.value || findVoiceItemById(selectedVoiceCardId.value))?.rawId || 0),
+                duration: estimatedDuration.value
+            })
+            : await estimateAigcDigitalHuman({
+                channel: formOptions.value.channel,
+                quality: formOptions.value.quality,
+                ratio: formOptions.value.ratio,
+                duration: estimatedDuration.value
+            })
     } catch (_error) {
         estimateInfo.value = {}
     }
 }
 
 const loadDigitalHumanData = async () => {
+    if (activeHumanMode.value === 'image_human') {
+        const [avatarRows, voiceRows, resultRows, taskRows] = await Promise.all([
+            getImageHumanAvatars(userStore.isLogin ? undefined : { source: 'official' }),
+            getImageHumanVoices(userStore.isLogin ? undefined : { source: 'official' }),
+            userStore.isLogin ? getImageHumanResults() : Promise.resolve([]),
+            userStore.isLogin ? getImageHumanTasks() : Promise.resolve([])
+        ])
+
+        const avatars = (avatarRows || []).map(mapAvatarRow)
+        officialAvatars.value = avatars.filter((item: AvatarItem) => item.source === 'official')
+        mineAvatars.value = userStore.isLogin ? avatars.filter((item: AvatarItem) => item.source === 'mine') : []
+
+        const voices = uniqueVoiceItems((voiceRows || []).map(mapVoiceRow))
+        officialVoices.value = voices.filter((item: VoiceItem) => item.source === 'official')
+        mineVoices.value = userStore.isLogin ? voices.filter((item: VoiceItem) => item.source === 'mine') : []
+
+        latestResult.value = (resultRows || []).find((item: any) => item.video_url) || (resultRows || [])[0] || null
+        latestTask.value = (taskRows || [])[0] || latestTask.value
+        historyVoiceAudios.value = []
+        syncDefaultSelections()
+        await refreshDigitalHumanEstimate()
+        return
+    }
+
     if (!userStore.isLogin) {
         const [config, avatarRows, voiceRows] = await Promise.all([
             getAigcDigitalHumanConfig(),
@@ -1752,10 +2106,7 @@ const loadDigitalHumanData = async () => {
 
         digitalHumanConfig.value = config?.option_config || digitalHumanConfig.value
         digitalHumanBaseConfig.value = config?.base_config || digitalHumanBaseConfig.value
-        const defaults = digitalHumanConfig.value.defaults || {}
-        formOptions.value.channel = defaults.channel || formOptions.value.channel
-        formOptions.value.quality = defaults.quality || formOptions.value.quality
-        formOptions.value.ratio = defaults.ratio || formOptions.value.ratio
+        syncDigitalHumanModelOptions(true)
 
         officialAvatars.value = (avatarRows || []).map(mapAvatarRow).filter((item: AvatarItem) => item.source === 'official')
         mineAvatars.value = []
@@ -1778,10 +2129,7 @@ const loadDigitalHumanData = async () => {
 
     digitalHumanConfig.value = config?.option_config || digitalHumanConfig.value
     digitalHumanBaseConfig.value = config?.base_config || digitalHumanBaseConfig.value
-    const defaults = digitalHumanConfig.value.defaults || {}
-    formOptions.value.channel = defaults.channel || formOptions.value.channel
-    formOptions.value.quality = defaults.quality || formOptions.value.quality
-    formOptions.value.ratio = defaults.ratio || formOptions.value.ratio
+    syncDigitalHumanModelOptions(true)
 
     const avatars = (avatarRows || []).map(mapAvatarRow)
     officialAvatars.value = avatars.filter((item: AvatarItem) => item.source === 'official')
@@ -1793,13 +2141,14 @@ const loadDigitalHumanData = async () => {
 
     latestResult.value = (resultRows || []).find((item: any) => item.video_url) || (resultRows || [])[0] || null
     latestTask.value = (taskRows || [])[0] || latestTask.value
+    historyVoiceAudios.value = (taskRows || [])
+        .map(mapHistoryVoiceAudioRow)
+        .filter((item: HistoryVoiceAudioItem | null): item is HistoryVoiceAudioItem => !!item)
     syncDefaultSelections()
     await refreshDigitalHumanEstimate()
 }
 
-const ensureDigitalHumanLogin = () => {
-    return ensurePcLogin({ redirect: route.fullPath })
-}
+const ensureDigitalHumanLogin = () => ensurePcLogin({ redirect: route.fullPath })
 
 const getPersistedAvatarState = (): PersistedAvatarState => ({
     version: avatarPageStateVersion,
@@ -1864,10 +2213,6 @@ const restoreAvatarPageState = () => {
 const displayedAvatars = computed(() => {
     return activeLibraryTab.value === 'official' ? officialAvatars.value : mineAvatars.value
 })
-const pagedDisplayedAvatars = computed(() => {
-    const start = (avatarPage.value - 1) * avatarPageSize
-    return displayedAvatars.value.slice(start, start + avatarPageSize)
-})
 
 const showMineCreateCard = computed(() => activeLibraryTab.value === 'mine')
 const appliedAvatarItem = computed(() =>
@@ -1876,33 +2221,42 @@ const appliedAvatarItem = computed(() =>
 const avatarCreateModalTitle = computed(() =>
     avatarEditingId.value ? texts.editMineAvatar : texts.createMineAvatar
 )
-const resolveVoiceLibraryCategory = (item: VoiceItem): Exclude<VoiceLibraryCategory, '收藏' | '全部'> | '' => {
-    if (item.libraryCategory) return item.libraryCategory
+const normalizeVoiceCategoryValue = (value?: string) => String(value || '').trim()
 
-    const combinedText = `${item.name}${item.gender ?? ''}${item.age ?? ''}`
+const resolveDynamicVoiceCategory = (item: VoiceItem): VoiceLibraryCategory => {
+    const gender = normalizeVoiceCategoryValue(item.gender)
+    const age = normalizeVoiceCategoryValue(item.age)
 
-    if (/儿|童|少年/.test(combinedText)) return '儿童'
-    if (/老|熟龄/.test(combinedText)) return '老人'
-    if (/中|成|稳重/.test(combinedText)) return '中年'
-    if (/少男|男/.test(combinedText)) return '少男'
-    if (/少女|女|知性|甜美/.test(combinedText)) return '少女'
-    if (/主播|旁白|解说|新闻|品宣|口播/.test(combinedText)) return '职业'
-
-    return ''
+    if (gender && age) return `${gender}·${age}`
+    return gender || age
 }
 
+const currentVoiceSource = computed(() => activeVoiceTab.value === 'official' ? officialVoices.value : mineVoices.value)
+
+const voiceLibraryCategoryOptions = computed<VoiceLibraryCategory[]>(() => {
+    const source = currentVoiceSource.value
+    const dynamicCategories = source
+        .map(resolveDynamicVoiceCategory)
+        .filter(Boolean)
+
+    const options = [
+        ...(source.some((item) => item.starred) ? ['收藏'] : []),
+        '全部',
+        ...dynamicCategories
+    ]
+
+    return Array.from(new Set(options))
+})
+
 const displayedVoices = computed(() => {
-    const source = activeVoiceTab.value === 'official' ? officialVoices.value : mineVoices.value
+    const source = currentVoiceSource.value
     const category = activeVoiceCategory.value
 
+    if (!voiceLibraryCategoryOptions.value.includes(category)) return source
     if (category === '全部') return source
     if (category === '收藏') return source.filter((item) => item.starred)
 
-    return source.filter((item) => resolveVoiceLibraryCategory(item) === category)
-})
-const pagedDisplayedVoices = computed(() => {
-    const start = (voicePage.value - 1) * voicePageSize
-    return displayedVoices.value.slice(start, start + voicePageSize)
+    return source.filter((item) => resolveDynamicVoiceCategory(item) === category)
 })
 const showMineVoiceCreateCard = computed(() => activeVoiceTab.value === 'mine')
 const appliedVoiceItem = computed(() =>
@@ -1954,6 +2308,11 @@ const voiceCreateRecordActionText = computed(() => {
     if (voiceCreateSampleSource.value === 'record' && voiceCreateStep.value === 'sample_ready') return texts.rerecordVoice
     return texts.recordVoiceSample
 })
+const voiceCreateUploadActionText = computed(() =>
+    voiceCreateSampleSource.value === 'upload' && voiceCreateStep.value === 'sample_ready'
+        ? texts.reuploadAudio
+        : texts.uploadAudioFile
+)
 const voiceCreateSampleSourceText = computed(() => {
     if (voiceCreateSampleSource.value === 'upload') return texts.sampleFromUpload
     if (voiceCreateSampleSource.value === 'record') return texts.sampleFromRecord
@@ -2037,7 +2396,6 @@ const chromePopoverContent = computed(() => ({
 }))
 
 watch(activeLibraryTab, () => {
-    avatarPage.value = 1
     if (!selectedAvatar.value) return
     const currentPool = displayedAvatars.value
     const exists = currentPool.some((item) => item.id === selectedAvatar.value?.id)
@@ -2045,9 +2403,12 @@ watch(activeLibraryTab, () => {
 })
 
 watch([activeVoiceTab, activeVoiceCategory], () => {
-    voicePage.value = 1
     stopVoicePreview()
     stopVoiceCreatePreview()
+    if (!voiceLibraryCategoryOptions.value.includes(activeVoiceCategory.value)) {
+        activeVoiceCategory.value = '全部'
+        return
+    }
     if (!selectedVoiceCardId.value) return
     const currentPool = displayedVoices.value
     const exists = currentPool.some((item) => item.id === selectedVoiceCardId.value)
@@ -2056,17 +2417,21 @@ watch([activeVoiceTab, activeVoiceCategory], () => {
         selectedVoice.value = ''
     }
 })
-watch(displayedAvatars, (list) => {
-    const totalPages = Math.max(1, Math.ceil(list.length / avatarPageSize))
-    if (avatarPage.value > totalPages) avatarPage.value = totalPages
-})
-watch(displayedVoices, (list) => {
-    const totalPages = Math.max(1, Math.ceil(list.length / voicePageSize))
-    if (voicePage.value > totalPages) voicePage.value = totalPages
+
+watch(voiceLibraryCategoryOptions, (options) => {
+    if (!options.includes(activeVoiceCategory.value)) activeVoiceCategory.value = '全部'
 })
 
-watch([scriptText, formOptions, driverAudio], () => {
+watch([scriptText, formOptions, driverAudio, imageHumanMode, activeHumanMode, selectedVoiceCardId, appliedVoiceId], () => {
     refreshDigitalHumanEstimate()
+})
+
+watch(() => route.query.tab, async (tab) => {
+    const nextMode: HumanMode = tab === 'image_human' ? 'image_human' : 'lip_sync'
+    if (nextMode === activeHumanMode.value) return
+    activeHumanMode.value = nextMode
+    resetModeRuntimeState()
+    await loadDigitalHumanData()
 })
 
 watch(activeContentPanel, (panel) => {
@@ -2131,6 +2496,36 @@ const resetAvatarCreateForm = () => {
     clearDriverAudio()
 }
 
+const resetModeRuntimeState = () => {
+    stopTaskPolling()
+    stopVoicePreview()
+    stopHistoryVoicePreview()
+    closeAvatarCardMenu()
+    resetAvatarCreateForm()
+    officialAvatars.value = []
+    mineAvatars.value = []
+    officialVoices.value = []
+    mineVoices.value = []
+    latestTask.value = null
+    latestResult.value = null
+    estimateInfo.value = {}
+    activeContentPanel.value = 'avatar'
+    activeLibraryTab.value = 'mine'
+    activeVoiceTab.value = 'mine'
+    activeVoiceCategory.value = '全部'
+}
+
+const setHumanMode = async (mode: HumanMode) => {
+    if (activeHumanMode.value === mode) return
+    activeHumanMode.value = mode
+    resetModeRuntimeState()
+    const query = { ...route.query }
+    if (mode === 'image_human') query.tab = 'image_human'
+    else delete query.tab
+    await router.replace({ path: '/ai/avatar', query }).catch(() => undefined)
+    await loadDigitalHumanData()
+}
+
 const togglePopover = (key: Exclude<PopoverKey, ''>) => {
     activePopover.value = activePopover.value === key ? '' : key
 }
@@ -2146,6 +2541,7 @@ const handleSidebar = (key: SidebarKey) => {
         activePopover.value = 'notice'
         return
     }
+    if ((key === 'create' || key === 'assets') && !ensurePcLogin({ redirect: buildSidebarRouteLocation(key).path || route.fullPath })) return
     router.push(buildSidebarRouteLocation(key))
 }
 
@@ -2158,21 +2554,56 @@ const setActiveToolCategory = (category: ToolCategory) => {
 }
 
 const openAvatarLibrary = (tab: LibraryTab) => {
+    if (tab === 'mine' && !ensureDigitalHumanLogin()) return
     activeContentPanel.value = 'avatar'
     activeLibraryTab.value = tab
 }
 
 const openVoiceLibrary = (tab: LibraryTab) => {
+    if (tab === 'mine' && !ensureDigitalHumanLogin()) return
     activeContentPanel.value = 'voice'
     activeVoiceTab.value = tab
     activeVoiceCategory.value = '全部'
 }
 
+const openHistoryVoiceModal = async () => {
+    if (!ensureDigitalHumanLogin()) return
+    if (activeHumanMode.value === 'image_human') {
+        openVoiceLibrary('mine')
+        feedback.msgWarning('\u5168\u9a71\u52a8\u6570\u5b57\u4eba\u8bf7\u5728\u53c2\u8003\u97f3\u9891\u5e93\u4e2d\u9009\u62e9\u6216\u4e0a\u4f20')
+        return
+    }
+    stopVoicePreview()
+    stopVoiceCreatePreview()
+    playingHistoryVoiceId.value = ''
+    try {
+        const rows = await getAigcDigitalHumanTasks({ status: 'success' })
+        historyVoiceAudios.value = (rows || [])
+            .map(mapHistoryVoiceAudioRow)
+            .filter((item: HistoryVoiceAudioItem | null): item is HistoryVoiceAudioItem => !!item)
+    } catch (error: any) {
+        feedback.msgError(error?.msg || error?.message || error || '\u5386\u53f2\u58f0\u97f3\u52a0\u8f7d\u5931\u8d25')
+    }
+    showHistoryVoiceModal.value = true
+}
+
+const closeHistoryVoiceModal = () => {
+    stopHistoryVoicePreview()
+    showHistoryVoiceModal.value = false
+}
+
 const selectFeaturedTool = (item: FeaturedToolItem) => {
     selectedFeaturedToolId.value = item.id
     activeToolCategory.value = item.category
-    const matchingToolCard = toolCards.value.find((toolCard) => toolCard.category === item.category)
+    const matchingToolCard = item.id === 'featured-tool-digital-human-driver'
+        ? toolCards.value.find((toolCard) => toolCard.id === 'tool-card-digital-human-driver')
+        : toolCards.value.find((toolCard) => toolCard.category === item.category)
     if (matchingToolCard) selectedToolCardId.value = matchingToolCard.id
+    if (item.id === 'featured-tool-digital-human-driver') {
+        setHumanMode('image_human')
+        return
+    }
+    feedback.msgWarning(toolComingSoonMessage)
 }
 
 const selectToolCard = (item: ToolCardItem) => {
@@ -2180,6 +2611,11 @@ const selectToolCard = (item: ToolCardItem) => {
     activeToolCategory.value = item.category
     const matchingFeatured = featuredTools.value.find((tool) => tool.category === item.category)
     if (matchingFeatured) selectedFeaturedToolId.value = matchingFeatured.id
+    if (item.id === 'tool-card-digital-human-driver') {
+        setHumanMode('image_human')
+        return
+    }
+    if (item.implemented === false) feedback.msgWarning(toolComingSoonMessage)
 }
 
 const selectAvatar = (item: AvatarItem) => {
@@ -2198,6 +2634,11 @@ const toggleTranslateMenu = () => {
 
 const runScriptAssist = async (action: 'translate' | 'copywrite', targetLanguage = '') => {
     if (!ensureDigitalHumanLogin()) return
+    if (activeHumanMode.value === 'image_human') {
+        feedback.msgWarning('\u5168\u9a71\u52a8\u6570\u5b57\u4eba\u6682\u4e0d\u652f\u6301 AI \u6587\u6848\u8f85\u52a9')
+        translateMenuOpen.value = false
+        return
+    }
     const content = scriptText.value.trim()
     if (!content) {
         feedback.msgError(action === 'translate' ? '\u8bf7\u5148\u8f93\u5165\u9700\u8981\u7ffb\u8bd1\u7684\u6587\u6848' : '\u8bf7\u5148\u8f93\u5165\u9700\u8981\u6da6\u8272\u7684\u6587\u6848')
@@ -2241,6 +2682,16 @@ const formatPreciseDuration = (seconds: number) => {
     const minutes = Math.floor(safeSeconds / 60)
     const remain = Math.floor(safeSeconds % 60)
     return `${minutes}:${String(remain).padStart(2, '0')}`
+}
+
+const formatHistoryVoiceDate = (timestamp: number) => {
+    if (!timestamp) return ''
+    const date = new Date(timestamp * 1000)
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    return `${month}-${day} ${hours}:${minutes}`
 }
 
 const rememberVoiceCreateTempUrl = (url: string) => {
@@ -2301,9 +2752,15 @@ const isSupportedVoiceCreateAudioFile = (file: File) => {
     if (!mimeType) return false
 
     return (
-        /^audio\/(mpeg|mp3|wav|x-wav|wave|mp4|x-m4a|aac|ogg)/i.test(mimeType) ||
+        /^audio\/(mpeg|mp3|wav|x-wav|wave|mp4|x-m4a|aac|ogg|webm)/i.test(mimeType) ||
         /^audio\/aacp/i.test(mimeType)
     )
+}
+
+const shouldNormalizeVoiceCreateAudioFile = (file: File) => {
+    const extension = getVoiceCreateFileNameExtension(file.name)
+    const mimeType = getVoiceCreateMimeTypeFromFile(file)
+    return !voiceCreateUploadAllowedAudioExtensions.includes(extension) || mimeType.includes('webm')
 }
 
 const readVoiceCreateDuration = (url: string) =>
@@ -2398,6 +2855,18 @@ const trimVoiceAudioFile = async (file: File, start: number, duration: number) =
     const blob = encodeWavFromChannels(channels.length ? channels : [new Float32Array(frameCount)], sampleRate)
     const baseName = getFileBaseName(file.name) || 'voice'
     return new File([blob], `${baseName}-trim-10s.wav`, { type: 'audio/wav' })
+}
+
+const normalizeVoiceCreateAudioFile = async (file: File, fallbackName = 'voice') => {
+    if (!shouldNormalizeVoiceCreateAudioFile(file)) return file
+
+    const audioBuffer = await decodeAudioFile(file)
+    const channels = Array.from({ length: Math.min(2, audioBuffer.numberOfChannels) }, (_, index) =>
+        audioBuffer.getChannelData(index).slice(0)
+    )
+    const blob = encodeWavFromChannels(channels.length ? channels : [new Float32Array(audioBuffer.length)], audioBuffer.sampleRate)
+    const baseName = getFileBaseName(file.name) || fallbackName
+    return new File([blob], `${baseName}.wav`, { type: 'audio/wav' })
 }
 
 const syncVoiceCreateSampleDuration = async (url: string, fallbackDuration = 0) => {
@@ -2608,7 +3077,8 @@ const createVoiceFromPending = async () => {
     isVoiceCreateSaving.value = true
     voiceCreateStep.value = 'saving'
     try {
-        const uploadRes = pending.remoteUri ? { uri: pending.remoteUri } : await uploadFile({ file: pending.file })
+        const audioFile = pending.remoteUri ? pending.file : await normalizeVoiceCreateAudioFile(pending.file, getFileBaseName(pending.fileName) || texts.myVoice)
+        const uploadRes = pending.remoteUri ? { uri: pending.remoteUri } : await uploadFile({ file: audioFile })
         const audioUri = pending.remoteUri || pickUploadUri(uploadRes)
         if (!audioUri) throw new Error('\u97f3\u9891\u4e0a\u4f20\u5931\u8d25')
         let coverUri = ''
@@ -2619,7 +3089,7 @@ const createVoiceFromPending = async () => {
             if (!coverUri) throw new Error('\u5c01\u9762\u4e0a\u4f20\u5931\u8d25')
         }
         const row = await saveAigcDigitalHumanVoice({
-            name: voiceCreateName.value.trim() || getFileBaseName(pending.fileName) || texts.myVoice,
+            name: safeAssetName(voiceCreateName.value || getFileBaseName(pending.fileName), texts.myVoice),
             audio_uri: audioUri,
             cover_uri: coverUri,
             duration: sampleDuration > 0 ? sampleDuration : undefined,
@@ -2631,9 +3101,10 @@ const createVoiceFromPending = async () => {
         if (!item.cover && voiceCreateCover.value) item.cover = voiceCreateCover.value
         mineVoices.value = [item, ...mineVoices.value.filter((voice) => voice.id !== item.id)]
         openVoiceLibrary('mine')
-        applyVoiceToEditor(item)
+        if (item.status === 'ready') applyVoiceToEditor(item)
+        else selectVoiceItem(item)
         activePopover.value = 'notice'
-        feedback.msgSuccess('\u97f3\u8272\u5df2\u521b\u5efa')
+        feedback.msgSuccess(item.status === 'running' ? texts.voiceQueued : '\u97f3\u8272\u5df2\u521b\u5efa')
         return item
     } catch (error: any) {
         feedback.msgError(error?.msg || error?.message || error || '\u97f3\u8272\u521b\u5efa\u5931\u8d25')
@@ -2645,17 +3116,41 @@ const createVoiceFromPending = async () => {
     }
 }
 
+const updateVoiceCreateMenuStyle = (target: EventTarget | null) => {
+    const element = target instanceof HTMLElement ? target : null
+    if (!element || !isClientRuntime()) {
+        voiceCreateMenuStyle.value = {}
+        return
+    }
+
+    const rect = element.getBoundingClientRect()
+    const menuWidth = Math.max(124, rect.width)
+    const left = Math.min(
+        Math.max(12, rect.left),
+        Math.max(12, window.innerWidth - menuWidth - 12)
+    )
+
+    voiceCreateMenuStyle.value = {
+        top: `${rect.bottom + 8}px`,
+        left: `${left}px`,
+        minWidth: `${menuWidth}px`
+    }
+}
+
 const closeVoiceCreateMenus = () => {
     voiceCreateGenderMenuOpen.value = false
     voiceCreateAgeMenuOpen.value = false
+    voiceCreateMenuStyle.value = {}
 }
 
-const toggleVoiceCreateGenderMenu = () => {
+const toggleVoiceCreateGenderMenu = (event?: MouseEvent) => {
+    if (!voiceCreateGenderMenuOpen.value) updateVoiceCreateMenuStyle(event?.currentTarget || null)
     voiceCreateGenderMenuOpen.value = !voiceCreateGenderMenuOpen.value
     if (voiceCreateGenderMenuOpen.value) voiceCreateAgeMenuOpen.value = false
 }
 
-const toggleVoiceCreateAgeMenu = () => {
+const toggleVoiceCreateAgeMenu = (event?: MouseEvent) => {
+    if (!voiceCreateAgeMenuOpen.value) updateVoiceCreateMenuStyle(event?.currentTarget || null)
     voiceCreateAgeMenuOpen.value = !voiceCreateAgeMenuOpen.value
     if (voiceCreateAgeMenuOpen.value) voiceCreateGenderMenuOpen.value = false
 }
@@ -2671,6 +3166,11 @@ const setVoiceCreateAge = (value: string) => {
 }
 
 const triggerVoiceCoverUpload = () => voiceCoverInputRef.value?.click()
+const triggerVoiceCreateAudioUpload = () => {
+    if (!ensureDigitalHumanLogin()) return
+    if (isVoiceCreateRecording.value) return
+    voiceCreateAudioInputRef.value?.click()
+}
 
 const resetVoiceCreateFields = () => {
     voiceCreateName.value = ''
@@ -2738,6 +3238,14 @@ const openVoiceCreateModal = () => {
     showVoiceCreateModal.value = true
 }
 
+const openVoiceCreateEntry = () => {
+    if (activeHumanMode.value === 'image_human') {
+        triggerDriverAudioUpload()
+        return
+    }
+    openVoiceCreateModal()
+}
+
 const handleVoiceCoverUpload = (event: Event) => {
     const input = event.target as HTMLInputElement
     const file = input.files?.[0]
@@ -2753,6 +3261,44 @@ const handleVoiceCoverUpload = (event: Event) => {
         pendingVoiceUpload.value.coverFile = file
         pendingVoiceUpload.value.coverUrl = voiceCreateCover.value
     }
+    input.value = ''
+}
+
+const handleVoiceCreateAudioUpload = async (event: Event) => {
+    if (!ensureDigitalHumanLogin()) return
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
+
+    if (!isSupportedVoiceCreateAudioFile(file)) {
+        feedback.msgError(texts.unsupportedAudioFormat)
+        input.value = ''
+        return
+    }
+
+    stopVoicePreview()
+    stopVoiceCreatePreview()
+    closeVoiceCreateMenus()
+    let sampleFile = file
+    let objectUrl = trackBlobUrl(URL.createObjectURL(file))
+    const duration = await readVoiceCreateDuration(objectUrl)
+
+    if (duration > voiceCreateMaxDuration) {
+        openVoiceTrimModal(file, objectUrl, duration)
+    } else {
+        try {
+            sampleFile = await normalizeVoiceCreateAudioFile(file)
+            if (sampleFile !== file) {
+                revokeTrackedBlobUrl(objectUrl)
+                objectUrl = trackBlobUrl(URL.createObjectURL(sampleFile))
+            }
+            prepareVoiceCreateUploadedSample(sampleFile, objectUrl, duration)
+        } catch (error: any) {
+            revokeTrackedBlobUrl(objectUrl)
+            feedback.msgError(error?.message || '音频转换失败，请更换音频后重试')
+        }
+    }
+
     input.value = ''
 }
 
@@ -2821,8 +3367,9 @@ const beginVoiceCreateRecording = async () => {
             if (blob && blob.size) {
                 const name = voiceCreateName.value.trim() || `\u6211\u7684\u58f0\u97f3${mineVoices.value.length + 1}`
                 try {
-                    const audioFile = new File([blob], `${name}.wav`, { type: blob.type || blobType })
-                    const file = await normalizeRecordedVoiceFile(audioFile)
+                    const extension = blobType.includes('webm') ? 'webm' : blobType.includes('ogg') ? 'ogg' : 'wav'
+                    const audioFile = new File([blob], `${name}.${extension}`, { type: blob.type || blobType })
+                    const file = await normalizeVoiceCreateAudioFile(audioFile, name)
                     const url = rememberVoiceCreateTempUrl(trackBlobUrl(URL.createObjectURL(file)))
                     const duration = Math.min(voiceCreateMaxDuration, voiceCreateElapsed.value > 0 ? voiceCreateElapsed.value : 1)
                     setVoiceCreateSample(file, url, 'record', { mimeType: file.type || 'audio/wav', duration })
@@ -2917,15 +3464,6 @@ const handleVoiceCreateRecordAction = async () => {
     await beginVoiceCreateRecording()
 }
 
-const normalizeRecordedVoiceFile = async (file: File) => {
-    const audioBuffer = await decodeAudioFile(file)
-    const channels = Array.from({ length: Math.min(2, audioBuffer.numberOfChannels) }, (_, index) =>
-        audioBuffer.getChannelData(index).slice(0)
-    )
-    const blob = encodeWavFromChannels(channels.length ? channels : [new Float32Array(audioBuffer.length)], audioBuffer.sampleRate)
-    return new File([blob], `${getFileBaseName(file.name) || 'record'}.wav`, { type: 'audio/wav' })
-}
-
 const saveVoiceCreateModal = async () => {
     if (!canSaveVoiceCreate.value || isVoiceCreateBusy.value) return
 
@@ -2963,6 +3501,7 @@ const closeAvatarCreateModal = (options: { preserveUpload?: boolean } = {}) => {
     showAvatarCreateModal.value = false
     pauseAvatarModalPreview()
     if (options.preserveUpload) {
+        pendingAvatarUpload.value?.blobUrls.forEach((url) => revokeTrackedBlobUrl(url))
         pendingAvatarUpload.value = null
     } else {
         discardPendingAvatarUpload()
@@ -3124,7 +3663,16 @@ const getAppliedVoiceDisplayName = (item: VoiceItem) => {
 const getVoiceFavoriteSymbol = (starred?: boolean) => (starred ? '\u2605' : '\u2606')
 
 const toggleVoiceStar = (item: VoiceItem) => {
+    if (!ensureDigitalHumanLogin()) return
     item.starred = !item.starred
+    setFavoriteItem({
+        category: 'voice',
+        id: item.rawId || item.id,
+        title: item.name,
+        desc: item.source === 'mine' ? '我的声音' : '官方声音',
+        image: item.cover || '',
+        url: buildSidebarRouteLocation('avatar') as string
+    }, item.starred)
 }
 
 const clearVoicePreviewState = (voiceId?: string) => {
@@ -3161,6 +3709,50 @@ const stopVoicePreview = (voiceId?: string) => {
     }
     previewSpeech = null
     clearVoicePreviewState(voiceId)
+}
+
+const stopHistoryVoicePreview = () => {
+    if (previewAudio) {
+        previewAudio.pause()
+        previewAudio.currentTime = 0
+        previewAudio = null
+    }
+    playingHistoryVoiceId.value = ''
+}
+
+const toggleHistoryVoicePreview = async (item: HistoryVoiceAudioItem) => {
+    if (!isClientRuntime() || !item.url) return
+    if (playingHistoryVoiceId.value === item.id) {
+        stopHistoryVoicePreview()
+        return
+    }
+
+    stopVoicePreview()
+    stopVoiceCreatePreview()
+    stopHistoryVoicePreview()
+
+    const audio = new Audio()
+    previewAudio = audio
+    playingHistoryVoiceId.value = item.id
+    audio.onended = () => {
+        if (previewAudio === audio) previewAudio = null
+        playingHistoryVoiceId.value = ''
+    }
+    audio.onerror = () => {
+        if (previewAudio === audio) previewAudio = null
+        playingHistoryVoiceId.value = ''
+        feedback.msgError('\u5386\u53f2\u58f0\u97f3\u64ad\u653e\u5931\u8d25')
+    }
+    try {
+        audio.src = item.url
+        audio.preload = 'auto'
+        audio.load()
+        await audio.play()
+    } catch (_error) {
+        if (previewAudio === audio) previewAudio = null
+        playingHistoryVoiceId.value = ''
+        feedback.msgError('\u5386\u53f2\u58f0\u97f3\u64ad\u653e\u5931\u8d25')
+    }
 }
 
 const getVoicePreviewText = (item: VoiceItem) =>
@@ -3222,6 +3814,14 @@ const playAudioPreview = async (item: VoiceItem, url = item.previewUrl) => {
 }
 
 const toggleVoicePreview = async (item: VoiceItem) => {
+    if (item.status === 'running') {
+        feedback.msgError('音色正在后台克隆，请稍后刷新')
+        return
+    }
+    if (item.status === 'failed') {
+        feedback.msgError('音色克隆失败，请重新上传样本')
+        return
+    }
     selectVoiceItem(item)
     if (playingVoiceId.value === item.id || voicePreviewLoadingId.value === item.id) {
         voicePreviewLoadingId.value = ''
@@ -3271,9 +3871,31 @@ const toggleVoicePreview = async (item: VoiceItem) => {
 }
 
 const applyVoiceToEditor = (item: VoiceItem) => {
+    if (item.source === 'mine' && item.status !== 'ready') {
+        feedback.msgError(item.status === 'running' ? '音色正在后台克隆，请稍后刷新' : '音色克隆失败，请重新上传样本')
+        return
+    }
     clearDriverAudio()
     selectVoiceItem(item)
     appliedVoiceId.value = item.id
+}
+
+const applyHistoryVoiceToEditor = async (item: HistoryVoiceAudioItem) => {
+    stopHistoryVoicePreview()
+    clearAppliedVoice()
+    selectedVoiceCardId.value = ''
+    selectedVoice.value = ''
+    clearDriverAudio()
+    const duration = item.duration > 0 ? item.duration : await readVoiceCreateDuration(item.url)
+    driverAudio.value = {
+        fileName: item.fileName,
+        url: item.url,
+        remoteUri: item.remoteUri,
+        duration: duration > 0 ? Math.ceil(duration) : 1
+    }
+    closeHistoryVoiceModal()
+    feedback.msgSuccess('\u5df2\u9009\u62e9\u5386\u53f2\u58f0\u97f3')
+    await refreshDigitalHumanEstimate()
 }
 
 const applyAvatarToEditor = (item: AvatarItem) => {
@@ -3328,12 +3950,28 @@ const handleCreateAvatarUpload = async (event: Event) => {
         pauseAvatarModalPreview()
     }
 
-    feedback.msgSuccess('上传完成，请确认信息后保存形象')
-
-    input.value = ''
+    isAvatarUploading.value = true
+    try {
+        const uploadRes = mediaType === 'video' ? await uploadVideo({ file }) : await uploadImage({ file })
+        const mediaUri = pickUploadUri(uploadRes)
+        if (!mediaUri) throw new Error(mediaType === 'video' ? '\u89c6\u9891\u4e0a\u4f20\u5931\u8d25' : '\u56fe\u7247\u4e0a\u4f20\u5931\u8d25')
+        if (pendingAvatarUpload.value?.url === objectUrl) {
+            pendingAvatarUpload.value.uploadedMediaUri = mediaUri
+            pendingAvatarUpload.value.remoteUri = mediaUri
+        }
+        feedback.msgSuccess('上传完成，请确认信息后保存形象')
+    } catch (error: any) {
+        discardPendingAvatarUpload()
+        resetAvatarCreateFields()
+        showAvatarCreateModal.value = false
+        feedback.msgError(error?.msg || error?.message || error || '\u5f62\u8c61\u4e0a\u4f20\u5931\u8d25')
+    } finally {
+        isAvatarUploading.value = false
+        input.value = ''
+    }
 }
 
-const handleAvatarCoverUpload = (event: Event) => {
+const handleAvatarCoverUpload = async (event: Event) => {
     const input = event.target as HTMLInputElement
     const file = input.files?.[0]
     if (!file || !pendingAvatarUpload.value) return
@@ -3349,7 +3987,20 @@ const handleAvatarCoverUpload = (event: Event) => {
     pendingAvatarUpload.value.coverFile = file
     pendingAvatarUpload.value.coverUrl = objectUrl
     avatarCreateCover.value = objectUrl
-    input.value = ''
+    isAvatarUploading.value = true
+    try {
+        const coverUploadRes = await uploadImage({ file })
+        const coverUri = pickUploadUri(coverUploadRes)
+        if (!coverUri) throw new Error('\u5c01\u9762\u4e0a\u4f20\u5931\u8d25')
+        if (pendingAvatarUpload.value?.coverUrl === objectUrl) {
+            pendingAvatarUpload.value.uploadedCoverUri = coverUri
+        }
+    } catch (error: any) {
+        feedback.msgError(error?.msg || error?.message || error || '\u5c01\u9762\u4e0a\u4f20\u5931\u8d25')
+    } finally {
+        isAvatarUploading.value = false
+        input.value = ''
+    }
 }
 
 const handleUpload = async (event: Event) => {
@@ -3357,7 +4008,13 @@ const handleUpload = async (event: Event) => {
     const input = event.target as HTMLInputElement
     const file = input.files?.[0]
     if (!file) return
-    if (!file.type.startsWith('video/')) {
+    if (activeHumanMode.value === 'image_human') {
+        if (!file.type.startsWith('image/')) {
+            feedback.msgError('\u8bf7\u4e0a\u4f20\u56fe\u7247\u5f62\u8c61')
+            input.value = ''
+            return
+        }
+    } else if (!file.type.startsWith('video/')) {
         feedback.msgError('\u8bf7\u4e0a\u4f20\u89c6\u9891\u5f62\u8c61')
         input.value = ''
         return
@@ -3380,6 +4037,35 @@ const handleDriverAudioUpload = async (event: Event) => {
 
     const objectUrl = trackBlobUrl(URL.createObjectURL(file))
     const duration = await readVoiceCreateDuration(objectUrl)
+    if (activeHumanMode.value === 'image_human') {
+        isCreating.value = true
+        try {
+            const uploadRes = await uploadFile({ file })
+            const audioUri = pickUploadUri(uploadRes)
+            if (!audioUri) throw new Error('\u97f3\u9891\u4e0a\u4f20\u5931\u8d25')
+            const row = await saveImageHumanVoice({
+                name: safeAssetName(getFileBaseName(file.name), '\u6211\u7684\u53c2\u8003\u97f3\u9891'),
+                audio_uri: audioUri,
+                duration: duration > 0 ? Math.ceil(duration) : 1
+            })
+            const item = mapVoiceRow(row)
+            item.previewUrl = objectUrl
+            mineVoices.value = [item, ...mineVoices.value.filter((voice) => voice.id !== item.id)]
+            openVoiceLibrary('mine')
+            selectVoiceItem(item)
+            appliedVoiceId.value = item.id
+            feedback.msgSuccess('\u53c2\u8003\u97f3\u9891\u5df2\u4fdd\u5b58')
+            await refreshDigitalHumanEstimate()
+        } catch (error: any) {
+            revokeTrackedBlobUrl(objectUrl)
+            feedback.msgError(error?.msg || error?.message || error || '\u53c2\u8003\u97f3\u9891\u4e0a\u4f20\u5931\u8d25')
+        } finally {
+            isCreating.value = false
+            input.value = ''
+        }
+        return
+    }
+
     clearAppliedVoice()
     selectedVoiceCardId.value = ''
     selectedVoice.value = ''
@@ -3399,46 +4085,44 @@ const saveAvatarCreateModal = async () => {
     if (isCreating.value) return
     if (!ensureDigitalHumanLogin()) return
     if (!pendingAvatarUpload.value) return
-    if (pendingAvatarUpload.value.mediaType !== 'video') {
+    if (activeHumanMode.value !== 'image_human' && pendingAvatarUpload.value.mediaType !== 'video') {
         feedback.msgError('\u6570\u5b57\u4eba\u5f62\u8c61\u5fc5\u987b\u4e0a\u4f20\u89c6\u9891')
+        return
+    }
+    if (activeHumanMode.value === 'image_human' && pendingAvatarUpload.value.mediaType !== 'image') {
+        feedback.msgError('\u5168\u9a71\u52a8\u6570\u5b57\u4eba\u5f62\u8c61\u5fc5\u987b\u4e0a\u4f20\u56fe\u7247')
         return
     }
 
     const pending = pendingAvatarUpload.value
     isCreating.value = true
     try {
-        const uploadRes = pending.remoteUri ? { uri: pending.remoteUri } : await uploadVideo({ file: pending.file })
-        const mediaUri = pending.remoteUri || pickUploadUri(uploadRes)
-        if (!mediaUri) throw new Error('\u89c6\u9891\u4e0a\u4f20\u5931\u8d25')
-        let coverUri = ''
-        let coverFile = pending.coverFile
-        if (!coverFile && pending.previewImage.startsWith('data:image/')) {
-            coverFile = await dataUrlToFile(
-                pending.previewImage,
-                `${getFileBaseName(pending.fileName) || 'avatar-cover'}.jpg`
-            )
-        }
-        if (coverFile) {
-            const coverUploadRes = await uploadImage({ file: coverFile })
-            coverUri = pickUploadUri(coverUploadRes)
-            if (!coverUri) throw new Error('\u5c01\u9762\u4e0a\u4f20\u5931\u8d25')
-        }
+        const mediaUri = pending.uploadedMediaUri || pending.remoteUri || ''
+        if (!mediaUri) throw new Error('\u5f62\u8c61\u89c6\u9891\u8fd8\u672a\u4e0a\u4f20\u5b8c\u6210')
 
-        const row = await saveAigcDigitalHumanAvatar({
-            name: avatarCreateName.value.trim() || getFileBaseName(pending.fileName) || '\u6211\u7684\u5f62\u8c61',
-            cover_uri: coverUri,
-            media_uri: mediaUri,
-            media_type: 'video',
-            scene: avatarCreateScene.value
-        })
+        const row = activeHumanMode.value === 'image_human'
+            ? await saveImageHumanAvatar({
+                name: safeAssetName(avatarCreateName.value || getFileBaseName(pending.fileName), '\u6211\u7684\u56fe\u7247\u5f62\u8c61'),
+                cover_uri: pending.uploadedCoverUri || mediaUri,
+                image_uri: mediaUri,
+                media_uri: mediaUri,
+                scene: avatarCreateScene.value
+            })
+            : await saveAigcDigitalHumanAvatar({
+                name: safeAssetName(avatarCreateName.value || getFileBaseName(pending.fileName), '\u6211\u7684\u5f62\u8c61'),
+                cover_uri: pending.uploadedCoverUri || '',
+                media_uri: mediaUri,
+                media_type: 'video',
+                scene: avatarCreateScene.value
+            })
         const item = mapAvatarRow(row)
-        item.image = avatarCreateCover.value || pending.previewImage || item.image
-        item.videoUrl = pending.url || item.videoUrl
+        item.image = resolveSavedAvatarCover(row, pending)
+        item.videoUrl = resolveSavedAvatarVideo(row, pending) || item.videoUrl
         mineAvatars.value = [item, ...mineAvatars.value.filter((avatar) => avatar.id !== item.id)]
         openAvatarLibrary('mine')
         applyAvatarToEditor(item)
         activePopover.value = 'notice'
-        feedback.msgSuccess('\u5f62\u8c61\u5df2\u521b\u5efa')
+        feedback.msgSuccess(texts.avatarSaved)
         closeAvatarCreateModal({ preserveUpload: true })
     } catch (error: any) {
         feedback.msgError(error?.msg || error?.message || error || '\u5f62\u8c61\u521b\u5efa\u5931\u8d25')
@@ -3514,16 +4198,20 @@ const refreshLatestTask = async () => {
     const taskId = latestTask.value?.id || latestTask.value?.task_id
     if (!taskId) return
     try {
-        latestTask.value = await getAigcDigitalHumanTask({ id: taskId })
+        latestTask.value = activeHumanMode.value === 'image_human'
+            ? await getImageHumanTask({ id: taskId })
+            : await getAigcDigitalHumanTask({ id: taskId })
         const status = latestTask.value?.status
         if (!['pending', 'running'].includes(status)) {
             stopTaskPolling()
-            const results = await getAigcDigitalHumanResults()
+            const results = activeHumanMode.value === 'image_human'
+                ? await getImageHumanResults()
+                : await getAigcDigitalHumanResults()
             latestResult.value = (results || []).find((item: any) => item.video_url) || (results || [])[0] || latestResult.value
             if (status === 'success') {
-                feedback.msgSuccess('\u6570\u5b57\u4eba\u89c6\u9891\u5408\u6210\u5b8c\u6210')
+                feedback.msgSuccess(activeHumanMode.value === 'image_human' ? '\u5168\u9a71\u52a8\u6570\u5b57\u4eba\u89c6\u9891\u751f\u6210\u5b8c\u6210' : '\u6570\u5b57\u4eba\u89c6\u9891\u5408\u6210\u5b8c\u6210')
             } else if (status === 'failed') {
-                feedback.msgError(latestTask.value?.error || '\u6570\u5b57\u4eba\u5408\u6210\u5931\u8d25')
+                feedback.msgError(latestTask.value?.error || (activeHumanMode.value === 'image_human' ? '\u5168\u9a71\u52a8\u6570\u5b57\u4eba\u751f\u6210\u5931\u8d25' : '\u6570\u5b57\u4eba\u5408\u6210\u5931\u8d25'))
             }
         }
     } catch (_error) {
@@ -3543,13 +4231,16 @@ const submitAvatarCreate = async () => {
     const voice = appliedVoiceItem.value || findVoiceItemById(selectedVoiceCardId.value)
     const audioDriver = driverAudio.value
 
-    if (!avatar?.rawId) return feedback.msgError('\u8bf7\u9009\u62e9\u89c6\u9891\u5f62\u8c61')
-    if (avatar.mediaType !== 'video') return feedback.msgError('\u8bf7\u9009\u62e9\u53ef\u5408\u6210\u7684\u89c6\u9891\u5f62\u8c61')
+    if (!avatar?.rawId) return feedback.msgError(activeHumanMode.value === 'image_human' ? '\u8bf7\u9009\u62e9\u56fe\u7247\u5f62\u8c61' : '\u8bf7\u9009\u62e9\u89c6\u9891\u5f62\u8c61')
+    if (activeHumanMode.value === 'image_human' && avatar.mediaType === 'video') return feedback.msgError('\u8bf7\u9009\u62e9\u56fe\u7247\u5f62\u8c61')
+    if (activeHumanMode.value !== 'image_human' && avatar.mediaType !== 'video') return feedback.msgError('\u8bf7\u9009\u62e9\u53ef\u5408\u6210\u7684\u89c6\u9891\u5f62\u8c61')
+    if (activeHumanMode.value === 'image_human' && !voice?.rawId) return feedback.msgError('\u8bf7\u9009\u62e9\u53c2\u8003\u97f3\u9891')
+    if (activeHumanMode.value === 'image_human' && !scriptText.value.trim()) return feedback.msgError('\u8bf7\u8f93\u5165\u63d0\u793a\u8bcd')
     if (!audioDriver && !voice?.rawId) return feedback.msgError('\u8bf7\u9009\u62e9\u97f3\u8272\u6216\u4e0a\u4f20\u97f3\u9891\u9a71\u52a8')
     if (!audioDriver && !voice?.providerAssetId) return feedback.msgError('\u5f53\u524d\u97f3\u8272\u672a\u5b8c\u6210\u514b\u9686\uff0c\u65e0\u6cd5\u5408\u6210')
     if (!audioDriver && !scriptText.value.trim()) return feedback.msgError('\u8bf7\u8f93\u5165\u6587\u6848\u5185\u5bb9')
 
-    const title = workName.value.trim() || `\u6570\u5b57\u4eba-${avatar.name}`
+    const title = workName.value.trim() || (activeHumanMode.value === 'image_human' ? `\u5168\u9a71\u6570\u5b57\u4eba-${avatar.name}` : `\u6570\u5b57\u4eba-${avatar.name}`)
     const script = scriptText.value.trim()
     if (!audioDriver && scriptMaxLength.value && Array.from(script).length > scriptMaxLength.value) {
         return feedback.msgError(`\u6587\u6848\u4e0d\u80fd\u8d85\u8fc7${scriptMaxLength.value}\u4e2a\u5b57`)
@@ -3559,24 +4250,34 @@ const submitAvatarCreate = async () => {
     try {
         let driverAudioUri = audioDriver?.remoteUri || ''
         if (audioDriver && !driverAudioUri) {
+            if (!audioDriver.file) throw new Error('\u97f3\u9891\u6587\u4ef6\u4e0d\u5b58\u5728\uff0c\u8bf7\u91cd\u65b0\u9009\u62e9\u58f0\u97f3')
             const uploadRes = await uploadFile({ file: audioDriver.file })
             driverAudioUri = pickUploadUri(uploadRes)
             if (!driverAudioUri) throw new Error('\u97f3\u9891\u4e0a\u4f20\u5931\u8d25')
             audioDriver.remoteUri = driverAudioUri
         }
         await refreshDigitalHumanEstimate()
-        const task = await generateAigcDigitalHuman({
-            avatar_id: Number(avatar.rawId),
-            voice_id: audioDriver ? 0 : Number(voice?.rawId || 0),
-            audio_uri: driverAudioUri,
-            title,
-            script_text: script,
-            prompt: script,
-            channel: formOptions.value.channel,
-            quality: formOptions.value.quality,
-            ratio: formOptions.value.ratio,
-            duration: estimatedDuration.value
-        })
+        const task = activeHumanMode.value === 'image_human'
+            ? await submitImageHuman({
+                avatar_id: Number(avatar.rawId),
+                voice_id: Number(voice?.rawId || 0),
+                title,
+                prompt: script,
+                mode: imageHumanMode.value,
+                duration: estimatedDuration.value
+            })
+            : await generateAigcDigitalHuman({
+                avatar_id: Number(avatar.rawId),
+                voice_id: audioDriver ? 0 : Number(voice?.rawId || 0),
+                audio_uri: driverAudioUri,
+                title,
+                script_text: script,
+                prompt: script,
+                channel: formOptions.value.channel,
+                quality: formOptions.value.quality,
+                ratio: formOptions.value.ratio,
+                duration: estimatedDuration.value
+            })
         latestTask.value = task?.task_id ? { ...task, id: task.task_id, title, progress: 5 } : task
         resetAvatarCreateForm()
         feedback.msgSuccess('\u5df2\u63d0\u4ea4\u5408\u6210\u4efb\u52a1')
@@ -3585,7 +4286,11 @@ const submitAvatarCreate = async () => {
             path: '/ai/create',
             query: {
                 type: 'digital_human',
-                status: ''
+                status: '',
+                scroll: 'latest',
+                task_id: String(task?.task_id || task?.id || ''),
+                app_code: activeHumanMode.value === 'image_human' ? 'image_human' : 'aigc_digital_human',
+                title
             }
         })
     } catch (error: any) {
@@ -3612,9 +4317,12 @@ onMounted(() => {
             if (latestTask.value && ['pending', 'running'].includes(latestTask.value.status)) startTaskPolling()
         })
         .catch((error) => {
+            if (!userStore.isLogin || isPcLoginRequiredError(error)) return
             feedback.msgError(error?.msg || error?.message || '\u6570\u5b57\u4eba\u6570\u636e\u52a0\u8f7d\u5931\u8d25')
         })
     document.addEventListener('click', closeFloatingMenus)
+    window.addEventListener('scroll', closeVoiceCreateMenus, true)
+    window.addEventListener('resize', closeVoiceCreateMenus)
     window.addEventListener('beforeunload', handlePageRefresh)
     window.addEventListener('pagehide', handlePageRefresh)
 })
@@ -3623,9 +4331,12 @@ onBeforeUnmount(() => {
     saveAvatarPageState()
     unlockAvatarPageScroll()
     document.removeEventListener('click', closeFloatingMenus)
+    window.removeEventListener('scroll', closeVoiceCreateMenus, true)
+    window.removeEventListener('resize', closeVoiceCreateMenus)
     window.removeEventListener('beforeunload', handlePageRefresh)
     window.removeEventListener('pagehide', handlePageRefresh)
     stopVoicePreview()
+    stopHistoryVoicePreview()
     stopTaskPolling()
     cancelVoiceCreateRecording()
     stopVoiceCreatePreview()
@@ -4050,16 +4761,20 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 24px;
     background: rgba(0, 0, 0, 0.66);
     backdrop-filter: blur(10px);
+    box-sizing: border-box;
 }
 
 .voice-create-modal {
     position: relative;
-    width: 700px;
+    width: 860px;
+    max-width: 100%;
     max-height: calc(100vh - 72px);
     overflow-y: auto;
-    padding: 22px 22px 23px;
+    scrollbar-gutter: stable;
+    padding: 24px;
     border-radius: 12px;
     background: #222;
     box-sizing: border-box;
@@ -4106,24 +4821,11 @@ onBeforeUnmount(() => {
     line-height: 1;
 }
 
-.voice-create-modal__cover-hero {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    min-height: 96px;
-    margin-top: 18px;
-    padding: 14px 16px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    background: #18191b;
-    box-sizing: border-box;
-}
-
 .voice-create-modal__method-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
-    margin-top: 12px;
+    margin-top: 18px;
 }
 
 .voice-create-modal__method-card {
@@ -4347,6 +5049,187 @@ onBeforeUnmount(() => {
 
 .voice-preview-audio {
     display: none;
+}
+
+.history-voice-modal-mask {
+    position: fixed;
+    inset: 0;
+    z-index: 44;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.68);
+    backdrop-filter: blur(10px);
+    box-sizing: border-box;
+}
+
+.history-voice-modal {
+    position: relative;
+    width: min(640px, 100%);
+    max-height: calc(100vh - 72px);
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: #202123;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+.history-voice-modal__close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.history-voice-modal__close::before,
+.history-voice-modal__close::after {
+    content: '';
+    position: absolute;
+    top: 13px;
+    left: 8px;
+    width: 12px;
+    height: 2px;
+    border-radius: 999px;
+    background: #fff;
+}
+
+.history-voice-modal__close::before {
+    transform: rotate(45deg);
+}
+
+.history-voice-modal__close::after {
+    transform: rotate(-45deg);
+}
+
+.history-voice-modal__head {
+    padding-right: 36px;
+}
+
+.history-voice-modal__head h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.history-voice-modal__list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.history-voice-card {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    min-height: 76px;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: #171819;
+    box-sizing: border-box;
+}
+
+.history-voice-card__play {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border: 0;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #303132 0%, #242526 100%);
+    color: #fff;
+    cursor: pointer;
+}
+
+.history-voice-card__play.is-active {
+    background: #fff;
+    color: #222;
+}
+
+.history-voice-card__content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.history-voice-card__content strong {
+    overflow: hidden;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.history-voice-card__content span {
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 12px;
+    line-height: 1;
+}
+
+.history-voice-card__use {
+    height: 36px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 8px;
+    background: #fff;
+    color: #222;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.history-voice-modal__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    margin-top: 20px;
+    padding: 28px;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: #171819;
+    text-align: center;
+}
+
+.history-voice-modal__empty img {
+    width: 42px;
+    height: 42px;
+    margin-bottom: 18px;
+    opacity: 0.82;
+}
+
+.history-voice-modal__empty strong {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.history-voice-modal__empty span {
+    margin-top: 10px;
+    color: rgba(255, 255, 255, 0.56);
+    font-size: 13px;
+    line-height: 20px;
 }
 
 .voice-trim-modal-mask {
@@ -4592,14 +5475,10 @@ onBeforeUnmount(() => {
 
 .voice-create-modal__form {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
     gap: 14px 18px;
     margin-top: 18px;
-    padding: 14px 16px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    background: #18191b;
 }
 
 .voice-create-modal__field {
@@ -4607,6 +5486,19 @@ onBeforeUnmount(() => {
     align-items: center;
     gap: 12px;
     min-width: 0;
+}
+
+.voice-create-modal__field--name {
+    --voice-create-label-width: 56px;
+    display: grid;
+    grid-template-columns: var(--voice-create-label-width) minmax(0, 1fr);
+    align-items: start;
+    column-gap: 12px;
+    row-gap: 12px;
+}
+
+.voice-create-modal__field--name > .voice-create-modal__label {
+    padding-top: 13px;
 }
 
 .voice-create-modal__label {
@@ -4621,6 +5513,7 @@ onBeforeUnmount(() => {
     display: inline-flex;
     align-items: center;
     gap: 10px;
+    min-width: 0;
 }
 
 .voice-create-modal__input-shell {
@@ -4641,7 +5534,7 @@ onBeforeUnmount(() => {
 
 .voice-create-modal__input-shell--name {
     width: 100%;
-    min-width: 240px;
+    min-width: 0;
 }
 
 .voice-create-modal__input-shell input,
@@ -4662,6 +5555,7 @@ onBeforeUnmount(() => {
 
 .voice-create-modal__select-wrap {
     position: relative;
+    min-width: 0;
 }
 
 .voice-create-modal__input-shell--select {
@@ -4682,10 +5576,8 @@ onBeforeUnmount(() => {
 }
 
 .voice-create-modal__menu {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    z-index: 5;
+    position: fixed;
+    z-index: 60;
     min-width: 124px;
     padding: 8px;
     border: 1px solid rgba(255, 255, 255, 0.08);
@@ -4731,6 +5623,15 @@ onBeforeUnmount(() => {
     background: #222;
     overflow: hidden;
     cursor: pointer;
+}
+
+.voice-create-modal__cover-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: var(--voice-create-label-width) auto;
+    align-items: center;
+    gap: 12px;
+    margin-top: 0;
 }
 
 .voice-create-modal__cover img {
@@ -4791,38 +5692,6 @@ onBeforeUnmount(() => {
 .voice-create-modal__submit-meta img {
     width: 10px;
     height: 10px;
-}
-
-.library-pagination {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 20px;
-}
-
-.library-pagination--voice {
-    flex-shrink: 0;
-    margin-top: 24px;
-}
-
-.library-pagination :deep(.el-pagination) {
-    --el-pagination-bg-color: transparent;
-    --el-pagination-text-color: rgba(255, 255, 255, 0.72);
-    --el-pagination-button-color: rgba(255, 255, 255, 0.72);
-    --el-pagination-button-disabled-color: rgba(255, 255, 255, 0.28);
-    --el-pagination-hover-color: #fff;
-    --el-pagination-border-radius: 999px;
-}
-
-.library-pagination :deep(.el-pager li),
-.library-pagination :deep(.btn-prev),
-.library-pagination :deep(.btn-next) {
-    background: rgba(255, 255, 255, 0.06);
-    border-radius: 999px;
-}
-
-.library-pagination :deep(.el-pager li.is-active) {
-    background: #fff;
-    color: #050505;
 }
 
 .avatar-delete-modal-mask {
@@ -4940,7 +5809,7 @@ onBeforeUnmount(() => {
     position: relative;
     height: 100vh;
     min-height: 100vh;
-    padding: 0 32px;
+    padding: 0;
     background: #050505;
     color: #fff;
     overflow-x: hidden;
@@ -5028,9 +5897,12 @@ onBeforeUnmount(() => {
 }
 
 .avatar-main {
-    --editor-width: clamp(350px, 22vw, 403px);
-    --layout-gap: clamp(16px, 1.2vw, 24px);
-    --card-min-width: clamp(210px, 12.8vw, 252px);
+    --editor-min-width: 350px;
+    --editor-width: clamp(var(--editor-min-width), 28vw, 403px);
+    --layout-gap: 24px;
+    --avatar-gallery-gap: 8px;
+    --card-min-width: 204px;
+    --voice-card-min-width: 332px;
     --category-chip-gap: 20px;
     --category-chip-radius: 4px;
     --category-chip-min-height: 32px;
@@ -5042,8 +5914,8 @@ onBeforeUnmount(() => {
     z-index: 1;
     height: 100vh;
     min-height: 0;
-    padding: 84px 24px 28px 132px;
-    overflow: hidden;
+    padding: 56px 72px 0 116px;
+    overflow: auto hidden;
     overscroll-behavior: contain;
     scrollbar-width: thin;
     scrollbar-color: #242424 transparent;
@@ -5071,7 +5943,7 @@ onBeforeUnmount(() => {
 
 .avatar-main--tools,
 .avatar-main--assets {
-    padding-top: 84px;
+    padding-top: 56px;
     padding-bottom: 24px;
     overflow-y: auto;
     overflow-x: hidden;
@@ -5472,30 +6344,241 @@ onBeforeUnmount(() => {
 
 .avatar-layout {
     display: grid;
-    grid-template-columns: minmax(350px, var(--editor-width)) minmax(0, 1fr);
+    grid-template-columns: var(--editor-width) minmax(0, 1fr);
     gap: var(--layout-gap);
-    align-items: stretch;
+    align-items: start;
     height: 100%;
+    min-width: calc(var(--editor-min-width) + var(--layout-gap) + 560px);
     min-height: 0;
     overflow: hidden;
 }
 
 .avatar-editor {
+    position: relative;
     display: flex;
     flex-direction: column;
+    height: 100%;
     min-height: 0;
     max-height: 100%;
-    padding: 16px;
-    padding-bottom: 20px;
     border-radius: 20px;
-    background: #0a0a0a;
+    background: #0f0f0f;
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+}
+
+.avatar-editor__scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 20px 20px 28px;
+    overflow-x: hidden;
     overflow-y: auto;
+    scrollbar-color: #2b2b2b transparent;
+    scrollbar-width: thin;
     overscroll-behavior: contain;
 }
 
+.avatar-editor__scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.avatar-editor__scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.avatar-editor__scroll::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #2b2b2b;
+}
+
+.avatar-editor__footer {
+    position: relative;
+    z-index: 20;
+    flex: 0 0 auto;
+    padding: 12px 20px 20px;
+    background: #0f0f0f;
+}
+
+.human-mode-switch {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 32px;
+    padding: 0;
+    border-radius: 10px;
+    background: transparent;
+}
+
+.human-mode-switch button {
+    min-width: 0;
+    height: 48px;
+    padding: 0 12px;
+    border: 1px solid #222;
+    border-radius: 10px;
+    background: #171719;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.human-mode-switch button.is-active {
+    border-color: #fff;
+    background: #fff;
+    color: #050505;
+}
+
+.driver-mode-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.driver-mode-tabs button {
+    display: flex;
+    min-width: 0;
+    min-height: 60px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 5px;
+    padding: 10px 12px;
+    border: 1px solid #222;
+    border-radius: 10px;
+    background: #0f0f0f;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.driver-mode-tabs button.is-active {
+    border-color: #fff;
+    background: #fff;
+    color: #050505;
+}
+
+.driver-mode-tabs strong {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.driver-mode-tabs span {
+    color: rgba(255, 255, 255, 0.46);
+    font-size: 12px;
+    line-height: 16px;
+}
+
+.driver-mode-tabs button.is-active span {
+    color: rgba(5, 5, 5, 0.62);
+}
+
+.model-channel-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.model-channel-list--two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.model-channel-list button {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 58px;
+    padding: 8px;
+    border: 1px solid #222;
+    border-radius: 10px;
+    background: #0f0f0f;
+    color: #fff;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.model-channel-list button.is-active {
+    border-color: #fff;
+    background: #fff;
+    color: #050505;
+}
+
+.model-channel-list strong {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.model-channel-list small {
+    color: rgba(255, 255, 255, 0.64);
+    font-size: 12px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.model-channel-list button.is-active small {
+    color: rgba(5, 5, 5, 0.62);
+}
+
+.model-channel-help {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.model-channel-list button.is-active .model-channel-help {
+    background: rgba(5, 5, 5, 0.1);
+    color: rgba(5, 5, 5, 0.72);
+}
+
+.model-channel-tooltip {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px);
+    z-index: 5;
+    display: none;
+    width: max-content;
+    max-width: 220px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(17, 17, 17, 0.96);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 18px;
+    text-align: left;
+    white-space: normal;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.36);
+}
+
+.model-channel-help:hover .model-channel-tooltip {
+    display: block;
+}
+
 .editor-section + .editor-section {
-    margin-top: 20px;
+    margin-top: 32px;
 }
 
 .editor-section__head,
@@ -5507,13 +6590,13 @@ onBeforeUnmount(() => {
 }
 
 .editor-section--name .editor-section__row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
 }
 
 .editor-section__head {
-    margin-bottom: 12px;
+    margin-bottom: 18px;
 }
 
 .editor-section__head--stacked {
@@ -5572,8 +6655,8 @@ onBeforeUnmount(() => {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 18px;
-    height: 136px;
+    gap: 28px;
+    height: 176px;
     border-radius: 10px;
     background: #262626;
 }
@@ -5818,14 +6901,15 @@ onBeforeUnmount(() => {
 
 .script-box {
     position: relative;
-    height: 132px;
+    height: 172px;
     padding: 14px 12px 44px;
     border: 1px solid #222;
+    background: #0f0f0f;
 }
 
 .script-box textarea {
     width: 100%;
-    height: 64px;
+    height: 100px;
     border: 0;
     outline: none;
     resize: none;
@@ -5933,22 +7017,23 @@ onBeforeUnmount(() => {
 }
 
 .editor-section--name {
-    margin-top: 18px;
+    margin-top: 28px;
 }
 
 .editor-section--name .editor-section__label {
-    width: auto;
+    width: 72px;
 }
 
 .work-name {
     display: flex;
     align-items: center;
-    width: 100%;
+    flex: 1;
+    width: auto;
     height: 40px;
     padding: 0 14px;
     border: 1px solid #222;
     border-radius: 8px;
-    background: #000;
+    background: #0f0f0f;
 }
 
 .work-name input {
@@ -5965,22 +7050,21 @@ onBeforeUnmount(() => {
 }
 
 .create-button {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 20px;
+    gap: 12px;
+    flex-shrink: 0;
     width: 100%;
-    min-height: 64px;
-    margin-top: 24px;
-    padding: 0 22px;
-    border-radius: 12px;
+    height: 40px;
+    margin-top: 0;
+    padding: 0;
+    border-radius: 8px;
     background: #fff;
     color: #222;
-    font-size: 19px;
-    font-weight: 700;
-    letter-spacing: 0;
-    line-height: 1;
-    box-shadow: 0 16px 34px rgba(255, 255, 255, 0.1);
+    font-size: 16px;
+    font-weight: 500;
 }
 
 .create-button:disabled {
@@ -5991,20 +7075,12 @@ onBeforeUnmount(() => {
 .create-button__meta {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-height: 32px;
-    padding: 0 12px;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.08);
-    font-size: 16px;
-    font-weight: 700;
-    line-height: 1;
+    gap: 5px;
 }
 
 .create-button__meta img {
-    width: 16px;
-    height: 16px;
+    width: 10px;
+    height: 10px;
 }
 
 .create-button__text {
@@ -6049,7 +7125,7 @@ onBeforeUnmount(() => {
 .avatar-heading__line {
     position: absolute;
     left: 0;
-    bottom: 0;
+    bottom: 8px;
     width: 80px;
     height: 2px;
     border-radius: 999px;
@@ -6068,24 +7144,37 @@ onBeforeUnmount(() => {
     position: relative;
     z-index: 1;
     flex-shrink: 0;
-    padding: 24px 0 0;
+    padding: 8px 0 0;
     margin-bottom: -20px;
+}
+
+.voice-filters.tools-categories {
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0;
+}
+
+.voice-filters.tools-categories button {
+    flex: 0 0 auto;
 }
 
 .avatar-gallery {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(168px, 236px));
-    gap: clamp(12px, 0.9vw, 16px);
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(max(var(--card-min-width), calc((100% - (var(--avatar-gallery-gap) * 4)) / 5)), 1fr)
+    );
+    gap: var(--avatar-gallery-gap);
     width: 100%;
     justify-content: start;
     align-content: start;
 }
 
 .avatar-gallery-scroll {
-    flex: 1 1 auto;
+    flex: 1;
     min-height: 0;
-    margin-top: 20px;
-    padding: 20px 6px 28px 0;
+    margin-top: 8px;
+    padding: 0 6px 0 0;
     overflow-y: auto;
     overflow-x: hidden;
     overscroll-behavior: contain;
@@ -6113,11 +7202,11 @@ onBeforeUnmount(() => {
 }
 
 .voice-library-scroll {
-    flex: 1 1 auto;
+    flex: 1;
     min-height: 0;
-    margin-top: 20px;
+    margin-top: 32px;
     width: 100%;
-    padding: 20px 0 28px;
+    padding: 0;
     overflow-y: auto;
     overflow-x: hidden;
     overscroll-behavior: contain;
@@ -6153,8 +7242,8 @@ onBeforeUnmount(() => {
 
 .voice-library {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--voice-card-min-width)), 1fr));
+    gap: 8px;
     width: 100%;
     justify-content: start;
     align-content: start;
@@ -6162,13 +7251,13 @@ onBeforeUnmount(() => {
 
 .voice-card {
     position: relative;
-    width: min(100%, 423px);
+    width: 100%;
     height: 96px;
     border: 1px solid transparent;
     border-radius: 12px;
     background: #222;
     overflow: hidden;
-    justify-self: start;
+    justify-self: stretch;
     cursor: pointer;
     transition: border-color 0.2s ease;
 }
@@ -6203,7 +7292,7 @@ onBeforeUnmount(() => {
 .voice-card__favorite {
     position: absolute;
     top: 34px;
-    right: 116px;
+    right: 104px;
     z-index: 2;
     width: 24px;
     height: 24px;
@@ -6249,6 +7338,12 @@ onBeforeUnmount(() => {
     cursor: pointer;
 }
 
+.voice-card__action:disabled {
+    background: rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.74);
+    cursor: not-allowed;
+}
+
 .voice-card:hover .voice-card__favorite,
 .voice-card:hover .voice-card__action,
 .voice-card:focus-within .voice-card__favorite,
@@ -6264,9 +7359,9 @@ onBeforeUnmount(() => {
     top: 12px;
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 12px;
     min-width: 0;
-    max-width: calc(100% - 156px);
+    max-width: calc(100% - 148px);
 }
 
 .voice-card__thumb {
@@ -6316,6 +7411,17 @@ onBeforeUnmount(() => {
     width: 28px !important;
     height: 28px !important;
     object-fit: contain !important;
+}
+
+.voice-card__content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    gap: 8px;
 }
 
 .voice-card__play {
@@ -6405,8 +7511,10 @@ onBeforeUnmount(() => {
 
 .voice-card__name {
     min-width: 0;
+    width: 100%;
+    max-width: 5em;
     color: #fff;
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
@@ -6419,11 +7527,12 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: min(100%, 423px);
-    min-height: 128px;
+    width: 100%;
+    height: 96px;
+    min-height: 96px;
     background: #262626;
     border-color: rgba(255, 255, 255, 0.06);
-    justify-self: start;
+    justify-self: stretch;
 }
 
 .voice-card--create__inner {
@@ -6431,23 +7540,23 @@ onBeforeUnmount(() => {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 14px;
-    color: rgba(255, 255, 255, 0.62);
-    font-size: 16px;
-    font-weight: 500;
-    line-height: 1.2;
+    gap: 12px;
+    color: #8f8f8f;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1;
     text-align: center;
 }
 
 .voice-card--create__inner img {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
 }
 
 .avatar-card {
     position: relative;
     width: 100%;
-    min-height: 260px;
+    min-height: 300px;
     aspect-ratio: 3 / 4;
     overflow: hidden;
     border: 1px solid transparent;
@@ -6571,9 +7680,10 @@ onBeforeUnmount(() => {
     right: 12px;
     bottom: 14px;
     z-index: 2;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
+    flex-wrap: nowrap;
     align-items: center;
+    justify-content: flex-start;
     gap: 8px;
     min-width: 0;
 }
@@ -6595,6 +7705,16 @@ onBeforeUnmount(() => {
     overflow: hidden;
 }
 
+.avatar-tag--light {
+    flex: 0 1 auto;
+    max-width: min(100%, 128px);
+}
+
+.avatar-tag--dark {
+    flex: 0 1 auto;
+    max-width: min(100%, 128px);
+}
+
 .avatar-tag img {
     flex: 0 0 auto;
     width: 18px;
@@ -6605,6 +7725,33 @@ onBeforeUnmount(() => {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.voice-card__status {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    max-width: 100%;
+    min-height: 20px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 20px;
+    white-space: nowrap;
+}
+
+.voice-card__status.is-running {
+    background: rgba(255, 190, 50, 0.14);
+    color: #ffce66;
+}
+
+.voice-card__status.is-failed {
+    background: rgba(255, 85, 69, 0.14);
+    color: #ff8a7d;
 }
 
 .avatar-tag--light {
@@ -6692,7 +7839,6 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 168px;
     min-height: 300px;
     border: 1px dashed rgba(255, 255, 255, 0.18);
     background: rgba(255, 255, 255, 0.03);
@@ -6702,7 +7848,6 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 168px;
     min-height: 300px;
     border-color: rgba(255, 255, 255, 0.06);
     background: #262626;
@@ -6767,15 +7912,10 @@ onBeforeUnmount(() => {
     }
 }
 
-@media (max-width: 1800px) {
-    .avatar-main {
-        --card-min-width: clamp(205px, 15vw, 240px);
-    }
-}
-
 @media (max-width: 1520px) {
     .avatar-main {
-        padding-left: 120px;
+        padding-left: 116px;
+        padding-right: 24px;
     }
 
     .tools-featured-grid {
@@ -6787,7 +7927,7 @@ onBeforeUnmount(() => {
     }
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 960px) {
     :global(html) {
         overflow: hidden !important;
     }
@@ -6849,6 +7989,7 @@ onBeforeUnmount(() => {
 
     .avatar-layout {
         grid-template-columns: 1fr;
+        min-width: 0;
         min-height: auto;
     }
 
@@ -6880,11 +8021,11 @@ onBeforeUnmount(() => {
     }
 
     .avatar-gallery {
-        grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--card-min-width)), 1fr));
     }
 
     .voice-library {
-        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--voice-card-min-width)), 1fr));
     }
 }
 
@@ -6987,8 +8128,9 @@ onBeforeUnmount(() => {
     }
 
     .voice-create-modal {
-        width: min(calc(100vw - 24px), 700px);
+        width: 860px;
         min-height: auto;
+        padding: 20px;
     }
 
     .voice-trim-modal {
@@ -7008,12 +8150,6 @@ onBeforeUnmount(() => {
 
     .voice-trim-modal__actions button {
         width: 100%;
-    }
-
-    .voice-create-modal__cover-hero {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 12px;
     }
 
     .voice-create-modal__method-grid {
@@ -7038,6 +8174,20 @@ onBeforeUnmount(() => {
         align-items: flex-start;
     }
 
+    .voice-create-modal__field--name {
+        display: flex;
+    }
+
+    .voice-create-modal__field--name > .voice-create-modal__label {
+        padding-top: 0;
+    }
+
+    .voice-create-modal__cover-row {
+        display: flex;
+        width: 100%;
+        margin-top: 0;
+    }
+
     .voice-create-modal__setting-row {
         width: 100%;
         gap: 12px;
@@ -7047,8 +8197,12 @@ onBeforeUnmount(() => {
         width: 100%;
     }
 
+    .voice-create-modal__select-wrap {
+        flex: 1 1 0;
+    }
+
     .voice-create-modal__input-shell--short {
-        width: min(100%, 132px);
+        width: 100%;
     }
 
     .voice-create-modal__footer {

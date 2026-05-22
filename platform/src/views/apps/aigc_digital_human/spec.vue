@@ -1,7 +1,7 @@
 <template>
     <div class="aigc-table-page">
         <el-card class="!border-none table-card" shadow="never">
-            <el-table v-loading="loading" size="large" :data="specRows" height="100%">
+            <el-table v-loading="pager.loading" size="large" :data="tableLists" height="100%">
                 <el-table-column label="通道" prop="channel_name" min-width="150" />
                 <el-table-column label="质量" prop="quality_label" min-width="120" />
                 <el-table-column label="比例" prop="ratio" min-width="100" />
@@ -29,6 +29,9 @@
                     </template>
                 </el-table-column>
             </el-table>
+            <div class="pagination-wrap">
+                <pagination v-model="pager" @change="handlePageChange" />
+            </div>
         </el-card>
 
         <el-dialog v-model="editVisible" title="编辑生成规格" width="620px" destroy-on-close>
@@ -74,13 +77,14 @@
 
 <script lang="ts" setup name="platform-aigc-digital-human-spec">
 import { getAigcDigitalHumanSpecs, saveAigcDigitalHumanSpec, setAigcDigitalHumanSpecStatus } from '@/apps/aigc_digital_human/api'
+import { useLocalPaging } from '@/hooks/useLocalPaging'
 import feedback from '@/utils/feedback'
 
-const loading = ref(false)
 const saving = ref(false)
 const editVisible = ref(false)
 const statusLoadingId = ref(0)
 const channels = ref<any[]>([])
+const { pager, tableLists, setLists } = useLocalPaging({ size: 15 })
 const providerParamsText = ref('{}')
 const formData = reactive({
     type: 'spec',
@@ -111,6 +115,8 @@ const specRows = computed(() =>
     )
 )
 
+watch(specRows, (rows) => setLists(rows), { immediate: true })
+
 const formatProviderParams = (value: any) => {
     if (!value || !Object.keys(value).length) {
         return '{}'
@@ -118,12 +124,16 @@ const formatProviderParams = (value: any) => {
     return JSON.stringify(value)
 }
 const getLists = async () => {
-    loading.value = true
+    pager.loading = true
     try {
         channels.value = await getAigcDigitalHumanSpecs()
     } finally {
-        loading.value = false
+        pager.loading = false
     }
+}
+
+const handlePageChange = () => {
+    setLists(specRows.value)
 }
 
 const openEdit = (row: any) => {
@@ -185,7 +195,19 @@ getLists()
 }
 
 :deep(.el-card__body) {
+    display: flex;
+    flex-direction: column;
     height: 100%;
     padding: 0;
+}
+
+:deep(.el-table) {
+    flex: 1;
+}
+
+.pagination-wrap {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 16px;
 }
 </style>

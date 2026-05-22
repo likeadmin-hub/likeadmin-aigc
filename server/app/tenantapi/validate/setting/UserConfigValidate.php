@@ -29,6 +29,8 @@ class UserConfigValidate extends BaseValidate
         'login_agreement' => 'in:0,1',
         'third_auth' => 'in:0,1',
         'wechat_auth' => 'in:0,1',
+        'register_bonus_status' => 'in:0,1',
+        'register_bonus_points' => 'number|egt:0',
         'default_avatar' => 'require',
     ];
 
@@ -42,6 +44,9 @@ class UserConfigValidate extends BaseValidate
         'wechat_auth.in' => '公众号微信授权登录值错误',
         'third_auth.in' => '第三方登录值错误',
         'login_agreement.in' => '政策协议值错误',
+        'register_bonus_status.in' => '注册赠送开关值错误',
+        'register_bonus_points.number' => '注册赠送点数必须为数字',
+        'register_bonus_points.egt' => '注册赠送点数不能小于0',
     ];
 
     //用户设置验证
@@ -53,6 +58,6 @@ class UserConfigValidate extends BaseValidate
     //注册验证
     public function sceneRegister()
     {
-        return $this->only(['login_way', 'coerce_mobile', 'login_agreement', 'third_auth', 'wechat_auth']);
+        return $this->only(['login_way', 'coerce_mobile', 'login_agreement', 'third_auth', 'wechat_auth', 'register_bonus_status', 'register_bonus_points']);
     }
 }

@@ -45,6 +45,7 @@ export function createRequest(opt?: Partial<FetchOptions>) {
                     const token = userStore.token
                     headers['token'] = token
                 }
+                headers['terminal'] = '4'
                 const tenantId = parseTenantIdFromRoute()
                 if (tenantId) {
                     headers['tenant-id'] = tenantId
@@ -55,7 +56,7 @@ export function createRequest(opt?: Partial<FetchOptions>) {
             async responseInterceptorsHook(response, options) {
                 const userStore = useUserStore()
                 const { handlePcLoginFailure } = usePcLoginGate()
-                const { isTransformResponse, isReturnDefaultResponse } = options.requestOptions
+                const { isTransformResponse, isReturnDefaultResponse, suppressErrorMessage } = options.requestOptions
                 //返回默认响应，当需要获取响应头及其他数据时可使用
                 if (isReturnDefaultResponse) {
                     return response
@@ -72,7 +73,7 @@ export function createRequest(opt?: Partial<FetchOptions>) {
                         }
                         return data
                     case RequestCodeEnum.FAIL:
-                        if (show) {
+                        if (show && !suppressErrorMessage) {
                             msg && feedback.msgError(msg)
                         }
                         return Promise.reject(msg)

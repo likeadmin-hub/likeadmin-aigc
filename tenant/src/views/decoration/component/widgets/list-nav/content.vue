@@ -18,7 +18,9 @@ const props = defineProps({
         default: () => ({})
     }
 })
-const showList = computed(() => (props.content.data || []).filter((item: any) => item.is_show !== '0'))
+const showList = computed(() =>
+    (props.content.data || []).filter((item: any) => item.is_show !== '0')
+)
 </script>
 
 <style scoped lang="scss">

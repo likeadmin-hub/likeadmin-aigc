@@ -10,7 +10,7 @@ use think\Response;
 
 class AppAccessService
 {
-    public const DEFAULT_AIGC_APP_CODES = ['aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm'];
+    public const DEFAULT_AIGC_APP_CODES = ['aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm', 'image_human'];
     public const BUY_PAID = 'paid';
     public const BUY_TRIAL = 'trial';
     public const SHELF_ON = 'on';
@@ -34,6 +34,7 @@ class AppAccessService
     public static function tenantCanManage(int $tenantId, string $appCode): bool
     {
         if (self::isDefaultAigcApp($appCode) && self::isInstalled($appCode)) {
+            DefaultAppService::ensureTenantDefaultApp($tenantId, $appCode);
             return true;
         }
         return in_array($appCode, self::purchasedTenantAppCodes($tenantId), true);
@@ -42,6 +43,7 @@ class AppAccessService
     public static function tenantCanUse(int $tenantId, string $appCode): bool
     {
         if (self::isDefaultAigcApp($appCode) && self::isInstalled($appCode)) {
+            DefaultAppService::ensureTenantDefaultApp($tenantId, $appCode);
             return true;
         }
         return in_array($appCode, self::enabledTenantAppCodes($tenantId), true);

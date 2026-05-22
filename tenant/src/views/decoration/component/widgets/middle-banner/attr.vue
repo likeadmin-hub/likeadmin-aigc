@@ -30,7 +30,9 @@
                                             <link-picker
                                                 v-if="type == 'mobile'"
                                                 v-model="item.link"
-                                                @update:modelValue="(value) => handleItemLinkChange(index, value)"
+                                                @update:modelValue="
+                                                    (value) => handleItemLinkChange(index, value)
+                                                "
                                             />
                                             <el-input
                                                 v-if="type == 'pc'"

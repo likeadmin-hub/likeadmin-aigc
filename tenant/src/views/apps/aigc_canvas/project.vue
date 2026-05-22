@@ -4,7 +4,12 @@
             <div class="flex justify-between">
                 <el-form :inline="true" class="mb-[-16px]">
                     <el-form-item label="关键词">
-                        <el-input v-model="query.keyword" class="w-[220px]" placeholder="项目名称" clearable />
+                        <el-input
+                            v-model="query.keyword"
+                            class="w-[220px]"
+                            placeholder="项目名称"
+                            clearable
+                        />
                     </el-form-item>
                     <el-form-item>
                         <el-button type="primary" @click="getLists">查询</el-button>
@@ -19,11 +24,21 @@
                 <el-table-column label="用户ID" prop="user_id" width="100" />
                 <el-table-column label="缩略图" width="110">
                     <template #default="{ row }">
-                        <el-image v-if="row.thumbnail" :src="row.thumbnail" fit="cover" class="w-[64px] h-[42px] rounded" />
+                        <el-image
+                            v-if="row.thumbnail"
+                            :src="row.thumbnail"
+                            fit="cover"
+                            class="w-[64px] h-[42px] rounded"
+                        />
                         <span v-else class="text-tx-secondary">无</span>
                     </template>
                 </el-table-column>
-                <el-table-column label="项目名称" prop="name" min-width="180" show-overflow-tooltip />
+                <el-table-column
+                    label="项目名称"
+                    prop="name"
+                    min-width="180"
+                    show-overflow-tooltip
+                />
                 <el-table-column label="节点数" width="90">
                     <template #default="{ row }">{{ row.node_count || 0 }}</template>
                 </el-table-column>
@@ -41,7 +56,11 @@
 </template>
 
 <script lang="ts" setup name="tenant-aigc-canvas-project">
-import { clearAigcCanvasProjects, deleteAigcCanvasProject, getAigcCanvasProjects } from '@/apps/aigc_canvas/api'
+import {
+    clearAigcCanvasProjects,
+    deleteAigcCanvasProject,
+    getAigcCanvasProjects
+} from '@/apps/aigc_canvas/api'
 import feedback from '@/utils/feedback'
 
 const loading = ref(false)

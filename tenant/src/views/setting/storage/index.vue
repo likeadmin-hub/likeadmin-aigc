@@ -25,6 +25,14 @@
                 :closable="false"
                 show-icon
             />
+            <el-alert
+                v-else-if="!state.allowLocalStorage"
+                class="mb-4"
+                type="info"
+                title="平台已关闭本地存储，当前仅可配置对象存储。"
+                :closable="false"
+                show-icon
+            />
             <el-table size="large" :data="state.lists">
                 <el-table-column label="储存方式" prop="name" min-width="120" />
                 <el-table-column label="储存位置" prop="path" min-width="160" />
@@ -60,10 +68,15 @@ import EditPopup from './edit.vue'
 
 const editRef = shallowRef<InstanceType<typeof EditPopup>>()
 
+const isEnabled = (value: unknown, defaultValue = true) => {
+    return Number(value ?? (defaultValue ? 1 : 0)) === 1
+}
+
 // 列表数据
 const state = reactive({
     loading: false,
     allowCustomStorage: false,
+    allowLocalStorage: true,
     lists: []
 })
 
@@ -74,9 +87,11 @@ const getLists = async () => {
         const data = await storageLists()
         if (Array.isArray(data)) {
             state.allowCustomStorage = true
+            state.allowLocalStorage = true
             state.lists = data
         } else {
-            state.allowCustomStorage = !!data.allow_custom_storage
+            state.allowCustomStorage = isEnabled(data.allow_custom_storage, false)
+            state.allowLocalStorage = isEnabled(data.allow_local_storage)
             state.lists = data.lists || []
         }
         state.loading = false
@@ -86,7 +101,10 @@ const getLists = async () => {
 }
 
 const handleSet = (engine: string) => {
-    editRef.value?.open(engine)
+    if (engine === 'local' && !state.allowLocalStorage) {
+        return
+    }
+    editRef.value?.open(engine, state.allowLocalStorage)
 }
 
 getLists()

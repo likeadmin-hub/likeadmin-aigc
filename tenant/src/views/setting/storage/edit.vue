@@ -13,7 +13,7 @@
                     <div>
                         <el-radio-group v-model="formData.engine" @change="handleEngineChange">
                             <el-radio
-                                v-for="item in storageArr"
+                                v-for="item in storageOptions"
                                 :key="item.type"
                                 :value="item.type"
                             >
@@ -96,6 +96,7 @@ enum StorageEnum {
 const emit = defineEmits(['success'])
 const formRef = shallowRef<FormInstance>()
 const popupRef = shallowRef<InstanceType<typeof Popup>>()
+const allowLocalStorage = ref(true)
 const formData = reactive({
     engine: '',
     bucket: '',
@@ -128,6 +129,16 @@ const storageArr = [
         tips: '切换腾讯云OSS后，素材库需要重新上传至腾讯云OSS'
     }
 ]
+
+const isEnabled = (value: unknown, defaultValue = true) => {
+    return Number(value ?? (defaultValue ? 1 : 0)) === 1
+}
+
+const storageOptions = computed(() => {
+    return allowLocalStorage.value
+        ? storageArr
+        : storageArr.filter((item) => item.type !== StorageEnum.LOCAL)
+})
 
 const formRules = {
     bucket: [
@@ -180,6 +191,9 @@ const resetConfigFields = () => {
 }
 
 const handleEngineChange = async () => {
+    if (formData.engine === StorageEnum.LOCAL && !allowLocalStorage.value) {
+        formData.engine = StorageEnum.QINIU
+    }
     resetConfigFields()
     await getDetail()
 }
@@ -195,13 +209,22 @@ const getDetail = async () => {
     const data = await storageDetail({
         engine: formData.engine
     })
+    allowLocalStorage.value = isEnabled(data.allow_local_storage)
+    if (formData.engine === StorageEnum.LOCAL && !allowLocalStorage.value) {
+        popupRef.value?.close()
+        return
+    }
     for (const key in data) {
         //@ts-ignore
         formData[key] = data[key]
     }
 }
 
-const open = (type: string) => {
+const open = (type: string, localEnabled = true) => {
+    allowLocalStorage.value = localEnabled
+    if (type === StorageEnum.LOCAL && !allowLocalStorage.value) {
+        return
+    }
     formData.engine = type
     popupRef.value?.open()
     getDetail()

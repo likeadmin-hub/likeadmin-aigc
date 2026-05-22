@@ -67,10 +67,14 @@ abstract class Server
     {
         // 设置为系统内部上传
         $this->isInternal = true;
+        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        $mime = self::mimeByExtension($extension) ?: (function_exists('mime_content_type') ? (string)@mime_content_type($filePath) : '');
         // 文件信息
         $this->fileInfo = [
             'name' => basename($filePath),
             'size' => filesize($filePath),
+            'ext' => $extension,
+            'mime' => $mime ?: 'application/octet-stream',
             'tmp_name' => $filePath,
             'realPath' => $filePath,
             'error' => 0,
@@ -143,6 +147,25 @@ abstract class Server
         // 自动生成文件名
         return date('YmdHis') . substr(md5($realPath), 0, 5)
             . str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT) . ".{$ext}";
+    }
+
+    protected static function mimeByExtension(string $extension): string
+    {
+        return match (strtolower($extension)) {
+            'mp4', 'm4v' => 'video/mp4',
+            'mov' => 'video/quicktime',
+            'webm' => 'video/webm',
+            'mp3' => 'audio/mpeg',
+            'm4a' => 'audio/mp4',
+            'aac' => 'audio/aac',
+            'wav' => 'audio/wav',
+            'ogg' => 'audio/ogg',
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'webp' => 'image/webp',
+            'gif' => 'image/gif',
+            default => '',
+        };
     }
 
 }

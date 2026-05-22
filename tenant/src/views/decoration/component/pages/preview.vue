@@ -16,9 +16,15 @@
             <div v-if="pageMeta !== null" class="mini-program-nav" :style="navPreviewStyle">
                 <div class="mini-program-nav__status"></div>
                 <div class="mini-program-nav__bar" :class="`is-${titleAlign}`">
-                    <div v-if="showBack" class="mini-program-nav__back" :style="{ color: navTitleColor }"></div>
+                    <div
+                        v-if="showBack"
+                        class="mini-program-nav__back"
+                        :style="{ color: navTitleColor }"
+                    ></div>
                     <img
-                        v-if="String(pageMetaContent.title_type) === '2' && pageMetaContent.title_img"
+                        v-if="
+                            String(pageMetaContent.title_type) === '2' && pageMetaContent.title_img
+                        "
                         class="mini-program-nav__title-img"
                         :src="pageMetaContent.title_img"
                     />
@@ -68,7 +74,11 @@
                         <div class="widget-btns py-[5px]" v-if="index == modelValue">
                             <div>
                                 <el-tooltip effect="dark" content="拖动" placement="right">
-                                    <el-button class="py-[5px] drag-handle" type="primary" :icon="Rank" />
+                                    <el-button
+                                        class="py-[5px] drag-handle"
+                                        type="primary"
+                                        :icon="Rank"
+                                    />
                                 </el-tooltip>
                             </div>
                             <div>
@@ -139,14 +149,22 @@
     </el-scrollbar>
 </template>
 <script lang="ts" setup>
-import { ArrowDownBold, ArrowUpBold, CopyDocument, Delete, Hide, Rank, View } from '@element-plus/icons-vue'
+import {
+    ArrowDownBold,
+    ArrowUpBold,
+    CopyDocument,
+    Delete,
+    Hide,
+    Rank,
+    View
+} from '@element-plus/icons-vue'
 import { cloneDeep } from 'lodash-es'
 import type { PropType } from 'vue'
 import { computed } from 'vue'
 import Draggable from 'vuedraggable'
 
-import navBarBg from './images/nav-bar-bg.png'
 import widgets from '../widgets'
+import navBarBg from './images/nav-bar-bg.png'
 
 const props = defineProps({
     pageMeta: {
@@ -189,9 +207,10 @@ const pageBackgroundVideo = computed(() => {
 })
 const gradientValue = computed(() => {
     const content = pageMetaContent.value
-    const colors = Array.isArray(content.gradient_colors) && content.gradient_colors.length
-        ? content.gradient_colors
-        : [content.gradient_color_start || '#f8f8f8', content.gradient_color_end || '#ffffff']
+    const colors =
+        Array.isArray(content.gradient_colors) && content.gradient_colors.length
+            ? content.gradient_colors
+            : [content.gradient_color_start || '#f8f8f8', content.gradient_color_end || '#ffffff']
     return `linear-gradient(${content.gradient_direction || '180deg'}, ${colors.filter(Boolean).join(', ')})`
 })
 const pageBackgroundStyle = computed(() => {
@@ -212,7 +231,8 @@ const pageBackgroundStyle = computed(() => {
             backgroundColor: content.bg_color || '#f8f8f8',
             backgroundImage: `url(${content.bg_image})`,
             backgroundRepeat: repeat,
-            backgroundSize: repeat === 'repeat' ? 'auto' : sizeMap[content.bg_image_size] || 'cover',
+            backgroundSize:
+                repeat === 'repeat' ? 'auto' : sizeMap[content.bg_image_size] || 'cover',
             backgroundPosition: content.bg_image_position || 'center top'
         }
     }
@@ -230,11 +250,14 @@ const pageBackgroundStyle = computed(() => {
         backgroundColor: content.bg_color || '#ffffff'
     }
 })
-const navTitleColor = computed(() => (String(pageMetaContent.value.text_color) === '1' ? '#ffffff' : '#111111'))
+const navTitleColor = computed(() =>
+    String(pageMetaContent.value.text_color) === '1' ? '#ffffff' : '#111111'
+)
 const showBack = computed(() => Number(pageMetaContent.value.show_back || 0) === 1)
 const titleAlign = computed(() => pageMetaContent.value.title_align || 'center')
 const navPreviewStyle = computed(() => ({
-    backgroundColor: pageMetaContent.value.nav_bg_color || pageMetaContent.value.bg_color || '#ffffff',
+    backgroundColor:
+        pageMetaContent.value.nav_bg_color || pageMetaContent.value.bg_color || '#ffffff',
     backgroundImage: `url(${navBarBg})`
 }))
 

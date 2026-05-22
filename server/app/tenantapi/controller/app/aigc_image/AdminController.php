@@ -22,7 +22,7 @@ class AdminController extends BaseAdminController
                 return $this->fail($e->getMessage());
             }
         }
-        return $this->success('获取成功', AigcImageService::quotaLists($this->tenantId));
+        return $this->success('获取成功', AigcImageService::quotaLists($this->tenantId, $this->request->get()));
     }
 
     public function sensitiveWord()
@@ -35,6 +35,6 @@ class AdminController extends BaseAdminController
                 return $this->fail($e->getMessage());
             }
         }
-        return $this->success('获取成功', AigcImageService::sensitiveWordLists($this->tenantId));
+        return $this->success('获取成功', AigcImageService::sensitiveWordLists($this->tenantId, $this->request->get()));
     }
 }

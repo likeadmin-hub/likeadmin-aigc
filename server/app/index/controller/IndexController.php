@@ -18,7 +18,7 @@ class IndexController extends BaseController
      */
     public function index($name = '你好,likeadmin')
     {
-        $template = app()->getRootPath() . 'public/platform/index.html';
+        $template = app()->getRootPath() . 'public/pc/index.html';
 
         if (file_exists($template)) {
             return view($template);

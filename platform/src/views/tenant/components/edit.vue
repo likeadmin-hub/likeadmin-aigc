@@ -191,6 +191,28 @@
                                 {{ formData.allow_custom_storage === 1 ? '允许' : '不允许' }}
                             </el-tag>
                         </el-form-item>
+                        <el-form-item
+                            v-if="editStatus ? formData.allow_custom_storage === 1 : true"
+                            label="本地存储："
+                            prop="allow_local_storage"
+                        >
+                            <div v-if="editStatus">
+                                <el-radio-group v-model="formData.allow_local_storage">
+                                    <el-radio :value="1">允许</el-radio>
+                                    <el-radio :value="0">不允许</el-radio>
+                                </el-radio-group>
+                                <p class="text-info text-sm">
+                                    关闭后，租户只能配置对象存储，后台不显示本地存储入口。
+                                </p>
+                            </div>
+                            <el-tag
+                                v-else
+                                disable-transitions
+                                :type="formData.allow_local_storage === 1 ? 'primary' : 'info'"
+                            >
+                                {{ formData.allow_local_storage === 1 ? '允许' : '不允许' }}
+                            </el-tag>
+                        </el-form-item>
                         <el-form-item v-if="!editStatus" label="租户点数：">
                             {{ formData.point_balance || '0.00' }}
                         </el-form-item>
@@ -334,6 +356,7 @@ interface DetailType {
     domain_alias_enable: number
     access_mode: 'subdomain' | 'id' | 'alias'
     allow_custom_storage: number
+    allow_local_storage: number
     notes: string
     point_balance: string
     tenant_id_domain?: string
@@ -361,6 +384,7 @@ const formData = ref<DetailType>({
     domain_alias_enable: 1,
     access_mode: 'subdomain',
     allow_custom_storage: 0,
+    allow_local_storage: 1,
     notes: '',
     point_balance: '0.00'
 })
@@ -463,6 +487,9 @@ const submitEdit = async () => {
     loading.value = true
     try {
         formData.value.domain_alias_enable = formData.value.access_mode === 'alias' ? 0 : 1
+        if (formData.value.allow_custom_storage !== 1) {
+            formData.value.allow_local_storage = 1
+        }
         await userEdit(formData.value)
         await getDetails(tenantId.value)
         emits('refresh')

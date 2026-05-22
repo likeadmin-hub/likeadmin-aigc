@@ -114,6 +114,12 @@
     "api_method": "POST"
   },
   {
+    "permission_key": "aigc_image:channel_price:batch_save",
+    "name": "批量保存AIGC生图通道调价",
+    "api_path": "app.aigc_image.channel/batchSave",
+    "api_method": "POST"
+  },
+  {
     "permission_key": "aigc_image:channel_price:status",
     "name": "设置AIGC生图通道状态",
     "api_path": "app.aigc_image.channel/status",

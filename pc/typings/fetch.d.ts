@@ -17,6 +17,8 @@ declare module 'ofetch' {
         isParamsToData?: boolean
         // 是否自动携带token
         withToken?: boolean
+        // 是否禁用接口失败时的全局错误提示
+        suppressErrorMessage?: boolean
         requestInterceptorsHook?(options: FetchOptions): FetchOptions
         responseInterceptorsHook?(
             response: FetchResponse<any>,

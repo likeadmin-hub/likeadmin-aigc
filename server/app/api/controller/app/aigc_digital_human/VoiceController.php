@@ -22,11 +22,23 @@ class VoiceController extends BaseApiController
     public function save()
     {
         try {
-            return $this->success('保存成功', AigcDigitalHumanService::saveVoice(
+            $row = AigcDigitalHumanService::saveVoice(
                 (int)$this->request->tenantId,
                 $this->userId,
                 $this->request->post()
-            ), 1, 1);
+            );
+            if (($row['status'] ?? '') === 'running') {
+                $tenantId = (int)$this->request->tenantId;
+                $userId = (int)$this->userId;
+                register_shutdown_function(static function () use ($tenantId, $userId) {
+                    if (function_exists('fastcgi_finish_request')) {
+                        @fastcgi_finish_request();
+                    }
+                    AigcDigitalHumanService::processPendingCloneAssets($tenantId, $userId);
+                });
+            }
+            $message = ($row['status'] ?? '') === 'running' ? '提交成功，音色将在后台克隆' : '保存成功';
+            return $this->success($message, $row, 1, 1);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }

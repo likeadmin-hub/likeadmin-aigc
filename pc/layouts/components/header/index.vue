@@ -3,14 +3,12 @@
         <div class="header-contain">
             <Logo class="header-logo" />
             <Navbar class="header-navbar" />
-            <Search class="header-search" />
             <User class="header-user" />
         </div>
     </header>
 </template>
 <script lang="ts" setup>
 import User from './user.vue'
-import Search from './search.vue'
 import Logo from './logo.vue'
 import Navbar from './navbar.vue'
 </script>
@@ -59,11 +57,6 @@ import Navbar from './navbar.vue'
     display: none;
 }
 
-.header-search {
-    flex: 0 1 250px;
-    min-width: 180px;
-}
-
 @media (max-width: 1024px) {
     .layout-header {
         padding: 8px 0;
@@ -82,10 +75,6 @@ import Navbar from './navbar.vue'
     .header-navbar {
         order: 3;
         flex-basis: 100%;
-    }
-
-    .header-search {
-        flex-basis: 220px;
     }
 }
 </style>

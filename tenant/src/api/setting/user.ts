@@ -32,6 +32,8 @@ export interface LoginSetup {
     third_auth: number // 第三方登录 0/1
     wechat_auth: number // 微信授权登录 0-关闭 1-开启
     qq_auth: number // qq授权登录 0-关闭 1-开启
+    register_bonus_status: number // 新用户注册赠送 0-关闭 1-开启
+    register_bonus_points: number // 新用户注册赠送点数
 }
 /**
  * @return { Promise }

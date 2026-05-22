@@ -1,7 +1,7 @@
 import path from 'path'
 import fsExtra from 'fs-extra'
 import dotenv from 'dotenv'
-const { existsSync, remove, copy } = fsExtra
+const { existsSync, remove, copy, copySync } = fsExtra
 const cwd = process.cwd()
 dotenv.config()
 
@@ -34,6 +34,7 @@ async function build() {
         console.log(`\n ${error}`)
     }
     console.log(`文件已复制 ==> ${releaseRelativePath}`)
+    syncRootPublicAssets()
 }
 
 function copyFile(sourceDir, targetDir) {
@@ -56,6 +57,22 @@ function copyFile(sourceDir, targetDir) {
             }
         )
     })
+}
+
+function syncRootPublicAssets() {
+    if (isSSR) return
+    const publicPath = path.resolve(cwd, '../server/public')
+    const rootAssetDirs = ['_nuxt', 'media']
+    for (const dir of rootAssetDirs) {
+        const source = path.join(distPath, dir)
+        if (!existsSync(source)) continue
+        const target = path.join(publicPath, dir)
+        if (existsSync(target)) {
+            fsExtra.removeSync(target)
+        }
+        copySync(source, target)
+        console.log(`文件已复制 ==> ../server/public/${dir}`)
+    }
 }
 
 build()

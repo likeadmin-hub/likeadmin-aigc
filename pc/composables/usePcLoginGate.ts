@@ -2,6 +2,7 @@ import { useUserStore } from '@/stores/user'
 
 type OpenPcLoginOptions = {
     redirect?: string
+    returnTo?: string
 }
 
 const PC_LOGIN_REQUIRED_NAME = 'PcLoginRequiredError'
@@ -40,17 +41,33 @@ export const usePcLoginGate = () => {
     const userStore = useUserStore()
     const showLoginModal = useState<boolean>('pc-login-modal-visible', () => false)
     const loginRedirect = useState<string>('pc-login-modal-redirect', () => '')
-    const lastAuthFailureAt = useState<number>('pc-login-modal-last-auth-failure-at', () => 0)
+    const loginReturnTo = useState<string>('pc-login-modal-return-to', () => '')
 
     const openPcLoginModal = (options: OpenPcLoginOptions = {}) => {
         if (userStore.isLogin) return true
-        loginRedirect.value = options.redirect || loginRedirect.value || resolveCurrentFullPath() || '/'
+        const currentPath = resolveCurrentFullPath() || '/'
+        loginRedirect.value = options.redirect || loginRedirect.value || currentPath
+        loginReturnTo.value = options.returnTo || loginReturnTo.value || currentPath
         showLoginModal.value = true
         return false
     }
 
-    const closePcLoginModal = () => {
+    const closePcLoginModal = async () => {
         showLoginModal.value = false
+        const target = loginReturnTo.value
+        loginRedirect.value = ''
+        loginReturnTo.value = ''
+
+        try {
+            const route = useRoute()
+            const router = useRouter()
+            await clearLegacyLoginQuery()
+            if (target && target.startsWith('/') && target !== route.fullPath) {
+                await router.replace(target)
+            }
+        } catch (_error) {
+            // ignore outside route-aware contexts
+        }
     }
 
     const ensurePcLogin = (options: OpenPcLoginOptions = {}) => {
@@ -74,9 +91,10 @@ export const usePcLoginGate = () => {
     }
 
     const handlePcLoginSuccess = async () => {
-        closePcLoginModal()
+        showLoginModal.value = false
         const target = loginRedirect.value
         loginRedirect.value = ''
+        loginReturnTo.value = ''
 
         try {
             const route = useRoute()
@@ -90,14 +108,8 @@ export const usePcLoginGate = () => {
         }
     }
 
-    const handlePcLoginFailure = (options: OpenPcLoginOptions = {}) => {
+    const handlePcLoginFailure = () => {
         userStore.logout()
-
-        const now = Date.now()
-        if (now - lastAuthFailureAt.value > 600) {
-            lastAuthFailureAt.value = now
-            openPcLoginModal(options)
-        }
 
         return createPcLoginRequiredError()
     }

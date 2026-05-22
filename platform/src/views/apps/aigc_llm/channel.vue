@@ -4,7 +4,7 @@
             <template #header>
                 <el-button type="primary" @click="openEdit()">新增通道</el-button>
             </template>
-            <el-table v-loading="loading" size="large" :data="lists" height="100%">
+            <el-table v-loading="pager.loading" size="large" :data="tableLists" height="100%">
                 <el-table-column label="编码" prop="code" min-width="140" />
                 <el-table-column label="名称" prop="name" min-width="150" />
                 <el-table-column label="供应商" prop="provider" min-width="120" />
@@ -21,6 +21,9 @@
                     </template>
                 </el-table-column>
             </el-table>
+            <div class="pagination-wrap">
+                <pagination v-model="pager" @change="handlePageChange" />
+            </div>
         </el-card>
 
         <el-dialog v-model="editVisible" title="通道配置" width="560px" destroy-on-close>
@@ -40,7 +43,7 @@
                     </el-select>
                 </el-form-item>
                 <el-form-item label="Base URL">
-                    <el-input v-model="formData.config_json.base_url" placeholder="https://api.xhadmin.cn" />
+                    <el-input v-model="formData.config_json.base_url" placeholder="请输入兼容 OpenAI 的接口域名" />
                 </el-form-item>
                 <el-form-item label="流式路径">
                     <el-input v-model="formData.config_json.stream_path" placeholder="/api/v1/chat/completions" />
@@ -68,12 +71,13 @@
 
 <script lang="ts" setup name="platform-aigc-llm-channel">
 import { deleteAigcLlmChannel, getAigcLlmChannels, saveAigcLlmChannel, setAigcLlmChannelStatus } from '@/apps/aigc_llm/api'
+import { useLocalPaging } from '@/hooks/useLocalPaging'
 import feedback from '@/utils/feedback'
 
-const loading = ref(false)
 const saving = ref(false)
 const editVisible = ref(false)
 const lists = ref<any[]>([])
+const { pager, tableLists, setLists } = useLocalPaging({ size: 15 })
 const formData = reactive<any>({})
 
 const normalizeForm = (row: any = {}) => ({
@@ -94,12 +98,17 @@ const normalizeForm = (row: any = {}) => ({
 })
 
 const getLists = async () => {
-    loading.value = true
+    pager.loading = true
     try {
         lists.value = await getAigcLlmChannels()
+        setLists(lists.value)
     } finally {
-        loading.value = false
+        pager.loading = false
     }
+}
+
+const handlePageChange = () => {
+    setLists(lists.value)
 }
 
 const openEdit = (row: any = {}) => {
@@ -142,7 +151,19 @@ getLists()
     height: 100%;
 }
 :deep(.el-card__body) {
+    display: flex;
+    flex-direction: column;
     height: calc(100% - 57px);
     padding: 0;
+}
+
+:deep(.el-table) {
+    flex: 1;
+}
+
+.pagination-wrap {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 16px;
 }
 </style>

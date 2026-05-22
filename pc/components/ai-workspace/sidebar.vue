@@ -58,12 +58,18 @@ const sidebarItems = [
 <style lang="scss" scoped>
 .app-sidebar {
     position: fixed;
-    left: var(--ai-sidebar-left);
-    top: calc(50% - 216px);
+    left: 16px;
+    top: 0;
     z-index: 14;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
     gap: 18px;
+    width: 76px;
+    height: 100vh;
+    padding: 0 2px;
+    box-sizing: border-box;
 }
 
 .sidebar-item {
@@ -108,45 +114,5 @@ const sidebarItems = [
 .sidebar-item:hover {
     background: rgba(255, 255, 255, 0.06);
     color: #fff;
-}
-
-@media (max-width: 1100px) {
-    .app-sidebar {
-        position: fixed;
-        top: 126px;
-        left: 20px;
-        right: 20px;
-        height: auto;
-        padding: 6px;
-        flex-direction: row;
-        flex-wrap: nowrap;
-        gap: 8px;
-        overflow-x: auto;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 18px;
-        background: rgba(8, 8, 10, 0.78);
-        backdrop-filter: blur(14px);
-        scrollbar-width: none;
-    }
-
-    .app-sidebar::-webkit-scrollbar {
-        display: none;
-    }
-
-    .sidebar-item {
-        width: 68px;
-        height: 64px;
-        border-radius: 14px;
-    }
-}
-
-@media (max-width: 820px) {
-    .app-sidebar {
-        top: 150px;
-    }
-
-    .sidebar-item {
-        width: 64px;
-    }
 }
 </style>

@@ -1,6 +1,5 @@
 /**
- * 当 app.baseURL 为 /pc/ 时，访问 http://localhost:3000/ai 会找不到路由（易 503）。
- * 将未带前缀的路径 302 到 /pc/...，与 Nuxt 路由一致。
+ * PC 端默认挂在站点根路径。仅当显式配置了非根 baseURL 时，才补齐前缀。
  */
 export default defineEventHandler((event) => {
     if (event.method && event.method !== 'GET' && event.method !== 'HEAD') {
@@ -8,8 +7,7 @@ export default defineEventHandler((event) => {
     }
 
     const config = useRuntimeConfig(event)
-    const raw = String((config.public as { baseUrl?: string }).baseUrl ?? '/pc/').trim()
-    /** 部署在站点根路径（NUXT_BASE_URL=/）时不做重定向 */
+    const raw = String((config.public as { baseUrl?: string }).baseUrl ?? '/').trim()
     if (!raw || raw === '/') {
         return
     }

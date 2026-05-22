@@ -1,6 +1,15 @@
 <template>
-    <div v-if="contentData.enabled" class="image-hotspot" :style="{ height: `${contentData.height || 180}px` }">
-        <el-image v-if="contentData.image" class="image" :src="contentData.image" :fit="contentData.fit || 'cover'" />
+    <div
+        v-if="contentData.enabled"
+        class="image-hotspot"
+        :style="{ height: `${contentData.height || 180}px` }"
+    >
+        <el-image
+            v-if="contentData.image"
+            class="image"
+            :src="contentData.image"
+            :fit="contentData.fit || 'cover'"
+        />
         <div v-else class="placeholder">请选择热区图片</div>
         <div
             v-for="(item, index) in contentData.image ? contentData.areas || [] : []"

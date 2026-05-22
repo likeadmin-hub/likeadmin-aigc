@@ -8,7 +8,6 @@ use Exception;
 
 class XhadminAigcImageProvider implements AigcImageProviderInterface
 {
-    private const DEFAULT_BASE_URL = 'https://api.xhadmin.cn';
     private const DEFAULT_SUBMIT_PATH = '/api/v1/tasks';
     private const DEFAULT_TASK_PATH = '/api/v1/tasks/{task_id}';
 
@@ -94,6 +93,9 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
         $config = array_merge($request->channelConfig, $request->providerParams['channel_config'] ?? []);
         $source = UpdateSourceClient::getSource();
         $baseUrl = $this->sourceBaseUrl((string)($source['active_base_url'] ?? $source['base_url'] ?? ''));
+        if ($baseUrl === '') {
+            throw new Exception('请先在系统服务的接口渠道中配置 Base URL');
+        }
         $submitPath = (string)($config['submit_path'] ?? self::DEFAULT_SUBMIT_PATH);
         $taskPath = (string)($config['task_path'] ?? self::DEFAULT_TASK_PATH);
         $apiKey = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? ''));
@@ -120,7 +122,7 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
     {
         $baseUrl = trim($baseUrl);
         if ($baseUrl === '') {
-            return self::DEFAULT_BASE_URL;
+            return '';
         }
         $parts = parse_url($baseUrl);
         $scheme = (string)($parts['scheme'] ?? 'https');

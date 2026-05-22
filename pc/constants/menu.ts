@@ -4,15 +4,6 @@ export const NAVBAR = [
         path: '/'
     },
     {
-        name: '\u6280\u80fd\u5e7f\u573a',
-        path: '/skills'
-    },
-    {
-        name: '资讯中心',
-        path: '/news',
-        component: 'information'
-    },
-    {
         name: '移动端',
         path: '/mobile',
         component: 'mobile'

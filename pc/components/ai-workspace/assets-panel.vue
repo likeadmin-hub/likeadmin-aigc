@@ -16,70 +16,38 @@
 
         <div class="assets-subtoolbar">
             <div class="assets-tabs" role="tablist" aria-label="资产筛选">
-                <button
-                    :class="['assets-tabs__item', { 'is-active': activeTab === 'all' }]"
-                    type="button"
-                    @click="activeTab = 'all'"
-                >
+                <button :class="['assets-tabs__item', { 'is-active': activeTab === 'all' }]" type="button" @click="activeTab = 'all'">
                     {{ allTabLabel }}
                 </button>
-                <button
-                    :class="['assets-tabs__item', { 'is-active': activeTab === 'favorites' }]"
-                    type="button"
-                    @click="activeTab = 'favorites'"
-                >
-                    收藏
+                <button :class="['assets-tabs__item', { 'is-active': activeTab === 'favorites' }]" type="button" @click="activeTab = 'favorites'">
+                    我的收藏
                 </button>
             </div>
 
             <div :class="['assets-selection-bar', { 'assets-selection-bar--idle': !batchMode }]">
                 <template v-if="batchMode">
                     <span class="assets-selection-bar__count">{{ selectionCountLabel }}</span>
-
                     <div class="assets-selection-bar__actions">
-                        <button
-                            class="assets-action-button"
-                            type="button"
-                            :disabled="!selectedAssetIds.length"
-                            @click="deleteSelectedAssets"
-                        >
+                        <button class="assets-action-button" type="button" :disabled="!selectedAssetIds.length" @click="deleteSelectedAssets">
                             <img :src="deleteIcon" alt="" />
                             <span>删除</span>
                         </button>
-
-                        <button
-                            class="assets-action-button"
-                            type="button"
-                            :disabled="!selectedAssetIds.length"
-                            @click="downloadSelectedAssets"
-                        >
+                        <button class="assets-action-button" type="button" :disabled="!selectedAssetIds.length" @click="downloadSelectedAssets">
                             <img :src="downloadIcon" alt="" />
                             <span>下载</span>
                         </button>
-
-                        <button
-                            class="assets-action-button"
-                            type="button"
-                            :disabled="!selectedAssetIds.length"
-                            @click="favoriteSelectedAssets"
-                        >
+                        <button class="assets-action-button" type="button" :disabled="!selectedAssetIds.length" @click="favoriteSelectedAssets">
                             <img :src="favoriteIcon" alt="" />
                             <span>收藏</span>
                         </button>
-
                         <button class="assets-cancel-button" type="button" @click="exitBatchMode">
                             <img :src="closeSmallIcon" alt="" />
-                            <span>取消批量</span>
+                            <span>取消选择</span>
                         </button>
                     </div>
                 </template>
 
-                <button
-                    v-else
-                    class="assets-batch"
-                    type="button"
-                    @click="toggleBatchMode"
-                >
+                <button v-else class="assets-batch" type="button" @click="toggleBatchMode">
                     <img class="assets-batch__asset" :src="fullSelectionIcon" alt="" />
                     <span>批量管理</span>
                 </button>
@@ -90,7 +58,6 @@
             <div v-if="assetSections.length" class="assets-groups">
                 <section v-for="section in assetSections" :key="section.label" class="assets-group">
                     <h2>{{ section.label }}</h2>
-
                     <div class="assets-grid">
                         <article
                             v-for="item in section.items"
@@ -114,17 +81,8 @@
                             </template>
                             <img v-else-if="item.image" :src="item.image" :alt="item.title" />
 
-                            <span
-                                v-if="batchMode"
-                                :class="['assets-card__check', { 'is-selected': isSelected(item.id) }]"
-                                aria-hidden="true"
-                            >
-                                <img
-                                    v-if="isSelected(item.id)"
-                                    class="assets-card__checkmark"
-                                    :src="checkSmallIcon"
-                                    alt=""
-                                />
+                            <span v-if="batchMode" :class="['assets-card__check', { 'is-selected': isSelected(item.id) }]" aria-hidden="true">
+                                <img v-if="isSelected(item.id)" class="assets-card__checkmark" :src="checkSmallIcon" alt="" />
                             </span>
 
                             <span v-if="!batchMode && item.badge" class="assets-card__badge">{{ item.badge }}</span>
@@ -140,92 +98,94 @@
                             >
                                 <img :src="favoriteIcon" alt="" />
                             </button>
-                            <button
+                            <a
                                 v-if="!batchMode && item.status !== 'failed' && (item.video || item.image)"
                                 class="assets-card__download"
-                                type="button"
                                 aria-label="下载作品"
+                                :href="getAssetDownloadHref(item)"
+                                :download="getAssetDownloadName(item, getAssetDownloadHref(item))"
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 @pointerdown.stop
-                                @click.stop.prevent="downloadAsset(item)"
+                                @click.stop="handleAssetDownloadClick"
                             >
                                 <img :src="downloadIcon" alt="" />
-                            </button>
+                            </a>
                         </article>
                     </div>
                 </section>
             </div>
 
             <div v-else class="assets-empty">
-                <strong>当前分类下还没有内容</strong>
-                <span>试试切换分类、切换收藏筛选，或者稍后再来看。</span>
+                <img class="assets-empty__placeholder" :src="assetsEmptyImage" alt="" />
+                <p>{{ assetsEmptyText }}</p>
             </div>
         </div>
 
         <Teleport to="body">
-            <div v-if="previewAsset" class="assets-preview" @click.self="closeAssetPreview">
-                <div class="assets-preview__panel">
-                    <div class="assets-preview__media">
-                        <video
-                            v-if="previewAsset.video"
-                            :src="previewAsset.video"
-                            :poster="previewAsset.image"
-                            controls
-                            autoplay
-                            playsinline
-                        ></video>
-                        <img v-else-if="previewAsset.image" :src="previewAsset.image" :alt="previewAsset.title" />
-                        <div v-else class="assets-preview__placeholder">
-                            <strong>{{ previewAsset.status === 'failed' ? '生成失败' : '暂无预览' }}</strong>
-                            <span>{{ previewAsset.error || '当前作品暂未获取到可预览资源' }}</span>
-                        </div>
-                        <div v-if="previewAsset.status !== 'failed'" class="assets-preview__floating-actions">
-                            <button
-                                :class="['assets-preview__icon-action', { 'is-active': previewAsset.favorite }]"
-                                type="button"
-                                aria-label="收藏作品"
-                                @click.stop.prevent="toggleFavoriteAsset(previewAsset.id)"
-                            >
-                                <img :src="favoriteIcon" alt="" />
-                            </button>
-                            <button
-                                class="assets-preview__icon-action"
-                                type="button"
-                                aria-label="下载作品"
-                                @click.stop.prevent="downloadPreviewAsset"
-                            >
-                                <img :src="downloadIcon" alt="" />
-                            </button>
+            <div v-if="previewAsset" class="work-detail" @click.self="closeAssetPreview">
+                <div class="work-detail__panel">
+                    <div class="work-detail__media">
+                        <button class="work-detail__close" type="button" aria-label="关闭" @click="closeAssetPreview">×</button>
+                        <div class="work-detail__media-frame">
+                            <video v-if="previewAsset.video" :src="previewAsset.video" :poster="previewAsset.image" controls autoplay playsinline></video>
+                            <img v-else-if="previewAsset.image" :src="previewAsset.image" alt="生成结果" />
+                            <div v-else class="work-detail__placeholder">
+                                <strong>{{ getAssetStatusText(previewAsset) }}</strong>
+                                <span>{{ getAssetStatusDescription(previewAsset) }}</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="assets-preview__content">
-                        <div class="assets-preview__toolbar">
-                            <button class="assets-preview__close" type="button" aria-label="关闭" @click="closeAssetPreview">×</button>
+                    <div class="work-detail__content">
+                        <div class="work-detail__header">
+                            <div class="work-detail__author-row">
+                                <div class="work-detail__author">
+                                    <span class="work-detail__avatar">{{ getAssetTypeLabel(previewAsset).slice(0, 1) }}</span>
+                                    <div class="work-detail__author-meta">
+                                        <strong>我的创作</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="work-detail__subline">
+                                <strong>{{ getAssetTypeLabel(previewAsset) }}</strong>
+                                <span>{{ previewAsset.dateText || previewAsset.date }}</span>
+                                <span>内容由 AI 生成</span>
+                            </div>
                         </div>
-                        <div class="assets-preview__meta">
-                            <strong>{{ previewAsset.title }}</strong>
-                            <span>{{ previewAsset.dateText || previewAsset.date }}</span>
+
+                        <div class="work-detail__prompt">
+                            <div class="work-detail__prompt-head">
+                                <span>提示词</span>
+                            </div>
+                            <div class="work-detail__prompt-body">
+                                <p>{{ getAssetPromptText(previewAsset) }}</p>
+                            </div>
+                            <div class="work-detail__config">
+                                <span v-for="item in getAssetConfigItems(previewAsset)" :key="`asset-detail-${item}`" class="work-detail__config-text">{{ item }}</span>
+                            </div>
+                            <div v-if="previewAsset.error" class="work-detail__section">
+                                <span>失败原因</span>
+                                <p>{{ previewAsset.error }}</p>
+                            </div>
                         </div>
-                        <div class="assets-preview__chips">
-                            <span>{{ categoryLabelMap[previewAsset.category] }}</span>
-                            <span v-if="previewAsset.duration">{{ previewAsset.duration }}</span>
-                        </div>
-                        <div class="assets-preview__actions">
-                            <button
-                                :class="['assets-preview__favorite', { 'is-active': previewAsset.favorite }]"
-                                type="button"
-                                @click.stop.prevent="toggleFavoriteAsset(previewAsset.id)"
-                            >
+                        <div class="work-detail__actions">
+                            <button :class="['work-detail__favorite', { 'is-active': previewAsset.favorite }]" type="button" @click.stop.prevent="toggleFavoriteAsset(previewAsset.id)">
                                 <img :src="favoriteIcon" alt="" />
                                 {{ previewAsset.favorite ? '已收藏' : '收藏作品' }}
                             </button>
-                            <button
-                                class="assets-preview__download"
-                                type="button"
-                                @click.stop.prevent="downloadPreviewAsset"
+                            <a
+                                v-if="getAssetDownloadHref(previewAsset)"
+                                class="work-detail__download"
+                                :href="getAssetDownloadHref(previewAsset)"
+                                :download="getAssetDownloadName(previewAsset, getAssetDownloadHref(previewAsset))"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                @pointerdown.stop
+                                @click.stop="handleAssetDownloadClick"
                             >
                                 <img :src="downloadIcon" alt="" />
                                 下载作品
-                            </button>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -233,16 +193,16 @@
         </Teleport>
     </section>
 </template>
-
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { deleteAigcDigitalHumanResult, getAigcDigitalHumanResults, getAigcDigitalHumanTask } from '@/apps/aigc_digital_human/api'
-import { deleteAigcImageResult, getAigcImageResults, getAigcImageTask } from '@/apps/aigc_image/api'
-import { deleteAigcVideoResult, getAigcVideoResults, getAigcVideoTask } from '@/apps/aigc_video/api'
+import { deleteAigcDigitalHumanResult, getAigcDigitalHumanResults } from '@/apps/aigc_digital_human/api'
+import { deleteAigcImageResult, getAigcImageResults } from '@/apps/aigc_image/api'
+import { deleteAigcVideoResult, getAigcVideoResults } from '@/apps/aigc_video/api'
+import { deleteImageHumanResult, getImageHumanResults } from '@/apps/image_human/api'
 import { usePcLoginGate } from '@/composables/usePcLoginGate'
 import { useUserStore } from '@/stores/user'
 import { normalizeFileUrl } from '@/utils/file-url'
-import { downloadPcAsset, getPcDownloadExtension, openPcAsset } from '@/utils/download'
+import { downloadPcAsset, getPcDownloadExtension, resolvePcDownloadUrl } from '@/utils/download'
 import checkSmallIcon from '@/assets/images/icon/Check-small.svg'
 import closeSmallIcon from '@/assets/images/icon/Close-small.svg'
 import deleteIcon from '@/assets/images/icon/Delete-themes.svg'
@@ -252,7 +212,7 @@ import downloadIcon from '@/assets/images/icon/xiazai.svg'
 
 type AssetCategory = 'all' | 'image' | 'video' | 'avatar' | 'tool'
 type AssetTab = 'all' | 'favorites'
-type AssetSource = 'image' | 'video' | 'digital_human' | 'tool'
+type AssetSource = 'image' | 'video' | 'digital_human' | 'image_human' | 'tool'
 type AssetStatus = 'success' | 'failed'
 
 interface AssetItem {
@@ -276,12 +236,13 @@ interface AssetItem {
 }
 
 const assetCategoryOptions: AssetCategory[] = ['all', 'image', 'video', 'avatar', 'tool']
+const assetsEmptyImage = 'https://aigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/images/20260519/20260519165642975309142.jpg'
 const categoryLabelMap: Record<AssetCategory, string> = {
     all: '全部',
     image: '图片',
     video: '视频',
     avatar: '数字人',
-    tool: '工具'
+    tool: '其他'
 }
 
 const activeCategory = ref<AssetCategory>('all')
@@ -295,12 +256,16 @@ const userStore = useUserStore()
 const { ensurePcLogin } = usePcLoginGate()
 
 const allTabLabel = computed(() => activeCategory.value === 'all' ? '全部资产' : `全部${categoryLabelMap[activeCategory.value]}`)
+const assetsEmptyText = computed(() => {
+    const categoryName = activeCategory.value === 'all' ? '资产' : `${categoryLabelMap[activeCategory.value]}作品`
+    return activeTab.value === 'favorites' ? `暂无收藏${categoryName}` : `暂无${categoryName}`
+})
 const visibleAssetItems = computed(() =>
     assetItems.value.filter(
         (item) => (activeCategory.value === 'all' || item.category === activeCategory.value) && (activeTab.value === 'all' || item.favorite)
     )
 )
-const selectionCountLabel = computed(() => `已选 ${selectedAssetIds.value.length} 项`)
+const selectionCountLabel = computed(() => `已选择 ${selectedAssetIds.value.length} 项`)
 const assetSections = computed(() =>
     visibleAssetItems.value.reduce<Array<{ label: string; items: AssetItem[] }>>((sections, item) => {
         const currentSection = sections.find((section) => section.label === item.date)
@@ -432,7 +397,7 @@ const createAssetItem = (source: AssetSource, item: any, index: number): AssetIt
     const rawTaskNumberId = Number(item.task_id || item.id || 0)
     const rawTaskId = String(item.task_id || item.id || index)
     const id = `${source}-${rawResultId || rawTaskId}`
-    const isDigitalHuman = source === 'digital_human'
+    const isDigitalHuman = source === 'digital_human' || source === 'image_human'
     const timestamp = getAssetTimestamp(item)
     const category: AssetCategory = source === 'image' ? 'image' : isDigitalHuman ? 'avatar' : 'video'
     const status = normalizeAssetStatus(item.status)
@@ -440,7 +405,10 @@ const createAssetItem = (source: AssetSource, item: any, index: number): AssetIt
     const fallbackImage = Array.isArray(item.reference_images) && item.reference_images[0]
         ? normalizeAssetUrl(item.reference_images[0])
         : ''
-    const image = source === 'image' ? getImageUrl(item) : (getCoverUrl(item) || fallbackImage)
+    const imageHumanFallbackImage = source === 'image_human'
+        ? normalizeAssetUrl(item.image_url || item.image_uri || item.image || '')
+        : ''
+    const image = source === 'image' ? getImageUrl(item) : (getCoverUrl(item) || fallbackImage || imageHumanFallbackImage)
     if (status !== 'failed' && !image && !video) return null
     return {
         id,
@@ -448,7 +416,7 @@ const createAssetItem = (source: AssetSource, item: any, index: number): AssetIt
         taskId: rawTaskNumberId,
         resultId: rawResultId,
         favoriteId: rawTaskId,
-        title: item.title || item.prompt || item.script_text || (isDigitalHuman ? '数字人作品' : source === 'video' ? '视频作品' : '图片作品'),
+        title: item.title || item.prompt || item.script_text || (source === 'image_human' ? '形象作品' : isDigitalHuman ? '数字人作品' : source === 'video' ? '视频作品' : '图片作品'),
         image,
         video,
         category,
@@ -458,7 +426,7 @@ const createAssetItem = (source: AssetSource, item: any, index: number): AssetIt
         date: formatAssetDateGroup(timestamp),
         dateText: formatAssetDateText(timestamp),
         favorite: isFavorite(category, rawTaskId),
-        badge: isDigitalHuman ? '数字人' : source === 'video' ? '视频' : '图片',
+        badge: source === 'image_human' ? '形象' : isDigitalHuman ? '数字人' : source === 'video' ? '视频' : '图片',
         duration: formatDuration(item.duration)
     }
 }
@@ -480,12 +448,13 @@ const loadAssets = async () => {
         assetItems.value = []
         return
     }
-    const [images, videos, digitalHumans] = await Promise.all([
+    const [images, videos, digitalHumans, imageHumans] = await Promise.all([
         fetchAssetList(getAigcImageResults, 'image'),
         fetchAssetList(getAigcVideoResults, 'video'),
-        fetchAssetList(getAigcDigitalHumanResults, 'digital_human')
+        fetchAssetList(getAigcDigitalHumanResults, 'digital_human'),
+        fetchAssetList(getImageHumanResults, 'image_human')
     ])
-    assetItems.value = [...images, ...videos, ...digitalHumans].sort((a, b) => b.timestamp - a.timestamp)
+    assetItems.value = [...images, ...videos, ...digitalHumans, ...imageHumans].sort((a, b) => b.timestamp - a.timestamp)
 }
 
 const ensureVisibleSelection = () => {
@@ -581,57 +550,7 @@ const deleteAsset = async (item: AssetItem) => {
     if (item.source === 'image') return deleteAigcImageResult({ id: taskId, task_id: taskId })
     if (item.source === 'video') return deleteAigcVideoResult({ id: item.resultId || taskId, task_id: taskId })
     if (item.source === 'digital_human') return deleteAigcDigitalHumanResult({ id: item.resultId || taskId, task_id: taskId })
-}
-
-const getAssetDetailCandidates = (payload: any) => {
-    const candidates: any[] = []
-    const push = (value: any) => {
-        if (!value) return
-        if (Array.isArray(value)) {
-            value.forEach(push)
-            return
-        }
-        if (typeof value === 'object') candidates.push(value)
-    }
-    push(payload)
-    push(payload?.data)
-    push(payload?.detail)
-    push(payload?.task)
-    push(payload?.result)
-    push(payload?.results)
-    push(payload?.list)
-    push(payload?.lists)
-    return candidates
-}
-
-const fetchAssetDetail = async (asset: AssetItem) => {
-    const id = asset.taskId || asset.resultId
-    if (!id) return null
-    if (asset.source === 'image') return getAigcImageTask({ id })
-    if (asset.source === 'video') return getAigcVideoTask({ id })
-    if (asset.source === 'digital_human') return getAigcDigitalHumanTask({ id })
-    return null
-}
-
-const updateAssetDownloadUrl = (asset: AssetItem, url: string, isVideoResource = false) => {
-    if (!url) return asset
-    const nextAsset = isVideoResource ? { ...asset, video: url } : { ...asset, image: url }
-    assetItems.value = assetItems.value.map((item) => item.id === asset.id ? { ...item, ...nextAsset } : item)
-    if (previewAsset.value?.id === asset.id) {
-        previewAsset.value = { ...previewAsset.value, ...nextAsset }
-    }
-    return nextAsset
-}
-
-const resolveAssetDownloadUrlFromDetail = (asset: AssetItem, detail: any) => {
-    const candidates = getAssetDetailCandidates(detail)
-    if (asset.source === 'image') {
-        return { url: candidates.map(getImageUrl).find(Boolean) || asset.image, isVideo: false }
-    }
-    const video = candidates.map(getVideoUrl).find(Boolean)
-    if (video) return { url: video, isVideo: true }
-    const image = candidates.map((item) => getCoverUrl(item) || getImageUrl(item)).find(Boolean)
-    return { url: image || asset.video || asset.image, isVideo: Boolean(asset.video && !image) }
+    if (item.source === 'image_human') return deleteImageHumanResult({ id: item.resultId || taskId, task_id: taskId })
 }
 
 const getAssetDownloadName = (asset: AssetItem, url = '') => {
@@ -640,29 +559,34 @@ const getAssetDownloadName = (asset: AssetItem, url = '') => {
     return `${asset.title || 'asset'}.${ext}`
 }
 
-const downloadAsset = async (asset: AssetItem) => {
-    if (!ensurePcLogin()) return
-    let targetAsset = asset
-    let url = ''
-    try {
-        const detail = await fetchAssetDetail(asset)
-        if (detail) {
-            const target = resolveAssetDownloadUrlFromDetail(asset, detail)
-            url = target.url
-            targetAsset = updateAssetDownloadUrl(asset, url, target.isVideo)
-        }
-    } catch (error) {
-        console.error('fetch asset detail for download failed', error)
-    }
-    url = url || targetAsset.video || targetAsset.image
-    if (!downloadPcAsset(url, getAssetDownloadName(targetAsset, url))) {
-        openPcAsset(url)
-    }
+const getAssetTypeLabel = (asset: AssetItem | null) =>
+    asset ? categoryLabelMap[asset.category] || asset.badge || '作品' : '作品'
+
+const getAssetPromptText = (asset: AssetItem | null) =>
+    asset?.title || '无提示词'
+
+const getAssetStatusText = (asset: AssetItem | null) =>
+    asset?.status === 'failed' ? '生成失败' : '暂无预览'
+
+const getAssetStatusDescription = (asset: AssetItem | null) =>
+    asset?.error || '当前作品暂未获取到可预览资源'
+
+const getAssetConfigItems = (asset: AssetItem | null) => {
+    if (!asset) return []
+    return [
+        getAssetTypeLabel(asset),
+        asset.duration,
+        asset.dateText || asset.date
+    ].filter(Boolean)
 }
 
-const downloadPreviewAsset = () => {
-    if (!previewAsset.value) return
-    downloadAsset(previewAsset.value)
+const getAssetDownloadHref = (asset: AssetItem | null) =>
+    resolvePcDownloadUrl(asset?.video || asset?.image || '')
+
+const handleAssetDownloadClick = (event: MouseEvent) => {
+    if (userStore.isLogin) return
+    event.preventDefault()
+    ensurePcLogin()
 }
 
 const downloadSelectedAssets = async () => {
@@ -673,7 +597,8 @@ const downloadSelectedAssets = async () => {
         try {
             const asset = assetItems.value.find((item) => item.id === id)
             if (!asset) continue
-            await downloadAsset(asset)
+            const url = getAssetDownloadHref(asset)
+            if (url) downloadPcAsset(url, getAssetDownloadName(asset, url))
         } catch (error) {
             console.error('download asset failed', error)
         }
@@ -1217,22 +1142,19 @@ watch(() => userStore.isLogin, loadAssets)
 }
 
 .assets-card:hover .assets-card__favorite,
-.assets-card:hover .assets-card__download,
-.assets-card__favorite.is-active {
+.assets-card:hover .assets-card__download {
     opacity: 1;
 }
 
 .assets-card__download:hover,
-.assets-card__favorite:hover,
-.assets-card__favorite.is-active {
+.assets-card__favorite:hover {
     border-color: rgba(255, 255, 255, 0.92);
     background: rgba(255, 255, 255, 0.92);
     transform: scale(1.04);
 }
 
 .assets-card__download:hover img,
-.assets-card__favorite:hover img,
-.assets-card__favorite.is-active img {
+.assets-card__favorite:hover img {
     filter: invert(1) drop-shadow(0 1px 2px rgba(255, 255, 255, 0.18));
 }
 
@@ -1246,268 +1168,358 @@ watch(() => userStore.isLogin, loadAssets)
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 14px;
+    width: auto;
     min-height: max(320px, 100%);
-    border-radius: 24px;
-    background: rgba(255, 255, 255, 0.03);
-    color: rgba(255, 255, 255, 0.78);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
     text-align: center;
 }
 
-.assets-empty strong {
-    color: #fff;
-    font-size: 18px;
-    font-weight: 500;
+.assets-empty__placeholder {
+    display: block;
+    width: 240px;
+    height: 240px;
+    object-fit: cover;
+    opacity: 0.58;
+    filter: blur(0.2px);
+    -webkit-mask-image: radial-gradient(circle, #000 48%, rgba(0, 0, 0, 0.86) 62%, rgba(0, 0, 0, 0.18) 78%, transparent 94%);
+    mask-image: radial-gradient(circle, #000 48%, rgba(0, 0, 0, 0.86) 62%, rgba(0, 0, 0, 0.18) 78%, transparent 94%);
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
 }
 
-.assets-empty span {
+.assets-empty p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.62);
     font-size: 14px;
+    line-height: 22px;
+    text-align: center;
 }
 
-.assets-preview {
+.work-detail {
     position: fixed;
     inset: 0;
     z-index: 96;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 48px;
-    background: rgba(0, 0, 0, 0.78);
-    backdrop-filter: blur(18px);
+    background: rgba(10, 10, 12, 0.96);
+    backdrop-filter: blur(14px);
 }
 
-.assets-preview__panel {
-    position: relative;
+.work-detail__panel {
     display: grid;
-    grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
-    width: min(1120px, calc(100vw - 96px));
-    max-height: calc(100vh - 96px);
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 24px;
-    background: #101012;
-    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.56);
+    grid-template-columns: minmax(0, 1fr) 380px;
+    width: 100%;
+    height: 100%;
 }
 
-.assets-preview__close {
+.work-detail__close {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    z-index: 4;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
-    border: 0;
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.14);
+    background: rgba(17, 17, 19, 0.72);
     color: #fff;
-    font-size: 28px;
+    font-size: 24px;
     line-height: 1;
     cursor: pointer;
-    backdrop-filter: blur(12px);
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease;
 }
 
-.assets-preview__media {
+.work-detail__close:hover {
+    border-color: rgba(255, 255, 255, 0.24);
+    background: rgba(28, 28, 31, 0.94);
+}
+
+.work-detail__media {
     position: relative;
-    min-height: clamp(280px, 52vh, 640px);
-    background: #070707;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    padding: 20px 24px;
+    background:
+        radial-gradient(circle at top, rgba(255, 255, 255, 0.06), transparent 36%),
+        #111114;
 }
 
-.assets-preview__media video,
-.assets-preview__media img {
-    display: block;
+.work-detail__media-frame {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
     height: 100%;
-    min-height: clamp(280px, 52vh, 640px);
-    background: #070707;
-    object-fit: contain;
+    padding: 56px 24px 32px;
 }
 
-.assets-preview__placeholder {
-    position: absolute;
-    inset: 0;
+.work-detail__media video,
+.work-detail__media img,
+.work-detail__placeholder {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: min(100%, calc(100vw - 500px));
+    max-height: calc(100vh - 112px);
+    border-radius: 12px;
+    object-fit: contain;
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.4);
+}
+
+.work-detail__placeholder {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 10px;
+    width: min(520px, calc(100vw - 500px));
+    aspect-ratio: 3 / 4;
     padding: 24px;
+    background: #202127;
     color: #fff;
     text-align: center;
 }
 
-.assets-preview__placeholder strong {
+.work-detail__placeholder strong {
     font-size: 22px;
     font-weight: 600;
 }
 
-.assets-preview__placeholder span {
+.work-detail__placeholder span {
     max-width: 360px;
     color: rgba(255, 255, 255, 0.62);
     font-size: 14px;
     line-height: 1.7;
 }
 
-.assets-preview__floating-actions {
-    position: absolute;
-    top: 24px;
-    right: 24px;
-    z-index: 3;
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.assets-preview__icon-action {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 54px;
-    height: 54px;
-    border: 1px solid rgba(255, 255, 255, 0.26);
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.58);
-    backdrop-filter: blur(12px);
-}
-
-.assets-preview__icon-action:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-}
-
-.assets-preview__icon-action:hover,
-.assets-preview__icon-action.is-active {
-    border-color: #fff;
-    background: #fff;
-}
-
-.assets-preview__icon-action.is-active {
-    border-color: #ffd84d;
-    background: #ffd84d;
-}
-
-.assets-preview__icon-action img {
-    width: 22px;
-    height: 22px;
-    object-fit: contain;
-    filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.8));
-}
-
-.assets-preview__icon-action:hover img,
-.assets-preview__icon-action.is-active img {
-    filter: invert(1);
-}
-
-.assets-preview__content {
+.work-detail__content {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 22px;
+    height: 100%;
+    min-height: 0;
     min-width: 0;
-    padding: 24px 28px 28px;
+    padding: 20px 22px 22px;
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.96);
+    background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.05), transparent 26%),
+        linear-gradient(180deg, #171719 0%, #101012 100%);
     overflow-y: auto;
 }
 
-.assets-preview__toolbar {
+.work-detail__header {
     display: flex;
-    justify-content: flex-end;
-    margin: -12px -8px 0 0;
+    flex-direction: column;
+    gap: 16px;
 }
 
-.assets-preview__meta {
+.work-detail__author-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.work-detail__author {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    min-height: 36px;
-    color: rgba(255, 255, 255, 0.68);
+    gap: 12px;
+    min-width: 0;
 }
 
-.assets-preview__meta strong {
+.work-detail__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.94);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.work-detail__author-meta {
+    min-width: 0;
+}
+
+.work-detail__author-meta strong {
+    display: block;
     overflow: hidden;
-    color: #fff;
-    font-size: 15px;
-    font-weight: 500;
+    color: rgba(255, 255, 255, 0.98);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.2;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.assets-preview__meta span {
-    flex-shrink: 0;
+.work-detail__subline {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 18px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 12px;
+}
+
+.work-detail__subline strong {
+    color: rgba(255, 255, 255, 0.94);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.work-detail__section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.work-detail__section span {
+    color: rgba(255, 255, 255, 0.5);
     font-size: 13px;
 }
 
-.assets-preview__chips {
+.work-detail__prompt {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    padding: 2px 0 0;
 }
 
-.assets-preview__chips span {
+.work-detail__prompt-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.work-detail__prompt-head span {
+    color: rgba(255, 255, 255, 0.94);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.work-detail__prompt-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding-right: 8px;
+}
+
+.work-detail__prompt-body p,
+.work-detail__section p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.94);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 2;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.work-detail__config {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+    min-height: 16px;
+    margin-top: 20px;
+    margin-bottom: 18px;
+    white-space: nowrap;
+}
+
+.work-detail__config-text {
     display: inline-flex;
     align-items: center;
-    min-height: 30px;
-    padding: 0 12px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.07);
-    color: rgba(255, 255, 255, 0.74);
-    font-size: 13px;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
 }
 
-.assets-preview__actions {
+.work-detail__config-text + .work-detail__config-text::before {
+    content: '|';
+    margin: 0 8px;
+    color: rgba(255, 255, 255, 0.24);
+}
+
+.work-detail__actions {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: flex-end;
+    gap: 12px;
     margin-top: auto;
-    padding-top: 8px;
 }
 
-.assets-preview__download,
-.assets-preview__favorite {
+.work-detail__download,
+.work-detail__favorite {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 42px;
-    padding: 0 18px;
+    flex: 0 0 auto;
+    width: 162px;
+    height: 44px;
+    padding: 0 20px;
     border: 0;
-    border-radius: 999px;
-    background: #fff;
-    color: #050505;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
     font-size: 14px;
     font-weight: 600;
+    cursor: pointer;
 }
 
-.assets-preview__download:disabled {
+.work-detail__download:disabled {
     opacity: 0.45;
     cursor: not-allowed;
 }
 
-.assets-preview__favorite {
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(255, 255, 255, 0.1);
+.work-detail__favorite {
+    border: 0;
+    background: rgba(255, 255, 255, 0.08);
     color: #fff;
 }
 
-.assets-preview__favorite:hover {
-    border-color: #fff;
-    background: #fff;
-    color: #050505;
+.work-detail__download:hover,
+.work-detail__favorite:hover,
+.work-detail__favorite.is-active {
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
 }
 
-.assets-preview__favorite.is-active {
-    border-color: #ffd84d;
-    background: #ffd84d;
-    color: #050505;
-}
-
-.assets-preview__download img,
-.assets-preview__favorite img {
+.work-detail__download img,
+.work-detail__favorite img {
     width: 16px;
     height: 16px;
 }
 
-.assets-preview__download img,
-.assets-preview__favorite.is-active img,
-.assets-preview__favorite:hover img {
-    filter: invert(1);
+.work-detail__download:hover img,
+.work-detail__favorite:hover img,
+.work-detail__favorite.is-active img {
+    filter: none;
 }
 
 @media (max-width: 1680px) {
@@ -1589,25 +1601,32 @@ watch(() => userStore.isLogin, loadAssets)
         gap: 24px;
     }
 
-    .assets-preview {
-        padding: 14px;
-    }
-
-    .assets-preview__panel {
+    .work-detail__panel {
         grid-template-columns: 1fr;
-        width: calc(100vw - 28px);
-        max-height: calc(100vh - 28px);
         overflow-y: auto;
     }
 
-    .assets-preview__media,
-    .assets-preview__media video,
-    .assets-preview__media img {
-        min-height: 300px;
+    .work-detail__media {
+        min-height: 360px;
+        padding: 72px 20px 20px;
     }
 
-    .assets-preview__content {
-        padding: 18px 20px 22px;
+    .work-detail__media-frame {
+        padding: 0;
+    }
+
+    .work-detail__media video,
+    .work-detail__media img,
+    .work-detail__placeholder {
+        max-width: 100%;
+        max-height: 300px;
+    }
+
+    .work-detail__content {
+        height: auto;
+        padding: 24px 18px 18px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        border-left: 0;
     }
 }
 
@@ -1624,14 +1643,22 @@ watch(() => userStore.isLogin, loadAssets)
         font-size: 22px;
     }
 
-    .assets-preview__actions {
+    .assets-empty__placeholder {
+        width: 180px;
+        height: 180px;
+    }
+
+    .work-detail__actions {
         align-items: stretch;
         flex-direction: column;
     }
 
-    .assets-preview__download,
-    .assets-preview__favorite {
+    .work-detail__download,
+    .work-detail__favorite {
         width: 100%;
     }
 }
 </style>
+
+
+

@@ -17,6 +17,7 @@ namespace app\api\controller;
 use app\common\cache\UserTokenCache;
 use app\common\controller\BaseLikeAdminController;
 use app\common\enum\AdminTerminalEnum;
+use app\common\enum\user\UserTerminalEnum;
 
 class BaseApiController extends BaseLikeAdminController
 {
@@ -33,5 +34,14 @@ class BaseApiController extends BaseLikeAdminController
                 $this->request->tenantId = (int)$this->request->userInfo['tenant_id'];
             }
         }
+    }
+
+    protected function getUserTerminal(): int
+    {
+        $terminal = (int)($this->userInfo['terminal'] ?? $this->request->param('terminal', $this->request->header('terminal', '0')));
+        if (in_array($terminal, UserTerminalEnum::ALL_TERMINAL, true)) {
+            return $terminal;
+        }
+        return UserTerminalEnum::PC;
     }
 }

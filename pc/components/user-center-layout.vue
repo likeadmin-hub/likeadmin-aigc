@@ -1,6 +1,5 @@
 <template>
     <div class="user-center-page">
-        <MarketingHeader />
         <main class="uc-main">
             <div class="uc-shell">
                 <header class="uc-header">

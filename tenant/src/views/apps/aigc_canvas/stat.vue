@@ -21,7 +21,12 @@ const cards = computed(() => [
     { label: '失败运行', value: stat.value.run_failed || 0 },
     { label: '生图调用', value: stat.value.image_run_total || 0 },
     { label: '生视频调用', value: stat.value.video_run_total || 0 },
-    { label: '最近运行', value: stat.value.recent_run_time ? new Date(stat.value.recent_run_time * 1000).toLocaleString() : '-' },
+    {
+        label: '最近运行',
+        value: stat.value.recent_run_time
+            ? new Date(stat.value.recent_run_time * 1000).toLocaleString()
+            : '-'
+    },
     { label: '依赖状态', value: stat.value.dependencies?.ready ? '正常' : '需处理' }
 ])
 const getData = async () => {

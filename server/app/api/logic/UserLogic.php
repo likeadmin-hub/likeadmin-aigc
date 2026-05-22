@@ -101,8 +101,9 @@ class UserLogic extends BaseLogic
                 $params['value'] = FileService::setFileUrl($params['value']);
             }
 
-            return User::update([$params['field'] => $params['value'], ['id' => $userId]]
-            );
+            return User::where(['id' => $userId])->update([
+                $params['field'] => $params['value']
+            ]);
         } catch (\Exception $e) {
             self::$error = $e->getMessage();
             return false;

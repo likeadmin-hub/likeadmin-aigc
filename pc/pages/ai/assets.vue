@@ -27,6 +27,7 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { usePcLoginGate } from '@/composables/usePcLoginGate'
 import { usePcCredits } from '~/composables/usePcCredits'
 import { buildSidebarRouteLocation } from '~/utils/ai-sidebar'
 import type { SidebarKey } from '~/utils/ai-sidebar'
@@ -34,18 +35,27 @@ import type { SidebarKey } from '~/utils/ai-sidebar'
 definePageMeta({ layout: 'blank' })
 type PopoverKey = '' | 'share' | 'api' | 'notice'
 const router = useRouter()
+const route = useRoute()
+const { ensurePcLogin } = usePcLoginGate()
 const { remainingCredits, membershipEnabled, refreshCredits } = usePcCredits()
 const activeSidebar = ref<SidebarKey>('assets')
 const activePopover = ref<PopoverKey>('')
 const backgroundStyle = computed(() => ({ backgroundImage: 'linear-gradient(180deg, #050505 0%, #06070a 42%, #050505 100%)' }))
 const chromePopoverContent = computed(() => ({
-  share: { title: 'Invite', text: 'Share this workspace with teammates to unlock more creation credits.' },
-  api: { title: 'Credits', text: `Current AI credits: ${remainingCredits.value}` },
-  notice: { title: 'Notice', text: 'The asset center is now connected to backend asset records.', compact: true }
+  share: { title: '邀请好友', text: '分享资产页给团队成员，双方各得 10 条创作额度。' },
+  api: { title: 'API 配额', text: `当前可用额度 ${remainingCredits.value} 次。` },
+  notice: { title: '消息中心', text: '资产页已接入当前项目生成记录，可以查看图片、视频和数字人作品。', compact: true }
 }))
 const togglePopover = (key: Exclude<PopoverKey, ''>) => { activePopover.value = activePopover.value === key ? '' : key }
 const goHome = () => router.push('/')
-const handleSidebar = (key: SidebarKey) => { if (key === activeSidebar.value) { activePopover.value = 'notice'; return }; router.push(buildSidebarRouteLocation(key)) }
+const handleSidebar = (key: SidebarKey) => {
+    if (key === activeSidebar.value) {
+        activePopover.value = 'notice'
+        return
+    }
+    if ((key === 'create' || key === 'assets') && !ensurePcLogin({ redirect: buildSidebarRouteLocation(key).path || route.fullPath })) return
+    router.push(buildSidebarRouteLocation(key))
+}
 </script>
 
 <style lang="scss" scoped>
@@ -60,7 +70,8 @@ const handleSidebar = (key: SidebarKey) => { if (key === activeSidebar.value) { 
 .workspace-page {
     position: relative;
     height: 100vh;
-    padding: 24px 0 40px;
+    min-width: 810px;
+    padding: 0;
     background: #050505;
     color: #fff;
     overflow: hidden;
@@ -138,12 +149,33 @@ const handleSidebar = (key: SidebarKey) => { if (key === activeSidebar.value) { 
     --category-chip-active-color: #fff;
     position: relative;
     z-index: 1;
-    width: var(--ai-content-width);
-    margin-left: var(--ai-content-left);
-    margin-right: var(--ai-content-gutter);
     height: 100%;
-    padding: 22px 0 24px;
+    min-width: 810px;
+    padding: 56px 40px 24px 116px;
+    overflow-y: auto;
+    overflow-x: hidden;
     box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: #242424 transparent;
+}
+
+.workspace-main::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+    background: transparent;
+}
+
+.workspace-main::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.workspace-main::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #242424;
+}
+
+.workspace-main::-webkit-scrollbar-thumb:hover {
+    background: #242424;
 }
 
 .workspace-main--assets {
@@ -170,13 +202,13 @@ const handleSidebar = (key: SidebarKey) => { if (key === activeSidebar.value) { 
 
     .workspace-page {
         height: auto;
+        min-width: 0;
         padding-bottom: 32px;
     }
 
     .workspace-main {
         height: auto;
-        width: auto;
-        margin-inline: 16px;
+        min-width: 0;
         padding: 210px 16px 32px;
         overflow: visible;
     }

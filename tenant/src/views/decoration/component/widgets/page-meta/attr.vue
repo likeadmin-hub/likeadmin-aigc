@@ -85,7 +85,12 @@
                 </el-form-item>
             </template>
             <el-form-item v-if="content.bg_type == 3">
-                <material-picker v-model="contentData.bg_video" type="video" :limit="1" size="100px" />
+                <material-picker
+                    v-model="contentData.bg_video"
+                    type="video"
+                    :limit="1"
+                    size="100px"
+                />
                 <div class="form-tips">视频背景在预览中全屏覆盖播放。</div>
             </el-form-item>
             <template v-if="content.bg_type == 4">
@@ -116,7 +121,10 @@
                                 删除
                             </el-button>
                         </div>
-                        <el-button v-if="contentData.gradient_colors.length < 5" @click="addGradientColor">
+                        <el-button
+                            v-if="contentData.gradient_colors.length < 5"
+                            @click="addGradientColor"
+                        >
                             添加颜色
                         </el-button>
                     </div>
@@ -163,7 +171,10 @@ const defaultContent = {
 }
 const ensureDefaults = () => {
     Object.keys(defaultContent).forEach((key) => {
-        if ((props.content as any)[key] === undefined || (key === 'gradient_colors' && !Array.isArray((props.content as any)[key]))) {
+        if (
+            (props.content as any)[key] === undefined ||
+            (key === 'gradient_colors' && !Array.isArray((props.content as any)[key]))
+        ) {
             ;(props.content as any)[key] = (defaultContent as any)[key]
         }
     })

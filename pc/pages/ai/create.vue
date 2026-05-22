@@ -1,5 +1,5 @@
 <template>
-    <div class="page">
+    <div :class="['page', { 'is-empty': !filteredWorks.length, 'is-fit': pageFitsViewport }]">
         <div class="page__bg" :style="backgroundStyle"></div>
         <div class="page__noise"></div>
         <div class="page__stars page__stars--near"></div>
@@ -18,85 +18,59 @@
             @navigate="handleSidebar"
         />
 
-        <main class="main">
-            <section class="summary">
+        <main ref="mainRef" :class="['main', { 'is-empty': !filteredWorks.length }]">
+            <section v-if="orderedWorks.length" class="summary">
                 <div class="summary__filters">
-                    <div class="summary__tabs">
+                    <div class="generation-filter">
                         <button
-                            v-for="item in statusTabs"
-                            :key="item.value"
-                            :class="['tab', { 'is-active': activeTab === item.value }]"
+                            class="summary-filter"
                             type="button"
-                            @click="activeTab = item.value"
+                            @click.stop="generationFilterOpen = !generationFilterOpen"
                         >
-                            {{ item.label }} <span>{{ getStatusCount(item.value) }}</span>
+                            {{ generationFilterLabel }}
+                            <img :src="downIcon" alt="" />
                         </button>
-                    </div>
-                    <div class="type-tabs">
-                        <button
-                            v-for="item in typeTabs"
-                            :key="item.value"
-                            :class="['type-tab', { 'is-active': activeType === item.value }]"
-                            type="button"
-                            @click="activeType = item.value"
-                        >
-                            {{ item.label }} <span>{{ getTypeCount(item.value) }}</span>
-                        </button>
+                        <div v-if="generationFilterOpen" class="generation-filter__menu">
+                            <button
+                                v-for="item in generationFilterOptions"
+                                :key="item.value"
+                                :class="{ 'is-active': selectedGenerationFilter === item.value }"
+                                type="button"
+                                @click.stop="selectGenerationFilter(item.value)"
+                            >
+                                {{ item.label }}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </section>
 
             <section ref="workListRef" class="works">
                 <template v-if="filteredWorks.length">
-                    <article v-for="work in pagedFilteredWorks" :key="work.id" class="work">
+                    <article v-for="work in filteredWorks" :key="work.id" class="work">
                         <div class="work__head">
-                            <div class="work__tags">
-                                <span :class="['chip', `is-${work.status}`, `is-backend-${work.backendStatus || work.status}`]">
-                                    <i v-if="isWorkCreating(work)"></i>
-                                    {{ getWorkStatusText(work) }}
-                                </span>
-                                <span class="chip chip--muted">{{ getWorkTypeLabel(work) }}</span>
-                                <span class="work__time">{{ formatTime(work.createdAt) }}</span>
-                            </div>
-
-                            <div class="work__actions">
-                                <button class="ghost" type="button" @click="loadWorkToComposer(work)">编辑</button>
-                                <button
-                                    v-if="work.status === 'creating' && work.source !== 'backend'"
-                                    class="primary"
-                                    type="button"
-                                    @click="completeWork(work.task)"
-                                >
-                                    标记已创作
-                                </button>
-                                <button v-else-if="work.status !== 'creating'" class="primary" type="button" @click="rerunWork(work)">再次创作</button>
-                            </div>
-                        </div>
-
-                        <div class="work__prompt">
-                            <span>提示词</span>
-                            <p>{{ work.prompt }}</p>
-                        </div>
-
-                        <div class="work__config">
-                            <span v-for="item in getWorkConfigItems(work)" :key="`${work.id}-${item}`">{{ item }}</span>
-                        </div>
-
-                        <div v-if="getWorkReferenceImages(work).length || work.referenceFileName" class="ref-card">
-                            <div v-if="getWorkReferenceImages(work).length" class="ref-card__thumbs">
-                                <button
-                                    v-for="(image, index) in getWorkReferenceImages(work)"
-                                    :key="`${work.id}-ref-${index}`"
-                                    class="ref-card__thumb"
-                                    type="button"
-                                    @click="openReferencePreview(work, image, index)"
-                                >
-                                    <img :src="image" :alt="`${work.referenceFileName || '参考图'} ${index + 1}`" />
-                                </button>
-                            </div>
-                            <div>
-                                <small>参考图 {{ getWorkReferenceImages(work).length ? getWorkReferenceImages(work).length : '' }}</small>
-                                <strong>{{ work.referenceFileName || '已上传参考图' }}</strong>
+                            <div class="work__text">
+                                <div class="work__title">
+                                    <div
+                                        v-if="getWorkReferenceImages(work).length"
+                                        class="ref-stack"
+                                        :style="getReferenceStackStyle(work)"
+                                        aria-label="参考图"
+                                    >
+                                        <span
+                                            v-for="(image, index) in getWorkReferenceImages(work)"
+                                            :key="`${work.id}-ref-${index}`"
+                                            class="ref-stack__item"
+                                            :style="getReferenceStackItemStyle(index)"
+                                        >
+                                            <img :src="image" alt="" />
+                                        </span>
+                                    </div>
+                                    <h2>{{ getWorkPromptTitle(work) }}</h2>
+                                </div>
+                                <div class="work__meta">
+                                    <span v-for="item in getWorkConfigItems(work)" :key="`${work.id}-${item}`">{{ item }}</span>
+                                </div>
                             </div>
                         </div>
 
@@ -104,34 +78,26 @@
                             <article
                                 v-for="(card, index) in getCards(work)"
                                 :key="card.id"
-                                :class="['card', { 'is-video': Boolean(card.video), 'is-pending': isWorkCreating(work) }]"
+                                :class="['card', { 'is-pending': isWorkCreating(work), 'is-failed': work.backendStatus === 'failed' }]"
                                 :style="getCardStyle(card)"
-                                @click="openWorkDetail(work, card.image, card.video)"
+                                @click="openWorkDetail(work, card.image, card.video || '')"
                             >
-                                <video v-if="card.video && !isWorkWithoutResult(work)" :src="card.video" :poster="card.image || undefined" muted playsinline preload="metadata"></video>
+                                <video
+                                    v-if="card.video && !isWorkWithoutResult(work)"
+                                    class="card__video"
+                                    :src="card.video"
+                                    :poster="card.image || undefined"
+                                    muted
+                                    loop
+                                    playsinline
+                                    preload="metadata"
+                                    @loadedmetadata="primeCardVideoFrame"
+                                    @mouseenter="playCardVideo"
+                                    @mouseleave="pauseCardVideo"
+                                ></video>
                                 <img v-else-if="card.image && !isWorkWithoutResult(work)" :src="card.image" :alt="card.alt" />
+                                <span v-else class="card__placeholder" aria-hidden="true"></span>
                                 <div class="card__mask"></div>
-                                <span v-if="card.video && !isWorkWithoutResult(work)" class="card__play" aria-hidden="true">▶</span>
-                                <button
-                                    v-if="(card.video || card.image) && !isWorkWithoutResult(work)"
-                                    :class="['card__favorite', { 'is-active': isWorkFavorite(work) }]"
-                                    type="button"
-                                    aria-label="收藏作品"
-                                    @pointerdown.stop
-                                    @click.stop.prevent="toggleWorkFavorite(work)"
-                                >
-                                    <img :src="favoriteIcon" alt="" />
-                                </button>
-                                <button
-                                    v-if="(card.video || card.image) && !isWorkWithoutResult(work)"
-                                    class="card__download"
-                                    type="button"
-                                    aria-label="下载作品"
-                                    @pointerdown.stop
-                                    @click.stop.prevent="downloadWorkImage(work, card.video || card.image)"
-                                >
-                                    <img :src="downloadIcon" alt="" />
-                                </button>
                                 <div v-if="isWorkCreating(work)" class="card__state">
                                     <span class="spinner"></span>
                                     <strong>{{ getWorkStatusText(work) }}</strong>
@@ -147,21 +113,27 @@
                                 </div>
                             </article>
                         </div>
+
+                        <div class="work__footer">
+                            <button class="ghost" type="button" @click="loadWorkToComposer(work)">重新编辑</button>
+                            <button v-if="work.status !== 'creating'" class="ghost" type="button" @click="rerunWork(work)">再次生成</button>
+                            <button
+                                v-if="canDeleteWork(work)"
+                                class="ghost ghost--icon"
+                                type="button"
+                                aria-label="删除作品"
+                                title="删除"
+                                @click.stop.prevent="deleteWork(work)"
+                            >
+                                <img :src="deleteIcon" alt="" />
+                            </button>
+                        </div>
                     </article>
                 </template>
 
                 <div v-else class="empty">
-                    <strong>{{ emptyTitle }}</strong>
-                    <p>{{ emptyText }}</p>
-                </div>
-                <div v-if="filteredWorks.length > workPageSize" class="works__pagination">
-                    <ElPagination
-                        v-model:current-page="workPage"
-                        :total="filteredWorks.length"
-                        :page-size="workPageSize"
-                        hide-on-single-page
-                        layout="total, prev, pager, next, jumper"
-                    />
+                    <img class="empty__placeholder" :src="emptyImage" alt="" />
+                    <p>暂无创作，开启你的创作</p>
                 </div>
             </section>
         </main>
@@ -170,53 +142,67 @@
             <div v-if="detailWork" class="work-detail" @click.self="closeWorkDetail">
                 <div class="work-detail__panel">
                     <div class="work-detail__media">
-                        <video v-if="detailVideo" :src="detailVideo" :poster="detailImage" controls autoplay playsinline></video>
-                        <img v-else-if="detailImage" :src="detailImage" alt="生成结果" />
-                        <div v-else class="work-detail__placeholder">
-                            <strong>{{ getWorkStatusText(detailWork) }}</strong>
-                            <span>{{ getWorkStatusDescription(detailWork, 0) }}</span>
+                        <button class="work-detail__close" type="button" aria-label="关闭" @click="closeWorkDetail">×</button>
+                        <div class="work-detail__media-frame">
+                            <video v-if="detailVideo" :src="detailVideo" :poster="detailImage" controls autoplay playsinline></video>
+                            <img v-else-if="detailImage" :src="detailImage" alt="生成结果" />
+                            <div v-else class="work-detail__placeholder">
+                                <strong>{{ getWorkStatusText(detailWork) }}</strong>
+                                <span>{{ getWorkStatusDescription(detailWork, 0) }}</span>
+                            </div>
                         </div>
                     </div>
                     <div class="work-detail__content">
-                        <div class="work-detail__toolbar">
-                            <button class="work-detail__close" type="button" aria-label="关闭" @click="closeWorkDetail">×</button>
-                        </div>
-                        <div class="work-detail__head">
-                            <div>
+                        <div class="work-detail__header">
+                            <div class="work-detail__author-row">
+                                <div class="work-detail__author">
+                                    <span class="work-detail__avatar">{{ getWorkTypeLabel(detailWork).slice(0, 1) }}</span>
+                                    <div class="work-detail__author-meta">
+                                        <strong>我的创作</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="work-detail__subline">
                                 <strong>{{ getWorkTypeLabel(detailWork) }}</strong>
                                 <span>{{ formatTime(detailWork.createdAt) }}</span>
+                                <span>内容由 AI 生成</span>
                             </div>
                         </div>
-                        <div class="work-detail__section">
-                            <span>提示词</span>
-                            <p>{{ detailWork.prompt || '无提示词' }}</p>
-                        </div>
-                        <div class="work-detail__config">
-                            <span v-for="item in getWorkConfigItems(detailWork)" :key="`detail-${item}`">{{ item }}</span>
-                        </div>
-                        <div v-if="getWorkReferenceImages(detailWork).length || detailWork.referenceFileName" class="work-detail__section">
-                            <span>参考图</span>
-                            <div class="ref-card ref-card--detail">
-                                <div v-if="getWorkReferenceImages(detailWork).length" class="ref-card__thumbs">
-                                    <button
-                                        v-for="(image, index) in getWorkReferenceImages(detailWork)"
-                                        :key="`detail-ref-${index}`"
-                                        class="ref-card__thumb"
-                                        type="button"
-                                        @click="openReferencePreview(detailWork, image, index)"
-                                    >
-                                        <img :src="image" :alt="`${detailWork.referenceFileName || '参考图'} ${index + 1}`" />
-                                    </button>
-                                </div>
-                                <div>
-                                    <small>参考图 {{ getWorkReferenceImages(detailWork).length ? getWorkReferenceImages(detailWork).length : '' }}</small>
-                                    <strong>{{ detailWork.referenceFileName || '已上传参考图' }}</strong>
+
+                        <div class="work-detail__prompt">
+                            <div class="work-detail__prompt-head">
+                                <span>提示词</span>
+                            </div>
+                            <div class="work-detail__prompt-body">
+                                <p>{{ detailWork.prompt || '无提示词' }}</p>
+                            </div>
+                            <div class="work-detail__config">
+                                <span v-for="item in getWorkConfigItems(detailWork)" :key="`detail-${item}`" class="work-detail__config-text">{{ item }}</span>
+                            </div>
+                            <div v-if="getWorkReferenceImages(detailWork).length || detailWork.referenceFileName" class="work-detail__section">
+                                <span>参考图</span>
+                                <div class="ref-card ref-card--detail">
+                                    <div v-if="getWorkReferenceImages(detailWork).length" class="ref-card__thumbs">
+                                        <button
+                                            v-for="(image, index) in getWorkReferenceImages(detailWork)"
+                                            :key="`detail-ref-${index}`"
+                                            class="ref-card__thumb"
+                                            type="button"
+                                            @click="openReferencePreview(detailWork, image, index)"
+                                        >
+                                            <img :src="image" :alt="`${detailWork.referenceFileName || '参考图'} ${index + 1}`" />
+                                        </button>
+                                    </div>
+                                    <div>
+                                        <small>参考图 {{ getWorkReferenceImages(detailWork).length ? getWorkReferenceImages(detailWork).length : '' }}</small>
+                                        <strong>{{ detailWork.referenceFileName || '已上传参考图' }}</strong>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div v-if="detailWork.error" class="work-detail__section">
-                            <span>失败原因</span>
-                            <p>{{ detailWork.error }}</p>
+                            <div v-if="detailWork.error" class="work-detail__section">
+                                <span>失败原因</span>
+                                <p>{{ detailWork.error }}</p>
+                            </div>
                         </div>
                         <div v-if="detailWork" class="work-detail__actions">
                             <button
@@ -227,14 +213,19 @@
                                 <img :src="favoriteIcon" alt="" />
                                 {{ isWorkFavorite(detailWork) ? '已收藏' : '收藏作品' }}
                             </button>
-                            <button
+                            <a
+                                v-if="getWorkDownloadHref(detailWork, detailDownloadUrl)"
                                 class="work-detail__download"
-                                type="button"
-                                @click.stop.prevent="downloadWorkImage(detailWork, detailDownloadUrl)"
+                                :href="getWorkDownloadHref(detailWork, detailDownloadUrl)"
+                                :download="getDownloadName(detailWork, getWorkDownloadHref(detailWork, detailDownloadUrl))"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                @pointerdown.stop
+                                @click.stop="handleDownloadClick"
                             >
                                 <img :src="downloadIcon" alt="" />
                                 下载作品
-                            </button>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -267,89 +258,30 @@
             </div>
         </Teleport>
 
-        <div class="composer-hotzone" aria-hidden="true" @mouseenter="openComposerDrawer"></div>
-
-        <div
-            :class="['composer-drawer', { 'is-open': composerOpen }]"
-            @mouseenter="openComposerDrawer"
-            @mouseleave="scheduleComposerCollapse()"
-        >
-            <div class="composer">
-            <div
-                :class="['upload', { 'is-filled': uploadedPreviewUrl || uploadedFileName }]"
-                role="button"
-                tabindex="0"
-                @click="triggerUpload"
-                @keydown.enter.prevent="triggerUpload"
-                @keydown.space.prevent="triggerUpload"
-            >
-                <span v-if="uploadedPreviewUrl" class="upload__preview">
-                    <img :src="uploadedPreviewUrl" :alt="uploadedFileName || '参考图'" />
-                    <span class="upload__delete" role="button" tabindex="0" aria-label="移除参考图" @click.stop="clearReference" @keydown.enter.stop.prevent="clearReference" @keydown.space.stop.prevent="clearReference">×</span>
-                </span>
-                <span v-else class="upload__box"><span>＋</span></span>
-            </div>
-
-            <div ref="promptCardRef" class="composer__body">
-                <textarea
-                    ref="promptTextareaRef"
-                    v-model="prompt"
-                    :placeholder="currentPlaceholder"
-                    @focus="openComposerDrawer"
-                    @input="handleComposerInput"
-                    @keydown.meta.enter.prevent="submitPrompt"
-                    @keydown.ctrl.enter.prevent="submitPrompt"
-                ></textarea>
-
-                <div class="composer__footer">
-                    <div class="options">
-                        <div class="mode-switch">
-                            <button :class="['prompt-toggle', { 'is-active': generationMode === 'image' }]" type="button" @click="setGenerationMode('image')">
-                                <img :src="generationMode === 'image' ? imageIconActive : imageIcon" alt="" />
-                                <span>图片</span>
-                            </button>
-                            <button :class="['prompt-toggle', { 'is-active': generationMode === 'video' }]" type="button" @click="setGenerationMode('video')">
-                                <img :src="generationMode === 'video' ? videoIconActive : videoIcon" alt="" />
-                                <span>视频</span>
-                            </button>
-                        </div>
-                        <div v-for="item in configOptions" :key="item.key" class="select">
-                            <button
-                                :class="['select__btn', { 'is-open': openedOption === item.key, 'is-disabled': item.disabled }]"
-                                type="button"
-                                :disabled="item.disabled"
-                                @click.stop="toggleOption(item.key, item.disabled)"
-                            >
-                                <span>{{ item.value }}</span>
-                                <img v-if="!item.disabled" :src="downIcon" alt="" />
-                            </button>
-                            <div v-if="openedOption === item.key" class="select__menu">
-                                <button
-                                    v-for="value in getOptionValues(item.key)"
-                                    :key="`${item.key}-${value}`"
-                                    :class="{ 'is-active': isOptionActive(item.key, value) }"
-                                    type="button"
-                                    @click.stop="setOption(item.key, value)"
-                                >
-                                    <span v-if="item.key === 'ratio'" class="select__ratio-preview" aria-hidden="true">
-                                        <span class="select__ratio-shape" :style="getAiCreateRatioPreviewStyle(value)"></span>
-                                    </span>
-                                    {{ value }}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="submit">
-                        <span><img :src="sparkIcon" alt="" />{{ generationMode === 'image' ? `${selectedUnitPrice}/张` : `${selectedVideoUnitPrice}/条` }}</span>
-                        <button type="button" :disabled="!canGenerate || isSubmitPromptLocked" @click="submitPromptLock">{{ submitting ? '...' : '↑' }}</button>
-                    </div>
-                </div>
-            </div>
-            </div>
+        <div ref="composerShellRef" class="composer">
+            <AiCreateComposer
+                ref="composerRef"
+                v-model="prompt"
+                v-model:mode="generationMode"
+                v-model:option-state="optionState"
+                :config-options="configOptions"
+                :option-values="optionValues"
+                :uploaded-assets="uploadedAssets"
+                :placeholder="currentPlaceholder"
+                :can-generate="canGenerate"
+                :can-submit="canSubmit"
+                :uploading="uploading"
+                :unit-price-label="unitPriceLabel"
+                collapsed
+                menu-placement="top"
+                @upload="triggerUpload"
+                @paste-images="addUploadedFiles"
+                @remove-asset="removeUploadedAsset"
+                @submit="submitPromptLock"
+            />
         </div>
 
-        <input ref="fileInputRef" type="file" class="sr-only" accept="image/*" @change="handleUpload" />
+        <input ref="fileInputRef" type="file" class="sr-only" accept="image/*" multiple @change="handleUpload" />
     </div>
 </template>
 
@@ -360,6 +292,7 @@ import type {
     AiCreateDraft,
     AiCreateOptionKey,
     AiCreateOptionState,
+    AiCreateOptionValues,
     AiCreateStatus,
     AiCreateWork,
     AiGenerationMode
@@ -367,29 +300,24 @@ import type {
 import {
     createAiCreateOptionState,
     getAiCreateCards,
-    getAiCreateRatioPreviewStyle,
     normalizeAiCreateOptionState,
     useAiCreateWorks
 } from '~/composables/useAiCreateWorks'
-import { getAigcImageConfig, generateAigcImage, getAigcImageResults, getAigcImageTask, getAigcImageTasks } from '@/apps/aigc_image/api'
-import { getAigcVideoConfig, generateAigcVideo, getAigcVideoResults, getAigcVideoTask, getAigcVideoTasks } from '@/apps/aigc_video/api'
-import { getAigcDigitalHumanResults, getAigcDigitalHumanTask, getAigcDigitalHumanTasks } from '@/apps/aigc_digital_human/api'
+import { getAigcImageConfig, generateAigcImage, getAigcImageResults, getAigcImageTasks, deleteAigcImageResult } from '@/apps/aigc_image/api'
+import { getAigcVideoConfig, generateAigcVideo, getAigcVideoResults, getAigcVideoTasks, deleteAigcVideoResult } from '@/apps/aigc_video/api'
+import { getAigcDigitalHumanResults, getAigcDigitalHumanTasks, deleteAigcDigitalHumanResult } from '@/apps/aigc_digital_human/api'
+import { getImageHumanResults, getImageHumanTasks, deleteImageHumanResult } from '@/apps/image_human/api'
 import { uploadImage as uploadAppImage } from '@/api/app'
 import { isPcLoginRequiredError, usePcLoginGate } from '@/composables/usePcLoginGate'
 import { useUserStore } from '@/stores/user'
 import { normalizeFileUrl } from '@/utils/file-url'
-import { downloadPcAsset, getPcDownloadExtension, openPcAsset } from '@/utils/download'
+import { getPcDownloadExtension, resolvePcDownloadUrl } from '@/utils/download'
 import feedback from '@/utils/feedback'
-import { ElPagination } from 'element-plus'
 import { usePcCredits } from '~/composables/usePcCredits'
 import { buildSidebarRouteLocation } from '~/utils/ai-sidebar'
 import type { SidebarKey } from '~/utils/ai-sidebar'
-import sparkIcon from '@/assets/images/icon/lingganzhi.svg'
+import deleteIcon from '@/assets/images/icon/Delete-themes.svg'
 import downIcon from '@/assets/images/icon/Down.svg'
-import imageIcon from '@/assets/images/icon/New-picture -yuanshi.svg'
-import imageIconActive from '@/assets/images/icon/New-picture -gaoliang.svg'
-import videoIcon from '@/assets/images/icon/shipin-yuanshi.svg'
-import videoIconActive from '@/assets/images/icon/shipin-gaoliang.svg'
 import downloadIcon from '@/assets/images/icon/xiazai.svg'
 import favoriteIcon from '@/assets/images/icon/shoucang.svg'
 
@@ -405,6 +333,14 @@ type ConfigOption = {
     value: string
     disabled?: boolean
 }
+type UploadedAsset = {
+    id: string
+    name: string
+    url: string
+    isObjectUrl: boolean
+    uri?: string
+    uploading?: boolean
+}
 
 interface RatioOption {
     label: string
@@ -416,6 +352,8 @@ interface QualityOption {
     label: string
     value: string
     ratios: RatioOption[]
+    resolution?: string
+    duration?: string
 }
 
 interface ChannelOption {
@@ -430,6 +368,7 @@ type BackendWork = AiCreateWork & {
     error?: string
     source?: 'backend' | 'local'
     category?: WorkCategory
+    appCode?: 'aigc_digital_human' | 'image_human'
     referenceImages?: string[]
     resultImage?: string
     resultVideo?: string
@@ -449,10 +388,8 @@ const route = useRoute()
 const userStore = useUserStore()
 const { ensurePcLogin } = usePcLoginGate()
 const fileInputRef = ref<HTMLInputElement | null>(null)
-const promptCardRef = ref<HTMLElement | null>(null)
-const promptTextareaRef = ref<HTMLTextAreaElement | null>(null)
 const workListRef = ref<HTMLElement | null>(null)
-const { works, draft, appendWork, setDraft, setWorkStatus } = useAiCreateWorks()
+const { works, draft, appendWork, setDraft } = useAiCreateWorks()
 const { isFavorite, toggleFavorite } = useAiWorkspaceFavorites()
 const { remainingCredits, membershipEnabled, refreshCredits } = usePcCredits()
 
@@ -461,16 +398,21 @@ const activeTab = ref<WorkStatusFilter>('')
 const activeType = ref<WorkTypeFilter>('')
 const apiCredits = ref(24)
 const activePopover = ref<PopoverKey>('')
-const openedOption = ref<OptionKey | ''>('')
 const generationMode = ref<AiGenerationMode>('image')
 const prompt = ref('')
+const mainRef = ref<HTMLElement | null>(null)
+const composerShellRef = ref<HTMLElement | null>(null)
+const composerRef = ref<{ focusTextarea: () => Promise<void>; collapseIfEmpty: () => void } | null>(null)
+const generationFilterOpen = ref(false)
+const selectedGenerationFilter = ref<'all' | AiGenerationMode>('all')
+const emptyImage = 'https://aigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/images/20260519/20260519165642975309142.jpg'
+const pageFitsViewport = ref(false)
 const uploadedFileName = ref('')
 const uploadedPreviewUrl = ref('')
 const uploadedReferenceUri = ref('')
+const uploadedAssets = ref<UploadedAsset[]>([])
 const uploading = ref(false)
 const submitting = ref(false)
-const workPage = ref(1)
-const workPageSize = 6
 const backendWorks = ref<BackendWork[]>([])
 const optimisticBackendWorks = ref<BackendWork[]>([])
 const detailWork = ref<BackendWork | null>(null)
@@ -482,11 +424,11 @@ const referencePreviewTitle = ref('')
 const referencePreviewImages = ref<string[]>([])
 const referencePreviewIndex = ref(0)
 const referencePreviewBaseTitle = ref('参考图')
-const composerOpen = ref(false)
-let composerCollapseTimer: ReturnType<typeof setTimeout> | null = null
 let backendRefreshTimer: ReturnType<typeof setInterval> | null = null
+let latestWorkAlignTimers: ReturnType<typeof setTimeout>[] = []
 let isRefreshingBackendWorks = false
-let lastScrollY = 0
+let hasMountedCreatePage = false
+let pendingInitialLatestWorkJump = true
 const aigcOptionConfig = ref<any>({
     channels: [],
     defaults: {
@@ -518,11 +460,13 @@ const currentPlaceholder = computed(() =>
         : '输入视频生成的提示词，例如：镜头缓慢推进，角色在霓虹街道中回眸'
 )
 const canGenerate = computed(() => Boolean(prompt.value.trim()) && !submitting.value && !uploading.value)
+const canSubmit = computed(() => canGenerate.value && !isSubmitPromptLocked.value)
 const backgroundStyle = computed(() => ({ backgroundImage: 'linear-gradient(180deg,#050505 0%,#06070a 42%,#050505 100%)' }))
 const configOptions = computed<ConfigOption[]>(() =>
     generationMode.value === 'video'
         ? [
             { key: 'model', value: currentVideoChannel.value?.label || 'Grok Video（xAIQ）', disabled: videoChannels.value.length <= 1 },
+            ...(videoHasResolutionOptions.value ? [{ key: 'resolution' as OptionKey, value: optionState.value.resolution || '分辨率' }] : []),
             { key: 'ratio', value: optionState.value.ratio },
             { key: 'duration', value: optionState.value.duration },
         ]
@@ -555,14 +499,30 @@ const currentQuality = computed(() => qualities.value.find((item) => item.value 
 const ratios = computed<RatioOption[]>(() => currentQuality.value?.ratios || [])
 const currentRatio = computed(() => ratios.value.find((item) => item.value === optionState.value.ratio) || ratios.value[0])
 const selectedUnitPrice = computed(() => Number(currentRatio.value?.tenant_unit_price || 0).toString())
+const normalizeVideoResolution = (value: unknown) => {
+    const raw = String(value || '').trim().toUpperCase()
+    const matched = raw.match(/1080P|720P|4K|2K|1K|\d+K/)
+    return matched?.[0] || '默认'
+}
+const normalizeVideoDuration = (value: unknown) => {
+    const raw = String(value || '').trim()
+    const matched = raw.match(/(\d+)(?:\s*S|秒)?/i)
+    return matched ? `${Number(matched[1])}秒` : raw || '默认'
+}
+const getVideoQualityResolution = (quality: any) =>
+    normalizeVideoResolution(quality.resolution || quality.provider_params_json?.resolution || quality.label || quality.quality_label || quality.value || quality.quality)
+const getVideoQualityDuration = (quality: any) =>
+    normalizeVideoDuration(quality.duration || quality.provider_params_json?.duration || quality.label || quality.quality_label || quality.value || quality.quality)
 const videoChannels = computed<ChannelOption[]>(() =>
     (aigcVideoOptionConfig.value.channels || []).map((channel: any) => ({
         label: channel.label || channel.name || channel.code,
         value: channel.value || channel.code,
         max_reference_images: Number(channel.max_reference_images || aigcVideoOptionConfig.value.max_reference_images || 7),
         qualities: (channel.qualities || []).map((quality: any) => ({
-            label: quality.label || quality.quality_label || `${quality.value || quality.quality}秒`,
+            label: getVideoQualityDuration(quality),
             value: String(quality.value || quality.quality),
+            resolution: getVideoQualityResolution(quality),
+            duration: getVideoQualityDuration(quality),
             ratios: (quality.ratios || []).map((ratio: any) => ({
                 ...ratio,
                 label: ratio.label || ratio.ratio || ratio.value,
@@ -573,14 +533,36 @@ const videoChannels = computed<ChannelOption[]>(() =>
 )
 const currentVideoChannel = computed(() => videoChannels.value.find((item) => item.value === selectedVideoChannelCode.value) || videoChannels.value[0])
 const videoQualities = computed<QualityOption[]>(() => currentVideoChannel.value?.qualities || [])
-const currentVideoQuality = computed(() => videoQualities.value.find((item) => item.value === optionState.value.duration) || videoQualities.value[0])
+const videoResolutions = computed(() => Array.from(new Set(videoQualities.value.map((item) => item.resolution || '默认'))))
+const videoHasResolutionOptions = computed(() => videoResolutions.value.some((item) => item !== '默认'))
+const videoQualitiesByResolution = computed(() =>
+    videoQualities.value.filter((item) => String(item.resolution || '默认') === String(optionState.value.resolution || videoResolutions.value[0] || '默认'))
+)
+const videoDurations = computed(() => Array.from(new Set(videoQualitiesByResolution.value.map((item) => item.duration || item.label || item.value))))
+const currentVideoQuality = computed(() =>
+    videoQualitiesByResolution.value.find((item) => String(item.duration || item.label || item.value) === String(optionState.value.duration)) ||
+    videoQualitiesByResolution.value[0] ||
+    videoQualities.value[0]
+)
 const videoRatios = computed<RatioOption[]>(() => currentVideoQuality.value?.ratios || [])
 const currentVideoRatio = computed(() => videoRatios.value.find((item) => item.value === optionState.value.ratio) || videoRatios.value[0])
 const selectedVideoUnitPrice = computed(() => Number(currentVideoRatio.value?.tenant_unit_price || 0).toString())
+const findVideoQualityByValue = (value: unknown) => videoQualities.value.find((item) => String(item.value) === String(value))
+const getVideoDisplayResolution = (value: unknown) => {
+    const quality = findVideoQualityByValue(value)
+    const resolution = quality?.resolution || normalizeVideoResolution(value)
+    return resolution === '默认' ? '' : resolution
+}
+const getVideoDisplayDuration = (value: unknown) => {
+    const quality = findVideoQualityByValue(value)
+    return quality?.duration || normalizeVideoDuration(value)
+}
 const selectedQuantity = computed(() => {
     const parsed = Number.parseInt(optionState.value.count, 10)
     return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 4) : 1
 })
+const normalizeOptionValue = (value: unknown) => String(value ?? '').trim()
+let isSyncingOptionSideEffects = false
 const imageOptionValues = computed<Record<OptionKey, string[]>>(() => ({
     model: channels.value.map((item) => item.label),
     count: ['1张', '2张', '3张', '4张'],
@@ -593,10 +575,63 @@ const videoOptionValues = computed<Record<OptionKey, string[]>>(() => ({
     model: videoChannels.value.map((item) => item.label),
     count: ['1条'],
     ratio: videoRatios.value.map((item) => item.value),
-    resolution: videoQualities.value.map((item) => item.value),
-    duration: videoQualities.value.map((item) => item.value),
+    resolution: videoResolutions.value,
+    duration: videoDurations.value,
     quality: []
 }))
+const optionValues = computed<AiCreateOptionValues>(() => (
+    generationMode.value === 'image'
+        ? imageOptionValues.value
+        : videoOptionValues.value
+))
+const unitPriceLabel = computed(() => (
+    generationMode.value === 'image'
+        ? `${selectedUnitPrice.value}/张`
+        : `${selectedVideoUnitPrice.value}/条`
+))
+const generationFilterOptions = [
+    { label: '全部', value: 'all' as const },
+    { label: '图片', value: 'image' as const },
+    { label: '视频', value: 'video' as const }
+]
+const generationFilterLabel = computed(() => generationFilterOptions.find((item) => item.value === selectedGenerationFilter.value)?.label || '全部')
+const syncImageOptionSideEffects = (next: AiCreateOptionState, previous: AiCreateOptionState) => {
+    if (isSyncingOptionSideEffects) return
+    isSyncingOptionSideEffects = true
+    const modelChanged = normalizeOptionValue(next.model) !== normalizeOptionValue(previous.model)
+    if (modelChanged) {
+        const nextChannel = channels.value.find((item) => item.label === next.model || item.value === next.model)
+        if (nextChannel) selectedChannelCode.value = nextChannel.value
+    }
+    const resolutionChanged = normalizeOptionValue(next.resolution) !== normalizeOptionValue(previous.resolution)
+    if (resolutionChanged) {
+        const nextQuality = qualities.value.find((item) => item.value === next.resolution)
+        optionState.value.ratio = nextQuality?.ratios?.[0]?.value || next.ratio
+    }
+    syncAigcSelection()
+    nextTick(() => { isSyncingOptionSideEffects = false })
+}
+const syncVideoOptionSideEffects = (next: AiCreateOptionState, previous: AiCreateOptionState) => {
+    if (isSyncingOptionSideEffects) return
+    isSyncingOptionSideEffects = true
+    const modelChanged = normalizeOptionValue(next.model) !== normalizeOptionValue(previous.model)
+    if (modelChanged) {
+        const nextChannel = videoChannels.value.find((item) => item.label === next.model || item.value === next.model)
+        if (nextChannel) selectedVideoChannelCode.value = nextChannel.value
+    }
+    const durationChanged = normalizeOptionValue(next.duration) !== normalizeOptionValue(previous.duration)
+    const resolutionChanged = normalizeOptionValue(next.resolution) !== normalizeOptionValue(previous.resolution)
+    if (resolutionChanged) {
+        optionState.value.duration = videoDurations.value[0] || next.duration
+        optionState.value.ratio = videoQualitiesByResolution.value[0]?.ratios?.[0]?.value || next.ratio
+    }
+    if (durationChanged) {
+        const nextQuality = videoQualitiesByResolution.value.find((item) => (item.duration || item.label || item.value) === next.duration)
+        optionState.value.ratio = nextQuality?.ratios?.[0]?.value || next.ratio
+    }
+    syncAigcVideoSelection()
+    nextTick(() => { isSyncingOptionSideEffects = false })
+}
 const localWorks = computed<BackendWork[]>(() => works.value
     .filter((item) => !backendWorks.value.some((backendItem) => backendItem.task === item.task))
     .map((item) => ({ ...item, source: 'local' as const, category: item.mode === 'video' ? 'video' as const : 'image' as const })))
@@ -604,21 +639,7 @@ const orderedWorks = computed<BackendWork[]>(() => [
     ...optimisticBackendWorks.value.filter((localItem) => !backendWorks.value.some((backendItem) => backendItem.id === localItem.id)),
     ...backendWorks.value,
     ...localWorks.value
-].sort((a, b) => b.createdAt - a.createdAt))
-const statusTabs: Array<{ label: string; value: WorkStatusFilter }> = [
-    { label: '全部', value: '' },
-    { label: '排队中', value: 'pending' },
-    { label: '生成中', value: 'running' },
-    { label: '已完成', value: 'success' },
-    { label: '失败', value: 'failed' },
-    { label: '已取消', value: 'canceled' }
-]
-const typeTabs: Array<{ label: string; value: WorkTypeFilter }> = [
-    { label: '全部', value: '' },
-    { label: '图片', value: 'image' },
-    { label: '视频', value: 'video' },
-    { label: '数字人', value: 'digital_human' }
-]
+].sort((a, b) => a.createdAt - b.createdAt))
 const creatingCount = computed(() => orderedWorks.value.filter((item) => isWorkCreating(item)).length)
 const createdCount = computed(() => orderedWorks.value.filter((item) => item.backendStatus === 'success' || item.status === 'created').length)
 const failedCount = computed(() => orderedWorks.value.filter((item) => item.backendStatus === 'failed').length)
@@ -628,74 +649,11 @@ const filterWorksByStatus = (list: BackendWork[], status: WorkStatusFilter) => {
     if (status === 'created') return list.filter((item) => item.status === 'created')
     return list.filter((item) => (item.backendStatus || item.status) === status)
 }
-const filterWorksByType = (list: BackendWork[], type: WorkTypeFilter) => {
-    if (!type) return list
-    return list.filter((item) => (item.category || item.mode) === type)
-}
-const typeFilteredWorks = computed(() => filterWorksByType(orderedWorks.value, activeType.value))
-const filteredWorks = computed(() => filterWorksByStatus(typeFilteredWorks.value, activeTab.value))
-const pagedFilteredWorks = computed(() => {
-    const start = (workPage.value - 1) * workPageSize
-    return filteredWorks.value.slice(start, start + workPageSize)
+const generationFilteredWorks = computed(() => {
+    if (selectedGenerationFilter.value === 'all') return orderedWorks.value
+    return orderedWorks.value.filter((item) => item.mode === selectedGenerationFilter.value && getWorkCategory(item) !== 'digital_human')
 })
-const activeTabMeta = computed(() => {
-    const map: Record<WorkStatusFilter, { title: string; desc: string; hint: string; empty: string }> = {
-        '': {
-            title: '全部创作任务',
-            desc: '所有提交到生图应用的任务都会展示在这里，可按状态筛选查看。',
-            hint: '当前筛选下的任务数',
-            empty: '还没有创作任务'
-        },
-        pending: {
-            title: '排队中的任务',
-            desc: '任务已创建，正在等待上游接口处理。',
-            hint: '等待提交或执行',
-            empty: '当前没有排队中的任务'
-        },
-        running: {
-            title: '生成中的任务',
-            desc: '任务已提交到上游接口，完成后会自动展示结果。',
-            hint: '生成完成后可查看结果',
-            empty: '当前没有生成中的任务'
-        },
-        success: {
-            title: '已完成的作品',
-            desc: '创作成功的图片会展示在这里，支持编辑后继续生成。',
-            hint: '可编辑后继续生成',
-            empty: '当前还没有已完成作品'
-        },
-        failed: {
-            title: '失败的任务',
-            desc: '失败任务会保留错误原因，便于调整提示词或参数后重新创作。',
-            hint: '可调整后再次创作',
-            empty: '当前没有失败任务'
-        },
-        canceled: {
-            title: '已取消的任务',
-            desc: '已取消的任务会展示在这里。',
-            hint: '已取消任务数',
-            empty: '当前没有已取消任务'
-        },
-        creating: {
-            title: '当前任务正在排队或生成中',
-            desc: '灵感页提交的新任务会直接进入创作列表。',
-            hint: '等待完成后可查看结果',
-            empty: '当前没有创作中的任务'
-        },
-        created: {
-            title: '创作完成的作品都展示在这里',
-            desc: '已完成的作品支持编辑后继续调整，也可以基于当前参数再次创作。',
-            hint: '可编辑后继续生成',
-            empty: '当前还没有已创作作品'
-        }
-    }
-    return map[activeTab.value]
-})
-const activeTabTitle = computed(() => activeTabMeta.value.title)
-const activeTabDescription = computed(() => activeTabMeta.value.desc)
-const activeTabHint = computed(() => activeTabMeta.value.hint)
-const emptyTitle = computed(() => activeTabMeta.value.empty)
-const emptyText = computed(() => '去灵感页输入内容、上传参考图并点击创作，新的任务会出现在这里。')
+const filteredWorks = computed(() => filterWorksByStatus(generationFilteredWorks.value, activeTab.value))
 const chromePopoverContent = computed(() => ({
     share: {
         title: '邀请好友',
@@ -713,32 +671,89 @@ const chromePopoverContent = computed(() => ({
         compact: true
     }
 }))
-
 const getWorkCategory = (work: Pick<BackendWork, 'category' | 'mode'>): WorkCategory => work.category || (work.mode === 'video' ? 'video' : 'image')
 const getWorkFavoriteCategory = (work: Pick<BackendWork, 'category' | 'mode'>) => {
     const category = getWorkCategory(work)
     return category === 'digital_human' ? 'avatar' : category
 }
-const getWorkFavoriteId = (work: Pick<BackendWork, 'task' | 'id'>) => work.task || work.id
+const getWorkFavoriteId = (work: Pick<BackendWork, 'task' | 'id' | 'appCode'>) =>
+    work.appCode === 'image_human' ? `image_human-${work.task || work.id}` : work.task || work.id
 const isWorkFavorite = (work: BackendWork | null) => Boolean(work && isFavorite(getWorkFavoriteCategory(work), getWorkFavoriteId(work)))
 const toggleWorkFavorite = (work: BackendWork | null) => {
     if (!work) return
-    if (!ensurePcLogin()) return
+    if (!userStore.isLogin) return
     toggleFavorite(getWorkFavoriteCategory(work), getWorkFavoriteId(work))
+}
+const canDeleteWork = (work: BackendWork | null) => Boolean(work && work.status !== 'creating' && !isWorkCreating(work))
+const removeWorkFromCreateList = (work: BackendWork) => {
+    backendWorks.value = backendWorks.value.filter((item) => item.id !== work.id && item.task !== work.task)
+    optimisticBackendWorks.value = optimisticBackendWorks.value.filter((item) => item.id !== work.id && item.task !== work.task)
+    works.value = works.value.filter((item) => item.id !== work.id && item.task !== work.task)
+    if (detailWork.value && (detailWork.value.id === work.id || detailWork.value.task === work.task)) {
+        closeWorkDetail()
+    }
+}
+const deleteBackendWork = (work: BackendWork) => {
+    const taskId = getWorkTaskId(work)
+    if (!taskId) return Promise.resolve()
+    const category = getWorkCategory(work)
+    if (category === 'digital_human') {
+        return work.appCode === 'image_human'
+            ? deleteImageHumanResult({ id: taskId, task_id: taskId })
+            : deleteAigcDigitalHumanResult({ id: taskId, task_id: taskId })
+    }
+    if (category === 'video') return deleteAigcVideoResult({ id: taskId, task_id: taskId })
+    return deleteAigcImageResult({ id: taskId, task_id: taskId })
+}
+const deleteWork = async (work: BackendWork) => {
+    if (!canDeleteWork(work)) return
+    if (!userStore.isLogin) return
+    try {
+        if (work.source === 'backend') {
+            await deleteBackendWork(work)
+        }
+        removeWorkFromCreateList(work)
+        feedback.msgSuccess('删除成功')
+        await nextTick()
+        jumpToLatestWork()
+    } catch (error: any) {
+        if (isPcLoginRequiredError(error)) return
+        feedback.msgError(error?.msg || error?.message || '删除失败')
+    }
 }
 const getWorkTypeLabel = (work: Pick<BackendWork, 'category' | 'mode'>) => {
     const category = getWorkCategory(work)
     if (category === 'digital_human') return '数字人'
     return category === 'video' ? '视频生成' : '图片生成'
 }
-const getWorkConfigItems = (work: Pick<BackendWork, 'mode' | 'category' | 'model' | 'count' | 'ratio' | 'resolution' | 'duration' | 'quality'>) => {
+const getWorkConfigItems = (work: Pick<BackendWork, 'mode' | 'category' | 'appCode' | 'model' | 'count' | 'ratio' | 'resolution' | 'duration' | 'quality'>) => {
     const normalizedOptions = normalizeAiCreateOptionState(work)
     if (getWorkCategory(work) === 'digital_human') {
-        return ['数字人合成', normalizedOptions.model, normalizedOptions.ratio, normalizedOptions.duration || normalizedOptions.quality].filter(Boolean)
+        return [work.appCode === 'image_human' ? '全驱动数字人' : '数字人合成', normalizedOptions.model, normalizedOptions.ratio, normalizedOptions.duration || normalizedOptions.quality].filter(Boolean)
     }
     return work.mode === 'video'
-        ? [normalizedOptions.model, normalizedOptions.ratio, normalizedOptions.duration, normalizedOptions.quality]
+        ? [normalizedOptions.model, normalizedOptions.ratio, normalizedOptions.resolution, normalizedOptions.duration]
         : [normalizedOptions.model, normalizedOptions.count, normalizedOptions.ratio, normalizedOptions.resolution]
+}
+const getWorkPromptTitle = (work: Pick<BackendWork, 'prompt'>) => String(work.prompt || '未命名创作')
+const referenceStackCardWidth = 32
+const referenceStackOffset = 12
+const referenceStackEndGap = 10
+const getReferenceStackStyle = (work: Pick<BackendWork, 'referenceImage' | 'referenceImages'>) => {
+    const count = getWorkReferenceImages(work).length
+    return {
+        width: `${Math.max(44, referenceStackCardWidth + Math.max(0, count - 1) * referenceStackOffset + referenceStackEndGap)}px`
+    }
+}
+const getReferenceStackItemStyle = (index: number) => ({
+    transform: `translateX(${index * referenceStackOffset}px) rotate(${index % 2 === 0 ? -5 : 5}deg)`,
+    zIndex: index + 1
+})
+const selectGenerationFilter = (value: 'all' | AiGenerationMode) => {
+    selectedGenerationFilter.value = value
+    generationFilterOpen.value = false
+    activeTab.value = ''
+    activeType.value = value === 'all' ? '' : value
 }
 
 const syncComposerFromWork = (
@@ -753,6 +768,14 @@ const syncComposerFromWork = (
     uploadedFileName.value = work.referenceFileName
     uploadedPreviewUrl.value = getWorkReferenceImage(work)
     uploadedReferenceUri.value = work.referenceImages?.[0] || ''
+    uploadedAssets.value.forEach(revokeUploadedAsset)
+    uploadedAssets.value = getWorkReferenceImages(work).map((url, index) => ({
+        id: `work-${Date.now()}-${index}`,
+        name: index === 0 ? (work.referenceFileName || '已上传参考图') : `参考图 ${index + 1}`,
+        url,
+        uri: url,
+        isObjectUrl: false
+    }))
 }
 
 const syncComposerFromDraft = () => {
@@ -812,11 +835,16 @@ const syncAigcVideoSelection = () => {
     if (!videoChannels.value.some((item) => item.value === selectedVideoChannelCode.value)) {
         selectedVideoChannelCode.value = videoChannels.value[0].value
     }
-    if (!videoQualities.value.some((item) => item.value === optionState.value.duration)) {
-        optionState.value.duration = aigcVideoOptionConfig.value.defaults?.quality || videoQualities.value[0]?.value || optionState.value.duration
+    if (!videoDurations.value.includes(optionState.value.duration)) {
+        const defaultQuality = videoQualities.value.find((item) => item.value === aigcVideoOptionConfig.value.defaults?.quality)
+        optionState.value.resolution = defaultQuality?.resolution || videoResolutions.value[0] || optionState.value.resolution
+        optionState.value.duration = defaultQuality?.duration || videoDurations.value[0] || optionState.value.duration
     }
-    if (!videoQualities.value.some((item) => item.value === optionState.value.duration)) {
-        optionState.value.duration = videoQualities.value[0]?.value || optionState.value.duration
+    if (!videoResolutions.value.includes(optionState.value.resolution)) {
+        optionState.value.resolution = videoResolutions.value[0] || optionState.value.resolution
+    }
+    if (!videoDurations.value.includes(optionState.value.duration)) {
+        optionState.value.duration = videoDurations.value[0] || optionState.value.duration
     }
     if (!videoRatios.value.some((item) => item.value === optionState.value.ratio)) {
         optionState.value.ratio = aigcVideoOptionConfig.value.defaults?.ratio || videoRatios.value[0]?.value || optionState.value.ratio
@@ -825,7 +853,7 @@ const syncAigcVideoSelection = () => {
         optionState.value.ratio = videoRatios.value[0]?.value || optionState.value.ratio
     }
     optionState.value.model = currentVideoChannel.value?.label || 'Grok Video（xAIQ）'
-    optionState.value.quality = '720p'
+    optionState.value.quality = currentVideoQuality.value?.value || optionState.value.quality
     optionState.value.count = '1条'
 }
 
@@ -850,7 +878,9 @@ const loadAigcVideoConfig = async () => {
         aigcVideoOptionConfig.value = config?.option_config || config || aigcVideoOptionConfig.value
         const defaults = aigcVideoOptionConfig.value.defaults || {}
         selectedVideoChannelCode.value = defaults.channel || selectedVideoChannelCode.value
-        optionState.value.duration = defaults.quality || optionState.value.duration
+        const defaultQuality = videoQualities.value.find((item) => item.value === defaults.quality)
+        optionState.value.resolution = defaultQuality?.resolution || optionState.value.resolution
+        optionState.value.duration = defaultQuality?.duration || optionState.value.duration
         optionState.value.ratio = defaults.ratio || optionState.value.ratio
         syncAigcVideoSelection()
     } catch (error) {
@@ -1103,6 +1133,8 @@ const mapBackendVideoWork = (item: any, index: number): BackendWork => {
     const referenceImage = referenceImages[0] ? normalizeAigcImageUrl(referenceImages[0]) : ''
     const fallbackCover = referenceImage
     const coverUrl = normalizeVideoCover(item, fallbackCover)
+    const displayResolution = getVideoDisplayResolution(item.quality)
+    const displayDuration = getVideoDisplayDuration(item.quality)
     return {
         task: String(item.task_id || item.id || index),
         id: `video-${item.task_id || item.id || index}`,
@@ -1111,9 +1143,9 @@ const mapBackendVideoWork = (item: any, index: number): BackendWork => {
         model: item.channel || item.model || currentVideoChannel.value?.label || 'Grok Video（xAIQ）',
         count: `${Number(item.quantity || 1)}条`,
         ratio: item.ratio || '16:9',
-        resolution: item.quality || '',
-        duration: item.quality ? `${item.quality}秒` : '6秒',
-        quality: '720p',
+        resolution: displayResolution,
+        duration: displayDuration || '6秒',
+        quality: item.quality || '',
         referenceFileName: referenceImages.length ? '参考图' : '',
         referenceImage,
         referenceImages,
@@ -1130,18 +1162,19 @@ const mapBackendVideoWork = (item: any, index: number): BackendWork => {
     }
 }
 
-const mapDigitalHumanWork = (item: any, index: number): BackendWork => {
+const mapDigitalHumanWork = (item: any, index: number, appCode: 'aigc_digital_human' | 'image_human' = 'aigc_digital_human'): BackendWork => {
     const rawId = String(item.task_id || item.id || index)
     const backendStatus = normalizeBackendStatus(item.status)
     const videoUrl = normalizeDigitalHumanVideo(item)
-    const coverUrl = normalizeDigitalHumanCover(item)
+    const coverUrl = normalizeDigitalHumanCover(item) || normalizeAigcImageUrl(item.image_url || item.image_uri || '')
     const duration = Number(item.duration || 0)
+    const isImageHuman = appCode === 'image_human'
     return {
         task: rawId,
-        id: `digital-human-${rawId}`,
+        id: `${isImageHuman ? 'image-human' : 'digital-human'}-${rawId}`,
         prompt: item.script_text || item.prompt || item.title || '',
         mode: 'video',
-        model: item.avatar_name || item.voice_name || item.channel || item.model || '数字人合成',
+        model: item.avatar_name || item.voice_name || item.channel || item.model || (isImageHuman ? '全驱动数字人' : '数字人合成'),
         count: '1条',
         ratio: item.ratio || '16:9',
         resolution: item.quality || '高清',
@@ -1155,6 +1188,7 @@ const mapDigitalHumanWork = (item: any, index: number): BackendWork => {
         error: item.error || item.error_msg || item.fail_reason || '',
         source: 'backend',
         category: 'digital_human',
+        appCode,
         createdAt: getBackendTimestamp(item),
         seed: index,
         resultImage: coverUrl,
@@ -1162,6 +1196,8 @@ const mapDigitalHumanWork = (item: any, index: number): BackendWork => {
         resultVideo: videoUrl
     }
 }
+
+const silentRequestOptions = { suppressErrorMessage: true }
 
 const fetchBackendList = async (loader: () => Promise<any>, label: string): Promise<any[]> => {
     try {
@@ -1211,13 +1247,24 @@ const refreshBackendWorks = async () => {
     if (isRefreshingBackendWorks) return
     isRefreshingBackendWorks = true
     try {
-        const [resultList, taskList, videoResultList, videoTaskList, digitalHumanResultList, digitalHumanTaskList] = await Promise.all([
+        const [
+            resultList,
+            taskList,
+            videoResultList,
+            videoTaskList,
+            digitalHumanResultList,
+            digitalHumanTaskList,
+            imageHumanResultList,
+            imageHumanTaskList
+        ] = await Promise.all([
             fetchBackendList(getAigcImageResults, 'aigc image results'),
             fetchBackendList(getAigcImageTasks, 'aigc image tasks'),
             fetchBackendList(getAigcVideoResults, 'aigc video results'),
             fetchBackendList(getAigcVideoTasks, 'aigc video tasks'),
             fetchBackendList(getAigcDigitalHumanResults, 'digital human results'),
-            fetchBackendList(getAigcDigitalHumanTasks, 'digital human tasks')
+            fetchBackendList(getAigcDigitalHumanTasks, 'digital human tasks'),
+            fetchBackendList(() => getImageHumanResults(undefined, silentRequestOptions), 'image human results'),
+            fetchBackendList(() => getImageHumanTasks(undefined, silentRequestOptions), 'image human tasks')
         ])
         const map = new Map<string, BackendWork>()
         ;(Array.isArray(taskList) ? taskList : []).forEach((item, index) => {
@@ -1242,6 +1289,14 @@ const refreshBackendWorks = async () => {
         })
         ;(Array.isArray(digitalHumanResultList) ? digitalHumanResultList : []).forEach((item, index) => {
             const work = mapDigitalHumanWork(item, index)
+            map.set(work.id, { ...(map.get(work.id) || {}), ...work })
+        })
+        ;(Array.isArray(imageHumanTaskList) ? imageHumanTaskList : []).forEach((item, index) => {
+            const work = mapDigitalHumanWork(item, index, 'image_human')
+            map.set(work.id, work)
+        })
+        ;(Array.isArray(imageHumanResultList) ? imageHumanResultList : []).forEach((item, index) => {
+            const work = mapDigitalHumanWork(item, index, 'image_human')
             map.set(work.id, { ...(map.get(work.id) || {}), ...work })
         })
         backendWorks.value = Array.from(map.values())
@@ -1285,12 +1340,33 @@ const addOptimisticBackendVideoWork = (taskId: unknown, status: unknown = 'runni
         prompt: prompt.value.trim(),
         reference_images: uploadedReferenceUri.value ? [uploadedReferenceUri.value] : [],
         channel: selectedVideoChannelCode.value || currentVideoChannel.value?.value || 'grok_video_xaiq',
-        quality: optionState.value.duration,
+        quality: currentVideoQuality.value?.value || optionState.value.quality,
         ratio: optionState.value.ratio,
         quantity: 1,
         status,
         create_time: Math.floor(Date.now() / 1000)
     }, optimisticBackendWorks.value.length)
+    optimisticBackendWorks.value = [
+        row,
+        ...optimisticBackendWorks.value.filter((item) => item.id !== row.id)
+    ]
+    syncBackendRefreshPolling()
+}
+
+const addOptimisticDigitalHumanWork = (
+    taskId: unknown,
+    appCode: 'aigc_digital_human' | 'image_human' = 'aigc_digital_human',
+    title = ''
+) => {
+    const id = String(taskId || '')
+    if (!id) return
+    const row = mapDigitalHumanWork({
+        id,
+        task_id: id,
+        title: title || (appCode === 'image_human' ? '全驱动数字人' : '数字人合成'),
+        status: 'running',
+        create_time: Math.floor(Date.now() / 1000)
+    }, optimisticBackendWorks.value.length, appCode)
     optimisticBackendWorks.value = [
         row,
         ...optimisticBackendWorks.value.filter((item) => item.id !== row.id)
@@ -1319,6 +1395,7 @@ const getWorkDownloadUrl = (work: BackendWork | null, preferred = '') => {
     const cardUrl = getCards(work).map((card) => card.video || card.image).find(Boolean) || ''
     return preferred || work.resultVideo || work.resultImage || work.coverImage || cardUrl || ''
 }
+const getWorkDownloadHref = (work: BackendWork | null, preferred = '') => resolvePcDownloadUrl(getWorkDownloadUrl(work, preferred))
 const getCardStyle = (card: WorkCard) => {
     if (!card.video) return undefined
     const [width, height] = String(card.ratio || '16:9').split(':').map((item) => Number(item))
@@ -1381,76 +1458,34 @@ const getWorkTaskId = (work: BackendWork) => {
     const parsed = Number(match?.[match.length - 1] || 0)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
 }
-const getDownloadDetailCandidates = (payload: any) => {
-    const candidates: any[] = []
-    const push = (value: any) => {
-        if (!value) return
-        if (Array.isArray(value)) {
-            value.forEach(push)
-            return
-        }
-        if (typeof value === 'object') candidates.push(value)
-    }
-    push(payload)
-    push(payload?.data)
-    push(payload?.detail)
-    push(payload?.task)
-    push(payload?.result)
-    push(payload?.results)
-    push(payload?.list)
-    push(payload?.lists)
-    return candidates
+const primeCardVideoFrame = (event: Event) => {
+    const video = event.currentTarget as HTMLVideoElement | null
+    if (!video) return
+    try {
+        if (video.readyState > 0 && video.currentTime < 0.05) video.currentTime = 0.05
+    } catch {}
 }
-const fetchWorkDownloadDetail = async (work: BackendWork) => {
-    if (work.source !== 'backend') return null
-    const id = getWorkTaskId(work)
-    if (!id) return null
-    const category = getWorkCategory(work)
-    if (category === 'digital_human') return getAigcDigitalHumanTask({ id })
-    if (category === 'video') return getAigcVideoTask({ id })
-    return getAigcImageTask({ id })
+const playCardVideo = (event: Event) => {
+    const video = event.currentTarget as HTMLVideoElement | null
+    video?.play?.().catch(() => {})
 }
-const mergeWorkDownloadDetail = (work: BackendWork, detail: any) => {
-    if (!detail || typeof detail !== 'object') return work
-    const category = getWorkCategory(work)
-    const next = category === 'digital_human'
-        ? mapDigitalHumanWork(detail, Number(work.seed || 0))
-        : category === 'video'
-            ? mapBackendVideoWork(detail, Number(work.seed || 0))
-            : mapBackendWork(detail, Number(work.seed || 0))
-    const merged = { ...work, ...next }
-    backendWorks.value = backendWorks.value.map((item) =>
-        item.id === work.id || item.task === work.task ? { ...item, ...merged } : item
-    )
-    if (detailWork.value && (detailWork.value.id === work.id || detailWork.value.task === work.task)) {
-        detailWork.value = { ...detailWork.value, ...merged }
-        detailImage.value = merged.resultImage || detailImage.value
-        detailVideo.value = merged.resultVideo || detailVideo.value
-    }
-    return merged
+const pauseCardVideo = (event: Event) => {
+    const video = event.currentTarget as HTMLVideoElement | null
+    if (!video) return
+    video.pause()
+    try {
+        video.currentTime = 0.05
+    } catch {}
 }
-const resolveWorkDownloadUrlFromDetail = (work: BackendWork, detail: any, preferred = '') => {
-    const candidates = getDownloadDetailCandidates(detail)
-    const category = getWorkCategory(work)
-    if (category === 'image') {
-        return candidates.map(normalizeResultImage).find(Boolean) || getWorkDownloadUrl(work, preferred)
-    }
-    const video = candidates.map(normalizeDigitalHumanVideo).find(Boolean)
-    const cover = candidates
-        .map((item) => category === 'digital_human' ? normalizeDigitalHumanCover(item) || normalizeVideoCover(item, '') : normalizeVideoCover(item, ''))
-        .find(Boolean)
-    return video || cover || getWorkDownloadUrl(work, preferred)
+const getDownloadName = (work: BackendWork | null, image: string) => {
+    const id = work?.task || work?.id || Date.now()
+    const category = work ? getWorkCategory(work) : 'image'
+    const ext = getPcDownloadExtension(image, category === 'video' || category === 'digital_human' ? 'mp4' : 'png')
+    return `aigc-${id}.${ext}`
 }
-const getDownloadName = (work: BackendWork, image: string) => {
-    const ext = getPcDownloadExtension(image, getWorkCategory(work) === 'video' || getWorkCategory(work) === 'digital_human' ? 'mp4' : 'png')
-    return `aigc-${work.task || work.id}.${ext}`
-}
-const downloadWorkImage = async (work: BackendWork, image: string) => {
-    if (!ensurePcLogin()) return
-    const url = getWorkDownloadUrl(work, image)
-    if (!downloadPcAsset(url, getDownloadName(work, url || image))) {
-        openPcAsset(url)
-    }
+const handleDownloadClick = (event: MouseEvent) => {
+    if (userStore.isLogin) return
+    event.preventDefault()
 }
 const isWorkCreating = (work: BackendWork) => ['pending', 'running'].includes(work.backendStatus || '') || work.status === 'creating'
 const isWorkWithoutResult = (work: BackendWork) => work.source === 'backend' && !work.resultImage && !work.resultVideo
@@ -1471,66 +1506,20 @@ const getWorkStatusDescription = (work: BackendWork, index: number) => {
     if (work.backendStatus === 'canceled') return '任务已取消'
     return getWorkCategory(work) === 'digital_human' ? '数字人视频正在合成' : `第 ${index + 1} 张正在生成`
 }
-const getStatusCount = (status: WorkStatusFilter) => {
-    return filterWorksByStatus(typeFilteredWorks.value, status).length
+const formatTime = (timestamp: number) => {
+    const date = new Date(timestamp)
+    if (Number.isNaN(date.getTime())) return '最近作品'
+    return new Intl.DateTimeFormat('zh-CN', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    }).format(date)
 }
-const getTypeCount = (type: WorkTypeFilter) => {
-    return filterWorksByType(filterWorksByStatus(orderedWorks.value, activeTab.value), type).length
-}
-const getOptionValues = (key: OptionKey) => {
-    if (generationMode.value === 'image') {
-        return imageOptionValues.value[key] || []
-    }
-    return videoOptionValues.value[key] || []
-}
-const isOptionActive = (key: OptionKey, value: string) => {
-    if (generationMode.value === 'image' && key === 'model') {
-        return currentChannel.value?.label === value
-    }
-    if (generationMode.value === 'video' && key === 'model') {
-        return currentVideoChannel.value?.label === value
-    }
-    return optionState.value[key] === value
-}
-const formatTime = (timestamp: number) =>
-    timestamp > 0
-        ? new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(timestamp)
-        : '最近作品'
 const goHome = () => router.push('/')
 const togglePopover = (key: Exclude<PopoverKey, ''>) => { activePopover.value = activePopover.value === key ? '' : key }
-const closeMenus = () => { activePopover.value = ''; openedOption.value = '' }
-const clearComposerCollapseTimer = () => {
-    if (!composerCollapseTimer) return
-    clearTimeout(composerCollapseTimer)
-    composerCollapseTimer = null
-}
-const canAutoCollapseComposer = () => !openedOption.value && !submitting.value
-const scheduleComposerCollapse = (delay = 5200) => {
-    clearComposerCollapseTimer()
-    if (!canAutoCollapseComposer()) return
-    composerCollapseTimer = setTimeout(() => {
-        if (canAutoCollapseComposer()) composerOpen.value = false
-    }, delay)
-}
-const openComposerDrawer = () => {
-    composerOpen.value = true
-    scheduleComposerCollapse()
-}
-const handleComposerInput = () => {
-    composerOpen.value = true
-    scheduleComposerCollapse(6500)
-}
-const handleWindowScroll = () => {
-    const currentY = window.scrollY || 0
-    if (Math.abs(currentY - lastScrollY) < 8) return
-    if (currentY > lastScrollY) {
-        composerOpen.value = false
-        clearComposerCollapseTimer()
-    } else {
-        openComposerDrawer()
-    }
-    lastScrollY = currentY
-}
+const closeMenus = () => { activePopover.value = ''; generationFilterOpen.value = false }
 const handleReferencePreviewKeydown = (event: KeyboardEvent) => {
     if (!referencePreviewImage.value) return
     if (event.key === 'ArrowLeft') {
@@ -1548,110 +1537,148 @@ const handleReferencePreviewKeydown = (event: KeyboardEvent) => {
         closeReferencePreview()
     }
 }
+const handleCreatePageKeydown = (event: KeyboardEvent) => {
+    handleReferencePreviewKeydown(event)
+    if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', 'Space'].includes(event.key)) {
+        cancelInitialLatestWorkJump()
+    }
+}
 const triggerUpload = () => {
-    openComposerDrawer()
-    if (!ensurePcLogin()) return
+    if (!ensurePcLogin({ redirect: route.fullPath })) return
     fileInputRef.value?.click()
 }
-const setGenerationMode = (mode: AiGenerationMode) => {
-    openComposerDrawer()
-    generationMode.value = mode
-    openedOption.value = ''
-    if (mode === 'image') syncAigcSelection()
-    if (mode === 'video') syncAigcVideoSelection()
+const syncPrimaryUploadedAsset = () => {
+    const first = uploadedAssets.value[0]
+    uploadedFileName.value = first?.name || ''
+    uploadedPreviewUrl.value = first?.url || ''
+    uploadedReferenceUri.value = first?.uri || ''
 }
-const toggleOption = (key: OptionKey, disabled = false) => {
-    if (disabled) return
-    if (!getOptionValues(key).length) return
-    openComposerDrawer()
-    openedOption.value = openedOption.value === key ? '' : key
-}
-const setOption = (key: OptionKey, value: string) => {
-    openComposerDrawer()
-    if (generationMode.value === 'image') {
-        if (key === 'model') {
-            const nextChannel = channels.value.find((item) => item.label === value || item.value === value)
-            if (nextChannel) selectedChannelCode.value = nextChannel.value
-            syncAigcSelection()
-            openedOption.value = ''
-            return
-        }
-        if (key === 'resolution') {
-            optionState.value.resolution = value
-            optionState.value.ratio = qualities.value.find((item) => item.value === value)?.ratios?.[0]?.value || optionState.value.ratio
-            syncAigcSelection()
-            openedOption.value = ''
-            return
-        }
-        if (key === 'ratio' || key === 'count') {
-            optionState.value[key] = value
-            syncAigcSelection()
-            openedOption.value = ''
-            return
-        }
-    }
-    if (generationMode.value === 'video') {
-        if (key === 'model') {
-            const nextChannel = videoChannels.value.find((item) => item.label === value || item.value === value)
-            if (nextChannel) selectedVideoChannelCode.value = nextChannel.value
-            syncAigcVideoSelection()
-            openedOption.value = ''
-            return
-        }
-        if (key === 'duration') {
-            optionState.value.duration = value
-            optionState.value.ratio = videoQualities.value.find((item) => item.value === value)?.ratios?.[0]?.value || optionState.value.ratio
-            syncAigcVideoSelection()
-            openedOption.value = ''
-            return
-        }
-        if (key === 'ratio') {
-            optionState.value.ratio = value
-            syncAigcVideoSelection()
-            openedOption.value = ''
-            return
-        }
-    }
-    optionState.value[key] = value
-    openedOption.value = ''
+const revokeUploadedAsset = (asset: UploadedAsset) => {
+    if (asset.isObjectUrl && asset.url.startsWith('blob:')) URL.revokeObjectURL(asset.url)
 }
 const clearReference = () => {
+    uploadedAssets.value.forEach(revokeUploadedAsset)
+    uploadedAssets.value = []
     uploadedFileName.value = ''
     uploadedPreviewUrl.value = ''
     uploadedReferenceUri.value = ''
     if (fileInputRef.value) fileInputRef.value.value = ''
-    scheduleComposerCollapse()
 }
-const handleUpload = async (event: Event) => {
-    openComposerDrawer()
-    const file = (event.target as HTMLInputElement).files?.[0]
-    if (!file) return
-    const objectUrl = URL.createObjectURL(file)
-    uploading.value = true
+const uploadSingleFile = async (file: File, placeholderAsset: UploadedAsset) => {
     try {
         const res: any = await uploadAppImage({ file })
         const uri = res?.uri || res?.url || res?.path || ''
         if (!uri) throw new Error('参考图上传失败')
-        uploadedFileName.value = file.name
-        uploadedPreviewUrl.value = objectUrl
-        uploadedReferenceUri.value = uri
+        uploadedAssets.value = uploadedAssets.value.map((asset) => (
+            asset.id === placeholderAsset.id
+                ? { ...asset, uri, uploading: false }
+                : asset
+        ))
+        syncPrimaryUploadedAsset()
         if (!prompt.value.trim()) prompt.value = `基于上传图片“${file.name}”生成高质量${generationMode.value === 'image' ? '图片' : '视频'}内容`
     } catch (error: any) {
+        URL.revokeObjectURL(placeholderAsset.url)
+        uploadedAssets.value = uploadedAssets.value.filter((asset) => asset.id !== placeholderAsset.id)
+        syncPrimaryUploadedAsset()
         if (isPcLoginRequiredError(error)) return
-        URL.revokeObjectURL(objectUrl)
         feedback.msgError(error?.msg || error?.message || '参考图上传失败')
+    }
+}
+const addUploadedFiles = async (files: File[]) => {
+    if (!files.length) return
+    if (!ensurePcLogin({ redirect: route.fullPath })) return
+    const pendingAssets = files.map((file, index) => ({
+        file,
+        asset: {
+            id: `uploading-${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
+            name: file.name,
+            url: URL.createObjectURL(file),
+            isObjectUrl: true,
+            uploading: true
+        } as UploadedAsset
+    }))
+    uploadedAssets.value = [
+        ...uploadedAssets.value,
+        ...pendingAssets.map((item) => item.asset)
+    ]
+    syncPrimaryUploadedAsset()
+    uploading.value = true
+    try {
+        for (const { file, asset } of pendingAssets) {
+            await uploadSingleFile(file, asset)
+        }
     } finally {
         uploading.value = false
     }
 }
+const removeUploadedAsset = (id: string) => {
+    const target = uploadedAssets.value.find((item) => item.id === id)
+    if (target) revokeUploadedAsset(target)
+    uploadedAssets.value = uploadedAssets.value.filter((item) => item.id !== id)
+    syncPrimaryUploadedAsset()
+    if (!uploadedAssets.value.length && fileInputRef.value) fileInputRef.value.value = ''
+}
+const handleUpload = async (event: Event) => {
+    const files = Array.from((event.target as HTMLInputElement).files || [])
+    await addUploadedFiles(files)
+    if (fileInputRef.value) fileInputRef.value.value = ''
+}
 const focusComposer = async () => {
-    openComposerDrawer()
     await nextTick()
-    window.setTimeout(() => promptTextareaRef.value?.focus(), 180)
+    window.setTimeout(() => composerRef.value?.focusTextarea?.(), 180)
+}
+const getRouteQueryString = (value: unknown) => Array.isArray(value) ? String(value[0] || '') : String(value || '')
+const shouldAutoScrollToLatestWork = () => {
+    const scroll = getRouteQueryString(route.query.scroll)
+    const type = getRouteQueryString(route.query.type)
+    return scroll === 'latest' || type === 'digital_human'
+}
+const primeLatestWorkFromRoute = () => {
+    if (!shouldAutoScrollToLatestWork()) return
+    const taskId = getRouteQueryString(route.query.task_id)
+    if (!taskId) return
+    const appCode = getRouteQueryString(route.query.app_code) === 'image_human' ? 'image_human' : 'aigc_digital_human'
+    addOptimisticDigitalHumanWork(taskId, appCode, getRouteQueryString(route.query.title))
+}
+const getDocumentBottomScrollTop = () => Math.max(
+    document.documentElement.scrollHeight,
+    document.body.scrollHeight
+) - window.innerHeight
+const clearLatestWorkAlignTimers = () => {
+    latestWorkAlignTimers.forEach((timer) => clearTimeout(timer))
+    latestWorkAlignTimers = []
+}
+const cancelInitialLatestWorkJump = () => {
+    pendingInitialLatestWorkJump = false
+    clearLatestWorkAlignTimers()
+}
+const scheduleLatestWorkBottomScroll = (behavior: ScrollBehavior = 'auto') => {
+    clearLatestWorkAlignTimers()
+    const scroll = () => {
+        window.requestAnimationFrame(() => {
+            window.scrollTo({ top: Math.max(getDocumentBottomScrollTop(), 0), behavior })
+        })
+    }
+    nextTick(() => {
+        scroll()
+        ;[80, 180, 360, 720, 1200, 2000].forEach((delay) => {
+            latestWorkAlignTimers.push(window.setTimeout(scroll, delay))
+        })
+    })
 }
 const scrollToLatestWork = async () => {
     await nextTick()
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    scheduleLatestWorkBottomScroll('smooth')
+}
+const jumpToLatestWork = async () => {
+    await nextTick()
+    scheduleLatestWorkBottomScroll('auto')
+}
+const handlePageScroll = () => {
+    composerRef.value?.collapseIfEmpty()
+}
+const handleWindowResize = () => {
+    if (pendingInitialLatestWorkJump) jumpToLatestWork()
 }
 const submitPrompt = async () => {
     if (submitting.value) return
@@ -1679,8 +1706,6 @@ const submitPrompt = async () => {
             addOptimisticBackendWork(res?.task_id, res?.status || 'running', selectedQuantity.value)
             activeTab.value = ''
             activeType.value = ''
-            workPage.value = 1
-            composerOpen.value = false
             feedback.msgSuccess(`已提交生成任务${selectedQuantity.value > 1 ? `，预计生成${selectedQuantity.value}张图片` : ''}`)
             await refreshCredits()
             await refreshBackendWorks()
@@ -1711,7 +1736,7 @@ const submitPrompt = async () => {
             prompt: prompt.value.trim(),
             reference_images: referenceImages,
             ratio: optionState.value.ratio,
-            quality: optionState.value.duration,
+            quality: currentVideoQuality.value?.value || optionState.value.quality,
             quantity: 1,
             channel: selectedVideoChannelCode.value || currentVideoChannel.value.value,
             negative_prompt: ''
@@ -1719,8 +1744,6 @@ const submitPrompt = async () => {
         addOptimisticBackendVideoWork(res?.task_id, res?.status || 'running')
         activeTab.value = ''
         activeType.value = ''
-        workPage.value = 1
-        composerOpen.value = false
         feedback.msgSuccess('已提交视频生成任务')
         await refreshCredits()
         await refreshBackendWorks()
@@ -1734,12 +1757,16 @@ const submitPrompt = async () => {
     }
 }
 const { lockFn: submitPromptLock, isLock: isSubmitPromptLocked } = useLockFn(submitPrompt)
-const goEditDigitalHumanWork = (work: BackendWork) => router.push({
-    path: '/ai/avatar',
-    query: {
-        edit_task_id: String(getWorkTaskId(work) || work.task || work.id || '')
-    }
-})
+const goEditDigitalHumanWork = (work: BackendWork) => router.push(
+    work.appCode === 'image_human'
+        ? { path: '/ai/avatar', query: { tab: 'image_human' } }
+        : {
+            path: '/ai/avatar',
+            query: {
+                edit_task_id: String(getWorkTaskId(work) || work.task || work.id || '')
+            }
+        }
+)
 const loadWorkToComposer = async (work: BackendWork) => {
     if (getWorkCategory(work) === 'digital_human') {
         await goEditDigitalHumanWork(work)
@@ -1748,7 +1775,6 @@ const loadWorkToComposer = async (work: BackendWork) => {
     syncComposerFromWork(work)
     await focusComposer()
 }
-const completeWork = (task: string) => { setWorkStatus(task, 'created'); activePopover.value = 'notice' }
 const rerunWork = async (work: BackendWork) => {
     if (getWorkCategory(work) === 'digital_human') {
         await goEditDigitalHumanWork(work)
@@ -1763,8 +1789,11 @@ const handleSidebar = async (key: SidebarKey) => {
     if (key === 'create') {
         activeTab.value = ''
         activeType.value = ''
-        await nextTick()
-        window.scrollTo({ top: 0, behavior: 'smooth' })
+        await jumpToLatestWork()
+        return
+    }
+    if (key === 'assets' && !ensurePcLogin({ redirect: buildSidebarRouteLocation(key).path || route.fullPath })) {
+        activeSidebar.value = 'create'
         return
     }
     await router.push(buildSidebarRouteLocation(key))
@@ -1799,19 +1828,36 @@ watch(referencePreviewImage, (image) => {
     document.body.style.overflow = locked ? 'hidden' : ''
     if (!locked) unlockCreatePageScroll()
 })
+watch(generationMode, (mode) => {
+    if (mode === 'image') syncAigcSelection()
+    if (mode === 'video') syncAigcVideoSelection()
+})
+watch(
+    optionState,
+    (next, previous) => {
+        if (!previous) return
+        if (generationMode.value === 'image') syncImageOptionSideEffects(next, previous)
+        if (generationMode.value === 'video') syncVideoOptionSideEffects(next, previous)
+    },
+    { deep: true }
+)
 watch(
     [activeTab, activeType],
-    async () => {
-        workPage.value = 1
-        await nextTick()
-        window.scrollTo({ top: 0, behavior: 'auto' })
+    () => {
+        if (hasMountedCreatePage) cancelInitialLatestWorkJump()
+    }
+)
+watch(
+    () => filteredWorks.value.map((work) => `${work.id}:${work.backendStatus || work.status}:${work.resultImage || ''}:${work.resultVideo || ''}`).join('|'),
+    (next, previous) => {
+        if (pendingInitialLatestWorkJump && next && !previous) jumpToLatestWork()
     }
 )
 watch(
     () => route.query,
     (query) => {
-        const type = Array.isArray(query.type) ? query.type[0] : query.type
-        const status = Array.isArray(query.status) ? query.status[0] : query.status
+        const type = getRouteQueryString(query.type)
+        const status = getRouteQueryString(query.status)
         if (type === 'image' || type === 'video' || type === 'digital_human') {
             activeType.value = type
         }
@@ -1820,22 +1866,32 @@ watch(
         } else if (status === '') {
             activeTab.value = ''
         }
+        primeLatestWorkFromRoute()
+        if (hasMountedCreatePage && shouldAutoScrollToLatestWork()) {
+            pendingInitialLatestWorkJump = true
+            jumpToLatestWork().finally(() => {
+                pendingInitialLatestWorkJump = false
+            })
+        }
     },
     { immediate: true }
 )
-watch(filteredWorks, (list) => {
-    const totalPages = Math.max(1, Math.ceil(list.length / workPageSize))
-    if (workPage.value > totalPages) workPage.value = totalPages
-})
 onMounted(() => {
     unlockCreatePageScroll()
+    primeLatestWorkFromRoute()
     document.addEventListener('click', closeMenus)
-    window.addEventListener('keydown', handleReferencePreviewKeydown)
-    lastScrollY = window.scrollY || 0
-    window.addEventListener('scroll', handleWindowScroll, { passive: true })
+    window.addEventListener('scroll', handlePageScroll, { passive: true })
+    window.addEventListener('wheel', cancelInitialLatestWorkJump, { passive: true })
+    window.addEventListener('touchmove', cancelInitialLatestWorkJump, { passive: true })
+    window.addEventListener('resize', handleWindowResize)
+    window.addEventListener('keydown', handleCreatePageKeydown)
     loadAigcConfig()
     loadAigcVideoConfig()
-    refreshBackendWorks()
+    refreshBackendWorks().finally(async () => {
+        hasMountedCreatePage = true
+        if (pendingInitialLatestWorkJump && filteredWorks.value.length) await jumpToLatestWork()
+        pendingInitialLatestWorkJump = false
+    })
 })
 
 watch(() => userStore.isLogin, (loggedIn) => {
@@ -1845,62 +1901,1035 @@ watch(() => userStore.isLogin, (loggedIn) => {
         stopBackendRefreshPolling()
         return
     }
-    refreshBackendWorks()
+    pendingInitialLatestWorkJump = true
+    refreshBackendWorks().then(() => {
+        if (pendingInitialLatestWorkJump && filteredWorks.value.length) return jumpToLatestWork()
+        return undefined
+    }).finally(() => {
+        pendingInitialLatestWorkJump = false
+    })
 })
 onBeforeUnmount(() => {
     stopBackendRefreshPolling()
+    clearLatestWorkAlignTimers()
     document.removeEventListener('click', closeMenus)
-    window.removeEventListener('keydown', handleReferencePreviewKeydown)
-    window.removeEventListener('scroll', handleWindowScroll)
-    clearComposerCollapseTimer()
+    window.removeEventListener('scroll', handlePageScroll)
+    window.removeEventListener('wheel', cancelInitialLatestWorkJump)
+    window.removeEventListener('touchmove', cancelInitialLatestWorkJump)
+    window.removeEventListener('resize', handleWindowResize)
+    window.removeEventListener('keydown', handleCreatePageKeydown)
     document.documentElement.classList.remove('ai-create-scrollable')
     document.body.classList.remove('ai-create-scrollable')
     document.documentElement.style.overflow = ''
     document.body.style.overflow = ''
-    if (uploadedPreviewUrl.value.startsWith('blob:')) {
-        URL.revokeObjectURL(uploadedPreviewUrl.value)
-    }
+    uploadedAssets.value.forEach(revokeUploadedAsset)
 })
 </script>
 
 <style lang="scss" scoped>
-:global(html){overflow:auto;scrollbar-width:none;-ms-overflow-style:none}
-:global(body){overflow:auto;scrollbar-width:none;-ms-overflow-style:none}
-:global(html.ai-create-scrollable),:global(body.ai-create-scrollable){overflow:auto!important}
-:global(html::-webkit-scrollbar){width:0;height:0;background:transparent}
-:global(body::-webkit-scrollbar){width:0;height:0;background:transparent}
-.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-.page{position:relative;min-height:100dvh;padding:0 0 120px;background:#050505;color:#fff;overflow-x:hidden}
-.page__bg,.page__noise,.page__stars{position:fixed;inset:0;pointer-events:none;will-change:opacity}
-.page__noise{background-image:radial-gradient(circle at 6% 16%,rgba(255,255,255,.65) 0 1px,transparent 1.8px),radial-gradient(circle at 12% 54%,rgba(255,255,255,.4) 0 1px,transparent 1.8px),radial-gradient(circle at 18% 32%,rgba(255,255,255,.35) 0 1px,transparent 1.6px),radial-gradient(circle at 26% 12%,rgba(255,255,255,.55) 0 1px,transparent 1.6px),radial-gradient(circle at 34% 58%,rgba(255,255,255,.45) 0 1px,transparent 1.8px),radial-gradient(circle at 42% 18%,rgba(255,255,255,.45) 0 1px,transparent 1.5px),radial-gradient(circle at 52% 10%,rgba(255,255,255,.55) 0 1px,transparent 1.5px),radial-gradient(circle at 61% 44%,rgba(255,255,255,.35) 0 1px,transparent 1.5px),radial-gradient(circle at 72% 20%,rgba(255,255,255,.48) 0 1px,transparent 1.7px),radial-gradient(circle at 84% 38%,rgba(255,255,255,.42) 0 1px,transparent 1.7px),radial-gradient(circle at 90% 14%,rgba(255,255,255,.52) 0 1px,transparent 1.7px),radial-gradient(circle at 96% 52%,rgba(255,255,255,.35) 0 1px,transparent 1.8px);opacity:.24}
-.page__stars{opacity:.95;mix-blend-mode:screen}
-.page__stars--near{background-image:radial-gradient(circle at 10% 22%,rgba(255,255,255,.95) 0 1.4px,transparent 2.2px),radial-gradient(circle at 21% 68%,rgba(255,255,255,.92) 0 1.2px,transparent 2px),radial-gradient(circle at 36% 36%,rgba(255,255,255,.98) 0 1.5px,transparent 2.2px),radial-gradient(circle at 48% 14%,rgba(255,255,255,.9) 0 1.3px,transparent 2px),radial-gradient(circle at 57% 60%,rgba(255,255,255,.9) 0 1.1px,transparent 1.8px),radial-gradient(circle at 69% 28%,rgba(255,255,255,.96) 0 1.5px,transparent 2.2px),radial-gradient(circle at 82% 58%,rgba(255,255,255,.94) 0 1.25px,transparent 2px),radial-gradient(circle at 92% 20%,rgba(255,255,255,.9) 0 1.35px,transparent 2px);animation:starTwinkle 4.8s ease-in-out infinite alternate}
-.page__stars--far{background-image:radial-gradient(circle at 14% 10%,rgba(160,203,255,.8) 0 1px,transparent 1.8px),radial-gradient(circle at 30% 48%,rgba(255,255,255,.72) 0 .9px,transparent 1.5px),radial-gradient(circle at 44% 72%,rgba(178,193,255,.72) 0 .9px,transparent 1.5px),radial-gradient(circle at 60% 8%,rgba(255,255,255,.68) 0 1px,transparent 1.6px),radial-gradient(circle at 78% 42%,rgba(181,220,255,.75) 0 .95px,transparent 1.6px),radial-gradient(circle at 88% 74%,rgba(255,255,255,.7) 0 1px,transparent 1.6px);animation:starTwinkle 6.2s ease-in-out infinite alternate-reverse}
-.header,.main,.composer-drawer{position:relative;z-index:1}
-.header{position:fixed;top:0;left:0;right:0;z-index:12;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:22px 40px 18px;background:linear-gradient(180deg,rgba(5,5,5,.9) 0%,rgba(5,5,5,.58) 74%,rgba(5,5,5,0) 100%);backdrop-filter:blur(18px)}
-.logo{display:inline-flex;align-items:center;gap:10px;color:#fff;text-decoration:none}.logo img{width:28px;height:28px}.logo span{font-size:20px;font-weight:700}
-.header__actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.pill,.icon-btn,.avatar,.sidebar__item,.upload,.select__btn,.select__menu button,.ghost,.primary,.ref-chip button,.submit button,.tab,.type-tab{border:0;cursor:pointer;transition:all .2s ease}
-.pill,.icon-btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 14px;border-radius:999px;background:rgba(30,31,32,.96);color:#fff;font-size:14px}.pill img{width:16px;height:16px}.pill__spark{width:11px!important;height:11px!important}.icon-btn{justify-content:center;min-width:32px;padding:0 10px}.icon-btn img{width:20px;height:20px}.avatar{width:40px;height:40px;border-radius:50%;padding:0;background:transparent;overflow:hidden}.avatar img{width:100%;height:100%;object-fit:cover}
-.popover{position:fixed;top:74px;right:40px;width:220px;padding:14px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(17,17,17,.96);box-shadow:0 18px 30px rgba(0,0,0,.35);backdrop-filter:blur(10px)}.popover strong{display:block;margin-bottom:6px;font-size:14px}.popover p{margin:0;color:rgba(255,255,255,.68);font-size:13px;line-height:1.6}
-.sidebar{position:fixed;left:28px;top:calc(50% - 216px);height:432px;display:flex;flex-direction:column;gap:18px;z-index:14}.sidebar__item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;width:72px;height:72px;padding:10px 8px;border-radius:18px;background:transparent;color:rgba(255,255,255,.86);font-size:12px;line-height:1;box-sizing:border-box;flex-shrink:0}.sidebar__icon{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;flex-shrink:0}.sidebar__item img{display:block;width:24px;height:24px;object-fit:contain;object-position:center center}.sidebar__item.is-active,.sidebar__item:hover{background:rgba(255,255,255,.06);color:#fff}
-.main{width:var(--ai-content-width);margin:128px var(--ai-content-gutter) 0 var(--ai-content-left);padding-bottom:120px}.work,.empty{border:1px solid rgba(255,255,255,.08);border-radius:28px;background:rgba(18,18,18,.72);box-shadow:0 18px 42px rgba(0,0,0,.22);backdrop-filter:blur(14px)}
-.summary{width:min(1080px,100%);margin:0 auto}.summary__filters{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(0,1fr);align-items:center;gap:10px;max-width:100%}.summary__tabs,.type-tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);max-width:100%;gap:4px;padding:4px;border-radius:999px;background:rgba(255,255,255,.04);overflow:hidden;scrollbar-width:none;min-width:0}.summary__tabs::-webkit-scrollbar,.type-tabs::-webkit-scrollbar{display:none}.tab,.type-tab{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;min-width:0;padding:0 12px;border-radius:999px;background:transparent;color:rgba(255,255,255,.68);font-size:14px;white-space:nowrap;flex-shrink:1}.tab span,.type-tab span{color:rgba(255,255,255,.42);font-size:12px}.tab.is-active,.type-tab.is-active{background:#fff;color:#050505;font-weight:600}.tab.is-active span,.type-tab.is-active span{color:rgba(5,5,5,.6)}
-.works{width:min(1080px,100%);margin:20px auto 0;padding-bottom:120px;display:flex;flex-direction:column;gap:20px}.work{padding:24px;scroll-margin-top:128px}.work__head,.work__tags,.work__actions,.work__config{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.work__head{justify-content:space-between}.chip,.work__config span{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:0 12px;border-radius:999px;font-size:12px}.chip{gap:6px;background:rgba(255,255,255,.08)}.chip i{width:6px;height:6px;border-radius:50%;background:#54f654;box-shadow:0 0 10px rgba(84,246,84,.9)}.chip--muted{color:rgba(255,255,255,.72)}.work__time{color:rgba(255,255,255,.42);font-size:13px}.ghost,.primary{height:36px;padding:0 16px;border-radius:999px;font-size:13px}.ghost{background:rgba(255,255,255,.08);color:#fff}.primary{background:#fff;color:#050505;font-weight:600}.work__prompt{margin-top:18px}.work__prompt span{display:block;margin-bottom:10px;color:rgba(255,255,255,.58);font-size:12px}.work__prompt p{display:-webkit-box;margin:0;overflow:hidden;color:#fff;font-size:15px;line-height:26px;text-overflow:ellipsis;-webkit-box-orient:vertical;-webkit-line-clamp:2}.work__config{margin-top:18px}.work__config span{color:rgba(255,255,255,.72);background:rgba(255,255,255,.05)}
-.ref-card,.ref-chip{display:flex;align-items:center;gap:12px;margin-top:18px;padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.04)}.ref-card{width:100%;color:inherit;text-align:left}.ref-card--detail{margin-top:0}.ref-card__thumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}.ref-card__thumb{width:48px;height:48px;padding:0;border:0;border-radius:14px;background:rgba(255,255,255,.06);overflow:hidden;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease}.ref-card__thumb:hover{transform:translateY(-1px) scale(1.04);box-shadow:0 10px 24px rgba(0,0,0,.28)}.ref-card__thumb img,.ref-chip img{display:block;width:100%;height:100%;object-fit:cover}.ref-card__thumb img{border-radius:14px}.ref-card small,.ref-chip small{display:block;color:rgba(255,255,255,.42);font-size:12px}.ref-card strong,.ref-chip strong{display:block;overflow:hidden;color:#fff;font-size:14px;line-height:20px;text-overflow:ellipsis;white-space:nowrap}
-.ref-chip{width:100%;min-width:0;min-height:56px;margin-top:10px;box-sizing:border-box;overflow:hidden}.ref-chip img{width:40px!important;height:40px!important;flex:0 0 40px;border-radius:12px}.ref-chip div{min-width:0;flex:1}.ref-chip button{flex:0 0 auto;white-space:nowrap}
-.grid{display:grid;gap:12px;margin-top:20px}.grid.is-1{grid-template-columns:minmax(0,1fr)}.grid.is-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.is-3,.grid.is-4{grid-template-columns:repeat(4,minmax(0,1fr))}.card{position:relative;height:320px;overflow:hidden;border-radius:16px;background:#101010;cursor:pointer}.card img,.card video,.card__mask{position:absolute;inset:0;width:100%;height:100%}.card img,.card video{object-fit:cover}.card.is-video{height:auto;min-height:0;max-height:520px}.card.is-video video{object-fit:contain;background:#070707}.card__mask{background:linear-gradient(180deg,rgba(7,7,7,.02) 12%,rgba(7,7,7,.46) 100%)}.card.is-pending img,.card.is-pending video{filter:blur(6px) saturate(.85);transform:scale(1.04);opacity:.82}.card.is-pending .card__mask{background:linear-gradient(180deg,rgba(7,7,7,.22) 0%,rgba(7,7,7,.72) 100%)}.card__play{position:absolute;left:50%;top:50%;z-index:3;display:inline-flex;align-items:center;justify-content:center;width:62px;height:62px;padding-left:4px;border:1px solid rgba(255,255,255,.28);border-radius:50%;background:rgba(0,0,0,.58);box-shadow:0 16px 42px rgba(0,0,0,.36);color:#fff;font-size:22px;line-height:1;transform:translate(-50%,-50%);backdrop-filter:blur(12px);transition:transform .2s ease,background .2s ease}.card:hover .card__play{background:rgba(255,255,255,.92);color:#050505;transform:translate(-50%,-50%) scale(1.04)}.card__download,.card__favorite{position:absolute;top:12px;z-index:4;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border:1px solid rgba(255,255,255,.24);border-radius:50%;background:rgba(0,0,0,.58);opacity:0;backdrop-filter:blur(12px);transition:opacity .2s ease,background .2s ease,transform .2s ease}.card__download{right:12px}.card__favorite{right:58px}.card:hover .card__download,.card:hover .card__favorite,.card__favorite.is-active{opacity:1}.card__download:hover,.card__favorite:hover{background:rgba(255,255,255,.92);border-color:rgba(255,255,255,.92);transform:scale(1.04)}.card__favorite.is-active{background:#ffd84d;border-color:#ffd84d;transform:scale(1.04)}.card__download img,.card__favorite img{position:static;width:18px;height:18px;object-fit:contain;filter:drop-shadow(0 1px 4px rgba(0,0,0,.8))}.card__download:hover img,.card__favorite:hover img,.card__favorite.is-active img{filter:invert(1) drop-shadow(0 1px 2px rgba(255,255,255,.18))}.card__state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}.card__state strong{font-size:18px}.card__state span:last-child{color:rgba(255,255,255,.68);font-size:13px}.spinner{width:34px;height:34px;border:2px solid rgba(255,255,255,.18);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite}
-.empty{padding:56px 28px;text-align:center}.empty strong{display:block;margin-bottom:10px;font-size:22px}.empty p{margin:0;color:rgba(255,255,255,.58);font-size:14px;line-height:24px}
-.work-detail{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.72);backdrop-filter:blur(18px)}.work-detail__panel{position:relative;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(320px,.92fr);width:min(1120px,calc(100vw - 32px));max-height:min(calc(100vh - 32px),920px);overflow:hidden;border:1px solid rgba(255,255,255,.1);border-radius:24px;background:#101012;box-shadow:0 30px 90px rgba(0,0,0,.56)}.work-detail__toolbar{position:sticky;top:0;z-index:3;display:flex;justify-content:flex-end;margin:-12px -8px 0 0;padding-bottom:4px}.work-detail__close{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#fff;font-size:24px;line-height:1}.work-detail__close:hover{background:rgba(255,255,255,.16)}.work-detail__media{position:relative;min-height:clamp(280px,52vh,640px);background:#070707}.work-detail__media img,.work-detail__media video{display:block;width:100%;height:100%;min-height:clamp(280px,52vh,640px);object-fit:contain}.work-detail__placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}.work-detail__placeholder strong{font-size:22px}.work-detail__placeholder span{color:rgba(255,255,255,.62);font-size:14px}.work-detail__content{display:flex;flex-direction:column;gap:24px;min-width:0;padding:24px 28px 28px;overflow-y:auto}.work-detail__head{display:flex;align-items:center;justify-content:space-between;gap:16px}.work-detail__head div{display:flex;flex-direction:column;gap:8px;min-width:0}.work-detail__head strong{font-size:22px}.work-detail__head span,.work-detail__section span{color:rgba(255,255,255,.5);font-size:13px}.work-detail__actions{display:flex;align-items:center;gap:10px;margin-top:auto;padding-top:8px}.work-detail__download,.work-detail__favorite{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 18px;border:0;border-radius:999px;background:#fff;color:#050505;font-size:14px;font-weight:600}.work-detail__download:disabled{opacity:.45;cursor:not-allowed}.work-detail__favorite{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.18)}.work-detail__favorite:hover{background:#fff;color:#050505;border-color:#fff}.work-detail__favorite.is-active{background:#ffd84d;color:#050505;border-color:#ffd84d}.work-detail__download img{width:16px;height:16px;filter:invert(1)}.work-detail__favorite img{width:16px;height:16px;filter:drop-shadow(0 1px 4px rgba(0,0,0,.8))}.work-detail__favorite.is-active img,.work-detail__favorite:hover img{filter:invert(1)}.work-detail__section{display:flex;flex-direction:column;gap:10px;min-width:0}.work-detail__section p{margin:0;color:#fff;font-size:15px;line-height:26px;white-space:pre-wrap;word-break:break-word}.work-detail__config{display:flex;flex-wrap:wrap;gap:8px}.work-detail__config span{display:inline-flex;align-items:center;min-height:30px;padding:0 12px;border-radius:999px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.74);font-size:13px}
-.works__pagination{display:flex;justify-content:flex-end;margin-top:24px;padding-bottom:8px}
-.works__pagination :deep(.el-pagination){--el-pagination-bg-color:transparent;--el-pagination-text-color:rgba(255,255,255,.72);--el-pagination-button-color:rgba(255,255,255,.72);--el-pagination-button-disabled-color:rgba(255,255,255,.28);--el-pagination-hover-color:#fff;--el-pagination-border-radius:999px}
-.works__pagination :deep(.el-pager li),.works__pagination :deep(.btn-prev),.works__pagination :deep(.btn-next){background:rgba(255,255,255,.06);border-radius:999px}
-.works__pagination :deep(.el-pager li.is-active){background:#fff;color:#050505}
-.reference-preview{position:fixed;inset:0;z-index:96;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:48px;background:rgba(0,0,0,.78);backdrop-filter:blur(18px)}.reference-preview img{display:block;max-width:min(1120px,calc(100vw - 120px));max-height:calc(100vh - 150px);border-radius:18px;object-fit:contain;background:#111;box-shadow:0 28px 88px rgba(0,0,0,.55)}.reference-preview span{max-width:min(720px,calc(100vw - 80px));overflow:hidden;color:rgba(255,255,255,.72);font-size:13px;text-overflow:ellipsis;white-space:nowrap}.reference-preview__close,.reference-preview__nav{position:fixed;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;line-height:1;backdrop-filter:blur(12px);transition:background .2s ease,transform .2s ease}.reference-preview__close{top:34px;right:40px;width:44px;height:44px;font-size:28px}.reference-preview__nav{top:50%;width:52px;height:52px;font-size:44px;transform:translateY(-50%)}.reference-preview__nav--prev{left:42px}.reference-preview__nav--next{right:42px}.reference-preview__close:hover,.reference-preview__nav:hover{background:rgba(255,255,255,.18)}.reference-preview__nav:hover{transform:translateY(-50%) scale(1.04)}
-.composer-hotzone{position:fixed;left:calc(var(--ai-content-left) + (100vw - var(--ai-content-left) - var(--ai-content-gutter)) / 2);bottom:0;z-index:19;width:min(960px,var(--ai-content-width));height:34px;transform:translateX(-50%)}.composer-drawer{position:fixed;left:calc(var(--ai-content-left) + (100vw - var(--ai-content-left) - var(--ai-content-gutter)) / 2);bottom:max(18px,env(safe-area-inset-bottom));z-index:20;display:flex;flex-direction:column;align-items:center;width:min(960px,var(--ai-content-width));transform:translate(-50%,calc(100% + 34px));transition:transform .34s cubic-bezier(.22,.61,.36,1)}.composer-drawer.is-open{transform:translate(-50%,0)}.composer{position:relative;display:flex;gap:14px;width:100%;padding:16px 18px 14px 10px;border:1px solid rgba(255,255,255,.08);border-radius:22px;background:rgba(34,34,34,.97);box-shadow:0 24px 64px rgba(0,0,0,.32);backdrop-filter:blur(22px)}.upload{position:relative;display:flex;align-items:center;justify-content:center;width:68px;height:74px;background:transparent;color:#a5a5a6;flex-shrink:0}.upload__box,.upload__preview{display:inline-flex;align-items:center;justify-content:center;width:48px;height:64px;border-radius:13px;background:linear-gradient(180deg,#313233 0%,#2a2b2c 100%);transform:rotate(-8.5deg);overflow:hidden}.upload__box span{font-size:28px;transform:rotate(9deg)}.upload__preview img{width:100%;height:100%;object-fit:cover;transform:rotate(8.5deg) scale(1.15)}.upload__delete{position:absolute;right:5px;top:1px;z-index:3;width:20px;height:20px;padding:0;border:0;border-radius:50%;background:rgba(0,0,0,.62);color:#fff;font-size:14px;line-height:20px;cursor:pointer}.composer__body{flex:1;display:flex;flex-direction:column;min-width:0}.composer textarea{width:100%;min-height:72px;border:0;outline:none;resize:none;background:transparent;color:#fff;font-size:15px;line-height:1.6}.composer textarea::placeholder{color:#7f7f80}.ref-chip{margin-top:12px}.ref-chip button{margin-left:auto;padding:0;background:transparent;color:rgba(255,255,255,.52);font-size:13px}.composer__footer{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-top:14px}.options{display:flex;align-items:flex-end;gap:6px;flex-wrap:wrap;min-width:0}.mode-switch{display:inline-flex;align-items:center;width:auto;height:32px;padding:2px;border-radius:32px;background:#050505}.prompt-toggle,.select__btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:32px;background:#292a2b;color:#a5a5a6;font-size:14px;line-height:14px;white-space:nowrap;flex-shrink:0}.prompt-toggle img,.select__btn img{width:16px;height:16px;object-fit:contain;flex-shrink:0}.prompt-toggle:hover,.select__btn.is-open,.select__btn:hover{color:#fff}.mode-switch .prompt-toggle{min-width:78px;height:28px;background:transparent}.mode-switch .prompt-toggle.is-active{background:#292a2b;color:#fff}.select{position:relative;display:inline-flex}.select__btn img{width:14px;height:14px;opacity:.65}.select__btn{background:#292a2b}.select__btn.is-open,.select__btn:hover{background:#323334}.select__menu{position:absolute;right:0;bottom:calc(100% + 8px);min-width:160px;max-height:min(320px,45vh);overflow-y:auto;padding:8px;border-radius:14px;background:rgba(17,17,17,.96);box-shadow:0 18px 30px rgba(0,0,0,.35);z-index:24}.select__menu button{display:flex;align-items:center;gap:8px;width:100%;min-height:34px;padding:0 10px;border-radius:10px;background:transparent;color:rgba(255,255,255,.7);font-size:13px;text-align:left;white-space:nowrap}.select__ratio-preview{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;flex-shrink:0}.select__ratio-shape{display:block;border:1px solid rgba(255,255,255,.48);border-radius:2px;background:rgba(255,255,255,.06)}.select__menu button.is-active,.select__menu button:hover{background:rgba(255,255,255,.08);color:#fff}.submit{display:inline-flex;align-items:center;gap:12px;flex-shrink:0}.submit span{display:inline-flex;align-items:center;gap:5px;color:#a5a5a6;font-size:14px;white-space:nowrap}.submit button{width:32px;height:32px;border-radius:50%;background:#fff;color:#222;font-size:18px;font-weight:700}.submit button:disabled{opacity:.45;cursor:not-allowed}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes starTwinkle{0%{opacity:.28;transform:scale(1)}50%{opacity:.62;transform:scale(1.01)}100%{opacity:.95;transform:scale(1.02)}}
-@media (max-width:1400px){.summary,.works{width:min(1000px,100%)}.grid.is-3,.grid.is-4{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:1100px){.header{align-items:flex-start;flex-direction:column;padding:18px 20px 14px}.header__actions{width:100%;justify-content:flex-start}.popover{right:20px}.sidebar{position:fixed;top:126px;left:20px;right:20px;height:auto;display:flex;flex-direction:row;flex-wrap:nowrap;gap:8px;overflow-x:auto;padding:6px;border:1px solid rgba(255,255,255,.08);border-radius:18px;background:rgba(8,8,10,.78);backdrop-filter:blur(14px);scrollbar-width:none}.sidebar::-webkit-scrollbar{display:none}.sidebar__item{width:68px;height:64px;border-radius:14px}.main{width:auto;margin:214px 20px 0}.summary,.works{width:100%;padding-inline:20px}.summary__filters{grid-template-columns:1fr;align-items:flex-start}.summary__tabs,.type-tabs{width:100%}.work__head,.composer,.composer__footer{flex-direction:column;align-items:flex-start}.composer-hotzone{left:20px;right:20px;width:auto;transform:none}.composer-drawer{left:20px;right:20px;width:auto;transform:translateY(calc(100% + 34px))}.composer-drawer.is-open{transform:translateY(0)}.composer{max-height:calc(100vh - 120px);overflow-y:auto}.composer__footer{padding-left:0}.options{margin-left:0;flex-wrap:wrap}.work-detail{padding:14px}.work-detail__panel{grid-template-columns:1fr;width:calc(100vw - 28px);max-height:calc(100vh - 28px);overflow-y:auto}.work-detail__media,.work-detail__media img,.work-detail__media video{min-height:300px}.work-detail__content{padding:18px 20px 22px}}
-@media (max-width:820px){.sidebar{top:150px}.sidebar__item{width:64px}.page{padding-bottom:140px}.main{margin-top:236px;padding-bottom:120px}.works{padding-bottom:120px}.grid,.grid.is-2,.grid.is-3,.grid.is-4{grid-template-columns:1fr}.card{height:280px}.composer-hotzone{left:12px;right:12px}.composer-drawer{left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom))}.composer{padding:14px 14px 14px 8px}.upload{width:100%;height:76px}.upload__box{height:66px}.options{margin-left:0;flex-wrap:wrap}.submit{width:100%;justify-content:space-between}}
+:global(html),
+:global(body) {
+    overflow: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+:global(html.ai-create-scrollable),
+:global(body.ai-create-scrollable) {
+    overflow: auto !important;
+}
+
+:global(html::-webkit-scrollbar),
+:global(body::-webkit-scrollbar) {
+    width: 0;
+    height: 0;
+    background: transparent;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.page {
+    position: relative;
+    min-height: 100dvh;
+    padding-bottom: 236px;
+    background: #050505;
+    color: #fff;
+    overflow-x: hidden;
+}
+
+.page.is-empty {
+    height: 100dvh;
+    min-height: 100dvh;
+    padding-bottom: 0;
+    overflow: hidden;
+}
+
+.page:not(.is-empty).is-fit {
+    height: 100vh;
+    min-height: 100vh;
+    padding-bottom: 0;
+    overflow-y: hidden;
+}
+
+.page__bg,
+.page__noise,
+.page__stars {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    will-change: opacity;
+}
+
+.page__noise {
+    background-image:
+        radial-gradient(circle at 6% 16%, rgba(255, 255, 255, 0.65) 0 1px, transparent 1.8px),
+        radial-gradient(circle at 18% 32%, rgba(255, 255, 255, 0.35) 0 1px, transparent 1.6px),
+        radial-gradient(circle at 34% 58%, rgba(255, 255, 255, 0.45) 0 1px, transparent 1.8px),
+        radial-gradient(circle at 52% 10%, rgba(255, 255, 255, 0.55) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 72% 20%, rgba(255, 255, 255, 0.48) 0 1px, transparent 1.7px),
+        radial-gradient(circle at 90% 14%, rgba(255, 255, 255, 0.52) 0 1px, transparent 1.7px);
+    opacity: 0.24;
+}
+
+.page__stars {
+    opacity: 0.95;
+    mix-blend-mode: screen;
+}
+
+.page__stars--near {
+    background-image:
+        radial-gradient(circle at 10% 22%, rgba(255, 255, 255, 0.95) 0 1.4px, transparent 2.2px),
+        radial-gradient(circle at 36% 36%, rgba(255, 255, 255, 0.98) 0 1.5px, transparent 2.2px),
+        radial-gradient(circle at 57% 60%, rgba(255, 255, 255, 0.9) 0 1.1px, transparent 1.8px),
+        radial-gradient(circle at 82% 58%, rgba(255, 255, 255, 0.94) 0 1.25px, transparent 2px);
+    animation: starTwinkle 4.8s ease-in-out infinite alternate;
+}
+
+.page__stars--far {
+    background-image:
+        radial-gradient(circle at 14% 10%, rgba(160, 203, 255, 0.8) 0 1px, transparent 1.8px),
+        radial-gradient(circle at 44% 72%, rgba(178, 193, 255, 0.72) 0 0.9px, transparent 1.5px),
+        radial-gradient(circle at 78% 42%, rgba(181, 220, 255, 0.75) 0 0.95px, transparent 1.6px),
+        radial-gradient(circle at 88% 74%, rgba(255, 255, 255, 0.7) 0 1px, transparent 1.6px);
+    animation: starTwinkle 6.2s ease-in-out infinite alternate-reverse;
+}
+
+.main {
+    position: relative;
+    z-index: 1;
+    width: calc(100vw - 188px);
+    margin-top: 56px;
+    margin-left: 116px;
+    margin-right: 72px;
+    padding-bottom: 152px;
+}
+
+.main.is-empty {
+    position: fixed;
+    inset: 56px 72px 124px 116px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    padding-bottom: 0;
+    overflow: hidden;
+}
+
+.summary {
+    display: block;
+    width: 100%;
+    height: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+}
+
+.summary__filters {
+    position: fixed;
+    top: 56px;
+    right: 40px;
+    z-index: 21;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.generation-filter {
+    position: relative;
+}
+
+.summary-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: #1a1b20;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.summary-filter img {
+    width: 14px;
+    height: 14px;
+    opacity: 0.7;
+}
+
+.generation-filter__menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 120px;
+    padding: 6px;
+    border-radius: 12px;
+    background: rgba(21, 21, 21, 0.98);
+    box-shadow: 0 18px 30px rgba(0, 0, 0, 0.32);
+}
+
+.generation-filter__menu button {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.generation-filter__menu button:hover,
+.generation-filter__menu button.is-active {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.works {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    max-width: none;
+    margin-top: 0;
+    padding-bottom: 0;
+}
+
+.page:not(.is-empty) .works {
+    margin-top: 0;
+}
+
+.work {
+    display: block;
+    padding: 30px 0 34px;
+    border: 0;
+    background: transparent;
+}
+
+.work:first-child {
+    padding-top: 0;
+}
+
+.work + .work {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.work__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 14px;
+}
+
+.work__text {
+    min-width: 0;
+}
+
+.work__title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    flex-wrap: nowrap;
+}
+
+.work__title .ref-stack {
+    position: relative;
+    display: inline-flex;
+    width: 44px;
+    height: 36px;
+    flex: 0 0 auto;
+    margin-right: 2px;
+}
+
+.work__title .ref-stack__item {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: block;
+    width: 32px;
+    height: 36px;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    border-radius: 8px;
+    background: #151515;
+    overflow: hidden;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+    transform-origin: center;
+}
+
+.work__title .ref-stack__item img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.work__text h2 {
+    max-width: min(960px, calc(100vw - 360px));
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 22px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.work__meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+    margin-top: 2px;
+    color: #7f8a9a;
+    font-size: 14px;
+    line-height: 22px;
+}
+
+.work__meta span + span::before {
+    content: '|';
+    margin: 0 8px;
+    color: #384151;
+}
+
+.grid,
+.grid.is-1,
+.grid.is-2,
+.grid.is-3,
+.grid.is-4 {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 2px;
+    width: auto;
+    max-width: 100%;
+    margin-top: 0;
+    justify-content: start;
+}
+
+.card {
+    position: relative;
+    width: 176px;
+    height: auto;
+    overflow: hidden;
+    border-radius: 0;
+    background: #202127;
+    flex: 0 0 auto;
+    cursor: zoom-in;
+}
+
+.card img,
+.card__video,
+.card__placeholder {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.card__placeholder {
+    aspect-ratio: 1 / 1;
+    background: #202127;
+}
+
+.card__mask {
+    display: none;
+}
+
+.card.is-pending img,
+.card.is-pending video {
+    filter: blur(5px) saturate(0.85);
+    transform: scale(1.04);
+    opacity: 0.82;
+}
+
+.card__state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px;
+    background: rgba(10, 10, 10, 0.58);
+    text-align: center;
+}
+
+.card__state strong {
+    font-size: 16px;
+}
+
+.card__state span:last-child {
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.spinner {
+    width: 30px;
+    height: 30px;
+    border: 2px solid rgba(255, 255, 255, 0.18);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.work__footer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 18px;
+}
+
+.ghost,
+.primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 8px;
+    background: #1d1e25;
+    color: #fff;
+    font-size: 14px;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.ghost--icon {
+    width: 36px;
+    padding: 0;
+}
+
+.ghost--icon img {
+    width: 16px;
+    height: 16px;
+}
+
+.ghost--icon:hover {
+    background: #272832;
+}
+
+.empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+.empty__placeholder {
+    display: block;
+    width: 240px;
+    height: 240px;
+    object-fit: cover;
+    opacity: 0.58;
+    filter: blur(0.2px);
+    -webkit-mask-image: radial-gradient(circle, #000 48%, rgba(0, 0, 0, 0.86) 62%, rgba(0, 0, 0, 0.18) 78%, transparent 94%);
+    mask-image: radial-gradient(circle, #000 48%, rgba(0, 0, 0, 0.86) 62%, rgba(0, 0, 0, 0.18) 78%, transparent 94%);
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+}
+
+.empty p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 14px;
+    line-height: 22px;
+    text-align: center;
+}
+
+.work-detail,
+.reference-preview {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    background: rgba(10, 10, 12, 0.96);
+    backdrop-filter: blur(14px);
+}
+
+.reference-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.work-detail__panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    width: 100%;
+    height: 100%;
+}
+
+.work-detail__media {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    padding: 20px 24px;
+    background:
+        radial-gradient(circle at top, rgba(255, 255, 255, 0.06), transparent 36%),
+        #111114;
+}
+
+.work-detail__media-frame {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 56px 24px 32px;
+}
+
+.work-detail__media img,
+.work-detail__media video,
+.work-detail__placeholder {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: min(100%, calc(100vw - 500px));
+    max-height: calc(100vh - 112px);
+    border-radius: 12px;
+    object-fit: contain;
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.4);
+}
+
+.work-detail__placeholder {
+    width: min(520px, calc(100vw - 500px));
+    aspect-ratio: 3 / 4;
+    background: #202127;
+}
+
+.work-detail__content {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    height: 100%;
+    min-height: 0;
+    min-width: 0;
+    padding: 20px 22px 22px;
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.96);
+    background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.05), transparent 26%),
+        linear-gradient(180deg, #171719 0%, #101012 100%);
+    overflow-y: auto;
+}
+
+.work-detail__header {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.work-detail__author-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.work-detail__author {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.work-detail__avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.94);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.work-detail__author-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.work-detail__author-meta strong {
+    color: rgba(255, 255, 255, 0.98);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.work-detail__subline {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 18px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 12px;
+}
+
+.work-detail__close,
+.reference-preview__close,
+.reference-preview__nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    cursor: pointer;
+}
+
+.work-detail__close {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    z-index: 4;
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(17, 17, 19, 0.72);
+    font-size: 24px;
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease;
+}
+
+.work-detail__close:hover {
+    border-color: rgba(255, 255, 255, 0.24);
+    background: rgba(28, 28, 31, 0.94);
+}
+
+.work-detail__subline strong {
+    color: rgba(255, 255, 255, 0.94);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.work-detail__section span {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+}
+
+.work-detail__section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.work-detail__prompt {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    padding: 2px 0 0;
+}
+
+.work-detail__prompt-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.work-detail__prompt-head span {
+    color: rgba(255, 255, 255, 0.94);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.work-detail__prompt-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding-right: 8px;
+}
+
+.work-detail__prompt-body p,
+.work-detail__section p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.94);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 2;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.work-detail__config {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+    min-height: 16px;
+    margin-top: 20px;
+    margin-bottom: 18px;
+    white-space: nowrap;
+}
+
+.work-detail__config-text {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+}
+
+.work-detail__config-text + .work-detail__config-text::before {
+    content: '|';
+    margin: 0 8px;
+    color: rgba(255, 255, 255, 0.24);
+}
+
+.work-detail__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: auto;
+}
+
+.work-detail__download,
+.work-detail__favorite {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    width: 162px;
+    height: 44px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.work-detail__favorite {
+    border: 0;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.work-detail__download:hover,
+.work-detail__favorite:hover,
+.work-detail__favorite.is-active {
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+}
+
+.work-detail__download img,
+.work-detail__favorite img {
+    width: 16px;
+    height: 16px;
+}
+
+.work-detail__download:hover img,
+.work-detail__favorite:hover img,
+.work-detail__favorite.is-active img {
+    filter: none;
+}
+
+.ref-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.ref-card__thumbs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ref-card__thumb {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border: 0;
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+}
+
+.ref-card__thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.reference-preview {
+    z-index: 96;
+    flex-direction: column;
+    gap: 14px;
+    padding: 48px;
+}
+
+.reference-preview img {
+    display: block;
+    max-width: min(1120px, calc(100vw - 120px));
+    max-height: calc(100vh - 150px);
+    border-radius: 18px;
+    object-fit: contain;
+    background: #111;
+}
+
+.reference-preview span {
+    max-width: min(720px, calc(100vw - 80px));
+    overflow: hidden;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.reference-preview__close {
+    position: fixed;
+    top: 34px;
+    right: 40px;
+    width: 44px;
+    height: 44px;
+    font-size: 28px;
+}
+
+.reference-preview__nav {
+    position: fixed;
+    top: 50%;
+    width: 52px;
+    height: 52px;
+    font-size: 44px;
+    transform: translateY(-50%);
+}
+
+.reference-preview__nav--prev {
+    left: 42px;
+}
+
+.reference-preview__nav--next {
+    right: 42px;
+}
+
+.composer {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    z-index: 20;
+    display: block;
+    width: min(1024px, calc(100vw - 260px));
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    transform: translateX(-50%);
+}
+
+.composer :deep(.ai-create-composer.is-collapsed) {
+    width: min(640px, 100%);
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes starTwinkle {
+    0% {
+        opacity: 0.28;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.62;
+        transform: scale(1.01);
+    }
+    100% {
+        opacity: 0.95;
+        transform: scale(1.02);
+    }
+}
+
+@media (max-width: 1100px) {
+    .main {
+        width: calc(100vw - 132px);
+        margin-left: 108px;
+        margin-right: 24px;
+    }
+
+    .summary__filters {
+        right: 24px;
+    }
+
+    .work__title {
+        flex-wrap: wrap;
+    }
+
+    .work__text h2 {
+        max-width: 100%;
+    }
+
+    .grid,
+    .grid.is-1,
+    .grid.is-2,
+    .grid.is-3,
+    .grid.is-4 {
+        width: 100%;
+    }
+
+    .card {
+        width: min(176px, calc((100vw - 156px) / 2));
+    }
+
+    .composer {
+        width: min(100%, calc(100vw - 148px));
+    }
+
+    .work-detail__panel {
+        grid-template-columns: 1fr;
+        overflow-y: auto;
+    }
+
+    .work-detail__media {
+        min-height: 360px;
+        padding: 72px 20px 20px;
+    }
+
+    .work-detail__media-frame {
+        padding: 0;
+    }
+
+    .work-detail__media img,
+    .work-detail__media video,
+    .work-detail__placeholder {
+        max-width: 100%;
+        max-height: 300px;
+    }
+
+    .work-detail__content {
+        height: auto;
+        padding: 24px 18px 18px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        border-left: 0;
+    }
+}
+
+@media (max-width: 760px) {
+    .main {
+        width: calc(100vw - 120px);
+        margin-left: 96px;
+        margin-right: 24px;
+    }
+
+    .summary__filters {
+        top: 92px;
+        right: 24px;
+    }
+
+    .card {
+        width: calc(50vw - 64px);
+        min-width: 130px;
+    }
+
+    .composer {
+        width: calc(100vw - 120px);
+        bottom: 14px;
+    }
+
+    .empty__placeholder {
+        width: 180px;
+        height: 180px;
+    }
+
+    .work-detail__actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .work-detail__download,
+    .work-detail__favorite {
+        width: 100%;
+    }
+}
 </style>
+
+
+
+

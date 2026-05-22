@@ -48,16 +48,16 @@ export function deleteAigcDigitalHumanCase(params: any) {
     return request.post({ url: '/app.aigc_digital_human.case/delete', params })
 }
 
-export function getAigcDigitalHumanQuota() {
-    return request.get({ url: '/app.aigc_digital_human.admin/quota' })
+export function getAigcDigitalHumanQuota(params?: any) {
+    return request.get({ url: '/app.aigc_digital_human.admin/quota', params })
 }
 
 export function setAigcDigitalHumanQuota(params: any) {
     return request.post({ url: '/app.aigc_digital_human.admin/quota', params })
 }
 
-export function getAigcDigitalHumanSensitiveWords() {
-    return request.get({ url: '/app.aigc_digital_human.admin/sensitiveWord' })
+export function getAigcDigitalHumanSensitiveWords(params?: any) {
+    return request.get({ url: '/app.aigc_digital_human.admin/sensitiveWord', params })
 }
 
 export function setAigcDigitalHumanSensitiveWord(params: any) {

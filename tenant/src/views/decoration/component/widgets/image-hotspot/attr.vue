@@ -52,6 +52,7 @@
 <script lang="ts" setup>
 import { cloneDeep } from 'lodash-es'
 import type { PropType } from 'vue'
+
 import type options from './options'
 
 type OptionsType = ReturnType<typeof options>
@@ -80,7 +81,10 @@ const defaultContent = {
 }
 const ensureDefaults = () => {
     Object.keys(defaultContent).forEach((key) => {
-        if ((props.content as any)[key] === undefined || (key === 'areas' && !Array.isArray((props.content as any)[key]))) {
+        if (
+            (props.content as any)[key] === undefined ||
+            (key === 'areas' && !Array.isArray((props.content as any)[key]))
+        ) {
             ;(props.content as any)[key] = (defaultContent as any)[key]
         }
     })

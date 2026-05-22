@@ -19,7 +19,7 @@ const cards = computed(() => [
     { label: '成功任务', value: stat.value.task_success || 0 },
     { label: '失败任务', value: stat.value.task_failed || 0 },
     { label: '作品数', value: stat.value.result_total || 0 },
-    { label: '平台成本', value: stat.value.tenant_cost_points || 0 },
+    { label: '租户成本扣点', value: stat.value.tenant_cost_points || 0 },
     { label: '租户消费', value: stat.value.user_charge_points || 0 }
 ])
 const getData = async () => {

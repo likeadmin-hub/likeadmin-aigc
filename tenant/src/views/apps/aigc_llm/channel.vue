@@ -29,19 +29,31 @@
                 /></el-form-item>
                 <el-form-item label="通道名称"><el-input v-model="formData.name" /></el-form-item>
                 <el-form-item label="Base URL"
-                    ><el-input v-model="formData.config_json.base_url" placeholder="https://api.xhadmin.cn"
+                    ><el-input
+                        v-model="formData.config_json.base_url"
+                        placeholder="请输入兼容 OpenAI 的接口域名"
                 /></el-form-item>
                 <el-form-item label="流式路径"
-                    ><el-input v-model="formData.config_json.stream_path" placeholder="/api/v1/chat/completions"
+                    ><el-input
+                        v-model="formData.config_json.stream_path"
+                        placeholder="/api/v1/chat/completions"
                 /></el-form-item>
                 <el-form-item label="API Key"
                     ><el-input v-model="formData.config_json.api_key" show-password
                 /></el-form-item>
                 <el-form-item label="SSL校验">
-                    <el-switch v-model="formData.config_json.ssl_verify" :active-value="1" :inactive-value="0" />
+                    <el-switch
+                        v-model="formData.config_json.ssl_verify"
+                        :active-value="1"
+                        :inactive-value="0"
+                    />
                 </el-form-item>
                 <el-form-item label="超时时间"
-                    ><el-input-number v-model="formData.config_json.timeout" :min="10" :max="300" class="w-full"
+                    ><el-input-number
+                        v-model="formData.config_json.timeout"
+                        :min="10"
+                        :max="300"
+                        class="w-full"
                 /></el-form-item>
                 <el-form-item label="排序"
                     ><el-input-number v-model="formData.sort" class="w-full"

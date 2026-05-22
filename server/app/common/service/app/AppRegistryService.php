@@ -44,9 +44,15 @@ use app\common\model\app\aigc_digital_human\AigcDigitalHumanResult;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanSensitiveWord;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanTask;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanVoice;
+use app\common\model\app\image_human\ImageHumanBilling;
+use app\common\model\app\image_human\ImageHumanAvatar;
+use app\common\model\app\image_human\ImageHumanConfig;
+use app\common\model\app\image_human\ImageHumanResult;
+use app\common\model\app\image_human\ImageHumanTask;
 use app\common\model\auth\SystemMenu;
 use app\common\model\auth\TenantSystemMenu;
 use app\common\model\tenant\Tenant;
+use app\common\service\database\SqlMigrationExecutor;
 use think\facade\Db;
 use RuntimeException;
 use Throwable;
@@ -80,11 +86,16 @@ class AppRegistryService
         return $manifest;
     }
 
-    public static function installFromLocal(string $appCode): array
+    public static function installFromLocal(string $appCode, string $coreVersion = ''): array
+    {
+        return self::installFromLocalWithResult($appCode, $coreVersion)['manifest'];
+    }
+
+    public static function installFromLocalWithResult(string $appCode, string $coreVersion = ''): array
     {
         $manifest = self::getManifest($appCode);
-        self::assertCoreCompatible($manifest);
-        self::runLocalMigrations($appCode, (string)($manifest['version'] ?? '1.0.0'));
+        self::assertCoreCompatible($manifest, $coreVersion);
+        $migrations = self::runLocalMigrations($appCode, (string)($manifest['version'] ?? '1.0.0'));
         $time = time();
         $appData = DefaultAppService::normalizeAppData($appCode, [
             'code' => $appCode,
@@ -120,12 +131,15 @@ class AppRegistryService
             DefaultAppService::syncAllTenants($appCode);
         }
         self::writeInstallLog($appCode, $manifest['version'] ?? '1.0.0', 'install_success');
-        return $manifest;
+        return [
+            'manifest' => $manifest,
+            'migrations' => $migrations,
+        ];
     }
 
-    public static function assertCoreCompatible(array $manifest): void
+    public static function assertCoreCompatible(array $manifest, string $coreVersion = ''): void
     {
-        $current = self::currentCoreVersion();
+        $current = $coreVersion !== '' ? $coreVersion : self::currentCoreVersion();
         $constraints = self::coreConstraints($manifest);
         if (empty($constraints)) {
             throw new RuntimeException('应用清单缺少系统版本兼容声明: require_core/min_core/max_core');
@@ -325,52 +339,69 @@ class AppRegistryService
         }
     }
 
-    private static function runLocalMigrations(string $appCode, string $version): void
+    private static function runLocalMigrations(string $appCode, string $version): array
     {
         $dir = root_path() . 'app/apps/' . $appCode . '/migrations';
         if (!is_dir($dir)) {
-            return;
+            return [];
         }
+        $result = [];
         foreach (glob($dir . '/*.sql') ?: [] as $file) {
             $migrationKey = basename($file);
-            $exists = \app\common\model\app\AppMigration::where([
+            $where = [
                 'scope' => 'platform',
                 'app_code' => $appCode,
                 'tenant_id' => 0,
                 'migration_key' => $migrationKey,
-                'status' => 'success',
-            ])->findOrEmpty();
-            if (!$exists->isEmpty()) {
+            ];
+            $migration = \app\common\model\app\AppMigration::where($where)->findOrEmpty();
+            if (!$migration->isEmpty() && $migration['status'] === 'success') {
+                $result[] = [
+                    'migration_key' => $migrationKey,
+                    'status' => 'skipped',
+                    'error' => '',
+                ];
                 continue;
             }
-            $migration = \app\common\model\app\AppMigration::create([
-                'scope' => 'platform',
-                'app_code' => $appCode,
-                'tenant_id' => 0,
+            $data = [
                 'version' => $version,
-                'migration_key' => $migrationKey,
                 'batch' => date('YmdHis'),
                 'status' => 'running',
                 'error' => '',
-                'create_time' => time(),
                 'update_time' => time(),
-            ]);
+            ];
+            if ($migration->isEmpty()) {
+                $migration = \app\common\model\app\AppMigration::create($where + $data + [
+                    'create_time' => time(),
+                ]);
+            } else {
+                $migration->save($data);
+            }
             $content = trim((string)file_get_contents($file));
             if ($content === '') {
                 $migration->save(['status' => 'success', 'update_time' => time()]);
+                $result[] = [
+                    'migration_key' => $migrationKey,
+                    'status' => 'executed',
+                    'error' => '',
+                ];
                 continue;
             }
             try {
                 $sqlPrefix = config('database.connections.mysql.prefix');
-                foreach (array_filter(array_map('trim', explode(';', $content))) as $sql) {
-                    Db::execute(str_replace('`la_', '`' . $sqlPrefix, $sql) . ';');
-                }
+                SqlMigrationExecutor::execute($content, $sqlPrefix);
                 $migration->save(['status' => 'success', 'error' => '', 'update_time' => time()]);
+                $result[] = [
+                    'migration_key' => $migrationKey,
+                    'status' => 'executed',
+                    'error' => '',
+                ];
             } catch (Throwable $e) {
                 $migration->save(['status' => 'failed', 'error' => $e->getMessage(), 'update_time' => time()]);
                 throw $e;
             }
         }
+        return $result;
     }
 
     private static function assertNotBuiltin(string $appCode): void
@@ -465,6 +496,14 @@ class AppRegistryService
             AigcDigitalHumanChannel::where('id', '>', 0)->delete();
             AigcDigitalHumanChannelSpec::where('id', '>', 0)->delete();
             AigcDigitalHumanBilling::where('id', '>', 0)->delete();
+            AppCase::where('app_code', $appCode)->delete();
+        }
+        if ($appCode === 'image_human') {
+            ImageHumanConfig::where('id', '>', 0)->delete();
+            ImageHumanTask::where('id', '>', 0)->delete();
+            ImageHumanResult::where('id', '>', 0)->delete();
+            ImageHumanAvatar::where('id', '>', 0)->delete();
+            ImageHumanBilling::where('id', '>', 0)->delete();
             AppCase::where('app_code', $appCode)->delete();
         }
     }

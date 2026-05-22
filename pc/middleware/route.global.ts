@@ -18,14 +18,18 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
         }, tenantId), { replace: true })
     }
 
-    if (!appStore.configLoaded && !appStore.configLoadError && isEmptyObject(appStore.config)) {
+    const shouldLoadConfig =
+        (!appStore.configLoaded && !appStore.configLoadError && isEmptyObject(appStore.config)) ||
+        appStore.configTenantId !== (tenantId ? String(tenantId) : '')
+
+    if (shouldLoadConfig) {
         if (import.meta.client) {
-            appStore.getConfig().catch((error) => {
+            appStore.getConfig(tenantId).catch((error) => {
                 console.warn('[pc-config] load failed, skip blocking navigation', error)
             })
         } else {
             try {
-                await appStore.getConfig()
+                await appStore.getConfig(tenantId)
             } catch (error) {
                 console.warn('[pc-config] load failed, skip blocking navigation', error)
             }

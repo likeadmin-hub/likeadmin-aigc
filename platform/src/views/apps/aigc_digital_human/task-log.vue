@@ -22,13 +22,13 @@
                     </el-select>
                 </el-form-item>
                 <el-form-item>
-                    <el-button type="primary" @click="getLists">查询</el-button>
+                    <el-button type="primary" @click="handleSearch">查询</el-button>
                     <el-button @click="resetQuery">重置</el-button>
                 </el-form-item>
             </el-form>
         </el-card>
         <el-card class="!border-none mt-4" shadow="never">
-            <el-table v-loading="loading" size="large" :data="lists">
+            <el-table v-loading="pager.loading" size="large" :data="tableLists">
                 <el-table-column label="本地任务ID" prop="id" width="110" />
                 <el-table-column label="租户ID" prop="tenant_id" width="100" />
                 <el-table-column label="用户ID" prop="user_id" width="100" />
@@ -58,6 +58,7 @@
                     </template>
                 </el-table-column>
             </el-table>
+            <pagination v-model="pager" @change="getLists" />
         </el-card>
 
         <el-dialog v-model="detailVisible" title="任务日志详情" width="920px" destroy-on-close>
@@ -88,11 +89,12 @@
 
 <script lang="ts" setup name="platform-aigc-digital-human-task-log">
 import { getAigcDigitalHumanTaskLogDetail, getAigcDigitalHumanTaskLogs } from '@/apps/aigc_digital_human/api'
+import { useLocalPaging } from '@/hooks/useLocalPaging'
 
-const loading = ref(false)
 const detailVisible = ref(false)
 const lists = ref<any[]>([])
 const detail = ref<any>({})
+const { pager, tableLists, setLists, getPagingParams, resetPage } = useLocalPaging({ size: 15 })
 const query = reactive({
     tenant_id: '',
     user_id: '',
@@ -102,17 +104,27 @@ const query = reactive({
 })
 
 const getLists = async () => {
-    loading.value = true
+    pager.loading = true
     try {
-        lists.value = await getAigcDigitalHumanTaskLogs(query)
+        const data = await getAigcDigitalHumanTaskLogs({
+            ...query,
+            ...getPagingParams()
+        })
+        lists.value = Array.isArray(data) ? data : data?.lists || []
+        setLists(data)
     } finally {
-        loading.value = false
+        pager.loading = false
     }
+}
+
+const handleSearch = () => {
+    resetPage()
+    getLists()
 }
 
 const resetQuery = () => {
     Object.assign(query, { tenant_id: '', user_id: '', task_id: '', provider_task_id: '', status: '' })
-    getLists()
+    handleSearch()
 }
 
 const openDetail = async (id: number) => {

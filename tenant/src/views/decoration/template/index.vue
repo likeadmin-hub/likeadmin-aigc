@@ -12,9 +12,19 @@
             </div>
         </el-card>
         <div v-loading="loading" class="template-grid mt-4">
-            <el-card v-for="item in lists" :key="item.id" shadow="never" class="!border-none template-card">
+            <el-card
+                v-for="item in lists"
+                :key="item.id"
+                shadow="never"
+                class="!border-none template-card"
+            >
                 <div class="cover">
-                    <el-image v-if="item.cover" :src="item.cover" fit="cover" class="w-full h-full" />
+                    <el-image
+                        v-if="item.cover"
+                        :src="item.cover"
+                        fit="cover"
+                        class="w-full h-full"
+                    />
                     <div v-else class="cover-empty">装修模板</div>
                 </div>
                 <div class="flex items-start justify-between gap-3 mt-4">
@@ -34,11 +44,21 @@
                 <div class="template-actions">
                     <el-button type="primary" @click="goManage(item.id)">进入管理</el-button>
                     <el-button @click="handleCopyTemplate(item.id)">复制</el-button>
-                    <el-button v-if="!item.is_active" type="success" @click="handleEnableTemplate(item.id)">
+                    <el-button
+                        v-if="!item.is_active"
+                        type="success"
+                        @click="handleEnableTemplate(item.id)"
+                    >
                         启用
                     </el-button>
-                    <el-button type="warning" @click="handlePublishTemplate(item.id)">发布</el-button>
-                    <el-button v-if="!item.is_active" type="danger" @click="handleDeleteTemplate(item.id)">
+                    <el-button type="warning" @click="handlePublishTemplate(item.id)"
+                        >发布</el-button
+                    >
+                    <el-button
+                        v-if="!item.is_active"
+                        type="danger"
+                        @click="handleDeleteTemplate(item.id)"
+                    >
                         删除
                     </el-button>
                 </div>
@@ -56,8 +76,14 @@
                         </el-button>
                         <div class="text-lg font-medium truncate">{{ detail.template?.name }}</div>
                         <el-tag v-if="detail.template?.is_active" type="success">启用中</el-tag>
-                        <el-tag :type="detail.template?.publish_status === 'published' ? 'success' : 'info'">
-                            {{ detail.template?.publish_status === 'published' ? '已发布' : '草稿' }}
+                        <el-tag
+                            :type="
+                                detail.template?.publish_status === 'published' ? 'success' : 'info'
+                            "
+                        >
+                            {{
+                                detail.template?.publish_status === 'published' ? '已发布' : '草稿'
+                            }}
                         </el-tag>
                     </div>
                     <div class="text-sm text-tx-secondary mt-1">
@@ -66,7 +92,9 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <el-button type="primary" @click="handleSaveSettings">保存设置</el-button>
-                    <el-button type="warning" @click="handlePublishTemplate(templateId)">发布模板</el-button>
+                    <el-button type="warning" @click="handlePublishTemplate(templateId)"
+                        >发布模板</el-button
+                    >
                     <el-button
                         v-if="!detail.template?.is_active"
                         type="success"
@@ -96,7 +124,9 @@
                                 <div class="flex items-center gap-2">
                                     <span class="font-medium">{{ row.name }}</span>
                                     <el-tag v-if="row.is_home" size="small">首页</el-tag>
-                                    <el-tag v-if="row.is_system" size="small" type="info">系统</el-tag>
+                                    <el-tag v-if="row.is_system" size="small" type="info"
+                                        >系统</el-tag
+                                    >
                                 </div>
                             </template>
                         </el-table-column>
@@ -121,9 +151,13 @@
                         <el-table-column label="更新时间" prop="update_time" min-width="160" />
                         <el-table-column label="操作" fixed="right" width="260">
                             <template #default="{ row }">
-                                <el-button link type="primary" @click.stop="goPageEditor(row.id)">装修</el-button>
+                                <el-button link type="primary" @click.stop="goPageEditor(row.id)"
+                                    >装修</el-button
+                                >
                                 <el-button link @click.stop="previewPage(row)">预览</el-button>
-                                <el-button link @click.stop="handleCopyPage(row.id)">复制</el-button>
+                                <el-button link @click.stop="handleCopyPage(row.id)"
+                                    >复制</el-button
+                                >
                                 <el-button
                                     v-if="!row.is_system"
                                     link
@@ -143,7 +177,11 @@
                 </div>
             </el-tab-pane>
             <el-tab-pane label="系统风格" name="style">
-                <el-card v-if="manageTab === 'style'" shadow="never" class="!border-none settings-panel">
+                <el-card
+                    v-if="manageTab === 'style'"
+                    shadow="never"
+                    class="!border-none settings-panel"
+                >
                     <mobile-style v-model="settings.mobile_style" />
                 </el-card>
             </el-tab-pane>
@@ -161,7 +199,9 @@
                         <div class="text-lg font-medium truncate">
                             {{ currentPage?.name || detail.template?.name }} / 移动端装修
                         </div>
-                        <el-tag type="info">{{ channelText(currentPage?.channel || 'common') }}</el-tag>
+                        <el-tag type="info">{{
+                            channelText(currentPage?.channel || 'common')
+                        }}</el-tag>
                     </div>
                     <div class="text-sm text-tx-secondary mt-1">
                         当前编辑移动端 H5 预览草稿，小程序复用 common 数据结构。
@@ -171,7 +211,9 @@
                     <el-button @click="rightTab = 'page'">页面配置</el-button>
                     <el-button @click="previewPage(currentPage)">预览</el-button>
                     <el-button type="primary" @click="handleSavePageDraft">保存草稿</el-button>
-                    <el-button type="warning" @click="handlePublishTemplate(templateId)">发布模板</el-button>
+                    <el-button type="warning" @click="handlePublishTemplate(templateId)"
+                        >发布模板</el-button
+                    >
                 </div>
             </div>
         </el-card>
@@ -179,7 +221,9 @@
         <div class="editor-layout mt-4">
             <el-card shadow="never" class="!border-none editor-side">
                 <div class="side-title">组件库</div>
-                <div class="text-xs text-tx-secondary mb-3">组件可重复添加，只作用于当前移动端页面。</div>
+                <div class="text-xs text-tx-secondary mb-3">
+                    组件可重复添加，只作用于当前移动端页面。
+                </div>
                 <div class="widget-scroll">
                     <draggable
                         :list="availableWidgets"
@@ -194,19 +238,14 @@
                         @end="handleLibraryDragEnd"
                     >
                         <template #item="{ element: item }">
-                            <div
-                                class="widget-item"
-                                @click="handleWidgetItemClick(item.name)"
-                            >
+                            <div class="widget-item" @click="handleWidgetItemClick(item.name)">
                                 <icon :name="item.icon" :size="18" />
                                 <span>{{ item.title }}</span>
                                 <small>{{ supportChannelText(item.support_channels) }}</small>
                             </div>
                         </template>
                     </draggable>
-                    <div v-if="!availableWidgets.length" class="widget-empty">
-                        暂无可用组件
-                    </div>
+                    <div v-if="!availableWidgets.length" class="widget-empty">暂无可用组件</div>
                 </div>
             </el-card>
 
@@ -257,16 +296,25 @@
                                     <el-input v-model="pageForm.name" />
                                 </el-form-item>
                                 <el-form-item label="页面标识">
-                                    <el-input v-model="pageForm.page_code" :disabled="!!currentPage?.is_system" />
+                                    <el-input
+                                        v-model="pageForm.page_code"
+                                        :disabled="!!currentPage?.is_system"
+                                    />
                                 </el-form-item>
                                 <el-form-item label="页面状态">
-                                    <el-switch v-model="pageForm.status" :active-value="1" :inactive-value="0" />
+                                    <el-switch
+                                        v-model="pageForm.status"
+                                        :active-value="1"
+                                        :inactive-value="0"
+                                    />
                                 </el-form-item>
                                 <el-form-item label="排序">
                                     <el-input-number v-model="pageForm.sort" :min="0" />
                                 </el-form-item>
                                 <el-form-item>
-                                    <el-button type="primary" @click="savePageBase">保存页面</el-button>
+                                    <el-button type="primary" @click="savePageBase"
+                                        >保存页面</el-button
+                                    >
                                     <el-button @click="handleCopyCurrentPage">复制页面</el-button>
                                     <el-button
                                         v-if="!currentPage?.is_system"
@@ -322,12 +370,11 @@
             <el-button type="primary" @click="handleAddPage">确定</el-button>
         </template>
     </el-dialog>
-
 </template>
 
 <script lang="ts" setup name="decorationTemplate">
-import { cloneDeep } from 'lodash-es'
 import { ElMessage } from 'element-plus'
+import { cloneDeep } from 'lodash-es'
 import Draggable from 'vuedraggable'
 
 import {
@@ -351,8 +398,8 @@ import { getNonDuplicateID } from '@/utils/util'
 import AttrSetting from '../component/pages/attr-setting.vue'
 import Preview from '../component/pages/preview.vue'
 import mobileTabbarAttr from '../component/tabbar/mobile/attr.vue'
-import PageMetaAttr from '../component/widgets/page-meta/attr.vue'
 import widgets from '../component/widgets'
+import PageMetaAttr from '../component/widgets/page-meta/attr.vue'
 import MobileStyle from '../style/components/mobile-style.vue'
 
 const route = useRoute()
@@ -414,8 +461,12 @@ const settings = reactive<any>({
 
 const pages = computed(() => detail.pages || [])
 const currentPage = computed(() => pages.value.find((item: any) => item.id === activePageId.value))
-const currentPageData = computed(() => normalizePageData(safeParse(currentPage.value?.draft_data || currentPage.value?.data, [])))
-const currentPageMeta = computed(() => normalizePageMeta(safeParse(currentPage.value?.draft_meta || currentPage.value?.meta, null)))
+const currentPageData = computed(() =>
+    normalizePageData(safeParse(currentPage.value?.draft_data || currentPage.value?.data, []))
+)
+const currentPageMeta = computed(() =>
+    normalizePageMeta(safeParse(currentPage.value?.draft_meta || currentPage.value?.meta, null))
+)
 const selectWidget = computed(() => {
     if (selectWidgetIndex.value === -1) {
         return currentPageMeta.value?.[0] || {}
@@ -460,12 +511,15 @@ const normalizePageData = (data: any[]) => {
         return item
     })
 }
-const getDefaultPageMeta = () => cloneDeep(widgets['page-meta']?.options?.() || {
-    title: '页面配置',
-    name: 'page-meta',
-    content: {},
-    styles: {}
-})
+const getDefaultPageMeta = () =>
+    cloneDeep(
+        widgets['page-meta']?.options?.() || {
+            title: '页面配置',
+            name: 'page-meta',
+            content: {},
+            styles: {}
+        }
+    )
 const normalizePageMeta = (value: any) => {
     const defaults = getDefaultPageMeta()
     const meta = Array.isArray(value) ? value : value ? [value] : []
@@ -801,7 +855,10 @@ const handleSaveSettings = async () => {
 }
 
 const getH5PreviewUrl = (page: any) => {
-    const baseUrl = String(import.meta.env.VITE_APP_BASE_URL || window.location.origin).replace(/\/$/, '')
+    const baseUrl = String(import.meta.env.VITE_APP_BASE_URL || window.location.origin).replace(
+        /\/$/,
+        ''
+    )
     const query = new URLSearchParams({
         code: page?.page_code || 'home',
         preview: '1',

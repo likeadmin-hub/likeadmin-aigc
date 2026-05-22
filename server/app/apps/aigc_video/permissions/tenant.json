@@ -114,6 +114,12 @@
     "api_method": "POST"
   },
   {
+    "permission_key": "aigc_video:channel_price:batch_save",
+    "name": "批量保存AIGC视频通道调价",
+    "api_path": "app.aigc_video.channel/batchSave",
+    "api_method": "POST"
+  },
+  {
     "permission_key": "aigc_video:channel_price:status",
     "name": "设置AIGC视频通道状态",
     "api_path": "app.aigc_video.channel/status",

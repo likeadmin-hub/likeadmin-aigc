@@ -44,6 +44,21 @@
                     </p>
                 </div>
             </el-form-item>
+            <el-form-item
+                v-if="formData.allow_custom_storage === 1"
+                label="本地存储："
+                prop="allow_local_storage"
+            >
+                <div>
+                    <el-radio-group v-model="formData.allow_local_storage">
+                        <el-radio :value="1">允许</el-radio>
+                        <el-radio :value="0">不允许</el-radio>
+                    </el-radio-group>
+                    <p class="text-info text-sm">
+                        关闭后，租户只能配置对象存储，后台不显示本地存储入口。
+                    </p>
+                </div>
+            </el-form-item>
             <el-form-item label="联系方式：" prop="tel">
                 <el-input
                     v-model="formData.tel"
@@ -141,6 +156,7 @@ interface DetailType {
     domain_alias_enable: number
     access_mode: 'subdomain' | 'id' | 'alias'
     allow_custom_storage: number
+    allow_local_storage: number
     notes: string
     account: string
     password: string
@@ -163,6 +179,7 @@ const formData = ref<DetailType>({
     domain_alias_enable: 1,
     access_mode: 'subdomain',
     allow_custom_storage: 0,
+    allow_local_storage: 1,
     notes: '',
     account: '',
     password: '',
@@ -238,6 +255,9 @@ const submitAdd = async () => {
         return ElMessage.error('两次密码输入不一致')
     }
     formData.value.domain_alias_enable = formData.value.access_mode === 'alias' ? 0 : 1
+    if (formData.value.allow_custom_storage !== 1) {
+        formData.value.allow_local_storage = 1
+    }
     await userAdd(formData.value)
     submited.value = true
     drawer.value = false

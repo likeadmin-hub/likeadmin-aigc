@@ -20,15 +20,17 @@
             <ElFormItem prop="account">
                 <ElInput
                     v-model="formData.account"
-                    placeholder="请输入创建的账号"
+                    maxlength="12"
+                    placeholder="请输入3-12位字母数字组合"
                 />
             </ElFormItem>
+
             <ElFormItem prop="password">
                 <ElInput
                     v-model="formData.password"
                     type="password"
                     show-password
-                    placeholder="请输入6-20位数字+字母或符号组合"
+                    placeholder="请输入6-20位数字、字母或符号组合"
                 />
             </ElFormItem>
             <ElFormItem prop="password_confirm">
@@ -63,26 +65,35 @@ import {
 } from 'element-plus'
 import { register } from '~~/api/account'
 import { useAccount, PopupTypeEnum } from './useAccount'
+
 const { setPopupType } = useAccount()
 const formRef = shallowRef<FormInstance>()
-const formRules: FormRules = {
+enum RegisterWayEnum {
+    ACCOUNT = 1
+}
+const formRules = computed<FormRules>(() => ({
     account: [
         {
             required: true,
-            message: '请输入创建的账号',
+            message: '请输入账号',
             trigger: ['change', 'blur']
         },
         {
             min: 3,
             max: 12,
-            message: '账号长度应为3-12',
+            message: '账号须为3-12位之间',
+            trigger: ['change', 'blur']
+        },
+        {
+            pattern: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]+$/,
+            message: '账号须为字母数字组合',
             trigger: ['change', 'blur']
         }
     ],
     password: [
         {
             required: true,
-            message: '请输入6-20位数字+字母或符号组合',
+            message: '请输入6-20位数字、字母或符号组合',
             trigger: ['change', 'blur']
         },
         {
@@ -106,16 +117,26 @@ const formRules: FormRules = {
             trigger: ['change', 'blur']
         }
     ]
-}
+}))
 const formData = reactive({
     account: '',
     password: '',
-    password_confirm: ''
+    password_confirm: '',
+    scene: RegisterWayEnum.ACCOUNT
 })
 
 const handleConfirm = async () => {
     await formRef.value?.validate()
-    await register(formData)
+    await register({
+        scene: RegisterWayEnum.ACCOUNT,
+        register_way: RegisterWayEnum.ACCOUNT,
+        account: formData.account,
+        password: formData.password,
+        password_confirm: formData.password_confirm
+    })
+    formData.account = ''
+    formData.password = ''
+    formData.password_confirm = ''
     setPopupType(PopupTypeEnum.LOGIN)
 }
 const { lockFn: handleConfirmLock, isLock } = useLockFn(handleConfirm)

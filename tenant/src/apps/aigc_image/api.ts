@@ -48,16 +48,16 @@ export function deleteAigcImageCase(params: any) {
     return request.post({ url: '/app.aigc_image.case/delete', params })
 }
 
-export function getAigcImageQuota() {
-    return request.get({ url: '/app.aigc_image.admin/quota' })
+export function getAigcImageQuota(params?: any) {
+    return request.get({ url: '/app.aigc_image.admin/quota', params })
 }
 
 export function setAigcImageQuota(params: any) {
     return request.post({ url: '/app.aigc_image.admin/quota', params })
 }
 
-export function getAigcImageSensitiveWords() {
-    return request.get({ url: '/app.aigc_image.admin/sensitiveWord' })
+export function getAigcImageSensitiveWords(params?: any) {
+    return request.get({ url: '/app.aigc_image.admin/sensitiveWord', params })
 }
 
 export function setAigcImageSensitiveWord(params: any) {
@@ -74,6 +74,10 @@ export function getAigcImageChannels() {
 
 export function saveAigcImageChannel(params: any) {
     return request.post({ url: '/app.aigc_image.channel/save', params })
+}
+
+export function batchSaveAigcImageChannels(params: any) {
+    return request.post({ url: '/app.aigc_image.channel/batchSave', params })
 }
 
 export function setAigcImageChannelStatus(params: any) {

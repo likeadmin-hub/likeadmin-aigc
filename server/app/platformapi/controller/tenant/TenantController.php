@@ -26,6 +26,7 @@ use app\platformapi\validate\tenant\TenantValidate;
 use app\common\service\point\TenantPointService;
 use app\common\service\tenant\TenantSsoService;
 use app\common\service\app\DefaultAppService;
+use app\common\service\billing\PackageProvisionService;
 use app\tenantapi\logic\article\ArticleLogic;
 use app\tenantapi\logic\decorate\DecorateDataLogic;
 use app\tenantapi\logic\notice\NoticeLogic;
@@ -105,6 +106,11 @@ class TenantController extends BaseAdminController
                 DecorateDataLogic::initialization($tenant['id']);
             }
             DefaultAppService::syncTenantDefaults(
+                (int)$tenant['id'],
+                (string)$tenant['sn'],
+                isset($params['tactics']) && (string)$params['tactics'] === '1'
+            );
+            PackageProvisionService::syncTenant(
                 (int)$tenant['id'],
                 (string)$tenant['sn'],
                 isset($params['tactics']) && (string)$params['tactics'] === '1'

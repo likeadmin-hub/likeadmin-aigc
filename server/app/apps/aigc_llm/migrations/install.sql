@@ -109,7 +109,7 @@ WHERE NOT EXISTS (SELECT 1 FROM `la_aigc_llm_config` WHERE `tenant_id` = 0);
 
 INSERT INTO `la_aigc_llm_channel`
 (`tenant_id`, `code`, `name`, `provider`, `config_json`, `status`, `sort`, `create_time`, `update_time`)
-SELECT 0, 'dashscope_compatible', 'Xhadmin Qwen3.6-Plus', 'openai_compatible', '{"base_url":"https://api.xhadmin.cn","stream_path":"/api/v1/chat/completions","api_key":"","timeout":120,"ssl_verify":0,"remark":"Qwen3.6-Plus DashScope compatible"}', 1, 1000, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
+SELECT 0, 'dashscope_compatible', 'Qwen3.6-Plus 兼容通道', 'openai_compatible', '{"base_url":"","stream_path":"/api/v1/chat/completions","api_key":"","timeout":120,"ssl_verify":0,"remark":"Qwen3.6-Plus OpenAI compatible"}', 1, 1000, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
 WHERE NOT EXISTS (SELECT 1 FROM `la_aigc_llm_channel` WHERE `tenant_id` = 0 AND `code` = 'dashscope_compatible');
 
 INSERT INTO `la_aigc_llm_model`

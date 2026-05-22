@@ -6,7 +6,7 @@
                     <el-input v-model="tenantId" class="w-[180px]" placeholder="留空查看全部" />
                 </el-form-item>
                 <el-form-item>
-                    <el-button type="primary" @click="getData">查询</el-button>
+                    <el-button type="primary" @click="handleSearch">查询</el-button>
                 </el-form-item>
             </el-form>
         </el-card>
@@ -17,7 +17,7 @@
                     <div class="text-2xl font-medium mt-2">{{ item.value }}</div>
                 </div>
             </div>
-            <el-table :data="lists" size="large">
+            <el-table :data="tableLists" size="large">
                 <el-table-column label="租户ID" prop="tenant_id" width="120" />
                 <el-table-column label="运行次数" prop="run_total" width="120" />
                 <el-table-column label="运行用户" prop="run_user_total" width="120" />
@@ -27,17 +27,20 @@
                     <template #default="{ row }">{{ formatTime(row.last_run_time) }}</template>
                 </el-table-column>
             </el-table>
+            <pagination v-model="pager" @change="getData" />
         </el-card>
     </div>
 </template>
 
 <script lang="ts" setup name="platform-aigc-canvas-tenant-usage">
 import { getAigcCanvasTenantLists, getAigcCanvasTenantStat } from '@/apps/aigc_canvas/api'
+import { useLocalPaging } from '@/hooks/useLocalPaging'
 
 const loading = ref(false)
 const tenantId = ref('')
 const stat = ref<any>({})
 const lists = ref<any[]>([])
+const { pager, tableLists, setLists, getPagingParams, resetPage } = useLocalPaging({ size: 15 })
 const cards = computed(() => [
     { label: '运行次数', value: stat.value.run_total || 0 },
     { label: '运行用户', value: stat.value.run_user_total || 0 },
@@ -47,13 +50,21 @@ const cards = computed(() => [
 const formatTime = (value: number) => (value ? new Date(value * 1000).toLocaleString() : '-')
 const getData = async () => {
     loading.value = true
+    pager.loading = true
     try {
-        const params = { tenant_id: tenantId.value || 0 }
+        const params = { tenant_id: tenantId.value || 0, ...getPagingParams() }
         stat.value = await getAigcCanvasTenantStat(params)
-        lists.value = await getAigcCanvasTenantLists(params)
+        const data = await getAigcCanvasTenantLists(params)
+        lists.value = Array.isArray(data) ? data : data?.lists || []
+        setLists(data)
     } finally {
         loading.value = false
+        pager.loading = false
     }
+}
+const handleSearch = () => {
+    resetPage()
+    getData()
 }
 getData()
 </script>

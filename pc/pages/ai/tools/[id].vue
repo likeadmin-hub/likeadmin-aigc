@@ -25,11 +25,14 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
+import { usePcLoginGate } from '@/composables/usePcLoginGate'
 import { usePcCredits } from '~/composables/usePcCredits'
+import { getToolCardById, isToolCardImplemented, toolComingSoonMessage } from '~/composables/use-ai-tools'
 import { buildSidebarRouteLocation } from '~/utils/ai-sidebar'
 import type { SidebarKey } from '~/utils/ai-sidebar'
+import feedback from '@/utils/feedback'
 
 definePageMeta({ layout: 'blank' })
 
@@ -37,13 +40,22 @@ type PopoverKey = '' | 'share' | 'api' | 'notice'
 
 const route = useRoute()
 const router = useRouter()
+const { ensurePcLogin } = usePcLoginGate()
 const { remainingCredits, membershipEnabled, refreshCredits } = usePcCredits()
 const toolId = computed(() => String(route.params.id || 'tool-card-1'))
 const activeSidebar = ref<SidebarKey>('tools')
 const activePopover = ref<PopoverKey>('')
+const currentTool = computed(() => getToolCardById(toolId.value))
 const backgroundStyle = computed(() => ({
     backgroundImage: 'linear-gradient(180deg, #050505 0%, #06070a 42%, #050505 100%)'
 }))
+
+watchEffect(() => {
+    if (!isToolCardImplemented(currentTool.value)) {
+        feedback.msgWarning(toolComingSoonMessage)
+        router.replace('/ai/tools')
+    }
+})
 
 const chromePopoverContent = computed(() => ({
     share: {
@@ -73,6 +85,7 @@ const handleSidebar = (key: SidebarKey) => {
         return
     }
 
+    if ((key === 'create' || key === 'assets') && !ensurePcLogin({ redirect: buildSidebarRouteLocation(key).path || route.fullPath })) return
     router.push(buildSidebarRouteLocation(key))
 }
 </script>

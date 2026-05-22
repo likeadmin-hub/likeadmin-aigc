@@ -23,13 +23,6 @@ if ($whe && !file_exists(__DIR__ . '/../config/install.lock')) {
     exit;
 }
 
-$host = $_SERVER['HTTP_HOST'] ?? '';
-$env = loadEnv();
-if ($url == '/' && $host !== '' && ($env['HTTP_HOST'] ?? '') == $host) {
-    header("location:/platform/");
-    exit;
-}
-
 define('ROOT_PATH', __DIR__);
 
 // 执行HTTP应用并响应

@@ -1233,6 +1233,7 @@ CREATE TABLE `la_tenant`
     `disable`             tinyint(1) UNSIGNED                                           NULL     DEFAULT 0 COMMENT '是否禁用：0-否；1-是；',
     `tactics`             tinyint(1) UNSIGNED                                           NOT NULL DEFAULT 0 COMMENT '分表策略: [0=否, 1=是]',
     `allow_custom_storage` tinyint(1) UNSIGNED                                          NOT NULL DEFAULT 0 COMMENT '允许租户自定义存储',
+    `allow_local_storage`  tinyint(1) UNSIGNED                                          NOT NULL DEFAULT 1 COMMENT '允许租户使用本地存储',
     `point_balance`       decimal(10, 2)                                                NOT NULL DEFAULT 0.00 COMMENT '租户点数余额',
     `notes`               varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL     DEFAULT NULL COMMENT '租户备注',
     `domain_alias`        varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL     DEFAULT NULL COMMENT '域名别名',
@@ -1652,6 +1653,10 @@ INSERT INTO `la_tenant_pay_way`
 VALUES (6, 0, 2, 3, 1, 1);
 INSERT INTO `la_tenant_pay_way`
 VALUES (7, 0, 3, 3, 0, 1);
+INSERT INTO `la_tenant_pay_way`
+VALUES (8, 0, 2, 4, 1, 1);
+INSERT INTO `la_tenant_pay_way`
+VALUES (9, 0, 3, 4, 0, 1);
 COMMIT;
 
 -- ----------------------------
@@ -2027,6 +2032,34 @@ INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `
 VALUES (177, 0,29, 'C', '站点统计', '', 0, 'setting.web.web_setting/getSiteStatistics', 'statistics', 'setting/website/statistics', '', '', 0, 1, 0, 1726841481, 1726843434);
 INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `create_time`, `update_time`)
 VALUES (178, 0,177, 'A', '保存', '', 0, 'setting.web.web_setting/saveSiteStatistics', '', '', '', '', 1, 1, 0, 1726841507, 1726841507);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (179, 0, 166, 'M', '套餐管理', 'el-icon-Tickets', 110, '', 'package', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_package', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (180, 0, 188, 'A', '新增', '', 0, 'finance.membership_plan/add', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_membership_plan_add', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (181, 0, 188, 'A', '编辑', '', 0, 'finance.membership_plan/edit', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_membership_plan_edit', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (182, 0, 188, 'A', '删除', '', 0, 'finance.membership_plan/delete', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_membership_plan_delete', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (183, 0, 188, 'A', '详情', '', 0, 'finance.membership_plan/detail', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_membership_plan_detail', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (184, 0, 188, 'A', '可关联应用', '', 0, 'finance.membership_plan/apps', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_membership_plan_apps', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (185, 0, 166, 'C', '订单管理', 'el-icon-Document', 105, 'finance.membership_order/lists', 'membership_order', 'finance/membership_order', '', '', 0, 1, 0, '', 'core', 'core_tenant_membership_order', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (186, 0, 185, 'A', '详情', '', 0, 'finance.membership_order/detail', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_membership_order_detail', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (187, 0, 179, 'C', '算力套餐', 'el-icon-Coin', 100, 'finance.recharge_package/lists', 'recharge_package', 'finance/recharge_package', '', '', 0, 1, 0, '', 'core', 'core_tenant_recharge_package', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (188, 0, 179, 'C', '会员套餐', 'el-icon-Medal', 90, 'finance.membership_plan/lists', 'membership_plan', 'finance/membership_plan', '', '', 0, 1, 0, '', 'core', 'core_tenant_membership_plan', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (189, 0, 187, 'A', '新增', '', 0, 'finance.recharge_package/add', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_recharge_package_add', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (190, 0, 187, 'A', '编辑', '', 0, 'finance.recharge_package/edit', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_recharge_package_edit', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (191, 0, 187, 'A', '删除', '', 0, 'finance.recharge_package/delete', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_recharge_package_delete', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (192, 0, 187, 'A', '详情', '', 0, 'finance.recharge_package/detail', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_recharge_package_detail', 1, 1778000000, 1778000000);
 INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES (9000, 0, 0, 'M', '应用管理', 'el-icon-Grid', 60, '', 'apps', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_app_center', 1, 1727700000, 1727700000);
 INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
@@ -2647,6 +2680,7 @@ VALUES
 ('aigc_image','app.aigc_image.admin/stat','GET','aigc_image:stat','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.channel/lists','GET','aigc_image:channel_price:lists','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.channel/save','POST','aigc_image:channel_price:save','tenant_admin',1,1,1,1778000000,1778000000),
+('aigc_image','app.aigc_image.channel/batchSave','POST','aigc_image:channel_price:batch_save','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.channel/status','POST','aigc_image:channel_price:status','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.channel/lists','GET','aigc_image:channel:lists','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.channel/save','POST','aigc_image:channel:save','platform_admin',1,1,1,1778000000,1778000000),
@@ -2662,6 +2696,7 @@ VALUES
 ('aigc_image','app.aigc_image.result/delete','POST','aigc_image:result:delete','user',1,0,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.spec/lists','GET','aigc_image:spec:lists','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.spec/save','POST','aigc_image:spec:save','platform_admin',1,1,1,1778000000,1778000000),
+('aigc_image','app.aigc_image.spec/batchSave','POST','aigc_image:spec:batch_save','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.spec/delete','POST','aigc_image:spec:delete','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.spec/status','POST','aigc_image:spec:status','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.config/detail','GET','aigc_video:config:detail','tenant_admin',1,1,1,1778000000,1778000000),
@@ -2686,6 +2721,7 @@ VALUES
 ('aigc_video','app.aigc_video.admin/stat','GET','aigc_video:stat','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.channel/lists','GET','aigc_video:channel_price:lists','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.channel/save','POST','aigc_video:channel_price:save','tenant_admin',1,1,1,1778000000,1778000000),
+('aigc_video','app.aigc_video.channel/batchSave','POST','aigc_video:channel_price:batch_save','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.channel/status','POST','aigc_video:channel_price:status','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.channel/lists','GET','aigc_video:channel:lists','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.channel/save','POST','aigc_video:channel:save','platform_admin',1,1,1,1778000000,1778000000),
@@ -2701,6 +2737,7 @@ VALUES
 ('aigc_video','app.aigc_video.result/delete','POST','aigc_video:result:delete','user',1,0,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.spec/lists','GET','aigc_video:spec:lists','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.spec/save','POST','aigc_video:spec:save','platform_admin',1,1,1,1778000000,1778000000),
+('aigc_video','app.aigc_video.spec/batchSave','POST','aigc_video:spec:batch_save','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.spec/delete','POST','aigc_video:spec:delete','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.spec/status','POST','aigc_video:spec:status','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_digital_human','app.aigc_digital_human.config/detail','GET','aigc_digital_human:config:detail','tenant_admin',1,1,1,1778000000,1778000000),
@@ -4122,7 +4159,7 @@ WHERE NOT EXISTS (SELECT 1 FROM `la_aigc_llm_config` WHERE `tenant_id` = 0);
 
 INSERT INTO `la_aigc_llm_channel`
 (`tenant_id`, `code`, `name`, `provider`, `config_json`, `status`, `sort`, `create_time`, `update_time`)
-SELECT 0, 'dashscope_compatible', 'Xhadmin Qwen3.6-Plus', 'openai_compatible', '{"base_url":"https://api.xhadmin.cn","stream_path":"/api/v1/chat/completions","api_key":"","timeout":120,"ssl_verify":0,"remark":"Qwen3.6-Plus DashScope compatible"}', 1, 1000, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
+SELECT 0, 'dashscope_compatible', 'Qwen3.6-Plus 兼容通道', 'openai_compatible', '{"base_url":"","stream_path":"/api/v1/chat/completions","api_key":"","timeout":120,"ssl_verify":0,"remark":"Qwen3.6-Plus OpenAI compatible"}', 1, 1000, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
 WHERE NOT EXISTS (SELECT 1 FROM `la_aigc_llm_channel` WHERE `tenant_id` = 0 AND `code` = 'dashscope_compatible');
 
 INSERT INTO `la_aigc_llm_model`
@@ -4200,7 +4237,7 @@ SET `platform_input_unit_cost` = CASE WHEN `platform_input_unit_cost` = 0 THEN `
 INSERT INTO `la_aigc_llm_channel`
 (`tenant_id`, `code`, `name`, `provider`, `config_json`, `status`, `sort`, `create_time`, `update_time`)
 VALUES
-(0, 'dashscope_compatible', 'Xhadmin Qwen3.6-Plus', 'openai_compatible', '{"base_url":"https://api.xhadmin.cn","stream_path":"/api/v1/chat/completions","api_key":"","timeout":120,"ssl_verify":0,"remark":"Qwen3.6-Plus DashScope compatible"}', 1, 1000, UNIX_TIMESTAMP(), UNIX_TIMESTAMP())
+(0, 'dashscope_compatible', 'Qwen3.6-Plus 兼容通道', 'openai_compatible', '{"base_url":"","stream_path":"/api/v1/chat/completions","api_key":"","timeout":120,"ssl_verify":0,"remark":"Qwen3.6-Plus OpenAI compatible"}', 1, 1000, UNIX_TIMESTAMP(), UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE
 `name`=VALUES(`name`),
 `provider`=VALUES(`provider`),
@@ -4325,6 +4362,57 @@ VALUES
 (9150,0,9146,'C','会话记录','',0,'app.aigc_llm.admin_session/lists','session','apps/aigc_llm/session','','',0,1,0,'aigc_llm','app','aigc_llm_session',0,1778000000,1778000000),
 (9151,0,9146,'C','敏感词','',0,'app.aigc_llm.admin/sensitiveWord','sensitive-word','apps/aigc_llm/sensitive-word','','',0,1,0,'aigc_llm','app','aigc_llm_sensitive_word',0,1778000000,1778000000),
 (9152,0,9146,'C','用量统计','',0,'app.aigc_llm.admin/stat','stat','apps/aigc_llm/stat','','',0,1,0,'aigc_llm','app','aigc_llm_stat',0,1778000000,1778000000);
+
+-- Migration snapshot: aigc_video/migrations/zz_20260521_happy_horse_channel.sql
+
+INSERT INTO `la_aigc_video_channel` (`tenant_id`,`code`,`name`,`provider`,`model`,`max_reference_images`,`config_json`,`status`,`sort`,`create_time`,`update_time`)
+VALUES
+(0,'happy_horse','Happy Horse','happyhorse','happyhorse-1.0-t2v',9,'{"poll_interval":2,"poll_attempts":0,"quantity_options":[1],"resolution":"720P"}',1,300,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`provider`=VALUES(`provider`),`model`=VALUES(`model`),`max_reference_images`=VALUES(`max_reference_images`),`config_json`=VALUES(`config_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
+
+INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
+VALUES
+(0,'happy_horse','720p_3','720P · 3秒','16:9',1280,720,0.08,0.08,'{"resolution":"720P","duration":3,"ratio":"16:9"}',1,1200,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_3','720P · 3秒','9:16',720,1280,0.08,0.08,'{"resolution":"720P","duration":3,"ratio":"9:16"}',1,1190,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_3','720P · 3秒','1:1',720,720,0.08,0.08,'{"resolution":"720P","duration":3,"ratio":"1:1"}',1,1180,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_3','720P · 3秒','4:3',960,720,0.08,0.08,'{"resolution":"720P","duration":3,"ratio":"4:3"}',1,1170,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_3','720P · 3秒','3:4',720,960,0.08,0.08,'{"resolution":"720P","duration":3,"ratio":"3:4"}',1,1160,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_5','720P · 5秒','16:9',1280,720,0.14,0.14,'{"resolution":"720P","duration":5,"ratio":"16:9"}',1,1150,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_5','720P · 5秒','9:16',720,1280,0.14,0.14,'{"resolution":"720P","duration":5,"ratio":"9:16"}',1,1140,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_5','720P · 5秒','1:1',720,720,0.14,0.14,'{"resolution":"720P","duration":5,"ratio":"1:1"}',1,1130,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_5','720P · 5秒','4:3',960,720,0.14,0.14,'{"resolution":"720P","duration":5,"ratio":"4:3"}',1,1120,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_5','720P · 5秒','3:4',720,960,0.14,0.14,'{"resolution":"720P","duration":5,"ratio":"3:4"}',1,1110,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_10','720P · 10秒','16:9',1280,720,0.28,0.28,'{"resolution":"720P","duration":10,"ratio":"16:9"}',1,1100,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_10','720P · 10秒','9:16',720,1280,0.28,0.28,'{"resolution":"720P","duration":10,"ratio":"9:16"}',1,1090,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_10','720P · 10秒','1:1',720,720,0.28,0.28,'{"resolution":"720P","duration":10,"ratio":"1:1"}',1,1080,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_10','720P · 10秒','4:3',960,720,0.28,0.28,'{"resolution":"720P","duration":10,"ratio":"4:3"}',1,1070,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_10','720P · 10秒','3:4',720,960,0.28,0.28,'{"resolution":"720P","duration":10,"ratio":"3:4"}',1,1060,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_15','720P · 15秒','16:9',1280,720,0.42,0.42,'{"resolution":"720P","duration":15,"ratio":"16:9"}',1,1050,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_15','720P · 15秒','9:16',720,1280,0.42,0.42,'{"resolution":"720P","duration":15,"ratio":"9:16"}',1,1040,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_15','720P · 15秒','1:1',720,720,0.42,0.42,'{"resolution":"720P","duration":15,"ratio":"1:1"}',1,1030,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_15','720P · 15秒','4:3',960,720,0.42,0.42,'{"resolution":"720P","duration":15,"ratio":"4:3"}',1,1020,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','720p_15','720P · 15秒','3:4',720,960,0.42,0.42,'{"resolution":"720P","duration":15,"ratio":"3:4"}',1,1010,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_3','1080P · 3秒','16:9',1920,1080,0.17,0.17,'{"resolution":"1080P","duration":3,"ratio":"16:9"}',1,1000,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_3','1080P · 3秒','9:16',1080,1920,0.17,0.17,'{"resolution":"1080P","duration":3,"ratio":"9:16"}',1,990,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_3','1080P · 3秒','1:1',1080,1080,0.17,0.17,'{"resolution":"1080P","duration":3,"ratio":"1:1"}',1,980,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_3','1080P · 3秒','4:3',1440,1080,0.17,0.17,'{"resolution":"1080P","duration":3,"ratio":"4:3"}',1,970,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_3','1080P · 3秒','3:4',1080,1440,0.17,0.17,'{"resolution":"1080P","duration":3,"ratio":"3:4"}',1,960,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_5','1080P · 5秒','16:9',1920,1080,0.28,0.28,'{"resolution":"1080P","duration":5,"ratio":"16:9"}',1,950,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_5','1080P · 5秒','9:16',1080,1920,0.28,0.28,'{"resolution":"1080P","duration":5,"ratio":"9:16"}',1,940,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_5','1080P · 5秒','1:1',1080,1080,0.28,0.28,'{"resolution":"1080P","duration":5,"ratio":"1:1"}',1,930,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_5','1080P · 5秒','4:3',1440,1080,0.28,0.28,'{"resolution":"1080P","duration":5,"ratio":"4:3"}',1,920,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_5','1080P · 5秒','3:4',1080,1440,0.28,0.28,'{"resolution":"1080P","duration":5,"ratio":"3:4"}',1,910,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_10','1080P · 10秒','16:9',1920,1080,0.56,0.56,'{"resolution":"1080P","duration":10,"ratio":"16:9"}',1,900,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_10','1080P · 10秒','9:16',1080,1920,0.56,0.56,'{"resolution":"1080P","duration":10,"ratio":"9:16"}',1,890,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_10','1080P · 10秒','1:1',1080,1080,0.56,0.56,'{"resolution":"1080P","duration":10,"ratio":"1:1"}',1,880,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_10','1080P · 10秒','4:3',1440,1080,0.56,0.56,'{"resolution":"1080P","duration":10,"ratio":"4:3"}',1,870,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_10','1080P · 10秒','3:4',1080,1440,0.56,0.56,'{"resolution":"1080P","duration":10,"ratio":"3:4"}',1,860,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_15','1080P · 15秒','16:9',1920,1080,0.84,0.84,'{"resolution":"1080P","duration":15,"ratio":"16:9"}',1,850,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_15','1080P · 15秒','9:16',1080,1920,0.84,0.84,'{"resolution":"1080P","duration":15,"ratio":"9:16"}',1,840,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_15','1080P · 15秒','1:1',1080,1080,0.84,0.84,'{"resolution":"1080P","duration":15,"ratio":"1:1"}',1,830,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_15','1080P · 15秒','4:3',1440,1080,0.84,0.84,'{"resolution":"1080P","duration":15,"ratio":"4:3"}',1,820,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'happy_horse','1080p_15','1080P · 15秒','3:4',1080,1440,0.84,0.84,'{"resolution":"1080P","duration":15,"ratio":"3:4"}',1,810,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
+ON DUPLICATE KEY UPDATE `quality_label`=VALUES(`quality_label`),`width`=VALUES(`width`),`height`=VALUES(`height`),`platform_unit_cost`=VALUES(`platform_unit_cost`),`tenant_unit_price`=VALUES(`tenant_unit_price`),`provider_params_json`=VALUES(`provider_params_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
 
 SET
     FOREIGN_KEY_CHECKS = 1;

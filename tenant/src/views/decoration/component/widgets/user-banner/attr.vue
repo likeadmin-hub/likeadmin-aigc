@@ -30,7 +30,9 @@
                                     <el-form-item class="mt-[18px]" label="图片链接">
                                         <link-picker
                                             v-model="item.link"
-                                            @update:modelValue="(value) => handleItemLinkChange(index, value)"
+                                            @update:modelValue="
+                                                (value) => handleItemLinkChange(index, value)
+                                            "
                                         />
                                     </el-form-item>
                                     <el-form-item label="是否显示" class="mt-[18px]">

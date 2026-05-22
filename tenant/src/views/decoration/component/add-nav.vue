@@ -16,7 +16,9 @@
                                 upload-class="bg-body"
                                 size="60px"
                                 exclude-domain
-                                @update:modelValue="(value) => handleItemChange(index, 'image', value)"
+                                @update:modelValue="
+                                    (value) => handleItemChange(index, 'image', value)
+                                "
                             >
                                 <template #upload>
                                     <div class="upload-btn w-[60px] h-[60px]">
@@ -37,7 +39,9 @@
                                     <span class="text-tx-regular flex-none mr-3">链接</span>
                                     <link-picker
                                         v-model="item.link"
-                                        @update:modelValue="(value) => handleItemChange(index, 'link', value)"
+                                        @update:modelValue="
+                                            (value) => handleItemChange(index, 'link', value)
+                                        "
                                     />
                                 </div>
                                 <el-form-item label="是否显示" class="mt-[18px]">
@@ -46,7 +50,9 @@
                                             v-model="item.is_show"
                                             active-value="1"
                                             inactive-value="0"
-                                            @change="(value) => handleItemChange(index, 'is_show', value)"
+                                            @change="
+                                                (value) => handleItemChange(index, 'is_show', value)
+                                            "
                                         />
                                         <div class="drag-move cursor-move ml-auto">
                                             <icon name="el-icon-Rank" size="18" />

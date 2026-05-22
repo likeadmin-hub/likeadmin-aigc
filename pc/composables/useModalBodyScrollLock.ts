@@ -1,4 +1,4 @@
-/** 弹窗打开时锁定页面滚动（与 MarketingLoginModal 行为一致） */
+/** 弹窗打开时锁定页面滚动（与 PcLoginModal 行为一致） */
 export function useModalBodyScrollLock() {
     let lockedScrollTop = 0
     let scrollLocked = false

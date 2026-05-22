@@ -152,7 +152,9 @@ router.beforeEach(async (to, from, next) => {
                 next(withTenantQuery({ ...to, replace: true }, tenantId))
             } catch (err) {
                 clearAuthInfo()
-                next(withTenantQuery({ path: loginPath, query: { redirect: to.fullPath } }, tenantId))
+                next(
+                    withTenantQuery({ path: loginPath, query: { redirect: to.fullPath } }, tenantId)
+                )
             }
         }
     } else {

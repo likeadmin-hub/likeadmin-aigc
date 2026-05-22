@@ -41,7 +41,7 @@
             <ElFormItem prop="password">
                 <ElInput
                     v-model="formData.password"
-                    placeholder="请输入6-20位字母数字组合"
+                    placeholder="请输入6-20位数字、字母或符号组合"
                     type="password"
                     show-password
                 />
@@ -82,7 +82,7 @@ import { SMSEnum } from '~~/enums/appEnums'
 import { useUserStore } from '~~/stores/user'
 import { useAccount, PopupTypeEnum } from './useAccount'
 const userStore = useUserStore()
-const { setPopupType, toggleShowPopup } = useAccount()
+const { setPopupType } = useAccount()
 const formRef = shallowRef<FormInstance>()
 const verificationCodeRef = shallowRef()
 const formRules: FormRules = {
@@ -93,9 +93,8 @@ const formRules: FormRules = {
             trigger: ['change', 'blur']
         },
         {
-            min: 3,
-            max: 12,
-            message: '账号长度应为3-12',
+            pattern: /^1\d{10}$/,
+            message: '请输入正确的手机号',
             trigger: ['change', 'blur']
         }
     ],
@@ -109,7 +108,7 @@ const formRules: FormRules = {
     password: [
         {
             required: true,
-            message: '请输入6-20位字母数字组合',
+            message: '请输入6-20位数字、字母或符号组合',
             trigger: ['change', 'blur']
         },
         {
@@ -119,8 +118,8 @@ const formRules: FormRules = {
             trigger: ['change', 'blur']
         },
         {
-            pattern: /^[A-Za-z0-9]+$/,
-            message: '密码须为字母数字组合',
+            pattern: /^(?![0-9]+$)(?![a-z]+$)(?![A-Z]+$)(?!([^(0-9a-zA-Z)]|[\(\)])+$)([^(0-9a-zA-Z)]|[\(\)]|[a-z]|[A-Z]|[0-9]){6,20}$/,
+            message: '密码须为数字、字母或符号组合',
             trigger: ['change', 'blur']
         }
     ],
@@ -159,6 +158,10 @@ const handleConfirm = async () => {
     await formRef.value?.validate()
     await forgotPassword(formData)
     userStore.logout()
+    formData.mobile = ''
+    formData.password = ''
+    formData.code = ''
+    formData.password_confirm = ''
     setPopupType(PopupTypeEnum.LOGIN)
 }
 const { lockFn: handleConfirmLock, isLock } = useLockFn(handleConfirm)

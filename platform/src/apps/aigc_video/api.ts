@@ -36,6 +36,10 @@ export function saveAigcVideoSpec(params: any) {
     return request.post({ url: '/app.aigc_video.spec/save', params })
 }
 
+export function batchSaveAigcVideoSpecs(params: any) {
+    return request.post({ url: '/app.aigc_video.spec/batchSave', params })
+}
+
 export function deleteAigcVideoSpec(params: any) {
     return request.post({ url: '/app.aigc_video.spec/delete', params })
 }

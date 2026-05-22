@@ -37,7 +37,7 @@ export function updateMachineCode() {
 
 export function updateLicenseImport(params: FormData) {
     return request.post(
-        { url: '/upgrade.upgrade/licenseImport', params, headers: { 'Content-Type': ContentTypeEnum.FORM_DATA } },
+        { url: '/upgrade.upgrade/license_import', params, headers: { 'Content-Type': ContentTypeEnum.FORM_DATA } },
         { isReturnDefaultResponse: true }
     )
 }

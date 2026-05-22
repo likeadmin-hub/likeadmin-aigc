@@ -502,7 +502,7 @@ class installModel
         $tables = explode(";\n", $content);
         $accountSql = str_replace(';', ";\n", $this->initAccount($post));
         $tables = array_merge($tables, explode(";\n", $accountSql));
-        $installTime = microtime(true) * 10000;
+        $installTime = (int) floor(microtime(true) * 10000);
         $this->lastSqlError = '';
 
         foreach ($tables as $table) {
@@ -522,7 +522,7 @@ class installModel
             if (strpos($table, 'CREATE') !== false) {
                 $tableName = explode('`', $table)[1];
                 $installTime += random_int(3000, 7000);
-                $this->successTable[] = [$tableName, date('Y-m-d H:i:s', $installTime / 10000)];
+                $this->successTable[] = [$tableName, date('Y-m-d H:i:s', intdiv($installTime, 10000))];
             }
 
 //            if (strpos($table, "INSERT INTO ") !== false) {

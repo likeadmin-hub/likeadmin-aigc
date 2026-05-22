@@ -16,6 +16,7 @@ namespace app\tenantapi\logic;
 
 
 use app\common\logic\BaseLogic;
+use app\common\enum\FileEnum;
 use app\common\model\file\TenantFile;
 use app\common\model\file\TenantFileCate;
 use app\common\service\storage\Driver as StorageDriver;
@@ -37,6 +38,7 @@ class FileLogic extends BaseLogic
     public static function move($params)
     {
         (new TenantFile())->whereIn('id', $params['ids'])
+            ->where('source', FileEnum::SOURCE_ADMIN)
             ->update([
                 'cid' => $params['cid'],
                 'update_time' => time()
@@ -52,6 +54,7 @@ class FileLogic extends BaseLogic
     public static function rename($params)
     {
         (new TenantFile())->where('id', $params['id'])
+            ->where('source', FileEnum::SOURCE_ADMIN)
             ->update([
                 'name' => $params['name'],
                 'update_time' => time()
@@ -66,7 +69,9 @@ class FileLogic extends BaseLogic
      */
     public static function delete($params)
     {
-        $result = TenantFile::whereIn('id', $params['ids'])->select();
+        $result = TenantFile::whereIn('id', $params['ids'])
+            ->where('source', FileEnum::SOURCE_ADMIN)
+            ->select();
         foreach ($result as $item) {
             $StorageDriver = new StorageDriver(StorageConfigService::getStoredFileConfig(
                 (int)(request()->tenantId ?? 0),
@@ -75,7 +80,9 @@ class FileLogic extends BaseLogic
             ));
             $StorageDriver->delete($item['uri']);
         }
-        TenantFile::destroy($params['ids']);
+        TenantFile::whereIn('id', $params['ids'])
+            ->where('source', FileEnum::SOURCE_ADMIN)
+            ->delete();
     }
 
     /**
@@ -125,7 +132,9 @@ class FileLogic extends BaseLogic
         $cateModel->whereIn('id', $cateIds)->update(['delete_time' => time()]);
 
         // 删除文件
-        $fileIds = $fileModel->whereIn('cid', $cateIds)->column('id');
+        $fileIds = $fileModel->whereIn('cid', $cateIds)
+            ->where('source', FileEnum::SOURCE_ADMIN)
+            ->column('id');
 
         if (!empty($fileIds)) {
             self::delete(['ids' => $fileIds]);

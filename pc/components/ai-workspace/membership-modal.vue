@@ -158,7 +158,6 @@ const close = () => emit('update:modelValue', false)
 
 const handleSubscribe = (plan: MembershipPlanId) => {
     emit('subscribe', plan, billingCycle.value)
-    close()
 }
 
 const handleRecharge = () => {

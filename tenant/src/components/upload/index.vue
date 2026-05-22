@@ -98,6 +98,7 @@ export default defineComponent({
             uploadLen++
             if (uploadLen == fileList.value.length) {
                 uploadLen = 0
+                visible.value = false
                 fileList.value = []
                 emit('allSuccess')
             }
@@ -113,6 +114,7 @@ export default defineComponent({
             uploadLen++
             if (uploadLen == fileList.value.length) {
                 uploadLen = 0
+                visible.value = false
                 fileList.value = []
                 emit('allSuccess')
             }

@@ -1,7 +1,7 @@
 <template>
     <div class="aigc-table-page">
         <el-card class="!border-none table-card" shadow="never">
-            <el-table v-loading="loading" size="large" :data="lists" height="100%">
+            <el-table v-loading="pager.loading" size="large" :data="tableLists" height="100%">
                 <el-table-column label="编码" prop="code" min-width="140" />
                 <el-table-column label="名称" prop="name" min-width="150" />
                 <el-table-column label="供应商" prop="provider" min-width="120" />
@@ -33,6 +33,9 @@
                     </template>
                 </el-table-column>
             </el-table>
+            <div class="pagination-wrap">
+                <pagination v-model="pager" @change="handlePageChange" />
+            </div>
         </el-card>
 
         <el-dialog v-model="editVisible" title="编辑通道" width="560px" destroy-on-close>
@@ -46,7 +49,7 @@
                 <el-form-item label="供应商">
                     <el-select v-model="formData.provider" class="w-full">
                         <el-option label="Mock" value="mock" />
-                        <el-option label="Xhadmin" value="xhadmin" />
+                        <el-option label="内置服务" value="xhadmin" />
                     </el-select>
                 </el-form-item>
                 <el-form-item label="模型">
@@ -75,13 +78,14 @@
 
 <script lang="ts" setup name="platform-aigc-video-channel">
 import { getAigcVideoChannels, saveAigcVideoChannel, setAigcVideoChannelStatus } from '@/apps/aigc_video/api'
+import { useLocalPaging } from '@/hooks/useLocalPaging'
 import feedback from '@/utils/feedback'
 
-const loading = ref(false)
 const saving = ref(false)
 const editVisible = ref(false)
 const statusLoadingId = ref(0)
 const lists = ref<any[]>([])
+const { pager, tableLists, setLists } = useLocalPaging({ size: 15 })
 const formData = reactive({
     code: '',
     name: '',
@@ -111,12 +115,17 @@ const normalizeForm = (row: any = {}) => ({
 })
 
 const getLists = async () => {
-    loading.value = true
+    pager.loading = true
     try {
         lists.value = await getAigcVideoChannels()
+        setLists(lists.value)
     } finally {
-        loading.value = false
+        pager.loading = false
     }
+}
+
+const handlePageChange = () => {
+    setLists(lists.value)
 }
 
 const openEdit = (row: any) => {
@@ -160,7 +169,19 @@ getLists()
 }
 
 :deep(.el-card__body) {
+    display: flex;
+    flex-direction: column;
     height: 100%;
     padding: 0;
+}
+
+:deep(.el-table) {
+    flex: 1;
+}
+
+.pagination-wrap {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 16px;
 }
 </style>

@@ -17,30 +17,27 @@
             </el-form>
         </el-card>
         <el-card class="!border-none mt-4" shadow="never">
-            <el-table v-loading="loading" size="large" :data="lists">
+            <el-table v-loading="pager.loading" size="large" :data="pager.lists">
                 <el-table-column label="用户ID" prop="user_id" />
                 <el-table-column label="总额度" prop="total_quota" />
                 <el-table-column label="已使用" prop="used_quota" />
                 <el-table-column label="过期时间" prop="expire_time" />
             </el-table>
+            <div class="flex justify-end mt-4">
+                <pagination v-model="pager" @change="getLists" />
+            </div>
         </el-card>
     </div>
 </template>
 
 <script lang="ts" setup name="tenant-aigc-image-quota">
 import { getAigcImageQuota, setAigcImageQuota } from '@/apps/aigc_image/api'
+import { usePaging } from '@/hooks/usePaging'
 
-const loading = ref(false)
-const lists = ref<any[]>([])
 const formData = reactive({ user_id: '', total_quota: 0, used_quota: 0, expire_time: 0 })
-const getLists = async () => {
-    loading.value = true
-    try {
-        lists.value = await getAigcImageQuota()
-    } finally {
-        loading.value = false
-    }
-}
+const { pager, getLists } = usePaging({
+    fetchFun: getAigcImageQuota
+})
 const handleSubmit = async () => {
     await setAigcImageQuota(formData)
     getLists()

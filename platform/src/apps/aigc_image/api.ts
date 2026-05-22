@@ -36,6 +36,10 @@ export function saveAigcImageSpec(params: any) {
     return request.post({ url: '/app.aigc_image.spec/save', params })
 }
 
+export function batchSaveAigcImageSpecs(params: any) {
+    return request.post({ url: '/app.aigc_image.spec/batchSave', params })
+}
+
 export function deleteAigcImageSpec(params: any) {
     return request.post({ url: '/app.aigc_image.spec/delete', params })
 }

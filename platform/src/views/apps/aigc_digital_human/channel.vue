@@ -6,11 +6,12 @@
                     <div class="text-base font-medium">数字人视频计费配置</div>
                     <div class="text-sm text-tx-secondary mt-1">每个模型按合成音频时长计费，单位为点/秒。</div>
                 </div>
+                <el-switch v-model="showDisabled" active-text="显示停用模型" />
             </div>
             <div class="clone-pricing">
                 <div class="text-base font-medium mb-4">克隆单价</div>
                 <el-form label-width="150px">
-                    <el-form-item label="形象克隆成本">
+                    <el-form-item label="形象克隆平台定价">
                         <el-input-number v-model="pricing.avatar_clone.platform_unit_cost" :min="0" :precision="2" />
                         <span class="ml-2 text-tx-secondary">/ 个</span>
                     </el-form-item>
@@ -18,7 +19,7 @@
                         <el-input-number v-model="pricing.avatar_clone.tenant_unit_price" :min="Number(pricing.avatar_clone.platform_unit_cost || 0)" :precision="2" />
                         <span class="ml-2 text-tx-secondary">/ 个</span>
                     </el-form-item>
-                    <el-form-item label="音色克隆成本">
+                    <el-form-item label="音色克隆平台定价">
                         <el-input-number v-model="pricing.voice_clone.platform_unit_cost" :min="0" :precision="2" />
                         <span class="ml-2 text-tx-secondary">/ 个</span>
                     </el-form-item>
@@ -32,13 +33,13 @@
                 </el-form>
             </div>
             <el-divider />
-            <el-table v-loading="loading" size="large" :data="lists" max-height="520">
+            <el-table v-loading="pager.loading" size="large" :data="tableLists" max-height="520">
                 <el-table-column label="模型编码" prop="code" min-width="140" />
                 <el-table-column label="模型名称" prop="name" min-width="150" />
                 <el-table-column label="模型描述" prop="description" min-width="220" show-overflow-tooltip />
                 <el-table-column label="供应商" prop="provider" min-width="120" />
                 <el-table-column label="Provider模型" prop="model" min-width="160" />
-                <el-table-column label="平台成本" min-width="130">
+                <el-table-column label="平台定价" min-width="130">
                     <template #default="{ row }">
                         <el-input-number v-model="row.platform_unit_cost" :min="0" :precision="2" size="small" />
                     </template>
@@ -73,6 +74,9 @@
                     </template>
                 </el-table-column>
             </el-table>
+            <div class="pagination-wrap">
+                <pagination v-model="pager" @change="handlePageChange" />
+            </div>
         </el-card>
 
         <el-dialog v-model="editVisible" title="编辑通道" width="560px" destroy-on-close>
@@ -89,7 +93,7 @@
                 <el-form-item label="供应商">
                     <el-select v-model="formData.provider" class="w-full">
                         <el-option label="Mock" value="mock" />
-                        <el-option label="Xhadmin" value="xhadmin" />
+                        <el-option label="内置服务" value="xhadmin" />
                     </el-select>
                 </el-form-item>
                 <el-form-item label="模型">
@@ -110,14 +114,16 @@
 <script lang="ts" setup name="platform-aigc-digital-human-channel">
 import { getAigcDigitalHumanChannels, saveAigcDigitalHumanChannel, setAigcDigitalHumanChannelStatus } from '@/apps/aigc_digital_human/api'
 import { getAigcDigitalHumanPricing, setAigcDigitalHumanPricing } from '@/apps/aigc_digital_human/api'
+import { useLocalPaging } from '@/hooks/useLocalPaging'
 import feedback from '@/utils/feedback'
 
-const loading = ref(false)
 const saving = ref(false)
 const pricingSaving = ref(false)
 const editVisible = ref(false)
+const showDisabled = ref(false)
 const statusLoadingId = ref(0)
 const lists = ref<any[]>([])
+const { pager, tableLists, setLists } = useLocalPaging({ size: 15 })
 const pricing = reactive<any>({
     generate_models: [],
     avatar_clone: { platform_unit_cost: 2, tenant_unit_price: 3 },
@@ -146,9 +152,10 @@ const normalizeForm = (row: any = {}) => ({
     status: Number(row.status ?? 1),
     sort: Number(row.sort ?? 0)
 })
+const visibleLists = computed(() => lists.value.filter((row) => showDisabled.value || Number(row.status) === 1))
 
 const getLists = async () => {
-    loading.value = true
+    pager.loading = true
     try {
         const [rows, pricingRows] = await Promise.all([getAigcDigitalHumanChannels(), getAigcDigitalHumanPricing()])
         Object.assign(pricing, pricingRows)
@@ -159,10 +166,20 @@ const getLists = async () => {
             platform_unit_cost: priceMap[row.code]?.platform_unit_cost || 0,
             tenant_unit_price: priceMap[row.code]?.tenant_unit_price || 0
         }))
+        setLists(visibleLists.value)
     } finally {
-        loading.value = false
+        pager.loading = false
     }
 }
+
+const handlePageChange = () => {
+    setLists(visibleLists.value)
+}
+
+watch(
+    () => [showDisabled.value, lists.value.length, lists.value.map((row) => row.status).join('|')].join('|'),
+    () => setLists(visibleLists.value)
+)
 
 const openEdit = (row: any) => {
     Object.assign(formData, normalizeForm(row))
@@ -247,5 +264,11 @@ getLists()
     padding: 16px;
     border: 1px solid var(--el-border-color-light);
     border-radius: 8px;
+}
+
+.pagination-wrap {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 0 0;
 }
 </style>

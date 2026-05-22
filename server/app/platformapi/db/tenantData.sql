@@ -79,6 +79,10 @@ INSERT INTO `la_tenant_pay_way_{tenantSn}`
 VALUES (6, {tenantId}, 2, 3, 1, 1);
 INSERT INTO `la_tenant_pay_way_{tenantSn}`
 VALUES (7, {tenantId}, 3, 3, 0, 1);
+INSERT INTO `la_tenant_pay_way_{tenantSn}`
+VALUES (8, {tenantId}, 2, 4, 1, 1);
+INSERT INTO `la_tenant_pay_way_{tenantSn}`
+VALUES (9, {tenantId}, 3, 4, 0, 1);
 COMMIT;
 
 

@@ -12,7 +12,16 @@
             <el-table-column label="耗时(ms)" prop="duration_ms" width="110" />
             <el-table-column label="状态" width="100">
                 <template #default="{ row }">
-                    <el-tag :type="row.status === 'success' ? 'success' : row.status === 'failed' ? 'danger' : 'warning'">{{ row.status }}</el-tag>
+                    <el-tag
+                        :type="
+                            row.status === 'success'
+                                ? 'success'
+                                : row.status === 'failed'
+                                  ? 'danger'
+                                  : 'warning'
+                        "
+                        >{{ row.status }}</el-tag
+                    >
                 </template>
             </el-table-column>
             <el-table-column label="错误" prop="error" min-width="180" show-overflow-tooltip />

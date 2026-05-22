@@ -36,7 +36,7 @@ class LikeAdminAllowMiddleware
         'Authorization', 'Sec-Fetch-Mode', 'DNT', 'X-Mx-ReqToken', 'Keep-Alive', 'User-Agent',
         'If-Match', 'If-None-Match', 'If-Unmodified-Since', 'X-Requested-With', 'If-Modified-Since',
         'Cache-Control', 'Content-Type', 'Accept-Language', 'Origin', 'Accept-Encoding', 'Access-Token',
-        'token', 'version', 'tenant-id', 'Tenant-Id',
+        'token', 'version', 'terminal', 'Terminal', 'tenant-id', 'Tenant-Id',
     ];
 
     /**
@@ -68,10 +68,12 @@ class LikeAdminAllowMiddleware
         $tenantModel = new Tenant();
         $domain = TenantUrlService::normalizeHost($request->domain());
         $pathSegments = explode('/', trim($request->pathinfo(), '/'));
+        $baseUrlSegments = explode('/', trim((string)$request->baseUrl(), '/'));
         $firstSegment = $pathSegments[0] ?? '';
+        $firstOriginalSegment = $baseUrlSegments[0] ?? '';
         // 处理API请求
-        if (str_contains($firstSegment, 'api')) {
-            if ($firstSegment !== 'platformapi') {
+        if (str_contains($firstSegment, 'api') || str_contains($firstOriginalSegment, 'api')) {
+            if ($firstSegment !== 'platformapi' && $firstOriginalSegment !== 'platformapi') {
                 return $this->handleTenantAccess($tenantModel, $domain, $request, $next);
             }else{
                 $this->resolveTenantFromPayload($tenantModel, $request);
@@ -82,8 +84,7 @@ class LikeAdminAllowMiddleware
             if ($firstSegment !== 'platform') {
                 return $this->handleTenantAccess($tenantModel, $domain, $request, $next, true);
             } else {
-                $platformHost = TenantUrlService::normalizeHost((string)Config::get('project.http_host'));
-                if ($platformHost !== '' && $domain !== $platformHost) {
+                if (!$this->isAllowedPlatformHost($domain)) {
                     return view(app()->getRootPath() . 'public/error/platform/404.html');
                 }else{
                     $this->resolveTenantFromPayload($tenantModel, $request);
@@ -93,6 +94,36 @@ class LikeAdminAllowMiddleware
         }
 
         return $next($request);
+    }
+
+    private function isAllowedPlatformHost(string $domain): bool
+    {
+        $domain = TenantUrlService::normalizeHost($domain);
+        $allowedHosts = $this->parseConfiguredHosts((string)Config::get('project.http_host'));
+        if (empty($allowedHosts)) {
+            return true;
+        }
+        foreach ($allowedHosts as $allowedHost) {
+            if ($domain === $allowedHost || str_ends_with($domain, '.' . $allowedHost)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @return string[]
+     */
+    private function parseConfiguredHosts(string $hosts): array
+    {
+        $result = [];
+        foreach (preg_split('/\s*,\s*/', trim($hosts)) as $host) {
+            $host = TenantUrlService::normalizeHost($host);
+            if ($host !== '') {
+                $result[] = $host;
+            }
+        }
+        return array_values(array_unique($result));
     }
 
     /**

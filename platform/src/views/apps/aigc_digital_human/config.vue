@@ -42,7 +42,7 @@
             </template>
             <el-form label-width="150px">
                 <div class="text-sm text-tx-secondary mb-3">视频合成按模型在“通道管理”中配置每秒价格。</div>
-                <el-form-item label="形象克隆成本">
+                <el-form-item label="形象克隆平台定价">
                     <el-input-number v-model="pricing.avatar_clone.platform_unit_cost" :min="0" :precision="2" />
                     <span class="ml-2 text-tx-secondary">/ 个</span>
                 </el-form-item>
@@ -50,7 +50,7 @@
                     <el-input-number v-model="pricing.avatar_clone.tenant_unit_price" :min="Number(pricing.avatar_clone.platform_unit_cost || 0)" :precision="2" />
                     <span class="ml-2 text-tx-secondary">/ 个</span>
                 </el-form-item>
-                <el-form-item label="音色克隆成本">
+                <el-form-item label="音色克隆平台定价">
                     <el-input-number v-model="pricing.voice_clone.platform_unit_cost" :min="0" :precision="2" />
                     <span class="ml-2 text-tx-secondary">/ 个</span>
                 </el-form-item>

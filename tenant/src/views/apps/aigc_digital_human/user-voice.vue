@@ -2,13 +2,28 @@
     <el-card class="!border-none" shadow="never">
         <el-form :inline="true" class="mb-4">
             <el-form-item label="用户ID">
-                <el-input v-model="query.user_id" class="w-[160px]" clearable placeholder="全部用户" />
+                <el-input
+                    v-model="query.user_id"
+                    class="w-[160px]"
+                    clearable
+                    placeholder="全部用户"
+                />
             </el-form-item>
             <el-form-item label="关键词">
-                <el-input v-model="query.keyword" class="w-[220px]" clearable placeholder="音色名称" />
+                <el-input
+                    v-model="query.keyword"
+                    class="w-[220px]"
+                    clearable
+                    placeholder="音色名称"
+                />
             </el-form-item>
             <el-form-item label="合成状态">
-                <el-select v-model="query.status" class="w-[160px]" clearable placeholder="全部状态">
+                <el-select
+                    v-model="query.status"
+                    class="w-[160px]"
+                    clearable
+                    placeholder="全部状态"
+                >
                     <el-option label="可用" value="ready" />
                     <el-option label="待处理" value="pending" />
                     <el-option label="克隆中" value="running" />
@@ -17,11 +32,11 @@
                 </el-select>
             </el-form-item>
             <el-form-item>
-                <el-button type="primary" @click="getLists">查询</el-button>
+                <el-button type="primary" @click="resetPage">查询</el-button>
                 <el-button @click="resetQuery">重置</el-button>
             </el-form-item>
         </el-form>
-        <el-table v-loading="loading" size="large" :data="lists">
+        <el-table v-loading="pager.loading" size="large" :data="pager.lists">
             <el-table-column label="ID" prop="id" width="80" />
             <el-table-column label="用户ID" prop="user_id" width="100" />
             <el-table-column label="名称" prop="name" min-width="160" />
@@ -41,33 +56,41 @@
             </el-table-column>
             <el-table-column label="操作" width="190" fixed="right">
                 <template #default="{ row }">
-                    <el-button type="primary" link :disabled="!row.provider_asset_id" @click="handlePublish(row.id)">设为公共</el-button>
+                    <el-button
+                        type="primary"
+                        link
+                        :disabled="!row.provider_asset_id"
+                        @click="handlePublish(row.id)"
+                        >设为公共</el-button
+                    >
                     <el-button type="danger" link @click="handleDelete(row.id)">删除</el-button>
                 </template>
             </el-table-column>
         </el-table>
+        <div class="flex justify-end mt-4">
+            <pagination v-model="pager" @change="getLists" />
+        </div>
     </el-card>
 </template>
 
 <script lang="ts" setup name="tenant-aigc-digital-human-user-voice">
-import { deleteAigcDigitalHumanUserVoice, getAigcDigitalHumanUserVoices, publishAigcDigitalHumanUserVoice } from '@/apps/aigc_digital_human/api'
-import { timeFormat } from '@/utils/util'
+import {
+    deleteAigcDigitalHumanUserVoice,
+    getAigcDigitalHumanUserVoices,
+    publishAigcDigitalHumanUserVoice
+} from '@/apps/aigc_digital_human/api'
+import { usePaging } from '@/hooks/usePaging'
 import feedback from '@/utils/feedback'
+import { timeFormat } from '@/utils/util'
 
-const loading = ref(false)
-const lists = ref<any[]>([])
 const query = reactive({ user_id: '', keyword: '', status: '' })
-const getLists = async () => {
-    loading.value = true
-    try {
-        lists.value = await getAigcDigitalHumanUserVoices(query)
-    } finally {
-        loading.value = false
-    }
-}
+const { pager, getLists, resetPage } = usePaging({
+    fetchFun: getAigcDigitalHumanUserVoices,
+    params: query
+})
 const resetQuery = () => {
     Object.assign(query, { user_id: '', keyword: '', status: '' })
-    getLists()
+    resetPage()
 }
 const handlePublish = async (id: number) => {
     await feedback.confirm('确定将该用户音色复制为公共音色？')
@@ -100,7 +123,8 @@ const formatVoiceId = (row: any) => {
 }
 const formatTime = (time: number | string) => {
     if (!time) return '-'
-    if (typeof time === 'string') return /^\d+$/.test(time) ? timeFormat(Number(time), 'yyyy-mm-dd hh:MM:ss') : time
+    if (typeof time === 'string')
+        return /^\d+$/.test(time) ? timeFormat(Number(time), 'yyyy-mm-dd hh:MM:ss') : time
     return timeFormat(time, 'yyyy-mm-dd hh:MM:ss')
 }
 getLists()

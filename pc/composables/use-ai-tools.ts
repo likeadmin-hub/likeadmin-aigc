@@ -68,6 +68,7 @@ export interface ToolCardItem {
     toolMode?: ToolMode
     generateKind?: ToolResultKind
     appPath?: string
+    implemented?: boolean
     uploadTitle?: string
     promptTitle?: string
     promptPlaceholder?: string
@@ -107,11 +108,22 @@ export const aiToolTexts = {
     deleteAll: '全部删除'
 } as const
 
+export const toolComingSoonMessage = '此能力正在陆续迭代中，将以更完整、更强大的创作体验与您见面。'
+export const implementedToolCardIds = ['tool-card-digital-human-driver', 'tool-card-canvas', 'tool-card-llm']
+
 export const toolCategoryOptions: ToolCategory[] = ['全部', '图片编辑', '电商商务', '人像摄影', '创意']
 export const toolDetailResolutionOptions: ToolDetailResolution[] = ['高清2k', '高清4k']
 export const toolResultFilterOptions: ToolResultFilter[] = ['全部', '视频生成', '图片生成', 'AI工具']
 
 export const featuredTools: FeaturedToolItem[] = [
+    {
+        id: 'featured-tool-digital-human-driver',
+        title: '全驱数字人',
+        description: '声音、形象、动作与场景全链路驱动。',
+        image: card2,
+        category: '创意',
+        targetToolId: 'tool-card-digital-human-driver'
+    },
     {
         id: 'featured-tool-canvas',
         title: '无限画布',
@@ -187,6 +199,19 @@ export const featuredTools: FeaturedToolItem[] = [
 ]
 
 export const toolCards: ToolCardItem[] = [
+    {
+        id: 'tool-card-digital-human-driver',
+        title: '全驱数字人',
+        badge: '数字人新能力',
+        category: '创意',
+        image: card2,
+        detailName: '全驱数字人',
+        detailDescription: '上传人物图片与参考音频，选择快速或标准模式，生成全驱动数字人视频。',
+        promptLead: '进入全驱数字人后，可完成图片、音频、提示词和模式选择并查看生成结果。',
+        createdCost: '0',
+        generateKind: 'tool',
+        appPath: '/ai/avatar?tab=image_human'
+    },
     {
         id: 'tool-card-canvas',
         title: '无限画布',
@@ -528,8 +553,13 @@ export const toolCards: ToolCardItem[] = [
 
 const previewPool = [card10, card11, card12, card2, card3, card4, card5, card6, card7, card8, card9]
 
+export const isToolCardImplemented = (item?: ToolCardItem | null) => (
+    !!item && (item.implemented === true || implementedToolCardIds.includes(item.id) || !!item.appPath)
+)
 export const buildToolDetailPath = (id: string) => `/ai/tools/${id}`
-export const buildToolCardPath = (item: ToolCardItem) => item.appPath || buildToolDetailPath(item.id)
+export const buildToolCardPath = (item: ToolCardItem) => isToolCardImplemented(item)
+    ? item.appPath || buildToolDetailPath(item.id)
+    : '/ai/tools'
 export const buildFeaturedToolPath = (item: FeaturedToolItem) => {
     const targetTool = toolCards.find((tool) => tool.id === item.targetToolId)
     return targetTool ? buildToolCardPath(targetTool) : buildToolDetailPath(item.targetToolId)

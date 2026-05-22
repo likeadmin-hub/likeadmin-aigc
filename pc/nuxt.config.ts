@@ -1,7 +1,6 @@
 // https://v3.nuxtjs.org/api/configuration/nuxt.config
 
 import { URL } from 'node:url'
-import { ACADEMY_COURSES } from './constants/academy-courses'
 import { DEFAULT_PC_DEV_API_HOST, PUBLIC_API_HOST } from './constants/public-api'
 import { getEnvConfig } from './nuxt/env'
 
@@ -22,6 +21,7 @@ const publicApiHost =
     PUBLIC_API_HOST
 const devProxyHost =
     (envConfig.devProxyHost as string | undefined)?.trim() || legacyApiProxyHost || ''
+const hasExplicitDevApiTarget = !!((envConfig.apiUrl as string | undefined)?.trim() || legacyApiProxyTarget)
 /** 开发时未配置 NUXT_API_URL 时，本地常见为 http 访问域名，勿默认走 https 以免代理失败（500） */
 const devApiTarget =
     (envConfig.apiUrl as string | undefined)?.trim() ||
@@ -39,7 +39,7 @@ function devApiProxyOptions() {
         changeOrigin: true
     }
     let hostHeader = devProxyHost
-    if (!hostHeader) {
+    if (!hostHeader && !hasExplicitDevApiTarget) {
         try {
             const u = new URL(devApiTarget)
             if (publicApiHost && u.hostname !== publicApiHost) {
@@ -85,17 +85,16 @@ const aiToolDetailRoutes = [
     '/ai/tools/tool-card-29',
     '/ai/tools/tool-card-30'
 ]
-const academyDetailRoutes = ACADEMY_COURSES.map(({ id }) => `/academy/${id}`)
 
 export default defineNuxtConfig({
     css: ['@/assets/styles/index.scss'],
     modules: ['@pinia/nuxt', '@nuxtjs/tailwindcss', '@element-plus/nuxt'],
     app: {
-        baseURL: envConfig.baseUrl
+        baseURL: envConfig.baseUrl || '/'
     },
     nitro: {
         prerender: {
-            routes: [...aiToolDetailRoutes, ...academyDetailRoutes]
+            routes: aiToolDetailRoutes
         },
         devProxy: {
             '/api': pcApiDevProxy,

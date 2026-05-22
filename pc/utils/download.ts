@@ -4,10 +4,24 @@ import { normalizeFileUrl } from '@/utils/file-url'
 export const resolvePcDownloadUrl = (url: unknown) => {
     const raw = String(url || '').trim()
     if (!raw) return ''
+    if (/^\/\//.test(raw)) {
+        if (typeof window !== 'undefined' && window.location?.protocol) {
+            return `${window.location.protocol}${raw}`
+        }
+        return `https:${raw}`
+    }
+
+    if (/^https?:\/\//i.test(raw) || raw.startsWith('data:') || raw.startsWith('blob:')) {
+        return raw
+    }
+
     const normalized = normalizeFileUrl(raw)
 
     if (/^\/\//.test(normalized)) {
-        return `${window.location.protocol}${normalized}`
+        if (typeof window !== 'undefined' && window.location?.protocol) {
+            return `${window.location.protocol}${normalized}`
+        }
+        return `https:${normalized}`
     }
 
     if (/^https?:\/\//i.test(normalized) || normalized.startsWith('data:') || normalized.startsWith('blob:')) {
@@ -31,17 +45,41 @@ export const getPcDownloadExtension = (url: unknown, fallback = 'png') => {
     return match?.[1] || fallback
 }
 
-export const downloadPcAsset = (url: unknown, _fileName?: string) => {
+const safeDownloadFileName = (fileName: string) => {
+    const normalized = String(fileName || 'download')
+        .replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, '_')
+        .trim()
+    return normalized || 'download'
+}
+
+const clickDownloadLink = (href: string, fileName: string) => {
+    const link = document.createElement('a')
+    link.href = href
+    link.download = safeDownloadFileName(fileName)
+    link.rel = 'noopener noreferrer'
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+}
+
+export const downloadPcAsset = (url: unknown, fileName = 'download') => {
     if (!import.meta.client || typeof window === 'undefined') return false
     const href = resolvePcDownloadUrl(url)
     if (!href) return false
-    return Boolean(window.open(href, '_blank', 'noopener,noreferrer'))
+
+    clickDownloadLink(href, fileName)
+    return true
 }
 
 export const openPcAsset = (url: unknown) => {
     if (!import.meta.client || typeof window === 'undefined') return false
     const href = resolvePcDownloadUrl(url)
     if (!href) return false
-    window.open(href, '_blank')
+    const win = window.open(href, '_blank', 'noopener,noreferrer')
+    if (!win) {
+        window.location.href = href
+        return true
+    }
     return true
 }

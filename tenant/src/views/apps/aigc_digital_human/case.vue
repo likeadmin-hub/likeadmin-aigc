@@ -4,21 +4,29 @@
             <div class="case-filter">
                 <el-form class="case-filter__form" :inline="true" :model="queryParams">
                     <el-form-item label="类型">
-                        <el-select v-model="queryParams.media_type" class="case-filter__select" @change="getLists">
+                        <el-select
+                            v-model="queryParams.media_type"
+                            class="case-filter__select"
+                            @change="resetPage"
+                        >
                             <el-option label="全部类型" value="" />
                             <el-option label="图片" value="image" />
                             <el-option label="视频" value="video" />
                         </el-select>
                     </el-form-item>
                     <el-form-item label="状态">
-                        <el-select v-model="queryParams.status" class="case-filter__select" @change="getLists">
+                        <el-select
+                            v-model="queryParams.status"
+                            class="case-filter__select"
+                            @change="resetPage"
+                        >
                             <el-option label="全部状态" value="" />
                             <el-option label="启用" :value="1" />
                             <el-option label="停用" :value="0" />
                         </el-select>
                     </el-form-item>
                     <el-form-item>
-                        <el-button @click="getLists">查询</el-button>
+                        <el-button @click="resetPage">查询</el-button>
                     </el-form-item>
                 </el-form>
                 <el-button type="primary" @click="openEdit()">新增案例</el-button>
@@ -26,7 +34,7 @@
         </el-card>
 
         <el-card class="!border-none mt-4" shadow="never">
-            <el-table v-loading="loading" size="large" :data="lists">
+            <el-table v-loading="pager.loading" size="large" :data="pager.lists">
                 <el-table-column label="封面" width="96">
                     <template #default="{ row }">
                         <video
@@ -55,7 +63,12 @@
                         <el-tag>{{ row.media_type === 'video' ? '视频' : '图片' }}</el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column label="提示词" prop="prompt" min-width="260" show-overflow-tooltip />
+                <el-table-column
+                    label="提示词"
+                    prop="prompt"
+                    min-width="260"
+                    show-overflow-tooltip
+                />
                 <el-table-column label="排序" prop="sort" width="90" />
                 <el-table-column label="状态" width="100">
                     <template #default="{ row }">
@@ -74,9 +87,16 @@
                     </template>
                 </el-table-column>
             </el-table>
+            <div class="flex justify-end mt-4">
+                <pagination v-model="pager" @change="getLists" />
+            </div>
         </el-card>
 
-        <el-dialog v-model="dialogVisible" :title="formData.id ? '编辑案例' : '新增案例'" width="720px">
+        <el-dialog
+            v-model="dialogVisible"
+            :title="formData.id ? '编辑案例' : '新增案例'"
+            width="720px"
+        >
             <el-form label-width="100px" :model="formData">
                 <el-form-item label="标题" required>
                     <el-input v-model="formData.title" placeholder="请输入案例标题" />
@@ -106,7 +126,12 @@
                     <div class="case-form-tip">不选择作品时默认使用封面</div>
                 </el-form-item>
                 <el-form-item label="提示词">
-                    <el-input v-model="formData.prompt" type="textarea" :rows="4" placeholder="请输入案例提示词" />
+                    <el-input
+                        v-model="formData.prompt"
+                        type="textarea"
+                        :rows="4"
+                        placeholder="请输入案例提示词"
+                    />
                 </el-form-item>
                 <el-form-item label="排序">
                     <el-input-number v-model="formData.sort" :min="0" />
@@ -130,10 +155,9 @@ import {
     saveAigcDigitalHumanCase,
     setAigcDigitalHumanCaseStatus
 } from '@/apps/aigc_digital_human/api'
+import { usePaging } from '@/hooks/usePaging'
 import feedback from '@/utils/feedback'
 
-const loading = ref(false)
-const lists = ref<any[]>([])
 const dialogVisible = ref(false)
 const queryParams = reactive({
     media_type: '',
@@ -152,14 +176,10 @@ const defaultForm = () => ({
 })
 const formData = reactive<any>(defaultForm())
 
-const getLists = async () => {
-    loading.value = true
-    try {
-        lists.value = await getAigcDigitalHumanCases(queryParams)
-    } finally {
-        loading.value = false
-    }
-}
+const { pager, getLists, resetPage } = usePaging({
+    fetchFun: getAigcDigitalHumanCases,
+    params: queryParams
+})
 const resetForm = () => {
     Object.assign(formData, defaultForm())
 }

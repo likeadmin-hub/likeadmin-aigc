@@ -15,6 +15,7 @@ export type AiGenerationMode = 'image' | 'video'
 export type AiCreateStatus = 'creating' | 'created'
 export type AiCreateOptionKey = 'model' | 'count' | 'ratio' | 'resolution' | 'duration' | 'quality'
 export type AiCreateOptionState = Record<AiCreateOptionKey, string>
+export type AiCreateOptionValues = Record<AiCreateOptionKey, string[]>
 
 export interface AiCreateDraft {
     task: string
@@ -53,7 +54,7 @@ export const createAiCreateOptionState = (): AiCreateOptionState => ({
     quality: '1k标清'
 })
 
-export const aiCreateOptionValues: Record<AiCreateOptionKey, string[]> = {
+export const aiCreateOptionValues: AiCreateOptionValues = {
     model: ['豆包seed-2-0-pro', 'sdxl-lightning', 'midjourney-v7'],
     count: ['1张', '2张', '4张'],
     ratio: ['21:9', '16:9', '4:3', '1:1', '3:4', '9:16'],

@@ -14,33 +14,32 @@
             </el-form>
         </el-card>
         <el-card class="!border-none mt-4" shadow="never">
-            <el-table v-loading="loading" size="large" :data="lists">
+            <el-table v-loading="pager.loading" size="large" :data="pager.lists">
                 <el-table-column label="ID" prop="id" width="100" />
                 <el-table-column label="敏感词" prop="word" />
                 <el-table-column label="状态" width="120">
                     <template #default="{ row }">
-                        <el-tag :type="row.status ? 'success' : 'info'">{{ row.status ? '启用' : '停用' }}</el-tag>
+                        <el-tag :type="row.status ? 'success' : 'info'">{{
+                            row.status ? '启用' : '停用'
+                        }}</el-tag>
                     </template>
                 </el-table-column>
             </el-table>
+            <div class="flex justify-end mt-4">
+                <pagination v-model="pager" @change="getLists" />
+            </div>
         </el-card>
     </div>
 </template>
 
 <script lang="ts" setup name="tenant-aigc-video-sensitive-word">
 import { getAigcVideoSensitiveWords, setAigcVideoSensitiveWord } from '@/apps/aigc_video/api'
+import { usePaging } from '@/hooks/usePaging'
 
-const loading = ref(false)
-const lists = ref<any[]>([])
 const formData = reactive({ word: '', status: 1 })
-const getLists = async () => {
-    loading.value = true
-    try {
-        lists.value = await getAigcVideoSensitiveWords()
-    } finally {
-        loading.value = false
-    }
-}
+const { pager, getLists } = usePaging({
+    fetchFun: getAigcVideoSensitiveWords
+})
 const handleSubmit = async () => {
     await setAigcVideoSensitiveWord(formData)
     formData.word = ''

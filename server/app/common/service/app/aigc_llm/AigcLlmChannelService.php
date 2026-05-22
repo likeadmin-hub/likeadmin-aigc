@@ -249,13 +249,25 @@ class AigcLlmChannelService
             ? AigcLlmChannel::where('tenant_id', $tenantId)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray()
             : [];
         $map = [];
+        $platformMap = [];
+        $tenantMap = [];
         foreach ($platform as $row) {
+            $platformMap[$row['code']] = $row;
             $map[$row['code']] = $row;
         }
         foreach ($tenant as $row) {
+            $tenantMap[$row['code']] = $row;
             $map[$row['code']] = array_merge($map[$row['code']] ?? [], $row);
         }
-        $rows = array_values($map);
+        $rows = [];
+        foreach ($map as $code => $row) {
+            $platformStatus = (int)($platformMap[$code]['status'] ?? $row['status'] ?? 0);
+            $tenantStatus = (int)($tenantMap[$code]['status'] ?? 1);
+            $row['platform_status'] = $platformStatus;
+            $row['tenant_status'] = $tenantStatus;
+            $row['status'] = $platformStatus === 1 && $tenantStatus === 1 ? 1 : 0;
+            $rows[] = $row;
+        }
         if ($onlyEnabled) {
             $rows = array_values(array_filter($rows, fn(array $row) => (int)($row['status'] ?? 0) === 1));
         }
@@ -275,17 +287,33 @@ class AigcLlmChannelService
             ? AigcLlmModel::where('tenant_id', $tenantId)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray()
             : [];
         $map = [];
+        $platformMap = [];
+        $tenantMap = [];
         foreach ($platform as $row) {
+            $platformMap[$row['code']] = $row;
             $map[$row['code']] = $row;
         }
         foreach ($tenant as $row) {
+            $tenantMap[$row['code']] = $row;
             $map[$row['code']] = array_merge($map[$row['code']] ?? [], $row);
         }
         $rows = [];
         foreach ($map as $row) {
+            $code = (string)($row['code'] ?? '');
             if (!isset($channelMap[$row['channel_code']])) {
                 continue;
             }
+            $platformStatus = (int)($platformMap[$code]['status'] ?? $row['status'] ?? 0);
+            $tenantStatus = (int)($tenantMap[$code]['status'] ?? 1);
+            if (isset($platformMap[$code])) {
+                $row['platform_unit_cost'] = $platformMap[$code]['platform_unit_cost'];
+                $row['platform_input_unit_cost'] = $platformMap[$code]['platform_input_unit_cost'] ?? $platformMap[$code]['platform_unit_cost'] ?? 0;
+                $row['platform_output_unit_cost'] = $platformMap[$code]['platform_output_unit_cost'] ?? $platformMap[$code]['platform_unit_cost'] ?? 0;
+                $row['billing_unit'] = $platformMap[$code]['billing_unit'] ?? $row['billing_unit'] ?? 'tokens_1m';
+            }
+            $row['platform_status'] = $platformStatus;
+            $row['tenant_status'] = $tenantStatus;
+            $row['status'] = $platformStatus === 1 && (int)($channelMap[$row['channel_code']]['status'] ?? 0) === 1 && $tenantStatus === 1 ? 1 : 0;
             if ($onlyEnabled && (int)($row['status'] ?? 0) !== 1) {
                 continue;
             }

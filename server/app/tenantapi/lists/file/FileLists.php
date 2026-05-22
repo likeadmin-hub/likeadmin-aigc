@@ -16,6 +16,7 @@ namespace app\tenantapi\lists\file;
 
 use app\tenantapi\lists\BaseAdminDataLists;
 use app\tenantapi\logic\FileLogic;
+use app\common\enum\FileEnum;
 use app\common\lists\ListsSearchInterface;
 use app\common\model\file\TenantFile;
 use app\common\service\FileService;
@@ -80,7 +81,7 @@ class FileLists extends BaseAdminDataLists implements ListsSearchInterface
             ->order('id', 'desc')
             ->where($this->searchWhere)
             ->where($this->queryWhere())
-//            ->where('source', FileEnum::SOURCE_ADMIN)
+            ->where('source', FileEnum::SOURCE_ADMIN)
             ->limit($this->limitOffset, $this->limitLength)
             ->select()
             ->toArray();
@@ -108,7 +109,7 @@ class FileLists extends BaseAdminDataLists implements ListsSearchInterface
     {
         return (new TenantFile())->where($this->searchWhere)
             ->where($this->queryWhere())
-//            ->where('source', FileEnum::SOURCE_ADMIN)
+            ->where('source', FileEnum::SOURCE_ADMIN)
             ->count();
     }
 }

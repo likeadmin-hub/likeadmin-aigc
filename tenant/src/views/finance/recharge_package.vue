@@ -3,7 +3,13 @@
         <el-card class="!border-none" shadow="never">
             <el-form class="mb-[-16px]" :model="queryParams" :inline="true">
                 <el-form-item label="套餐名称">
-                    <el-input v-model="queryParams.name" class="w-[240px]" placeholder="请输入套餐名称" clearable @keyup.enter="resetPage" />
+                    <el-input
+                        v-model="queryParams.name"
+                        class="w-[240px]"
+                        placeholder="请输入套餐名称"
+                        clearable
+                        @keyup.enter="resetPage"
+                    />
                 </el-form-item>
                 <el-form-item label="状态">
                     <el-select v-model="queryParams.status" class="w-[160px]">
@@ -15,7 +21,12 @@
                 <el-form-item>
                     <el-button type="primary" @click="resetPage">查询</el-button>
                     <el-button @click="resetParams">重置</el-button>
-                    <el-button v-perms="['finance.recharge_package/add']" type="primary" @click="openEdit()">新增套餐</el-button>
+                    <el-button
+                        v-perms="['finance.recharge_package/add']"
+                        type="primary"
+                        @click="openEdit()"
+                        >新增套餐</el-button
+                    >
                 </el-form-item>
             </el-form>
         </el-card>
@@ -29,7 +40,9 @@
                 </el-table-column>
                 <el-table-column label="划线价" min-width="100">
                     <template #default="{ row }">
-                        <span v-if="Number(row.market_amount || 0) > 0">¥{{ row.market_amount }}</span>
+                        <span v-if="Number(row.market_amount || 0) > 0"
+                            >¥{{ row.market_amount }}</span
+                        >
                         <span v-else class="text-tx-secondary">-</span>
                     </template>
                 </el-table-column>
@@ -41,14 +54,28 @@
                 </el-table-column>
                 <el-table-column label="状态" min-width="90">
                     <template #default="{ row }">
-                        <el-tag :type="row.status == 1 ? 'success' : 'info'">{{ row.status == 1 ? '启用' : '停用' }}</el-tag>
+                        <el-tag :type="row.status == 1 ? 'success' : 'info'">{{
+                            row.status == 1 ? '启用' : '停用'
+                        }}</el-tag>
                     </template>
                 </el-table-column>
                 <el-table-column label="排序" prop="sort" min-width="80" />
                 <el-table-column label="操作" width="150" fixed="right">
                     <template #default="{ row }">
-                        <el-button v-perms="['finance.recharge_package/edit']" type="primary" link @click="openEdit(row)">编辑</el-button>
-                        <el-button v-perms="['finance.recharge_package/delete']" type="danger" link @click="handleDelete(row.id)">删除</el-button>
+                        <el-button
+                            v-perms="['finance.recharge_package/edit']"
+                            type="primary"
+                            link
+                            @click="openEdit(row)"
+                            >编辑</el-button
+                        >
+                        <el-button
+                            v-perms="['finance.recharge_package/delete']"
+                            type="danger"
+                            link
+                            @click="handleDelete(row.id)"
+                            >删除</el-button
+                        >
                     </template>
                 </el-table-column>
             </el-table>
@@ -57,24 +84,47 @@
             </div>
         </el-card>
 
-        <el-dialog v-model="showEdit" :title="formData.id ? '编辑算力套餐' : '新增算力套餐'" width="560px">
+        <el-dialog
+            v-model="showEdit"
+            :title="formData.id ? '编辑算力套餐' : '新增算力套餐'"
+            width="560px"
+        >
             <el-form :model="formData" label-width="100px">
                 <el-form-item label="套餐名称" required>
                     <el-input v-model="formData.name" placeholder="请输入套餐名称" />
                 </el-form-item>
                 <el-form-item label="到账点数" required>
-                    <el-input-number v-model="formData.points" :min="0.01" :precision="2" class="w-[180px]" />
+                    <el-input-number
+                        v-model="formData.points"
+                        :min="0.01"
+                        :precision="2"
+                        class="w-[180px]"
+                    />
                 </el-form-item>
                 <el-form-item label="售价" required>
-                    <el-input-number v-model="formData.amount" :min="0" :precision="2" class="w-[180px]" />
+                    <el-input-number
+                        v-model="formData.amount"
+                        :min="0"
+                        :precision="2"
+                        class="w-[180px]"
+                    />
                     <span class="ml-2 text-tx-secondary">元</span>
                 </el-form-item>
                 <el-form-item label="划线价">
-                    <el-input-number v-model="formData.market_amount" :min="0" :precision="2" class="w-[180px]" />
+                    <el-input-number
+                        v-model="formData.market_amount"
+                        :min="0"
+                        :precision="2"
+                        class="w-[180px]"
+                    />
                     <span class="ml-2 text-tx-secondary">元</span>
                 </el-form-item>
                 <el-form-item label="推荐">
-                    <el-switch v-model="formData.is_recommend" :active-value="1" :inactive-value="0" />
+                    <el-switch
+                        v-model="formData.is_recommend"
+                        :active-value="1"
+                        :inactive-value="0"
+                    />
                 </el-form-item>
                 <el-form-item label="状态">
                     <el-switch v-model="formData.status" :active-value="1" :inactive-value="0" />

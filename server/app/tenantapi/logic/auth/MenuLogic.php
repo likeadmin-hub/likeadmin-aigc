@@ -20,6 +20,8 @@ use app\common\logic\BaseLogic;
 use app\common\model\auth\TenantAdmin;
 use app\common\model\auth\TenantSystemMenu;
 use app\common\model\auth\TenantSystemRoleMenu;
+use app\common\model\tenant\Tenant;
+use app\common\service\billing\PackageProvisionService;
 
 
 /**
@@ -44,6 +46,9 @@ class MenuLogic extends BaseLogic
     public static function getMenuByAdminId($adminId)
     {
         $admin = TenantAdmin::findOrEmpty($adminId);
+        if (!$admin->isEmpty()) {
+            self::ensurePackageMenus((int)$admin['tenant_id']);
+        }
 
         $where = [];
         $where[] = ['type', 'in', ['M', 'C']];
@@ -60,6 +65,30 @@ class MenuLogic extends BaseLogic
             ->toArray();
 
         return self::sortTopLevelTailMenus(linear_to_tree($menu, 'children'));
+    }
+
+    private static function ensurePackageMenus(int $tenantId): void
+    {
+        if ($tenantId <= 0) {
+            return;
+        }
+        $exists = TenantSystemMenu::where([
+            'tenant_id' => $tenantId,
+            'source_menu_key' => 'core_tenant_package',
+        ])->count();
+        if ($exists) {
+            return;
+        }
+
+        $tenant = Tenant::where('id', $tenantId)->field('id,sn,tactics')->findOrEmpty();
+        if ($tenant->isEmpty()) {
+            return;
+        }
+        PackageProvisionService::syncTenant(
+            $tenantId,
+            (string)$tenant['sn'],
+            (int)$tenant['tactics'] === 1
+        );
     }
 
 

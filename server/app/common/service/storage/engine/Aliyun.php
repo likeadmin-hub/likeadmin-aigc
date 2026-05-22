@@ -43,7 +43,8 @@ class Aliyun extends Server
             $ossClient->uploadFile(
                 $this->config['bucket'],
                 $save_dir . '/' . $this->fileName,
-                $this->getRealPath()
+                $this->getRealPath(),
+                !empty($this->fileInfo['mime']) ? [OssClient::OSS_CONTENT_TYPE => $this->fileInfo['mime']] : []
             );
         } catch (OssException $e) {
             $this->error = $e->getMessage();

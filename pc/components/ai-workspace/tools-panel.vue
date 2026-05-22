@@ -11,7 +11,7 @@
                     :key="item.id"
                     :to="buildFeaturedToolPath(item)"
                     :class="['tools-featured-card', { 'is-active': selectedFeaturedToolId === item.id }]"
-                    @click="selectFeaturedTool(item)"
+                    @click="selectFeaturedTool($event, item)"
                 >
                     <div class="tools-featured-card__copy">
                         <h3>{{ item.title }}</h3>
@@ -53,7 +53,7 @@
                     :key="item.id"
                     :to="buildToolCardPath(item)"
                     :class="['tools-card', { 'is-active': selectedToolCardId === item.id }]"
-                    @click="selectToolCard(item)"
+                    @click="selectToolCard($event, item)"
                 >
                     <img class="tools-card__image" :src="item.image" :alt="item.title" />
                     <div class="tools-card__overlay"></div>
@@ -79,10 +79,13 @@ import {
     buildFeaturedToolPath,
     buildToolCardPath,
     featuredTools,
+    isToolCardImplemented,
+    toolComingSoonMessage,
     toolCards,
     toolCategoryOptions
 } from '~/composables/use-ai-tools'
 import type { FeaturedToolItem, ToolCardItem, ToolCategory } from '~/composables/use-ai-tools'
+import feedback from '@/utils/feedback'
 
 const texts = aiToolTexts
 const toolKeyword = ref('')
@@ -117,13 +120,24 @@ watch(filteredToolCards, (items) => {
     }
 })
 
-const selectFeaturedTool = (item: FeaturedToolItem) => {
+const findFeaturedTargetTool = (item: FeaturedToolItem) => toolCards.find((tool) => tool.id === item.targetToolId)
+
+const selectFeaturedTool = (event: MouseEvent, item: FeaturedToolItem) => {
     selectedFeaturedToolId.value = item.id
     activeToolCategory.value = item.category
+    const targetTool = findFeaturedTargetTool(item)
+    if (!isToolCardImplemented(targetTool)) {
+        event.preventDefault()
+        feedback.msgWarning(toolComingSoonMessage)
+    }
 }
 
-const selectToolCard = (item: ToolCardItem) => {
+const selectToolCard = (event: MouseEvent, item: ToolCardItem) => {
     selectedToolCardId.value = item.id
+    if (!isToolCardImplemented(item)) {
+        event.preventDefault()
+        feedback.msgWarning(toolComingSoonMessage)
+    }
 }
 </script>
 
@@ -135,7 +149,7 @@ const selectToolCard = (item: ToolCardItem) => {
     gap: 28px;
     width: 100%;
     min-height: 100%;
-    padding-top: 40px;
+    padding-top: 0;
     box-sizing: border-box;
 }
 
@@ -159,6 +173,14 @@ const selectToolCard = (item: ToolCardItem) => {
     gap: 16px;
 }
 
+.tools-section--all .tools-section__heading--row {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    padding: 12px 0;
+    background: #050505;
+}
+
 .tools-section__heading-main {
     display: flex;
     flex-direction: column;
@@ -176,50 +198,44 @@ const selectToolCard = (item: ToolCardItem) => {
 }
 
 .tools-search {
-    display: flex;
+    position: relative;
+    display: inline-flex;
     align-items: center;
-    gap: 12px;
-    width: min(100%, 352px);
-    height: 38px;
-    padding: 0 16px;
-    border-radius: 14px;
-    background: #242424;
+    width: min(312px, 100%);
+    height: 36px;
+    padding: 0 16px 0 40px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
     box-sizing: border-box;
 }
 
 .tools-search__icon {
-    position: relative;
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-}
-
-.tools-search__icon::before,
-.tools-search__icon::after {
-    content: '';
     position: absolute;
-    box-sizing: border-box;
-}
-
-.tools-search__icon::before {
-    inset: 0;
-    border: 1.8px solid rgba(255, 255, 255, 0.55);
+    left: 16px;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid rgba(255, 255, 255, 0.58);
     border-radius: 50%;
 }
 
 .tools-search__icon::after {
-    right: -1px;
-    bottom: 0;
+    content: '';
+    position: absolute;
+    right: -4px;
+    bottom: -2px;
     width: 6px;
-    height: 1.8px;
+    height: 1.5px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.58);
     transform: rotate(45deg);
     transform-origin: center;
 }
 
 .tools-search input {
     width: 100%;
+    height: 100%;
+    padding: 0;
     border: 0;
     outline: none;
     background: transparent;
@@ -228,11 +244,11 @@ const selectToolCard = (item: ToolCardItem) => {
 }
 
 .tools-search input::placeholder {
-    color: rgba(255, 255, 255, 0.46);
+    color: rgba(255, 255, 255, 0.42);
 }
 
 .tools-search--inline {
-    width: min(100%, 320px);
+    width: min(312px, 100%);
     flex-shrink: 0;
 }
 
@@ -289,18 +305,28 @@ const selectToolCard = (item: ToolCardItem) => {
 }
 
 .tools-featured-card__copy h3 {
+    display: -webkit-box;
+    overflow: hidden;
     margin: 0;
     color: #fff;
     font-size: 20px;
     font-weight: 600;
     line-height: 1.15;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }
 
 .tools-featured-card__copy p {
+    display: -webkit-box;
+    overflow: hidden;
     margin: 0;
     color: rgba(255, 255, 255, 0.34);
     font-size: 12px;
     line-height: 1.45;
+    text-overflow: ellipsis;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }
 
 .tools-featured-card__visual {

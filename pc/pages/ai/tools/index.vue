@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <div class="workspace-page">
         <div class="workspace-page__background" :style="backgroundStyle"></div>
         <div class="workspace-page__noise"></div>
@@ -27,6 +27,7 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { usePcLoginGate } from '@/composables/usePcLoginGate'
 import { usePcCredits } from '~/composables/usePcCredits'
 import { buildSidebarRouteLocation } from '~/utils/ai-sidebar'
 import type { SidebarKey } from '~/utils/ai-sidebar'
@@ -36,6 +37,8 @@ definePageMeta({ layout: 'blank' })
 type PopoverKey = '' | 'share' | 'api' | 'notice'
 
 const router = useRouter()
+const route = useRoute()
+const { ensurePcLogin } = usePcLoginGate()
 const { remainingCredits, membershipEnabled, refreshCredits } = usePcCredits()
 const activeSidebar = ref<SidebarKey>('tools')
 const activePopover = ref<PopoverKey>('')
@@ -50,7 +53,7 @@ const chromePopoverContent = computed(() => ({
     },
     api: {
         title: 'API 配额',
-        text: '当前体验额度 24 次，可用于工具调用、图像处理与批量创作。'
+        text: `当前可用额度 ${remainingCredits.value} 次，可用于工具调用、图像处理与批量创作。`
     },
     notice: {
         title: '消息中心',
@@ -58,7 +61,6 @@ const chromePopoverContent = computed(() => ({
         compact: true
     }
 }))
-
 const togglePopover = (key: Exclude<PopoverKey, ''>) => {
     activePopover.value = activePopover.value === key ? '' : key
 }
@@ -71,6 +73,7 @@ const handleSidebar = (key: SidebarKey) => {
         return
     }
 
+    if ((key === 'create' || key === 'assets') && !ensurePcLogin({ redirect: buildSidebarRouteLocation(key).path || route.fullPath })) return
     router.push(buildSidebarRouteLocation(key))
 }
 </script>
@@ -87,7 +90,8 @@ const handleSidebar = (key: SidebarKey) => {
 .workspace-page {
     position: relative;
     height: 100vh;
-    padding: 24px 0 40px;
+    min-width: 810px;
+    padding: 0;
     background: #050505;
     color: #fff;
     overflow: hidden;
@@ -165,11 +169,9 @@ const handleSidebar = (key: SidebarKey) => {
     --category-chip-active-color: #fff;
     position: relative;
     z-index: 1;
-    width: var(--ai-content-width);
-    margin-left: var(--ai-content-left);
-    margin-right: var(--ai-content-gutter);
     height: 100%;
-    padding: 22px 0 24px;
+    min-width: 810px;
+    padding: 56px 40px 24px 116px;
     overflow-y: auto;
     overflow-x: hidden;
     box-sizing: border-box;
@@ -214,13 +216,13 @@ const handleSidebar = (key: SidebarKey) => {
 
     .workspace-page {
         height: auto;
+        min-width: 0;
         padding-bottom: 32px;
     }
 
     .workspace-main {
         height: auto;
-        width: auto;
-        margin-inline: 16px;
+        min-width: 0;
         padding: 210px 16px 32px;
         overflow: visible;
     }
@@ -236,3 +238,4 @@ const handleSidebar = (key: SidebarKey) => {
     }
 }
 </style>
+

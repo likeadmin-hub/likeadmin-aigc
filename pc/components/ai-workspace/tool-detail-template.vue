@@ -2797,6 +2797,7 @@ import {
     toolResultFilterOptions
 } from '~/composables/use-ai-tools'
 import type { ToolDetailResolution, ToolResultFilter, ToolResultItem } from '~/composables/use-ai-tools'
+import { usePcLoginGate } from '@/composables/usePcLoginGate'
 
 const props = defineProps<{
     toolId: string
@@ -3023,6 +3024,8 @@ type SellingPointCardPresetValues = {
 }
 
 const router = useRouter()
+const route = useRoute()
+const { ensurePcLogin } = usePcLoginGate()
 const texts = aiToolTexts
 const galleryCategories = ['图片生成', 'AI工具'] as const
 const currentTool = computed(() => getToolCardById(props.toolId))
@@ -6063,6 +6066,7 @@ const submitPhotoRestore = async () => {
 
 const handleCreate = () => {
     if (isCreateDisabled.value) return
+    if (!ensurePcLogin({ redirect: route.fullPath })) return
 
     if (isPhotoRestoreTool.value) {
         submitPhotoRestore()

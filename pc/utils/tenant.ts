@@ -21,18 +21,22 @@ export function normalizeTenantPath(path = '') {
 }
 
 export function parseTenantIdFromRoute(route?: RouteLike) {
-    if (!process.client) {
-        return ''
-    }
     const queryTenantId = normalizeTenantId(route?.query?.tenant_id || route?.query?.tenantId)
     if (queryTenantId) {
-        setTenantId(queryTenantId)
+        if (process.client) {
+            setTenantId(queryTenantId)
+        }
         return queryTenantId
     }
     const pathTenantId = parseTenantIdFromPath(route?.fullPath || route?.path || '')
     if (pathTenantId) {
-        setTenantId(pathTenantId)
+        if (process.client) {
+            setTenantId(pathTenantId)
+        }
         return pathTenantId
+    }
+    if (!process.client) {
+        return ''
     }
     const query = new URLSearchParams(window.location.search)
     const browserQueryTenantId = query.get('tenant_id') || query.get('tenantId')
@@ -82,12 +86,13 @@ export function withTenantQuery<T extends string | { path?: string; query?: Reco
         const next = `${nextPath}${params.toString() ? `?${params.toString()}` : ''}${hash ? `#${hash}` : ''}`
         return next as T
     }
+    const routeTarget = target as { path?: string; query?: Record<string, any> }
     return {
-        ...target,
-        path: target.path ? normalizeTenantPath(target.path) : target.path,
+        ...routeTarget,
+        path: routeTarget.path ? normalizeTenantPath(routeTarget.path) : routeTarget.path,
         query: {
-            ...(target.query || {}),
-            tenant_id: target.query?.tenant_id || target.query?.tenantId || tenantId
+            ...(routeTarget.query || {}),
+            tenant_id: routeTarget.query?.tenant_id || routeTarget.query?.tenantId || tenantId
         }
-    } as T
+    } as unknown as T
 }

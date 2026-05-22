@@ -77,6 +77,10 @@ class UserLogic
             'wechat_auth' => ConfigService::get('login', 'wechat_auth', config('project.login.wechat_auth')),
             // qq授权登录
             'qq_auth' => ConfigService::get('login', 'qq_auth', config('project.login.qq_auth')),
+            // 新用户注册赠送开关
+            'register_bonus_status' => (int)ConfigService::get('login', 'register_bonus_status', config('project.login.register_bonus_status')),
+            // 新用户注册赠送点数
+            'register_bonus_points' => (float)ConfigService::get('login', 'register_bonus_points', config('project.login.register_bonus_points')),
         ];
         return $config;
     }
@@ -103,6 +107,9 @@ class UserLogic
         ConfigService::set('login', 'wechat_auth', $params['wechat_auth']);
         // qq登录
         ConfigService::set('login', 'qq_auth', $params['qq_auth']);
+        // 新用户注册赠送
+        ConfigService::set('login', 'register_bonus_status', (int)($params['register_bonus_status'] ?? 0));
+        ConfigService::set('login', 'register_bonus_points', (float)($params['register_bonus_points'] ?? 0));
         return true;
     }
 

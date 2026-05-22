@@ -7,7 +7,34 @@ body,
 html {
     // width: 100vw;
     max-width: 100%;
+    scrollbar-color: #242424 transparent;
+    scrollbar-width: thin;
 }
+
+* {
+    scrollbar-color: #242424 transparent;
+    scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+    background: transparent;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #242424;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: #333;
+}
+
 .form-tips {
     @apply text-tx-secondary text-xs leading-6 mt-1;
 }

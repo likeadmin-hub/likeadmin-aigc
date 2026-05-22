@@ -94,21 +94,6 @@
                     登录
                 </ElButton>
             </ElFormItem>
-            <div class="mt-[40px]" v-if="isOpenOtherAuth">
-                <ElDivider>
-                    <span class="text-tx-secondary font-normal">
-                        第三方登录
-                    </span>
-                </ElDivider>
-                <div class="flex justify-center">
-                    <ElButton link @click="getWxCodeLock" v-if="inWxAuth">
-                        <img
-                            class="w-[48px] h-[48px]"
-                            src="@/assets/images/icon/icon_wx.png"
-                        />
-                    </ElButton>
-                </div>
-            </div>
             <div
                 class="mb-[-15px] mx-[-40px] mt-[30px] bg-primary-light-9 rounded-b-md px-[15px] flex leading-10"
             >
@@ -166,13 +151,12 @@ import {
     ElFormItem,
     ElInput,
     ElButton,
-    ElDivider,
     ElCheckbox,
     FormInstance,
     FormRules
 } from 'element-plus'
 import { useAccount, PopupTypeEnum } from './useAccount'
-import { getWxCodeUrl, login } from '@/api/account'
+import { login } from '@/api/account'
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 import { smsSend } from '~~/api/app'
@@ -233,14 +217,9 @@ const isMobileLogin = computed(() => formData.scene == LoginWayEnum.MOBILE)
 const includeLoginWay = (way: LoginWayEnum) =>
     appStore.getLoginConfig.login_way?.includes(String(way))
 
-const inWxAuth = computed(() => {
-    return appStore.getLoginConfig.wechat_auth
-})
-
 const isOpenAgreement = computed(
     () => appStore.getLoginConfig.login_agreement == 1
 )
-const isOpenOtherAuth = computed(() => appStore.getLoginConfig.third_auth == 1)
 const isForceBindMobile = computed(
     () => appStore.getLoginConfig.coerce_mobile == 1
 )
@@ -287,18 +266,12 @@ const loginLock = async () => {
     await handleLoginLock()
 }
 
-const getWxCode = async () => {
-    await agreementConfirm()
-    const { url } = await getWxCodeUrl()
-    window.location.href = url
-}
-const { lockFn: getWxCodeLock } = useLockFn(getWxCode)
 watch(
     () => appStore.getLoginConfig,
     (value) => {
         const { login_way } = value
         if (login_way && login_way.length) {
-            formData.scene = login_way.at(0)
+            formData.scene = Number(login_way.at(0))
         }
     },
     {

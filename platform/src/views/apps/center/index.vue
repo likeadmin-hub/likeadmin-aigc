@@ -45,7 +45,7 @@
             </el-form>
 
             <div v-loading="loading || cloudLoading" class="app-grid">
-                <div v-for="row in filteredApps" :key="row.key" class="app-card">
+                <div v-for="row in pagedApps" :key="row.key" class="app-card">
                     <div class="app-card__main">
                         <div class="app-card__icon">
                             <img :src="iconSrc(row)" :alt="row.name" @error="handleIconError" />
@@ -121,6 +121,7 @@
                 </div>
             </div>
             <el-empty v-if="!loading && !cloudLoading && filteredApps.length === 0" description="暂无应用" />
+            <pagination v-model="pager" @change="handlePageChange" />
         </el-card>
 
         <el-dialog v-model="detailVisible" title="应用详情" width="760px">
@@ -275,6 +276,7 @@ import {
     appSavePlan,
     appUninstall
 } from '@/api/app_center'
+import { useLocalPaging } from '@/hooks/useLocalPaging'
 import feedback from '@/utils/feedback'
 
 const defaultAppCodes = ['aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm']
@@ -284,6 +286,7 @@ const cloudLoaded = ref(false)
 const applying = ref(false)
 const lists = ref<any[]>([])
 const cloudLists = ref<any[]>([])
+const { pager, tableLists: pagedApps, setLists, resetPage } = useLocalPaging({ size: 15 })
 const detailVisible = ref(false)
 const detail = ref<any>({})
 const uninstallVisible = ref(false)
@@ -368,6 +371,8 @@ const filteredApps = computed(() => {
     })
 })
 
+watch(filteredApps, (rows) => setLists(rows), { immediate: true })
+
 const categoryOptions = computed(() => {
     const categories = new Set<string>()
     displayApps.value.forEach((item) => {
@@ -434,6 +439,11 @@ const resetFilter = () => {
     filterForm.category = ''
     filterForm.source = ''
     filterForm.status = ''
+    resetPage()
+}
+
+const handlePageChange = () => {
+    setLists(filteredApps.value)
 }
 
 const statusText = (status: string) =>

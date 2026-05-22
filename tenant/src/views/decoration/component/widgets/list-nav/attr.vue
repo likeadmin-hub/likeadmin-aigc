@@ -15,6 +15,7 @@
 <script lang="ts" setup>
 import { cloneDeep } from 'lodash-es'
 import type { PropType } from 'vue'
+
 import AddNav from '../../add-nav.vue'
 import type options from './options'
 

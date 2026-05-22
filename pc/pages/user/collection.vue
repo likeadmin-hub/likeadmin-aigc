@@ -1,14 +1,14 @@
 <template>
     <UserCenterLayout
         page-title="我的收藏"
-        page-desc="这里是您收藏过的文章与资讯。"
+        page-desc="这里是您收藏过的内容。"
     >
-        <div v-if="data?.lists?.length">
+        <div v-if="collectionItems.length">
             <div
-                v-for="item in data.lists"
-                :key="item.id"
+                v-for="item in collectionItems"
+                :key="item.key"
                 class="uc-collect-item"
-                @click="$router.push(`/news/${item.article_id}`)"
+                @click="openCollectionItem(item)"
             >
                 <img
                     v-if="item.image"
@@ -24,28 +24,17 @@
                         <button
                             type="button"
                             class="uc-cancel-btn"
-                            @click.stop="handelCollect(item.article_id)"
+                            @click.stop="handleCancelCollect(item)"
                         >
                             取消收藏
                         </button>
                     </div>
                 </div>
             </div>
-            <div class="uc-pagination">
-                <ElPagination
-                    v-model:current-page="params.page_no"
-                    :total="data.count"
-                    :page-size="params.page_size"
-                    hide-on-single-page
-                    layout="total, prev, pager, next, jumper"
-                    @current-change="refresh()"
-                />
-            </div>
         </div>
 
         <div v-else class="uc-empty">
             <ElEmpty
-                :image="empty_news"
                 description="暂无收藏"
                 :image-size="220"
             />
@@ -53,37 +42,44 @@
     </UserCenterLayout>
 </template>
 <script lang="ts" setup>
-import { cancelCollect, getCollect } from '~~/api/news'
-import empty_news from '@/assets/images/empty_news.png'
-import { ElPagination, ElEmpty } from 'element-plus'
+import { ElEmpty } from 'element-plus'
 import UserCenterLayout from '@/components/user-center-layout.vue'
-import { isPcLoginRequiredError } from '@/composables/usePcLoginGate'
-import { useUserStore } from '@/stores/user'
+import { useAiWorkspaceFavorites } from '@/composables/useAiWorkspaceFavorites'
 import feedback from '~~/utils/feedback'
 
-const params = reactive({
-    page_no: 1,
-    page_size: 15
-})
-const userStore = useUserStore()
-const data = ref<any>({ lists: [], count: 0 })
-const refresh = async () => {
-    if (!userStore.isLogin) {
-        data.value = { lists: [], count: 0 }
-        return
-    }
-    try {
-        data.value = await getCollect(params)
-    } catch (error) {
-        if (isPcLoginRequiredError(error)) return
-        throw error
-    }
+type CollectionItem = {
+    key: string
+    source: 'workspace'
+    id: string | number
+    category?: string
+    title: string
+    desc?: string
+    image?: string
+    url?: string
+    collect_time?: string
 }
-watch(() => userStore.isLogin, refresh, { immediate: true })
-const handelCollect = async (id: number | string) => {
-    await cancelCollect({ id })
+
+const router = useRouter()
+const { favoriteItems, setFavoriteItem } = useAiWorkspaceFavorites()
+const collectionItems = computed<CollectionItem[]>(() => [
+    ...favoriteItems.value.map((item) => ({
+        ...item,
+        key: `${item.category}:${item.id}`,
+        source: 'workspace'
+    }))
+])
+
+const openCollectionItem = (item: CollectionItem) => {
+    if (item.url) router.push(item.url)
+}
+
+const handleCancelCollect = async (item: CollectionItem) => {
+    setFavoriteItem({
+        category: item.category || '',
+        id: item.id,
+        title: item.title
+    }, false)
     feedback.msgSuccess('已取消收藏')
-    refresh()
 }
 definePageMeta({
     layout: 'blank',

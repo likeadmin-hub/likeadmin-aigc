@@ -23,7 +23,15 @@ const cards = computed(() => [
     { label: '已用额度', value: stat.value.quota_used || 0 },
     { label: '租户成本', value: stat.value.tenant_cost_points || 0 },
     { label: '用户消费', value: stat.value.user_charge_points || 0 },
-    { label: '租户毛利', value: Number((Number(stat.value.user_charge_points || 0) - Number(stat.value.tenant_cost_points || 0)).toFixed(2)) }
+    {
+        label: '租户毛利',
+        value: Number(
+            (
+                Number(stat.value.user_charge_points || 0) -
+                Number(stat.value.tenant_cost_points || 0)
+            ).toFixed(2)
+        )
+    }
 ])
 const getData = async () => {
     loading.value = true

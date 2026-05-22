@@ -1,9 +1,9 @@
 <template>
     <div class="ai-workspace-chrome">
-        <header :class="['app-header', { 'is-solid': headerSolid }]">
+        <header class="app-header">
             <NuxtLink class="app-logo" to="/" :aria-label="texts.backHome" @click.stop="emit('go-home')">
-                <img class="app-logo__image" :src="brandIcon" alt="A. PART" />
-                <span class="app-logo__text">A. PART</span>
+                <img v-if="siteLogo" class="app-logo__image" :src="siteLogo" :alt="siteName" />
+                <span v-if="!siteLogo" class="app-logo__text">{{ siteName }}</span>
             </NuxtLink>
 
             <div class="app-header__actions">
@@ -93,14 +93,15 @@
 </template>
 
 <script lang="ts" setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { usePcLoginGate } from '@/composables/usePcLoginGate'
+import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 import type { MembershipPlanDefinition, MembershipPlanId } from '@/constants/membership-plans'
 import { createMembershipOrder, getMembershipPlans } from '@/api/membership'
+import feedback from '@/utils/feedback'
 import type { SidebarKey } from '~/utils/ai-sidebar'
 import { useAiUserDisplay } from '~/composables/useAiUserDisplay'
-import brandIcon from '@/assets/images/A..svg'
 import giftIcon from '@/assets/images/icon/Gift.svg'
 import vipIcon from '@/assets/images/icon/Vip-one (vip).svg'
 import sparkIcon from '@/assets/images/icon/lingganzhi.svg'
@@ -126,9 +127,12 @@ interface Props {
 const props = defineProps<Props>()
 
 const { displayAvatarUrl } = useAiUserDisplay()
+const appStore = useAppStore()
 const userStore = useUserStore()
 const route = useRoute()
 const { openPcLoginModal } = usePcLoginGate()
+const siteLogo = computed(() => appStore.getWebsiteConfig.pc_logo || '')
+const siteName = computed(() => appStore.getWebsiteConfig.pc_title || appStore.getWebsiteConfig.shop_name || 'A. PART')
 
 const emit = defineEmits<{
     (e: 'toggle-popover', key: Exclude<PopoverKey, ''>): void
@@ -150,6 +154,7 @@ const selectedMembershipPlan = ref<MembershipPlanId>(props.membershipEnabled ? '
 const membershipPlans = ref<MembershipPlanDefinition[]>([])
 const membershipPayOrderId = ref(0)
 const payModalFrom = ref<'membership' | 'recharge'>('membership')
+const pendingMembershipPlan = ref<MembershipPlanId | null>(null)
 const purchaseModalSource = ref<PurchaseModalSource>('')
 const purchaseModalCloseAction = ref<PurchaseModalCloseAction>('restore-source')
 
@@ -295,13 +300,11 @@ const handleCreditsPurchase = async (order?: { orderId?: number; from?: string }
 }
 
 const handleMembershipSubscribe = async (plan: MembershipPlanId, cycle: 'monthly' | 'yearly') => {
-    selectedMembershipPlan.value = plan
-
     try {
         const order = await createMembershipOrder({ plan_id: plan, cycle })
         membershipPayOrderId.value = Number(order?.order_id || 0)
         payModalFrom.value = 'membership'
-        showMembershipModal.value = false
+        pendingMembershipPlan.value = plan
         showMembershipPayModal.value = true
     } catch (error: any) {
         ElMessage.error(error?.msg || error?.message || error || '会员订单创建失败')
@@ -313,6 +316,11 @@ const handleMembershipPaySuccess = async () => {
         await userStore.getUser().catch(() => undefined)
     }
     if (payModalFrom.value === 'membership') {
+        if (pendingMembershipPlan.value != null) {
+            selectedMembershipPlan.value = pendingMembershipPlan.value
+            pendingMembershipPlan.value = null
+        }
+        feedback.msgSuccess('订阅成功')
         emit('toggle-membership')
         return
     }
@@ -358,6 +366,12 @@ watch(() => props.membershipEnabled, (enabled) => {
         selectedMembershipPlan.value = 'advanced'
     }
 }, { immediate: true })
+
+watch(() => showMembershipPayModal.value, (visible) => {
+    if (!visible && payModalFrom.value === 'membership') {
+        pendingMembershipPlan.value = null
+    }
+})
 
 watch(
     [showCreditsUsageModal, showCreditsPurchaseModal, showCreditAgreementModal, showMembershipModal, showMembershipPayModal, showUserPanel],
@@ -410,22 +424,11 @@ const texts = {
     align-items: center;
     justify-content: space-between;
     gap: 24px;
-    padding: 22px 40px 18px;
-    border-bottom: 1px solid transparent;
-    background: transparent;
+    height: 56px;
+    padding: 0 40px;
+    box-sizing: border-box;
+    background: #060608;
     backdrop-filter: none;
-    transition:
-        background 0.22s ease,
-        border-color 0.22s ease,
-        box-shadow 0.22s ease,
-        backdrop-filter 0.22s ease;
-}
-
-.app-header.is-solid {
-    border-bottom-color: rgba(255, 255, 255, 0.06);
-    background: rgba(6, 6, 8, 0.92);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
-    backdrop-filter: blur(14px);
 }
 
 .app-logo {
@@ -437,8 +440,10 @@ const texts = {
 }
 
 .app-logo__image {
-    width: 28px;
+    width: auto;
+    max-width: 160px;
     height: 28px;
+    object-fit: contain;
 }
 
 .app-logo__text {
@@ -453,6 +458,7 @@ const texts = {
     gap: 8px;
     flex-wrap: wrap;
     justify-content: flex-end;
+    min-width: 0;
 }
 
 .header-popover-wrap {
@@ -475,9 +481,14 @@ const texts = {
     height: 32px;
     padding: 0 14px;
     border-radius: 999px;
-    background: #1e1f20;
+    background: rgba(30, 31, 32, 0.96);
     color: #fff;
     font-size: 14px;
+}
+
+.app-pill:hover,
+.app-icon-button:hover {
+    background: rgba(46, 47, 48, 0.96);
 }
 
 .app-pill__asset--xs {
@@ -491,6 +502,7 @@ const texts = {
 }
 
 .app-icon-button {
+    position: relative;
     justify-content: center;
     min-width: 32px;
     padding: 0 10px;
@@ -550,14 +562,23 @@ const texts = {
 
 @media (max-width: 1100px) {
     .app-header {
-        align-items: flex-start;
-        flex-direction: column;
-        padding: 18px 20px 14px;
+        align-items: center;
+        flex-direction: row;
+        min-height: 56px;
+        padding: 0 20px;
     }
 
     .app-header__actions {
-        width: 100%;
-        justify-content: flex-start;
+        width: auto;
+        flex: 1;
+        justify-content: flex-end;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .app-header__actions::-webkit-scrollbar {
+        display: none;
     }
 
     .header-popover {
@@ -566,21 +587,33 @@ const texts = {
     }
 }
 
-@media (max-width: 820px) {
+@media (max-width: 760px) {
+    .app-header {
+        gap: 12px;
+        padding: 0 12px;
+    }
+
+    .app-logo__text {
+        display: none;
+    }
+
     .app-header__actions {
         gap: 6px;
     }
 
     .app-pill,
     .app-icon-button {
-        height: 30px;
         padding-inline: 10px;
-        font-size: 13px;
+        white-space: nowrap;
     }
+}
 
-    .app-avatar {
-        width: 36px;
-        height: 36px;
+@media (max-width: 520px) {
+    .app-pill span {
+        max-width: 72px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 }
 </style>

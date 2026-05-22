@@ -48,16 +48,16 @@ export function deleteAigcVideoCase(params: any) {
     return request.post({ url: '/app.aigc_video.case/delete', params })
 }
 
-export function getAigcVideoQuota() {
-    return request.get({ url: '/app.aigc_video.admin/quota' })
+export function getAigcVideoQuota(params?: any) {
+    return request.get({ url: '/app.aigc_video.admin/quota', params })
 }
 
 export function setAigcVideoQuota(params: any) {
     return request.post({ url: '/app.aigc_video.admin/quota', params })
 }
 
-export function getAigcVideoSensitiveWords() {
-    return request.get({ url: '/app.aigc_video.admin/sensitiveWord' })
+export function getAigcVideoSensitiveWords(params?: any) {
+    return request.get({ url: '/app.aigc_video.admin/sensitiveWord', params })
 }
 
 export function setAigcVideoSensitiveWord(params: any) {
@@ -74,6 +74,10 @@ export function getAigcVideoChannels() {
 
 export function saveAigcVideoChannel(params: any) {
     return request.post({ url: '/app.aigc_video.channel/save', params })
+}
+
+export function batchSaveAigcVideoChannels(params: any) {
+    return request.post({ url: '/app.aigc_video.channel/batchSave', params })
 }
 
 export function setAigcVideoChannelStatus(params: any) {

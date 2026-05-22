@@ -6,6 +6,7 @@ interface AppSate {
     configLoaded: boolean
     configLoading: boolean
     configLoadError: boolean
+    configTenantId: string
 }
 export const useAppStore = defineStore({
     id: 'appStore',
@@ -13,7 +14,8 @@ export const useAppStore = defineStore({
         config: {},
         configLoaded: false,
         configLoading: false,
-        configLoadError: false
+        configLoadError: false,
+        configTenantId: ''
     }),
     getters: {
         getImageUrl: (state) => (url: string) => (url ? `${state.config.domain}${url}` : ''),
@@ -25,15 +27,19 @@ export const useAppStore = defineStore({
         getSiteStatistics: (state) => state.config.siteStatistics || {}
     },
     actions: {
-        async getConfig() {
+        async getConfig(tenantId = '', force = false) {
+            const normalizedTenantId = tenantId ? String(tenantId) : ''
             if (this.configLoading) return this.config
-            if (this.configLoaded) return this.config
+            if (!force && this.configLoaded && this.configTenantId === normalizedTenantId) {
+                return this.config
+            }
 
             this.configLoading = true
             try {
-                const config = await getConfig()
+                const config = await getConfig(normalizedTenantId ? { tenant_id: normalizedTenantId } : undefined)
                 this.config = config || {}
                 this.configLoaded = true
+                this.configTenantId = normalizedTenantId
                 this.configLoadError = false
                 return this.config
             } catch (error) {
@@ -43,9 +49,10 @@ export const useAppStore = defineStore({
                 this.configLoading = false
             }
         },
-        setConfig(config: Record<string, any>) {
+        setConfig(config: Record<string, any>, tenantId = '') {
             this.config = config
             this.configLoaded = true
+            this.configTenantId = tenantId ? String(tenantId) : ''
             this.configLoadError = false
         }
     }

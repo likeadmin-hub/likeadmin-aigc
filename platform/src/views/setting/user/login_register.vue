@@ -47,6 +47,33 @@
                         <div class="form-tips">登录/注册会员时，是否显示服务协议和隐私政策</div>
                     </div>
                 </el-form-item>
+
+                <el-form-item label="注册赠送" prop="register_bonus_status">
+                    <div>
+                        <el-switch
+                            v-model="formData.register_bonus_status"
+                            :active-value="1"
+                            :inactive-value="0"
+                        />
+                        <span class="mt-1 ml-2">
+                            {{ formData.register_bonus_status ? '开启' : '关闭' }}
+                        </span>
+                    </div>
+                </el-form-item>
+
+                <el-form-item
+                    v-if="formData.register_bonus_status"
+                    label="赠送点数"
+                    prop="register_bonus_points"
+                >
+                    <el-input-number
+                        v-model="formData.register_bonus_points"
+                        :min="0"
+                        :precision="2"
+                        :step="1"
+                        controls-position="right"
+                    />
+                </el-form-item>
             </el-card>
 
             <el-card shadow="never" class="!border-none mt-4">
@@ -116,12 +143,14 @@ const formData = reactive<LoginSetup>({
     login_agreement: 0,
     third_auth: 0,
     wechat_auth: 0,
-    qq_auth: 0
+    qq_auth: 0,
+    register_bonus_status: 0,
+    register_bonus_points: 0
 })
 
 // 表单验证
 const rules = reactive<FormRules>({
-    loginWay: [
+    login_way: [
         {
             required: true,
             validator: (rule: any, value: any, callback: any) => {
@@ -141,7 +170,19 @@ const rules = reactive<FormRules>({
     ],
     coerce_mobile: [{ required: true, trigger: 'blur' }],
     login_agreement: [{ required: true, trigger: 'blur' }],
-    third_auth: [{ required: true, trigger: 'blur' }]
+    third_auth: [{ required: true, trigger: 'blur' }],
+    register_bonus_points: [
+        {
+            validator: (_rule: any, value: any, callback: any) => {
+                if (formData.register_bonus_status && Number(value || 0) <= 0) {
+                    callback(new Error('请输入大于0的赠送点数'))
+                    return
+                }
+                callback()
+            },
+            trigger: 'blur'
+        }
+    ]
 })
 
 // 获取登录注册数据

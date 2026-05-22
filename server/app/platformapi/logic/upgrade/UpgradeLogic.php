@@ -17,6 +17,7 @@ namespace app\platformapi\logic\upgrade;
 use app\common\logic\BaseLogic;
 use app\common\model\auth\TenantSystemMenu;
 use app\common\model\tenant\Tenant;
+use app\common\service\database\SqlMigrationExecutor;
 use app\platformapi\logic\tenant\TenantSystemMenuLogic;
 use Exception;
 use think\facade\Cache;
@@ -33,6 +34,8 @@ class UpgradeLogic extends BaseLogic
     const BASE_URL = 'https://server.mddai.cn';
 
     const PRODUCT_CODE = '462953db655787cb99deb5893f8d523a';
+
+    private const UPGRADE_TIMEOUT = 600;
 
     /**
      * @notes 格式化列表数据
@@ -113,8 +116,8 @@ class UpgradeLogic extends BaseLogic
      */
     public static function upgrade($params): bool
     {
-        ini_set('max_execution_time', 120);
-        set_time_limit(120);
+        ini_set('max_execution_time', (string)self::UPGRADE_TIMEOUT);
+        set_time_limit(self::UPGRADE_TIMEOUT);
         $openBasedir = ini_get('open_basedir');
         if (str_contains($openBasedir, "server")) {
             self::$error = '请临时关闭服务器本站点的跨域攻击设置，并重启 nginx、PHP，具体参考相关升级文档';
@@ -366,6 +369,8 @@ class UpgradeLogic extends BaseLogic
         curl_setopt($ch, CURLOPT_HEADER, TRUE);
         curl_setopt($ch, CURLOPT_NOBODY, FALSE);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_TIMEOUT, self::UPGRADE_TIMEOUT);
         $response = curl_exec($ch);
         $body = '';
         if (curl_getinfo($ch, CURLINFO_HTTP_CODE) == '200') {
@@ -437,16 +442,7 @@ class UpgradeLogic extends BaseLogic
             if (empty($sqlContent)) {
                 continue;
             }
-            $sqlLists = explode(';', $sqlContent);
-
-            // 执行sql
-            foreach ($sqlLists as $sql) {
-                $sql = trim($sql);
-                if (!empty($sql)) {
-                    $sql = str_replace('`la_', '`' . $sqlPrefix, $sql) . ';';
-                    Db::execute($sql);
-                }
-            }
+            SqlMigrationExecutor::execute($sqlContent, $sqlPrefix);
         }
         return true;
     }
@@ -483,16 +479,7 @@ class UpgradeLogic extends BaseLogic
             if (empty($sqlContent)) {
                 continue;
             }
-            $sqlLists = explode(';', $sqlContent);
-
-            // 执行sql
-            foreach ($sqlLists as $sql) {
-                $sql = trim($sql);
-                if (!empty($sql)) {
-                    $sql = str_replace('la_', '' . $sqlPrefix, $sql) . ';';
-                    $db->execute($sql);
-                }
-            }
+            SqlMigrationExecutor::execute($sqlContent, $sqlPrefix, $db, false, 'pgsql');
         }
         return true;
     }

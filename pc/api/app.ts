@@ -4,8 +4,8 @@ export function smsSend(params: any) {
 }
 
 // 获取配置
-export function getConfig() {
-    return $request.get({ url: '/pc/config', retry: 0 })
+export function getConfig(params?: Record<string, any>) {
+    return $request.get({ url: '/pc/config', params, retry: 0 })
 }
 
 // 获取协议

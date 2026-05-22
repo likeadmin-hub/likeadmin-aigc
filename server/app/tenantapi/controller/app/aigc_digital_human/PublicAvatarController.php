@@ -9,7 +9,7 @@ class PublicAvatarController extends BaseAdminController
 {
     public function lists()
     {
-        return $this->success('获取成功', AigcDigitalHumanService::publicAvatarLists($this->tenantId));
+        return $this->success('获取成功', AigcDigitalHumanService::publicAvatarLists($this->tenantId, $this->request->get()));
     }
 
     public function save()

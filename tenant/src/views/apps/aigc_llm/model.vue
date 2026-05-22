@@ -1,11 +1,17 @@
 <template>
     <el-card class="!border-none" shadow="never">
-        <el-table v-loading="loading" :data="lists" size="large">
+        <div class="table-header">
+            <div class="text-base font-medium">模型调价</div>
+            <el-switch v-model="showDisabled" active-text="显示停用模型" />
+        </div>
+        <el-table v-loading="loading" :data="visibleLists" size="large">
             <el-table-column label="编码" prop="code" min-width="150" />
             <el-table-column label="名称" prop="name" min-width="150" />
             <el-table-column label="通道" prop="channel_name" min-width="140" />
             <el-table-column label="模型标识" prop="model" min-width="160" />
             <el-table-column label="上下文" prop="context_limit" min-width="100" />
+            <el-table-column label="输入成本" prop="platform_input_unit_cost" min-width="110" />
+            <el-table-column label="输出成本" prop="platform_output_unit_cost" min-width="110" />
             <el-table-column label="输入价" prop="tenant_input_unit_price" min-width="110" />
             <el-table-column label="输出价" prop="tenant_output_unit_price" min-width="110" />
             <el-table-column label="状态" width="110">
@@ -31,6 +37,8 @@
                     ><el-input v-model="formData.code" disabled
                 /></el-form-item>
                 <el-form-item label="模型名称"><el-input v-model="formData.name" /></el-form-item>
+                <el-form-item label="输入成本"><el-input :model-value="formData.platform_input_unit_cost" disabled /></el-form-item>
+                <el-form-item label="输出成本"><el-input :model-value="formData.platform_output_unit_cost" disabled /></el-form-item>
                 <el-form-item label="输入价"
                     ><el-input-number
                         v-model="formData.tenant_input_unit_price"
@@ -45,7 +53,9 @@
                         :precision="4"
                         class="w-full"
                 /></el-form-item>
-                <el-form-item label="计费单位"><el-input value="点 / 百万 Token" disabled /></el-form-item>
+                <el-form-item label="计费单位"
+                    ><el-input value="点 / 百万 Token" disabled
+                /></el-form-item>
                 <el-form-item label="上下文消息数"
                     ><el-input-number
                         v-model="formData.context_limit"
@@ -66,14 +76,16 @@
 </template>
 
 <script lang="ts" setup name="tenant-aigc-llm-model">
-import { getAigcLlmModels, saveAigcLlmModel, setAigcLlmModelStatus } from '@/apps/aigc_llm/api'
+import { getAigcLlmModels, saveAigcLlmModel } from '@/apps/aigc_llm/api'
 import feedback from '@/utils/feedback'
 
 const loading = ref(false)
 const saving = ref(false)
 const editVisible = ref(false)
+const showDisabled = ref(false)
 const lists = ref<any[]>([])
 const formData = reactive<any>({})
+const visibleLists = computed(() => lists.value.filter((row) => showDisabled.value || Number(row.status) === 1))
 
 const getLists = async () => {
     loading.value = true
@@ -89,7 +101,9 @@ const openEdit = (row: any) => {
         ...row,
         tenant_unit_price: Number(row.tenant_unit_price || 0),
         tenant_input_unit_price: Number(row.tenant_input_unit_price || row.tenant_unit_price || 0),
-        tenant_output_unit_price: Number(row.tenant_output_unit_price || row.tenant_unit_price || 0),
+        tenant_output_unit_price: Number(
+            row.tenant_output_unit_price || row.tenant_unit_price || 0
+        ),
         context_limit: Number(row.context_limit || 12)
     })
     editVisible.value = true
@@ -108,9 +122,23 @@ const handleSubmit = async () => {
 }
 
 const handleStatus = async (row: any, status: number) => {
-    await setAigcLlmModelStatus({ id: row.id, status })
+    await saveAigcLlmModel({
+        ...row,
+        status
+    })
     row.status = status
+    feedback.msgSuccess('设置成功')
+    await getLists()
 }
 
 getLists()
 </script>
+
+<style scoped>
+.table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+</style>

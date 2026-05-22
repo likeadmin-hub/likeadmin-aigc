@@ -140,9 +140,9 @@ class AigcDigitalHumanService
 
     public static function saveAvatar(int $tenantId, int $userId, array $params): array
     {
-        $name = trim((string)($params['name'] ?? '我的形象'));
-        $mediaUri = FileService::setFileUrl((string)($params['media_uri'] ?? $params['cover_uri'] ?? ''));
-        $coverUri = FileService::setFileUrl((string)($params['cover_uri'] ?? ''));
+        $name = self::normalizeAssetText((string)($params['name'] ?? '我的形象'), '我的形象', 80);
+        $mediaUri = self::normalizeAssetUri((string)($params['media_uri'] ?? $params['cover_uri'] ?? ''));
+        $coverUri = self::normalizeAssetUri((string)($params['cover_uri'] ?? ''));
         if ($coverUri !== '' && self::isVideoUri($coverUri)) {
             $coverUri = '';
         }
@@ -159,8 +159,8 @@ class AigcDigitalHumanService
                 'user_id' => $userId,
                 'name' => $name,
                 'source' => 'mine',
-                'gender' => (string)($params['gender'] ?? ''),
-                'scene' => (string)($params['scene'] ?? ''),
+                'gender' => self::normalizeAssetText((string)($params['gender'] ?? ''), '', 20),
+                'scene' => self::normalizeAssetText((string)($params['scene'] ?? ''), '', 50),
                 'cover_uri' => $coverUri,
                 'media_uri' => $mediaUri,
                 'media_type' => (string)($params['media_type'] ?? 'video'),
@@ -189,7 +189,6 @@ class AigcDigitalHumanService
         self::seedOfficialAssets($tenantId);
         $query = AigcDigitalHumanVoice::where('tenant_id', $tenantId)
             ->where('delete_time', 0)
-            ->where('status', 'ready')
             ->whereRaw("(source = 'official' OR (source = 'mine' AND user_id = " . (int)$userId . '))')
             ->order(['source' => 'asc', 'sort' => 'desc', 'id' => 'desc']);
         if (in_array($source, ['official', 'mine'], true)) {
@@ -200,8 +199,8 @@ class AigcDigitalHumanService
 
     public static function saveVoice(int $tenantId, int $userId, array $params): array
     {
-        $name = trim((string)($params['name'] ?? '我的声音'));
-        $audioUri = FileService::setFileUrl((string)($params['audio_uri'] ?? ''));
+        $name = self::normalizeAssetText((string)($params['name'] ?? '我的声音'), '我的声音', 80);
+        $audioUri = self::normalizeAssetUri((string)($params['audio_uri'] ?? ''));
         $providerAssetId = trim((string)($params['provider_asset_id'] ?? ''));
         if ($audioUri === '' && $providerAssetId === '') {
             throw new Exception('请上传音频样本');
@@ -209,17 +208,9 @@ class AigcDigitalHumanService
         $duration = self::validateVoiceCloneDuration($audioUri, $params, $tenantId);
         $estimate = AigcDigitalHumanPricingService::estimateClone($tenantId, AigcDigitalHumanPricingService::TYPE_VOICE_CLONE);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
-        if ($providerAssetId === '' && $audioUri !== '') {
-            $providerAssetId = (new XhadminAigcDigitalHumanProvider())->cloneVoice([
-                'title' => $name,
-                'audio_url' => self::fileUrlForTenant($audioUri, $tenantId),
-                'visibility' => 'private',
-                'description' => '用户克隆音色',
-                'enhance_audio_quality' => (bool)($params['enhance_audio_quality'] ?? false),
-            ], $tenantId, $userId);
-        }
-        $coverUri = FileService::setFileUrl((string)($params['cover_uri'] ?? ''));
+        $coverUri = self::normalizeAssetUri((string)($params['cover_uri'] ?? ''));
         $storage = StorageConfigService::getEffectiveConfig($tenantId);
+        $status = $providerAssetId !== '' ? 'ready' : 'running';
         Db::startTrans();
         try {
             $row = AigcDigitalHumanVoice::create([
@@ -227,8 +218,8 @@ class AigcDigitalHumanService
                 'user_id' => $userId,
                 'name' => $name,
                 'source' => 'mine',
-                'gender' => (string)($params['gender'] ?? ''),
-                'age_group' => (string)($params['age_group'] ?? ''),
+                'gender' => self::normalizeAssetText((string)($params['gender'] ?? ''), '', 20),
+                'age_group' => self::normalizeAssetText((string)($params['age_group'] ?? ''), '', 20),
                 'cover_uri' => $coverUri,
                 'audio_uri' => $audioUri,
                 'preview_audio_uri' => '',
@@ -238,7 +229,7 @@ class AigcDigitalHumanService
                 'duration' => $duration,
                 'provider' => (string)($params['provider'] ?? 'xhadmin'),
                 'provider_asset_id' => $providerAssetId,
-                'status' => 'ready',
+                'status' => $status,
                 'sort' => 0,
                 'create_time' => time(),
                 'update_time' => time(),
@@ -266,6 +257,11 @@ class AigcDigitalHumanService
         }
 
         return self::formatVoice($rowData);
+    }
+
+    public static function processPendingCloneAssets(int $tenantId, int $userId = 0): void
+    {
+        self::refreshRunningCloneAssets($tenantId, $userId);
     }
 
     public static function previewVoice(int $tenantId, int $userId, array $params): array
@@ -363,14 +359,14 @@ class AigcDigitalHumanService
         throw new Exception($lastError !== '' ? self::friendlyStageMessage($lastError) : '试听合成仍在处理中，请稍后重试');
     }
 
-    public static function publicAvatarLists(int $tenantId): array
+    public static function publicAvatarLists(int $tenantId, array $params = []): array
     {
         self::seedOfficialAssets($tenantId);
-        return array_map([self::class, 'formatAvatar'], AigcDigitalHumanAvatar::where([
+        return self::paginateRows(AigcDigitalHumanAvatar::where([
             'tenant_id' => $tenantId,
             'source' => 'official',
             'user_id' => 0,
-        ])->where('delete_time', 0)->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray());
+        ])->where('delete_time', 0)->order(['sort' => 'desc', 'id' => 'desc']), $params, 100, [self::class, 'formatAvatar']);
     }
 
     public static function savePublicAvatar(int $tenantId, array $params): array
@@ -447,7 +443,7 @@ class AigcDigitalHumanService
         if ($status !== '') {
             $query->where('a.status', $status);
         }
-        return array_map([self::class, 'formatAvatar'], $query->order(['a.id' => 'desc'])->limit(100)->select()->toArray());
+        return self::paginateRows($query->order(['a.id' => 'desc']), $params, 100, [self::class, 'formatAvatar']);
     }
 
     public static function deleteUserAvatar(int $tenantId, int $id): void
@@ -459,14 +455,14 @@ class AigcDigitalHumanService
         $row->save(['delete_time' => time(), 'update_time' => time()]);
     }
 
-    public static function publicVoiceLists(int $tenantId): array
+    public static function publicVoiceLists(int $tenantId, array $params = []): array
     {
         self::seedOfficialAssets($tenantId);
-        return array_map([self::class, 'formatVoice'], AigcDigitalHumanVoice::where([
+        return self::paginateRows(AigcDigitalHumanVoice::where([
             'tenant_id' => $tenantId,
             'source' => 'official',
             'user_id' => 0,
-        ])->where('delete_time', 0)->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray());
+        ])->where('delete_time', 0)->order(['sort' => 'desc', 'id' => 'desc']), $params, 100, [self::class, 'formatVoice']);
     }
 
     public static function savePublicVoice(int $tenantId, array $params): array
@@ -550,7 +546,7 @@ class AigcDigitalHumanService
         if ($status !== '') {
             $query->where('v.status', $status);
         }
-        return array_map([self::class, 'formatVoice'], $query->order(['v.id' => 'desc'])->limit(100)->select()->toArray());
+        return self::paginateRows($query->order(['v.id' => 'desc']), $params, 100, [self::class, 'formatVoice']);
     }
 
     public static function publishUserVoice(int $tenantId, int $id): array
@@ -819,7 +815,16 @@ class AigcDigitalHumanService
                 }
             });
         }
-        $rows = $query->limit(100)->select()->toArray();
+        $usePage = isset($params['page_no']) || isset($params['page_size']);
+        $pageNo = max(1, (int)($params['page_no'] ?? 1));
+        $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15)));
+        $count = $usePage ? (int)(clone $query)->count() : 0;
+        if ($usePage) {
+            $query->limit(($pageNo - 1) * $pageSize, $pageSize);
+        } else {
+            $query->limit(100);
+        }
+        $rows = $query->select()->toArray();
         $taskIds = array_values(array_unique(array_filter(array_column($rows, 'id'))));
         $resultMap = [];
         if ($taskIds) {
@@ -844,8 +849,17 @@ class AigcDigitalHumanService
             $row['video_uri'] = (string)($first['video_uri'] ?? '');
             $row['video_url'] = (string)($first['video_url'] ?? '');
             $row['cover_url'] = (string)($first['cover_url'] ?? '');
+            $row['tts_audio_url'] = self::fileUrlForTenant((string)($row['tts_audio_uri'] ?? ''), $tenantId, $row);
             $row['width'] = (int)($first['width'] ?? 0);
             $row['height'] = (int)($first['height'] ?? 0);
+        }
+        if ($usePage) {
+            return [
+                'lists' => $rows,
+                'count' => $count,
+                'page_no' => $pageNo,
+                'page_size' => $pageSize,
+            ];
         }
         return $rows;
     }
@@ -1047,9 +1061,9 @@ class AigcDigitalHumanService
         ]);
     }
 
-    public static function quotaLists(int $tenantId): array
+    public static function quotaLists(int $tenantId, array $params = []): array
     {
-        return AigcDigitalHumanQuota::where('tenant_id', $tenantId)->order('id', 'desc')->limit(100)->select()->toArray();
+        return self::paginateRows(AigcDigitalHumanQuota::where('tenant_id', $tenantId)->order('id', 'desc'), $params, 100);
     }
 
     public static function saveQuota(int $tenantId, array $params): void
@@ -1075,9 +1089,29 @@ class AigcDigitalHumanService
         $row->save($data);
     }
 
-    public static function sensitiveWordLists(int $tenantId): array
+    public static function sensitiveWordLists(int $tenantId, array $params = []): array
     {
-        return AigcDigitalHumanSensitiveWord::where('tenant_id', $tenantId)->order('id', 'desc')->limit(200)->select()->toArray();
+        return self::paginateRows(AigcDigitalHumanSensitiveWord::where('tenant_id', $tenantId)->order('id', 'desc'), $params, 200);
+    }
+
+    private static function paginateRows($query, array $params, int $defaultLimit = 100, ?callable $formatter = null): array
+    {
+        $format = static function (array $rows) use ($formatter) {
+            return $formatter ? array_map($formatter, $rows) : $rows;
+        };
+        $usePage = isset($params['page_no']) || isset($params['page_size']);
+        $pageNo = max(1, (int)($params['page_no'] ?? 1));
+        $pageSize = max(1, min(100, (int)($params['page_size'] ?? 15)));
+        if ($usePage) {
+            $count = (int)(clone $query)->count();
+            return [
+                'lists' => $format($query->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray()),
+                'count' => $count,
+                'page_no' => $pageNo,
+                'page_size' => $pageSize,
+            ];
+        }
+        return $format($query->limit($defaultLimit)->select()->toArray());
     }
 
     public static function saveSensitiveWord(int $tenantId, array $params): void
@@ -1246,6 +1280,50 @@ class AigcDigitalHumanService
                     'progress' => 100,
                     'error' => self::stageErrorPrefix((string)($task['provider_stage'] ?? '')) . self::friendlyStageMessage($e->getMessage()),
                     'finish_time' => time(),
+                    'update_time' => time(),
+                ]);
+            }
+        }
+    }
+
+    private static function refreshRunningCloneAssets(int $tenantId, int $userId = 0): void
+    {
+        $query = AigcDigitalHumanVoice::where('tenant_id', $tenantId)
+            ->where('source', 'mine')
+            ->where('status', 'running')
+            ->where('delete_time', 0);
+        if ($userId > 0) {
+            $query->where('user_id', $userId);
+        }
+        $voices = $query->order('id', 'asc')->limit(3)->select();
+        foreach ($voices as $voice) {
+            if ((string)$voice['provider_asset_id'] !== '') {
+                $voice->save(['status' => 'ready', 'update_time' => time()]);
+                continue;
+            }
+            try {
+                $providerAssetId = (new XhadminAigcDigitalHumanProvider())->cloneVoice([
+                    'title' => (string)$voice['name'],
+                    'audio_url' => self::fileUrlForTenant((string)$voice['audio_uri'], (int)$voice['tenant_id'], $voice->toArray()),
+                    'visibility' => 'private',
+                    'description' => '用户克隆音色',
+                    'enhance_audio_quality' => false,
+                ], (int)$voice['tenant_id'], (int)$voice['user_id']);
+                $data = [
+                    'provider_asset_id' => $providerAssetId,
+                    'status' => 'ready',
+                    'update_time' => time(),
+                ];
+                try {
+                    $previewAudioUri = self::generateVoicePreviewAudio((int)$voice['tenant_id'], (int)$voice['user_id'], array_merge($voice->toArray(), $data));
+                    $data['preview_audio_uri'] = $previewAudioUri;
+                } catch (\Throwable $e) {
+                    $data['preview_audio_uri'] = '';
+                }
+                $voice->save($data);
+            } catch (\Throwable $e) {
+                $voice->save([
+                    'status' => 'failed',
                     'update_time' => time(),
                 ]);
             }
@@ -1471,6 +1549,42 @@ class AigcDigitalHumanService
     {
         $message = trim($message);
         return $message === '' ? '供应商任务失败' : $message;
+    }
+
+    private static function normalizeAssetText(string $value, string $fallback = '', int $maxLength = 80): string
+    {
+        $value = trim($value);
+        if ($value !== '' && function_exists('mb_convert_encoding')) {
+            $value = @mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+        }
+        $value = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $value) ?? '';
+        $value = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', $value) ?? $value;
+        $value = trim($value);
+        if ($value === '') {
+            $value = $fallback;
+        }
+        if ($maxLength > 0 && function_exists('mb_substr')) {
+            return mb_substr($value, 0, $maxLength);
+        }
+        return $maxLength > 0 ? substr($value, 0, $maxLength) : $value;
+    }
+
+    private static function normalizeAssetUri(string $value, int $maxLength = 500): string
+    {
+        $value = trim($value);
+        if ($value === '' || preg_match('/^(blob:|data:)/i', $value)) {
+            return '';
+        }
+        $value = FileService::setFileUrl($value);
+        $value = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', trim($value)) ?? '';
+        if ($value === '' || preg_match('/^(blob:|data:)/i', $value)) {
+            return '';
+        }
+        $length = function_exists('mb_strlen') ? mb_strlen($value) : strlen($value);
+        if ($maxLength > 0 && $length > $maxLength) {
+            throw new Exception('素材地址过长，请重新上传后再保存');
+        }
+        return $value;
     }
 
     private static function isXhadminProvider(string $provider): bool
@@ -2128,9 +2242,9 @@ class AigcDigitalHumanService
                     'title' => (string)$task['title'],
                     'cover_uri' => (string)($video['cover_uri'] ?? $avatar['cover_uri'] ?? ''),
                     'video_uri' => (string)$video['uri'],
-                    'storage_scope' => $storage['scope'],
-                    'storage_engine' => $storage['default'],
-                    'storage_domain' => self::storageDomainForTenant($tenantId),
+                    'storage_scope' => (string)($video['storage_scope'] ?? $storage['scope']),
+                    'storage_engine' => (string)($video['storage_engine'] ?? $storage['default']),
+                    'storage_domain' => (string)($video['storage_domain'] ?? self::storageDomainForTenant($tenantId)),
                     'width' => $video['width'] ?? 0,
                     'height' => $video['height'] ?? 0,
                     'duration' => $video['duration'] ?? 0,

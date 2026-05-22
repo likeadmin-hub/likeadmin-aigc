@@ -13,9 +13,6 @@
                     :route-path="item.path"
                 />
                 <div v-else>
-                    <template v-if="item.component == 'information'">
-                        <Information :menu-item="item" />
-                    </template>
                     <template v-if="item.component == 'mobile'">
                         <Mobile :menu-item="item" />
                     </template>
@@ -31,7 +28,6 @@
 import Menu from '../menu/index.vue'
 import MenuItem from '../menu/menu-item.vue'
 import Admin from './admin.vue'
-import Information from './information.vue'
 import Mobile from './mobile.vue'
 const route = useRoute()
 const activeMenu = computed<string>(() => route.path)

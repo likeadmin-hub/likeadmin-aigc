@@ -36,6 +36,7 @@
         "@vue-flow/minimap": "^1.5.4",
         "element-plus": "2.5.2",
         "pinia": "2.0.3",
+        "uqr": "^0.1.2",
         "vue-cropper": "1.0.5"
     }
 }

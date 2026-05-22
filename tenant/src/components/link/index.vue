@@ -45,8 +45,9 @@
 <script lang="ts" setup>
 import type { PropType } from 'vue'
 
-import { type Link, LinkTypeEnum, MenuTypeEnum } from '.'
 import { appFrontend } from '@/api/app_center'
+
+import { type Link, LinkTypeEnum, MenuTypeEnum } from '.'
 import AppCenterPages from './app-center-pages.vue'
 import ArticleList from './article-list.vue'
 import CustomLink from './custom-link.vue'

@@ -49,7 +49,12 @@
                         <div class="text-xs text-info">ID: {{ row.user_id }}</div>
                     </template>
                 </el-table-column>
-                <el-table-column label="提示词" prop="prompt" min-width="260" show-overflow-tooltip />
+                <el-table-column
+                    label="提示词"
+                    prop="prompt"
+                    min-width="260"
+                    show-overflow-tooltip
+                />
                 <el-table-column label="比例" prop="ratio" width="90" />
                 <el-table-column label="数量" prop="quantity" width="80" />
                 <el-table-column label="点数" prop="point_actual" width="90" />
@@ -75,14 +80,28 @@
             <el-descriptions :column="1" border>
                 <el-descriptions-item label="任务编号">{{ detail.task_sn }}</el-descriptions-item>
                 <el-descriptions-item label="应用">{{ detail.app_name }}</el-descriptions-item>
-                <el-descriptions-item label="用户">{{ detail.user_nickname || detail.user_account || detail.user_id }}</el-descriptions-item>
-                <el-descriptions-item label="状态">{{ statusText(detail.status) }}</el-descriptions-item>
-                <el-descriptions-item label="预计点数">{{ detail.point_estimated }}</el-descriptions-item>
-                <el-descriptions-item label="实际扣点">{{ detail.point_actual }}</el-descriptions-item>
-                <el-descriptions-item label="创建时间">{{ detail.create_time_text }}</el-descriptions-item>
-                <el-descriptions-item label="完成时间">{{ detail.finish_time_text || '--' }}</el-descriptions-item>
+                <el-descriptions-item label="用户">{{
+                    detail.user_nickname || detail.user_account || detail.user_id
+                }}</el-descriptions-item>
+                <el-descriptions-item label="状态">{{
+                    statusText(detail.status)
+                }}</el-descriptions-item>
+                <el-descriptions-item label="预计点数">{{
+                    detail.point_estimated
+                }}</el-descriptions-item>
+                <el-descriptions-item label="实际扣点">{{
+                    detail.point_actual
+                }}</el-descriptions-item>
+                <el-descriptions-item label="创建时间">{{
+                    detail.create_time_text
+                }}</el-descriptions-item>
+                <el-descriptions-item label="完成时间">{{
+                    detail.finish_time_text || '--'
+                }}</el-descriptions-item>
                 <el-descriptions-item label="提示词">{{ detail.prompt }}</el-descriptions-item>
-                <el-descriptions-item label="错误信息">{{ detail.error || '--' }}</el-descriptions-item>
+                <el-descriptions-item label="错误信息">{{
+                    detail.error || '--'
+                }}</el-descriptions-item>
             </el-descriptions>
         </el-drawer>
     </div>

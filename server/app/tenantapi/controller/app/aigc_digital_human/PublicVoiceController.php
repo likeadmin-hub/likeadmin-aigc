@@ -9,7 +9,7 @@ class PublicVoiceController extends BaseAdminController
 {
     public function lists()
     {
-        return $this->success('获取成功', AigcDigitalHumanService::publicVoiceLists($this->tenantId));
+        return $this->success('获取成功', AigcDigitalHumanService::publicVoiceLists($this->tenantId, $this->request->get()));
     }
 
     public function save()

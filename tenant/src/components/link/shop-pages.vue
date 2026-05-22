@@ -33,12 +33,12 @@ const emit = defineEmits<{
 }>()
 
 const linkList = ref([
-        {
-            path: '/pages/index/index',
-            name: '系统首页',
-            type: LinkTypeEnum.SHOP_PAGES,
-            canTab: true
-        },
+    {
+        path: '/pages/index/index',
+        name: '系统首页',
+        type: LinkTypeEnum.SHOP_PAGES,
+        canTab: true
+    },
     {
         path: '/pages/news/news',
         name: '文章资讯',

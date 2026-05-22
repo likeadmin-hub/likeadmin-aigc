@@ -3,7 +3,13 @@
         <el-card class="!border-none" shadow="never">
             <el-form class="mb-[-16px]" :model="queryParams" :inline="true">
                 <el-form-item label="套餐名称">
-                    <el-input v-model="queryParams.name" class="w-[240px]" placeholder="请输入套餐名称" clearable @keyup.enter="resetPage" />
+                    <el-input
+                        v-model="queryParams.name"
+                        class="w-[240px]"
+                        placeholder="请输入套餐名称"
+                        clearable
+                        @keyup.enter="resetPage"
+                    />
                 </el-form-item>
                 <el-form-item label="状态">
                     <el-select v-model="queryParams.status" class="w-[160px]">
@@ -15,7 +21,12 @@
                 <el-form-item>
                     <el-button type="primary" @click="resetPage">查询</el-button>
                     <el-button @click="resetParams">重置</el-button>
-                    <el-button v-perms="['finance.membership_plan/add']" type="primary" @click="openEdit()">新增套餐</el-button>
+                    <el-button
+                        v-perms="['finance.membership_plan/add']"
+                        type="primary"
+                        @click="openEdit()"
+                        >新增套餐</el-button
+                    >
                 </el-form-item>
             </el-form>
         </el-card>
@@ -31,22 +42,43 @@
                 </el-table-column>
                 <el-table-column label="关联应用" min-width="220">
                     <template #default="{ row }">
-                        <el-tag v-for="app in row.apps || []" :key="app.app_code" class="mr-1 mb-1" size="small">
+                        <el-tag
+                            v-for="app in row.apps || []"
+                            :key="app.app_code"
+                            class="mr-1 mb-1"
+                            size="small"
+                        >
                             {{ app.name }}
                         </el-tag>
-                        <span v-if="!(row.apps || []).length" class="text-tx-secondary">未关联</span>
+                        <span v-if="!(row.apps || []).length" class="text-tx-secondary"
+                            >未关联</span
+                        >
                     </template>
                 </el-table-column>
                 <el-table-column label="状态" min-width="90">
                     <template #default="{ row }">
-                        <el-tag :type="row.status == 1 ? 'success' : 'info'">{{ row.status == 1 ? '启用' : '停用' }}</el-tag>
+                        <el-tag :type="row.status == 1 ? 'success' : 'info'">{{
+                            row.status == 1 ? '启用' : '停用'
+                        }}</el-tag>
                     </template>
                 </el-table-column>
                 <el-table-column label="排序" prop="sort" min-width="80" />
                 <el-table-column label="操作" width="150" fixed="right">
                     <template #default="{ row }">
-                        <el-button v-perms="['finance.membership_plan/edit']" type="primary" link @click="openEdit(row)">编辑</el-button>
-                        <el-button v-perms="['finance.membership_plan/delete']" type="danger" link @click="handleDelete(row.id)">删除</el-button>
+                        <el-button
+                            v-perms="['finance.membership_plan/edit']"
+                            type="primary"
+                            link
+                            @click="openEdit(row)"
+                            >编辑</el-button
+                        >
+                        <el-button
+                            v-perms="['finance.membership_plan/delete']"
+                            type="danger"
+                            link
+                            @click="handleDelete(row.id)"
+                            >删除</el-button
+                        >
                     </template>
                 </el-table-column>
             </el-table>
@@ -64,35 +96,85 @@
                     <el-input v-model="formData.description" placeholder="请输入套餐简介" />
                 </el-form-item>
                 <el-form-item label="月付价格" required>
-                    <el-input-number v-model="formData.monthly_price" :min="0" :precision="2" class="w-[180px]" />
+                    <el-input-number
+                        v-model="formData.monthly_price"
+                        :min="0"
+                        :precision="2"
+                        class="w-[180px]"
+                    />
                     <span class="ml-2 text-tx-secondary">元</span>
                 </el-form-item>
                 <el-form-item label="年付价格" required>
-                    <el-input-number v-model="formData.yearly_price" :min="0" :precision="2" class="w-[180px]" />
+                    <el-input-number
+                        v-model="formData.yearly_price"
+                        :min="0"
+                        :precision="2"
+                        class="w-[180px]"
+                    />
                     <span class="ml-2 text-tx-secondary">元</span>
                 </el-form-item>
                 <el-form-item label="划线价">
-                    <el-input-number v-model="formData.monthly_market_price" :min="0" :precision="2" class="w-[160px]" />
+                    <el-input-number
+                        v-model="formData.monthly_market_price"
+                        :min="0"
+                        :precision="2"
+                        class="w-[160px]"
+                    />
                     <span class="mx-2 text-tx-secondary">月</span>
-                    <el-input-number v-model="formData.yearly_market_price" :min="0" :precision="2" class="w-[160px]" />
+                    <el-input-number
+                        v-model="formData.yearly_market_price"
+                        :min="0"
+                        :precision="2"
+                        class="w-[160px]"
+                    />
                     <span class="ml-2 text-tx-secondary">年</span>
                 </el-form-item>
                 <el-form-item label="赠送积分">
-                    <el-input-number v-model="formData.monthly_bonus_points" :min="0" :precision="2" class="w-[160px]" />
+                    <el-input-number
+                        v-model="formData.monthly_bonus_points"
+                        :min="0"
+                        :precision="2"
+                        class="w-[160px]"
+                    />
                     <span class="mx-2 text-tx-secondary">月</span>
-                    <el-input-number v-model="formData.yearly_bonus_points" :min="0" :precision="2" class="w-[160px]" />
+                    <el-input-number
+                        v-model="formData.yearly_bonus_points"
+                        :min="0"
+                        :precision="2"
+                        class="w-[160px]"
+                    />
                     <span class="ml-2 text-tx-secondary">年</span>
                 </el-form-item>
                 <el-form-item label="关联应用">
-                    <el-select v-model="formData.app_codes" multiple filterable class="w-full" placeholder="请选择已开通应用">
-                        <el-option v-for="app in appOptions" :key="app.app_code" :label="app.name" :value="app.app_code" />
+                    <el-select
+                        v-model="formData.app_codes"
+                        multiple
+                        filterable
+                        class="w-full"
+                        placeholder="请选择已开通应用"
+                    >
+                        <el-option
+                            v-for="app in appOptions"
+                            :key="app.app_code"
+                            :label="app.name"
+                            :value="app.app_code"
+                        />
                     </el-select>
                 </el-form-item>
                 <el-form-item label="权益说明">
-                    <el-input v-model="featuresText" type="textarea" :rows="5" placeholder="一行一条权益" />
+                    <el-input
+                        v-model="featuresText"
+                        type="textarea"
+                        :rows="5"
+                        placeholder="一行一条权益"
+                    />
                 </el-form-item>
                 <el-form-item label="推荐">
-                    <el-switch v-model="formData.is_recommend" :active-value="1" :inactive-value="0" />
+                    <el-switch
+                        v-model="formData.is_recommend"
+                        :active-value="1"
+                        :inactive-value="0"
+                    />
                 </el-form-item>
                 <el-form-item label="状态">
                     <el-switch v-model="formData.status" :active-value="1" :inactive-value="0" />
