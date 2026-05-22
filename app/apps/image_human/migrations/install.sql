@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS `la_image_human_task` (
   `title` varchar(120) NOT NULL DEFAULT '',
   `image_uri` varchar(500) NOT NULL DEFAULT '' COMMENT '人物图片',
   `audio_uri` varchar(500) NOT NULL DEFAULT '' COMMENT '驱动音频',
-  `prompt` text,
+  `script_text` text COMMENT '文案内容',
+  `prompt` text COMMENT '提示词',
   `mode` varchar(30) NOT NULL DEFAULT 'fast',
   `duration` decimal(10,2) NOT NULL DEFAULT 0.00,
   `tenant_cost_points` decimal(10,2) NOT NULL DEFAULT 0.00,
@@ -140,6 +141,7 @@ VALUES (
     ),
     'base_config',
     JSON_OBJECT(
+      'script_max_length', 200,
       'prompt_max_length', 200
     ),
     'provider',

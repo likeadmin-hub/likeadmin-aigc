@@ -17,6 +17,7 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
             $payload = array_filter(array_merge([
                 'file_url' => $request->imageUrl,
                 'ref_file_url' => $request->audioUrl,
+                'script_text' => $request->scriptText,
                 'prompt' => $request->prompt,
                 'duration' => $request->duration > 0 ? $request->duration : null,
                 'mode' => $request->mode,
