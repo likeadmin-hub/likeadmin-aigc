@@ -189,8 +189,6 @@ class SystemPackageUpdateService
                 PackageExtractService::assertRequiredFiles($extract['path'], [
                     'update.json',
                     'files',
-                    'sql/data',
-                    'sql/structure',
                     'menus',
                     'rollback',
                     'signature.json',
