@@ -333,7 +333,7 @@
                                     :maxlength="scriptMaxLength || undefined"
                                     :placeholder="scriptPlaceholderText"
                                 ></textarea>
-                                <div v-if="activeHumanMode !== 'image_human'" class="script-box__tools">
+                                <div class="script-box__tools">
                                     <span class="script-box__translate-wrap" @click.stop>
                                         <button type="button" :disabled="!!scriptAssistLoading" @click="toggleTranslateMenu">
                                             <img :src="translateIcon" alt="" />
@@ -360,10 +360,27 @@
                                 </button>
                                 <div v-if="scriptMaxLength" class="script-box__count">{{ scriptText.length }}/{{ scriptMaxLength }}</div>
                             </div>
-                            <div v-if="activeHumanMode !== 'image_human'" class="script-box__chips">
+                            <div class="script-box__chips">
                                 <button v-for="chip in promptChips" :key="chip" type="button" @click="appendPrompt(chip)">
                                     {{ chip }}
                                 </button>
+                            </div>
+                        </section>
+
+                        <section v-if="activeHumanMode === 'image_human'" class="editor-section editor-section--prompt">
+                            <div class="editor-section__head editor-section__head--stacked">
+                                <span class="editor-section__label">{{ texts.promptTitle }}</span>
+                            </div>
+                            <div class="script-box script-box--prompt">
+                                <textarea
+                                    v-model="promptText"
+                                    :maxlength="promptTextMaxLength || undefined"
+                                    :placeholder="texts.promptPlaceholder"
+                                ></textarea>
+                                <button class="script-box__clear" type="button" :aria-label="texts.clear" @click="promptText = ''">
+                                    <img :src="clearIcon" alt="" />
+                                </button>
+                                <div v-if="promptTextMaxLength" class="script-box__count">{{ promptText.length }}/{{ promptTextMaxLength }}</div>
                             </div>
                         </section>
 
@@ -1412,7 +1429,9 @@ const texts = {
     audioDriver: '\u97f3\u9891\u9a71\u52a8',
     historyVoice: '\u5386\u53f2\u58f0\u97f3',
     scriptTitle: '\u6587\u6848\u5185\u5bb9',
+    promptTitle: '\u63d0\u793a\u8bcd',
     scriptPlaceholder: '\u8bf7\u8f93\u5165\u4f60\u60f3\u8ba9\u89d2\u8272\u8bf4\u8bdd\u7684\u5185\u5bb9...',
+    promptPlaceholder: '\u8bf7\u8f93\u5165\u5168\u9a71\u52a8\u6570\u5b57\u4eba\u7684\u63d0\u793a\u8bcd...',
     generateMode: '\u751f\u6210\u6a21\u5f0f',
     modelChannel: '\u6a21\u578b\u901a\u9053',
     translate: '\u7ffb\u8bd1',
@@ -1595,6 +1614,7 @@ const voiceTrimState = ref<VoiceTrimState>({
 const selectedVoice = ref('')
 const workName = ref('')
 const scriptText = ref('')
+const promptText = ref('')
 const driverAudio = ref<DriverAudioUpload | null>(null)
 const driverAudioDisplayTitle = computed(() => driverAudio.value?.title || driverAudio.value?.fileName || '')
 const isDriverAudioPlaying = ref(false)
@@ -1881,7 +1901,7 @@ const playingVoiceId = ref('')
 const digitalHumanConfig = ref<any>({
     channels: [],
     defaults: { channel: 'master', quality: '1k', ratio: '9:16' },
-    base_config: { prompt_max_length: 200 }
+    base_config: { script_max_length: 200, prompt_max_length: 200 }
 })
 const digitalHumanBaseConfig = ref<any>({
     script_max_length: 200,
@@ -1944,7 +1964,10 @@ const promptMaxLength = computed(() => {
     }
     return Math.max(0, Number(digitalHumanBaseConfig.value?.script_max_length || 0))
 })
-const scriptMaxLength = promptMaxLength
+const scriptMaxLength = computed(() => Math.max(0, Number(digitalHumanBaseConfig.value?.script_max_length || 0)))
+const promptTextMaxLength = computed(() =>
+    activeHumanMode.value === 'image_human' ? promptMaxLength.value : 0
+)
 const scriptPlaceholderText = computed(() =>
     activeHumanMode.value === 'image_human'
         ? '请输入文案内容...'
@@ -2144,6 +2167,15 @@ const syncImageHumanConfig = (config: any) => {
         ...digitalHumanConfig.value,
         ...(config?.option_config || {}),
         base_config: config?.base_config || config?.config_json?.base_config || digitalHumanConfig.value.base_config || {}
+    }
+    digitalHumanBaseConfig.value = {
+        ...digitalHumanBaseConfig.value,
+        script_max_length: Number(
+            config?.base_config?.script_max_length ??
+            config?.config_json?.base_config?.script_max_length ??
+            digitalHumanBaseConfig.value.script_max_length ??
+            200
+        )
     }
     mergeDigitalHumanPricing(
         config?.pricing ||
@@ -2457,8 +2489,10 @@ const applyDigitalHumanTaskToEditor = (task: any) => {
         appliedVoiceId.value = voice.id
     }
 
-    const content = String(task.script_text || task.prompt || '').trim()
+    const content = String(task.script_text || '').trim()
     if (content) scriptText.value = scriptMaxLength.value ? Array.from(content).slice(0, scriptMaxLength.value).join('') : content
+    const prompt = String(task.prompt || '').trim()
+    if (prompt) promptText.value = promptTextMaxLength.value ? Array.from(prompt).slice(0, promptTextMaxLength.value).join('') : prompt
     workName.value = String(task.title || workName.value || '').trim()
     formOptions.value.channel = task.channel || formOptions.value.channel
     formOptions.value.quality = task.quality || formOptions.value.quality
@@ -2979,6 +3013,7 @@ const resetAvatarCreateForm = () => {
     selectedVoice.value = ''
     workName.value = ''
     scriptText.value = ''
+    promptText.value = ''
     clearDriverAudio()
 }
 
@@ -4977,6 +5012,7 @@ const submitAvatarCreate = async () => {
     const avatarId = resolveAvatarSubmitId(avatar)
     const voiceId = Number(voice?.rawId || 0)
     const script = scriptText.value.trim()
+    const prompt = promptText.value.trim()
 
     if (!avatarId) return feedback.msgError(activeHumanMode.value === 'image_human' ? '\u8bf7\u9009\u62e9\u56fe\u7247\u5f62\u8c61' : '\u8bf7\u9009\u62e9\u89c6\u9891\u5f62\u8c61')
     if (activeHumanMode.value === 'image_human' && avatar.mediaType === 'video') return feedback.msgError('\u8bf7\u9009\u62e9\u56fe\u7247\u5f62\u8c61')
@@ -4984,10 +5020,14 @@ const submitAvatarCreate = async () => {
     if (!audioDriver && !voiceId) return feedback.msgError(activeHumanMode.value === 'image_human' ? '\u8bf7\u9009\u62e9\u58f0\u97f3\u6216\u4e0a\u4f20\u97f3\u9891\u9a71\u52a8' : '\u8bf7\u9009\u62e9\u97f3\u8272\u6216\u4e0a\u4f20\u97f3\u9891\u9a71\u52a8')
     if (!audioDriver && !voice?.providerAssetId) return feedback.msgError('\u5f53\u524d\u97f3\u8272\u672a\u5b8c\u6210\u514b\u9686\uff0c\u65e0\u6cd5\u5408\u6210')
     if (!script) return feedback.msgError('\u8bf7\u8f93\u5165\u6587\u6848\u5185\u5bb9')
+    if (activeHumanMode.value === 'image_human' && !prompt) return feedback.msgError('\u8bf7\u8f93\u5165\u63d0\u793a\u8bcd')
 
     const title = workName.value.trim() || (activeHumanMode.value === 'image_human' ? `\u5168\u9a71\u6570\u5b57\u4eba-${avatar.name}` : `\u6570\u5b57\u4eba-${avatar.name}`)
     if (scriptMaxLength.value && Array.from(script).length > scriptMaxLength.value) {
         return feedback.msgError(`\u6587\u6848\u4e0d\u80fd\u8d85\u8fc7${scriptMaxLength.value}\u4e2a\u5b57`)
+    }
+    if (activeHumanMode.value === 'image_human' && promptTextMaxLength.value && Array.from(prompt).length > promptTextMaxLength.value) {
+        return feedback.msgError(`\u63d0\u793a\u8bcd\u4e0d\u80fd\u8d85\u8fc7${promptTextMaxLength.value}\u4e2a\u5b57`)
     }
     isCreating.value = true
     activePopover.value = 'notice'
@@ -5007,7 +5047,8 @@ const submitAvatarCreate = async () => {
                 voice_id: audioDriver ? 0 : voiceId,
                 audio_uri: driverAudioUri,
                 title,
-                prompt: script,
+                script_text: script,
+                prompt,
                 mode: imageHumanMode.value,
                 duration: estimatedDuration.value
             })

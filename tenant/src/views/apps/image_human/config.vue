@@ -2,6 +2,10 @@
     <el-card class="!border-none" shadow="never" v-loading="loading">
         <el-form label-width="140px">
             <el-form-item label="文案字数限制">
+                <el-input-number v-model="baseConfig.script_max_length" :min="0" :precision="0" />
+                <span class="ml-2 text-tx-secondary">0 表示不限制</span>
+            </el-form-item>
+            <el-form-item label="提示词字数限制">
                 <el-input-number v-model="baseConfig.prompt_max_length" :min="0" :precision="0" />
                 <span class="ml-2 text-tx-secondary">0 表示不限制</span>
             </el-form-item>
@@ -43,6 +47,7 @@ import { getImageHumanConfig, setImageHumanConfig } from '@/apps/image_human/api
 
 const loading = ref(false)
 const baseConfig = reactive({
+    script_max_length: 200,
     prompt_max_length: 200
 })
 const pricing = reactive({

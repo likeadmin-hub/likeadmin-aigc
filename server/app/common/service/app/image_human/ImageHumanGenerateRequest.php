@@ -8,6 +8,7 @@ class ImageHumanGenerateRequest
         public string $imageUrl,
         public string $audioUrl,
         public string $prompt,
+        public string $scriptText,
         public float $duration,
         public string $mode,
         public array $providerParams = [],

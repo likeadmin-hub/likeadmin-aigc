@@ -365,6 +365,7 @@ class ImageHumanService
     public static function submit(int $tenantId, int $userId, array $params): array
     {
         $prompt = trim((string)($params['prompt'] ?? ''));
+        $scriptText = trim((string)($params['script_text'] ?? $params['text'] ?? ''));
         $avatarId = (int)($params['avatar_id'] ?? 0);
         $voiceId = (int)($params['voice_id'] ?? 0);
         $avatar = $avatarId > 0 ? self::findAvatar($tenantId, $userId, $avatarId) : [];
@@ -378,13 +379,20 @@ class ImageHumanService
         if ($audioUri === '') {
             throw new Exception('请上传参考音频');
         }
-        if ($prompt === '') {
+        if ($scriptText === '') {
             throw new Exception('请输入文案内容');
+        }
+        if ($prompt === '') {
+            throw new Exception('请输入提示词');
         }
         $baseConfig = self::baseConfig($tenantId);
         $promptMaxLength = (int)($baseConfig['prompt_max_length'] ?? 0);
+        $scriptMaxLength = (int)($baseConfig['script_max_length'] ?? 0);
+        if ($scriptMaxLength > 0 && mb_strlen($scriptText) > $scriptMaxLength) {
+            throw new Exception('文案不能超过' . $scriptMaxLength . '个字');
+        }
         if ($promptMaxLength > 0 && mb_strlen($prompt) > $promptMaxLength) {
-            throw new Exception('文案不能超过' . $promptMaxLength . '个字');
+            throw new Exception('提示词不能超过' . $promptMaxLength . '个字');
         }
         $duration = self::normalizeDuration($params['duration'] ?? 0);
         if ($duration <= 0 && !empty($voice['duration'])) {
@@ -402,7 +410,7 @@ class ImageHumanService
         }
         $estimate = self::buildEstimate($duration, self::pricing($tenantId), $mode);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
-        $duplicate = self::findRecentDuplicateTask($tenantId, $userId, $imageUri, $audioUri, $prompt, $mode, $duration);
+        $duplicate = self::findRecentDuplicateTask($tenantId, $userId, $imageUri, $audioUri, $scriptText, $prompt, $mode, $duration);
         if ($duplicate) {
             return self::duplicateResponse($duplicate, $tenantId, $userId);
         }
@@ -415,6 +423,7 @@ class ImageHumanService
             'title' => trim((string)($params['title'] ?? '全驱动数字人')) ?: '全驱动数字人',
             'image_uri' => $imageUri,
             'audio_uri' => $audioUri,
+            'script_text' => $scriptText,
             'prompt' => $prompt,
             'mode' => $mode,
             'duration' => $duration,
@@ -530,7 +539,7 @@ class ImageHumanService
         foreach ($rows as &$row) {
             $row['image_url'] = self::fileUrlForTenant((string)($row['image_uri'] ?? ''), (int)$row['tenant_id']);
             $row['audio_url'] = self::fileUrlForTenant((string)($row['audio_uri'] ?? ''), (int)$row['tenant_id']);
-            $row['script_text'] = (string)($row['prompt'] ?? '');
+            $row['script_text'] = (string)($row['script_text'] ?? '');
             $row['provider_payload_summary'] = self::providerPayloadSummary($row['provider_payload_json'] ?? []);
         }
         return $rows;
@@ -781,6 +790,7 @@ class ImageHumanService
     private static function normalizeBaseConfig(array $config): array
     {
         return [
+            'script_max_length' => max(0, (int)($config['script_max_length'] ?? self::PROMPT_MAX_LENGTH)),
             'prompt_max_length' => max(0, (int)($config['prompt_max_length'] ?? $config['script_max_length'] ?? self::PROMPT_MAX_LENGTH)),
         ];
     }
@@ -896,6 +906,7 @@ class ImageHumanService
             self::fileUrlForTenant((string)$task['image_uri'], (int)$task['tenant_id']),
             self::fileUrlForTenant((string)$task['audio_uri'], (int)$task['tenant_id']),
             (string)$task['prompt'],
+            (string)($task['script_text'] ?? ''),
             (float)$task['duration'],
             (string)$task['mode'],
             [],
@@ -927,7 +938,7 @@ class ImageHumanService
             $task['task_id'] = (int)$task['id'];
             $task['image_url'] = self::fileUrlForTenant((string)($task['image_uri'] ?? ''), $tenantId);
             $task['audio_url'] = self::fileUrlForTenant((string)($task['audio_uri'] ?? ''), $tenantId);
-            $task['script_text'] = (string)($task['prompt'] ?? '');
+            $task['script_text'] = (string)($task['script_text'] ?? '');
             $task['results'] = $resultMap[(int)$task['id']] ?? [];
             $task['result_count'] = count($task['results']);
             $first = $task['results'][0] ?? [];
@@ -1121,13 +1132,14 @@ class ImageHumanService
         return round(($size * 8) / ($bitrate * 1000), 2);
     }
 
-    private static function findRecentDuplicateTask(int $tenantId, int $userId, string $imageUri, string $audioUri, string $prompt, string $mode, float $duration): ?ImageHumanTask
+    private static function findRecentDuplicateTask(int $tenantId, int $userId, string $imageUri, string $audioUri, string $scriptText, string $prompt, string $mode, float $duration): ?ImageHumanTask
     {
         $rows = ImageHumanTask::where('tenant_id', $tenantId)
             ->where('user_id', $userId)
             ->where('delete_time', 0)
             ->where('image_uri', $imageUri)
             ->where('audio_uri', $audioUri)
+            ->where('script_text', $scriptText)
             ->where('prompt', $prompt)
             ->where('mode', $mode)
             ->where('duration', $duration)

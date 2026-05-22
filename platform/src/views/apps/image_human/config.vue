@@ -20,6 +20,10 @@
                 </el-form-item>
                 <el-divider content-position="left">基础配置</el-divider>
                 <el-form-item label="文案字数限制">
+                    <el-input-number v-model="baseConfig.script_max_length" :min="0" :precision="0" />
+                    <span class="ml-2 text-tx-secondary">0 表示不限制</span>
+                </el-form-item>
+                <el-form-item label="提示词字数限制">
                     <el-input-number v-model="baseConfig.prompt_max_length" :min="0" :precision="0" />
                     <span class="ml-2 text-tx-secondary">0 表示不限制</span>
                 </el-form-item>
@@ -91,6 +95,7 @@ const providerConfig = reactive({
     timeout: 60
 })
 const baseConfig = reactive({
+    script_max_length: 200,
     prompt_max_length: 200
 })
 const pricing = reactive({
