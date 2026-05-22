@@ -8,6 +8,8 @@ use Exception;
 
 class VoiceController extends BaseApiController
 {
+    public array $notNeedLogin = ['lists'];
+
     public function lists()
     {
         return $this->success('获取成功', ImageHumanService::voiceLists(
@@ -51,6 +53,19 @@ class VoiceController extends BaseApiController
                 (int)$this->request->post('id', 0)
             );
             return $this->success('删除成功', [], 1, 1);
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function preview()
+    {
+        try {
+            return $this->success('合成成功', ImageHumanService::previewVoice(
+                (int)$this->request->tenantId,
+                $this->userId,
+                $this->request->post()
+            ));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
