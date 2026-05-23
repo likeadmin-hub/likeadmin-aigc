@@ -12,24 +12,32 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
 
     public function submit(ImageHumanGenerateRequest $request): ImageHumanGenerateResult
     {
+        $requestPayload = [];
         try {
             $config = $this->resolveConfig($request);
-            $payload = array_filter(array_merge([
-                'file_url' => $request->imageUrl,
-                'ref_file_url' => $request->audioUrl,
-                'script_text' => $request->scriptText,
-                'prompt' => $request->prompt,
-                'duration' => $request->duration > 0 ? $request->duration : null,
-                'mode' => $request->mode,
-            ], $config['extra_payload'], $request->providerParams['payload'] ?? []), static fn($value) => $value !== null && $value !== '' && $value !== []);
+            $imageUrl = $this->assertHttpsFileUrl($request->imageUrl, '人物图片');
+            $audioUrl = $this->assertHttpsFileUrl($request->audioUrl, '参考音频');
+            $payload = array_filter(array_merge(
+                $config['extra_payload'],
+                $request->providerParams['payload'] ?? [],
+                [
+                    'file_url' => $imageUrl,
+                    'ref_file_url' => $audioUrl,
+                    'script_text' => $request->scriptText,
+                    'prompt' => $request->prompt,
+                    'duration' => $request->duration > 0 ? $request->duration : null,
+                    'mode' => $request->mode,
+                ]
+            ), static fn($value) => $value !== null && $value !== '' && $value !== []);
+            $requestPayload = ['submit_request' => $this->payloadSummary($payload)];
             $data = $this->request('POST', $config['submit_url'], $config['api_key'], $payload, $config['timeout'], (bool)$config['ssl_verify']);
             $taskId = $this->extractTaskId($data);
             if ($taskId === '') {
-                return new ImageHumanGenerateResult(false, [], '供应商未返回任务ID', '', false, ['submit' => $data]);
+                return new ImageHumanGenerateResult(false, [], '供应商未返回任务ID', '', false, array_merge($requestPayload, ['submit' => $data]));
             }
-            return new ImageHumanGenerateResult(true, [], '', $taskId, true, ['submit' => $data]);
+            return new ImageHumanGenerateResult(true, [], '', $taskId, true, array_merge($requestPayload, ['submit' => $data]));
         } catch (\Throwable $e) {
-            return new ImageHumanGenerateResult(false, [], $this->friendlyError($e->getMessage()));
+            return new ImageHumanGenerateResult(false, [], $this->friendlyError($e->getMessage()), '', false, $requestPayload);
         }
     }
 
@@ -90,6 +98,45 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
             'ssl_verify' => UpdateSourceClient::sslVerify($source),
             'extra_payload' => is_array($providerConfig['extra_payload'] ?? null) ? $providerConfig['extra_payload'] : [],
         ];
+    }
+
+    private function assertHttpsFileUrl(mixed $value, string $label): string
+    {
+        if (!is_string($value)) {
+            throw new Exception($label . '必须是 HTTPS 在线文件地址');
+        }
+        $url = trim($value);
+        if ($url === '') {
+            throw new Exception('请上传' . $label);
+        }
+        if (preg_match('/^(blob:|data:)/i', $url)) {
+            throw new Exception($label . '不能使用本地临时地址，请先上传到对象存储');
+        }
+        $host = strtolower((string)(parse_url($url, PHP_URL_HOST) ?: ''));
+        if ($host === 'localhost' || $host === '127.0.0.1' || $host === '::1') {
+            throw new Exception($label . '不能使用本地地址，请配置 HTTPS 文件域名或对象存储');
+        }
+        if (!str_starts_with($url, 'https://')) {
+            throw new Exception($label . '必须是 HTTPS 在线文件地址，请先上传到对象存储或配置 HTTPS 文件域名');
+        }
+        return $url;
+    }
+
+    private function payloadSummary(array $payload): array
+    {
+        $summary = [];
+        foreach (['file_url', 'ref_file_url', 'duration', 'mode'] as $key) {
+            if (array_key_exists($key, $payload)) {
+                $summary[$key] = $payload[$key];
+            }
+        }
+        if (array_key_exists('script_text', $payload)) {
+            $summary['script_text_length'] = mb_strlen((string)$payload['script_text']);
+        }
+        if (array_key_exists('prompt', $payload)) {
+            $summary['prompt_length'] = mb_strlen((string)$payload['prompt']);
+        }
+        return $summary;
     }
 
     private function sourceBaseUrl(string $baseUrl): string
@@ -215,14 +262,22 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
             $data['data']['files'] ?? null,
             $data['result']['video_url'] ?? null,
             $data['data']['result']['video_url'] ?? null,
+            $data['result']['output_url'] ?? null,
+            $data['data']['result']['output_url'] ?? null,
+            $data['result']['data']['output_url'] ?? null,
+            $data['data']['result']['data']['output_url'] ?? null,
             $data['result']['file_url'] ?? null,
             $data['data']['result']['file_url'] ?? null,
             $data['output']['video_url'] ?? null,
             $data['data']['output']['video_url'] ?? null,
+            $data['output']['output_url'] ?? null,
+            $data['data']['output']['output_url'] ?? null,
             $data['output']['file_url'] ?? null,
             $data['data']['output']['file_url'] ?? null,
             $data['video_url'] ?? null,
             $data['data']['video_url'] ?? null,
+            $data['output_url'] ?? null,
+            $data['data']['output_url'] ?? null,
             $data['file_url'] ?? null,
             $data['data']['file_url'] ?? null,
             $data['result']['video'] ?? null,
@@ -261,9 +316,9 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
         if (!is_array($value)) {
             return;
         }
-        foreach (['video_url', 'video', 'url', 'uri', 'output', 'file_url', 'download_url', 'origin_url', 'src'] as $key) {
+        foreach (['video_url', 'output_url', 'video', 'url', 'uri', 'output', 'file_url', 'download_url', 'origin_url', 'src'] as $key) {
             if (array_key_exists($key, $value)) {
-                $url = is_string($value[$key]) ? $this->normalizeMediaUrl($value[$key], true) : '';
+                $url = is_string($value[$key]) ? $this->normalizeMediaUrl($value[$key], $this->isVideoUrlKey($key)) : '';
                 if ($url !== '') {
                     $urls[] = $url;
                 }
@@ -280,17 +335,26 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
         if ($url === '') {
             return '';
         }
-        if (preg_match('/^(https?:\/\/|data:video\/)/i', $url)) {
+        if (preg_match('/^data:video\//i', $url)) {
             return $url;
         }
         $path = ltrim((string)(parse_url($url, PHP_URL_PATH) ?: $url), '/');
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if (preg_match('/^https?:\/\//i', $url)) {
+            return ($fromMediaKey || in_array($ext, ['mp4', 'webm', 'mov', 'm4v'], true)) ? $url : '';
+        }
         if ($path === '' || (!str_starts_with($path, 'uploads/') && !str_starts_with($path, 'resource/'))) {
             return '';
         }
-        if (!$fromMediaKey && !in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['mp4', 'webm', 'mov', 'm4v'], true)) {
+        if (!$fromMediaKey && !in_array($ext, ['mp4', 'webm', 'mov', 'm4v'], true)) {
             return '';
         }
         return $url;
+    }
+
+    private function isVideoUrlKey(string $key): bool
+    {
+        return in_array($key, ['video_url', 'output_url', 'video', 'file_url', 'download_url', 'origin_url', 'src'], true);
     }
 
     private function extractError(array $data): string

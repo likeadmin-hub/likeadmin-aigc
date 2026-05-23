@@ -1616,6 +1616,7 @@ const workName = ref('')
 const scriptText = ref('')
 const promptText = ref('')
 const driverAudio = ref<DriverAudioUpload | null>(null)
+const isAudioDriven = computed(() => !!driverAudio.value)
 const driverAudioDisplayTitle = computed(() => driverAudio.value?.title || driverAudio.value?.fileName || '')
 const isDriverAudioPlaying = ref(false)
 const historyVoiceAudios = ref<HistoryVoiceAudioItem[]>([])
@@ -1973,7 +1974,7 @@ const scriptPlaceholderText = computed(() =>
         ? '请输入文案内容...'
         : texts.scriptPlaceholder
 )
-const shouldShowScriptEditor = computed(() => activeHumanMode.value === 'image_human' || !driverAudio.value)
+const shouldShowScriptEditor = computed(() => !isAudioDriven.value)
 const formatCostPoints = (value: any, fallback: number) => {
     const points = Number(value)
     if (!Number.isFinite(points) || points < 0) return String(fallback)
@@ -2529,17 +2530,18 @@ const refreshDigitalHumanEstimate = async () => {
 
     try {
         const avatarId = resolveAvatarSubmitId(appliedAvatarItem.value || selectedAvatar.value)
-        const voiceId = Number(driverAudio.value?.voiceRawId || (appliedVoiceItem.value || findVoiceItemById(selectedVoiceCardId.value))?.rawId || 0)
+        const voiceId = Number((appliedVoiceItem.value || findVoiceItemById(selectedVoiceCardId.value))?.rawId || 0)
         estimateInfo.value = activeHumanMode.value === 'image_human'
             ? await estimateImageHuman({
                 mode: imageHumanMode.value,
                 avatar_id: avatarId,
-                voice_id: voiceId,
+                voice_id: isAudioDriven.value ? 0 : voiceId,
+                audio_uri: driverAudio.value?.remoteUri || '',
                 duration: estimatedDuration.value
             })
             : await estimateAigcDigitalHuman({
                 avatar_id: avatarId,
-                voice_id: driverAudio.value ? 0 : voiceId,
+                voice_id: isAudioDriven.value ? 0 : voiceId,
                 audio_uri: driverAudio.value?.remoteUri || '',
                 channel: formOptions.value.channel,
                 quality: formOptions.value.quality,
@@ -4397,11 +4399,11 @@ const toggleVoiceStar = (item: VoiceItem) => {
     item.starred = !item.starred
     setFavoriteItem({
         category: 'voice',
-        id: item.rawId || item.id,
+        id: String(item.rawId || item.id),
         title: item.name,
         desc: item.source === 'mine' ? '我的声音' : '官方声音',
         image: item.cover || '',
-        url: buildSidebarRouteLocation('avatar') as string
+        url: buildSidebarRouteLocation('avatar').path
     }, item.starred)
 }
 
@@ -4794,6 +4796,10 @@ const saveAvatarCreateModal = async () => {
     if (isCreating.value) return
     if (!ensureDigitalHumanLogin()) return
     if (!pendingAvatarUpload.value) return
+    if (isAvatarUploading.value) {
+        feedback.msgError(activeHumanMode.value === 'image_human' ? '图片形象还在上传中，请稍后再保存' : '形象视频还在上传中，请稍后再保存')
+        return
+    }
     if (activeHumanMode.value !== 'image_human' && pendingAvatarUpload.value.mediaType !== 'video') {
         feedback.msgError('\u6570\u5b57\u4eba\u5f62\u8c61\u5fc5\u987b\u4e0a\u4f20\u89c6\u9891')
         return
@@ -4807,7 +4813,8 @@ const saveAvatarCreateModal = async () => {
     isCreating.value = true
     try {
         const mediaUri = pending.uploadedMediaUri || pending.remoteUri || ''
-        if (!mediaUri) throw new Error('\u5f62\u8c61\u89c6\u9891\u8fd8\u672a\u4e0a\u4f20\u5b8c\u6210')
+        if (!mediaUri) throw new Error(activeHumanMode.value === 'image_human' ? '图片形象还未上传完成' : '\u5f62\u8c61\u89c6\u9891\u8fd8\u672a\u4e0a\u4f20\u5b8c\u6210')
+        if (/^(blob:|data:)/i.test(mediaUri)) throw new Error(activeHumanMode.value === 'image_human' ? '图片形象还未上传完成' : '\u5f62\u8c61\u89c6\u9891\u8fd8\u672a\u4e0a\u4f20\u5b8c\u6210')
         let coverUri = pending.uploadedCoverUri || ''
         if (!coverUri && pending.generatedCoverFile) {
             const coverUploadRes = await uploadImage({ file: pending.generatedCoverFile })
@@ -5015,15 +5022,14 @@ const submitAvatarCreate = async () => {
     const prompt = promptText.value.trim()
 
     if (!avatarId) return feedback.msgError(activeHumanMode.value === 'image_human' ? '\u8bf7\u9009\u62e9\u56fe\u7247\u5f62\u8c61' : '\u8bf7\u9009\u62e9\u89c6\u9891\u5f62\u8c61')
+    if (!avatar) return feedback.msgError(activeHumanMode.value === 'image_human' ? '\u8bf7\u9009\u62e9\u56fe\u7247\u5f62\u8c61' : '\u8bf7\u9009\u62e9\u89c6\u9891\u5f62\u8c61')
     if (activeHumanMode.value === 'image_human' && avatar.mediaType === 'video') return feedback.msgError('\u8bf7\u9009\u62e9\u56fe\u7247\u5f62\u8c61')
     if (activeHumanMode.value !== 'image_human' && avatar.mediaType !== 'video') return feedback.msgError('\u8bf7\u9009\u62e9\u53ef\u5408\u6210\u7684\u89c6\u9891\u5f62\u8c61')
-    if (!audioDriver && !voiceId) return feedback.msgError(activeHumanMode.value === 'image_human' ? '\u8bf7\u9009\u62e9\u58f0\u97f3\u6216\u4e0a\u4f20\u97f3\u9891\u9a71\u52a8' : '\u8bf7\u9009\u62e9\u97f3\u8272\u6216\u4e0a\u4f20\u97f3\u9891\u9a71\u52a8')
-    if (!audioDriver && !voice?.providerAssetId) return feedback.msgError('\u5f53\u524d\u97f3\u8272\u672a\u5b8c\u6210\u514b\u9686\uff0c\u65e0\u6cd5\u5408\u6210')
-    if (!script) return feedback.msgError('\u8bf7\u8f93\u5165\u6587\u6848\u5185\u5bb9')
-    if (activeHumanMode.value === 'image_human' && !prompt) return feedback.msgError('\u8bf7\u8f93\u5165\u63d0\u793a\u8bcd')
-
+    if (!isAudioDriven.value && !voiceId) return feedback.msgError(activeHumanMode.value === 'image_human' ? '\u8bf7\u9009\u62e9\u58f0\u97f3\u6216\u4e0a\u4f20\u97f3\u9891\u9a71\u52a8' : '\u8bf7\u9009\u62e9\u97f3\u8272\u6216\u4e0a\u4f20\u97f3\u9891\u9a71\u52a8')
+    if (!isAudioDriven.value && !voice?.providerAssetId) return feedback.msgError('\u5f53\u524d\u97f3\u8272\u672a\u5b8c\u6210\u514b\u9686\uff0c\u65e0\u6cd5\u5408\u6210')
+    if (!isAudioDriven.value && !script) return feedback.msgError('\u8bf7\u8f93\u5165\u6587\u6848\u5185\u5bb9')
     const title = workName.value.trim() || (activeHumanMode.value === 'image_human' ? `\u5168\u9a71\u6570\u5b57\u4eba-${avatar.name}` : `\u6570\u5b57\u4eba-${avatar.name}`)
-    if (scriptMaxLength.value && Array.from(script).length > scriptMaxLength.value) {
+    if (!isAudioDriven.value && scriptMaxLength.value && Array.from(script).length > scriptMaxLength.value) {
         return feedback.msgError(`\u6587\u6848\u4e0d\u80fd\u8d85\u8fc7${scriptMaxLength.value}\u4e2a\u5b57`)
     }
     if (activeHumanMode.value === 'image_human' && promptTextMaxLength.value && Array.from(prompt).length > promptTextMaxLength.value) {
@@ -5047,7 +5053,7 @@ const submitAvatarCreate = async () => {
                 voice_id: audioDriver ? 0 : voiceId,
                 audio_uri: driverAudioUri,
                 title,
-                script_text: script,
+                script_text: isAudioDriven.value ? '' : script,
                 prompt,
                 mode: imageHumanMode.value,
                 duration: estimatedDuration.value
@@ -5057,8 +5063,8 @@ const submitAvatarCreate = async () => {
                 voice_id: audioDriver ? 0 : Number(voice?.rawId || 0),
                 audio_uri: driverAudioUri,
                 title,
-                script_text: script,
-                prompt: script,
+                script_text: isAudioDriven.value ? '' : script,
+                prompt: isAudioDriven.value ? '' : script,
                 channel: formOptions.value.channel,
                 quality: formOptions.value.quality,
                 ratio: formOptions.value.ratio,

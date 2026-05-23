@@ -70,8 +70,11 @@ if (!signatureFiles.some((file) => file.path.startsWith('sql/data/'))) {
     fail('signature.json does not include a sql/data compatibility marker')
 }
 
-if (stat.isDirectory()) {
-    for (const file of signatureFiles) {
+for (const file of signatureFiles) {
+    if (!normalized.has(file.path)) {
+        fail(`signature.json references missing package file: ${file.path}`)
+    }
+    if (stat.isDirectory()) {
         const filePath = path.join(absoluteTarget, file.path)
         if (!existsSync(filePath)) {
             fail(`signature.json references missing file: ${file.path}`)
