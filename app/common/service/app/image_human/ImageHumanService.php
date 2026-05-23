@@ -156,6 +156,10 @@ class ImageHumanService
         $name = self::normalizeAssetText((string)($params['name'] ?? '公共图片形象'), '公共图片形象', 80);
         $imageUri = self::normalizeAssetUri((string)($params['image_uri'] ?? $params['media_uri'] ?? $params['cover_uri'] ?? ''));
         $coverUri = self::normalizeAssetUri((string)($params['cover_uri'] ?? $imageUri));
+        self::assertPersistedAssetUri($imageUri, '图片形象');
+        if ($coverUri !== '') {
+            self::assertPersistedAssetUri($coverUri, '形象封面');
+        }
         if ($imageUri === '') {
             throw new Exception('请上传图片形象');
         }
@@ -240,6 +244,10 @@ class ImageHumanService
         $name = self::normalizeAssetText((string)($params['name'] ?? '我的图片形象'), '我的图片形象', 80);
         $imageUri = self::normalizeAssetUri((string)($params['image_uri'] ?? $params['media_uri'] ?? $params['cover_uri'] ?? ''));
         $coverUri = self::normalizeAssetUri((string)($params['cover_uri'] ?? $imageUri));
+        self::assertPersistedAssetUri($imageUri, '人物图片');
+        if ($coverUri !== '') {
+            self::assertPersistedAssetUri($coverUri, '形象封面');
+        }
         if ($imageUri === '') {
             throw new Exception('请上传人物图片');
         }
@@ -364,31 +372,34 @@ class ImageHumanService
 
     public static function submit(int $tenantId, int $userId, array $params): array
     {
+        self::ensureTaskSchema();
         $prompt = trim((string)($params['prompt'] ?? ''));
         $scriptText = trim((string)($params['script_text'] ?? $params['text'] ?? ''));
         $avatarId = (int)($params['avatar_id'] ?? 0);
         $voiceId = (int)($params['voice_id'] ?? 0);
         $avatar = $avatarId > 0 ? self::findAvatar($tenantId, $userId, $avatarId) : [];
         $voice = $voiceId > 0 ? self::findVoice($tenantId, $userId, $voiceId) : [];
-        $imageUri = FileService::setFileUrl((string)($avatar['image_uri'] ?? $params['image_uri'] ?? $params['file_uri'] ?? $params['file_url'] ?? ''));
+        $imageUri = FileService::setFileUrl((string)($avatar['image_uri'] ?? $avatar['media_uri'] ?? ''));
         $audioUri = FileService::setFileUrl((string)($voice['audio_uri'] ?? $params['audio_uri'] ?? $params['ref_file_uri'] ?? $params['ref_file_url'] ?? ''));
+        $audioDriven = $voiceId <= 0 && $audioUri !== '';
         $mode = self::normalizeMode((string)($params['mode'] ?? 'fast'));
+        if ($avatarId <= 0 || empty($avatar)) {
+            throw new Exception('请先选择已保存的图片形象');
+        }
         if ($imageUri === '') {
             throw new Exception('请上传人物图片');
         }
+        self::assertPersistedAssetUri($imageUri, '人物图片');
         if ($audioUri === '') {
             throw new Exception('请上传参考音频');
         }
-        if ($scriptText === '') {
+        if (!$audioDriven && $scriptText === '') {
             throw new Exception('请输入文案内容');
-        }
-        if ($prompt === '') {
-            throw new Exception('请输入提示词');
         }
         $baseConfig = self::baseConfig($tenantId);
         $promptMaxLength = (int)($baseConfig['prompt_max_length'] ?? 0);
         $scriptMaxLength = (int)($baseConfig['script_max_length'] ?? 0);
-        if ($scriptMaxLength > 0 && mb_strlen($scriptText) > $scriptMaxLength) {
+        if (!$audioDriven && $scriptMaxLength > 0 && mb_strlen($scriptText) > $scriptMaxLength) {
             throw new Exception('文案不能超过' . $scriptMaxLength . '个字');
         }
         if ($promptMaxLength > 0 && mb_strlen($prompt) > $promptMaxLength) {
@@ -404,6 +415,8 @@ class ImageHumanService
         if ($duration <= 0) {
             throw new Exception('请填写音频时长');
         }
+        self::assertHttpsProviderFileUrl(self::fileUrlForTenant($imageUri, $tenantId, $avatar), '人物图片');
+        self::assertHttpsProviderFileUrl(self::fileUrlForTenant($audioUri, $tenantId, $voice), '参考音频');
         $config = self::effectiveConfig($tenantId);
         if ((int)$config['status'] !== 1) {
             throw new Exception('全驱动数字人应用未启用');
@@ -655,6 +668,7 @@ class ImageHumanService
                 continue;
             }
             if (!empty($result->videos)) {
+                $task->save();
                 self::finishTaskWithVideos($task, $result->videos);
             }
         }
@@ -1044,6 +1058,39 @@ class ImageHumanService
         return FileService::setFileUrl(trim($uri));
     }
 
+    private static function assertPersistedAssetUri(string $uri, string $label): void
+    {
+        $uri = trim($uri);
+        if ($uri === '') {
+            return;
+        }
+        if (preg_match('/^(blob:|data:)/i', $uri)) {
+            throw new Exception($label . '不能使用本地临时地址，请等待上传完成后再保存');
+        }
+        $host = strtolower((string)(parse_url($uri, PHP_URL_HOST) ?: ''));
+        if ($host === 'localhost' || $host === '127.0.0.1' || $host === '::1') {
+            throw new Exception($label . '不能使用本地地址，请上传到对象存储或配置可访问文件域名');
+        }
+    }
+
+    private static function assertHttpsProviderFileUrl(string $url, string $label): void
+    {
+        $url = trim($url);
+        if ($url === '') {
+            throw new Exception('请上传' . $label);
+        }
+        if (preg_match('/^(blob:|data:)/i', $url)) {
+            throw new Exception($label . '不能使用本地临时地址，请等待上传完成后再提交');
+        }
+        $host = strtolower((string)(parse_url($url, PHP_URL_HOST) ?: ''));
+        if ($host === 'localhost' || $host === '127.0.0.1' || $host === '::1') {
+            throw new Exception($label . '不能使用本地地址，请配置 HTTPS 文件域名或对象存储');
+        }
+        if (!str_starts_with($url, 'https://')) {
+            throw new Exception($label . '必须是 HTTPS 在线文件地址，请先上传到对象存储或配置 HTTPS 文件域名');
+        }
+    }
+
     private static function fileUrlForTenant(string $uri, int $tenantId, array $storage = []): string
     {
         if ($uri === '' || str_starts_with($uri, 'http://') || str_starts_with($uri, 'https://') || str_starts_with($uri, 'data:')) {
@@ -1154,6 +1201,27 @@ class ImageHumanService
             return $row;
         }
         return null;
+    }
+
+    private static function ensureTaskSchema(): void
+    {
+        static $checked = false;
+        if ($checked) {
+            return;
+        }
+        $checked = true;
+
+        try {
+            $table = (new ImageHumanTask())->getTable();
+            $columns = Db::query("SHOW COLUMNS FROM `{$table}` WHERE Field = 'script_text'");
+            if (!empty($columns)) {
+                return;
+            }
+            Db::execute("ALTER TABLE `{$table}` ADD COLUMN `script_text` text COMMENT '文案内容' AFTER `audio_uri`");
+            Db::execute("UPDATE `{$table}` SET `script_text` = COALESCE(NULLIF(`script_text`, ''), `prompt`, '') WHERE `script_text` IS NULL OR `script_text` = ''");
+        } catch (\Throwable $e) {
+            throw new Exception('全驱动数字人任务表结构未更新，请执行 image_human 迁移：' . $e->getMessage());
+        }
     }
 
     private static function duplicateResponse(ImageHumanTask $task, int $tenantId, int $userId): array
