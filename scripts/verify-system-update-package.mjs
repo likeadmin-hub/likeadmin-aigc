@@ -22,6 +22,7 @@ const requiredPaths = [
 
 const protectedPatterns = [
     /^files\/\.env$/,
+    /(^|\/)\.env(\.|$)/,
     /^files\/config\/install\.lock$/,
     /^files\/runtime\//,
     /^files\/public\/uploads\//,
@@ -29,6 +30,33 @@ const protectedPatterns = [
     /^files\/public\/qrcode\//,
     /(^|\/)\.DS_Store$/,
     /\.log$/
+]
+
+const fullReplaceAllowedDirs = new Set([
+    'public/admin',
+    'public/platform',
+    'public/pc',
+    'public/_nuxt',
+    'public/media',
+    'public/mobile',
+    'public/mp-weixin',
+    'public/static'
+])
+
+const deleteAllowedPrefixes = [
+    'app/',
+    'config/',
+    'extend/',
+    'public/admin/',
+    'public/platform/',
+    'public/pc/',
+    'public/_nuxt/',
+    'public/media/',
+    'public/mobile/',
+    'public/mp-weixin/',
+    'public/static/',
+    'route/',
+    'upgrade/'
 ]
 
 const absoluteTarget = path.resolve(target)
@@ -53,6 +81,8 @@ for (const entry of normalized) {
 }
 
 const signature = readSignature(absoluteTarget, stat.isDirectory())
+const updateManifest = readPackageJson(absoluteTarget, stat.isDirectory(), 'update.json')
+verifyIncrementalManifest(updateManifest, normalized)
 const signatureFiles = normalizeSignature(signature)
 if (!signatureFiles.length) {
     fail('signature.json has no file checksum entries')
@@ -89,6 +119,7 @@ for (const file of signatureFiles) {
 console.log(JSON.stringify({
     ok: true,
     target: absoluteTarget,
+    package_mode: updateManifest.package_mode || 'legacy',
     entries: normalized.size,
     signature_files: signatureFiles.length
 }, null, 2))
@@ -127,13 +158,67 @@ function listDirectoryEntries(root) {
 }
 
 function readSignature(targetPath, isDirectory) {
+    return readPackageJson(targetPath, isDirectory, 'signature.json')
+}
+
+function readPackageJson(targetPath, isDirectory, file) {
     const raw = isDirectory
-        ? readFileSync(path.join(targetPath, 'signature.json'), 'utf8')
-        : execFileSync('unzip', ['-p', targetPath, 'signature.json'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 })
+        ? readFileSync(path.join(targetPath, file), 'utf8')
+        : execFileSync('unzip', ['-p', targetPath, file], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 })
     try {
         return JSON.parse(raw)
     } catch (error) {
-        fail(`signature.json is not valid JSON: ${error.message}`)
+        fail(`${file} is not valid JSON: ${error.message}`)
+    }
+}
+
+function verifyIncrementalManifest(manifest, entries) {
+    if ((manifest.package_mode || '') !== 'incremental') return
+    for (const field of ['base_version', 'target_version', 'included_versions', 'full_replace_dirs', 'delete_files', 'sql_order']) {
+        if (!(field in manifest)) {
+            fail(`incremental update.json missing field: ${field}`)
+        }
+    }
+    if (String(manifest.target_version) !== String(manifest.version)) {
+        fail('incremental update.json target_version must equal version')
+    }
+    if (!Array.isArray(manifest.included_versions) || manifest.included_versions.length === 0) {
+        fail('incremental update.json included_versions must be a non-empty array')
+    }
+    if (!manifest.included_versions.map(String).includes(String(manifest.target_version))) {
+        fail('incremental update.json included_versions must include target_version')
+    }
+    for (const field of ['full_replace_dirs', 'delete_files', 'sql_order']) {
+        if (!Array.isArray(manifest[field])) {
+            fail(`incremental update.json ${field} must be an array`)
+        }
+    }
+    for (const rawDir of manifest.full_replace_dirs) {
+        const dir = normalizeEntry(rawDir)
+        assertSafeManifestPath(dir)
+        if (!fullReplaceAllowedDirs.has(dir)) {
+            fail(`full_replace_dirs contains forbidden directory: ${dir}`)
+        }
+        if (!hasEntry(entries, `files/${dir}/`)) {
+            fail(`full_replace_dirs directory missing from files/: ${dir}`)
+        }
+    }
+    for (const rawFile of manifest.delete_files) {
+        const file = normalizeEntry(rawFile)
+        assertSafeManifestPath(file)
+        if (!deleteAllowedPrefixes.some((prefix) => file.startsWith(prefix))) {
+            fail(`delete_files contains forbidden path: ${file}`)
+        }
+    }
+    for (const rawSql of manifest.sql_order) {
+        const sql = normalizeEntry(rawSql)
+        assertSafeManifestPath(sql)
+        if (!sql.startsWith('sql/data/') && !sql.startsWith('sql/structure/')) {
+            fail(`sql_order contains non-SQL path: ${sql}`)
+        }
+        if (!entries.has(sql)) {
+            fail(`sql_order references missing file: ${sql}`)
+        }
     }
 }
 
@@ -170,6 +255,15 @@ function hasEntry(entries, required) {
 
 function normalizeEntry(entry) {
     return String(entry).replace(/\\/g, '/').replace(/^\.?\//, '')
+}
+
+function assertSafeManifestPath(entry) {
+    if (!entry || entry.startsWith('/') || /^[a-zA-Z]:\//.test(entry) || (`/${entry}/`).includes('/../')) {
+        fail(`Manifest contains unsafe path: ${entry}`)
+    }
+    if (protectedPatterns.some((pattern) => pattern.test(`files/${entry}`) || pattern.test(entry))) {
+        fail(`Manifest path matches protected rule: ${entry}`)
+    }
 }
 
 function fail(message) {

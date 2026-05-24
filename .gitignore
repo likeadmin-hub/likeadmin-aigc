@@ -5,6 +5,7 @@
 !/platform/
 !/server/
 !/pc/
+!/scripts/
 !/.gitignore
 
 .DS_Store
