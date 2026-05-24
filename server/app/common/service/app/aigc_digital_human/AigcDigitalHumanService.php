@@ -2225,11 +2225,18 @@ class AigcDigitalHumanService
         try {
             $tenantId = (int)$task['tenant_id'];
             $userId = (int)$task['user_id'];
-            $existing = AigcDigitalHumanResult::where(['tenant_id' => $tenantId, 'task_id' => (int)$task['id']])->where('delete_time', 0)->select()->toArray();
+            $task = AigcDigitalHumanTask::where('tenant_id', $tenantId)
+                ->where('id', (int)$task['id'])
+                ->lock(true)
+                ->findOrEmpty();
+            if ($task->isEmpty()) {
+                throw new Exception('任务不存在');
+            }
+            $existing = self::taskResults($tenantId, $userId, (int)$task['id']);
             if (!empty($existing)) {
                 $task->save(['status' => 'success', 'provider_stage' => 'success', 'progress' => 100, 'finish_time' => $task['finish_time'] ?: time(), 'update_time' => time()]);
                 Db::commit();
-                return array_map([self::class, 'formatResult'], $existing);
+                return $existing;
             }
             $storage = StorageConfigService::getEffectiveConfig($tenantId);
             foreach ($videos as $index => $video) {

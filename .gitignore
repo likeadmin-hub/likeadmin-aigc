@@ -42,7 +42,9 @@ node_modules/
 /uniapp/unpackage/
 
 /runtime/
-/server/runtime/
+!/server/runtime/
+!/server/runtime/.gitignore
+!/server/runtime/index.html
 server/public/uploads/*
 !server/public/uploads/index.html
 server/config/install.lock
