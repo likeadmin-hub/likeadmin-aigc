@@ -305,7 +305,7 @@
                             <div class="editor-section__head editor-section__head--stacked">
                                 <span class="editor-section__label">{{ texts.modelChannel }}</span>
                             </div>
-                            <div class="model-channel-list" :class="digitalHumanChannelGridClass">
+                            <div class="model-channel-list">
                                 <button
                                     v-for="item in digitalHumanChannels"
                                     :key="item.value"
@@ -1503,7 +1503,7 @@ const texts = {
     uploadAudioSuccess: '\u4e0a\u4f20\u5b8c\u6210\uff0c\u8bf7\u8bd5\u542c\u540e\u4fdd\u5b58\u97f3\u8272',
     recordAudioSuccess: '\u5f55\u97f3\u5b8c\u6210\uff0c\u8bf7\u8bd5\u542c\u540e\u4fdd\u5b58\u97f3\u8272',
     unsupportedAudioFormat: '\u4ec5\u652f\u6301 mp3\u3001wav\u3001m4a\u3001aac\u3001ogg\u3001webm \u97f3\u9891\u6587\u4ef6',
-    voiceSampleTooLong: '\u514b\u9686\u97f3\u9891\u4e0d\u80fd\u8d85\u8fc710\u79d2\uff0c\u8bf7\u91cd\u65b0\u4e0a\u4f20',
+    voiceSampleTooLong: '\u514b\u9686\u97f3\u9891\u4e0d\u80fd\u8d85\u8fc710\u79d2\uff0c\u8bf7\u88c1\u526a\u540e\u518d\u4fdd\u5b58',
     uploadMineTitle: '\u4e0a\u4f20\u6211\u7684\u5f62\u8c61',
     uploadMineHint: '\u70b9\u51fb\u4e0a\u4f20\u540e\u5373\u53ef\u5728\u8fd9\u91cc\u7ba1\u7406\u81ea\u5b9a\u4e49\u6570\u5b57\u4eba',
     closeModal: '\u5173\u95ed\u5f39\u7a97',
@@ -2015,9 +2015,6 @@ const currentDigitalHumanQuality = computed(() =>
 )
 const digitalHumanRatios = computed(() => currentDigitalHumanQuality.value?.ratios || [])
 const shouldShowDigitalHumanChannelOptions = computed(() => digitalHumanChannels.value.length > 1)
-const digitalHumanChannelGridClass = computed(() =>
-    digitalHumanChannels.value.length === 2 ? 'model-channel-list--two' : 'model-channel-list--three'
-)
 const estimatedDuration = computed(() => {
     if (driverAudio.value?.duration) return Math.max(1, Math.ceil(driverAudio.value.duration))
     return Math.max(1, Math.ceil((scriptText.value.trim().length || 1) / 4))
@@ -2192,6 +2189,8 @@ const syncDigitalHumanModelOptions = (useDefaults = false) => {
         formOptions.value.channel = digitalHumanChannels.value[0].value
     } else if (defaultChannel) {
         formOptions.value.channel = defaultChannel
+    } else if (digitalHumanChannels.value.length === 1) {
+        formOptions.value.channel = digitalHumanChannels.value[0].value
     }
 
     const defaultQuality = useDefaults ? defaults.quality : formOptions.value.quality
@@ -3399,8 +3398,13 @@ const normalizeVoiceCreateAudioFile = async (file: File, fallbackName = 'voice')
 const syncVoiceCreateSampleDuration = async (url: string, fallbackDuration = 0) => {
     if (fallbackDuration > 0) {
         if (fallbackDuration > voiceCreateMaxDuration) {
-            feedback.msgError(texts.voiceSampleTooLong)
-            clearVoiceCreateRecordedResult()
+            const pending = pendingVoiceUpload.value
+            if (pending?.file && pending.url === url) {
+                openVoiceTrimModal(pending.file, url, fallbackDuration)
+            } else {
+                feedback.msgError(texts.voiceSampleTooLong)
+                clearVoiceCreateRecordedResult()
+            }
             return
         }
         voiceCreateElapsed.value = fallbackDuration
@@ -3410,8 +3414,13 @@ const syncVoiceCreateSampleDuration = async (url: string, fallbackDuration = 0) 
     const duration = await readVoiceCreateDuration(url)
     if (voiceCreateRecordedUrl.value === url && voiceCreateStep.value === 'sample_ready' && duration > 0) {
         if (duration > voiceCreateMaxDuration) {
-            feedback.msgError(texts.voiceSampleTooLong)
-            clearVoiceCreateRecordedResult()
+            const pending = pendingVoiceUpload.value
+            if (pending?.file && pending.url === url) {
+                openVoiceTrimModal(pending.file, url, duration)
+            } else {
+                feedback.msgError(texts.voiceSampleTooLong)
+                clearVoiceCreateRecordedResult()
+            }
             return
         }
         voiceCreateElapsed.value = duration
@@ -3497,7 +3506,12 @@ const openVoiceTrimModal = (file: File, objectUrl: string, duration: number) => 
 const cancelVoiceTrim = () => {
     stopVoiceTrimPlayback()
     const url = voiceTrimState.value.url
+    const shouldClearPendingSample = !!url && pendingVoiceUpload.value?.url === url
     resetVoiceTrimState()
+    if (shouldClearPendingSample) {
+        clearVoiceCreateRecordedResult()
+        return
+    }
     if (url) revokeTrackedBlobUrl(url)
 }
 
@@ -7157,7 +7171,7 @@ onBeforeUnmount(() => {
 .avatar-editor__scroll {
     flex: 1 1 auto;
     min-height: 0;
-    padding: 20px 20px 28px;
+    padding: 20px 20px 112px;
     overflow-x: hidden;
     overflow-y: auto;
     scrollbar-color: #2b2b2b transparent;
@@ -7179,11 +7193,16 @@ onBeforeUnmount(() => {
 }
 
 .avatar-editor__footer {
-    position: relative;
+    position: sticky;
+    right: 0;
+    bottom: 0;
+    left: 0;
     z-index: 20;
     flex: 0 0 auto;
-    padding: 12px 20px 20px;
+    margin-top: -84px;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
     background: #0f0f0f;
+    box-shadow: 0 -18px 24px rgba(15, 15, 15, 0.92);
 }
 
 .human-mode-switch {
@@ -7264,29 +7283,25 @@ onBeforeUnmount(() => {
 
 .model-channel-list {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-}
-
-.model-channel-list--two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
 }
 
 .model-channel-list button {
     position: relative;
     display: flex;
     min-width: 0;
-    min-height: 58px;
+    min-height: 60px;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    gap: 6px;
-    padding: 8px;
+    gap: 5px;
+    padding: 10px 12px;
     border: 1px solid #222;
     border-radius: 10px;
     background: #0f0f0f;
     color: #fff;
-    text-align: center;
+    text-align: left;
     cursor: pointer;
     transition: all 0.2s ease;
 }
@@ -7298,7 +7313,7 @@ onBeforeUnmount(() => {
 }
 
 .model-channel-list strong {
-    max-width: 100%;
+    width: 100%;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -7309,9 +7324,9 @@ onBeforeUnmount(() => {
 }
 
 .model-channel-list small {
-    color: rgba(255, 255, 255, 0.64);
+    color: rgba(255, 255, 255, 0.46);
     font-size: 12px;
-    line-height: 1;
+    line-height: 16px;
     white-space: nowrap;
 }
 
