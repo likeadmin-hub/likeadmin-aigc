@@ -5051,7 +5051,6 @@ const submitAvatarCreate = async () => {
         return feedback.msgError(`\u63d0\u793a\u8bcd\u4e0d\u80fd\u8d85\u8fc7${promptTextMaxLength.value}\u4e2a\u5b57`)
     }
     isCreating.value = true
-    activePopover.value = 'notice'
     try {
         let driverAudioUri = audioDriver?.remoteUri || ''
         if (audioDriver && !driverAudioUri) {
