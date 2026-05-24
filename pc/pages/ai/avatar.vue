@@ -2536,6 +2536,7 @@ const refreshDigitalHumanEstimate = async () => {
                 avatar_id: avatarId,
                 voice_id: isAudioDriven.value ? 0 : voiceId,
                 audio_uri: driverAudio.value?.remoteUri || '',
+                script_text: isAudioDriven.value ? '' : scriptText.value.trim(),
                 duration: estimatedDuration.value
             })
             : await estimateAigcDigitalHuman({

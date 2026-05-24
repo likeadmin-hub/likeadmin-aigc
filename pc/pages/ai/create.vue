@@ -366,6 +366,8 @@ interface ChannelOption {
 
 type BackendWork = AiCreateWork & {
     backendStatus?: string
+    providerStage?: string
+    progress?: number
     error?: string
     source?: 'backend' | 'local'
     category?: WorkCategory
@@ -1263,6 +1265,8 @@ const mapDigitalHumanWork = (item: any, index: number, appCode: 'aigc_digital_hu
         referenceImages: [],
         status: getBackendWorkStatus(backendStatus),
         backendStatus,
+        providerStage: String(item.provider_stage || ''),
+        progress: Number(item.progress || 0),
         error: item.error || item.error_msg || item.fail_reason || '',
         source: 'backend',
         category: 'digital_human',
@@ -1567,11 +1571,36 @@ const getWorkStatusText = (work: BackendWork) => {
 }
 const getWorkStatusDescription = (work: BackendWork, index: number) => {
     if (work.backendStatus === 'pending') return '任务已创建，等待上游接口处理'
-    if (work.backendStatus === 'running') return getWorkCategory(work) === 'digital_human' ? '数字人视频正在合成' : getWorkCategory(work) === 'video' ? '视频正在生成' : `第 ${index + 1} 张正在生成`
+    if (work.backendStatus === 'running') {
+        if (getWorkCategory(work) === 'digital_human') {
+            const stage = getDigitalHumanStageText(work.providerStage)
+            const progress = work.progress ? ` · ${work.progress}%` : ''
+            return `${stage}${progress}`
+        }
+        return getWorkCategory(work) === 'video' ? '视频正在生成' : `第 ${index + 1} 张正在生成`
+    }
     if (work.backendStatus === 'success') return getWorkCategory(work) === 'digital_human' || getWorkCategory(work) === 'video' ? '任务已完成，暂未拿到视频' : '任务已完成，暂未拿到结果图'
     if (work.backendStatus === 'failed') return work.error || '上游生成失败，请调整参数后重试'
     if (work.backendStatus === 'canceled') return '任务已取消'
     return getWorkCategory(work) === 'digital_human' ? '数字人视频正在合成' : `第 ${index + 1} 张正在生成`
+}
+const getDigitalHumanStageText = (stage?: string) => {
+    const map: Record<string, string> = {
+        created: '准备音频',
+        tts_submitted: '音频已提交',
+        tts_running: '音频合成中',
+        tts_failed: '音频合成失败',
+        video_submitted: '视频已提交',
+        video_running: '视频合成中',
+        video_failed: '视频合成失败',
+        lipsync_submitted: '视频已提交',
+        lipsync_running: '视频合成中',
+        lipsync_failed: '视频合成失败',
+        storing: '保存作品中',
+        success: '合成完成',
+        failed: '合成失败'
+    }
+    return map[stage || ''] || '数字人视频正在合成'
 }
 const formatTime = (timestamp: number) => {
     const date = new Date(timestamp)
