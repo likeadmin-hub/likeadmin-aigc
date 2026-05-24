@@ -1,10 +1,10 @@
 {
   "code": "image_human",
   "name": "全驱数字人",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "require_core": ">=1.0.0",
   "description": "基于人物图片和参考音频生成全驱数字人视频，首版提供PC端创作、任务轮询和作品展示。",
-  "changelog": "全驱数字人支持快速模式和标准模式分别配置平台成本、租户售价；租户端可按模式调价。",
+  "changelog": "全驱数字人选择克隆音色和输入文案时，先异步合成音频再提交视频任务，并补齐任务阶段迁移。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
