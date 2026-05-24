@@ -43,35 +43,64 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
 
     public function query(string $taskId, ImageHumanGenerateRequest $request): ImageHumanGenerateResult
     {
+        $queryPayload = [];
         try {
             $config = $this->resolveConfig($request);
             $data = $this->request('POST', $config['query_url'], $config['api_key'], [
                 'task_id' => is_numeric($taskId) ? (int)$taskId : $taskId,
                 'elastic_task_id' => is_numeric($taskId) ? (int)$taskId : $taskId,
-            ], $config['timeout'], (bool)$config['ssl_verify']);
+            ], $config['timeout'], (bool)$config['ssl_verify'], true);
+            $queryPayload = ['query' => $data];
+            if (isset($data['code']) && (int)$data['code'] !== 1) {
+                return new ImageHumanGenerateResult(false, [], $this->extractError($data) ?: '供应商任务失败', $taskId, false, $queryPayload);
+            }
             $status = $this->normalizeStatus($this->extractStatus($data));
             $videoUrls = $this->extractMediaUrls($data);
             if ($status !== 'success' && !empty($videoUrls)) {
                 $status = 'success';
             }
             if ($status === 'failed') {
-                return new ImageHumanGenerateResult(false, [], $this->extractError($data) ?: '供应商任务失败', $taskId, false, ['query' => $data]);
+                return new ImageHumanGenerateResult(false, [], $this->extractError($data) ?: '供应商任务失败', $taskId, false, $queryPayload);
             }
             if ($status !== 'success' || empty($videoUrls)) {
-                return new ImageHumanGenerateResult(true, [], '', $taskId, true, ['query' => $data]);
+                return new ImageHumanGenerateResult(true, [], '', $taskId, true, $queryPayload);
             }
             $videos = [];
             foreach ($videoUrls as $videoUrl) {
-                $stored = ImageHumanAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
+                try {
+                    $stored = ImageHumanAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
+                } catch (\Throwable $e) {
+                    $stored = [
+                        'uri' => $videoUrl,
+                        'width' => 0,
+                        'height' => 0,
+                        'stored' => false,
+                        'persist_error' => $this->friendlyError($e->getMessage()),
+                    ];
+                }
                 $videos[] = array_merge($stored, [
                     'provider_task_id' => $taskId,
                     'duration' => $request->duration,
                 ]);
                 break;
             }
-            return new ImageHumanGenerateResult(true, $videos, '', $taskId, false, ['query' => $data]);
+            return new ImageHumanGenerateResult(true, $videos, '', $taskId, false, $queryPayload);
         } catch (\Throwable $e) {
-            return new ImageHumanGenerateResult(false, [], $this->friendlyError($e->getMessage()), $taskId);
+            $message = $this->friendlyError($e->getMessage());
+            if ($this->isRetryableQueryError($message)) {
+                return new ImageHumanGenerateResult(true, [], '', $taskId, true, [
+                    'query_error' => [
+                        'message' => $message,
+                        'retryable' => true,
+                    ],
+                ]);
+            }
+            return new ImageHumanGenerateResult(false, [], $message, $taskId, false, array_merge($queryPayload, [
+                'query_error' => [
+                    'message' => $message,
+                    'retryable' => false,
+                ],
+            ]));
         }
     }
 
@@ -155,7 +184,7 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
         return $scheme . '://' . $host . $port;
     }
 
-    private function request(string $method, string $url, string $apiKey, array $payload = [], int $timeout = 30, bool $sslVerify = false): array
+    private function request(string $method, string $url, string $apiKey, array $payload = [], int $timeout = 30, bool $sslVerify = false, bool $allowBusinessError = false): array
     {
         $ch = curl_init();
         curl_setopt_array($ch, [
@@ -187,7 +216,7 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
         if (!is_array($data)) {
             throw new Exception('供应商响应格式错误');
         }
-        if ($httpCode >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) {
+        if ($httpCode >= 400 || isset($data['error']) || (!$allowBusinessError && isset($data['code']) && (int)$data['code'] !== 1)) {
             throw new Exception($this->extractError($data) ?: '供应商请求失败');
         }
         return $data;
@@ -381,5 +410,14 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
             str_contains($lower, 'timeout'), str_contains($lower, 'timed out') => '全驱动数字人通道响应超时，请稍后重试',
             default => $message,
         };
+    }
+
+    private function isRetryableQueryError(string $message): bool
+    {
+        $lower = strtolower($message);
+        return str_contains($lower, 'timeout')
+            || str_contains($lower, 'timed out')
+            || str_contains($message, '响应超时')
+            || str_contains($message, '网络请求失败');
     }
 }

@@ -1,0 +1,1 @@
+import{dq as t}from"./entry.11ea510b.js";function e(r){return $request.post({url:"/login/account",body:{...r,terminal:t()}})}function n(){return $request.post({url:"/login/logout"})}function u(r){return $request.post({url:"/login/register",params:{...r,channel:t()}})}export{e as a,n as l,u as r};
