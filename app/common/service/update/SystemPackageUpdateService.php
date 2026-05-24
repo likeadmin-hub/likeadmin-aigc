@@ -17,6 +17,42 @@ use Throwable;
 class SystemPackageUpdateService
 {
     private const UPDATE_EXECUTION_TIMEOUT = 600;
+    private const FULL_REPLACE_ALLOWED_DIRS = [
+        'public/admin',
+        'public/platform',
+        'public/pc',
+        'public/_nuxt',
+        'public/media',
+        'public/mobile',
+        'public/mp-weixin',
+        'public/static',
+    ];
+    private const DELETE_ALLOWED_PREFIXES = [
+        'app/',
+        'config/',
+        'extend/',
+        'public/admin/',
+        'public/platform/',
+        'public/pc/',
+        'public/_nuxt/',
+        'public/media/',
+        'public/mobile/',
+        'public/mp-weixin/',
+        'public/static/',
+        'route/',
+        'upgrade/',
+    ];
+    private const PROTECTED_PATH_PATTERNS = [
+        '#^\.env$#',
+        '#(^|/)\.env(\.|$)#',
+        '#^config/install\.lock$#',
+        '#^runtime(/|$)#',
+        '#^public/uploads(/|$)#',
+        '#^public/storage(/|$)#',
+        '#^public/qrcode(/|$)#',
+        '#(^|/)\.DS_Store$#',
+        '#\.log$#',
+    ];
 
     public function versions(array $params = []): array
     {
@@ -202,7 +238,8 @@ class SystemPackageUpdateService
                     throw new RuntimeException('系统包 product_code 不一致');
                 }
                 $this->assertCoreRequirement($manifest);
-                $builtinApps = $this->preflightBuiltinApps($extract['path']);
+                $this->assertIncrementalManifest($manifest, $extract['path']);
+                $builtinApps = $this->preflightBuiltinApps($extract['path'], $manifest);
                 $result = [
                     'passed' => true,
                     'errors' => [],
@@ -261,6 +298,9 @@ class SystemPackageUpdateService
             if (!UpgradeLogic::upgradeSql($extractPath . '/sql/data/')) {
                 throw new RuntimeException('更新数据库数据失败');
             }
+            $manifest = $this->readUpdateManifest($extractPath);
+            $this->applyFullReplaceDirs($extractPath, $manifest);
+            $this->applyDeleteFiles($manifest);
             if (!UpgradeLogic::upgradeFile($extractPath . '/files/', UpgradeLogic::getProjectPath())) {
                 throw new RuntimeException('更新文件失败');
             }
@@ -347,13 +387,23 @@ class SystemPackageUpdateService
         return $result;
     }
 
-    private function preflightBuiltinApps(string $extractPath): array
+    private function preflightBuiltinApps(string $extractPath, array $manifest = []): array
     {
         $result = [];
+        $incremental = ($manifest['package_mode'] ?? '') === 'incremental';
         foreach (AppAccessService::DEFAULT_AIGC_APP_CODES as $appCode) {
             $appPath = rtrim($extractPath, '/') . '/files/app/apps/' . $appCode;
             $manifestPath = $appPath . '/manifest.json';
             if (!is_file($manifestPath)) {
+                if ($incremental) {
+                    $result[] = [
+                        'app_code' => $appCode,
+                        'version' => '',
+                        'status' => 'not_in_package',
+                        'migrations' => [],
+                    ];
+                    continue;
+                }
                 throw new RuntimeException('系统包缺少内置应用清单: ' . $appCode);
             }
             $manifest = json_decode((string)file_get_contents($manifestPath), true);
@@ -442,6 +492,159 @@ class SystemPackageUpdateService
             throw new RuntimeException('update.json 格式错误');
         }
         return $manifest;
+    }
+
+    private function assertIncrementalManifest(array $manifest, string $extractPath): void
+    {
+        if (($manifest['package_mode'] ?? '') !== 'incremental') {
+            return;
+        }
+
+        foreach (['base_version', 'target_version', 'included_versions', 'full_replace_dirs', 'delete_files', 'sql_order'] as $field) {
+            if (!array_key_exists($field, $manifest)) {
+                throw new RuntimeException('增量系统包缺少字段: ' . $field);
+            }
+        }
+        if ((string)$manifest['target_version'] !== (string)$manifest['version']) {
+            throw new RuntimeException('增量系统包 target_version 与 version 不一致');
+        }
+        if (!is_array($manifest['included_versions']) || !$manifest['included_versions']) {
+            throw new RuntimeException('增量系统包 included_versions 不能为空');
+        }
+        if (!in_array((string)$manifest['target_version'], array_map('strval', $manifest['included_versions']), true)) {
+            throw new RuntimeException('增量系统包 included_versions 未包含目标版本');
+        }
+        foreach (['full_replace_dirs', 'delete_files', 'sql_order'] as $field) {
+            if (!is_array($manifest[$field])) {
+                throw new RuntimeException('增量系统包字段必须为数组: ' . $field);
+            }
+        }
+        foreach ($manifest['full_replace_dirs'] as $dir) {
+            $relative = $this->normalizePackagePath((string)$dir);
+            $this->assertSafeUpdatePath($relative, true);
+            if (!in_array($relative, self::FULL_REPLACE_ALLOWED_DIRS, true)) {
+                throw new RuntimeException('增量系统包不允许全量覆盖目录: ' . $relative);
+            }
+            if (!is_dir(rtrim($extractPath, '/') . '/files/' . $relative)) {
+                throw new RuntimeException('增量系统包声明的全量覆盖目录不存在: ' . $relative);
+            }
+        }
+        foreach ($manifest['delete_files'] as $file) {
+            $relative = $this->normalizePackagePath((string)$file);
+            $this->assertSafeUpdatePath($relative, false);
+            if (!$this->isDeleteAllowed($relative)) {
+                throw new RuntimeException('增量系统包不允许删除路径: ' . $relative);
+            }
+        }
+        foreach ($manifest['sql_order'] as $file) {
+            $relative = $this->normalizePackagePath((string)$file);
+            $this->assertSafeUpdatePath($relative, false);
+            if (!str_starts_with($relative, 'sql/data/') && !str_starts_with($relative, 'sql/structure/')) {
+                throw new RuntimeException('增量系统包 sql_order 只能声明 SQL 文件: ' . $relative);
+            }
+            if (!is_file(rtrim($extractPath, '/') . '/' . $relative)) {
+                throw new RuntimeException('增量系统包 sql_order 声明的文件不存在: ' . $relative);
+            }
+        }
+    }
+
+    private function applyFullReplaceDirs(string $extractPath, array $manifest): void
+    {
+        $dirs = $manifest['full_replace_dirs'] ?? [];
+        if (!is_array($dirs)) {
+            throw new RuntimeException('full_replace_dirs 格式错误');
+        }
+        foreach ($dirs as $dir) {
+            $relative = $this->normalizePackagePath((string)$dir);
+            $this->assertSafeUpdatePath($relative, true);
+            if (!in_array($relative, self::FULL_REPLACE_ALLOWED_DIRS, true)) {
+                throw new RuntimeException('不允许全量覆盖目录: ' . $relative);
+            }
+            $source = rtrim($extractPath, '/') . '/files/' . $relative;
+            if (!is_dir($source)) {
+                throw new RuntimeException('全量覆盖目录不存在: ' . $relative);
+            }
+            $target = rtrim(UpgradeLogic::getProjectPath(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $relative;
+            $this->clearDirectory($target);
+        }
+    }
+
+    private function applyDeleteFiles(array $manifest): void
+    {
+        $files = $manifest['delete_files'] ?? [];
+        if (!is_array($files)) {
+            throw new RuntimeException('delete_files 格式错误');
+        }
+        foreach ($files as $file) {
+            $relative = $this->normalizePackagePath((string)$file);
+            $this->assertSafeUpdatePath($relative, false);
+            if (!$this->isDeleteAllowed($relative)) {
+                throw new RuntimeException('不允许删除路径: ' . $relative);
+            }
+            $target = rtrim(UpgradeLogic::getProjectPath(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $relative;
+            if (is_file($target)) {
+                @unlink($target);
+            }
+        }
+    }
+
+    private function clearDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            mkdir($dir, 0777, true);
+            return;
+        }
+        $base = realpath($dir);
+        $project = realpath(UpgradeLogic::getProjectPath());
+        if (!$base || !$project || !str_starts_with($base, rtrim($project, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)) {
+            throw new RuntimeException('全量覆盖目录越界');
+        }
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $item) {
+            if ($item->isLink()) {
+                throw new RuntimeException('全量覆盖目录包含符号链接: ' . $item->getPathname());
+            }
+            if ($item->isDir()) {
+                @rmdir($item->getPathname());
+            } else {
+                @unlink($item->getPathname());
+            }
+        }
+    }
+
+    private function normalizePackagePath(string $path): string
+    {
+        $path = str_replace('\\', '/', trim($path));
+        $path = preg_replace('#/+#', '/', $path) ?: '';
+        return trim($path, '/');
+    }
+
+    private function assertSafeUpdatePath(string $path, bool $allowDirectory): void
+    {
+        if ($path === '' || str_starts_with($path, '/') || preg_match('/^[a-zA-Z]:\//', $path) || str_contains('/' . $path . '/', '/../')) {
+            throw new RuntimeException('更新包包含非法路径: ' . $path);
+        }
+        if (!$allowDirectory && str_ends_with($path, '/')) {
+            throw new RuntimeException('文件路径格式错误: ' . $path);
+        }
+        foreach (self::PROTECTED_PATH_PATTERNS as $pattern) {
+            if (preg_match($pattern, $path)) {
+                throw new RuntimeException('更新包路径命中保护规则: ' . $path);
+            }
+        }
+    }
+
+    private function isDeleteAllowed(string $path): bool
+    {
+        foreach (self::DELETE_ALLOWED_PREFIXES as $prefix) {
+            if (str_starts_with($path, $prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function assertCoreRequirement(array $manifest): void
