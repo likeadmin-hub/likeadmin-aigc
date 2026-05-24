@@ -59,6 +59,25 @@ const deleteAllowedPrefixes = [
     'upgrade/'
 ]
 
+const bridgeAppCodes = [
+    'aigc_image',
+    'aigc_video',
+    'aigc_digital_human',
+    'aigc_canvas',
+    'aigc_llm',
+    'image_human'
+]
+
+const bridgeAppRequiredPaths = [
+    'manifest.json',
+    'api_schema.json',
+    'menus/platform.json',
+    'menus/tenant.json',
+    'permissions/tenant.json',
+    'migrations/',
+    'frontend/'
+]
+
 const absoluteTarget = path.resolve(target)
 if (!existsSync(absoluteTarget)) {
     fail(`Target not found: ${absoluteTarget}`)
@@ -218,6 +237,14 @@ function verifyIncrementalManifest(manifest, entries) {
         }
         if (!entries.has(sql)) {
             fail(`sql_order references missing file: ${sql}`)
+        }
+    }
+    for (const appCode of bridgeAppCodes) {
+        for (const rel of bridgeAppRequiredPaths) {
+            const required = `files/app/apps/${appCode}/${rel}`
+            if (!hasEntry(entries, required)) {
+                fail(`incremental bridge package missing built-in app path: ${required}`)
+            }
         }
     }
 }
