@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS `la_image_human_task` (
   `provider` varchar(50) NOT NULL DEFAULT 'xhadmin',
   `model` varchar(100) NOT NULL DEFAULT 'image_human',
   `provider_task_id` varchar(120) NOT NULL DEFAULT '',
+  `provider_stage` varchar(30) NOT NULL DEFAULT '' COMMENT '供应商阶段',
+  `tts_task_id` varchar(120) NOT NULL DEFAULT '' COMMENT '音频合成任务ID',
   `provider_payload_json` text COMMENT '供应商提交/查询载荷',
   `status` varchar(30) NOT NULL DEFAULT 'pending',
   `progress` tinyint unsigned NOT NULL DEFAULT 0,
