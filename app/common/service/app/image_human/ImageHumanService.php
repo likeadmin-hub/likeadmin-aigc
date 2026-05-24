@@ -18,6 +18,7 @@ use think\facade\Db;
 class ImageHumanService
 {
     public const APP_CODE = 'image_human';
+    private const PROMPT_MAX_LENGTH = 200;
     private const DUPLICATE_WINDOW_SECONDS = 6;
 
     public static function config(int $tenantId): array
@@ -28,6 +29,7 @@ class ImageHumanService
             'model' => $config['model'],
             'status' => $config['status'],
             'config_json' => $config['config_json'],
+            'base_config' => self::baseConfig($tenantId),
             'option_config' => [
                 'modes' => [
                     ['value' => 'fast', 'label' => '快速模式', 'description' => '适合快速预览，生成速度优先'],
@@ -70,6 +72,14 @@ class ImageHumanService
         } else {
             $configJson['provider'] = self::normalizeProviderConfig(array_merge((array)($current['config_json']['provider'] ?? []), (array)($configJson['provider'] ?? [])));
         }
+        if (isset($params['base_config']) && is_array($params['base_config'])) {
+            $configJson['base_config'] = $params['base_config'];
+        }
+        if (isset($configJson['base']) && is_array($configJson['base'])) {
+            $configJson['base_config'] = $configJson['base'];
+            unset($configJson['base']);
+        }
+        $configJson['base_config'] = self::normalizeBaseConfig((array)($configJson['base_config'] ?? []));
         $data = [
             'tenant_id' => $tenantId,
             'provider' => trim((string)($params['provider'] ?? $current['provider'] ?? 'xhadmin')) ?: 'xhadmin',
@@ -95,8 +105,14 @@ class ImageHumanService
         }
         $current = self::effectiveConfig($tenantId);
         $configJson = [];
-        $incomingPricing = (array)($params['pricing'] ?? ($params['config_json']['pricing'] ?? []));
+        $incomingConfigJson = is_array($params['config_json'] ?? null) ? $params['config_json'] : [];
+        $incomingPricing = (array)($params['pricing'] ?? ($incomingConfigJson['pricing'] ?? []));
         $configJson['pricing'] = self::tenantPricingOverrides($incomingPricing, self::normalizePricing((array)($current['config_json']['pricing'] ?? [])));
+        if (isset($params['base_config']) && is_array($params['base_config'])) {
+            $configJson['base_config'] = self::normalizeBaseConfig($params['base_config']);
+        } elseif (isset($incomingConfigJson['base_config']) && is_array($incomingConfigJson['base_config'])) {
+            $configJson['base_config'] = self::normalizeBaseConfig($incomingConfigJson['base_config']);
+        }
         $data = [
             'tenant_id' => $tenantId,
             'provider' => (string)($current['provider'] ?? 'xhadmin'),
@@ -140,6 +156,10 @@ class ImageHumanService
         $name = self::normalizeAssetText((string)($params['name'] ?? '公共图片形象'), '公共图片形象', 80);
         $imageUri = self::normalizeAssetUri((string)($params['image_uri'] ?? $params['media_uri'] ?? $params['cover_uri'] ?? ''));
         $coverUri = self::normalizeAssetUri((string)($params['cover_uri'] ?? $imageUri));
+        self::assertPersistedAssetUri($imageUri, '图片形象');
+        if ($coverUri !== '') {
+            self::assertPersistedAssetUri($coverUri, '形象封面');
+        }
         if ($imageUri === '') {
             throw new Exception('请上传图片形象');
         }
@@ -224,6 +244,10 @@ class ImageHumanService
         $name = self::normalizeAssetText((string)($params['name'] ?? '我的图片形象'), '我的图片形象', 80);
         $imageUri = self::normalizeAssetUri((string)($params['image_uri'] ?? $params['media_uri'] ?? $params['cover_uri'] ?? ''));
         $coverUri = self::normalizeAssetUri((string)($params['cover_uri'] ?? $imageUri));
+        self::assertPersistedAssetUri($imageUri, '人物图片');
+        if ($coverUri !== '') {
+            self::assertPersistedAssetUri($coverUri, '形象封面');
+        }
         if ($imageUri === '') {
             throw new Exception('请上传人物图片');
         }
@@ -275,6 +299,11 @@ class ImageHumanService
     public static function saveVoice(int $tenantId, int $userId, array $params): array
     {
         return AigcDigitalHumanService::saveVoice($tenantId, $userId, $params);
+    }
+
+    public static function previewVoice(int $tenantId, int $userId, array $params): array
+    {
+        return AigcDigitalHumanService::previewVoice($tenantId, $userId, $params);
     }
 
     public static function deleteVoice(int $tenantId, int $userId, int $id): void
@@ -343,22 +372,38 @@ class ImageHumanService
 
     public static function submit(int $tenantId, int $userId, array $params): array
     {
+        self::ensureTaskSchema();
         $prompt = trim((string)($params['prompt'] ?? ''));
+        $scriptText = trim((string)($params['script_text'] ?? $params['text'] ?? ''));
         $avatarId = (int)($params['avatar_id'] ?? 0);
         $voiceId = (int)($params['voice_id'] ?? 0);
         $avatar = $avatarId > 0 ? self::findAvatar($tenantId, $userId, $avatarId) : [];
         $voice = $voiceId > 0 ? self::findVoice($tenantId, $userId, $voiceId) : [];
-        $imageUri = FileService::setFileUrl((string)($avatar['image_uri'] ?? $params['image_uri'] ?? $params['file_uri'] ?? $params['file_url'] ?? ''));
+        $imageUri = FileService::setFileUrl((string)($avatar['image_uri'] ?? $avatar['media_uri'] ?? ''));
         $audioUri = FileService::setFileUrl((string)($voice['audio_uri'] ?? $params['audio_uri'] ?? $params['ref_file_uri'] ?? $params['ref_file_url'] ?? ''));
+        $audioDriven = $voiceId <= 0 && $audioUri !== '';
         $mode = self::normalizeMode((string)($params['mode'] ?? 'fast'));
+        if ($avatarId <= 0 || empty($avatar)) {
+            throw new Exception('请先选择已保存的图片形象');
+        }
         if ($imageUri === '') {
             throw new Exception('请上传人物图片');
         }
+        self::assertPersistedAssetUri($imageUri, '人物图片');
         if ($audioUri === '') {
             throw new Exception('请上传参考音频');
         }
-        if ($prompt === '') {
-            throw new Exception('请输入提示词');
+        if (!$audioDriven && $scriptText === '') {
+            throw new Exception('请输入文案内容');
+        }
+        $baseConfig = self::baseConfig($tenantId);
+        $promptMaxLength = (int)($baseConfig['prompt_max_length'] ?? 0);
+        $scriptMaxLength = (int)($baseConfig['script_max_length'] ?? 0);
+        if (!$audioDriven && $scriptMaxLength > 0 && mb_strlen($scriptText) > $scriptMaxLength) {
+            throw new Exception('文案不能超过' . $scriptMaxLength . '个字');
+        }
+        if ($promptMaxLength > 0 && mb_strlen($prompt) > $promptMaxLength) {
+            throw new Exception('提示词不能超过' . $promptMaxLength . '个字');
         }
         $duration = self::normalizeDuration($params['duration'] ?? 0);
         if ($duration <= 0 && !empty($voice['duration'])) {
@@ -370,13 +415,15 @@ class ImageHumanService
         if ($duration <= 0) {
             throw new Exception('请填写音频时长');
         }
+        self::assertHttpsProviderFileUrl(self::fileUrlForTenant($imageUri, $tenantId, $avatar), '人物图片');
+        self::assertHttpsProviderFileUrl(self::fileUrlForTenant($audioUri, $tenantId, $voice), '参考音频');
         $config = self::effectiveConfig($tenantId);
         if ((int)$config['status'] !== 1) {
             throw new Exception('全驱动数字人应用未启用');
         }
         $estimate = self::buildEstimate($duration, self::pricing($tenantId), $mode);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
-        $duplicate = self::findRecentDuplicateTask($tenantId, $userId, $imageUri, $audioUri, $prompt, $mode, $duration);
+        $duplicate = self::findRecentDuplicateTask($tenantId, $userId, $imageUri, $audioUri, $scriptText, $prompt, $mode, $duration);
         if ($duplicate) {
             return self::duplicateResponse($duplicate, $tenantId, $userId);
         }
@@ -389,6 +436,7 @@ class ImageHumanService
             'title' => trim((string)($params['title'] ?? '全驱动数字人')) ?: '全驱动数字人',
             'image_uri' => $imageUri,
             'audio_uri' => $audioUri,
+            'script_text' => $scriptText,
             'prompt' => $prompt,
             'mode' => $mode,
             'duration' => $duration,
@@ -504,7 +552,7 @@ class ImageHumanService
         foreach ($rows as &$row) {
             $row['image_url'] = self::fileUrlForTenant((string)($row['image_uri'] ?? ''), (int)$row['tenant_id']);
             $row['audio_url'] = self::fileUrlForTenant((string)($row['audio_uri'] ?? ''), (int)$row['tenant_id']);
-            $row['script_text'] = (string)($row['prompt'] ?? '');
+            $row['script_text'] = (string)($row['script_text'] ?? '');
             $row['provider_payload_summary'] = self::providerPayloadSummary($row['provider_payload_json'] ?? []);
         }
         return $rows;
@@ -620,6 +668,7 @@ class ImageHumanService
                 continue;
             }
             if (!empty($result->videos)) {
+                $task->save();
                 self::finishTaskWithVideos($task, $result->videos);
             }
         }
@@ -732,14 +781,32 @@ class ImageHumanService
         if ($tenant && !$tenant->isEmpty()) {
             $tenantData = $tenant->toArray();
             $tenantPricing = (array)($tenantData['config_json']['pricing'] ?? []);
+            $tenantBaseConfig = (array)($tenantData['config_json']['base_config'] ?? $tenantData['config_json']['base'] ?? []);
             $base['config_json'] = (array)($base['config_json'] ?? []);
             if (!empty($tenantPricing)) {
                 $basePricing = self::normalizePricing((array)($base['config_json']['pricing'] ?? []));
                 $base['config_json']['pricing'] = self::mergeTenantPricing($basePricing, $tenantPricing);
             }
+            if (!empty($tenantBaseConfig)) {
+                $base['config_json']['base_config'] = array_merge((array)($base['config_json']['base_config'] ?? $base['config_json']['base'] ?? []), $tenantBaseConfig);
+            }
         }
         $base['config_json'] = is_array($base['config_json'] ?? null) ? $base['config_json'] : [];
         return $base;
+    }
+
+    private static function baseConfig(int $tenantId): array
+    {
+        $config = self::effectiveConfig($tenantId);
+        return self::normalizeBaseConfig((array)($config['config_json']['base_config'] ?? $config['config_json']['base'] ?? []));
+    }
+
+    private static function normalizeBaseConfig(array $config): array
+    {
+        return [
+            'script_max_length' => max(0, (int)($config['script_max_length'] ?? self::PROMPT_MAX_LENGTH)),
+            'prompt_max_length' => max(0, (int)($config['prompt_max_length'] ?? $config['script_max_length'] ?? self::PROMPT_MAX_LENGTH)),
+        ];
     }
 
     private static function pricing(int $tenantId): array
@@ -853,6 +920,7 @@ class ImageHumanService
             self::fileUrlForTenant((string)$task['image_uri'], (int)$task['tenant_id']),
             self::fileUrlForTenant((string)$task['audio_uri'], (int)$task['tenant_id']),
             (string)$task['prompt'],
+            (string)($task['script_text'] ?? ''),
             (float)$task['duration'],
             (string)$task['mode'],
             [],
@@ -884,7 +952,7 @@ class ImageHumanService
             $task['task_id'] = (int)$task['id'];
             $task['image_url'] = self::fileUrlForTenant((string)($task['image_uri'] ?? ''), $tenantId);
             $task['audio_url'] = self::fileUrlForTenant((string)($task['audio_uri'] ?? ''), $tenantId);
-            $task['script_text'] = (string)($task['prompt'] ?? '');
+            $task['script_text'] = (string)($task['script_text'] ?? '');
             $task['results'] = $resultMap[(int)$task['id']] ?? [];
             $task['result_count'] = count($task['results']);
             $first = $task['results'][0] ?? [];
@@ -990,6 +1058,39 @@ class ImageHumanService
         return FileService::setFileUrl(trim($uri));
     }
 
+    private static function assertPersistedAssetUri(string $uri, string $label): void
+    {
+        $uri = trim($uri);
+        if ($uri === '') {
+            return;
+        }
+        if (preg_match('/^(blob:|data:)/i', $uri)) {
+            throw new Exception($label . '不能使用本地临时地址，请等待上传完成后再保存');
+        }
+        $host = strtolower((string)(parse_url($uri, PHP_URL_HOST) ?: ''));
+        if ($host === 'localhost' || $host === '127.0.0.1' || $host === '::1') {
+            throw new Exception($label . '不能使用本地地址，请上传到对象存储或配置可访问文件域名');
+        }
+    }
+
+    private static function assertHttpsProviderFileUrl(string $url, string $label): void
+    {
+        $url = trim($url);
+        if ($url === '') {
+            throw new Exception('请上传' . $label);
+        }
+        if (preg_match('/^(blob:|data:)/i', $url)) {
+            throw new Exception($label . '不能使用本地临时地址，请等待上传完成后再提交');
+        }
+        $host = strtolower((string)(parse_url($url, PHP_URL_HOST) ?: ''));
+        if ($host === 'localhost' || $host === '127.0.0.1' || $host === '::1') {
+            throw new Exception($label . '不能使用本地地址，请配置 HTTPS 文件域名或对象存储');
+        }
+        if (!str_starts_with($url, 'https://')) {
+            throw new Exception($label . '必须是 HTTPS 在线文件地址，请先上传到对象存储或配置 HTTPS 文件域名');
+        }
+    }
+
     private static function fileUrlForTenant(string $uri, int $tenantId, array $storage = []): string
     {
         if ($uri === '' || str_starts_with($uri, 'http://') || str_starts_with($uri, 'https://') || str_starts_with($uri, 'data:')) {
@@ -1078,13 +1179,14 @@ class ImageHumanService
         return round(($size * 8) / ($bitrate * 1000), 2);
     }
 
-    private static function findRecentDuplicateTask(int $tenantId, int $userId, string $imageUri, string $audioUri, string $prompt, string $mode, float $duration): ?ImageHumanTask
+    private static function findRecentDuplicateTask(int $tenantId, int $userId, string $imageUri, string $audioUri, string $scriptText, string $prompt, string $mode, float $duration): ?ImageHumanTask
     {
         $rows = ImageHumanTask::where('tenant_id', $tenantId)
             ->where('user_id', $userId)
             ->where('delete_time', 0)
             ->where('image_uri', $imageUri)
             ->where('audio_uri', $audioUri)
+            ->where('script_text', $scriptText)
             ->where('prompt', $prompt)
             ->where('mode', $mode)
             ->where('duration', $duration)
@@ -1099,6 +1201,27 @@ class ImageHumanService
             return $row;
         }
         return null;
+    }
+
+    private static function ensureTaskSchema(): void
+    {
+        static $checked = false;
+        if ($checked) {
+            return;
+        }
+        $checked = true;
+
+        try {
+            $table = (new ImageHumanTask())->getTable();
+            $columns = Db::query("SHOW COLUMNS FROM `{$table}` WHERE Field = 'script_text'");
+            if (!empty($columns)) {
+                return;
+            }
+            Db::execute("ALTER TABLE `{$table}` ADD COLUMN `script_text` text COMMENT '文案内容' AFTER `audio_uri`");
+            Db::execute("UPDATE `{$table}` SET `script_text` = COALESCE(NULLIF(`script_text`, ''), `prompt`, '') WHERE `script_text` IS NULL OR `script_text` = ''");
+        } catch (\Throwable $e) {
+            throw new Exception('全驱动数字人任务表结构未更新，请执行 image_human 迁移：' . $e->getMessage());
+        }
     }
 
     private static function duplicateResponse(ImageHumanTask $task, int $tenantId, int $userId): array

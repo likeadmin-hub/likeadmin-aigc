@@ -699,6 +699,25 @@ class AigcImageService
         try {
             $tenantId = (int)$task['tenant_id'];
             $userId = (int)$task['user_id'];
+            $task = AigcImageTask::where('tenant_id', $tenantId)
+                ->where('id', (int)$task['id'])
+                ->lock(true)
+                ->findOrEmpty();
+            if ($task->isEmpty()) {
+                throw new Exception('任务不存在');
+            }
+            $existingRows = self::existingResultRows($tenantId, $userId, (int)$task['id']);
+            if ((string)$task['status'] === 'success' || !empty($existingRows)) {
+                if ((string)$task['status'] !== 'success') {
+                    $task->status = 'success';
+                    $task->finish_time = $task['finish_time'] ?: time();
+                    $task->update_time = time();
+                    $task->save();
+                }
+                Db::commit();
+                return $existingRows;
+            }
+            $images = self::uniqueImages($images, max(1, (int)$task['quantity']));
             $storage = StorageConfigService::getEffectiveConfig($tenantId);
             foreach ($images as $index => $image) {
                 $row = AigcImageResult::create([
@@ -776,6 +795,52 @@ class AigcImageService
             $task->update_time = time();
             $task->save();
             throw $e;
+        }
+        return $rows;
+    }
+
+    private static function uniqueImages(array $images, int $limit = 1): array
+    {
+        $unique = [];
+        $seen = [];
+        foreach ($images as $image) {
+            if (!is_array($image)) {
+                continue;
+            }
+            $uri = trim((string)($image['uri'] ?? ''));
+            if ($uri === '') {
+                continue;
+            }
+            $signature = $uri . '|' . trim((string)($image['provider_task_id'] ?? ''));
+            if (isset($seen[$signature])) {
+                continue;
+            }
+            $seen[$signature] = true;
+            $unique[] = $image;
+            if (count($unique) >= $limit) {
+                break;
+            }
+        }
+        return $unique;
+    }
+
+    private static function existingResultRows(int $tenantId, int $userId, int $taskId): array
+    {
+        $query = AigcImageResult::where('tenant_id', $tenantId)
+            ->where('task_id', $taskId)
+            ->where('delete_time', 0)
+            ->order('id', 'asc');
+        if ($userId > 0) {
+            $query->where('user_id', $userId);
+        }
+        $rows = $query->select()->toArray();
+        foreach ($rows as &$row) {
+            $row['image_url'] = FileService::getFileUrlByStorage(
+                $row['image_uri'],
+                $row['storage_scope'] ?? '',
+                $row['storage_engine'] ?? '',
+                $row['storage_domain'] ?? ''
+            );
         }
         return $rows;
     }

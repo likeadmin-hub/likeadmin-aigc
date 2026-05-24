@@ -22,7 +22,8 @@ CREATE TABLE IF NOT EXISTS `la_image_human_task` (
   `title` varchar(120) NOT NULL DEFAULT '',
   `image_uri` varchar(500) NOT NULL DEFAULT '' COMMENT '人物图片',
   `audio_uri` varchar(500) NOT NULL DEFAULT '' COMMENT '驱动音频',
-  `prompt` text,
+  `script_text` text COMMENT '文案内容',
+  `prompt` text COMMENT '提示词',
   `mode` varchar(30) NOT NULL DEFAULT 'fast',
   `duration` decimal(10,2) NOT NULL DEFAULT 0.00,
   `tenant_cost_points` decimal(10,2) NOT NULL DEFAULT 0.00,
@@ -138,6 +139,11 @@ VALUES (
         JSON_OBJECT('label', '标准模式', 'platform_unit_cost', 2.500000, 'tenant_unit_price', 3.000000)
       )
     ),
+    'base_config',
+    JSON_OBJECT(
+      'script_max_length', 200,
+      'prompt_max_length', 200
+    ),
     'provider',
     JSON_OBJECT(
       'submit_path', '/api/v1/apps/image_human/submit',
@@ -168,6 +174,8 @@ ON DUPLICATE KEY UPDATE
       )
     )
   ),
+  '$.base_config',
+  COALESCE(JSON_EXTRACT(`config_json`, '$.base_config'), JSON_OBJECT('prompt_max_length', 200)),
   '$.provider',
   COALESCE(JSON_EXTRACT(`config_json`, '$.provider'), JSON_OBJECT('submit_path', '/api/v1/apps/image_human/submit', 'query_path', '/api/v1/apps/image_human/query', 'timeout', 60))
 ),
