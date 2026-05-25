@@ -8,6 +8,10 @@ export function setImageHumanPlatformConfig(params: any) {
     return request.post({ url: '/app.image_human.config/setup', params })
 }
 
+export function getImageHumanUpstreamPricingBatch() {
+    return request.post({ url: '/app.image_human.pricing/batch' })
+}
+
 export function getImageHumanTenantStat(params?: any) {
     return request.get({ url: '/app.image_human.tenant/stat', params })
 }

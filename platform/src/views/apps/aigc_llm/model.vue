@@ -22,8 +22,9 @@
                         <el-switch :model-value="row.status" :active-value="1" :inactive-value="0" @change="(value) => handleStatus(row, value)" />
                     </template>
                 </el-table-column>
-                <el-table-column label="操作" width="150" fixed="right">
+                <el-table-column label="操作" width="220" fixed="right">
                     <template #default="{ row }">
+                        <el-button type="primary" link :loading="pricingLoadingId === row.id" @click="openPricing(row)">上游价格</el-button>
                         <el-button type="primary" link @click="openEdit(row)">编辑</el-button>
                         <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
                     </template>
@@ -54,20 +55,41 @@
                 <el-button type="primary" :loading="saving" @click="handleSubmit">保存</el-button>
             </template>
         </el-dialog>
+
+        <el-dialog v-model="pricingVisible" title="上游价格" width="720px" destroy-on-close>
+            <el-descriptions :column="2" border>
+                <el-descriptions-item label="本地模型">{{ pricingRow.name || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="Provider模型">{{ pricingRow.model || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="本地输入定价">{{ pricingRow.platform_input_unit_cost || 0 }}</el-descriptions-item>
+                <el-descriptions-item label="本地输出定价">{{ pricingRow.platform_output_unit_cost || 0 }}</el-descriptions-item>
+                <el-descriptions-item label="上游状态">{{ pricingResult.available ? '可用' : '不可用' }}</el-descriptions-item>
+                <el-descriptions-item label="价格来源">{{ pricingResult.pricing_source?.name || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="计费方式">{{ pricingResult.price_view?.billing_type_desc || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="上游渠道">{{ pricingResult.resource?.channel_name || pricingResult.resource?.channel_code || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="价格公式" :span="2">{{ pricingResult.price_view?.formula || pricingResult.message || '-' }}</el-descriptions-item>
+            </el-descriptions>
+            <template #footer>
+                <el-button type="primary" @click="pricingVisible = false">知道了</el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
 <script lang="ts" setup name="platform-aigc-llm-model">
-import { deleteAigcLlmModel, getAigcLlmModels, saveAigcLlmModel, setAigcLlmModelStatus } from '@/apps/aigc_llm/api'
+import { deleteAigcLlmModel, getAigcLlmModels, getAigcLlmUpstreamModelPricing, saveAigcLlmModel, setAigcLlmModelStatus } from '@/apps/aigc_llm/api'
 import { useLocalPaging } from '@/hooks/useLocalPaging'
 import feedback from '@/utils/feedback'
 
 const saving = ref(false)
 const editVisible = ref(false)
+const pricingVisible = ref(false)
 const showDisabled = ref(false)
+const pricingLoadingId = ref(0)
 const lists = ref<any[]>([])
 const { pager, tableLists, setLists } = useLocalPaging({ size: 15 })
 const formData = reactive<any>({})
+const pricingRow = reactive<any>({})
+const pricingResult = reactive<any>({})
 
 const visibleLists = computed(() => lists.value.filter((row) => showDisabled.value || Number(row.status) === 1))
 
@@ -137,6 +159,20 @@ const handleDelete = async (row: any) => {
 const handleStatus = async (row: any, status: number) => {
     await setAigcLlmModelStatus({ id: row.id, status })
     row.status = status
+}
+
+const openPricing = async (row: any) => {
+    pricingLoadingId.value = row.id
+    try {
+        const result = await getAigcLlmUpstreamModelPricing({ id: row.id })
+        Object.keys(pricingRow).forEach((key) => delete pricingRow[key])
+        Object.keys(pricingResult).forEach((key) => delete pricingResult[key])
+        Object.assign(pricingRow, row)
+        Object.assign(pricingResult, result || {})
+        pricingVisible.value = true
+    } finally {
+        pricingLoadingId.value = 0
+    }
 }
 
 getLists()

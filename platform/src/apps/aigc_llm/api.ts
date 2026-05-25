@@ -43,3 +43,7 @@ export function deleteAigcLlmModel(params: any) {
 export function setAigcLlmModelStatus(params: any) {
     return request.post({ url: '/app.aigc_llm.model/status', params })
 }
+
+export function getAigcLlmUpstreamModelPricing(params: any) {
+    return request.get({ url: '/app.aigc_llm.pricing/model', params })
+}

@@ -47,3 +47,7 @@ export function deleteAigcVideoSpec(params: any) {
 export function setAigcVideoSpecStatus(params: any) {
     return request.post({ url: '/app.aigc_video.spec/status', params })
 }
+
+export function getAigcVideoUpstreamPricingBatch(params: any) {
+    return request.post({ url: '/app.aigc_video.pricing/batch', params })
+}

@@ -52,6 +52,14 @@ export function setAigcDigitalHumanPricing(params: any) {
     return request.post({ url: '/app.aigc_digital_human.pricing/setup', params })
 }
 
+export function getAigcDigitalHumanUpstreamPricing(params: any) {
+    return request.get({ url: '/app.aigc_digital_human.pricing_query/model', params })
+}
+
+export function getAigcDigitalHumanUpstreamClonePricing() {
+    return request.get({ url: '/app.aigc_digital_human.pricing_query/clone' })
+}
+
 export function getAigcDigitalHumanTaskLogs(params?: any) {
     return request.get({ url: '/app.aigc_digital_human.task_log/lists', params })
 }

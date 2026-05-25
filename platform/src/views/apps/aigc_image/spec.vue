@@ -28,6 +28,7 @@
                         <el-button @click="fillByAdd">固定加价</el-button>
                         <el-button @click="setGroupStatus(1)">启用分组</el-button>
                         <el-button @click="setGroupStatus(0)">停用分组</el-button>
+                        <el-button :loading="pricingLoading" @click="queryUpstreamPricing">查询上游价格</el-button>
                         <el-button type="primary" :loading="saving" @click="saveCurrentGroup">保存当前分组</el-button>
                     </div>
                 </div>
@@ -114,16 +115,47 @@
                 <el-button type="primary" :loading="saving" @click="handleSubmit">保存</el-button>
             </template>
         </el-dialog>
+
+        <el-dialog v-model="pricingVisible" title="上游价格" width="920px" destroy-on-close>
+            <el-table :data="pricingRows" size="large" max-height="520">
+                <el-table-column label="规格" min-width="180">
+                    <template #default="{ row }">{{ row.local?.quality_label || row.local?.quality }} / {{ row.local?.ratio }}</template>
+                </el-table-column>
+                <el-table-column label="宽高" min-width="110">
+                    <template #default="{ row }">{{ row.local?.width || 0 }}×{{ row.local?.height || 0 }}</template>
+                </el-table-column>
+                <el-table-column label="本地平台定价" min-width="120">
+                    <template #default="{ row }">{{ row.local?.platform_unit_cost || 0 }}</template>
+                </el-table-column>
+                <el-table-column label="上游状态" min-width="100">
+                    <template #default="{ row }">{{ row.available ? '可用' : '不可用' }}</template>
+                </el-table-column>
+                <el-table-column label="计费方式" min-width="140">
+                    <template #default="{ row }">{{ row.price_view?.billing_type_desc || '-' }}</template>
+                </el-table-column>
+                <el-table-column label="上游价格" min-width="220" show-overflow-tooltip>
+                    <template #default="{ row }">{{ row.price_view?.formula || row.message || '-' }}</template>
+                </el-table-column>
+                <el-table-column label="来源" min-width="120">
+                    <template #default="{ row }">{{ row.pricing_source?.name || '-' }}</template>
+                </el-table-column>
+            </el-table>
+            <template #footer>
+                <el-button type="primary" @click="pricingVisible = false">知道了</el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
 <script lang="ts" setup name="platform-aigc-image-spec">
-import { batchSaveAigcImageSpecs, getAigcImageSpecs, saveAigcImageSpec } from '@/apps/aigc_image/api'
+import { batchSaveAigcImageSpecs, getAigcImageSpecs, getAigcImageUpstreamPricingBatch, saveAigcImageSpec } from '@/apps/aigc_image/api'
 import feedback from '@/utils/feedback'
 
 const saving = ref(false)
 const pagerLoading = ref(false)
 const editVisible = ref(false)
+const pricingVisible = ref(false)
+const pricingLoading = ref(false)
 const showDisabled = ref(false)
 const channels = ref<any[]>([])
 const activeChannelCode = ref('')
@@ -131,6 +163,7 @@ const activeResolution = ref('')
 const batchRate = ref(1)
 const batchAdd = ref(0)
 const dirtyKeys = ref<string[]>([])
+const pricingRows = ref<any[]>([])
 const providerParamsText = ref('{}')
 const formData = reactive({
     type: 'spec',
@@ -309,6 +342,31 @@ const handleSubmit = async () => {
         await getLists()
     } finally {
         saving.value = false
+    }
+}
+
+const queryUpstreamPricing = async () => {
+    const rows = currentGroupSpecs.value
+    if (!rows.length) {
+        feedback.msgWarning('当前分组暂无规格')
+        return
+    }
+    pricingLoading.value = true
+    try {
+        const result = await getAigcImageUpstreamPricingBatch({
+            items: rows.map((row: any) => ({
+                channel_code: row.channel_code,
+                local_key: specKey(row)
+            }))
+        })
+        const localMap = Object.fromEntries(rows.map((row: any) => [specKey(row), row]))
+        pricingRows.value = (result.items || []).map((item: any) => ({
+            ...item,
+            local: localMap[item.local_key] || {}
+        }))
+        pricingVisible.value = true
+    } finally {
+        pricingLoading.value = false
     }
 }
 

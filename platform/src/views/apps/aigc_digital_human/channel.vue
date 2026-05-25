@@ -28,6 +28,7 @@
                         <span class="ml-2 text-tx-secondary">/ 个</span>
                     </el-form-item>
                     <el-form-item>
+                        <el-button :loading="clonePricingLoading" @click="openClonePricing">查询上游价格</el-button>
                         <el-button type="primary" :loading="pricingSaving" @click="saveClonePricing">保存克隆单价</el-button>
                     </el-form-item>
                 </el-form>
@@ -67,8 +68,9 @@
                         />
                     </template>
                 </el-table-column>
-                <el-table-column label="操作" width="100" fixed="right">
+                <el-table-column label="操作" width="180" fixed="right">
                     <template #default="{ row }">
+                        <el-button type="primary" link :loading="pricingLoadingId === row.id" @click="openPricing(row)">上游价格</el-button>
                         <el-button type="primary" link @click="saveRowPricing(row)">保存价格</el-button>
                         <el-button type="primary" link @click="openEdit(row)">配置</el-button>
                     </template>
@@ -108,20 +110,72 @@
                 <el-button type="primary" :loading="saving" @click="handleSubmit">保存</el-button>
             </template>
         </el-dialog>
+
+        <el-dialog v-model="pricingVisible" title="上游价格" width="720px" destroy-on-close>
+            <el-descriptions :column="2" border>
+                <el-descriptions-item label="本地模型">{{ pricingRow.name || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="Provider模型">{{ pricingRow.model || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="本地平台定价">{{ pricingRow.platform_unit_cost || 0 }}</el-descriptions-item>
+                <el-descriptions-item label="本地默认售价">{{ pricingRow.tenant_unit_price || 0 }}</el-descriptions-item>
+                <el-descriptions-item label="上游接口">{{ pricingResult.resource?.app_code || '-' }} / {{ pricingResult.resource?.api_code || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="上游状态">{{ pricingResult.available ? '可用' : '不可用' }}</el-descriptions-item>
+                <el-descriptions-item label="价格来源">{{ pricingResult.pricing_source?.name || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="计费方式">{{ pricingResult.price_view?.billing_type_desc || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="上游渠道">{{ pricingResult.resource?.channel_name || pricingResult.resource?.channel_code || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="上游实际单价" :span="2">{{ pricingResult.unit_price_desc || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="计费说明" :span="2">{{ pricingResult.billing_note || pricingResult.price_view?.formula || pricingResult.message || '-' }}</el-descriptions-item>
+            </el-descriptions>
+            <template #footer>
+                <el-button type="primary" @click="pricingVisible = false">知道了</el-button>
+            </template>
+        </el-dialog>
+
+        <el-dialog v-model="clonePricingVisible" title="克隆上游价格" width="820px" destroy-on-close>
+            <el-table :data="clonePricingRows" size="large">
+                <el-table-column label="项目" min-width="140">
+                    <template #default="{ row }">{{ row.label }}</template>
+                </el-table-column>
+                <el-table-column label="本地平台定价" min-width="130">
+                    <template #default="{ row }">{{ row.localPlatform }}</template>
+                </el-table-column>
+                <el-table-column label="本地默认售价" min-width="130">
+                    <template #default="{ row }">{{ row.localTenant }}</template>
+                </el-table-column>
+                <el-table-column label="上游状态" min-width="100">
+                    <template #default="{ row }">{{ row.pricing?.available ? '可用' : '不可用' }}</template>
+                </el-table-column>
+                <el-table-column label="上游实际单价" min-width="160" show-overflow-tooltip>
+                    <template #default="{ row }">{{ row.unitPriceDesc }}</template>
+                </el-table-column>
+                <el-table-column label="计费说明" min-width="220" show-overflow-tooltip>
+                    <template #default="{ row }">{{ row.billingNote }}</template>
+                </el-table-column>
+                <el-table-column label="来源" min-width="120">
+                    <template #default="{ row }">{{ row.pricing?.pricing_source?.name || '-' }}</template>
+                </el-table-column>
+            </el-table>
+            <template #footer>
+                <el-button type="primary" @click="clonePricingVisible = false">知道了</el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
 <script lang="ts" setup name="platform-aigc-digital-human-channel">
 import { getAigcDigitalHumanChannels, saveAigcDigitalHumanChannel, setAigcDigitalHumanChannelStatus } from '@/apps/aigc_digital_human/api'
-import { getAigcDigitalHumanPricing, setAigcDigitalHumanPricing } from '@/apps/aigc_digital_human/api'
+import { getAigcDigitalHumanPricing, getAigcDigitalHumanUpstreamClonePricing, getAigcDigitalHumanUpstreamPricing, setAigcDigitalHumanPricing } from '@/apps/aigc_digital_human/api'
 import { useLocalPaging } from '@/hooks/useLocalPaging'
 import feedback from '@/utils/feedback'
 
 const saving = ref(false)
 const pricingSaving = ref(false)
 const editVisible = ref(false)
+const pricingVisible = ref(false)
+const clonePricingVisible = ref(false)
 const showDisabled = ref(false)
 const statusLoadingId = ref(0)
+const pricingLoadingId = ref(0)
+const clonePricingLoading = ref(false)
 const lists = ref<any[]>([])
 const { pager, tableLists, setLists } = useLocalPaging({ size: 15 })
 const pricing = reactive<any>({
@@ -140,6 +194,72 @@ const formData = reactive({
     status: 1,
     sort: 0
 })
+const pricingRow = reactive<any>({})
+const pricingResult = reactive<any>({})
+const clonePricingRows = ref<any[]>([])
+
+const formatPoint = (value: any, precision = 6) => {
+    const number = Number(value)
+    if (!Number.isFinite(number)) {
+        return '-'
+    }
+    return number.toFixed(precision).replace(/\.?0+$/, '')
+}
+
+const resolveModelRate = (modelRates: any, model: string) => {
+    if (!modelRates || typeof modelRates !== 'object' || Array.isArray(modelRates)) {
+        return null
+    }
+    const key = String(model || '')
+    if (key && modelRates[key] !== undefined) {
+        return Number(modelRates[key])
+    }
+    const aliases: Record<string, string> = {
+        '1.0': 'xiaojiayu1.0',
+        '2.0': 'xiaojiayu2.0',
+        '3.0': 'xiaojiayu3.0',
+        'xiaojiayu1.0': '1.0',
+        'xiaojiayu2.0': '2.0',
+        'xiaojiayu3.0': '3.0'
+    }
+    const alias = aliases[key.toLowerCase()]
+    return alias && modelRates[alias] !== undefined ? Number(modelRates[alias]) : null
+}
+
+const buildDigitalHumanPricingView = (result: any, row: any) => {
+    const rate = resolveModelRate(result?.pricing?.model_rates, row?.model)
+    if (rate !== null && Number.isFinite(rate)) {
+        return {
+            ...result,
+            unit_price_desc: `${formatPoint(rate)} 点 / 秒`,
+            billing_note: `实际扣点 = 输入音频秒数 × ${formatPoint(rate)} 点/秒（按 Provider 模型 ${row?.model || '-'} 匹配）`
+        }
+    }
+    const fallbackRate = Number(result?.pricing?.per_1k_input || 0)
+    if (fallbackRate > 0) {
+        return {
+            ...result,
+            unit_price_desc: `${formatPoint(fallbackRate)} 点 / 秒`,
+            billing_note: `实际扣点 = 输入音频秒数 × ${formatPoint(fallbackRate)} 点/秒`
+        }
+    }
+    return {
+        ...result,
+        unit_price_desc: result?.price_view?.formula || result?.message || '-',
+        billing_note: result?.price_view?.formula || result?.message || '-'
+    }
+}
+
+const fixedUnitPriceDesc = (result: any) => {
+    if (!result?.available) {
+        return result?.message || '-'
+    }
+    const fixed = Number(result?.pricing?.fixed_points || 0)
+    if (fixed > 0) {
+        return `${formatPoint(fixed)} 点 / 次`
+    }
+    return result?.price_view?.formula || '-'
+}
 
 const normalizeForm = (row: any = {}) => ({
     id: Number(row.id || 0),
@@ -233,6 +353,48 @@ const handleStatus = async (row: any, status: number) => {
         feedback.msgSuccess('设置成功')
     } finally {
         statusLoadingId.value = 0
+    }
+}
+
+const openPricing = async (row: any) => {
+    pricingLoadingId.value = row.id
+    try {
+        const result = await getAigcDigitalHumanUpstreamPricing({ id: row.id })
+        Object.keys(pricingRow).forEach((key) => delete pricingRow[key])
+        Object.keys(pricingResult).forEach((key) => delete pricingResult[key])
+        Object.assign(pricingRow, row)
+        Object.assign(pricingResult, buildDigitalHumanPricingView(result || {}, row))
+        pricingVisible.value = true
+    } finally {
+        pricingLoadingId.value = 0
+    }
+}
+
+const openClonePricing = async () => {
+    clonePricingLoading.value = true
+    try {
+        const result = await getAigcDigitalHumanUpstreamClonePricing()
+        clonePricingRows.value = [
+            {
+                label: '形象克隆',
+                localPlatform: pricing.avatar_clone?.platform_unit_cost || 0,
+                localTenant: pricing.avatar_clone?.tenant_unit_price || 0,
+                pricing: result?.avatar_clone || {},
+                unitPriceDesc: fixedUnitPriceDesc(result?.avatar_clone || {}),
+                billingNote: result?.avatar_clone?.message || result?.avatar_clone?.price_view?.formula || '-'
+            },
+            {
+                label: '音色克隆',
+                localPlatform: pricing.voice_clone?.platform_unit_cost || 0,
+                localTenant: pricing.voice_clone?.tenant_unit_price || 0,
+                pricing: result?.voice_clone || {},
+                unitPriceDesc: fixedUnitPriceDesc(result?.voice_clone || {}),
+                billingNote: result?.voice_clone?.price_view?.formula || result?.voice_clone?.message || '-'
+            }
+        ]
+        clonePricingVisible.value = true
+    } finally {
+        clonePricingLoading.value = false
     }
 }
 

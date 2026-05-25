@@ -47,3 +47,7 @@ export function deleteAigcImageSpec(params: any) {
 export function setAigcImageSpecStatus(params: any) {
     return request.post({ url: '/app.aigc_image.spec/status', params })
 }
+
+export function getAigcImageUpstreamPricingBatch(params: any) {
+    return request.post({ url: '/app.aigc_image.pricing/batch', params })
+}

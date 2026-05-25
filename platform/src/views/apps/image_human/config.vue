@@ -63,10 +63,39 @@
                     </el-table-column>
                 </el-table>
                 <el-form-item>
+                    <el-button :loading="pricingQueryLoading" @click="queryUpstreamPricing">查询上游价格</el-button>
                     <el-button type="primary" @click="handleSubmit">保存</el-button>
                 </el-form-item>
             </el-form>
         </el-card>
+        <el-dialog v-model="pricingVisible" title="上游价格" width="860px" destroy-on-close>
+            <el-table :data="pricingRows" size="large">
+                <el-table-column label="上游接口" min-width="140">
+                    <template #default="{ row }">{{ row.label }}</template>
+                </el-table-column>
+                <el-table-column label="本地平台定价" min-width="130">
+                    <template #default="{ row }">{{ row.localPlatform }}</template>
+                </el-table-column>
+                <el-table-column label="本地默认售价" min-width="130">
+                    <template #default="{ row }">{{ row.localTenant }}</template>
+                </el-table-column>
+                <el-table-column label="上游状态" min-width="100">
+                    <template #default="{ row }">{{ row.available ? '可用' : '不可用' }}</template>
+                </el-table-column>
+                <el-table-column label="上游实际单价" min-width="180" show-overflow-tooltip>
+                    <template #default="{ row }">{{ row.upstreamPrice }}</template>
+                </el-table-column>
+                <el-table-column label="计费说明" min-width="260" show-overflow-tooltip>
+                    <template #default="{ row }">{{ row.billingNote }}</template>
+                </el-table-column>
+                <el-table-column label="来源" min-width="120">
+                    <template #default="{ row }">{{ row.pricing_source?.name || '-' }}</template>
+                </el-table-column>
+            </el-table>
+            <template #footer>
+                <el-button type="primary" @click="pricingVisible = false">知道了</el-button>
+            </template>
+        </el-dialog>
         <el-card class="!border-none mt-4" shadow="never">
             <div class="grid grid-cols-4 gap-4">
                 <div v-for="item in statCards" :key="item.label" class="p-4 bg-page rounded">
@@ -79,10 +108,13 @@
 </template>
 
 <script lang="ts" setup name="platform-image-human-config">
-import { getImageHumanPlatformConfig, getImageHumanTenantStat, setImageHumanPlatformConfig } from '@/apps/image_human/api'
+import { getImageHumanPlatformConfig, getImageHumanTenantStat, getImageHumanUpstreamPricingBatch, setImageHumanPlatformConfig } from '@/apps/image_human/api'
 
 const loading = ref(false)
+const pricingVisible = ref(false)
+const pricingQueryLoading = ref(false)
 const stat = ref<any>({})
+const pricingRows = ref<any[]>([])
 const formData = reactive<any>({
     provider: 'xhadmin',
     model: 'image_human',
@@ -119,6 +151,51 @@ const modeRows = [
     { key: 'fast', label: '快速模式' },
     { key: 'standard', label: '标准模式' }
 ]
+const formatPoint = (value: any, precision = 6) => {
+    const number = Number(value)
+    if (!Number.isFinite(number)) {
+        return '-'
+    }
+    return number.toFixed(precision).replace(/\.?0+$/, '')
+}
+const imageHumanModeRate = (matrix: any, mode: string) => {
+    const row = matrix && typeof matrix === 'object' && !Array.isArray(matrix) ? matrix[mode] : null
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+        return null
+    }
+    const rate = Number(row.without_video ?? row.with_video ?? row.base ?? 0)
+    return Number.isFinite(rate) ? rate : null
+}
+const buildImageHumanUpstreamRows = (item: any) => {
+    if (item.local_key !== 'submit') {
+        const fixed = Number(item?.pricing?.fixed_points || 0)
+        return [{
+            label: '查询结果',
+            localPlatform: '不单独计费',
+            localTenant: '不单独计费',
+            upstreamPrice: fixed > 0 ? `${formatPoint(fixed)} 点 / 次` : (item.price_view?.formula || item.message || '-'),
+            billingNote: item.price_view?.formula || item.message || '-',
+            ...item
+        }]
+    }
+    return modeRows.map((mode) => {
+        const local = (pricing.modes as any)[mode.key] || {}
+        const rate = imageHumanModeRate(item?.pricing?.pricing_matrix, mode.key)
+        const upstreamPrice = rate !== null
+            ? `${formatPoint(rate)} 点 / 秒`
+            : (item.price_view?.formula || item.message || '-')
+        return {
+            label: `提交生成 / ${mode.label}`,
+            localPlatform: `${local.platform_unit_cost || 0} / 秒`,
+            localTenant: `${local.tenant_unit_price || 0} / 秒`,
+            upstreamPrice,
+            billingNote: rate !== null
+                ? `实际扣点 = 输入音频秒数 × ${formatPoint(rate)} 点/秒`
+                : (item.price_view?.formula || item.message || '-'),
+            ...item
+        }
+    })
+}
 const statCards = computed(() => [
     { label: '任务数', value: stat.value.task_total || 0 },
     { label: '成功任务', value: stat.value.task_success || 0 },
@@ -179,6 +256,16 @@ const handleSubmit = async () => {
         base_config: baseConfig
     })
     getData()
+}
+const queryUpstreamPricing = async () => {
+    pricingQueryLoading.value = true
+    try {
+        const result = await getImageHumanUpstreamPricingBatch()
+        pricingRows.value = (result.items || []).flatMap(buildImageHumanUpstreamRows)
+        pricingVisible.value = true
+    } finally {
+        pricingQueryLoading.value = false
+    }
 }
 getData()
 </script>
