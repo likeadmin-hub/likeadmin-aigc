@@ -1,0 +1,200 @@
+[
+  {
+    "permission_key": "aigc_digital_human:config:detail",
+    "name": "查看数字人配置",
+    "api_path": "app.aigc_digital_human.config/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_digital_human:config:setup",
+    "name": "保存数字人配置",
+    "api_path": "app.aigc_digital_human.config/setup",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:task:lists",
+    "name": "查看数字人任务",
+    "api_path": "app.aigc_digital_human.admin_task/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_digital_human:task:detail",
+    "name": "查看数字人任务详情",
+    "api_path": "app.aigc_digital_human.admin_task/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_digital_human:task:retry",
+    "name": "重试数字人任务",
+    "api_path": "app.aigc_digital_human.admin_task/retry",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:task:delete",
+    "name": "删除数字人任务",
+    "api_path": "app.aigc_digital_human.admin_task/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:case:lists",
+    "name": "查看数字人案例",
+    "api_path": "app.aigc_digital_human.case/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_digital_human:case:detail",
+    "name": "查看数字人案例详情",
+    "api_path": "app.aigc_digital_human.case/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_digital_human:case:save",
+    "name": "保存数字人案例",
+    "api_path": "app.aigc_digital_human.case/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:case:from_task",
+    "name": "任务设为数字人案例",
+    "api_path": "app.aigc_digital_human.case/fromTask",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:case:status",
+    "name": "设置数字人案例状态",
+    "api_path": "app.aigc_digital_human.case/status",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:case:delete",
+    "name": "删除数字人案例",
+    "api_path": "app.aigc_digital_human.case/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:public_avatar:lists",
+    "name": "查看公共形象",
+    "api_path": "app.aigc_digital_human.public_avatar/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_digital_human:public_avatar:save",
+    "name": "保存公共形象",
+    "api_path": "app.aigc_digital_human.public_avatar/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:public_avatar:delete",
+    "name": "删除公共形象",
+    "api_path": "app.aigc_digital_human.public_avatar/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:public_voice:lists",
+    "name": "查看公共音色",
+    "api_path": "app.aigc_digital_human.public_voice/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_digital_human:public_voice:save",
+    "name": "保存公共音色",
+    "api_path": "app.aigc_digital_human.public_voice/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:public_voice:delete",
+    "name": "删除公共音色",
+    "api_path": "app.aigc_digital_human.public_voice/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:user_avatar:lists",
+    "name": "查看用户形象",
+    "api_path": "app.aigc_digital_human.user_avatar/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_digital_human:user_avatar:delete",
+    "name": "删除用户形象",
+    "api_path": "app.aigc_digital_human.user_avatar/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:user_voice:lists",
+    "name": "查看用户音色",
+    "api_path": "app.aigc_digital_human.user_voice/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_digital_human:user_voice:publish",
+    "name": "用户音色设为公共",
+    "api_path": "app.aigc_digital_human.user_voice/publish",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:user_voice:delete",
+    "name": "删除用户音色",
+    "api_path": "app.aigc_digital_human.user_voice/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:quota:lists",
+    "name": "查看数字人额度",
+    "api_path": "app.aigc_digital_human.admin/quota",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_digital_human:quota:save",
+    "name": "保存数字人额度",
+    "api_path": "app.aigc_digital_human.admin/quota",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:sensitive_word:lists",
+    "name": "查看数字人敏感词",
+    "api_path": "app.aigc_digital_human.admin/sensitiveWord",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_digital_human:sensitive_word:save",
+    "name": "保存数字人敏感词",
+    "api_path": "app.aigc_digital_human.admin/sensitiveWord",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:stat",
+    "name": "查看数字人统计",
+    "api_path": "app.aigc_digital_human.admin/stat",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_digital_human:channel_price:lists",
+    "name": "查看数字人通道调价",
+    "api_path": "app.aigc_digital_human.channel/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_digital_human:channel_price:save",
+    "name": "保存数字人通道调价",
+    "api_path": "app.aigc_digital_human.channel/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:channel_price:status",
+    "name": "设置数字人通道状态",
+    "api_path": "app.aigc_digital_human.channel/status",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_digital_human:pricing:detail",
+    "name": "查看数字人克隆定价",
+    "api_path": "app.aigc_digital_human.pricing/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_digital_human:pricing:setup",
+    "name": "保存数字人克隆调价",
+    "api_path": "app.aigc_digital_human.pricing/setup",
+    "api_method": "POST"
+  }
+]

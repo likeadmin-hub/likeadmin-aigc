@@ -10,7 +10,7 @@ export type CanvasNodeVariant =
     | 'video'
     | 'llmConfig'
 
-export type CanvasEdgeKind = 'promptOrder' | 'imageOrder' | 'imageRole' | 'smoothstep'
+export type CanvasEdgeKind = 'promptOrder' | 'imageOrder' | 'imageRole' | 'videoOrder' | 'smoothstep'
 
 export type CanvasProviderKey = 'chatfire' | 'openai' | string
 

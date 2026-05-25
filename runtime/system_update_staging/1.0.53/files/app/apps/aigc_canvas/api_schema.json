@@ -1,0 +1,181 @@
+{
+  "app_code": "aigc_canvas",
+  "apis": [
+    {
+      "api_path": "app.aigc_canvas.admin/stat",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:stat",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.admin_run/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:run:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.config/dependencies",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:dependencies",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.tenant/stat",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:tenant_usage",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.tenant/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:tenant_usage",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.config/dependencies",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:dependencies:platform",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:config:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.project/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:project:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.project/create",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:project:create",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.project/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:project:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.project/save",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:project:save",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.project/rename",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:project:rename",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.project/duplicate",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:project:duplicate",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.project/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:project:delete:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.run/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:run:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.generate/image",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:generate:image",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.generate/video",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:generate:video",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.generate/text",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:generate:text",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.generate/textStream",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:generate:text",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.proxy/chat",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:generate:text",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.generate/imageQuery",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:generate:image_query",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.generate/videoQuery",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:generate:video_query",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    }
+  ]
+}

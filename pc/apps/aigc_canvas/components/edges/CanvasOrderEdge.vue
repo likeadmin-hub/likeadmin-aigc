@@ -11,6 +11,9 @@
             <select v-else-if="kind === 'imageOrder'" :value="data?.imageOrder || 1" title="调整参考图顺序" @change="updateEdge({ imageOrder: Number(($event.target as HTMLSelectElement).value) })">
                 <option v-for="item in 8" :key="item" :value="item">参考图 {{ item }}</option>
             </select>
+            <select v-else-if="kind === 'videoOrder'" :value="data?.videoOrder || 1" title="调整参考视频顺序" @change="updateEdge({ videoOrder: Number(($event.target as HTMLSelectElement).value) })">
+                <option v-for="item in 3" :key="item" :value="item">参考视频 {{ item }}</option>
+            </select>
             <select v-else-if="kind === 'imageRole'" :value="data?.imageRole || 'first_frame_image'" title="调整图片角色" @change="updateEdge({ imageRole: ($event.target as HTMLSelectElement).value })">
                 <option value="first_frame_image">首帧</option>
                 <option value="last_frame_image">尾帧</option>
@@ -45,6 +48,7 @@ const kind = computed(() => {
     if (props.type) return props.type
     if (props.data?.imageRole) return 'imageRole'
     if (props.data?.imageOrder) return 'imageOrder'
+    if (props.data?.videoOrder) return 'videoOrder'
     return 'promptOrder'
 })
 const pathResult = computed(() => {

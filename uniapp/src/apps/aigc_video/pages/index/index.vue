@@ -19,31 +19,45 @@
                     <view class="label-icon">
                         <u-icon name="photo" color="#ffffff" size="30"></u-icon>
                     </view>
-                    <view class="label-text">参考图（可添加多张图）：</view>
+                    <view class="label-text">参考素材：</view>
                 </view>
                 <view class="reference-box" @click="chooseReferenceImages">
-                    <template v-if="form.reference_images.length">
+                    <template v-if="referenceAssets.length">
                         <view class="reference-list">
                             <view
-                                v-for="(image, index) in previewImages"
-                                :key="image"
+                                v-for="(asset, index) in referenceAssets"
+                                :key="`${asset.type}-${asset.uri}`"
                                 class="reference-item"
                                 @click.stop="previewReference(index)"
                             >
-                                <image class="reference-image" :src="image" mode="aspectFill" />
+                                <image
+                                    v-if="asset.type === 'image'"
+                                    class="reference-image"
+                                    :src="getImageUrl(asset.uri)"
+                                    mode="aspectFill"
+                                />
+                                <view v-else class="reference-video">视频</view>
                                 <view
                                     class="reference-delete"
-                                    @click.stop="removeReferenceImage(index)"
+                                    @click.stop="removeReferenceAsset(index)"
                                     >×</view
                                 >
                             </view>
                             <view
-                                v-if="form.reference_images.length < maxReferenceCount"
+                                v-if="referenceAssets.length < maxReferenceCount"
                                 class="reference-add"
                                 @click.stop="chooseReferenceImages"
                             >
                                 <u-icon name="plus" color="#ffffff" size="58"></u-icon>
                                 <view>添加图片</view>
+                            </view>
+                            <view
+                                v-if="supportVideoAssets && referenceAssets.length < maxReferenceCount"
+                                class="reference-add"
+                                @click.stop="chooseReferenceVideo"
+                            >
+                                <u-icon name="plus" color="#ffffff" size="58"></u-icon>
+                                <view>添加视频</view>
                             </view>
                         </view>
                     </template>
@@ -55,6 +69,14 @@
                             >
                                 <u-icon name="plus" color="#ffffff" size="58"></u-icon>
                                 <view>添加图片</view>
+                            </view>
+                            <view
+                                v-if="supportVideoAssets"
+                                class="reference-add reference-add--empty"
+                                @click.stop="chooseReferenceVideo"
+                            >
+                                <u-icon name="plus" color="#ffffff" size="58"></u-icon>
+                                <view>添加视频</view>
                             </view>
                         </view>
                     </template>
@@ -108,8 +130,8 @@
 
             <view v-if="qualities.length > 1" class="section">
                 <view class="label-row">
-                    <view class="label-icon label-icon--text">SEC</view>
-                    <view class="label-text">视频时长：</view>
+                    <view class="label-icon label-icon--text">HD</view>
+                    <view class="label-text">清晰度：</view>
                 </view>
                 <view class="segmented">
                     <view
@@ -120,6 +142,24 @@
                         @click="selectQuality(item.value)"
                     >
                         {{ item.label }}
+                    </view>
+                </view>
+            </view>
+
+            <view v-if="durations.length > 1" class="section">
+                <view class="label-row">
+                    <view class="label-icon label-icon--text">SEC</view>
+                    <view class="label-text">视频时长：</view>
+                </view>
+                <view class="segmented">
+                    <view
+                        v-for="item in durations"
+                        :key="item"
+                        class="segment"
+                        :class="{ 'is-active': form.duration === item }"
+                        @click="selectDuration(item)"
+                    >
+                        {{ item }}秒
                     </view>
                 </view>
             </view>
@@ -316,7 +356,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { onHide, onShow, onUnload } from '@dcloudio/uni-app'
-import { uploadImage } from '@/api/app'
+import { uploadImage, uploadVideo } from '@/api/app'
 import { getMembershipAppAccess } from '@/api/membership'
 import {
     deleteAigcVideoResult,
@@ -349,8 +389,21 @@ interface ChannelOption {
     label: string
     value: string
     max_reference_images?: number
+    max_reference_videos?: number
+    max_reference_assets?: number
+    supported_asset_types?: ReferenceAssetType[]
     quantity_options?: number[]
+    duration_options?: number[]
+    videoedit_duration_options?: number[]
     qualities: QualityOption[]
+}
+
+type ReferenceAssetType = 'image' | 'video' | 'audio'
+interface ReferenceAsset {
+    type: ReferenceAssetType
+    uri: string
+    url: string
+    name: string
 }
 
 interface ExampleItem {
@@ -360,6 +413,7 @@ interface ExampleItem {
     ratio: string
     quality: Quality
     quantity: number
+    duration?: number
     channel: Channel
     cover: string
     reference_images: string[]
@@ -388,7 +442,8 @@ const optionConfig = ref<any>({
         channel: 'grok_video_xaiq',
         quality: '6',
         ratio: '16:9',
-        quantity: 1
+        quantity: 1,
+        duration: 5
     },
     quantity_options: [1],
     max_reference_images: 7
@@ -441,17 +496,21 @@ const examples: ExampleItem[] = [
 const form = reactive<{
     prompt: string
     reference_images: string[]
+    reference_assets: ReferenceAsset[]
     ratio: string
     quality: Quality
     quantity: number
+    duration: number
     channel: Channel
     negative_prompt: string
 }>({
     prompt: '',
     reference_images: [],
+    reference_assets: [],
     ratio: '16:9',
     quality: '6',
     quantity: 1,
+    duration: 5,
     channel: 'grok_video_xaiq',
     negative_prompt: ''
 })
@@ -465,9 +524,16 @@ const channels = computed<ChannelOption[]>(() =>
         max_reference_images: Number(
             channel.max_reference_images || optionConfig.value.max_reference_images || 4
         ),
+        max_reference_videos: Number(channel.max_reference_videos || 0),
+        max_reference_assets: Number(channel.max_reference_assets || 0),
+        supported_asset_types: Array.isArray(channel.supported_asset_types)
+            ? channel.supported_asset_types.filter((item: string) => ['image', 'video', 'audio'].includes(item))
+            : ['image'],
         quantity_options: (channel.quantity_options || optionConfig.value.quantity_options || [1])
             .map((item: any) => Number(item))
             .filter(Boolean),
+        duration_options: normalizeNumberOptions(channel.duration_options || [5]),
+        videoedit_duration_options: normalizeNumberOptions(channel.videoedit_duration_options || []),
         qualities: (channel.qualities || []).map((quality: any) => ({
             label:
                 quality.label || quality.quality_label || String(quality.value || '').toUpperCase(),
@@ -502,11 +568,23 @@ const quantities = computed<number[]>(() => {
         .filter(Boolean)
     return Array.from(new Set(configured.length ? configured : [1])).sort((a, b) => a - b)
 })
-const maxReferenceCount = computed(() =>
-    Number(
-        currentChannel.value?.max_reference_images || optionConfig.value.max_reference_images || 4
-    )
-)
+const normalizeNumberOptions = (options: any[]) =>
+    Array.from(new Set((options || []).map((item: any) => Number(item)).filter(Boolean))).sort((a, b) => a - b)
+const supportedAssetTypes = computed<ReferenceAssetType[]>(() => currentChannel.value?.supported_asset_types?.length ? currentChannel.value.supported_asset_types : ['image'])
+const supportVideoAssets = computed(() => supportedAssetTypes.value.includes('video') && Number(currentChannel.value?.max_reference_videos || 0) > 0)
+const videoReferenceCount = computed(() => referenceAssets.value.filter((item) => item.type === 'video').length)
+const durations = computed(() => {
+    const options = videoReferenceCount.value > 0 && currentChannel.value?.videoedit_duration_options?.length
+        ? currentChannel.value.videoedit_duration_options
+        : currentChannel.value?.duration_options
+    return normalizeNumberOptions(options || [5])
+})
+const maxReferenceCount = computed(() => {
+    const configured = Number(currentChannel.value?.max_reference_assets || optionConfig.value.max_reference_assets || 0)
+    if (configured > 0) return configured
+    return Number(currentChannel.value?.max_reference_images || optionConfig.value.max_reference_images || 4)
+        + Number(currentChannel.value?.max_reference_videos || 0)
+})
 const estimatedCost = computed(() => {
     const unitPrice = Number(currentSpec.value?.tenant_unit_price || 0)
     return Number((form.quantity * unitPrice).toFixed(2))
@@ -514,6 +592,10 @@ const estimatedCost = computed(() => {
 const previewImages = computed(() =>
     form.reference_images.map((item) => appStore.getImageUrl(item))
 )
+const referenceAssets = computed<ReferenceAsset[]>(() => {
+    if (form.reference_assets.length) return form.reference_assets
+    return form.reference_images.map((uri) => ({ type: 'image', uri, url: uri, name: '参考图' }))
+})
 const topbarStyle = computed(() => ({ height: `${navMetrics.navHeight}px` }))
 const navRowStyle = computed(() => ({
     top: `${navMetrics.menuTop}px`,
@@ -571,8 +653,15 @@ const syncSelection = () => {
     if (!quantities.value.includes(form.quantity)) {
         form.quantity = quantities.value[0] || 1
     }
-    if (form.reference_images.length > maxReferenceCount.value) {
-        form.reference_images = form.reference_images.slice(0, maxReferenceCount.value)
+    if (!durations.value.includes(Number(form.duration))) {
+        form.duration = durations.value[0] || 5
+    }
+    form.reference_assets = referenceAssets.value
+        .filter((item) => supportedAssetTypes.value.includes(item.type))
+        .slice(0, maxReferenceCount.value)
+    form.reference_images = form.reference_assets.filter((item) => item.type === 'image').map((item) => item.uri)
+    if (form.reference_assets.length > maxReferenceCount.value) {
+        form.reference_assets = form.reference_assets.slice(0, maxReferenceCount.value)
     }
 }
 
@@ -585,6 +674,7 @@ const getConfig = async (useDefaults = false) => {
         form.quality = defaults.quality || form.quality
         form.ratio = defaults.ratio || form.ratio
         form.quantity = Number(defaults.quantity || form.quantity || 1)
+        form.duration = Number(defaults.duration || form.duration || 5)
     }
     syncSelection()
     configLoaded.value = true
@@ -619,9 +709,9 @@ const goBack = () => {
 
 const chooseReferenceImages = async () => {
     if (uploading.value) return
-    const count = maxReferenceCount.value - form.reference_images.length
+    const count = maxReferenceCount.value - referenceAssets.value.length
     if (count <= 0) {
-        uni.$u.toast(`最多添加${maxReferenceCount.value}张参考图`)
+        uni.$u.toast(`最多添加${maxReferenceCount.value}个参考素材`)
         return
     }
     try {
@@ -637,8 +727,9 @@ const chooseReferenceImages = async () => {
         for (const path of paths) {
             const res: any = await uploadImage(path)
             const uri = res?.uri || res?.url || res?.path
-            if (uri && form.reference_images.length < maxReferenceCount.value) {
-                form.reference_images.push(uri)
+            if (uri && referenceAssets.value.length < maxReferenceCount.value) {
+                form.reference_assets.push({ type: 'image', uri, url: uri, name: '参考图' })
+                form.reference_images = form.reference_assets.filter((item) => item.type === 'image').map((item) => item.uri)
             }
         }
     } catch (error: any) {
@@ -650,15 +741,57 @@ const chooseReferenceImages = async () => {
     }
 }
 
+const chooseReferenceVideo = async () => {
+    if (uploading.value) return
+    if (!supportVideoAssets.value) {
+        uni.$u.toast('当前通道不支持视频参考')
+        return
+    }
+    if (referenceAssets.value.length >= maxReferenceCount.value) {
+        uni.$u.toast(`最多添加${maxReferenceCount.value}个参考素材`)
+        return
+    }
+    if (videoReferenceCount.value >= Number(currentChannel.value?.max_reference_videos || 0)) {
+        uni.$u.toast(`最多添加${currentChannel.value?.max_reference_videos || 0}个参考视频`)
+        return
+    }
+    try {
+        const chooseRes: any = await uni.chooseVideo({
+            sourceType: ['album', 'camera'],
+            compressed: true,
+            maxDuration: 60
+        })
+        const path = chooseRes?.tempFilePath
+        if (!path) return
+        uploading.value = true
+        uni.showLoading({ title: '上传中...' })
+        const res: any = await uploadVideo(path)
+        const uri = res?.uri || res?.url || res?.path
+        if (uri) {
+            form.reference_assets.push({ type: 'video', uri, url: uri, name: '参考视频' })
+        }
+    } catch (error: any) {
+        if (error?.errMsg && error.errMsg.indexOf('cancel') > -1) return
+        uni.$u.toast(error || '上传失败')
+    } finally {
+        uploading.value = false
+        uni.hideLoading()
+    }
+}
+
 const previewReference = (index: number) => {
+    const asset = referenceAssets.value[index]
+    if (asset?.type !== 'image') return
+    const urls = referenceAssets.value.filter((item) => item.type === 'image').map((item) => appStore.getImageUrl(item.uri))
     uni.previewImage({
-        urls: previewImages.value,
-        current: previewImages.value[index]
+        urls,
+        current: appStore.getImageUrl(asset.uri)
     })
 }
 
-const removeReferenceImage = (index: number) => {
-    form.reference_images.splice(index, 1)
+const removeReferenceAsset = (index: number) => {
+    form.reference_assets.splice(index, 1)
+    form.reference_images = form.reference_assets.filter((item) => item.type === 'image').map((item) => item.uri)
 }
 
 const openScriptPopup = () => {
@@ -716,9 +849,11 @@ const handleScriptPrimary = async () => {
 const applyExample = (item: ExampleItem) => {
     form.prompt = item.prompt
     form.reference_images = [...item.reference_images]
+    form.reference_assets = form.reference_images.map((uri) => ({ type: 'image', uri, url: uri, name: '参考图' }))
     form.ratio = item.ratio
     form.quality = item.quality
     form.quantity = item.quantity
+    form.duration = item.duration || form.duration || 5
     form.channel = item.channel
     syncSelection()
     uni.pageScrollTo({ scrollTop: 0, duration: 180 })
@@ -730,9 +865,11 @@ const applyReuseCache = () => {
     if (!cached) return
     form.prompt = cached.prompt || form.prompt || '参考这条作品继续生成同风格视频'
     form.reference_images = cached.reference_images || []
+    form.reference_assets = cached.reference_assets || form.reference_images.map((uri) => ({ type: 'image', uri, url: uri, name: '参考图' }))
     form.ratio = cached.ratio || form.ratio
     form.quality = cached.quality || form.quality
     form.quantity = cached.quantity || form.quantity
+    form.duration = cached.duration || form.duration
     form.channel = cached.channel || form.channel
     syncSelection()
     uni.removeStorageSync('aigc_video_reuse')
@@ -754,6 +891,11 @@ const selectQuality = (value: string) => {
 
 const selectRatio = (value: string) => {
     form.ratio = value
+    syncSelection()
+}
+
+const selectDuration = (value: number) => {
+    form.duration = value
     syncSelection()
 }
 
@@ -789,8 +931,10 @@ const handleGenerate = async () => {
             const res: any = await generateAigcVideo({
                 prompt: form.prompt.trim(),
                 reference_images: form.reference_images,
+                reference_assets: referenceAssets.value,
                 ratio: form.ratio,
                 quality: form.quality,
+                duration: form.duration,
                 quantity: 1,
                 channel: form.channel,
                 negative_prompt: form.negative_prompt
@@ -814,9 +958,11 @@ const handleGenerate = async () => {
 const reuseResult = (item: any) => {
     form.prompt = item.prompt || form.prompt || '参考最近作品继续生成同风格视频'
     form.reference_images = []
+    form.reference_assets = []
     form.channel = item.channel || form.channel
     form.quality = item.quality || form.quality
     form.ratio = item.ratio || form.ratio
+    form.duration = Number(item.duration || form.duration || 5)
     syncSelection()
     uni.pageScrollTo({ scrollTop: 0, duration: 180 })
 }
@@ -1057,6 +1203,18 @@ onUnload(stopResultPolling)
 .reference-image {
     width: 100%;
     height: 100%;
+}
+
+.reference-video {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: #ffffff;
+    font-size: 30rpx;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .reference-delete {

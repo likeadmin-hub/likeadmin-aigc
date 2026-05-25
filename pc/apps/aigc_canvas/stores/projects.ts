@@ -196,6 +196,7 @@ function normalizeStoredNodeData(variant: string, data: Record<string, any>) {
             prompt: data.prompt || '',
             model: data.model || 'runway-gen3',
             ratio: data.ratio || '16:9',
+            quality: data.quality || '',
             duration: Number(data.duration || data.seconds || 5),
             resolution: data.resolution || '720p',
             status: data.status || 'idle',

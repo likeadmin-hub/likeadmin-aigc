@@ -105,7 +105,7 @@ export function createCanvasEdge(source: string, target: string, type = 'smooths
         sourceHandle: 'right',
         targetHandle: 'left',
         type,
-        label: data.promptOrder ? String(data.promptOrder) : data.imageOrder ? String(data.imageOrder) : '',
+        label: data.promptOrder ? String(data.promptOrder) : data.imageOrder ? String(data.imageOrder) : data.videoOrder ? String(data.videoOrder) : '',
         data,
         style: { stroke: '#c9c9c9', strokeWidth: 2 }
     }
@@ -136,6 +136,11 @@ export function edgeFromConnection(params: Connection, nodes: Node[], edges: Edg
         data.imageOrder = nextOrder(edges, params.target, 'imageOrder')
     }
 
+    if (sourceVariant === 'video' && targetVariant === 'videoConfig') {
+        type = 'videoOrder'
+        data.videoOrder = nextOrder(edges, params.target, 'videoOrder')
+    }
+
     return createCanvasEdge(params.source, params.target, type, data)
 }
 
@@ -159,6 +164,18 @@ export function collectConnectedImages(targetId: string, nodes: Node[], edges: E
         .map(({ edge, node }) => ({
             role: edge.data?.imageRole || 'reference_image',
             url: String(node?.data?.image || node?.data?.url || '')
+        }))
+}
+
+export function collectConnectedVideos(targetId: string, nodes: Node[], edges: Edge[]) {
+    return edges
+        .filter((edge) => edge.target === targetId)
+        .sort((a, b) => Number(a.data?.videoOrder || 0) - Number(b.data?.videoOrder || 0))
+        .map((edge) => nodes.find((node) => node.id === edge.source))
+        .filter((node) => String(node?.data?.variant) === 'video' && node?.data?.url)
+        .map((node) => ({
+            url: String(node?.data?.url || ''),
+            name: String(node?.data?.title || '视频素材')
         }))
 }
 

@@ -219,7 +219,7 @@ import { WORKFLOW_TEMPLATES, workflowCategories } from '@/apps/aigc_canvas/confi
 import { canvasDarkMode, initCanvasSettings } from '@/apps/aigc_canvas/stores/settings'
 import { cloneDeep, createCanvasProject, duplicateCanvasProject, ensureProjectCanvas, formatProjectTime, loadCanvasProjects, saveCanvasProjects, updateProjectThumbnail } from '@/apps/aigc_canvas/stores/projects'
 import type { CanvasNodeVariant, CanvasProject, DownloadAsset, WorkflowTemplate } from '@/apps/aigc_canvas/types'
-import { CANVAS_NODE_TYPE, collectConnectedImages, collectConnectedPrompt, createCanvasEdge, createCanvasNode, edgeFromConnection } from '@/apps/aigc_canvas/utils/graph'
+import { CANVAS_NODE_TYPE, collectConnectedImages, collectConnectedPrompt, collectConnectedVideos, createCanvasEdge, createCanvasNode, edgeFromConnection } from '@/apps/aigc_canvas/utils/graph'
 import { usePcLoginGate } from '@/composables/usePcLoginGate'
 import { useUserStore } from '@/stores/user'
 import { downloadPcAsset } from '@/utils/download'
@@ -423,6 +423,16 @@ function qualityOptions(optionConfig: any, channelCode = '') {
     }))
 }
 
+function durationOptions(optionConfig: any, channelCode = '') {
+    const channel = findChannel(optionConfig, channelCode) || optionConfig?.channels?.[0]
+    return (channel?.duration_options || []).map((duration: any) => Number(duration)).filter(Boolean)
+}
+
+function defaultDuration(optionConfig: any, channelCode = '') {
+    const durations = durationOptions(optionConfig, channelCode)
+    return Number(optionConfig?.defaults?.duration || durations[0] || 5)
+}
+
 function currentRatioOptions(optionConfig: any, channelCode = '', qualityValue = '') {
     const channel = findChannel(optionConfig, channelCode) || optionConfig?.channels?.[0]
     const qualities = channel?.qualities || []
@@ -464,11 +474,11 @@ function normalizeImageNodeData(data: Record<string, any> = {}) {
 function normalizeVideoNodeData(data: Record<string, any> = {}) {
     const selection = normalizeSelection(videoOptionConfig.value, {
         channel: String(data.model || ''),
-        quality: String(data.duration || data.quality || ''),
+        quality: String(data.quality || data.duration || ''),
         ratio: String(data.ratio || data.size || '')
     })
     if (!selection.channel) return data
-    return { ...data, model: selection.channel, duration: selection.quality, ratio: selection.ratio }
+    return { ...data, model: selection.channel, quality: selection.quality, duration: Number(data.duration || defaultDuration(videoOptionConfig.value, selection.channel)), ratio: selection.ratio }
 }
 
 function normalizeLlmNodeData(data: Record<string, any> = {}) {
@@ -723,11 +733,12 @@ function updateNodeData(id: string, data: Record<string, any>, save = true) {
     if (current?.data?.variant === 'videoConfig') {
         if (data.model) {
             const nextQuality = qualityOptions(videoOptionConfig.value, String(data.model))[0]?.key || ''
-            data.duration = nextQuality
+            data.quality = nextQuality
+            data.duration = defaultDuration(videoOptionConfig.value, String(data.model))
             data.ratio = currentRatioOptions(videoOptionConfig.value, String(data.model), String(nextQuality))[0]?.key || ''
         }
-        if (data.duration) {
-            data.ratio = currentRatioOptions(videoOptionConfig.value, data.model || current.data?.model || '', String(data.duration))[0]?.key || data.ratio
+        if (data.quality) {
+            data.ratio = currentRatioOptions(videoOptionConfig.value, data.model || current.data?.model || '', String(data.quality))[0]?.key || data.ratio
         }
     }
     if (current?.data?.variant === 'llmConfig') {
@@ -897,9 +908,14 @@ async function runVideoConfig(node: Node) {
         const first = images.find((item) => item.role === 'first_frame_image')?.url || images[0]?.url
         const last = images.find((item) => item.role === 'last_frame_image')?.url
         const refs = images.map((item) => item.url)
+        const videos = collectConnectedVideos(node.id, nodes.value, edges.value)
+        const referenceAssets = [
+            ...images.map((item) => ({ type: 'image', uri: item.url, url: item.url, name: '图片素材' })),
+            ...videos.map((item) => ({ type: 'video', uri: item.url, url: item.url, name: item.name || '视频素材' }))
+        ]
         const selection = normalizeSelection(videoOptionConfig.value, {
             channel: String(node.data?.model || ''),
-            quality: String(node.data?.duration || ''),
+            quality: String(node.data?.quality || node.data?.duration || ''),
             ratio: String(node.data?.ratio || '')
         })
         if (!selection.channel) throw new Error('暂无可用视频通道')
@@ -911,8 +927,10 @@ async function runVideoConfig(node: Node) {
             first_frame_image: first,
             last_frame_image: last,
             reference_images: refs,
+            reference_assets: referenceAssets,
             ratio: selection.ratio,
             quality: selection.quality,
+            duration: Number(node.data?.duration || defaultDuration(videoOptionConfig.value, selection.channel)),
             quantity: 1,
             negative_prompt: ''
         })
@@ -926,7 +944,7 @@ async function runVideoConfig(node: Node) {
             title: '视频生成结果',
             url,
             poster: first || '',
-            duration: Number(selection.quality) || node.data?.duration || 5,
+            duration: Number(node.data?.duration || defaultDuration(videoOptionConfig.value, selection.channel)),
             taskId: result.taskId,
             status: url ? 'success' : 'running'
         })

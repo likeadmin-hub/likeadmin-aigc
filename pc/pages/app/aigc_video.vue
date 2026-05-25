@@ -26,32 +26,36 @@
 
                 <div class="reference-block">
                     <div class="field-row">
-                        <span>参考图</span>
-                        <span>{{ referenceImages.length }}/{{ maxReferenceCount }}</span>
+                        <span>参考素材</span>
+                        <span>{{ referenceAssets.length }}/{{ maxReferenceCount }}</span>
                     </div>
                     <div class="reference-list">
                         <button
-                            v-for="(image, index) in referenceImages"
-                            :key="image.uri"
+                            v-for="(asset, index) in referenceAssets"
+                            :key="`${asset.type}-${asset.uri}`"
                             class="reference-item"
+                            :class="`is-${asset.type}`"
                             type="button"
-                            @click="previewReference(image.url)"
+                            @click="previewReference(asset)"
                         >
-                            <img :src="image.url" :alt="image.name || '参考图'" />
-                            <span @click.stop="removeReferenceImage(index)">×</span>
+                            <img v-if="asset.type === 'image'" :src="asset.url" :alt="asset.name || '参考图'" />
+                            <video v-else-if="asset.type === 'video'" :src="asset.url" muted playsinline preload="metadata" />
+                            <div v-else class="reference-audio">音频</div>
+                            <small>{{ referenceTypeLabel(asset.type) }}</small>
+                            <span @click.stop="removeReferenceAsset(index)">×</span>
                         </button>
                         <button
-                            v-if="referenceImages.length < maxReferenceCount"
+                            v-if="referenceAssets.length < maxReferenceCount"
                             class="reference-add"
                             type="button"
                             :disabled="uploading"
                             @click="triggerUpload"
                         >
                             <span>＋</span>
-                            <strong>{{ uploading ? '上传中' : '上传图片' }}</strong>
+                            <strong>{{ uploading ? '上传中' : uploadButtonText }}</strong>
                         </button>
                     </div>
-                    <input ref="fileInputRef" class="sr-only" type="file" accept="image/*" multiple @change="handleUpload" />
+                    <input ref="fileInputRef" class="sr-only" type="file" :accept="uploadAccept" multiple @change="handleUpload" />
                 </div>
 
                 <div v-if="channels.length > 1" class="option-group">
@@ -71,7 +75,7 @@
 
                 <div class="option-grid">
                     <div class="option-group">
-                        <div class="field-label">视频时长</div>
+                        <div class="field-label">清晰度</div>
                         <div class="chip-grid chip-grid--tight">
                             <button
                                 v-for="item in qualities"
@@ -81,6 +85,21 @@
                                 @click="selectQuality(item.value)"
                             >
                                 {{ item.label }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="option-group">
+                        <div class="field-label">视频时长</div>
+                        <div class="chip-grid chip-grid--tight">
+                            <button
+                                v-for="item in durations"
+                                :key="item"
+                                :class="['chip', { 'is-active': form.duration === item }]"
+                                type="button"
+                                @click="selectDuration(item)"
+                            >
+                                {{ item }}秒
                             </button>
                         </div>
                     </div>
@@ -209,9 +228,9 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ElButton, ElInput, ElTable, ElTableColumn } from 'element-plus'
-import { uploadImage as uploadAppImage } from '@/api/app'
+import { uploadFile as uploadAppFile, uploadImage as uploadAppImage, uploadVideo as uploadAppVideo } from '@/api/app'
 import { isPcLoginRequiredError, usePcLoginGate } from '@/composables/usePcLoginGate'
 import {
     deleteAigcVideoResult,
@@ -223,6 +242,7 @@ import {
 import { useUserStore } from '@/stores/user'
 import feedback from '@/utils/feedback'
 import { normalizeFileUrl } from '@/utils/file-url'
+import { getApiUrl } from '@/utils/env'
 
 interface RatioOption {
     label: string
@@ -242,11 +262,20 @@ interface ChannelOption {
     label: string
     value: string
     max_reference_images?: number
+    max_reference_videos?: number
+    max_reference_audios?: number
+    max_reference_assets?: number
+    supported_asset_types?: ReferenceAssetType[]
     quantity_options?: number[]
+    duration_options?: number[]
+    videoedit_duration_options?: number[]
     qualities: QualityOption[]
 }
 
-interface ReferenceImage {
+type ReferenceAssetType = 'image' | 'video' | 'audio'
+
+interface ReferenceAsset {
+    type: ReferenceAssetType
     uri: string
     url: string
     name: string
@@ -275,7 +304,8 @@ const optionConfig = ref<any>({
         quantity: 1
     },
     quantity_options: [1],
-    max_reference_images: 7
+    max_reference_images: 7,
+    max_reference_assets: 7
 })
 
 const form = reactive({
@@ -284,9 +314,11 @@ const form = reactive({
     quality: '6',
     ratio: '16:9',
     quantity: 1,
+    duration: 5,
     negative_prompt: ''
 })
-const referenceImages = ref<ReferenceImage[]>([])
+const referenceAssets = ref<ReferenceAsset[]>([])
+const referenceImages = computed(() => referenceAssets.value.filter((item) => item.type === 'image'))
 
 const statusTabs = [
     { label: '全部', value: '' },
@@ -300,9 +332,17 @@ const channels = computed<ChannelOption[]>(() =>
         label: channel.label || channel.name || channel.code,
         value: channel.value || channel.code,
         max_reference_images: Number(channel.max_reference_images || optionConfig.value.max_reference_images || 7),
+        max_reference_videos: Number(channel.max_reference_videos || 0),
+        max_reference_audios: Number(channel.max_reference_audios || 0),
+        max_reference_assets: Number(channel.max_reference_assets || 0),
+        supported_asset_types: Array.isArray(channel.supported_asset_types)
+            ? channel.supported_asset_types.filter((item: string) => ['image', 'video', 'audio'].includes(item))
+            : ['image'],
         quantity_options: (channel.quantity_options || optionConfig.value.quantity_options || [1])
             .map((item: any) => Number(item))
             .filter(Boolean),
+        duration_options: normalizeNumberOptions(channel.duration_options || [5]),
+        videoedit_duration_options: normalizeNumberOptions(channel.videoedit_duration_options || []),
         qualities: (channel.qualities || []).map((quality: any) => ({
             label: quality.label || quality.quality_label || `${quality.value || quality.quality}秒`,
             value: String(quality.value || quality.quality),
@@ -319,9 +359,30 @@ const qualities = computed<QualityOption[]>(() => currentChannel.value?.qualitie
 const currentQuality = computed(() => qualities.value.find((item) => item.value === form.quality) || qualities.value[0])
 const ratios = computed<RatioOption[]>(() => currentQuality.value?.ratios || [])
 const currentSpec = computed(() => ratios.value.find((item) => item.value === form.ratio) || ratios.value[0])
-const maxReferenceCount = computed(() => Number(currentChannel.value?.max_reference_images || optionConfig.value.max_reference_images || 7))
+const supportedAssetTypes = computed<ReferenceAssetType[]>(() => currentChannel.value?.supported_asset_types?.length ? currentChannel.value.supported_asset_types : ['image'])
+const hasVideoReference = computed(() => referenceAssets.value.some((item) => item.type === 'video'))
+const durations = computed(() => {
+    const channel = currentChannel.value
+    const options = hasVideoReference.value && channel?.videoedit_duration_options?.length
+        ? channel.videoedit_duration_options
+        : channel?.duration_options
+    return normalizeNumberOptions(options || [5])
+})
+const maxReferenceCount = computed(() => {
+    const channel = currentChannel.value
+    const configured = Number(channel?.max_reference_assets || optionConfig.value.max_reference_assets || 0)
+    if (configured > 0) return configured
+    return Number(channel?.max_reference_images || optionConfig.value.max_reference_images || 7)
+        + Number(channel?.max_reference_videos || 0)
+        + Number(channel?.max_reference_audios || 0)
+})
+const uploadAccept = computed(() => supportedAssetTypes.value.map((type) => `${type}/*`).join(','))
+const uploadButtonText = computed(() => `上传${supportedAssetTypes.value.map(referenceTypeLabel).join('/')}`)
 const estimatedCost = computed(() => Number((Number(currentSpec.value?.tenant_unit_price || 0) * form.quantity).toFixed(2)))
-const canSubmit = computed(() => !!form.prompt.trim() && !!form.channel && !!form.quality && !!form.ratio && !submitting.value)
+const canSubmit = computed(() => !!form.prompt.trim() && !!form.channel && !!form.quality && !!form.ratio && !!form.duration && !submitting.value)
+
+const normalizeNumberOptions = (options: any[]) =>
+    Array.from(new Set((options || []).map((item: any) => Number(item)).filter(Boolean))).sort((a, b) => a - b)
 
 const normalizeVideoUrl = (url: unknown) => {
     let raw = String(url || '').trim()
@@ -370,6 +431,31 @@ const statusText = (value: string) => {
     return '生成中'
 }
 const formatSpec = (item: any) => `${qualityLabel(item.quality)} · ${item.ratio || '-'}`
+function referenceTypeLabel(type: ReferenceAssetType | string) {
+    if (type === 'video') return '视频'
+    if (type === 'audio') return '音频'
+    return '图片'
+}
+
+const detectAssetType = (file: File): ReferenceAssetType => {
+    if (file.type.startsWith('video/')) return 'video'
+    if (file.type.startsWith('audio/')) return 'audio'
+    return 'image'
+}
+
+const assetCount = (type: ReferenceAssetType) => referenceAssets.value.filter((item) => item.type === type).length
+
+const maxCountForType = (type: ReferenceAssetType) => {
+    if (type === 'video') return Number(currentChannel.value?.max_reference_videos || 0)
+    if (type === 'audio') return Number(currentChannel.value?.max_reference_audios || 0)
+    return Number(currentChannel.value?.max_reference_images || optionConfig.value.max_reference_images || 7)
+}
+
+const uploadByType = (type: ReferenceAssetType, file: File) => {
+    if (type === 'video') return uploadAppVideo({ file })
+    if (type === 'audio') return uploadAppFile({ file })
+    return uploadAppImage({ file })
+}
 
 const syncSelection = () => {
     if (!channels.value.length) return
@@ -382,9 +468,10 @@ const syncSelection = () => {
     if (!ratios.value.some((item) => item.value === form.ratio)) {
         form.ratio = ratios.value[0]?.value || ''
     }
-    if (referenceImages.value.length > maxReferenceCount.value) {
-        referenceImages.value = referenceImages.value.slice(0, maxReferenceCount.value)
+    if (!durations.value.includes(Number(form.duration))) {
+        form.duration = durations.value[0] || 5
     }
+    referenceAssets.value = referenceAssets.value.filter((item) => supportedAssetTypes.value.includes(item.type)).slice(0, maxReferenceCount.value)
 }
 
 const loadConfig = async () => {
@@ -394,6 +481,7 @@ const loadConfig = async () => {
     form.channel = defaults.channel || form.channel
     form.quality = defaults.quality || form.quality
     form.ratio = defaults.ratio || form.ratio
+    form.duration = Number(defaults.duration || form.duration || 5)
     syncSelection()
 }
 
@@ -461,6 +549,11 @@ const selectRatio = (value: string) => {
     syncSelection()
 }
 
+const selectDuration = (value: number) => {
+    form.duration = value
+    syncSelection()
+}
+
 const triggerUpload = () => {
     if (!ensurePcLogin()) return
     fileInputRef.value?.click()
@@ -472,21 +565,31 @@ const handleUpload = async (event: Event) => {
     const input = event.target as HTMLInputElement
     const files = Array.from(input.files || [])
     if (!files.length) return
-    const remain = maxReferenceCount.value - referenceImages.value.length
+    const remain = maxReferenceCount.value - referenceAssets.value.length
     if (remain <= 0) {
-        feedback.msgError(`最多上传${maxReferenceCount.value}张参考图`)
+        feedback.msgError(`最多上传${maxReferenceCount.value}个参考素材`)
         input.value = ''
         return
     }
     uploading.value = true
     try {
         for (const file of files.slice(0, remain)) {
+            const type = detectAssetType(file)
+            if (!supportedAssetTypes.value.includes(type)) {
+                feedback.msgError(`当前通道不支持${referenceTypeLabel(type)}参考素材`)
+                continue
+            }
+            const typeMax = maxCountForType(type)
+            if (typeMax > 0 && assetCount(type) >= typeMax) {
+                feedback.msgError(`${referenceTypeLabel(type)}参考素材最多上传${typeMax}个`)
+                continue
+            }
             const objectUrl = URL.createObjectURL(file)
             try {
-                const res: any = await uploadAppImage({ file })
+                const res: any = await uploadByType(type, file)
                 const uri = pickUploadUri(res)
-                if (!uri) throw new Error('上传接口未返回图片地址')
-                referenceImages.value.push({ uri, url: objectUrl, name: file.name, objectUrl })
+                if (!uri) throw new Error('上传接口未返回素材地址')
+                referenceAssets.value.push({ type, uri, url: objectUrl, name: file.name, objectUrl })
             } catch (error) {
                 URL.revokeObjectURL(objectUrl)
                 throw error
@@ -494,20 +597,21 @@ const handleUpload = async (event: Event) => {
         }
     } catch (error: any) {
         if (isPcLoginRequiredError(error)) return
-        feedback.msgError(error?.msg || error?.message || '参考图上传失败')
+        feedback.msgError(error?.msg || error?.message || '参考素材上传失败')
     } finally {
         uploading.value = false
         input.value = ''
     }
 }
 
-const previewReference = (url: string) => {
-    previewIndex.value = Math.max(0, referenceImages.value.findIndex((item) => item.url === url))
+const previewReference = (asset: ReferenceAsset) => {
+    if (asset.type !== 'image') return
+    previewIndex.value = Math.max(0, referenceImages.value.findIndex((item) => item.url === asset.url))
     previewVisible.value = true
 }
 
-const removeReferenceImage = (index: number) => {
-    const [removed] = referenceImages.value.splice(index, 1)
+const removeReferenceAsset = (index: number) => {
+    const [removed] = referenceAssets.value.splice(index, 1)
     if (removed?.objectUrl) URL.revokeObjectURL(removed.objectUrl)
 }
 
@@ -521,8 +625,10 @@ const handleGenerate = async () => {
         const res: any = await generateAigcVideo({
             prompt: form.prompt.trim(),
             reference_images: referenceImages.value.map((item) => item.uri),
+            reference_assets: referenceAssets.value.map(({ type, uri, url, name }) => ({ type, uri, url, name })),
             ratio: form.ratio,
             quality: form.quality,
+            duration: form.duration,
             quantity: 1,
             channel: form.channel,
             negative_prompt: form.negative_prompt
@@ -550,6 +656,7 @@ const reuseResult = (item: any) => {
     form.channel = item.channel || form.channel
     form.quality = item.quality || form.quality
     form.ratio = item.ratio || form.ratio
+    form.duration = Number(item.duration || form.duration || 5)
     syncSelection()
     window.scrollTo({ top: 0, behavior: 'smooth' })
 }
@@ -583,7 +690,7 @@ watch(() => userStore.isLogin, async (loggedIn) => {
 
 onBeforeUnmount(() => {
     stopPolling()
-    referenceImages.value.forEach((item) => {
+    referenceAssets.value.forEach((item) => {
         if (item.objectUrl) URL.revokeObjectURL(item.objectUrl)
     })
 })
@@ -704,6 +811,34 @@ onBeforeUnmount(() => {
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+.reference-item video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.reference-item small {
+    position: absolute;
+    left: 6px;
+    bottom: 6px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.62);
+    color: #fff;
+    font-size: 12px;
+}
+
+.reference-audio {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background: #222;
+    color: rgba(255, 255, 255, 0.82);
+    font-weight: 700;
 }
 
 .reference-item span {

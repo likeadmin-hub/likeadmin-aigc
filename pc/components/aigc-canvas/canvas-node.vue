@@ -155,6 +155,12 @@
                     </select>
                 </div>
                 <div class="hb-config-row">
+                    <span>{{ videoHasDynamicDuration ? '清晰度' : '时长' }}</span>
+                    <select :value="data.quality || data.duration" @change="emitUpdate({ quality: ($event.target as HTMLSelectElement).value })">
+                        <option v-for="quality in videoQualities" :key="quality.key" :value="quality.key">{{ quality.label }}</option>
+                    </select>
+                </div>
+                <div v-if="videoHasDynamicDuration" class="hb-config-row">
                     <span>时长</span>
                     <select :value="data.duration" @change="emitUpdate({ duration: Number(($event.target as HTMLSelectElement).value) })">
                         <option v-for="duration in videoDurations" :key="duration.key" :value="duration.key">{{ duration.label }}</option>
@@ -269,8 +275,13 @@ const imageOptionConfig = computed(() => unref(nodeActions.imageOptionConfig) ||
 const videoOptionConfig = computed(() => unref(nodeActions.videoOptionConfig) || { channels: [], defaults: {} })
 const imageQualities = computed(() => qualityOptions(imageOptionConfig.value, props.data.model))
 const imageSizes = computed(() => ratioOptions(imageOptionConfig.value, props.data.model, props.data.quality))
-const videoRatios = computed(() => ratioOptions(videoOptionConfig.value, props.data.model, props.data.duration))
-const videoDurations = computed(() => qualityOptions(videoOptionConfig.value, props.data.model))
+const videoQualities = computed(() => qualityOptions(videoOptionConfig.value, props.data.model))
+const videoHasDynamicDuration = computed(() => durationOptions(videoOptionConfig.value, props.data.model).length > 0)
+const videoRatios = computed(() => ratioOptions(videoOptionConfig.value, props.data.model, props.data.quality || props.data.duration))
+const videoDurations = computed(() => {
+    const durations = durationOptions(videoOptionConfig.value, props.data.model)
+    return durations.length ? durations : qualityOptions(videoOptionConfig.value, props.data.model)
+})
 const chatModels = computed(() => unref(nodeActions.chatModels) || [])
 const imageModels = computed(() => unref(nodeActions.imageModels) || [])
 const videoModels = computed(() => unref(nodeActions.videoModels) || [])
@@ -335,6 +346,14 @@ function qualityOptions(optionConfig: any, channelCode = '') {
         label: quality.label || quality.quality_label || quality.value,
         key: quality.value || quality.quality
     }))
+}
+
+function durationOptions(optionConfig: any, channelCode = '') {
+    const channel = findChannel(optionConfig, channelCode)
+    return (channel?.duration_options || []).map((duration: any) => ({
+        label: `${Number(duration)}秒`,
+        key: Number(duration)
+    })).filter((duration: any) => duration.key > 0)
 }
 
 function ratioOptions(optionConfig: any, channelCode = '', qualityValue = '') {

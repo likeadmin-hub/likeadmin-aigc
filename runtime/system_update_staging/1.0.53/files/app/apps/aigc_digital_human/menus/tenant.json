@@ -1,0 +1,92 @@
+[
+  {
+    "source_menu_key": "aigc_digital_human",
+    "app_code": "aigc_digital_human",
+    "source": "app",
+    "type": "M",
+    "name": "数字人视频",
+    "icon": "el-icon-Picture",
+    "sort": 100,
+    "perms": "",
+    "paths": "aigc-digital-human",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_digital_human_task",
+        "type": "C",
+        "name": "合成任务",
+        "perms": "app.aigc_digital_human.admin_task/lists",
+        "paths": "task",
+        "component": "apps/aigc_digital_human/task"
+      },
+      {
+        "source_menu_key": "aigc_digital_human_avatar_manage",
+        "type": "M",
+        "name": "形象管理",
+        "perms": "",
+        "paths": "avatar-manage",
+        "component": "",
+        "children": [
+          {
+            "source_menu_key": "aigc_digital_human_public_avatar",
+            "type": "C",
+            "name": "公共形象",
+            "perms": "app.aigc_digital_human.public_avatar/lists",
+            "paths": "public-avatar",
+            "component": "apps/aigc_digital_human/public-avatar"
+          },
+          {
+            "source_menu_key": "aigc_digital_human_user_avatar",
+            "type": "C",
+            "name": "用户形象",
+            "perms": "app.aigc_digital_human.user_avatar/lists",
+            "paths": "user-avatar",
+            "component": "apps/aigc_digital_human/user-avatar"
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_digital_human_voice_manage",
+        "type": "M",
+        "name": "音色管理",
+        "perms": "",
+        "paths": "voice-manage",
+        "component": "",
+        "children": [
+          {
+            "source_menu_key": "aigc_digital_human_public_voice",
+            "type": "C",
+            "name": "公共音色",
+            "perms": "app.aigc_digital_human.public_voice/lists",
+            "paths": "public-voice",
+            "component": "apps/aigc_digital_human/public-voice"
+          },
+          {
+            "source_menu_key": "aigc_digital_human_user_voice",
+            "type": "C",
+            "name": "用户音色",
+            "perms": "app.aigc_digital_human.user_voice/lists",
+            "paths": "user-voice",
+            "component": "apps/aigc_digital_human/user-voice"
+          }
+        ]
+      },
+      {
+        "source_menu_key": "aigc_digital_human_channel_price",
+        "type": "C",
+        "name": "通道调价",
+        "perms": "app.aigc_digital_human.channel/lists",
+        "paths": "channel-price",
+        "component": "apps/aigc_digital_human/channel-price"
+      },
+      {
+        "source_menu_key": "aigc_digital_human_stat",
+        "type": "C",
+        "name": "用量统计",
+        "perms": "app.aigc_digital_human.admin/stat",
+        "paths": "stat",
+        "component": "apps/aigc_digital_human/stat"
+      }
+    ]
+  }
+]

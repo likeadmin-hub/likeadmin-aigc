@@ -342,6 +342,13 @@ type UploadedAsset = {
     uri?: string
     uploading?: boolean
 }
+type ReferenceAssetType = 'image' | 'video' | 'audio'
+type VideoReferenceAsset = {
+    type: ReferenceAssetType
+    uri: string
+    url: string
+    name: string
+}
 
 interface RatioOption {
     label: string
@@ -361,6 +368,12 @@ interface ChannelOption {
     label: string
     value: string
     max_reference_images?: number
+    max_reference_videos?: number
+    max_reference_audios?: number
+    max_reference_assets?: number
+    supported_asset_types?: ReferenceAssetType[]
+    duration_options?: number[]
+    videoedit_duration_options?: number[]
     qualities: QualityOption[]
 }
 
@@ -455,7 +468,8 @@ const aigcVideoOptionConfig = ref<any>({
         channel: 'grok_video_xaiq',
         quality: '6',
         ratio: '16:9',
-        quantity: 1
+        quantity: 1,
+        duration: 6
     },
     quantity_options: [1],
     max_reference_images: 7
@@ -519,44 +533,77 @@ const normalizeVideoDuration = (value: unknown) => {
     const matched = raw.match(/(\d+)(?:\s*S|秒)?/i)
     return matched ? `${Number(matched[1])}秒` : raw || '默认'
 }
+const normalizeNumberOptions = (options: any[]) =>
+    Array.from(new Set((options || []).map((item: any) => Number(item)).filter(Boolean))).sort((a, b) => a - b)
+const durationLabel = (value: unknown) => `${Number(value) || 5}秒`
+const durationValue = (value: unknown) => Number.parseInt(String(value || ''), 10) || 0
 const getVideoQualityResolution = (quality: any) =>
     normalizeVideoResolution(quality.resolution || quality.provider_params_json?.resolution || quality.label || quality.quality_label || quality.value || quality.quality)
 const getVideoQualityDuration = (quality: any) =>
     normalizeVideoDuration(quality.duration || quality.provider_params_json?.duration || quality.label || quality.quality_label || quality.value || quality.quality)
 const videoChannels = computed<ChannelOption[]>(() =>
-    (aigcVideoOptionConfig.value.channels || []).map((channel: any) => ({
-        label: channel.label || channel.name || channel.code,
-        value: channel.value || channel.code,
-        max_reference_images: Number(channel.max_reference_images || aigcVideoOptionConfig.value.max_reference_images || 7),
-        qualities: (channel.qualities || []).map((quality: any) => ({
-            label: getVideoQualityDuration(quality),
-            value: String(quality.value || quality.quality),
-            resolution: getVideoQualityResolution(quality),
-            duration: getVideoQualityDuration(quality),
-            ratios: (quality.ratios || []).map((ratio: any) => ({
-                ...ratio,
-                label: ratio.label || ratio.ratio || ratio.value,
-                value: ratio.value || ratio.ratio
+    (aigcVideoOptionConfig.value.channels || []).map((channel: any) => {
+        const durationOptions = normalizeNumberOptions(channel.duration_options || [])
+        const dynamicDuration = durationOptions.length > 0
+        return {
+            label: channel.label || channel.name || channel.code,
+            value: channel.value || channel.code,
+            max_reference_images: Number(channel.max_reference_images || aigcVideoOptionConfig.value.max_reference_images || 7),
+            max_reference_videos: Number(channel.max_reference_videos || 0),
+            max_reference_audios: Number(channel.max_reference_audios || 0),
+            max_reference_assets: Number(channel.max_reference_assets || 0),
+            supported_asset_types: Array.isArray(channel.supported_asset_types)
+                ? channel.supported_asset_types.filter((item: string) => ['image', 'video', 'audio'].includes(item))
+                : ['image'],
+            duration_options: durationOptions,
+            videoedit_duration_options: normalizeNumberOptions(channel.videoedit_duration_options || []),
+            qualities: (channel.qualities || []).map((quality: any) => ({
+                label: dynamicDuration ? getVideoQualityResolution(quality) : getVideoQualityDuration(quality),
+                value: String(quality.value || quality.quality),
+                resolution: getVideoQualityResolution(quality),
+                duration: dynamicDuration ? '' : getVideoQualityDuration(quality),
+                ratios: (quality.ratios || []).map((ratio: any) => ({
+                    ...ratio,
+                    label: ratio.label || ratio.ratio || ratio.value,
+                    value: ratio.value || ratio.ratio
+                }))
             }))
-        }))
-    }))
+        }
+    })
 )
 const currentVideoChannel = computed(() => videoChannels.value.find((item) => item.value === selectedVideoChannelCode.value) || videoChannels.value[0])
+const currentVideoChannelHasDynamicDuration = computed(() => Boolean(currentVideoChannel.value?.duration_options?.length))
 const videoQualities = computed<QualityOption[]>(() => currentVideoChannel.value?.qualities || [])
 const videoResolutions = computed(() => Array.from(new Set(videoQualities.value.map((item) => item.resolution || '默认'))))
 const videoHasResolutionOptions = computed(() => videoResolutions.value.some((item) => item !== '默认'))
 const videoQualitiesByResolution = computed(() =>
     videoQualities.value.filter((item) => String(item.resolution || '默认') === String(optionState.value.resolution || videoResolutions.value[0] || '默认'))
 )
-const videoDurations = computed(() => Array.from(new Set(videoQualitiesByResolution.value.map((item) => item.duration || item.label || item.value))))
+const videoDurations = computed(() => {
+    if (currentVideoChannelHasDynamicDuration.value) {
+        return normalizeNumberOptions(currentVideoChannel.value?.duration_options || []).map(durationLabel)
+    }
+    return Array.from(new Set(videoQualitiesByResolution.value.map((item) => item.duration || item.label || item.value)))
+})
 const currentVideoQuality = computed(() =>
-    videoQualitiesByResolution.value.find((item) => String(item.duration || item.label || item.value) === String(optionState.value.duration)) ||
+    (currentVideoChannelHasDynamicDuration.value
+        ? videoQualitiesByResolution.value[0]
+        : videoQualitiesByResolution.value.find((item) => String(item.duration || item.label || item.value) === String(optionState.value.duration))) ||
     videoQualitiesByResolution.value[0] ||
     videoQualities.value[0]
 )
 const videoRatios = computed<RatioOption[]>(() => currentVideoQuality.value?.ratios || [])
 const currentVideoRatio = computed(() => videoRatios.value.find((item) => item.value === optionState.value.ratio) || videoRatios.value[0])
 const selectedVideoUnitPrice = computed(() => Number(currentVideoRatio.value?.tenant_unit_price || 0).toString())
+const uploadedImageVideoReferenceAssets = computed<VideoReferenceAsset[]>(() => {
+    if (!uploadedReferenceUri.value) return []
+    return [{
+        type: 'image',
+        uri: uploadedReferenceUri.value,
+        url: uploadedReferenceUri.value,
+        name: uploadedFileName.value || '参考图'
+    }]
+})
 const findVideoQualityByValue = (value: unknown) => videoQualities.value.find((item) => String(item.value) === String(value))
 const getVideoDisplayResolution = (value: unknown) => {
     const quality = findVideoQualityByValue(value)
@@ -636,7 +683,7 @@ const syncVideoOptionSideEffects = (next: AiCreateOptionState, previous: AiCreat
         optionState.value.duration = videoDurations.value[0] || next.duration
         optionState.value.ratio = videoQualitiesByResolution.value[0]?.ratios?.[0]?.value || next.ratio
     }
-    if (durationChanged) {
+    if (durationChanged && !currentVideoChannelHasDynamicDuration.value) {
         const nextQuality = videoQualitiesByResolution.value.find((item) => (item.duration || item.label || item.value) === next.duration)
         optionState.value.ratio = nextQuality?.ratios?.[0]?.value || next.ratio
     }
@@ -861,7 +908,7 @@ const syncAigcVideoSelection = () => {
     if (!videoDurations.value.includes(optionState.value.duration)) {
         const defaultQuality = videoQualities.value.find((item) => item.value === aigcVideoOptionConfig.value.defaults?.quality)
         optionState.value.resolution = defaultQuality?.resolution || videoResolutions.value[0] || optionState.value.resolution
-        optionState.value.duration = defaultQuality?.duration || videoDurations.value[0] || optionState.value.duration
+        optionState.value.duration = durationLabel(aigcVideoOptionConfig.value.defaults?.duration) || defaultQuality?.duration || videoDurations.value[0] || optionState.value.duration
     }
     if (!videoResolutions.value.includes(optionState.value.resolution)) {
         optionState.value.resolution = videoResolutions.value[0] || optionState.value.resolution
@@ -903,7 +950,7 @@ const loadAigcVideoConfig = async () => {
         selectedVideoChannelCode.value = defaults.channel || selectedVideoChannelCode.value
         const defaultQuality = videoQualities.value.find((item) => item.value === defaults.quality)
         optionState.value.resolution = defaultQuality?.resolution || optionState.value.resolution
-        optionState.value.duration = defaultQuality?.duration || optionState.value.duration
+        optionState.value.duration = durationLabel(defaults.duration) || defaultQuality?.duration || optionState.value.duration
         optionState.value.ratio = defaults.ratio || optionState.value.ratio
         syncAigcVideoSelection()
     } catch (error) {
@@ -1430,6 +1477,7 @@ const addOptimisticBackendVideoWork = (taskId: unknown, status: unknown = 'runni
         task_id: id,
         prompt: prompt.value.trim(),
         reference_images: uploadedReferenceUri.value ? [uploadedReferenceUri.value] : [],
+        reference_assets: uploadedImageVideoReferenceAssets.value,
         channel: selectedVideoChannelCode.value || currentVideoChannel.value?.value || 'grok_video_xaiq',
         quality: currentVideoQuality.value?.value || optionState.value.quality,
         ratio: optionState.value.ratio,
@@ -1889,8 +1937,10 @@ const submitPrompt = async () => {
         const res: any = await generateAigcVideo({
             prompt: prompt.value.trim(),
             reference_images: referenceImages,
+            reference_assets: uploadedImageVideoReferenceAssets.value,
             ratio: optionState.value.ratio,
             quality: currentVideoQuality.value?.value || optionState.value.quality,
+            duration: durationValue(optionState.value.duration),
             quantity: 1,
             channel: selectedVideoChannelCode.value || currentVideoChannel.value.value,
             negative_prompt: ''

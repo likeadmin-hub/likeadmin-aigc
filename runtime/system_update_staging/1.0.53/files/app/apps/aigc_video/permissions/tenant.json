@@ -1,0 +1,128 @@
+[
+  {
+    "permission_key": "aigc_video:config:detail",
+    "name": "查看AIGC视频配置",
+    "api_path": "app.aigc_video.config/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_video:config:setup",
+    "name": "保存AIGC视频配置",
+    "api_path": "app.aigc_video.config/setup",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_video:task:lists",
+    "name": "查看AIGC视频任务",
+    "api_path": "app.aigc_video.admin_task/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_video:task:detail",
+    "name": "查看AIGC视频任务详情",
+    "api_path": "app.aigc_video.admin_task/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_video:task:retry",
+    "name": "重试AIGC视频任务",
+    "api_path": "app.aigc_video.admin_task/retry",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_video:task:delete",
+    "name": "删除AIGC视频任务",
+    "api_path": "app.aigc_video.admin_task/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_video:case:lists",
+    "name": "查看AIGC案例",
+    "api_path": "app.aigc_video.case/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_video:case:detail",
+    "name": "查看AIGC案例详情",
+    "api_path": "app.aigc_video.case/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_video:case:save",
+    "name": "保存AIGC案例",
+    "api_path": "app.aigc_video.case/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_video:case:from_task",
+    "name": "任务设为AIGC案例",
+    "api_path": "app.aigc_video.case/fromTask",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_video:case:status",
+    "name": "设置AIGC案例状态",
+    "api_path": "app.aigc_video.case/status",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_video:case:delete",
+    "name": "删除AIGC案例",
+    "api_path": "app.aigc_video.case/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_video:quota:lists",
+    "name": "查看AIGC视频额度",
+    "api_path": "app.aigc_video.admin/quota",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_video:quota:save",
+    "name": "保存AIGC视频额度",
+    "api_path": "app.aigc_video.admin/quota",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_video:sensitive_word:lists",
+    "name": "查看AIGC敏感词",
+    "api_path": "app.aigc_video.admin/sensitiveWord",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_video:sensitive_word:save",
+    "name": "保存AIGC敏感词",
+    "api_path": "app.aigc_video.admin/sensitiveWord",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_video:stat",
+    "name": "查看AIGC视频统计",
+    "api_path": "app.aigc_video.admin/stat",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_video:channel_price:lists",
+    "name": "查看AIGC视频通道调价",
+    "api_path": "app.aigc_video.channel/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_video:channel_price:save",
+    "name": "保存AIGC视频通道调价",
+    "api_path": "app.aigc_video.channel/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_video:channel_price:batch_save",
+    "name": "批量保存AIGC视频通道调价",
+    "api_path": "app.aigc_video.channel/batchSave",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_video:channel_price:status",
+    "name": "设置AIGC视频通道状态",
+    "api_path": "app.aigc_video.channel/status",
+    "api_method": "POST"
+  }
+]
