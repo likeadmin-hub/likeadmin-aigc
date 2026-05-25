@@ -36,7 +36,9 @@ class UserTokenService
     public static function setToken($user, $terminal)
     {
         $time = time();
-        $userSession = UserSession::query()->where([['user_id', '=', $user->id], ['terminal', '=', $terminal]])->find();
+        $userSession = UserSession::withoutGlobalScope()
+            ->where([['user_id', '=', $user->id], ['terminal', '=', $terminal]])
+            ->find();
 
         //获取token延长过期的时间
         $expireTime = $time + Config::get('project.user_token.expire_duration');
@@ -48,6 +50,7 @@ class UserTokenService
             $userTokenCache->deleteUserInfo($userSession->token);
             //重新获取token
             $userSession->token = create_token($user->id);
+            $userSession->tenant_id = $user->tenant_id;
             $userSession->expire_time = $expireTime;
             $userSession->update_time = $time;
             $userSession->save();
@@ -79,8 +82,8 @@ class UserTokenService
     public static function overtimeToken($token)
     {
         $time = time();
-        $userSession = UserSession::where('token', '=', $token)->find();
-        if ($userSession->isEmpty()) {
+        $userSession = UserSession::withoutGlobalScope()->where('token', '=', $token)->find();
+        if (empty($userSession) || $userSession->isEmpty()) {
             return false;
         }
         //延长token过期时间
@@ -104,7 +107,7 @@ class UserTokenService
      */
     public static function expireToken($token)
     {
-        $userSession = UserSession::where('token', '=', $token)
+        $userSession = UserSession::withoutGlobalScope()->where('token', '=', $token)
             ->find();
         if (empty($userSession)) {
             return false;

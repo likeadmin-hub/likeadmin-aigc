@@ -364,7 +364,7 @@ class SystemPackageUpdateService
             }
 
             try {
-                $sync = AppRegistryService::installFromLocalWithResult($appCode, $coreVersion);
+                $sync = $this->installBuiltinAppFromLocal($appCode, $coreVersion);
                 $manifest = $sync['manifest'] ?? [];
                 $result[] = [
                     'app_code' => $appCode,
@@ -385,6 +385,23 @@ class SystemPackageUpdateService
             }
         }
         return $result;
+    }
+
+    private function installBuiltinAppFromLocal(string $appCode, string $coreVersion): array
+    {
+        if (method_exists(AppRegistryService::class, 'installFromLocalWithResult')) {
+            return AppRegistryService::installFromLocalWithResult($appCode, $coreVersion);
+        }
+
+        $method = new \ReflectionMethod(AppRegistryService::class, 'installFromLocal');
+        $manifest = $method->getNumberOfParameters() >= 2
+            ? AppRegistryService::installFromLocal($appCode, $coreVersion)
+            : AppRegistryService::installFromLocal($appCode);
+
+        return [
+            'manifest' => is_array($manifest) ? $manifest : [],
+            'migrations' => [],
+        ];
     }
 
     private function preflightBuiltinApps(string $extractPath, array $manifest = []): array
