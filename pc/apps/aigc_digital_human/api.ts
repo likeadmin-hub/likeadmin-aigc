@@ -51,6 +51,17 @@ export function previewAigcDigitalHumanVoice(params: any) {
     return $request.post({ url: '/app.aigc_digital_human.voice/preview', params })
 }
 
+export function trimAigcDigitalHumanVoice(params: any) {
+    return $request.uploadFile(
+        {
+            url: '/app.aigc_digital_human.voice/trim',
+            timeout: 60 * 1000,
+            retry: 0
+        },
+        params
+    )
+}
+
 export function getAigcDigitalHumanTasks(params?: any) {
     return $request.get({ url: '/app.aigc_digital_human.task/lists', params })
 }

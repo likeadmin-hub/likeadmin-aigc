@@ -1186,7 +1186,7 @@
                         试听片段
                     </button>
                     <button class="is-primary" type="button" :disabled="voiceTrimState.processing" @click="confirmVoiceTrim">
-                        {{ voiceTrimState.processing ? '裁剪中...' : '确认裁剪并上传' }}
+                        {{ voiceTrimState.processing ? (voiceTrimState.compatMode ? '兼容裁剪中...' : '裁剪中...') : '确认裁剪并上传' }}
                     </button>
                 </div>
             </section>
@@ -1265,7 +1265,8 @@ import {
     deleteAigcDigitalHumanAvatar,
     deleteAigcDigitalHumanVoice,
     saveAigcDigitalHumanAvatar,
-    saveAigcDigitalHumanVoice
+    saveAigcDigitalHumanVoice,
+    trimAigcDigitalHumanVoice
 } from '@/apps/aigc_digital_human/api'
 import {
     estimateImageHuman,
@@ -1417,6 +1418,7 @@ interface VoiceTrimState {
     duration: number
     start: number
     processing: boolean
+    compatMode: boolean
 }
 
 interface DriverAudioUpload {
@@ -1668,7 +1670,8 @@ const voiceTrimState = ref<VoiceTrimState>({
     url: '',
     duration: 0,
     start: 0,
-    processing: false
+    processing: false,
+    compatMode: false
 })
 const selectedVoice = ref('')
 const workName = ref('')
@@ -3621,6 +3624,15 @@ const trimVoiceAudioFile = async (file: File, start: number, duration: number) =
     return new File([blob], `${baseName}-trim-10s.wav`, { type: 'audio/wav' })
 }
 
+const isVoiceAudioDecodeError = (error: any) => {
+    const message = String(error?.message || error || '')
+    return (
+        /decodeAudioData|Unable to decode audio data|EncodingError|音频裁剪|音频转换/i.test(message) ||
+        error?.name === 'EncodingError' ||
+        error?.code === 0
+    )
+}
+
 const normalizeVoiceCreateAudioFile = async (file: File, fallbackName = 'voice') => {
     if (!shouldNormalizeVoiceCreateAudioFile(file)) return file
 
@@ -3714,6 +3726,46 @@ const prepareVoiceCreateUploadedSample = (
     if (options.showSuccess !== false) feedback.msgSuccess(texts.uploadAudioSuccess)
 }
 
+const prepareVoiceCreateRemoteSample = (
+    originalFile: File,
+    previewUrl: string,
+    remoteUri: string,
+    duration: number,
+    fileName?: string
+) => {
+    const preserveFields = showVoiceCreateModal.value
+    openVoiceLibrary('mine')
+    stopVoicePreview()
+    stopVoiceCreatePreview()
+
+    if (preserveFields) {
+        closeVoiceCreateMenus()
+        clearVoiceCreateRecordedResult()
+    } else {
+        discardVoiceCreateTempUrls()
+        resetVoiceCreateFields()
+    }
+
+    if (!preserveFields || !voiceCreateName.value.trim()) {
+        voiceCreateName.value = getFileBaseName(fileName || originalFile.name) || texts.myVoice
+    }
+
+    pendingVoiceUpload.value = {
+        file: originalFile,
+        fileName: fileName || originalFile.name,
+        url: previewUrl,
+        blobUrls: [],
+        remoteUri
+    }
+    voiceCreateRecordedUrl.value = previewUrl
+    voiceCreateRecordedMimeType.value = 'audio/wav'
+    voiceCreateSampleSource.value = 'upload'
+    voiceCreateElapsed.value = Math.max(0, Math.round(duration || voiceCreateMaxDuration))
+    voiceCreateStep.value = 'sample_ready'
+    showVoiceCreateModal.value = true
+    feedback.msgSuccess(texts.uploadAudioSuccess)
+}
+
 const resetVoiceTrimState = () => {
     voiceTrimState.value = {
         visible: false,
@@ -3722,7 +3774,8 @@ const resetVoiceTrimState = () => {
         url: '',
         duration: 0,
         start: 0,
-        processing: false
+        processing: false,
+        compatMode: false
     }
 }
 
@@ -3737,7 +3790,8 @@ const openVoiceTrimModal = (file: File, objectUrl: string, duration: number) => 
         url: objectUrl,
         duration,
         start: 0,
-        processing: false
+        processing: false,
+        compatMode: false
     }
 }
 
@@ -3823,6 +3877,7 @@ const confirmVoiceTrim = async () => {
     if (!state.file || state.processing) return
 
     state.processing = true
+    state.compatMode = false
     stopVoiceTrimPlayback()
     try {
         const trimmedFile = await trimVoiceAudioFile(state.file, state.start, voiceCreateMaxDuration)
@@ -3832,8 +3887,43 @@ const confirmVoiceTrim = async () => {
         if (originalUrl) revokeTrackedBlobUrl(originalUrl)
         prepareVoiceCreateUploadedSample(trimmedFile, trimmedUrl, voiceCreateMaxDuration)
     } catch (error: any) {
-        feedback.msgError(error?.message || '音频裁剪失败，请更换音频后重试')
-        if (voiceTrimState.value.visible) voiceTrimState.value.processing = false
+        if (!isVoiceAudioDecodeError(error)) {
+            feedback.msgError(error?.message || '音频裁剪失败，请更换音频后重试')
+            if (voiceTrimState.value.visible) voiceTrimState.value.processing = false
+            return
+        }
+
+        try {
+            if (voiceTrimState.value.visible) voiceTrimState.value.compatMode = true
+            const originalUrl = state.url
+            const trimRes = await trimAigcDigitalHumanVoice({
+                file: state.file,
+                data: {
+                    start: String(state.start),
+                    duration: String(voiceCreateMaxDuration)
+                }
+            })
+            const remoteUri = pickUploadUri(trimRes)
+            const previewUrl = trimRes?.url || trimRes?.uri || remoteUri
+            if (!remoteUri || !previewUrl) throw new Error('音频兼容裁剪失败，请更换音频后重试')
+            resetVoiceTrimState()
+            if (originalUrl) revokeTrackedBlobUrl(originalUrl)
+            prepareVoiceCreateRemoteSample(
+                state.file,
+                previewUrl,
+                remoteUri,
+                Number(trimRes?.duration || voiceCreateMaxDuration),
+                trimRes?.name || `${getFileBaseName(state.file.name) || texts.myVoice}-trim-10s.wav`
+            )
+        } catch (fallbackError: any) {
+            const fallbackMessage = typeof fallbackError === 'string' ? '' : (fallbackError?.message || fallbackError)
+            if (fallbackMessage) feedback.msgError(fallbackMessage)
+            if (!fallbackError) feedback.msgError('当前音频无法裁剪，请换用 mp3/wav 格式后重试')
+            if (voiceTrimState.value.visible) {
+                voiceTrimState.value.processing = false
+                voiceTrimState.value.compatMode = false
+            }
+        }
     }
 }
 

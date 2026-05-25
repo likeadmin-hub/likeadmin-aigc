@@ -292,6 +292,87 @@ class AigcDigitalHumanService
         ];
     }
 
+    public static function trimVoiceSample(int $tenantId, int $userId, array $params): array
+    {
+        $file = request()->file('file');
+        if (empty($file)) {
+            throw new Exception('请上传需要裁剪的音频');
+        }
+
+        $extension = strtolower((string)$file->extension());
+        if (!in_array($extension, ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'webm', 'flac', 'opus'], true)) {
+            throw new Exception('仅支持 mp3、wav、m4a、aac、ogg、webm 音频裁剪');
+        }
+
+        $mime = strtolower((string)$file->getMime());
+        $compatibleMimes = ['application/ogg', 'application/octet-stream', 'application/mp4', 'video/mp4', 'video/webm'];
+        if ($mime !== '' && !str_starts_with($mime, 'audio/') && !in_array($mime, $compatibleMimes, true)) {
+            throw new Exception('请上传有效的音频文件');
+        }
+
+        $start = max(0, (float)($params['start'] ?? 0));
+        $duration = (float)($params['duration'] ?? self::VOICE_CLONE_MAX_DURATION);
+        $duration = $duration > 0 ? min($duration, self::VOICE_CLONE_MAX_DURATION) : self::VOICE_CLONE_MAX_DURATION;
+        $sourcePath = (string)$file->getRealPath();
+        if ($sourcePath === '' || !is_file($sourcePath)) {
+            throw new Exception('音频文件读取失败，请重新上传');
+        }
+
+        $ffmpeg = self::findExecutable(['ffmpeg', '/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/opt/homebrew/bin/ffmpeg']);
+        if ($ffmpeg === '' || !function_exists('exec')) {
+            throw new Exception('当前服务器暂不支持兼容裁剪，请换用 10 秒以内的 mp3/wav 音频上传');
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'aigc_voice_trim_');
+        if ($tmp === false) {
+            throw new Exception('音频裁剪临时文件创建失败');
+        }
+        $originalName = method_exists($file, 'getOriginalName') ? (string)$file->getOriginalName() : '';
+        $baseName = trim((string)pathinfo($originalName ?: 'voice', PATHINFO_FILENAME));
+        $safeBaseName = preg_replace('/[^a-zA-Z0-9_\x{4e00}-\x{9fa5}-]+/u', '-', $baseName) ?: 'voice';
+        $outputPath = $tmp . '-' . $safeBaseName . '-trim-10s.wav';
+        @rename($tmp, $outputPath);
+
+        $command = implode(' ', [
+            escapeshellarg($ffmpeg),
+            '-y',
+            '-hide_banner',
+            '-loglevel error',
+            '-ss ' . escapeshellarg((string)$start),
+            '-i ' . escapeshellarg($sourcePath),
+            '-t ' . escapeshellarg((string)$duration),
+            '-vn',
+            '-ac 1',
+            '-ar 44100',
+            '-acodec pcm_s16le',
+            escapeshellarg($outputPath),
+        ]);
+
+        $output = [];
+        $code = 1;
+        @exec($command . ' 2>&1', $output, $code);
+        if ($code !== 0 || !is_file($outputPath) || filesize($outputPath) <= 44) {
+            @unlink($outputPath);
+            throw new Exception('音频兼容裁剪失败，请换用 mp3/wav 格式后重试');
+        }
+
+        try {
+            $stored = AigcDigitalHumanAssetService::uploadLocalFile($outputPath, $tenantId, $userId, 'audio');
+        } finally {
+            @unlink($outputPath);
+        }
+
+        return [
+            'uri' => $stored['uri'],
+            'url' => $stored['url'],
+            'duration' => (int)ceil($duration),
+            'name' => basename($stored['uri']),
+            'storage_scope' => $stored['storage_scope'],
+            'storage_engine' => $stored['storage_engine'],
+            'storage_domain' => $stored['storage_domain'],
+        ];
+    }
+
     private static function generateVoicePreviewAudio(int $tenantId, int $userId, array $voice, string $text = ''): string
     {
         $text = trim($text);
