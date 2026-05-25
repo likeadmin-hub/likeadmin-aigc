@@ -65,13 +65,19 @@ class UserTokenCache extends BaseCache
      */
     public function setUserInfo($token)
     {
-        $userSession = UserSession::where([['token', '=', $token], ['expire_time', '>', time()]])->find();
+        $userSession = UserSession::withoutGlobalScope()
+            ->where([['token', '=', $token], ['expire_time', '>', time()]])
+            ->find();
         if (empty($userSession)) {
             return [];
         }
 
-        $user = User::where('id', '=', $userSession->user_id)
+        $user = User::withoutGlobalScope()
+            ->where('id', '=', $userSession->user_id)
             ->find();
+        if (empty($user)) {
+            return [];
+        }
 
         $userInfo = [
             'user_id' => $user->id,
