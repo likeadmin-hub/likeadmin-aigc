@@ -56,4 +56,17 @@ class VoiceController extends BaseApiController
             return $this->fail($e->getMessage());
         }
     }
+
+    public function trim()
+    {
+        try {
+            return $this->success('裁剪成功', AigcDigitalHumanService::trimVoiceSample(
+                (int)$this->request->tenantId,
+                $this->userId,
+                $this->request->post()
+            ));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
 }
