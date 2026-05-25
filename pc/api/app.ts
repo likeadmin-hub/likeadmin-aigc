@@ -1,6 +1,6 @@
 //发送短信
 export function smsSend(params: any) {
-    return $request.post({ url: '/sms/sendCode', params })
+    return $request.post({ url: '/sms/sendCode', params }, { withToken: false })
 }
 
 // 获取配置

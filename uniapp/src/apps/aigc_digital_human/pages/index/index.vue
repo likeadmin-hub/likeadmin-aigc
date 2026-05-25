@@ -182,6 +182,9 @@
             <view class="step-card">
                 <view class="step-head">
                     <view class="step-title">4. 输入文案</view>
+                    <view class="assistant-pill" @click="openEmotionPanel">
+                        <text>/ 情绪</text>
+                    </view>
                     <view class="assistant-pill" @click="fillScriptExample">
                         <u-icon name="edit-pen" color="#ffffff" size="28"></u-icon>
                         <text>文案助手</text>
@@ -193,6 +196,7 @@
                         maxlength="500"
                         placeholder="请输入或粘贴您想要数字人说的内容..."
                         placeholder-class="input-placeholder"
+                        @input="handleScriptInput"
                     />
                     <view class="counter">{{ form.script_text.length }}/500</view>
                 </view>
@@ -235,6 +239,51 @@
                 <view class="submit-loading__desc">任务创建成功后将进入合成进度</view>
             </view>
         </view>
+
+        <view v-if="emotionPanelOpen" class="emotion-mask" @click="closeEmotionPanel" @touchmove.stop.prevent>
+            <view class="emotion-sheet" @click.stop>
+                <view class="emotion-sheet__handle"></view>
+                <view class="emotion-sheet__head">
+                    <view>
+                        <view class="emotion-sheet__title">S2-Pro 情绪控制</view>
+                        <view class="emotion-sheet__sub">选择后插入方括号标记，输入 /笑 /happy 可筛选</view>
+                    </view>
+                    <button type="button" @click="closeEmotionPanel">关闭</button>
+                </view>
+                <scroll-view class="emotion-tabs" scroll-x>
+                    <view class="emotion-tabs__inner">
+                        <view
+                            v-for="category in emotionCategories"
+                            :key="category"
+                            class="emotion-tab"
+                            :class="{ 'is-active': activeEmotionCategory === category }"
+                            @click="setEmotionCategory(category)"
+                        >
+                            {{ category }}
+                        </view>
+                    </view>
+                </scroll-view>
+                <scroll-view class="emotion-list" scroll-y>
+                    <view
+                        v-for="item in filteredEmotionOptions"
+                        :key="item.tag"
+                        class="emotion-item"
+                        @click="insertEmotionMarker(item)"
+                    >
+                        <view class="emotion-item__top">
+                            <view class="emotion-item__label">{{ item.label }}</view>
+                            <view class="emotion-item__tag">{{ item.tag }}</view>
+                        </view>
+                        <view class="emotion-item__desc">{{ item.description }}</view>
+                        <view class="emotion-item__scene">适合：{{ item.scene }}</view>
+                        <view class="emotion-item__example">{{ item.example }}</view>
+                    </view>
+                    <view v-if="!filteredEmotionOptions.length" class="emotion-empty">
+                        未找到匹配的情绪控制
+                    </view>
+                </scroll-view>
+            </view>
+        </view>
     </view>
 </template>
 
@@ -250,6 +299,18 @@ import {
     getAigcDigitalHumanVoices
 } from '@/apps/aigc_digital_human/api'
 
+type EmotionCategory = '情绪' | '语气' | '音效' | '场景'
+
+interface EmotionOption {
+    category: EmotionCategory
+    label: string
+    tag: string
+    description: string
+    scene: string
+    example: string
+    keywords: string[]
+}
+
 const submitting = ref(false)
 const estimating = ref(false)
 const membershipAccess = ref<any>({
@@ -263,6 +324,10 @@ const voices = ref<any[]>([])
 const avatarMode = ref('official')
 const voiceSource = ref('official')
 const voiceMode = ref('hot')
+const emotionPanelOpen = ref(false)
+const activeEmotionCategory = ref<EmotionCategory>('情绪')
+const emotionSearchKeyword = ref('')
+const emotionTriggerRange = ref({ start: 0, end: 0 })
 const optionConfig = ref<any>({
     defaults: { channel: 'master', quality: '1k', ratio: '9:16' }
 })
@@ -297,9 +362,47 @@ const voiceDescs = [
     '沉稳磁性，适合介绍',
     '活力阳光，适合短视频'
 ]
+const emotionCategories: EmotionCategory[] = ['情绪', '语气', '音效', '场景']
+const emotionOptions: EmotionOption[] = [
+    { category: '情绪', label: '开心', tag: '[happy]', description: '声音更明亮、积极，适合开场和好消息。', scene: '欢迎语、福利发布、轻松介绍', example: '[happy] 大家好，欢迎来到直播间。', keywords: ['开心', '高兴', 'happy', '快乐'] },
+    { category: '情绪', label: '兴奋', tag: '[excited]', description: '增强能量和感染力，适合突出亮点。', scene: '新品发布、活动通知、抽奖', example: '[excited] 今天给大家介绍一个非常实用的功能。', keywords: ['兴奋', '激动', 'excited'] },
+    { category: '情绪', label: '平静', tag: '[calm]', description: '语速更稳，听感克制清晰。', scene: '知识讲解、教程、说明', example: '[calm] 我们先来看第一步操作。', keywords: ['平静', '冷静', 'calm'] },
+    { category: '情绪', label: '自信', tag: '[confident]', description: '表达更坚定，适合建立信任。', scene: '销售转化、品牌介绍、观点输出', example: '[confident] 这套方案可以明显提升制作效率。', keywords: ['自信', '坚定', 'confident'] },
+    { category: '情绪', label: '温柔', tag: '[gentle]', description: '声音更柔和，亲近感更强。', scene: '陪伴、安抚、女性口播', example: '[gentle] 别着急，我们一步一步来。', keywords: ['温柔', '柔和', 'gentle'] },
+    { category: '情绪', label: '紧张', tag: '[nervous]', description: '带一点犹豫和不确定，适合剧情转折。', scene: '悬念、风险提示、故事对白', example: '[nervous] 我不确定这样做是否安全。', keywords: ['紧张', '担心', 'nervous'] },
+    { category: '情绪', label: '难过', tag: '[sad]', description: '降低情绪亮度，适合遗憾或共情表达。', scene: '道歉、故事、情绪短片', example: '[sad] 很抱歉，这次没有达到你的期待。', keywords: ['难过', '悲伤', 'sad'] },
+    { category: '情绪', label: '惊讶', tag: '[surprised]', description: '语气更有反应感，适合反转内容。', scene: '发现、对比、反转开头', example: '[surprised] 没想到这个方法真的有效。', keywords: ['惊讶', '意外', 'surprised'] },
+    { category: '情绪', label: '感谢', tag: '[grateful]', description: '语气真诚，适合表达认可。', scene: '致谢、结尾、用户回访', example: '[grateful] 感谢大家一直以来的支持。', keywords: ['感谢', '感恩', 'grateful'] },
+    { category: '情绪', label: '同理', tag: '[empathetic]', description: '更有理解和安抚感，适合服务话术。', scene: '客服、咨询、售后安抚', example: '[empathetic] 我理解你现在的困扰。', keywords: ['同理', '共情', '安抚', 'empathetic'] },
+    { category: '语气', label: '低语', tag: '[whispers softly]', description: '降低音量，制造私密和靠近感。', scene: '秘密、悬念、睡前内容', example: '[whispers softly] 接下来这个细节很重要。', keywords: ['低语', '悄悄', 'whisper', 'whispers'] },
+    { category: '语气', label: '柔和', tag: '[speaks softly]', description: '语气更轻，适合舒缓内容。', scene: '陪伴、引导、冥想', example: '[speaks softly] 慢慢呼吸，放松下来。', keywords: ['柔和', '轻声', 'softly'] },
+    { category: '语气', label: '正式', tag: '[speaks formally]', description: '表达更稳重，适合商务和公告。', scene: '企业介绍、通知、课程', example: '[speaks formally] 欢迎参加本次产品说明会。', keywords: ['正式', '商务', 'formally'] },
+    { category: '语气', label: '亲切', tag: '[speaks warmly]', description: '更自然亲近，适合建立好感。', scene: '欢迎语、口播开头、客服', example: '[speaks warmly] 大家好，很高兴又见面了。', keywords: ['亲切', '温暖', 'warmly'] },
+    { category: '语气', label: '急促', tag: '[speaks quickly]', description: '节奏更快，适合紧迫信息。', scene: '限时活动、倒计时、提醒', example: '[speaks quickly] 活动今晚十二点就结束。', keywords: ['急促', '快速', 'quickly'] },
+    { category: '语气', label: '强调', tag: '[emphasizes]', description: '增强重点感，适合突出关键词。', scene: '卖点、价格、注意事项', example: '[emphasizes] 重点是，它不需要复杂设置。', keywords: ['强调', '重点', 'emphasize', 'emphasizes'] },
+    { category: '音效', label: '笑', tag: '[laughing]', description: '加入明显笑意，让内容更轻松。', scene: '轻松开场、互动、幽默段落', example: '[laughing] 这个结果真的太有意思了。', keywords: ['笑', '大笑', 'laugh', 'laughing'] },
+    { category: '音效', label: '轻笑', tag: '[chuckles]', description: '轻微笑声，适合自然口播。', scene: '调侃、轻松解释、日常感', example: '[chuckles] 这个小技巧很多人都忽略了。', keywords: ['轻笑', '笑一下', 'chuckle', 'chuckles'] },
+    { category: '音效', label: '叹气', tag: '[sighs]', description: '加入叹息感，表达无奈或释然。', scene: '故事、情绪、问题说明', example: '[sighs] 事情一开始并不顺利。', keywords: ['叹气', '叹息', 'sigh', 'sighs'] },
+    { category: '音效', label: '停顿', tag: '[pause]', description: '短暂停顿，帮助信息分层。', scene: '转折、强调、分句', example: '先完成账号设置。[pause] 然后上传素材。', keywords: ['停顿', '暂停', 'pause'] },
+    { category: '音效', label: '长停顿', tag: '[long pause]', description: '更长的留白，适合情绪转场。', scene: '故事转折、重要结论、悬念', example: '答案其实很简单。[long pause] 先从需求开始。', keywords: ['长停顿', '长暂停', 'long pause'] },
+    { category: '场景', label: '直播开场', tag: '[speaks warmly and energetically]', description: '亲切又有活力，适合开头抓注意力。', scene: '直播、短视频开场、欢迎语', example: '[speaks warmly and energetically] 大家好，欢迎来到今天的直播间。', keywords: ['直播', '开场', '欢迎'] },
+    { category: '场景', label: '产品介绍', tag: '[confident and clear]', description: '清晰且有说服力，突出产品价值。', scene: '卖点讲解、品牌介绍、种草', example: '[confident and clear] 这款产品最大的优势是效率高。', keywords: ['产品', '介绍', '卖点'] },
+    { category: '场景', label: '客服安抚', tag: '[speaks empathetically]', description: '更有理解感，降低用户焦虑。', scene: '售后、客服、咨询', example: '[speaks empathetically] 我理解你的情况，我们马上帮你处理。', keywords: ['客服', '安抚', '售后'] },
+    { category: '场景', label: '故事旁白', tag: '[narrates calmly]', description: '稳定叙述感，适合讲故事。', scene: '剧情、科普、案例复盘', example: '[narrates calmly] 故事要从一个普通的下午说起。', keywords: ['故事', '旁白', '叙述'] },
+    { category: '场景', label: '限时促销', tag: '[urgent and excited]', description: '紧迫且有行动号召。', scene: '促销、倒计时、活动提醒', example: '[urgent and excited] 限时优惠马上结束，记得及时领取。', keywords: ['促销', '限时', '活动', 'urgent'] }
+]
 
 const selectedAvatar = computed(() => avatars.value.find((item) => item.id === form.avatar_id))
 const selectedVoice = computed(() => voices.value.find((item) => item.id === form.voice_id))
+const filteredEmotionOptions = computed(() => {
+    const keyword = emotionSearchKeyword.value.trim().toLowerCase()
+    return emotionOptions.filter((item) => {
+        const categoryMatched = item.category === activeEmotionCategory.value
+        if (!keyword) return categoryMatched
+        const haystack = [item.label, item.tag, item.description, item.scene, item.example, ...item.keywords].join(' ').toLowerCase()
+        return categoryMatched && haystack.includes(keyword)
+    })
+})
 const modelOptions = computed(() =>
     (optionConfig.value.channels || []).map((item: any) => ({
         label: item.label || item.description || '数字人视频模型',
@@ -449,6 +552,46 @@ const voiceDesc = (item: any, index: number) =>
 const fillScriptExample = () => {
     form.script_text =
         '大家好，欢迎了解我们的产品。它能帮助你快速完成内容创作，用数字人讲清楚重点，让短视频表达更自然、更高效。'
+}
+
+const handleScriptInput = (event: any) => {
+    const value = String(event?.detail?.value ?? form.script_text ?? '')
+    const match = value.match(/\/([^\s/\[\]]*)$/)
+    if (!match) {
+        emotionSearchKeyword.value = ''
+        return
+    }
+    emotionSearchKeyword.value = match[1] || ''
+    emotionTriggerRange.value = { start: value.length - match[0].length, end: value.length }
+    emotionPanelOpen.value = true
+}
+
+const openEmotionPanel = () => {
+    emotionSearchKeyword.value = ''
+    emotionTriggerRange.value = { start: form.script_text.length, end: form.script_text.length }
+    emotionPanelOpen.value = true
+}
+
+const closeEmotionPanel = () => {
+    emotionPanelOpen.value = false
+    emotionSearchKeyword.value = ''
+}
+
+const setEmotionCategory = (category: EmotionCategory) => {
+    activeEmotionCategory.value = category
+}
+
+const insertEmotionMarker = (item: EmotionOption) => {
+    const marker = `${item.tag} `
+    const range = emotionPanelOpen.value ? emotionTriggerRange.value : { start: form.script_text.length, end: form.script_text.length }
+    const nextValue = `${form.script_text.slice(0, range.start)}${marker}${form.script_text.slice(range.end)}`
+    if (Array.from(nextValue).length > 500) {
+        uni.$u.toast('文案长度已达上限')
+        return
+    }
+    form.script_text = nextValue
+    closeEmotionPanel()
+    uni.$u.toast('已插入情绪标记')
 }
 
 const pasteScript = () => {
@@ -1019,6 +1162,150 @@ watch(() => [form.channel, form.quality, form.ratio, form.script_text], refreshE
     border-radius: 999rpx;
     background: rgba(255, 255, 255, 0.08);
     color: rgba(255, 255, 255, 0.68);
+    font-size: 24rpx;
+}
+
+.emotion-mask {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    align-items: flex-end;
+    background: rgba(0, 0, 0, 0.58);
+}
+
+.emotion-sheet {
+    width: 100%;
+    max-height: 78vh;
+    padding: 18rpx 24rpx calc(24rpx + env(safe-area-inset-bottom));
+    border-radius: 28rpx 28rpx 0 0;
+    background: #101012;
+    box-shadow: 0 -20rpx 80rpx rgba(0, 0, 0, 0.42);
+}
+
+.emotion-sheet__handle {
+    width: 72rpx;
+    height: 8rpx;
+    margin: 0 auto 22rpx;
+    border-radius: 999rpx;
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.emotion-sheet__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20rpx;
+}
+
+.emotion-sheet__title {
+    color: #ffffff;
+    font-size: 30rpx;
+    font-weight: 900;
+}
+
+.emotion-sheet__sub {
+    margin-top: 8rpx;
+    color: rgba(255, 255, 255, 0.52);
+    font-size: 22rpx;
+    line-height: 1.5;
+}
+
+.emotion-sheet__head button {
+    flex: none;
+    height: 52rpx;
+    margin: 0;
+    padding: 0 22rpx;
+    border: 0;
+    border-radius: 999rpx;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 24rpx;
+}
+
+.emotion-tabs {
+    margin-top: 22rpx;
+    white-space: nowrap;
+}
+
+.emotion-tabs__inner {
+    display: flex;
+    gap: 14rpx;
+}
+
+.emotion-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 56rpx;
+    padding: 0 26rpx;
+    border-radius: 999rpx;
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.66);
+    font-size: 24rpx;
+}
+
+.emotion-tab.is-active {
+    background: #ffffff;
+    color: #050505;
+    font-weight: 800;
+}
+
+.emotion-list {
+    max-height: 52vh;
+    margin-top: 20rpx;
+}
+
+.emotion-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8rpx;
+    margin-bottom: 14rpx;
+    padding: 20rpx;
+    border: 1rpx solid rgba(255, 255, 255, 0.07);
+    border-radius: 16rpx;
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.emotion-item__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16rpx;
+}
+
+.emotion-item__label {
+    color: #ffffff;
+    font-size: 28rpx;
+    font-weight: 900;
+}
+
+.emotion-item__tag {
+    max-width: 360rpx;
+    overflow: hidden;
+    color: #ffffff;
+    font-size: 22rpx;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.emotion-item__desc,
+.emotion-item__scene {
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 23rpx;
+    line-height: 1.5;
+}
+
+.emotion-item__example {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 23rpx;
+    line-height: 1.5;
+}
+
+.emotion-empty {
+    padding: 40rpx 0;
+    color: rgba(255, 255, 255, 0.48);
+    text-align: center;
     font-size: 24rpx;
 }
 

@@ -2,10 +2,13 @@ import { getClient } from '~~/utils/env'
 
 // 登录
 export function login(params: any) {
-    return $request.post({
-        url: '/login/account',
-        body: { ...params, terminal: getClient() }
-    })
+    return $request.post(
+        {
+            url: '/login/account',
+            body: { ...params, terminal: getClient() }
+        },
+        { withToken: false }
+    )
 }
 // 登录
 export function logout() {
@@ -14,8 +17,11 @@ export function logout() {
 
 //注册
 export function register(params: any) {
-    return $request.post({
-        url: '/login/register',
-        params: { ...params, channel: getClient() }
-    })
+    return $request.post(
+        {
+            url: '/login/register',
+            params: { ...params, channel: getClient() }
+        },
+        { withToken: false }
+    )
 }

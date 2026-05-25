@@ -20,6 +20,7 @@ use app\common\cache\UserTokenCache;
 use app\common\service\JsonService;
 use app\api\service\UserTokenService;
 use think\facade\Config;
+use Throwable;
 
 class LoginMiddleware
 {
@@ -52,7 +53,15 @@ class LoginMiddleware
             return JsonService::fail('请求参数缺token', [], 0, 0);
         }
 
-        $userInfo = (new UserTokenCache())->getUserInfo($token);
+        $userInfo = false;
+        if (!empty($token)) {
+            try {
+                $userInfo = (new UserTokenCache())->getUserInfo($token);
+            } catch (Throwable $e) {
+                (new UserTokenCache())->deleteUserInfo($token);
+                $userInfo = false;
+            }
+        }
 
         if (empty($userInfo) && !$isNotNeedLogin) {
             //token过期无效并且该地址需要登录才能访问

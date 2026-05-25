@@ -47,5 +47,5 @@ export function userChangePwd(params: any) {
 
 //忘记密码
 export function forgotPassword(params: Record<string, any>) {
-    return $request.post({ url: '/user/resetPassword', params })
+    return $request.post({ url: '/user/resetPassword', params }, { withToken: false })
 }

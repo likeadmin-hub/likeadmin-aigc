@@ -17,7 +17,9 @@ function parseTenantIdFromPath(path = '') {
 }
 
 export function normalizeTenantPath(path = '') {
-    return path.replace(/^\/t\/\d+\/pc(?=\/|$)/, '') || '/'
+    return path
+        .replace(/^\/t\/\d+\/pc(?=\/|$)/, '')
+        .replace(/^\/pc(?=\/|$)/, '') || '/'
 }
 
 export function parseTenantIdFromRoute(route?: RouteLike) {

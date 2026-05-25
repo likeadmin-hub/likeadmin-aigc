@@ -329,10 +329,53 @@
                             </div>
                             <div class="script-box">
                                 <textarea
+                                    ref="scriptTextareaRef"
                                     v-model="scriptText"
                                     :maxlength="scriptMaxLength || undefined"
                                     :placeholder="scriptPlaceholderText"
+                                    @input="handleScriptInput"
+                                    @keydown="handleScriptKeydown"
+                                    @click="rememberScriptCaret"
+                                    @keyup="rememberScriptCaret"
                                 ></textarea>
+                                <div v-if="emotionPanelOpen" class="script-emotion-panel" @mousedown.prevent>
+                                    <div class="script-emotion-panel__head">
+                                        <strong>S2-Pro 情绪控制</strong>
+                                        <span>选择后插入方括号标记，可输入 /笑 /happy 快速筛选</span>
+                                    </div>
+                                    <div class="script-emotion-tabs">
+                                        <button
+                                            v-for="category in emotionCategories"
+                                            :key="category"
+                                            type="button"
+                                            :class="{ 'is-active': activeEmotionCategory === category }"
+                                            @mousedown.prevent="setEmotionCategory(category)"
+                                        >
+                                            {{ category }}
+                                        </button>
+                                    </div>
+                                    <div class="script-emotion-list">
+                                        <button
+                                            v-for="(item, index) in filteredEmotionOptions"
+                                            :key="item.tag"
+                                            type="button"
+                                            class="script-emotion-item"
+                                            :class="{ 'is-active': index === activeEmotionIndex }"
+                                            @mousedown.prevent="insertEmotionMarker(item)"
+                                        >
+                                            <span class="script-emotion-item__top">
+                                                <strong>{{ item.label }}</strong>
+                                                <code>{{ item.tag }}</code>
+                                            </span>
+                                            <span>{{ item.description }}</span>
+                                            <small>适合：{{ item.scene }}</small>
+                                            <em>{{ item.example }}</em>
+                                        </button>
+                                        <div v-if="!filteredEmotionOptions.length" class="script-emotion-empty">
+                                            未找到匹配的情绪控制
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="script-box__tools">
                                     <span class="script-box__translate-wrap" @click.stop>
                                         <button type="button" :disabled="!!scriptAssistLoading" @click="toggleTranslateMenu">
@@ -353,6 +396,10 @@
                                     <button type="button" :disabled="!!scriptAssistLoading" @click="runScriptAssist('copywrite')">
                                         <img :src="magicIcon" alt="" />
                                         <span>{{ scriptAssistLoading === 'copywrite' ? texts.processing : texts.aiCopy }}</span>
+                                    </button>
+                                    <button type="button" :disabled="!!scriptAssistLoading" @click="openEmotionPanelFromButton">
+                                        <span>/</span>
+                                        <span>情绪</span>
                                     </button>
                                 </div>
                                 <button class="script-box__clear" type="button" :aria-label="texts.clear" @click="scriptText = ''">
@@ -1290,6 +1337,17 @@ type VoiceCreateStep = 'idle' | 'recording' | 'sample_ready' | 'saving'
 type VoiceCreateSampleSource = '' | 'upload' | 'record'
 type VoiceLibraryCategory = string
 type ToolCategory = '\u5168\u90e8' | '\u56fe\u7247\u7f16\u8f91' | '\u7535\u5b50\u5546\u52a1' | '\u5efa\u7b51\u5ba4\u5185' | '\u4eba\u50cf\u6444\u5f71' | '\u6e38\u620f\u52a8\u6f2b' | '\u521b\u610f'
+type EmotionCategory = '情绪' | '语气' | '音效' | '场景'
+
+interface EmotionOption {
+    category: EmotionCategory
+    label: string
+    tag: string
+    description: string
+    scene: string
+    example: string
+    keywords: string[]
+}
 
 interface AvatarItem {
     id: string
@@ -1550,6 +1608,7 @@ const voiceCreateAudioInputRef = ref<HTMLInputElement | null>(null)
 const voicePreviewRef = ref<HTMLAudioElement | null>(null)
 const avatarModalVideoRef = ref<HTMLVideoElement | null>(null)
 const avatarMainRef = ref<HTMLElement | null>(null)
+const scriptTextareaRef = ref<HTMLTextAreaElement | null>(null)
 const activeSidebar = ref<SidebarKey>('avatar')
 const activeHumanMode = ref<HumanMode>(route.query.tab === 'image_human' ? 'image_human' : 'lip_sync')
 const activeContentPanel = ref<ContentPanel>('avatar')
@@ -1622,6 +1681,12 @@ const isDriverAudioPlaying = ref(false)
 const historyVoiceAudios = ref<HistoryVoiceAudioItem[]>([])
 const playingHistoryVoiceId = ref('')
 const translateMenuOpen = ref(false)
+const emotionPanelOpen = ref(false)
+const activeEmotionCategory = ref<EmotionCategory>('情绪')
+const activeEmotionIndex = ref(0)
+const emotionSearchKeyword = ref('')
+const scriptCaretPosition = ref(0)
+const emotionTriggerRange = ref({ start: 0, end: 0 })
 const createdBlobUrls = ref<string[]>([])
 let voiceCreateTimer: number | null = null
 let voiceCreateRecorder: MediaRecorder | null = null
@@ -1632,6 +1697,44 @@ let voiceCreatePreviewAudio: HTMLAudioElement | null = null
 let voiceTrimDrag: { startX: number; initialStart: number } | null = null
 
 const promptChips = ['\u77e5\u8bc6\u79d1\u666e', '\u4ea7\u54c1\u4ecb\u7ecd']
+const emotionCategories: EmotionCategory[] = ['情绪', '语气', '音效', '场景']
+const emotionOptions: EmotionOption[] = [
+    { category: '情绪', label: '开心', tag: '[happy]', description: '声音更明亮、积极，适合开场和好消息。', scene: '欢迎语、福利发布、轻松介绍', example: '[happy] 大家好，欢迎来到直播间。', keywords: ['开心', '高兴', 'happy', '快乐'] },
+    { category: '情绪', label: '兴奋', tag: '[excited]', description: '增强能量和感染力，适合突出亮点。', scene: '新品发布、活动通知、抽奖', example: '[excited] 今天给大家介绍一个非常实用的功能。', keywords: ['兴奋', '激动', 'excited'] },
+    { category: '情绪', label: '平静', tag: '[calm]', description: '语速更稳，听感克制清晰。', scene: '知识讲解、教程、说明', example: '[calm] 我们先来看第一步操作。', keywords: ['平静', '冷静', 'calm'] },
+    { category: '情绪', label: '自信', tag: '[confident]', description: '表达更坚定，适合建立信任。', scene: '销售转化、品牌介绍、观点输出', example: '[confident] 这套方案可以明显提升制作效率。', keywords: ['自信', '坚定', 'confident'] },
+    { category: '情绪', label: '温柔', tag: '[gentle]', description: '声音更柔和，亲近感更强。', scene: '陪伴、安抚、女性口播', example: '[gentle] 别着急，我们一步一步来。', keywords: ['温柔', '柔和', 'gentle'] },
+    { category: '情绪', label: '紧张', tag: '[nervous]', description: '带一点犹豫和不确定，适合剧情转折。', scene: '悬念、风险提示、故事对白', example: '[nervous] 我不确定这样做是否安全。', keywords: ['紧张', '担心', 'nervous'] },
+    { category: '情绪', label: '难过', tag: '[sad]', description: '降低情绪亮度，适合遗憾或共情表达。', scene: '道歉、故事、情绪短片', example: '[sad] 很抱歉，这次没有达到你的期待。', keywords: ['难过', '悲伤', 'sad'] },
+    { category: '情绪', label: '惊讶', tag: '[surprised]', description: '语气更有反应感，适合反转内容。', scene: '发现、对比、反转开头', example: '[surprised] 没想到这个方法真的有效。', keywords: ['惊讶', '意外', 'surprised'] },
+    { category: '情绪', label: '感谢', tag: '[grateful]', description: '语气真诚，适合表达认可。', scene: '致谢、结尾、用户回访', example: '[grateful] 感谢大家一直以来的支持。', keywords: ['感谢', '感恩', 'grateful'] },
+    { category: '情绪', label: '同理', tag: '[empathetic]', description: '更有理解和安抚感，适合服务话术。', scene: '客服、咨询、售后安抚', example: '[empathetic] 我理解你现在的困扰。', keywords: ['同理', '共情', '安抚', 'empathetic'] },
+    { category: '语气', label: '低语', tag: '[whispers softly]', description: '降低音量，制造私密和靠近感。', scene: '秘密、悬念、睡前内容', example: '[whispers softly] 接下来这个细节很重要。', keywords: ['低语', '悄悄', 'whisper', 'whispers'] },
+    { category: '语气', label: '柔和', tag: '[speaks softly]', description: '语气更轻，适合舒缓内容。', scene: '陪伴、引导、冥想', example: '[speaks softly] 慢慢呼吸，放松下来。', keywords: ['柔和', '轻声', 'softly'] },
+    { category: '语气', label: '正式', tag: '[speaks formally]', description: '表达更稳重，适合商务和公告。', scene: '企业介绍、通知、课程', example: '[speaks formally] 欢迎参加本次产品说明会。', keywords: ['正式', '商务', 'formally'] },
+    { category: '语气', label: '亲切', tag: '[speaks warmly]', description: '更自然亲近，适合建立好感。', scene: '欢迎语、口播开头、客服', example: '[speaks warmly] 大家好，很高兴又见面了。', keywords: ['亲切', '温暖', 'warmly'] },
+    { category: '语气', label: '急促', tag: '[speaks quickly]', description: '节奏更快，适合紧迫信息。', scene: '限时活动、倒计时、提醒', example: '[speaks quickly] 活动今晚十二点就结束。', keywords: ['急促', '快速', 'quickly'] },
+    { category: '语气', label: '强调', tag: '[emphasizes]', description: '增强重点感，适合突出关键词。', scene: '卖点、价格、注意事项', example: '[emphasizes] 重点是，它不需要复杂设置。', keywords: ['强调', '重点', 'emphasize', 'emphasizes'] },
+    { category: '音效', label: '笑', tag: '[laughing]', description: '加入明显笑意，让内容更轻松。', scene: '轻松开场、互动、幽默段落', example: '[laughing] 这个结果真的太有意思了。', keywords: ['笑', '大笑', 'laugh', 'laughing'] },
+    { category: '音效', label: '轻笑', tag: '[chuckles]', description: '轻微笑声，适合自然口播。', scene: '调侃、轻松解释、日常感', example: '[chuckles] 这个小技巧很多人都忽略了。', keywords: ['轻笑', '笑一下', 'chuckle', 'chuckles'] },
+    { category: '音效', label: '叹气', tag: '[sighs]', description: '加入叹息感，表达无奈或释然。', scene: '故事、情绪、问题说明', example: '[sighs] 事情一开始并不顺利。', keywords: ['叹气', '叹息', 'sigh', 'sighs'] },
+    { category: '音效', label: '停顿', tag: '[pause]', description: '短暂停顿，帮助信息分层。', scene: '转折、强调、分句', example: '先完成账号设置。[pause] 然后上传素材。', keywords: ['停顿', '暂停', 'pause'] },
+    { category: '音效', label: '长停顿', tag: '[long pause]', description: '更长的留白，适合情绪转场。', scene: '故事转折、重要结论、悬念', example: '答案其实很简单。[long pause] 先从需求开始。', keywords: ['长停顿', '长暂停', 'long pause'] },
+    { category: '场景', label: '直播开场', tag: '[speaks warmly and energetically]', description: '亲切又有活力，适合开头抓注意力。', scene: '直播、短视频开场、欢迎语', example: '[speaks warmly and energetically] 大家好，欢迎来到今天的直播间。', keywords: ['直播', '开场', '欢迎'] },
+    { category: '场景', label: '产品介绍', tag: '[confident and clear]', description: '清晰且有说服力，突出产品价值。', scene: '卖点讲解、品牌介绍、种草', example: '[confident and clear] 这款产品最大的优势是效率高。', keywords: ['产品', '介绍', '卖点'] },
+    { category: '场景', label: '客服安抚', tag: '[speaks empathetically]', description: '更有理解感，降低用户焦虑。', scene: '售后、客服、咨询', example: '[speaks empathetically] 我理解你的情况，我们马上帮你处理。', keywords: ['客服', '安抚', '售后'] },
+    { category: '场景', label: '故事旁白', tag: '[narrates calmly]', description: '稳定叙述感，适合讲故事。', scene: '剧情、科普、案例复盘', example: '[narrates calmly] 故事要从一个普通的下午说起。', keywords: ['故事', '旁白', '叙述'] },
+    { category: '场景', label: '限时促销', tag: '[urgent and excited]', description: '紧迫且有行动号召。', scene: '促销、倒计时、活动提醒', example: '[urgent and excited] 限时优惠马上结束，记得及时领取。', keywords: ['促销', '限时', '活动', 'urgent'] }
+]
+const filteredEmotionOptions = computed(() => {
+    const keyword = emotionSearchKeyword.value.trim().toLowerCase()
+    return emotionOptions.filter((item) => {
+        const categoryMatched = item.category === activeEmotionCategory.value
+        if (!keyword) return categoryMatched
+        const haystack = [item.label, item.tag, item.description, item.scene, item.example, ...item.keywords].join(' ').toLowerCase()
+        return categoryMatched && haystack.includes(keyword)
+    })
+})
 const translateLanguageOptions = [
     { label: '\u7b80\u4f53\u4e2d\u6587', value: '简体中文' },
     { label: 'English', value: 'English' },
@@ -2430,6 +2533,14 @@ const refreshVoiceLibraryData = async () => {
     }
 }
 
+const silentRequest = async <T,>(request: Promise<T>, fallback: T): Promise<T> => {
+    try {
+        return await request
+    } catch (_error) {
+        return fallback
+    }
+}
+
 const mapHistoryVoiceAudioRow = (row: any): HistoryVoiceAudioItem | null => {
     const remoteUri = String(row.tts_audio_uri || '')
     const url = normalizeAudioMediaUrl(row.tts_audio_url || remoteUri, row.id || row.task_id)
@@ -2555,29 +2666,46 @@ const refreshDigitalHumanEstimate = async () => {
 
 const loadDigitalHumanData = async () => {
     if (activeHumanMode.value === 'image_human') {
+        if (!userStore.isLogin) {
+            const [config, avatarRows, voiceRows] = await Promise.all([
+                silentRequest(getImageHumanConfig(), null),
+                silentRequest(getImageHumanAvatars({ source: 'official' }), []),
+                silentRequest(getImageHumanVoices({ source: 'official' }), [])
+            ])
+
+            syncImageHumanConfig(config)
+            officialAvatars.value = (avatarRows || []).map(mapAvatarRow).filter((item: AvatarItem) => item.source === 'official')
+            mineAvatars.value = []
+            syncVoiceLibraryRows(voiceRows || [])
+            latestResult.value = null
+            latestTask.value = null
+            historyVoiceAudios.value = []
+            estimateInfo.value = {}
+            syncDefaultSelections()
+            return
+        }
+
         const [config, avatarRows, voiceRows, resultRows, taskRows] = await Promise.all([
             getImageHumanConfig(),
-            getImageHumanAvatars(userStore.isLogin ? undefined : { source: 'official' }),
-            getImageHumanVoices(userStore.isLogin ? undefined : { source: 'official' }),
-            userStore.isLogin ? getImageHumanResults() : Promise.resolve([]),
-            userStore.isLogin ? getImageHumanTasks() : Promise.resolve([])
+            getImageHumanAvatars(),
+            getImageHumanVoices(),
+            getImageHumanResults(),
+            getImageHumanTasks()
         ])
 
         syncImageHumanConfig(config)
         const avatars = filterDeletedMineAvatars((avatarRows || []).map(mapAvatarRow))
         officialAvatars.value = avatars.filter((item: AvatarItem) => item.source === 'official')
-        mineAvatars.value = userStore.isLogin ? avatars.filter((item: AvatarItem) => item.source === 'mine') : []
+        mineAvatars.value = avatars.filter((item: AvatarItem) => item.source === 'mine')
 
         syncVoiceLibraryRows(voiceRows || [])
 
         latestResult.value = pickFirstResultWithVideo(resultRows || [])
         latestTask.value = (taskRows || [])[0] || latestTask.value
-        historyVoiceAudios.value = userStore.isLogin
-            ? (voiceRows || [])
-                .filter((row: any) => row?.source !== 'official')
-                .map(mapImageHumanVoiceToHistory)
-                .filter((item: HistoryVoiceAudioItem | null): item is HistoryVoiceAudioItem => !!item)
-            : []
+        historyVoiceAudios.value = (voiceRows || [])
+            .filter((row: any) => row?.source !== 'official')
+            .map(mapImageHumanVoiceToHistory)
+            .filter((item: HistoryVoiceAudioItem | null): item is HistoryVoiceAudioItem => !!item)
         syncDefaultSelections()
         await refreshDigitalHumanEstimate()
         return
@@ -2978,6 +3106,14 @@ watch(voiceCreateName, (value) => {
     if (normalized !== value) voiceCreateName.value = normalized
 })
 
+watch(filteredEmotionOptions, (options) => {
+    if (!options.length) {
+        activeEmotionIndex.value = 0
+        return
+    }
+    if (activeEmotionIndex.value >= options.length) activeEmotionIndex.value = options.length - 1
+})
+
 watch(
     [
         activeContentPanel,
@@ -3152,6 +3288,107 @@ const selectAvatar = (item: AvatarItem) => {
 const appendPrompt = (chip: string) => {
     if (scriptText.value.includes(chip)) return
     scriptText.value = `${scriptText.value}${scriptText.value ? '\uff0c' : ''}${chip}`
+}
+
+const rememberScriptCaret = () => {
+    const textarea = scriptTextareaRef.value
+    if (!textarea) return
+    scriptCaretPosition.value = textarea.selectionStart ?? scriptText.value.length
+}
+
+const syncEmotionTrigger = () => {
+    const textarea = scriptTextareaRef.value
+    const caret = textarea?.selectionStart ?? scriptCaretPosition.value
+    scriptCaretPosition.value = caret
+    const beforeCaret = scriptText.value.slice(0, caret)
+    const match = beforeCaret.match(/\/([^\s/\[\]]*)$/)
+    if (!match) {
+        emotionPanelOpen.value = false
+        emotionSearchKeyword.value = ''
+        return
+    }
+    emotionSearchKeyword.value = match[1] || ''
+    emotionTriggerRange.value = { start: caret - match[0].length, end: caret }
+    emotionPanelOpen.value = true
+    activeEmotionIndex.value = 0
+}
+
+const handleScriptInput = () => {
+    syncEmotionTrigger()
+}
+
+const setEmotionCategory = (category: EmotionCategory) => {
+    activeEmotionCategory.value = category
+    activeEmotionIndex.value = 0
+}
+
+const closeEmotionPanel = () => {
+    emotionPanelOpen.value = false
+    emotionSearchKeyword.value = ''
+}
+
+const openEmotionPanelFromButton = async () => {
+    const textarea = scriptTextareaRef.value
+    if (textarea) {
+        textarea.focus()
+        scriptCaretPosition.value = textarea.selectionStart ?? scriptText.value.length
+    }
+    const caret = scriptCaretPosition.value
+    emotionTriggerRange.value = { start: caret, end: caret }
+    emotionSearchKeyword.value = ''
+    activeEmotionIndex.value = 0
+    emotionPanelOpen.value = true
+    await nextTick()
+    scriptTextareaRef.value?.focus()
+}
+
+const insertEmotionMarker = async (item: EmotionOption) => {
+    const marker = `${item.tag} `
+    const maxLength = scriptMaxLength.value || 0
+    const range = emotionPanelOpen.value ? emotionTriggerRange.value : { start: scriptCaretPosition.value, end: scriptCaretPosition.value }
+    const nextValue = `${scriptText.value.slice(0, range.start)}${marker}${scriptText.value.slice(range.end)}`
+    if (maxLength && Array.from(nextValue).length > maxLength) {
+        feedback.msgError('文案长度已达上限')
+        return
+    }
+    scriptText.value = nextValue
+    closeEmotionPanel()
+    await nextTick()
+    const caret = range.start + marker.length
+    const textarea = scriptTextareaRef.value
+    if (textarea) {
+        textarea.focus()
+        textarea.setSelectionRange(caret, caret)
+    }
+    scriptCaretPosition.value = caret
+}
+
+const handleScriptKeydown = (event: KeyboardEvent) => {
+    if (!emotionPanelOpen.value) {
+        if (event.key === '/') {
+            requestAnimationFrame(syncEmotionTrigger)
+        }
+        return
+    }
+    if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        activeEmotionIndex.value = filteredEmotionOptions.value.length
+            ? (activeEmotionIndex.value + 1) % filteredEmotionOptions.value.length
+            : 0
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        activeEmotionIndex.value = filteredEmotionOptions.value.length
+            ? (activeEmotionIndex.value - 1 + filteredEmotionOptions.value.length) % filteredEmotionOptions.value.length
+            : 0
+    } else if (event.key === 'Enter') {
+        const item = filteredEmotionOptions.value[activeEmotionIndex.value]
+        if (!item) return
+        event.preventDefault()
+        void insertEmotionMarker(item)
+    } else if (event.key === 'Escape') {
+        event.preventDefault()
+        closeEmotionPanel()
+    }
 }
 
 const toggleTranslateMenu = () => {
@@ -7761,6 +7998,133 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+.script-emotion-panel {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 52px;
+    z-index: 12;
+    display: flex;
+    flex-direction: column;
+    max-height: 370px;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background: rgba(18, 18, 18, 0.98);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(14px);
+}
+
+.script-emotion-panel__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.script-emotion-panel__head strong {
+    flex: none;
+    color: #fff;
+    font-size: 14px;
+}
+
+.script-emotion-panel__head span {
+    color: rgba(255, 255, 255, 0.52);
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: right;
+}
+
+.script-emotion-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.script-emotion-tabs button {
+    height: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 12px;
+}
+
+.script-emotion-tabs button.is-active {
+    border-color: rgba(255, 255, 255, 0.8);
+    background: #fff;
+    color: #050505;
+}
+
+.script-emotion-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.script-emotion-item {
+    display: grid;
+    gap: 5px;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.82);
+    text-align: left;
+}
+
+.script-emotion-item.is-active,
+.script-emotion-item:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.script-emotion-item__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.script-emotion-item strong {
+    color: #fff;
+    font-size: 13px;
+}
+
+.script-emotion-item code {
+    flex: none;
+    max-width: 180px;
+    overflow: hidden;
+    color: #fff;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.script-emotion-item span,
+.script-emotion-item small,
+.script-emotion-item em {
+    color: rgba(255, 255, 255, 0.56);
+    font-size: 12px;
+    font-style: normal;
+    line-height: 1.45;
+}
+
+.script-emotion-item em {
+    color: rgba(255, 255, 255, 0.78);
+}
+
+.script-emotion-empty {
+    padding: 18px 0;
+    color: rgba(255, 255, 255, 0.48);
+    text-align: center;
+    font-size: 13px;
 }
 
 .script-box__translate-wrap {

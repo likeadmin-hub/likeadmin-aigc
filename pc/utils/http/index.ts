@@ -8,6 +8,22 @@ import { useUserStore } from '@/stores/user'
 import { usePcLoginGate } from '@/composables/usePcLoginGate'
 import { parseTenantIdFromRoute } from '../tenant'
 
+const SYSTEM_ERROR_PATTERNS = [
+    /unserialize\(\)/i,
+    /Error at offset/i,
+    /stack trace/i,
+    /SQLSTATE/i
+]
+
+const normalizeResponseMessage = (msg: any) => {
+    const text = typeof msg === 'string' ? msg : msg?.message
+    if (!text) return msg
+    if (SYSTEM_ERROR_PATTERNS.some((pattern) => pattern.test(text))) {
+        return '登录状态异常，请刷新页面后重新登录'
+    }
+    return text
+}
+
 export function createRequest(opt?: Partial<FetchOptions>) {
     const defaultOptions: FetchOptions = {
         // 基础接口地址
@@ -66,17 +82,18 @@ export function createRequest(opt?: Partial<FetchOptions>) {
                     return response._data
                 }
                 const { code, data, show, msg } = response._data
+                const normalizedMsg = normalizeResponseMessage(msg)
                 switch (code) {
                     case RequestCodeEnum.SUCCESS:
                         if (show) {
-                            msg && feedback.msgSuccess(msg)
+                            normalizedMsg && feedback.msgSuccess(normalizedMsg)
                         }
                         return data
                     case RequestCodeEnum.FAIL:
                         if (show && !suppressErrorMessage) {
-                            msg && feedback.msgError(msg)
+                            normalizedMsg && feedback.msgError(normalizedMsg)
                         }
-                        return Promise.reject(msg)
+                        return Promise.reject(normalizedMsg)
                     case RequestCodeEnum.LOGIN_FAILURE:
                         return Promise.reject(handlePcLoginFailure())
                     case RequestCodeEnum.NOT_INSTALL:
@@ -87,6 +104,12 @@ export function createRequest(opt?: Partial<FetchOptions>) {
                 }
             },
             responseInterceptorsCatchHook(err) {
+                if (typeof err === 'string') {
+                    return normalizeResponseMessage(err)
+                }
+                if (err?.data?.msg) {
+                    err.data.msg = normalizeResponseMessage(err.data.msg)
+                }
                 return err
             }
         }

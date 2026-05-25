@@ -21,6 +21,7 @@
         display: grid;
         grid-template-columns: 1.08fr 1fr;
         width: min(960px, calc(100vw - 48px));
+        max-height: calc(100dvh - 64px);
         min-height: 520px;
         border-radius: 6px;
         overflow: hidden;
@@ -210,7 +211,9 @@
     &__content {
         display: flex;
         flex-direction: column;
+        min-height: 0;
         padding: 36px 44px 40px;
+        overflow-y: auto;
         background: #fff;
     }
 
@@ -532,8 +535,9 @@
     .site-login-modal__panel {
         grid-template-columns: 440px 460px;
         width: min(900px, calc(100vw - 48px));
-        height: min(680px, calc(100vh - 80px));
-        min-height: 560px;
+        height: min(680px, calc(100dvh - 80px));
+        min-height: min(560px, calc(100dvh - 80px));
+        max-height: calc(100dvh - 80px);
         border: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 14px;
         overflow: hidden;
@@ -728,13 +732,13 @@
     }
 
     .site-login-modal__fields {
-        flex: 1 1 auto;
+        flex: 0 0 auto;
         min-height: 0;
         overflow: visible;
     }
 
     .site-login-modal__register--signup .site-login-modal__fields {
-        transform: translateY(-24px);
+        transform: none;
     }
 
     .site-login-modal__field {
@@ -880,7 +884,7 @@
         &__panel {
             grid-template-columns: 1fr;
             min-height: unset;
-            max-height: calc(100vh - 40px);
+            max-height: calc(100dvh - 40px);
             overflow: auto;
         }
 
@@ -906,6 +910,10 @@
         .site-login-modal__panel {
             grid-template-columns: 1fr;
             width: min(520px, calc(100vw - 32px));
+            height: auto;
+            max-height: calc(100dvh - 40px);
+            min-height: 0;
+            overflow-y: auto;
         }
 
         .site-login-modal__hero {
@@ -918,7 +926,9 @@
         }
 
         .site-login-modal__content {
+            height: auto;
             padding: 34px 28px 32px;
+            overflow: visible;
         }
     }
 }
@@ -941,6 +951,22 @@
             gap: 18px;
         }
 
+        &__input--code {
+            align-items: stretch;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 8px 10px;
+
+            input {
+                min-width: 150px;
+            }
+        }
+
+        &__code-btn {
+            flex: 1 0 96px;
+            min-width: 96px;
+        }
+
         &__wechat-box {
             width: 200px;
             height: 200px;
@@ -949,6 +975,133 @@
         &__wechat-qr {
             width: 170px;
             height: 170px;
+        }
+    }
+
+    .site-login-modal--video {
+        .site-login-modal__panel {
+            width: 100%;
+            max-height: calc(100dvh - 24px);
+            border-radius: 12px;
+        }
+
+        .site-login-modal__hero {
+            min-height: 160px;
+        }
+
+        .site-login-modal__video-media {
+            min-height: 160px;
+            max-height: 180px;
+        }
+
+        .site-login-modal__video-overlay {
+            gap: 6px;
+            padding: 20px;
+
+            strong {
+                font-size: 20px;
+            }
+
+            p {
+                font-size: 12px;
+            }
+        }
+
+        .site-login-modal__content {
+            padding: 26px 18px 24px;
+        }
+
+        .site-login-modal__content-head {
+            margin-bottom: 16px;
+
+            &::before {
+                height: 26px;
+                margin-bottom: 6px;
+                font-size: 12px;
+            }
+        }
+
+        .site-login-modal__content-title {
+            font-size: 22px;
+        }
+    }
+}
+
+@media (max-height: 760px) and (min-width: 901px) {
+    .site-login-modal {
+        padding-top: 20px;
+        padding-bottom: 20px;
+    }
+
+    .site-login-modal--video {
+        .site-login-modal__panel {
+            height: calc(100dvh - 56px);
+            min-height: 0;
+        }
+
+        .site-login-modal__close {
+            top: 12px;
+            right: 12px;
+        }
+
+        .site-login-modal__content {
+            padding: 30px 40px 28px;
+        }
+
+        .site-login-modal__content-head {
+            margin-bottom: 16px;
+
+            &::before {
+                height: 26px;
+                margin-bottom: 4px;
+            }
+        }
+
+        .site-login-modal__content-title {
+            font-size: 22px;
+        }
+
+        .site-login-modal__content-sub {
+            line-height: 1.5;
+        }
+
+        .site-login-modal__form,
+        .site-login-modal__wechat-pane,
+        .site-login-modal__register {
+            padding-top: 16px;
+        }
+
+        .site-login-modal__field {
+            margin-top: 12px;
+        }
+
+        .site-login-modal__input {
+            min-height: 44px;
+
+            input {
+                height: 42px;
+            }
+        }
+
+        .site-login-modal__code-btn {
+            height: 36px;
+        }
+
+        .site-login-modal__form-footer {
+            padding-top: 18px;
+        }
+
+        .site-login-modal__submit {
+            height: 46px;
+        }
+
+        .site-login-modal__agreement {
+            margin-top: 12px;
+            line-height: 1.5;
+        }
+
+        .site-login-modal__bottom-switch {
+            margin-top: 12px;
         }
     }
 }

@@ -18,6 +18,7 @@ namespace app\common\cache;
 
 use think\App;
 use think\Cache;
+use Throwable;
 
 /**
  * 缓存基础类，用于管理缓存
@@ -51,6 +52,29 @@ abstract class BaseCache extends Cache
     public function set($key, $value, $ttl = null): bool
     {
         return $this->store()->tag($this->tagName)->set($key, $value, $ttl);
+    }
+
+
+    /**
+     * @notes 读取缓存，遇到损坏的序列化缓存时自动清理，避免底层诊断信息暴露给用户
+     * @param string $key
+     * @param mixed|null $default
+     * @return mixed
+     * @author Codex
+     * @date 2026/05/25
+     */
+    public function get($key, mixed $default = null): mixed
+    {
+        try {
+            return parent::get($key, $default);
+        } catch (Throwable $e) {
+            try {
+                $this->delete((string)$key);
+            } catch (Throwable $deleteException) {
+                // Ignore cleanup failure and let caller rebuild or use default value.
+            }
+            return $default;
+        }
     }
 
 
