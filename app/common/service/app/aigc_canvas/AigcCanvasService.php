@@ -12,6 +12,7 @@ use app\common\service\FileService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\app\aigc_llm\AigcLlmService;
+use app\common\service\app\aigc_video\AigcVideoReferenceAssetService;
 use app\common\service\app\aigc_video\AigcVideoService;
 use Exception;
 use think\facade\Db;
@@ -585,10 +586,14 @@ class AigcCanvasService
     private static function normalizeVideoParams(array $params, int $tenantId, int $userId): array
     {
         $referenceImages = self::normalizeReferenceImages($params, $tenantId, $userId);
+        $referenceAssets = AigcVideoReferenceAssetService::normalize(array_merge($params, [
+            'reference_images' => $referenceImages,
+        ]));
         return [
             'prompt' => trim((string)($params['prompt'] ?? '')),
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
             'reference_images' => $referenceImages,
+            'reference_assets' => $referenceAssets,
             'style' => (string)($params['style'] ?? 'general'),
             'channel' => (string)($params['channel'] ?? $params['model'] ?? ''),
             'quality' => (string)($params['quality'] ?? $params['duration'] ?? $params['seconds'] ?? ''),

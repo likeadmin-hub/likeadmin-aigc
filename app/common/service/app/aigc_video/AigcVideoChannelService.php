@@ -21,6 +21,7 @@ class AigcVideoChannelService
             'defaults' => $defaults,
             'quantity_options' => self::quantityOptions($channels),
             'max_reference_images' => self::maxReferenceImages($channels),
+            'max_reference_assets' => self::maxReferenceAssets($channels),
         ];
     }
 
@@ -308,6 +309,7 @@ class AigcVideoChannelService
             if ($onlyEnabled && !$status) {
                 continue;
             }
+            $config = self::normalizeJson($platformChannel['config_json'] ?? []);
             $channel = [
                 'id' => (int)$platformChannel['id'],
                 'tenant_override_id' => (int)($override['id'] ?? 0),
@@ -322,8 +324,14 @@ class AigcVideoChannelService
                 'platform_status' => (int)$platformChannel['status'],
                 'tenant_status' => (int)($override['status'] ?? 1),
                 'sort' => (int)($override['sort'] ?? $platformChannel['sort']),
-                'config_json' => $platformChannel['config_json'] ?? [],
+                'config_json' => $config,
                 'quantity_options' => self::channelQuantityOptions($platformChannel),
+                'duration_options' => self::channelDurationOptions($config),
+                'videoedit_duration_options' => self::channelVideoEditDurationOptions($config),
+                'supported_asset_types' => self::supportedAssetTypes($config),
+                'max_reference_videos' => max(0, (int)($config['max_reference_videos'] ?? 0)),
+                'max_reference_audios' => max(0, (int)($config['max_reference_audios'] ?? 0)),
+                'max_reference_assets' => max(0, (int)($config['max_reference_assets'] ?? 0)),
                 'qualities' => [],
                 'specs' => [],
             ];
@@ -354,17 +362,29 @@ class AigcVideoChannelService
                 ];
                 $spec = array_merge($spec, self::specPresentation($platformSpec));
                 $channel['specs'][] = $spec;
-                $qualityKey = $spec['quality'];
+                $dynamicDuration = !empty($channel['duration_options']);
+                $qualityKey = $dynamicDuration
+                    ? strtolower($spec['resolution'] ?: $spec['quality'])
+                    : $spec['quality'];
                 if (!isset($channel['qualities'][$qualityKey])) {
                     $channel['qualities'][$qualityKey] = [
-                        'value' => $qualityKey,
-                        'label' => $spec['quality_label'],
+                        'value' => $spec['quality'],
+                        'label' => $dynamicDuration ? ($spec['resolution'] ?: $spec['quality_label']) : $spec['quality_label'],
                         'resolution' => $spec['resolution'],
-                        'duration' => $spec['duration'],
+                        'duration' => $dynamicDuration ? '' : $spec['duration'],
                         'ratios' => [],
                     ];
                 }
-                $channel['qualities'][$qualityKey]['ratios'][] = $spec;
+                $ratioExists = false;
+                foreach ($channel['qualities'][$qualityKey]['ratios'] as $existingRatio) {
+                    if (($existingRatio['value'] ?? '') === $spec['value']) {
+                        $ratioExists = true;
+                        break;
+                    }
+                }
+                if (!$ratioExists) {
+                    $channel['qualities'][$qualityKey]['ratios'][] = $spec;
+                }
             }
             $channel['qualities'] = array_values($channel['qualities']);
             if (!$onlyEnabled || !empty($channel['qualities'])) {
@@ -420,6 +440,7 @@ class AigcVideoChannelService
             'channel' => $channel['code'] ?? '',
             'quality' => $quality['value'] ?? '',
             'ratio' => $ratio['ratio'] ?? '',
+            'duration' => $channel['duration_options'][0] ?? 0,
             'quantity' => 1,
         ];
     }
@@ -431,6 +452,34 @@ class AigcVideoChannelService
             $max = min($max, max(0, (int)$channel['max_reference_images']));
         }
         return $max;
+    }
+
+    private static function maxReferenceAssets(array $channels): int
+    {
+        $max = self::DEFAULT_REFERENCE_LIMIT;
+        foreach ($channels as $channel) {
+            $channelMax = (int)($channel['max_reference_assets'] ?? 0);
+            if ($channelMax <= 0) {
+                $channelMax = (int)$channel['max_reference_images']
+                    + (int)($channel['max_reference_videos'] ?? 0)
+                    + (int)($channel['max_reference_audios'] ?? 0);
+            }
+            $max = min($max, max(0, $channelMax));
+        }
+        return $max;
+    }
+
+    private static function supportedAssetTypes(array $config): array
+    {
+        $types = $config['supported_asset_types'] ?? ['image'];
+        if (!is_array($types)) {
+            $types = ['image'];
+        }
+        $types = array_values(array_unique(array_filter(array_map(static function ($type) {
+            $type = strtolower(trim((string)$type));
+            return in_array($type, ['image', 'video', 'audio'], true) ? $type : '';
+        }, $types))));
+        return $types ?: ['image'];
     }
 
     private static function quantityOptions(array $channels): array
@@ -454,6 +503,26 @@ class AigcVideoChannelService
         return self::QUANTITY_OPTIONS;
     }
 
+    private static function channelDurationOptions(array $config): array
+    {
+        if (!empty($config['duration_options']) && is_array($config['duration_options'])) {
+            $options = array_values(array_unique(array_filter(array_map('intval', $config['duration_options']))));
+            sort($options);
+            return $options ?: [5];
+        }
+        return [5];
+    }
+
+    private static function channelVideoEditDurationOptions(array $config): array
+    {
+        if (!empty($config['videoedit_duration_options']) && is_array($config['videoedit_duration_options'])) {
+            $options = array_values(array_unique(array_filter(array_map('intval', $config['videoedit_duration_options']))));
+            sort($options);
+            return $options;
+        }
+        return [];
+    }
+
     public static function normalizeQuantity($quantity): int
     {
         $quantity = (int)$quantity;
@@ -469,6 +538,39 @@ class AigcVideoChannelService
         if (!in_array($quantity, array_map('intval', $options), true)) {
             throw new Exception('当前通道不支持该生成数量');
         }
+    }
+
+    public static function normalizeGenerateDuration(array $channel, array $assets, $duration = null): int
+    {
+        $options = self::durationOptionsForAssets($channel, $assets);
+        $value = (int)($duration ?? 0);
+        if ($value <= 0) {
+            return $options[0] ?? 5;
+        }
+        if (!in_array($value, $options, true)) {
+            $min = $options[0] ?? 0;
+            $max = $options ? $options[count($options) - 1] : 0;
+            $message = $min === $max ? "{$min}秒" : "{$min}-{$max}秒";
+            throw new Exception('当前通道不支持该视频时长，请选择' . $message);
+        }
+        return $value;
+    }
+
+    public static function durationOptionsForAssets(array $channel, array $assets = []): array
+    {
+        $hasVideo = false;
+        foreach ($assets as $asset) {
+            if (($asset['type'] ?? '') === 'video') {
+                $hasVideo = true;
+                break;
+            }
+        }
+        $options = $hasVideo && !empty($channel['videoedit_duration_options'])
+            ? $channel['videoedit_duration_options']
+            : ($channel['duration_options'] ?? []);
+        $options = array_values(array_unique(array_filter(array_map('intval', (array)$options))));
+        sort($options);
+        return $options ?: [5];
     }
 
     private static function assertPlatformChannel(string $code): array
