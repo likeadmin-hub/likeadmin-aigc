@@ -1,7 +1,7 @@
 <?php
 return [
     // 系统版本号
-    'version' => '1.0.47',
+    'version' => '1.0.48',
     'project_name' => 'Likeadmin-SaaS版',
 
     // 官网
