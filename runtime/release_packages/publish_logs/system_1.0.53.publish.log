@@ -1,0 +1,231 @@
+{
+  "uploadZip": {
+    "code": 1,
+    "msg": "success",
+    "data": {
+      "path": "uploads/aigc_packages/20260526/023511_f98d6ea1a2.zip",
+      "url": "https://platform-xhadmin-cn.oss-cn-beijing.aliyuncs.com/uploads/aigc_packages/20260526/023511_f98d6ea1a2.zip",
+      "download_url": "https://platform-xhadmin-cn.oss-cn-beijing.aliyuncs.com/uploads/aigc_packages/20260526/023511_f98d6ea1a2.zip",
+      "format": "zip",
+      "sha256": "1d113eda09286aa4adeeeece2893b2097bbca77930981b671472b215b278eb3f",
+      "size": 22995679,
+      "name": "system_1.0.53.zip",
+      "inspection": {
+        "files_count": 624,
+        "has_signature": true
+      }
+    },
+    "request_id": "priv_202605260235113e357ffb74",
+    "server_time": 1779734150
+  },
+  "uploadTar": {
+    "code": 1,
+    "msg": "success",
+    "data": {
+      "path": "uploads/aigc_packages/20260526/023553_cfa475c7fe.tar.gz",
+      "url": "https://platform-xhadmin-cn.oss-cn-beijing.aliyuncs.com/uploads/aigc_packages/20260526/023553_cfa475c7fe.tar.gz",
+      "download_url": "https://platform-xhadmin-cn.oss-cn-beijing.aliyuncs.com/uploads/aigc_packages/20260526/023553_cfa475c7fe.tar.gz",
+      "format": "tar.gz",
+      "sha256": "1696f235fc7f7328cc429360943e802662dfc47b39de32b4d56bff1c525bc104",
+      "size": 22882997,
+      "name": "system_1.0.53.tar.gz",
+      "inspection": {
+        "files_count": 1355,
+        "has_signature": true
+      }
+    },
+    "request_id": "priv_202605260235533340967c28",
+    "server_time": 1779734192
+  },
+  "publish": {
+    "code": 1,
+    "msg": "success",
+    "data": {
+      "item": {
+        "id": 43,
+        "product_code": "likeadmin_aigc_saas",
+        "version": "1.0.53",
+        "title": "系统发布版本 1.0.53",
+        "summary": "接入 Wan、Seedance、Omni-Flash-Ext 视频生成通道，支持 Seedance 多类型参考素材和全端视频生成入口。",
+        "require_core": ">=1.0.0 <2.0.0",
+        "update_type": "patch",
+        "force": 0,
+        "release_time": 1779733527,
+        "changelog": [
+          "新增 Wan、Seedance、Omni-Flash-Ext 视频生成通道及默认规格，支持 Xhadmin 统一服务接口。",
+          "Seedance 支持图片、视频、音频参考素材先上传为 asset:// 素材 ID 后再创建任务，并校验素材数量和组合。",
+          "统一视频生成请求新增 reference_assets 与 duration，兼容旧 reference_images，并记录到任务用于重试和重复提交判断。",
+          "PC 视频页、AI 创作台、UniApp 视频页和无限画布视频节点支持参考素材与生成时长传参。",
+          "刷新 PC/H5 构建产物，发布完整 public/pc、public/_nuxt、public/mobile 和 public/media。"
+        ],
+        "manifest": {
+          "title": "系统发布版本 1.0.53",
+          "summary": "接入 Wan、Seedance、Omni-Flash-Ext 视频生成通道，支持 Seedance 多类型参考素材和全端视频生成入口。",
+          "version": "1.0.53",
+          "changelog": [
+            "新增 Wan、Seedance、Omni-Flash-Ext 视频生成通道及默认规格，支持 Xhadmin 统一服务接口。",
+            "Seedance 支持图片、视频、音频参考素材先上传为 asset:// 素材 ID 后再创建任务，并校验素材数量和组合。",
+            "统一视频生成请求新增 reference_assets 与 duration，兼容旧 reference_images，并记录到任务用于重试和重复提交判断。",
+            "PC 视频页、AI 创作台、UniApp 视频页和无限画布视频节点支持参考素材与生成时长传参。",
+            "刷新 PC/H5 构建产物，发布完整 public/pc、public/_nuxt、public/mobile 和 public/media。"
+          ],
+          "sql_order": [
+            "sql/structure/20260509_tenant_access_mode.sql",
+            "sql/structure/20260518_package_management_repair.sql",
+            "sql/structure/20260520_tenant_local_storage_switch.sql",
+            "sql/structure/20260521_copyright_company.sql",
+            "sql/structure/20260522_happy_horse_submit_path.sql",
+            "sql/structure/20260525_xhadmin_video_apps.sql"
+          ],
+          "released_at": 1779733527,
+          "update_type": "patch",
+          "base_version": "1.0.0",
+          "delete_files": [],
+          "package_mode": "incremental",
+          "product_code": "likeadmin_aigc_saas",
+          "require_core": ">=1.0.0 <2.0.0",
+          "target_version": "1.0.53",
+          "full_replace_dirs": [
+            "public/pc",
+            "public/_nuxt",
+            "public/mobile",
+            "public/media"
+          ],
+          "included_versions": [
+            "1.0.31",
+            "1.0.35",
+            "1.0.38",
+            "1.0.39",
+            "1.0.40",
+            "1.0.41",
+            "1.0.42",
+            "1.0.43",
+            "1.0.44",
+            "1.0.45",
+            "1.0.46",
+            "1.0.47",
+            "1.0.48",
+            "1.0.49",
+            "1.0.50",
+            "1.0.51",
+            "1.0.52",
+            "1.0.53"
+          ]
+        },
+        "package_path": "uploads/aigc_packages/20260526/023511_f98d6ea1a2.zip",
+        "package_format": "zip",
+        "sha256": "1d113eda09286aa4adeeeece2893b2097bbca77930981b671472b215b278eb3f",
+        "package_size": 22995679,
+        "fallback_package_path": "uploads/aigc_packages/20260526/023553_cfa475c7fe.tar.gz",
+        "fallback_package_format": "tar.gz",
+        "fallback_sha256": "1696f235fc7f7328cc429360943e802662dfc47b39de32b4d56bff1c525bc104",
+        "fallback_package_size": 22882997,
+        "publisher_id": 0,
+        "status": 1,
+        "create_time": "2026-05-26 02:36:32",
+        "update_time": "2026-05-26 02:36:32",
+        "delete_time": null
+      }
+    },
+    "request_id": "priv_2026052602363263ca799941",
+    "server_time": 1779734192
+  },
+  "list": {
+    "code": 1,
+    "msg": "success",
+    "data": {
+      "lists": [
+        {
+          "id": 43,
+          "product_code": "likeadmin_aigc_saas",
+          "version": "1.0.53",
+          "title": "系统发布版本 1.0.53",
+          "summary": "接入 Wan、Seedance、Omni-Flash-Ext 视频生成通道，支持 Seedance 多类型参考素材和全端视频生成入口。",
+          "require_core": ">=1.0.0 <2.0.0",
+          "update_type": "patch",
+          "force": 0,
+          "release_time": 1779733527,
+          "changelog": [
+            "新增 Wan、Seedance、Omni-Flash-Ext 视频生成通道及默认规格，支持 Xhadmin 统一服务接口。",
+            "Seedance 支持图片、视频、音频参考素材先上传为 asset:// 素材 ID 后再创建任务，并校验素材数量和组合。",
+            "统一视频生成请求新增 reference_assets 与 duration，兼容旧 reference_images，并记录到任务用于重试和重复提交判断。",
+            "PC 视频页、AI 创作台、UniApp 视频页和无限画布视频节点支持参考素材与生成时长传参。",
+            "刷新 PC/H5 构建产物，发布完整 public/pc、public/_nuxt、public/mobile 和 public/media。"
+          ],
+          "manifest": {
+            "title": "系统发布版本 1.0.53",
+            "summary": "接入 Wan、Seedance、Omni-Flash-Ext 视频生成通道，支持 Seedance 多类型参考素材和全端视频生成入口。",
+            "version": "1.0.53",
+            "changelog": [
+              "新增 Wan、Seedance、Omni-Flash-Ext 视频生成通道及默认规格，支持 Xhadmin 统一服务接口。",
+              "Seedance 支持图片、视频、音频参考素材先上传为 asset:// 素材 ID 后再创建任务，并校验素材数量和组合。",
+              "统一视频生成请求新增 reference_assets 与 duration，兼容旧 reference_images，并记录到任务用于重试和重复提交判断。",
+              "PC 视频页、AI 创作台、UniApp 视频页和无限画布视频节点支持参考素材与生成时长传参。",
+              "刷新 PC/H5 构建产物，发布完整 public/pc、public/_nuxt、public/mobile 和 public/media。"
+            ],
+            "sql_order": [
+              "sql/structure/20260509_tenant_access_mode.sql",
+              "sql/structure/20260518_package_management_repair.sql",
+              "sql/structure/20260520_tenant_local_storage_switch.sql",
+              "sql/structure/20260521_copyright_company.sql",
+              "sql/structure/20260522_happy_horse_submit_path.sql",
+              "sql/structure/20260525_xhadmin_video_apps.sql"
+            ],
+            "released_at": 1779733527,
+            "update_type": "patch",
+            "base_version": "1.0.0",
+            "delete_files": [],
+            "package_mode": "incremental",
+            "product_code": "likeadmin_aigc_saas",
+            "require_core": ">=1.0.0 <2.0.0",
+            "target_version": "1.0.53",
+            "full_replace_dirs": [
+              "public/pc",
+              "public/_nuxt",
+              "public/mobile",
+              "public/media"
+            ],
+            "included_versions": [
+              "1.0.31",
+              "1.0.35",
+              "1.0.38",
+              "1.0.39",
+              "1.0.40",
+              "1.0.41",
+              "1.0.42",
+              "1.0.43",
+              "1.0.44",
+              "1.0.45",
+              "1.0.46",
+              "1.0.47",
+              "1.0.48",
+              "1.0.49",
+              "1.0.50",
+              "1.0.51",
+              "1.0.52",
+              "1.0.53"
+            ]
+          },
+          "package_path": "uploads/aigc_packages/20260526/023511_f98d6ea1a2.zip",
+          "package_format": "zip",
+          "sha256": "1d113eda09286aa4adeeeece2893b2097bbca77930981b671472b215b278eb3f",
+          "package_size": 22995679,
+          "fallback_package_path": "uploads/aigc_packages/20260526/023553_cfa475c7fe.tar.gz",
+          "fallback_package_format": "tar.gz",
+          "fallback_sha256": "1696f235fc7f7328cc429360943e802662dfc47b39de32b4d56bff1c525bc104",
+          "fallback_package_size": 22882997,
+          "publisher_id": 0,
+          "status": 1,
+          "create_time": "2026-05-26 02:36:32",
+          "update_time": "2026-05-26 02:36:32",
+          "delete_time": null
+        }
+      ],
+      "count": 1,
+      "page_no": 1,
+      "page_size": 5
+    },
+    "request_id": "priv_202605260236332875d598fb",
+    "server_time": 1779734193
+  }
+}
