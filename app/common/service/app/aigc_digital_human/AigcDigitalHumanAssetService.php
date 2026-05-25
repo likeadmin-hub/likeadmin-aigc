@@ -128,7 +128,7 @@ class AigcDigitalHumanAssetService
         ];
     }
 
-    private static function uploadLocalFile(string $filePath, int $tenantId, int $userId, string $kind = 'image'): array
+    public static function uploadLocalFile(string $filePath, int $tenantId, int $userId, string $kind = 'image'): array
     {
         $config = StorageConfigService::getEffectiveConfig($tenantId);
         $saveDir = 'uploads/aigc_digital_human/' . date('Ymd');

@@ -12,6 +12,7 @@ class AigcVideoGenerateRequest
     public string $ratio;
     public int $quantity;
     public array $referenceImages;
+    public array $referenceAssets;
     public array $spec;
     public array $providerParams;
     public array $channelConfig;
@@ -25,6 +26,7 @@ class AigcVideoGenerateRequest
         string $ratio = '16:9',
         int $quantity = 1,
         array $referenceImages = [],
+        array $referenceAssets = [],
         array $spec = [],
         array $providerParams = [],
         array $channelConfig = []
@@ -37,6 +39,7 @@ class AigcVideoGenerateRequest
         $this->ratio = $ratio;
         $this->quantity = $quantity;
         $this->referenceImages = $referenceImages;
+        $this->referenceAssets = $referenceAssets;
         $this->spec = $spec;
         $this->providerParams = $providerParams;
         $this->channelConfig = $channelConfig;

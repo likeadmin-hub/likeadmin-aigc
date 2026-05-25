@@ -97,8 +97,11 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
         return [
             'api_key' => $apiKey,
             'model' => (string)($config['model'] ?? $request->providerParams['model'] ?? 'grok-video'),
+            'app_code' => (string)($config['app_code'] ?? $request->channel),
             'submit_url' => $baseUrl . '/' . ltrim($submitPath, '/'),
             'task_url_template' => $baseUrl . '/' . ltrim($taskPath, '/'),
+            'asset_group_url' => $baseUrl . '/' . ltrim((string)($config['asset_group_path'] ?? '/api/v1/apps/seedance/createGroup'), '/'),
+            'asset_create_url' => $baseUrl . '/' . ltrim((string)($config['asset_create_path'] ?? '/api/v1/apps/seedance/createAsset'), '/'),
             'timeout' => max(5, (int)($config['timeout'] ?? 30)),
             'poll_interval' => max(1, (int)($config['poll_interval'] ?? 2)),
             'poll_attempts' => max(0, (int)($config['poll_attempts'] ?? 30)),
@@ -107,6 +110,9 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
             'user_id' => (int)($config['user_id'] ?? 0),
             'ssl_verify' => UpdateSourceClient::sslVerify($source),
             'extra_payload' => is_array($config['extra_payload'] ?? null) ? $config['extra_payload'] : [],
+            'project_name' => (string)($config['project_name'] ?? 'default'),
+            'group_type' => (string)($config['group_type'] ?? 'AIGC'),
+            'seedance_asset_id_key' => (string)($config['seedance_asset_id_key'] ?? 'asset_id'),
         ];
     }
 
@@ -128,7 +134,17 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
 
     private function buildPayload(AigcVideoGenerateRequest $request, array $config): array
     {
-        return array_filter(array_merge([
+        $appCode = (string)($config['app_code'] ?? '');
+        if ($appCode === 'seedance') {
+            return $this->buildSeedancePayload($request, $config);
+        }
+        if ($appCode === 'wan') {
+            return $this->buildWanPayload($request, $config);
+        }
+        if ($appCode === 'omni_flash_ext') {
+            return $this->buildOmniFlashExtPayload($request, $config);
+        }
+        return $this->filterPayload(array_merge([
             'model' => $request->providerParams['model'] ?? $config['model'],
             'n' => 1,
             'prompt' => $request->prompt,
@@ -138,7 +154,199 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
             'aspect_ratio' => $request->providerParams['aspect_ratio'] ?? $request->ratio,
             'duration' => (int)($request->providerParams['duration'] ?? ($request->quality ?: 6)),
             'negative_prompt' => $request->negativePrompt ?: null,
-        ], $config['extra_payload']), static fn($value) => $value !== null && $value !== '' && $value !== []);
+        ], $config['extra_payload']));
+    }
+
+    private function buildWanPayload(AigcVideoGenerateRequest $request, array $config): array
+    {
+        $assets = $this->groupReferenceAssetUrls($request->referenceAssets);
+        $imageUrls = $assets['image'] ?: $this->normalizeReferenceImageUrls($request->referenceImages);
+        $videoUrls = $assets['video'];
+        $model = (string)($request->providerParams['model'] ?? $config['model'] ?? '');
+        if ($model === '' || $model === 'grok-video') {
+            $model = 'wan2.7';
+        }
+        if (!empty($videoUrls) && !isset($request->providerParams['model'])) {
+            $model = 'wan2.7-videoedit';
+        } elseif (!empty($imageUrls) && !isset($request->providerParams['model']) && $model === 'wan2.7') {
+            $model = 'wan2.7-r2v';
+        }
+        $payload = [
+            'model' => $model,
+            'prompt' => $request->prompt,
+            'resolution' => $request->providerParams['resolution'] ?? $request->providerParams['quality'] ?? $config['resolution'] ?? $config['quality'] ?? '720p',
+            'duration' => (int)($request->providerParams['duration'] ?? ($request->quality ?: 5)),
+            'size' => $request->providerParams['size'] ?? $request->providerParams['aspect_ratio'] ?? $request->ratio,
+            'image_urls' => $imageUrls,
+            'video_urls' => $videoUrls,
+            'audio_url' => $assets['audio'][0] ?? null,
+            'negative_prompt' => $request->negativePrompt ?: null,
+            'prompt_extend' => $request->providerParams['prompt_extend'] ?? null,
+            'seed' => $request->providerParams['seed'] ?? null,
+            'watermark' => $request->providerParams['watermark'] ?? null,
+            'metadata' => $request->providerParams['metadata'] ?? null,
+        ];
+        if ($model === 'wan2.7-r2v' && !empty($imageUrls)) {
+            $payload['image_with_roles'] = array_map(static fn($url) => [
+                'url' => $url,
+                'role' => 'reference_image',
+            ], array_slice($imageUrls, 0, 2));
+        }
+        return $this->filterPayload(array_merge($payload, $config['extra_payload']));
+    }
+
+    private function buildOmniFlashExtPayload(AigcVideoGenerateRequest $request, array $config): array
+    {
+        $assets = $this->groupReferenceAssetUrls($request->referenceAssets);
+        $imageUrls = $assets['image'] ?: $this->normalizeReferenceImageUrls($request->referenceImages);
+        return $this->filterPayload(array_merge([
+            'prompt' => $request->prompt,
+            'duration' => (int)($request->providerParams['duration'] ?? ($request->quality ?: 6)),
+            'resolution' => $request->providerParams['resolution'] ?? $request->providerParams['quality'] ?? $config['resolution'] ?? $config['quality'] ?? '720p',
+            'aspect_ratio' => $request->providerParams['aspect_ratio'] ?? $request->ratio,
+            'size' => $request->providerParams['size'] ?? $request->ratio,
+            'image_urls' => $imageUrls,
+        ], $config['extra_payload']));
+    }
+
+    private function buildSeedancePayload(AigcVideoGenerateRequest $request, array $config): array
+    {
+        AigcVideoReferenceAssetService::assertSeedanceSupported($request->referenceAssets);
+        $uploadedAssetIds = $this->uploadSeedanceAssets($request, $config);
+        $hasVideo = false;
+        $assetUrls = [
+            AigcVideoReferenceAssetService::TYPE_IMAGE => [],
+            AigcVideoReferenceAssetService::TYPE_VIDEO => [],
+            AigcVideoReferenceAssetService::TYPE_AUDIO => [],
+        ];
+        $content = [[
+            'type' => 'text',
+            'text' => $request->prompt,
+        ]];
+        foreach ($uploadedAssetIds as $item) {
+            $type = (string)($item['type'] ?? AigcVideoReferenceAssetService::TYPE_IMAGE);
+            if ($type === AigcVideoReferenceAssetService::TYPE_VIDEO) {
+                $hasVideo = true;
+            }
+            if (isset($assetUrls[$type])) {
+                $assetUrls[$type][] = $this->seedanceAssetUri((string)($item['asset_id'] ?? ''));
+            }
+        }
+        $configuredModel = (string)($request->providerParams['model'] ?? $config['model'] ?? '');
+        if ($configuredModel === 'grok-video') {
+            $configuredModel = '';
+        }
+        $model = $configuredModel !== '' ? $configuredModel : ($hasVideo ? 'seedance-2-video-2-video' : 'seedance-2-text-2-video');
+        if ($configuredModel === 'seedance-2-text-2-video' && $hasVideo && empty($request->providerParams['model'])) {
+            $model = 'seedance-2-video-2-video';
+        }
+        return $this->filterPayload(array_merge([
+            'model' => $model,
+            'ratio' => $request->providerParams['ratio'] ?? $request->ratio,
+            'content' => $content,
+            'image_urls' => $assetUrls[AigcVideoReferenceAssetService::TYPE_IMAGE],
+            'video_urls' => $assetUrls[AigcVideoReferenceAssetService::TYPE_VIDEO],
+            'audio_urls' => $assetUrls[AigcVideoReferenceAssetService::TYPE_AUDIO],
+            'duration' => (int)($request->providerParams['duration'] ?? ($request->quality ?: 5)),
+            'resolution' => $request->providerParams['resolution'] ?? $request->providerParams['quality'] ?? $config['resolution'] ?? $config['quality'] ?? '720p',
+            'negative_prompt' => $request->negativePrompt ?: null,
+            'seed' => $request->providerParams['seed'] ?? null,
+            'watermark' => $request->providerParams['watermark'] ?? null,
+            'camera_fixed' => $request->providerParams['camera_fixed'] ?? null,
+            'generate_audio' => $request->providerParams['generate_audio'] ?? null,
+            'service_tier' => $request->providerParams['service_tier'] ?? null,
+        ], $config['extra_payload']));
+    }
+
+    private function uploadSeedanceAssets(AigcVideoGenerateRequest $request, array $config): array
+    {
+        if (empty($request->referenceAssets)) {
+            return [];
+        }
+        $group = $this->request('POST', $config['asset_group_url'], $config['api_key'], [
+            'Name' => 'aigc-video-' . date('YmdHis') . '-' . substr(md5($request->prompt . microtime(true)), 0, 6),
+            'GroupType' => $config['group_type'] ?: 'AIGC',
+            'Description' => mb_substr($request->prompt, 0, 120),
+            'ProjectName' => $config['project_name'] ?: 'default',
+        ], (int)$config['timeout'], (bool)$config['ssl_verify']);
+        $groupId = $this->extractAssetGroupId($group);
+        if ($groupId === '') {
+            throw new Exception('Seedance素材组创建失败：未返回GroupId');
+        }
+        $uploaded = [];
+        foreach ($request->referenceAssets as $index => $asset) {
+            $url = AigcVideoReferenceAssetService::publicUrl($asset);
+            if ($url === '') {
+                continue;
+            }
+            $response = $this->request('POST', $config['asset_create_url'], $config['api_key'], [
+                'URL' => $url,
+                'Name' => $this->seedanceAssetName($asset, $index),
+                'GroupId' => $groupId,
+                'AssetType' => $this->seedanceAssetType((string)($asset['type'] ?? 'image')),
+                'ProjectName' => $config['project_name'] ?: 'default',
+            ], (int)$config['timeout'], (bool)$config['ssl_verify']);
+            $assetId = $this->extractAssetId($response);
+            if ($assetId === '') {
+                throw new Exception('Seedance素材上传失败：未返回AssetId');
+            }
+            $uploaded[] = [
+                'type' => (string)($asset['type'] ?? 'image'),
+                'asset_id' => $assetId,
+            ];
+        }
+        return $uploaded;
+    }
+
+    private function seedanceAssetUri(string $assetId): string
+    {
+        $assetId = trim($assetId);
+        if ($assetId === '' || str_starts_with($assetId, 'asset://')) {
+            return $assetId;
+        }
+        return 'asset://' . $assetId;
+    }
+
+    private function groupReferenceAssetUrls(array $assets): array
+    {
+        $grouped = ['image' => [], 'video' => [], 'audio' => []];
+        foreach ($assets as $asset) {
+            if (!is_array($asset)) {
+                continue;
+            }
+            $type = (string)($asset['type'] ?? 'image');
+            if (!isset($grouped[$type])) {
+                continue;
+            }
+            $url = AigcVideoReferenceAssetService::publicUrl($asset);
+            if ($url !== '' && !in_array($url, $grouped[$type], true)) {
+                $grouped[$type][] = $url;
+            }
+        }
+        return $grouped;
+    }
+
+    private function seedanceAssetName(array $asset, int $index): string
+    {
+        $name = trim((string)($asset['name'] ?? ''));
+        if ($name === '') {
+            $name = (string)($asset['type'] ?? 'asset') . '-' . ((int)$index + 1);
+        }
+        return mb_substr($name, 0, 64);
+    }
+
+    private function seedanceAssetType(string $type): string
+    {
+        return match ($type) {
+            AigcVideoReferenceAssetService::TYPE_VIDEO => 'Video',
+            AigcVideoReferenceAssetService::TYPE_AUDIO => 'Audio',
+            default => 'Image',
+        };
+    }
+
+    private function filterPayload(array $payload): array
+    {
+        return array_filter($payload, static fn($value) => $value !== null && $value !== '' && $value !== []);
     }
 
     private function normalizeReferenceImageUrls(array $images): array
@@ -208,7 +416,7 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
         ]);
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         }
         $body = curl_exec($ch);
         $errno = curl_errno($ch);
@@ -233,10 +441,63 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
         foreach ([
             $data['task_id'] ?? null,
             $data['id'] ?? null,
+            $data['TaskId'] ?? null,
             $data['data']['task_id'] ?? null,
             $data['data']['id'] ?? null,
+            $data['data']['TaskId'] ?? null,
+            $data['Result']['TaskId'] ?? null,
+            $data['Result']['task_id'] ?? null,
             $data['data']['task']['id'] ?? null,
             $data['data']['task']['task_id'] ?? null,
+        ] as $value) {
+            if (is_scalar($value) && (string)$value !== '') {
+                return (string)$value;
+            }
+        }
+        return '';
+    }
+
+    private function extractAssetGroupId(array $data): string
+    {
+        foreach ([
+            $data['GroupId'] ?? null,
+            $data['group_id'] ?? null,
+            $data['id'] ?? null,
+            $data['data']['GroupId'] ?? null,
+            $data['data']['group_id'] ?? null,
+            $data['data']['id'] ?? null,
+            $data['Result']['Id'] ?? null,
+            $data['Result']['GroupId'] ?? null,
+            $data['Result']['group_id'] ?? null,
+            $data['data']['result']['Id'] ?? null,
+            $data['data']['result']['GroupId'] ?? null,
+            $data['data']['Result']['Id'] ?? null,
+            $data['data']['Result']['GroupId'] ?? null,
+        ] as $value) {
+            if (is_scalar($value) && (string)$value !== '') {
+                return (string)$value;
+            }
+        }
+        return '';
+    }
+
+    private function extractAssetId(array $data): string
+    {
+        foreach ([
+            $data['AssetId'] ?? null,
+            $data['asset_id'] ?? null,
+            $data['id'] ?? null,
+            $data['data']['AssetId'] ?? null,
+            $data['data']['asset_id'] ?? null,
+            $data['data']['id'] ?? null,
+            $data['Result']['AssetId'] ?? null,
+            $data['Result']['Id'] ?? null,
+            $data['Result']['asset_id'] ?? null,
+            $data['data']['result']['AssetId'] ?? null,
+            $data['data']['result']['Id'] ?? null,
+            $data['data']['result']['asset_id'] ?? null,
+            $data['data']['Result']['AssetId'] ?? null,
+            $data['data']['Result']['Id'] ?? null,
         ] as $value) {
             if (is_scalar($value) && (string)$value !== '') {
                 return (string)$value;
@@ -254,6 +515,12 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
             $data['data']['status'] ?? null,
             $data['data']['state'] ?? null,
             $data['data']['task_status'] ?? null,
+            $data['data']['result']['status'] ?? null,
+            $data['data']['result']['state'] ?? null,
+            $data['data']['result']['task_status'] ?? null,
+            $data['result']['status'] ?? null,
+            $data['result']['state'] ?? null,
+            $data['result']['task_status'] ?? null,
             $data['data']['task']['status'] ?? null,
             $data['data']['task']['state'] ?? null,
             $data['data']['task']['task_status'] ?? null,
@@ -311,7 +578,7 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
     private function collectVideoUrls(mixed $value, array &$urls): void
     {
         if (is_string($value)) {
-            if ($value !== '') {
+            if ($this->isVideoUrlLike($value)) {
                 $urls[] = $value;
             }
             return;
@@ -319,22 +586,39 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
         if (!is_array($value)) {
             return;
         }
+        foreach (['url', 'video_url', 'video', 'uri', 'src', 'origin_url', 'download_url'] as $key) {
+            if (!empty($value[$key]) && is_string($value[$key]) && $this->isVideoUrlLike($value[$key])) {
+                $urls[] = $value[$key];
+            }
+        }
         foreach ($value as $item) {
             if (is_string($item)) {
-                if ($item !== '') {
+                if ($this->isVideoUrlLike($item)) {
                     $urls[] = $item;
                 }
                 continue;
             }
-            if (!is_array($item)) {
-                continue;
-            }
-            foreach (['url', 'video_url', 'video', 'uri', 'src', 'origin_url', 'download_url'] as $key) {
-                if (!empty($item[$key]) && is_string($item[$key])) {
-                    $urls[] = $item[$key];
-                }
+            if (is_array($item)) {
+                $this->collectVideoUrls($item, $urls);
             }
         }
+    }
+
+    private function isVideoUrlLike(string $value): bool
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return false;
+        }
+        if (str_starts_with($value, 'data:video/')) {
+            return true;
+        }
+        $path = (string)(parse_url($value, PHP_URL_PATH) ?: $value);
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if (in_array($ext, ['mp4', 'webm', 'mov', 'm4v'], true)) {
+            return true;
+        }
+        return str_starts_with($value, 'http://') || str_starts_with($value, 'https://');
     }
 
     private function extractError(array $data): string

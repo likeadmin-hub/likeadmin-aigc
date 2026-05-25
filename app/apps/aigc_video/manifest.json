@@ -1,10 +1,10 @@
 {
   "code": "aigc_video",
   "name": "AIGC视频",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "require_core": ">=1.0.0",
   "description": "AIGC video generation application framework for the LikeAdmin AIGC SaaS aggregation platform.",
-  "changelog": "新增 Happy Horse 视频生成通道，支持文生视频、单图首帧图生和多参考图生成，并可被无限画布视频节点引用。",
+  "changelog": "新增 Wan、Seedance、Omni-Flash-Ext 视频生成通道；Seedance 支持图片、视频、音频参考素材上传后提交任务，并统一透传到 PC、UniApp 和无限画布视频节点。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
