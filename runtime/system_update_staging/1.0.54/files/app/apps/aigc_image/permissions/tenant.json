@@ -1,0 +1,128 @@
+[
+  {
+    "permission_key": "aigc_image:config:detail",
+    "name": "查看AIGC生图配置",
+    "api_path": "app.aigc_image.config/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_image:config:setup",
+    "name": "保存AIGC生图配置",
+    "api_path": "app.aigc_image.config/setup",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_image:task:lists",
+    "name": "查看AIGC生图任务",
+    "api_path": "app.aigc_image.admin_task/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_image:task:detail",
+    "name": "查看AIGC生图任务详情",
+    "api_path": "app.aigc_image.admin_task/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_image:task:retry",
+    "name": "重试AIGC生图任务",
+    "api_path": "app.aigc_image.admin_task/retry",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_image:task:delete",
+    "name": "删除AIGC生图任务",
+    "api_path": "app.aigc_image.admin_task/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_image:case:lists",
+    "name": "查看AIGC案例",
+    "api_path": "app.aigc_image.case/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_image:case:detail",
+    "name": "查看AIGC案例详情",
+    "api_path": "app.aigc_image.case/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_image:case:save",
+    "name": "保存AIGC案例",
+    "api_path": "app.aigc_image.case/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_image:case:from_task",
+    "name": "任务设为AIGC案例",
+    "api_path": "app.aigc_image.case/fromTask",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_image:case:status",
+    "name": "设置AIGC案例状态",
+    "api_path": "app.aigc_image.case/status",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_image:case:delete",
+    "name": "删除AIGC案例",
+    "api_path": "app.aigc_image.case/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_image:quota:lists",
+    "name": "查看AIGC生图额度",
+    "api_path": "app.aigc_image.admin/quota",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_image:quota:save",
+    "name": "保存AIGC生图额度",
+    "api_path": "app.aigc_image.admin/quota",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_image:sensitive_word:lists",
+    "name": "查看AIGC敏感词",
+    "api_path": "app.aigc_image.admin/sensitiveWord",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_image:sensitive_word:save",
+    "name": "保存AIGC敏感词",
+    "api_path": "app.aigc_image.admin/sensitiveWord",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_image:stat",
+    "name": "查看AIGC生图统计",
+    "api_path": "app.aigc_image.admin/stat",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_image:channel_price:lists",
+    "name": "查看AIGC生图通道调价",
+    "api_path": "app.aigc_image.channel/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_image:channel_price:save",
+    "name": "保存AIGC生图通道调价",
+    "api_path": "app.aigc_image.channel/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_image:channel_price:batch_save",
+    "name": "批量保存AIGC生图通道调价",
+    "api_path": "app.aigc_image.channel/batchSave",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_image:channel_price:status",
+    "name": "设置AIGC生图通道状态",
+    "api_path": "app.aigc_image.channel/status",
+    "api_method": "POST"
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "package_id": "system_1.0.54",
+  "type": "system",
+  "app_code": "",
+  "version": "1.0.54",
+  "format": "zip",
+  "fallback_format": "tar.gz",
+  "filename": "system_1.0.54.zip",
+  "fallback_filename": "system_1.0.54.tar.gz",
+  "sha256": "85afd1ecc91eb5b906ed452fb5d8c0cf4ade4498666dfd30be156e3f859bcece",
+  "fallback_sha256": "44b74ec242deb925e4806f16ade83b9d86abb6d9a5e3d00dc0da678c7f0913eb",
+  "size": 185619,
+  "fallback_size": 144764
+}

@@ -1,0 +1,40 @@
+[
+  {
+    "source_menu_key": "image_human_platform",
+    "app_code": "image_human",
+    "source": "app",
+    "type": "M",
+    "name": "全驱数字人",
+    "icon": "el-icon-VideoCamera",
+    "sort": 88,
+    "perms": "",
+    "paths": "image-human",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "image_human_platform_config",
+        "type": "C",
+        "name": "平台配置",
+        "perms": "app.image_human.config/detail",
+        "paths": "config",
+        "component": "apps/image_human/config"
+      },
+      {
+        "source_menu_key": "image_human_platform_task_log",
+        "type": "C",
+        "name": "任务日志",
+        "perms": "app.image_human.task_log/lists",
+        "paths": "task-log",
+        "component": "apps/image_human/task-log"
+      },
+      {
+        "source_menu_key": "image_human_platform_tenant_usage",
+        "type": "C",
+        "name": "租户用量",
+        "perms": "app.image_human.tenant/stat",
+        "paths": "tenant-usage",
+        "component": "apps/image_human/tenant-usage"
+      }
+    ]
+  }
+]

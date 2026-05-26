@@ -1,0 +1,69 @@
+{
+  "code": "aigc_video",
+  "name": "AIGC视频",
+  "version": "1.0.6",
+  "require_core": ">=1.0.0",
+  "description": "AIGC video generation application framework for the LikeAdmin AIGC SaaS aggregation platform.",
+  "changelog": "新增 Wan、Seedance、Omni-Flash-Ext 视频生成通道；Seedance 支持图片、视频、音频参考素材上传后提交任务，并统一透传到 PC、UniApp 和无限画布视频节点。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 900,
+  "frontends": [
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_video",
+  "platform_menus": "menus/platform.json",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_video_admin",
+      "name": "AIGC视频",
+      "path": "/app/aigc_video",
+      "icon": "el-icon-Picture",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_video",
+      "name": "AIGC视频",
+      "path": "/app/aigc_video",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_video",
+      "name": "AIGC视频",
+      "path": "/apps/aigc_video/pages/index/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 100,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "创作首页",
+            "path": "/apps/aigc_video/pages/index/index"
+          },
+          {
+            "name": "视频任务",
+            "path": "/apps/aigc_video/pages/tasks/tasks"
+          },
+          {
+            "name": "作品列表",
+            "path": "/apps/aigc_video/pages/results/results"
+          }
+        ]
+      }
+    }
+  ]
+}

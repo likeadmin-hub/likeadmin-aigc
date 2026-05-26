@@ -1,0 +1,50 @@
+{
+  "product_code": "likeadmin_aigc_saas",
+  "version": "1.0.54",
+  "require_core": ">=1.0.0 <2.0.0",
+  "title": "系统发布版本 1.0.54",
+  "summary": "修复生图重复扣费、数字人失败退款和音视频时长识别问题，并补充 GPT Image 2 超清规格的竖屏比例。",
+  "update_type": "patch",
+  "released_at": 1779820000,
+  "changelog": [
+    "1. 修复生图重复点击可能产生重复任务和重复扣费的问题。",
+    "2. 修复数字人创作失败后点数未自动退回的问题。",
+    "3. 优化音视频时长识别，减少按异常时长计费的情况。",
+    "4. 补充 GPT Image 2 超清规格的方图和竖屏比例选项。"
+  ],
+  "package_mode": "incremental",
+  "base_version": "1.0.0",
+  "target_version": "1.0.54",
+  "included_versions": [
+    "1.0.31",
+    "1.0.35",
+    "1.0.38",
+    "1.0.39",
+    "1.0.40",
+    "1.0.41",
+    "1.0.42",
+    "1.0.43",
+    "1.0.44",
+    "1.0.45",
+    "1.0.46",
+    "1.0.47",
+    "1.0.48",
+    "1.0.49",
+    "1.0.50",
+    "1.0.51",
+    "1.0.52",
+    "1.0.53",
+    "1.0.54"
+  ],
+  "full_replace_dirs": [],
+  "delete_files": [],
+  "sql_order": [
+    "sql/data/20260527_gpt_image_2_4k_portrait.sql",
+    "sql/structure/20260509_tenant_access_mode.sql",
+    "sql/structure/20260518_package_management_repair.sql",
+    "sql/structure/20260520_tenant_local_storage_switch.sql",
+    "sql/structure/20260521_copyright_company.sql",
+    "sql/structure/20260522_happy_horse_submit_path.sql",
+    "sql/structure/20260525_xhadmin_video_apps.sql"
+  ]
+}

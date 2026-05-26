@@ -1,0 +1,43 @@
+CREATE TABLE IF NOT EXISTS `la_aigc_canvas_project` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0 COMMENT '租户ID',
+  `user_id` int unsigned NOT NULL DEFAULT 0 COMMENT '用户ID',
+  `name` varchar(120) NOT NULL DEFAULT '未命名项目' COMMENT '项目名称',
+  `thumbnail` varchar(500) NOT NULL DEFAULT '' COMMENT '缩略图',
+  `nodes_json` longtext COMMENT '节点JSON',
+  `edges_json` longtext COMMENT '边JSON',
+  `viewport_json` text COMMENT '视口JSON',
+  `sort` int NOT NULL DEFAULT 0 COMMENT '排序',
+  `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '状态',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_user` (`tenant_id`,`user_id`,`delete_time`),
+  KEY `idx_tenant_update` (`tenant_id`,`update_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='无限画布项目';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_canvas_run` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0 COMMENT '租户ID',
+  `user_id` int unsigned NOT NULL DEFAULT 0 COMMENT '用户ID',
+  `project_id` int unsigned NOT NULL DEFAULT 0 COMMENT '画布项目ID',
+  `node_id` varchar(120) NOT NULL DEFAULT '' COMMENT '节点ID',
+  `run_type` varchar(30) NOT NULL DEFAULT '' COMMENT 'image/video/text/workflow',
+  `source_app_code` varchar(64) NOT NULL DEFAULT '' COMMENT '调用应用',
+  `source_task_id` int unsigned NOT NULL DEFAULT 0 COMMENT '关联任务ID',
+  `status` varchar(30) NOT NULL DEFAULT 'running' COMMENT 'running/success/failed',
+  `prompt` text COMMENT '提示词',
+  `params_json` longtext COMMENT '调用参数',
+  `result_json` longtext COMMENT '执行结果',
+  `error` text COMMENT '错误信息',
+  `duration_ms` int unsigned NOT NULL DEFAULT 0 COMMENT '耗时',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  `finish_time` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_project` (`tenant_id`,`project_id`,`delete_time`),
+  KEY `idx_tenant_user` (`tenant_id`,`user_id`,`delete_time`),
+  KEY `idx_source_task` (`source_app_code`,`source_task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='无限画布运行记录';

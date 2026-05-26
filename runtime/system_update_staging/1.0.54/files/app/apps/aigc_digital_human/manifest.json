@@ -1,0 +1,89 @@
+{
+  "code": "aigc_digital_human",
+  "name": "数字人视频",
+  "version": "1.0.3",
+  "require_core": ">=1.0.0",
+  "description": "面向移动端、PC端和后台端的数字人应用框架，支持当前用户专属形象、声音和合成视频任务。",
+  "changelog": "作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据，并修复完整安装时编排字段迁移重复执行问题。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 900,
+  "frontends": [
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_digital_human",
+  "platform_menus": "menus/platform.json",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_digital_human_admin",
+      "name": "数字人视频",
+      "path": "/app/aigc_digital_human",
+      "icon": "el-icon-Picture",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_digital_human",
+      "name": "数字人视频",
+      "path": "/app/aigc_digital_human",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_digital_human",
+      "name": "数字人视频",
+      "path": "/apps/aigc_digital_human/pages/index/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 100,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "创作首页",
+            "path": "/apps/aigc_digital_human/pages/index/index"
+          },
+          {
+            "name": "选择形象",
+            "path": "/apps/aigc_digital_human/pages/assets/avatar/avatar"
+          },
+          {
+            "name": "选择声音",
+            "path": "/apps/aigc_digital_human/pages/assets/voice/voice"
+          },
+          {
+            "name": "克隆形象",
+            "path": "/apps/aigc_digital_human/pages/clone/avatar/avatar"
+          },
+          {
+            "name": "克隆音色",
+            "path": "/apps/aigc_digital_human/pages/clone/voice/voice"
+          },
+          {
+            "name": "合成任务",
+            "path": "/apps/aigc_digital_human/pages/tasks/tasks"
+          },
+          {
+            "name": "创作记录",
+            "path": "/apps/aigc_digital_human/pages/results/results"
+          },
+          {
+            "name": "记录详情",
+            "path": "/apps/aigc_digital_human/pages/results/detail/detail"
+          }
+        ]
+      }
+    }
+  ]
+}

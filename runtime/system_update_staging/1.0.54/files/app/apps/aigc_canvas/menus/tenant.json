@@ -1,0 +1,40 @@
+[
+  {
+    "source_menu_key": "aigc_canvas",
+    "app_code": "aigc_canvas",
+    "source": "app",
+    "type": "M",
+    "name": "无限画布",
+    "icon": "el-icon-Share",
+    "sort": 96,
+    "perms": "",
+    "paths": "aigc-canvas",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_canvas_stat",
+        "type": "C",
+        "name": "用量统计",
+        "perms": "app.aigc_canvas.admin/stat",
+        "paths": "stat",
+        "component": "apps/aigc_canvas/stat"
+      },
+      {
+        "source_menu_key": "aigc_canvas_run",
+        "type": "C",
+        "name": "运行记录",
+        "perms": "app.aigc_canvas.admin_run/lists",
+        "paths": "run",
+        "component": "apps/aigc_canvas/run"
+      },
+      {
+        "source_menu_key": "aigc_canvas_dependency",
+        "type": "C",
+        "name": "依赖状态",
+        "perms": "app.aigc_canvas.config/dependencies",
+        "paths": "dependencies",
+        "component": "apps/aigc_canvas/dependencies"
+      }
+    ]
+  }
+]

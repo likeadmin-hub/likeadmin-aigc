@@ -1,0 +1,333 @@
+{
+  "app_code": "aigc_image",
+  "apis": [
+    {
+      "api_path": "app.aigc_image.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_image:config:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_image:config:setup",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_image:config:detail:platform",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_image:config:setup:platform",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.tenant/stat",
+      "api_method": "GET",
+      "permission_key": "aigc_image:tenant_usage",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.admin_task/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_image:task:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.admin_task/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_image:task:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.admin_task/retry",
+      "api_method": "POST",
+      "permission_key": "aigc_image:task:retry",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.admin_task/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_image:task:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.case/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_image:case:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.case/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_image:case:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.case/save",
+      "api_method": "POST",
+      "permission_key": "aigc_image:case:save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.case/fromTask",
+      "api_method": "POST",
+      "permission_key": "aigc_image:case:from_task",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.case/status",
+      "api_method": "POST",
+      "permission_key": "aigc_image:case:status",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.case/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_image:case:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.admin/quota",
+      "api_method": "GET",
+      "permission_key": "aigc_image:quota:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.admin/quota",
+      "api_method": "POST",
+      "permission_key": "aigc_image:quota:save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.admin/sensitiveWord",
+      "api_method": "GET",
+      "permission_key": "aigc_image:sensitive_word:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.admin/sensitiveWord",
+      "api_method": "POST",
+      "permission_key": "aigc_image:sensitive_word:save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.admin/stat",
+      "api_method": "GET",
+      "permission_key": "aigc_image:stat",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.channel/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_image:channel_price:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.channel/save",
+      "api_method": "POST",
+      "permission_key": "aigc_image:channel_price:save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.channel/batchSave",
+      "api_method": "POST",
+      "permission_key": "aigc_image:channel_price:batch_save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.channel/status",
+      "api_method": "POST",
+      "permission_key": "aigc_image:channel_price:status",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.channel/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_image:channel:lists",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.channel/save",
+      "api_method": "POST",
+      "permission_key": "aigc_image:channel:save",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.channel/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_image:channel:delete",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.channel/status",
+      "api_method": "POST",
+      "permission_key": "aigc_image:channel:status",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_image:config:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_image.case/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_image:case:lists:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_image.generate/index",
+      "api_method": "POST",
+      "permission_key": "aigc_image:generate",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_image.generate/estimate",
+      "api_method": "POST",
+      "permission_key": "aigc_image:generate:estimate",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_image.task/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_image:task:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_image.task/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_image:task:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_image.result/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_image:result:lists",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_image.result/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_image:result:delete",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_image.spec/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_image:spec:lists",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.spec/save",
+      "api_method": "POST",
+      "permission_key": "aigc_image:spec:save",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.spec/batchSave",
+      "api_method": "POST",
+      "permission_key": "aigc_image:spec:batch_save",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.spec/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_image:spec:delete",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_image.spec/status",
+      "api_method": "POST",
+      "permission_key": "aigc_image:spec:status",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    }
+  ]
+}
