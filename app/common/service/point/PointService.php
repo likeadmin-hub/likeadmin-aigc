@@ -73,4 +73,25 @@ class PointService
             ]));
         }
     }
+
+    public static function refundBusinessAmountsInCurrentTransaction(
+        int $tenantId,
+        int $userId,
+        float $tenantPoints,
+        float $userPoints,
+        string $sourceSn,
+        string $remark = '',
+        array $extra = []
+    ): void {
+        if ($tenantPoints > 0) {
+            TenantPointService::refund($tenantId, $tenantPoints, $sourceSn, $remark, array_merge($extra, [
+                'billing_side' => 'tenant_cost',
+            ]));
+        }
+        if ($userPoints > 0) {
+            UserPointService::refund($userId, $userPoints, $sourceSn, $remark, array_merge($extra, [
+                'billing_side' => 'user_charge',
+            ]));
+        }
+    }
 }

@@ -3310,11 +3310,19 @@ VALUES
 (0,'gpt_image_2','2k','高清2K','1:2',1024,2048,60.00,60.00,'{"resolution":"2k","aspect_ratio":"1:2"}',1,770,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'gpt_image_2','2k','高清2K','21:9',2048,878,60.00,60.00,'{"resolution":"2k","aspect_ratio":"21:9"}',1,760,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'gpt_image_2','2k','高清2K','9:21',878,2048,60.00,60.00,'{"resolution":"2k","aspect_ratio":"9:21"}',1,750,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'gpt_image_2','4k','超清4K','1:1',4096,4096,120.00,120.00,'{"resolution":"4k","aspect_ratio":"1:1"}',1,745,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'gpt_image_2','4k','超清4K','16:9',4096,2304,120.00,120.00,'{"resolution":"4k","aspect_ratio":"16:9"}',1,740,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'gpt_image_2','4k','超清4K','9:16',2304,4096,120.00,120.00,'{"resolution":"4k","aspect_ratio":"9:16"}',1,735,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'gpt_image_2','4k','超清4K','4:3',4096,3072,120.00,120.00,'{"resolution":"4k","aspect_ratio":"4:3"}',1,730,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'gpt_image_2','4k','超清4K','3:4',3072,4096,120.00,120.00,'{"resolution":"4k","aspect_ratio":"3:4"}',1,725,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'gpt_image_2','4k','超清4K','3:2',4096,2731,120.00,120.00,'{"resolution":"4k","aspect_ratio":"3:2"}',1,720,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'gpt_image_2','4k','超清4K','2:3',2731,4096,120.00,120.00,'{"resolution":"4k","aspect_ratio":"2:3"}',1,715,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'gpt_image_2','4k','超清4K','5:4',4096,3277,120.00,120.00,'{"resolution":"4k","aspect_ratio":"5:4"}',1,712,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'gpt_image_2','4k','超清4K','2:1',4096,2048,120.00,120.00,'{"resolution":"4k","aspect_ratio":"2:1"}',1,710,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'gpt_image_2','4k','超清4K','21:9',4096,1755,120.00,120.00,'{"resolution":"4k","aspect_ratio":"21:9"}',1,700,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
+(0,'gpt_image_2','4k','超清4K','4:5',3277,4096,120.00,120.00,'{"resolution":"4k","aspect_ratio":"4:5"}',1,705,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'gpt_image_2','4k','超清4K','21:9',4096,1755,120.00,120.00,'{"resolution":"4k","aspect_ratio":"21:9"}',1,700,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'gpt_image_2','4k','超清4K','9:21',1755,4096,120.00,120.00,'{"resolution":"4k","aspect_ratio":"9:21"}',1,695,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'gpt_image_2','4k','超清4K','1:2',2048,4096,120.00,120.00,'{"resolution":"4k","aspect_ratio":"1:2"}',1,690,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE `quality_label`=VALUES(`quality_label`),`width`=VALUES(`width`),`height`=VALUES(`height`),`platform_unit_cost`=VALUES(`platform_unit_cost`),`tenant_unit_price`=VALUES(`tenant_unit_price`),`provider_params_json`=VALUES(`provider_params_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
 
 

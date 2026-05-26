@@ -688,7 +688,7 @@ class AigcDigitalHumanService
         $title = trim((string)($params['title'] ?? '数字人口播'));
         $prompt = trim((string)($params['prompt'] ?? ''));
         $duration = max(1, (int)($params['duration'] ?? ($audioDriven ? self::detectAudioDurationFromUri($driverAudioUri, $tenantId) : self::estimateAudioDuration($scriptText))));
-        $duplicateTask = self::findRecentDuplicateTask($tenantId, $userId, [
+        $duplicateCriteria = [
             'avatar_id' => (int)$avatar['id'],
             'voice_id' => $audioDriven ? 0 : (int)$voice['id'],
             'title' => $title,
@@ -699,10 +699,7 @@ class AigcDigitalHumanService
             'ratio' => (string)$selection['spec']['ratio'],
             'duration' => $duration,
             'tts_audio_uri' => $driverAudioUri,
-        ]);
-        if ($duplicateTask) {
-            return self::buildDuplicateGenerateResponse($duplicateTask, $tenantId, $userId);
-        }
+        ];
         $estimate = AigcDigitalHumanChannelService::estimate($tenantId, array_merge($params, [
             'channel' => $selection['channel']['code'],
             'quality' => $selection['spec']['quality'],
@@ -710,38 +707,51 @@ class AigcDigitalHumanService
             'duration' => $duration,
             'quantity' => 1,
         ]));
-        self::checkQuota($tenantId, $userId, 1);
-        PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
-        $task = AigcDigitalHumanTask::create([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'avatar_id' => (int)$avatar['id'],
-            'voice_id' => $audioDriven ? 0 : (int)$voice['id'],
-            'title' => $title,
-            'script_text' => $scriptText,
-            'prompt' => $prompt,
-            'channel' => $selection['channel']['code'],
-            'quality' => $selection['spec']['quality'],
-            'ratio' => $selection['spec']['ratio'],
-            'duration' => (int)$estimate['duration'],
-            'tenant_cost_points' => $estimate['tenant_cost_points'],
-            'user_charge_points' => $estimate['user_charge_points'],
-            'provider' => $selection['channel']['provider'],
-            'model' => $selection['channel']['model'],
-            'provider_task_id' => '',
-            'provider_stage' => $audioDriven ? 'lipsync_submitted' : 'created',
-            'tts_task_id' => '',
-            'tts_audio_uri' => $driverAudioUri,
-            'provider_payload_json' => [],
-            'status' => 'running',
-            'progress' => $audioDriven ? 45 : 5,
-            'error' => '',
-            'create_time' => time(),
-            'update_time' => time(),
-            'finish_time' => 0,
-            'delete_time' => 0,
-        ]);
+        Db::startTrans();
+        try {
+            self::lockSubmitOwner($userId);
+            $duplicateTask = self::findRecentDuplicateTask($tenantId, $userId, $duplicateCriteria);
+            if ($duplicateTask) {
+                Db::commit();
+                return self::buildDuplicateGenerateResponse($duplicateTask, $tenantId, $userId);
+            }
+            self::checkQuota($tenantId, $userId, 1);
+            PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
+            $task = AigcDigitalHumanTask::create([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'avatar_id' => (int)$avatar['id'],
+                'voice_id' => $audioDriven ? 0 : (int)$voice['id'],
+                'title' => $title,
+                'script_text' => $scriptText,
+                'prompt' => $prompt,
+                'channel' => $selection['channel']['code'],
+                'quality' => $selection['spec']['quality'],
+                'ratio' => $selection['spec']['ratio'],
+                'duration' => (int)$estimate['duration'],
+                'tenant_cost_points' => $estimate['tenant_cost_points'],
+                'user_charge_points' => $estimate['user_charge_points'],
+                'provider' => $selection['channel']['provider'],
+                'model' => $selection['channel']['model'],
+                'provider_task_id' => '',
+                'provider_stage' => $audioDriven ? 'lipsync_submitted' : 'created',
+                'tts_task_id' => '',
+                'tts_audio_uri' => $driverAudioUri,
+                'provider_payload_json' => [],
+                'status' => 'running',
+                'progress' => $audioDriven ? 45 : 5,
+                'error' => '',
+                'create_time' => time(),
+                'update_time' => time(),
+                'finish_time' => 0,
+                'delete_time' => 0,
+            ]);
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            throw $e;
+        }
 
         $provider = self::providerFor((string)$selection['channel']['provider']);
         $request = self::buildRequestFromData($task->toArray(), $avatar, $voice, $selection);
@@ -804,6 +814,14 @@ class AigcDigitalHumanService
             return $row;
         }
         return null;
+    }
+
+    private static function lockSubmitOwner(int $userId): void
+    {
+        if ($userId <= 0) {
+            return;
+        }
+        Db::name('user')->where('id', $userId)->lock(true)->find();
     }
 
     private static function buildDuplicateGenerateResponse(AigcDigitalHumanTask $task, int $tenantId, int $userId): array
@@ -1226,11 +1244,13 @@ class AigcDigitalHumanService
         $result = AigcDigitalHumanResult::where([])->where('delete_time', 0);
         $avatar = AigcDigitalHumanAvatar::where([])->where('delete_time', 0);
         $voice = AigcDigitalHumanVoice::where([])->where('delete_time', 0);
+        $billing = AigcDigitalHumanBilling::where([])->where('billing_status', 'deducted');
         if ($tenantId > 0) {
             $task->where('tenant_id', $tenantId);
             $result->where('tenant_id', $tenantId);
             $avatar->where('tenant_id', $tenantId);
             $voice->where('tenant_id', $tenantId);
+            $billing->where('tenant_id', $tenantId);
         }
         return [
             'task_total' => (clone $task)->count(),
@@ -1241,8 +1261,8 @@ class AigcDigitalHumanService
             'voice_total' => (clone $voice)->count(),
             'quota_total' => $tenantId > 0 ? AigcDigitalHumanQuota::where('tenant_id', $tenantId)->sum('total_quota') : AigcDigitalHumanQuota::where([])->sum('total_quota'),
             'quota_used' => $tenantId > 0 ? AigcDigitalHumanQuota::where('tenant_id', $tenantId)->sum('used_quota') : AigcDigitalHumanQuota::where([])->sum('used_quota'),
-            'tenant_cost_points' => $tenantId > 0 ? AigcDigitalHumanBilling::where('tenant_id', $tenantId)->sum('tenant_cost_points') : AigcDigitalHumanBilling::where([])->sum('tenant_cost_points'),
-            'user_charge_points' => $tenantId > 0 ? AigcDigitalHumanBilling::where('tenant_id', $tenantId)->sum('user_charge_points') : AigcDigitalHumanBilling::where([])->sum('user_charge_points'),
+            'tenant_cost_points' => (clone $billing)->sum('tenant_cost_points'),
+            'user_charge_points' => (clone $billing)->sum('user_charge_points'),
         ];
     }
 
@@ -1356,13 +1376,7 @@ class AigcDigitalHumanService
                 $request = self::buildRequestFromData($task->toArray(), $avatar, $voice, $selection);
                 self::advanceRunningTask($task, $request, $selection, $estimate, self::providerFor((string)$task['provider']));
             } catch (\Throwable $e) {
-                $task->save([
-                    'status' => 'failed',
-                    'progress' => 100,
-                    'error' => self::stageErrorPrefix((string)($task['provider_stage'] ?? '')) . self::friendlyStageMessage($e->getMessage()),
-                    'finish_time' => time(),
-                    'update_time' => time(),
-                ]);
+                self::failTask($task, (string)($task['provider_stage'] ?? 'failed'), self::stageErrorPrefix((string)($task['provider_stage'] ?? '')) . self::friendlyStageMessage($e->getMessage()));
             }
         }
     }
@@ -1422,7 +1436,22 @@ class AigcDigitalHumanService
             return;
         }
         $stage = (string)($task['provider_stage'] ?? '');
+        if (in_array($stage, ['tts_submitting', 'lipsync_submitting'], true)) {
+            if ((int)$task['update_time'] >= time() - 120) {
+                return;
+            }
+            $stage = $stage === 'tts_submitting' ? 'created' : 'lipsync_submitted';
+            $task->save([
+                'provider_stage' => $stage,
+                'update_time' => time(),
+            ]);
+        }
         if ($stage === '' || $stage === 'created' || $stage === 'tts_submitted') {
+            $claimed = self::claimTaskStage($task, $stage === 'tts_submitted' ? ['tts_submitted'] : ['', 'created'], 'tts_submitting');
+            if (!$claimed) {
+                return;
+            }
+            $task = $claimed;
             try {
                 $submit = $provider->submitTts($request);
                 $task->save([
@@ -1477,6 +1506,11 @@ class AigcDigitalHumanService
             $stage = 'lipsync_submitted';
         }
         if ($stage === 'lipsync_submitted') {
+            $claimed = self::claimTaskStage($task, ['lipsync_submitted', ''], 'lipsync_submitting');
+            if (!$claimed) {
+                return;
+            }
+            $task = $claimed;
             try {
                 $audioUrl = (string)($request->providerParams['audio_url'] ?? '');
                 if ($audioUrl === '') {
@@ -1529,6 +1563,25 @@ class AigcDigitalHumanService
                 self::failTask($task, 'failed', '视频转存失败：' . self::friendlyStageMessage($e->getMessage()));
             }
         }
+    }
+
+    private static function claimTaskStage(AigcDigitalHumanTask $task, array $fromStages, string $toStage): ?AigcDigitalHumanTask
+    {
+        $affected = AigcDigitalHumanTask::where('tenant_id', (int)$task['tenant_id'])
+            ->where('id', (int)$task['id'])
+            ->where('status', 'running')
+            ->whereIn('provider_stage', $fromStages)
+            ->update([
+                'provider_stage' => $toStage,
+                'update_time' => time(),
+            ]);
+        if ((int)$affected <= 0) {
+            return null;
+        }
+        $latest = AigcDigitalHumanTask::where('tenant_id', (int)$task['tenant_id'])
+            ->where('id', (int)$task['id'])
+            ->findOrEmpty();
+        return $latest->isEmpty() ? null : $latest;
     }
 
     private static function buildRequestFromData(array $task, array $avatar, array $voice, array $selection): AigcDigitalHumanGenerateRequest
@@ -1606,14 +1659,65 @@ class AigcDigitalHumanService
 
     private static function failTask(AigcDigitalHumanTask $task, string $stage, string $message): void
     {
+        $refundError = self::refundTaskBillings($task, $message);
+        $error = trim($message . ($refundError !== '' ? ' ' . $refundError : ''));
         $task->save([
             'provider_stage' => $stage,
             'status' => 'failed',
             'progress' => 100,
-            'error' => $message,
+            'error' => $error,
             'finish_time' => time(),
             'update_time' => time(),
         ]);
+    }
+
+    private static function refundTaskBillings(AigcDigitalHumanTask $task, string $reason = ''): string
+    {
+        $tenantId = (int)$task['tenant_id'];
+        $userId = (int)$task['user_id'];
+        $taskId = (int)$task['id'];
+        if ($tenantId <= 0 || $userId <= 0 || $taskId <= 0) {
+            return '';
+        }
+        $refundErrors = [];
+        $billings = AigcDigitalHumanBilling::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'task_id' => $taskId,
+            'billing_status' => 'deducted',
+        ])->select();
+        foreach ($billings as $billing) {
+            Db::startTrans();
+            try {
+                $locked = AigcDigitalHumanBilling::where([
+                    'tenant_id' => $tenantId,
+                    'id' => (int)$billing['id'],
+                    'billing_status' => 'deducted',
+                ])->lock(true)->findOrEmpty();
+                if ($locked->isEmpty()) {
+                    Db::commit();
+                    continue;
+                }
+                $sourceSn = (string)($locked['user_point_sn'] ?: $locked['tenant_point_sn'] ?: (self::APP_CODE . '-' . $taskId . '-' . (int)$locked['id']));
+                $refundSn = $sourceSn . '-refund';
+                PointService::refundBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$locked['tenant_cost_points'], (float)$locked['user_charge_points'], $refundSn, '数字人合成失败退回', [
+                    'app_code' => self::APP_CODE,
+                    'task_id' => $taskId,
+                    'billing_id' => (int)$locked['id'],
+                    'origin_source_sn' => $sourceSn,
+                    'reason' => $reason,
+                ]);
+                $locked->save([
+                    'billing_status' => 'refunded',
+                    'update_time' => time(),
+                ]);
+                Db::commit();
+            } catch (\Throwable $e) {
+                Db::rollback();
+                $refundErrors[] = '退款失败：' . $e->getMessage();
+            }
+        }
+        return implode(' ', array_unique($refundErrors));
     }
 
     private static function stageErrorPrefix(string $stage): string
@@ -2342,7 +2446,7 @@ class AigcDigitalHumanService
                     'delete_time' => 0,
                     'create_time' => time(),
                 ]);
-                $sourceSn = (string)$task['id'] . '-' . ((int)$index + 1);
+                $sourceSn = self::APP_CODE . '-' . (string)$task['id'] . '-' . ((int)$index + 1);
                 PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points'], $sourceSn, '数字人合成消费', [
                     'app_code' => self::APP_CODE,
                     'task_id' => (int)$task['id'],
