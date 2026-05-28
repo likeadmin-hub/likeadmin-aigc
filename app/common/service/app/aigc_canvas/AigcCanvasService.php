@@ -7,6 +7,7 @@ use app\common\model\app\TenantApp;
 use app\common\model\app\aigc_canvas\AigcCanvasProject;
 use app\common\model\app\aigc_canvas\AigcCanvasRun;
 use app\common\service\app\AppAccessService;
+use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\FileService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
@@ -39,7 +40,7 @@ class AigcCanvasService
 
     public static function config(int $tenantId): array
     {
-        return [
+        return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, [
             'app_code' => self::APP_CODE,
             'name' => '无限画布',
             'storage' => 'backend',
@@ -48,7 +49,12 @@ class AigcCanvasService
             'dependencies' => self::dependencies($tenantId),
             'image' => AigcImageService::config($tenantId),
             'video' => AigcVideoService::config($tenantId),
-        ];
+        ]);
+    }
+
+    public static function saveConfig(int $tenantId, array $params): void
+    {
+        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
     }
 
     public static function projectLists(int $tenantId, int $userId = 0, array $params = []): array

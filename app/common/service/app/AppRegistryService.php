@@ -52,7 +52,6 @@ use app\common\model\app\image_human\ImageHumanTask;
 use app\common\model\auth\SystemMenu;
 use app\common\model\auth\TenantSystemMenu;
 use app\common\model\tenant\Tenant;
-use app\common\service\database\SqlMigrationExecutor;
 use think\facade\Db;
 use RuntimeException;
 use Throwable;
@@ -389,7 +388,7 @@ class AppRegistryService
             }
             try {
                 $sqlPrefix = config('database.connections.mysql.prefix');
-                SqlMigrationExecutor::execute($content, $sqlPrefix);
+                self::executeMigrationSql($content, $sqlPrefix);
                 $migration->save(['status' => 'success', 'error' => '', 'update_time' => time()]);
                 $result[] = [
                     'migration_key' => $migrationKey,
@@ -402,6 +401,127 @@ class AppRegistryService
             }
         }
         return $result;
+    }
+
+    private static function executeMigrationSql(string $content, string $prefix): void
+    {
+        $executor = '\\app\\common\\service\\database\\SqlMigrationExecutor';
+        if (!class_exists($executor)) {
+            $executorPath = root_path() . 'app/common/service/database/SqlMigrationExecutor.php';
+            if (is_file($executorPath)) {
+                require_once $executorPath;
+            }
+        }
+        if (class_exists($executor)) {
+            $executor::execute($content, $prefix);
+            return;
+        }
+
+        foreach (self::splitMigrationSql($content) as $sql) {
+            $statement = str_replace('`la_', '`' . $prefix, $sql) . ';';
+            try {
+                Db::execute($statement);
+            } catch (Throwable $e) {
+                if (self::isDuplicateAddColumn($statement, $e)) {
+                    continue;
+                }
+                throw $e;
+            }
+        }
+    }
+
+    private static function splitMigrationSql(string $content): array
+    {
+        $statements = [];
+        $statement = '';
+        $length = strlen($content);
+        $quote = null;
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $content[$i];
+            $next = $content[$i + 1] ?? '';
+
+            if ($quote !== null) {
+                $statement .= $char;
+                if ($char === '\\' && ($quote === '\'' || $quote === '"') && $next !== '') {
+                    $statement .= $next;
+                    $i++;
+                    continue;
+                }
+                if ($char === $quote) {
+                    if ($next === $quote) {
+                        $statement .= $next;
+                        $i++;
+                        continue;
+                    }
+                    $quote = null;
+                }
+                continue;
+            }
+
+            if ($char === '\'' || $char === '"' || $char === '`') {
+                $quote = $char;
+                $statement .= $char;
+                continue;
+            }
+            if ($char === '-' && $next === '-' && self::isSqlCommentBoundary($content[$i + 2] ?? '')) {
+                $i = self::skipSqlLineComment($content, $i + 2);
+                $statement .= "\n";
+                continue;
+            }
+            if ($char === '#') {
+                $i = self::skipSqlLineComment($content, $i + 1);
+                $statement .= "\n";
+                continue;
+            }
+            if ($char === '/' && $next === '*') {
+                $i = self::skipSqlBlockComment($content, $i + 2);
+                $statement .= ' ';
+                continue;
+            }
+            if ($char === ';') {
+                $sql = trim($statement);
+                if ($sql !== '') {
+                    $statements[] = $sql;
+                }
+                $statement = '';
+                continue;
+            }
+            $statement .= $char;
+        }
+
+        $sql = trim($statement);
+        if ($sql !== '') {
+            $statements[] = $sql;
+        }
+        return $statements;
+    }
+
+    private static function isSqlCommentBoundary(string $char): bool
+    {
+        return $char === '' || ctype_space($char);
+    }
+
+    private static function skipSqlLineComment(string $content, int $offset): int
+    {
+        $newline = strpos($content, "\n", $offset);
+        return $newline === false ? strlen($content) : $newline;
+    }
+
+    private static function skipSqlBlockComment(string $content, int $offset): int
+    {
+        $end = strpos($content, '*/', $offset);
+        return $end === false ? strlen($content) : $end + 1;
+    }
+
+    private static function isDuplicateAddColumn(string $statement, Throwable $e): bool
+    {
+        if (substr_count(strtoupper($statement), 'ADD COLUMN') !== 1) {
+            return false;
+        }
+        return strpos($e->getMessage(), '1060') !== false
+            || stripos($e->getMessage(), 'Duplicate column') !== false
+            || stripos($e->getMessage(), '42S21') !== false;
     }
 
     private static function assertNotBuiltin(string $appCode): void

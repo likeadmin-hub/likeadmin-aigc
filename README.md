@@ -11,6 +11,8 @@
 <p align="center">
   <a href="https://api.likeadmin.cn"><strong>api.likeadmin.cn 算力超市</strong></a>
   ·
+  <a href="https://mp.weixin.qq.com/s/FNEqnnG6IWGotshb2ITgXQ"><strong>算力超市怎么做？</strong></a>
+  ·
   <a href="https://likeadmin.cn"><strong>likeadmin.cn 免费开源框架</strong></a>
 </p>
 

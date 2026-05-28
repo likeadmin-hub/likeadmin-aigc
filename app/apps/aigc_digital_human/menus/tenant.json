@@ -12,6 +12,14 @@
     "component": "",
     "children": [
       {
+        "source_menu_key": "aigc_digital_human_config",
+        "type": "C",
+        "name": "基础配置",
+        "perms": "app.aigc_digital_human.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_digital_human/config"
+      },
+      {
         "source_menu_key": "aigc_digital_human_task",
         "type": "C",
         "name": "合成任务",

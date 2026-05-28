@@ -111,6 +111,25 @@ CREATE TABLE IF NOT EXISTS `la_tenant_app_order` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户应用订单';
 
+CREATE TABLE IF NOT EXISTS `la_tenant_app_config` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `app_code` varchar(64) NOT NULL DEFAULT '',
+  `title` varchar(80) NOT NULL DEFAULT '' COMMENT '展示标题',
+  `description` varchar(500) NOT NULL DEFAULT '' COMMENT '展示描述',
+  `cover_uri` varchar(500) NOT NULL DEFAULT '' COMMENT '封面资源',
+  `icon_uri` varchar(500) NOT NULL DEFAULT '' COMMENT '图标资源',
+  `virtual_use_count` varchar(50) NOT NULL DEFAULT '' COMMENT '虚拟使用数',
+  `sort` int NOT NULL DEFAULT 0 COMMENT '排序',
+  `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '状态',
+  `extra` json DEFAULT NULL COMMENT '扩展配置',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenant_app` (`tenant_id`,`app_code`),
+  KEY `idx_tenant_status` (`tenant_id`,`status`,`sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户应用展示配置';
+
 CREATE TABLE IF NOT EXISTS `la_app_migration` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `scope` varchar(30) NOT NULL DEFAULT '',
