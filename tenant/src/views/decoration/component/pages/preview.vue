@@ -63,11 +63,10 @@
                         ></div>
                         <!--  选中的组件  -->
                         <slot>
-                            <component
-                                :is="widgets[widget?.name]?.content"
-                                :content="widget.content"
-                                :styles="widget.styles"
-                                :key="widget.id"
+                            <MobileDecorationRenderer
+                                :widgets="[widget]"
+                                mode="edit"
+                                :adapters="mobileRendererAdapters"
                             />
                         </slot>
                         <!--  部件操作按钮组  -->
@@ -163,7 +162,7 @@ import type { PropType } from 'vue'
 import { computed } from 'vue'
 import Draggable from 'vuedraggable'
 
-import widgets from '../widgets'
+import MobileDecorationRenderer from '@mobile-decoration-renderer'
 import navBarBg from './images/nav-bar-bg.png'
 
 const props = defineProps({
@@ -201,6 +200,9 @@ const pageMetaContent = computed(() => {
     }
     return props.pageMeta?.content || props.pageMeta?.[0]?.content || {}
 })
+const mobileRendererAdapters = {
+    resolveImage: (url: string) => url
+}
 const pageBackgroundVideo = computed(() => {
     const content = pageMetaContent.value
     return String(content.bg_type) === '3' ? content.bg_video : ''

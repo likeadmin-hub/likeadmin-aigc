@@ -14,7 +14,8 @@
         "isolatedModules": true,
         "baseUrl": ".",
         "paths": {
-            "@/*": ["./src/*"]
+            "@/*": ["./src/*"],
+            "@mobile-decoration": ["../packages/mobile-decoration/index.ts"]
         }
     },
     "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue", "typings/**/*.d.ts"]

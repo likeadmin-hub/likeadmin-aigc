@@ -48,6 +48,21 @@ export const usePcLoginGate = () => {
         const currentPath = resolveCurrentFullPath() || '/'
         loginRedirect.value = options.redirect || loginRedirect.value || currentPath
         loginReturnTo.value = options.returnTo || loginReturnTo.value || currentPath
+        if (import.meta.client) {
+            try {
+                const router = useRouter()
+                router.push({
+                    path: '/login',
+                    query: {
+                        redirect: loginRedirect.value
+                    }
+                })
+                showLoginModal.value = false
+                return false
+            } catch (_error) {
+                // fall back to legacy modal state outside route-aware contexts
+            }
+        }
         showLoginModal.value = true
         return false
     }

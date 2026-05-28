@@ -19,56 +19,116 @@
         />
 
         <main class="app-main">
-            <section class="hero-panel">
-                <div class="hero-panel__heading">
-                    <h1>{{ heroTitle }}</h1>
-                    <p>{{ heroSubtitle }}</p>
-                </div>
+            <section class="home-hero">
+                <button class="home-banner" type="button" @click="openHomeEntry(activeBanner)">
+                    <span class="home-banner__copy">
+                        <strong>{{ activeBanner.title }}</strong>
+                        <small>{{ activeBanner.description }}</small>
+                    </span>
+                    <span class="home-banner__backdrop">
+                        <img :src="activeBanner.images[0]" alt="" />
+                    </span>
+                    <span class="home-banner__media">
+                        <img
+                            v-for="(image, index) in activeBanner.images"
+                            :key="`${activeBanner.id}-${index}`"
+                            :src="image"
+                            alt=""
+                            :style="{ '--banner-index': index }"
+                        />
+                    </span>
+                    <span class="home-banner__dots">
+                        <i
+                            v-for="(banner, index) in homeBanners"
+                            :key="banner.id"
+                            :class="{ 'is-active': activeBannerIndex === index }"
+                        ></i>
+                    </span>
+                </button>
 
-                <div v-if="quickTags.length" class="hero-panel__tags">
+                <button class="home-tv-card" type="button" @click="openHomeEntry(homeFeatureEntries[0])">
+                    <span class="home-tv-card__copy">
+                        <strong>{{ homeFeatureEntries[0].title }}</strong>
+                        <small>{{ homeFeatureEntries[0].description }}</small>
+                    </span>
+                    <span class="home-tv-card__collage">
+                        <img
+                            v-for="(image, index) in homeFeatureEntries[0].images.slice(0, 4)"
+                            :key="`${homeFeatureEntries[0].id}-${index}`"
+                            :src="image"
+                            alt=""
+                            :style="{ '--collage-index': index }"
+                        />
+                    </span>
+                    <i>→</i>
+                </button>
+
+                <div class="home-quick-stack" aria-label="快捷入口">
                     <button
-                        v-for="tag in quickTags"
-                        :key="tag"
-                        :class="['hero-tag', { 'is-active': prompt.includes(tag) }]"
+                        v-for="entry in homeFeatureEntries.slice(1, 3)"
+                        :key="entry.id"
+                        class="home-quick-card"
                         type="button"
-                        @click="appendTag(tag)"
+                        @click="openHomeEntry(entry)"
                     >
-                        {{ tag }}
+                        <span class="home-quick-card__copy">
+                            <strong>{{ entry.title }}</strong>
+                            <small>{{ entry.description }}</small>
+                        </span>
+                        <span class="home-quick-card__media">
+                            <video
+                                v-if="entry.mediaUrl"
+                                :src="entry.mediaUrl"
+                                :poster="entry.images[0]"
+                                muted
+                                loop
+                                playsinline
+                                preload="metadata"
+                                @mouseenter="playInspirationVideo"
+                                @mouseleave="pauseInspirationVideo"
+                            ></video>
+                            <img v-else :src="entry.images[0]" alt="" />
+                        </span>
+                        <i>→</i>
                     </button>
                 </div>
+            </section>
 
-                <div ref="promptCardRef" class="hero-composer">
-                    <AiCreateComposer
-                        v-model="prompt"
-                        v-model:mode="generationMode"
-                        :option-state="optionState"
-                        :config-options="configOptions"
-                        :option-values="optionValues"
-                        :uploaded-assets="uploadedAssets"
-                        :placeholder="currentPlaceholder"
-                        :can-generate="canGenerate"
-                        :can-submit="canSubmit"
-                        :uploading="uploading"
-                        :unit-price-label="unitPriceLabel"
-                        menu-placement="bottom"
-                        @upload="triggerUpload"
-                        @paste-images="addUploadedFiles"
-                        @remove-asset="removeUploadedAsset"
-                        @update:option-state="setComposerOption"
-                        @submit="submitPromptLock"
-                    />
+            <section class="model-carousel" aria-label="工具轮播">
+                <button class="model-carousel__arrow model-carousel__arrow--left" type="button" aria-label="向左滑动" @click="scrollModelStrip('left')">
+                    ‹
+                </button>
+                <div ref="modelStripRef" class="model-strip">
+                    <article
+                        v-for="item in homeModelCards"
+                        :key="item.id"
+                        class="model-card"
+                        @click="openHomeModelCard(item)"
+                    >
+                        <img :src="item.image" :alt="item.title" />
+                        <span v-if="item.badge" class="model-card__badge">{{ item.badge }}</span>
+                        <button type="button" aria-label="打开">↗</button>
+                        <div class="model-card__body">
+                            <strong>{{ item.title }}</strong>
+                            <small>{{ item.description }}</small>
+                            <em>▷ {{ item.count }}</em>
+                        </div>
+                    </article>
                 </div>
+                <button class="model-carousel__arrow model-carousel__arrow--right" type="button" aria-label="向右滑动" @click="scrollModelStrip('right')">
+                    ›
+                </button>
             </section>
 
             <section ref="inspirationBoardRef" class="inspiration-board">
                 <div class="inspiration-board__toolbar">
                     <div class="inspiration-tabs">
                         <button
-                            v-for="tab in inspirationTabs"
+                            v-for="tab in homeFeedTabs"
                             :key="tab.key"
-                            :class="['inspiration-tabs__item', { 'is-active': activeInspirationTab === tab.key }]"
+                            :class="['inspiration-tabs__item', { 'is-active': activeHomeFeed === tab.key }]"
                             type="button"
-                            @click="activeInspirationTab = tab.key"
+                            @click="setHomeFeed(tab.key)"
                         >
                             {{ tab.label }}
                         </button>
@@ -125,7 +185,7 @@
                                     <span>{{ getCaseTypeLabel(item) }}</span>
                                 </div>
                                 <button class="inspiration-card__action" type="button" @click.stop="copyCardPrompt(item)">
-                                    一键同款
+                                    做同款
                                 </button>
                             </article>
                         </div>
@@ -229,32 +289,6 @@
             </transition>
         </Teleport>
 
-        <transition name="floating-prompt-fade">
-            <div v-if="showFloatingComposer && !detailOpen" class="floating-prompt">
-                <AiCreateComposer
-                    ref="floatingComposerRef"
-                    v-model="prompt"
-                    v-model:mode="generationMode"
-                    :option-state="optionState"
-                    :config-options="configOptions"
-                    :option-values="optionValues"
-                    :uploaded-assets="uploadedAssets"
-                    :placeholder="currentPlaceholder"
-                    :can-generate="canGenerate"
-                    :can-submit="canSubmit"
-                    :uploading="uploading"
-                    :unit-price-label="unitPriceLabel"
-                    collapsed
-                    menu-placement="top"
-                    @upload="triggerUpload"
-                    @paste-images="addUploadedFiles"
-                    @remove-asset="removeUploadedAsset"
-                    @update:option-state="setComposerOption"
-                    @submit="submitPromptLock"
-                />
-            </div>
-        </transition>
-
         <div
             v-if="pageScrollThumbVisible && !detailOpen"
             class="page-scroll-thumb"
@@ -296,11 +330,20 @@ import { usePcCredits } from '~/composables/usePcCredits'
 import { buildSidebarRouteLocation } from '~/utils/ai-sidebar'
 import type { SidebarKey } from '~/utils/ai-sidebar'
 import { useAiUserDisplay } from '~/composables/useAiUserDisplay'
+import {
+    buildToolCardPath,
+    featuredTools,
+    isToolCardImplemented,
+    toolCards,
+    toolComingSoonMessage
+} from '~/composables/use-ai-tools'
+import { useAiPcHomeDecorate } from '~/composables/useAiPcHomeDecorate'
 import closeSmallIcon from '@/assets/images/icon/Close-small.svg'
 import downloadIcon from '@/assets/images/icon/xiazai.svg'
 
 type GenerationMode = AiGenerationMode
 type FeedTabKey = 'all' | 'image' | 'video'
+type HomeFeedKey = 'all' | 'model' | 'app' | 'effect' | 'inspiration' | 'workflow' | 'image' | 'video'
 type OptionKey = AiCreateOptionKey
 type PopoverKey = '' | 'share' | 'api' | 'notice'
 const imageExtensionPattern = /\.(avif|bmp|gif|jpe?g|png|svg|webp)(\?.*)?(#.*)?$/i
@@ -377,6 +420,29 @@ interface CardItem {
     createdAt?: number
 }
 
+interface HomeHeroEntry {
+    id: string
+    title: string
+    description: string
+    mode?: GenerationMode
+    route?: string
+    images: string[]
+    mediaUrl?: string
+}
+
+interface HomeModelCard {
+    id: string
+    title: string
+    description: string
+    badge: string
+    count: string
+    image: string
+    mediaUrl?: string
+    toolId?: string
+    mode?: GenerationMode
+    route?: string
+}
+
 const router = useRouter()
 const route = useRoute()
 const { ensurePcLogin } = usePcLoginGate()
@@ -384,11 +450,18 @@ const userStore = useUserStore()
 const { displayAvatarUrl, displayNickname } = useAiUserDisplay()
 const { setDraft } = useAiCreateWorks()
 const { remainingCredits, membershipEnabled, refreshCredits } = usePcCredits()
+const {
+    homeBanners: decorateHomeBanners,
+    displayToolCards,
+    loadPcHomeDecorate,
+    applyPcHomePageData
+} = useAiPcHomeDecorate()
 
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const pageScrollRef = ref<HTMLElement | null>(null)
 const promptCardRef = ref<HTMLElement | null>(null)
 const inspirationBoardRef = ref<HTMLElement | null>(null)
+const modelStripRef = ref<HTMLElement | null>(null)
 const floatingComposerRef = ref<{ collapseIfEmpty: () => void; focusTextarea: () => Promise<void> } | null>(null)
 const detailVideoRef = ref<HTMLVideoElement | null>(null)
 
@@ -399,6 +472,7 @@ const uploadedAssets = ref<UploadedAsset[]>([])
 const activeSidebar = ref<SidebarKey>('inspiration')
 const activePopover = ref<PopoverKey>('')
 const activeInspirationTab = ref<FeedTabKey>('all')
+const activeHomeFeed = ref<HomeFeedKey>('all')
 const inspirationQuery = ref('')
 const inspirationColumnCount = ref(6)
 const selectedCardKey = ref('')
@@ -413,15 +487,148 @@ const pageScrollThumbHeight = ref(64)
 const pageScrollThumbVisible = ref(false)
 const pageScrollThumbDragging = ref(false)
 const pageScrollThumbPointerOffset = ref(0)
+const activeBannerIndex = ref(0)
+let bannerTimer: ReturnType<typeof window.setInterval> | null = null
 
 const quickTags = ['电影感', '写实质感', '高级光影', '细节丰富']
 const cardAuthorPool = ['清澈灵感', '南汐', '可可', '安安', '林琼', '朝野', '浮光', '念初']
 const cardModelPool = ['AIGC 图片生成', 'Seed 2.0 Pro', '写实人像引擎', '叙事镜头引擎']
-const inspirationTabs: Array<{ key: FeedTabKey; label: string }> = [
-    { key: 'all', label: '全部' },
-    { key: 'image', label: '图片' },
-    { key: 'video', label: '视频' }
+const homeFeedTabs: Array<{ key: HomeFeedKey; label: string }> = [
+    { key: 'all', label: '综合' },
+    { key: 'model', label: 'AI模型' },
+    { key: 'app', label: 'AI应用' },
+    { key: 'effect', label: '视频特效' },
+    { key: 'inspiration', label: '灵感' },
+    { key: 'workflow', label: '工作流' }
 ]
+const getToolImage = (index: number) => toolCards[index]?.image || featuredTools[index]?.image || toolCards[0]?.image || ''
+const homeHeroEntries: HomeHeroEntry[] = [
+    {
+        id: 'workspace',
+        title: 'AI TV',
+        description: '全新功能，助力短剧创作。',
+        route: '/ai/create',
+        images: [getToolImage(0), getToolImage(1), getToolImage(2)]
+    },
+    {
+        id: 'video',
+        title: '视频生成',
+        description: '创意视频，一键生成',
+        mode: 'video',
+        images: [getToolImage(3)]
+    },
+    {
+        id: 'image',
+        title: '图片生成',
+        description: '智能绘制，即刻成图',
+        mode: 'image',
+        images: [getToolImage(4)]
+    },
+    {
+        id: 'intro',
+        title: 'AI 工具',
+        description: '精选应用与效率工具',
+        route: '/ai/tools',
+        images: [getToolImage(5), getToolImage(6), getToolImage(7)]
+    },
+    {
+        id: 'avatar',
+        title: '数字人',
+        description: '创建你的虚拟出镜人',
+        route: '/ai/avatar',
+        images: [getToolImage(8), getToolImage(2), getToolImage(4)]
+    },
+    {
+        id: 'assets',
+        title: '资产库',
+        description: '管理作品与素材',
+        route: '/ai/assets',
+        images: [getToolImage(9), getToolImage(1), getToolImage(3)]
+    }
+]
+const fallbackCaseCards = computed<CardItem[]>(() =>
+    displayToolCards.value.slice(0, 18).map((item, index) => {
+        const isVideo = /视频|短片|数字人/.test(`${item.title}${item.detailDescription}${item.appPath}`)
+        const appCode: CardItem['appCode'] = /数字人/.test(`${item.title}${item.appPath}`)
+            ? 'aigc_digital_human'
+            : isVideo
+                ? 'aigc_video'
+                : 'aigc_image'
+        const category: CardItem['category'] = isVideo ? 'video' : 'image'
+        return {
+            id: 9000 + index,
+            uniqueId: `fallback-${item.id}`,
+            title: item.title,
+            category,
+            appCode,
+            image: item.image,
+            imageHeight: 280 + (index % 4) * 44,
+            aspectRatio: index % 3 === 0 ? '3 / 4' : index % 3 === 1 ? '4 / 5' : '1 / 1',
+            prompt: item.detailDescription || item.description || item.title,
+            configFields: [appCode === 'aigc_video' ? '视频生成' : '图片生成', item.badge || '推荐'],
+            generationOptions: {
+                model: item.title,
+                ratio: index % 3 === 2 ? '1:1' : '3:4',
+                resolution: '1k',
+                duration: appCode === 'aigc_video' ? '5秒' : undefined,
+                count: appCode === 'aigc_video' ? '1条' : '1张'
+            },
+            hasReferenceAsset: false,
+            authorName: cardAuthorPool[index % cardAuthorPool.length]
+        }
+    })
+)
+const displayCaseCards = computed(() => caseCards.value.length ? caseCards.value : fallbackCaseCards.value)
+const homeFeatureEntries = computed<HomeHeroEntry[]>(() => {
+    const sourceCards = displayCaseCards.value
+    const imageCases = sourceCards.filter((item) => item.category === 'image')
+    const videoCases = sourceCards.filter((item) => item.category === 'video')
+    const mixedCases = sourceCards.length ? sourceCards : []
+
+    return homeHeroEntries.map((entry, index) => {
+        const pool = entry.id === 'video'
+            ? videoCases
+            : entry.id === 'image'
+                ? imageCases
+                : mixedCases
+        const caseItem = pool[index % Math.max(pool.length, 1)]
+        const images = [
+            caseItem?.image,
+            ...entry.images
+        ].filter(Boolean)
+
+        return {
+            ...entry,
+            images: images.length ? images : entry.images,
+            mediaUrl: caseItem?.mediaUrl
+        }
+    })
+})
+const homeBanners = computed<HomeHeroEntry[]>(() => {
+    if (decorateHomeBanners.value.length) {
+        return decorateHomeBanners.value.map((item) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            route: item.route || '/ai/tools',
+            images: item.images
+        }))
+    }
+    const sourceCards = displayCaseCards.value
+    const dynamic = sourceCards.slice(0, 4).map((item, index) => ({
+        id: `banner-${item.uniqueId}`,
+        title: index === 0 ? 'AI 创作介绍' : item.title,
+        description: item.category === 'video' ? '一站式 AI 创作平台' : '模型、应用、资产与灵感统一入口',
+        route: '/ai/tools',
+        images: [
+            item.image,
+            sourceCards[index + 1]?.image || getToolImage(index + 3),
+            sourceCards[index + 2]?.image || getToolImage(index + 5)
+        ].filter(Boolean)
+    }))
+    return dynamic.length ? dynamic : [homeHeroEntries[3]]
+})
+const activeBanner = computed(() => homeBanners.value[activeBannerIndex.value % homeBanners.value.length] || homeHeroEntries[3])
 
 const aigcOptionConfig = ref<any>({
     channels: [],
@@ -477,10 +684,23 @@ const currentPlaceholder = computed(() =>
 const activeInspirationPlaceholder = computed(() => {
     if (activeInspirationTab.value === 'image') return '搜索图片作品'
     if (activeInspirationTab.value === 'video') return '搜索视频作品'
+    if (activeHomeFeed.value !== 'all') return `搜索${homeFeedTabs.find((tab) => tab.key === activeHomeFeed.value)?.label || '推荐'}`
     return '搜索作品'
 })
 const canGenerate = computed(() => Boolean(prompt.value.trim()) && !submitting.value && !uploading.value)
 const canSubmit = computed(() => canGenerate.value)
+const homeModelCards = computed<HomeModelCard[]>(() => {
+    return displayToolCards.value.slice(0, 12).map((item, index) => ({
+        id: item.id,
+        title: item.title,
+        description: item.badge || item.detailDescription,
+        badge: index === 0 || index === 4 ? '新上' : index === 1 ? '热门' : '',
+        count: item.virtualUseCount || (index === 1 ? '2.3万' : `${390 + index * 217}`),
+        image: item.image,
+        toolId: item.id,
+        route: item.appPath
+    }))
+})
 
 const channels = computed<ChannelOption[]>(() =>
     (aigcOptionConfig.value.channels || []).map((channel: any) => ({
@@ -623,7 +843,7 @@ const unitPriceLabel = computed(() =>
 
 const filteredCards = computed(() => {
     const keyword = inspirationQuery.value.trim().toLowerCase()
-    return caseCards.value.filter((item) => {
+    return displayCaseCards.value.filter((item) => {
         const matchTab = activeInspirationTab.value === 'all' || item.category === activeInspirationTab.value
         if (!matchTab) return false
         if (!keyword) return true
@@ -717,6 +937,57 @@ const activateSidebar = (key: SidebarKey) => {
     if (key === 'create') setDraft(null)
     router.push(buildSidebarRouteLocation(key))
 }
+const focusComposer = async () => {
+    await nextTick()
+    promptCardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    await floatingComposerRef.value?.focusTextarea?.()
+}
+const openHomeEntry = (entry: HomeHeroEntry) => {
+    if (entry.mode) {
+        generationMode.value = entry.mode
+        setDraft(null)
+        router.push(buildSidebarRouteLocation('create'))
+        return
+    }
+    if (entry.route) {
+        router.push(entry.route)
+    }
+}
+const openHomeModelCard = (item: HomeModelCard) => {
+    if (item.mode) {
+        generationMode.value = item.mode
+        setDraft(null)
+        router.push(buildSidebarRouteLocation('create'))
+        return
+    }
+    const tool = item.toolId ? displayToolCards.value.find((card) => card.id === item.toolId) : null
+    if (tool) {
+        if (!isToolCardImplemented(tool)) {
+            feedback.msgWarning(toolComingSoonMessage)
+            return
+        }
+        router.push(tool.appPath || buildToolCardPath(tool))
+        return
+    }
+    if (item.route) router.push(item.route)
+}
+const scrollModelStrip = (direction: 'left' | 'right') => {
+    const node = modelStripRef.value
+    if (!node) return
+    const amount = Math.max(260, Math.floor(node.clientWidth * 0.72))
+    node.scrollBy({
+        left: direction === 'left' ? -amount : amount,
+        behavior: 'smooth'
+    })
+}
+const setHomeFeed = (key: HomeFeedKey) => {
+    activeHomeFeed.value = key
+    if (key === 'image' || key === 'video') {
+        activeInspirationTab.value = key
+        return
+    }
+    activeInspirationTab.value = 'all'
+}
 const appendTag = (tag: string) => {
     prompt.value = prompt.value ? `${prompt.value}，${tag}` : tag
 }
@@ -734,10 +1005,7 @@ const updateInspirationColumnCount = () => {
     inspirationColumnCount.value = getAdaptiveInspirationColumns(width)
 }
 const updateFloatingComposer = () => {
-    if (typeof window === 'undefined' || !promptCardRef.value || !inspirationBoardRef.value) return
-    const promptRect = promptCardRef.value.getBoundingClientRect()
-    const scrollTop = pageScrollRef.value?.scrollTop ?? 0
-    showFloatingComposer.value = promptRect.bottom <= 96 && scrollTop > 180
+    showFloatingComposer.value = false
 }
 const updatePageScrollThumb = () => {
     if (typeof window === 'undefined' || !pageScrollRef.value) return
@@ -1347,11 +1615,7 @@ const playDetailVideo = () => {
 }
 const focusActiveComposer = async () => {
     await nextTick()
-    if (showFloatingComposer.value && floatingComposerRef.value) {
-        await floatingComposerRef.value.focusTextarea()
-        return
-    }
-    pageScrollRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
+    router.push(buildSidebarRouteLocation('create'))
 }
 const fetchCaseReferenceBlob = async (urls: string[]) => {
     let lastError: unknown
@@ -1479,17 +1743,22 @@ const syncCardPromptToComposer = (item: CardItem) => {
 const copyCardPrompt = async (item: CardItem) => {
     if (!ensurePcLogin({ redirect: route.fullPath })) return
     syncCardPromptToComposer(item)
-    await focusActiveComposer()
     if (!item.hasReferenceAsset) {
-        feedback.msgSuccess('提示词已同步')
+        setDraft(buildCreateDraft(`case-${item.uniqueId}-${Date.now()}`))
+        feedback.msgSuccess('已同步到创作工作台')
+        await focusActiveComposer()
         return
     }
     try {
         await syncCardReference(item)
-        feedback.msgSuccess('提示词和参考图已同步')
+        setDraft(buildCreateDraft(`case-${item.uniqueId}-${Date.now()}`))
+        feedback.msgSuccess('提示词和参考图已同步到创作工作台')
+        await focusActiveComposer()
     } catch (error: any) {
         if (isPcLoginRequiredError(error)) return
         feedback.msgWarning(error?.msg || error?.message || '提示词已同步，参考图同步失败')
+        setDraft(buildCreateDraft(`case-${item.uniqueId}-${Date.now()}`))
+        await focusActiveComposer()
     }
 }
 const applyDetailPrompt = async () => {
@@ -1498,18 +1767,23 @@ const applyDetailPrompt = async () => {
     const item = activeDetailCard.value
     syncCardPromptToComposer(item)
     if (!item.hasReferenceAsset) {
-        feedback.msgSuccess('提示词已同步')
+        setDraft(buildCreateDraft(`case-${item.uniqueId}-${Date.now()}`))
+        feedback.msgSuccess('已同步到创作工作台')
         closeWorkDetail()
+        await focusActiveComposer()
         return
     }
     try {
         await syncCardReference(item)
-        feedback.msgSuccess('提示词和参考图已同步')
+        setDraft(buildCreateDraft(`case-${item.uniqueId}-${Date.now()}`))
+        feedback.msgSuccess('提示词和参考图已同步到创作工作台')
     } catch (error: any) {
         if (isPcLoginRequiredError(error)) return
         feedback.msgWarning(error?.msg || error?.message || '提示词已同步，参考图同步失败')
+        setDraft(buildCreateDraft(`case-${item.uniqueId}-${Date.now()}`))
     }
     closeWorkDetail()
+    await focusActiveComposer()
 }
 const applyDetailReference = async () => {
     if (!activeDetailCard.value) return
@@ -1517,12 +1791,14 @@ const applyDetailReference = async () => {
     generationMode.value = activeDetailCard.value.category
     try {
         await syncCardReference(activeDetailCard.value, 'work')
-        feedback.msgSuccess('参考图已同步')
+        setDraft(buildCreateDraft(`reference-${activeDetailCard.value.uniqueId}-${Date.now()}`))
+        feedback.msgSuccess('参考图已同步到创作工作台')
     } catch (error: any) {
         if (isPcLoginRequiredError(error)) return
         feedback.msgError(error?.msg || error?.message || '参考图同步失败')
     }
     closeWorkDetail()
+    await focusActiveComposer()
 }
 const buildCreateDraft = (task: string): AiCreateDraft => ({
     task,
@@ -1607,14 +1883,34 @@ const handleGlobalKeydown = (event: KeyboardEvent) => {
     if (event.key === 'Escape' && detailOpen.value) closeWorkDetail()
 }
 
+const parsePreviewPageData = (value: any) => {
+    if (Array.isArray(value)) return value
+    if (typeof value !== 'string') return []
+    try {
+        const parsed = JSON.parse(value)
+        return Array.isArray(parsed) ? parsed : []
+    } catch (error) {
+        return []
+    }
+}
+
+const handlePcDecoratePreviewMessage = (event: MessageEvent) => {
+    if (route.query.pc_diy !== '1') return
+    const payload = event.data || {}
+    if (payload?.type !== 'LIKEADMIN_PC_DECORATE_PREVIEW') return
+    if (payload.page_code && payload.page_code !== 'pc_home') return
+    applyPcHomePageData(parsePreviewPageData(payload.data))
+    activeBannerIndex.value = 0
+}
+
 watch(generationMode, (mode) => {
     if (mode === 'image') syncAigcSelection()
     else syncAigcVideoSelection()
 })
 watch(activeInspirationTab, (tab) => {
     if (tab === 'all') return
-    if (!caseCards.value.some((item) => item.uniqueId === selectedCardKey.value && item.category === tab)) {
-        const nextCard = caseCards.value.find((item) => item.category === tab)
+    if (!displayCaseCards.value.some((item) => item.uniqueId === selectedCardKey.value && item.category === tab)) {
+        const nextCard = displayCaseCards.value.find((item) => item.category === tab)
         if (nextCard) selectedCardKey.value = nextCard.uniqueId
     }
 })
@@ -1630,25 +1926,31 @@ watch(detailOpen, (value) => {
 })
 
 onMounted(() => {
-    if (!userStore.isLogin && typeof sessionStorage !== 'undefined' && sessionStorage.getItem('pc-ai-inspiration-login-shown') !== '1') {
-        sessionStorage.setItem('pc-ai-inspiration-login-shown', '1')
-        ensurePcLogin({ redirect: route.fullPath })
-    }
     syncPageScrollUi()
     loadAigcConfig()
     loadAigcVideoConfig()
+    loadPcHomeDecorate()
     refreshCaseCards()
+    if (typeof window !== 'undefined') {
+        bannerTimer = window.setInterval(() => {
+            const count = homeBanners.value.length || 1
+            activeBannerIndex.value = (activeBannerIndex.value + 1) % count
+        }, 4200)
+    }
     pageScrollRef.value?.addEventListener('scroll', syncPageScrollUi, { passive: true })
     window.addEventListener('resize', syncPageScrollUi)
     window.addEventListener('keydown', handleGlobalKeydown)
+    window.addEventListener('message', handlePcDecoratePreviewMessage)
 })
 
 onBeforeUnmount(() => {
+    if (bannerTimer) window.clearInterval(bannerTimer)
     stopPageScrollThumbDrag()
     uploadedAssets.value.forEach(revokeUploadedAsset)
     pageScrollRef.value?.removeEventListener('scroll', syncPageScrollUi)
     window.removeEventListener('resize', syncPageScrollUi)
     window.removeEventListener('keydown', handleGlobalKeydown)
+    window.removeEventListener('message', handlePcDecoratePreviewMessage)
 })
 </script>
 
@@ -1773,16 +2075,447 @@ onBeforeUnmount(() => {
     position: relative;
     z-index: 1;
     width: 100%;
-    min-width: 810px;
+    min-width: 0;
     min-height: 100%;
     margin: 0;
-    padding: 96px 40px 120px 116px;
+    padding: 30px 24px 100px 96px;
     box-sizing: border-box;
+}
+
+.home-hero {
+    display: grid;
+    grid-template-columns: minmax(430px, 1.75fr) minmax(260px, 0.98fr) minmax(250px, 0.98fr);
+    gap: 8px;
+    min-height: 178px;
+}
+
+.home-tv-card,
+.home-quick-card,
+.home-banner,
+.model-card {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    overflow: hidden;
+    text-align: left;
+}
+
+.home-tv-card,
+.home-quick-card,
+.home-banner {
+    position: relative;
+    min-width: 0;
+    padding: 0;
+    background: #0d0e12;
+    isolation: isolate;
+}
+
+.home-tv-card {
+    min-height: 178px;
+    background:
+        radial-gradient(circle at 84% 24%, rgba(77, 235, 255, 0.16), transparent 34%),
+        linear-gradient(135deg, #15161d 0%, #090a0d 58%, #06070a 100%);
+    transition:
+        border-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.home-tv-card:hover,
+.home-quick-card:hover,
+.home-banner:hover {
+    border-color: rgba(77, 235, 255, 0.28);
+}
+
+.home-tv-card__copy,
+.home-quick-card__copy,
+.home-banner__copy {
+    position: absolute;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.home-tv-card__copy {
+    left: 18px;
+    top: 24px;
+}
+
+.home-tv-card__copy strong,
+.home-quick-card__copy strong {
+    color: #fff;
+    font-size: 20px;
+    font-weight: 760;
+    line-height: 1.2;
+}
+
+.home-tv-card__copy small,
+.home-quick-card__copy small {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.home-tv-card__collage {
+    position: absolute;
+    left: 38px;
+    right: 14px;
+    bottom: -18px;
+    z-index: 2;
+    height: 112px;
+    transform: rotate(-3deg);
+}
+
+.home-tv-card__collage::before {
+    content: '';
+    position: absolute;
+    inset: -18px 0 auto auto;
+    width: 92px;
+    height: 92px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(77, 235, 255, 0.22), transparent 68%);
+    filter: blur(2px);
+}
+
+.home-tv-card__collage img {
+    position: absolute;
+    left: calc(var(--collage-index) * 58px);
+    bottom: calc(var(--collage-index) * 4px);
+    width: 96px;
+    height: 92px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    object-fit: cover;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.42);
+    transform: rotate(calc((var(--collage-index) - 1.5) * 7deg));
+}
+
+.home-tv-card i,
+.home-quick-card i {
+    position: absolute;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 34px;
+    border-radius: 999px;
+    background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.14)),
+        rgba(17, 18, 22, 0.72);
+    color: #fff;
+    font-style: normal;
+    font-size: 22px;
+    backdrop-filter: blur(10px);
+}
+
+.home-tv-card i {
+    right: 18px;
+    top: 34px;
+}
+
+.home-quick-stack {
+    display: grid;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    min-width: 0;
+}
+
+.home-quick-card {
+    min-height: 85px;
+    background:
+        radial-gradient(circle at 92% 50%, rgba(77, 235, 255, 0.2), transparent 38%),
+        linear-gradient(100deg, #101115 0%, #0a0b0e 58%, rgba(77, 235, 255, 0.14) 100%);
+}
+
+.home-quick-card__copy {
+    left: 18px;
+    top: 17px;
+}
+
+.home-quick-card__copy strong {
+    font-size: 16px;
+}
+
+.home-quick-card__copy small {
+    font-size: 12px;
+}
+
+.home-quick-card__media {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 1;
+    width: 42%;
+    min-width: 100px;
+    overflow: hidden;
+}
+
+.home-quick-card__media::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, #0d0e12 0%, rgba(13, 14, 18, 0.08) 72%);
+}
+
+.home-quick-card__media img,
+.home-quick-card__media video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.home-quick-card i {
+    right: 18px;
+    top: 50%;
+    width: 44px;
+    height: 28px;
+    font-size: 18px;
+    transform: translateY(-50%);
+}
+
+.home-banner {
+    min-height: 178px;
+    background:
+        radial-gradient(circle at 78% 22%, rgba(77, 235, 255, 0.18), transparent 32%),
+        linear-gradient(90deg, #10164d 0%, #071032 46%, #05070c 100%);
+}
+
+.home-banner__copy {
+    left: 34px;
+    top: 48px;
+}
+
+.home-banner strong {
+    font-size: 30px;
+    font-weight: 760;
+    line-height: 1.15;
+}
+
+.home-banner small {
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 16px;
+}
+
+.home-banner__backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+}
+
+.home-banner__backdrop img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.34;
+    filter: saturate(1.08);
+}
+
+.home-banner__backdrop::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(10, 18, 68, 0.94) 0%, rgba(8, 14, 43, 0.82) 44%, rgba(5, 6, 10, 0.36) 100%),
+        radial-gradient(circle at 78% 50%, rgba(77, 235, 255, 0.16), transparent 36%);
+}
+
+.home-banner__media img {
+    position: absolute;
+    right: calc(30px + var(--banner-index) * 78px);
+    top: calc(28px + var(--banner-index) * 8px);
+    width: 116px;
+    height: 116px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    object-fit: cover;
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.42);
+    transform: rotate(calc((var(--banner-index) - 1) * -4deg));
+}
+
+.home-banner__dots {
+    position: absolute;
+    right: 26px;
+    bottom: 16px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.home-banner__dots i {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.34);
+}
+
+.home-banner__dots i.is-active {
+    width: 18px;
+    background: #4debff;
+}
+
+.model-carousel {
+    position: relative;
+    margin-top: 24px;
+}
+
+.model-carousel__arrow {
+    position: absolute;
+    top: 50%;
+    z-index: 4;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 999px;
+    background: rgba(16, 17, 21, 0.82);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    backdrop-filter: blur(12px);
+    transform: translateY(-50%);
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease,
+        color 0.2s ease;
+}
+
+.model-carousel__arrow:hover {
+    border-color: rgba(77, 235, 255, 0.48);
+    background: rgba(77, 235, 255, 0.16);
+    color: #fff;
+}
+
+.model-carousel__arrow--left {
+    left: -4px;
+}
+
+.model-carousel__arrow--right {
+    right: -4px;
+}
+
+.model-strip {
+    display: flex;
+    gap: 10px;
+    padding-bottom: 2px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+}
+
+.model-strip::-webkit-scrollbar {
+    display: none;
+}
+
+.model-card {
+    position: relative;
+    flex: 0 0 clamp(188px, 15.5vw, 244px);
+    min-height: 250px;
+    background: #111217;
+    scroll-snap-align: start;
+}
+
+.model-card > img,
+.model-card > video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 250px;
+    object-fit: cover;
+    transition: transform 0.25s ease;
+}
+
+.model-card::after {
+    content: '';
+    position: absolute;
+    inset: 38% 0 0;
+    background: linear-gradient(180deg, transparent, rgba(7, 8, 10, 0.9));
+}
+
+.model-card:hover > img,
+.model-card:hover > video {
+    transform: scale(1.04);
+}
+
+.model-card__badge {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    z-index: 2;
+    padding: 4px 8px;
+    border-radius: 5px;
+    background: linear-gradient(90deg, #3f8cff 0%, #4debff 100%);
+    color: #061016;
+    font-size: 12px;
+}
+
+.model-card > button {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    z-index: 2;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.38);
+    color: #fff;
+    cursor: pointer;
+}
+
+.model-card__body {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 10px;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 8px;
+    align-items: end;
+}
+
+.model-card__body strong,
+.model-card__body small {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.model-card__body strong {
+    grid-column: 1 / -1;
+    font-size: 20px;
+    line-height: 1.2;
+}
+
+.model-card__body small {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+}
+
+.model-card__body em {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.26);
+    color: #fff;
+    font-size: 12px;
+    font-style: normal;
 }
 
 .hero-panel {
     position: relative;
     z-index: 3;
+}
+
+.hero-panel--compact {
+    margin-top: 34px;
 }
 
 .hero-panel__heading {
@@ -1841,7 +2574,7 @@ onBeforeUnmount(() => {
     z-index: 1;
     width: 100%;
     max-width: none;
-    margin: 88px 0 0;
+    margin: 34px 0 0;
     overflow: visible;
 
     &__toolbar {
@@ -1938,13 +2671,13 @@ onBeforeUnmount(() => {
 .inspiration-grid {
     display: grid;
     grid-template-columns: repeat(var(--inspiration-columns, 6), minmax(0, 1fr));
-    gap: 2px;
+    gap: 10px;
     margin-top: 4px;
 
     &__column {
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: 10px;
         min-width: 0;
     }
 }
@@ -1955,7 +2688,7 @@ onBeforeUnmount(() => {
     width: 100%;
     overflow: hidden;
     border: 1px solid transparent;
-    border-radius: 2px;
+    border-radius: 8px;
     cursor: pointer;
     background: #101012;
 
@@ -2049,11 +2782,11 @@ onBeforeUnmount(() => {
         z-index: 2;
         height: 36px;
         border: 0;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.95);
-        color: #222;
+        border-radius: 8px;
+        background: linear-gradient(90deg, #3f8cff 0%, #4debff 100%);
+        color: #061016;
         font-size: 14px;
-        font-weight: 500;
+        font-weight: 700;
         opacity: 0;
         transform: translateY(8px);
         transition: all 0.2s ease;
@@ -2476,7 +3209,15 @@ onBeforeUnmount(() => {
 
 @media (max-width: 1100px) {
     .app-main {
-        padding: 96px 20px 120px 116px;
+        padding: 30px 18px 120px 94px;
+    }
+
+    .home-hero {
+        grid-template-columns: 1fr;
+    }
+
+    .home-banner {
+        min-height: 190px;
     }
 
     .hero-composer {

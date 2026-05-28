@@ -172,10 +172,17 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     }
 
     if (to.meta.auth && !userStore.isLogin) {
+        const redirect = withTenantQuery(to.fullPath, tenantId)
+        if (to.path !== '/login' && to.path !== '/register') {
+            return navigateTo(withTenantQuery({
+                path: '/login',
+                query: {
+                    redirect
+                }
+            }, tenantId))
+        }
         if (import.meta.client) {
-            openPcLoginModal({
-                redirect: withTenantQuery(to.fullPath, tenantId)
-            })
+            openPcLoginModal({ redirect })
         }
     }
 })

@@ -526,23 +526,26 @@
 
     .site-login-modal__backdrop {
         background:
-            radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.1), transparent 38%),
-            rgba(0, 12, 24, 0.58);
-        backdrop-filter: blur(16px) saturate(120%);
-        -webkit-backdrop-filter: blur(16px) saturate(120%);
+            radial-gradient(circle at 12% 8%, rgba(77, 235, 255, 0.22), transparent 34%),
+            radial-gradient(circle at 82% 84%, rgba(63, 140, 255, 0.16), transparent 32%),
+            #020304;
+        backdrop-filter: blur(18px) saturate(128%);
+        -webkit-backdrop-filter: blur(18px) saturate(128%);
     }
 
     .site-login-modal__panel {
-        grid-template-columns: 440px 460px;
-        width: min(900px, calc(100vw - 48px));
-        height: min(680px, calc(100dvh - 80px));
+        grid-template-columns: minmax(420px, 1.08fr) minmax(430px, 0.92fr);
+        width: min(1000px, calc(100vw - 72px));
+        height: min(640px, calc(100dvh - 96px));
         min-height: min(560px, calc(100dvh - 80px));
-        max-height: calc(100dvh - 80px);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 14px;
+        max-height: calc(100dvh - 96px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
         overflow: hidden;
-        background: #050505;
-        box-shadow: 0 28px 90px rgba(0, 0, 0, 0.5);
+        background: #11141e;
+        box-shadow:
+            0 32px 110px rgba(0, 0, 0, 0.66),
+            0 0 80px rgba(77, 235, 255, 0.1);
     }
 
     .site-login-modal__hero {
@@ -551,7 +554,9 @@
         min-height: 0;
         padding: 0;
         overflow: hidden;
-        background: #111;
+        background:
+            radial-gradient(circle at 20% 12%, rgba(77, 235, 255, 0.22), transparent 34%),
+            #050507;
         color: #fff;
     }
 
@@ -561,17 +566,27 @@
         height: 100%;
         min-height: 0;
         object-fit: cover;
+        opacity: 0;
+        filter: saturate(1.08) contrast(1.04);
+        transition: opacity 0.26s ease;
+
+        &.is-ready {
+            opacity: 1;
+        }
     }
 
     .site-login-modal__video-overlay {
         position: absolute;
-        inset: auto 0 0;
+        inset: 0;
         display: flex;
         flex-direction: column;
+        justify-content: flex-end;
         gap: 10px;
-        padding: 34px;
+        padding: 42px;
         color: #fff;
-        background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.72));
+        background:
+            radial-gradient(circle at 40% 28%, rgba(77, 235, 255, 0.14), transparent 34%),
+            linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.72));
 
         span {
             font-size: 13px;
@@ -618,11 +633,11 @@
         flex-direction: column;
         height: 100%;
         min-height: 0;
-        padding: 58px 50px 38px;
+        padding: 72px 72px 48px;
         overflow-y: auto;
         scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
         scrollbar-width: thin;
-        background: #050505;
+        background: #151823;
         color: #fff;
     }
 
@@ -647,27 +662,16 @@
         text-align: left;
 
         &::before {
-            content: 'A. PART';
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            height: 30px;
-            margin-bottom: 12px;
-            padding: 0 12px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 999px;
-            color: #fff;
-            font-size: 13px;
-            font-weight: 700;
-            letter-spacing: 0;
+            display: none;
         }
     }
 
     .site-login-modal__content-title {
         color: #fff;
-        font-size: 25px;
-        font-weight: 650;
+        font-size: 28px;
+        font-weight: 700;
         letter-spacing: 0;
+        text-align: center;
     }
 
     .site-login-modal__content-sub {
@@ -675,6 +679,7 @@
         color: rgba(255, 255, 255, 0.54);
         font-size: 13px;
         line-height: 1.7;
+        text-align: center;
     }
 
     .site-login-modal__auth,
@@ -691,9 +696,9 @@
         gap: 8px;
         margin-top: 0;
         padding: 4px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.05);
+        border: 0;
+        border-radius: 6px;
+        background: rgba(10, 12, 18, 0.48);
     }
 
     .site-login-modal__tab {
@@ -702,14 +707,14 @@
         min-width: 0;
         padding: 0 8px;
         border: 0;
-        border-radius: 999px;
+        border-radius: 6px;
         color: rgba(255, 255, 255, 0.58);
         font-size: 13px;
         letter-spacing: 0;
 
         &.is-active {
-            color: #0a0a0a;
-            background: #fff;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
         }
 
         &:hover:not(.is-active) {
@@ -757,9 +762,9 @@
     .site-login-modal__input {
         min-height: 48px;
         padding: 0 15px;
-        border-color: rgba(255, 255, 255, 0.16);
+        border-color: rgba(255, 255, 255, 0.12);
         border-radius: 8px;
-        background: rgba(255, 255, 255, 0.07);
+        background: rgba(255, 255, 255, 0.045);
 
         input {
             height: 46px;
@@ -772,8 +777,8 @@
         }
 
         &:focus-within {
-            border-color: rgba(255, 255, 255, 0.62);
-            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
+            border-color: rgba(77, 235, 255, 0.62);
+            box-shadow: 0 0 0 3px rgba(77, 235, 255, 0.12);
         }
 
         &--code {
@@ -812,13 +817,13 @@
 
     .site-login-modal__submit {
         height: 50px;
-        border-radius: 999px;
-        background: #fff;
-        color: #050505;
+        border-radius: 8px;
+        background: linear-gradient(90deg, #3f8cff 0%, #4debff 100%);
+        color: #071017;
         font-size: 15px;
 
         &:hover:not(:disabled) {
-            background: rgba(255, 255, 255, 0.86);
+            background: linear-gradient(90deg, #56a0ff 0%, #7ef4ff 100%);
             transform: translateY(-1px);
         }
     }
@@ -863,6 +868,19 @@
             text-decoration: underline;
             text-underline-offset: 3px;
         }
+    }
+}
+
+.site-login-modal--page {
+    .site-login-modal__backdrop {
+        background:
+            radial-gradient(circle at 12% 8%, rgba(77, 235, 255, 0.2), transparent 34%),
+            radial-gradient(circle at 82% 84%, rgba(63, 140, 255, 0.14), transparent 32%),
+            #020304;
+    }
+
+    .site-login-modal__close {
+        display: none;
     }
 }
 

@@ -1,6 +1,6 @@
 <template>
     <view class="diy-render">
-        <template v-for="(item, index) in pages" :key="item.id || index">
+        <template v-for="(item, index) in normalizedPages" :key="item.id || index">
             <w-search
                 v-if="item.name == 'search'"
                 :pageMeta="meta"
@@ -114,8 +114,9 @@
 import { useAppStore } from '@/stores/app'
 import { navigateTo } from '@/utils/util'
 import { computed } from 'vue'
+import { normalizeMobileDecorationWidgets } from '@mobile-decoration'
 
-defineProps({
+const props = defineProps({
     pages: {
         type: Array,
         default: () => []
@@ -136,6 +137,7 @@ defineProps({
 defineEmits(['bannerChange'])
 
 const { getImageUrl } = useAppStore()
+const normalizedPages = computed(() => normalizeMobileDecorationWidgets(props.pages as any[]))
 const handleLink = (link: any) => {
     if (link?.path) {
         navigateTo(link)

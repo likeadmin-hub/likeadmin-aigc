@@ -6,59 +6,17 @@
                 <span v-if="!siteLogo" class="app-logo__text">{{ siteName }}</span>
             </NuxtLink>
 
-            <div class="app-header__actions">
-                <div class="header-popover-wrap">
-                    <button class="app-pill" type="button" @click.stop="emit('toggle-popover', 'share')">
-                        <img class="app-pill__asset app-pill__asset--sm" :src="giftIcon" alt="" />
-                        <span>{{ texts.shareGift }}</span>
-                    </button>
-                    <div v-if="activePopover === 'share'" class="header-popover" @click.stop>
-                        <strong>{{ popoverContent.share.title }}</strong>
-                        <p>{{ popoverContent.share.text }}</p>
-                    </div>
-                </div>
-
-                <div class="header-popover-wrap">
-                    <button class="app-pill" type="button" @click.stop="emit('toggle-popover', 'api')">
-                        {{ texts.apiCall }}
-                    </button>
-                    <div v-if="activePopover === 'api'" class="header-popover" @click.stop>
-                        <strong>{{ popoverContent.api.title }}</strong>
-                        <p>{{ popoverContent.api.text }}</p>
-                    </div>
-                </div>
-
-                <button class="app-pill" type="button" @click.stop="openCreditsUsageModal">
-                    <img class="app-pill__asset app-pill__asset--xs" :src="sparkIcon" alt="" />
-                    <span>{{ remainingCredits }}</span>
-                </button>
-
-                <button class="app-pill" type="button" @click.stop="openMembershipModal">
-                    <img class="app-pill__asset app-pill__asset--sm" :src="vipIcon" alt="" />
-                    <span>{{ membershipEnabled ? texts.membershipOpened : texts.openMembership }}</span>
-                </button>
-
-                <div class="header-popover-wrap">
-                    <button class="app-icon-button" type="button" :aria-label="texts.noticeCenter" @click.stop="emit('toggle-popover', 'notice')">
-                        <img class="app-icon-button__asset" :src="cardIcon" alt="" />
-                    </button>
-                    <div
-                        v-if="activePopover === 'notice'"
-                        :class="['header-popover', { 'header-popover--compact': popoverContent.notice.compact }]"
-                        @click.stop
-                    >
-                        <strong>{{ popoverContent.notice.title }}</strong>
-                        <p>{{ popoverContent.notice.text }}</p>
-                    </div>
-                </div>
-
-                <button class="app-avatar" type="button" :aria-label="texts.profileCenter" @click.stop="openLoginModal">
-                    <img :src="displayAvatarUrl" alt="" />
-                </button>
+            <div v-if="activePopover === 'api' || activePopover === 'notice'" class="sidebar-popover" @click.stop>
+                <strong>{{ activePopover === 'api' ? popoverContent.api.title : popoverContent.notice.title }}</strong>
+                <p>{{ activePopover === 'api' ? popoverContent.api.text : popoverContent.notice.text }}</p>
             </div>
         </header>
 
-        <AiWorkspaceSidebar :active-sidebar="activeSidebar" @navigate="emit('navigate', $event)" />
+        <AiWorkspaceSidebar
+            :active-sidebar="activeSidebar"
+            @navigate="emit('navigate', $event)"
+            @action="handleSidebarAction"
+        />
         <AiWorkspaceCreditUsageModal
             v-model="showCreditsUsageModal"
             :remaining-credits="remainingCredits"
@@ -89,6 +47,18 @@
             @success="handleMembershipPaySuccess"
         />
         <AiWorkspaceUserPanel v-model="showUserPanel" />
+        <Teleport to="body">
+            <transition name="mobile-code-fade">
+                <div v-if="showMobileCodeModal" class="mobile-code-modal" @click.self="showMobileCodeModal = false">
+                    <div class="mobile-code-modal__panel">
+                        <button type="button" aria-label="关闭" @click="showMobileCodeModal = false">×</button>
+                        <strong>小程序码</strong>
+                        <p>使用微信扫码，进入移动端创作体验。</p>
+                        <img :src="miniProgramCodeUrl" alt="小程序码" />
+                    </div>
+                </div>
+            </transition>
+        </Teleport>
     </div>
 </template>
 
@@ -102,10 +72,7 @@ import { createMembershipOrder, getMembershipPlans } from '@/api/membership'
 import feedback from '@/utils/feedback'
 import type { SidebarKey } from '~/utils/ai-sidebar'
 import { useAiUserDisplay } from '~/composables/useAiUserDisplay'
-import giftIcon from '@/assets/images/icon/Gift.svg'
-import vipIcon from '@/assets/images/icon/Vip-one (vip).svg'
-import sparkIcon from '@/assets/images/icon/lingganzhi.svg'
-import cardIcon from '@/assets/images/icon/card.svg'
+import wxIcon from '@/assets/images/icon/icon_wx.png'
 type PopoverKey = '' | 'share' | 'api' | 'notice'
 type PurchaseModalSource = 'usage' | 'membership' | 'standalone' | ''
 type PurchaseModalCloseAction = 'restore-source' | 'open-membership' | 'stay-closed'
@@ -149,6 +116,7 @@ const showCreditAgreementModal = ref(false)
 const showMembershipModal = ref(false)
 const showMembershipPayModal = ref(false)
 const showUserPanel = ref(false)
+const showMobileCodeModal = ref(false)
 const headerSolid = ref(false)
 const selectedMembershipPlan = ref<MembershipPlanId>(props.membershipEnabled ? 'advanced' : 'free')
 const membershipPlans = ref<MembershipPlanDefinition[]>([])
@@ -157,6 +125,10 @@ const payModalFrom = ref<'membership' | 'recharge'>('membership')
 const pendingMembershipPlan = ref<MembershipPlanId | null>(null)
 const purchaseModalSource = ref<PurchaseModalSource>('')
 const purchaseModalCloseAction = ref<PurchaseModalCloseAction>('restore-source')
+const miniProgramCodeUrl = computed(() => {
+    const qrcode = appStore.getQrcodeConfig || {}
+    return qrcode.mnp_qr_code || qrcode.mnp || qrcode.wechat_mnp || qrcode.wx_qr_code || qrcode.qr_code || wxIcon
+})
 
 const getWorkspaceScrollTop = () => {
     if (typeof window === 'undefined') return 0
@@ -239,6 +211,30 @@ const openLoginModal = () => {
     showMembershipModal.value = false
     showUserPanel.value = false
     openPcLoginModal({ redirect: route.fullPath })
+}
+
+const handleSidebarAction = (key: 'membership' | 'user' | 'api' | 'notice' | 'mobile' | 'language' | 'short_drama') => {
+    if (key === 'membership') {
+        openMembershipModal()
+        return
+    }
+    if (key === 'user') {
+        openLoginModal()
+        return
+    }
+    if (key === 'short_drama') {
+        feedback.msgWarning('功能开发中')
+        return
+    }
+    if (key === 'api' || key === 'notice') {
+        emit('toggle-popover', key)
+        return
+    }
+    if (key === 'mobile') {
+        showMobileCodeModal.value = true
+        return
+    }
+    feedback.msgWarning('语言切换正在完善中')
 }
 
 const handleMembershipRecharge = () => {
@@ -416,23 +412,24 @@ const texts = {
 
 .app-header {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    top: 18px;
+    left: 96px;
+    right: 24px;
     z-index: 12;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 24px;
-    height: 56px;
-    padding: 0 40px;
+    height: 36px;
+    padding: 0;
     box-sizing: border-box;
-    background: #060608;
+    pointer-events: none;
+    background: transparent;
     backdrop-filter: none;
 }
 
 .app-logo {
-    display: inline-flex;
+    display: none;
     align-items: center;
     gap: 10px;
     color: #fff;
@@ -455,10 +452,11 @@ const texts = {
 .app-header__actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
     justify-content: flex-end;
     min-width: 0;
+    pointer-events: auto;
 }
 
 .header-popover-wrap {
@@ -478,17 +476,20 @@ const texts = {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    height: 32px;
-    padding: 0 14px;
-    border-radius: 999px;
-    background: rgba(30, 31, 32, 0.96);
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(15, 16, 19, 0.82);
     color: #fff;
-    font-size: 14px;
+    font-size: 12px;
+    backdrop-filter: blur(12px);
 }
 
 .app-pill:hover,
 .app-icon-button:hover {
-    background: rgba(46, 47, 48, 0.96);
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(31, 32, 38, 0.94);
 }
 
 .app-pill__asset--xs {
@@ -515,9 +516,10 @@ const texts = {
 }
 
 .app-avatar {
-    width: 40px;
-    height: 40px;
+    width: 34px;
+    height: 34px;
     padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 50%;
     background: transparent;
     overflow: hidden;
@@ -542,6 +544,101 @@ const texts = {
     backdrop-filter: blur(10px);
 }
 
+.sidebar-popover {
+    position: fixed;
+    left: 86px;
+    bottom: 92px;
+    width: 226px;
+    padding: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    background: rgba(18, 19, 24, 0.96);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+    pointer-events: auto;
+    backdrop-filter: blur(14px);
+}
+
+.sidebar-popover strong {
+    display: block;
+    margin-bottom: 7px;
+    color: #fff;
+    font-size: 14px;
+}
+
+.sidebar-popover p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.64);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.mobile-code-fade-enter-active,
+.mobile-code-fade-leave-active {
+    transition: opacity 0.18s ease;
+}
+
+.mobile-code-fade-enter-from,
+.mobile-code-fade-leave-to {
+    opacity: 0;
+}
+
+.mobile-code-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 3300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.58);
+    backdrop-filter: blur(12px);
+}
+
+.mobile-code-modal__panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 300px;
+    padding: 28px;
+    border: 1px solid rgba(77, 235, 255, 0.18);
+    border-radius: 12px;
+    background: #15161a;
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.48);
+}
+
+.mobile-code-modal__panel > button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    cursor: pointer;
+}
+
+.mobile-code-modal__panel strong {
+    color: #fff;
+    font-size: 20px;
+}
+
+.mobile-code-modal__panel p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 13px;
+}
+
+.mobile-code-modal__panel img {
+    width: 176px;
+    height: 176px;
+    border-radius: 10px;
+    object-fit: cover;
+    background: #fff;
+}
+
 .header-popover--compact {
     width: 220px;
 }
@@ -562,10 +659,11 @@ const texts = {
 
 @media (max-width: 1100px) {
     .app-header {
+        left: 86px;
+        right: 14px;
         align-items: center;
         flex-direction: row;
-        min-height: 56px;
-        padding: 0 20px;
+        min-height: 36px;
     }
 
     .app-header__actions {
@@ -590,7 +688,6 @@ const texts = {
 @media (max-width: 760px) {
     .app-header {
         gap: 12px;
-        padding: 0 12px;
     }
 
     .app-logo__text {

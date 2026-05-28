@@ -46,7 +46,19 @@ class PcLogic extends BaseLogic
     public static function getIndexData()
     {
         // 装修配置
-        $decoratePage = DecorateTemplateService::activePublishedPage((int)request()->tenantId, DecorateTemplateService::TERMINAL_PC, 'pc_home', 4);
+        $preview = request()->get('preview/d', 0) === 1;
+        $templateId = request()->get('template_id/d', 0);
+        $pageId = request()->get('page_id/d', 0);
+        $decoratePage = DecorateTemplateService::activePublishedPage(
+            (int)request()->tenantId,
+            DecorateTemplateService::TERMINAL_PC,
+            'pc_home',
+            4,
+            'common',
+            $preview,
+            $templateId,
+            $pageId
+        );
         // 最新资讯
         $newArticle = self::getLimitArticle('new', 7);
         // 全部资讯

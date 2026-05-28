@@ -9,7 +9,7 @@
                 <NuxtLink
                     v-for="item in filteredFeaturedTools"
                     :key="item.id"
-                    :to="buildFeaturedToolPath(item)"
+                    :to="getFeaturedToolPath(item)"
                     :class="['tools-featured-card', { 'is-active': selectedFeaturedToolId === item.id }]"
                     @click="selectFeaturedTool($event, item)"
                 >
@@ -73,34 +73,33 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import {
     aiToolTexts,
-    buildFeaturedToolPath,
     buildToolCardPath,
-    featuredTools,
     isToolCardImplemented,
     toolComingSoonMessage,
-    toolCards,
     toolCategoryOptions
 } from '~/composables/use-ai-tools'
 import type { FeaturedToolItem, ToolCardItem, ToolCategory } from '~/composables/use-ai-tools'
+import { useAiPcHomeDecorate } from '~/composables/useAiPcHomeDecorate'
 import feedback from '@/utils/feedback'
 
 const texts = aiToolTexts
+const { displayToolCards, displayFeaturedTools, loadPcHomeDecorate } = useAiPcHomeDecorate()
 const toolKeyword = ref('')
 const activeToolCategory = ref<ToolCategory>('全部')
-const selectedFeaturedToolId = ref(featuredTools[0]?.id ?? '')
-const selectedToolCardId = ref(toolCards[0]?.id ?? '')
+const selectedFeaturedToolId = ref(displayFeaturedTools.value[0]?.id ?? '')
+const selectedToolCardId = ref(displayToolCards.value[0]?.id ?? '')
 
 const normalizedToolKeyword = computed(() => toolKeyword.value.trim().toLowerCase())
 
-const filteredFeaturedTools = computed(() => featuredTools.filter((item) => (
+const filteredFeaturedTools = computed(() => displayFeaturedTools.value.filter((item) => (
     !normalizedToolKeyword.value
     || [item.title, item.description, item.category].some((field) => field.toLowerCase().includes(normalizedToolKeyword.value))
 )))
 
-const filteredToolCards = computed(() => toolCards.filter((item) => {
+const filteredToolCards = computed(() => displayToolCards.value.filter((item) => {
     const matchKeyword = !normalizedToolKeyword.value
         || [item.title, item.badge, item.category, item.detailName].some((field) => field.toLowerCase().includes(normalizedToolKeyword.value))
     const matchCategory = activeToolCategory.value === '全部' || item.category === activeToolCategory.value
@@ -120,7 +119,11 @@ watch(filteredToolCards, (items) => {
     }
 })
 
-const findFeaturedTargetTool = (item: FeaturedToolItem) => toolCards.find((tool) => tool.id === item.targetToolId)
+const findFeaturedTargetTool = (item: FeaturedToolItem) => displayToolCards.value.find((tool) => tool.id === item.targetToolId)
+const getFeaturedToolPath = (item: FeaturedToolItem) => {
+    const targetTool = findFeaturedTargetTool(item)
+    return targetTool ? buildToolCardPath(targetTool) : `/ai/tools/${item.targetToolId}`
+}
 
 const selectFeaturedTool = (event: MouseEvent, item: FeaturedToolItem) => {
     selectedFeaturedToolId.value = item.id
@@ -139,6 +142,10 @@ const selectToolCard = (event: MouseEvent, item: ToolCardItem) => {
         feedback.msgWarning(toolComingSoonMessage)
     }
 }
+
+onMounted(() => {
+    loadPcHomeDecorate()
+})
 </script>
 
 <style lang="scss" scoped>

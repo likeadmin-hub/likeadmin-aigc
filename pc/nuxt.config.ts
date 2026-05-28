@@ -1,6 +1,6 @@
 // https://v3.nuxtjs.org/api/configuration/nuxt.config
 
-import { URL } from 'node:url'
+import { fileURLToPath, URL } from 'node:url'
 import { DEFAULT_PC_DEV_API_HOST, PUBLIC_API_HOST } from './constants/public-api'
 import { getEnvConfig } from './nuxt/env'
 
@@ -104,6 +104,12 @@ export default defineNuxtConfig({
         }
     },
     vite: {
+        resolve: {
+            alias: {
+                '@decoration-core': fileURLToPath(new URL('../packages/decoration-core/index.ts', import.meta.url)),
+                '@pc-decoration': fileURLToPath(new URL('../packages/pc-decoration/PcDecorationRenderer.vue', import.meta.url))
+            }
+        },
         server: {
             proxy: {
                 '/api': pcApiDevProxy,

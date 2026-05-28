@@ -2797,6 +2797,7 @@ import {
     toolResultFilterOptions
 } from '~/composables/use-ai-tools'
 import type { ToolDetailResolution, ToolResultFilter, ToolResultItem } from '~/composables/use-ai-tools'
+import { useAiPcHomeDecorate } from '~/composables/useAiPcHomeDecorate'
 import { usePcLoginGate } from '@/composables/usePcLoginGate'
 
 const props = defineProps<{
@@ -3026,9 +3027,10 @@ type SellingPointCardPresetValues = {
 const router = useRouter()
 const route = useRoute()
 const { ensurePcLogin } = usePcLoginGate()
+const { displayToolCards, loadPcHomeDecorate } = useAiPcHomeDecorate()
 const texts = aiToolTexts
 const galleryCategories = ['图片生成', 'AI工具'] as const
-const currentTool = computed(() => getToolCardById(props.toolId))
+const currentTool = computed(() => displayToolCards.value.find((item) => item.id === props.toolId) || getToolCardById(props.toolId))
 const toolPageTitle = computed(() => currentTool.value.title)
 const isLocalRedrawTool = computed(() => currentTool.value.toolMode === 'local-redraw')
 const isOutpaintTool = computed(() => currentTool.value.toolMode === 'outpaint')
@@ -7871,6 +7873,7 @@ const closeFloatingMenus = () => {
 }
 
 onMounted(() => {
+    loadPcHomeDecorate()
     document.addEventListener('click', closeFloatingMenus)
     window.addEventListener('resize', syncMaskCanvasSize)
 })

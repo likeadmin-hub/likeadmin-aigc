@@ -50,6 +50,16 @@ export function publishDecorateTemplate(params: any) {
     return request.post({ url: '/decorate.template/publish', params })
 }
 
+// 导出装修模板
+export function exportDecorateTemplate(params: any) {
+    return request.post({ url: '/decorate.template/export', params })
+}
+
+// 导入装修模板
+export function importDecorateTemplate(params: any) {
+    return request.post({ url: '/decorate.template/import', params })
+}
+
 // 保存模板设置
 export function saveDecorateTemplateSettings(params: any) {
     return request.post({ url: '/decorate.template/saveSettings', params })
@@ -88,6 +98,11 @@ export function getDecoratePageLinkLists(params?: any) {
 // 获取首页文章数据
 export function getDecorateArticle(params?: any) {
     return request.get({ url: '/decorate.data/article', params })
+}
+
+// 统一装修数据源
+export function getDecorateDataSources(params?: any) {
+    return request.get({ url: '/decorate.data/sources', params }, { ignoreCancelToken: true })
 }
 
 // 底部导航详情

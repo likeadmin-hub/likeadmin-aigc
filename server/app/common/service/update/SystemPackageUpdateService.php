@@ -350,6 +350,7 @@ class SystemPackageUpdateService
 
     private function syncBuiltinApps(string $coreVersion): array
     {
+        $this->ensureSqlMigrationExecutorAvailable();
         $result = [];
         foreach (AppAccessService::DEFAULT_AIGC_APP_CODES as $appCode) {
             $manifestPath = AppRegistryService::manifestPath($appCode);
@@ -385,6 +386,18 @@ class SystemPackageUpdateService
             }
         }
         return $result;
+    }
+
+    private function ensureSqlMigrationExecutorAvailable(): void
+    {
+        $class = '\\app\\common\\service\\database\\SqlMigrationExecutor';
+        if (class_exists($class)) {
+            return;
+        }
+        $path = root_path() . 'app/common/service/database/SqlMigrationExecutor.php';
+        if (is_file($path)) {
+            require_once $path;
+        }
     }
 
     private function installBuiltinAppFromLocal(string $appCode, string $coreVersion): array

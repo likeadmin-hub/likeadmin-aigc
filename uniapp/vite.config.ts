@@ -6,6 +6,7 @@ import postcssRemToResponsivePixel from 'postcss-rem-to-responsive-pixel'
 import postcssWeappTailwindcssRename from 'weapp-tailwindcss-webpack-plugin/postcss'
 import vwt from 'weapp-tailwindcss-webpack-plugin/vite'
 import uniRouter from 'unplugin-uni-router/vite'
+import { fileURLToPath, URL } from 'node:url'
 
 const isH5 = process.env.UNI_PLATFORM === 'h5'
 const isApp = process.env.UNI_PLATFORM === 'app'
@@ -26,6 +27,11 @@ if (!weappTailwindcssDisabled) {
 // https://vitejs.dev/config/
 export default defineConfig({
     plugins: [uni(), uniRouter(), weappTailwindcssDisabled ? undefined : vwt()],
+    resolve: {
+        alias: {
+            '@mobile-decoration': fileURLToPath(new URL('../packages/mobile-decoration/index.ts', import.meta.url))
+        }
+    },
     css: {
         postcss: {
             plugins: postcssPlugin

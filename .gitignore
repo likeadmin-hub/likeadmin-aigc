@@ -5,6 +5,7 @@
 !/platform/
 !/server/
 !/pc/
+!/packages/
 !/scripts/
 !/.gitignore
 

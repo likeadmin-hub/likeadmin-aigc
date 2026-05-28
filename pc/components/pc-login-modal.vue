@@ -3,7 +3,7 @@
         <transition name="login-modal-fade">
             <div
                 v-if="modelValue"
-                class="site-login-modal site-login-modal--video"
+                :class="['site-login-modal', 'site-login-modal--video', { 'site-login-modal--page': pageMode }]"
                 role="dialog"
                 aria-modal="true"
                 :aria-label="dialogTitle"
@@ -14,13 +14,18 @@
                 <div ref="panelRef" class="site-login-modal__panel" @click.stop>
                     <section class="site-login-modal__hero">
                         <video
+                            ref="loginHeroVideoRef"
                             class="site-login-modal__video-media"
+                            :class="{ 'is-ready': loginHeroVideoReady }"
                             :src="loginHeroVideo"
                             autoplay
                             muted
                             loop
                             playsinline
-                            preload="metadata"
+                            preload="auto"
+                            @loadeddata="markLoginHeroVideoReady"
+                            @canplay="markLoginHeroVideoReady"
+                            @playing="markLoginHeroVideoReady"
                         ></video>
                         <div class="site-login-modal__video-overlay">
                             <span>A. PART</span>
@@ -364,9 +369,14 @@ import { useModalBodyScrollLock } from '@/composables/useModalBodyScrollLock'
 type AuthView = 'login' | 'register' | 'forgot'
 type LoginTab = 'mobile' | 'account'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     modelValue: boolean
-}>()
+    initialView?: AuthView
+    pageMode?: boolean
+}>(), {
+    initialView: 'login',
+    pageMode: false
+})
 
 const emit = defineEmits<{
     (event: 'update:modelValue', value: boolean): void
@@ -375,11 +385,15 @@ const emit = defineEmits<{
 
 const appStore = useAppStore()
 const userStore = useUserStore()
+const route = useRoute()
+const router = useRouter()
 const { setPopupType, toggleShowPopup } = useAccount()
 
 const authView = ref<AuthView>('login')
 const loginTab = ref<LoginTab>('mobile')
-const loginHeroVideo = 'https://aigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video/20260519/2026051916485445a196921.mp4'
+const loginHeroVideoRef = ref<HTMLVideoElement | null>(null)
+const loginHeroVideo = '/media/login-hero.mp4'
+const loginHeroVideoReady = ref(false)
 const codeSending = ref(false)
 const submitLoading = ref(false)
 const forgotCodeSending = ref(false)
@@ -635,6 +649,11 @@ const syncLoginTab = () => {
 }
 
 const toggleAuthView = () => {
+    if (props.pageMode) {
+        const nextPath = authView.value === 'login' ? '/register' : '/login'
+        router.push({ path: nextPath, query: route.query })
+        return
+    }
     if (authView.value === 'login') {
         authView.value = 'register'
         return
@@ -651,6 +670,11 @@ const setLoginTab = (tab: LoginTab) => {
 }
 
 const close = () => {
+    if (props.pageMode) {
+        const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/ai'
+        router.push(redirect.startsWith('/') ? redirect : '/ai')
+        return
+    }
     emit('update:modelValue', false)
 }
 
@@ -802,6 +826,10 @@ const submitRegister = async () => {
         registerForm.password = ''
         registerForm.passwordConfirm = ''
         feedback.msgSuccess('注册成功，请登录')
+        if (props.pageMode) {
+            await router.push({ path: '/login', query: { ...route.query, account: registeredAccount } })
+            return
+        }
         authView.value = 'login'
         loginTab.value = 'account'
         accountForm.account = registeredAccount
@@ -817,6 +845,10 @@ const handleKeydown = (event: KeyboardEvent) => {
     }
 }
 
+const markLoginHeroVideoReady = () => {
+    loginHeroVideoReady.value = true
+}
+
 watch([allowMobileLogin, allowAccountLogin], syncLoginTab, {
     immediate: true
 })
@@ -830,10 +862,11 @@ watch(() => props.modelValue, (visible) => {
         }
     }
 
-    authView.value = 'login'
+    authView.value = props.initialView
     loginTab.value = getDefaultLoginTab()
 
     if (!visible) {
+        loginHeroVideoReady.value = false
         forgotForm.mobile = ''
         forgotForm.code = ''
         forgotForm.password = ''
@@ -841,6 +874,18 @@ watch(() => props.modelValue, (visible) => {
         registerForm.account = ''
         registerForm.password = ''
         registerForm.passwordConfirm = ''
+    }
+}, { immediate: true })
+
+watch(() => props.initialView, (view) => {
+    authView.value = view || 'login'
+    loginTab.value = getDefaultLoginTab()
+}, { immediate: true })
+
+watch(() => route.query.account, (account) => {
+    if (typeof account === 'string' && account) {
+        loginTab.value = 'account'
+        accountForm.account = account
     }
 }, { immediate: true })
 

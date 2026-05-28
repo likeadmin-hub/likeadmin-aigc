@@ -342,12 +342,24 @@ class AppPackageUpdateService
             }
             try {
                 $sqlPrefix = config('database.connections.mysql.prefix');
+                $this->ensureSqlMigrationExecutor();
                 SqlMigrationExecutor::execute($content, $sqlPrefix);
                 $migration->save(['status' => 'success', 'error' => '', 'update_time' => time()]);
             } catch (Throwable $e) {
                 $migration->save(['status' => 'failed', 'error' => $e->getMessage(), 'update_time' => time()]);
                 throw $e;
             }
+        }
+    }
+
+    private function ensureSqlMigrationExecutor(): void
+    {
+        if (class_exists(SqlMigrationExecutor::class)) {
+            return;
+        }
+        $path = root_path() . 'app/common/service/database/SqlMigrationExecutor.php';
+        if (is_file($path)) {
+            require_once $path;
         }
     }
 

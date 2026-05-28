@@ -1,6 +1,6 @@
 //首页数据
-export function getIndex() {
-    return $request.get({ url: '/pc/index' })
+export function getIndex(params?: any) {
+    return $request.get({ url: '/pc/index', params })
 }
 
 // 装修页面数据

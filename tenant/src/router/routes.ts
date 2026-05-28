@@ -44,6 +44,15 @@ export const constantRoutes: Array<RouteRecordRaw> = [
         component: () => import('@/views/account/login.vue')
     },
     {
+        path: '/decoration/pc_details',
+        component: () => import('@/views/decoration/pc_details.vue'),
+        meta: {
+            title: 'PC端装修',
+            hidden: true,
+            hideTab: true
+        }
+    },
+    {
         path: '/user',
         component: LAYOUT,
         children: [

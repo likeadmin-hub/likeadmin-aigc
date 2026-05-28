@@ -72,6 +72,17 @@ export interface ToolCardItem {
     uploadTitle?: string
     promptTitle?: string
     promptPlaceholder?: string
+    virtualUseCount?: string
+}
+
+export interface ToolDisplayOverride {
+    id: string
+    title?: string
+    description?: string
+    cover?: string
+    badge?: string
+    virtualUseCount?: string
+    enabled?: boolean
 }
 
 export interface ToolResultItem {
@@ -567,6 +578,48 @@ export const buildFeaturedToolPath = (item: FeaturedToolItem) => {
 
 export const getDefaultToolCard = () => toolCards[0]
 export const getToolCardById = (id: string) => toolCards.find((item) => item.id === id) ?? getDefaultToolCard()
+
+export const applyToolDisplayOverrides = (
+    items: ToolCardItem[],
+    overrides: Record<string, ToolDisplayOverride>
+) => items
+    .map((item) => {
+        const override = overrides[item.id]
+        if (!override) return item
+        const title = override.title?.trim()
+        const description = override.description?.trim()
+        const badge = override.badge?.trim()
+        const cover = override.cover?.trim()
+        const virtualUseCount = override.virtualUseCount?.trim()
+        return {
+            ...item,
+            title: title || item.title,
+            detailName: title || item.detailName,
+            badge: badge || item.badge,
+            image: cover || item.image,
+            detailDescription: description || item.detailDescription,
+            promptLead: description || item.promptLead,
+            virtualUseCount: virtualUseCount || item.virtualUseCount
+        }
+    })
+    .filter((item) => overrides[item.id]?.enabled !== false)
+
+export const applyFeaturedToolDisplayOverrides = (
+    items: FeaturedToolItem[],
+    displayToolCards: ToolCardItem[]
+) => items
+    .map((item) => {
+        const targetTool = displayToolCards.find((tool) => tool.id === item.targetToolId)
+        if (!targetTool) return item
+        return {
+            ...item,
+            title: targetTool.title || item.title,
+            description: targetTool.detailDescription || item.description,
+            image: targetTool.image || item.image,
+            category: targetTool.category || item.category
+        }
+    })
+    .filter((item) => displayToolCards.some((tool) => tool.id === item.targetToolId))
 
 export const getToolResultKindLabel = (kind: ToolResultKind) => ({
     video: '视频生成',

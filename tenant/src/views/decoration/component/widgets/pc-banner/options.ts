@@ -7,9 +7,12 @@ export default () => ({
             {
                 image: '',
                 name: '',
+                description: '',
                 link: {}
             }
         ]
     },
-    styles: {}
+    styles: {
+        layout: { mode: 'flow', x: 40, y: 40, w: 1120, h: 360, z: 1, locked: false, hidden: false, snap: 8 }
+    }
 })

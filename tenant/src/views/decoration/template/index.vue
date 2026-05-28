@@ -5,10 +5,13 @@
                 <div>
                     <div class="text-lg font-medium">模板管理</div>
                     <div class="text-sm text-tx-secondary mt-1">
-                        每个模板包含移动端页面、系统风格和底部导航，发布启用后才影响用户端。
+                        每个模板包含移动端和 PC 端页面，发布启用后才影响用户端。
                     </div>
                 </div>
-                <el-button type="primary" @click="openTemplateDialog()">新建模板</el-button>
+                <div class="flex items-center gap-2">
+                    <el-button @click="triggerImportTemplate">导入模板</el-button>
+                    <el-button type="primary" @click="openTemplateDialog()">新建模板</el-button>
+                </div>
             </div>
         </el-card>
         <div v-loading="loading" class="template-grid mt-4">
@@ -43,6 +46,7 @@
                 </div>
                 <div class="template-actions">
                     <el-button type="primary" @click="goManage(item.id)">进入管理</el-button>
+                    <el-button @click="handleExportTemplate(item.id)">导出</el-button>
                     <el-button @click="handleCopyTemplate(item.id)">复制</el-button>
                     <el-button
                         v-if="!item.is_active"
@@ -87,10 +91,14 @@
                         </el-tag>
                     </div>
                     <div class="text-sm text-tx-secondary mt-1">
-                        在这里管理移动端页面、底部导航和系统风格；单页装修从页面列表进入。
+                        在这里管理{{ terminalText }}页面{{ terminal === 'mobile' ? '、底部导航和系统风格' : '和 PC 自定义装修' }}；单页装修从页面列表进入。
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
+                    <el-radio-group v-model="terminal" size="large" @change="handleTerminalChange">
+                        <el-radio-button label="mobile">移动端</el-radio-button>
+                        <el-radio-button label="pc">PC端</el-radio-button>
+                    </el-radio-group>
                     <el-button type="primary" @click="handleSaveSettings">保存设置</el-button>
                     <el-button type="warning" @click="handlePublishTemplate(templateId)"
                         >发布模板</el-button
@@ -107,13 +115,13 @@
         </el-card>
 
         <el-tabs v-model="manageTab" class="manage-tabs mt-4">
-            <el-tab-pane label="移动端页面" name="pages">
+            <el-tab-pane :label="`${terminalText}页面`" name="pages">
                 <el-card shadow="never" class="!border-none">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <div class="text-base font-medium">页面管理</div>
                             <div class="text-sm text-tx-secondary mt-1">
-                                首页、个人中心和客服页为系统页面，可装修但不能删除。
+                                {{ terminal === 'mobile' ? '首页、个人中心和客服页为系统页面，可装修但不能删除。' : 'PC 首页为系统页面，自定义页面发布后可通过 /page/{code} 访问。' }}
                             </div>
                         </div>
                         <el-button type="primary" @click="openPageDialog()">新增页面</el-button>
@@ -171,12 +179,12 @@
                     </el-table>
                 </el-card>
             </el-tab-pane>
-            <el-tab-pane label="底部导航" name="tabbar">
+            <el-tab-pane v-if="terminal === 'mobile'" label="底部导航" name="tabbar">
                 <div v-if="manageTab === 'tabbar'" class="settings-panel">
                     <mobile-tabbar-attr v-model="settings.mobile_tabbar" />
                 </div>
             </el-tab-pane>
-            <el-tab-pane label="系统风格" name="style">
+            <el-tab-pane v-if="terminal === 'mobile'" label="系统风格" name="style">
                 <el-card
                     v-if="manageTab === 'style'"
                     shadow="never"
@@ -197,14 +205,14 @@
                             <icon name="el-icon-ArrowLeft" :size="18" />
                         </el-button>
                         <div class="text-lg font-medium truncate">
-                            {{ currentPage?.name || detail.template?.name }} / 移动端装修
+                            {{ currentPage?.name || detail.template?.name }} / {{ terminalText }}装修
                         </div>
                         <el-tag type="info">{{
                             channelText(currentPage?.channel || 'common')
                         }}</el-tag>
                     </div>
                     <div class="text-sm text-tx-secondary mt-1">
-                        当前编辑移动端 H5 预览草稿，小程序复用 common 数据结构。
+                        {{ terminal === 'mobile' ? '当前编辑移动端 H5 预览草稿，小程序复用 common 数据结构。' : '当前编辑 PC 端草稿，可在区块流和自由画布之间切换。' }}
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
@@ -222,7 +230,7 @@
             <el-card shadow="never" class="!border-none editor-side">
                 <div class="side-title">组件库</div>
                 <div class="text-xs text-tx-secondary mb-3">
-                    组件可重复添加，只作用于当前移动端页面。
+                    组件可重复添加，只作用于当前{{ terminalText }}页面。
                 </div>
                 <div class="widget-scroll">
                     <draggable
@@ -251,9 +259,19 @@
 
             <div class="editor-preview">
                 <preview
+                    v-if="terminal === 'mobile'"
                     :model-value="selectWidgetIndex"
                     :page-data="currentPageData"
                     :page-meta="currentPageMeta"
+                    @update:model-value="handleSelectWidget"
+                    @updatePageData="updatePageData"
+                    @copyWidget="copyWidget"
+                    @deleteWidget="deleteWidget"
+                />
+                <pc-visual-preview
+                    v-else
+                    :model-value="selectWidgetIndex"
+                    :page-data="currentPageData"
                     @update:model-value="handleSelectWidget"
                     @updatePageData="updatePageData"
                     @copyWidget="copyWidget"
@@ -284,7 +302,7 @@
                     <div v-show="rightTab === 'widget'">
                         <attr-setting
                             :widget="selectWidget"
-                            type="mobile"
+                            :type="terminal"
                             @update:content="updateContent"
                         />
                     </div>
@@ -326,12 +344,20 @@
                                 </el-form-item>
                             </el-form>
                         </div>
+                        <div v-if="terminal === 'pc'" class="page-setting-block">
+                            <div class="setting-title">统一数据源</div>
+                            <div class="source-tags">
+                                <el-tag v-for="source in dataSources" :key="source.key" effect="plain">
+                                    {{ source.name }}
+                                </el-tag>
+                            </div>
+                        </div>
                         <div class="page-setting-block">
                             <div class="setting-title">页面配置 / 页面背景</div>
                             <page-meta-attr
                                 :content="pageMetaContent"
                                 :styles="pageMetaStyles"
-                                type="mobile"
+                                :type="terminal"
                                 @update:content="updatePageMetaContent"
                             />
                         </div>
@@ -370,6 +396,14 @@
             <el-button type="primary" @click="handleAddPage">确定</el-button>
         </template>
     </el-dialog>
+
+    <input
+        ref="importInputRef"
+        class="hidden"
+        type="file"
+        accept=".zip,.ladtpl.zip,application/zip"
+        @change="handleImportTemplateFile"
+    />
 </template>
 
 <script lang="ts" setup name="decorationTemplate">
@@ -386,8 +420,11 @@ import {
     deleteDecorateTemplate,
     editDecoratePage,
     enableDecorateTemplate,
+    exportDecorateTemplate,
+    getDecorateDataSources,
     getDecorateTemplateDetail,
     getDecorateTemplateLists,
+    importDecorateTemplate,
     publishDecorateTemplate,
     saveDecorateTemplateSettings,
     setDecoratePages
@@ -396,11 +433,15 @@ import feedback from '@/utils/feedback'
 import { getNonDuplicateID } from '@/utils/util'
 
 import AttrSetting from '../component/pages/attr-setting.vue'
+import PcVisualPreview from '../component/pages/preview-pc-visual.vue'
 import Preview from '../component/pages/preview.vue'
 import mobileTabbarAttr from '../component/tabbar/mobile/attr.vue'
 import widgets from '../component/widgets'
 import PageMetaAttr from '../component/widgets/page-meta/attr.vue'
 import MobileStyle from '../style/components/mobile-style.vue'
+import { getPcPreviewUrl } from '../utils/pc'
+import { mobileWidgetDefinitions, createDefaultMobileWidget } from '@mobile-decoration'
+import { pcWidgetDefinitions, createDefaultPcWidget, getWidgetLayout } from '@decoration-core'
 
 const route = useRoute()
 const router = useRouter()
@@ -411,7 +452,7 @@ const detail = reactive<any>({
     settings: {},
     pages: []
 })
-const terminal = ref<'mobile'>('mobile')
+const terminal = ref<'mobile' | 'pc'>(route.query.terminal === 'pc' ? 'pc' : 'mobile')
 const templateId = computed(() => Number(route.query.id || 0))
 const routeMode = computed(() => String(route.query.mode || ''))
 const viewMode = computed<'list' | 'manage' | 'editor'>(() => {
@@ -423,6 +464,8 @@ const selectWidgetIndex = ref<number>(0)
 const rightTab = ref('widget')
 const manageTab = ref('pages')
 const isLibraryDragging = ref(false)
+const dataSources = ref<any[]>([])
+const importInputRef = shallowRef<HTMLInputElement>()
 
 const templateDialog = reactive({
     show: false,
@@ -460,6 +503,7 @@ const settings = reactive<any>({
 })
 
 const pages = computed(() => detail.pages || [])
+const terminalText = computed(() => (terminal.value === 'pc' ? 'PC端' : '移动端'))
 const currentPage = computed(() => pages.value.find((item: any) => item.id === activePageId.value))
 const currentPageData = computed(() =>
     normalizePageData(safeParse(currentPage.value?.draft_data || currentPage.value?.data, []))
@@ -475,14 +519,25 @@ const selectWidget = computed(() => {
 })
 
 const availableWidgets = computed(() => {
+    if (terminal.value === 'pc') {
+        return pcWidgetDefinitions.map((item) => ({
+            name: item.name,
+            title: item.title,
+            icon: item.icon,
+            terminal: item.terminal,
+            support_channels: ['pc']
+        }))
+    }
+    const sharedMobileMeta = Object.fromEntries(mobileWidgetDefinitions.map((item) => [item.name, item]))
     return Object.keys(widgets)
         .filter((name) => name !== 'page-meta')
         .map((name) => {
             const option = widgets[name]?.options?.() || {}
+            const shared = sharedMobileMeta[name]
             return {
                 name,
-                title: option.title || name,
-                icon: widgets[name]?.icon || 'el-icon-Menu',
+                title: shared?.title || option.title || name,
+                icon: shared?.icon || widgets[name]?.icon || 'el-icon-Menu',
                 terminal: widgets[name]?.terminal || ['mobile', 'pc'],
                 support_channels: widgets[name]?.support_channels || ['h5', 'mp_weixin']
             }
@@ -580,6 +635,9 @@ const reloadDetail = async () => {
             id: templateId.value,
             terminal: terminal.value
         })
+        if (terminal.value === 'pc' && !dataSources.value.length) {
+            dataSources.value = await getDecorateDataSources({ terminal: 'pc' })
+        }
         detail.template = data.template || {}
         detail.pages = data.pages || []
         Object.assign(settings, {
@@ -606,13 +664,27 @@ const goManage = (id: number) => {
         path: route.path,
         query: {
             id,
-            mode: 'manage'
+            mode: 'manage',
+            terminal: terminal.value
         }
     })
 }
 
 const goPageEditor = (pageId: number) => {
     if (!pageId) return
+    const page = pages.value.find((item: any) => item.id === pageId)
+    if (terminal.value === 'pc') {
+        router.push({
+            path: '/decoration/pc_details',
+            query: {
+                template_id: templateId.value,
+                page_id: pageId,
+                page_code: page?.page_code || '',
+                terminal: 'pc'
+            }
+        })
+        return
+    }
     manageTab.value = 'pages'
     rightTab.value = 'widget'
     router.push({
@@ -620,7 +692,8 @@ const goPageEditor = (pageId: number) => {
         query: {
             id: templateId.value,
             mode: 'editor',
-            page_id: pageId
+            page_id: pageId,
+            terminal: terminal.value
         }
     })
 }
@@ -634,7 +707,8 @@ const backManage = () => {
         path: route.path,
         query: {
             id: templateId.value,
-            mode: 'manage'
+            mode: 'manage',
+            terminal: terminal.value
         }
     })
 }
@@ -654,6 +728,37 @@ const handleSaveTemplate = async () => {
 const handleCopyTemplate = async (id: number) => {
     await copyDecorateTemplate({ id })
     getLists()
+}
+
+const triggerImportTemplate = () => {
+    importInputRef.value?.click()
+}
+
+const handleImportTemplateFile = async (event: Event) => {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    input.value = ''
+    if (!file) return
+    const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result || ''))
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(file)
+    })
+    await importDecorateTemplate({
+        filename: file.name,
+        file_base64: fileBase64
+    })
+    ElMessage.success('导入成功')
+    getLists()
+}
+
+const handleExportTemplate = async (id: number) => {
+    const data = await exportDecorateTemplate({ id })
+    const link = document.createElement('a')
+    link.href = `data:${data.mime || 'application/zip'};base64,${data.content}`
+    link.download = data.filename || 'decorate_template.ladtpl.zip'
+    link.click()
 }
 
 const handleDeleteTemplate = async (id: number) => {
@@ -678,6 +783,19 @@ const handleEnableTemplate = async (id: number) => {
     await enableDecorateTemplate({ id })
     ElMessage.success('启用成功')
     viewMode.value === 'list' ? getLists() : reloadDetail()
+}
+
+const handleTerminalChange = () => {
+    manageTab.value = 'pages'
+    router.replace({
+        path: route.path,
+        query: {
+            ...route.query,
+            terminal: terminal.value,
+            page_id: undefined
+        }
+    })
+    reloadDetail()
 }
 
 const updatePageData = (value: any[]) => {
@@ -716,10 +834,26 @@ const updateContent = (content: any) => {
 
 const createWidgetData = (name: string) => ({
     id: getNonDuplicateID(),
-    ...(widgets[name]?.options?.() || {})
+    ...(
+        terminal.value === 'pc'
+            ? createDefaultPcWidget(name) || widgets[name]?.options?.()
+            : createDefaultMobileWidget(name) || widgets[name]?.options?.()
+    )
 })
 
-const cloneWidgetFromLibrary = (item: any) => createWidgetData(item.name)
+const ensurePcWidgetLayout = (widget: any, index = 0) => {
+    if (terminal.value !== 'pc') return widget
+    const next = cloneDeep(widget)
+    const styles = next.styles || {}
+    const layout = getWidgetLayout(next, index)
+    next.styles = {
+        ...styles,
+        layout
+    }
+    return next
+}
+
+const cloneWidgetFromLibrary = (item: any) => ensurePcWidgetLayout(createWidgetData(item.name), currentPageData.value.length)
 
 const handleLibraryDragStart = () => {
     isLibraryDragging.value = true
@@ -746,7 +880,7 @@ const handleSelectWidget = (index: number) => {
 const addWidget = (name: string) => {
     if (!currentPage.value) return
     const data = currentPageData.value
-    data.push(createWidgetData(name))
+    data.push(ensurePcWidgetLayout(createWidgetData(name), data.length))
     updatePageData(data)
     selectWidgetIndex.value = data.length - 1
     rightTab.value = 'widget'
@@ -830,7 +964,11 @@ const saveCurrentPage = async (showMessage = true) => {
         meta: currentPage.value.draft_meta || currentPage.value.meta || ''
     })
     if (showMessage) {
-        ElMessage.success('草稿已保存，发布模板后小程序/H5正式端生效')
+        ElMessage.success(
+            terminal.value === 'pc'
+                ? '草稿已保存，发布模板后 PC 端生效'
+                : '草稿已保存，发布模板后小程序/H5正式端生效'
+        )
     }
 }
 
@@ -873,6 +1011,10 @@ const previewPage = async (page: any) => {
     if (viewMode.value === 'editor' && currentPage.value?.id === page.id) {
         await saveCurrentPage(false)
     }
+    if (terminal.value === 'pc') {
+        window.open(getPcPreviewUrl(page, templateId.value), '_blank')
+        return
+    }
     window.open(getH5PreviewUrl(page), '_blank')
 }
 
@@ -881,6 +1023,7 @@ const pageTypeText = (row: any) => {
         mobile_home: '移动首页',
         mobile_user: '个人中心',
         mobile_service: '客服页',
+        pc_home: 'PC首页',
         custom: '自定义页'
     }
     return map[row.page_type] || row.page_type || '自定义页'
@@ -897,6 +1040,7 @@ const channelText = (value: string) => {
 
 const supportChannelText = (value: string[]) => {
     const channels = value || ['h5', 'mp_weixin']
+    if (channels.includes('pc')) return 'PC'
     if (channels.includes('h5') && channels.includes('mp_weixin')) return 'H5/小程序'
     if (channels.includes('h5')) return '仅H5'
     if (channels.includes('mp_weixin')) return '仅小程序'
@@ -906,7 +1050,7 @@ const supportChannelText = (value: string[]) => {
 watch(
     () => route.query,
     () => {
-        terminal.value = 'mobile'
+        terminal.value = route.query.terminal === 'pc' ? 'pc' : 'mobile'
         viewMode.value === 'list' ? getLists() : reloadDetail()
     },
     { immediate: true }
@@ -1151,6 +1295,11 @@ watch(selectWidgetIndex, (value) => {
     :deep(.w-\[300px\]) {
         width: 100%;
     }
+}
+.source-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 .side-title {
     font-weight: 600;

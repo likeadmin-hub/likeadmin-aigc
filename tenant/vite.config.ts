@@ -45,7 +45,11 @@ export default defineConfig({
     ],
     resolve: {
         alias: {
-            '@': fileURLToPath(new URL('./src', import.meta.url))
+            '@': fileURLToPath(new URL('./src', import.meta.url)),
+            '@decoration-core': fileURLToPath(new URL('../packages/decoration-core/index.ts', import.meta.url)),
+            '@pc-decoration': fileURLToPath(new URL('../packages/pc-decoration/PcDecorationRenderer.vue', import.meta.url)),
+            '@mobile-decoration': fileURLToPath(new URL('../packages/mobile-decoration/index.ts', import.meta.url)),
+            '@mobile-decoration-renderer': fileURLToPath(new URL('../packages/mobile-decoration/MobileDecorationRenderer.vue', import.meta.url))
         }
     },
     build: {
