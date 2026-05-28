@@ -12,6 +12,14 @@
     "component": "",
     "children": [
       {
+        "source_menu_key": "aigc_canvas_config",
+        "type": "C",
+        "name": "基础配置",
+        "perms": "app.aigc_canvas.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_canvas/config"
+      },
+      {
         "source_menu_key": "aigc_canvas_stat",
         "type": "C",
         "name": "用量统计",

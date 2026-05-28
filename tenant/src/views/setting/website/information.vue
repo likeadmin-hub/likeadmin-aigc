@@ -33,10 +33,10 @@
                         <div class="form-tips">建议尺寸：100*100像素，支持jpg，jpeg，png格式</div>
                     </div>
                 </el-form-item>
-                <el-form-item label="登录页广告图" prop="login_image" required>
+                <el-form-item label="后台登录图" prop="login_image">
                     <div>
                         <material-picker v-model.trim="formData.login_image" :limit="1" />
-                        <div class="form-tips">建议尺寸：100*100像素，支持jpg，jpeg，png格式</div>
+                        <div class="form-tips">用于后台登录页兜底展示，支持jpg，jpeg，png格式</div>
                     </div>
                 </el-form-item>
             </el-card>
@@ -105,6 +105,38 @@
                         />
                     </div>
                 </el-form-item>
+                <el-form-item label="登录背景类型" prop="pc_login_bg_type">
+                    <el-radio-group v-model="formData.pc_login_bg_type">
+                        <el-radio value="image">图片</el-radio>
+                        <el-radio value="video">视频</el-radio>
+                        <el-radio value="none">不设置</el-radio>
+                    </el-radio-group>
+                </el-form-item>
+                <el-form-item v-if="formData.pc_login_bg_type !== 'none'" label="登录背景" prop="pc_login_bg">
+                    <div>
+                        <material-picker
+                            v-model="formData.pc_login_bg"
+                            :type="formData.pc_login_bg_type"
+                            :limit="1"
+                            width="180px"
+                            height="108px"
+                        />
+                        <div class="form-tips">
+                            图片建议 1920*1080，视频建议 mp4/webm，资源上传后不会进入系统更新包
+                        </div>
+                    </div>
+                </el-form-item>
+                <el-form-item v-if="formData.pc_login_bg_type === 'video'" label="视频封面" prop="pc_login_bg_poster">
+                    <div>
+                        <material-picker
+                            v-model="formData.pc_login_bg_poster"
+                            :limit="1"
+                            width="180px"
+                            height="108px"
+                        />
+                        <div class="form-tips">视频加载前展示的封面图，可不填</div>
+                    </div>
+                </el-form-item>
             </el-card>
         </el-form>
         <footer-btns v-perms="['setting.web.web_setting/setWebsite']">
@@ -135,7 +167,10 @@ const formData = reactive({
     pc_title: '',
     pc_desc: '',
     pc_ico: '',
-    pc_keywords: ''
+    pc_keywords: '',
+    pc_login_bg_type: 'image',
+    pc_login_bg: '',
+    pc_login_bg_poster: ''
 })
 
 // 表单验证
@@ -158,13 +193,6 @@ const rules = {
         {
             required: true,
             message: '请选择网站logo',
-            trigger: ['change']
-        }
-    ],
-    login_image: [
-        {
-            required: true,
-            message: '请选择登录页广告图',
             trigger: ['change']
         }
     ],

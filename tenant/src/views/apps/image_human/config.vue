@@ -1,5 +1,7 @@
 <template>
-    <el-card class="!border-none" shadow="never" v-loading="loading">
+    <div v-loading="loading">
+        <app-display-config v-model="displayConfig" />
+        <el-card class="!border-none" shadow="never">
         <el-form label-width="140px">
             <el-form-item label="文案字数限制">
                 <el-input-number v-model="baseConfig.script_max_length" :min="0" :precision="0" />
@@ -39,11 +41,13 @@
                 <el-button type="primary" @click="handleSubmit">保存</el-button>
             </el-form-item>
         </el-form>
-    </el-card>
+        </el-card>
+    </div>
 </template>
 
 <script lang="ts" setup name="tenant-image-human-config">
 import { getImageHumanConfig, setImageHumanConfig } from '@/apps/image_human/api'
+import AppDisplayConfig from '@/views/apps/components/app-display-config.vue'
 
 const loading = ref(false)
 const baseConfig = reactive({
@@ -67,6 +71,7 @@ const pricing = reactive({
         }
     }
 })
+const displayConfig = ref<Record<string, any>>({})
 const modeRows = [
     { key: 'fast', label: '快速模式' },
     { key: 'standard', label: '标准模式' }
@@ -80,6 +85,7 @@ const getData = async () => {
             pricing,
             normalizePricing(data?.option_config?.pricing || data?.config_json?.pricing || {})
         )
+        displayConfig.value = data?.display_config || {}
     } finally {
         loading.value = false
     }
@@ -123,7 +129,8 @@ const handleSubmit = async () => {
                     }
                 }
             }
-        }
+        },
+        display_config: displayConfig.value
     })
     getData()
 }

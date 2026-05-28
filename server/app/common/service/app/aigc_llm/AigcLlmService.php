@@ -9,6 +9,7 @@ use app\common\model\app\aigc_llm\AigcLlmModel;
 use app\common\model\app\aigc_llm\AigcLlmSensitiveWord;
 use app\common\model\app\aigc_llm\AigcLlmSession;
 use app\common\model\app\aigc_llm\AigcLlmUsage;
+use app\common\service\app\AppDisplayConfigService;
 use app\common\service\point\PointService;
 use Exception;
 use Throwable;
@@ -29,19 +30,20 @@ class AigcLlmService
         $config = AigcLlmConfig::where('tenant_id', $tenantId)->findOrEmpty();
         $default = self::defaultConfig();
         if ($config->isEmpty()) {
-            return array_merge($default, [
+            return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, array_merge($default, [
                 'tenant_id' => $tenantId,
                 'option_config' => AigcLlmChannelService::userConfig($tenantId),
-            ]);
+            ]));
         }
         $data = array_merge($default, $config->toArray());
         $data['config_json'] = array_merge($default['config_json'], (array)($data['config_json'] ?? []));
         $data['option_config'] = AigcLlmChannelService::userConfig($tenantId);
-        return $data;
+        return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
     }
 
     public static function saveConfig(int $tenantId, array $params): void
     {
+        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::config($tenantId);
         $configJson = array_merge((array)($current['config_json'] ?? []), self::normalizeJson($params['config_json'] ?? []));
         $data = [

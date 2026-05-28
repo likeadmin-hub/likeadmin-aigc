@@ -106,8 +106,38 @@
         flex-direction: column;
         justify-content: space-between;
         padding: 36px 40px 40px;
+        overflow: hidden;
         background: #ededed;
         color: #1f1f1f;
+    }
+
+    &__hero-bg {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+
+        img,
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.58;
+            filter: saturate(1.05) contrast(1.04);
+        }
+
+        &::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(237, 237, 237, 0.36), rgba(237, 237, 237, 0.88));
+        }
+    }
+
+    &__hero-top,
+    &__hero-visual,
+    &__hero-foot {
+        position: relative;
+        z-index: 1;
     }
 
     &__hero-top {
@@ -572,6 +602,13 @@
 
         &.is-ready {
             opacity: 1;
+        }
+
+        &--fallback {
+            background:
+                radial-gradient(circle at 24% 18%, rgba(77, 235, 255, 0.26), transparent 34%),
+                radial-gradient(circle at 78% 72%, rgba(255, 82, 182, 0.18), transparent 36%),
+                linear-gradient(135deg, #091047 0%, #11141e 52%, #050507 100%);
         }
     }
 

@@ -23,3 +23,11 @@ export function getAigcCanvasRuns(params?: any) {
 export function getAigcCanvasDependencies() {
     return request.get({ url: '/app.aigc_canvas.config/dependencies' })
 }
+
+export function getAigcCanvasConfig() {
+    return request.get({ url: '/app.aigc_canvas.config/detail' })
+}
+
+export function setAigcCanvasConfig(params: any) {
+    return request.post({ url: '/app.aigc_canvas.config/setup', params })
+}

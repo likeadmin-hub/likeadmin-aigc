@@ -26,7 +26,16 @@
                         <small>{{ activeBanner.description }}</small>
                     </span>
                     <span class="home-banner__backdrop">
-                        <img :src="activeBanner.images[0]" alt="" />
+                        <video
+                            v-if="activeBanner.mediaType === 'video' && activeBanner.mediaUrl"
+                            :src="activeBanner.mediaUrl"
+                            :poster="activeBanner.images[0] || undefined"
+                            autoplay
+                            muted
+                            loop
+                            playsinline
+                        ></video>
+                        <img v-else :src="activeBanner.images[0]" alt="" />
                     </span>
                     <span class="home-banner__media">
                         <img
@@ -427,6 +436,7 @@ interface HomeHeroEntry {
     mode?: GenerationMode
     route?: string
     images: string[]
+    mediaType?: 'image' | 'video'
     mediaUrl?: string
 }
 
@@ -546,6 +556,12 @@ const homeHeroEntries: HomeHeroEntry[] = [
         images: [getToolImage(9), getToolImage(1), getToolImage(3)]
     }
 ]
+const homeEntryAppCodeMap: Record<string, string> = {
+    video: 'aigc_video',
+    image: 'aigc_image',
+    avatar: 'aigc_digital_human',
+    workspace: 'aigc_video'
+}
 const fallbackCaseCards = computed<CardItem[]>(() =>
     displayToolCards.value.slice(0, 18).map((item, index) => {
         const isVideo = /视频|短片|数字人/.test(`${item.title}${item.detailDescription}${item.appPath}`)
@@ -586,6 +602,10 @@ const homeFeatureEntries = computed<HomeHeroEntry[]>(() => {
     const mixedCases = sourceCards.length ? sourceCards : []
 
     return homeHeroEntries.map((entry, index) => {
+        const appCode = homeEntryAppCodeMap[entry.id]
+        const displayTool = appCode
+            ? displayToolCards.value.find((tool) => tool.appCode === appCode)
+            : null
         const pool = entry.id === 'video'
             ? videoCases
             : entry.id === 'image'
@@ -593,12 +613,15 @@ const homeFeatureEntries = computed<HomeHeroEntry[]>(() => {
                 : mixedCases
         const caseItem = pool[index % Math.max(pool.length, 1)]
         const images = [
+            displayTool?.image,
             caseItem?.image,
             ...entry.images
         ].filter(Boolean)
 
         return {
             ...entry,
+            title: displayTool?.title || entry.title,
+            description: displayTool?.detailDescription || entry.description,
             images: images.length ? images : entry.images,
             mediaUrl: caseItem?.mediaUrl
         }
@@ -611,7 +634,9 @@ const homeBanners = computed<HomeHeroEntry[]>(() => {
             title: item.title,
             description: item.description,
             route: item.route || '/ai/tools',
-            images: item.images
+            images: item.images,
+            mediaType: item.mediaType,
+            mediaUrl: item.mediaUrl
         }))
     }
     const sourceCards = displayCaseCards.value
@@ -950,6 +975,10 @@ const openHomeEntry = (entry: HomeHeroEntry) => {
         return
     }
     if (entry.route) {
+        if (/^https?:\/\//i.test(entry.route)) {
+            window.open(entry.route, '_blank')
+            return
+        }
         router.push(entry.route)
     }
 }
@@ -2305,7 +2334,8 @@ onBeforeUnmount(() => {
     z-index: -2;
 }
 
-.home-banner__backdrop img {
+.home-banner__backdrop img,
+.home-banner__backdrop video {
     width: 100%;
     height: 100%;
     object-fit: cover;

@@ -22,6 +22,18 @@
                     @click.stop
                 >
                     <section v-if="!compact" class="site-login-modal__hero">
+                        <span v-if="heroMediaUrl" class="site-login-modal__hero-bg" aria-hidden="true">
+                            <video
+                                v-if="heroMediaType === 'video'"
+                                :src="heroMediaUrl"
+                                :poster="heroPosterUrl || undefined"
+                                autoplay
+                                muted
+                                loop
+                                playsinline
+                            ></video>
+                            <img v-else :src="heroMediaUrl" alt="" />
+                        </span>
                         <div class="site-login-modal__hero-top">
                             <span class="site-login-modal__hero-greeting">{{
                                 heroGreeting
@@ -159,8 +171,9 @@
 </template>
 
 <script lang="ts" setup>
-import { onBeforeUnmount, onMounted, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useModalBodyScrollLock } from '@/composables/useModalBodyScrollLock'
+import { useAppStore } from '@/stores/app'
 
 const props = withDefaults(
     defineProps<{
@@ -198,6 +211,13 @@ const emit = defineEmits<{
 }>()
 
 const { lock, unlock } = useModalBodyScrollLock()
+const appStore = useAppStore()
+const heroMediaType = computed(() => appStore.getWebsiteConfig.pc_login_bg_type === 'video' ? 'video' : 'image')
+const heroMediaUrl = computed(() => {
+    if (appStore.getWebsiteConfig.pc_login_bg_type === 'none') return ''
+    return appStore.getWebsiteConfig.pc_login_bg_url || appStore.getWebsiteConfig.pc_login_bg || ''
+})
+const heroPosterUrl = computed(() => appStore.getWebsiteConfig.pc_login_bg_poster_url || appStore.getWebsiteConfig.pc_login_bg_poster || '')
 
 const close = () => {
     emit('update:modelValue', false)

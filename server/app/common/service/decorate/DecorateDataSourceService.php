@@ -4,6 +4,7 @@ namespace app\common\service\decorate;
 
 use app\common\model\article\Article;
 use app\common\service\app\AppCaseService;
+use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppFrontendManifestService;
 use app\common\service\FileService;
 
@@ -74,7 +75,7 @@ class DecorateDataSourceService
             'video_cases' => self::cases($tenantId, ['aigc_video'], ['limit' => $limit, 'media_type' => 'video']),
             'digital_human_cases' => self::cases($tenantId, ['aigc_digital_human', 'image_human'], ['limit' => $limit]),
             'app_entries' => AppFrontendManifestService::tenantEntries($tenantId, (string)($params['terminal'] ?? $context['terminal'] ?? 'pc')),
-            'ai_tools' => self::aiTools(),
+            'ai_tools' => self::aiTools($tenantId),
             'assets' => [],
             default => [],
         };
@@ -175,17 +176,29 @@ class DecorateDataSourceService
         }
     }
 
-    private static function aiTools(): array
+    private static function aiTools(int $tenantId): array
     {
         $cards = [
-            ['id' => 'tool-card-digital-human-driver', 'title' => '全驱数字人', 'path' => '/ai/avatar?tab=image_human'],
-            ['id' => 'tool-card-canvas', 'title' => '无限画布', 'path' => '/app/aigc_canvas'],
-            ['id' => 'tool-card-llm', 'title' => 'AIGC对话', 'path' => '/app/aigc_llm'],
-            ['id' => 'tool-card-12', 'title' => '老照片修复', 'path' => '/ai/tools/tool-card-12'],
-            ['id' => 'tool-card-13', 'title' => '局部重绘', 'path' => '/ai/tools/tool-card-13'],
-            ['id' => 'tool-card-21', 'title' => '产品宣传视频', 'path' => '/ai/tools/tool-card-21'],
+            ['id' => 'tool-card-aigc-image', 'app_code' => 'aigc_image', 'path' => '/ai/create?type=image'],
+            ['id' => 'tool-card-aigc-video', 'app_code' => 'aigc_video', 'path' => '/ai/create?type=video'],
+            ['id' => 'tool-card-digital-human-driver', 'app_code' => 'image_human', 'path' => '/ai/avatar?tab=image_human'],
+            ['id' => 'tool-card-canvas', 'app_code' => 'aigc_canvas', 'path' => '/app/aigc_canvas'],
+            ['id' => 'tool-card-llm', 'app_code' => 'aigc_llm', 'path' => '/app/aigc_llm'],
         ];
-        return array_map(fn($item) => $item + ['cover' => FileService::getFileUrl('resource/image/tenantapi/default/banner001.png')], $cards);
+        $displayMap = AppDisplayConfigService::map($tenantId);
+        return array_values(array_filter(array_map(static function ($item) use ($displayMap) {
+            $display = $displayMap[$item['app_code']] ?? [];
+            if ((int)($display['status'] ?? 1) !== 1) {
+                return null;
+            }
+            return $item + [
+                'title' => $display['title'] ?? $item['app_code'],
+                'description' => $display['description'] ?? '',
+                'cover' => $display['cover_url'] ?: FileService::getFileUrl('resource/image/tenantapi/default/banner001.png'),
+                'virtual_use_count' => $display['virtual_use_count'] ?? '',
+                'sort' => (int)($display['sort'] ?? 0),
+            ];
+        }, $cards)));
     }
 
     private static function decodeJson(string $value, array $default): array

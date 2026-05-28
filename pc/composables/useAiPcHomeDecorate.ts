@@ -17,6 +17,8 @@ export interface PcHomeBannerItem {
     description: string
     route?: string
     images: string[]
+    mediaType?: 'image' | 'video'
+    mediaUrl?: string
 }
 
 const parseJsonArray = (value: unknown) => {
@@ -59,7 +61,7 @@ export const useAiPcHomeDecorate = () => {
     const appStore = useAppStore()
     const route = useRoute()
     const pcDecorateEnabled = computed(() => route.query.pc_diy === '1')
-    const homeBanners = useState<PcHomeBannerItem[]>('ai-pc-home-banners', () => [])
+    const decorateHomeBanners = useState<PcHomeBannerItem[]>('ai-pc-home-banners', () => [])
     const toolOverrides = useState<Record<string, ToolDisplayOverride>>('ai-pc-tool-overrides', () => ({}))
     const decoratePageData = useState<any[]>('ai-pc-home-page-data', () => [])
     const decoratePageMeta = useState<any[]>('ai-pc-home-page-meta', () => [])
@@ -108,7 +110,7 @@ export const useAiPcHomeDecorate = () => {
             }
         })
 
-        homeBanners.value = bannerRows
+        decorateHomeBanners.value = bannerRows
         toolOverrides.value = nextOverrides
     }
 
@@ -117,7 +119,7 @@ export const useAiPcHomeDecorate = () => {
             decoratePageData.value = []
             decoratePageMeta.value = []
             decorateResolvedSources.value = {}
-            homeBanners.value = []
+            decorateHomeBanners.value = []
             toolOverrides.value = {}
             loaded.value = true
             loading.value = false
@@ -142,7 +144,69 @@ export const useAiPcHomeDecorate = () => {
         }
     }
 
-    const displayToolCards = computed(() => applyToolDisplayOverrides(toolCards, toolOverrides.value))
+    const configHomeBanners = computed<PcHomeBannerItem[]>(() => {
+        const rows = Array.isArray(appStore.getWebsiteConfig.pc_home_banners)
+            ? appStore.getWebsiteConfig.pc_home_banners
+            : []
+        return rows
+            .filter((item: any) => Number(item?.status ?? 1) === 1)
+            .map((item: any, index: number) => {
+                const mediaUrl = resolveMediaUrl(item.media_url || item.media_uri, appStore)
+                const posterUrl = resolveMediaUrl(item.poster_url || item.poster_uri, appStore)
+                const route = (() => {
+                    if (item.link_type === 'url') return item.link_url || ''
+                    if (item.link_type === 'path') return item.link_path || '/ai/tools'
+                    if (item.link_type === 'app') {
+                        const map: Record<string, string> = {
+                            aigc_image: '/ai/create?type=image',
+                            aigc_video: '/ai/create?type=video',
+                            aigc_digital_human: '/ai/avatar',
+                            aigc_canvas: '/app/aigc_canvas',
+                            aigc_llm: '/app/aigc_llm',
+                            image_human: '/ai/avatar?tab=image_human'
+                        }
+                        return map[item.link_app_code] || '/ai/tools'
+                    }
+                    return ''
+                })()
+                return {
+                    id: String(item.id || `config-banner-${index}`),
+                    title: item.title || 'AI 创作介绍',
+                    description: item.description || '模型、应用、资产与灵感统一入口',
+                    route,
+                    mediaType: item.media_type === 'video' ? 'video' : 'image',
+                    mediaUrl,
+                    images: item.media_type === 'video'
+                        ? [posterUrl].filter(Boolean)
+                        : [mediaUrl].filter(Boolean)
+                }
+            })
+            .filter((item: PcHomeBannerItem) => item.mediaUrl || item.images.length)
+    })
+    const homeBanners = computed(() => decorateHomeBanners.value.length ? decorateHomeBanners.value : configHomeBanners.value)
+    const configToolOverrides = computed<Record<string, ToolDisplayOverride>>(() => {
+        const rows = appStore.config?.app_display_configs || {}
+        const values = Array.isArray(rows) ? rows : Object.values(rows)
+        const next: Record<string, ToolDisplayOverride> = {}
+        values.forEach((item: any) => {
+            const appCode = String(item?.app_code || '').trim()
+            if (!appCode) return
+            next[appCode] = {
+                id: appCode,
+                appCode,
+                title: String(item.title || '').trim(),
+                description: String(item.description || '').trim(),
+                cover: resolveMediaUrl(item.cover_url || item.cover_uri, appStore),
+                virtualUseCount: String(item.virtual_use_count || item.virtualUseCount || '').trim(),
+                enabled: Number(item.status ?? 1) === 1
+            }
+        })
+        return next
+    })
+    const displayToolCards = computed(() => applyToolDisplayOverrides(toolCards, {
+        ...configToolOverrides.value,
+        ...toolOverrides.value
+    }))
     const displayFeaturedTools = computed(() => applyFeaturedToolDisplayOverrides(featuredTools, displayToolCards.value))
     const hasCustomHomeDecorate = computed(() => {
         const metaContent = decoratePageMeta.value?.[0]?.content || {}

@@ -2072,6 +2072,9 @@ watch(
         if (type === 'image' || type === 'video' || type === 'digital_human') {
             activeType.value = type
             selectedGenerationFilter.value = type
+            if (type === 'image' || type === 'video') {
+                generationMode.value = type
+            }
         }
         if (status === 'pending' || status === 'running' || status === 'success' || status === 'failed' || status === 'canceled') {
             activeTab.value = status

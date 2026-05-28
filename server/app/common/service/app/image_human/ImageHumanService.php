@@ -12,6 +12,7 @@ use app\common\service\app\aigc_digital_human\AigcDigitalHumanAssetService;
 use app\common\service\app\aigc_digital_human\AigcDigitalHumanGenerateRequest;
 use app\common\service\app\aigc_digital_human\AigcDigitalHumanService;
 use app\common\service\app\aigc_digital_human\XhadminAigcDigitalHumanProvider;
+use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
 use app\common\service\MediaDurationService;
 use app\common\service\point\PointService;
@@ -28,7 +29,7 @@ class ImageHumanService
     public static function config(int $tenantId): array
     {
         $config = self::effectiveConfig($tenantId);
-        return [
+        return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, [
             'provider' => $config['provider'],
             'model' => $config['model'],
             'status' => $config['status'],
@@ -42,7 +43,7 @@ class ImageHumanService
                 'defaults' => ['mode' => 'fast'],
                 'pricing' => self::pricing($tenantId),
             ],
-        ];
+        ]);
     }
 
     public static function estimate(int $tenantId, array $params, int $userId = 0): array
@@ -65,6 +66,7 @@ class ImageHumanService
 
     public static function saveConfig(int $tenantId, array $params): void
     {
+        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::effectiveConfig($tenantId);
         $configJson = is_array($params['config_json'] ?? null) ? $params['config_json'] : [];
         $currentPricing = (array)($current['config_json']['pricing'] ?? []);
@@ -110,6 +112,7 @@ class ImageHumanService
 
     public static function saveTenantPricing(int $tenantId, array $params): void
     {
+        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         if ($tenantId <= 0) {
             self::saveConfig(0, $params);
             return;

@@ -36,6 +36,8 @@ class WebSettingLogic extends BaseLogic
      */
     public static function getWebsiteInfo(): array
     {
+        $pcLoginBg = ConfigService::get('website', 'pc_login_bg', ConfigService::get('tenant', 'login_image', ''));
+        $pcLoginBgPoster = ConfigService::get('website', 'pc_login_bg_poster', '');
         return [
             'name' => ConfigService::get('tenant', 'name'),
             'web_favicon' => FileService::getFileUrl(ConfigService::get('tenant', 'web_favicon')),
@@ -50,6 +52,11 @@ class WebSettingLogic extends BaseLogic
             'pc_ico' => FileService::getFileUrl(ConfigService::get('website', 'pc_ico')),
             'pc_desc' => ConfigService::get('website', 'pc_desc', ''),
             'pc_keywords' => ConfigService::get('website', 'pc_keywords', ''),
+            'pc_login_bg_type' => ConfigService::get('website', 'pc_login_bg_type', 'image'),
+            'pc_login_bg' => $pcLoginBg ? FileService::getFileUrl($pcLoginBg) : '',
+            'pc_login_bg_url' => $pcLoginBg ? FileService::getFileUrl($pcLoginBg) : '',
+            'pc_login_bg_poster' => $pcLoginBgPoster ? FileService::getFileUrl($pcLoginBgPoster) : '',
+            'pc_login_bg_poster_url' => $pcLoginBgPoster ? FileService::getFileUrl($pcLoginBgPoster) : '',
             'h5_favicon' => FileService::getFileUrl(ConfigService::get('website', 'h5_favicon')),
         ];
     }
@@ -70,6 +77,12 @@ class WebSettingLogic extends BaseLogic
         $shopLogo = FileService::setFileUrl($params['shop_logo']);
         $pcLogo = FileService::setFileUrl($params['pc_logo']);
         $pcIco = FileService::setFileUrl($params['pc_ico'] ?? '');
+        $pcLoginBgType = $params['pc_login_bg_type'] ?? 'image';
+        if (!in_array($pcLoginBgType, ['image', 'video', 'none'], true)) {
+            $pcLoginBgType = 'image';
+        }
+        $pcLoginBg = $pcLoginBgType === 'none' ? '' : FileService::setFileUrl($params['pc_login_bg'] ?? '');
+        $pcLoginBgPoster = FileService::setFileUrl($params['pc_login_bg_poster'] ?? '');
 
         ConfigService::set('tenant', 'name', $params['name']);
         ConfigService::set('tenant', 'web_favicon', $favicon);
@@ -81,6 +94,9 @@ class WebSettingLogic extends BaseLogic
         ConfigService::set('website', 'pc_ico', $pcIco);
         ConfigService::set('website', 'pc_desc', $params['pc_desc'] ?? '');
         ConfigService::set('website', 'pc_keywords', $params['pc_keywords'] ?? '');
+        ConfigService::set('website', 'pc_login_bg_type', $pcLoginBgType);
+        ConfigService::set('website', 'pc_login_bg', $pcLoginBg);
+        ConfigService::set('website', 'pc_login_bg_poster', $pcLoginBgPoster);
 
         ConfigService::set('website', 'shop_name', $params['shop_name']);
         ConfigService::set('website', 'shop_logo', $shopLogo);

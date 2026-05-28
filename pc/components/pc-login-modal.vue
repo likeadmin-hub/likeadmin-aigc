@@ -14,10 +14,12 @@
                 <div ref="panelRef" class="site-login-modal__panel" @click.stop>
                     <section class="site-login-modal__hero">
                         <video
+                            v-if="loginHeroMediaType === 'video' && loginHeroMediaUrl"
                             ref="loginHeroVideoRef"
                             class="site-login-modal__video-media"
                             :class="{ 'is-ready': loginHeroVideoReady }"
-                            :src="loginHeroVideo"
+                            :src="loginHeroMediaUrl"
+                            :poster="loginHeroPosterUrl || undefined"
                             autoplay
                             muted
                             loop
@@ -27,6 +29,14 @@
                             @canplay="markLoginHeroVideoReady"
                             @playing="markLoginHeroVideoReady"
                         ></video>
+                        <img
+                            v-else-if="loginHeroMediaType === 'image' && loginHeroMediaUrl"
+                            class="site-login-modal__video-media is-ready"
+                            :src="loginHeroMediaUrl"
+                            alt=""
+                            @load="markLoginHeroVideoReady"
+                        />
+                        <div v-else class="site-login-modal__video-media site-login-modal__video-media--fallback is-ready"></div>
                         <div class="site-login-modal__video-overlay">
                             <span>A. PART</span>
                             <strong>{{ heroTitle }}</strong>
@@ -392,7 +402,6 @@ const { setPopupType, toggleShowPopup } = useAccount()
 const authView = ref<AuthView>('login')
 const loginTab = ref<LoginTab>('mobile')
 const loginHeroVideoRef = ref<HTMLVideoElement | null>(null)
-const loginHeroVideo = '/media/login-hero.mp4'
 const loginHeroVideoReady = ref(false)
 const codeSending = ref(false)
 const submitLoading = ref(false)
@@ -434,6 +443,15 @@ const allowMobileLogin = computed(() => configuredLoginWays.value.includes(2))
 const allowAccountLogin = computed(() =>
     configuredLoginWays.value.length ? configuredLoginWays.value.includes(1) : true
 )
+const loginHeroMediaType = computed(() => {
+    const type = appStore.getWebsiteConfig.pc_login_bg_type
+    return type === 'video' || type === 'image' ? type : 'none'
+})
+const loginHeroMediaUrl = computed(() => {
+    if (loginHeroMediaType.value === 'none') return ''
+    return appStore.getWebsiteConfig.pc_login_bg_url || appStore.getWebsiteConfig.pc_login_bg || ''
+})
+const loginHeroPosterUrl = computed(() => appStore.getWebsiteConfig.pc_login_bg_poster_url || appStore.getWebsiteConfig.pc_login_bg_poster || '')
 
 const loginTabCount = computed(() => {
     return [allowMobileLogin.value, allowAccountLogin.value].filter(Boolean).length

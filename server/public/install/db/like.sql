@@ -2033,6 +2033,13 @@ VALUES (177, 0,29, 'C', '站点统计', '', 0, 'setting.web.web_setting/getSiteS
 INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `create_time`, `update_time`)
 VALUES (178, 0,177, 'A', '保存', '', 0, 'setting.web.web_setting/saveSiteStatistics', '', '', '', '', 1, 1, 0, 1726841507, 1726841507);
 INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (193, 0, 29, 'C', '网站轮播', '', 2, 'setting.web.web_banner/lists', 'banner', 'setting/website/banner', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES
+(194, 0, 193, 'A', '保存', '', 0, 'setting.web.web_banner/save', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner_save', 1, 1778000000, 1778000000),
+(195, 0, 193, 'A', '删除', '', 0, 'setting.web.web_banner/delete', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner_delete', 1, 1778000000, 1778000000),
+(196, 0, 193, 'A', '状态', '', 0, 'setting.web.web_banner/status', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner_status', 1, 1778000000, 1778000000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES (179, 0, 166, 'M', '套餐管理', 'el-icon-Tickets', 110, '', 'package', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_package', 1, 1778000000, 1778000000);
 INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES (180, 0, 188, 'A', '新增', '', 0, 'finance.membership_plan/add', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_membership_plan_add', 1, 1778000000, 1778000000);
@@ -2322,6 +2329,25 @@ CREATE TABLE IF NOT EXISTS `la_tenant_app_order` (
   `create_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户应用订单';
+
+CREATE TABLE IF NOT EXISTS `la_tenant_app_config` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `app_code` varchar(64) NOT NULL DEFAULT '',
+  `title` varchar(80) NOT NULL DEFAULT '' COMMENT '展示标题',
+  `description` varchar(500) NOT NULL DEFAULT '' COMMENT '展示描述',
+  `cover_uri` varchar(500) NOT NULL DEFAULT '' COMMENT '封面资源',
+  `icon_uri` varchar(500) NOT NULL DEFAULT '' COMMENT '图标资源',
+  `virtual_use_count` varchar(50) NOT NULL DEFAULT '' COMMENT '虚拟使用数',
+  `sort` int NOT NULL DEFAULT 0 COMMENT '排序',
+  `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '状态',
+  `extra` json DEFAULT NULL COMMENT '扩展配置',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenant_app` (`tenant_id`,`app_code`),
+  KEY `idx_tenant_status` (`tenant_id`,`status`,`sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户应用展示配置';
 
 CREATE TABLE IF NOT EXISTS `la_app_migration` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -2805,6 +2831,8 @@ VALUES
 ('aigc_canvas','app.aigc_canvas.admin_project/delete','POST','aigc_canvas:project:delete','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_canvas','app.aigc_canvas.admin_project/clear','POST','aigc_canvas:project:clear','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_canvas','app.aigc_canvas.admin_run/lists','GET','aigc_canvas:run:lists','tenant_admin',1,1,1,1778000000,1778000000),
+('aigc_canvas','app.aigc_canvas.config/detail','GET','aigc_canvas:config:detail','tenant_admin',1,1,1,1778000000,1778000000),
+('aigc_canvas','app.aigc_canvas.config/setup','POST','aigc_canvas:config:setup','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_canvas','app.aigc_canvas.config/dependencies','GET','aigc_canvas:dependencies','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_canvas','app.aigc_canvas.tenant/stat','GET','aigc_canvas:tenant_usage','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_canvas','app.aigc_canvas.tenant/lists','GET','aigc_canvas:tenant_usage','platform_admin',1,1,1,1778000000,1778000000),
@@ -4370,6 +4398,13 @@ VALUES
 (9150,0,9146,'C','会话记录','',0,'app.aigc_llm.admin_session/lists','session','apps/aigc_llm/session','','',0,1,0,'aigc_llm','app','aigc_llm_session',0,1778000000,1778000000),
 (9151,0,9146,'C','敏感词','',0,'app.aigc_llm.admin/sensitiveWord','sensitive-word','apps/aigc_llm/sensitive-word','','',0,1,0,'aigc_llm','app','aigc_llm_sensitive_word',0,1778000000,1778000000),
 (9152,0,9146,'C','用量统计','',0,'app.aigc_llm.admin/stat','stat','apps/aigc_llm/stat','','',0,1,0,'aigc_llm','app','aigc_llm_stat',0,1778000000,1778000000);
+
+INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+(9153,0,9104,'C','基础配置','',50,'app.aigc_image.config/detail','config','apps/aigc_image/config','','',0,1,0,'aigc_image','app','aigc_image_config',0,1778000000,1778000000),
+(9154,0,9113,'C','基础配置','',50,'app.aigc_video.config/detail','config','apps/aigc_video/config','','',0,1,0,'aigc_video','app','aigc_video_config',0,1778000000,1778000000),
+(9155,0,9122,'C','基础配置','',50,'app.aigc_digital_human.config/detail','config','apps/aigc_digital_human/config','','',0,1,0,'aigc_digital_human','app','aigc_digital_human_config',0,1778000000,1778000000),
+(9156,0,9136,'C','基础配置','',50,'app.aigc_canvas.config/detail','config','apps/aigc_canvas/config','','',0,1,0,'aigc_canvas','app','aigc_canvas_config',0,1778000000,1778000000);
 
 -- Migration snapshot: aigc_video/migrations/zz_20260521_happy_horse_channel.sql
 

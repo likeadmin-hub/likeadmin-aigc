@@ -17,6 +17,22 @@ export function setWebsite(params: any) {
     return request.post({ url: '/setting.web.web_setting/setWebsite', params })
 }
 
+export function getWebsiteBanners() {
+    return request.get({ url: '/setting.web.web_banner/lists' })
+}
+
+export function saveWebsiteBanner(params: any) {
+    return request.post({ url: '/setting.web.web_banner/save', params })
+}
+
+export function deleteWebsiteBanner(params: any) {
+    return request.post({ url: '/setting.web.web_banner/delete', params })
+}
+
+export function setWebsiteBannerStatus(params: any) {
+    return request.post({ url: '/setting.web.web_banner/status', params })
+}
+
 // 获取政策协议
 export function getProtocol() {
     return request.get({ url: '/setting.web.web_setting/getAgreement' })

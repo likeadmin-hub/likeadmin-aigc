@@ -57,6 +57,7 @@ export interface FeaturedToolItem {
 
 export interface ToolCardItem {
     id: string
+    appCode?: string
     title: string
     badge: string
     category: ToolCategory
@@ -77,6 +78,7 @@ export interface ToolCardItem {
 
 export interface ToolDisplayOverride {
     id: string
+    appCode?: string
     title?: string
     description?: string
     cover?: string
@@ -127,6 +129,14 @@ export const toolDetailResolutionOptions: ToolDetailResolution[] = ['高清2k', 
 export const toolResultFilterOptions: ToolResultFilter[] = ['全部', '视频生成', '图片生成', 'AI工具']
 
 export const featuredTools: FeaturedToolItem[] = [
+    {
+        id: 'featured-tool-digital-human',
+        title: '数字人视频',
+        description: '选择形象、音色与文案，快速生成口播数字人视频。',
+        image: card3,
+        category: '创意',
+        targetToolId: 'tool-card-aigc-digital-human'
+    },
     {
         id: 'featured-tool-digital-human-driver',
         title: '全驱数字人',
@@ -211,7 +221,36 @@ export const featuredTools: FeaturedToolItem[] = [
 
 export const toolCards: ToolCardItem[] = [
     {
+        id: 'tool-card-aigc-image',
+        appCode: 'aigc_image',
+        title: '图片生成',
+        badge: '图片创作',
+        category: '图片编辑',
+        image: card4,
+        detailName: '图片生成',
+        detailDescription: '输入提示词或参考图，快速生成高质量图片。',
+        promptLead: '进入图片生成后，可选择通道、比例、清晰度和生成数量。',
+        createdCost: '0',
+        generateKind: 'image',
+        appPath: '/ai/create?type=image'
+    },
+    {
+        id: 'tool-card-aigc-video',
+        appCode: 'aigc_video',
+        title: '视频生成',
+        badge: '视频创作',
+        category: '创意',
+        image: card3,
+        detailName: '视频生成',
+        detailDescription: '输入提示词或参考素材，一键生成动态镜头与叙事短片。',
+        promptLead: '进入视频生成后，可选择视频通道、比例、时长和参考素材。',
+        createdCost: '0',
+        generateKind: 'video',
+        appPath: '/ai/create?type=video'
+    },
+    {
         id: 'tool-card-digital-human-driver',
+        appCode: 'image_human',
         title: '全驱数字人',
         badge: '数字人新能力',
         category: '创意',
@@ -224,7 +263,22 @@ export const toolCards: ToolCardItem[] = [
         appPath: '/ai/avatar?tab=image_human'
     },
     {
+        id: 'tool-card-aigc-digital-human',
+        appCode: 'aigc_digital_human',
+        title: '数字人视频',
+        badge: '数字人合成',
+        category: '创意',
+        image: card3,
+        detailName: '数字人视频',
+        detailDescription: '选择公共或自定义形象、音色与文案，快速生成数字人口播视频。',
+        promptLead: '进入数字人视频后，可选择视频形象、声音和文案内容并查看合成结果。',
+        createdCost: '0',
+        generateKind: 'tool',
+        appPath: '/ai/avatar'
+    },
+    {
         id: 'tool-card-canvas',
+        appCode: 'aigc_canvas',
         title: '无限画布',
         badge: '画布编排',
         category: '创意',
@@ -238,6 +292,7 @@ export const toolCards: ToolCardItem[] = [
     },
     {
         id: 'tool-card-llm',
+        appCode: 'aigc_llm',
         title: 'AIGC对话',
         badge: '大模型对话',
         category: '创意',
@@ -584,7 +639,7 @@ export const applyToolDisplayOverrides = (
     overrides: Record<string, ToolDisplayOverride>
 ) => items
     .map((item) => {
-        const override = overrides[item.id]
+        const override = overrides[item.id] || (item.appCode ? overrides[item.appCode] : undefined)
         if (!override) return item
         const title = override.title?.trim()
         const description = override.description?.trim()
@@ -602,7 +657,10 @@ export const applyToolDisplayOverrides = (
             virtualUseCount: virtualUseCount || item.virtualUseCount
         }
     })
-    .filter((item) => overrides[item.id]?.enabled !== false)
+    .filter((item) => {
+        const override = overrides[item.id] || (item.appCode ? overrides[item.appCode] : undefined)
+        return override?.enabled !== false
+    })
 
 export const applyFeaturedToolDisplayOverrides = (
     items: FeaturedToolItem[],

@@ -1,5 +1,7 @@
 <template>
-    <el-card class="!border-none" shadow="never" v-loading="loading">
+    <div v-loading="loading">
+        <app-display-config v-model="displayConfig" />
+        <el-card class="!border-none" shadow="never">
         <el-form label-width="140px" :model="formData">
             <el-form-item label="供应商模式">
                 <el-radio-group v-model="formData.provider_mode">
@@ -29,11 +31,13 @@
                 <el-button type="primary" :loading="saving" @click="handleSubmit">保存</el-button>
             </el-form-item>
         </el-form>
-    </el-card>
+        </el-card>
+    </div>
 </template>
 
 <script lang="ts" setup name="tenant-aigc-llm-config">
 import { getAigcLlmConfig, setAigcLlmConfig } from '@/apps/aigc_llm/api'
+import AppDisplayConfig from '@/views/apps/components/app-display-config.vue'
 import feedback from '@/utils/feedback'
 
 const loading = ref(false)
@@ -49,6 +53,7 @@ const formData = reactive({
         auto_title_chars: 18
     }
 })
+const displayConfig = ref<Record<string, any>>({})
 
 const getData = async () => {
     loading.value = true
@@ -65,6 +70,7 @@ const getData = async () => {
                 auto_title_chars: Number(data.config_json?.auto_title_chars || 18)
             }
         })
+        displayConfig.value = data?.display_config || {}
     } finally {
         loading.value = false
     }
@@ -73,7 +79,10 @@ const getData = async () => {
 const handleSubmit = async () => {
     saving.value = true
     try {
-        await setAigcLlmConfig(formData)
+        await setAigcLlmConfig({
+            ...formData,
+            display_config: displayConfig.value
+        })
         feedback.msgSuccess('保存成功')
         await getData()
     } finally {
