@@ -5,6 +5,7 @@ namespace app\common\service\app\aigc_digital_human;
 use app\common\enum\FileEnum;
 use app\common\model\file\TenantFile;
 use app\common\service\FileService;
+use app\common\service\MediaDurationService;
 use app\common\service\storage\Driver as StorageDriver;
 use app\common\service\storage\StorageConfigService;
 use Exception;
@@ -108,6 +109,7 @@ class AigcDigitalHumanAssetService
         @rename($tmp, $tmpPath);
         file_put_contents($tmpPath, $content);
         $size = $kind === 'image' ? (@getimagesize($tmpPath) ?: []) : [];
+        $duration = $kind === 'audio' || $kind === 'video' ? MediaDurationService::detect($tmpPath) : 0;
         try {
             $stored = self::uploadLocalFile($tmpPath, $tenantId, $userId, $kind);
         } finally {
@@ -123,7 +125,7 @@ class AigcDigitalHumanAssetService
             'file_size' => strlen($content),
             'width' => (int)($size[0] ?? 0),
             'height' => (int)($size[1] ?? 0),
-            'duration' => 0,
+            'duration' => $duration,
             'stored' => true,
         ];
     }

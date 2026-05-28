@@ -9,6 +9,7 @@ use app\common\model\app\aigc_image\AigcImageResult;
 use app\common\model\app\aigc_image\AigcImageSensitiveWord;
 use app\common\model\app\aigc_image\AigcImageTask;
 use app\common\service\app\AppCaseService;
+use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
 use app\common\service\storage\StorageConfigService;
@@ -24,18 +25,18 @@ class AigcImageService
     {
         $config = AigcImageConfig::where('tenant_id', $tenantId)->findOrEmpty();
         if ($config->isEmpty()) {
-            return [
+            return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, [
                 'provider_mode' => 'platform',
                 'provider' => 'mock',
                 'model' => 'mock-image',
                 'status' => 1,
                 'config_json' => [],
                 'option_config' => AigcImageChannelService::userConfig($tenantId),
-            ];
+            ]);
         }
         $data = $config->toArray();
         $data['option_config'] = AigcImageChannelService::userConfig($tenantId);
-        return $data;
+        return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
     }
 
     public static function estimate(int $tenantId, array $params): array
@@ -45,6 +46,7 @@ class AigcImageService
 
     public static function saveConfig(int $tenantId, array $params): void
     {
+        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $data = [
             'tenant_id' => $tenantId,
             'provider_mode' => $params['provider_mode'] ?? 'platform',
@@ -77,7 +79,7 @@ class AigcImageService
             throw new Exception('参考图数量超出限制');
         }
         self::checkSensitiveWords($tenantId, $prompt);
-        $duplicateTask = self::findRecentDuplicateTask($tenantId, $userId, [
+        $duplicateCriteria = [
             'prompt' => $prompt,
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
             'style' => (string)($params['style'] ?? 'general'),
@@ -86,40 +88,50 @@ class AigcImageService
             'ratio' => (string)$selection['spec']['ratio'],
             'quantity' => $quantity,
             'reference_images' => $referenceImages,
-        ]);
-        if ($duplicateTask) {
-            return self::buildDuplicateGenerateResponse($duplicateTask, $tenantId, $userId);
-        }
+        ];
         $estimate = AigcImageChannelService::estimate($tenantId, array_merge($params, [
             'channel' => $selection['channel']['code'],
             'quality' => $selection['spec']['quality'],
             'ratio' => $selection['spec']['ratio'],
             'quantity' => $quantity,
         ]));
-        self::checkQuota($tenantId, $userId, $quantity);
-        PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
-        $task = AigcImageTask::create([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'prompt' => $prompt,
-            'negative_prompt' => $params['negative_prompt'] ?? '',
-            'reference_images' => $referenceImages,
-            'style' => $params['style'] ?? 'general',
-            'channel' => $selection['channel']['code'],
-            'quality' => $selection['spec']['quality'],
-            'ratio' => $selection['spec']['ratio'],
-            'quantity' => $quantity,
-            'tenant_cost_points' => $estimate['tenant_cost_points'],
-            'user_charge_points' => $estimate['user_charge_points'],
-            'provider' => $selection['channel']['provider'],
-            'model' => $selection['channel']['model'],
-            'status' => 'running',
-            'error' => '',
-            'delete_time' => 0,
-            'create_time' => time(),
-            'update_time' => time(),
-        ]);
+        Db::startTrans();
+        try {
+            self::lockSubmitOwner($userId);
+            $duplicateTask = self::findRecentDuplicateTask($tenantId, $userId, $duplicateCriteria);
+            if ($duplicateTask) {
+                Db::commit();
+                return self::buildDuplicateGenerateResponse($duplicateTask, $tenantId, $userId);
+            }
+            self::checkQuota($tenantId, $userId, $quantity);
+            PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
+            $task = AigcImageTask::create([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'prompt' => $prompt,
+                'negative_prompt' => $params['negative_prompt'] ?? '',
+                'reference_images' => $referenceImages,
+                'style' => $params['style'] ?? 'general',
+                'channel' => $selection['channel']['code'],
+                'quality' => $selection['spec']['quality'],
+                'ratio' => $selection['spec']['ratio'],
+                'quantity' => $quantity,
+                'tenant_cost_points' => $estimate['tenant_cost_points'],
+                'user_charge_points' => $estimate['user_charge_points'],
+                'provider' => $selection['channel']['provider'],
+                'model' => $selection['channel']['model'],
+                'status' => 'running',
+                'error' => '',
+                'delete_time' => 0,
+                'create_time' => time(),
+                'update_time' => time(),
+            ]);
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            throw $e;
+        }
 
         $providerName = (string)$selection['channel']['provider'];
         $provider = self::providerFor($providerName);
@@ -656,6 +668,14 @@ class AigcImageService
         return null;
     }
 
+    private static function lockSubmitOwner(int $userId): void
+    {
+        if ($userId <= 0) {
+            return;
+        }
+        Db::name('user')->where('id', $userId)->lock(true)->find();
+    }
+
     private static function buildDuplicateGenerateResponse(AigcImageTask $task, int $tenantId, int $userId): array
     {
         if ((string)$task['status'] === 'running') {
@@ -739,7 +759,7 @@ class AigcImageService
                     'delete_time' => 0,
                     'create_time' => time(),
                 ]);
-                $sourceSn = (string)$task['id'] . '-' . ((int)$index + 1);
+                $sourceSn = self::APP_CODE . '-' . (string)$task['id'] . '-' . ((int)$index + 1);
                 PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$estimate['platform_unit_cost'], (float)$estimate['tenant_unit_price'], $sourceSn, 'AIGC生图消费', [
                     'app_code' => self::APP_CODE,
                     'task_id' => (int)$task['id'],

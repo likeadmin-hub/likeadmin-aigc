@@ -111,6 +111,25 @@ CREATE TABLE IF NOT EXISTS `la_tenant_app_order` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户应用订单';
 
+CREATE TABLE IF NOT EXISTS `la_tenant_app_config` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `app_code` varchar(64) NOT NULL DEFAULT '',
+  `title` varchar(80) NOT NULL DEFAULT '' COMMENT '展示标题',
+  `description` varchar(500) NOT NULL DEFAULT '' COMMENT '展示描述',
+  `cover_uri` varchar(500) NOT NULL DEFAULT '' COMMENT '封面资源',
+  `icon_uri` varchar(500) NOT NULL DEFAULT '' COMMENT '图标资源',
+  `virtual_use_count` varchar(50) NOT NULL DEFAULT '' COMMENT '虚拟使用数',
+  `sort` int NOT NULL DEFAULT 0 COMMENT '排序',
+  `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '状态',
+  `extra` json DEFAULT NULL COMMENT '扩展配置',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenant_app` (`tenant_id`,`app_code`),
+  KEY `idx_tenant_status` (`tenant_id`,`status`,`sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户应用展示配置';
+
 CREATE TABLE IF NOT EXISTS `la_app_migration` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `scope` varchar(30) NOT NULL DEFAULT '',
@@ -312,23 +331,135 @@ CREATE TABLE IF NOT EXISTS `la_update_license` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='更新服务授权';
 
 -- Existing core table changes for upgraded installations.
--- Duplicate columns are ignored by the migration executor.
-ALTER TABLE `la_tenant` ADD COLUMN `allow_custom_storage` tinyint NOT NULL DEFAULT 0 COMMENT '允许租户自定义存储';
-ALTER TABLE `la_tenant` ADD COLUMN `point_balance` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '租户点数余额';
-ALTER TABLE `la_file` ADD COLUMN `storage_scope` varchar(20) NOT NULL DEFAULT 'platform' COMMENT '存储作用域';
-ALTER TABLE `la_file` ADD COLUMN `storage_engine` varchar(30) NOT NULL DEFAULT 'local' COMMENT '存储引擎';
-ALTER TABLE `la_file` ADD COLUMN `storage_domain` varchar(255) NOT NULL DEFAULT '' COMMENT '存储域名';
-ALTER TABLE `la_tenant_file` ADD COLUMN `storage_scope` varchar(20) NOT NULL DEFAULT 'platform' COMMENT '存储作用域';
-ALTER TABLE `la_tenant_file` ADD COLUMN `storage_engine` varchar(30) NOT NULL DEFAULT 'local' COMMENT '存储引擎';
-ALTER TABLE `la_tenant_file` ADD COLUMN `storage_domain` varchar(255) NOT NULL DEFAULT '' COMMENT '存储域名';
-ALTER TABLE `la_system_menu` ADD COLUMN `app_code` varchar(64) NOT NULL DEFAULT '' COMMENT '应用标识';
-ALTER TABLE `la_system_menu` ADD COLUMN `source` varchar(20) NOT NULL DEFAULT 'core' COMMENT '菜单来源';
-ALTER TABLE `la_system_menu` ADD COLUMN `source_menu_key` varchar(120) NOT NULL DEFAULT '' COMMENT '来源菜单key';
-ALTER TABLE `la_system_menu` ADD COLUMN `is_core` tinyint NOT NULL DEFAULT 1 COMMENT '是否核心菜单';
-ALTER TABLE `la_tenant_system_menu` ADD COLUMN `app_code` varchar(64) NOT NULL DEFAULT '' COMMENT '应用标识';
-ALTER TABLE `la_tenant_system_menu` ADD COLUMN `source` varchar(20) NOT NULL DEFAULT 'core' COMMENT '菜单来源';
-ALTER TABLE `la_tenant_system_menu` ADD COLUMN `source_menu_key` varchar(120) NOT NULL DEFAULT '' COMMENT '来源菜单key';
-ALTER TABLE `la_tenant_system_menu` ADD COLUMN `is_core` tinyint NOT NULL DEFAULT 1 COMMENT '是否核心菜单';
+-- Keep these ALTERs idempotent because system updates can resync built-in apps.
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_tenant`', '`', '') AND COLUMN_NAME = 'allow_custom_storage') = 0,
+  'ALTER TABLE `la_tenant` ADD COLUMN `allow_custom_storage` tinyint NOT NULL DEFAULT 0 COMMENT ''允许租户自定义存储''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_tenant`', '`', '') AND COLUMN_NAME = 'point_balance') = 0,
+  'ALTER TABLE `la_tenant` ADD COLUMN `point_balance` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT ''租户点数余额''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_file`', '`', '') AND COLUMN_NAME = 'storage_scope') = 0,
+  'ALTER TABLE `la_file` ADD COLUMN `storage_scope` varchar(20) NOT NULL DEFAULT ''platform'' COMMENT ''存储作用域''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_file`', '`', '') AND COLUMN_NAME = 'storage_engine') = 0,
+  'ALTER TABLE `la_file` ADD COLUMN `storage_engine` varchar(30) NOT NULL DEFAULT ''local'' COMMENT ''存储引擎''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_file`', '`', '') AND COLUMN_NAME = 'storage_domain') = 0,
+  'ALTER TABLE `la_file` ADD COLUMN `storage_domain` varchar(255) NOT NULL DEFAULT '''' COMMENT ''存储域名''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_tenant_file`', '`', '') AND COLUMN_NAME = 'storage_scope') = 0,
+  'ALTER TABLE `la_tenant_file` ADD COLUMN `storage_scope` varchar(20) NOT NULL DEFAULT ''platform'' COMMENT ''存储作用域''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_tenant_file`', '`', '') AND COLUMN_NAME = 'storage_engine') = 0,
+  'ALTER TABLE `la_tenant_file` ADD COLUMN `storage_engine` varchar(30) NOT NULL DEFAULT ''local'' COMMENT ''存储引擎''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_tenant_file`', '`', '') AND COLUMN_NAME = 'storage_domain') = 0,
+  'ALTER TABLE `la_tenant_file` ADD COLUMN `storage_domain` varchar(255) NOT NULL DEFAULT '''' COMMENT ''存储域名''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_system_menu`', '`', '') AND COLUMN_NAME = 'app_code') = 0,
+  'ALTER TABLE `la_system_menu` ADD COLUMN `app_code` varchar(64) NOT NULL DEFAULT '''' COMMENT ''应用标识''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_system_menu`', '`', '') AND COLUMN_NAME = 'source') = 0,
+  'ALTER TABLE `la_system_menu` ADD COLUMN `source` varchar(20) NOT NULL DEFAULT ''core'' COMMENT ''菜单来源''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_system_menu`', '`', '') AND COLUMN_NAME = 'source_menu_key') = 0,
+  'ALTER TABLE `la_system_menu` ADD COLUMN `source_menu_key` varchar(120) NOT NULL DEFAULT '''' COMMENT ''来源菜单key''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_system_menu`', '`', '') AND COLUMN_NAME = 'is_core') = 0,
+  'ALTER TABLE `la_system_menu` ADD COLUMN `is_core` tinyint NOT NULL DEFAULT 1 COMMENT ''是否核心菜单''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_tenant_system_menu`', '`', '') AND COLUMN_NAME = 'app_code') = 0,
+  'ALTER TABLE `la_tenant_system_menu` ADD COLUMN `app_code` varchar(64) NOT NULL DEFAULT '''' COMMENT ''应用标识''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_tenant_system_menu`', '`', '') AND COLUMN_NAME = 'source') = 0,
+  'ALTER TABLE `la_tenant_system_menu` ADD COLUMN `source` varchar(20) NOT NULL DEFAULT ''core'' COMMENT ''菜单来源''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_tenant_system_menu`', '`', '') AND COLUMN_NAME = 'source_menu_key') = 0,
+  'ALTER TABLE `la_tenant_system_menu` ADD COLUMN `source_menu_key` varchar(120) NOT NULL DEFAULT '''' COMMENT ''来源菜单key''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+SET @aigc_image_sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = REPLACE('`la_tenant_system_menu`', '`', '') AND COLUMN_NAME = 'is_core') = 0,
+  'ALTER TABLE `la_tenant_system_menu` ADD COLUMN `is_core` tinyint NOT NULL DEFAULT 1 COMMENT ''是否核心菜单''',
+  'SELECT 1'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
 
 -- Core navigation for the app center. App-specific business menus are synced as top-level menus during install.
 INSERT IGNORE INTO `la_system_menu`

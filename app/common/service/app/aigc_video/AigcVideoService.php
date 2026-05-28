@@ -9,6 +9,7 @@ use app\common\model\app\aigc_video\AigcVideoResult;
 use app\common\model\app\aigc_video\AigcVideoSensitiveWord;
 use app\common\model\app\aigc_video\AigcVideoTask;
 use app\common\service\app\AppCaseService;
+use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
 use app\common\service\storage\StorageConfigService;
@@ -24,18 +25,18 @@ class AigcVideoService
     {
         $config = AigcVideoConfig::where('tenant_id', $tenantId)->findOrEmpty();
         if ($config->isEmpty()) {
-            return [
+            return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, [
                 'provider_mode' => 'platform',
                 'provider' => 'mock',
                 'model' => 'mock-video',
                 'status' => 1,
                 'config_json' => [],
                 'option_config' => AigcVideoChannelService::userConfig($tenantId),
-            ];
+            ]);
         }
         $data = $config->toArray();
         $data['option_config'] = AigcVideoChannelService::userConfig($tenantId);
-        return $data;
+        return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
     }
 
     public static function estimate(int $tenantId, array $params): array
@@ -45,6 +46,7 @@ class AigcVideoService
 
     public static function saveConfig(int $tenantId, array $params): void
     {
+        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $data = [
             'tenant_id' => $tenantId,
             'provider_mode' => $params['provider_mode'] ?? 'platform',
@@ -72,10 +74,10 @@ class AigcVideoService
         $selection = AigcVideoChannelService::resolveSelection($tenantId, $params);
         $quantity = AigcVideoChannelService::normalizeQuantity($params['quantity'] ?? 1);
         AigcVideoChannelService::assertChannelQuantity($selection['channel'], $quantity);
-        $referenceImages = array_values(array_filter((array)($params['reference_images'] ?? [])));
-        if (count($referenceImages) > (int)$selection['channel']['max_reference_images']) {
-            throw new Exception('参考图数量超出限制');
-        }
+        $referenceAssets = AigcVideoReferenceAssetService::normalize($params);
+        $referenceImages = AigcVideoReferenceAssetService::images($referenceAssets);
+        self::assertReferenceAssetsSupported($selection['channel'], $referenceAssets);
+        $duration = AigcVideoChannelService::normalizeGenerateDuration($selection['channel'], $referenceAssets, $params['duration'] ?? null);
         self::checkSensitiveWords($tenantId, $prompt);
         $duplicateTask = self::findRecentDuplicateTask($tenantId, $userId, [
             'prompt' => $prompt,
@@ -84,8 +86,9 @@ class AigcVideoService
             'channel' => (string)$selection['channel']['code'],
             'quality' => (string)$selection['spec']['quality'],
             'ratio' => (string)$selection['spec']['ratio'],
+            'duration' => $duration,
             'quantity' => $quantity,
-            'reference_images' => $referenceImages,
+            'reference_assets' => $referenceAssets,
         ]);
         if ($duplicateTask) {
             return self::buildDuplicateGenerateResponse($duplicateTask, $tenantId, $userId);
@@ -94,17 +97,19 @@ class AigcVideoService
             'channel' => $selection['channel']['code'],
             'quality' => $selection['spec']['quality'],
             'ratio' => $selection['spec']['ratio'],
+            'duration' => $duration,
             'quantity' => $quantity,
         ]));
         self::checkQuota($tenantId, $userId, $quantity);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
-        $task = AigcVideoTask::create([
+        $taskData = [
             'tenant_id' => $tenantId,
             'user_id' => $userId,
             'prompt' => $prompt,
             'negative_prompt' => $params['negative_prompt'] ?? '',
             'reference_images' => $referenceImages,
+            'reference_assets' => $referenceAssets,
             'style' => $params['style'] ?? 'general',
             'channel' => $selection['channel']['code'],
             'quality' => $selection['spec']['quality'],
@@ -113,13 +118,17 @@ class AigcVideoService
             'tenant_cost_points' => $estimate['tenant_cost_points'],
             'user_charge_points' => $estimate['user_charge_points'],
             'provider' => $selection['channel']['provider'],
-            'model' => $selection['channel']['model'],
+            'model' => self::taskModelName($selection, $referenceAssets),
             'status' => 'running',
             'error' => '',
             'delete_time' => 0,
             'create_time' => time(),
             'update_time' => time(),
-        ]);
+        ];
+        if (AigcVideoTask::hasDurationColumn()) {
+            $taskData['duration'] = $duration;
+        }
+        $task = AigcVideoTask::create($taskData);
 
         $providerName = (string)$selection['channel']['provider'];
         $provider = self::providerFor($providerName);
@@ -128,6 +137,9 @@ class AigcVideoService
             'tenant_id' => $tenantId,
             'user_id' => $userId,
         ]);
+        if (($selection['channel']['code'] ?? '') === 'seedance' && empty(($selection['spec']['provider_params_json'] ?? [])['model'])) {
+            unset($channelConfig['model']);
+        }
         if (self::isAsyncProvider($providerName)) {
             $channelConfig['poll_attempts'] = 0;
         }
@@ -140,8 +152,9 @@ class AigcVideoService
             $selection['spec']['ratio'],
             $quantity,
             $referenceImages,
+            $referenceAssets,
             $selection['spec'],
-            $selection['spec']['provider_params_json'] ?? [],
+            array_merge($selection['spec']['provider_params_json'] ?? [], ['duration' => $duration]),
             $channelConfig
         ));
 
@@ -275,10 +288,12 @@ class AigcVideoService
             'prompt' => $task['prompt'],
             'negative_prompt' => $task['negative_prompt'],
             'reference_images' => $task['reference_images'] ?: [],
+            'reference_assets' => $task['reference_assets'] ?: [],
             'style' => $task['style'],
             'channel' => $task['channel'],
             'quality' => $task['quality'],
             'ratio' => $task['ratio'],
+            'duration' => (int)($task['duration'] ?? 0),
             'quantity' => $task['quantity'],
         ]);
     }
@@ -579,6 +594,14 @@ class AigcVideoService
 
     private static function buildRequestFromTask(AigcVideoTask $task, array $selection): AigcVideoGenerateRequest
     {
+        $channelConfig = array_merge($selection['channel']['config_json'] ?? [], [
+            'model' => $selection['channel']['model'],
+            'tenant_id' => (int)$task['tenant_id'],
+            'user_id' => (int)$task['user_id'],
+        ]);
+        if (($selection['channel']['code'] ?? '') === 'seedance' && empty(($selection['spec']['provider_params_json'] ?? [])['model'])) {
+            unset($channelConfig['model']);
+        }
         return new AigcVideoGenerateRequest(
             (string)$task['prompt'],
             (string)$task['negative_prompt'],
@@ -588,13 +611,16 @@ class AigcVideoService
             (string)$task['ratio'],
             (int)$task['quantity'],
             (array)($task['reference_images'] ?: []),
+            (array)($task['reference_assets'] ?: []),
             $selection['spec'],
-            $selection['spec']['provider_params_json'] ?? [],
-            array_merge($selection['channel']['config_json'] ?? [], [
-                'model' => $selection['channel']['model'],
-                'tenant_id' => (int)$task['tenant_id'],
-                'user_id' => (int)$task['user_id'],
-            ])
+            array_merge($selection['spec']['provider_params_json'] ?? [], [
+                'duration' => AigcVideoChannelService::normalizeGenerateDuration(
+                    $selection['channel'],
+                    (array)($task['reference_assets'] ?: []),
+                    (int)($task['duration'] ?? 0) ?: null
+                ),
+            ]),
+            $channelConfig
         );
     }
 
@@ -614,12 +640,15 @@ class AigcVideoService
             ->order('id', 'desc')
             ->limit(5)
             ->select();
-        $referenceSignature = self::referenceImageSignature((array)($criteria['reference_images'] ?? []));
+        $referenceSignature = self::referenceAssetSignature((array)($criteria['reference_assets'] ?? []), (array)($criteria['reference_images'] ?? []));
         foreach ($rows as $row) {
             if (in_array((string)$row['status'], ['failed', 'canceled'], true)) {
                 continue;
             }
-            if (self::referenceImageSignature((array)($row['reference_images'] ?: [])) !== $referenceSignature) {
+            if (AigcVideoTask::hasDurationColumn() && (int)($row['duration'] ?? 0) !== (int)($criteria['duration'] ?? 0)) {
+                continue;
+            }
+            if (self::referenceAssetSignature((array)($row['reference_assets'] ?: []), (array)($row['reference_images'] ?: [])) !== $referenceSignature) {
                 continue;
             }
             return $row;
@@ -661,6 +690,98 @@ class AigcVideoService
         }
         sort($normalized);
         return json_encode($normalized, JSON_UNESCAPED_UNICODE);
+    }
+
+    private static function assertReferenceAssetsSupported(array $channel, array $assets): void
+    {
+        $supported = $channel['supported_asset_types'] ?? ['image'];
+        if (!is_array($supported) || empty($supported)) {
+            $supported = ['image'];
+        }
+        $supported = array_map('strval', $supported);
+        $counts = ['image' => 0, 'video' => 0, 'audio' => 0];
+        foreach ($assets as $asset) {
+            $type = (string)($asset['type'] ?? 'image');
+            if (!in_array($type, $supported, true)) {
+                throw new Exception('当前通道不支持' . self::referenceAssetTypeLabel($type) . '参考素材');
+            }
+            if (isset($counts[$type])) {
+                $counts[$type]++;
+            }
+        }
+        if ($counts['image'] > (int)$channel['max_reference_images']) {
+            throw new Exception('参考图数量超出限制');
+        }
+        if ($counts['video'] > (int)($channel['max_reference_videos'] ?? 0)) {
+            throw new Exception('参考视频数量超出限制');
+        }
+        if ($counts['audio'] > (int)($channel['max_reference_audios'] ?? 0)) {
+            throw new Exception('参考音频数量超出限制');
+        }
+        if ((string)($channel['code'] ?? '') === 'seedance') {
+            AigcVideoReferenceAssetService::assertSeedanceSupported($assets);
+        }
+    }
+
+    private static function referenceAssetTypeLabel(string $type): string
+    {
+        return match ($type) {
+            'video' => '视频',
+            'audio' => '音频',
+            default => '图片',
+        };
+    }
+
+    private static function taskModelName(array $selection, array $referenceAssets): string
+    {
+        $specModel = (string)(($selection['spec']['provider_params_json'] ?? [])['model'] ?? '');
+        if ($specModel !== '') {
+            return $specModel;
+        }
+        if (($selection['channel']['code'] ?? '') === 'seedance') {
+            foreach ($referenceAssets as $asset) {
+                if (($asset['type'] ?? '') === 'video') {
+                    return 'seedance-2-video-2-video';
+                }
+            }
+            return 'seedance-2-text-2-video';
+        }
+        if (($selection['channel']['code'] ?? '') === 'wan') {
+            foreach ($referenceAssets as $asset) {
+                if (($asset['type'] ?? '') === 'video') {
+                    return 'wan2.7-videoedit';
+                }
+            }
+            foreach ($referenceAssets as $asset) {
+                if (($asset['type'] ?? '') === 'image') {
+                    return 'wan2.7-r2v';
+                }
+            }
+        }
+        return (string)($selection['channel']['model'] ?? '');
+    }
+
+    private static function referenceAssetSignature(array $assets, array $legacyImages = []): string
+    {
+        if (empty($assets) && !empty($legacyImages)) {
+            $assets = array_map(static fn($image) => [
+                'type' => 'image',
+                'uri' => (string)$image,
+            ], $legacyImages);
+        }
+        $normalized = [];
+        foreach ($assets as $asset) {
+            if (!is_array($asset)) {
+                continue;
+            }
+            $type = trim((string)($asset['type'] ?? 'image'));
+            $uri = trim((string)($asset['uri'] ?? $asset['url'] ?? ''));
+            if ($uri !== '') {
+                $normalized[] = $type . ':' . $uri;
+            }
+        }
+        sort($normalized);
+        return json_encode(array_values(array_unique($normalized)), JSON_UNESCAPED_UNICODE);
     }
 
     private static function finishTaskWithVideos(AigcVideoTask $task, array $selection, array $estimate, array $videos): array
@@ -818,14 +939,14 @@ class AigcVideoService
 
     private static function isAsyncProvider(string $provider): bool
     {
-        return in_array(strtolower($provider), ['xhadmin', 'xhadmin_grok_video', 'grok_video_xaiq', 'happyhorse', 'happy_horse'], true);
+        return in_array(strtolower($provider), ['xhadmin', 'xhadmin_grok_video', 'grok_video_xaiq', 'wan', 'seedance', 'omni_flash_ext', 'happyhorse', 'happy_horse'], true);
     }
 
     private static function providerFor(string $provider): AigcVideoProviderInterface
     {
         return match (strtolower($provider)) {
             'happyhorse', 'happy_horse' => new HappyHorseAigcVideoProvider(),
-            'xhadmin', 'xhadmin_grok_video', 'grok_video_xaiq' => new XhadminAigcVideoProvider(),
+            'xhadmin', 'xhadmin_grok_video', 'grok_video_xaiq', 'wan', 'seedance', 'omni_flash_ext' => new XhadminAigcVideoProvider(),
             default => new MockAigcVideoProvider(),
         };
     }

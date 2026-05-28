@@ -21,9 +21,11 @@ use app\common\model\article\Article;
 use app\common\model\article\ArticleCate;
 use app\common\model\article\ArticleCollect;
 use app\common\model\decorate\DecoratePage;
+use app\common\service\app\AppDisplayConfigService;
 use app\common\service\decorate\DecorateTemplateService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
+use app\common\service\WebsiteBannerService;
 
 
 /**
@@ -46,7 +48,19 @@ class PcLogic extends BaseLogic
     public static function getIndexData()
     {
         // 装修配置
-        $decoratePage = DecorateTemplateService::activePublishedPage((int)request()->tenantId, DecorateTemplateService::TERMINAL_PC, 'pc_home', 4);
+        $preview = request()->get('preview/d', 0) === 1;
+        $templateId = request()->get('template_id/d', 0);
+        $pageId = request()->get('page_id/d', 0);
+        $decoratePage = DecorateTemplateService::activePublishedPage(
+            (int)request()->tenantId,
+            DecorateTemplateService::TERMINAL_PC,
+            'pc_home',
+            4,
+            'common',
+            $preview,
+            $templateId,
+            $pageId
+        );
         // 最新资讯
         $newArticle = self::getLimitArticle('new', 7);
         // 全部资讯
@@ -139,6 +153,8 @@ class PcLogic extends BaseLogic
         ];
 
         // 网站信息
+        $pcLoginBg = ConfigService::get('website', 'pc_login_bg', ConfigService::get('tenant', 'login_image', ''));
+        $pcLoginBgPoster = ConfigService::get('website', 'pc_login_bg_poster', '');
         $website = [
             'shop_name' => ConfigService::get('website', 'shop_name'),
             'shop_logo' => FileService::getFileUrl(ConfigService::get('website', 'shop_logo')),
@@ -147,6 +163,12 @@ class PcLogic extends BaseLogic
             'pc_ico' => FileService::getFileUrl(ConfigService::get('website', 'pc_ico')),
             'pc_desc' => ConfigService::get('website', 'pc_desc'),
             'pc_keywords' => ConfigService::get('website', 'pc_keywords'),
+            'pc_login_bg_type' => ConfigService::get('website', 'pc_login_bg_type', 'image'),
+            'pc_login_bg' => $pcLoginBg,
+            'pc_login_bg_url' => $pcLoginBg ? FileService::getFileUrl($pcLoginBg) : '',
+            'pc_login_bg_poster' => $pcLoginBgPoster,
+            'pc_login_bg_poster_url' => $pcLoginBgPoster ? FileService::getFileUrl($pcLoginBgPoster) : '',
+            'pc_home_banners' => WebsiteBannerService::lists(true),
         ];
 
         // 站点统计
@@ -168,6 +190,7 @@ class PcLogic extends BaseLogic
             'domain' => FileService::getFileUrl(),
             'login' => $loginConfig,
             'website' => $website,
+            'app_display_configs' => AppDisplayConfigService::map((int)request()->tenantId),
             'siteStatistics' => $siteStatistics,
             'version' => config('project.version'),
             'copyright' => $copyright,

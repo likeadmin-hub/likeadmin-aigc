@@ -12,7 +12,9 @@ use app\common\service\app\aigc_digital_human\AigcDigitalHumanAssetService;
 use app\common\service\app\aigc_digital_human\AigcDigitalHumanGenerateRequest;
 use app\common\service\app\aigc_digital_human\AigcDigitalHumanService;
 use app\common\service\app\aigc_digital_human\XhadminAigcDigitalHumanProvider;
+use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
+use app\common\service\MediaDurationService;
 use app\common\service\point\PointService;
 use app\common\service\storage\StorageConfigService;
 use Exception;
@@ -27,7 +29,7 @@ class ImageHumanService
     public static function config(int $tenantId): array
     {
         $config = self::effectiveConfig($tenantId);
-        return [
+        return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, [
             'provider' => $config['provider'],
             'model' => $config['model'],
             'status' => $config['status'],
@@ -41,15 +43,18 @@ class ImageHumanService
                 'defaults' => ['mode' => 'fast'],
                 'pricing' => self::pricing($tenantId),
             ],
-        ];
+        ]);
     }
 
     public static function estimate(int $tenantId, array $params, int $userId = 0): array
     {
-        $duration = self::normalizeDuration($params['duration'] ?? $params['audio_duration'] ?? 0);
         $driverAudioUri = FileService::setFileUrl((string)($params['driver_audio_uri'] ?? $params['audio_uri'] ?? $params['ref_file_uri'] ?? $params['ref_file_url'] ?? ''));
-        if ($duration <= 0 && $driverAudioUri !== '') {
-            $duration = self::detectAudioDurationFromUri($driverAudioUri, $tenantId);
+        $duration = self::normalizeDuration($params['duration'] ?? $params['audio_duration'] ?? 0);
+        if ($driverAudioUri !== '') {
+            $detectedDuration = self::detectAudioDurationFromUri($driverAudioUri, $tenantId);
+            if ($detectedDuration > 0) {
+                $duration = $detectedDuration;
+            }
         }
         if ($duration <= 0 && (int)($params['voice_id'] ?? 0) > 0) {
             $scriptText = trim((string)($params['script_text'] ?? $params['text'] ?? $params['prompt'] ?? ''));
@@ -61,6 +66,7 @@ class ImageHumanService
 
     public static function saveConfig(int $tenantId, array $params): void
     {
+        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::effectiveConfig($tenantId);
         $configJson = is_array($params['config_json'] ?? null) ? $params['config_json'] : [];
         $currentPricing = (array)($current['config_json']['pricing'] ?? []);
@@ -106,6 +112,7 @@ class ImageHumanService
 
     public static function saveTenantPricing(int $tenantId, array $params): void
     {
+        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         if ($tenantId <= 0) {
             self::saveConfig(0, $params);
             return;
@@ -417,8 +424,11 @@ class ImageHumanService
             throw new Exception('提示词不能超过' . $promptMaxLength . '个字');
         }
         $duration = self::normalizeDuration($params['duration'] ?? 0);
-        if ($audioDriven && $duration <= 0) {
-            $duration = self::detectAudioDurationFromUri($audioUri, $tenantId);
+        if ($audioDriven) {
+            $detectedDuration = self::detectAudioDurationFromUri($audioUri, $tenantId);
+            if ($detectedDuration > 0) {
+                $duration = $detectedDuration;
+            }
         }
         if (!$audioDriven && $duration <= 0) {
             $duration = self::estimateScriptDuration($scriptText);
@@ -438,39 +448,48 @@ class ImageHumanService
         $estimate = self::buildEstimate($duration, self::pricing($tenantId), $mode);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
-        $duplicate = self::findRecentDuplicateTask($tenantId, $userId, $imageUri, $audioUri, $scriptText, $prompt, $mode, $duration);
-        if ($duplicate) {
-            return self::duplicateResponse($duplicate, $tenantId, $userId);
-        }
+        Db::startTrans();
+        try {
+            self::lockSubmitOwner($userId);
+            $duplicate = self::findRecentDuplicateTask($tenantId, $userId, $imageUri, $audioUri, $scriptText, $prompt, $mode, $duration);
+            if ($duplicate) {
+                Db::commit();
+                return self::duplicateResponse($duplicate, $tenantId, $userId);
+            }
 
-        $task = ImageHumanTask::create([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'avatar_id' => $avatarId,
-            'voice_id' => $voiceId,
-            'title' => trim((string)($params['title'] ?? '全驱动数字人')) ?: '全驱动数字人',
-            'image_uri' => $imageUri,
-            'audio_uri' => $audioUri,
-            'script_text' => $scriptText,
-            'prompt' => $prompt,
-            'mode' => $mode,
-            'duration' => $duration,
-            'tenant_cost_points' => $estimate['tenant_cost_points'],
-            'user_charge_points' => $estimate['user_charge_points'],
-            'provider' => (string)$config['provider'],
-            'model' => (string)$config['model'],
-            'provider_task_id' => '',
-            'provider_stage' => $audioDriven ? 'video_submitted' : 'created',
-            'tts_task_id' => '',
-            'provider_payload_json' => [],
-            'status' => 'running',
-            'progress' => $audioDriven ? 10 : 5,
-            'error' => '',
-            'create_time' => time(),
-            'update_time' => time(),
-            'finish_time' => 0,
-            'delete_time' => 0,
-        ]);
+            $task = ImageHumanTask::create([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'avatar_id' => $avatarId,
+                'voice_id' => $voiceId,
+                'title' => trim((string)($params['title'] ?? '全驱动数字人')) ?: '全驱动数字人',
+                'image_uri' => $imageUri,
+                'audio_uri' => $audioUri,
+                'script_text' => $scriptText,
+                'prompt' => $prompt,
+                'mode' => $mode,
+                'duration' => $duration,
+                'tenant_cost_points' => $estimate['tenant_cost_points'],
+                'user_charge_points' => $estimate['user_charge_points'],
+                'provider' => (string)$config['provider'],
+                'model' => (string)$config['model'],
+                'provider_task_id' => '',
+                'provider_stage' => $audioDriven ? 'video_submitted' : 'created',
+                'tts_task_id' => '',
+                'provider_payload_json' => [],
+                'status' => 'running',
+                'progress' => $audioDriven ? 10 : 5,
+                'error' => '',
+                'create_time' => time(),
+                'update_time' => time(),
+                'finish_time' => 0,
+                'delete_time' => 0,
+            ]);
+            Db::commit();
+        } catch (\Throwable $e) {
+            Db::rollback();
+            throw $e;
+        }
 
         return [
             'task_id' => (int)$task['id'],
@@ -626,11 +645,13 @@ class ImageHumanService
         $result = ImageHumanResult::where([])->where('delete_time', 0);
         $avatar = ImageHumanAvatar::where([])->where('delete_time', 0);
         $voice = AigcDigitalHumanVoice::where([])->where('delete_time', 0);
+        $billing = ImageHumanBilling::where([])->where('billing_status', 'deducted');
         if ($tenantId > 0) {
             $task->where('tenant_id', $tenantId);
             $result->where('tenant_id', $tenantId);
             $avatar->where('tenant_id', $tenantId);
             $voice->where('tenant_id', $tenantId);
+            $billing->where('tenant_id', $tenantId);
         }
         return [
             'task_total' => (clone $task)->count(),
@@ -639,8 +660,8 @@ class ImageHumanService
             'result_total' => (clone $result)->count(),
             'avatar_total' => (clone $avatar)->count(),
             'voice_total' => (clone $voice)->count(),
-            'tenant_cost_points' => $tenantId > 0 ? ImageHumanBilling::where('tenant_id', $tenantId)->sum('tenant_cost_points') : ImageHumanBilling::where([])->sum('tenant_cost_points'),
-            'user_charge_points' => $tenantId > 0 ? ImageHumanBilling::where('tenant_id', $tenantId)->sum('user_charge_points') : ImageHumanBilling::where([])->sum('user_charge_points'),
+            'tenant_cost_points' => (clone $billing)->sum('tenant_cost_points'),
+            'user_charge_points' => (clone $billing)->sum('user_charge_points'),
         ];
     }
 
@@ -743,7 +764,7 @@ class ImageHumanService
                 'delete_time' => 0,
                 'create_time' => time(),
             ]);
-            $sourceSn = (string)$locked['id'] . '-1';
+            $sourceSn = self::APP_CODE . '-' . (string)$locked['id'] . '-1';
             PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$locked['tenant_cost_points'], (float)$locked['user_charge_points'], $sourceSn, '全驱数字人消费', [
                 'app_code' => self::APP_CODE,
                 'task_id' => (int)$locked['id'],
@@ -780,14 +801,7 @@ class ImageHumanService
             return self::existingResultRows($tenantId, $userId, (int)$locked['id']);
         } catch (\Throwable $e) {
             Db::rollback();
-            ImageHumanTask::where(['tenant_id' => (int)$task['tenant_id'], 'id' => (int)$task['id']])->update([
-                'status' => 'failed',
-                'provider_stage' => 'failed',
-                'progress' => 100,
-                'error' => $e->getMessage(),
-                'finish_time' => time(),
-                'update_time' => time(),
-            ]);
+            self::failTask($task, 'failed', $e->getMessage());
             return [];
         }
     }
@@ -1163,7 +1177,22 @@ class ImageHumanService
                 ? 'video_running'
                 : (((string)$task['audio_uri'] !== '' && ((int)($task['voice_id'] ?? 0) <= 0 || trim((string)($task['script_text'] ?? '')) === '')) ? 'video_submitted' : 'created');
         }
+        if (in_array($stage, ['tts_submitting', 'video_submitting'], true)) {
+            if ((int)$task['update_time'] >= time() - 120) {
+                return;
+            }
+            $stage = $stage === 'tts_submitting' ? 'created' : 'video_submitted';
+            $task->save([
+                'provider_stage' => $stage,
+                'update_time' => time(),
+            ]);
+        }
         if ($stage === 'created' || $stage === 'tts_submitted') {
+            $claimed = self::claimTaskStage($task, $stage === 'created' ? ['created', ''] : [$stage], 'tts_submitting');
+            if (!$claimed) {
+                return;
+            }
+            $task = $claimed;
             $request = self::buildTtsRequestFromTask($task, $voice, $config);
             try {
                 $submit = (new XhadminAigcDigitalHumanProvider())->submitTts($request);
@@ -1211,10 +1240,11 @@ class ImageHumanService
                     ];
                     $payload['tts_audio_persist_error'] = self::friendlyStageMessage($e->getMessage());
                 }
-                $duration = max((float)$task['duration'], self::normalizeDuration($audio['duration'] ?? 0));
-                if ($duration <= 0) {
-                    $duration = max((float)$task['duration'], self::detectAudioDurationFromUri((string)($audio['uri'] ?? $audioUrl), (int)$task['tenant_id']));
+                $detectedDuration = self::normalizeDuration($audio['duration'] ?? 0);
+                if ($detectedDuration <= 0) {
+                    $detectedDuration = self::detectAudioDurationFromUri((string)($audio['uri'] ?? $audioUrl), (int)$task['tenant_id']);
                 }
+                $duration = $detectedDuration > 0 ? $detectedDuration : max((float)$task['duration'], self::estimateScriptDuration((string)($task['script_text'] ?? '')));
                 $estimate = self::buildEstimate($duration, self::pricing((int)$task['tenant_id']), (string)$task['mode']);
                 PointService::assertCanConsumeAmounts((int)$task['tenant_id'], (int)$task['user_id'], (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
                 $audioUri = (string)($audio['url'] ?? $audio['uri'] ?? $audioUrl);
@@ -1239,6 +1269,11 @@ class ImageHumanService
             $stage = 'video_submitted';
         }
         if ($stage === 'video_submitted') {
+            $claimed = self::claimTaskStage($task, ['video_submitted', ''], 'video_submitting');
+            if (!$claimed) {
+                return;
+            }
+            $task = $claimed;
             try {
                 $request = self::buildRequestFromTask($task, $config);
                 $result = self::providerFor((string)$config['provider'])->submit($request);
@@ -1297,6 +1332,25 @@ class ImageHumanService
         }
     }
 
+    private static function claimTaskStage(ImageHumanTask $task, array $fromStages, string $toStage): ?ImageHumanTask
+    {
+        $affected = ImageHumanTask::where('tenant_id', (int)$task['tenant_id'])
+            ->where('id', (int)$task['id'])
+            ->where('status', 'running')
+            ->whereIn('provider_stage', $fromStages)
+            ->update([
+                'provider_stage' => $toStage,
+                'update_time' => time(),
+            ]);
+        if ((int)$affected <= 0) {
+            return null;
+        }
+        $latest = ImageHumanTask::where('tenant_id', (int)$task['tenant_id'])
+            ->where('id', (int)$task['id'])
+            ->findOrEmpty();
+        return $latest->isEmpty() ? null : $latest;
+    }
+
     private static function buildTtsRequestFromTask(ImageHumanTask $task, array $voice, array $config): AigcDigitalHumanGenerateRequest
     {
         $channelConfig = $config['config_json'] ?? [];
@@ -1329,7 +1383,7 @@ class ImageHumanService
         }
         foreach (self::candidateLocalAudioPaths($audioUri) as $filePath) {
             if (is_file($filePath)) {
-                $duration = self::estimateMp3Duration($filePath);
+                $duration = MediaDurationService::detect($filePath);
                 if ($duration > 0) {
                     return $duration;
                 }
@@ -1351,37 +1405,6 @@ class ImageHumanService
             $root . '/server/public/' . $path,
             $root . '/' . $path,
         ]));
-    }
-
-    private static function estimateMp3Duration(string $filePath): float
-    {
-        $size = filesize($filePath);
-        if (!$size || $size <= 0) {
-            return 0;
-        }
-        $handle = fopen($filePath, 'rb');
-        if (!$handle) {
-            return 0;
-        }
-        $header = fread($handle, 10);
-        $offset = 0;
-        if (strlen($header) === 10 && substr($header, 0, 3) === 'ID3') {
-            $offset = ((ord($header[6]) & 0x7f) << 21) | ((ord($header[7]) & 0x7f) << 14) | ((ord($header[8]) & 0x7f) << 7) | (ord($header[9]) & 0x7f);
-            $offset += 10;
-        }
-        fseek($handle, $offset);
-        $frame = fread($handle, 4);
-        fclose($handle);
-        if (strlen($frame) < 4 || ord($frame[0]) !== 0xff) {
-            return 0;
-        }
-        $bitrateIndex = (ord($frame[2]) >> 4) & 0x0f;
-        $bitrates = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0];
-        $bitrate = $bitrates[$bitrateIndex] ?? 0;
-        if ($bitrate <= 0) {
-            return 0;
-        }
-        return round(($size * 8) / ($bitrate * 1000), 2);
     }
 
     private static function findRecentDuplicateTask(int $tenantId, int $userId, string $imageUri, string $audioUri, string $scriptText, string $prompt, string $mode, float $duration): ?ImageHumanTask
@@ -1406,6 +1429,14 @@ class ImageHumanService
             return $row;
         }
         return null;
+    }
+
+    private static function lockSubmitOwner(int $userId): void
+    {
+        if ($userId <= 0) {
+            return;
+        }
+        Db::name('user')->where('id', $userId)->lock(true)->find();
     }
 
     private static function ensureTaskSchema(): void
@@ -1436,6 +1467,8 @@ class ImageHumanService
 
     private static function failTask(ImageHumanTask $task, string $stage, string $error): void
     {
+        $refundError = self::refundTaskBillings($task, $error);
+        $error = trim($error . ($refundError !== '' ? ' ' . $refundError : ''));
         $task->save([
             'status' => 'failed',
             'provider_stage' => $stage,
@@ -1444,6 +1477,54 @@ class ImageHumanService
             'finish_time' => time(),
             'update_time' => time(),
         ]);
+    }
+
+    private static function refundTaskBillings(ImageHumanTask $task, string $reason = ''): string
+    {
+        $tenantId = (int)$task['tenant_id'];
+        $userId = (int)$task['user_id'];
+        $taskId = (int)$task['id'];
+        if ($tenantId <= 0 || $userId <= 0 || $taskId <= 0) {
+            return '';
+        }
+        $refundErrors = [];
+        $billings = ImageHumanBilling::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'task_id' => $taskId,
+            'billing_status' => 'deducted',
+        ])->select();
+        foreach ($billings as $billing) {
+            Db::startTrans();
+            try {
+                $locked = ImageHumanBilling::where([
+                    'tenant_id' => $tenantId,
+                    'id' => (int)$billing['id'],
+                    'billing_status' => 'deducted',
+                ])->lock(true)->findOrEmpty();
+                if ($locked->isEmpty()) {
+                    Db::commit();
+                    continue;
+                }
+                $sourceSn = (string)($locked['user_point_sn'] ?: $locked['tenant_point_sn'] ?: (self::APP_CODE . '-' . $taskId . '-' . (int)$locked['id']));
+                PointService::refundBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$locked['tenant_cost_points'], (float)$locked['user_charge_points'], $sourceSn . '-refund', '全驱数字人失败退回', [
+                    'app_code' => self::APP_CODE,
+                    'task_id' => $taskId,
+                    'billing_id' => (int)$locked['id'],
+                    'origin_source_sn' => $sourceSn,
+                    'reason' => $reason,
+                ]);
+                $locked->save([
+                    'billing_status' => 'refunded',
+                    'update_time' => time(),
+                ]);
+                Db::commit();
+            } catch (\Throwable $e) {
+                Db::rollback();
+                $refundErrors[] = '退款失败：' . $e->getMessage();
+            }
+        }
+        return implode(' ', array_unique($refundErrors));
     }
 
     private static function friendlyStageMessage(string $message): string

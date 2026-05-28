@@ -5,8 +5,11 @@ namespace app\common\service\decorate;
 use app\common\model\decorate\DecoratePage;
 use app\common\model\decorate\DecorateTabbar;
 use app\common\model\decorate\DecorateTemplate;
+use app\common\service\membership\MembershipService;
 use app\common\service\ConfigService;
 use RuntimeException;
+use think\facade\Db;
+use ZipArchive;
 
 class DecorateTemplateService
 {
@@ -167,7 +170,18 @@ class DecorateTemplateService
         }
 
         $page = $query->findOrEmpty();
-        return $page->toArray();
+        $data = $page->toArray();
+        if (($params['terminal'] ?? '') === self::TERMINAL_PC || ($data['terminal'] ?? '') === self::TERMINAL_PC) {
+            $sourcePage = $data;
+            $sourcePage['data'] = $data['draft_data'] ?: $data['data'] ?: '[]';
+            $sourcePage['meta'] = $data['draft_meta'] ?: $data['meta'] ?: '[]';
+            $resolved = DecorateDataSourceService::applyToPage(
+                $sourcePage,
+                self::decorateContext($tenantId, self::TERMINAL_PC, ['preview' => true])
+            );
+            $data['resolved_sources'] = $resolved['resolved_sources'] ?? [];
+        }
+        return $data;
     }
 
     public static function savePage(int $tenantId, array $params): array
@@ -334,7 +348,7 @@ class DecorateTemplateService
         }, $pages);
     }
 
-    public static function activePublishedPage(int $tenantId, string $terminal, string $pageCode = '', int $type = 0, string $channel = 'h5', bool $preview = false, int $templateId = 0, int $pageId = 0): array
+    public static function activePublishedPage(int $tenantId, string $terminal, string $pageCode = '', int $type = 0, string $channel = 'h5', bool $preview = false, int $templateId = 0, int $pageId = 0, array $context = []): array
     {
         $template = $preview && $templateId > 0 ? self::getTemplate($tenantId, $templateId) : self::activeTemplate($tenantId);
         self::ensureTemplatePages((int)$template['id'], $tenantId);
@@ -381,7 +395,7 @@ class DecorateTemplateService
             $data['data'] = $data['published_data'] ?: $data['data'];
             $data['meta'] = $data['published_meta'] ?: $data['meta'];
         }
-        return $data;
+        return DecorateDataSourceService::applyToPage($data, self::decorateContext($tenantId, $terminal, $context));
     }
 
     public static function activeMobileTabbar(int $tenantId): array
@@ -425,6 +439,151 @@ class DecorateTemplateService
         ]);
     }
 
+    public static function exportPackage(int $tenantId, int $templateId): array
+    {
+        if (!class_exists(ZipArchive::class)) {
+            throw new RuntimeException('请开启 PHP zip 扩展后再导出模板');
+        }
+        $template = self::getTemplate($tenantId, $templateId);
+        self::ensureTemplatePages((int)$template['id'], $tenantId);
+        $pages = DecoratePage::where('template_id', (int)$template['id'])
+            ->order(['terminal' => 'asc', 'is_home' => 'desc', 'sort' => 'asc', 'id' => 'asc'])
+            ->select()
+            ->toArray();
+
+        $manifest = [
+            'schema_version' => '1.0',
+            'package_type' => 'likeadmin.decorate.template',
+            'terminal' => 'mixed',
+            'name' => (string)$template['name'],
+            'export_time' => date('c'),
+            'page_count' => count($pages),
+        ];
+        $payload = [
+            'template' => [
+                'name' => (string)$template['name'],
+                'cover' => (string)$template['cover'],
+                'settings' => self::decodeJson($template['draft_settings'] ?: $template['published_settings'], self::defaultSettings()),
+            ],
+            'pages' => array_map(function ($page) {
+                unset($page['id'], $page['tenant_id'], $page['template_id'], $page['create_time'], $page['update_time'], $page['delete_time']);
+                return $page;
+            }, $pages),
+        ];
+
+        $dir = runtime_path() . 'decorate_export/';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        $filename = 'decorate_template_' . date('YmdHis') . '.ladtpl.zip';
+        $path = $dir . $filename;
+        $zip = new ZipArchive();
+        if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            throw new RuntimeException('模板包创建失败');
+        }
+        $zip->addFromString('manifest.json', self::encodeJson($manifest));
+        $zip->addFromString('template.json', self::encodeJson($payload));
+        $zip->addFromString('assets/.keep', '');
+        $zip->close();
+
+        return [
+            'filename' => $filename,
+            'mime' => 'application/zip',
+            'content' => base64_encode((string)file_get_contents($path)),
+        ];
+    }
+
+    public static function importPackage(int $tenantId, string $base64, string $filename = ''): array
+    {
+        if (!class_exists(ZipArchive::class)) {
+            throw new RuntimeException('请开启 PHP zip 扩展后再导入模板');
+        }
+        if ($base64 === '') {
+            throw new RuntimeException('请上传模板包');
+        }
+        $raw = base64_decode(preg_replace('/^data:.*?;base64,/', '', $base64), true);
+        if ($raw === false || strlen($raw) > 20 * 1024 * 1024) {
+            throw new RuntimeException('模板包无效或超过20MB');
+        }
+        $dir = runtime_path() . 'decorate_import/';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        $path = $dir . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.zip';
+        file_put_contents($path, $raw);
+
+        $zip = new ZipArchive();
+        if ($zip->open($path) !== true) {
+            throw new RuntimeException('模板包读取失败');
+        }
+        self::assertSafeTemplateZip($zip);
+        $manifest = json_decode((string)$zip->getFromName('manifest.json'), true);
+        $payload = json_decode((string)$zip->getFromName('template.json'), true);
+        $zip->close();
+
+        if (($manifest['package_type'] ?? '') !== 'likeadmin.decorate.template' || ($manifest['schema_version'] ?? '') !== '1.0') {
+            throw new RuntimeException('模板包版本不支持');
+        }
+        if (!is_array($payload) || empty($payload['template']) || !is_array($payload['pages'] ?? null)) {
+            throw new RuntimeException('模板包数据不完整');
+        }
+
+        $allowedWidgets = self::allowedWidgetNames();
+        foreach ((array)$payload['pages'] as $page) {
+            $terminal = (string)($page['terminal'] ?? '');
+            if (!in_array($terminal, [self::TERMINAL_MOBILE, self::TERMINAL_PC], true)) {
+                throw new RuntimeException('模板包终端无效');
+            }
+            foreach (self::decodeJson((string)($page['data'] ?? $page['draft_data'] ?? '[]'), []) as $widget) {
+                $name = (string)($widget['name'] ?? '');
+                if ($name !== '' && !in_array($name, $allowedWidgets, true)) {
+                    throw new RuntimeException('模板包包含未知组件：' . $name);
+                }
+            }
+        }
+
+        return Db::transaction(function () use ($tenantId, $payload, $filename) {
+            $settings = (array)($payload['template']['settings'] ?? self::defaultSettings());
+            $template = DecorateTemplate::create([
+                'tenant_id' => $tenantId,
+                'name' => trim((string)($payload['template']['name'] ?? '导入模板')) ?: ('导入模板 ' . date('mdHis')),
+                'cover' => (string)($payload['template']['cover'] ?? ''),
+                'status' => 1,
+                'is_active' => 0,
+                'publish_status' => 'draft',
+                'draft_settings' => self::encodeJson(array_replace_recursive(self::defaultSettings(), $settings)),
+                'published_settings' => self::encodeJson(array_replace_recursive(self::defaultSettings(), $settings)),
+            ]);
+
+            foreach ((array)$payload['pages'] as $page) {
+                $pageCode = self::normalizePageCode((string)($page['page_code'] ?? 'page_' . uniqid()));
+                DecoratePage::create([
+                    'tenant_id' => $tenantId,
+                    'template_id' => (int)$template['id'],
+                    'terminal' => (string)($page['terminal'] ?? self::TERMINAL_MOBILE),
+                    'channel' => (string)($page['channel'] ?? self::CHANNEL_COMMON),
+                    'page_code' => $pageCode,
+                    'page_type' => (string)($page['page_type'] ?? 'custom'),
+                    'route_path' => (string)($page['route_path'] ?? ''),
+                    'is_home' => (int)($page['is_home'] ?? 0),
+                    'is_system' => (int)($page['is_system'] ?? 0),
+                    'status' => (int)($page['status'] ?? 1),
+                    'sort' => (int)($page['sort'] ?? 0),
+                    'type' => (int)($page['type'] ?? 0),
+                    'name' => (string)($page['name'] ?? '装修页面'),
+                    'data' => (string)($page['data'] ?? $page['draft_data'] ?? '[]'),
+                    'meta' => (string)($page['meta'] ?? $page['draft_meta'] ?? ''),
+                    'draft_data' => (string)($page['draft_data'] ?? $page['data'] ?? '[]'),
+                    'draft_meta' => (string)($page['draft_meta'] ?? $page['meta'] ?? ''),
+                    'published_data' => (string)($page['published_data'] ?? $page['data'] ?? '[]'),
+                    'published_meta' => (string)($page['published_meta'] ?? $page['meta'] ?? ''),
+                ]);
+            }
+            self::ensureTemplatePages((int)$template['id'], $tenantId);
+            return $template->toArray();
+        });
+    }
+
     private static function getTemplate(int $tenantId, int $templateId = 0): DecorateTemplate
     {
         self::ensureDefaultTemplate($tenantId);
@@ -444,6 +603,23 @@ class DecorateTemplateService
     private static function activeTemplate(int $tenantId): DecorateTemplate
     {
         return self::getTemplate($tenantId, 0);
+    }
+
+    private static function decorateContext(int $tenantId, string $terminal, array $context = []): array
+    {
+        $request = request();
+        $userId = (int)($context['user_id'] ?? $request->userId ?? 0);
+        $membership = $userId > 0 ? MembershipService::status($tenantId, $userId) : ['member_status' => MembershipService::MEMBER_NONE];
+        return array_replace([
+            'tenant_id' => $tenantId,
+            'terminal' => $terminal,
+            'path' => (string)($request->pathinfo() ?? ''),
+            'query' => $request->get(),
+            'user_id' => $userId,
+            'user_bucket' => $userId > 0 ? crc32((string)$userId) % 100 : 0,
+            'login_status' => $userId > 0 ? 'logged_in' : 'guest',
+            'membership_status' => (string)($membership['member_status'] ?? MembershipService::MEMBER_NONE),
+        ], $context);
     }
 
     public static function ensureDefaultTemplate(int $tenantId): void
@@ -476,13 +652,14 @@ class DecorateTemplateService
             1 => ['home', self::TERMINAL_MOBILE, 'mobile_home', '/pages/index/index', 1, 1, '系统首页', ['search', 'banner', 'nav', 'news']],
             2 => ['user', self::TERMINAL_MOBILE, 'mobile_user', '/pages/user/user', 0, 1, '个人中心', ['user-info', 'my-service', 'user-banner']],
             3 => ['service', self::TERMINAL_MOBILE, 'mobile_service', '/pages/customer_service/customer_service', 0, 1, '客服设置', ['customer-service']],
-            4 => ['pc_home', self::TERMINAL_PC, 'pc_home', '/', 1, 1, 'PC首页', ['pc-banner']],
+            4 => ['pc_home', self::TERMINAL_PC, 'pc_home', '/', 1, 1, 'PC首页', ['pc-sidebar', 'pc-home-hero-grid', 'pc-tool-carousel', 'pc-case-feed']],
         ];
 
         foreach ($map as $type => $item) {
             [$pageCode, $terminal, $pageType, $routePath, $isHome, $isSystem, $name, $widgets] = $item;
             $page = DecoratePage::where(['template_id' => $templateId, 'page_code' => $pageCode])->findOrEmpty();
             if (!$page->isEmpty()) {
+                self::ensurePageWidgets($page, $widgets);
                 continue;
             }
 
@@ -608,14 +785,191 @@ class DecorateTemplateService
     private static function generatePageData(array $widgetNames): array
     {
         return array_map(function ($name) {
-            return [
-                'id' => uniqid('diy_', true),
-                'title' => $name,
-                'name' => $name,
-                'content' => ['enabled' => 1],
-                'styles' => [],
-            ];
+            return self::defaultWidgetData($name);
         }, $widgetNames);
+    }
+
+    private static function ensurePageWidgets(DecoratePage $page, array $widgetNames): void
+    {
+        $updates = [];
+        foreach (['data', 'draft_data', 'published_data'] as $field) {
+            if ((string)$page[$field] === '') {
+                continue;
+            }
+            $pageData = self::decodeJson($page[$field], []);
+            $nextPageData = self::appendMissingWidgets($pageData, $widgetNames);
+            if ($nextPageData !== $pageData) {
+                $updates[$field] = self::encodeJson($nextPageData);
+            }
+        }
+        if (!empty($updates)) {
+            $page->save($updates);
+        }
+    }
+
+    private static function appendMissingWidgets(array $pageData, array $widgetNames): array
+    {
+        $exists = array_column($pageData, 'name');
+        foreach ($widgetNames as $name) {
+            if (!in_array($name, $exists, true)) {
+                $pageData[] = self::defaultWidgetData($name);
+            }
+        }
+        return $pageData;
+    }
+
+    private static function defaultWidgetData(string $name): array
+    {
+        $widget = [
+            'id' => uniqid('diy_', true),
+            'title' => $name,
+            'name' => $name,
+            'content' => ['enabled' => 1],
+            'styles' => [],
+        ];
+
+        if ($name === 'pc-banner') {
+            $widget['title'] = '首页轮播图';
+            $widget['content'] = ['enabled' => 1, 'data' => [
+                ['image' => '', 'name' => 'AI 创作工作台', 'description' => '图片、视频、数字人与工具入口统一聚合', 'is_show' => '1', 'link' => ['path' => '/ai/create']],
+                ['image' => '', 'name' => '热门 AI 工具', 'description' => '精选高频创作能力，快速进入创作流程', 'is_show' => '1', 'link' => ['path' => '/ai/tools']],
+                ['image' => '', 'name' => '灵感案例', 'description' => '查看案例并一键做同款', 'is_show' => '1', 'link' => ['path' => '/ai']],
+            ]];
+            $widget['styles'] = [
+                'layout' => ['mode' => 'flow', 'x' => 60, 'y' => 60, 'w' => 1120, 'h' => 360, 'z' => 1, 'locked' => false, 'hidden' => false, 'snap' => 8],
+            ];
+        }
+        if ($name === 'pc-sidebar') {
+            $widget['title'] = 'PC侧栏';
+            $widget['content'] = [
+                'enabled' => 1,
+                'logo' => 'LA',
+                'items' => [
+                    ['key' => 'inspiration', 'title' => '灵感', 'path' => '/ai'],
+                    ['key' => 'create', 'title' => '创作', 'path' => '/ai/create'],
+                    ['key' => 'short-drama', 'title' => '短剧', 'path' => ''],
+                    ['key' => 'avatar', 'title' => '数字人', 'path' => '/ai/avatar'],
+                    ['key' => 'tools', 'title' => '工具', 'path' => '/ai/tools'],
+                    ['key' => 'assets', 'title' => '资产', 'path' => '/ai/assets'],
+                ],
+                'footer' => [
+                    ['key' => 'vip', 'title' => '开通会员', 'path' => '/ai/membership'],
+                    ['key' => 'user', 'title' => '个人中心', 'path' => '/user/info'],
+                    ['key' => 'api', 'title' => 'API', 'path' => ''],
+                    ['key' => 'notice', 'title' => '消息', 'path' => ''],
+                    ['key' => 'mobile', 'title' => '手机', 'path' => ''],
+                    ['key' => 'language', 'title' => '语言', 'path' => ''],
+                ],
+            ];
+            $widget['styles'] = [
+                'layout' => ['mode' => 'flow', 'x' => 0, 'y' => 0, 'w' => 100, 'h' => 900, 'z' => 1, 'locked' => false, 'hidden' => false, 'snap' => 8],
+            ];
+        }
+        if ($name === 'pc-home-hero-grid') {
+            $widget['title'] = '首页功能入口';
+            $widget['content'] = [
+                'enabled' => 1,
+                'banners' => [
+                    ['title' => 'AI 创作介绍', 'description' => '模型、应用、资产与灵感统一入口', 'image' => '', 'link' => ['path' => '/ai/tools']],
+                ],
+                'features' => [
+                    ['title' => 'AI TV', 'description' => '全新功能，助力短剧创作。', 'image' => '', 'link' => ['path' => '/ai/create']],
+                    ['title' => '视频生成', 'description' => '创意视频，一键生成', 'image' => '', 'link' => ['path' => '/ai/create?type=video']],
+                    ['title' => '图片生成', 'description' => '智能绘制，即刻成图', 'image' => '', 'link' => ['path' => '/ai/create?type=image']],
+                ],
+            ];
+            $widget['styles'] = [
+                'layout' => ['mode' => 'flow', 'x' => 130, 'y' => 42, 'w' => 1884, 'h' => 240, 'z' => 2, 'locked' => false, 'hidden' => false, 'snap' => 8],
+            ];
+        }
+        if ($name === 'pc-tool-config') {
+            $widget['title'] = '工具配置';
+            $widget['content'] = ['enabled' => 1, 'data' => []];
+            $widget['styles'] = [
+                'layout' => ['mode' => 'flow', 'x' => 60, 'y' => 980, 'w' => 1120, 'h' => 220, 'z' => 1, 'locked' => false, 'hidden' => true, 'snap' => 8],
+            ];
+        }
+        if ($name === 'pc-hero-entry') {
+            $widget['title'] = 'AI首页入口';
+            $widget['content'] = [
+                'enabled' => 1,
+                'title' => 'AI 创作工作台',
+                'description' => '图片、视频、数字人与工具入口统一聚合',
+                'primary_text' => '开始创作',
+                'primary_link' => ['path' => '/ai/create'],
+                'secondary_text' => '查看工具',
+                'secondary_link' => ['path' => '/ai/tools'],
+            ];
+            $widget['styles'] = [
+                'layout' => ['mode' => 'flow', 'x' => 60, 'y' => 440, 'w' => 1120, 'h' => 220, 'z' => 1, 'locked' => false, 'hidden' => false, 'snap' => 8],
+            ];
+        }
+        if ($name === 'pc-tool-carousel') {
+            $widget['title'] = '工具轮播';
+            $widget['content'] = [
+                'enabled' => 1,
+                'title' => '热门工具',
+                'source_key' => 'ai_tools',
+                'source_params' => ['limit' => 12],
+                'data' => [],
+            ];
+            $widget['styles'] = [
+                'layout' => ['mode' => 'flow', 'x' => 60, 'y' => 700, 'w' => 1120, 'h' => 280, 'z' => 1, 'locked' => false, 'hidden' => false, 'snap' => 8],
+            ];
+        }
+        if ($name === 'pc-case-feed') {
+            $widget['title'] = '案例流';
+            $widget['content'] = [
+                'enabled' => 1,
+                'title' => '灵感案例',
+                'source_key' => 'image_cases',
+                'source_params' => ['limit' => 20],
+                'tabs' => [
+                    ['name' => '图片', 'source_key' => 'image_cases'],
+                    ['name' => '视频', 'source_key' => 'video_cases'],
+                    ['name' => '数字人', 'source_key' => 'digital_human_cases'],
+                ],
+            ];
+            $widget['styles'] = [
+                'layout' => ['mode' => 'flow', 'x' => 60, 'y' => 1020, 'w' => 1120, 'h' => 420, 'z' => 1, 'locked' => false, 'hidden' => false, 'snap' => 8],
+            ];
+        }
+
+        return $widget;
+    }
+
+    private static function allowedWidgetNames(): array
+    {
+        return [
+            'search', 'banner', 'nav', 'news', 'user-info', 'my-service', 'user-banner',
+            'customer-service', 'middle-banner', 'title-bar', 'notice', 'list-nav',
+            'divider', 'image-hotspot', 'page-meta', 'pc-banner', 'pc-tool-config',
+            'pc-hero-entry', 'pc-tool-carousel', 'pc-case-feed', 'pc-rich-media',
+            'pc-sidebar', 'pc-home-hero-grid', 'pc-text', 'pc-button',
+        ];
+    }
+
+    private static function assertSafeTemplateZip(ZipArchive $zip): void
+    {
+        $totalSize = 0;
+        $required = ['manifest.json' => false, 'template.json' => false];
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $stat = $zip->statIndex($i);
+            $name = (string)($stat['name'] ?? '');
+            $totalSize += (int)($stat['size'] ?? 0);
+            if ($name === '' || str_starts_with($name, '/') || preg_match('/^[a-zA-Z]:[\/\\\\]/', $name) || str_contains($name, '..')) {
+                throw new RuntimeException('模板包包含非法路径');
+            }
+            if (!str_starts_with($name, 'assets/') && !array_key_exists($name, $required)) {
+                throw new RuntimeException('模板包包含未知文件');
+            }
+            if (array_key_exists($name, $required)) {
+                $required[$name] = true;
+            }
+        }
+        if ($totalSize > 20 * 1024 * 1024 || in_array(false, $required, true)) {
+            throw new RuntimeException('模板包内容无效');
+        }
     }
 
     private static function normalizePageCode(string $code): string

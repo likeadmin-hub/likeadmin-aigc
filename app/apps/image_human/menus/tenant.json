@@ -81,7 +81,7 @@
       {
         "source_menu_key": "image_human_config",
         "type": "C",
-        "name": "应用配置",
+        "name": "基础配置",
         "sort": 20,
         "perms": "app.image_human.config/detail",
         "paths": "config",

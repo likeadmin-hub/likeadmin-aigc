@@ -31,13 +31,34 @@ class TenantPointService
     public static function consume(int $tenantId, float $points, string $sourceSn, string $remark = '', array $extra = []): void
     {
         self::assertPositive($points);
+        if (self::hasLog($tenantId, self::TYPE_CONSUME, self::ACTION_DEC, $sourceSn, $remark)) {
+            return;
+        }
         $tenant = self::lockTenant($tenantId);
+        if (self::hasLog($tenantId, self::TYPE_CONSUME, self::ACTION_DEC, $sourceSn, $remark)) {
+            return;
+        }
         if ((float)$tenant['point_balance'] < $points) {
             throw new RuntimeException('租户点数不足，请联系管理员');
         }
         $tenant->point_balance = self::formatPoints((float)$tenant['point_balance'] - $points);
         $tenant->save();
         self::log($tenantId, self::TYPE_CONSUME, self::ACTION_DEC, $points, (float)$tenant['point_balance'], $sourceSn, $remark, $extra);
+    }
+
+    public static function refund(int $tenantId, float $points, string $sourceSn, string $remark = '', array $extra = []): void
+    {
+        self::assertPositive($points);
+        if (self::hasLog($tenantId, self::TYPE_REFUND, self::ACTION_INC, $sourceSn, $remark)) {
+            return;
+        }
+        $tenant = self::lockTenant($tenantId);
+        if (self::hasLog($tenantId, self::TYPE_REFUND, self::ACTION_INC, $sourceSn, $remark)) {
+            return;
+        }
+        $tenant->point_balance = self::formatPoints((float)$tenant['point_balance'] + $points);
+        $tenant->save();
+        self::log($tenantId, self::TYPE_REFUND, self::ACTION_INC, $points, (float)$tenant['point_balance'], $sourceSn, $remark, $extra);
     }
 
     public static function assertEnough(int $tenantId, float $points): void
@@ -76,6 +97,20 @@ class TenantPointService
         if ($points <= 0) {
             throw new RuntimeException('点数必须大于0');
         }
+    }
+
+    private static function hasLog(int $tenantId, string $changeType, int $action, string $sourceSn, string $remark = ''): bool
+    {
+        if ($sourceSn === '') {
+            return false;
+        }
+        return TenantPointLog::where([
+            'tenant_id' => $tenantId,
+            'change_type' => $changeType,
+            'action' => $action,
+            'source_sn' => $sourceSn,
+            'remark' => $remark,
+        ])->findOrEmpty()->isEmpty() === false;
     }
 
     private static function formatPoints(float $points): string

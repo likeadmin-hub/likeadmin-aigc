@@ -13,6 +13,7 @@
 // +----------------------------------------------------------------------
 namespace app\tenantapi\controller\decorate;
 
+use app\common\service\decorate\DecorateDataSourceService;
 use app\tenantapi\controller\BaseAdminController;
 use app\tenantapi\logic\decorate\DecorateDataLogic;
 use think\response\Json;
@@ -50,6 +51,15 @@ class DataController extends BaseAdminController
     {
         $result = DecorateDataLogic::pc();
         return $this->data($result);
+    }
+
+    /**
+     * @notes 统一装修数据源
+     * @return Json
+     */
+    public function sources(): Json
+    {
+        return $this->success('获取成功', DecorateDataSourceService::catalog($this->tenantId));
     }
 
 }

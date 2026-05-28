@@ -78,6 +78,27 @@ class TemplateController extends BaseAdminController
         }
     }
 
+    public function export()
+    {
+        try {
+            $id = $this->request->post('id/d', 0);
+            return $this->success('导出成功', DecorateTemplateService::exportPackage($this->tenantId, $id));
+        } catch (RuntimeException $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function import()
+    {
+        try {
+            $base64 = (string)$this->request->post('file_base64/s', '');
+            $filename = (string)$this->request->post('filename/s', '');
+            return $this->success('导入成功', DecorateTemplateService::importPackage($this->tenantId, $base64, $filename), 1, 1);
+        } catch (RuntimeException $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function saveSettings()
     {
         try {

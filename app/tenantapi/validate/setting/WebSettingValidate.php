@@ -27,10 +27,13 @@ class WebSettingValidate extends BaseValidate
         'name' => 'require|max:30',
         'web_favicon' => 'require',
         'web_logo' => 'require',
-        'login_image' => 'require',
+        'login_image' => 'max:500',
         'shop_name' => 'require',
         'shop_logo' => 'require',
         'pc_logo' => 'require',
+        'pc_login_bg_type' => 'in:image,video,none',
+        'pc_login_bg' => 'max:500',
+        'pc_login_bg_poster' => 'max:500',
     ];
 
     protected $message = [
@@ -38,14 +41,14 @@ class WebSettingValidate extends BaseValidate
         'name.max' => '网站名称最长为12个字符',
         'web_favicon.require' => '请上传网站图标',
         'web_logo.require' => '请上传网站logo',
-        'login_image.require' => '请上传登录页广告图',
         'shop_name.require' => '请填写前台名称',
         'shop_logo.require' => '请上传前台logo',
         'pc_logo.require' => '请上传PC端logo',
+        'pc_login_bg_type.in' => '请选择正确的PC登录背景类型',
     ];
 
     protected $scene = [
-        'website' => ['name', 'web_favicon', 'web_logo', 'login_image', 'shop_name', 'shop_logo', 'pc_logo'],
+        'website' => ['name', 'web_favicon', 'web_logo', 'login_image', 'shop_name', 'shop_logo', 'pc_logo', 'pc_login_bg_type', 'pc_login_bg', 'pc_login_bg_poster'],
         'siteStatistics' => [''],
     ];
 }
