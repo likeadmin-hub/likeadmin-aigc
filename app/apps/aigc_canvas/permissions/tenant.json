@@ -1,5 +1,17 @@
 [
   {
+    "permission_key": "aigc_canvas:config:detail",
+    "name": "查看无限画布配置",
+    "api_path": "app.aigc_canvas.config/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:config:setup",
+    "name": "保存无限画布配置",
+    "api_path": "app.aigc_canvas.config/setup",
+    "api_method": "POST"
+  },
+  {
     "permission_key": "aigc_canvas:stat",
     "name": "查看无限画布统计",
     "api_path": "app.aigc_canvas.admin/stat",

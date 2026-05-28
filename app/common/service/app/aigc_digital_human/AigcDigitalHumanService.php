@@ -14,6 +14,7 @@ use app\common\model\app\aigc_digital_human\AigcDigitalHumanVoice;
 use app\common\model\file\File as UploadFile;
 use app\common\model\file\TenantFile;
 use app\common\service\app\AppCaseService;
+use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
@@ -42,7 +43,7 @@ class AigcDigitalHumanService
         ] : $config->toArray();
         $data['option_config'] = AigcDigitalHumanChannelService::userConfig($tenantId);
         $data['base_config'] = self::baseConfig($tenantId);
-        return $data;
+        return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
     }
 
     private static function baseConfig(int $tenantId): array
@@ -95,6 +96,7 @@ class AigcDigitalHumanService
 
     public static function saveConfig(int $tenantId, array $params): void
     {
+        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $configJson = $params['config_json'] ?? [];
         if (!is_array($configJson)) {
             $configJson = [];

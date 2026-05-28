@@ -12,6 +12,14 @@
     "component": "",
     "children": [
       {
+        "source_menu_key": "aigc_video_config",
+        "type": "C",
+        "name": "基础配置",
+        "perms": "app.aigc_video.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_video/config"
+      },
+      {
         "source_menu_key": "aigc_video_task",
         "type": "C",
         "name": "视频任务",

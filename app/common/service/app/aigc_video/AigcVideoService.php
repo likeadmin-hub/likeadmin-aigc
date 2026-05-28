@@ -9,6 +9,7 @@ use app\common\model\app\aigc_video\AigcVideoResult;
 use app\common\model\app\aigc_video\AigcVideoSensitiveWord;
 use app\common\model\app\aigc_video\AigcVideoTask;
 use app\common\service\app\AppCaseService;
+use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
 use app\common\service\storage\StorageConfigService;
@@ -24,18 +25,18 @@ class AigcVideoService
     {
         $config = AigcVideoConfig::where('tenant_id', $tenantId)->findOrEmpty();
         if ($config->isEmpty()) {
-            return [
+            return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, [
                 'provider_mode' => 'platform',
                 'provider' => 'mock',
                 'model' => 'mock-video',
                 'status' => 1,
                 'config_json' => [],
                 'option_config' => AigcVideoChannelService::userConfig($tenantId),
-            ];
+            ]);
         }
         $data = $config->toArray();
         $data['option_config'] = AigcVideoChannelService::userConfig($tenantId);
-        return $data;
+        return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
     }
 
     public static function estimate(int $tenantId, array $params): array
@@ -45,6 +46,7 @@ class AigcVideoService
 
     public static function saveConfig(int $tenantId, array $params): void
     {
+        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $data = [
             'tenant_id' => $tenantId,
             'provider_mode' => $params['provider_mode'] ?? 'platform',

@@ -12,6 +12,14 @@
     "component": "",
     "children": [
       {
+        "source_menu_key": "aigc_image_config",
+        "type": "C",
+        "name": "基础配置",
+        "perms": "app.aigc_image.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_image/config"
+      },
+      {
         "source_menu_key": "aigc_image_task",
         "type": "C",
         "name": "生图任务",

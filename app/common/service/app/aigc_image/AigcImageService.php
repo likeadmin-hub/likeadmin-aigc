@@ -9,6 +9,7 @@ use app\common\model\app\aigc_image\AigcImageResult;
 use app\common\model\app\aigc_image\AigcImageSensitiveWord;
 use app\common\model\app\aigc_image\AigcImageTask;
 use app\common\service\app\AppCaseService;
+use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
 use app\common\service\storage\StorageConfigService;
@@ -24,18 +25,18 @@ class AigcImageService
     {
         $config = AigcImageConfig::where('tenant_id', $tenantId)->findOrEmpty();
         if ($config->isEmpty()) {
-            return [
+            return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, [
                 'provider_mode' => 'platform',
                 'provider' => 'mock',
                 'model' => 'mock-image',
                 'status' => 1,
                 'config_json' => [],
                 'option_config' => AigcImageChannelService::userConfig($tenantId),
-            ];
+            ]);
         }
         $data = $config->toArray();
         $data['option_config'] = AigcImageChannelService::userConfig($tenantId);
-        return $data;
+        return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
     }
 
     public static function estimate(int $tenantId, array $params): array
@@ -45,6 +46,7 @@ class AigcImageService
 
     public static function saveConfig(int $tenantId, array $params): void
     {
+        AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $data = [
             'tenant_id' => $tenantId,
             'provider_mode' => $params['provider_mode'] ?? 'platform',

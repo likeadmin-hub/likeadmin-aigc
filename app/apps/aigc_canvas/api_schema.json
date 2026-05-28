@@ -18,6 +18,22 @@
       "need_role_permission": 1
     },
     {
+      "api_path": "app.aigc_canvas.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:config:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:config:setup",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
       "api_path": "app.aigc_canvas.config/dependencies",
       "api_method": "GET",
       "permission_key": "aigc_canvas:dependencies",
