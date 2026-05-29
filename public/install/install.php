@@ -77,8 +77,13 @@ if ($step == 4) {
 
         // 写配置文件
         if ($canNext) {
-            $yxEnv->putEnv($envFilePath, $post);
-            $modelInstall->mkLockFile();
+            if (!$yxEnv->putEnv($envFilePath, $post)) {
+                $modelInstall->cleanupFailedInstall($post['name']);
+                $canNext = false;
+                $message = '写入.env配置文件失败，请检查网站根目录.env文件权限';
+            } else {
+                $modelInstall->mkLockFile();
+            }
         }
 
         // 恢复admin和index入口

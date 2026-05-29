@@ -19,34 +19,55 @@ CREATE TABLE IF NOT EXISTS `la_tenant_app_config` (
 
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT 0,29,'C','网站轮播','',2,'setting.web.web_banner/lists','banner','setting/website/banner','','',0,1,0,'','core','core_tenant_website_banner',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
-WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `source_menu_key`='core_tenant_website_banner' OR `perms`='setting.web.web_banner/lists');
+WHERE NOT EXISTS (
+  SELECT 1 FROM `la_tenant_system_menu` item
+  WHERE item.`tenant_id`=0
+    AND (item.`source_menu_key`='core_tenant_website_banner' OR item.`perms`='setting.web.web_banner/lists')
+);
 
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT 0,parent.`id`,'A','保存','',0,'setting.web.web_banner/save','','','','',0,1,0,'','core','core_tenant_website_banner_save',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 FROM `la_tenant_system_menu` parent
 WHERE parent.`source_menu_key`='core_tenant_website_banner'
-  AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `perms`='setting.web.web_banner/save');
+  AND parent.`tenant_id`=0
+  AND NOT EXISTS (
+    SELECT 1 FROM `la_tenant_system_menu` item
+    WHERE item.`tenant_id`=0
+      AND item.`perms`='setting.web.web_banner/save'
+  );
 
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT 0,parent.`id`,'A','删除','',0,'setting.web.web_banner/delete','','','','',0,1,0,'','core','core_tenant_website_banner_delete',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 FROM `la_tenant_system_menu` parent
 WHERE parent.`source_menu_key`='core_tenant_website_banner'
-  AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `perms`='setting.web.web_banner/delete');
+  AND parent.`tenant_id`=0
+  AND NOT EXISTS (
+    SELECT 1 FROM `la_tenant_system_menu` item
+    WHERE item.`tenant_id`=0
+      AND item.`perms`='setting.web.web_banner/delete'
+  );
 
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT 0,parent.`id`,'A','状态','',0,'setting.web.web_banner/status','','','','',0,1,0,'','core','core_tenant_website_banner_status',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 FROM `la_tenant_system_menu` parent
 WHERE parent.`source_menu_key`='core_tenant_website_banner'
-  AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `perms`='setting.web.web_banner/status');
+  AND parent.`tenant_id`=0
+  AND NOT EXISTS (
+    SELECT 1 FROM `la_tenant_system_menu` item
+    WHERE item.`tenant_id`=0
+      AND item.`perms`='setting.web.web_banner/status'
+  );
 
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT 0,root.`id`,'C','基础配置','',50,CONCAT('app.',root.`app_code`,'.config/detail'),'config',CONCAT('apps/',root.`app_code`,'/config'),'','',0,1,0,root.`app_code`,'app',CONCAT(root.`app_code`,'_config'),0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 FROM `la_tenant_system_menu` root
 WHERE root.`source_menu_key` IN ('aigc_image','aigc_video','aigc_digital_human','aigc_canvas','aigc_llm','image_human')
+  AND root.`tenant_id`=0
   AND root.`pid`=0
   AND NOT EXISTS (
     SELECT 1 FROM `la_tenant_system_menu` item
-    WHERE item.`source_menu_key`=CONCAT(root.`app_code`,'_config')
+    WHERE item.`tenant_id`=0
+      AND item.`source_menu_key`=CONCAT(root.`app_code`,'_config')
       AND item.`app_code`=root.`app_code`
   );
 
