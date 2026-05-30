@@ -182,10 +182,26 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
         if (!is_array($data)) {
             throw new Exception('供应商响应格式错误');
         }
-        if ($httpCode >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) {
+        if ($httpCode >= 400 || isset($data['error']) || !$this->isResponseSuccess($data)) {
             throw new Exception($this->friendlyError($this->extractError($data) ?: '供应商请求失败'));
         }
         return $data;
+    }
+
+    private function isResponseSuccess(array $data): bool
+    {
+        if (!array_key_exists('code', $data)) {
+            return true;
+        }
+        $code = $data['code'];
+        if (is_int($code) || is_float($code)) {
+            return in_array((int)$code, [1, 200], true);
+        }
+        if (is_string($code)) {
+            $normalized = strtolower(trim($code));
+            return in_array($normalized, ['1', '200', 'ok', 'success', 'succeeded'], true);
+        }
+        return false;
     }
 
     private function extractTaskId(array $data): string
@@ -227,14 +243,51 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
             $data['data']['result']['id'] ?? null,
             $data['data']['result']['voice']['voice_id'] ?? null,
             $data['data']['result']['voice']['id'] ?? null,
+            $data['data']['result']['voice']['reference_id'] ?? null,
+            $data['data']['result']['voice']['model_id'] ?? null,
             $data['result']['voice']['voice_id'] ?? null,
             $data['result']['voice']['id'] ?? null,
+            $data['result']['voice']['reference_id'] ?? null,
+            $data['result']['voice']['model_id'] ?? null,
         ] as $value) {
             if (is_scalar($value) && (string)$value !== '') {
                 return (string)$value;
             }
         }
+        $voiceId = $this->findIdByKey($data, ['voice_id', 'reference_id', 'model_id', 'speaker_id', 'voice', 'id']);
+        if ($voiceId !== '' && !$this->looksLikeNonVoiceId($voiceId)) {
+            return $voiceId;
+        }
         return '';
+    }
+
+    private function findIdByKey(array $data, array $keys): string
+    {
+        foreach ($data as $key => $value) {
+            $key = strtolower((string)$key);
+            if (in_array($key, $keys, true) && is_scalar($value) && trim((string)$value) !== '') {
+                return trim((string)$value);
+            }
+            if (is_array($value)) {
+                $found = $this->findIdByKey($value, $keys);
+                if ($found !== '') {
+                    return $found;
+                }
+            }
+        }
+        return '';
+    }
+
+    private function looksLikeNonVoiceId(string $value): bool
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return true;
+        }
+        if (preg_match('/^https?:\/\//i', $value)) {
+            return true;
+        }
+        return in_array(strtolower($value), ['success', 'ok', 'true', 'false'], true);
     }
 
     private function extractStatus(array $data): string

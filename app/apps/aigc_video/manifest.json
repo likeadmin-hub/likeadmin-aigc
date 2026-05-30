@@ -1,10 +1,10 @@
 {
   "code": "aigc_video",
   "name": "AIGC视频",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "require_core": ">=1.0.0",
   "description": "AIGC video generation application framework for the LikeAdmin AIGC SaaS aggregation platform.",
-  "changelog": "新增 Wan、Seedance、Omni-Flash-Ext 视频生成通道；Seedance 支持图片、视频、音频参考素材上传后提交任务，并统一透传到 PC、UniApp 和无限画布视频节点。",
+  "changelog": "1. 同步视频创作端可选时长到后台通道价格配置。\n2. 修复动态时长通道生成时按实际时长匹配价格规格。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
