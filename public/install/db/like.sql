@@ -4579,6 +4579,7 @@ CROSS JOIN (
     UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13
     UNION ALL SELECT 14 UNION ALL SELECT 15
 ) AS duration
+WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
     `quality_label` = VALUES(`quality_label`),
     `provider_params_json` = VALUES(`provider_params_json`),
@@ -4615,6 +4616,7 @@ CROSS JOIN (
     UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13 UNION ALL SELECT 14
     UNION ALL SELECT 15
 ) AS duration
+WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
     `quality_label` = VALUES(`quality_label`),
     `provider_params_json` = VALUES(`provider_params_json`),
@@ -4648,6 +4650,7 @@ FROM (
 CROSS JOIN (
     SELECT 4 AS `duration` UNION ALL SELECT 6 UNION ALL SELECT 8 UNION ALL SELECT 10
 ) AS duration
+WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
     `quality_label` = VALUES(`quality_label`),
     `provider_params_json` = VALUES(`provider_params_json`),
