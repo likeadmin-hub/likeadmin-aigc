@@ -1419,6 +1419,7 @@ class AigcDigitalHumanService
                 }
                 $voice->save($data);
             } catch (\Throwable $e) {
+                self::refundCloneBilling((int)$voice['tenant_id'], (int)$voice['user_id'], AigcDigitalHumanPricingService::TYPE_VOICE_CLONE, 0, (int)$voice['id'], $e->getMessage());
                 $voice->save([
                     'status' => 'failed',
                     'update_time' => time(),
@@ -2403,6 +2404,65 @@ class AigcDigitalHumanService
             'create_time' => time(),
             'update_time' => time(),
         ]);
+    }
+
+    private static function refundCloneBilling(int $tenantId, int $userId, string $type, int $avatarId = 0, int $voiceId = 0, string $reason = ''): string
+    {
+        if ($tenantId <= 0 || $userId <= 0 || ($avatarId <= 0 && $voiceId <= 0)) {
+            return '';
+        }
+        $refundErrors = [];
+        $billings = AigcDigitalHumanBilling::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'task_id' => 0,
+            'result_id' => 0,
+            'billing_type' => $type,
+            'billing_status' => 'deducted',
+        ])->select();
+        foreach ($billings as $billing) {
+            $extra = is_array($billing['extra_json'] ?? null) ? $billing['extra_json'] : [];
+            if ((int)($extra['avatar_id'] ?? 0) !== $avatarId || (int)($extra['voice_id'] ?? 0) !== $voiceId) {
+                continue;
+            }
+            Db::startTrans();
+            try {
+                $locked = AigcDigitalHumanBilling::where([
+                    'tenant_id' => $tenantId,
+                    'id' => (int)$billing['id'],
+                    'billing_status' => 'deducted',
+                ])->lock(true)->findOrEmpty();
+                if ($locked->isEmpty()) {
+                    Db::commit();
+                    continue;
+                }
+                $lockedExtra = is_array($locked['extra_json'] ?? null) ? $locked['extra_json'] : [];
+                if ((int)($lockedExtra['avatar_id'] ?? 0) !== $avatarId || (int)($lockedExtra['voice_id'] ?? 0) !== $voiceId) {
+                    Db::commit();
+                    continue;
+                }
+                $sourceSn = (string)($locked['user_point_sn'] ?: $locked['tenant_point_sn'] ?: ($type . '-' . $userId . '-' . ($avatarId ?: $voiceId) . '-' . (int)$locked['id']));
+                $remark = $type === AigcDigitalHumanPricingService::TYPE_AVATAR_CLONE ? '数字人形象克隆失败退回' : '数字人音色克隆失败退回';
+                PointService::refundBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$locked['tenant_cost_points'], (float)$locked['user_charge_points'], $sourceSn . '-refund', $remark, [
+                    'app_code' => self::APP_CODE,
+                    'billing_type' => $type,
+                    'billing_id' => (int)$locked['id'],
+                    'avatar_id' => $avatarId,
+                    'voice_id' => $voiceId,
+                    'origin_source_sn' => $sourceSn,
+                    'reason' => $reason,
+                ]);
+                $locked->save([
+                    'billing_status' => 'refunded',
+                    'update_time' => time(),
+                ]);
+                Db::commit();
+            } catch (\Throwable $e) {
+                Db::rollback();
+                $refundErrors[] = '退款失败：' . $e->getMessage();
+            }
+        }
+        return implode(' ', array_unique($refundErrors));
     }
 
     private static function finishTaskWithVideos(AigcDigitalHumanTask $task, array $avatar, array $voice, array $selection, array $estimate, array $videos): array
