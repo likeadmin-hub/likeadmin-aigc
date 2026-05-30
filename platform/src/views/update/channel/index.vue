@@ -39,16 +39,29 @@
                                 </div>
                             </div>
                         </el-form-item>
-                        <el-form-item label="接口地址">
+                        <el-form-item label="线上接口地址">
                             <el-input
-                                v-model="sourceForm.base_url"
-                                placeholder="https://update.example.com 或 https://update.example.com/aigc/v1"
+                                v-model="sourceForm.online_base_url"
+                                placeholder="https://online.example.com"
                             />
                         </el-form-item>
-                        <el-form-item label="API Key">
+                        <el-form-item label="线上 API Key">
+                            <el-input
+                                v-model="sourceForm.online_license_key"
+                                placeholder="线上 Bearer API Key"
+                                show-password
+                            />
+                        </el-form-item>
+                        <el-form-item v-if="sourceForm.dev_mode === 1" label="开发接口地址">
+                            <el-input
+                                v-model="sourceForm.base_url"
+                                placeholder="https://dev-api.example.com"
+                            />
+                        </el-form-item>
+                        <el-form-item v-if="sourceForm.dev_mode === 1" label="开发 API Key">
                             <el-input
                                 v-model="sourceForm.license_key"
-                                placeholder="Bearer API Key，可为空"
+                                placeholder="开发 Bearer API Key"
                                 show-password
                             />
                         </el-form-item>
@@ -63,19 +76,6 @@
                                     关闭后仍会保留授权文件和响应签名校验，用于兼容证书链不完整的接口渠道。
                                 </div>
                             </div>
-                        </el-form-item>
-                        <el-form-item label="线上接口地址">
-                            <el-input
-                                v-model="sourceForm.online_base_url"
-                                placeholder="https://online.example.com 或 https://online.example.com/aigc/v1"
-                            />
-                        </el-form-item>
-                        <el-form-item label="线上 API Key">
-                            <el-input
-                                v-model="sourceForm.online_license_key"
-                                placeholder="线上 Bearer API Key，可为空"
-                                show-password
-                            />
                         </el-form-item>
                         <el-form-item>
                             <el-button type="primary" @click="saveSource">保存并下一步</el-button>
@@ -93,79 +93,89 @@
                         title="请先保存接口地址和 API Key"
                     />
                     <template v-else>
-                        <div class="license-guide mb-4">
-                            <div class="license-guide__main">
-                                <div class="license-guide__title">第二步：配置验签公钥</div>
-                                <div class="license-guide__desc">
-                                    验签公钥通常由授权系统提供，用来校验授权文件和接口响应签名。它不是
-                                    API Key，也不是私钥。
-                                </div>
-                                <div class="license-guide__tips">
-                                    <div>
-                                        文件常见名称：public_key.pem、public.pem、license_public.key。
+                        <div class="license-flow mb-4">
+                            <div class="license-step">
+                                <div class="license-step__index">1</div>
+                                <div class="license-step__body">
+                                    <div class="license-step__title">下载授权申请文件</div>
+                                    <div class="license-step__desc">
+                                        下载后前往授权系统，在用户中心开通所有应用，再申请授权文件。授权系统会提供验签公钥和授权文件。
                                     </div>
-                                    <div>
-                                        内容通常以 -----BEGIN PUBLIC KEY----- 开始，以 -----END
-                                        PUBLIC KEY----- 结束。
-                                    </div>
-                                    <div>
-                                        也支持上传包含 public_key、publicKey、pem、key 字段的 JSON
-                                        文件。
+                                    <div class="license-step__tips">
+                                        授权系统地址：{{ licenseApplyUrl || '请先配置接口渠道域名' }}
                                     </div>
                                 </div>
+                                <div class="license-step__actions">
+                                    <el-button @click="downloadApplyFile">下载授权申请文件</el-button>
+                                    <el-button type="primary" @click="openLicenseApplyUrl"
+                                        >前往申请授权</el-button
+                                    >
+                                </div>
                             </div>
-                            <div class="license-guide__actions">
-                                <el-upload
-                                    :show-file-list="false"
-                                    :auto-upload="false"
-                                    accept=".pem,.key,.crt,.cer,.txt,.json"
-                                    :on-change="readPublicKeyFile"
-                                >
-                                    <el-button>上传公钥文件</el-button>
-                                </el-upload>
+
+                            <div class="license-step license-step--form">
+                                <div class="license-step__index">2</div>
+                                <div class="license-step__body">
+                                    <div class="license-step__title">填写授权系统提供的验签公钥</div>
+                                    <div class="license-step__desc">
+                                        公钥用于校验授权文件和接口响应签名，不是 API Key，也不是私钥。
+                                    </div>
+                                    <div class="license-step__tips">
+                                        支持 public_key.pem、public.pem、license_public.key，或包含 public_key/publicKey/pem/key 字段的 JSON 文件。
+                                    </div>
+                                    <el-form label-width="90px" class="mt-4">
+                                        <el-form-item label="验签公钥">
+                                            <div class="w-full">
+                                                <el-input
+                                                    v-model="sourceForm.public_key"
+                                                    type="textarea"
+                                                    :rows="6"
+                                                    placeholder="粘贴授权系统提供的 PEM 公钥，或上传公钥文件自动读取"
+                                                />
+                                                <div class="mt-2 flex flex-wrap items-center gap-2">
+                                                    <el-upload
+                                                        :show-file-list="false"
+                                                        :auto-upload="false"
+                                                        accept=".pem,.key,.crt,.cer,.txt,.json"
+                                                        :on-change="readPublicKeyFile"
+                                                    >
+                                                        <el-button>上传公钥文件</el-button>
+                                                    </el-upload>
+                                                    <el-button type="primary" @click="savePublicKey"
+                                                        >保存公钥</el-button
+                                                    >
+                                                </div>
+                                            </div>
+                                        </el-form-item>
+                                    </el-form>
+                                </div>
                             </div>
-                        </div>
-                        <el-form label-width="110px">
-                            <el-form-item label="验签公钥">
-                                <div class="w-full">
-                                    <el-input
-                                        v-model="sourceForm.public_key"
-                                        type="textarea"
-                                        :rows="7"
-                                        placeholder="粘贴 PEM 公钥内容，或上传 .pem/.key/.crt/.cer/.txt/.json 文件自动读取"
-                                    />
-                                    <div class="mt-2 flex flex-wrap items-center gap-2">
-                                        <el-button type="primary" @click="savePublicKey"
-                                            >保存公钥</el-button
+
+                            <div class="license-step">
+                                <div class="license-step__index">3</div>
+                                <div class="license-step__body">
+                                    <div class="license-step__title">上传授权文件</div>
+                                    <div class="license-step__desc">
+                                        保存验签公钥后，再上传授权系统生成的授权文件。系统会先验签，通过后更新授权状态。
+                                    </div>
+                                </div>
+                                <div class="license-step__actions">
+                                    <el-upload
+                                        :show-file-list="false"
+                                        :before-upload="beforeUploadLicense"
+                                        :http-request="uploadLicense"
+                                        accept=".json,.license"
+                                        :disabled="!hasPublicKey"
+                                    >
+                                        <el-button type="primary" :disabled="!hasPublicKey"
+                                            >上传授权文件</el-button
                                         >
-                                        <span class="text-xs text-tx-secondary">
-                                            保存后再下载申请文件或上传授权文件，系统会使用该公钥完成验签。
-                                        </span>
-                                    </div>
+                                    </el-upload>
                                 </div>
-                            </el-form-item>
-                        </el-form>
-
-                        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                            <div>
-                                <div class="font-medium">授权申请</div>
-                                <div class="text-sm text-tx-secondary mt-1">
-                                    下载申请文件后交给授权系统生成授权文件，再在这里上传
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <el-button @click="downloadApplyFile">下载授权申请文件</el-button>
-                                <el-upload
-                                    :show-file-list="false"
-                                    :before-upload="beforeUploadLicense"
-                                    :http-request="uploadLicense"
-                                    accept=".json,.license"
-                                >
-                                    <el-button type="primary">上传授权文件</el-button>
-                                </el-upload>
                             </div>
                         </div>
 
+                        <div class="font-medium mb-3">授权结果</div>
                         <el-descriptions :column="2" border>
                             <el-descriptions-item label="授权状态">
                                 <el-tag :type="licenseStatusType(licenseInfo.status)">{{
@@ -270,9 +280,24 @@ const loading = ref(false)
 const activeTab = ref('source')
 const sourceForm = ref<any>({})
 const licenseInfo = ref<any>({})
-const configured = computed(() => !!sourceForm.value.base_url)
+const configured = computed(() =>
+    sourceForm.value.dev_mode === 1
+        ? !!sourceForm.value.base_url && !!sourceForm.value.license_key
+        : !!sourceForm.value.online_base_url && !!sourceForm.value.online_license_key
+)
 const payload = computed(() => licenseInfo.value.payload || {})
 const machine = computed(() => licenseInfo.value.machine || {})
+const hasPublicKey = computed(() => !!String(sourceForm.value.public_key || '').trim())
+const licenseApplyUrl = computed(() => {
+    const source = sourceForm.value || {}
+    const baseUrl =
+        source.active_base_url ||
+        (source.dev_mode === 1 ? source.base_url : source.online_base_url) ||
+        source.online_base_url ||
+        source.base_url ||
+        ''
+    return buildLicenseApplyUrl(baseUrl)
+})
 
 const getSource = async () => {
     sourceForm.value = normalizeSource(await updateSource())
@@ -285,7 +310,7 @@ const normalizeSource = (source: any = {}) => ({
     license_key: source.license_key || source.api_key || '',
     online_base_url: source.online_base_url || '',
     online_license_key: source.online_license_key || '',
-    dev_mode: Number(source.dev_mode ?? 1),
+    dev_mode: Number(source.dev_mode ?? 0),
     ssl_verify: Number(source.ssl_verify ?? 0),
     public_key: source.public_key || '',
     status: Number(source.status ?? 1),
@@ -412,6 +437,26 @@ const downloadApplyFile = async () => {
     URL.revokeObjectURL(url)
 }
 
+const buildLicenseApplyUrl = (baseUrl: string) => {
+    let url = String(baseUrl || '').trim().replace(/\/+$/, '')
+    if (!url) {
+        return ''
+    }
+    if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) {
+        url = `https://${url}`
+    }
+    url = url.replace(/\/aigc\/v1$/i, '')
+    return `${url}/user_center/aigc_services`
+}
+
+const openLicenseApplyUrl = () => {
+    if (!licenseApplyUrl.value) {
+        feedback.msgError('请先在接口配置中填写并保存接口渠道域名')
+        return
+    }
+    window.open(licenseApplyUrl.value, '_blank')
+}
+
 const licenseStatusText = (status: string) =>
     ({
         active: '授权有效',
@@ -436,52 +481,70 @@ refreshAll()
 </script>
 
 <style lang="scss" scoped>
-.license-guide {
-    display: flex;
-    gap: 16px;
-    justify-content: space-between;
+.license-flow {
+    display: grid;
+    gap: 14px;
+}
+
+.license-step {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: flex-start;
     padding: 16px;
     background: var(--el-fill-color-lighter);
     border: 1px solid var(--el-border-color-light);
     border-radius: 8px;
 }
 
-.license-guide__main {
+.license-step__index {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    font-weight: 600;
+    color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    border: 1px solid var(--el-color-primary-light-7);
+    border-radius: 50%;
+}
+
+.license-step__body {
     min-width: 0;
 }
 
-.license-guide__title {
+.license-step__title {
     font-size: 15px;
     font-weight: 600;
     color: var(--el-text-color-primary);
 }
 
-.license-guide__desc {
+.license-step__desc {
     margin-top: 6px;
     font-size: 13px;
     line-height: 20px;
     color: var(--el-text-color-regular);
 }
 
-.license-guide__tips {
-    display: grid;
-    gap: 4px;
+.license-step__tips {
     margin-top: 10px;
     font-size: 12px;
     line-height: 18px;
     color: var(--el-text-color-secondary);
 }
 
-.license-guide__actions {
+.license-step__actions {
     flex: 0 0 auto;
 }
 
 @media (max-width: 768px) {
-    .license-guide {
-        flex-direction: column;
+    .license-step {
+        grid-template-columns: 32px minmax(0, 1fr);
     }
 
-    .license-guide__actions {
+    .license-step__actions {
+        grid-column: 2;
         align-self: flex-start;
     }
 }

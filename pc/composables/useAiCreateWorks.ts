@@ -59,7 +59,7 @@ export const aiCreateOptionValues: AiCreateOptionValues = {
     count: ['1张', '2张', '4张'],
     ratio: ['21:9', '16:9', '4:3', '1:1', '3:4', '9:16'],
     resolution: ['1k', '2k', '4k'],
-    duration: ['5s', '10s', '15s'],
+    duration: ['5s', '10s'],
     quality: ['1k标清', '2k高清']
 }
 

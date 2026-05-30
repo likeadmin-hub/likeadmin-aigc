@@ -374,6 +374,7 @@ interface ChannelOption {
     supported_asset_types?: ReferenceAssetType[]
     duration_options?: number[]
     videoedit_duration_options?: number[]
+    specs?: any[]
     qualities: QualityOption[]
 }
 
@@ -530,7 +531,10 @@ const normalizeVideoResolution = (value: unknown) => {
 }
 const normalizeVideoDuration = (value: unknown) => {
     const raw = String(value || '').trim()
-    const matched = raw.match(/(\d+)(?:\s*S|秒)?/i)
+    const explicit = raw.match(/(\d+)\s*(?:S|秒)\b/i)
+    if (explicit) return `${Number(explicit[1])}秒`
+    const underscored = raw.match(/_(\d+)(?:\D*)$/)
+    const matched = underscored || raw.match(/^(\d+)$/)
     return matched ? `${Number(matched[1])}秒` : raw || '默认'
 }
 const normalizeNumberOptions = (options: any[]) =>
@@ -557,6 +561,7 @@ const videoChannels = computed<ChannelOption[]>(() =>
                 : ['image'],
             duration_options: durationOptions,
             videoedit_duration_options: normalizeNumberOptions(channel.videoedit_duration_options || []),
+            specs: channel.specs || [],
             qualities: (channel.qualities || []).map((quality: any) => ({
                 label: dynamicDuration ? getVideoQualityResolution(quality) : getVideoQualityDuration(quality),
                 value: String(quality.value || quality.quality),
@@ -594,7 +599,16 @@ const currentVideoQuality = computed(() =>
 )
 const videoRatios = computed<RatioOption[]>(() => currentVideoQuality.value?.ratios || [])
 const currentVideoRatio = computed(() => videoRatios.value.find((item) => item.value === optionState.value.ratio) || videoRatios.value[0])
-const selectedVideoUnitPrice = computed(() => Number(currentVideoRatio.value?.tenant_unit_price || 0).toString())
+const currentVideoSpec = computed(() => {
+    if (!currentVideoChannelHasDynamicDuration.value) return currentVideoRatio.value
+    const duration = durationValue(optionState.value.duration)
+    return (currentVideoChannel.value?.specs || []).find((spec: any) =>
+        String(spec.ratio || spec.value) === String(optionState.value.ratio)
+        && String(spec.resolution || getVideoQualityResolution(spec)) === String(currentVideoQuality.value?.resolution || '')
+        && durationValue(spec.duration || spec.quality_label || spec.quality) === duration
+    ) || currentVideoRatio.value
+})
+const selectedVideoUnitPrice = computed(() => Number(currentVideoSpec.value?.tenant_unit_price || currentVideoRatio.value?.tenant_unit_price || 0).toString())
 const uploadedImageVideoReferenceAssets = computed<VideoReferenceAsset[]>(() => {
     if (!uploadedReferenceUri.value) return []
     return [{
@@ -625,7 +639,7 @@ const imageOptionValues = computed<Record<OptionKey, string[]>>(() => ({
     count: ['1张', '2张', '3张', '4张'],
     ratio: ratios.value.map((item) => item.value),
     resolution: qualities.value.map((item) => item.value),
-    duration: ['5s', '10s', '15s'],
+    duration: ['5s', '10s'],
     quality: ['1k标清', '2k高清']
 }))
 const videoOptionValues = computed<Record<OptionKey, string[]>>(() => ({
@@ -1260,7 +1274,7 @@ const mapBackendVideoWork = (item: any, index: number): BackendWork => {
     const fallbackCover = referenceImage
     const coverUrl = normalizeVideoCover(item, fallbackCover)
     const displayResolution = getVideoDisplayResolution(item.quality)
-    const displayDuration = getVideoDisplayDuration(item.quality)
+    const displayDuration = Number(item.duration || 0) > 0 ? durationLabel(item.duration) : getVideoDisplayDuration(item.quality)
     return {
         task: String(item.task_id || item.id || index),
         id: `video-${item.task_id || item.id || index}`,

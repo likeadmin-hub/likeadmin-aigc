@@ -395,6 +395,7 @@ interface ChannelOption {
     quantity_options?: number[]
     duration_options?: number[]
     videoedit_duration_options?: number[]
+    specs?: any[]
     qualities: QualityOption[]
 }
 
@@ -534,6 +535,7 @@ const channels = computed<ChannelOption[]>(() =>
             .filter(Boolean),
         duration_options: normalizeNumberOptions(channel.duration_options || [5]),
         videoedit_duration_options: normalizeNumberOptions(channel.videoedit_duration_options || []),
+        specs: channel.specs || [],
         qualities: (channel.qualities || []).map((quality: any) => ({
             label:
                 quality.label || quality.quality_label || String(quality.value || '').toUpperCase(),
@@ -579,6 +581,13 @@ const durations = computed(() => {
         : currentChannel.value?.duration_options
     return normalizeNumberOptions(options || [5])
 })
+const currentPricingSpec = computed(() =>
+    (currentChannel.value?.specs || []).find((spec: any) =>
+        String(spec.ratio || spec.value) === String(form.ratio)
+        && String(spec.resolution || '').toUpperCase() === String(currentQuality.value?.label || '').toUpperCase()
+        && Number.parseInt(String(spec.duration || spec.quality_label || spec.quality || ''), 10) === Number(form.duration)
+    ) || currentSpec.value
+)
 const maxReferenceCount = computed(() => {
     const configured = Number(currentChannel.value?.max_reference_assets || optionConfig.value.max_reference_assets || 0)
     if (configured > 0) return configured
@@ -586,7 +595,7 @@ const maxReferenceCount = computed(() => {
         + Number(currentChannel.value?.max_reference_videos || 0)
 })
 const estimatedCost = computed(() => {
-    const unitPrice = Number(currentSpec.value?.tenant_unit_price || 0)
+    const unitPrice = Number(currentPricingSpec.value?.tenant_unit_price || 0)
     return Number((form.quantity * unitPrice).toFixed(2))
 })
 const previewImages = computed(() =>
