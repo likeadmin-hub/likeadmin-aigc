@@ -41,6 +41,7 @@ class AigcVideoChannelService
             'width' => (int)$resolved['spec']['width'],
             'height' => (int)$resolved['spec']['height'],
             'quantity' => $quantity,
+            'duration' => self::normalizeGenerateDuration($resolved['channel'], AigcVideoReferenceAssetService::normalize($params), $params['duration'] ?? null),
             'platform_unit_cost' => self::formatPoints((float)$resolved['spec']['platform_unit_cost']),
             'tenant_unit_price' => self::formatPoints((float)$resolved['spec']['tenant_unit_price']),
             'tenant_cost_points' => $tenantCost,
@@ -69,6 +70,14 @@ class AigcVideoChannelService
                 }
                 foreach ($qualityItem['ratios'] as $ratioItem) {
                     if ($ratioItem['value'] === $ratio) {
+                        $duration = self::normalizeDurationValue($params['duration'] ?? $defaults['duration'] ?? 0);
+                        $matchedSpec = self::matchSpecForDuration($channel, $qualityItem, $ratio, $duration);
+                        if (!empty($matchedSpec)) {
+                            return [
+                                'channel' => $channel,
+                                'spec' => $matchedSpec,
+                            ];
+                        }
                         return [
                             'channel' => $channel,
                             'spec' => $ratioItem,
@@ -310,6 +319,8 @@ class AigcVideoChannelService
                 continue;
             }
             $config = self::normalizeJson($platformChannel['config_json'] ?? []);
+            $channelSpecRows = $specsByChannel[$platformChannel['code']] ?? [];
+            $dynamicDuration = !empty(self::durationOptionsFromSpecs($channelSpecRows));
             $channel = [
                 'id' => (int)$platformChannel['id'],
                 'tenant_override_id' => (int)($override['id'] ?? 0),
@@ -326,7 +337,7 @@ class AigcVideoChannelService
                 'sort' => (int)($override['sort'] ?? $platformChannel['sort']),
                 'config_json' => $config,
                 'quantity_options' => self::channelQuantityOptions($platformChannel),
-                'duration_options' => self::channelDurationOptions($config),
+                'duration_options' => [],
                 'videoedit_duration_options' => self::channelVideoEditDurationOptions($config),
                 'supported_asset_types' => self::supportedAssetTypes($config),
                 'max_reference_videos' => max(0, (int)($config['max_reference_videos'] ?? 0)),
@@ -362,7 +373,6 @@ class AigcVideoChannelService
                 ];
                 $spec = array_merge($spec, self::specPresentation($platformSpec));
                 $channel['specs'][] = $spec;
-                $dynamicDuration = !empty($channel['duration_options']);
                 $qualityKey = $dynamicDuration
                     ? strtolower($spec['resolution'] ?: $spec['quality'])
                     : $spec['quality'];
@@ -385,6 +395,13 @@ class AigcVideoChannelService
                 if (!$ratioExists) {
                     $channel['qualities'][$qualityKey]['ratios'][] = $spec;
                 }
+            }
+            $channel['duration_options'] = self::durationOptionsFromSpecs($channel['specs']);
+            if (!empty($channel['videoedit_duration_options'])) {
+                $channel['videoedit_duration_options'] = array_values(array_intersect(
+                    self::channelVideoEditDurationOptions($config),
+                    $channel['duration_options']
+                ));
             }
             $channel['qualities'] = array_values($channel['qualities']);
             if (!$onlyEnabled || !empty($channel['qualities'])) {
@@ -503,16 +520,6 @@ class AigcVideoChannelService
         return self::QUANTITY_OPTIONS;
     }
 
-    private static function channelDurationOptions(array $config): array
-    {
-        if (!empty($config['duration_options']) && is_array($config['duration_options'])) {
-            $options = array_values(array_unique(array_filter(array_map('intval', $config['duration_options']))));
-            sort($options);
-            return $options ?: [5];
-        }
-        return [5];
-    }
-
     private static function channelVideoEditDurationOptions(array $config): array
     {
         if (!empty($config['videoedit_duration_options']) && is_array($config['videoedit_duration_options'])) {
@@ -521,6 +528,50 @@ class AigcVideoChannelService
             return $options;
         }
         return [];
+    }
+
+    private static function durationOptionsFromSpecs(array $specs): array
+    {
+        $options = [];
+        foreach ($specs as $spec) {
+            $duration = self::normalizeDurationValue(
+                $spec['duration'] ?? ($spec['provider_params_json']['duration'] ?? $spec['quality_label'] ?? $spec['quality'] ?? '')
+            );
+            if ($duration > 0) {
+                $options[] = $duration;
+            }
+        }
+        $options = array_values(array_unique($options));
+        sort($options);
+        return $options;
+    }
+
+    private static function matchSpecForDuration(array $channel, array $qualityItem, string $ratio, int $duration): array
+    {
+        if (empty($channel['duration_options']) || $duration <= 0) {
+            return [];
+        }
+        foreach ($channel['specs'] as $spec) {
+            if (($spec['ratio'] ?? '') !== $ratio) {
+                continue;
+            }
+            if ((string)($spec['resolution'] ?? '') !== (string)($qualityItem['resolution'] ?? '')) {
+                continue;
+            }
+            if (self::normalizeDurationValue($spec['duration'] ?? '') === $duration) {
+                return $spec;
+            }
+        }
+        throw new Exception('当前通道不支持所选时长');
+    }
+
+    private static function normalizeDurationValue($value): int
+    {
+        if (is_numeric($value)) {
+            return max(0, (int)$value);
+        }
+        $duration = self::normalizeDuration($value);
+        return (int)($duration ? preg_replace('/\D+/', '', $duration) : 0);
     }
 
     public static function normalizeQuantity($quantity): int

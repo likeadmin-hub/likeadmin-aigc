@@ -2404,7 +2404,7 @@ CREATE TABLE IF NOT EXISTS `la_update_source` (
   `license_key` varchar(255) NOT NULL DEFAULT '' COMMENT 'API Key/授权key',
   `online_base_url` varchar(255) NOT NULL DEFAULT '' COMMENT '线上授权系统接口地址',
   `online_license_key` varchar(255) NOT NULL DEFAULT '' COMMENT '线上API Key/授权key',
-  `dev_mode` tinyint NOT NULL DEFAULT 1 COMMENT '开发模式：1开启 0关闭',
+  `dev_mode` tinyint NOT NULL DEFAULT 0 COMMENT '开发模式：1开启 0关闭',
   `public_key` text COMMENT '响应验签公钥',
   `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态',
   `create_time` int unsigned NOT NULL DEFAULT 0,
@@ -2647,7 +2647,7 @@ ALTER TABLE `la_decorate_page` ADD COLUMN `published_meta` longtext COMMENT '发
 INSERT INTO `la_app` (`code`,`name`,`icon`,`description`,`category`,`cover`,`client_tags`,`install_count`,`view_count`,`is_builtin`,`sort`,`current_version`,`status`,`install_time`,`update_time`)
 VALUES
 ('aigc_image','AIGC生图','resource/image/common/menu_generator.png','AIGC image generation sample application for the LikeAdmin AIGC SaaS aggregation platform.','aigc','','tenant,pc,uniapp',0,0,1,900,'1.1.3','installed',1778000000,1778000000),
-('aigc_video','AIGC视频','resource/image/common/menu_generator.png','AIGC video generation application framework for the LikeAdmin AIGC SaaS aggregation platform.','aigc','','tenant,pc,uniapp',0,0,1,900,'1.0.1','installed',1778000000,1778000000),
+('aigc_video','AIGC视频','resource/image/common/menu_generator.png','AIGC video generation application framework for the LikeAdmin AIGC SaaS aggregation platform.','aigc','','tenant,pc,uniapp',0,0,1,900,'1.0.7','installed',1778000000,1778000000),
 ('aigc_digital_human','数字人视频','resource/image/common/menu_generator.png','面向移动端、PC端和后台端的数字人应用框架，支持当前用户专属形象、声音和合成视频任务。','aigc','','tenant,pc,uniapp',0,0,1,900,'1.0.1','installed',1778000000,1778000000),
 ('aigc_canvas','无限画布','resource/image/common/menu_generator.png','面向多节点编排创作的无限画布应用，复用生图和生视频应用完成生成能力。','aigc','','platform,tenant,pc',0,0,1,880,'1.0.1','installed',1778000000,1778000000),
 ('aigc_llm','AIGC对话','resource/image/common/menu_generator.png','AIGC large model conversation application with multi-session, multi-turn context and SSE streaming.','aigc','','tenant,pc,uniapp',0,0,1,880,'1.1.1','installed',1778000000,1778000000)
@@ -2657,7 +2657,7 @@ UPDATE `la_app` SET `is_builtin` = 1, `expire_policy` = 'allow', `status` = 'ins
 INSERT INTO `la_app_version` (`app_code`,`version`,`require_core`,`package_path`,`manifest_json`,`changelog`,`status`,`create_time`)
 VALUES
 ('aigc_image','1.1.3','>=1.0.0','local','{"code":"aigc_image","name":"AIGC生图","version":"1.1.3","require_core":">=1.0.0","description":"AIGC image generation sample application for the LikeAdmin AIGC SaaS aggregation platform.","changelog":"作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","sort":900,"frontends":["tenant","pc","uniapp"],"api_prefix":"/app/aigc_image","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_image_admin","name":"AIGC生图","path":"/app/aigc_image","icon":"el-icon-Picture","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_image","name":"AIGC生图","path":"/app/aigc_image","icon":"resource/image/common/menu_generator.png","sort":100,"status":1},{"terminal":"uniapp","entry_key":"aigc_image","name":"AIGC生图","path":"/apps/aigc_image/pages/index/index","icon":"resource/image/common/menu_generator.png","sort":100,"status":1,"meta":{"pages":[{"name":"创作首页","path":"/apps/aigc_image/pages/index/index"},{"name":"生图任务","path":"/apps/aigc_image/pages/tasks/tasks"},{"name":"作品列表","path":"/apps/aigc_image/pages/results/results"}]}}]}','作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据。',1,1778000000),
-('aigc_video','1.0.1','>=1.0.0','local','{"code":"aigc_video","name":"AIGC视频","version":"1.0.1","require_core":">=1.0.0","description":"AIGC video generation application framework for the LikeAdmin AIGC SaaS aggregation platform.","changelog":"作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","sort":900,"frontends":["tenant","pc","uniapp"],"api_prefix":"/app/aigc_video","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_video_admin","name":"AIGC视频","path":"/app/aigc_video","icon":"el-icon-Picture","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_video","name":"AIGC视频","path":"/app/aigc_video","icon":"resource/image/common/menu_generator.png","sort":100,"status":1},{"terminal":"uniapp","entry_key":"aigc_video","name":"AIGC视频","path":"/apps/aigc_video/pages/index/index","icon":"resource/image/common/menu_generator.png","sort":100,"status":1,"meta":{"pages":[{"name":"创作首页","path":"/apps/aigc_video/pages/index/index"},{"name":"视频任务","path":"/apps/aigc_video/pages/tasks/tasks"},{"name":"作品列表","path":"/apps/aigc_video/pages/results/results"}]}}]}','作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据。',1,1778000000),
+('aigc_video','1.0.7','>=1.0.0','local','{"code":"aigc_video","name":"AIGC视频","version":"1.0.7","require_core":">=1.0.0","description":"AIGC video generation application framework for the LikeAdmin AIGC SaaS aggregation platform.","changelog":"1. 同步视频创作端可选时长到后台通道价格配置。\n2. 修复动态时长通道生成时按实际时长匹配价格规格。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","sort":900,"frontends":["tenant","pc","uniapp"],"api_prefix":"/app/aigc_video","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_video_admin","name":"AIGC视频","path":"/app/aigc_video","icon":"el-icon-Picture","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_video","name":"AIGC视频","path":"/app/aigc_video","icon":"resource/image/common/menu_generator.png","sort":100,"status":1},{"terminal":"uniapp","entry_key":"aigc_video","name":"AIGC视频","path":"/apps/aigc_video/pages/index/index","icon":"resource/image/common/menu_generator.png","sort":100,"status":1,"meta":{"pages":[{"name":"创作首页","path":"/apps/aigc_video/pages/index/index"},{"name":"视频任务","path":"/apps/aigc_video/pages/tasks/tasks"},{"name":"作品列表","path":"/apps/aigc_video/pages/results/results"}]}}]}','1. 同步视频创作端可选时长到后台通道价格配置。\n2. 修复动态时长通道生成时按实际时长匹配价格规格。',1,1778000000),
 ('aigc_digital_human','1.0.1','>=1.0.0','local','{"code":"aigc_digital_human","name":"数字人视频","version":"1.0.1","require_core":">=1.0.0","description":"面向移动端、PC端和后台端的数字人应用框架，支持当前用户专属形象、声音和合成视频任务。","changelog":"作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据，并修复完整安装时编排字段迁移重复执行问题。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","sort":900,"frontends":["tenant","pc","uniapp"],"api_prefix":"/app/aigc_digital_human","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_digital_human_admin","name":"数字人视频","path":"/app/aigc_digital_human","icon":"el-icon-Picture","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_digital_human","name":"数字人视频","path":"/app/aigc_digital_human","icon":"resource/image/common/menu_generator.png","sort":100,"status":1},{"terminal":"uniapp","entry_key":"aigc_digital_human","name":"数字人视频","path":"/apps/aigc_digital_human/pages/index/index","icon":"resource/image/common/menu_generator.png","sort":100,"status":1,"meta":{"pages":[{"name":"创作首页","path":"/apps/aigc_digital_human/pages/index/index"},{"name":"选择形象","path":"/apps/aigc_digital_human/pages/assets/avatar/avatar"},{"name":"选择声音","path":"/apps/aigc_digital_human/pages/assets/voice/voice"},{"name":"克隆形象","path":"/apps/aigc_digital_human/pages/clone/avatar/avatar"},{"name":"克隆音色","path":"/apps/aigc_digital_human/pages/clone/voice/voice"},{"name":"合成任务","path":"/apps/aigc_digital_human/pages/tasks/tasks"},{"name":"创作记录","path":"/apps/aigc_digital_human/pages/results/results"},{"name":"记录详情","path":"/apps/aigc_digital_human/pages/results/detail/detail"}]}}]}','作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据，并修复完整安装时编排字段迁移重复执行问题。',1,1778000000),
 ('aigc_canvas','1.0.1','>=1.0.0','local','{"code":"aigc_canvas","name":"无限画布","version":"1.0.1","require_core":">=1.0.0","description":"面向多节点编排创作的无限画布应用，复用生图和生视频应用完成生成能力。","changelog":"作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","sort":880,"frontends":["platform","tenant","pc"],"api_prefix":"/app/aigc_canvas","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"platform","entry_key":"aigc_canvas_platform","name":"无限画布","path":"/app/aigc_canvas","icon":"resource/image/common/menu_generator.png","sort":100,"status":1},{"terminal":"tenant","entry_key":"aigc_canvas_admin","name":"无限画布","path":"/app/aigc_canvas","icon":"el-icon-Share","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_canvas","name":"无限画布","path":"/app/aigc_canvas","icon":"resource/image/common/menu_generator.png","sort":95,"status":1}],"dependencies":[{"app_code":"aigc_image","name":"AIGC生图","required_for":"图片生成"},{"app_code":"aigc_video","name":"AIGC视频","required_for":"视频生成"}]}','作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据。',1,1778000000),
 ('aigc_llm','1.1.1','>=1.0.0','local','{"code":"aigc_llm","name":"AIGC对话","version":"1.1.1","require_core":">=1.0.0","description":"AIGC large model conversation application with multi-session, multi-turn context and SSE streaming.","changelog":"作为系统默认AIGC基础应用随新装系统预安装启用；保留Token计费、OpenAI兼容流式通道和默认Qwen3.6-Plus模型能力。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","sort":880,"frontends":["tenant","pc","uniapp"],"api_prefix":"/app/aigc_llm","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_llm_admin","name":"AIGC对话","path":"/app/aigc_llm","icon":"el-icon-ChatDotRound","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_llm","name":"AIGC对话","path":"/app/aigc_llm","icon":"resource/image/common/menu_generator.png","sort":100,"status":1},{"terminal":"uniapp","entry_key":"aigc_llm","name":"AIGC对话","path":"/apps/aigc_llm/pages/index/index","icon":"resource/image/common/menu_generator.png","sort":100,"status":1,"meta":{"pages":[{"name":"对话首页","path":"/apps/aigc_llm/pages/index/index"}]}}]}','作为系统默认AIGC基础应用随新装系统预安装启用；保留Token计费、OpenAI兼容流式通道和默认Qwen3.6-Plus模型能力。',1,1778000000)
@@ -4456,6 +4456,205 @@ VALUES
 (0,'happy_horse','1080p_15','1080P · 15秒','4:3',1440,1080,0.84,0.84,'{"resolution":"1080P","duration":15,"ratio":"4:3"}',1,820,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'happy_horse','1080p_15','1080P · 15秒','3:4',1080,1440,0.84,0.84,'{"resolution":"1080P","duration":15,"ratio":"3:4"}',1,810,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE `quality_label`=VALUES(`quality_label`),`width`=VALUES(`width`),`height`=VALUES(`height`),`platform_unit_cost`=VALUES(`platform_unit_cost`),`tenant_unit_price`=VALUES(`tenant_unit_price`),`provider_params_json`=VALUES(`provider_params_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
+
+-- Migration snapshot: aigc_video/migrations/zz_20260525_xhadmin_video_apps.sql
+
+SET @aigc_video_task_exists = (
+  SELECT COUNT(*)
+  FROM INFORMATION_SCHEMA.TABLES
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_video_task'
+);
+
+SET @aigc_video_sql = (
+  SELECT IF(
+    @aigc_video_task_exists > 0 AND COUNT(*) = 0,
+    'ALTER TABLE `la_aigc_video_task` ADD COLUMN `reference_assets` text COMMENT ''参考素材'' AFTER `reference_images`',
+    'SELECT 1'
+  )
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_video_task'
+    AND COLUMN_NAME = 'reference_assets'
+);
+PREPARE aigc_video_stmt FROM @aigc_video_sql;
+EXECUTE aigc_video_stmt;
+DEALLOCATE PREPARE aigc_video_stmt;
+
+SET @aigc_video_duration_sql = (
+  SELECT IF(
+    @aigc_video_task_exists > 0 AND COUNT(*) = 0,
+    'ALTER TABLE `la_aigc_video_task` ADD COLUMN `duration` int unsigned NOT NULL DEFAULT 0 COMMENT ''生成时长秒数'' AFTER `ratio`',
+    'SELECT 1'
+  )
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_video_task'
+    AND COLUMN_NAME = 'duration'
+);
+PREPARE aigc_video_duration_stmt FROM @aigc_video_duration_sql;
+EXECUTE aigc_video_duration_stmt;
+DEALLOCATE PREPARE aigc_video_duration_stmt;
+
+INSERT INTO `la_aigc_video_channel` (`tenant_id`,`code`,`name`,`provider`,`model`,`max_reference_images`,`config_json`,`status`,`sort`,`create_time`,`update_time`)
+VALUES
+(0,'wan','Wan 2.7','xhadmin','wan2.7',4,'{"app_code":"wan","submit_path":"/api/v1/apps/wan/create","task_path":"/api/v1/apps/wan/query?task_id={task_id}","poll_interval":2,"poll_attempts":0,"quantity_options":[1],"duration_options":[2,3,4,5,6,7,8,9,10,11,12,13,14,15],"videoedit_duration_options":[2,3,4,5,6,7,8,9,10],"supported_asset_types":["image","video","audio"],"max_reference_images":4,"max_reference_videos":1,"max_reference_audios":1,"max_reference_assets":6}',1,390,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'seedance','Seedance 2.0','xhadmin','seedance-2-text-2-video',9,'{"app_code":"seedance","submit_path":"/api/v1/apps/seedance/create","task_path":"/api/v1/tasks/{task_id}","asset_group_path":"/api/v1/apps/seedance/createGroup","asset_create_path":"/api/v1/apps/seedance/createAsset","project_name":"default","group_type":"AIGC","poll_interval":2,"poll_attempts":0,"quantity_options":[1],"duration_options":[3,4,5,6,7,8,9,10,11,12,13,14,15],"supported_asset_types":["image","video","audio"],"max_reference_images":9,"max_reference_videos":3,"max_reference_audios":3,"max_reference_assets":15}',1,380,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','Omni-Flash-Ext','xhadmin','omni-flash-ext',3,'{"app_code":"omni_flash_ext","submit_path":"/api/v1/apps/omni_flash_ext/create","task_path":"/api/v1/tasks/{task_id}","poll_interval":2,"poll_attempts":0,"quantity_options":[1],"duration_options":[4,6,8,10],"supported_asset_types":["image"],"max_reference_images":3,"max_reference_assets":3}',1,370,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`provider`=VALUES(`provider`),`model`=VALUES(`model`),`max_reference_images`=VALUES(`max_reference_images`),`config_json`=VALUES(`config_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
+
+INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
+VALUES
+(0,'wan','720p_5','720P · 5秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":5,"size":"16:9"}',1,1300,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','720p_5','720P · 5秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":5,"size":"9:16"}',1,1290,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','720p_5','720P · 5秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":5,"size":"1:1"}',1,1280,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','1080p_5','1080P · 5秒','16:9',1920,1080,0.00,0.00,'{"resolution":"1080p","duration":5,"size":"16:9"}',1,1270,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','1080p_5','1080P · 5秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":5,"size":"9:16"}',1,1260,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','720p_10','720P · 10秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":10,"size":"16:9"}',1,1250,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','720p_10','720P · 10秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":10,"size":"9:16"}',1,1240,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'seedance','720p_5','720P · 5秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":5,"ratio":"16:9"}',1,1230,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'seedance','720p_5','720P · 5秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":5,"ratio":"9:16"}',1,1220,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'seedance','720p_5','720P · 5秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":5,"ratio":"1:1"}',1,1210,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'seedance','720p_5','720P · 5秒','adaptive',0,0,0.00,0.00,'{"resolution":"720p","duration":5,"ratio":"adaptive"}',1,1200,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'seedance','1080p_5','1080P · 5秒','16:9',1920,1080,0.00,0.00,'{"resolution":"1080p","duration":5,"ratio":"16:9"}',1,1190,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'seedance','1080p_5','1080P · 5秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":5,"ratio":"9:16"}',1,1180,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'seedance','720p_10','720P · 10秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":10,"ratio":"16:9"}',1,1170,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'seedance','720p_10','720P · 10秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":10,"ratio":"9:16"}',1,1160,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_6','720P · 6秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"16:9"}',1,1150,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_6','720P · 6秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"9:16"}',1,1140,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_6','720P · 6秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"1:1"}',1,1130,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_6','1080P · 6秒','16:9',1920,1080,0.00,0.00,'{"resolution":"1080p","duration":6,"aspect_ratio":"16:9"}',1,1120,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_6','1080P · 6秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":6,"aspect_ratio":"9:16"}',1,1110,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_10','720P · 10秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":10,"aspect_ratio":"16:9"}',1,1100,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_10','720P · 10秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":10,"aspect_ratio":"9:16"}',1,1090,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
+ON DUPLICATE KEY UPDATE `quality_label`=VALUES(`quality_label`),`width`=VALUES(`width`),`height`=VALUES(`height`),`platform_unit_cost`=VALUES(`platform_unit_cost`),`tenant_unit_price`=VALUES(`tenant_unit_price`),`provider_params_json`=VALUES(`provider_params_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
+
+-- Migration snapshot: aigc_video/migrations/zz_20260530_aigc_video_duration_spec_sync.sql
+
+UPDATE `la_aigc_video_channel`
+SET `config_json` = JSON_SET(
+        COALESCE(NULLIF(`config_json`, ''), '{}'),
+        '$.duration_options',
+        CASE `code`
+            WHEN 'grok_video_xaiq' THEN JSON_ARRAY(6, 10, 15, 20, 25, 30)
+            WHEN 'happy_horse' THEN JSON_ARRAY(3, 5, 10, 15)
+            WHEN 'wan' THEN JSON_ARRAY(2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+            WHEN 'seedance' THEN JSON_ARRAY(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+            WHEN 'omni_flash_ext' THEN JSON_ARRAY(4, 6, 8, 10)
+            ELSE JSON_EXTRACT(COALESCE(NULLIF(`config_json`, ''), '{}'), '$.duration_options')
+        END
+    ),
+    `update_time` = UNIX_TIMESTAMP()
+WHERE `tenant_id` = 0
+  AND `code` IN ('grok_video_xaiq', 'happy_horse', 'wan', 'seedance', 'omni_flash_ext');
+
+INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
+SELECT
+    0,
+    'wan',
+    CONCAT(LOWER(template.`resolution`), '_', duration.`duration`),
+    CONCAT(UPPER(template.`resolution`), ' · ', duration.`duration`, '秒'),
+    template.`ratio`,
+    template.`width`,
+    template.`height`,
+    0.00,
+    0.00,
+    CONCAT('{"resolution":"', template.`resolution`, '","duration":', duration.`duration`, ',"size":"', template.`ratio`, '"}'),
+    1,
+    1000 - duration.`duration`,
+    UNIX_TIMESTAMP(),
+    UNIX_TIMESTAMP()
+FROM (
+    SELECT DISTINCT
+        COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`provider_params_json`, '$.resolution')), ''), '720p') AS `resolution`,
+        `ratio`,
+        `width`,
+        `height`
+    FROM `la_aigc_video_channel_spec`
+    WHERE `tenant_id` = 0 AND `channel_code` = 'wan'
+) AS template
+CROSS JOIN (
+    SELECT 2 AS `duration` UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
+    UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
+    UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13
+    UNION ALL SELECT 14 UNION ALL SELECT 15
+) AS duration
+WHERE 1 = 1
+ON DUPLICATE KEY UPDATE
+    `quality_label` = VALUES(`quality_label`),
+    `provider_params_json` = VALUES(`provider_params_json`),
+    `update_time` = VALUES(`update_time`);
+
+INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
+SELECT
+    0,
+    'seedance',
+    CONCAT(LOWER(template.`resolution`), '_', duration.`duration`),
+    CONCAT(UPPER(template.`resolution`), ' · ', duration.`duration`, '秒'),
+    template.`ratio`,
+    template.`width`,
+    template.`height`,
+    0.00,
+    0.00,
+    CONCAT('{"resolution":"', template.`resolution`, '","duration":', duration.`duration`, ',"ratio":"', template.`ratio`, '"}'),
+    1,
+    1000 - duration.`duration`,
+    UNIX_TIMESTAMP(),
+    UNIX_TIMESTAMP()
+FROM (
+    SELECT DISTINCT
+        COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`provider_params_json`, '$.resolution')), ''), '720p') AS `resolution`,
+        `ratio`,
+        `width`,
+        `height`
+    FROM `la_aigc_video_channel_spec`
+    WHERE `tenant_id` = 0 AND `channel_code` = 'seedance'
+) AS template
+CROSS JOIN (
+    SELECT 3 AS `duration` UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6
+    UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10
+    UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13 UNION ALL SELECT 14
+    UNION ALL SELECT 15
+) AS duration
+WHERE 1 = 1
+ON DUPLICATE KEY UPDATE
+    `quality_label` = VALUES(`quality_label`),
+    `provider_params_json` = VALUES(`provider_params_json`),
+    `update_time` = VALUES(`update_time`);
+
+INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
+SELECT
+    0,
+    'omni_flash_ext',
+    CONCAT(LOWER(template.`resolution`), '_', duration.`duration`),
+    CONCAT(UPPER(template.`resolution`), ' · ', duration.`duration`, '秒'),
+    template.`ratio`,
+    template.`width`,
+    template.`height`,
+    0.00,
+    0.00,
+    CONCAT('{"resolution":"', template.`resolution`, '","duration":', duration.`duration`, ',"aspect_ratio":"', template.`ratio`, '"}'),
+    1,
+    1000 - duration.`duration`,
+    UNIX_TIMESTAMP(),
+    UNIX_TIMESTAMP()
+FROM (
+    SELECT DISTINCT
+        COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`provider_params_json`, '$.resolution')), ''), '720p') AS `resolution`,
+        `ratio`,
+        `width`,
+        `height`
+    FROM `la_aigc_video_channel_spec`
+    WHERE `tenant_id` = 0 AND `channel_code` = 'omni_flash_ext'
+) AS template
+CROSS JOIN (
+    SELECT 4 AS `duration` UNION ALL SELECT 6 UNION ALL SELECT 8 UNION ALL SELECT 10
+) AS duration
+WHERE 1 = 1
+ON DUPLICATE KEY UPDATE
+    `quality_label` = VALUES(`quality_label`),
+    `provider_params_json` = VALUES(`provider_params_json`),
+    `update_time` = VALUES(`update_time`);
 
 SET
     FOREIGN_KEY_CHECKS = 1;

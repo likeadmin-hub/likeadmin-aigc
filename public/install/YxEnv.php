@@ -99,22 +99,42 @@ class YxEnv
      */
     public function putEnv($envFilePath, array $databaseEnv)
     {
+        global $uniqueSalt;
+
+        $projectHost = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
+        $defaultEnv = [
+            'APP_DEBUG' => 'false',
+            'APP.DEFAULT_TIMEZONE' => 'Asia/Shanghai',
+            'DATABASE.TYPE' => 'mysql',
+            'DATABASE.HOSTNAME' => '127.0.0.1',
+            'DATABASE.DATABASE' => 'likeadmin_saas',
+            'DATABASE.USERNAME' => 'root',
+            'DATABASE.PASSWORD' => '',
+            'DATABASE.HOSTPORT' => '3306',
+            'DATABASE.CHARSET' => 'utf8mb4',
+            'DATABASE.DEBUG' => 'false',
+            'DATABASE.PREFIX' => 'la_',
+            'LANG.default_lang' => 'zh-cn',
+            'PROJECT.UNIQUE_IDENTIFICATION' => !empty($uniqueSalt) ? $uniqueSalt : 'likeadmin_aigc_saas',
+            'PROJECT.DEFAULT_PASSWORD' => '123456',
+            'PROJECT.HTTP_HOST' => $projectHost,
+            'PROJECT.DEMO_ENV' => 'false',
+        ];
+
         $applyDbEnv = [
-            'HTTP_HOST' => $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? ''),
             'DATABASE.HOSTNAME' => $databaseEnv['host'],
             'DATABASE.DATABASE' => $databaseEnv['name'],
             'DATABASE.USERNAME' => $databaseEnv['user'],
             'DATABASE.PASSWORD' => $databaseEnv['password'],
             'DATABASE.HOSTPORT' => $databaseEnv['port'],
             'DATABASE.PREFIX' => $databaseEnv['prefix'],
+            'PROJECT.HTTP_HOST' => $projectHost,
         ];
 
-        $envLine = array_merge($this->data, $applyDbEnv);
+        $envLine = array_merge($defaultEnv, $this->data, $applyDbEnv);
 
         $content = '';
         $lastPrefix = '';
-
-        global $uniqueSalt;
 
         foreach ($envLine as $index => $value) {
 
@@ -139,8 +159,10 @@ class YxEnv
         }
 
         if (!empty($content)) {
-            file_put_contents($envFilePath, $content);
+            return file_put_contents($envFilePath, $content, LOCK_EX) !== false;
         }
+
+        return false;
     }
 
 

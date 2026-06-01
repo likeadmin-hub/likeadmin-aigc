@@ -69,11 +69,12 @@ class UpstreamPricingService
             $rows = [];
         }
         $normalized = [];
-        foreach ($rows as $index => $row) {
+        foreach ($payloadItems as $index => $payloadItem) {
+            $row = $rows[$index] ?? [];
             $item = is_array($row) ? $row : [];
             $normalized[] = array_merge(self::normalizeItem($item), [
                 'local_key' => (string)($localKeys[$index] ?? ''),
-                'request' => self::withoutLocalMeta($payloadItems[$index] ?? []),
+                'request' => self::withoutLocalMeta($payloadItem),
             ]);
         }
         return [
@@ -92,11 +93,12 @@ class UpstreamPricingService
             if ($appCode === '' || $apiCode === '') {
                 return [];
             }
-            return [
+            $payload = [
                 'type' => 'app_api',
                 'app_code' => $appCode,
                 'api_code' => $apiCode,
             ];
+            return self::appendSpecContext($payload, $item);
         }
 
         $model = trim((string)($item['model'] ?? $item['model_code'] ?? ''));
@@ -110,6 +112,25 @@ class UpstreamPricingService
         $channel = trim((string)($item['channel'] ?? $item['channel_code'] ?? ''));
         if ($channel !== '') {
             $payload['channel'] = $channel;
+        }
+        return self::appendSpecContext($payload, $item);
+    }
+
+    private static function appendSpecContext(array $payload, array $item): array
+    {
+        foreach (['app_code', 'api_code', 'provider', 'local_key', 'quality', 'quality_label', 'ratio', 'size', 'aspect_ratio', 'resolution', 'duration', 'width', 'height'] as $field) {
+            if (array_key_exists($field, $item) && $item[$field] !== '' && $item[$field] !== null) {
+                $payload[$field] = $item[$field];
+            }
+        }
+        if (is_array($item['provider_params'] ?? null)) {
+            $payload['provider_params'] = $item['provider_params'];
+        }
+        if (is_array($item['provider_params_json'] ?? null)) {
+            $payload['provider_params_json'] = $item['provider_params_json'];
+        }
+        if (is_array($item['spec'] ?? null)) {
+            $payload['spec'] = $item['spec'];
         }
         return $payload;
     }

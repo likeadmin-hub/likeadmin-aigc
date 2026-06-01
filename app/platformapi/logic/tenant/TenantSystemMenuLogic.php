@@ -36,11 +36,18 @@ class TenantSystemMenuLogic
         //查询模板菜单配置文件 此处默认为租户号为0的模板数据
         $tenantSystemMenuList = TenantSystemMenu::where(['tenant_id' => 0])->field($field)->order('pid')->select()->toArray();
         //记录对应的关系
+        $tenantSystemMenu = [];
         foreach ($tenantSystemMenuList as $item) {
+            if ($item['pid'] != 0 && !isset($tenantSystemMenu[$item['pid']])) {
+                continue;
+            }
             $tenantSystemMenu[$item['id']] = $item;
         }
         //创建菜单数据
         foreach ($tenantSystemMenuList as $item) {
+            if (!isset($tenantSystemMenu[$item['id']])) {
+                continue;
+            }
             $item['tenant_id'] = $tenant_id;
             //创建新的菜单并保存原本id对应现在的哪个信息
             $oldId = $item['id'];
@@ -52,8 +59,13 @@ class TenantSystemMenuLogic
         $tenantSystemMenuNewList = TenantSystemMenu::where(['tenant_id' => $tenant_id])->field($field)->order('pid')->select()->toArray();
         //更新对应的主菜单关系
         foreach ($tenantSystemMenuNewList as $item) {
-            if ($item['pid'] != 0)
+            if ($item['pid'] != 0) {
+                if (!isset($tenantSystemMenu[$item['pid']])) {
+                    TenantSystemMenu::destroy($item['id']);
+                    continue;
+                }
                 $item['pid'] = $tenantSystemMenu[$item['pid']]['id'];
+            }
             $where = array('id' => intval($item['id']));
             TenantSystemMenu::update($item, $where);
         }

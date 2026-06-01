@@ -24,7 +24,7 @@ class UpdateSourceClient
                 'api_key' => '',
                 'online_base_url' => '',
                 'online_license_key' => '',
-                'dev_mode' => 1,
+                'dev_mode' => 0,
                 'ssl_verify' => 0,
                 'active_base_url' => '',
                 'active_api_key' => '',
@@ -32,10 +32,13 @@ class UpdateSourceClient
             ];
         }
         $data = $source->toArray();
-        $data['dev_mode'] = (int)($data['dev_mode'] ?? 1);
+        $data['dev_mode'] = (int)($data['dev_mode'] ?? 0);
         $data['ssl_verify'] = (int)($data['ssl_verify'] ?? 0);
-        $data['online_base_url'] = (string)($data['online_base_url'] ?? '');
+        $data['base_url'] = self::normalizeBaseUrl((string)($data['base_url'] ?? ''));
+        $data['online_base_url'] = self::normalizeBaseUrl((string)($data['online_base_url'] ?? ''));
         $data['online_license_key'] = (string)($data['online_license_key'] ?? '');
+        $data['online_base_url'] = $data['online_base_url'] ?: $data['base_url'];
+        $data['online_license_key'] = $data['online_license_key'] ?: (string)($data['license_key'] ?? '');
         $data['api_key'] = $data['api_key'] ?? ($data['license_key'] ?? '');
         $data['active_base_url'] = self::activeBaseUrl($data);
         $data['active_api_key'] = self::activeApiKey($data);
@@ -47,18 +50,28 @@ class UpdateSourceClient
         self::ensureSchema();
         $data = [
             'name' => trim((string)($params['name'] ?? '授权系统')),
-            'base_url' => rtrim(trim((string)($params['base_url'] ?? '')), '/'),
+            'base_url' => self::normalizeBaseUrl((string)($params['base_url'] ?? '')),
             'license_key' => trim((string)($params['license_key'] ?? ($params['api_key'] ?? ''))),
-            'online_base_url' => rtrim(trim((string)($params['online_base_url'] ?? '')), '/'),
+            'online_base_url' => self::normalizeBaseUrl((string)($params['online_base_url'] ?? '')),
             'online_license_key' => trim((string)($params['online_license_key'] ?? '')),
-            'dev_mode' => (int)($params['dev_mode'] ?? 1) === 1 ? 1 : 0,
+            'dev_mode' => (int)($params['dev_mode'] ?? 0) === 1 ? 1 : 0,
             'ssl_verify' => (int)($params['ssl_verify'] ?? 0) === 1 ? 1 : 0,
             'public_key' => trim((string)($params['public_key'] ?? '')),
             'status' => (int)($params['status'] ?? 1),
             'update_time' => time(),
         ];
-        if ($data['base_url'] === '') {
+        if ($data['dev_mode'] === 0) {
+            $data['online_base_url'] = $data['online_base_url'] ?: $data['base_url'];
+            $data['online_license_key'] = $data['online_license_key'] ?: $data['license_key'];
+        } else {
+            $data['base_url'] = $data['base_url'] ?: $data['online_base_url'];
+            $data['license_key'] = $data['license_key'] ?: $data['online_license_key'];
+        }
+        if ($data['dev_mode'] === 1 && $data['base_url'] === '') {
             throw new RuntimeException('请填写开发模式接口地址');
+        }
+        if ($data['dev_mode'] === 1 && $data['license_key'] === '') {
+            throw new RuntimeException('请填写开发模式 API Key');
         }
         if ($data['dev_mode'] === 0 && $data['online_base_url'] === '') {
             throw new RuntimeException('关闭开发模式时请填写线上接口地址');
@@ -113,7 +126,7 @@ class UpdateSourceClient
             $contentType = strtolower((string)($response->headers['content-type'] ?? ''));
             $preview = mb_substr(trim(strip_tags((string)$response->body)), 0, 120);
             if (str_contains($contentType, 'text/html') || str_contains((string)$response->body, '<html')) {
-                throw new RuntimeException('更新源响应格式错误：接口渠道返回了 HTML 页面，请确认地址指向服务端 /aigc/v1 接口而不是 PC 前端页面');
+                throw new RuntimeException('更新源响应格式错误：接口渠道返回了 HTML 页面，请确认填写的是服务端接口域名，不是 PC 前端页面域名');
             }
             throw new RuntimeException('更新源响应格式错误' . ($preview !== '' ? '：' . $preview : ''));
         }
@@ -135,15 +148,21 @@ class UpdateSourceClient
 
     private static function activeBaseUrl(array $source): string
     {
-        $devMode = (int)($source['dev_mode'] ?? 1) === 1;
+        $devMode = (int)($source['dev_mode'] ?? 0) === 1;
         $baseUrl = $devMode ? (string)($source['base_url'] ?? '') : (string)($source['online_base_url'] ?? '');
-        return rtrim(trim($baseUrl), '/');
+        if ($baseUrl === '') {
+            $baseUrl = $devMode ? (string)($source['online_base_url'] ?? '') : (string)($source['base_url'] ?? '');
+        }
+        return self::normalizeBaseUrl($baseUrl);
     }
 
     private static function activeApiKey(array $source): string
     {
-        $devMode = (int)($source['dev_mode'] ?? 1) === 1;
+        $devMode = (int)($source['dev_mode'] ?? 0) === 1;
         $key = $devMode ? (string)($source['license_key'] ?? '') : (string)($source['online_license_key'] ?? '');
+        if ($key === '') {
+            $key = $devMode ? (string)($source['online_license_key'] ?? '') : (string)($source['license_key'] ?? '');
+        }
         return trim($key);
     }
 
@@ -155,7 +174,8 @@ class UpdateSourceClient
         }
         $checked = true;
         $table = str_replace('`', '``', (new UpdateSource())->db()->getTable());
-        $fields = array_column(Db::query('SHOW COLUMNS FROM `' . $table . '`'), 'Field');
+        $columns = Db::query('SHOW COLUMNS FROM `' . $table . '`');
+        $fields = array_column($columns, 'Field');
         $sql = [];
         if (!in_array('online_base_url', $fields, true)) {
             $sql[] = "ADD COLUMN `online_base_url` varchar(255) NOT NULL DEFAULT '' COMMENT '线上授权系统接口地址' AFTER `license_key`";
@@ -164,7 +184,14 @@ class UpdateSourceClient
             $sql[] = "ADD COLUMN `online_license_key` varchar(255) NOT NULL DEFAULT '' COMMENT '线上API Key/授权key' AFTER `online_base_url`";
         }
         if (!in_array('dev_mode', $fields, true)) {
-            $sql[] = "ADD COLUMN `dev_mode` tinyint NOT NULL DEFAULT 1 COMMENT '开发模式：1开启 0关闭' AFTER `online_license_key`";
+            $sql[] = "ADD COLUMN `dev_mode` tinyint NOT NULL DEFAULT 0 COMMENT '开发模式：1开启 0关闭' AFTER `online_license_key`";
+        } else {
+            foreach ($columns as $column) {
+                if (($column['Field'] ?? '') === 'dev_mode' && (string)($column['Default'] ?? '') !== '0') {
+                    $sql[] = "MODIFY COLUMN `dev_mode` tinyint NOT NULL DEFAULT 0 COMMENT '开发模式：1开启 0关闭'";
+                    break;
+                }
+            }
         }
         if (!in_array('ssl_verify', $fields, true)) {
             $sql[] = "ADD COLUMN `ssl_verify` tinyint NOT NULL DEFAULT 0 COMMENT 'SSL证书校验：1开启 0关闭' AFTER `dev_mode`";
@@ -174,13 +201,19 @@ class UpdateSourceClient
         }
     }
 
+    private static function normalizeBaseUrl(string $baseUrl): string
+    {
+        $baseUrl = rtrim(trim($baseUrl), '/');
+        if ($baseUrl !== '' && !preg_match('#^[a-z][a-z0-9+.-]*://#i', $baseUrl)) {
+            $baseUrl = 'https://' . $baseUrl;
+        }
+        return (string)preg_replace('#/aigc/v1$#i', '', $baseUrl);
+    }
+
     private static function buildUrl(string $baseUrl, string $path): string
     {
-        $baseUrl = rtrim($baseUrl, '/');
+        $baseUrl = self::normalizeBaseUrl($baseUrl);
         $path = '/' . ltrim($path, '/');
-        if (str_ends_with($baseUrl, '/aigc/v1') && str_starts_with($path, '/aigc/v1/')) {
-            $path = substr($path, strlen('/aigc/v1'));
-        }
         return $baseUrl . $path;
     }
 

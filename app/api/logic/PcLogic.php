@@ -155,6 +155,12 @@ class PcLogic extends BaseLogic
         // 网站信息
         $pcLoginBg = ConfigService::get('website', 'pc_login_bg', ConfigService::get('tenant', 'login_image', ''));
         $pcLoginBgPoster = ConfigService::get('website', 'pc_login_bg_poster', '');
+        $pcHomeBg = ConfigService::get('website', 'pc_home_bg', '');
+        $pcHomeBgPoster = ConfigService::get('website', 'pc_home_bg_poster', '');
+        $pcHomeBgList = self::fileUrlList($pcHomeBg);
+        $pcHomeBgPosterList = self::fileUrlList($pcHomeBgPoster);
+        $pcHomeImmersiveTitle = ConfigService::get('website', 'pc_home_immersive_title', 'OPC社区专属，AI创业平台');
+        $pcHomeImmersiveSubtitle = ConfigService::get('website', 'pc_home_immersive_subtitle', '一个人就是一支团队');
         $website = [
             'shop_name' => ConfigService::get('website', 'shop_name'),
             'shop_logo' => FileService::getFileUrl(ConfigService::get('website', 'shop_logo')),
@@ -168,6 +174,14 @@ class PcLogic extends BaseLogic
             'pc_login_bg_url' => $pcLoginBg ? FileService::getFileUrl($pcLoginBg) : '',
             'pc_login_bg_poster' => $pcLoginBgPoster,
             'pc_login_bg_poster_url' => $pcLoginBgPoster ? FileService::getFileUrl($pcLoginBgPoster) : '',
+            'pc_home_style' => ConfigService::get('website', 'pc_home_style', 'default'),
+            'pc_home_bg_type' => ConfigService::get('website', 'pc_home_bg_type', 'none'),
+            'pc_home_bg' => $pcHomeBgList,
+            'pc_home_bg_url' => $pcHomeBgList,
+            'pc_home_bg_poster' => $pcHomeBgPosterList,
+            'pc_home_bg_poster_url' => $pcHomeBgPosterList,
+            'pc_home_immersive_title' => $pcHomeImmersiveTitle,
+            'pc_home_immersive_subtitle' => $pcHomeImmersiveSubtitle,
             'pc_home_banners' => WebsiteBannerService::lists(true),
         ];
 
@@ -227,6 +241,22 @@ class PcLogic extends BaseLogic
             ->toArray();
 
         return $data;
+    }
+
+    private static function normalizeFileList($value): array
+    {
+        if (is_array($value)) {
+            return array_values(array_filter($value, static fn($item) => is_string($item) && $item !== ''));
+        }
+        if (is_string($value) && $value !== '') {
+            return [$value];
+        }
+        return [];
+    }
+
+    private static function fileUrlList($value): array
+    {
+        return array_map(static fn($item) => FileService::getFileUrl($item), self::normalizeFileList($value));
     }
 
 
