@@ -14,8 +14,9 @@ use think\facade\Route;
 $tenantFrontendRedirect = function (string $frontend, string $childPath = '') {
     $tenantId = request()->param('tenant_id');
     $query = array_merge(request()->get(), ['tenant_id' => $tenantId]);
+    $frontend = trim($frontend, '/');
     $childPath = trim($childPath, '/');
-    $path = '/' . trim($frontend, '/') . '/' . ($childPath !== '' ? $childPath : '');
+    $path = '/' . implode('/', array_filter([$frontend, $childPath], static fn ($item) => $item !== ''));
     return redirect($path . '?' . http_build_query($query));
 };
 
@@ -65,7 +66,14 @@ Route::rule('t/:tenant_id/mobile', function () use ($tenantFrontendRedirect) {
     return $tenantFrontendRedirect('mobile');
 })->pattern(['tenant_id' => '\d+']);
 
-// PC端
+// PC端默认不再带 /pc/ 后缀，保留 /pc/ 旧链接兼容
+Route::rule('t/:tenant_id/:any', function () use ($tenantFrontendRedirect) {
+    return $tenantFrontendRedirect('', (string)request()->param('any', ''));
+})->pattern(['tenant_id' => '\d+', 'any' => '(ai|app|account|user|page|policy)(/.*)?']);
+Route::rule('t/:tenant_id', function () use ($tenantFrontendRedirect) {
+    return $tenantFrontendRedirect('');
+})->pattern(['tenant_id' => '\d+']);
+
 Route::get('pc', function () {
     return view(app()->getRootPath() . 'public/pc/index.html');
 });

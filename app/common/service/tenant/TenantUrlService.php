@@ -33,12 +33,12 @@ class TenantUrlService
             'alias' => $aliasBase ? self::terminalLinks($aliasBase) : null,
             'id_query' => [
                 'admin' => $idBase . '/admin/?tenant_id=' . $id,
-                'pc' => $idBase . '/pc/?tenant_id=' . $id,
+                'pc' => $idBase . '/?tenant_id=' . $id,
                 'mobile' => $idBase . '/mobile/?tenant_id=' . $id,
             ],
             'id_path' => [
                 'admin' => $idBase . '/t/' . $id . '/admin/',
-                'pc' => $idBase . '/t/' . $id . '/pc/',
+                'pc' => $idBase . '/t/' . $id . '/',
                 'mobile' => $idBase . '/t/' . $id . '/mobile/',
             ],
         ];
@@ -116,7 +116,7 @@ class TenantUrlService
     {
         return [
             'admin' => $base . '/admin/',
-            'pc' => $base . '/pc/',
+            'pc' => $base . '/',
             'mobile' => $base . '/mobile/',
         ];
     }

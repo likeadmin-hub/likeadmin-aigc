@@ -34,6 +34,12 @@ class WebSettingValidate extends BaseValidate
         'pc_login_bg_type' => 'in:image,video,none',
         'pc_login_bg' => 'max:500',
         'pc_login_bg_poster' => 'max:500',
+        'pc_home_style' => 'in:default,immersive',
+        'pc_home_bg_type' => 'in:image,video,none',
+        'pc_home_bg' => 'array',
+        'pc_home_bg_poster' => 'array',
+        'pc_home_immersive_title' => 'max:80',
+        'pc_home_immersive_subtitle' => 'max:120',
     ];
 
     protected $message = [
@@ -45,10 +51,14 @@ class WebSettingValidate extends BaseValidate
         'shop_logo.require' => '请上传前台logo',
         'pc_logo.require' => '请上传PC端logo',
         'pc_login_bg_type.in' => '请选择正确的PC登录背景类型',
+        'pc_home_style.in' => '请选择正确的PC首页风格',
+        'pc_home_bg_type.in' => '请选择正确的PC首页背景类型',
+        'pc_home_immersive_title.max' => '首页大标题最长为80个字符',
+        'pc_home_immersive_subtitle.max' => '首页小标题最长为120个字符',
     ];
 
     protected $scene = [
-        'website' => ['name', 'web_favicon', 'web_logo', 'login_image', 'shop_name', 'shop_logo', 'pc_logo', 'pc_login_bg_type', 'pc_login_bg', 'pc_login_bg_poster'],
+        'website' => ['name', 'web_favicon', 'web_logo', 'login_image', 'shop_name', 'shop_logo', 'pc_logo', 'pc_login_bg_type', 'pc_login_bg', 'pc_login_bg_poster', 'pc_home_style', 'pc_home_bg_type', 'pc_home_bg', 'pc_home_bg_poster', 'pc_home_immersive_title', 'pc_home_immersive_subtitle'],
         'siteStatistics' => [''],
     ];
 }
