@@ -146,6 +146,10 @@ class AigcDigitalHumanService
     public static function saveAvatar(int $tenantId, int $userId, array $params): array
     {
         $name = self::normalizeAssetText((string)($params['name'] ?? '我的形象'), '我的形象', 80);
+        $id = (int)($params['id'] ?? 0);
+        if ($id > 0) {
+            return self::updateUserAvatar($tenantId, $userId, $id, $params, $name);
+        }
         $mediaUri = self::normalizeAssetUri((string)($params['media_uri'] ?? $params['cover_uri'] ?? ''));
         $coverUri = self::normalizeAssetUri((string)($params['cover_uri'] ?? ''));
         if ($coverUri !== '' && self::isVideoUri($coverUri)) {
@@ -205,6 +209,10 @@ class AigcDigitalHumanService
     public static function saveVoice(int $tenantId, int $userId, array $params): array
     {
         $name = self::normalizeAssetText((string)($params['name'] ?? '我的声音'), '我的声音', 80);
+        $id = (int)($params['id'] ?? 0);
+        if ($id > 0) {
+            return self::updateUserVoice($tenantId, $userId, $id, $params, $name);
+        }
         $audioUri = self::normalizeAssetUri((string)($params['audio_uri'] ?? ''));
         $providerAssetId = trim((string)($params['provider_asset_id'] ?? ''));
         if ($audioUri === '' && $providerAssetId === '') {
@@ -268,6 +276,66 @@ class AigcDigitalHumanService
         }
 
         return self::formatVoice($rowData);
+    }
+
+    private static function updateUserAvatar(int $tenantId, int $userId, int $id, array $params, string $name): array
+    {
+        $row = AigcDigitalHumanAvatar::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'id' => $id,
+            'source' => 'mine',
+        ])->where('delete_time', 0)->findOrEmpty();
+        if ($row->isEmpty()) {
+            throw new Exception('形象不存在');
+        }
+        $data = [
+            'name' => $name,
+            'scene' => self::normalizeAssetText((string)($params['scene'] ?? $row['scene'] ?? ''), '', 50),
+            'update_time' => time(),
+        ];
+        if (array_key_exists('gender', $params)) {
+            $data['gender'] = self::normalizeAssetText((string)$params['gender'], '', 20);
+        }
+        if (array_key_exists('cover_uri', $params)) {
+            $coverUri = self::normalizeAssetUri((string)$params['cover_uri']);
+            if ($coverUri !== '' && !preg_match('/^(blob:|data:)/i', $coverUri)) {
+                $data['cover_uri'] = $coverUri;
+            }
+        }
+        $row->save($data);
+        return self::formatAvatar($row->toArray());
+    }
+
+    private static function updateUserVoice(int $tenantId, int $userId, int $id, array $params, string $name): array
+    {
+        $row = AigcDigitalHumanVoice::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'id' => $id,
+            'source' => 'mine',
+        ])->where('delete_time', 0)->findOrEmpty();
+        if ($row->isEmpty()) {
+            throw new Exception('音色不存在');
+        }
+        $data = [
+            'name' => $name,
+            'update_time' => time(),
+        ];
+        if (array_key_exists('gender', $params)) {
+            $data['gender'] = self::normalizeAssetText((string)$params['gender'], '', 20);
+        }
+        if (array_key_exists('age_group', $params)) {
+            $data['age_group'] = self::normalizeAssetText((string)$params['age_group'], '', 20);
+        }
+        if (array_key_exists('cover_uri', $params)) {
+            $coverUri = self::normalizeAssetUri((string)$params['cover_uri']);
+            if ($coverUri !== '' && !preg_match('/^(blob:|data:)/i', $coverUri)) {
+                $data['cover_uri'] = $coverUri;
+            }
+        }
+        $row->save($data);
+        return self::formatVoice($row->toArray());
     }
 
     private static function findRecentDuplicateVoice(int $tenantId, int $userId, string $audioUri, string $providerAssetId): ?AigcDigitalHumanVoice

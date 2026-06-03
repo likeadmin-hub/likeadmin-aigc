@@ -380,6 +380,7 @@ const collapseIfEmpty = () => {
 const setGenerationMode = (mode: AiGenerationMode) => {
     modeValue.value = mode
     openedOption.value = ''
+    void focusTextarea()
 }
 
 const toggleOption = (key: OptionKey) => {
@@ -394,6 +395,7 @@ const setOption = (key: OptionKey, value: string) => {
     emit('update:optionState', nextState)
     emit('update:option-state', nextState)
     openedOption.value = ''
+    void focusTextarea()
 }
 
 const getClipboardImageFiles = (event: ClipboardEvent) => {
@@ -1439,4 +1441,3 @@ defineExpose({
     }
 }
 </style>
-

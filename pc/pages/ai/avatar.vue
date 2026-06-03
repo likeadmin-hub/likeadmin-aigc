@@ -54,7 +54,6 @@
                 <section class="tools-section tools-section--all">
                     <div class="tools-section__heading tools-section__heading--row">
                         <div class="tools-section__heading-main">
-                            <h2>{{ texts.allTools }}</h2>
                             <div class="tools-categories">
                                 <button
                                     v-for="item in toolCategoryOptions"
@@ -492,7 +491,7 @@
                     </div>
 
                     <template v-if="activeContentPanel === 'avatar'">
-                        <div class="avatar-gallery-scroll">
+                        <div ref="avatarGalleryScrollRef" class="avatar-gallery-scroll">
                             <div class="avatar-gallery">
                                 <article
                                     v-if="showMineCreateCard"
@@ -1610,6 +1609,7 @@ const voiceCreateAudioInputRef = ref<HTMLInputElement | null>(null)
 const voicePreviewRef = ref<HTMLAudioElement | null>(null)
 const avatarModalVideoRef = ref<HTMLVideoElement | null>(null)
 const avatarMainRef = ref<HTMLElement | null>(null)
+const avatarGalleryScrollRef = ref<HTMLElement | null>(null)
 const scriptTextareaRef = ref<HTMLTextAreaElement | null>(null)
 const activeSidebar = ref<SidebarKey>('avatar')
 const activeHumanMode = ref<HumanMode>(route.query.tab === 'image_human' ? 'image_human' : 'lip_sync')
@@ -1760,7 +1760,7 @@ const avatarCreateRequirements = [
 ]
 const libraryTabs = [
     { key: 'mine' as const, label: '\u6211\u7684\u5f62\u8c61' },
-    { key: 'official' as const, label: '\u5b98\u65b9\u5f62\u8c61' }
+    { key: 'official' as const, label: '\u516c\u5171\u5f62\u8c61' }
 ]
 const voiceTabs = [
     { key: 'mine' as const, label: texts.myVoice },
@@ -3049,6 +3049,7 @@ const chromePopoverContent = computed(() => ({
 }))
 
 watch(activeLibraryTab, () => {
+    avatarGalleryScrollRef.value?.scrollTo({ top: 0, behavior: 'smooth' })
     if (!selectedAvatar.value) return
     const currentPool = displayedAvatars.value
     const exists = currentPool.some((item) => item.id === selectedAvatar.value?.id)
@@ -4125,7 +4126,6 @@ const openVoiceCreateEntry = () => {
 
 const openVoiceEditModal = (item: VoiceItem) => {
     closeVoiceCardMenu()
-    if (activeHumanMode.value === 'image_human') return
 
     stopVoicePreview()
     stopVoiceCreatePreview()
@@ -5166,6 +5166,7 @@ const saveAvatarCreateModal = async () => {
 
         const row = activeHumanMode.value === 'image_human'
             ? await saveImageHumanAvatar({
+                id: avatarEditingId.value || undefined,
                 name: safeAssetName(avatarCreateName.value || getFileBaseName(pending.fileName), '\u6211\u7684\u56fe\u7247\u5f62\u8c61'),
                 cover_uri: coverUri || mediaUri,
                 image_uri: mediaUri,
@@ -5173,6 +5174,7 @@ const saveAvatarCreateModal = async () => {
                 scene: avatarCreateScene.value
             })
             : await saveAigcDigitalHumanAvatar({
+                id: avatarEditingId.value || undefined,
                 name: safeAssetName(avatarCreateName.value || getFileBaseName(pending.fileName), '\u6211\u7684\u5f62\u8c61'),
                 cover_uri: coverUri,
                 media_uri: mediaUri,
@@ -7081,6 +7083,10 @@ onBeforeUnmount(() => {
     scrollbar-color: #242424 transparent;
 }
 
+.avatar-main--tools {
+    padding-top: 0;
+}
+
 .avatar-main--assets {
     display: flex;
     flex-direction: column;
@@ -7117,7 +7123,7 @@ onBeforeUnmount(() => {
     gap: 28px;
     width: 100%;
     min-height: 100%;
-    padding-top: 40px;
+    padding-top: 0;
     box-sizing: border-box;
 }
 
@@ -7216,20 +7222,42 @@ onBeforeUnmount(() => {
 
 .tools-section__heading--row {
     flex-direction: row;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
     gap: 16px;
+}
+
+.tools-section--all .tools-section__heading--row {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    height: 72px;
+    min-height: 72px;
+    padding: 0;
+    background: #050505;
+    box-sizing: border-box;
+    flex-shrink: 0;
 }
 
 .tools-section__heading-main {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    justify-content: center;
     min-width: 0;
+    height: 100%;
     flex: 1;
 }
 
 .tools-section__heading h2 {
+    margin: 0;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0;
+}
+
+.tools-section__title {
     margin: 0;
     color: #fff;
     font-size: 18px;
@@ -7339,6 +7367,7 @@ onBeforeUnmount(() => {
 .tools-categories {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: var(--category-chip-gap);
     width: 100%;
 }
@@ -8377,6 +8406,8 @@ onBeforeUnmount(() => {
     flex-direction: column;
     min-width: 0;
     min-height: 0;
+    height: 100%;
+    max-height: 100%;
     overflow: hidden;
 }
 
@@ -8455,8 +8486,10 @@ onBeforeUnmount(() => {
 }
 
 .avatar-gallery-scroll {
-    flex: 1;
+    flex: 1 1 auto;
+    height: 100%;
     min-height: 0;
+    max-height: 100%;
     margin-top: 8px;
     padding: 0 6px 0 0;
     overflow-y: auto;
@@ -9329,6 +9362,10 @@ onBeforeUnmount(() => {
         overflow-y: auto;
     }
 
+    .avatar-main--tools {
+        padding: 0 16px 32px 96px;
+    }
+
     .tools-shell {
         min-height: auto;
         gap: 24px;
@@ -9343,12 +9380,21 @@ onBeforeUnmount(() => {
         align-items: stretch;
     }
 
+    .tools-section--all .tools-section__heading--row {
+        flex-direction: row;
+        align-items: center;
+    }
+
     .tools-section__heading-main {
         width: 100%;
     }
 
     .tools-search--inline {
         width: 100%;
+    }
+
+    .tools-section--all .tools-search--inline {
+        width: min(100%, 320px);
     }
 
     .tools-featured-grid {
@@ -9370,14 +9416,16 @@ onBeforeUnmount(() => {
     }
 
     .avatar-content {
-        min-height: auto;
-        overflow: visible;
+        min-height: 0;
+        max-height: calc(100vh - 210px - 32px);
+        overflow: hidden;
     }
 
     .avatar-gallery-scroll {
-        min-height: auto;
+        min-height: 320px;
         padding-right: 0;
-        overflow: visible;
+        overflow-y: auto;
+        overflow-x: hidden;
     }
 
     .voice-library-scroll {
@@ -9599,6 +9647,10 @@ onBeforeUnmount(() => {
     .avatar-main--tools,
     .avatar-main--assets {
         padding-top: 232px;
+    }
+
+    .avatar-main--tools {
+        padding: 0 16px 32px 96px;
     }
 }
 </style>
