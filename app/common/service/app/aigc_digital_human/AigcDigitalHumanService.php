@@ -28,8 +28,11 @@ class AigcDigitalHumanService
     public const LLM_APP_CODE = 'aigc_llm';
     private const VOICE_PREVIEW_TEXT = '欢迎使用 A. PART 声音实验室，这是一段数字人音色试听。';
     private const SCRIPT_MAX_LENGTH = 200;
-    private const DUPLICATE_WINDOW_SECONDS = 6;
+    private const DUPLICATE_WINDOW_SECONDS = 60;
     private const VOICE_CLONE_MAX_DURATION = 10;
+    private const PROVIDER_SUBMIT_STALE_SECONDS = 300;
+    private const VOICE_CLONE_DUPLICATE_SECONDS = 600;
+    private const VOICE_CLONE_SUBMIT_STALE_SECONDS = 300;
 
     public static function config(int $tenantId): array
     {
@@ -209,12 +212,18 @@ class AigcDigitalHumanService
         }
         $duration = self::validateVoiceCloneDuration($audioUri, $params, $tenantId);
         $estimate = AigcDigitalHumanPricingService::estimateClone($tenantId, AigcDigitalHumanPricingService::TYPE_VOICE_CLONE);
-        PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
         $coverUri = self::normalizeAssetUri((string)($params['cover_uri'] ?? ''));
         $storage = StorageConfigService::getEffectiveConfig($tenantId);
         $status = $providerAssetId !== '' ? 'ready' : 'running';
         Db::startTrans();
         try {
+            self::lockSubmitOwner($userId);
+            $duplicateVoice = self::findRecentDuplicateVoice($tenantId, $userId, $audioUri, $providerAssetId);
+            if ($duplicateVoice) {
+                Db::commit();
+                return self::formatVoice($duplicateVoice->toArray());
+            }
+            PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
             $row = AigcDigitalHumanVoice::create([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
@@ -259,6 +268,33 @@ class AigcDigitalHumanService
         }
 
         return self::formatVoice($rowData);
+    }
+
+    private static function findRecentDuplicateVoice(int $tenantId, int $userId, string $audioUri, string $providerAssetId): ?AigcDigitalHumanVoice
+    {
+        if ($audioUri === '' && $providerAssetId === '') {
+            return null;
+        }
+        $query = AigcDigitalHumanVoice::where('tenant_id', $tenantId)
+            ->where('user_id', $userId)
+            ->where('source', 'mine')
+            ->where('delete_time', 0)
+            ->whereIn('status', ['ready', 'running', 'submitting'])
+            ->order('id', 'desc')
+            ->limit(5);
+        if ($providerAssetId !== '') {
+            $query->where('provider_asset_id', $providerAssetId);
+        } else {
+            $query->where('audio_uri', $audioUri)
+                ->where('create_time', '>=', time() - self::VOICE_CLONE_DUPLICATE_SECONDS);
+        }
+        $rows = $query->select();
+        foreach ($rows as $row) {
+            if ($providerAssetId !== '' || (string)$row['audio_uri'] === $audioUri) {
+                return $row;
+            }
+        }
+        return null;
     }
 
     public static function processPendingCloneAssets(int $tenantId, int $userId = 0): void
@@ -1387,7 +1423,7 @@ class AigcDigitalHumanService
     {
         $query = AigcDigitalHumanVoice::where('tenant_id', $tenantId)
             ->where('source', 'mine')
-            ->where('status', 'running')
+            ->whereIn('status', ['running', 'submitting'])
             ->where('delete_time', 0);
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -1397,6 +1433,34 @@ class AigcDigitalHumanService
             if ((string)$voice['provider_asset_id'] !== '') {
                 $voice->save(['status' => 'ready', 'update_time' => time()]);
                 continue;
+            }
+            if ((string)$voice['status'] === 'submitting') {
+                if ((int)$voice['update_time'] >= time() - self::VOICE_CLONE_SUBMIT_STALE_SECONDS) {
+                    continue;
+                }
+                self::refundCloneBilling((int)$voice['tenant_id'], (int)$voice['user_id'], AigcDigitalHumanPricingService::TYPE_VOICE_CLONE, 0, (int)$voice['id'], '音色克隆提交结果未确认');
+                $voice->save([
+                    'status' => 'failed',
+                    'update_time' => time(),
+                ]);
+                continue;
+            }
+            $affected = AigcDigitalHumanVoice::where('tenant_id', (int)$voice['tenant_id'])
+                ->where('id', (int)$voice['id'])
+                ->where('status', 'running')
+                ->where('provider_asset_id', '')
+                ->update([
+                    'status' => 'submitting',
+                    'update_time' => time(),
+                ]);
+            if ((int)$affected <= 0) {
+                continue;
+            }
+            $claimedVoice = AigcDigitalHumanVoice::where('tenant_id', (int)$voice['tenant_id'])
+                ->where('id', (int)$voice['id'])
+                ->findOrEmpty();
+            if (!$claimedVoice->isEmpty()) {
+                $voice = $claimedVoice;
             }
             try {
                 $providerAssetId = (new XhadminAigcDigitalHumanProvider())->cloneVoice([
@@ -1440,14 +1504,11 @@ class AigcDigitalHumanService
         }
         $stage = (string)($task['provider_stage'] ?? '');
         if (in_array($stage, ['tts_submitting', 'lipsync_submitting'], true)) {
-            if ((int)$task['update_time'] >= time() - 120) {
+            if ((int)$task['update_time'] >= time() - self::PROVIDER_SUBMIT_STALE_SECONDS) {
                 return;
             }
-            $stage = $stage === 'tts_submitting' ? 'created' : 'lipsync_submitted';
-            $task->save([
-                'provider_stage' => $stage,
-                'update_time' => time(),
-            ]);
+            self::failStaleProviderSubmit($task, $stage);
+            return;
         }
         if ($stage === '' || $stage === 'created' || $stage === 'tts_submitted') {
             $claimed = self::claimTaskStage($task, $stage === 'tts_submitted' ? ['tts_submitted'] : ['', 'created'], 'tts_submitting');
@@ -1672,6 +1733,13 @@ class AigcDigitalHumanService
             'finish_time' => time(),
             'update_time' => time(),
         ]);
+    }
+
+    private static function failStaleProviderSubmit(AigcDigitalHumanTask $task, string $stage): void
+    {
+        $failedStage = $stage === 'tts_submitting' ? 'tts_failed' : 'lipsync_failed';
+        $prefix = $stage === 'tts_submitting' ? '音频合成失败：' : '视频合成失败：';
+        self::failTask($task, $failedStage, $prefix . '上游提交结果未确认，系统已停止自动重试以避免重复扣费，请重新提交任务。如上游已产生扣费请联系平台核对。');
     }
 
     private static function refundTaskBillings(AigcDigitalHumanTask $task, string $reason = ''): string
@@ -2651,6 +2719,9 @@ class AigcDigitalHumanService
     private static function formatVoice(array $row): array
     {
         $tenantId = (int)($row['tenant_id'] ?? 0);
+        if ((string)($row['status'] ?? '') === 'submitting') {
+            $row['status'] = 'running';
+        }
         $row['cover_url'] = self::fileUrlForTenant((string)($row['cover_uri'] ?? ''), $tenantId, $row);
         $row['audio_url'] = self::fileUrlForTenant((string)($row['audio_uri'] ?? ''), $tenantId, $row);
         $row['preview_audio_url'] = self::voicePreviewAudioUrl((string)($row['preview_audio_uri'] ?? ''), $tenantId, $row);

@@ -24,7 +24,8 @@ class ImageHumanService
 {
     public const APP_CODE = 'image_human';
     private const PROMPT_MAX_LENGTH = 200;
-    private const DUPLICATE_WINDOW_SECONDS = 6;
+    private const DUPLICATE_WINDOW_SECONDS = 60;
+    private const PROVIDER_SUBMIT_STALE_SECONDS = 300;
 
     public static function config(int $tenantId): array
     {
@@ -1178,14 +1179,11 @@ class ImageHumanService
                 : (((string)$task['audio_uri'] !== '' && ((int)($task['voice_id'] ?? 0) <= 0 || trim((string)($task['script_text'] ?? '')) === '')) ? 'video_submitted' : 'created');
         }
         if (in_array($stage, ['tts_submitting', 'video_submitting'], true)) {
-            if ((int)$task['update_time'] >= time() - 120) {
+            if ((int)$task['update_time'] >= time() - self::PROVIDER_SUBMIT_STALE_SECONDS) {
                 return;
             }
-            $stage = $stage === 'tts_submitting' ? 'created' : 'video_submitted';
-            $task->save([
-                'provider_stage' => $stage,
-                'update_time' => time(),
-            ]);
+            self::failStaleProviderSubmit($task, $stage);
+            return;
         }
         if ($stage === 'created' || $stage === 'tts_submitted') {
             $claimed = self::claimTaskStage($task, $stage === 'created' ? ['created', ''] : [$stage], 'tts_submitting');
@@ -1477,6 +1475,13 @@ class ImageHumanService
             'finish_time' => time(),
             'update_time' => time(),
         ]);
+    }
+
+    private static function failStaleProviderSubmit(ImageHumanTask $task, string $stage): void
+    {
+        $failedStage = $stage === 'tts_submitting' ? 'tts_failed' : 'video_failed';
+        $prefix = $stage === 'tts_submitting' ? '音频合成失败：' : '视频合成失败：';
+        self::failTask($task, $failedStage, $prefix . '上游提交结果未确认，系统已停止自动重试以避免重复扣费，请重新提交任务。如上游已产生扣费请联系平台核对。');
     }
 
     private static function refundTaskBillings(ImageHumanTask $task, string $reason = ''): string
