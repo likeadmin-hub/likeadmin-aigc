@@ -182,7 +182,7 @@ class PcLogic extends BaseLogic
             'pc_home_bg_poster_url' => $pcHomeBgPosterList,
             'pc_home_immersive_title' => $pcHomeImmersiveTitle,
             'pc_home_immersive_subtitle' => $pcHomeImmersiveSubtitle,
-            'pc_home_banners' => WebsiteBannerService::lists(true),
+            'pc_home_banners' => self::pcHomeBanners(),
         ];
 
         // 站点统计
@@ -257,6 +257,14 @@ class PcLogic extends BaseLogic
     private static function fileUrlList($value): array
     {
         return array_map(static fn($item) => FileService::getFileUrl($item), self::normalizeFileList($value));
+    }
+
+    private static function pcHomeBanners(): array
+    {
+        if (!class_exists(WebsiteBannerService::class)) {
+            return [];
+        }
+        return WebsiteBannerService::lists(true);
     }
 
 
