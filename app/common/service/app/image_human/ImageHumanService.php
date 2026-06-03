@@ -257,6 +257,10 @@ class ImageHumanService
     public static function saveAvatar(int $tenantId, int $userId, array $params): array
     {
         $name = self::normalizeAssetText((string)($params['name'] ?? '我的图片形象'), '我的图片形象', 80);
+        $id = (int)($params['id'] ?? 0);
+        if ($id > 0) {
+            return self::updateUserAvatar($tenantId, $userId, $id, $params, $name);
+        }
         $imageUri = self::normalizeAssetUri((string)($params['image_uri'] ?? $params['media_uri'] ?? $params['cover_uri'] ?? ''));
         $coverUri = self::normalizeAssetUri((string)($params['cover_uri'] ?? $imageUri));
         self::assertPersistedAssetUri($imageUri, '人物图片');
@@ -289,6 +293,35 @@ class ImageHumanService
             'update_time' => time(),
             'delete_time' => 0,
         ]);
+        return self::formatAvatar($row->toArray());
+    }
+
+    private static function updateUserAvatar(int $tenantId, int $userId, int $id, array $params, string $name): array
+    {
+        $row = ImageHumanAvatar::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'id' => $id,
+            'source' => 'mine',
+        ])->where('delete_time', 0)->findOrEmpty();
+        if ($row->isEmpty()) {
+            throw new Exception('形象不存在');
+        }
+        $data = [
+            'name' => $name,
+            'scene' => self::normalizeAssetText((string)($params['scene'] ?? $row['scene'] ?? ''), '', 50),
+            'update_time' => time(),
+        ];
+        if (array_key_exists('gender', $params)) {
+            $data['gender'] = self::normalizeAssetText((string)$params['gender'], '', 20);
+        }
+        if (array_key_exists('cover_uri', $params)) {
+            $coverUri = self::normalizeAssetUri((string)$params['cover_uri']);
+            if ($coverUri !== '' && !preg_match('/^(blob:|data:)/i', $coverUri)) {
+                $data['cover_uri'] = $coverUri;
+            }
+        }
+        $row->save($data);
         return self::formatAvatar($row->toArray());
     }
 
