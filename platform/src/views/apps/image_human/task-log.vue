@@ -133,9 +133,12 @@ const openDetail = async (id: number) => {
     detailVisible.value = true
 }
 
-const formatTime = (time: number) => {
+const formatTime = (time: number | string) => {
     if (!time) return '-'
-    return new Date(time * 1000).toLocaleString()
+    if (typeof time === 'string' && /[-/]/.test(time)) return time
+    const timestamp = Number(time)
+    if (!Number.isFinite(timestamp) || timestamp <= 0) return '-'
+    return new Date(timestamp * 1000).toLocaleString()
 }
 
 const modeText = (mode: string) => {
@@ -148,6 +151,8 @@ const modeText = (mode: string) => {
 
 const payloadStageText = (stage: string) => {
     const map: Record<string, string> = {
+        tts_submit: '音频提交',
+        tts_result: '音频查询',
         submit: '提交',
         query: '查询'
     }

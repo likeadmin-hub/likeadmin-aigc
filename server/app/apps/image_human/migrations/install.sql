@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS `la_image_human_billing` (
   `create_time` int unsigned NOT NULL DEFAULT 0,
   `update_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  KEY `idx_tenant_task` (`tenant_id`,`task_id`),
+  UNIQUE KEY `uk_tenant_task` (`tenant_id`,`task_id`),
   KEY `idx_user` (`tenant_id`,`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='全驱动数字人计费记录';
 

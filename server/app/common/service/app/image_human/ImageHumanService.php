@@ -594,6 +594,15 @@ class ImageHumanService
         $taskId = (int)($params['task_id'] ?? $params['id'] ?? 0);
         $status = trim((string)($params['status'] ?? ''));
         $providerTaskId = trim((string)($params['provider_task_id'] ?? ''));
+        if ($tenantId > 0 || $taskId > 0) {
+            $refreshTenantId = $tenantId;
+            if ($refreshTenantId <= 0 && $taskId > 0) {
+                $refreshTenantId = (int)ImageHumanTask::where(['id' => $taskId])->where('delete_time', 0)->value('tenant_id');
+            }
+            if ($refreshTenantId > 0) {
+                self::refreshRunningTasks($refreshTenantId, $userId, $taskId);
+            }
+        }
         if ($tenantId > 0) {
             $query->where('tenant_id', $tenantId);
         }
@@ -627,6 +636,9 @@ class ImageHumanService
             throw new Exception('任务不存在');
         }
         $data = $task->toArray();
+        self::refreshRunningTasks((int)$data['tenant_id'], (int)$data['user_id'], (int)$data['id']);
+        $task = ImageHumanTask::where('id', $taskId)->where('delete_time', 0)->findOrEmpty();
+        $data = $task->isEmpty() ? $data : $task->toArray();
         $rows = self::attachResults((int)$data['tenant_id'], [$data]);
         $data = $rows[0] ?? $data;
         $data['provider_payload_summary'] = self::providerPayloadSummary($data['provider_payload_json'] ?? []);
@@ -713,16 +725,20 @@ class ImageHumanService
         $tasks = $query->order('id', 'desc')->limit(10)->select();
         foreach ($tasks as $task) {
             if ((string)$task['status'] === 'failed') {
-                if (!self::canRecoverFailedTask($task)) {
+                $recovered = self::recoverSubmittedTaskFromPayload($task);
+                if ($recovered) {
+                    $task = $recovered;
+                } elseif (!self::canRecoverFailedTask($task)) {
                     continue;
+                } else {
+                    $task->status = 'running';
+                    $task->provider_stage = 'video_running';
+                    $task->progress = min(95, max(60, (int)$task['progress']));
+                    $task->error = '';
+                    $task->finish_time = 0;
+                    $task->update_time = time();
+                    $task->save();
                 }
-                $task->status = 'running';
-                $task->provider_stage = 'video_running';
-                $task->progress = min(95, max(60, (int)$task['progress']));
-                $task->error = '';
-                $task->finish_time = 0;
-                $task->update_time = time();
-                $task->save();
             }
             $config = self::effectiveConfig((int)$task['tenant_id']);
             $voice = (int)($task['voice_id'] ?? 0) > 0 ? self::findVoice((int)$task['tenant_id'], (int)$task['user_id'], (int)$task['voice_id'], false) : [];
@@ -799,30 +815,37 @@ class ImageHumanService
                 'create_time' => time(),
             ]);
             $sourceSn = self::APP_CODE . '-' . (string)$locked['id'] . '-1';
-            PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$locked['tenant_cost_points'], (float)$locked['user_charge_points'], $sourceSn, '全驱数字人消费', [
-                'app_code' => self::APP_CODE,
-                'task_id' => (int)$locked['id'],
-                'result_id' => (int)$row['id'],
-                'mode' => (string)$locked['mode'],
-                'duration' => (float)$locked['duration'],
-            ]);
-            ImageHumanBilling::create([
+            $existingBilling = ImageHumanBilling::where([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
                 'task_id' => (int)$locked['id'],
-                'result_id' => (int)$row['id'],
-                'mode' => (string)$locked['mode'],
-                'duration' => (float)$locked['duration'],
-                'platform_unit_cost' => self::modePricing(self::pricing($tenantId), (string)$locked['mode'])['platform_unit_cost'],
-                'tenant_unit_price' => self::modePricing(self::pricing($tenantId), (string)$locked['mode'])['tenant_unit_price'],
-                'tenant_cost_points' => $locked['tenant_cost_points'],
-                'user_charge_points' => $locked['user_charge_points'],
-                'billing_status' => 'deducted',
-                'tenant_point_sn' => $sourceSn,
-                'user_point_sn' => $sourceSn,
-                'create_time' => time(),
-                'update_time' => time(),
-            ]);
+            ])->lock(true)->findOrEmpty();
+            if ($existingBilling->isEmpty()) {
+                PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$locked['tenant_cost_points'], (float)$locked['user_charge_points'], $sourceSn, '全驱数字人消费', [
+                    'app_code' => self::APP_CODE,
+                    'task_id' => (int)$locked['id'],
+                    'result_id' => (int)$row['id'],
+                    'mode' => (string)$locked['mode'],
+                    'duration' => (float)$locked['duration'],
+                ]);
+                ImageHumanBilling::create([
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'task_id' => (int)$locked['id'],
+                    'result_id' => (int)$row['id'],
+                    'mode' => (string)$locked['mode'],
+                    'duration' => (float)$locked['duration'],
+                    'platform_unit_cost' => self::modePricing(self::pricing($tenantId), (string)$locked['mode'])['platform_unit_cost'],
+                    'tenant_unit_price' => self::modePricing(self::pricing($tenantId), (string)$locked['mode'])['tenant_unit_price'],
+                    'tenant_cost_points' => $locked['tenant_cost_points'],
+                    'user_charge_points' => $locked['user_charge_points'],
+                    'billing_status' => 'deducted',
+                    'tenant_point_sn' => $sourceSn,
+                    'user_point_sn' => $sourceSn,
+                    'create_time' => time(),
+                    'update_time' => time(),
+                ]);
+            }
             ImageHumanTask::where(['tenant_id' => $tenantId, 'id' => (int)$locked['id']])->update([
                 'status' => 'success',
                 'provider_stage' => 'success',
@@ -1215,6 +1238,11 @@ class ImageHumanService
             if ((int)$task['update_time'] >= time() - self::PROVIDER_SUBMIT_STALE_SECONDS) {
                 return;
             }
+            $recovered = self::recoverSubmittedTaskFromPayload($task);
+            if ($recovered) {
+                self::advanceRunningTask($recovered, $config, $voice);
+                return;
+            }
             self::failStaleProviderSubmit($task, $stage);
             return;
         }
@@ -1515,6 +1543,81 @@ class ImageHumanService
         $failedStage = $stage === 'tts_submitting' ? 'tts_failed' : 'video_failed';
         $prefix = $stage === 'tts_submitting' ? '音频合成失败：' : '视频合成失败：';
         self::failTask($task, $failedStage, $prefix . '上游提交结果未确认，系统已停止自动重试以避免重复扣费，请重新提交任务。如上游已产生扣费请联系平台核对。');
+    }
+
+    private static function recoverSubmittedTaskFromPayload(ImageHumanTask $task): ?ImageHumanTask
+    {
+        $payload = $task['provider_payload_json'] ?? [];
+        if (!is_array($payload)) {
+            return null;
+        }
+        $stage = (string)($task['provider_stage'] ?? '');
+        $data = [];
+        $ttsTaskId = trim((string)($task['tts_task_id'] ?? ''));
+        if (in_array($stage, ['created', 'tts_submitted', 'tts_submitting', 'tts_failed'], true)) {
+            if ($ttsTaskId === '') {
+                $ttsTaskId = self::extractProviderTaskIdFromPayload($payload['tts_submit'] ?? []);
+            }
+            if ($ttsTaskId !== '') {
+                $data = [
+                    'status' => 'running',
+                    'provider_stage' => 'tts_running',
+                    'tts_task_id' => $ttsTaskId,
+                    'progress' => max(15, min(95, (int)$task['progress'])),
+                    'error' => '',
+                    'finish_time' => 0,
+                    'update_time' => time(),
+                ];
+            }
+        }
+        $providerTaskId = trim((string)($task['provider_task_id'] ?? ''));
+        if (empty($data) && $providerTaskId === '' && in_array($stage, ['video_submitted', 'video_submitting', 'video_failed'], true)) {
+            $providerTaskId = self::extractProviderTaskIdFromPayload($payload['submit'] ?? []);
+            if ($providerTaskId !== '') {
+                $data = [
+                    'status' => 'running',
+                    'provider_stage' => 'video_running',
+                    'provider_task_id' => $providerTaskId,
+                    'progress' => max(45, min(95, (int)$task['progress'])),
+                    'error' => '',
+                    'finish_time' => 0,
+                    'update_time' => time(),
+                ];
+            }
+        }
+        if (empty($data)) {
+            return null;
+        }
+        ImageHumanTask::where(['tenant_id' => (int)$task['tenant_id'], 'id' => (int)$task['id']])->update($data);
+        $latest = ImageHumanTask::where(['tenant_id' => (int)$task['tenant_id'], 'id' => (int)$task['id']])->findOrEmpty();
+        return $latest->isEmpty() ? null : $latest;
+    }
+
+    private static function extractProviderTaskIdFromPayload(mixed $payload): string
+    {
+        if (!is_array($payload)) {
+            return '';
+        }
+        foreach ([
+            $payload['task_id'] ?? null,
+            $payload['elastic_task_id'] ?? null,
+            $payload['id'] ?? null,
+            $payload['data']['task_id'] ?? null,
+            $payload['data']['elastic_task_id'] ?? null,
+            $payload['data']['id'] ?? null,
+            $payload['data']['task']['task_id'] ?? null,
+            $payload['data']['task']['elastic_task_id'] ?? null,
+            $payload['data']['task']['id'] ?? null,
+            $payload['data']['result']['task_id'] ?? null,
+            $payload['data']['result']['elastic_task_id'] ?? null,
+            $payload['result']['task_id'] ?? null,
+            $payload['result']['elastic_task_id'] ?? null,
+        ] as $value) {
+            if (is_scalar($value) && trim((string)$value) !== '') {
+                return trim((string)$value);
+            }
+        }
+        return '';
     }
 
     private static function refundTaskBillings(ImageHumanTask $task, string $reason = ''): string
