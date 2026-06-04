@@ -745,12 +745,10 @@ class ImageHumanService
             try {
                 self::advanceRunningTask($task, $config, $voice);
             } catch (\Throwable $e) {
-                $task->status = 'failed';
-                $task->progress = 100;
-                $task->error = $e->getMessage();
-                $task->finish_time = time();
-                $task->update_time = time();
-                $task->save();
+                if (self::keepRunningAfterQueryError($task, $e->getMessage())) {
+                    continue;
+                }
+                self::failTask($task, (string)($task['provider_stage'] ?? 'failed'), $e->getMessage());
             }
         }
     }
@@ -1369,13 +1367,7 @@ class ImageHumanService
                 }
                 if (!$result->success) {
                     $error = $result->error ?: '生成失败';
-                    if (self::isRetryableFailure($error)) {
-                        $task->status = 'running';
-                        $task->provider_stage = 'video_running';
-                        $task->progress = min(95, max(60, (int)$task['progress']));
-                        $task->error = '';
-                        $task->finish_time = 0;
-                        $task->save();
+                    if (self::keepRunningAfterQueryError($task, $error)) {
                         return;
                     }
                     self::failTask($task, 'video_failed', $error);
@@ -1386,6 +1378,9 @@ class ImageHumanService
                     self::finishTaskWithVideos($task, $result->videos);
                 }
             } catch (\Throwable $e) {
+                if (self::keepRunningAfterQueryError($task, $e->getMessage())) {
+                    return;
+                }
                 self::failTask($task, 'video_failed', '视频合成失败：' . self::friendlyStageMessage($e->getMessage()));
             }
         }
@@ -1688,9 +1683,40 @@ class ImageHumanService
             || str_contains($lower, 'timed out')
             || str_contains($lower, 'ssl_error_syscall')
             || str_contains($lower, 'connection')
+            || str_contains($lower, 'curl')
+            || str_contains($lower, 'http 5')
+            || str_contains($lower, '502')
+            || str_contains($lower, '503')
+            || str_contains($lower, '504')
+            || str_contains($lower, 'server error')
             || str_contains($message, '响应超时')
+            || str_contains($message, '响应格式错误')
             || str_contains($message, '网络请求失败')
+            || str_contains($message, '供应商请求失败')
+            || str_contains($message, '请求失败')
+            || str_contains($message, '稍后重试')
             || str_contains($message, '任务失败');
+    }
+
+    private static function keepRunningAfterQueryError(ImageHumanTask $task, string $message): bool
+    {
+        $providerTaskId = trim((string)($task['provider_task_id'] ?? ''));
+        $stage = (string)($task['provider_stage'] ?? '');
+        if ($providerTaskId === '' || !in_array($stage, ['video_running', 'video_failed', 'storing'], true)) {
+            return false;
+        }
+        if (!self::isRetryableFailure($message)) {
+            return false;
+        }
+        $task->save([
+            'status' => 'running',
+            'provider_stage' => 'video_running',
+            'progress' => min(95, max(60, (int)$task['progress'])),
+            'error' => '',
+            'finish_time' => 0,
+            'update_time' => time(),
+        ]);
+        return true;
     }
 
     private static function lastQueryWasPending(mixed $payload): bool
