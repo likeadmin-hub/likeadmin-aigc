@@ -2588,7 +2588,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_image_sensitive_word` (
 
 UPDATE `la_system_menu` SET `pid`=28,`sort`=10 WHERE `id`=4;
 UPDATE `la_system_menu` SET `pid`=28,`sort`=20 WHERE `id`=25;
-UPDATE `la_system_menu` SET `name`='系统应用',`paths`='system-default',`component`='',`icon`='el-icon-Setting',`pid`=9000,`sort`=10,`app_code`='system_default',`source`='core',`source_menu_key`='core_system_default',`is_core`=1 WHERE `id`=158;
+UPDATE `la_system_menu` SET `type`='M',`name`='系统应用',`paths`='system-default',`component`='',`icon`='el-icon-Setting',`pid`=9000,`sort`=10,`app_code`='system_default',`source`='core',`source_menu_key`='core_system_default',`is_core`=1 WHERE `id`=158;
 UPDATE `la_system_menu` SET `pid`=158,`sort`=20 WHERE `id`=63;
 UPDATE `la_system_menu` SET `pid`=158,`sort`=30 WHERE `id`=101;
 UPDATE `la_system_menu` SET `pid`=0,`paths`='aigc-image',`sort`=90 WHERE `app_code`='aigc_image' AND `source_menu_key`='aigc_image_platform';
@@ -2596,7 +2596,7 @@ UPDATE `la_system_menu` SET `pid`=0,`paths`='aigc-image',`sort`=90 WHERE `app_co
 UPDATE `la_tenant_system_menu` SET `pid`=28,`sort`=10 WHERE `tenant_id`=0 AND `id`=4;
 UPDATE `la_tenant_system_menu` SET `pid`=28,`sort`=20 WHERE `tenant_id`=0 AND `id`=25;
 UPDATE `la_tenant_system_menu` SET `pid`=28,`sort`=90 WHERE `tenant_id`=0 AND `id`=148;
-UPDATE `la_tenant_system_menu` SET `name`='系统应用',`paths`='system-default',`component`='',`icon`='el-icon-Setting',`pid`=9000,`sort`=10,`app_code`='system_default',`source`='core',`source_menu_key`='core_tenant_system_default',`is_core`=1 WHERE `tenant_id`=0 AND `id`=158;
+UPDATE `la_tenant_system_menu` SET `type`='M',`name`='系统应用',`paths`='system-default',`component`='',`icon`='el-icon-Setting',`pid`=9000,`sort`=10,`app_code`='system_default',`source`='core',`source_menu_key`='core_tenant_system_default',`is_core`=1 WHERE `tenant_id`=0 AND `id`=158;
 UPDATE `la_tenant_system_menu` SET `is_show`=0 WHERE `source_menu_key`='core_tenant_my_app';
 UPDATE `la_tenant_system_menu` SET `pid`=158,`sort`=10 WHERE `tenant_id`=0 AND `id`=159;
 UPDATE `la_tenant_system_menu` SET `pid`=158,`sort`=20 WHERE `tenant_id`=0 AND `id`=70;

@@ -5,6 +5,7 @@ namespace app\common\service\app;
 use app\common\model\app\App;
 use app\common\model\app\TenantAppConfig;
 use app\common\service\FileService;
+use Throwable;
 
 class AppDisplayConfigService
 {
@@ -60,10 +61,14 @@ class AppDisplayConfigService
     {
         $appCode = self::normalizeAppCode($appCode);
         $default = self::defaultConfig($appCode);
-        $row = TenantAppConfig::where([
-            'tenant_id' => $tenantId,
-            'app_code' => $appCode,
-        ])->findOrEmpty();
+        try {
+            $row = TenantAppConfig::where([
+                'tenant_id' => $tenantId,
+                'app_code' => $appCode,
+            ])->findOrEmpty();
+        } catch (Throwable $e) {
+            return self::withUrls($default);
+        }
 
         if ($row->isEmpty()) {
             return self::withUrls($default);
@@ -153,7 +158,11 @@ class AppDisplayConfigService
 
     private static function defaultConfig(string $appCode): array
     {
-        $app = App::where('code', $appCode)->findOrEmpty();
+        try {
+            $app = App::where('code', $appCode)->findOrEmpty();
+        } catch (Throwable $e) {
+            $app = null;
+        }
         $local = self::DEFAULTS[$appCode] ?? [
             'title' => $appCode,
             'description' => '',
@@ -174,7 +183,7 @@ class AppDisplayConfigService
             'create_time' => 0,
             'update_time' => 0,
         ];
-        if (!$app->isEmpty()) {
+        if ($app !== null && !$app->isEmpty()) {
             $appData = $app->toArray();
             $data['title'] = $data['title'] ?: trim((string)($appData['name'] ?? ''));
             $data['description'] = $data['description'] ?: trim((string)($appData['description'] ?? ''));
