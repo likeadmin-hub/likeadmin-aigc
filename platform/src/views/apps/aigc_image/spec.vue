@@ -54,6 +54,14 @@
                                             controls-position="right"
                                             @change="markDirty(matrixMap[`${quality}|${ratio}`])"
                                         />
+                                        <div
+                                            v-if="matrixMap[`${quality}|${ratio}`].upstream_pricing"
+                                            class="upstream-price"
+                                            :class="{ 'is-error': isUpstreamPriceError(matrixMap[`${quality}|${ratio}`].upstream_pricing) }"
+                                        >
+                                            <span class="upstream-label">上游</span>
+                                            <span class="upstream-value">{{ upstreamPriceText(matrixMap[`${quality}|${ratio}`].upstream_pricing) }}</span>
+                                        </div>
                                         <div class="cell-meta">
                                             <span>{{ matrixMap[`${quality}|${ratio}`].width }}×{{ matrixMap[`${quality}|${ratio}`].height }}</span>
                                             <el-switch
@@ -352,10 +360,21 @@ const queryUpstreamPricing = async () => {
         return
     }
     pricingLoading.value = true
+    rows.forEach((row: any) => {
+        row.upstream_pricing = { loading: true }
+    })
     try {
         const result = await getAigcImageUpstreamPricingBatch({
             items: rows.map((row: any) => ({
                 channel_code: row.channel_code,
+                quality: row.quality,
+                quality_label: row.quality_label,
+                ratio: row.ratio,
+                width: row.width,
+                height: row.height,
+                resolution: row.provider_params_json?.resolution || row.provider_params_json?.size || resolutionLabel(row),
+                provider_params: row.provider_params_json || {},
+                provider_params_json: row.provider_params_json || {},
                 local_key: specKey(row)
             }))
         })
@@ -364,7 +383,17 @@ const queryUpstreamPricing = async () => {
             ...item,
             local: localMap[item.local_key] || {}
         }))
+        pricingRows.value.forEach((item: any) => {
+            if (item.local && Object.keys(item.local).length) {
+                item.local.upstream_pricing = item
+            }
+        })
         pricingVisible.value = true
+    } catch (e: any) {
+        rows.forEach((row: any) => {
+            row.upstream_pricing = { available: false, message: e?.message || '查询失败' }
+        })
+        feedback.msgError(e?.message || '查询失败')
     } finally {
         pricingLoading.value = false
     }
@@ -419,6 +448,35 @@ function resolutionWeight(value: string) {
 
 function toPrice(value: number) {
     return Math.max(0, Number(value.toFixed(2)))
+}
+
+function formatPoint(value: any, precision = 6) {
+    const number = Number(value)
+    if (!Number.isFinite(number)) {
+        return ''
+    }
+    return number.toFixed(precision).replace(/\.?0+$/, '')
+}
+
+function upstreamPriceText(item: any) {
+    if (!item) {
+        return '-'
+    }
+    if (item.loading) {
+        return '查询中'
+    }
+    if (!item.available) {
+        return item.message ? `不可用：${item.message}` : '不可用'
+    }
+    const fixed = Number(item.pricing?.fixed_points ?? item.pricing?.unit_points ?? item.pricing?.points ?? 0)
+    if (fixed > 0) {
+        return `${formatPoint(fixed)} 点 / 次`
+    }
+    return item.price_view?.formula || item.message || '-'
+}
+
+function isUpstreamPriceError(item: any) {
+    return item && !item.loading && !item.available
 }
 
 getLists()
@@ -528,6 +586,30 @@ getLists()
     gap: 8px;
     color: #8c8c8c;
     font-size: 13px;
+}
+
+.upstream-price {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    min-height: 22px;
+    color: #24745c;
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.upstream-price.is-error {
+    color: #d03050;
+}
+
+.upstream-label {
+    flex: none;
+    color: #8c8c8c;
+}
+
+.upstream-value {
+    min-width: 0;
+    word-break: break-all;
 }
 
 .empty-cell {

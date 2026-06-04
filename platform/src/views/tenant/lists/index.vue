@@ -112,7 +112,7 @@
                                         </el-dropdown-item>
                                         <el-dropdown-item>
                                             <a
-                                                :href="replaceStr(row.domain, '/admin/', '/pc/')"
+                                                :href="tenantPcUrl(row)"
                                                 target="_blank"
                                                 >进入前台PC</a
                                             >
@@ -120,7 +120,7 @@
                                         <el-dropdown-item>
                                             <a
                                                 :href="
-                                                    replaceStr(row.domain, '/admin/', '/mobile/')
+                                                    tenantMobileUrl(row)
                                                 "
                                                 target="_blank"
                                                 >进入移动端</a
@@ -175,7 +175,6 @@ import { usePaging } from '@/hooks/usePaging'
 import feedback from '@/utils/feedback'
 import { useComponentRef } from '@/utils/getExposeType'
 import { hasPermission } from '@/utils/perm'
-import { replaceStr } from '@/utils/util'
 
 import Add from './../components/add.vue'
 import Edit from './../components/edit.vue'
@@ -238,6 +237,9 @@ const handleEnterTenant = async (row: any) => {
     })
     window.open(data.url, '_blank')
 }
+
+const tenantPcUrl = (row: any) => row.links?.current?.pc || row.links?.subdomain?.pc || row.domain?.replace('/admin/', '/')
+const tenantMobileUrl = (row: any) => row.links?.current?.mobile || row.links?.subdomain?.mobile || row.domain?.replace('/admin/', '/mobile/')
 
 getLists()
 </script>

@@ -137,6 +137,66 @@
                         <div class="form-tips">视频加载前展示的封面图，可不填</div>
                     </div>
                 </el-form-item>
+                <el-form-item label="PC首页风格" prop="pc_home_style">
+                    <el-radio-group v-model="formData.pc_home_style">
+                        <el-radio value="default">默认风格</el-radio>
+                        <el-radio value="immersive">沉浸式风格</el-radio>
+                    </el-radio-group>
+                </el-form-item>
+                <template v-if="formData.pc_home_style === 'immersive'">
+                    <el-form-item label="首页大标题" prop="pc_home_immersive_title">
+                        <div class="w-80">
+                            <el-input
+                                v-model.trim="formData.pc_home_immersive_title"
+                                placeholder="请输入沉浸式首页大标题"
+                                maxlength="80"
+                                show-word-limit
+                            />
+                        </div>
+                    </el-form-item>
+                    <el-form-item label="首页小标题" prop="pc_home_immersive_subtitle">
+                        <div class="w-80">
+                            <el-input
+                                v-model.trim="formData.pc_home_immersive_subtitle"
+                                placeholder="请输入沉浸式首页小标题"
+                                maxlength="120"
+                                show-word-limit
+                            />
+                        </div>
+                    </el-form-item>
+                    <el-form-item label="首页背景类型" prop="pc_home_bg_type">
+                        <el-radio-group v-model="formData.pc_home_bg_type">
+                            <el-radio value="video">视频</el-radio>
+                            <el-radio value="image">图片</el-radio>
+                            <el-radio value="none">无背景</el-radio>
+                        </el-radio-group>
+                    </el-form-item>
+                    <el-form-item v-if="formData.pc_home_bg_type !== 'none'" label="首页背景" prop="pc_home_bg">
+                        <div>
+                            <material-picker
+                                v-model="formData.pc_home_bg"
+                                :type="formData.pc_home_bg_type"
+                                :limit="8"
+                                width="180px"
+                                height="108px"
+                            />
+                            <div class="form-tips">
+                                最多选择 8 个资源，PC 首页会按顺序轮换；图片建议 1920*1080，视频建议 mp4/webm
+                            </div>
+                        </div>
+                    </el-form-item>
+                    <el-form-item v-if="formData.pc_home_bg_type === 'video'" label="视频封面" prop="pc_home_bg_poster">
+                        <div>
+                            <material-picker
+                                v-model="formData.pc_home_bg_poster"
+                                :limit="8"
+                                width="180px"
+                                height="108px"
+                            />
+                            <div class="form-tips">视频加载前或播放失败时展示的封面图，可按视频顺序选择，可不填</div>
+                        </div>
+                    </el-form-item>
+                </template>
             </el-card>
         </el-form>
         <footer-btns v-perms="['setting.web.web_setting/setWebsite']">
@@ -170,8 +230,19 @@ const formData = reactive({
     pc_keywords: '',
     pc_login_bg_type: 'image',
     pc_login_bg: '',
-    pc_login_bg_poster: ''
+    pc_login_bg_poster: '',
+    pc_home_style: 'default',
+    pc_home_immersive_title: 'OPC社区专属，AI创业平台',
+    pc_home_immersive_subtitle: '一个人就是一支团队',
+    pc_home_bg_type: 'none',
+    pc_home_bg: [] as string[],
+    pc_home_bg_poster: [] as string[]
 })
+
+const normalizeFileList = (value: string | string[] | undefined) => {
+    if (Array.isArray(value)) return value.filter(Boolean)
+    return value ? [value] : []
+}
 
 // 表单验证
 const rules = {
@@ -240,11 +311,23 @@ const getData = async () => {
         //@ts-ignore
         formData[key] = data[key]
     }
+    formData.pc_home_bg = normalizeFileList(data.pc_home_bg || data.pc_home_bg_url)
+    formData.pc_home_bg_poster = normalizeFileList(data.pc_home_bg_poster || data.pc_home_bg_poster_url)
 }
 
 // 设置备案信息
 const handleSubmit = async () => {
     await formRef.value?.validate()
+    if (formData.pc_home_style !== 'immersive') {
+        formData.pc_home_bg_type = 'none'
+        formData.pc_home_bg = []
+        formData.pc_home_bg_poster = []
+    } else if (formData.pc_home_bg_type === 'none') {
+        formData.pc_home_bg = []
+        formData.pc_home_bg_poster = []
+    } else if (formData.pc_home_bg_type !== 'video') {
+        formData.pc_home_bg_poster = []
+    }
     await setWebsite(formData)
     appStore.getConfig()
     getData()

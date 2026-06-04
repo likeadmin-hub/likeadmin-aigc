@@ -61,23 +61,173 @@ CREATE TABLE IF NOT EXISTS `la_aigc_image_billing` (
   KEY `idx_user` (`tenant_id`,`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC生图扣费明细';
 
-ALTER TABLE `la_aigc_image_task`
-  ADD COLUMN `channel` varchar(64) NOT NULL DEFAULT '' COMMENT '通道' AFTER `style`,
-  ADD COLUMN `quality` varchar(30) NOT NULL DEFAULT '' COMMENT '分辨率档位' AFTER `channel`,
-  ADD COLUMN `reference_images` text COMMENT '参考图' AFTER `negative_prompt`,
-  ADD COLUMN `tenant_cost_points` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '租户成本扣点' AFTER `quantity`,
-  ADD COLUMN `user_charge_points` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '用户消费扣点' AFTER `tenant_cost_points`,
-  ADD COLUMN `provider` varchar(50) NOT NULL DEFAULT '' COMMENT '供应商' AFTER `user_charge_points`,
-  ADD COLUMN `model` varchar(100) NOT NULL DEFAULT '' COMMENT '模型' AFTER `provider`,
-  ADD COLUMN `provider_task_id` varchar(120) NOT NULL DEFAULT '' COMMENT '供应商任务ID' AFTER `model`;
+SET @aigc_image_task_exists = (
+  SELECT COUNT(*)
+  FROM INFORMATION_SCHEMA.TABLES
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_task'
+);
 
-ALTER TABLE `la_aigc_image_result`
-  ADD COLUMN `channel` varchar(64) NOT NULL DEFAULT '' COMMENT '通道' AFTER `user_id`,
-  ADD COLUMN `quality` varchar(30) NOT NULL DEFAULT '' COMMENT '分辨率档位' AFTER `channel`,
-  ADD COLUMN `ratio` varchar(30) NOT NULL DEFAULT '' COMMENT '图片比例' AFTER `quality`,
-  ADD COLUMN `tenant_cost_points` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '租户成本扣点' AFTER `height`,
-  ADD COLUMN `user_charge_points` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '用户消费扣点' AFTER `tenant_cost_points`,
-  ADD COLUMN `provider_task_id` varchar(120) NOT NULL DEFAULT '' COMMENT '供应商任务ID' AFTER `user_charge_points`;
+SET @aigc_image_sql = (
+  SELECT IF(@aigc_image_task_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_aigc_image_task` ADD COLUMN `channel` varchar(64) NOT NULL DEFAULT '''' COMMENT ''通道'' AFTER `style`', 'SELECT 1')
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_task'
+    AND COLUMN_NAME = 'channel'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+
+SET @aigc_image_sql = (
+  SELECT IF(@aigc_image_task_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_aigc_image_task` ADD COLUMN `quality` varchar(30) NOT NULL DEFAULT '''' COMMENT ''分辨率档位'' AFTER `channel`', 'SELECT 1')
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_task'
+    AND COLUMN_NAME = 'quality'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+
+SET @aigc_image_sql = (
+  SELECT IF(@aigc_image_task_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_aigc_image_task` ADD COLUMN `reference_images` text COMMENT ''参考图'' AFTER `negative_prompt`', 'SELECT 1')
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_task'
+    AND COLUMN_NAME = 'reference_images'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+
+SET @aigc_image_sql = (
+  SELECT IF(@aigc_image_task_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_aigc_image_task` ADD COLUMN `tenant_cost_points` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT ''租户成本扣点'' AFTER `quantity`', 'SELECT 1')
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_task'
+    AND COLUMN_NAME = 'tenant_cost_points'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+
+SET @aigc_image_sql = (
+  SELECT IF(@aigc_image_task_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_aigc_image_task` ADD COLUMN `user_charge_points` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT ''用户消费扣点'' AFTER `tenant_cost_points`', 'SELECT 1')
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_task'
+    AND COLUMN_NAME = 'user_charge_points'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+
+SET @aigc_image_sql = (
+  SELECT IF(@aigc_image_task_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_aigc_image_task` ADD COLUMN `provider` varchar(50) NOT NULL DEFAULT '''' COMMENT ''供应商'' AFTER `user_charge_points`', 'SELECT 1')
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_task'
+    AND COLUMN_NAME = 'provider'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+
+SET @aigc_image_sql = (
+  SELECT IF(@aigc_image_task_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_aigc_image_task` ADD COLUMN `model` varchar(100) NOT NULL DEFAULT '''' COMMENT ''模型'' AFTER `provider`', 'SELECT 1')
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_task'
+    AND COLUMN_NAME = 'model'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+
+SET @aigc_image_sql = (
+  SELECT IF(@aigc_image_task_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_aigc_image_task` ADD COLUMN `provider_task_id` varchar(120) NOT NULL DEFAULT '''' COMMENT ''供应商任务ID'' AFTER `model`', 'SELECT 1')
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_task'
+    AND COLUMN_NAME = 'provider_task_id'
+);
+PREPARE aigc_image_stmt FROM @aigc_image_sql;
+EXECUTE aigc_image_stmt;
+DEALLOCATE PREPARE aigc_image_stmt;
+
+SET @aigc_image_result_exists = (
+  SELECT COUNT(*)
+  FROM INFORMATION_SCHEMA.TABLES
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_result'
+);
+
+SET @aigc_image_result_sql = (
+  SELECT IF(@aigc_image_result_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_aigc_image_result` ADD COLUMN `channel` varchar(64) NOT NULL DEFAULT '''' COMMENT ''通道'' AFTER `user_id`', 'SELECT 1')
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_result'
+    AND COLUMN_NAME = 'channel'
+);
+PREPARE aigc_image_result_stmt FROM @aigc_image_result_sql;
+EXECUTE aigc_image_result_stmt;
+DEALLOCATE PREPARE aigc_image_result_stmt;
+
+SET @aigc_image_result_sql = (
+  SELECT IF(@aigc_image_result_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_aigc_image_result` ADD COLUMN `quality` varchar(30) NOT NULL DEFAULT '''' COMMENT ''分辨率档位'' AFTER `channel`', 'SELECT 1')
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_result'
+    AND COLUMN_NAME = 'quality'
+);
+PREPARE aigc_image_result_stmt FROM @aigc_image_result_sql;
+EXECUTE aigc_image_result_stmt;
+DEALLOCATE PREPARE aigc_image_result_stmt;
+
+SET @aigc_image_result_sql = (
+  SELECT IF(@aigc_image_result_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_aigc_image_result` ADD COLUMN `ratio` varchar(30) NOT NULL DEFAULT '''' COMMENT ''图片比例'' AFTER `quality`', 'SELECT 1')
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_result'
+    AND COLUMN_NAME = 'ratio'
+);
+PREPARE aigc_image_result_stmt FROM @aigc_image_result_sql;
+EXECUTE aigc_image_result_stmt;
+DEALLOCATE PREPARE aigc_image_result_stmt;
+
+SET @aigc_image_result_sql = (
+  SELECT IF(@aigc_image_result_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_aigc_image_result` ADD COLUMN `tenant_cost_points` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT ''租户成本扣点'' AFTER `height`', 'SELECT 1')
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_result'
+    AND COLUMN_NAME = 'tenant_cost_points'
+);
+PREPARE aigc_image_result_stmt FROM @aigc_image_result_sql;
+EXECUTE aigc_image_result_stmt;
+DEALLOCATE PREPARE aigc_image_result_stmt;
+
+SET @aigc_image_result_sql = (
+  SELECT IF(@aigc_image_result_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_aigc_image_result` ADD COLUMN `user_charge_points` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT ''用户消费扣点'' AFTER `tenant_cost_points`', 'SELECT 1')
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_result'
+    AND COLUMN_NAME = 'user_charge_points'
+);
+PREPARE aigc_image_result_stmt FROM @aigc_image_result_sql;
+EXECUTE aigc_image_result_stmt;
+DEALLOCATE PREPARE aigc_image_result_stmt;
+
+SET @aigc_image_result_sql = (
+  SELECT IF(@aigc_image_result_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_aigc_image_result` ADD COLUMN `provider_task_id` varchar(120) NOT NULL DEFAULT '''' COMMENT ''供应商任务ID'' AFTER `user_charge_points`', 'SELECT 1')
+  FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'la_aigc_image_result'
+    AND COLUMN_NAME = 'provider_task_id'
+);
+PREPARE aigc_image_result_stmt FROM @aigc_image_result_sql;
+EXECUTE aigc_image_result_stmt;
+DEALLOCATE PREPARE aigc_image_result_stmt;
 
 INSERT INTO `la_aigc_image_channel` (`tenant_id`,`code`,`name`,`provider`,`model`,`max_reference_images`,`config_json`,`status`,`sort`,`create_time`,`update_time`)
 VALUES

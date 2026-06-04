@@ -280,15 +280,15 @@
                             prop="default_domain"
                         >
                             <a
-                                :href="replaceStr(formData.default_domain, '/admin/', '/pc/')"
+                                :href="tenantPcUrl"
                                 target="_blank"
                                 rel="noopener noreferrer"
                             >
-                                {{ replaceStr(formData.default_domain, '/admin/', '/pc/') || '--' }}
+                                {{ tenantPcUrl || '--' }}
                             </a>
                             <span
                                 class="flex items-center ml-2 cursor-pointer"
-                                v-copy="replaceStr(formData.default_domain, '/admin/', '/pc/')"
+                                v-copy="tenantPcUrl"
                             >
                                 <icon name="el-icon-DocumentCopy" />
                                 复制
@@ -301,18 +301,15 @@
                             prop="default_domain"
                         >
                             <a
-                                :href="replaceStr(formData.default_domain, '/admin/', '/mobile/')"
+                                :href="tenantMobileUrl"
                                 target="_blank"
                                 rel="noopener noreferrer"
                             >
-                                {{
-                                    replaceStr(formData.default_domain, '/admin/', '/mobile/') ||
-                                    '--'
-                                }}
+                                {{ tenantMobileUrl || '--' }}
                             </a>
                             <span
                                 class="flex items-center ml-2 cursor-pointer"
-                                v-copy="replaceStr(formData.default_domain, '/admin/', '/mobile/')"
+                                v-copy="tenantMobileUrl"
                             >
                                 <icon name="el-icon-DocumentCopy" />
                                 复制
@@ -337,7 +334,6 @@ import { cloneDeep } from 'lodash-es'
 
 import { getUserDetail, tenantSso, userEdit } from '@/api/consumer'
 import { useLockFn } from '@/hooks/useLockFn'
-import { replaceStr } from '@/utils/util'
 
 import Accounts from './account/index.vue'
 import Users from './user/index.vue'
@@ -507,6 +503,22 @@ const accessModeText = (mode: string) => {
         }[mode] || '默认子域名'
     )
 }
+
+const tenantPcUrl = computed(() => {
+    return (
+        formData.value.links?.current?.pc ||
+        formData.value.links?.subdomain?.pc ||
+        formData.value.default_domain?.replace('/admin/', '/')
+    )
+})
+
+const tenantMobileUrl = computed(() => {
+    return (
+        formData.value.links?.current?.mobile ||
+        formData.value.links?.subdomain?.mobile ||
+        formData.value.default_domain?.replace('/admin/', '/mobile/')
+    )
+})
 
 const handleEnterTenant = async () => {
     if (!formData.value.id) {

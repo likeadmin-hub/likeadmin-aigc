@@ -233,14 +233,20 @@
                 <el-descriptions-item label="开发模式">{{
                     sourceForm.dev_mode === 0 ? '关闭' : '开启'
                 }}</el-descriptions-item>
-                <el-descriptions-item label="接口地址">{{
-                    sourceForm.base_url || '-'
+                <el-descriptions-item label="当前模式接口地址">{{
+                    currentBaseUrl || '-'
                 }}</el-descriptions-item>
-                <el-descriptions-item label="API Key">{{
-                    sourceForm.license_key ? '已填写' : '未填写'
+                <el-descriptions-item label="当前模式 API Key">{{
+                    currentApiKey ? '已填写' : '未填写'
                 }}</el-descriptions-item>
                 <el-descriptions-item label="SSL校验">{{
                     sourceForm.ssl_verify === 1 ? '开启' : '关闭'
+                }}</el-descriptions-item>
+                <el-descriptions-item label="开发接口地址">{{
+                    sourceForm.base_url || '-'
+                }}</el-descriptions-item>
+                <el-descriptions-item label="开发 API Key">{{
+                    sourceForm.license_key ? '已填写' : '未填写'
                 }}</el-descriptions-item>
                 <el-descriptions-item label="线上接口地址">{{
                     sourceForm.online_base_url || '-'
@@ -280,23 +286,24 @@ const loading = ref(false)
 const activeTab = ref('source')
 const sourceForm = ref<any>({})
 const licenseInfo = ref<any>({})
-const configured = computed(() =>
-    sourceForm.value.dev_mode === 1
-        ? !!sourceForm.value.base_url && !!sourceForm.value.license_key
-        : !!sourceForm.value.online_base_url && !!sourceForm.value.online_license_key
-)
+const currentBaseUrl = computed(() => {
+    const source = sourceForm.value || {}
+    return source.active_base_url ||
+        (source.dev_mode === 1 ? source.base_url || source.online_base_url : source.online_base_url || source.base_url) ||
+        ''
+})
+const currentApiKey = computed(() => {
+    const source = sourceForm.value || {}
+    return source.active_api_key ||
+        (source.dev_mode === 1 ? source.license_key || source.online_license_key : source.online_license_key || source.license_key) ||
+        ''
+})
+const configured = computed(() => !!currentBaseUrl.value && !!currentApiKey.value)
 const payload = computed(() => licenseInfo.value.payload || {})
 const machine = computed(() => licenseInfo.value.machine || {})
 const hasPublicKey = computed(() => !!String(sourceForm.value.public_key || '').trim())
 const licenseApplyUrl = computed(() => {
-    const source = sourceForm.value || {}
-    const baseUrl =
-        source.active_base_url ||
-        (source.dev_mode === 1 ? source.base_url : source.online_base_url) ||
-        source.online_base_url ||
-        source.base_url ||
-        ''
-    return buildLicenseApplyUrl(baseUrl)
+    return buildLicenseApplyUrl(currentBaseUrl.value)
 })
 
 const getSource = async () => {

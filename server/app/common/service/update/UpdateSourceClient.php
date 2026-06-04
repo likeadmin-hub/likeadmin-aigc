@@ -37,6 +37,8 @@ class UpdateSourceClient
         $data['base_url'] = self::normalizeBaseUrl((string)($data['base_url'] ?? ''));
         $data['online_base_url'] = self::normalizeBaseUrl((string)($data['online_base_url'] ?? ''));
         $data['online_license_key'] = (string)($data['online_license_key'] ?? '');
+        $data['online_base_url'] = $data['online_base_url'] ?: $data['base_url'];
+        $data['online_license_key'] = $data['online_license_key'] ?: (string)($data['license_key'] ?? '');
         $data['api_key'] = $data['api_key'] ?? ($data['license_key'] ?? '');
         $data['active_base_url'] = self::activeBaseUrl($data);
         $data['active_api_key'] = self::activeApiKey($data);
@@ -58,6 +60,13 @@ class UpdateSourceClient
             'status' => (int)($params['status'] ?? 1),
             'update_time' => time(),
         ];
+        if ($data['dev_mode'] === 0) {
+            $data['online_base_url'] = $data['online_base_url'] ?: $data['base_url'];
+            $data['online_license_key'] = $data['online_license_key'] ?: $data['license_key'];
+        } else {
+            $data['base_url'] = $data['base_url'] ?: $data['online_base_url'];
+            $data['license_key'] = $data['license_key'] ?: $data['online_license_key'];
+        }
         if ($data['dev_mode'] === 1 && $data['base_url'] === '') {
             throw new RuntimeException('请填写开发模式接口地址');
         }
@@ -141,6 +150,9 @@ class UpdateSourceClient
     {
         $devMode = (int)($source['dev_mode'] ?? 0) === 1;
         $baseUrl = $devMode ? (string)($source['base_url'] ?? '') : (string)($source['online_base_url'] ?? '');
+        if ($baseUrl === '') {
+            $baseUrl = $devMode ? (string)($source['online_base_url'] ?? '') : (string)($source['base_url'] ?? '');
+        }
         return self::normalizeBaseUrl($baseUrl);
     }
 
@@ -148,6 +160,9 @@ class UpdateSourceClient
     {
         $devMode = (int)($source['dev_mode'] ?? 0) === 1;
         $key = $devMode ? (string)($source['license_key'] ?? '') : (string)($source['online_license_key'] ?? '');
+        if ($key === '') {
+            $key = $devMode ? (string)($source['online_license_key'] ?? '') : (string)($source['license_key'] ?? '');
+        }
         return trim($key);
     }
 

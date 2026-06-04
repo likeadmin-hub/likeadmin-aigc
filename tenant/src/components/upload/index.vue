@@ -48,6 +48,7 @@ import config from '@/config'
 import { RequestCodeEnum } from '@/enums/requestEnums'
 import useUserStore from '@/stores/modules/user'
 import feedback from '@/utils/feedback'
+import { getTenantId } from '@/utils/tenant'
 
 export default defineComponent({
     components: {},
@@ -85,7 +86,8 @@ export default defineComponent({
         const action = ref(`${config.baseUrl}${config.urlPrefix}/upload/${props.type}`)
         const headers = computed(() => ({
             token: userStore.token,
-            version: config.version
+            version: config.version,
+            ...(getTenantId() ? { 'tenant-id': getTenantId() } : {})
         }))
         const visible = ref(false)
         const fileList = ref<any[]>([])
