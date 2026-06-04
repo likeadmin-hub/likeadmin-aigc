@@ -421,7 +421,7 @@ class installModel
      */
     public function dbExists()
     {
-        $sql = "SHOW DATABASES like '{$this->name}'";
+        $sql = "SHOW DATABASES LIKE " . $this->dbh->quote($this->name);
         return $this->dbh->query($sql)->fetch();
     }
 
@@ -432,8 +432,8 @@ class installModel
      */
     public function tableExits()
     {
-        $configTable = sprintf("'%s'", $this->prefix . TESTING_TABLE);
-        $sql = "SHOW TABLES FROM {$this->name} like $configTable";
+        $configTable = $this->dbh->quote($this->prefix . TESTING_TABLE);
+        $sql = "SHOW TABLES FROM {$this->quoteIdentifier($this->name)} LIKE {$configTable}";
         return $this->dbh->query($sql)->fetch();
     }
 
@@ -481,7 +481,7 @@ class installModel
      */
     public function createDB($version)
     {
-        $sql = "CREATE DATABASE `{$this->name}`";
+        $sql = "CREATE DATABASE {$this->quoteIdentifier($this->name)}";
         if ($version > 4.1) $sql .= " DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci";
         return $this->dbh->query($sql);
     }
