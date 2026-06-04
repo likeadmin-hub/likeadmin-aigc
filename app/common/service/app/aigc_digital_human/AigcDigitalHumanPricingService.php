@@ -5,6 +5,7 @@ namespace app\common\service\app\aigc_digital_human;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanConfig;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanChannel;
 use Exception;
+use Throwable;
 
 class AigcDigitalHumanPricingService
 {
@@ -125,7 +126,11 @@ class AigcDigitalHumanPricingService
     private static function pricingFromConfig(int $tenantId): array
     {
         $defaults = self::defaults();
-        $row = AigcDigitalHumanConfig::where('tenant_id', $tenantId)->findOrEmpty();
+        try {
+            $row = AigcDigitalHumanConfig::where('tenant_id', $tenantId)->findOrEmpty();
+        } catch (Throwable $e) {
+            return $defaults;
+        }
         if ($row->isEmpty()) {
             return $defaults;
         }
@@ -311,10 +316,14 @@ class AigcDigitalHumanPricingService
 
     private static function platformModelRows(): array
     {
-        return AigcDigitalHumanChannel::where('tenant_id', 0)
-            ->order(['sort' => 'desc', 'id' => 'asc'])
-            ->field('code,name,provider,model,status,sort')
-            ->select()
-            ->toArray();
+        try {
+            return AigcDigitalHumanChannel::where('tenant_id', 0)
+                ->order(['sort' => 'desc', 'id' => 'asc'])
+                ->field('code,name,provider,model,status,sort')
+                ->select()
+                ->toArray();
+        } catch (Throwable $e) {
+            return [];
+        }
     }
 }

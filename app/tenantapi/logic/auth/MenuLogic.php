@@ -22,6 +22,7 @@ use app\common\model\auth\TenantSystemMenu;
 use app\common\model\auth\TenantSystemRoleMenu;
 use app\common\model\tenant\Tenant;
 use app\common\service\billing\PackageProvisionService;
+use Throwable;
 
 
 /**
@@ -47,7 +48,9 @@ class MenuLogic extends BaseLogic
     {
         $admin = TenantAdmin::findOrEmpty($adminId);
         if (!$admin->isEmpty()) {
-            self::ensurePackageMenus((int)$admin['tenant_id']);
+            $tenantId = (int)$admin['tenant_id'];
+            self::ensurePackageMenus($tenantId);
+            self::ensureSystemDefaultMenu($tenantId);
         }
 
         $where = [];
@@ -89,6 +92,58 @@ class MenuLogic extends BaseLogic
             (string)$tenant['sn'],
             (int)$tenant['tactics'] === 1
         );
+    }
+
+    private static function ensureSystemDefaultMenu(int $tenantId): void
+    {
+        if ($tenantId <= 0) {
+            return;
+        }
+
+        try {
+            TenantSystemMenu::where(['tenant_id' => $tenantId, 'id' => 158])
+                ->update([
+                    'pid' => 9000,
+                    'type' => 'M',
+                    'name' => '系统应用',
+                    'icon' => 'el-icon-Setting',
+                    'sort' => 10,
+                    'paths' => 'system-default',
+                    'component' => '',
+                    'update_time' => time(),
+                ]);
+        } catch (Throwable) {
+        }
+
+        try {
+            TenantSystemMenu::where(['tenant_id' => $tenantId, 'id' => 158])
+                ->update([
+                    'app_code' => 'system_default',
+                    'source' => 'core',
+                    'source_menu_key' => 'core_tenant_system_default',
+                    'is_core' => 1,
+                    'update_time' => time(),
+                ]);
+        } catch (Throwable) {
+        }
+
+        try {
+            $children = [
+                159 => ['sort' => 10],
+                70 => ['sort' => 20],
+                101 => ['sort' => 30],
+                63 => ['sort' => 40],
+            ];
+            foreach ($children as $id => $data) {
+                TenantSystemMenu::where(['tenant_id' => $tenantId, 'id' => $id])
+                    ->update([
+                        'pid' => 158,
+                        'sort' => $data['sort'],
+                        'update_time' => time(),
+                    ]);
+            }
+        } catch (Throwable) {
+        }
     }
 
 

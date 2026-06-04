@@ -21,6 +21,7 @@ use app\common\service\point\PointService;
 use app\common\service\storage\StorageConfigService;
 use Exception;
 use think\facade\Db;
+use Throwable;
 
 class AigcDigitalHumanService
 {
@@ -36,17 +37,26 @@ class AigcDigitalHumanService
 
     public static function config(int $tenantId): array
     {
-        $config = AigcDigitalHumanConfig::where('tenant_id', $tenantId)->findOrEmpty();
-        $data = $config->isEmpty() ? [
+        try {
+            $config = AigcDigitalHumanConfig::where('tenant_id', $tenantId)->findOrEmpty();
+            $data = $config->isEmpty() ? self::defaultConfigData() : $config->toArray();
+        } catch (Throwable $e) {
+            $data = self::defaultConfigData();
+        }
+        $data['option_config'] = AigcDigitalHumanChannelService::userConfig($tenantId);
+        $data['base_config'] = self::baseConfig($tenantId);
+        return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
+    }
+
+    private static function defaultConfigData(): array
+    {
+        return [
             'provider_mode' => 'platform',
             'provider' => 'mock',
             'model' => 'mock-digital-human',
             'status' => 1,
             'config_json' => [],
-        ] : $config->toArray();
-        $data['option_config'] = AigcDigitalHumanChannelService::userConfig($tenantId);
-        $data['base_config'] = self::baseConfig($tenantId);
-        return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
+        ];
     }
 
     private static function baseConfig(int $tenantId): array
@@ -69,7 +79,11 @@ class AigcDigitalHumanService
 
     private static function baseConfigFromTenant(int $tenantId): array
     {
-        $row = AigcDigitalHumanConfig::where('tenant_id', $tenantId)->findOrEmpty();
+        try {
+            $row = AigcDigitalHumanConfig::where('tenant_id', $tenantId)->findOrEmpty();
+        } catch (Throwable $e) {
+            return [];
+        }
         if ($row->isEmpty()) {
             return [];
         }
