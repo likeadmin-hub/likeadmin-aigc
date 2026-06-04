@@ -98,6 +98,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createRechargeOrder, getRechargeConfig } from '@/api/user'
 import { useAiUserDisplay } from '~/composables/useAiUserDisplay'
+import { isPcLoginRequiredError } from '@/composables/usePcLoginGate'
+import { useUserStore } from '@/stores/user'
 import feedback from '@/utils/feedback'
 import wechatIcon from '@/assets/images/icon/icon_wx.png'
 import sparkIcon from '@/assets/images/icon/lingganzhi.svg'
@@ -122,6 +124,7 @@ interface Props {
 const props = defineProps<Props>()
 
 const { displayAvatarUrl, displayNickname } = useAiUserDisplay()
+const userStore = useUserStore()
 
 const displayMemberName = computed(() => props.memberName ?? displayNickname.value)
 
@@ -212,6 +215,7 @@ const syncBodyScroll = (visible: boolean) => {
 watch(() => props.modelValue, (visible) => {
     if (visible) {
         selectedCredits.value = creditPackages.value[0]?.credits ?? 0
+        loadCreditPackages()
     }
 
     syncBodyScroll(visible)
@@ -226,6 +230,7 @@ watch(creditPackages, (packages) => {
 
 const loadCreditPackages = async () => {
     if (props.creditPackages?.length) return
+    if (!userStore.isLogin) return
     try {
         const config = await getRechargeConfig()
         const minAmount = Math.max(1, Number(config?.min_amount || 0))
@@ -248,11 +253,11 @@ const loadCreditPackages = async () => {
             price: Number(amount).toFixed(2)
         }))
     } catch (error) {
+        if (isPcLoginRequiredError(error)) return
         console.error('load recharge config failed', error)
     }
 }
 
-onMounted(loadCreditPackages)
 onMounted(() => window.addEventListener('keydown', handleKeydown))
 
 onBeforeUnmount(() => {

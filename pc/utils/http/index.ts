@@ -24,6 +24,46 @@ const normalizeResponseMessage = (msg: any) => {
     return text
 }
 
+const isLoginFailureMessage = (msg: any) => {
+    const text = String(normalizeResponseMessage(msg) || '')
+    return /登录|token|Token/i.test(text) && /超时|过期|缺|重新登录|请先登录|无效/i.test(text)
+}
+
+const loginFailureMessage = (msg: any) => {
+    const text = String(normalizeResponseMessage(msg) || '')
+    if (/token/i.test(text) && /缺|empty|required/i.test(text)) {
+        return '请先登录后再操作'
+    }
+    return text || '登录超时，请重新登录'
+}
+
+const getHttpStatus = (err: any) =>
+    Number(err?.statusCode || err?.status || err?.response?.status || 0)
+
+const normalizeRequestError = (err: any) => {
+    if (typeof err === 'string') {
+        return normalizeResponseMessage(err)
+    }
+    const responseMsg = err?.data?.msg || err?.response?._data?.msg || err?.response?.data?.msg
+    if (responseMsg) {
+        const normalizedMsg = normalizeResponseMessage(responseMsg)
+        if (err?.data) {
+            err.data.msg = normalizedMsg
+        }
+        err.message = normalizedMsg
+        return err
+    }
+    const status = getHttpStatus(err)
+    if (status >= 500) {
+        err.message = '请求失败，请稍后重试'
+        return err
+    }
+    if (err?.message) {
+        err.message = normalizeResponseMessage(err.message)
+    }
+    return err
+}
+
 export function createRequest(opt?: Partial<FetchOptions>) {
     const defaultOptions: FetchOptions = {
         // 基础接口地址
@@ -70,7 +110,6 @@ export function createRequest(opt?: Partial<FetchOptions>) {
                 return options
             },
             async responseInterceptorsHook(response, options) {
-                const userStore = useUserStore()
                 const { handlePcLoginFailure } = usePcLoginGate()
                 const { isTransformResponse, isReturnDefaultResponse, suppressErrorMessage } = options.requestOptions
                 //返回默认响应，当需要获取响应头及其他数据时可使用
@@ -90,11 +129,20 @@ export function createRequest(opt?: Partial<FetchOptions>) {
                         }
                         return data
                     case RequestCodeEnum.FAIL:
+                        if (isLoginFailureMessage(normalizedMsg)) {
+                            if (!suppressErrorMessage) {
+                                feedback.msgWarning(loginFailureMessage(normalizedMsg))
+                            }
+                            return Promise.reject(handlePcLoginFailure())
+                        }
                         if (show && !suppressErrorMessage) {
                             normalizedMsg && feedback.msgError(normalizedMsg)
                         }
                         return Promise.reject(normalizedMsg)
                     case RequestCodeEnum.LOGIN_FAILURE:
+                        if (!suppressErrorMessage) {
+                            feedback.msgWarning(loginFailureMessage(normalizedMsg))
+                        }
                         return Promise.reject(handlePcLoginFailure())
                     case RequestCodeEnum.NOT_INSTALL:
                         window.location.replace('/install/install.php')
@@ -104,13 +152,7 @@ export function createRequest(opt?: Partial<FetchOptions>) {
                 }
             },
             responseInterceptorsCatchHook(err) {
-                if (typeof err === 'string') {
-                    return normalizeResponseMessage(err)
-                }
-                if (err?.data?.msg) {
-                    err.data.msg = normalizeResponseMessage(err.data.msg)
-                }
-                return err
+                return normalizeRequestError(err)
             }
         }
     }

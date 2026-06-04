@@ -555,19 +555,16 @@
     background: transparent;
 
     .site-login-modal__backdrop {
-        background:
-            radial-gradient(circle at 12% 8%, rgba(77, 235, 255, 0.22), transparent 34%),
-            radial-gradient(circle at 82% 84%, rgba(63, 140, 255, 0.16), transparent 32%),
-            #020304;
-        backdrop-filter: blur(18px) saturate(128%);
-        -webkit-backdrop-filter: blur(18px) saturate(128%);
+        background: rgba(0, 0, 0, 0.56);
+        -webkit-backdrop-filter: blur(8px) saturate(128%);
+        backdrop-filter: blur(8px) saturate(128%);
     }
 
     .site-login-modal__panel {
-        grid-template-columns: minmax(420px, 1.08fr) minmax(430px, 0.92fr);
-        width: min(1000px, calc(100vw - 72px));
-        height: min(640px, calc(100dvh - 96px));
-        min-height: min(560px, calc(100dvh - 80px));
+        grid-template-columns: minmax(360px, 1.04fr) minmax(380px, 0.96fr);
+        width: min(920px, calc(100vw - 72px));
+        height: auto;
+        min-height: 0;
         max-height: calc(100dvh - 96px);
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 10px;
@@ -580,8 +577,7 @@
 
     .site-login-modal__hero {
         position: relative;
-        height: 100%;
-        min-height: 0;
+        min-height: 100%;
         padding: 0;
         overflow: hidden;
         background:
@@ -594,7 +590,7 @@
         display: block;
         width: 100%;
         height: 100%;
-        min-height: 0;
+        min-height: 100%;
         object-fit: cover;
         opacity: 0;
         filter: saturate(1.08) contrast(1.04);
@@ -619,7 +615,7 @@
         flex-direction: column;
         justify-content: flex-end;
         gap: 10px;
-        padding: 42px;
+        padding: 34px;
         color: #fff;
         background:
             radial-gradient(circle at 40% 28%, rgba(77, 235, 255, 0.14), transparent 34%),
@@ -633,7 +629,7 @@
 
         strong {
             max-width: 280px;
-            font-size: 26px;
+            font-size: 24px;
             line-height: 1.25;
             font-weight: 750;
             white-space: pre-line;
@@ -668,9 +664,9 @@
     .site-login-modal__content {
         display: flex;
         flex-direction: column;
-        height: 100%;
+        height: auto;
         min-height: 0;
-        padding: 72px 72px 48px;
+        padding: 56px 52px 40px;
         overflow-y: auto;
         scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
         scrollbar-width: thin;
@@ -722,9 +718,10 @@
     .site-login-modal__auth,
     .site-login-modal__register {
         display: flex;
-        flex: 1 1 auto;
+        flex: 0 0 auto;
         flex-direction: column;
         min-height: 0;
+        overflow: visible;
     }
 
     .site-login-modal__tabs {
@@ -762,7 +759,7 @@
     .site-login-modal__form,
     .site-login-modal__wechat-pane,
     .site-login-modal__register {
-        flex: 1 1 auto;
+        flex: 0 0 auto;
         min-height: 0;
         padding-top: 24px;
     }
@@ -771,6 +768,7 @@
     .site-login-modal__register {
         display: flex;
         flex-direction: column;
+        justify-content: flex-start;
     }
 
     .site-login-modal__fields {
@@ -848,7 +846,7 @@
 
     .site-login-modal__form-footer {
         flex: 0 0 auto;
-        margin-top: auto;
+        margin-top: clamp(20px, 4.4dvh, 34px);
         padding-top: 24px;
     }
 
@@ -874,9 +872,14 @@
     }
 
     .site-login-modal__agreement {
-        margin-top: 18px;
+        display: block;
+        margin: 12px auto 0;
         color: rgba(255, 255, 255, 0.42);
         font-size: 12px;
+        line-height: 1.55;
+        text-align: center;
+        word-break: keep-all;
+        overflow-wrap: anywhere;
 
         a {
             color: rgba(255, 255, 255, 0.78);
@@ -888,11 +891,14 @@
         flex: 0 0 auto;
         align-items: center;
         justify-content: center;
+        flex-wrap: wrap;
         gap: 6px;
         min-height: 20px;
-        margin-top: 18px;
+        margin-top: 10px;
         color: rgba(255, 255, 255, 0.48);
         font-size: 13px;
+        line-height: 1.5;
+        text-align: center;
 
         button {
             padding: 0;
@@ -910,10 +916,9 @@
 
 .site-login-modal--page {
     .site-login-modal__backdrop {
-        background:
-            radial-gradient(circle at 12% 8%, rgba(77, 235, 255, 0.2), transparent 34%),
-            radial-gradient(circle at 82% 84%, rgba(63, 140, 255, 0.14), transparent 32%),
-            #020304;
+        background: rgba(0, 0, 0, 0.62);
+        -webkit-backdrop-filter: blur(8px) saturate(128%);
+        backdrop-filter: blur(8px) saturate(128%);
     }
 
     .site-login-modal__close {
@@ -931,7 +936,7 @@
     opacity: 0;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
     .site-login-modal {
         padding: 20px;
         align-items: flex-start;
@@ -964,7 +969,7 @@
     .site-login-modal--video {
         .site-login-modal__panel {
             grid-template-columns: 1fr;
-            width: min(520px, calc(100vw - 32px));
+            width: min(500px, calc(100vw - 32px));
             height: auto;
             max-height: calc(100dvh - 40px);
             min-height: 0;
@@ -982,8 +987,13 @@
 
         .site-login-modal__content {
             height: auto;
-            padding: 34px 28px 32px;
+            padding: 32px 26px 30px;
             overflow: visible;
+        }
+
+        .site-login-modal__form-footer {
+            margin-top: 24px;
+            padding-top: 0;
         }
     }
 }
@@ -1079,10 +1089,15 @@
         .site-login-modal__content-title {
             font-size: 22px;
         }
+
+        .site-login-modal__agreement,
+        .site-login-modal__bottom-switch {
+            font-size: 12px;
+        }
     }
 }
 
-@media (max-height: 760px) and (min-width: 901px) {
+@media (max-height: 760px) and (min-width: 961px) {
     .site-login-modal {
         padding-top: 20px;
         padding-bottom: 20px;
@@ -1090,7 +1105,7 @@
 
     .site-login-modal--video {
         .site-login-modal__panel {
-            height: calc(100dvh - 56px);
+            height: auto;
             min-height: 0;
         }
 
@@ -1143,20 +1158,22 @@
         }
 
         .site-login-modal__form-footer {
-            padding-top: 18px;
+            margin-top: 16px;
+            padding-top: 0;
         }
 
         .site-login-modal__submit {
-            height: 46px;
+            height: 44px;
         }
 
         .site-login-modal__agreement {
-            margin-top: 12px;
-            line-height: 1.5;
+            margin-top: 8px;
+            line-height: 1.45;
         }
 
         .site-login-modal__bottom-switch {
-            margin-top: 12px;
+            margin-top: 8px;
+            font-size: 12px;
         }
     }
 }

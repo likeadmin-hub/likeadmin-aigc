@@ -256,6 +256,8 @@ interface QualityOption {
     label: string
     value: string
     ratios: RatioOption[]
+    resolution?: string
+    duration?: string
 }
 
 interface ChannelOption {
@@ -269,6 +271,7 @@ interface ChannelOption {
     quantity_options?: number[]
     duration_options?: number[]
     videoedit_duration_options?: number[]
+    specs?: any[]
     qualities: QualityOption[]
 }
 
@@ -343,9 +346,12 @@ const channels = computed<ChannelOption[]>(() =>
             .filter(Boolean),
         duration_options: normalizeNumberOptions(channel.duration_options || [5]),
         videoedit_duration_options: normalizeNumberOptions(channel.videoedit_duration_options || []),
+        specs: channel.specs || [],
         qualities: (channel.qualities || []).map((quality: any) => ({
             label: quality.label || quality.quality_label || `${quality.value || quality.quality}秒`,
             value: String(quality.value || quality.quality),
+            resolution: quality.resolution || normalizeVideoResolution(quality.label || quality.quality_label || quality.value || quality.quality),
+            duration: quality.duration || normalizeDurationLabel(quality.label || quality.quality_label || quality.value || quality.quality),
             ratios: (quality.ratios || []).map((ratio: any) => ({
                 ...ratio,
                 label: ratio.label || ratio.ratio || ratio.value,
@@ -357,12 +363,54 @@ const channels = computed<ChannelOption[]>(() =>
 const currentChannel = computed(() => channels.value.find((item) => item.value === form.channel) || channels.value[0])
 const qualities = computed<QualityOption[]>(() => currentChannel.value?.qualities || [])
 const currentQuality = computed(() => qualities.value.find((item) => item.value === form.quality) || qualities.value[0])
-const ratios = computed<RatioOption[]>(() => currentQuality.value?.ratios || [])
-const currentSpec = computed(() => ratios.value.find((item) => item.value === form.ratio) || ratios.value[0])
+const currentChannelHasDynamicDuration = computed(() => Boolean(currentChannel.value?.duration_options?.length))
+const currentChannelSpecs = computed(() => currentChannel.value?.specs || [])
+const currentQualityResolution = computed(() => currentQuality.value?.resolution || normalizeVideoResolution(currentQuality.value?.label || currentQuality.value?.value))
+const specsByResolution = computed(() => {
+    const matched = currentChannelSpecs.value.filter((spec: any) => getVideoSpecResolution(spec) === currentQualityResolution.value)
+    return matched.length ? matched : currentChannelSpecs.value
+})
+const ratios = computed<RatioOption[]>(() => {
+    const qualityRatios = currentQuality.value?.ratios || []
+    if (!currentChannelHasDynamicDuration.value || !currentChannelSpecs.value.length) return qualityRatios
+    const duration = Number(form.duration || 0)
+    const matchedSpecs = duration > 0
+        ? specsByResolution.value.filter((spec: any) => getVideoSpecDurationValue(spec) === duration)
+        : specsByResolution.value
+    const ratioSpecs = matchedSpecs.length ? matchedSpecs : specsByResolution.value
+    const ratioValues = new Set(ratioSpecs.map(getVideoSpecRatio).filter(Boolean))
+    const filteredRatios = qualityRatios.filter((item) => ratioValues.has(item.value))
+    if (filteredRatios.length) return filteredRatios
+    return ratioSpecs.map((spec: any) => ({
+        ...spec,
+        label: getVideoSpecRatio(spec),
+        value: getVideoSpecRatio(spec)
+    })).filter((item: RatioOption, index: number, list: RatioOption[]) =>
+        item.value && list.findIndex((ratio) => ratio.value === item.value) === index
+    )
+})
+const specsByResolutionAndRatio = computed(() => {
+    const matched = specsByResolution.value.filter((spec: any) => getVideoSpecRatio(spec) === form.ratio)
+    return matched.length ? matched : specsByResolution.value
+})
+const currentSpec = computed(() => {
+    if (!currentChannelHasDynamicDuration.value || !currentChannelSpecs.value.length) {
+        return ratios.value.find((item) => item.value === form.ratio) || ratios.value[0]
+    }
+    return currentChannelSpecs.value.find((spec: any) =>
+        getVideoSpecRatio(spec) === form.ratio
+        && getVideoSpecResolution(spec) === currentQualityResolution.value
+        && getVideoSpecDurationValue(spec) === Number(form.duration || 0)
+    )
+})
 const supportedAssetTypes = computed<ReferenceAssetType[]>(() => currentChannel.value?.supported_asset_types?.length ? currentChannel.value.supported_asset_types : ['image'])
 const hasVideoReference = computed(() => referenceAssets.value.some((item) => item.type === 'video'))
 const durations = computed(() => {
     const channel = currentChannel.value
+    if (currentChannelHasDynamicDuration.value && currentChannelSpecs.value.length) {
+        const specDurations = Array.from(new Set(specsByResolutionAndRatio.value.map(getVideoSpecDurationValue).filter(Boolean))).sort((a, b) => a - b)
+        if (specDurations.length) return specDurations
+    }
     const options = hasVideoReference.value && channel?.videoedit_duration_options?.length
         ? channel.videoedit_duration_options
         : channel?.duration_options
@@ -383,6 +431,30 @@ const canSubmit = computed(() => !!form.prompt.trim() && !!form.channel && !!for
 
 const normalizeNumberOptions = (options: any[]) =>
     Array.from(new Set((options || []).map((item: any) => Number(item)).filter(Boolean))).sort((a, b) => a - b)
+const normalizeVideoResolution = (value: unknown) => {
+    const raw = String(value || '').trim().toUpperCase()
+    const matched = raw.match(/1080P|720P|4K|2K|1K|\d+K/)
+    return matched?.[0] || '默认'
+}
+const normalizeDurationLabel = (value: unknown) => {
+    const raw = String(value || '').trim()
+    const explicit = raw.match(/(\d+)\s*(?:S|秒)\b/i)
+    if (explicit) return `${Number(explicit[1])}秒`
+    const underscored = raw.match(/_(\d+)(?:\D*)$/)
+    const matched = underscored || raw.match(/^(\d+)$/)
+    return matched ? `${Number(matched[1])}秒` : ''
+}
+const durationValue = (value: unknown) => Number.parseInt(String(value || ''), 10) || 0
+const getVideoSpecResolution = (spec: any) =>
+    normalizeVideoResolution(spec?.resolution || spec?.provider_params_json?.resolution || spec?.provider_params_json?.quality || spec?.label || spec?.quality_label || spec?.value || spec?.quality)
+const getVideoSpecRatio = (spec: any) =>
+    String(spec?.ratio || spec?.value || spec?.provider_params_json?.ratio || spec?.provider_params_json?.aspect_ratio || spec?.provider_params_json?.size || '').trim()
+const getVideoSpecDurationValue = (spec: any) =>
+    durationValue(spec?.duration || spec?.provider_params_json?.duration || spec?.label || spec?.quality_label || spec?.quality)
+const getRequestErrorMessage = (error: any, fallback: string) => {
+    if (typeof error === 'string' && error.trim()) return error
+    return error?.msg || error?.message || fallback
+}
 
 const normalizeVideoUrl = (url: unknown) => {
     let raw = String(url || '').trim()
@@ -471,7 +543,21 @@ const syncSelection = () => {
     if (!durations.value.includes(Number(form.duration))) {
         form.duration = durations.value[0] || 5
     }
+    if (!ratios.value.some((item) => item.value === form.ratio)) {
+        form.ratio = ratios.value[0]?.value || ''
+    }
     referenceAssets.value = referenceAssets.value.filter((item) => supportedAssetTypes.value.includes(item.type)).slice(0, maxReferenceCount.value)
+}
+
+const validateSelection = () => {
+    if (!currentChannel.value?.value) return '暂无可用视频通道'
+    if (!currentQuality.value?.value) return '请选择视频规格'
+    if (!durations.value.includes(Number(form.duration))) return '当前通道不支持所选时长'
+    if (!ratios.value.some((item) => item.value === form.ratio)) return '当前时长不支持所选比例'
+    if (currentChannelHasDynamicDuration.value && currentChannelSpecs.value.length && !currentSpec.value) {
+        return '当前通道不支持所选规格，请调整分辨率、比例或时长'
+    }
+    return ''
 }
 
 const loadConfig = async () => {
@@ -620,6 +706,8 @@ const handleGenerate = async () => {
     if (!form.prompt.trim()) return feedback.msgError('请输入创作内容描述')
     if (!ensurePcLogin()) return
     syncSelection()
+    const selectionError = validateSelection()
+    if (selectionError) return feedback.msgError(selectionError)
     submitting.value = true
     try {
         const res: any = await generateAigcVideo({
@@ -632,7 +720,7 @@ const handleGenerate = async () => {
             quantity: 1,
             channel: form.channel,
             negative_prompt: form.negative_prompt
-        })
+        }, { suppressErrorMessage: true })
         if (res?.status === 'failed') {
             feedback.msgError(res?.error || '生成任务提交失败')
         } else {
@@ -644,7 +732,7 @@ const handleGenerate = async () => {
         await loadData()
     } catch (error: any) {
         if (isPcLoginRequiredError(error)) return
-        feedback.msgError(error?.msg || error?.message || '提交生成任务失败')
+        feedback.msgError(getRequestErrorMessage(error, '提交生成任务失败'))
     } finally {
         submitting.value = false
     }

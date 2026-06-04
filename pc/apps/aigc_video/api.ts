@@ -6,8 +6,8 @@ export function getAigcVideoCases(params?: any, requestOptions?: any) {
     return $request.get({ url: '/app.aigc_video.case/lists', params }, requestOptions)
 }
 
-export function generateAigcVideo(params: any) {
-    return $request.post({ url: '/app.aigc_video.generate/index', params })
+export function generateAigcVideo(params: any, requestOptions?: any) {
+    return $request.post({ url: '/app.aigc_video.generate/index', params }, requestOptions)
 }
 
 export function getAigcVideoTasks(params?: any) {

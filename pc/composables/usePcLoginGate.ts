@@ -125,6 +125,7 @@ export const usePcLoginGate = () => {
 
     const handlePcLoginFailure = () => {
         userStore.logout()
+        openPcLoginModal()
 
         return createPcLoginRequiredError()
     }

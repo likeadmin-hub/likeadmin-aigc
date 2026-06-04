@@ -407,7 +407,7 @@ const userStore = useUserStore()
 const { ensurePcLogin } = usePcLoginGate()
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const workListRef = ref<HTMLElement | null>(null)
-const { works, draft, appendWork, setDraft } = useAiCreateWorks()
+const { works, draft, setDraft } = useAiCreateWorks()
 const { isFavorite, toggleFavorite } = useAiWorkspaceFavorites()
 const { remainingCredits, membershipEnabled, refreshCredits } = usePcCredits()
 
@@ -545,6 +545,13 @@ const getVideoQualityResolution = (quality: any) =>
     normalizeVideoResolution(quality.resolution || quality.provider_params_json?.resolution || quality.label || quality.quality_label || quality.value || quality.quality)
 const getVideoQualityDuration = (quality: any) =>
     normalizeVideoDuration(quality.duration || quality.provider_params_json?.duration || quality.label || quality.quality_label || quality.value || quality.quality)
+const getVideoSpecResolution = (spec: any) =>
+    normalizeVideoResolution(spec?.resolution || spec?.provider_params_json?.resolution || spec?.provider_params_json?.quality || spec?.label || spec?.quality_label || spec?.value || spec?.quality)
+const getVideoSpecRatio = (spec: any) =>
+    String(spec?.ratio || spec?.value || spec?.provider_params_json?.ratio || spec?.provider_params_json?.aspect_ratio || spec?.provider_params_json?.size || '').trim()
+const getVideoSpecDuration = (spec: any) =>
+    normalizeVideoDuration(spec?.duration || spec?.provider_params_json?.duration || spec?.label || spec?.quality_label || spec?.quality)
+const getVideoSpecDurationValue = (spec: any) => durationValue(getVideoSpecDuration(spec))
 const videoChannels = computed<ChannelOption[]>(() =>
     (aigcVideoOptionConfig.value.channels || []).map((channel: any) => {
         const durationOptions = normalizeNumberOptions(channel.duration_options || [])
@@ -584,8 +591,25 @@ const videoHasResolutionOptions = computed(() => videoResolutions.value.some((it
 const videoQualitiesByResolution = computed(() =>
     videoQualities.value.filter((item) => String(item.resolution || '默认') === String(optionState.value.resolution || videoResolutions.value[0] || '默认'))
 )
+const currentVideoChannelSpecs = computed(() => currentVideoChannel.value?.specs || [])
+const videoSpecsByResolution = computed(() => {
+    const resolution = String(optionState.value.resolution || videoResolutions.value[0] || '默认')
+    const matched = currentVideoChannelSpecs.value.filter((spec: any) => String(getVideoSpecResolution(spec) || '默认') === resolution)
+    return matched.length ? matched : currentVideoChannelSpecs.value
+})
+const videoSpecsByResolutionAndRatio = computed(() => {
+    const matched = videoSpecsByResolution.value.filter((spec: any) => getVideoSpecRatio(spec) === optionState.value.ratio)
+    return matched.length ? matched : videoSpecsByResolution.value
+})
+const supportedVideoDurationsBySpec = computed(() =>
+    Array.from(new Set(videoSpecsByResolutionAndRatio.value.map(getVideoSpecDuration).filter(Boolean)))
+        .sort((a, b) => durationValue(a) - durationValue(b))
+)
 const videoDurations = computed(() => {
     if (currentVideoChannelHasDynamicDuration.value) {
+        if (currentVideoChannelSpecs.value.length && supportedVideoDurationsBySpec.value.length) {
+            return supportedVideoDurationsBySpec.value
+        }
         return normalizeNumberOptions(currentVideoChannel.value?.duration_options || []).map(durationLabel)
     }
     return Array.from(new Set(videoQualitiesByResolution.value.map((item) => item.duration || item.label || item.value)))
@@ -597,16 +621,37 @@ const currentVideoQuality = computed(() =>
     videoQualitiesByResolution.value[0] ||
     videoQualities.value[0]
 )
-const videoRatios = computed<RatioOption[]>(() => currentVideoQuality.value?.ratios || [])
+const videoRatios = computed<RatioOption[]>(() => {
+    const qualityRatios = currentVideoQuality.value?.ratios || []
+    if (!currentVideoChannelHasDynamicDuration.value || !currentVideoChannelSpecs.value.length) {
+        return qualityRatios
+    }
+    const duration = durationValue(optionState.value.duration)
+    const matchedSpecs = duration > 0
+        ? videoSpecsByResolution.value.filter((spec: any) => getVideoSpecDurationValue(spec) === duration)
+        : videoSpecsByResolution.value
+    const ratioSpecs = matchedSpecs.length ? matchedSpecs : videoSpecsByResolution.value
+    const ratioValues = new Set(ratioSpecs.map(getVideoSpecRatio).filter(Boolean))
+    const filteredRatios = qualityRatios.filter((item) => ratioValues.has(item.value))
+    if (filteredRatios.length) return filteredRatios
+    return ratioSpecs.map((spec: any) => ({
+        ...spec,
+        label: getVideoSpecRatio(spec),
+        value: getVideoSpecRatio(spec)
+    })).filter((item: RatioOption, index: number, list: RatioOption[]) =>
+        item.value && list.findIndex((ratio) => ratio.value === item.value) === index
+    )
+})
 const currentVideoRatio = computed(() => videoRatios.value.find((item) => item.value === optionState.value.ratio) || videoRatios.value[0])
 const currentVideoSpec = computed(() => {
     if (!currentVideoChannelHasDynamicDuration.value) return currentVideoRatio.value
     const duration = durationValue(optionState.value.duration)
-    return (currentVideoChannel.value?.specs || []).find((spec: any) =>
-        String(spec.ratio || spec.value) === String(optionState.value.ratio)
-        && String(spec.resolution || getVideoQualityResolution(spec)) === String(currentVideoQuality.value?.resolution || '')
-        && durationValue(spec.duration || spec.quality_label || spec.quality) === duration
-    ) || currentVideoRatio.value
+    if (!currentVideoChannelSpecs.value.length) return currentVideoRatio.value
+    return currentVideoChannelSpecs.value.find((spec: any) =>
+        getVideoSpecRatio(spec) === String(optionState.value.ratio)
+        && String(getVideoSpecResolution(spec) || '默认') === String(currentVideoQuality.value?.resolution || '默认')
+        && getVideoSpecDurationValue(spec) === duration
+    )
 })
 const selectedVideoUnitPrice = computed(() => Number(currentVideoSpec.value?.tenant_unit_price || currentVideoRatio.value?.tenant_unit_price || 0).toString())
 const uploadedImageVideoReferenceAssets = computed<VideoReferenceAsset[]>(() => {
@@ -633,6 +678,11 @@ const selectedQuantity = computed(() => {
     return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 4) : 1
 })
 const normalizeOptionValue = (value: unknown) => String(value ?? '').trim()
+const getRequestErrorMessage = (error: any, fallback: string) => {
+    if (typeof error === 'string' && error.trim()) return error
+    return error?.msg || error?.message || fallback
+}
+const routeQueryText = (value: unknown) => Array.isArray(value) ? String(value[0] || '') : String(value || '')
 let isSyncingOptionSideEffects = false
 const imageOptionValues = computed<Record<OptionKey, string[]>>(() => ({
     model: channels.value.map((item) => item.label),
@@ -866,8 +916,7 @@ const syncComposerFromDraft = () => {
     const draftValue = draft.value
     if (!draftValue) return
 
-    const work = appendWork(draftValue)
-    syncComposerFromWork(work)
+    syncComposerFromWork(draftValue)
     activeTab.value = ''
     activeType.value = ''
     setDraft(null)
@@ -940,6 +989,44 @@ const syncAigcVideoSelection = () => {
     optionState.value.quality = currentVideoQuality.value?.value || optionState.value.quality
     optionState.value.count = '1条'
 }
+const validateVideoSelection = () => {
+    if (!currentVideoChannel.value?.value) return '暂无可用视频通道'
+    if (!videoDurations.value.includes(optionState.value.duration)) return '当前通道不支持所选时长'
+    if (!currentVideoRatio.value?.value) return '请选择视频比例'
+    if (currentVideoChannelHasDynamicDuration.value && currentVideoChannelSpecs.value.length && !currentVideoSpec.value) {
+        return '当前通道不支持所选规格，请调整分辨率、比例或时长'
+    }
+    return ''
+}
+const findChannelByQuery = (channelList: ChannelOption[], channelText: string, modelText: string) => {
+    const channel = channelText.trim().toLowerCase()
+    const model = modelText.trim().toLowerCase()
+    if (!channel && !model) return undefined
+    return channelList.find((item) => {
+        const label = String(item.label || '').trim().toLowerCase()
+        const value = String(item.value || '').trim().toLowerCase()
+        return Boolean(
+            channel && (value === channel || label === channel || value.includes(channel) || channel.includes(value)) ||
+            model && (label === model || value === model || label.includes(model) || model.includes(label) || value.includes(model) || model.includes(value))
+        )
+    })
+}
+const applyCreateQuerySelection = (query: Record<string, unknown>) => {
+    const type = routeQueryText(query.type)
+    const channelText = routeQueryText(query.channel)
+    const modelText = routeQueryText(query.model)
+    if (type === 'image') {
+        const channel = findChannelByQuery(channels.value, channelText, modelText)
+        if (channel) selectedChannelCode.value = channel.value
+        syncAigcSelection()
+        return
+    }
+    if (type === 'video') {
+        const channel = findChannelByQuery(videoChannels.value, channelText, modelText)
+        if (channel) selectedVideoChannelCode.value = channel.value
+        syncAigcVideoSelection()
+    }
+}
 
 const loadAigcConfig = async () => {
     try {
@@ -951,6 +1038,7 @@ const loadAigcConfig = async () => {
         optionState.value.ratio = defaults.ratio || optionState.value.ratio
         optionState.value.count = `${Number(defaults.quantity || 1)}张`
         syncAigcSelection()
+        applyCreateQuerySelection(route.query)
     } catch (error) {
         console.warn('load aigc image config failed', error)
     }
@@ -967,6 +1055,7 @@ const loadAigcVideoConfig = async () => {
         optionState.value.duration = durationLabel(defaults.duration) || defaultQuality?.duration || optionState.value.duration
         optionState.value.ratio = defaults.ratio || optionState.value.ratio
         syncAigcVideoSelection()
+        applyCreateQuerySelection(route.query)
     } catch (error) {
         console.warn('load aigc video config failed', error)
     }
@@ -1928,7 +2017,7 @@ const submitPrompt = async () => {
             await scrollToLatestWork()
         } catch (error: any) {
             if (isPcLoginRequiredError(error)) return
-            feedback.msgError(error?.msg || error?.message || '提交生成任务失败')
+            feedback.msgError(getRequestErrorMessage(error, '提交生成任务失败'))
         } finally {
             feedback.closeLoading()
             submitting.value = false
@@ -1936,12 +2025,9 @@ const submitPrompt = async () => {
         return
     }
     syncAigcVideoSelection()
-    if (!currentVideoChannel.value?.value) {
-        feedback.msgError('暂无可用视频通道')
-        return
-    }
-    if (!currentVideoRatio.value?.value) {
-        feedback.msgError('请选择视频比例')
+    const videoSelectionError = validateVideoSelection()
+    if (videoSelectionError) {
+        feedback.msgError(videoSelectionError)
         return
     }
     submitting.value = true
@@ -1958,7 +2044,7 @@ const submitPrompt = async () => {
             quantity: 1,
             channel: selectedVideoChannelCode.value || currentVideoChannel.value.value,
             negative_prompt: ''
-        })
+        }, silentRequestOptions)
         addOptimisticBackendVideoWork(res?.task_id, res?.status || 'running')
         activeTab.value = ''
         activeType.value = ''
@@ -1968,7 +2054,7 @@ const submitPrompt = async () => {
         await scrollToLatestWork()
     } catch (error: any) {
         if (isPcLoginRequiredError(error)) return
-        feedback.msgError(error?.msg || error?.message || '提交视频生成任务失败')
+        feedback.msgError(getRequestErrorMessage(error, '提交视频生成任务失败'))
     } finally {
         feedback.closeLoading()
         submitting.value = false
@@ -2095,6 +2181,7 @@ watch(
         } else if (status === '') {
             activeTab.value = ''
         }
+        applyCreateQuerySelection(query)
     },
     { immediate: true }
 )

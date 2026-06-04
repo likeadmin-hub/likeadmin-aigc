@@ -64,7 +64,7 @@
 
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { usePcLoginGate } from '@/composables/usePcLoginGate'
+import { isPcLoginRequiredError, usePcLoginGate } from '@/composables/usePcLoginGate'
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 import type { MembershipPlanDefinition, MembershipPlanId } from '@/constants/membership-plans'
@@ -97,7 +97,7 @@ const { displayAvatarUrl } = useAiUserDisplay()
 const appStore = useAppStore()
 const userStore = useUserStore()
 const route = useRoute()
-const { openPcLoginModal } = usePcLoginGate()
+const { ensurePcLogin, openPcLoginModal } = usePcLoginGate()
 const siteLogo = computed(() => appStore.getWebsiteConfig.pc_logo || '')
 const siteName = computed(() => appStore.getWebsiteConfig.pc_title || appStore.getWebsiteConfig.shop_name || 'A. PART')
 
@@ -296,6 +296,10 @@ const handleCreditsPurchase = async (order?: { orderId?: number; from?: string }
 }
 
 const handleMembershipSubscribe = async (plan: MembershipPlanId, cycle: 'monthly' | 'yearly') => {
+    if (!ensurePcLogin({ redirect: route.fullPath })) {
+        feedback.msgWarning('请先登录后再订阅会员')
+        return
+    }
     try {
         const order = await createMembershipOrder({ plan_id: plan, cycle })
         membershipPayOrderId.value = Number(order?.order_id || 0)
@@ -303,6 +307,7 @@ const handleMembershipSubscribe = async (plan: MembershipPlanId, cycle: 'monthly
         pendingMembershipPlan.value = plan
         showMembershipPayModal.value = true
     } catch (error: any) {
+        if (isPcLoginRequiredError(error)) return
         ElMessage.error(error?.msg || error?.message || error || '会员订单创建失败')
     }
 }

@@ -177,7 +177,7 @@ onBeforeUnmount(() => {
     z-index: 1;
     height: 100%;
     min-width: 810px;
-    padding: 56px 40px 24px 116px;
+    padding: 0 40px 24px 116px;
     overflow-y: auto;
     overflow-x: hidden;
     box-sizing: border-box;
@@ -202,6 +202,10 @@ onBeforeUnmount(() => {
 
 .workspace-main::-webkit-scrollbar-thumb:hover {
     background: #242424;
+}
+
+.workspace-main :deep(.tools-shell) {
+    padding-top: 40px;
 }
 
 @keyframes starTwinkle {
@@ -229,7 +233,7 @@ onBeforeUnmount(() => {
     .workspace-main {
         height: auto;
         min-width: 0;
-        padding: 210px 16px 32px;
+        padding: 0 16px 32px 96px;
         overflow: visible;
     }
 }
@@ -240,8 +244,7 @@ onBeforeUnmount(() => {
     }
 
     .workspace-main {
-        padding-top: 232px;
+        padding-top: 0;
     }
 }
 </style>
-

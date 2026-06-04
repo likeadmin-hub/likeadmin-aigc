@@ -1,9 +1,45 @@
 <template>
-        <div ref="pageScrollRef" class="ai-app-page">
+    <div
+        ref="pageScrollRef"
+        class="ai-app-page"
+        :class="{ 'is-immersive-home': isImmersiveHome }"
+    >
+        <template v-if="immersiveBackgroundItems.length && immersiveBackgroundType === 'video'">
+            <video
+                v-for="(item, index) in immersiveBackgroundItems"
+                :key="`immersive-video-${item.sourceIndex}-${item.url}`"
+                class="ai-app-page__media-bg"
+                :class="{ 'is-active': index === activeImmersiveBackgroundIndex }"
+                :src="item.url"
+                :poster="item.poster || undefined"
+                autoplay
+                muted
+                loop
+                playsinline
+                preload="auto"
+                @error="handleImmersiveMediaError(item.sourceIndex)"
+            ></video>
+        </template>
+        <template v-else-if="immersiveBackgroundItems.length && immersiveBackgroundType === 'image'">
+            <img
+                v-for="(item, index) in immersiveBackgroundItems"
+                :key="`immersive-image-${item.sourceIndex}-${item.url}`"
+                class="ai-app-page__media-bg"
+                :class="{ 'is-active': index === activeImmersiveBackgroundIndex }"
+                :src="item.url"
+                alt=""
+                @error="handleImmersiveMediaError(item.sourceIndex)"
+            />
+        </template>
         <div class="ai-app-page__background" :style="backgroundStyle"></div>
         <div class="ai-app-page__noise"></div>
         <div class="ai-app-page__stars ai-app-page__stars--near"></div>
         <div class="ai-app-page__stars ai-app-page__stars--far"></div>
+        <div
+            v-if="isImmersiveHome"
+            class="ai-app-page__scroll-mask"
+            :style="{ opacity: immersiveScrollMaskOpacity }"
+        ></div>
 
         <AiWorkspaceChrome
             :active-sidebar="activeSidebar"
@@ -19,7 +55,59 @@
         />
 
         <main class="app-main">
-            <section class="home-hero">
+            <section v-if="isImmersiveHome" class="immersive-stage yike-home-page" aria-label="首页主视觉">
+                <h1 class="yike-home-page__title">{{ immersiveMainTitle }}</h1>
+                <p v-if="immersiveSubtitle" class="yike-home-page__subtitle">{{ immersiveSubtitle }}</p>
+
+                <div
+                    class="light-beam-wrapper immersive-cta-shell"
+                >
+                    <GlassSurface
+                        class="glassmorphism-button immersive-cta__button"
+                        tag="button"
+                        type="button"
+                        v-bind="getGlassSurfaceProps('cta')"
+                        @click="openHomeEntry(immersiveCtaEntry)"
+                    >
+                        <span class="glassmorphism-button__content immersive-cta__content">
+                            <span class="immersive-cta__text">使用{{ immersiveCtaText }}</span>
+                        </span>
+                    </GlassSurface>
+                </div>
+
+                <div class="features-container" aria-label="快捷入口">
+                    <div
+                        v-for="entry in immersiveFeatureEntries"
+                        :key="entry.id"
+                        class="light-beam-wrapper feature-beam-wrapper"
+                    >
+                        <GlassSurface
+                            class="glassmorphism-button home-glass-card"
+                            tag="button"
+                            type="button"
+                            v-bind="getGlassSurfaceProps('feature')"
+                            @click="openHomeEntry(entry)"
+                        >
+                            <span class="home-glass-card__preview" aria-hidden="true">
+                                <img
+                                    v-for="(image, imageIndex) in entry.images.slice(0, 3)"
+                                    :key="`${entry.id}-preview-${imageIndex}`"
+                                    :src="image"
+                                    alt=""
+                                    :style="{ '--preview-index': imageIndex }"
+                                />
+                            </span>
+                            <span class="glassmorphism-button__content home-glass-card__content">
+                                <strong>{{ entry.title }}</strong>
+                                <small>{{ entry.description }}</small>
+                                <i aria-hidden="true">↗</i>
+                            </span>
+                        </GlassSurface>
+                    </div>
+                </div>
+            </section>
+
+            <section v-else class="home-hero">
                 <button class="home-banner" type="button" @click="openHomeEntry(activeBanner)">
                     <span class="home-banner__copy">
                         <strong>{{ activeBanner.title }}</strong>
@@ -103,7 +191,9 @@
                 </div>
             </section>
 
-            <section class="model-carousel" aria-label="工具轮播">
+            <div v-if="isImmersiveHome" class="yike-tools-heading">推荐工具</div>
+
+            <section class="model-carousel" :style="inspirationGridStyle" aria-label="工具轮播">
                 <button class="model-carousel__arrow model-carousel__arrow--left" type="button" aria-label="向左滑动" @click="scrollModelStrip('left')">
                     ‹
                 </button>
@@ -128,6 +218,18 @@
                     ›
                 </button>
             </section>
+
+            <div v-if="isImmersiveHome" class="yike-discovery-tabs" aria-label="发现分类">
+                <button
+                    v-for="tab in yikeDiscoveryTabs"
+                    :key="tab.key"
+                    :class="{ 'is-active': activeHomeFeed === tab.key }"
+                    type="button"
+                    @click="setHomeFeed(tab.key)"
+                >
+                    {{ tab.label }}
+                </button>
+            </div>
 
             <section ref="inspirationBoardRef" class="inspiration-board">
                 <div class="inspiration-board__toolbar">
@@ -332,12 +434,15 @@ import { extractListData } from '@/utils/pc-adapters'
 import { normalizeFileUrl } from '@/utils/file-url'
 import { getPcDownloadExtension, resolvePcDownloadUrl } from '@/utils/download'
 import { getApiUrl } from '@/utils/env'
+import { parseTenantIdFromRoute } from '@/utils/tenant'
 import feedback from '@/utils/feedback'
 import { isPcLoginRequiredError, usePcLoginGate } from '@/composables/usePcLoginGate'
 import { useUserStore } from '@/stores/user'
+import { useAppStore } from '@/stores/app'
 import { usePcCredits } from '~/composables/usePcCredits'
 import { buildSidebarRouteLocation } from '~/utils/ai-sidebar'
 import type { SidebarKey } from '~/utils/ai-sidebar'
+import GlassSurface from './GlassSurface.vue'
 import { useAiUserDisplay } from '~/composables/useAiUserDisplay'
 import {
     buildToolCardPath,
@@ -386,6 +491,7 @@ interface ChannelOption {
     max_reference_images?: number
     duration_options?: number[]
     videoedit_duration_options?: number[]
+    specs?: any[]
     qualities: QualityOption[]
 }
 
@@ -433,6 +539,7 @@ interface HomeHeroEntry {
     id: string
     title: string
     description: string
+    badge?: string
     mode?: GenerationMode
     route?: string
     images: string[]
@@ -457,6 +564,7 @@ const router = useRouter()
 const route = useRoute()
 const { ensurePcLogin } = usePcLoginGate()
 const userStore = useUserStore()
+const appStore = useAppStore()
 const { displayAvatarUrl, displayNickname } = useAiUserDisplay()
 const { setDraft } = useAiCreateWorks()
 const { remainingCredits, membershipEnabled, refreshCredits } = usePcCredits()
@@ -498,7 +606,11 @@ const pageScrollThumbVisible = ref(false)
 const pageScrollThumbDragging = ref(false)
 const pageScrollThumbPointerOffset = ref(0)
 const activeBannerIndex = ref(0)
+const activeImmersiveBackgroundIndex = ref(0)
+const immersiveMediaFailedIndexes = ref<number[]>([])
+const immersiveScrollMaskOpacity = ref(0)
 let bannerTimer: ReturnType<typeof window.setInterval> | null = null
+let immersiveBackgroundTimer: ReturnType<typeof window.setInterval> | null = null
 
 const quickTags = ['电影感', '写实质感', '高级光影', '细节丰富']
 const cardAuthorPool = ['清澈灵感', '南汐', '可可', '安安', '林琼', '朝野', '浮光', '念初']
@@ -510,6 +622,12 @@ const homeFeedTabs: Array<{ key: HomeFeedKey; label: string }> = [
     { key: 'effect', label: '视频特效' },
     { key: 'inspiration', label: '灵感' },
     { key: 'workflow', label: '工作流' }
+]
+const yikeDiscoveryTabs: Array<{ key: HomeFeedKey; label: string }> = [
+    { key: 'all', label: '发现' },
+    { key: 'app', label: '广告/营销' },
+    { key: 'video', label: '剧场' },
+    { key: 'effect', label: '美学' }
 ]
 const getToolImage = (index: number) => toolCards[index]?.image || featuredTools[index]?.image || toolCards[0]?.image || ''
 const homeHeroEntries: HomeHeroEntry[] = [
@@ -694,9 +812,174 @@ const chromePopoverContent = computed(() => ({
     }
 }))
 
-const backgroundStyle = computed(() => ({
-    backgroundImage: 'linear-gradient(180deg, #050505 0%, #06070a 42%, #050505 100%)'
+const resolveWebsiteMedia = (url: unknown) => {
+    const normalized = normalizeFileUrl(typeof url === 'string' ? url : '')
+    if (!normalized) return ''
+    if (/^(https?:\/\/|data:|blob:)/i.test(normalized)) return normalized
+    if (normalized.startsWith('/')) {
+        const domain = String(appStore.config?.domain || '').replace(/\/$/, '')
+        return domain ? `${domain}${normalized}` : normalized
+    }
+    return normalized
+}
+const toCssUrl = (url: string) => `url("${url.replace(/"/g, '\\"')}")`
+const normalizeWebsiteMediaList = (value: unknown) => {
+    const list = Array.isArray(value) ? value : value ? [value] : []
+    return list
+        .map((item) => resolveWebsiteMedia(item))
+        .filter(Boolean)
+}
+const websiteConfig = computed(() => appStore.getWebsiteConfig || {})
+const isImmersiveHome = computed(() => String(websiteConfig.value.pc_home_style || 'default') === 'immersive')
+const immersiveBackgroundType = computed(() => String(websiteConfig.value.pc_home_bg_type || 'none'))
+const immersiveBackgroundUrls = computed(() => normalizeWebsiteMediaList(websiteConfig.value.pc_home_bg_url || websiteConfig.value.pc_home_bg))
+const immersiveVideoPosterUrls = computed(() => normalizeWebsiteMediaList(websiteConfig.value.pc_home_bg_poster_url || websiteConfig.value.pc_home_bg_poster))
+const glassSurfaceConfig = {
+    borderWidth: 0.07,
+    brightness: 50,
+    opacity: 0.93,
+    blur: 11,
+    displace: 0.5,
+    backgroundOpacity: 0,
+    saturation: 1,
+    distortionScale: -180,
+    redOffset: 0,
+    greenOffset: 10,
+    blueOffset: 20,
+    xChannel: 'R',
+    yChannel: 'G',
+    mixBlendMode: 'difference'
+} as const
+const immersiveBackgroundItems = computed(() => {
+    if (!isImmersiveHome.value || !['image', 'video'].includes(immersiveBackgroundType.value)) {
+        return []
+    }
+    return immersiveBackgroundUrls.value
+        .map((url, index) => ({
+            url,
+            sourceIndex: index,
+            poster: immersiveBackgroundType.value === 'video' ? immersiveVideoPosterUrls.value[index] || immersiveVideoPosterUrls.value[0] || '' : ''
+        }))
+        .filter((item) => !immersiveMediaFailedIndexes.value.includes(item.sourceIndex))
+})
+const activeImmersiveBackground = computed(() => immersiveBackgroundItems.value[activeImmersiveBackgroundIndex.value] || immersiveBackgroundItems.value[0])
+const getGlassSurfaceProps = (scope: 'cta' | 'feature') => ({
+    width: scope === 'cta' ? '17.5rem' : '100%',
+    height: scope === 'cta' ? '4rem' : '100%',
+    borderRadius: scope === 'cta' ? 20 : 16,
+    ...glassSurfaceConfig
+})
+const findHomeTool = (appCode: string) => displayToolCards.value.find((tool) => tool.appCode === appCode)
+const buildImmersiveEntry = (payload: {
+    id: string
+    title: string
+    description: string
+    badge: string
+    appCode: string
+    route: string
+    fallbackImageIndex: number
+}): HomeHeroEntry => {
+    const tool = findHomeTool(payload.appCode)
+    const relatedCases = displayCaseCards.value
+        .filter((item) => {
+            if (payload.appCode === 'aigc_image') return item.category === 'image'
+            if (payload.appCode === 'aigc_video') return item.category === 'video'
+            if (payload.appCode === 'image_human') return item.appCode === 'aigc_digital_human'
+            return true
+        })
+        .slice(0, 4)
+    return {
+        id: payload.id,
+        title: payload.title,
+        description: payload.description,
+        badge: payload.badge,
+        route: payload.route,
+        images: [
+            tool?.image,
+            ...relatedCases.map((item) => item.image),
+            getToolImage(payload.fallbackImageIndex)
+        ].filter(Boolean)
+    }
+}
+const handleImmersiveMediaError = (index: number) => {
+    if (!immersiveMediaFailedIndexes.value.includes(index)) {
+        immersiveMediaFailedIndexes.value = [...immersiveMediaFailedIndexes.value, index]
+    }
+}
+const immersiveDefaultTitle = 'OPC社区专属，AI创业平台'
+const immersiveDefaultSubtitle = '一个人就是一支团队'
+const immersiveMainTitle = computed(() => String(websiteConfig.value.pc_home_immersive_title || '').trim() || immersiveDefaultTitle)
+const immersiveSubtitle = computed(() => String(websiteConfig.value.pc_home_immersive_subtitle || '').trim() || immersiveDefaultSubtitle)
+const immersiveCtaText = computed(() => 'HappyHorse1.0')
+const immersiveCtaEntry = computed<HomeHeroEntry>(() => ({
+    id: 'happyhorse-video',
+    title: 'HappyHorse1.0',
+    description: '进入视频生成并选中 HappyHorse 模型',
+    badge: 'VIDEO',
+    route: '/ai/create?type=video&model=HappyHorse1.0&channel=happyhorse',
+    images: [findHomeTool('aigc_video')?.image, getToolImage(3)].filter(Boolean)
 }))
+const immersiveFeatureEntries = computed<HomeHeroEntry[]>(() => [
+    buildImmersiveEntry({
+        id: 'image',
+        title: '图片生成',
+        description: '智能绘制，即刻成图',
+        badge: '图片',
+        appCode: 'aigc_image',
+        route: '/ai/create?type=image',
+        fallbackImageIndex: 4
+    }),
+    buildImmersiveEntry({
+        id: 'video',
+        title: '视频生成',
+        description: '创意视频，一键生成',
+        badge: '视频',
+        appCode: 'aigc_video',
+        route: '/ai/create?type=video',
+        fallbackImageIndex: 3
+    }),
+    buildImmersiveEntry({
+        id: 'image-human',
+        title: '全驱动数字人',
+        description: '图片与音频驱动数字人视频',
+        badge: '数字人',
+        appCode: 'image_human',
+        route: '/ai/avatar?tab=image_human',
+        fallbackImageIndex: 2
+    }),
+    buildImmersiveEntry({
+        id: 'canvas',
+        title: '无限画布',
+        description: '节点编排，组织复杂创作流程',
+        badge: '画布',
+        appCode: 'aigc_canvas',
+        route: '/app/aigc_canvas',
+        fallbackImageIndex: 1
+    })
+])
+const backgroundStyle = computed(() => {
+    if (!isImmersiveHome.value) {
+        return {
+            backgroundImage: 'linear-gradient(180deg, #050505 0%, #06070a 42%, #050505 100%)'
+        }
+    }
+    if (immersiveBackgroundItems.value.length) {
+        const poster = activeImmersiveBackground.value?.poster
+        if (immersiveBackgroundType.value === 'video') {
+            return {
+                backgroundImage: poster
+                    ? `linear-gradient(90deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.18) 34%, rgba(0,0,0,.08) 66%, rgba(0,0,0,.48) 100%), linear-gradient(180deg, rgba(0,0,0,.08) 0%, rgba(0,0,0,.08) 62%, rgba(0,0,0,.82) 100%)`
+                    : 'linear-gradient(90deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.18) 34%, rgba(0,0,0,.08) 66%, rgba(0,0,0,.48) 100%), linear-gradient(180deg, rgba(0,0,0,.08) 0%, rgba(0,0,0,.08) 62%, rgba(0,0,0,.82) 100%)'
+            }
+        }
+        return {
+            backgroundImage: `linear-gradient(90deg, rgba(0,0,0,.72) 0%, rgba(0,0,0,.18) 34%, rgba(0,0,0,.08) 66%, rgba(0,0,0,.48) 100%), linear-gradient(180deg, rgba(0,0,0,.08) 0%, rgba(0,0,0,.08) 62%, rgba(0,0,0,.82) 100%), ${toCssUrl(activeImmersiveBackground.value?.url || '')}`
+        }
+    }
+    return {
+        backgroundImage: 'radial-gradient(circle at 28% 30%, rgba(0, 139, 255, 0.36), transparent 28%), radial-gradient(circle at 50% 28%, rgba(204, 74, 255, 0.32), transparent 26%), radial-gradient(circle at 74% 24%, rgba(255, 127, 24, 0.34), transparent 30%), linear-gradient(180deg, #000 0%, #050505 60%, #000 100%)'
+    }
+})
 const heroTitle = computed(() => (generationMode.value === 'image' ? '图片生成' : '视频生成'))
 const heroSubtitle = computed(() =>
     generationMode.value === 'image' ? '超多模型供你选择' : '一键生成动态镜头与叙事短片'
@@ -714,6 +997,10 @@ const activeInspirationPlaceholder = computed(() => {
 })
 const canGenerate = computed(() => Boolean(prompt.value.trim()) && !submitting.value && !uploading.value)
 const canSubmit = computed(() => canGenerate.value)
+const getRequestErrorMessage = (error: any, fallback: string) => {
+    if (typeof error === 'string' && error.trim()) return error
+    return error?.msg || error?.message || fallback
+}
 const homeModelCards = computed<HomeModelCard[]>(() => {
     return displayToolCards.value.slice(0, 12).map((item, index) => ({
         id: item.id,
@@ -771,6 +1058,13 @@ const getVideoQualityResolution = (quality: any) =>
     normalizeVideoResolution(quality.resolution || quality.provider_params_json?.resolution || quality.label || quality.quality_label || quality.value || quality.quality)
 const getVideoQualityDuration = (quality: any) =>
     normalizeVideoDuration(quality.duration || quality.provider_params_json?.duration || quality.label || quality.quality_label || quality.value || quality.quality)
+const getVideoSpecResolution = (spec: any) =>
+    normalizeVideoResolution(spec?.resolution || spec?.provider_params_json?.resolution || spec?.provider_params_json?.quality || spec?.label || spec?.quality_label || spec?.value || spec?.quality)
+const getVideoSpecRatio = (spec: any) =>
+    String(spec?.ratio || spec?.value || spec?.provider_params_json?.ratio || spec?.provider_params_json?.aspect_ratio || spec?.provider_params_json?.size || '').trim()
+const getVideoSpecDuration = (spec: any) =>
+    normalizeVideoDuration(spec?.duration || spec?.provider_params_json?.duration || spec?.label || spec?.quality_label || spec?.quality)
+const getVideoSpecDurationValue = (spec: any) => durationValue(getVideoSpecDuration(spec))
 
 const videoChannels = computed<ChannelOption[]>(() =>
     (aigcVideoOptionConfig.value.channels || []).map((channel: any) => {
@@ -782,6 +1076,7 @@ const videoChannels = computed<ChannelOption[]>(() =>
             max_reference_images: Number(channel.max_reference_images || aigcVideoOptionConfig.value.max_reference_images || 7),
             duration_options: durationOptions,
             videoedit_duration_options: normalizeNumberOptions(channel.videoedit_duration_options || []),
+            specs: channel.specs || [],
             qualities: (channel.qualities || []).map((quality: any) => ({
                 label: dynamicDuration ? getVideoQualityResolution(quality) : getVideoQualityDuration(quality),
                 value: String(quality.value || quality.quality),
@@ -804,8 +1099,25 @@ const videoHasResolutionOptions = computed(() => videoResolutions.value.some((it
 const videoQualitiesByResolution = computed(() =>
     videoQualities.value.filter((item) => String(item.resolution || '默认') === String(optionState.value.resolution || videoResolutions.value[0] || '默认'))
 )
+const currentVideoChannelSpecs = computed(() => currentVideoChannel.value?.specs || [])
+const videoSpecsByResolution = computed(() => {
+    const resolution = String(optionState.value.resolution || videoResolutions.value[0] || '默认')
+    const matched = currentVideoChannelSpecs.value.filter((spec: any) => String(getVideoSpecResolution(spec) || '默认') === resolution)
+    return matched.length ? matched : currentVideoChannelSpecs.value
+})
+const videoSpecsByResolutionAndRatio = computed(() => {
+    const matched = videoSpecsByResolution.value.filter((spec: any) => getVideoSpecRatio(spec) === optionState.value.ratio)
+    return matched.length ? matched : videoSpecsByResolution.value
+})
+const supportedVideoDurationsBySpec = computed(() =>
+    Array.from(new Set(videoSpecsByResolutionAndRatio.value.map(getVideoSpecDuration).filter(Boolean)))
+        .sort((a, b) => durationValue(a) - durationValue(b))
+)
 const videoDurations = computed(() => {
     if (currentVideoChannelHasDynamicDuration.value) {
+        if (currentVideoChannelSpecs.value.length && supportedVideoDurationsBySpec.value.length) {
+            return supportedVideoDurationsBySpec.value
+        }
         return normalizeNumberOptions(currentVideoChannel.value?.duration_options || []).map((item) => durationLabel(item)).filter(Boolean)
     }
     return Array.from(new Set(videoQualitiesByResolution.value.map((item) => item.duration || item.label || item.value)))
@@ -817,9 +1129,39 @@ const currentVideoQuality = computed(() =>
     videoQualitiesByResolution.value[0] ||
     videoQualities.value[0]
 )
-const videoRatios = computed<RatioOption[]>(() => currentVideoQuality.value?.ratios || [])
+const videoRatios = computed<RatioOption[]>(() => {
+    const qualityRatios = currentVideoQuality.value?.ratios || []
+    if (!currentVideoChannelHasDynamicDuration.value || !currentVideoChannelSpecs.value.length) {
+        return qualityRatios
+    }
+    const duration = durationValue(optionState.value.duration)
+    const matchedSpecs = duration > 0
+        ? videoSpecsByResolution.value.filter((spec: any) => getVideoSpecDurationValue(spec) === duration)
+        : videoSpecsByResolution.value
+    const ratioSpecs = matchedSpecs.length ? matchedSpecs : videoSpecsByResolution.value
+    const ratioValues = new Set(ratioSpecs.map(getVideoSpecRatio).filter(Boolean))
+    const filteredRatios = qualityRatios.filter((item) => ratioValues.has(item.value))
+    if (filteredRatios.length) return filteredRatios
+    return ratioSpecs.map((spec: any) => ({
+        ...spec,
+        label: getVideoSpecRatio(spec),
+        value: getVideoSpecRatio(spec)
+    })).filter((item: RatioOption, index: number, list: RatioOption[]) =>
+        item.value && list.findIndex((ratio) => ratio.value === item.value) === index
+    )
+})
 const currentVideoRatio = computed(() => videoRatios.value.find((item) => item.value === optionState.value.ratio) || videoRatios.value[0])
-const selectedVideoUnitPrice = computed(() => Number(currentVideoRatio.value?.tenant_unit_price || 0).toString())
+const currentVideoSpec = computed(() => {
+    if (!currentVideoChannelHasDynamicDuration.value) return currentVideoRatio.value
+    const duration = durationValue(optionState.value.duration)
+    if (!currentVideoChannelSpecs.value.length) return currentVideoRatio.value
+    return currentVideoChannelSpecs.value.find((spec: any) =>
+        getVideoSpecRatio(spec) === String(optionState.value.ratio)
+        && String(getVideoSpecResolution(spec) || '默认') === String(currentVideoQuality.value?.resolution || '默认')
+        && getVideoSpecDurationValue(spec) === duration
+    )
+})
+const selectedVideoUnitPrice = computed(() => Number(currentVideoSpec.value?.tenant_unit_price || currentVideoRatio.value?.tenant_unit_price || 0).toString())
 const findVideoQualityByValue = (value: unknown) => videoQualities.value.find((item) => String(item.value) === String(value))
 const getVideoDisplayResolution = (value: unknown) => {
     const quality = findVideoQualityByValue(value)
@@ -968,6 +1310,16 @@ const focusComposer = async () => {
     await floatingComposerRef.value?.focusTextarea?.()
 }
 const openHomeEntry = (entry: HomeHeroEntry) => {
+    const routeText = entry.route || ''
+    if (routeText.includes('/ai/create') && routeText.includes('type=video') && /happyhorse/i.test(routeText)) {
+        generationMode.value = 'video'
+        setDraft(null)
+        const channel = findCaseChannel({ model: 'HappyHorse1.0', channel: 'happyhorse' }, videoChannels.value)
+        if (channel) selectedVideoChannelCode.value = channel.value
+        syncAigcVideoSelection()
+        router.push(routeText)
+        return
+    }
     if (entry.mode) {
         generationMode.value = entry.mode
         setDraft(null)
@@ -1017,15 +1369,23 @@ const setHomeFeed = (key: HomeFeedKey) => {
     }
     activeInspirationTab.value = 'all'
 }
+
+const refreshHomeWebsiteConfig = async () => {
+    try {
+        const tenantId = parseTenantIdFromRoute(route)
+        await appStore.getConfig(tenantId, true)
+    } catch (error) {
+        console.warn('[pc-home] refresh website config failed', error)
+    }
+}
 const appendTag = (tag: string) => {
     prompt.value = prompt.value ? `${prompt.value}，${tag}` : tag
 }
 
 const getAdaptiveInspirationColumns = (width: number) => {
-    if (width < 760) return 2
-    if (width < 980) return 3
-    if (width < 1180) return 4
-    if (width < 1420) return 5
+    if (width < 810) return 2
+    if (width < 1280) return 3
+    if (width < 2200) return 5
     return 6
 }
 const updateInspirationColumnCount = () => {
@@ -1035,6 +1395,22 @@ const updateInspirationColumnCount = () => {
 }
 const updateFloatingComposer = () => {
     showFloatingComposer.value = false
+}
+const updateImmersiveScrollMask = () => {
+    if (typeof window === 'undefined' || !isImmersiveHome.value || !pageScrollRef.value || !inspirationBoardRef.value) {
+        immersiveScrollMaskOpacity.value = 0
+        return
+    }
+
+    const pageRect = pageScrollRef.value.getBoundingClientRect()
+    const boardRect = inspirationBoardRef.value.getBoundingClientRect()
+    const boardTop = boardRect.top - pageRect.top
+    const viewportHeight = pageScrollRef.value.clientHeight || window.innerHeight
+    const fadeStart = viewportHeight * 0.72
+    const fadeEnd = viewportHeight * 0.42
+    const rawProgress = (fadeStart - boardTop) / Math.max(fadeStart - fadeEnd, 1)
+    const progress = Math.min(Math.max(rawProgress, 0), 1)
+    immersiveScrollMaskOpacity.value = Number((progress * progress * (3 - 2 * progress)).toFixed(3))
 }
 const updatePageScrollThumb = () => {
     if (typeof window === 'undefined' || !pageScrollRef.value) return
@@ -1056,6 +1432,7 @@ const updatePageScrollThumb = () => {
 const syncPageScrollUi = () => {
     updateInspirationColumnCount()
     updateFloatingComposer()
+    updateImmersiveScrollMask()
     updatePageScrollThumb()
     floatingComposerRef.value?.collapseIfEmpty()
 }
@@ -1207,6 +1584,15 @@ const syncAigcVideoSelection = () => {
     optionState.value.model = currentVideoChannel.value?.label || optionState.value.model
     optionState.value.quality = currentVideoQuality.value?.value || optionState.value.quality
     optionState.value.count = '1条'
+}
+const validateVideoSelection = () => {
+    if (!currentVideoChannel.value?.value) return '暂无可用视频模型'
+    if (!videoDurations.value.includes(optionState.value.duration)) return '当前通道不支持所选时长'
+    if (!currentVideoRatio.value?.value) return '请选择视频比例'
+    if (currentVideoChannelHasDynamicDuration.value && currentVideoChannelSpecs.value.length && !currentVideoSpec.value) {
+        return '当前通道不支持所选规格，请调整分辨率、比例或时长'
+    }
+    return ''
 }
 const loadAigcConfig = async () => {
     try {
@@ -1869,7 +2255,7 @@ const submitPrompt = async () => {
             router.push(buildSidebarRouteLocation('create'))
         } catch (error: any) {
             if (isPcLoginRequiredError(error)) return
-            feedback.msgError(error?.msg || error?.message || '提交生成任务失败')
+            feedback.msgError(getRequestErrorMessage(error, '提交生成任务失败'))
         } finally {
             feedback.closeLoading()
             submitting.value = false
@@ -1878,8 +2264,9 @@ const submitPrompt = async () => {
     }
 
     syncAigcVideoSelection()
-    if (!currentVideoChannel.value?.value) {
-        feedback.msgError('暂无可用视频模型')
+    const videoSelectionError = validateVideoSelection()
+    if (videoSelectionError) {
+        feedback.msgError(videoSelectionError)
         return
     }
     submitting.value = true
@@ -1894,13 +2281,13 @@ const submitPrompt = async () => {
             quantity: 1,
             channel: selectedVideoChannelCode.value || currentVideoChannel.value.value,
             negative_prompt: ''
-        })
+        }, { suppressErrorMessage: true })
         setDraft(buildCreateDraft(String(res?.task_id || Date.now())))
         feedback.msgSuccess('已提交视频生成任务')
         router.push(buildSidebarRouteLocation('create'))
     } catch (error: any) {
         if (isPcLoginRequiredError(error)) return
-        feedback.msgError(error?.msg || error?.message || '提交视频生成任务失败')
+        feedback.msgError(getRequestErrorMessage(error, '提交视频生成任务失败'))
     } finally {
         feedback.closeLoading()
         submitting.value = false
@@ -1953,9 +2340,40 @@ watch(detailOpen, (value) => {
     }
     nextTick(syncPageScrollUi)
 })
+watch(
+    () => [
+        websiteConfig.value.pc_home_style,
+        websiteConfig.value.pc_home_bg_type,
+        websiteConfig.value.pc_home_bg,
+        websiteConfig.value.pc_home_bg_url,
+        websiteConfig.value.pc_home_bg_poster,
+        websiteConfig.value.pc_home_bg_poster_url
+    ],
+    () => {
+        activeImmersiveBackgroundIndex.value = 0
+        immersiveMediaFailedIndexes.value = []
+        nextTick(syncPageScrollUi)
+    }
+)
+
+watch(
+    () => immersiveBackgroundItems.value.length,
+    (count) => {
+        if (!count) {
+            activeImmersiveBackgroundIndex.value = 0
+            return
+        }
+        if (activeImmersiveBackgroundIndex.value >= count) {
+            activeImmersiveBackgroundIndex.value = 0
+        }
+    }
+)
 
 onMounted(() => {
-    syncPageScrollUi()
+    nextTick(() => {
+        syncPageScrollUi()
+    })
+    refreshHomeWebsiteConfig()
     loadAigcConfig()
     loadAigcVideoConfig()
     loadPcHomeDecorate()
@@ -1965,6 +2383,12 @@ onMounted(() => {
             const count = homeBanners.value.length || 1
             activeBannerIndex.value = (activeBannerIndex.value + 1) % count
         }, 4200)
+        immersiveBackgroundTimer = window.setInterval(() => {
+            const count = immersiveBackgroundItems.value.length
+            if (count > 1) {
+                activeImmersiveBackgroundIndex.value = (activeImmersiveBackgroundIndex.value + 1) % count
+            }
+        }, 7200)
     }
     pageScrollRef.value?.addEventListener('scroll', syncPageScrollUi, { passive: true })
     window.addEventListener('resize', syncPageScrollUi)
@@ -1974,6 +2398,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     if (bannerTimer) window.clearInterval(bannerTimer)
+    if (immersiveBackgroundTimer) window.clearInterval(immersiveBackgroundTimer)
     stopPageScrollThumbDrag()
     uploadedAssets.value.forEach(revokeUploadedAsset)
     pageScrollRef.value?.removeEventListener('scroll', syncPageScrollUi)
@@ -2021,22 +2446,46 @@ onBeforeUnmount(() => {
     }
 
     &__background,
-    &__noise,
-    &__stars {
+    &__media-bg {
         position: fixed;
         inset: 0;
         pointer-events: none;
         will-change: opacity;
     }
 
+    &__noise,
+    &__stars,
+    &__scroll-mask {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+    }
+
     &__background {
+        z-index: 0;
         background-position: center top;
         background-repeat: no-repeat;
         background-size: cover;
         opacity: 1;
     }
 
+    &__media-bg {
+        z-index: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        filter: saturate(1.18) contrast(1.08);
+        transition: opacity 0.8s ease;
+        transform: translateZ(0);
+
+        &.is-active {
+            opacity: 1;
+        }
+    }
+
     &__noise {
+        z-index: 0;
         background-image:
             radial-gradient(circle at 6% 16%, rgba(255, 255, 255, 0.65) 0 1px, transparent 1.8px),
             radial-gradient(circle at 12% 54%, rgba(255, 255, 255, 0.4) 0 1px, transparent 1.8px),
@@ -2054,6 +2503,7 @@ onBeforeUnmount(() => {
     }
 
     &__stars {
+        z-index: 0;
         opacity: 0.95;
         mix-blend-mode: screen;
 
@@ -2081,7 +2531,295 @@ onBeforeUnmount(() => {
             animation: starTwinkle 6.2s ease-in-out infinite alternate-reverse;
         }
     }
+
+    &__scroll-mask {
+        z-index: 0;
+        background: #050505;
+        opacity: 0;
+        transition: opacity 0.08s linear;
+        will-change: opacity;
+    }
 }
+
+.ai-app-page.is-immersive-home {
+    background: #050505;
+
+    .ai-app-page__background {
+        opacity: 1;
+    }
+
+    .ai-app-page__background::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+        background:
+            linear-gradient(90deg, rgba(0, 0, 0, 0.78) 0%, transparent 19%, transparent 84%, rgba(0, 0, 0, 0.54) 100%),
+            linear-gradient(180deg, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.03) 54%, rgba(0, 0, 0, 0.8) 100%);
+    }
+
+    .ai-app-page__media-bg {
+        transform: none;
+    }
+
+    .ai-app-page__noise {
+        display: none;
+    }
+
+    .ai-app-page__stars {
+        display: none;
+    }
+
+    .app-main {
+        min-height: 100vh;
+        padding: 0 24px 96px 96px;
+    }
+
+    .model-carousel {
+        margin-top: 18px;
+    }
+
+    .inspiration-board {
+        margin-top: 20px;
+    }
+
+    .inspiration-board__toolbar {
+        display: none;
+    }
+}
+
+.yike-home-page {
+    --yike-card-height: 98px;
+    --yike-wrapper-height: 98px;
+    --yike-wrapper-hover-height: 168px;
+    --yike-feature-gap: clamp(0.625rem, 0.8vw, 1rem);
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    min-height: 660px;
+    margin: 0 auto;
+    padding-top: 9rem;
+    box-sizing: border-box;
+}
+
+.yike-home-page__title {
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
+    color: rgba(255, 255, 255, 0.94);
+    font-size: 3.875rem;
+    font-weight: 600;
+    line-height: 1.22;
+    letter-spacing: 0;
+    text-align: center;
+    text-shadow: 0 16px 58px rgba(0, 0, 0, 0.56);
+    overflow-wrap: anywhere;
+}
+
+.yike-home-page__subtitle {
+    width: 100%;
+    max-width: 880px;
+    margin: 1rem auto 2.25rem;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 1.35rem;
+    font-weight: 400;
+    line-height: 1.65;
+    letter-spacing: 0;
+    text-align: center;
+    text-shadow: 0 10px 36px rgba(0, 0, 0, 0.48);
+    overflow-wrap: anywhere;
+}
+
+.immersive-cta-shell {
+    position: relative;
+    z-index: 3;
+    width: 17.5rem;
+    height: 4rem;
+    min-width: 17.5rem;
+    max-width: 17.5rem;
+    min-height: 4rem;
+    max-height: 4rem;
+    margin: 0 auto;
+    flex: none;
+}
+
+.immersive-cta__button {
+    width: 17.5rem;
+    height: 4rem;
+    min-width: 17.5rem;
+    max-width: 17.5rem;
+    min-height: 4rem;
+    max-height: 4rem;
+    transform: none;
+}
+
+.immersive-cta__content {
+    flex-flow: row;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.immersive-cta__text {
+    position: relative;
+    z-index: 6;
+    white-space: nowrap;
+}
+
+.yike-tools-heading {
+    position: relative;
+    z-index: 3;
+    width: 100%;
+    max-width: 2028px;
+    margin: 1rem auto 0.75rem;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.4;
+    text-align: left;
+    text-shadow: 0 8px 28px rgba(0, 0, 0, 0.52);
+}
+
+.features-container {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    flex: none;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    justify-content: center;
+    gap: var(--yike-feature-gap);
+    width: 100%;
+    max-width: 2028px;
+    height: var(--yike-wrapper-hover-height);
+    margin: 5rem auto 0;
+    overflow-y: visible;
+}
+
+.light-beam-wrapper {
+    position: relative;
+    flex: none;
+    width: fit-content;
+    height: var(--yike-wrapper-height);
+    overflow: visible;
+    isolation: isolate;
+}
+
+.feature-beam-wrapper {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    height: var(--yike-wrapper-height);
+    max-width: none;
+    min-height: var(--yike-wrapper-height);
+    max-height: var(--yike-wrapper-hover-height);
+    transform: none;
+    transition:
+        flex 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+        height 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.feature-beam-wrapper:hover,
+.feature-beam-wrapper:focus-within {
+    flex: 1 1 0;
+    height: var(--yike-wrapper-hover-height);
+}
+
+.glassmorphism-button {
+    position: relative;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+    border: 0;
+    overflow: hidden;
+    isolation: isolate;
+    box-sizing: border-box;
+    margin-top: 0;
+    padding: 0;
+    color: #fff;
+    cursor: pointer;
+    transform: none;
+    transition: opacity 0.26s ease-out, box-shadow 0.26s ease-out;
+}
+
+:deep(.glassmorphism-button > .glass-surface__content) {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    overflow: hidden;
+}
+
+.glassmorphism-button::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    border-radius: inherit;
+    background:
+        radial-gradient(110% 130% at 12% 0%, rgba(255, 255, 255, 0.18) 0%, transparent 34%),
+        radial-gradient(80% 120% at 86% 88%, rgba(255, 255, 255, 0.13) 0%, transparent 45%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03) 42%, rgba(0, 0, 0, 0.14));
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.34) inset,
+        0 1px 0 rgba(255, 255, 255, 0.42) inset,
+        0 -1px 0 rgba(255, 255, 255, 0.18) inset;
+    mix-blend-mode: screen;
+    opacity: 0.72;
+    pointer-events: none;
+}
+
+.light-beam-wrapper.immersive-cta-shell {
+    width: 17.5rem;
+    height: 4rem;
+}
+
+.light-beam-wrapper.immersive-cta-shell .glassmorphism-button {
+    width: 17.5rem;
+    height: 4rem;
+}
+
+.feature-beam-wrapper .glassmorphism-button {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    flex: none;
+    width: 100%;
+    height: 100%;
+}
+
+.feature-beam-wrapper:hover .glassmorphism-button {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    max-width: none;
+    min-height: 0;
+    max-height: none;
+    transform: none;
+}
+
+.glassmorphism-button__content {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    flex-flow: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+}
+
 
 @keyframes starTwinkle {
     0% {
@@ -2098,6 +2836,436 @@ onBeforeUnmount(() => {
         opacity: 0.95;
         transform: scale(1.02);
     }
+}
+
+.home-glass-card {
+    background: rgba(255, 255, 255, 0.01);
+    flex: none;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    max-width: none;
+    min-height: 0;
+    max-height: none;
+    padding: 0;
+    color: #fff;
+    text-align: left;
+    cursor: pointer;
+    transform: none;
+}
+
+.home-glass-card::after {
+    opacity: 0.68;
+}
+
+.immersive-cta__button::after {
+    z-index: 4;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.06) 12%, transparent 34%),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.22), transparent 10%, transparent 90%, rgba(255, 255, 255, 0.16)),
+        radial-gradient(100% 120% at 50% 50%, rgba(255, 255, 255, 0.12), transparent 48%);
+    box-shadow:
+        0 0 2px 1px rgba(255, 255, 255, 0.35) inset,
+        0 0 10px 4px rgba(255, 255, 255, 0.15) inset,
+        0 4px 16px rgba(17, 17, 26, 0.05) inset,
+        0 8px 24px rgba(17, 17, 26, 0.05) inset,
+        0 16px 56px rgba(17, 17, 26, 0.05) inset;
+    opacity: 0.28;
+    mix-blend-mode: screen;
+}
+
+.feature-beam-wrapper .home-glass-card {
+    border-radius: 16px;
+    transform: none;
+    transition:
+        opacity 0.26s ease-out,
+        box-shadow 0.26s ease-out,
+        height 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.feature-beam-wrapper .home-glass-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+    background:
+        radial-gradient(80% 95% at 50% 50%, rgba(255, 255, 255, 0.14), transparent 56%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.09), transparent 44%, rgba(255, 255, 255, 0.035));
+    opacity: 0.16;
+    mix-blend-mode: screen;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+}
+
+.feature-beam-wrapper .home-glass-card::after {
+    z-index: 4;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.06) 12%, transparent 34%),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.22), transparent 10%, transparent 90%, rgba(255, 255, 255, 0.16)),
+        radial-gradient(100% 120% at 50% 50%, rgba(255, 255, 255, 0.12), transparent 48%);
+    box-shadow:
+        0 0 2px 1px rgba(255, 255, 255, 0.35) inset,
+        0 0 10px 4px rgba(255, 255, 255, 0.15) inset,
+        0 4px 16px rgba(17, 17, 26, 0.05) inset,
+        0 8px 24px rgba(17, 17, 26, 0.05) inset,
+        0 16px 56px rgba(17, 17, 26, 0.05) inset;
+    opacity: 0.28;
+    mix-blend-mode: screen;
+}
+
+.feature-beam-wrapper:hover .home-glass-card,
+.feature-beam-wrapper:focus-within .home-glass-card {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    max-width: none;
+    min-height: 0;
+    max-height: none;
+    transform: none;
+}
+
+.feature-beam-wrapper:hover .home-glass-card::before,
+.feature-beam-wrapper:focus-within .home-glass-card::before {
+    opacity: 0.16;
+}
+
+.home-glass-card__content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    overflow: hidden;
+    max-width: 100%;
+    padding: 0 3.25rem 0 1.25rem;
+    text-align: left;
+    transition:
+        max-width 0.34s cubic-bezier(0.16, 1, 0.3, 1),
+        padding 0.28s ease,
+        justify-content 0.28s ease;
+}
+
+.feature-beam-wrapper:hover .home-glass-card__content,
+.feature-beam-wrapper:focus-within .home-glass-card__content {
+    justify-content: center;
+    max-width: min(42%, 15rem);
+    padding: 0 0 0 1.25rem;
+}
+
+.home-glass-card__content strong {
+    position: relative;
+    z-index: 6;
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow:
+        0 2px 14px rgba(0, 0, 0, 0.8),
+        0 0 28px rgba(0, 0, 0, 0.48);
+    transition: transform 0.28s ease;
+}
+
+.feature-beam-wrapper:hover .home-glass-card__content strong,
+.feature-beam-wrapper:focus-within .home-glass-card__content strong {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.25;
+    white-space: normal;
+}
+
+.home-glass-card__content small {
+    position: relative;
+    z-index: 6;
+    display: block;
+    max-width: 100%;
+    margin-top: 0.25rem;
+    overflow: hidden;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 0.75rem;
+    line-height: 1rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: none;
+    text-shadow:
+        0 2px 12px rgba(0, 0, 0, 0.76),
+        0 0 20px rgba(0, 0, 0, 0.42);
+}
+
+.feature-beam-wrapper:hover .home-glass-card__content small,
+.feature-beam-wrapper:focus-within .home-glass-card__content small {
+    margin-top: 0.35rem;
+    color: rgba(255, 255, 255, 0.86);
+    font-size: clamp(0.74rem, 0.8vw, 0.9rem);
+    line-height: 1.25;
+    white-space: normal;
+}
+
+.home-glass-card__preview {
+    position: absolute;
+    top: 50%;
+    right: clamp(2rem, 3vw, 3.5rem);
+    left: max(49%, 13rem);
+    bottom: auto;
+    z-index: 5;
+    width: auto;
+    height: 86%;
+    opacity: 0;
+    pointer-events: none;
+    overflow: visible;
+    --preview-main-size: clamp(4.75rem, 7vw, 8.25rem);
+    --preview-back-size: calc(var(--preview-main-size) * 0.82);
+    --preview-side-offset: calc(var(--preview-main-size) * 0.36);
+    transform: translate3d(0.45rem, -44%, 0) scale(0.94);
+    transition:
+        opacity 0.26s ease,
+        transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.home-glass-card__preview::before {
+    content: '';
+    position: absolute;
+    inset: -0.75rem;
+    border-radius: 1.1rem;
+    background:
+        radial-gradient(58% 72% at 52% 48%, rgba(54, 99, 255, 0.34), transparent 68%),
+        radial-gradient(60% 74% at 78% 20%, rgba(255, 255, 255, 0.18), transparent 64%);
+    opacity: 0.58;
+    filter: blur(12px);
+}
+
+.home-glass-card__preview img {
+    position: absolute;
+    display: block;
+    top: 50%;
+    left: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 0.72rem;
+    object-fit: cover;
+    opacity: 0;
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.07) inset,
+        0 18px 42px rgba(0, 0, 0, 0.34);
+    transition:
+        opacity 0.24s ease,
+        transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.home-glass-card__preview img:nth-child(1) {
+    z-index: 2;
+    width: var(--preview-back-size);
+    height: var(--preview-back-size);
+    opacity: 0.58;
+    transform: translate3d(calc(-50% - var(--preview-side-offset)), -50%, 0) scale(0.96);
+}
+
+.home-glass-card__preview img:nth-child(2) {
+    z-index: 5;
+    width: var(--preview-main-size);
+    height: var(--preview-main-size);
+    opacity: 0.96;
+    transform: translate3d(-50%, -50%, 0) scale(1);
+}
+
+.home-glass-card__preview img:nth-child(3) {
+    z-index: 1;
+    width: var(--preview-back-size);
+    height: var(--preview-back-size);
+    opacity: 0.52;
+    transform: translate3d(calc(-50% + var(--preview-side-offset)), -50%, 0) scale(0.94);
+}
+
+.feature-beam-wrapper:hover .home-glass-card__preview,
+.feature-beam-wrapper:focus-within .home-glass-card__preview {
+    opacity: 1;
+    transform: translate3d(0, -50%, 0) scale(1);
+}
+
+.feature-beam-wrapper:hover .home-glass-card__preview img,
+.feature-beam-wrapper:focus-within .home-glass-card__preview img {
+    animation: immersivePreviewCarousel 7.2s ease-in-out infinite;
+}
+
+.feature-beam-wrapper:hover .home-glass-card__preview img:nth-child(1),
+.feature-beam-wrapper:focus-within .home-glass-card__preview img:nth-child(1) {
+    animation-delay: -2.4s;
+}
+
+.feature-beam-wrapper:hover .home-glass-card__preview img:nth-child(2),
+.feature-beam-wrapper:focus-within .home-glass-card__preview img:nth-child(2) {
+    animation-delay: 0s;
+}
+
+.feature-beam-wrapper:hover .home-glass-card__preview img:nth-child(3),
+.feature-beam-wrapper:focus-within .home-glass-card__preview img:nth-child(3) {
+    animation-delay: -4.8s;
+}
+
+@keyframes immersivePreviewCarousel {
+    0%,
+    27% {
+        z-index: 5;
+        width: var(--preview-main-size);
+        height: var(--preview-main-size);
+        opacity: 0.98;
+        filter: saturate(1.08) contrast(1.04);
+        transform: translate3d(-50%, -50%, 0) scale(1);
+    }
+
+    33%,
+    60% {
+        z-index: 2;
+        width: var(--preview-back-size);
+        height: var(--preview-back-size);
+        opacity: 0.56;
+        filter: saturate(0.88) contrast(0.96);
+        transform: translate3d(calc(-50% + var(--preview-side-offset)), -50%, 0) scale(0.94);
+    }
+
+    66%,
+    94% {
+        z-index: 1;
+        width: var(--preview-back-size);
+        height: var(--preview-back-size);
+        opacity: 0.52;
+        filter: saturate(0.86) contrast(0.94);
+        transform: translate3d(calc(-50% - var(--preview-side-offset)), -50%, 0) scale(0.96);
+    }
+
+    100% {
+        z-index: 5;
+        width: var(--preview-main-size);
+        height: var(--preview-main-size);
+        opacity: 0.98;
+        filter: saturate(1.08) contrast(1.04);
+        transform: translate3d(-50%, -50%, 0) scale(1);
+    }
+}
+
+.home-glass-card i {
+    position: absolute;
+    left: auto;
+    right: 1.35rem;
+    top: 50%;
+    bottom: auto;
+    z-index: 6;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 22px;
+    font-style: normal;
+    line-height: 1;
+    transform: translateY(-50%);
+    transition:
+        left 0.28s ease,
+        right 0.28s ease,
+        top 0.28s ease,
+        bottom 0.28s ease,
+        transform 0.28s ease,
+        font-size 0.28s ease;
+}
+
+.feature-beam-wrapper:hover .home-glass-card i {
+    left: 1.25rem;
+    right: auto;
+    top: auto;
+    bottom: 1.05rem;
+    font-size: 25px;
+    transform: none;
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .immersive-cta__button,
+    .feature-beam-wrapper .home-glass-card {
+        background: rgba(0, 0, 0, 0.4);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.2),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .feature-beam-wrapper,
+    .feature-beam-wrapper .home-glass-card,
+    .feature-beam-wrapper .home-glass-card::before,
+    .feature-beam-wrapper .home-glass-card::after,
+    .feature-beam-wrapper .home-glass-card__content,
+    .feature-beam-wrapper .home-glass-card i {
+        transition-duration: 0.01ms;
+    }
+
+    .home-glass-card__preview img {
+        animation: none;
+        opacity: 0.78;
+    }
+
+    .immersive-cta__button.glass-surface--svg,
+    .feature-beam-wrapper .home-glass-card.glass-surface--svg {
+        -webkit-backdrop-filter: blur(12px) saturate(1.4);
+        backdrop-filter: blur(12px) saturate(1.4);
+    }
+
+}
+
+@media (max-width: 1280px) {
+    .yike-home-page {
+        --yike-feature-gap: 0.625rem;
+    }
+
+    .feature-beam-wrapper:hover,
+    .feature-beam-wrapper:focus-within {
+        flex: 1 1 0;
+    }
+
+    .feature-beam-wrapper:hover .home-glass-card__content,
+    .feature-beam-wrapper:focus-within .home-glass-card__content {
+        max-width: 48%;
+        padding-left: 1.25rem;
+    }
+
+    .home-glass-card__preview {
+        right: 1.5rem;
+        left: max(52%, 12rem);
+        width: auto;
+        --preview-main-size: clamp(4.5rem, 6.4vw, 7.25rem);
+    }
+}
+
+.yike-discovery-tabs {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    width: 100%;
+    max-width: 2028px;
+    height: 2.5rem;
+    margin: 2rem auto 1rem;
+}
+
+.yike-discovery-tabs button {
+    height: 2.25rem;
+    padding: 0 1rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.yike-discovery-tabs button:hover,
+.yike-discovery-tabs button.is-active {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
 }
 
 .app-main {
@@ -2389,7 +3557,12 @@ onBeforeUnmount(() => {
 
 .model-carousel {
     position: relative;
+    width: 100%;
+    max-width: 2028px;
     margin-top: 24px;
+    margin-right: auto;
+    margin-left: auto;
+    overflow: visible;
 }
 
 .model-carousel__arrow {
@@ -2432,7 +3605,7 @@ onBeforeUnmount(() => {
 
 .model-strip {
     display: flex;
-    gap: 10px;
+    gap: 2px;
     padding-bottom: 2px;
     overflow-x: auto;
     scroll-snap-type: x proximity;
@@ -2445,7 +3618,8 @@ onBeforeUnmount(() => {
 
 .model-card {
     position: relative;
-    flex: 0 0 clamp(188px, 15.5vw, 244px);
+    flex: 0 0 calc((100% - (var(--inspiration-columns, 6) - 1) * 2px) / var(--inspiration-columns, 6));
+    min-width: 0;
     min-height: 250px;
     background: #111217;
     scroll-snap-align: start;
@@ -2603,8 +3777,8 @@ onBeforeUnmount(() => {
     position: relative;
     z-index: 1;
     width: 100%;
-    max-width: none;
-    margin: 34px 0 0;
+    max-width: 2028px;
+    margin: 34px auto 0;
     overflow: visible;
 
     &__toolbar {
@@ -2701,13 +3875,13 @@ onBeforeUnmount(() => {
 .inspiration-grid {
     display: grid;
     grid-template-columns: repeat(var(--inspiration-columns, 6), minmax(0, 1fr));
-    gap: 10px;
-    margin-top: 4px;
+    gap: 2px;
+    margin-top: 0;
 
     &__column {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 2px;
         min-width: 0;
     }
 }
@@ -3234,6 +4408,17 @@ onBeforeUnmount(() => {
         background: #3a3a3a;
         opacity: 1;
         cursor: grabbing;
+    }
+}
+
+.ai-app-page.is-immersive-home {
+    .model-card {
+        min-height: clamp(260px, 29vh, 330px);
+    }
+
+    .model-card > img,
+    .model-card > video {
+        min-height: clamp(260px, 29vh, 330px);
     }
 }
 

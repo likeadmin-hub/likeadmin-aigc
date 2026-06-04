@@ -1,16 +1,8 @@
-import {
-    FetchOptions,
-    $fetch,
-    $Fetch,
-    FetchResponse,
-    RequestOptions,
-    FileParams,
-    RequestEventStreamOptions
-} from 'ofetch'
+import { FetchOptions, $fetch, $Fetch, FetchResponse, RequestOptions, FileParams } from 'ofetch'
 import { merge } from 'lodash-es'
 import { isFunction } from '../validate'
 import { RequestMethodsEnum } from '@/enums/requestEnums'
-import { objectToQuery } from '../util'
+import { parseTenantIdFromRoute } from '../tenant'
 
 export class Request {
     private requestOptions: RequestOptions
@@ -43,6 +35,10 @@ export class Request {
         const formData = new FormData()
         const customFilename = params.name || 'file'
         formData.append(customFilename, params.file)
+        const tenantId = parseTenantIdFromRoute()
+        if (tenantId && !params.data?.tenant_id && !params.data?.tenantId) {
+            formData.append('tenant_id', tenantId)
+        }
         if (params.data) {
             Object.keys(params.data).forEach((key) => {
                 const value = params.data![key]

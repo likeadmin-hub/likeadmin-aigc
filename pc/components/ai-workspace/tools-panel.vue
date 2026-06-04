@@ -27,7 +27,6 @@
         <section class="tools-section tools-section--all">
             <div class="tools-section__heading tools-section__heading--row">
                 <div class="tools-section__heading-main">
-                    <h2>{{ texts.allTools }}</h2>
                     <div class="tools-categories">
                         <button
                             v-for="item in toolCategoryOptions"
@@ -175,7 +174,7 @@ onMounted(() => {
 
 .tools-section__heading--row {
     flex-direction: row;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
     gap: 16px;
 }
@@ -184,19 +183,32 @@ onMounted(() => {
     position: sticky;
     top: 0;
     z-index: 8;
-    padding: 12px 0;
+    height: 72px;
+    min-height: 72px;
+    padding: 0;
     background: #050505;
+    box-sizing: border-box;
+    flex-shrink: 0;
 }
 
 .tools-section__heading-main {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    justify-content: center;
     min-width: 0;
+    height: 100%;
     flex: 1;
 }
 
 .tools-section__heading h2 {
+    margin: 0;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.tools-section__title {
     margin: 0;
     color: #fff;
     font-size: 18px;
@@ -353,6 +365,7 @@ onMounted(() => {
 .tools-categories {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: var(--category-chip-gap, 20px);
     width: 100%;
 }
@@ -495,7 +508,7 @@ onMounted(() => {
 
 @media (max-width: 1200px) {
     .tools-shell {
-        padding-top: 24px;
+        padding-top: 0;
     }
 
     .tools-featured-grid {
@@ -508,13 +521,13 @@ onMounted(() => {
 }
 
 @media (max-width: 900px) {
-    .tools-section__heading--row {
-        flex-direction: column;
-        align-items: stretch;
+    .tools-section--all .tools-section__heading--row {
+        flex-direction: row;
+        align-items: center;
     }
 
-    .tools-search--inline {
-        width: 100%;
+    .tools-section--all .tools-search--inline {
+        width: min(312px, 100%);
     }
 
     .tools-grid {
