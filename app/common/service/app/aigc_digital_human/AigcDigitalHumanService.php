@@ -43,9 +43,41 @@ class AigcDigitalHumanService
         } catch (Throwable $e) {
             $data = self::defaultConfigData();
         }
-        $data['option_config'] = AigcDigitalHumanChannelService::userConfig($tenantId);
-        $data['base_config'] = self::baseConfig($tenantId);
-        return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
+
+        try {
+            $data['option_config'] = AigcDigitalHumanChannelService::userConfig($tenantId);
+        } catch (Throwable $e) {
+            $data['option_config'] = self::defaultOptionConfig();
+        }
+
+        try {
+            $data['base_config'] = self::baseConfig($tenantId);
+        } catch (Throwable $e) {
+            $data['base_config'] = self::defaultBaseConfig();
+        }
+
+        try {
+            return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
+        } catch (Throwable $e) {
+            $data['display_config'] = [
+                'id' => 0,
+                'tenant_id' => $tenantId,
+                'app_code' => self::APP_CODE,
+                'title' => '数字人视频',
+                'description' => '形象、音色与文案组合生成数字人视频。',
+                'cover_uri' => '',
+                'icon_uri' => '',
+                'cover_url' => '',
+                'icon_url' => '',
+                'virtual_use_count' => '',
+                'sort' => 90,
+                'status' => 1,
+                'extra' => [],
+                'create_time' => 0,
+                'update_time' => 0,
+            ];
+            return $data;
+        }
     }
 
     private static function defaultConfigData(): array
@@ -56,6 +88,21 @@ class AigcDigitalHumanService
             'model' => 'mock-digital-human',
             'status' => 1,
             'config_json' => [],
+        ];
+    }
+
+    private static function defaultOptionConfig(): array
+    {
+        return [
+            'channels' => [],
+            'defaults' => [
+                'channel' => '',
+                'quality' => '',
+                'ratio' => '',
+                'quantity' => 1,
+            ],
+            'quantity_options' => AigcDigitalHumanChannelService::QUANTITY_OPTIONS,
+            'max_reference_images' => AigcDigitalHumanChannelService::DEFAULT_REFERENCE_LIMIT,
         ];
     }
 
