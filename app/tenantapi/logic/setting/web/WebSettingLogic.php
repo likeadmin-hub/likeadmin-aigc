@@ -38,6 +38,12 @@ class WebSettingLogic extends BaseLogic
     {
         $pcLoginBg = ConfigService::get('website', 'pc_login_bg', ConfigService::get('tenant', 'login_image', ''));
         $pcLoginBgPoster = ConfigService::get('website', 'pc_login_bg_poster', '');
+        $pcHomeBg = ConfigService::get('website', 'pc_home_bg', '');
+        $pcHomeBgPoster = ConfigService::get('website', 'pc_home_bg_poster', '');
+        $pcHomeBgList = self::fileUrlList($pcHomeBg);
+        $pcHomeBgPosterList = self::fileUrlList($pcHomeBgPoster);
+        $pcHomeImmersiveTitle = ConfigService::get('website', 'pc_home_immersive_title', 'OPC社区专属，AI创业平台');
+        $pcHomeImmersiveSubtitle = ConfigService::get('website', 'pc_home_immersive_subtitle', '一个人就是一支团队');
         return [
             'name' => ConfigService::get('tenant', 'name'),
             'web_favicon' => FileService::getFileUrl(ConfigService::get('tenant', 'web_favicon')),
@@ -57,6 +63,14 @@ class WebSettingLogic extends BaseLogic
             'pc_login_bg_url' => $pcLoginBg ? FileService::getFileUrl($pcLoginBg) : '',
             'pc_login_bg_poster' => $pcLoginBgPoster ? FileService::getFileUrl($pcLoginBgPoster) : '',
             'pc_login_bg_poster_url' => $pcLoginBgPoster ? FileService::getFileUrl($pcLoginBgPoster) : '',
+            'pc_home_style' => ConfigService::get('website', 'pc_home_style', 'default'),
+            'pc_home_bg_type' => ConfigService::get('website', 'pc_home_bg_type', 'none'),
+            'pc_home_bg' => $pcHomeBgList,
+            'pc_home_bg_url' => $pcHomeBgList,
+            'pc_home_bg_poster' => $pcHomeBgPosterList,
+            'pc_home_bg_poster_url' => $pcHomeBgPosterList,
+            'pc_home_immersive_title' => $pcHomeImmersiveTitle,
+            'pc_home_immersive_subtitle' => $pcHomeImmersiveSubtitle,
             'h5_favicon' => FileService::getFileUrl(ConfigService::get('website', 'h5_favicon')),
         ];
     }
@@ -83,6 +97,18 @@ class WebSettingLogic extends BaseLogic
         }
         $pcLoginBg = $pcLoginBgType === 'none' ? '' : FileService::setFileUrl($params['pc_login_bg'] ?? '');
         $pcLoginBgPoster = FileService::setFileUrl($params['pc_login_bg_poster'] ?? '');
+        $pcHomeStyle = $params['pc_home_style'] ?? 'default';
+        if (!in_array($pcHomeStyle, ['default', 'immersive'], true)) {
+            $pcHomeStyle = 'default';
+        }
+        $pcHomeBgType = $params['pc_home_bg_type'] ?? 'none';
+        if (!in_array($pcHomeBgType, ['image', 'video', 'none'], true)) {
+            $pcHomeBgType = 'none';
+        }
+        $pcHomeBg = $pcHomeBgType === 'none' ? [] : self::setFileList($params['pc_home_bg'] ?? []);
+        $pcHomeBgPoster = $pcHomeBgType === 'video'
+            ? self::setFileList($params['pc_home_bg_poster'] ?? [])
+            : [];
 
         ConfigService::set('tenant', 'name', $params['name']);
         ConfigService::set('tenant', 'web_favicon', $favicon);
@@ -97,10 +123,37 @@ class WebSettingLogic extends BaseLogic
         ConfigService::set('website', 'pc_login_bg_type', $pcLoginBgType);
         ConfigService::set('website', 'pc_login_bg', $pcLoginBg);
         ConfigService::set('website', 'pc_login_bg_poster', $pcLoginBgPoster);
+        ConfigService::set('website', 'pc_home_style', $pcHomeStyle);
+        ConfigService::set('website', 'pc_home_bg_type', $pcHomeBgType);
+        ConfigService::set('website', 'pc_home_bg', $pcHomeBg);
+        ConfigService::set('website', 'pc_home_bg_poster', $pcHomeBgPoster);
+        ConfigService::set('website', 'pc_home_immersive_title', $params['pc_home_immersive_title'] ?? 'OPC社区专属，AI创业平台');
+        ConfigService::set('website', 'pc_home_immersive_subtitle', $params['pc_home_immersive_subtitle'] ?? '一个人就是一支团队');
 
         ConfigService::set('website', 'shop_name', $params['shop_name']);
         ConfigService::set('website', 'shop_logo', $shopLogo);
         ConfigService::set('website', 'h5_favicon', $h5favicon);
+    }
+
+    private static function normalizeFileList($value): array
+    {
+        if (is_array($value)) {
+            return array_values(array_filter($value, static fn($item) => is_string($item) && $item !== ''));
+        }
+        if (is_string($value) && $value !== '') {
+            return [$value];
+        }
+        return [];
+    }
+
+    private static function setFileList($value): array
+    {
+        return array_map(static fn($item) => FileService::setFileUrl($item), self::normalizeFileList($value));
+    }
+
+    private static function fileUrlList($value): array
+    {
+        return array_map(static fn($item) => FileService::getFileUrl($item), self::normalizeFileList($value));
     }
 
 
