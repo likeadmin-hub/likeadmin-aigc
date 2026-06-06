@@ -1,0 +1,48 @@
+[
+  {
+    "source_menu_key": "smart_clip_platform",
+    "app_code": "smart_clip",
+    "source": "app",
+    "type": "M",
+    "name": "AI视频剪辑",
+    "icon": "el-icon-Picture",
+    "sort": 90,
+    "perms": "",
+    "paths": "smart-clip",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "smart_clip_platform_channel",
+        "type": "C",
+        "name": "通道管理",
+        "perms": "app.smart_clip.channel/lists",
+        "paths": "channel",
+        "component": "apps/smart_clip/channel"
+      },
+      {
+        "source_menu_key": "smart_clip_platform_spec",
+        "type": "C",
+        "name": "规格价格",
+        "perms": "app.smart_clip.spec/lists",
+        "paths": "spec",
+        "component": "apps/smart_clip/spec"
+      },
+      {
+        "source_menu_key": "smart_clip_platform_tenant_usage",
+        "type": "C",
+        "name": "租户用量",
+        "perms": "app.smart_clip.tenant/stat",
+        "paths": "tenant-usage",
+        "component": "apps/smart_clip/tenant-usage"
+      },
+      {
+        "source_menu_key": "smart_clip_platform_task_log",
+        "type": "C",
+        "name": "任务日志",
+        "perms": "app.smart_clip.task/lists",
+        "paths": "task-log",
+        "component": "apps/smart_clip/task-log"
+      }
+    ]
+  }
+]

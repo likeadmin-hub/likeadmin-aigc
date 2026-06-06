@@ -1,0 +1,56 @@
+[
+  {
+    "source_menu_key": "smart_clip",
+    "app_code": "smart_clip",
+    "source": "app",
+    "type": "M",
+    "name": "AI视频剪辑",
+    "icon": "el-icon-Picture",
+    "sort": 100,
+    "perms": "",
+    "paths": "smart-clip",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "smart_clip_config",
+        "type": "C",
+        "name": "基础配置",
+        "perms": "app.smart_clip.config/detail",
+        "paths": "config",
+        "component": "apps/smart_clip/config"
+      },
+      {
+        "source_menu_key": "smart_clip_task",
+        "type": "C",
+        "name": "剪辑任务",
+        "perms": "app.smart_clip.admin_task/lists",
+        "paths": "task",
+        "component": "apps/smart_clip/task"
+      },
+      {
+        "source_menu_key": "smart_clip_channel_price",
+        "type": "C",
+        "name": "通道调价",
+        "perms": "app.smart_clip.channel/lists",
+        "paths": "channel-price",
+        "component": "apps/smart_clip/channel-price"
+      },
+      {
+        "source_menu_key": "smart_clip_stat",
+        "type": "C",
+        "name": "用量统计",
+        "perms": "app.smart_clip.admin/stat",
+        "paths": "stat",
+        "component": "apps/smart_clip/stat"
+      },
+      {
+        "source_menu_key": "smart_clip_sensitive_word",
+        "type": "C",
+        "name": "敏感词",
+        "perms": "app.smart_clip.admin/sensitiveWord",
+        "paths": "sensitive-word",
+        "component": "apps/smart_clip/sensitive-word"
+      }
+    ]
+  }
+]

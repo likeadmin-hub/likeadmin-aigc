@@ -17,7 +17,7 @@ use think\facade\Db;
 
 class MembershipService
 {
-    public const BASE_APP_CODES = ['aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm', 'image_human'];
+    public const BASE_APP_CODES = ['aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm', 'image_human', 'smart_clip'];
     public const STATUS_ENABLED = 1;
     public const STATUS_DISABLED = 0;
     public const CYCLE_MONTHLY = 'monthly';

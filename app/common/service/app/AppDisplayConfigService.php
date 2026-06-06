@@ -16,6 +16,7 @@ class AppDisplayConfigService
         'aigc_canvas',
         'aigc_llm',
         'image_human',
+        'smart_clip',
     ];
 
     private const DEFAULTS = [
@@ -48,6 +49,11 @@ class AppDisplayConfigService
             'title' => '全驱数字人',
             'description' => '上传人物图片与参考音频生成全驱动数字人视频。',
             'sort' => 75,
+        ],
+        'smart_clip' => [
+            'title' => 'AI视频剪辑',
+            'description' => '上传视频或从作品带入素材，选择模板完成智能混剪。',
+            'sort' => 70,
         ],
     ];
 

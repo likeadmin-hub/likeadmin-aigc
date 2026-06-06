@@ -10,7 +10,7 @@ use think\Response;
 
 class AppAccessService
 {
-    public const DEFAULT_AIGC_APP_CODES = ['aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm', 'image_human'];
+    public const DEFAULT_AIGC_APP_CODES = ['aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm', 'image_human', 'smart_clip'];
     public const BUY_PAID = 'paid';
     public const BUY_TRIAL = 'trial';
     public const SHELF_ON = 'on';
