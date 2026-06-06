@@ -21,6 +21,7 @@ use app\common\logic\BaseLogic;
 use app\common\model\pay\TenantPayConfig;
 use app\common\model\pay\TenantPayWay;
 use app\common\service\FileService;
+use think\facade\Db;
 
 /**
  * 支付方式
@@ -72,9 +73,11 @@ class PayWayLogic extends BaseLogic
      */
     public static function setPayWay($params)
     {
-        $payWay = new TenantPayWay;
         $data = [];
         foreach ($params as $key => $value) {
+            if (!is_array($value) || empty($value)) {
+                return PayEnum::getPaySceneDesc($key) . '支付场景配置异常';
+            }
             $isDefault = array_column($value, 'is_default');
             $isDefaultNum = array_count_values($isDefault);
             $status = array_column($value, 'status');
@@ -98,13 +101,20 @@ class PayWayLogic extends BaseLogic
                     return $sceneName . '支付场景的默认支付未开启支付状态';
                 }
                 $data[] = [
+                    'model' => $result,
                     'is_default' => $val['is_default'],
                     'status' => $val['status'],
                 ];
             }
         }
-        $payWay->saveAll($data);
+        Db::transaction(function () use ($data) {
+            foreach ($data as $item) {
+                $item['model']->save([
+                    'is_default' => $item['is_default'],
+                    'status' => $item['status'],
+                ]);
+            }
+        });
         return true;
     }
 }
-
