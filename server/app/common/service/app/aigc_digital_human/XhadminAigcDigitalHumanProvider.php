@@ -27,6 +27,10 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
             'format' => $request->providerParams['tts_format'] ?? 'mp3',
             'reference_id' => (string)($request->voice['provider_asset_id'] ?? ''),
             'normalize' => true,
+            'client_task_id' => $request->providerParams['client_task_id'] ?? null,
+            'idempotency_key' => $request->providerParams['idempotency_key'] ?? null,
+            'local_task_id' => $request->providerParams['local_task_id'] ?? null,
+            'local_task_sn' => $request->providerParams['local_task_sn'] ?? null,
         ], $config['tts_payload'], $request->providerParams['tts_payload'] ?? []), static fn($value) => $value !== null && $value !== '' && $value !== []);
         $data = $this->request('POST', $config['tts_url'], $config['api_key'], $payload, $config['timeout'], (bool)$config['ssl_verify']);
         $taskId = $this->extractTaskId($data);
@@ -292,7 +296,21 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
 
     private function extractStatus(array $data): string
     {
-        foreach ([$data['status'] ?? null, $data['state'] ?? null, $data['task_status'] ?? null, $data['data']['status'] ?? null, $data['data']['state'] ?? null, $data['data']['task_status'] ?? null] as $value) {
+        foreach ([
+            $data['status'] ?? null,
+            $data['state'] ?? null,
+            $data['task_status'] ?? null,
+            $data['data']['status'] ?? null,
+            $data['data']['state'] ?? null,
+            $data['data']['task_status'] ?? null,
+            $data['data']['task']['status'] ?? null,
+            $data['data']['task']['state'] ?? null,
+            $data['data']['task']['task_status'] ?? null,
+            $data['result']['status'] ?? null,
+            $data['result']['state'] ?? null,
+            $data['data']['result']['status'] ?? null,
+            $data['data']['result']['state'] ?? null,
+        ] as $value) {
             if (is_scalar($value) && (string)$value !== '') {
                 return $this->normalizeStatus((string)$value);
             }

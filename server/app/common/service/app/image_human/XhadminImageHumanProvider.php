@@ -9,6 +9,7 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
 {
     private const DEFAULT_SUBMIT_PATH = '/api/v1/apps/image_human/submit';
     private const DEFAULT_QUERY_PATH = '/api/v1/apps/image_human/query';
+    private const DEFAULT_TASK_PATH = '/api/v1/tasks/{task_id}';
 
     public function submit(ImageHumanGenerateRequest $request): ImageHumanGenerateResult
     {
@@ -27,6 +28,10 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
                     'prompt' => $request->prompt,
                     'duration' => $request->duration > 0 ? $request->duration : null,
                     'mode' => $request->mode,
+                    'client_task_id' => $request->providerParams['client_task_id'] ?? null,
+                    'idempotency_key' => $request->providerParams['idempotency_key'] ?? null,
+                    'local_task_id' => $request->providerParams['local_task_id'] ?? null,
+                    'local_task_sn' => $request->providerParams['local_task_sn'] ?? null,
                 ]
             ), static fn($value) => $value !== null && $value !== '' && $value !== []);
             $requestPayload = ['submit_request' => $this->payloadSummary($payload)];
@@ -51,8 +56,16 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
                 'elastic_task_id' => is_numeric($taskId) ? (int)$taskId : $taskId,
             ], $config['timeout'], (bool)$config['ssl_verify'], true);
             $queryPayload = ['query' => $data];
-            if (isset($data['code']) && (int)$data['code'] !== 1) {
-                return new ImageHumanGenerateResult(false, [], $this->extractError($data) ?: '供应商任务失败', $taskId, false, $queryPayload);
+            if (!$this->isResponseSuccess($data)) {
+                $error = $this->extractError($data) ?: '供应商任务查询失败';
+                $fallback = $this->queryPlatformTask($taskId, $request, $config, $queryPayload);
+                if ($fallback !== null) {
+                    return $fallback;
+                }
+                if ($this->isRetryableQueryBusinessError($data, $error)) {
+                    return new ImageHumanGenerateResult(true, [], '', $taskId, true, $queryPayload);
+                }
+                return new ImageHumanGenerateResult(false, [], $error, $taskId, false, $queryPayload);
             }
             $status = $this->normalizeStatus($this->extractStatus($data));
             $videoUrls = $this->extractMediaUrls($data);
@@ -60,31 +73,20 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
                 $status = 'success';
             }
             if ($status === 'failed') {
+                $fallback = $this->queryPlatformTask($taskId, $request, $config, $queryPayload);
+                if ($fallback !== null && ($fallback->pending || $fallback->success)) {
+                    return $fallback;
+                }
                 return new ImageHumanGenerateResult(false, [], $this->extractError($data) ?: '供应商任务失败', $taskId, false, $queryPayload);
             }
             if ($status !== 'success' || empty($videoUrls)) {
+                $fallback = $this->queryPlatformTask($taskId, $request, $config, $queryPayload);
+                if ($fallback !== null) {
+                    return $fallback;
+                }
                 return new ImageHumanGenerateResult(true, [], '', $taskId, true, $queryPayload);
             }
-            $videos = [];
-            foreach ($videoUrls as $videoUrl) {
-                try {
-                    $stored = ImageHumanAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
-                } catch (\Throwable $e) {
-                    $stored = [
-                        'uri' => $videoUrl,
-                        'width' => 0,
-                        'height' => 0,
-                        'stored' => false,
-                        'persist_error' => $this->friendlyError($e->getMessage()),
-                    ];
-                }
-                $videos[] = array_merge($stored, [
-                    'provider_task_id' => $taskId,
-                    'duration' => $request->duration,
-                ]);
-                break;
-            }
-            return new ImageHumanGenerateResult(true, $videos, '', $taskId, false, $queryPayload);
+            return new ImageHumanGenerateResult(true, $this->persistVideos($videoUrls, $taskId, $request, $config), '', $taskId, false, $queryPayload);
         } catch (\Throwable $e) {
             $message = $this->friendlyError($e->getMessage());
             if ($this->isRetryableQueryError($message)) {
@@ -121,6 +123,7 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
             'api_key' => $apiKey,
             'submit_url' => $baseUrl . '/' . ltrim((string)($providerConfig['submit_path'] ?? $config['submit_path'] ?? self::DEFAULT_SUBMIT_PATH), '/'),
             'query_url' => $baseUrl . '/' . ltrim((string)($providerConfig['query_path'] ?? $config['query_path'] ?? self::DEFAULT_QUERY_PATH), '/'),
+            'task_url_template' => $baseUrl . '/' . ltrim((string)($providerConfig['task_path'] ?? $config['task_path'] ?? self::DEFAULT_TASK_PATH), '/'),
             'timeout' => max(5, (int)($providerConfig['timeout'] ?? $config['timeout'] ?? 60)),
             'tenant_id' => (int)($config['tenant_id'] ?? 0),
             'user_id' => (int)($config['user_id'] ?? 0),
@@ -216,10 +219,26 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
         if (!is_array($data)) {
             throw new Exception('供应商响应格式错误');
         }
-        if ($httpCode >= 400 || isset($data['error']) || (!$allowBusinessError && isset($data['code']) && (int)$data['code'] !== 1)) {
+        if ($httpCode >= 400 || isset($data['error']) || (!$allowBusinessError && !$this->isResponseSuccess($data))) {
             throw new Exception($this->extractError($data) ?: '供应商请求失败');
         }
         return $data;
+    }
+
+    private function isResponseSuccess(array $data): bool
+    {
+        if (!array_key_exists('code', $data)) {
+            return true;
+        }
+        $code = $data['code'];
+        if (is_int($code) || is_float($code)) {
+            return in_array((int)$code, [1, 200], true);
+        }
+        if (is_string($code)) {
+            $normalized = strtolower(trim($code));
+            return in_array($normalized, ['1', '200', 'ok', 'success', 'succeeded'], true);
+        }
+        return false;
     }
 
     private function extractTaskId(array $data): string
@@ -419,5 +438,89 @@ class XhadminImageHumanProvider implements ImageHumanProviderInterface
             || str_contains($lower, 'timed out')
             || str_contains($message, '响应超时')
             || str_contains($message, '网络请求失败');
+    }
+
+    private function isRetryableQueryBusinessError(array $data, string $message): bool
+    {
+        $lower = strtolower(trim($message));
+        $code = strtolower(trim((string)($data['code'] ?? $data['data']['code'] ?? $data['error']['code'] ?? $data['data']['error']['code'] ?? '')));
+        if (in_array($code, ['not_found', 'task_not_found', 'query_failed', 'execute_exception', 'temporarily_unavailable'], true)) {
+            return true;
+        }
+        if (str_contains($lower, 'not found')
+            || str_contains($message, '不存在')
+            || str_contains($message, '查询任务失败')
+            || str_contains($message, '稍后重试')
+            || str_contains($message, '处理中')
+        ) {
+            return true;
+        }
+        return false;
+    }
+
+    private function queryPlatformTask(string $taskId, ImageHumanGenerateRequest $request, array $config, array $basePayload = []): ?ImageHumanGenerateResult
+    {
+        if ($taskId === '' || !str_starts_with($taskId, 'task_')) {
+            return null;
+        }
+        try {
+            $url = str_replace('{task_id}', rawurlencode($taskId), (string)$config['task_url_template']);
+            $data = $this->request('GET', $url, (string)$config['api_key'], [], (int)$config['timeout'], (bool)$config['ssl_verify'], true);
+            $payload = array_merge($basePayload, ['query_task' => $data]);
+            if (!$this->isResponseSuccess($data)) {
+                $error = $this->extractError($data) ?: '供应商任务查询失败';
+                if ($this->isRetryableQueryBusinessError($data, $error)) {
+                    return new ImageHumanGenerateResult(true, [], '', $taskId, true, $payload);
+                }
+                return new ImageHumanGenerateResult(false, [], $error, $taskId, false, $payload);
+            }
+            $status = $this->normalizeStatus($this->extractStatus($data));
+            $videoUrls = $this->extractMediaUrls($data);
+            if ($status !== 'success' && !empty($videoUrls)) {
+                $status = 'success';
+            }
+            if ($status === 'failed') {
+                return new ImageHumanGenerateResult(false, [], $this->extractError($data) ?: '供应商任务失败', $taskId, false, $payload);
+            }
+            if ($status !== 'success' || empty($videoUrls)) {
+                return new ImageHumanGenerateResult(true, [], '', $taskId, true, $payload);
+            }
+            return new ImageHumanGenerateResult(true, $this->persistVideos($videoUrls, $taskId, $request, $config), '', $taskId, false, $payload);
+        } catch (\Throwable $e) {
+            $message = $this->friendlyError($e->getMessage());
+            if ($this->isRetryableQueryError($message)) {
+                return new ImageHumanGenerateResult(true, [], '', $taskId, true, array_merge($basePayload, [
+                    'query_task_error' => [
+                        'message' => $message,
+                        'retryable' => true,
+                    ],
+                ]));
+            }
+            return null;
+        }
+    }
+
+    private function persistVideos(array $videoUrls, string $taskId, ImageHumanGenerateRequest $request, array $config): array
+    {
+        $videos = [];
+        foreach ($videoUrls as $videoUrl) {
+            try {
+                $stored = ImageHumanAssetService::persistGeneratedVideo($videoUrl, (int)($config['tenant_id'] ?? 0), (int)($config['user_id'] ?? 0));
+            } catch (\Throwable $e) {
+                $stored = [
+                    'uri' => $videoUrl,
+                    'width' => 0,
+                    'height' => 0,
+                    'stored' => false,
+                    'persist_error' => $this->friendlyError($e->getMessage()),
+                ];
+            }
+            $videos[] = array_merge($stored, [
+                'provider_task_id' => $taskId,
+                'duration' => $request->duration,
+            ]);
+            break;
+        }
+        return $videos;
     }
 }

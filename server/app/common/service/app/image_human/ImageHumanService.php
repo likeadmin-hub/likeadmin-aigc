@@ -26,6 +26,7 @@ class ImageHumanService
     private const PROMPT_MAX_LENGTH = 200;
     private const DUPLICATE_WINDOW_SECONDS = 60;
     private const PROVIDER_SUBMIT_STALE_SECONDS = 300;
+    private const PROVIDER_SUBMIT_RETRY_SECONDS = 60;
 
     public static function config(int $tenantId): array
     {
@@ -1021,7 +1022,7 @@ class ImageHumanService
             (string)($task['script_text'] ?? ''),
             (float)$task['duration'],
             (string)$task['mode'],
-            [],
+            self::providerTaskParams($task, 'video'),
             array_merge($config['config_json'] ?? [], [
                 'model' => $config['model'] ?? 'image_human',
                 'tenant_id' => (int)$task['tenant_id'],
@@ -1241,15 +1242,22 @@ class ImageHumanService
                 self::advanceRunningTask($recovered, $config, $voice);
                 return;
             }
-            self::failStaleProviderSubmit($task, $stage);
+            self::keepRunningAfterStaleProviderSubmit($task, $stage);
             return;
         }
         if ($stage === 'created' || $stage === 'tts_submitted') {
+            if ($stage === 'tts_submitted' && self::recentSubmitAttempt($task, 'tts')) {
+                return;
+            }
             $claimed = self::claimTaskStage($task, $stage === 'created' ? ['created', ''] : [$stage], 'tts_submitting');
             if (!$claimed) {
                 return;
             }
             $task = $claimed;
+            $task->save([
+                'provider_payload_json' => self::mergePayload($task, self::submitAttemptPayload($task, 'tts')),
+                'update_time' => time(),
+            ]);
             $request = self::buildTtsRequestFromTask($task, $voice, $config);
             try {
                 $submit = (new XhadminAigcDigitalHumanProvider())->submitTts($request);
@@ -1261,6 +1269,9 @@ class ImageHumanService
                     'update_time' => time(),
                 ]);
             } catch (\Throwable $e) {
+                if (self::keepRunningAfterSubmitError($task, $stage === 'created' ? 'tts_submitted' : $stage, $e->getMessage(), 'tts')) {
+                    return;
+                }
                 self::failTask($task, 'tts_failed', '音频合成失败：' . self::friendlyStageMessage($e->getMessage()));
             }
             return;
@@ -1326,15 +1337,42 @@ class ImageHumanService
             $stage = 'video_submitted';
         }
         if ($stage === 'video_submitted') {
+            $providerTaskId = trim((string)($task['provider_task_id'] ?? ''));
+            if ($providerTaskId !== '') {
+                $task->save([
+                    'status' => 'running',
+                    'provider_stage' => 'video_running',
+                    'progress' => min(95, max(60, (int)$task['progress'])),
+                    'error' => '',
+                    'finish_time' => 0,
+                    'update_time' => time(),
+                ]);
+                return;
+            }
+            $recovered = self::recoverSubmittedTaskFromPayload($task);
+            if ($recovered) {
+                self::advanceRunningTask($recovered, $config, $voice);
+                return;
+            }
+            if (self::recentSubmitAttempt($task, 'video')) {
+                return;
+            }
             $claimed = self::claimTaskStage($task, ['video_submitted', ''], 'video_submitting');
             if (!$claimed) {
                 return;
             }
             $task = $claimed;
+            $task->save([
+                'provider_payload_json' => self::mergePayload($task, self::submitAttemptPayload($task, 'video')),
+                'update_time' => time(),
+            ]);
             try {
                 $request = self::buildRequestFromTask($task, $config);
                 $result = self::providerFor((string)$config['provider'])->submit($request);
                 if (!$result->success) {
+                    if (self::keepRunningAfterSubmitError($task, 'video_submitted', $result->error ?: '提交失败', 'video')) {
+                        return;
+                    }
                     self::failTask($task, 'video_failed', $result->error ?: '提交失败');
                     return;
                 }
@@ -1346,6 +1384,9 @@ class ImageHumanService
                     'update_time' => time(),
                 ]);
             } catch (\Throwable $e) {
+                if (self::keepRunningAfterSubmitError($task, 'video_submitted', $e->getMessage(), 'video')) {
+                    return;
+                }
                 self::failTask($task, 'video_failed', '视频合成失败：' . self::friendlyStageMessage($e->getMessage()));
             }
             return;
@@ -1421,7 +1462,7 @@ class ImageHumanService
             [],
             self::formatVoice($voice),
             [],
-            [],
+            self::providerTaskParams($task, 'tts'),
             array_merge($channelConfig, [
                 'model' => $config['model'] ?? 'image_human',
                 'tenant_id' => (int)$task['tenant_id'],
@@ -1436,8 +1477,12 @@ class ImageHumanService
             return 0;
         }
         foreach (self::candidateLocalAudioPaths($audioUri) as $filePath) {
-            if (is_file($filePath)) {
-                $duration = MediaDurationService::detect($filePath);
+            if (@is_file($filePath)) {
+                try {
+                    $duration = MediaDurationService::detect($filePath);
+                } catch (\Throwable $e) {
+                    $duration = 0;
+                }
                 if ($duration > 0) {
                     return $duration;
                 }
@@ -1533,11 +1578,24 @@ class ImageHumanService
         ]);
     }
 
-    private static function failStaleProviderSubmit(ImageHumanTask $task, string $stage): void
+    private static function keepRunningAfterStaleProviderSubmit(ImageHumanTask $task, string $stage): void
     {
-        $failedStage = $stage === 'tts_submitting' ? 'tts_failed' : 'video_failed';
-        $prefix = $stage === 'tts_submitting' ? '音频合成失败：' : '视频合成失败：';
-        self::failTask($task, $failedStage, $prefix . '上游提交结果未确认，系统已停止自动重试以避免重复扣费，请重新提交任务。如上游已产生扣费请联系平台核对。');
+        $isTts = $stage === 'tts_submitting';
+        $task->save([
+            'status' => 'running',
+            'provider_stage' => $isTts ? 'tts_submitted' : 'video_submitted',
+            'progress' => max((int)$task['progress'], $isTts ? 15 : 45),
+            'error' => '',
+            'finish_time' => 0,
+            'provider_payload_json' => self::mergePayload($task, [
+                ($isTts ? 'tts' : 'video') . '_submit_unconfirmed' => [
+                    'client_task_id' => self::providerClientTaskId($task, $isTts ? 'tts' : 'video'),
+                    'message' => 'provider_submit_unconfirmed',
+                    'time' => time(),
+                ],
+            ]),
+            'update_time' => time(),
+        ]);
     }
 
     private static function recoverSubmittedTaskFromPayload(ImageHumanTask $task): ?ImageHumanTask
@@ -1694,8 +1752,86 @@ class ImageHumanService
             || str_contains($message, '网络请求失败')
             || str_contains($message, '供应商请求失败')
             || str_contains($message, '请求失败')
-            || str_contains($message, '稍后重试')
-            || str_contains($message, '任务失败');
+            || str_contains($message, '稍后重试');
+    }
+
+    private static function providerClientTaskId(ImageHumanTask $task, string $stage): string
+    {
+        return implode(':', [
+            self::APP_CODE,
+            (int)$task['tenant_id'],
+            (int)$task['user_id'],
+            (int)$task['id'],
+            $stage,
+        ]);
+    }
+
+    private static function providerTaskParams(ImageHumanTask $task, string $stage): array
+    {
+        $clientTaskId = self::providerClientTaskId($task, $stage);
+        return [
+            'client_task_id' => $clientTaskId,
+            'idempotency_key' => $clientTaskId,
+            'local_task_id' => (string)$task['id'],
+            'local_task_sn' => $clientTaskId,
+        ];
+    }
+
+    private static function submitAttemptPayload(ImageHumanTask $task, string $stage): array
+    {
+        $payload = $task['provider_payload_json'] ?? [];
+        $key = $stage . '_submit_attempt';
+        $last = is_array($payload) && is_array($payload[$key] ?? null) ? $payload[$key] : [];
+        return [
+            $key => [
+                'client_task_id' => self::providerClientTaskId($task, $stage),
+                'retry_count' => (int)($last['retry_count'] ?? 0) + 1,
+                'time' => time(),
+            ],
+        ];
+    }
+
+    private static function recentSubmitAttempt(ImageHumanTask $task, string $stage): bool
+    {
+        $payload = $task['provider_payload_json'] ?? [];
+        if (!is_array($payload)) {
+            return false;
+        }
+        foreach ([
+            $stage . '_submit_attempt',
+            $stage . '_submit_unconfirmed',
+            $stage . '_submit_retryable_error',
+        ] as $key) {
+            $attempt = $payload[$key] ?? [];
+            $attemptTime = is_array($attempt) ? (int)($attempt['time'] ?? 0) : 0;
+            if ($attemptTime > 0 && $attemptTime >= time() - self::PROVIDER_SUBMIT_RETRY_SECONDS) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function keepRunningAfterSubmitError(ImageHumanTask $task, string $submitStage, string $message, string $stage): bool
+    {
+        if (!self::isRetryableFailure($message)) {
+            return false;
+        }
+        $task->save([
+            'status' => 'running',
+            'provider_stage' => $submitStage,
+            'progress' => max((int)$task['progress'], $stage === 'tts' ? 15 : 45),
+            'error' => '',
+            'finish_time' => 0,
+            'provider_payload_json' => self::mergePayload($task, [
+                $stage . '_submit_retryable_error' => [
+                    'client_task_id' => self::providerClientTaskId($task, $stage),
+                    'message' => self::friendlyStageMessage($message),
+                    'time' => time(),
+                ],
+            ]),
+            'update_time' => time(),
+        ]);
+        return true;
     }
 
     private static function keepRunningAfterQueryError(ImageHumanTask $task, string $message): bool
@@ -1785,7 +1921,18 @@ class ImageHumanService
             return [];
         }
         $summary = [];
-        foreach (['tts_submit', 'tts_result', 'submit', 'query'] as $key) {
+        foreach ([
+            'tts_submit_attempt',
+            'tts_submit_unconfirmed',
+            'tts_submit_retryable_error',
+            'tts_submit',
+            'tts_result',
+            'video_submit_attempt',
+            'video_submit_unconfirmed',
+            'video_submit_retryable_error',
+            'submit',
+            'query',
+        ] as $key) {
             if (!array_key_exists($key, $payload)) {
                 continue;
             }
