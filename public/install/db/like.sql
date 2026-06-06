@@ -4520,13 +4520,26 @@ VALUES
 (0,'seedance','1080p_5','1080P · 5秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":5,"ratio":"9:16"}',1,1180,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'seedance','720p_10','720P · 10秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":10,"ratio":"16:9"}',1,1170,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'seedance','720p_10','720P · 10秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":10,"ratio":"9:16"}',1,1160,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'omni_flash_ext','720p_6','720P · 6秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"16:9"}',1,1150,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'omni_flash_ext','720p_6','720P · 6秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"9:16"}',1,1140,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'omni_flash_ext','720p_6','720P · 6秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"1:1"}',1,1130,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'omni_flash_ext','1080p_6','1080P · 6秒','16:9',1920,1080,0.00,0.00,'{"resolution":"1080p","duration":6,"aspect_ratio":"16:9"}',1,1120,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'omni_flash_ext','1080p_6','1080P · 6秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":6,"aspect_ratio":"9:16"}',1,1110,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'omni_flash_ext','720p_10','720P · 10秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":10,"aspect_ratio":"16:9"}',1,1100,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'omni_flash_ext','720p_10','720P · 10秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":10,"aspect_ratio":"9:16"}',1,1090,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
+(0,'omni_flash_ext','720p_4','720P · 4秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":4,"aspect_ratio":"16:9"}',1,1150,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_4','720P · 4秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":4,"aspect_ratio":"9:16"}',1,1140,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_4','720P · 4秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":4,"aspect_ratio":"1:1"}',1,1130,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_4','1080P · 4秒','16:9',1920,1080,0.00,0.00,'{"resolution":"1080p","duration":4,"aspect_ratio":"16:9"}',1,1120,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_4','1080P · 4秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":4,"aspect_ratio":"9:16"}',1,1110,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_6','720P · 6秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"16:9"}',1,1100,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_6','720P · 6秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"9:16"}',1,1090,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_6','720P · 6秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"1:1"}',1,1080,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_6','1080P · 6秒','16:9',1920,1080,0.00,0.00,'{"resolution":"1080p","duration":6,"aspect_ratio":"16:9"}',1,1070,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_6','1080P · 6秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":6,"aspect_ratio":"9:16"}',1,1060,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_8','720P · 8秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":8,"aspect_ratio":"16:9"}',1,1050,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_8','720P · 8秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":8,"aspect_ratio":"9:16"}',1,1040,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_8','720P · 8秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":8,"aspect_ratio":"1:1"}',1,1030,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_8','1080P · 8秒','16:9',1920,1080,0.00,0.00,'{"resolution":"1080p","duration":8,"aspect_ratio":"16:9"}',1,1020,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_8','1080P · 8秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":8,"aspect_ratio":"9:16"}',1,1010,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_10','720P · 10秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":10,"aspect_ratio":"16:9"}',1,1000,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_10','720P · 10秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":10,"aspect_ratio":"9:16"}',1,990,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_10','720P · 10秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":10,"aspect_ratio":"1:1"}',1,980,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_10','1080P · 10秒','16:9',1920,1080,0.00,0.00,'{"resolution":"1080p","duration":10,"aspect_ratio":"16:9"}',1,970,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_10','1080P · 10秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":10,"aspect_ratio":"9:16"}',1,960,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE `quality_label`=VALUES(`quality_label`),`width`=VALUES(`width`),`height`=VALUES(`height`),`platform_unit_cost`=VALUES(`platform_unit_cost`),`tenant_unit_price`=VALUES(`tenant_unit_price`),`provider_params_json`=VALUES(`provider_params_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
 
 -- Migration snapshot: aigc_video/migrations/zz_20260530_aigc_video_duration_spec_sync.sql
