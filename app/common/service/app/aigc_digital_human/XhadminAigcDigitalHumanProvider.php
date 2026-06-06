@@ -60,6 +60,10 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
             'model' => $request->providerParams['lipsync_model'] ?? $config['lipsync_model'],
             'audio_url' => $audioUrl,
             'video_url' => (string)($request->avatar['media_url'] ?? ''),
+            'client_task_id' => $request->providerParams['client_task_id'] ?? null,
+            'idempotency_key' => $request->providerParams['idempotency_key'] ?? null,
+            'local_task_id' => $request->providerParams['local_task_id'] ?? null,
+            'local_task_sn' => $request->providerParams['local_task_sn'] ?? null,
         ], $config['lipsync_payload'], $request->providerParams['lipsync_payload'] ?? []), static fn($value) => $value !== null && $value !== '' && $value !== []);
         $data = $this->request('POST', $config['lipsync_url'], $config['api_key'], $payload, $config['timeout'], (bool)$config['ssl_verify']);
         $taskId = $this->extractTaskId($data);
