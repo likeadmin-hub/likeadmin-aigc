@@ -19,6 +19,7 @@ use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
 use app\common\service\storage\StorageConfigService;
+use app\common\service\SubmitLockService;
 use Exception;
 use think\facade\Db;
 use Throwable;
@@ -875,6 +876,7 @@ class AigcDigitalHumanService
             'quantity' => 1,
         ]));
 
+        $submitLock = SubmitLockService::acquire('aigc_digital_human_submit', $tenantId, $userId, true);
         Db::startTrans();
         try {
             self::lockSubmitOwner($userId);
@@ -918,6 +920,8 @@ class AigcDigitalHumanService
         } catch (\Throwable $e) {
             Db::rollback();
             throw $e;
+        } finally {
+            SubmitLockService::release($submitLock);
         }
 
         $provider = self::providerFor((string)$selection['channel']['provider']);
@@ -926,7 +930,7 @@ class AigcDigitalHumanService
             $request = self::requestWithAudioUrl($request, self::fileUrlForTenant($driverAudioUri, $tenantId));
         }
         if ($provider instanceof XhadminAigcDigitalHumanProvider) {
-            self::advanceRunningTask($task, $request, $selection, $estimate, $provider);
+            self::advanceRunningTaskSafely($task, $request, $selection, $estimate, $provider);
             $latest = AigcDigitalHumanTask::where(['tenant_id' => $tenantId, 'id' => (int)$task['id']])->findOrEmpty();
             return [
                 'task_id' => (int)$task['id'],
@@ -1541,7 +1545,7 @@ class AigcDigitalHumanService
                     'quantity' => 1,
                 ]);
                 $request = self::buildRequestFromData($task->toArray(), $avatar, $voice, $selection);
-                self::advanceRunningTask($task, $request, $selection, $estimate, self::providerFor((string)$task['provider']));
+                self::advanceRunningTaskSafely($task, $request, $selection, $estimate, self::providerFor((string)$task['provider']));
             } catch (\Throwable $e) {
                 self::failTask($task, (string)($task['provider_stage'] ?? 'failed'), self::stageErrorPrefix((string)($task['provider_stage'] ?? '')) . self::friendlyStageMessage($e->getMessage()));
             }
@@ -1621,6 +1625,28 @@ class AigcDigitalHumanService
         }
     }
 
+    private static function advanceRunningTaskSafely(
+        AigcDigitalHumanTask $task,
+        AigcDigitalHumanGenerateRequest $request,
+        array $selection,
+        array $estimate,
+        AigcDigitalHumanProviderInterface $provider
+    ): void {
+        $lock = SubmitLockService::tryAcquire(self::taskAdvanceLockAction($task), (int)$task['tenant_id'], (int)$task['user_id']);
+        if (!$lock) {
+            return;
+        }
+        try {
+            $latest = AigcDigitalHumanTask::where(['tenant_id' => (int)$task['tenant_id'], 'id' => (int)$task['id']])->findOrEmpty();
+            if ($latest->isEmpty()) {
+                return;
+            }
+            self::advanceRunningTask($latest, $request, $selection, $estimate, $provider);
+        } finally {
+            SubmitLockService::release($lock);
+        }
+    }
+
     private static function advanceRunningTask(
         AigcDigitalHumanTask $task,
         AigcDigitalHumanGenerateRequest $request,
@@ -1640,12 +1666,27 @@ class AigcDigitalHumanService
             return;
         }
         if ($stage === '' || $stage === 'created' || $stage === 'tts_submitted') {
+            $lock = SubmitLockService::tryAcquire(self::providerSubmitLockAction($task, 'tts'), (int)$task['tenant_id'], (int)$task['user_id']);
+            if (!$lock) {
+                return;
+            }
+            try {
+                $latest = AigcDigitalHumanTask::where(['tenant_id' => (int)$task['tenant_id'], 'id' => (int)$task['id']])->findOrEmpty();
+                if ($latest->isEmpty()) {
+                    return;
+                }
+                $task = $latest;
+                $stage = (string)($task['provider_stage'] ?? '');
+                if ((string)$task['status'] !== 'running' || !in_array($stage, ['', 'created', 'tts_submitted'], true) || trim((string)($task['tts_task_id'] ?? '')) !== '') {
+                    return;
+                }
             $claimed = self::claimTaskStage($task, $stage === 'tts_submitted' ? ['tts_submitted'] : ['', 'created'], 'tts_submitting');
             if (!$claimed) {
                 return;
             }
             $task = $claimed;
             try {
+                $request = self::requestWithProviderParams($request, self::providerTaskParams($task, 'tts'));
                 $submit = $provider->submitTts($request);
                 $task->save([
                     'provider_stage' => 'tts_running',
@@ -1656,6 +1697,9 @@ class AigcDigitalHumanService
                 ]);
             } catch (\Throwable $e) {
                 self::failTask($task, 'tts_failed', '音频合成失败：' . self::friendlyStageMessage($e->getMessage()));
+            }
+            } finally {
+                SubmitLockService::release($lock);
             }
             return;
         }
@@ -1699,12 +1743,26 @@ class AigcDigitalHumanService
             $stage = 'lipsync_submitted';
         }
         if ($stage === 'lipsync_submitted') {
+            $lock = SubmitLockService::tryAcquire(self::providerSubmitLockAction($task, 'lipsync'), (int)$task['tenant_id'], (int)$task['user_id']);
+            if (!$lock) {
+                return;
+            }
+            try {
+                $latest = AigcDigitalHumanTask::where(['tenant_id' => (int)$task['tenant_id'], 'id' => (int)$task['id']])->findOrEmpty();
+                if ($latest->isEmpty()) {
+                    return;
+                }
+                $task = $latest;
+                if ((string)$task['status'] !== 'running' || (string)($task['provider_stage'] ?? '') !== 'lipsync_submitted' || trim((string)($task['provider_task_id'] ?? '')) !== '') {
+                    return;
+                }
             $claimed = self::claimTaskStage($task, ['lipsync_submitted', ''], 'lipsync_submitting');
             if (!$claimed) {
                 return;
             }
             $task = $claimed;
             try {
+                $request = self::requestWithProviderParams($request, self::providerTaskParams($task, 'lipsync'));
                 $audioUrl = (string)($request->providerParams['audio_url'] ?? '');
                 if ($audioUrl === '') {
                     $audioUrl = self::fileUrlForTenant((string)$task['tts_audio_uri'], (int)$task['tenant_id']);
@@ -1719,6 +1777,9 @@ class AigcDigitalHumanService
                 ]);
             } catch (\Throwable $e) {
                 self::failTask($task, 'lipsync_failed', '视频合成失败：' . self::friendlyStageMessage($e->getMessage()));
+            }
+            } finally {
+                SubmitLockService::release($lock);
             }
             return;
         }
@@ -1821,6 +1882,63 @@ class AigcDigitalHumanService
             array_merge($request->providerParams, ['audio_url' => $audioUrl]),
             $request->channelConfig
         );
+    }
+
+    private static function requestWithProviderParams(AigcDigitalHumanGenerateRequest $request, array $providerParams): AigcDigitalHumanGenerateRequest
+    {
+        return new AigcDigitalHumanGenerateRequest(
+            $request->scriptText,
+            $request->prompt,
+            $request->channel,
+            $request->quality,
+            $request->ratio,
+            $request->avatar,
+            $request->voice,
+            $request->spec,
+            array_merge($request->providerParams, $providerParams),
+            $request->channelConfig
+        );
+    }
+
+    private static function providerClientTaskId(AigcDigitalHumanTask $task, string $stage): string
+    {
+        return implode(':', [
+            self::APP_CODE,
+            (int)$task['tenant_id'],
+            (int)$task['user_id'],
+            (int)$task['id'],
+            $stage,
+        ]);
+    }
+
+    private static function providerTaskParams(AigcDigitalHumanTask $task, string $stage): array
+    {
+        $clientTaskId = self::providerClientTaskId($task, $stage);
+        return [
+            'client_task_id' => $clientTaskId,
+            'idempotency_key' => $clientTaskId,
+            'local_task_id' => (string)$task['id'],
+            'local_task_sn' => $clientTaskId,
+        ];
+    }
+
+    private static function providerSubmitLockAction(AigcDigitalHumanTask $task, string $stage): string
+    {
+        return implode('|', [
+            'provider_submit',
+            self::providerClientTaskId($task, $stage),
+        ]);
+    }
+
+    private static function taskAdvanceLockAction(AigcDigitalHumanTask $task): string
+    {
+        return implode('|', [
+            'task_advance',
+            self::APP_CODE,
+            (int)$task['tenant_id'],
+            (int)$task['user_id'],
+            (int)$task['id'],
+        ]);
     }
 
     private static function mergeProviderPayload(AigcDigitalHumanTask $task, array $payload): array

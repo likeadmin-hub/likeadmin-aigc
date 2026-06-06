@@ -17,6 +17,7 @@ use app\common\service\FileService;
 use app\common\service\MediaDurationService;
 use app\common\service\point\PointService;
 use app\common\service\storage\StorageConfigService;
+use app\common\service\SubmitLockService;
 use Exception;
 use think\facade\Db;
 
@@ -482,6 +483,7 @@ class ImageHumanService
         $estimate = self::buildEstimate($duration, self::pricing($tenantId), $mode);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
+        $submitLock = SubmitLockService::acquire('image_human_submit', $tenantId, $userId, true);
         Db::startTrans();
         try {
             self::lockSubmitOwner($userId);
@@ -523,6 +525,16 @@ class ImageHumanService
         } catch (\Throwable $e) {
             Db::rollback();
             throw $e;
+        } finally {
+            SubmitLockService::release($submitLock);
+        }
+
+        $config = self::effectiveConfig($tenantId);
+        $voice = $voiceId > 0 ? $voice : [];
+        self::advanceRunningTaskSafely($task, $config, $voice);
+        $latest = ImageHumanTask::where(['tenant_id' => $tenantId, 'id' => (int)$task['id']])->findOrEmpty();
+        if (!$latest->isEmpty()) {
+            $task = $latest;
         }
 
         return [
@@ -743,7 +755,7 @@ class ImageHumanService
             $config = self::effectiveConfig((int)$task['tenant_id']);
             $voice = (int)($task['voice_id'] ?? 0) > 0 ? self::findVoice((int)$task['tenant_id'], (int)$task['user_id'], (int)$task['voice_id'], false) : [];
             try {
-                self::advanceRunningTask($task, $config, $voice);
+                self::advanceRunningTaskSafely($task, $config, $voice);
             } catch (\Throwable $e) {
                 if (self::keepRunningAfterQueryError($task, $e->getMessage())) {
                     continue;
@@ -1224,6 +1236,23 @@ class ImageHumanService
         return max(1, (float)ceil(mb_strlen($text) / 4));
     }
 
+    private static function advanceRunningTaskSafely(ImageHumanTask $task, array $config, array $voice): void
+    {
+        $lock = SubmitLockService::tryAcquire(self::taskAdvanceLockAction($task), (int)$task['tenant_id'], (int)$task['user_id']);
+        if (!$lock) {
+            return;
+        }
+        try {
+            $latest = ImageHumanTask::where(['tenant_id' => (int)$task['tenant_id'], 'id' => (int)$task['id']])->findOrEmpty();
+            if ($latest->isEmpty()) {
+                return;
+            }
+            self::advanceRunningTask($latest, $config, $voice);
+        } finally {
+            SubmitLockService::release($lock);
+        }
+    }
+
     private static function advanceRunningTask(ImageHumanTask $task, array $config, array $voice): void
     {
         $stage = (string)($task['provider_stage'] ?? '');
@@ -1245,9 +1274,23 @@ class ImageHumanService
             return;
         }
         if ($stage === 'created' || $stage === 'tts_submitted') {
-            if ($stage === 'tts_submitted' && self::hasSubmitAttempt($task, 'tts')) {
+            if (self::hasSubmitAttempt($task, 'tts')) {
                 return;
             }
+            $lock = SubmitLockService::tryAcquire(self::providerSubmitLockAction($task, 'tts'), (int)$task['tenant_id'], (int)$task['user_id']);
+            if (!$lock) {
+                return;
+            }
+            try {
+                $latest = ImageHumanTask::where(['tenant_id' => (int)$task['tenant_id'], 'id' => (int)$task['id']])->findOrEmpty();
+                if ($latest->isEmpty()) {
+                    return;
+                }
+                $task = $latest;
+                $stage = (string)($task['provider_stage'] ?? '');
+                if ((string)$task['status'] !== 'running' || !in_array($stage, ['created', 'tts_submitted', ''], true) || trim((string)($task['tts_task_id'] ?? '')) !== '' || self::hasSubmitAttempt($task, 'tts')) {
+                    return;
+                }
             $claimed = self::claimTaskStage($task, $stage === 'created' ? ['created', ''] : [$stage], 'tts_submitting');
             if (!$claimed) {
                 return;
@@ -1272,6 +1315,9 @@ class ImageHumanService
                     return;
                 }
                 self::failTask($task, 'tts_failed', '音频合成失败：' . self::friendlyStageMessage($e->getMessage()));
+            }
+            } finally {
+                SubmitLockService::release($lock);
             }
             return;
         }
@@ -1356,6 +1402,20 @@ class ImageHumanService
             if (self::hasSubmitAttempt($task, 'video')) {
                 return;
             }
+            $lock = SubmitLockService::tryAcquire(self::providerSubmitLockAction($task, 'video'), (int)$task['tenant_id'], (int)$task['user_id']);
+            if (!$lock) {
+                return;
+            }
+            try {
+                $latest = ImageHumanTask::where(['tenant_id' => (int)$task['tenant_id'], 'id' => (int)$task['id']])->findOrEmpty();
+                if ($latest->isEmpty()) {
+                    return;
+                }
+                $task = $latest;
+                $providerTaskId = trim((string)($task['provider_task_id'] ?? ''));
+                if ((string)$task['status'] !== 'running' || (string)($task['provider_stage'] ?? '') !== 'video_submitted' || $providerTaskId !== '' || self::hasSubmitAttempt($task, 'video')) {
+                    return;
+                }
             $claimed = self::claimTaskStage($task, ['video_submitted', ''], 'video_submitting');
             if (!$claimed) {
                 return;
@@ -1387,6 +1447,9 @@ class ImageHumanService
                     return;
                 }
                 self::failTask($task, 'video_failed', '视频合成失败：' . self::friendlyStageMessage($e->getMessage()));
+            }
+            } finally {
+                SubmitLockService::release($lock);
             }
             return;
         }
@@ -1762,6 +1825,25 @@ class ImageHumanService
             (int)$task['user_id'],
             (int)$task['id'],
             $stage,
+        ]);
+    }
+
+    private static function providerSubmitLockAction(ImageHumanTask $task, string $stage): string
+    {
+        return implode('|', [
+            'provider_submit',
+            self::providerClientTaskId($task, $stage),
+        ]);
+    }
+
+    private static function taskAdvanceLockAction(ImageHumanTask $task): string
+    {
+        return implode('|', [
+            'task_advance',
+            self::APP_CODE,
+            (int)$task['tenant_id'],
+            (int)$task['user_id'],
+            (int)$task['id'],
         ]);
     }
 
