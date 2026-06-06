@@ -213,6 +213,15 @@
                                 <img :src="favoriteIcon" alt="" />
                                 {{ isWorkFavorite(detailWork) ? '已收藏' : '收藏作品' }}
                             </button>
+                            <button
+                                v-if="canClipWork(detailWork)"
+                                class="work-detail__clip"
+                                type="button"
+                                @click="clipWork(detailWork)"
+                            >
+                                <img :src="editIcon" alt="" />
+                                剪辑视频
+                            </button>
                             <a
                                 v-if="getWorkDownloadHref(detailWork, detailDownloadUrl)"
                                 class="work-detail__download"
@@ -320,6 +329,7 @@ import deleteIcon from '@/assets/images/icon/Delete-themes.svg'
 import downIcon from '@/assets/images/icon/Down.svg'
 import downloadIcon from '@/assets/images/icon/xiazai.svg'
 import favoriteIcon from '@/assets/images/icon/shoucang.svg'
+import editIcon from '@/assets/images/icon/bianji.svg'
 
 definePageMeta({ layout: 'blank' })
 
@@ -1617,6 +1627,45 @@ const getWorkDownloadUrl = (work: BackendWork | null, preferred = '') => {
     return preferred || work.resultVideo || work.resultImage || work.coverImage || cardUrl || ''
 }
 const getWorkDownloadHref = (work: BackendWork | null, preferred = '') => resolvePcDownloadUrl(getWorkDownloadUrl(work, preferred))
+const getWorkClipVideoUrl = (work: BackendWork | null) => {
+    if (!work) return ''
+    const cardVideo = getCards(work).map((card) => card.video).find(Boolean) || ''
+    return work.resultVideo || detailVideo.value || cardVideo || ''
+}
+const canClipWork = (work: BackendWork | null) => {
+    if (!work) return false
+    const category = getWorkCategory(work)
+    return ['video', 'digital_human'].includes(category) && Boolean(getWorkClipVideoUrl(work))
+}
+const getWorkClipType = (work: BackendWork) => getWorkCategory(work) === 'digital_human'
+    ? 'realman_broadcast'
+    : 'broadcast_mixcut'
+const getWorkClipSourceApp = (work: BackendWork) => {
+    if (getWorkCategory(work) === 'digital_human') {
+        return work.appCode === 'image_human' ? 'image_human' : 'aigc_digital_human'
+    }
+    return 'aigc_video'
+}
+const getWorkClipDuration = (work: BackendWork) => {
+    const value = parseFloat(String(work.duration || '').replace(/[^\d.]/g, ''))
+    return Number.isFinite(value) && value > 0 ? value : ''
+}
+const clipWork = (work: BackendWork | null) => {
+    if (!work || !canClipWork(work)) return
+    const videoUrl = getWorkClipVideoUrl(work)
+    closeWorkDetail()
+    router.push({
+        path: '/ai/smart_clip',
+        query: {
+            source_app: getWorkClipSourceApp(work),
+            source_result_id: String(getWorkTaskId(work) || work.task || work.id || ''),
+            video_url: videoUrl,
+            cover_url: work.coverImage || work.resultImage || '',
+            duration: getWorkClipDuration(work),
+            type: getWorkClipType(work),
+        },
+    })
+}
 const getCardStyle = (card: WorkCard) => {
     if (!card.video) return undefined
     const [width, height] = String(card.ratio || '16:9').split(':').map((item) => Number(item))
@@ -2971,20 +3020,22 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: flex-end;
+    flex-wrap: wrap;
     gap: 12px;
     margin-top: auto;
 }
 
 .work-detail__download,
+.work-detail__clip,
 .work-detail__favorite {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     flex: 0 0 auto;
-    width: 162px;
+    width: 142px;
     height: 44px;
-    padding: 0 20px;
+    padding: 0 16px;
     border: 0;
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.12);
@@ -3001,6 +3052,7 @@ onBeforeUnmount(() => {
 }
 
 .work-detail__download:hover,
+.work-detail__clip:hover,
 .work-detail__favorite:hover,
 .work-detail__favorite.is-active {
     background: rgba(255, 255, 255, 0.18);
@@ -3008,12 +3060,14 @@ onBeforeUnmount(() => {
 }
 
 .work-detail__download img,
+.work-detail__clip img,
 .work-detail__favorite img {
     width: 16px;
     height: 16px;
 }
 
 .work-detail__download:hover img,
+.work-detail__clip:hover img,
 .work-detail__favorite:hover img,
 .work-detail__favorite.is-active img {
     filter: none;
@@ -3241,6 +3295,7 @@ onBeforeUnmount(() => {
     }
 
     .work-detail__download,
+    .work-detail__clip,
     .work-detail__favorite {
         width: 100%;
     }

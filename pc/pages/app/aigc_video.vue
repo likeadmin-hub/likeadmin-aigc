@@ -185,6 +185,7 @@
                             <p>{{ item.prompt || '视频作品' }}</p>
                             <div class="result-actions">
                                 <button type="button" @click="reuseResult(item)">复用</button>
+                                <button type="button" :disabled="!item.video_url" @click="clipResult(item)">剪辑</button>
                                 <button type="button" @click="handleDelete(item.task_id || item.id)">删除</button>
                             </div>
                         </div>
@@ -296,6 +297,7 @@ const previewVisible = ref(false)
 const previewIndex = ref(0)
 const userStore = useUserStore()
 const { ensurePcLogin } = usePcLoginGate()
+const router = useRouter()
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const optionConfig = ref<any>({
@@ -747,6 +749,22 @@ const reuseResult = (item: any) => {
     form.duration = Number(item.duration || form.duration || 5)
     syncSelection()
     window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const clipResult = (item: any) => {
+    const videoUrl = normalizeVideoUrl(item.video_url)
+    if (!videoUrl) return feedback.msgError('暂无可剪辑视频')
+    router.push({
+        path: '/ai/smart_clip',
+        query: {
+            source_app: 'aigc_video',
+            source_result_id: item.result_id || item.id || item.task_id || '',
+            video_url: videoUrl,
+            cover_url: item.cover_url || '',
+            duration: item.duration || form.duration || '',
+            type: 'broadcast_mixcut',
+        },
+    })
 }
 
 const handleDelete = async (id: number) => {

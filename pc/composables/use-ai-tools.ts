@@ -130,6 +130,14 @@ export const toolResultFilterOptions: ToolResultFilter[] = ['全部', '视频生
 
 export const featuredTools: FeaturedToolItem[] = [
     {
+        id: 'featured-tool-smart-clip',
+        title: 'AI视频剪辑',
+        description: '上传视频或从作品带入素材，选择模板完成口播、素材和新闻体混剪。',
+        image: card6,
+        category: '创意',
+        targetToolId: 'tool-card-smart-clip'
+    },
+    {
         id: 'featured-tool-digital-human',
         title: '数字人视频',
         description: '选择形象、音色与文案，快速生成口播数字人视频。',
@@ -220,6 +228,20 @@ export const featuredTools: FeaturedToolItem[] = [
 ]
 
 export const toolCards: ToolCardItem[] = [
+    {
+        id: 'tool-card-smart-clip',
+        appCode: 'smart_clip',
+        title: 'AI视频剪辑',
+        badge: '智能混剪',
+        category: '创意',
+        image: card6,
+        detailName: 'AI视频剪辑',
+        detailDescription: '支持真人口播混剪、素材混剪和新闻体视频，视频作品可直接带入作为剪辑素材。',
+        promptLead: '进入AI视频剪辑后，可选择模板、上传素材、设置身份栏与图层规则并提交剪辑任务。',
+        createdCost: '0',
+        generateKind: 'video',
+        appPath: '/ai/smart_clip'
+    },
     {
         id: 'tool-card-aigc-image',
         appCode: 'aigc_image',

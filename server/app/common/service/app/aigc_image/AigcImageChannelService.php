@@ -138,8 +138,11 @@ class AigcImageChannelService
             'ratio' => $ratio,
             'width' => max(0, (int)($params['width'] ?? 0)),
             'height' => max(0, (int)($params['height'] ?? 0)),
+            'upstream_unit_cost' => self::formatPoints((float)($params['upstream_unit_cost'] ?? 0)),
             'platform_unit_cost' => self::formatPoints((float)($params['platform_unit_cost'] ?? 0)),
             'tenant_unit_price' => self::formatPoints((float)($params['tenant_unit_price'] ?? $params['platform_unit_cost'] ?? 0)),
+            'upstream_cost_text' => trim((string)($params['upstream_cost_text'] ?? '')),
+            'cost_source_url' => trim((string)($params['cost_source_url'] ?? '')),
             'provider_params_json' => self::normalizeJson($params['provider_params_json'] ?? []),
             'status' => (int)($params['status'] ?? 1),
             'sort' => (int)($params['sort'] ?? 0),
@@ -237,8 +240,11 @@ class AigcImageChannelService
             'ratio' => $ratio,
             'width' => (int)$platform['width'],
             'height' => (int)$platform['height'],
+            'upstream_unit_cost' => (string)($platform['upstream_unit_cost'] ?? '0.00'),
             'platform_unit_cost' => (string)$platform['platform_unit_cost'],
             'tenant_unit_price' => self::formatPoints((float)($params['tenant_unit_price'] ?? $platform['tenant_unit_price'] ?? $platform['platform_unit_cost'])),
+            'upstream_cost_text' => (string)($platform['upstream_cost_text'] ?? ''),
+            'cost_source_url' => (string)($platform['cost_source_url'] ?? ''),
             'provider_params_json' => [],
             'status' => (int)($params['status'] ?? 1),
             'sort' => (int)($params['sort'] ?? $platform['sort']),
@@ -344,8 +350,13 @@ class AigcImageChannelService
                     'ratio' => $platformSpec['ratio'],
                     'width' => (int)$platformSpec['width'],
                     'height' => (int)$platformSpec['height'],
+                    'upstream_unit_cost' => self::formatPoints((float)($platformSpec['upstream_unit_cost'] ?? 0)),
                     'platform_unit_cost' => self::formatPoints((float)$platformSpec['platform_unit_cost']),
                     'tenant_unit_price' => self::formatPoints((float)($tenantSpec['tenant_unit_price'] ?? $platformSpec['tenant_unit_price'] ?? $platformSpec['platform_unit_cost'])),
+                    'platform_gross_margin_points' => self::formatPoints((float)$platformSpec['platform_unit_cost'] - (float)($platformSpec['upstream_unit_cost'] ?? 0)),
+                    'tenant_gross_margin_points' => self::formatPoints((float)($tenantSpec['tenant_unit_price'] ?? $platformSpec['tenant_unit_price'] ?? $platformSpec['platform_unit_cost']) - (float)$platformSpec['platform_unit_cost']),
+                    'upstream_cost_text' => (string)($platformSpec['upstream_cost_text'] ?? ''),
+                    'cost_source_url' => (string)($platformSpec['cost_source_url'] ?? ''),
                     'provider_params_json' => $platformSpec['provider_params_json'] ?? [],
                     'status' => $specStatus,
                     'platform_status' => (int)$platformSpec['status'],
@@ -395,6 +406,18 @@ class AigcImageChannelService
                 throw new Exception('平台定价不能小于0');
             }
             $data['platform_unit_cost'] = self::formatPoints((float)$params['platform_unit_cost']);
+        }
+        if (array_key_exists('upstream_unit_cost', $params)) {
+            if ((float)$params['upstream_unit_cost'] < 0) {
+                throw new Exception('上游成本不能小于0');
+            }
+            $data['upstream_unit_cost'] = self::formatPoints((float)$params['upstream_unit_cost']);
+        }
+        if (array_key_exists('upstream_cost_text', $params)) {
+            $data['upstream_cost_text'] = trim((string)$params['upstream_cost_text']);
+        }
+        if (array_key_exists('cost_source_url', $params)) {
+            $data['cost_source_url'] = trim((string)$params['cost_source_url']);
         }
         if (array_key_exists('status', $params)) {
             $data['status'] = (int)$params['status'] === 1 ? 1 : 0;

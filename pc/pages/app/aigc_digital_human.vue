@@ -316,6 +316,7 @@
                             <span>{{ item.ratio }} · {{ statusText(item.status) }} · {{ stageText(item.provider_stage) }}</span>
                         </div>
                         <button type="button" :disabled="!item.video_url" @click="copyVideoLink(item)">链接</button>
+                        <button type="button" :disabled="!item.video_url" @click="clipDigitalHumanResult(item)">剪辑</button>
                         <button type="button" @click="reuseResult(item)">复用</button>
                         <button type="button" @click="handleDelete(item)">删除</button>
                     </article>
@@ -403,6 +404,7 @@ const emotionTriggerRange = ref({ start: 0, end: 0 })
 const blobUrls = ref<string[]>([])
 const userStore = useUserStore()
 const { ensurePcLogin } = usePcLoginGate()
+const router = useRouter()
 let pollingTimer: ReturnType<typeof window.setInterval> | null = null
 let recordTimer: ReturnType<typeof window.setInterval> | null = null
 let audioContext: AudioContext | null = null
@@ -1007,6 +1009,21 @@ const copyVideoLink = async (item: any) => {
         document.body.removeChild(textarea)
     }
     feedback.msgSuccess('视频链接已复制')
+}
+
+const clipDigitalHumanResult = (item: any) => {
+    if (!item.video_url) return feedback.msgError('暂无可剪辑视频')
+    router.push({
+        path: '/ai/smart_clip',
+        query: {
+            source_app: 'aigc_digital_human',
+            source_result_id: item.result_id || item.id || item.task_id || '',
+            video_url: item.video_url,
+            cover_url: item.cover_url || '',
+            duration: item.duration || '',
+            type: 'realman_broadcast',
+        },
+    })
 }
 
 const refreshRunningTasks = async () => {

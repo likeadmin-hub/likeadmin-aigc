@@ -163,7 +163,8 @@ export const useAiPcHomeDecorate = () => {
                             aigc_digital_human: '/ai/avatar',
                             aigc_canvas: '/app/aigc_canvas',
                             aigc_llm: '/app/aigc_llm',
-                            image_human: '/ai/avatar?tab=image_human'
+                            image_human: '/ai/avatar?tab=image_human',
+                            smart_clip: '/ai/smart_clip'
                         }
                         return map[item.link_app_code] || '/ai/tools'
                     }
