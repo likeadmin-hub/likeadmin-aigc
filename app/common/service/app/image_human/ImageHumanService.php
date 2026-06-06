@@ -24,9 +24,8 @@ class ImageHumanService
 {
     public const APP_CODE = 'image_human';
     private const PROMPT_MAX_LENGTH = 200;
-    private const DUPLICATE_WINDOW_SECONDS = 60;
+    private const DUPLICATE_WINDOW_SECONDS = 600;
     private const PROVIDER_SUBMIT_STALE_SECONDS = 300;
-    private const PROVIDER_SUBMIT_RETRY_SECONDS = 60;
 
     public static function config(int $tenantId): array
     {
@@ -1246,7 +1245,7 @@ class ImageHumanService
             return;
         }
         if ($stage === 'created' || $stage === 'tts_submitted') {
-            if ($stage === 'tts_submitted' && self::recentSubmitAttempt($task, 'tts')) {
+            if ($stage === 'tts_submitted' && self::hasSubmitAttempt($task, 'tts')) {
                 return;
             }
             $claimed = self::claimTaskStage($task, $stage === 'created' ? ['created', ''] : [$stage], 'tts_submitting');
@@ -1354,7 +1353,7 @@ class ImageHumanService
                 self::advanceRunningTask($recovered, $config, $voice);
                 return;
             }
-            if (self::recentSubmitAttempt($task, 'video')) {
+            if (self::hasSubmitAttempt($task, 'video')) {
                 return;
             }
             $claimed = self::claimTaskStage($task, ['video_submitted', ''], 'video_submitting');
@@ -1782,16 +1781,24 @@ class ImageHumanService
         $payload = $task['provider_payload_json'] ?? [];
         $key = $stage . '_submit_attempt';
         $last = is_array($payload) && is_array($payload[$key] ?? null) ? $payload[$key] : [];
+        $history = is_array($last['history'] ?? null) ? $last['history'] : [];
+        $history[] = [
+            'time' => time(),
+        ];
+        if (count($history) > 10) {
+            $history = array_slice($history, -10);
+        }
         return [
             $key => [
                 'client_task_id' => self::providerClientTaskId($task, $stage),
                 'retry_count' => (int)($last['retry_count'] ?? 0) + 1,
                 'time' => time(),
+                'history' => $history,
             ],
         ];
     }
 
-    private static function recentSubmitAttempt(ImageHumanTask $task, string $stage): bool
+    private static function hasSubmitAttempt(ImageHumanTask $task, string $stage): bool
     {
         $payload = $task['provider_payload_json'] ?? [];
         if (!is_array($payload)) {
@@ -1804,7 +1811,7 @@ class ImageHumanService
         ] as $key) {
             $attempt = $payload[$key] ?? [];
             $attemptTime = is_array($attempt) ? (int)($attempt['time'] ?? 0) : 0;
-            if ($attemptTime > 0 && $attemptTime >= time() - self::PROVIDER_SUBMIT_RETRY_SECONDS) {
+            if ($attemptTime > 0) {
                 return true;
             }
         }
