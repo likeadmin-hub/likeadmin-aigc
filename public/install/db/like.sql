@@ -3254,62 +3254,6 @@ ALTER TABLE `la_aigc_image_result`
 
 INSERT INTO `la_aigc_image_channel` (`tenant_id`,`code`,`name`,`provider`,`model`,`max_reference_images`,`config_json`,`status`,`sort`,`create_time`,`update_time`)
 VALUES
-(0,'master','大师版','mock','mock-image',4,'{}',1,300,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','全能版','mock','mock-image',4,'{}',1,200,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','免费image-2','mock','mock-image',4,'{}',1,100,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
-ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`provider`=VALUES(`provider`),`model`=VALUES(`model`),`max_reference_images`=VALUES(`max_reference_images`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
-
-INSERT INTO `la_aigc_image_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
-VALUES
-(0,'master','1k','普通1K','1:1',1024,1024,4.00,4.00,'{}',1,500,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'master','1k','普通1K','3:4',768,1024,4.00,4.00,'{}',1,490,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'master','1k','普通1K','4:3',1024,768,4.00,4.00,'{}',1,480,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'master','1k','普通1K','9:16',576,1024,4.00,4.00,'{}',1,470,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'master','1k','普通1K','16:9',1024,576,4.00,4.00,'{}',1,460,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'master','2k','高清2K','1:1',2048,2048,8.00,8.00,'{}',1,450,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'master','2k','高清2K','3:4',1536,2048,8.00,8.00,'{}',1,440,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'master','2k','高清2K','4:3',2048,1536,8.00,8.00,'{}',1,430,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'master','2k','高清2K','9:16',1152,2048,8.00,8.00,'{}',1,420,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'master','2k','高清2K','16:9',2048,1152,8.00,8.00,'{}',1,410,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'master','4k','超清4K','1:1',4096,4096,16.00,16.00,'{}',1,400,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'master','4k','超清4K','3:4',3072,4096,16.00,16.00,'{}',1,390,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'master','4k','超清4K','4:3',4096,3072,16.00,16.00,'{}',1,380,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'master','4k','超清4K','9:16',2304,4096,16.00,16.00,'{}',1,370,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'master','4k','超清4K','16:9',4096,2304,16.00,16.00,'{}',1,360,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','1k','普通1K','1:1',1024,1024,4.00,4.00,'{}',1,500,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','1k','普通1K','3:4',768,1024,4.00,4.00,'{}',1,490,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','1k','普通1K','4:3',1024,768,4.00,4.00,'{}',1,480,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','1k','普通1K','9:16',576,1024,4.00,4.00,'{}',1,470,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','1k','普通1K','16:9',1024,576,4.00,4.00,'{}',1,460,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','2k','高清2K','1:1',2048,2048,8.00,8.00,'{}',1,450,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','2k','高清2K','3:4',1536,2048,8.00,8.00,'{}',1,440,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','2k','高清2K','4:3',2048,1536,8.00,8.00,'{}',1,430,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','2k','高清2K','9:16',1152,2048,8.00,8.00,'{}',1,420,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','2k','高清2K','16:9',2048,1152,8.00,8.00,'{}',1,410,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','4k','超清4K','1:1',4096,4096,16.00,16.00,'{}',1,400,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','4k','超清4K','3:4',3072,4096,16.00,16.00,'{}',1,390,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','4k','超清4K','4:3',4096,3072,16.00,16.00,'{}',1,380,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','4k','超清4K','9:16',2304,4096,16.00,16.00,'{}',1,370,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'all','4k','超清4K','16:9',4096,2304,16.00,16.00,'{}',1,360,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','1k','普通1K','1:1',1024,1024,4.00,4.00,'{}',1,500,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','1k','普通1K','3:4',768,1024,4.00,4.00,'{}',1,490,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','1k','普通1K','4:3',1024,768,4.00,4.00,'{}',1,480,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','1k','普通1K','9:16',576,1024,4.00,4.00,'{}',1,470,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','1k','普通1K','16:9',1024,576,4.00,4.00,'{}',1,460,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','2k','高清2K','1:1',2048,2048,8.00,8.00,'{}',1,450,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','2k','高清2K','3:4',1536,2048,8.00,8.00,'{}',1,440,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','2k','高清2K','4:3',2048,1536,8.00,8.00,'{}',1,430,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','2k','高清2K','9:16',1152,2048,8.00,8.00,'{}',1,420,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','2k','高清2K','16:9',2048,1152,8.00,8.00,'{}',1,410,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','4k','超清4K','1:1',4096,4096,16.00,16.00,'{}',1,400,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','4k','超清4K','3:4',3072,4096,16.00,16.00,'{}',1,390,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','4k','超清4K','4:3',4096,3072,16.00,16.00,'{}',1,380,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','4k','超清4K','9:16',2304,4096,16.00,16.00,'{}',1,370,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'free','4k','超清4K','16:9',4096,2304,16.00,16.00,'{}',1,360,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
-ON DUPLICATE KEY UPDATE `quality_label`=VALUES(`quality_label`),`width`=VALUES(`width`),`height`=VALUES(`height`),`platform_unit_cost`=VALUES(`platform_unit_cost`),`tenant_unit_price`=VALUES(`tenant_unit_price`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
-
-INSERT INTO `la_aigc_image_channel` (`tenant_id`,`code`,`name`,`provider`,`model`,`max_reference_images`,`config_json`,`status`,`sort`,`create_time`,`update_time`)
-VALUES
 (0,'gpt_image_2','GPT Image 2','xhadmin','gpt-image-2',4,'{"poll_interval":2,"poll_attempts":30,"upstream_channel":"OpenaiM"}',1,400,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`provider`=VALUES(`provider`),`model`=VALUES(`model`),`max_reference_images`=VALUES(`max_reference_images`),`config_json`=VALUES(`config_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
 
