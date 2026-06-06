@@ -11,13 +11,9 @@
                             账号
                             <span class="uc-hint">?</span>
                         </label>
-                        <ElInput
-                            v-model="form.account"
-                            placeholder="请输入账号"
-                            :maxlength="30"
-                            show-word-limit
-                            class="uc-input"
-                        />
+                        <div class="uc-readonly uc-readonly--box">
+                            {{ form.account || '--' }}
+                        </div>
                     </div>
 
                     <div class="uc-field">
@@ -155,7 +151,6 @@ import { normalizeFileUrl } from '@/utils/file-url'
 
 enum UserFieldEnum {
     AVATAR = 'avatar',
-    USERNAME = 'account',
     NICKNAME = 'nickname',
     SEX = 'sex'
 }
@@ -233,7 +228,6 @@ watch(() => userStore.isLogin, (loggedIn) => {
 
 const isDirty = computed(
     () =>
-        form.account !== snapshot.account ||
         form.nickname !== snapshot.nickname ||
         form.sex !== snapshot.sex ||
         form.avatar !== snapshot.avatar
@@ -242,11 +236,6 @@ const isDirty = computed(
 const handleSave = async () => {
     if (!isDirty.value) return
     const tasks: Promise<any>[] = []
-    if (form.account !== snapshot.account) {
-        tasks.push(
-            userEdit({ field: UserFieldEnum.USERNAME, value: form.account })
-        )
-    }
     if (form.nickname !== snapshot.nickname) {
         tasks.push(
             userEdit({ field: UserFieldEnum.NICKNAME, value: form.nickname })
@@ -408,6 +397,16 @@ definePageMeta({
     font-size: 14px;
     color: #666;
     padding: 10px 0;
+}
+.uc-readonly--box {
+    height: 40px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    background: #f7f7f7;
+    border-radius: 2px;
+    box-shadow: inset 0 0 0 1px rgba(34, 34, 34, 0.08);
+    color: #8b8b8b;
 }
 
 .uc-avatar-section {

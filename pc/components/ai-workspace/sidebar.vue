@@ -34,6 +34,9 @@
                 <button type="button" aria-label="个人中心" title="个人中心" @click="emit('action', 'user')">
                     <ElIcon><UserFilled /></ElIcon>
                 </button>
+                <button type="button" aria-label="积分明细" title="积分明细" @click="emit('action', 'credits')">
+                    <ElIcon><Coin /></ElIcon>
+                </button>
                 <button type="button" aria-label="API" title="API" @click="emit('action', 'api')">
                     <ElIcon><Connection /></ElIcon>
                 </button>
@@ -53,7 +56,7 @@
 
 <script lang="ts" setup>
 import { computed } from 'vue'
-import { Bell, ChromeFilled, Connection, Film, Iphone, UserFilled, WalletFilled } from '@element-plus/icons-vue'
+import { Bell, ChromeFilled, Coin, Connection, Film, Iphone, UserFilled, WalletFilled } from '@element-plus/icons-vue'
 import { useAppStore } from '@/stores/app'
 import type { SidebarKey } from '~/utils/ai-sidebar'
 import inspirationIcon from '@/assets/images/icon/linggan2.svg'
@@ -75,7 +78,7 @@ defineProps<Props>()
 
 const emit = defineEmits<{
     (e: 'navigate', key: SidebarKey): void
-    (e: 'action', key: 'membership' | 'user' | 'api' | 'notice' | 'mobile' | 'language' | 'short_drama'): void
+    (e: 'action', key: 'membership' | 'user' | 'credits' | 'api' | 'notice' | 'mobile' | 'language' | 'short_drama'): void
 }>()
 const appStore = useAppStore()
 const siteLogo = computed(() => appStore.getWebsiteConfig.pc_logo || '')

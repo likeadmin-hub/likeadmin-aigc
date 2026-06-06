@@ -128,6 +128,7 @@ const loading = ref(false)
 const loadError = ref('')
 const creditRecords = ref<CreditsRecord[]>([])
 const remoteSummary = ref<Partial<CreditsSummary>>({})
+const tabCounts = ref<Partial<Record<CreditsTabKey, number>>>({})
 let requestSeq = 0
 
 const tabs = [
@@ -149,9 +150,7 @@ const creditSummary = computed(() => {
 })
 
 const filteredRecords = computed(() => (
-    activeTab.value === 'all'
-        ? creditRecords.value
-        : creditRecords.value.filter((record) => record.type === activeTab.value)
+    creditRecords.value
 ))
 
 const close = () => emit('update:modelValue', false)
@@ -198,7 +197,7 @@ const parseExtra = (value: unknown): Record<string, any> => {
 
 const resolveRecordType = (row: Record<string, any>): CreditsRecordType => {
     if (Number(row.action) === 2) return 'consume'
-    if ([101, 201].includes(Number(row.change_type)) || String(row.source_sn || '').trim()) return 'purchase'
+    if ([101, 201].includes(Number(row.change_type))) return 'purchase'
     return 'income'
 }
 
@@ -241,19 +240,38 @@ const loadCreditLogs = async () => {
     loading.value = true
     loadError.value = ''
     try {
-        const [response] = await Promise.all([
-            getAccountLogs({ type: 'um', page_no: 1, page_size: 50 }),
+        const params: Record<string, any> = { type: 'um', page_no: 1, page_size: 50 }
+        if (activeTab.value !== 'all') params.scene = activeTab.value
+
+        const countParams = [
+            { tab: 'consume' as const, params: { type: 'um', scene: 'consume', page_no: 1, page_size: 1 } },
+            { tab: 'purchase' as const, params: { type: 'um', scene: 'purchase', page_no: 1, page_size: 1 } },
+            { tab: 'income' as const, params: { type: 'um', scene: 'income', page_no: 1, page_size: 1 } }
+        ]
+
+        const [response, ...countResponses] = await Promise.all([
+            getAccountLogs(params),
+            ...countParams.map((item) => getAccountLogs(item.params)),
             userStore.isLogin ? userStore.getUser() : Promise.resolve()
         ])
         if (seq !== requestSeq) return
         const lists = Array.isArray(response?.lists) ? response.lists : []
         creditRecords.value = lists.map(mapRecord)
         const extend = response?.extend || {}
+        const counts: Partial<Record<CreditsTabKey, number>> = {
+            all: Number(response?.count ?? lists.length)
+        }
+        countResponses.slice(0, countParams.length).forEach((item, index) => {
+            counts[countParams[index].tab] = Number(item?.count ?? 0)
+        })
+        tabCounts.value = counts
         remoteSummary.value = {
             remaining: Number(extend.user_money ?? userStore.userInfo?.user_money ?? props.remainingCredits),
             income: Number(extend.total_income ?? 0),
             consume: Number(extend.total_consume ?? 0),
-            count: Number(response?.count ?? lists.length)
+            count: activeTab.value === 'all'
+                ? Number(response?.count ?? lists.length)
+                : Number(tabCounts.value[activeTab.value] ?? response?.count ?? lists.length)
         }
     } catch (error: any) {
         if (seq !== requestSeq) return
@@ -274,6 +292,11 @@ const handleKeydown = (event: KeyboardEvent) => {
 watch(() => props.modelValue, (visible) => {
     if (!visible) return
     activeTab.value = 'all'
+    loadCreditLogs()
+})
+
+watch(activeTab, () => {
+    if (!props.modelValue) return
     loadCreditLogs()
 })
 

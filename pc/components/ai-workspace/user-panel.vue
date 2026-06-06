@@ -37,7 +37,9 @@
                             <div class="ai-user-profile__grid">
                                 <label class="ai-user-field">
                                     <span>账号</span>
-                                    <input v-model="form.account" maxlength="30" placeholder="请输入账号" />
+                                    <div class="ai-user-field__readonly">
+                                        {{ form.account || '--' }}
+                                    </div>
                                 </label>
                                 <label class="ai-user-field">
                                     <span>显示名称</span>
@@ -71,11 +73,10 @@
                                     <span v-else>{{ avatarInitial }}</span>
                                 </div>
                                 <div class="ai-user-avatar-editor__meta">
-                                    <button type="button" :disabled="avatarUploading" @click="triggerAvatarUpload">
-                                        {{ avatarUploading ? '上传中...' : '上传头像' }}
-                                    </button>
+                                    <CropperUpload @change="handleAvatarChange">
+                                        <button type="button">上传头像</button>
+                                    </CropperUpload>
                                     <p>推荐使用 400 x 400 像素图片。</p>
-                                    <input ref="avatarInputRef" class="sr-only" type="file" accept="image/*" @change="handleAvatarUpload" />
                                 </div>
                             </div>
 
@@ -132,8 +133,8 @@
 <script lang="ts" setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { logout } from '@/api/account'
-import { uploadImage } from '@/api/app'
 import { getUserInfo, userChangePwd, userEdit } from '@/api/user'
+import CropperUpload from '@/components/cropper-upload/index.vue'
 import { useUserStore } from '@/stores/user'
 import feedback from '@/utils/feedback'
 import { normalizeFileUrl } from '@/utils/file-url'
@@ -153,10 +154,8 @@ const activeTab = ref<PanelTab>('profile')
 const userInfo = ref<Record<string, any>>({})
 const saving = ref(false)
 const changingPassword = ref(false)
-const avatarUploading = ref(false)
 const avatarBroken = ref(false)
 const showPwdForm = ref(false)
-const avatarInputRef = ref<HTMLInputElement | null>(null)
 
 const tabs: Array<{ key: PanelTab; label: string }> = [
     { key: 'profile', label: '个人资料' },
@@ -194,7 +193,6 @@ const avatarInitial = computed(() => displayName.value.slice(0, 1).toUpperCase()
 const avatarSrc = computed(() => normalizeFileUrl(form.avatar || userInfo.value?.avatar || '', userStore.avatarVersion))
 
 const isDirty = computed(() => (
-    form.account !== snapshot.account ||
     form.nickname !== snapshot.nickname ||
     form.sex !== snapshot.sex ||
     form.avatar !== snapshot.avatar
@@ -231,33 +229,10 @@ const resetPasswordForm = () => {
 
 const close = () => emit('update:modelValue', false)
 
-const triggerAvatarUpload = () => avatarInputRef.value?.click()
-
-const handleAvatarUpload = async (event: Event) => {
-    const input = event.target as HTMLInputElement
-    const file = input.files?.[0]
-    input.value = ''
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-        feedback.msgError('请选择图片文件')
-        return
-    }
-
-    avatarUploading.value = true
-    try {
-        const data = await uploadImage({ file })
-        const uri = data?.uri || data?.url || data?.path
-        if (!uri) {
-            feedback.msgError('上传失败：服务器未返回图片地址')
-            return
-        }
-        form.avatar = uri
-        avatarBroken.value = false
-    } catch (error: any) {
-        feedback.msgError(error?.msg || error?.message || '上传失败，请重试')
-    } finally {
-        avatarUploading.value = false
-    }
+const handleAvatarChange = (uri: string) => {
+    form.avatar = uri
+    avatarBroken.value = false
+    feedback.msgSuccess('头像已选择，请点击保存提交')
 }
 
 const saveProfile = async () => {
@@ -265,7 +240,6 @@ const saveProfile = async () => {
     saving.value = true
     try {
         const tasks: Promise<any>[] = []
-        if (form.account !== snapshot.account) tasks.push(userEdit({ field: 'account', value: form.account }))
         if (form.nickname !== snapshot.nickname) tasks.push(userEdit({ field: 'nickname', value: form.nickname }))
         if (form.sex !== snapshot.sex) tasks.push(userEdit({ field: 'sex', value: form.sex }))
         if (form.avatar !== snapshot.avatar) tasks.push(userEdit({ field: 'avatar', value: form.avatar }))

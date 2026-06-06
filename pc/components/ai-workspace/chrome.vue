@@ -169,6 +169,10 @@ const syncBodyScrollWithVisibleModals = () => {
 }
 
 const openCreditsUsageModal = () => {
+    if (!ensurePcLogin({ redirect: route.fullPath })) {
+        feedback.msgWarning('请先登录后再查看积分明细')
+        return
+    }
     if (props.activePopover) emit('toggle-popover', props.activePopover)
     purchaseModalSource.value = 'usage'
     showCreditsPurchaseModal.value = false
@@ -213,9 +217,13 @@ const openLoginModal = () => {
     openPcLoginModal({ redirect: route.fullPath })
 }
 
-const handleSidebarAction = (key: 'membership' | 'user' | 'api' | 'notice' | 'mobile' | 'language' | 'short_drama') => {
+const handleSidebarAction = (key: 'membership' | 'user' | 'credits' | 'api' | 'notice' | 'mobile' | 'language' | 'short_drama') => {
     if (key === 'membership') {
         openMembershipModal()
+        return
+    }
+    if (key === 'credits') {
+        openCreditsUsageModal()
         return
     }
     if (key === 'user') {
