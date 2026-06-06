@@ -21,7 +21,7 @@
                 <div class="group-toolbar">
                     <el-segmented v-model="activeResolution" :options="resolutionOptions" />
                     <div class="batch-tools">
-                        <span class="muted">当前分组 {{ currentGroupSpecs.length }} 项</span>
+                        <span class="muted">当前分组 {{ currentDisplayCount }} 项</span>
                         <el-input-number v-model="batchRate" :min="0" :precision="2" :step="0.1" controls-position="right" />
                         <el-button @click="fillByRate">按倍率填充</el-button>
                         <el-input-number v-model="batchAdd" :precision="2" :step="0.1" controls-position="right" />
@@ -34,7 +34,71 @@
                 </div>
 
                 <div v-loading="pagerLoading" class="matrix-wrap">
-                    <table class="price-matrix">
+                    <el-table
+                        v-if="useClearPricingTable"
+                        :data="clearPricingRows"
+                        border
+                        size="small"
+                        class="clear-price-table"
+                        row-key="key"
+                        empty-text="暂无规格"
+                    >
+                        <el-table-column label="规格" min-width="320">
+                            <template #default="{ row }">
+                                <div class="clear-spec-cell">
+                                    <div class="clear-spec-title">{{ row.title }}</div>
+                                    <div class="clear-spec-meta">{{ row.meta }}</div>
+                                </div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="上游成本" width="190">
+                            <template #default="{ row }">
+                                <el-input-number
+                                    :model-value="row.upstream_unit_cost"
+                                    :min="0"
+                                    :precision="2"
+                                    :step="0.01"
+                                    controls-position="right"
+                                    class="!w-full"
+                                    @change="(value) => setClearRowField(row, 'upstream_unit_cost', value)"
+                                />
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="平台供给价" width="190">
+                            <template #default="{ row }">
+                                <el-input-number
+                                    :model-value="row.platform_unit_cost"
+                                    :min="0"
+                                    :precision="2"
+                                    :step="0.01"
+                                    controls-position="right"
+                                    class="!w-full"
+                                    @change="(value) => setClearRowField(row, 'platform_unit_cost', value)"
+                                />
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="毛利" width="140">
+                            <template #default="{ row }">
+                                <span :class="marginClass(row.margin)">
+                                    {{ formatPoint(row.margin, 2) }} 点
+                                </span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="状态" width="100">
+                            <template #default="{ row }">
+                                <el-switch
+                                    :model-value="row.status"
+                                    :active-value="1"
+                                    :inactive-value="0"
+                                    @change="(value) => setClearRowField(row, 'status', value)"
+                                />
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                    <div v-if="useClearPricingTable && clearPricingSummary" class="clear-price-summary">
+                        {{ clearPricingSummary }}
+                    </div>
+                    <table v-if="!useClearPricingTable" class="price-matrix">
                         <thead>
                             <tr>
                                 <th class="resolution-col">分辨率</th>
@@ -46,14 +110,28 @@
                                 <th class="resolution-col">{{ quality }}</th>
                                 <td v-for="ratio in currentRatios" :key="`${quality}-${ratio}`">
                                     <div v-if="matrixMap[`${quality}|${ratio}`]" class="price-cell">
-                                        <el-input-number
-                                            v-model="matrixMap[`${quality}|${ratio}`].platform_unit_cost"
-                                            :min="0"
-                                            :precision="2"
-                                            :step="0.01"
-                                            controls-position="right"
-                                            @change="markDirty(matrixMap[`${quality}|${ratio}`])"
-                                        />
+                                        <div class="price-line">
+                                            <span>上游</span>
+                                            <el-input-number
+                                                v-model="matrixMap[`${quality}|${ratio}`].upstream_unit_cost"
+                                                :min="0"
+                                                :precision="2"
+                                                :step="0.01"
+                                                controls-position="right"
+                                                @change="markDirty(matrixMap[`${quality}|${ratio}`])"
+                                            />
+                                        </div>
+                                        <div class="price-line">
+                                            <span>供给</span>
+                                            <el-input-number
+                                                v-model="matrixMap[`${quality}|${ratio}`].platform_unit_cost"
+                                                :min="0"
+                                                :precision="2"
+                                                :step="0.01"
+                                                controls-position="right"
+                                                @change="markDirty(matrixMap[`${quality}|${ratio}`])"
+                                            />
+                                        </div>
                                         <div
                                             v-if="matrixMap[`${quality}|${ratio}`].upstream_pricing"
                                             class="upstream-price"
@@ -64,6 +142,9 @@
                                         </div>
                                         <div class="cell-meta">
                                             <span>{{ matrixMap[`${quality}|${ratio}`].width }}×{{ matrixMap[`${quality}|${ratio}`].height }}</span>
+                                            <span :class="marginClass(platformMargin(matrixMap[`${quality}|${ratio}`]))">
+                                                毛利 {{ formatPoint(platformMargin(matrixMap[`${quality}|${ratio}`]), 2) }}
+                                            </span>
                                             <el-switch
                                                 v-model="matrixMap[`${quality}|${ratio}`].status"
                                                 :active-value="1"
@@ -103,8 +184,17 @@
                         <el-input-number v-model="formData.height" :min="0" />
                     </div>
                 </el-form-item>
-                <el-form-item label="平台定价">
+                <el-form-item label="上游成本">
+                    <el-input-number v-model="formData.upstream_unit_cost" :min="0" :precision="2" class="w-full" />
+                </el-form-item>
+                <el-form-item label="平台供给价">
                     <el-input-number v-model="formData.platform_unit_cost" :min="0" :precision="2" class="w-full" />
+                </el-form-item>
+                <el-form-item label="成本说明">
+                    <el-input v-model="formData.upstream_cost_text" placeholder="如：上游 4K 固定价 / 次" />
+                </el-form-item>
+                <el-form-item label="成本来源">
+                    <el-input v-model="formData.cost_source_url" placeholder="https://..." />
                 </el-form-item>
                 <el-form-item label="Provider参数">
                     <el-input
@@ -124,28 +214,52 @@
             </template>
         </el-dialog>
 
-        <el-dialog v-model="pricingVisible" title="上游价格" width="920px" destroy-on-close>
-            <el-table :data="pricingRows" size="large" max-height="520">
-                <el-table-column label="规格" min-width="180">
-                    <template #default="{ row }">{{ row.local?.quality_label || row.local?.quality }} / {{ row.local?.ratio }}</template>
+        <el-dialog v-model="pricingVisible" title="上游价格" width="1160px" destroy-on-close class="upstream-pricing-dialog">
+            <el-table :data="pricingRows" size="large" max-height="560" row-key="local_key" class="upstream-pricing-table">
+                <el-table-column label="规格" min-width="210" fixed>
+                    <template #default="{ row }">
+                        <div class="pricing-spec-name">{{ row.local?.quality_label || row.local?.quality }} / {{ row.local?.ratio }}</div>
+                        <div class="pricing-spec-meta">{{ row.local?.width || 0 }}×{{ row.local?.height || 0 }}</div>
+                    </template>
                 </el-table-column>
-                <el-table-column label="宽高" min-width="110">
-                    <template #default="{ row }">{{ row.local?.width || 0 }}×{{ row.local?.height || 0 }}</template>
+                <el-table-column label="上游报价" min-width="330">
+                    <template #default="{ row }">
+                        <div class="pricing-quote" :class="{ 'is-error': !row.available }">
+                            <el-tag :type="row.available ? 'success' : 'danger'" effect="light" size="small">
+                                {{ row.available ? '可用' : '不可用' }}
+                            </el-tag>
+                            <span class="pricing-quote-main">{{ upstreamPriceText(row) }}</span>
+                        </div>
+                        <div v-if="pricingRulePreview(row)" class="pricing-rule-preview">{{ pricingRulePreview(row) }}</div>
+                    </template>
                 </el-table-column>
-                <el-table-column label="本地平台定价" min-width="120">
-                    <template #default="{ row }">{{ row.local?.platform_unit_cost || 0 }}</template>
+                <el-table-column label="计费方式" min-width="180">
+                    <template #default="{ row }">
+                        <div>{{ row.price_view?.billing_type_desc || '-' }}</div>
+                        <div class="pricing-spec-meta">{{ row.pricing_source?.name || '-' }}</div>
+                    </template>
                 </el-table-column>
-                <el-table-column label="上游状态" min-width="100">
-                    <template #default="{ row }">{{ row.available ? '可用' : '不可用' }}</template>
+                <el-table-column label="本地价格对照" min-width="260">
+                    <template #default="{ row }">
+                        <div class="pricing-compare">
+                            <span>已录入上游成本</span>
+                            <strong>{{ formatPoint(row.local?.upstream_unit_cost || 0, 6) }} 点</strong>
+                        </div>
+                        <div class="pricing-compare">
+                            <span>平台供给价</span>
+                            <strong>{{ formatPoint(row.local?.platform_unit_cost || 0, 6) }} 点</strong>
+                        </div>
+                        <div class="pricing-compare">
+                            <span>平台毛利</span>
+                            <strong :class="marginClass(localMargin(row))">{{ formatPoint(localMargin(row), 6) }} 点</strong>
+                        </div>
+                    </template>
                 </el-table-column>
-                <el-table-column label="计费方式" min-width="140">
-                    <template #default="{ row }">{{ row.price_view?.billing_type_desc || '-' }}</template>
+                <el-table-column label="成本说明" min-width="220" show-overflow-tooltip>
+                    <template #default="{ row }">{{ row.local?.upstream_cost_text || '-' }}</template>
                 </el-table-column>
-                <el-table-column label="上游价格" min-width="220" show-overflow-tooltip>
-                    <template #default="{ row }">{{ row.price_view?.formula || row.message || '-' }}</template>
-                </el-table-column>
-                <el-table-column label="来源" min-width="120">
-                    <template #default="{ row }">{{ row.pricing_source?.name || '-' }}</template>
+                <el-table-column label="来源链接" min-width="180" show-overflow-tooltip>
+                    <template #default="{ row }">{{ row.local?.cost_source_url || row.source_base_url || '-' }}</template>
                 </el-table-column>
             </el-table>
             <template #footer>
@@ -181,8 +295,11 @@ const formData = reactive({
     ratio: '',
     width: 0,
     height: 0,
+    upstream_unit_cost: 0,
     platform_unit_cost: 0,
     tenant_unit_price: 0,
+    upstream_cost_text: '',
+    cost_source_url: '',
     provider_params_json: {},
     status: 1,
     sort: 0
@@ -210,6 +327,15 @@ const activeGroup = computed(() => resolutionGroups.value.find((group) => group.
 const currentGroupSpecs = computed(() => activeGroup.value.specs || [])
 const currentQualities = computed(() => uniqueSorted(currentGroupSpecs.value.map((item: any) => qualityLabel(item))))
 const currentRatios = computed(() => uniqueRatios(currentGroupSpecs.value.map((item: any) => item.ratio)))
+const clearPricingRows = computed(() => buildClearPricingRows(currentGroupSpecs.value))
+const useClearPricingTable = computed(() => shouldUseClearPricingTable(currentGroupSpecs.value, clearPricingRows.value))
+const currentDisplayCount = computed(() => useClearPricingTable.value ? clearPricingRows.value.length : currentGroupSpecs.value.length)
+const clearPricingSummary = computed(() => {
+    if (!useClearPricingTable.value || !currentRatios.value.length) {
+        return ''
+    }
+    return `多比例共用同一计费价：${currentRatios.value.join('、')}`
+})
 const matrixMap = computed(() =>
     currentGroupSpecs.value.reduce((map: Record<string, any>, spec: any) => {
         map[`${qualityLabel(spec)}|${spec.ratio}`] = spec
@@ -262,14 +388,14 @@ const markDirty = (row: any) => {
 
 const fillByRate = () => {
     currentGroupSpecs.value.forEach((row: any) => {
-        row.platform_unit_cost = toPrice(Number(row.platform_unit_cost || 0) * Number(batchRate.value || 0))
+        row.platform_unit_cost = toPrice(platformCostBase(row) * Number(batchRate.value || 0))
         markDirty(row)
     })
 }
 
 const fillByAdd = () => {
     currentGroupSpecs.value.forEach((row: any) => {
-        row.platform_unit_cost = toPrice(Number(row.platform_unit_cost || 0) + Number(batchAdd.value || 0))
+        row.platform_unit_cost = toPrice(platformCostBase(row) + Number(batchAdd.value || 0))
         markDirty(row)
     })
 }
@@ -278,6 +404,14 @@ const setGroupStatus = (status: number) => {
     currentGroupSpecs.value.forEach((row: any) => {
         row.status = status
         markDirty(row)
+    })
+}
+
+const setClearRowField = (row: any, field: string, value: any) => {
+    const normalized = field === 'status' ? Number(value) : toPrice(Number(value || 0))
+    ;(row.items || []).forEach((item: any) => {
+        item[field] = normalized
+        markDirty(item)
     })
 }
 
@@ -299,7 +433,10 @@ const saveSpecs = async (rows: any[]) => {
                 channel_code: row.channel_code,
                 quality: row.quality,
                 ratio: row.ratio,
+                upstream_unit_cost: row.upstream_unit_cost,
                 platform_unit_cost: row.platform_unit_cost,
+                upstream_cost_text: row.upstream_cost_text,
+                cost_source_url: row.cost_source_url,
                 status: row.status,
                 sort: row.sort
             }))
@@ -324,8 +461,11 @@ const openEdit = (row: any) => {
         ratio: row.ratio,
         width: Number(row.width || 0),
         height: Number(row.height || 0),
+        upstream_unit_cost: Number(row.upstream_unit_cost || 0),
         platform_unit_cost: Number(row.platform_unit_cost || 0),
         tenant_unit_price: Number(row.platform_unit_cost || 0),
+        upstream_cost_text: row.upstream_cost_text || '',
+        cost_source_url: row.cost_source_url || '',
         provider_params_json: row.provider_params_json || {},
         status: Number(row.status ?? 1),
         sort: Number(row.sort ?? 0)
@@ -450,6 +590,18 @@ function toPrice(value: number) {
     return Math.max(0, Number(value.toFixed(2)))
 }
 
+function platformCostBase(row: any) {
+    return Number(row.upstream_unit_cost || row.platform_unit_cost || 0)
+}
+
+function platformMargin(row: any) {
+    return Number(row.platform_unit_cost || 0) - Number(row.upstream_unit_cost || 0)
+}
+
+function marginClass(value: number) {
+    return value >= 0 ? 'margin-plus' : 'margin-minus'
+}
+
 function formatPoint(value: any, precision = 6) {
     const number = Number(value)
     if (!Number.isFinite(number)) {
@@ -468,11 +620,87 @@ function upstreamPriceText(item: any) {
     if (!item.available) {
         return item.message ? `不可用：${item.message}` : '不可用'
     }
+    const pricingV2Items = item.pricing_v2?.items || item.raw?.pricing_v2?.items || []
+    if (Array.isArray(pricingV2Items) && pricingV2Items.length) {
+        return pricingV2Items
+            .slice(0, 3)
+            .map((row: any) => `${row.title || row.sku_key || 'SKU'} ${formatPoint(row.price?.points || 0)} 点`)
+            .join('，') + (pricingV2Items.length > 3 ? ` 等 ${pricingV2Items.length} 个 SKU` : '')
+    }
     const fixed = Number(item.pricing?.fixed_points ?? item.pricing?.unit_points ?? item.pricing?.points ?? 0)
     if (fixed > 0) {
         return `${formatPoint(fixed)} 点 / 次`
     }
     return item.price_view?.formula || item.message || '-'
+}
+
+function buildClearPricingRows(specs: any[]) {
+    const groups: Record<string, any[]> = {}
+    specs.forEach((spec) => {
+        const key = qualityLabel(spec)
+        if (!groups[key]) {
+            groups[key] = []
+        }
+        groups[key].push(spec)
+    })
+    return Object.entries(groups)
+        .map(([key, items]) => {
+            const first = items[0] || {}
+            const upstream = mergedFieldValue(items, 'upstream_unit_cost')
+            const platform = mergedFieldValue(items, 'platform_unit_cost')
+            return {
+                key,
+                title: qualityLabel(first),
+                meta: resolutionLabel(first),
+                upstream_unit_cost: upstream,
+                platform_unit_cost: platform,
+                margin: platform - upstream,
+                status: items.every((item) => Number(item.status) === 0) ? 0 : 1,
+                items
+            }
+        })
+        .sort((a, b) => resolutionWeight(a.key) - resolutionWeight(b.key))
+}
+
+function shouldUseClearPricingTable(specs: any[], rows: any[]) {
+    if (!specs.length || rows.length >= specs.length) {
+        return false
+    }
+    return rows.every((row) => {
+        const items = row.items || []
+        return hasSameFieldValue(items, 'upstream_unit_cost')
+            && hasSameFieldValue(items, 'platform_unit_cost')
+            && hasSameFieldValue(items, 'status')
+    })
+}
+
+function mergedFieldValue(items: any[], field: string) {
+    const first = items[0]
+    return Number(first?.[field] || 0)
+}
+
+function hasSameFieldValue(items: any[], field: string) {
+    const values = new Set(items.map((item) => String(item?.[field] ?? '')))
+    return values.size <= 1
+}
+
+function pricingRulePreview(item: any) {
+    const rules = item?.price_view?.rules
+    if (!Array.isArray(rules) || !rules.length) {
+        return ''
+    }
+    return rules
+        .slice(0, 4)
+        .map((rule: any) => {
+            const label = rule.label || rule.type || '规则'
+            const value = rule.value || (rule.points !== undefined ? `${formatPoint(rule.points)} 点` : '')
+            return value ? `${label}：${value}` : label
+        })
+        .join('；') + (rules.length > 4 ? `；等 ${rules.length} 条` : '')
+}
+
+function localMargin(row: any) {
+    return Number(row.local?.platform_unit_cost || 0) - Number(row.local?.upstream_unit_cost || 0)
 }
 
 function isUpstreamPriceError(item: any) {
@@ -576,7 +804,16 @@ getLists()
     display: flex;
     flex-direction: column;
     gap: 10px;
-    min-width: 190px;
+    min-width: 230px;
+}
+
+.price-line {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    color: #667085;
+    font-size: 12px;
 }
 
 .cell-meta {
@@ -612,7 +849,96 @@ getLists()
     word-break: break-all;
 }
 
+.margin-plus {
+    color: #18a058;
+}
+
+.margin-minus {
+    color: #d03050;
+}
+
 .empty-cell {
     color: #bbb;
+}
+
+.clear-price-table {
+    --el-table-border-color: #e5e7eb;
+}
+
+.clear-spec-cell {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 42px;
+}
+
+.clear-spec-title {
+    color: #1f2329;
+    font-weight: 600;
+}
+
+.clear-spec-meta {
+    margin-top: 4px;
+    color: #86909c;
+    font-size: 12px;
+}
+
+.clear-price-summary {
+    padding: 10px 0 0;
+    color: #86909c;
+    font-size: 13px;
+}
+
+.pricing-spec-name {
+    color: #1f2329;
+    font-weight: 600;
+}
+
+.pricing-spec-meta,
+.pricing-rule-preview {
+    margin-top: 4px;
+    color: #86909c;
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.pricing-quote {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: #24745c;
+    line-height: 22px;
+}
+
+.pricing-quote.is-error {
+    color: #d03050;
+}
+
+.pricing-quote-main {
+    min-width: 0;
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.pricing-compare {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    color: #667085;
+    line-height: 24px;
+}
+
+.pricing-compare strong {
+    color: #1f2329;
+    font-weight: 600;
+}
+
+.pricing-compare strong.margin-plus {
+    color: #18a058;
+}
+
+.pricing-compare strong.margin-minus {
+    color: #d03050;
 }
 </style>

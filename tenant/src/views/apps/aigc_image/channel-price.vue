@@ -21,7 +21,7 @@
                 <div class="group-toolbar">
                     <el-segmented v-model="activeResolution" :options="resolutionOptions" />
                     <div class="batch-tools">
-                        <span class="muted">当前分组 {{ currentGroupSpecs.length }} 项</span>
+                        <span class="muted">当前分组 {{ currentDisplayCount }} 项</span>
                         <el-input-number v-model="batchRate" :min="0" :precision="2" :step="0.1" controls-position="right" />
                         <el-button @click="fillByRate">按成本倍率填充</el-button>
                         <el-input-number v-model="batchAdd" :precision="2" :step="0.1" controls-position="right" />
@@ -33,7 +33,61 @@
                 </div>
 
                 <div v-loading="loading" class="matrix-wrap">
-                    <table class="price-matrix">
+                    <el-table
+                        v-if="useClearPricingTable"
+                        :data="clearPricingRows"
+                        border
+                        size="small"
+                        class="clear-price-table"
+                        row-key="key"
+                        empty-text="暂无规格"
+                    >
+                        <el-table-column label="规格" min-width="320">
+                            <template #default="{ row }">
+                                <div class="clear-spec-cell">
+                                    <div class="clear-spec-title">{{ row.title }}</div>
+                                    <div class="clear-spec-meta">{{ row.meta }}</div>
+                                </div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="平台供给价" width="160">
+                            <template #default="{ row }">{{ formatPoint(row.platform_unit_cost) }} 点</template>
+                        </el-table-column>
+                        <el-table-column label="我的销售价" width="190">
+                            <template #default="{ row }">
+                                <el-input-number
+                                    :model-value="row.tenant_unit_price"
+                                    :min="0"
+                                    :precision="2"
+                                    :step="0.01"
+                                    controls-position="right"
+                                    class="!w-full"
+                                    @change="(value) => setClearRowField(row, 'tenant_unit_price', value)"
+                                />
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="毛利" width="140">
+                            <template #default="{ row }">
+                                <span :class="marginClass(row.margin)">
+                                    {{ formatPoint(row.margin) }} 点
+                                </span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="状态" width="100">
+                            <template #default="{ row }">
+                                <el-switch
+                                    :model-value="row.tenant_status"
+                                    :active-value="1"
+                                    :inactive-value="0"
+                                    @change="(value) => setClearRowField(row, 'tenant_status', value)"
+                                />
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                    <div v-if="useClearPricingTable && clearPricingSummary" class="clear-price-summary">
+                        {{ clearPricingSummary }}
+                    </div>
+                    <table v-if="!useClearPricingTable" class="price-matrix">
                         <thead>
                             <tr>
                                 <th class="resolution-col">分辨率</th>
@@ -45,6 +99,10 @@
                                 <th class="resolution-col">{{ quality }}</th>
                                 <td v-for="ratio in currentRatios" :key="`${quality}-${ratio}`">
                                     <div v-if="matrixMap[`${quality}|${ratio}`]" class="price-cell">
+                                        <div class="cost-line">
+                                            <span>我的成本</span>
+                                            <strong>{{ matrixMap[`${quality}|${ratio}`].platform_unit_cost }}</strong>
+                                        </div>
                                         <el-input-number
                                             v-model="matrixMap[`${quality}|${ratio}`].tenant_unit_price"
                                             :min="0"
@@ -54,7 +112,9 @@
                                             @change="markDirty(matrixMap[`${quality}|${ratio}`])"
                                         />
                                         <div class="cell-meta">
-                                            <span>成本 {{ matrixMap[`${quality}|${ratio}`].platform_unit_cost }}</span>
+                                            <span :class="marginClass(tenantMargin(matrixMap[`${quality}|${ratio}`]))">
+                                                毛利 {{ formatPoint(tenantMargin(matrixMap[`${quality}|${ratio}`])) }}
+                                            </span>
                                             <el-switch
                                                 v-model="matrixMap[`${quality}|${ratio}`].tenant_status"
                                                 :active-value="1"
@@ -104,6 +164,15 @@ const activeGroup = computed(() => resolutionGroups.value.find((group) => group.
 const currentGroupSpecs = computed(() => activeGroup.value.specs || [])
 const currentQualities = computed(() => uniqueSorted(currentGroupSpecs.value.map((item: any) => qualityLabel(item))))
 const currentRatios = computed(() => uniqueRatios(currentGroupSpecs.value.map((item: any) => item.ratio)))
+const clearPricingRows = computed(() => buildClearPricingRows(currentGroupSpecs.value))
+const useClearPricingTable = computed(() => shouldUseClearPricingTable(currentGroupSpecs.value, clearPricingRows.value))
+const currentDisplayCount = computed(() => useClearPricingTable.value ? clearPricingRows.value.length : currentGroupSpecs.value.length)
+const clearPricingSummary = computed(() => {
+    if (!useClearPricingTable.value || !currentRatios.value.length) {
+        return ''
+    }
+    return `多比例共用同一销售价：${currentRatios.value.join('、')}`
+})
 const matrixMap = computed(() =>
     currentGroupSpecs.value.reduce((map: Record<string, any>, spec: any) => {
         map[`${qualityLabel(spec)}|${spec.ratio}`] = spec
@@ -172,6 +241,14 @@ const setGroupStatus = (status: number) => {
     currentGroupSpecs.value.forEach((row: any) => {
         row.tenant_status = status
         markDirty(row)
+    })
+}
+
+const setClearRowField = (row: any, field: string, value: any) => {
+    const normalized = field === 'tenant_status' ? Number(value) : toPrice(Number(value || 0))
+    ;(row.items || []).forEach((item: any) => {
+        item[field] = normalized
+        markDirty(item)
     })
 }
 
@@ -256,8 +333,71 @@ function resolutionWeight(value: string) {
     return size ? 20 + size : 90
 }
 
+function buildClearPricingRows(specs: any[]) {
+    const groups: Record<string, any[]> = {}
+    specs.forEach((spec) => {
+        const key = qualityLabel(spec)
+        if (!groups[key]) {
+            groups[key] = []
+        }
+        groups[key].push(spec)
+    })
+    return Object.entries(groups)
+        .map(([key, items]) => {
+            const first = items[0] || {}
+            const platform = mergedFieldValue(items, 'platform_unit_cost')
+            const tenant = mergedFieldValue(items, 'tenant_unit_price')
+            return {
+                key,
+                title: qualityLabel(first),
+                meta: resolutionLabel(first),
+                platform_unit_cost: platform,
+                tenant_unit_price: tenant,
+                margin: tenant - platform,
+                tenant_status: items.every((item) => Number(item.tenant_status) === 0) ? 0 : 1,
+                items
+            }
+        })
+        .sort((a, b) => resolutionWeight(a.key) - resolutionWeight(b.key))
+}
+
+function shouldUseClearPricingTable(specs: any[], rows: any[]) {
+    if (!specs.length || rows.length >= specs.length) {
+        return false
+    }
+    return rows.every((row) => {
+        const items = row.items || []
+        return hasSameFieldValue(items, 'platform_unit_cost')
+            && hasSameFieldValue(items, 'tenant_unit_price')
+            && hasSameFieldValue(items, 'tenant_status')
+    })
+}
+
+function mergedFieldValue(items: any[], field: string) {
+    const first = items[0]
+    return Number(first?.[field] || 0)
+}
+
+function hasSameFieldValue(items: any[], field: string) {
+    const values = new Set(items.map((item) => String(item?.[field] ?? '')))
+    return values.size <= 1
+}
+
 function toPrice(value: number) {
     return Math.max(0, Number(value.toFixed(2)))
+}
+
+function tenantMargin(row: any) {
+    return Number(row.tenant_unit_price || 0) - Number(row.platform_unit_cost || 0)
+}
+
+function formatPoint(value: any) {
+    const number = Number(value || 0)
+    return number.toFixed(2).replace(/\.?0+$/, '') || '0'
+}
+
+function marginClass(value: number) {
+    return value >= 0 ? 'margin-plus' : 'margin-minus'
 }
 
 getLists()
@@ -360,6 +500,15 @@ getLists()
     min-width: 180px;
 }
 
+.cost-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: #667085;
+    font-size: 12px;
+}
+
 .cell-meta {
     display: flex;
     align-items: center;
@@ -371,5 +520,41 @@ getLists()
 
 .empty-cell {
     color: #bbb;
+}
+
+.clear-price-table {
+    --el-table-border-color: #e5e7eb;
+}
+
+.clear-spec-cell {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 42px;
+}
+
+.clear-spec-title {
+    color: #1f2329;
+    font-weight: 600;
+}
+
+.clear-spec-meta {
+    margin-top: 4px;
+    color: #86909c;
+    font-size: 12px;
+}
+
+.clear-price-summary {
+    padding: 10px 0 0;
+    color: #86909c;
+    font-size: 13px;
+}
+
+.margin-plus {
+    color: #18a058;
+}
+
+.margin-minus {
+    color: #d03050;
 }
 </style>
