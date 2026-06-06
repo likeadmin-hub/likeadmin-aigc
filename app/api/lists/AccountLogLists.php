@@ -44,6 +44,21 @@ class AccountLogLists extends BaseApiDataLists implements ListsExtendInterface
             $where[] = ['change_type', 'in', AccountLogEnum::getUserMoneyChangeType()];
         }
 
+        if (!empty($this->params['scene'])) {
+            switch ($this->params['scene']) {
+                case 'consume':
+                    $where[] = ['action', '=', AccountLogEnum::DEC];
+                    break;
+                case 'purchase':
+                    $where[] = ['change_type', '=', AccountLogEnum::UM_INC_RECHARGE];
+                    break;
+                case 'income':
+                    $where[] = ['action', '=', AccountLogEnum::INC];
+                    $where[] = ['change_type', '<>', AccountLogEnum::UM_INC_RECHARGE];
+                    break;
+            }
+        }
+
         // 变动类型
         if (!empty($this->params['action'])) {
             $where[] = ['action', '=', $this->params['action']];

@@ -2588,7 +2588,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_image_sensitive_word` (
 
 UPDATE `la_system_menu` SET `pid`=28,`sort`=10 WHERE `id`=4;
 UPDATE `la_system_menu` SET `pid`=28,`sort`=20 WHERE `id`=25;
-UPDATE `la_system_menu` SET `name`='系统应用',`paths`='system-default',`component`='',`icon`='el-icon-Setting',`pid`=9000,`sort`=10,`app_code`='system_default',`source`='core',`source_menu_key`='core_system_default',`is_core`=1 WHERE `id`=158;
+UPDATE `la_system_menu` SET `type`='M',`name`='系统应用',`paths`='system-default',`component`='',`icon`='el-icon-Setting',`pid`=9000,`sort`=10,`app_code`='system_default',`source`='core',`source_menu_key`='core_system_default',`is_core`=1 WHERE `id`=158;
 UPDATE `la_system_menu` SET `pid`=158,`sort`=20 WHERE `id`=63;
 UPDATE `la_system_menu` SET `pid`=158,`sort`=30 WHERE `id`=101;
 UPDATE `la_system_menu` SET `pid`=0,`paths`='aigc-image',`sort`=90 WHERE `app_code`='aigc_image' AND `source_menu_key`='aigc_image_platform';
@@ -2596,7 +2596,7 @@ UPDATE `la_system_menu` SET `pid`=0,`paths`='aigc-image',`sort`=90 WHERE `app_co
 UPDATE `la_tenant_system_menu` SET `pid`=28,`sort`=10 WHERE `tenant_id`=0 AND `id`=4;
 UPDATE `la_tenant_system_menu` SET `pid`=28,`sort`=20 WHERE `tenant_id`=0 AND `id`=25;
 UPDATE `la_tenant_system_menu` SET `pid`=28,`sort`=90 WHERE `tenant_id`=0 AND `id`=148;
-UPDATE `la_tenant_system_menu` SET `name`='系统应用',`paths`='system-default',`component`='',`icon`='el-icon-Setting',`pid`=9000,`sort`=10,`app_code`='system_default',`source`='core',`source_menu_key`='core_tenant_system_default',`is_core`=1 WHERE `tenant_id`=0 AND `id`=158;
+UPDATE `la_tenant_system_menu` SET `type`='M',`name`='系统应用',`paths`='system-default',`component`='',`icon`='el-icon-Setting',`pid`=9000,`sort`=10,`app_code`='system_default',`source`='core',`source_menu_key`='core_tenant_system_default',`is_core`=1 WHERE `tenant_id`=0 AND `id`=158;
 UPDATE `la_tenant_system_menu` SET `is_show`=0 WHERE `source_menu_key`='core_tenant_my_app';
 UPDATE `la_tenant_system_menu` SET `pid`=158,`sort`=10 WHERE `tenant_id`=0 AND `id`=159;
 UPDATE `la_tenant_system_menu` SET `pid`=158,`sort`=20 WHERE `tenant_id`=0 AND `id`=70;
@@ -3194,8 +3194,11 @@ CREATE TABLE IF NOT EXISTS `la_aigc_image_channel_spec` (
   `ratio` varchar(30) NOT NULL DEFAULT '' COMMENT '图片比例',
   `width` int unsigned NOT NULL DEFAULT 0 COMMENT '宽度',
   `height` int unsigned NOT NULL DEFAULT 0 COMMENT '高度',
-  `platform_unit_cost` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '平台成本单价',
+  `upstream_unit_cost` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '上游成本单价',
+  `platform_unit_cost` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '平台供给单价',
   `tenant_unit_price` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '租户用户售价',
+  `upstream_cost_text` varchar(500) NOT NULL DEFAULT '' COMMENT '上游成本说明',
+  `cost_source_url` varchar(500) NOT NULL DEFAULT '' COMMENT '成本来源链接',
   `provider_params_json` text COMMENT 'Provider规格参数预留',
   `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态',
   `sort` int NOT NULL DEFAULT 0 COMMENT '排序',
@@ -3502,8 +3505,11 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_channel_spec` (
   `ratio` varchar(30) NOT NULL DEFAULT '' COMMENT '视频比例',
   `width` int unsigned NOT NULL DEFAULT 0 COMMENT '宽度',
   `height` int unsigned NOT NULL DEFAULT 0 COMMENT '高度',
-  `platform_unit_cost` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '平台成本单价',
+  `upstream_unit_cost` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '上游成本单价',
+  `platform_unit_cost` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '平台供给单价',
   `tenant_unit_price` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '租户用户售价',
+  `upstream_cost_text` varchar(500) NOT NULL DEFAULT '' COMMENT '上游成本说明',
+  `cost_source_url` varchar(500) NOT NULL DEFAULT '' COMMENT '成本来源链接',
   `provider_params_json` text COMMENT 'Provider规格参数预留',
   `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态',
   `sort` int NOT NULL DEFAULT 0 COMMENT '排序',
@@ -4520,13 +4526,26 @@ VALUES
 (0,'seedance','1080p_5','1080P · 5秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":5,"ratio":"9:16"}',1,1180,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'seedance','720p_10','720P · 10秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":10,"ratio":"16:9"}',1,1170,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'seedance','720p_10','720P · 10秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":10,"ratio":"9:16"}',1,1160,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'omni_flash_ext','720p_6','720P · 6秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"16:9"}',1,1150,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'omni_flash_ext','720p_6','720P · 6秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"9:16"}',1,1140,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'omni_flash_ext','720p_6','720P · 6秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"1:1"}',1,1130,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'omni_flash_ext','1080p_6','1080P · 6秒','16:9',1920,1080,0.00,0.00,'{"resolution":"1080p","duration":6,"aspect_ratio":"16:9"}',1,1120,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'omni_flash_ext','1080p_6','1080P · 6秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":6,"aspect_ratio":"9:16"}',1,1110,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'omni_flash_ext','720p_10','720P · 10秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":10,"aspect_ratio":"16:9"}',1,1100,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'omni_flash_ext','720p_10','720P · 10秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":10,"aspect_ratio":"9:16"}',1,1090,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
+(0,'omni_flash_ext','720p_4','720P · 4秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":4,"aspect_ratio":"16:9"}',1,1150,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_4','720P · 4秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":4,"aspect_ratio":"9:16"}',1,1140,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_4','720P · 4秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":4,"aspect_ratio":"1:1"}',1,1130,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_4','1080P · 4秒','16:9',1920,1080,0.00,0.00,'{"resolution":"1080p","duration":4,"aspect_ratio":"16:9"}',1,1120,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_4','1080P · 4秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":4,"aspect_ratio":"9:16"}',1,1110,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_6','720P · 6秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"16:9"}',1,1100,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_6','720P · 6秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"9:16"}',1,1090,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_6','720P · 6秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":6,"aspect_ratio":"1:1"}',1,1080,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_6','1080P · 6秒','16:9',1920,1080,0.00,0.00,'{"resolution":"1080p","duration":6,"aspect_ratio":"16:9"}',1,1070,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_6','1080P · 6秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":6,"aspect_ratio":"9:16"}',1,1060,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_8','720P · 8秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":8,"aspect_ratio":"16:9"}',1,1050,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_8','720P · 8秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":8,"aspect_ratio":"9:16"}',1,1040,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_8','720P · 8秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":8,"aspect_ratio":"1:1"}',1,1030,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_8','1080P · 8秒','16:9',1920,1080,0.00,0.00,'{"resolution":"1080p","duration":8,"aspect_ratio":"16:9"}',1,1020,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_8','1080P · 8秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":8,"aspect_ratio":"9:16"}',1,1010,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_10','720P · 10秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":10,"aspect_ratio":"16:9"}',1,1000,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_10','720P · 10秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":10,"aspect_ratio":"9:16"}',1,990,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','720p_10','720P · 10秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":10,"aspect_ratio":"1:1"}',1,980,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_10','1080P · 10秒','16:9',1920,1080,0.00,0.00,'{"resolution":"1080p","duration":10,"aspect_ratio":"16:9"}',1,970,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'omni_flash_ext','1080p_10','1080P · 10秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":10,"aspect_ratio":"9:16"}',1,960,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE `quality_label`=VALUES(`quality_label`),`width`=VALUES(`width`),`height`=VALUES(`height`),`platform_unit_cost`=VALUES(`platform_unit_cost`),`tenant_unit_price`=VALUES(`tenant_unit_price`),`provider_params_json`=VALUES(`provider_params_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
 
 -- Migration snapshot: aigc_video/migrations/zz_20260530_aigc_video_duration_spec_sync.sql

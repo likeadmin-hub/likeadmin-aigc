@@ -5,6 +5,7 @@ namespace app\common\service\app;
 use app\common\model\app\App;
 use app\common\model\app\TenantAppConfig;
 use app\common\service\FileService;
+use Throwable;
 
 class AppDisplayConfigService
 {
@@ -15,6 +16,7 @@ class AppDisplayConfigService
         'aigc_canvas',
         'aigc_llm',
         'image_human',
+        'smart_clip',
     ];
 
     private const DEFAULTS = [
@@ -48,6 +50,11 @@ class AppDisplayConfigService
             'description' => '上传人物图片与参考音频生成全驱动数字人视频。',
             'sort' => 75,
         ],
+        'smart_clip' => [
+            'title' => 'AI视频剪辑',
+            'description' => '上传视频或从作品带入素材，选择模板完成智能混剪。',
+            'sort' => 70,
+        ],
     ];
 
     public static function appendToConfig(int $tenantId, string $appCode, array $config): array
@@ -60,10 +67,14 @@ class AppDisplayConfigService
     {
         $appCode = self::normalizeAppCode($appCode);
         $default = self::defaultConfig($appCode);
-        $row = TenantAppConfig::where([
-            'tenant_id' => $tenantId,
-            'app_code' => $appCode,
-        ])->findOrEmpty();
+        try {
+            $row = TenantAppConfig::where([
+                'tenant_id' => $tenantId,
+                'app_code' => $appCode,
+            ])->findOrEmpty();
+        } catch (Throwable $e) {
+            return self::withUrls($default);
+        }
 
         if ($row->isEmpty()) {
             return self::withUrls($default);
@@ -153,7 +164,11 @@ class AppDisplayConfigService
 
     private static function defaultConfig(string $appCode): array
     {
-        $app = App::where('code', $appCode)->findOrEmpty();
+        try {
+            $app = App::where('code', $appCode)->findOrEmpty();
+        } catch (Throwable $e) {
+            $app = null;
+        }
         $local = self::DEFAULTS[$appCode] ?? [
             'title' => $appCode,
             'description' => '',
@@ -174,7 +189,7 @@ class AppDisplayConfigService
             'create_time' => 0,
             'update_time' => 0,
         ];
-        if (!$app->isEmpty()) {
+        if ($app !== null && !$app->isEmpty()) {
             $appData = $app->toArray();
             $data['title'] = $data['title'] ?: trim((string)($appData['name'] ?? ''));
             $data['description'] = $data['description'] ?: trim((string)($appData['description'] ?? ''));

@@ -16,7 +16,7 @@ namespace app\common\model\pay;
 
 
 use app\common\model\BaseModel;
-use app\common\model\pay\PayConfig;
+use app\common\model\pay\TenantPayConfig;
 use app\common\service\FileService;
 
 
@@ -37,7 +37,7 @@ class TenantPayWay extends BaseModel
      */
     public static function getPayWayNameAttr($value,$data)
     {
-        return PayConfig::where('id',$data['pay_config_id'])->value('name');
+        return TenantPayConfig::where('id',$data['pay_config_id'])->value('name');
     }
 
     /**
@@ -48,6 +48,6 @@ class TenantPayWay extends BaseModel
      */
     public function payConfig()
     {
-        return $this->hasOne(PayConfig::class,'id','pay_config_id');
+        return $this->hasOne(TenantPayConfig::class,'id','pay_config_id');
     }
 }

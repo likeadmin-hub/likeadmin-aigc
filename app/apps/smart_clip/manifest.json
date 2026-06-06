@@ -1,0 +1,69 @@
+{
+  "code": "smart_clip",
+  "name": "AI视频剪辑",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "AI视频剪辑应用，支持真人口播混剪、素材混剪、新闻体视频剪辑。",
+  "changelog": "1. 新增AI视频剪辑创作入口。\n2. 支持三类智能剪辑任务和模板选择。\n3. 支持剪辑任务、作品、通道价格和用量管理。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 900,
+  "frontends": [
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/smart_clip",
+  "platform_menus": "menus/platform.json",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "smart_clip_admin",
+      "name": "AI视频剪辑",
+      "path": "/app/smart_clip",
+      "icon": "el-icon-Picture",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "smart_clip",
+      "name": "AI视频剪辑",
+      "path": "/ai/smart_clip",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "smart_clip",
+      "name": "AI视频剪辑",
+      "path": "/apps/smart_clip/pages/index/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 100,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "创作首页",
+            "path": "/apps/smart_clip/pages/index/index"
+          },
+          {
+            "name": "剪辑任务",
+            "path": "/apps/smart_clip/pages/tasks/tasks"
+          },
+          {
+            "name": "作品列表",
+            "path": "/apps/smart_clip/pages/results/results"
+          }
+        ]
+      }
+    }
+  ]
+}

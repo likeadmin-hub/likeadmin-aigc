@@ -6,6 +6,7 @@ use app\common\model\app\aigc_digital_human\AigcDigitalHumanChannel;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanChannelSpec;
 use Exception;
 use think\facade\Db;
+use Throwable;
 
 class AigcDigitalHumanChannelService
 {
@@ -14,8 +15,13 @@ class AigcDigitalHumanChannelService
 
     public static function userConfig(int $tenantId): array
     {
-        $channels = self::effectiveChannels($tenantId, true);
-        $priceMap = array_column(AigcDigitalHumanPricingService::config($tenantId)['generate_models'] ?? [], null, 'code');
+        try {
+            $channels = self::effectiveChannels($tenantId, true);
+            $priceMap = array_column(AigcDigitalHumanPricingService::config($tenantId)['generate_models'] ?? [], null, 'code');
+        } catch (Throwable $e) {
+            $channels = [];
+            $priceMap = [];
+        }
         foreach ($channels as &$channel) {
             $price = $priceMap[$channel['code']] ?? [];
             $channel['tenant_unit_price'] = $price['tenant_unit_price'] ?? null;
@@ -262,12 +268,16 @@ class AigcDigitalHumanChannelService
 
     private static function effectiveChannels(int $tenantId, bool $onlyEnabled): array
     {
-        $platformChannels = AigcDigitalHumanChannel::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
-        $tenantChannels = $tenantId > 0 ? AigcDigitalHumanChannel::where('tenant_id', $tenantId)->select()->toArray() : [];
+        try {
+            $platformChannels = AigcDigitalHumanChannel::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
+            $tenantChannels = $tenantId > 0 ? AigcDigitalHumanChannel::where('tenant_id', $tenantId)->select()->toArray() : [];
+            $platformSpecs = AigcDigitalHumanChannelSpec::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
+            $tenantSpecs = $tenantId > 0 ? AigcDigitalHumanChannelSpec::where('tenant_id', $tenantId)->select()->toArray() : [];
+        } catch (Throwable $e) {
+            return [];
+        }
         $tenantChannelMap = array_column($tenantChannels, null, 'code');
 
-        $platformSpecs = AigcDigitalHumanChannelSpec::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
-        $tenantSpecs = $tenantId > 0 ? AigcDigitalHumanChannelSpec::where('tenant_id', $tenantId)->select()->toArray() : [];
         $tenantSpecMap = [];
         foreach ($tenantSpecs as $spec) {
             $tenantSpecMap[self::specKey($spec)] = $spec;

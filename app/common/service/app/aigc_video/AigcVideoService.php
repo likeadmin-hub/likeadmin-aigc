@@ -181,7 +181,7 @@ class AigcVideoService
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
-        self::refreshRunningTasks($tenantId, $userId);
+        self::safeRefreshRunningTasks($tenantId, $userId);
         $query = AigcVideoTask::alias('t')
             ->leftJoin('user u', 'u.id = t.user_id AND u.tenant_id = t.tenant_id')
             ->field('t.*,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
@@ -264,7 +264,7 @@ class AigcVideoService
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
     {
-        self::refreshRunningTasks($tenantId, $userId, $taskId);
+        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcVideoTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -318,7 +318,7 @@ class AigcVideoService
 
     public static function resultLists(int $tenantId, int $userId = 0, int $taskId = 0, string $status = ''): array
     {
-        self::refreshRunningTasks($tenantId, $userId, $taskId);
+        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcVideoTask::where('tenant_id', $tenantId)->where('delete_time', 0)->order('id', 'desc');
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -545,7 +545,7 @@ class AigcVideoService
         $quota->save();
     }
 
-    private static function refreshRunningTasks(int $tenantId, int $userId = 0, int $taskId = 0): void
+    private static function refreshRunningTasks(int $tenantId, int $userId = 0, int $taskId = 0, bool $swallowErrors = false): void
     {
         $query = AigcVideoTask::where('tenant_id', $tenantId)
             ->where('status', 'running')
@@ -562,34 +562,76 @@ class AigcVideoService
             if (!self::isAsyncProvider((string)$task['provider'])) {
                 continue;
             }
-            $selection = AigcVideoChannelService::resolveSelection($tenantId, [
-                'channel' => $task['channel'],
-                'quality' => $task['quality'],
-                'ratio' => $task['ratio'],
-                'quantity' => $task['quantity'],
-            ]);
-            $provider = self::providerFor((string)$task['provider']);
-            if (!method_exists($provider, 'fetchResult')) {
-                continue;
+            try {
+                $selection = AigcVideoChannelService::resolveSelection($tenantId, [
+                    'channel' => $task['channel'],
+                    'quality' => $task['quality'],
+                    'ratio' => $task['ratio'],
+                    'duration' => (int)($task['duration'] ?? 0),
+                    'quantity' => $task['quantity'],
+                ]);
+                $provider = self::providerFor((string)$task['provider']);
+                if (!method_exists($provider, 'fetchResult')) {
+                    continue;
+                }
+                $result = $provider->fetchResult((string)$task['provider_task_id'], self::buildRequestFromTask($task, $selection));
+                if (!$result->success) {
+                    $task->status = 'failed';
+                    $task->error = $result->error ?: '生成失败';
+                    $task->finish_time = time();
+                    $task->update_time = time();
+                    $task->save();
+                    continue;
+                }
+                if (empty($result->videos)) {
+                    continue;
+                }
+                $estimate = [
+                    'platform_unit_cost' => (float)$task['tenant_cost_points'] / max(1, (int)$task['quantity']),
+                    'tenant_unit_price' => (float)$task['user_charge_points'] / max(1, (int)$task['quantity']),
+                ];
+                self::finishTaskWithVideos($task, $selection, $estimate, $result->videos);
+            } catch (\Throwable $e) {
+                if (!$swallowErrors) {
+                    throw $e;
+                }
+                if (self::isPermanentRefreshError($e->getMessage())) {
+                    self::markRefreshFailed($task, $e->getMessage() ?: '任务刷新失败');
+                }
             }
-            $result = $provider->fetchResult((string)$task['provider_task_id'], self::buildRequestFromTask($task, $selection));
-            if (!$result->success) {
-                $task->status = 'failed';
-                $task->error = $result->error ?: '生成失败';
-                $task->finish_time = time();
-                $task->update_time = time();
-                $task->save();
-                continue;
-            }
-            if (empty($result->videos)) {
-                continue;
-            }
-            $estimate = [
-                'platform_unit_cost' => (float)$task['tenant_cost_points'] / max(1, (int)$task['quantity']),
-                'tenant_unit_price' => (float)$task['user_charge_points'] / max(1, (int)$task['quantity']),
-            ];
-            self::finishTaskWithVideos($task, $selection, $estimate, $result->videos);
         }
+    }
+
+    private static function safeRefreshRunningTasks(int $tenantId, int $userId = 0, int $taskId = 0): void
+    {
+        try {
+            self::refreshRunningTasks($tenantId, $userId, $taskId, true);
+        } catch (\Throwable) {
+            // Listing/detail pages must remain readable even if async task polling fails.
+        }
+    }
+
+    private static function markRefreshFailed(AigcVideoTask $task, string $message): void
+    {
+        try {
+            $task->status = 'failed';
+            $task->error = $message;
+            $task->finish_time = time();
+            $task->update_time = time();
+            $task->save();
+        } catch (\Throwable) {
+            // Never let failure-state persistence break read-only task list APIs.
+        }
+    }
+
+    private static function isPermanentRefreshError(string $message): bool
+    {
+        foreach (['暂无可用视频通道', '通道不可用', '不支持所选', '当前时长不支持', '规格'] as $needle) {
+            if ($needle !== '' && str_contains($message, $needle)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static function buildRequestFromTask(AigcVideoTask $task, array $selection): AigcVideoGenerateRequest

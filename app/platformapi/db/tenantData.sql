@@ -740,7 +740,7 @@ UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`sou
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_tenant_storage_detail',`is_core`=1 WHERE `id`=57;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_ai_task_tenant',`is_core`=1 WHERE `id`=9016;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_ai_task_tenant_detail',`is_core`=1 WHERE `id`=9017;
-UPDATE `la_tenant_system_menu_{tenantSn}` SET `name`='系统应用',`paths`='system-default',`component`='',`icon`='el-icon-Setting',`pid`=9000,`sort`=10,`app_code`='system_default',`source`='core',`source_menu_key`='core_tenant_system_default',`is_core`=1 WHERE `id`=158;
+UPDATE `la_tenant_system_menu_{tenantSn}` SET `type`='M',`name`='系统应用',`paths`='system-default',`component`='',`icon`='el-icon-Setting',`pid`=9000,`sort`=10,`app_code`='system_default',`source`='core',`source_menu_key`='core_tenant_system_default',`is_core`=1 WHERE `id`=158;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `is_show`=0 WHERE `source_menu_key`='core_tenant_my_app';
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `pid`=158,`sort`=10 WHERE `id`=159;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `pid`=158,`sort`=20 WHERE `id`=70;

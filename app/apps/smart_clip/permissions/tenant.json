@@ -1,0 +1,15 @@
+[
+  {"permission_key":"smart_clip:config:detail","name":"查看AI视频剪辑配置","api_path":"app.smart_clip.config/detail","api_method":"GET"},
+  {"permission_key":"smart_clip:config:setup","name":"保存AI视频剪辑配置","api_path":"app.smart_clip.config/setup","api_method":"POST"},
+  {"permission_key":"smart_clip:task:lists","name":"查看AI视频剪辑任务","api_path":"app.smart_clip.admin_task/lists","api_method":"GET"},
+  {"permission_key":"smart_clip:task:detail","name":"查看AI视频剪辑任务详情","api_path":"app.smart_clip.admin_task/detail","api_method":"GET"},
+  {"permission_key":"smart_clip:task:retry","name":"重试AI视频剪辑任务","api_path":"app.smart_clip.admin_task/retry","api_method":"POST"},
+  {"permission_key":"smart_clip:task:delete","name":"删除AI视频剪辑任务","api_path":"app.smart_clip.admin_task/delete","api_method":"POST"},
+  {"permission_key":"smart_clip:sensitive_word:lists","name":"查看AI视频剪辑敏感词","api_path":"app.smart_clip.admin/sensitiveWord","api_method":"GET"},
+  {"permission_key":"smart_clip:sensitive_word:save","name":"保存AI视频剪辑敏感词","api_path":"app.smart_clip.admin/sensitiveWord","api_method":"POST"},
+  {"permission_key":"smart_clip:stat","name":"查看AI视频剪辑统计","api_path":"app.smart_clip.admin/stat","api_method":"GET"},
+  {"permission_key":"smart_clip:channel_price:lists","name":"查看AI视频剪辑通道调价","api_path":"app.smart_clip.channel/lists","api_method":"GET"},
+  {"permission_key":"smart_clip:channel_price:save","name":"保存AI视频剪辑通道调价","api_path":"app.smart_clip.channel/save","api_method":"POST"},
+  {"permission_key":"smart_clip:channel_price:batch_save","name":"批量保存AI视频剪辑通道调价","api_path":"app.smart_clip.channel/batchSave","api_method":"POST"},
+  {"permission_key":"smart_clip:channel_price:status","name":"设置AI视频剪辑通道状态","api_path":"app.smart_clip.channel/status","api_method":"POST"}
+]

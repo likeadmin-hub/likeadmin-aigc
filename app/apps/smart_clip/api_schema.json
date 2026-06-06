@@ -1,0 +1,293 @@
+{
+  "app_code": "smart_clip",
+  "apis": [
+    {
+      "api_path": "app.smart_clip.config/detail",
+      "api_method": "GET",
+      "permission_key": "smart_clip:config:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.config/setup",
+      "api_method": "POST",
+      "permission_key": "smart_clip:config:setup",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.admin_task/lists",
+      "api_method": "GET",
+      "permission_key": "smart_clip:task:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.admin_task/detail",
+      "api_method": "GET",
+      "permission_key": "smart_clip:task:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.admin_task/retry",
+      "api_method": "POST",
+      "permission_key": "smart_clip:task:retry",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.admin_task/delete",
+      "api_method": "POST",
+      "permission_key": "smart_clip:task:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.admin/sensitiveWord",
+      "api_method": "GET",
+      "permission_key": "smart_clip:sensitive_word:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.admin/sensitiveWord",
+      "api_method": "POST",
+      "permission_key": "smart_clip:sensitive_word:save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.admin/stat",
+      "api_method": "GET",
+      "permission_key": "smart_clip:stat",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.channel/lists",
+      "api_method": "GET",
+      "permission_key": "smart_clip:channel_price:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.channel/save",
+      "api_method": "POST",
+      "permission_key": "smart_clip:channel_price:save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.channel/batchSave",
+      "api_method": "POST",
+      "permission_key": "smart_clip:channel_price:batch_save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.channel/status",
+      "api_method": "POST",
+      "permission_key": "smart_clip:channel_price:status",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.config/detail",
+      "api_method": "GET",
+      "permission_key": "smart_clip:config:detail:platform",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.config/setup",
+      "api_method": "POST",
+      "permission_key": "smart_clip:config:setup:platform",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.tenant/stat",
+      "api_method": "GET",
+      "permission_key": "smart_clip:tenant_usage",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.channel/lists",
+      "api_method": "GET",
+      "permission_key": "smart_clip:channel:lists",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.channel/save",
+      "api_method": "POST",
+      "permission_key": "smart_clip:channel:save",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.channel/delete",
+      "api_method": "POST",
+      "permission_key": "smart_clip:channel:delete",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.channel/status",
+      "api_method": "POST",
+      "permission_key": "smart_clip:channel:status",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.spec/lists",
+      "api_method": "GET",
+      "permission_key": "smart_clip:spec:lists",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.spec/save",
+      "api_method": "POST",
+      "permission_key": "smart_clip:spec:save",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.spec/batchSave",
+      "api_method": "POST",
+      "permission_key": "smart_clip:spec:batch_save",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.spec/delete",
+      "api_method": "POST",
+      "permission_key": "smart_clip:spec:delete",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.spec/status",
+      "api_method": "POST",
+      "permission_key": "smart_clip:spec:status",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.task/lists",
+      "api_method": "GET",
+      "permission_key": "smart_clip:task:lists:platform",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.task/detail",
+      "api_method": "GET",
+      "permission_key": "smart_clip:task:detail:platform",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.smart_clip.config/detail",
+      "api_method": "GET",
+      "permission_key": "smart_clip:config:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.smart_clip.template/lists",
+      "api_method": "GET",
+      "permission_key": "smart_clip:template:lists",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.smart_clip.template/detail",
+      "api_method": "GET",
+      "permission_key": "smart_clip:template:detail",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.smart_clip.generate/index",
+      "api_method": "POST",
+      "permission_key": "smart_clip:generate",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.smart_clip.generate/estimate",
+      "api_method": "POST",
+      "permission_key": "smart_clip:generate:estimate",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.smart_clip.task/detail",
+      "api_method": "GET",
+      "permission_key": "smart_clip:task:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.smart_clip.task/lists",
+      "api_method": "GET",
+      "permission_key": "smart_clip:task:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.smart_clip.result/lists",
+      "api_method": "GET",
+      "permission_key": "smart_clip:result:lists",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.smart_clip.result/delete",
+      "api_method": "POST",
+      "permission_key": "smart_clip:result:delete",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    }
+  ]
+}

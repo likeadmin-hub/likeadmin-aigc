@@ -21,6 +21,7 @@ use app\common\service\point\PointService;
 use app\common\service\storage\StorageConfigService;
 use Exception;
 use think\facade\Db;
+use Throwable;
 
 class AigcDigitalHumanService
 {
@@ -36,17 +37,73 @@ class AigcDigitalHumanService
 
     public static function config(int $tenantId): array
     {
-        $config = AigcDigitalHumanConfig::where('tenant_id', $tenantId)->findOrEmpty();
-        $data = $config->isEmpty() ? [
+        try {
+            $config = AigcDigitalHumanConfig::where('tenant_id', $tenantId)->findOrEmpty();
+            $data = $config->isEmpty() ? self::defaultConfigData() : $config->toArray();
+        } catch (Throwable $e) {
+            $data = self::defaultConfigData();
+        }
+
+        try {
+            $data['option_config'] = AigcDigitalHumanChannelService::userConfig($tenantId);
+        } catch (Throwable $e) {
+            $data['option_config'] = self::defaultOptionConfig();
+        }
+
+        try {
+            $data['base_config'] = self::baseConfig($tenantId);
+        } catch (Throwable $e) {
+            $data['base_config'] = self::defaultBaseConfig();
+        }
+
+        try {
+            return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
+        } catch (Throwable $e) {
+            $data['display_config'] = [
+                'id' => 0,
+                'tenant_id' => $tenantId,
+                'app_code' => self::APP_CODE,
+                'title' => '数字人视频',
+                'description' => '形象、音色与文案组合生成数字人视频。',
+                'cover_uri' => '',
+                'icon_uri' => '',
+                'cover_url' => '',
+                'icon_url' => '',
+                'virtual_use_count' => '',
+                'sort' => 90,
+                'status' => 1,
+                'extra' => [],
+                'create_time' => 0,
+                'update_time' => 0,
+            ];
+            return $data;
+        }
+    }
+
+    private static function defaultConfigData(): array
+    {
+        return [
             'provider_mode' => 'platform',
             'provider' => 'mock',
             'model' => 'mock-digital-human',
             'status' => 1,
             'config_json' => [],
-        ] : $config->toArray();
-        $data['option_config'] = AigcDigitalHumanChannelService::userConfig($tenantId);
-        $data['base_config'] = self::baseConfig($tenantId);
-        return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
+        ];
+    }
+
+    private static function defaultOptionConfig(): array
+    {
+        return [
+            'channels' => [],
+            'defaults' => [
+                'channel' => '',
+                'quality' => '',
+                'ratio' => '',
+                'quantity' => 1,
+            ],
+            'quantity_options' => AigcDigitalHumanChannelService::QUANTITY_OPTIONS,
+            'max_reference_images' => AigcDigitalHumanChannelService::DEFAULT_REFERENCE_LIMIT,
+        ];
     }
 
     private static function baseConfig(int $tenantId): array
@@ -69,7 +126,11 @@ class AigcDigitalHumanService
 
     private static function baseConfigFromTenant(int $tenantId): array
     {
-        $row = AigcDigitalHumanConfig::where('tenant_id', $tenantId)->findOrEmpty();
+        try {
+            $row = AigcDigitalHumanConfig::where('tenant_id', $tenantId)->findOrEmpty();
+        } catch (Throwable $e) {
+            return [];
+        }
         if ($row->isEmpty()) {
             return [];
         }
