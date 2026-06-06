@@ -181,7 +181,7 @@ class AigcVideoService
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
-        self::refreshRunningTasks($tenantId, $userId, 0, true);
+        self::safeRefreshRunningTasks($tenantId, $userId);
         $query = AigcVideoTask::alias('t')
             ->leftJoin('user u', 'u.id = t.user_id AND u.tenant_id = t.tenant_id')
             ->field('t.*,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
@@ -264,7 +264,7 @@ class AigcVideoService
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
     {
-        self::refreshRunningTasks($tenantId, $userId, $taskId, true);
+        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcVideoTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -318,7 +318,7 @@ class AigcVideoService
 
     public static function resultLists(int $tenantId, int $userId = 0, int $taskId = 0, string $status = ''): array
     {
-        self::refreshRunningTasks($tenantId, $userId, $taskId, true);
+        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcVideoTask::where('tenant_id', $tenantId)->where('delete_time', 0)->order('id', 'desc');
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -596,13 +596,31 @@ class AigcVideoService
                     throw $e;
                 }
                 if (self::isPermanentRefreshError($e->getMessage())) {
-                    $task->status = 'failed';
-                    $task->error = $e->getMessage() ?: '任务刷新失败';
-                    $task->finish_time = time();
-                    $task->update_time = time();
-                    $task->save();
+                    self::markRefreshFailed($task, $e->getMessage() ?: '任务刷新失败');
                 }
             }
+        }
+    }
+
+    private static function safeRefreshRunningTasks(int $tenantId, int $userId = 0, int $taskId = 0): void
+    {
+        try {
+            self::refreshRunningTasks($tenantId, $userId, $taskId, true);
+        } catch (\Throwable) {
+            // Listing/detail pages must remain readable even if async task polling fails.
+        }
+    }
+
+    private static function markRefreshFailed(AigcVideoTask $task, string $message): void
+    {
+        try {
+            $task->status = 'failed';
+            $task->error = $message;
+            $task->finish_time = time();
+            $task->update_time = time();
+            $task->save();
+        } catch (\Throwable) {
+            // Never let failure-state persistence break read-only task list APIs.
         }
     }
 

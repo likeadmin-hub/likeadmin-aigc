@@ -9,7 +9,11 @@ class AdminTaskController extends BaseAdminController
 {
     public function lists()
     {
-        return $this->success('获取成功', AigcVideoService::taskLists($this->tenantId, 0, $this->request->get()));
+        try {
+            return $this->success('获取成功', AigcVideoService::taskLists($this->tenantId, 0, $this->request->get()));
+        } catch (\Exception $e) {
+            return $this->fail($e->getMessage());
+        }
     }
 
     public function detail()

@@ -1,1 +1,0 @@
-import{dw as e}from"./entry.ab093285.js";function o(t){return $request.post({url:"/login/account",body:{...t,terminal:e()}},{withToken:!1})}function n(){return $request.post({url:"/login/logout"})}function l(t){return $request.post({url:"/login/register",params:{...t,channel:e()}},{withToken:!1})}export{o as a,n as l,l as r};
