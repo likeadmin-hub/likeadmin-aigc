@@ -341,9 +341,9 @@
                                             </tr>
                                             <tr>
                                                 <td>../.env</td>
-                                                <td>.env文件可写</td>
+                                                <td>.env文件可写或可创建</td>
                                                 <?php echo $modelInstall->correctOrFail($modelInstall->checkDirWrite('.env')) ?>
-                                                <td><?php if ($modelInstall->checkDirWrite('.env') == 'fail') echo '请给.env文件权限，若文件不存在，注意文件名第1字符是" . "'; ?></td>
+                                                <td><?php if ($modelInstall->checkDirWrite('.env') == 'fail') echo '请给.env文件权限；若文件不存在，请确保网站根目录可写，或手动创建.env后授权'; ?></td>
                                             </tr>
                                             </tbody>
                                         </table>

@@ -25,6 +25,7 @@ class ImageHumanService
 {
     public const APP_CODE = 'image_human';
     private const PROMPT_MAX_LENGTH = 200;
+    private const PROVIDER_MIN_DURATION_SECONDS = 2.0;
     private const DUPLICATE_WINDOW_SECONDS = 600;
     private const PROVIDER_SUBMIT_STALE_SECONDS = 300;
 
@@ -62,8 +63,9 @@ class ImageHumanService
             $scriptText = trim((string)($params['script_text'] ?? $params['text'] ?? $params['prompt'] ?? ''));
             $duration = self::estimateScriptDuration($scriptText);
         }
+        $config = self::effectiveConfig($tenantId);
         $pricing = self::pricing($tenantId);
-        return self::buildEstimate($duration, $pricing, self::normalizeMode((string)($params['mode'] ?? 'fast')));
+        return self::buildEstimate($duration, $pricing, self::normalizeMode((string)($params['mode'] ?? 'fast')), self::providerMinDuration($config));
     }
 
     public static function saveConfig(int $tenantId, array $params): void
@@ -480,7 +482,8 @@ class ImageHumanService
             throw new Exception('全驱动数字人应用未启用');
         }
 
-        $estimate = self::buildEstimate($duration, self::pricing($tenantId), $mode);
+        $duration = self::billableDuration($duration, self::providerMinDuration($config));
+        $estimate = self::buildEstimate($duration, self::pricing($tenantId), $mode, self::providerMinDuration($config));
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
         $submitLock = SubmitLockService::acquire('image_human_submit', $tenantId, $userId, true);
@@ -998,13 +1001,14 @@ class ImageHumanService
             'submit_path' => $submitPath !== '' ? $submitPath : '/api/v1/apps/image_human/submit',
             'query_path' => $queryPath !== '' ? $queryPath : '/api/v1/apps/image_human/query',
             'timeout' => max(5, (int)($provider['timeout'] ?? 60)),
+            'min_duration' => self::normalizeProviderMinDuration($provider['min_duration'] ?? self::PROVIDER_MIN_DURATION_SECONDS),
             'extra_payload' => is_array($provider['extra_payload'] ?? null) ? $provider['extra_payload'] : [],
         ];
     }
 
-    private static function buildEstimate(float $duration, array $pricing, string $mode): array
+    private static function buildEstimate(float $duration, array $pricing, string $mode, float $minDuration = self::PROVIDER_MIN_DURATION_SECONDS): array
     {
-        $duration = max(1, $duration);
+        $duration = self::billableDuration($duration, $minDuration);
         $modePricing = self::modePricing($pricing, $mode);
         return [
             'mode' => $mode,
@@ -1038,6 +1042,7 @@ class ImageHumanService
                 'model' => $config['model'] ?? 'image_human',
                 'tenant_id' => (int)$task['tenant_id'],
                 'user_id' => (int)$task['user_id'],
+                'duration' => (float)$task['duration'],
             ])
         );
     }
@@ -1231,6 +1236,23 @@ class ImageHumanService
         return round(max(0, (float)$duration), 2);
     }
 
+    private static function normalizeProviderMinDuration(mixed $duration): float
+    {
+        return max(1.0, self::normalizeDuration($duration));
+    }
+
+    private static function providerMinDuration(array $config): float
+    {
+        $configJson = is_array($config['config_json'] ?? null) ? $config['config_json'] : [];
+        $provider = is_array($configJson['provider'] ?? null) ? $configJson['provider'] : [];
+        return self::normalizeProviderMinDuration($provider['min_duration'] ?? $configJson['min_duration'] ?? self::PROVIDER_MIN_DURATION_SECONDS);
+    }
+
+    private static function billableDuration(float $duration, float $minDuration = self::PROVIDER_MIN_DURATION_SECONDS): float
+    {
+        return self::normalizeDuration(max($minDuration, $duration));
+    }
+
     private static function estimateScriptDuration(string $text): float
     {
         return max(1, (float)ceil(mb_strlen($text) / 4));
@@ -1358,7 +1380,8 @@ class ImageHumanService
                     $detectedDuration = self::detectAudioDurationFromUri((string)($audio['uri'] ?? $audioUrl), (int)$task['tenant_id']);
                 }
                 $duration = $detectedDuration > 0 ? $detectedDuration : max((float)$task['duration'], self::estimateScriptDuration((string)($task['script_text'] ?? '')));
-                $estimate = self::buildEstimate($duration, self::pricing((int)$task['tenant_id']), (string)$task['mode']);
+                $duration = self::billableDuration($duration, self::providerMinDuration($config));
+                $estimate = self::buildEstimate($duration, self::pricing((int)$task['tenant_id']), (string)$task['mode'], self::providerMinDuration($config));
                 PointService::assertCanConsumeAmounts((int)$task['tenant_id'], (int)$task['user_id'], (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
                 $audioUri = (string)($audio['url'] ?? $audio['uri'] ?? $audioUrl);
                 $task->save([
@@ -1429,6 +1452,12 @@ class ImageHumanService
                 $request = self::buildRequestFromTask($task, $config);
                 $result = self::providerFor((string)$config['provider'])->submit($request);
                 if (!$result->success) {
+                    if (!empty($result->payload)) {
+                        $task->save([
+                            'provider_payload_json' => self::mergePayload($task, $result->payload),
+                            'update_time' => time(),
+                        ]);
+                    }
                     if (self::keepRunningAfterSubmitError($task, 'video_submitted', $result->error ?: '提交失败', 'video')) {
                         return;
                     }

@@ -796,6 +796,9 @@ class installModel
     public function checkDirWrite($dir='')
     {
         $route = $this->getAppRoot().'/'.$dir;
+        if ($dir === '.env' && !file_exists($route)) {
+            return is_writable(dirname($route)) ? 'ok' : 'fail';
+        }
         return $result = is_writable($route) ? 'ok' : 'fail';
     }
 
