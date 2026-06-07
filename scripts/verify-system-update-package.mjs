@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 
 const target = process.argv[2]
@@ -102,6 +102,7 @@ for (const entry of normalized) {
 const signature = readSignature(absoluteTarget, stat.isDirectory())
 const updateManifest = readPackageJson(absoluteTarget, stat.isDirectory(), 'update.json')
 verifyIncrementalManifest(updateManifest, normalized)
+verifyCumulativeUpgradeSql(updateManifest, normalized)
 const signatureFiles = normalizeSignature(signature)
 verifySubmitLockDependency(absoluteTarget, stat.isDirectory(), normalized)
 if (!signatureFiles.length) {
@@ -240,6 +241,14 @@ function verifyIncrementalManifest(manifest, entries) {
             fail(`sql_order references missing file: ${sql}`)
         }
     }
+    const declaredSql = new Set(manifest.sql_order.map((item) => normalizeEntry(item)))
+    for (const entry of entries) {
+        if ((entry.startsWith('sql/data/') || entry.startsWith('sql/structure/')) && entry.endsWith('.sql')) {
+            if (!declaredSql.has(entry)) {
+                fail(`SQL file is packaged but missing from sql_order: ${entry}`)
+            }
+        }
+    }
     for (const appCode of bridgeAppCodes) {
         for (const rel of bridgeAppRequiredPaths) {
             const required = `files/app/apps/${appCode}/${rel}`
@@ -247,6 +256,25 @@ function verifyIncrementalManifest(manifest, entries) {
                 fail(`incremental bridge package missing built-in app path: ${required}`)
             }
         }
+    }
+}
+
+function verifyCumulativeUpgradeSql(manifest, entries) {
+    if ((manifest.package_mode || '') !== 'incremental') return
+    const upgradeDir = path.resolve('server/upgrade')
+    if (!existsSync(upgradeDir)) return
+
+    const missing = []
+    for (const name of readdirSync(upgradeDir).sort()) {
+        if (!name.endsWith('.sql') || name.toUpperCase() === 'README.SQL') continue
+        const inData = entries.has(`sql/data/${name}`)
+        const inStructure = entries.has(`sql/structure/${name}`)
+        if (!inData && !inStructure) {
+            missing.push(name)
+        }
+    }
+    if (missing.length) {
+        fail(`incremental package is missing cumulative upgrade SQL from server/upgrade: ${missing.join(', ')}`)
     }
 }
 
