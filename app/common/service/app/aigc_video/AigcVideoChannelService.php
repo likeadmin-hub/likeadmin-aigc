@@ -65,7 +65,7 @@ class AigcVideoChannelService
                 continue;
             }
             foreach ($channel['qualities'] as $qualityItem) {
-                if ($qualityItem['value'] !== $quality) {
+                if (!self::qualityMatches($qualityItem, $quality)) {
                     continue;
                 }
                 foreach ($qualityItem['ratios'] as $ratioItem) {
@@ -388,8 +388,9 @@ class AigcVideoChannelService
                     ? strtolower($spec['resolution'] ?: $spec['quality'])
                     : $spec['quality'];
                 if (!isset($channel['qualities'][$qualityKey])) {
+                    $qualityValue = $dynamicDuration ? ($spec['resolution'] ?: $spec['quality']) : $spec['quality'];
                     $channel['qualities'][$qualityKey] = [
-                        'value' => $spec['quality'],
+                        'value' => $qualityValue,
                         'label' => $dynamicDuration ? ($spec['resolution'] ?: $spec['quality_label']) : $spec['quality_label'],
                         'resolution' => $spec['resolution'],
                         'duration' => $dynamicDuration ? '' : $spec['duration'],
@@ -574,11 +575,12 @@ class AigcVideoChannelService
         if (empty($channel['duration_options']) || $duration <= 0) {
             return [];
         }
+        $resolution = self::normalizeResolution($qualityItem['resolution'] ?? $qualityItem['value'] ?? '');
         foreach ($channel['specs'] as $spec) {
             if (($spec['ratio'] ?? '') !== $ratio) {
                 continue;
             }
-            if ((string)($spec['resolution'] ?? '') !== (string)($qualityItem['resolution'] ?? '')) {
+            if (self::normalizeResolution($spec['resolution'] ?? '') !== $resolution) {
                 continue;
             }
             if (self::normalizeDurationValue($spec['duration'] ?? '') === $duration) {
@@ -586,6 +588,22 @@ class AigcVideoChannelService
             }
         }
         throw new Exception('当前通道不支持所选时长');
+    }
+
+    private static function qualityMatches(array $qualityItem, string $quality): bool
+    {
+        if ((string)($qualityItem['value'] ?? '') === $quality) {
+            return true;
+        }
+        $selectedResolution = self::normalizeResolution($quality);
+        if ($selectedResolution !== '' && $selectedResolution === self::normalizeResolution($qualityItem['resolution'] ?? '')) {
+            return true;
+        }
+        $selectedDuration = self::normalizeDurationValue($quality);
+        if ($selectedDuration > 0 && $selectedDuration === self::normalizeDurationValue($qualityItem['duration'] ?? '')) {
+            return true;
+        }
+        return false;
     }
 
     private static function normalizeDurationValue($value): int
@@ -743,7 +761,7 @@ class AigcVideoChannelService
     private static function normalizeResolution($value): string
     {
         $raw = strtoupper(trim((string)$value));
-        if (preg_match('/(1080P|720P|4K|2K|1K|\d+K)/', $raw, $matches)) {
+        if (preg_match('/(1080P|720P|480P|4K|2K|1K|\d+K)/', $raw, $matches)) {
             return $matches[1];
         }
         return '';
