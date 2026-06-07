@@ -153,11 +153,12 @@ class HappyHorseAigcVideoProvider implements AigcVideoProviderInterface
         if ($value === '') {
             $value = $request->quality;
         }
-        if (preg_match('/(?:^|_)(3|5|10|15)(?:s|秒)?$/i', $value, $matches)) {
-            return (int)$matches[1];
+        if (preg_match('/(?:^|_)(\d+)(?:s|秒)?$/i', $value, $matches)) {
+            $duration = (int)$matches[1];
+            return $duration >= 3 && $duration <= 15 ? $duration : 5;
         }
         $duration = (int)$value;
-        return in_array($duration, [3, 5, 10, 15], true) ? $duration : 5;
+        return $duration >= 3 && $duration <= 15 ? $duration : 5;
     }
 
     private function buildMedia(array $images): array
