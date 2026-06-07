@@ -9,6 +9,7 @@ use app\common\service\app\AppAccessService;
 use app\common\service\app\DefaultAppService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\billing\PackageProvisionService;
+use app\common\service\database\SqlMigrationExecutor;
 use app\platformapi\logic\upgrade\UpgradeLogic;
 use RuntimeException;
 use think\facade\Db;
@@ -295,17 +296,17 @@ class SystemPackageUpdateService
             }
             $extractPath = rtrim((string)$package['extract_path'], '/');
             Db::startTrans();
-            if (!UpgradeLogic::upgradeSql($extractPath . '/sql/data/')) {
+            $manifest = $this->readUpdateManifest($extractPath);
+            if (!$this->applySqlGroup($extractPath, $manifest, 'data')) {
                 throw new RuntimeException('更新数据库数据失败');
             }
-            $manifest = $this->readUpdateManifest($extractPath);
             $this->applyFullReplaceDirs($extractPath, $manifest);
             $this->applyDeleteFiles($manifest);
             if (!UpgradeLogic::upgradeFile($extractPath . '/files/', UpgradeLogic::getProjectPath())) {
                 throw new RuntimeException('更新文件失败');
             }
             Db::commit();
-            if (!UpgradeLogic::upgradeSql($extractPath . '/sql/structure/')) {
+            if (!$this->applySqlGroup($extractPath, $manifest, 'structure')) {
                 throw new RuntimeException('更新数据库结构失败');
             }
             $builtinApps = $this->syncBuiltinApps((string)$package['version']);
@@ -616,6 +617,33 @@ class SystemPackageUpdateService
                 @unlink($target);
             }
         }
+    }
+
+    private function applySqlGroup(string $extractPath, array $manifest, string $group): bool
+    {
+        if (($manifest['package_mode'] ?? '') !== 'incremental' || !is_array($manifest['sql_order'] ?? null)) {
+            return UpgradeLogic::upgradeSql(rtrim($extractPath, '/') . '/sql/' . $group . '/');
+        }
+
+        $prefix = 'sql/' . $group . '/';
+        $sqlPrefix = config('database.connections.mysql.prefix');
+        foreach ($manifest['sql_order'] as $file) {
+            $relative = $this->normalizePackagePath((string)$file);
+            if (!str_starts_with($relative, $prefix)) {
+                continue;
+            }
+            $this->assertSafeUpdatePath($relative, false);
+            $path = rtrim($extractPath, '/') . '/' . $relative;
+            if (!is_file($path)) {
+                throw new RuntimeException('增量系统包 SQL 文件不存在: ' . $relative);
+            }
+            $content = (string)file_get_contents($path);
+            if (trim($content) === '') {
+                continue;
+            }
+            SqlMigrationExecutor::execute($content, $sqlPrefix);
+        }
+        return true;
     }
 
     private function clearDirectory(string $dir): void
