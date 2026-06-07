@@ -125,6 +125,7 @@ CROSS JOIN (
     SELECT '2:3', 720, 1080, 30 UNION ALL
     SELECT '3:2', 1080, 720, 40
 ) AS ratio
+WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
     `quality_label`=VALUES(`quality_label`),
     `width`=VALUES(`width`),
@@ -174,6 +175,7 @@ CROSS JOIN (
     SELECT 10, 0.28, 0.56 UNION ALL
     SELECT 15, 0.42, 0.84
 ) AS duration
+WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
     `quality_label`=VALUES(`quality_label`),
     `width`=VALUES(`width`),
@@ -212,6 +214,7 @@ CROSS JOIN (
     UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13
     UNION ALL SELECT 14 UNION ALL SELECT 15
 ) AS duration
+WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
     `quality_label`=VALUES(`quality_label`),
     `width`=VALUES(`width`),
@@ -251,6 +254,7 @@ CROSS JOIN (
     UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13 UNION ALL SELECT 14
     UNION ALL SELECT 15
 ) AS duration
+WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
     `quality_label`=VALUES(`quality_label`),
     `width`=VALUES(`width`),
@@ -286,6 +290,7 @@ FROM (
 CROSS JOIN (
     SELECT 4 AS `duration` UNION ALL SELECT 6 UNION ALL SELECT 8 UNION ALL SELECT 10
 ) AS duration
+WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
     `quality_label`=VALUES(`quality_label`),
     `width`=VALUES(`width`),
