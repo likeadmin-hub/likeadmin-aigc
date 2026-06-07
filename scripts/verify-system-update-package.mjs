@@ -103,6 +103,7 @@ const signature = readSignature(absoluteTarget, stat.isDirectory())
 const updateManifest = readPackageJson(absoluteTarget, stat.isDirectory(), 'update.json')
 verifyIncrementalManifest(updateManifest, normalized)
 const signatureFiles = normalizeSignature(signature)
+verifySubmitLockDependency(absoluteTarget, stat.isDirectory(), normalized)
 if (!signatureFiles.length) {
     fail('signature.json has no file checksum entries')
 }
@@ -278,6 +279,30 @@ function hasEntry(entries, required) {
         return [...entries].some((entry) => entry.startsWith(required))
     }
     return false
+}
+
+function verifySubmitLockDependency(targetPath, isDirectory, entries) {
+    const callers = [...entries].filter((entry) => (
+        entry.startsWith('files/app/common/service/app/')
+        && entry.endsWith('.php')
+    ))
+    let needsTryAcquire = false
+    for (const entry of callers) {
+        const content = readPackageText(targetPath, isDirectory, entry)
+        if (content.includes('SubmitLockService::tryAcquire(')) {
+            needsTryAcquire = true
+            break
+        }
+    }
+    if (needsTryAcquire && !entries.has('files/app/common/service/SubmitLockService.php')) {
+        fail('Package contains app services that call SubmitLockService::tryAcquire() but is missing files/app/common/service/SubmitLockService.php')
+    }
+}
+
+function readPackageText(targetPath, isDirectory, file) {
+    return isDirectory
+        ? readFileSync(path.join(targetPath, file), 'utf8')
+        : execFileSync('unzip', ['-p', targetPath, file], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 })
 }
 
 function normalizeEntry(entry) {
