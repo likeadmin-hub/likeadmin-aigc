@@ -573,6 +573,9 @@ class SystemPackageUpdateService
             if (!str_starts_with($relative, 'sql/data/') && !str_starts_with($relative, 'sql/structure/')) {
                 throw new RuntimeException('增量系统包 sql_order 只能声明 SQL 文件: ' . $relative);
             }
+            if ($this->isReadmeSql($relative)) {
+                throw new RuntimeException('增量系统包 sql_order 不允许声明说明文件: ' . $relative);
+            }
             if (!is_file(rtrim($extractPath, '/') . '/' . $relative)) {
                 throw new RuntimeException('增量系统包 sql_order 声明的文件不存在: ' . $relative);
             }
@@ -633,17 +636,26 @@ class SystemPackageUpdateService
                 continue;
             }
             $this->assertSafeUpdatePath($relative, false);
+            if ($this->isReadmeSql($relative)) {
+                continue;
+            }
             $path = rtrim($extractPath, '/') . '/' . $relative;
             if (!is_file($path)) {
                 throw new RuntimeException('增量系统包 SQL 文件不存在: ' . $relative);
             }
             $content = (string)file_get_contents($path);
-            if (trim($content) === '') {
+            if (trim($content) === '' || SqlMigrationExecutor::split($content) === []) {
                 continue;
             }
             SqlMigrationExecutor::execute($content, $sqlPrefix);
         }
         return true;
+    }
+
+    private function isReadmeSql(string $path): bool
+    {
+        $filename = strtolower(basename($path));
+        return $filename === 'readme.sql' || str_starts_with($filename, 'readme.');
     }
 
     private function clearDirectory(string $dir): void

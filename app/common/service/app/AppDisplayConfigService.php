@@ -191,10 +191,19 @@ class AppDisplayConfigService
         ];
         if ($app !== null && !$app->isEmpty()) {
             $appData = $app->toArray();
-            $data['title'] = $data['title'] ?: trim((string)($appData['name'] ?? ''));
-            $data['description'] = $data['description'] ?: trim((string)($appData['description'] ?? ''));
-            $data['cover_uri'] = (string)($appData['cover'] ?? '');
-            $data['icon_uri'] = (string)($appData['icon'] ?? '');
+            $manifest = is_array($appData['manifest_json'] ?? null) ? $appData['manifest_json'] : [];
+            $manifestMeta = is_array($manifest['meta'] ?? null) ? $manifest['meta'] : [];
+            if (!isset(self::DEFAULTS[$appCode])) {
+                $data['title'] = trim((string)($appData['name'] ?? $manifest['name'] ?? $data['title'])) ?: $data['title'];
+                $data['description'] = trim((string)($appData['description'] ?? $manifest['description'] ?? $data['description'])) ?: $data['description'];
+            }
+            $appCover = trim((string)($appData['cover'] ?? ''));
+            $manifestCover = trim((string)($manifestMeta['cover'] ?? $manifest['cover'] ?? ''));
+            $appIcon = trim((string)($appData['icon'] ?? ''));
+            $manifestIcon = trim((string)($manifestMeta['icon'] ?? $manifest['icon'] ?? ''));
+            $data['cover_uri'] = $appCover !== '' ? $appCover : $manifestCover;
+            $data['icon_uri'] = $appIcon !== '' ? $appIcon : $manifestIcon;
+            $data['sort'] = (int)($appData['sort'] ?? $manifestMeta['sort'] ?? $manifest['sort'] ?? $data['sort']);
         }
         return $data;
     }

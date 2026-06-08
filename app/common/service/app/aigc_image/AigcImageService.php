@@ -47,16 +47,17 @@ class AigcImageService
     public static function saveConfig(int $tenantId, array $params): void
     {
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
+        $row = AigcImageConfig::where('tenant_id', $tenantId)->findOrEmpty();
+        $current = $row->isEmpty() ? [] : $row->toArray();
         $data = [
             'tenant_id' => $tenantId,
-            'provider_mode' => $params['provider_mode'] ?? 'platform',
-            'provider' => $params['provider'] ?? 'mock',
-            'model' => $params['model'] ?? 'mock-image',
-            'config_json' => $params['config_json'] ?? [],
-            'status' => $params['status'] ?? 1,
+            'provider_mode' => array_key_exists('provider_mode', $params) ? $params['provider_mode'] : ($current['provider_mode'] ?? 'platform'),
+            'provider' => array_key_exists('provider', $params) ? $params['provider'] : ($current['provider'] ?? 'mock'),
+            'model' => array_key_exists('model', $params) ? $params['model'] : ($current['model'] ?? 'mock-image'),
+            'config_json' => array_key_exists('config_json', $params) && is_array($params['config_json']) ? $params['config_json'] : ($current['config_json'] ?? []),
+            'status' => array_key_exists('status', $params) ? $params['status'] : ($current['status'] ?? 1),
             'update_time' => time(),
         ];
-        $row = AigcImageConfig::where('tenant_id', $tenantId)->findOrEmpty();
         if ($row->isEmpty()) {
             $data['create_time'] = time();
             AigcImageConfig::create($data);
