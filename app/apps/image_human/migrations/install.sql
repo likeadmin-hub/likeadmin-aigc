@@ -150,7 +150,8 @@ VALUES (
     JSON_OBJECT(
       'submit_path', '/api/v1/apps/image_human/submit',
       'query_path', '/api/v1/apps/image_human/query',
-      'timeout', 60
+      'timeout', 60,
+      'min_duration', 2
     )
   ),
   1,
@@ -179,6 +180,8 @@ ON DUPLICATE KEY UPDATE
   '$.base_config',
   COALESCE(JSON_EXTRACT(`config_json`, '$.base_config'), JSON_OBJECT('prompt_max_length', 200)),
   '$.provider',
-  COALESCE(JSON_EXTRACT(`config_json`, '$.provider'), JSON_OBJECT('submit_path', '/api/v1/apps/image_human/submit', 'query_path', '/api/v1/apps/image_human/query', 'timeout', 60))
+  COALESCE(JSON_EXTRACT(`config_json`, '$.provider'), JSON_OBJECT('submit_path', '/api/v1/apps/image_human/submit', 'query_path', '/api/v1/apps/image_human/query', 'timeout', 60, 'min_duration', 2)),
+  '$.provider.min_duration',
+  COALESCE(JSON_EXTRACT(`config_json`, '$.provider.min_duration'), 2)
 ),
 `update_time` = UNIX_TIMESTAMP();

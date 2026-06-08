@@ -16,6 +16,7 @@ namespace app\tenantapi\logic\setting\web;
 
 
 use app\common\logic\BaseLogic;
+use app\common\service\AgreementService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
 
@@ -199,12 +200,7 @@ class WebSettingLogic extends BaseLogic
      */
     public static function setAgreement(array $params)
     {
-        $serviceContent = clear_file_domain($params['service_content'] ?? '');
-        $privacyContent = clear_file_domain($params['privacy_content'] ?? '');
-        ConfigService::set('agreement', 'service_title', $params['service_title'] ?? '');
-        ConfigService::set('agreement', 'service_content', $serviceContent);
-        ConfigService::set('agreement', 'privacy_title', $params['privacy_title'] ?? '');
-        ConfigService::set('agreement', 'privacy_content', $privacyContent);
+        AgreementService::saveAgreementConfig($params);
     }
 
 
@@ -216,17 +212,7 @@ class WebSettingLogic extends BaseLogic
      */
     public static function getAgreement() : array
     {
-        $config = [
-            'service_title' => ConfigService::get('agreement', 'service_title'),
-            'service_content' => ConfigService::get('agreement', 'service_content'),
-            'privacy_title' => ConfigService::get('agreement', 'privacy_title'),
-            'privacy_content' => ConfigService::get('agreement', 'privacy_content'),
-        ];
-
-        $config['service_content'] = get_file_domain($config['service_content']);
-        $config['privacy_content'] = get_file_domain($config['privacy_content']);
-
-        return $config;
+        return AgreementService::getAgreementConfig();
     }
 
     /**

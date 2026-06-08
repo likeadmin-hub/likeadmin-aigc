@@ -438,13 +438,22 @@ class UpgradeLogic extends BaseLogic
             if (get_extension($item) != 'sql') {
                 continue;
             }
+            if (self::isReadmeSql($item)) {
+                continue;
+            }
             $sqlContent = file_get_contents($dir . $item);
-            if (empty($sqlContent)) {
+            if (empty($sqlContent) || SqlMigrationExecutor::split($sqlContent) === []) {
                 continue;
             }
             SqlMigrationExecutor::execute($sqlContent, $sqlPrefix);
         }
         return true;
+    }
+
+    private static function isReadmeSql(string $path): bool
+    {
+        $filename = strtolower(basename($path));
+        return $filename === 'readme.sql' || str_starts_with($filename, 'readme.');
     }
 
     /**
