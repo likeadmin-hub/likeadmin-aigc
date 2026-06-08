@@ -28,7 +28,8 @@
                         <el-button @click="fillByAdd">固定加价</el-button>
                         <el-button @click="setGroupStatus(1)">启用分组</el-button>
                         <el-button @click="setGroupStatus(0)">停用分组</el-button>
-                        <el-button :loading="pricingLoading" @click="queryUpstreamPricing">查询上游价格</el-button>
+                        <el-button :loading="pricingLoading" @click="queryUpstreamPricing">查询当前模型上游价格</el-button>
+                        <el-button :loading="pricingLoading" @click="queryAllUpstreamPricing">查询全部模型上游价格</el-button>
                         <el-button type="primary" :loading="saving" @click="saveCurrentGroup">保存当前分组</el-button>
                     </div>
                 </div>
@@ -53,15 +54,7 @@
                         </el-table-column>
                         <el-table-column label="上游成本" width="190">
                             <template #default="{ row }">
-                                <el-input-number
-                                    :model-value="row.upstream_unit_cost"
-                                    :min="0"
-                                    :precision="2"
-                                    :step="0.01"
-                                    controls-position="right"
-                                    class="!w-full"
-                                    @change="(value) => setClearRowField(row, 'upstream_unit_cost', value)"
-                                />
+                                <span class="readonly-price">{{ formatPoint(row.upstream_unit_cost, 2) }} 点</span>
                             </template>
                         </el-table-column>
                         <el-table-column label="平台供给价" width="190">
@@ -112,14 +105,7 @@
                                     <div v-if="matrixMap[`${quality}|${ratio}`]" class="price-cell">
                                         <div class="price-line">
                                             <span>上游</span>
-                                            <el-input-number
-                                                v-model="matrixMap[`${quality}|${ratio}`].upstream_unit_cost"
-                                                :min="0"
-                                                :precision="2"
-                                                :step="0.01"
-                                                controls-position="right"
-                                                @change="markDirty(matrixMap[`${quality}|${ratio}`])"
-                                            />
+                                            <strong class="readonly-price">{{ formatPoint(matrixMap[`${quality}|${ratio}`].upstream_unit_cost, 2) }} 点</strong>
                                         </div>
                                         <div class="price-line">
                                             <span>供给</span>
@@ -185,7 +171,7 @@
                     </div>
                 </el-form-item>
                 <el-form-item label="上游成本">
-                    <el-input-number v-model="formData.upstream_unit_cost" :min="0" :precision="2" class="w-full" />
+                    <el-input :model-value="`${formatPoint(formData.upstream_unit_cost, 2)} 点`" disabled />
                 </el-form-item>
                 <el-form-item label="平台供给价">
                     <el-input-number v-model="formData.platform_unit_cost" :min="0" :precision="2" class="w-full" />
@@ -214,12 +200,15 @@
             </template>
         </el-dialog>
 
-        <el-dialog v-model="pricingVisible" title="上游价格" width="1160px" destroy-on-close class="upstream-pricing-dialog">
-            <el-table :data="pricingRows" size="large" max-height="560" row-key="local_key" class="upstream-pricing-table">
-                <el-table-column label="规格" min-width="210" fixed>
+        <el-dialog v-model="pricingVisible" title="上游价格" width="1120px" destroy-on-close class="upstream-pricing-dialog">
+            <div v-if="pricingDialogTip" class="pricing-dialog-tip">
+                {{ pricingDialogTip }}
+            </div>
+            <el-table :data="pricingDisplayRows" size="large" max-height="560" row-key="key" class="upstream-pricing-table">
+                <el-table-column label="上游规格" min-width="210" fixed>
                     <template #default="{ row }">
-                        <div class="pricing-spec-name">{{ row.local?.quality_label || row.local?.quality }} / {{ row.local?.ratio }}</div>
-                        <div class="pricing-spec-meta">{{ row.local?.width || 0 }}×{{ row.local?.height || 0 }}</div>
+                        <div class="pricing-spec-name">{{ row.title }}</div>
+                        <div class="pricing-spec-meta">{{ row.subtitle }}</div>
                     </template>
                 </el-table-column>
                 <el-table-column label="上游报价" min-width="330">
@@ -228,38 +217,40 @@
                             <el-tag :type="row.available ? 'success' : 'danger'" effect="light" size="small">
                                 {{ row.available ? '可用' : '不可用' }}
                             </el-tag>
-                            <span class="pricing-quote-main">{{ upstreamPriceText(row) }}</span>
+                            <span class="pricing-quote-main">{{ row.quote }}</span>
                         </div>
-                        <div v-if="pricingRulePreview(row)" class="pricing-rule-preview">{{ pricingRulePreview(row) }}</div>
+                        <div v-if="row.rulePreview" class="pricing-rule-preview">{{ row.rulePreview }}</div>
                     </template>
                 </el-table-column>
                 <el-table-column label="计费方式" min-width="180">
                     <template #default="{ row }">
-                        <div>{{ row.price_view?.billing_type_desc || '-' }}</div>
-                        <div class="pricing-spec-meta">{{ row.pricing_source?.name || '-' }}</div>
+                        <div>{{ row.billingType }}</div>
+                        <div class="pricing-spec-meta">{{ row.sourceName }}</div>
                     </template>
                 </el-table-column>
                 <el-table-column label="本地价格对照" min-width="260">
                     <template #default="{ row }">
+                        <div class="pricing-spec-meta">{{ row.localSummary }}</div>
+                        <div v-if="row.localDetail" class="pricing-spec-meta">{{ row.localDetail }}</div>
                         <div class="pricing-compare">
                             <span>已录入上游成本</span>
-                            <strong>{{ formatPoint(row.local?.upstream_unit_cost || 0, 6) }} 点</strong>
+                            <strong>{{ row.upstreamCostRange }}</strong>
                         </div>
                         <div class="pricing-compare">
                             <span>平台供给价</span>
-                            <strong>{{ formatPoint(row.local?.platform_unit_cost || 0, 6) }} 点</strong>
+                            <strong>{{ row.platformCostRange }}</strong>
                         </div>
                         <div class="pricing-compare">
                             <span>平台毛利</span>
-                            <strong :class="marginClass(localMargin(row))">{{ formatPoint(localMargin(row), 6) }} 点</strong>
+                            <strong :class="marginClass(row.marginMin)">{{ row.marginRange }}</strong>
                         </div>
                     </template>
                 </el-table-column>
                 <el-table-column label="成本说明" min-width="220" show-overflow-tooltip>
-                    <template #default="{ row }">{{ row.local?.upstream_cost_text || '-' }}</template>
+                    <template #default="{ row }">{{ row.costText }}</template>
                 </el-table-column>
                 <el-table-column label="来源链接" min-width="180" show-overflow-tooltip>
-                    <template #default="{ row }">{{ row.local?.cost_source_url || row.source_base_url || '-' }}</template>
+                    <template #default="{ row }">{{ row.costSource }}</template>
                 </el-table-column>
             </el-table>
             <template #footer>
@@ -286,6 +277,8 @@ const batchRate = ref(1)
 const batchAdd = ref(0)
 const dirtyKeys = ref<string[]>([])
 const pricingRows = ref<any[]>([])
+const pricingDisplayRows = computed(() => buildPricingDisplayRows(pricingRows.value))
+const pricingDialogTip = computed(() => buildPricingDialogTip(pricingRows.value, pricingDisplayRows.value))
 const providerParamsText = ref('{}')
 const formData = reactive({
     type: 'spec',
@@ -429,17 +422,7 @@ const saveSpecs = async (rows: any[]) => {
     saving.value = true
     try {
         await batchSaveAigcImageSpecs({
-            specs: rows.map((row) => ({
-                channel_code: row.channel_code,
-                quality: row.quality,
-                ratio: row.ratio,
-                upstream_unit_cost: row.upstream_unit_cost,
-                platform_unit_cost: row.platform_unit_cost,
-                upstream_cost_text: row.upstream_cost_text,
-                cost_source_url: row.cost_source_url,
-                status: row.status,
-                sort: row.sort
-            }))
+            specs: rows.map(buildSaveSpecPayload)
         })
         feedback.msgSuccess('保存成功')
         dirtyKeys.value = dirtyKeys.value.filter((key) => !rows.some((row) => specKey(row) === key))
@@ -483,7 +466,9 @@ const handleSubmit = async () => {
     }
     saving.value = true
     try {
-        await saveAigcImageSpec(formData)
+        const payload = { ...formData } as Record<string, any>
+        delete payload.upstream_unit_cost
+        await saveAigcImageSpec(payload)
         feedback.msgSuccess('保存成功')
         editVisible.value = false
         dirtyKeys.value = dirtyKeys.value.filter((key) => key !== `${formData.channel_code}|${formData.quality}|${formData.ratio}`)
@@ -493,10 +478,13 @@ const handleSubmit = async () => {
     }
 }
 
-const queryUpstreamPricing = async () => {
-    const rows = currentGroupSpecs.value
+const queryUpstreamPricing = () => queryUpstreamPricingRows(activeChannel.value?.specs || [], '当前模型暂无规格')
+const queryAllUpstreamPricing = () => queryUpstreamPricingRows(visibleChannels.value.flatMap((channel: any) => channel.specs || []), '暂无可查询规格')
+
+const queryUpstreamPricingRows = async (sourceRows: any[], emptyMessage: string) => {
+    const rows = sourceRows.filter((row: any) => row && Number(row.status) === 1)
     if (!rows.length) {
-        feedback.msgWarning('当前分组暂无规格')
+        feedback.msgWarning(emptyMessage)
         return
     }
     pricingLoading.value = true
@@ -504,31 +492,29 @@ const queryUpstreamPricing = async () => {
         row.upstream_pricing = { loading: true }
     })
     try {
-        const result = await getAigcImageUpstreamPricingBatch({
-            items: rows.map((row: any) => ({
-                channel_code: row.channel_code,
-                quality: row.quality,
-                quality_label: row.quality_label,
-                ratio: row.ratio,
-                width: row.width,
-                height: row.height,
-                resolution: row.provider_params_json?.resolution || row.provider_params_json?.size || resolutionLabel(row),
-                provider_params: row.provider_params_json || {},
-                provider_params_json: row.provider_params_json || {},
-                local_key: specKey(row)
-            }))
-        })
+        const resultItems: any[] = []
+        for (const chunk of chunkArray(rows, 80)) {
+            const result = await getAigcImageUpstreamPricingBatch({
+                items: chunk.map(buildPricingQueryItem)
+            })
+            resultItems.push(...(result.items || []))
+        }
         const localMap = Object.fromEntries(rows.map((row: any) => [specKey(row), row]))
-        pricingRows.value = (result.items || []).map((item: any) => ({
+        pricingRows.value = resultItems.map((item: any) => ({
             ...item,
             local: localMap[item.local_key] || {}
         }))
         pricingRows.value.forEach((item: any) => {
             if (item.local && Object.keys(item.local).length) {
                 item.local.upstream_pricing = item
+                applyUpstreamCostFromPricing(item.local, item)
             }
         })
         pricingVisible.value = true
+        const syncedCount = rows.filter((row: any) => row.upstream_cost_from_pricing).length
+        if (syncedCount > 0) {
+            feedback.msgSuccess(`已同步 ${syncedCount} 项上游成本，请保存改动`)
+        }
     } catch (e: any) {
         rows.forEach((row: any) => {
             row.upstream_pricing = { available: false, message: e?.message || '查询失败' }
@@ -537,6 +523,29 @@ const queryUpstreamPricing = async () => {
     } finally {
         pricingLoading.value = false
     }
+}
+
+function buildPricingQueryItem(row: any) {
+    return {
+        channel_code: row.channel_code,
+        quality: row.quality,
+        quality_label: row.quality_label,
+        ratio: row.ratio,
+        width: row.width,
+        height: row.height,
+        resolution: row.provider_params_json?.resolution || row.provider_params_json?.quality || row.provider_params_json?.size || resolutionLabel(row),
+        provider_params: row.provider_params_json || {},
+        provider_params_json: row.provider_params_json || {},
+        local_key: specKey(row)
+    }
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+    const chunks: T[][] = []
+    for (let index = 0; index < items.length; index += size) {
+        chunks.push(items.slice(index, index + size))
+    }
+    return chunks
 }
 
 function groupSpecs(specs: any[]) {
@@ -624,11 +633,15 @@ function upstreamPriceText(item: any) {
     if (Array.isArray(pricingV2Items) && pricingV2Items.length) {
         return pricingV2Items
             .slice(0, 3)
-            .map((row: any) => `${row.title || row.sku_key || 'SKU'} ${formatPoint(row.price?.points || 0)} 点`)
+            .map((row: any) => {
+                const points = skuPointValue(row)
+                const priceText = points !== null ? `${formatPoint(points)} 点` : '未返回价格'
+                return `${row.title || row.sku_key || 'SKU'} ${priceText}`
+            })
             .join('，') + (pricingV2Items.length > 3 ? ` 等 ${pricingV2Items.length} 个 SKU` : '')
     }
-    const fixed = Number(item.pricing?.fixed_points ?? item.pricing?.unit_points ?? item.pricing?.points ?? 0)
-    if (fixed > 0) {
+    const fixed = upstreamPointValue(item)
+    if (fixed !== null && fixed > 0) {
         return `${formatPoint(fixed)} 点 / 次`
     }
     return item.price_view?.formula || item.message || '-'
@@ -699,12 +712,390 @@ function pricingRulePreview(item: any) {
         .join('；') + (rules.length > 4 ? `；等 ${rules.length} 条` : '')
 }
 
-function localMargin(row: any) {
-    return Number(row.local?.platform_unit_cost || 0) - Number(row.local?.upstream_unit_cost || 0)
-}
-
 function isUpstreamPriceError(item: any) {
     return item && !item.loading && !item.available
+}
+
+function buildPricingDisplayRows(rows: any[]) {
+    if (!rows.length) {
+        return []
+    }
+    const hasPricingV2 = rows.some((row) => {
+        const items = row?.pricing_v2?.items || row?.raw?.pricing_v2?.items || []
+        return Array.isArray(items) && items.length
+    })
+    if (hasPricingV2) {
+        const groups: Record<string, any> = {}
+        rows.forEach((row, rowIndex) => {
+            const items = row?.pricing_v2?.items || row?.raw?.pricing_v2?.items || []
+            if (!Array.isArray(items) || !items.length) {
+                groups[`fallback-${rowIndex}`] = baseDisplayRow(row, [row.local].filter(Boolean), rowIndex)
+                return
+            }
+            items.forEach((sku: any, skuIndex: number) => {
+                const key = [
+                    row.pricing_source?.name || '',
+                    row.source_base_url || '',
+                    sku.sku_key || '',
+                    JSON.stringify(sku.locked_params || sku.locked_params_json || {}),
+                    skuPointValue(sku) ?? '',
+                ].join('|') || `sku-${rowIndex}-${skuIndex}`
+                const matchedLocals = row.local && localMatchesSku(row.local, sku) ? [row.local] : []
+                if (!groups[key]) {
+                    groups[key] = displayRowFromSku(sku, row, matchedLocals, Object.keys(groups).length)
+                } else {
+                    groups[key].locals.push(...matchedLocals)
+                    decorateLocalSummary(groups[key])
+                }
+            })
+        })
+        return Object.values(groups)
+    }
+
+    const groups: Record<string, any> = {}
+    rows.forEach((row, index) => {
+        const key = [
+            row.available ? '1' : '0',
+            row.price_view?.billing_type_desc || '',
+            row.price_view?.formula || row.message || '',
+            row.pricing_source?.name || '',
+        ].join('|')
+        if (!groups[key]) {
+            groups[key] = {
+                ...baseDisplayRow(row, [row.local].filter(Boolean), index),
+                key: `quote-${index}`,
+            }
+        } else if (row.local) {
+            groups[key].locals.push(row.local)
+            decorateLocalSummary(groups[key])
+        }
+    })
+    return Object.values(groups)
+}
+
+function buildPricingDialogTip(rows: any[], displayRows: any[]) {
+    if (!rows.length || !displayRows.length) {
+        return ''
+    }
+    const pricingV2Items = firstPricingV2Items(rows)
+    if (!pricingV2Items.length) {
+        return ''
+    }
+    const quality = firstLockedParam(pricingV2Items, 'quality') || firstLockedParam(pricingV2Items, 'resolution')
+    const qualityText = quality ? `${quality} + 比例/尺寸` : '上游计费 SKU'
+    return `已按 ${qualityText} 合并展示，本地规格只用于价格对照；当前共 ${displayRows.length} 个上游计费 SKU。`
+}
+
+function firstPricingV2Items(rows: any[]) {
+    const matched = rows.find((row) => {
+        const items = row?.pricing_v2?.items || row?.raw?.pricing_v2?.items || []
+        return Array.isArray(items) && items.length
+    })
+    const items = matched?.pricing_v2?.items || matched?.raw?.pricing_v2?.items || []
+    return Array.isArray(items) ? items : []
+}
+
+function firstLockedParam(skus: any[], key: string) {
+    for (const sku of skus) {
+        const params = sku?.locked_params || sku?.locked_params_json || {}
+        const value = params?.[key]
+        if (value !== undefined && value !== null && String(value).trim()) {
+            return String(value)
+        }
+    }
+    return ''
+}
+
+function displayRowFromSku(sku: any, source: any, locals: any[], index: number) {
+    const points = skuPointValue(sku)
+    const title = sku.title || sku.sku_key || `SKU ${index + 1}`
+    const row = {
+        key: `sku-${sku.sku_key || index}`,
+        title,
+        subtitle: skuSubtitle(sku),
+        available: source.available,
+        quote: points !== null ? `${formatPoint(points)} 点 / 次` : '未返回价格',
+        rulePreview: lockedParamsText(sku.locked_params || sku.locked_params_json),
+        billingType: source.price_view?.billing_type_desc || '清晰计费 SKU',
+        sourceName: source.pricing_source?.name || '-',
+        costText: '',
+        costSource: source.source_base_url || '-',
+        marginMin: 0,
+        locals,
+    }
+    decorateLocalSummary(row)
+    return row
+}
+
+function baseDisplayRow(row: any, locals: any[], index: number) {
+    const display = {
+        key: `row-${index}`,
+        title: row.local ? `${row.local?.quality_label || row.local?.quality} / ${row.local?.ratio}` : '上游报价',
+        subtitle: row.local ? `${row.local?.width || 0}×${row.local?.height || 0}` : '-',
+        available: row.available,
+        quote: upstreamPriceText(row),
+        rulePreview: pricingRulePreview(row),
+        billingType: row.price_view?.billing_type_desc || '-',
+        sourceName: row.pricing_source?.name || '-',
+        costText: '',
+        costSource: row.source_base_url || '-',
+        marginMin: 0,
+        locals,
+    }
+    decorateLocalSummary(display)
+    return display
+}
+
+function decorateLocalSummary(row: any) {
+    const locals = row.locals || []
+    const ratios = uniqueRatios(locals.map((local: any) => local.ratio).filter(Boolean))
+    const qualities = uniqueSorted(locals.map((local: any) => resolutionLabel(local)).filter(Boolean))
+    row.localSummary = locals.length ? `匹配本地规格 ${locals.length} 项` : '未匹配本地规格'
+    row.localDetail = [
+        qualities.length ? `规格 ${qualities.join('、')}` : '',
+        ratios.length > 1 ? `比例 ${ratios.length} 个：${ratios.join('、')}` : '',
+        ratios.length === 1 ? `比例 ${ratios[0]}` : '',
+    ].filter(Boolean).join('；')
+    row.upstreamCostRange = pointRange(locals.map((local: any) => Number(local.upstream_unit_cost || 0)))
+    row.platformCostRange = pointRange(locals.map((local: any) => Number(local.platform_unit_cost || 0)))
+    const margins = locals.map((local: any) => Number(local.platform_unit_cost || 0) - Number(local.upstream_unit_cost || 0))
+    row.marginRange = pointRange(margins)
+    row.marginMin = margins.length ? Math.min(...margins) : 0
+    row.costText = firstFilled(locals.map((local: any) => local.upstream_cost_text)) || '-'
+    row.costSource = firstFilled(locals.map((local: any) => local.cost_source_url)) || row.costSource || '-'
+}
+
+function applyUpstreamCostFromPricing(local: any, pricing: any) {
+    if (!local || !pricing?.available) {
+        return
+    }
+    const points = upstreamPointValue(pricing, local)
+    if (points === null || points <= 0) {
+        return
+    }
+    const nextCost = toPrice(points)
+    if (Number(local.upstream_unit_cost || 0) === nextCost) {
+        return
+    }
+    local.upstream_unit_cost = nextCost
+    local.upstream_cost_from_pricing = true
+    local.upstream_cost_text = upstreamPriceText(pricing)
+    local.cost_source_url = pricing.source_base_url || local.cost_source_url || ''
+    if (Number(local.platform_unit_cost || 0) <= 0) {
+        local.platform_unit_cost = nextCost
+    }
+    markDirty(local)
+}
+
+function buildSaveSpecPayload(row: any) {
+    const payload: Record<string, any> = {
+        channel_code: row.channel_code,
+        quality: row.quality,
+        ratio: row.ratio,
+        platform_unit_cost: row.platform_unit_cost,
+        upstream_cost_text: row.upstream_cost_text,
+        cost_source_url: row.cost_source_url,
+        status: row.status,
+        sort: row.sort
+    }
+    if (row.upstream_cost_from_pricing) {
+        payload.upstream_unit_cost = row.upstream_unit_cost
+        payload.upstream_cost_from_pricing = true
+    }
+    return payload
+}
+
+function upstreamPointValue(item: any, local?: any): number | null {
+    const pricingV2Items = item?.pricing_v2?.items || item?.raw?.pricing_v2?.items || []
+    if (Array.isArray(pricingV2Items) && pricingV2Items.length) {
+        const matched = local
+            ? pricingV2Items.find((sku: any) => localMatchesSku(local, sku))
+            : (pricingV2Items.length === 1 ? pricingV2Items[0] : null)
+        return matched ? skuPointValue(matched) : null
+    }
+    return numericPoint([
+        item?.pricing?.fixed_points,
+        item?.pricing?.unit_points,
+        item?.pricing?.points,
+        item?.pricing?.price?.points,
+        item?.raw?.pricing?.fixed_points,
+        item?.raw?.pricing?.unit_points,
+        item?.raw?.pricing?.points,
+        item?.raw?.price?.points,
+    ])
+}
+
+function skuPointValue(sku: any): number | null {
+    return numericPoint([
+        sku?.price?.points,
+        sku?.price?.fixed_points,
+        sku?.price?.unit_points,
+        sku?.points,
+        sku?.fixed_points,
+        sku?.unit_points,
+    ])
+}
+
+function numericPoint(values: any[]) {
+    for (const value of values) {
+        if (value === undefined || value === null || value === '') {
+            continue
+        }
+        const number = Number(value)
+        if (Number.isFinite(number) && number > 0) {
+            return number
+        }
+    }
+    return null
+}
+
+function localMatchesSku(local: any, sku: any) {
+    const params = normalizeSkuParams(sku)
+    const candidates = normalizeLocalSpecParams(local)
+    const keys = Object.keys(params).filter((key) => params[key] !== '')
+    if (!keys.length) {
+        return false
+    }
+    return keys.every((key) => {
+        const skuValue = params[key]
+        if (key === 'width' || key === 'height') {
+            return Number(candidates[key] || 0) === Number(skuValue || 0)
+        }
+        if (key === 'resolution' || key === 'quality') {
+            return normalizeToken(candidates.resolution) === normalizeToken(skuValue)
+                || normalizeToken(candidates.quality) === normalizeToken(skuValue)
+        }
+        if (key === 'ratio' || key === 'aspect_ratio' || key === 'size') {
+            return normalizeRatioToken(candidates.ratio) === normalizeRatioToken(skuValue)
+                || normalizeRatioToken(candidates.aspect_ratio) === normalizeRatioToken(skuValue)
+                || normalizeRatioToken(candidates.size) === normalizeRatioToken(skuValue)
+                || normalizeSizeToken(candidates.size) === normalizeSizeToken(skuValue)
+                || ratioFromSize(candidates.size) === ratioFromSize(skuValue)
+                || normalizeRatioToken(candidates.ratio) === ratioFromSize(skuValue)
+                || normalizeRatioToken(candidates.aspect_ratio) === ratioFromSize(skuValue)
+        }
+        return normalizeToken(candidates[key]) === normalizeToken(skuValue)
+    })
+}
+
+function normalizeSkuParams(sku: any) {
+    const raw = {
+        ...(sku?.locked_params || {}),
+        ...(sku?.locked_params_json || {})
+    }
+    return cleanParams({
+        quality: raw.quality,
+        resolution: raw.resolution || raw.quality,
+        ratio: raw.ratio || raw.aspect_ratio || raw.size,
+        aspect_ratio: raw.aspect_ratio || raw.ratio || raw.size,
+        size: raw.size || raw.ratio || raw.aspect_ratio,
+        width: raw.width,
+        height: raw.height
+    })
+}
+
+function normalizeLocalSpecParams(spec: any) {
+    const params = spec?.provider_params_json || {}
+    return cleanParams({
+        quality: spec?.quality || params.quality,
+        resolution: params.resolution || params.quality || params.size || resolutionLabel(spec),
+        ratio: spec?.ratio || params.ratio || params.aspect_ratio || params.size,
+        aspect_ratio: params.aspect_ratio || params.ratio || spec?.ratio,
+        size: params.size || params.ratio || params.aspect_ratio || spec?.ratio,
+        width: spec?.width,
+        height: spec?.height
+    })
+}
+
+function cleanParams(params: Record<string, any>) {
+    return Object.fromEntries(
+        Object.entries(params).map(([key, value]) => [key, value === undefined || value === null ? '' : String(value).trim()])
+    ) as Record<string, string>
+}
+
+function normalizeToken(value: any) {
+    return String(value || '').trim().toLowerCase().replace(/\s+/g, '').replace(/_/g, '').replace(/-/g, '')
+}
+
+function normalizeRatioToken(value: any) {
+    return normalizeToken(value).replace(/[：x*]/g, ':')
+}
+
+function normalizeSizeToken(value: any) {
+    return normalizeToken(value).replace(/[：x*]/g, 'x')
+}
+
+function ratioFromSize(value: any) {
+    const matched = String(value || '').match(/(\d+)\s*[xX*：:]\s*(\d+)/)
+    if (!matched) {
+        return normalizeRatioToken(value)
+    }
+    const width = Number(matched[1])
+    const height = Number(matched[2])
+    const divisor = gcd(width, height)
+    return divisor > 0 ? `${width / divisor}:${height / divisor}` : ''
+}
+
+function gcd(a: number, b: number): number {
+    let x = Math.abs(a)
+    let y = Math.abs(b)
+    while (y) {
+        const next = x % y
+        x = y
+        y = next
+    }
+    return x
+}
+
+function skuSubtitle(sku: any) {
+    const params = lockedParamsText(sku.locked_params || sku.locked_params_json)
+    const mode = sku.external_billing_mode || sku.billing_mode || ''
+    return [modeLabel(mode), params].filter(Boolean).join(' · ') || '上游 SKU'
+}
+
+function lockedParamsText(params: any) {
+    if (!params || typeof params !== 'object' || Array.isArray(params)) {
+        return ''
+    }
+    return Object.entries(params)
+        .map(([key, value]) => `${paramName(key)}=${value}`)
+        .join('，')
+}
+
+function modeLabel(mode: string) {
+    const map: Record<string, string> = {
+        fixed: '固定价',
+        spec: '多规格价',
+        usage: '按用量价',
+    }
+    return map[mode] || ''
+}
+
+function paramName(key: string) {
+    const map: Record<string, string> = {
+        quality: '质量',
+        resolution: '分辨率',
+        aspect_ratio: '比例',
+        ratio: '比例',
+        size: '尺寸',
+        width: '宽',
+        height: '高',
+    }
+    return map[key] || key
+}
+
+function pointRange(values: number[]) {
+    const numbers = values.filter((value) => Number.isFinite(value))
+    if (!numbers.length) {
+        return '-'
+    }
+    const min = Math.min(...numbers)
+    const max = Math.max(...numbers)
+    return min === max ? `${formatPoint(min)} 点` : `${formatPoint(min)}-${formatPoint(max)} 点`
+}
+
+function firstFilled(values: any[]) {
+    return values.map((value) => String(value || '').trim()).find(Boolean) || ''
 }
 
 getLists()
@@ -857,6 +1248,11 @@ getLists()
     color: #d03050;
 }
 
+.readonly-price {
+    color: #1f2329;
+    font-weight: 600;
+}
+
 .empty-cell {
     color: #bbb;
 }
@@ -887,6 +1283,17 @@ getLists()
     padding: 10px 0 0;
     color: #86909c;
     font-size: 13px;
+}
+
+.pricing-dialog-tip {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border: 1px solid #d9ecff;
+    border-radius: 6px;
+    background: #f0f7ff;
+    color: #456f9f;
+    font-size: 13px;
+    line-height: 20px;
 }
 
 .pricing-spec-name {

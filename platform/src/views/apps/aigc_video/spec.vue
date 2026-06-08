@@ -28,7 +28,8 @@
                         <el-button @click="fillByAdd">固定加价</el-button>
                         <el-button @click="setGroupStatus(1)">启用分组</el-button>
                         <el-button @click="setGroupStatus(0)">停用分组</el-button>
-                        <el-button :loading="pricingLoading" @click="queryUpstreamPricing">查询上游价格</el-button>
+                        <el-button :loading="pricingLoading" @click="queryUpstreamPricing">查询当前模型上游价格</el-button>
+                        <el-button :loading="pricingLoading" @click="queryAllUpstreamPricing">查询全部模型上游价格</el-button>
                         <el-button type="primary" :loading="saving" @click="saveCurrentGroup">保存当前分组</el-button>
                     </div>
                 </div>
@@ -56,15 +57,7 @@
                         </el-table-column>
                         <el-table-column label="上游成本" width="190">
                             <template #default="{ row }">
-                                <el-input-number
-                                    :model-value="row.upstream_unit_cost"
-                                    :min="0"
-                                    :precision="2"
-                                    :step="0.01"
-                                    controls-position="right"
-                                    class="!w-full"
-                                    @change="(value) => setClearRowField(row, 'upstream_unit_cost', value)"
-                                />
+                                <span class="readonly-price">{{ formatPoint(row.upstream_unit_cost, 2) }} 点</span>
                             </template>
                         </el-table-column>
                         <el-table-column label="平台供给价" width="190">
@@ -115,14 +108,7 @@
                                     <div v-if="matrixMap[`${duration}|${ratio}`]" class="price-cell">
                                         <div class="price-line">
                                             <span>上游</span>
-                                            <el-input-number
-                                                v-model="matrixMap[`${duration}|${ratio}`].upstream_unit_cost"
-                                                :min="0"
-                                                :precision="2"
-                                                :step="0.01"
-                                                controls-position="right"
-                                                @change="markDirty(matrixMap[`${duration}|${ratio}`])"
-                                            />
+                                            <strong class="readonly-price">{{ formatPoint(matrixMap[`${duration}|${ratio}`].upstream_unit_cost, 2) }} 点</strong>
                                         </div>
                                         <div class="price-line">
                                             <span>供给</span>
@@ -188,7 +174,7 @@
                     </div>
                 </el-form-item>
                 <el-form-item label="上游成本">
-                    <el-input-number v-model="formData.upstream_unit_cost" :min="0" :precision="2" class="w-full" />
+                    <el-input :model-value="`${formatPoint(formData.upstream_unit_cost, 2)} 点`" disabled />
                 </el-form-item>
                 <el-form-item label="平台供给价">
                     <el-input-number v-model="formData.platform_unit_cost" :min="0" :precision="2" class="w-full" />
@@ -425,6 +411,9 @@ const setGroupStatus = (status: number) => {
 }
 
 const setClearRowField = (row: any, field: string, value: any) => {
+    if (field === 'upstream_unit_cost') {
+        return
+    }
     const normalized = field === 'status' ? Number(value) : toPrice(Number(value || 0))
     ;(row.items || []).forEach((item: any) => {
         item[field] = normalized
@@ -446,17 +435,7 @@ const saveSpecs = async (rows: any[]) => {
     saving.value = true
     try {
         await batchSaveAigcVideoSpecs({
-            specs: rows.map((row) => ({
-                channel_code: row.channel_code,
-                quality: row.quality,
-                ratio: row.ratio,
-                upstream_unit_cost: row.upstream_unit_cost,
-                platform_unit_cost: row.platform_unit_cost,
-                upstream_cost_text: row.upstream_cost_text,
-                cost_source_url: row.cost_source_url,
-                status: row.status,
-                sort: row.sort
-            }))
+            specs: rows.map(buildSaveSpecPayload)
         })
         feedback.msgSuccess('保存成功')
         dirtyKeys.value = dirtyKeys.value.filter((key) => !rows.some((row) => specKey(row) === key))
@@ -500,7 +479,9 @@ const handleSubmit = async () => {
     }
     saving.value = true
     try {
-        await saveAigcVideoSpec(formData)
+        const payload = { ...formData } as Record<string, any>
+        delete payload.upstream_unit_cost
+        await saveAigcVideoSpec(payload)
         feedback.msgSuccess('保存成功')
         editVisible.value = false
         dirtyKeys.value = dirtyKeys.value.filter((key) => key !== `${formData.channel_code}|${formData.quality}|${formData.ratio}`)
@@ -510,10 +491,13 @@ const handleSubmit = async () => {
     }
 }
 
-const queryUpstreamPricing = async () => {
-    const rows = currentGroupSpecs.value
+const queryUpstreamPricing = () => queryUpstreamPricingRows(activeChannel.value?.specs || [], '当前模型暂无规格')
+const queryAllUpstreamPricing = () => queryUpstreamPricingRows(visibleChannels.value.flatMap((channel: any) => channel.specs || []), '暂无可查询规格')
+
+const queryUpstreamPricingRows = async (sourceRows: any[], emptyMessage: string) => {
+    const rows = sourceRows.filter((row: any) => row && Number(row.status) === 1)
     if (!rows.length) {
-        feedback.msgWarning('当前分组暂无规格')
+        feedback.msgWarning(emptyMessage)
         return
     }
     pricingLoading.value = true
@@ -521,32 +505,29 @@ const queryUpstreamPricing = async () => {
         row.upstream_pricing = { loading: true }
     })
     try {
-        const result = await getAigcVideoUpstreamPricingBatch({
-            items: rows.map((row: any) => ({
-                channel_code: row.channel_code,
-                quality: row.quality,
-                quality_label: row.quality_label,
-                ratio: row.ratio,
-                width: row.width,
-                height: row.height,
-                resolution: row.provider_params_json?.resolution || resolutionLabel(row),
-                duration: row.provider_params_json?.duration || durationLabel(row).replace(/\D+/g, ''),
-                provider_params: row.provider_params_json || {},
-                provider_params_json: row.provider_params_json || {},
-                local_key: specKey(row)
-            }))
-        })
+        const resultItems: any[] = []
+        for (const chunk of chunkArray(rows, 80)) {
+            const result = await getAigcVideoUpstreamPricingBatch({
+                items: chunk.map(buildPricingQueryItem)
+            })
+            resultItems.push(...(result.items || []))
+        }
         const localMap = Object.fromEntries(rows.map((row: any) => [specKey(row), row]))
-        pricingRows.value = (result.items || []).map((item: any) => ({
+        pricingRows.value = resultItems.map((item: any) => ({
             ...item,
             local: localMap[item.local_key] || {}
         }))
         pricingRows.value.forEach((item: any) => {
             if (item.local && Object.keys(item.local).length) {
                 item.local.upstream_pricing = item
+                applyUpstreamCostFromPricing(item.local, item)
             }
         })
         pricingVisible.value = true
+        const syncedCount = rows.filter((row: any) => row.upstream_cost_from_pricing).length
+        if (syncedCount > 0) {
+            feedback.msgSuccess(`已同步 ${syncedCount} 项上游成本，请保存改动`)
+        }
     } catch (e: any) {
         rows.forEach((row: any) => {
             row.upstream_pricing = { available: false, message: e?.message || '查询失败' }
@@ -555,6 +536,30 @@ const queryUpstreamPricing = async () => {
     } finally {
         pricingLoading.value = false
     }
+}
+
+function buildPricingQueryItem(row: any) {
+    return {
+        channel_code: row.channel_code,
+        quality: row.quality,
+        quality_label: row.quality_label,
+        ratio: row.ratio,
+        width: row.width,
+        height: row.height,
+        resolution: row.provider_params_json?.resolution || resolutionLabel(row),
+        duration: row.provider_params_json?.duration || durationLabel(row).replace(/\D+/g, ''),
+        provider_params: row.provider_params_json || {},
+        provider_params_json: row.provider_params_json || {},
+        local_key: specKey(row)
+    }
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+    const chunks: T[][] = []
+    for (let index = 0; index < items.length; index += size) {
+        chunks.push(items.slice(index, index + size))
+    }
+    return chunks
 }
 
 function groupSpecs(specs: any[]) {
@@ -639,11 +644,15 @@ function upstreamPriceText(item: any) {
     if (Array.isArray(pricingV2Items) && pricingV2Items.length) {
         return pricingV2Items
             .slice(0, 3)
-            .map((row: any) => `${row.title || row.sku_key || 'SKU'} ${formatPoint(row.price?.points || 0)} 点`)
+            .map((row: any) => {
+                const points = skuPointValue(row)
+                const priceText = points !== null ? `${formatPoint(points)} 点` : '未返回价格'
+                return `${row.title || row.sku_key || 'SKU'} ${priceText}`
+            })
             .join('，') + (pricingV2Items.length > 3 ? ` 等 ${pricingV2Items.length} 个 SKU` : '')
     }
-    const fixed = Number(item.pricing?.fixed_points ?? item.pricing?.unit_points ?? item.pricing?.points ?? 0)
-    if (fixed > 0) {
+    const fixed = upstreamPointValue(item)
+    if (fixed !== null && fixed > 0) {
         return `${formatPoint(fixed)} 点 / 次`
     }
     return item.price_view?.formula || item.message || '-'
@@ -758,10 +767,7 @@ function buildPricingDisplayRows(rows: any[]) {
     if (Array.isArray(pricingV2Items) && pricingV2Items.length) {
         const locals = rows.map((row) => row.local).filter(Boolean)
         return pricingV2Items.map((sku: any, index: number) => {
-            const duration = skuDuration(sku)
-            const matchedLocals = duration
-                ? locals.filter((local: any) => Number(specDuration(local)) === duration)
-                : locals
+            const matchedLocals = locals.filter((local: any) => localMatchesSku(local, sku))
             return displayRowFromSku(sku, first, matchedLocals.length ? matchedLocals : locals, index)
         })
     }
@@ -825,14 +831,14 @@ function firstLockedParam(skus: any[], key: string) {
 }
 
 function displayRowFromSku(sku: any, source: any, locals: any[], index: number) {
-    const points = Number(sku.price?.points ?? sku.price?.fixed_points ?? sku.points ?? sku.fixed_points ?? 0)
+    const points = skuPointValue(sku)
     const title = sku.title || sku.sku_key || `SKU ${index + 1}`
     const row = {
         key: `sku-${sku.sku_key || index}`,
         title,
         subtitle: skuSubtitle(sku),
         available: source.available,
-        quote: `${formatPoint(points)} 点 / 次`,
+        quote: points !== null ? `${formatPoint(points)} 点 / 次` : '未返回价格',
         rulePreview: lockedParamsText(sku.locked_params || sku.locked_params_json),
         billingType: source.price_view?.billing_type_desc || '清晰计费 SKU',
         sourceName: source.pricing_source?.name || '-',
@@ -901,6 +907,165 @@ function specDuration(spec: any) {
     }
     const matched = String(spec?.quality_label || spec?.quality || '').match(/\d+/)
     return matched ? Number(matched[0]) : 0
+}
+
+function applyUpstreamCostFromPricing(local: any, pricing: any) {
+    if (!local || !pricing?.available) {
+        return
+    }
+    const points = upstreamPointValue(pricing, local)
+    if (points === null || points <= 0) {
+        return
+    }
+    const nextCost = toPrice(points)
+    if (Number(local.upstream_unit_cost || 0) === nextCost) {
+        return
+    }
+    local.upstream_unit_cost = nextCost
+    local.upstream_cost_from_pricing = true
+    local.upstream_cost_text = upstreamPriceText(pricing)
+    local.cost_source_url = pricing.source_base_url || local.cost_source_url || ''
+    if (Number(local.platform_unit_cost || 0) <= 0) {
+        local.platform_unit_cost = nextCost
+    }
+    markDirty(local)
+}
+
+function buildSaveSpecPayload(row: any) {
+    const payload: Record<string, any> = {
+        channel_code: row.channel_code,
+        quality: row.quality,
+        ratio: row.ratio,
+        platform_unit_cost: row.platform_unit_cost,
+        upstream_cost_text: row.upstream_cost_text,
+        cost_source_url: row.cost_source_url,
+        status: row.status,
+        sort: row.sort
+    }
+    if (row.upstream_cost_from_pricing) {
+        payload.upstream_unit_cost = row.upstream_unit_cost
+        payload.upstream_cost_from_pricing = true
+    }
+    return payload
+}
+
+function upstreamPointValue(item: any, local?: any): number | null {
+    const pricingV2Items = item?.pricing_v2?.items || item?.raw?.pricing_v2?.items || []
+    if (Array.isArray(pricingV2Items) && pricingV2Items.length) {
+        const matched = local
+            ? pricingV2Items.find((sku: any) => localMatchesSku(local, sku))
+            : (pricingV2Items.length === 1 ? pricingV2Items[0] : null)
+        return matched ? skuPointValue(matched) : null
+    }
+    return numericPoint([
+        item?.pricing?.fixed_points,
+        item?.pricing?.unit_points,
+        item?.pricing?.points,
+        item?.pricing?.price?.points,
+        item?.raw?.pricing?.fixed_points,
+        item?.raw?.pricing?.unit_points,
+        item?.raw?.pricing?.points,
+        item?.raw?.price?.points,
+    ])
+}
+
+function skuPointValue(sku: any): number | null {
+    return numericPoint([
+        sku?.price?.points,
+        sku?.price?.fixed_points,
+        sku?.price?.unit_points,
+        sku?.points,
+        sku?.fixed_points,
+        sku?.unit_points,
+    ])
+}
+
+function numericPoint(values: any[]) {
+    for (const value of values) {
+        if (value === undefined || value === null || value === '') {
+            continue
+        }
+        const number = Number(value)
+        if (Number.isFinite(number) && number > 0) {
+            return number
+        }
+    }
+    return null
+}
+
+function localMatchesSku(local: any, sku: any) {
+    const params = normalizeSkuParams(sku)
+    const candidates = normalizeLocalSpecParams(local)
+    const keys = Object.keys(params).filter((key) => params[key] !== '')
+    if (!keys.length) {
+        return false
+    }
+    return keys.every((key) => {
+        const skuValue = params[key]
+        if (key === 'duration') {
+            return Number(candidates.duration || 0) === Number(skuValue || 0)
+        }
+        if (key === 'width' || key === 'height') {
+            return Number(candidates[key] || 0) === Number(skuValue || 0)
+        }
+        if (key === 'resolution' || key === 'quality') {
+            return normalizeToken(candidates.resolution) === normalizeToken(skuValue)
+                || normalizeToken(candidates.quality) === normalizeToken(skuValue)
+        }
+        if (key === 'ratio' || key === 'aspect_ratio' || key === 'size') {
+            return normalizeRatioToken(candidates.ratio) === normalizeRatioToken(skuValue)
+                || normalizeRatioToken(candidates.aspect_ratio) === normalizeRatioToken(skuValue)
+                || normalizeRatioToken(candidates.size) === normalizeRatioToken(skuValue)
+        }
+        return normalizeToken(candidates[key]) === normalizeToken(skuValue)
+    })
+}
+
+function normalizeSkuParams(sku: any) {
+    const raw = {
+        ...(sku?.locked_params || {}),
+        ...(sku?.locked_params_json || {})
+    }
+    const text = `${sku?.title || ''} ${sku?.sku_key || ''}`
+    return cleanParams({
+        quality: raw.quality,
+        resolution: raw.resolution || raw.quality,
+        duration: raw.duration || raw.seconds || skuDuration(sku) || '',
+        ratio: raw.ratio || raw.aspect_ratio || raw.size,
+        aspect_ratio: raw.aspect_ratio || raw.ratio || raw.size,
+        size: raw.size || raw.ratio || raw.aspect_ratio,
+        width: raw.width,
+        height: raw.height,
+        title: text
+    })
+}
+
+function normalizeLocalSpecParams(spec: any) {
+    const params = spec?.provider_params_json || {}
+    return cleanParams({
+        quality: spec?.quality || params.quality,
+        resolution: params.resolution || params.quality || resolutionLabel(spec),
+        duration: params.duration || specDuration(spec),
+        ratio: spec?.ratio || params.ratio || params.aspect_ratio || params.size,
+        aspect_ratio: params.aspect_ratio || params.ratio || spec?.ratio,
+        size: params.size || params.ratio || params.aspect_ratio || spec?.ratio,
+        width: spec?.width,
+        height: spec?.height
+    })
+}
+
+function cleanParams(params: Record<string, any>) {
+    return Object.fromEntries(
+        Object.entries(params).map(([key, value]) => [key, value === undefined || value === null ? '' : String(value).trim()])
+    ) as Record<string, string>
+}
+
+function normalizeToken(value: any) {
+    return String(value || '').trim().toLowerCase().replace(/\s+/g, '').replace(/_/g, '').replace(/-/g, '')
+}
+
+function normalizeRatioToken(value: any) {
+    return normalizeToken(value).replace(/[：x*]/g, ':')
 }
 
 function skuSubtitle(sku: any) {
@@ -1063,6 +1228,11 @@ getLists()
     gap: 8px;
     color: #667085;
     font-size: 12px;
+}
+
+.readonly-price {
+    color: #1f2329;
+    font-weight: 600;
 }
 
 .cell-meta {
