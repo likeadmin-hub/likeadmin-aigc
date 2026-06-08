@@ -50,7 +50,7 @@
                                 <div class="clear-spec-title">{{ row.resolution }}</div>
                             </template>
                         </el-table-column>
-                        <el-table-column label="时长" min-width="190">
+                        <el-table-column :label="clearPricingDimensionLabel" min-width="190">
                             <template #default="{ row }">
                                 <div class="clear-spec-title">{{ row.duration }}</div>
                             </template>
@@ -333,9 +333,13 @@ const useClearPricingTable = computed(() => shouldUseClearPricingTable(clearPric
 const editableGroupSpecs = computed(() => useClearPricingTable.value ? clearPricingSourceSpecs.value : currentGroupSpecs.value)
 const currentDisplayCount = computed(() => useClearPricingTable.value ? clearPricingRows.value.length : currentGroupSpecs.value.length)
 const clearPricingRatios = computed(() => uniqueRatios(clearPricingSourceSpecs.value.map((item: any) => item.ratio)))
+const clearPricingDimensionLabel = computed(() => isSeedanceChannel() ? '输入类型' : '时长')
 const clearPricingSummary = computed(() => {
     if (!useClearPricingTable.value || !clearPricingRatios.value.length) {
         return ''
+    }
+    if (isSeedanceChannel()) {
+        return `Seedance 按清晰度和输入类型计费，时长只是用户提交参数；多比例共用同一计费价：${clearPricingRatios.value.join('、')}`
     }
     return `同一清晰度和时长下，多比例共用同一计费价：${clearPricingRatios.value.join('、')}`
 })
@@ -480,7 +484,6 @@ const handleSubmit = async () => {
     saving.value = true
     try {
         const payload = { ...formData } as Record<string, any>
-        delete payload.upstream_unit_cost
         await saveAigcVideoSpec(payload)
         feedback.msgSuccess('保存成功')
         editVisible.value = false
@@ -520,11 +523,10 @@ const queryUpstreamPricingRows = async (sourceRows: any[], emptyMessage: string)
         pricingRows.value.forEach((item: any) => {
             if (item.local && Object.keys(item.local).length) {
                 item.local.upstream_pricing = item
-                applyUpstreamCostFromPricing(item.local, item)
             }
         })
+        const syncedCount = applyUpstreamCostsFromPricingRows(rows, pricingRows.value)
         pricingVisible.value = true
-        const syncedCount = rows.filter((row: any) => row.upstream_cost_from_pricing).length
         if (syncedCount > 0) {
             feedback.msgSuccess(`已同步 ${syncedCount} 项上游成本，请保存改动`)
         }
@@ -646,7 +648,7 @@ function upstreamPriceText(item: any) {
             .slice(0, 3)
             .map((row: any) => {
                 const points = skuPointValue(row)
-                const priceText = points !== null ? `${formatPoint(points)} 点` : '未返回价格'
+                const priceText = points !== null ? skuPointText(row, points) : '未返回价格'
                 return `${row.title || row.sku_key || 'SKU'} ${priceText}`
             })
             .join('，') + (pricingV2Items.length > 3 ? ` 等 ${pricingV2Items.length} 个 SKU` : '')
@@ -661,7 +663,7 @@ function upstreamPriceText(item: any) {
 function buildClearPricingRows(specs: any[]) {
     const groups: Record<string, any[]> = {}
     specs.forEach((spec) => {
-        const key = `${resolutionLabel(spec)}|${durationLabel(spec)}`
+        const key = clearPricingGroupKey(spec)
         if (!groups[key]) {
             groups[key] = []
         }
@@ -676,7 +678,7 @@ function buildClearPricingRows(specs: any[]) {
             return {
                 key,
                 resolution,
-                duration: durationLabel(first),
+                duration: clearPricingDimensionText(first),
                 upstream_unit_cost: upstream,
                 platform_unit_cost: platform,
                 margin: platform - upstream,
@@ -690,7 +692,7 @@ function buildClearPricingRows(specs: any[]) {
             if (resolutionDiff !== 0) {
                 return resolutionDiff
             }
-            return Number(a.duration.match(/\d+/)?.[0] || 0) - Number(b.duration.match(/\d+/)?.[0] || 0)
+            return pricingVariantWeight(a.duration) - pricingVariantWeight(b.duration)
         })
     let index = 0
     while (index < rows.length) {
@@ -715,12 +717,34 @@ function shouldUseClearPricingTable(specs: any[], rows: any[]) {
     if (channelText.includes('grok')) {
         return true
     }
+    if (channelText.includes('seedance')) {
+        return true
+    }
     return rows.every((row) => {
         const items = row.items || []
         return hasSameFieldValue(items, 'upstream_unit_cost')
             && hasSameFieldValue(items, 'platform_unit_cost')
             && hasSameFieldValue(items, 'status')
     })
+}
+
+function clearPricingGroupKey(spec: any) {
+    if (isSeedanceChannel()) {
+        return `${resolutionLabel(spec)}|${pricingVariantToken(spec)}`
+    }
+    return `${resolutionLabel(spec)}|${durationLabel(spec)}`
+}
+
+function clearPricingDimensionText(spec: any) {
+    if (isSeedanceChannel()) {
+        return pricingVariantLabel(spec)
+    }
+    return durationLabel(spec)
+}
+
+function isSeedanceChannel() {
+    const channelText = `${activeChannelCode.value || ''} ${activeChannel.value?.name || ''}`.toLowerCase()
+    return channelText.includes('seedance')
 }
 
 function clearPricingSpanMethod({ row, columnIndex }: { row: any; columnIndex: number }) {
@@ -762,14 +786,37 @@ function buildPricingDisplayRows(rows: any[]) {
     if (!rows.length) {
         return []
     }
-    const first = rows.find((row) => row.available) || rows[0]
-    const pricingV2Items = first?.pricing_v2?.items || first?.raw?.pricing_v2?.items || []
-    if (Array.isArray(pricingV2Items) && pricingV2Items.length) {
+    const v2Rows = rows.filter((row) => {
+        const items = row?.pricing_v2?.items || row?.raw?.pricing_v2?.items || []
+        return row?.available && Array.isArray(items) && items.length
+    })
+    if (v2Rows.length) {
         const locals = rows.map((row) => row.local).filter(Boolean)
-        return pricingV2Items.map((sku: any, index: number) => {
-            const matchedLocals = locals.filter((local: any) => localMatchesSku(local, sku))
-            return displayRowFromSku(sku, first, matchedLocals.length ? matchedLocals : locals, index)
+        const hasMultipleChannels = new Set(v2Rows.map((row) => row.local?.channel_code).filter(Boolean)).size > 1
+        const displayRows: any[] = []
+        const renderedKeys = new Set<string>()
+        v2Rows.forEach((sourceRow: any) => {
+            const pricingV2Items = sourceRow?.pricing_v2?.items || sourceRow?.raw?.pricing_v2?.items || []
+            const scopedLocals = pricingScopeLocals(locals, sourceRow.local)
+            pricingV2Items.forEach((sku: any, index: number) => {
+                const rowKey = [
+                    sourceRow.local?.channel_code || sourceRow.local_key || 'source',
+                    sku.sku_key || sku.title || index,
+                ].join('|')
+                if (renderedKeys.has(rowKey)) {
+                    return
+                }
+                renderedKeys.add(rowKey)
+                const matchedLocals = scopedLocals.filter((local: any) => localMatchesSku(local, sku))
+                const display = displayRowFromSku(sku, sourceRow, matchedLocals, displayRows.length)
+                display.key = `sku-${rowKey}`
+                if (hasMultipleChannels && sourceRow.local?.channel_code) {
+                    display.title = `${channelNameMap.value[sourceRow.local.channel_code] || sourceRow.local.channel_code} / ${display.title}`
+                }
+                displayRows.push(display)
+            })
         })
+        return displayRows
     }
 
     const groups: Record<string, any> = {}
@@ -793,6 +840,50 @@ function buildPricingDisplayRows(rows: any[]) {
     return Object.values(groups)
 }
 
+function applyUpstreamCostsFromPricingRows(locals: any[], rows: any[]) {
+    const appliedKeys = new Set<string>()
+    rows.forEach((row: any) => {
+        if (!row?.available) {
+            return
+        }
+        const pricingV2Items = row?.pricing_v2?.items || row?.raw?.pricing_v2?.items || []
+        if (!Array.isArray(pricingV2Items) || !pricingV2Items.length) {
+            if (row.local && Object.keys(row.local).length) {
+                if (applyUpstreamCostFromPricing(row.local, row)) {
+                    appliedKeys.add(specKey(row.local))
+                }
+            }
+            return
+        }
+        const scopedLocals = pricingScopeLocals(locals, row.local)
+        if (row.local && Object.keys(row.local).length) {
+            const matchedSku = preferredMatchedSku(row.local, pricingV2Items)
+            if (matchedSku && applyUpstreamCostFromSku(row.local, matchedSku, row)) {
+                appliedKeys.add(specKey(row.local))
+            }
+            return
+        }
+        scopedLocals.forEach((local: any) => {
+            const matchedSku = preferredMatchedSku(local, pricingV2Items)
+            if (matchedSku && applyUpstreamCostFromSku(local, matchedSku, row)) {
+                appliedKeys.add(specKey(local))
+            }
+        })
+    })
+    return appliedKeys.size
+}
+
+function pricingScopeLocals(locals: any[], sourceLocal: any) {
+    if (!sourceLocal || !Object.keys(sourceLocal).length) {
+        return []
+    }
+    const channelCode = String(sourceLocal.channel_code || '')
+    if (!channelCode) {
+        return [sourceLocal]
+    }
+    return locals.filter((local: any) => String(local?.channel_code || '') === channelCode)
+}
+
 function buildPricingDialogTip(rows: any[], displayRows: any[]) {
     if (!rows.length || !displayRows.length) {
         return ''
@@ -802,7 +893,12 @@ function buildPricingDialogTip(rows: any[], displayRows: any[]) {
         return ''
     }
     const quality = firstLockedParam(pricingV2Items, 'quality') || firstLockedParam(pricingV2Items, 'resolution')
-    const qualityText = quality ? `${quality} + 时长` : '上游计费 SKU'
+    const hasVariant = !!firstLockedParam(pricingV2Items, '_pricing_variant')
+    const qualityText = quality ? `${quality}${hasVariant ? ' + 输入类型' : ' + 时长'}` : '上游计费 SKU'
+    const isSeedance = String(activeChannelCode.value || '').toLowerCase().includes('seedance')
+    if (isSeedance) {
+        return `Seedance 上游按 ${qualityText} 计费，时长只是请求参数，不单独影响上游报价；已合并为 ${displayRows.length} 个上游计费 SKU。`
+    }
     const isGrok = String(activeChannelCode.value || '').toLowerCase().includes('grok')
     if (isGrok) {
         return `Grok Video 上游按 ${qualityText} 计费，宽高比是请求参数，不单独影响上游报价；已合并为 ${displayRows.length} 个上游计费 SKU。`
@@ -832,17 +928,18 @@ function firstLockedParam(skus: any[], key: string) {
 
 function displayRowFromSku(sku: any, source: any, locals: any[], index: number) {
     const points = skuPointValue(sku)
+    const unitPoints = skuUnitPointValue(sku)
     const title = sku.title || sku.sku_key || `SKU ${index + 1}`
     const row = {
         key: `sku-${sku.sku_key || index}`,
         title,
         subtitle: skuSubtitle(sku),
         available: source.available,
-        quote: points !== null ? `${formatPoint(points)} 点 / 次` : '未返回价格',
+        quote: points !== null ? skuPointText(sku, points) : '未返回价格',
         rulePreview: lockedParamsText(sku.locked_params || sku.locked_params_json),
         billingType: source.price_view?.billing_type_desc || '清晰计费 SKU',
         sourceName: source.pricing_source?.name || '-',
-        costText: '',
+        costText: unitPoints !== null && unitPoints !== points ? `${formatPoint(unitPoints)} 点 / 百万 Token` : '',
         costSource: source.source_base_url || '-',
         marginMin: 0,
         locals,
@@ -911,16 +1008,13 @@ function specDuration(spec: any) {
 
 function applyUpstreamCostFromPricing(local: any, pricing: any) {
     if (!local || !pricing?.available) {
-        return
+        return false
     }
     const points = upstreamPointValue(pricing, local)
     if (points === null || points <= 0) {
-        return
+        return false
     }
     const nextCost = toPrice(points)
-    if (Number(local.upstream_unit_cost || 0) === nextCost) {
-        return
-    }
     local.upstream_unit_cost = nextCost
     local.upstream_cost_from_pricing = true
     local.upstream_cost_text = upstreamPriceText(pricing)
@@ -929,6 +1023,24 @@ function applyUpstreamCostFromPricing(local: any, pricing: any) {
         local.platform_unit_cost = nextCost
     }
     markDirty(local)
+    return true
+}
+
+function applyUpstreamCostFromSku(local: any, sku: any, source: any) {
+    const points = skuPointValue(sku)
+    if (!local || points === null || points <= 0) {
+        return false
+    }
+    const nextCost = toPrice(points)
+    local.upstream_unit_cost = nextCost
+    local.upstream_cost_from_pricing = true
+    local.upstream_cost_text = `${sku.title || sku.sku_key || 'SKU'} ${skuPointText(sku, nextCost)}`
+    local.cost_source_url = source?.source_base_url || local.cost_source_url || ''
+    if (Number(local.platform_unit_cost || 0) <= 0) {
+        local.platform_unit_cost = nextCost
+    }
+    markDirty(local)
+    return true
 }
 
 function buildSaveSpecPayload(row: any) {
@@ -936,6 +1048,7 @@ function buildSaveSpecPayload(row: any) {
         channel_code: row.channel_code,
         quality: row.quality,
         ratio: row.ratio,
+        upstream_unit_cost: row.upstream_unit_cost,
         platform_unit_cost: row.platform_unit_cost,
         upstream_cost_text: row.upstream_cost_text,
         cost_source_url: row.cost_source_url,
@@ -943,7 +1056,6 @@ function buildSaveSpecPayload(row: any) {
         sort: row.sort
     }
     if (row.upstream_cost_from_pricing) {
-        payload.upstream_unit_cost = row.upstream_unit_cost
         payload.upstream_cost_from_pricing = true
     }
     return payload
@@ -953,7 +1065,7 @@ function upstreamPointValue(item: any, local?: any): number | null {
     const pricingV2Items = item?.pricing_v2?.items || item?.raw?.pricing_v2?.items || []
     if (Array.isArray(pricingV2Items) && pricingV2Items.length) {
         const matched = local
-            ? pricingV2Items.find((sku: any) => localMatchesSku(local, sku))
+            ? preferredMatchedSku(local, pricingV2Items)
             : (pricingV2Items.length === 1 ? pricingV2Items[0] : null)
         return matched ? skuPointValue(matched) : null
     }
@@ -980,6 +1092,27 @@ function skuPointValue(sku: any): number | null {
     ])
 }
 
+function skuUnitPointValue(sku: any): number | null {
+    return numericPoint([
+        sku?.usage_unit_price_points,
+        sku?.price?.points,
+        sku?.price?.fixed_points,
+        sku?.price?.unit_points,
+        sku?.points,
+        sku?.fixed_points,
+        sku?.unit_points
+    ])
+}
+
+function skuPointText(sku: any, points: number) {
+    const unit = String(sku?.usage_unit || sku?.price?.unit || '').toLowerCase()
+    const unitSize = Number(sku?.usage_unit_size || sku?.price?.unit_size || 0)
+    if ((unit === 'token' || unit === 'tokens') && unitSize >= 1000000) {
+        return `${formatPoint(points)} 点 / 百万 Token`
+    }
+    return `${formatPoint(points)} 点 / 次`
+}
+
 function numericPoint(values: any[]) {
     for (const value of values) {
         if (value === undefined || value === null || value === '') {
@@ -996,14 +1129,17 @@ function numericPoint(values: any[]) {
 function localMatchesSku(local: any, sku: any) {
     const params = normalizeSkuParams(sku)
     const candidates = normalizeLocalSpecParams(local)
-    const keys = Object.keys(params).filter((key) => params[key] !== '')
+    const keys = Object.keys(params).filter((key) => params[key] !== '' && key in candidates)
     if (!keys.length) {
         return false
     }
     return keys.every((key) => {
         const skuValue = params[key]
         if (key === 'duration') {
-            return Number(candidates.duration || 0) === Number(skuValue || 0)
+            return true
+        }
+        if (key === '_pricing_variant' || key === 'pricing_variant') {
+            return normalizeToken(candidates._pricing_variant || candidates.pricing_variant) === normalizeToken(skuValue)
         }
         if (key === 'width' || key === 'height') {
             return Number(candidates[key] || 0) === Number(skuValue || 0)
@@ -1021,22 +1157,45 @@ function localMatchesSku(local: any, sku: any) {
     })
 }
 
+function preferredMatchedSku(local: any, skus: any[]) {
+    const matched = skus.filter((sku: any) => localMatchesSku(local, sku))
+    if (!matched.length) {
+        return null
+    }
+    return matched.sort((a: any, b: any) => skuVariantWeight(a) - skuVariantWeight(b))[0]
+}
+
+function skuVariantWeight(sku: any) {
+    const params = sku?.locked_params || sku?.locked_params_json || {}
+    const variant = normalizeToken(params._pricing_variant || params.pricing_variant || sku?.pricing_variant || '')
+    if (variant.includes('withoutvideo') || variant.includes('novideo')) {
+        return 0
+    }
+    if (!variant) {
+        return 1
+    }
+    if (variant.includes('withvideo')) {
+        return 2
+    }
+    return 3
+}
+
 function normalizeSkuParams(sku: any) {
     const raw = {
         ...(sku?.locked_params || {}),
         ...(sku?.locked_params_json || {})
     }
-    const text = `${sku?.title || ''} ${sku?.sku_key || ''}`
     return cleanParams({
         quality: raw.quality,
         resolution: raw.resolution || raw.quality,
-        duration: raw.duration || raw.seconds || skuDuration(sku) || '',
+        duration: raw.duration || raw.seconds || '',
         ratio: raw.ratio || raw.aspect_ratio || raw.size,
         aspect_ratio: raw.aspect_ratio || raw.ratio || raw.size,
         size: raw.size || raw.ratio || raw.aspect_ratio,
         width: raw.width,
         height: raw.height,
-        title: text
+        _pricing_variant: raw._pricing_variant || raw.pricing_variant || sku?.pricing_variant,
+        pricing_variant: raw.pricing_variant || raw._pricing_variant || sku?.pricing_variant
     })
 }
 
@@ -1050,7 +1209,9 @@ function normalizeLocalSpecParams(spec: any) {
         aspect_ratio: params.aspect_ratio || params.ratio || spec?.ratio,
         size: params.size || params.ratio || params.aspect_ratio || spec?.ratio,
         width: spec?.width,
-        height: spec?.height
+        height: spec?.height,
+        _pricing_variant: params._pricing_variant || params.pricing_variant,
+        pricing_variant: params.pricing_variant || params._pricing_variant
     })
 }
 
@@ -1095,12 +1256,44 @@ function modeLabel(mode: string) {
 function paramName(key: string) {
     const map: Record<string, string> = {
         quality: '清晰度',
+        resolution: '清晰度',
         duration: '时长',
         aspect_ratio: '比例',
         ratio: '比例',
         size: '尺寸',
+        _pricing_variant: '输入类型',
+        pricing_variant: '输入类型',
     }
     return map[key] || key
+}
+
+function pricingVariantToken(spec: any) {
+    return normalizeToken(spec?.provider_params_json?._pricing_variant || spec?.provider_params_json?.pricing_variant || '')
+}
+
+function pricingVariantLabel(spec: any) {
+    const token = pricingVariantToken(spec)
+    if (token.includes('withvideo')) {
+        return '含视频输入'
+    }
+    if (token.includes('withoutvideo') || token.includes('novideo')) {
+        return '不含视频输入'
+    }
+    return '默认输入'
+}
+
+function pricingVariantWeight(value: string) {
+    const token = normalizeToken(value)
+    if (token.includes('含视频') && !token.includes('不含')) {
+        return 1
+    }
+    if (token.includes('withvideo')) {
+        return 1
+    }
+    if (token.includes('不含') || token.includes('withoutvideo') || token.includes('novideo')) {
+        return 2
+    }
+    return Number(value.match(/\d+/)?.[0] || 99)
 }
 
 function pointRange(values: number[]) {

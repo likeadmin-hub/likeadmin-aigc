@@ -72,7 +72,7 @@ class UpstreamPricingService
         foreach ($payloadItems as $index => $payloadItem) {
             $row = $rows[$index] ?? [];
             $item = is_array($row) ? $row : [];
-            $normalized[] = array_merge(self::normalizeItem($item), [
+            $normalized[] = array_merge(self::normalizeItem($item, $payloadItem), [
                 'local_key' => (string)($localKeys[$index] ?? ''),
                 'request' => self::withoutLocalMeta($payloadItem),
             ]);
@@ -188,7 +188,7 @@ class UpstreamPricingService
         return is_array($result) ? self::sanitize($result) : [];
     }
 
-    private static function normalizeItem(array $row): array
+    private static function normalizeItem(array $row, array $request = []): array
     {
         $row = self::sanitize($row);
         return [
@@ -196,6 +196,7 @@ class UpstreamPricingService
             'type' => (string)($row['type'] ?? 'model'),
             'resource' => is_array($row['resource'] ?? null) ? $row['resource'] : [],
             'pricing' => is_array($row['pricing'] ?? null) ? $row['pricing'] : [],
+            'pricing_v2' => is_array($row['pricing_v2'] ?? null) ? $row['pricing_v2'] : [],
             'price_view' => is_array($row['price_view'] ?? null) ? $row['price_view'] : [],
             'pricing_source' => is_array($row['pricing_source'] ?? null) ? $row['pricing_source'] : [],
             'error_code' => (string)($row['error_code'] ?? ''),

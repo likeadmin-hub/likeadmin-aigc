@@ -467,7 +467,6 @@ const handleSubmit = async () => {
     saving.value = true
     try {
         const payload = { ...formData } as Record<string, any>
-        delete payload.upstream_unit_cost
         await saveAigcImageSpec(payload)
         feedback.msgSuccess('保存成功')
         editVisible.value = false
@@ -892,6 +891,7 @@ function buildSaveSpecPayload(row: any) {
         channel_code: row.channel_code,
         quality: row.quality,
         ratio: row.ratio,
+        upstream_unit_cost: row.upstream_unit_cost,
         platform_unit_cost: row.platform_unit_cost,
         upstream_cost_text: row.upstream_cost_text,
         cost_source_url: row.cost_source_url,
@@ -899,7 +899,6 @@ function buildSaveSpecPayload(row: any) {
         sort: row.sort
     }
     if (row.upstream_cost_from_pricing) {
-        payload.upstream_unit_cost = row.upstream_unit_cost
         payload.upstream_cost_from_pricing = true
     }
     return payload
