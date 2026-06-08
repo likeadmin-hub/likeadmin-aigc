@@ -4,6 +4,7 @@ namespace app\common\service\app\aigc_image;
 
 use app\common\model\app\aigc_image\AigcImageChannel;
 use app\common\model\app\aigc_image\AigcImageChannelSpec;
+use app\common\service\app\ChannelSpecPricingSchemaService;
 use Exception;
 use think\facade\Db;
 
@@ -83,6 +84,7 @@ class AigcImageChannelService
 
     public static function platformLists(): array
     {
+        self::ensurePricingSchema();
         $channels = AigcImageChannel::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
         $specs = AigcImageChannelSpec::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
         $grouped = [];
@@ -123,12 +125,19 @@ class AigcImageChannelService
 
     public static function savePlatformSpec(array $params): void
     {
+        self::ensurePricingSchema();
         $channelCode = self::normalizeCode((string)($params['channel_code'] ?? $params['code'] ?? ''));
         self::assertPlatformChannel($channelCode);
         $quality = strtolower(trim((string)($params['quality'] ?? '')));
         $ratio = trim((string)($params['ratio'] ?? ''));
         if ($quality === '' || $ratio === '') {
             throw new Exception('请选择分辨率和比例');
+        }
+        $upstreamUnitCost = array_key_exists('upstream_unit_cost', $params)
+            ? (float)$params['upstream_unit_cost']
+            : (float)self::currentPlatformSpecValue($channelCode, $quality, $ratio, 'upstream_unit_cost', 0);
+        if ($upstreamUnitCost < 0) {
+            throw new Exception('上游成本不能小于0');
         }
         $data = [
             'tenant_id' => 0,
@@ -138,7 +147,7 @@ class AigcImageChannelService
             'ratio' => $ratio,
             'width' => max(0, (int)($params['width'] ?? 0)),
             'height' => max(0, (int)($params['height'] ?? 0)),
-            'upstream_unit_cost' => self::formatPoints((float)self::currentPlatformSpecValue($channelCode, $quality, $ratio, 'upstream_unit_cost', 0)),
+            'upstream_unit_cost' => self::formatPoints($upstreamUnitCost),
             'platform_unit_cost' => self::formatPoints((float)($params['platform_unit_cost'] ?? 0)),
             'tenant_unit_price' => self::formatPoints((float)($params['tenant_unit_price'] ?? $params['platform_unit_cost'] ?? 0)),
             'upstream_cost_text' => trim((string)($params['upstream_cost_text'] ?? '')),
@@ -291,6 +300,7 @@ class AigcImageChannelService
 
     private static function effectiveChannels(int $tenantId, bool $onlyEnabled): array
     {
+        self::ensurePricingSchema();
         $platformChannels = AigcImageChannel::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
         $tenantChannels = $tenantId > 0 ? AigcImageChannel::where('tenant_id', $tenantId)->select()->toArray() : [];
         $tenantChannelMap = array_column($tenantChannels, null, 'code');
@@ -384,6 +394,7 @@ class AigcImageChannelService
 
     private static function updatePlatformSpecPatch(array $params): void
     {
+        self::ensurePricingSchema();
         $channelCode = self::normalizeCode((string)($params['channel_code'] ?? $params['code'] ?? ''));
         self::assertPlatformChannel($channelCode);
         $quality = strtolower(trim((string)($params['quality'] ?? '')));
@@ -407,7 +418,7 @@ class AigcImageChannelService
             }
             $data['platform_unit_cost'] = self::formatPoints((float)$params['platform_unit_cost']);
         }
-        if (array_key_exists('upstream_unit_cost', $params) && !empty($params['upstream_cost_from_pricing'])) {
+        if (array_key_exists('upstream_unit_cost', $params)) {
             if ((float)$params['upstream_unit_cost'] < 0) {
                 throw new Exception('上游成本不能小于0');
             }
@@ -616,6 +627,11 @@ class AigcImageChannelService
     private static function specKey(array $spec): string
     {
         return $spec['channel_code'] . '|' . $spec['quality'] . '|' . $spec['ratio'];
+    }
+
+    private static function ensurePricingSchema(): void
+    {
+        ChannelSpecPricingSchemaService::ensure('aigc_image_channel_spec');
     }
 
     private static function formatPoints(float $points): string
