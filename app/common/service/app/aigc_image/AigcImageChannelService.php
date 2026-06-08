@@ -138,7 +138,7 @@ class AigcImageChannelService
             'ratio' => $ratio,
             'width' => max(0, (int)($params['width'] ?? 0)),
             'height' => max(0, (int)($params['height'] ?? 0)),
-            'upstream_unit_cost' => self::formatPoints((float)($params['upstream_unit_cost'] ?? 0)),
+            'upstream_unit_cost' => self::formatPoints((float)self::currentPlatformSpecValue($channelCode, $quality, $ratio, 'upstream_unit_cost', 0)),
             'platform_unit_cost' => self::formatPoints((float)($params['platform_unit_cost'] ?? 0)),
             'tenant_unit_price' => self::formatPoints((float)($params['tenant_unit_price'] ?? $params['platform_unit_cost'] ?? 0)),
             'upstream_cost_text' => trim((string)($params['upstream_cost_text'] ?? '')),
@@ -407,7 +407,7 @@ class AigcImageChannelService
             }
             $data['platform_unit_cost'] = self::formatPoints((float)$params['platform_unit_cost']);
         }
-        if (array_key_exists('upstream_unit_cost', $params)) {
+        if (array_key_exists('upstream_unit_cost', $params) && !empty($params['upstream_cost_from_pricing'])) {
             if ((float)$params['upstream_unit_cost'] < 0) {
                 throw new Exception('上游成本不能小于0');
             }
@@ -429,6 +429,23 @@ class AigcImageChannelService
             throw new Exception('没有可保存的规格内容');
         }
         $row->save($data);
+    }
+
+    private static function currentPlatformSpecValue(string $channelCode, string $quality, string $ratio, string $field, $default = null)
+    {
+        if ($channelCode === '' || $quality === '' || $ratio === '') {
+            return $default;
+        }
+        $row = AigcImageChannelSpec::where([
+            'tenant_id' => 0,
+            'channel_code' => $channelCode,
+            'quality' => $quality,
+            'ratio' => $ratio,
+        ])->findOrEmpty();
+        if ($row->isEmpty()) {
+            return $default;
+        }
+        return $row[$field] ?? $default;
     }
 
     private static function defaults(array $channels): array
