@@ -5,7 +5,7 @@
                 <section class="credit-agreement-modal" aria-modal="true" role="dialog">
                     <header class="credit-agreement-modal__header">
                         <div>
-                            <h3>付费用户协议</h3>
+                            <h3>{{ policyTitle }}</h3>
                             <p>请在购买积分前仔细阅读以下说明。</p>
                         </div>
                         <button class="credit-agreement-modal__close" type="button" aria-label="关闭付费用户协议" @click="close">
@@ -14,14 +14,13 @@
                         </button>
                     </header>
 
-                    <div class="credit-agreement-modal__content">
-                        <section v-for="section in agreementSections" :key="section.title" class="credit-agreement-modal__section">
-                            <strong>{{ section.title }}</strong>
-                            <p>{{ section.text }}</p>
-                        </section>
+                    <div class="credit-agreement-modal__content render-html" v-html="policyContent">
                     </div>
 
                     <footer class="credit-agreement-modal__footer">
+                        <NuxtLink class="credit-agreement-modal__link" :to="`/policy/${PolicyAgreementEnum.PAID}`" target="_blank">
+                            新页面查看
+                        </NuxtLink>
                         <button type="button" @click="close">我已阅读</button>
                     </footer>
                 </section>
@@ -31,38 +30,33 @@
 </template>
 
 <script lang="ts" setup>
-import { onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { getPolicy } from '@/api/app'
+import { PolicyAgreementEnum } from '@/enums/appEnums'
 
 interface Props {
     modelValue: boolean
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: boolean): void
 }>()
 
-const agreementSections = [
-    {
-        title: '1. 购买说明',
-        text: '积分为站内虚拟权益，支付完成后将自动充值至当前账号，仅可用于站内指定功能消耗。'
-    },
-    {
-        title: '2. 使用规则',
-        text: '积分不可转赠、不可提现吗，也不可兑换会员或其他现金类权益，请按实际需求选择对应积分包。'
-    },
-    {
-        title: '3. 有效期说明',
-        text: '充值到账后的积分有效期为2年，若活动赠送积分存在单独有效期，则以页面展示说明为准。'
-    },
-    {
-        title: '4. 退款说明',
-        text: '虚拟权益一经充值成功通常不支持退款，若因系统异常导致未到账，可联系平台客服协助处理。'
-    }
-] as const
+const policyTitle = ref('付费用户协议')
+const policyContent = ref('')
+const loaded = ref(false)
 
 const close = () => emit('update:modelValue', false)
+
+const loadPolicy = async () => {
+    if (loaded.value) return
+    const data = await getPolicy({ type: PolicyAgreementEnum.PAID })
+    policyTitle.value = data?.title || policyTitle.value
+    policyContent.value = data?.content || ''
+    loaded.value = true
+}
 
 const handleKeydown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
@@ -71,6 +65,14 @@ const handleKeydown = (event: KeyboardEvent) => {
 }
 
 onMounted(() => window.addEventListener('keydown', handleKeydown))
+
+watch(() => props.modelValue, (visible) => {
+    if (visible) {
+        loadPolicy().catch(() => {
+            policyContent.value = '<h2>1. 购买说明</h2><p>积分为站内虚拟权益，支付完成后将自动充值至当前账号，仅可用于站内指定功能消耗。</p><h2>2. 使用规则</h2><p>积分不可转赠、不可提现，也不可兑换现金或其他未明确支持的权益。</p><h2>3. 退款说明</h2><p>虚拟权益一经充值成功通常不支持退款，若因系统异常导致未到账，可联系平台客服协助处理。</p>'
+        })
+    }
+}, { immediate: true })
 
 onBeforeUnmount(() => {
     window.removeEventListener('keydown', handleKeydown)
@@ -162,23 +164,19 @@ onBeforeUnmount(() => {
     padding: 4px 2px 4px 0;
 }
 
-.credit-agreement-modal__section {
-    margin-bottom: 18px;
-}
-
-.credit-agreement-modal__section:last-child {
-    margin-bottom: 0;
-}
-
-.credit-agreement-modal__section strong {
-    display: block;
-    margin-bottom: 8px;
+.credit-agreement-modal__content :deep(h2) {
+    margin: 0 0 8px;
+    color: #fff;
     font-size: 16px;
     font-weight: 700;
     line-height: 1.4;
 }
 
-.credit-agreement-modal__section p {
+.credit-agreement-modal__content :deep(h2:not(:first-child)) {
+    margin-top: 18px;
+}
+
+.credit-agreement-modal__content :deep(p) {
     margin: 0;
     color: rgba(255, 255, 255, 0.74);
     font-size: 14px;
@@ -187,7 +185,19 @@ onBeforeUnmount(() => {
 
 .credit-agreement-modal__footer {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
+    gap: 14px;
+}
+
+.credit-agreement-modal__link {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 14px;
+    text-decoration: none;
+}
+
+.credit-agreement-modal__link:hover {
+    color: #fff;
 }
 
 .credit-agreement-modal__footer button {

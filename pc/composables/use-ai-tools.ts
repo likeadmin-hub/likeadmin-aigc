@@ -84,6 +84,7 @@ export interface ToolDisplayOverride {
     cover?: string
     badge?: string
     virtualUseCount?: string
+    sort?: number
     enabled?: boolean
 }
 
@@ -660,29 +661,44 @@ export const applyToolDisplayOverrides = (
     items: ToolCardItem[],
     overrides: Record<string, ToolDisplayOverride>
 ) => items
-    .map((item) => {
+    .map((item, index) => {
         const override = overrides[item.id] || (item.appCode ? overrides[item.appCode] : undefined)
-        if (!override) return item
+        const sort = Number(override?.sort)
+        const enabled = override?.enabled !== false
+        if (!override) {
+            return { item, index, sort: 0, hasSort: false, enabled }
+        }
         const title = override.title?.trim()
         const description = override.description?.trim()
         const badge = override.badge?.trim()
         const cover = override.cover?.trim()
         const virtualUseCount = override.virtualUseCount?.trim()
         return {
-            ...item,
-            title: title || item.title,
-            detailName: title || item.detailName,
-            badge: badge || item.badge,
-            image: cover || item.image,
-            detailDescription: description || item.detailDescription,
-            promptLead: description || item.promptLead,
-            virtualUseCount: virtualUseCount || item.virtualUseCount
+            item: {
+                ...item,
+                title: title || item.title,
+                detailName: title || item.detailName,
+                badge: badge || item.badge,
+                image: cover || item.image,
+                detailDescription: description || item.detailDescription,
+                promptLead: description || item.promptLead,
+                virtualUseCount: virtualUseCount || item.virtualUseCount
+            },
+            index,
+            sort: Number.isFinite(sort) ? sort : 0,
+            hasSort: Number.isFinite(sort),
+            enabled
         }
     })
-    .filter((item) => {
-        const override = overrides[item.id] || (item.appCode ? overrides[item.appCode] : undefined)
-        return override?.enabled !== false
+    .filter((row) => row.enabled)
+    .sort((left, right) => {
+        if (left.hasSort || right.hasSort) {
+            const sortCompare = right.sort - left.sort
+            if (sortCompare !== 0) return sortCompare
+        }
+        return left.index - right.index
     })
+    .map((row) => row.item)
 
 export const applyFeaturedToolDisplayOverrides = (
     items: FeaturedToolItem[],

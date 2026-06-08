@@ -121,7 +121,7 @@
                                     <p v-if="requireAgreement" class="site-login-modal__agreement">
                                         {{ agreementActionText }}
                                         <NuxtLink :to="`/policy/${PolicyAgreementEnum.SERVICE}`" target="_blank">
-                                            《用户协议》
+                                            《用户服务协议》
                                         </NuxtLink>
                                         和
                                         <NuxtLink :to="`/policy/${PolicyAgreementEnum.PRIVACY}`" target="_blank">
@@ -180,7 +180,7 @@
                                     <p v-if="requireAgreement" class="site-login-modal__agreement">
                                         {{ agreementActionText }}
                                         <NuxtLink :to="`/policy/${PolicyAgreementEnum.SERVICE}`" target="_blank">
-                                            《用户协议》
+                                            《用户服务协议》
                                         </NuxtLink>
                                         和
                                         <NuxtLink :to="`/policy/${PolicyAgreementEnum.PRIVACY}`" target="_blank">
@@ -244,7 +244,7 @@
                                 <p v-if="requireAgreement" class="site-login-modal__agreement">
                                     {{ agreementActionText }}
                                     <NuxtLink :to="`/policy/${PolicyAgreementEnum.SERVICE}`" target="_blank">
-                                        《用户协议》
+                                        《用户服务协议》
                                     </NuxtLink>
                                     和
                                     <NuxtLink :to="`/policy/${PolicyAgreementEnum.PRIVACY}`" target="_blank">
@@ -329,7 +329,7 @@
                                 <p v-if="requireAgreement" class="site-login-modal__agreement">
                                     {{ agreementActionText }}
                                     <NuxtLink :to="`/policy/${PolicyAgreementEnum.SERVICE}`" target="_blank">
-                                        《用户协议》
+                                        《用户服务协议》
                                     </NuxtLink>
                                     和
                                     <NuxtLink :to="`/policy/${PolicyAgreementEnum.PRIVACY}`" target="_blank">

@@ -25,6 +25,17 @@
                     <div class="form-tips">支持 jpg、png、webp、gif，建议 16:9 封面图</div>
                 </div>
             </el-form-item>
+            <el-form-item label="应用图标">
+                <div>
+                    <material-picker
+                        v-model="formData.icon_uri"
+                        :limit="1"
+                        width="72px"
+                        height="72px"
+                    />
+                    <div class="form-tips">用于应用入口、工具卡片等小图标展示</div>
+                </div>
+            </el-form-item>
             <el-form-item label="应用描述">
                 <div class="w-[520px]">
                     <el-input
@@ -73,6 +84,7 @@ const defaults = {
     title: '',
     description: '',
     cover_uri: '',
+    icon_uri: '',
     virtual_use_count: '',
     sort: 0,
     status: 1,
@@ -88,6 +100,7 @@ watch(
         syncingFromParent = true
         Object.assign(formData, defaults, value || {})
         formData.cover_uri = value?.cover_uri || value?.cover_url || ''
+        formData.icon_uri = value?.icon_uri || value?.icon_url || ''
         formData.virtual_use_count = value?.virtual_use_count || value?.virtualUseCount || ''
         nextTick(() => {
             syncingFromParent = false

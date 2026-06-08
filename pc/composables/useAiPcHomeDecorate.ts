@@ -9,6 +9,7 @@ import {
     toolCards
 } from '~/composables/use-ai-tools'
 import type { ToolDisplayOverride } from '~/composables/use-ai-tools'
+import { parseTenantIdFromRoute } from '~/utils/tenant'
 import { normalizePcDecorationWidgets, normalizePcPageMeta } from '@decoration-core'
 
 export interface PcHomeBannerItem {
@@ -69,6 +70,14 @@ export const useAiPcHomeDecorate = () => {
     const loaded = useState<boolean>('ai-pc-home-decorate-loaded', () => false)
     const loading = useState<boolean>('ai-pc-home-decorate-loading', () => false)
 
+    const ensureAppConfig = async (force = false) => {
+        const tenantId = parseTenantIdFromRoute(route)
+        const normalizedTenantId = tenantId ? String(tenantId) : ''
+        if (force || !appStore.configLoaded || appStore.configTenantId !== normalizedTenantId) {
+            await appStore.getConfig(normalizedTenantId, force)
+        }
+    }
+
     const applyPcHomePageData = (pageData: any[], pageMeta: any[] = decoratePageMeta.value, resolvedSources: Record<string, any> = decorateResolvedSources.value) => {
         decoratePageData.value = normalizePcDecorationWidgets(pageData)
         decoratePageMeta.value = normalizePcPageMeta(pageMeta)
@@ -115,6 +124,11 @@ export const useAiPcHomeDecorate = () => {
     }
 
     const loadPcHomeDecorate = async (force = false) => {
+        try {
+            await ensureAppConfig(force)
+        } catch (error) {
+            console.warn('[pc-config] load failed, use local tool defaults', error)
+        }
         if (!pcDecorateEnabled.value) {
             decoratePageData.value = []
             decoratePageMeta.value = []
@@ -197,8 +211,9 @@ export const useAiPcHomeDecorate = () => {
                 appCode,
                 title: String(item.title || '').trim(),
                 description: String(item.description || '').trim(),
-                cover: resolveMediaUrl(item.cover_url || item.cover_uri, appStore),
+                cover: resolveMediaUrl(item.cover_url || item.cover_uri || item.icon_url || item.icon_uri, appStore),
                 virtualUseCount: String(item.virtual_use_count || item.virtualUseCount || '').trim(),
+                sort: Number(item.sort ?? 0),
                 enabled: Number(item.status ?? 1) === 1
             }
         })

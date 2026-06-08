@@ -3,13 +3,12 @@
         <div class="text-[#bebebe]">
             <!-- <NuxtLink> 关于我们 </NuxtLink>
             ｜ -->
-            <NuxtLink :to="`/policy/${PolicyAgreementEnum.SERVICE}`">
-                用户协议
-            </NuxtLink>
-            ｜
-            <NuxtLink :to="`/policy/${PolicyAgreementEnum.PRIVACY}`">
-                隐私政策
-            </NuxtLink>
+            <template v-for="(item, index) in allPolicyAgreementOptions" :key="item.type">
+                <span v-if="index"> ｜ </span>
+                <NuxtLink :to="`/policy/${item.type}`">
+                    {{ item.label }}
+                </NuxtLink>
+            </template>
             ｜
             <NuxtLink to="/user/info"> 会员中心 </NuxtLink>
         </div>
@@ -28,7 +27,7 @@
 </template>
 <script lang="ts" setup>
 import { useAppStore } from '@/stores/app'
-import { PolicyAgreementEnum } from '@/enums/appEnums'
+import { allPolicyAgreementOptions } from '@/enums/appEnums'
 const appStore = useAppStore()
 const defaultCopyright = [{ key: '贵州猿创科技有限责任公司', value: '' }]
 const copyrightConfig = computed(() =>

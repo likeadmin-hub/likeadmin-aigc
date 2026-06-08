@@ -117,8 +117,8 @@ if (!Array.isArray(signature.files)) {
 if (!signatureFiles.some((file) => file.path === 'update.json')) {
     fail('signature.json does not include update.json')
 }
-if (!signatureFiles.some((file) => file.path.startsWith('sql/data/'))) {
-    fail('signature.json does not include a sql/data compatibility marker')
+if (!hasEntry(normalized, 'sql/data/')) {
+    fail('package does not include sql/data compatibility directory')
 }
 
 for (const file of signatureFiles) {
@@ -237,6 +237,9 @@ function verifyIncrementalManifest(manifest, entries) {
         if (!sql.startsWith('sql/data/') && !sql.startsWith('sql/structure/')) {
             fail(`sql_order contains non-SQL path: ${sql}`)
         }
+        if (isReadmeSql(sql)) {
+            fail(`sql_order must not execute README SQL marker: ${sql}`)
+        }
         if (!entries.has(sql)) {
             fail(`sql_order references missing file: ${sql}`)
         }
@@ -244,6 +247,9 @@ function verifyIncrementalManifest(manifest, entries) {
     const declaredSql = new Set(manifest.sql_order.map((item) => normalizeEntry(item)))
     for (const entry of entries) {
         if ((entry.startsWith('sql/data/') || entry.startsWith('sql/structure/')) && entry.endsWith('.sql')) {
+            if (isReadmeSql(entry)) {
+                fail(`README marker must not use .sql extension: ${entry}`)
+            }
             if (!declaredSql.has(entry)) {
                 fail(`SQL file is packaged but missing from sql_order: ${entry}`)
             }
@@ -344,6 +350,10 @@ function assertSafeManifestPath(entry) {
     if (protectedPatterns.some((pattern) => pattern.test(`files/${entry}`) || pattern.test(entry))) {
         fail(`Manifest path matches protected rule: ${entry}`)
     }
+}
+
+function isReadmeSql(entry) {
+    return /^sql\/(?:data|structure)\/readme(?:\.|$)/i.test(normalizeEntry(entry))
 }
 
 function fail(message) {

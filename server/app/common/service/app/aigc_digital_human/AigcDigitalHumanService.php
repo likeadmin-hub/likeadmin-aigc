@@ -162,7 +162,9 @@ class AigcDigitalHumanService
     public static function saveConfig(int $tenantId, array $params): void
     {
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
-        $configJson = $params['config_json'] ?? [];
+        $row = AigcDigitalHumanConfig::where('tenant_id', $tenantId)->findOrEmpty();
+        $current = $row->isEmpty() ? [] : $row->toArray();
+        $configJson = array_key_exists('config_json', $params) ? $params['config_json'] : ($current['config_json'] ?? []);
         if (!is_array($configJson)) {
             $configJson = [];
         }
@@ -176,14 +178,13 @@ class AigcDigitalHumanService
         $configJson['base_config'] = self::normalizeBaseConfig((array)($configJson['base_config'] ?? []));
         $data = [
             'tenant_id' => $tenantId,
-            'provider_mode' => $params['provider_mode'] ?? 'platform',
-            'provider' => $params['provider'] ?? 'mock',
-            'model' => $params['model'] ?? 'mock-digital-human',
+            'provider_mode' => array_key_exists('provider_mode', $params) ? $params['provider_mode'] : ($current['provider_mode'] ?? 'platform'),
+            'provider' => array_key_exists('provider', $params) ? $params['provider'] : ($current['provider'] ?? 'mock'),
+            'model' => array_key_exists('model', $params) ? $params['model'] : ($current['model'] ?? 'mock-digital-human'),
             'config_json' => $configJson,
-            'status' => $params['status'] ?? 1,
+            'status' => array_key_exists('status', $params) ? $params['status'] : ($current['status'] ?? 1),
             'update_time' => time(),
         ];
-        $row = AigcDigitalHumanConfig::where('tenant_id', $tenantId)->findOrEmpty();
         if ($row->isEmpty()) {
             $data['create_time'] = time();
             AigcDigitalHumanConfig::create($data);

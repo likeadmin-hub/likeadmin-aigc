@@ -30,6 +30,33 @@
                 <strong>开通会员</strong>
             </button>
 
+            <div class="sidebar-policy" @click.stop>
+                <button
+                    class="sidebar-policy__trigger"
+                    type="button"
+                    :aria-expanded="showPolicyMenu"
+                    aria-label="平台协议"
+                    title="平台协议"
+                    @click="showPolicyMenu = !showPolicyMenu"
+                >
+                    <ElIcon><Document /></ElIcon>
+                    <strong>协议</strong>
+                </button>
+                <div v-if="showPolicyMenu" class="sidebar-policy__menu">
+                    <strong>平台协议</strong>
+                    <NuxtLink
+                        v-for="item in policyAgreementOptions"
+                        :key="item.type"
+                        :to="`/policy/${item.type}`"
+                        target="_blank"
+                        @click="showPolicyMenu = false"
+                    >
+                        <span>{{ item.label }}</span>
+                        <ElIcon><ArrowRight /></ElIcon>
+                    </NuxtLink>
+                </div>
+            </div>
+
             <div class="sidebar-utility" aria-label="快捷入口">
                 <button type="button" aria-label="个人中心" title="个人中心" @click="emit('action', 'user')">
                     <ElIcon><UserFilled /></ElIcon>
@@ -55,9 +82,10 @@
 </template>
 
 <script lang="ts" setup>
-import { computed } from 'vue'
-import { Bell, ChromeFilled, Coin, Connection, Film, Iphone, UserFilled, WalletFilled } from '@element-plus/icons-vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { ArrowRight, Bell, ChromeFilled, Coin, Connection, Document, Film, Iphone, UserFilled, WalletFilled } from '@element-plus/icons-vue'
 import { useAppStore } from '@/stores/app'
+import { policyAgreementOptions } from '@/enums/appEnums'
 import type { SidebarKey } from '~/utils/ai-sidebar'
 import inspirationIcon from '@/assets/images/icon/linggan2.svg'
 import inspirationIconActive from '@/assets/images/icon/linggan.svg'
@@ -81,6 +109,7 @@ const emit = defineEmits<{
     (e: 'action', key: 'membership' | 'user' | 'credits' | 'api' | 'notice' | 'mobile' | 'language' | 'short_drama'): void
 }>()
 const appStore = useAppStore()
+const showPolicyMenu = ref(false)
 const siteLogo = computed(() => appStore.getWebsiteConfig.pc_logo || '')
 const siteName = computed(() => appStore.getWebsiteConfig.pc_title || appStore.getWebsiteConfig.shop_name || 'AI')
 const siteNameInitial = computed(() => siteName.value.trim().slice(0, 1).toUpperCase() || 'A')
@@ -121,6 +150,16 @@ const handleSidebarItemClick = (item: SidebarItem) => {
     }
     if (item.action) emit('action', item.action)
 }
+
+const closePolicyMenu = () => {
+    showPolicyMenu.value = false
+}
+
+onMounted(() => window.addEventListener('click', closePolicyMenu))
+
+onBeforeUnmount(() => {
+    window.removeEventListener('click', closePolicyMenu)
+})
 </script>
 
 <style lang="scss" scoped>
@@ -281,6 +320,89 @@ const handleSidebarItemClick = (item: SidebarItem) => {
 .sidebar-credit:hover {
     border-color: rgba(77, 235, 255, 0.62);
     background: rgba(77, 235, 255, 0.08);
+}
+
+.sidebar-policy {
+    position: relative;
+}
+
+.sidebar-policy__trigger {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 58px;
+    min-height: 46px;
+    padding: 6px 4px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.72);
+    cursor: pointer;
+}
+
+.sidebar-policy__trigger .el-icon {
+    font-size: 17px;
+}
+
+.sidebar-policy__trigger strong {
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.sidebar-policy__trigger:hover,
+.sidebar-policy__trigger[aria-expanded='true'] {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-policy__menu {
+    position: absolute;
+    left: calc(100% + 12px);
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 184px;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: #191a1d;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.36);
+}
+
+.sidebar-policy__menu > strong {
+    display: block;
+    padding: 4px 8px 6px;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.sidebar-policy__menu a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 36px;
+    padding: 0 8px;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 13px;
+    text-decoration: none;
+}
+
+.sidebar-policy__menu a:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.sidebar-policy__menu a .el-icon {
+    color: rgba(255, 255, 255, 0.38);
+    font-size: 13px;
 }
 
 .sidebar-utility {

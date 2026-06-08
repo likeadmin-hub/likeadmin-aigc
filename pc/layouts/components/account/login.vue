@@ -111,7 +111,7 @@
                                     :href="href"
                                     target="_blank"
                                 >
-                                    《服务协议》
+                                    《用户服务协议》
                                 </a>
                             </NuxtLink>
                             和
@@ -258,7 +258,7 @@ const agreementConfirm = async () => {
     if (isAgreement.value) {
         return
     }
-    await feedback.confirm('确认已阅读并同意《服务协议》和《隐私政策》')
+    await feedback.confirm('确认已阅读并同意《用户服务协议》和《隐私政策》')
     isAgreement.value = true
 }
 const loginLock = async () => {

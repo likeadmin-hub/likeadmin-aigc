@@ -19,6 +19,7 @@ use app\common\logic\BaseLogic;
 use app\common\model\article\Article;
 use app\common\model\decorate\DecoratePage;
 use app\common\model\decorate\DecorateTabbar;
+use app\common\service\AgreementService;
 use app\common\service\decorate\DecorateTemplateService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
@@ -75,10 +76,7 @@ class IndexLogic extends BaseLogic
      */
     public static function getPolicyByType(string $type)
     {
-        return [
-            'title' => ConfigService::get('agreement', $type . '_title', ''),
-            'content' => ConfigService::get('agreement', $type . '_content', ''),
-        ];
+        return AgreementService::getPolicy($type);
     }
 
 
