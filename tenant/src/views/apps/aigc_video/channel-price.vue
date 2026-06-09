@@ -24,7 +24,7 @@
                         <span class="muted">当前分组 {{ currentDisplayCount }} 项</span>
                         <el-input-number v-model="batchRate" :min="0" :precision="2" :step="0.1" controls-position="right" />
                         <el-button @click="fillByRate">按成本倍率填充</el-button>
-                        <el-input-number v-model="batchAdd" :precision="2" :step="0.1" controls-position="right" />
+                        <el-input-number v-model="batchAdd" :precision="pricePrecision" :step="priceStep" controls-position="right" />
                         <el-button @click="fillByAdd">成本加价</el-button>
                         <el-button @click="setGroupStatus(1)">启用分组</el-button>
                         <el-button @click="setGroupStatus(0)">停用分组</el-button>
@@ -173,9 +173,25 @@ const useClearPricingTable = computed(() => shouldUseClearPricingTable(clearPric
 const editableGroupSpecs = computed(() => useClearPricingTable.value ? clearPricingSourceSpecs.value : currentGroupSpecs.value)
 const currentDisplayCount = computed(() => useClearPricingTable.value ? clearPricingRows.value.length : currentGroupSpecs.value.length)
 const clearPricingRatios = computed(() => uniqueRatios(clearPricingSourceSpecs.value.map((item: any) => item.ratio)))
-const clearPricingDimensionLabel = computed(() => isSeedanceChannel() ? '输入类型' : '时长')
-const clearPricingPlatformLabel = computed(() => isSeedanceChannel() ? '平台供给价 / 百万Token' : '平台供给价')
-const pricePrecision = computed(() => String(activeChannelCode.value || '').toLowerCase() === 'happy_horse' ? 4 : 2)
+const clearPricingDimensionLabel = computed(() => {
+    if (isSeedanceChannel()) {
+        return '输入类型'
+    }
+    if (isSecondBillingChannel()) {
+        return '计费方式'
+    }
+    return '时长'
+})
+const clearPricingPlatformLabel = computed(() => {
+    if (isSeedanceChannel()) {
+        return '平台供给价 / 百万Token'
+    }
+    if (isSecondBillingChannel()) {
+        return '平台供给价 / 秒'
+    }
+    return '平台供给价'
+})
+const pricePrecision = computed(() => isSecondBillingChannel() ? 4 : 2)
 const priceStep = computed(() => pricePrecision.value === 4 ? 0.001 : 0.01)
 const clearPricingSummary = computed(() => {
     if (!useClearPricingTable.value || !clearPricingRatios.value.length) {
@@ -183,6 +199,9 @@ const clearPricingSummary = computed(() => {
     }
     if (isSeedanceChannel()) {
         return `Seedance 按清晰度和输入类型计费，时长只是用户提交参数；多比例共用同一销售价：${clearPricingRatios.value.join('、')}`
+    }
+    if (isSecondBillingChannel()) {
+        return `当前通道按秒计费，时长只是用户提交参数；同一清晰度下多比例共用同一秒单价：${clearPricingRatios.value.join('、')}`
     }
     return `同一清晰度和时长下，多比例共用同一销售价：${clearPricingRatios.value.join('、')}`
 })
@@ -237,6 +256,12 @@ const markDirty = (row: any) => {
 }
 
 const fillByRate = () => {
+    if (useClearPricingTable.value) {
+        clearPricingRows.value.forEach((row: any) => {
+            setClearRowField(row, 'tenant_unit_price', Number(row.platform_unit_cost || 0) * Number(batchRate.value || 0))
+        })
+        return
+    }
     editableGroupSpecs.value.forEach((row: any) => {
         row.tenant_unit_price = toPrice(Number(row.platform_unit_cost || 0) * Number(batchRate.value || 0))
         markDirty(row)
@@ -244,6 +269,12 @@ const fillByRate = () => {
 }
 
 const fillByAdd = () => {
+    if (useClearPricingTable.value) {
+        clearPricingRows.value.forEach((row: any) => {
+            setClearRowField(row, 'tenant_unit_price', Number(row.platform_unit_cost || 0) + Number(batchAdd.value || 0))
+        })
+        return
+    }
     editableGroupSpecs.value.forEach((row: any) => {
         row.tenant_unit_price = toPrice(Number(row.platform_unit_cost || 0) + Number(batchAdd.value || 0))
         markDirty(row)
@@ -251,6 +282,12 @@ const fillByAdd = () => {
 }
 
 const setGroupStatus = (status: number) => {
+    if (useClearPricingTable.value) {
+        clearPricingRows.value.forEach((row: any) => {
+            setClearRowField(row, 'tenant_status', status)
+        })
+        return
+    }
     editableGroupSpecs.value.forEach((row: any) => {
         row.tenant_status = status
         markDirty(row)
@@ -259,6 +296,10 @@ const setGroupStatus = (status: number) => {
 
 const setClearRowField = (row: any, field: string, value: any) => {
     const normalized = field === 'tenant_status' ? Number(value) : toPrice(Number(value || 0))
+    row[field] = normalized
+    if (field === 'tenant_unit_price') {
+        row.margin = normalized - Number(row.platform_unit_cost || 0)
+    }
     ;(row.items || []).forEach((item: any) => {
         item[field] = normalized
         markDirty(item)
@@ -416,6 +457,9 @@ function shouldUseClearPricingTable(specs: any[], rows: any[]) {
     if (channelText.includes('grok')) {
         return true
     }
+    if (isSecondBillingChannel()) {
+        return true
+    }
     return rows.every((row) => {
         const items = row.items || []
         return hasSameFieldValue(items, 'platform_unit_cost')
@@ -438,12 +482,18 @@ function clearPricingGroupKey(spec: any) {
     if (isSeedanceChannel()) {
         return `${resolutionLabel(spec)}|${pricingVariantToken(spec)}`
     }
+    if (isSecondBillingChannel()) {
+        return `${resolutionLabel(spec)}|second`
+    }
     return `${resolutionLabel(spec)}|${durationLabel(spec)}`
 }
 
 function clearPricingDimensionText(spec: any) {
     if (isSeedanceChannel()) {
         return pricingVariantLabel(spec)
+    }
+    if (isSecondBillingChannel()) {
+        return '按秒计费'
     }
     return durationLabel(spec)
 }
@@ -482,7 +532,12 @@ function isSeedanceChannel() {
 }
 
 function clearPricingPointText(value: any) {
-    return `${formatPoint(value)} 点${isSeedanceChannel() ? ' / 百万Token' : ''}`
+    const unit = isSeedanceChannel() ? ' / 百万Token' : (isSecondBillingChannel() ? ' / 秒' : '')
+    return `${formatPoint(value, pricePrecision.value)} 点${unit}`
+}
+
+function isSecondBillingChannel() {
+    return ['happy_horse', 'wan'].includes(String(activeChannel.value?.code || '').toLowerCase())
 }
 
 function clearPricingSpanMethod({ row, columnIndex }: { row: any; columnIndex: number }) {
@@ -503,9 +558,9 @@ function tenantMargin(row: any) {
     return Number(row.tenant_unit_price || 0) - Number(row.platform_unit_cost || 0)
 }
 
-function formatPoint(value: any) {
+function formatPoint(value: any, precision = pricePrecision.value) {
     const number = Number(value || 0)
-    return number.toFixed(2).replace(/\.?0+$/, '') || '0'
+    return number.toFixed(precision).replace(/\.?0+$/, '') || '0'
 }
 
 function marginClass(value: number) {

@@ -226,8 +226,12 @@ export default defineComponent({
             handleChange()
         }
 
+        const resolveFileUrl = (url: string) => {
+            return props.excludeDomain ? getImageUrl(url) : url
+        }
+
         const handlePreview = (url: string) => {
-            previewUrl.value = url
+            previewUrl.value = resolveFileUrl(url)
             showPreview.value = true
         }
 

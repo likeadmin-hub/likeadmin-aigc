@@ -167,6 +167,7 @@ const sexOptions = [
     { label: '男', value: 1 },
     { label: '女', value: 2 }
 ]
+const sexLabelToValue = new Map(sexOptions.map((item) => [item.label, item.value]))
 
 const form = reactive({
     account: '',
@@ -199,6 +200,17 @@ const isDirty = computed(() => (
 ))
 
 const toSexValue = (raw: unknown) => {
+    if (typeof raw === 'string') {
+        const value = raw.trim()
+        if (value === '') {
+            return 0
+        }
+        const num = Number(value)
+        if (Number.isFinite(num)) {
+            return num
+        }
+        return sexLabelToValue.get(value) ?? 0
+    }
     const num = Number(raw)
     return Number.isFinite(num) ? num : 0
 }
@@ -206,7 +218,7 @@ const toSexValue = (raw: unknown) => {
 const syncForm = (info: Record<string, any>) => {
     form.account = info?.account || ''
     form.nickname = info?.nickname || ''
-    form.sex = toSexValue(info?.sex)
+    form.sex = toSexValue(info?.sex_code ?? info?.sex)
     form.avatar = info?.avatar || ''
     snapshot.account = form.account
     snapshot.nickname = form.nickname

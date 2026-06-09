@@ -24,7 +24,7 @@
                         <span class="muted">当前分组 {{ currentDisplayCount }} 项</span>
                         <el-input-number v-model="batchRate" :min="0" :precision="2" :step="0.1" controls-position="right" />
                         <el-button @click="fillByRate">按倍率填充</el-button>
-                        <el-input-number v-model="batchAdd" :precision="2" :step="0.1" controls-position="right" />
+                        <el-input-number v-model="batchAdd" :precision="pricePrecision" :step="priceStep" controls-position="right" />
                         <el-button @click="fillByAdd">固定加价</el-button>
                         <el-button @click="setGroupStatus(1)">启用分组</el-button>
                         <el-button @click="setGroupStatus(0)">停用分组</el-button>
@@ -333,10 +333,22 @@ const useClearPricingTable = computed(() => shouldUseClearPricingTable(clearPric
 const editableGroupSpecs = computed(() => useClearPricingTable.value ? clearPricingSourceSpecs.value : currentGroupSpecs.value)
 const currentDisplayCount = computed(() => useClearPricingTable.value ? clearPricingRows.value.length : currentGroupSpecs.value.length)
 const clearPricingRatios = computed(() => uniqueRatios(clearPricingSourceSpecs.value.map((item: any) => item.ratio)))
-const clearPricingDimensionLabel = computed(() => isSeedanceChannel() ? '输入类型' : '时长')
-const clearPricingCostLabel = computed(() => isSeedanceChannel() ? '上游成本 / 百万Token' : '上游成本')
-const clearPricingPlatformLabel = computed(() => isSeedanceChannel() ? '平台供给价 / 百万Token' : '平台供给价')
-const pricePrecision = computed(() => String(activeChannelCode.value || '').toLowerCase() === 'happy_horse' ? 4 : 2)
+const clearPricingDimensionLabel = computed(() => {
+    if (isSeedanceChannel()) return '输入类型'
+    if (isSecondBillingChannel()) return '计费方式'
+    return '时长'
+})
+const clearPricingCostLabel = computed(() => {
+    if (isSeedanceChannel()) return '上游成本 / 百万Token'
+    if (isSecondBillingChannel()) return '上游成本 / 秒'
+    return '上游成本'
+})
+const clearPricingPlatformLabel = computed(() => {
+    if (isSeedanceChannel()) return '平台供给价 / 百万Token'
+    if (isSecondBillingChannel()) return '平台供给价 / 秒'
+    return '平台供给价'
+})
+const pricePrecision = computed(() => isSecondBillingChannel() ? 4 : 2)
 const priceStep = computed(() => pricePrecision.value === 4 ? 0.001 : 0.01)
 const clearPricingSummary = computed(() => {
     if (!useClearPricingTable.value || !clearPricingRatios.value.length) {
@@ -344,6 +356,9 @@ const clearPricingSummary = computed(() => {
     }
     if (isSeedanceChannel()) {
         return `Seedance 按清晰度和输入类型计费，时长只是用户提交参数；多比例共用同一计费价：${clearPricingRatios.value.join('、')}`
+    }
+    if (isSecondBillingChannel()) {
+        return `当前通道按秒计费，时长只是用户提交参数；同一清晰度下多比例共用同一秒单价：${clearPricingRatios.value.join('、')}`
     }
     return `同一清晰度和时长下，多比例共用同一计费价：${clearPricingRatios.value.join('、')}`
 })
@@ -398,6 +413,12 @@ const markDirty = (row: any) => {
 }
 
 const fillByRate = () => {
+    if (useClearPricingTable.value) {
+        clearPricingRows.value.forEach((row: any) => {
+            setClearRowField(row, 'platform_unit_cost', platformCostBase(row) * Number(batchRate.value || 0))
+        })
+        return
+    }
     editableGroupSpecs.value.forEach((row: any) => {
         row.platform_unit_cost = toPrice(platformCostBase(row) * Number(batchRate.value || 0))
         markDirty(row)
@@ -405,6 +426,12 @@ const fillByRate = () => {
 }
 
 const fillByAdd = () => {
+    if (useClearPricingTable.value) {
+        clearPricingRows.value.forEach((row: any) => {
+            setClearRowField(row, 'platform_unit_cost', platformCostBase(row) + Number(batchAdd.value || 0))
+        })
+        return
+    }
     editableGroupSpecs.value.forEach((row: any) => {
         row.platform_unit_cost = toPrice(platformCostBase(row) + Number(batchAdd.value || 0))
         markDirty(row)
@@ -412,6 +439,12 @@ const fillByAdd = () => {
 }
 
 const setGroupStatus = (status: number) => {
+    if (useClearPricingTable.value) {
+        clearPricingRows.value.forEach((row: any) => {
+            setClearRowField(row, 'status', status)
+        })
+        return
+    }
     editableGroupSpecs.value.forEach((row: any) => {
         row.status = status
         markDirty(row)
@@ -423,6 +456,10 @@ const setClearRowField = (row: any, field: string, value: any) => {
         return
     }
     const normalized = field === 'status' ? Number(value) : toPrice(Number(value || 0))
+    row[field] = normalized
+    if (field === 'platform_unit_cost') {
+        row.margin = normalized - Number(row.upstream_unit_cost || 0)
+    }
     ;(row.items || []).forEach((item: any) => {
         item[field] = normalized
         markDirty(item)
@@ -653,7 +690,8 @@ function formatPoint(value: any, precision = 6) {
 }
 
 function clearPricingPointText(value: any) {
-    return `${formatPoint(value, 2)} 点${isSeedanceChannel() ? ' / 百万Token' : ''}`
+    const unit = isSeedanceChannel() ? ' / 百万Token' : (isSecondBillingChannel() ? ' / 秒' : '')
+    return `${formatPoint(value, pricePrecision.value)} 点${unit}`
 }
 
 function upstreamPriceText(item: any) {
@@ -744,6 +782,9 @@ function shouldUseClearPricingTable(specs: any[], rows: any[]) {
     if (channelText.includes('seedance')) {
         return true
     }
+    if (isSecondBillingChannel()) {
+        return true
+    }
     return rows.every((row) => {
         const items = row.items || []
         return hasSameFieldValue(items, 'upstream_unit_cost')
@@ -756,6 +797,9 @@ function clearPricingGroupKey(spec: any) {
     if (isSeedanceChannel()) {
         return `${resolutionLabel(spec)}|${pricingVariantToken(spec)}`
     }
+    if (isSecondBillingChannel()) {
+        return `${resolutionLabel(spec)}|second`
+    }
     return `${resolutionLabel(spec)}|${durationLabel(spec)}`
 }
 
@@ -763,12 +807,20 @@ function clearPricingDimensionText(spec: any) {
     if (isSeedanceChannel()) {
         return pricingVariantLabel(spec)
     }
+    if (isSecondBillingChannel()) {
+        return '按秒计费'
+    }
     return durationLabel(spec)
 }
 
 function isSeedanceChannel() {
     const channelText = `${activeChannelCode.value || ''} ${activeChannel.value?.name || ''}`.toLowerCase()
     return channelText.includes('seedance')
+}
+
+function isSecondBillingChannel() {
+    const channelText = `${activeChannelCode.value || ''} ${activeChannel.value?.name || ''}`.toLowerCase()
+    return channelText.includes('happy_horse') || channelText.includes('happy horse') || channelText.includes('wan')
 }
 
 function clearPricingSpanMethod({ row, columnIndex }: { row: any; columnIndex: number }) {
@@ -922,6 +974,9 @@ function buildPricingDialogTip(rows: any[], displayRows: any[]) {
     const isSeedance = String(activeChannelCode.value || '').toLowerCase().includes('seedance')
     if (isSeedance) {
         return `Seedance 上游按 ${qualityText} 计费，时长只是请求参数，不单独影响上游报价；已合并为 ${displayRows.length} 个上游计费 SKU。`
+    }
+    if (isSecondBillingChannel()) {
+        return `当前通道上游按清晰度返回秒单价，时长只是请求参数；已合并为 ${displayRows.length} 个上游计费 SKU。`
     }
     const isGrok = String(activeChannelCode.value || '').toLowerCase().includes('grok')
     if (isGrok) {
@@ -1102,6 +1157,17 @@ function upstreamPointValue(item: any, local?: any): number | null {
 }
 
 function skuPointValue(sku: any): number | null {
+    if (isSecondSku(sku) || isMillionTokenSku(sku)) {
+        const unitPoints = numericPoint([
+            sku?.usage_unit_price_points,
+            sku?.price?.usage_unit_price_points,
+            sku?.price?.unit_points,
+            sku?.unit_points
+        ])
+        if (unitPoints !== null) {
+            return unitPoints
+        }
+    }
     return numericPoint([
         sku?.price?.points,
         sku?.price?.fixed_points,
@@ -1128,6 +1194,9 @@ function skuPointText(sku: any, points: number) {
     if (isMillionTokenSku(sku)) {
         return `${formatPoint(points)} 点 / 百万 Token`
     }
+    if (isSecondSku(sku)) {
+        return `${formatPoint(points)} 点 / 秒`
+    }
     return `${formatPoint(points)} 点 / 次`
 }
 
@@ -1135,6 +1204,11 @@ function isMillionTokenSku(sku: any) {
     const unit = String(sku?.usage_unit || sku?.price?.unit || '').toLowerCase()
     const unitSize = Number(sku?.usage_unit_size || sku?.price?.unit_size || 0)
     return unit.includes('token') && unitSize >= 1000000
+}
+
+function isSecondSku(sku: any) {
+    const unit = String(sku?.usage_unit || sku?.price?.unit || '').toLowerCase()
+    return unit.includes('second') || unit.includes('秒')
 }
 
 function numericPoint(values: any[]) {

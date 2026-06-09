@@ -24,7 +24,7 @@ class ChannelSpecPricingSchemaService
         self::addColumnIfMissing(
             $fullTable,
             'upstream_unit_cost',
-            "`upstream_unit_cost` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '" . self::quoteComment($upstreamComment) . "' AFTER `height`"
+            "`upstream_unit_cost` decimal(12,4) NOT NULL DEFAULT 0.0000 COMMENT '" . self::quoteComment($upstreamComment) . "' AFTER `height`"
         );
         self::addColumnIfMissing(
             $fullTable,

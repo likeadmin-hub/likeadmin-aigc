@@ -207,7 +207,7 @@ const snapshot = reactive({
 const syncForm = () => {
     form.account = userInfo.value?.account ?? ''
     form.nickname = userInfo.value?.nickname ?? ''
-    form.sex = toSexValue(userInfo.value?.sex)
+    form.sex = toSexValue(userInfo.value?.sex_code ?? userInfo.value?.sex)
     form.avatar = userInfo.value?.avatar ?? ''
     snapshot.account = form.account
     snapshot.nickname = form.nickname

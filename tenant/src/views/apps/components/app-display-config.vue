@@ -21,6 +21,7 @@
                         :limit="1"
                         width="160px"
                         height="96px"
+                        exclude-domain
                     />
                     <div class="form-tips">支持 jpg、png、webp、gif，建议 16:9 封面图</div>
                 </div>
@@ -32,6 +33,7 @@
                         :limit="1"
                         width="72px"
                         height="72px"
+                        exclude-domain
                     />
                     <div class="form-tips">用于应用入口、工具卡片等小图标展示</div>
                 </div>
