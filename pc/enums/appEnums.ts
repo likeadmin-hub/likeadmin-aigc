@@ -32,7 +32,8 @@ export enum PolicyAgreementEnum {
     PRIVACY = 'privacy',
     COMMUNITY = 'community',
     AI_USAGE = 'ai_usage',
-    PAID = 'paid'
+    PAID = 'paid',
+    POINTS_RULE = 'points_rule'
 }
 
 export const policyAgreementOptions = [
@@ -44,5 +45,6 @@ export const policyAgreementOptions = [
 
 export const allPolicyAgreementOptions = [
     ...policyAgreementOptions,
-    { type: PolicyAgreementEnum.PAID, label: '付费用户协议' }
+    { type: PolicyAgreementEnum.PAID, label: '付费用户协议' },
+    { type: PolicyAgreementEnum.POINTS_RULE, label: '积分规则' }
 ] as const

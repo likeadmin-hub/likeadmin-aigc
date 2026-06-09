@@ -21,6 +21,7 @@
             v-model="showCreditsUsageModal"
             :remaining-credits="remainingCredits"
             @purchase="openCreditsPurchaseModal('usage')"
+            @view-rules="openCreditAgreement('points')"
         />
         <AiWorkspaceCreditPurchaseModal
             :model-value="showCreditsPurchaseModal"
@@ -29,9 +30,9 @@
             @update:model-value="handleCreditsPurchaseModalVisibleChange"
             @purchase="handleCreditsPurchase"
             @renew-membership="handlePurchaseRenewMembership"
-            @view-agreement="showCreditAgreementModal = true"
+            @view-agreement="openCreditAgreement('paid')"
         />
-        <AiWorkspaceCreditAgreementModal v-model="showCreditAgreementModal" />
+        <AiWorkspaceCreditAgreementModal v-model="showCreditAgreementModal" :policy-type="creditAgreementPolicyType" />
         <AiWorkspaceMembershipModal
             v-model="showMembershipModal"
             :membership-enabled="membershipEnabled"
@@ -70,6 +71,7 @@ import { useUserStore } from '@/stores/user'
 import type { MembershipPlanDefinition, MembershipPlanId } from '@/constants/membership-plans'
 import { createMembershipOrder, getMembershipPlans } from '@/api/membership'
 import feedback from '@/utils/feedback'
+import { PolicyAgreementEnum } from '@/enums/appEnums'
 import type { SidebarKey } from '~/utils/ai-sidebar'
 import { useAiUserDisplay } from '~/composables/useAiUserDisplay'
 import wxIcon from '@/assets/images/icon/icon_wx.png'
@@ -113,6 +115,7 @@ const emit = defineEmits<{
 const showCreditsUsageModal = ref(false)
 const showCreditsPurchaseModal = ref(false)
 const showCreditAgreementModal = ref(false)
+const creditAgreementPolicyType = ref<PolicyAgreementEnum>(PolicyAgreementEnum.POINTS_RULE)
 const showMembershipModal = ref(false)
 const showMembershipPayModal = ref(false)
 const showUserPanel = ref(false)
@@ -179,6 +182,11 @@ const openCreditsUsageModal = () => {
     showCreditAgreementModal.value = false
     showMembershipModal.value = false
     showCreditsUsageModal.value = true
+}
+
+const openCreditAgreement = (type: 'points' | 'paid') => {
+    creditAgreementPolicyType.value = type === 'paid' ? PolicyAgreementEnum.PAID : PolicyAgreementEnum.POINTS_RULE
+    showCreditAgreementModal.value = true
 }
 
 const openCreditsPurchaseModal = (source: PurchaseModalSource = 'standalone') => {

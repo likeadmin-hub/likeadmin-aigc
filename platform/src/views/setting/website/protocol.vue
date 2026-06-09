@@ -31,7 +31,8 @@ const protocolItems = [
     { type: 'privacy', label: '隐私政策', titleKey: 'privacy_title', contentKey: 'privacy_content' },
     { type: 'community', label: '社区自律公约', titleKey: 'community_title', contentKey: 'community_content' },
     { type: 'ai_usage', label: 'AI功能使用须知', titleKey: 'ai_usage_title', contentKey: 'ai_usage_content' },
-    { type: 'paid', label: '付费用户协议', titleKey: 'paid_title', contentKey: 'paid_content' }
+    { type: 'paid', label: '付费用户协议', titleKey: 'paid_title', contentKey: 'paid_content' },
+    { type: 'points_rule', label: '积分规则', titleKey: 'points_rule_title', contentKey: 'points_rule_content' }
 ] as const
 
 const formData = ref<Record<string, string>>({})

@@ -6,9 +6,9 @@
                     <header class="credit-agreement-modal__header">
                         <div>
                             <h3>{{ policyTitle }}</h3>
-                            <p>请在购买积分前仔细阅读以下说明。</p>
+                            <p>{{ policyDescription }}</p>
                         </div>
-                        <button class="credit-agreement-modal__close" type="button" aria-label="关闭付费用户协议" @click="close">
+                        <button class="credit-agreement-modal__close" type="button" :aria-label="`关闭${policyTitle}`" @click="close">
                             <span></span>
                             <span></span>
                         </button>
@@ -18,7 +18,7 @@
                     </div>
 
                     <footer class="credit-agreement-modal__footer">
-                        <NuxtLink class="credit-agreement-modal__link" :to="`/policy/${PolicyAgreementEnum.PAID}`" target="_blank">
+                        <NuxtLink class="credit-agreement-modal__link" :to="`/policy/${policyType}`" target="_blank">
                             新页面查看
                         </NuxtLink>
                         <button type="button" @click="close">我已阅读</button>
@@ -30,12 +30,13 @@
 </template>
 
 <script lang="ts" setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getPolicy } from '@/api/app'
 import { PolicyAgreementEnum } from '@/enums/appEnums'
 
 interface Props {
     modelValue: boolean
+    policyType?: PolicyAgreementEnum
 }
 
 const props = defineProps<Props>()
@@ -44,18 +45,20 @@ const emit = defineEmits<{
     (e: 'update:modelValue', value: boolean): void
 }>()
 
-const policyTitle = ref('付费用户协议')
+const policyTitle = ref('积分规则')
 const policyContent = ref('')
-const loaded = ref(false)
+const loadedType = ref('')
 
 const close = () => emit('update:modelValue', false)
+const policyType = computed(() => props.policyType || PolicyAgreementEnum.POINTS_RULE)
+const policyDescription = computed(() => policyType.value === PolicyAgreementEnum.PAID ? '请在购买积分前仔细阅读以下说明。' : '请查看积分获取、消耗和退回规则。')
 
 const loadPolicy = async () => {
-    if (loaded.value) return
-    const data = await getPolicy({ type: PolicyAgreementEnum.PAID })
-    policyTitle.value = data?.title || policyTitle.value
+    if (loadedType.value === policyType.value) return
+    const data = await getPolicy({ type: policyType.value })
+    policyTitle.value = data?.title || (policyType.value === PolicyAgreementEnum.PAID ? '付费用户协议' : '积分规则')
     policyContent.value = data?.content || ''
-    loaded.value = true
+    loadedType.value = policyType.value
 }
 
 const handleKeydown = (event: KeyboardEvent) => {
@@ -69,10 +72,20 @@ onMounted(() => window.addEventListener('keydown', handleKeydown))
 watch(() => props.modelValue, (visible) => {
     if (visible) {
         loadPolicy().catch(() => {
-            policyContent.value = '<h2>1. 购买说明</h2><p>积分为站内虚拟权益，支付完成后将自动充值至当前账号，仅可用于站内指定功能消耗。</p><h2>2. 使用规则</h2><p>积分不可转赠、不可提现，也不可兑换现金或其他未明确支持的权益。</p><h2>3. 退款说明</h2><p>虚拟权益一经充值成功通常不支持退款，若因系统异常导致未到账，可联系平台客服协助处理。</p>'
+            policyTitle.value = policyType.value === PolicyAgreementEnum.PAID ? '付费用户协议' : '积分规则'
+            policyContent.value = policyType.value === PolicyAgreementEnum.PAID
+                ? '<h2>1. 购买说明</h2><p>积分为站内虚拟权益，支付完成后将自动充值至当前账号，仅可用于站内指定功能消耗。</p><h2>2. 使用规则</h2><p>积分不可转赠、不可提现，也不可兑换现金或其他未明确支持的权益。</p><h2>3. 退款说明</h2><p>虚拟权益一经充值成功通常不支持退款，若因系统异常导致未到账，可联系平台客服协助处理。</p>'
+                : '<h2>1. 积分用途</h2><p>积分可用于平台内已开通的 AI 创作功能。</p><h2>2. 扣费方式</h2><p>不同功能会根据模型、规格、时长、数量或 Token 用量等参数计算消耗。</p><h2>3. 失败退回</h2><p>任务失败时会按平台规则退回未消耗积分。</p>'
         })
     }
 }, { immediate: true })
+
+watch(policyType, () => {
+    loadedType.value = ''
+    if (props.modelValue) {
+        loadPolicy().catch(() => undefined)
+    }
+})
 
 onBeforeUnmount(() => {
     window.removeEventListener('keydown', handleKeydown)

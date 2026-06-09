@@ -48,21 +48,21 @@
                                 <div class="clear-spec-title">{{ row.resolution }}</div>
                             </template>
                         </el-table-column>
-                        <el-table-column label="时长" min-width="190">
+                        <el-table-column :label="clearPricingDimensionLabel" min-width="190">
                             <template #default="{ row }">
                                 <div class="clear-spec-title">{{ row.duration }}</div>
                             </template>
                         </el-table-column>
-                        <el-table-column label="平台供给价" width="160">
-                            <template #default="{ row }">{{ formatPoint(row.platform_unit_cost) }} 点</template>
+                        <el-table-column :label="clearPricingPlatformLabel" width="160">
+                            <template #default="{ row }">{{ clearPricingPointText(row.platform_unit_cost) }}</template>
                         </el-table-column>
                         <el-table-column label="我的销售价" width="190">
                             <template #default="{ row }">
                                 <el-input-number
                                     :model-value="row.tenant_unit_price"
                                     :min="0"
-                                    :precision="2"
-                                    :step="0.01"
+                                    :precision="pricePrecision"
+                                    :step="priceStep"
                                     controls-position="right"
                                     class="!w-full"
                                     @change="(value) => setClearRowField(row, 'tenant_unit_price', value)"
@@ -109,8 +109,8 @@
                                         <el-input-number
                                             v-model="matrixMap[`${duration}|${ratio}`].tenant_unit_price"
                                             :min="0"
-                                            :precision="2"
-                                            :step="0.01"
+                                            :precision="pricePrecision"
+                                            :step="priceStep"
                                             controls-position="right"
                                             @change="markDirty(matrixMap[`${duration}|${ratio}`])"
                                         />
@@ -173,9 +173,16 @@ const useClearPricingTable = computed(() => shouldUseClearPricingTable(clearPric
 const editableGroupSpecs = computed(() => useClearPricingTable.value ? clearPricingSourceSpecs.value : currentGroupSpecs.value)
 const currentDisplayCount = computed(() => useClearPricingTable.value ? clearPricingRows.value.length : currentGroupSpecs.value.length)
 const clearPricingRatios = computed(() => uniqueRatios(clearPricingSourceSpecs.value.map((item: any) => item.ratio)))
+const clearPricingDimensionLabel = computed(() => isSeedanceChannel() ? '输入类型' : '时长')
+const clearPricingPlatformLabel = computed(() => isSeedanceChannel() ? '平台供给价 / 百万Token' : '平台供给价')
+const pricePrecision = computed(() => String(activeChannelCode.value || '').toLowerCase() === 'happy_horse' ? 4 : 2)
+const priceStep = computed(() => pricePrecision.value === 4 ? 0.001 : 0.01)
 const clearPricingSummary = computed(() => {
     if (!useClearPricingTable.value || !clearPricingRatios.value.length) {
         return ''
+    }
+    if (isSeedanceChannel()) {
+        return `Seedance 按清晰度和输入类型计费，时长只是用户提交参数；多比例共用同一销售价：${clearPricingRatios.value.join('、')}`
     }
     return `同一清晰度和时长下，多比例共用同一销售价：${clearPricingRatios.value.join('、')}`
 })
@@ -311,9 +318,25 @@ function resolutionLabel(spec: any) {
 }
 
 function durationLabel(spec: any) {
-    const value = String(spec.provider_params_json?.duration || spec.quality_label || spec.quality || '')
-    const matched = value.match(/(?:^|_|\s)(\d+)(?:S|秒)?/i)
-    return matched ? `${Number(matched[1])}秒` : spec.quality_label || spec.quality
+    const duration = explicitDurationNumber(spec)
+    return duration > 0 ? `${duration}秒` : spec.quality_label || spec.quality
+}
+
+function explicitDurationNumber(spec: any) {
+    const fromParams = Number(spec?.provider_params_json?.duration || 0)
+    if (fromParams > 0) {
+        return fromParams
+    }
+    const value = String(spec?.quality || spec?.quality_label || '').trim()
+    const explicit = value.match(/(\d+)\s*(?:秒|s)\b/i)
+    if (explicit) {
+        return Number(explicit[1])
+    }
+    const underscored = value.match(/_(\d+)(?:\D*)$/)
+    if (underscored) {
+        return Number(underscored[1])
+    }
+    return /^\d+$/.test(value) ? Number(value) : 0
 }
 
 function uniqueSorted(values: string[]) {
@@ -339,7 +362,7 @@ function resolutionWeight(value: string) {
 function buildClearPricingRows(specs: any[]) {
     const groups: Record<string, any[]> = {}
     specs.forEach((spec) => {
-        const key = `${resolutionLabel(spec)}|${durationLabel(spec)}`
+        const key = clearPricingGroupKey(spec)
         if (!groups[key]) {
             groups[key] = []
         }
@@ -354,7 +377,7 @@ function buildClearPricingRows(specs: any[]) {
             return {
                 key,
                 resolution,
-                duration: durationLabel(first),
+                duration: clearPricingDimensionText(first),
                 platform_unit_cost: platform,
                 tenant_unit_price: tenant,
                 margin: tenant - platform,
@@ -368,7 +391,7 @@ function buildClearPricingRows(specs: any[]) {
             if (resolutionDiff !== 0) {
                 return resolutionDiff
             }
-            return Number(a.duration.match(/\d+/)?.[0] || 0) - Number(b.duration.match(/\d+/)?.[0] || 0)
+            return pricingVariantWeight(a.duration) - pricingVariantWeight(b.duration)
         })
     let index = 0
     while (index < rows.length) {
@@ -411,6 +434,57 @@ function hasSameFieldValue(items: any[], field: string) {
     return values.size <= 1
 }
 
+function clearPricingGroupKey(spec: any) {
+    if (isSeedanceChannel()) {
+        return `${resolutionLabel(spec)}|${pricingVariantToken(spec)}`
+    }
+    return `${resolutionLabel(spec)}|${durationLabel(spec)}`
+}
+
+function clearPricingDimensionText(spec: any) {
+    if (isSeedanceChannel()) {
+        return pricingVariantLabel(spec)
+    }
+    return durationLabel(spec)
+}
+
+function pricingVariantToken(spec: any) {
+    return String(spec?.provider_params_json?._pricing_variant || spec?.provider_params_json?.pricing_variant || '').trim().toLowerCase().replace(/[\s_-]+/g, '')
+}
+
+function pricingVariantLabel(spec: any) {
+    const token = pricingVariantToken(spec)
+    if (token.includes('withvideo')) {
+        return '含视频输入'
+    }
+    if (token.includes('withoutvideo') || token.includes('novideo')) {
+        return '不含视频输入'
+    }
+    return '默认输入'
+}
+
+function pricingVariantWeight(value: string) {
+    const token = String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '')
+    if (token.includes('含视频') && !token.includes('不含')) {
+        return 1
+    }
+    if (token.includes('withvideo')) {
+        return 1
+    }
+    if (token.includes('不含') || token.includes('withoutvideo') || token.includes('novideo')) {
+        return 2
+    }
+    return Number(String(value || '').match(/\d+/)?.[0] || 0)
+}
+
+function isSeedanceChannel() {
+    return String(activeChannel.value?.code || '').toLowerCase() === 'seedance'
+}
+
+function clearPricingPointText(value: any) {
+    return `${formatPoint(value)} 点${isSeedanceChannel() ? ' / 百万Token' : ''}`
+}
+
 function clearPricingSpanMethod({ row, columnIndex }: { row: any; columnIndex: number }) {
     if (columnIndex !== 0) {
         return { rowspan: 1, colspan: 1 }
@@ -422,7 +496,7 @@ function clearPricingSpanMethod({ row, columnIndex }: { row: any; columnIndex: n
 }
 
 function toPrice(value: number) {
-    return Math.max(0, Number(value.toFixed(2)))
+    return Math.max(0, Number(value.toFixed(pricePrecision.value)))
 }
 
 function tenantMargin(row: any) {

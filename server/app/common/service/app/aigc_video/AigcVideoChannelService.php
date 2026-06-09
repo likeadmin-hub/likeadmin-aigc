@@ -31,8 +31,12 @@ class AigcVideoChannelService
         $resolved = self::resolveSelection($tenantId, $params);
         $quantity = self::normalizeQuantity($params['quantity'] ?? 1);
         self::assertChannelQuantity($resolved['channel'], $quantity);
-        $tenantCost = self::formatPoints((float)$resolved['spec']['platform_unit_cost'] * $quantity);
-        $userCharge = self::formatPoints((float)$resolved['spec']['tenant_unit_price'] * $quantity);
+        $duration = self::normalizeGenerateDuration($resolved['channel'], AigcVideoReferenceAssetService::normalize($params), $params['duration'] ?? null);
+        $billingMultiplier = self::billingMultiplier($resolved['channel'], $duration);
+        $platformUnitCost = (float)$resolved['spec']['platform_unit_cost'] * $billingMultiplier;
+        $tenantUnitPrice = (float)$resolved['spec']['tenant_unit_price'] * $billingMultiplier;
+        $tenantCost = self::formatPoints($platformUnitCost * $quantity);
+        $userCharge = self::formatPoints($tenantUnitPrice * $quantity);
         return [
             'channel' => $resolved['channel']['code'],
             'channel_name' => $resolved['channel']['name'],
@@ -42,9 +46,9 @@ class AigcVideoChannelService
             'width' => (int)$resolved['spec']['width'],
             'height' => (int)$resolved['spec']['height'],
             'quantity' => $quantity,
-            'duration' => self::normalizeGenerateDuration($resolved['channel'], AigcVideoReferenceAssetService::normalize($params), $params['duration'] ?? null),
-            'platform_unit_cost' => self::formatPoints((float)$resolved['spec']['platform_unit_cost']),
-            'tenant_unit_price' => self::formatPoints((float)$resolved['spec']['tenant_unit_price']),
+            'duration' => $duration,
+            'platform_unit_cost' => self::formatPoints($platformUnitCost),
+            'tenant_unit_price' => self::formatPoints($tenantUnitPrice),
             'tenant_cost_points' => $tenantCost,
             'user_charge_points' => $userCharge,
         ];
@@ -601,9 +605,7 @@ class AigcVideoChannelService
     {
         $options = [];
         foreach ($specs as $spec) {
-            $duration = self::normalizeDurationValue(
-                $spec['duration'] ?? ($spec['provider_params_json']['duration'] ?? $spec['quality_label'] ?? $spec['quality'] ?? '')
-            );
+            $duration = self::explicitSpecDurationValue($spec);
             if ($duration > 0) {
                 $options[] = $duration;
             }
@@ -630,7 +632,7 @@ class AigcVideoChannelService
             if (!self::specMatchesPricingVariant($spec, $pricingVariant)) {
                 continue;
             }
-            $specDuration = self::normalizeDurationValue($spec['duration'] ?? '');
+            $specDuration = self::explicitSpecDurationValue($spec);
             if ($specDuration === $duration) {
                 return $spec;
             }
@@ -696,6 +698,36 @@ class AigcVideoChannelService
         return (int)($duration ? preg_replace('/\D+/', '', $duration) : 0);
     }
 
+    private static function explicitSpecDurationValue(array $spec): int
+    {
+        $providerParams = self::normalizeJson($spec['provider_params_json'] ?? []);
+        if (array_key_exists('duration', $providerParams)) {
+            return self::normalizeDurationValue($providerParams['duration']);
+        }
+        if (array_key_exists('duration', $spec)) {
+            return self::normalizeDurationValue($spec['duration']);
+        }
+        return self::normalizeExplicitDurationText($spec['quality'] ?? $spec['quality_label'] ?? '');
+    }
+
+    private static function normalizeExplicitDurationText($value): int
+    {
+        $raw = trim((string)$value);
+        if ($raw === '') {
+            return 0;
+        }
+        if (preg_match('/(\d+)\s*(?:s|秒)\b/i', $raw, $matched)) {
+            return (int)$matched[1];
+        }
+        if (preg_match('/_(\d+)(?:\D*)$/', $raw, $matched)) {
+            return (int)$matched[1];
+        }
+        if (preg_match('/^\d+$/', $raw)) {
+            return (int)$raw;
+        }
+        return 0;
+    }
+
     public static function normalizeQuantity($quantity): int
     {
         $quantity = (int)$quantity;
@@ -744,6 +776,11 @@ class AigcVideoChannelService
         $options = array_values(array_unique(array_filter(array_map('intval', (array)$options))));
         sort($options);
         return $options ?: [5];
+    }
+
+    private static function billingMultiplier(array $channel, int $duration): float
+    {
+        return (($channel['code'] ?? '') === 'happy_horse') ? max(1, $duration) : 1;
     }
 
     private static function assertPlatformChannel(string $code): array
@@ -891,6 +928,7 @@ class AigcVideoChannelService
 
     private static function formatPoints(float $points): string
     {
-        return number_format($points, 2, '.', '');
+        $value = rtrim(rtrim(number_format($points, 4, '.', ''), '0'), '.');
+        return $value === '' ? '0' : $value;
     }
 }

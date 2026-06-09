@@ -9,6 +9,7 @@ class AgreementService
     public const TYPE_COMMUNITY = 'community';
     public const TYPE_AI_USAGE = 'ai_usage';
     public const TYPE_PAID = 'paid';
+    public const TYPE_POINTS_RULE = 'points_rule';
 
     public const TYPES = [
         self::TYPE_SERVICE,
@@ -16,6 +17,7 @@ class AgreementService
         self::TYPE_COMMUNITY,
         self::TYPE_AI_USAGE,
         self::TYPE_PAID,
+        self::TYPE_POINTS_RULE,
     ];
 
     private const DEFAULTS = [
@@ -38,6 +40,10 @@ class AgreementService
         self::TYPE_PAID => [
             'title' => '付费用户协议',
             'content' => '<h2>1. 购买说明</h2><p>积分、会员或其他付费权益属于站内虚拟权益，支付完成后将按页面展示规则充值或开通至当前账号，仅可用于平台指定功能。</p><h2>2. 使用规则</h2><p>虚拟权益不可转赠、不可提现，也不可兑换现金或其他未明确支持的权益。请结合实际需求选择对应套餐或积分包。</p><h2>3. 有效期说明</h2><p>充值积分、赠送积分、会员权益等可能存在不同有效期，具体以购买页、订单页或活动页面展示为准。</p><h2>4. 扣费与消耗</h2><p>使用 AI 生图、生视频、数字人、智能工具等功能时，系统会按页面提示或套餐规则扣减相应积分、次数或权益。</p><h2>5. 退款说明</h2><p>虚拟权益一经充值、开通或消耗，通常不支持无理由退款。若因系统异常导致未到账或重复扣费，可联系平台客服核实处理。</p>',
+        ],
+        self::TYPE_POINTS_RULE => [
+            'title' => '积分规则',
+            'content' => '<h2>1. 积分用途</h2><p>积分可用于平台内已开通的 AI 生图、生视频、数字人、智能工具等功能，具体可用范围以页面展示为准。</p><h2>2. 扣费方式</h2><p>不同功能会根据模型、清晰度、比例、时长、数量、输入素材或 Token 用量等参数计算消耗。提交前页面展示的预计消耗仅供参考，实际扣费以任务完成后的记录为准。</p><h2>3. 失败与退回</h2><p>若任务因系统或上游服务异常失败，平台会按实际规则退回未消耗积分。因用户主动取消、素材违规或参数不符合要求导致的处理方式，以页面提示和平台规则为准。</p><h2>4. 有效期</h2><p>充值积分、赠送积分、活动积分可能存在不同有效期，到期后未使用部分将自动失效。请在积分明细或相关页面查看到账和到期记录。</p><h2>5. 规则调整</h2><p>平台可能根据模型成本、供应商规则或运营策略调整积分单价、套餐和权益说明，调整后的规则将在对应页面展示并按最新配置执行。</p>',
         ],
     ];
 

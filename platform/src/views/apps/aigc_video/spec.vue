@@ -55,18 +55,18 @@
                                 <div class="clear-spec-title">{{ row.duration }}</div>
                             </template>
                         </el-table-column>
-                        <el-table-column label="上游成本" width="190">
+                        <el-table-column :label="clearPricingCostLabel" width="190">
                             <template #default="{ row }">
-                                <span class="readonly-price">{{ formatPoint(row.upstream_unit_cost, 2) }} 点</span>
+                                <span class="readonly-price">{{ clearPricingPointText(row.upstream_unit_cost) }}</span>
                             </template>
                         </el-table-column>
-                        <el-table-column label="平台供给价" width="190">
+                        <el-table-column :label="clearPricingPlatformLabel" width="190">
                             <template #default="{ row }">
                                 <el-input-number
                                     :model-value="row.platform_unit_cost"
                                     :min="0"
-                                    :precision="2"
-                                    :step="0.01"
+                                    :precision="pricePrecision"
+                                    :step="priceStep"
                                     controls-position="right"
                                     class="!w-full"
                                     @change="(value) => setClearRowField(row, 'platform_unit_cost', value)"
@@ -115,8 +115,8 @@
                                             <el-input-number
                                                 v-model="matrixMap[`${duration}|${ratio}`].platform_unit_cost"
                                                 :min="0"
-                                                :precision="2"
-                                                :step="0.01"
+                                                :precision="pricePrecision"
+                                                :step="priceStep"
                                                 controls-position="right"
                                                 @change="markDirty(matrixMap[`${duration}|${ratio}`])"
                                             />
@@ -177,7 +177,7 @@
                     <el-input :model-value="`${formatPoint(formData.upstream_unit_cost, 2)} 点`" disabled />
                 </el-form-item>
                 <el-form-item label="平台供给价">
-                    <el-input-number v-model="formData.platform_unit_cost" :min="0" :precision="2" class="w-full" />
+                    <el-input-number v-model="formData.platform_unit_cost" :min="0" :precision="pricePrecision" :step="priceStep" class="w-full" />
                 </el-form-item>
                 <el-form-item label="成本说明">
                     <el-input v-model="formData.upstream_cost_text" placeholder="如：上游 5 秒固定价 / 次" />
@@ -334,6 +334,10 @@ const editableGroupSpecs = computed(() => useClearPricingTable.value ? clearPric
 const currentDisplayCount = computed(() => useClearPricingTable.value ? clearPricingRows.value.length : currentGroupSpecs.value.length)
 const clearPricingRatios = computed(() => uniqueRatios(clearPricingSourceSpecs.value.map((item: any) => item.ratio)))
 const clearPricingDimensionLabel = computed(() => isSeedanceChannel() ? '输入类型' : '时长')
+const clearPricingCostLabel = computed(() => isSeedanceChannel() ? '上游成本 / 百万Token' : '上游成本')
+const clearPricingPlatformLabel = computed(() => isSeedanceChannel() ? '平台供给价 / 百万Token' : '平台供给价')
+const pricePrecision = computed(() => String(activeChannelCode.value || '').toLowerCase() === 'happy_horse' ? 4 : 2)
+const priceStep = computed(() => pricePrecision.value === 4 ? 0.001 : 0.01)
 const clearPricingSummary = computed(() => {
     if (!useClearPricingTable.value || !clearPricingRatios.value.length) {
         return ''
@@ -583,9 +587,25 @@ function resolutionLabel(spec: any) {
 }
 
 function durationLabel(spec: any) {
-    const value = String(spec.provider_params_json?.duration || spec.quality_label || spec.quality || '')
-    const matched = value.match(/(?:^|_|\s)(\d+)(?:S|秒)?/i)
-    return matched ? `${Number(matched[1])}秒` : spec.quality_label || spec.quality
+    const duration = explicitDurationNumber(spec)
+    return duration > 0 ? `${duration}秒` : spec.quality_label || spec.quality
+}
+
+function explicitDurationNumber(spec: any) {
+    const fromParams = Number(spec?.provider_params_json?.duration || 0)
+    if (fromParams > 0) {
+        return fromParams
+    }
+    const value = String(spec?.quality || spec?.quality_label || '').trim()
+    const explicit = value.match(/(\d+)\s*(?:秒|s)\b/i)
+    if (explicit) {
+        return Number(explicit[1])
+    }
+    const underscored = value.match(/_(\d+)(?:\D*)$/)
+    if (underscored) {
+        return Number(underscored[1])
+    }
+    return /^\d+$/.test(value) ? Number(value) : 0
 }
 
 function uniqueSorted(values: string[]) {
@@ -609,7 +629,7 @@ function resolutionWeight(value: string) {
 }
 
 function toPrice(value: number) {
-    return Math.max(0, Number(value.toFixed(2)))
+    return Math.max(0, Number(value.toFixed(pricePrecision.value)))
 }
 
 function platformCostBase(row: any) {
@@ -630,6 +650,10 @@ function formatPoint(value: any, precision = 6) {
         return ''
     }
     return number.toFixed(precision).replace(/\.?0+$/, '')
+}
+
+function clearPricingPointText(value: any) {
+    return `${formatPoint(value, 2)} 点${isSeedanceChannel() ? ' / 百万Token' : ''}`
 }
 
 function upstreamPriceText(item: any) {
@@ -929,6 +953,7 @@ function firstLockedParam(skus: any[], key: string) {
 function displayRowFromSku(sku: any, source: any, locals: any[], index: number) {
     const points = skuPointValue(sku)
     const unitPoints = skuUnitPointValue(sku)
+    const millionTokenSku = isMillionTokenSku(sku)
     const title = sku.title || sku.sku_key || `SKU ${index + 1}`
     const row = {
         key: `sku-${sku.sku_key || index}`,
@@ -939,7 +964,7 @@ function displayRowFromSku(sku: any, source: any, locals: any[], index: number) 
         rulePreview: lockedParamsText(sku.locked_params || sku.locked_params_json),
         billingType: source.price_view?.billing_type_desc || '清晰计费 SKU',
         sourceName: source.pricing_source?.name || '-',
-        costText: unitPoints !== null && unitPoints !== points ? `${formatPoint(unitPoints)} 点 / 百万 Token` : '',
+        costText: millionTokenSku && unitPoints !== null ? `${formatPoint(unitPoints)} 点 / 百万 Token` : (unitPoints !== null && unitPoints !== points ? `${formatPoint(unitPoints)} 点 / 百万 Token` : ''),
         costSource: source.source_base_url || '-',
         marginMin: 0,
         locals,
@@ -998,12 +1023,7 @@ function skuDuration(sku: any) {
 }
 
 function specDuration(spec: any) {
-    const fromParams = Number(spec?.provider_params_json?.duration || 0)
-    if (fromParams > 0) {
-        return fromParams
-    }
-    const matched = String(spec?.quality_label || spec?.quality || '').match(/\d+/)
-    return matched ? Number(matched[0]) : 0
+    return explicitDurationNumber(spec)
 }
 
 function applyUpstreamCostFromPricing(local: any, pricing: any) {
@@ -1105,12 +1125,16 @@ function skuUnitPointValue(sku: any): number | null {
 }
 
 function skuPointText(sku: any, points: number) {
-    const unit = String(sku?.usage_unit || sku?.price?.unit || '').toLowerCase()
-    const unitSize = Number(sku?.usage_unit_size || sku?.price?.unit_size || 0)
-    if ((unit === 'token' || unit === 'tokens') && unitSize >= 1000000) {
+    if (isMillionTokenSku(sku)) {
         return `${formatPoint(points)} 点 / 百万 Token`
     }
     return `${formatPoint(points)} 点 / 次`
+}
+
+function isMillionTokenSku(sku: any) {
+    const unit = String(sku?.usage_unit || sku?.price?.unit || '').toLowerCase()
+    const unitSize = Number(sku?.usage_unit_size || sku?.price?.unit_size || 0)
+    return unit.includes('token') && unitSize >= 1000000
 }
 
 function numericPoint(values: any[]) {

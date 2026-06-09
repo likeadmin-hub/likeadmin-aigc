@@ -559,9 +559,31 @@ const getVideoSpecResolution = (spec: any) =>
     normalizeVideoResolution(spec?.resolution || spec?.provider_params_json?.resolution || spec?.provider_params_json?.quality || spec?.label || spec?.quality_label || spec?.value || spec?.quality)
 const getVideoSpecRatio = (spec: any) =>
     String(spec?.ratio || spec?.value || spec?.provider_params_json?.ratio || spec?.provider_params_json?.aspect_ratio || spec?.provider_params_json?.size || '').trim()
+const normalizeExplicitVideoDuration = (value: unknown) => {
+    const raw = String(value || '').trim()
+    if (!raw) return ''
+    const explicit = raw.match(/(\d+)\s*(?:S|秒)\b/i)
+    if (explicit) return `${Number(explicit[1])}秒`
+    const underscored = raw.match(/_(\d+)(?:\D*)$/)
+    const matched = underscored || raw.match(/^(\d+)$/)
+    return matched ? `${Number(matched[1])}秒` : ''
+}
 const getVideoSpecDuration = (spec: any) =>
-    normalizeVideoDuration(spec?.duration || spec?.provider_params_json?.duration || spec?.label || spec?.quality_label || spec?.quality)
+    normalizeExplicitVideoDuration(spec?.duration ?? spec?.provider_params_json?.duration ?? spec?.quality ?? spec?.quality_label)
 const getVideoSpecDurationValue = (spec: any) => durationValue(getVideoSpecDuration(spec))
+const normalizePricingVariant = (value: unknown) => String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '')
+const getVideoSpecPricingVariant = (spec: any) =>
+    normalizePricingVariant(spec?.provider_params_json?._pricing_variant || spec?.provider_params_json?.pricing_variant || '')
+const currentVideoPricingVariant = () => {
+    if (selectedVideoChannelCode.value !== 'seedance') return ''
+    return uploadedImageVideoReferenceAssets.value.some((asset) => asset.type === 'video') ? 'withvideo' : 'withoutvideo'
+}
+const videoSpecMatchesPricingVariant = (spec: any) => {
+    const variant = currentVideoPricingVariant()
+    if (!variant) return true
+    const specVariant = getVideoSpecPricingVariant(spec)
+    return !specVariant || specVariant === variant
+}
 const videoChannels = computed<ChannelOption[]>(() =>
     (aigcVideoOptionConfig.value.channels || []).map((channel: any) => {
         const durationOptions = normalizeNumberOptions(channel.duration_options || [])
@@ -612,7 +634,7 @@ const videoSpecsByResolutionAndRatio = computed(() => {
     return matched.length ? matched : videoSpecsByResolution.value
 })
 const supportedVideoDurationsBySpec = computed(() =>
-    Array.from(new Set(videoSpecsByResolutionAndRatio.value.map(getVideoSpecDuration).filter(Boolean)))
+    Array.from(new Set(videoSpecsByResolutionAndRatio.value.filter(videoSpecMatchesPricingVariant).map(getVideoSpecDuration).filter(Boolean)))
         .sort((a, b) => durationValue(a) - durationValue(b))
 )
 const videoDurations = computed(() => {
@@ -638,7 +660,10 @@ const videoRatios = computed<RatioOption[]>(() => {
     }
     const duration = durationValue(optionState.value.duration)
     const matchedSpecs = duration > 0
-        ? videoSpecsByResolution.value.filter((spec: any) => getVideoSpecDurationValue(spec) === duration)
+        ? videoSpecsByResolution.value.filter((spec: any) => {
+            const specDuration = getVideoSpecDurationValue(spec)
+            return videoSpecMatchesPricingVariant(spec) && (specDuration === duration || specDuration <= 0)
+        })
         : videoSpecsByResolution.value
     const ratioSpecs = matchedSpecs.length ? matchedSpecs : videoSpecsByResolution.value
     const ratioValues = new Set(ratioSpecs.map(getVideoSpecRatio).filter(Boolean))
@@ -660,7 +685,8 @@ const currentVideoSpec = computed(() => {
     return currentVideoChannelSpecs.value.find((spec: any) =>
         getVideoSpecRatio(spec) === String(optionState.value.ratio)
         && String(getVideoSpecResolution(spec) || '默认') === String(currentVideoQuality.value?.resolution || '默认')
-        && getVideoSpecDurationValue(spec) === duration
+        && videoSpecMatchesPricingVariant(spec)
+        && (getVideoSpecDurationValue(spec) === duration || getVideoSpecDurationValue(spec) <= 0)
     )
 })
 const selectedVideoUnitPrice = computed(() => Number(currentVideoSpec.value?.tenant_unit_price || currentVideoRatio.value?.tenant_unit_price || 0).toString())
@@ -718,7 +744,7 @@ const optionValues = computed<AiCreateOptionValues>(() => (
 const unitPriceLabel = computed(() => (
     generationMode.value === 'image'
         ? `${selectedUnitPrice.value}/张`
-        : `${selectedVideoUnitPrice.value}/条`
+        : `${selectedVideoUnitPrice.value}${selectedVideoChannelCode.value === 'seedance' ? '/百万Token' : selectedVideoChannelCode.value === 'happy_horse' ? '/秒' : '/条'}`
 ))
 const generationFilterOptions = [
     { label: '全部', value: 'all' as const },
@@ -1402,6 +1428,20 @@ const mapBackendVideoWork = (item: any, index: number): BackendWork => {
     }
 }
 
+const digitalHumanChannelDisplayName = (value: unknown, isImageHuman = false) => {
+    const raw = String(value || '').trim()
+    const names: Record<string, string> = {
+        master: '大师版',
+        all: '通用版',
+        free: '体验版',
+        image_human: '全驱动数字人'
+    }
+    if (!raw) return ''
+    if (names[raw]) return names[raw]
+    if (/^[a-z0-9_-]+$/i.test(raw)) return isImageHuman ? '全驱动数字人' : ''
+    return raw.length <= 16 ? raw : ''
+}
+
 const mapDigitalHumanWork = (item: any, index: number, appCode: 'aigc_digital_human' | 'image_human' = 'aigc_digital_human'): BackendWork => {
     const rawId = String(item.task_id || item.id || index)
     const backendStatus = normalizeBackendStatus(item.status)
@@ -1414,7 +1454,7 @@ const mapDigitalHumanWork = (item: any, index: number, appCode: 'aigc_digital_hu
         id: `${isImageHuman ? 'image-human' : 'digital-human'}-${rawId}`,
         prompt: item.script_text || item.prompt || item.title || '',
         mode: 'video',
-        model: item.avatar_name || item.voice_name || item.channel || item.model || (isImageHuman ? '全驱动数字人' : '数字人合成'),
+        model: item.channel_name || item.channel_label || digitalHumanChannelDisplayName(item.channel || item.model, isImageHuman) || item.avatar_name || item.voice_name || (isImageHuman ? '全驱动数字人' : '数字人合成'),
         count: '1条',
         ratio: item.ratio || '16:9',
         resolution: item.quality || '高清',

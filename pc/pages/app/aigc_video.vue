@@ -377,7 +377,10 @@ const ratios = computed<RatioOption[]>(() => {
     if (!currentChannelHasDynamicDuration.value || !currentChannelSpecs.value.length) return qualityRatios
     const duration = Number(form.duration || 0)
     const matchedSpecs = duration > 0
-        ? specsByResolution.value.filter((spec: any) => getVideoSpecDurationValue(spec) === duration)
+        ? specsByResolution.value.filter((spec: any) => {
+            const specDuration = getVideoSpecDurationValue(spec)
+            return specMatchesPricingVariant(spec) && (specDuration === duration || specDuration <= 0)
+        })
         : specsByResolution.value
     const ratioSpecs = matchedSpecs.length ? matchedSpecs : specsByResolution.value
     const ratioValues = new Set(ratioSpecs.map(getVideoSpecRatio).filter(Boolean))
@@ -402,7 +405,8 @@ const currentSpec = computed(() => {
     return currentChannelSpecs.value.find((spec: any) =>
         getVideoSpecRatio(spec) === form.ratio
         && getVideoSpecResolution(spec) === currentQualityResolution.value
-        && getVideoSpecDurationValue(spec) === Number(form.duration || 0)
+        && specMatchesPricingVariant(spec)
+        && (getVideoSpecDurationValue(spec) === Number(form.duration || 0) || getVideoSpecDurationValue(spec) <= 0)
     )
 })
 const supportedAssetTypes = computed<ReferenceAssetType[]>(() => currentChannel.value?.supported_asset_types?.length ? currentChannel.value.supported_asset_types : ['image'])
@@ -410,7 +414,7 @@ const hasVideoReference = computed(() => referenceAssets.value.some((item) => it
 const durations = computed(() => {
     const channel = currentChannel.value
     if (currentChannelHasDynamicDuration.value && currentChannelSpecs.value.length) {
-        const specDurations = Array.from(new Set(specsByResolutionAndRatio.value.map(getVideoSpecDurationValue).filter(Boolean))).sort((a, b) => a - b)
+        const specDurations = Array.from(new Set(specsByResolutionAndRatio.value.filter(specMatchesPricingVariant).map(getVideoSpecDurationValue).filter(Boolean))).sort((a, b) => a - b)
         if (specDurations.length) return specDurations
     }
     const options = hasVideoReference.value && channel?.videoedit_duration_options?.length
@@ -451,8 +455,30 @@ const getVideoSpecResolution = (spec: any) =>
     normalizeVideoResolution(spec?.resolution || spec?.provider_params_json?.resolution || spec?.provider_params_json?.quality || spec?.label || spec?.quality_label || spec?.value || spec?.quality)
 const getVideoSpecRatio = (spec: any) =>
     String(spec?.ratio || spec?.value || spec?.provider_params_json?.ratio || spec?.provider_params_json?.aspect_ratio || spec?.provider_params_json?.size || '').trim()
+const normalizeExplicitDurationLabel = (value: unknown) => {
+    const raw = String(value || '').trim()
+    if (!raw) return ''
+    const explicit = raw.match(/(\d+)\s*(?:S|秒)\b/i)
+    if (explicit) return `${Number(explicit[1])}秒`
+    const underscored = raw.match(/_(\d+)(?:\D*)$/)
+    const matched = underscored || raw.match(/^(\d+)$/)
+    return matched ? `${Number(matched[1])}秒` : ''
+}
 const getVideoSpecDurationValue = (spec: any) =>
-    durationValue(spec?.duration || spec?.provider_params_json?.duration || spec?.label || spec?.quality_label || spec?.quality)
+    durationValue(normalizeExplicitDurationLabel(spec?.duration ?? spec?.provider_params_json?.duration ?? spec?.quality ?? spec?.quality_label))
+const normalizePricingVariant = (value: unknown) => String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '')
+const getVideoSpecPricingVariant = (spec: any) =>
+    normalizePricingVariant(spec?.provider_params_json?._pricing_variant || spec?.provider_params_json?.pricing_variant || '')
+const currentPricingVariant = () => {
+    if (form.channel !== 'seedance') return ''
+    return referenceAssets.value.some((item) => item.type === 'video') ? 'withvideo' : 'withoutvideo'
+}
+const specMatchesPricingVariant = (spec: any) => {
+    const variant = currentPricingVariant()
+    if (!variant) return true
+    const specVariant = getVideoSpecPricingVariant(spec)
+    return !specVariant || specVariant === variant
+}
 const getRequestErrorMessage = (error: any, fallback: string) => {
     if (typeof error === 'string' && error.trim()) return error
     return error?.msg || error?.message || fallback

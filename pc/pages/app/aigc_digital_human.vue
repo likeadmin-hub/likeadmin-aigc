@@ -466,7 +466,7 @@ const emotionOptions: EmotionOption[] = [
 
 const channels = computed(() =>
     (optionConfig.value.channels || []).map((channel: any) => ({
-        label: channel.label || channel.description || '数字人视频模型',
+        label: channel.name || channel.label || channel.description || '数字人视频模型',
         value: channel.value || channel.code,
         description: channel.description || channel.label || '数字人视频模型',
         tenant_unit_price: channel.tenant_unit_price,

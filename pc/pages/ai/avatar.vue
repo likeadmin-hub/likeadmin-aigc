@@ -2096,7 +2096,7 @@ const digitalHumanChannels = computed(() =>
     (digitalHumanConfig.value.channels || []).map((channel: any) => ({
         value: String(channel.value || channel.code || ''),
         name: String(channel.name || channel.description || channel.label || '数字人模型'),
-        label: String(channel.label || channel.description || channel.name || '数字人模型'),
+        label: String(channel.name || channel.label || channel.description || '数字人模型'),
         description: String(channel.description || channel.label || channel.name || '标准数字人视频模型'),
         tenantUnitPrice: channel.tenant_unit_price,
         tenant_unit_price: channel.tenant_unit_price,
