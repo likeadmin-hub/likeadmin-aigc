@@ -4,6 +4,7 @@ namespace app\common\service\app\smart_clip;
 
 use app\common\model\app\smart_clip\SmartClipChannel;
 use app\common\model\app\smart_clip\SmartClipChannelSpec;
+use app\common\service\app\ChannelSpecPricingSchemaService;
 use Exception;
 use think\facade\Db;
 
@@ -68,6 +69,7 @@ class SmartClipChannelService
 
     public static function platformLists(): array
     {
+        self::ensurePricingSchema();
         $channels = SmartClipChannel::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
         $specs = SmartClipChannelSpec::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
         $grouped = [];
@@ -109,6 +111,7 @@ class SmartClipChannelService
 
     public static function savePlatformSpec(array $params): void
     {
+        self::ensurePricingSchema();
         $channelCode = self::normalizeCode((string)($params['channel_code'] ?? $params['code'] ?? ''));
         self::assertPlatformChannel($channelCode);
         $unitSeconds = max(1, (int)($params['unit_seconds'] ?? $params['quality'] ?? self::DEFAULT_UNIT_SECONDS));
@@ -250,6 +253,7 @@ class SmartClipChannelService
 
     private static function effectiveChannels(int $tenantId, bool $onlyEnabled): array
     {
+        self::ensurePricingSchema();
         $platformChannels = SmartClipChannel::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
         $tenantChannels = $tenantId > 0 ? SmartClipChannel::where('tenant_id', $tenantId)->select()->toArray() : [];
         $tenantChannelMap = array_column($tenantChannels, null, 'code');
@@ -418,6 +422,11 @@ class SmartClipChannelService
     {
         $params = self::normalizeJson($spec['provider_params_json'] ?? []);
         return max(1, (int)($params['unit_seconds'] ?? $spec['quality'] ?? self::DEFAULT_UNIT_SECONDS));
+    }
+
+    private static function ensurePricingSchema(): void
+    {
+        ChannelSpecPricingSchemaService::ensure('smart_clip_channel_spec', '每单位上游成本');
     }
 
     private static function formatPoints(float $points): string

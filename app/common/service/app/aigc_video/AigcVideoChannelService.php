@@ -4,6 +4,7 @@ namespace app\common\service\app\aigc_video;
 
 use app\common\model\app\aigc_video\AigcVideoChannel;
 use app\common\model\app\aigc_video\AigcVideoChannelSpec;
+use app\common\service\app\ChannelSpecPricingSchemaService;
 use Exception;
 use think\facade\Db;
 
@@ -30,8 +31,12 @@ class AigcVideoChannelService
         $resolved = self::resolveSelection($tenantId, $params);
         $quantity = self::normalizeQuantity($params['quantity'] ?? 1);
         self::assertChannelQuantity($resolved['channel'], $quantity);
-        $tenantCost = self::formatPoints((float)$resolved['spec']['platform_unit_cost'] * $quantity);
-        $userCharge = self::formatPoints((float)$resolved['spec']['tenant_unit_price'] * $quantity);
+        $duration = self::normalizeGenerateDuration($resolved['channel'], AigcVideoReferenceAssetService::normalize($params), $params['duration'] ?? null);
+        $billingMultiplier = self::billingMultiplier($resolved['channel'], $duration);
+        $platformUnitCost = (float)$resolved['spec']['platform_unit_cost'] * $billingMultiplier;
+        $tenantUnitPrice = (float)$resolved['spec']['tenant_unit_price'] * $billingMultiplier;
+        $tenantCost = self::formatPoints($platformUnitCost * $quantity);
+        $userCharge = self::formatPoints($tenantUnitPrice * $quantity);
         return [
             'channel' => $resolved['channel']['code'],
             'channel_name' => $resolved['channel']['name'],
@@ -41,9 +46,9 @@ class AigcVideoChannelService
             'width' => (int)$resolved['spec']['width'],
             'height' => (int)$resolved['spec']['height'],
             'quantity' => $quantity,
-            'duration' => self::normalizeGenerateDuration($resolved['channel'], AigcVideoReferenceAssetService::normalize($params), $params['duration'] ?? null),
-            'platform_unit_cost' => self::formatPoints((float)$resolved['spec']['platform_unit_cost']),
-            'tenant_unit_price' => self::formatPoints((float)$resolved['spec']['tenant_unit_price']),
+            'duration' => $duration,
+            'platform_unit_cost' => self::formatPoints($platformUnitCost),
+            'tenant_unit_price' => self::formatPoints($tenantUnitPrice),
             'tenant_cost_points' => $tenantCost,
             'user_charge_points' => $userCharge,
         ];
@@ -59,11 +64,13 @@ class AigcVideoChannelService
         $channelCode = (string)($params['channel'] ?? $defaults['channel']);
         $quality = (string)($params['quality'] ?? $defaults['quality']);
         $ratio = (string)($params['ratio'] ?? $defaults['ratio']);
+        $pricingVariant = '';
 
         foreach ($channels as $channel) {
             if ($channel['code'] !== $channelCode) {
                 continue;
             }
+            $pricingVariant = self::pricingVariantFromParams($channel['code'], $params);
             foreach ($channel['qualities'] as $qualityItem) {
                 if (!self::qualityMatches($qualityItem, $quality)) {
                     continue;
@@ -71,7 +78,7 @@ class AigcVideoChannelService
                 foreach ($qualityItem['ratios'] as $ratioItem) {
                     if ($ratioItem['value'] === $ratio) {
                         $duration = self::normalizeDurationValue($params['duration'] ?? $defaults['duration'] ?? 0);
-                        $matchedSpec = self::matchSpecForDuration($channel, $qualityItem, $ratio, $duration);
+                        $matchedSpec = self::matchSpecForDuration($channel, $qualityItem, $ratio, $duration, $pricingVariant);
                         if (!empty($matchedSpec)) {
                             return [
                                 'channel' => $channel,
@@ -93,6 +100,7 @@ class AigcVideoChannelService
 
     public static function platformLists(): array
     {
+        self::ensurePricingSchema();
         $channels = AigcVideoChannel::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
         $specs = AigcVideoChannelSpec::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
         $grouped = [];
@@ -133,12 +141,19 @@ class AigcVideoChannelService
 
     public static function savePlatformSpec(array $params): void
     {
+        self::ensurePricingSchema();
         $channelCode = self::normalizeCode((string)($params['channel_code'] ?? $params['code'] ?? ''));
         self::assertPlatformChannel($channelCode);
         $quality = strtolower(trim((string)($params['quality'] ?? '')));
         $ratio = trim((string)($params['ratio'] ?? ''));
         if ($quality === '' || $ratio === '') {
             throw new Exception('请选择视频时长和比例');
+        }
+        $upstreamUnitCost = array_key_exists('upstream_unit_cost', $params)
+            ? (float)$params['upstream_unit_cost']
+            : (float)self::currentPlatformSpecValue($channelCode, $quality, $ratio, 'upstream_unit_cost', 0);
+        if ($upstreamUnitCost < 0) {
+            throw new Exception('上游成本不能小于0');
         }
         $data = [
             'tenant_id' => 0,
@@ -148,7 +163,7 @@ class AigcVideoChannelService
             'ratio' => $ratio,
             'width' => max(0, (int)($params['width'] ?? 0)),
             'height' => max(0, (int)($params['height'] ?? 0)),
-            'upstream_unit_cost' => self::formatPoints((float)self::currentPlatformSpecValue($channelCode, $quality, $ratio, 'upstream_unit_cost', 0)),
+            'upstream_unit_cost' => self::formatPoints($upstreamUnitCost),
             'platform_unit_cost' => self::formatPoints((float)($params['platform_unit_cost'] ?? 0)),
             'tenant_unit_price' => self::formatPoints((float)($params['tenant_unit_price'] ?? $params['platform_unit_cost'] ?? 0)),
             'upstream_cost_text' => trim((string)($params['upstream_cost_text'] ?? '')),
@@ -301,6 +316,7 @@ class AigcVideoChannelService
 
     private static function effectiveChannels(int $tenantId, bool $onlyEnabled): array
     {
+        self::ensurePricingSchema();
         $platformChannels = AigcVideoChannel::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
         $tenantChannels = $tenantId > 0 ? AigcVideoChannel::where('tenant_id', $tenantId)->select()->toArray() : [];
         $tenantChannelMap = array_column($tenantChannels, null, 'code');
@@ -326,7 +342,10 @@ class AigcVideoChannelService
             }
             $config = self::normalizeJson($platformChannel['config_json'] ?? []);
             $channelSpecRows = $specsByChannel[$platformChannel['code']] ?? [];
-            $dynamicDuration = !empty(self::durationOptionsFromSpecs($channelSpecRows));
+            $specDurationOptions = self::durationOptionsFromSpecs($channelSpecRows);
+            $configDurationOptions = self::channelDurationOptions($config);
+            $durationOptions = !empty($specDurationOptions) ? $specDurationOptions : $configDurationOptions;
+            $dynamicDuration = !empty($durationOptions);
             $channel = [
                 'id' => (int)$platformChannel['id'],
                 'tenant_override_id' => (int)($override['id'] ?? 0),
@@ -408,7 +427,7 @@ class AigcVideoChannelService
                     $channel['qualities'][$qualityKey]['ratios'][] = $spec;
                 }
             }
-            $channel['duration_options'] = self::durationOptionsFromSpecs($channel['specs']);
+            $channel['duration_options'] = $durationOptions;
             if (!empty($channel['videoedit_duration_options'])) {
                 $channel['videoedit_duration_options'] = array_values(array_intersect(
                     self::channelVideoEditDurationOptions($config),
@@ -425,6 +444,7 @@ class AigcVideoChannelService
 
     private static function updatePlatformSpecPatch(array $params): void
     {
+        self::ensurePricingSchema();
         $channelCode = self::normalizeCode((string)($params['channel_code'] ?? $params['code'] ?? ''));
         self::assertPlatformChannel($channelCode);
         $quality = strtolower(trim((string)($params['quality'] ?? '')));
@@ -448,7 +468,7 @@ class AigcVideoChannelService
             }
             $data['platform_unit_cost'] = self::formatPoints((float)$params['platform_unit_cost']);
         }
-        if (array_key_exists('upstream_unit_cost', $params) && !empty($params['upstream_cost_from_pricing'])) {
+        if (array_key_exists('upstream_unit_cost', $params)) {
             if ((float)$params['upstream_unit_cost'] < 0) {
                 throw new Exception('上游成本不能小于0');
             }
@@ -571,13 +591,21 @@ class AigcVideoChannelService
         return [];
     }
 
+    private static function channelDurationOptions(array $config): array
+    {
+        if (!empty($config['duration_options']) && is_array($config['duration_options'])) {
+            $options = array_values(array_unique(array_filter(array_map('intval', $config['duration_options']))));
+            sort($options);
+            return $options;
+        }
+        return [];
+    }
+
     private static function durationOptionsFromSpecs(array $specs): array
     {
         $options = [];
         foreach ($specs as $spec) {
-            $duration = self::normalizeDurationValue(
-                $spec['duration'] ?? ($spec['provider_params_json']['duration'] ?? $spec['quality_label'] ?? $spec['quality'] ?? '')
-            );
+            $duration = self::explicitSpecDurationValue($spec);
             if ($duration > 0) {
                 $options[] = $duration;
             }
@@ -587,12 +615,13 @@ class AigcVideoChannelService
         return $options;
     }
 
-    private static function matchSpecForDuration(array $channel, array $qualityItem, string $ratio, int $duration): array
+    private static function matchSpecForDuration(array $channel, array $qualityItem, string $ratio, int $duration, string $pricingVariant = ''): array
     {
         if (empty($channel['duration_options']) || $duration <= 0) {
             return [];
         }
         $resolution = self::normalizeResolution($qualityItem['resolution'] ?? $qualityItem['value'] ?? '');
+        $fallbackSpec = [];
         foreach ($channel['specs'] as $spec) {
             if (($spec['ratio'] ?? '') !== $ratio) {
                 continue;
@@ -600,11 +629,48 @@ class AigcVideoChannelService
             if (self::normalizeResolution($spec['resolution'] ?? '') !== $resolution) {
                 continue;
             }
-            if (self::normalizeDurationValue($spec['duration'] ?? '') === $duration) {
+            if (!self::specMatchesPricingVariant($spec, $pricingVariant)) {
+                continue;
+            }
+            $specDuration = self::explicitSpecDurationValue($spec);
+            if ($specDuration === $duration) {
                 return $spec;
             }
+            if ($specDuration <= 0 && empty($fallbackSpec)) {
+                $fallbackSpec = $spec;
+            }
+        }
+        if (!empty($fallbackSpec)) {
+            return $fallbackSpec;
         }
         throw new Exception('当前通道不支持所选时长');
+    }
+
+    private static function pricingVariantFromParams(string $channelCode, array $params): string
+    {
+        if ($channelCode !== 'seedance') {
+            return '';
+        }
+        $explicit = strtolower(trim((string)($params['_pricing_variant'] ?? $params['pricing_variant'] ?? '')));
+        if (in_array($explicit, ['with_video', 'without_video'], true)) {
+            return $explicit;
+        }
+        foreach (AigcVideoReferenceAssetService::normalize($params) as $asset) {
+            if (($asset['type'] ?? '') === 'video') {
+                return 'with_video';
+            }
+        }
+        return 'without_video';
+    }
+
+    private static function specMatchesPricingVariant(array $spec, string $pricingVariant): bool
+    {
+        if ($pricingVariant === '') {
+            return true;
+        }
+        $params = self::normalizeJson($spec['provider_params_json'] ?? []);
+        $specVariant = strtolower(trim((string)($params['_pricing_variant'] ?? $params['pricing_variant'] ?? '')));
+        return $specVariant === '' || $specVariant === $pricingVariant;
     }
 
     private static function qualityMatches(array $qualityItem, string $quality): bool
@@ -630,6 +696,36 @@ class AigcVideoChannelService
         }
         $duration = self::normalizeDuration($value);
         return (int)($duration ? preg_replace('/\D+/', '', $duration) : 0);
+    }
+
+    private static function explicitSpecDurationValue(array $spec): int
+    {
+        $providerParams = self::normalizeJson($spec['provider_params_json'] ?? []);
+        if (array_key_exists('duration', $providerParams)) {
+            return self::normalizeDurationValue($providerParams['duration']);
+        }
+        if (array_key_exists('duration', $spec)) {
+            return self::normalizeDurationValue($spec['duration']);
+        }
+        return self::normalizeExplicitDurationText($spec['quality'] ?? $spec['quality_label'] ?? '');
+    }
+
+    private static function normalizeExplicitDurationText($value): int
+    {
+        $raw = trim((string)$value);
+        if ($raw === '') {
+            return 0;
+        }
+        if (preg_match('/(\d+)\s*(?:s|秒)\b/i', $raw, $matched)) {
+            return (int)$matched[1];
+        }
+        if (preg_match('/_(\d+)(?:\D*)$/', $raw, $matched)) {
+            return (int)$matched[1];
+        }
+        if (preg_match('/^\d+$/', $raw)) {
+            return (int)$raw;
+        }
+        return 0;
     }
 
     public static function normalizeQuantity($quantity): int
@@ -680,6 +776,11 @@ class AigcVideoChannelService
         $options = array_values(array_unique(array_filter(array_map('intval', (array)$options))));
         sort($options);
         return $options ?: [5];
+    }
+
+    private static function billingMultiplier(array $channel, int $duration): float
+    {
+        return (($channel['code'] ?? '') === 'happy_horse') ? max(1, $duration) : 1;
     }
 
     private static function assertPlatformChannel(string $code): array
@@ -787,7 +888,9 @@ class AigcVideoChannelService
     private static function normalizeDuration($value): string
     {
         $raw = trim((string)$value);
-        if (preg_match('/(?:^|_|\s|·)(\d+)(?:\s*S|秒)?/i', $raw, $matches)) {
+        if (preg_match('/(?:^|_|\s|·)(\d+)\s*(?:S|秒)(?:$|[^\w])/i', $raw, $matches)
+            || preg_match('/(?:^|_|\s|·)(\d+)(?:$|_|\s|·)/i', $raw, $matches)
+        ) {
             return ((int)$matches[1]) . '秒';
         }
         return '';
@@ -818,8 +921,14 @@ class AigcVideoChannelService
         return $spec['channel_code'] . '|' . $spec['quality'] . '|' . $spec['ratio'];
     }
 
+    private static function ensurePricingSchema(): void
+    {
+        ChannelSpecPricingSchemaService::ensure('aigc_video_channel_spec');
+    }
+
     private static function formatPoints(float $points): string
     {
-        return number_format($points, 2, '.', '');
+        $value = rtrim(rtrim(number_format($points, 4, '.', ''), '0'), '.');
+        return $value === '' ? '0' : $value;
     }
 }
