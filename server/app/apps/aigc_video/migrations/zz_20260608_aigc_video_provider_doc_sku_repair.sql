@@ -1,5 +1,5 @@
 UPDATE `la_aigc_video_channel`
-SET `config_json` = JSON_SET(
+SET `config_json` = JSON_INSERT(
         COALESCE(NULLIF(`config_json`, ''), '{}'),
         '$.quantity_options', JSON_ARRAY(1),
         '$.duration_options',
@@ -55,13 +55,13 @@ CROSS JOIN (
 ) AS duration
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=VALUES(`quality_label`),
-    `width`=VALUES(`width`),
-    `height`=VALUES(`height`),
-    `provider_params_json`=VALUES(`provider_params_json`),
-    `status`=VALUES(`status`),
-    `sort`=VALUES(`sort`),
-    `update_time`=VALUES(`update_time`);
+    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
+    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
+    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
+    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
+    `status`=`status`,
+    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
+    `update_time`=`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT
@@ -109,13 +109,13 @@ CROSS JOIN (
 ) AS duration
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=VALUES(`quality_label`),
-    `width`=VALUES(`width`),
-    `height`=VALUES(`height`),
-    `provider_params_json`=VALUES(`provider_params_json`),
-    `status`=VALUES(`status`),
-    `sort`=VALUES(`sort`),
-    `update_time`=VALUES(`update_time`);
+    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
+    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
+    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
+    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
+    `status`=`status`,
+    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
+    `update_time`=`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT
@@ -153,10 +153,10 @@ CROSS JOIN (
 ) AS duration
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=VALUES(`quality_label`),
-    `width`=VALUES(`width`),
-    `height`=VALUES(`height`),
-    `provider_params_json`=VALUES(`provider_params_json`),
-    `status`=VALUES(`status`),
-    `sort`=VALUES(`sort`),
-    `update_time`=VALUES(`update_time`);
+    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
+    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
+    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
+    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
+    `status`=`status`,
+    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
+    `update_time`=`update_time`;

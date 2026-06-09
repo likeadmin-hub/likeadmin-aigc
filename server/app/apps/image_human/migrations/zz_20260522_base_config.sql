@@ -8,7 +8,7 @@ SET @image_human_config_exists = (
 SET @image_human_sql = IF(
   @image_human_config_exists > 0,
   'UPDATE `la_image_human_config`
-SET `config_json` = JSON_SET(
+SET `config_json` = JSON_INSERT(
   COALESCE(NULLIF(`config_json`, ''''), ''{}''),
   ''$.base_config'',
   COALESCE(JSON_EXTRACT(`config_json`, ''$.base_config''), JSON_OBJECT(''script_max_length'', 200, ''prompt_max_length'', 200))
@@ -24,7 +24,7 @@ DEALLOCATE PREPARE image_human_stmt;
 SET @image_human_sql = IF(
   @image_human_config_exists > 0,
   'UPDATE `la_image_human_config`
-SET `config_json` = JSON_SET(
+SET `config_json` = JSON_INSERT(
   COALESCE(NULLIF(`config_json`, ''''), ''{}''),
   ''$.base_config.script_max_length'',
   COALESCE(JSON_EXTRACT(`config_json`, ''$.base_config.script_max_length''), JSON_EXTRACT(`config_json`, ''$.base_config.prompt_max_length''), 200),

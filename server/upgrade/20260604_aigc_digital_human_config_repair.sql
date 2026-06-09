@@ -103,7 +103,7 @@ VALUES
 (0,'master','大师版','xhadmin','xiaojiayu1.0',1,'{"tts_model":"s2-pro","tts_format":"mp3","lipsync_model":"xiaojiayu1.0"}',1,300,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'all','全能版','xhadmin','xiaojiayu1.0',1,'{"tts_model":"s2-pro","tts_format":"mp3","lipsync_model":"xiaojiayu1.0"}',1,200,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'free','体验版','xhadmin','xiaojiayu1.0',1,'{"tts_model":"s2-pro","tts_format":"mp3","lipsync_model":"xiaojiayu1.0"}',1,100,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
-ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`provider`=VALUES(`provider`),`model`=VALUES(`model`),`max_reference_images`=VALUES(`max_reference_images`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
+ON DUPLICATE KEY UPDATE `name`=IF(`name` IS NULL OR `name` = '', VALUES(`name`), `name`),`provider`=IF(`provider` IS NULL OR `provider` = '', VALUES(`provider`), `provider`),`model`=IF(`model` IS NULL OR `model` = '', VALUES(`model`), `model`),`max_reference_images`=IF(`max_reference_images` <= 0, VALUES(`max_reference_images`), `max_reference_images`),`status`=`status`,`sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),`update_time`=`update_time`;
 
 INSERT INTO `la_aigc_digital_human_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`billing_unit`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 VALUES
@@ -120,4 +120,4 @@ VALUES
 (0,'free','1k','普通1K','16:9',1024,576,0.20,0.30,'second','{}',1,500,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'free','1k','普通1K','9:16',576,1024,0.20,0.30,'second','{}',1,490,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'free','1k','普通1K','1:1',1024,1024,0.20,0.30,'second','{}',1,480,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
-ON DUPLICATE KEY UPDATE `quality_label`=VALUES(`quality_label`),`width`=VALUES(`width`),`height`=VALUES(`height`),`platform_unit_cost`=VALUES(`platform_unit_cost`),`tenant_unit_price`=VALUES(`tenant_unit_price`),`billing_unit`=VALUES(`billing_unit`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
+ON DUPLICATE KEY UPDATE `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),`width`=IF(`width` <= 0, VALUES(`width`), `width`),`height`=IF(`height` <= 0, VALUES(`height`), `height`),`platform_unit_cost`=IF(`platform_unit_cost` <= 0, VALUES(`platform_unit_cost`), `platform_unit_cost`),`tenant_unit_price`=IF(`tenant_unit_price` <= 0, VALUES(`tenant_unit_price`), `tenant_unit_price`),`billing_unit`=IF(`billing_unit` IS NULL OR `billing_unit` = '', VALUES(`billing_unit`), `billing_unit`),`status`=`status`,`sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),`update_time`=`update_time`;

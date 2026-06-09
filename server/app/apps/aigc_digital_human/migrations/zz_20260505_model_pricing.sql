@@ -30,7 +30,7 @@ SELECT
 FROM `la_aigc_digital_human_channel`
 WHERE `tenant_id` = 0
 ON DUPLICATE KEY UPDATE
-`config_json` = JSON_SET(
+`config_json` = JSON_INSERT(
   COALESCE(NULLIF(`config_json`, ''), '{}'),
   '$.pricing.generate_models',
   COALESCE(

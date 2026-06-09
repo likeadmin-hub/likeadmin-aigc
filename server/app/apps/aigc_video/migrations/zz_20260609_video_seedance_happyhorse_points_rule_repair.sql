@@ -21,7 +21,7 @@ EXECUTE video_stmt;
 DEALLOCATE PREPARE video_stmt;
 
 UPDATE `la_aigc_video_channel`
-SET `config_json` = JSON_SET(
+SET `config_json` = JSON_INSERT(
         COALESCE(NULLIF(`config_json`, ''), '{}'),
         '$.duration_options', JSON_ARRAY(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
         '$.quantity_options', JSON_ARRAY(1),
@@ -33,7 +33,7 @@ SET `config_json` = JSON_SET(
 WHERE `tenant_id` = 0 AND `code` = 'seedance';
 
 UPDATE `la_aigc_video_channel`
-SET `config_json` = JSON_SET(
+SET `config_json` = JSON_INSERT(
         COALESCE(NULLIF(`config_json`, ''), '{}'),
         '$.duration_options', JSON_ARRAY(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
         '$.videoedit_duration_options', JSON_ARRAY(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
@@ -57,18 +57,16 @@ JOIN (
     FROM `la_aigc_video_channel_spec` AS x
     WHERE x.`channel_code` = 'happy_horse'
 ) AS p ON p.`id` = s.`id`
-SET s.`upstream_unit_cost` = p.`second_rate`,
+SET s.`upstream_unit_cost` = IF(s.`upstream_unit_cost` <= 0, p.`second_rate`, s.`upstream_unit_cost`),
     s.`platform_unit_cost` = CASE
-        WHEN s.`tenant_id` = 0 THEN p.`second_rate`
         WHEN p.`duration` > 0 AND s.`platform_unit_cost` > p.`second_rate` * 1.5 THEN ROUND(s.`platform_unit_cost` / p.`duration`, 4)
         WHEN s.`platform_unit_cost` <= 0 THEN p.`second_rate`
         ELSE s.`platform_unit_cost`
     END,
     s.`tenant_unit_price` = CASE
-        WHEN s.`tenant_id` = 0 THEN p.`second_rate`
         WHEN p.`duration` > 0 AND s.`tenant_unit_price` > p.`second_rate` * 1.5 THEN ROUND(s.`tenant_unit_price` / p.`duration`, 4)
         WHEN s.`tenant_unit_price` <= 0 THEN p.`second_rate`
         ELSE s.`tenant_unit_price`
     END,
-    s.`upstream_cost_text` = CONCAT(COALESCE(NULLIF(p.`resolution`, ''), '720P'), ' 上游秒单价，点 / 秒'),
+    s.`upstream_cost_text` = IF(s.`upstream_cost_text` IS NULL OR s.`upstream_cost_text` = '', CONCAT(COALESCE(NULLIF(p.`resolution`, ''), '720P'), ' 上游秒单价，点 / 秒'), s.`upstream_cost_text`),
     s.`update_time` = UNIX_TIMESTAMP();

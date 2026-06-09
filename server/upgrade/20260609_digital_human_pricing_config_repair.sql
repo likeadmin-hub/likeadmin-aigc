@@ -3,7 +3,7 @@ JOIN `la_aigc_digital_human_config` cfg
   ON cfg.`tenant_id` = 0
 SET c.`provider` = cfg.`provider`,
     c.`model` = cfg.`model`,
-    c.`config_json` = JSON_SET(
+    c.`config_json` = JSON_INSERT(
         CASE
             WHEN JSON_VALID(COALESCE(NULLIF(c.`config_json`, ''), '{}'))
               AND JSON_TYPE(CAST(COALESCE(NULLIF(c.`config_json`, ''), '{}') AS JSON)) = 'OBJECT'

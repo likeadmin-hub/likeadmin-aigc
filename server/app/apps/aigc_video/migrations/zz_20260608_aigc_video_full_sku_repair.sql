@@ -6,15 +6,15 @@ VALUES
 (0,'seedance','Seedance 2.0','xhadmin','seedance-2-text-2-video',9,'{"app_code":"seedance","submit_path":"/api/v1/apps/seedance/create","task_path":"/api/v1/tasks/{task_id}","asset_group_path":"/api/v1/apps/seedance/createGroup","asset_create_path":"/api/v1/apps/seedance/createAsset","project_name":"default","group_type":"AIGC","poll_interval":2,"poll_attempts":0,"quantity_options":[1],"duration_options":[3,4,5,6,7,8,9,10,11,12,13,14,15],"supported_asset_types":["image","video","audio"],"max_reference_images":9,"max_reference_videos":3,"max_reference_audios":3,"max_reference_assets":15}',1,380,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'omni_flash_ext','Omni-Flash-Ext','xhadmin','omni-flash-ext',3,'{"app_code":"omni_flash_ext","submit_path":"/api/v1/apps/omni_flash_ext/create","task_path":"/api/v1/tasks/{task_id}","poll_interval":2,"poll_attempts":0,"quantity_options":[1],"duration_options":[4,6,8,10],"supported_asset_types":["image"],"max_reference_images":3,"max_reference_assets":3}',1,370,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE
-  `name`=VALUES(`name`),
-  `provider`=VALUES(`provider`),
-  `model`=VALUES(`model`),
-  `max_reference_images`=VALUES(`max_reference_images`),
-  `sort`=VALUES(`sort`),
-  `update_time`=VALUES(`update_time`);
+  `name`=IF(`name` IS NULL OR `name` = '', VALUES(`name`), `name`),
+  `provider`=IF(`provider` IS NULL OR `provider` = '', VALUES(`provider`), `provider`),
+  `model`=IF(`model` IS NULL OR `model` = '', VALUES(`model`), `model`),
+  `max_reference_images`=IF(`max_reference_images` <= 0, VALUES(`max_reference_images`), `max_reference_images`),
+  `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
+  `update_time`=`update_time`;
 
 UPDATE `la_aigc_video_channel`
-SET `config_json` = JSON_SET(
+SET `config_json` = JSON_INSERT(
         COALESCE(NULLIF(`config_json`, ''), '{}'),
         '$.quantity_options', JSON_ARRAY(1),
         '$.duration_options',
@@ -37,7 +37,7 @@ WHERE `tenant_id` = 0
   AND `code` IN ('grok_video_xaiq', 'happy_horse', 'wan', 'seedance', 'omni_flash_ext');
 
 UPDATE `la_aigc_video_channel`
-SET `config_json` = JSON_SET(
+SET `config_json` = JSON_INSERT(
         COALESCE(NULLIF(`config_json`, ''), '{}'),
         '$.submit_path', '/api/v1/apps/happy_horse/submit',
         '$.poll_interval', 2,
@@ -48,7 +48,7 @@ SET `config_json` = JSON_SET(
 WHERE `tenant_id` = 0 AND `code` = 'happy_horse';
 
 UPDATE `la_aigc_video_channel`
-SET `config_json` = JSON_SET(
+SET `config_json` = JSON_INSERT(
         COALESCE(NULLIF(`config_json`, ''), '{}'),
         '$.app_code', 'wan',
         '$.submit_path', '/api/v1/apps/wan/create',
@@ -63,7 +63,7 @@ SET `config_json` = JSON_SET(
 WHERE `tenant_id` = 0 AND `code` = 'wan';
 
 UPDATE `la_aigc_video_channel`
-SET `config_json` = JSON_SET(
+SET `config_json` = JSON_INSERT(
         COALESCE(NULLIF(`config_json`, ''), '{}'),
         '$.app_code', 'seedance',
         '$.submit_path', '/api/v1/apps/seedance/create',
@@ -82,7 +82,7 @@ SET `config_json` = JSON_SET(
 WHERE `tenant_id` = 0 AND `code` = 'seedance';
 
 UPDATE `la_aigc_video_channel`
-SET `config_json` = JSON_SET(
+SET `config_json` = JSON_INSERT(
         COALESCE(NULLIF(`config_json`, ''), '{}'),
         '$.app_code', 'omni_flash_ext',
         '$.submit_path', '/api/v1/apps/omni_flash_ext/create',
@@ -127,13 +127,13 @@ CROSS JOIN (
 ) AS ratio
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=VALUES(`quality_label`),
-    `width`=VALUES(`width`),
-    `height`=VALUES(`height`),
-    `provider_params_json`=VALUES(`provider_params_json`),
-    `status`=VALUES(`status`),
-    `sort`=VALUES(`sort`),
-    `update_time`=VALUES(`update_time`);
+    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
+    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
+    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
+    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
+    `status`=`status`,
+    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
+    `update_time`=`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT
@@ -177,13 +177,13 @@ CROSS JOIN (
 ) AS duration
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=VALUES(`quality_label`),
-    `width`=VALUES(`width`),
-    `height`=VALUES(`height`),
-    `provider_params_json`=VALUES(`provider_params_json`),
-    `status`=VALUES(`status`),
-    `sort`=VALUES(`sort`),
-    `update_time`=VALUES(`update_time`);
+    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
+    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
+    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
+    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
+    `status`=`status`,
+    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
+    `update_time`=`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT
@@ -216,13 +216,13 @@ CROSS JOIN (
 ) AS duration
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=VALUES(`quality_label`),
-    `width`=VALUES(`width`),
-    `height`=VALUES(`height`),
-    `provider_params_json`=VALUES(`provider_params_json`),
-    `status`=VALUES(`status`),
-    `sort`=VALUES(`sort`),
-    `update_time`=VALUES(`update_time`);
+    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
+    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
+    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
+    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
+    `status`=`status`,
+    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
+    `update_time`=`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT
@@ -256,13 +256,13 @@ CROSS JOIN (
 ) AS duration
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=VALUES(`quality_label`),
-    `width`=VALUES(`width`),
-    `height`=VALUES(`height`),
-    `provider_params_json`=VALUES(`provider_params_json`),
-    `status`=VALUES(`status`),
-    `sort`=VALUES(`sort`),
-    `update_time`=VALUES(`update_time`);
+    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
+    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
+    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
+    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
+    `status`=`status`,
+    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
+    `update_time`=`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT
@@ -292,10 +292,10 @@ CROSS JOIN (
 ) AS duration
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=VALUES(`quality_label`),
-    `width`=VALUES(`width`),
-    `height`=VALUES(`height`),
-    `provider_params_json`=VALUES(`provider_params_json`),
-    `status`=VALUES(`status`),
-    `sort`=VALUES(`sort`),
-    `update_time`=VALUES(`update_time`);
+    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
+    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
+    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
+    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
+    `status`=`status`,
+    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
+    `update_time`=`update_time`;

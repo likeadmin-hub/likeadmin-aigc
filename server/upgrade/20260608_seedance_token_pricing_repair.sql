@@ -1,5 +1,5 @@
 UPDATE `la_aigc_video_channel`
-SET `config_json` = JSON_SET(
+SET `config_json` = JSON_INSERT(
         COALESCE(NULLIF(`config_json`, ''), '{}'),
         '$.duration_options', JSON_ARRAY(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
         '$.supported_asset_types', JSON_ARRAY('image', 'video', 'audio'),
@@ -13,8 +13,8 @@ WHERE `tenant_id` = 0
   AND `code` = 'seedance';
 
 UPDATE `la_aigc_video_channel_spec`
-SET `status` = 0,
-    `update_time` = UNIX_TIMESTAMP()
+SET `status` = `status`,
+    `update_time` = `update_time`
 WHERE `channel_code` = 'seedance'
   AND JSON_UNQUOTE(JSON_EXTRACT(COALESCE(NULLIF(`provider_params_json`, ''), '{}'), '$._pricing_variant')) IS NULL;
 
@@ -99,15 +99,15 @@ WHERE EXISTS (
     WHERE `tenant_id` = 0 AND `code` = 'seedance'
 )
 ON DUPLICATE KEY UPDATE
-    `quality_label` = VALUES(`quality_label`),
-    `width` = VALUES(`width`),
-    `height` = VALUES(`height`),
-    `upstream_unit_cost` = VALUES(`upstream_unit_cost`),
-    `platform_unit_cost` = GREATEST(`platform_unit_cost`, VALUES(`upstream_unit_cost`)),
-    `tenant_unit_price` = GREATEST(`tenant_unit_price`, VALUES(`upstream_unit_cost`)),
-    `upstream_cost_text` = VALUES(`upstream_cost_text`),
-    `cost_source_url` = VALUES(`cost_source_url`),
-    `provider_params_json` = VALUES(`provider_params_json`),
-    `status` = 1,
-    `sort` = VALUES(`sort`),
-    `update_time` = VALUES(`update_time`);
+    `quality_label` = IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
+    `width` = IF(`width` <= 0, VALUES(`width`), `width`),
+    `height` = IF(`height` <= 0, VALUES(`height`), `height`),
+    `upstream_unit_cost` = IF(`upstream_unit_cost` <= 0, VALUES(`upstream_unit_cost`), `upstream_unit_cost`),
+    `platform_unit_cost` = IF(`platform_unit_cost` <= 0, VALUES(`platform_unit_cost`), `platform_unit_cost`),
+    `tenant_unit_price` = IF(`tenant_unit_price` <= 0, VALUES(`tenant_unit_price`), `tenant_unit_price`),
+    `upstream_cost_text` = IF(`upstream_cost_text` IS NULL OR `upstream_cost_text` = '', VALUES(`upstream_cost_text`), `upstream_cost_text`),
+    `cost_source_url` = IF(`cost_source_url` IS NULL OR `cost_source_url` = '', VALUES(`cost_source_url`), `cost_source_url`),
+    `provider_params_json` = IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
+    `status` = `status`,
+    `sort` = IF(`sort` <= 0, VALUES(`sort`), `sort`),
+    `update_time` = `update_time`;

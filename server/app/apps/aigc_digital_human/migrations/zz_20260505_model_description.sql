@@ -1,5 +1,5 @@
 UPDATE `la_aigc_digital_human_channel`
-SET `config_json` = JSON_SET(
+SET `config_json` = JSON_INSERT(
     COALESCE(NULLIF(`config_json`, ''), JSON_OBJECT()),
     '$.description',
     CASE `code`
