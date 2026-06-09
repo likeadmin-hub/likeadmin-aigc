@@ -342,9 +342,9 @@ class AigcVideoChannelService
             }
             $config = self::normalizeJson($platformChannel['config_json'] ?? []);
             $channelSpecRows = $specsByChannel[$platformChannel['code']] ?? [];
-            $specDurationOptions = self::durationOptionsFromSpecs($channelSpecRows);
             $configDurationOptions = self::channelDurationOptions($config);
-            $durationOptions = !empty($specDurationOptions) ? $specDurationOptions : $configDurationOptions;
+            $specDurationOptions = self::durationOptionsFromSpecs($platformChannel['code'], $channelSpecRows);
+            $durationOptions = !empty($configDurationOptions) ? $configDurationOptions : $specDurationOptions;
             $dynamicDuration = !empty($durationOptions);
             $channel = [
                 'id' => (int)$platformChannel['id'],
@@ -512,6 +512,12 @@ class AigcVideoChannelService
     private static function defaults(array $channels): array
     {
         $channel = $channels[0] ?? [];
+        foreach ($channels as $candidate) {
+            if (($candidate['code'] ?? '') === 'happy_horse') {
+                $channel = $candidate;
+                break;
+            }
+        }
         $quality = $channel['qualities'][0] ?? [];
         $ratio = $quality['ratios'][0] ?? [];
         return [
@@ -601,8 +607,11 @@ class AigcVideoChannelService
         return [];
     }
 
-    private static function durationOptionsFromSpecs(array $specs): array
+    private static function durationOptionsFromSpecs(string $channelCode, array $specs): array
     {
+        if (self::isSecondBillingChannel($channelCode)) {
+            return [];
+        }
         $options = [];
         foreach ($specs as $spec) {
             $duration = self::explicitSpecDurationValue($spec);
@@ -780,7 +789,12 @@ class AigcVideoChannelService
 
     private static function billingMultiplier(array $channel, int $duration): float
     {
-        return (($channel['code'] ?? '') === 'happy_horse') ? max(1, $duration) : 1;
+        return self::isSecondBillingChannel((string)($channel['code'] ?? '')) ? max(1, $duration) : 1;
+    }
+
+    private static function isSecondBillingChannel(string $channelCode): bool
+    {
+        return in_array($channelCode, ['happy_horse', 'wan'], true);
     }
 
     private static function assertPlatformChannel(string $code): array

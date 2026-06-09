@@ -61,6 +61,7 @@ class UserLogic extends BaseLogic
         foreach ($membership as $key => $value) {
             $user[$key] = $value;
         }
+        $user['sex_code'] = (int)$user->getData('sex');
         $user->hidden(['password']);
         return $user->toArray();
     }
@@ -81,6 +82,7 @@ class UserLogic extends BaseLogic
         $user['has_password'] = !empty($user['password']);
         $user['has_auth'] = self::hasWechatAuth($userId);
         $user['version'] = config('project.version');
+        $user['sex_code'] = (int)$user->getData('sex');
         $user->hidden(['password']);
         return $user->toArray();
     }

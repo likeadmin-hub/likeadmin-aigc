@@ -3194,9 +3194,9 @@ CREATE TABLE IF NOT EXISTS `la_aigc_image_channel_spec` (
   `ratio` varchar(30) NOT NULL DEFAULT '' COMMENT '图片比例',
   `width` int unsigned NOT NULL DEFAULT 0 COMMENT '宽度',
   `height` int unsigned NOT NULL DEFAULT 0 COMMENT '高度',
-  `upstream_unit_cost` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '上游成本单价',
-  `platform_unit_cost` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '平台供给单价',
-  `tenant_unit_price` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '租户用户售价',
+  `upstream_unit_cost` decimal(12,4) NOT NULL DEFAULT 0.0000 COMMENT '上游成本单价',
+  `platform_unit_cost` decimal(12,4) NOT NULL DEFAULT 0.0000 COMMENT '平台供给单价',
+  `tenant_unit_price` decimal(12,4) NOT NULL DEFAULT 0.0000 COMMENT '租户用户售价',
   `upstream_cost_text` varchar(500) NOT NULL DEFAULT '' COMMENT '上游成本说明',
   `cost_source_url` varchar(500) NOT NULL DEFAULT '' COMMENT '成本来源链接',
   `provider_params_json` text COMMENT 'Provider规格参数预留',
@@ -3449,9 +3449,9 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_channel_spec` (
   `ratio` varchar(30) NOT NULL DEFAULT '' COMMENT '视频比例',
   `width` int unsigned NOT NULL DEFAULT 0 COMMENT '宽度',
   `height` int unsigned NOT NULL DEFAULT 0 COMMENT '高度',
-  `upstream_unit_cost` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '上游成本单价',
-  `platform_unit_cost` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '平台供给单价',
-  `tenant_unit_price` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '租户用户售价',
+  `upstream_unit_cost` decimal(12,4) NOT NULL DEFAULT 0.0000 COMMENT '上游成本单价',
+  `platform_unit_cost` decimal(12,4) NOT NULL DEFAULT 0.0000 COMMENT '平台供给单价',
+  `tenant_unit_price` decimal(12,4) NOT NULL DEFAULT 0.0000 COMMENT '租户用户售价',
   `upstream_cost_text` varchar(500) NOT NULL DEFAULT '' COMMENT '上游成本说明',
   `cost_source_url` varchar(500) NOT NULL DEFAULT '' COMMENT '成本来源链接',
   `provider_params_json` text COMMENT 'Provider规格参数预留',
@@ -4455,13 +4455,16 @@ ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`provider`=VALUES(`provider`),`mod
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 VALUES
-(0,'wan','720p_5','720P · 5秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":5,"size":"16:9"}',1,1300,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'wan','720p_5','720P · 5秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":5,"size":"9:16"}',1,1290,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'wan','720p_5','720P · 5秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":5,"size":"1:1"}',1,1280,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'wan','1080p_5','1080P · 5秒','16:9',1920,1080,0.00,0.00,'{"resolution":"1080p","duration":5,"size":"16:9"}',1,1270,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'wan','1080p_5','1080P · 5秒','9:16',1080,1920,0.00,0.00,'{"resolution":"1080p","duration":5,"size":"9:16"}',1,1260,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'wan','720p_10','720P · 10秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":10,"size":"16:9"}',1,1250,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-(0,'wan','720p_10','720P · 10秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":10,"size":"9:16"}',1,1240,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','720p','720P','16:9',1280,720,47.8100,47.8100,'{"resolution":"720p","size":"16:9"}',1,1300,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','720p','720P','9:16',720,1280,47.8100,47.8100,'{"resolution":"720p","size":"9:16"}',1,1290,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','720p','720P','1:1',720,720,47.8100,47.8100,'{"resolution":"720p","size":"1:1"}',1,1280,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','720p','720P','4:3',960,720,47.8100,47.8100,'{"resolution":"720p","size":"4:3"}',1,1270,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','720p','720P','3:4',720,960,47.8100,47.8100,'{"resolution":"720p","size":"3:4"}',1,1260,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','1080p','1080P','16:9',1920,1080,78.9100,78.9100,'{"resolution":"1080p","size":"16:9"}',1,1250,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','1080p','1080P','9:16',1080,1920,78.9100,78.9100,'{"resolution":"1080p","size":"9:16"}',1,1240,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','1080p','1080P','1:1',1080,1080,78.9100,78.9100,'{"resolution":"1080p","size":"1:1"}',1,1230,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','1080p','1080P','4:3',1440,1080,78.9100,78.9100,'{"resolution":"1080p","size":"4:3"}',1,1220,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'wan','1080p','1080P','3:4',1080,1440,78.9100,78.9100,'{"resolution":"1080p","size":"3:4"}',1,1210,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'seedance','720p_5','720P · 5秒','16:9',1280,720,0.00,0.00,'{"resolution":"720p","duration":5,"ratio":"16:9"}',1,1230,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'seedance','720p_5','720P · 5秒','9:16',720,1280,0.00,0.00,'{"resolution":"720p","duration":5,"ratio":"9:16"}',1,1220,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'seedance','720p_5','720P · 5秒','1:1',720,720,0.00,0.00,'{"resolution":"720p","duration":5,"ratio":"1:1"}',1,1210,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
@@ -4510,43 +4513,6 @@ SET `config_json` = JSON_SET(
     `update_time` = UNIX_TIMESTAMP()
 WHERE `tenant_id` = 0
   AND `code` IN ('grok_video_xaiq', 'happy_horse', 'wan', 'seedance', 'omni_flash_ext');
-
-INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
-SELECT
-    0,
-    'wan',
-    CONCAT(LOWER(template.`resolution`), '_', duration.`duration`),
-    CONCAT(UPPER(template.`resolution`), ' · ', duration.`duration`, '秒'),
-    template.`ratio`,
-    template.`width`,
-    template.`height`,
-    0.00,
-    0.00,
-    CONCAT('{"resolution":"', template.`resolution`, '","duration":', duration.`duration`, ',"size":"', template.`ratio`, '"}'),
-    1,
-    1000 - duration.`duration`,
-    UNIX_TIMESTAMP(),
-    UNIX_TIMESTAMP()
-FROM (
-    SELECT DISTINCT
-        COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`provider_params_json`, '$.resolution')), ''), '720p') AS `resolution`,
-        `ratio`,
-        `width`,
-        `height`
-    FROM `la_aigc_video_channel_spec`
-    WHERE `tenant_id` = 0 AND `channel_code` = 'wan'
-) AS template
-CROSS JOIN (
-    SELECT 2 AS `duration` UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
-    UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
-    UNION ALL SELECT 10 UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13
-    UNION ALL SELECT 14 UNION ALL SELECT 15
-) AS duration
-WHERE 1 = 1
-ON DUPLICATE KEY UPDATE
-    `quality_label` = VALUES(`quality_label`),
-    `provider_params_json` = VALUES(`provider_params_json`),
-    `update_time` = VALUES(`update_time`);
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT
@@ -4719,6 +4685,114 @@ SET s.`upstream_unit_cost` = p.`second_rate`,
     END,
     s.`upstream_cost_text` = CONCAT(COALESCE(NULLIF(p.`resolution`, ''), '720P'), ' 上游秒单价，点 / 秒'),
     s.`update_time` = UNIX_TIMESTAMP();
+
+-- Migration snapshot: aigc_video/migrations/zz_20260609_happyhorse_second_pricing_default_repair.sql
+
+UPDATE `la_aigc_video_channel`
+SET `sort` = CASE WHEN `tenant_id` = 0 THEN 410 ELSE GREATEST(`sort`, 410) END,
+    `config_json` = JSON_SET(
+        COALESCE(NULLIF(`config_json`, ''), '{}'),
+        '$.app_code', 'happy_horse',
+        '$.pricing_api_code', 'submit',
+        '$.api_code', 'submit',
+        '$.submit_path', '/api/v1/apps/happy_horse/submit',
+        '$.query_path', '/api/v1/apps/happy_horse/query',
+        '$.duration_options', JSON_ARRAY(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
+        '$.videoedit_duration_options', JSON_ARRAY(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
+        '$.quantity_options', JSON_ARRAY(1),
+        '$.supported_asset_types', JSON_ARRAY('image', 'video'),
+        '$.max_reference_images', 9,
+        '$.max_reference_videos', 1,
+        '$.max_reference_assets', 10
+    ),
+    `update_time` = UNIX_TIMESTAMP()
+WHERE `code` = 'happy_horse';
+
+INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`upstream_unit_cost`,`platform_unit_cost`,`tenant_unit_price`,`upstream_cost_text`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
+SELECT 0,'happy_horse',LOWER(t.`resolution`),t.`resolution`,t.`ratio`,t.`width`,t.`height`,t.`second_rate`,t.`second_rate`,t.`second_rate`,CONCAT(t.`resolution`, ' 上游秒单价，点 / 秒'),CONCAT('{"resolution":"', t.`resolution`, '","ratio":"', t.`ratio`, '"}'),1,1500 - t.`sort_offset`,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (
+    SELECT '720P' AS `resolution`, '16:9' AS `ratio`, 1280 AS `width`, 720 AS `height`, 0.0280 AS `second_rate`, 0 AS `sort_offset` UNION ALL
+    SELECT '720P', '9:16', 720, 1280, 0.0280, 10 UNION ALL
+    SELECT '720P', '1:1', 720, 720, 0.0280, 20 UNION ALL
+    SELECT '720P', '4:3', 960, 720, 0.0280, 30 UNION ALL
+    SELECT '720P', '3:4', 720, 960, 0.0280, 40 UNION ALL
+    SELECT '1080P', '16:9', 1920, 1080, 0.0560, 200 UNION ALL
+    SELECT '1080P', '9:16', 1080, 1920, 0.0560, 210 UNION ALL
+    SELECT '1080P', '1:1', 1080, 1080, 0.0560, 220 UNION ALL
+    SELECT '1080P', '4:3', 1440, 1080, 0.0560, 230 UNION ALL
+    SELECT '1080P', '3:4', 1080, 1440, 0.0560, 240
+) AS t
+ON DUPLICATE KEY UPDATE
+    `quality_label`=VALUES(`quality_label`),
+    `width`=VALUES(`width`),
+    `height`=VALUES(`height`),
+    `upstream_unit_cost`=VALUES(`upstream_unit_cost`),
+    `platform_unit_cost`=VALUES(`platform_unit_cost`),
+    `tenant_unit_price`=VALUES(`tenant_unit_price`),
+    `upstream_cost_text`=VALUES(`upstream_cost_text`),
+    `provider_params_json`=VALUES(`provider_params_json`),
+    `status`=1,
+    `sort`=VALUES(`sort`),
+    `update_time`=VALUES(`update_time`);
+
+UPDATE `la_aigc_video_channel_spec`
+SET `status` = 0,
+    `update_time` = UNIX_TIMESTAMP()
+WHERE `channel_code` = 'happy_horse'
+  AND (`quality` NOT IN ('720p', '1080p') OR JSON_EXTRACT(COALESCE(NULLIF(`provider_params_json`, ''), '{}'), '$.duration') IS NOT NULL);
+
+-- Migration snapshot: aigc_video/migrations/zz_20260609_wan_second_pricing_repair.sql
+
+UPDATE `la_aigc_video_channel`
+SET `config_json` = JSON_SET(
+        COALESCE(NULLIF(`config_json`, ''), '{}'),
+        '$.app_code', 'wan',
+        '$.pricing_api_code', 'create',
+        '$.api_code', 'create',
+        '$.duration_options', JSON_ARRAY(2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
+        '$.videoedit_duration_options', JSON_ARRAY(2, 3, 4, 5, 6, 7, 8, 9, 10),
+        '$.quantity_options', JSON_ARRAY(1),
+        '$.supported_asset_types', JSON_ARRAY('image', 'video', 'audio')
+    ),
+    `update_time` = UNIX_TIMESTAMP()
+WHERE `code` = 'wan';
+
+INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`upstream_unit_cost`,`platform_unit_cost`,`tenant_unit_price`,`upstream_cost_text`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
+SELECT 0,'wan',LOWER(t.`resolution`),t.`resolution`,t.`ratio`,t.`width`,t.`height`,
+       COALESCE((SELECT ROUND(AVG(NULLIF(s.`upstream_unit_cost`, 0)), 4) FROM `la_aigc_video_channel_spec` AS s WHERE s.`tenant_id` = 0 AND s.`channel_code` = 'wan' AND UPPER(JSON_UNQUOTE(JSON_EXTRACT(COALESCE(NULLIF(s.`provider_params_json`, ''), '{}'), '$.resolution'))) = t.`resolution` AND s.`ratio` = t.`ratio`), t.`second_rate`),
+       COALESCE((SELECT ROUND(AVG(NULLIF(s.`platform_unit_cost`, 0)), 4) FROM `la_aigc_video_channel_spec` AS s WHERE s.`tenant_id` = 0 AND s.`channel_code` = 'wan' AND UPPER(JSON_UNQUOTE(JSON_EXTRACT(COALESCE(NULLIF(s.`provider_params_json`, ''), '{}'), '$.resolution'))) = t.`resolution` AND s.`ratio` = t.`ratio`), t.`second_rate`),
+       COALESCE((SELECT ROUND(AVG(NULLIF(s.`tenant_unit_price`, 0)), 4) FROM `la_aigc_video_channel_spec` AS s WHERE s.`tenant_id` = 0 AND s.`channel_code` = 'wan' AND UPPER(JSON_UNQUOTE(JSON_EXTRACT(COALESCE(NULLIF(s.`provider_params_json`, ''), '{}'), '$.resolution'))) = t.`resolution` AND s.`ratio` = t.`ratio`), t.`second_rate`),
+       CONCAT(t.`resolution`, ' 上游秒单价，点 / 秒'),CONCAT('{"resolution":"', LOWER(t.`resolution`), '","size":"', t.`ratio`, '"}'),1,1600 - t.`sort_offset`,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (
+    SELECT '720P' AS `resolution`, '16:9' AS `ratio`, 1280 AS `width`, 720 AS `height`, 47.8100 AS `second_rate`, 0 AS `sort_offset` UNION ALL
+    SELECT '720P', '9:16', 720, 1280, 47.8100, 10 UNION ALL
+    SELECT '720P', '1:1', 720, 720, 47.8100, 20 UNION ALL
+    SELECT '720P', '4:3', 960, 720, 47.8100, 30 UNION ALL
+    SELECT '720P', '3:4', 720, 960, 47.8100, 40 UNION ALL
+    SELECT '1080P', '16:9', 1920, 1080, 78.9100, 200 UNION ALL
+    SELECT '1080P', '9:16', 1080, 1920, 78.9100, 210 UNION ALL
+    SELECT '1080P', '1:1', 1080, 1080, 78.9100, 220 UNION ALL
+    SELECT '1080P', '4:3', 1440, 1080, 78.9100, 230 UNION ALL
+    SELECT '1080P', '3:4', 1080, 1440, 78.9100, 240
+) AS t
+ON DUPLICATE KEY UPDATE
+    `quality_label`=VALUES(`quality_label`),
+    `width`=VALUES(`width`),
+    `height`=VALUES(`height`),
+    `upstream_unit_cost`=VALUES(`upstream_unit_cost`),
+    `platform_unit_cost`=VALUES(`platform_unit_cost`),
+    `tenant_unit_price`=VALUES(`tenant_unit_price`),
+    `upstream_cost_text`=VALUES(`upstream_cost_text`),
+    `provider_params_json`=VALUES(`provider_params_json`),
+    `status`=1,
+    `sort`=VALUES(`sort`),
+    `update_time`=VALUES(`update_time`);
+
+UPDATE `la_aigc_video_channel_spec`
+SET `status` = 0,
+    `update_time` = UNIX_TIMESTAMP()
+WHERE `channel_code` = 'wan'
+  AND (`quality` NOT IN ('720p', '1080p') OR JSON_EXTRACT(COALESCE(NULLIF(`provider_params_json`, ''), '{}'), '$.duration') IS NOT NULL);
 
 SET
     FOREIGN_KEY_CHECKS = 1;
