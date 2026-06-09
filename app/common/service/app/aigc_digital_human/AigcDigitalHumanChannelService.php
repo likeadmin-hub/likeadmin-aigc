@@ -514,8 +514,8 @@ class AigcDigitalHumanChannelService
         foreach ($channels as &$channel) {
             unset($channel['config_json']);
             if (!$forTenantAdmin) {
-                $channel['label'] = (string)$channel['description'];
-                unset($channel['provider'], $channel['model'], $channel['name']);
+                $channel['label'] = (string)($channel['name'] ?? $channel['label'] ?? '');
+                unset($channel['provider'], $channel['model']);
             }
             foreach ($channel['specs'] as &$spec) {
                 unset($spec['provider_params_json'], $spec['platform_unit_cost'], $spec['tenant_unit_price'], $spec['billing_unit']);
