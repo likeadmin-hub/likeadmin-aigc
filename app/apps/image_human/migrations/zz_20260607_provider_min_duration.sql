@@ -8,7 +8,7 @@ SET @image_human_config_exists = (
 SET @image_human_sql = IF(
   @image_human_config_exists > 0,
   'UPDATE `la_image_human_config`
-SET `config_json` = JSON_SET(
+SET `config_json` = JSON_INSERT(
   COALESCE(NULLIF(`config_json`, ''''), ''{}''),
   ''$.provider'',
   COALESCE(JSON_EXTRACT(`config_json`, ''$.provider''), JSON_OBJECT(''submit_path'', ''/api/v1/apps/image_human/submit'', ''query_path'', ''/api/v1/apps/image_human/query'', ''timeout'', 60, ''min_duration'', 2)),

@@ -1,7 +1,7 @@
 INSERT INTO `la_aigc_video_channel` (`tenant_id`,`code`,`name`,`provider`,`model`,`max_reference_images`,`config_json`,`status`,`sort`,`create_time`,`update_time`)
 VALUES
 (0,'grok_video_xaiq','Grok Video（xAIQ）','xhadmin','grok-video',7,'{"poll_interval":2,"poll_attempts":30,"quantity_options":[1],"quality":"720p"}',1,400,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
-ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`provider`=VALUES(`provider`),`model`=VALUES(`model`),`max_reference_images`=VALUES(`max_reference_images`),`config_json`=VALUES(`config_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
+ON DUPLICATE KEY UPDATE `name`=IF(`name` IS NULL OR `name` = '', VALUES(`name`), `name`),`provider`=IF(`provider` IS NULL OR `provider` = '', VALUES(`provider`), `provider`),`model`=IF(`model` IS NULL OR `model` = '', VALUES(`model`), `model`),`max_reference_images`=IF(`max_reference_images` <= 0, VALUES(`max_reference_images`), `max_reference_images`),`config_json`=IF(`config_json` IS NULL OR `config_json` = '' OR `config_json` = '{}', VALUES(`config_json`), `config_json`),`status`=`status`,`sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),`update_time`=`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 VALUES
@@ -35,12 +35,12 @@ VALUES
 (0,'grok_video_xaiq','30','30秒','1:1',720,720,0.84,0.84,'{"quality":"720p","duration":30,"aspect_ratio":"1:1"}',1,730,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'grok_video_xaiq','30','30秒','2:3',720,1080,0.84,0.84,'{"quality":"720p","duration":30,"aspect_ratio":"2:3"}',1,720,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'grok_video_xaiq','30','30秒','3:2',1080,720,0.84,0.84,'{"quality":"720p","duration":30,"aspect_ratio":"3:2"}',1,710,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
-ON DUPLICATE KEY UPDATE `quality_label`=VALUES(`quality_label`),`width`=VALUES(`width`),`height`=VALUES(`height`),`platform_unit_cost`=VALUES(`platform_unit_cost`),`tenant_unit_price`=VALUES(`tenant_unit_price`),`provider_params_json`=VALUES(`provider_params_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
+ON DUPLICATE KEY UPDATE `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),`width`=IF(`width` <= 0, VALUES(`width`), `width`),`height`=IF(`height` <= 0, VALUES(`height`), `height`),`platform_unit_cost`=IF(`platform_unit_cost` <= 0, VALUES(`platform_unit_cost`), `platform_unit_cost`),`tenant_unit_price`=IF(`tenant_unit_price` <= 0, VALUES(`tenant_unit_price`), `tenant_unit_price`),`provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),`status`=`status`,`sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),`update_time`=`update_time`;
 
 UPDATE `la_aigc_video_channel`
-SET `status` = 0, `sort` = 0, `update_time` = UNIX_TIMESTAMP()
+SET `status` = `status`, `sort` = `sort`, `update_time` = `update_time`
 WHERE `tenant_id` = 0 AND `code` <> 'grok_video_xaiq';
 
 UPDATE `la_aigc_video_channel_spec`
-SET `status` = 0, `sort` = 0, `update_time` = UNIX_TIMESTAMP()
+SET `status` = `status`, `sort` = `sort`, `update_time` = `update_time`
 WHERE `tenant_id` = 0 AND `channel_code` <> 'grok_video_xaiq';

@@ -1,5 +1,5 @@
 UPDATE `la_aigc_digital_human_channel`
-SET `config_json` = JSON_SET(
+SET `config_json` = JSON_INSERT(
     CASE
         WHEN JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}'))
           AND JSON_TYPE(CAST(COALESCE(NULLIF(`config_json`, ''), '{}') AS JSON)) = 'OBJECT'

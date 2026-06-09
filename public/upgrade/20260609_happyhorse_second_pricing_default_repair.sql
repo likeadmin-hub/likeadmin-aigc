@@ -21,8 +21,8 @@ EXECUTE video_stmt;
 DEALLOCATE PREPARE video_stmt;
 
 UPDATE `la_aigc_video_channel`
-SET `sort` = CASE WHEN `tenant_id` = 0 THEN 410 ELSE GREATEST(`sort`, 410) END,
-    `config_json` = JSON_SET(
+SET `sort` = IF(`sort` <= 0, 410, `sort`),
+    `config_json` = JSON_INSERT(
         COALESCE(NULLIF(`config_json`, ''), '{}'),
         '$.app_code', 'happy_horse',
         '$.pricing_api_code', 'submit',
@@ -56,17 +56,17 @@ FROM (
 ) AS t
 WHERE @video_spec_table_exists > 0
 ON DUPLICATE KEY UPDATE
-    `quality_label`=VALUES(`quality_label`),
-    `width`=VALUES(`width`),
-    `height`=VALUES(`height`),
-    `upstream_unit_cost`=VALUES(`upstream_unit_cost`),
-    `platform_unit_cost`=VALUES(`platform_unit_cost`),
-    `tenant_unit_price`=IF(`tenant_id` = 0 OR `tenant_unit_price` <= 0, VALUES(`tenant_unit_price`), `tenant_unit_price`),
-    `upstream_cost_text`=VALUES(`upstream_cost_text`),
-    `provider_params_json`=VALUES(`provider_params_json`),
-    `status`=1,
-    `sort`=VALUES(`sort`),
-    `update_time`=VALUES(`update_time`);
+    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
+    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
+    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
+    `upstream_unit_cost`=IF(`upstream_unit_cost` <= 0, VALUES(`upstream_unit_cost`), `upstream_unit_cost`),
+    `platform_unit_cost`=IF(`platform_unit_cost` <= 0, VALUES(`platform_unit_cost`), `platform_unit_cost`),
+    `tenant_unit_price`=IF(`tenant_unit_price` <= 0, VALUES(`tenant_unit_price`), `tenant_unit_price`),
+    `upstream_cost_text`=IF(`upstream_cost_text` IS NULL OR `upstream_cost_text` = '', VALUES(`upstream_cost_text`), `upstream_cost_text`),
+    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
+    `status`=`status`,
+    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
+    `update_time`=`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`upstream_unit_cost`,`platform_unit_cost`,`tenant_unit_price`,`upstream_cost_text`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT g.`tenant_id`,'happy_horse',LOWER(g.`resolution`),g.`resolution`,g.`ratio`,MAX(g.`width`),MAX(g.`height`),MAX(g.`second_rate`),MAX(g.`second_rate`),ROUND(AVG(g.`tenant_second_price`), 4),CONCAT(g.`resolution`, ' 上游秒单价，点 / 秒'),CONCAT('{"resolution":"', g.`resolution`, '","ratio":"', g.`ratio`, '"}'),1,MAX(g.`sort`),UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
@@ -99,21 +99,21 @@ FROM (
 ) AS g
 GROUP BY g.`tenant_id`, g.`resolution`, g.`ratio`
 ON DUPLICATE KEY UPDATE
-    `quality_label`=VALUES(`quality_label`),
-    `width`=VALUES(`width`),
-    `height`=VALUES(`height`),
-    `upstream_unit_cost`=VALUES(`upstream_unit_cost`),
-    `platform_unit_cost`=VALUES(`platform_unit_cost`),
+    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
+    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
+    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
+    `upstream_unit_cost`=IF(`upstream_unit_cost` <= 0, VALUES(`upstream_unit_cost`), `upstream_unit_cost`),
+    `platform_unit_cost`=IF(`platform_unit_cost` <= 0, VALUES(`platform_unit_cost`), `platform_unit_cost`),
     `tenant_unit_price`=IF(`tenant_unit_price` <= 0, VALUES(`tenant_unit_price`), `tenant_unit_price`),
-    `upstream_cost_text`=VALUES(`upstream_cost_text`),
-    `provider_params_json`=VALUES(`provider_params_json`),
-    `status`=1,
-    `sort`=VALUES(`sort`),
-    `update_time`=VALUES(`update_time`);
+    `upstream_cost_text`=IF(`upstream_cost_text` IS NULL OR `upstream_cost_text` = '', VALUES(`upstream_cost_text`), `upstream_cost_text`),
+    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
+    `status`=`status`,
+    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
+    `update_time`=`update_time`;
 
 UPDATE `la_aigc_video_channel_spec`
-SET `status` = 0,
-    `update_time` = UNIX_TIMESTAMP()
+SET `status` = `status`,
+    `update_time` = `update_time`
 WHERE @video_spec_table_exists > 0
   AND `channel_code` = 'happy_horse'
   AND (`quality` NOT IN ('720p', '1080p') OR JSON_EXTRACT(COALESCE(NULLIF(`provider_params_json`, ''), '{}'), '$.duration') IS NOT NULL);
