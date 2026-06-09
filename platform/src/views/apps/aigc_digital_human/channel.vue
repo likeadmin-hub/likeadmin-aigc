@@ -40,6 +40,9 @@
                 <el-table-column label="模型描述" prop="description" min-width="220" show-overflow-tooltip />
                 <el-table-column label="供应商" prop="provider" min-width="120" />
                 <el-table-column label="Provider模型" prop="model" min-width="160" />
+                <el-table-column label="上游价格" min-width="130">
+                    <template #default="{ row }">{{ row.upstream_price_text || '-' }}</template>
+                </el-table-column>
                 <el-table-column label="平台定价" min-width="130">
                     <template #default="{ row }">
                         <el-input-number v-model="row.platform_unit_cost" :min="0" :precision="2" size="small" />
@@ -163,7 +166,7 @@
 
 <script lang="ts" setup name="platform-aigc-digital-human-channel">
 import { getAigcDigitalHumanChannels, saveAigcDigitalHumanChannel, setAigcDigitalHumanChannelStatus } from '@/apps/aigc_digital_human/api'
-import { getAigcDigitalHumanPricing, getAigcDigitalHumanUpstreamClonePricing, getAigcDigitalHumanUpstreamPricing, setAigcDigitalHumanPricing } from '@/apps/aigc_digital_human/api'
+import { getAigcDigitalHumanPricing, getAigcDigitalHumanUpstreamClonePricing, getAigcDigitalHumanUpstreamPricing, getAigcDigitalHumanUpstreamPricingBatch, setAigcDigitalHumanPricing } from '@/apps/aigc_digital_human/api'
 import { useLocalPaging } from '@/hooks/useLocalPaging'
 import feedback from '@/utils/feedback'
 
@@ -197,6 +200,7 @@ const formData = reactive({
 const pricingRow = reactive<any>({})
 const pricingResult = reactive<any>({})
 const clonePricingRows = ref<any[]>([])
+const upstreamPricing = ref<any>({})
 
 const formatPoint = (value: any, precision = 6) => {
     const number = Number(value)
@@ -226,7 +230,28 @@ const resolveModelRate = (modelRates: any, model: string) => {
     return alias && modelRates[alias] !== undefined ? Number(modelRates[alias]) : null
 }
 
+const resolveLockedParams = (row: any) => {
+    const params = row?.locked_params || row?.locked_params_json || {}
+    if (typeof params === 'string') {
+        try {
+            const parsed = JSON.parse(params)
+            return parsed && typeof parsed === 'object' ? parsed : {}
+        } catch {
+            return {}
+        }
+    }
+    return params && typeof params === 'object' ? params : {}
+}
+
 const buildDigitalHumanPricingView = (result: any, row: any) => {
+    const v2Rate = resolveModelRateFromV2(result, row?.model)
+    if (v2Rate !== null && Number.isFinite(v2Rate)) {
+        return {
+            ...result,
+            unit_price_desc: `${formatPoint(v2Rate)} 点 / 秒`,
+            billing_note: `实际扣点 = 输入音频秒数 × ${formatPoint(v2Rate)} 点/秒（按 Provider 模型 ${row?.model || '-'} 匹配）`
+        }
+    }
     const rate = resolveModelRate(result?.pricing?.model_rates, row?.model)
     if (rate !== null && Number.isFinite(rate)) {
         return {
@@ -248,6 +273,27 @@ const buildDigitalHumanPricingView = (result: any, row: any) => {
         unit_price_desc: result?.price_view?.formula || result?.message || '-',
         billing_note: result?.price_view?.formula || result?.message || '-'
     }
+}
+
+const upstreamPriceText = (row: any) => {
+    if (!upstreamPricing.value?.available) {
+        return ''
+    }
+    return buildDigitalHumanPricingView(upstreamPricing.value, row).unit_price_desc || ''
+}
+
+const resolveModelRateFromV2 = (result: any, model: string) => {
+    const rows = result?.pricing_v2?.items || result?.raw?.pricing_v2?.items || []
+    if (!Array.isArray(rows)) {
+        return null
+    }
+    const normalizedModel = String(model || '').toLowerCase()
+    const matched = rows.find((row: any) => {
+        const params = resolveLockedParams(row)
+        return String(params?.model || row?.title || '').toLowerCase() === normalizedModel
+    })
+    const points = Number(matched?.price?.points ?? matched?.points ?? 0)
+    return Number.isFinite(points) && points > 0 ? points : null
 }
 
 const fixedUnitPriceDesc = (result: any) => {
@@ -277,14 +323,21 @@ const visibleLists = computed(() => lists.value.filter((row) => showDisabled.val
 const getLists = async () => {
     pager.loading = true
     try {
-        const [rows, pricingRows] = await Promise.all([getAigcDigitalHumanChannels(), getAigcDigitalHumanPricing()])
+        const [rows, pricingRows, upstreamRows] = await Promise.all([
+            getAigcDigitalHumanChannels(),
+            getAigcDigitalHumanPricing(),
+            getAigcDigitalHumanUpstreamPricingBatch().catch(() => null)
+        ])
         Object.assign(pricing, pricingRows)
+        const upstreamGenerate = (upstreamRows?.items || []).find((item: any) => item.local_key === 'generate')
+        upstreamPricing.value = upstreamGenerate || {}
         const priceMap = Object.fromEntries((pricingRows.generate_models || []).map((item: any) => [item.code, item]))
         lists.value = rows.map((row: any) => ({
             ...row,
             description: row.description || row.config_json?.description || '',
             platform_unit_cost: priceMap[row.code]?.platform_unit_cost || 0,
-            tenant_unit_price: priceMap[row.code]?.tenant_unit_price || 0
+            tenant_unit_price: priceMap[row.code]?.tenant_unit_price || 0,
+            upstream_price_text: upstreamPriceText(row)
         }))
         setLists(visibleLists.value)
     } finally {
@@ -363,7 +416,9 @@ const openPricing = async (row: any) => {
         Object.keys(pricingRow).forEach((key) => delete pricingRow[key])
         Object.keys(pricingResult).forEach((key) => delete pricingResult[key])
         Object.assign(pricingRow, row)
-        Object.assign(pricingResult, buildDigitalHumanPricingView(result || {}, row))
+        const view = buildDigitalHumanPricingView(result || {}, row)
+        Object.assign(pricingResult, view)
+        row.upstream_price_text = view.unit_price_desc || '-'
         pricingVisible.value = true
     } finally {
         pricingLoadingId.value = 0

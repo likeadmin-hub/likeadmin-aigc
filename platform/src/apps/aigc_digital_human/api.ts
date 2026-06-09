@@ -60,6 +60,10 @@ export function getAigcDigitalHumanUpstreamClonePricing() {
     return request.get({ url: '/app.aigc_digital_human.pricing_query/clone' })
 }
 
+export function getAigcDigitalHumanUpstreamPricingBatch() {
+    return request.get({ url: '/app.aigc_digital_human.pricing_query/batch' })
+}
+
 export function getAigcDigitalHumanTaskLogs(params?: any) {
     return request.get({ url: '/app.aigc_digital_human.task_log/lists', params })
 }

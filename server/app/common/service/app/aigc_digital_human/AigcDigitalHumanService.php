@@ -6,6 +6,7 @@ use app\common\model\app\AppCase;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanAvatar;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanBilling;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanConfig;
+use app\common\model\app\aigc_digital_human\AigcDigitalHumanChannel;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanQuota;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanResult;
 use app\common\model\app\aigc_digital_human\AigcDigitalHumanSensitiveWord;
@@ -188,9 +189,34 @@ class AigcDigitalHumanService
         if ($row->isEmpty()) {
             $data['create_time'] = time();
             AigcDigitalHumanConfig::create($data);
+            self::syncPlatformChannelProvider($tenantId, (string)$data['provider'], (string)$data['model']);
             return;
         }
         $row->save($data);
+        self::syncPlatformChannelProvider($tenantId, (string)$data['provider'], (string)$data['model']);
+    }
+
+    private static function syncPlatformChannelProvider(int $tenantId, string $provider, string $model): void
+    {
+        if ($tenantId !== 0 || $provider === '' || $model === '') {
+            return;
+        }
+        $rows = AigcDigitalHumanChannel::where('tenant_id', 0)->select();
+        foreach ($rows as $row) {
+            $configJson = $row['config_json'] ?? [];
+            if (!is_array($configJson)) {
+                $configJson = [];
+            }
+            if (strtolower($provider) === 'xhadmin') {
+                $configJson['lipsync_model'] = $model;
+            }
+            $row->save([
+                'provider' => $provider,
+                'model' => $model,
+                'config_json' => $configJson,
+                'update_time' => time(),
+            ]);
+        }
     }
 
     public static function avatarLists(int $tenantId, int $userId, string $source = ''): array

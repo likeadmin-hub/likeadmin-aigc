@@ -43,6 +43,11 @@
                     <el-table-column label="模式" min-width="120">
                         <template #default="{ row }">{{ row.label }}</template>
                     </el-table-column>
+                    <el-table-column label="上游价格 / 秒" min-width="180">
+                        <template #default="{ row }">
+                            <span class="font-medium">{{ upstreamModePrices[row.key] || '-' }}</span>
+                        </template>
+                    </el-table-column>
                     <el-table-column label="平台定价 / 秒" min-width="180">
                         <template #default="{ row }">
                             <el-input-number
@@ -115,6 +120,7 @@ const pricingVisible = ref(false)
 const pricingQueryLoading = ref(false)
 const stat = ref<any>({})
 const pricingRows = ref<any[]>([])
+const upstreamModePrices = reactive<Record<string, string>>({})
 const formData = reactive<any>({
     provider: 'xhadmin',
     model: 'image_human',
@@ -166,6 +172,30 @@ const imageHumanModeRate = (matrix: any, mode: string) => {
     const rate = Number(row.without_video ?? row.with_video ?? row.base ?? 0)
     return Number.isFinite(rate) ? rate : null
 }
+const resolveLockedParams = (row: any) => {
+    const params = row?.locked_params || row?.locked_params_json || {}
+    if (typeof params === 'string') {
+        try {
+            const parsed = JSON.parse(params)
+            return parsed && typeof parsed === 'object' ? parsed : {}
+        } catch {
+            return {}
+        }
+    }
+    return params && typeof params === 'object' ? params : {}
+}
+const imageHumanModeRateFromV2 = (item: any, mode: string) => {
+    const rows = item?.pricing_v2?.items || item?.raw?.pricing_v2?.items || []
+    if (!Array.isArray(rows)) {
+        return null
+    }
+    const matched = rows.find((row: any) => {
+        const params = resolveLockedParams(row)
+        return String(params?.mode || '').toLowerCase() === mode
+    })
+    const points = Number(matched?.price?.points ?? matched?.points ?? 0)
+    return Number.isFinite(points) && points > 0 ? points : null
+}
 const buildImageHumanUpstreamRows = (item: any) => {
     if (item.local_key !== 'submit') {
         const fixed = Number(item?.pricing?.fixed_points || 0)
@@ -180,7 +210,7 @@ const buildImageHumanUpstreamRows = (item: any) => {
     }
     return modeRows.map((mode) => {
         const local = (pricing.modes as any)[mode.key] || {}
-        const rate = imageHumanModeRate(item?.pricing?.pricing_matrix, mode.key)
+        const rate = imageHumanModeRateFromV2(item, mode.key) ?? imageHumanModeRate(item?.pricing?.pricing_matrix, mode.key)
         const upstreamPrice = rate !== null
             ? `${formatPoint(rate)} 点 / 秒`
             : (item.price_view?.formula || item.message || '-')
@@ -262,6 +292,13 @@ const queryUpstreamPricing = async () => {
     try {
         const result = await getImageHumanUpstreamPricingBatch()
         pricingRows.value = (result.items || []).flatMap(buildImageHumanUpstreamRows)
+        Object.keys(upstreamModePrices).forEach((key) => delete upstreamModePrices[key])
+        pricingRows.value.forEach((row: any) => {
+            const mode = modeRows.find((item) => row.label?.includes(item.label))
+            if (mode && row.upstreamPrice && row.upstreamPrice !== '-') {
+                upstreamModePrices[mode.key] = row.upstreamPrice
+            }
+        })
         pricingVisible.value = true
     } finally {
         pricingQueryLoading.value = false
