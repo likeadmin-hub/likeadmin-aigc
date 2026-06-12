@@ -26,15 +26,15 @@ CREATE TABLE IF NOT EXISTS `la_app` (
 INSERT INTO `la_app` (`code`,`name`,`icon`,`description`,`category`,`cover`,`client_tags`,`install_count`,`view_count`,`is_builtin`,`sort`,`current_version`,`status`,`install_time`,`update_time`)
 VALUES ('system_default','系统应用','el-icon-Setting','系统内置基础能力，包含素材、消息、文章、用户充值等默认功能。','builtin','','platform,tenant',0,0,1,1000,'1.0.0','installed',UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE
-  `name`=VALUES(`name`),
-  `icon`=VALUES(`icon`),
-  `description`=VALUES(`description`),
-  `category`=VALUES(`category`),
-  `client_tags`=VALUES(`client_tags`),
-  `is_builtin`=VALUES(`is_builtin`),
-  `sort`=VALUES(`sort`),
-  `status`=VALUES(`status`),
-  `update_time`=VALUES(`update_time`);
+  `la_app`.`name`=VALUES(`name`),
+  `la_app`.`icon`=VALUES(`icon`),
+  `la_app`.`description`=VALUES(`description`),
+  `la_app`.`category`=VALUES(`category`),
+  `la_app`.`client_tags`=VALUES(`client_tags`),
+  `la_app`.`is_builtin`=VALUES(`is_builtin`),
+  `la_app`.`sort`=VALUES(`sort`),
+  `la_app`.`status`=VALUES(`status`),
+  `la_app`.`update_time`=VALUES(`update_time`);
 
 CREATE TABLE IF NOT EXISTS `la_app_plan` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,

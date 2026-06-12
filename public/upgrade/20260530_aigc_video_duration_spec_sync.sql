@@ -48,9 +48,9 @@ CROSS JOIN (
 ) AS duration
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label` = IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
-    `provider_params_json` = IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
-    `update_time` = `update_time`;
+    `la_aigc_video_channel_spec`.`quality_label` = IF(`la_aigc_video_channel_spec`.`quality_label` IS NULL OR `la_aigc_video_channel_spec`.`quality_label` = '', VALUES(`quality_label`), `la_aigc_video_channel_spec`.`quality_label`),
+    `la_aigc_video_channel_spec`.`provider_params_json` = IF(`la_aigc_video_channel_spec`.`provider_params_json` IS NULL OR `la_aigc_video_channel_spec`.`provider_params_json` = '' OR `la_aigc_video_channel_spec`.`provider_params_json` = '{}', VALUES(`provider_params_json`), `la_aigc_video_channel_spec`.`provider_params_json`),
+    `la_aigc_video_channel_spec`.`update_time` = `la_aigc_video_channel_spec`.`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT
@@ -85,9 +85,9 @@ CROSS JOIN (
 ) AS duration
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label` = IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
-    `provider_params_json` = IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
-    `update_time` = `update_time`;
+    `la_aigc_video_channel_spec`.`quality_label` = IF(`la_aigc_video_channel_spec`.`quality_label` IS NULL OR `la_aigc_video_channel_spec`.`quality_label` = '', VALUES(`quality_label`), `la_aigc_video_channel_spec`.`quality_label`),
+    `la_aigc_video_channel_spec`.`provider_params_json` = IF(`la_aigc_video_channel_spec`.`provider_params_json` IS NULL OR `la_aigc_video_channel_spec`.`provider_params_json` = '' OR `la_aigc_video_channel_spec`.`provider_params_json` = '{}', VALUES(`provider_params_json`), `la_aigc_video_channel_spec`.`provider_params_json`),
+    `la_aigc_video_channel_spec`.`update_time` = `la_aigc_video_channel_spec`.`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT
@@ -119,6 +119,6 @@ CROSS JOIN (
 ) AS duration
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label` = IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
-    `provider_params_json` = IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
-    `update_time` = `update_time`;
+    `la_aigc_video_channel_spec`.`quality_label` = IF(`la_aigc_video_channel_spec`.`quality_label` IS NULL OR `la_aigc_video_channel_spec`.`quality_label` = '', VALUES(`quality_label`), `la_aigc_video_channel_spec`.`quality_label`),
+    `la_aigc_video_channel_spec`.`provider_params_json` = IF(`la_aigc_video_channel_spec`.`provider_params_json` IS NULL OR `la_aigc_video_channel_spec`.`provider_params_json` = '' OR `la_aigc_video_channel_spec`.`provider_params_json` = '{}', VALUES(`provider_params_json`), `la_aigc_video_channel_spec`.`provider_params_json`),
+    `la_aigc_video_channel_spec`.`update_time` = `la_aigc_video_channel_spec`.`update_time`;
