@@ -14,6 +14,10 @@
 
         <AiWorkspaceSidebar
             :active-sidebar="activeSidebar"
+            :is-login="userStore.isLogin"
+            :avatar-url="displayAvatarUrl"
+            :remaining-credits="remainingCredits"
+            :has-unread-notice="hasUnreadNotice"
             @navigate="emit('navigate', $event)"
             @action="handleSidebarAction"
         />
@@ -70,6 +74,7 @@ import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 import type { MembershipPlanDefinition, MembershipPlanId } from '@/constants/membership-plans'
 import { createMembershipOrder, getMembershipPlans } from '@/api/membership'
+import { getNoticeUnread } from '@/api/user'
 import feedback from '@/utils/feedback'
 import { PolicyAgreementEnum } from '@/enums/appEnums'
 import type { SidebarKey } from '~/utils/ai-sidebar'
@@ -121,6 +126,7 @@ const showMembershipPayModal = ref(false)
 const showUserPanel = ref(false)
 const showMobileCodeModal = ref(false)
 const headerSolid = ref(false)
+const hasUnreadNotice = ref(false)
 const selectedMembershipPlan = ref<MembershipPlanId>(props.membershipEnabled ? 'advanced' : 'free')
 const membershipPlans = ref<MembershipPlanDefinition[]>([])
 const membershipPayOrderId = ref(0)
@@ -225,24 +231,24 @@ const openLoginModal = () => {
     openPcLoginModal({ redirect: route.fullPath })
 }
 
-const handleSidebarAction = (key: 'membership' | 'user' | 'credits' | 'api' | 'notice' | 'mobile' | 'language' | 'short_drama') => {
+const handleSidebarAction = (key: 'membership' | 'user' | 'credits' | 'notice' | 'mobile' | 'language' | 'short_drama') => {
     if (key === 'membership') {
         openMembershipModal()
-        return
-    }
-    if (key === 'credits') {
-        openCreditsUsageModal()
         return
     }
     if (key === 'user') {
         openLoginModal()
         return
     }
+    if (key === 'credits') {
+        openCreditsUsageModal()
+        return
+    }
     if (key === 'short_drama') {
         feedback.msgWarning('功能开发中')
         return
     }
-    if (key === 'api' || key === 'notice') {
+    if (key === 'notice') {
         emit('toggle-popover', key)
         return
     }
@@ -373,6 +379,19 @@ const loadMembershipPlans = async () => {
     }
 }
 
+const loadNoticeUnread = async () => {
+    if (!userStore.isLogin) {
+        hasUnreadNotice.value = false
+        return
+    }
+    try {
+        const data = await getNoticeUnread()
+        hasUnreadNotice.value = Boolean(data?.has_unread || Number(data?.unread || 0) > 0)
+    } catch (error) {
+        hasUnreadNotice.value = false
+    }
+}
+
 watch(() => props.membershipEnabled, (enabled) => {
     if (!enabled) {
         selectedMembershipPlan.value = 'free'
@@ -390,6 +409,14 @@ watch(() => showMembershipPayModal.value, (visible) => {
     }
 })
 
+watch(() => userStore.isLogin, (isLogin) => {
+    if (isLogin) {
+        loadNoticeUnread()
+        return
+    }
+    hasUnreadNotice.value = false
+}, { immediate: true })
+
 watch(
     [showCreditsUsageModal, showCreditsPurchaseModal, showCreditAgreementModal, showMembershipModal, showMembershipPayModal, showUserPanel],
     syncBodyScrollWithVisibleModals,
@@ -399,6 +426,7 @@ watch(
 onMounted(() => {
     if (typeof window === 'undefined') return
     loadMembershipPlans()
+    loadNoticeUnread()
     syncHeaderSolid()
     window.addEventListener('scroll', syncHeaderSolid, { passive: true })
     window.addEventListener('resize', syncHeaderSolid, { passive: true })

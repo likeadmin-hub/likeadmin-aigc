@@ -12,6 +12,11 @@ export function getAccountLogs(params: Record<string, any> = {}) {
     return $request.get({ url: '/account_log/lists', params })
 }
 
+// 未读消息摘要
+export function getNoticeUnread() {
+    return $request.get({ url: '/notice/unread' })
+}
+
 // 充值配置
 export function getRechargeConfig() {
     return $request.get({ url: '/recharge/config' })

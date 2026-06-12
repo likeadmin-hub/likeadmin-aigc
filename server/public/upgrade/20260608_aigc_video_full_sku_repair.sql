@@ -6,12 +6,12 @@ VALUES
 (0,'seedance','Seedance 2.0','xhadmin','seedance-2-text-2-video',9,'{"app_code":"seedance","submit_path":"/api/v1/apps/seedance/create","task_path":"/api/v1/tasks/{task_id}","asset_group_path":"/api/v1/apps/seedance/createGroup","asset_create_path":"/api/v1/apps/seedance/createAsset","project_name":"default","group_type":"AIGC","poll_interval":2,"poll_attempts":0,"quantity_options":[1],"duration_options":[3,4,5,6,7,8,9,10,11,12,13,14,15],"supported_asset_types":["image","video","audio"],"max_reference_images":9,"max_reference_videos":3,"max_reference_audios":3,"max_reference_assets":15}',1,380,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'omni_flash_ext','Omni-Flash-Ext','xhadmin','omni-flash-ext',3,'{"app_code":"omni_flash_ext","submit_path":"/api/v1/apps/omni_flash_ext/create","task_path":"/api/v1/tasks/{task_id}","poll_interval":2,"poll_attempts":0,"quantity_options":[1],"duration_options":[4,6,8,10],"supported_asset_types":["image"],"max_reference_images":3,"max_reference_assets":3}',1,370,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE
-  `name`=IF(`name` IS NULL OR `name` = '', VALUES(`name`), `name`),
-  `provider`=IF(`provider` IS NULL OR `provider` = '', VALUES(`provider`), `provider`),
-  `model`=IF(`model` IS NULL OR `model` = '', VALUES(`model`), `model`),
-  `max_reference_images`=IF(`max_reference_images` <= 0, VALUES(`max_reference_images`), `max_reference_images`),
-  `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
-  `update_time`=`update_time`;
+  `la_aigc_video_channel`.`name`=IF(`la_aigc_video_channel`.`name` IS NULL OR `la_aigc_video_channel`.`name` = '', VALUES(`name`), `la_aigc_video_channel`.`name`),
+  `la_aigc_video_channel`.`provider`=IF(`la_aigc_video_channel`.`provider` IS NULL OR `la_aigc_video_channel`.`provider` = '', VALUES(`provider`), `la_aigc_video_channel`.`provider`),
+  `la_aigc_video_channel`.`model`=IF(`la_aigc_video_channel`.`model` IS NULL OR `la_aigc_video_channel`.`model` = '', VALUES(`model`), `la_aigc_video_channel`.`model`),
+  `la_aigc_video_channel`.`max_reference_images`=IF(`la_aigc_video_channel`.`max_reference_images` <= 0, VALUES(`max_reference_images`), `la_aigc_video_channel`.`max_reference_images`),
+  `la_aigc_video_channel`.`sort`=IF(`la_aigc_video_channel`.`sort` <= 0, VALUES(`sort`), `la_aigc_video_channel`.`sort`),
+  `la_aigc_video_channel`.`update_time`=`la_aigc_video_channel`.`update_time`;
 
 UPDATE `la_aigc_video_channel`
 SET `config_json` = JSON_INSERT(
@@ -127,13 +127,13 @@ CROSS JOIN (
 ) AS ratio
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
-    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
-    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
-    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
-    `status`=`status`,
-    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
-    `update_time`=`update_time`;
+    `la_aigc_video_channel_spec`.`quality_label`=IF(`la_aigc_video_channel_spec`.`quality_label` IS NULL OR `la_aigc_video_channel_spec`.`quality_label` = '', VALUES(`quality_label`), `la_aigc_video_channel_spec`.`quality_label`),
+    `la_aigc_video_channel_spec`.`width`=IF(`la_aigc_video_channel_spec`.`width` <= 0, VALUES(`width`), `la_aigc_video_channel_spec`.`width`),
+    `la_aigc_video_channel_spec`.`height`=IF(`la_aigc_video_channel_spec`.`height` <= 0, VALUES(`height`), `la_aigc_video_channel_spec`.`height`),
+    `la_aigc_video_channel_spec`.`provider_params_json`=IF(`la_aigc_video_channel_spec`.`provider_params_json` IS NULL OR `la_aigc_video_channel_spec`.`provider_params_json` = '' OR `la_aigc_video_channel_spec`.`provider_params_json` = '{}', VALUES(`provider_params_json`), `la_aigc_video_channel_spec`.`provider_params_json`),
+    `la_aigc_video_channel_spec`.`status`=`la_aigc_video_channel_spec`.`status`,
+    `la_aigc_video_channel_spec`.`sort`=IF(`la_aigc_video_channel_spec`.`sort` <= 0, VALUES(`sort`), `la_aigc_video_channel_spec`.`sort`),
+    `la_aigc_video_channel_spec`.`update_time`=`la_aigc_video_channel_spec`.`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT
@@ -177,13 +177,13 @@ CROSS JOIN (
 ) AS duration
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
-    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
-    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
-    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
-    `status`=`status`,
-    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
-    `update_time`=`update_time`;
+    `la_aigc_video_channel_spec`.`quality_label`=IF(`la_aigc_video_channel_spec`.`quality_label` IS NULL OR `la_aigc_video_channel_spec`.`quality_label` = '', VALUES(`quality_label`), `la_aigc_video_channel_spec`.`quality_label`),
+    `la_aigc_video_channel_spec`.`width`=IF(`la_aigc_video_channel_spec`.`width` <= 0, VALUES(`width`), `la_aigc_video_channel_spec`.`width`),
+    `la_aigc_video_channel_spec`.`height`=IF(`la_aigc_video_channel_spec`.`height` <= 0, VALUES(`height`), `la_aigc_video_channel_spec`.`height`),
+    `la_aigc_video_channel_spec`.`provider_params_json`=IF(`la_aigc_video_channel_spec`.`provider_params_json` IS NULL OR `la_aigc_video_channel_spec`.`provider_params_json` = '' OR `la_aigc_video_channel_spec`.`provider_params_json` = '{}', VALUES(`provider_params_json`), `la_aigc_video_channel_spec`.`provider_params_json`),
+    `la_aigc_video_channel_spec`.`status`=`la_aigc_video_channel_spec`.`status`,
+    `la_aigc_video_channel_spec`.`sort`=IF(`la_aigc_video_channel_spec`.`sort` <= 0, VALUES(`sort`), `la_aigc_video_channel_spec`.`sort`),
+    `la_aigc_video_channel_spec`.`update_time`=`la_aigc_video_channel_spec`.`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT
@@ -216,13 +216,13 @@ CROSS JOIN (
 ) AS duration
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
-    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
-    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
-    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
-    `status`=`status`,
-    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
-    `update_time`=`update_time`;
+    `la_aigc_video_channel_spec`.`quality_label`=IF(`la_aigc_video_channel_spec`.`quality_label` IS NULL OR `la_aigc_video_channel_spec`.`quality_label` = '', VALUES(`quality_label`), `la_aigc_video_channel_spec`.`quality_label`),
+    `la_aigc_video_channel_spec`.`width`=IF(`la_aigc_video_channel_spec`.`width` <= 0, VALUES(`width`), `la_aigc_video_channel_spec`.`width`),
+    `la_aigc_video_channel_spec`.`height`=IF(`la_aigc_video_channel_spec`.`height` <= 0, VALUES(`height`), `la_aigc_video_channel_spec`.`height`),
+    `la_aigc_video_channel_spec`.`provider_params_json`=IF(`la_aigc_video_channel_spec`.`provider_params_json` IS NULL OR `la_aigc_video_channel_spec`.`provider_params_json` = '' OR `la_aigc_video_channel_spec`.`provider_params_json` = '{}', VALUES(`provider_params_json`), `la_aigc_video_channel_spec`.`provider_params_json`),
+    `la_aigc_video_channel_spec`.`status`=`la_aigc_video_channel_spec`.`status`,
+    `la_aigc_video_channel_spec`.`sort`=IF(`la_aigc_video_channel_spec`.`sort` <= 0, VALUES(`sort`), `la_aigc_video_channel_spec`.`sort`),
+    `la_aigc_video_channel_spec`.`update_time`=`la_aigc_video_channel_spec`.`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT
@@ -256,13 +256,13 @@ CROSS JOIN (
 ) AS duration
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
-    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
-    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
-    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
-    `status`=`status`,
-    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
-    `update_time`=`update_time`;
+    `la_aigc_video_channel_spec`.`quality_label`=IF(`la_aigc_video_channel_spec`.`quality_label` IS NULL OR `la_aigc_video_channel_spec`.`quality_label` = '', VALUES(`quality_label`), `la_aigc_video_channel_spec`.`quality_label`),
+    `la_aigc_video_channel_spec`.`width`=IF(`la_aigc_video_channel_spec`.`width` <= 0, VALUES(`width`), `la_aigc_video_channel_spec`.`width`),
+    `la_aigc_video_channel_spec`.`height`=IF(`la_aigc_video_channel_spec`.`height` <= 0, VALUES(`height`), `la_aigc_video_channel_spec`.`height`),
+    `la_aigc_video_channel_spec`.`provider_params_json`=IF(`la_aigc_video_channel_spec`.`provider_params_json` IS NULL OR `la_aigc_video_channel_spec`.`provider_params_json` = '' OR `la_aigc_video_channel_spec`.`provider_params_json` = '{}', VALUES(`provider_params_json`), `la_aigc_video_channel_spec`.`provider_params_json`),
+    `la_aigc_video_channel_spec`.`status`=`la_aigc_video_channel_spec`.`status`,
+    `la_aigc_video_channel_spec`.`sort`=IF(`la_aigc_video_channel_spec`.`sort` <= 0, VALUES(`sort`), `la_aigc_video_channel_spec`.`sort`),
+    `la_aigc_video_channel_spec`.`update_time`=`la_aigc_video_channel_spec`.`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT
@@ -292,10 +292,10 @@ CROSS JOIN (
 ) AS duration
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
-    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
-    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
-    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
-    `status`=`status`,
-    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
-    `update_time`=`update_time`;
+    `la_aigc_video_channel_spec`.`quality_label`=IF(`la_aigc_video_channel_spec`.`quality_label` IS NULL OR `la_aigc_video_channel_spec`.`quality_label` = '', VALUES(`quality_label`), `la_aigc_video_channel_spec`.`quality_label`),
+    `la_aigc_video_channel_spec`.`width`=IF(`la_aigc_video_channel_spec`.`width` <= 0, VALUES(`width`), `la_aigc_video_channel_spec`.`width`),
+    `la_aigc_video_channel_spec`.`height`=IF(`la_aigc_video_channel_spec`.`height` <= 0, VALUES(`height`), `la_aigc_video_channel_spec`.`height`),
+    `la_aigc_video_channel_spec`.`provider_params_json`=IF(`la_aigc_video_channel_spec`.`provider_params_json` IS NULL OR `la_aigc_video_channel_spec`.`provider_params_json` = '' OR `la_aigc_video_channel_spec`.`provider_params_json` = '{}', VALUES(`provider_params_json`), `la_aigc_video_channel_spec`.`provider_params_json`),
+    `la_aigc_video_channel_spec`.`status`=`la_aigc_video_channel_spec`.`status`,
+    `la_aigc_video_channel_spec`.`sort`=IF(`la_aigc_video_channel_spec`.`sort` <= 0, VALUES(`sort`), `la_aigc_video_channel_spec`.`sort`),
+    `la_aigc_video_channel_spec`.`update_time`=`la_aigc_video_channel_spec`.`update_time`;

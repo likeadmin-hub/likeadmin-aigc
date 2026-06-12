@@ -430,7 +430,7 @@ const generationMode = ref<AiGenerationMode>('image')
 const prompt = ref('')
 const mainRef = ref<HTMLElement | null>(null)
 const composerShellRef = ref<HTMLElement | null>(null)
-const composerRef = ref<{ focusTextarea: () => Promise<void>; collapseIfEmpty: () => void } | null>(null)
+const composerRef = ref<{ focusTextarea: () => Promise<void>; collapseIfEmpty: () => void; rootRef?: HTMLElement | null } | null>(null)
 const generationFilterOpen = ref(false)
 const selectedGenerationFilter = ref<GenerationFilter>('all')
 const emptyImage = 'https://aigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/images/20260519/20260519165642975309142.jpg'
@@ -2069,6 +2069,8 @@ const resetAndJumpToLatestWork = async (refresh = true) => {
     }, 2400)
 }
 const handlePageScroll = () => {
+    const composerRoot = composerRef.value?.rootRef
+    if (composerRoot?.contains(document.activeElement)) return
     composerRef.value?.collapseIfEmpty()
 }
 const handleWindowResize = () => {

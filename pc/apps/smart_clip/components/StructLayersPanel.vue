@@ -33,5 +33,28 @@ function toggle(key: string) {
 </script>
 
 <style scoped>
-.layer-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px; }
+.layer-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.layer-grid label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 12px;
+    border: 1px solid #222;
+    border-radius: 8px;
+    background: #0f0f0f;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.layer-grid input {
+    accent-color: #fff;
+}
 </style>

@@ -30,12 +30,12 @@ SELECT
 FROM `la_aigc_digital_human_channel`
 WHERE `tenant_id` = 0
 ON DUPLICATE KEY UPDATE
-`config_json` = JSON_INSERT(
-  COALESCE(NULLIF(`config_json`, ''), '{}'),
+`la_aigc_digital_human_config`.`config_json` = JSON_INSERT(
+  COALESCE(NULLIF(`la_aigc_digital_human_config`.`config_json`, ''), '{}'),
   '$.pricing.generate_models',
   COALESCE(
-    JSON_EXTRACT(`config_json`, '$.pricing.generate_models'),
+    JSON_EXTRACT(`la_aigc_digital_human_config`.`config_json`, '$.pricing.generate_models'),
     JSON_EXTRACT(VALUES(`config_json`), '$.pricing.generate_models')
   )
 ),
-`update_time` = UNIX_TIMESTAMP();
+`la_aigc_digital_human_config`.`update_time` = UNIX_TIMESTAMP();

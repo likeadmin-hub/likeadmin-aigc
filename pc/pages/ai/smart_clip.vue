@@ -95,12 +95,11 @@ onBeforeUnmount(() => {
 }
 
 .workspace-page {
-    --workspace-header-height: 56px;
+    --workspace-header-height: 24px;
     --workspace-rail-left: 16px;
     --workspace-rail-width: 76px;
-    --workspace-rail-gap: clamp(12px, 1.25vw, 24px);
-    --workspace-content-left: calc(var(--workspace-rail-left) + var(--workspace-rail-width) + var(--workspace-rail-gap));
-    --workspace-content-right: clamp(16px, 2.2vw, 40px);
+    --workspace-content-left: 116px;
+    --workspace-content-right: 24px;
     position: relative;
     height: 100vh;
     min-width: 810px;
@@ -177,7 +176,7 @@ onBeforeUnmount(() => {
     z-index: 1;
     height: 100%;
     min-width: 0;
-    padding: var(--workspace-header-height) var(--workspace-content-right) 24px var(--workspace-content-left);
+    padding: var(--workspace-header-height) var(--workspace-content-right) 0 var(--workspace-content-left);
     overflow-y: auto;
     overflow-x: hidden;
     box-sizing: border-box;
@@ -229,7 +228,7 @@ onBeforeUnmount(() => {
     .workspace-main {
         height: auto;
         min-width: 0;
-        padding: 48px 16px 32px 96px;
+        padding: 24px 16px 32px 96px;
         overflow: visible;
     }
 }

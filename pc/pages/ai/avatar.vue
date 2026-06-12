@@ -1774,6 +1774,7 @@ const voiceCreateMaxDuration = 10
 const voiceCreateAudioAccept = '.mp3,.wav,.m4a,.aac,.ogg,.webm,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/aac,audio/ogg,audio/webm'
 const voiceCreateAllowedAudioExtensions = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'webm']
 const voiceCreateUploadAllowedAudioExtensions = ['mp3', 'wav', 'm4a', 'aac', 'ogg']
+const featuredToolDisplayLimit = 8
 const toolCategoryOptions: ToolCategory[] = [
     '\u5168\u90e8',
     '\u56fe\u7247\u7f16\u8f91',
@@ -3002,7 +3003,7 @@ const filteredFeaturedTools = computed(() => {
             !keyword ||
             [item.title, item.description, item.category].some((field) => field.toLowerCase().includes(keyword))
         return matchKeyword
-    })
+    }).slice(0, featuredToolDisplayLimit)
 })
 const filteredToolCards = computed(() => {
     const keyword = normalizedToolKeyword.value
@@ -7045,7 +7046,7 @@ onBeforeUnmount(() => {
     z-index: 1;
     height: 100vh;
     min-height: 0;
-    padding: 56px 72px 0 116px;
+    padding: 24px 72px 0 116px;
     overflow: auto hidden;
     overscroll-behavior: contain;
     scrollbar-width: thin;

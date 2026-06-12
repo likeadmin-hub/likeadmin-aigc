@@ -26,6 +26,24 @@ defineEmits<{
 </script>
 
 <style scoped>
-.two-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.field-label { display: block; margin: 16px 0 8px; color: rgba(255,255,255,.76); }
+.two-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.field-label {
+    display: block;
+    margin: 0 0 10px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+@media (max-width: 520px) {
+    .two-grid {
+        grid-template-columns: 1fr;
+    }
+}
 </style>

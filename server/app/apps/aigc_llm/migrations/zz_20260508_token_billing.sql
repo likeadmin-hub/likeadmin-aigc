@@ -68,22 +68,22 @@ INSERT INTO `la_aigc_llm_channel`
 VALUES
 (0, 'dashscope_compatible', 'Qwen3.6-Plus 兼容通道', 'openai_compatible', '{"base_url":"","stream_path":"/api/v1/chat/completions","api_key":"","timeout":120,"ssl_verify":0,"remark":"Qwen3.6-Plus OpenAI compatible"}', 1, 1000, UNIX_TIMESTAMP(), UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE
-`name`=VALUES(`name`),
-`provider`=VALUES(`provider`),
-`config_json`=JSON_SET(
+`la_aigc_llm_channel`.`name`=VALUES(`name`),
+`la_aigc_llm_channel`.`provider`=VALUES(`provider`),
+`la_aigc_llm_channel`.`config_json`=JSON_SET(
   VALUES(`config_json`),
   '$.api_key',
-  COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`config_json`, '$.api_key')), ''), '')
+  COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(`la_aigc_llm_channel`.`config_json`, '$.api_key')), ''), '')
 ),
-`status`=VALUES(`status`),
-`sort`=VALUES(`sort`),
-`update_time`=VALUES(`update_time`);
+`la_aigc_llm_channel`.`status`=VALUES(`status`),
+`la_aigc_llm_channel`.`sort`=VALUES(`sort`),
+`la_aigc_llm_channel`.`update_time`=VALUES(`update_time`);
 
 INSERT INTO `la_aigc_llm_model`
 (`tenant_id`, `channel_code`, `code`, `name`, `provider`, `model`, `context_limit`, `platform_unit_cost`, `tenant_unit_price`, `platform_input_unit_cost`, `platform_output_unit_cost`, `tenant_input_unit_price`, `tenant_output_unit_price`, `billing_unit`, `config_json`, `status`, `sort`, `create_time`, `update_time`)
 VALUES
 (0, 'dashscope_compatible', 'qwen3_6_plus', 'Qwen3.6-Plus', 'openai_compatible', 'qwen3.6-plus', 24, 200.00, 200.00, 200.0000, 1200.0000, 200.0000, 1200.0000, 'tokens_1m', '{"temperature":0.7,"max_tokens":8192,"enable_thinking":false,"stream_options":{"include_usage":true}}', 1, 1000, UNIX_TIMESTAMP(), UNIX_TIMESTAMP())
-ON DUPLICATE KEY UPDATE `channel_code`=VALUES(`channel_code`), `name`=VALUES(`name`), `provider`=VALUES(`provider`), `model`=VALUES(`model`), `context_limit`=VALUES(`context_limit`), `platform_unit_cost`=VALUES(`platform_unit_cost`), `tenant_unit_price`=VALUES(`tenant_unit_price`), `platform_input_unit_cost`=VALUES(`platform_input_unit_cost`), `platform_output_unit_cost`=VALUES(`platform_output_unit_cost`), `tenant_input_unit_price`=VALUES(`tenant_input_unit_price`), `tenant_output_unit_price`=VALUES(`tenant_output_unit_price`), `billing_unit`=VALUES(`billing_unit`), `config_json`=VALUES(`config_json`), `status`=VALUES(`status`), `sort`=VALUES(`sort`), `update_time`=VALUES(`update_time`);
+ON DUPLICATE KEY UPDATE `la_aigc_llm_model`.`channel_code`=VALUES(`channel_code`), `la_aigc_llm_model`.`name`=VALUES(`name`), `la_aigc_llm_model`.`provider`=VALUES(`provider`), `la_aigc_llm_model`.`model`=VALUES(`model`), `la_aigc_llm_model`.`context_limit`=VALUES(`context_limit`), `la_aigc_llm_model`.`platform_unit_cost`=VALUES(`platform_unit_cost`), `la_aigc_llm_model`.`tenant_unit_price`=VALUES(`tenant_unit_price`), `la_aigc_llm_model`.`platform_input_unit_cost`=VALUES(`platform_input_unit_cost`), `la_aigc_llm_model`.`platform_output_unit_cost`=VALUES(`platform_output_unit_cost`), `la_aigc_llm_model`.`tenant_input_unit_price`=VALUES(`tenant_input_unit_price`), `la_aigc_llm_model`.`tenant_output_unit_price`=VALUES(`tenant_output_unit_price`), `la_aigc_llm_model`.`billing_unit`=VALUES(`billing_unit`), `la_aigc_llm_model`.`config_json`=VALUES(`config_json`), `la_aigc_llm_model`.`status`=VALUES(`status`), `la_aigc_llm_model`.`sort`=VALUES(`sort`), `la_aigc_llm_model`.`update_time`=VALUES(`update_time`);
 
 UPDATE `la_aigc_llm_config`
 SET `provider_mode` = 'platform',

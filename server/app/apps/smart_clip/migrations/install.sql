@@ -154,9 +154,9 @@ CREATE TABLE IF NOT EXISTS `la_smart_clip_sensitive_word` (
 INSERT INTO `la_smart_clip_channel` (`tenant_id`,`code`,`name`,`provider`,`model`,`max_reference_images`,`config_json`,`status`,`sort`,`create_time`,`update_time`)
 VALUES
 (0,'smart_clip','智能剪辑','xhadmin','smart_clip',0,'{"task_path":"/api/v1/tasks/{task_id}","timeout":30}',1,100,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
-ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`provider`=VALUES(`provider`),`model`=VALUES(`model`),`config_json`=VALUES(`config_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
+ON DUPLICATE KEY UPDATE `la_smart_clip_channel`.`name`=VALUES(`name`),`la_smart_clip_channel`.`provider`=VALUES(`provider`),`la_smart_clip_channel`.`model`=VALUES(`model`),`la_smart_clip_channel`.`config_json`=VALUES(`config_json`),`la_smart_clip_channel`.`status`=VALUES(`status`),`la_smart_clip_channel`.`sort`=VALUES(`sort`),`la_smart_clip_channel`.`update_time`=VALUES(`update_time`);
 
 INSERT INTO `la_smart_clip_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 VALUES
 (0,'smart_clip','1','1秒计费','duration',0,0,0.02,0.02,'{"unit_seconds":1}',1,100,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
-ON DUPLICATE KEY UPDATE `quality_label`=VALUES(`quality_label`),`platform_unit_cost`=VALUES(`platform_unit_cost`),`tenant_unit_price`=VALUES(`tenant_unit_price`),`provider_params_json`=VALUES(`provider_params_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
+ON DUPLICATE KEY UPDATE `la_smart_clip_channel_spec`.`quality_label`=VALUES(`quality_label`),`la_smart_clip_channel_spec`.`platform_unit_cost`=VALUES(`platform_unit_cost`),`la_smart_clip_channel_spec`.`tenant_unit_price`=VALUES(`tenant_unit_price`),`la_smart_clip_channel_spec`.`provider_params_json`=VALUES(`provider_params_json`),`la_smart_clip_channel_spec`.`status`=VALUES(`status`),`la_smart_clip_channel_spec`.`sort`=VALUES(`sort`),`la_smart_clip_channel_spec`.`update_time`=VALUES(`update_time`);

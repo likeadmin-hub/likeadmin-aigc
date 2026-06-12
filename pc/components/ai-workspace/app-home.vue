@@ -327,7 +327,7 @@
                                     controls
                                     muted
                                     playsinline
-                                    @loadedmetadata="playDetailVideo"
+                                    @loadedmetadata="handleDetailVideoMetadata"
                                     @canplay="playDetailVideo"
                                 ></video>
                                 <img
@@ -597,6 +597,7 @@ const selectedCardKey = ref('')
 const caseCards = ref<CardItem[]>([])
 const detailOpen = ref(false)
 const activeDetailCard = ref<CardItem | null>(null)
+const detailVideoRatioMap = ref<Record<string, string>>({})
 const showFloatingComposer = ref(false)
 const submitting = ref(false)
 const uploading = ref(false)
@@ -1288,11 +1289,14 @@ const activeDetailPromptText = computed(() => {
 })
 const activeDetailConfigFields = computed(() => {
     if (!activeDetailCard.value) return []
-    if (activeDetailCard.value.configFields?.length) return activeDetailCard.value.configFields
+    const actualRatio = getActiveDetailVideoRatio()
+    if (activeDetailCard.value.configFields?.length) {
+        return applyActualRatioToConfigFields(activeDetailCard.value.configFields, actualRatio)
+    }
     const poolIndex = activeDetailCard.value.id - 1
     const model = cardModelPool[poolIndex % cardModelPool.length]
     return activeDetailCard.value.category === 'video'
-        ? [model, '16:9', '5s', '720p']
+        ? [model, actualRatio || '16:9', '5s', '720p']
         : [model, '1张', '3:4', '1k']
 })
 const activeDetailDownloadUrl = computed(() => {
@@ -1801,6 +1805,35 @@ const getCaseAspectRatio = (item: any) => {
     return ''
 }
 
+const ratioFieldPattern = /^\d+(\.\d+)?\s*[:/：]\s*\d+(\.\d+)?$/
+const gcd = (a: number, b: number): number => {
+    const x = Math.abs(Math.round(a))
+    const y = Math.abs(Math.round(b))
+    return y ? gcd(y, x % y) : x || 1
+}
+const formatVideoRatioFromSize = (width: number, height: number) => {
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return ''
+    const divisor = gcd(width, height)
+    return `${Math.round(width / divisor)}:${Math.round(height / divisor)}`
+}
+const getActiveDetailVideoRatio = () => {
+    const item = activeDetailCard.value
+    if (!item || item.category !== 'video') return ''
+    return detailVideoRatioMap.value[item.uniqueId] || ''
+}
+const applyActualRatioToConfigFields = (fields: string[], actualRatio: string) => {
+    if (!actualRatio) return fields
+    let replaced = false
+    const next = fields.map((field) => {
+        if (ratioFieldPattern.test(field)) {
+            replaced = true
+            return actualRatio
+        }
+        return field
+    })
+    return replaced ? next : [...next, actualRatio]
+}
+
 const hasAssetUrlShape = (value: string) => {
     const normalized = value.trim().replace(/\\/g, '/')
     return assetPathPattern.test(normalized) || imageExtensionPattern.test(normalized) || videoExtensionPattern.test(normalized)
@@ -2055,6 +2088,20 @@ const handleCaseImageError = (item: CardItem | null) => {
 }
 const playDetailVideo = () => {
     detailVideoRef.value?.play().catch(() => undefined)
+}
+const handleDetailVideoMetadata = (event: Event) => {
+    const video = event.currentTarget as HTMLVideoElement | null
+    const item = activeDetailCard.value
+    if (video && item) {
+        const ratio = formatVideoRatioFromSize(video.videoWidth, video.videoHeight)
+        if (ratio) {
+            detailVideoRatioMap.value = {
+                ...detailVideoRatioMap.value,
+                [item.uniqueId]: ratio
+            }
+        }
+    }
+    playDetailVideo()
 }
 const focusActiveComposer = async () => {
     await nextTick()

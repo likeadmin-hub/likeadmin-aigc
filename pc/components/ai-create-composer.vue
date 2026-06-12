@@ -373,6 +373,7 @@ const collapseComposerIfEmpty = () => {
 const collapseIfEmpty = () => {
     if (!props.collapsed) return
     if (props.modelValue.trim() || props.uploadedAssets.length) return
+    if (composerFocused.value || rootRef.value?.contains(document.activeElement)) return
     composerFocused.value = false
     openedOption.value = ''
 }

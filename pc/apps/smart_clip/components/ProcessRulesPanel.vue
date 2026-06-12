@@ -29,10 +29,69 @@ defineProps<{
 </script>
 
 <style scoped>
-.switch-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px; }
-.segmented { display: flex; gap: 8px; margin: 18px 0; }
-.segmented button { flex: 1; height: 38px; border-radius: 6px; border: 1px solid rgba(255,255,255,.12); background: #171719; color: rgba(255,255,255,.72); }
-.segmented .is-active { background: #fff; color: #050505; }
-.two-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.small { margin: 12px 0 0; }
+.switch-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.switch-grid label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 12px;
+    border: 1px solid #222;
+    border-radius: 8px;
+    background: #0f0f0f;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.switch-grid input {
+    accent-color: #fff;
+}
+
+.segmented {
+    display: flex;
+    gap: 8px;
+    margin: 14px 0 0;
+}
+
+.segmented button {
+    flex: 1;
+    min-height: 40px;
+    border: 1px solid #222;
+    border-radius: 8px;
+    background: #0f0f0f;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.segmented button:hover {
+    color: #fff;
+}
+
+.segmented button.is-active,
+.segmented button.is-active:hover,
+.segmented button.is-active:focus,
+.segmented button.is-active:active {
+    border-color: #fff;
+    background: #fff;
+    color: #050505;
+}
+
+.two-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.small {
+    margin: 12px 0 0;
+}
 </style>

@@ -13,5 +13,28 @@ defineProps<{ rules: any }>()
 </script>
 
 <style scoped>
-.switch-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px; }
+.switch-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.switch-grid label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 12px;
+    border: 1px solid #222;
+    border-radius: 8px;
+    background: #0f0f0f;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.switch-grid input {
+    accent-color: #fff;
+}
 </style>

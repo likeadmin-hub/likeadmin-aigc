@@ -93,10 +93,11 @@ const selectedToolCardId = ref(displayToolCards.value[0]?.id ?? '')
 
 const normalizedToolKeyword = computed(() => toolKeyword.value.trim().toLowerCase())
 
+const featuredToolDisplayLimit = 8
 const filteredFeaturedTools = computed(() => displayFeaturedTools.value.filter((item) => (
     !normalizedToolKeyword.value
     || [item.title, item.description, item.category].some((field) => field.toLowerCase().includes(normalizedToolKeyword.value))
-)))
+)).slice(0, featuredToolDisplayLimit))
 
 const filteredToolCards = computed(() => displayToolCards.value.filter((item) => {
     const matchKeyword = !normalizedToolKeyword.value

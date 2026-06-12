@@ -6,12 +6,12 @@ VALUES
 (0,'omni_flash_ext','Omni-Flash-Ext','xhadmin','omni-flash-ext',3,'{"app_code":"omni_flash_ext","pricing_api_code":"create","api_code":"create","submit_path":"/api/v1/apps/omni_flash_ext/create","task_path":"/api/v1/tasks/{task_id}","poll_interval":2,"poll_attempts":0,"quantity_options":[1],"duration_options":[4,6,8,10],"supported_asset_types":["image"],"max_reference_images":3,"max_reference_assets":3}',1,370,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (0,'happy_horse','Happy Horse','happyhorse','happyhorse-1.0-t2v',9,'{"app_code":"happy_horse","pricing_api_code":"submit","api_code":"submit","submit_path":"/api/v1/apps/happy_horse/submit","query_path":"/api/v1/apps/happy_horse/query","poll_interval":2,"poll_attempts":0,"quantity_options":[1],"duration_options":[3,4,5,6,7,8,9,10,11,12,13,14,15],"videoedit_duration_options":[3,4,5,6,7,8,9,10,11,12,13,14,15],"resolution":"720P","supported_asset_types":["image","video"],"max_reference_images":9,"max_reference_videos":1,"max_reference_assets":10}',1,300,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE
-  `name`=IF(`name` IS NULL OR `name` = '', VALUES(`name`), `name`),
-  `provider`=IF(`provider` IS NULL OR `provider` = '', VALUES(`provider`), `provider`),
-  `model`=IF(`model` IS NULL OR `model` = '', VALUES(`model`), `model`),
-  `max_reference_images`=IF(`max_reference_images` <= 0, VALUES(`max_reference_images`), `max_reference_images`),
-  `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
-  `update_time`=`update_time`;
+  `la_aigc_video_channel`.`name`=IF(`la_aigc_video_channel`.`name` IS NULL OR `la_aigc_video_channel`.`name` = '', VALUES(`name`), `la_aigc_video_channel`.`name`),
+  `la_aigc_video_channel`.`provider`=IF(`la_aigc_video_channel`.`provider` IS NULL OR `la_aigc_video_channel`.`provider` = '', VALUES(`provider`), `la_aigc_video_channel`.`provider`),
+  `la_aigc_video_channel`.`model`=IF(`la_aigc_video_channel`.`model` IS NULL OR `la_aigc_video_channel`.`model` = '', VALUES(`model`), `la_aigc_video_channel`.`model`),
+  `la_aigc_video_channel`.`max_reference_images`=IF(`la_aigc_video_channel`.`max_reference_images` <= 0, VALUES(`max_reference_images`), `la_aigc_video_channel`.`max_reference_images`),
+  `la_aigc_video_channel`.`sort`=IF(`la_aigc_video_channel`.`sort` <= 0, VALUES(`sort`), `la_aigc_video_channel`.`sort`),
+  `la_aigc_video_channel`.`update_time`=`la_aigc_video_channel`.`update_time`;
 
 UPDATE `la_aigc_video_channel`
 SET `config_json` = JSON_INSERT(
@@ -101,17 +101,17 @@ CROSS JOIN (
 ) AS r
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
-    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
-    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
-    `upstream_unit_cost`=IF(`upstream_unit_cost` <= 0, VALUES(`upstream_unit_cost`), `upstream_unit_cost`),
-    `platform_unit_cost`=IF(`platform_unit_cost` <= 0, VALUES(`platform_unit_cost`), `platform_unit_cost`),
-    `tenant_unit_price`=IF(`tenant_unit_price` <= 0, VALUES(`tenant_unit_price`), `tenant_unit_price`),
-    `upstream_cost_text`=IF(`upstream_cost_text` = '', VALUES(`upstream_cost_text`), `upstream_cost_text`),
-    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
-    `status`=`status`,
-    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
-    `update_time`=`update_time`;
+    `la_aigc_video_channel_spec`.`quality_label`=IF(`la_aigc_video_channel_spec`.`quality_label` IS NULL OR `la_aigc_video_channel_spec`.`quality_label` = '', VALUES(`quality_label`), `la_aigc_video_channel_spec`.`quality_label`),
+    `la_aigc_video_channel_spec`.`width`=IF(`la_aigc_video_channel_spec`.`width` <= 0, VALUES(`width`), `la_aigc_video_channel_spec`.`width`),
+    `la_aigc_video_channel_spec`.`height`=IF(`la_aigc_video_channel_spec`.`height` <= 0, VALUES(`height`), `la_aigc_video_channel_spec`.`height`),
+    `la_aigc_video_channel_spec`.`upstream_unit_cost`=IF(`la_aigc_video_channel_spec`.`upstream_unit_cost` <= 0, VALUES(`upstream_unit_cost`), `la_aigc_video_channel_spec`.`upstream_unit_cost`),
+    `la_aigc_video_channel_spec`.`platform_unit_cost`=IF(`la_aigc_video_channel_spec`.`platform_unit_cost` <= 0, VALUES(`platform_unit_cost`), `la_aigc_video_channel_spec`.`platform_unit_cost`),
+    `la_aigc_video_channel_spec`.`tenant_unit_price`=IF(`la_aigc_video_channel_spec`.`tenant_unit_price` <= 0, VALUES(`tenant_unit_price`), `la_aigc_video_channel_spec`.`tenant_unit_price`),
+    `la_aigc_video_channel_spec`.`upstream_cost_text`=IF(`la_aigc_video_channel_spec`.`upstream_cost_text` = '', VALUES(`upstream_cost_text`), `la_aigc_video_channel_spec`.`upstream_cost_text`),
+    `la_aigc_video_channel_spec`.`provider_params_json`=IF(`la_aigc_video_channel_spec`.`provider_params_json` IS NULL OR `la_aigc_video_channel_spec`.`provider_params_json` = '' OR `la_aigc_video_channel_spec`.`provider_params_json` = '{}', VALUES(`provider_params_json`), `la_aigc_video_channel_spec`.`provider_params_json`),
+    `la_aigc_video_channel_spec`.`status`=`la_aigc_video_channel_spec`.`status`,
+    `la_aigc_video_channel_spec`.`sort`=IF(`la_aigc_video_channel_spec`.`sort` <= 0, VALUES(`sort`), `la_aigc_video_channel_spec`.`sort`),
+    `la_aigc_video_channel_spec`.`update_time`=`la_aigc_video_channel_spec`.`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT 0,'wan',CONCAT(LOWER(t.`resolution`), '_', d.`duration`),CONCAT(UPPER(t.`resolution`), ' · ', d.`duration`, '秒'),t.`ratio`,t.`width`,t.`height`,0.00,0.00,CONCAT('{"resolution":"', t.`resolution`, '","duration":', d.`duration`, ',"size":"', t.`ratio`, '"}'),1,1400 - d.`duration` * 10 - t.`sort_offset`,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
@@ -135,13 +135,13 @@ CROSS JOIN (
 ) AS d
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
-    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
-    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
-    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
-    `status`=`status`,
-    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
-    `update_time`=`update_time`;
+    `la_aigc_video_channel_spec`.`quality_label`=IF(`la_aigc_video_channel_spec`.`quality_label` IS NULL OR `la_aigc_video_channel_spec`.`quality_label` = '', VALUES(`quality_label`), `la_aigc_video_channel_spec`.`quality_label`),
+    `la_aigc_video_channel_spec`.`width`=IF(`la_aigc_video_channel_spec`.`width` <= 0, VALUES(`width`), `la_aigc_video_channel_spec`.`width`),
+    `la_aigc_video_channel_spec`.`height`=IF(`la_aigc_video_channel_spec`.`height` <= 0, VALUES(`height`), `la_aigc_video_channel_spec`.`height`),
+    `la_aigc_video_channel_spec`.`provider_params_json`=IF(`la_aigc_video_channel_spec`.`provider_params_json` IS NULL OR `la_aigc_video_channel_spec`.`provider_params_json` = '' OR `la_aigc_video_channel_spec`.`provider_params_json` = '{}', VALUES(`provider_params_json`), `la_aigc_video_channel_spec`.`provider_params_json`),
+    `la_aigc_video_channel_spec`.`status`=`la_aigc_video_channel_spec`.`status`,
+    `la_aigc_video_channel_spec`.`sort`=IF(`la_aigc_video_channel_spec`.`sort` <= 0, VALUES(`sort`), `la_aigc_video_channel_spec`.`sort`),
+    `la_aigc_video_channel_spec`.`update_time`=`la_aigc_video_channel_spec`.`update_time`;
 
 UPDATE `la_aigc_video_channel_spec`
 SET `status` = `status`,
@@ -185,17 +185,17 @@ JOIN (
 ) AS v ON v.`resolution` = t.`resolution`
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
-    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
-    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
-    `upstream_unit_cost`=IF(`upstream_unit_cost` <= 0, VALUES(`upstream_unit_cost`), `upstream_unit_cost`),
-    `platform_unit_cost`=IF(`platform_unit_cost` <= 0, VALUES(`platform_unit_cost`), `platform_unit_cost`),
-    `tenant_unit_price`=IF(`tenant_unit_price` <= 0, VALUES(`tenant_unit_price`), `tenant_unit_price`),
-    `upstream_cost_text`=IF(`upstream_cost_text` = '', VALUES(`upstream_cost_text`), `upstream_cost_text`),
-    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
-    `status`=`status`,
-    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
-    `update_time`=`update_time`;
+    `la_aigc_video_channel_spec`.`quality_label`=IF(`la_aigc_video_channel_spec`.`quality_label` IS NULL OR `la_aigc_video_channel_spec`.`quality_label` = '', VALUES(`quality_label`), `la_aigc_video_channel_spec`.`quality_label`),
+    `la_aigc_video_channel_spec`.`width`=IF(`la_aigc_video_channel_spec`.`width` <= 0, VALUES(`width`), `la_aigc_video_channel_spec`.`width`),
+    `la_aigc_video_channel_spec`.`height`=IF(`la_aigc_video_channel_spec`.`height` <= 0, VALUES(`height`), `la_aigc_video_channel_spec`.`height`),
+    `la_aigc_video_channel_spec`.`upstream_unit_cost`=IF(`la_aigc_video_channel_spec`.`upstream_unit_cost` <= 0, VALUES(`upstream_unit_cost`), `la_aigc_video_channel_spec`.`upstream_unit_cost`),
+    `la_aigc_video_channel_spec`.`platform_unit_cost`=IF(`la_aigc_video_channel_spec`.`platform_unit_cost` <= 0, VALUES(`platform_unit_cost`), `la_aigc_video_channel_spec`.`platform_unit_cost`),
+    `la_aigc_video_channel_spec`.`tenant_unit_price`=IF(`la_aigc_video_channel_spec`.`tenant_unit_price` <= 0, VALUES(`tenant_unit_price`), `la_aigc_video_channel_spec`.`tenant_unit_price`),
+    `la_aigc_video_channel_spec`.`upstream_cost_text`=IF(`la_aigc_video_channel_spec`.`upstream_cost_text` = '', VALUES(`upstream_cost_text`), `la_aigc_video_channel_spec`.`upstream_cost_text`),
+    `la_aigc_video_channel_spec`.`provider_params_json`=IF(`la_aigc_video_channel_spec`.`provider_params_json` IS NULL OR `la_aigc_video_channel_spec`.`provider_params_json` = '' OR `la_aigc_video_channel_spec`.`provider_params_json` = '{}', VALUES(`provider_params_json`), `la_aigc_video_channel_spec`.`provider_params_json`),
+    `la_aigc_video_channel_spec`.`status`=`la_aigc_video_channel_spec`.`status`,
+    `la_aigc_video_channel_spec`.`sort`=IF(`la_aigc_video_channel_spec`.`sort` <= 0, VALUES(`sort`), `la_aigc_video_channel_spec`.`sort`),
+    `la_aigc_video_channel_spec`.`update_time`=`la_aigc_video_channel_spec`.`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT 0,'omni_flash_ext',CONCAT(LOWER(t.`resolution`), '_', d.`duration`),CONCAT(UPPER(t.`resolution`), ' · ', d.`duration`, '秒'),t.`ratio`,t.`width`,t.`height`,0.00,0.00,CONCAT('{"resolution":"', t.`resolution`, '","duration":', d.`duration`, ',"aspect_ratio":"', t.`ratio`, '"}'),1,1000 - d.`duration` * 10 - t.`sort_offset`,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
@@ -211,13 +211,13 @@ CROSS JOIN (
 ) AS d
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
-    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
-    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
-    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
-    `status`=`status`,
-    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
-    `update_time`=`update_time`;
+    `la_aigc_video_channel_spec`.`quality_label`=IF(`la_aigc_video_channel_spec`.`quality_label` IS NULL OR `la_aigc_video_channel_spec`.`quality_label` = '', VALUES(`quality_label`), `la_aigc_video_channel_spec`.`quality_label`),
+    `la_aigc_video_channel_spec`.`width`=IF(`la_aigc_video_channel_spec`.`width` <= 0, VALUES(`width`), `la_aigc_video_channel_spec`.`width`),
+    `la_aigc_video_channel_spec`.`height`=IF(`la_aigc_video_channel_spec`.`height` <= 0, VALUES(`height`), `la_aigc_video_channel_spec`.`height`),
+    `la_aigc_video_channel_spec`.`provider_params_json`=IF(`la_aigc_video_channel_spec`.`provider_params_json` IS NULL OR `la_aigc_video_channel_spec`.`provider_params_json` = '' OR `la_aigc_video_channel_spec`.`provider_params_json` = '{}', VALUES(`provider_params_json`), `la_aigc_video_channel_spec`.`provider_params_json`),
+    `la_aigc_video_channel_spec`.`status`=`la_aigc_video_channel_spec`.`status`,
+    `la_aigc_video_channel_spec`.`sort`=IF(`la_aigc_video_channel_spec`.`sort` <= 0, VALUES(`sort`), `la_aigc_video_channel_spec`.`sort`),
+    `la_aigc_video_channel_spec`.`update_time`=`la_aigc_video_channel_spec`.`update_time`;
 
 INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`platform_unit_cost`,`tenant_unit_price`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
 SELECT 0,'happy_horse',CONCAT(LOWER(t.`resolution`), '_', d.`duration`),CONCAT(t.`resolution`, ' · ', d.`duration`, '秒'),t.`ratio`,t.`width`,t.`height`,ROUND(d.`duration` * CASE t.`resolution` WHEN '1080P' THEN 0.056 ELSE 0.028 END, 2),ROUND(d.`duration` * CASE t.`resolution` WHEN '1080P' THEN 0.056 ELSE 0.028 END, 2),CONCAT('{"resolution":"', t.`resolution`, '","duration":', d.`duration`, ',"ratio":"', t.`ratio`, '"}'),1,1300 - d.`duration` * 10 - t.`sort_offset`,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
@@ -241,12 +241,12 @@ CROSS JOIN (
 ) AS d
 WHERE 1 = 1
 ON DUPLICATE KEY UPDATE
-    `quality_label`=IF(`quality_label` IS NULL OR `quality_label` = '', VALUES(`quality_label`), `quality_label`),
-    `width`=IF(`width` <= 0, VALUES(`width`), `width`),
-    `height`=IF(`height` <= 0, VALUES(`height`), `height`),
-    `platform_unit_cost`=IF(`platform_unit_cost` <= 0, VALUES(`platform_unit_cost`), `platform_unit_cost`),
-    `tenant_unit_price`=IF(`tenant_unit_price` <= 0, VALUES(`tenant_unit_price`), `tenant_unit_price`),
-    `provider_params_json`=IF(`provider_params_json` IS NULL OR `provider_params_json` = '' OR `provider_params_json` = '{}', VALUES(`provider_params_json`), `provider_params_json`),
-    `status`=`status`,
-    `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
-    `update_time`=`update_time`;
+    `la_aigc_video_channel_spec`.`quality_label`=IF(`la_aigc_video_channel_spec`.`quality_label` IS NULL OR `la_aigc_video_channel_spec`.`quality_label` = '', VALUES(`quality_label`), `la_aigc_video_channel_spec`.`quality_label`),
+    `la_aigc_video_channel_spec`.`width`=IF(`la_aigc_video_channel_spec`.`width` <= 0, VALUES(`width`), `la_aigc_video_channel_spec`.`width`),
+    `la_aigc_video_channel_spec`.`height`=IF(`la_aigc_video_channel_spec`.`height` <= 0, VALUES(`height`), `la_aigc_video_channel_spec`.`height`),
+    `la_aigc_video_channel_spec`.`platform_unit_cost`=IF(`la_aigc_video_channel_spec`.`platform_unit_cost` <= 0, VALUES(`platform_unit_cost`), `la_aigc_video_channel_spec`.`platform_unit_cost`),
+    `la_aigc_video_channel_spec`.`tenant_unit_price`=IF(`la_aigc_video_channel_spec`.`tenant_unit_price` <= 0, VALUES(`tenant_unit_price`), `la_aigc_video_channel_spec`.`tenant_unit_price`),
+    `la_aigc_video_channel_spec`.`provider_params_json`=IF(`la_aigc_video_channel_spec`.`provider_params_json` IS NULL OR `la_aigc_video_channel_spec`.`provider_params_json` = '' OR `la_aigc_video_channel_spec`.`provider_params_json` = '{}', VALUES(`provider_params_json`), `la_aigc_video_channel_spec`.`provider_params_json`),
+    `la_aigc_video_channel_spec`.`status`=`la_aigc_video_channel_spec`.`status`,
+    `la_aigc_video_channel_spec`.`sort`=IF(`la_aigc_video_channel_spec`.`sort` <= 0, VALUES(`sort`), `la_aigc_video_channel_spec`.`sort`),
+    `la_aigc_video_channel_spec`.`update_time`=`la_aigc_video_channel_spec`.`update_time`;
