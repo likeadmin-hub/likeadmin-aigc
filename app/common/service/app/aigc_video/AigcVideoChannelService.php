@@ -631,6 +631,8 @@ class AigcVideoChannelService
         }
         $resolution = self::normalizeResolution($qualityItem['resolution'] ?? $qualityItem['value'] ?? '');
         $fallbackSpec = [];
+        $durationSpec = [];
+        $preferSecondUnitSpec = self::isSecondBillingChannel((string)($channel['code'] ?? ''));
         foreach ($channel['specs'] as $spec) {
             if (($spec['ratio'] ?? '') !== $ratio) {
                 continue;
@@ -643,7 +645,13 @@ class AigcVideoChannelService
             }
             $specDuration = self::explicitSpecDurationValue($spec);
             if ($specDuration === $duration) {
-                return $spec;
+                if (!$preferSecondUnitSpec) {
+                    return $spec;
+                }
+                if (empty($durationSpec)) {
+                    $durationSpec = $spec;
+                }
+                continue;
             }
             if ($specDuration <= 0 && empty($fallbackSpec)) {
                 $fallbackSpec = $spec;
@@ -651,6 +659,9 @@ class AigcVideoChannelService
         }
         if (!empty($fallbackSpec)) {
             return $fallbackSpec;
+        }
+        if (!empty($durationSpec)) {
+            return $durationSpec;
         }
         throw new Exception('当前通道不支持所选时长');
     }

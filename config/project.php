@@ -1,7 +1,7 @@
 <?php
 return [
     // 系统版本号
-    'version' => '1.0.104',
+    'version' => '1.0.107',
     'project_name' => 'Likeadmin-SaaS版',
 
     // 官网
@@ -121,7 +121,7 @@ return [
     //上传文件的格式 (文件)
     'file_file' => [
         'zip','rar','txt','pdf','doc','docx','xls','xlsx','ppt','pptx','csv','txt','ftr','7z','gz',
-        'mp3','wav','ogg','flac','aac','m4a','opus'
+        'mp3','wav','ogg','flac','aac','m4a','opus','webm'
     ],
 
     // 登录设置
