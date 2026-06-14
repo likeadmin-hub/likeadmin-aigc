@@ -108,7 +108,7 @@ class AigcVideoChannelService
             $grouped[$spec['channel_code']][] = $spec;
         }
         foreach ($channels as &$channel) {
-            $channel['config_json'] = self::maskSecretConfig($channel['config_json'] ?? []);
+            $channel['config_json'] = self::maskSecretConfig(self::withDefaultChannelConfig((string)$channel['code'], $channel['config_json'] ?? []));
             $channel['specs'] = $grouped[$channel['code']] ?? [];
         }
         return $channels;
@@ -340,7 +340,7 @@ class AigcVideoChannelService
             if ($onlyEnabled && !$status) {
                 continue;
             }
-            $config = self::normalizeJson($platformChannel['config_json'] ?? []);
+            $config = self::withDefaultChannelConfig((string)$platformChannel['code'], $platformChannel['config_json'] ?? []);
             $channelSpecRows = $specsByChannel[$platformChannel['code']] ?? [];
             $configDurationOptions = self::channelDurationOptions($config);
             $specDurationOptions = self::durationOptionsFromSpecs($platformChannel['code'], $channelSpecRows);
@@ -361,7 +361,7 @@ class AigcVideoChannelService
                 'tenant_status' => (int)($override['status'] ?? 1),
                 'sort' => (int)($override['sort'] ?? $platformChannel['sort']),
                 'config_json' => $config,
-                'quantity_options' => self::channelQuantityOptions($platformChannel),
+                'quantity_options' => self::channelQuantityOptions(['config_json' => $config]),
                 'duration_options' => [],
                 'videoedit_duration_options' => self::channelVideoEditDurationOptions($config),
                 'supported_asset_types' => self::supportedAssetTypes($config),
@@ -377,6 +377,7 @@ class AigcVideoChannelService
                 if ($onlyEnabled && !$specStatus) {
                     continue;
                 }
+                $tenantUnitPrice = self::effectiveTenantUnitPrice($platformSpec, $tenantSpec);
                 $spec = [
                     'id' => (int)$platformSpec['id'],
                     'tenant_override_id' => (int)($tenantSpec['id'] ?? 0),
@@ -390,9 +391,9 @@ class AigcVideoChannelService
                     'height' => (int)$platformSpec['height'],
                     'upstream_unit_cost' => self::formatPoints((float)($platformSpec['upstream_unit_cost'] ?? 0)),
                     'platform_unit_cost' => self::formatPoints((float)$platformSpec['platform_unit_cost']),
-                    'tenant_unit_price' => self::formatPoints((float)($tenantSpec['tenant_unit_price'] ?? $platformSpec['tenant_unit_price'] ?? $platformSpec['platform_unit_cost'])),
+                    'tenant_unit_price' => self::formatPoints($tenantUnitPrice),
                     'platform_gross_margin_points' => self::formatPoints((float)$platformSpec['platform_unit_cost'] - (float)($platformSpec['upstream_unit_cost'] ?? 0)),
-                    'tenant_gross_margin_points' => self::formatPoints((float)($tenantSpec['tenant_unit_price'] ?? $platformSpec['tenant_unit_price'] ?? $platformSpec['platform_unit_cost']) - (float)$platformSpec['platform_unit_cost']),
+                    'tenant_gross_margin_points' => self::formatPoints($tenantUnitPrice - (float)$platformSpec['platform_unit_cost']),
                     'upstream_cost_text' => (string)($platformSpec['upstream_cost_text'] ?? ''),
                     'cost_source_url' => (string)($platformSpec['cost_source_url'] ?? ''),
                     'provider_params_json' => $platformSpec['provider_params_json'] ?? [],
@@ -566,6 +567,18 @@ class AigcVideoChannelService
         return $types ?: ['image'];
     }
 
+    private static function effectiveTenantUnitPrice(array $platformSpec, array $tenantSpec = []): float
+    {
+        if (array_key_exists('tenant_unit_price', $tenantSpec) && (float)$tenantSpec['tenant_unit_price'] > 0) {
+            return (float)$tenantSpec['tenant_unit_price'];
+        }
+        $platformTenantPrice = (float)($platformSpec['tenant_unit_price'] ?? 0);
+        if ($platformTenantPrice > 0) {
+            return $platformTenantPrice;
+        }
+        return (float)($platformSpec['platform_unit_cost'] ?? 0);
+    }
+
     private static function quantityOptions(array $channels): array
     {
         $options = [];
@@ -605,6 +618,49 @@ class AigcVideoChannelService
             return $options;
         }
         return [];
+    }
+
+    private static function withDefaultChannelConfig(string $channelCode, $config): array
+    {
+        $config = self::normalizeJson($config);
+        $defaults = self::defaultChannelConfig($channelCode);
+        foreach ($defaults as $key => $value) {
+            if (!array_key_exists($key, $config) || $config[$key] === null || $config[$key] === '' || $config[$key] === []) {
+                $config[$key] = $value;
+            }
+        }
+        return $config;
+    }
+
+    private static function defaultChannelConfig(string $channelCode): array
+    {
+        $defaults = [
+            'grok_video_xaiq' => [
+                'poll_interval' => 2,
+                'poll_attempts' => 30,
+                'quantity_options' => [1],
+                'duration_options' => [6, 10, 15, 20, 25, 30],
+                'quality' => '720p',
+                'supported_asset_types' => ['image'],
+                'max_reference_images' => 7,
+                'max_reference_assets' => 7,
+            ],
+            'omni_flash_ext' => [
+                'app_code' => 'omni_flash_ext',
+                'pricing_api_code' => 'create',
+                'api_code' => 'create',
+                'submit_path' => '/api/v1/apps/omni_flash_ext/create',
+                'task_path' => '/api/v1/tasks/{task_id}',
+                'poll_interval' => 2,
+                'poll_attempts' => 0,
+                'quantity_options' => [1],
+                'duration_options' => [4, 6, 8, 10],
+                'supported_asset_types' => ['image'],
+                'max_reference_images' => 3,
+                'max_reference_assets' => 3,
+            ],
+        ];
+        return $defaults[$channelCode] ?? [];
     }
 
     private static function durationOptionsFromSpecs(string $channelCode, array $specs): array
@@ -893,7 +949,7 @@ class AigcVideoChannelService
     private static function specPresentation(array $spec): array
     {
         $params = self::normalizeJson($spec['provider_params_json'] ?? []);
-        $resolution = self::normalizeResolution($params['resolution'] ?? $params['size'] ?? $spec['quality_label'] ?? $spec['quality'] ?? '');
+        $resolution = self::normalizeResolution($params['resolution'] ?? $params['quality'] ?? $params['size'] ?? $spec['quality_label'] ?? $spec['quality'] ?? '');
         $duration = self::normalizeDuration($params['duration'] ?? $spec['quality_label'] ?? $spec['quality'] ?? '');
         return [
             'resolution' => $resolution,
