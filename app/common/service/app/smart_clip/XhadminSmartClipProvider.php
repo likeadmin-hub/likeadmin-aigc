@@ -5,6 +5,17 @@ namespace app\common\service\app\smart_clip;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
 
+class XhadminSmartClipProviderException extends Exception
+{
+    public array $response;
+
+    public function __construct(string $message, array $response = [])
+    {
+        parent::__construct($message);
+        $this->response = $response;
+    }
+}
+
 class XhadminSmartClipProvider implements SmartClipProviderInterface
 {
     private const TEMPLATE_PATH = '/api/v1/apps/smart_clip/template';
@@ -50,7 +61,8 @@ class XhadminSmartClipProvider implements SmartClipProviderInterface
             }
             return new SmartClipGenerateResult(true, [], '', $taskId, $submit);
         } catch (\Throwable $e) {
-            return new SmartClipGenerateResult(false, [], $this->friendlyError($e->getMessage()));
+            $raw = $e instanceof XhadminSmartClipProviderException ? $e->response : [];
+            return new SmartClipGenerateResult(false, [], $this->friendlyError($e->getMessage()), '', $raw);
         }
     }
 
@@ -105,10 +117,47 @@ class XhadminSmartClipProvider implements SmartClipProviderInterface
             'subtitle' => $request->subtitle ?: null,
             'callbackUrl' => $request->callbackUrl ?: null,
         ], $request->providerParams['extra_payload'] ?? []);
+        $payload = $this->normalizeFirstFrameCover($payload);
         if (isset($payload['packRules']) && is_array($payload['packRules'])) {
             $payload['packRules'] = $this->normalizePackRules($payload['packRules']);
         }
+        if (isset($payload['processRules']) && is_array($payload['processRules'])) {
+            $payload['processRules'] = $this->normalizeProcessRules($payload['processRules']);
+        }
+        if (isset($payload['structLayers']) && is_array($payload['structLayers'])) {
+            $payload['structLayers'] = $this->normalizeStructLayers($payload['structLayers']);
+            $payload['structLayers'] = $this->filterTemplateStructLayers((string)$request->styleId, $payload['structLayers']);
+        }
+        if ($request->api === 'realman_broadcast') {
+            unset($payload['materials']);
+        }
         return $this->filterPayload($payload);
+    }
+
+    private function normalizeFirstFrameCover(array $payload): array
+    {
+        $cover = $payload['firstFrameCover'] ?? null;
+        if (isset($payload['processRules']) && is_array($payload['processRules']) && array_key_exists('firstFrameCover', $payload['processRules'])) {
+            $cover = $payload['processRules']['firstFrameCover'];
+            unset($payload['processRules']['firstFrameCover']);
+        }
+        if ($cover === null || $cover === '' || $cover === []) {
+            unset($payload['firstFrameCover']);
+            return $payload;
+        }
+        if (!is_array($cover)) {
+            $enabled = $this->boolValue($cover);
+            if (!$enabled) {
+                unset($payload['firstFrameCover']);
+                return $payload;
+            }
+            $cover = ['coverSwitch' => true];
+        }
+        if (array_key_exists('coverSwitch', $cover)) {
+            $cover['coverSwitch'] = $this->boolValue($cover['coverSwitch']);
+        }
+        $payload['firstFrameCover'] = $cover;
+        return $payload;
     }
 
     private function normalizePackRules(array $rules): array
@@ -130,6 +179,107 @@ class XhadminSmartClipProvider implements SmartClipProviderInterface
         }
         $rules['backgroundMusic'] = $music;
         return $rules;
+    }
+
+    private function normalizeProcessRules(array $rules): array
+    {
+        if (array_key_exists('firstFrameCover', $rules) && !is_array($rules['firstFrameCover'])) {
+            $rules['firstFrameCover'] = [
+                'coverSwitch' => $this->boolValue($rules['firstFrameCover']),
+            ];
+        }
+        return $rules;
+    }
+
+    private function normalizeStructLayers(array $layers): array
+    {
+        $map = [
+            'title' => 'headerLayer',
+            'header' => 'headerLayer',
+            'headerLayer' => 'headerLayer',
+            'subtitle' => 'subtitleLayer',
+            'subtitleLayer' => 'subtitleLayer',
+            'introduceCard' => 'ipLayer',
+            'introduce_card' => 'ipLayer',
+            'ip' => 'ipLayer',
+            'ipLayer' => 'ipLayer',
+            'background' => 'backgroundLayer',
+            'backgroundLayer' => 'backgroundLayer',
+            'digitalHuman' => 'figureLayer',
+            'digital_human' => 'figureLayer',
+            'figure' => 'figureLayer',
+            'figureLayer' => 'figureLayer',
+        ];
+        $normalized = [];
+        foreach ($layers as $layer) {
+            if (!is_array($layer)) {
+                continue;
+            }
+            $code = trim((string)($layer['markCode'] ?? $layer['mark_code'] ?? ''));
+            if ($code === '') {
+                $key = trim((string)($layer['key'] ?? $layer['code'] ?? $layer['name'] ?? ''));
+                $code = $map[$key] ?? '';
+            }
+            if ($code === '') {
+                continue;
+            }
+            $item = ['markCode' => $code];
+            if (array_key_exists('visible', $layer)) {
+                $item['visible'] = $this->boolValue($layer['visible']);
+            } elseif (array_key_exists('show', $layer)) {
+                $item['visible'] = $this->boolValue($layer['show']);
+            } elseif (array_key_exists('switch', $layer)) {
+                $item['visible'] = $this->boolValue($layer['switch']);
+            } elseif (array_key_exists('enabled', $layer)) {
+                $item['visible'] = $this->boolValue($layer['enabled']);
+            } else {
+                $item['visible'] = true;
+            }
+            $normalized[] = $item;
+        }
+        return $normalized;
+    }
+
+    private function filterTemplateStructLayers(string $styleId, array $layers): array
+    {
+        $available = $this->templateAvailableLayers($styleId);
+        if (empty($available)) {
+            return $layers;
+        }
+        return array_values(array_filter($layers, static function ($layer) use ($available) {
+            return is_array($layer) && in_array((string)($layer['markCode'] ?? ''), $available, true);
+        }));
+    }
+
+    private function templateAvailableLayers(string $styleId): array
+    {
+        if ($styleId === '') {
+            return [];
+        }
+        try {
+            $detail = $this->templateDetail($styleId);
+        } catch (\Throwable) {
+            return [];
+        }
+        $editInfo = $detail['videoStructInfo']['editInfo']
+            ?? $detail['video_struct_info']['edit_info']
+            ?? $detail['video_struct_info']['editInfo']
+            ?? $detail['editInfo']
+            ?? [];
+        if (!is_array($editInfo)) {
+            return [];
+        }
+        $available = [];
+        foreach (['headerLayer', 'subtitleLayer', 'ipLayer', 'figureLayer', 'backgroundLayer'] as $code) {
+            if (!array_key_exists($code, $editInfo)) {
+                continue;
+            }
+            $layer = $editInfo[$code];
+            if (is_array($layer) && !empty($layer)) {
+                $available[] = $code;
+            }
+        }
+        return $available;
     }
 
     private function boolValue($value): bool
@@ -214,11 +364,11 @@ class XhadminSmartClipProvider implements SmartClipProviderInterface
             throw new Exception('接口响应格式错误');
         }
         if ($httpCode >= 400) {
-            throw new Exception((string)($data['message'] ?? $data['msg'] ?? '接口请求失败'));
+            throw new XhadminSmartClipProviderException((string)($data['message'] ?? $data['msg'] ?? '接口请求失败'), $data);
         }
         $code = $data['code'] ?? ($data['result']['code'] ?? 1);
         if (!in_array((string)$code, ['1', 'success', 'Succeed', 'ok', '200'], true)) {
-            throw new Exception((string)($data['message'] ?? $data['msg'] ?? $data['result']['message'] ?? $data['result']['msg'] ?? '接口业务失败'));
+            throw new XhadminSmartClipProviderException((string)($data['message'] ?? $data['msg'] ?? $data['result']['message'] ?? $data['result']['msg'] ?? '接口业务失败'), $data);
         }
         return $data;
     }
@@ -356,6 +506,10 @@ class XhadminSmartClipProvider implements SmartClipProviderInterface
     private function filterPayload(array $payload): array
     {
         foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $value = $this->filterPayload($value);
+                $payload[$key] = $value;
+            }
             if ($value === null || $value === '' || $value === []) {
                 unset($payload[$key]);
             }
@@ -374,6 +528,9 @@ class XhadminSmartClipProvider implements SmartClipProviderInterface
         }
         if (str_contains(strtolower($message), 'timeout')) {
             return '智能剪辑接口响应超时，请稍后重试';
+        }
+        if (preg_match('/field:\s*([\'"]?)([^\'"\s|]+)\1\s*\|\s*(.+)$/i', $message, $match)) {
+            return trim('上游参数错误：' . $match[2] . ' ' . $match[3]);
         }
         return mb_substr($message, 0, 160);
     }
