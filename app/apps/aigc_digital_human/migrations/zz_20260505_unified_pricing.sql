@@ -10,9 +10,9 @@ VALUES (
       'generate',
       JSON_OBJECT(
         'platform_unit_cost',
-        COALESCE((SELECT `platform_unit_cost` FROM `la_aigc_digital_human_channel_spec` WHERE `tenant_id` = 0 AND `status` = `status` ORDER BY `sort` DESC, `id` ASC LIMIT 1), 0.20),
+        COALESCE((SELECT `platform_unit_cost` FROM `la_aigc_digital_human_channel_spec` WHERE `tenant_id` = 0 AND `status` = 1 ORDER BY `sort` DESC, `id` ASC LIMIT 1), 0.20),
         'tenant_unit_price',
-        COALESCE((SELECT `tenant_unit_price` FROM `la_aigc_digital_human_channel_spec` WHERE `tenant_id` = 0 AND `status` = `status` ORDER BY `sort` DESC, `id` ASC LIMIT 1), 0.30)
+        COALESCE((SELECT `tenant_unit_price` FROM `la_aigc_digital_human_channel_spec` WHERE `tenant_id` = 0 AND `status` = 1 ORDER BY `sort` DESC, `id` ASC LIMIT 1), 0.30)
       ),
       'avatar_clone',
       JSON_OBJECT('platform_unit_cost', 2.00, 'tenant_unit_price', 3.00),
@@ -32,9 +32,9 @@ ON DUPLICATE KEY UPDATE
     JSON_EXTRACT(`la_aigc_digital_human_config`.`config_json`, '$.pricing.generate'),
     JSON_OBJECT(
       'platform_unit_cost',
-      COALESCE((SELECT `la_aigc_digital_human_config`.`platform_unit_cost` FROM `la_aigc_digital_human_config`.`la_aigc_digital_human_channel_spec` WHERE `la_aigc_digital_human_config`.`tenant_id` = 0 AND `la_aigc_digital_human_config`.`status` = `la_aigc_digital_human_config`.`status` ORDER BY `la_aigc_digital_human_config`.`sort` DESC, `la_aigc_digital_human_config`.`id` ASC LIMIT 1), 0.20),
+      COALESCE((SELECT `platform_unit_cost` FROM `la_aigc_digital_human_channel_spec` WHERE `tenant_id` = 0 AND `status` = 1 ORDER BY `sort` DESC, `id` ASC LIMIT 1), 0.20),
       'tenant_unit_price',
-      COALESCE((SELECT `la_aigc_digital_human_config`.`tenant_unit_price` FROM `la_aigc_digital_human_config`.`la_aigc_digital_human_channel_spec` WHERE `la_aigc_digital_human_config`.`tenant_id` = 0 AND `la_aigc_digital_human_config`.`status` = `la_aigc_digital_human_config`.`status` ORDER BY `la_aigc_digital_human_config`.`sort` DESC, `la_aigc_digital_human_config`.`id` ASC LIMIT 1), 0.30)
+      COALESCE((SELECT `tenant_unit_price` FROM `la_aigc_digital_human_channel_spec` WHERE `tenant_id` = 0 AND `status` = 1 ORDER BY `sort` DESC, `id` ASC LIMIT 1), 0.30)
     )
   ),
   '$.pricing.avatar_clone',

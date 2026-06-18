@@ -2646,8 +2646,8 @@ ALTER TABLE `la_decorate_page` ADD COLUMN `published_meta` longtext COMMENT '发
 
 INSERT INTO `la_app` (`code`,`name`,`icon`,`description`,`category`,`cover`,`client_tags`,`install_count`,`view_count`,`is_builtin`,`sort`,`current_version`,`status`,`install_time`,`update_time`)
 VALUES
-('aigc_image','AIGC生图','resource/image/common/menu_generator.png','AIGC image generation sample application for the LikeAdmin AIGC SaaS aggregation platform.','aigc','','tenant,pc,uniapp',0,0,1,900,'1.1.3','installed',1778000000,1778000000),
-('aigc_video','AIGC视频','resource/image/common/menu_generator.png','AIGC video generation application framework for the LikeAdmin AIGC SaaS aggregation platform.','aigc','','tenant,pc,uniapp',0,0,1,900,'1.0.7','installed',1778000000,1778000000),
+('aigc_image','AIGC生图','resource/image/common/menu_generator.png','AIGC image generation sample application for the LikeAdmin AIGC SaaS aggregation platform.','aigc','','tenant,pc,uniapp',0,0,1,900,'1.1.6','installed',1778000000,1778000000),
+('aigc_video','AIGC视频','resource/image/common/menu_generator.png','AIGC video generation application framework for the LikeAdmin AIGC SaaS aggregation platform.','aigc','','tenant,pc,uniapp',0,0,1,900,'1.0.9','installed',1778000000,1778000000),
 ('aigc_digital_human','数字人视频','resource/image/common/menu_generator.png','面向移动端、PC端和后台端的数字人应用框架，支持当前用户专属形象、声音和合成视频任务。','aigc','','tenant,pc,uniapp',0,0,1,900,'1.0.1','installed',1778000000,1778000000),
 ('aigc_canvas','无限画布','resource/image/common/menu_generator.png','面向多节点编排创作的无限画布应用，复用生图和生视频应用完成生成能力。','aigc','','platform,tenant,pc',0,0,1,880,'1.0.1','installed',1778000000,1778000000),
 ('aigc_llm','AIGC对话','resource/image/common/menu_generator.png','AIGC large model conversation application with multi-session, multi-turn context and SSE streaming.','aigc','','tenant,pc,uniapp',0,0,1,880,'1.1.1','installed',1778000000,1778000000)
@@ -2657,7 +2657,11 @@ UPDATE `la_app` SET `is_builtin` = 1, `expire_policy` = 'allow', `status` = 'ins
 INSERT INTO `la_app_version` (`app_code`,`version`,`require_core`,`package_path`,`manifest_json`,`changelog`,`status`,`create_time`)
 VALUES
 ('aigc_image','1.1.3','>=1.0.0','local','{"code":"aigc_image","name":"AIGC生图","version":"1.1.3","require_core":">=1.0.0","description":"AIGC image generation sample application for the LikeAdmin AIGC SaaS aggregation platform.","changelog":"作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","sort":900,"frontends":["tenant","pc","uniapp"],"api_prefix":"/app/aigc_image","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_image_admin","name":"AIGC生图","path":"/app/aigc_image","icon":"el-icon-Picture","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_image","name":"AIGC生图","path":"/app/aigc_image","icon":"resource/image/common/menu_generator.png","sort":100,"status":1},{"terminal":"uniapp","entry_key":"aigc_image","name":"AIGC生图","path":"/apps/aigc_image/pages/index/index","icon":"resource/image/common/menu_generator.png","sort":100,"status":1,"meta":{"pages":[{"name":"创作首页","path":"/apps/aigc_image/pages/index/index"},{"name":"生图任务","path":"/apps/aigc_image/pages/tasks/tasks"},{"name":"作品列表","path":"/apps/aigc_image/pages/results/results"}]}}]}','作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据。',1,1778000000),
+('aigc_image','1.1.6','>=1.0.0','local','{"code":"aigc_image","name":"AIGC生图","version":"1.1.6","require_core":">=1.0.0","description":"AIGC image generation sample application for the LikeAdmin AIGC SaaS aggregation platform.","changelog":"1. 新增 GPT Image 2 Pro 和 GPT Image 2 Fast 生图模型。\n2. PC 端生图入口支持按模型选择清晰度、比例、数量和参考图。\n3. 优化新模型的点数预估和任务提交体验。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","is_builtin":1,"expire_policy":"allow","sort":900,"frontends":["tenant","pc","uniapp"],"api_prefix":"/app/aigc_image","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_image_admin","name":"AIGC生图","path":"/app/aigc_image","icon":"el-icon-Picture","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_image","name":"AIGC生图","path":"/app/aigc_image","icon":"resource/image/common/menu_generator.png","sort":100,"status":1},{"terminal":"uniapp","entry_key":"aigc_image","name":"AIGC生图","path":"/apps/aigc_image/pages/index/index","icon":"resource/image/common/menu_generator.png","sort":100,"status":1,"meta":{"pages":[{"name":"创作首页","path":"/apps/aigc_image/pages/index/index"},{"name":"生图任务","path":"/apps/aigc_image/pages/tasks/tasks"},{"name":"作品列表","path":"/apps/aigc_image/pages/results/results"}]}}]}','1. 新增 GPT Image 2 Pro 和 GPT Image 2 Fast 生图模型。
+2. PC 端生图入口支持按模型选择清晰度、比例、数量和参考图。
+3. 优化新模型的点数预估和任务提交体验。',1,1778000000),
 ('aigc_video','1.0.7','>=1.0.0','local','{"code":"aigc_video","name":"AIGC视频","version":"1.0.7","require_core":">=1.0.0","description":"AIGC video generation application framework for the LikeAdmin AIGC SaaS aggregation platform.","changelog":"1. 同步视频创作端可选时长到后台通道价格配置。\n2. 修复动态时长通道生成时按实际时长匹配价格规格。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","sort":900,"frontends":["tenant","pc","uniapp"],"api_prefix":"/app/aigc_video","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_video_admin","name":"AIGC视频","path":"/app/aigc_video","icon":"el-icon-Picture","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_video","name":"AIGC视频","path":"/app/aigc_video","icon":"resource/image/common/menu_generator.png","sort":100,"status":1},{"terminal":"uniapp","entry_key":"aigc_video","name":"AIGC视频","path":"/apps/aigc_video/pages/index/index","icon":"resource/image/common/menu_generator.png","sort":100,"status":1,"meta":{"pages":[{"name":"创作首页","path":"/apps/aigc_video/pages/index/index"},{"name":"视频任务","path":"/apps/aigc_video/pages/tasks/tasks"},{"name":"作品列表","path":"/apps/aigc_video/pages/results/results"}]}}]}','1. 同步视频创作端可选时长到后台通道价格配置。\n2. 修复动态时长通道生成时按实际时长匹配价格规格。',1,1778000000),
+('aigc_video','1.0.9','>=1.0.0','local','{"code":"aigc_video","name":"AIGC视频","version":"1.0.9","require_core":">=1.0.0","description":"AIGC video generation application framework for the LikeAdmin AIGC SaaS aggregation platform.","changelog":"1. Seedance 2.0 Pro 支持 Pro 和 Fast 两种模式分别配置秒单价。\n2. 优化后台规格价格展示，比例和时长作为生成参数，不再展开为价格规格。\n3. 修复 Seedance 2.0 Pro 生成和预估时模式价格匹配不准确的问题。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","is_builtin":1,"expire_policy":"allow","sort":900,"frontends":["tenant","pc","uniapp"],"api_prefix":"/app/aigc_video","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_video_admin","name":"AIGC视频","path":"/app/aigc_video","icon":"el-icon-Picture","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_video","name":"AIGC视频","path":"/app/aigc_video","icon":"resource/image/common/menu_generator.png","sort":100,"status":1},{"terminal":"uniapp","entry_key":"aigc_video","name":"AIGC视频","path":"/apps/aigc_video/pages/index/index","icon":"resource/image/common/menu_generator.png","sort":100,"status":1,"meta":{"pages":[{"name":"创作首页","path":"/apps/aigc_video/pages/index/index"},{"name":"视频任务","path":"/apps/aigc_video/pages/tasks/tasks"},{"name":"作品列表","path":"/apps/aigc_video/pages/results/results"}]}}]}','1. Seedance 2.0 Pro 支持 Pro 和 Fast 两种模式分别配置秒单价。\n2. 优化后台规格价格展示，比例和时长作为生成参数，不再展开为价格规格。\n3. 修复 Seedance 2.0 Pro 生成和预估时模式价格匹配不准确的问题。',1,1778000000),
 ('aigc_digital_human','1.0.1','>=1.0.0','local','{"code":"aigc_digital_human","name":"数字人视频","version":"1.0.1","require_core":">=1.0.0","description":"面向移动端、PC端和后台端的数字人应用框架，支持当前用户专属形象、声音和合成视频任务。","changelog":"作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据，并修复完整安装时编排字段迁移重复执行问题。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","sort":900,"frontends":["tenant","pc","uniapp"],"api_prefix":"/app/aigc_digital_human","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_digital_human_admin","name":"数字人视频","path":"/app/aigc_digital_human","icon":"el-icon-Picture","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_digital_human","name":"数字人视频","path":"/app/aigc_digital_human","icon":"resource/image/common/menu_generator.png","sort":100,"status":1},{"terminal":"uniapp","entry_key":"aigc_digital_human","name":"数字人视频","path":"/apps/aigc_digital_human/pages/index/index","icon":"resource/image/common/menu_generator.png","sort":100,"status":1,"meta":{"pages":[{"name":"创作首页","path":"/apps/aigc_digital_human/pages/index/index"},{"name":"选择形象","path":"/apps/aigc_digital_human/pages/assets/avatar/avatar"},{"name":"选择声音","path":"/apps/aigc_digital_human/pages/assets/voice/voice"},{"name":"克隆形象","path":"/apps/aigc_digital_human/pages/clone/avatar/avatar"},{"name":"克隆音色","path":"/apps/aigc_digital_human/pages/clone/voice/voice"},{"name":"合成任务","path":"/apps/aigc_digital_human/pages/tasks/tasks"},{"name":"创作记录","path":"/apps/aigc_digital_human/pages/results/results"},{"name":"记录详情","path":"/apps/aigc_digital_human/pages/results/detail/detail"}]}}]}','作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据，并修复完整安装时编排字段迁移重复执行问题。',1,1778000000),
 ('aigc_canvas','1.0.1','>=1.0.0','local','{"code":"aigc_canvas","name":"无限画布","version":"1.0.1","require_core":">=1.0.0","description":"面向多节点编排创作的无限画布应用，复用生图和生视频应用完成生成能力。","changelog":"作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","sort":880,"frontends":["platform","tenant","pc"],"api_prefix":"/app/aigc_canvas","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"platform","entry_key":"aigc_canvas_platform","name":"无限画布","path":"/app/aigc_canvas","icon":"resource/image/common/menu_generator.png","sort":100,"status":1},{"terminal":"tenant","entry_key":"aigc_canvas_admin","name":"无限画布","path":"/app/aigc_canvas","icon":"el-icon-Share","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_canvas","name":"无限画布","path":"/app/aigc_canvas","icon":"resource/image/common/menu_generator.png","sort":95,"status":1}],"dependencies":[{"app_code":"aigc_image","name":"AIGC生图","required_for":"图片生成"},{"app_code":"aigc_video","name":"AIGC视频","required_for":"视频生成"}]}','作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据。',1,1778000000),
 ('aigc_llm','1.1.1','>=1.0.0','local','{"code":"aigc_llm","name":"AIGC对话","version":"1.1.1","require_core":">=1.0.0","description":"AIGC large model conversation application with multi-session, multi-turn context and SSE streaming.","changelog":"作为系统默认AIGC基础应用随新装系统预安装启用；保留Token计费、OpenAI兼容流式通道和默认Qwen3.6-Plus模型能力。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","sort":880,"frontends":["tenant","pc","uniapp"],"api_prefix":"/app/aigc_llm","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_llm_admin","name":"AIGC对话","path":"/app/aigc_llm","icon":"el-icon-ChatDotRound","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_llm","name":"AIGC对话","path":"/app/aigc_llm","icon":"resource/image/common/menu_generator.png","sort":100,"status":1},{"terminal":"uniapp","entry_key":"aigc_llm","name":"AIGC对话","path":"/apps/aigc_llm/pages/index/index","icon":"resource/image/common/menu_generator.png","sort":100,"status":1,"meta":{"pages":[{"name":"对话首页","path":"/apps/aigc_llm/pages/index/index"}]}}]}','作为系统默认AIGC基础应用随新装系统预安装启用；保留Token计费、OpenAI兼容流式通道和默认Qwen3.6-Plus模型能力。',1,1778000000)
@@ -2887,7 +2891,7 @@ ON DUPLICATE KEY UPDATE `permission_key`=VALUES(`permission_key`),`need_login`=V
 
 INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
 VALUES
-(0,'aigc_image','1.1.3','paid','on','enabled',0,1778000000,1778000000),
+(0,'aigc_image','1.1.6','paid','on','enabled',0,1778000000,1778000000),
 (0,'aigc_video','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 (0,'aigc_digital_human','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 (0,'aigc_canvas','1.0.1','paid','on','enabled',0,1778000000,1778000000),
@@ -3300,6 +3304,42 @@ VALUES
 (0,'gpt_image_2','4k','超清4K','1:2',2048,4096,120.00,120.00,'{"resolution":"4k","aspect_ratio":"1:2"}',1,690,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE `quality_label`=VALUES(`quality_label`),`width`=VALUES(`width`),`height`=VALUES(`height`),`platform_unit_cost`=VALUES(`platform_unit_cost`),`tenant_unit_price`=VALUES(`tenant_unit_price`),`provider_params_json`=VALUES(`provider_params_json`),`status`=VALUES(`status`),`sort`=VALUES(`sort`),`update_time`=VALUES(`update_time`);
 
+
+-- Migration snapshot: aigc_image/migrations/zz_20260616_gpt_image_2_pro_fast_channels.sql
+INSERT INTO `la_aigc_image_channel` (`tenant_id`,`code`,`name`,`provider`,`model`,`max_reference_images`,`config_json`,`status`,`sort`,`create_time`,`update_time`)
+VALUES
+(0,'gpt_image_2_pro','GPT Image 2 Pro','gpt_image_2_pro','gpt-image-2-pro',16,'{"poll_interval":2,"poll_attempts":30,"upstream_channel":"OpenaiM","quantity_options":[1],"ratio_options":["auto","1:1","3:2","2:3","4:3","3:4","5:4","4:5","16:9","9:16","2:1","1:2","3:1","1:3","21:9","9:21"]}',1,620,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'gpt_image_2_fast','GPT Image 2 Fast','gpt_image_2_fast','gpt-image-2-fast',16,'{"poll_interval":2,"poll_attempts":30,"upstream_channel":"openaiD","quantity_options":[1],"ratio_options":["1:1","3:2","2:3","4:3","3:4","5:4","4:5","16:9","9:16","2:1","1:2","3:1","1:3","21:9","9:21"]}',1,610,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
+ON DUPLICATE KEY UPDATE
+  `name`=VALUES(`name`),
+  `provider`=VALUES(`provider`),
+  `model`=VALUES(`model`),
+  `max_reference_images`=VALUES(`max_reference_images`),
+  `config_json`=VALUES(`config_json`),
+  `status`=IF(`status` IN (0,1), `status`, VALUES(`status`)),
+  `sort`=IF(`sort` <= 0, VALUES(`sort`), `sort`),
+  `update_time`=UNIX_TIMESTAMP();
+
+UPDATE `la_app` SET `current_version`='1.1.6', `update_time`=UNIX_TIMESTAMP() WHERE `code`='aigc_image';
+
+INSERT INTO `la_app_version` (`app_code`,`version`,`require_core`,`package_path`,`manifest_json`,`changelog`,`status`,`create_time`)
+VALUES ('aigc_image','1.1.6','>=1.0.0','local','{"code":"aigc_image","name":"AIGC生图","version":"1.1.6","require_core":">=1.0.0","description":"AIGC image generation sample application for the LikeAdmin AIGC SaaS aggregation platform.","changelog":"1. 新增 GPT Image 2 Pro 和 GPT Image 2 Fast 生图模型。\n2. PC 端生图入口支持按模型选择清晰度、比例、数量和参考图。\n3. 优化新模型的点数预估和任务提交体验。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","is_builtin":1,"expire_policy":"allow","sort":900,"frontends":["tenant","pc","uniapp"],"api_prefix":"/app/aigc_image","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_image_admin","name":"AIGC生图","path":"/app/aigc_image","icon":"el-icon-Picture","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_image","name":"AIGC生图","path":"/app/aigc_image","icon":"resource/image/common/menu_generator.png","sort":100,"status":1},{"terminal":"uniapp","entry_key":"aigc_image","name":"AIGC生图","path":"/apps/aigc_image/pages/index/index","icon":"resource/image/common/menu_generator.png","sort":100,"status":1,"meta":{"pages":[{"name":"创作首页","path":"/apps/aigc_image/pages/index/index"},{"name":"生图任务","path":"/apps/aigc_image/pages/tasks/tasks"},{"name":"作品列表","path":"/apps/aigc_image/pages/results/results"}]}}]}','1. 新增 GPT Image 2 Pro 和 GPT Image 2 Fast 生图模型。
+2. PC 端生图入口支持按模型选择清晰度、比例、数量和参考图。
+3. 优化新模型的点数预估和任务提交体验。',1,UNIX_TIMESTAMP())
+ON DUPLICATE KEY UPDATE `require_core`=VALUES(`require_core`),`package_path`=VALUES(`package_path`),`manifest_json`=VALUES(`manifest_json`),`changelog`=VALUES(`changelog`),`status`=VALUES(`status`);
+
+DELETE FROM `la_aigc_image_channel_spec`
+WHERE `tenant_id` = 0
+  AND `channel_code` IN ('gpt_image_2_pro','gpt_image_2_fast');
+
+INSERT INTO `la_aigc_image_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`upstream_unit_cost`,`platform_unit_cost`,`tenant_unit_price`,`upstream_cost_text`,`cost_source_url`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
+VALUES
+(0,'gpt_image_2_pro','1k','1K','default',0,0,0.0000,30.0000,30.0000,'1K 出图按分辨率计费','https://api.likeadmin.cn/user_center/docs?slug=m-gpt-image-2-pro-openaim','{"image_size":"1k","omit_resolution":true}',1,1300,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'gpt_image_2_pro','2k','2K','default',0,0,0.0000,60.0000,60.0000,'2K 出图按分辨率计费','https://api.likeadmin.cn/user_center/docs?slug=m-gpt-image-2-pro-openaim','{"image_size":"2k","omit_resolution":true}',1,1290,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'gpt_image_2_pro','4k','4K','default',0,0,0.0000,120.0000,120.0000,'4K 出图按分辨率计费','https://api.likeadmin.cn/user_center/docs?slug=m-gpt-image-2-pro-openaim','{"image_size":"4k","omit_resolution":true}',1,1280,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'gpt_image_2_fast','1k','1K','default',0,0,0.0000,30.0000,30.0000,'1K 出图按分辨率计费','https://api.likeadmin.cn/user_center/docs?slug=m-gpt-image-2-fast-openaid','{"image_size":"1k","omit_resolution":true}',1,1270,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'gpt_image_2_fast','2k','2K','default',0,0,0.0000,60.0000,60.0000,'2K 出图按分辨率计费','https://api.likeadmin.cn/user_center/docs?slug=m-gpt-image-2-fast-openaid','{"image_size":"2k","omit_resolution":true}',1,1260,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(0,'gpt_image_2_fast','4k','4K','default',0,0,0.0000,120.0000,120.0000,'4K 出图按分辨率计费','https://api.likeadmin.cn/user_center/docs?slug=m-gpt-image-2-fast-openaid','{"image_size":"4k","omit_resolution":true}',1,1250,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
 
 -- Migration snapshot: aigc_video/migrations/install.sql
 
@@ -4793,6 +4833,51 @@ SET `status` = 0,
     `update_time` = UNIX_TIMESTAMP()
 WHERE `channel_code` = 'wan'
   AND (`quality` NOT IN ('720p', '1080p') OR JSON_EXTRACT(COALESCE(NULLIF(`provider_params_json`, ''), '{}'), '$.duration') IS NOT NULL);
+
+-- Migration snapshot: aigc_video/migrations/zz_20260615_seedance2_pro_default_channel.sql
+
+INSERT INTO `la_aigc_video_channel` (`tenant_id`,`code`,`name`,`provider`,`model`,`max_reference_images`,`config_json`,`status`,`sort`,`create_time`,`update_time`)
+SELECT 0,'seedance2_pro','Seedance 2.0 Pro','seedance2_pro','seedance2_pro',9,'{"app_code":"seedance2_pro","submit_path":"/api/v1/apps/seedance2_pro/create","task_path":"/api/v1/apps/seedance2_pro/query?task_id={task_id}","poll_interval":2,"poll_attempts":0,"quantity_options":[1],"duration_options":[4,5,6,7,8,9,10,11,12,13,14,15],"default_duration":5,"ratio_options":["adaptive","9:16","16:9","1:1","4:3","3:4","21:9"],"mode_options":["pro","fast"],"default_mode":"pro","supported_asset_types":["image","video","audio"],"max_reference_images":9,"max_reference_videos":3,"max_reference_audios":3,"max_reference_assets":15}',1,600,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+ON DUPLICATE KEY UPDATE
+    `name`=VALUES(`name`),
+    `provider`=VALUES(`provider`),
+    `model`=VALUES(`model`),
+    `max_reference_images`=VALUES(`max_reference_images`),
+    `config_json`=VALUES(`config_json`),
+    `status`=1,
+    `sort`=GREATEST(`sort`, VALUES(`sort`)),
+    `update_time`=UNIX_TIMESTAMP();
+
+INSERT INTO `la_aigc_video_channel_spec` (`tenant_id`,`channel_code`,`quality`,`quality_label`,`ratio`,`width`,`height`,`upstream_unit_cost`,`platform_unit_cost`,`tenant_unit_price`,`upstream_cost_text`,`provider_params_json`,`status`,`sort`,`create_time`,`update_time`)
+SELECT 0,'seedance2_pro',t.`quality`,t.`quality_label`,t.`ratio`,0,0,90.0000,100.0000,100.0000,CONCAT(t.`quality_label`,'，点 / 秒'),CONCAT('{"model":"seedance2_pro","duration":0,"mode":"', t.`quality`, '"}'),1,t.`sort`,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (
+    SELECT 'pro' AS `quality`, 'Pro 模式每秒' AS `quality_label`, 'mode_pro' AS `ratio`, 2000 AS `sort` UNION ALL
+    SELECT 'fast', 'Fast 模式每秒', 'mode_fast', 1990
+) AS t
+ON DUPLICATE KEY UPDATE
+    `quality_label`=VALUES(`quality_label`),
+    `width`=VALUES(`width`),
+    `height`=VALUES(`height`),
+    `upstream_unit_cost`=VALUES(`upstream_unit_cost`),
+    `platform_unit_cost`=VALUES(`platform_unit_cost`),
+    `tenant_unit_price`=VALUES(`tenant_unit_price`),
+    `upstream_cost_text`=VALUES(`upstream_cost_text`),
+    `provider_params_json`=VALUES(`provider_params_json`),
+    `status`=1,
+    `sort`=VALUES(`sort`),
+    `update_time`=UNIX_TIMESTAMP();
+
+UPDATE `la_aigc_video_channel`
+SET `status` = 0,
+    `update_time` = UNIX_TIMESTAMP()
+WHERE `tenant_id` = 0
+  AND `code` IN ('grok_video_xaiq','happy_horse','happyhorse','happy_horse_video','wan','seedance','omni_flash_ext');
+
+UPDATE `la_aigc_video_channel`
+SET `name` = 'Grok Video（xAIQ）',
+    `update_time` = UNIX_TIMESTAMP()
+WHERE `tenant_id` = 0
+  AND `code` = 'grok_video_xaiq';
 
 SET
     FOREIGN_KEY_CHECKS = 1;

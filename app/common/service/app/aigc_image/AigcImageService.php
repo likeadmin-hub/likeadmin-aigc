@@ -868,13 +868,13 @@ class AigcImageService
 
     private static function isAsyncProvider(string $provider): bool
     {
-        return in_array(strtolower($provider), ['xhadmin', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim'], true);
+        return in_array(strtolower($provider), ['xhadmin', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim', 'gpt_image_2_pro', 'gpt_image_2_fast'], true);
     }
 
     private static function providerFor(string $provider): AigcImageProviderInterface
     {
         return match (strtolower($provider)) {
-            'xhadmin', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim' => new XhadminAigcImageProvider(),
+            'xhadmin', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim', 'gpt_image_2_pro', 'gpt_image_2_fast' => new XhadminAigcImageProvider(),
             default => new MockAigcImageProvider(),
         };
     }

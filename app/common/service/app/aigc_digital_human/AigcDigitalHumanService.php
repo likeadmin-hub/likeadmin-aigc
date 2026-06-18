@@ -2184,10 +2184,6 @@ class AigcDigitalHumanService
             if ($duration > 0) {
                 return $duration;
             }
-            $duration = self::detectAudioDurationByFfprobe($filePath);
-            if ($duration > 0) {
-                return $duration;
-            }
         }
         $storedUrl = self::storedAudioUrl($audioUri, $tenantId);
         return $storedUrl !== '' ? self::detectRemoteAudioDuration($storedUrl) : 0;
@@ -2195,6 +2191,11 @@ class AigcDigitalHumanService
 
     private static function detectAudioDurationNative(string $filePath): int
     {
+        $duration = self::detectAudioDurationByFfprobe($filePath);
+        if ($duration > 0) {
+            return $duration;
+        }
+
         $data = @file_get_contents($filePath);
         if ($data === false || $data === '') {
             return 0;
@@ -2215,6 +2216,10 @@ class AigcDigitalHumanService
         $data = @file_get_contents($url, false, $context);
         if ($data === false || $data === '') {
             return 0;
+        }
+        $duration = self::detectAudioDurationByFfprobeData($data);
+        if ($duration > 0) {
+            return $duration;
         }
         return self::detectAudioDurationFromBinary($data);
     }
@@ -2289,7 +2294,26 @@ class AigcDigitalHumanService
             return 0;
         }
         $duration = (float)trim((string)$output[0]);
-        return $duration > 0 ? (int)ceil($duration) : 0;
+        return $duration > 0 ? max(1, (int)round($duration)) : 0;
+    }
+
+    private static function detectAudioDurationByFfprobeData(string $data): int
+    {
+        if ($data === '' || !function_exists('tempnam')) {
+            return 0;
+        }
+        $tempPath = tempnam(sys_get_temp_dir(), 'la_voice_probe_');
+        if ($tempPath === false) {
+            return 0;
+        }
+        try {
+            if (@file_put_contents($tempPath, $data) === false) {
+                return 0;
+            }
+            return self::detectAudioDurationByFfprobe($tempPath);
+        } finally {
+            @unlink($tempPath);
+        }
     }
 
     private static function detectWavDuration(string $data): int
@@ -2334,25 +2358,36 @@ class AigcDigitalHumanService
         $scanLimit = min($length - 4, $offset + 65536);
         for ($i = $offset; $i <= $scanLimit; $i++) {
             $header = self::u32be($data, $i);
-            if (($header & 0xFFE00000) !== 0xFFE00000) {
+            $frame = self::mp3FrameInfo($header);
+            if (!$frame) {
                 continue;
             }
-            $versionBits = ($header >> 19) & 0x03;
-            $layerBits = ($header >> 17) & 0x03;
-            $bitrateIndex = ($header >> 12) & 0x0F;
-            $sampleRateIndex = ($header >> 10) & 0x03;
-            if ($versionBits === 1 || $layerBits === 0 || $bitrateIndex === 0 || $bitrateIndex === 15 || $sampleRateIndex === 3) {
-                continue;
+
+            $cursor = $i;
+            $duration = 0.0;
+            $frames = 0;
+            $invalidBytes = 0;
+            while ($cursor + 4 <= $length) {
+                if ($length - $cursor >= 128 && substr($data, $cursor, 3) === 'TAG') {
+                    break;
+                }
+                $frame = self::mp3FrameInfo(self::u32be($data, $cursor));
+                if (!$frame) {
+                    if ($frames > 0 && ++$invalidBytes > 4096) {
+                        break;
+                    }
+                    $cursor++;
+                    continue;
+                }
+                $duration += $frame['samples'] / $frame['sample_rate'];
+                $cursor += $frame['frame_length'];
+                $frames++;
+                $invalidBytes = 0;
             }
-            $bitrate = self::mp3Bitrate($versionBits, $layerBits, $bitrateIndex);
-            if ($bitrate <= 0) {
-                continue;
+
+            if ($frames > 0 && $duration > 0) {
+                return max(1, (int)round($duration));
             }
-            $audioBytes = $length - $i;
-            if ($length >= 128 && substr($data, -128, 3) === 'TAG') {
-                $audioBytes -= 128;
-            }
-            return $audioBytes > 0 ? (int)ceil(($audioBytes * 8) / ($bitrate * 1000)) : 0;
         }
         return 0;
     }
@@ -2547,6 +2582,60 @@ class AigcDigitalHumanService
             ];
         }
         return (int)($tables[$layerBits][$index] ?? 0);
+    }
+
+    private static function mp3SampleRate(int $versionBits, int $index): int
+    {
+        $base = [44100, 48000, 32000];
+        $sampleRate = (int)($base[$index] ?? 0);
+        if ($sampleRate <= 0) {
+            return 0;
+        }
+        return match ($versionBits) {
+            3 => $sampleRate,
+            2 => (int)($sampleRate / 2),
+            0 => (int)($sampleRate / 4),
+            default => 0,
+        };
+    }
+
+    private static function mp3FrameInfo(int $header): ?array
+    {
+        if (($header & 0xFFE00000) !== 0xFFE00000) {
+            return null;
+        }
+        $versionBits = ($header >> 19) & 0x03;
+        $layerBits = ($header >> 17) & 0x03;
+        $bitrateIndex = ($header >> 12) & 0x0F;
+        $sampleRateIndex = ($header >> 10) & 0x03;
+        $padding = ($header >> 9) & 0x01;
+        if ($versionBits === 1 || $layerBits === 0 || $bitrateIndex === 0 || $bitrateIndex === 15 || $sampleRateIndex === 3) {
+            return null;
+        }
+
+        $bitrate = self::mp3Bitrate($versionBits, $layerBits, $bitrateIndex);
+        $sampleRate = self::mp3SampleRate($versionBits, $sampleRateIndex);
+        if ($bitrate <= 0 || $sampleRate <= 0) {
+            return null;
+        }
+
+        if ($layerBits === 3) {
+            $samples = 384;
+            $frameLength = (int)floor(((12 * $bitrate * 1000) / $sampleRate + $padding) * 4);
+        } else {
+            $samples = ($layerBits === 1 && $versionBits !== 3) ? 576 : 1152;
+            $coefficient = ($layerBits === 1 && $versionBits !== 3) ? 72 : 144;
+            $frameLength = (int)floor(($coefficient * $bitrate * 1000) / $sampleRate + $padding);
+        }
+        if ($frameLength <= 4) {
+            return null;
+        }
+
+        return [
+            'frame_length' => $frameLength,
+            'sample_rate' => $sampleRate,
+            'samples' => $samples,
+        ];
     }
 
     private static function readEbmlVint(string $data, int $offset): ?array

@@ -343,13 +343,14 @@ class AigcImageChannelService
                 'qualities' => [],
                 'specs' => [],
             ];
+            $virtualRatioOptions = $onlyEnabled ? self::channelRatioOptions($platformChannel) : [];
             foreach ($specsByChannel[$platformChannel['code']] ?? [] as $platformSpec) {
                 $tenantSpec = $tenantSpecMap[self::specKey($platformSpec)] ?? [];
                 $specStatus = (int)$platformSpec['status'] === 1 && (int)($tenantSpec['status'] ?? 1) === 1 ? 1 : 0;
                 if ($onlyEnabled && !$specStatus) {
                     continue;
                 }
-                $spec = [
+                $baseSpec = [
                     'id' => (int)$platformSpec['id'],
                     'tenant_override_id' => (int)($tenantSpec['id'] ?? 0),
                     'channel_code' => $platformSpec['channel_code'],
@@ -373,16 +374,19 @@ class AigcImageChannelService
                     'tenant_status' => (int)($tenantSpec['status'] ?? 1),
                     'sort' => (int)($tenantSpec['sort'] ?? $platformSpec['sort']),
                 ];
-                $channel['specs'][] = $spec;
-                $qualityKey = $spec['quality'];
-                if (!isset($channel['qualities'][$qualityKey])) {
-                    $channel['qualities'][$qualityKey] = [
-                        'value' => $qualityKey,
-                        'label' => $spec['quality_label'],
-                        'ratios' => [],
-                    ];
+                $ratioSpecs = empty($virtualRatioOptions) ? [$baseSpec] : self::expandVirtualRatioSpecs($baseSpec, $virtualRatioOptions);
+                foreach ($ratioSpecs as $spec) {
+                    $channel['specs'][] = $spec;
+                    $qualityKey = $spec['quality'];
+                    if (!isset($channel['qualities'][$qualityKey])) {
+                        $channel['qualities'][$qualityKey] = [
+                            'value' => $qualityKey,
+                            'label' => $spec['quality_label'],
+                            'ratios' => [],
+                        ];
+                    }
+                    $channel['qualities'][$qualityKey]['ratios'][] = $spec;
                 }
-                $channel['qualities'][$qualityKey]['ratios'][] = $spec;
             }
             $channel['qualities'] = array_values($channel['qualities']);
             if (!$onlyEnabled || !empty($channel['qualities'])) {
@@ -499,10 +503,42 @@ class AigcImageChannelService
             $options = array_values(array_filter(array_map('intval', $config['quantity_options'])));
             return $options ?: self::QUANTITY_OPTIONS;
         }
-        if (in_array((string)($channel['provider'] ?? ''), ['xhadmin', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim'], true)) {
+        if (in_array((string)($channel['provider'] ?? ''), ['xhadmin', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim', 'gpt_image_2_pro', 'gpt_image_2_fast'], true)) {
             return [1];
         }
         return self::QUANTITY_OPTIONS;
+    }
+
+    private static function channelRatioOptions(array $channel): array
+    {
+        $config = self::normalizeJson($channel['config_json'] ?? []);
+        if (empty($config['ratio_options']) || !is_array($config['ratio_options'])) {
+            return [];
+        }
+        $options = [];
+        foreach ($config['ratio_options'] as $option) {
+            $ratio = trim((string)$option);
+            if ($ratio !== '' && !in_array($ratio, $options, true)) {
+                $options[] = $ratio;
+            }
+        }
+        return $options;
+    }
+
+    private static function expandVirtualRatioSpecs(array $baseSpec, array $ratioOptions): array
+    {
+        $specs = [];
+        foreach ($ratioOptions as $ratio) {
+            $spec = $baseSpec;
+            $params = self::normalizeJson($spec['provider_params_json'] ?? []);
+            $params['aspect_ratio'] = $ratio;
+            $spec['value'] = $ratio;
+            $spec['label'] = $ratio;
+            $spec['ratio'] = $ratio;
+            $spec['provider_params_json'] = $params;
+            $specs[] = $spec;
+        }
+        return $specs;
     }
 
     public static function normalizeQuantity($quantity): int

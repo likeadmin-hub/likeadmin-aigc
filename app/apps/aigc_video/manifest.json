@@ -1,10 +1,10 @@
 {
   "code": "aigc_video",
   "name": "AIGC视频",
-  "version": "1.0.7",
+  "version": "1.0.9",
   "require_core": ">=1.0.0",
   "description": "AIGC video generation application framework for the LikeAdmin AIGC SaaS aggregation platform.",
-  "changelog": "1. 同步视频创作端可选时长到后台通道价格配置。\n2. 修复动态时长通道生成时按实际时长匹配价格规格。",
+  "changelog": "1. Seedance 2.0 Pro 支持 Pro 和 Fast 两种模式分别配置秒单价。\n2. 优化后台规格价格展示，比例和时长作为生成参数，不再展开为价格规格。\n3. 修复 Seedance 2.0 Pro 生成和预估时模式价格匹配不准确的问题。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",

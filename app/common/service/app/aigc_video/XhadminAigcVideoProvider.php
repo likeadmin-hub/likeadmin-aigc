@@ -135,6 +135,9 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
     private function buildPayload(AigcVideoGenerateRequest $request, array $config): array
     {
         $appCode = (string)($config['app_code'] ?? '');
+        if ($appCode === 'seedance2_pro') {
+            return $this->buildSeedance2ProPayload($request, $config);
+        }
         if ($appCode === 'seedance') {
             return $this->buildSeedancePayload($request, $config);
         }
@@ -155,6 +158,31 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
             'duration' => (int)($request->providerParams['duration'] ?? ($request->quality ?: 6)),
             'negative_prompt' => $request->negativePrompt ?: null,
         ], $config['extra_payload']));
+    }
+
+    private function buildSeedance2ProPayload(AigcVideoGenerateRequest $request, array $config): array
+    {
+        AigcVideoReferenceAssetService::assertSeedance2ProSupported($request->referenceAssets);
+        $assets = $this->groupReferenceAssetUrls($request->referenceAssets);
+        $imageUrls = array_slice($assets[AigcVideoReferenceAssetService::TYPE_IMAGE] ?: $this->normalizeReferenceImageUrls($request->referenceImages), 0, 9);
+        $videoUrls = array_slice($assets[AigcVideoReferenceAssetService::TYPE_VIDEO] ?? [], 0, 3);
+        $videoReferences = $this->buildVideoReferences($request->referenceAssets);
+        $audioReferences = $this->buildAudioReferences($request->referenceAssets);
+        $aspectRatio = (string)($request->providerParams['aspect_ratio'] ?? $request->providerParams['ratio'] ?? $request->ratio ?: 'adaptive');
+        $duration = max(4, min(15, (int)($request->providerParams['duration'] ?? ($request->quality ?: 5))));
+        $payload = [
+            'prompt' => $request->prompt,
+            'mode' => $this->normalizeSeedance2ProMode($request->providerParams['mode'] ?? $config['mode'] ?? 'pro'),
+            'aspect_ratio' => $aspectRatio,
+            'duration' => $duration,
+            'image_urls' => $imageUrls,
+            'video_urls' => $videoUrls,
+            'video_references' => $videoReferences,
+            'audio_references' => $audioReferences,
+            'audio_urls' => array_values(array_filter(array_map(static fn(array $item) => (string)($item['url'] ?? ''), $audioReferences))),
+            'callback_url' => $request->providerParams['callback_url'] ?? $config['callback_url'] ?? null,
+        ];
+        return $this->filterPayload(array_merge($payload, $config['extra_payload']));
     }
 
     private function buildWanPayload(AigcVideoGenerateRequest $request, array $config): array
@@ -324,6 +352,62 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
             }
         }
         return $grouped;
+    }
+
+    private function buildAudioReferences(array $assets): array
+    {
+        $items = [];
+        foreach ($assets as $asset) {
+            if (!is_array($asset) || ($asset['type'] ?? '') !== AigcVideoReferenceAssetService::TYPE_AUDIO) {
+                continue;
+            }
+            $url = AigcVideoReferenceAssetService::publicUrl($asset);
+            if ($url === '') {
+                continue;
+            }
+            $item = ['url' => $url];
+            foreach (['duration', 'start', 'end'] as $key) {
+                if (isset($asset[$key]) && is_numeric($asset[$key])) {
+                    $item[$key] = max(0, (float)$asset[$key]);
+                }
+            }
+            $items[] = $item;
+            if (count($items) >= 3) {
+                break;
+            }
+        }
+        return $items;
+    }
+
+    private function buildVideoReferences(array $assets): array
+    {
+        $items = [];
+        foreach ($assets as $asset) {
+            if (!is_array($asset) || ($asset['type'] ?? '') !== AigcVideoReferenceAssetService::TYPE_VIDEO) {
+                continue;
+            }
+            $url = AigcVideoReferenceAssetService::publicUrl($asset);
+            if ($url === '') {
+                continue;
+            }
+            $item = ['url' => $url];
+            foreach (['duration', 'start', 'end'] as $key) {
+                if (isset($asset[$key]) && is_numeric($asset[$key])) {
+                    $item[$key] = max(0, (float)$asset[$key]);
+                }
+            }
+            $items[] = $item;
+            if (count($items) >= 3) {
+                break;
+            }
+        }
+        return $items;
+    }
+
+    private function normalizeSeedance2ProMode($mode): string
+    {
+        $mode = strtolower(trim((string)$mode));
+        return in_array($mode, ['pro', 'fast'], true) ? $mode : 'pro';
     }
 
     private function seedanceAssetName(array $asset, int $index): string
@@ -552,6 +636,8 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
         $candidates = [
             $data['result']['videos'] ?? null,
             $data['data']['result']['videos'] ?? null,
+            $data['data']['urls'] ?? null,
+            $data['urls'] ?? null,
             $data['data']['results'] ?? null,
             $data['results'] ?? null,
             $data['data']['videos'] ?? null,

@@ -1,10 +1,10 @@
 {
   "code": "aigc_image",
   "name": "AIGC生图",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "require_core": ">=1.0.0",
   "description": "AIGC image generation sample application for the LikeAdmin AIGC SaaS aggregation platform.",
-  "changelog": "作为系统默认AIGC应用随新装系统预安装启用；补齐默认租户与新租户自动开通、上架和会员套餐关联数据。",
+  "changelog": "1. 新增 GPT Image 2 Pro 和 GPT Image 2 Fast 生图模型。\n2. PC 端生图入口支持按模型选择清晰度、比例、数量和参考图。\n3. 优化新模型的点数预估和任务提交体验。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",

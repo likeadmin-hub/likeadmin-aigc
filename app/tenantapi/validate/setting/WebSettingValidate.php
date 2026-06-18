@@ -30,7 +30,12 @@ class WebSettingValidate extends BaseValidate
         'login_image' => 'max:500',
         'shop_name' => 'require',
         'shop_logo' => 'require',
+        'h5_favicon' => 'require',
         'pc_logo' => 'require',
+        'pc_title' => 'require|max:30',
+        'pc_ico' => 'require',
+        'pc_desc' => 'max:255',
+        'pc_keywords' => 'max:255',
         'pc_login_bg_type' => 'in:image,video,none',
         'pc_login_bg' => 'max:500',
         'pc_login_bg_poster' => 'max:500',
@@ -49,7 +54,10 @@ class WebSettingValidate extends BaseValidate
         'web_logo.require' => '请上传网站logo',
         'shop_name.require' => '请填写前台名称',
         'shop_logo.require' => '请上传前台logo',
+        'h5_favicon.require' => '请上传前台网站图标',
         'pc_logo.require' => '请上传PC端logo',
+        'pc_title.require' => '请填写PC端网站标题',
+        'pc_ico.require' => '请上传PC端网站图标',
         'pc_login_bg_type.in' => '请选择正确的PC登录背景类型',
         'pc_home_style.in' => '请选择正确的PC首页风格',
         'pc_home_bg_type.in' => '请选择正确的PC首页背景类型',
@@ -58,7 +66,7 @@ class WebSettingValidate extends BaseValidate
     ];
 
     protected $scene = [
-        'website' => ['name', 'web_favicon', 'web_logo', 'login_image', 'shop_name', 'shop_logo', 'pc_logo', 'pc_login_bg_type', 'pc_login_bg', 'pc_login_bg_poster', 'pc_home_style', 'pc_home_bg_type', 'pc_home_bg', 'pc_home_bg_poster', 'pc_home_immersive_title', 'pc_home_immersive_subtitle'],
+        'website' => ['name', 'web_favicon', 'web_logo', 'login_image', 'shop_name', 'shop_logo', 'h5_favicon', 'pc_logo', 'pc_title', 'pc_ico', 'pc_desc', 'pc_keywords', 'pc_login_bg_type', 'pc_login_bg', 'pc_login_bg_poster', 'pc_home_style', 'pc_home_bg_type', 'pc_home_bg', 'pc_home_bg_poster', 'pc_home_immersive_title', 'pc_home_immersive_subtitle'],
         'siteStatistics' => [''],
     ];
 }

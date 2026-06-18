@@ -38,6 +38,10 @@ class PackageProvisionService
 
     private static function syncDefaultPlans(int $tenantId): void
     {
+        if (Db::name('membership_plan')->where('tenant_id', $tenantId)->count() > 0) {
+            return;
+        }
+
         $plans = [
             [
                 'name' => '免费会员',
@@ -81,10 +85,6 @@ class PackageProvisionService
         ];
 
         foreach ($plans as $plan) {
-            $exists = Db::name('membership_plan')->where(['tenant_id' => $tenantId, 'name' => $plan['name']])->count();
-            if ($exists) {
-                continue;
-            }
             Db::name('membership_plan')->insert(array_merge($plan, [
                 'tenant_id' => $tenantId,
                 'status' => 1,
@@ -96,6 +96,10 @@ class PackageProvisionService
 
     private static function syncRechargePackages(int $tenantId): void
     {
+        if (Db::name('recharge_package')->where('tenant_id', $tenantId)->count() > 0) {
+            return;
+        }
+
         $packages = [
             ['name' => '体验包', 'points' => '10.00', 'amount' => '10.00', 'market_amount' => '0.00', 'is_recommend' => 0, 'sort' => 100],
             ['name' => '轻量包', 'points' => '30.00', 'amount' => '30.00', 'market_amount' => '0.00', 'is_recommend' => 0, 'sort' => 90],
@@ -106,10 +110,6 @@ class PackageProvisionService
         ];
 
         foreach ($packages as $package) {
-            $exists = Db::name('recharge_package')->where(['tenant_id' => $tenantId, 'name' => $package['name']])->count();
-            if ($exists) {
-                continue;
-            }
             Db::name('recharge_package')->insert(array_merge($package, [
                 'tenant_id' => $tenantId,
                 'status' => 1,

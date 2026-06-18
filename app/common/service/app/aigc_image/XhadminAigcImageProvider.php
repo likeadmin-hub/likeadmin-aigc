@@ -136,17 +136,24 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
 
     private function buildPayload(AigcImageGenerateRequest $request, array $config): array
     {
-        return array_filter(array_merge([
+        $providerParams = $request->providerParams;
+        $payload = [
             'model' => $request->providerParams['model'] ?? $config['model'],
             'n' => 1,
             'prompt' => $request->prompt,
             'channel' => $config['upstream_channel'] ?: null,
             'image_urls' => $this->normalizeReferenceImageUrls($request->referenceImages),
-            'resolution' => $request->providerParams['resolution'] ?? $request->quality,
-            'aspect_ratio' => $request->providerParams['aspect_ratio'] ?? $request->ratio,
-            'image_size' => $request->providerParams['image_size'] ?? null,
+            'resolution' => empty($providerParams['omit_resolution']) ? ($providerParams['resolution'] ?? $request->quality) : null,
+            'aspect_ratio' => $providerParams['aspect_ratio'] ?? $request->ratio,
+            'image_size' => $providerParams['image_size'] ?? $providerParams['resolution'] ?? null,
+            'mask_url' => $providerParams['mask_url'] ?? null,
+            'quality' => $providerParams['generation_quality'] ?? null,
             'negative_prompt' => $request->negativePrompt ?: null,
-        ], $config['extra_payload']), static fn($value) => $value !== null && $value !== '' && $value !== []);
+        ];
+        if (!empty($providerParams['size'])) {
+            $payload['size'] = $providerParams['size'];
+        }
+        return array_filter(array_merge($payload, $config['extra_payload']), static fn($value) => $value !== null && $value !== '' && $value !== []);
     }
 
     private function normalizeReferenceImageUrls(array $images): array

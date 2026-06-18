@@ -43,6 +43,7 @@ class PricingController extends BaseAdminController
                     'aspect_ratio' => (string)($providerParams['aspect_ratio'] ?? $providerParams['ratio'] ?? $providerParams['size'] ?? $spec['ratio'] ?? $item['ratio'] ?? ''),
                     'resolution' => (string)($providerParams['resolution'] ?? $item['resolution'] ?? ''),
                     'duration' => $providerParams['duration'] ?? $item['duration'] ?? null,
+                    'mode' => (string)($providerParams['mode'] ?? $item['mode'] ?? ''),
                     'width' => (int)($spec['width'] ?? $item['width'] ?? 0),
                     'height' => (int)($spec['height'] ?? $item['height'] ?? 0),
                     'provider_params' => $providerParams,
@@ -54,6 +55,7 @@ class PricingController extends BaseAdminController
                         'width' => (int)($spec['width'] ?? $item['width'] ?? 0),
                         'height' => (int)($spec['height'] ?? $item['height'] ?? 0),
                         'provider_params' => $providerParams,
+                        'mode' => (string)($providerParams['mode'] ?? $item['mode'] ?? ''),
                     ],
                     'local_key' => (string)($item['local_key'] ?? ''),
                 ], static fn($value) => $value !== '' && $value !== null && $value !== []);

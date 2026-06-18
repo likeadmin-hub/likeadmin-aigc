@@ -11,7 +11,7 @@ class AigcVideoReferenceAssetService
     public const TYPE_VIDEO = 'video';
     public const TYPE_AUDIO = 'audio';
 
-    public static function normalize(array $params, int $max = 12): array
+    public static function normalize(array $params, int $max = 15): array
     {
         $assets = [];
         foreach ((array)($params['reference_assets'] ?? []) as $asset) {
@@ -94,6 +94,36 @@ class AigcVideoReferenceAssetService
         }
     }
 
+    public static function assertSeedance2ProSupported(array $assets): void
+    {
+        $counts = [self::TYPE_IMAGE => 0, self::TYPE_VIDEO => 0, self::TYPE_AUDIO => 0];
+        $audioDuration = 0.0;
+        foreach ($assets as $asset) {
+            $type = (string)($asset['type'] ?? '');
+            if (isset($counts[$type])) {
+                $counts[$type]++;
+            }
+            if ($type === self::TYPE_AUDIO && isset($asset['duration']) && is_numeric($asset['duration'])) {
+                $audioDuration += max(0, (float)$asset['duration']);
+            }
+        }
+        if ($counts[self::TYPE_IMAGE] > 9) {
+            throw new Exception('Seedance 2.0 Pro最多支持9张参考图片');
+        }
+        if ($counts[self::TYPE_VIDEO] > 3) {
+            throw new Exception('Seedance 2.0 Pro最多支持3个参考视频');
+        }
+        if ($counts[self::TYPE_AUDIO] > 3) {
+            throw new Exception('Seedance 2.0 Pro最多支持3段参考音频');
+        }
+        if (($counts[self::TYPE_IMAGE] + $counts[self::TYPE_VIDEO]) === 0 && $counts[self::TYPE_AUDIO] > 0) {
+            throw new Exception('Seedance 2.0 Pro不能单独使用音频素材，请同时上传图片或视频参考');
+        }
+        if ($audioDuration > 15) {
+            throw new Exception('Seedance 2.0 Pro参考音频总时长不能超过15秒');
+        }
+    }
+
     private static function legacyImageValues(array $params): array
     {
         $images = array_values(array_filter((array)($params['reference_images'] ?? $params['image_urls'] ?? [])));
@@ -123,12 +153,18 @@ class AigcVideoReferenceAssetService
         if ($uri === '' && $url === '') {
             return [];
         }
-        return [
+        $normalized = [
             'type' => $type,
             'uri' => $uri !== '' ? $uri : $url,
             'url' => $url !== '' ? $url : $uri,
             'name' => trim((string)($asset['name'] ?? '')),
         ];
+        foreach (['duration', 'start', 'end'] as $key) {
+            if (isset($asset[$key]) && is_numeric($asset[$key])) {
+                $normalized[$key] = max(0, (float)$asset[$key]);
+            }
+        }
+        return $normalized;
     }
 
     private static function unique(array $assets): array

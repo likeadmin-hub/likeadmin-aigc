@@ -12,6 +12,7 @@ class AigcVideoChannelService
 {
     public const QUANTITY_OPTIONS = [1, 2, 3, 4];
     public const DEFAULT_REFERENCE_LIMIT = 4;
+    private static bool $defaultRowsEnsured = false;
 
     public static function userConfig(int $tenantId): array
     {
@@ -32,6 +33,10 @@ class AigcVideoChannelService
         $quantity = self::normalizeQuantity($params['quantity'] ?? 1);
         self::assertChannelQuantity($resolved['channel'], $quantity);
         $duration = self::normalizeGenerateDuration($resolved['channel'], AigcVideoReferenceAssetService::normalize($params), $params['duration'] ?? null);
+        $displayRatio = (string)$resolved['spec']['ratio'];
+        if (($resolved['channel']['code'] ?? '') === 'seedance2_pro' && isset($params['ratio'])) {
+            $displayRatio = (string)$params['ratio'];
+        }
         $billingMultiplier = self::billingMultiplier($resolved['channel'], $duration);
         $platformUnitCost = (float)$resolved['spec']['platform_unit_cost'] * $billingMultiplier;
         $tenantUnitPrice = (float)$resolved['spec']['tenant_unit_price'] * $billingMultiplier;
@@ -42,7 +47,7 @@ class AigcVideoChannelService
             'channel_name' => $resolved['channel']['name'],
             'quality' => $resolved['spec']['quality'],
             'quality_label' => $resolved['spec']['quality_label'],
-            'ratio' => $resolved['spec']['ratio'],
+            'ratio' => $displayRatio,
             'width' => (int)$resolved['spec']['width'],
             'height' => (int)$resolved['spec']['height'],
             'quantity' => $quantity,
@@ -72,7 +77,9 @@ class AigcVideoChannelService
             }
             $pricingVariant = self::pricingVariantFromParams($channel['code'], $params);
             foreach ($channel['qualities'] as $qualityItem) {
-                if (!self::qualityMatches($qualityItem, $quality)) {
+                if (!self::qualityMatches($qualityItem, $quality)
+                    && !self::seedance2QualityMatches((string)$channel['code'], $quality)
+                ) {
                     continue;
                 }
                 foreach ($qualityItem['ratios'] as $ratioItem) {
@@ -101,6 +108,7 @@ class AigcVideoChannelService
     public static function platformLists(): array
     {
         self::ensurePricingSchema();
+        self::ensureDefaultRows();
         $channels = AigcVideoChannel::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
         $specs = AigcVideoChannelSpec::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
         $grouped = [];
@@ -108,6 +116,7 @@ class AigcVideoChannelService
             $grouped[$spec['channel_code']][] = $spec;
         }
         foreach ($channels as &$channel) {
+            $channel['name'] = self::normalizeDisplayName((string)($channel['name'] ?? ''));
             $channel['config_json'] = self::maskSecretConfig(self::withDefaultChannelConfig((string)$channel['code'], $channel['config_json'] ?? []));
             $channel['specs'] = $grouped[$channel['code']] ?? [];
         }
@@ -317,6 +326,7 @@ class AigcVideoChannelService
     private static function effectiveChannels(int $tenantId, bool $onlyEnabled): array
     {
         self::ensurePricingSchema();
+        self::ensureDefaultRows();
         $platformChannels = AigcVideoChannel::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
         $tenantChannels = $tenantId > 0 ? AigcVideoChannel::where('tenant_id', $tenantId)->select()->toArray() : [];
         $tenantChannelMap = array_column($tenantChannels, null, 'code');
@@ -351,8 +361,8 @@ class AigcVideoChannelService
                 'tenant_override_id' => (int)($override['id'] ?? 0),
                 'code' => $platformChannel['code'],
                 'value' => $platformChannel['code'],
-                'name' => $override['name'] ?? $platformChannel['name'],
-                'label' => $override['name'] ?? $platformChannel['name'],
+                'name' => self::normalizeDisplayName((string)($override['name'] ?? $platformChannel['name'])),
+                'label' => self::normalizeDisplayName((string)($override['name'] ?? $platformChannel['name'])),
                 'provider' => $platformChannel['provider'],
                 'model' => $platformChannel['model'],
                 'max_reference_images' => (int)$platformChannel['max_reference_images'],
@@ -363,8 +373,10 @@ class AigcVideoChannelService
                 'config_json' => $config,
                 'quantity_options' => self::channelQuantityOptions(['config_json' => $config]),
                 'duration_options' => [],
+                'ratio_options' => self::channelRatioOptions((string)$platformChannel['code'], $config),
                 'videoedit_duration_options' => self::channelVideoEditDurationOptions($config),
                 'supported_asset_types' => self::supportedAssetTypes($config),
+                'mode_options' => self::modeOptions($config),
                 'max_reference_videos' => max(0, (int)($config['max_reference_videos'] ?? 0)),
                 'max_reference_audios' => max(0, (int)($config['max_reference_audios'] ?? 0)),
                 'max_reference_assets' => max(0, (int)($config['max_reference_assets'] ?? 0)),
@@ -404,14 +416,22 @@ class AigcVideoChannelService
                 ];
                 $spec = array_merge($spec, self::specPresentation($platformSpec));
                 $channel['specs'][] = $spec;
-                $qualityKey = $dynamicDuration
-                    ? strtolower($spec['resolution'] ?: $spec['quality'])
-                    : $spec['quality'];
+                $presentationSpec = self::frontendSpecForPresentation($platformChannel['code'], $spec, $config);
+                $qualityKey = $platformChannel['code'] === 'seedance2_pro'
+                    ? 'seedance2_pro'
+                    : ($dynamicDuration
+                        ? strtolower($spec['resolution'] ?: $spec['quality'])
+                        : $spec['quality']);
                 if (!isset($channel['qualities'][$qualityKey])) {
                     $qualityValue = $dynamicDuration ? ($spec['resolution'] ?: $spec['quality']) : $spec['quality'];
+                    if ($platformChannel['code'] === 'seedance2_pro') {
+                        $qualityValue = 'seedance2_pro';
+                    }
                     $channel['qualities'][$qualityKey] = [
                         'value' => $qualityValue,
-                        'label' => $dynamicDuration ? ($spec['resolution'] ?: $spec['quality_label']) : $spec['quality_label'],
+                        'label' => $platformChannel['code'] === 'seedance2_pro'
+                            ? 'Seedance 2.0 Pro'
+                            : ($dynamicDuration ? ($spec['resolution'] ?: $spec['quality_label']) : $spec['quality_label']),
                         'resolution' => $spec['resolution'],
                         'duration' => $dynamicDuration ? '' : $spec['duration'],
                         'ratios' => [],
@@ -419,13 +439,26 @@ class AigcVideoChannelService
                 }
                 $ratioExists = false;
                 foreach ($channel['qualities'][$qualityKey]['ratios'] as $existingRatio) {
-                    if (($existingRatio['value'] ?? '') === $spec['value']) {
+                    if (($existingRatio['value'] ?? '') === ($presentationSpec['value'] ?? $spec['value'])) {
                         $ratioExists = true;
                         break;
                     }
                 }
-                if (!$ratioExists) {
-                    $channel['qualities'][$qualityKey]['ratios'][] = $spec;
+                if ($platformChannel['code'] === 'seedance2_pro') {
+                    foreach (self::seedance2ProPresentationSpecs($spec, $config) as $seedanceRatioSpec) {
+                        $exists = false;
+                        foreach ($channel['qualities'][$qualityKey]['ratios'] as $existingRatio) {
+                            if (($existingRatio['value'] ?? '') === ($seedanceRatioSpec['value'] ?? '')) {
+                                $exists = true;
+                                break;
+                            }
+                        }
+                        if (!$exists) {
+                            $channel['qualities'][$qualityKey]['ratios'][] = $seedanceRatioSpec;
+                        }
+                    }
+                } elseif (!$ratioExists) {
+                    $channel['qualities'][$qualityKey]['ratios'][] = $presentationSpec;
                 }
             }
             $channel['duration_options'] = $durationOptions;
@@ -514,7 +547,7 @@ class AigcVideoChannelService
     {
         $channel = $channels[0] ?? [];
         foreach ($channels as $candidate) {
-            if (($candidate['code'] ?? '') === 'happy_horse') {
+            if (($candidate['code'] ?? '') === 'seedance2_pro') {
                 $channel = $candidate;
                 break;
             }
@@ -525,23 +558,24 @@ class AigcVideoChannelService
             'channel' => $channel['code'] ?? '',
             'quality' => $quality['value'] ?? '',
             'ratio' => $ratio['ratio'] ?? '',
-            'duration' => $channel['duration_options'][0] ?? 0,
+            'duration' => (int)($channel['config_json']['default_duration'] ?? 0) ?: ($channel['duration_options'][0] ?? 0),
+            'mode' => $channel['config_json']['default_mode'] ?? 'pro',
             'quantity' => 1,
         ];
     }
 
     private static function maxReferenceImages(array $channels): int
     {
-        $max = self::DEFAULT_REFERENCE_LIMIT;
+        $max = 0;
         foreach ($channels as $channel) {
-            $max = min($max, max(0, (int)$channel['max_reference_images']));
+            $max = max($max, max(0, (int)$channel['max_reference_images']));
         }
-        return $max;
+        return $max > 0 ? $max : self::DEFAULT_REFERENCE_LIMIT;
     }
 
     private static function maxReferenceAssets(array $channels): int
     {
-        $max = self::DEFAULT_REFERENCE_LIMIT;
+        $max = 0;
         foreach ($channels as $channel) {
             $channelMax = (int)($channel['max_reference_assets'] ?? 0);
             if ($channelMax <= 0) {
@@ -549,9 +583,9 @@ class AigcVideoChannelService
                     + (int)($channel['max_reference_videos'] ?? 0)
                     + (int)($channel['max_reference_audios'] ?? 0);
             }
-            $max = min($max, max(0, $channelMax));
+            $max = max($max, max(0, $channelMax));
         }
-        return $max;
+        return $max > 0 ? $max : self::DEFAULT_REFERENCE_LIMIT;
     }
 
     private static function supportedAssetTypes(array $config): array
@@ -620,6 +654,31 @@ class AigcVideoChannelService
         return [];
     }
 
+    private static function channelRatioOptions(string $channelCode, array $config): array
+    {
+        $options = $config['ratio_options'] ?? [];
+        if (!is_array($options) || empty($options)) {
+            return $channelCode === 'seedance2_pro' ? self::seedance2ProRatioOptions() : [];
+        }
+        $options = array_values(array_unique(array_filter(array_map(static function ($ratio) {
+            $ratio = trim((string)$ratio);
+            return in_array($ratio, ['mode_pro', 'mode_fast'], true) ? '' : $ratio;
+        }, $options))));
+        return $options ?: ($channelCode === 'seedance2_pro' ? self::seedance2ProRatioOptions() : []);
+    }
+
+    private static function modeOptions(array $config): array
+    {
+        $options = $config['mode_options'] ?? [];
+        if (!is_array($options)) {
+            return [];
+        }
+        return array_values(array_unique(array_filter(array_map(static function ($mode) {
+            $mode = strtolower(trim((string)$mode));
+            return in_array($mode, ['pro', 'fast'], true) ? $mode : '';
+        }, $options))));
+    }
+
     private static function withDefaultChannelConfig(string $channelCode, $config): array
     {
         $config = self::normalizeJson($config);
@@ -659,6 +718,26 @@ class AigcVideoChannelService
                 'max_reference_images' => 3,
                 'max_reference_assets' => 3,
             ],
+            'seedance2_pro' => [
+                'app_code' => 'seedance2_pro',
+                'pricing_api_code' => 'create',
+                'api_code' => 'create',
+                'submit_path' => '/api/v1/apps/seedance2_pro/create',
+                'task_path' => '/api/v1/apps/seedance2_pro/query?task_id={task_id}',
+                'poll_interval' => 2,
+                'poll_attempts' => 0,
+                'quantity_options' => [1],
+                'duration_options' => [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+                'default_duration' => 5,
+                'ratio_options' => ['adaptive', '9:16', '16:9', '1:1', '4:3', '3:4', '21:9'],
+                'mode_options' => ['pro', 'fast'],
+                'default_mode' => 'pro',
+                'supported_asset_types' => ['image', 'video', 'audio'],
+                'max_reference_images' => 9,
+                'max_reference_videos' => 3,
+                'max_reference_audios' => 3,
+                'max_reference_assets' => 15,
+            ],
         ];
         return $defaults[$channelCode] ?? [];
     }
@@ -690,7 +769,7 @@ class AigcVideoChannelService
         $durationSpec = [];
         $preferSecondUnitSpec = self::isSecondBillingChannel((string)($channel['code'] ?? ''));
         foreach ($channel['specs'] as $spec) {
-            if (($spec['ratio'] ?? '') !== $ratio) {
+            if (!self::specMatchesSelectedRatio((string)($channel['code'] ?? ''), $spec, $ratio)) {
                 continue;
             }
             if (self::normalizeResolution($spec['resolution'] ?? '') !== $resolution) {
@@ -724,6 +803,9 @@ class AigcVideoChannelService
 
     private static function pricingVariantFromParams(string $channelCode, array $params): string
     {
+        if ($channelCode === 'seedance2_pro') {
+            return self::normalizeSeedance2Mode($params['mode'] ?? $params['quality'] ?? '') ?: 'pro';
+        }
         if ($channelCode !== 'seedance') {
             return '';
         }
@@ -745,8 +827,31 @@ class AigcVideoChannelService
             return true;
         }
         $params = self::normalizeJson($spec['provider_params_json'] ?? []);
+        if (in_array($pricingVariant, ['pro', 'fast'], true)) {
+            return self::normalizeSeedance2Mode($params['mode'] ?? $spec['quality'] ?? '') === $pricingVariant;
+        }
         $specVariant = strtolower(trim((string)($params['_pricing_variant'] ?? $params['pricing_variant'] ?? '')));
         return $specVariant === '' || $specVariant === $pricingVariant;
+    }
+
+    private static function seedance2QualityMatches(string $channelCode, string $quality): bool
+    {
+        if ($channelCode !== 'seedance2_pro') {
+            return false;
+        }
+        return in_array($quality, ['seedance2_pro', 'pro', 'fast', ''], true);
+    }
+
+    private static function specMatchesSelectedRatio(string $channelCode, array $spec, string $ratio): bool
+    {
+        if (($spec['ratio'] ?? '') === $ratio) {
+            return true;
+        }
+        if ($channelCode !== 'seedance2_pro') {
+            return false;
+        }
+        return in_array($ratio, self::seedance2ProRatioOptions(), true)
+            && in_array((string)($spec['ratio'] ?? ''), ['mode_pro', 'mode_fast'], true);
     }
 
     private static function qualityMatches(array $qualityItem, string $quality): bool
@@ -861,7 +966,202 @@ class AigcVideoChannelService
 
     private static function isSecondBillingChannel(string $channelCode): bool
     {
-        return in_array($channelCode, ['happy_horse', 'wan'], true);
+        return in_array($channelCode, ['happy_horse', 'wan', 'seedance2_pro'], true);
+    }
+
+    private static function ensureDefaultRows(): void
+    {
+        if (self::$defaultRowsEnsured) {
+            return;
+        }
+        self::$defaultRowsEnsured = true;
+
+        $seedance2 = AigcVideoChannel::where(['tenant_id' => 0, 'code' => 'seedance2_pro'])->findOrEmpty();
+        $seedance2SpecCount = AigcVideoChannelSpec::where(['tenant_id' => 0, 'channel_code' => 'seedance2_pro'])->count();
+        $grokName = (string)AigcVideoChannel::where(['tenant_id' => 0, 'code' => 'grok_video_xaiq'])->value('name');
+        $needsSeedance2SpecRepair = !$seedance2->isEmpty() && self::seedance2ProSpecsNeedRepair();
+        $needsSeedance2 = $seedance2->isEmpty() || (int)$seedance2SpecCount < count(self::seedance2ProSpecs()) || $needsSeedance2SpecRepair;
+        $needsSeedance2ConfigRepair = !$seedance2->isEmpty() && self::seedance2ProConfigNeedsRepair($seedance2['config_json'] ?? []);
+        $needsGrokNameRepair = $grokName !== '' && self::normalizeDisplayName($grokName) !== $grokName;
+
+        if (!$needsSeedance2 && !$needsSeedance2ConfigRepair && !$needsGrokNameRepair) {
+            return;
+        }
+
+        Db::transaction(function () use ($needsSeedance2, $needsSeedance2ConfigRepair, $needsGrokNameRepair) {
+            if ($needsSeedance2) {
+                self::saveSeedance2ProRows();
+                AigcVideoChannel::where('tenant_id', 0)
+                    ->whereIn('code', self::oldDefaultVideoChannels())
+                    ->update([
+                        'status' => 0,
+                        'update_time' => time(),
+                    ]);
+            } elseif ($needsSeedance2ConfigRepair) {
+                self::repairSeedance2ProConfig();
+            }
+            if ($needsGrokNameRepair) {
+                AigcVideoChannel::where(['tenant_id' => 0, 'code' => 'grok_video_xaiq'])
+                    ->update([
+                        'name' => 'Grok Video（xAIQ）',
+                        'update_time' => time(),
+                    ]);
+            }
+        });
+    }
+
+    private static function seedance2ProConfigNeedsRepair($config): bool
+    {
+        $config = self::normalizeJson($config);
+        $types = self::supportedAssetTypes($config);
+        foreach (['image', 'video', 'audio'] as $type) {
+            if (!in_array($type, $types, true)) {
+                return true;
+            }
+        }
+        return (int)($config['max_reference_images'] ?? 0) < 9
+            || (int)($config['max_reference_videos'] ?? 0) < 3
+            || (int)($config['max_reference_audios'] ?? 0) < 3
+            || (int)($config['max_reference_assets'] ?? 0) < 15
+            || empty($config['ratio_options'])
+            || empty($config['mode_options'])
+            || !in_array('pro', self::modeOptions($config), true)
+            || !in_array('fast', self::modeOptions($config), true);
+    }
+
+    private static function repairSeedance2ProConfig(): void
+    {
+        AigcVideoChannel::where(['tenant_id' => 0, 'code' => 'seedance2_pro'])
+            ->update([
+                'provider' => 'seedance2_pro',
+                'model' => 'seedance2_pro',
+                'max_reference_images' => 9,
+                'config_json' => self::seedance2ProRepairedConfig(
+                    AigcVideoChannel::where(['tenant_id' => 0, 'code' => 'seedance2_pro'])->value('config_json') ?: []
+                ),
+                'update_time' => time(),
+            ]);
+    }
+
+    private static function seedance2ProRepairedConfig($config): array
+    {
+        $config = self::withDefaultChannelConfig('seedance2_pro', $config);
+        foreach (self::defaultChannelConfig('seedance2_pro') as $key => $value) {
+            if (in_array($key, [
+                'supported_asset_types',
+                'max_reference_images',
+                'max_reference_videos',
+                'max_reference_audios',
+                'max_reference_assets',
+                'mode_options',
+                'default_mode',
+                'duration_options',
+                'default_duration',
+                'ratio_options',
+                'quantity_options',
+            ], true)) {
+                $config[$key] = $value;
+            }
+        }
+        return $config;
+    }
+
+    private static function saveSeedance2ProRows(): void
+    {
+        self::saveRow(AigcVideoChannel::class, ['tenant_id' => 0, 'code' => 'seedance2_pro'], [
+            'tenant_id' => 0,
+            'code' => 'seedance2_pro',
+            'name' => 'Seedance 2.0 Pro',
+            'provider' => 'seedance2_pro',
+            'model' => 'seedance2_pro',
+            'max_reference_images' => 9,
+            'config_json' => self::defaultChannelConfig('seedance2_pro'),
+            'status' => 1,
+            'sort' => 600,
+            'update_time' => time(),
+        ]);
+
+        AigcVideoChannelSpec::where(['tenant_id' => 0, 'channel_code' => 'seedance2_pro'])
+            ->whereNotIn('ratio', ['mode_pro', 'mode_fast'])
+            ->delete();
+
+        foreach (self::seedance2ProSpecs() as $spec) {
+            self::saveRow(AigcVideoChannelSpec::class, [
+                'tenant_id' => 0,
+                'channel_code' => 'seedance2_pro',
+                'quality' => $spec['quality'],
+                'ratio' => $spec['ratio'],
+            ], [
+                'tenant_id' => 0,
+                'channel_code' => 'seedance2_pro',
+                'quality' => $spec['quality'],
+                'quality_label' => $spec['quality_label'],
+                'ratio' => $spec['ratio'],
+                'width' => 0,
+                'height' => 0,
+                'upstream_unit_cost' => '90',
+                'platform_unit_cost' => '100',
+                'tenant_unit_price' => '100',
+                'upstream_cost_text' => $spec['quality_label'] . '，点 / 秒',
+                'provider_params_json' => [
+                    'model' => 'seedance2_pro',
+                    'duration' => 0,
+                    'mode' => $spec['quality'],
+                ],
+                'status' => 1,
+                'sort' => $spec['sort'],
+                'update_time' => time(),
+            ]);
+        }
+    }
+
+    private static function seedance2ProSpecs(): array
+    {
+        return [
+            ['quality' => 'pro', 'quality_label' => 'Pro 模式每秒', 'ratio' => 'mode_pro', 'sort' => 2000],
+            ['quality' => 'fast', 'quality_label' => 'Fast 模式每秒', 'ratio' => 'mode_fast', 'sort' => 1990],
+        ];
+    }
+
+    private static function seedance2ProRatioOptions(): array
+    {
+        return ['adaptive', '9:16', '16:9', '1:1', '4:3', '3:4', '21:9'];
+    }
+
+    private static function seedance2ProSpecsNeedRepair(): bool
+    {
+        $rows = AigcVideoChannelSpec::where(['tenant_id' => 0, 'channel_code' => 'seedance2_pro'])->select()->toArray();
+        if (count($rows) !== count(self::seedance2ProSpecs())) {
+            return true;
+        }
+        $expected = [];
+        foreach (self::seedance2ProSpecs() as $spec) {
+            $expected[$spec['quality'] . '|' . $spec['ratio']] = true;
+        }
+        foreach ($rows as $row) {
+            $key = (string)$row['quality'] . '|' . (string)$row['ratio'];
+            if (!isset($expected[$key])) {
+                return true;
+            }
+            $params = self::normalizeJson($row['provider_params_json'] ?? []);
+            if (self::normalizeSeedance2Mode($params['mode'] ?? $row['quality'] ?? '') !== (string)$row['quality']) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function oldDefaultVideoChannels(): array
+    {
+        return ['grok_video_xaiq', 'happy_horse', 'happyhorse', 'happy_horse_video', 'wan', 'seedance', 'omni_flash_ext'];
+    }
+
+    private static function normalizeDisplayName(string $name): string
+    {
+        if ($name === '') {
+            return '';
+        }
+        return str_replace(['ï¼ˆ', 'ï¼‰'], ['（', '）'], $name);
     }
 
     private static function assertPlatformChannel(string $code): array
@@ -946,6 +1246,43 @@ class AigcVideoChannelService
         return $channels;
     }
 
+    private static function frontendSpecForPresentation(string $channelCode, array $spec, array $config): array
+    {
+        if ($channelCode !== 'seedance2_pro') {
+            return $spec;
+        }
+        $ratioOptions = $config['ratio_options'] ?? self::seedance2ProRatioOptions();
+        if (!is_array($ratioOptions) || empty($ratioOptions)) {
+            $ratioOptions = self::seedance2ProRatioOptions();
+        }
+        $ratio = (string)($ratioOptions[0] ?? 'adaptive');
+        $spec['value'] = $ratio;
+        $spec['label'] = $ratio === 'adaptive' ? '自适应' : $ratio;
+        $spec['ratio'] = $ratio;
+        return $spec;
+    }
+
+    private static function seedance2ProPresentationSpecs(array $spec, array $config): array
+    {
+        $ratioOptions = $config['ratio_options'] ?? self::seedance2ProRatioOptions();
+        if (!is_array($ratioOptions) || empty($ratioOptions)) {
+            $ratioOptions = self::seedance2ProRatioOptions();
+        }
+        $rows = [];
+        foreach ($ratioOptions as $ratio) {
+            $ratio = trim((string)$ratio);
+            if ($ratio === '') {
+                continue;
+            }
+            $row = $spec;
+            $row['value'] = $ratio;
+            $row['label'] = $ratio === 'adaptive' ? '自适应' : $ratio;
+            $row['ratio'] = $ratio;
+            $rows[] = $row;
+        }
+        return $rows;
+    }
+
     private static function specPresentation(array $spec): array
     {
         $params = self::normalizeJson($spec['provider_params_json'] ?? []);
@@ -975,6 +1312,12 @@ class AigcVideoChannelService
             return ((int)$matches[1]) . '秒';
         }
         return '';
+    }
+
+    private static function normalizeSeedance2Mode($value): string
+    {
+        $mode = strtolower(trim((string)$value));
+        return in_array($mode, ['pro', 'fast'], true) ? $mode : '';
     }
 
     private static function saveRow(string $modelClass, array $where, array $data): void

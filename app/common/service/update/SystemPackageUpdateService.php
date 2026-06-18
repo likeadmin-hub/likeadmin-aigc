@@ -18,6 +18,7 @@ use Throwable;
 class SystemPackageUpdateService
 {
     private const UPDATE_EXECUTION_TIMEOUT = 600;
+    private const STEP_UPDATE_BRIDGE_VERSION = '1.0.116';
     private const FULL_REPLACE_ALLOWED_DIRS = [
         'public/admin',
         'public/platform',
@@ -99,6 +100,12 @@ class SystemPackageUpdateService
             $data = (new UpdateSourceClient())->request(UpdateSourceClient::path('system/package'), [
                 'target_version' => $targetVersion,
                 'current_version' => $currentVersion ?: UpdateSourceClient::currentCoreVersion(),
+                'upgrade_mode' => 'step',
+                'updater_capability' => [
+                    'step_package' => true,
+                    'base_version_check' => true,
+                    'bridge_version' => self::STEP_UPDATE_BRIDGE_VERSION,
+                ],
             ]);
             $download = $this->downloadWithFallback($data);
             $row = UpdatePackage::create([
@@ -545,6 +552,7 @@ class SystemPackageUpdateService
         if (!in_array((string)$manifest['target_version'], array_map('strval', $manifest['included_versions']), true)) {
             throw new RuntimeException('增量系统包 included_versions 未包含目标版本');
         }
+        $this->assertIncrementalVersionRange($manifest);
         foreach (['full_replace_dirs', 'delete_files', 'sql_order'] as $field) {
             if (!is_array($manifest[$field])) {
                 throw new RuntimeException('增量系统包字段必须为数组: ' . $field);
@@ -579,6 +587,35 @@ class SystemPackageUpdateService
             if (!is_file(rtrim($extractPath, '/') . '/' . $relative)) {
                 throw new RuntimeException('增量系统包 sql_order 声明的文件不存在: ' . $relative);
             }
+        }
+    }
+
+    private function assertIncrementalVersionRange(array $manifest): void
+    {
+        $current = UpdateSourceClient::currentCoreVersion();
+        $baseVersion = (string)($manifest['base_version'] ?? '');
+        $targetVersion = (string)($manifest['target_version'] ?? $manifest['version'] ?? '');
+        $includedVersions = array_map('strval', (array)($manifest['included_versions'] ?? []));
+
+        if ($current === '' || $baseVersion === '' || $targetVersion === '') {
+            return;
+        }
+        if (!version_compare($targetVersion, $current, '>')) {
+            throw new RuntimeException('系统包目标版本必须大于当前系统版本');
+        }
+
+        $isBridgePackage = version_compare($current, self::STEP_UPDATE_BRIDGE_VERSION, '<')
+            && version_compare($targetVersion, self::STEP_UPDATE_BRIDGE_VERSION, '==')
+            && in_array($current, $includedVersions, true);
+        if ($isBridgePackage) {
+            return;
+        }
+
+        if (version_compare($current, self::STEP_UPDATE_BRIDGE_VERSION, '<')) {
+            throw new RuntimeException('旧版本系统必须先升级到桥接版本 ' . self::STEP_UPDATE_BRIDGE_VERSION);
+        }
+        if (version_compare($current, $baseVersion, '!=')) {
+            throw new RuntimeException('系统包起始版本与当前系统版本不一致，请重新获取更新包');
         }
     }
 

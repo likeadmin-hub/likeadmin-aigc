@@ -79,6 +79,8 @@ class AigcVideoService
         $referenceImages = AigcVideoReferenceAssetService::images($referenceAssets);
         self::assertReferenceAssetsSupported($selection['channel'], $referenceAssets);
         $duration = AigcVideoChannelService::normalizeGenerateDuration($selection['channel'], $referenceAssets, $params['duration'] ?? null);
+        $mode = self::normalizeVideoMode($selection['channel'], $params['mode'] ?? null);
+        $selectedRatio = (string)($params['ratio'] ?? $selection['spec']['ratio']);
         self::checkSensitiveWords($tenantId, $prompt);
         $duplicateTask = self::findRecentDuplicateTask($tenantId, $userId, [
             'prompt' => $prompt,
@@ -86,8 +88,9 @@ class AigcVideoService
             'style' => (string)($params['style'] ?? 'general'),
             'channel' => (string)$selection['channel']['code'],
             'quality' => (string)$selection['spec']['quality'],
-            'ratio' => (string)$selection['spec']['ratio'],
+            'ratio' => $selectedRatio,
             'duration' => $duration,
+            'mode' => $mode,
             'quantity' => $quantity,
             'reference_assets' => $referenceAssets,
         ]);
@@ -97,7 +100,7 @@ class AigcVideoService
         $estimate = AigcVideoChannelService::estimate($tenantId, array_merge($params, [
             'channel' => $selection['channel']['code'],
             'quality' => $selection['spec']['quality'],
-            'ratio' => $selection['spec']['ratio'],
+            'ratio' => $selectedRatio,
             'duration' => $duration,
             'quantity' => $quantity,
         ]));
@@ -114,7 +117,7 @@ class AigcVideoService
             'style' => $params['style'] ?? 'general',
             'channel' => $selection['channel']['code'],
             'quality' => $selection['spec']['quality'],
-            'ratio' => $selection['spec']['ratio'],
+            'ratio' => $selectedRatio,
             'quantity' => $quantity,
             'tenant_cost_points' => $estimate['tenant_cost_points'],
             'user_charge_points' => $estimate['user_charge_points'],
@@ -150,12 +153,17 @@ class AigcVideoService
             (string)($params['style'] ?? 'general'),
             $selection['channel']['code'],
             $selection['spec']['quality'],
-            $selection['spec']['ratio'],
+            $selectedRatio,
             $quantity,
             $referenceImages,
             $referenceAssets,
             $selection['spec'],
-            array_merge($selection['spec']['provider_params_json'] ?? [], ['duration' => $duration]),
+            self::providerParamsForSelection($selection, [
+                'duration' => $duration,
+                'mode' => $mode,
+                'aspect_ratio' => $selectedRatio,
+                'callback_url' => $params['callback_url'] ?? null,
+            ]),
             $channelConfig
         ));
 
@@ -656,12 +664,13 @@ class AigcVideoService
             (array)($task['reference_images'] ?: []),
             (array)($task['reference_assets'] ?: []),
             $selection['spec'],
-            array_merge($selection['spec']['provider_params_json'] ?? [], [
+            self::providerParamsForSelection($selection, [
                 'duration' => AigcVideoChannelService::normalizeGenerateDuration(
                     $selection['channel'],
                     (array)($task['reference_assets'] ?: []),
                     (int)($task['duration'] ?? 0) ?: null
                 ),
+                'aspect_ratio' => (string)($task['ratio'] ?? $selection['spec']['ratio']),
             ]),
             $channelConfig
         );
@@ -669,6 +678,9 @@ class AigcVideoService
 
     private static function findRecentDuplicateTask(int $tenantId, int $userId, array $criteria): ?AigcVideoTask
     {
+        if (($criteria['channel'] ?? '') === 'seedance2_pro') {
+            return null;
+        }
         $rows = AigcVideoTask::where('tenant_id', $tenantId)
             ->where('user_id', $userId)
             ->where('delete_time', 0)
@@ -737,6 +749,9 @@ class AigcVideoService
 
     private static function assertReferenceAssetsSupported(array $channel, array $assets): void
     {
+        if ((string)($channel['code'] ?? '') === 'seedance2_pro') {
+            AigcVideoReferenceAssetService::assertSeedance2ProSupported($assets);
+        }
         $supported = $channel['supported_asset_types'] ?? ['image'];
         if (!is_array($supported) || empty($supported)) {
             $supported = ['image'];
@@ -825,6 +840,27 @@ class AigcVideoService
         }
         sort($normalized);
         return json_encode(array_values(array_unique($normalized)), JSON_UNESCAPED_UNICODE);
+    }
+
+    private static function providerParamsForSelection(array $selection, array $overrides = []): array
+    {
+        $params = array_merge(
+            $selection['spec']['provider_params_json'] ?? [],
+            array_filter($overrides, static fn($value) => $value !== null && $value !== '')
+        );
+        if (($selection['channel']['code'] ?? '') === 'seedance2_pro') {
+            $params['mode'] = self::normalizeVideoMode($selection['channel'], $params['mode'] ?? null);
+        }
+        return $params;
+    }
+
+    private static function normalizeVideoMode(array $channel, $mode): string
+    {
+        $mode = strtolower(trim((string)$mode));
+        if (($channel['code'] ?? '') !== 'seedance2_pro') {
+            return $mode;
+        }
+        return in_array($mode, ['pro', 'fast'], true) ? $mode : 'pro';
     }
 
     private static function finishTaskWithVideos(AigcVideoTask $task, array $selection, array $estimate, array $videos): array
@@ -982,14 +1018,14 @@ class AigcVideoService
 
     private static function isAsyncProvider(string $provider): bool
     {
-        return in_array(strtolower($provider), ['xhadmin', 'xhadmin_grok_video', 'grok_video_xaiq', 'wan', 'seedance', 'omni_flash_ext', 'happyhorse', 'happy_horse'], true);
+        return in_array(strtolower($provider), ['xhadmin', 'xhadmin_grok_video', 'grok_video_xaiq', 'wan', 'seedance', 'seedance2_pro', 'omni_flash_ext', 'happyhorse', 'happy_horse'], true);
     }
 
     private static function providerFor(string $provider): AigcVideoProviderInterface
     {
         return match (strtolower($provider)) {
             'happyhorse', 'happy_horse' => new HappyHorseAigcVideoProvider(),
-            'xhadmin', 'xhadmin_grok_video', 'grok_video_xaiq', 'wan', 'seedance', 'omni_flash_ext' => new XhadminAigcVideoProvider(),
+            'xhadmin', 'xhadmin_grok_video', 'grok_video_xaiq', 'wan', 'seedance', 'seedance2_pro', 'omni_flash_ext' => new XhadminAigcVideoProvider(),
             default => new MockAigcVideoProvider(),
         };
     }

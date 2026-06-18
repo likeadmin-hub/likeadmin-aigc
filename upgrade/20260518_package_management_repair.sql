@@ -96,19 +96,16 @@ CREATE TABLE IF NOT EXISTS `la_user_membership` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户会员权益';
 
 INSERT INTO `la_membership_plan` (`tenant_id`,`name`,`description`,`monthly_price`,`yearly_price`,`monthly_market_price`,`yearly_market_price`,`monthly_bonus_points`,`yearly_bonus_points`,`features`,`is_recommend`,`status`,`sort`,`create_time`,`update_time`)
-SELECT `id`,'免费会员','系统默认免费会员，默认AIGC应用可直接使用',0.00,0.00,0.00,0.00,0.00,0.00,'["默认AIGC应用永久免费使用","可购买积分继续创作","会员权益可由租户继续调整"]',0,1,100,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
-FROM `la_tenant` t
-WHERE NOT EXISTS (SELECT 1 FROM `la_membership_plan` p WHERE p.`tenant_id` = t.`id` AND p.`name` = '免费会员');
-
-INSERT INTO `la_membership_plan` (`tenant_id`,`name`,`description`,`monthly_price`,`yearly_price`,`monthly_market_price`,`yearly_market_price`,`monthly_bonus_points`,`yearly_bonus_points`,`features`,`is_recommend`,`status`,`sort`,`create_time`,`update_time`)
 SELECT t.`id`,plans.`name`,plans.`description`,plans.`monthly_price`,plans.`yearly_price`,plans.`monthly_market_price`,plans.`yearly_market_price`,plans.`monthly_bonus_points`,plans.`yearly_bonus_points`,plans.`features`,plans.`is_recommend`,1,plans.`sort`,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 FROM `la_tenant` t
 JOIN (
-  SELECT '基础会员' AS `name`, '适合轻量创作用户，赠送基础积分' AS `description`, 19.90 AS `monthly_price`, 199.00 AS `yearly_price`, 29.90 AS `monthly_market_price`, 299.00 AS `yearly_market_price`, 100.00 AS `monthly_bonus_points`, 1500.00 AS `yearly_bonus_points`, '["每月赠送100积分","按年开通赠送1500积分","适合个人轻量创作"]' AS `features`, 0 AS `is_recommend`, 90 AS `sort`
+  SELECT '免费会员' AS `name`, '系统默认免费会员，默认AIGC应用可直接使用' AS `description`, 0.00 AS `monthly_price`, 0.00 AS `yearly_price`, 0.00 AS `monthly_market_price`, 0.00 AS `yearly_market_price`, 0.00 AS `monthly_bonus_points`, 0.00 AS `yearly_bonus_points`, '["默认AIGC应用永久免费使用","可购买积分继续创作","会员权益可由租户继续调整"]' AS `features`, 0 AS `is_recommend`, 100 AS `sort`
+  UNION ALL
+  SELECT '基础会员', '适合轻量创作用户，赠送基础积分', 19.90, 199.00, 29.90, 299.00, 100.00, 1500.00, '["每月赠送100积分","按年开通赠送1500积分","适合个人轻量创作"]', 0, 90
   UNION ALL
   SELECT '高级会员', '适合高频创作用户，赠送更多积分', 39.90, 399.00, 69.90, 699.00, 300.00, 4200.00, '["每月赠送300积分","按年开通赠送4200积分","适合高频图文与视频创作"]', 1, 80
 ) plans
-WHERE NOT EXISTS (SELECT 1 FROM `la_membership_plan` p WHERE p.`tenant_id` = t.`id` AND p.`name` = plans.`name`);
+WHERE NOT EXISTS (SELECT 1 FROM `la_membership_plan` p WHERE p.`tenant_id` = t.`id`);
 
 INSERT INTO `la_recharge_package` (`tenant_id`,`name`,`points`,`amount`,`market_amount`,`is_recommend`,`status`,`sort`,`create_time`,`update_time`)
 SELECT t.`id`,packages.`name`,packages.`points`,packages.`amount`,packages.`market_amount`,packages.`is_recommend`,1,packages.`sort`,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
@@ -121,4 +118,4 @@ JOIN (
   UNION ALL SELECT '专业包', 300.00, 300.00, 0.00, 0, 60
   UNION ALL SELECT '团队包', 500.00, 500.00, 0.00, 0, 50
 ) packages
-WHERE NOT EXISTS (SELECT 1 FROM `la_recharge_package` p WHERE p.`tenant_id` = t.`id` AND p.`name` = packages.`name`);
+WHERE NOT EXISTS (SELECT 1 FROM `la_recharge_package` p WHERE p.`tenant_id` = t.`id`);
