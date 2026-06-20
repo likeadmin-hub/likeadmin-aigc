@@ -14,7 +14,7 @@
 namespace app\platformapi\controller\tenant;
 
 use app\platformapi\controller\BaseAdminController;
-use app\tenantapi\lists\user\UserLists;
+use app\platformapi\lists\tenant\TenantUserLists;
 use app\tenantapi\logic\user\UserLogic;
 use app\tenantapi\validate\user\UserValidate;
 
@@ -36,7 +36,7 @@ class TenantUserController extends BaseAdminController
     {
         //进行租户信息校验
         (new UserValidate())->goCheck('manager');
-        return $this->dataLists(new UserLists());
+        return $this->dataLists(new TenantUserLists());
     }
 
 
@@ -49,7 +49,8 @@ class TenantUserController extends BaseAdminController
     public function detail()
     {
         $params = (new UserValidate())->goCheck('detail');
-        $detail = UserLogic::detail($params['id']);
+        (new UserValidate())->goCheck('manager');
+        $detail = UserLogic::detail($params['id'], (int)($params['tenant_id'] ?? 0));
         return $this->success('获取租户用户详情成功', $detail);
     }
 }

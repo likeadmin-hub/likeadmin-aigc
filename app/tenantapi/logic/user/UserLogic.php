@@ -19,6 +19,7 @@ use app\common\logic\AccountLogLogic;
 use app\common\logic\BaseLogic;
 use app\common\model\user\User;
 use app\common\model\user\UserAccountLog;
+use app\common\service\JsonService;
 use think\facade\Db;
 
 /**
@@ -32,11 +33,12 @@ class UserLogic extends BaseLogic
     /**
      * @notes 用户详情
      * @param int $userId
+     * @param int|null $tenantId
      * @return array
      * @author 段誉
      * @date 2022/9/22 16:32
      */
-    public static function detail(int $userId): array
+    public static function detail(int $userId, ?int $tenantId = null): array
     {
         $field = [
             'id', 'sn', 'account', 'nickname', 'avatar', 'real_name',
@@ -44,15 +46,23 @@ class UserLogic extends BaseLogic
             'user_money', 'total_recharge_amount', 'is_disable'
         ];
 
-        $user = User::where(['id' => $userId])->field($field)
+        $query = User::where(['id' => $userId]);
+        if (!empty($tenantId)) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        $user = $query->field($field)
             ->findOrEmpty();
+        if ($user->isEmpty()) {
+            JsonService::throw('用户不存在！');
+        }
 
         $user['channel'] = UserTerminalEnum::getTermInalDesc($user['channel']);
         $user->sexCode = $user->getData('sex');
         $detail = $user->toArray();
         $detail['user_money'] = self::formatPoints($detail['user_money'] ?? 0);
         $detail['total_recharge_amount'] = self::formatPoints($detail['total_recharge_amount'] ?? 0);
-        $detail['total_used_amount'] = self::formatPoints(self::getUsedAmount($userId));
+        $detail['total_used_amount'] = self::formatPoints(self::getUsedAmount($userId, $tenantId));
         return $detail;
     }
 
@@ -124,11 +134,17 @@ class UserLogic extends BaseLogic
     /**
      * @notes 获取用户累计消费点数
      * @param int $userId
+     * @param int|null $tenantId
      * @return float
      */
-    private static function getUsedAmount(int $userId): float
+    private static function getUsedAmount(int $userId, ?int $tenantId = null): float
     {
-        return (float)UserAccountLog::where('user_id', $userId)
+        $query = UserAccountLog::where('user_id', $userId);
+        if (!empty($tenantId)) {
+            $query->where('tenant_id', $tenantId);
+        }
+
+        return (float)$query
             ->where('change_type', AccountLogEnum::UM_DEC_APP_CONSUME)
             ->where('action', AccountLogEnum::DEC)
             ->sum('change_amount');
