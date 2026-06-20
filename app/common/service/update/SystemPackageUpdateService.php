@@ -82,7 +82,8 @@ class SystemPackageUpdateService
             $data = $this->versions();
             $versions = $this->normalizeVersions($data);
             $latest = $this->selectNextVersion($versions, $current);
-            if (!$latest && $versions) {
+            $cloudLatestVersion = $this->versionOf($versions[0] ?? []);
+            if (!$latest && $cloudLatestVersion !== '' && version_compare($cloudLatestVersion, $current, '>')) {
                 $error = '更新源未返回当前版本可用的下一步升级包，请先同步桥接包或连续步进包';
             }
         } catch (Throwable $e) {
