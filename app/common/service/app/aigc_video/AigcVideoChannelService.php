@@ -897,7 +897,7 @@ class AigcVideoChannelService
         if ($raw === '') {
             return 0;
         }
-        if (preg_match('/(\d+)\s*(?:s|秒)\b/i', $raw, $matched)) {
+        if (preg_match('/(\d+)\s*(?:s|秒)(?:$|[^\w])/iu', $raw, $matched)) {
             return (int)$matched[1];
         }
         if (preg_match('/_(\d+)(?:\D*)$/', $raw, $matched)) {
