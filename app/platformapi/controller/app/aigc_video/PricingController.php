@@ -25,7 +25,7 @@ class PricingController extends BaseAdminController
                 $channelCode = (string)($item['channel_code'] ?? '');
                 $channel = $channelMap[$channelCode] ?? [];
                 $config = is_array($channel['config_json'] ?? null) ? $channel['config_json'] : [];
-                $spec = $this->findSpec($channelCode, (string)($item['quality'] ?? ''), (string)($item['ratio'] ?? ''), (string)($item['local_key'] ?? ''));
+                $spec = $this->findSpec($channelCode, (string)($item['quality'] ?? ''), (string)($item['ratio'] ?? ''), (string)($item['local_key'] ?? ''), $item);
                 $providerParams = is_array($spec['provider_params_json'] ?? null) ? $spec['provider_params_json'] : [];
                 $appCode = (string)($config['app_code'] ?? $channelCode);
                 $apiCode = $this->pricingApiCode($config);
@@ -66,7 +66,7 @@ class PricingController extends BaseAdminController
         }
     }
 
-    private function findSpec(string $channelCode, string $quality, string $ratio, string $localKey): array
+    private function findSpec(string $channelCode, string $quality, string $ratio, string $localKey, array $item = []): array
     {
         if ($quality === '' || $ratio === '') {
             $parts = explode('|', $localKey);
@@ -76,13 +76,42 @@ class PricingController extends BaseAdminController
         if ($channelCode === '' || $quality === '' || $ratio === '') {
             return [];
         }
-        $row = AigcVideoChannelSpec::where([
+        $rows = AigcVideoChannelSpec::where([
             'tenant_id' => 0,
             'channel_code' => $channelCode,
             'quality' => strtolower($quality),
             'ratio' => $ratio,
-        ])->findOrEmpty();
-        return $row->isEmpty() ? [] : $row->toArray();
+        ])->select()->toArray();
+        if (empty($rows)) {
+            return [];
+        }
+        if (count($rows) === 1) {
+            return $rows[0];
+        }
+
+        $itemParams = is_array($item['provider_params_json'] ?? null) ? $item['provider_params_json'] : [];
+        if (empty($itemParams) && is_array($item['provider_params'] ?? null)) {
+            $itemParams = $item['provider_params'];
+        }
+        $mode = strtolower(trim((string)($item['mode'] ?? $itemParams['mode'] ?? '')));
+        $duration = (int)($item['duration'] ?? $itemParams['duration'] ?? 0);
+        $resolution = strtolower(trim((string)($item['resolution'] ?? $itemParams['resolution'] ?? '')));
+
+        foreach ($rows as $row) {
+            $params = is_array($row['provider_params_json'] ?? null) ? $row['provider_params_json'] : [];
+            if ($mode !== '' && strtolower(trim((string)($params['mode'] ?? ''))) !== $mode) {
+                continue;
+            }
+            if ($duration > 0 && (int)($params['duration'] ?? 0) !== $duration) {
+                continue;
+            }
+            if ($resolution !== '' && strtolower(trim((string)($params['resolution'] ?? ''))) !== $resolution) {
+                continue;
+            }
+            return $row;
+        }
+
+        return $rows[0];
     }
 
     private function pricingApiCode(array $config): string

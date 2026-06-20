@@ -118,7 +118,7 @@ class UpstreamPricingService
 
     private static function appendSpecContext(array $payload, array $item): array
     {
-        foreach (['app_code', 'api_code', 'provider', 'local_key', 'quality', 'quality_label', 'ratio', 'size', 'aspect_ratio', 'resolution', 'duration', 'width', 'height'] as $field) {
+        foreach (['app_code', 'api_code', 'provider', 'local_key', 'quality', 'quality_label', 'ratio', 'size', 'aspect_ratio', 'resolution', 'duration', 'mode', 'width', 'height'] as $field) {
             if (array_key_exists($field, $item) && $item[$field] !== '' && $item[$field] !== null) {
                 $payload[$field] = $item[$field];
             }
