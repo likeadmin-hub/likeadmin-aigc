@@ -58,6 +58,15 @@ class SystemPackageUpdateService
 
     public function versions(array $params = []): array
     {
+        $params = array_merge([
+            'current_version' => UpdateSourceClient::currentCoreVersion(),
+            'upgrade_mode' => 'step',
+            'updater_capability' => [
+                'step_package' => true,
+                'base_version_check' => true,
+                'bridge_version' => self::STEP_UPDATE_BRIDGE_VERSION,
+            ],
+        ], $params);
         return (new UpdateSourceClient())->request(UpdateSourceClient::path('system/versions'), $params);
     }
 
@@ -72,7 +81,10 @@ class SystemPackageUpdateService
         try {
             $data = $this->versions();
             $versions = $this->normalizeVersions($data);
-            $latest = $versions[0] ?? [];
+            $latest = $this->selectNextVersion($versions, $current);
+            if (!$latest && $versions) {
+                $error = '更新源未返回当前版本可用的下一步升级包，请先同步桥接包或连续步进包';
+            }
         } catch (Throwable $e) {
             $error = $e->getMessage();
         }
@@ -474,6 +486,69 @@ class SystemPackageUpdateService
             return version_compare((string)($b['version'] ?? $b['version_no'] ?? ''), (string)($a['version'] ?? $a['version_no'] ?? ''));
         });
         return $versions;
+    }
+
+    private function selectNextVersion(array $versions, string $current): array
+    {
+        if (!$versions) {
+            return [];
+        }
+        if ($current === '') {
+            return $versions[0] ?? [];
+        }
+
+        $ascending = $versions;
+        usort($ascending, function ($a, $b) {
+            return version_compare((string)($this->versionOf($a)), (string)($this->versionOf($b)));
+        });
+
+        if (version_compare($current, self::STEP_UPDATE_BRIDGE_VERSION, '<')) {
+            foreach ($ascending as $item) {
+                if (version_compare($this->versionOf($item), self::STEP_UPDATE_BRIDGE_VERSION, '==')) {
+                    return $item;
+                }
+            }
+            return [];
+        }
+
+        foreach ($ascending as $item) {
+            $version = $this->versionOf($item);
+            if ($version === '' || !version_compare($version, $current, '>')) {
+                continue;
+            }
+            $baseVersion = $this->baseVersionOf($item);
+            if ($baseVersion !== '' && version_compare($baseVersion, $current, '==')) {
+                return $item;
+            }
+        }
+
+        $hasStepMetadata = false;
+        foreach ($versions as $item) {
+            if ($this->baseVersionOf($item) !== '') {
+                $hasStepMetadata = true;
+                break;
+            }
+        }
+        if ($hasStepMetadata) {
+            return [];
+        }
+
+        foreach ($ascending as $item) {
+            if (version_compare($this->versionOf($item), $current, '>')) {
+                return $item;
+            }
+        }
+        return [];
+    }
+
+    private function versionOf(array $item): string
+    {
+        return (string)($item['version'] ?? $item['version_no'] ?? $item['target_version'] ?? ($item['manifest']['version'] ?? ''));
+    }
+
+    private function baseVersionOf(array $item): string
+    {
+        return (string)($item['base_version'] ?? ($item['manifest']['base_version'] ?? ''));
     }
 
     private function writeLocalVersion(string $version): void
