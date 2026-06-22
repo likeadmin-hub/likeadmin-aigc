@@ -10,6 +10,7 @@ use app\common\service\app\AppRegistryService;
 use app\common\service\app\AppFrontendManifestService;
 use app\common\service\app\AppPlanService;
 use app\common\service\app\DefaultAppService;
+use app\common\service\FileService;
 use Exception;
 
 class AppController extends BaseAdminController
@@ -26,8 +27,7 @@ class AppController extends BaseAdminController
             $tenantApp = $tenantApps[$app['code']] ?? [];
             $display = $displayMap[$app['code']] ?? [];
             $app['display_config'] = $display;
-            $app['icon_url'] = $display['icon_url'] ?? '';
-            $app['cover_url'] = $display['cover_url'] ?? '';
+            $app['icon_url'] = self::imageUrl((string)($app['icon'] ?? ''));
             $isBuiltin = (int)($app['is_builtin'] ?? 0) === 1 || DefaultAppService::isDefaultApp((string)$app['code']);
             $app['is_builtin'] = $isBuiltin ? 1 : (int)($app['is_builtin'] ?? 0);
             $app['expire_policy'] = $isBuiltin ? AppPlanService::EXPIRE_ALLOW : ($app['expire_policy'] ?? AppPlanService::EXPIRE_BLOCK);
@@ -69,8 +69,7 @@ class AppController extends BaseAdminController
             $listedCodes[] = (string)$item['app_code'];
             $item['name'] = $app['name'] ?? $item['app_code'];
             $item['icon'] = $app['icon'] ?? '';
-            $item['icon_url'] = $display['icon_url'] ?? '';
-            $item['cover_url'] = $display['cover_url'] ?? '';
+            $item['icon_url'] = self::imageUrl((string)($app['icon'] ?? ''));
             $item['display_config'] = $display;
             $item['description'] = $app['description'] ?? '';
             $item['platform_status'] = $app['status'] ?? 'removed';
@@ -100,8 +99,7 @@ class AppController extends BaseAdminController
                 'expire_time' => 0,
                 'name' => $app['name'],
                 'icon' => $app['icon'],
-                'icon_url' => ($displayMap[$app['code']]['icon_url'] ?? ''),
-                'cover_url' => ($displayMap[$app['code']]['cover_url'] ?? ''),
+                'icon_url' => self::imageUrl((string)($app['icon'] ?? '')),
                 'display_config' => $displayMap[$app['code']] ?? [],
                 'description' => $app['description'],
                 'platform_status' => $app['status'],
@@ -168,5 +166,11 @@ class AppController extends BaseAdminController
             return false;
         }
         return AppRegistryService::isInstalled($appCode);
+    }
+
+    private static function imageUrl(string $uri): string
+    {
+        $uri = trim($uri);
+        return $uri === '' ? '' : FileService::getFileUrl($uri);
     }
 }

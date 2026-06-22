@@ -6,7 +6,6 @@ use app\common\model\article\Article;
 use app\common\service\app\AppCaseService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppFrontendManifestService;
-use app\common\service\FileService;
 
 class DecorateDataSourceService
 {
@@ -194,7 +193,7 @@ class DecorateDataSourceService
             return $item + [
                 'title' => $display['title'] ?? $item['app_code'],
                 'description' => $display['description'] ?? '',
-                'cover' => $display['cover_url'] ?: FileService::getFileUrl('resource/image/tenantapi/default/banner001.png'),
+                'cover' => $display['cover_url'] ?: '',
                 'virtual_use_count' => $display['virtual_use_count'] ?? '',
                 'sort' => (int)($display['sort'] ?? 0),
             ];

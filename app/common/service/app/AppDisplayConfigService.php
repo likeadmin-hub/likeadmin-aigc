@@ -102,7 +102,7 @@ class AppDisplayConfigService
         $data['title'] = trim((string)($data['title'] ?? '')) ?: $default['title'];
         $data['description'] = trim((string)($data['description'] ?? '')) ?: $default['description'];
         $data['cover_uri'] = (string)($data['cover_uri'] ?? $default['cover_uri']);
-        $data['icon_uri'] = (string)($data['icon_uri'] ?? $default['icon_uri']);
+        $data['icon_uri'] = (string)($data['icon_uri'] ?? '');
         $data['virtual_use_count'] = (string)($data['virtual_use_count'] ?? '');
         $data['sort'] = (int)($data['sort'] ?? $default['sort']);
         $data['status'] = (int)($data['status'] ?? 1);
@@ -148,14 +148,13 @@ class AppDisplayConfigService
         $appCode = self::normalizeAppCode($appCode);
         $current = self::detail($tenantId, $appCode);
         $cover = FileService::setFileUrl((string)($params['cover_uri'] ?? $params['cover_url'] ?? $params['cover'] ?? $current['cover_uri'] ?? ''));
-        $icon = FileService::setFileUrl((string)($params['icon_uri'] ?? $params['icon_url'] ?? $params['icon'] ?? $current['icon_uri'] ?? ''));
         $data = [
             'tenant_id' => $tenantId,
             'app_code' => $appCode,
             'title' => mb_substr(trim((string)($params['title'] ?? $current['title'] ?? '')), 0, 80),
             'description' => mb_substr(trim((string)($params['description'] ?? $current['description'] ?? '')), 0, 500),
             'cover_uri' => $cover,
-            'icon_uri' => $icon,
+            'icon_uri' => (string)($current['icon_uri'] ?? ''),
             'virtual_use_count' => mb_substr(trim((string)($params['virtual_use_count'] ?? $params['virtualUseCount'] ?? $current['virtual_use_count'] ?? '')), 0, 50),
             'sort' => (int)($params['sort'] ?? $current['sort'] ?? 0),
             'status' => (int)($params['status'] ?? $current['status'] ?? 1),
@@ -215,12 +214,6 @@ class AppDisplayConfigService
                 $data['title'] = trim((string)($appData['name'] ?? $manifest['name'] ?? $data['title'])) ?: $data['title'];
                 $data['description'] = trim((string)($appData['description'] ?? $manifest['description'] ?? $data['description'])) ?: $data['description'];
             }
-            $appCover = trim((string)($appData['cover'] ?? ''));
-            $manifestCover = trim((string)($manifestMeta['cover'] ?? $manifest['cover'] ?? ''));
-            $appIcon = trim((string)($appData['icon'] ?? ''));
-            $manifestIcon = trim((string)($manifestMeta['icon'] ?? $manifest['icon'] ?? ''));
-            $data['cover_uri'] = $appCover !== '' ? $appCover : $manifestCover;
-            $data['icon_uri'] = $appIcon !== '' ? $appIcon : $manifestIcon;
             $data['sort'] = (int)($appData['sort'] ?? $manifestMeta['sort'] ?? $manifest['sort'] ?? $data['sort']);
         }
         return $data;
