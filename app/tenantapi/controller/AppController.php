@@ -5,6 +5,7 @@ namespace app\tenantapi\controller;
 use app\common\model\app\App;
 use app\common\model\app\TenantApp;
 use app\common\service\app\AppAccessService;
+use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\AppFrontendManifestService;
 use app\common\service\app\AppPlanService;
@@ -19,9 +20,14 @@ class AppController extends BaseAdminController
         $isBuyFilter = $this->request->get('is_buy', '');
         $apps = App::where('status', 'installed')->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray();
         $tenantApps = TenantApp::where('tenant_id', $this->tenantId)->column('*', 'app_code');
+        $displayMap = AppDisplayConfigService::map($this->tenantId, array_column($apps, 'code') ?: []);
         $rows = [];
         foreach ($apps as &$app) {
             $tenantApp = $tenantApps[$app['code']] ?? [];
+            $display = $displayMap[$app['code']] ?? [];
+            $app['display_config'] = $display;
+            $app['icon_url'] = $display['icon_url'] ?? '';
+            $app['cover_url'] = $display['cover_url'] ?? '';
             $isBuiltin = (int)($app['is_builtin'] ?? 0) === 1 || DefaultAppService::isDefaultApp((string)$app['code']);
             $app['is_builtin'] = $isBuiltin ? 1 : (int)($app['is_builtin'] ?? 0);
             $app['expire_policy'] = $isBuiltin ? AppPlanService::EXPIRE_ALLOW : ($app['expire_policy'] ?? AppPlanService::EXPIRE_BLOCK);
@@ -50,13 +56,22 @@ class AppController extends BaseAdminController
     {
         $lists = TenantApp::where('tenant_id', $this->tenantId)->order('id', 'desc')->select()->toArray();
         $apps = App::whereIn('code', array_column($lists, 'app_code') ?: [''])->column('*', 'code');
+        $builtinApps = App::where(['status' => 'installed', 'is_builtin' => 1])->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray();
+        $displayMap = AppDisplayConfigService::map($this->tenantId, array_values(array_unique(array_merge(
+            array_column($apps, 'code') ?: [],
+            array_column($builtinApps, 'code') ?: []
+        ))));
         $listedCodes = [];
         foreach ($lists as &$item) {
             $app = $apps[$item['app_code']] ?? [];
+            $display = $displayMap[$item['app_code']] ?? [];
             $isBuiltin = (int)($app['is_builtin'] ?? 0) === 1 || DefaultAppService::isDefaultApp((string)$item['app_code']);
             $listedCodes[] = (string)$item['app_code'];
             $item['name'] = $app['name'] ?? $item['app_code'];
             $item['icon'] = $app['icon'] ?? '';
+            $item['icon_url'] = $display['icon_url'] ?? '';
+            $item['cover_url'] = $display['cover_url'] ?? '';
+            $item['display_config'] = $display;
             $item['description'] = $app['description'] ?? '';
             $item['platform_status'] = $app['status'] ?? 'removed';
             $item['is_builtin'] = $isBuiltin ? 1 : 0;
@@ -70,7 +85,6 @@ class AppController extends BaseAdminController
             $item = AppPlanService::enrichApp(array_merge($app, $item), $item, true);
             $item['app_code'] = $item['app_code'] ?? ($app['code'] ?? '');
         }
-        $builtinApps = App::where(['status' => 'installed', 'is_builtin' => 1])->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray();
         foreach ($builtinApps as $app) {
             if (in_array((string)$app['code'], $listedCodes, true)) {
                 continue;
@@ -86,6 +100,9 @@ class AppController extends BaseAdminController
                 'expire_time' => 0,
                 'name' => $app['name'],
                 'icon' => $app['icon'],
+                'icon_url' => ($displayMap[$app['code']]['icon_url'] ?? ''),
+                'cover_url' => ($displayMap[$app['code']]['cover_url'] ?? ''),
+                'display_config' => $displayMap[$app['code']] ?? [],
                 'description' => $app['description'],
                 'platform_status' => $app['status'],
                 'is_builtin' => 1,
