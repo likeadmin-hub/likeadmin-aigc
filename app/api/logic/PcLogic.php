@@ -20,6 +20,7 @@ use app\common\logic\BaseLogic;
 use app\common\model\article\Article;
 use app\common\model\article\ArticleCate;
 use app\common\model\article\ArticleCollect;
+use app\common\model\app\App;
 use app\common\model\decorate\DecoratePage;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\decorate\DecorateTemplateService;
@@ -204,7 +205,7 @@ class PcLogic extends BaseLogic
             'domain' => FileService::getFileUrl(),
             'login' => $loginConfig,
             'website' => $website,
-            'app_display_configs' => AppDisplayConfigService::map((int)request()->tenantId),
+            'app_display_configs' => AppDisplayConfigService::map((int)request()->tenantId, self::appDisplayConfigCodes()),
             'siteStatistics' => $siteStatistics,
             'version' => config('project.version'),
             'copyright' => $copyright,
@@ -214,6 +215,19 @@ class PcLogic extends BaseLogic
                 'mnp' => $mnpQrCode,
             ]
         ];
+    }
+
+    private static function appDisplayConfigCodes(): array
+    {
+        try {
+            $codes = App::where('status', 'installed')->column('code') ?: [];
+        } catch (\Throwable $e) {
+            $codes = [];
+        }
+        return array_values(array_unique(array_filter(array_merge(
+            AppDisplayConfigService::DEFAULT_APP_CODES,
+            array_map('strval', $codes)
+        ))));
     }
 
 
