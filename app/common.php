@@ -314,17 +314,26 @@ function local_version(): mixed
         mkdir($dir, 0777, true);
     }
     $src = $dir . 'version.json';
+    $projectVersion = (string)config('project.version');
     if (!file_exists($src)) {
         // 获取本地版本号
-        $version = config('project.version');
-        $data = ['version' => $version];
+        $data = ['version' => $projectVersion];
         // 新建文件
         file_put_contents($src, json_encode($data, JSON_UNESCAPED_UNICODE));
     }
 
     $json_string = file_get_contents($src);
     // 用参数true把JSON字符串强制转成PHP数组
-    return json_decode($json_string, true);
+    $data = json_decode($json_string, true);
+    if (!is_array($data)) {
+        $data = [];
+    }
+    $localVersion = (string)($data['version'] ?? '');
+    if ($projectVersion !== '' && ($localVersion === '' || version_compare($localVersion, $projectVersion, '<'))) {
+        $data['version'] = $projectVersion;
+        file_put_contents($src, json_encode($data, JSON_UNESCAPED_UNICODE));
+    }
+    return $data;
 }
 
 

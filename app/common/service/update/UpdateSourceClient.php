@@ -35,13 +35,14 @@ class UpdateSourceClient
         $data['dev_mode'] = (int)($data['dev_mode'] ?? 0);
         $data['ssl_verify'] = (int)($data['ssl_verify'] ?? 0);
         $data['base_url'] = self::normalizeBaseUrl((string)($data['base_url'] ?? ''));
+        $data['license_key'] = trim((string)($data['license_key'] ?? ''));
         $data['online_base_url'] = self::normalizeBaseUrl((string)($data['online_base_url'] ?? ''));
-        $data['online_license_key'] = (string)($data['online_license_key'] ?? '');
+        $data['online_license_key'] = trim((string)($data['online_license_key'] ?? ''));
         $data['online_base_url'] = $data['online_base_url'] ?: $data['base_url'];
-        $data['online_license_key'] = $data['online_license_key'] ?: (string)($data['license_key'] ?? '');
-        $data['api_key'] = $data['api_key'] ?? ($data['license_key'] ?? '');
+        $data['online_license_key'] = $data['online_license_key'] ?: $data['license_key'];
         $data['active_base_url'] = self::activeBaseUrl($data);
         $data['active_api_key'] = self::activeApiKey($data);
+        $data['api_key'] = $data['active_api_key'];
         return $data;
     }
 

@@ -66,7 +66,7 @@ class MenuLogic extends BaseLogic
     private static function filterSystemServiceMenus(array $menus): array
     {
         $source = UpdateSourceClient::getSource();
-        if (!empty($source['base_url'])) {
+        if (!empty($source['active_base_url'])) {
             return $menus;
         }
         $allowedKeys = ['core_update_service', 'core_update_channel'];

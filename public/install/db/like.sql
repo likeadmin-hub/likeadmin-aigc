@@ -2405,6 +2405,7 @@ CREATE TABLE IF NOT EXISTS `la_update_source` (
   `online_base_url` varchar(255) NOT NULL DEFAULT '' COMMENT '线上授权系统接口地址',
   `online_license_key` varchar(255) NOT NULL DEFAULT '' COMMENT '线上API Key/授权key',
   `dev_mode` tinyint NOT NULL DEFAULT 0 COMMENT '开发模式：1开启 0关闭',
+  `ssl_verify` tinyint NOT NULL DEFAULT 0 COMMENT 'SSL证书校验：1开启 0关闭',
   `public_key` text COMMENT '响应验签公钥',
   `status` tinyint NOT NULL DEFAULT 1 COMMENT '状态',
   `create_time` int unsigned NOT NULL DEFAULT 0,

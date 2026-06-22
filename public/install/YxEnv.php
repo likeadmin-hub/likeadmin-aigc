@@ -159,7 +159,7 @@ class YxEnv
         }
 
         if (!empty($content)) {
-            return file_put_contents($envFilePath, $content, LOCK_EX) !== false;
+            return @file_put_contents($envFilePath, $content, LOCK_EX) !== false;
         }
 
         return false;
