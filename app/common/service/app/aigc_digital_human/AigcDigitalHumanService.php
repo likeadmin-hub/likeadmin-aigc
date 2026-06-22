@@ -36,6 +36,7 @@ class AigcDigitalHumanService
     private const PROVIDER_SUBMIT_STALE_SECONDS = 300;
     private const VOICE_CLONE_DUPLICATE_SECONDS = 600;
     private const VOICE_CLONE_SUBMIT_STALE_SECONDS = 300;
+    private const VOICE_CLONE_TASK_PREFIX = 'task:';
 
     public static function config(int $tenantId): array
     {
@@ -462,7 +463,7 @@ class AigcDigitalHumanService
     public static function previewVoice(int $tenantId, int $userId, array $params): array
     {
         $voice = self::findUserVoice($tenantId, $userId, (int)($params['voice_id'] ?? 0));
-        if ((string)($voice['provider_asset_id'] ?? '') === '') {
+        if (!self::isVoiceReady($voice)) {
             throw new Exception('当前音色未完成克隆，无法试听');
         }
 
@@ -831,7 +832,7 @@ class AigcDigitalHumanService
         if ($row->isEmpty()) {
             throw new Exception('用户音色不存在');
         }
-        if ((string)$row['provider_asset_id'] === '') {
+        if (!self::isVoiceReady($row->toArray())) {
             throw new Exception('当前音色未完成克隆，无法设为公共');
         }
         return self::savePublicVoice($tenantId, [
@@ -1590,7 +1591,12 @@ class AigcDigitalHumanService
         }
         $voices = $query->order('id', 'asc')->limit(3)->select();
         foreach ($voices as $voice) {
-            if ((string)$voice['provider_asset_id'] !== '') {
+            $providerAssetId = trim((string)$voice['provider_asset_id']);
+            if (self::isCloneTaskAssetId($providerAssetId)) {
+                self::refreshRunningCloneTask($voice, substr($providerAssetId, strlen(self::VOICE_CLONE_TASK_PREFIX)));
+                continue;
+            }
+            if ($providerAssetId !== '') {
                 $voice->save(['status' => 'ready', 'update_time' => time()]);
                 continue;
             }
@@ -1623,13 +1629,29 @@ class AigcDigitalHumanService
                 $voice = $claimedVoice;
             }
             try {
-                $providerAssetId = (new XhadminAigcDigitalHumanProvider())->cloneVoice([
+                $clone = (new XhadminAigcDigitalHumanProvider())->submitCloneVoice([
                     'title' => (string)$voice['name'],
                     'audio_url' => self::fileUrlForTenant((string)$voice['audio_uri'], (int)$voice['tenant_id'], $voice->toArray()),
                     'visibility' => 'private',
                     'description' => '用户克隆音色',
                     'enhance_audio_quality' => false,
+                    'client_task_id' => self::cloneClientTaskId($voice),
+                    'idempotency_key' => self::cloneIdempotencyKey($voice),
+                    'local_voice_id' => (string)$voice['id'],
                 ], (int)$voice['tenant_id'], (int)$voice['user_id']);
+                $providerAssetId = trim((string)($clone['voice_id'] ?? ''));
+                $providerTaskId = trim((string)($clone['task_id'] ?? ''));
+                if ($providerAssetId === '' && $providerTaskId !== '') {
+                    $voice->save([
+                        'provider_asset_id' => self::cloneTaskAssetId($providerTaskId),
+                        'status' => 'running',
+                        'update_time' => time(),
+                    ]);
+                    continue;
+                }
+                if ($providerAssetId === '') {
+                    throw new Exception('供应商未返回音色ID');
+                }
                 $data = [
                     'provider_asset_id' => $providerAssetId,
                     'status' => 'ready',
@@ -1643,6 +1665,13 @@ class AigcDigitalHumanService
                 }
                 $voice->save($data);
             } catch (\Throwable $e) {
+                if (self::isTransientCloneSubmitError($e->getMessage())) {
+                    $voice->save([
+                        'status' => 'running',
+                        'update_time' => time(),
+                    ]);
+                    continue;
+                }
                 self::refundCloneBilling((int)$voice['tenant_id'], (int)$voice['user_id'], AigcDigitalHumanPricingService::TYPE_VOICE_CLONE, 0, (int)$voice['id'], $e->getMessage());
                 $voice->save([
                     'status' => 'failed',
@@ -1650,6 +1679,91 @@ class AigcDigitalHumanService
                 ]);
             }
         }
+    }
+
+    private static function refreshRunningCloneTask(AigcDigitalHumanVoice $voice, string $taskId): void
+    {
+        $taskId = trim($taskId);
+        if ($taskId === '') {
+            self::refundCloneBilling((int)$voice['tenant_id'], (int)$voice['user_id'], AigcDigitalHumanPricingService::TYPE_VOICE_CLONE, 0, (int)$voice['id'], '音色克隆任务ID缺失');
+            $voice->save(['provider_asset_id' => '', 'status' => 'failed', 'update_time' => time()]);
+            return;
+        }
+        try {
+            $clone = (new XhadminAigcDigitalHumanProvider())->fetchCloneVoiceResult($taskId, (int)$voice['tenant_id'], (int)$voice['user_id']);
+            if (!empty($clone['pending'])) {
+                $voice->save(['status' => 'running', 'update_time' => time()]);
+                return;
+            }
+            if (empty($clone['success'])) {
+                $message = self::friendlyStageMessage((string)($clone['error'] ?? '供应商任务失败'));
+                self::refundCloneBilling((int)$voice['tenant_id'], (int)$voice['user_id'], AigcDigitalHumanPricingService::TYPE_VOICE_CLONE, 0, (int)$voice['id'], $message);
+                $voice->save([
+                    'provider_asset_id' => '',
+                    'status' => 'failed',
+                    'update_time' => time(),
+                ]);
+                return;
+            }
+            $providerAssetId = trim((string)($clone['voice_id'] ?? ''));
+            if ($providerAssetId === '') {
+                throw new Exception('供应商任务已成功但未返回音色ID');
+            }
+            $data = [
+                'provider_asset_id' => $providerAssetId,
+                'status' => 'ready',
+                'update_time' => time(),
+            ];
+            try {
+                $previewAudioUri = self::generateVoicePreviewAudio((int)$voice['tenant_id'], (int)$voice['user_id'], array_merge($voice->toArray(), $data));
+                $data['preview_audio_uri'] = $previewAudioUri;
+            } catch (\Throwable $e) {
+                $data['preview_audio_uri'] = '';
+            }
+            $voice->save($data);
+        } catch (\Throwable $e) {
+            if (self::isTransientCloneSubmitError($e->getMessage())) {
+                $voice->save(['status' => 'running', 'update_time' => time()]);
+                return;
+            }
+            self::refundCloneBilling((int)$voice['tenant_id'], (int)$voice['user_id'], AigcDigitalHumanPricingService::TYPE_VOICE_CLONE, 0, (int)$voice['id'], $e->getMessage());
+            $voice->save([
+                'provider_asset_id' => '',
+                'status' => 'failed',
+                'update_time' => time(),
+            ]);
+        }
+    }
+
+    private static function cloneTaskAssetId(string $taskId): string
+    {
+        return self::VOICE_CLONE_TASK_PREFIX . trim($taskId);
+    }
+
+    private static function isCloneTaskAssetId(string $providerAssetId): bool
+    {
+        return str_starts_with(trim($providerAssetId), self::VOICE_CLONE_TASK_PREFIX);
+    }
+
+    private static function cloneClientTaskId(AigcDigitalHumanVoice $voice): string
+    {
+        return 'voice-clone-' . (int)$voice['tenant_id'] . '-' . (int)$voice['user_id'] . '-' . (int)$voice['id'];
+    }
+
+    private static function cloneIdempotencyKey(AigcDigitalHumanVoice $voice): string
+    {
+        return hash('sha256', self::cloneClientTaskId($voice) . '-' . (string)$voice['audio_uri']);
+    }
+
+    private static function isTransientCloneSubmitError(string $message): bool
+    {
+        $message = strtolower($message);
+        foreach (['timeout', 'timed out', '超时', 'network', 'connection', 'connect', 'reset', 'temporarily', '临时', '网络'] as $needle) {
+            if (str_contains($message, $needle)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static function advanceRunningTaskSafely(
@@ -2125,9 +2239,18 @@ class AigcDigitalHumanService
     private static function assertUsableProviderAssets(array $avatar, array $voice): void
     {
         self::assertUsableProviderAvatar($avatar);
-        if ((string)($voice['provider_asset_id'] ?? '') === '') {
+        if (!self::isVoiceReady($voice)) {
             throw new Exception('当前音色未完成克隆，无法合成');
         }
+    }
+
+    private static function isVoiceReady(array $voice): bool
+    {
+        $providerAssetId = trim((string)($voice['provider_asset_id'] ?? ''));
+        if ($providerAssetId === '' || self::isCloneTaskAssetId($providerAssetId)) {
+            return false;
+        }
+        return (string)($voice['status'] ?? 'ready') === 'ready';
     }
 
     private static function assertUsableProviderAvatar(array $avatar): void
@@ -2726,19 +2849,64 @@ class AigcDigitalHumanService
             if ($candidate === '') {
                 continue;
             }
-            if (str_contains($candidate, '/') && is_executable($candidate)) {
-                return $candidate;
+            if (str_contains($candidate, '/')) {
+                if (!self::pathAllowedByOpenBasedir($candidate)) {
+                    return $candidate;
+                }
+                if (is_executable($candidate)) {
+                    return $candidate;
+                }
             }
             if (!str_contains($candidate, '/')) {
                 $output = [];
                 $code = 1;
                 @exec('command -v ' . escapeshellarg($candidate), $output, $code);
-                if ($code === 0 && !empty($output[0]) && is_executable((string)$output[0])) {
-                    return (string)$output[0];
+                $executable = isset($output[0]) ? trim((string)$output[0]) : '';
+                if ($code === 0 && $executable !== '') {
+                    if (!self::pathAllowedByOpenBasedir($executable) || is_executable($executable)) {
+                        return $executable;
+                    }
                 }
             }
         }
         return '';
+    }
+
+    private static function pathAllowedByOpenBasedir(string $path): bool
+    {
+        $openBasedir = (string)ini_get('open_basedir');
+        if ($openBasedir === '') {
+            return true;
+        }
+
+        $path = self::normalizeFilesystemPath($path);
+        foreach (explode(PATH_SEPARATOR, $openBasedir) as $base) {
+            $base = trim($base);
+            if ($base === '') {
+                continue;
+            }
+            $base = self::normalizeFilesystemPath($base);
+            if ($base === '') {
+                continue;
+            }
+            if ($path === $base || str_starts_with($path, rtrim($base, '/') . '/')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function normalizeFilesystemPath(string $path): string
+    {
+        $path = str_replace('\\', '/', trim($path));
+        if ($path === '') {
+            return '';
+        }
+        if ($path[0] !== '/') {
+            $path = rtrim((string)getcwd(), '/\\') . '/' . $path;
+        }
+        return rtrim(preg_replace('#/+#', '/', $path) ?: $path, '/');
     }
 
     private static function publicPath(): string

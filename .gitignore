@@ -2,6 +2,7 @@
 /.vscode
 *.log
 /.env
+/public/.user.ini
 /public/uploads/*
 !/public/uploads/index.html
 /runtime/*

@@ -448,7 +448,8 @@ class ImageHumanService
         if (!$audioDriven && (int)($voice['id'] ?? 0) <= 0) {
             throw new Exception('请选择已克隆完成的音色');
         }
-        if (!$audioDriven && trim((string)($voice['provider_asset_id'] ?? '')) === '') {
+        $voiceProviderAssetId = trim((string)($voice['provider_asset_id'] ?? ''));
+        if (!$audioDriven && ($voiceProviderAssetId === '' || str_starts_with($voiceProviderAssetId, 'task:') || (string)($voice['status'] ?? 'ready') !== 'ready')) {
             throw new Exception('当前音色未完成克隆，无法合成');
         }
         $baseConfig = self::baseConfig($tenantId);

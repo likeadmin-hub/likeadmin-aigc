@@ -87,6 +87,16 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
 
     public function cloneVoice(array $payload, int $tenantId, int $userId): string
     {
+        $result = $this->submitCloneVoice($payload, $tenantId, $userId);
+        $voiceId = (string)($result['voice_id'] ?? '');
+        if ($voiceId === '') {
+            throw new Exception(!empty($result['task_id']) ? '供应商音色克隆仍在处理中' : '供应商未返回音色ID');
+        }
+        return $voiceId;
+    }
+
+    public function submitCloneVoice(array $payload, int $tenantId, int $userId): array
+    {
         $request = new AigcDigitalHumanGenerateRequest('', '', channelConfig: [
             'tenant_id' => $tenantId,
             'user_id' => $userId,
@@ -100,13 +110,33 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
             'texts' => $payload['texts'] ?? [],
             'description' => (string)($payload['description'] ?? ''),
             'enhance_audio_quality' => (bool)($payload['enhance_audio_quality'] ?? false),
+            'client_task_id' => (string)($payload['client_task_id'] ?? ''),
+            'idempotency_key' => (string)($payload['idempotency_key'] ?? ''),
+            'local_voice_id' => (string)($payload['local_voice_id'] ?? ''),
         ], static fn($value) => $value !== null && $value !== '');
         $data = $this->request('POST', $config['clone_voice_url'], $config['api_key'], $requestPayload, max(60, (int)$config['timeout']), (bool)$config['ssl_verify']);
-        $voiceId = $this->extractVoiceId($data);
-        if ($voiceId === '') {
-            throw new Exception('供应商未返回音色ID');
-        }
-        return $voiceId;
+        $taskId = $this->extractCloneTaskId($data);
+        return [
+            'voice_id' => $this->extractVoiceId($data, $taskId),
+            'task_id' => $taskId,
+            'payload' => $data,
+        ];
+    }
+
+    public function fetchCloneVoiceResult(string $taskId, int $tenantId, int $userId): array
+    {
+        $request = new AigcDigitalHumanGenerateRequest('', '', channelConfig: [
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+        ]);
+        $task = $this->fetchTask($taskId, $request);
+        return [
+            'pending' => $this->isTaskPending($task),
+            'success' => $this->isTaskSuccess($task),
+            'voice_id' => $this->extractVoiceId($task, $taskId),
+            'error' => $this->extractError($task),
+            'payload' => $task,
+        ];
     }
 
     private function fetchTask(string $taskId, AigcDigitalHumanGenerateRequest $request): array
@@ -230,7 +260,37 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
         return '';
     }
 
-    private function extractVoiceId(array $data): string
+    private function extractCloneTaskId(array $data): string
+    {
+        foreach ([
+            $data['task_id'] ?? null,
+            $data['data']['task_id'] ?? null,
+            $data['data']['task']['task_id'] ?? null,
+            $data['data']['result']['task_id'] ?? null,
+            $data['result']['task_id'] ?? null,
+        ] as $value) {
+            if (is_scalar($value) && trim((string)$value) !== '') {
+                return trim((string)$value);
+            }
+        }
+        $status = $this->extractStatus($data);
+        if (in_array($status, ['pending', 'running', 'processing', 'queued', 'created', 'submitted'], true)) {
+            foreach ([
+                $data['id'] ?? null,
+                $data['data']['id'] ?? null,
+                $data['data']['task']['id'] ?? null,
+                $data['data']['result']['id'] ?? null,
+                $data['result']['id'] ?? null,
+            ] as $value) {
+                if (is_scalar($value) && trim((string)$value) !== '') {
+                    return trim((string)$value);
+                }
+            }
+        }
+        return '';
+    }
+
+    private function extractVoiceId(array $data, string $taskId = ''): string
     {
         foreach ([
             $data['voice_id'] ?? null,
@@ -258,12 +318,15 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
             $data['result']['voice']['reference_id'] ?? null,
             $data['result']['voice']['model_id'] ?? null,
         ] as $value) {
-            if (is_scalar($value) && (string)$value !== '') {
-                return (string)$value;
+            if (is_scalar($value)) {
+                $value = trim((string)$value);
+                if ($value !== '' && !$this->looksLikeNonVoiceId($value, $taskId)) {
+                    return $value;
+                }
             }
         }
-        $voiceId = $this->findIdByKey($data, ['voice_id', 'reference_id', 'model_id', 'speaker_id', 'voice', 'id']);
-        if ($voiceId !== '' && !$this->looksLikeNonVoiceId($voiceId)) {
+        $voiceId = $this->findIdByKey($data, ['voice_id', 'reference_id', 'model_id', 'speaker_id']);
+        if ($voiceId !== '' && !$this->looksLikeNonVoiceId($voiceId, $taskId)) {
             return $voiceId;
         }
         return '';
@@ -286,16 +349,22 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
         return '';
     }
 
-    private function looksLikeNonVoiceId(string $value): bool
+    private function looksLikeNonVoiceId(string $value, string $taskId = ''): bool
     {
         $value = trim($value);
         if ($value === '') {
             return true;
         }
+        if ($taskId !== '' && $value === $taskId) {
+            return true;
+        }
+        if (str_starts_with($value, 'task:')) {
+            return true;
+        }
         if (preg_match('/^https?:\/\//i', $value)) {
             return true;
         }
-        return in_array(strtolower($value), ['success', 'ok', 'true', 'false'], true);
+        return in_array(strtolower($value), ['success', 'ok', 'true', 'false', 'pending', 'running', 'processing', 'queued', 'created', 'submitted'], true);
     }
 
     private function extractStatus(array $data): string
@@ -335,12 +404,26 @@ class XhadminAigcDigitalHumanProvider implements AigcDigitalHumanProviderInterfa
     private function isTaskPending(array $task): bool
     {
         $status = $this->extractStatus($task);
+        if ($status === 'success') {
+            return false;
+        }
+        if ($this->extractVoiceId($task) !== '' || $this->extractMediaUrl($task, 'audio') !== '' || $this->extractMediaUrl($task, 'video') !== '') {
+            return false;
+        }
         return $status === '' || in_array($status, ['pending', 'running', 'processing', 'queued', 'created', 'submitted'], true);
     }
 
     private function isTaskSuccess(array $task): bool
     {
-        return $this->extractStatus($task) === 'success';
+        if ($this->extractStatus($task) === 'success') {
+            return true;
+        }
+        if (!$this->isResponseSuccess($task)) {
+            return false;
+        }
+        return $this->extractVoiceId($task) !== ''
+            || $this->extractMediaUrl($task, 'audio') !== ''
+            || $this->extractMediaUrl($task, 'video') !== '';
     }
 
     private function extractMediaUrl(array $data, string $kind): string
