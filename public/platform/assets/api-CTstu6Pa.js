@@ -1,1 +1,0 @@
-import{r as n}from"./index-Clq9B618.js";function e(a){return n.get({url:"/app.aigc_canvas.tenant/stat",params:a})}function s(a){return n.get({url:"/app.aigc_canvas.tenant/lists",params:a})}function c(a){return n.get({url:"/app.aigc_canvas.config/dependencies",params:a})}export{e as a,s as b,c as g};
