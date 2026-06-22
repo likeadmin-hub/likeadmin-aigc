@@ -1,0 +1,50 @@
+{
+  "code": "aigc_hairstyle",
+  "name": "AI换发型",
+  "version": "1.0.3",
+  "require_core": ">=1.0.0",
+  "description": "面向人物发型和发色调整的 AI 图片创作应用，复用 AIGC 生图通道完成生成。",
+  "changelog": "1. 补齐平台端应用管理入口。\n2. 支持平台查看租户使用情况。\n3. 支持平台检查生成依赖状态。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 860,
+  "frontends": [
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/aigc_hairstyle",
+  "platform_menus": "menus/platform.json",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_hairstyle_admin",
+      "name": "AI换发型",
+      "path": "/app/aigc_hairstyle",
+      "icon": "el-icon-MagicStick",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_hairstyle",
+      "name": "AI换发型",
+      "path": "/ai/tools/aigc_hairstyle",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 92,
+      "status": 1
+    }
+  ],
+  "dependencies": [
+    {
+      "app_code": "aigc_image",
+      "name": "AIGC生图",
+      "required_for": "图片生成"
+    }
+  ]
+}

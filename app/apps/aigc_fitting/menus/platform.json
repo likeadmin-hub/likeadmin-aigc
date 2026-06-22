@@ -1,0 +1,32 @@
+[
+  {
+    "source_menu_key": "aigc_fitting_platform",
+    "app_code": "aigc_fitting",
+    "source": "app",
+    "type": "M",
+    "name": "AI试衣",
+    "icon": "el-icon-Camera",
+    "sort": 85,
+    "perms": "",
+    "paths": "aigc-fitting",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_fitting_platform_tenant_usage",
+        "type": "C",
+        "name": "租户用量",
+        "perms": "app.aigc_fitting.tenant/stat",
+        "paths": "tenant-usage",
+        "component": "apps/aigc_fitting/tenant-usage"
+      },
+      {
+        "source_menu_key": "aigc_fitting_platform_dependency",
+        "type": "C",
+        "name": "依赖状态",
+        "perms": "app.aigc_fitting.config/dependencies",
+        "paths": "dependencies",
+        "component": "apps/aigc_fitting/dependencies"
+      }
+    ]
+  }
+]

@@ -1,0 +1,18 @@
+[
+  { "permission_key": "aigc_product_image:config:detail", "name": "查看AI商品图配置", "api_path": "app.aigc_product_image.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_product_image:config:setup", "name": "保存AI商品图配置", "api_path": "app.aigc_product_image.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_product_image:scene_category:lists", "name": "查看AI商品图分类", "api_path": "app.aigc_product_image.scene_category/lists", "api_method": "GET" },
+  { "permission_key": "aigc_product_image:scene_category:save", "name": "保存AI商品图分类", "api_path": "app.aigc_product_image.scene_category/save", "api_method": "POST" },
+  { "permission_key": "aigc_product_image:scene_category:status", "name": "设置AI商品图分类状态", "api_path": "app.aigc_product_image.scene_category/status", "api_method": "POST" },
+  { "permission_key": "aigc_product_image:scene_category:delete", "name": "删除AI商品图分类", "api_path": "app.aigc_product_image.scene_category/delete", "api_method": "POST" },
+  { "permission_key": "aigc_product_image:scene_template:lists", "name": "查看AI商品图模板", "api_path": "app.aigc_product_image.scene_template/lists", "api_method": "GET" },
+  { "permission_key": "aigc_product_image:scene_template:detail", "name": "查看AI商品图模板详情", "api_path": "app.aigc_product_image.scene_template/detail", "api_method": "GET" },
+  { "permission_key": "aigc_product_image:scene_template:save", "name": "保存AI商品图模板", "api_path": "app.aigc_product_image.scene_template/save", "api_method": "POST" },
+  { "permission_key": "aigc_product_image:scene_template:status", "name": "设置AI商品图模板状态", "api_path": "app.aigc_product_image.scene_template/status", "api_method": "POST" },
+  { "permission_key": "aigc_product_image:scene_template:delete", "name": "删除AI商品图模板", "api_path": "app.aigc_product_image.scene_template/delete", "api_method": "POST" },
+  { "permission_key": "aigc_product_image:task:lists", "name": "查看AI商品图任务", "api_path": "app.aigc_product_image.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_product_image:task:detail", "name": "查看AI商品图任务详情", "api_path": "app.aigc_product_image.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_product_image:task:retry", "name": "重试AI商品图任务", "api_path": "app.aigc_product_image.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_product_image:task:delete", "name": "删除AI商品图任务", "api_path": "app.aigc_product_image.task/delete", "api_method": "POST" }
+]
+

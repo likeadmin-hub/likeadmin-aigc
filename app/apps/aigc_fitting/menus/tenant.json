@@ -1,0 +1,43 @@
+[
+  {
+    "source_menu_key": "aigc_fitting",
+    "app_code": "aigc_fitting",
+    "source": "app",
+    "type": "M",
+    "name": "AI试衣",
+    "icon": "el-icon-Camera",
+    "sort": 91,
+    "perms": "",
+    "paths": "aigc-fitting",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_fitting_config",
+        "type": "C",
+        "name": "基础配置",
+        "sort": 40,
+        "perms": "app.aigc_fitting.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_fitting/config"
+      },
+      {
+        "source_menu_key": "aigc_fitting_model",
+        "type": "C",
+        "name": "模特管理",
+        "sort": 20,
+        "perms": "app.aigc_fitting.model/detail",
+        "paths": "model",
+        "component": "apps/aigc_fitting/model"
+      },
+      {
+        "source_menu_key": "aigc_fitting_task",
+        "type": "C",
+        "name": "任务记录",
+        "sort": 10,
+        "perms": "app.aigc_fitting.task/lists",
+        "paths": "task",
+        "component": "apps/aigc_fitting/task"
+      }
+    ]
+  }
+]

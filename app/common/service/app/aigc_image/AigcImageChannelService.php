@@ -55,9 +55,9 @@ class AigcImageChannelService
             throw new Exception('暂无可用生图通道');
         }
         $defaults = self::defaults($channels);
-        $channelCode = (string)($params['channel'] ?? $defaults['channel']);
-        $quality = (string)($params['quality'] ?? $defaults['quality']);
-        $ratio = (string)($params['ratio'] ?? $defaults['ratio']);
+        $channelCode = trim((string)($params['channel'] ?? '')) ?: $defaults['channel'];
+        $quality = trim((string)($params['quality'] ?? '')) ?: $defaults['quality'];
+        $ratio = trim((string)($params['ratio'] ?? '')) ?: $defaults['ratio'];
 
         foreach ($channels as $channel) {
             if ($channel['code'] !== $channelCode) {

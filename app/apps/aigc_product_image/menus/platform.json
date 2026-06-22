@@ -1,0 +1,33 @@
+[
+  {
+    "source_menu_key": "aigc_product_image_platform",
+    "app_code": "aigc_product_image",
+    "source": "app",
+    "type": "M",
+    "name": "AI商品图",
+    "icon": "el-icon-Picture",
+    "sort": 83,
+    "perms": "",
+    "paths": "aigc-product-image",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_product_image_platform_tenant_usage",
+        "type": "C",
+        "name": "租户用量",
+        "perms": "app.aigc_product_image.tenant/stat",
+        "paths": "tenant-usage",
+        "component": "apps/aigc_product_image/tenant-usage"
+      },
+      {
+        "source_menu_key": "aigc_product_image_platform_dependency",
+        "type": "C",
+        "name": "依赖状态",
+        "perms": "app.aigc_product_image.config/dependencies",
+        "paths": "dependencies",
+        "component": "apps/aigc_product_image/dependencies"
+      }
+    ]
+  }
+]
+

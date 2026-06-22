@@ -1,0 +1,50 @@
+{
+  "code": "aigc_product_image",
+  "name": "AI商品图",
+  "version": "1.0.1",
+  "require_core": ">=1.0.0",
+  "description": "面向电商商品图生成的 AI 工具，复用 AIGC 生图通道并支持独立售价、场景分类和场景模板。",
+  "changelog": "1. 新增 AI 商品图生成工具。\n2. 支持租户维护场景分类和场景模板。\n3. 支持 PC 端上传商品图、自定义场景和独立点数计费。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 852,
+  "frontends": [
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/aigc_product_image",
+  "platform_menus": "menus/platform.json",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_product_image_admin",
+      "name": "AI商品图",
+      "path": "/app/aigc_product_image",
+      "icon": "el-icon-Picture",
+      "sort": 94,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_product_image",
+      "name": "AI商品图",
+      "path": "/ai/tools/aigc_product_image",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 89,
+      "status": 1
+    }
+  ],
+  "dependencies": [
+    {
+      "app_code": "aigc_image",
+      "name": "AIGC生图",
+      "required_for": "商品图生成"
+    }
+  ]
+}

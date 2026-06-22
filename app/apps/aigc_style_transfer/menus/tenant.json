@@ -1,0 +1,53 @@
+[
+  {
+    "source_menu_key": "aigc_style_transfer",
+    "app_code": "aigc_style_transfer",
+    "source": "app",
+    "type": "M",
+    "name": "图片风格化",
+    "icon": "el-icon-Picture",
+    "sort": 90,
+    "perms": "",
+    "paths": "aigc-style-transfer",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_style_transfer_config",
+        "type": "C",
+        "name": "基础配置",
+        "sort": 40,
+        "perms": "app.aigc_style_transfer.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_style_transfer/config"
+      },
+      {
+        "source_menu_key": "aigc_style_transfer_category",
+        "type": "C",
+        "name": "风格分类",
+        "sort": 30,
+        "perms": "app.aigc_style_transfer.style_category/lists",
+        "paths": "category",
+        "component": "apps/aigc_style_transfer/category"
+      },
+      {
+        "source_menu_key": "aigc_style_transfer_template",
+        "type": "C",
+        "name": "风格模板",
+        "sort": 20,
+        "perms": "app.aigc_style_transfer.style_template/lists",
+        "paths": "template",
+        "component": "apps/aigc_style_transfer/template"
+      },
+      {
+        "source_menu_key": "aigc_style_transfer_task",
+        "type": "C",
+        "name": "任务记录",
+        "sort": 10,
+        "perms": "app.aigc_style_transfer.task/lists",
+        "paths": "task",
+        "component": "apps/aigc_style_transfer/task"
+      }
+    ]
+  }
+]
+

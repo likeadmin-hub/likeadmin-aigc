@@ -1,0 +1,18 @@
+[
+  { "permission_key": "aigc_style_transfer:config:detail", "name": "查看图片风格化配置", "api_path": "app.aigc_style_transfer.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_style_transfer:config:setup", "name": "保存图片风格化配置", "api_path": "app.aigc_style_transfer.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_style_transfer:style_category:lists", "name": "查看图片风格化分类", "api_path": "app.aigc_style_transfer.style_category/lists", "api_method": "GET" },
+  { "permission_key": "aigc_style_transfer:style_category:save", "name": "保存图片风格化分类", "api_path": "app.aigc_style_transfer.style_category/save", "api_method": "POST" },
+  { "permission_key": "aigc_style_transfer:style_category:status", "name": "设置图片风格化分类状态", "api_path": "app.aigc_style_transfer.style_category/status", "api_method": "POST" },
+  { "permission_key": "aigc_style_transfer:style_category:delete", "name": "删除图片风格化分类", "api_path": "app.aigc_style_transfer.style_category/delete", "api_method": "POST" },
+  { "permission_key": "aigc_style_transfer:style_template:lists", "name": "查看图片风格化模板", "api_path": "app.aigc_style_transfer.style_template/lists", "api_method": "GET" },
+  { "permission_key": "aigc_style_transfer:style_template:detail", "name": "查看图片风格化模板详情", "api_path": "app.aigc_style_transfer.style_template/detail", "api_method": "GET" },
+  { "permission_key": "aigc_style_transfer:style_template:save", "name": "保存图片风格化模板", "api_path": "app.aigc_style_transfer.style_template/save", "api_method": "POST" },
+  { "permission_key": "aigc_style_transfer:style_template:status", "name": "设置图片风格化模板状态", "api_path": "app.aigc_style_transfer.style_template/status", "api_method": "POST" },
+  { "permission_key": "aigc_style_transfer:style_template:delete", "name": "删除图片风格化模板", "api_path": "app.aigc_style_transfer.style_template/delete", "api_method": "POST" },
+  { "permission_key": "aigc_style_transfer:task:lists", "name": "查看图片风格化任务", "api_path": "app.aigc_style_transfer.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_style_transfer:task:detail", "name": "查看图片风格化任务详情", "api_path": "app.aigc_style_transfer.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_style_transfer:task:retry", "name": "重试图片风格化任务", "api_path": "app.aigc_style_transfer.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_style_transfer:task:delete", "name": "删除图片风格化任务", "api_path": "app.aigc_style_transfer.task/delete", "api_method": "POST" }
+]
+

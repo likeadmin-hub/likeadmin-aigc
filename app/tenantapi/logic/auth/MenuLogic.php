@@ -48,6 +48,7 @@ class MenuLogic extends BaseLogic
     public static function getMenuByAdminId($adminId)
     {
         $admin = TenantAdmin::findOrEmpty($adminId);
+        $tenantId = 0;
         if (!$admin->isEmpty()) {
             $tenantId = (int)$admin['tenant_id'];
             self::ensurePackageMenus($tenantId);
@@ -55,6 +56,9 @@ class MenuLogic extends BaseLogic
         }
 
         $where = [];
+        if ($tenantId > 0) {
+            $where[] = ['tenant_id', '=', $tenantId];
+        }
         $where[] = ['type', 'in', ['M', 'C']];
         $where[] = ['is_disable', '=', 0];
 

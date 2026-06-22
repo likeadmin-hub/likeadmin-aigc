@@ -1,0 +1,32 @@
+[
+  {
+    "source_menu_key": "aigc_hairstyle_platform",
+    "app_code": "aigc_hairstyle",
+    "source": "app",
+    "type": "M",
+    "name": "AI换发型",
+    "icon": "el-icon-MagicStick",
+    "sort": 86,
+    "perms": "",
+    "paths": "aigc-hairstyle",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_hairstyle_platform_tenant_usage",
+        "type": "C",
+        "name": "租户用量",
+        "perms": "app.aigc_hairstyle.tenant/stat",
+        "paths": "tenant-usage",
+        "component": "apps/aigc_hairstyle/tenant-usage"
+      },
+      {
+        "source_menu_key": "aigc_hairstyle_platform_dependency",
+        "type": "C",
+        "name": "依赖状态",
+        "perms": "app.aigc_hairstyle.config/dependencies",
+        "paths": "dependencies",
+        "component": "apps/aigc_hairstyle/dependencies"
+      }
+    ]
+  }
+]

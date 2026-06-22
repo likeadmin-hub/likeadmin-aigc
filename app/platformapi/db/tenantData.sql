@@ -466,7 +466,7 @@ VALUES (192, {tenantId}, 187, 'A', '详情', '', 0, 'finance.recharge_package/de
 
 DELETE FROM `la_membership_plan_app`
 WHERE `tenant_id` = {tenantId}
-  AND `app_code` IN ('aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm');
+  AND `app_code` IN ('aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm', 'aigc_hairstyle', 'aigc_fitting', 'aigc_product_image', 'aigc_style_transfer');
 
 INSERT INTO `la_membership_plan` (
   `tenant_id`,
@@ -603,7 +603,11 @@ VALUES
 ({tenantId},'aigc_video','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_digital_human','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_canvas','1.0.1','paid','on','enabled',0,1778000000,1778000000),
-({tenantId},'aigc_llm','1.1.1','paid','on','enabled',0,1778000000,1778000000)
+({tenantId},'aigc_llm','1.1.1','paid','on','enabled',0,1778000000,1778000000),
+({tenantId},'aigc_hairstyle','1.0.1','paid','on','enabled',0,1778000000,1778000000),
+({tenantId},'aigc_fitting','1.0.1','paid','on','enabled',0,1778000000,1778000000),
+({tenantId},'aigc_product_image','1.0.0','paid','on','enabled',0,1778000000,1778000000),
+({tenantId},'aigc_style_transfer','1.0.1','paid','on','enabled',0,1778000000,1778000000)
 ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
@@ -633,6 +637,33 @@ VALUES
 (9118,{tenantId},9116,'C','用户音色','',0,'app.aigc_digital_human.user_voice/lists','user-voice','apps/aigc_digital_human/user-voice','','',0,1,0,'aigc_digital_human','app','aigc_digital_human_user_voice',0,1778000000,1778000000),
 (9119,{tenantId},9110,'C','通道调价','',0,'app.aigc_digital_human.channel/lists','channel-price','apps/aigc_digital_human/channel-price','','',0,1,0,'aigc_digital_human','app','aigc_digital_human_channel_price',0,1778000000,1778000000),
 (9120,{tenantId},9110,'C','用量统计','',0,'app.aigc_digital_human.admin/stat','stat','apps/aigc_digital_human/stat','','',0,1,0,'aigc_digital_human','app','aigc_digital_human_stat',0,1778000000,1778000000);
+
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+(9160,{tenantId},0,'M','AI换发型','el-icon-MagicStick',92,'','aigc-hairstyle','','','',0,1,0,'aigc_hairstyle','app','aigc_hairstyle',0,1778000000,1778000000),
+(9161,{tenantId},9160,'C','基础配置','',0,'app.aigc_hairstyle.config/detail','config','apps/aigc_hairstyle/config','','',0,1,0,'aigc_hairstyle','app','aigc_hairstyle_config',0,1778000000,1778000000);
+
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+(9162,{tenantId},0,'M','AI试衣','el-icon-Camera',91,'','aigc-fitting','','','',0,1,0,'aigc_fitting','app','aigc_fitting',0,1778000000,1778000000),
+(9163,{tenantId},9162,'C','基础配置','',0,'app.aigc_fitting.config/detail','config','apps/aigc_fitting/config','','',0,1,0,'aigc_fitting','app','aigc_fitting_config',0,1778000000,1778000000),
+(9164,{tenantId},9162,'C','任务记录','',0,'app.aigc_fitting.task/lists','task','apps/aigc_fitting/task','','',0,1,0,'aigc_fitting','app','aigc_fitting_task',0,1778000000,1778000000);
+
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+(9165,{tenantId},0,'M','AI商品图','el-icon-Picture',90,'','aigc-product-image','','','',0,1,0,'aigc_product_image','app','aigc_product_image',0,1778000000,1778000000),
+(9166,{tenantId},9165,'C','基础配置','',40,'app.aigc_product_image.config/detail','config','apps/aigc_product_image/config','','',0,1,0,'aigc_product_image','app','aigc_product_image_config',0,1778000000,1778000000),
+(9167,{tenantId},9165,'C','场景分类','',30,'app.aigc_product_image.scene_category/lists','category','apps/aigc_product_image/category','','',0,1,0,'aigc_product_image','app','aigc_product_image_category',0,1778000000,1778000000),
+(9168,{tenantId},9165,'C','场景模板','',20,'app.aigc_product_image.scene_template/lists','template','apps/aigc_product_image/template','','',0,1,0,'aigc_product_image','app','aigc_product_image_template',0,1778000000,1778000000),
+(9169,{tenantId},9165,'C','任务记录','',10,'app.aigc_product_image.task/lists','task','apps/aigc_product_image/task','','',0,1,0,'aigc_product_image','app','aigc_product_image_task',0,1778000000,1778000000);
+
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+(9170,{tenantId},0,'M','图片风格化','el-icon-Picture',90,'','aigc-style-transfer','','','',0,1,0,'aigc_style_transfer','app','aigc_style_transfer',0,1778000000,1778000000),
+(9171,{tenantId},9170,'C','基础配置','',40,'app.aigc_style_transfer.config/detail','config','apps/aigc_style_transfer/config','','',0,1,0,'aigc_style_transfer','app','aigc_style_transfer_config',0,1778000000,1778000000),
+(9172,{tenantId},9170,'C','风格分类','',30,'app.aigc_style_transfer.style_category/lists','category','apps/aigc_style_transfer/category','','',0,1,0,'aigc_style_transfer','app','aigc_style_transfer_category',0,1778000000,1778000000),
+(9173,{tenantId},9170,'C','风格模板','',20,'app.aigc_style_transfer.style_template/lists','template','apps/aigc_style_transfer/template','','',0,1,0,'aigc_style_transfer','app','aigc_style_transfer_template',0,1778000000,1778000000),
+(9174,{tenantId},9170,'C','任务记录','',10,'app.aigc_style_transfer.task/lists','task','apps/aigc_style_transfer/task','','',0,1,0,'aigc_style_transfer','app','aigc_style_transfer_task',0,1778000000,1778000000);
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES

@@ -1,0 +1,1 @@
+import{r as e}from"./index-Clq9B618.js";function n(t){return e.get({url:"/app.aigc_product_image.tenant/stat",params:t})}function g(t){return e.get({url:"/app.aigc_product_image.tenant/lists",params:t})}function r(t){return e.get({url:"/app.aigc_product_image.config/dependencies",params:t})}export{n as a,g as b,r as g};

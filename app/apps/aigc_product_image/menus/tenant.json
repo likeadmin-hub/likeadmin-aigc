@@ -1,0 +1,53 @@
+[
+  {
+    "source_menu_key": "aigc_product_image",
+    "app_code": "aigc_product_image",
+    "source": "app",
+    "type": "M",
+    "name": "AI商品图",
+    "icon": "el-icon-Picture",
+    "sort": 90,
+    "perms": "",
+    "paths": "aigc-product-image",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_product_image_config",
+        "type": "C",
+        "name": "基础配置",
+        "sort": 40,
+        "perms": "app.aigc_product_image.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_product_image/config"
+      },
+      {
+        "source_menu_key": "aigc_product_image_category",
+        "type": "C",
+        "name": "场景分类",
+        "sort": 30,
+        "perms": "app.aigc_product_image.scene_category/lists",
+        "paths": "category",
+        "component": "apps/aigc_product_image/category"
+      },
+      {
+        "source_menu_key": "aigc_product_image_template",
+        "type": "C",
+        "name": "场景模板",
+        "sort": 20,
+        "perms": "app.aigc_product_image.scene_template/lists",
+        "paths": "template",
+        "component": "apps/aigc_product_image/template"
+      },
+      {
+        "source_menu_key": "aigc_product_image_task",
+        "type": "C",
+        "name": "任务记录",
+        "sort": 10,
+        "perms": "app.aigc_product_image.task/lists",
+        "paths": "task",
+        "component": "apps/aigc_product_image/task"
+      }
+    ]
+  }
+]
+

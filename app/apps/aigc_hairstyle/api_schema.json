@@ -1,0 +1,125 @@
+{
+  "app_code": "aigc_hairstyle",
+  "apis": [
+    {
+      "api_path": "app.aigc_hairstyle.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_hairstyle:config:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_hairstyle.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_hairstyle:config:setup",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_hairstyle.task/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_hairstyle:task:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_hairstyle.task/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_hairstyle:task:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_hairstyle.task/retry",
+      "api_method": "POST",
+      "permission_key": "aigc_hairstyle:task:retry",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_hairstyle.task/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_hairstyle:task:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_hairstyle.tenant/stat",
+      "api_method": "GET",
+      "permission_key": "aigc_hairstyle:tenant_usage",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_hairstyle.tenant/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_hairstyle:tenant_usage",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_hairstyle.config/dependencies",
+      "api_method": "GET",
+      "permission_key": "aigc_hairstyle:dependencies:platform",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_hairstyle.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_hairstyle:config:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_hairstyle.generate/estimate",
+      "api_method": "POST",
+      "permission_key": "aigc_hairstyle:generate:estimate",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_hairstyle.generate/index",
+      "api_method": "POST",
+      "permission_key": "aigc_hairstyle:generate",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_hairstyle.task/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_hairstyle:task:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_hairstyle.task/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_hairstyle:task:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_hairstyle.result/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_hairstyle:result:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    }
+  ]
+}

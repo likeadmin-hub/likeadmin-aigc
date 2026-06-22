@@ -17,6 +17,19 @@ use app\common\model\app\aigc_image\AigcImageQuota;
 use app\common\model\app\aigc_image\AigcImageResult;
 use app\common\model\app\aigc_image\AigcImageSensitiveWord;
 use app\common\model\app\aigc_image\AigcImageTask;
+use app\common\model\app\aigc_fitting\AigcFittingConfig;
+use app\common\model\app\aigc_fitting\AigcFittingTask;
+use app\common\model\app\aigc_hairstyle\AigcHairstyleConfig;
+use app\common\model\app\aigc_product_image\AigcProductImageConfig;
+use app\common\model\app\aigc_product_image\AigcProductImageResult;
+use app\common\model\app\aigc_product_image\AigcProductImageSceneCategory;
+use app\common\model\app\aigc_product_image\AigcProductImageSceneTemplate;
+use app\common\model\app\aigc_product_image\AigcProductImageTask;
+use app\common\model\app\aigc_style_transfer\AigcStyleTransferConfig;
+use app\common\model\app\aigc_style_transfer\AigcStyleTransferResult;
+use app\common\model\app\aigc_style_transfer\AigcStyleTransferStyleCategory;
+use app\common\model\app\aigc_style_transfer\AigcStyleTransferStyleTemplate;
+use app\common\model\app\aigc_style_transfer\AigcStyleTransferTask;
 use app\common\model\app\aigc_video\AigcVideoConfig;
 use app\common\model\app\aigc_video\AigcVideoBilling;
 use app\common\model\app\aigc_video\AigcVideoChannel;
@@ -625,6 +638,27 @@ class AppRegistryService
             ImageHumanAvatar::where('id', '>', 0)->delete();
             ImageHumanBilling::where('id', '>', 0)->delete();
             AppCase::where('app_code', $appCode)->delete();
+        }
+        if ($appCode === 'aigc_hairstyle') {
+            AigcHairstyleConfig::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_fitting') {
+            AigcFittingConfig::where('id', '>', 0)->delete();
+            AigcFittingTask::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_product_image') {
+            AigcProductImageConfig::where('id', '>', 0)->delete();
+            AigcProductImageSceneCategory::where('id', '>', 0)->delete();
+            AigcProductImageSceneTemplate::where('id', '>', 0)->delete();
+            AigcProductImageTask::where('id', '>', 0)->delete();
+            AigcProductImageResult::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_style_transfer') {
+            AigcStyleTransferConfig::where('id', '>', 0)->delete();
+            AigcStyleTransferStyleCategory::where('id', '>', 0)->delete();
+            AigcStyleTransferStyleTemplate::where('id', '>', 0)->delete();
+            AigcStyleTransferTask::where('id', '>', 0)->delete();
+            AigcStyleTransferResult::where('id', '>', 0)->delete();
         }
     }
 

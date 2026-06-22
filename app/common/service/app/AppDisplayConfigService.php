@@ -17,6 +17,9 @@ class AppDisplayConfigService
         'aigc_llm',
         'image_human',
         'smart_clip',
+        'aigc_hairstyle',
+        'aigc_fitting',
+        'aigc_product_image',
     ];
 
     private const DEFAULTS = [
@@ -54,6 +57,21 @@ class AppDisplayConfigService
             'title' => 'AI视频剪辑',
             'description' => '上传视频或从作品带入素材，选择模板完成智能混剪。',
             'sort' => 70,
+        ],
+        'aigc_hairstyle' => [
+            'title' => 'AI换发型',
+            'description' => '上传人物原图和发型参考图，一键生成自然换发型效果。',
+            'sort' => 68,
+        ],
+        'aigc_fitting' => [
+            'title' => 'AI试衣',
+            'description' => '上传服装图，选择模特或自定义模特生成真实试衣效果。',
+            'sort' => 66,
+        ],
+        'aigc_product_image' => [
+            'title' => 'AI商品图',
+            'description' => '上传商品图后选择场景模板或自定义场景，生成适合电商展示的商品图。',
+            'sort' => 64,
         ],
     ];
 

@@ -1,0 +1,157 @@
+{
+  "app_code": "aigc_fitting",
+  "apis": [
+    {
+      "api_path": "app.aigc_fitting.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_fitting:config:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_fitting.config/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_fitting:config:setup",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_fitting.model/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_fitting:model:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_fitting.model/setup",
+      "api_method": "POST",
+      "permission_key": "aigc_fitting:model:setup",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_fitting.task/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_fitting:task:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_fitting.task/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_fitting:task:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_fitting.task/retry",
+      "api_method": "POST",
+      "permission_key": "aigc_fitting:task:retry",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_fitting.task/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_fitting:task:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_fitting.tenant/stat",
+      "api_method": "GET",
+      "permission_key": "aigc_fitting:tenant_usage",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_fitting.tenant/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_fitting:tenant_usage",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_fitting.config/dependencies",
+      "api_method": "GET",
+      "permission_key": "aigc_fitting:dependencies:platform",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_fitting.config/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_fitting:config:user",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_fitting.generate/estimate",
+      "api_method": "POST",
+      "permission_key": "aigc_fitting:generate:estimate",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_fitting.generate/index",
+      "api_method": "POST",
+      "permission_key": "aigc_fitting:generate",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_fitting.task/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_fitting:task:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_fitting.task/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_fitting:task:detail:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_fitting.task/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_fitting:task:delete:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_fitting.result/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_fitting:result:lists:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_fitting.result/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_fitting:result:delete:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    }
+  ]
+}

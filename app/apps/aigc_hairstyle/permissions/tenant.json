@@ -1,0 +1,38 @@
+[
+  {
+    "permission_key": "aigc_hairstyle:config:detail",
+    "name": "查看AI换发型配置",
+    "api_path": "app.aigc_hairstyle.config/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_hairstyle:config:setup",
+    "name": "保存AI换发型配置",
+    "api_path": "app.aigc_hairstyle.config/setup",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_hairstyle:task:lists",
+    "name": "查看AI换发型任务",
+    "api_path": "app.aigc_hairstyle.task/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_hairstyle:task:detail",
+    "name": "查看AI换发型任务详情",
+    "api_path": "app.aigc_hairstyle.task/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_hairstyle:task:retry",
+    "name": "重试AI换发型任务",
+    "api_path": "app.aigc_hairstyle.task/retry",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_hairstyle:task:delete",
+    "name": "删除AI换发型任务",
+    "api_path": "app.aigc_hairstyle.task/delete",
+    "api_method": "POST"
+  }
+]

@@ -68,6 +68,16 @@ class AigcImageService
 
     public static function generate(int $tenantId, int $userId, array $params): array
     {
+        return self::generateInternal($tenantId, $userId, $params);
+    }
+
+    public static function generateWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride): array
+    {
+        return self::generateInternal($tenantId, $userId, $params, $billingOverride);
+    }
+
+    private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = []): array
+    {
         $prompt = trim((string)($params['prompt'] ?? ''));
         if ($prompt === '') {
             throw new Exception('请输入提示词');
@@ -96,6 +106,7 @@ class AigcImageService
             'ratio' => $selection['spec']['ratio'],
             'quantity' => $quantity,
         ]));
+        $estimate = self::applyBillingOverride($estimate, $quantity, $billingOverride);
 
         Db::startTrans();
         try {
@@ -179,6 +190,25 @@ class AigcImageService
         return ['task_id' => $task['id'], 'results' => $rows];
     }
 
+    private static function applyBillingOverride(array $estimate, int $quantity, array $billingOverride = []): array
+    {
+        if (!$billingOverride) {
+            return $estimate;
+        }
+        $quantity = max(1, $quantity);
+        if (array_key_exists('tenant_cost_points', $billingOverride)) {
+            $tenantTotal = max(0, round((float)$billingOverride['tenant_cost_points'], 2));
+            $estimate['tenant_cost_points'] = $tenantTotal;
+            $estimate['platform_unit_cost'] = round($tenantTotal / $quantity, 2);
+        }
+        if (array_key_exists('user_charge_points', $billingOverride)) {
+            $userTotal = max(0, round((float)$billingOverride['user_charge_points'], 2));
+            $estimate['user_charge_points'] = $userTotal;
+            $estimate['tenant_unit_price'] = round($userTotal / $quantity, 2);
+        }
+        return $estimate;
+    }
+
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
         self::refreshRunningTasks($tenantId, $userId);
@@ -198,6 +228,10 @@ class AigcImageService
         $status = trim((string)($params['status'] ?? ''));
         if ($status !== '') {
             $query->where('t.status', $status);
+        }
+        $style = trim((string)($params['style'] ?? ''));
+        if ($style !== '') {
+            $query->where('t.style', $style);
         }
         $userKeyword = trim((string)($params['user_keyword'] ?? ''));
         if ($userKeyword !== '') {
@@ -324,7 +358,7 @@ class AigcImageService
         ]);
     }
 
-    public static function resultLists(int $tenantId, int $userId = 0, int $taskId = 0, string $status = ''): array
+    public static function resultLists(int $tenantId, int $userId = 0, int $taskId = 0, string $status = '', string $style = ''): array
     {
         self::refreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcImageTask::where('tenant_id', $tenantId)->where('delete_time', 0)->order('id', 'desc');
@@ -336,6 +370,9 @@ class AigcImageService
         }
         if ($status !== '') {
             $query->where('status', $status);
+        }
+        if ($style !== '') {
+            $query->where('style', $style);
         }
         $tasks = $query->limit(50)->select()->toArray();
         $taskIds = array_values(array_unique(array_filter(array_column($tasks, 'id'))));

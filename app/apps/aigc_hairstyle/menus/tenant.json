@@ -1,0 +1,34 @@
+[
+  {
+    "source_menu_key": "aigc_hairstyle",
+    "app_code": "aigc_hairstyle",
+    "source": "app",
+    "type": "M",
+    "name": "AI换发型",
+    "icon": "el-icon-MagicStick",
+    "sort": 92,
+    "perms": "",
+    "paths": "aigc-hairstyle",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_hairstyle_config",
+        "type": "C",
+        "name": "基础配置",
+        "sort": 20,
+        "perms": "app.aigc_hairstyle.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_hairstyle/config"
+      },
+      {
+        "source_menu_key": "aigc_hairstyle_task",
+        "type": "C",
+        "name": "任务记录",
+        "sort": 10,
+        "perms": "app.aigc_hairstyle.task/lists",
+        "paths": "task",
+        "component": "apps/aigc_hairstyle/task"
+      }
+    ]
+  }
+]

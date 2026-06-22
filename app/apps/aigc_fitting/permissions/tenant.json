@@ -1,0 +1,50 @@
+[
+  {
+    "permission_key": "aigc_fitting:config:detail",
+    "name": "查看AI试衣配置",
+    "api_path": "app.aigc_fitting.config/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_fitting:config:setup",
+    "name": "保存AI试衣配置",
+    "api_path": "app.aigc_fitting.config/setup",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_fitting:model:detail",
+    "name": "查看AI试衣模特",
+    "api_path": "app.aigc_fitting.model/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_fitting:model:setup",
+    "name": "保存AI试衣模特",
+    "api_path": "app.aigc_fitting.model/setup",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_fitting:task:lists",
+    "name": "查看AI试衣任务",
+    "api_path": "app.aigc_fitting.task/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_fitting:task:detail",
+    "name": "查看AI试衣任务详情",
+    "api_path": "app.aigc_fitting.task/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_fitting:task:retry",
+    "name": "重试AI试衣任务",
+    "api_path": "app.aigc_fitting.task/retry",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_fitting:task:delete",
+    "name": "删除AI试衣任务",
+    "api_path": "app.aigc_fitting.task/delete",
+    "api_method": "POST"
+  }
+]
