@@ -15,6 +15,7 @@ use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\FileService;
+use app\common\service\membership\MembershipService;
 use app\common\service\point\PointService;
 use app\common\service\storage\StorageConfigService;
 use Exception;
@@ -253,7 +254,7 @@ class AigcProductImageService
     public static function generate(int $tenantId, int $userId, array $params): array
     {
         self::assertAvailable($tenantId);
-        $prepared = self::prepareGeneratePayload($tenantId, $params, true);
+        $prepared = self::prepareGeneratePayload($tenantId, $params, true, $userId);
         $imageEstimate = AigcImageService::estimate($tenantId, $prepared['image_payload']);
         $estimate = self::buildEstimate($prepared, $imageEstimate);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
@@ -468,7 +469,7 @@ class AigcProductImageService
         }
     }
 
-    private static function prepareGeneratePayload(int $tenantId, array $params, bool $requireImages): array
+    private static function prepareGeneratePayload(int $tenantId, array $params, bool $requireImages, int $userId = 0): array
     {
         $config = self::config($tenantId);
         $configJson = is_array($config['config_json'] ?? null) ? $config['config_json'] : [];
@@ -489,6 +490,9 @@ class AigcProductImageService
                 $template = self::templateDetail($tenantId, $templateId);
                 if ($requireImages && (int)($template['status'] ?? 1) !== 1) {
                     throw new Exception('场景模板已停用');
+                }
+                if ($requireImages && (int)($template['vip'] ?? 0) === 1) {
+                    self::assertVipTemplateAllowed($tenantId, $userId);
                 }
                 $sceneImage = (string)($template['image'] ?? '');
                 $sceneLabel = (string)($template['name'] ?? '场景模板');
@@ -748,8 +752,17 @@ class AigcProductImageService
 
     private static function formatTemplate(array $row): array
     {
+        $row['vip'] = (int)($row['vip'] ?? 0);
         $row['image_url'] = self::imageUrl((string)($row['image'] ?? ''));
         return $row;
+    }
+
+    private static function assertVipTemplateAllowed(int $tenantId, int $userId): void
+    {
+        $membership = $userId > 0 ? MembershipService::status($tenantId, $userId) : [];
+        if (($membership['member_status'] ?? MembershipService::MEMBER_NONE) !== MembershipService::MEMBER_ACTIVE) {
+            throw new Exception('该场景模板为 VIP 专属，请开通会员后使用');
+        }
     }
 
     private static function defaults(): array
