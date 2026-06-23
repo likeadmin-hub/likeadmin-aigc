@@ -883,7 +883,11 @@ class AigcDigitalHumanService
         }
         $title = trim((string)($params['title'] ?? '数字人口播'));
         $prompt = trim((string)($params['prompt'] ?? ''));
-        $duration = max(1, (int)($params['duration'] ?? ($audioDriven ? self::detectAudioDurationFromUri($driverAudioUri, $tenantId) : self::estimateAudioDuration($scriptText))));
+        $audioDuration = $audioDriven ? self::detectAudioDurationFromUri($driverAudioUri, $tenantId) : 0;
+        $duration = max(1, (int)($audioDriven
+            ? ($audioDuration ?: ($params['duration'] ?? 0))
+            : ($params['duration'] ?? self::estimateAudioDuration($scriptText))
+        ));
         $duplicateCriteria = [
             'avatar_id' => (int)$avatar['id'],
             'voice_id' => $audioDriven ? 0 : (int)$voice['id'],
@@ -1148,6 +1152,7 @@ class AigcDigitalHumanService
             $row['video_url'] = (string)($first['video_url'] ?? '');
             $row['cover_url'] = (string)($first['cover_url'] ?? '');
             $row['tts_audio_url'] = self::fileUrlForTenant((string)($row['tts_audio_uri'] ?? ''), $tenantId, $row);
+            $row['duration'] = self::displayDurationForTask($row);
             $row['width'] = (int)($first['width'] ?? 0);
             $row['height'] = (int)($first['height'] ?? 0);
         }
@@ -1210,6 +1215,7 @@ class AigcDigitalHumanService
             throw new Exception('任务不存在');
         }
         $data = $task->toArray();
+        $data['duration'] = self::displayDurationForTask($data);
         $data['results'] = self::taskResults($tenantId, $userId, $taskId);
         return $data;
     }
@@ -1221,6 +1227,7 @@ class AigcDigitalHumanService
             throw new Exception('任务不存在');
         }
         $data = $task->toArray();
+        $data['duration'] = self::displayDurationForTask($data);
         $data['results'] = self::taskResults((int)$data['tenant_id'], 0, (int)$data['id']);
         $data['provider_payload_summary'] = self::providerPayloadSummary($data['provider_payload_json'] ?? []);
         return $data;
@@ -1296,6 +1303,7 @@ class AigcDigitalHumanService
             $task['video_uri'] = (string)($first['video_uri'] ?? '');
             $task['video_url'] = (string)($first['video_url'] ?? '');
             $task['cover_url'] = (string)($first['cover_url'] ?? '');
+            $task['duration'] = self::displayDurationForTask($task);
             $task['width'] = (int)($first['width'] ?? 0);
             $task['height'] = (int)($first['height'] ?? 0);
         }
@@ -1867,7 +1875,8 @@ class AigcDigitalHumanService
                 }
                 $audio = AigcDigitalHumanAssetService::persistGeneratedAudio($audioUrl, (int)$task['tenant_id'], (int)$task['user_id']);
                 $storedAudioUrl = !empty($audio['stored']) ? self::fileUrlForTenant((string)$audio['uri'], (int)$task['tenant_id']) : (string)($audio['uri'] ?? $audioUrl);
-                $audioDuration = max((int)$task['duration'], (int)($audio['duration'] ?? 0));
+                $audioDuration = (int)($audio['duration'] ?? 0);
+                $audioDuration = $audioDuration > 0 ? $audioDuration : max(1, (int)$task['duration']);
                 $task->save([
                     'provider_stage' => 'lipsync_submitted',
                     'tts_audio_uri' => (string)($audio['uri'] ?? $audioUrl),
@@ -1947,7 +1956,7 @@ class AigcDigitalHumanService
                 }
                 $task->save(['provider_stage' => 'storing', 'progress' => 88, 'provider_payload_json' => self::mergeProviderPayload($task, $payload), 'update_time' => time()]);
                 $stored = AigcDigitalHumanAssetService::persistGeneratedVideo($videoUrl, (int)$task['tenant_id'], (int)$task['user_id']);
-                $duration = max((int)$task['duration'], (int)($stored['duration'] ?? 0), 1);
+                $duration = self::resolveGenerateBillableDuration($task, (int)($stored['duration'] ?? 0));
                 $estimate = self::applyBillableDuration($estimate, $duration);
                 self::finishTaskWithVideos($task, $request->avatar, $request->voice, $selection, $estimate, [array_merge($stored, [
                     'cover_uri' => (string)($request->avatar['cover_uri'] ?? ''),
@@ -2276,6 +2285,32 @@ class AigcDigitalHumanService
         $estimate['tenant_cost_points'] = number_format((float)$estimate['platform_unit_cost'] * $duration, 2, '.', '');
         $estimate['user_charge_points'] = number_format((float)$estimate['tenant_unit_price'] * $duration, 2, '.', '');
         return $estimate;
+    }
+
+    private static function resolveGenerateBillableDuration($task, int $fallbackDuration = 0): int
+    {
+        $tenantId = (int)($task['tenant_id'] ?? 0);
+        $audioUri = (string)($task['tts_audio_uri'] ?? '');
+        $audioDuration = $audioUri !== '' ? self::detectAudioDurationFromUri($audioUri, $tenantId) : 0;
+        if ($audioDuration > 0) {
+            return $audioDuration;
+        }
+        if ($fallbackDuration > 0) {
+            return $fallbackDuration;
+        }
+        return max(1, (int)($task['duration'] ?? 1));
+    }
+
+    private static function displayDurationForTask(array $task): int
+    {
+        $audioUri = (string)($task['tts_audio_uri'] ?? '');
+        if ($audioUri !== '') {
+            $audioDuration = self::detectAudioDurationFromUri($audioUri, (int)($task['tenant_id'] ?? 0));
+            if ($audioDuration > 0) {
+                return $audioDuration;
+            }
+        }
+        return (int)($task['duration'] ?? 0);
     }
 
     private static function validateVoiceCloneDuration(string $audioUri, array $params, int $tenantId = 0): int
@@ -3078,6 +3113,8 @@ class AigcDigitalHumanService
             if ($task->isEmpty()) {
                 throw new Exception('任务不存在');
             }
+            $billableDuration = self::resolveGenerateBillableDuration($task, (int)($videos[0]['duration'] ?? $estimate['duration'] ?? 0));
+            $estimate = self::applyBillableDuration($estimate, $billableDuration);
             $existing = self::taskResults($tenantId, $userId, (int)$task['id']);
             if (!empty($existing)) {
                 $task->save(['status' => 'success', 'provider_stage' => 'success', 'progress' => 100, 'finish_time' => $task['finish_time'] ?: time(), 'update_time' => time()]);
@@ -3100,7 +3137,7 @@ class AigcDigitalHumanService
                     'storage_domain' => (string)($video['storage_domain'] ?? self::storageDomainForTenant($tenantId)),
                     'width' => $video['width'] ?? 0,
                     'height' => $video['height'] ?? 0,
-                    'duration' => $video['duration'] ?? 0,
+                    'duration' => $billableDuration,
                     'tenant_cost_points' => $estimate['tenant_cost_points'],
                     'user_charge_points' => $estimate['user_charge_points'],
                     'provider_task_id' => $video['provider_task_id'] ?? $task['provider_task_id'],
@@ -3132,7 +3169,7 @@ class AigcDigitalHumanService
                     'tenant_point_sn' => $sourceSn,
                     'user_point_sn' => $sourceSn,
                     'extra_json' => [
-                        'duration' => (int)($video['duration'] ?? $estimate['duration'] ?? 0),
+                        'duration' => $billableDuration,
                         'unit' => $estimate['billing_unit'] ?? 'second',
                     ],
                     'create_time' => time(),
