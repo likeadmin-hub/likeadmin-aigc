@@ -14,13 +14,9 @@
 
 namespace app\common\logic;
 
-use app\common\enum\PayEnum;
-use app\common\enum\user\AccountLogEnum;
 use app\common\logic\BaseLogic;
 use app\common\service\membership\MembershipService;
-use app\common\model\recharge\RechargeOrder;
-use app\common\logic\AccountLogLogic;
-use app\common\model\user\User;
+use app\common\service\recharge\RechargeCreditService;
 use think\facade\Db;
 use think\facade\Log;
 
@@ -39,7 +35,7 @@ class PayNotifyLogic extends BaseLogic
             self::$action($orderSn, $extra);
             Db::commit();
             return true;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Db::rollback();
             Log::write(implode('-', [
                 __CLASS__,
@@ -63,35 +59,7 @@ class PayNotifyLogic extends BaseLogic
      */
     public static function recharge($orderSn, array $extra = [])
     {
-        $order = RechargeOrder::where('sn', $orderSn)->lock(true)->findOrEmpty();
-        if ((int)$order->pay_status === PayEnum::ISPAID) {
-            return;
-        }
-        $rechargePoints = (float)($order->recharge_points ?? 0);
-        if ($rechargePoints <= 0) {
-            $rechargePoints = (float)$order->order_amount;
-        }
-        // 增加用户累计充值点数及用户点数
-        $user = User::where('id', $order->user_id)->lock(true)->findOrEmpty();
-        $user->total_recharge_amount += $rechargePoints;
-        $user->user_money += $rechargePoints;
-        $user->save();
-
-        // 记录账户流水
-        AccountLogLogic::add(
-            $order->user_id,
-            AccountLogEnum::UM_INC_RECHARGE,
-            AccountLogEnum::INC,
-            $rechargePoints,
-            $order->sn,
-            '用户充值'
-        );
-
-        // 更新充值订单状态
-        $order->transaction_id = $extra['transaction_id'] ?? '';
-        $order->pay_status = PayEnum::ISPAID;
-        $order->pay_time = time();
-        $order->save();
+        RechargeCreditService::complete($orderSn, $extra);
     }
 
     /**

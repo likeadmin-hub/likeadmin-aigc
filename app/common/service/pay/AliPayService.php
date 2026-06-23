@@ -178,17 +178,23 @@ class AliPayService extends BasePayService
             switch ($data['passback_params']) {
                 case 'recharge':
                     $order = RechargeOrder::where(['sn' => $data['out_trade_no']])->findOrEmpty();
-                    if ($order->isEmpty() || $order->pay_status == PayEnum::ISPAID) {
+                    if ($order->isEmpty()) {
                         return true;
                     }
-                    PayNotifyLogic::handle('recharge', $data['out_trade_no'], $extra);
+                    $result = PayNotifyLogic::handle('recharge', $data['out_trade_no'], $extra);
+                    if (true !== $result) {
+                        throw new \Exception((string)$result);
+                    }
                     break;
                 case 'membership':
                     $order = MembershipOrder::where(['order_sn' => $data['out_trade_no']])->findOrEmpty();
                     if ($order->isEmpty() || $order->pay_status == PayEnum::ISPAID) {
                         return true;
                     }
-                    PayNotifyLogic::handle('membership', $data['out_trade_no'], $extra);
+                    $result = PayNotifyLogic::handle('membership', $data['out_trade_no'], $extra);
+                    if (true !== $result) {
+                        throw new \Exception((string)$result);
+                    }
                     break;
             }
 

@@ -381,17 +381,23 @@ class WeChatPayService extends BasePayService
                 switch ($attach) {
                     case 'recharge':
                         $order = RechargeOrder::where(['sn' => $message['out_trade_no']])->findOrEmpty();
-                        if($order->isEmpty() || $order->pay_status == PayEnum::ISPAID) {
+                        if($order->isEmpty()) {
                             return true;
                         }
-                        PayNotifyLogic::handle('recharge', $message['out_trade_no'], $extra);
+                        $result = PayNotifyLogic::handle('recharge', $message['out_trade_no'], $extra);
+                        if (true !== $result) {
+                            throw new \Exception((string)$result);
+                        }
                         break;
                     case 'membership':
                         $order = MembershipOrder::where(['order_sn' => $message['out_trade_no']])->findOrEmpty();
                         if($order->isEmpty() || $order->pay_status == PayEnum::ISPAID) {
                             return true;
                         }
-                        PayNotifyLogic::handle('membership', $message['out_trade_no'], $extra);
+                        $result = PayNotifyLogic::handle('membership', $message['out_trade_no'], $extra);
+                        if (true !== $result) {
+                            throw new \Exception((string)$result);
+                        }
                         break;
                 }
             }
