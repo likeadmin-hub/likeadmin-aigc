@@ -182,6 +182,13 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
                 $queue[] = $event;
             }
         }
+        if (!$receivedValidEvent) {
+            $event = $this->parseJsonResponse($responseBody);
+            if ($event !== null) {
+                $receivedValidEvent = true;
+                $queue[] = $event;
+            }
+        }
         while ($event = array_shift($queue)) {
             yield $event;
         }
@@ -203,8 +210,13 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
     private function parseSseBlock(string $block): ?array
     {
         $lines = preg_split('/\r?\n/', trim($block));
+        $eventName = '';
         $data = [];
         foreach ($lines as $line) {
+            if (str_starts_with($line, 'event:')) {
+                $eventName = trim(substr($line, 6));
+                continue;
+            }
             if (str_starts_with($line, 'data:')) {
                 $data[] = trim(substr($line, 5));
             }
@@ -217,41 +229,178 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
         if (!is_array($json)) {
             return null;
         }
+        return $this->parseProviderPayload($json, $eventName);
+    }
+
+    private function parseJsonResponse(string $responseBody): ?array
+    {
+        $text = trim($responseBody);
+        if ($text === '') {
+            return null;
+        }
+        $json = json_decode($text, true);
+        if (!is_array($json)) {
+            return null;
+        }
+        return $this->parseProviderPayload($json);
+    }
+
+    private function parseProviderPayload(array $json, string $eventName = ''): ?array
+    {
         if (isset($json['error'])) {
             return [
                 'type' => 'error',
                 'message' => $this->friendlyError($this->extractError($json)),
             ];
         }
+        if (isset($json['code']) && (int)$json['code'] === 0) {
+            return [
+                'type' => 'error',
+                'message' => $this->friendlyError($this->extractError($json)),
+            ];
+        }
+        $unwrapped = $this->unwrapPayload($json);
+        if ($unwrapped !== $json) {
+            $event = $this->parseProviderPayload($unwrapped, $eventName);
+            if ($event !== null) {
+                return $event;
+            }
+        }
+        $eventType = strtolower((string)($json['type'] ?? $json['event'] ?? $eventName));
+        if (in_array($eventType, ['error', 'failed', 'fail'], true)) {
+            return [
+                'type' => 'error',
+                'message' => $this->friendlyError($this->extractError($json)),
+            ];
+        }
+        if (isset($json['usage']) && is_array($json['usage']) && !isset($json['choices'][0])) {
+            if ($eventType === 'usage') {
+                return [
+                    'type' => 'usage',
+                    'usage' => $this->normalizeUsage($json['usage']),
+                    'provider_request_id' => (string)($json['id'] ?? $json['request_id'] ?? ''),
+                ];
+            }
+        }
         $choice = $json['choices'][0] ?? [];
-        $delta = (string)($choice['delta']['content'] ?? '');
+        $delta = $this->extractText([
+            $choice['delta']['content'] ?? null,
+            $choice['delta']['reasoning_content'] ?? null,
+            $choice['message']['content'] ?? null,
+            $choice['text'] ?? null,
+            $json['delta'] ?? null,
+            $json['content'] ?? null,
+            $json['text'] ?? null,
+            $json['answer'] ?? null,
+            $json['response'] ?? null,
+            $json['message']['content'] ?? null,
+            $json['result']['content'] ?? null,
+            $json['result']['text'] ?? null,
+            $this->scalarText($json['result'] ?? null),
+            $this->scalarText($json['data'] ?? null),
+        ]);
         if ($delta !== '') {
             return [
                 'type' => 'delta',
                 'content' => $delta,
-                'provider_request_id' => (string)($json['id'] ?? ''),
+                'provider_request_id' => (string)($json['id'] ?? $json['request_id'] ?? ''),
             ];
         }
         if (isset($json['usage']) && is_array($json['usage'])) {
             return [
                 'type' => 'usage',
-                'usage' => [
-                    'prompt_tokens' => (int)($json['usage']['prompt_tokens'] ?? 0),
-                    'completion_tokens' => (int)($json['usage']['completion_tokens'] ?? 0),
-                    'total_tokens' => (int)($json['usage']['total_tokens'] ?? 0),
-                    'estimated' => false,
-                ],
-                'provider_request_id' => (string)($json['id'] ?? ''),
+                'usage' => $this->normalizeUsage($json['usage']),
+                'provider_request_id' => (string)($json['id'] ?? $json['request_id'] ?? ''),
             ];
         }
-        if (!empty($choice['finish_reason'])) {
+        if (!empty($choice['finish_reason']) || in_array($eventType, ['done', 'finish', 'finished', 'complete', 'completed'], true)) {
             return [
                 'type' => 'done',
-                'finish_reason' => (string)$choice['finish_reason'],
-                'provider_request_id' => (string)($json['id'] ?? ''),
+                'finish_reason' => (string)($choice['finish_reason'] ?? $json['finish_reason'] ?? 'stop'),
+                'provider_request_id' => (string)($json['id'] ?? $json['request_id'] ?? ''),
             ];
         }
         return null;
+    }
+
+    private function unwrapPayload(array $json): array
+    {
+        foreach (['data', 'result'] as $key) {
+            if (!isset($json[$key]) || !is_array($json[$key])) {
+                continue;
+            }
+            $payload = $json[$key];
+            foreach (['choices', 'delta', 'content', 'text', 'answer', 'response', 'message', 'usage', 'result'] as $field) {
+                if (array_key_exists($field, $payload)) {
+                    return $payload;
+                }
+            }
+        }
+        return $json;
+    }
+
+    private function extractText(array $candidates): string
+    {
+        foreach ($candidates as $candidate) {
+            $text = $this->stringifyText($candidate);
+            if ($text !== '') {
+                return $text;
+            }
+        }
+        return '';
+    }
+
+    private function stringifyText($value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+        if (is_string($value)) {
+            return $value;
+        }
+        if (is_numeric($value)) {
+            return (string)$value;
+        }
+        if (!is_array($value)) {
+            return '';
+        }
+        if (array_key_exists('text', $value)) {
+            return $this->stringifyText($value['text']);
+        }
+        if (array_key_exists('content', $value)) {
+            return $this->stringifyText($value['content']);
+        }
+        $parts = [];
+        foreach ($value as $item) {
+            $text = $this->stringifyText($item);
+            if ($text !== '') {
+                $parts[] = $text;
+            }
+        }
+        return implode('', $parts);
+    }
+
+    private function scalarText($value): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+        if (is_numeric($value)) {
+            return (string)$value;
+        }
+        return '';
+    }
+
+    private function normalizeUsage(array $usage): array
+    {
+        $promptTokens = (int)($usage['prompt_tokens'] ?? $usage['input_tokens'] ?? $usage['promptTokens'] ?? $usage['inputTokens'] ?? 0);
+        $completionTokens = (int)($usage['completion_tokens'] ?? $usage['output_tokens'] ?? $usage['completionTokens'] ?? $usage['outputTokens'] ?? 0);
+        return [
+            'prompt_tokens' => $promptTokens,
+            'completion_tokens' => $completionTokens,
+            'total_tokens' => (int)($usage['total_tokens'] ?? $usage['totalTokens'] ?? ($promptTokens + $completionTokens)),
+            'estimated' => false,
+        ];
     }
 
     private function extractError($data): string
