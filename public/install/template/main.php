@@ -339,6 +339,12 @@
                                                 <?php echo $modelInstall->correctOrFail($modelInstall->checkDirWrite('config')) ?>
                                                 <td><?php if ($modelInstall->checkDirWrite('config') == 'fail') echo '请给config目录权限，若目录不存在先新建'; ?></td>
                                             </tr>
+                                            <tr>
+                                                <td>../.env</td>
+                                                <td>.env文件可写或可创建</td>
+                                                <?php echo $modelInstall->correctOrFail($modelInstall->checkDirWrite('.env')) ?>
+                                                <td><?php if ($modelInstall->checkDirWrite('.env') == 'fail') echo '请给.env文件或网站根目录写入权限'; ?></td>
+                                            </tr>
                                             </tbody>
                                         </table>
                                     </div>

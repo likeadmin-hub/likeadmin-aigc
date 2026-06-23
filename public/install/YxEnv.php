@@ -159,7 +159,36 @@ class YxEnv
         }
 
         if (!empty($content)) {
+            if (!$this->ensureEnvFile($envFilePath)) {
+                return false;
+            }
             return @file_put_contents($envFilePath, $content, LOCK_EX) !== false;
+        }
+
+        return false;
+    }
+
+    private function ensureEnvFile(string $envFilePath): bool
+    {
+        if (is_file($envFilePath)) {
+            return is_writable($envFilePath);
+        }
+
+        $dir = dirname($envFilePath);
+        if (!is_dir($dir)) {
+            return false;
+        }
+
+        if ($this->filePath && is_file($this->filePath) && is_readable($this->filePath)) {
+            if (@copy($this->filePath, $envFilePath)) {
+                @chmod($envFilePath, 0666);
+                return is_writable($envFilePath);
+            }
+        }
+
+        if (@touch($envFilePath)) {
+            @chmod($envFilePath, 0666);
+            return is_writable($envFilePath);
         }
 
         return false;

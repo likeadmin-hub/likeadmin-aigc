@@ -797,9 +797,29 @@ class installModel
     {
         $route = $this->getAppRoot().'/'.$dir;
         if ($dir === '.env' && !file_exists($route)) {
-            return is_writable(dirname($route)) ? 'ok' : 'fail';
+            return $this->ensureEnvFile($route) ? 'ok' : 'fail';
         }
         return $result = is_writable($route) ? 'ok' : 'fail';
+    }
+
+    private function ensureEnvFile(string $route): bool
+    {
+        if (is_file($route)) {
+            return is_writable($route);
+        }
+
+        $example = $this->getAppRoot() . '/.example.env';
+        if (is_file($example) && is_readable($example) && @copy($example, $route)) {
+            @chmod($route, 0666);
+            return is_writable($route);
+        }
+
+        if (@touch($route)) {
+            @chmod($route, 0666);
+            return is_writable($route);
+        }
+
+        return false;
     }
 
     /**

@@ -56,11 +56,6 @@ if ($step == 4) {
         $canNext = false;
         $message = '两次密码不一致';
     } else {
-        if (!is_writable(file_exists($envFilePath) ? $envFilePath : dirname($envFilePath))) {
-            $canNext = false;
-            $message = '写入.env配置文件失败，请检查网站根目录写入权限';
-        }
-
         // 检查 数据库信息
         if ($canNext) {
             $result = $modelInstall->checkConfig($post['name'], $post);
