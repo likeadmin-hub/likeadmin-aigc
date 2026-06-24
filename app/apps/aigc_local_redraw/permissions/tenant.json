@@ -1,0 +1,8 @@
+[
+  { "permission_key": "aigc_local_redraw:config:detail", "name": "查看局部重绘配置", "api_path": "app.aigc_local_redraw.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_local_redraw:config:setup", "name": "保存局部重绘配置", "api_path": "app.aigc_local_redraw.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_local_redraw:task:lists", "name": "查看局部重绘任务", "api_path": "app.aigc_local_redraw.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_local_redraw:task:detail", "name": "查看局部重绘任务详情", "api_path": "app.aigc_local_redraw.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_local_redraw:task:retry", "name": "重试局部重绘任务", "api_path": "app.aigc_local_redraw.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_local_redraw:task:delete", "name": "删除局部重绘任务", "api_path": "app.aigc_local_redraw.task/delete", "api_method": "POST" }
+]

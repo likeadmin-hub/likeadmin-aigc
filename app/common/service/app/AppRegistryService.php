@@ -47,6 +47,13 @@ use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupConfig;
 use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupOption;
 use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupResult;
 use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupTask;
+use app\common\model\app\aigc_local_redraw\AigcLocalRedrawConfig;
+use app\common\model\app\aigc_local_redraw\AigcLocalRedrawResult;
+use app\common\model\app\aigc_local_redraw\AigcLocalRedrawTask;
+use app\common\model\app\aigc_product_suite\AigcProductSuiteConfig;
+use app\common\model\app\aigc_product_suite\AigcProductSuiteModule;
+use app\common\model\app\aigc_product_suite\AigcProductSuiteResult;
+use app\common\model\app\aigc_product_suite\AigcProductSuiteTask;
 use app\common\model\app\aigc_product_multi_angle\AigcProductMultiAngleConfig;
 use app\common\model\app\aigc_product_multi_angle\AigcProductMultiAngleResult;
 use app\common\model\app\aigc_product_multi_angle\AigcProductMultiAngleTask;
@@ -712,6 +719,12 @@ class AppRegistryService
             AigcOneClickCleanupTask::where('id', '>', 0)->delete();
             AigcOneClickCleanupResult::where('id', '>', 0)->delete();
         }
+        if ($appCode === 'aigc_product_suite') {
+            AigcProductSuiteConfig::where('id', '>', 0)->delete();
+            AigcProductSuiteModule::where('id', '>', 0)->delete();
+            AigcProductSuiteTask::where('id', '>', 0)->delete();
+            AigcProductSuiteResult::where('id', '>', 0)->delete();
+        }
         if ($appCode === 'aigc_product_multi_angle') {
             AigcProductMultiAngleConfig::where('id', '>', 0)->delete();
             AigcProductMultiAngleView::where('id', '>', 0)->delete();
@@ -723,6 +736,11 @@ class AppRegistryService
             AigcProductPromoVideoType::where('id', '>', 0)->delete();
             AigcProductPromoVideoTask::where('id', '>', 0)->delete();
             AigcProductPromoVideoResult::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_local_redraw') {
+            AigcLocalRedrawConfig::where('id', '>', 0)->delete();
+            AigcLocalRedrawTask::where('id', '>', 0)->delete();
+            AigcLocalRedrawResult::where('id', '>', 0)->delete();
         }
     }
 

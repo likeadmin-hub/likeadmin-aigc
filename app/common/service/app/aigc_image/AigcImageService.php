@@ -89,6 +89,7 @@ class AigcImageService
         if (count($referenceImages) > (int)$selection['channel']['max_reference_images']) {
             throw new Exception('参考图数量超出限制');
         }
+        $providerParams = self::providerParamsForRequest($selection['spec']['provider_params_json'] ?? [], $params);
         self::checkSensitiveWords($tenantId, $prompt);
         $duplicateCriteria = [
             'prompt' => $prompt,
@@ -99,6 +100,7 @@ class AigcImageService
             'ratio' => (string)$selection['spec']['ratio'],
             'quantity' => $quantity,
             'reference_images' => $referenceImages,
+            'provider_params_json' => $providerParams,
         ];
         $estimate = AigcImageChannelService::estimate($tenantId, array_merge($params, [
             'channel' => $selection['channel']['code'],
@@ -124,6 +126,7 @@ class AigcImageService
                 'prompt' => $prompt,
                 'negative_prompt' => $params['negative_prompt'] ?? '',
                 'reference_images' => $referenceImages,
+                'provider_params_json' => $providerParams,
                 'style' => $params['style'] ?? 'general',
                 'channel' => $selection['channel']['code'],
                 'quality' => $selection['spec']['quality'],
@@ -155,7 +158,6 @@ class AigcImageService
         if (self::isAsyncProvider($providerName)) {
             $channelConfig['poll_attempts'] = 0;
         }
-        $providerParams = self::providerParamsForRequest($selection['spec']['provider_params_json'] ?? [], $params);
         $result = $provider->generate(new AigcImageGenerateRequest(
             $prompt,
             (string)($params['negative_prompt'] ?? ''),
@@ -655,7 +657,7 @@ class AigcImageService
             (int)$task['quantity'],
             (array)($task['reference_images'] ?: []),
             $selection['spec'],
-            $selection['spec']['provider_params_json'] ?? [],
+            array_merge($selection['spec']['provider_params_json'] ?? [], is_array($task['provider_params_json'] ?? null) ? $task['provider_params_json'] : []),
             array_merge($selection['channel']['config_json'] ?? [], [
                 'model' => $selection['channel']['model'],
                 'tenant_id' => (int)$task['tenant_id'],
@@ -730,7 +732,7 @@ class AigcImageService
     private static function providerParamsForRequest(array $specParams, array $params): array
     {
         $providerParams = $specParams;
-        foreach (['output_format', 'transparent_background', 'background', 'response_format'] as $key) {
+        foreach (['output_format', 'transparent_background', 'background', 'response_format', 'mask_url'] as $key) {
             if (!array_key_exists($key, $params)) {
                 continue;
             }
@@ -775,11 +777,15 @@ class AigcImageService
             ->limit(5)
             ->select();
         $referenceSignature = self::referenceImageSignature((array)($criteria['reference_images'] ?? []));
+        $providerSignature = self::providerParamSignature((array)($criteria['provider_params_json'] ?? []));
         foreach ($rows as $row) {
             if (in_array((string)$row['status'], ['failed', 'canceled'], true)) {
                 continue;
             }
             if (self::referenceImageSignature((array)($row['reference_images'] ?: [])) !== $referenceSignature) {
+                continue;
+            }
+            if (self::providerParamSignature((array)($row['provider_params_json'] ?: [])) !== $providerSignature) {
                 continue;
             }
             return $row;
@@ -829,6 +835,12 @@ class AigcImageService
         }
         sort($normalized);
         return json_encode($normalized, JSON_UNESCAPED_UNICODE);
+    }
+
+    private static function providerParamSignature(array $params): string
+    {
+        ksort($params);
+        return json_encode($params, JSON_UNESCAPED_UNICODE);
     }
 
     private static function finishTaskWithImages(AigcImageTask $task, array $selection, array $estimate, array $images): array

@@ -5,6 +5,7 @@ namespace app\common\service\app\aigc_image;
 use app\common\service\FileService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
+use think\facade\Db;
 use think\facade\Log;
 
 class XhadminAigcImageProvider implements AigcImageProviderInterface
@@ -156,7 +157,7 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             'resolution' => empty($providerParams['omit_resolution']) ? ($providerParams['resolution'] ?? $request->quality) : null,
             'aspect_ratio' => $providerParams['aspect_ratio'] ?? $request->ratio,
             'image_size' => $providerParams['image_size'] ?? $providerParams['resolution'] ?? null,
-            'mask_url' => $providerParams['mask_url'] ?? null,
+            'mask_url' => $this->normalizeAssetUrl((string)($providerParams['mask_url'] ?? '')),
             'quality' => $providerParams['generation_quality'] ?? null,
             'negative_prompt' => $request->negativePrompt ?: null,
             'output_format' => $providerParams['output_format'] ?? null,
@@ -178,14 +179,52 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             if ($image === '') {
                 continue;
             }
-            if (!str_starts_with($image, 'http://') && !str_starts_with($image, 'https://') && !str_starts_with($image, 'data:image/')) {
-                $image = FileService::getFileUrl($image);
-            }
+            $image = $this->normalizeAssetUrl($image);
             if ($image !== '' && !in_array($image, $urls, true)) {
                 $urls[] = $image;
             }
         }
         return $urls;
+    }
+
+    private function normalizeAssetUrl(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return '';
+        }
+        if (!str_starts_with($url, 'http://') && !str_starts_with($url, 'https://') && !str_starts_with($url, 'data:image/')) {
+            $storedUrl = $this->storedFileUrl($url);
+            return $storedUrl !== '' ? $storedUrl : FileService::getFileUrl($url);
+        }
+        return $url;
+    }
+
+    private function storedFileUrl(string $uri): string
+    {
+        foreach (['tenant_file', 'file'] as $table) {
+            try {
+                $row = Db::name($table)
+                    ->where('uri', $uri)
+                    ->where(function ($query) {
+                        $query->whereNull('delete_time')->whereOr('delete_time', 0);
+                    })
+                    ->order('id', 'desc')
+                    ->find();
+            } catch (\Throwable) {
+                $row = null;
+            }
+            if (!$row) {
+                continue;
+            }
+            return FileService::getFileUrlByStorage(
+                $uri,
+                (string)($row['storage_scope'] ?? ''),
+                (string)($row['storage_engine'] ?? ''),
+                (string)($row['storage_domain'] ?? '')
+            );
+        }
+        return '';
     }
 
     private function assertSupportedQuantity(AigcImageGenerateRequest $request): void

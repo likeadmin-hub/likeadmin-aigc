@@ -1,0 +1,10 @@
+[
+  { "permission_key": "aigc_outpaint:config:detail", "name": "查看无缝扩图配置", "api_path": "app.aigc_outpaint.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_outpaint:config:setup", "name": "保存无缝扩图配置", "api_path": "app.aigc_outpaint.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_outpaint:price:detail", "name": "查看无缝扩图价格", "api_path": "app.aigc_outpaint.price/detail", "api_method": "GET" },
+  { "permission_key": "aigc_outpaint:price:setup", "name": "保存无缝扩图价格", "api_path": "app.aigc_outpaint.price/setup", "api_method": "POST" },
+  { "permission_key": "aigc_outpaint:task:lists", "name": "查看无缝扩图任务", "api_path": "app.aigc_outpaint.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_outpaint:task:detail", "name": "查看无缝扩图任务详情", "api_path": "app.aigc_outpaint.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_outpaint:task:retry", "name": "重试无缝扩图任务", "api_path": "app.aigc_outpaint.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_outpaint:task:delete", "name": "删除无缝扩图任务", "api_path": "app.aigc_outpaint.task/delete", "api_method": "POST" }
+]

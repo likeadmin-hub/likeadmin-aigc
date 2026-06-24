@@ -1,0 +1,49 @@
+{
+  "code": "aigc_outpaint",
+  "name": "无缝扩图",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "面向商品图、人物图和素材图的 AI 无缝扩图工具，复用 AIGC 生图通道并支持租户独立扩图比例定价。",
+  "changelog": "1. 新增无缝扩图工具。\n2. 支持租户配置扩图比例售价。\n3. 支持 PC 端上传图片生成扩图作品。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 852,
+  "frontends": [
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/aigc_outpaint",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_outpaint_admin",
+      "name": "无缝扩图",
+      "path": "/app/aigc_outpaint",
+      "icon": "el-icon-Picture",
+      "sort": 92,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_outpaint",
+      "name": "无缝扩图",
+      "path": "/ai/tools/aigc_outpaint",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 87,
+      "status": 1
+    }
+  ],
+  "dependencies": [
+    {
+      "app_code": "aigc_image",
+      "name": "AIGC生图",
+      "required_for": "无缝扩图生成"
+    }
+  ]
+}

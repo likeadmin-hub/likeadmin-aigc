@@ -1,0 +1,43 @@
+[
+  {
+    "source_menu_key": "aigc_outpaint",
+    "app_code": "aigc_outpaint",
+    "source": "app",
+    "type": "M",
+    "name": "无缝扩图",
+    "icon": "el-icon-Picture",
+    "sort": 89,
+    "perms": "",
+    "paths": "aigc-outpaint",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_outpaint_config",
+        "type": "C",
+        "name": "基础配置",
+        "sort": 40,
+        "perms": "app.aigc_outpaint.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_outpaint/config"
+      },
+      {
+        "source_menu_key": "aigc_outpaint_price",
+        "type": "C",
+        "name": "价格配置",
+        "sort": 30,
+        "perms": "app.aigc_outpaint.price/detail",
+        "paths": "price",
+        "component": "apps/aigc_outpaint/price"
+      },
+      {
+        "source_menu_key": "aigc_outpaint_task",
+        "type": "C",
+        "name": "任务记录",
+        "sort": 10,
+        "perms": "app.aigc_outpaint.task/lists",
+        "paths": "task",
+        "component": "apps/aigc_outpaint/task"
+      }
+    ]
+  }
+]

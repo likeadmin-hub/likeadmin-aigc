@@ -28,14 +28,6 @@
         "component": "apps/aigc_image/task"
       },
       {
-        "source_menu_key": "aigc_image_case",
-        "type": "C",
-        "name": "案例广场",
-        "perms": "app.aigc_image.case/lists",
-        "paths": "case",
-        "component": "apps/aigc_image/case"
-      },
-      {
         "source_menu_key": "aigc_image_channel_price",
         "type": "C",
         "name": "通道调价",
@@ -52,5 +44,18 @@
         "component": "apps/aigc_image/stat"
       }
     ]
+  },
+  {
+    "source_menu_key": "aigc_image_case",
+    "app_code": "aigc_image",
+    "source": "app",
+    "type": "C",
+    "name": "案例广场",
+    "icon": "el-icon-PictureFilled",
+    "sort": 98,
+    "perms": "app.aigc_image.case/lists",
+    "paths": "aigc-image-case",
+    "component": "apps/aigc_image/case",
+    "selected": "aigc-image-case"
   }
 ]

@@ -17,7 +17,7 @@ use think\facade\Db;
 
 class MembershipService
 {
-    public const BASE_APP_CODES = ['aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm', 'image_human', 'smart_clip', 'aigc_hairstyle', 'aigc_fitting', 'aigc_product_image', 'aigc_style_transfer', 'aigc_photo_restore', 'aigc_model_wear', 'aigc_background_removal', 'aigc_image_translate', 'aigc_one_click_cleanup', 'aigc_product_multi_angle', 'aigc_fashion_lookbook', 'aigc_product_promo_video'];
+    public const BASE_APP_CODES = ['aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm', 'image_human', 'smart_clip', 'aigc_hairstyle', 'aigc_fitting', 'aigc_product_image', 'aigc_style_transfer', 'aigc_photo_restore', 'aigc_model_wear', 'aigc_background_removal', 'aigc_image_translate', 'aigc_one_click_cleanup', 'aigc_product_suite', 'aigc_product_multi_angle', 'aigc_fashion_lookbook', 'aigc_product_promo_video', 'aigc_outpaint', 'aigc_local_redraw'];
     public const STATUS_ENABLED = 1;
     public const STATUS_DISABLED = 0;
     public const CYCLE_MONTHLY = 'monthly';

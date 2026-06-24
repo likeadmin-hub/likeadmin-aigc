@@ -1,0 +1,27 @@
+{
+  "app_code": "aigc_product_suite",
+  "apis": [
+    { "api_path": "app.aigc_product_suite.config/detail", "api_method": "GET", "permission_key": "aigc_product_suite:config:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_suite.config/setup", "api_method": "POST", "permission_key": "aigc_product_suite:config:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_suite.module/lists", "api_method": "GET", "permission_key": "aigc_product_suite:module:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_suite.module/save", "api_method": "POST", "permission_key": "aigc_product_suite:module:save", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_suite.module/status", "api_method": "POST", "permission_key": "aigc_product_suite:module:status", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_suite.module/delete", "api_method": "POST", "permission_key": "aigc_product_suite:module:delete", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_suite.price/detail", "api_method": "GET", "permission_key": "aigc_product_suite:price:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_suite.price/setup", "api_method": "POST", "permission_key": "aigc_product_suite:price:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_suite.task/lists", "api_method": "GET", "permission_key": "aigc_product_suite:task:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_suite.task/detail", "api_method": "GET", "permission_key": "aigc_product_suite:task:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_suite.task/retry", "api_method": "POST", "permission_key": "aigc_product_suite:task:retry", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_suite.task/delete", "api_method": "POST", "permission_key": "aigc_product_suite:task:delete", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_suite.config/detail", "api_method": "GET", "permission_key": "aigc_product_suite:config:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_suite.module/lists", "api_method": "GET", "permission_key": "aigc_product_suite:module:lists:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_suite.prompt/optimize", "api_method": "POST", "permission_key": "aigc_product_suite:prompt:optimize", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_suite.generate/estimate", "api_method": "POST", "permission_key": "aigc_product_suite:generate:estimate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_suite.generate/index", "api_method": "POST", "permission_key": "aigc_product_suite:generate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_suite.task/lists", "api_method": "GET", "permission_key": "aigc_product_suite:task:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_suite.task/detail", "api_method": "GET", "permission_key": "aigc_product_suite:task:detail:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_suite.task/delete", "api_method": "POST", "permission_key": "aigc_product_suite:task:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_suite.result/lists", "api_method": "GET", "permission_key": "aigc_product_suite:result:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_suite.result/delete", "api_method": "POST", "permission_key": "aigc_product_suite:result:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 }
+  ]
+}

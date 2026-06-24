@@ -1,0 +1,49 @@
+{
+  "code": "aigc_local_redraw",
+  "name": "局部重绘",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "面向商品图、人物图和素材图的 AI 局部重绘工具，支持上传原图、绘制蒙版并按租户后台单价生成重绘作品。",
+  "changelog": "1. 新增局部重绘工具。\n2. 支持租户配置默认生图模型规格和单次售价。\n3. 支持 PC 端上传原图、绘制蒙版并生成局部重绘作品。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 853,
+  "frontends": [
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/aigc_local_redraw",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_local_redraw_admin",
+      "name": "局部重绘",
+      "path": "/app/aigc_local_redraw",
+      "icon": "el-icon-Picture",
+      "sort": 93,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_local_redraw",
+      "name": "局部重绘",
+      "path": "/ai/tools/aigc_local_redraw",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 88,
+      "status": 1
+    }
+  ],
+  "dependencies": [
+    {
+      "app_code": "aigc_image",
+      "name": "AIGC生图",
+      "required_for": "局部重绘生成"
+    }
+  ]
+}

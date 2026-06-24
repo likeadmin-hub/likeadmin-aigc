@@ -12,14 +12,20 @@ use app\common\model\app\aigc_image_translate\AigcImageTranslateResult;
 use app\common\model\app\aigc_image_translate\AigcImageTranslateTask;
 use app\common\model\app\aigc_image\AigcImageResult;
 use app\common\model\app\aigc_image\AigcImageTask;
+use app\common\model\app\aigc_local_redraw\AigcLocalRedrawResult;
+use app\common\model\app\aigc_local_redraw\AigcLocalRedrawTask;
 use app\common\model\app\aigc_model_wear\AigcModelWearResult;
 use app\common\model\app\aigc_model_wear\AigcModelWearTask;
 use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupResult;
 use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupTask;
+use app\common\model\app\aigc_outpaint\AigcOutpaintResult;
+use app\common\model\app\aigc_outpaint\AigcOutpaintTask;
 use app\common\model\app\aigc_photo_restore\AigcPhotoRestoreResult;
 use app\common\model\app\aigc_photo_restore\AigcPhotoRestoreTask;
 use app\common\model\app\aigc_product_image\AigcProductImageResult;
 use app\common\model\app\aigc_product_image\AigcProductImageTask;
+use app\common\model\app\aigc_product_suite\AigcProductSuiteResult;
+use app\common\model\app\aigc_product_suite\AigcProductSuiteTask;
 use app\common\model\app\aigc_product_multi_angle\AigcProductMultiAngleResult;
 use app\common\model\app\aigc_product_multi_angle\AigcProductMultiAngleTask;
 use app\common\model\app\aigc_product_promo_video\AigcProductPromoVideoResult;
@@ -40,9 +46,12 @@ class AiToolDownloadService
         'aigc_background_removal' => 'background-removal',
         'aigc_image_translate' => 'image-translate',
         'aigc_one_click_cleanup' => 'one-click-cleanup',
+        'aigc_product_suite' => 'product-suite',
         'aigc_product_multi_angle' => 'product-multi-angle',
         'aigc_fashion_lookbook' => 'fashion-lookbook',
         'aigc_product_promo_video' => 'product-promo-video',
+        'aigc_outpaint' => 'outpaint',
+        'aigc_local_redraw' => 'local-redraw',
         'aigc_fitting' => 'aigc-fitting',
         'aigc_hairstyle' => 'hairstyle',
     ];
@@ -83,6 +92,11 @@ class AiToolDownloadService
             'result_model' => AigcOneClickCleanupResult::class,
             'fallback_image_result' => true,
         ],
+        'aigc_product_suite' => [
+            'task_model' => AigcProductSuiteTask::class,
+            'result_model' => AigcProductSuiteResult::class,
+            'fallback_image_result' => true,
+        ],
         'aigc_product_multi_angle' => [
             'task_model' => AigcProductMultiAngleTask::class,
             'result_model' => AigcProductMultiAngleResult::class,
@@ -98,6 +112,16 @@ class AiToolDownloadService
             'result_model' => AigcProductPromoVideoResult::class,
             'uri_field' => 'video_uri',
             'fallback_image_result' => false,
+        ],
+        'aigc_outpaint' => [
+            'task_model' => AigcOutpaintTask::class,
+            'result_model' => AigcOutpaintResult::class,
+            'fallback_image_result' => true,
+        ],
+        'aigc_local_redraw' => [
+            'task_model' => AigcLocalRedrawTask::class,
+            'result_model' => AigcLocalRedrawResult::class,
+            'fallback_image_result' => true,
         ],
     ];
 

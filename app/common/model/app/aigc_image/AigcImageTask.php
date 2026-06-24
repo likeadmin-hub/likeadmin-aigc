@@ -7,6 +7,6 @@ use app\common\model\app\AppBaseModel;
 class AigcImageTask extends AppBaseModel
 {
     protected $name = 'aigc_image_task';
-    protected $json = ['reference_images'];
+    protected $json = ['reference_images', 'provider_params_json'];
     protected $jsonAssoc = true;
 }

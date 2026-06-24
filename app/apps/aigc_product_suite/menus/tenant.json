@@ -1,0 +1,20 @@
+[
+  {
+    "source_menu_key": "aigc_product_suite",
+    "app_code": "aigc_product_suite",
+    "source": "app",
+    "type": "M",
+    "name": "AI商品套图",
+    "icon": "el-icon-Picture",
+    "sort": 84,
+    "perms": "",
+    "paths": "aigc-product-suite",
+    "component": "",
+    "children": [
+      { "source_menu_key": "aigc_product_suite_config", "type": "C", "name": "基础配置", "sort": 40, "perms": "app.aigc_product_suite.config/detail", "paths": "config", "component": "apps/aigc_product_suite/config" },
+      { "source_menu_key": "aigc_product_suite_module", "type": "C", "name": "模块选项", "sort": 35, "perms": "app.aigc_product_suite.module/lists", "paths": "module", "component": "apps/aigc_product_suite/module" },
+      { "source_menu_key": "aigc_product_suite_price", "type": "C", "name": "价格配置", "sort": 30, "perms": "app.aigc_product_suite.price/detail", "paths": "price", "component": "apps/aigc_product_suite/price" },
+      { "source_menu_key": "aigc_product_suite_task", "type": "C", "name": "任务记录", "sort": 10, "perms": "app.aigc_product_suite.task/lists", "paths": "task", "component": "apps/aigc_product_suite/task" }
+    ]
+  }
+]

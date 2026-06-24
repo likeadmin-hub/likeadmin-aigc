@@ -1,0 +1,27 @@
+{
+  "code": "aigc_product_suite",
+  "name": "AI商品套图",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "面向商品图的 AI 商品套图工具，支持最多3张商品图、多选模块和租户独立按模块定价。",
+  "changelog": "1. 新增AI商品套图工具。\n2. 支持租户配置模块选项和按模块售价。\n3. 支持 PC 端单图生成多模块作品。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 849,
+  "frontends": ["tenant", "pc"],
+  "api_prefix": "/app/aigc_product_suite",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    { "terminal": "tenant", "entry_key": "aigc_product_suite_admin", "name": "AI商品套图", "path": "/app/aigc_product_suite", "icon": "el-icon-Picture", "sort": 91, "status": 1 },
+    { "terminal": "pc", "entry_key": "aigc_product_suite", "name": "AI商品套图", "path": "/ai/tools/aigc_product_suite", "icon": "resource/image/common/menu_generator.png", "sort": 84, "status": 1 }
+  ],
+  "dependencies": [
+    { "app_code": "aigc_image", "name": "AIGC生图", "required_for": "AI商品套图生成" },
+    { "app_code": "aigc_llm", "name": "AIGC对话", "required_for": "核心卖点AI优化" }
+  ]
+}

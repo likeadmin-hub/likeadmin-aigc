@@ -1,0 +1,14 @@
+[
+  { "permission_key": "aigc_product_suite:config:detail", "name": "查看AI商品套图配置", "api_path": "app.aigc_product_suite.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_product_suite:config:setup", "name": "保存AI商品套图配置", "api_path": "app.aigc_product_suite.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_product_suite:module:lists", "name": "查看AI商品套图模块", "api_path": "app.aigc_product_suite.module/lists", "api_method": "GET" },
+  { "permission_key": "aigc_product_suite:module:save", "name": "保存AI商品套图模块", "api_path": "app.aigc_product_suite.module/save", "api_method": "POST" },
+  { "permission_key": "aigc_product_suite:module:status", "name": "设置AI商品套图模块状态", "api_path": "app.aigc_product_suite.module/status", "api_method": "POST" },
+  { "permission_key": "aigc_product_suite:module:delete", "name": "删除AI商品套图模块", "api_path": "app.aigc_product_suite.module/delete", "api_method": "POST" },
+  { "permission_key": "aigc_product_suite:price:detail", "name": "查看AI商品套图价格", "api_path": "app.aigc_product_suite.price/detail", "api_method": "GET" },
+  { "permission_key": "aigc_product_suite:price:setup", "name": "保存AI商品套图价格", "api_path": "app.aigc_product_suite.price/setup", "api_method": "POST" },
+  { "permission_key": "aigc_product_suite:task:lists", "name": "查看AI商品套图任务", "api_path": "app.aigc_product_suite.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_product_suite:task:detail", "name": "查看AI商品套图任务详情", "api_path": "app.aigc_product_suite.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_product_suite:task:retry", "name": "重试AI商品套图任务", "api_path": "app.aigc_product_suite.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_product_suite:task:delete", "name": "删除AI商品套图任务", "api_path": "app.aigc_product_suite.task/delete", "api_method": "POST" }
+]

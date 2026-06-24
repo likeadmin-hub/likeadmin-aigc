@@ -1,0 +1,19 @@
+{
+  "app_code": "aigc_local_redraw",
+  "apis": [
+    { "api_path": "app.aigc_local_redraw.config/detail", "api_method": "GET", "permission_key": "aigc_local_redraw:config:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_local_redraw.config/setup", "api_method": "POST", "permission_key": "aigc_local_redraw:config:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_local_redraw.task/lists", "api_method": "GET", "permission_key": "aigc_local_redraw:task:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_local_redraw.task/detail", "api_method": "GET", "permission_key": "aigc_local_redraw:task:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_local_redraw.task/retry", "api_method": "POST", "permission_key": "aigc_local_redraw:task:retry", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_local_redraw.task/delete", "api_method": "POST", "permission_key": "aigc_local_redraw:task:delete", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_local_redraw.config/detail", "api_method": "GET", "permission_key": "aigc_local_redraw:config:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_local_redraw.generate/estimate", "api_method": "POST", "permission_key": "aigc_local_redraw:generate:estimate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_local_redraw.generate/index", "api_method": "POST", "permission_key": "aigc_local_redraw:generate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_local_redraw.task/lists", "api_method": "GET", "permission_key": "aigc_local_redraw:task:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_local_redraw.task/detail", "api_method": "GET", "permission_key": "aigc_local_redraw:task:detail:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_local_redraw.task/delete", "api_method": "POST", "permission_key": "aigc_local_redraw:task:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_local_redraw.result/lists", "api_method": "GET", "permission_key": "aigc_local_redraw:result:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_local_redraw.result/delete", "api_method": "POST", "permission_key": "aigc_local_redraw:result:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 }
+  ]
+}
