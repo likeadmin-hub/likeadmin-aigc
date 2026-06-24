@@ -4,6 +4,7 @@ namespace app\tenantapi\controller;
 
 use app\common\model\app\App;
 use app\common\model\app\TenantApp;
+use app\common\model\app\TenantAppOrder;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppRegistryService;
@@ -23,6 +24,7 @@ class AppController extends BaseAdminController
         $isBuyFilter = $this->request->get('is_buy', '');
         $apps = App::where('status', 'installed')->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray();
         $tenantApps = TenantApp::where('tenant_id', $this->tenantId)->column('*', 'app_code');
+        $paidOrderExpires = self::paidOrderExpireMap($this->tenantId);
         $displayMap = AppDisplayConfigService::map($this->tenantId, array_column($apps, 'code') ?: []);
         $cloudIconMap = self::cloudIconMap();
         $rows = [];
@@ -36,8 +38,13 @@ class AppController extends BaseAdminController
                 $app['cover'] ?? ''
             );
             $app['icon_url'] = $cloudIconMap[$app['code']] ?? self::imageUrl((string)($app['icon'] ?? ''));
-            $isBuiltin = (int)($app['is_builtin'] ?? 0) === 1 || DefaultAppService::isDefaultApp((string)$app['code']);
-            $app['is_builtin'] = $isBuiltin ? 1 : (int)($app['is_builtin'] ?? 0);
+            $isBuiltin = DefaultAppService::isDefaultApp((string)$app['code']);
+            if (!$isBuiltin && !self::isValidPaidTenantApp($tenantApp, $paidOrderExpires)) {
+                $tenantApp = [];
+            } elseif (!$isBuiltin && !empty($tenantApp)) {
+                $tenantApp['expire_time'] = max((int)($tenantApp['expire_time'] ?? 0), (int)($paidOrderExpires[$app['code']] ?? 0));
+            }
+            $app['is_builtin'] = $isBuiltin ? 1 : 0;
             $app['expire_policy'] = $isBuiltin ? AppPlanService::EXPIRE_ALLOW : ($app['expire_policy'] ?? AppPlanService::EXPIRE_BLOCK);
             $app['is_buy'] = $isBuiltin ? 1 : (empty($tenantApp) ? 0 : 1);
             $app['shelf_status'] = $isBuiltin ? AppAccessService::SHELF_ON : ($tenantApp['shelf_status'] ?? 'off');
@@ -63,8 +70,17 @@ class AppController extends BaseAdminController
     public function my()
     {
         $lists = TenantApp::where('tenant_id', $this->tenantId)->order('id', 'desc')->select()->toArray();
+        $paidOrderExpires = self::paidOrderExpireMap($this->tenantId);
+        $lists = array_values(array_filter($lists, function ($item) use ($paidOrderExpires) {
+            $appCode = (string)($item['app_code'] ?? '');
+            return DefaultAppService::isDefaultApp($appCode) || self::isValidPaidTenantApp($item, $paidOrderExpires);
+        }));
         $apps = App::whereIn('code', array_column($lists, 'app_code') ?: [''])->column('*', 'code');
-        $builtinApps = App::where(['status' => 'installed', 'is_builtin' => 1])->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray();
+        $builtinApps = App::where('status', 'installed')
+            ->whereIn('code', AppAccessService::DEFAULT_AIGC_APP_CODES)
+            ->order(['sort' => 'desc', 'id' => 'desc'])
+            ->select()
+            ->toArray();
         $displayMap = AppDisplayConfigService::map($this->tenantId, array_values(array_unique(array_merge(
             array_column($apps, 'code') ?: [],
             array_column($builtinApps, 'code') ?: []
@@ -74,7 +90,7 @@ class AppController extends BaseAdminController
         foreach ($lists as &$item) {
             $app = $apps[$item['app_code']] ?? [];
             $display = $displayMap[$item['app_code']] ?? [];
-            $isBuiltin = (int)($app['is_builtin'] ?? 0) === 1 || DefaultAppService::isDefaultApp((string)$item['app_code']);
+            $isBuiltin = DefaultAppService::isDefaultApp((string)$item['app_code']);
             $listedCodes[] = (string)$item['app_code'];
             $item['name'] = $app['name'] ?? $item['app_code'];
             $item['icon'] = $app['icon'] ?? '';
@@ -94,6 +110,8 @@ class AppController extends BaseAdminController
                 $item['shelf_status'] = AppAccessService::SHELF_ON;
                 $item['enable_status'] = AppAccessService::ENABLED;
                 $item['expire_time'] = 0;
+            } else {
+                $item['expire_time'] = max((int)($item['expire_time'] ?? 0), (int)($paidOrderExpires[$item['app_code']] ?? 0));
             }
             $item = AppPlanService::enrichApp(array_merge($app, $item), $item, true);
             $item['app_code'] = $item['app_code'] ?? ($app['code'] ?? '');
@@ -185,6 +203,26 @@ class AppController extends BaseAdminController
             return false;
         }
         return AppRegistryService::isInstalled($appCode);
+    }
+
+    private static function paidOrderExpireMap(int $tenantId): array
+    {
+        return TenantAppOrder::where('tenant_id', $tenantId)
+            ->where('pay_status', AppPlanService::PAY_PAID)
+            ->group('app_code')
+            ->column('MAX(after_expire_time)', 'app_code');
+    }
+
+    private static function isValidPaidTenantApp(array $tenantApp, array $paidOrderExpires): bool
+    {
+        if (empty($tenantApp)) {
+            return false;
+        }
+        $appCode = (string)($tenantApp['app_code'] ?? '');
+        if ($appCode === '') {
+            return false;
+        }
+        return max((int)($tenantApp['expire_time'] ?? 0), (int)($paidOrderExpires[$appCode] ?? 0)) > 0;
     }
 
     private static function imageUrl(string $uri): string

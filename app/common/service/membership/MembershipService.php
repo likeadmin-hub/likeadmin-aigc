@@ -129,17 +129,6 @@ class MembershipService
             ->select()
             ->toArray();
 
-        foreach (App::where(['status' => 'installed', 'is_builtin' => 1])->select()->toArray() as $app) {
-            array_unshift($rows, [
-                'app_code' => $app['code'],
-                'name' => $app['name'],
-                'icon' => $app['icon'],
-                'description' => $app['description'],
-                'shelf_status' => 'on',
-                'enable_status' => 'enabled',
-                'expire_time' => 0,
-            ]);
-        }
         return array_values(array_filter($rows, function ($row) {
             return !self::isBaseApp((string)($row['app_code'] ?? ''));
         }));

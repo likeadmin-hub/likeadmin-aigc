@@ -4,13 +4,14 @@ namespace app\common\service\app;
 
 use app\common\model\app\App;
 use app\common\model\app\TenantApp;
+use app\common\model\app\TenantAppOrder;
 use app\common\service\JsonService;
 use app\common\service\membership\MembershipService;
 use think\Response;
 
 class AppAccessService
 {
-    public const DEFAULT_AIGC_APP_CODES = ['aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm', 'image_human', 'smart_clip', 'aigc_hairstyle', 'aigc_fitting', 'aigc_product_image', 'aigc_style_transfer', 'aigc_photo_restore', 'aigc_model_wear', 'aigc_background_removal', 'aigc_image_translate', 'aigc_one_click_cleanup', 'aigc_product_suite', 'aigc_product_multi_angle', 'aigc_fashion_lookbook', 'aigc_product_promo_video', 'aigc_outpaint', 'aigc_local_redraw'];
+    public const DEFAULT_AIGC_APP_CODES = [];
     public const BUY_PAID = 'paid';
     public const BUY_TRIAL = 'trial';
     public const SHELF_ON = 'on';
@@ -89,15 +90,24 @@ class AppAccessService
             $query->where('shelf_status', self::SHELF_ON);
         }
         $rows = $query->select()->toArray();
+        $paidOrderExpires = TenantAppOrder::where('tenant_id', $tenantId)
+            ->where('pay_status', AppPlanService::PAY_PAID)
+            ->group('app_code')
+            ->column('MAX(after_expire_time)', 'app_code');
         $codes = [];
         foreach ($rows as $row) {
-            if (empty($row['expire_time']) || (int)$row['expire_time'] > time()) {
-                $codes[] = $row['app_code'];
+            $appCode = (string)($row['app_code'] ?? '');
+            $expireTime = max((int)($row['expire_time'] ?? 0), (int)($paidOrderExpires[$appCode] ?? 0));
+            if (!self::isDefaultAigcApp($appCode) && $expireTime <= 0) {
                 continue;
             }
-            $app = $installedApps[$row['app_code']] ?? [];
+            if ($expireTime <= 0 || $expireTime > time()) {
+                $codes[] = $appCode;
+                continue;
+            }
+            $app = $installedApps[$appCode] ?? [];
             if (($app['expire_policy'] ?? AppPlanService::EXPIRE_BLOCK) === AppPlanService::EXPIRE_ALLOW) {
-                $codes[] = $row['app_code'];
+                $codes[] = $appCode;
             }
         }
         return array_values(array_unique(array_merge($codes, self::installedDefaultAigcAppCodes())));

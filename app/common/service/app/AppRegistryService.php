@@ -574,10 +574,6 @@ class AppRegistryService
         if ($appCode === 'system_default' || DefaultAppService::isDefaultApp($appCode)) {
             throw new RuntimeException('系统应用不允许禁用或卸载');
         }
-        $app = App::where('code', $appCode)->findOrEmpty();
-        if (!$app->isEmpty() && (int)($app['is_builtin'] ?? 0) === 1) {
-            throw new RuntimeException('内置应用不允许禁用或卸载');
-        }
     }
 
     private static function syncApiSchema(array $manifest): void

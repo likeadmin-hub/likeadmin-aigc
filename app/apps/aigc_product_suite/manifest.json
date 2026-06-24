@@ -1,7 +1,7 @@
 {
   "code": "aigc_product_suite",
   "name": "AI商品套图",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "require_core": ">=1.0.0",
   "description": "面向商品图的 AI 商品套图工具，支持最多3张商品图、多选模块和租户独立按模块定价。",
   "changelog": "1. 新增AI商品套图工具。\n2. 支持租户配置模块选项和按模块售价。\n3. 支持 PC 端单图生成多模块作品。",

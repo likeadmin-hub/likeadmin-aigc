@@ -3,7 +3,6 @@
 namespace app\common\service\update;
 
 use app\common\model\update\UpdateLicense;
-use app\common\service\app\AppAccessService;
 use RuntimeException;
 
 class UpdateLicenseService
@@ -103,9 +102,11 @@ class UpdateLicenseService
 
     public function assertAppUpdateAllowed(string $appCode, string $targetVersion = ''): void
     {
-        if (AppAccessService::isDefaultAigcApp($appCode)) {
-            return;
-        }
+        $this->assertPurchasedApp($appCode, $targetVersion);
+    }
+
+    private function assertPurchasedApp(string $appCode, string $targetVersion = ''): void
+    {
         $license = $this->latestLicense();
         if (!$license) {
             throw new RuntimeException('请先导入授权文件');
@@ -116,11 +117,10 @@ class UpdateLicenseService
             throw new RuntimeException('授权不可用: ' . $status);
         }
         foreach ((array)($payload['apps'] ?? []) as $app) {
-            if (($app['app_code'] ?? '') !== $appCode) {
+            if (($app['app_code'] ?? $app['code'] ?? '') !== $appCode) {
                 continue;
             }
-            $isOpened = $app['is_opened'] ?? $app['enabled'] ?? true;
-            if (!$isOpened) {
+            if (!$this->appPayloadIsOpened($app)) {
                 throw new RuntimeException('授权未启用该应用');
             }
             $expiresAt = max(
@@ -138,6 +138,20 @@ class UpdateLicenseService
             return;
         }
         throw new RuntimeException('授权不包含该应用');
+    }
+
+    private function appPayloadIsOpened(array $app): bool
+    {
+        $isOpened = $app['is_opened'] ?? $app['enabled'] ?? true;
+        if (!$isOpened) {
+            return false;
+        }
+        $expiresAt = max(
+            (int)($app['expires_at'] ?? 0),
+            (int)($app['user_expire_time'] ?? 0),
+            (int)($app['tenant_expire_time'] ?? 0)
+        );
+        return $expiresAt <= 0 || time() <= $expiresAt;
     }
 
     public function requestContext(): array

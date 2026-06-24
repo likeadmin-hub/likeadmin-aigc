@@ -19,6 +19,7 @@ class DefaultAppService
     public static function normalizeAppData(string $appCode, array $data): array
     {
         if (!self::isDefaultApp($appCode)) {
+            $data['is_builtin'] = 0;
             return $data;
         }
         $data['is_builtin'] = 1;

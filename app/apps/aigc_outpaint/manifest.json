@@ -1,7 +1,7 @@
 {
   "code": "aigc_outpaint",
   "name": "无缝扩图",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "require_core": ">=1.0.0",
   "description": "面向商品图、人物图和素材图的 AI 无缝扩图工具，复用 AIGC 生图通道并支持租户独立扩图比例定价。",
   "changelog": "1. 新增无缝扩图工具。\n2. 支持租户配置扩图比例售价。\n3. 支持 PC 端上传图片生成扩图作品。",

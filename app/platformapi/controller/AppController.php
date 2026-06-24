@@ -9,6 +9,7 @@ use app\common\service\app\DefaultAppService;
 use app\common\service\update\AppPackageUpdateService;
 use app\common\service\update\PackageExtractService;
 use app\common\service\update\UpdateSourceClient;
+use app\common\service\update\UpdateLicenseService;
 use Exception;
 use think\response\Json;
 
@@ -19,6 +20,7 @@ class AppController extends BaseAdminController
         $lists = App::order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray();
         foreach ($lists as &$item) {
             if (!DefaultAppService::isDefaultApp((string)($item['code'] ?? ''))) {
+                $item['is_builtin'] = 0;
                 continue;
             }
             $item['is_builtin'] = 1;
@@ -171,6 +173,8 @@ class AppController extends BaseAdminController
     {
         try {
             $appCode = (string)$this->request->post('app_code', '');
+            $manifest = AppRegistryService::getManifest($appCode);
+            (new UpdateLicenseService())->assertAppUpdateAllowed($appCode, (string)($manifest['version'] ?? ''));
             $manifest = AppRegistryService::installFromLocal($appCode);
             return $this->success('安装成功', $manifest, 1, 1);
         } catch (Exception $e) {

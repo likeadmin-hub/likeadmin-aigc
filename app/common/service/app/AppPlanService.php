@@ -108,12 +108,12 @@ class AppPlanService
     public static function enrichApp(array $app, array $tenantApp = [], bool $includePlans = true): array
     {
         $appCode = (string)($app['code'] ?? $app['app_code'] ?? '');
-        $isBuiltin = (int)($app['is_builtin'] ?? 0) === 1 || DefaultAppService::isDefaultApp($appCode);
+        $isBuiltin = DefaultAppService::isDefaultApp($appCode);
         $expireTime = (int)($tenantApp['expire_time'] ?? 0);
         $isExpired = !$isBuiltin && $expireTime > 0 && $expireTime <= time();
         $policy = (string)($app['expire_policy'] ?? self::EXPIRE_BLOCK);
 
-        $app['is_builtin'] = $isBuiltin ? 1 : (int)($app['is_builtin'] ?? 0);
+        $app['is_builtin'] = $isBuiltin ? 1 : 0;
         $app['expire_policy'] = $isBuiltin ? self::EXPIRE_ALLOW : (in_array($policy, [self::EXPIRE_BLOCK, self::EXPIRE_ALLOW], true) ? $policy : self::EXPIRE_BLOCK);
         $app['expire_time'] = $expireTime;
         $app['is_expired'] = $isExpired ? 1 : 0;
@@ -133,7 +133,7 @@ class AppPlanService
         if ($app->isEmpty()) {
             throw new RuntimeException('应用不存在或未安装');
         }
-        if ((int)($app['is_builtin'] ?? 0) === 1 || DefaultAppService::isDefaultApp($appCode)) {
+        if (DefaultAppService::isDefaultApp($appCode)) {
             throw new RuntimeException('内置应用无需购买套餐');
         }
 
@@ -144,7 +144,12 @@ class AppPlanService
 
         return Db::transaction(function () use ($tenantId, $operatorId, $appCode, $app, $plan) {
             $tenantApp = TenantApp::where(['tenant_id' => $tenantId, 'app_code' => $appCode])->lock(true)->findOrEmpty();
-            $isRenew = !$tenantApp->isEmpty();
+            $hasPaidOrder = TenantAppOrder::where([
+                'tenant_id' => $tenantId,
+                'app_code' => $appCode,
+                'pay_status' => self::PAY_PAID,
+            ])->count() > 0;
+            $isRenew = !$tenantApp->isEmpty() && ((int)$tenantApp['expire_time'] > 0 || $hasPaidOrder);
             $orderType = $isRenew ? self::ORDER_RENEW : self::ORDER_OPEN;
             $points = (float)($isRenew ? $plan['renew_points'] : $plan['open_points']);
             $beforeExpireTime = $isRenew ? (int)$tenantApp['expire_time'] : 0;
@@ -221,7 +226,7 @@ class AppPlanService
         if ($app->isEmpty()) {
             throw new RuntimeException('应用不存在');
         }
-        if ((int)($app['is_builtin'] ?? 0) === 1 || $appCode === 'system_default' || DefaultAppService::isDefaultApp($appCode)) {
+        if ($appCode === 'system_default' || DefaultAppService::isDefaultApp($appCode)) {
             throw new RuntimeException('内置应用不支持套餐设置');
         }
         return $app;
@@ -229,11 +234,7 @@ class AppPlanService
 
     private static function isBuiltinOrDefaultApp(string $appCode): bool
     {
-        if ($appCode === '' || $appCode === 'system_default' || DefaultAppService::isDefaultApp($appCode)) {
-            return true;
-        }
-        $app = App::where('code', $appCode)->findOrEmpty();
-        return !$app->isEmpty() && (int)($app['is_builtin'] ?? 0) === 1;
+        return $appCode === '' || $appCode === 'system_default' || DefaultAppService::isDefaultApp($appCode);
     }
 
     private static function formatPoints(float $points): string
