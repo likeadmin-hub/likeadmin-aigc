@@ -1,0 +1,10 @@
+[
+  { "permission_key": "aigc_background_removal:config:detail", "name": "查看图片去背景配置", "api_path": "app.aigc_background_removal.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_background_removal:config:setup", "name": "保存图片去背景配置", "api_path": "app.aigc_background_removal.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_background_removal:price:detail", "name": "查看图片去背景价格", "api_path": "app.aigc_background_removal.price/detail", "api_method": "GET" },
+  { "permission_key": "aigc_background_removal:price:setup", "name": "保存图片去背景价格", "api_path": "app.aigc_background_removal.price/setup", "api_method": "POST" },
+  { "permission_key": "aigc_background_removal:task:lists", "name": "查看图片去背景任务", "api_path": "app.aigc_background_removal.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_background_removal:task:detail", "name": "查看图片去背景任务详情", "api_path": "app.aigc_background_removal.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_background_removal:task:retry", "name": "重试图片去背景任务", "api_path": "app.aigc_background_removal.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_background_removal:task:delete", "name": "删除图片去背景任务", "api_path": "app.aigc_background_removal.task/delete", "api_method": "POST" }
+]

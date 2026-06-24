@@ -1,0 +1,12 @@
+[
+  { "permission_key": "aigc_product_promo_video:config:detail", "name": "查看产品宣传视频配置", "api_path": "app.aigc_product_promo_video.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_product_promo_video:config:setup", "name": "保存产品宣传视频配置", "api_path": "app.aigc_product_promo_video.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_product_promo_video:type:lists", "name": "查看产品宣传视频类型", "api_path": "app.aigc_product_promo_video.type/lists", "api_method": "GET" },
+  { "permission_key": "aigc_product_promo_video:type:save", "name": "保存产品宣传视频类型", "api_path": "app.aigc_product_promo_video.type/save", "api_method": "POST" },
+  { "permission_key": "aigc_product_promo_video:type:status", "name": "设置产品宣传视频类型状态", "api_path": "app.aigc_product_promo_video.type/status", "api_method": "POST" },
+  { "permission_key": "aigc_product_promo_video:type:delete", "name": "删除产品宣传视频类型", "api_path": "app.aigc_product_promo_video.type/delete", "api_method": "POST" },
+  { "permission_key": "aigc_product_promo_video:task:lists", "name": "查看产品宣传视频任务", "api_path": "app.aigc_product_promo_video.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_product_promo_video:task:detail", "name": "查看产品宣传视频任务详情", "api_path": "app.aigc_product_promo_video.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_product_promo_video:task:retry", "name": "重试产品宣传视频任务", "api_path": "app.aigc_product_promo_video.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_product_promo_video:task:delete", "name": "删除产品宣传视频任务", "api_path": "app.aigc_product_promo_video.task/delete", "api_method": "POST" }
+]

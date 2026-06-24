@@ -1,0 +1,20 @@
+[
+  {
+    "source_menu_key": "aigc_product_multi_angle",
+    "app_code": "aigc_product_multi_angle",
+    "source": "app",
+    "type": "M",
+    "name": "商品多角度",
+    "icon": "el-icon-Picture",
+    "sort": 84,
+    "perms": "",
+    "paths": "aigc-product-multi-angle",
+    "component": "",
+    "children": [
+      { "source_menu_key": "aigc_product_multi_angle_config", "type": "C", "name": "基础配置", "sort": 40, "perms": "app.aigc_product_multi_angle.config/detail", "paths": "config", "component": "apps/aigc_product_multi_angle/config" },
+      { "source_menu_key": "aigc_product_multi_angle_view", "type": "C", "name": "视角选项", "sort": 35, "perms": "app.aigc_product_multi_angle.view/lists", "paths": "view", "component": "apps/aigc_product_multi_angle/view" },
+      { "source_menu_key": "aigc_product_multi_angle_price", "type": "C", "name": "价格配置", "sort": 30, "perms": "app.aigc_product_multi_angle.price/detail", "paths": "price", "component": "apps/aigc_product_multi_angle/price" },
+      { "source_menu_key": "aigc_product_multi_angle_task", "type": "C", "name": "任务记录", "sort": 10, "perms": "app.aigc_product_multi_angle.task/lists", "paths": "task", "component": "apps/aigc_product_multi_angle/task" }
+    ]
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "app_code": "aigc_one_click_cleanup",
+  "apis": [
+    { "api_path": "app.aigc_one_click_cleanup.config/detail", "api_method": "GET", "permission_key": "aigc_one_click_cleanup:config:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_one_click_cleanup.config/setup", "api_method": "POST", "permission_key": "aigc_one_click_cleanup:config:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_one_click_cleanup.option/lists", "api_method": "GET", "permission_key": "aigc_one_click_cleanup:option:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_one_click_cleanup.option/save", "api_method": "POST", "permission_key": "aigc_one_click_cleanup:option:save", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_one_click_cleanup.option/status", "api_method": "POST", "permission_key": "aigc_one_click_cleanup:option:status", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_one_click_cleanup.option/delete", "api_method": "POST", "permission_key": "aigc_one_click_cleanup:option:delete", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_one_click_cleanup.price/detail", "api_method": "GET", "permission_key": "aigc_one_click_cleanup:price:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_one_click_cleanup.price/setup", "api_method": "POST", "permission_key": "aigc_one_click_cleanup:price:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_one_click_cleanup.task/lists", "api_method": "GET", "permission_key": "aigc_one_click_cleanup:task:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_one_click_cleanup.task/detail", "api_method": "GET", "permission_key": "aigc_one_click_cleanup:task:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_one_click_cleanup.task/retry", "api_method": "POST", "permission_key": "aigc_one_click_cleanup:task:retry", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_one_click_cleanup.task/delete", "api_method": "POST", "permission_key": "aigc_one_click_cleanup:task:delete", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_one_click_cleanup.config/detail", "api_method": "GET", "permission_key": "aigc_one_click_cleanup:config:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_one_click_cleanup.option/lists", "api_method": "GET", "permission_key": "aigc_one_click_cleanup:option:lists:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_one_click_cleanup.generate/estimate", "api_method": "POST", "permission_key": "aigc_one_click_cleanup:generate:estimate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_one_click_cleanup.generate/index", "api_method": "POST", "permission_key": "aigc_one_click_cleanup:generate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_one_click_cleanup.task/lists", "api_method": "GET", "permission_key": "aigc_one_click_cleanup:task:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_one_click_cleanup.task/detail", "api_method": "GET", "permission_key": "aigc_one_click_cleanup:task:detail:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_one_click_cleanup.task/delete", "api_method": "POST", "permission_key": "aigc_one_click_cleanup:task:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_one_click_cleanup.result/lists", "api_method": "GET", "permission_key": "aigc_one_click_cleanup:result:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_one_click_cleanup.result/delete", "api_method": "POST", "permission_key": "aigc_one_click_cleanup:result:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 }
+  ]
+}

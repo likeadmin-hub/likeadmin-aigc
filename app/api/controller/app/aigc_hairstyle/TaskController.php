@@ -26,4 +26,18 @@ class TaskController extends BaseApiController
             return $this->fail($e->getMessage());
         }
     }
+
+    public function delete()
+    {
+        try {
+            AigcHairstyleService::deleteTask(
+                (int)$this->request->tenantId,
+                (int)$this->request->post('id', 0),
+                $this->userId
+            );
+            return $this->success('删除成功', [], 1, 1);
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
 }

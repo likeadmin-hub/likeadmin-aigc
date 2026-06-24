@@ -1,0 +1,25 @@
+{
+  "app_code": "aigc_photo_restore",
+  "apis": [
+    { "api_path": "app.aigc_photo_restore.config/detail", "api_method": "GET", "permission_key": "aigc_photo_restore:config:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_photo_restore.config/setup", "api_method": "POST", "permission_key": "aigc_photo_restore:config:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_photo_restore.restore_type/lists", "api_method": "GET", "permission_key": "aigc_photo_restore:restore_type:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_photo_restore.restore_type/save", "api_method": "POST", "permission_key": "aigc_photo_restore:restore_type:save", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_photo_restore.restore_type/status", "api_method": "POST", "permission_key": "aigc_photo_restore:restore_type:status", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_photo_restore.price/detail", "api_method": "GET", "permission_key": "aigc_photo_restore:price:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_photo_restore.price/setup", "api_method": "POST", "permission_key": "aigc_photo_restore:price:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_photo_restore.task/lists", "api_method": "GET", "permission_key": "aigc_photo_restore:task:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_photo_restore.task/detail", "api_method": "GET", "permission_key": "aigc_photo_restore:task:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_photo_restore.task/retry", "api_method": "POST", "permission_key": "aigc_photo_restore:task:retry", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_photo_restore.task/delete", "api_method": "POST", "permission_key": "aigc_photo_restore:task:delete", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_photo_restore.config/detail", "api_method": "GET", "permission_key": "aigc_photo_restore:config:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_photo_restore.restore_type/lists", "api_method": "GET", "permission_key": "aigc_photo_restore:restore_type:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_photo_restore.generate/estimate", "api_method": "POST", "permission_key": "aigc_photo_restore:generate:estimate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_photo_restore.generate/index", "api_method": "POST", "permission_key": "aigc_photo_restore:generate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_photo_restore.task/lists", "api_method": "GET", "permission_key": "aigc_photo_restore:task:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_photo_restore.task/detail", "api_method": "GET", "permission_key": "aigc_photo_restore:task:detail:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_photo_restore.task/delete", "api_method": "POST", "permission_key": "aigc_photo_restore:task:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_photo_restore.result/lists", "api_method": "GET", "permission_key": "aigc_photo_restore:result:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_photo_restore.result/delete", "api_method": "POST", "permission_key": "aigc_photo_restore:result:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 }
+  ]
+}

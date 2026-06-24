@@ -1,0 +1,14 @@
+[
+  { "permission_key": "aigc_fashion_lookbook:config:detail", "name": "查看服饰套图配置", "api_path": "app.aigc_fashion_lookbook.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_fashion_lookbook:config:setup", "name": "保存服饰套图配置", "api_path": "app.aigc_fashion_lookbook.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_fashion_lookbook:model:lists", "name": "查看服饰套图模特预设", "api_path": "app.aigc_fashion_lookbook.model/lists", "api_method": "GET" },
+  { "permission_key": "aigc_fashion_lookbook:model:save", "name": "保存服饰套图模特预设", "api_path": "app.aigc_fashion_lookbook.model/save", "api_method": "POST" },
+  { "permission_key": "aigc_fashion_lookbook:model:status", "name": "设置服饰套图模特预设状态", "api_path": "app.aigc_fashion_lookbook.model/status", "api_method": "POST" },
+  { "permission_key": "aigc_fashion_lookbook:model:delete", "name": "删除服饰套图模特预设", "api_path": "app.aigc_fashion_lookbook.model/delete", "api_method": "POST" },
+  { "permission_key": "aigc_fashion_lookbook:price:detail", "name": "查看服饰套图价格", "api_path": "app.aigc_fashion_lookbook.price/detail", "api_method": "GET" },
+  { "permission_key": "aigc_fashion_lookbook:price:setup", "name": "保存服饰套图价格", "api_path": "app.aigc_fashion_lookbook.price/setup", "api_method": "POST" },
+  { "permission_key": "aigc_fashion_lookbook:task:lists", "name": "查看服饰套图任务", "api_path": "app.aigc_fashion_lookbook.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_fashion_lookbook:task:detail", "name": "查看服饰套图任务详情", "api_path": "app.aigc_fashion_lookbook.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_fashion_lookbook:task:retry", "name": "重试服饰套图任务", "api_path": "app.aigc_fashion_lookbook.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_fashion_lookbook:task:delete", "name": "删除服饰套图任务", "api_path": "app.aigc_fashion_lookbook.task/delete", "api_method": "POST" }
+]

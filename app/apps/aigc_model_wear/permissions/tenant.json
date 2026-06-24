@@ -1,0 +1,10 @@
+[
+  { "permission_key": "aigc_model_wear:config:detail", "name": "查看模特穿戴配置", "api_path": "app.aigc_model_wear.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_model_wear:config:setup", "name": "保存模特穿戴配置", "api_path": "app.aigc_model_wear.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_model_wear:price:detail", "name": "查看模特穿戴价格", "api_path": "app.aigc_model_wear.price/detail", "api_method": "GET" },
+  { "permission_key": "aigc_model_wear:price:setup", "name": "保存模特穿戴价格", "api_path": "app.aigc_model_wear.price/setup", "api_method": "POST" },
+  { "permission_key": "aigc_model_wear:task:lists", "name": "查看模特穿戴任务", "api_path": "app.aigc_model_wear.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_model_wear:task:detail", "name": "查看模特穿戴任务详情", "api_path": "app.aigc_model_wear.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_model_wear:task:retry", "name": "重试模特穿戴任务", "api_path": "app.aigc_model_wear.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_model_wear:task:delete", "name": "删除模特穿戴任务", "api_path": "app.aigc_model_wear.task/delete", "api_method": "POST" }
+]

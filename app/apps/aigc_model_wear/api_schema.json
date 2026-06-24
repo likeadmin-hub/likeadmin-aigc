@@ -1,0 +1,21 @@
+{
+  "app_code": "aigc_model_wear",
+  "apis": [
+    { "api_path": "app.aigc_model_wear.config/detail", "api_method": "GET", "permission_key": "aigc_model_wear:config:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_model_wear.config/setup", "api_method": "POST", "permission_key": "aigc_model_wear:config:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_model_wear.price/detail", "api_method": "GET", "permission_key": "aigc_model_wear:price:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_model_wear.price/setup", "api_method": "POST", "permission_key": "aigc_model_wear:price:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_model_wear.task/lists", "api_method": "GET", "permission_key": "aigc_model_wear:task:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_model_wear.task/detail", "api_method": "GET", "permission_key": "aigc_model_wear:task:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_model_wear.task/retry", "api_method": "POST", "permission_key": "aigc_model_wear:task:retry", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_model_wear.task/delete", "api_method": "POST", "permission_key": "aigc_model_wear:task:delete", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_model_wear.config/detail", "api_method": "GET", "permission_key": "aigc_model_wear:config:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_model_wear.generate/estimate", "api_method": "POST", "permission_key": "aigc_model_wear:generate:estimate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_model_wear.generate/index", "api_method": "POST", "permission_key": "aigc_model_wear:generate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_model_wear.task/lists", "api_method": "GET", "permission_key": "aigc_model_wear:task:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_model_wear.task/detail", "api_method": "GET", "permission_key": "aigc_model_wear:task:detail:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_model_wear.task/delete", "api_method": "POST", "permission_key": "aigc_model_wear:task:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_model_wear.result/lists", "api_method": "GET", "permission_key": "aigc_model_wear:result:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_model_wear.result/delete", "api_method": "POST", "permission_key": "aigc_model_wear:result:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 }
+  ]
+}

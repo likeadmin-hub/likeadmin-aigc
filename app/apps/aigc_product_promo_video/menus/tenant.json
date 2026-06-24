@@ -1,0 +1,19 @@
+[
+  {
+    "source_menu_key": "aigc_product_promo_video",
+    "app_code": "aigc_product_promo_video",
+    "source": "app",
+    "type": "M",
+    "name": "产品宣传视频",
+    "icon": "el-icon-VideoCamera",
+    "sort": 83,
+    "perms": "",
+    "paths": "aigc-product-promo-video",
+    "component": "",
+    "children": [
+      { "source_menu_key": "aigc_product_promo_video_config", "type": "C", "name": "基础配置", "sort": 40, "perms": "app.aigc_product_promo_video.config/detail", "paths": "config", "component": "apps/aigc_product_promo_video/config" },
+      { "source_menu_key": "aigc_product_promo_video_type", "type": "C", "name": "视频类型", "sort": 35, "perms": "app.aigc_product_promo_video.type/lists", "paths": "type", "component": "apps/aigc_product_promo_video/type" },
+      { "source_menu_key": "aigc_product_promo_video_task", "type": "C", "name": "任务记录", "sort": 10, "perms": "app.aigc_product_promo_video.task/lists", "paths": "task", "component": "apps/aigc_product_promo_video/task" }
+    ]
+  }
+]

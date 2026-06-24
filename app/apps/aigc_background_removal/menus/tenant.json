@@ -1,0 +1,43 @@
+[
+  {
+    "source_menu_key": "aigc_background_removal",
+    "app_code": "aigc_background_removal",
+    "source": "app",
+    "type": "M",
+    "name": "图片去背景",
+    "icon": "el-icon-Picture",
+    "sort": 89,
+    "perms": "",
+    "paths": "aigc-background-removal",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_background_removal_config",
+        "type": "C",
+        "name": "基础配置",
+        "sort": 40,
+        "perms": "app.aigc_background_removal.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_background_removal/config"
+      },
+      {
+        "source_menu_key": "aigc_background_removal_price",
+        "type": "C",
+        "name": "价格配置",
+        "sort": 30,
+        "perms": "app.aigc_background_removal.price/detail",
+        "paths": "price",
+        "component": "apps/aigc_background_removal/price"
+      },
+      {
+        "source_menu_key": "aigc_background_removal_task",
+        "type": "C",
+        "name": "任务记录",
+        "sort": 10,
+        "perms": "app.aigc_background_removal.task/lists",
+        "paths": "task",
+        "component": "apps/aigc_background_removal/task"
+      }
+    ]
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "code": "aigc_one_click_cleanup",
+  "name": "一键消除",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "面向商品图、素材图和内容图的 AI 一键消除工具，支持批量上传、多选消除项和租户独立单张定价。",
+  "changelog": "1. 新增一键消除工具。\n2. 支持租户配置消除选项和单张售价。\n3. 支持 PC 端最多 10 张图片批量生成作品。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 849,
+  "frontends": ["tenant", "pc"],
+  "api_prefix": "/app/aigc_one_click_cleanup",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    { "terminal": "tenant", "entry_key": "aigc_one_click_cleanup_admin", "name": "一键消除", "path": "/app/aigc_one_click_cleanup", "icon": "el-icon-Picture", "sort": 91, "status": 1 },
+    { "terminal": "pc", "entry_key": "aigc_one_click_cleanup", "name": "一键消除", "path": "/ai/tools/aigc_one_click_cleanup", "icon": "resource/image/common/menu_generator.png", "sort": 84, "status": 1 }
+  ],
+  "dependencies": [
+    { "app_code": "aigc_image", "name": "AIGC生图", "required_for": "一键消除生成" }
+  ]
+}

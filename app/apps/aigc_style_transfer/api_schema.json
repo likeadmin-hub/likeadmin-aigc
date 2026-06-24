@@ -12,6 +12,8 @@
     { "api_path": "app.aigc_style_transfer.style_template/save", "api_method": "POST", "permission_key": "aigc_style_transfer:style_template:save", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
     { "api_path": "app.aigc_style_transfer.style_template/status", "api_method": "POST", "permission_key": "aigc_style_transfer:style_template:status", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
     { "api_path": "app.aigc_style_transfer.style_template/delete", "api_method": "POST", "permission_key": "aigc_style_transfer:style_template:delete", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_style_transfer.price/detail", "api_method": "GET", "permission_key": "aigc_style_transfer:price:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_style_transfer.price/setup", "api_method": "POST", "permission_key": "aigc_style_transfer:price:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
     { "api_path": "app.aigc_style_transfer.task/lists", "api_method": "GET", "permission_key": "aigc_style_transfer:task:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
     { "api_path": "app.aigc_style_transfer.task/detail", "api_method": "GET", "permission_key": "aigc_style_transfer:task:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
     { "api_path": "app.aigc_style_transfer.task/retry", "api_method": "POST", "permission_key": "aigc_style_transfer:task:retry", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },

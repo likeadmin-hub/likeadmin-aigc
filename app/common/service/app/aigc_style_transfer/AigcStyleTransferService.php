@@ -51,13 +51,25 @@ class AigcStyleTransferService
 
     private const DEFAULT_PROMPT_TEMPLATE = '基于用户上传原图和{style_label}风格模板，将原图转化为目标风格。保持主体结构、人物/商品特征、关键颜色和画面构图稳定，参考风格模板的材质、笔触、色调、光影与氛围，生成高质量图片风格化结果。输出尺寸为{width}×{height}。{template_prompt}{user_prompt}';
     private const DEFAULT_NEGATIVE_PROMPT = '主体变形，主体缺失，五官错误，手部错误，文字乱码，水印，低清晰度，过度曝光，背景杂乱，比例异常';
+    private const DEFAULT_PRICE_PACKAGE_NAMES = ['标准风格化', '高清风格化'];
 
     public static function config(int $tenantId): array
     {
         $row = AigcStyleTransferConfig::where('tenant_id', $tenantId)->findOrEmpty();
         $data = $row->isEmpty() ? self::defaults() : array_merge(self::defaults(), $row->toArray());
         $data = self::sanitizeConfig($data);
-        $data['option_config'] = AigcImageChannelService::userConfig($tenantId);
+        $optionConfig = AigcImageChannelService::userConfig($tenantId);
+        [$data['config_json']['price_packages'], $priceChanged] = self::ensurePricePackages(
+            $data['config_json']['price_packages'] ?? [],
+            $optionConfig,
+            (float)($data['config_json']['unit_price'] ?? 8)
+        );
+        if ($priceChanged) {
+            self::saveConfigSnapshot($tenantId, $data, $row);
+        }
+        $data['option_config'] = $optionConfig;
+        $data['price_packages'] = self::buildPricePackages($optionConfig, $data['config_json']['price_packages'] ?? []);
+        $data['price_options'] = $data['price_packages'];
         $data['size_options'] = self::SIZE_OPTIONS;
         $data['dependencies'] = self::dependencies($tenantId);
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
@@ -84,6 +96,31 @@ class AigcStyleTransferService
             return;
         }
         $row->save($data);
+    }
+
+    public static function priceDetail(int $tenantId): array
+    {
+        $config = self::config($tenantId);
+        return [
+            'channels' => self::buildPackageSourceOptions($config['option_config'] ?? []),
+            'packages' => $config['price_packages'] ?? [],
+            'price_config' => $config['config_json']['price_packages'] ?? [],
+        ];
+    }
+
+    public static function savePrice(int $tenantId, array $params): void
+    {
+        $current = self::config($tenantId);
+        $configJson = is_array($current['config_json'] ?? null) ? $current['config_json'] : [];
+        $configJson['price_packages'] = self::normalizePricePackages($params['packages'] ?? $params['price_config'] ?? $params['items'] ?? []);
+        self::saveConfig($tenantId, [
+            'status' => $current['status'],
+            'default_size_key' => $current['default_size_key'],
+            'prompt_template' => $current['prompt_template'],
+            'negative_prompt' => $current['negative_prompt'],
+            'config_json' => $configJson,
+            'display_config' => $current['display_config'] ?? [],
+        ]);
     }
 
     public static function categoryLists(int $tenantId, array $params = []): array
@@ -524,13 +561,15 @@ class AigcStyleTransferService
             'user_prompt' => $userPrompt,
             'template_prompt' => (string)($template['prompt'] ?? ''),
         ]);
-        $channel = (string)($params['channel'] ?? $configJson['channel'] ?? '');
-        $quality = (string)($params['quality'] ?? $configJson['quality'] ?? '');
-        $ratio = self::resolveSupportedRatio($tenantId, (int)$size['width'], (int)$size['height'], (string)($params['ratio'] ?? $configJson['ratio'] ?? ''), $channel, $quality);
+        $package = self::resolvePricePackage($config['config_json']['price_packages'] ?? [], $params, $config);
+        $channel = (string)$package['channel'];
+        $quality = (string)$package['quality'];
+        $ratio = self::resolvePackageRatio($package, self::resolveSupportedRatio($tenantId, (int)$size['width'], (int)$size['height'], (string)($params['ratio'] ?? $configJson['ratio'] ?? ''), $channel, $quality));
         $referenceImages = array_values(array_filter(array_unique([$sourceImage, $styleImage])));
         return [
             'style_mode' => $styleMode,
             'template' => $template,
+            'price_package' => $package,
             'template_id' => (int)($template['id'] ?? $params['template_id'] ?? 0),
             'style_image' => $styleImage,
             'source_image' => $sourceImage,
@@ -538,7 +577,7 @@ class AigcStyleTransferService
             'width' => (int)$size['width'],
             'height' => (int)$size['height'],
             'user_prompt' => $userPrompt,
-            'unit_price' => self::unitPrice($configJson),
+            'unit_price' => round(max(0, (float)$package['unit_price']), 2),
             'image_payload' => [
                 'prompt' => $prompt,
                 'negative_prompt' => (string)($params['negative_prompt'] ?? $config['negative_prompt']),
@@ -561,6 +600,9 @@ class AigcStyleTransferService
             'target_width' => $prepared['width'],
             'target_height' => $prepared['height'],
             'size_key' => $prepared['size_key'],
+            'price_package' => $prepared['price_package'],
+            'price_package_code' => $prepared['price_package']['code'] ?? '',
+            'price_package_name' => $prepared['price_package']['name'] ?? '',
             'platform_unit_cost' => round($tenantUnitCost, 2),
             'tenant_unit_price' => round($userUnitPrice, 2),
             'tenant_cost_points' => round($tenantUnitCost, 2),
@@ -796,7 +838,237 @@ class AigcStyleTransferService
             'quality' => trim((string)($value['quality'] ?? '')),
             'ratio' => trim((string)($value['ratio'] ?? '')),
             'unit_price' => max(0, round((float)($value['unit_price'] ?? 8), 2)),
+            'price_packages' => self::normalizePricePackages($value['price_packages'] ?? []),
         ];
+    }
+
+    private static function normalizePricePackages(mixed $config): array
+    {
+        $items = [];
+        if (!is_array($config)) {
+            return [];
+        }
+        foreach (array_values($config) as $index => $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $channel = trim((string)($item['channel'] ?? $item['channel_code'] ?? ''));
+            $quality = trim((string)($item['quality'] ?? ''));
+            if ($channel === '' || $quality === '') {
+                continue;
+            }
+            $code = self::normalizePackageCode((string)($item['code'] ?? $item['package_code'] ?? ''));
+            if ($code === '') {
+                $code = 'package_' . ($index + 1);
+            }
+            $items[$code] = [
+                'code' => $code,
+                'name' => mb_substr(trim((string)($item['name'] ?? '价格包' . ($index + 1))), 0, 80),
+                'channel' => $channel,
+                'quality' => $quality,
+                'quality_label' => mb_substr(trim((string)($item['quality_label'] ?? '')), 0, 80),
+                'unit_price' => round(max(0, (float)($item['unit_price'] ?? $item['tenant_unit_price'] ?? 0)), 2),
+                'status' => (int)($item['status'] ?? $item['tenant_status'] ?? 1) ? 1 : 0,
+                'sort' => (int)($item['sort'] ?? (100 - $index)),
+            ];
+        }
+        return array_values($items);
+    }
+
+    private static function buildPricePackages(array $optionConfig, array $priceConfig): array
+    {
+        $sourceMap = self::packageSourceMap($optionConfig);
+        $packages = [];
+        foreach (self::normalizePricePackages($priceConfig) as $item) {
+            $key = self::qualityKey((string)$item['channel'], (string)$item['quality']);
+            $source = $sourceMap[$key] ?? [];
+            $ratios = $source['ratios'] ?? [];
+            if (!$ratios) {
+                continue;
+            }
+            $packages[] = [
+                'code' => (string)$item['code'],
+                'name' => (string)$item['name'],
+                'channel' => (string)$item['channel'],
+                'channel_name' => (string)($source['channel_name'] ?? $item['channel']),
+                'quality' => (string)$item['quality'],
+                'quality_label' => (string)($item['quality_label'] ?: ($source['quality_label'] ?? $item['quality'])),
+                'unit_price' => round((float)$item['unit_price'], 2),
+                'status' => (int)($item['status'] ?? 1),
+                'sort' => (int)($item['sort'] ?? 0),
+                'ratios' => $ratios,
+            ];
+        }
+        usort($packages, static fn($left, $right) => ((int)($right['sort'] ?? 0) <=> (int)($left['sort'] ?? 0)) ?: strcmp((string)$left['code'], (string)$right['code']));
+        return $packages;
+    }
+
+    private static function buildPackageSourceOptions(array $optionConfig): array
+    {
+        $channels = [];
+        foreach (($optionConfig['channels'] ?? []) as $channel) {
+            $qualities = [];
+            foreach (($channel['qualities'] ?? []) as $quality) {
+                $qualities[] = [
+                    'value' => (string)($quality['value'] ?? ''),
+                    'label' => (string)($quality['label'] ?? $quality['quality_label'] ?? $quality['value'] ?? ''),
+                    'ratios' => array_map(static fn($ratio) => [
+                        'value' => (string)($ratio['value'] ?? $ratio['ratio'] ?? ''),
+                        'label' => (string)($ratio['label'] ?? $ratio['ratio'] ?? $ratio['value'] ?? ''),
+                        'ratio' => (string)($ratio['ratio'] ?? $ratio['value'] ?? ''),
+                        'width' => (int)($ratio['width'] ?? 0),
+                        'height' => (int)($ratio['height'] ?? 0),
+                        'platform_unit_cost' => round((float)($ratio['platform_unit_cost'] ?? 0), 2),
+                    ], $quality['ratios'] ?? []),
+                ];
+            }
+            $channels[] = [
+                'code' => (string)$channel['code'],
+                'name' => (string)$channel['name'],
+                'qualities' => $qualities,
+            ];
+        }
+        return $channels;
+    }
+
+    private static function resolvePricePackage(array $priceConfig, array $params, array $config): array
+    {
+        $packages = self::buildPricePackages($config['option_config'] ?? [], $priceConfig);
+        $enabled = array_values(array_filter($packages, static fn($item) => (int)($item['status'] ?? 1) === 1));
+        if (!$enabled) {
+            throw new Exception('请先配置可用生成质量');
+        }
+        $code = self::normalizePackageCode((string)($params['price_package'] ?? $params['package_code'] ?? ''));
+        if ($code === '') {
+            $channel = trim((string)($params['channel'] ?? $config['config_json']['channel'] ?? ''));
+            $quality = trim((string)($params['quality'] ?? $config['config_json']['quality'] ?? ''));
+            foreach ($enabled as $item) {
+                if (($channel === '' || $item['channel'] === $channel) && ($quality === '' || $item['quality'] === $quality)) {
+                    return $item;
+                }
+            }
+            return $enabled[0];
+        }
+        foreach ($enabled as $item) {
+            if ((string)$item['code'] === $code) {
+                return $item;
+            }
+        }
+        throw new Exception('请选择可用生成质量');
+    }
+
+    private static function ensurePricePackages(array $priceConfig, array $optionConfig, float $legacyUnitPrice): array
+    {
+        $normalized = self::normalizePricePackages($priceConfig);
+        $sourceMap = self::packageSourceMap($optionConfig);
+        $packages = [];
+        foreach ($normalized as $item) {
+            $key = self::qualityKey((string)$item['channel'], (string)$item['quality']);
+            if (!isset($sourceMap[$key])) {
+                continue;
+            }
+            $source = $sourceMap[$key];
+            $item['quality_label'] = (string)($item['quality_label'] ?: ($source['quality_label'] ?? $item['quality']));
+            $packages[] = $item;
+        }
+        if ($packages) {
+            return [array_values($packages), count($packages) !== count($normalized)];
+        }
+        $sourceItems = array_values($sourceMap);
+        if (!$sourceItems) {
+            return [[], false];
+        }
+        foreach (array_slice($sourceItems, 0, 2) as $index => $source) {
+            $packages[] = [
+                'code' => 'default_' . ($index + 1),
+                'name' => self::DEFAULT_PRICE_PACKAGE_NAMES[$index] ?? ('价格包' . ($index + 1)),
+                'channel' => (string)$source['channel'],
+                'quality' => (string)$source['quality'],
+                'quality_label' => (string)$source['quality_label'],
+                'unit_price' => round(max(0, $legacyUnitPrice > 0 ? $legacyUnitPrice : (float)$source['default_unit_price']), 2),
+                'status' => 1,
+                'sort' => 100 - $index,
+            ];
+        }
+        return [$packages, true];
+    }
+
+    private static function packageSourceMap(array $optionConfig): array
+    {
+        $map = [];
+        foreach (($optionConfig['channels'] ?? []) as $channel) {
+            foreach (($channel['qualities'] ?? []) as $quality) {
+                $qualityValue = (string)($quality['value'] ?? '');
+                if ($qualityValue === '') {
+                    continue;
+                }
+                $ratios = [];
+                foreach (($quality['ratios'] ?? []) as $ratio) {
+                    $ratios[] = [
+                        'value' => (string)($ratio['value'] ?? $ratio['ratio'] ?? ''),
+                        'label' => (string)($ratio['label'] ?? $ratio['ratio'] ?? $ratio['value'] ?? ''),
+                        'ratio' => (string)($ratio['ratio'] ?? $ratio['value'] ?? ''),
+                        'width' => (int)($ratio['width'] ?? 0),
+                        'height' => (int)($ratio['height'] ?? 0),
+                        'platform_unit_cost' => round((float)($ratio['platform_unit_cost'] ?? 0), 2),
+                    ];
+                }
+                if (!$ratios) {
+                    continue;
+                }
+                $map[self::qualityKey((string)$channel['code'], $qualityValue)] = [
+                    'channel' => (string)$channel['code'],
+                    'channel_name' => (string)$channel['name'],
+                    'quality' => $qualityValue,
+                    'quality_label' => (string)($quality['label'] ?? $quality['quality_label'] ?? $qualityValue),
+                    'default_unit_price' => (float)($ratios[0]['platform_unit_cost'] ?? 0),
+                    'ratios' => $ratios,
+                ];
+            }
+        }
+        return $map;
+    }
+
+    private static function saveConfigSnapshot(int $tenantId, array $data, AigcStyleTransferConfig $row): void
+    {
+        $payload = [
+            'tenant_id' => $tenantId,
+            'status' => (int)($data['status'] ?? 1),
+            'default_size_key' => self::normalizeSizeKey($data['default_size_key'] ?? '1:1'),
+            'prompt_template' => self::normalizeTemplate((string)($data['prompt_template'] ?? self::DEFAULT_PROMPT_TEMPLATE)),
+            'negative_prompt' => trim((string)($data['negative_prompt'] ?? self::DEFAULT_NEGATIVE_PROMPT)),
+            'config_json' => self::normalizeConfigJson($data['config_json'] ?? []),
+            'update_time' => time(),
+        ];
+        if ($row->isEmpty()) {
+            $payload['create_time'] = time();
+            AigcStyleTransferConfig::create($payload);
+            return;
+        }
+        $row->save($payload);
+    }
+
+    private static function resolvePackageRatio(array $package, string $ratio): string
+    {
+        $ratios = $package['ratios'] ?? [];
+        $values = array_values(array_filter(array_map(static fn($item) => (string)($item['value'] ?? $item['ratio'] ?? ''), $ratios)));
+        if (!$values) {
+            return $ratio;
+        }
+        if ($ratio !== '' && in_array($ratio, $values, true)) {
+            return $ratio;
+        }
+        return $values[0];
+    }
+
+    private static function qualityKey(string $channel, string $quality): string
+    {
+        return $channel . '|' . $quality;
+    }
+
+    private static function normalizePackageCode(string $code): string
+    {
+        return preg_replace('/[^a-zA-Z0-9_\-]/', '', trim($code)) ?: '';
     }
 
     private static function ensureDefaultCategories(int $tenantId): void

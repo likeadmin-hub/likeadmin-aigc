@@ -1,0 +1,49 @@
+{
+  "code": "aigc_model_wear",
+  "name": "模特穿戴",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "面向服饰、配饰和电商穿搭展示的 AI 模特穿戴工具，复用 AIGC 生图通道并支持独立价格包。",
+  "changelog": "1. 新增模特穿戴工具。\n2. 支持租户配置生成质量价格包。\n3. 支持 PC 端上传模特图和穿戴图生成作品。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 851,
+  "frontends": [
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/aigc_model_wear",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_model_wear_admin",
+      "name": "模特穿戴",
+      "path": "/app/aigc_model_wear",
+      "icon": "el-icon-Picture",
+      "sort": 93,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_model_wear",
+      "name": "模特穿戴",
+      "path": "/ai/tools/aigc_model_wear",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 88,
+      "status": 1
+    }
+  ],
+  "dependencies": [
+    {
+      "app_code": "aigc_image",
+      "name": "AIGC生图",
+      "required_for": "模特穿戴生成"
+    }
+  ]
+}

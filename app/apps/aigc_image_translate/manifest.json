@@ -1,0 +1,49 @@
+{
+  "code": "aigc_image_translate",
+  "name": "图片翻译",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "面向商品图、人物图和素材图的 AI 图片翻译工具，复用 AIGC 生图通道并支持租户独立翻译质量定价。",
+  "changelog": "1. 新增图片翻译工具。\n2. 支持租户配置翻译质量售价。\n3. 支持 PC 端上传图片生成翻译作品。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 852,
+  "frontends": [
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/aigc_image_translate",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_image_translate_admin",
+      "name": "图片翻译",
+      "path": "/app/aigc_image_translate",
+      "icon": "el-icon-Picture",
+      "sort": 92,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_image_translate",
+      "name": "图片翻译",
+      "path": "/ai/tools/aigc_image_translate",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 87,
+      "status": 1
+    }
+  ],
+  "dependencies": [
+    {
+      "app_code": "aigc_image",
+      "name": "AIGC生图",
+      "required_for": "图片翻译生成"
+    }
+  ]
+}

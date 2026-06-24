@@ -1,0 +1,43 @@
+[
+  {
+    "source_menu_key": "aigc_model_wear",
+    "app_code": "aigc_model_wear",
+    "source": "app",
+    "type": "M",
+    "name": "模特穿戴",
+    "icon": "el-icon-Picture",
+    "sort": 89,
+    "perms": "",
+    "paths": "aigc-model-wear",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_model_wear_config",
+        "type": "C",
+        "name": "基础配置",
+        "sort": 40,
+        "perms": "app.aigc_model_wear.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_model_wear/config"
+      },
+      {
+        "source_menu_key": "aigc_model_wear_price",
+        "type": "C",
+        "name": "价格配置",
+        "sort": 30,
+        "perms": "app.aigc_model_wear.price/detail",
+        "paths": "price",
+        "component": "apps/aigc_model_wear/price"
+      },
+      {
+        "source_menu_key": "aigc_model_wear_task",
+        "type": "C",
+        "name": "任务记录",
+        "sort": 10,
+        "perms": "app.aigc_model_wear.task/lists",
+        "paths": "task",
+        "component": "apps/aigc_model_wear/task"
+      }
+    ]
+  }
+]

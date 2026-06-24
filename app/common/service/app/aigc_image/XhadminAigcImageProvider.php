@@ -5,6 +5,7 @@ namespace app\common\service\app\aigc_image;
 use app\common\service\FileService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
+use think\facade\Log;
 
 class XhadminAigcImageProvider implements AigcImageProviderInterface
 {
@@ -60,6 +61,7 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             }
             if (!in_array($status, ['completed', 'success', 'succeeded'], true)) {
                 $message = $this->extractError($task) ?: '供应商任务未完成';
+                $this->logTaskFailure($taskId, $status, $message, $task);
                 return new AigcImageGenerateResult(false, [], $message);
             }
             if (!is_array($imageUrls) || empty($imageUrls)) {
@@ -149,6 +151,10 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             'mask_url' => $providerParams['mask_url'] ?? null,
             'quality' => $providerParams['generation_quality'] ?? null,
             'negative_prompt' => $request->negativePrompt ?: null,
+            'output_format' => $providerParams['output_format'] ?? null,
+            'transparent_background' => $providerParams['transparent_background'] ?? null,
+            'background' => $providerParams['background'] ?? null,
+            'response_format' => $providerParams['response_format'] ?? null,
         ];
         if (!empty($providerParams['size'])) {
             $payload['size'] = $providerParams['size'];
@@ -381,5 +387,33 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             str_contains($lower, 'queue_limit_exceeded') => '供应商排队任务已满，请稍后再试',
             default => $message,
         };
+    }
+
+    private function logTaskFailure(string $taskId, string $status, string $message, array $task): void
+    {
+        $context = $this->sanitizeTaskForLog($task);
+        Log::write('AIGC生图供应商任务失败: ' . json_encode([
+            'provider' => 'xhadmin_aigc_image',
+            'task_id' => $taskId,
+            'status' => $status,
+            'message' => $message,
+            'response' => $context,
+        ], JSON_UNESCAPED_UNICODE));
+    }
+
+    private function sanitizeTaskForLog(array $task): array
+    {
+        foreach (['prompt', 'negative_prompt', 'image_urls', 'images', 'url', 'output', 'result'] as $key) {
+            if (array_key_exists($key, $task)) {
+                unset($task[$key]);
+            }
+        }
+        foreach (['data', 'task'] as $key) {
+            if (!isset($task[$key]) || !is_array($task[$key])) {
+                continue;
+            }
+            $task[$key] = $this->sanitizeTaskForLog($task[$key]);
+        }
+        return $task;
     }
 }

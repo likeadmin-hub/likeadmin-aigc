@@ -33,10 +33,19 @@
         "source_menu_key": "aigc_style_transfer_template",
         "type": "C",
         "name": "风格模板",
-        "sort": 20,
+        "sort": 25,
         "perms": "app.aigc_style_transfer.style_template/lists",
         "paths": "template",
         "component": "apps/aigc_style_transfer/template"
+      },
+      {
+        "source_menu_key": "aigc_style_transfer_price",
+        "type": "C",
+        "name": "价格配置",
+        "sort": 20,
+        "perms": "app.aigc_style_transfer.price/detail",
+        "paths": "price",
+        "component": "apps/aigc_style_transfer/price"
       },
       {
         "source_menu_key": "aigc_style_transfer_task",
@@ -50,4 +59,3 @@
     ]
   }
 ]
-

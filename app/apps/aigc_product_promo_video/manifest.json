@@ -1,0 +1,27 @@
+{
+  "code": "aigc_product_promo_video",
+  "name": "产品宣传视频",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "面向电商产品传播的 AI 产品宣传视频工具，支持产品图生成视频、租户配置视频类型和按秒生成售价。",
+  "changelog": "1. 新增产品宣传视频工具。\n2. 支持租户配置视频类型和按秒生成售价。\n3. 支持 PC 端上传产品图生成宣传视频。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 847,
+  "frontends": ["tenant", "pc"],
+  "api_prefix": "/app/aigc_product_promo_video",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    { "terminal": "tenant", "entry_key": "aigc_product_promo_video_admin", "name": "产品宣传视频", "path": "/app/aigc_product_promo_video", "icon": "el-icon-VideoCamera", "sort": 91, "status": 1 },
+    { "terminal": "pc", "entry_key": "aigc_product_promo_video", "name": "产品宣传视频", "path": "/ai/tools/aigc_product_promo_video", "icon": "resource/image/common/menu_generator.png", "sort": 83, "status": 1 }
+  ],
+  "dependencies": [
+    { "app_code": "aigc_video", "name": "AIGC生视频", "required_for": "产品宣传视频生成" },
+    { "app_code": "aigc_llm", "name": "AIGC对话", "required_for": "描述词AI帮写和优化" }
+  ]
+}

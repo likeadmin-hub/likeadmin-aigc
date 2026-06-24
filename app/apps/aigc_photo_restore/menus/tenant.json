@@ -1,0 +1,52 @@
+[
+  {
+    "source_menu_key": "aigc_photo_restore",
+    "app_code": "aigc_photo_restore",
+    "source": "app",
+    "type": "M",
+    "name": "老照片修复",
+    "icon": "el-icon-Picture",
+    "sort": 89,
+    "perms": "",
+    "paths": "aigc-photo-restore",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_photo_restore_config",
+        "type": "C",
+        "name": "基础配置",
+        "sort": 40,
+        "perms": "app.aigc_photo_restore.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_photo_restore/config"
+      },
+      {
+        "source_menu_key": "aigc_photo_restore_type",
+        "type": "C",
+        "name": "修复类型",
+        "sort": 30,
+        "perms": "app.aigc_photo_restore.restore_type/lists",
+        "paths": "restore-type",
+        "component": "apps/aigc_photo_restore/restore-type"
+      },
+      {
+        "source_menu_key": "aigc_photo_restore_price",
+        "type": "C",
+        "name": "价格配置",
+        "sort": 20,
+        "perms": "app.aigc_photo_restore.price/detail",
+        "paths": "price",
+        "component": "apps/aigc_photo_restore/price"
+      },
+      {
+        "source_menu_key": "aigc_photo_restore_task",
+        "type": "C",
+        "name": "任务记录",
+        "sort": 10,
+        "perms": "app.aigc_photo_restore.task/lists",
+        "paths": "task",
+        "component": "apps/aigc_photo_restore/task"
+      }
+    ]
+  }
+]

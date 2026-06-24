@@ -1,0 +1,14 @@
+[
+  { "permission_key": "aigc_product_multi_angle:config:detail", "name": "查看商品多角度配置", "api_path": "app.aigc_product_multi_angle.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_product_multi_angle:config:setup", "name": "保存商品多角度配置", "api_path": "app.aigc_product_multi_angle.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_product_multi_angle:view:lists", "name": "查看商品多角度视角", "api_path": "app.aigc_product_multi_angle.view/lists", "api_method": "GET" },
+  { "permission_key": "aigc_product_multi_angle:view:save", "name": "保存商品多角度视角", "api_path": "app.aigc_product_multi_angle.view/save", "api_method": "POST" },
+  { "permission_key": "aigc_product_multi_angle:view:status", "name": "设置商品多角度视角状态", "api_path": "app.aigc_product_multi_angle.view/status", "api_method": "POST" },
+  { "permission_key": "aigc_product_multi_angle:view:delete", "name": "删除商品多角度视角", "api_path": "app.aigc_product_multi_angle.view/delete", "api_method": "POST" },
+  { "permission_key": "aigc_product_multi_angle:price:detail", "name": "查看商品多角度价格", "api_path": "app.aigc_product_multi_angle.price/detail", "api_method": "GET" },
+  { "permission_key": "aigc_product_multi_angle:price:setup", "name": "保存商品多角度价格", "api_path": "app.aigc_product_multi_angle.price/setup", "api_method": "POST" },
+  { "permission_key": "aigc_product_multi_angle:task:lists", "name": "查看商品多角度任务", "api_path": "app.aigc_product_multi_angle.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_product_multi_angle:task:detail", "name": "查看商品多角度任务详情", "api_path": "app.aigc_product_multi_angle.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_product_multi_angle:task:retry", "name": "重试商品多角度任务", "api_path": "app.aigc_product_multi_angle.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_product_multi_angle:task:delete", "name": "删除商品多角度任务", "api_path": "app.aigc_product_multi_angle.task/delete", "api_method": "POST" }
+]

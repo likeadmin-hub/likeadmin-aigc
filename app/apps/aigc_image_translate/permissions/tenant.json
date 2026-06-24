@@ -1,0 +1,10 @@
+[
+  { "permission_key": "aigc_image_translate:config:detail", "name": "查看图片翻译配置", "api_path": "app.aigc_image_translate.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_image_translate:config:setup", "name": "保存图片翻译配置", "api_path": "app.aigc_image_translate.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_image_translate:price:detail", "name": "查看图片翻译价格", "api_path": "app.aigc_image_translate.price/detail", "api_method": "GET" },
+  { "permission_key": "aigc_image_translate:price:setup", "name": "保存图片翻译价格", "api_path": "app.aigc_image_translate.price/setup", "api_method": "POST" },
+  { "permission_key": "aigc_image_translate:task:lists", "name": "查看图片翻译任务", "api_path": "app.aigc_image_translate.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_image_translate:task:detail", "name": "查看图片翻译任务详情", "api_path": "app.aigc_image_translate.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_image_translate:task:retry", "name": "重试图片翻译任务", "api_path": "app.aigc_image_translate.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_image_translate:task:delete", "name": "删除图片翻译任务", "api_path": "app.aigc_image_translate.task/delete", "api_method": "POST" }
+]

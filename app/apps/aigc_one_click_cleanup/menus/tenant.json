@@ -1,0 +1,20 @@
+[
+  {
+    "source_menu_key": "aigc_one_click_cleanup",
+    "app_code": "aigc_one_click_cleanup",
+    "source": "app",
+    "type": "M",
+    "name": "一键消除",
+    "icon": "el-icon-Picture",
+    "sort": 84,
+    "perms": "",
+    "paths": "aigc-one-click-cleanup",
+    "component": "",
+    "children": [
+      { "source_menu_key": "aigc_one_click_cleanup_config", "type": "C", "name": "基础配置", "sort": 40, "perms": "app.aigc_one_click_cleanup.config/detail", "paths": "config", "component": "apps/aigc_one_click_cleanup/config" },
+      { "source_menu_key": "aigc_one_click_cleanup_option", "type": "C", "name": "消除选项", "sort": 35, "perms": "app.aigc_one_click_cleanup.option/lists", "paths": "option", "component": "apps/aigc_one_click_cleanup/option" },
+      { "source_menu_key": "aigc_one_click_cleanup_price", "type": "C", "name": "价格配置", "sort": 30, "perms": "app.aigc_one_click_cleanup.price/detail", "paths": "price", "component": "apps/aigc_one_click_cleanup/price" },
+      { "source_menu_key": "aigc_one_click_cleanup_task", "type": "C", "name": "任务记录", "sort": 10, "perms": "app.aigc_one_click_cleanup.task/lists", "paths": "task", "component": "apps/aigc_one_click_cleanup/task" }
+    ]
+  }
+]

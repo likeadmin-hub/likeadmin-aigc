@@ -1,0 +1,13 @@
+[
+  { "permission_key": "aigc_photo_restore:config:detail", "name": "查看老照片修复配置", "api_path": "app.aigc_photo_restore.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_photo_restore:config:setup", "name": "保存老照片修复配置", "api_path": "app.aigc_photo_restore.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_photo_restore:restore_type:lists", "name": "查看修复类型", "api_path": "app.aigc_photo_restore.restore_type/lists", "api_method": "GET" },
+  { "permission_key": "aigc_photo_restore:restore_type:save", "name": "保存修复类型", "api_path": "app.aigc_photo_restore.restore_type/save", "api_method": "POST" },
+  { "permission_key": "aigc_photo_restore:restore_type:status", "name": "设置修复类型状态", "api_path": "app.aigc_photo_restore.restore_type/status", "api_method": "POST" },
+  { "permission_key": "aigc_photo_restore:price:detail", "name": "查看老照片修复价格", "api_path": "app.aigc_photo_restore.price/detail", "api_method": "GET" },
+  { "permission_key": "aigc_photo_restore:price:setup", "name": "保存老照片修复价格", "api_path": "app.aigc_photo_restore.price/setup", "api_method": "POST" },
+  { "permission_key": "aigc_photo_restore:task:lists", "name": "查看老照片修复任务", "api_path": "app.aigc_photo_restore.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_photo_restore:task:detail", "name": "查看老照片修复任务详情", "api_path": "app.aigc_photo_restore.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_photo_restore:task:retry", "name": "重试老照片修复任务", "api_path": "app.aigc_photo_restore.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_photo_restore:task:delete", "name": "删除老照片修复任务", "api_path": "app.aigc_photo_restore.task/delete", "api_method": "POST" }
+]

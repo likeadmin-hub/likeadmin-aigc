@@ -1,0 +1,20 @@
+[
+  {
+    "source_menu_key": "aigc_fashion_lookbook",
+    "app_code": "aigc_fashion_lookbook",
+    "source": "app",
+    "type": "M",
+    "name": "服饰套图",
+    "icon": "el-icon-Picture",
+    "sort": 84,
+    "perms": "",
+    "paths": "aigc-fashion-lookbook",
+    "component": "",
+    "children": [
+      { "source_menu_key": "aigc_fashion_lookbook_config", "type": "C", "name": "基础配置", "sort": 40, "perms": "app.aigc_fashion_lookbook.config/detail", "paths": "config", "component": "apps/aigc_fashion_lookbook/config" },
+      { "source_menu_key": "aigc_fashion_lookbook_model", "type": "C", "name": "模特预设", "sort": 35, "perms": "app.aigc_fashion_lookbook.model/lists", "paths": "model", "component": "apps/aigc_fashion_lookbook/model" },
+      { "source_menu_key": "aigc_fashion_lookbook_price", "type": "C", "name": "价格配置", "sort": 30, "perms": "app.aigc_fashion_lookbook.price/detail", "paths": "price", "component": "apps/aigc_fashion_lookbook/price" },
+      { "source_menu_key": "aigc_fashion_lookbook_task", "type": "C", "name": "任务记录", "sort": 10, "perms": "app.aigc_fashion_lookbook.task/lists", "paths": "task", "component": "apps/aigc_fashion_lookbook/task" }
+    ]
+  }
+]

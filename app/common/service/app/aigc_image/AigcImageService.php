@@ -155,6 +155,7 @@ class AigcImageService
         if (self::isAsyncProvider($providerName)) {
             $channelConfig['poll_attempts'] = 0;
         }
+        $providerParams = self::providerParamsForRequest($selection['spec']['provider_params_json'] ?? [], $params);
         $result = $provider->generate(new AigcImageGenerateRequest(
             $prompt,
             (string)($params['negative_prompt'] ?? ''),
@@ -165,7 +166,7 @@ class AigcImageService
             $quantity,
             $referenceImages,
             $selection['spec'],
-            $selection['spec']['provider_params_json'] ?? [],
+            $providerParams,
             $channelConfig
         ));
 
@@ -656,6 +657,18 @@ class AigcImageService
                 'user_id' => (int)$task['user_id'],
             ])
         );
+    }
+
+    private static function providerParamsForRequest(array $specParams, array $params): array
+    {
+        $providerParams = $specParams;
+        foreach (['output_format', 'transparent_background', 'background', 'response_format'] as $key) {
+            if (!array_key_exists($key, $params)) {
+                continue;
+            }
+            $providerParams[$key] = $params[$key];
+        }
+        return $providerParams;
     }
 
     private static function normalizeReferenceImages(array $images, int $tenantId, int $userId): array

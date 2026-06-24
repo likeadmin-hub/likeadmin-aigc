@@ -1,0 +1,26 @@
+{
+  "app_code": "aigc_product_multi_angle",
+  "apis": [
+    { "api_path": "app.aigc_product_multi_angle.config/detail", "api_method": "GET", "permission_key": "aigc_product_multi_angle:config:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_multi_angle.config/setup", "api_method": "POST", "permission_key": "aigc_product_multi_angle:config:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_multi_angle.view/lists", "api_method": "GET", "permission_key": "aigc_product_multi_angle:view:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_multi_angle.view/save", "api_method": "POST", "permission_key": "aigc_product_multi_angle:view:save", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_multi_angle.view/status", "api_method": "POST", "permission_key": "aigc_product_multi_angle:view:status", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_multi_angle.view/delete", "api_method": "POST", "permission_key": "aigc_product_multi_angle:view:delete", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_multi_angle.price/detail", "api_method": "GET", "permission_key": "aigc_product_multi_angle:price:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_multi_angle.price/setup", "api_method": "POST", "permission_key": "aigc_product_multi_angle:price:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_multi_angle.task/lists", "api_method": "GET", "permission_key": "aigc_product_multi_angle:task:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_multi_angle.task/detail", "api_method": "GET", "permission_key": "aigc_product_multi_angle:task:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_multi_angle.task/retry", "api_method": "POST", "permission_key": "aigc_product_multi_angle:task:retry", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_multi_angle.task/delete", "api_method": "POST", "permission_key": "aigc_product_multi_angle:task:delete", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_product_multi_angle.config/detail", "api_method": "GET", "permission_key": "aigc_product_multi_angle:config:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_multi_angle.view/lists", "api_method": "GET", "permission_key": "aigc_product_multi_angle:view:lists:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_multi_angle.generate/estimate", "api_method": "POST", "permission_key": "aigc_product_multi_angle:generate:estimate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_multi_angle.generate/index", "api_method": "POST", "permission_key": "aigc_product_multi_angle:generate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_multi_angle.task/lists", "api_method": "GET", "permission_key": "aigc_product_multi_angle:task:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_multi_angle.task/detail", "api_method": "GET", "permission_key": "aigc_product_multi_angle:task:detail:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_multi_angle.task/delete", "api_method": "POST", "permission_key": "aigc_product_multi_angle:task:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_multi_angle.result/lists", "api_method": "GET", "permission_key": "aigc_product_multi_angle:result:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_product_multi_angle.result/delete", "api_method": "POST", "permission_key": "aigc_product_multi_angle:result:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 }
+  ]
+}

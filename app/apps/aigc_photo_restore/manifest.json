@@ -1,0 +1,49 @@
+{
+  "code": "aigc_photo_restore",
+  "name": "老照片修复",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "面向老照片修复和上色的 AI 工具，复用 AIGC 生图通道并支持独立模型规格售价。",
+  "changelog": "1. 新增老照片修复工具。\n2. 支持租户配置修复类型和模型规格售价。\n3. 支持 PC 端上传老照片、选择修复类型和生成作品。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 851,
+  "frontends": [
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/aigc_photo_restore",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_photo_restore_admin",
+      "name": "老照片修复",
+      "path": "/app/aigc_photo_restore",
+      "icon": "el-icon-Picture",
+      "sort": 93,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_photo_restore",
+      "name": "老照片修复",
+      "path": "/ai/tools/aigc_photo_restore",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 88,
+      "status": 1
+    }
+  ],
+  "dependencies": [
+    {
+      "app_code": "aigc_image",
+      "name": "AIGC生图",
+      "required_for": "照片修复生成"
+    }
+  ]
+}

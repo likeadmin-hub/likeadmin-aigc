@@ -1,0 +1,26 @@
+{
+  "code": "aigc_fashion_lookbook",
+  "name": "服饰套图",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "面向服饰展示的 AI 服饰套图工具，支持多张服饰图、模特图、预设模特和租户按服饰图单张定价。",
+  "changelog": "1. 新增服饰套图工具。\n2. 支持租户配置模特预设和单张服饰图售价。\n3. 支持 PC 端上传服饰图与模特图批量生成套图作品。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 849,
+  "frontends": ["tenant", "pc"],
+  "api_prefix": "/app/aigc_fashion_lookbook",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    { "terminal": "tenant", "entry_key": "aigc_fashion_lookbook_admin", "name": "服饰套图", "path": "/app/aigc_fashion_lookbook", "icon": "el-icon-Picture", "sort": 91, "status": 1 },
+    { "terminal": "pc", "entry_key": "aigc_fashion_lookbook", "name": "服饰套图", "path": "/ai/tools/aigc_fashion_lookbook", "icon": "resource/image/common/menu_generator.png", "sort": 84, "status": 1 }
+  ],
+  "dependencies": [
+    { "app_code": "aigc_image", "name": "AIGC生图", "required_for": "服饰套图生成" }
+  ]
+}

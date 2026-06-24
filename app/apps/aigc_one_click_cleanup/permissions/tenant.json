@@ -1,0 +1,14 @@
+[
+  { "permission_key": "aigc_one_click_cleanup:config:detail", "name": "查看一键消除配置", "api_path": "app.aigc_one_click_cleanup.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_one_click_cleanup:config:setup", "name": "保存一键消除配置", "api_path": "app.aigc_one_click_cleanup.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_one_click_cleanup:option:lists", "name": "查看一键消除选项", "api_path": "app.aigc_one_click_cleanup.option/lists", "api_method": "GET" },
+  { "permission_key": "aigc_one_click_cleanup:option:save", "name": "保存一键消除选项", "api_path": "app.aigc_one_click_cleanup.option/save", "api_method": "POST" },
+  { "permission_key": "aigc_one_click_cleanup:option:status", "name": "设置一键消除选项状态", "api_path": "app.aigc_one_click_cleanup.option/status", "api_method": "POST" },
+  { "permission_key": "aigc_one_click_cleanup:option:delete", "name": "删除一键消除选项", "api_path": "app.aigc_one_click_cleanup.option/delete", "api_method": "POST" },
+  { "permission_key": "aigc_one_click_cleanup:price:detail", "name": "查看一键消除价格", "api_path": "app.aigc_one_click_cleanup.price/detail", "api_method": "GET" },
+  { "permission_key": "aigc_one_click_cleanup:price:setup", "name": "保存一键消除价格", "api_path": "app.aigc_one_click_cleanup.price/setup", "api_method": "POST" },
+  { "permission_key": "aigc_one_click_cleanup:task:lists", "name": "查看一键消除任务", "api_path": "app.aigc_one_click_cleanup.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_one_click_cleanup:task:detail", "name": "查看一键消除任务详情", "api_path": "app.aigc_one_click_cleanup.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_one_click_cleanup:task:retry", "name": "重试一键消除任务", "api_path": "app.aigc_one_click_cleanup.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_one_click_cleanup:task:delete", "name": "删除一键消除任务", "api_path": "app.aigc_one_click_cleanup.task/delete", "api_method": "POST" }
+]

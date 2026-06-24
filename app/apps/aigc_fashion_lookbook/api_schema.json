@@ -1,0 +1,26 @@
+{
+  "app_code": "aigc_fashion_lookbook",
+  "apis": [
+    { "api_path": "app.aigc_fashion_lookbook.config/detail", "api_method": "GET", "permission_key": "aigc_fashion_lookbook:config:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_fashion_lookbook.config/setup", "api_method": "POST", "permission_key": "aigc_fashion_lookbook:config:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_fashion_lookbook.model/lists", "api_method": "GET", "permission_key": "aigc_fashion_lookbook:model:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_fashion_lookbook.model/save", "api_method": "POST", "permission_key": "aigc_fashion_lookbook:model:save", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_fashion_lookbook.model/status", "api_method": "POST", "permission_key": "aigc_fashion_lookbook:model:status", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_fashion_lookbook.model/delete", "api_method": "POST", "permission_key": "aigc_fashion_lookbook:model:delete", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_fashion_lookbook.price/detail", "api_method": "GET", "permission_key": "aigc_fashion_lookbook:price:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_fashion_lookbook.price/setup", "api_method": "POST", "permission_key": "aigc_fashion_lookbook:price:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_fashion_lookbook.task/lists", "api_method": "GET", "permission_key": "aigc_fashion_lookbook:task:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_fashion_lookbook.task/detail", "api_method": "GET", "permission_key": "aigc_fashion_lookbook:task:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_fashion_lookbook.task/retry", "api_method": "POST", "permission_key": "aigc_fashion_lookbook:task:retry", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_fashion_lookbook.task/delete", "api_method": "POST", "permission_key": "aigc_fashion_lookbook:task:delete", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_fashion_lookbook.config/detail", "api_method": "GET", "permission_key": "aigc_fashion_lookbook:config:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_fashion_lookbook.model/lists", "api_method": "GET", "permission_key": "aigc_fashion_lookbook:model:lists:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_fashion_lookbook.generate/estimate", "api_method": "POST", "permission_key": "aigc_fashion_lookbook:generate:estimate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_fashion_lookbook.generate/index", "api_method": "POST", "permission_key": "aigc_fashion_lookbook:generate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_fashion_lookbook.task/lists", "api_method": "GET", "permission_key": "aigc_fashion_lookbook:task:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_fashion_lookbook.task/detail", "api_method": "GET", "permission_key": "aigc_fashion_lookbook:task:detail:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_fashion_lookbook.task/delete", "api_method": "POST", "permission_key": "aigc_fashion_lookbook:task:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_fashion_lookbook.result/lists", "api_method": "GET", "permission_key": "aigc_fashion_lookbook:result:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_fashion_lookbook.result/delete", "api_method": "POST", "permission_key": "aigc_fashion_lookbook:result:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 }
+  ]
+}

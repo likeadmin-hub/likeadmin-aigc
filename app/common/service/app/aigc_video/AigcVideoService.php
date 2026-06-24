@@ -68,6 +68,16 @@ class AigcVideoService
 
     public static function generate(int $tenantId, int $userId, array $params): array
     {
+        return self::generateInternal($tenantId, $userId, $params);
+    }
+
+    public static function generateWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride): array
+    {
+        return self::generateInternal($tenantId, $userId, $params, $billingOverride);
+    }
+
+    private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = []): array
+    {
         $prompt = trim((string)($params['prompt'] ?? ''));
         if ($prompt === '') {
             throw new Exception('请输入提示词');
@@ -104,6 +114,7 @@ class AigcVideoService
             'duration' => $duration,
             'quantity' => $quantity,
         ]));
+        $estimate = self::applyBillingOverride($estimate, $quantity, $billingOverride);
         self::checkQuota($tenantId, $userId, $quantity);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
@@ -186,6 +197,25 @@ class AigcVideoService
         $rows = self::finishTaskWithVideos($task, $selection, $estimate, $result->videos);
 
         return ['task_id' => $task['id'], 'results' => $rows];
+    }
+
+    private static function applyBillingOverride(array $estimate, int $quantity, array $billingOverride = []): array
+    {
+        if (!$billingOverride) {
+            return $estimate;
+        }
+        $quantity = max(1, $quantity);
+        if (array_key_exists('tenant_cost_points', $billingOverride)) {
+            $tenantTotal = max(0, round((float)$billingOverride['tenant_cost_points'], 2));
+            $estimate['tenant_cost_points'] = $tenantTotal;
+            $estimate['platform_unit_cost'] = round($tenantTotal / $quantity, 2);
+        }
+        if (array_key_exists('user_charge_points', $billingOverride)) {
+            $userTotal = max(0, round((float)$billingOverride['user_charge_points'], 2));
+            $estimate['user_charge_points'] = $userTotal;
+            $estimate['tenant_unit_price'] = round($userTotal / $quantity, 2);
+        }
+        return $estimate;
     }
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
@@ -585,6 +615,12 @@ class AigcVideoService
                 }
                 $result = $provider->fetchResult((string)$task['provider_task_id'], self::buildRequestFromTask($task, $selection));
                 if (!$result->success) {
+                    if (self::isTransientRefreshError((string)$result->error)) {
+                        $task->error = self::friendlyRefreshError((string)$result->error);
+                        $task->update_time = time();
+                        $task->save();
+                        continue;
+                    }
                     $task->status = 'failed';
                     $task->error = $result->error ?: '生成失败';
                     $task->finish_time = time();
@@ -641,6 +677,39 @@ class AigcVideoService
             }
         }
         return false;
+    }
+
+    private static function isTransientRefreshError(string $message): bool
+    {
+        $message = strtolower(trim($message));
+        if ($message === '') {
+            return false;
+        }
+        foreach ([
+            'ssl_error_syscall',
+            'operation timed out',
+            'connection timed out',
+            'connection reset',
+            'failed to connect',
+            'could not resolve host',
+            'network is unreachable',
+            'temporarily unavailable',
+            '供应商网络请求失败',
+            '接口请求超时',
+            '网络请求失败',
+            '连接超时',
+            '连接失败',
+        ] as $needle) {
+            if ($needle !== '' && str_contains($message, strtolower($needle))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function friendlyRefreshError(string $message): string
+    {
+        return self::isTransientRefreshError($message) ? '上游任务查询暂时失败，稍后自动重试' : $message;
     }
 
     private static function buildRequestFromTask(AigcVideoTask $task, array $selection): AigcVideoGenerateRequest
@@ -879,8 +948,9 @@ class AigcVideoService
             }
             $existingRows = self::existingResultRows($tenantId, $userId, (int)$task['id']);
             if ((string)$task['status'] === 'success' || !empty($existingRows)) {
-                if ((string)$task['status'] !== 'success') {
+                if ((string)$task['status'] !== 'success' || (string)$task['error'] !== '') {
                     $task->status = 'success';
+                    $task->error = '';
                     $task->finish_time = $task['finish_time'] ?: time();
                     $task->update_time = time();
                     $task->save();
@@ -951,6 +1021,7 @@ class AigcVideoService
             $costPoints = count($rows);
             self::consumeQuota($tenantId, $userId, $costPoints);
             $task->status = 'success';
+            $task->error = '';
             $task->tenant_cost_points = number_format((float)$estimate['platform_unit_cost'] * $costPoints, 2, '.', '');
             $task->user_charge_points = number_format((float)$estimate['tenant_unit_price'] * $costPoints, 2, '.', '');
             $task->provider_task_id = (string)($videos[0]['provider_task_id'] ?? $task['provider_task_id']);

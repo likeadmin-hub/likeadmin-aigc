@@ -30,6 +30,31 @@ use app\common\model\app\aigc_style_transfer\AigcStyleTransferResult;
 use app\common\model\app\aigc_style_transfer\AigcStyleTransferStyleCategory;
 use app\common\model\app\aigc_style_transfer\AigcStyleTransferStyleTemplate;
 use app\common\model\app\aigc_style_transfer\AigcStyleTransferTask;
+use app\common\model\app\aigc_photo_restore\AigcPhotoRestoreConfig;
+use app\common\model\app\aigc_photo_restore\AigcPhotoRestoreResult;
+use app\common\model\app\aigc_photo_restore\AigcPhotoRestoreTask;
+use app\common\model\app\aigc_photo_restore\AigcPhotoRestoreType;
+use app\common\model\app\aigc_model_wear\AigcModelWearConfig;
+use app\common\model\app\aigc_model_wear\AigcModelWearResult;
+use app\common\model\app\aigc_model_wear\AigcModelWearTask;
+use app\common\model\app\aigc_background_removal\AigcBackgroundRemovalConfig;
+use app\common\model\app\aigc_background_removal\AigcBackgroundRemovalResult;
+use app\common\model\app\aigc_background_removal\AigcBackgroundRemovalTask;
+use app\common\model\app\aigc_image_translate\AigcImageTranslateConfig;
+use app\common\model\app\aigc_image_translate\AigcImageTranslateResult;
+use app\common\model\app\aigc_image_translate\AigcImageTranslateTask;
+use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupConfig;
+use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupOption;
+use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupResult;
+use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupTask;
+use app\common\model\app\aigc_product_multi_angle\AigcProductMultiAngleConfig;
+use app\common\model\app\aigc_product_multi_angle\AigcProductMultiAngleResult;
+use app\common\model\app\aigc_product_multi_angle\AigcProductMultiAngleTask;
+use app\common\model\app\aigc_product_multi_angle\AigcProductMultiAngleView;
+use app\common\model\app\aigc_product_promo_video\AigcProductPromoVideoConfig;
+use app\common\model\app\aigc_product_promo_video\AigcProductPromoVideoResult;
+use app\common\model\app\aigc_product_promo_video\AigcProductPromoVideoTask;
+use app\common\model\app\aigc_product_promo_video\AigcProductPromoVideoType;
 use app\common\model\app\aigc_video\AigcVideoConfig;
 use app\common\model\app\aigc_video\AigcVideoBilling;
 use app\common\model\app\aigc_video\AigcVideoChannel;
@@ -659,6 +684,45 @@ class AppRegistryService
             AigcStyleTransferStyleTemplate::where('id', '>', 0)->delete();
             AigcStyleTransferTask::where('id', '>', 0)->delete();
             AigcStyleTransferResult::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_photo_restore') {
+            AigcPhotoRestoreConfig::where('id', '>', 0)->delete();
+            AigcPhotoRestoreType::where('id', '>', 0)->delete();
+            AigcPhotoRestoreTask::where('id', '>', 0)->delete();
+            AigcPhotoRestoreResult::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_model_wear') {
+            AigcModelWearConfig::where('id', '>', 0)->delete();
+            AigcModelWearTask::where('id', '>', 0)->delete();
+            AigcModelWearResult::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_background_removal') {
+            AigcBackgroundRemovalConfig::where('id', '>', 0)->delete();
+            AigcBackgroundRemovalTask::where('id', '>', 0)->delete();
+            AigcBackgroundRemovalResult::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_image_translate') {
+            AigcImageTranslateConfig::where('id', '>', 0)->delete();
+            AigcImageTranslateTask::where('id', '>', 0)->delete();
+            AigcImageTranslateResult::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_one_click_cleanup') {
+            AigcOneClickCleanupConfig::where('id', '>', 0)->delete();
+            AigcOneClickCleanupOption::where('id', '>', 0)->delete();
+            AigcOneClickCleanupTask::where('id', '>', 0)->delete();
+            AigcOneClickCleanupResult::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_product_multi_angle') {
+            AigcProductMultiAngleConfig::where('id', '>', 0)->delete();
+            AigcProductMultiAngleView::where('id', '>', 0)->delete();
+            AigcProductMultiAngleTask::where('id', '>', 0)->delete();
+            AigcProductMultiAngleResult::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_product_promo_video') {
+            AigcProductPromoVideoConfig::where('id', '>', 0)->delete();
+            AigcProductPromoVideoType::where('id', '>', 0)->delete();
+            AigcProductPromoVideoTask::where('id', '>', 0)->delete();
+            AigcProductPromoVideoResult::where('id', '>', 0)->delete();
         }
     }
 

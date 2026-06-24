@@ -20,6 +20,8 @@ class AppDisplayConfigService
         'aigc_hairstyle',
         'aigc_fitting',
         'aigc_product_image',
+        'aigc_photo_restore',
+        'aigc_model_wear',
     ];
 
     private const DEFAULTS = [
@@ -72,6 +74,16 @@ class AppDisplayConfigService
             'title' => 'AI商品图',
             'description' => '上传商品图后选择场景模板或自定义场景，生成适合电商展示的商品图。',
             'sort' => 64,
+        ],
+        'aigc_photo_restore' => [
+            'title' => '老照片修复',
+            'description' => '上传老照片后选择修复类型、模型和比例，生成清晰自然的修复作品。',
+            'sort' => 63,
+        ],
+        'aigc_model_wear' => [
+            'title' => '模特穿戴',
+            'description' => '上传模特图和穿戴图，选择生成质量与比例，生成自然的穿戴效果图。',
+            'sort' => 62,
         ],
     ];
 

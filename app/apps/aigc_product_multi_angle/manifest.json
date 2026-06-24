@@ -1,0 +1,26 @@
+{
+  "code": "aigc_product_multi_angle",
+  "name": "商品多角度",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "面向商品图的 AI 商品多角度工具，支持单图上传、多选视角和租户独立按视角定价。",
+  "changelog": "1. 新增商品多角度工具。\n2. 支持租户配置视角选项和按视角售价。\n3. 支持 PC 端单图生成多视角作品。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 849,
+  "frontends": ["tenant", "pc"],
+  "api_prefix": "/app/aigc_product_multi_angle",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    { "terminal": "tenant", "entry_key": "aigc_product_multi_angle_admin", "name": "商品多角度", "path": "/app/aigc_product_multi_angle", "icon": "el-icon-Picture", "sort": 91, "status": 1 },
+    { "terminal": "pc", "entry_key": "aigc_product_multi_angle", "name": "商品多角度", "path": "/ai/tools/aigc_product_multi_angle", "icon": "resource/image/common/menu_generator.png", "sort": 84, "status": 1 }
+  ],
+  "dependencies": [
+    { "app_code": "aigc_image", "name": "AIGC生图", "required_for": "商品多角度生成" }
+  ]
+}

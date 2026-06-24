@@ -10,9 +10,10 @@
   { "permission_key": "aigc_style_transfer:style_template:save", "name": "保存图片风格化模板", "api_path": "app.aigc_style_transfer.style_template/save", "api_method": "POST" },
   { "permission_key": "aigc_style_transfer:style_template:status", "name": "设置图片风格化模板状态", "api_path": "app.aigc_style_transfer.style_template/status", "api_method": "POST" },
   { "permission_key": "aigc_style_transfer:style_template:delete", "name": "删除图片风格化模板", "api_path": "app.aigc_style_transfer.style_template/delete", "api_method": "POST" },
+  { "permission_key": "aigc_style_transfer:price:detail", "name": "查看图片风格化价格", "api_path": "app.aigc_style_transfer.price/detail", "api_method": "GET" },
+  { "permission_key": "aigc_style_transfer:price:setup", "name": "保存图片风格化价格", "api_path": "app.aigc_style_transfer.price/setup", "api_method": "POST" },
   { "permission_key": "aigc_style_transfer:task:lists", "name": "查看图片风格化任务", "api_path": "app.aigc_style_transfer.task/lists", "api_method": "GET" },
   { "permission_key": "aigc_style_transfer:task:detail", "name": "查看图片风格化任务详情", "api_path": "app.aigc_style_transfer.task/detail", "api_method": "GET" },
   { "permission_key": "aigc_style_transfer:task:retry", "name": "重试图片风格化任务", "api_path": "app.aigc_style_transfer.task/retry", "api_method": "POST" },
   { "permission_key": "aigc_style_transfer:task:delete", "name": "删除图片风格化任务", "api_path": "app.aigc_style_transfer.task/delete", "api_method": "POST" }
 ]
-
