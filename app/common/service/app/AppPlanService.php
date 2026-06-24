@@ -47,8 +47,8 @@ class AppPlanService
         if ($durationMonths <= 0) {
             throw new RuntimeException('套餐时长必须大于0个月');
         }
-        if ($openPoints <= 0 || $renewPoints <= 0) {
-            throw new RuntimeException('开通点数和续费点数必须大于0');
+        if ($openPoints < 0 || $renewPoints < 0) {
+            throw new RuntimeException('开通点数和续费点数不能小于0');
         }
 
         $data = [
@@ -161,14 +161,16 @@ class AppPlanService
 
             $orderSn = generate_sn(TenantAppOrder::class, 'order_sn', 'AO', 6);
             $remark = $orderType === self::ORDER_OPEN ? '应用开通' : '应用续签';
-            TenantPointService::consume($tenantId, $points, $orderSn, $remark, [
-                'app_code' => $appCode,
-                'plan_id' => (int)$plan['id'],
-                'plan_name' => (string)$plan['name'],
-                'order_type' => $orderType,
-                'operator_type' => 'tenant_admin',
-                'operator_id' => $operatorId,
-            ]);
+            if ($points > 0) {
+                TenantPointService::consume($tenantId, $points, $orderSn, $remark, [
+                    'app_code' => $appCode,
+                    'plan_id' => (int)$plan['id'],
+                    'plan_name' => (string)$plan['name'],
+                    'order_type' => $orderType,
+                    'operator_type' => 'tenant_admin',
+                    'operator_id' => $operatorId,
+                ]);
+            }
 
             $tenantAppData = [
                 'tenant_id' => $tenantId,
