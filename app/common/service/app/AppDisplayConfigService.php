@@ -226,6 +226,7 @@ class AppDisplayConfigService
                 $data['title'] = trim((string)($appData['name'] ?? $manifest['name'] ?? $data['title'])) ?: $data['title'];
                 $data['description'] = trim((string)($appData['description'] ?? $manifest['description'] ?? $data['description'])) ?: $data['description'];
             }
+            $data['cover_uri'] = trim((string)($appData['cover'] ?? $manifest['cover'] ?? $manifestMeta['cover'] ?? $data['cover_uri']));
             $data['sort'] = (int)($appData['sort'] ?? $manifestMeta['sort'] ?? $manifest['sort'] ?? $data['sort']);
         }
         return $data;

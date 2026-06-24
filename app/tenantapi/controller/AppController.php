@@ -30,6 +30,11 @@ class AppController extends BaseAdminController
             $tenantApp = $tenantApps[$app['code']] ?? [];
             $display = $displayMap[$app['code']] ?? [];
             $app['display_config'] = $display;
+            $app['cover_url'] = self::firstImageUrl(
+                $display['cover_url'] ?? '',
+                $display['cover_uri'] ?? '',
+                $app['cover'] ?? ''
+            );
             $app['icon_url'] = $cloudIconMap[$app['code']] ?? self::imageUrl((string)($app['icon'] ?? ''));
             $isBuiltin = (int)($app['is_builtin'] ?? 0) === 1 || DefaultAppService::isDefaultApp((string)$app['code']);
             $app['is_builtin'] = $isBuiltin ? 1 : (int)($app['is_builtin'] ?? 0);
@@ -73,6 +78,11 @@ class AppController extends BaseAdminController
             $listedCodes[] = (string)$item['app_code'];
             $item['name'] = $app['name'] ?? $item['app_code'];
             $item['icon'] = $app['icon'] ?? '';
+            $item['cover_url'] = self::firstImageUrl(
+                $display['cover_url'] ?? '',
+                $display['cover_uri'] ?? '',
+                $app['cover'] ?? ''
+            );
             $item['icon_url'] = $cloudIconMap[$item['app_code']] ?? self::imageUrl((string)($app['icon'] ?? ''));
             $item['display_config'] = $display;
             $item['description'] = $app['description'] ?? '';
@@ -103,6 +113,11 @@ class AppController extends BaseAdminController
                 'expire_time' => 0,
                 'name' => $app['name'],
                 'icon' => $app['icon'],
+                'cover_url' => self::firstImageUrl(
+                    $displayMap[$app['code']]['cover_url'] ?? '',
+                    $displayMap[$app['code']]['cover_uri'] ?? '',
+                    $app['cover'] ?? ''
+                ),
                 'icon_url' => $cloudIconMap[$app['code']] ?? self::imageUrl((string)($app['icon'] ?? '')),
                 'display_config' => $displayMap[$app['code']] ?? [],
                 'description' => $app['description'],
@@ -245,5 +260,11 @@ class AppController extends BaseAdminController
             }
         }
         return '';
+    }
+
+    private static function firstImageUrl(...$values): string
+    {
+        $image = self::firstImageValue(...$values);
+        return $image === '' ? '' : self::imageUrl($image);
     }
 }

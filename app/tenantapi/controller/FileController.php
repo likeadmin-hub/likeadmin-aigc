@@ -77,7 +77,9 @@ class FileController extends BaseAdminController
     public function delete()
     {
         $params = (new FileValidate())->post()->goCheck('delete');
-        FileLogic::delete($params);
+        if (false === FileLogic::delete($params)) {
+            return $this->fail(FileLogic::getError());
+        }
         return $this->success('删除成功', [], 1, 1);
     }
 

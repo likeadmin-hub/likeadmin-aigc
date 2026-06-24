@@ -319,7 +319,7 @@ class AigcImageService
             throw new Exception('任务不存在');
         }
         $data = $task->toArray();
-        $data['results'] = self::resultLists($tenantId, $userId, $taskId);
+        $data['results'] = self::existingResultRows($tenantId, $userId, $taskId);
         return $data;
     }
 
@@ -618,7 +618,11 @@ class AigcImageService
             if (!method_exists($provider, 'fetchResult')) {
                 continue;
             }
-            $result = $provider->fetchResult((string)$task['provider_task_id'], self::buildRequestFromTask($task, $selection));
+            try {
+                $result = $provider->fetchResult((string)$task['provider_task_id'], self::buildRequestFromTask($task, $selection));
+            } catch (\Throwable) {
+                continue;
+            }
             if (!$result->success) {
                 $task->status = 'failed';
                 $task->error = $result->error ?: '生成失败';
@@ -628,6 +632,7 @@ class AigcImageService
                 continue;
             }
             if (empty($result->images)) {
+                self::finishOverdueAsyncTask($task, $selection);
                 continue;
             }
             $estimate = [
@@ -657,6 +662,69 @@ class AigcImageService
                 'user_id' => (int)$task['user_id'],
             ])
         );
+    }
+
+    private static function finishOverdueAsyncTask(AigcImageTask $task, array $selection): void
+    {
+        $timeout = self::asyncProcessingTimeoutSeconds($selection);
+        if ($timeout <= 0) {
+            return;
+        }
+        $createTime = self::timestampValue($task['create_time'] ?? 0);
+        if ($createTime <= 0 || (time() - $createTime) < $timeout) {
+            return;
+        }
+        $tenantId = (int)$task['tenant_id'];
+        $userId = (int)$task['user_id'];
+        $taskId = (int)$task['id'];
+        if (!empty(self::existingResultRows($tenantId, $userId, $taskId))) {
+            $latest = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->findOrEmpty();
+            if (!$latest->isEmpty() && (string)$latest['status'] !== 'success') {
+                $latest->status = 'success';
+                $latest->finish_time = $latest['finish_time'] ?: time();
+                $latest->update_time = time();
+                $latest->save();
+            }
+            return;
+        }
+        $latest = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $taskId])
+            ->where('status', 'running')
+            ->findOrEmpty();
+        if ($latest->isEmpty()) {
+            return;
+        }
+        $latest->status = 'failed';
+        $latest->error = '上游任务长时间未返回结果，请联系平台管理员在接口渠道侧同步任务结果后重试';
+        $latest->finish_time = time();
+        $latest->update_time = time();
+        $latest->save();
+    }
+
+    private static function asyncProcessingTimeoutSeconds(array $selection): int
+    {
+        $config = is_array($selection['channel']['config_json'] ?? null) ? $selection['channel']['config_json'] : [];
+        foreach (['max_processing_seconds', 'async_timeout_seconds', 'task_timeout_seconds'] as $key) {
+            if (array_key_exists($key, $config)) {
+                return max(0, (int)$config[$key]);
+            }
+        }
+        $provider = strtolower((string)($selection['channel']['provider'] ?? ''));
+        if (in_array($provider, ['gpt_image_2_pro', 'gpt_image_2_fast'], true)) {
+            return 3600;
+        }
+        return 3600;
+    }
+
+    private static function timestampValue(mixed $value): int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+        if (is_numeric($value)) {
+            return (int)$value;
+        }
+        $timestamp = strtotime((string)$value);
+        return $timestamp === false ? 0 : $timestamp;
     }
 
     private static function providerParamsForRequest(array $specParams, array $params): array

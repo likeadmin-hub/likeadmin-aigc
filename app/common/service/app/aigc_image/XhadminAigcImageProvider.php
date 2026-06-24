@@ -46,6 +46,14 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             }
             return $this->buildResultFromTask($task, $taskId, $request, $config);
         } catch (\Throwable $e) {
+            if ($this->isTransientFetchError($e->getMessage())) {
+                Log::write('AIGC生图供应商任务查询暂时失败: ' . json_encode([
+                    'provider' => 'xhadmin_aigc_image',
+                    'task_id' => $taskId,
+                    'message' => $e->getMessage(),
+                ], JSON_UNESCAPED_UNICODE));
+                return new AigcImageGenerateResult(true, [], '', $taskId);
+            }
             return new AigcImageGenerateResult(false, [], $this->friendlyError($e->getMessage()), $taskId);
         }
     }
@@ -387,6 +395,24 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             str_contains($lower, 'queue_limit_exceeded') => '供应商排队任务已满，请稍后再试',
             default => $message,
         };
+    }
+
+    private function isTransientFetchError(string $message): bool
+    {
+        $lower = strtolower($message);
+        return str_contains($lower, 'timed out')
+            || str_contains($lower, 'timeout')
+            || str_contains($lower, 'failed to connect')
+            || str_contains($lower, 'could not connect')
+            || str_contains($lower, 'couldn\'t connect')
+            || str_contains($lower, 'connection refused')
+            || str_contains($lower, 'connection reset')
+            || str_contains($lower, 'connection aborted')
+            || str_contains($lower, 'empty reply')
+            || str_contains($lower, 'temporary failure')
+            || str_contains($lower, 'name lookup timed out')
+            || str_contains($lower, 'resolve host')
+            || str_contains($lower, '响应格式错误');
     }
 
     private function logTaskFailure(string $taskId, string $status, string $message, array $task): void

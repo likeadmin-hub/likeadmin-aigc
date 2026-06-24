@@ -21,6 +21,7 @@ use app\common\model\file\TenantFile;
 use app\common\model\file\TenantFileCate;
 use app\common\service\storage\Driver as StorageDriver;
 use app\common\service\storage\StorageConfigService;
+use think\facade\Log;
 
 /**
  * 文件逻辑层
@@ -69,20 +70,59 @@ class FileLogic extends BaseLogic
      */
     public static function delete($params)
     {
-        $result = TenantFile::whereIn('id', $params['ids'])
+        $ids = array_values(array_filter(array_map('intval', $params['ids'] ?? [])));
+        if (empty($ids)) {
+            self::setError('请选择要删除的素材');
+            return false;
+        }
+
+        $result = TenantFile::whereIn('id', $ids)
             ->where('source', FileEnum::SOURCE_ADMIN)
             ->select();
-        foreach ($result as $item) {
-            $StorageDriver = new StorageDriver(StorageConfigService::getStoredFileConfig(
-                (int)(request()->tenantId ?? 0),
-                (string)($item['storage_scope'] ?? ''),
-                (string)($item['storage_engine'] ?? '')
-            ));
-            $StorageDriver->delete($item['uri']);
+
+        if (count($result) === 0) {
+            self::setError('素材不存在或已删除');
+            return false;
         }
-        TenantFile::whereIn('id', $params['ids'])
+
+        $deleted = TenantFile::whereIn('id', $ids)
             ->where('source', FileEnum::SOURCE_ADMIN)
-            ->delete();
+            ->update([
+                'delete_time' => time(),
+                'update_time' => time(),
+            ]);
+
+        if (!$deleted) {
+            self::setError('素材删除失败');
+            return false;
+        }
+
+        foreach ($result as $item) {
+            try {
+                $storageDriver = new StorageDriver(StorageConfigService::getStoredFileConfig(
+                    (int)(request()->tenantId ?? 0),
+                    (string)($item['storage_scope'] ?? ''),
+                    (string)($item['storage_engine'] ?? '')
+                ));
+                if (!$storageDriver->delete($item['uri'])) {
+                    Log::write('租户素材物理文件删除失败: ' . json_encode([
+                        'tenant_id' => (int)(request()->tenantId ?? 0),
+                        'file_id' => (int)$item['id'],
+                        'uri' => (string)$item['uri'],
+                        'error' => (string)$storageDriver->getError(),
+                    ], JSON_UNESCAPED_UNICODE));
+                }
+            } catch (\Throwable $e) {
+                Log::write('租户素材物理文件删除异常: ' . json_encode([
+                    'tenant_id' => (int)(request()->tenantId ?? 0),
+                    'file_id' => (int)$item['id'],
+                    'uri' => (string)$item['uri'],
+                    'error' => $e->getMessage(),
+                ], JSON_UNESCAPED_UNICODE));
+            }
+        }
+
+        return true;
     }
 
     /**
