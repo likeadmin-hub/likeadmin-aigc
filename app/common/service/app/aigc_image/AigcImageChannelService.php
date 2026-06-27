@@ -12,6 +12,8 @@ class AigcImageChannelService
 {
     public const QUANTITY_OPTIONS = [1, 2, 3, 4];
     public const DEFAULT_REFERENCE_LIMIT = 4;
+    private const GPT_IMAGE_2_PRO_RATIOS = ['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '3:1', '1:3', '21:9', '9:21'];
+    private const GPT_IMAGE_2_FAST_RATIOS = ['1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '3:1', '1:3', '21:9', '9:21'];
 
     public static function userConfig(int $tenantId): array
     {
@@ -512,17 +514,31 @@ class AigcImageChannelService
     private static function channelRatioOptions(array $channel): array
     {
         $config = self::normalizeJson($channel['config_json'] ?? []);
-        if (empty($config['ratio_options']) || !is_array($config['ratio_options'])) {
-            return [];
+        $configuredOptions = $config['ratio_options'] ?? [];
+        if (empty($configuredOptions) || !is_array($configuredOptions)) {
+            $configuredOptions = self::defaultRatioOptions($channel);
         }
         $options = [];
-        foreach ($config['ratio_options'] as $option) {
+        foreach ($configuredOptions as $option) {
             $ratio = trim((string)$option);
             if ($ratio !== '' && !in_array($ratio, $options, true)) {
                 $options[] = $ratio;
             }
         }
         return $options;
+    }
+
+    private static function defaultRatioOptions(array $channel): array
+    {
+        $code = (string)($channel['code'] ?? '');
+        $provider = (string)($channel['provider'] ?? '');
+        if (in_array($code, ['gpt_image_2_pro', 'images2_pro'], true) || in_array($provider, ['gpt_image_2_pro', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim'], true)) {
+            return self::GPT_IMAGE_2_PRO_RATIOS;
+        }
+        if (in_array($code, ['gpt_image_2_fast', 'images2_fast'], true) || $provider === 'gpt_image_2_fast') {
+            return self::GPT_IMAGE_2_FAST_RATIOS;
+        }
+        return [];
     }
 
     private static function expandVirtualRatioSpecs(array $baseSpec, array $ratioOptions): array
