@@ -11,8 +11,12 @@ class CaseController extends BaseApiController
 
     public function lists()
     {
+        $tenantId = (int)($this->request->tenantId ?? 0);
+        if ($tenantId <= 0) {
+            $tenantId = (int)$this->request->get('tenant_id', 0);
+        }
         return $this->success('获取成功', CaseGalleryService::lists(
-            (int)$this->request->tenantId,
+            $tenantId,
             $this->request->get(),
             true
         ));
