@@ -36,42 +36,6 @@
     "api_method": "POST"
   },
   {
-    "permission_key": "aigc_digital_human:case:lists",
-    "name": "查看数字人案例",
-    "api_path": "app.aigc_digital_human.case/lists",
-    "api_method": "GET"
-  },
-  {
-    "permission_key": "aigc_digital_human:case:detail",
-    "name": "查看数字人案例详情",
-    "api_path": "app.aigc_digital_human.case/detail",
-    "api_method": "GET"
-  },
-  {
-    "permission_key": "aigc_digital_human:case:save",
-    "name": "保存数字人案例",
-    "api_path": "app.aigc_digital_human.case/save",
-    "api_method": "POST"
-  },
-  {
-    "permission_key": "aigc_digital_human:case:from_task",
-    "name": "任务设为数字人案例",
-    "api_path": "app.aigc_digital_human.case/fromTask",
-    "api_method": "POST"
-  },
-  {
-    "permission_key": "aigc_digital_human:case:status",
-    "name": "设置数字人案例状态",
-    "api_path": "app.aigc_digital_human.case/status",
-    "api_method": "POST"
-  },
-  {
-    "permission_key": "aigc_digital_human:case:delete",
-    "name": "删除数字人案例",
-    "api_path": "app.aigc_digital_human.case/delete",
-    "api_method": "POST"
-  },
-  {
     "permission_key": "aigc_digital_human:public_avatar:lists",
     "name": "查看公共形象",
     "api_path": "app.aigc_digital_human.public_avatar/lists",

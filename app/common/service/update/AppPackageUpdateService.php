@@ -37,7 +37,6 @@ class AppPackageUpdateService
         if (!in_array($action, ['install', 'update'], true)) {
             throw new RuntimeException('应用包操作类型不支持');
         }
-        (new UpdateLicenseService())->assertAppUpdateAllowed($appCode, $targetVersion);
         $current = App::where('code', $appCode)->value('current_version') ?: '';
         $data = (new UpdateSourceClient())->request(UpdateSourceClient::path('apps/package'), [
             'app_code' => $appCode,

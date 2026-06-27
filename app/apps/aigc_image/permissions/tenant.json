@@ -36,42 +36,6 @@
     "api_method": "POST"
   },
   {
-    "permission_key": "aigc_image:case:lists",
-    "name": "查看AIGC案例",
-    "api_path": "app.aigc_image.case/lists",
-    "api_method": "GET"
-  },
-  {
-    "permission_key": "aigc_image:case:detail",
-    "name": "查看AIGC案例详情",
-    "api_path": "app.aigc_image.case/detail",
-    "api_method": "GET"
-  },
-  {
-    "permission_key": "aigc_image:case:save",
-    "name": "保存AIGC案例",
-    "api_path": "app.aigc_image.case/save",
-    "api_method": "POST"
-  },
-  {
-    "permission_key": "aigc_image:case:from_task",
-    "name": "任务设为AIGC案例",
-    "api_path": "app.aigc_image.case/fromTask",
-    "api_method": "POST"
-  },
-  {
-    "permission_key": "aigc_image:case:status",
-    "name": "设置AIGC案例状态",
-    "api_path": "app.aigc_image.case/status",
-    "api_method": "POST"
-  },
-  {
-    "permission_key": "aigc_image:case:delete",
-    "name": "删除AIGC案例",
-    "api_path": "app.aigc_image.case/delete",
-    "api_method": "POST"
-  },
-  {
     "permission_key": "aigc_image:quota:lists",
     "name": "查看AIGC生图额度",
     "api_path": "app.aigc_image.admin/quota",

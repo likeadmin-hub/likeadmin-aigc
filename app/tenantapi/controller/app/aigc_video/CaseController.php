@@ -2,9 +2,9 @@
 
 namespace app\tenantapi\controller\app\aigc_video;
 
-use app\common\service\app\AppCaseService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\app\aigc_video\AigcVideoService;
+use app\common\service\case_gallery\CaseGalleryService;
 use app\tenantapi\controller\BaseAdminController;
 use Exception;
 
@@ -17,7 +17,7 @@ class CaseController extends BaseAdminController
 
     public function lists()
     {
-        return $this->success('获取成功', AppCaseService::listsByAppCodes(
+        return $this->success('获取成功', CaseGalleryService::listsByAppCodes(
             $this->tenantId,
             $this->allowedAppCodes(),
             $this->request->get()
@@ -27,7 +27,7 @@ class CaseController extends BaseAdminController
     public function detail()
     {
         try {
-            return $this->success('获取成功', AppCaseService::detailByAppCodes(
+            return $this->success('获取成功', CaseGalleryService::detailByAppCodes(
                 $this->tenantId,
                 $this->allowedAppCodes(),
                 (int)$this->request->get('id', 0)
@@ -40,7 +40,7 @@ class CaseController extends BaseAdminController
     public function save()
     {
         try {
-            return $this->success('保存成功', AppCaseService::saveByAppCodes(
+            return $this->success('保存成功', CaseGalleryService::saveByAppCodes(
                 $this->tenantId,
                 $this->allowedAppCodes(),
                 $this->request->post(),
@@ -67,7 +67,7 @@ class CaseController extends BaseAdminController
     public function status()
     {
         try {
-            AppCaseService::setStatusByAppCodes(
+            CaseGalleryService::setStatusByAppCodes(
                 $this->tenantId,
                 $this->allowedAppCodes(),
                 (int)$this->request->post('id', 0),
@@ -82,7 +82,7 @@ class CaseController extends BaseAdminController
     public function delete()
     {
         try {
-            AppCaseService::deleteByAppCodes($this->tenantId, $this->allowedAppCodes(), (int)$this->request->post('id', 0));
+            CaseGalleryService::deleteByAppCodes($this->tenantId, $this->allowedAppCodes(), (int)$this->request->post('id', 0));
             return $this->success('删除成功', [], 1, 1);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());

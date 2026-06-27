@@ -145,12 +145,6 @@ VALUES ('aigc_product_suite','1.0.0','>=1.0.0','local','{"code":"aigc_product_su
 3. 支持 PC 端单图生成多模块作品。',1,UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE `require_core`=VALUES(`require_core`),`package_path`=VALUES(`package_path`),`manifest_json`=VALUES(`manifest_json`),`changelog`=VALUES(`changelog`),`status`=VALUES(`status`);
 
-INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-SELECT `id`,'aigc_product_suite','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant`
-UNION ALL
-SELECT 0,'aigc_product_suite','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
-ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
-
 DELETE FROM `la_tenant_system_menu` WHERE `app_code`='aigc_product_suite' AND `source`='app';
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT t.`id`,0,'M','AI商品套图','el-icon-Picture',84,'','aigc-product-suite','','','',0,1,0,'aigc_product_suite','app','aigc_product_suite',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()

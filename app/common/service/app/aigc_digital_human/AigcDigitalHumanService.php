@@ -37,6 +37,7 @@ class AigcDigitalHumanService
     private const VOICE_CLONE_DUPLICATE_SECONDS = 600;
     private const VOICE_CLONE_SUBMIT_STALE_SECONDS = 300;
     private const VOICE_CLONE_TASK_PREFIX = 'task:';
+    private const REMOTE_AUDIO_PROBE_BYTES = 1048576;
 
     public static function config(int $tenantId): array
     {
@@ -1874,7 +1875,10 @@ class AigcDigitalHumanService
                     return;
                 }
                 $audio = AigcDigitalHumanAssetService::persistGeneratedAudio($audioUrl, (int)$task['tenant_id'], (int)$task['user_id']);
-                $storedAudioUrl = !empty($audio['stored']) ? self::fileUrlForTenant((string)$audio['uri'], (int)$task['tenant_id']) : (string)($audio['uri'] ?? $audioUrl);
+                $storedAudioUrl = (string)($audio['url'] ?? '');
+                if ($storedAudioUrl === '') {
+                    $storedAudioUrl = !empty($audio['stored']) ? self::fileUrlForTenant((string)$audio['uri'], (int)$task['tenant_id']) : (string)($audio['uri'] ?? $audioUrl);
+                }
                 $audioDuration = (int)($audio['duration'] ?? 0);
                 $audioDuration = $audioDuration > 0 ? $audioDuration : max(1, (int)$task['duration']);
                 $task->save([
@@ -2290,6 +2294,10 @@ class AigcDigitalHumanService
     private static function resolveGenerateBillableDuration($task, int $fallbackDuration = 0): int
     {
         $tenantId = (int)($task['tenant_id'] ?? 0);
+        $storedDuration = (int)($task['duration'] ?? 0);
+        if ($storedDuration > 0) {
+            return $storedDuration;
+        }
         $audioUri = (string)($task['tts_audio_uri'] ?? '');
         $audioDuration = $audioUri !== '' ? self::detectAudioDurationFromUri($audioUri, $tenantId) : 0;
         if ($audioDuration > 0) {
@@ -2303,6 +2311,10 @@ class AigcDigitalHumanService
 
     private static function displayDurationForTask(array $task): int
     {
+        $storedDuration = (int)($task['duration'] ?? 0);
+        if ($storedDuration > 0) {
+            return $storedDuration;
+        }
         $audioUri = (string)($task['tts_audio_uri'] ?? '');
         if ($audioUri !== '') {
             $audioDuration = self::detectAudioDurationFromUri($audioUri, (int)($task['tenant_id'] ?? 0));
@@ -2310,7 +2322,7 @@ class AigcDigitalHumanService
                 return $audioDuration;
             }
         }
-        return (int)($task['duration'] ?? 0);
+        return 0;
     }
 
     private static function validateVoiceCloneDuration(string $audioUri, array $params, int $tenantId = 0): int
@@ -2365,14 +2377,29 @@ class AigcDigitalHumanService
     {
         $context = stream_context_create([
             'http' => [
-                'timeout' => 20,
+                'timeout' => 8,
                 'follow_location' => 1,
                 'ignore_errors' => true,
-                'header' => "User-Agent: LikeAdminAigcDurationProbe/1.0\r\n",
+                'header' => "User-Agent: LikeAdminAigcDurationProbe/1.0\r\nRange: bytes=0-" . (self::REMOTE_AUDIO_PROBE_BYTES - 1) . "\r\n",
             ],
         ]);
-        $data = @file_get_contents($url, false, $context);
-        if ($data === false || $data === '') {
+        $stream = @fopen($url, 'rb', false, $context);
+        if (!is_resource($stream)) {
+            return 0;
+        }
+        $data = '';
+        try {
+            while (!feof($stream) && strlen($data) < self::REMOTE_AUDIO_PROBE_BYTES) {
+                $chunk = fread($stream, min(8192, self::REMOTE_AUDIO_PROBE_BYTES - strlen($data)));
+                if ($chunk === false || $chunk === '') {
+                    break;
+                }
+                $data .= $chunk;
+            }
+        } finally {
+            fclose($stream);
+        }
+        if ($data === '') {
             return 0;
         }
         $duration = self::detectAudioDurationByFfprobeData($data);

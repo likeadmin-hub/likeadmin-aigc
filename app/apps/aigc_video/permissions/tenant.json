@@ -36,42 +36,6 @@
     "api_method": "POST"
   },
   {
-    "permission_key": "aigc_video:case:lists",
-    "name": "查看AIGC案例",
-    "api_path": "app.aigc_video.case/lists",
-    "api_method": "GET"
-  },
-  {
-    "permission_key": "aigc_video:case:detail",
-    "name": "查看AIGC案例详情",
-    "api_path": "app.aigc_video.case/detail",
-    "api_method": "GET"
-  },
-  {
-    "permission_key": "aigc_video:case:save",
-    "name": "保存AIGC案例",
-    "api_path": "app.aigc_video.case/save",
-    "api_method": "POST"
-  },
-  {
-    "permission_key": "aigc_video:case:from_task",
-    "name": "任务设为AIGC案例",
-    "api_path": "app.aigc_video.case/fromTask",
-    "api_method": "POST"
-  },
-  {
-    "permission_key": "aigc_video:case:status",
-    "name": "设置AIGC案例状态",
-    "api_path": "app.aigc_video.case/status",
-    "api_method": "POST"
-  },
-  {
-    "permission_key": "aigc_video:case:delete",
-    "name": "删除AIGC案例",
-    "api_path": "app.aigc_video.case/delete",
-    "api_method": "POST"
-  },
-  {
     "permission_key": "aigc_video:quota:lists",
     "name": "查看AIGC视频额度",
     "api_path": "app.aigc_video.admin/quota",

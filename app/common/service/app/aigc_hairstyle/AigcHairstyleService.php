@@ -48,13 +48,18 @@ class AigcHairstyleService
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::config($tenantId);
         $operation = self::normalizeOperation($params['default_operation'] ?? $current['default_operation']);
+        $configJson = $params['config_json'] ?? $current['config_json'] ?? [];
+        if (is_array($configJson) && !array_key_exists('operation_prices', $configJson)) {
+            $currentConfigJson = is_array($current['config_json'] ?? null) ? $current['config_json'] : [];
+            $configJson['operation_prices'] = $currentConfigJson['operation_prices'] ?? [];
+        }
         $data = [
             'tenant_id' => $tenantId,
             'status' => array_key_exists('status', $params) ? (int)$params['status'] : (int)$current['status'],
             'default_operation' => $operation,
             'prompt_template' => self::normalizeTemplate((string)($params['prompt_template'] ?? $current['prompt_template'])),
             'negative_prompt' => trim((string)($params['negative_prompt'] ?? $current['negative_prompt'])),
-            'config_json' => self::normalizeConfigJson($params['config_json'] ?? $current['config_json'] ?? []),
+            'config_json' => self::normalizeConfigJson($configJson),
             'update_time' => time(),
         ];
 

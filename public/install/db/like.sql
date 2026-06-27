@@ -2689,6 +2689,14 @@ ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`path`=VALUES(`path`),`icon`=VALUE
 
 INSERT INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`)
 VALUES
+('case_gallery','case_gallery.case/lists','GET','case_gallery:case:lists','tenant_admin',1,1,1,1778000000,1778000000),
+('case_gallery','case_gallery.case/apps','GET','case_gallery:case:apps','tenant_admin',1,1,1,1778000000,1778000000),
+('case_gallery','case_gallery.case/detail','GET','case_gallery:case:detail','tenant_admin',1,1,1,1778000000,1778000000),
+('case_gallery','case_gallery.case/save','POST','case_gallery:case:save','tenant_admin',1,1,1,1778000000,1778000000),
+('case_gallery','case_gallery.case/fromTask','POST','case_gallery:case:from_task','tenant_admin',1,1,1,1778000000,1778000000),
+('case_gallery','case_gallery.case/status','POST','case_gallery:case:status','tenant_admin',1,1,1,1778000000,1778000000),
+('case_gallery','case_gallery.case/delete','POST','case_gallery:case:delete','tenant_admin',1,1,1,1778000000,1778000000),
+('case_gallery','case_gallery.case/lists','GET','case_gallery:case:lists:user','user',0,0,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.config/detail','GET','aigc_image:config:detail','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.config/setup','POST','aigc_image:config:setup','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.config/detail','GET','aigc_image:config:detail:platform','platform_admin',1,1,1,1778000000,1778000000),
@@ -2698,12 +2706,6 @@ VALUES
 ('aigc_image','app.aigc_image.admin_task/detail','GET','aigc_image:task:detail','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.admin_task/retry','POST','aigc_image:task:retry','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.admin_task/delete','POST','aigc_image:task:delete','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_image','app.aigc_image.case/lists','GET','aigc_image:case:lists','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_image','app.aigc_image.case/detail','GET','aigc_image:case:detail','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_image','app.aigc_image.case/save','POST','aigc_image:case:save','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_image','app.aigc_image.case/fromTask','POST','aigc_image:case:from_task','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_image','app.aigc_image.case/status','POST','aigc_image:case:status','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_image','app.aigc_image.case/delete','POST','aigc_image:case:delete','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.admin/quota','GET','aigc_image:quota:lists','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.admin/quota','POST','aigc_image:quota:save','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_image','app.aigc_image.admin/sensitiveWord','GET','aigc_image:sensitive_word:lists','tenant_admin',1,1,1,1778000000,1778000000),
@@ -2739,12 +2741,6 @@ VALUES
 ('aigc_video','app.aigc_video.admin_task/detail','GET','aigc_video:task:detail','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.admin_task/retry','POST','aigc_video:task:retry','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.admin_task/delete','POST','aigc_video:task:delete','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_video','app.aigc_video.case/lists','GET','aigc_video:case:lists','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_video','app.aigc_video.case/detail','GET','aigc_video:case:detail','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_video','app.aigc_video.case/save','POST','aigc_video:case:save','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_video','app.aigc_video.case/fromTask','POST','aigc_video:case:from_task','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_video','app.aigc_video.case/status','POST','aigc_video:case:status','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_video','app.aigc_video.case/delete','POST','aigc_video:case:delete','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.admin/quota','GET','aigc_video:quota:lists','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.admin/quota','POST','aigc_video:quota:save','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_video','app.aigc_video.admin/sensitiveWord','GET','aigc_video:sensitive_word:lists','tenant_admin',1,1,1,1778000000,1778000000),
@@ -2780,12 +2776,6 @@ VALUES
 ('aigc_digital_human','app.aigc_digital_human.admin_task/detail','GET','aigc_digital_human:task:detail','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_digital_human','app.aigc_digital_human.admin_task/retry','POST','aigc_digital_human:task:retry','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_digital_human','app.aigc_digital_human.admin_task/delete','POST','aigc_digital_human:task:delete','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_digital_human','app.aigc_digital_human.case/lists','GET','aigc_digital_human:case:lists','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_digital_human','app.aigc_digital_human.case/detail','GET','aigc_digital_human:case:detail','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_digital_human','app.aigc_digital_human.case/save','POST','aigc_digital_human:case:save','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_digital_human','app.aigc_digital_human.case/fromTask','POST','aigc_digital_human:case:from_task','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_digital_human','app.aigc_digital_human.case/status','POST','aigc_digital_human:case:status','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_digital_human','app.aigc_digital_human.case/delete','POST','aigc_digital_human:case:delete','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_digital_human','app.aigc_digital_human.public_avatar/lists','GET','aigc_digital_human:public_avatar:lists','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_digital_human','app.aigc_digital_human.public_avatar/save','POST','aigc_digital_human:public_avatar:save','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_digital_human','app.aigc_digital_human.public_avatar/delete','POST','aigc_digital_human:public_avatar:delete','tenant_admin',1,1,1,1778000000,1778000000),
@@ -4345,7 +4335,13 @@ INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`
 VALUES
 (9104,0,0,'M','AIGC生图','el-icon-Picture',100,'','aigc-image','','','',0,1,0,'aigc_image','app','aigc_image',0,1778000000,1778000000),
 (9105,0,9104,'C','生图任务','',0,'app.aigc_image.admin_task/lists','task','apps/aigc_image/task','','',0,1,0,'aigc_image','app','aigc_image_task',0,1778000000,1778000000),
-(9106,0,0,'C','案例广场','el-icon-PictureFilled',98,'app.aigc_image.case/lists','aigc-image-case','apps/aigc_image/case','aigc-image-case','',0,1,0,'aigc_image','app','aigc_image_case',0,1778000000,1778000000),
+(9106,0,0,'C','案例广场','el-icon-PictureFilled',98,'case_gallery.case/lists','case-gallery','case_gallery/index','/case-gallery','',0,1,0,'','core','core_tenant_case_gallery',1,1778000000,1778000000),
+(9300,0,9106,'A','应用选项','',0,'case_gallery.case/apps','','','','',0,0,0,'','core','core_tenant_case_gallery_apps',1,1778000000,1778000000),
+(9301,0,9106,'A','详情','',0,'case_gallery.case/detail','','','','',0,0,0,'','core','core_tenant_case_gallery_detail',1,1778000000,1778000000),
+(9302,0,9106,'A','保存','',0,'case_gallery.case/save','','','','',0,0,0,'','core','core_tenant_case_gallery_save',1,1778000000,1778000000),
+(9303,0,9106,'A','任务加入','',0,'case_gallery.case/fromTask','','','','',0,0,0,'','core','core_tenant_case_gallery_from_task',1,1778000000,1778000000),
+(9304,0,9106,'A','修改状态','',0,'case_gallery.case/status','','','','',0,0,0,'','core','core_tenant_case_gallery_status',1,1778000000,1778000000),
+(9305,0,9106,'A','删除','',0,'case_gallery.case/delete','','','','',0,0,0,'','core','core_tenant_case_gallery_delete',1,1778000000,1778000000),
 (9107,0,9104,'C','通道调价','',0,'app.aigc_image.channel/lists','channel-price','apps/aigc_image/channel-price','','',0,1,0,'aigc_image','app','aigc_image_channel_price',0,1778000000,1778000000),
 (9108,0,9104,'C','用量统计','',0,'app.aigc_image.admin/stat','stat','apps/aigc_image/stat','','',0,1,0,'aigc_image','app','aigc_image_stat',0,1778000000,1778000000);
 
@@ -4353,7 +4349,6 @@ INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`
 VALUES
 (9113,0,0,'M','AIGC视频','el-icon-Picture',100,'','aigc-video','','','',0,1,0,'aigc_video','app','aigc_video',0,1778000000,1778000000),
 (9114,0,9113,'C','视频任务','',0,'app.aigc_video.admin_task/lists','task','apps/aigc_video/task','','',0,1,0,'aigc_video','app','aigc_video_task',0,1778000000,1778000000),
-(9115,0,9113,'C','案例广场','',0,'app.aigc_video.case/lists','case','apps/aigc_video/case','','',0,1,0,'aigc_video','app','aigc_video_case',0,1778000000,1778000000),
 (9116,0,9113,'C','通道调价','',0,'app.aigc_video.channel/lists','channel-price','apps/aigc_video/channel-price','','',0,1,0,'aigc_video','app','aigc_video_channel_price',0,1778000000,1778000000),
 (9117,0,9113,'C','用量统计','',0,'app.aigc_video.admin/stat','stat','apps/aigc_video/stat','','',0,1,0,'aigc_video','app','aigc_video_stat',0,1778000000,1778000000);
 
@@ -4361,7 +4356,6 @@ INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`
 VALUES
 (9122,0,0,'M','数字人视频','el-icon-Picture',100,'','aigc-digital-human','','','',0,1,0,'aigc_digital_human','app','aigc_digital_human',0,1778000000,1778000000),
 (9123,0,9122,'C','合成任务','',0,'app.aigc_digital_human.admin_task/lists','task','apps/aigc_digital_human/task','','',0,1,0,'aigc_digital_human','app','aigc_digital_human_task',0,1778000000,1778000000),
-(9124,0,9122,'C','案例广场','',0,'app.aigc_digital_human.case/lists','case','apps/aigc_digital_human/case','','',0,1,0,'aigc_digital_human','app','aigc_digital_human_case',0,1778000000,1778000000),
 (9125,0,9122,'M','形象管理','',0,'','avatar-manage','','','',0,1,0,'aigc_digital_human','app','aigc_digital_human_avatar_manage',0,1778000000,1778000000),
 (9126,0,9125,'C','公共形象','',0,'app.aigc_digital_human.public_avatar/lists','public-avatar','apps/aigc_digital_human/public-avatar','','',0,1,0,'aigc_digital_human','app','aigc_digital_human_public_avatar',0,1778000000,1778000000),
 (9127,0,9125,'C','用户形象','',0,'app.aigc_digital_human.user_avatar/lists','user-avatar','apps/aigc_digital_human/user-avatar','','',0,1,0,'aigc_digital_human','app','aigc_digital_human_user_avatar',0,1778000000,1778000000),
@@ -4852,13 +4846,13 @@ CREATE TABLE IF NOT EXISTS `la_aigc_hairstyle_config` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI换发型配置';
 
 INSERT INTO `la_app` (`code`,`name`,`icon`,`description`,`category`,`cover`,`client_tags`,`install_count`,`view_count`,`is_builtin`,`sort`,`current_version`,`status`,`expire_policy`,`install_time`,`update_time`)
-VALUES ('aigc_hairstyle','AI换发型','resource/image/common/menu_generator.png','面向人物发型和发色调整的 AI 图片创作应用，复用 AIGC 生图通道完成生成。','aigc','','tenant,pc',0,0,1,860,'1.0.1','installed','allow',1778000000,1778000000)
+VALUES ('aigc_hairstyle','AI换发型','resource/image/common/menu_generator.png','面向人物发型和发色调整的 AI 图片创作应用，复用 AIGC 生图通道完成生成。','aigc','','tenant,pc',0,0,1,860,'1.0.4','installed','allow',1778000000,1778000000)
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`icon`=VALUES(`icon`),`description`=VALUES(`description`),`category`=VALUES(`category`),`client_tags`=VALUES(`client_tags`),`is_builtin`=VALUES(`is_builtin`),`sort`=VALUES(`sort`),`current_version`=VALUES(`current_version`),`status`=VALUES(`status`),`expire_policy`=VALUES(`expire_policy`),`update_time`=VALUES(`update_time`);
 
 INSERT INTO `la_app_version` (`app_code`,`version`,`require_core`,`package_path`,`manifest_json`,`changelog`,`status`,`create_time`)
-VALUES ('aigc_hairstyle','1.0.1','>=1.0.0','local','{"code":"aigc_hairstyle","name":"AI换发型","version":"1.0.1","require_core":">=1.0.0","description":"面向人物发型和发色调整的 AI 图片创作应用，复用 AIGC 生图通道完成生成。","changelog":"1. 新增 AI 换发型应用。\n2. 支持租户配置提示词模板和示例图片。\n3. PC 端支持本地上传人物图、发型参考图并按操作类型生成。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","is_builtin":1,"expire_policy":"allow","sort":860,"frontends":["tenant","pc"],"api_prefix":"/app/aigc_hairstyle","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_hairstyle_admin","name":"AI换发型","path":"/app/aigc_hairstyle","icon":"el-icon-MagicStick","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_hairstyle","name":"AI换发型","path":"/ai/tools/aigc_hairstyle","icon":"resource/image/common/menu_generator.png","sort":92,"status":1}],"dependencies":[{"app_code":"aigc_image","name":"AIGC生图","required_for":"图片生成"}]}','1. 新增 AI 换发型应用。
-2. 支持租户配置提示词模板和示例图片。
-3. PC 端支持本地上传人物图、发型参考图并按操作类型生成。',1,1778000000)
+VALUES ('aigc_hairstyle','1.0.4','>=1.0.0','local','{"code":"aigc_hairstyle","name":"AI换发型","version":"1.0.4","require_core":">=1.0.0","description":"面向人物发型和发色调整的 AI 图片创作应用，复用 AIGC 生图通道完成生成。","changelog":"1. 恢复基础配置中的操作售价设置。\n2. 支持配置不同换发型操作类型售价。\n3. 优化基础配置入口与任务记录菜单。","icon":"resource/image/common/menu_generator.png","category":"aigc","cover":"","is_builtin":1,"expire_policy":"allow","sort":860,"frontends":["tenant","pc"],"api_prefix":"/app/aigc_hairstyle","platform_menus":"menus/platform.json","menus":"menus/tenant.json","permissions":"permissions/tenant.json","migrations":"migrations","frontend_entries":[{"terminal":"tenant","entry_key":"aigc_hairstyle_admin","name":"AI换发型","path":"/app/aigc_hairstyle","icon":"el-icon-MagicStick","sort":100,"status":1},{"terminal":"pc","entry_key":"aigc_hairstyle","name":"AI换发型","path":"/ai/tools/aigc_hairstyle","icon":"resource/image/common/menu_generator.png","sort":92,"status":1}],"dependencies":[{"app_code":"aigc_image","name":"AIGC生图","required_for":"图片生成"}]}','1. 恢复基础配置中的操作售价设置。
+2. 支持配置不同换发型操作类型售价。
+3. 优化基础配置入口与任务记录菜单。',1,1778000000)
 ON DUPLICATE KEY UPDATE `require_core`=VALUES(`require_core`),`package_path`=VALUES(`package_path`),`manifest_json`=VALUES(`manifest_json`),`changelog`=VALUES(`changelog`),`status`=VALUES(`status`);
 
 INSERT INTO `la_app_frontend_entry` (`app_code`,`terminal`,`entry_key`,`name`,`path`,`icon`,`sort`,`status`,`meta`,`update_time`)
@@ -4883,15 +4877,11 @@ VALUES
 ('aigc_hairstyle','app.aigc_hairstyle.result/lists','GET','aigc_hairstyle:result:lists:user','user',1,0,1,1778000000,1778000000)
 ON DUPLICATE KEY UPDATE `permission_key`=VALUES(`permission_key`),`need_login`=VALUES(`need_login`),`need_role_permission`=VALUES(`need_role_permission`),`status`=VALUES(`status`),`update_time`=VALUES(`update_time`);
 
-INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-VALUES (0,'aigc_hairstyle','1.0.1','paid','on','enabled',0,1778000000,1778000000)
-ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
-
 INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
-(9160,0,0,'M','AI换发型','el-icon-MagicStick',92,'','aigc-hairstyle','','','',0,1,0,'aigc_hairstyle','app','aigc_hairstyle',0,1778000000,1778000000),
-(9161,0,9160,'C','基础配置','',20,'app.aigc_hairstyle.config/detail','config','apps/aigc_hairstyle/config','','',0,1,0,'aigc_hairstyle','app','aigc_hairstyle_config',0,1778000000,1778000000),
-(9162,0,9160,'C','任务记录','',10,'app.aigc_hairstyle.task/lists','task','apps/aigc_hairstyle/task','','',0,1,0,'aigc_hairstyle','app','aigc_hairstyle_task',0,1778000000,1778000000)
+(9220,0,0,'M','AI换发型','el-icon-MagicStick',92,'','aigc-hairstyle','','','',0,1,0,'aigc_hairstyle','app','aigc_hairstyle',0,1778000000,1778000000),
+(9221,0,9220,'C','基础配置','',20,'app.aigc_hairstyle.config/detail','config','apps/aigc_hairstyle/config','','',0,1,0,'aigc_hairstyle','app','aigc_hairstyle_config',0,1778000000,1778000000),
+(9223,0,9220,'C','任务记录','',10,'app.aigc_hairstyle.task/lists','task','apps/aigc_hairstyle/task','','',0,1,0,'aigc_hairstyle','app','aigc_hairstyle_task',0,1778000000,1778000000)
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`icon`=VALUES(`icon`),`perms`=VALUES(`perms`),`paths`=VALUES(`paths`),`component`=VALUES(`component`),`app_code`=VALUES(`app_code`),`source`=VALUES(`source`),`source_menu_key`=VALUES(`source_menu_key`),`update_time`=VALUES(`update_time`);
 
 -- Migration snapshot: aigc_fitting/migrations/install.sql
@@ -4977,10 +4967,6 @@ VALUES
 ('aigc_fitting','app.aigc_fitting.task/detail','GET','aigc_fitting:task:detail:user','user',1,0,1,1778000000,1778000000),
 ('aigc_fitting','app.aigc_fitting.result/lists','GET','aigc_fitting:result:lists:user','user',1,0,1,1778000000,1778000000)
 ON DUPLICATE KEY UPDATE `permission_key`=VALUES(`permission_key`),`need_login`=VALUES(`need_login`),`need_role_permission`=VALUES(`need_role_permission`),`status`=VALUES(`status`),`update_time`=VALUES(`update_time`);
-
-INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-VALUES (0,'aigc_fitting','1.0.1','paid','on','enabled',0,1778000000,1778000000)
-ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
 
 INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
@@ -5141,10 +5127,6 @@ VALUES
 ('aigc_product_image','app.aigc_product_image.result/lists','GET','aigc_product_image:result:lists:user','user',1,0,1,1778000000,1778000000),
 ('aigc_product_image','app.aigc_product_image.result/delete','POST','aigc_product_image:result:delete:user','user',1,0,1,1778000000,1778000000)
 ON DUPLICATE KEY UPDATE `permission_key`=VALUES(`permission_key`),`need_login`=VALUES(`need_login`),`need_role_permission`=VALUES(`need_role_permission`),`status`=VALUES(`status`),`update_time`=VALUES(`update_time`);
-
-INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-VALUES (0,'aigc_product_image','1.0.0','paid','on','enabled',0,1778000000,1778000000)
-ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
 
 INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
@@ -5370,12 +5352,6 @@ VALUES
 ('aigc_style_transfer','app.aigc_style_transfer.result/delete','POST','aigc_style_transfer:result:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE `permission_key`=VALUES(`permission_key`),`need_login`=VALUES(`need_login`),`need_role_permission`=VALUES(`need_role_permission`),`status`=VALUES(`status`),`update_time`=VALUES(`update_time`);
 
-INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-SELECT `id`,'aigc_style_transfer','1.0.1','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant`
-UNION ALL
-SELECT 0,'aigc_style_transfer','1.0.1','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
-ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
-
 DELETE FROM `la_tenant_system_menu`
 WHERE `app_code`='aigc_style_transfer'
   AND `source`='app';
@@ -5542,12 +5518,6 @@ VALUES
 ('aigc_photo_restore','app.aigc_photo_restore.result/delete','POST','aigc_photo_restore:result:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE `permission_key`=VALUES(`permission_key`),`need_login`=VALUES(`need_login`),`need_role_permission`=VALUES(`need_role_permission`),`status`=VALUES(`status`),`update_time`=VALUES(`update_time`);
 
-INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-SELECT `id`,'aigc_photo_restore','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant`
-UNION ALL
-SELECT 0,'aigc_photo_restore','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
-ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
-
 DELETE FROM `la_tenant_system_menu`
 WHERE `app_code`='aigc_photo_restore'
   AND `source`='app';
@@ -5694,12 +5664,6 @@ VALUES
 ('aigc_image_translate','app.aigc_image_translate.result/lists','GET','aigc_image_translate:result:lists:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_image_translate','app.aigc_image_translate.result/delete','POST','aigc_image_translate:result:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE `permission_key`=VALUES(`permission_key`),`need_login`=VALUES(`need_login`),`need_role_permission`=VALUES(`need_role_permission`),`status`=VALUES(`status`),`update_time`=VALUES(`update_time`);
-
-INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-SELECT `id`,'aigc_image_translate','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant`
-UNION ALL
-SELECT 0,'aigc_image_translate','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
-ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
 
 DELETE FROM `la_tenant_system_menu`
 WHERE `app_code`='aigc_image_translate'
@@ -5865,12 +5829,6 @@ VALUES
 ('aigc_one_click_cleanup','app.aigc_one_click_cleanup.task/delete','POST','aigc_one_click_cleanup:task:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_one_click_cleanup','app.aigc_one_click_cleanup.result/lists','GET','aigc_one_click_cleanup:result:lists:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_one_click_cleanup','app.aigc_one_click_cleanup.result/delete','POST','aigc_one_click_cleanup:result:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
-
-INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-SELECT `id`,'aigc_one_click_cleanup','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant`
-UNION ALL
-SELECT 0,'aigc_one_click_cleanup','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
-ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
 
 DELETE FROM `la_tenant_system_menu`
 WHERE `app_code`='aigc_one_click_cleanup' AND `source`='app';
@@ -6046,12 +6004,6 @@ VALUES
 ('aigc_product_multi_angle','app.aigc_product_multi_angle.result/lists','GET','aigc_product_multi_angle:result:lists:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_product_multi_angle','app.aigc_product_multi_angle.result/delete','POST','aigc_product_multi_angle:result:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
 
-INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-SELECT `id`,'aigc_product_multi_angle','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant`
-UNION ALL
-SELECT 0,'aigc_product_multi_angle','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
-ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
-
 DELETE FROM `la_tenant_system_menu` WHERE `app_code`='aigc_product_multi_angle' AND `source`='app';
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT t.`id`,0,'M','商品多角度','el-icon-Picture',84,'','aigc-product-multi-angle','','','',0,1,0,'aigc_product_multi_angle','app','aigc_product_multi_angle',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
@@ -6221,12 +6173,6 @@ VALUES
 ('aigc_product_promo_video','app.aigc_product_promo_video.result/lists','GET','aigc_product_promo_video:result:lists:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_product_promo_video','app.aigc_product_promo_video.result/delete','POST','aigc_product_promo_video:result:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
 
-INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-SELECT `id`,'aigc_product_promo_video','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant`
-UNION ALL
-SELECT 0,'aigc_product_promo_video','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
-ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
-
 DELETE FROM `la_tenant_system_menu` WHERE `app_code`='aigc_product_promo_video' AND `source`='app';
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT t.`id`,0,'M','产品宣传视频','el-icon-VideoCamera',83,'','aigc-product-promo-video','','','',0,1,0,'aigc_product_promo_video','app','aigc_product_promo_video',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
@@ -6354,12 +6300,6 @@ VALUES
 ('aigc_outpaint','app.aigc_outpaint.task/delete','POST','aigc_outpaint:task:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_outpaint','app.aigc_outpaint.result/lists','GET','aigc_outpaint:result:lists:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_outpaint','app.aigc_outpaint.result/delete','POST','aigc_outpaint:result:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
-
-INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-SELECT `id`,'aigc_outpaint','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant`
-UNION ALL
-SELECT 0,'aigc_outpaint','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
-ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
 
 DELETE FROM `la_tenant_system_menu` WHERE `app_code`='aigc_outpaint' AND `source`='app';
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
@@ -6523,12 +6463,6 @@ VALUES ('aigc_product_suite','1.0.0','>=1.0.0','local','{"code":"aigc_product_su
 3. 支持 PC 端单图生成多模块作品。',1,UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE `require_core`=VALUES(`require_core`),`package_path`=VALUES(`package_path`),`manifest_json`=VALUES(`manifest_json`),`changelog`=VALUES(`changelog`),`status`=VALUES(`status`);
 
-INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-SELECT `id`,'aigc_product_suite','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant`
-UNION ALL
-SELECT 0,'aigc_product_suite','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
-ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
-
 DELETE FROM `la_tenant_system_menu` WHERE `app_code`='aigc_product_suite' AND `source`='app';
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT t.`id`,0,'M','AI商品套图','el-icon-Picture',84,'','aigc-product-suite','','','',0,1,0,'aigc_product_suite','app','aigc_product_suite',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
@@ -6659,12 +6593,6 @@ INSERT INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`s
 ('aigc_local_redraw','app.aigc_local_redraw.task/delete','POST','aigc_local_redraw:task:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_local_redraw','app.aigc_local_redraw.result/lists','GET','aigc_local_redraw:result:lists:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_local_redraw','app.aigc_local_redraw.result/delete','POST','aigc_local_redraw:result:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
-
-INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-SELECT `id`,'aigc_local_redraw','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant`
-UNION ALL
-SELECT 0,'aigc_local_redraw','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
-ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
 
 DELETE FROM `la_tenant_system_menu` WHERE `app_code`='aigc_local_redraw' AND `source`='app';
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)

@@ -53,6 +53,7 @@ class MenuLogic extends BaseLogic
             $tenantId = (int)$admin['tenant_id'];
             self::ensurePackageMenus($tenantId);
             self::ensureSystemDefaultMenu($tenantId);
+            self::ensureCaseGalleryMenu($tenantId);
         }
 
         $where = [];
@@ -140,6 +141,53 @@ class MenuLogic extends BaseLogic
 
             foreach (self::systemDefaultMenuTree($systemId) as $menu) {
                 self::upsertSystemMenuTree($menuTable, $roleMenuTable, $tenantId, $menu, $systemId);
+            }
+        } catch (Throwable) {
+        }
+    }
+
+    private static function ensureCaseGalleryMenu(int $tenantId): void
+    {
+        if ($tenantId <= 0) {
+            return;
+        }
+
+        $tables = self::tenantMenuTables($tenantId);
+        $menuTable = $tables['menu'];
+        $roleMenuTable = $tables['role_menu'];
+        if (!self::tableExists($menuTable)) {
+            return;
+        }
+        self::ensureMenuSourceColumns($menuTable);
+
+        try {
+            foreach (['aigc_image_case', 'aigc_video_case', 'aigc_digital_human_case'] as $legacyKey) {
+                Db::name($menuTable)
+                    ->where(['tenant_id' => $tenantId, 'source_menu_key' => $legacyKey])
+                    ->where('source', '<>', 'tenant')
+                    ->delete();
+            }
+
+            $caseGalleryId = self::upsertSystemMenu($menuTable, $tenantId, [
+                'pid' => 0,
+                'type' => 'C',
+                'name' => '案例广场',
+                'icon' => 'el-icon-PictureFilled',
+                'sort' => 98,
+                'perms' => 'case_gallery.case/lists',
+                'paths' => 'case-gallery',
+                'component' => 'case_gallery/index',
+                'selected' => '/case-gallery',
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_case_gallery',
+            ], 9102);
+            self::grantMenuToTenantRoles($roleMenuTable, $tenantId, $caseGalleryId);
+
+            foreach (self::caseGalleryPermissionMenus() as $menu) {
+                $menu['pid'] = $caseGalleryId;
+                $childId = self::upsertSystemMenu($menuTable, $tenantId, $menu, (int)($menu['legacy_id'] ?? 0));
+                self::grantChildMenuToParentRoles($roleMenuTable, $caseGalleryId, $childId);
+                self::grantMenuToTenantRoles($roleMenuTable, $tenantId, $childId);
             }
         } catch (Throwable) {
         }
@@ -385,6 +433,66 @@ class MenuLogic extends BaseLogic
         ];
     }
 
+    private static function caseGalleryPermissionMenus(): array
+    {
+        return [
+            [
+                'legacy_id' => 9300,
+                'type' => 'A',
+                'name' => '应用选项',
+                'perms' => 'case_gallery.case/apps',
+                'is_show' => 0,
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_case_gallery_apps',
+            ],
+            [
+                'legacy_id' => 9301,
+                'type' => 'A',
+                'name' => '详情',
+                'perms' => 'case_gallery.case/detail',
+                'is_show' => 0,
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_case_gallery_detail',
+            ],
+            [
+                'legacy_id' => 9302,
+                'type' => 'A',
+                'name' => '保存',
+                'perms' => 'case_gallery.case/save',
+                'is_show' => 0,
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_case_gallery_save',
+            ],
+            [
+                'legacy_id' => 9303,
+                'type' => 'A',
+                'name' => '任务加入',
+                'perms' => 'case_gallery.case/fromTask',
+                'is_show' => 0,
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_case_gallery_from_task',
+            ],
+            [
+                'legacy_id' => 9304,
+                'type' => 'A',
+                'name' => '修改状态',
+                'perms' => 'case_gallery.case/status',
+                'is_show' => 0,
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_case_gallery_status',
+            ],
+            [
+                'legacy_id' => 9305,
+                'type' => 'A',
+                'name' => '删除',
+                'perms' => 'case_gallery.case/delete',
+                'is_show' => 0,
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_case_gallery_delete',
+            ],
+        ];
+    }
+
     private static function tenantMenuTables(int $tenantId): array
     {
         $menuTable = 'tenant_system_menu';
@@ -435,6 +543,24 @@ class MenuLogic extends BaseLogic
             Db::execute(
                 'INSERT IGNORE INTO ' . $table . ' (`role_id`, `menu_id`) ' .
                 'SELECT `role_id`, ' . (int)$parentId . ' FROM ' . $table . ' WHERE `menu_id` = ' . (int)$childId
+            );
+        } catch (Throwable) {
+        }
+    }
+
+    private static function grantMenuToTenantRoles(string $roleMenuTable, int $tenantId, int $menuId): void
+    {
+        if ($menuId <= 0 || !self::tableExists($roleMenuTable)) {
+            return;
+        }
+        try {
+            $table = self::quoteTable(self::fullTableName($roleMenuTable));
+            $roleTable = self::quoteTable(self::fullTableName('tenant_system_role'));
+            Db::execute(
+                'INSERT IGNORE INTO ' . $table . ' (`role_id`, `menu_id`) ' .
+                'SELECT DISTINCT role_menu.`role_id`, ' . (int)$menuId . ' FROM ' . $table . ' role_menu ' .
+                'JOIN ' . $roleTable . ' role ON role.`id` = role_menu.`role_id` ' .
+                'WHERE role.`tenant_id` = ' . (int)$tenantId . ' AND (role.`delete_time` IS NULL OR role.`delete_time` = 0)'
             );
         } catch (Throwable) {
         }

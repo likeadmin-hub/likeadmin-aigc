@@ -1,10 +1,10 @@
 {
   "code": "aigc_hairstyle",
   "name": "AI换发型",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "require_core": ">=1.0.0",
   "description": "面向人物发型和发色调整的 AI 图片创作应用，复用 AIGC 生图通道完成生成。",
-  "changelog": "1. 补齐平台端应用管理入口。\n2. 支持平台查看租户使用情况。\n3. 支持平台检查生成依赖状态。",
+  "changelog": "1. 恢复基础配置中的操作售价设置。\n2. 支持配置不同换发型操作类型售价。\n3. 优化基础配置入口与任务记录菜单。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",

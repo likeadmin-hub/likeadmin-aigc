@@ -14,7 +14,8 @@ class AiTaskController extends BaseAdminController
     public function detail()
     {
         $id = (int)$this->request->get('id', 0);
-        $detail = AiTaskRecordService::detail($id, $this->tenantId);
+        $baseAppCode = (string)$this->request->get('base_app_code', 'aigc_image');
+        $detail = AiTaskRecordService::detail($id, $this->tenantId, $baseAppCode);
         if (!$detail) {
             return $this->fail('任务不存在');
         }

@@ -74,54 +74,6 @@
       "need_role_permission": 1
     },
     {
-      "api_path": "app.aigc_image.case/lists",
-      "api_method": "GET",
-      "permission_key": "aigc_image:case:lists",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_image.case/detail",
-      "api_method": "GET",
-      "permission_key": "aigc_image:case:detail",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_image.case/save",
-      "api_method": "POST",
-      "permission_key": "aigc_image:case:save",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_image.case/fromTask",
-      "api_method": "POST",
-      "permission_key": "aigc_image:case:from_task",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_image.case/status",
-      "api_method": "POST",
-      "permission_key": "aigc_image:case:status",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_image.case/delete",
-      "api_method": "POST",
-      "permission_key": "aigc_image:case:delete",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
       "api_path": "app.aigc_image.admin/quota",
       "api_method": "GET",
       "permission_key": "aigc_image:quota:lists",

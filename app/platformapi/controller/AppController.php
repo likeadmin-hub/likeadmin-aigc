@@ -173,8 +173,6 @@ class AppController extends BaseAdminController
     {
         try {
             $appCode = (string)$this->request->post('app_code', '');
-            $manifest = AppRegistryService::getManifest($appCode);
-            (new UpdateLicenseService())->assertAppUpdateAllowed($appCode, (string)($manifest['version'] ?? ''));
             $manifest = AppRegistryService::installFromLocal($appCode);
             return $this->success('安装成功', $manifest, 1, 1);
         } catch (Exception $e) {

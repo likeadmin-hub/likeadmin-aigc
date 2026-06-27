@@ -12,6 +12,10 @@ use Exception;
 
 class AigcDigitalHumanAssetService
 {
+    private const MAX_REMOTE_IMAGE_BYTES = 20971520;
+    private const MAX_REMOTE_AUDIO_BYTES = 52428800;
+    private const MAX_REMOTE_VIDEO_BYTES = 524288000;
+
     public static function persistGeneratedImage(string $url, int $tenantId, int $userId = 0): array
     {
         if (str_starts_with($url, 'data:image/')) {
@@ -53,19 +57,14 @@ class AigcDigitalHumanAssetService
 
     private static function persistRemoteUrl(string $url, int $tenantId, int $userId, string $kind = 'image'): array
     {
-        $context = stream_context_create([
-            'http' => [
-                'timeout' => 25,
-                'follow_location' => 1,
-                'ignore_errors' => true,
-                'header' => "User-Agent: LikeAdminAigcDigitalHuman/1.0\r\n",
-            ],
-        ]);
-        $content = @file_get_contents($url, false, $context);
-        if ($content === false || $content === '') {
+        $managed = self::managedAssetFromUrl($url, $tenantId, $kind);
+        if ($managed !== null) {
+            return $managed;
+        }
+        [$content, $headers] = self::downloadRemoteContent($url, $kind);
+        if ($content === '') {
             throw new Exception('生成数字人视频下载失败');
         }
-        $headers = isset($http_response_header) && is_array($http_response_header) ? $http_response_header : [];
         if (!self::isSuccessfulResponse($headers)) {
             throw new Exception('生成数字人视频下载失败：供应商文件不可访问');
         }
@@ -74,6 +73,46 @@ class AigcDigitalHumanAssetService
             throw new Exception('生成数字人视频下载失败：供应商文件类型不正确');
         }
         return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content, $kind, $mime), $kind, $mime);
+    }
+
+    private static function downloadRemoteContent(string $url, string $kind): array
+    {
+        $maxBytes = self::maxRemoteBytes($kind);
+        $context = stream_context_create([
+            'http' => [
+                'timeout' => 25,
+                'follow_location' => 1,
+                'ignore_errors' => true,
+                'header' => "User-Agent: LikeAdminAigcDigitalHuman/1.0\r\n",
+            ],
+        ]);
+        $stream = @fopen($url, 'rb', false, $context);
+        if (!is_resource($stream)) {
+            throw new Exception('生成数字人视频下载失败');
+        }
+        $meta = stream_get_meta_data($stream);
+        $headers = is_array($meta['wrapper_data'] ?? null) ? $meta['wrapper_data'] : [];
+        $contentLength = self::contentLengthFromHeaders($headers);
+        if ($contentLength > $maxBytes) {
+            fclose($stream);
+            throw new Exception('生成数字人视频下载失败：供应商文件过大');
+        }
+        $content = '';
+        try {
+            while (!feof($stream)) {
+                $chunk = fread($stream, 8192);
+                if ($chunk === false) {
+                    break;
+                }
+                $content .= $chunk;
+                if (strlen($content) > $maxBytes) {
+                    throw new Exception('生成数字人视频下载失败：供应商文件过大');
+                }
+            }
+        } finally {
+            fclose($stream);
+        }
+        return [$content, $headers];
     }
 
     private static function persistDataUri(string $dataUri, int $tenantId, int $userId, string $kind = 'image'): array
@@ -222,6 +261,17 @@ class AigcDigitalHumanAssetService
         return $status === '' || ((int)$status >= 200 && (int)$status < 300);
     }
 
+    private static function contentLengthFromHeaders(array $headers): int
+    {
+        $length = 0;
+        foreach ($headers as $header) {
+            if (stripos($header, 'Content-Length:') === 0) {
+                $length = (int)trim(substr($header, 15));
+            }
+        }
+        return $length;
+    }
+
     private static function contentTypeFromHeaders(array $headers): string
     {
         foreach ($headers as $header) {
@@ -303,5 +353,82 @@ class AigcDigitalHumanAssetService
             default => ['jpg', 'jpeg', 'png', 'webp', 'gif'],
         };
         return in_array($ext, $allowed, true);
+    }
+
+    private static function managedAssetFromUrl(string $url, int $tenantId, string $kind): ?array
+    {
+        $path = ltrim((string)parse_url($url, PHP_URL_PATH), '/');
+        if ($path === '' || !self::isAllowedLocalAssetUri($path, $kind)) {
+            return null;
+        }
+        $domain = strtolower((string)parse_url($url, PHP_URL_HOST));
+        if ($domain !== '' && !self::isManagedStorageHost($domain, $tenantId)) {
+            return null;
+        }
+        $uri = $path;
+        $storage = self::storageForManagedUri($uri, $tenantId);
+        return [
+            'uri' => $uri,
+            'url' => ($storage['url'] ?? '') !== '' ? $storage['url'] : $url,
+            'storage_scope' => (string)($storage['storage_scope'] ?? ''),
+            'storage_engine' => (string)($storage['storage_engine'] ?? ''),
+            'storage_domain' => (string)($storage['storage_domain'] ?? ''),
+            'mime_type' => self::mimeByExtension(pathinfo($uri, PATHINFO_EXTENSION), $kind),
+            'file_size' => 0,
+            'width' => 0,
+            'height' => 0,
+            'duration' => 0,
+            'stored' => false,
+        ];
+    }
+
+    private static function isManagedStorageHost(string $host, int $tenantId): bool
+    {
+        $hosts = [];
+        foreach ([
+            request()->host(),
+            parse_url((string)request()->domain(), PHP_URL_HOST),
+            parse_url((string)config('project.http_host'), PHP_URL_HOST) ?: (string)config('project.http_host'),
+            parse_url(StorageConfigService::getEffectiveDomain($tenantId), PHP_URL_HOST),
+        ] as $value) {
+            $value = strtolower(trim((string)$value));
+            if ($value !== '') {
+                $hosts[] = $value;
+            }
+        }
+        return in_array($host, array_unique($hosts), true);
+    }
+
+    private static function storageForManagedUri(string $uri, int $tenantId): array
+    {
+        $tenantFile = TenantFile::where(['tenant_id' => $tenantId, 'uri' => $uri])->findOrEmpty();
+        if (!$tenantFile->isEmpty()) {
+            $row = $tenantFile->toArray();
+            return [
+                'url' => FileService::getFileUrlByStorage($uri, (string)($row['storage_scope'] ?? ''), (string)($row['storage_engine'] ?? ''), (string)($row['storage_domain'] ?? '')),
+                'storage_scope' => (string)($row['storage_scope'] ?? ''),
+                'storage_engine' => (string)($row['storage_engine'] ?? ''),
+                'storage_domain' => (string)($row['storage_domain'] ?? ''),
+            ];
+        }
+        $config = StorageConfigService::getEffectiveConfig($tenantId);
+        $scope = (string)($config['scope'] ?? 'tenant');
+        $engine = (string)($config['default'] ?? 'local');
+        $domain = self::storageDomainForTenant($tenantId);
+        return [
+            'url' => FileService::getFileUrlByStorage($uri, $scope, $engine, $domain),
+            'storage_scope' => $scope,
+            'storage_engine' => $engine,
+            'storage_domain' => $domain,
+        ];
+    }
+
+    private static function maxRemoteBytes(string $kind): int
+    {
+        return match ($kind) {
+            'video' => self::MAX_REMOTE_VIDEO_BYTES,
+            'audio' => self::MAX_REMOTE_AUDIO_BYTES,
+            default => self::MAX_REMOTE_IMAGE_BYTES,
+        };
     }
 }

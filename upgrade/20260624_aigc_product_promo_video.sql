@@ -142,12 +142,6 @@ VALUES
 ('aigc_product_promo_video','app.aigc_product_promo_video.result/lists','GET','aigc_product_promo_video:result:lists:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_product_promo_video','app.aigc_product_promo_video.result/delete','POST','aigc_product_promo_video:result:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
 
-INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
-SELECT `id`,'aigc_product_promo_video','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP() FROM `la_tenant`
-UNION ALL
-SELECT 0,'aigc_product_promo_video','1.0.0','paid','on','enabled',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
-ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
-
 DELETE FROM `la_tenant_system_menu` WHERE `app_code`='aigc_product_promo_video' AND `source_menu_key`='aigc_product_promo_video_price';
 DELETE FROM `la_tenant_system_menu` WHERE `app_code`='aigc_product_promo_video' AND `source`='app';
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`delete_time`,`create_time`,`update_time`)

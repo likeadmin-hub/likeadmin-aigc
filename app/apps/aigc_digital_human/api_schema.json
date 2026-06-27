@@ -74,54 +74,6 @@
       "need_role_permission": 1
     },
     {
-      "api_path": "app.aigc_digital_human.case/lists",
-      "api_method": "GET",
-      "permission_key": "aigc_digital_human:case:lists",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_digital_human.case/detail",
-      "api_method": "GET",
-      "permission_key": "aigc_digital_human:case:detail",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_digital_human.case/save",
-      "api_method": "POST",
-      "permission_key": "aigc_digital_human:case:save",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_digital_human.case/fromTask",
-      "api_method": "POST",
-      "permission_key": "aigc_digital_human:case:from_task",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_digital_human.case/status",
-      "api_method": "POST",
-      "permission_key": "aigc_digital_human:case:status",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_digital_human.case/delete",
-      "api_method": "POST",
-      "permission_key": "aigc_digital_human:case:delete",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
       "api_path": "app.aigc_digital_human.public_avatar/lists",
       "api_method": "GET",
       "permission_key": "aigc_digital_human:public_avatar:lists",

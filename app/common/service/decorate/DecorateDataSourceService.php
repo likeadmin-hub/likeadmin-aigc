@@ -3,9 +3,9 @@
 namespace app\common\service\decorate;
 
 use app\common\model\article\Article;
-use app\common\service\app\AppCaseService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppFrontendManifestService;
+use app\common\service\case_gallery\CaseGalleryService;
 
 class DecorateDataSourceService
 {
@@ -169,7 +169,7 @@ class DecorateDataSourceService
     private static function cases(int $tenantId, array $appCodes, array $params): array
     {
         try {
-            return AppCaseService::listsByAppCodes($tenantId, $appCodes, $params, true);
+            return CaseGalleryService::listsByAppCodes($tenantId, $appCodes, $params, true);
         } catch (\Throwable $e) {
             return [];
         }

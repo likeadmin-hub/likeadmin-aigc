@@ -2,8 +2,8 @@
 
 namespace app\tenantapi\controller\app\aigc_digital_human;
 
-use app\common\service\app\AppCaseService;
 use app\common\service\app\aigc_digital_human\AigcDigitalHumanService;
+use app\common\service\case_gallery\CaseGalleryService;
 use app\tenantapi\controller\BaseAdminController;
 use Exception;
 
@@ -11,15 +11,15 @@ class CaseController extends BaseAdminController
 {
     public function lists()
     {
-        return $this->success('获取成功', AppCaseService::lists($this->tenantId, AigcDigitalHumanService::APP_CODE, $this->request->get()));
+        return $this->success('获取成功', CaseGalleryService::listsByAppCodes($this->tenantId, [AigcDigitalHumanService::APP_CODE], $this->request->get()));
     }
 
     public function detail()
     {
         try {
-            return $this->success('获取成功', AppCaseService::detail(
+            return $this->success('获取成功', CaseGalleryService::detailByAppCodes(
                 $this->tenantId,
-                AigcDigitalHumanService::APP_CODE,
+                [AigcDigitalHumanService::APP_CODE],
                 (int)$this->request->get('id', 0)
             ));
         } catch (Exception $e) {
@@ -30,10 +30,11 @@ class CaseController extends BaseAdminController
     public function save()
     {
         try {
-            return $this->success('保存成功', AppCaseService::save(
+            return $this->success('保存成功', CaseGalleryService::saveByAppCodes(
                 $this->tenantId,
-                AigcDigitalHumanService::APP_CODE,
-                $this->request->post()
+                [AigcDigitalHumanService::APP_CODE],
+                $this->request->post(),
+                AigcDigitalHumanService::APP_CODE
             ), 1, 1);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
@@ -56,9 +57,9 @@ class CaseController extends BaseAdminController
     public function status()
     {
         try {
-            AppCaseService::setStatus(
+            CaseGalleryService::setStatusByAppCodes(
                 $this->tenantId,
-                AigcDigitalHumanService::APP_CODE,
+                [AigcDigitalHumanService::APP_CODE],
                 (int)$this->request->post('id', 0),
                 (int)$this->request->post('status', 1)
             );
@@ -71,7 +72,7 @@ class CaseController extends BaseAdminController
     public function delete()
     {
         try {
-            AppCaseService::delete($this->tenantId, AigcDigitalHumanService::APP_CODE, (int)$this->request->post('id', 0));
+            CaseGalleryService::deleteByAppCodes($this->tenantId, [AigcDigitalHumanService::APP_CODE], (int)$this->request->post('id', 0));
             return $this->success('删除成功', [], 1, 1);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
