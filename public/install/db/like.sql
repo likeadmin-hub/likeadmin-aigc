@@ -1183,6 +1183,29 @@ INSERT INTO `la_system_menu` (`id`, `pid`, `type`, `name`, `icon`, `sort`, `perm
 VALUES (9022, 9020, 'C', '授权信息', 'el-icon-Key', 90, 'upgrade/licenseInfo', 'license', 'update/license/index', '', '', 0, 1, 0, '', 'core', 'core_update_license', 1, 1727700000, 1727700000);
 INSERT INTO `la_system_menu` (`id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES (9023, 9020, 'C', '版本日志', 'el-icon-List', 80, 'upgrade/logs', 'log', 'update/log/index', '', '', 0, 1, 0, '', 'core', 'core_update_log', 1, 1727700000, 1727700000);
+INSERT INTO `la_system_menu` (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (0, 'M', '算力商城', 'el-icon-Goods', 700, '', 'power-mall', '', '', '', 0, 1, 0, '', 'core', 'core_power_mall', 1, 1782604800, 1782604800);
+SET @core_power_mall_id := LAST_INSERT_ID();
+INSERT INTO `la_system_menu` (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (@core_power_mall_id, 'C', '算力套餐', 'el-icon-Coin', 100, 'power.package/lists', 'package', 'power_mall/package', '', '', 0, 1, 0, '', 'core', 'core_power_mall_package', 1, 1782604800, 1782604800);
+SET @core_power_package_id := LAST_INSERT_ID();
+INSERT INTO `la_system_menu` (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES
+(@core_power_package_id, 'A', '详情', '', 0, 'power.package/detail', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_mall_package_detail', 1, 1782604800, 1782604800),
+(@core_power_package_id, 'A', '新增', '', 0, 'power.package/add', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_mall_package_add', 1, 1782604800, 1782604800),
+(@core_power_package_id, 'A', '编辑', '', 0, 'power.package/edit', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_mall_package_edit', 1, 1782604800, 1782604800),
+(@core_power_package_id, 'A', '删除', '', 0, 'power.package/delete', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_mall_package_delete', 1, 1782604800, 1782604800),
+(@core_power_package_id, 'A', '订单记录', '', 0, 'power.package/orders', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_mall_package_orders', 1, 1782604800, 1782604800),
+(@core_power_package_id, 'A', '套餐类型', '', 0, 'power.package/types', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_mall_package_types', 1, 1782604800, 1782604800);
+INSERT INTO `la_system_menu` (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (@core_power_mall_id, 'C', '支付配置', 'el-icon-CreditCard', 90, 'power.pay_way/getPayWay', 'pay-config', 'power_mall/pay_config/index', '', '', 0, 1, 0, '', 'core', 'core_power_mall_pay_config', 1, 1782604800, 1782604800);
+SET @core_power_pay_config_id := LAST_INSERT_ID();
+INSERT INTO `la_system_menu` (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES
+(@core_power_pay_config_id, 'A', '设置支付方式', '', 0, 'power.pay_way/setPayWay', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_mall_pay_way_set', 1, 1782604800, 1782604800),
+(@core_power_pay_config_id, 'A', '支付配置列表', '', 0, 'power.pay_config/lists', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_mall_pay_config_lists', 1, 1782604800, 1782604800),
+(@core_power_pay_config_id, 'A', '支付配置详情', '', 0, 'power.pay_config/getConfig', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_mall_pay_config_detail', 1, 1782604800, 1782604800),
+(@core_power_pay_config_id, 'A', '保存支付配置', '', 0, 'power.pay_config/setConfig', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_mall_pay_config_set', 1, 1782604800, 1782604800);
 COMMIT;
 
 -- ----------------------------
@@ -2073,6 +2096,41 @@ INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `
 VALUES (9001, 0, 9000, 'C', '应用市场', 'el-icon-Shop', 100, 'app/market', 'market', 'app/market/index', '', '', 0, 1, 0, '', 'core', 'core_tenant_app_market', 1, 1727700000, 1727700000);
 INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES (9002, 0, 9000, 'C', '我的应用', 'el-icon-Menu', 90, 'app/my', 'my', 'app/my/index', '', '', 0, 0, 0, '', 'core', 'core_tenant_my_app', 1, 1727700000, 1727700000);
+INSERT INTO `la_tenant_system_menu` (`tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (0, 0, 'M', '算力商城', 'el-icon-Goods', 70, '', 'power-mall', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_mall', 1, 1782604800, 1782604800);
+SET @core_tenant_power_mall_id := LAST_INSERT_ID();
+INSERT INTO `la_tenant_system_menu` (`tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES
+(0, @core_tenant_power_mall_id, 'C', '购买算力', 'el-icon-Coin', 100, 'power.mall/packages', 'buy', 'power_mall/index', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_mall_buy', 1, 1782604800, 1782604800),
+(0, @core_tenant_power_mall_id, 'C', '购买记录', 'el-icon-Document', 90, 'power.mall/orders', 'records', 'power_mall/records', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_mall_records', 1, 1782604800, 1782604800);
+SET @core_tenant_power_buy_id := (
+  SELECT `id` FROM `la_tenant_system_menu`
+  WHERE `tenant_id` = 0 AND `source_menu_key` = 'core_tenant_power_mall_buy'
+  ORDER BY `id` DESC
+  LIMIT 1
+);
+SET @core_tenant_power_records_id := (
+  SELECT `id` FROM `la_tenant_system_menu`
+  WHERE `tenant_id` = 0 AND `source_menu_key` = 'core_tenant_power_mall_records'
+  ORDER BY `id` DESC
+  LIMIT 1
+);
+INSERT INTO `la_tenant_system_menu` (`tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES
+(0, @core_tenant_power_buy_id, 'A', '点数概览', '', 0, 'power.mall/stats', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_mall_stats', 1, 1782604800, 1782604800),
+(0, @core_tenant_power_buy_id, 'A', '创建订单', '', 0, 'power.mall/createOrder', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_mall_create_order', 1, 1782604800, 1782604800),
+(0, @core_tenant_power_buy_id, 'A', '支付方式', '', 0, 'power.pay/payWay', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_pay_way', 1, 1782604800, 1782604800),
+(0, @core_tenant_power_buy_id, 'A', '预支付', '', 0, 'power.pay/prepay', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_pay_prepay', 1, 1782604800, 1782604800),
+(0, @core_tenant_power_buy_id, 'A', '支付状态', '', 0, 'power.pay/payStatus', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_pay_status', 1, 1782604800, 1782604800),
+(0, @core_tenant_power_records_id, 'A', '订单详情', '', 0, 'power.mall/orderDetail', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_mall_order_detail', 1, 1782604800, 1782604800);
+
+UPDATE `la_tenant_system_menu`
+SET `app_code` = '', `source` = 'core', `source_menu_key` = 'core_tenant_message', `is_core` = 1, `update_time` = 1782691200
+WHERE `tenant_id` = 0
+  AND `source` = 'core'
+  AND `source_menu_key` = ''
+  AND `name` = '消息管理'
+  AND `paths` = 'message';
 COMMIT;
 
 -- ----------------------------
@@ -2492,6 +2550,102 @@ CREATE TABLE IF NOT EXISTS `la_tenant_point_log` (
   KEY `idx_tenant` (`tenant_id`),
   KEY `idx_sn` (`sn`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户点数流水';
+
+CREATE TABLE IF NOT EXISTS `la_tenant_power_package` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `type` varchar(20) NOT NULL DEFAULT 'points' COMMENT '套餐类型:member会员套餐 points点数套餐',
+  `name` varchar(100) NOT NULL DEFAULT '' COMMENT '套餐名称',
+  `description` varchar(255) NOT NULL DEFAULT '' COMMENT '套餐说明',
+  `duration_months` int unsigned NOT NULL DEFAULT 0 COMMENT '会员套餐有效月数',
+  `amount` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '租户购买金额',
+  `points` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '赠送点数',
+  `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '状态:0停用 1启用',
+  `sort` int NOT NULL DEFAULT 0 COMMENT '排序',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_type_status` (`type`,`status`,`sort`),
+  KEY `idx_status_sort` (`status`,`sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户算力商城套餐';
+
+CREATE TABLE IF NOT EXISTS `la_tenant_power_order` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0 COMMENT '租户ID',
+  `admin_id` int unsigned NOT NULL DEFAULT 0 COMMENT '租户管理员ID',
+  `order_sn` varchar(64) NOT NULL DEFAULT '' COMMENT '订单编号',
+  `pay_sn` varchar(64) NOT NULL DEFAULT '' COMMENT '支付编号',
+  `transaction_id` varchar(128) NOT NULL DEFAULT '' COMMENT '第三方交易号',
+  `order_terminal` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '下单终端',
+  `package_id` int unsigned NOT NULL DEFAULT 0 COMMENT '套餐ID',
+  `package_type` varchar(20) NOT NULL DEFAULT '' COMMENT '套餐类型快照',
+  `package_name` varchar(100) NOT NULL DEFAULT '' COMMENT '套餐名称快照',
+  `duration_months` int unsigned NOT NULL DEFAULT 0 COMMENT '有效月数快照',
+  `order_amount` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '订单金额',
+  `points` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '到账点数',
+  `expire_time` int unsigned NOT NULL DEFAULT 0 COMMENT '点数过期时间,0永久有效',
+  `pay_way` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '支付方式',
+  `pay_status` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '支付状态',
+  `pay_time` int unsigned NOT NULL DEFAULT 0 COMMENT '支付时间',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_order_sn` (`order_sn`),
+  KEY `idx_tenant_status` (`tenant_id`,`pay_status`,`create_time`),
+  KEY `idx_package` (`package_id`,`package_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户算力商城订单';
+
+CREATE TABLE IF NOT EXISTS `la_tenant_point_bucket` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0 COMMENT '租户ID',
+  `source_order_sn` varchar(64) NOT NULL DEFAULT '' COMMENT '来源算力商城订单号',
+  `package_type` varchar(20) NOT NULL DEFAULT '' COMMENT '套餐类型',
+  `total_points` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '批次总点数',
+  `remaining_points` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '批次剩余点数',
+  `expire_time` int unsigned NOT NULL DEFAULT 0 COMMENT '过期时间,0永久有效',
+  `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '状态:1有效 2已过期',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenant_order` (`tenant_id`,`source_order_sn`),
+  KEY `idx_tenant_expire` (`tenant_id`,`status`,`expire_time`),
+  KEY `idx_remaining` (`tenant_id`,`status`,`remaining_points`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户算力商城点数批次';
+
+CREATE TABLE IF NOT EXISTS `la_tenant_pc_notice` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0 COMMENT '租户ID',
+  `title` varchar(120) NOT NULL DEFAULT '' COMMENT '公告标题',
+  `summary` varchar(255) NOT NULL DEFAULT '' COMMENT '公告摘要',
+  `content` text NOT NULL COMMENT '公告正文',
+  `image` varchar(255) NOT NULL DEFAULT '' COMMENT '封面图',
+  `is_popup` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '是否进入自动弹窗:0否 1是',
+  `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '状态:0停用 1启用',
+  `sort` int NOT NULL DEFAULT 0 COMMENT '排序',
+  `publish_time` int unsigned NOT NULL DEFAULT 0 COMMENT '发布时间',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_status` (`tenant_id`,`status`,`sort`,`publish_time`),
+  KEY `idx_popup` (`tenant_id`,`is_popup`,`status`,`publish_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户PC消息公告';
+
+CREATE TABLE IF NOT EXISTS `la_tenant_pc_notice_read` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0 COMMENT '租户ID',
+  `notice_id` int unsigned NOT NULL DEFAULT 0 COMMENT '公告ID',
+  `user_id` int unsigned NOT NULL DEFAULT 0 COMMENT '用户ID',
+  `read_time` int unsigned NOT NULL DEFAULT 0 COMMENT '阅读时间',
+  `popup_time` int unsigned NOT NULL DEFAULT 0 COMMENT '弹窗时间',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenant_notice_user` (`tenant_id`,`notice_id`,`user_id`),
+  KEY `idx_user_read` (`tenant_id`,`user_id`,`read_time`),
+  KEY `idx_notice` (`notice_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户PC消息公告阅读记录';
 
 CREATE TABLE IF NOT EXISTS `la_tenant_sso_ticket` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -4342,6 +4496,12 @@ VALUES
 (9303,0,9106,'A','任务加入','',0,'case_gallery.case/fromTask','','','','',0,0,0,'','core','core_tenant_case_gallery_from_task',1,1778000000,1778000000),
 (9304,0,9106,'A','修改状态','',0,'case_gallery.case/status','','','','',0,0,0,'','core','core_tenant_case_gallery_status',1,1778000000,1778000000),
 (9305,0,9106,'A','删除','',0,'case_gallery.case/delete','','','','',0,0,0,'','core','core_tenant_case_gallery_delete',1,1778000000,1778000000),
+(9307,0,0,'C','消息公告','el-icon-Bell',97,'notice.pc_notice/lists','notice','message/pc_notice/index','','',0,1,0,'','core','core_tenant_pc_notice',1,1782691200,1782691200),
+(9308,0,9307,'A','详情','',0,'notice.pc_notice/detail','','','','',0,0,0,'','core','core_tenant_pc_notice_detail',1,1782691200,1782691200),
+(9309,0,9307,'A','新增','',0,'notice.pc_notice/add','','','','',0,0,0,'','core','core_tenant_pc_notice_add',1,1782691200,1782691200),
+(9310,0,9307,'A','编辑','',0,'notice.pc_notice/edit','','','','',0,0,0,'','core','core_tenant_pc_notice_edit',1,1782691200,1782691200),
+(9311,0,9307,'A','删除','',0,'notice.pc_notice/delete','','','','',0,0,0,'','core','core_tenant_pc_notice_delete',1,1782691200,1782691200),
+(9312,0,9307,'A','状态','',0,'notice.pc_notice/status','','','','',0,0,0,'','core','core_tenant_pc_notice_status',1,1782691200,1782691200),
 (9107,0,9104,'C','通道调价','',0,'app.aigc_image.channel/lists','channel-price','apps/aigc_image/channel-price','','',0,1,0,'aigc_image','app','aigc_image_channel_price',0,1778000000,1778000000),
 (9108,0,9104,'C','用量统计','',0,'app.aigc_image.admin/stat','stat','apps/aigc_image/stat','','',0,1,0,'aigc_image','app','aigc_image_stat',0,1778000000,1778000000);
 

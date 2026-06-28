@@ -16,6 +16,7 @@ namespace app\common\logic;
 
 use app\common\logic\BaseLogic;
 use app\common\service\membership\MembershipService;
+use app\common\service\power\TenantPowerMallService;
 use app\common\service\recharge\RechargeCreditService;
 use think\facade\Db;
 use think\facade\Log;
@@ -68,6 +69,11 @@ class PayNotifyLogic extends BaseLogic
     public static function membership($orderSn, array $extra = [])
     {
         MembershipService::handlePaid($orderSn, $extra);
+    }
+
+    public static function tenant_power($orderSn, array $extra = [])
+    {
+        TenantPowerMallService::handlePaid($orderSn, $extra);
     }
 
 

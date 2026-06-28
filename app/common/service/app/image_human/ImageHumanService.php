@@ -1113,13 +1113,25 @@ class ImageHumanService
     private static function formatAvatar(array $row): array
     {
         $tenantId = (int)($row['tenant_id'] ?? 0);
-        $imageUri = (string)($row['image_uri'] ?? $row['media_uri'] ?? '');
+        $imageUri = (string)($row['image_uri'] ?? '');
+        if ($imageUri === '') {
+            $imageUri = (string)($row['media_uri'] ?? '');
+        }
+        $mediaUri = (string)($row['media_uri'] ?? '');
+        if ($mediaUri === '') {
+            $mediaUri = $imageUri;
+        }
+        $coverUri = (string)($row['cover_uri'] ?? '');
+        if ($coverUri === '') {
+            $coverUri = $imageUri;
+        }
         $row['image_uri'] = $imageUri;
-        $row['media_uri'] = (string)($row['media_uri'] ?? $imageUri);
+        $row['media_uri'] = $mediaUri;
+        $row['cover_uri'] = $coverUri;
         $row['media_type'] = (string)($row['media_type'] ?? 'image') ?: 'image';
-        $row['cover_url'] = self::fileUrlForTenant((string)($row['cover_uri'] ?? $imageUri), $tenantId, $row);
+        $row['cover_url'] = self::fileUrlForTenant($coverUri, $tenantId, $row);
         $row['image_url'] = self::fileUrlForTenant($imageUri, $tenantId, $row);
-        $row['media_url'] = self::fileUrlForTenant((string)$row['media_uri'], $tenantId, $row);
+        $row['media_url'] = self::fileUrlForTenant($mediaUri, $tenantId, $row);
         return $row;
     }
 

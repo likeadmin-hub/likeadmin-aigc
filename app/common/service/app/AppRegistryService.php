@@ -342,12 +342,13 @@ class AppRegistryService
         if (empty($apps)) {
             return [];
         }
-        return AppFrontendEntry::whereIn('app_code', $apps)
+        $entries = AppFrontendEntry::whereIn('app_code', $apps)
             ->where('terminal', $terminal)
             ->where('status', 1)
             ->order(['sort' => 'desc', 'id' => 'asc'])
             ->select()
             ->toArray();
+        return self::mergeManifestFrontendEntries($entries, $apps, $terminal);
     }
 
     public static function assertValidCode(string $appCode): void
@@ -381,6 +382,62 @@ class AppRegistryService
                 'update_time' => time(),
             ]);
         }
+    }
+
+    private static function mergeManifestFrontendEntries(array $entries, array $appCodes, string $terminal): array
+    {
+        $existing = [];
+        foreach ($entries as $entry) {
+            $key = (string)($entry['app_code'] ?? '') . ':' . (string)($entry['entry_key'] ?? '');
+            if ($key !== ':') {
+                $existing[$key] = true;
+            }
+        }
+
+        foreach ($appCodes as $appCode) {
+            if (!is_file(self::manifestPath($appCode))) {
+                continue;
+            }
+            try {
+                $manifest = self::getManifest($appCode);
+            } catch (Throwable) {
+                continue;
+            }
+            foreach (($manifest['frontend_entries'] ?? []) as $entry) {
+                if (($entry['terminal'] ?? '') !== $terminal || (int)($entry['status'] ?? 1) !== 1) {
+                    continue;
+                }
+                $entryKey = (string)($entry['entry_key'] ?? '');
+                $key = $appCode . ':' . $entryKey;
+                if ($entryKey === '' || isset($existing[$key])) {
+                    continue;
+                }
+                $entries[] = [
+                    'id' => 0,
+                    'app_code' => $appCode,
+                    'terminal' => $terminal,
+                    'entry_key' => $entryKey,
+                    'name' => $entry['name'] ?? ($manifest['name'] ?? $appCode),
+                    'path' => $entry['path'] ?? '',
+                    'icon' => $entry['icon'] ?? '',
+                    'sort' => (int)($entry['sort'] ?? 0),
+                    'status' => 1,
+                    'meta' => $entry['meta'] ?? [],
+                    'create_time' => 0,
+                    'update_time' => 0,
+                ];
+                $existing[$key] = true;
+            }
+        }
+
+        usort($entries, function ($left, $right) {
+            $sortCompare = (int)($right['sort'] ?? 0) <=> (int)($left['sort'] ?? 0);
+            if ($sortCompare !== 0) {
+                return $sortCompare;
+            }
+            return (int)($left['id'] ?? 0) <=> (int)($right['id'] ?? 0);
+        });
+        return array_values($entries);
     }
 
     private static function runLocalMigrations(string $appCode, string $version): array

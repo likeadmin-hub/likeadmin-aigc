@@ -20,6 +20,7 @@ use app\common\enum\user\UserTerminalEnum;
 use app\common\logic\PayNotifyLogic;
 use app\common\model\membership\MembershipOrder;
 use app\common\model\pay\PayConfig;
+use app\common\model\power\TenantPowerOrder;
 use app\common\model\recharge\RechargeOrder;
 use app\common\service\pay\BasePayService;
 use think\facade\Log;
@@ -192,6 +193,16 @@ class AliPayService extends BasePayService
                         return true;
                     }
                     $result = PayNotifyLogic::handle('membership', $data['out_trade_no'], $extra);
+                    if (true !== $result) {
+                        throw new \Exception((string)$result);
+                    }
+                    break;
+                case 'tenant_power':
+                    $order = TenantPowerOrder::where(['order_sn' => $data['out_trade_no']])->findOrEmpty();
+                    if ($order->isEmpty() || $order->pay_status == PayEnum::ISPAID) {
+                        return true;
+                    }
+                    $result = PayNotifyLogic::handle('tenant_power', $data['out_trade_no'], $extra);
                     if (true !== $result) {
                         throw new \Exception((string)$result);
                     }

@@ -38,6 +38,8 @@ class EncryDemoDataMiddleware
         'channel.open_setting/getConfig',
         // 支付配置
         'setting.pay.pay_config/getConfig',
+        // 算力商城收款配置
+        'power.pay_config/getConfig',
     ];
 
     // 可以排除字段

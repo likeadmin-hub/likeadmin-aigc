@@ -26,7 +26,7 @@ use app\common\validate\BaseValidate;
 class PayValidate extends BaseValidate
 {
     protected $rule = [
-        'from'      => 'require',
+        'from'      => 'require|in:recharge,membership,tenant_power',
         'pay_way'   => 'require|in:' . PayEnum::BALANCE_PAY . ',' . PayEnum::WECHAT_PAY . ',' . PayEnum::ALI_PAY,
         'order_id'  => 'require'
     ];
@@ -34,6 +34,7 @@ class PayValidate extends BaseValidate
 
     protected $message = [
         'from.require'      => '参数缺失',
+        'from.in'           => '订单来源错误',
         'pay_way.require'   => '支付方式参数缺失',
         'pay_way.in'        => '支付方式参数错误',
         'order_id.require'  => '订单参数缺失'

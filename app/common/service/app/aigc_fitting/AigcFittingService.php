@@ -228,7 +228,9 @@ class AigcFittingService
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
-        self::refreshMappedTasks($tenantId, $userId);
+        if (!empty($params['sync_running'])) {
+            self::refreshMappedTasks($tenantId, $userId);
+        }
         $query = AigcFittingTask::alias('t')
             ->leftJoin('user u', 'u.id = t.user_id AND u.tenant_id = t.tenant_id')
             ->field('t.*,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')

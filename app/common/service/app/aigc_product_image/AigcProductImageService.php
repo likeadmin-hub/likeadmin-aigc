@@ -280,7 +280,9 @@ class AigcProductImageService
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
-        self::refreshMappedTasks($tenantId, $userId);
+        if (!empty($params['sync_running'])) {
+            self::refreshMappedTasks($tenantId, $userId);
+        }
         $query = AigcProductImageTask::alias('t')
             ->leftJoin('user u', 'u.id = t.user_id AND u.tenant_id = t.tenant_id')
             ->leftJoin('aigc_product_image_scene_template s', 's.id = t.template_id AND s.tenant_id = t.tenant_id')
@@ -1064,7 +1066,21 @@ class AigcProductImageService
 
     private static function normalizeImage(mixed $image): string
     {
-        return trim((string)$image);
+        if (is_array($image)) {
+            $image = $image['uri'] ?? $image['url'] ?? $image['image'] ?? '';
+        }
+        $image = trim((string)$image);
+        if ($image === '' || str_starts_with($image, 'data:image/')) {
+            return $image;
+        }
+        if (!str_starts_with($image, 'http://') && !str_starts_with($image, 'https://')) {
+            return ltrim($image, '/');
+        }
+        $path = ltrim((string)(parse_url($image, PHP_URL_PATH) ?: ''), '/');
+        if ($path !== '' && (str_starts_with($path, 'uploads/') || str_starts_with($path, 'resource/'))) {
+            return $path;
+        }
+        return $image;
     }
 
     private static function imageUrl(string $image): string

@@ -47,17 +47,16 @@ class AigcOutpaintService
     {
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::config($tenantId);
-        $configJson = is_array($params['config_json'] ?? null) ? $params['config_json'] : ($current['config_json'] ?? []);
         $data = [
             'tenant_id' => $tenantId,
             'status' => array_key_exists('status', $params) ? (int)$params['status'] : (int)$current['status'],
-            'default_channel' => self::normalizeCode((string)($params['default_channel'] ?? $configJson['channel'] ?? $current['default_channel'] ?? '')),
-            'default_quality' => trim((string)($params['default_quality'] ?? $configJson['quality'] ?? $current['default_quality'] ?? '')),
-            'default_ratio' => trim((string)($params['default_ratio'] ?? $configJson['ratio'] ?? $current['default_ratio'] ?? '')),
+            'default_channel' => '',
+            'default_quality' => '',
+            'default_ratio' => '',
             'prompt_template' => self::normalizeTemplate((string)($params['prompt_template'] ?? $current['prompt_template'])),
             'negative_prompt' => trim((string)($params['negative_prompt'] ?? $current['negative_prompt'])),
             'price_config' => self::normalizePriceConfig($params['price_config'] ?? $current['price_config'] ?? []),
-            'config_json' => self::normalizeConfigJson($configJson),
+            'config_json' => [],
             'update_time' => time(),
         ];
         $row = AigcOutpaintConfig::where('tenant_id', $tenantId)->findOrEmpty();
@@ -84,13 +83,13 @@ class AigcOutpaintService
         $current = self::config($tenantId);
         self::saveConfig($tenantId, [
             'status' => $current['status'],
-            'default_channel' => $current['default_channel'],
-            'default_quality' => $current['default_quality'],
-            'default_ratio' => $current['default_ratio'],
+            'default_channel' => '',
+            'default_quality' => '',
+            'default_ratio' => '',
             'prompt_template' => $current['prompt_template'],
             'negative_prompt' => $current['negative_prompt'],
             'price_config' => self::normalizePriceConfig($params['price_config'] ?? $params['packages'] ?? $params['items'] ?? []),
-            'config_json' => $current['config_json'] ?? [],
+            'config_json' => [],
         ]);
     }
 
@@ -553,16 +552,13 @@ class AigcOutpaintService
     private static function sanitizeConfig(array $data): array
     {
         $data['status'] = (int)($data['status'] ?? 1);
-        $data['default_channel'] = self::normalizeCode((string)($data['default_channel'] ?? ''));
-        $data['default_quality'] = trim((string)($data['default_quality'] ?? ''));
-        $data['default_ratio'] = trim((string)($data['default_ratio'] ?? ''));
+        $data['default_channel'] = '';
+        $data['default_quality'] = '';
+        $data['default_ratio'] = '';
         $data['prompt_template'] = self::normalizeTemplate((string)($data['prompt_template'] ?? self::DEFAULT_PROMPT_TEMPLATE));
         $data['negative_prompt'] = trim((string)($data['negative_prompt'] ?? self::DEFAULT_NEGATIVE_PROMPT));
         $data['price_config'] = is_array($data['price_config'] ?? null) ? self::normalizePriceConfig($data['price_config']) : [];
-        $data['config_json'] = is_array($data['config_json'] ?? null) ? self::normalizeConfigJson($data['config_json']) : [];
-        $data['config_json']['channel'] = $data['default_channel'] ?: ($data['config_json']['channel'] ?? '');
-        $data['config_json']['quality'] = $data['default_quality'] ?: ($data['config_json']['quality'] ?? '');
-        $data['config_json']['ratio'] = $data['default_ratio'] ?: ($data['config_json']['ratio'] ?? '');
+        $data['config_json'] = [];
         return $data;
     }
 
@@ -696,22 +692,12 @@ class AigcOutpaintService
                 }
             }
         }
-        $ratio = trim((string)($params['ratio_code'] ?? $params['ratio'] ?? $config['default_ratio'] ?? ''));
+        $ratio = trim((string)($params['ratio_code'] ?? $params['ratio'] ?? ''));
         if ($ratio !== '') {
             foreach ($enabled as $item) {
                 if ((string)$item['ratio'] === $ratio) {
                     return $item;
                 }
-            }
-        }
-        $channel = self::normalizeCode((string)($config['default_channel'] ?? ''));
-        $quality = trim((string)($config['default_quality'] ?? ''));
-        foreach ($enabled as $item) {
-            if (($channel === '' || (string)$item['channel'] === $channel)
-                && ($quality === '' || (string)$item['quality'] === $quality)
-                && ($ratio === '' || (string)$item['ratio'] === $ratio)
-            ) {
-                return $item;
             }
         }
         return $enabled[0];
@@ -821,13 +807,13 @@ class AigcOutpaintService
         $payload = [
             'tenant_id' => $tenantId,
             'status' => (int)($data['status'] ?? 1),
-            'default_channel' => (string)($data['default_channel'] ?? ''),
-            'default_quality' => (string)($data['default_quality'] ?? ''),
-            'default_ratio' => (string)($data['default_ratio'] ?? ''),
+            'default_channel' => '',
+            'default_quality' => '',
+            'default_ratio' => '',
             'prompt_template' => (string)($data['prompt_template'] ?? self::DEFAULT_PROMPT_TEMPLATE),
             'negative_prompt' => (string)($data['negative_prompt'] ?? self::DEFAULT_NEGATIVE_PROMPT),
             'price_config' => self::normalizePriceConfig($data['price_config'] ?? []),
-            'config_json' => self::normalizeConfigJson($data['config_json'] ?? []),
+            'config_json' => [],
             'update_time' => time(),
         ];
         if ($row->isEmpty()) {

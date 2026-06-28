@@ -11,10 +11,8 @@ use app\common\service\app\AppRegistryService;
 use app\common\service\app\AppFrontendManifestService;
 use app\common\service\app\AppPlanService;
 use app\common\service\app\DefaultAppService;
-use app\common\service\update\AppPackageUpdateService;
 use app\common\service\FileService;
 use Exception;
-use Throwable;
 
 class AppController extends BaseAdminController
 {
@@ -26,7 +24,6 @@ class AppController extends BaseAdminController
         $tenantApps = TenantApp::where('tenant_id', $this->tenantId)->column('*', 'app_code');
         $paidOrderExpires = self::paidOrderExpireMap($this->tenantId);
         $displayMap = AppDisplayConfigService::map($this->tenantId, array_column($apps, 'code') ?: []);
-        $cloudIconMap = self::cloudIconMap();
         $rows = [];
         foreach ($apps as &$app) {
             $tenantApp = $tenantApps[$app['code']] ?? [];
@@ -37,7 +34,7 @@ class AppController extends BaseAdminController
                 $display['cover_uri'] ?? '',
                 $app['cover'] ?? ''
             );
-            $app['icon_url'] = $cloudIconMap[$app['code']] ?? self::imageUrl((string)($app['icon'] ?? ''));
+            $app['icon_url'] = self::imageUrl((string)($app['icon'] ?? ''));
             $isBuiltin = DefaultAppService::isDefaultApp((string)$app['code']);
             if (!$isBuiltin && !self::isValidPaidTenantApp($tenantApp, $paidOrderExpires)) {
                 $tenantApp = [];
@@ -85,7 +82,6 @@ class AppController extends BaseAdminController
             array_column($apps, 'code') ?: [],
             array_column($builtinApps, 'code') ?: []
         ))));
-        $cloudIconMap = self::cloudIconMap();
         $listedCodes = [];
         foreach ($lists as &$item) {
             $app = $apps[$item['app_code']] ?? [];
@@ -99,7 +95,7 @@ class AppController extends BaseAdminController
                 $display['cover_uri'] ?? '',
                 $app['cover'] ?? ''
             );
-            $item['icon_url'] = $cloudIconMap[$item['app_code']] ?? self::imageUrl((string)($app['icon'] ?? ''));
+            $item['icon_url'] = self::imageUrl((string)($app['icon'] ?? ''));
             $item['display_config'] = $display;
             $item['description'] = $app['description'] ?? '';
             $item['platform_status'] = $app['status'] ?? 'removed';
@@ -136,7 +132,7 @@ class AppController extends BaseAdminController
                     $displayMap[$app['code']]['cover_uri'] ?? '',
                     $app['cover'] ?? ''
                 ),
-                'icon_url' => $cloudIconMap[$app['code']] ?? self::imageUrl((string)($app['icon'] ?? '')),
+                'icon_url' => self::imageUrl((string)($app['icon'] ?? '')),
                 'display_config' => $displayMap[$app['code']] ?? [],
                 'description' => $app['description'],
                 'platform_status' => $app['status'],
@@ -229,64 +225,6 @@ class AppController extends BaseAdminController
     {
         $uri = trim($uri);
         return $uri === '' ? '' : FileService::getFileUrl($uri);
-    }
-
-    private static function cloudIconMap(): array
-    {
-        static $cache = null;
-        if ($cache !== null) {
-            return $cache;
-        }
-        try {
-            $rows = self::normalizeCloudRows((new AppPackageUpdateService())->cloudLists([]));
-        } catch (Throwable $e) {
-            $cache = [];
-            return $cache;
-        }
-        $map = [];
-        foreach ($rows as $row) {
-            if (!is_array($row)) {
-                continue;
-            }
-            $code = trim((string)($row['app_code'] ?? $row['code'] ?? ''));
-            if ($code === '') {
-                continue;
-            }
-            $latestInfo = is_array($row['latest_version_info'] ?? null) ? $row['latest_version_info'] : [];
-            $icon = self::firstImageValue(
-                $row['icon_url'] ?? '',
-                $latestInfo['icon_url'] ?? '',
-                $row['icon'] ?? '',
-                $latestInfo['icon'] ?? ''
-            );
-            if ($icon !== '') {
-                $map[$code] = self::imageUrl($icon);
-            }
-        }
-        $cache = $map;
-        return $cache;
-    }
-
-    private static function normalizeCloudRows(array $data): array
-    {
-        if (self::isList($data)) {
-            return $data;
-        }
-        foreach ([
-            $data['lists'] ?? null,
-            $data['data']['lists'] ?? null,
-            $data['data'] ?? null,
-        ] as $rows) {
-            if (is_array($rows) && self::isList($rows)) {
-                return $rows;
-            }
-        }
-        return [];
-    }
-
-    private static function isList(array $value): bool
-    {
-        return $value === [] || array_keys($value) === range(0, count($value) - 1);
     }
 
     private static function firstImageValue(...$values): string

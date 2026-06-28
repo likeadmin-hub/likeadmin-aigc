@@ -339,7 +339,9 @@ class AigcStyleTransferService
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
-        self::refreshMappedTasks($tenantId, $userId);
+        if (!empty($params['sync_running'])) {
+            self::refreshMappedTasks($tenantId, $userId);
+        }
         $query = AigcStyleTransferTask::alias('t')
             ->leftJoin('user u', 'u.id = t.user_id AND u.tenant_id = t.tenant_id')
             ->leftJoin('aigc_style_transfer_style_template s', 's.id = t.template_id AND s.tenant_id = t.tenant_id')

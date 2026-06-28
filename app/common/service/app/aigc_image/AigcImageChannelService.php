@@ -59,7 +59,7 @@ class AigcImageChannelService
         $defaults = self::defaults($channels);
         $channelCode = trim((string)($params['channel'] ?? '')) ?: $defaults['channel'];
         $quality = trim((string)($params['quality'] ?? '')) ?: $defaults['quality'];
-        $ratio = trim((string)($params['ratio'] ?? '')) ?: $defaults['ratio'];
+        $ratio = self::normalizeRequestedRatio($params['ratio'] ?? '', $defaults['ratio']);
 
         foreach ($channels as $channel) {
             if ($channel['code'] !== $channelCode) {
@@ -68,6 +68,9 @@ class AigcImageChannelService
             foreach ($channel['qualities'] as $qualityItem) {
                 if ($qualityItem['value'] !== $quality) {
                     continue;
+                }
+                if ($ratio === '') {
+                    $ratio = self::firstUsableRatio($qualityItem['ratios'] ?? []);
                 }
                 foreach ($qualityItem['ratios'] as $ratioItem) {
                     if ($ratioItem['value'] === $ratio) {
@@ -376,6 +379,9 @@ class AigcImageChannelService
                     'tenant_status' => (int)($tenantSpec['status'] ?? 1),
                     'sort' => (int)($tenantSpec['sort'] ?? $platformSpec['sort']),
                 ];
+                if (empty($virtualRatioOptions) && self::isPlaceholderRatio((string)$baseSpec['ratio'])) {
+                    continue;
+                }
                 $ratioSpecs = empty($virtualRatioOptions) ? [$baseSpec] : self::expandVirtualRatioSpecs($baseSpec, $virtualRatioOptions);
                 foreach ($ratioSpecs as $spec) {
                     $channel['specs'][] = $spec;
@@ -469,13 +475,37 @@ class AigcImageChannelService
     {
         $channel = $channels[0] ?? [];
         $quality = $channel['qualities'][0] ?? [];
-        $ratio = $quality['ratios'][0] ?? [];
         return [
             'channel' => $channel['code'] ?? '',
             'quality' => $quality['value'] ?? '',
-            'ratio' => $ratio['ratio'] ?? '',
+            'ratio' => self::firstUsableRatio($quality['ratios'] ?? []),
             'quantity' => 1,
         ];
+    }
+
+    private static function normalizeRequestedRatio($ratio, string $default = ''): string
+    {
+        $ratio = trim((string)$ratio);
+        if ($ratio === 'default') {
+            return self::isPlaceholderRatio($default) ? '' : $default;
+        }
+        return $ratio !== '' ? $ratio : (self::isPlaceholderRatio($default) ? '' : $default);
+    }
+
+    private static function firstUsableRatio(array $ratios): string
+    {
+        foreach ($ratios as $ratio) {
+            $value = trim((string)($ratio['value'] ?? $ratio['ratio'] ?? ''));
+            if ($value !== '' && !self::isPlaceholderRatio($value)) {
+                return $value;
+            }
+        }
+        return '';
+    }
+
+    private static function isPlaceholderRatio(string $ratio): bool
+    {
+        return trim($ratio) === 'default';
     }
 
     private static function maxReferenceImages(array $channels): int

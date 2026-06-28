@@ -3298,9 +3298,24 @@ class AigcDigitalHumanService
     private static function formatAvatar(array $row): array
     {
         $tenantId = (int)($row['tenant_id'] ?? 0);
+        $mediaUri = (string)($row['media_uri'] ?? '');
         $coverUri = (string)($row['cover_uri'] ?? '');
+        $mediaType = (string)($row['media_type'] ?? '');
+        if ($mediaType === '') {
+            $mediaType = self::isVideoUri($mediaUri) ? 'video' : 'image';
+        }
+        if ($coverUri === '' && $mediaType === 'image') {
+            $coverUri = $mediaUri;
+        }
+
+        $row['media_type'] = $mediaType;
+        $row['media_uri'] = $mediaUri;
+        $row['cover_uri'] = $coverUri;
         $row['cover_url'] = self::isVideoUri($coverUri) ? '' : self::fileUrlForTenant($coverUri, $tenantId, $row);
-        $row['media_url'] = self::fileUrlForTenant((string)($row['media_uri'] ?? ''), $tenantId, $row);
+        $row['media_url'] = self::fileUrlForTenant($mediaUri, $tenantId, $row);
+        $row['video_url'] = $mediaType === 'video' ? $row['media_url'] : '';
+        $row['image_uri'] = $mediaType === 'image' ? $mediaUri : $coverUri;
+        $row['image_url'] = $mediaType === 'image' ? $row['media_url'] : $row['cover_url'];
         return $row;
     }
 

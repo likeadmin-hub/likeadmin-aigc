@@ -54,6 +54,7 @@ class MenuLogic extends BaseLogic
             self::ensurePackageMenus($tenantId);
             self::ensureSystemDefaultMenu($tenantId);
             self::ensureCaseGalleryMenu($tenantId);
+            self::ensurePcNoticeMenu($tenantId);
         }
 
         $where = [];
@@ -161,7 +162,7 @@ class MenuLogic extends BaseLogic
         self::ensureMenuSourceColumns($menuTable);
 
         try {
-            foreach (['aigc_image_case', 'aigc_video_case', 'aigc_digital_human_case'] as $legacyKey) {
+            foreach (['aigc_image_case', 'aigc_video_case', 'aigc_digital_human_case', 'core_tenant_case_gallery_list'] as $legacyKey) {
                 Db::name($menuTable)
                     ->where(['tenant_id' => $tenantId, 'source_menu_key' => $legacyKey])
                     ->where('source', '<>', 'tenant')
@@ -187,6 +188,56 @@ class MenuLogic extends BaseLogic
                 $menu['pid'] = $caseGalleryId;
                 $childId = self::upsertSystemMenu($menuTable, $tenantId, $menu, (int)($menu['legacy_id'] ?? 0));
                 self::grantChildMenuToParentRoles($roleMenuTable, $caseGalleryId, $childId);
+                self::grantMenuToTenantRoles($roleMenuTable, $tenantId, $childId);
+            }
+        } catch (Throwable) {
+        }
+    }
+
+    private static function ensurePcNoticeMenu(int $tenantId): void
+    {
+        if ($tenantId <= 0) {
+            return;
+        }
+
+        $tables = self::tenantMenuTables($tenantId);
+        $menuTable = $tables['menu'];
+        $roleMenuTable = $tables['role_menu'];
+        if (!self::tableExists($menuTable)) {
+            return;
+        }
+        self::ensureMenuSourceColumns($menuTable);
+
+        try {
+            $noticeId = self::upsertSystemMenu($menuTable, $tenantId, [
+                'pid' => 0,
+                'type' => 'C',
+                'name' => '消息公告',
+                'icon' => 'el-icon-Bell',
+                'sort' => 97,
+                'perms' => 'notice.pc_notice/lists',
+                'paths' => 'notice',
+                'component' => 'message/pc_notice/index',
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_pc_notice',
+            ], 9307);
+
+            $caseGalleryId = (int)Db::name($menuTable)
+                ->where([
+                    'tenant_id' => $tenantId,
+                    'source_menu_key' => 'core_tenant_case_gallery',
+                ])
+                ->where('source', '<>', 'tenant')
+                ->value('id');
+            if ($caseGalleryId > 0) {
+                self::grantChildMenuToParentRoles($roleMenuTable, $caseGalleryId, $noticeId);
+            }
+            self::grantMenuToTenantRoles($roleMenuTable, $tenantId, $noticeId);
+
+            foreach (self::pcNoticePermissionMenus() as $menu) {
+                $menu['pid'] = $noticeId;
+                $childId = self::upsertSystemMenu($menuTable, $tenantId, $menu, (int)($menu['legacy_id'] ?? 0));
+                self::grantChildMenuToParentRoles($roleMenuTable, $noticeId, $childId);
                 self::grantMenuToTenantRoles($roleMenuTable, $tenantId, $childId);
             }
         } catch (Throwable) {
@@ -489,6 +540,57 @@ class MenuLogic extends BaseLogic
                 'is_show' => 0,
                 'app_code' => '',
                 'source_menu_key' => 'core_tenant_case_gallery_delete',
+            ],
+        ];
+    }
+
+    private static function pcNoticePermissionMenus(): array
+    {
+        return [
+            [
+                'legacy_id' => 9308,
+                'type' => 'A',
+                'name' => '详情',
+                'perms' => 'notice.pc_notice/detail',
+                'is_show' => 0,
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_pc_notice_detail',
+            ],
+            [
+                'legacy_id' => 9309,
+                'type' => 'A',
+                'name' => '新增',
+                'perms' => 'notice.pc_notice/add',
+                'is_show' => 0,
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_pc_notice_add',
+            ],
+            [
+                'legacy_id' => 9310,
+                'type' => 'A',
+                'name' => '编辑',
+                'perms' => 'notice.pc_notice/edit',
+                'is_show' => 0,
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_pc_notice_edit',
+            ],
+            [
+                'legacy_id' => 9311,
+                'type' => 'A',
+                'name' => '删除',
+                'perms' => 'notice.pc_notice/delete',
+                'is_show' => 0,
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_pc_notice_delete',
+            ],
+            [
+                'legacy_id' => 9312,
+                'type' => 'A',
+                'name' => '状态',
+                'perms' => 'notice.pc_notice/status',
+                'is_show' => 0,
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_pc_notice_status',
             ],
         ];
     }

@@ -464,6 +464,42 @@ VALUES (191, {tenantId}, 187, 'A', '删除', '', 0, 'finance.recharge_package/de
 INSERT INTO `la_tenant_system_menu_{tenantSn}`
 VALUES (192, {tenantId}, 187, 'A', '详情', '', 0, 'finance.recharge_package/detail', '', '', '', '', 0, 1, 0, 1778000000, 1778000000);
 
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES ({tenantId},0,'M','算力商城','el-icon-Goods',70,'','power-mall','','','',0,1,0,'','core','core_tenant_power_mall',1,1782604800,1782604800);
+SET @core_tenant_power_mall_id := LAST_INSERT_ID();
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+({tenantId},@core_tenant_power_mall_id,'C','购买算力','el-icon-Coin',100,'power.mall/packages','buy','power_mall/index','','',0,1,0,'','core','core_tenant_power_mall_buy',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_mall_id,'C','购买记录','el-icon-Document',90,'power.mall/orders','records','power_mall/records','','',0,1,0,'','core','core_tenant_power_mall_records',1,1782604800,1782604800);
+SET @core_tenant_power_buy_id := (
+  SELECT `id` FROM `la_tenant_system_menu_{tenantSn}`
+  WHERE `tenant_id` = {tenantId} AND `source_menu_key` = 'core_tenant_power_mall_buy'
+  ORDER BY `id` DESC
+  LIMIT 1
+);
+SET @core_tenant_power_records_id := (
+  SELECT `id` FROM `la_tenant_system_menu_{tenantSn}`
+  WHERE `tenant_id` = {tenantId} AND `source_menu_key` = 'core_tenant_power_mall_records'
+  ORDER BY `id` DESC
+  LIMIT 1
+);
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+({tenantId},@core_tenant_power_buy_id,'A','点数概览','',0,'power.mall/stats','','','','',0,0,0,'','core','core_tenant_power_mall_stats',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_buy_id,'A','创建订单','',0,'power.mall/createOrder','','','','',0,0,0,'','core','core_tenant_power_mall_create_order',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_buy_id,'A','支付方式','',0,'power.pay/payWay','','','','',0,0,0,'','core','core_tenant_power_pay_way',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_buy_id,'A','预支付','',0,'power.pay/prepay','','','','',0,0,0,'','core','core_tenant_power_pay_prepay',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_buy_id,'A','支付状态','',0,'power.pay/payStatus','','','','',0,0,0,'','core','core_tenant_power_pay_status',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_records_id,'A','订单详情','',0,'power.mall/orderDetail','','','','',0,0,0,'','core','core_tenant_power_mall_order_detail',1,1782604800,1782604800);
+
+UPDATE `la_tenant_system_menu_{tenantSn}`
+SET `app_code` = '', `source` = 'core', `source_menu_key` = 'core_tenant_message', `is_core` = 1, `update_time` = 1782691200
+WHERE `tenant_id` = {tenantId}
+  AND `source` = 'core'
+  AND `source_menu_key` = ''
+  AND `name` = '消息管理'
+  AND `paths` = 'message';
+
 DELETE FROM `la_membership_plan_app`
 WHERE `tenant_id` = {tenantId}
   AND `app_code` IN ('aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm', 'aigc_hairstyle', 'aigc_fitting', 'aigc_product_image', 'aigc_style_transfer', 'aigc_photo_restore', 'aigc_model_wear', 'aigc_background_removal', 'aigc_image_translate', 'aigc_one_click_cleanup', 'aigc_product_suite', 'aigc_product_multi_angle', 'aigc_fashion_lookbook', 'aigc_product_promo_video', 'aigc_outpaint', 'aigc_local_redraw');
@@ -617,6 +653,12 @@ VALUES
 (9303,{tenantId},9102,'A','任务加入','',0,'case_gallery.case/fromTask','','','','',0,0,0,'','core','core_tenant_case_gallery_from_task',1,1778000000,1778000000),
 (9304,{tenantId},9102,'A','修改状态','',0,'case_gallery.case/status','','','','',0,0,0,'','core','core_tenant_case_gallery_status',1,1778000000,1778000000),
 (9305,{tenantId},9102,'A','删除','',0,'case_gallery.case/delete','','','','',0,0,0,'','core','core_tenant_case_gallery_delete',1,1778000000,1778000000),
+(9307,{tenantId},0,'C','消息公告','el-icon-Bell',97,'notice.pc_notice/lists','notice','message/pc_notice/index','','',0,1,0,'','core','core_tenant_pc_notice',1,1782691200,1782691200),
+(9308,{tenantId},9307,'A','详情','',0,'notice.pc_notice/detail','','','','',0,0,0,'','core','core_tenant_pc_notice_detail',1,1782691200,1782691200),
+(9309,{tenantId},9307,'A','新增','',0,'notice.pc_notice/add','','','','',0,0,0,'','core','core_tenant_pc_notice_add',1,1782691200,1782691200),
+(9310,{tenantId},9307,'A','编辑','',0,'notice.pc_notice/edit','','','','',0,0,0,'','core','core_tenant_pc_notice_edit',1,1782691200,1782691200),
+(9311,{tenantId},9307,'A','删除','',0,'notice.pc_notice/delete','','','','',0,0,0,'','core','core_tenant_pc_notice_delete',1,1782691200,1782691200),
+(9312,{tenantId},9307,'A','状态','',0,'notice.pc_notice/status','','','','',0,0,0,'','core','core_tenant_pc_notice_status',1,1782691200,1782691200),
 (9103,{tenantId},9100,'C','通道调价','',0,'app.aigc_image.channel/lists','channel-price','apps/aigc_image/channel-price','','',0,1,0,'aigc_image','app','aigc_image_channel_price',0,1778000000,1778000000),
 (9104,{tenantId},9100,'C','用量统计','',0,'app.aigc_image.admin/stat','stat','apps/aigc_image/stat','','',0,1,0,'aigc_image','app','aigc_image_stat',0,1778000000,1778000000);
 

@@ -12,6 +12,10 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
 {
     private const DEFAULT_SUBMIT_PATH = '/api/v1/tasks';
     private const DEFAULT_TASK_PATH = '/api/v1/tasks/{task_id}';
+    private const DEFAULT_TIMEOUT = 120;
+    private const DEFAULT_CONNECT_TIMEOUT = 30;
+    private const DEFAULT_SUBMIT_RETRY_ATTEMPTS = 2;
+    private const DEFAULT_SUBMIT_RETRY_DELAY_MS = 800;
 
     public function generate(AigcImageGenerateRequest $request): AigcImageGenerateResult
     {
@@ -19,7 +23,7 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             $config = $this->resolveConfig($request);
             $this->assertSupportedQuantity($request);
             $payload = $this->buildPayload($request, $config);
-            $submit = $this->request('POST', $config['submit_url'], $config['api_key'], $payload, (int)$config['timeout'], (bool)$config['ssl_verify']);
+            $submit = $this->submitWithRetry($config, $payload);
             $taskId = $this->extractTaskId($submit);
             if ($taskId === '') {
                 return new AigcImageGenerateResult(false, [], '供应商未返回任务ID');
@@ -41,7 +45,15 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
     {
         try {
             $config = $this->resolveConfig($request);
-            $task = $this->request('GET', str_replace('{task_id}', rawurlencode($taskId), $config['task_url_template']), $config['api_key'], [], (int)$config['timeout'], (bool)$config['ssl_verify']);
+            $task = $this->request(
+                'GET',
+                str_replace('{task_id}', rawurlencode($taskId), $config['task_url_template']),
+                $config['api_key'],
+                [],
+                (int)$config['timeout'],
+                (bool)$config['ssl_verify'],
+                (int)$config['connect_timeout']
+            );
             if ($this->isTaskPending($task)) {
                 return new AigcImageGenerateResult(true, [], '', $taskId);
             }
@@ -118,7 +130,10 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             'model' => (string)($config['model'] ?? $request->providerParams['model'] ?? 'gpt-image-2'),
             'submit_url' => $baseUrl . '/' . ltrim($submitPath, '/'),
             'task_url_template' => $baseUrl . '/' . ltrim($taskPath, '/'),
-            'timeout' => max(5, (int)($config['timeout'] ?? 30)),
+            'timeout' => max(self::DEFAULT_TIMEOUT, (int)($config['timeout'] ?? self::DEFAULT_TIMEOUT)),
+            'connect_timeout' => max(5, min(60, (int)($config['connect_timeout'] ?? self::DEFAULT_CONNECT_TIMEOUT))),
+            'submit_retry_attempts' => max(1, min(3, (int)($config['submit_retry_attempts'] ?? self::DEFAULT_SUBMIT_RETRY_ATTEMPTS))),
+            'submit_retry_delay_ms' => max(0, min(5000, (int)($config['submit_retry_delay_ms'] ?? self::DEFAULT_SUBMIT_RETRY_DELAY_MS))),
             'poll_interval' => max(1, (int)($config['poll_interval'] ?? 2)),
             'poll_attempts' => max(0, (int)($config['poll_attempts'] ?? 30)),
             'upstream_channel' => (string)($config['upstream_channel'] ?? $config['channel'] ?? ''),
@@ -234,6 +249,40 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
         }
     }
 
+    private function submitWithRetry(array $config, array $payload): array
+    {
+        $attempts = (int)($config['submit_retry_attempts'] ?? self::DEFAULT_SUBMIT_RETRY_ATTEMPTS);
+        $delayMs = (int)($config['submit_retry_delay_ms'] ?? self::DEFAULT_SUBMIT_RETRY_DELAY_MS);
+        $lastError = null;
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            try {
+                return $this->request(
+                    'POST',
+                    $config['submit_url'],
+                    $config['api_key'],
+                    $payload,
+                    (int)$config['timeout'],
+                    (bool)$config['ssl_verify'],
+                    (int)$config['connect_timeout']
+                );
+            } catch (\Throwable $e) {
+                $lastError = $e;
+                if ($attempt >= $attempts || !$this->isTransientFetchError($e->getMessage())) {
+                    throw $e;
+                }
+                Log::write('AIGC生图供应商任务提交暂时失败，准备重试: ' . json_encode([
+                    'provider' => 'xhadmin_aigc_image',
+                    'attempt' => $attempt,
+                    'message' => $e->getMessage(),
+                ], JSON_UNESCAPED_UNICODE));
+                if ($delayMs > 0) {
+                    usleep($delayMs * 1000);
+                }
+            }
+        }
+        throw $lastError ?: new Exception('供应商网络请求失败');
+    }
+
     private function pollTask(string $taskId, array $config): array
     {
         $url = str_replace('{task_id}', rawurlencode($taskId), $config['task_url_template']);
@@ -242,7 +291,7 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             if ($i > 0) {
                 sleep((int)$config['poll_interval']);
             }
-            $last = $this->request('GET', $url, $config['api_key'], [], (int)$config['timeout'], (bool)$config['ssl_verify']);
+            $last = $this->request('GET', $url, $config['api_key'], [], (int)$config['timeout'], (bool)$config['ssl_verify'], (int)$config['connect_timeout']);
             $status = $this->extractTaskStatus($last);
             if (in_array($status, ['completed', 'success', 'succeeded', 'failed', 'error', 'canceled'], true)) {
                 return $last;
@@ -257,7 +306,7 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
         return $status === '' || in_array($status, ['pending', 'running', 'processing', 'queued', 'created', 'submitted', 'timeout'], true);
     }
 
-    private function request(string $method, string $url, string $apiKey, array $payload = [], int $timeout = 30, bool $sslVerify = false): array
+    private function request(string $method, string $url, string $apiKey, array $payload = [], int $timeout = 30, bool $sslVerify = false, int $connectTimeout = self::DEFAULT_CONNECT_TIMEOUT): array
     {
         $headers = [
             'Authorization: Bearer ' . $apiKey,
@@ -268,7 +317,7 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
         curl_setopt_array($ch, [
             CURLOPT_URL => $url,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => min(10, $timeout),
+            CURLOPT_CONNECTTIMEOUT => max(5, min($connectTimeout, $timeout)),
             CURLOPT_TIMEOUT => $timeout,
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_SSL_VERIFYPEER => $sslVerify,

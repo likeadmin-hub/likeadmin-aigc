@@ -22,11 +22,13 @@ use app\common\logic\BaseLogic;
 use app\common\model\membership\MembershipOrder;
 use app\common\model\pay\PayWay;
 use app\common\model\pay\TenantPayWay;
+use app\common\model\power\TenantPowerOrder;
 use app\common\model\recharge\RechargeOrder;
 use app\common\logic\PayNotifyLogic;
 use app\common\model\user\User;
 use app\common\service\pay\AliPayService;
 use app\common\service\pay\WeChatPayService;
+use app\common\service\power\TenantPowerMallService;
 
 
 /**
@@ -57,13 +59,21 @@ class PaymentLogic extends BaseLogic
                 // 会员购买
                 $order = MembershipOrder::findOrEmpty($params['order_id'])->toArray();
             }
+            if ($params['from'] == TenantPowerMallService::FROM) {
+                $order = TenantPowerOrder::findOrEmpty($params['order_id'])->toArray();
+                if (!empty($order) && (int)($params['tenant_id'] ?? 0) > 0 && (int)$order['tenant_id'] !== (int)$params['tenant_id']) {
+                    $order = [];
+                }
+            }
 
             if (empty($order)) {
                 throw new \Exception('待支付订单不存在');
             }
 
-            //获取支付场景
-            $pay_way = self::getPayWayByTerminal((int)$terminal);
+            // 租户购买平台算力必须使用平台侧收款配置，不能读取租户给终端用户收款的配置。
+            $pay_way = $params['from'] == TenantPowerMallService::FROM
+                ? self::getTenantPowerPayWayByTerminal((int)$terminal)
+                : self::getPayWayByTerminal((int)$terminal);
 
             foreach ($pay_way as $k => &$item) {
                 if ($item['pay_way'] == PayEnum::WECHAT_PAY) {
@@ -77,7 +87,7 @@ class PaymentLogic extends BaseLogic
                     $item['extra'] = '可用点数:' . $user_money;
                 }
                 // 现金订单去除点数支付
-                if (in_array($params['from'], ['recharge', 'membership'], true) && $item['pay_way'] == PayEnum::BALANCE_PAY) {
+                if (in_array($params['from'], ['recharge', 'membership', TenantPowerMallService::FROM], true) && $item['pay_way'] == PayEnum::BALANCE_PAY) {
                     unset($pay_way[$k]);
                 }
             }
@@ -93,11 +103,11 @@ class PaymentLogic extends BaseLogic
         }
     }
 
-    private static function getPayWayByTerminal(int $terminal): array
+    private static function getPayWayByTerminal(int $terminal, bool $forcePlatform = false): array
     {
         $tenantId = (int)(request()->tenantId ?? 0);
         $tenantPayWay = [];
-        if ($tenantId > 0) {
+        if ($tenantId > 0 && !$forcePlatform) {
             $tenantPayWay = self::queryTenantPayWay($terminal);
             if (!empty($tenantPayWay)) {
                 return $tenantPayWay;
@@ -116,6 +126,11 @@ class PaymentLogic extends BaseLogic
         }
 
         return $payWay;
+    }
+
+    private static function getTenantPowerPayWayByTerminal(int $terminal): array
+    {
+        return self::getPayWayByTerminal($terminal, true);
     }
 
     private static function queryTenantPayWay(int $terminal): array
@@ -183,6 +198,27 @@ class PaymentLogic extends BaseLogic
                         'bonus_points' => $order['bonus_points'] ?? '0.00',
                     ];
                     break;
+                case TenantPowerMallService::FROM:
+                    $order = TenantPowerOrder::where(['id' => $params['order_id']])->findOrEmpty();
+                    if ((int)($params['tenant_id'] ?? 0) > 0) {
+                        $order = TenantPowerOrder::where(['tenant_id' => (int)$params['tenant_id'], 'id' => $params['order_id']])->findOrEmpty();
+                    }
+                    if ($order->isEmpty()) {
+                        throw new \Exception('算力订单不存在');
+                    }
+                    $payTime = empty($order['pay_time']) ? '' : date('Y-m-d H:i:s', $order['pay_time']);
+                    $orderInfo = [
+                        'order_id' => $order['id'],
+                        'order_sn' => $order['order_sn'],
+                        'order_amount' => $order['order_amount'],
+                        'pay_way' => PayEnum::getPayDesc($order['pay_way']),
+                        'pay_status' => PayEnum::getPayStatusDesc($order['pay_status']),
+                        'pay_time' => $payTime,
+                        'package_name' => $order['package_name'] ?? '',
+                        'package_type' => $order['package_type'] ?? '',
+                        'points' => $order['points'] ?? '0.00',
+                    ];
+                    break;
             }
 
             if (empty($order)) {
@@ -225,6 +261,16 @@ class PaymentLogic extends BaseLogic
                     }
                     $order['sn'] = $order['order_sn'];
                     break;
+                case TenantPowerMallService::FROM:
+                    $order = TenantPowerOrder::findOrEmpty($params['order_id']);
+                    if ($order->isEmpty()) {
+                        throw new \Exception('算力订单不存在');
+                    }
+                    if ((int)($params['tenant_id'] ?? 0) > 0 && (int)$order['tenant_id'] !== (int)$params['tenant_id']) {
+                        throw new \Exception('算力订单不存在');
+                    }
+                    $order['sn'] = $order['order_sn'];
+                    break;
             }
 
             if ($order['pay_status'] == PayEnum::ISPAID) {
@@ -251,6 +297,11 @@ class PaymentLogic extends BaseLogic
      */
     public static function pay($payWay, $from, $order, $terminal, $redirectUrl)
     {
+        if ($from == TenantPowerMallService::FROM && !self::isTenantPowerPayWayEnabled((int)$payWay, (int)$terminal)) {
+            self::setError('支付方式不可用');
+            return false;
+        }
+
         // 支付编号-仅为微信支付预置(同一商户号下不同客户端支付需使用唯一订单号)
         $paySn = $order['sn'] ?? $order['order_sn'];
         if ($payWay == PayEnum::WECHAT_PAY) {
@@ -267,6 +318,9 @@ class PaymentLogic extends BaseLogic
             case 'membership':
                 MembershipOrder::update(['pay_way' => $payWay, 'pay_sn' => $paySn], ['id' => $order['id']]);
                 break;
+            case TenantPowerMallService::FROM:
+                TenantPowerOrder::update(['pay_way' => $payWay, 'pay_sn' => $paySn], ['id' => $order['id']]);
+                break;
         }
 
         if ($order['order_amount'] == 0) {
@@ -277,7 +331,7 @@ class PaymentLogic extends BaseLogic
         $payService = null;
         switch ($payWay) {
             case PayEnum::WECHAT_PAY:
-                $payService = (new WeChatPayService($terminal, $order['user_id'] ?? null));
+                $payService = (new WeChatPayService($terminal, $order['user_id'] ?? null, $from == TenantPowerMallService::FROM));
                 $order['pay_sn'] = $paySn;
                 $order['redirect_url'] = $redirectUrl;
                 $result = $payService->pay($from, $order);
@@ -311,6 +365,16 @@ class PaymentLogic extends BaseLogic
     {
         $suffix = mb_substr(time(), -4);
         return $orderSn . $terminal . $suffix;
+    }
+
+    private static function isTenantPowerPayWayEnabled(int $payWay, int $terminal): bool
+    {
+        foreach (self::getTenantPowerPayWayByTerminal($terminal) as $item) {
+            if ((int)$item['pay_way'] === $payWay) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }

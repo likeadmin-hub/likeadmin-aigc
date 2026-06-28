@@ -20,6 +20,8 @@ use app\common\enum\PayEnum;
 use app\common\enum\user\UserTerminalEnum;
 use app\common\logic\PayNotifyLogic;
 use app\common\model\membership\MembershipOrder;
+use app\common\model\pay\PayConfig;
+use app\common\model\power\TenantPowerOrder;
 use app\common\model\recharge\RechargeOrder;
 use app\common\model\user\UserAuth;
 use app\common\service\pay\BasePayService;
@@ -61,6 +63,7 @@ class WeChatPayService extends BasePayService
      * @var
      */
     protected $terminal;
+    protected bool $usePlatformPay = false;
 
 
     /**
@@ -68,10 +71,11 @@ class WeChatPayService extends BasePayService
      * @param $terminal //用户终端
      * @param null $userId //用户id(获取授权openid)
      */
-    public function __construct($terminal, $userId = null)
+    public function __construct($terminal, $userId = null, bool $usePlatformPay = false)
     {
         $this->terminal = $terminal;
-        $this->config = WeChatConfigService::getPayConfigByTerminal($terminal);
+        $this->usePlatformPay = $usePlatformPay;
+        $this->config = $usePlatformPay ? $this->getPlatformPayConfigByTerminal($terminal) : WeChatConfigService::getPayConfigByTerminal($terminal);
         $this->app = new Application($this->config);
         if ($userId !== null) {
             $this->auth = UserAuth::where(['user_id' => $userId, 'terminal' => $terminal])->findOrEmpty();
@@ -323,6 +327,7 @@ class WeChatPayService extends BasePayService
             'order' => '商品',
             'recharge' => '充值',
             'membership' => '会员',
+            'tenant_power' => '算力套餐',
         ];
         return $desc[$from] ?? '商品';
     }
@@ -399,6 +404,16 @@ class WeChatPayService extends BasePayService
                             throw new \Exception((string)$result);
                         }
                         break;
+                    case 'tenant_power':
+                        $order = TenantPowerOrder::where(['order_sn' => $message['out_trade_no']])->findOrEmpty();
+                        if($order->isEmpty() || $order->pay_status == PayEnum::ISPAID) {
+                            return true;
+                        }
+                        $result = PayNotifyLogic::handle('tenant_power', $message['out_trade_no'], $extra);
+                        if (true !== $result) {
+                            throw new \Exception((string)$result);
+                        }
+                        break;
                 }
             }
             return true;
@@ -409,6 +424,54 @@ class WeChatPayService extends BasePayService
             return true;
         });
         return $server->serve();
+    }
+
+    private function getPlatformPayConfigByTerminal($terminal): array
+    {
+        switch ($terminal) {
+            case UserTerminalEnum::WECHAT_MMP:
+                $notifyUrl = (string)url('pay/notifyMnp', [], false, true);
+                break;
+            case UserTerminalEnum::WECHAT_OA:
+            case UserTerminalEnum::PC:
+            case UserTerminalEnum::H5:
+                $notifyUrl = (string)url('pay/notifyOa', [], false, true);
+                break;
+            case UserTerminalEnum::ANDROID:
+            case UserTerminalEnum::IOS:
+                $notifyUrl = (string)url('pay/notifyApp', [], false, true);
+                break;
+            default:
+                $notifyUrl = (string)url('pay/notifyOa', [], false, true);
+                break;
+        }
+
+        $pay = PayConfig::where(['pay_way' => PayEnum::WECHAT_PAY])->findOrEmpty()->toArray();
+        if (!file_exists(app()->getRootPath() . 'runtime/cert')) {
+            mkdir(app()->getRootPath() . 'runtime/cert', 0775, true);
+        }
+        $apiclientCert = $pay['config']['apiclient_cert'] ?? '';
+        $apiclientKey = $pay['config']['apiclient_key'] ?? '';
+        $certPath = app()->getRootPath() . 'runtime/cert/' . md5('platform_' . $apiclientCert) . '.pem';
+        $keyPath = app()->getRootPath() . 'runtime/cert/' . md5('platform_' . $apiclientKey) . '.pem';
+        if (!empty($apiclientCert) && !file_exists($certPath)) {
+            WeChatConfigService::setCert($certPath, trim($apiclientCert));
+        }
+        if (!empty($apiclientKey) && !file_exists($keyPath)) {
+            WeChatConfigService::setCert($keyPath, trim($apiclientKey));
+        }
+
+        return [
+            'mch_id' => $pay['config']['mch_id'] ?? '',
+            'private_key' => $keyPath,
+            'certificate' => $certPath,
+            'secret_key' => $pay['config']['pay_sign_key'] ?? '',
+            'notify_url' => $notifyUrl,
+            'http' => [
+                'throw' => true,
+                'timeout' => 5.0,
+            ],
+        ];
     }
 
 

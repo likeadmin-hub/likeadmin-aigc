@@ -4,6 +4,7 @@ namespace app\common\service\point;
 
 use app\common\model\tenant\Tenant;
 use app\common\model\tenant\TenantPointLog;
+use app\common\service\power\TenantPowerMallService;
 use RuntimeException;
 
 class TenantPointService
@@ -19,6 +20,7 @@ class TenantPointService
     public static function recharge(int $tenantId, float $points, int $adminId = 0, string $remark = ''): void
     {
         self::assertPositive($points);
+        TenantPowerMallService::expireBuckets($tenantId);
         $tenant = self::lockTenant($tenantId);
         $tenant->point_balance = self::formatPoints((float)$tenant['point_balance'] + $points);
         $tenant->save();
@@ -34,6 +36,7 @@ class TenantPointService
         if (self::hasLog($tenantId, self::TYPE_CONSUME, self::ACTION_DEC, $sourceSn, $remark)) {
             return;
         }
+        TenantPowerMallService::expireBuckets($tenantId);
         $tenant = self::lockTenant($tenantId);
         if (self::hasLog($tenantId, self::TYPE_CONSUME, self::ACTION_DEC, $sourceSn, $remark)) {
             return;
@@ -42,6 +45,7 @@ class TenantPointService
             throw new RuntimeException('租户点数不足，请联系管理员');
         }
         $tenant->point_balance = self::formatPoints((float)$tenant['point_balance'] - $points);
+        TenantPowerMallService::consumeBuckets($tenantId, $points, $sourceSn, $remark, $extra, false);
         $tenant->save();
         self::log($tenantId, self::TYPE_CONSUME, self::ACTION_DEC, $points, (float)$tenant['point_balance'], $sourceSn, $remark, $extra);
     }
@@ -52,6 +56,7 @@ class TenantPointService
         if (self::hasLog($tenantId, self::TYPE_REFUND, self::ACTION_INC, $sourceSn, $remark)) {
             return;
         }
+        TenantPowerMallService::expireBuckets($tenantId);
         $tenant = self::lockTenant($tenantId);
         if (self::hasLog($tenantId, self::TYPE_REFUND, self::ACTION_INC, $sourceSn, $remark)) {
             return;
@@ -64,6 +69,7 @@ class TenantPointService
     public static function assertEnough(int $tenantId, float $points): void
     {
         self::assertPositive($points);
+        TenantPowerMallService::expireBuckets($tenantId);
         if (self::balance($tenantId) < $points) {
             throw new RuntimeException('租户点数不足，请联系管理员');
         }

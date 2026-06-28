@@ -1,6 +1,7 @@
--- Ensure Case Gallery is a standalone core tenant menu and remove app-owned case menus.
+-- Ensure Case Gallery is a core first-level tenant page.
 UPDATE `la_tenant_system_menu`
-SET `name` = '案例广场',
+SET `type` = 'C',
+    `name` = '案例广场',
     `icon` = 'el-icon-PictureFilled',
     `sort` = 98,
     `perms` = 'case_gallery.case/lists',
@@ -27,6 +28,39 @@ WHERE (ta.`delete_time` IS NULL OR ta.`delete_time` = 0)
       AND m.`source_menu_key` = 'core_tenant_case_gallery'
   );
 
+UPDATE `la_tenant_system_menu`
+SET `type` = 'C',
+    `pid` = 0,
+    `name` = '案例广场',
+    `icon` = 'el-icon-PictureFilled',
+    `sort` = 98,
+    `perms` = 'case_gallery.case/lists',
+    `paths` = 'case-gallery',
+    `component` = 'case_gallery/index',
+    `selected` = '/case-gallery',
+    `app_code` = '',
+    `source` = 'core',
+    `is_core` = 1,
+    `update_time` = UNIX_TIMESTAMP()
+WHERE `source` = 'core'
+  AND `source_menu_key` = 'core_tenant_case_gallery';
+
+UPDATE `la_tenant_system_menu` child
+JOIN `la_tenant_system_menu` parent
+  ON parent.`tenant_id` = child.`tenant_id`
+  AND parent.`source` = 'core'
+  AND parent.`source_menu_key` = 'core_tenant_case_gallery'
+SET child.`pid` = parent.`id`, child.`update_time` = UNIX_TIMESTAMP()
+WHERE child.`source` = 'core'
+  AND child.`source_menu_key` IN (
+    'core_tenant_case_gallery_apps',
+    'core_tenant_case_gallery_detail',
+    'core_tenant_case_gallery_save',
+    'core_tenant_case_gallery_from_task',
+    'core_tenant_case_gallery_status',
+    'core_tenant_case_gallery_delete'
+  );
+
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT parent.`tenant_id`,parent.`id`,child.`type`,child.`name`,child.`icon`,child.`sort`,child.`perms`,child.`paths`,child.`component`,child.`selected`,child.`params`,child.`is_cache`,child.`is_show`,child.`is_disable`,child.`app_code`,child.`source`,child.`source_menu_key`,child.`is_core`,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 FROM `la_tenant_system_menu` parent
@@ -38,12 +72,17 @@ JOIN (
     UNION ALL SELECT 'A','修改状态','',0,'case_gallery.case/status','','','','',0,0,0,'','core','core_tenant_case_gallery_status',1
     UNION ALL SELECT 'A','删除','',0,'case_gallery.case/delete','','','','',0,0,0,'','core','core_tenant_case_gallery_delete',1
 ) child
-WHERE parent.`source_menu_key` = 'core_tenant_case_gallery'
+WHERE parent.`source` = 'core'
+  AND parent.`source_menu_key` = 'core_tenant_case_gallery'
   AND NOT EXISTS (
     SELECT 1 FROM `la_tenant_system_menu` exists_menu
     WHERE exists_menu.`tenant_id` = parent.`tenant_id`
       AND exists_menu.`source_menu_key` = child.`source_menu_key`
   );
+
+DELETE FROM `la_tenant_system_menu`
+WHERE `source` = 'core'
+  AND `source_menu_key` = 'core_tenant_case_gallery_list';
 
 INSERT IGNORE INTO `la_tenant_system_role_menu` (`role_id`,`menu_id`)
 SELECT DISTINCT rm.`role_id`, menu.`id`
