@@ -39,6 +39,14 @@ $post = [
 ];
 
 $message = '';
+$projectVersion = '';
+$projectConfigPath = $modelInstall->getAppRoot() . '/config/project.php';
+if (is_file($projectConfigPath)) {
+    $projectConfigContent = file_get_contents($projectConfigPath);
+    if (preg_match("/'version'\\s*=>\\s*'([^']+)'/", $projectConfigContent, $matches)) {
+        $projectVersion = $matches[1];
+    }
+}
 
 // 检查数据库正确性
 if ($step == 4) {
