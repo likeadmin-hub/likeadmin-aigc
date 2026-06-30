@@ -7,7 +7,14 @@ define('install', true);
 define('INSTALL_ROOT', __DIR__);
 define('TESTING_TABLE', 'config');
 
-$step = $_GET['step'] ?? 1;
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+$step = isset($_GET['step']) ? (int)$_GET['step'] : 1;
+if (!in_array($step, [1, 2, 3, 4, 5], true)) {
+    $step = 1;
+}
 
 $installDir = "install";
 $modelInstall = new installModel();
@@ -17,7 +24,15 @@ $yxEnv = new YxEnv();
 
 // 检查是否有安装过
 $envFilePath = $modelInstall->getAppRoot() . '/.env';
-if ($modelInstall->appIsInstalled() && in_array($step, [1, 2, 3, 4])) {
+$appInstalled = $modelInstall->appIsInstalled();
+$installCompletedInSession = !empty($_SESSION['install_completed']);
+if ($step === 5 && !$installCompletedInSession) {
+    if ($appInstalled) {
+        die('可能已经安装过本系统了，请删除配置目录下面的install.lock文件再尝试');
+    }
+    $step = 1;
+}
+if ($appInstalled && in_array($step, [1, 2, 3, 4], true)) {
     die('可能已经安装过本系统了，请删除配置目录下面的install.lock文件再尝试');
 }
 
@@ -96,11 +111,14 @@ if ($step == 4) {
         // 恢复admin和index入口
         if ($canNext) {
             $modelInstall->restoreIndexLock();
+            $_SESSION['install_completed'] = true;
         }
     }
 
-    if (!$canNext)
+    if (!$canNext) {
+        unset($_SESSION['install_completed']);
         $step = 3;
+    }
 }
 
 // 取得安装成功的表
