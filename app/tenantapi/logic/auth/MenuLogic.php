@@ -481,6 +481,40 @@ class MenuLogic extends BaseLogic
                     ],
                 ],
             ],
+            [
+                'legacy_id' => 9400,
+                'type' => 'C',
+                'name' => '客服设置',
+                'icon' => 'el-icon-Service',
+                'sort' => 35,
+                'perms' => 'setting.customer_service/getConfig',
+                'paths' => 'customer-service',
+                'component' => 'setting/customer_service/index',
+                'source_menu_key' => 'core_tenant_customer_service',
+                'children' => [
+                    [
+                        'legacy_id' => 9401,
+                        'type' => 'A',
+                        'name' => '保存',
+                        'perms' => 'setting.customer_service/setConfig',
+                        'source_menu_key' => 'core_tenant_customer_service_save',
+                    ],
+                    [
+                        'legacy_id' => 9402,
+                        'type' => 'A',
+                        'name' => '反馈列表',
+                        'perms' => 'setting.pc_feedback/lists',
+                        'source_menu_key' => 'core_tenant_pc_feedback_lists',
+                    ],
+                    [
+                        'legacy_id' => 9403,
+                        'type' => 'A',
+                        'name' => '处理反馈',
+                        'perms' => 'setting.pc_feedback/reply',
+                        'source_menu_key' => 'core_tenant_pc_feedback_reply',
+                    ],
+                ],
+            ],
         ];
     }
 

@@ -27,6 +27,7 @@ use app\common\service\decorate\DecorateTemplateService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
 use app\common\service\WebsiteBannerService;
+use app\tenantapi\logic\setting\CustomerServiceLogic;
 
 
 /**
@@ -200,11 +201,28 @@ class PcLogic extends BaseLogic
         // 小程序二维码
         $mnpQrCode = ConfigService::get('mnp_setting', 'qr_code', '');
         $mnpQrCode = empty($mnpQrCode) ? $mnpQrCode : FileService::getFileUrl($mnpQrCode);
+        $customerQrCode = ConfigService::get('customer_service', 'qr_code', '');
+        $customerQrCode = empty($customerQrCode) ? '' : FileService::getFileUrl($customerQrCode);
+        $pcHelpFaqs = CustomerServiceLogic::normalizeFaqs(
+            ConfigService::get('customer_service', 'pc_help_faqs', []),
+            true
+        );
 
         return [
             'domain' => FileService::getFileUrl(),
             'login' => $loginConfig,
             'website' => $website,
+            'customer_service' => [
+                'qr_code' => $customerQrCode,
+                'wechat' => ConfigService::get('customer_service', 'wechat', ''),
+                'phone' => ConfigService::get('customer_service', 'phone', ''),
+                'service_time' => ConfigService::get('customer_service', 'service_time', ''),
+                'enterprise_wechat_url' => ConfigService::get('customer_service', 'enterprise_wechat_url', ''),
+            ],
+            'pc_help' => [
+                'enabled' => (int)ConfigService::get('customer_service', 'pc_help_enabled', 1),
+                'faqs' => $pcHelpFaqs,
+            ],
             'app_display_configs' => AppDisplayConfigService::map((int)request()->tenantId, self::appDisplayConfigCodes()),
             'siteStatistics' => $siteStatistics,
             'version' => config('project.version'),

@@ -40,6 +40,9 @@ class CustomerServiceLogic extends BaseLogic
             'wechat' => ConfigService::get('customer_service', 'wechat', ''),
             'phone' => ConfigService::get('customer_service', 'phone', ''),
             'service_time' => ConfigService::get('customer_service', 'service_time', ''),
+            'enterprise_wechat_url' => ConfigService::get('customer_service', 'enterprise_wechat_url', ''),
+            'pc_help_enabled' => (int)ConfigService::get('customer_service', 'pc_help_enabled', 1),
+            'pc_help_faqs' => self::normalizeFaqs(ConfigService::get('customer_service', 'pc_help_faqs', []), true),
         ];
         return $config;
     }
@@ -52,14 +55,51 @@ class CustomerServiceLogic extends BaseLogic
      */
     public static function setConfig($params)
     {
-        $allowField = ['qr_code','wechat','phone','service_time'];
+        $allowField = ['qr_code','wechat','phone','service_time','enterprise_wechat_url','pc_help_enabled','pc_help_faqs'];
         foreach($params as $key => $value) {
             if(in_array($key, $allowField)) {
                 if ($key == 'qr_code') {
                     $value = FileService::setFileUrl($value);
+                } elseif ($key == 'pc_help_enabled') {
+                    $value = (int)$value ? 1 : 0;
+                } elseif ($key == 'pc_help_faqs') {
+                    $value = self::normalizeFaqs($value, false);
                 }
                 ConfigService::set('customer_service', $key, $value);
             }
         }
+    }
+
+    public static function normalizeFaqs($faqs, bool $publicOnly = false): array
+    {
+        if (is_string($faqs)) {
+            $decoded = json_decode($faqs, true);
+            $faqs = is_array($decoded) ? $decoded : [];
+        }
+        $faqs = is_array($faqs) ? $faqs : [];
+        $items = [];
+        foreach ((array)$faqs as $index => $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $question = trim((string)($item['question'] ?? ''));
+            $answer = trim((string)($item['answer'] ?? ''));
+            if ($question === '' && $answer === '') {
+                continue;
+            }
+            $status = (int)($item['status'] ?? 1) ? 1 : 0;
+            if ($publicOnly && !$status) {
+                continue;
+            }
+            $items[] = [
+                'id' => trim((string)($item['id'] ?? '')) ?: uniqid('faq_', true),
+                'question' => mb_substr($question, 0, 120),
+                'answer' => $answer,
+                'sort' => (int)($item['sort'] ?? (count($faqs) - $index)),
+                'status' => $status,
+            ];
+        }
+        usort($items, static fn($a, $b) => ($b['sort'] <=> $a['sort']) ?: strcmp($a['id'], $b['id']));
+        return $items;
     }
 }

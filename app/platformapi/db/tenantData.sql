@@ -880,6 +880,14 @@ VALUES
 (9001,{tenantId},9000,'C','应用市场','el-icon-Shop',100,'app/market','market','app/market/index','','',0,1,0,'','core','core_tenant_app_market',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (9002,{tenantId},9000,'C','我的应用','el-icon-Menu',90,'app/my','my','app/my/index','','',0,0,0,'','core','core_tenant_my_app',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
 
+INSERT IGNORE INTO `la_tenant_system_menu_{tenantSn}`
+(`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+(9400,{tenantId},158,'C','客服设置','el-icon-Service',35,'setting.customer_service/getConfig','customer-service','setting/customer_service/index','','',0,1,0,'','core','core_tenant_customer_service',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(9401,{tenantId},9400,'A','保存','',0,'setting.customer_service/setConfig','','','','',0,1,0,'','core','core_tenant_customer_service_save',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(9402,{tenantId},9400,'A','反馈列表','',0,'setting.pc_feedback/lists','','','','',0,0,0,'','core','core_tenant_pc_feedback_lists',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(9403,{tenantId},9400,'A','处理反馈','',0,'setting.pc_feedback/reply','','','','',0,0,0,'','core','core_tenant_pc_feedback_reply',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `pid`=28,`sort`=10 WHERE `id`=4;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `pid`=28,`sort`=20 WHERE `id`=25;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `pid`=28,`sort`=90 WHERE `id`=148;

@@ -2062,6 +2062,12 @@ VALUES
 (194, 0, 193, 'A', '保存', '', 0, 'setting.web.web_banner/save', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner_save', 1, 1778000000, 1778000000),
 (195, 0, 193, 'A', '删除', '', 0, 'setting.web.web_banner/delete', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner_delete', 1, 1778000000, 1778000000),
 (196, 0, 193, 'A', '状态', '', 0, 'setting.web.web_banner/status', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner_status', 1, 1778000000, 1778000000);
+
+INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) VALUES
+(9400,0,158,'C','客服设置','el-icon-Service',35,'setting.customer_service/getConfig','customer-service','setting/customer_service/index','','',0,1,0,'','core','core_tenant_customer_service',1,1778000000,1778000000),
+(9401,0,9400,'A','保存','',0,'setting.customer_service/setConfig','','','','',0,1,0,'','core','core_tenant_customer_service_save',1,1778000000,1778000000),
+(9402,0,9400,'A','反馈列表','',0,'setting.pc_feedback/lists','','','','',0,0,0,'','core','core_tenant_pc_feedback_lists',1,1778000000,1778000000),
+(9403,0,9400,'A','处理反馈','',0,'setting.pc_feedback/reply','','','','',0,0,0,'','core','core_tenant_pc_feedback_reply',1,1778000000,1778000000);
 INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES (179, 0, 166, 'M', '套餐管理', 'el-icon-Tickets', 110, '', 'package', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_package', 1, 1778000000, 1778000000);
 INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
@@ -2278,6 +2284,28 @@ CREATE TABLE `la_user_session`
 -- ----------------------------
 -- Records of la_user_session
 -- ----------------------------
+
+-- ----------------------------
+-- Table structure for la_pc_feedback
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS `la_pc_feedback` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0 COMMENT '租户ID',
+  `user_id` int unsigned NOT NULL DEFAULT 0 COMMENT '用户ID',
+  `type` varchar(30) NOT NULL DEFAULT 'feature' COMMENT '反馈类型',
+  `content` varchar(500) NOT NULL DEFAULT '' COMMENT '反馈内容',
+  `images` text COMMENT '反馈图片',
+  `contact` varchar(120) NOT NULL DEFAULT '' COMMENT '联系方式',
+  `status` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '状态:0待处理 1处理中 2已处理',
+  `reply` varchar(500) NOT NULL DEFAULT '' COMMENT '处理回复',
+  `create_time` int unsigned NOT NULL DEFAULT 0 COMMENT '创建时间',
+  `update_time` int unsigned NOT NULL DEFAULT 0 COMMENT '更新时间',
+  `delete_time` int unsigned NOT NULL DEFAULT 0 COMMENT '删除时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_user` (`tenant_id`,`user_id`),
+  KEY `idx_tenant_status` (`tenant_id`,`status`,`create_time`),
+  KEY `idx_delete` (`tenant_id`,`delete_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='PC用户反馈表';
 
 -- ----------------------------
 -- Table structure for SaaS apps and aigc_image sample
