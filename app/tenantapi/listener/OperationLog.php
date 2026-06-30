@@ -71,7 +71,20 @@ class OperationLog
         $systemLog->type = $request->isGet() ? 'GET' : 'POST';
         $systemLog->params = json_encode($params, true);
         $systemLog->ip = $request->ip();
-        $systemLog->result = $response->getContent();
-        return $systemLog->save();
+        $systemLog->result = $this->formatResult($response->getContent());
+        try {
+            return $systemLog->save();
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    private function formatResult(string $content): string
+    {
+        $maxBytes = 16 * 1024 * 1024;
+        if (strlen($content) <= $maxBytes) {
+            return $content;
+        }
+        return mb_strcut($content, 0, $maxBytes, 'UTF-8') . '...';
     }
 }

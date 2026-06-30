@@ -102,14 +102,16 @@ CREATE TABLE IF NOT EXISTS `la_aigc_product_multi_angle_result` (
 
 
 DELETE FROM `la_app` WHERE `code`='aigc_product_multi_angle';
-INSERT INTO `la_app` (`code`,`name`,`icon`,`description`,`category`,`cover`,`frontends`,`price_min`,`price_max`,`is_builtin`,`sort`,`version`,`status`,`expire_policy`,`create_time`,`update_time`)
-VALUES ('aigc_product_multi_angle','商品多角度','resource/image/common/menu_generator.png','面向商品图的 AI 商品多角度工具，支持单图上传、多选视角和租户独立按视角定价。','aigc','','tenant,pc',0,0,1,848,'1.0.0','installed','allow',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+INSERT INTO `la_app` (`code`,`name`,`icon`,`description`,`category`,`cover`,`client_tags`,`install_count`,`view_count`,`is_builtin`,`sort`,`current_version`,`status`,`expire_policy`,`install_time`,`update_time`)
+VALUES ('aigc_product_multi_angle','商品多角度','resource/image/common/menu_generator.png','面向商品图的 AI 商品多角度工具，支持单图上传、多选视角和租户独立按视角定价。','aigc','','tenant,pc',0,0,1,848,'1.0.0','installed','allow',UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
+ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`icon`=VALUES(`icon`),`description`=VALUES(`description`),`category`=VALUES(`category`),`cover`=VALUES(`cover`),`client_tags`=VALUES(`client_tags`),`is_builtin`=VALUES(`is_builtin`),`sort`=VALUES(`sort`),`current_version`=VALUES(`current_version`),`status`=VALUES(`status`),`expire_policy`=VALUES(`expire_policy`),`update_time`=VALUES(`update_time`);
 
 DELETE FROM `la_app_version` WHERE `app_code`='aigc_product_multi_angle';
-INSERT INTO `la_app_version` (`app_code`,`version`,`require_core`,`source`,`manifest_json`,`changelog`,`create_time`)
+INSERT INTO `la_app_version` (`app_code`,`version`,`require_core`,`package_path`,`manifest_json`,`changelog`,`status`,`create_time`)
 VALUES ('aigc_product_multi_angle','1.0.0','>=1.0.0','local','{\n  "code": "aigc_product_multi_angle",\n  "name": "商品多角度",\n  "version": "1.0.0",\n  "require_core": ">=1.0.0",\n  "description": "面向商品图的 AI 商品多角度工具，支持单图上传、多选视角和租户独立按视角定价。",\n  "changelog": "1. 新增商品多角度工具。\\n2. 支持租户配置视角选项和按视角售价。\\n3. 支持 PC 端单图生成多视角作品。",\n  "icon": "resource/image/common/menu_generator.png",\n  "category": "aigc",\n  "cover": "",\n  "is_builtin": 1,\n  "expire_policy": "allow",\n  "sort": 849,\n  "frontends": ["tenant", "pc"],\n  "api_prefix": "/app/aigc_product_multi_angle",\n  "menus": "menus/tenant.json",\n  "permissions": "permissions/tenant.json",\n  "migrations": "migrations",\n  "frontend_entries": [\n    { "terminal": "tenant", "entry_key": "aigc_product_multi_angle_admin", "name": "商品多角度", "path": "/app/aigc_product_multi_angle", "icon": "el-icon-Picture", "sort": 91, "status": 1 },\n    { "terminal": "pc", "entry_key": "aigc_product_multi_angle", "name": "商品多角度", "path": "/ai/tools/aigc_product_multi_angle", "icon": "resource/image/common/menu_generator.png", "sort": 84, "status": 1 }\n  ],\n  "dependencies": [\n    { "app_code": "aigc_image", "name": "AIGC生图", "required_for": "商品多角度生成" }\n  ]\n}\n','1. 新增商品多角度工具。
 2. 支持租户配置视角选项和按视角售价。
-3. 支持 PC 端单图生成多视角作品。',UNIX_TIMESTAMP());
+3. 支持 PC 端单图生成多视角作品。',1,UNIX_TIMESTAMP())
+ON DUPLICATE KEY UPDATE `require_core`=VALUES(`require_core`),`package_path`=VALUES(`package_path`),`manifest_json`=VALUES(`manifest_json`),`changelog`=VALUES(`changelog`),`status`=VALUES(`status`);
 
 DELETE FROM `la_app_frontend_entry` WHERE `app_code`='aigc_product_multi_angle';
 INSERT INTO `la_app_frontend_entry` (`app_code`,`terminal`,`entry_key`,`name`,`path`,`icon`,`sort`,`status`,`meta`,`create_time`)
