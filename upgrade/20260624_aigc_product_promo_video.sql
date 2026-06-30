@@ -112,6 +112,12 @@ VALUES ('aigc_product_promo_video','产品宣传视频','resource/image/common/m
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`description`=VALUES(`description`),`client_tags`=VALUES(`client_tags`),`is_builtin`=VALUES(`is_builtin`),`sort`=VALUES(`sort`),`current_version`=VALUES(`current_version`),`status`=VALUES(`status`),`expire_policy`=VALUES(`expire_policy`),`update_time`=VALUES(`update_time`);
 
 DELETE FROM `la_app_frontend_entry` WHERE `app_code`='aigc_product_promo_video';
+SET @app_frontend_entry_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'la_app_frontend_entry');
+SET @app_frontend_entry_create_time_sql = (SELECT IF(@app_frontend_entry_exists > 0 AND COUNT(*) = 0, 'ALTER TABLE `la_app_frontend_entry` ADD COLUMN `create_time` int unsigned NOT NULL DEFAULT 0 AFTER `meta`', 'SELECT 1') FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'la_app_frontend_entry' AND COLUMN_NAME = 'create_time');
+PREPARE app_frontend_entry_create_time_stmt FROM @app_frontend_entry_create_time_sql;
+EXECUTE app_frontend_entry_create_time_stmt;
+DEALLOCATE PREPARE app_frontend_entry_create_time_stmt;
+
 INSERT INTO `la_app_frontend_entry` (`app_code`,`terminal`,`entry_key`,`name`,`path`,`icon`,`sort`,`status`,`meta`,`create_time`)
 VALUES
 ('aigc_product_promo_video','tenant','aigc_product_promo_video_admin','产品宣传视频','/app/aigc_product_promo_video','el-icon-VideoCamera',91,1,'{}',UNIX_TIMESTAMP()),

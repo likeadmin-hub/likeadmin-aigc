@@ -64,7 +64,7 @@ function showParts(index) {
         return Math.floor(Math.random() * (max - min) ) + min;
     }
 
-    if (index <= successTables.length) {
+    if (index < successTables.length) {
         setTimeout(function () { pushSuccessTableToBox(successTables[index]); showParts(++index); }, getRndInteger(50, 150));
     }
 

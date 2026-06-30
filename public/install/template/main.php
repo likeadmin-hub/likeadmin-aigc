@@ -530,11 +530,9 @@
         Copyright © 2019-<?= date('Y') ?> 贵州猿创科技有限责任公司
     </footer>
     <script src="./js/layui.js"></script>
-    <?php if (count($successTables) > 0): ?>
-        <script>
-            var successTables = eval(<?= json_encode($successTables) ?>);
-        </script>
-    <?php endif; ?>
+    <script>
+        var successTables = <?= json_encode(array_values($successTables), JSON_UNESCAPED_UNICODE) ?> || [];
+    </script>
     <script src="./js/mounted.js"></script>
     </body>
 
