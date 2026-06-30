@@ -1,0 +1,18 @@
+{
+  "app_code": "aigc_person_replacement",
+  "apis": [
+    { "api_path": "app.aigc_person_replacement.config/detail", "api_method": "GET", "permission_key": "aigc_person_replacement:config:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_person_replacement.config/setup", "api_method": "POST", "permission_key": "aigc_person_replacement:config:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_person_replacement.task/lists", "api_method": "GET", "permission_key": "aigc_person_replacement:task:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_person_replacement.task/detail", "api_method": "GET", "permission_key": "aigc_person_replacement:task:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_person_replacement.task/retry", "api_method": "POST", "permission_key": "aigc_person_replacement:task:retry", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_person_replacement.task/delete", "api_method": "POST", "permission_key": "aigc_person_replacement:task:delete", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_person_replacement.config/detail", "api_method": "GET", "permission_key": "aigc_person_replacement:config:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_person_replacement.generate/estimate", "api_method": "POST", "permission_key": "aigc_person_replacement:generate:estimate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_person_replacement.generate/index", "api_method": "POST", "permission_key": "aigc_person_replacement:generate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_person_replacement.task/lists", "api_method": "GET", "permission_key": "aigc_person_replacement:task:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_person_replacement.task/detail", "api_method": "GET", "permission_key": "aigc_person_replacement:task:detail:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_person_replacement.task/delete", "api_method": "POST", "permission_key": "aigc_person_replacement:task:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_person_replacement.result/delete", "api_method": "POST", "permission_key": "aigc_person_replacement:result:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 }
+  ]
+}

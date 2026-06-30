@@ -1,0 +1,8 @@
+[
+  { "permission_key": "aigc_action_transfer:config:detail", "name": "查看动作迁移配置", "api_path": "app.aigc_action_transfer.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_action_transfer:config:setup", "name": "保存动作迁移配置", "api_path": "app.aigc_action_transfer.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_action_transfer:task:lists", "name": "查看动作迁移任务", "api_path": "app.aigc_action_transfer.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_action_transfer:task:detail", "name": "查看动作迁移任务详情", "api_path": "app.aigc_action_transfer.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_action_transfer:task:retry", "name": "重试动作迁移任务", "api_path": "app.aigc_action_transfer.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_action_transfer:task:delete", "name": "删除动作迁移任务", "api_path": "app.aigc_action_transfer.task/delete", "api_method": "POST" }
+]

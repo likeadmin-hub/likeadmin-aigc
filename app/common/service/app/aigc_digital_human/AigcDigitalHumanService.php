@@ -287,6 +287,7 @@ class AigcDigitalHumanService
     public static function voiceLists(int $tenantId, int $userId, string $source = ''): array
     {
         self::seedOfficialAssets($tenantId);
+        self::queueCloneAssetRefresh($tenantId, $userId);
         $query = AigcDigitalHumanVoice::where('tenant_id', $tenantId)
             ->where('delete_time', 0)
             ->whereRaw("(source = 'official' OR (source = 'mine' AND user_id = " . (int)$userId . '))')
@@ -459,6 +460,19 @@ class AigcDigitalHumanService
     public static function processPendingCloneAssets(int $tenantId, int $userId = 0): void
     {
         self::refreshRunningCloneAssets($tenantId, $userId);
+    }
+
+    private static function queueCloneAssetRefresh(int $tenantId, int $userId = 0): void
+    {
+        if ($tenantId <= 0) {
+            return;
+        }
+        register_shutdown_function(static function () use ($tenantId, $userId) {
+            if (function_exists('fastcgi_finish_request')) {
+                @fastcgi_finish_request();
+            }
+            self::processPendingCloneAssets($tenantId, $userId);
+        });
     }
 
     public static function previewVoice(int $tenantId, int $userId, array $params): array
@@ -806,6 +820,7 @@ class AigcDigitalHumanService
 
     public static function userVoiceLists(int $tenantId, array $params = []): array
     {
+        self::queueCloneAssetRefresh($tenantId, (int)($params['user_id'] ?? 0));
         $query = AigcDigitalHumanVoice::alias('v')
             ->leftJoin('user u', 'u.id = v.user_id AND u.tenant_id = v.tenant_id')
             ->field('v.*,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')

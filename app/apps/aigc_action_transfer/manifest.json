@@ -1,0 +1,23 @@
+{
+  "code": "aigc_action_transfer",
+  "name": "动作迁移",
+  "version": "1.0.0",
+  "require_core": ">=1.0.0",
+  "description": "上传参考人物图片和参考视频，将视频动作迁移到人物形象生成新视频。",
+  "changelog": "1. 新增动作迁移工具。\n2. 支持 PC 端上传人物图和参考视频生成动作迁移视频。\n3. 支持租户配置模式售价和查看任务记录。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 0,
+  "expire_policy": "allow",
+  "sort": 846,
+  "frontends": ["tenant", "pc"],
+  "api_prefix": "/app/aigc_action_transfer",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    { "terminal": "tenant", "entry_key": "aigc_action_transfer_admin", "name": "动作迁移", "path": "/app/aigc_action_transfer", "icon": "el-icon-VideoCamera", "sort": 90, "status": 1 },
+    { "terminal": "pc", "entry_key": "aigc_action_transfer", "name": "动作迁移", "path": "/ai/tools/aigc_action_transfer", "icon": "resource/image/common/menu_generator.png", "sort": 82, "status": 1 }
+  ]
+}

@@ -9,6 +9,12 @@ use app\common\model\app\AppInstall;
 use app\common\model\app\AppCase;
 use app\common\model\app\AppVersion;
 use app\common\model\app\TenantApp;
+use app\common\model\app\aigc_action_transfer\AigcActionTransferConfig;
+use app\common\model\app\aigc_action_transfer\AigcActionTransferResult;
+use app\common\model\app\aigc_action_transfer\AigcActionTransferTask;
+use app\common\model\app\aigc_person_replacement\AigcPersonReplacementConfig;
+use app\common\model\app\aigc_person_replacement\AigcPersonReplacementResult;
+use app\common\model\app\aigc_person_replacement\AigcPersonReplacementTask;
 use app\common\model\app\aigc_image\AigcImageConfig;
 use app\common\model\app\aigc_image\AigcImageBilling;
 use app\common\model\app\aigc_image\AigcImageChannel;
@@ -789,6 +795,16 @@ class AppRegistryService
             AigcProductPromoVideoType::where('id', '>', 0)->delete();
             AigcProductPromoVideoTask::where('id', '>', 0)->delete();
             AigcProductPromoVideoResult::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_action_transfer') {
+            AigcActionTransferConfig::where('id', '>', 0)->delete();
+            AigcActionTransferTask::where('id', '>', 0)->delete();
+            AigcActionTransferResult::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_person_replacement') {
+            AigcPersonReplacementConfig::where('id', '>', 0)->delete();
+            AigcPersonReplacementTask::where('id', '>', 0)->delete();
+            AigcPersonReplacementResult::where('id', '>', 0)->delete();
         }
         if ($appCode === 'aigc_local_redraw') {
             AigcLocalRedrawConfig::where('id', '>', 0)->delete();

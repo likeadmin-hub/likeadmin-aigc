@@ -1,0 +1,18 @@
+{
+  "app_code": "aigc_action_transfer",
+  "apis": [
+    { "api_path": "app.aigc_action_transfer.config/detail", "api_method": "GET", "permission_key": "aigc_action_transfer:config:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_action_transfer.config/setup", "api_method": "POST", "permission_key": "aigc_action_transfer:config:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_action_transfer.task/lists", "api_method": "GET", "permission_key": "aigc_action_transfer:task:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_action_transfer.task/detail", "api_method": "GET", "permission_key": "aigc_action_transfer:task:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_action_transfer.task/retry", "api_method": "POST", "permission_key": "aigc_action_transfer:task:retry", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_action_transfer.task/delete", "api_method": "POST", "permission_key": "aigc_action_transfer:task:delete", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_action_transfer.config/detail", "api_method": "GET", "permission_key": "aigc_action_transfer:config:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_action_transfer.generate/estimate", "api_method": "POST", "permission_key": "aigc_action_transfer:generate:estimate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_action_transfer.generate/index", "api_method": "POST", "permission_key": "aigc_action_transfer:generate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_action_transfer.task/lists", "api_method": "GET", "permission_key": "aigc_action_transfer:task:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_action_transfer.task/detail", "api_method": "GET", "permission_key": "aigc_action_transfer:task:detail:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_action_transfer.task/delete", "api_method": "POST", "permission_key": "aigc_action_transfer:task:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_action_transfer.result/delete", "api_method": "POST", "permission_key": "aigc_action_transfer:result:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 }
+  ]
+}

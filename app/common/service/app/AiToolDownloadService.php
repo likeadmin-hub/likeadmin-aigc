@@ -3,6 +3,10 @@
 namespace app\common\service\app;
 
 use app\common\cache\ExportCache;
+use app\common\model\app\aigc_action_transfer\AigcActionTransferResult;
+use app\common\model\app\aigc_action_transfer\AigcActionTransferTask;
+use app\common\model\app\aigc_person_replacement\AigcPersonReplacementResult;
+use app\common\model\app\aigc_person_replacement\AigcPersonReplacementTask;
 use app\common\model\app\aigc_background_removal\AigcBackgroundRemovalResult;
 use app\common\model\app\aigc_background_removal\AigcBackgroundRemovalTask;
 use app\common\model\app\aigc_fitting\AigcFittingTask;
@@ -50,6 +54,8 @@ class AiToolDownloadService
         'aigc_product_multi_angle' => 'product-multi-angle',
         'aigc_fashion_lookbook' => 'fashion-lookbook',
         'aigc_product_promo_video' => 'product-promo-video',
+        'aigc_action_transfer' => 'action-transfer',
+        'aigc_person_replacement' => 'person-replacement',
         'aigc_outpaint' => 'outpaint',
         'aigc_local_redraw' => 'local-redraw',
         'aigc_fitting' => 'aigc-fitting',
@@ -110,6 +116,18 @@ class AiToolDownloadService
         'aigc_product_promo_video' => [
             'task_model' => AigcProductPromoVideoTask::class,
             'result_model' => AigcProductPromoVideoResult::class,
+            'uri_field' => 'video_uri',
+            'fallback_image_result' => false,
+        ],
+        'aigc_action_transfer' => [
+            'task_model' => AigcActionTransferTask::class,
+            'result_model' => AigcActionTransferResult::class,
+            'uri_field' => 'video_uri',
+            'fallback_image_result' => false,
+        ],
+        'aigc_person_replacement' => [
+            'task_model' => AigcPersonReplacementTask::class,
+            'result_model' => AigcPersonReplacementResult::class,
             'uri_field' => 'video_uri',
             'fallback_image_result' => false,
         ],

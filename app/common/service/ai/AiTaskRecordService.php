@@ -24,6 +24,8 @@ class AiTaskRecordService
         'aigc_product_multi_angle' => '商品多角度图',
         'aigc_fashion_lookbook' => '服饰 Lookbook',
         'aigc_product_promo_video' => '产品宣传视频',
+        'aigc_action_transfer' => '动作迁移',
+        'aigc_person_replacement' => '动作替换',
         'aigc_outpaint' => '无缝扩图',
         'aigc_local_redraw' => '局部重绘',
         'aigc_fitting' => 'AI试衣',
@@ -74,6 +76,18 @@ class AiTaskRecordService
             'task_type' => 'image_human_generate',
             'media_type' => 'video',
             'prompt_fields' => ['title', 'script_text', 'prompt'],
+        ],
+        'aigc_action_transfer' => [
+            'table' => 'aigc_action_transfer_task',
+            'task_type' => 'action_transfer_generate',
+            'media_type' => 'video',
+            'prompt_fields' => ['prompt'],
+        ],
+        'aigc_person_replacement' => [
+            'table' => 'aigc_person_replacement_task',
+            'task_type' => 'person_replacement_generate',
+            'media_type' => 'video',
+            'prompt_fields' => ['prompt'],
         ],
     ];
 
@@ -607,6 +621,8 @@ class AiTaskRecordService
             'aigc_video' => 'aigc_video_result',
             'aigc_digital_human' => 'aigc_digital_human_result',
             'image_human' => 'image_human_result',
+            'aigc_action_transfer' => 'aigc_action_transfer_result',
+            'aigc_person_replacement' => 'aigc_person_replacement_result',
             default => '',
         };
     }

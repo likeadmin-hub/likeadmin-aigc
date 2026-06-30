@@ -502,7 +502,7 @@ WHERE `tenant_id` = {tenantId}
 
 DELETE FROM `la_membership_plan_app`
 WHERE `tenant_id` = {tenantId}
-  AND `app_code` IN ('aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm', 'aigc_hairstyle', 'aigc_fitting', 'aigc_product_image', 'aigc_style_transfer', 'aigc_photo_restore', 'aigc_model_wear', 'aigc_background_removal', 'aigc_image_translate', 'aigc_one_click_cleanup', 'aigc_product_suite', 'aigc_product_multi_angle', 'aigc_fashion_lookbook', 'aigc_product_promo_video', 'aigc_outpaint', 'aigc_local_redraw');
+  AND `app_code` IN ('aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm', 'aigc_hairstyle', 'aigc_fitting', 'aigc_product_image', 'aigc_style_transfer', 'aigc_photo_restore', 'aigc_model_wear', 'aigc_background_removal', 'aigc_image_translate', 'aigc_one_click_cleanup', 'aigc_product_suite', 'aigc_product_multi_angle', 'aigc_fashion_lookbook', 'aigc_product_promo_video', 'aigc_action_transfer', 'aigc_person_replacement', 'aigc_outpaint', 'aigc_local_redraw');
 
 INSERT INTO `la_membership_plan` (
   `tenant_id`,
@@ -639,7 +639,24 @@ VALUES
 ({tenantId},'aigc_video','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_digital_human','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_canvas','1.0.1','paid','on','enabled',0,1778000000,1778000000),
-({tenantId},'aigc_llm','1.1.1','paid','on','enabled',0,1778000000,1778000000)
+({tenantId},'aigc_llm','1.1.1','paid','on','enabled',0,1778000000,1778000000),
+({tenantId},'aigc_hairstyle','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_fitting','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_product_image','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_style_transfer','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_photo_restore','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_model_wear','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_background_removal','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_image_translate','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_one_click_cleanup','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_product_suite','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_product_multi_angle','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_fashion_lookbook','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_product_promo_video','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_action_transfer','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_person_replacement','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_outpaint','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
+({tenantId},'aigc_local_redraw','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000)
 ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
@@ -768,6 +785,18 @@ VALUES
 (9203,{tenantId},9202,'C','基础配置','',40,'app.aigc_product_promo_video.config/detail','config','apps/aigc_product_promo_video/config','','',0,1,0,'aigc_product_promo_video','app','aigc_product_promo_video_config',0,1778000000,1778000000),
 (9204,{tenantId},9202,'C','视频类型','',35,'app.aigc_product_promo_video.type/lists','type','apps/aigc_product_promo_video/type','','',0,1,0,'aigc_product_promo_video','app','aigc_product_promo_video_type',0,1778000000,1778000000),
 (9206,{tenantId},9202,'C','任务记录','',10,'app.aigc_product_promo_video.task/lists','task','apps/aigc_product_promo_video/task','','',0,1,0,'aigc_product_promo_video','app','aigc_product_promo_video_task',0,1778000000,1778000000);
+
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+(9212,{tenantId},0,'M','动作迁移','el-icon-VideoCamera',82,'','aigc-action-transfer','','','',0,1,0,'aigc_action_transfer','app','aigc_action_transfer',0,1778000000,1778000000),
+(9213,{tenantId},9212,'C','基础配置','',40,'app.aigc_action_transfer.config/detail','config','apps/aigc_action_transfer/config','','',0,1,0,'aigc_action_transfer','app','aigc_action_transfer_config',0,1778000000,1778000000),
+(9214,{tenantId},9212,'C','任务记录','',10,'app.aigc_action_transfer.task/lists','task','apps/aigc_action_transfer/task','','',0,1,0,'aigc_action_transfer','app','aigc_action_transfer_task',0,1778000000,1778000000);
+
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+(9224,{tenantId},0,'M','动作替换','el-icon-VideoCamera',82,'','aigc-person-replacement','','','',0,1,0,'aigc_person_replacement','app','aigc_person_replacement',0,1778000000,1778000000),
+(9225,{tenantId},9224,'C','基础配置','',40,'app.aigc_person_replacement.config/detail','config','apps/aigc_person_replacement/config','','',0,1,0,'aigc_person_replacement','app','aigc_person_replacement_config',0,1778000000,1778000000),
+(9226,{tenantId},9224,'C','任务记录','',10,'app.aigc_person_replacement.task/lists','task','apps/aigc_person_replacement/task','','',0,1,0,'aigc_person_replacement','app','aigc_person_replacement_task',0,1778000000,1778000000);
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES

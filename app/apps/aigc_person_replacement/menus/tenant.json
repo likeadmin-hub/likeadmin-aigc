@@ -1,0 +1,18 @@
+[
+  {
+    "source_menu_key": "aigc_person_replacement",
+    "app_code": "aigc_person_replacement",
+    "source": "app",
+    "type": "M",
+    "name": "动作替换",
+    "icon": "el-icon-VideoCamera",
+    "sort": 82,
+    "perms": "",
+    "paths": "aigc-person-replacement",
+    "component": "",
+    "children": [
+      { "source_menu_key": "aigc_person_replacement_config", "type": "C", "name": "基础配置", "sort": 40, "perms": "app.aigc_person_replacement.config/detail", "paths": "config", "component": "apps/aigc_person_replacement/config" },
+      { "source_menu_key": "aigc_person_replacement_task", "type": "C", "name": "任务记录", "sort": 10, "perms": "app.aigc_person_replacement.task/lists", "paths": "task", "component": "apps/aigc_person_replacement/task" }
+    ]
+  }
+]

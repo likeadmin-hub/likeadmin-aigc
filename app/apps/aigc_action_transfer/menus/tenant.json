@@ -1,0 +1,18 @@
+[
+  {
+    "source_menu_key": "aigc_action_transfer",
+    "app_code": "aigc_action_transfer",
+    "source": "app",
+    "type": "M",
+    "name": "动作迁移",
+    "icon": "el-icon-VideoCamera",
+    "sort": 82,
+    "perms": "",
+    "paths": "aigc-action-transfer",
+    "component": "",
+    "children": [
+      { "source_menu_key": "aigc_action_transfer_config", "type": "C", "name": "基础配置", "sort": 40, "perms": "app.aigc_action_transfer.config/detail", "paths": "config", "component": "apps/aigc_action_transfer/config" },
+      { "source_menu_key": "aigc_action_transfer_task", "type": "C", "name": "任务记录", "sort": 10, "perms": "app.aigc_action_transfer.task/lists", "paths": "task", "component": "apps/aigc_action_transfer/task" }
+    ]
+  }
+]

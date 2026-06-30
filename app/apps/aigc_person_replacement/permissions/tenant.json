@@ -1,0 +1,8 @@
+[
+  { "permission_key": "aigc_person_replacement:config:detail", "name": "查看动作替换配置", "api_path": "app.aigc_person_replacement.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_person_replacement:config:setup", "name": "保存动作替换配置", "api_path": "app.aigc_person_replacement.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_person_replacement:task:lists", "name": "查看动作替换任务", "api_path": "app.aigc_person_replacement.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_person_replacement:task:detail", "name": "查看动作替换任务详情", "api_path": "app.aigc_person_replacement.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_person_replacement:task:retry", "name": "重试动作替换任务", "api_path": "app.aigc_person_replacement.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_person_replacement:task:delete", "name": "删除动作替换任务", "api_path": "app.aigc_person_replacement.task/delete", "api_method": "POST" }
+]
