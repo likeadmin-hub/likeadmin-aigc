@@ -26,10 +26,7 @@ $yxEnv = new YxEnv();
 $envFilePath = $modelInstall->getAppRoot() . '/.env';
 $appInstalled = $modelInstall->appIsInstalled();
 $installCompletedInSession = !empty($_SESSION['install_completed']);
-if ($step === 5 && !$installCompletedInSession) {
-    if ($appInstalled) {
-        die('可能已经安装过本系统了，请删除配置目录下面的install.lock文件再尝试');
-    }
+if ($step === 5 && !$appInstalled && !$installCompletedInSession) {
     $step = 1;
 }
 if ($appInstalled && in_array($step, [1, 2, 3, 4], true)) {
@@ -103,8 +100,10 @@ if ($step == 4) {
                 $modelInstall->cleanupFailedInstall($post['name']);
                 $canNext = false;
                 $message = '写入.env配置文件失败，请检查网站根目录.env文件权限';
-            } else {
-                $modelInstall->mkLockFile();
+            } elseif (!$modelInstall->mkLockFile()) {
+                $modelInstall->cleanupFailedInstall($post['name']);
+                $canNext = false;
+                $message = '创建安装锁文件失败，请检查config目录权限';
             }
         }
 
@@ -112,6 +111,7 @@ if ($step == 4) {
         if ($canNext) {
             $modelInstall->restoreIndexLock();
             $_SESSION['install_completed'] = true;
+            session_write_close();
         }
     }
 
