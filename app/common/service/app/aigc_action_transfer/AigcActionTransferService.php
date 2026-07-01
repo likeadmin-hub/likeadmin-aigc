@@ -456,6 +456,7 @@ class AigcActionTransferService
             }
             foreach ($query->select()->toArray() as $row) {
                 $row['video_url'] = FileService::getFileUrlByStorage($row['video_uri'], $row['storage_scope'] ?? '', $row['storage_engine'] ?? '', $row['storage_domain'] ?? '');
+                $row['cover_url'] = FileService::getFileUrlByStorage($row['cover_uri'] ?? '', $row['storage_scope'] ?? '', $row['storage_engine'] ?? '', $row['storage_domain'] ?? '');
                 $row['download_url'] = $row['video_url'];
                 $map[(int)$row['task_id']][] = $row;
             }
@@ -465,6 +466,8 @@ class AigcActionTransferService
             $row['results'] = $results;
             $first = $results[0] ?? [];
             $row['video_url'] = (string)($first['video_url'] ?? '');
+            $row['cover_url'] = (string)($first['cover_url'] ?? '');
+            $row['cover_uri'] = (string)($first['cover_uri'] ?? '');
             $row['download_url'] = (string)($first['download_url'] ?? '');
             $row['reference_image_urls'] = array_map([self::class, 'fileUrl'], self::normalizeImages($row['reference_images'] ?? []));
             $row['source_video_url'] = self::fileUrl((string)($row['video_uri'] ?? ''));

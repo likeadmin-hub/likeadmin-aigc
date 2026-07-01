@@ -22,6 +22,18 @@ class AppDisplayConfigService
         'aigc_product_image',
         'aigc_photo_restore',
         'aigc_model_wear',
+        'aigc_background_removal',
+        'aigc_image_translate',
+        'aigc_one_click_cleanup',
+        'aigc_product_suite',
+        'aigc_product_multi_angle',
+        'aigc_fashion_lookbook',
+        'aigc_product_promo_video',
+        'aigc_action_transfer',
+        'aigc_person_replacement',
+        'aigc_outpaint',
+        'aigc_local_redraw',
+        'aigc_style_transfer',
     ];
 
     private const DEFAULTS = [
@@ -84,6 +96,66 @@ class AppDisplayConfigService
             'title' => '模特穿戴',
             'description' => '上传模特图和穿戴图，选择生成质量与比例，生成自然的穿戴效果图。',
             'sort' => 62,
+        ],
+        'aigc_background_removal' => [
+            'title' => '图片去背景',
+            'description' => '上传图片后智能抠图，快速生成干净透明背景素材。',
+            'sort' => 61,
+        ],
+        'aigc_image_translate' => [
+            'title' => '图片翻译',
+            'description' => '识别并翻译图片中的文字，保留原有画面排版风格。',
+            'sort' => 60,
+        ],
+        'aigc_one_click_cleanup' => [
+            'title' => '一键消除',
+            'description' => '批量清理图片中的水印、文字、贴纸和干扰元素。',
+            'sort' => 59,
+        ],
+        'aigc_product_suite' => [
+            'title' => 'AI商品套图',
+            'description' => '上传商品图后一键生成多张电商场景套图。',
+            'sort' => 58,
+        ],
+        'aigc_product_multi_angle' => [
+            'title' => '商品多角度',
+            'description' => '基于商品图生成正面、侧面、背面等多角度展示图。',
+            'sort' => 57,
+        ],
+        'aigc_fashion_lookbook' => [
+            'title' => '服饰套图',
+            'description' => '上传服饰和模特图，生成适合电商陈列的服饰套图。',
+            'sort' => 56,
+        ],
+        'aigc_product_promo_video' => [
+            'title' => '产品宣传视频',
+            'description' => '上传产品图片并选择脚本类型，生成产品宣传短视频。',
+            'sort' => 55,
+        ],
+        'aigc_action_transfer' => [
+            'title' => '动作迁移',
+            'description' => '上传参考人物图片和参考视频，将视频动作迁移到人物形象。',
+            'sort' => 54,
+        ],
+        'aigc_person_replacement' => [
+            'title' => '动作替换',
+            'description' => '上传参考人物图片和输入视频，将视频人物替换为目标形象。',
+            'sort' => 53,
+        ],
+        'aigc_outpaint' => [
+            'title' => '无缝扩图',
+            'description' => '上传图片后智能延展画面，生成自然连续的扩图结果。',
+            'sort' => 52,
+        ],
+        'aigc_local_redraw' => [
+            'title' => '局部重绘',
+            'description' => '上传图片并选择局部区域，按提示词重绘指定内容。',
+            'sort' => 51,
+        ],
+        'aigc_style_transfer' => [
+            'title' => '图片风格化',
+            'description' => '上传图片并选择风格模板，生成统一风格化作品。',
+            'sort' => 50,
         ],
     ];
 

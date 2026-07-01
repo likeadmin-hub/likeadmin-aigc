@@ -1,7 +1,7 @@
 {
   "code": "aigc_person_replacement",
   "name": "动作替换",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "require_core": ">=1.0.0",
   "description": "上传参考人物图片和输入视频，将视频动作替换到人物形象生成新视频。",
   "changelog": "1. 新增动作替换工具。\n2. 支持 PC 端上传人物图和输入视频生成动作替换视频。\n3. 支持租户配置模式售价和查看任务记录。",
@@ -11,13 +11,32 @@
   "is_builtin": 0,
   "expire_policy": "allow",
   "sort": 846,
-  "frontends": ["tenant", "pc"],
+  "frontends": [
+    "tenant",
+    "pc"
+  ],
   "api_prefix": "/app/aigc_person_replacement",
   "menus": "menus/tenant.json",
   "permissions": "permissions/tenant.json",
   "migrations": "migrations",
   "frontend_entries": [
-    { "terminal": "tenant", "entry_key": "aigc_person_replacement_admin", "name": "动作替换", "path": "/app/aigc_person_replacement", "icon": "el-icon-VideoCamera", "sort": 90, "status": 1 },
-    { "terminal": "pc", "entry_key": "aigc_person_replacement", "name": "动作替换", "path": "/ai/tools/aigc_person_replacement", "icon": "resource/image/common/menu_generator.png", "sort": 82, "status": 1 }
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_person_replacement_admin",
+      "name": "动作替换",
+      "path": "/app/aigc_person_replacement",
+      "icon": "el-icon-VideoCamera",
+      "sort": 90,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_person_replacement",
+      "name": "动作替换",
+      "path": "/ai/tools/aigc_person_replacement",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 82,
+      "status": 1
+    }
   ]
 }
