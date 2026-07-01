@@ -1,6 +1,10 @@
 var canClick = true;
 var installIndex = 0;
 
+function isInstallingStep() {
+    return Number(window.installStep) === 4;
+}
+
 String.prototype.format = function(args)
 {
     if (arguments.length > 0)
@@ -68,7 +72,7 @@ function showParts(index) {
         setTimeout(function () { pushSuccessTableToBox(successTables[index]); showParts(++index); }, getRndInteger(50, 150));
     }
 
-    if (successTables.length > 0 && index === successTables.length) {
+    if (isInstallingStep() && successTables.length > 0 && index === successTables.length) {
         goStep(5);
     }
 }
@@ -90,7 +94,7 @@ function cancel() {
 }
 
 setTimeout(function () {
-    if (document.getElementById('install_message') && successTables.length > 0) {
+    if (isInstallingStep() && document.getElementById('install_message') && successTables.length > 0) {
         showParts(0);
     }
 }, 100);

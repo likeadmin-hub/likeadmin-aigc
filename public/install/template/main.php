@@ -501,24 +501,24 @@
             </form>
             <?php if ($step == '1') { ?>
                 <div class="item-btn-group show">
-                    <button class="accept-btn" onclick="goStep(<?php echo $nextStep ?>)">我已阅读并同意</button>
+                    <button type="button" class="accept-btn" onclick="goStep(<?php echo $nextStep ?>)">我已阅读并同意</button>
                 </div>
             <?php } elseif (in_array($step, ['2', "3"])) { ?>
                 <div class="item-btn-group show">
-                    <button class="cancel-btn" onclick="cancel()" style="padding: 7px 63px;margin-right: 16px">返回
+                    <button type="button" class="cancel-btn" onclick="cancel()" style="padding: 7px 63px;margin-right: 16px">返回
                     </button>
                     <?php if ($modelInstall->getAllowNext()): ?>
-                        <button class="accept-btn" onclick="goStep(<?php echo $nextStep ?>)" style="padding: 7px 63px;">
+                        <button type="button" class="accept-btn" onclick="goStep(<?php echo $nextStep ?>)" style="padding: 7px 63px;">
                             继续
                         </button>
                     <?php else: ?>
-                        <button class="accept-btn" onclick="goStep(<?php echo $step ?>)" style="padding: 7px 63px;">重新检查
+                        <button type="button" class="accept-btn" onclick="goStep(<?php echo $step ?>)" style="padding: 7px 63px;">重新检查
                         </button>
                     <?php endif; ?>
                 </div>
             <?php } elseif ($step == "4") { ?>
                 <div class="item-btn-group show">
-                    <button class="disabled-btn" disabled="disabled">
+                    <button type="button" class="disabled-btn" disabled="disabled">
                         <div class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop"></div>
                         <div style="font-size: 14px;margin-left: 7px;">正在安装中...</div>
                     </button>
@@ -531,9 +531,10 @@
     </footer>
     <script src="./js/layui.js"></script>
     <script>
+        var installStep = <?= (int)$step ?>;
         var successTables = <?= json_encode(array_values($successTables), JSON_UNESCAPED_UNICODE) ?> || [];
     </script>
-    <script src="./js/mounted.js"></script>
+    <script src="./js/mounted.js?v=<?= filemtime(__DIR__ . '/../js/mounted.js') ?>"></script>
     </body>
 
     </html>
