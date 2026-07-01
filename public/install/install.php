@@ -27,7 +27,8 @@ $envFilePath = $modelInstall->getAppRoot() . '/.env';
 $appInstalled = $modelInstall->appIsInstalled();
 $installCompletedInSession = !empty($_SESSION['install_completed']);
 if ($step === 5 && !$appInstalled && !$installCompletedInSession) {
-    $step = 1;
+    header('Location: ?step=1');
+    exit;
 }
 if ($appInstalled && in_array($step, [1, 2, 3, 4], true)) {
     die('可能已经安装过本系统了，请删除配置目录下面的install.lock文件再尝试');

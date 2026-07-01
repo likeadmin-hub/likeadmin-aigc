@@ -68,7 +68,7 @@ function showParts(index) {
         setTimeout(function () { pushSuccessTableToBox(successTables[index]); showParts(++index); }, getRndInteger(50, 150));
     }
 
-    if (index === successTables.length) {
+    if (successTables.length > 0 && index === successTables.length) {
         goStep(5);
     }
 }
@@ -90,5 +90,7 @@ function cancel() {
 }
 
 setTimeout(function () {
-    showParts(0);
+    if (document.getElementById('install_message') && successTables.length > 0) {
+        showParts(0);
+    }
 }, 100);
