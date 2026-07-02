@@ -639,7 +639,7 @@ VALUES
 ({tenantId},'aigc_video','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_digital_human','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_canvas','1.0.1','paid','on','enabled',0,1778000000,1778000000),
-({tenantId},'aigc_llm','1.1.1','paid','on','enabled',0,1778000000,1778000000),
+({tenantId},'aigc_llm','1.1.4','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_hairstyle','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
 ({tenantId},'aigc_fitting','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
 ({tenantId},'aigc_product_image','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),

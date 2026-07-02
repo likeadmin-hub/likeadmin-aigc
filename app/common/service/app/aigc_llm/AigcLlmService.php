@@ -416,7 +416,7 @@ class AigcLlmService
                 'session_id' => (int)$session['id'],
                 'delete_time' => 0,
             ])->where('id', '<=', $historyMaxId)->order(['seq' => 'asc', 'id' => 'asc'])->select()->toArray();
-            $history = array_values(array_filter($history, fn(array $row) => in_array($row['role'], ['user', 'assistant'], true) && !($row['role'] === 'assistant' && (int)$row['id'] === (int)$assistantMessage['id'])));
+            $history = array_values(array_filter($history, fn(array $row) => self::isContextMessage($row, (int)$assistantMessage['id'])));
             $history = self::trimContextMessages($history, (int)($config['config_json']['max_context_messages'] ?? 12));
 
             return [
@@ -735,6 +735,27 @@ class AigcLlmService
             return $messages;
         }
         return array_slice($messages, -$limit);
+    }
+
+    private static function isContextMessage(array $row, int $currentAssistantMessageId = 0): bool
+    {
+        $role = (string)($row['role'] ?? '');
+        if (!in_array($role, ['user', 'assistant'], true)) {
+            return false;
+        }
+        if ($role === 'assistant' && $currentAssistantMessageId > 0 && (int)($row['id'] ?? 0) === $currentAssistantMessageId) {
+            return false;
+        }
+        if ($role === 'assistant') {
+            $status = (string)($row['status'] ?? '');
+            if (in_array($status, [self::MESSAGE_ERROR, self::MESSAGE_STREAMING], true)) {
+                return false;
+            }
+            if (trim((string)($row['content'] ?? '')) === '') {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static function estimateTokensFromText(string $text): int

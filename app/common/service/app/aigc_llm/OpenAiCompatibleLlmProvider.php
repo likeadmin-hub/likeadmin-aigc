@@ -40,11 +40,15 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
         if ($apiKey === '') {
             throw new Exception('请先在通道配置中填写 API Key');
         }
+        $usesUpdateSourceEndpoint = $this->usesUpdateSourceEndpoint($baseUrl, $source);
         return [
             'url' => rtrim($baseUrl, '/') . '/' . ltrim($streamPath, '/'),
             'api_key' => $apiKey,
             'timeout' => max(10, (int)($config['timeout'] ?? 120)),
             'ssl_verify' => (int)($config['ssl_verify'] ?? $source['ssl_verify'] ?? 0) === 1,
+            'include_channel' => (int)($config['include_channel'] ?? $config['support_channel_payload'] ?? ($usesUpdateSourceEndpoint ? 1 : 0)),
+            'support_stream_options' => (int)($config['support_stream_options'] ?? 0),
+            'extra_payload_keys' => is_array($config['extra_payload_keys'] ?? null) ? $config['extra_payload_keys'] : [],
         ];
     }
 
@@ -72,19 +76,38 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
             'model' => (string)($request->modelConfig['model'] ?? $request->modelCode),
             'messages' => $messages,
             'stream' => true,
-            'stream_options' => [
-                'include_usage' => true,
-            ],
         ];
-        foreach (['temperature', 'max_tokens', 'top_p', 'presence_penalty', 'frequency_penalty', 'enable_search', 'enable_thinking'] as $key) {
+        if ((int)($config['include_channel'] ?? 0) === 1 && $request->channelCode !== '') {
+            $payload['channel'] = $request->channelCode;
+        }
+        foreach (['temperature', 'max_tokens', 'top_p', 'presence_penalty', 'frequency_penalty', 'enable_thinking'] as $key) {
             if (array_key_exists($key, $modelConfig)) {
                 $payload[$key] = $modelConfig[$key];
             }
         }
-        if (isset($modelConfig['stream_options']) && is_array($modelConfig['stream_options'])) {
-            $payload['stream_options'] = array_merge($payload['stream_options'], $modelConfig['stream_options']);
+        foreach ($this->allowedExtraPayloadKeys($request, $config) as $key) {
+            if (array_key_exists($key, $modelConfig)) {
+                $payload[$key] = $modelConfig[$key];
+            }
+        }
+        if ($this->supportsStreamOptions($request, $config) && isset($modelConfig['stream_options']) && is_array($modelConfig['stream_options'])) {
+            $payload['stream_options'] = $modelConfig['stream_options'];
         }
         return $payload;
+    }
+
+    private function allowedExtraPayloadKeys(AigcLlmGenerateRequest $request, array $config): array
+    {
+        $channelKeys = $config['extra_payload_keys'] ?? [];
+        $modelKeys = $request->modelConfig['config_json']['extra_payload_keys'] ?? [];
+        $keys = array_merge(is_array($channelKeys) ? $channelKeys : [], is_array($modelKeys) ? $modelKeys : []);
+        return array_values(array_unique(array_filter(array_map('strval', $keys))));
+    }
+
+    private function supportsStreamOptions(AigcLlmGenerateRequest $request, array $config): bool
+    {
+        $modelConfig = $request->modelConfig['config_json'] ?? [];
+        return (int)($config['support_stream_options'] ?? $modelConfig['support_stream_options'] ?? 0) === 1;
     }
 
     private function normalizeMessageContent($content)
@@ -285,7 +308,6 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
         $choice = $json['choices'][0] ?? [];
         $delta = $this->extractText([
             $choice['delta']['content'] ?? null,
-            $choice['delta']['reasoning_content'] ?? null,
             $choice['message']['content'] ?? null,
             $choice['text'] ?? null,
             $json['delta'] ?? null,
@@ -433,6 +455,7 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
             'permission_denied' => 'API Key 无权调用该模型',
             'queue_limit_exceeded' => '供应商排队任务已达上限，请稍后重试',
             'invalid_request' => '供应商请求参数错误',
+            'bad request' => '供应商请求参数错误',
             'not_found' => '供应商模型或接口不存在',
         ];
         foreach ($map as $needle => $friendly) {
@@ -457,5 +480,20 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
         }
         $port = isset($parts['port']) ? ':' . (int)$parts['port'] : '';
         return $scheme . '://' . $host . $port;
+    }
+
+    private function usesUpdateSourceEndpoint(string $baseUrl, array $source): bool
+    {
+        $baseHost = parse_url($baseUrl, PHP_URL_HOST);
+        if (!$baseHost) {
+            return false;
+        }
+        foreach (['active_base_url', 'base_url', 'online_base_url'] as $key) {
+            $sourceHost = parse_url((string)($source[$key] ?? ''), PHP_URL_HOST);
+            if ($sourceHost && strtolower($sourceHost) === strtolower($baseHost)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
