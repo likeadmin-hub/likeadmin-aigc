@@ -338,6 +338,9 @@ INSERT INTO `la_tenant_system_menu_{tenantSn}`
 VALUES (9017, {tenantId}, 9016, 'A', '详情', '', 1, 'ai_task/detail', '', '', '', '', 0, 1, 0, 1727700000,
         1727700000);
 INSERT INTO `la_tenant_system_menu_{tenantSn}`
+VALUES (9018, {tenantId}, 9016, 'A', '查询', '', 2, 'ai_task/query', '', '', '', '', 0, 1, 0, 1727700000,
+        1727700000);
+INSERT INTO `la_tenant_system_menu_{tenantSn}`
 VALUES (140, {tenantId}, 82, 'C', '微信开放平台', 'local-icon-notice_buyer', 70, 'channel.open_setting/getConfig',
         'open_setting', 'channel/open_setting', '', '', 0, 1, 0, 1666085713, 1710472951);
 INSERT INTO `la_tenant_system_menu_{tenantSn}`
@@ -926,6 +929,7 @@ UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`sou
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_tenant_storage_detail',`is_core`=1 WHERE `id`=57;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_ai_task_tenant',`is_core`=1 WHERE `id`=9016;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_ai_task_tenant_detail',`is_core`=1 WHERE `id`=9017;
+UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_ai_task_tenant_query',`is_core`=1 WHERE `id`=9018;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `type`='M',`name`='系统应用',`paths`='system-default',`component`='',`icon`='el-icon-Setting',`pid`=9000,`sort`=10,`app_code`='system_default',`source`='core',`source_menu_key`='core_tenant_system_default',`is_core`=1 WHERE `id`=158;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `is_show`=0 WHERE `source_menu_key`='core_tenant_my_app';
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `pid`=158,`sort`=10 WHERE `id`=159;

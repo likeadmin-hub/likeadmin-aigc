@@ -1967,6 +1967,9 @@ VALUES (9016, 0, 117, 'C', '任务记录', 'el-icon-List', 90, 'ai_task/lists', 
 INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES (9017, 0, 9016, 'A', '详情', '', 1, 'ai_task/detail', '', '',
         '', '', 0, 1, 0, '', 'core', 'core_ai_task_tenant_detail', 1, 1727700000, 1727700000);
+INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
+VALUES (9018, 0, 9016, 'A', '查询', '', 2, 'ai_task/query', '', '',
+        '', '', 0, 1, 0, '', 'core', 'core_ai_task_tenant_query', 1, 1727700000, 1727700000);
 INSERT INTO `la_tenant_system_menu` (`id`, `tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `create_time`, `update_time`)
 VALUES (140, 0, 82, 'C', '微信开放平台', 'local-icon-notice_buyer', 70, 'channel.open_setting/getConfig',
         'open_setting', 'channel/open_setting', '', '', 0, 1, 0, 1666085713, 1710472951);
