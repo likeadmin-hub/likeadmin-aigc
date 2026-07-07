@@ -1,0 +1,48 @@
+[
+  {
+    "source_menu_key": "aigc_music_platform",
+    "app_code": "aigc_music",
+    "source": "app",
+    "type": "M",
+    "name": "AI音乐生成",
+    "icon": "el-icon-Headset",
+    "sort": 88,
+    "perms": "",
+    "paths": "aigc-music",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_music_platform_channel",
+        "type": "C",
+        "name": "通道管理",
+        "perms": "app.aigc_music.channel/lists",
+        "paths": "channel",
+        "component": "apps/aigc_music/channel"
+      },
+      {
+        "source_menu_key": "aigc_music_platform_spec",
+        "type": "C",
+        "name": "规格价格",
+        "perms": "app.aigc_music.spec/lists",
+        "paths": "spec",
+        "component": "apps/aigc_music/spec"
+      },
+      {
+        "source_menu_key": "aigc_music_platform_tenant_usage",
+        "type": "C",
+        "name": "租户用量",
+        "perms": "app.aigc_music.tenant/stat",
+        "paths": "tenant-usage",
+        "component": "apps/aigc_music/tenant-usage"
+      },
+      {
+        "source_menu_key": "aigc_music_platform_task_log",
+        "type": "C",
+        "name": "任务日志",
+        "perms": "app.aigc_music.task/lists",
+        "paths": "task-log",
+        "component": "apps/aigc_music/task-log"
+      }
+    ]
+  }
+]

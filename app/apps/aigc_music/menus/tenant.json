@@ -1,0 +1,72 @@
+[
+  {
+    "source_menu_key": "aigc_music",
+    "app_code": "aigc_music",
+    "source": "app",
+    "type": "M",
+    "name": "AI音乐生成",
+    "icon": "el-icon-Headset",
+    "sort": 100,
+    "perms": "",
+    "paths": "aigc-music",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_music_config",
+        "type": "C",
+        "name": "基础配置",
+        "perms": "app.aigc_music.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_music/config"
+      },
+      {
+        "source_menu_key": "aigc_music_task",
+        "type": "C",
+        "name": "音乐任务",
+        "perms": "app.aigc_music.admin_task/lists",
+        "paths": "task",
+        "component": "apps/aigc_music/task"
+      },
+      {
+        "source_menu_key": "aigc_music_asset",
+        "type": "C",
+        "name": "素材管理",
+        "perms": "app.aigc_music.asset/lists",
+        "paths": "asset",
+        "component": "apps/aigc_music/asset"
+      },
+      {
+        "source_menu_key": "aigc_music_style",
+        "type": "C",
+        "name": "风格管理",
+        "perms": "app.aigc_music.style/lists",
+        "paths": "style",
+        "component": "apps/aigc_music/style"
+      },
+      {
+        "source_menu_key": "aigc_music_voice",
+        "type": "C",
+        "name": "声音管理",
+        "perms": "app.aigc_music.voice/lists",
+        "paths": "voice",
+        "component": "apps/aigc_music/voice"
+      },
+      {
+        "source_menu_key": "aigc_music_channel_price",
+        "type": "C",
+        "name": "通道调价",
+        "perms": "app.aigc_music.channel/lists",
+        "paths": "channel-price",
+        "component": "apps/aigc_music/channel-price"
+      },
+      {
+        "source_menu_key": "aigc_music_stat",
+        "type": "C",
+        "name": "用量统计",
+        "perms": "app.aigc_music.admin/stat",
+        "paths": "stat",
+        "component": "apps/aigc_music/stat"
+      }
+    ]
+  }
+]
