@@ -6,6 +6,7 @@ use app\common\enum\user\AccountLogEnum;
 use app\common\logic\AccountLogLogic;
 use app\common\model\user\UserAccountLog;
 use app\common\model\user\User;
+use app\common\service\PointUnitService;
 use RuntimeException;
 
 class UserPointService
@@ -13,21 +14,21 @@ class UserPointService
     public static function assertEnough(int $userId, float $points): void
     {
         if ($points <= 0) {
-            throw new RuntimeException('点数必须大于0');
+            throw new RuntimeException(PointUnitService::unit() . '必须大于0');
         }
         $user = User::where('id', $userId)->findOrEmpty();
         if ($user->isEmpty()) {
             throw new RuntimeException('用户不存在');
         }
         if ((float)$user['user_money'] < $points) {
-            throw new RuntimeException('点数不足，请充值');
+            throw new RuntimeException(PointUnitService::unit() . '不足，请充值');
         }
     }
 
     public static function consume(int $userId, float $points, string $sourceSn, string $remark = '', array $extra = []): void
     {
         if ($points <= 0) {
-            throw new RuntimeException('点数必须大于0');
+            throw new RuntimeException(PointUnitService::unit() . '必须大于0');
         }
         if (self::hasLog($userId, AccountLogEnum::UM_DEC_APP_CONSUME, AccountLogEnum::DEC, $sourceSn, $remark)) {
             return;
@@ -40,7 +41,7 @@ class UserPointService
             return;
         }
         if ((float)$user['user_money'] < $points) {
-            throw new RuntimeException('点数不足，请充值');
+            throw new RuntimeException(PointUnitService::unit() . '不足，请充值');
         }
         $user->user_money = number_format((float)$user['user_money'] - $points, 2, '.', '');
         $user->save();
@@ -58,7 +59,7 @@ class UserPointService
     public static function refund(int $userId, float $points, string $sourceSn, string $remark = '', array $extra = []): void
     {
         if ($points <= 0) {
-            throw new RuntimeException('点数必须大于0');
+            throw new RuntimeException(PointUnitService::unit() . '必须大于0');
         }
         if (self::hasLog($userId, AccountLogEnum::UM_INC_APP_REFUND, AccountLogEnum::INC, $sourceSn, $remark)) {
             return;
@@ -86,7 +87,7 @@ class UserPointService
     public static function grantRegisterBonus(int $userId, float $points, string $sourceSn, string $remark = '', array $extra = []): void
     {
         if ($points <= 0) {
-            throw new RuntimeException('点数必须大于0');
+            throw new RuntimeException(PointUnitService::unit() . '必须大于0');
         }
         $user = User::where('id', $userId)->lock(true)->findOrEmpty();
         if ($user->isEmpty()) {

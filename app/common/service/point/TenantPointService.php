@@ -4,6 +4,7 @@ namespace app\common\service\point;
 
 use app\common\model\tenant\Tenant;
 use app\common\model\tenant\TenantPointLog;
+use app\common\service\PointUnitService;
 use app\common\service\power\TenantPowerMallService;
 use RuntimeException;
 
@@ -42,7 +43,7 @@ class TenantPointService
             return;
         }
         if ((float)$tenant['point_balance'] < $points) {
-            throw new RuntimeException('租户点数不足，请联系管理员');
+            throw new RuntimeException('租户' . PointUnitService::unit() . '不足，请联系管理员');
         }
         $tenant->point_balance = self::formatPoints((float)$tenant['point_balance'] - $points);
         TenantPowerMallService::consumeBuckets($tenantId, $points, $sourceSn, $remark, $extra, false);
@@ -71,7 +72,7 @@ class TenantPointService
         self::assertPositive($points);
         TenantPowerMallService::expireBuckets($tenantId);
         if (self::balance($tenantId) < $points) {
-            throw new RuntimeException('租户点数不足，请联系管理员');
+            throw new RuntimeException('租户' . PointUnitService::unit() . '不足，请联系管理员');
         }
     }
 
@@ -101,7 +102,7 @@ class TenantPointService
     private static function assertPositive(float $points): void
     {
         if ($points <= 0) {
-            throw new RuntimeException('点数必须大于0');
+            throw new RuntimeException(PointUnitService::unit() . '必须大于0');
         }
     }
 

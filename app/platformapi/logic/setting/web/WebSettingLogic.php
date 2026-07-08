@@ -19,6 +19,7 @@ use app\common\logic\BaseLogic;
 use app\common\service\AgreementService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
+use app\common\service\PointUnitService;
 
 
 /**
@@ -43,6 +44,7 @@ class WebSettingLogic extends BaseLogic
             'web_logo_light' => FileService::getFileUrl(ConfigService::get('platform', 'web_logo_light')),
             'web_logo_dark' => FileService::getFileUrl(ConfigService::get('platform', 'web_logo_dark')),
             'login_image' => FileService::getFileUrl(ConfigService::get('platform', 'login_image')),
+            'point_unit' => PointUnitService::unit(),
         ];
     }
 
@@ -65,6 +67,7 @@ class WebSettingLogic extends BaseLogic
         ConfigService::set('platform', 'web_logo_light', $logo_light);
         ConfigService::set('platform', 'web_logo_dark', $logo_dark);
         ConfigService::set('platform', 'login_image', $login);
+        ConfigService::set('recharge', 'point_unit', PointUnitService::normalize($params['point_unit'] ?? PointUnitService::DEFAULT_UNIT));
     }
 
 

@@ -4,6 +4,7 @@ namespace app\common\service\app\aigc_llm;
 
 use app\common\model\app\aigc_llm\AigcLlmChannel;
 use app\common\model\app\aigc_llm\AigcLlmModel;
+use app\common\service\app\UpstreamPricingService;
 use Exception;
 
 class AigcLlmChannelService
@@ -135,6 +136,83 @@ class AigcLlmChannelService
             throw new Exception('请输入模型名称');
         }
         self::saveRow(AigcLlmModel::class, ['tenant_id' => 0, 'code' => $code], $data);
+    }
+
+    public static function syncPlatformTextModelsFromUpstream(): array
+    {
+        $remoteModels = UpstreamPricingService::queryModels('text', true);
+        if (empty($remoteModels)) {
+            return ['added' => 0, 'exists' => 0, 'skipped' => 0, 'total' => 0];
+        }
+
+        $pricingMap = self::queryRemoteModelPricingMap($remoteModels);
+        $added = 0;
+        $exists = 0;
+        $skipped = 0;
+        foreach ($remoteModels as $index => $item) {
+            $modelCode = trim((string)($item['model_code'] ?? $item['id'] ?? ''));
+            if ($modelCode === '') {
+                $skipped++;
+                continue;
+            }
+            $localCode = self::localModelCode($modelCode);
+            $existsRow = AigcLlmModel::where(['tenant_id' => 0, 'code' => $localCode])->findOrEmpty();
+            if (!$existsRow->isEmpty()) {
+                $exists++;
+                continue;
+            }
+
+            $priceKey = self::remoteModelKey($item);
+            $pricing = $pricingMap[$priceKey] ?? [];
+            if (($pricing['available'] ?? false) !== true) {
+                $skipped++;
+                continue;
+            }
+
+            $channelCode = self::localChannelCode((string)($item['channel_code'] ?? ''));
+            $prices = self::pricesFromRemotePricing($pricing);
+            $legacyPrice = max($prices['input'], $prices['output']);
+            if ($legacyPrice <= 0) {
+                $skipped++;
+                continue;
+            }
+            self::ensureSyncedChannel($channelCode, (string)($item['channel_name'] ?? ''), (string)($item['channel_code'] ?? ''));
+            AigcLlmModel::create([
+                'tenant_id' => 0,
+                'channel_code' => $channelCode,
+                'code' => $localCode,
+                'name' => trim((string)($item['model_name'] ?? $item['name'] ?? $modelCode)) ?: $modelCode,
+                'provider' => 'openai_compatible',
+                'model' => $modelCode,
+                'context_limit' => 24,
+                'platform_unit_cost' => self::formatPoints($legacyPrice),
+                'tenant_unit_price' => self::formatPoints($legacyPrice),
+                'platform_input_unit_cost' => self::formatUnitPrice($prices['input']),
+                'platform_output_unit_cost' => self::formatUnitPrice($prices['output']),
+                'tenant_input_unit_price' => self::formatUnitPrice($prices['input']),
+                'tenant_output_unit_price' => self::formatUnitPrice($prices['output']),
+                'billing_unit' => 'tokens_1m',
+                'config_json' => [
+                    'upstream_channel_code' => (string)($item['channel_code'] ?? ''),
+                    'max_tokens' => (int)($item['max_tokens'] ?? 0),
+                    'params_schema' => is_array($item['params_schema'] ?? null) ? $item['params_schema'] : [],
+                    'default_params' => is_array($item['default_params'] ?? null) ? $item['default_params'] : [],
+                    'stream_options' => ['include_usage' => true],
+                ],
+                'status' => 1,
+                'sort' => max(1, 900 - $index),
+                'create_time' => time(),
+                'update_time' => time(),
+            ]);
+            $added++;
+        }
+
+        return [
+            'added' => $added,
+            'exists' => $exists,
+            'skipped' => $skipped,
+            'total' => count($remoteModels),
+        ];
     }
 
     public static function deletePlatformChannel(array $params): void
@@ -342,6 +420,135 @@ class AigcLlmChannelService
             throw new Exception('编码必须为小写snake_case');
         }
         return $code;
+    }
+
+    private static function localModelCode(string $modelCode): string
+    {
+        return self::normalizeCodeFromRemote($modelCode, 'model');
+    }
+
+    private static function localChannelCode(string $channelCode): string
+    {
+        $channelCode = trim($channelCode) !== '' ? $channelCode : 'upstream_text';
+        return self::normalizeCodeFromRemote($channelCode, 'channel');
+    }
+
+    private static function normalizeCodeFromRemote(string $value, string $prefix): string
+    {
+        $code = strtolower(trim($value));
+        $code = preg_replace('/[^a-z0-9]+/', '_', $code) ?: '';
+        $code = trim($code, '_');
+        if ($code === '') {
+            $code = $prefix;
+        }
+        if (!preg_match('/^[a-z]/', $code)) {
+            $code = $prefix . '_' . $code;
+        }
+        return substr($code, 0, 100);
+    }
+
+    private static function ensureSyncedChannel(string $channelCode, string $channelName, string $upstreamChannelCode): void
+    {
+        $row = AigcLlmChannel::where(['tenant_id' => 0, 'code' => $channelCode])->findOrEmpty();
+        if (!$row->isEmpty()) {
+            return;
+        }
+        AigcLlmChannel::create([
+            'tenant_id' => 0,
+            'code' => $channelCode,
+            'name' => trim($channelName) ?: $channelCode,
+            'provider' => 'openai_compatible',
+            'config_json' => [
+                'base_url' => '',
+                'stream_path' => '/api/v1/chat/completions',
+                'api_key' => '',
+                'timeout' => 120,
+                'ssl_verify' => 0,
+                'upstream_channel_code' => $upstreamChannelCode,
+                'remark' => '由可用文本模型同步创建',
+            ],
+            'status' => 1,
+            'sort' => 900,
+            'create_time' => time(),
+            'update_time' => time(),
+        ]);
+    }
+
+    private static function queryRemoteModelPricingMap(array $remoteModels): array
+    {
+        $map = [];
+        $items = [];
+        foreach ($remoteModels as $item) {
+            $modelCode = trim((string)($item['model_code'] ?? $item['id'] ?? ''));
+            if ($modelCode === '') {
+                continue;
+            }
+            $items[] = [
+                'type' => 'model',
+                'model' => $modelCode,
+                'channel' => (string)($item['channel_code'] ?? ''),
+                'local_key' => self::remoteModelKey($item),
+            ];
+        }
+        foreach (array_chunk($items, 100) as $chunk) {
+            $response = UpstreamPricingService::queryBatch($chunk);
+            foreach (($response['items'] ?? []) as $row) {
+                if (is_array($row) && ($row['local_key'] ?? '') !== '') {
+                    $map[(string)$row['local_key']] = $row;
+                }
+            }
+        }
+        return $map;
+    }
+
+    private static function remoteModelKey(array $item): string
+    {
+        return trim((string)($item['model_code'] ?? $item['id'] ?? '')) . '|' . trim((string)($item['channel_code'] ?? ''));
+    }
+
+    private static function pricesFromRemotePricing(array $pricingItem): array
+    {
+        $pricing = is_array($pricingItem['pricing'] ?? null) ? $pricingItem['pricing'] : [];
+        $input = self::firstPositiveNumber([
+            $pricing['per_1k_input'] ?? null,
+            $pricing['points_per_1k_input'] ?? null,
+            $pricing['input_price'] ?? null,
+            $pricing['input_points'] ?? null,
+        ]);
+        $output = self::firstPositiveNumber([
+            $pricing['per_1k_output'] ?? null,
+            $pricing['points_per_1k_output'] ?? null,
+            $pricing['output_price'] ?? null,
+            $pricing['output_points'] ?? null,
+        ]);
+        $fixed = self::firstPositiveNumber([
+            $pricing['fixed_points'] ?? null,
+            $pricing['fixed_price'] ?? null,
+        ]);
+        if ($input <= 0 && $fixed > 0) {
+            $input = $fixed;
+        }
+        if ($output <= 0) {
+            $output = $input;
+        }
+        return [
+            'input' => $input,
+            'output' => $output,
+        ];
+    }
+
+    private static function firstPositiveNumber(array $values): float
+    {
+        foreach ($values as $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+            $number = (float)$value;
+            if ($number > 0) {
+                return $number;
+            }
+        }
+        return 0.0;
     }
 
     private static function saveRow(string $modelClass, array $where, array $data): void

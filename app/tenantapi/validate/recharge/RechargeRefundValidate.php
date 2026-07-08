@@ -21,6 +21,7 @@ use app\common\enum\YesNoEnum;
 use app\common\model\recharge\RechargeOrder;
 use app\common\model\refund\RefundRecord;
 use app\common\model\user\User;
+use app\common\service\PointUnitService;
 use app\common\validate\BaseValidate;
 
 /**
@@ -82,7 +83,7 @@ class RechargeRefundValidate extends BaseValidate
         // 校验点数
         $user = User::findOrEmpty($order['user_id']);
         if ($user['user_money'] < $order['order_amount']) {
-            return '退款失败:用户点数已不足退款金额';
+            return '退款失败:用户' . PointUnitService::unit() . '已不足退款金额';
         }
 
         return true;
@@ -113,7 +114,7 @@ class RechargeRefundValidate extends BaseValidate
         $user = User::findOrEmpty($record['user_id']);
 
         if ($user['user_money'] < $order['order_amount']) {
-            return '退款失败:用户点数已不足退款金额';
+            return '退款失败:用户' . PointUnitService::unit() . '已不足退款金额';
         }
 
         return true;

@@ -5,6 +5,7 @@ namespace app\common\service\app\aigc_video;
 use app\common\model\app\aigc_video\AigcVideoChannel;
 use app\common\model\app\aigc_video\AigcVideoChannelSpec;
 use app\common\service\app\ChannelSpecPricingSchemaService;
+use app\common\service\PointUnitService;
 use Exception;
 use think\facade\Db;
 
@@ -1102,7 +1103,7 @@ class AigcVideoChannelService
                 'upstream_unit_cost' => '90',
                 'platform_unit_cost' => '100',
                 'tenant_unit_price' => '100',
-                'upstream_cost_text' => $spec['quality_label'] . '，点 / 秒',
+                'upstream_cost_text' => $spec['quality_label'] . '，' . PointUnitService::unit() . ' / 秒',
                 'provider_params_json' => [
                     'model' => 'seedance2_pro',
                     'duration' => 0,

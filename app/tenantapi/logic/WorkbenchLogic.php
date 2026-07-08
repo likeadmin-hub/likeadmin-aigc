@@ -18,6 +18,7 @@ use app\common\enum\PayEnum;
 use app\common\logic\BaseLogic;
 use app\common\model\tenant\Tenant;
 use app\common\model\user\User;
+use app\common\service\PointUnitService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
 use app\common\service\update\UpdateSourceClient;
@@ -241,23 +242,23 @@ class WorkbenchLogic extends BaseLogic
     {
         return [
             [
-                'title' => '租户点数余额',
+                'title' => '租户' . PointUnitService::unit() . '余额',
                 'value' => $today['tenant_point_balance'],
-                'unit' => '点',
+                'unit' => PointUnitService::unit(),
                 'sub_title' => '可用余额',
                 'sub_value' => self::formatPoints($today['tenant_point_balance']),
             ],
             [
                 'title' => '今日成本',
                 'value' => $today['today_tenant_cost_points'],
-                'unit' => '点',
+                'unit' => PointUnitService::unit(),
                 'sub_title' => '累计成本',
                 'sub_value' => self::formatPoints($today['tenant_cost_points']),
             ],
             [
                 'title' => '今日用户收费',
                 'value' => $today['today_user_charge_points'],
-                'unit' => '点',
+                'unit' => PointUnitService::unit(),
                 'sub_title' => '累计收费',
                 'sub_value' => self::formatPoints($today['user_charge_points']),
             ],
@@ -292,7 +293,7 @@ class WorkbenchLogic extends BaseLogic
             [
                 'title' => '用户余额合计',
                 'value' => $today['user_money_total'],
-                'unit' => '点',
+                'unit' => PointUnitService::unit(),
                 'sub_title' => '会员/充值订单',
                 'sub_value' => $today['membership_order_total'] . '/' . $today['recharge_order_total'],
             ],
@@ -650,7 +651,7 @@ class WorkbenchLogic extends BaseLogic
 
     private static function formatPoints(float|int $value): string
     {
-        return self::round($value) . ' 点';
+        return self::round($value) . ' ' . PointUnitService::unit();
     }
 
     private static function round(mixed $value): float|int

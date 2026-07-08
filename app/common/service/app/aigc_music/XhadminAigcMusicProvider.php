@@ -3,6 +3,7 @@
 namespace app\common\service\app\aigc_music;
 
 use app\common\service\FileService;
+use app\common\service\PointUnitService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
 
@@ -442,7 +443,7 @@ class XhadminAigcMusicProvider implements AigcMusicProviderInterface
             str_contains($lower, 'insufficient_points'),
             str_contains($lower, 'http_402'),
             str_contains($message, '余额不足'),
-            str_contains($message, '点数余额不足') => '供应商点数余额不足，请联系平台管理员',
+            str_contains($message, '点数余额不足') => '供应商' . PointUnitService::unit() . '余额不足，请联系平台管理员',
             str_contains($lower, 'auth_failed'),
             str_contains($lower, 'api key') => '供应商鉴权失败，请检查系统服务接口渠道配置',
             str_contains($lower, 'queue_limit_exceeded') => '供应商排队任务已满，请稍后再试',

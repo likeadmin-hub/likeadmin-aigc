@@ -159,7 +159,7 @@ class PcFeedbackService
             'avatar' => '数字人',
             'canvas' => '智能画布',
             'story' => '故事创作',
-            'membership' => '会员与积分',
+            'membership' => '会员与' . PointUnitService::unit(),
             'invoice' => '开具发票',
             'other' => '其他咨询/建议',
             'feature' => '功能反馈',

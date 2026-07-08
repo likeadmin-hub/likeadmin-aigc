@@ -25,6 +25,7 @@ use app\common\model\recharge\RechargeOrder;
 use app\common\model\refund\RefundRecord;
 use app\common\model\user\User;
 use app\common\service\ConfigService;
+use app\common\service\PointUnitService;
 use think\facade\Db;
 
 
@@ -46,7 +47,8 @@ class RechargeLogic extends BaseLogic
     {
         $config = [
             'status' => ConfigService::get('recharge', 'status', 0),
-            'min_amount' => ConfigService::get('recharge', 'min_amount', 0)
+            'min_amount' => ConfigService::get('recharge', 'min_amount', 0),
+            'point_unit' => PointUnitService::unit(),
         ];
 
         return $config;
@@ -68,6 +70,9 @@ class RechargeLogic extends BaseLogic
             }
             if (isset($params['min_amount'])) {
                 ConfigService::set('recharge', 'min_amount', $params['min_amount']);
+            }
+            if (isset($params['point_unit'])) {
+                ConfigService::set('recharge', 'point_unit', PointUnitService::normalize($params['point_unit']));
             }
             return true;
         } catch (\Exception $e) {

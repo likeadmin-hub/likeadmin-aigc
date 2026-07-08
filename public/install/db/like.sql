@@ -2111,7 +2111,8 @@ SET @core_tenant_power_mall_id := LAST_INSERT_ID();
 INSERT INTO `la_tenant_system_menu` (`tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES
 (0, @core_tenant_power_mall_id, 'C', '购买算力', 'el-icon-Coin', 100, 'power.mall/packages', 'buy', 'power_mall/index', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_mall_buy', 1, 1782604800, 1782604800),
-(0, @core_tenant_power_mall_id, 'C', '购买记录', 'el-icon-Document', 90, 'power.mall/orders', 'records', 'power_mall/records', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_mall_records', 1, 1782604800, 1782604800);
+(0, @core_tenant_power_mall_id, 'C', '购买记录', 'el-icon-Document', 90, 'power.mall/orders', 'records', 'power_mall/records', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_mall_records', 1, 1782604800, 1782604800),
+(0, @core_tenant_power_mall_id, 'C', '消耗日志', 'el-icon-Notebook', 80, 'power.mall/consumeLogs', 'consume-logs', 'power_mall/consume_logs', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_mall_consume_logs', 1, 1782604800, 1782604800);
 SET @core_tenant_power_buy_id := (
   SELECT `id` FROM `la_tenant_system_menu`
   WHERE `tenant_id` = 0 AND `source_menu_key` = 'core_tenant_power_mall_buy'
@@ -2124,6 +2125,12 @@ SET @core_tenant_power_records_id := (
   ORDER BY `id` DESC
   LIMIT 1
 );
+SET @core_tenant_power_consume_logs_id := (
+  SELECT `id` FROM `la_tenant_system_menu`
+  WHERE `tenant_id` = 0 AND `source_menu_key` = 'core_tenant_power_mall_consume_logs'
+  ORDER BY `id` DESC
+  LIMIT 1
+);
 INSERT INTO `la_tenant_system_menu` (`tenant_id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES
 (0, @core_tenant_power_buy_id, 'A', '点数概览', '', 0, 'power.mall/stats', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_mall_stats', 1, 1782604800, 1782604800),
@@ -2131,7 +2138,8 @@ VALUES
 (0, @core_tenant_power_buy_id, 'A', '支付方式', '', 0, 'power.pay/payWay', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_pay_way', 1, 1782604800, 1782604800),
 (0, @core_tenant_power_buy_id, 'A', '预支付', '', 0, 'power.pay/prepay', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_pay_prepay', 1, 1782604800, 1782604800),
 (0, @core_tenant_power_buy_id, 'A', '支付状态', '', 0, 'power.pay/payStatus', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_pay_status', 1, 1782604800, 1782604800),
-(0, @core_tenant_power_records_id, 'A', '订单详情', '', 0, 'power.mall/orderDetail', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_mall_order_detail', 1, 1782604800, 1782604800);
+(0, @core_tenant_power_records_id, 'A', '订单详情', '', 0, 'power.mall/orderDetail', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_mall_order_detail', 1, 1782604800, 1782604800),
+(0, @core_tenant_power_consume_logs_id, 'A', '消耗详情', '', 0, 'power.mall/consumeLogDetail', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_mall_consume_log_detail', 1, 1782604800, 1782604800);
 
 UPDATE `la_tenant_system_menu`
 SET `app_code` = '', `source` = 'core', `source_menu_key` = 'core_tenant_message', `is_core` = 1, `update_time` = 1782691200
@@ -3063,6 +3071,7 @@ VALUES
 ('aigc_llm','app.aigc_llm.model/save','POST','aigc_llm:model:save:platform','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_llm','app.aigc_llm.model/delete','POST','aigc_llm:model:delete:platform','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_llm','app.aigc_llm.model/status','POST','aigc_llm:model:status:platform','platform_admin',1,1,1,1778000000,1778000000),
+('aigc_llm','app.aigc_llm.model/syncTextModels','POST','aigc_llm:model:save:platform','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_llm','app.aigc_llm.tenant/stat','GET','aigc_llm:tenant_usage:platform','platform_admin',1,1,1,1778000000,1778000000)
 ON DUPLICATE KEY UPDATE `permission_key`=VALUES(`permission_key`),`need_login`=VALUES(`need_login`),`need_role_permission`=VALUES(`need_role_permission`),`status`=VALUES(`status`),`update_time`=VALUES(`update_time`);
 

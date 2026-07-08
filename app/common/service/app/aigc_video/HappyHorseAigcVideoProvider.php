@@ -3,6 +3,7 @@
 namespace app\common\service\app\aigc_video;
 
 use app\common\service\FileService;
+use app\common\service\PointUnitService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
 
@@ -465,7 +466,7 @@ class HappyHorseAigcVideoProvider implements AigcVideoProviderInterface
             str_contains($lower, 'ssl certificate') => '接口渠道 SSL 证书校验失败，请在系统服务 > 接口渠道关闭 SSL校验，或更换符合规范的 HTTPS 证书',
             str_contains($lower, 'insufficient_points'),
             str_contains($message, '余额不足'),
-            str_contains($message, '点数余额不足') => 'HappyHorse点数余额不足，请联系平台管理员',
+            str_contains($message, '点数余额不足') => 'HappyHorse' . PointUnitService::unit() . '余额不足，请联系平台管理员',
             str_contains($lower, 'auth_failed'),
             str_contains($lower, 'api key') => 'HappyHorse鉴权失败，请检查系统服务接口渠道配置',
             str_contains($lower, 'app_not_configured') => 'HappyHorse应用未配置服务地址或密钥',

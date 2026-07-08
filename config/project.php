@@ -1,7 +1,7 @@
 <?php
 return [
     // 系统版本号
-    'version' => '1.0.174',
+    'version' => '1.0.175',
     'project_name' => 'Likeadmin-SaaS版',
 
     // 官网
@@ -142,6 +142,12 @@ return [
         'register_bonus_status' => 0,
         // 新用户注册赠送点数
         'register_bonus_points' => 0,
+    ],
+
+    // 充值/计费展示
+    'recharge' => [
+        // 积分单位名称
+        'point_unit' => '算力',
     ],
 
     // 后台装修

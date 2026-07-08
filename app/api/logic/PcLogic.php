@@ -26,6 +26,7 @@ use app\common\service\app\AppDisplayConfigService;
 use app\common\service\decorate\DecorateTemplateService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
+use app\common\service\PointUnitService;
 use app\common\service\WebsiteBannerService;
 use app\tenantapi\logic\setting\CustomerServiceLogic;
 
@@ -227,6 +228,8 @@ class PcLogic extends BaseLogic
             'siteStatistics' => $siteStatistics,
             'version' => config('project.version'),
             'copyright' => $copyright,
+            'point_unit' => PointUnitService::unit(),
+            'recharge' => PointUnitService::config(),
             'admin_url' => request()->domain() . '/admin',
             'qrcode' => [
                 'oa' => $oaQrCode,

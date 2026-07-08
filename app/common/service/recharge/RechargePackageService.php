@@ -3,6 +3,7 @@
 namespace app\common\service\recharge;
 
 use app\common\model\recharge\RechargePackage;
+use app\common\service\PointUnitService;
 use RuntimeException;
 use think\facade\Db;
 
@@ -44,12 +45,10 @@ class RechargePackageService
 
     public static function enabledPackages(int $tenantId, float $minAmount = 0): array
     {
-        $query = RechargePackage::where(['tenant_id' => $tenantId, 'status' => self::STATUS_ENABLED])
-            ->order(['sort' => 'desc', 'id' => 'asc']);
-        if ($minAmount > 0) {
-            $query->where('points', '>=', $minAmount);
-        }
-        return $query->select()->toArray();
+        return RechargePackage::where(['tenant_id' => $tenantId, 'status' => self::STATUS_ENABLED])
+            ->order(['sort' => 'desc', 'id' => 'asc'])
+            ->select()
+            ->toArray();
     }
 
     public static function detail(int $tenantId, int $id): array
@@ -67,7 +66,7 @@ class RechargePackageService
             throw new RuntimeException('请输入套餐名称');
         }
         if ($points <= 0) {
-            throw new RuntimeException('套餐点数必须大于0');
+            throw new RuntimeException('套餐' . PointUnitService::unit() . '必须大于0');
         }
         if ($amount < 0) {
             throw new RuntimeException('套餐售价不能小于0');

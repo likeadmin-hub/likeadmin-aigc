@@ -18,6 +18,7 @@ use app\tenantapi\lists\BaseAdminDataLists;
 use app\common\enum\PayEnum;
 use app\common\lists\ListsExcelInterface;
 use app\common\lists\ListsSearchInterface;
+use app\common\service\PointUnitService;
 use app\common\model\recharge\RechargeOrder;
 use app\common\service\FileService;
 
@@ -39,7 +40,7 @@ class RechargeLists extends BaseAdminDataLists implements ListsSearchInterface, 
         return [
             'sn' => '充值单号',
             'nickname' => '用户昵称',
-            'order_amount' => '充值点数',
+            'order_amount' => '充值' . PointUnitService::unit(),
             'pay_way_text' => '支付方式',
             'pay_status_text' => '支付状态',
             'pay_time' => '支付时间',

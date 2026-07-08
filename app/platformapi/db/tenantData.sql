@@ -49,7 +49,7 @@ COMMIT;
 -- ----------------------------
 BEGIN;
 INSERT INTO `la_tenant_pay_config_{tenantSn}`
-VALUES (1, {tenantId}, '点数支付', 1, '', 'resource/image/common/balance_pay.png', 128, '点数支付备注');
+VALUES (1, {tenantId}, '算力支付', 1, '', 'resource/image/common/balance_pay.png', 128, '算力支付备注');
 INSERT INTO `la_tenant_pay_config_{tenantSn}`
 VALUES (2, {tenantId}, '微信支付', 2,
         '{\"interface_version\":\"v3\",\"merchant_type\":\"ordinary_merchant\",\"mch_id\":\"\",\"pay_sign_key\":\"\",\"apiclient_cert\":\"\",\"apiclient_key\":\"\"}',
@@ -375,7 +375,7 @@ INSERT INTO `la_tenant_system_menu_{tenantSn}`
 VALUES (156, {tenantId}, 149, 'C', '悬浮input', '', 70, '', 'popover_input', 'template/component/popover_input', '', '', 0, 1, 0,
         1670293336, 1710473329);
 INSERT INTO `la_tenant_system_menu_{tenantSn}`
-VALUES (157, {tenantId}, 119, 'A', '点数调整', '', 0, 'user.user/adjustMoney', '', '', '', '', 0, 1, 0, 1677143088, 1677143088);
+VALUES (157, {tenantId}, 119, 'A', '算力调整', '', 0, 'user.user/adjustMoney', '', '', '', '', 0, 1, 0, 1677143088, 1677143088);
 INSERT INTO `la_tenant_system_menu_{tenantSn}`
 VALUES (158, {tenantId}, 0, 'M', '应用管理', 'el-icon-Postcard', 800, '', 'app', '', '', '', 0, 1, 0, 1677143430, 1710472079);
 INSERT INTO `la_tenant_system_menu_{tenantSn}`
@@ -405,7 +405,7 @@ INSERT INTO `la_tenant_system_menu_{tenantSn}`
 VALUES (167, {tenantId}, 166, 'C', '充值记录', 'el-icon-Wallet', 90, 'recharge.recharge/lists', 'recharge_record',
         'finance/recharge_record', '', '', 0, 1, 0, 1677552757, 1710472902);
 INSERT INTO `la_tenant_system_menu_{tenantSn}`
-VALUES (168, {tenantId}, 166, 'C', '点数明细', 'local-icon-qianbao', 100, 'finance.account_log/lists', 'balance_details',
+VALUES (168, {tenantId}, 166, 'C', '算力明细', 'local-icon-qianbao', 100, 'finance.account_log/lists', 'balance_details',
         'finance/balance_details', '', '', 0, 1, 0, 1677552976, 1710472894);
 INSERT INTO `la_tenant_system_menu_{tenantSn}`
 VALUES (169, {tenantId}, 167, 'A', '退款', '', 0, 'recharge.recharge/refund', '', '', '', '', 0, 1, 0, 1677809715, 1677809715);
@@ -473,7 +473,8 @@ SET @core_tenant_power_mall_id := LAST_INSERT_ID();
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
 ({tenantId},@core_tenant_power_mall_id,'C','购买算力','el-icon-Coin',100,'power.mall/packages','buy','power_mall/index','','',0,1,0,'','core','core_tenant_power_mall_buy',1,1782604800,1782604800),
-({tenantId},@core_tenant_power_mall_id,'C','购买记录','el-icon-Document',90,'power.mall/orders','records','power_mall/records','','',0,1,0,'','core','core_tenant_power_mall_records',1,1782604800,1782604800);
+({tenantId},@core_tenant_power_mall_id,'C','购买记录','el-icon-Document',90,'power.mall/orders','records','power_mall/records','','',0,1,0,'','core','core_tenant_power_mall_records',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_mall_id,'C','消耗日志','el-icon-Notebook',80,'power.mall/consumeLogs','consume-logs','power_mall/consume_logs','','',0,1,0,'','core','core_tenant_power_mall_consume_logs',1,1782604800,1782604800);
 SET @core_tenant_power_buy_id := (
   SELECT `id` FROM `la_tenant_system_menu_{tenantSn}`
   WHERE `tenant_id` = {tenantId} AND `source_menu_key` = 'core_tenant_power_mall_buy'
@@ -486,14 +487,21 @@ SET @core_tenant_power_records_id := (
   ORDER BY `id` DESC
   LIMIT 1
 );
+SET @core_tenant_power_consume_logs_id := (
+  SELECT `id` FROM `la_tenant_system_menu_{tenantSn}`
+  WHERE `tenant_id` = {tenantId} AND `source_menu_key` = 'core_tenant_power_mall_consume_logs'
+  ORDER BY `id` DESC
+  LIMIT 1
+);
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
-({tenantId},@core_tenant_power_buy_id,'A','点数概览','',0,'power.mall/stats','','','','',0,0,0,'','core','core_tenant_power_mall_stats',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_buy_id,'A','算力概览','',0,'power.mall/stats','','','','',0,0,0,'','core','core_tenant_power_mall_stats',1,1782604800,1782604800),
 ({tenantId},@core_tenant_power_buy_id,'A','创建订单','',0,'power.mall/createOrder','','','','',0,0,0,'','core','core_tenant_power_mall_create_order',1,1782604800,1782604800),
 ({tenantId},@core_tenant_power_buy_id,'A','支付方式','',0,'power.pay/payWay','','','','',0,0,0,'','core','core_tenant_power_pay_way',1,1782604800,1782604800),
 ({tenantId},@core_tenant_power_buy_id,'A','预支付','',0,'power.pay/prepay','','','','',0,0,0,'','core','core_tenant_power_pay_prepay',1,1782604800,1782604800),
 ({tenantId},@core_tenant_power_buy_id,'A','支付状态','',0,'power.pay/payStatus','','','','',0,0,0,'','core','core_tenant_power_pay_status',1,1782604800,1782604800),
-({tenantId},@core_tenant_power_records_id,'A','订单详情','',0,'power.mall/orderDetail','','','','',0,0,0,'','core','core_tenant_power_mall_order_detail',1,1782604800,1782604800);
+({tenantId},@core_tenant_power_records_id,'A','订单详情','',0,'power.mall/orderDetail','','','','',0,0,0,'','core','core_tenant_power_mall_order_detail',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_consume_logs_id,'A','消耗详情','',0,'power.mall/consumeLogDetail','','','','',0,0,0,'','core','core_tenant_power_mall_consume_log_detail',1,1782604800,1782604800);
 
 UPDATE `la_tenant_system_menu_{tenantSn}`
 SET `app_code` = '', `source` = 'core', `source_menu_key` = 'core_tenant_message', `is_core` = 1, `update_time` = 1782691200
@@ -534,7 +542,7 @@ SELECT
   0.00,
   0.00,
   0.00,
-  '["默认AIGC应用永久免费使用","可购买积分继续创作","会员权益可由租户继续调整"]',
+  '["默认AIGC应用永久免费使用","可购买算力继续创作","会员权益可由租户继续调整"]',
   0,
   1,
   100,
@@ -579,9 +587,9 @@ SELECT
   UNIX_TIMESTAMP(),
   UNIX_TIMESTAMP()
 FROM (
-  SELECT '基础会员' AS `name`, '适合轻量创作用户，赠送基础积分' AS `description`, 19.90 AS `monthly_price`, 199.00 AS `yearly_price`, 29.90 AS `monthly_market_price`, 299.00 AS `yearly_market_price`, 100.00 AS `monthly_bonus_points`, 1500.00 AS `yearly_bonus_points`, '["每月赠送100积分","按年开通赠送1500积分","适合个人轻量创作"]' AS `features`, 0 AS `is_recommend`, 90 AS `sort`
+  SELECT '基础会员' AS `name`, '适合轻量创作用户，赠送基础算力' AS `description`, 19.90 AS `monthly_price`, 199.00 AS `yearly_price`, 29.90 AS `monthly_market_price`, 299.00 AS `yearly_market_price`, 100.00 AS `monthly_bonus_points`, 1500.00 AS `yearly_bonus_points`, '["每月赠送100算力","按年开通赠送1500算力","适合个人轻量创作"]' AS `features`, 0 AS `is_recommend`, 90 AS `sort`
   UNION ALL
-  SELECT '高级会员', '适合高频创作用户，赠送更多积分', 39.90, 399.00, 69.90, 699.00, 300.00, 4200.00, '["每月赠送300积分","按年开通赠送4200积分","适合高频图文与视频创作"]', 1, 80
+  SELECT '高级会员', '适合高频创作用户，赠送更多算力', 39.90, 399.00, 69.90, 699.00, 300.00, 4200.00, '["每月赠送300算力","按年开通赠送4200算力","适合高频图文与视频创作"]', 1, 80
 ) plans
 WHERE NOT EXISTS (
   SELECT 1 FROM `la_membership_plan`
@@ -880,7 +888,7 @@ VALUES (1, {tenantId}, 1, '系统首页',
         1661757188, 1710989700);
 INSERT INTO `la_decorate_page_{tenantSn}`
 VALUES (2, {tenantId}, 2, '个人中心',
-        '[{\"title\":\"用户信息\",\"name\":\"user-info\",\"disabled\":1,\"content\":{},\"styles\":{}},{\"title\":\"我的服务\",\"name\":\"my-service\",\"content\":{\"style\":1,\"title\":\"我的服务\",\"data\":[{\"image\":\"/resource/image/tenantapi/default/user_collect.png\",\"name\":\"我的收藏\",\"link\":{\"path\":\"/pages/collection/collection\",\"name\":\"我的收藏\",\"type\":\"shop\"},\"is_show\":\"1\"},{\"image\":\"/resource/image/tenantapi/default/user_setting.png\",\"name\":\"个人设置\",\"link\":{\"path\":\"/pages/user_set/user_set\",\"name\":\"个人设置\",\"type\":\"shop\"},\"is_show\":\"1\"},{\"image\":\"/resource/image/tenantapi/default/user_kefu.png\",\"name\":\"联系客服\",\"link\":{\"path\":\"/pages/customer_service/customer_service\",\"name\":\"联系客服\",\"type\":\"shop\"},\"is_show\":\"1\"},{\"image\":\"/resource/image/tenantapi/default/wallet.png\",\"name\":\"我的点数\",\"link\":{\"path\":\"/packages/pages/user_wallet/user_wallet\",\"name\":\"我的点数\",\"type\":\"shop\"},\"is_show\":\"1\"}],\"enabled\":1},\"styles\":{}},{\"title\":\"个人中心广告图\",\"name\":\"user-banner\",\"content\":{\"enabled\":1,\"data\":[{\"image\":\"/resource/image/tenantapi/default/user_ad01.png\",\"name\":\"\",\"link\":{\"path\":\"/pages/customer_service/customer_service\",\"name\":\"联系客服\",\"type\":\"shop\"},\"is_show\":\"1\"},{\"image\":\"/resource/image/tenantapi/default/user_ad02.png\",\"name\":\"\",\"link\":{\"path\":\"/pages/customer_service/customer_service\",\"name\":\"联系客服\",\"type\":\"shop\"},\"is_show\":\"1\"}]},\"styles\":{}}]',
+        '[{\"title\":\"用户信息\",\"name\":\"user-info\",\"disabled\":1,\"content\":{},\"styles\":{}},{\"title\":\"我的服务\",\"name\":\"my-service\",\"content\":{\"style\":1,\"title\":\"我的服务\",\"data\":[{\"image\":\"/resource/image/tenantapi/default/user_collect.png\",\"name\":\"我的收藏\",\"link\":{\"path\":\"/pages/collection/collection\",\"name\":\"我的收藏\",\"type\":\"shop\"},\"is_show\":\"1\"},{\"image\":\"/resource/image/tenantapi/default/user_setting.png\",\"name\":\"个人设置\",\"link\":{\"path\":\"/pages/user_set/user_set\",\"name\":\"个人设置\",\"type\":\"shop\"},\"is_show\":\"1\"},{\"image\":\"/resource/image/tenantapi/default/user_kefu.png\",\"name\":\"联系客服\",\"link\":{\"path\":\"/pages/customer_service/customer_service\",\"name\":\"联系客服\",\"type\":\"shop\"},\"is_show\":\"1\"},{\"image\":\"/resource/image/tenantapi/default/wallet.png\",\"name\":\"我的算力\",\"link\":{\"path\":\"/packages/pages/user_wallet/user_wallet\",\"name\":\"我的算力\",\"type\":\"shop\"},\"is_show\":\"1\"}],\"enabled\":1},\"styles\":{}},{\"title\":\"个人中心广告图\",\"name\":\"user-banner\",\"content\":{\"enabled\":1,\"data\":[{\"image\":\"/resource/image/tenantapi/default/user_ad01.png\",\"name\":\"\",\"link\":{\"path\":\"/pages/customer_service/customer_service\",\"name\":\"联系客服\",\"type\":\"shop\"},\"is_show\":\"1\"},{\"image\":\"/resource/image/tenantapi/default/user_ad02.png\",\"name\":\"\",\"link\":{\"path\":\"/pages/customer_service/customer_service\",\"name\":\"联系客服\",\"type\":\"shop\"},\"is_show\":\"1\"}]},\"styles\":{}}]',
         '[{\"title\":\"页面设置\",\"name\":\"page-meta\",\"content\":{\"title\":\"个人中心\",\"bg_type\":\"0\",\"bg_color\":\"\",\"bg_image\":\"\",\"text_color\":\"2\",\"title_type\":\"1\",\"title_img\":\"\"},\"styles\":{}}]',
         1661757188, 1710933097);
 INSERT INTO `la_decorate_page_{tenantSn}`

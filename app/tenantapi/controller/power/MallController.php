@@ -5,6 +5,7 @@ namespace app\tenantapi\controller\power;
 use app\common\model\power\TenantPowerOrder;
 use app\common\service\power\TenantPowerMallService;
 use app\tenantapi\controller\BaseAdminController;
+use app\tenantapi\lists\power\TenantPowerConsumeLogLists;
 use app\tenantapi\lists\power\TenantPowerOrderLists;
 use Exception;
 
@@ -50,5 +51,22 @@ class MallController extends BaseAdminController
             return $this->fail('算力订单不存在');
         }
         return $this->success('获取成功', TenantPowerMallService::formatOrder($order->toArray()));
+    }
+
+    public function consumeLogs()
+    {
+        return $this->dataLists(new TenantPowerConsumeLogLists());
+    }
+
+    public function consumeLogDetail()
+    {
+        $detail = TenantPowerConsumeLogLists::detail(
+            (int)$this->adminInfo['tenant_id'],
+            (int)$this->request->get('id', 0)
+        );
+        if (empty($detail)) {
+            return $this->fail('消耗日志不存在');
+        }
+        return $this->success('获取成功', $detail);
     }
 }

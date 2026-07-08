@@ -20,6 +20,7 @@ use app\common\model\recharge\RechargePackage;
 use app\common\model\recharge\RechargeOrder;
 use app\common\model\user\User;
 use app\common\service\ConfigService;
+use app\common\service\PointUnitService;
 use app\common\service\recharge\RechargePackageService;
 
 
@@ -57,7 +58,7 @@ class RechargeLogic extends BaseLogic
                 $points = (float)$package['points'];
             }
             if ($money <= 0 && empty($package)) {
-                throw new \Exception('请选择充值套餐或填写充值点数');
+                throw new \Exception('请选择充值套餐或填写充值' . PointUnitService::unit());
             }
 
             $data = [
@@ -103,6 +104,7 @@ class RechargeLogic extends BaseLogic
             'min_amount' => $minAmount,
             'user_money' => $userMoney,
             'packages' => $packages,
+            'point_unit' => PointUnitService::unit(),
         ];
     }
 

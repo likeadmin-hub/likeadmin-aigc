@@ -23,6 +23,7 @@ use app\common\service\AgreementService;
 use app\common\service\decorate\DecorateTemplateService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
+use app\common\service\PointUnitService;
 
 
 /**
@@ -167,6 +168,8 @@ class IndexLogic extends BaseLogic
             'webPage' => $webPage,
             'version'=> config('project.version'),
             'copyright' => $copyright,
+            'point_unit' => PointUnitService::unit(),
+            'recharge' => PointUnitService::config(),
         ];
     }
 }

@@ -16,7 +16,9 @@ class PricingController extends BaseAdminController
             if (!$row || $row->isEmpty()) {
                 return $this->fail('模型不存在');
             }
-            return $this->success('获取成功', UpstreamPricingService::queryModel((string)$row['model'], (string)$row['channel_code']));
+            $config = is_array($row['config_json'] ?? null) ? $row['config_json'] : [];
+            $channelCode = (string)($config['upstream_channel_code'] ?? $row['channel_code']);
+            return $this->success('获取成功', UpstreamPricingService::queryModel((string)$row['model'], $channelCode));
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
         }

@@ -8,6 +8,7 @@ use app\common\model\power\TenantPowerOrder;
 use app\common\model\power\TenantPowerPackage;
 use app\common\model\tenant\Tenant;
 use app\common\model\tenant\TenantPointLog;
+use app\common\service\PointUnitService;
 use RuntimeException;
 use think\facade\Db;
 
@@ -25,7 +26,7 @@ class TenantPowerMallService
     {
         return [
             self::PACKAGE_MEMBER => '会员套餐',
-            self::PACKAGE_POINTS => '点数套餐',
+            self::PACKAGE_POINTS => PointUnitService::unit() . '套餐',
         ];
     }
 
@@ -52,7 +53,7 @@ class TenantPowerMallService
             throw new RuntimeException('购买金额不能小于0');
         }
         if ($points <= 0) {
-            throw new RuntimeException('套餐点数必须大于0');
+            throw new RuntimeException('套餐' . PointUnitService::unit() . '必须大于0');
         }
         if ($type === self::PACKAGE_MEMBER && $durationMonths <= 0) {
             throw new RuntimeException('会员套餐月数必须大于0');
@@ -207,7 +208,7 @@ class TenantPowerMallService
         }
         $points = (float)$order['points'];
         if ($points <= 0) {
-            throw new RuntimeException('套餐到账点数异常');
+            throw new RuntimeException('套餐到账' . PointUnitService::unit() . '异常');
         }
         self::grantTenantPoints(
             (int)$order['tenant_id'],
@@ -255,7 +256,7 @@ class TenantPowerMallService
                     $locked->update_time = time();
                     $locked->save();
                     if ($expired > 0) {
-                        self::pointLog((int)$locked['tenant_id'], 'package_expire', 2, $expired, (float)$tenant['point_balance'], (string)$locked['source_order_sn'], '算力套餐点数过期', [
+                        self::pointLog((int)$locked['tenant_id'], 'package_expire', 2, $expired, (float)$tenant['point_balance'], (string)$locked['source_order_sn'], PointUnitService::unit() . '套餐' . PointUnitService::unit() . '过期', [
                             'bucket_id' => (int)$locked['id'],
                         ]);
                     }
@@ -267,7 +268,7 @@ class TenantPowerMallService
     public static function consumeBuckets(int $tenantId, float $points, string $sourceSn, string $remark = '', array $extra = [], bool $expireFirst = true): void
     {
         if ($points <= 0) {
-            throw new RuntimeException('点数必须大于0');
+            throw new RuntimeException(PointUnitService::unit() . '必须大于0');
         }
         if ($expireFirst) {
             self::expireBuckets($tenantId);

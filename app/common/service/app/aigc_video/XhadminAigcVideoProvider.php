@@ -3,6 +3,7 @@
 namespace app\common\service\app\aigc_video;
 
 use app\common\service\FileService;
+use app\common\service\PointUnitService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
 
@@ -732,7 +733,7 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
             str_contains($lower, 'ssl certificate') => '接口渠道 SSL 证书校验失败，请在系统服务 > 接口渠道关闭 SSL校验，或更换符合规范的 HTTPS 证书',
             str_contains($lower, 'insufficient_points'),
             str_contains($message, '余额不足'),
-            str_contains($message, '点数余额不足') => '供应商点数余额不足，请联系平台管理员',
+            str_contains($message, '点数余额不足') => '供应商' . PointUnitService::unit() . '余额不足，请联系平台管理员',
             str_contains($lower, 'auth_failed'),
             str_contains($lower, 'api key') => '供应商鉴权失败，请检查系统服务接口渠道配置',
             str_contains($lower, 'queue_limit_exceeded') => '供应商排队任务已满，请稍后再试',

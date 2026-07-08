@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "我的点数",
+  "navigationBarTitleText": "我的算力",
   "usingComponents": {
     "u-tabs": "../../../uni_modules/vk-uview-ui/components/u-tabs/u-tabs",
     "z-paging": "../../../node-modules/z-paging/components/z-paging/z-paging"

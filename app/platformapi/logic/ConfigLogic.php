@@ -15,6 +15,7 @@
 namespace app\platformapi\logic;
 
 use app\common\service\ConfigService;
+use app\common\service\PointUnitService;
 use app\platformapi\logic\article\ArticleCateLogic;
 use app\platformapi\logic\auth\MenuLogic;
 use app\platformapi\logic\auth\RoleLogic;
@@ -62,6 +63,10 @@ class ConfigLogic
 
             // 版权信息
             'copyright_config' => ConfigService::get('copyright', 'config', []),
+
+            // 积分单位
+            'point_unit' => PointUnitService::unit(),
+            'recharge' => PointUnitService::config(),
         ];
         return $config;
     }
