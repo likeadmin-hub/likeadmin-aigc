@@ -2,6 +2,7 @@
 
 namespace app\common\service\app\aigc_llm;
 
+use app\common\service\PointUnitService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
 
@@ -448,8 +449,8 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
             'certificate key usage' => '接口渠道 SSL 证书校验失败，请关闭 SSL校验，或更换符合规范的 HTTPS 证书',
             'certificate verify failed' => '接口渠道 SSL 证书校验失败，请关闭 SSL校验，或更换符合规范的 HTTPS 证书',
             'ssl certificate' => '接口渠道 SSL 证书校验失败，请关闭 SSL校验，或更换符合规范的 HTTPS 证书',
-            'insufficient_points' => '接口渠道点数余额不足',
-            'key_quota_exceeded' => 'API Key 点数额度不足',
+            'insufficient_points' => '接口渠道' . PointUnitService::unit() . '余额不足',
+            'key_quota_exceeded' => 'API Key ' . PointUnitService::unit() . '额度不足',
             'auth_failed' => 'API Key 无效或已失效',
             'unauthorized' => 'API Key 无效或已失效',
             'permission_denied' => 'API Key 无权调用该模型',

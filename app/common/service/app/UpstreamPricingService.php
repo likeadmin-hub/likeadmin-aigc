@@ -41,6 +41,21 @@ class UpstreamPricingService
         ]));
     }
 
+    public static function queryModels(string $type = '', bool $detail = false): array
+    {
+        $params = [];
+        $type = trim($type);
+        if ($type !== '') {
+            $params['type'] = $type;
+        }
+        if ($detail) {
+            $params['detail'] = 1;
+        }
+        $response = self::request('GET', '/api/v1/models', $params);
+        $rows = $response['data'] ?? $response['items'] ?? $response['models'] ?? $response;
+        return is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
+    }
+
     public static function queryBatch(array $items): array
     {
         $payloadItems = [];

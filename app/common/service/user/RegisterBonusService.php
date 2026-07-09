@@ -29,7 +29,7 @@ class RegisterBonusService
             $userId,
             $points,
             $sourceSn,
-            '新用户注册赠送积分',
+            '新用户注册赠送' . \app\common\service\PointUnitService::unit(),
             ['scene' => 'register_bonus']
         );
     }

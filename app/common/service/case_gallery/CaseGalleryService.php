@@ -61,7 +61,7 @@ class CaseGalleryService
     public static function save(int $tenantId, array $params): array
     {
         $appCode = self::resolveAppCode($tenantId, $params);
-        return AppCaseService::save($tenantId, $appCode, $params);
+        return AppCaseService::saveByAppCodes($tenantId, self::caseAppCodes($tenantId), $params, $appCode);
     }
 
     public static function saveByAppCodes(int $tenantId, array $appCodes, array $params, string $defaultAppCode): array
@@ -70,7 +70,7 @@ class CaseGalleryService
         if (!in_array($appCode, self::normalizeAppCodes($appCodes), true)) {
             throw new Exception('案例所属应用不支持');
         }
-        return self::save($tenantId, ['app_code' => $appCode] + $params);
+        return AppCaseService::saveByAppCodes($tenantId, $appCodes, $params, $appCode);
     }
 
     public static function fromTask(int $tenantId, int $taskId, array $params): array

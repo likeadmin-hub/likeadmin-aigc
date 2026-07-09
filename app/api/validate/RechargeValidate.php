@@ -16,6 +16,7 @@ namespace app\api\validate;
 
 use app\common\enum\PayEnum;
 use app\common\service\ConfigService;
+use app\common\service\PointUnitService;
 use app\common\validate\BaseValidate;
 
 /**
@@ -33,8 +34,8 @@ class RechargeValidate extends BaseValidate
 
 
     protected $message = [
-        'money.require' => '请填写充值点数',
-        'money.gt' => '请填写大于0的充值点数',
+        'money.require' => '请填写充值算力',
+        'money.gt' => '请填写大于0的充值算力',
     ];
 
 
@@ -65,17 +66,17 @@ class RechargeValidate extends BaseValidate
         }
 
         if ($money === '' || $money === null) {
-            return '请填写充值点数';
+            return '请填写充值' . PointUnitService::unit();
         }
 
         if ($money <= 0) {
-            return '请填写大于0的充值点数';
+            return '请填写大于0的充值' . PointUnitService::unit();
         }
 
         $minAmount = ConfigService::get('recharge', 'min_amount', 0);
 
         if ($money < $minAmount) {
-            return '最低充值点数' . $minAmount . "元";
+            return '最低充值' . PointUnitService::unit() . $minAmount . "元";
         }
 
         return true;

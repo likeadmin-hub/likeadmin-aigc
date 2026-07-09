@@ -16,6 +16,7 @@ namespace app\tenantapi\lists\user;
 use app\tenantapi\lists\BaseAdminDataLists;
 use app\common\enum\user\AccountLogEnum;
 use app\common\enum\user\UserTerminalEnum;
+use app\common\service\PointUnitService;
 use app\common\lists\ListsExcelInterface;
 use app\common\model\user\User;
 use app\common\model\user\UserAccountLog;
@@ -109,9 +110,9 @@ class UserLists extends BaseAdminDataLists implements ListsExcelInterface
             'nickname' => '用户昵称',
             'account' => '账号',
             'mobile' => '手机号码',
-            'user_money' => '剩余点数',
-            'total_used_amount' => '已使用点数',
-            'total_recharge_amount' => '累计充值点数',
+            'user_money' => '剩余' . PointUnitService::unit(),
+            'total_used_amount' => '已使用' . PointUnitService::unit(),
+            'total_recharge_amount' => '累计充值' . PointUnitService::unit(),
             'channel' => '注册来源',
             'create_time' => '注册时间',
         ];

@@ -1,43 +1,43 @@
 {
-    "code":  "aigc_short_drama",
-    "name":  "AI�̾�",
-    "version":  "1.0.3",
-    "require_core":  "\u003e=1.0.0",
-    "description":  "Short drama script planning application with a PC immersive creation homepage and structured Agent planning workflow.",
-    "changelog":  "1. �����̾续���Ĭ�����á�\n2. �Ż��⻧��̨������ʼ�����顣\n3. ������ҳ����ѡ�����ݡ�",
-    "icon":  "resource/image/common/menu_generator.png",
-    "category":  "aigc",
-    "cover":  "",
-    "is_builtin":  1,
-    "expire_policy":  "allow",
-    "sort":  860,
-    "frontends":  [
-                      "tenant",
-                      "pc"
-                  ],
-    "api_prefix":  "/app/aigc_short_drama",
-    "platform_menus":  "menus/platform.json",
-    "menus":  "menus/tenant.json",
-    "permissions":  "permissions/tenant.json",
-    "migrations":  "migrations",
-    "frontend_entries":  [
-                             {
-                                 "terminal":  "tenant",
-                                 "entry_key":  "aigc_short_drama_admin",
-                                 "name":  "AI�̾�",
-                                 "path":  "/app/aigc_short_drama",
-                                 "icon":  "el-icon-VideoCamera",
-                                 "sort":  100,
-                                 "status":  1
-                             },
-                             {
-                                 "terminal":  "pc",
-                                 "entry_key":  "aigc_short_drama",
-                                 "name":  "AI�̾�",
-                                 "path":  "/ai/short-drama",
-                                 "icon":  "resource/image/common/menu_generator.png",
-                                 "sort":  100,
-                                 "status":  1
-                             }
-                         ]
+  "code": "aigc_short_drama",
+  "name": "AI短剧",
+  "version": "1.0.3",
+  "require_core": ">=1.0.0",
+  "description": "Short drama script planning application with a PC immersive creation homepage and structured Agent planning workflow.",
+  "changelog": "1. 新增短剧剧本、主体、场景、分镜与视频生成能力。\n2. 支持租户后台配置短剧模型、素材库与任务管理。\n3. 支持 PC 端短剧创作工作台与项目管理。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 860,
+  "frontends": [
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/aigc_short_drama",
+  "platform_menus": "menus/platform.json",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_short_drama_admin",
+      "name": "AI短剧",
+      "path": "/app/aigc_short_drama",
+      "icon": "el-icon-VideoCamera",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_short_drama",
+      "name": "AI短剧",
+      "path": "/ai/short-drama",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 100,
+      "status": 1
+    }
+  ]
 }

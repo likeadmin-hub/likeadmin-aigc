@@ -97,37 +97,8 @@ class AppCaseService
 
     public static function save(int $tenantId, string $appCode, array $params): array
     {
-        AppRegistryService::assertValidCode($appCode);
-        $title = trim((string)($params['title'] ?? ''));
-        if ($title === '') {
-            throw new Exception('请输入案例标题');
-        }
-        $mediaType = (string)($params['media_type'] ?? self::MEDIA_IMAGE);
-        if (!in_array($mediaType, [self::MEDIA_IMAGE, self::MEDIA_VIDEO], true)) {
-            throw new Exception('案例类型不支持');
-        }
-
+        $data = self::buildSaveData($tenantId, $appCode, $params);
         $id = (int)($params['id'] ?? 0);
-        $data = [
-            'tenant_id' => $tenantId,
-            'app_code' => $appCode,
-            'title' => $title,
-            'prompt' => trim((string)($params['prompt'] ?? '')),
-            'media_type' => $mediaType,
-            'cover_uri' => self::normalizeUri((string)($params['cover_uri'] ?? $params['cover_url'] ?? '')),
-            'media_uri' => self::normalizeUri((string)($params['media_uri'] ?? $params['media_url'] ?? '')),
-            'reference_images' => array_values(array_filter((array)($params['reference_images'] ?? []))),
-            'config_json' => (array)($params['config_json'] ?? []),
-            'source_task_id' => (int)($params['source_task_id'] ?? 0),
-            'source_result_id' => (int)($params['source_result_id'] ?? 0),
-            'status' => (int)($params['status'] ?? 1),
-            'sort' => (int)($params['sort'] ?? 0),
-            'update_time' => time(),
-        ];
-
-        if ($mediaType === self::MEDIA_IMAGE && $data['cover_uri'] === '' && $data['media_uri'] !== '') {
-            $data['cover_uri'] = $data['media_uri'];
-        }
 
         if ($id > 0) {
             $row = self::findRow($tenantId, $appCode, $id);
@@ -148,7 +119,19 @@ class AppCaseService
         if (!in_array($appCode, $appCodes, true)) {
             throw new Exception('案例所属应用不支持');
         }
-        return self::save($tenantId, $appCode, $params);
+
+        $data = self::buildSaveData($tenantId, $appCode, $params);
+        $id = (int)($params['id'] ?? 0);
+        if ($id > 0) {
+            $row = self::findRowByAppCodes($tenantId, $appCodes, $id);
+            $row->save($data);
+            return self::formatRow($row->toArray());
+        }
+
+        $data['create_time'] = time();
+        $data['delete_time'] = 0;
+        $row = AppCase::create($data);
+        return self::formatRow($row->toArray());
     }
 
     public static function setStatus(int $tenantId, string $appCode, int $id, int $status): void
@@ -208,6 +191,42 @@ class AppCaseService
             throw new Exception('案例不存在');
         }
         return $row;
+    }
+
+    private static function buildSaveData(int $tenantId, string $appCode, array $params): array
+    {
+        AppRegistryService::assertValidCode($appCode);
+        $title = trim((string)($params['title'] ?? ''));
+        if ($title === '') {
+            throw new Exception('请输入案例标题');
+        }
+        $mediaType = (string)($params['media_type'] ?? self::MEDIA_IMAGE);
+        if (!in_array($mediaType, [self::MEDIA_IMAGE, self::MEDIA_VIDEO], true)) {
+            throw new Exception('案例类型不支持');
+        }
+
+        $data = [
+            'tenant_id' => $tenantId,
+            'app_code' => $appCode,
+            'title' => $title,
+            'prompt' => trim((string)($params['prompt'] ?? '')),
+            'media_type' => $mediaType,
+            'cover_uri' => self::normalizeUri((string)($params['cover_uri'] ?? $params['cover_url'] ?? '')),
+            'media_uri' => self::normalizeUri((string)($params['media_uri'] ?? $params['media_url'] ?? '')),
+            'reference_images' => array_values(array_filter((array)($params['reference_images'] ?? []))),
+            'config_json' => (array)($params['config_json'] ?? []),
+            'source_task_id' => (int)($params['source_task_id'] ?? 0),
+            'source_result_id' => (int)($params['source_result_id'] ?? 0),
+            'status' => (int)($params['status'] ?? 1),
+            'sort' => (int)($params['sort'] ?? 0),
+            'update_time' => time(),
+        ];
+
+        if ($mediaType === self::MEDIA_IMAGE && $data['cover_uri'] === '' && $data['media_uri'] !== '') {
+            $data['cover_uri'] = $data['media_uri'];
+        }
+
+        return $data;
     }
 
     private static function formatRow(array $row): array

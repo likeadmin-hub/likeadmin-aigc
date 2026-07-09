@@ -48,7 +48,7 @@ class AppPlanService
             throw new RuntimeException('套餐时长必须大于0个月');
         }
         if ($openPoints < 0 || $renewPoints < 0) {
-            throw new RuntimeException('开通点数和续费点数不能小于0');
+            throw new RuntimeException('开通算力和续费算力不能小于0');
         }
 
         $data = [

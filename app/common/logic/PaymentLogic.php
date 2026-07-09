@@ -84,7 +84,7 @@ class PaymentLogic extends BaseLogic
                 }
                 if ($item['pay_way'] == PayEnum::BALANCE_PAY) {
                     $user_money = User::where(['id' => $userId])->value('user_money');
-                    $item['extra'] = '可用点数:' . $user_money;
+                    $item['extra'] = '可用' . \app\common\service\PointUnitService::unit() . ':' . $user_money;
                 }
                 // 现金订单去除点数支付
                 if (in_array($params['from'], ['recharge', 'membership', TenantPowerMallService::FROM], true) && $item['pay_way'] == PayEnum::BALANCE_PAY) {

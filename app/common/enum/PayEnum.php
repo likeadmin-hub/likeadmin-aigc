@@ -15,6 +15,8 @@
 
 namespace app\common\enum;
 
+use app\common\service\PointUnitService;
+
 
 /**
  * 支付
@@ -25,7 +27,7 @@ class PayEnum
 {
 
     //支付类型
-    const BALANCE_PAY   = 1; //点数支付
+    const BALANCE_PAY   = 1; //算力支付
     const WECHAT_PAY    = 2; //微信支付
     const ALI_PAY       = 3; //支付宝支付
 
@@ -54,7 +56,7 @@ class PayEnum
     public static function getPayDesc($value = true)
     {
         $data = [
-            self::BALANCE_PAY => '点数支付',
+            self::BALANCE_PAY => PointUnitService::unit() . '支付',
             self::WECHAT_PAY => '微信支付',
             self::ALI_PAY => '支付宝支付',
         ];

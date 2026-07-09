@@ -29,6 +29,7 @@ use app\common\model\dept\Jobs;
 use app\common\model\dict\DictData;
 use app\common\model\dict\DictType;
 use app\common\service\ConfigService;
+use app\common\service\PointUnitService;
 use app\common\service\{FileService};
 
 /**
@@ -61,6 +62,10 @@ class ConfigLogic
 
             // 版权信息
             'copyright_config' => ConfigService::get('copyright', 'config', []),
+
+            // 积分单位
+            'point_unit' => PointUnitService::unit(),
+            'recharge' => PointUnitService::config(),
         ];
         return $config;
     }

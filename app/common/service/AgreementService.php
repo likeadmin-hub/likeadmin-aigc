@@ -59,12 +59,20 @@ class AgreementService
         $default = self::DEFAULTS[$type];
         $title = trim((string)ConfigService::get('agreement', $type . '_title', ''));
         $content = trim((string)ConfigService::get('agreement', $type . '_content', ''));
+        $defaultTitle = self::applyPointUnit($default['title']);
+        $defaultContent = self::applyPointUnit($default['content']);
 
         return [
             'type' => $type,
-            'title' => $title !== '' ? $title : $default['title'],
-            'content' => get_file_domain($content !== '' ? $content : $default['content']),
+            'title' => $title !== '' ? $title : $defaultTitle,
+            'content' => get_file_domain($content !== '' ? $content : $defaultContent),
         ];
+    }
+
+    private static function applyPointUnit(string $text): string
+    {
+        $unit = PointUnitService::unit();
+        return str_replace(['积分规则', '积分包', '积分明细', '积分'], [$unit . '规则', $unit . '包', $unit . '明细', $unit], $text);
     }
 
     public static function getAgreementConfig(): array

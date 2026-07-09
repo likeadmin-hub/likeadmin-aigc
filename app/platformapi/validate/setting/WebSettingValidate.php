@@ -29,6 +29,7 @@ class WebSettingValidate extends BaseValidate
         'web_logo_light' => 'require',
         'web_logo_dark' => 'require',
         'login_image' => 'require',
+        'point_unit' => 'max:12',
     ];
 
     protected $message = [
@@ -41,6 +42,6 @@ class WebSettingValidate extends BaseValidate
     ];
 
     protected $scene = [
-        'website' => ['name', 'web_favicon', 'web_logo_light','web_logo_dark', 'login_image', 'shop_name', 'shop_logo', 'pc_logo'],
+        'website' => ['name', 'web_favicon', 'web_logo_light','web_logo_dark', 'login_image', 'point_unit', 'shop_name', 'shop_logo', 'pc_logo'],
     ];
 }

@@ -1,0 +1,1 @@
+import{h as n}from"./index-95c647be.js";const i=n=>String(n||"").trim()||"算力",o=()=>{var o,t,r;const a=n();return i((null==(o=a.config)?void 0:o.point_unit)||(null==(r=null==(t=a.config)?void 0:t.recharge)?void 0:r.point_unit))},t=(n,t)=>`${n} ${i(t||o())}`,r=(n,t="",r)=>`${n} ${i(r||o())}${t?`/${t}`:""}`;export{r as a,t as f,o as g};

@@ -103,6 +103,12 @@ class AiTaskRecordService
             'media_type' => 'video',
             'prompt_fields' => ['prompt'],
         ],
+        'smart_clip' => [
+            'table' => 'smart_clip_task',
+            'task_type' => 'smart_clip_generate',
+            'media_type' => 'video',
+            'prompt_fields' => ['title'],
+        ],
     ];
 
     public static function lists(array $params, int $tenantId = 0): array
@@ -170,6 +176,7 @@ class AiTaskRecordService
         $data['source_task_sn'] = $source['task_sn'];
         $data['base_app_code'] = $baseAppCode;
         $data['base_app_name'] = self::appName($baseAppCode);
+        $data['media_type'] = self::baseMediaType($baseAppCode);
         $data['app_code'] = $data['source_app_code'];
         $data['app_name'] = $data['source_app_name'];
         $data['task_type'] = self::BASE_TASK_SOURCES[$baseAppCode]['task_type'] ?? '';
@@ -212,6 +219,27 @@ class AiTaskRecordService
         return $data;
     }
 
+    public static function queryResult(int $id, int $tenantId, string $baseAppCode = 'aigc_image'): array
+    {
+        $baseAppCode = self::normalizeBaseAppCode($baseAppCode);
+        if ($id <= 0 || !self::tableExists(self::baseTaskTable($baseAppCode))) {
+            return [];
+        }
+
+        match ($baseAppCode) {
+            'aigc_image' => \app\common\service\app\aigc_image\AigcImageService::taskDetail($tenantId, $id),
+            'aigc_video' => \app\common\service\app\aigc_video\AigcVideoService::taskDetail($tenantId, $id),
+            'aigc_digital_human' => \app\common\service\app\aigc_digital_human\AigcDigitalHumanService::taskDetail($tenantId, $id),
+            'image_human' => \app\common\service\app\image_human\ImageHumanService::taskDetail($tenantId, $id),
+            'smart_clip' => \app\common\service\app\smart_clip\SmartClipService::taskDetail($tenantId, $id),
+            'aigc_action_transfer' => \app\common\service\app\aigc_action_transfer\AigcActionTransferService::taskDetail($tenantId, $id),
+            'aigc_person_replacement' => \app\common\service\app\aigc_person_replacement\AigcPersonReplacementService::taskDetail($tenantId, $id),
+            default => null,
+        };
+
+        return self::detail($id, $tenantId, $baseAppCode);
+    }
+
     private static function formatTaskRow(array $row, string $baseAppCode, int $tenantId = 0): array
     {
         self::appendComputedFields($row);
@@ -227,6 +255,7 @@ class AiTaskRecordService
         $row['source_task_sn'] = $source['task_sn'];
         $row['base_app_code'] = $baseAppCode;
         $row['base_app_name'] = self::appName($baseAppCode);
+        $row['media_type'] = self::baseMediaType($baseAppCode);
         $row['app_code'] = $row['source_app_code'];
         $row['app_name'] = $row['source_app_name'];
         $row['task_type'] = self::BASE_TASK_SOURCES[$baseAppCode]['task_type'] ?? '';
@@ -392,13 +421,18 @@ class AiTaskRecordService
 
     private static function imageResults(int $tenantId, int $taskId): array
     {
-        if (!self::tableExists('aigc_image_result')) {
+        $table = 'aigc_image_result';
+        if (!self::tableExists($table)) {
             return [];
         }
-        $rows = Db::name('aigc_image_result')
+        $fields = self::existingColumns($table, [
+            'id', 'image_uri', 'storage_scope', 'storage_engine', 'storage_domain',
+            'width', 'height', 'provider_task_id', 'create_time',
+        ]);
+        $rows = Db::name($table)
             ->where(['tenant_id' => $tenantId, 'task_id' => $taskId])
             ->where('delete_time', 0)
-            ->field('id,image_uri,storage_scope,storage_engine,storage_domain,width,height,provider_task_id,create_time')
+            ->field(implode(',', $fields))
             ->select()
             ->toArray();
         foreach ($rows as &$row) {
@@ -438,13 +472,10 @@ class AiTaskRecordService
         if ($table === '' || !self::tableExists($table)) {
             return [];
         }
-        $fields = ['id', 'video_uri', 'storage_scope', 'storage_engine', 'storage_domain', 'width', 'height', 'provider_task_id', 'create_time'];
-        if (self::columnExists($table, 'cover_uri')) {
-            $fields[] = 'cover_uri';
-        }
-        if (self::columnExists($table, 'duration')) {
-            $fields[] = 'duration';
-        }
+        $fields = self::existingColumns($table, [
+            'id', 'video_uri', 'storage_scope', 'storage_engine', 'storage_domain',
+            'width', 'height', 'provider_task_id', 'create_time', 'cover_uri', 'duration',
+        ]);
         $rows = Db::name($table)
             ->where(['tenant_id' => $tenantId, 'task_id' => $taskId])
             ->where('delete_time', 0)
@@ -528,6 +559,11 @@ class AiTaskRecordService
     private static function appName(string $appCode): string
     {
         return self::APP_NAMES[$appCode] ?? $appCode;
+    }
+
+    private static function existingColumns(string $table, array $columns): array
+    {
+        return array_values(array_filter($columns, static fn($column) => self::columnExists($table, (string)$column)));
     }
 
     private static function tableExists(string $table): bool
@@ -800,6 +836,7 @@ class AiTaskRecordService
             'aigc_video' => 'aigc_video_result',
             'aigc_digital_human' => 'aigc_digital_human_result',
             'image_human' => 'image_human_result',
+            'smart_clip' => 'smart_clip_result',
             'aigc_action_transfer' => 'aigc_action_transfer_result',
             'aigc_person_replacement' => 'aigc_person_replacement_result',
             default => '',

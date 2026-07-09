@@ -16,6 +16,7 @@ namespace app\tenantapi\validate\user;
 
 use app\common\enum\user\AccountLogEnum;
 use app\common\model\user\User;
+use app\common\service\PointUnitService;
 use app\common\validate\BaseValidate;
 
 /**
@@ -38,7 +39,7 @@ class AdjustUserMoney extends BaseValidate
         'action.require' => '请选择调整类型',
         'action.in' => '调整类型错误',
         'num.require' => '请输入调整数量',
-        'num.gt' => '调整点数必须大于零',
+        'num.gt' => '调整算力必须大于零',
         'remark' => '备注不可超过128个符号',
     ];
 
@@ -56,7 +57,7 @@ class AdjustUserMoney extends BaseValidate
 
         $surplusMoeny = $user->user_money - $vaule;
         if ($surplusMoeny < 0) {
-            return '用户可用点数仅剩' . $user->user_money;
+            return '用户可用' . PointUnitService::unit() . '仅剩' . $user->user_money;
         }
 
         return true;

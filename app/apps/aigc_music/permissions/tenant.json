@@ -1,0 +1,22 @@
+[
+  {"permission_key":"aigc_music:config:detail","name":"查看AI音乐配置","api_path":"app.aigc_music.config/detail","api_method":"GET"},
+  {"permission_key":"aigc_music:config:setup","name":"保存AI音乐配置","api_path":"app.aigc_music.config/setup","api_method":"POST"},
+  {"permission_key":"aigc_music:task:lists","name":"查看AI音乐任务","api_path":"app.aigc_music.admin_task/lists","api_method":"GET"},
+  {"permission_key":"aigc_music:task:detail","name":"查看AI音乐任务详情","api_path":"app.aigc_music.admin_task/detail","api_method":"GET"},
+  {"permission_key":"aigc_music:task:retry","name":"重试AI音乐任务","api_path":"app.aigc_music.admin_task/retry","api_method":"POST"},
+  {"permission_key":"aigc_music:task:delete","name":"删除AI音乐任务","api_path":"app.aigc_music.admin_task/delete","api_method":"POST"},
+  {"permission_key":"aigc_music:asset:lists","name":"查看AI音乐素材","api_path":"app.aigc_music.asset/lists","api_method":"GET"},
+  {"permission_key":"aigc_music:asset:save","name":"保存AI音乐素材","api_path":"app.aigc_music.asset/save","api_method":"POST"},
+  {"permission_key":"aigc_music:asset:delete","name":"删除AI音乐素材","api_path":"app.aigc_music.asset/delete","api_method":"POST"},
+  {"permission_key":"aigc_music:style:lists","name":"查看AI音乐风格","api_path":"app.aigc_music.style/lists","api_method":"GET"},
+  {"permission_key":"aigc_music:style:save","name":"保存AI音乐风格","api_path":"app.aigc_music.style/save","api_method":"POST"},
+  {"permission_key":"aigc_music:style:delete","name":"删除AI音乐风格","api_path":"app.aigc_music.style/delete","api_method":"POST"},
+  {"permission_key":"aigc_music:voice:lists","name":"查看AI音乐声音","api_path":"app.aigc_music.voice/lists","api_method":"GET"},
+  {"permission_key":"aigc_music:voice:save","name":"保存AI音乐声音","api_path":"app.aigc_music.voice/save","api_method":"POST"},
+  {"permission_key":"aigc_music:voice:delete","name":"删除AI音乐声音","api_path":"app.aigc_music.voice/delete","api_method":"POST"},
+  {"permission_key":"aigc_music:stat","name":"查看AI音乐统计","api_path":"app.aigc_music.admin/stat","api_method":"GET"},
+  {"permission_key":"aigc_music:channel_price:lists","name":"查看AI音乐通道调价","api_path":"app.aigc_music.channel/lists","api_method":"GET"},
+  {"permission_key":"aigc_music:channel_price:save","name":"保存AI音乐通道调价","api_path":"app.aigc_music.channel/save","api_method":"POST"},
+  {"permission_key":"aigc_music:channel_price:batch_save","name":"批量保存AI音乐通道调价","api_path":"app.aigc_music.channel/batchSave","api_method":"POST"},
+  {"permission_key":"aigc_music:channel_price:status","name":"设置AI音乐通道状态","api_path":"app.aigc_music.channel/status","api_method":"POST"}
+]

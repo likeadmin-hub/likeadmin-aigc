@@ -14,6 +14,8 @@
 
 namespace app\common\enum\user;
 
+use app\common\service\PointUnitService;
+
 /**
  * 用户账户流水变动表枚举
  * Class AccountLogEnum
@@ -113,14 +115,14 @@ class AccountLogEnum
     public static function getChangeTypeDesc($changeType, $flag = false)
     {
         $desc = [
-            self::UM_DEC_ADMIN => '后台减少点数',
-            self::UM_INC_ADMIN => '后台增加点数',
-            self::UM_INC_RECHARGE => '充值增加点数',
-            self::UM_INC_MEMBERSHIP_BONUS => '会员套餐赠送积分',
-            self::UM_INC_REGISTER_BONUS => '新用户注册赠送积分',
-            self::UM_INC_APP_REFUND => '应用消费退回点数',
-            self::UM_DEC_RECHARGE_REFUND => '充值订单退款减少点数',
-            self::UM_DEC_APP_CONSUME => '应用消费扣减点数',
+            self::UM_DEC_ADMIN => '后台减少' . PointUnitService::unit(),
+            self::UM_INC_ADMIN => '后台增加' . PointUnitService::unit(),
+            self::UM_INC_RECHARGE => '充值增加' . PointUnitService::unit(),
+            self::UM_INC_MEMBERSHIP_BONUS => '会员套餐赠送' . PointUnitService::unit(),
+            self::UM_INC_REGISTER_BONUS => '新用户注册赠送' . PointUnitService::unit(),
+            self::UM_INC_APP_REFUND => '应用消费退回' . PointUnitService::unit(),
+            self::UM_DEC_RECHARGE_REFUND => '充值订单退款减少' . PointUnitService::unit(),
+            self::UM_DEC_APP_CONSUME => '应用消费扣减' . PointUnitService::unit(),
         ];
         if ($flag) {
             return $desc;

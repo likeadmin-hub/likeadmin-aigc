@@ -22,6 +22,15 @@ class ModelController extends BaseAdminController
         }
     }
 
+    public function syncTextModels()
+    {
+        try {
+            return $this->success('同步成功', AigcLlmChannelService::syncPlatformTextModelsFromUpstream(), 1, 1);
+        } catch (\Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function delete()
     {
         try {

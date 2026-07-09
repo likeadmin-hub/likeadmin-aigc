@@ -70,7 +70,7 @@
       {
         "source_menu_key": "aigc_short_drama_shot_video",
         "type": "C",
-        "name": "生视频任务",
+        "name": "视频生成任务",
         "sort": 16,
         "perms": "app.aigc_short_drama.generation_task/lists",
         "paths": "shot-video",

@@ -90,7 +90,7 @@ class RechargeCreditService
 
         $points = self::points($order);
         if ($points <= 0) {
-            throw new RuntimeException('充值到账点数异常');
+            throw new RuntimeException('充值到账' . \app\common\service\PointUnitService::unit() . '异常');
         }
 
         $user = User::where('id', $order->user_id)->lock(true)->findOrEmpty();
@@ -104,7 +104,7 @@ class RechargeCreditService
         $user->total_recharge_amount = number_format((float)$user->total_recharge_amount + $points, 2, '.', '');
         $user->user_money = number_format((float)$user->user_money + $points, 2, '.', '');
         if (false === $user->save()) {
-            throw new RuntimeException('用户点数增加失败');
+            throw new RuntimeException('用户' . \app\common\service\PointUnitService::unit() . '增加失败');
         }
 
         $log = AccountLogLogic::add(

@@ -1,0 +1,44 @@
+{
+  "code": "aigc_music",
+  "name": "AI音乐生成",
+  "version": "1.0.2",
+  "require_core": ">=1.0.0",
+  "description": "AI音乐生成应用，支持歌词生成、音乐生成、参考音频、Persona、声音克隆和多格式导出。",
+  "changelog": "1. 新增AI音乐生成应用后端骨架。\n2. 支持音乐任务、作品、素材、风格、声音和通道价格管理。\n3. 支持歌词、混搭歌词、音频上传、声音克隆审计和多格式导出接口。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 880,
+  "frontends": [
+    "platform",
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/aigc_music",
+  "platform_menus": "menus/platform.json",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_music_admin",
+      "name": "AI音乐生成",
+      "path": "/app/aigc_music",
+      "icon": "el-icon-Headset",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_music",
+      "name": "AI音乐生成",
+      "path": "/ai/tools/aigc_music",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 100,
+      "status": 1
+    }
+  ]
+}

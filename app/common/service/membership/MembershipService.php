@@ -233,7 +233,7 @@ class MembershipService
                         AccountLogEnum::INC,
                         $bonusPoints,
                         $orderSn,
-                        '会员套餐赠送积分',
+                        '会员套餐赠送' . \app\common\service\PointUnitService::unit(),
                         ['plan_id' => (int)$order['plan_id'], 'plan_name' => (string)$order['plan_name']]
                     );
                 }

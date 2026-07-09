@@ -177,6 +177,7 @@ class AppRegistryService
         self::syncApiSchema($manifest);
         self::syncFrontendEntries($manifest);
         AppMenuService::syncPlatformMenus($appCode);
+        self::syncTenantMenusForInstalledTenants($appCode);
         if (DefaultAppService::isDefaultApp($appCode)) {
             DefaultAppService::syncAllTenants($appCode);
         }
@@ -370,6 +371,7 @@ class AppRegistryService
     private static function syncFrontendEntries(array $manifest): void
     {
         $entries = $manifest['frontend_entries'] ?? [];
+        AppFrontendEntry::where('app_code', $manifest['code'])->delete();
         foreach ($entries as $entry) {
             self::saveModel(AppFrontendEntry::class, [
                 'app_code' => $manifest['code'],
@@ -387,6 +389,14 @@ class AppRegistryService
                 'meta' => $entry['meta'] ?? [],
                 'update_time' => time(),
             ]);
+        }
+    }
+
+    private static function syncTenantMenusForInstalledTenants(string $appCode): void
+    {
+        $tenantIds = TenantApp::where('app_code', $appCode)->column('tenant_id');
+        foreach ($tenantIds as $tenantId) {
+            AppMenuService::syncTenantMenus((int)$tenantId, $appCode);
         }
     }
 
