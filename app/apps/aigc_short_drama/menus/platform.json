@@ -1,0 +1,15 @@
+[
+  {
+    "source_menu_key": "aigc_short_drama_platform",
+    "app_code": "aigc_short_drama",
+    "source": "app",
+    "type": "M",
+    "name": "AI短剧",
+    "icon": "el-icon-VideoCamera",
+    "sort": 100,
+    "perms": "",
+    "paths": "aigc-short-drama",
+    "component": "",
+    "children": []
+  }
+]

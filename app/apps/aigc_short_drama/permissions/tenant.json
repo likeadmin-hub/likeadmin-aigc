@@ -1,0 +1,128 @@
+[
+  {
+    "permission_key": "aigc_short_drama:config:detail",
+    "name": "查看AI短剧配置",
+    "api_path": "app.aigc_short_drama.config/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_short_drama:config:setup",
+    "name": "保存AI短剧配置",
+    "api_path": "app.aigc_short_drama.config/setup",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_short_drama:project:lists",
+    "name": "查看AI短剧项目记录",
+    "api_path": "app.aigc_short_drama.project/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_short_drama:script_task:lists",
+    "name": "查看剧本列表",
+    "api_path": "app.aigc_short_drama.script_task/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_short_drama:subject_task:lists",
+    "name": "查看主体列表",
+    "api_path": "app.aigc_short_drama.subject_task/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_short_drama:scene_task:lists",
+    "name": "查看场景列表",
+    "api_path": "app.aigc_short_drama.scene_task/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_short_drama:storyboard:lists",
+    "name": "查看分镜列表",
+    "api_path": "app.aigc_short_drama.storyboard/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_short_drama:generation_task:lists",
+    "name": "查看短剧生成任务",
+    "api_path": "app.aigc_short_drama.generation_task/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_short_drama:inspiration:lists",
+    "name": "查看AI短剧灵感素材",
+    "api_path": "app.aigc_short_drama.inspiration/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_short_drama:inspiration:status",
+    "name": "设置AI短剧灵感素材状态",
+    "api_path": "app.aigc_short_drama.inspiration/status",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_short_drama:subject:lists",
+    "name": "查看主体库",
+    "api_path": "app.aigc_short_drama.subject/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_short_drama:subject:save",
+    "name": "保存主体",
+    "api_path": "app.aigc_short_drama.subject/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_short_drama:subject:status",
+    "name": "设置主体状态",
+    "api_path": "app.aigc_short_drama.subject/status",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_short_drama:subject:delete",
+    "name": "删除主体",
+    "api_path": "app.aigc_short_drama.subject/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_short_drama:style:lists",
+    "name": "查看画风库",
+    "api_path": "app.aigc_short_drama.style/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_short_drama:style:save",
+    "name": "保存画风",
+    "api_path": "app.aigc_short_drama.style/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_short_drama:style:status",
+    "name": "设置画风状态",
+    "api_path": "app.aigc_short_drama.style/status",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_short_drama:style:delete",
+    "name": "删除画风",
+    "api_path": "app.aigc_short_drama.style/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_short_drama:public_voice:lists",
+    "name": "查看短剧声音库",
+    "api_path": "app.aigc_short_drama.public_voice/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_short_drama:public_voice:save",
+    "name": "保存短剧声音",
+    "api_path": "app.aigc_short_drama.public_voice/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_short_drama:public_voice:delete",
+    "name": "删除短剧声音",
+    "api_path": "app.aigc_short_drama.public_voice/delete",
+    "api_method": "POST"
+  }
+]

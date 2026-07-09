@@ -532,6 +532,20 @@ class AigcLlmService
         }
     }
 
+    private static function applyTextModelOverrides(array $model, array $params): array
+    {
+        $overrides = is_array($params['model_config'] ?? null) ? (array)$params['model_config'] : [];
+        if (empty($overrides)) {
+            return $model;
+        }
+        $config = is_array($model['config_json'] ?? null) ? (array)$model['config_json'] : [];
+        if (isset($overrides['max_tokens'])) {
+            $config['max_tokens'] = max(1024, min(32768, (int)$overrides['max_tokens']));
+        }
+        $model['config_json'] = $config;
+        return $model;
+    }
+
     public static function generateText(int $tenantId, int $userId, array $params): array
     {
         $content = trim((string)($params['content'] ?? $params['prompt'] ?? ''));
@@ -547,6 +561,7 @@ class AigcLlmService
         $model = AigcLlmChannelService::resolveUserModel($tenantId, [
             'model_code' => (string)($params['model_code'] ?? $params['model'] ?? ''),
         ], $config);
+        $model = self::applyTextModelOverrides($model, $params);
         $systemPrompt = trim((string)($params['system_prompt'] ?? ''));
         if ($systemPrompt === '') {
             $systemPrompt = (string)($config['config_json']['system_prompt'] ?? '');
@@ -609,6 +624,7 @@ class AigcLlmService
             'usage' => $billing['usage'],
             'billing' => $billing['billing'],
             'charge_points' => $billing['billing']['user_charge_points'],
+            'provider_request_id' => $providerRequestId,
         ];
     }
 
@@ -627,6 +643,7 @@ class AigcLlmService
         $model = AigcLlmChannelService::resolveUserModel($tenantId, [
             'model_code' => (string)($params['model_code'] ?? $params['model'] ?? ''),
         ], $config);
+        $model = self::applyTextModelOverrides($model, $params);
         $systemPrompt = trim((string)($params['system_prompt'] ?? ''));
         if ($systemPrompt === '') {
             $systemPrompt = (string)($config['config_json']['system_prompt'] ?? '');
@@ -655,9 +672,14 @@ class AigcLlmService
         $usage = [];
         $finishReason = 'stop';
         $providerRequestId = '';
+        $emittedProviderRequestId = '';
         foreach ($provider->stream($request) as $event) {
             if (!empty($event['provider_request_id'])) {
                 $providerRequestId = (string)$event['provider_request_id'];
+                if ($onEvent && $providerRequestId !== $emittedProviderRequestId) {
+                    $emittedProviderRequestId = $providerRequestId;
+                    $onEvent('provider_request', ['provider_request_id' => $providerRequestId]);
+                }
             }
             $type = (string)($event['type'] ?? 'delta');
             if ($type === 'usage') {
@@ -697,6 +719,7 @@ class AigcLlmService
             'usage' => $billing['usage'],
             'billing' => $billing['billing'],
             'charge_points' => $billing['billing']['user_charge_points'],
+            'provider_request_id' => $providerRequestId,
         ];
     }
 
