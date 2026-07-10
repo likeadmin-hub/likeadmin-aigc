@@ -11,7 +11,7 @@ class PublishController extends BaseApiController
     public function submit()
     {
         try {
-            return $this->success('success', AigcShortDramaService::submitPublishedWork((int)$this->request->tenantId, $this->userId, $this->request->post()));
+            return $this->success('发布成功', AigcShortDramaService::submitPublishedWork((int)$this->request->tenantId, $this->userId, $this->request->post()));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -20,7 +20,7 @@ class PublishController extends BaseApiController
     public function detail()
     {
         try {
-            return $this->success('success', AigcShortDramaService::publishedWorkDetail((int)$this->request->tenantId, $this->userId, (int)$this->request->get('id', 0)));
+            return $this->success('获取成功', AigcShortDramaService::publishedWorkDetail((int)$this->request->tenantId, $this->userId, (int)$this->request->get('id', 0)));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }

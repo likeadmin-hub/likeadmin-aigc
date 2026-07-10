@@ -11,4 +11,9 @@ class GenerationTaskController extends BaseAdminController
     {
         return $this->success('获取成功', AigcShortDramaService::adminGenerationTaskLists($this->tenantId, $this->request->get()));
     }
+
+    public function detail()
+    {
+        return $this->success('获取成功', AigcShortDramaService::adminGenerationTaskDetail($this->tenantId, $this->request->get()));
+    }
 }

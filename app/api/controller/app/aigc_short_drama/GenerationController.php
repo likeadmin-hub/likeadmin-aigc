@@ -13,7 +13,7 @@ class GenerationController extends BaseApiController
     public function create()
     {
         try {
-            return $this->success('success', AigcShortDramaService::createShotGenerationTask((int)$this->request->tenantId, $this->userId, $this->request->post()));
+            return $this->success('生成任务已提交', AigcShortDramaService::createShotGenerationTask((int)$this->request->tenantId, $this->userId, $this->request->post()));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -22,7 +22,7 @@ class GenerationController extends BaseApiController
     public function estimate()
     {
         try {
-            return $this->success('success', AigcShortDramaService::estimateShotGenerationTask((int)$this->request->tenantId, $this->userId, $this->request->post()));
+            return $this->success('估算成功', AigcShortDramaService::estimateShotGenerationTask((int)$this->request->tenantId, $this->userId, $this->request->post()));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -62,7 +62,7 @@ class GenerationController extends BaseApiController
     public function detail()
     {
         try {
-            return $this->success('success', AigcShortDramaService::generationTaskDetail((int)$this->request->tenantId, $this->userId, (string)$this->request->get('task_id', '')));
+            return $this->success('获取成功', AigcShortDramaService::generationTaskDetail((int)$this->request->tenantId, $this->userId, (string)$this->request->get('task_id', '')));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -71,7 +71,7 @@ class GenerationController extends BaseApiController
     public function lists()
     {
         try {
-            return $this->success('success', AigcShortDramaService::generationTaskLists((int)$this->request->tenantId, $this->userId, $this->request->get()));
+            return $this->success('获取成功', AigcShortDramaService::generationTaskLists((int)$this->request->tenantId, $this->userId, $this->request->get()));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -80,7 +80,17 @@ class GenerationController extends BaseApiController
     public function retry()
     {
         try {
-            return $this->success('success', AigcShortDramaService::retryGenerationTask((int)$this->request->tenantId, $this->userId, (string)$this->request->post('task_id', '')));
+            return $this->success('重试任务已提交', AigcShortDramaService::retryGenerationTask((int)$this->request->tenantId, $this->userId, (string)$this->request->post('task_id', '')));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function delete()
+    {
+        try {
+            AigcShortDramaService::deleteGenerationTask((int)$this->request->tenantId, $this->userId, (string)$this->request->post('task_id', ''));
+            return $this->success('删除成功', [], 1, 1);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -89,7 +99,7 @@ class GenerationController extends BaseApiController
     public function cancel()
     {
         try {
-            return $this->success('success', AigcShortDramaService::cancelGenerationTask((int)$this->request->tenantId, $this->userId, (string)$this->request->post('task_id', '')));
+            return $this->success('取消成功', AigcShortDramaService::cancelGenerationTask((int)$this->request->tenantId, $this->userId, (string)$this->request->post('task_id', '')));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }

@@ -68,10 +68,19 @@
         "component": "apps/aigc_short_drama/storyboard"
       },
       {
+        "source_menu_key": "aigc_short_drama_bgm_audio",
+        "type": "C",
+        "name": "背景音乐任务",
+        "sort": 16,
+        "perms": "app.aigc_short_drama.generation_task/lists",
+        "paths": "bgm-audio",
+        "component": "apps/aigc_short_drama/bgm-audio"
+      },
+      {
         "source_menu_key": "aigc_short_drama_shot_video",
         "type": "C",
         "name": "视频生成任务",
-        "sort": 16,
+        "sort": 15,
         "perms": "app.aigc_short_drama.generation_task/lists",
         "paths": "shot-video",
         "component": "apps/aigc_short_drama/shot-video"
@@ -80,7 +89,7 @@
         "source_menu_key": "aigc_short_drama_final_video",
         "type": "C",
         "name": "成片合成任务",
-        "sort": 15,
+        "sort": 14,
         "perms": "app.aigc_short_drama.generation_task/lists",
         "paths": "final-video",
         "component": "apps/aigc_short_drama/final-video"
