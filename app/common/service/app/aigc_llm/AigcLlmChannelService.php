@@ -149,33 +149,27 @@ class AigcLlmChannelService
         $added = 0;
         $exists = 0;
         $skipped = 0;
+        $enabled = 0;
+        $disabled = 0;
         foreach ($remoteModels as $index => $item) {
             $modelCode = trim((string)($item['model_code'] ?? $item['id'] ?? ''));
             if ($modelCode === '') {
                 $skipped++;
                 continue;
             }
-            $localCode = self::localModelCode($modelCode);
+            $priceKey = self::remoteModelKey($item);
+            $pricing = $pricingMap[$priceKey] ?? [];
+            $channelCode = self::localChannelCode((string)($item['channel_code'] ?? ''));
+            $localCode = self::resolveSyncedModelCode($modelCode, $channelCode);
             $existsRow = AigcLlmModel::where(['tenant_id' => 0, 'code' => $localCode])->findOrEmpty();
             if (!$existsRow->isEmpty()) {
                 $exists++;
                 continue;
             }
 
-            $priceKey = self::remoteModelKey($item);
-            $pricing = $pricingMap[$priceKey] ?? [];
-            if (($pricing['available'] ?? false) !== true) {
-                $skipped++;
-                continue;
-            }
-
-            $channelCode = self::localChannelCode((string)($item['channel_code'] ?? ''));
             $prices = self::pricesFromRemotePricing($pricing);
             $legacyPrice = max($prices['input'], $prices['output']);
-            if ($legacyPrice <= 0) {
-                $skipped++;
-                continue;
-            }
+            $hasPricing = ($pricing['available'] ?? false) === true && $legacyPrice > 0;
             self::ensureSyncedChannel($channelCode, (string)($item['channel_name'] ?? ''), (string)($item['channel_code'] ?? ''));
             AigcLlmModel::create([
                 'tenant_id' => 0,
@@ -198,17 +192,21 @@ class AigcLlmChannelService
                     'params_schema' => is_array($item['params_schema'] ?? null) ? $item['params_schema'] : [],
                     'default_params' => is_array($item['default_params'] ?? null) ? $item['default_params'] : [],
                     'stream_options' => ['include_usage' => true],
+                    'pricing_available' => $hasPricing ? 1 : 0,
                 ],
-                'status' => 1,
+                'status' => $hasPricing ? 1 : 0,
                 'sort' => max(1, 900 - $index),
                 'create_time' => time(),
                 'update_time' => time(),
             ]);
             $added++;
+            $hasPricing ? $enabled++ : $disabled++;
         }
 
         return [
             'added' => $added,
+            'enabled' => $enabled,
+            'disabled' => $disabled,
             'exists' => $exists,
             'skipped' => $skipped,
             'total' => count($remoteModels),
@@ -425,6 +423,38 @@ class AigcLlmChannelService
     private static function localModelCode(string $modelCode): string
     {
         return self::normalizeCodeFromRemote($modelCode, 'model');
+    }
+
+    private static function resolveSyncedModelCode(string $modelCode, string $channelCode): string
+    {
+        $baseCode = self::localModelCode($modelCode);
+        $row = AigcLlmModel::where(['tenant_id' => 0, 'code' => $baseCode])->findOrEmpty();
+        if ($row->isEmpty() || self::sameSyncedModel($row->toArray(), $modelCode, $channelCode)) {
+            return $baseCode;
+        }
+
+        $candidate = self::fitCode($baseCode, '_' . $channelCode);
+        $row = AigcLlmModel::where(['tenant_id' => 0, 'code' => $candidate])->findOrEmpty();
+        if ($row->isEmpty() || self::sameSyncedModel($row->toArray(), $modelCode, $channelCode)) {
+            return $candidate;
+        }
+
+        return self::fitCode($baseCode, '_' . substr(md5($modelCode . '|' . $channelCode), 0, 8));
+    }
+
+    private static function sameSyncedModel(array $row, string $modelCode, string $channelCode): bool
+    {
+        return strcasecmp((string)($row['model'] ?? ''), $modelCode) === 0
+            && (string)($row['channel_code'] ?? '') === $channelCode;
+    }
+
+    private static function fitCode(string $baseCode, string $suffix): string
+    {
+        $maxLength = 64;
+        if (strlen($baseCode . $suffix) <= $maxLength) {
+            return $baseCode . $suffix;
+        }
+        return rtrim(substr($baseCode, 0, max(1, $maxLength - strlen($suffix))), '_') . $suffix;
     }
 
     private static function localChannelCode(string $channelCode): string
