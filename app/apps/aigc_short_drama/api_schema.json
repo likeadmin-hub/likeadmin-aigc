@@ -66,6 +66,14 @@
       "need_role_permission": 1
     },
     {
+      "api_path": "app.aigc_short_drama.generation_task/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_short_drama:generation_task:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
       "api_path": "app.aigc_short_drama.inspiration/lists",
       "api_method": "GET",
       "permission_key": "aigc_short_drama:inspiration:lists",
@@ -74,9 +82,25 @@
       "need_role_permission": 1
     },
     {
+      "api_path": "app.aigc_short_drama.inspiration/save",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:inspiration:save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
       "api_path": "app.aigc_short_drama.inspiration/status",
       "api_method": "POST",
       "permission_key": "aigc_short_drama:inspiration:status",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_short_drama.inspiration/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:inspiration:delete",
       "scene": "tenant_admin",
       "need_login": 1,
       "need_role_permission": 1
@@ -378,6 +402,14 @@
       "need_role_permission": 0
     },
     {
+      "api_path": "app.aigc_short_drama.asset/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:asset:delete:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
       "api_path": "app.aigc_short_drama.generation/create",
       "api_method": "POST",
       "permission_key": "aigc_short_drama:generation:create:user",
@@ -413,6 +445,14 @@
       "api_path": "app.aigc_short_drama.generation/retry",
       "api_method": "POST",
       "permission_key": "aigc_short_drama:generation:retry:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.generation/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:generation:delete:user",
       "scene": "user",
       "need_login": 1,
       "need_role_permission": 0

@@ -78,6 +78,7 @@ class AigcImageService
 
     private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = []): array
     {
+        $params = self::sanitizeUtf8Payload($params);
         $prompt = trim((string)($params['prompt'] ?? ''));
         if ($prompt === '') {
             throw new Exception('请输入提示词');
@@ -1075,6 +1076,37 @@ class AigcImageService
     private static function isAsyncProvider(string $provider): bool
     {
         return in_array(strtolower($provider), ['xhadmin', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim', 'gpt_image_2_pro', 'gpt_image_2_fast'], true);
+    }
+
+    private static function sanitizeUtf8Payload(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $data[$key] = self::sanitizeUtf8Payload($value);
+                continue;
+            }
+            if (is_string($value)) {
+                $data[$key] = self::sanitizeUtf8String($value);
+            }
+        }
+        return $data;
+    }
+
+    private static function sanitizeUtf8String(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+        $value = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $value) ?? $value;
+        $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        if (!is_string($encoded)) {
+            return '';
+        }
+        $decoded = json_decode($encoded, true);
+        if (!is_string($decoded)) {
+            return '';
+        }
+        return preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', $decoded) ?? $decoded;
     }
 
     private static function providerFor(string $provider): AigcImageProviderInterface

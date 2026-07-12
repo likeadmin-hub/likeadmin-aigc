@@ -10,6 +10,8 @@ class AiTaskRecordService
     private const APP_NAMES = [
         'aigc_image' => 'AIGC生图',
         'aigc_video' => 'AIGC视频',
+        'aigc_llm' => 'AIGC文本',
+        'aigc_short_drama' => 'AI短剧',
         'aigc_digital_human' => '数字人视频',
         'image_human' => '全驱数字人',
         'smart_clip' => 'AI视频剪辑',
@@ -64,6 +66,18 @@ class AiTaskRecordService
             'task_type' => 'video_generate',
             'media_type' => 'video',
             'prompt_fields' => ['prompt'],
+        ],
+        'aigc_llm' => [
+            'table' => 'aigc_llm_usage',
+            'task_type' => 'text_generate',
+            'media_type' => 'text',
+            'prompt_fields' => ['provider_request_id', 'channel_code', 'model_code', 'provider_model', 'extra_json'],
+        ],
+        'aigc_short_drama' => [
+            'table' => 'aigc_short_drama_generation_task',
+            'task_type' => 'short_drama_generate',
+            'media_type' => 'none',
+            'prompt_fields' => ['task_id', 'task_type', 'provider_request_id', 'provider_task_id', 'request_json', 'error_msg'],
         ],
         'aigc_digital_human' => [
             'table' => 'aigc_digital_human_task',
@@ -155,7 +169,7 @@ class AiTaskRecordService
         self::appendComputedFields($data);
         self::normalizePromptFields($data, $baseAppCode);
         $taskTenantId = (int)($data['tenant_id'] ?? $tenantId);
-        $source = self::resolveSourceApp($taskTenantId, $baseAppCode, (int)$data['id']);
+        $source = self::resolveSourceAppFromRow($data, $taskTenantId, $baseAppCode, (int)$data['id']);
         $data['source_app_code'] = $source['app_code'];
         $data['source_app_name'] = self::appName($source['app_code']);
         $data['source_task_id'] = $source['task_id'];
@@ -166,7 +180,7 @@ class AiTaskRecordService
         $data['app_code'] = $data['source_app_code'];
         $data['app_name'] = $data['source_app_name'];
         $data['task_type'] = self::BASE_TASK_SOURCES[$baseAppCode]['task_type'] ?? '';
-        $data['task_sn'] = $baseAppCode . '_' . $data['id'];
+        $data['task_sn'] = self::displayTaskSn($data, $baseAppCode, (int)$data['id']);
         $data['record_key'] = $baseAppCode . ':' . $data['id'];
         $data['initiator_name'] = $data['user_nickname'] ?: ($data['user_account'] ?: ('用户#' . $data['user_id']));
         $data['request_params'] = [
@@ -234,7 +248,7 @@ class AiTaskRecordService
         $taskId = (int)$row['id'];
         $row['media_results'] = self::mediaResults($baseAppCode, $taskTenantId, $taskId);
         $row['result_count'] = count($row['media_results']);
-        $source = self::resolveSourceApp($taskTenantId, $baseAppCode, $taskId);
+        $source = self::resolveSourceAppFromRow($row, $taskTenantId, $baseAppCode, $taskId);
         $row['source_app_code'] = $source['app_code'];
         $row['source_app_name'] = self::appName($source['app_code']);
         $row['source_task_id'] = $source['task_id'];
@@ -245,10 +259,23 @@ class AiTaskRecordService
         $row['app_code'] = $row['source_app_code'];
         $row['app_name'] = $row['source_app_name'];
         $row['task_type'] = self::BASE_TASK_SOURCES[$baseAppCode]['task_type'] ?? '';
-        $row['task_sn'] = $baseAppCode . '_' . $taskId;
+        $row['task_sn'] = self::displayTaskSn($row, $baseAppCode, $taskId);
         $row['record_key'] = $baseAppCode . ':' . $taskId;
         $row['initiator_name'] = $row['user_nickname'] ?: ($row['user_account'] ?: ('用户#' . $row['user_id']));
         return $row;
+    }
+
+    private static function displayTaskSn(array $row, string $baseAppCode, int $taskId): string
+    {
+        if ($baseAppCode === 'aigc_short_drama') {
+            $taskKey = (string)($row['source_task_key'] ?? $row['task_id'] ?? '');
+            return $taskKey !== '' ? $taskKey : $baseAppCode . '_' . $taskId;
+        }
+        if ($baseAppCode === 'aigc_llm') {
+            $requestId = (string)($row['provider_request_id'] ?? $row['provider_task_id'] ?? '');
+            return $requestId !== '' ? $requestId : $baseAppCode . '_' . $taskId;
+        }
+        return $baseAppCode . '_' . $taskId;
     }
 
     private static function appendComputedFields(array &$row): void
@@ -272,6 +299,33 @@ class AiTaskRecordService
             'task_id' => $taskId,
             'task_sn' => $baseAppCode . '_' . $taskId,
         ];
+    }
+
+    private static function resolveSourceAppFromRow(array $row, int $tenantId, string $baseAppCode, int $taskId): array
+    {
+        if ($baseAppCode === 'aigc_llm') {
+            $extra = self::decodeJsonValue($row['extra_json'] ?? []);
+            $sourceAppCode = is_array($extra) ? (string)($extra['source_app_code'] ?? '') : '';
+            $sourceId = is_array($extra) ? (string)($extra['source_id'] ?? '') : '';
+            if ($sourceAppCode !== '') {
+                return [
+                    'app_code' => $sourceAppCode,
+                    'task_id' => is_numeric($sourceId) ? (int)$sourceId : $taskId,
+                    'task_sn' => $sourceId !== '' ? $sourceAppCode . '_' . $sourceId : $sourceAppCode . '_' . $taskId,
+                ];
+            }
+        }
+
+        if ($baseAppCode === 'aigc_short_drama') {
+            $taskKey = (string)($row['source_task_key'] ?? $row['task_id'] ?? $taskId);
+            return [
+                'app_code' => $baseAppCode,
+                'task_id' => $taskId,
+                'task_sn' => $taskKey !== '' ? $taskKey : $baseAppCode . '_' . $taskId,
+            ];
+        }
+
+        return self::resolveSourceApp($tenantId, $baseAppCode, $taskId);
     }
 
     private static function findMappedSource(int $tenantId, int $taskId, array $tables): array
@@ -468,16 +522,26 @@ class AiTaskRecordService
 
     private static function mediaResults(string $baseAppCode, int $tenantId, int $taskId): array
     {
-        return self::baseMediaType($baseAppCode) === 'video'
-            ? self::videoMediaResults($baseAppCode, $tenantId, $taskId)
-            : self::imageMediaResults($tenantId, $taskId);
+        $mediaType = self::baseMediaType($baseAppCode);
+        if ($mediaType === 'video') {
+            return self::videoMediaResults($baseAppCode, $tenantId, $taskId);
+        }
+        if ($mediaType === 'image') {
+            return self::imageMediaResults($tenantId, $taskId);
+        }
+        return [];
     }
 
     private static function rawResults(string $baseAppCode, int $tenantId, int $taskId): array
     {
-        return self::baseMediaType($baseAppCode) === 'video'
-            ? self::videoResults($baseAppCode, $tenantId, $taskId)
-            : self::imageResults($tenantId, $taskId);
+        $mediaType = self::baseMediaType($baseAppCode);
+        if ($mediaType === 'video') {
+            return self::videoResults($baseAppCode, $tenantId, $taskId);
+        }
+        if ($mediaType === 'image') {
+            return self::imageResults($tenantId, $taskId);
+        }
+        return [];
     }
 
     private static function decodeJsonValue($value)
@@ -531,21 +595,102 @@ class AiTaskRecordService
         return $cache[$key];
     }
 
+    private static function fieldExpr(string $table, string $field, string $alias = '', string $default = "''"): string
+    {
+        $alias = $alias !== '' ? $alias : $field;
+        $expr = self::columnExists($table, $field) ? 't.' . $field : $default;
+        return $expr . ($alias !== $field || !self::columnExists($table, $field) ? ' ' . $alias : '');
+    }
+
     private static function taskListFields(string $baseAppCode): string
     {
         $table = self::baseTaskTable($baseAppCode);
-        $candidateFields = [
-            'id', 'tenant_id', 'user_id', 'title', 'prompt', 'script_text', 'negative_prompt', 'style',
-            'channel', 'quality', 'ratio', 'duration', 'quantity', 'tenant_cost_points', 'user_charge_points',
-            'provider', 'model', 'provider_task_id', 'status', 'error', 'create_time', 'update_time', 'finish_time',
-        ];
-        $fields = [];
-        foreach ($candidateFields as $field) {
-            if (self::columnExists($table, $field)) {
-                $fields[] = $field;
-            }
+
+        if ($baseAppCode === 'aigc_llm') {
+            return implode(',', [
+                't.id',
+                't.tenant_id',
+                't.user_id',
+                "'' title",
+                "CONCAT(t.channel_code, ' ', t.model_code, ' ', t.provider_request_id) prompt",
+                "'' script_text",
+                "'' negative_prompt",
+                "'' style",
+                't.channel_code channel',
+                "'' quality",
+                "'' ratio",
+                '0 duration',
+                '1 quantity',
+                't.tenant_cost_points',
+                't.user_charge_points',
+                't.provider',
+                't.provider_model model',
+                't.provider_request_id provider_task_id',
+                "CASE WHEN t.billing_status = 'deduct_failed' THEN 'failed' ELSE 'success' END status",
+                "IF(JSON_VALID(t.extra_json), IFNULL(JSON_UNQUOTE(JSON_EXTRACT(t.extra_json, '$.error')), ''), '') error",
+                't.create_time',
+                't.update_time',
+                't.update_time finish_time',
+                't.prompt_tokens',
+                't.completion_tokens',
+                't.total_tokens',
+                't.billing_status',
+                't.provider_request_id',
+                't.extra_json',
+                'te.name tenant_name',
+                'te.sn tenant_sn',
+                'u.nickname user_nickname',
+                'u.account user_account',
+                'u.mobile user_mobile',
+            ]);
         }
-        return implode(',', array_map(static fn($field) => 't.' . $field, $fields))
+
+        $promptDefault = self::columnExists($table, 'request_json') ? 't.request_json' : "''";
+        $modelDefault = self::columnExists($table, 'model_json') ? 't.model_json' : "''";
+        $providerTaskDefault = self::columnExists($table, 'provider_request_id') ? 't.provider_request_id' : "''";
+        $errorDefault = self::columnExists($table, 'error_msg') ? 't.error_msg' : "''";
+        $finishDefault = self::columnExists($table, 'finished_at') ? 't.finished_at' : '0';
+
+        $fields = [
+            self::fieldExpr($table, 'id'),
+            self::fieldExpr($table, 'tenant_id', 'tenant_id', '0'),
+            self::fieldExpr($table, 'user_id', 'user_id', '0'),
+            self::fieldExpr($table, 'title', 'title', "''"),
+            self::fieldExpr($table, 'prompt', 'prompt', $promptDefault),
+            self::fieldExpr($table, 'script_text', 'script_text', "''"),
+            self::fieldExpr($table, 'negative_prompt', 'negative_prompt', "''"),
+            self::fieldExpr($table, 'style', 'style', "''"),
+            self::fieldExpr($table, 'channel', 'channel', "''"),
+            self::fieldExpr($table, 'quality', 'quality', "''"),
+            self::fieldExpr($table, 'ratio', 'ratio', "''"),
+            self::fieldExpr($table, 'duration', 'duration', '0'),
+            self::fieldExpr($table, 'quantity', 'quantity', '1'),
+            self::fieldExpr($table, 'tenant_cost_points', 'tenant_cost_points', '0'),
+            self::fieldExpr($table, 'user_charge_points', 'user_charge_points', '0'),
+            self::fieldExpr($table, 'provider', 'provider', "''"),
+            self::fieldExpr($table, 'model', 'model', $modelDefault),
+            self::fieldExpr($table, 'provider_task_id', 'provider_task_id', $providerTaskDefault),
+            self::fieldExpr($table, 'status', 'status', "'success'"),
+            self::fieldExpr($table, 'error', 'error', $errorDefault),
+            self::fieldExpr($table, 'create_time', 'create_time', '0'),
+            self::fieldExpr($table, 'update_time', 'update_time', '0'),
+            self::fieldExpr($table, 'finish_time', 'finish_time', $finishDefault),
+        ];
+
+        if (self::columnExists($table, 'task_id')) {
+            $fields[] = 't.task_id source_task_key';
+        }
+        if (self::columnExists($table, 'task_type')) {
+            $fields[] = 't.task_type source_task_type';
+        }
+        if (self::columnExists($table, 'source_app_code')) {
+            $fields[] = 't.source_app_code upstream_app_code';
+        }
+        if (self::columnExists($table, 'request_json')) {
+            $fields[] = 't.request_json';
+        }
+
+        return implode(',', $fields)
             . ',te.name tenant_name,te.sn tenant_sn,u.nickname user_nickname,u.account user_account,u.mobile user_mobile';
     }
 
@@ -571,8 +716,11 @@ class AiTaskRecordService
         $query = Db::name($table)
             ->alias('t')
             ->leftJoin('tenant te', 'te.id = t.tenant_id')
-            ->leftJoin('user u', 'u.id = t.user_id AND u.tenant_id = t.tenant_id')
-            ->where('t.delete_time', 0);
+            ->leftJoin('user u', 'u.id = t.user_id AND u.tenant_id = t.tenant_id');
+
+        if ($tenantId > 0 && self::columnExists($table, 'delete_time')) {
+            $query->where('t.delete_time', 0);
+        }
 
         if ($tenantId > 0) {
             $query->where('t.tenant_id', $tenantId);
@@ -586,8 +734,16 @@ class AiTaskRecordService
         if (!empty($params['user_id'])) {
             $query->where('t.user_id', (int)$params['user_id']);
         }
-        if (!empty($params['status'])) {
+        if (!empty($params['status']) && self::columnExists($table, 'status')) {
             $query->where('t.status', (string)$params['status']);
+        } elseif (!empty($params['status']) && $baseAppCode === 'aigc_llm') {
+            if ((string)$params['status'] === 'failed') {
+                $query->where('t.billing_status', 'deduct_failed');
+            } elseif ((string)$params['status'] === 'success') {
+                $query->where('t.billing_status', '<>', 'deduct_failed');
+            } else {
+                $query->whereRaw('1=0');
+            }
         }
         if (!empty($params['keyword'])) {
             $keyword = trim((string)$params['keyword']);
@@ -599,9 +755,9 @@ class AiTaskRecordService
                 $hasCondition = false;
                 foreach ($promptFields as $field) {
                     if ($hasCondition) {
-                        $query->whereOrLike('t.' . $field, '%' . $keyword . '%');
+                        $query->whereOr('t.' . $field, 'like', '%' . $keyword . '%');
                     } else {
-                        $query->whereLike('t.' . $field, '%' . $keyword . '%');
+                        $query->where('t.' . $field, 'like', '%' . $keyword . '%');
                         $hasCondition = true;
                     }
                 }
@@ -610,11 +766,11 @@ class AiTaskRecordService
                 } else {
                     $query->where('t.id', (int)$keyword);
                 }
-                $query->whereOrLike('te.name', '%' . $keyword . '%')
-                    ->whereOrLike('te.sn', '%' . $keyword . '%')
-                    ->whereOrLike('u.nickname', '%' . $keyword . '%')
-                    ->whereOrLike('u.account', '%' . $keyword . '%')
-                    ->whereOrLike('u.mobile', '%' . $keyword . '%');
+                $query->whereOr('te.name', 'like', '%' . $keyword . '%')
+                    ->whereOr('te.sn', 'like', '%' . $keyword . '%')
+                    ->whereOr('u.nickname', 'like', '%' . $keyword . '%')
+                    ->whereOr('u.account', 'like', '%' . $keyword . '%')
+                    ->whereOr('u.mobile', 'like', '%' . $keyword . '%');
             });
         }
         if (!empty($params['create_time_start'])) {
@@ -629,6 +785,29 @@ class AiTaskRecordService
 
     private static function normalizePromptFields(array &$row, string $baseAppCode): void
     {
+        if ($baseAppCode === 'aigc_llm') {
+            $extra = self::decodeJsonValue($row['extra_json'] ?? []);
+            $sourceType = is_array($extra) ? (string)($extra['source_type'] ?? '') : '';
+            $sourceId = is_array($extra) ? (string)($extra['source_id'] ?? '') : '';
+            $row['prompt'] = trim(($sourceType !== '' ? $sourceType : '文本生成') . ($sourceId !== '' ? ' #' . $sourceId : ''));
+            if ($row['prompt'] === '') {
+                $row['prompt'] = (string)($row['provider_request_id'] ?? $row['provider_task_id'] ?? '');
+            }
+            $row['quantity'] = 1;
+            $row['ratio'] = '';
+            return;
+        }
+
+        if ($baseAppCode === 'aigc_short_drama') {
+            $request = self::decodeJsonValue($row['request_json'] ?? $row['prompt'] ?? []);
+            if (is_array($request)) {
+                $row['prompt'] = (string)($request['prompt'] ?? $request['text'] ?? $request['message'] ?? $row['source_task_type'] ?? $row['prompt'] ?? '');
+            }
+            if ((string)($row['prompt'] ?? '') === '') {
+                $row['prompt'] = (string)($row['source_task_type'] ?? $row['source_task_key'] ?? '');
+            }
+        }
+
         if (!isset($row['prompt']) || (string)$row['prompt'] === '') {
             $row['prompt'] = (string)($row['script_text'] ?? $row['title'] ?? '');
         }
