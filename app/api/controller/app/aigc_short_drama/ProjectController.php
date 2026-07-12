@@ -43,7 +43,7 @@ class ProjectController extends BaseApiController
     public function coverOptions()
     {
         try {
-            return $this->success('获取成功', AigcShortDramaService::projectCoverOptions(
+            return $this->success('success', AigcShortDramaService::projectCoverOptions(
                 (int)$this->request->tenantId,
                 $this->userId,
                 (int)$this->request->get('id', 0)
@@ -87,7 +87,7 @@ class ProjectController extends BaseApiController
             if (isset($params['final_video_asset_id']) && empty($params['video_asset_id'])) {
                 $params['video_asset_id'] = $params['final_video_asset_id'];
             }
-            return $this->success('发布成功', AigcShortDramaService::submitPublishedWork((int)$this->request->tenantId, $this->userId, $params));
+            return $this->success('success', AigcShortDramaService::submitPublishedWork((int)$this->request->tenantId, $this->userId, $params));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }

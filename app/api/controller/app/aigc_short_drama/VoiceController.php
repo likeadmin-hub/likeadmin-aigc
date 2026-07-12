@@ -13,7 +13,7 @@ class VoiceController extends BaseApiController
     public function lists()
     {
         try {
-            return $this->success('获取成功', AigcShortDramaService::voiceLists(
+            return $this->success('success', AigcShortDramaService::voiceLists(
                 (int)$this->request->tenantId,
                 (int)$this->userId,
                 (string)$this->request->get('source', '')

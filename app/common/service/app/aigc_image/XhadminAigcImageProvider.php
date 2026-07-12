@@ -154,19 +154,9 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             $this->sourceBaseUrl((string)($source['online_base_url'] ?? '')),
         ])));
         $taskUrlTemplates = array_map(static fn(string $url): string => $url . '/' . ltrim($taskPath, '/'), $fallbackBaseUrls);
-        $model = $this->normalizeModel((string)($config['model'] ?? $request->providerParams['model'] ?? 'gpt-image-2'));
-        $upstreamChannel = (string)($config['upstream_channel'] ?? $config['channel'] ?? '');
-        if ($upstreamChannel === '') {
-            $upstreamChannel = match ($model) {
-                'gpt-image-2-pro' => 'OpenaiM',
-                'gpt-image-2-fast' => 'openaiD',
-                default => '',
-            };
-        }
-
         return [
             'api_key' => $apiKey,
-            'model' => $model,
+            'model' => (string)($config['model'] ?? $request->providerParams['model'] ?? 'gpt-image-2'),
             'submit_url' => $baseUrl . '/' . ltrim($submitPath, '/'),
             'task_url_template' => $baseUrl . '/' . ltrim($taskPath, '/'),
             'task_url_templates' => $taskUrlTemplates,
@@ -176,18 +166,12 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             'submit_retry_delay_ms' => max(0, min(5000, (int)($config['submit_retry_delay_ms'] ?? self::DEFAULT_SUBMIT_RETRY_DELAY_MS))),
             'poll_interval' => max(1, (int)($config['poll_interval'] ?? 2)),
             'poll_attempts' => max(0, (int)($config['poll_attempts'] ?? 30)),
-            'upstream_channel' => $upstreamChannel,
+            'upstream_channel' => (string)($config['upstream_channel'] ?? $config['channel'] ?? ''),
             'tenant_id' => (int)($config['tenant_id'] ?? 0),
             'user_id' => (int)($config['user_id'] ?? 0),
             'ssl_verify' => UpdateSourceClient::sslVerify($source),
             'extra_payload' => is_array($config['extra_payload'] ?? null) ? $config['extra_payload'] : [],
         ];
-    }
-
-    private function normalizeModel(string $model): string
-    {
-        $model = trim($model);
-        return in_array($model, ['gpt-image-2', 'gpt_image_2'], true) ? 'gpt-image-2-pro' : $model;
     }
 
     private function sourceBaseUrl(string $baseUrl): string
@@ -209,16 +193,8 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
     private function buildPayload(AigcImageGenerateRequest $request, array $config): array
     {
         $providerParams = $request->providerParams;
-        if (in_array((string)($config['model'] ?? ''), ['gpt-image-2-pro', 'gpt-image-2-fast'], true)) {
-            if (empty($providerParams['image_size'])) {
-                $providerParams['image_size'] = $providerParams['resolution'] ?? $request->quality;
-            }
-            if (!array_key_exists('omit_resolution', $providerParams)) {
-                $providerParams['omit_resolution'] = true;
-            }
-        }
         $payload = [
-            'model' => isset($providerParams['model']) ? $this->normalizeModel((string)$providerParams['model']) : $config['model'],
+            'model' => $request->providerParams['model'] ?? $config['model'],
             'n' => 1,
             'prompt' => $request->prompt,
             'channel' => $config['upstream_channel'] ?: null,

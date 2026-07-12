@@ -17,7 +17,7 @@ class AigcImageChannelService
 
     public static function userConfig(int $tenantId): array
     {
-        $channels = self::normalizeUserChannels(self::effectiveChannels($tenantId, true));
+        $channels = self::effectiveChannels($tenantId, true);
         $defaults = self::defaults($channels);
         return [
             'channels' => self::sanitizeChannels($channels, false),
@@ -25,22 +25,6 @@ class AigcImageChannelService
             'quantity_options' => self::quantityOptions($channels),
             'max_reference_images' => self::maxReferenceImages($channels),
         ];
-    }
-
-    private static function normalizeUserChannels(array $channels): array
-    {
-        $codes = array_map(static fn($channel): string => is_array($channel) ? (string)($channel['code'] ?? '') : '', $channels);
-        if (!in_array('gpt_image_2', $codes, true)) {
-            return array_values($channels);
-        }
-
-        $legacyCodes = ['gpt_image_2_pro', 'gpt_image_2_fast', 'images2_pro', 'images2_fast'];
-        return array_values(array_filter($channels, static function ($channel) use ($legacyCodes): bool {
-            if (!is_array($channel)) {
-                return false;
-            }
-            return !in_array((string)($channel['code'] ?? ''), $legacyCodes, true);
-        }));
     }
 
     public static function estimate(int $tenantId, array $params): array
@@ -364,7 +348,6 @@ class AigcImageChannelService
                 'qualities' => [],
                 'specs' => [],
             ];
-            $channel = self::normalizeRuntimeChannel($channel);
             $virtualRatioOptions = $onlyEnabled ? self::channelRatioOptions($platformChannel) : [];
             foreach ($specsByChannel[$platformChannel['code']] ?? [] as $platformSpec) {
                 $tenantSpec = $tenantSpecMap[self::specKey($platformSpec)] ?? [];
@@ -419,30 +402,6 @@ class AigcImageChannelService
             }
         }
         return $channels;
-    }
-
-    private static function normalizeRuntimeChannel(array $channel): array
-    {
-        if ((string)($channel['code'] ?? '') !== 'gpt_image_2') {
-            return $channel;
-        }
-        if ((string)($channel['provider'] ?? '') !== 'xhadmin' || (string)($channel['model'] ?? '') !== 'gpt-image-2') {
-            return $channel;
-        }
-
-        $config = self::normalizeJson($channel['config_json'] ?? []);
-        if (empty($config['upstream_channel'])) {
-            $config['upstream_channel'] = 'OpenaiM';
-        }
-        if (empty($config['quantity_options']) || !is_array($config['quantity_options'])) {
-            $config['quantity_options'] = [1];
-        }
-
-        $channel['provider'] = 'gpt_image_2_pro';
-        $channel['model'] = 'gpt-image-2-pro';
-        $channel['config_json'] = $config;
-        $channel['quantity_options'] = self::channelQuantityOptions($channel);
-        return $channel;
     }
 
     private static function updatePlatformSpecPatch(array $params): void
