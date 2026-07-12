@@ -513,7 +513,7 @@ WHERE `tenant_id` = {tenantId}
 
 DELETE FROM `la_membership_plan_app`
 WHERE `tenant_id` = {tenantId}
-  AND `app_code` IN ('aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm', 'aigc_hairstyle', 'aigc_fitting', 'aigc_product_image', 'aigc_style_transfer', 'aigc_photo_restore', 'aigc_model_wear', 'aigc_background_removal', 'aigc_image_translate', 'aigc_one_click_cleanup', 'aigc_product_suite', 'aigc_product_multi_angle', 'aigc_fashion_lookbook', 'aigc_product_promo_video', 'aigc_action_transfer', 'aigc_person_replacement', 'aigc_outpaint', 'aigc_local_redraw', 'aigc_short_drama');
+  AND `app_code` IN ('aigc_image', 'aigc_video', 'aigc_digital_human', 'aigc_canvas', 'aigc_llm', 'aigc_hairstyle', 'aigc_fitting', 'aigc_product_image', 'aigc_style_transfer', 'aigc_photo_restore', 'aigc_model_wear', 'aigc_background_removal', 'aigc_image_translate', 'aigc_one_click_cleanup', 'aigc_product_suite', 'aigc_product_multi_angle', 'aigc_fashion_lookbook', 'aigc_product_promo_video', 'aigc_action_transfer', 'aigc_person_replacement', 'aigc_outpaint', 'aigc_local_redraw');
 
 INSERT INTO `la_membership_plan` (
   `tenant_id`,
@@ -650,7 +650,7 @@ VALUES
 ({tenantId},'aigc_video','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_digital_human','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_canvas','1.0.1','paid','on','enabled',0,1778000000,1778000000),
-({tenantId},'aigc_llm','1.1.4','paid','on','enabled',0,1778000000,1778000000),
+({tenantId},'aigc_llm','1.1.1','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_hairstyle','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
 ({tenantId},'aigc_fitting','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
 ({tenantId},'aigc_product_image','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
@@ -667,8 +667,7 @@ VALUES
 ({tenantId},'aigc_action_transfer','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
 ({tenantId},'aigc_person_replacement','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
 ({tenantId},'aigc_outpaint','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
-({tenantId},'aigc_local_redraw','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
-({tenantId},'aigc_short_drama','1.0.3','paid','on','enabled',4102415999,1778000000,1778000000)
+({tenantId},'aigc_local_redraw','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000)
 ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_status`),`shelf_status`=VALUES(`shelf_status`),`enable_status`=VALUES(`enable_status`),`expire_time`=VALUES(`expire_time`),`update_time`=VALUES(`update_time`);
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
@@ -822,22 +821,6 @@ VALUES
 (9211,{tenantId},0,'M','局部重绘','el-icon-Picture',81,'','aigc-local-redraw','','','',0,1,0,'aigc_local_redraw','app','aigc_local_redraw',0,1778000000,1778000000),
 (9212,{tenantId},9211,'C','基础配置','',40,'app.aigc_local_redraw.config/detail','config','apps/aigc_local_redraw/config','','',0,1,0,'aigc_local_redraw','app','aigc_local_redraw_config',0,1778000000,1778000000),
 (9213,{tenantId},9211,'C','任务记录','',10,'app.aigc_local_redraw.task/lists','task','apps/aigc_local_redraw/task','','',0,1,0,'aigc_local_redraw','app','aigc_local_redraw_task',0,1778000000,1778000000);
-
-INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
-VALUES
-(9320,{tenantId},0,'M','AI短剧','el-icon-VideoCamera',80,'','aigc-short-drama','','','',0,1,0,'aigc_short_drama','app','aigc_short_drama',0,1778000000,1778000000),
-(9321,{tenantId},9320,'C','AI短剧','',40,'app.aigc_short_drama.config/detail','','apps/aigc_short_drama/config','aigc-short-drama/config','',0,0,0,'aigc_short_drama','app','aigc_short_drama_index',0,1778000000,1778000000),
-(9322,{tenantId},9320,'C','基础配置','',30,'app.aigc_short_drama.config/detail','config','apps/aigc_short_drama/config','','',0,1,0,'aigc_short_drama','app','aigc_short_drama_config',0,1778000000,1778000000),
-(9323,{tenantId},9320,'C','剧本列表','',20,'app.aigc_short_drama.script_task/lists','project','apps/aigc_short_drama/project','','',0,1,0,'aigc_short_drama','app','aigc_short_drama_project',0,1778000000,1778000000),
-(9324,{tenantId},9320,'C','主体列表','',19,'app.aigc_short_drama.subject_task/lists','subject-task','apps/aigc_short_drama/subject-task','','',0,1,0,'aigc_short_drama','app','aigc_short_drama_subject_task',0,1778000000,1778000000),
-(9325,{tenantId},9320,'C','场景列表','',18,'app.aigc_short_drama.scene_task/lists','scene-task','apps/aigc_short_drama/scene-task','','',0,1,0,'aigc_short_drama','app','aigc_short_drama_scene_task',0,1778000000,1778000000),
-(9326,{tenantId},9320,'C','分镜列表','',17,'app.aigc_short_drama.storyboard/lists','storyboard','apps/aigc_short_drama/storyboard','','',0,1,0,'aigc_short_drama','app','aigc_short_drama_storyboard',0,1778000000,1778000000),
-(9327,{tenantId},9320,'C','视频生成任务','',16,'app.aigc_short_drama.generation_task/lists','shot-video','apps/aigc_short_drama/shot-video','','',0,1,0,'aigc_short_drama','app','aigc_short_drama_shot_video',0,1778000000,1778000000),
-(9328,{tenantId},9320,'C','成片合成任务','',15,'app.aigc_short_drama.generation_task/lists','final-video','apps/aigc_short_drama/final-video','','',0,1,0,'aigc_short_drama','app','aigc_short_drama_final_video',0,1778000000,1778000000),
-(9329,{tenantId},9320,'C','灵感素材','',10,'app.aigc_short_drama.inspiration/lists','inspiration','apps/aigc_short_drama/inspiration','','',0,1,0,'aigc_short_drama','app','aigc_short_drama_inspiration',0,1778000000,1778000000),
-(9330,{tenantId},9320,'C','主体库','',9,'app.aigc_short_drama.subject/lists','subject','apps/aigc_short_drama/subject','','',0,1,0,'aigc_short_drama','app','aigc_short_drama_subject',0,1778000000,1778000000),
-(9331,{tenantId},9320,'C','画风库','',8,'app.aigc_short_drama.style/lists','style','apps/aigc_short_drama/style','','',0,1,0,'aigc_short_drama','app','aigc_short_drama_style',0,1778000000,1778000000),
-(9332,{tenantId},9320,'C','声音库','',7,'app.aigc_short_drama.public_voice/lists','public-voice','apps/aigc_short_drama/public-voice','','',0,1,0,'aigc_short_drama','app','aigc_short_drama_public_voice',0,1778000000,1778000000);
 
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)

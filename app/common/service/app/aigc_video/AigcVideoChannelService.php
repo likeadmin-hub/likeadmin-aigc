@@ -68,15 +68,14 @@ class AigcVideoChannelService
         }
         $defaults = self::defaults($channels);
         $channelCode = (string)($params['channel'] ?? $defaults['channel']);
-        $requestedQuality = trim((string)($params['quality'] ?? ''));
-        $requestedRatio = trim((string)($params['ratio'] ?? ''));
+        $quality = (string)($params['quality'] ?? $defaults['quality']);
+        $ratio = (string)($params['ratio'] ?? $defaults['ratio']);
         $pricingVariant = '';
 
         foreach ($channels as $channel) {
             if ($channel['code'] !== $channelCode) {
                 continue;
             }
-            $quality = $requestedQuality !== '' ? $requestedQuality : self::defaultQualityForChannel($channel);
             $pricingVariant = self::pricingVariantFromParams($channel['code'], $params);
             foreach ($channel['qualities'] as $qualityItem) {
                 if (!self::qualityMatches($qualityItem, $quality)
@@ -84,7 +83,6 @@ class AigcVideoChannelService
                 ) {
                     continue;
                 }
-                $ratio = $requestedRatio !== '' ? $requestedRatio : self::defaultRatioForQuality($qualityItem);
                 foreach ($qualityItem['ratios'] as $ratioItem) {
                     if ($ratioItem['value'] === $ratio) {
                         $duration = self::normalizeDurationValue($params['duration'] ?? $defaults['duration'] ?? 0);
@@ -106,18 +104,6 @@ class AigcVideoChannelService
             throw new Exception('当前通道不支持所选时长');
         }
         throw new Exception('视频通道不可用');
-    }
-
-    private static function defaultQualityForChannel(array $channel): string
-    {
-        $quality = (array)(($channel['qualities'] ?? [])[0] ?? []);
-        return (string)($quality['value'] ?? '');
-    }
-
-    private static function defaultRatioForQuality(array $quality): string
-    {
-        $ratio = (array)(($quality['ratios'] ?? [])[0] ?? []);
-        return (string)($ratio['value'] ?? $ratio['ratio'] ?? '');
     }
 
     public static function platformLists(): array
@@ -171,7 +157,7 @@ class AigcVideoChannelService
         $quality = strtolower(trim((string)($params['quality'] ?? '')));
         $ratio = trim((string)($params['ratio'] ?? ''));
         if ($quality === '' || $ratio === '') {
-                throw new Exception('请选择视频时长和比例');
+            throw new Exception('请选择视频时长和比例');
         }
         $upstreamUnitCost = array_key_exists('upstream_unit_cost', $params)
             ? (float)$params['upstream_unit_cost']
@@ -320,7 +306,7 @@ class AigcVideoChannelService
                 }
                 $price = $spec['tenant_unit_price'] ?? null;
                 if ($price !== null && (float)$price < 0) {
-            throw new Exception('用户售价不能小于0');
+                    throw new Exception('用户售价不能小于0');
                 }
                 $payload = [
                     'type' => 'spec',
@@ -782,25 +768,15 @@ class AigcVideoChannelService
         $resolution = self::normalizeResolution($qualityItem['resolution'] ?? $qualityItem['value'] ?? '');
         $fallbackSpec = [];
         $durationSpec = [];
-        $closestSpec = [];
-        $ratioFallbackSpec = [];
-        $channelFallbackSpec = [];
-        $closestDiff = null;
         $preferSecondUnitSpec = self::isSecondBillingChannel((string)($channel['code'] ?? ''));
         foreach ($channel['specs'] as $spec) {
-            if (empty($channelFallbackSpec) && self::specMatchesPricingVariant($spec, $pricingVariant)) {
-                $channelFallbackSpec = $spec;
-            }
             if (!self::specMatchesSelectedRatio((string)($channel['code'] ?? ''), $spec, $ratio)) {
                 continue;
             }
-            if (!self::specMatchesPricingVariant($spec, $pricingVariant)) {
+            if (self::normalizeResolution($spec['resolution'] ?? '') !== $resolution) {
                 continue;
             }
-            if (empty($ratioFallbackSpec)) {
-                $ratioFallbackSpec = $spec;
-            }
-            if (self::normalizeResolution($spec['resolution'] ?? '') !== $resolution) {
+            if (!self::specMatchesPricingVariant($spec, $pricingVariant)) {
                 continue;
             }
             $specDuration = self::explicitSpecDurationValue($spec);
@@ -816,28 +792,12 @@ class AigcVideoChannelService
             if ($specDuration <= 0 && empty($fallbackSpec)) {
                 $fallbackSpec = $spec;
             }
-            if ($specDuration > 0) {
-                $diff = abs($specDuration - $duration);
-                if ($closestDiff === null || $diff < $closestDiff || ($diff === $closestDiff && $specDuration > self::explicitSpecDurationValue($closestSpec))) {
-                    $closestDiff = $diff;
-                    $closestSpec = $spec;
-                }
-            }
         }
         if (!empty($fallbackSpec)) {
             return $fallbackSpec;
         }
         if (!empty($durationSpec)) {
             return $durationSpec;
-        }
-        if (!empty($closestSpec)) {
-            return $closestSpec;
-        }
-        if (!empty($ratioFallbackSpec)) {
-            return $ratioFallbackSpec;
-        }
-        if (!empty($channelFallbackSpec)) {
-            return $channelFallbackSpec;
         }
         throw new Exception('当前通道不支持所选时长');
     }
@@ -975,16 +935,10 @@ class AigcVideoChannelService
             return $options[0] ?? 5;
         }
         if (!in_array($value, $options, true)) {
-            $closest = (int)($options[0] ?? $value);
-            foreach ($options as $option) {
-                $option = (int)$option;
-                $currentDiff = abs($option - $value);
-                $closestDiff = abs($closest - $value);
-                if ($currentDiff < $closestDiff || ($currentDiff === $closestDiff && $option > $closest)) {
-                    $closest = $option;
-                }
-            }
-            return $closest;
+            $min = $options[0] ?? 0;
+            $max = $options ? $options[count($options) - 1] : 0;
+            $message = $min === $max ? "{$min}秒" : "{$min}-{$max}秒";
+            throw new Exception('当前通道不支持该视频时长，请选择' . $message);
         }
         return $value;
     }
@@ -1030,20 +984,22 @@ class AigcVideoChannelService
         $needsSeedance2 = $seedance2->isEmpty() || (int)$seedance2SpecCount < count(self::seedance2ProSpecs()) || $needsSeedance2SpecRepair;
         $needsSeedance2ConfigRepair = !$seedance2->isEmpty() && self::seedance2ProConfigNeedsRepair($seedance2['config_json'] ?? []);
         $needsGrokNameRepair = $grokName !== '' && self::normalizeDisplayName($grokName) !== $grokName;
-        $needsDefaultChannelStatusRepair = self::defaultVideoChannelsNeedStatusRepair();
 
-        if (!$needsSeedance2 && !$needsSeedance2ConfigRepair && !$needsGrokNameRepair && !$needsDefaultChannelStatusRepair) {
+        if (!$needsSeedance2 && !$needsSeedance2ConfigRepair && !$needsGrokNameRepair) {
             return;
         }
 
-        Db::transaction(function () use ($needsSeedance2, $needsSeedance2ConfigRepair, $needsGrokNameRepair, $needsDefaultChannelStatusRepair) {
+        Db::transaction(function () use ($needsSeedance2, $needsSeedance2ConfigRepair, $needsGrokNameRepair) {
             if ($needsSeedance2) {
                 self::saveSeedance2ProRows();
+                AigcVideoChannel::where('tenant_id', 0)
+                    ->whereIn('code', self::oldDefaultVideoChannels())
+                    ->update([
+                        'status' => 0,
+                        'update_time' => time(),
+                    ]);
             } elseif ($needsSeedance2ConfigRepair) {
                 self::repairSeedance2ProConfig();
-            }
-            if ($needsDefaultChannelStatusRepair) {
-                self::restoreDefaultVideoChannelStatus();
             }
             if ($needsGrokNameRepair) {
                 AigcVideoChannel::where(['tenant_id' => 0, 'code' => 'grok_video_xaiq'])
@@ -1163,8 +1119,8 @@ class AigcVideoChannelService
     private static function seedance2ProSpecs(): array
     {
         return [
-            ['quality' => 'pro', 'quality_label' => 'Pro 妯″紡姣忕', 'ratio' => 'mode_pro', 'sort' => 2000],
-            ['quality' => 'fast', 'quality_label' => 'Fast 妯″紡姣忕', 'ratio' => 'mode_fast', 'sort' => 1990],
+            ['quality' => 'pro', 'quality_label' => 'Pro 模式每秒', 'ratio' => 'mode_pro', 'sort' => 2000],
+            ['quality' => 'fast', 'quality_label' => 'Fast 模式每秒', 'ratio' => 'mode_fast', 'sort' => 1990],
         ];
     }
 
@@ -1196,24 +1152,6 @@ class AigcVideoChannelService
         return false;
     }
 
-    private static function defaultVideoChannelsNeedStatusRepair(): bool
-    {
-        return AigcVideoChannel::where('tenant_id', 0)
-                ->whereIn('code', self::oldDefaultVideoChannels())
-                ->where('status', 0)
-                ->count() > 0;
-    }
-
-    private static function restoreDefaultVideoChannelStatus(): void
-    {
-        AigcVideoChannel::where('tenant_id', 0)
-            ->whereIn('code', self::oldDefaultVideoChannels())
-            ->update([
-                'status' => 1,
-                'update_time' => time(),
-            ]);
-    }
-
     private static function oldDefaultVideoChannels(): array
     {
         return ['grok_video_xaiq', 'happy_horse', 'happyhorse', 'happy_horse_video', 'wan', 'seedance', 'omni_flash_ext'];
@@ -1224,7 +1162,7 @@ class AigcVideoChannelService
         if ($name === '') {
             return '';
         }
-        return str_replace(["\u{8302}\u{5F55}\u{85DB}", "\u{8302}\u{5F55}\u{9225}\u{FFFD}"], ['（', '）'], $name);
+        return str_replace(['ï¼ˆ', 'ï¼‰'], ['（', '）'], $name);
     }
 
     private static function assertPlatformChannel(string $code): array
@@ -1320,7 +1258,7 @@ class AigcVideoChannelService
         }
         $ratio = (string)($ratioOptions[0] ?? 'adaptive');
         $spec['value'] = $ratio;
-        $spec['label'] = $ratio === 'adaptive' ? '鑷€傚簲' : $ratio;
+        $spec['label'] = $ratio === 'adaptive' ? '自适应' : $ratio;
         $spec['ratio'] = $ratio;
         return $spec;
     }
@@ -1339,7 +1277,7 @@ class AigcVideoChannelService
             }
             $row = $spec;
             $row['value'] = $ratio;
-            $row['label'] = $ratio === 'adaptive' ? '鑷€傚簲' : $ratio;
+            $row['label'] = $ratio === 'adaptive' ? '自适应' : $ratio;
             $row['ratio'] = $ratio;
             $rows[] = $row;
         }
@@ -1369,8 +1307,8 @@ class AigcVideoChannelService
     private static function normalizeDuration($value): string
     {
         $raw = trim((string)$value);
-        if (preg_match('/(?:^|_|\s|·)(\d+)\s*(?:s|秒)(?:$|[^\w])/iu', $raw, $matches)
-            || preg_match('/(?:^|_|\s|·)(\d+)(?:$|_|\s|·)/iu', $raw, $matches)
+        if (preg_match('/(?:^|_|\s|·)(\d+)\s*(?:S|秒)(?:$|[^\w])/i', $raw, $matches)
+            || preg_match('/(?:^|_|\s|·)(\d+)(?:$|_|\s|·)/i', $raw, $matches)
         ) {
             return ((int)$matches[1]) . '秒';
         }
