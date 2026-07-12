@@ -18,7 +18,6 @@ use app\common\service\point\PointService;
 use app\common\service\storage\StorageConfigService;
 use Exception;
 use think\facade\Db;
-use think\facade\Log;
 
 class AigcMusicService
 {
@@ -85,16 +84,6 @@ class AigcMusicService
 
     public static function generate(int $tenantId, int $userId, array $params): array
     {
-        return self::generateInternal($tenantId, $userId, $params);
-    }
-
-    public static function generateWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride): array
-    {
-        return self::generateInternal($tenantId, $userId, $params, $billingOverride);
-    }
-
-    private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = []): array
-    {
         $payload = self::normalizeSubmit($params, true);
         if ($payload['reference_asset_id'] > 0) {
             self::assertAsset($tenantId, $payload['reference_asset_id'], $userId);
@@ -102,7 +91,6 @@ class AigcMusicService
         self::recordSafetyAudit($tenantId, $userId, 'task', 0, 'prompt_review', 'passed', $payload['prompt'] . ' ' . $payload['lyrics']);
         $selection = AigcMusicChannelService::resolveSelection($tenantId, $params);
         $estimate = AigcMusicChannelService::estimate($tenantId, $params);
-        $estimate = self::applyBillingOverride($estimate, (int)$estimate['quantity'], $billingOverride);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
         $duplicate = self::findRecentDuplicateTask($tenantId, $userId, $payload);
@@ -599,25 +587,6 @@ class AigcMusicService
         ];
     }
 
-    private static function applyBillingOverride(array $estimate, int $quantity, array $billingOverride = []): array
-    {
-        if (!$billingOverride) {
-            return $estimate;
-        }
-        $quantity = max(1, $quantity);
-        if (array_key_exists('tenant_cost_points', $billingOverride)) {
-            $tenantTotal = max(0, round((float)$billingOverride['tenant_cost_points'], 2));
-            $estimate['tenant_cost_points'] = $tenantTotal;
-            $estimate['platform_unit_cost'] = round($tenantTotal / $quantity, 2);
-        }
-        if (array_key_exists('user_charge_points', $billingOverride)) {
-            $userTotal = max(0, round((float)$billingOverride['user_charge_points'], 2));
-            $estimate['user_charge_points'] = $userTotal;
-            $estimate['tenant_unit_price'] = round($userTotal / $quantity, 2);
-        }
-        return $estimate;
-    }
-
     private static function buildRequest(AigcMusicTask $task, array $selection, array $payload): AigcMusicGenerateRequest
     {
         $channelConfig = array_merge($selection['channel']['config_json'] ?? [], [
@@ -932,22 +901,18 @@ class AigcMusicService
 
     private static function recordSafetyAudit(int $tenantId, int $userId, string $targetType, int $targetId, string $action, string $decision, string $summary): void
     {
-        try {
-            AigcMusicSafetyAudit::create([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'target_type' => $targetType,
-                'target_id' => $targetId,
-                'action' => $action,
-                'decision' => $decision,
-                'policy_hit' => '',
-                'summary' => mb_substr($summary, 0, 200),
-                'audit_json' => ['app_code' => self::APP_CODE],
-                'create_time' => time(),
-            ]);
-        } catch (\Throwable $e) {
-            Log::write('AI music safety audit skipped: ' . $e->getMessage());
-        }
+        AigcMusicSafetyAudit::create([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'target_type' => $targetType,
+            'target_id' => $targetId,
+            'action' => $action,
+            'decision' => $decision,
+            'policy_hit' => '',
+            'summary' => mb_substr($summary, 0, 200),
+            'audit_json' => ['app_code' => self::APP_CODE],
+            'create_time' => time(),
+        ]);
     }
 
     private static function authorizationPayload(array $params): array

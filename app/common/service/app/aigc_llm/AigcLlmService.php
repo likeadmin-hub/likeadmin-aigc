@@ -416,7 +416,7 @@ class AigcLlmService
                 'session_id' => (int)$session['id'],
                 'delete_time' => 0,
             ])->where('id', '<=', $historyMaxId)->order(['seq' => 'asc', 'id' => 'asc'])->select()->toArray();
-            $history = array_values(array_filter($history, fn(array $row) => self::isContextMessage($row, (int)$assistantMessage['id'])));
+            $history = array_values(array_filter($history, fn(array $row) => in_array($row['role'], ['user', 'assistant'], true) && !($row['role'] === 'assistant' && (int)$row['id'] === (int)$assistantMessage['id'])));
             $history = self::trimContextMessages($history, (int)($config['config_json']['max_context_messages'] ?? 12));
 
             return [
@@ -532,20 +532,6 @@ class AigcLlmService
         }
     }
 
-    private static function applyTextModelOverrides(array $model, array $params): array
-    {
-        $overrides = is_array($params['model_config'] ?? null) ? (array)$params['model_config'] : [];
-        if (empty($overrides)) {
-            return $model;
-        }
-        $config = is_array($model['config_json'] ?? null) ? (array)$model['config_json'] : [];
-        if (isset($overrides['max_tokens'])) {
-            $config['max_tokens'] = max(1024, min(32768, (int)$overrides['max_tokens']));
-        }
-        $model['config_json'] = $config;
-        return $model;
-    }
-
     public static function generateText(int $tenantId, int $userId, array $params): array
     {
         $content = trim((string)($params['content'] ?? $params['prompt'] ?? ''));
@@ -561,7 +547,6 @@ class AigcLlmService
         $model = AigcLlmChannelService::resolveUserModel($tenantId, [
             'model_code' => (string)($params['model_code'] ?? $params['model'] ?? ''),
         ], $config);
-        $model = self::applyTextModelOverrides($model, $params);
         $systemPrompt = trim((string)($params['system_prompt'] ?? ''));
         if ($systemPrompt === '') {
             $systemPrompt = (string)($config['config_json']['system_prompt'] ?? '');
@@ -624,7 +609,6 @@ class AigcLlmService
             'usage' => $billing['usage'],
             'billing' => $billing['billing'],
             'charge_points' => $billing['billing']['user_charge_points'],
-            'provider_request_id' => $providerRequestId,
         ];
     }
 
@@ -643,7 +627,6 @@ class AigcLlmService
         $model = AigcLlmChannelService::resolveUserModel($tenantId, [
             'model_code' => (string)($params['model_code'] ?? $params['model'] ?? ''),
         ], $config);
-        $model = self::applyTextModelOverrides($model, $params);
         $systemPrompt = trim((string)($params['system_prompt'] ?? ''));
         if ($systemPrompt === '') {
             $systemPrompt = (string)($config['config_json']['system_prompt'] ?? '');
@@ -672,14 +655,9 @@ class AigcLlmService
         $usage = [];
         $finishReason = 'stop';
         $providerRequestId = '';
-        $emittedProviderRequestId = '';
         foreach ($provider->stream($request) as $event) {
             if (!empty($event['provider_request_id'])) {
                 $providerRequestId = (string)$event['provider_request_id'];
-                if ($onEvent && $providerRequestId !== $emittedProviderRequestId) {
-                    $emittedProviderRequestId = $providerRequestId;
-                    $onEvent('provider_request', ['provider_request_id' => $providerRequestId]);
-                }
             }
             $type = (string)($event['type'] ?? 'delta');
             if ($type === 'usage') {
@@ -719,7 +697,6 @@ class AigcLlmService
             'usage' => $billing['usage'],
             'billing' => $billing['billing'],
             'charge_points' => $billing['billing']['user_charge_points'],
-            'provider_request_id' => $providerRequestId,
         ];
     }
 
@@ -758,27 +735,6 @@ class AigcLlmService
             return $messages;
         }
         return array_slice($messages, -$limit);
-    }
-
-    private static function isContextMessage(array $row, int $currentAssistantMessageId = 0): bool
-    {
-        $role = (string)($row['role'] ?? '');
-        if (!in_array($role, ['user', 'assistant'], true)) {
-            return false;
-        }
-        if ($role === 'assistant' && $currentAssistantMessageId > 0 && (int)($row['id'] ?? 0) === $currentAssistantMessageId) {
-            return false;
-        }
-        if ($role === 'assistant') {
-            $status = (string)($row['status'] ?? '');
-            if (in_array($status, [self::MESSAGE_ERROR, self::MESSAGE_STREAMING], true)) {
-                return false;
-            }
-            if (trim((string)($row['content'] ?? '')) === '') {
-                return false;
-            }
-        }
-        return true;
     }
 
     public static function estimateTokensFromText(string $text): int

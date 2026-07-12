@@ -48,33 +48,15 @@
     "api_method": "GET"
   },
   {
-    "permission_key": "aigc_short_drama:generation_task:detail",
-    "name": "查看短剧生成任务详情",
-    "api_path": "app.aigc_short_drama.generation_task/detail",
-    "api_method": "GET"
-  },
-  {
     "permission_key": "aigc_short_drama:inspiration:lists",
     "name": "查看AI短剧灵感素材",
     "api_path": "app.aigc_short_drama.inspiration/lists",
     "api_method": "GET"
   },
   {
-    "permission_key": "aigc_short_drama:inspiration:save",
-    "name": "保存AI短剧灵感素材",
-    "api_path": "app.aigc_short_drama.inspiration/save",
-    "api_method": "POST"
-  },
-  {
     "permission_key": "aigc_short_drama:inspiration:status",
     "name": "设置AI短剧灵感素材状态",
     "api_path": "app.aigc_short_drama.inspiration/status",
-    "api_method": "POST"
-  },
-  {
-    "permission_key": "aigc_short_drama:inspiration:delete",
-    "name": "删除AI短剧灵感素材",
-    "api_path": "app.aigc_short_drama.inspiration/delete",
     "api_method": "POST"
   },
   {
