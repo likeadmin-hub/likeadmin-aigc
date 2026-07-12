@@ -78,8 +78,9 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
             'messages' => $messages,
             'stream' => true,
         ];
-        if ((int)($config['include_channel'] ?? 0) === 1 && $request->channelCode !== '') {
-            $payload['channel'] = $request->channelCode;
+        $upstreamChannelCode = trim((string)($config['upstream_channel_code'] ?? $request->channelCode));
+        if ((int)($config['include_channel'] ?? 0) === 1 && $upstreamChannelCode !== '') {
+            $payload['channel'] = $upstreamChannelCode;
         }
         foreach (['temperature', 'max_tokens', 'top_p', 'presence_penalty', 'frequency_penalty', 'enable_thinking'] as $key) {
             if (array_key_exists($key, $modelConfig)) {
