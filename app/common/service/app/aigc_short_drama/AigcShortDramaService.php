@@ -56,8 +56,9 @@ class AigcShortDramaService
 
     private const SAFE_ERROR = '生成失败，请稍后重试';
     private const DEFAULT_IMAGE = 'resource/image/common/menu_generator.png';
-    private const SCRIPT_PLAN_STALE_SECONDS = 600;
-    private const SCRIPT_PLAN_STALE_ERROR = '剧本生成未完成，请稍后重试';
+    private const SCRIPT_PLAN_STALE_SECONDS = 180;
+    private const SCRIPT_PLAN_STREAM_RECOVER_SECONDS = 45;
+    private const SCRIPT_PLAN_STALE_ERROR = '剧本生成连接已中断，请重试';
     private const SCRIPT_PLAN_STREAM_FLUSH_SECONDS = 2;
 
     public static function config(int $tenantId): array
@@ -1550,11 +1551,8 @@ class AigcShortDramaService
 
     private static function recoverPartialStreamScriptPlanTask(int $tenantId, int $userId, array $taskData): array
     {
-        if ((string)($taskData['status'] ?? '') !== self::STATUS_FAILED) {
-            return $taskData;
-        }
-        $error = (string)($taskData['error'] ?? '');
-        if (!str_contains($error, '解析') && !str_contains(strtolower($error), 'parse')) {
+        $status = (string)($taskData['status'] ?? '');
+        if (!in_array($status, [self::STATUS_RUNNING, self::STATUS_FAILED], true)) {
             return $taskData;
         }
 
@@ -1562,6 +1560,22 @@ class AigcShortDramaService
         $streamContent = (string)($state['__stream_content'] ?? '');
         if ($streamContent === '') {
             return $taskData;
+        }
+        if ($status === self::STATUS_RUNNING) {
+            $time = time();
+            $streamUpdatedAt = (int)($state['__stream_updated_at'] ?? 0);
+            $lastHeartbeatAt = max((int)($taskData['started_at'] ?? 0), (int)($taskData['update_time'] ?? 0), $streamUpdatedAt);
+            if ($lastHeartbeatAt <= 0 || $time - $lastHeartbeatAt < self::SCRIPT_PLAN_STREAM_RECOVER_SECONDS) {
+                return $taskData;
+            }
+        } else {
+            $error = (string)($taskData['error'] ?? '');
+            $recoverableError = str_contains($error, '解析')
+                || str_contains(strtolower($error), 'parse')
+                || $error === self::SCRIPT_PLAN_STALE_ERROR;
+            if (!$recoverableError) {
+                return $taskData;
+            }
         }
 
         $taskId = (string)($taskData['task_id'] ?? '');
@@ -2007,6 +2021,33 @@ class AigcShortDramaService
                     }
                     if ($event === 'delta') {
                         $streamContent .= (string)($data['delta'] ?? $data['content'] ?? '');
+                    }
+                    if ($event === 'stage') {
+                        $stageProgress = min(99, max(20, (int)($data['progress'] ?? 20)));
+                        $stageStep = trim((string)($data['current_step'] ?? '剧本策划'));
+                        if ($stageStep === '') {
+                            $stageStep = '剧本策划';
+                        }
+                        AigcShortDramaScriptTask::where([
+                            'tenant_id' => $tenantId,
+                            'user_id' => $userId,
+                            'task_id' => $taskId,
+                            'status' => self::STATUS_RUNNING,
+                        ])->update([
+                            'progress' => $stageProgress,
+                            'current_step' => $stageStep,
+                            'update_time' => $now,
+                        ]);
+                        AigcShortDramaGenerationTask::where([
+                            'tenant_id' => $tenantId,
+                            'user_id' => $userId,
+                            'task_id' => $taskId,
+                            'status' => self::STATUS_RUNNING,
+                            'delete_time' => 0,
+                        ])->update([
+                            'progress' => $stageProgress,
+                            'update_time' => $now,
+                        ]);
                     }
                     if (in_array($event, ['delta', 'provider_request'], true) && $now - $lastHeartbeatAt >= 8) {
                         $lastHeartbeatAt = $now;
@@ -5193,7 +5234,8 @@ class AigcShortDramaService
         $ratio = trim($ratioSource) ?: '9:16';
         $explicitReferences = self::generationInputReferenceAssets($tenantId, $userId, $projectId, $params, $shot);
         $explicitReferences = self::limitShortDramaVideoReferences($tenantId, $channel, $params, $shot, $explicitReferences);
-        // 视频生成只接收本次首尾帧与用'@ 指定参考；不自动提交主体、场景、三视图等辅助图'        $references = $explicitReferences;
+        // 视频生成只接收本次首尾帧与用 @ 指定参考；不自动提交主体、场景、三视图等辅助图。
+        $references = $explicitReferences;
         $requestedDuration = max(3, min(15, (int)round((float)($params['duration'] ?? $shot['recommended_duration_seconds'] ?? 5))));
         $duration = self::normalizeShortDramaVideoDuration($tenantId, $channel, (array)$references['reference_assets'], $requestedDuration);
         $videoPromptParams = array_merge($params, [
@@ -10169,6 +10211,14 @@ class AigcShortDramaService
             throw new Exception(self::scriptPlanProviderError($e->getMessage()));
         }
 
+        if ($onEvent) {
+            $onEvent('stage', [
+                'status' => self::STATUS_RUNNING,
+                'progress' => 80,
+                'current_step' => '整理剧本结构',
+            ]);
+        }
+
         $rawContent = trim((string)($llmResult['content'] ?? ''));
         $payload = self::decodeLlmJsonObject($rawContent);
         $result = self::reviewAndRepairPlanResult(self::enhancePlanResult(self::normalizeGeneratedPlanResult($payload, $prompt, $request, $title)));
@@ -10177,6 +10227,13 @@ class AigcShortDramaService
         }
         $repairLlmResult = [];
         if ((int)($result['review_report']['blocking_count'] ?? 0) > 0) {
+            if ($onEvent) {
+                $onEvent('stage', [
+                    'status' => self::STATUS_RUNNING,
+                    'progress' => 90,
+                    'current_step' => '优化剧本结构',
+                ]);
+            }
             $repairLlmResult = self::repairScriptPlanResultWithLlm($tenantId, $userId, $prompt, $request, $title, $modelCode, $result);
             $repairPayload = self::decodeLlmJsonObject(trim((string)($repairLlmResult['content'] ?? '')));
             $result = self::reviewAndRepairPlanResult(

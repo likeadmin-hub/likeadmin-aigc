@@ -169,8 +169,9 @@ class MenuLogic extends BaseLogic
                     ->delete();
             }
 
+            $systemId = self::systemDefaultMenuId($menuTable, $tenantId);
             $caseGalleryId = self::upsertSystemMenu($menuTable, $tenantId, [
-                'pid' => 0,
+                'pid' => $systemId,
                 'type' => 'C',
                 'name' => '案例广场',
                 'icon' => 'el-icon-PictureFilled',
@@ -179,13 +180,16 @@ class MenuLogic extends BaseLogic
                 'paths' => 'case-gallery',
                 'component' => 'case_gallery/index',
                 'selected' => '/case-gallery',
-                'app_code' => '',
+                'app_code' => 'system_default',
                 'source_menu_key' => 'core_tenant_case_gallery',
             ], 9102);
+            self::grantChildMenuToParentRoles($roleMenuTable, $systemId, $caseGalleryId);
+            self::grantParentMenuToChildRoles($roleMenuTable, $caseGalleryId, $systemId);
             self::grantMenuToTenantRoles($roleMenuTable, $tenantId, $caseGalleryId);
 
             foreach (self::caseGalleryPermissionMenus() as $menu) {
                 $menu['pid'] = $caseGalleryId;
+                $menu['app_code'] = 'system_default';
                 $childId = self::upsertSystemMenu($menuTable, $tenantId, $menu, (int)($menu['legacy_id'] ?? 0));
                 self::grantChildMenuToParentRoles($roleMenuTable, $caseGalleryId, $childId);
                 self::grantMenuToTenantRoles($roleMenuTable, $tenantId, $childId);
@@ -209,8 +213,9 @@ class MenuLogic extends BaseLogic
         self::ensureMenuSourceColumns($menuTable);
 
         try {
+            $systemId = self::systemDefaultMenuId($menuTable, $tenantId);
             $noticeId = self::upsertSystemMenu($menuTable, $tenantId, [
-                'pid' => 0,
+                'pid' => $systemId,
                 'type' => 'C',
                 'name' => '消息公告',
                 'icon' => 'el-icon-Bell',
@@ -218,24 +223,16 @@ class MenuLogic extends BaseLogic
                 'perms' => 'notice.pc_notice/lists',
                 'paths' => 'notice',
                 'component' => 'message/pc_notice/index',
-                'app_code' => '',
+                'app_code' => 'system_default',
                 'source_menu_key' => 'core_tenant_pc_notice',
             ], 9307);
-
-            $caseGalleryId = (int)Db::name($menuTable)
-                ->where([
-                    'tenant_id' => $tenantId,
-                    'source_menu_key' => 'core_tenant_case_gallery',
-                ])
-                ->where('source', '<>', 'tenant')
-                ->value('id');
-            if ($caseGalleryId > 0) {
-                self::grantChildMenuToParentRoles($roleMenuTable, $caseGalleryId, $noticeId);
-            }
+            self::grantChildMenuToParentRoles($roleMenuTable, $systemId, $noticeId);
+            self::grantParentMenuToChildRoles($roleMenuTable, $noticeId, $systemId);
             self::grantMenuToTenantRoles($roleMenuTable, $tenantId, $noticeId);
 
             foreach (self::pcNoticePermissionMenus() as $menu) {
                 $menu['pid'] = $noticeId;
+                $menu['app_code'] = 'system_default';
                 $childId = self::upsertSystemMenu($menuTable, $tenantId, $menu, (int)($menu['legacy_id'] ?? 0));
                 self::grantChildMenuToParentRoles($roleMenuTable, $noticeId, $childId);
                 self::grantMenuToTenantRoles($roleMenuTable, $tenantId, $childId);
@@ -294,6 +291,21 @@ class MenuLogic extends BaseLogic
 
         Db::name($table)->where('id', (int)$row['id'])->update($data);
         return (int)$row['id'];
+    }
+
+    private static function systemDefaultMenuId(string $table, int $tenantId): int
+    {
+        try {
+            return (int)Db::name($table)
+                ->where([
+                    'tenant_id' => $tenantId,
+                    'source_menu_key' => 'core_tenant_system_default',
+                ])
+                ->where('source', '<>', 'tenant')
+                ->value('id');
+        } catch (Throwable) {
+            return 0;
+        }
     }
 
     private static function findSystemMenu(string $table, int $tenantId, array $menu, int $legacyId = 0): array

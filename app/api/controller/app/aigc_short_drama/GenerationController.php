@@ -35,10 +35,8 @@ class GenerationController extends BaseApiController
         while (ob_get_level() > 0) {
             @ob_end_flush();
         }
-        header('Content-Type: text/event-stream; charset=utf-8');
-        header('Cache-Control: no-cache');
-        header('Connection: keep-alive');
-        header('X-Accel-Buffering: no');
+        $this->prepareStreamResponse();
+        $this->emitStreamPing();
 
         try {
             AigcShortDramaService::streamGenerationTask(
@@ -99,6 +97,20 @@ class GenerationController extends BaseApiController
     {
         echo 'event: ' . $event . "\n";
         echo 'data: ' . json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
+        @ob_flush();
+        @flush();
+    }
+
+    private function prepareStreamResponse(): void
+    {
+        header('Content-Type: text/event-stream; charset=utf-8');
+        header('Cache-Control: no-cache, no-transform');
+        header('X-Accel-Buffering: no');
+    }
+
+    private function emitStreamPing(): void
+    {
+        echo ": ping\n\n";
         @ob_flush();
         @flush();
     }
