@@ -199,6 +199,37 @@ class AigcVideoService
         return ['task_id' => $task['id'], 'results' => $rows];
     }
 
+    private static function referenceImageUrls(array $referenceImages, array $referenceAssets): array
+    {
+        $urls = [];
+        $append = static function (string $value) use (&$urls): void {
+            $value = trim($value);
+            if ($value === '') {
+                return;
+            }
+            if (!str_starts_with($value, 'http://') && !str_starts_with($value, 'https://') && !str_starts_with($value, 'data:')) {
+                $value = FileService::getFileUrl($value);
+            }
+            if ($value !== '' && !in_array($value, $urls, true)) {
+                $urls[] = $value;
+            }
+        };
+
+        foreach ($referenceAssets as $asset) {
+            if (!is_array($asset)) {
+                continue;
+            }
+            if (($asset['type'] ?? 'image') !== 'image') {
+                continue;
+            }
+            $append(AigcVideoReferenceAssetService::publicUrl($asset));
+        }
+        foreach ($referenceImages as $image) {
+            $append((string)$image);
+        }
+        return $urls;
+    }
+
     private static function applyBillingOverride(array $estimate, int $quantity, array $billingOverride = []): array
     {
         if (!$billingOverride) {
@@ -289,6 +320,10 @@ class AigcVideoService
             $row['video_url'] = (string)($first['video_url'] ?? '');
             $row['width'] = (int)($first['width'] ?? 0);
             $row['height'] = (int)($first['height'] ?? 0);
+            $row['reference_image_urls'] = self::referenceImageUrls(
+                (array)($row['reference_images'] ?: []),
+                (array)($row['reference_assets'] ?: [])
+            );
         }
         if ($usePage) {
             return [
@@ -314,6 +349,10 @@ class AigcVideoService
         }
         $data = $task->toArray();
         $data['results'] = self::existingResultRows($tenantId, $userId, $taskId);
+        $data['reference_image_urls'] = self::referenceImageUrls(
+            (array)($data['reference_images'] ?: []),
+            (array)($data['reference_assets'] ?: [])
+        );
         return $data;
     }
 
@@ -399,6 +438,10 @@ class AigcVideoService
             $task['video_url'] = (string)($first['video_url'] ?? '');
             $task['width'] = (int)($first['width'] ?? 0);
             $task['height'] = (int)($first['height'] ?? 0);
+            $task['reference_image_urls'] = self::referenceImageUrls(
+                (array)($task['reference_images'] ?: []),
+                (array)($task['reference_assets'] ?: [])
+            );
         }
         return $tasks;
     }

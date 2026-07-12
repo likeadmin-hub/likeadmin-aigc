@@ -1,10 +1,10 @@
 {
   "code": "aigc_short_drama",
   "name": "AI短剧",
-  "version": "1.0.4",
+  "version": "1.0.3",
   "require_core": ">=1.0.0",
   "description": "Short drama script planning application with a PC immersive creation homepage and structured Agent planning workflow.",
-  "changelog": "1. 优化短剧创作页在小尺寸电脑下的顶部显示。\n2. 修复短剧视频生成失败的问题。\n3. 提升分镜内容区域滚动体验。",
+  "changelog": "1. 新增短剧剧本、主体、场景、分镜与视频生成能力。\n2. 支持租户后台配置短剧模型、素材库与任务管理。\n3. 支持 PC 端短剧创作工作台与项目管理。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",

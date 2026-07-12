@@ -46,15 +46,7 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
     {
         try {
             $config = $this->resolveConfig($request);
-            $task = $this->request(
-                'GET',
-                str_replace('{task_id}', rawurlencode($taskId), $config['task_url_template']),
-                $config['api_key'],
-                [],
-                (int)$config['timeout'],
-                (bool)$config['ssl_verify'],
-                (int)$config['connect_timeout']
-            );
+            $task = $this->fetchTaskWithFallback($taskId, $config);
             if ($this->isTaskPending($task)) {
                 return new AigcImageGenerateResult(true, [], '', $taskId);
             }
@@ -70,6 +62,36 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             }
             return new AigcImageGenerateResult(false, [], $this->friendlyError($e->getMessage()), $taskId);
         }
+    }
+
+    private function fetchTaskWithFallback(string $taskId, array $config): array
+    {
+        $templates = array_values(array_unique(array_filter(array_map('strval', (array)($config['task_url_templates'] ?? [$config['task_url_template'] ?? ''])))));
+        $lastError = null;
+        foreach ($templates as $index => $template) {
+            try {
+                return $this->request(
+                    'GET',
+                    str_replace('{task_id}', rawurlencode($taskId), $template),
+                    $config['api_key'],
+                    [],
+                    (int)$config['timeout'],
+                    (bool)$config['ssl_verify'],
+                    (int)$config['connect_timeout']
+                );
+            } catch (\Throwable $e) {
+                $lastError = $e;
+                if (!$this->isTransientFetchError($e->getMessage()) || $index >= count($templates) - 1) {
+                    throw $e;
+                }
+                Log::write('AIGC生图供应商任务主域名查询失败，尝试备用域名: ' . json_encode([
+                    'provider' => 'xhadmin_aigc_image',
+                    'task_id' => $taskId,
+                    'message' => $e->getMessage(),
+                ], JSON_UNESCAPED_UNICODE));
+            }
+        }
+        throw $lastError ?: new Exception('供应商任务查询失败');
     }
 
     private function buildResultFromTask(array $task, string $taskId, AigcImageGenerateRequest $request, array $config): AigcImageGenerateResult
@@ -126,11 +148,18 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
         if ($apiKey === '') {
             throw new Exception('请先在系统服务的接口渠道中配置 API Key');
         }
+        $fallbackBaseUrls = array_values(array_unique(array_filter([
+            $baseUrl,
+            $this->sourceBaseUrl((string)($source['base_url'] ?? '')),
+            $this->sourceBaseUrl((string)($source['online_base_url'] ?? '')),
+        ])));
+        $taskUrlTemplates = array_map(static fn(string $url): string => $url . '/' . ltrim($taskPath, '/'), $fallbackBaseUrls);
         return [
             'api_key' => $apiKey,
             'model' => (string)($config['model'] ?? $request->providerParams['model'] ?? 'gpt-image-2'),
             'submit_url' => $baseUrl . '/' . ltrim($submitPath, '/'),
             'task_url_template' => $baseUrl . '/' . ltrim($taskPath, '/'),
+            'task_url_templates' => $taskUrlTemplates,
             'timeout' => max(self::DEFAULT_TIMEOUT, (int)($config['timeout'] ?? self::DEFAULT_TIMEOUT)),
             'connect_timeout' => max(5, min(60, (int)($config['connect_timeout'] ?? self::DEFAULT_CONNECT_TIMEOUT))),
             'submit_retry_attempts' => max(1, min(3, (int)($config['submit_retry_attempts'] ?? self::DEFAULT_SUBMIT_RETRY_ATTEMPTS))),
@@ -323,6 +352,8 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_SSL_VERIFYPEER => $sslVerify,
             CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
+            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
         ]);
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
