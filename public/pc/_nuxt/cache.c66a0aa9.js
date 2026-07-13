@@ -1,0 +1,1 @@
+import{ao as c,g as d,S as i,U as p}from"./entry.a4122ad6.js";const u=5*60*1e3,C=e=>{if(e==null||e==="")return"";try{return encodeURIComponent(JSON.stringify(e))}catch{return encodeURIComponent(String(e))}},g=(e,t,n,o=u)=>{const a=c(),r=d(),s=`${e}:tenant:${a||"default"}:token:${r.token||"guest"}:${C(n)}`;return i(s,t,{ttl:o,staleWhileRevalidate:!0})},R=e=>p(e);export{g,R as i};

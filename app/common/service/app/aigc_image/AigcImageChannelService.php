@@ -31,7 +31,6 @@ class AigcImageChannelService
     {
         $resolved = self::resolveSelection($tenantId, $params);
         $quantity = self::normalizeQuantity($params['quantity'] ?? 1);
-        self::assertChannelQuantity($resolved['channel'], $quantity);
         $tenantCost = self::formatPoints((float)$resolved['spec']['platform_unit_cost'] * $quantity);
         $userCharge = self::formatPoints((float)$resolved['spec']['tenant_unit_price'] * $quantity);
         return [
@@ -672,6 +671,9 @@ class AigcImageChannelService
         foreach ($channels as &$channel) {
             unset($channel['config_json']);
             if (!$forTenantAdmin) {
+                // The user-facing quantity is a requested image count. Channels that only
+                // accept one image per upstream call are submitted as a batch by the client.
+                $channel['quantity_options'] = self::QUANTITY_OPTIONS;
                 unset($channel['provider'], $channel['model']);
             }
             foreach ($channel['specs'] as &$spec) {

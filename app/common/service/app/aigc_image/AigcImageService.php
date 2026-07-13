@@ -91,6 +91,12 @@ class AigcImageService
             throw new Exception('参考图数量超出限制');
         }
         $providerParams = self::providerParamsForRequest($selection['spec']['provider_params_json'] ?? [], $params);
+        $storedProviderParams = $providerParams;
+        $batchKey = trim((string)($params['batch_key'] ?? ''));
+        if ($batchKey !== '') {
+            // Keep sibling single-image requests in one user action from being treated as retries.
+            $storedProviderParams['_batch_key'] = $batchKey;
+        }
         self::checkSensitiveWords($tenantId, $prompt);
         $duplicateCriteria = [
             'prompt' => $prompt,
@@ -101,7 +107,7 @@ class AigcImageService
             'ratio' => (string)$selection['spec']['ratio'],
             'quantity' => $quantity,
             'reference_images' => $referenceImages,
-            'provider_params_json' => $providerParams,
+            'provider_params_json' => $storedProviderParams,
         ];
         $estimate = AigcImageChannelService::estimate($tenantId, array_merge($params, [
             'channel' => $selection['channel']['code'],
@@ -127,7 +133,7 @@ class AigcImageService
                 'prompt' => $prompt,
                 'negative_prompt' => $params['negative_prompt'] ?? '',
                 'reference_images' => $referenceImages,
-                'provider_params_json' => $providerParams,
+                'provider_params_json' => $storedProviderParams,
                 'style' => $params['style'] ?? 'general',
                 'channel' => $selection['channel']['code'],
                 'quality' => $selection['spec']['quality'],
@@ -724,6 +730,12 @@ class AigcImageService
 
     private static function buildRequestFromTask(AigcImageTask $task, array $selection): AigcImageGenerateRequest
     {
+        $providerParams = array_merge(
+            $selection['spec']['provider_params_json'] ?? [],
+            is_array($task['provider_params_json'] ?? null) ? $task['provider_params_json'] : []
+        );
+        unset($providerParams['_batch_key']);
+
         return new AigcImageGenerateRequest(
             (string)$task['prompt'],
             (string)$task['negative_prompt'],
@@ -734,7 +746,7 @@ class AigcImageService
             (int)$task['quantity'],
             (array)($task['reference_images'] ?: []),
             $selection['spec'],
-            array_merge($selection['spec']['provider_params_json'] ?? [], is_array($task['provider_params_json'] ?? null) ? $task['provider_params_json'] : []),
+            $providerParams,
             array_merge($selection['channel']['config_json'] ?? [], [
                 'model' => $selection['channel']['model'],
                 'tenant_id' => (int)$task['tenant_id'],
