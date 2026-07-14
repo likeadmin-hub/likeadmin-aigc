@@ -76,7 +76,7 @@ class AigcVideoChannelService
             if ($channel['code'] !== $channelCode) {
                 continue;
             }
-            $quality = $requestedQuality !== '' ? $requestedQuality : self::defaultQualityForChannel($channel);
+            $quality = self::normalizeRequestedQuality($channel, $requestedQuality);
             $pricingVariant = self::pricingVariantFromParams($channel['code'], $params);
             foreach ($channel['qualities'] as $qualityItem) {
                 if (!self::qualityMatches($qualityItem, $quality)
@@ -112,6 +112,24 @@ class AigcVideoChannelService
     {
         $quality = (array)(($channel['qualities'] ?? [])[0] ?? []);
         return (string)($quality['value'] ?? '');
+    }
+
+    private static function normalizeRequestedQuality(array $channel, string $requestedQuality): string
+    {
+        if ($requestedQuality === '') {
+            return self::defaultQualityForChannel($channel);
+        }
+        foreach ($channel['qualities'] ?? [] as $quality) {
+            if (self::qualityMatches((array)$quality, $requestedQuality)) {
+                return $requestedQuality;
+            }
+        }
+        $duration = self::normalizeDurationValue($requestedQuality);
+        $durationOptions = array_map('intval', (array)($channel['duration_options'] ?? []));
+        if ($duration > 0 && in_array($duration, $durationOptions, true)) {
+            return self::defaultQualityForChannel($channel);
+        }
+        return $requestedQuality;
     }
 
     private static function defaultRatioForQuality(array $quality): string
