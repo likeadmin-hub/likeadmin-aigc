@@ -3,7 +3,7 @@
 namespace app\platformapi\controller\app\aigc_llm;
 
 use app\common\model\app\aigc_llm\AigcLlmModel;
-use app\common\service\app\UpstreamPricingService;
+use app\common\service\app\aigc_llm\AigcLlmChannelService;
 use app\platformapi\controller\BaseAdminController;
 
 class PricingController extends BaseAdminController
@@ -16,9 +16,7 @@ class PricingController extends BaseAdminController
             if (!$row || $row->isEmpty()) {
                 return $this->fail('模型不存在');
             }
-            $config = is_array($row['config_json'] ?? null) ? $row['config_json'] : [];
-            $channelCode = (string)($config['upstream_channel_code'] ?? $row['channel_code']);
-            return $this->success('获取成功', UpstreamPricingService::queryModel((string)$row['model'], $channelCode));
+            return $this->success('获取成功', AigcLlmChannelService::queryPlatformModelPricing($row->toArray()));
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
         }

@@ -16,15 +16,16 @@ class UpstreamPricingService
         if ($model === '') {
             throw new Exception('模型编码不能为空');
         }
-        $params = [
+        $item = [
             'type' => 'model',
             'model' => $model,
         ];
         $channel = trim($channel);
         if ($channel !== '') {
-            $params['channel'] = $channel;
+            $item['channel'] = $channel;
         }
-        return self::normalizeItem(self::request('GET', '/api/v1/pricing', $params));
+        $result = self::queryBatch([$item]);
+        return $result['items'][0] ?? self::normalizeItem([]);
     }
 
     public static function queryAppApi(string $appCode, string $apiCode): array

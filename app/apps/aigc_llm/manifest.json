@@ -1,10 +1,10 @@
 {
   "code": "aigc_llm",
   "name": "AIGC对话",
-  "version": "1.1.4",
+  "version": "1.1.8",
   "require_core": ">=1.0.0",
   "description": "AIGC large model conversation application with multi-session, multi-turn context and SSE streaming.",
-  "changelog": "1. 修复 AIGC 对话生成失败的问题。\n2. 提升多模态对话体验。\n3. 优化失败会话的恢复体验。",
+  "changelog": "1. 支持批量启用和停用对话模型。\n2. 支持查看上游成本并设置平台向租户售价。\n3. 租户可查看平台售价并设置用户售价。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
