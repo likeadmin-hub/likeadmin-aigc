@@ -41,6 +41,13 @@ CREATE TABLE IF NOT EXISTS `la_aigc_llm_model` (
   `context_limit` int unsigned NOT NULL DEFAULT 12,
   `platform_unit_cost` decimal(10,2) NOT NULL DEFAULT 0.00,
   `tenant_unit_price` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `platform_input_unit_cost` decimal(12,4) NOT NULL DEFAULT 0.0000 COMMENT '上游输入成本，点/百万Token',
+  `platform_output_unit_cost` decimal(12,4) NOT NULL DEFAULT 0.0000 COMMENT '上游输出成本，点/百万Token',
+  `platform_input_unit_price` decimal(12,4) NOT NULL DEFAULT 0.0000 COMMENT '平台向租户收取的输入售价，点/百万Token',
+  `platform_output_unit_price` decimal(12,4) NOT NULL DEFAULT 0.0000 COMMENT '平台向租户收取的输出售价，点/百万Token',
+  `tenant_input_unit_price` decimal(12,4) NOT NULL DEFAULT 0.0000 COMMENT '租户向用户收取的输入售价，点/百万Token',
+  `tenant_output_unit_price` decimal(12,4) NOT NULL DEFAULT 0.0000 COMMENT '租户向用户收取的输出售价，点/百万Token',
+  `billing_unit` varchar(30) NOT NULL DEFAULT 'tokens_1m' COMMENT '计费单位',
   `config_json` text,
   `status` tinyint NOT NULL DEFAULT 1,
   `sort` int NOT NULL DEFAULT 0,
@@ -113,6 +120,6 @@ SELECT 0, 'dashscope_compatible', 'Qwen3.6-Plus 兼容通道', 'openai_compatibl
 WHERE NOT EXISTS (SELECT 1 FROM `la_aigc_llm_channel` WHERE `tenant_id` = 0 AND `code` = 'dashscope_compatible');
 
 INSERT INTO `la_aigc_llm_model`
-(`tenant_id`, `channel_code`, `code`, `name`, `provider`, `model`, `context_limit`, `platform_unit_cost`, `tenant_unit_price`, `config_json`, `status`, `sort`, `create_time`, `update_time`)
-SELECT 0, 'dashscope_compatible', 'qwen3_6_plus', 'Qwen3.6-Plus', 'openai_compatible', 'qwen3.6-plus', 24, 200.00, 200.00, '{"temperature":0.7,"max_tokens":8192,"enable_thinking":false,"stream_options":{"include_usage":true}}', 1, 1000, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
+(`tenant_id`, `channel_code`, `code`, `name`, `provider`, `model`, `context_limit`, `platform_unit_cost`, `tenant_unit_price`, `platform_input_unit_cost`, `platform_output_unit_cost`, `platform_input_unit_price`, `platform_output_unit_price`, `tenant_input_unit_price`, `tenant_output_unit_price`, `billing_unit`, `config_json`, `status`, `sort`, `create_time`, `update_time`)
+SELECT 0, 'dashscope_compatible', 'qwen3_6_plus', 'Qwen3.6-Plus', 'openai_compatible', 'qwen3.6-plus', 24, 200.00, 200.00, 200.0000, 1200.0000, 200.0000, 1200.0000, 200.0000, 1200.0000, 'tokens_1m', '{"temperature":0.7,"max_tokens":8192,"enable_thinking":false,"stream_options":{"include_usage":true}}', 1, 1000, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
 WHERE NOT EXISTS (SELECT 1 FROM `la_aigc_llm_model` WHERE `tenant_id` = 0 AND `code` = 'qwen3_6_plus');

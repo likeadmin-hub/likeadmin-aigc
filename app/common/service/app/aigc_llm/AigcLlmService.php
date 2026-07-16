@@ -835,7 +835,7 @@ class AigcLlmService
     private static function estimateBilling(array $history, string $output, array $model, array $providerUsage = []): array
     {
         $usage = self::buildUsage($history, $output, $providerUsage, $model);
-        $tenantCost = ((int)$usage['prompt_tokens'] * (float)($model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? 0) + (int)$usage['completion_tokens'] * (float)($model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)) / 1000000;
+        $tenantCost = ((int)$usage['prompt_tokens'] * (float)($model['platform_input_unit_price'] ?? $model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? 0) + (int)$usage['completion_tokens'] * (float)($model['platform_output_unit_price'] ?? $model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)) / 1000000;
         $userCharge = ((int)$usage['prompt_tokens'] * (float)($model['tenant_input_unit_price'] ?? $model['tenant_unit_price'] ?? 0) + (int)$usage['completion_tokens'] * (float)($model['tenant_output_unit_price'] ?? $model['tenant_unit_price'] ?? 0)) / 1000000;
         return [
             'usage' => $usage,
@@ -844,6 +844,8 @@ class AigcLlmService
             'price' => [
                 'platform_input_unit_cost' => self::formatUnitPrice((float)($model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)),
                 'platform_output_unit_cost' => self::formatUnitPrice((float)($model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)),
+                'platform_input_unit_price' => self::formatUnitPrice((float)($model['platform_input_unit_price'] ?? $model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)),
+                'platform_output_unit_price' => self::formatUnitPrice((float)($model['platform_output_unit_price'] ?? $model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)),
                 'tenant_input_unit_price' => self::formatUnitPrice((float)($model['tenant_input_unit_price'] ?? $model['tenant_unit_price'] ?? 0)),
                 'tenant_output_unit_price' => self::formatUnitPrice((float)($model['tenant_output_unit_price'] ?? $model['tenant_unit_price'] ?? 0)),
                 'billing_unit' => 'tokens_1m',

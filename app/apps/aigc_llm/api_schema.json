@@ -258,6 +258,14 @@
       "need_role_permission": 1
     },
     {
+      "api_path": "app.aigc_llm.model/batchStatus",
+      "api_method": "POST",
+      "permission_key": "aigc_llm:model:status:platform",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
       "api_path": "app.aigc_llm.model/syncTextModels",
       "api_method": "POST",
       "permission_key": "aigc_llm:model:save:platform",

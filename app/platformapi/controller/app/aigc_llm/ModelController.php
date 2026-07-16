@@ -50,4 +50,14 @@ class ModelController extends BaseAdminController
             return $this->fail($e->getMessage());
         }
     }
+
+    public function batchStatus()
+    {
+        try {
+            $updated = AigcLlmChannelService::statusPlatformModels($this->request->post());
+            return $this->success('设置成功', ['updated' => $updated], 1, 1);
+        } catch (\Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
 }

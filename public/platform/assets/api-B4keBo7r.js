@@ -1,1 +1,0 @@
-import{r as n}from"./index-Bhv5b3iU.js";function e(t){return n.get({url:"/app.aigc_fitting.tenant/stat",params:t})}function g(t){return n.get({url:"/app.aigc_fitting.tenant/lists",params:t})}function a(t){return n.get({url:"/app.aigc_fitting.config/dependencies",params:t})}export{e as a,g as b,a as g};
