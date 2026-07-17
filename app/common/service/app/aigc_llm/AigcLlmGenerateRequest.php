@@ -13,6 +13,9 @@ class AigcLlmGenerateRequest
     public array $messages;
     public array $modelConfig;
     public array $channelConfig;
+    public array $tools;
+    public $toolChoice;
+    public array $responseFormat;
 
     public function __construct(
         int $tenantId,
@@ -23,7 +26,10 @@ class AigcLlmGenerateRequest
         string $modelCode = 'qwen3_6_plus',
         array $messages = [],
         array $modelConfig = [],
-        array $channelConfig = []
+        array $channelConfig = [],
+        array $tools = [],
+        $toolChoice = null,
+        array $responseFormat = []
     ) {
         $this->tenantId = $tenantId;
         $this->userId = $userId;
@@ -34,5 +40,8 @@ class AigcLlmGenerateRequest
         $this->messages = $messages;
         $this->modelConfig = $modelConfig;
         $this->channelConfig = $channelConfig;
+        $this->tools = $tools;
+        $this->toolChoice = $toolChoice;
+        $this->responseFormat = $responseFormat;
     }
 }

@@ -76,7 +76,7 @@ class AigcVideoChannelService
             if ($channel['code'] !== $channelCode) {
                 continue;
             }
-            $quality = self::normalizeRequestedQuality($channel, $requestedQuality);
+            $quality = $requestedQuality !== '' ? $requestedQuality : self::defaultQualityForChannel($channel);
             $pricingVariant = self::pricingVariantFromParams($channel['code'], $params);
             foreach ($channel['qualities'] as $qualityItem) {
                 if (!self::qualityMatches($qualityItem, $quality)
@@ -112,24 +112,6 @@ class AigcVideoChannelService
     {
         $quality = (array)(($channel['qualities'] ?? [])[0] ?? []);
         return (string)($quality['value'] ?? '');
-    }
-
-    private static function normalizeRequestedQuality(array $channel, string $requestedQuality): string
-    {
-        if ($requestedQuality === '') {
-            return self::defaultQualityForChannel($channel);
-        }
-        foreach ($channel['qualities'] ?? [] as $quality) {
-            if (self::qualityMatches((array)$quality, $requestedQuality)) {
-                return $requestedQuality;
-            }
-        }
-        $duration = self::normalizeDurationValue($requestedQuality);
-        $durationOptions = array_map('intval', (array)($channel['duration_options'] ?? []));
-        if ($duration > 0 && in_array($duration, $durationOptions, true)) {
-            return self::defaultQualityForChannel($channel);
-        }
-        return $requestedQuality;
     }
 
     private static function defaultRatioForQuality(array $quality): string
@@ -409,6 +391,7 @@ class AigcVideoChannelService
                 'ratio_options' => self::channelRatioOptions((string)$platformChannel['code'], $config),
                 'videoedit_duration_options' => self::channelVideoEditDurationOptions($config),
                 'supported_asset_types' => self::supportedAssetTypes($config),
+                'generation_modes' => self::generationModes($platformChannel, $config),
                 'mode_options' => self::modeOptions($config),
                 'max_reference_videos' => max(0, (int)($config['max_reference_videos'] ?? 0)),
                 'max_reference_audios' => max(0, (int)($config['max_reference_audios'] ?? 0)),
@@ -632,6 +615,42 @@ class AigcVideoChannelService
             return in_array($type, ['image', 'video', 'audio'], true) ? $type : '';
         }, $types))));
         return $types ?: ['image'];
+    }
+
+    private static function generationModes(array $channel, array $config): array
+    {
+        $allowed = ['omni_reference', 'start_end', 'multi_frame'];
+        $configured = $config['generation_modes'] ?? [];
+        if (is_array($configured) && !empty($configured)) {
+            $modes = array_values(array_unique(array_filter(array_map(
+                static fn($mode): string => in_array(strtolower(trim((string)$mode)), $allowed, true)
+                    ? strtolower(trim((string)$mode))
+                    : '',
+                $configured
+            ))));
+            if (!empty($modes)) {
+                return $modes;
+            }
+        }
+
+        $types = self::supportedAssetTypes($config);
+        $maxImages = max(0, (int)($channel['max_reference_images'] ?? 0));
+        $maxVideos = max(0, (int)($config['max_reference_videos'] ?? 0));
+        $maxAudios = max(0, (int)($config['max_reference_audios'] ?? 0));
+        $modes = [];
+        if (
+            $maxImages > 0 && $maxVideos > 0 && $maxAudios > 0
+            && count(array_intersect(['image', 'video', 'audio'], $types)) === 3
+        ) {
+            $modes[] = 'omni_reference';
+        }
+        if ($maxImages >= 2 && in_array('image', $types, true)) {
+            $modes[] = 'start_end';
+        }
+        if ($maxImages >= 3 && in_array('image', $types, true)) {
+            $modes[] = 'multi_frame';
+        }
+        return $modes;
     }
 
     private static function effectiveTenantUnitPrice(array $platformSpec, array $tenantSpec = []): float

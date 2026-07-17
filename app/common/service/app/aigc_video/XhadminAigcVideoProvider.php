@@ -158,6 +158,9 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
             'aspect_ratio' => $request->providerParams['aspect_ratio'] ?? $request->ratio,
             'duration' => (int)($request->providerParams['duration'] ?? ($request->quality ?: 6)),
             'negative_prompt' => $request->negativePrompt ?: null,
+            'generation_method' => $request->providerParams['generation_method'] ?? null,
+            'first_frame_image' => $request->providerParams['first_frame_image'] ?? null,
+            'last_frame_image' => $request->providerParams['last_frame_image'] ?? null,
         ], $config['extra_payload']));
     }
 
@@ -181,6 +184,9 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
             'video_references' => $videoReferences,
             'audio_references' => $audioReferences,
             'audio_urls' => array_values(array_filter(array_map(static fn(array $item) => (string)($item['url'] ?? ''), $audioReferences))),
+            'generation_method' => $request->providerParams['generation_method'] ?? null,
+            'first_frame_image' => $request->providerParams['first_frame_image'] ?? null,
+            'last_frame_image' => $request->providerParams['last_frame_image'] ?? null,
             'callback_url' => $request->providerParams['callback_url'] ?? $config['callback_url'] ?? null,
         ];
         return $this->filterPayload(array_merge($payload, $config['extra_payload']));
@@ -214,12 +220,12 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
             'seed' => $request->providerParams['seed'] ?? null,
             'watermark' => $request->providerParams['watermark'] ?? null,
             'metadata' => $request->providerParams['metadata'] ?? null,
+            'generation_method' => $request->providerParams['generation_method'] ?? null,
+            'first_frame_image' => $request->providerParams['first_frame_image'] ?? null,
+            'last_frame_image' => $request->providerParams['last_frame_image'] ?? null,
         ];
         if ($model === 'wan2.7-r2v' && !empty($imageUrls)) {
-            $payload['image_with_roles'] = array_map(static fn($url) => [
-                'url' => $url,
-                'role' => 'reference_image',
-            ], array_slice($imageUrls, 0, 2));
+            $payload['image_with_roles'] = $this->buildImageReferences($request, $imageUrls);
         }
         return $this->filterPayload(array_merge($payload, $config['extra_payload']));
     }
@@ -235,6 +241,9 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
             'aspect_ratio' => $request->providerParams['aspect_ratio'] ?? $request->ratio,
             'size' => $request->providerParams['size'] ?? $request->ratio,
             'image_urls' => $imageUrls,
+            'generation_method' => $request->providerParams['generation_method'] ?? null,
+            'first_frame_image' => $request->providerParams['first_frame_image'] ?? null,
+            'last_frame_image' => $request->providerParams['last_frame_image'] ?? null,
         ], $config['extra_payload']));
     }
 
@@ -276,6 +285,16 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
             'image_urls' => $assetUrls[AigcVideoReferenceAssetService::TYPE_IMAGE],
             'video_urls' => $assetUrls[AigcVideoReferenceAssetService::TYPE_VIDEO],
             'audio_urls' => $assetUrls[AigcVideoReferenceAssetService::TYPE_AUDIO],
+            'image_with_roles' => array_values(array_map(static fn(array $item): array => [
+                'url' => (string)($item['url'] ?? ''),
+                'role' => (string)($item['role'] ?? 'reference_image'),
+            ], array_filter(
+                $uploadedAssetIds,
+                static fn(array $item): bool => ($item['type'] ?? '') === AigcVideoReferenceAssetService::TYPE_IMAGE
+            ))),
+            'generation_method' => $request->providerParams['generation_method'] ?? null,
+            'first_frame_image' => $request->providerParams['first_frame_image'] ?? null,
+            'last_frame_image' => $request->providerParams['last_frame_image'] ?? null,
             'duration' => (int)($request->providerParams['duration'] ?? ($request->quality ?: 5)),
             'resolution' => $request->providerParams['resolution'] ?? $request->providerParams['quality'] ?? $config['resolution'] ?? $config['quality'] ?? '720p',
             'negative_prompt' => $request->negativePrompt ?: null,
@@ -322,6 +341,8 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
             $uploaded[] = [
                 'type' => (string)($asset['type'] ?? 'image'),
                 'asset_id' => $assetId,
+                'url' => $this->seedanceAssetUri($assetId),
+                'role' => (string)($asset['role'] ?? ''),
             ];
         }
         return $uploaded;
@@ -353,6 +374,34 @@ class XhadminAigcVideoProvider implements AigcVideoProviderInterface
             }
         }
         return $grouped;
+    }
+
+    private function buildImageReferences(AigcVideoGenerateRequest $request, array $fallbackUrls = []): array
+    {
+        $items = [];
+        foreach ($request->referenceAssets as $asset) {
+            if (!is_array($asset) || ($asset['type'] ?? '') !== AigcVideoReferenceAssetService::TYPE_IMAGE) {
+                continue;
+            }
+            $url = AigcVideoReferenceAssetService::publicUrl($asset);
+            if ($url === '') {
+                continue;
+            }
+            $items[] = [
+                'url' => $url,
+                'role' => (string)($asset['role'] ?? 'reference_image'),
+            ];
+            if (count($items) >= 9) {
+                break;
+            }
+        }
+        if (!empty($items)) {
+            return $items;
+        }
+        return array_map(static fn($url): array => [
+            'url' => (string)$url,
+            'role' => 'reference_image',
+        ], array_slice($fallbackUrls, 0, 9));
     }
 
     private function buildAudioReferences(array $assets): array

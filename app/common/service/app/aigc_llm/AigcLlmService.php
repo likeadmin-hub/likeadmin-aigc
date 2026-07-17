@@ -581,7 +581,10 @@ class AigcLlmService
             (string)($model['code'] ?? ''),
             $history,
             $model,
-            self::resolveChannelConfig($tenantId, (string)($model['channel_code'] ?? ''))
+            self::resolveChannelConfig($tenantId, (string)($model['channel_code'] ?? '')),
+            self::normalizeTools($params['tools'] ?? []),
+            $params['tool_choice'] ?? null,
+            self::normalizeResponseFormat($params['response_format'] ?? [])
         );
 
         $provider = self::providerFor((string)($model['provider'] ?? 'openai_compatible'));
@@ -589,6 +592,7 @@ class AigcLlmService
         $usage = [];
         $finishReason = 'stop';
         $providerRequestId = '';
+        $toolCalls = [];
         foreach ($provider->stream($request) as $event) {
             if (!empty($event['provider_request_id'])) {
                 $providerRequestId = (string)$event['provider_request_id'];
@@ -602,9 +606,12 @@ class AigcLlmService
                 $finishReason = (string)($event['finish_reason'] ?? $finishReason);
                 continue;
             }
+            if ($type === 'tool_calls') {
+                self::mergeToolCalls($toolCalls, (array)($event['tool_calls'] ?? []));
+            }
             $output .= (string)($event['content'] ?? '');
         }
-        if (trim($output) === '') {
+        if (trim($output) === '' && empty($toolCalls)) {
             throw new Exception(self::emptyTextError($finishReason, count(self::normalizeReferenceImages((array)($params['reference_images'] ?? $params['image_urls'] ?? [])))));
         }
 
@@ -625,6 +632,7 @@ class AigcLlmService
             'billing' => $billing['billing'],
             'charge_points' => $billing['billing']['user_charge_points'],
             'provider_request_id' => $providerRequestId,
+            'tool_calls' => array_values($toolCalls),
         ];
     }
 
@@ -664,7 +672,10 @@ class AigcLlmService
             (string)($model['code'] ?? ''),
             $history,
             $model,
-            self::resolveChannelConfig($tenantId, (string)($model['channel_code'] ?? ''))
+            self::resolveChannelConfig($tenantId, (string)($model['channel_code'] ?? '')),
+            self::normalizeTools($params['tools'] ?? []),
+            $params['tool_choice'] ?? null,
+            self::normalizeResponseFormat($params['response_format'] ?? [])
         );
 
         $provider = self::providerFor((string)($model['provider'] ?? 'openai_compatible'));
@@ -673,6 +684,7 @@ class AigcLlmService
         $finishReason = 'stop';
         $providerRequestId = '';
         $emittedProviderRequestId = '';
+        $toolCalls = [];
         foreach ($provider->stream($request) as $event) {
             if (!empty($event['provider_request_id'])) {
                 $providerRequestId = (string)$event['provider_request_id'];
@@ -690,6 +702,12 @@ class AigcLlmService
                 $finishReason = (string)($event['finish_reason'] ?? $finishReason);
                 continue;
             }
+            if ($type === 'tool_calls') {
+                self::mergeToolCalls($toolCalls, (array)($event['tool_calls'] ?? []));
+                if ($onEvent) {
+                    $onEvent('tool_calls', ['tool_calls' => array_values($toolCalls)]);
+                }
+            }
             $delta = (string)($event['content'] ?? '');
             if ($delta === '') {
                 continue;
@@ -699,7 +717,7 @@ class AigcLlmService
                 $onEvent('delta', ['delta' => $delta]);
             }
         }
-        if (trim($output) === '') {
+        if (trim($output) === '' && empty($toolCalls)) {
             throw new Exception(self::emptyTextError($finishReason, count($referenceImages)));
         }
 
@@ -720,7 +738,43 @@ class AigcLlmService
             'billing' => $billing['billing'],
             'charge_points' => $billing['billing']['user_charge_points'],
             'provider_request_id' => $providerRequestId,
+            'tool_calls' => array_values($toolCalls),
         ];
+    }
+
+    private static function normalizeTools($tools): array
+    {
+        return is_array($tools) ? array_values(array_filter($tools, 'is_array')) : [];
+    }
+
+    private static function normalizeResponseFormat($format): array
+    {
+        if (is_string($format)) {
+            $decoded = json_decode($format, true);
+            $format = is_array($decoded) ? $decoded : [];
+        }
+        return is_array($format) ? $format : [];
+    }
+
+    private static function mergeToolCalls(array &$current, array $incoming): void
+    {
+        foreach ($incoming as $position => $call) {
+            if (!is_array($call)) {
+                continue;
+            }
+            $index = (int)($call['index'] ?? $position);
+            $existing = $current[$index] ?? [
+                'id' => '',
+                'type' => 'function',
+                'function' => ['name' => '', 'arguments' => ''],
+            ];
+            $existing['id'] = (string)($call['id'] ?? $existing['id']);
+            $existing['type'] = (string)($call['type'] ?? $existing['type']);
+            $existing['function']['name'] .= (string)($call['name'] ?? '');
+            $existing['function']['arguments'] .= (string)($call['arguments'] ?? '');
+            $current[$index] = $existing;
+        }
+        ksort($current);
     }
 
     private static function providerFor(string $provider): AigcLlmProviderInterface
@@ -835,7 +889,7 @@ class AigcLlmService
     private static function estimateBilling(array $history, string $output, array $model, array $providerUsage = []): array
     {
         $usage = self::buildUsage($history, $output, $providerUsage, $model);
-        $tenantCost = ((int)$usage['prompt_tokens'] * (float)($model['platform_input_unit_price'] ?? $model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? 0) + (int)$usage['completion_tokens'] * (float)($model['platform_output_unit_price'] ?? $model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)) / 1000000;
+        $tenantCost = ((int)$usage['prompt_tokens'] * (float)($model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? 0) + (int)$usage['completion_tokens'] * (float)($model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)) / 1000000;
         $userCharge = ((int)$usage['prompt_tokens'] * (float)($model['tenant_input_unit_price'] ?? $model['tenant_unit_price'] ?? 0) + (int)$usage['completion_tokens'] * (float)($model['tenant_output_unit_price'] ?? $model['tenant_unit_price'] ?? 0)) / 1000000;
         return [
             'usage' => $usage,
@@ -844,8 +898,6 @@ class AigcLlmService
             'price' => [
                 'platform_input_unit_cost' => self::formatUnitPrice((float)($model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)),
                 'platform_output_unit_cost' => self::formatUnitPrice((float)($model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)),
-                'platform_input_unit_price' => self::formatUnitPrice((float)($model['platform_input_unit_price'] ?? $model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)),
-                'platform_output_unit_price' => self::formatUnitPrice((float)($model['platform_output_unit_price'] ?? $model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)),
                 'tenant_input_unit_price' => self::formatUnitPrice((float)($model['tenant_input_unit_price'] ?? $model['tenant_unit_price'] ?? 0)),
                 'tenant_output_unit_price' => self::formatUnitPrice((float)($model['tenant_output_unit_price'] ?? $model['tenant_unit_price'] ?? 0)),
                 'billing_unit' => 'tokens_1m',

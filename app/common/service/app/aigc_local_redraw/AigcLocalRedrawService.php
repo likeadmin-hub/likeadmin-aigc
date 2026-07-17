@@ -265,14 +265,24 @@ class AigcLocalRedrawService
         if ($require && $userPrompt === '') {
             throw new Exception('请输入局部重绘描述词');
         }
-        $channel = (string)($config['default_channel'] ?: ($config['config_json']['channel'] ?? ''));
-        $quality = (string)($config['default_quality'] ?: ($config['config_json']['quality'] ?? ''));
-        $ratio = (string)($config['default_ratio'] ?: ($config['config_json']['ratio'] ?? ''));
+        $channel = trim((string)($params['channel'] ?? ''));
+        $quality = trim((string)($params['quality'] ?? ''));
+        $ratio = trim((string)($params['ratio'] ?? ''));
+        if ($channel === '') {
+            $channel = (string)($config['default_channel'] ?: ($config['config_json']['channel'] ?? ''));
+        }
+        if ($quality === '') {
+            $quality = (string)($config['default_quality'] ?: ($config['config_json']['quality'] ?? ''));
+        }
+        if ($ratio === '') {
+            $ratio = (string)($config['default_ratio'] ?: ($config['config_json']['ratio'] ?? ''));
+        }
         $prompt = self::buildPrompt((string)$config['prompt_template'], $userPrompt);
         $imagePayload = [
             'prompt' => $prompt,
-            'negative_prompt' => (string)($params['negative_prompt'] ?? $config['negative_prompt']),
+            'negative_prompt' => trim((string)($params['negative_prompt'] ?? '')),
             'reference_images' => array_values(array_filter([$sourceImage])),
+            'mask_url' => $maskImage,
             'channel' => $channel,
             'quality' => $quality,
             'ratio' => $ratio,

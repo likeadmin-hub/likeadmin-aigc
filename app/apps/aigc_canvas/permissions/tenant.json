@@ -19,8 +19,14 @@
   },
   {
     "permission_key": "aigc_canvas:run:lists",
-    "name": "查看无限画布运行记录",
+    "name": "查看无限画布创作任务",
     "api_path": "app.aigc_canvas.admin_run/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:run:detail",
+    "name": "查询无限画布创作任务",
+    "api_path": "app.aigc_canvas.admin_run/detail",
     "api_method": "GET"
   },
   {
@@ -28,5 +34,41 @@
     "name": "查看无限画布依赖状态",
     "api_path": "app.aigc_canvas.config/dependencies",
     "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:skill:lists",
+    "name": "查看 Skills",
+    "api_path": "app.aigc_canvas.skill/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:skill:detail",
+    "name": "查看 Skill 详情",
+    "api_path": "app.aigc_canvas.skill/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:skill:create",
+    "name": "创建 Skill",
+    "api_path": "app.aigc_canvas.skill/create",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_canvas:skill:update",
+    "name": "更新 Skill",
+    "api_path": "app.aigc_canvas.skill/update",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_canvas:skill:status",
+    "name": "更新 Skill 状态",
+    "api_path": "app.aigc_canvas.skill/status",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_canvas:skill:delete",
+    "name": "删除 Skill",
+    "api_path": "app.aigc_canvas.skill/delete",
+    "api_method": "POST"
   }
 ]

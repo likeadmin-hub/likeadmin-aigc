@@ -24,12 +24,8 @@ class AigcVideoReferenceAssetService
             }
         }
 
-        foreach (self::legacyImageValues($params) as $image) {
-            $normalized = self::normalizeItem([
-                'type' => self::TYPE_IMAGE,
-                'uri' => $image,
-                'url' => $image,
-            ]);
+        foreach (self::legacyImageAssets($params) as $asset) {
+            $normalized = self::normalizeItem($asset);
             if (!empty($normalized)) {
                 $assets[] = $normalized;
             }
@@ -124,16 +120,33 @@ class AigcVideoReferenceAssetService
         }
     }
 
-    private static function legacyImageValues(array $params): array
+    private static function legacyImageAssets(array $params): array
     {
-        $images = array_values(array_filter((array)($params['reference_images'] ?? $params['image_urls'] ?? [])));
-        foreach (['image', 'first_frame_image', 'last_frame_image'] as $key) {
+        $assets = [];
+        foreach (array_values(array_filter((array)($params['reference_images'] ?? $params['image_urls'] ?? []))) as $image) {
+            $assets[] = [
+                'type' => self::TYPE_IMAGE,
+                'uri' => $image,
+                'url' => $image,
+                'role' => 'reference_image',
+            ];
+        }
+        foreach ([
+            'image' => 'reference_image',
+            'first_frame_image' => 'first_frame_image',
+            'last_frame_image' => 'last_frame_image',
+        ] as $key => $role) {
             $value = trim((string)($params[$key] ?? ''));
-            if ($value !== '' && !in_array($value, $images, true)) {
-                $images[] = $value;
+            if ($value !== '') {
+                $assets[] = [
+                    'type' => self::TYPE_IMAGE,
+                    'uri' => $value,
+                    'url' => $value,
+                    'role' => $role,
+                ];
             }
         }
-        return $images;
+        return $assets;
     }
 
     private static function normalizeItem(array $asset): array
@@ -159,6 +172,19 @@ class AigcVideoReferenceAssetService
             'url' => $url !== '' ? $url : $uri,
             'name' => trim((string)($asset['name'] ?? '')),
         ];
+        $role = trim((string)($asset['role'] ?? ''));
+        $allowedRoles = match ($type) {
+            self::TYPE_VIDEO => ['reference_video'],
+            self::TYPE_AUDIO => ['reference_audio'],
+            default => ['reference_image', 'first_frame_image', 'last_frame_image'],
+        };
+        if (in_array($role, $allowedRoles, true)) {
+            $normalized['role'] = $role;
+        }
+        $generationMethod = strtolower(trim((string)($asset['generation_method'] ?? '')));
+        if (in_array($generationMethod, ['omni_reference', 'start_end', 'multi_frame'], true)) {
+            $normalized['generation_method'] = $generationMethod;
+        }
         foreach (['duration', 'start', 'end'] as $key) {
             if (isset($asset[$key]) && is_numeric($asset[$key])) {
                 $normalized[$key] = max(0, (float)$asset[$key]);
@@ -172,11 +198,26 @@ class AigcVideoReferenceAssetService
         $unique = [];
         $seen = [];
         foreach ($assets as $asset) {
-            $signature = ($asset['type'] ?? '') . '|' . trim((string)($asset['uri'] ?? $asset['url'] ?? ''));
+            $signature = ($asset['type'] ?? '')
+                . '|' . trim((string)($asset['uri'] ?? $asset['url'] ?? ''));
             if ($signature === '|' || isset($seen[$signature])) {
+                if (isset($seen[$signature])) {
+                    $index = $seen[$signature];
+                    $incomingRole = (string)($asset['role'] ?? '');
+                    $currentRole = (string)($unique[$index]['role'] ?? '');
+                    if (
+                        in_array($incomingRole, ['first_frame_image', 'last_frame_image'], true)
+                        && !in_array($currentRole, ['first_frame_image', 'last_frame_image'], true)
+                    ) {
+                        $unique[$index]['role'] = $incomingRole;
+                    }
+                    if (empty($unique[$index]['generation_method']) && !empty($asset['generation_method'])) {
+                        $unique[$index]['generation_method'] = $asset['generation_method'];
+                    }
+                }
                 continue;
             }
-            $seen[$signature] = true;
+            $seen[$signature] = count($unique);
             $unique[] = $asset;
         }
         return $unique;

@@ -86,7 +86,18 @@ class AigcVideoService
         $quantity = AigcVideoChannelService::normalizeQuantity($params['quantity'] ?? 1);
         AigcVideoChannelService::assertChannelQuantity($selection['channel'], $quantity);
         $referenceAssets = AigcVideoReferenceAssetService::normalize($params);
+        $generationMethod = self::normalizeGenerationMethod(
+            $selection['channel'],
+            $params['generation_method'] ?? $params['generationMethod'] ?? null
+        );
+        if ($generationMethod !== '') {
+            $referenceAssets = array_map(static function (array $asset) use ($generationMethod): array {
+                $asset['generation_method'] = $generationMethod;
+                return $asset;
+            }, $referenceAssets);
+        }
         $referenceImages = AigcVideoReferenceAssetService::images($referenceAssets);
+        self::assertGenerationMethodAssets($generationMethod, $referenceAssets);
         self::assertReferenceAssetsSupported($selection['channel'], $referenceAssets);
         $duration = AigcVideoChannelService::normalizeGenerateDuration($selection['channel'], $referenceAssets, $params['duration'] ?? null);
         $mode = self::normalizeVideoMode($selection['channel'], $params['mode'] ?? null);
@@ -102,6 +113,7 @@ class AigcVideoService
             'duration' => $duration,
             'mode' => $mode,
             'quantity' => $quantity,
+            'generation_method' => $generationMethod,
             'reference_assets' => $referenceAssets,
         ]);
         if ($duplicateTask) {
@@ -172,6 +184,9 @@ class AigcVideoService
             self::providerParamsForSelection($selection, [
                 'duration' => $duration,
                 'mode' => $mode,
+                'generation_method' => $generationMethod,
+                'first_frame_image' => self::referenceAssetUrlByRole($referenceAssets, 'first_frame_image'),
+                'last_frame_image' => self::referenceAssetUrlByRole($referenceAssets, 'last_frame_image'),
                 'aspect_ratio' => $selectedRatio,
                 'callback_url' => $params['callback_url'] ?? null,
             ]),
@@ -757,6 +772,8 @@ class AigcVideoService
 
     private static function buildRequestFromTask(AigcVideoTask $task, array $selection): AigcVideoGenerateRequest
     {
+        $referenceAssets = (array)($task['reference_assets'] ?: []);
+        $generationMethod = self::generationMethodFromAssets($referenceAssets);
         $channelConfig = array_merge($selection['channel']['config_json'] ?? [], [
             'model' => $selection['channel']['model'],
             'tenant_id' => (int)$task['tenant_id'],
@@ -774,14 +791,17 @@ class AigcVideoService
             (string)$task['ratio'],
             (int)$task['quantity'],
             (array)($task['reference_images'] ?: []),
-            (array)($task['reference_assets'] ?: []),
+            $referenceAssets,
             $selection['spec'],
             self::providerParamsForSelection($selection, [
                 'duration' => AigcVideoChannelService::normalizeGenerateDuration(
                     $selection['channel'],
-                    (array)($task['reference_assets'] ?: []),
+                    $referenceAssets,
                     (int)($task['duration'] ?? 0) ?: null
                 ),
+                'generation_method' => $generationMethod,
+                'first_frame_image' => self::referenceAssetUrlByRole($referenceAssets, 'first_frame_image'),
+                'last_frame_image' => self::referenceAssetUrlByRole($referenceAssets, 'last_frame_image'),
                 'aspect_ratio' => (string)($task['ratio'] ?? $selection['spec']['ratio']),
             ]),
             $channelConfig
@@ -790,7 +810,7 @@ class AigcVideoService
 
     private static function findRecentDuplicateTask(int $tenantId, int $userId, array $criteria): ?AigcVideoTask
     {
-        if (($criteria['channel'] ?? '') === 'seedance2_pro') {
+        if (($criteria['channel'] ?? '') === 'seedance2_pro' || ($criteria['generation_method'] ?? '') !== '') {
             return null;
         }
         $rows = AigcVideoTask::where('tenant_id', $tenantId)
@@ -945,13 +965,14 @@ class AigcVideoService
                 continue;
             }
             $type = trim((string)($asset['type'] ?? 'image'));
+            $role = trim((string)($asset['role'] ?? ''));
+            $generationMethod = trim((string)($asset['generation_method'] ?? ''));
             $uri = trim((string)($asset['uri'] ?? $asset['url'] ?? ''));
             if ($uri !== '') {
-                $normalized[] = $type . ':' . $uri;
+                $normalized[] = $type . ':' . $role . ':' . $generationMethod . ':' . $uri;
             }
         }
-        sort($normalized);
-        return json_encode(array_values(array_unique($normalized)), JSON_UNESCAPED_UNICODE);
+        return json_encode($normalized, JSON_UNESCAPED_UNICODE);
     }
 
     private static function providerParamsForSelection(array $selection, array $overrides = []): array
@@ -973,6 +994,84 @@ class AigcVideoService
             return $mode;
         }
         return in_array($mode, ['pro', 'fast'], true) ? $mode : 'pro';
+    }
+
+    private static function normalizeGenerationMethod(array $channel, $method): string
+    {
+        $method = strtolower(trim((string)$method));
+        if ($method === '') {
+            return '';
+        }
+        if (!in_array($method, ['omni_reference', 'start_end', 'multi_frame'], true)) {
+            throw new Exception('不支持的视频生成模式');
+        }
+        $supported = array_values(array_filter(array_map(
+            'strval',
+            (array)($channel['generation_modes'] ?? [])
+        )));
+        if (!in_array($method, $supported, true)) {
+            throw new Exception('当前模型不支持所选视频生成模式');
+        }
+        return $method;
+    }
+
+    private static function assertGenerationMethodAssets(string $method, array $assets): void
+    {
+        if ($method === '') {
+            return;
+        }
+        $images = array_values(array_filter(
+            $assets,
+            static fn(array $asset): bool => ($asset['type'] ?? '') === 'image'
+        ));
+        $nonImages = array_values(array_filter(
+            $assets,
+            static fn(array $asset): bool => ($asset['type'] ?? '') !== 'image'
+        ));
+        if ($method === 'start_end') {
+            $roles = array_column($images, 'role');
+            if (
+                count($assets) !== 2
+                || count($images) !== 2
+                || !in_array('first_frame_image', $roles, true)
+                || !in_array('last_frame_image', $roles, true)
+            ) {
+                throw new Exception('首尾帧模式需要分别上传一张首帧和尾帧图片');
+            }
+        }
+        if ($method === 'multi_frame' && (count($images) < 2 || !empty($nonImages))) {
+            throw new Exception('智能多帧模式至少需要两张参考图片');
+        }
+        if ($method === 'omni_reference' && !empty($assets) && empty($images)) {
+            $hasVideo = !empty(array_filter(
+                $assets,
+                static fn(array $asset): bool => ($asset['type'] ?? '') === 'video'
+            ));
+            if (!$hasVideo) {
+                throw new Exception('全能参考不能只使用音频，请同时添加图片或视频');
+            }
+        }
+    }
+
+    private static function generationMethodFromAssets(array $assets): string
+    {
+        foreach ($assets as $asset) {
+            $method = strtolower(trim((string)($asset['generation_method'] ?? '')));
+            if (in_array($method, ['omni_reference', 'start_end', 'multi_frame'], true)) {
+                return $method;
+            }
+        }
+        return '';
+    }
+
+    private static function referenceAssetUrlByRole(array $assets, string $role): string
+    {
+        foreach ($assets as $asset) {
+            if (($asset['role'] ?? '') === $role) {
+                return trim((string)($asset['url'] ?? $asset['uri'] ?? ''));
+            }
+        }
+        return '';
     }
 
     private static function finishTaskWithVideos(AigcVideoTask $task, array $selection, array $estimate, array $videos): array
