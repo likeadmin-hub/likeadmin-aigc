@@ -1,1 +1,0 @@
-import{r as e}from"./index-CRrdiXoY.js";function n(t){return e.get({url:"/app.aigc_hairstyle.tenant/stat",params:t})}function i(t){return e.get({url:"/app.aigc_hairstyle.tenant/lists",params:t})}function r(t){return e.get({url:"/app.aigc_hairstyle.config/dependencies",params:t})}export{n as a,i as b,r as g};
