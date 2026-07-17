@@ -91,12 +91,6 @@ class AigcImageService
             throw new Exception('参考图数量超出限制');
         }
         $providerParams = self::providerParamsForRequest($selection['spec']['provider_params_json'] ?? [], $params);
-        $storedProviderParams = $providerParams;
-        $batchKey = trim((string)($params['batch_key'] ?? ''));
-        if ($batchKey !== '') {
-            // Keep sibling single-image requests in one user action from being treated as retries.
-            $storedProviderParams['_batch_key'] = $batchKey;
-        }
         self::checkSensitiveWords($tenantId, $prompt);
         $duplicateCriteria = [
             'prompt' => $prompt,
@@ -107,7 +101,7 @@ class AigcImageService
             'ratio' => (string)$selection['spec']['ratio'],
             'quantity' => $quantity,
             'reference_images' => $referenceImages,
-            'provider_params_json' => $storedProviderParams,
+            'provider_params_json' => $providerParams,
         ];
         $estimate = AigcImageChannelService::estimate($tenantId, array_merge($params, [
             'channel' => $selection['channel']['code'],
@@ -133,7 +127,7 @@ class AigcImageService
                 'prompt' => $prompt,
                 'negative_prompt' => $params['negative_prompt'] ?? '',
                 'reference_images' => $referenceImages,
-                'provider_params_json' => $storedProviderParams,
+                'provider_params_json' => $providerParams,
                 'style' => $params['style'] ?? 'general',
                 'channel' => $selection['channel']['code'],
                 'quality' => $selection['spec']['quality'],
@@ -603,17 +597,28 @@ class AigcImageService
     private static function refreshRunningTasks(int $tenantId, int $userId = 0, int $taskId = 0, bool $swallowErrors = false): void
     {
         $query = AigcImageTask::where('tenant_id', $tenantId)
-            ->where('status', 'running')
             ->where('delete_time', 0)
             ->where('provider_task_id', '<>', '');
+        if ($taskId > 0) {
+            $query->where('id', $taskId);
+        } else {
+            $query->where('status', 'running');
+        }
         if ($userId > 0) {
             $query->where('user_id', $userId);
         }
-        if ($taskId > 0) {
-            $query->where('id', $taskId);
-        }
         $tasks = $query->limit(10)->select();
         foreach ($tasks as $task) {
+            $status = (string)($task['status'] ?? '');
+            if ($status !== 'running' && !self::isRecoverableAsyncFailure($task)) {
+                continue;
+            }
+            if ($status !== 'running') {
+                $task->status = 'running';
+                $task->finish_time = 0;
+                $task->update_time = time();
+                $task->save();
+            }
             if (!self::isAsyncProvider((string)$task['provider'])) {
                 continue;
             }
@@ -730,12 +735,6 @@ class AigcImageService
 
     private static function buildRequestFromTask(AigcImageTask $task, array $selection): AigcImageGenerateRequest
     {
-        $providerParams = array_merge(
-            $selection['spec']['provider_params_json'] ?? [],
-            is_array($task['provider_params_json'] ?? null) ? $task['provider_params_json'] : []
-        );
-        unset($providerParams['_batch_key']);
-
         return new AigcImageGenerateRequest(
             (string)$task['prompt'],
             (string)$task['negative_prompt'],
@@ -746,7 +745,7 @@ class AigcImageService
             (int)$task['quantity'],
             (array)($task['reference_images'] ?: []),
             $selection['spec'],
-            $providerParams,
+            array_merge($selection['spec']['provider_params_json'] ?? [], is_array($task['provider_params_json'] ?? null) ? $task['provider_params_json'] : []),
             array_merge($selection['channel']['config_json'] ?? [], [
                 'model' => $selection['channel']['model'],
                 'tenant_id' => (int)$task['tenant_id'],
@@ -784,11 +783,32 @@ class AigcImageService
         if ($latest->isEmpty()) {
             return;
         }
-        $latest->status = 'failed';
-        $latest->error = '上游任务长时间未返回结果，请联系平台管理员在接口渠道侧同步任务结果后重试';
-        $latest->finish_time = time();
+        $latest->status = 'running';
+        $latest->error = '上游任务仍在生成中，系统会继续自动查询结果';
+        $latest->finish_time = 0;
         $latest->update_time = time();
         $latest->save();
+    }
+
+    private static function isRecoverableAsyncFailure(AigcImageTask $task): bool
+    {
+        if ((string)($task['provider_task_id'] ?? '') === '') {
+            return false;
+        }
+        $status = (string)($task['status'] ?? '');
+        if ($status === 'running') {
+            return true;
+        }
+        if ($status !== 'failed') {
+            return false;
+        }
+        $error = (string)($task['error'] ?? '');
+        foreach (['上游任务长时间未返回结果', '上游任务仍在生成中', '稍后自动重试', '任务查询暂时失败'] as $needle) {
+            if ($needle !== '' && str_contains($error, $needle)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static function asyncProcessingTimeoutSeconds(array $selection): int

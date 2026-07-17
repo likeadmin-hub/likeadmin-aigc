@@ -78,9 +78,15 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
             'messages' => $messages,
             'stream' => true,
         ];
-        $upstreamChannelCode = trim((string)($config['upstream_channel_code'] ?? $request->channelCode));
-        if ((int)($config['include_channel'] ?? 0) === 1 && $upstreamChannelCode !== '') {
-            $payload['channel'] = $upstreamChannelCode;
+        if (!empty($request->tools)) {
+            $payload['tools'] = array_values($request->tools);
+            $payload['tool_choice'] = $request->toolChoice ?? 'auto';
+        }
+        if (!empty($request->responseFormat)) {
+            $payload['response_format'] = $request->responseFormat;
+        }
+        if ((int)($config['include_channel'] ?? 0) === 1 && $request->channelCode !== '') {
+            $payload['channel'] = $request->channelCode;
         }
         foreach (['temperature', 'max_tokens', 'top_p', 'presence_penalty', 'frequency_penalty', 'enable_thinking'] as $key) {
             if (array_key_exists($key, $modelConfig)) {
@@ -308,6 +314,20 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
             }
         }
         $choice = $json['choices'][0] ?? [];
+        $toolCalls = $this->normalizeToolCalls(
+            $choice['delta']['tool_calls']
+                ?? $choice['message']['tool_calls']
+                ?? $json['tool_calls']
+                ?? []
+        );
+        if (!empty($toolCalls)) {
+            return [
+                'type' => 'tool_calls',
+                'tool_calls' => $toolCalls,
+                'content' => $this->extractText([$choice['delta']['content'] ?? null, $choice['message']['content'] ?? null]),
+                'provider_request_id' => (string)($json['id'] ?? $json['request_id'] ?? ''),
+            ];
+        }
         $delta = $this->extractText([
             $choice['delta']['content'] ?? null,
             $choice['message']['content'] ?? null,
@@ -345,6 +365,33 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
             ];
         }
         return null;
+    }
+
+    private function normalizeToolCalls($calls): array
+    {
+        if (!is_array($calls)) {
+            return [];
+        }
+        $result = [];
+        foreach ($calls as $index => $call) {
+            if (!is_array($call)) {
+                continue;
+            }
+            $function = is_array($call['function'] ?? null) ? $call['function'] : [];
+            $name = (string)($function['name'] ?? $call['name'] ?? '');
+            $arguments = $function['arguments'] ?? $call['arguments'] ?? '';
+            if (is_array($arguments)) {
+                $arguments = json_encode($arguments, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            }
+            $result[] = [
+                'index' => (int)($call['index'] ?? $index),
+                'id' => (string)($call['id'] ?? ''),
+                'type' => (string)($call['type'] ?? 'function'),
+                'name' => $name,
+                'arguments' => (string)$arguments,
+            ];
+        }
+        return $result;
     }
 
     private function unwrapPayload(array $json): array

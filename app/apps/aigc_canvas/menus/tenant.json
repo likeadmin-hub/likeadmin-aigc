@@ -20,6 +20,14 @@
         "component": "apps/aigc_canvas/config"
       },
       {
+        "source_menu_key": "aigc_canvas_skill",
+        "type": "C",
+        "name": "Skills 管理",
+        "perms": "app.aigc_canvas.skill/lists",
+        "paths": "skill",
+        "component": "apps/aigc_canvas/skill"
+      },
+      {
         "source_menu_key": "aigc_canvas_stat",
         "type": "C",
         "name": "用量统计",
@@ -30,7 +38,7 @@
       {
         "source_menu_key": "aigc_canvas_run",
         "type": "C",
-        "name": "运行记录",
+        "name": "创作任务",
         "perms": "app.aigc_canvas.admin_run/lists",
         "paths": "run",
         "component": "apps/aigc_canvas/run"

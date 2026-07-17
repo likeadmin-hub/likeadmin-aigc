@@ -1,21 +1,17 @@
 {
   "code": "aigc_canvas",
   "name": "无限画布",
-  "version": "1.0.4",
+  "version": "1.2.0",
   "require_core": ">=1.0.0",
-  "description": "面向多节点编排创作的无限画布应用，复用对话、生图和生视频应用完成生成能力。",
-  "changelog": "PC端项目回退为浏览器本地存储，租户后台移除项目管理，平台与租户统计统一改为运行记录口径。",
+  "description": "面向多节点编排创作的无限画布应用，提供多 Agent 设计协作、可扩展 Skills、文本对话、图片和视频生成能力。",
+  "changelog": "1. 新增连续设计对话理解与交付范围识别。\n2. 新增图片批次修订、版本保留和来源节点关联。\n3. 优化追加需求的智能路由、任务幂等和刷新恢复。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
   "is_builtin": 1,
   "expire_policy": "allow",
   "sort": 880,
-  "frontends": [
-    "platform",
-    "tenant",
-    "pc"
-  ],
+  "frontends": ["platform", "tenant", "pc"],
   "api_prefix": "/app/aigc_canvas",
   "platform_menus": "menus/platform.json",
   "menus": "menus/tenant.json",
@@ -51,20 +47,8 @@
     }
   ],
   "dependencies": [
-    {
-      "app_code": "aigc_llm",
-      "name": "AIGC对话",
-      "required_for": "文本生成"
-    },
-    {
-      "app_code": "aigc_image",
-      "name": "AIGC生图",
-      "required_for": "图片生成"
-    },
-    {
-      "app_code": "aigc_video",
-      "name": "AIGC视频",
-      "required_for": "视频生成"
-    }
+    {"app_code": "aigc_llm", "name": "AIGC 对话", "required_for": "Agent 理解、规划与文本生成"},
+    {"app_code": "aigc_image", "name": "AIGC 生图", "required_for": "图片生成"},
+    {"app_code": "aigc_video", "name": "AIGC 视频", "required_for": "视频生成"}
   ]
 }

@@ -32,8 +32,6 @@ class AigcLlmChannelService
                 'platform_unit_cost' => self::formatPoints((float)$item['platform_unit_cost']),
                 'platform_input_unit_cost' => self::formatUnitPrice((float)($item['platform_input_unit_cost'] ?? $item['platform_unit_cost'] ?? 0)),
                 'platform_output_unit_cost' => self::formatUnitPrice((float)($item['platform_output_unit_cost'] ?? $item['platform_unit_cost'] ?? 0)),
-                'platform_input_unit_price' => self::formatUnitPrice((float)($item['platform_input_unit_price'] ?? $item['platform_input_unit_cost'] ?? $item['platform_unit_cost'] ?? 0)),
-                'platform_output_unit_price' => self::formatUnitPrice((float)($item['platform_output_unit_price'] ?? $item['platform_output_unit_cost'] ?? $item['platform_unit_cost'] ?? 0)),
                 'tenant_input_unit_price' => self::formatUnitPrice((float)($item['tenant_input_unit_price'] ?? $item['tenant_unit_price'] ?? 0)),
                 'tenant_output_unit_price' => self::formatUnitPrice((float)($item['tenant_output_unit_price'] ?? $item['tenant_unit_price'] ?? 0)),
                 'billing_unit' => (string)($item['billing_unit'] ?? 'tokens_1m'),
@@ -126,10 +124,8 @@ class AigcLlmChannelService
             'tenant_unit_price' => self::formatPoints((float)($params['tenant_unit_price'] ?? 0)),
             'platform_input_unit_cost' => self::formatUnitPrice((float)($params['platform_input_unit_cost'] ?? $params['platform_unit_cost'] ?? 0)),
             'platform_output_unit_cost' => self::formatUnitPrice((float)($params['platform_output_unit_cost'] ?? $params['platform_unit_cost'] ?? 0)),
-            'platform_input_unit_price' => self::formatUnitPrice((float)($params['platform_input_unit_price'] ?? $params['tenant_input_unit_price'] ?? $params['platform_input_unit_cost'] ?? $params['platform_unit_cost'] ?? 0)),
-            'platform_output_unit_price' => self::formatUnitPrice((float)($params['platform_output_unit_price'] ?? $params['tenant_output_unit_price'] ?? $params['platform_output_unit_cost'] ?? $params['platform_unit_cost'] ?? 0)),
-            'tenant_input_unit_price' => self::formatUnitPrice((float)($params['tenant_input_unit_price'] ?? $params['platform_input_unit_price'] ?? $params['tenant_unit_price'] ?? 0)),
-            'tenant_output_unit_price' => self::formatUnitPrice((float)($params['tenant_output_unit_price'] ?? $params['platform_output_unit_price'] ?? $params['tenant_unit_price'] ?? 0)),
+            'tenant_input_unit_price' => self::formatUnitPrice((float)($params['tenant_input_unit_price'] ?? $params['tenant_unit_price'] ?? 0)),
+            'tenant_output_unit_price' => self::formatUnitPrice((float)($params['tenant_output_unit_price'] ?? $params['tenant_unit_price'] ?? 0)),
             'billing_unit' => 'tokens_1m',
             'config_json' => self::normalizeJson($params['config_json'] ?? []),
             'status' => (int)($params['status'] ?? 1),
@@ -151,50 +147,36 @@ class AigcLlmChannelService
 
         $pricingMap = self::queryRemoteModelPricingMap($remoteModels);
         $added = 0;
-        $updated = 0;
         $exists = 0;
         $skipped = 0;
-        $enabled = 0;
-        $disabled = 0;
         foreach ($remoteModels as $index => $item) {
             $modelCode = trim((string)($item['model_code'] ?? $item['id'] ?? ''));
             if ($modelCode === '') {
                 $skipped++;
                 continue;
             }
-            $priceKey = self::remoteModelKey($item);
-            $pricing = $pricingMap[$priceKey] ?? [];
-            $channelCode = self::localChannelCode((string)($item['channel_code'] ?? ''));
-            $localCode = self::resolveSyncedModelCode($modelCode, $channelCode);
+            $localCode = self::localModelCode($modelCode);
             $existsRow = AigcLlmModel::where(['tenant_id' => 0, 'code' => $localCode])->findOrEmpty();
-            $prices = self::pricesFromRemotePricing($pricing);
-            $legacyPrice = max($prices['input'], $prices['output']);
-            $hasPricing = ($pricing['available'] ?? false) === true && $legacyPrice > 0;
-            self::ensureSyncedChannel($channelCode, (string)($item['channel_name'] ?? ''), (string)($item['channel_code'] ?? ''));
             if (!$existsRow->isEmpty()) {
                 $exists++;
-                $config = self::normalizeJson($existsRow['config_json'] ?? []);
-                if (!array_key_exists('pricing_available', $config)) {
-                    continue;
-                }
-                $config['pricing_available'] = $hasPricing ? 1 : 0;
-                $existsRow->save([
-                    'name' => trim((string)($item['model_name'] ?? $item['name'] ?? $modelCode)) ?: $modelCode,
-                    'channel_code' => $channelCode,
-                    'model' => $modelCode,
-                    'platform_unit_cost' => self::formatPoints($legacyPrice),
-                    'tenant_unit_price' => self::formatPoints($legacyPrice),
-                    'platform_input_unit_cost' => self::formatUnitPrice($prices['input']),
-                    'platform_output_unit_cost' => self::formatUnitPrice($prices['output']),
-                    'config_json' => $config,
-                    'status' => $hasPricing ? 1 : 0,
-                    'update_time' => time(),
-                ]);
-                $updated++;
-                $hasPricing ? $enabled++ : $disabled++;
                 continue;
             }
 
+            $priceKey = self::remoteModelKey($item);
+            $pricing = $pricingMap[$priceKey] ?? [];
+            if (($pricing['available'] ?? false) !== true) {
+                $skipped++;
+                continue;
+            }
+
+            $channelCode = self::localChannelCode((string)($item['channel_code'] ?? ''));
+            $prices = self::pricesFromRemotePricing($pricing);
+            $legacyPrice = max($prices['input'], $prices['output']);
+            if ($legacyPrice <= 0) {
+                $skipped++;
+                continue;
+            }
+            self::ensureSyncedChannel($channelCode, (string)($item['channel_name'] ?? ''), (string)($item['channel_code'] ?? ''));
             AigcLlmModel::create([
                 'tenant_id' => 0,
                 'channel_code' => $channelCode,
@@ -207,8 +189,6 @@ class AigcLlmChannelService
                 'tenant_unit_price' => self::formatPoints($legacyPrice),
                 'platform_input_unit_cost' => self::formatUnitPrice($prices['input']),
                 'platform_output_unit_cost' => self::formatUnitPrice($prices['output']),
-                'platform_input_unit_price' => self::formatUnitPrice($prices['input']),
-                'platform_output_unit_price' => self::formatUnitPrice($prices['output']),
                 'tenant_input_unit_price' => self::formatUnitPrice($prices['input']),
                 'tenant_output_unit_price' => self::formatUnitPrice($prices['output']),
                 'billing_unit' => 'tokens_1m',
@@ -218,52 +198,21 @@ class AigcLlmChannelService
                     'params_schema' => is_array($item['params_schema'] ?? null) ? $item['params_schema'] : [],
                     'default_params' => is_array($item['default_params'] ?? null) ? $item['default_params'] : [],
                     'stream_options' => ['include_usage' => true],
-                    'pricing_available' => $hasPricing ? 1 : 0,
                 ],
-                'status' => $hasPricing ? 1 : 0,
+                'status' => 1,
                 'sort' => max(1, 900 - $index),
                 'create_time' => time(),
                 'update_time' => time(),
             ]);
             $added++;
-            $hasPricing ? $enabled++ : $disabled++;
         }
 
         return [
             'added' => $added,
-            'updated' => $updated,
-            'enabled' => $enabled,
-            'disabled' => $disabled,
             'exists' => $exists,
             'skipped' => $skipped,
             'total' => count($remoteModels),
         ];
-    }
-
-    public static function queryPlatformModelPricing(array $row): array
-    {
-        $modelCode = trim((string)($row['model'] ?? ''));
-        if ($modelCode === '') {
-            throw new Exception('模型编码不能为空');
-        }
-
-        $config = self::normalizeJson($row['config_json'] ?? []);
-        $upstreamChannelCode = trim((string)($config['upstream_channel_code'] ?? $row['channel_code'] ?? ''));
-        foreach (UpstreamPricingService::queryModels('text', true) as $remoteModel) {
-            if (trim((string)($remoteModel['model_code'] ?? $remoteModel['id'] ?? '')) !== $modelCode) {
-                continue;
-            }
-            $remoteChannelCode = trim((string)($remoteModel['channel_code'] ?? ''));
-            if ($upstreamChannelCode !== '' && $remoteChannelCode !== '' && $remoteChannelCode !== $upstreamChannelCode) {
-                continue;
-            }
-            $pricing = self::pricingFromRemoteModelList($remoteModel);
-            if ($pricing !== null) {
-                return $pricing;
-            }
-        }
-
-        return UpstreamPricingService::queryModel($modelCode, $upstreamChannelCode);
     }
 
     public static function deletePlatformChannel(array $params): void
@@ -301,23 +250,6 @@ class AigcLlmChannelService
             throw new Exception('模型不存在');
         }
         $row->save(['status' => (int)($params['status'] ?? 1), 'update_time' => time()]);
-    }
-
-    public static function statusPlatformModels(array $params): int
-    {
-        $ids = array_values(array_unique(array_filter(array_map('intval', (array)($params['ids'] ?? [])))));
-        if (empty($ids)) {
-            throw new Exception('请选择要操作的模型');
-        }
-
-        $status = (int)($params['status'] ?? -1);
-        if (!in_array($status, [0, 1], true)) {
-            throw new Exception('状态参数错误');
-        }
-
-        return (int)AigcLlmModel::where('tenant_id', 0)
-            ->whereIn('id', $ids)
-            ->update(['status' => $status, 'update_time' => time()]);
     }
 
     public static function saveTenantChannel(int $tenantId, array $params): void
@@ -359,8 +291,6 @@ class AigcLlmChannelService
             'tenant_unit_price' => self::formatPoints((float)($params['tenant_unit_price'] ?? $platform['tenant_unit_price'])),
             'platform_input_unit_cost' => self::formatUnitPrice((float)($platform['platform_input_unit_cost'] ?? $platform['platform_unit_cost'] ?? 0)),
             'platform_output_unit_cost' => self::formatUnitPrice((float)($platform['platform_output_unit_cost'] ?? $platform['platform_unit_cost'] ?? 0)),
-            'platform_input_unit_price' => self::formatUnitPrice((float)($platform['platform_input_unit_price'] ?? $platform['platform_input_unit_cost'] ?? $platform['platform_unit_cost'] ?? 0)),
-            'platform_output_unit_price' => self::formatUnitPrice((float)($platform['platform_output_unit_price'] ?? $platform['platform_output_unit_cost'] ?? $platform['platform_unit_cost'] ?? 0)),
             'tenant_input_unit_price' => self::formatUnitPrice((float)($params['tenant_input_unit_price'] ?? $platform['tenant_input_unit_price'] ?? $platform['tenant_unit_price'] ?? 0)),
             'tenant_output_unit_price' => self::formatUnitPrice((float)($params['tenant_output_unit_price'] ?? $platform['tenant_output_unit_price'] ?? $platform['tenant_unit_price'] ?? 0)),
             'billing_unit' => 'tokens_1m',
@@ -457,8 +387,6 @@ class AigcLlmChannelService
                 $row['platform_unit_cost'] = $platformMap[$code]['platform_unit_cost'];
                 $row['platform_input_unit_cost'] = $platformMap[$code]['platform_input_unit_cost'] ?? $platformMap[$code]['platform_unit_cost'] ?? 0;
                 $row['platform_output_unit_cost'] = $platformMap[$code]['platform_output_unit_cost'] ?? $platformMap[$code]['platform_unit_cost'] ?? 0;
-                $row['platform_input_unit_price'] = $platformMap[$code]['platform_input_unit_price'] ?? $platformMap[$code]['platform_input_unit_cost'] ?? $platformMap[$code]['platform_unit_cost'] ?? 0;
-                $row['platform_output_unit_price'] = $platformMap[$code]['platform_output_unit_price'] ?? $platformMap[$code]['platform_output_unit_cost'] ?? $platformMap[$code]['platform_unit_cost'] ?? 0;
                 $row['billing_unit'] = $platformMap[$code]['billing_unit'] ?? $row['billing_unit'] ?? 'tokens_1m';
             }
             $row['platform_status'] = $platformStatus;
@@ -497,38 +425,6 @@ class AigcLlmChannelService
     private static function localModelCode(string $modelCode): string
     {
         return self::normalizeCodeFromRemote($modelCode, 'model');
-    }
-
-    private static function resolveSyncedModelCode(string $modelCode, string $channelCode): string
-    {
-        $baseCode = self::localModelCode($modelCode);
-        $row = AigcLlmModel::where(['tenant_id' => 0, 'code' => $baseCode])->findOrEmpty();
-        if ($row->isEmpty() || self::sameSyncedModel($row->toArray(), $modelCode, $channelCode)) {
-            return $baseCode;
-        }
-
-        $candidate = self::fitCode($baseCode, '_' . $channelCode);
-        $row = AigcLlmModel::where(['tenant_id' => 0, 'code' => $candidate])->findOrEmpty();
-        if ($row->isEmpty() || self::sameSyncedModel($row->toArray(), $modelCode, $channelCode)) {
-            return $candidate;
-        }
-
-        return self::fitCode($baseCode, '_' . substr(md5($modelCode . '|' . $channelCode), 0, 8));
-    }
-
-    private static function sameSyncedModel(array $row, string $modelCode, string $channelCode): bool
-    {
-        return strcasecmp((string)($row['model'] ?? ''), $modelCode) === 0
-            && (string)($row['channel_code'] ?? '') === $channelCode;
-    }
-
-    private static function fitCode(string $baseCode, string $suffix): string
-    {
-        $maxLength = 64;
-        if (strlen($baseCode . $suffix) <= $maxLength) {
-            return $baseCode . $suffix;
-        }
-        return rtrim(substr($baseCode, 0, max(1, $maxLength - strlen($suffix))), '_') . $suffix;
     }
 
     private static function localChannelCode(string $channelCode): string
@@ -587,11 +483,6 @@ class AigcLlmChannelService
             if ($modelCode === '') {
                 continue;
             }
-            $inlinePricing = self::pricingFromRemoteModelList($item);
-            if ($inlinePricing !== null) {
-                $map[self::remoteModelKey($item)] = $inlinePricing;
-                continue;
-            }
             $items[] = [
                 'type' => 'model',
                 'model' => $modelCode,
@@ -608,30 +499,6 @@ class AigcLlmChannelService
             }
         }
         return $map;
-    }
-
-    private static function pricingFromRemoteModelList(array $item): ?array
-    {
-        $pricing = is_array($item['pricing'] ?? null) ? $item['pricing'] : [];
-        if (empty($pricing)) {
-            return null;
-        }
-
-        $prices = self::pricesFromRemotePricing(['pricing' => $pricing]);
-        $hasPricing = $prices['input'] > 0 || $prices['output'] > 0;
-        return [
-            'available' => $hasPricing,
-            'type' => 'model',
-            'resource' => [
-                'model_code' => (string)($item['model_code'] ?? $item['id'] ?? ''),
-                'model_name' => (string)($item['model_name'] ?? $item['name'] ?? ''),
-                'channel_code' => (string)($item['channel_code'] ?? ''),
-                'channel_name' => (string)($item['channel_name'] ?? ''),
-            ],
-            'pricing' => $pricing,
-            'pricing_source' => ['name' => '模型列表渠道定价'],
-            'message' => $hasPricing ? '' : '模型列表未提供有效渠道定价',
-        ];
     }
 
     private static function remoteModelKey(array $item): string
