@@ -1,0 +1,36 @@
+-- Keep task audit records separate from the power market.
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT 0,'M','任务日志','el-icon-Document',50,'','task-log','','','',0,1,0,'','core','core_task_log_platform',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_system_menu` WHERE `source_menu_key`='core_task_log_platform');
+SET @task_log_platform_id := (SELECT `id` FROM `la_system_menu` WHERE `source_menu_key`='core_task_log_platform' LIMIT 1);
+UPDATE `la_system_menu` SET `pid`=@task_log_platform_id,`name`='应用日志',`perms`='ai_task/lists',`paths`='application',`component`='tenant/task/index',`update_time`=UNIX_TIMESTAMP() WHERE `source_menu_key`='core_ai_task_platform';
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT @task_log_platform_id,'C','应用日志','el-icon-List',100,'ai_task/lists','application','tenant/task/index','','',0,1,0,'','core','core_ai_task_platform',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE @task_log_platform_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_system_menu` WHERE `source_menu_key`='core_ai_task_platform');
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT @task_log_platform_id,'C','消耗日志','el-icon-DataAnalysis',90,'ai_consumption/lists','consumption','power_mall/consumption','','',0,1,0,'','core','core_ai_consumption_platform',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE @task_log_platform_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_system_menu` WHERE `source_menu_key`='core_ai_consumption_platform');
+UPDATE `la_system_menu` SET `pid`=@task_log_platform_id,`name`='消耗日志',`perms`='ai_consumption/lists',`paths`='consumption',`component`='power_mall/consumption',`update_time`=UNIX_TIMESTAMP() WHERE `source_menu_key`='core_ai_consumption_platform';
+
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT source.`tenant_id`,0,'M','任务日志','el-icon-Document',50,'','task-log','','','',0,1,0,'','core','core_task_log_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT DISTINCT `tenant_id` FROM `la_tenant_system_menu` WHERE `source_menu_key` IN ('core_ai_task_tenant','core_tenant_power_market','core_ai_consumption_tenant')) source
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` exists_menu WHERE exists_menu.`tenant_id`=source.`tenant_id` AND exists_menu.`source_menu_key`='core_task_log_tenant');
+UPDATE `la_tenant_system_menu` task
+JOIN `la_tenant_system_menu` parent ON parent.`tenant_id`=task.`tenant_id` AND parent.`source_menu_key`='core_task_log_tenant'
+SET task.`pid`=parent.`id`,task.`name`='应用日志',task.`perms`='ai_task/lists',task.`paths`='application',task.`component`='consumer/task/index',task.`update_time`=UNIX_TIMESTAMP()
+WHERE task.`source_menu_key`='core_ai_task_tenant';
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT parent.`tenant_id`,parent.`id`,'C','应用日志','el-icon-List',100,'ai_task/lists','application','consumer/task/index','','',0,1,0,'','core','core_ai_task_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_tenant_system_menu` parent
+WHERE parent.`source_menu_key`='core_task_log_tenant'
+  AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` exists_menu WHERE exists_menu.`tenant_id`=parent.`tenant_id` AND exists_menu.`source_menu_key`='core_ai_task_tenant');
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT parent.`tenant_id`,parent.`id`,'C','消耗日志','el-icon-DataAnalysis',90,'ai_consumption/lists','consumption','power_mall/consumption','','',0,1,0,'','core','core_ai_consumption_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_tenant_system_menu` parent
+WHERE parent.`source_menu_key`='core_task_log_tenant'
+  AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` exists_menu WHERE exists_menu.`tenant_id`=parent.`tenant_id` AND exists_menu.`source_menu_key`='core_ai_consumption_tenant');
+UPDATE `la_tenant_system_menu` consumption
+JOIN `la_tenant_system_menu` parent ON parent.`tenant_id`=consumption.`tenant_id` AND parent.`source_menu_key`='core_task_log_tenant'
+SET consumption.`pid`=parent.`id`,consumption.`name`='消耗日志',consumption.`perms`='ai_consumption/lists',consumption.`paths`='consumption',consumption.`component`='power_mall/consumption',consumption.`update_time`=UNIX_TIMESTAMP()
+WHERE consumption.`source_menu_key`='core_ai_consumption_tenant';

@@ -74,4 +74,22 @@ class MarketController extends BaseAdminController
             return $this->fail($e->getMessage());
         }
     }
+
+    public function batchShelf()
+    {
+        try {
+            $result = TenantPowerMarketService::batchShelf(
+                (int)$this->adminInfo['tenant_id'],
+                (array)$this->request->post('product_ids', []),
+                (int)$this->request->post('sale_status', 0),
+                (bool)$this->request->post('all', false),
+                (string)$this->request->post('keyword', ''),
+                (string)$this->request->post('model_type', ''),
+                $this->request->post('status', '')
+            );
+            return $this->success('设置成功', $result, 1, 1);
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
 }

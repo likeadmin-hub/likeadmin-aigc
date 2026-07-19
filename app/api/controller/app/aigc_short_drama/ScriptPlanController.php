@@ -163,12 +163,15 @@ class ScriptPlanController extends BaseApiController
     {
         header('Content-Type: text/event-stream; charset=utf-8');
         header('Cache-Control: no-cache, no-transform');
+        header('Connection: keep-alive');
+        header('Content-Encoding: none');
         header('X-Accel-Buffering: no');
     }
 
     private function emitStreamPing(): void
     {
-        echo ": ping\n\n";
+        // Establish an unbuffered SSE response before the model's first token arrives.
+        echo ': stream-ready ' . str_repeat(' ', 2048) . "\n\n";
         @ob_flush();
         @flush();
     }

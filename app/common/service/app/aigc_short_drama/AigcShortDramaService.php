@@ -22,8 +22,7 @@ use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\app\aigc_music\AigcMusicService;
 use app\common\service\app\aigc_digital_human\AigcDigitalHumanService;
-use app\common\service\app\aigc_llm\AigcLlmChannelService;
-use app\common\service\app\aigc_llm\AigcLlmService;
+use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\app\aigc_video\AigcVideoChannelService;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\app\AppAccessService;
@@ -52,14 +51,14 @@ class AigcShortDramaService
     public const PROJECT_STATUS_VIDEO_GENERATING = 'video_generating';
     public const PROJECT_STATUS_PUBLISH_REVIEWING = 'publish_reviewing';
     public const PROJECT_STATUS_PUBLISHED = 'published';
-    public const LLM_APP_CODE = 'aigc_llm';
+    public const LLM_APP_CODE = 'power_market_text';
     public const IMAGE_APP_CODE = 'aigc_image';
     public const VIDEO_APP_CODE = 'aigc_video';
     public const MUSIC_APP_CODE = 'aigc_music';
 
     private const SAFE_ERROR = '生成失败，请稍后重试';
     private const DEFAULT_IMAGE = 'resource/image/common/menu_generator.png';
-    private const SCRIPT_PLAN_STALE_SECONDS = 180;
+    private const SCRIPT_PLAN_STALE_SECONDS = 600;
     private const SCRIPT_PLAN_STREAM_RECOVER_SECONDS = 45;
     private const SCRIPT_PLAN_STALE_ERROR = '剧本生成连接已中断，请重试';
     private const SCRIPT_PLAN_STREAM_FLUSH_SECONDS = 2;
@@ -271,7 +270,6 @@ class AigcShortDramaService
         // Use explicit Unicode code points so the platform payload is not affected by source encoding.
         $items = [
             self::dependencyItem($tenantId, self::MUSIC_APP_CODE, "AI\u{97F3}\u{4E50}\u{751F}\u{6210}", "\u{7528}\u{4E8E}\u{77ED}\u{5267}\u{80CC}\u{666F}\u{97F3}\u{4E50}\u{751F}\u{6210}"),
-            self::dependencyItem($tenantId, self::LLM_APP_CODE, "AIGC \u{6587}\u{672C}", "\u{7528}\u{4E8E}\u{5267}\u{672C}\u{89C4}\u{5212}\u{3001}\u{4E3B}\u{4F53}\u{8BC6}\u{522B}\u{548C}\u{63D0}\u{793A}\u{8BCD}\u{751F}\u{6210}"),
             self::dependencyItem($tenantId, self::IMAGE_APP_CODE, "AIGC \u{751F}\u{56FE}", "\u{4E3B}\u{4F53}\u{56FE}\u{3001}\u{573A}\u{666F}\u{56FE}\u{3001}\u{5206}\u{955C}\u{56FE}\u{751F}\u{6210}"),
             self::dependencyItem($tenantId, self::VIDEO_APP_CODE, "AIGC \u{89C6}\u{9891}", "\u{7528}\u{4E8E}\u{5206}\u{955C}\u{89C6}\u{9891}\u{548C}\u{5B8C}\u{6574}\u{89C6}\u{9891}\u{751F}\u{6210}"),
         ];
@@ -919,11 +917,12 @@ class AigcShortDramaService
                 '不要出现“保持一致”“参考图”“三视图”“T姿态”等内部控制语。',
             ]);
         }
-        $result = AigcLlmService::generateText($tenantId, $userId, [
-            'source_app_code' => self::APP_CODE,
-            'source_type' => 'short_drama_subject_describe',
+        $result = MarketTextModelRuntimeService::generate($tenantId, $userId, [
+            'action_code' => 'short_drama_subject_describe',
             'content' => $content,
             'reference_images' => [$image],
+            'requires_vision' => true,
+            'model_selection' => $params['vision_model_id'] ?? $params['model_id'] ?? '',
         ]);
         $prompt = trim((string)($result['content'] ?? ''));
         $prompt = preg_replace('/^[`"\']+|[`"\']+$/u', '', $prompt) ?? $prompt;
@@ -1851,6 +1850,7 @@ class AigcShortDramaService
         $time = time();
         $agentRunId = self::resolveScriptPlanAgentRunId($tenantId, $project->toArray(), $taskId);
         $providerRequestId = (string)($taskData['provider_request_id'] ?? $state['__provider_request_id'] ?? '');
+        MarketTextModelRuntimeService::settleRecoveredAppTask((int)($taskData['app_task_id'] ?? 0), $streamContent, $providerRequestId);
         $billing = self::scriptPlanBillingFromUsage($tenantId, $userId, $providerRequestId, $scriptModel, $taskData);
 
         Db::startTrans();
@@ -1931,21 +1931,21 @@ class AigcShortDramaService
     {
         $usage = [];
         if ($providerRequestId !== '') {
-            $usage = Db::name('aigc_llm_usage')
+            $usage = Db::name('ai_consumption_log')
                 ->where([
                     'tenant_id' => $tenantId,
                     'user_id' => $userId,
-                    'provider_request_id' => $providerRequestId,
+                    'upstream_request_id' => $providerRequestId,
                 ])
                 ->order('id', 'desc')
                 ->find() ?: [];
         }
-        $price = self::jsonDecode((string)($usage['price_json'] ?? ''));
+        $price = self::jsonDecode((string)($usage['price_snapshot'] ?? ''));
         return [
             'source_app_code' => self::LLM_APP_CODE,
-            'model_code' => (string)($usage['model_code'] ?? $model['model_code'] ?? $model['code'] ?? ''),
-            'channel_code' => (string)($usage['channel_code'] ?? $model['channel_code'] ?? ''),
-            'provider_model' => (string)($usage['provider_model'] ?? $model['provider_model'] ?? $model['model'] ?? ''),
+            'model_code' => (string)($usage['model_code'] ?? $model['model_code'] ?? ''),
+            'channel_code' => (string)($usage['api_code'] ?? $model['channel_code'] ?? ''),
+            'provider_model' => (string)($model['provider_model'] ?? $model['model_code'] ?? ''),
             'billing_status' => (string)($usage['billing_status'] ?? $taskData['billing_status'] ?? 'none'),
             'tenant_cost_points' => self::formatBillingPoints((float)($usage['tenant_cost_points'] ?? $taskData['tenant_cost_points'] ?? 0)),
             'user_charge_points' => self::formatBillingPoints((float)($usage['user_charge_points'] ?? $taskData['user_charge_points'] ?? 0)),
@@ -1998,6 +1998,7 @@ class AigcShortDramaService
             'started_at' => (int)($taskData['started_at'] ?? 0),
             'finished_at' => $time,
         ]);
+        MarketTextModelRuntimeService::failAppTask((int)($taskData['app_task_id'] ?? 0), self::SCRIPT_PLAN_STALE_ERROR, 'stream_stale');
         Log::write('AI short drama script task stale failed: task=' . (string)($taskData['task_id'] ?? '') . ' project=' . (int)($taskData['project_id'] ?? 0));
 
         $taskData['status'] = self::STATUS_FAILED;
@@ -2232,6 +2233,20 @@ class AigcShortDramaService
                 $selectedModels['script_plan'] ?? [],
                 static function (string $event, array $data) use ($emit, $tenantId, $userId, $taskId, &$lastHeartbeatAt, &$lastStreamFlushAt, &$streamContent, &$persistedProviderRequestId) {
                     $now = time();
+                    if ($event === 'app_task') {
+                        $appTaskId = (int)($data['app_task_id'] ?? 0);
+                        if ($appTaskId > 0) {
+                            $scriptTask = AigcShortDramaScriptTask::where([
+                                'tenant_id' => $tenantId,
+                                'user_id' => $userId,
+                                'task_id' => $taskId,
+                            ])->findOrEmpty();
+                            if (!$scriptTask->isEmpty()) {
+                                MarketTextModelRuntimeService::bindBusinessTask($appTaskId, 'aigc_short_drama_script_task', (int)$scriptTask['id']);
+                                $scriptTask->save(['app_task_id' => $appTaskId, 'update_time' => $now]);
+                            }
+                        }
+                    }
                     if ($event === 'provider_request') {
                         $providerRequestId = trim((string)($data['provider_request_id'] ?? ''));
                         if ($providerRequestId !== '' && $providerRequestId !== $persistedProviderRequestId) {
@@ -2285,7 +2300,7 @@ class AigcShortDramaService
                             'update_time' => $now,
                         ]);
                     }
-                    if (in_array($event, ['delta', 'provider_request'], true) && $now - $lastHeartbeatAt >= 8) {
+                    if (in_array($event, ['delta', 'provider_request', 'heartbeat'], true) && $now - $lastHeartbeatAt >= 8) {
                         $lastHeartbeatAt = $now;
                         AigcShortDramaScriptTask::where([
                             'tenant_id' => $tenantId,
@@ -2315,6 +2330,11 @@ class AigcShortDramaService
                     $emit($event, $data);
                 }
             );
+            $marketAppTaskId = (int)($generation['llm']['app_task_id'] ?? 0);
+            if ($marketAppTaskId > 0) {
+                MarketTextModelRuntimeService::bindBusinessTask($marketAppTaskId, 'aigc_short_drama_script_task', (int)($taskData['id'] ?? 0));
+                AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId])->update(['app_task_id' => $marketAppTaskId, 'update_time' => time()]);
+            }
             $result = $generation['result'];
             $projectRatio = self::normalizeGenerationRatio((string)($project['ratio'] ?? '')) ?: self::normalizeGenerationRatio((string)($request['ratio'] ?? ''));
             if ($projectRatio !== '') {
@@ -10992,8 +11012,10 @@ class AigcShortDramaService
 
     private static function dependencyModelGroups(int $tenantId): array
     {
+        $textGroups = MarketTextModelRuntimeService::modelGroups($tenantId);
         return [
-            self::llmModelGroup($tenantId),
+            $textGroups[0] ?? self::llmModelGroup($tenantId),
+            $textGroups[1] ?? [],
             self::channelModelGroup($tenantId, self::IMAGE_APP_CODE, 'image', 'image', '生图模型'),
             self::channelModelGroup($tenantId, self::VIDEO_APP_CODE, 'video', 'video', '视频模型'),
         ];
@@ -11003,45 +11025,8 @@ class AigcShortDramaService
     {
         $models = [];
         try {
-            $config = AigcLlmChannelService::userConfig($tenantId);
-            foreach ((array)($config['models'] ?? []) as $model) {
-                $code = (string)($model['code'] ?? '');
-                if ($code === '') {
-                    continue;
-                }
-                $platformInput = self::formatUnitPrice((float)($model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? 0));
-                $platformOutput = self::formatUnitPrice((float)($model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? 0));
-                $tenantInput = self::formatUnitPrice(max(
-                    (float)$platformInput,
-                    (float)($model['tenant_input_unit_price'] ?? $model['tenant_unit_price'] ?? $platformInput)
-                ));
-                $tenantOutput = self::formatUnitPrice(max(
-                    (float)$platformOutput,
-                    (float)($model['tenant_output_unit_price'] ?? $model['tenant_unit_price'] ?? $platformOutput)
-                ));
-                $models[] = [
-                    'id' => $code,
-                    'value' => $code,
-                    'app_code' => self::LLM_APP_CODE,
-                    'type' => 'llm',
-                    'model_code' => $code,
-                    'channel_code' => (string)($model['channel_code'] ?? ''),
-                    'name' => (string)($model['name'] ?? $code),
-                    'description' => self::llmPriceDescription($model),
-                    'provider' => (string)($model['provider'] ?? ''),
-                    'provider_model' => (string)($model['model'] ?? ''),
-                    'billing_unit' => (string)($model['billing_unit'] ?? 'tokens_1m'),
-                    'platform_unit_cost' => (string)($model['platform_unit_cost'] ?? '0.00'),
-                    'tenant_unit_price' => $tenantOutput,
-                    'platform_input_unit_cost' => $platformInput,
-                    'platform_output_unit_cost' => $platformOutput,
-                    'tenant_input_unit_price' => $tenantInput,
-                    'tenant_output_unit_price' => $tenantOutput,
-                    'image' => self::fileUrl(self::DEFAULT_IMAGE),
-                    'enabled' => true,
-                    'sort' => (int)($model['sort'] ?? 0),
-                ];
-            }
+            $groups = MarketTextModelRuntimeService::modelGroups($tenantId);
+            $models = (array)(($groups[0] ?? [])['options'] ?? []);
         } catch (\Throwable) {
             $models = [];
         }
@@ -11366,8 +11351,8 @@ class AigcShortDramaService
                 'price' => [],
             ];
         }
-        $promptTokens = AigcLlmService::estimateTokensFromText($prompt);
-        $completionTokens = AigcLlmService::estimateTokensFromText(self::jsonEncode($result));
+        $promptTokens = MarketTextModelRuntimeService::estimateTokens($prompt);
+        $completionTokens = MarketTextModelRuntimeService::estimateTokens(self::jsonEncode($result));
         $platformInput = (float)($model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? 0);
         $platformOutput = (float)($model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? 0);
         $tenantInput = (float)($model['tenant_input_unit_price'] ?? $model['tenant_unit_price'] ?? 0);
@@ -11488,10 +11473,7 @@ class AigcShortDramaService
     private static function generateScriptPlanResult(int $tenantId, int $userId, string $prompt, array $request, string $title, array $model, ?callable $onEvent = null): array
     {
         if (empty($model)) {
-            throw new Exception('暂无可用的剧本策划模型，请先配置 AIGC 对话模型');
-        }
-        if (AppAccessService::assertTenantCanUse($tenantId, self::LLM_APP_CODE) !== null) {
-            throw new Exception('AIGC 对话应用未启用，暂不可进行剧本策');
+            throw new Exception('暂无可用的剧本策划模型，请在算力市场上架文本模型');
         }
 
         $modelCode = (string)($model['model_code'] ?? $model['id'] ?? $model['value'] ?? '');
@@ -11499,17 +11481,15 @@ class AigcShortDramaService
             $llmParams = [
                 'content' => self::buildScriptPlanPrompt($prompt, $request, $title),
                 'system_prompt' => self::scriptPlanSystemPrompt(),
-                'model_code' => $modelCode,
-                'model_config' => [
-                    'max_tokens' => 32000,
-                ],
+                'model_selection' => $model,
+                'model_config' => ['max_tokens' => 8192, 'enable_thinking' => false],
                 'source_app_code' => self::APP_CODE,
                 'source_type' => 'script_plan',
                 'source_id' => $title,
             ];
             $llmResult = $onEvent
-                ? AigcLlmService::streamText($tenantId, $userId, $llmParams, $onEvent)
-                : AigcLlmService::generateText($tenantId, $userId, $llmParams);
+                ? MarketTextModelRuntimeService::generate($tenantId, $userId, $llmParams, $onEvent)
+                : MarketTextModelRuntimeService::generate($tenantId, $userId, $llmParams);
         } catch (Exception $e) {
             Log::write('AI short drama script planning model failed: ' . $e->getMessage());
             throw new Exception(self::scriptPlanProviderError($e->getMessage()));
@@ -11538,7 +11518,7 @@ class AigcShortDramaService
                     'current_step' => '优化剧本结构',
                 ]);
             }
-            $repairLlmResult = self::repairScriptPlanResultWithLlm($tenantId, $userId, $prompt, $request, $title, $modelCode, $result);
+            $repairLlmResult = self::repairScriptPlanResultWithLlm($tenantId, $userId, $prompt, $request, $title, $model, $result, (int)($llmResult['app_task_id'] ?? 0), $onEvent);
             $repairPayload = self::decodeLlmJsonObject(trim((string)($repairLlmResult['content'] ?? '')));
             $result = self::reviewAndRepairPlanResult(
                 self::enhancePlanResult(self::normalizeGeneratedPlanResult($repairPayload, $prompt, $request, $title)),
@@ -11563,7 +11543,7 @@ class AigcShortDramaService
         ];
     }
 
-    private static function repairScriptPlanResultWithLlm(int $tenantId, int $userId, string $prompt, array $request, string $title, string $modelCode, array $plan): array
+    private static function repairScriptPlanResultWithLlm(int $tenantId, int $userId, string $prompt, array $request, string $title, array $model, array $plan, int $parentAppTaskId = 0, ?callable $onEvent = null): array
     {
         $reviewReport = (array)($plan['review_report'] ?? []);
         $diagnostics = (array)($reviewReport['storyboard_breaking_diagnostics'] ?? $plan['storyboard_breaking_diagnostics'] ?? []);
@@ -11594,17 +11574,21 @@ class AigcShortDramaService
             '计划 JSON' . self::jsonEncode(self::stripPlanRuntimeFields($plan)),
         ]);
         try {
-            return AigcLlmService::generateText($tenantId, $userId, [
+            $repairHeartbeat = $onEvent === null ? null : static function (string $event, array $data) use ($onEvent): void {
+                // The repair response is a second JSON document. Its text must never be
+                // appended to the primary stream, but its heartbeat keeps the root task alive.
+                if ($event === 'heartbeat') {
+                    $onEvent('heartbeat', $data);
+                }
+            };
+            return MarketTextModelRuntimeService::generate($tenantId, $userId, [
                 'content' => $repairPrompt,
                 'system_prompt' => '你是短剧计划 JSON 质检修复器。只返回合法 JSON，不要 Markdown，不要解释',
-                'model_code' => $modelCode,
-                'model_config' => [
-                    'max_tokens' => 32000,
-                ],
-                'source_app_code' => self::APP_CODE,
-                'source_type' => 'script_plan_repair',
-                'source_id' => $title,
-            ]);
+                'model_selection' => $model,
+                'model_config' => ['max_tokens' => 8192, 'enable_thinking' => false],
+                'action_code' => 'script_plan_repair',
+                'parent_app_task_id' => $parentAppTaskId,
+            ], $repairHeartbeat);
         } catch (Exception $e) {
             Log::write('AI short drama script plan repair model failed: ' . $e->getMessage());
             throw new Exception(self::scriptPlanProviderError($e->getMessage()));
@@ -11618,13 +11602,13 @@ class AigcShortDramaService
             return self::SAFE_ERROR;
         }
         if (str_contains($lower, 'bad request') || str_contains($lower, 'invalid request')) {
-            return '模型通道请求不兼容，请稍后重试或检查 AIGC 对话通道配置';
+            return '文本模型 API 请求不兼容，请检查算力市场模型配置';
         }
         if (str_contains($message, '点数') || str_contains($message, '余额') || str_contains($lower, 'quota')) {
-            return '模型额度不足，请检查 AIGC 对话通道配置';
+            return '文本模型额度不足，请检查算力市场模型状态与点数余额';
         }
         if (str_contains($lower, 'api key') || str_contains($lower, 'invalid') || str_contains($lower, 'disabled')) {
-            return '模型通道配置异常，请检查密钥或启用状态';
+            return '文本模型调用异常，请检查算力市场模型状态';
         }
         return $message !== '' ? $message : self::SAFE_ERROR;
     }
@@ -13688,8 +13672,8 @@ PROMPT;
         $repairUsageBilling = (array)($repairUsage['billing'] ?? []);
         $tenantCost = self::formatBillingPoints((float)($billing['tenant_cost_points'] ?? 0) + (float)($repairBilling['tenant_cost_points'] ?? 0));
         $userCharge = self::formatBillingPoints((float)($billing['user_charge_points'] ?? 0) + (float)($repairBilling['user_charge_points'] ?? 0));
-        $promptTokens = (int)($usage['prompt_tokens'] ?? AigcLlmService::estimateTokensFromText($prompt));
-        $completionTokens = (int)($usage['completion_tokens'] ?? AigcLlmService::estimateTokensFromText(self::jsonEncode($result)));
+        $promptTokens = (int)($usage['prompt_tokens'] ?? MarketTextModelRuntimeService::estimateTokens($prompt));
+        $completionTokens = (int)($usage['completion_tokens'] ?? MarketTextModelRuntimeService::estimateTokens(self::jsonEncode($result)));
         $repairPromptTokens = (int)($repairUsage['prompt_tokens'] ?? 0);
         $repairCompletionTokens = (int)($repairUsage['completion_tokens'] ?? 0);
 
@@ -15319,7 +15303,7 @@ PROMPT;
             } elseif ($appCode === self::MUSIC_APP_CODE) {
                 $config = AigcMusicService::config($tenantId);
             } else {
-                $config = AigcLlmService::config($tenantId);
+                $config = [];
             }
         } catch (Exception) {
             $config = [];

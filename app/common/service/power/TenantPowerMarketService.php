@@ -219,6 +219,101 @@ class TenantPowerMarketService
     }
 
     /**
+     * 批量更新租户模型 SKU 的上架状态。
+     *
+     * 已配置 SKU 只更新状态，保留租户自主定价；未配置 SKU 首次按平台成本价创建。
+     * 当 all 为 true 时，按当前模型市场筛选条件处理全部匹配商品，而不受前端分页限制。
+     *
+     * @param array<int, mixed> $productIds
+     * @return array{products: int, skus: int}
+     */
+    public static function batchShelf(
+        int $tenantId,
+        array $productIds,
+        int $saleStatus,
+        bool $all = false,
+        string $keyword = '',
+        string $modelType = '',
+        $status = ''
+    ): array {
+        if ($tenantId <= 0) {
+            throw new Exception('租户信息无效');
+        }
+
+        $query = PowerMarketProduct::where([
+            'resource_type' => PowerMarketService::TYPE_MODEL,
+            'status' => 1,
+        ]);
+        $modelType = trim($modelType);
+        if (in_array($modelType, ['text', 'image', 'video'], true)) {
+            $query->where('model_type', $modelType);
+        }
+        $keyword = trim($keyword);
+        if ($keyword !== '') {
+            $query->whereLike('name|product_code|upstream_model_code|upstream_channel_code', '%' . $keyword . '%');
+        }
+        if (!$all) {
+            $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds))));
+            if ($productIds === []) {
+                throw new Exception('请选择模型商品');
+            }
+            $query->whereIn('id', $productIds);
+        }
+
+        $products = $query->select()->toArray();
+        self::attachProductStats($tenantId, $products);
+        $products = array_values(array_filter($products, static function (array $product) use ($all, $status): bool {
+            if ((int)($product['platform_status'] ?? 0) !== 1) {
+                return false;
+            }
+            return !$all || $status === '' || $status === null || (int)$product['status'] === (int)$status;
+        }));
+        if ($products === []) {
+            throw new Exception('当前筛选条件下没有可操作的模型');
+        }
+
+        $productIds = array_values(array_unique(array_map(static fn (array $product): int => (int)$product['id'], $products)));
+        $skus = PowerMarketSku::whereIn('product_id', $productIds)->select()->toArray();
+        $skus = array_values(array_filter($skus, static fn (array $sku): bool => self::isPlatformAvailableSku($sku)));
+        if ($skus === []) {
+            throw new Exception('当前筛选条件下没有可操作的计费 SKU');
+        }
+
+        $skuIds = array_values(array_unique(array_map(static fn (array $sku): int => (int)$sku['id'], $skus)));
+        $configured = TenantPowerMarketSkuPrice::where('tenant_id', $tenantId)
+            ->whereIn('sku_id', $skuIds)
+            ->select()
+            ->toArray();
+        $configuredBySku = array_column($configured, null, 'sku_id');
+        $saleStatus = $saleStatus === 1 ? 1 : 0;
+        $now = time();
+
+        Db::transaction(function () use ($tenantId, $skus, $configuredBySku, $saleStatus, $now): void {
+            foreach ($skus as $sku) {
+                $skuId = (int)$sku['id'];
+                $configured = $configuredBySku[$skuId] ?? null;
+                if ($configured !== null) {
+                    TenantPowerMarketSkuPrice::where('id', (int)$configured['id'])->update([
+                        'sale_status' => $saleStatus,
+                        'update_time' => $now,
+                    ]);
+                    continue;
+                }
+                TenantPowerMarketSkuPrice::create([
+                    'tenant_id' => $tenantId,
+                    'sku_id' => $skuId,
+                    'sale_points' => max(0, (float)($sku['sale_points'] ?? 0)),
+                    'sale_status' => $saleStatus,
+                    'create_time' => $now,
+                    'update_time' => $now,
+                ]);
+            }
+        });
+
+        return ['products' => count($productIds), 'skus' => count($skus)];
+    }
+
+    /**
      * @param array<int, array<string, mixed>> $rows
      */
     private static function attachProductStats(int $tenantId, array &$rows): void
