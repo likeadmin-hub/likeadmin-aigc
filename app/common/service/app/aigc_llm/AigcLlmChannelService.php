@@ -147,6 +147,8 @@ class AigcLlmChannelService
 
         $pricingMap = self::queryRemoteModelPricingMap($remoteModels);
         $added = 0;
+        $updated = 0;
+        $enabled = 0;
         $exists = 0;
         $skipped = 0;
         foreach ($remoteModels as $index => $item) {
@@ -157,10 +159,6 @@ class AigcLlmChannelService
             }
             $localCode = self::localModelCode($modelCode);
             $existsRow = AigcLlmModel::where(['tenant_id' => 0, 'code' => $localCode])->findOrEmpty();
-            if (!$existsRow->isEmpty()) {
-                $exists++;
-                continue;
-            }
 
             $priceKey = self::remoteModelKey($item);
             $pricing = $pricingMap[$priceKey] ?? [];
@@ -177,7 +175,7 @@ class AigcLlmChannelService
                 continue;
             }
             self::ensureSyncedChannel($channelCode, (string)($item['channel_name'] ?? ''), (string)($item['channel_code'] ?? ''));
-            AigcLlmModel::create([
+            $data = [
                 'tenant_id' => 0,
                 'channel_code' => $channelCode,
                 'code' => $localCode,
@@ -195,20 +193,38 @@ class AigcLlmChannelService
                 'config_json' => [
                     'upstream_channel_code' => (string)($item['channel_code'] ?? ''),
                     'max_tokens' => (int)($item['max_tokens'] ?? 0),
+                    'protocol' => self::preferredProtocol($modelCode, (string)($item['protocols'] ?? '')),
+                    'protocols' => self::protocolList((string)($item['protocols'] ?? '')),
                     'params_schema' => is_array($item['params_schema'] ?? null) ? $item['params_schema'] : [],
                     'default_params' => is_array($item['default_params'] ?? null) ? $item['default_params'] : [],
                     'stream_options' => ['include_usage' => true],
                 ],
                 'status' => 1,
                 'sort' => max(1, 900 - $index),
-                'create_time' => time(),
                 'update_time' => time(),
-            ]);
-            $added++;
+            ];
+            if ($existsRow->isEmpty()) {
+                $data['create_time'] = time();
+                AigcLlmModel::create($data);
+                $added++;
+                $enabled++;
+                continue;
+            }
+
+            $wasEnabled = (int)($existsRow['status'] ?? 0) === 1;
+            $existsRow->save($data);
+            $exists++;
+            $updated++;
+            if (!$wasEnabled) {
+                $enabled++;
+            }
         }
 
         return [
             'added' => $added,
+            'updated' => $updated,
+            'enabled' => $enabled,
+            'disabled' => 0,
             'exists' => $exists,
             'skipped' => $skipped,
             'total' => count($remoteModels),
@@ -382,6 +398,7 @@ class AigcLlmChannelService
                 continue;
             }
             $platformStatus = (int)($platformMap[$code]['status'] ?? $row['status'] ?? 0);
+            // 未配置租户覆盖时继承平台同步的可用模型；租户关闭后才从对话中移除。
             $tenantStatus = (int)($tenantMap[$code]['status'] ?? 1);
             if (isset($platformMap[$code])) {
                 $row['platform_unit_cost'] = $platformMap[$code]['platform_unit_cost'];
@@ -431,6 +448,37 @@ class AigcLlmChannelService
     {
         $channelCode = trim($channelCode) !== '' ? $channelCode : 'upstream_text';
         return self::normalizeCodeFromRemote($channelCode, 'channel');
+    }
+
+    private static function preferredProtocol(string $modelCode, string $protocols): string
+    {
+        $available = self::protocolList($protocols);
+        if (preg_match('/^gpt-5(?:[._-]|$)/i', trim($modelCode)) && in_array('openai_responses', $available, true)) {
+            return 'openai_responses';
+        }
+        foreach (['openai_chat', 'openai_responses', 'openai_completions', 'anthropic_messages'] as $protocol) {
+            if (in_array($protocol, $available, true)) {
+                return $protocol;
+            }
+        }
+        return 'openai_chat';
+    }
+
+    private static function protocolList(string $protocols): array
+    {
+        $map = [
+            'chat' => 'openai_chat',
+            'openai_chat' => 'openai_chat',
+            'responses' => 'openai_responses',
+            'openai_responses' => 'openai_responses',
+            'completions' => 'openai_completions',
+            'openai_completions' => 'openai_completions',
+            'messages' => 'anthropic_messages',
+            'anthropic' => 'anthropic_messages',
+            'anthropic_messages' => 'anthropic_messages',
+        ];
+        $items = array_filter(array_map('trim', explode(',', strtolower($protocols))));
+        return array_values(array_unique(array_filter(array_map(static fn(string $item): string => $map[$item] ?? '', $items))));
     }
 
     private static function normalizeCodeFromRemote(string $value, string $prefix): string

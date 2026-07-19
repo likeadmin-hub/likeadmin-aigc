@@ -16,6 +16,7 @@ class AigcLlmGenerateRequest
     public array $tools;
     public $toolChoice;
     public array $responseFormat;
+    public bool $stream;
 
     public function __construct(
         int $tenantId,
@@ -29,7 +30,8 @@ class AigcLlmGenerateRequest
         array $channelConfig = [],
         array $tools = [],
         $toolChoice = null,
-        array $responseFormat = []
+        array $responseFormat = [],
+        bool $stream = true
     ) {
         $this->tenantId = $tenantId;
         $this->userId = $userId;
@@ -43,5 +45,6 @@ class AigcLlmGenerateRequest
         $this->tools = $tools;
         $this->toolChoice = $toolChoice;
         $this->responseFormat = $responseFormat;
+        $this->stream = $stream;
     }
 }

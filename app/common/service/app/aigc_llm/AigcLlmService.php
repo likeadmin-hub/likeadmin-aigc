@@ -584,7 +584,8 @@ class AigcLlmService
             self::resolveChannelConfig($tenantId, (string)($model['channel_code'] ?? '')),
             self::normalizeTools($params['tools'] ?? []),
             $params['tool_choice'] ?? null,
-            self::normalizeResponseFormat($params['response_format'] ?? [])
+            self::normalizeResponseFormat($params['response_format'] ?? []),
+            false
         );
 
         $provider = self::providerFor((string)($model['provider'] ?? 'openai_compatible'));

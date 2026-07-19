@@ -19,6 +19,8 @@ namespace app\common\service\pay;
 use app\common\enum\PayEnum;
 use app\common\enum\user\UserTerminalEnum;
 use app\common\logic\PayNotifyLogic;
+use app\common\model\brand\TenantBrandOrder;
+use app\common\model\brand\TenantBrandQuotaOrder;
 use app\common\model\membership\MembershipOrder;
 use app\common\model\pay\PayConfig;
 use app\common\model\power\TenantPowerOrder;
@@ -328,6 +330,8 @@ class WeChatPayService extends BasePayService
             'recharge' => '充值',
             'membership' => '会员',
             'tenant_power' => '算力套餐',
+            'tenant_brand_quota' => '贴牌额度',
+            'tenant_brand_order' => '贴牌套餐',
         ];
         return $desc[$from] ?? '商品';
     }
@@ -410,6 +414,26 @@ class WeChatPayService extends BasePayService
                             return true;
                         }
                         $result = PayNotifyLogic::handle('tenant_power', $message['out_trade_no'], $extra);
+                        if (true !== $result) {
+                            throw new \Exception((string)$result);
+                        }
+                        break;
+                    case 'tenant_brand_quota':
+                        $order = TenantBrandQuotaOrder::where(['order_sn' => $message['out_trade_no']])->findOrEmpty();
+                        if($order->isEmpty() || $order->pay_status == PayEnum::ISPAID) {
+                            return true;
+                        }
+                        $result = PayNotifyLogic::handle('tenant_brand_quota', $message['out_trade_no'], $extra);
+                        if (true !== $result) {
+                            throw new \Exception((string)$result);
+                        }
+                        break;
+                    case 'tenant_brand_order':
+                        $order = TenantBrandOrder::where(['order_sn' => $message['out_trade_no']])->findOrEmpty();
+                        if($order->isEmpty() || ($order->pay_status == PayEnum::ISPAID && (int)$order->open_status === 1)) {
+                            return true;
+                        }
+                        $result = PayNotifyLogic::handle('tenant_brand_order', $message['out_trade_no'], $extra);
                         if (true !== $result) {
                             throw new \Exception((string)$result);
                         }

@@ -137,6 +137,26 @@ class AiTaskRecordService
             }
         }
 
+        $unified = AiUsageService::appTaskLists(array_merge($params, [
+            'page_no' => 1,
+            'page_size' => $fetchLimit,
+        ]), $tenantId);
+        $count += (int)$unified['count'];
+        foreach ((array)$unified['rows'] as $row) {
+            $row['app_name'] = self::appName((string)($row['app_code'] ?? ''));
+            $row['source_app_name'] = $row['app_name'];
+            $row['base_app_name'] = '统一应用任务';
+            $row['media_type'] = 'none';
+            $row['prompt'] = '';
+            $row['quantity'] = 1;
+            $row['media_results'] = [];
+            $row['result_count'] = 0;
+            $row['point_estimated'] = (float)($row['estimated_user_price'] ?? 0);
+            $row['point_actual'] = (float)($row['actual_user_price'] ?? 0);
+            $row['initiator_name'] = (string)($row['user_nickname'] ?? '') ?: ((string)($row['user_account'] ?? '') ?: ('用户#' . (int)($row['user_id'] ?? 0)));
+            $rows[] = $row;
+        }
+
         usort($rows, static function (array $left, array $right): int {
             return ((int)($right['create_time'] ?? 0) <=> (int)($left['create_time'] ?? 0))
                 ?: ((int)($right['id'] ?? 0) <=> (int)($left['id'] ?? 0));
@@ -154,6 +174,9 @@ class AiTaskRecordService
 
     public static function detail(int $id, int $tenantId = 0, string $baseAppCode = 'aigc_image'): array
     {
+        if ($baseAppCode === 'ai_app_task') {
+            return AiUsageService::appTaskDetail($id, $tenantId);
+        }
         $baseAppCode = self::normalizeBaseAppCode($baseAppCode);
         if (!self::tableExists(self::baseTaskTable($baseAppCode))) {
             return [];
@@ -181,6 +204,7 @@ class AiTaskRecordService
         $data['app_name'] = $data['source_app_name'];
         $data['task_type'] = self::BASE_TASK_SOURCES[$baseAppCode]['task_type'] ?? '';
         $data['task_sn'] = self::displayTaskSn($data, $baseAppCode, (int)$data['id']);
+        self::appendDisplayFields($data, $baseAppCode, (int)$data['id']);
         $data['record_key'] = $baseAppCode . ':' . $data['id'];
         $data['initiator_name'] = $data['user_nickname'] ?: ($data['user_account'] ?: ('用户#' . $data['user_id']));
         $data['request_params'] = [
@@ -203,7 +227,11 @@ class AiTaskRecordService
             'error' => $data['error'] ?? '',
             'provider' => $data['provider'] ?? '',
             'model' => $data['model'] ?? '',
+            'display_model' => $data['display_model'] ?? '',
+            'display_channel' => $data['display_channel'] ?? '',
             'provider_task_id' => $data['provider_task_id'] ?? '',
+            'provider_task_id_display' => $data['provider_task_id_display'] ?? '',
+            'local_task_id' => $data['local_task_id'] ?? '',
             'results' => self::rawResults($baseAppCode, $taskTenantId, (int)$data['id']),
         ];
         $data['media_results'] = self::mediaResults($baseAppCode, $taskTenantId, (int)$data['id']);
@@ -221,6 +249,10 @@ class AiTaskRecordService
 
     public static function queryResult(int $id, int $tenantId, string $baseAppCode = 'aigc_image'): array
     {
+        if ($baseAppCode === 'ai_app_task') {
+            AiUsageService::requestRefresh($id, $tenantId);
+            return AiUsageService::appTaskDetail($id, $tenantId);
+        }
         $baseAppCode = self::normalizeBaseAppCode($baseAppCode);
         if ($id <= 0 || !self::tableExists(self::baseTaskTable($baseAppCode))) {
             return [];
@@ -260,6 +292,7 @@ class AiTaskRecordService
         $row['app_name'] = $row['source_app_name'];
         $row['task_type'] = self::BASE_TASK_SOURCES[$baseAppCode]['task_type'] ?? '';
         $row['task_sn'] = self::displayTaskSn($row, $baseAppCode, $taskId);
+        self::appendDisplayFields($row, $baseAppCode, $taskId);
         $row['record_key'] = $baseAppCode . ':' . $taskId;
         $row['initiator_name'] = $row['user_nickname'] ?: ($row['user_account'] ?: ('用户#' . $row['user_id']));
         return $row;
@@ -276,6 +309,195 @@ class AiTaskRecordService
             return $requestId !== '' ? $requestId : $baseAppCode . '_' . $taskId;
         }
         return $baseAppCode . '_' . $taskId;
+    }
+
+    private static function appendDisplayFields(array &$row, string $baseAppCode, int $taskId): void
+    {
+        $row['display_type'] = self::displayTaskType($row, $baseAppCode);
+        $row['display_model'] = self::displayModel($row, $baseAppCode);
+        $row['display_channel'] = self::displayChannel($row);
+        $row['display_ratio'] = self::displayRatio($row);
+        $row['display_duration'] = self::displayDuration($row);
+        $row['elapsed_ms'] = self::elapsedMs($row);
+        $row['local_task_id'] = self::displayLocalTaskId($row, $baseAppCode, $taskId);
+        $row['provider_task_id_display'] = self::displayProviderTaskId($row);
+    }
+
+    private static function displayTaskType(array $row, string $baseAppCode): string
+    {
+        $sourceTaskType = self::cleanDisplayText($row['source_task_type'] ?? '');
+        $taskType = $sourceTaskType !== '' ? $sourceTaskType : self::cleanDisplayText($row['task_type'] ?? '');
+        $typeMap = [
+            'image_generate' => '生图',
+            'video_generate' => '视频',
+            'text_generate' => '文本',
+            'short_drama_generate' => '短剧',
+            'digital_human_generate' => '数字人视频',
+            'image_human_generate' => '数字人视频',
+            'action_transfer_generate' => '动作迁移',
+            'person_replacement_generate' => '人物替换',
+            'smart_clip_generate' => '视频剪辑',
+            'script_plan' => '短剧剧本',
+            'script_optimize' => '剧本优化',
+            'storyboard' => '分镜规划',
+            'shot_image' => '分镜生图',
+            'shot_video' => '分镜视频',
+            'music' => '配乐生成',
+            'voice' => '配音生成',
+            'final_video' => '成片合成',
+        ];
+        if ($taskType !== '' && isset($typeMap[$taskType])) {
+            return $typeMap[$taskType];
+        }
+
+        return match (self::baseMediaType($baseAppCode)) {
+            'image' => '生图',
+            'video' => '视频',
+            'text' => '文本',
+            default => self::appName($baseAppCode),
+        };
+    }
+
+    private static function displayModel(array $row, string $baseAppCode): string
+    {
+        $model = self::firstDisplayValue([
+            $row['model_name'] ?? '',
+            $row['provider_model'] ?? '',
+            $row['model_code'] ?? '',
+            $row['model'] ?? '',
+        ]);
+        if ($model !== '') {
+            return $model;
+        }
+
+        $model = self::extractDisplayValue($row['model_json'] ?? ($row['model'] ?? []), [
+            'name', 'label', 'model_name', 'model_code', 'provider_model', 'model', 'code', 'id', 'value'
+        ]);
+        return $model !== '' ? $model : self::appName($baseAppCode);
+    }
+
+    private static function displayChannel(array $row): string
+    {
+        $channel = self::firstDisplayValue([
+            $row['channel_name'] ?? '',
+            $row['channel'] ?? '',
+            $row['channel_code'] ?? '',
+            $row['provider'] ?? '',
+        ]);
+        if ($channel !== '') {
+            return $channel;
+        }
+
+        return self::extractDisplayValue($row['model_json'] ?? [], [
+            'channel_name', 'channel_code', 'channel', 'provider'
+        ]);
+    }
+
+    private static function displayRatio(array $row): string
+    {
+        $ratio = self::cleanDisplayText($row['ratio'] ?? '');
+        return $ratio === 'duration' ? '' : $ratio;
+    }
+
+    private static function displayDuration(array $row): string
+    {
+        $duration = (float)($row['duration'] ?? 0);
+        if ($duration <= 0) {
+            return '';
+        }
+        $text = rtrim(rtrim(number_format($duration, 2, '.', ''), '0'), '.');
+        return $text . '秒';
+    }
+
+    private static function elapsedMs(array $row): int
+    {
+        $start = (int)($row['create_time'] ?? 0);
+        $end = (int)($row['finish_time'] ?? 0);
+        if ($end <= 0 && in_array((string)($row['status'] ?? ''), ['success', 'failed', 'canceled', 'partial_failed'], true)) {
+            $end = (int)($row['update_time'] ?? 0);
+        }
+        if ($start <= 0 || $end <= 0 || $end < $start) {
+            return 0;
+        }
+        return max(0, ($end - $start) * 1000);
+    }
+
+    private static function displayLocalTaskId(array $row, string $baseAppCode, int $taskId): string
+    {
+        if ($baseAppCode === 'aigc_short_drama') {
+            $taskKey = self::cleanDisplayText($row['source_task_key'] ?? $row['task_id'] ?? '');
+            if ($taskKey !== '') {
+                return $taskKey;
+            }
+        }
+        return $baseAppCode . '_' . $taskId;
+    }
+
+    private static function displayProviderTaskId(array $row): string
+    {
+        return self::firstDisplayValue([
+            $row['provider_task_id'] ?? '',
+            $row['provider_request_id'] ?? '',
+        ]);
+    }
+
+    private static function firstDisplayValue(array $values): string
+    {
+        foreach ($values as $value) {
+            $text = self::cleanDisplayText($value);
+            if ($text !== '') {
+                return $text;
+            }
+        }
+        return '';
+    }
+
+    private static function cleanDisplayText($value): string
+    {
+        if (is_array($value)) {
+            return '';
+        }
+        $text = trim((string)$value);
+        if ($text === '') {
+            return '';
+        }
+        $lower = strtolower($text);
+        if (in_array($lower, ['[]', '{}', 'null', 'undefined', 'pending', 'none'], true)) {
+            return '';
+        }
+        if ((str_starts_with($text, '{') && str_ends_with($text, '}'))
+            || (str_starts_with($text, '[') && str_ends_with($text, ']'))) {
+            return '';
+        }
+        return $text;
+    }
+
+    private static function extractDisplayValue($value, array $keys): string
+    {
+        $decoded = self::decodeJsonValue($value);
+        if (is_string($decoded)) {
+            return self::cleanDisplayText($decoded);
+        }
+        if (!is_array($decoded)) {
+            return '';
+        }
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $decoded)) {
+                $text = self::cleanDisplayText($decoded[$key]);
+                if ($text !== '') {
+                    return $text;
+                }
+            }
+        }
+        foreach ($decoded as $item) {
+            if (is_array($item)) {
+                $text = self::extractDisplayValue($item, $keys);
+                if ($text !== '') {
+                    return $text;
+                }
+            }
+        }
+        return '';
     }
 
     private static function appendComputedFields(array &$row): void
@@ -624,6 +846,9 @@ class AiTaskRecordService
                 't.tenant_cost_points',
                 't.user_charge_points',
                 't.provider',
+                't.channel_code channel_code',
+                't.model_code model_code',
+                't.provider_model provider_model',
                 't.provider_model model',
                 't.provider_request_id provider_task_id',
                 "CASE WHEN t.billing_status = 'deduct_failed' THEN 'failed' ELSE 'success' END status",
@@ -689,6 +914,11 @@ class AiTaskRecordService
         if (self::columnExists($table, 'request_json')) {
             $fields[] = 't.request_json';
         }
+        foreach (['model_json', 'provider_request_id', 'channel_code', 'model_code', 'provider_model'] as $extraField) {
+            if (self::columnExists($table, $extraField)) {
+                $fields[] = 't.' . $extraField;
+            }
+        }
 
         return implode(',', $fields)
             . ',te.name tenant_name,te.sn tenant_sn,u.nickname user_nickname,u.account user_account,u.mobile user_mobile';
@@ -720,6 +950,9 @@ class AiTaskRecordService
 
         if ($tenantId > 0 && self::columnExists($table, 'delete_time')) {
             $query->where('t.delete_time', 0);
+        }
+        if ($baseAppCode === 'aigc_image' && self::columnExists($table, 'app_task_id')) {
+            $query->where('t.app_task_id', 0);
         }
 
         if ($tenantId > 0) {

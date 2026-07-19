@@ -17,6 +17,8 @@ declare (strict_types=1);
 namespace app\tenantapi\http\middleware;
 
 use app\common\cache\TenantAdminTokenCache;
+use app\common\model\tenant\Tenant;
+use app\common\service\tenant\TenantContractService;
 use app\tenantapi\service\TenantTokenService;
 use app\common\service\JsonService;
 use think\facade\Config;
@@ -74,6 +76,12 @@ class LoginMiddleware
                     TenantTokenService::expireToken($token);
                     return JsonService::fail('非该站点成员禁止访问', [], -1);
                 }
+            }
+
+            $tenant = Tenant::withoutGlobalScope()->where('id', (int)$request->tenantId)->findOrEmpty();
+            if (!$tenant->isEmpty() && !TenantContractService::enforceTenantActive($tenant)) {
+                TenantTokenService::expireToken($token);
+                return JsonService::fail('租户已到期，请联系平台续费', [], -1);
             }
         }
 

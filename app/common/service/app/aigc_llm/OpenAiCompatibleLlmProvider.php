@@ -14,7 +14,7 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
     {
         $config = $this->resolveConfig($request);
         $payload = $this->buildPayload($request, $config);
-        foreach ($this->requestStream($config['url'], $config['api_key'], $payload, (int)$config['timeout'], (bool)$config['ssl_verify']) as $event) {
+        foreach ($this->requestStream($config, $payload, $request->stream) as $event) {
             if (($event['type'] ?? '') === 'error') {
                 throw new Exception((string)($event['message'] ?? '供应商请求失败'));
             }
@@ -33,7 +33,18 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
         if ($baseUrl === '') {
             throw new Exception('请先配置通道 Base URL 或系统服务接口渠道 Base URL');
         }
-        $streamPath = (string)($config['stream_path'] ?? $config['path'] ?? self::DEFAULT_STREAM_PATH);
+        $modelConfig = is_array($request->modelConfig['config_json'] ?? null) ? $request->modelConfig['config_json'] : [];
+        $channelProtocol = $this->normalizeProtocol((string)($config['protocol'] ?? $config['api_protocol'] ?? 'openai_chat'));
+        $modelProtocol = trim((string)($modelConfig['protocol'] ?? ''));
+        $protocol = $this->normalizeProtocol($modelProtocol !== '' ? $modelProtocol : $channelProtocol);
+        $usesUpdateSourceEndpoint = $this->usesUpdateSourceEndpoint($baseUrl, $source);
+        $streamPath = trim((string)($modelConfig['protocol_path'] ?? ($config['protocol_paths'][$protocol] ?? '')));
+        if ($streamPath === '' && $protocol === $channelProtocol) {
+            $streamPath = trim((string)($config['stream_path'] ?? $config['path'] ?? ''));
+        }
+        if ($streamPath === '') {
+            $streamPath = $this->defaultPath($protocol, $usesUpdateSourceEndpoint);
+        }
         $apiKey = trim((string)($config['api_key'] ?? ''));
         if ($apiKey === '') {
             $apiKey = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? ''));
@@ -41,7 +52,6 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
         if ($apiKey === '') {
             throw new Exception('请先在通道配置中填写 API Key');
         }
-        $usesUpdateSourceEndpoint = $this->usesUpdateSourceEndpoint($baseUrl, $source);
         return [
             'url' => rtrim($baseUrl, '/') . '/' . ltrim($streamPath, '/'),
             'api_key' => $apiKey,
@@ -50,6 +60,10 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
             'include_channel' => (int)($config['include_channel'] ?? $config['support_channel_payload'] ?? ($usesUpdateSourceEndpoint ? 1 : 0)),
             'support_stream_options' => (int)($config['support_stream_options'] ?? 0),
             'extra_payload_keys' => is_array($config['extra_payload_keys'] ?? null) ? $config['extra_payload_keys'] : [],
+            'protocol' => $protocol,
+            'auth_mode' => strtolower(trim((string)($config['auth_mode'] ?? 'bearer'))),
+            'headers' => is_array($config['headers'] ?? null) ? $config['headers'] : [],
+            'anthropic_version' => trim((string)($config['anthropic_version'] ?? '2023-06-01')),
         ];
     }
 
@@ -73,23 +87,45 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
                 'content' => $this->normalizeMessageContent($message['content'] ?? ''),
             ];
         }
-        $payload = [
-            'model' => (string)($request->modelConfig['model'] ?? $request->modelCode),
-            'messages' => $messages,
-            'stream' => true,
-        ];
-        if (!empty($request->tools)) {
+        $model = (string)($request->modelConfig['model'] ?? $request->modelCode);
+        $protocol = (string)($config['protocol'] ?? 'openai_chat');
+        $payload = match ($protocol) {
+            'openai_responses' => $this->responsesPayload($model, $messages, $request),
+            'openai_completions' => [
+                'model' => $model,
+                'prompt' => $this->completionPrompt($messages),
+                'stream' => $request->stream,
+            ],
+            'anthropic_messages' => $this->anthropicPayload($model, $messages, $request),
+            default => [
+                'model' => $model,
+                'messages' => $messages,
+                'stream' => $request->stream,
+            ],
+        };
+        if (!empty($request->tools) && $protocol !== 'openai_completions') {
             $payload['tools'] = array_values($request->tools);
             $payload['tool_choice'] = $request->toolChoice ?? 'auto';
         }
-        if (!empty($request->responseFormat)) {
+        if (!empty($request->responseFormat) && in_array($protocol, ['openai_chat', 'openai_responses'], true)) {
             $payload['response_format'] = $request->responseFormat;
         }
-        if ((int)($config['include_channel'] ?? 0) === 1 && $request->channelCode !== '') {
-            $payload['channel'] = $request->channelCode;
+        $upstreamChannel = trim((string)($request->channelConfig['upstream_channel_code'] ?? $request->channelCode));
+        if ($protocol === 'openai_chat' && (int)($config['include_channel'] ?? 0) === 1 && $upstreamChannel !== '') {
+            $payload['channel'] = $upstreamChannel;
         }
         foreach (['temperature', 'max_tokens', 'top_p', 'presence_penalty', 'frequency_penalty', 'enable_thinking'] as $key) {
             if (array_key_exists($key, $modelConfig)) {
+                if ($key === 'max_tokens' && (int)$modelConfig[$key] <= 0) {
+                    continue;
+                }
+                if ($key === 'max_tokens' && $protocol === 'openai_responses') {
+                    $payload['max_output_tokens'] = $modelConfig[$key];
+                    continue;
+                }
+                if ($key === 'max_tokens' && $protocol === 'anthropic_messages') {
+                    continue;
+                }
                 $payload[$key] = $modelConfig[$key];
             }
         }
@@ -98,10 +134,84 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
                 $payload[$key] = $modelConfig[$key];
             }
         }
-        if ($this->supportsStreamOptions($request, $config) && isset($modelConfig['stream_options']) && is_array($modelConfig['stream_options'])) {
+        if ($protocol === 'openai_chat' && $request->stream && $this->supportsStreamOptions($request, $config) && isset($modelConfig['stream_options']) && is_array($modelConfig['stream_options'])) {
             $payload['stream_options'] = $modelConfig['stream_options'];
         }
         return $payload;
+    }
+
+    private function responsesPayload(string $model, array $messages, AigcLlmGenerateRequest $request): array
+    {
+        $instructions = '';
+        $input = [];
+        foreach ($messages as $message) {
+            if (($message['role'] ?? '') === 'system') {
+                $instructions .= ($instructions === '' ? '' : "\n") . $this->stringifyText($message['content'] ?? '');
+                continue;
+            }
+            $input[] = $message;
+        }
+        $payload = ['model' => $model, 'input' => $input, 'stream' => $request->stream];
+        if ($instructions !== '') {
+            $payload['instructions'] = $instructions;
+        }
+        return $payload;
+    }
+
+    private function anthropicPayload(string $model, array $messages, AigcLlmGenerateRequest $request): array
+    {
+        $system = [];
+        $input = [];
+        foreach ($messages as $message) {
+            if (($message['role'] ?? '') === 'system') {
+                $system[] = $this->stringifyText($message['content'] ?? '');
+                continue;
+            }
+            $input[] = $message;
+        }
+        $payload = [
+            'model' => $model,
+            'messages' => $input,
+            'max_tokens' => max(1, (int)($request->modelConfig['config_json']['max_tokens'] ?? 1024)),
+            'stream' => $request->stream,
+        ];
+        if ($system !== []) {
+            $payload['system'] = implode("\n", $system);
+        }
+        return $payload;
+    }
+
+    private function completionPrompt(array $messages): string
+    {
+        $lines = [];
+        foreach ($messages as $message) {
+            $text = $this->stringifyText($message['content'] ?? '');
+            if ($text !== '') {
+                $lines[] = ucfirst((string)($message['role'] ?? 'user')) . ': ' . $text;
+            }
+        }
+        return implode("\n", $lines);
+    }
+
+    private function normalizeProtocol(string $protocol): string
+    {
+        return match (strtolower(trim($protocol))) {
+            'responses', 'openai_responses' => 'openai_responses',
+            'completions', 'openai_completions' => 'openai_completions',
+            'messages', 'anthropic', 'anthropic_messages' => 'anthropic_messages',
+            default => 'openai_chat',
+        };
+    }
+
+    private function defaultPath(string $protocol, bool $sourceEndpoint = false): string
+    {
+        $prefix = $sourceEndpoint ? '/api/v1' : '/v1';
+        return match ($protocol) {
+            'openai_responses' => $prefix . '/responses',
+            'openai_completions' => $prefix . '/completions',
+            'anthropic_messages' => $prefix . '/messages',
+            default => $sourceEndpoint ? '/api/v1/chat/completions' : self::DEFAULT_STREAM_PATH,
+        };
     }
 
     private function allowedExtraPayloadKeys(AigcLlmGenerateRequest $request, array $config): array
@@ -150,7 +260,7 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
         return $parts ?: '';
     }
 
-    private function requestStream(string $url, string $apiKey, array $payload, int $timeout, bool $sslVerify): \Generator
+    private function requestStream(array $config, array $payload, bool $stream): \Generator
     {
         $queue = [];
         $buffer = '';
@@ -158,18 +268,14 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
         $receivedValidEvent = false;
         $ch = curl_init();
         curl_setopt_array($ch, [
-            CURLOPT_URL => $url,
+            CURLOPT_URL => (string)$config['url'],
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            CURLOPT_HTTPHEADER => [
-                'Authorization: Bearer ' . $apiKey,
-                'Content-Type: application/json',
-                'Accept: text/event-stream',
-            ],
-            CURLOPT_CONNECTTIMEOUT => min(10, $timeout),
-            CURLOPT_TIMEOUT => $timeout,
-            CURLOPT_SSL_VERIFYPEER => $sslVerify,
-            CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
+            CURLOPT_HTTPHEADER => $this->requestHeaders($config, $stream),
+            CURLOPT_CONNECTTIMEOUT => min(10, (int)$config['timeout']),
+            CURLOPT_TIMEOUT => (int)$config['timeout'],
+            CURLOPT_SSL_VERIFYPEER => (bool)$config['ssl_verify'],
+            CURLOPT_SSL_VERIFYHOST => $config['ssl_verify'] ? 2 : 0,
             CURLOPT_WRITEFUNCTION => function ($curl, string $chunk) use (&$queue, &$buffer, &$responseBody, &$receivedValidEvent) {
                 $responseBody .= $chunk;
                 $buffer .= str_replace("\r\n", "\n", $chunk);
@@ -236,6 +342,28 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
         if (!$receivedValidEvent) {
             throw new Exception($this->friendlyError($this->extractError($responseBody) ?: '供应商没有返回有效的流式内容'));
         }
+    }
+
+    private function requestHeaders(array $config, bool $stream): array
+    {
+        $headers = [
+            'Content-Type: application/json',
+            'Accept: ' . ($stream ? 'text/event-stream' : 'application/json'),
+        ];
+        if (($config['auth_mode'] ?? 'bearer') === 'x_api_key') {
+            $headers[] = 'x-api-key: ' . (string)$config['api_key'];
+            if (($config['protocol'] ?? '') === 'anthropic_messages') {
+                $headers[] = 'anthropic-version: ' . (string)$config['anthropic_version'];
+            }
+        } else {
+            $headers[] = 'Authorization: Bearer ' . (string)$config['api_key'];
+        }
+        foreach ((array)($config['headers'] ?? []) as $name => $value) {
+            if (is_string($name) && $name !== '' && !is_array($value)) {
+                $headers[] = $name . ': ' . (string)$value;
+            }
+        }
+        return $headers;
     }
 
     private function parseSseBlock(string $block): ?array
@@ -337,6 +465,7 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
             $json['text'] ?? null,
             $json['answer'] ?? null,
             $json['response'] ?? null,
+            $json['output'] ?? null,
             $json['message']['content'] ?? null,
             $json['result']['content'] ?? null,
             $json['result']['text'] ?? null,

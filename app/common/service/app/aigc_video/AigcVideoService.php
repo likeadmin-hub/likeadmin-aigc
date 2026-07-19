@@ -78,6 +78,7 @@ class AigcVideoService
 
     private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = []): array
     {
+        $params = self::sanitizeUtf8Payload($params);
         $prompt = trim((string)($params['prompt'] ?? ''));
         if ($prompt === '') {
             throw new Exception('请输入提示词');
@@ -1241,5 +1242,37 @@ class AigcVideoService
             'xhadmin', 'xhadmin_grok_video', 'grok_video_xaiq', 'wan', 'seedance', 'seedance2_pro', 'omni_flash_ext' => new XhadminAigcVideoProvider(),
             default => new MockAigcVideoProvider(),
         };
+    }
+
+    private static function sanitizeUtf8Payload(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $data[$key] = self::sanitizeUtf8Payload($value);
+                continue;
+            }
+            if (is_string($value)) {
+                $data[$key] = self::sanitizeUtf8String($value);
+            }
+        }
+        return $data;
+    }
+
+    private static function sanitizeUtf8String(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+        $value = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $value) ?? $value;
+        $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        if (!is_string($encoded)) {
+            return '';
+        }
+        $decoded = json_decode($encoded, true);
+        if (!is_string($decoded)) {
+            return '';
+        }
+        $decoded = str_replace("\xEF\xBF\xBD", '', $decoded);
+        return preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', $decoded) ?? $decoded;
     }
 }

@@ -18,6 +18,8 @@ use Alipay\EasySDK\Kernel\Config;
 use app\common\enum\PayEnum;
 use app\common\enum\user\UserTerminalEnum;
 use app\common\logic\PayNotifyLogic;
+use app\common\model\brand\TenantBrandOrder;
+use app\common\model\brand\TenantBrandQuotaOrder;
 use app\common\model\membership\MembershipOrder;
 use app\common\model\pay\PayConfig;
 use app\common\model\power\TenantPowerOrder;
@@ -203,6 +205,26 @@ class AliPayService extends BasePayService
                         return true;
                     }
                     $result = PayNotifyLogic::handle('tenant_power', $data['out_trade_no'], $extra);
+                    if (true !== $result) {
+                        throw new \Exception((string)$result);
+                    }
+                    break;
+                case 'tenant_brand_quota':
+                    $order = TenantBrandQuotaOrder::where(['order_sn' => $data['out_trade_no']])->findOrEmpty();
+                    if ($order->isEmpty() || $order->pay_status == PayEnum::ISPAID) {
+                        return true;
+                    }
+                    $result = PayNotifyLogic::handle('tenant_brand_quota', $data['out_trade_no'], $extra);
+                    if (true !== $result) {
+                        throw new \Exception((string)$result);
+                    }
+                    break;
+                case 'tenant_brand_order':
+                    $order = TenantBrandOrder::where(['order_sn' => $data['out_trade_no']])->findOrEmpty();
+                    if ($order->isEmpty() || ($order->pay_status == PayEnum::ISPAID && (int)$order->open_status === 1)) {
+                        return true;
+                    }
+                    $result = PayNotifyLogic::handle('tenant_brand_order', $data['out_trade_no'], $extra);
                     if (true !== $result) {
                         throw new \Exception((string)$result);
                     }

@@ -6,6 +6,7 @@ use app\common\cache\TenantAdminTokenCache;
 use app\common\model\tenant\Tenant;
 use app\common\model\tenant\TenantSsoTicket;
 use app\common\service\FileService;
+use app\common\service\tenant\TenantContractService;
 use Exception;
 use think\facade\Config;
 use think\facade\Db;
@@ -24,8 +25,8 @@ class TenantSsoService
         if ($tenant->isEmpty()) {
             throw new Exception('租户不存在');
         }
-        if ((int)$tenant->disable !== 0) {
-            throw new Exception('租户已停用');
+        if (!TenantContractService::enforceTenantActive($tenant)) {
+            throw new Exception('租户已到期');
         }
 
         $tenantData = $tenant->toArray();
@@ -91,8 +92,8 @@ class TenantSsoService
             }
 
             $tenant = Tenant::withoutGlobalScope()->where('id', $tenantId)->findOrEmpty();
-            if ($tenant->isEmpty() || (int)$tenant->disable !== 0) {
-                throw new Exception('租户不存在或已停用');
+            if ($tenant->isEmpty() || !TenantContractService::enforceTenantActive($tenant)) {
+                throw new Exception('租户不存在或已到期');
             }
 
             $tenantData = $tenant->toArray();

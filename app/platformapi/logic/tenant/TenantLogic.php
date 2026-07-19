@@ -18,6 +18,8 @@ use app\common\logic\BaseLogic;
 use app\common\model\tenant\Tenant;
 use app\common\model\user\User;
 use app\common\service\storage\StorageConfigService;
+use app\common\service\tenant\TenantContractService;
+use app\common\service\tenant\TenantDomainAliasService;
 use app\common\service\tenant\TenantUrlService;
 use Exception;
 use think\facade\Db;
@@ -39,27 +41,47 @@ class TenantLogic extends BaseLogic
      */
     public static function add(array $params)
     {
-        $domain_alias = preg_replace('/^https?:\/\/|\/$/', '', (string)($params['domain_alias'] ?? ''));
-        $accessMode = TenantUrlService::normalizeAccessMode((string)($params['access_mode'] ?? TenantUrlService::ACCESS_SUBDOMAIN));
+        $domain_alias = TenantUrlService::normalizeHost((string)($params['domain_alias'] ?? ''));
+        $aliases = (array)($params['domain_aliases'] ?? []);
         $sn = $params['host_name'] ?? Tenant::createUserSn();
         $exists = (new Tenant())->where('sn', $sn)->find();
         if (!empty($exists)) {
             throw new Exception('主机名已被占用，请更换');
         }
-        return Tenant::create([
+        $normalizedAliases = TenantDomainAliasService::normalizeAliasList($aliases, $domain_alias);
+        TenantDomainAliasService::validateAliases($normalizedAliases, 0, true);
+        $domain_alias = (string)($normalizedAliases[0]['domain'] ?? $domain_alias);
+        $expireTime = self::normalizeTime($params['contract_expire_time'] ?? 0);
+        $contractStatus = $expireTime > 0
+            ? ($expireTime > time() ? TenantContractService::STATUS_ACTIVE : TenantContractService::STATUS_EXPIRED)
+            : TenantContractService::STATUS_UNSIGNED;
+        $tenant = Tenant::create([
             'sn'                  => $sn,
             'name'                => $params['name'],
             'avatar'              => $params['avatar'],
             'tel'                 => $params['tel'],
             'domain_alias'        => $domain_alias,
-            'domain_alias_enable' => $accessMode === TenantUrlService::ACCESS_ALIAS ? 0 : 1,
-            'access_mode'         => $accessMode,
+            'domain_alias_enable' => 0,
+            'access_mode'         => TenantUrlService::ACCESS_ALIAS,
             'disable'             => $params['disable'] ?? 0,
             'notes'               => $params['notes'] ?? '',
-            'tactics'             => $params['tactics'] ?? 0,
+            'tactics'             => 0,
             'allow_custom_storage' => $params['allow_custom_storage'] ?? 0,
             'allow_local_storage'  => $params['allow_local_storage'] ?? 1,
+            'contract_package_id'  => (int)($params['contract_package_id'] ?? 0),
+            'contract_package_name' => (string)($params['contract_package_name'] ?? ''),
+            'contract_start_time'  => (int)($params['contract_start_time'] ?? time()),
+            'contract_expire_time' => $expireTime,
+            'contract_renew_time'  => (int)($params['contract_renew_time'] ?? time()),
+            'contract_status'      => $contractStatus,
+            'source_tenant_id'     => (int)($params['source_tenant_id'] ?? 0),
+            'parent_tenant_id'     => (int)($params['parent_tenant_id'] ?? 0),
         ]);
+        $primaryAlias = TenantDomainAliasService::syncTenantAliases((int)$tenant['id'], $normalizedAliases, $domain_alias, true);
+        if ($primaryAlias !== $domain_alias) {
+            $tenant->save(['domain_alias' => $primaryAlias]);
+        }
+        return $tenant;
     }
 
     /**
@@ -72,10 +94,12 @@ class TenantLogic extends BaseLogic
     public static function detail(int $userId)
     {
         try {
-            $field = "id,sn,name,avatar,tel,domain_alias,domain_alias_enable,access_mode,disable,create_time,notes,allow_custom_storage,allow_local_storage,point_balance";
+            $field = "id,sn,name,avatar,tel,domain_alias,domain_alias_enable,access_mode,disable,create_time,notes,allow_custom_storage,allow_local_storage,point_balance,contract_package_id,contract_package_name,contract_start_time,contract_expire_time,contract_renew_time,contract_status,parent_tenant_id,source_tenant_id";
 
             $user = Tenant::where(['id' => $userId])->field($field)->findOrEmpty();
             $user['user_total'] = User::where(['tenant_id' => $userId])->count();
+            $user['domain_aliases'] = TenantDomainAliasService::getAliasesByTenantId($userId);
+            $user['contract_summary'] = TenantContractService::summary($user);
 
             $domain = TenantUrlService::tenantRootDomain(request()->domain());
             return TenantUrlService::attach($user->toArray(), $domain);
@@ -96,21 +120,34 @@ class TenantLogic extends BaseLogic
     public static function edit(array $params)
     {
         try {
-            $domain_alias = preg_replace('/^https?:\/\/|\/$/', '', (string)($params['domain_alias'] ?? ''));
-            $accessMode = TenantUrlService::normalizeAccessMode((string)($params['access_mode'] ?? TenantUrlService::ACCESS_SUBDOMAIN));
+            $tenantId = (int)$params['id'];
+            $domain_alias = TenantUrlService::normalizeHost((string)($params['domain_alias'] ?? ''));
+            $aliases = (array)($params['domain_aliases'] ?? []);
+            $domain_alias = TenantDomainAliasService::syncTenantAliases($tenantId, $aliases, $domain_alias, true);
+        $expireTime = self::normalizeTime($params['contract_expire_time'] ?? 0);
+            $contractStatus = $expireTime > 0
+                ? ($expireTime > time() ? TenantContractService::STATUS_ACTIVE : TenantContractService::STATUS_EXPIRED)
+                : TenantContractService::STATUS_UNSIGNED;
             Tenant::update([
                 'name'                => $params['name'],
                 'avatar'              => $params['avatar'],
                 'disable'             => $params['disable'] ?? 0,
                 'tel'                 => $params['tel'],
                 'domain_alias'        => $domain_alias,
-                'domain_alias_enable' => $accessMode === TenantUrlService::ACCESS_ALIAS ? 0 : 1,
-                'access_mode'         => $accessMode,
+                'domain_alias_enable' => 0,
+                'access_mode'         => TenantUrlService::ACCESS_ALIAS,
                 'notes'               => $params['notes'] ?? '',
                 'allow_custom_storage' => $params['allow_custom_storage'] ?? 0,
                 'allow_local_storage'  => $params['allow_local_storage'] ?? 1,
+                'contract_package_id'  => (int)($params['contract_package_id'] ?? 0),
+                'contract_package_name' => (string)($params['contract_package_name'] ?? ''),
+                'contract_start_time'  => (int)($params['contract_start_time'] ?? time()),
+                'contract_expire_time' => $expireTime,
+                'contract_renew_time'  => (int)($params['contract_renew_time'] ?? time()),
+                'contract_status'      => $contractStatus,
+                'source_tenant_id'     => (int)($params['source_tenant_id'] ?? 0),
+                'parent_tenant_id'     => (int)($params['parent_tenant_id'] ?? 0),
             ], ['id' => $params['id']]);
-            $tenantId = (int)$params['id'];
             StorageConfigService::clearCache($tenantId);
             self::syncCustomStorageMenu($tenantId, (int)($params['allow_custom_storage'] ?? 0) === 1);
             return true;
@@ -183,5 +220,23 @@ class TenantLogic extends BaseLogic
     public static function getRootDmain($url)
     {
         return TenantUrlService::tenantRootDomain($url);
+    }
+
+    public static function normalizeDomainHost(string $domain): string
+    {
+        return TenantUrlService::normalizeHost($domain);
+    }
+
+    private static function normalizeTime(mixed $value): int
+    {
+        if (is_numeric($value)) {
+            return (int)$value;
+        }
+        $value = trim((string)$value);
+        if ($value === '') {
+            return 0;
+        }
+        $time = strtotime($value);
+        return $time ? (int)$time : 0;
     }
 }

@@ -47,8 +47,8 @@ class AigcProductPromoVideoService
         }
         $data['option_config'] = $optionConfig;
         $data['spec_options'] = self::buildSpecOptions($optionConfig, (float)$data['unit_price']);
-        $data['ratio_options'] = self::buildRatioOptions($data['spec_options']);
-        $data['duration_options'] = self::buildDurationOptions($data['spec_options'], $data['default_ratio']);
+        $data['ratio_options'] = self::buildRatioOptions($data['spec_options'], $data['default_channel'], $data['default_quality']);
+        $data['duration_options'] = self::buildDurationOptions($data['spec_options'], $data['default_ratio'], $data['default_channel'], $data['default_quality']);
         $data['types'] = self::typeLists($tenantId, true);
         $data['dependencies'] = self::dependencies($tenantId);
         if ($row->isEmpty()) {
@@ -751,11 +751,17 @@ class AigcProductPromoVideoService
         return $channels;
     }
 
-    private static function buildRatioOptions(array $channels): array
+    private static function buildRatioOptions(array $channels, string $channelCode = '', string $qualityValue = ''): array
     {
         $map = [];
         foreach ($channels as $channel) {
+            if ($channelCode !== '' && (string)($channel['code'] ?? '') !== $channelCode) {
+                continue;
+            }
             foreach (($channel['qualities'] ?? []) as $quality) {
+                if ($qualityValue !== '' && (string)($quality['value'] ?? '') !== $qualityValue) {
+                    continue;
+                }
                 foreach (($quality['ratios'] ?? []) as $spec) {
                     if ((int)($spec['status'] ?? 1) !== 1) {
                         continue;
@@ -770,11 +776,17 @@ class AigcProductPromoVideoService
         return array_values($map);
     }
 
-    private static function buildDurationOptions(array $channels, string $ratio = ''): array
+    private static function buildDurationOptions(array $channels, string $ratio = '', string $channelCode = '', string $qualityValue = ''): array
     {
         $map = [];
         foreach ($channels as $channel) {
+            if ($channelCode !== '' && (string)($channel['code'] ?? '') !== $channelCode) {
+                continue;
+            }
             foreach (($channel['qualities'] ?? []) as $quality) {
+                if ($qualityValue !== '' && (string)($quality['value'] ?? '') !== $qualityValue) {
+                    continue;
+                }
                 foreach (($quality['ratios'] ?? []) as $spec) {
                     if ((int)($spec['status'] ?? 1) !== 1) {
                         continue;

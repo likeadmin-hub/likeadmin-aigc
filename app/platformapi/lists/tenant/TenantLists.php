@@ -17,6 +17,8 @@ use app\tenantapi\lists\BaseAdminDataLists;
 use app\common\enum\user\UserTerminalEnum;
 use app\common\lists\ListsExcelInterface;
 use app\common\model\tenant\Tenant;
+use app\common\service\tenant\TenantContractService;
+use app\common\service\tenant\TenantDomainAliasService;
 use app\common\service\tenant\TenantUrlService;
 
 
@@ -52,7 +54,7 @@ class TenantLists extends BaseAdminDataLists implements ListsExcelInterface
      */
     public function lists(): array
     {
-        $field = "id,sn,name,avatar,disable,create_time,domain_alias,domain_alias_enable,access_mode,notes,tel,point_balance";
+        $field = "id,sn,name,avatar,disable,create_time,domain_alias,domain_alias_enable,access_mode,notes,tel,point_balance,contract_package_id,contract_package_name,contract_start_time,contract_expire_time,contract_renew_time,contract_status,parent_tenant_id,source_tenant_id";
 
         $lists = Tenant::withCount(['users'])
             ->withSearch($this->setSearch(), $this->params)
@@ -64,6 +66,8 @@ class TenantLists extends BaseAdminDataLists implements ListsExcelInterface
         $domain = TenantUrlService::tenantRootDomain(request()->domain());
 
         return array_map(function ($item) use ($domain) {
+            $item['domain_aliases'] = TenantDomainAliasService::getAliasesByTenantId((int)$item['id']);
+            $item['contract_summary'] = TenantContractService::summary($item);
             return TenantUrlService::attach($item, $domain);
         }, $lists);
     }

@@ -15,6 +15,7 @@ namespace app\platformapi\validate\tenant;
 
 
 use app\common\model\tenant\Tenant;
+use app\common\service\tenant\TenantDomainAliasService;
 use app\common\service\tenant\TenantUrlService;
 use app\common\validate\BaseValidate;
 
@@ -29,7 +30,6 @@ class TenantValidate extends BaseValidate
     protected $rule = [
         'id'   => 'require|checkUser',
         'name' => 'require',
-        'access_mode' => 'checkAccessMode',
         'domain_alias' => 'checkDomainAlias'
     ];
 
@@ -80,65 +80,17 @@ class TenantValidate extends BaseValidate
      */
     public function checkDomainAlias($value, $rule, $data)
     {
-        $value = $this->normalizeDomainAlias($value);
-        if (!$this->isAliasRequired($data) && $value === '') {
-            return true;
-        }
-        if ($this->isAliasRequired($data) && $value === '') {
+        $tenantId = (int)($data['id'] ?? 0);
+        $aliases = TenantDomainAliasService::normalizeAliasList((array)($data['domain_aliases'] ?? []), (string)$value);
+        if (empty($aliases)) {
             return '请设置域名别名';
         }
-        $tenant = Tenant::where(['domain_alias' => $value])->findOrEmpty();
-        if (!$tenant->isEmpty()) {
-            return '租户别名已存在';
+        try {
+            TenantDomainAliasService::validateAliases($aliases, $tenantId, true);
+        } catch (\Throwable $e) {
+            return $e->getMessage();
         }
         return true;
-    }
-
-    /**
-     * @notes 域名校验
-     * @param $value
-     * @param $rule
-     * @param $data
-     * @return string|true
-     * @author JXDN
-     * @date 2024/09/11 15:30
-     */
-    public function checkDomainAliasEdit($value, $rule, $data)
-    {
-        $value = $this->normalizeDomainAlias($value);
-        if (!$this->isAliasRequired($data) && $value === '') {
-            return true;
-        }
-        if ($this->isAliasRequired($data) && $value === '') {
-            return '请设置域名别名';
-        }
-        $tenant = Tenant::where('domain_alias', $value)
-            ->where('id', '<>', $data['id']) // 排除当前租户
-            ->findOrEmpty();
-        if (!$tenant->isEmpty()) {
-            return '租户别名已存在';
-        }
-        return true;
-    }
-
-    public function checkAccessMode($value, $rule, $data)
-    {
-        if ($value === null || $value === '') {
-            return true;
-        }
-        return in_array((string)$value, TenantUrlService::ACCESS_MODES, true) ? true : '访问方式错误';
-    }
-
-    private function isAliasRequired(array $data): bool
-    {
-        return ($data['access_mode'] ?? '') === TenantUrlService::ACCESS_ALIAS
-            || (int)($data['domain_alias_enable'] ?? 1) === 0;
-    }
-
-    private function normalizeDomainAlias($value): string
-    {
-        $value = preg_replace('/^https?:\/\/|\/$/', '', (string)$value);
-        return trim((string)$value);
     }
 
 
@@ -161,7 +113,7 @@ class TenantValidate extends BaseValidate
      */
     public function sceneEdit()
     {
-        return $this->only(['id', 'name', 'access_mode'])->append('domain_alias', 'checkDomainAliasEdit');
+        return $this->only(['id', 'name', 'domain_alias']);
     }
 
     /**

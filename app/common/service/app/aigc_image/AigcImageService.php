@@ -8,6 +8,7 @@ use app\common\model\app\aigc_image\AigcImageQuota;
 use app\common\model\app\aigc_image\AigcImageResult;
 use app\common\model\app\aigc_image\AigcImageSensitiveWord;
 use app\common\model\app\aigc_image\AigcImageTask;
+use app\common\service\ai\AiUsageService;
 use app\common\service\app\AppCaseService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
@@ -41,7 +42,9 @@ class AigcImageService
 
     public static function estimate(int $tenantId, array $params): array
     {
-        return AigcImageChannelService::estimate($tenantId, $params);
+        $estimate = AigcImageChannelService::estimate($tenantId, $params);
+        $selection = AigcImageChannelService::resolveSelection($tenantId, $params);
+        return AiUsageService::resolveImageMarketEstimate($tenantId, $selection, $estimate, (int)($estimate['quantity'] ?? 1));
     }
 
     public static function saveConfig(int $tenantId, array $params): void
@@ -110,6 +113,9 @@ class AigcImageService
             'quantity' => $quantity,
         ]));
         $estimate = self::applyBillingOverride($estimate, $quantity, $billingOverride);
+        if ($billingOverride === []) {
+            $estimate = AiUsageService::resolveImageMarketEstimate($tenantId, $selection, $estimate, $quantity);
+        }
 
         Db::startTrans();
         try {
@@ -121,7 +127,15 @@ class AigcImageService
             }
             self::checkQuota($tenantId, $userId, $quantity);
             PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
+            $usage = AiUsageService::createImageSubmission($tenantId, $userId, array_merge($params, [
+                'channel' => $selection['channel']['code'],
+                'quality' => $selection['spec']['quality'],
+                'ratio' => $selection['spec']['ratio'],
+                'quantity' => $quantity,
+                'reference_images' => $referenceImages,
+            ]), $selection, $estimate);
             $task = AigcImageTask::create([
+                'app_task_id' => (int)$usage['app_task']['id'],
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
                 'prompt' => $prompt,
@@ -143,6 +157,7 @@ class AigcImageService
                 'create_time' => time(),
                 'update_time' => time(),
             ]);
+            AiUsageService::attachImageTask((int)$usage['app_task']['id'], (int)$task['id']);
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollback();
@@ -159,29 +174,44 @@ class AigcImageService
         if (self::isAsyncProvider($providerName)) {
             $channelConfig['poll_attempts'] = 0;
         }
-        $result = $provider->generate(new AigcImageGenerateRequest(
-            $prompt,
-            (string)($params['negative_prompt'] ?? ''),
-            (string)($params['style'] ?? 'general'),
-            $selection['channel']['code'],
-            $selection['spec']['quality'],
-            $selection['spec']['ratio'],
-            $quantity,
-            $referenceImages,
-            $selection['spec'],
-            $providerParams,
-            $channelConfig
-        ));
+        try {
+            $result = $provider->generate(new AigcImageGenerateRequest(
+                $prompt,
+                (string)($params['negative_prompt'] ?? ''),
+                (string)($params['style'] ?? 'general'),
+                $selection['channel']['code'],
+                $selection['spec']['quality'],
+                $selection['spec']['ratio'],
+                $quantity,
+                $referenceImages,
+                $selection['spec'],
+                $providerParams,
+                $channelConfig
+            ));
+        } catch (\Throwable $e) {
+            $task->status = 'failed';
+            $task->error = '生图提交失败';
+            $task->finish_time = time();
+            $task->update_time = time();
+            $task->save();
+            AiUsageService::failImageTask((int)$task['id'], $e->getMessage(), 'submit_exception');
+            throw $e;
+        }
 
         $task->provider_task_id = $result->providerTaskId;
         $task->update_time = time();
         $task->save();
+        AiUsageService::markImageSubmitted((int)$task['id'], (string)$result->providerTaskId, [
+            'provider_task_id' => (string)$result->providerTaskId,
+            'image_count' => count($result->images),
+        ]);
 
         if (!$result->success) {
             $task->status = 'failed';
             $task->error = $result->error;
             $task->finish_time = time();
             $task->save();
+            AiUsageService::failImageTask((int)$task['id'], (string)$task->error, 'submit_failed');
             return ['task_id' => $task['id'], 'results' => [], 'status' => 'failed', 'error' => $task->error];
         }
 
@@ -215,7 +245,6 @@ class AigcImageService
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
-        self::safeRefreshRunningTasks($tenantId, $userId);
         $query = AigcImageTask::alias('t')
             ->leftJoin('user u', 'u.id = t.user_id AND u.tenant_id = t.tenant_id')
             ->field('t.*,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
@@ -312,7 +341,6 @@ class AigcImageService
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
     {
-        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -324,6 +352,20 @@ class AigcImageService
         $data = $task->toArray();
         $data['results'] = self::existingResultRows($tenantId, $userId, $taskId);
         return $data;
+    }
+
+    public static function refreshPendingTasks(int $limit = 20): int
+    {
+        $tasks = AigcImageTask::where('status', 'running')
+            ->where('delete_time', 0)
+            ->where('provider_task_id', '<>', '')
+            ->order('update_time', 'asc')
+            ->limit(max(1, min(100, $limit)))
+            ->select();
+        foreach ($tasks as $task) {
+            self::refreshRunningTasks((int)$task['tenant_id'], (int)$task['user_id'], (int)$task['id'], true);
+        }
+        return count($tasks);
     }
 
     public static function retryTask(int $tenantId, int $taskId): array
@@ -354,6 +396,9 @@ class AigcImageService
         if ($task->isEmpty()) {
             throw new Exception('任务不存在');
         }
+        if ((int)($task['app_task_id'] ?? 0) > 0 && in_array((string)$task['status'], ['pending', 'running'], true)) {
+            AiUsageService::failImageTask((int)$task['id'], '用户取消任务', 'canceled');
+        }
         $task->delete_time = time();
         $task->update_time = time();
         $task->save();
@@ -364,7 +409,6 @@ class AigcImageService
 
     public static function resultLists(int $tenantId, int $userId = 0, int $taskId = 0, string $status = '', string $style = ''): array
     {
-        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcImageTask::where('tenant_id', $tenantId)->where('delete_time', 0)->order('id', 'desc');
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -633,12 +677,16 @@ class AigcImageService
                 if (!method_exists($provider, 'fetchResult')) {
                     continue;
                 }
+                AiUsageService::recordImageEvent((int)$task['id'], 'poll', 'started', [
+                    'provider_task_id' => (string)$task['provider_task_id'],
+                ]);
                 $result = $provider->fetchResult((string)$task['provider_task_id'], self::buildRequestFromTask($task, $selection));
                 if (!$result->success) {
                     if (self::isTransientRefreshError((string)$result->error)) {
                         $task->error = self::friendlyRefreshError((string)$result->error);
                         $task->update_time = time();
                         $task->save();
+                        AiUsageService::recordImageEvent((int)$task['id'], 'poll', 'retry', ['reason' => $task->error]);
                         continue;
                     }
                     $task->status = 'failed';
@@ -646,8 +694,10 @@ class AigcImageService
                     $task->finish_time = time();
                     $task->update_time = time();
                     $task->save();
+                    AiUsageService::failImageTask((int)$task['id'], (string)$task->error, 'upstream_failed');
                     continue;
                 }
+                AiUsageService::recordImageEvent((int)$task['id'], 'poll', 'success', ['image_count' => count($result->images)]);
                 if (empty($result->images)) {
                     self::finishOverdueAsyncTask($task, $selection);
                     continue;
@@ -685,6 +735,7 @@ class AigcImageService
             $task->finish_time = time();
             $task->update_time = time();
             $task->save();
+            AiUsageService::failImageTask((int)$task['id'], $message, 'refresh_failed');
         } catch (\Throwable) {
             // Never let failure-state persistence break read-only task list APIs.
         }
@@ -979,6 +1030,7 @@ class AigcImageService
             }
             $images = self::uniqueImages($images, max(1, (int)$task['quantity']));
             $storage = StorageConfigService::getEffectiveConfig($tenantId);
+            $isUnifiedTask = (int)($task['app_task_id'] ?? 0) > 0;
             foreach ($images as $index => $image) {
                 $row = AigcImageResult::create([
                     'tenant_id' => $tenantId,
@@ -1000,14 +1052,16 @@ class AigcImageService
                     'create_time' => time(),
                 ]);
                 $sourceSn = self::APP_CODE . '-' . (string)$task['id'] . '-' . ((int)$index + 1);
-                PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$estimate['platform_unit_cost'], (float)$estimate['tenant_unit_price'], $sourceSn, 'AIGC生图消费', [
-                    'app_code' => self::APP_CODE,
-                    'task_id' => (int)$task['id'],
-                    'result_id' => (int)$row['id'],
-                    'channel' => $selection['channel']['code'],
-                    'quality' => $selection['spec']['quality'],
-                    'ratio' => $selection['spec']['ratio'],
-                ]);
+                if (!$isUnifiedTask) {
+                    PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$estimate['platform_unit_cost'], (float)$estimate['tenant_unit_price'], $sourceSn, 'AIGC生图消费', [
+                        'app_code' => self::APP_CODE,
+                        'task_id' => (int)$task['id'],
+                        'result_id' => (int)$row['id'],
+                        'channel' => $selection['channel']['code'],
+                        'quality' => $selection['spec']['quality'],
+                        'ratio' => $selection['spec']['ratio'],
+                    ]);
+                }
                 AigcImageBilling::create([
                     'tenant_id' => $tenantId,
                     'user_id' => $userId,
@@ -1021,9 +1075,10 @@ class AigcImageService
                     'tenant_unit_price' => $estimate['tenant_unit_price'],
                     'tenant_cost_points' => $estimate['platform_unit_cost'],
                     'user_charge_points' => $estimate['tenant_unit_price'],
-                    'billing_status' => 'deducted',
-                    'tenant_point_sn' => $sourceSn,
-                    'user_point_sn' => $sourceSn,
+                    'consumption_id' => 0,
+                    'billing_status' => $isUnifiedTask ? 'reserved' : 'deducted',
+                    'tenant_point_sn' => $isUnifiedTask ? '' : $sourceSn,
+                    'user_point_sn' => $isUnifiedTask ? '' : $sourceSn,
                     'create_time' => time(),
                     'update_time' => time(),
                 ]);
@@ -1038,10 +1093,24 @@ class AigcImageService
             }
 
             $costPoints = count($rows);
+            $settlement = $isUnifiedTask ? AiUsageService::settleImageTaskInCurrentTransaction((int)$task['id'], $costPoints, [
+                'result_count' => $costPoints,
+                'provider_task_id' => (string)($images[0]['provider_task_id'] ?? $task['provider_task_id']),
+            ]) : null;
+            if ($settlement !== null) {
+                $consumption = \app\common\model\ai\AiConsumptionLog::findOrEmpty((int)$settlement['consumption_id']);
+                AigcImageBilling::where(['tenant_id' => $tenantId, 'task_id' => (int)$task['id']])->update([
+                    'consumption_id' => (int)$settlement['consumption_id'],
+                    'billing_status' => 'deducted',
+                    'tenant_point_sn' => (string)($consumption['tenant_point_sn'] ?? ''),
+                    'user_point_sn' => (string)($consumption['user_point_sn'] ?? ''),
+                    'update_time' => time(),
+                ]);
+            }
             self::consumeQuota($tenantId, $userId, $costPoints);
-            $task->status = 'success';
-            $task->tenant_cost_points = number_format((float)$estimate['platform_unit_cost'] * $costPoints, 2, '.', '');
-            $task->user_charge_points = number_format((float)$estimate['tenant_unit_price'] * $costPoints, 2, '.', '');
+            $task->status = $settlement['status'] ?? 'success';
+            $task->tenant_cost_points = number_format((float)($settlement['actual_tenant_cost'] ?? ((float)$estimate['platform_unit_cost'] * $costPoints)), 2, '.', '');
+            $task->user_charge_points = number_format((float)($settlement['actual_user_price'] ?? ((float)$estimate['tenant_unit_price'] * $costPoints)), 2, '.', '');
             $task->provider_task_id = (string)($images[0]['provider_task_id'] ?? $task['provider_task_id']);
             $task->finish_time = time();
             $task->update_time = time();
@@ -1054,6 +1123,7 @@ class AigcImageService
             $task->finish_time = time();
             $task->update_time = time();
             $task->save();
+            AiUsageService::failImageTask((int)$task['id'], $e->getMessage(), 'result_persist_failed');
             throw $e;
         }
         return $rows;

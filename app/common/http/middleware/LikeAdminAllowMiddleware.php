@@ -18,6 +18,8 @@ namespace app\common\http\middleware;
 
 use app\common\model\tenant\Tenant;
 use app\common\service\JsonService;
+use app\common\service\tenant\TenantContractService;
+use app\common\service\tenant\TenantDomainAliasService;
 use app\common\service\tenant\TenantUrlService;
 use Closure;
 use think\facade\Config;
@@ -158,8 +160,11 @@ class LikeAdminAllowMiddleware
     private function handleTenantAccess(Tenant $tenantModel, string $domain, $request, Closure $next, bool $isPage = false)
     {
         // 通过别名访问租户
-        $tenant = $tenantModel->where(['domain_alias' => $domain])->findOrEmpty();
-        if (!$tenant->isEmpty() && $tenant->disable === 0 && $tenant->domain_alias_enable === 0) {
+        $tenant = TenantDomainAliasService::findTenantByDomain($domain);
+        if (!$tenant->isEmpty() && $tenant->domain_alias_enable === 0) {
+            if (!TenantContractService::enforceTenantActive($tenant)) {
+                return $this->tenantDisabledResponse($isPage);
+            }
             if (!$this->assertExplicitTenantMatch($request, (int)$tenant->id, $isPage)) {
                 return $this->tenantMismatchResponse($isPage);
             }
@@ -175,7 +180,7 @@ class LikeAdminAllowMiddleware
         $tenantSn = TenantUrlService::tenantSnFromHost($domain);
         $tenant = $tenantModel->where(['sn' => $tenantSn])->findOrEmpty();
         if (!$tenant->isEmpty()) {
-            if ($tenant->disable === 0) {
+            if (TenantContractService::enforceTenantActive($tenant)) {
                 if (!$this->assertExplicitTenantMatch($request, (int)$tenant->id, $isPage)) {
                     return $this->tenantMismatchResponse($isPage);
                 }
@@ -192,7 +197,7 @@ class LikeAdminAllowMiddleware
         $tenantId = $this->extractExplicitTenantId($request);
         if ($tenantId) {
             $tenant = $tenantModel->where(['id' => $tenantId])->findOrEmpty();
-            if (!$tenant->isEmpty() && $tenant->disable === 0) {
+            if (!$tenant->isEmpty() && TenantContractService::enforceTenantActive($tenant)) {
                 $request->tenantId = $tenant->id;
                 $request->tenantSn = $tenant->sn;
                 $request->tenantResolveMode = $this->extractTenantIdFromPath($request) ? 'path_id' : 'param_id';
@@ -216,7 +221,7 @@ class LikeAdminAllowMiddleware
             return;
         }
         $tenant = $tenantModel->where(['id' => $tenantId])->findOrEmpty();
-        if ($tenant->isEmpty() || (int)$tenant->disable !== 0) {
+        if ($tenant->isEmpty() || !TenantContractService::enforceTenantActive($tenant)) {
             return;
         }
         $request->tenantId = $tenant->id;
