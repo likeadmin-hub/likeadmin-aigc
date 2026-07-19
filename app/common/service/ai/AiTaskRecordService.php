@@ -137,6 +137,26 @@ class AiTaskRecordService
             }
         }
 
+        $unified = AiUsageService::appTaskLists(array_merge($params, [
+            'page_no' => 1,
+            'page_size' => $fetchLimit,
+        ]), $tenantId);
+        $count += (int)$unified['count'];
+        foreach ((array)$unified['rows'] as $row) {
+            $row['app_name'] = self::appName((string)($row['app_code'] ?? ''));
+            $row['source_app_name'] = $row['app_name'];
+            $row['base_app_name'] = '统一应用任务';
+            $row['media_type'] = 'none';
+            $row['prompt'] = '';
+            $row['quantity'] = 1;
+            $row['media_results'] = [];
+            $row['result_count'] = 0;
+            $row['point_estimated'] = (float)($row['estimated_user_price'] ?? 0);
+            $row['point_actual'] = (float)($row['actual_user_price'] ?? 0);
+            $row['initiator_name'] = (string)($row['user_nickname'] ?? '') ?: ((string)($row['user_account'] ?? '') ?: ('用户#' . (int)($row['user_id'] ?? 0)));
+            $rows[] = $row;
+        }
+
         usort($rows, static function (array $left, array $right): int {
             return ((int)($right['create_time'] ?? 0) <=> (int)($left['create_time'] ?? 0))
                 ?: ((int)($right['id'] ?? 0) <=> (int)($left['id'] ?? 0));
@@ -154,6 +174,9 @@ class AiTaskRecordService
 
     public static function detail(int $id, int $tenantId = 0, string $baseAppCode = 'aigc_image'): array
     {
+        if ($baseAppCode === 'ai_app_task') {
+            return AiUsageService::appTaskDetail($id, $tenantId);
+        }
         $baseAppCode = self::normalizeBaseAppCode($baseAppCode);
         if (!self::tableExists(self::baseTaskTable($baseAppCode))) {
             return [];
@@ -226,6 +249,10 @@ class AiTaskRecordService
 
     public static function queryResult(int $id, int $tenantId, string $baseAppCode = 'aigc_image'): array
     {
+        if ($baseAppCode === 'ai_app_task') {
+            AiUsageService::requestRefresh($id, $tenantId);
+            return AiUsageService::appTaskDetail($id, $tenantId);
+        }
         $baseAppCode = self::normalizeBaseAppCode($baseAppCode);
         if ($id <= 0 || !self::tableExists(self::baseTaskTable($baseAppCode))) {
             return [];
@@ -923,6 +950,9 @@ class AiTaskRecordService
 
         if ($tenantId > 0 && self::columnExists($table, 'delete_time')) {
             $query->where('t.delete_time', 0);
+        }
+        if ($baseAppCode === 'aigc_image' && self::columnExists($table, 'app_task_id')) {
+            $query->where('t.app_task_id', 0);
         }
 
         if ($tenantId > 0) {

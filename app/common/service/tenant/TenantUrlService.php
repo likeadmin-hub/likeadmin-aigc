@@ -3,6 +3,7 @@
 namespace app\common\service\tenant;
 
 use think\facade\Config;
+use app\common\service\tenant\TenantDomainAliasService;
 
 class TenantUrlService
 {
@@ -24,8 +25,9 @@ class TenantUrlService
         $sn = (string)$tenant['sn'];
 
         $subdomainBase = $scheme . '://' . $sn . '.' . $rootDomain;
-        $aliasEnabled = (int)($tenant['domain_alias_enable'] ?? 1) === 0 && !empty($tenant['domain_alias']);
-        $aliasBase = $aliasEnabled ? $scheme . '://' . trim((string)$tenant['domain_alias'], '/') : '';
+        $aliasEnabled = (int)($tenant['domain_alias_enable'] ?? 1) === 0;
+        $primaryAlias = TenantDomainAliasService::getPrimaryAlias($tenant);
+        $aliasBase = $aliasEnabled && $primaryAlias !== '' ? $scheme . '://' . trim($primaryAlias, '/') : '';
         $idBase = $scheme . '://' . trim($rootHost, '/');
 
         $links = [
@@ -53,6 +55,7 @@ class TenantUrlService
         $tenant['default_domain'] = $tenant['links']['subdomain']['admin'];
         $tenant['domain'] = $tenant['links']['current']['admin'] ?? $tenant['default_domain'];
         $tenant['tenant_id_domain'] = $tenant['links']['id_query']['admin'];
+        $tenant['primary_domain_alias'] = $tenant['links']['alias']['admin'] ?? '';
         return $tenant;
     }
 

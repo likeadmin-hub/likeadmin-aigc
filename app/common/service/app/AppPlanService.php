@@ -219,6 +219,84 @@ class AppPlanService
         });
     }
 
+    public static function grantWithoutCharge(int $tenantId, int $operatorId, string $appCode, int $planId, string $sourceSn, string $remark = '租户套餐赠送应用'): array
+    {
+        if ($appCode === 'system_default') {
+            return [];
+        }
+        $app = App::where(['code' => $appCode, 'status' => AppRegistryService::STATUS_INSTALLED])->findOrEmpty();
+        if ($app->isEmpty() || DefaultAppService::isDefaultApp($appCode)) {
+            return [];
+        }
+        $plan = AppPlan::where(['id' => $planId, 'app_code' => $appCode, 'status' => self::PLAN_ENABLED])->findOrEmpty();
+        if ($plan->isEmpty()) {
+            throw new RuntimeException('绑定的应用套餐不存在或已禁用');
+        }
+
+        return Db::transaction(function () use ($tenantId, $operatorId, $appCode, $app, $plan, $sourceSn, $remark) {
+            $tenantApp = TenantApp::where(['tenant_id' => $tenantId, 'app_code' => $appCode])->lock(true)->findOrEmpty();
+            $hasPaidOrder = TenantAppOrder::where([
+                'tenant_id' => $tenantId,
+                'app_code' => $appCode,
+                'pay_status' => self::PAY_PAID,
+            ])->count() > 0;
+            $isRenew = !$tenantApp->isEmpty() && ((int)$tenantApp['expire_time'] > 0 || $hasPaidOrder);
+            $orderType = $isRenew ? self::ORDER_RENEW : self::ORDER_OPEN;
+            $beforeExpireTime = $isRenew ? (int)$tenantApp['expire_time'] : 0;
+            $baseTime = max($beforeExpireTime, time());
+            $afterExpireTime = strtotime('+' . (int)$plan['duration_months'] . ' months', $baseTime);
+            if (!$afterExpireTime) {
+                throw new RuntimeException('套餐时长计算失败');
+            }
+            $orderSn = generate_sn(TenantAppOrder::class, 'order_sn', 'AO', 6);
+            $tenantAppData = [
+                'tenant_id' => $tenantId,
+                'app_code' => $appCode,
+                'version' => (string)$app['current_version'],
+                'buy_status' => AppAccessService::BUY_PAID,
+                'shelf_status' => $isRenew ? (string)$tenantApp['shelf_status'] : AppAccessService::SHELF_ON,
+                'enable_status' => AppAccessService::ENABLED,
+                'expire_time' => $afterExpireTime,
+                'update_time' => time(),
+            ];
+            if ($tenantApp->isEmpty()) {
+                $tenantAppData['create_time'] = time();
+                TenantApp::create($tenantAppData);
+            } else {
+                $tenantApp->save($tenantAppData);
+            }
+
+            TenantAppOrder::create([
+                'tenant_id' => $tenantId,
+                'app_code' => $appCode,
+                'order_sn' => $orderSn,
+                'plan_id' => (int)$plan['id'],
+                'plan_name' => (string)$plan['name'],
+                'duration_months' => (int)$plan['duration_months'],
+                'order_type' => $orderType,
+                'amount' => '0.00',
+                'points_amount' => '0.00',
+                'before_expire_time' => $beforeExpireTime,
+                'after_expire_time' => $afterExpireTime,
+                'operator_id' => $operatorId,
+                'pay_status' => self::PAY_PAID,
+                'pay_time' => time(),
+                'remark' => $remark,
+                'source_sn' => $sourceSn,
+                'create_time' => time(),
+            ]);
+
+            AppMenuService::syncTenantMenus($tenantId, $appCode);
+
+            return [
+                'order_sn' => $orderSn,
+                'order_type' => $orderType,
+                'before_expire_time' => $beforeExpireTime,
+                'after_expire_time' => $afterExpireTime,
+            ];
+        });
+    }
+
     private static function assertEditableApp(string $appCode): App
     {
         if ($appCode === '') {

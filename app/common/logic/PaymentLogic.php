@@ -19,6 +19,8 @@ use app\common\enum\PayEnum;
 use app\common\enum\YesNoEnum;
 use app\common\enum\user\UserTerminalEnum;
 use app\common\logic\BaseLogic;
+use app\common\model\brand\TenantBrandOrder;
+use app\common\model\brand\TenantBrandQuotaOrder;
 use app\common\model\membership\MembershipOrder;
 use app\common\model\pay\PayWay;
 use app\common\model\pay\TenantPayWay;
@@ -28,6 +30,7 @@ use app\common\logic\PayNotifyLogic;
 use app\common\model\user\User;
 use app\common\service\pay\AliPayService;
 use app\common\service\pay\WeChatPayService;
+use app\common\service\brand\TenantBrandService;
 use app\common\service\power\TenantPowerMallService;
 
 
@@ -65,13 +68,28 @@ class PaymentLogic extends BaseLogic
                     $order = [];
                 }
             }
+            if ($params['from'] == TenantBrandService::FROM_QUOTA) {
+                $order = TenantBrandQuotaOrder::findOrEmpty($params['order_id'])->toArray();
+                if (!empty($order) && (int)($params['tenant_id'] ?? 0) > 0 && (int)$order['tenant_id'] !== (int)$params['tenant_id']) {
+                    $order = [];
+                }
+            }
+            if ($params['from'] == TenantBrandService::FROM_ORDER) {
+                $order = TenantBrandOrder::findOrEmpty($params['order_id'])->toArray();
+                if (!empty($order) && (int)($params['tenant_id'] ?? 0) > 0 && (int)$order['tenant_id'] !== (int)$params['tenant_id']) {
+                    $order = [];
+                }
+                if (!empty($order) && (int)$userId > 0 && (int)$order['user_id'] !== (int)$userId) {
+                    $order = [];
+                }
+            }
 
             if (empty($order)) {
                 throw new \Exception('待支付订单不存在');
             }
 
             // 租户购买平台算力必须使用平台侧收款配置，不能读取租户给终端用户收款的配置。
-            $pay_way = $params['from'] == TenantPowerMallService::FROM
+            $pay_way = in_array($params['from'], [TenantPowerMallService::FROM, TenantBrandService::FROM_QUOTA], true)
                 ? self::getTenantPowerPayWayByTerminal((int)$terminal)
                 : self::getPayWayByTerminal((int)$terminal);
 
@@ -87,7 +105,7 @@ class PaymentLogic extends BaseLogic
                     $item['extra'] = '可用' . \app\common\service\PointUnitService::unit() . ':' . $user_money;
                 }
                 // 现金订单去除点数支付
-                if (in_array($params['from'], ['recharge', 'membership', TenantPowerMallService::FROM], true) && $item['pay_way'] == PayEnum::BALANCE_PAY) {
+                if (in_array($params['from'], ['recharge', 'membership', TenantPowerMallService::FROM, TenantBrandService::FROM_QUOTA, TenantBrandService::FROM_ORDER], true) && $item['pay_way'] == PayEnum::BALANCE_PAY) {
                     unset($pay_way[$k]);
                 }
             }
@@ -219,6 +237,50 @@ class PaymentLogic extends BaseLogic
                         'points' => $order['points'] ?? '0.00',
                     ];
                     break;
+                case TenantBrandService::FROM_QUOTA:
+                    $order = TenantBrandQuotaOrder::where(['id' => $params['order_id']])->findOrEmpty();
+                    if ((int)($params['tenant_id'] ?? 0) > 0) {
+                        $order = TenantBrandQuotaOrder::where(['tenant_id' => (int)$params['tenant_id'], 'id' => $params['order_id']])->findOrEmpty();
+                    }
+                    if ($order->isEmpty()) {
+                        throw new \Exception('额度订单不存在');
+                    }
+                    $payTime = empty($order['pay_time']) ? '' : date('Y-m-d H:i:s', $order['pay_time']);
+                    $orderInfo = [
+                        'order_id' => $order['id'],
+                        'order_sn' => $order['order_sn'],
+                        'order_amount' => $order['order_amount'],
+                        'pay_way' => PayEnum::getPayDesc($order['pay_way']),
+                        'pay_status' => PayEnum::getPayStatusDesc($order['pay_status']),
+                        'pay_time' => $payTime,
+                        'package_name' => $order['package_name'] ?? '',
+                        'quantity' => $order['quantity'] ?? 0,
+                    ];
+                    break;
+                case TenantBrandService::FROM_ORDER:
+                    $where = ['id' => $params['order_id']];
+                    if ((int)($params['tenant_id'] ?? 0) > 0) {
+                        $where['tenant_id'] = (int)$params['tenant_id'];
+                    }
+                    if ((int)($params['user_id'] ?? 0) > 0) {
+                        $where['user_id'] = (int)$params['user_id'];
+                    }
+                    $order = TenantBrandOrder::where($where)->findOrEmpty();
+                    if ($order->isEmpty()) {
+                        throw new \Exception('贴牌订单不存在');
+                    }
+                    $payTime = empty($order['pay_time']) ? '' : date('Y-m-d H:i:s', $order['pay_time']);
+                    $orderInfo = [
+                        'order_id' => $order['id'],
+                        'order_sn' => $order['order_sn'],
+                        'order_amount' => $order['order_amount'],
+                        'pay_way' => PayEnum::getPayDesc($order['pay_way']),
+                        'pay_status' => PayEnum::getPayStatusDesc($order['pay_status']),
+                        'pay_time' => $payTime,
+                        'package_name' => $order['package_name'] ?? '',
+                        'child_tenant_name' => $order['child_tenant_name'] ?? '',
+                    ];
+                    break;
             }
 
             if (empty($order)) {
@@ -271,6 +333,30 @@ class PaymentLogic extends BaseLogic
                     }
                     $order['sn'] = $order['order_sn'];
                     break;
+                case TenantBrandService::FROM_QUOTA:
+                    $order = TenantBrandQuotaOrder::findOrEmpty($params['order_id']);
+                    if ($order->isEmpty()) {
+                        throw new \Exception('额度订单不存在');
+                    }
+                    if ((int)($params['tenant_id'] ?? 0) > 0 && (int)$order['tenant_id'] !== (int)$params['tenant_id']) {
+                        throw new \Exception('额度订单不存在');
+                    }
+                    $order['sn'] = $order['order_sn'];
+                    break;
+                case TenantBrandService::FROM_ORDER:
+                    $where = ['id' => $params['order_id']];
+                    if ((int)($params['tenant_id'] ?? 0) > 0) {
+                        $where['tenant_id'] = (int)$params['tenant_id'];
+                    }
+                    if ((int)($params['user_id'] ?? 0) > 0) {
+                        $where['user_id'] = (int)$params['user_id'];
+                    }
+                    $order = TenantBrandOrder::where($where)->findOrEmpty();
+                    if ($order->isEmpty()) {
+                        throw new \Exception('贴牌订单不存在');
+                    }
+                    $order['sn'] = $order['order_sn'];
+                    break;
             }
 
             if ($order['pay_status'] == PayEnum::ISPAID) {
@@ -297,7 +383,7 @@ class PaymentLogic extends BaseLogic
      */
     public static function pay($payWay, $from, $order, $terminal, $redirectUrl)
     {
-        if ($from == TenantPowerMallService::FROM && !self::isTenantPowerPayWayEnabled((int)$payWay, (int)$terminal)) {
+        if (in_array($from, [TenantPowerMallService::FROM, TenantBrandService::FROM_QUOTA], true) && !self::isTenantPowerPayWayEnabled((int)$payWay, (int)$terminal)) {
             self::setError('支付方式不可用');
             return false;
         }
@@ -321,6 +407,12 @@ class PaymentLogic extends BaseLogic
             case TenantPowerMallService::FROM:
                 TenantPowerOrder::update(['pay_way' => $payWay, 'pay_sn' => $paySn], ['id' => $order['id']]);
                 break;
+            case TenantBrandService::FROM_QUOTA:
+                TenantBrandQuotaOrder::update(['pay_way' => $payWay, 'pay_sn' => $paySn], ['id' => $order['id']]);
+                break;
+            case TenantBrandService::FROM_ORDER:
+                TenantBrandOrder::update(['pay_way' => $payWay, 'pay_sn' => $paySn], ['id' => $order['id']]);
+                break;
         }
 
         if ($order['order_amount'] == 0) {
@@ -331,7 +423,7 @@ class PaymentLogic extends BaseLogic
         $payService = null;
         switch ($payWay) {
             case PayEnum::WECHAT_PAY:
-                $payService = (new WeChatPayService($terminal, $order['user_id'] ?? null, $from == TenantPowerMallService::FROM));
+                $payService = (new WeChatPayService($terminal, $order['user_id'] ?? null, in_array($from, [TenantPowerMallService::FROM, TenantBrandService::FROM_QUOTA], true)));
                 $order['pay_sn'] = $paySn;
                 $order['redirect_url'] = $redirectUrl;
                 $result = $payService->pay($from, $order);

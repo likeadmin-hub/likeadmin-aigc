@@ -191,6 +191,57 @@ class PackageProvisionService
             'source_menu_key' => 'core_tenant_membership_order',
         ]);
         self::upsertMenu($table, $tenantId, ['pid' => $orderId, 'type' => 'A', 'name' => '详情', 'perms' => 'finance.membership_order/detail', 'source_menu_key' => 'core_tenant_membership_order_detail']);
+
+        $brandId = self::upsertMenu($table, $tenantId, [
+            'pid' => 0,
+            'type' => 'M',
+            'name' => '贴牌管理',
+            'icon' => 'el-icon-Connection',
+            'sort' => 650,
+            'paths' => 'brand',
+            'source_menu_key' => 'core_tenant_brand',
+        ]);
+        $brandPackageId = self::upsertMenu($table, $tenantId, [
+            'pid' => $brandId,
+            'type' => 'C',
+            'name' => '贴牌套餐',
+            'icon' => 'el-icon-PriceTag',
+            'sort' => 100,
+            'perms' => 'brand.package/lists',
+            'paths' => 'package',
+            'component' => 'brand/package',
+            'source_menu_key' => 'core_tenant_brand_package',
+        ]);
+        self::upsertMenu($table, $tenantId, ['pid' => $brandPackageId, 'type' => 'A', 'name' => '保存定价', 'perms' => 'brand.package/savePrice', 'source_menu_key' => 'core_tenant_brand_package_save']);
+
+        $brandQuotaId = self::upsertMenu($table, $tenantId, [
+            'pid' => $brandId,
+            'type' => 'C',
+            'name' => '额度购买',
+            'icon' => 'el-icon-ShoppingCart',
+            'sort' => 90,
+            'perms' => 'brand.quota/orders',
+            'paths' => 'quota',
+            'component' => 'brand/quota',
+            'source_menu_key' => 'core_tenant_brand_quota',
+        ]);
+        self::upsertMenu($table, $tenantId, ['pid' => $brandQuotaId, 'type' => 'A', 'name' => '套餐列表', 'perms' => 'brand.quota/packages', 'source_menu_key' => 'core_tenant_brand_quota_packages']);
+        self::upsertMenu($table, $tenantId, ['pid' => $brandQuotaId, 'type' => 'A', 'name' => '创建订单', 'perms' => 'brand.quota/createOrder', 'source_menu_key' => 'core_tenant_brand_quota_create']);
+        self::upsertMenu($table, $tenantId, ['pid' => $brandQuotaId, 'type' => 'A', 'name' => '支付方式', 'perms' => 'brand.pay/payWay', 'source_menu_key' => 'core_tenant_brand_pay_way']);
+        self::upsertMenu($table, $tenantId, ['pid' => $brandQuotaId, 'type' => 'A', 'name' => '预支付', 'perms' => 'brand.pay/prepay', 'source_menu_key' => 'core_tenant_brand_pay_prepay']);
+        self::upsertMenu($table, $tenantId, ['pid' => $brandQuotaId, 'type' => 'A', 'name' => '支付状态', 'perms' => 'brand.pay/payStatus', 'source_menu_key' => 'core_tenant_brand_pay_status']);
+
+        self::upsertMenu($table, $tenantId, [
+            'pid' => $brandId,
+            'type' => 'C',
+            'name' => '订单管理',
+            'icon' => 'el-icon-Document',
+            'sort' => 80,
+            'perms' => 'brand.order/lists',
+            'paths' => 'order',
+            'component' => 'brand/order',
+            'source_menu_key' => 'core_tenant_brand_order',
+        ]);
     }
 
     private static function upsertMenu(string $table, int $tenantId, array $menu): int

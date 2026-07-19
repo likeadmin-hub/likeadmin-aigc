@@ -332,7 +332,7 @@ VALUES (119, {tenantId}, 117, 'C', '用户详情', '', 90, 'user.user/detail', '
 INSERT INTO `la_tenant_system_menu_{tenantSn}`
 VALUES (120, {tenantId}, 119, 'A', '编辑', '', 0, 'user.user/edit', '', '', '', '', 0, 1, 0, 1663904499, 1663904499);
 INSERT INTO `la_tenant_system_menu_{tenantSn}`
-VALUES (9016, {tenantId}, 117, 'C', '任务记录', 'el-icon-List', 90, 'ai_task/lists', 'task', 'consumer/task/index',
+VALUES (9016, {tenantId}, 117, 'C', '应用任务', 'el-icon-List', 90, 'ai_task/lists', 'task', 'consumer/task/index',
         '', '', 0, 1, 0, 1727700000, 1727700000);
 INSERT INTO `la_tenant_system_menu_{tenantSn}`
 VALUES (9017, {tenantId}, 9016, 'A', '详情', '', 1, 'ai_task/detail', '', '', '', '', 0, 1, 0, 1727700000,
@@ -474,7 +474,23 @@ INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,
 VALUES
 ({tenantId},@core_tenant_power_mall_id,'C','购买算力','el-icon-Coin',100,'power.mall/packages','buy','power_mall/index','','',0,1,0,'','core','core_tenant_power_mall_buy',1,1782604800,1782604800),
 ({tenantId},@core_tenant_power_mall_id,'C','购买记录','el-icon-Document',90,'power.mall/orders','records','power_mall/records','','',0,1,0,'','core','core_tenant_power_mall_records',1,1782604800,1782604800),
-({tenantId},@core_tenant_power_mall_id,'C','消耗日志','el-icon-Notebook',80,'power.mall/consumeLogs','consume-logs','power_mall/consume_logs','','',0,1,0,'','core','core_tenant_power_mall_consume_logs',1,1782604800,1782604800);
+({tenantId},@core_tenant_power_mall_id,'C','点数流水','el-icon-Notebook',80,'power.mall/consumeLogs','consume-logs','power_mall/consume_logs','','',0,1,0,'','core','core_tenant_power_mall_consume_logs',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_mall_id,'C','算力市场','el-icon-Connection',95,'power.market/models','market','power_mall/market','','',0,1,0,'','core','core_tenant_power_market',1,1782604800,1782604800);
+SET @core_tenant_power_market_id := (
+  SELECT `id` FROM `la_tenant_system_menu_{tenantSn}`
+  WHERE `tenant_id` = {tenantId} AND `source_menu_key` = 'core_tenant_power_market'
+  ORDER BY `id` DESC
+  LIMIT 1
+);
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES ({tenantId},0,'M','任务日志','el-icon-Document',50,'','task-log','','','',0,1,0,'','core','core_task_log_tenant',1,1782691200,1782691200);
+SET @core_tenant_task_log_id := LAST_INSERT_ID();
+UPDATE `la_tenant_system_menu_{tenantSn}`
+SET `pid`=@core_tenant_task_log_id,`name`='应用日志',`perms`='ai_task/lists',`paths`='application',`component`='consumer/task/index',`update_time`=1782691200
+WHERE `tenant_id`={tenantId} AND `source_menu_key`='core_ai_task_tenant';
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES ({tenantId},@core_tenant_task_log_id,'C','消耗日志','el-icon-DataAnalysis',90,'ai_consumption/lists','consumption','power_mall/consumption','','',0,1,0,'','core','core_ai_consumption_tenant',1,1782691200,1782691200);
+SET @core_tenant_ai_consumption_id := LAST_INSERT_ID();
 SET @core_tenant_power_buy_id := (
   SELECT `id` FROM `la_tenant_system_menu_{tenantSn}`
   WHERE `tenant_id` = {tenantId} AND `source_menu_key` = 'core_tenant_power_mall_buy'
@@ -501,7 +517,14 @@ VALUES
 ({tenantId},@core_tenant_power_buy_id,'A','预支付','',0,'power.pay/prepay','','','','',0,0,0,'','core','core_tenant_power_pay_prepay',1,1782604800,1782604800),
 ({tenantId},@core_tenant_power_buy_id,'A','支付状态','',0,'power.pay/payStatus','','','','',0,0,0,'','core','core_tenant_power_pay_status',1,1782604800,1782604800),
 ({tenantId},@core_tenant_power_records_id,'A','订单详情','',0,'power.mall/orderDetail','','','','',0,0,0,'','core','core_tenant_power_mall_order_detail',1,1782604800,1782604800),
-({tenantId},@core_tenant_power_consume_logs_id,'A','消耗详情','',0,'power.mall/consumeLogDetail','','','','',0,0,0,'','core','core_tenant_power_mall_consume_log_detail',1,1782604800,1782604800);
+({tenantId},@core_tenant_power_consume_logs_id,'A','消耗详情','',0,'power.mall/consumeLogDetail','','','','',0,0,0,'','core','core_tenant_power_mall_consume_log_detail',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_market_id,'A','模型列表','',0,'power.market/models','','','','',0,0,0,'','core','core_tenant_power_market_models',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_market_id,'A','详情','',0,'power.market/detail','','','','',0,0,0,'','core','core_tenant_power_market_detail',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_market_id,'A','应用列表','',0,'power.market/apps','','','','',0,0,0,'','core','core_tenant_power_market_apps',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_market_id,'A','应用详情','',0,'power.market/appDetail','','','','',0,0,0,'','core','core_tenant_power_market_app_detail',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_market_id,'A','保存配置','',0,'power.market/savePrices','','','','',0,0,0,'','core','core_tenant_power_market_save_prices',1,1782604800,1782604800);
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES ({tenantId},@core_tenant_ai_consumption_id,'A','详情','',0,'ai_consumption/detail','','','','',0,0,0,'','core','core_ai_consumption_tenant_detail',1,1782691200,1782691200);
 
 UPDATE `la_tenant_system_menu_{tenantSn}`
 SET `app_code` = '', `source` = 'core', `source_menu_key` = 'core_tenant_message', `is_core` = 1, `update_time` = 1782691200
@@ -952,7 +975,7 @@ UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`sou
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_tenant_storage_setup',`is_core`=1 WHERE `id`=55;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_tenant_storage_change',`is_core`=1 WHERE `id`=56;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_tenant_storage_detail',`is_core`=1 WHERE `id`=57;
-UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_ai_task_tenant',`is_core`=1 WHERE `id`=9016;
+UPDATE `la_tenant_system_menu_{tenantSn}` SET `pid`=@core_tenant_task_log_id,`name`='应用日志',`perms`='ai_task/lists',`paths`='application',`component`='consumer/task/index',`app_code`='',`source`='core',`source_menu_key`='core_ai_task_tenant',`is_core`=1 WHERE `id`=9016;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_ai_task_tenant_detail',`is_core`=1 WHERE `id`=9017;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_ai_task_tenant_query',`is_core`=1 WHERE `id`=9018;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `type`='M',`name`='系统应用',`paths`='system-default',`component`='',`icon`='el-icon-Setting',`pid`=9000,`sort`=10,`app_code`='system_default',`source`='core',`source_menu_key`='core_tenant_system_default',`is_core`=1 WHERE `id`=158;
@@ -963,6 +986,34 @@ UPDATE `la_tenant_system_menu_{tenantSn}` SET `pid`=158,`sort`=30 WHERE `id`=101
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `pid`=158,`sort`=40 WHERE `id`=63;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `name`='模板管理',`pid`=96,`sort`=100,`perms`='decorate.template/lists',`paths`='template',`component`='decoration/template/index',`is_show`=1 WHERE `id`=97;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `is_show`=0 WHERE `id` IN (99,142,173,175,176);
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES ({tenantId},0,'M','贴牌管理','el-icon-Connection',650,'','brand','','','',0,1,0,'','core','core_tenant_brand',1,1782604800,1782604800);
+SET @core_tenant_brand_id := LAST_INSERT_ID();
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+({tenantId},@core_tenant_brand_id,'C','贴牌套餐','el-icon-PriceTag',100,'brand.package/lists','package','brand/package','','',0,1,0,'','core','core_tenant_brand_package',1,1782604800,1782604800),
+({tenantId},@core_tenant_brand_id,'C','额度购买','el-icon-ShoppingCart',90,'brand.quota/orders','quota','brand/quota','','',0,1,0,'','core','core_tenant_brand_quota',1,1782604800,1782604800),
+({tenantId},@core_tenant_brand_id,'C','订单管理','el-icon-Document',80,'brand.order/lists','order','brand/order','','',0,1,0,'','core','core_tenant_brand_order',1,1782604800,1782604800);
+SET @core_tenant_brand_package_id := (
+  SELECT `id` FROM `la_tenant_system_menu_{tenantSn}`
+  WHERE `tenant_id` = {tenantId} AND `source_menu_key` = 'core_tenant_brand_package'
+  ORDER BY `id` DESC
+  LIMIT 1
+);
+SET @core_tenant_brand_quota_id := (
+  SELECT `id` FROM `la_tenant_system_menu_{tenantSn}`
+  WHERE `tenant_id` = {tenantId} AND `source_menu_key` = 'core_tenant_brand_quota'
+  ORDER BY `id` DESC
+  LIMIT 1
+);
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+({tenantId},@core_tenant_brand_package_id,'A','保存定价','',0,'brand.package/savePrice','','','','',0,0,0,'','core','core_tenant_brand_package_save',1,1782604800,1782604800),
+({tenantId},@core_tenant_brand_quota_id,'A','套餐列表','',0,'brand.quota/packages','','','','',0,0,0,'','core','core_tenant_brand_quota_packages',1,1782604800,1782604800),
+({tenantId},@core_tenant_brand_quota_id,'A','创建订单','',0,'brand.quota/createOrder','','','','',0,0,0,'','core','core_tenant_brand_quota_create',1,1782604800,1782604800),
+({tenantId},@core_tenant_brand_quota_id,'A','支付方式','',0,'brand.pay/payWay','','','','',0,0,0,'','core','core_tenant_brand_pay_way',1,1782604800,1782604800),
+({tenantId},@core_tenant_brand_quota_id,'A','预支付','',0,'brand.pay/prepay','','','','',0,0,0,'','core','core_tenant_brand_pay_prepay',1,1782604800,1782604800),
+({tenantId},@core_tenant_brand_quota_id,'A','支付状态','',0,'brand.pay/payStatus','','','','',0,0,0,'','core','core_tenant_brand_pay_status',1,1782604800,1782604800);
 
 ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `template_id` int unsigned NOT NULL DEFAULT 0 COMMENT '模板ID' AFTER `tenant_id`;
 ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `terminal` varchar(20) NOT NULL DEFAULT 'mobile' COMMENT '终端 mobile/pc' AFTER `template_id`;

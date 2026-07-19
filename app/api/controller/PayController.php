@@ -18,8 +18,10 @@ namespace app\api\controller;
 use app\api\validate\PayValidate;
 use app\common\enum\user\UserTerminalEnum;
 use app\common\logic\PaymentLogic;
+use app\common\service\brand\TenantBrandService;
 use app\common\service\pay\AliPayService;
 use app\common\service\pay\WeChatPayService;
+use app\common\service\power\TenantPowerMallService;
 
 /**
  * 支付
@@ -40,6 +42,10 @@ class PayController extends BaseApiController
     public function payWay()
     {
         $params = (new PayValidate())->goCheck('payway');
+        if (($params['from'] ?? '') === TenantBrandService::FROM_QUOTA) {
+            return $this->fail('额度订单请使用租户后台支付');
+        }
+        $params = $this->bindTenantPaymentContext($params);
         $result = PaymentLogic::getPayWay($this->userId, $this->getUserTerminal(), $params);
         if ($result === false) {
             return $this->fail(PaymentLogic::getError());
@@ -57,6 +63,10 @@ class PayController extends BaseApiController
     public function prepay()
     {
         $params = (new PayValidate())->post()->goCheck();
+        if (($params['from'] ?? '') === TenantBrandService::FROM_QUOTA) {
+            return $this->fail('额度订单请使用租户后台支付');
+        }
+        $params = $this->bindTenantPaymentContext($params);
         //订单信息
         $order = PaymentLogic::getPayOrderInfo($params);
         if (false === $order) {
@@ -81,6 +91,10 @@ class PayController extends BaseApiController
     public function payStatus()
     {
         $params = (new PayValidate())->goCheck('status', ['user_id' => $this->userId]);
+        if (($params['from'] ?? '') === TenantBrandService::FROM_QUOTA) {
+            return $this->fail('额度订单请使用租户后台支付');
+        }
+        $params = $this->bindTenantPaymentContext($params);
         $result = PaymentLogic::getPayStatus($params);
         if ($result === false) {
             return $this->fail(PaymentLogic::getError());
@@ -134,6 +148,17 @@ class PayController extends BaseApiController
         } else {
             echo 'fail';
         }
+    }
+
+    private function bindTenantPaymentContext(array $params): array
+    {
+        if (in_array($params['from'] ?? '', [TenantPowerMallService::FROM, TenantBrandService::FROM_QUOTA, TenantBrandService::FROM_ORDER], true)) {
+            $params['tenant_id'] = (int)$this->request->tenantId;
+        }
+        if (($params['from'] ?? '') === TenantBrandService::FROM_ORDER) {
+            $params['user_id'] = $this->userId;
+        }
+        return $params;
     }
 
 }

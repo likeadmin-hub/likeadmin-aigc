@@ -15,6 +15,7 @@
 namespace app\common\logic;
 
 use app\common\logic\BaseLogic;
+use app\common\service\brand\TenantBrandService;
 use app\common\service\membership\MembershipService;
 use app\common\service\power\TenantPowerMallService;
 use app\common\service\recharge\RechargeCreditService;
@@ -74,6 +75,16 @@ class PayNotifyLogic extends BaseLogic
     public static function tenant_power($orderSn, array $extra = [])
     {
         TenantPowerMallService::handlePaid($orderSn, $extra);
+    }
+
+    public static function tenant_brand_quota($orderSn, array $extra = [])
+    {
+        TenantBrandService::handleQuotaPaid($orderSn, $extra);
+    }
+
+    public static function tenant_brand_order($orderSn, array $extra = [])
+    {
+        TenantBrandService::handleBrandOrderPaid($orderSn, $extra);
     }
 
 

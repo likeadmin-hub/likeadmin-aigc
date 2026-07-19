@@ -57,6 +57,16 @@ class UpstreamPricingService
         return is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public static function queryApps(): array
+    {
+        $response = self::request('GET', '/api/v1/apps');
+        $rows = $response['data'] ?? $response['items'] ?? $response['apps'] ?? $response;
+        return is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
+    }
+
     public static function queryBatch(array $items): array
     {
         $payloadItems = [];
@@ -243,7 +253,14 @@ class UpstreamPricingService
     private static function sanitize(array $data): array
     {
         foreach ($data as $key => $value) {
-            if (preg_match('/(key|token|secret|authorization)/i', (string)$key)) {
+            $keyName = strtolower((string)$key);
+            // SKU/local keys identify a public billable specification. They must survive
+            // sanitization so distinct upstream prices cannot collapse into one SKU.
+            $isPublicIdentifier = in_array($keyName, [
+                'sku_key', 'local_key', 'max_tokens', 'prompt_tokens', 'completion_tokens',
+                'total_tokens', 'input_tokens', 'output_tokens', 'token_usage',
+            ], true);
+            if (!$isPublicIdentifier && preg_match('/^(?:api_?key|access_?token|refresh_?token|id_?token|authorization|secret|api_?secret|client_?secret|private_?key|password|token|key)$/i', $keyName)) {
                 $data[$key] = '******';
                 continue;
             }
