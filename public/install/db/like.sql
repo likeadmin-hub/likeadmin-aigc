@@ -7463,6 +7463,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_project` (
 
 CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_script_task` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `app_task_id` int unsigned NOT NULL DEFAULT 0 COMMENT '统一应用任务ID',
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `user_id` int unsigned NOT NULL DEFAULT 0,
   `project_id` int unsigned NOT NULL DEFAULT 0,
@@ -7494,6 +7495,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_script_task` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_task_id` (`task_id`),
   KEY `idx_tenant_user` (`tenant_id`,`user_id`,`delete_time`),
+  KEY `idx_app_task` (`app_task_id`),
   KEY `idx_project` (`tenant_id`,`project_id`),
   KEY `idx_status` (`tenant_id`,`status`,`update_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧剧本策划任务';
