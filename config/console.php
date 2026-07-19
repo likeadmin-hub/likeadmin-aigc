@@ -11,5 +11,6 @@ return [
         'query_refund' => 'app\common\command\QueryRefund',
         // 充值到账修复
         'recharge:repair' => 'app\common\command\RepairRecharge',
+        'short-drama:repair-prompts' => 'app\common\command\RepairShortDramaPrompts',
     ],
 ];

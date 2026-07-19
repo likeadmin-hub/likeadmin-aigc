@@ -16,9 +16,11 @@ use app\common\model\app\aigc_short_drama\AigcShortDramaStoryboard;
 use app\common\model\app\aigc_short_drama\AigcShortDramaStyle;
 use app\common\model\app\aigc_short_drama\AigcShortDramaSubject;
 use app\common\model\app\App;
+use app\common\model\tenant\Tenant;
 use app\common\model\user\User;
 use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
+use app\common\service\app\aigc_music\AigcMusicService;
 use app\common\service\app\aigc_digital_human\AigcDigitalHumanService;
 use app\common\service\app\aigc_llm\AigcLlmChannelService;
 use app\common\service\app\aigc_llm\AigcLlmService;
@@ -53,6 +55,7 @@ class AigcShortDramaService
     public const LLM_APP_CODE = 'aigc_llm';
     public const IMAGE_APP_CODE = 'aigc_image';
     public const VIDEO_APP_CODE = 'aigc_video';
+    public const MUSIC_APP_CODE = 'aigc_music';
 
     private const SAFE_ERROR = '生成失败，请稍后重试';
     private const DEFAULT_IMAGE = 'resource/image/common/menu_generator.png';
@@ -60,6 +63,7 @@ class AigcShortDramaService
     private const SCRIPT_PLAN_STREAM_RECOVER_SECONDS = 45;
     private const SCRIPT_PLAN_STALE_ERROR = '剧本生成连接已中断，请重试';
     private const SCRIPT_PLAN_STREAM_FLUSH_SECONDS = 2;
+    private const LEGACY_PUBLIC_SUBJECT_NAMES = ['清冷师妹', '赛艇少年'];
 
     public static function config(int $tenantId): array
     {
@@ -68,12 +72,208 @@ class AigcShortDramaService
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $config);
     }
 
+    public static function adminStat(int $tenantId = 0): array
+    {
+        $countRows = static function (string $modelClass, string $status = '') use ($tenantId): int {
+            $query = $modelClass::where('delete_time', 0);
+            if ($tenantId > 0) {
+                $query->where('tenant_id', $tenantId);
+            }
+            if ($status !== '') {
+                $query->where('status', $status);
+            }
+            return (int)$query->count();
+        };
+
+        return [
+            'project_total' => $countRows(AigcShortDramaProject::class),
+            'script_task_total' => $countRows(AigcShortDramaScriptTask::class),
+            'storyboard_total' => $countRows(AigcShortDramaStoryboard::class),
+            'generation_task_total' => $countRows(AigcShortDramaGenerationTask::class),
+            'generation_task_success' => $countRows(AigcShortDramaGenerationTask::class, self::STATUS_SUCCESS),
+            'generation_task_failed' => $countRows(AigcShortDramaGenerationTask::class, self::STATUS_FAILED),
+        ];
+    }
+
+    /**
+     * Platform-only tenant aggregates. This intentionally contains no project or task details.
+     */
+    public static function adminTenantStatLists(array $params = []): array
+    {
+        $tenantId = max(0, (int)($params['tenant_id'] ?? 0));
+        $pageNo = max(1, (int)($params['page_no'] ?? 1));
+        $pageSize = min(100, max(1, (int)($params['page_size'] ?? 15)));
+        $stats = [];
+
+        $mergeGroupedRows = static function (string $modelClass, string $statKey) use (&$stats, $tenantId): void {
+            $query = $modelClass::where('delete_time', 0)->where('tenant_id', '>', 0);
+            if ($tenantId > 0) {
+                $query->where('tenant_id', $tenantId);
+            }
+            $rows = $query
+                ->field('tenant_id, COUNT(*) AS total, MAX(update_time) AS last_activity_time')
+                ->group('tenant_id')
+                ->select()
+                ->toArray();
+            foreach ($rows as $row) {
+                $id = (int)($row['tenant_id'] ?? 0);
+                if ($id <= 0) {
+                    continue;
+                }
+                if (!isset($stats[$id])) {
+                    $stats[$id] = [
+                        'tenant_id' => $id,
+                        'project_total' => 0,
+                        'script_task_total' => 0,
+                        'storyboard_total' => 0,
+                        'generation_task_total' => 0,
+                        'generation_task_success' => 0,
+                        'generation_task_failed' => 0,
+                        'last_activity_time' => 0,
+                    ];
+                }
+                $stats[$id][$statKey] = (int)($row['total'] ?? 0);
+                $stats[$id]['last_activity_time'] = max(
+                    (int)$stats[$id]['last_activity_time'],
+                    (int)($row['last_activity_time'] ?? 0)
+                );
+            }
+        };
+
+        $mergeGroupedRows(AigcShortDramaProject::class, 'project_total');
+        $mergeGroupedRows(AigcShortDramaScriptTask::class, 'script_task_total');
+        $mergeGroupedRows(AigcShortDramaStoryboard::class, 'storyboard_total');
+        $mergeGroupedRows(AigcShortDramaGenerationTask::class, 'generation_task_total');
+
+        foreach ([self::STATUS_SUCCESS => 'generation_task_success', self::STATUS_FAILED => 'generation_task_failed'] as $status => $statKey) {
+            $query = AigcShortDramaGenerationTask::where('delete_time', 0)
+                ->where('tenant_id', '>', 0)
+                ->where('status', $status);
+            if ($tenantId > 0) {
+                $query->where('tenant_id', $tenantId);
+            }
+            foreach ($query->field('tenant_id, COUNT(*) AS total')->group('tenant_id')->select()->toArray() as $row) {
+                $id = (int)($row['tenant_id'] ?? 0);
+                if ($id > 0 && isset($stats[$id])) {
+                    $stats[$id][$statKey] = (int)($row['total'] ?? 0);
+                }
+            }
+        }
+
+        $tenantRows = empty($stats)
+            ? []
+            : Tenant::whereIn('id', array_keys($stats))->field('id,name,sn')->select()->toArray();
+        $tenants = [];
+        foreach ($tenantRows as $row) {
+            $tenants[(int)$row['id']] = $row;
+        }
+        foreach ($stats as $id => &$row) {
+            $row['tenant_name'] = (string)($tenants[$id]['name'] ?? '');
+            $row['tenant_sn'] = (string)($tenants[$id]['sn'] ?? '');
+        }
+        unset($row);
+
+        $rows = array_values($stats);
+        usort($rows, static function (array $left, array $right): int {
+            $byActivity = (int)$right['last_activity_time'] <=> (int)$left['last_activity_time'];
+            return $byActivity !== 0 ? $byActivity : ((int)$right['tenant_id'] <=> (int)$left['tenant_id']);
+        });
+        $count = count($rows);
+
+        return [
+            'lists' => array_slice($rows, ($pageNo - 1) * $pageSize, $pageSize),
+            'count' => $count,
+            'page_no' => $pageNo,
+            'page_size' => $pageSize,
+        ];
+    }
+
+    public static function repairLegacyPromptData(int $projectId = 0, string $taskId = '', int $limit = 0, bool $apply = false): array
+    {
+        $result = [
+            'storyboards_scanned' => 0,
+            'storyboards_repaired' => 0,
+            'script_tasks_scanned' => 0,
+            'script_tasks_repaired' => 0,
+            'plan_versions_scanned' => 0,
+            'plan_versions_repaired' => 0,
+        ];
+        $limit = max(0, min(10000, $limit));
+        $taskId = trim($taskId);
+        $storyboardQuery = AigcShortDramaStoryboard::where('delete_time', 0)->order(['project_id' => 'asc', 'task_id' => 'asc', 'sort' => 'asc', 'id' => 'asc']);
+        if ($projectId > 0) {
+            $storyboardQuery->where('project_id', $projectId);
+        }
+        if ($taskId !== '') {
+            $storyboardQuery->where('task_id', $taskId);
+        }
+        if ($limit > 0) {
+            $storyboardQuery->limit($limit);
+        }
+        foreach ($storyboardQuery->select()->toArray() as $index => $row) {
+            $result['storyboards_scanned']++;
+            $next = self::normalizeLegacyStoryboardPromptData($row, $index);
+            $changes = self::legacyStoryboardPromptChanges($row, $next);
+            if (empty($changes)) {
+                continue;
+            }
+            $result['storyboards_repaired']++;
+            if ($apply) {
+                $changes['update_time'] = time();
+                AigcShortDramaStoryboard::where('id', (int)$row['id'])->update($changes);
+            }
+        }
+
+        $normalizeJsonRows = static function (string $modelClass, string $jsonField) use ($projectId, $taskId, $limit, $apply, &$result): void {
+            $query = $modelClass::where('delete_time', 0)->order('id', 'asc');
+            if ($projectId > 0) {
+                $query->where('project_id', $projectId);
+            }
+            if ($taskId !== '') {
+                $query->where('task_id', $taskId);
+            }
+            if ($limit > 0) {
+                $query->limit($limit);
+            }
+            foreach ($query->select()->toArray() as $row) {
+                $counter = $jsonField === 'result_json' ? 'script_tasks' : 'plan_versions';
+                $result[$counter . '_scanned']++;
+                $plan = self::jsonDecode((string)($row[$jsonField] ?? ''));
+                if (empty($plan)) {
+                    continue;
+                }
+                if ($jsonField === 'plan_json' && empty($plan['storyboard'])) {
+                    $plan['storyboard'] = self::jsonDecode((string)($row['storyboard_json'] ?? ''));
+                }
+                $next = self::normalizeLegacyPromptPlanData($plan);
+                if ($next === $plan) {
+                    continue;
+                }
+                $result[$counter . '_repaired']++;
+                if (!$apply) {
+                    continue;
+                }
+                $changes = [$jsonField => self::jsonEncode($next), 'update_time' => time()];
+                if ($jsonField === 'plan_json') {
+                    $changes['storyboard_json'] = self::jsonEncode((array)($next['storyboard'] ?? []));
+                    $changes['title'] = self::localizeGenerationPromptText((string)($row['title'] ?? ''));
+                }
+                $modelClass::where('id', (int)$row['id'])->update($changes);
+            }
+        };
+        $normalizeJsonRows(AigcShortDramaScriptTask::class, 'result_json');
+        $normalizeJsonRows(AigcShortDramaPlanVersion::class, 'plan_json');
+        return $result;
+    }
+
     public static function dependencies(int $tenantId = 0): array
     {
+        // Use explicit Unicode code points so the platform payload is not affected by source encoding.
         $items = [
-            self::dependencyItem($tenantId, self::LLM_APP_CODE, 'AIGC 文本', '用于剧本规划、主体识别和提示词生成'),
-            self::dependencyItem($tenantId, self::IMAGE_APP_CODE, 'AIGC 生图', '主体图、场景图、分镜图生成'),
-            self::dependencyItem($tenantId, self::VIDEO_APP_CODE, 'AIGC 视频', '用于分镜视频和完整视频生成'),
+            self::dependencyItem($tenantId, self::MUSIC_APP_CODE, "AI\u{97F3}\u{4E50}\u{751F}\u{6210}", "\u{7528}\u{4E8E}\u{77ED}\u{5267}\u{80CC}\u{666F}\u{97F3}\u{4E50}\u{751F}\u{6210}"),
+            self::dependencyItem($tenantId, self::LLM_APP_CODE, "AIGC \u{6587}\u{672C}", "\u{7528}\u{4E8E}\u{5267}\u{672C}\u{89C4}\u{5212}\u{3001}\u{4E3B}\u{4F53}\u{8BC6}\u{522B}\u{548C}\u{63D0}\u{793A}\u{8BCD}\u{751F}\u{6210}"),
+            self::dependencyItem($tenantId, self::IMAGE_APP_CODE, "AIGC \u{751F}\u{56FE}", "\u{4E3B}\u{4F53}\u{56FE}\u{3001}\u{573A}\u{666F}\u{56FE}\u{3001}\u{5206}\u{955C}\u{56FE}\u{751F}\u{6210}"),
+            self::dependencyItem($tenantId, self::VIDEO_APP_CODE, "AIGC \u{89C6}\u{9891}", "\u{7528}\u{4E8E}\u{5206}\u{955C}\u{89C6}\u{9891}\u{548C}\u{5B8C}\u{6574}\u{89C6}\u{9891}\u{751F}\u{6210}"),
         ];
         return [
             'items' => $items,
@@ -156,12 +356,9 @@ class AigcShortDramaService
         if (isset($params['export_watermark']) && is_array($params['export_watermark'])) {
             $config['export_watermark'] = self::normalizeExportWatermarkConfig($params['export_watermark']);
         }
-        if (isset($params['price_config']) && is_array($params['price_config'])) {
-            $config['price_config'] = self::floorPriceConfig(
-                self::normalizePriceConfig($params['price_config']),
-                (array)($current['model_groups'] ?? [])
-            );
-        }
+        // Short-drama prices are owned by its LLM, image, and video dependencies.
+        // Clear legacy overrides so future dependency price changes take effect immediately.
+        $config['price_config'] = [];
         unset($config['script_plan_points']);
 
         $data = [
@@ -184,9 +381,11 @@ class AigcShortDramaService
         $query = AigcShortDramaProject::alias('p')
             ->leftJoin('user u', 'u.id = p.user_id AND u.tenant_id = p.tenant_id')
             ->field('p.*,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
-            ->where('p.tenant_id', $tenantId)
             ->where('p.delete_time', 0)
             ->order(['p.update_time' => 'desc', 'p.id' => 'desc']);
+        if ($tenantId > 0) {
+            $query->where('p.tenant_id', $tenantId);
+        }
 
         $status = trim((string)($params['status'] ?? ''));
         if ($status !== '') {
@@ -227,9 +426,11 @@ class AigcShortDramaService
             ->leftJoin('aigc_short_drama_project p', 'p.id = t.project_id AND p.tenant_id = t.tenant_id AND p.delete_time = 0')
             ->leftJoin('user u', 'u.id = t.user_id AND u.tenant_id = t.tenant_id')
             ->field('t.*,p.title project_title,p.cover_url project_cover_url,p.ratio project_ratio,p.episode_count project_episode_count,p.status project_status,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
-            ->where('t.tenant_id', $tenantId)
             ->where('t.delete_time', 0)
             ->order(['t.create_time' => 'desc', 't.id' => 'desc']);
+        if ($tenantId > 0) {
+            $query->where('t.tenant_id', $tenantId);
+        }
 
         $status = trim((string)($params['status'] ?? ''));
         $keyword = trim((string)($params['keyword'] ?? ''));
@@ -289,9 +490,11 @@ class AigcShortDramaService
             ->leftJoin('aigc_short_drama_project p', 'p.id = g.project_id AND p.tenant_id = g.tenant_id AND p.delete_time = 0')
             ->leftJoin('user u', 'u.id = g.user_id AND u.tenant_id = g.tenant_id')
             ->field('g.*,p.title project_title,p.cover_url project_cover_url,p.ratio project_ratio,p.status project_status,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
-            ->where('g.tenant_id', $tenantId)
             ->where('g.delete_time', 0)
             ->order(['g.create_time' => 'desc', 'g.id' => 'desc']);
+        if ($tenantId > 0) {
+            $query->where('g.tenant_id', $tenantId);
+        }
 
         $taskType = trim((string)($params['task_type'] ?? $params['task_types'] ?? ''));
         if ($taskType !== '') {
@@ -345,6 +548,36 @@ class AigcShortDramaService
         ]);
     }
 
+    public static function adminGenerationTaskDetail(int $tenantId, array $params = []): array
+    {
+        $id = (int)($params['id'] ?? 0);
+        $taskId = trim((string)($params['task_id'] ?? ''));
+        if ($id <= 0 && $taskId === '') {
+            throw new Exception('Task ID is required');
+        }
+
+        $query = AigcShortDramaGenerationTask::alias('g')
+            ->leftJoin('aigc_short_drama_project p', 'p.id = g.project_id AND p.tenant_id = g.tenant_id AND p.delete_time = 0')
+            ->leftJoin('user u', 'u.id = g.user_id AND u.tenant_id = g.tenant_id')
+            ->field('g.*,p.title project_title,p.cover_url project_cover_url,p.ratio project_ratio,p.status project_status,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
+            ->where('g.delete_time', 0);
+        if ($tenantId > 0) {
+            $query->where('g.tenant_id', $tenantId);
+        }
+        if ($id > 0) {
+            $query->where('g.id', $id);
+        }
+        if ($taskId !== '') {
+            $query->where('g.task_id', $taskId);
+        }
+
+        $task = $query->findOrEmpty();
+        if ($task->isEmpty()) {
+            throw new Exception('Generation task not found');
+        }
+        return self::sanitizeUtf8Payload(self::formatAdminGenerationTask($task->toArray()));
+    }
+
     public static function adminStoryboardLists(int $tenantId, array $params = []): array
     {
         $query = AigcShortDramaStoryboard::alias('s')
@@ -352,8 +585,10 @@ class AigcShortDramaService
             ->leftJoin('aigc_short_drama_script_task t', 't.task_id = s.task_id AND t.tenant_id = s.tenant_id AND t.delete_time = 0')
             ->leftJoin('user u', 'u.id = s.user_id AND u.tenant_id = s.tenant_id')
             ->field('s.*,p.title project_title,p.cover_url project_cover_url,p.ratio project_ratio,t.status task_status,t.progress task_progress,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
-            ->where('s.tenant_id', $tenantId)
             ->where('s.delete_time', 0);
+        if ($tenantId > 0) {
+            $query->where('s.tenant_id', $tenantId);
+        }
 
         $status = trim((string)($params['status'] ?? ''));
         $keyword = trim((string)($params['keyword'] ?? ''));
@@ -576,7 +811,7 @@ class AigcShortDramaService
             $query->where('user_id', 0)
                 ->whereIn('tenant_id', [0, $tenantId])
                 ->where('status', 1)
-                ->whereNotIn('name', ['清冷师妹', '赛艇少年']);
+                ->whereNotIn('name', self::LEGACY_PUBLIC_SUBJECT_NAMES);
         }
 
         $category = self::normalizeSubjectLibraryCategory((string)($params['category'] ?? ''));
@@ -1069,7 +1304,7 @@ class AigcShortDramaService
                 'delete_time' => 0,
             ])->findOrEmpty();
             if ($row->isEmpty()) {
-                throw new Exception('画风不存');
+                throw new Exception('画风不存在');
             }
             $row->save($data);
             return self::formatAdminStyle(array_merge($row->toArray(), $data));
@@ -1089,7 +1324,7 @@ class AigcShortDramaService
             'delete_time' => 0,
         ])->findOrEmpty();
         if ($row->isEmpty()) {
-            throw new Exception('画风不存');
+            throw new Exception('画风不存在');
         }
         $row->save([
             'status' => $status ? 1 : 0,
@@ -1105,7 +1340,7 @@ class AigcShortDramaService
             'delete_time' => 0,
         ])->findOrEmpty();
         if ($row->isEmpty()) {
-            throw new Exception('画风不存');
+            throw new Exception('画风不存在');
         }
         $row->save([
             'delete_time' => time(),
@@ -1370,7 +1605,7 @@ class AigcShortDramaService
             ->whereIn('tenant_id', [0, $tenantId])
             ->findOrEmpty();
         if ($row->isEmpty()) {
-            throw new Exception('灵感素材不存在或已禁');
+            throw new Exception('灵感素材不存在或已禁用');
         }
         return self::formatInspiration($row->toArray(), true);
     }
@@ -1572,6 +1807,7 @@ class AigcShortDramaService
             $error = (string)($taskData['error'] ?? '');
             $recoverableError = str_contains($error, '解析')
                 || str_contains(strtolower($error), 'parse')
+                || str_contains($error, '质检未通过')
                 || $error === self::SCRIPT_PLAN_STALE_ERROR;
             if (!$recoverableError) {
                 return $taskData;
@@ -1906,7 +2142,7 @@ class AigcShortDramaService
         $taskId = trim((string)($params['task_id'] ?? ''));
         $projectId = (int)($params['project_id'] ?? 0);
         if ($taskId === '') {
-            throw new Exception('任务不存');
+            throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
         $taskData = self::recoverPartialStreamScriptPlanTask($tenantId, $userId, $task->toArray());
@@ -1945,7 +2181,7 @@ class AigcShortDramaService
         $request = self::jsonDecode((string)($taskData['request_json'] ?? ''));
         $prompt = trim((string)($taskData['prompt'] ?? $request['prompt'] ?? ''));
         if ($prompt === '') {
-            throw new Exception('请输入故事灵');
+            throw new Exception('请输入故事灵感');
         }
 
         $config = self::publicConfig($tenantId);
@@ -2200,7 +2436,7 @@ class AigcShortDramaService
     {
         $taskId = trim((string)($params['task_id'] ?? ''));
         if ($taskId === '') {
-            throw new Exception('任务不存');
+            throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId);
         if (($task['status'] ?? '') === self::STATUS_CANCELED) {
@@ -2252,7 +2488,7 @@ class AigcShortDramaService
                     'delete_time' => 0,
                 ])->findOrEmpty();
                 if ($shot->isEmpty()) {
-                    throw new Exception('分镜不存');
+                    throw new Exception('分镜不存在');
                 }
                 $shot->save(self::filterStoryboardWritableData($data));
                 $updated[] = self::formatShot(array_merge($shot->toArray(), $data));
@@ -2281,7 +2517,7 @@ class AigcShortDramaService
         $taskId = trim((string)($params['task_id'] ?? ''));
         $afterShotId = trim((string)($params['after_shot_id'] ?? ''));
         if ($projectId <= 0 || $taskId === '') {
-            throw new Exception('项目任务不存');
+            throw new Exception('项目任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
         if (($task['status'] ?? '') === self::STATUS_CANCELED) {
@@ -2301,7 +2537,7 @@ class AigcShortDramaService
                     }
                 }
                 if ($insertIndex === null) {
-                    throw new Exception('插入位置不存');
+                    throw new Exception('插入位置不存在');
                 }
             }
             $newShotId = self::makeStoryboardShotId($tenantId, $taskId);
@@ -2376,7 +2612,7 @@ class AigcShortDramaService
                 }
             }
             if ($sourceIndex === null) {
-                throw new Exception('分镜不存');
+                throw new Exception('分镜不存在');
             }
             $newShotId = self::makeStoryboardShotId($tenantId, $taskId);
             $time = time();
@@ -2439,7 +2675,7 @@ class AigcShortDramaService
         try {
             $rows = self::activeStoryboardRows($tenantId, $userId, $projectId, $taskId);
             if (count($rows) <= 1) {
-                throw new Exception('至少保留一个分');
+                throw new Exception('至少保留一个分镜');
             }
             $deleteIndex = null;
             foreach ($rows as $index => $row) {
@@ -2449,7 +2685,7 @@ class AigcShortDramaService
                 }
             }
             if ($deleteIndex === null) {
-                throw new Exception('分镜不存');
+                throw new Exception('分镜不存在');
             }
             $time = time();
             AigcShortDramaStoryboard::where([
@@ -2486,12 +2722,12 @@ class AigcShortDramaService
         $taskId = trim((string)($params['task_id'] ?? ''));
         $projectId = (int)($params['project_id'] ?? 0);
         if ($taskId === '') {
-            throw new Exception('任务不存');
+            throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
         $result = self::jsonDecode((string)$task['result_json']);
         if (empty($result) || !is_array($result)) {
-            throw new Exception('剧本计划不存');
+            throw new Exception('剧本计划不存在');
         }
 
         $previousSubjectIds = self::planItemIds((array)($result['subjects'] ?? []));
@@ -2895,6 +3131,25 @@ class AigcShortDramaService
             throw new Exception('当前剧本还未生成完成，暂不能修改');
         }
         $request = self::jsonDecode((string)$task['request_json']);
+        if (array_key_exists('multi_episode', $params)) {
+            $request['multi_episode'] = (bool)$params['multi_episode'];
+            $request['episode_count'] = min(100, max(1, (int)($params['episode_count'] ?? ($request['multi_episode'] ? 3 : 1))));
+        }
+        if (is_array($params['model_selections'] ?? null)) {
+            $request['model_selections'] = (array)$params['model_selections'];
+        }
+        if (array_key_exists('model_id', $params)) {
+            $request['model_id'] = trim((string)$params['model_id']);
+        }
+        if (array_key_exists('style_id', $params)) {
+            $request['style_id'] = trim((string)$params['style_id']);
+        }
+        if (array_key_exists('subject_ids', $params)) {
+            $request['subject_ids'] = array_values(array_filter((array)$params['subject_ids']));
+        }
+        if (array_key_exists('subject_mentions', $params)) {
+            $request['subject_mentions'] = array_values(array_filter((array)$params['subject_mentions']));
+        }
         $config = self::publicConfig($tenantId);
         $selectedModels = self::resolveSelectedModels($tenantId, $request, $config);
         if (empty($request['storyboard_rules']) || !is_array($request['storyboard_rules'])) {
@@ -2933,7 +3188,7 @@ class AigcShortDramaService
             );
         }
         if ($prompt === '') {
-            throw new Exception('原始剧本灵感不存在，请重新创');
+            throw new Exception('原始剧本灵感不存在，请重新创建');
         }
 
         Db::startTrans();
@@ -3191,7 +3446,7 @@ class AigcShortDramaService
             'delete_time' => 0,
         ])->findOrEmpty();
         if ($shot->isEmpty()) {
-            throw new Exception('当前分镜不存');
+            throw new Exception('当前分镜不存在');
         }
 
         $sourceAsset = AigcShortDramaAsset::where([
@@ -3325,7 +3580,7 @@ class AigcShortDramaService
             'delete_time' => 0,
         ])->findOrEmpty();
         if ($shot->isEmpty()) {
-            throw new Exception('分镜不存');
+            throw new Exception('分镜不存在');
         }
 
         $asset = AigcShortDramaAsset::where([
@@ -3504,8 +3759,19 @@ class AigcShortDramaService
         $shot = in_array($taskType, ['export_video', 'export_package', 'subject_image', 'scene_image', 'three_view', 'bgm_audio'], true) && $shotId === ''
             ? null
             : self::findShot($tenantId, $userId, $projectId, $taskId, $shotId);
+        if ($taskType === 'shot_video' || self::normalizeGenerationMode($params) === 'video_generate') {
+            $params = self::sanitizeVideoGenerationParams($params);
+            $params = self::prepareShortDramaVideoGenerationParams($tenantId, $project->toArray(), $shot ? $shot->toArray() : [], $params);
+        }
+        if ($taskType === 'bgm_audio') {
+            return self::estimateBgmAudioGenerationBilling($tenantId, $params, self::currentProjectPlanRaw($tenantId, $userId, $projectId));
+        }
         $config = self::publicConfig($tenantId);
-        return self::estimateGenerationBilling($taskType, $shot ? $shot->toArray() : [], $config, $params);
+        $billing = self::estimateGenerationBilling($taskType, $shot ? $shot->toArray() : [], $config, $params);
+        if ($taskType === 'shot_video' || self::normalizeGenerationMode($params) === 'video_generate') {
+            $billing['effective_video_params'] = self::shortDramaVideoEffectiveParams($params);
+        }
+        return $billing;
     }
 
     public static function createShotGenerationTask(int $tenantId, int $userId, array $params): array
@@ -3569,6 +3835,7 @@ class AigcShortDramaService
         $shotPayload = $shot ? $shot->toArray() : [];
         if ($taskType === 'shot_video' || self::normalizeGenerationMode($params) === 'video_generate') {
             $params = self::sanitizeVideoGenerationParams($params);
+            $params = self::prepareShortDramaVideoGenerationParams($tenantId, $project->toArray(), $shotPayload, $params);
         }
         $config = self::publicConfig($tenantId);
         $billing = self::estimateGenerationBilling($taskType, $shotPayload, $config, $params);
@@ -3875,7 +4142,7 @@ class AigcShortDramaService
             'delete_time' => 0,
         ])->findOrEmpty();
         if ($work->isEmpty()) {
-            throw new Exception('发布作品不存');
+            throw new Exception('发布作品不存在');
         }
         return self::formatPublishedWork($work->toArray());
     }
@@ -4184,6 +4451,7 @@ class AigcShortDramaService
                 if (self::isNoSubjectShot($shotReferenceContext)) {
                     $references = self::filterNoSubjectReferencePayload($references);
                 }
+                $references = self::limitShortDramaImageReferences($tenantId, $imageParams, $params, $shot, $references);
                 $imageParams['reference_assets'] = $references['reference_assets'];
                 $imageParams['reference_images'] = $references['reference_images'];
                 $imageParams['input_asset_ids'] = $references['input_asset_ids'];
@@ -4202,6 +4470,7 @@ class AigcShortDramaService
                 if ($taskType === 'scene_image') {
                     $references = self::emptyReferencePayload();
                 }
+                $references = self::limitShortDramaImageReferences($tenantId, $imageParams, $params, $shot, $references);
                 $imageParams['reference_assets'] = $references['reference_assets'];
                 $imageParams['reference_images'] = $references['reference_images'];
                 $imageParams['input_asset_ids'] = $references['input_asset_ids'];
@@ -4266,13 +4535,16 @@ class AigcShortDramaService
                 if ($uri === '') {
                     continue;
                 }
+                $assetType = self::generationAssetType((string)($generation['task_type'] ?? 'shot_image'));
+                $result = self::normalizeShortDramaImageResultRatio($tenantId, $userId, $result, $assetType, (string)($imageParams['ratio'] ?? ''));
+                $uri = (string)($result['image_uri'] ?? $uri);
                 $asset = AigcShortDramaAsset::create([
                     'tenant_id' => $tenantId,
                     'user_id' => $userId,
                     'project_id' => $projectId,
                     'task_id' => $taskId,
                     'shot_id' => (string)($generation['shot_id'] ?? ''),
-                    'asset_type' => self::generationAssetType((string)($generation['task_type'] ?? 'shot_image')),
+                    'asset_type' => $assetType,
                     'title' => '短剧图片' . ((int)$index + 1),
                     'uri' => $uri,
                     'cover_uri' => '',
@@ -4445,13 +4717,17 @@ class AigcShortDramaService
             if ($uri === '') {
                 continue;
             }
+            $assetType = self::generationAssetType((string)($generation['task_type'] ?? 'shot_image'));
+            $targetRatio = (string)($requestImageParams['ratio'] ?? $requestParams['ratio'] ?? $requestParams['aspect_ratio'] ?? '');
+            $result = self::normalizeShortDramaImageResultRatio($tenantId, $userId, $result, $assetType, $targetRatio);
+            $uri = (string)($result['image_uri'] ?? $uri);
             $asset = AigcShortDramaAsset::create([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
                 'project_id' => (int)$generation['project_id'],
                 'task_id' => (string)$generation['task_id'],
                 'shot_id' => (string)($generation['shot_id'] ?? ''),
-                'asset_type' => self::generationAssetType((string)($generation['task_type'] ?? 'shot_image')),
+                'asset_type' => $assetType,
                 'title' => '短剧图片' . ((int)$index + 1),
                 'uri' => $uri,
                 'cover_uri' => '',
@@ -4476,6 +4752,118 @@ class AigcShortDramaService
             $assetIds[] = (int)$asset['id'];
         }
         return $assetIds;
+    }
+
+    private static function normalizeShortDramaImageResultRatio(int $tenantId, int $userId, array $result, string $assetType, string $targetRatio): array
+    {
+        if ($assetType !== 'shot_image') {
+            return $result;
+        }
+        $targetRatio = self::normalizeGenerationRatio($targetRatio);
+        if ($targetRatio === '' || !preg_match('/^(\d+):(\d+)$/', $targetRatio, $matches)) {
+            return $result;
+        }
+        $ratioWidth = max(1, (int)$matches[1]);
+        $ratioHeight = max(1, (int)$matches[2]);
+        $target = $ratioWidth / $ratioHeight;
+        $sourceWidth = (int)($result['width'] ?? 0);
+        $sourceHeight = (int)($result['height'] ?? 0);
+        if ($sourceWidth <= 0 || $sourceHeight <= 0) {
+            return $result;
+        }
+        $actual = $sourceWidth / $sourceHeight;
+        if (abs($actual - $target) / $target <= 0.015) {
+            return $result;
+        }
+
+        $uri = (string)($result['image_uri'] ?? $result['uri'] ?? '');
+        if ($uri === '') {
+            return $result;
+        }
+        $url = (string)($result['image_url'] ?? $result['url'] ?? '');
+        if ($url === '') {
+            $url = FileService::getFileUrlByStorage(
+                $uri,
+                (string)($result['storage_scope'] ?? 'tenant'),
+                (string)($result['storage_engine'] ?? 'local'),
+                (string)($result['storage_domain'] ?? '')
+            );
+        }
+        if ($url === '') {
+            return $result;
+        }
+
+        $tmpPath = '';
+        try {
+            $context = stream_context_create([
+                'http' => [
+                    'timeout' => 25,
+                    'follow_location' => 1,
+                    'ignore_errors' => true,
+                    'header' => "User-Agent: LikeAdminShortDrama/1.0\r\n",
+                ],
+            ]);
+            $content = @file_get_contents($url, false, $context);
+            if ($content === false || $content === '') {
+                return $result;
+            }
+            $source = @imagecreatefromstring($content);
+            if (!$source) {
+                return $result;
+            }
+            $cropWidth = $sourceWidth;
+            $cropHeight = $sourceHeight;
+            $srcX = 0;
+            $srcY = 0;
+            if ($actual < $target) {
+                $cropHeight = max(1, min($sourceHeight, (int)round($sourceWidth / $target)));
+                $srcY = max(0, (int)floor(($sourceHeight - $cropHeight) / 2));
+            } else {
+                $cropWidth = max(1, min($sourceWidth, (int)round($sourceHeight * $target)));
+                $srcX = max(0, (int)floor(($sourceWidth - $cropWidth) / 2));
+            }
+            if ($cropWidth <= 0 || $cropHeight <= 0 || ($cropWidth === $sourceWidth && $cropHeight === $sourceHeight)) {
+                imagedestroy($source);
+                return $result;
+            }
+            $targetImage = imagecreatetruecolor($cropWidth, $cropHeight);
+            imagealphablending($targetImage, false);
+            imagesavealpha($targetImage, true);
+            imagecopy($targetImage, $source, 0, 0, $srcX, $srcY, $cropWidth, $cropHeight);
+            imagedestroy($source);
+
+            $tmp = tempnam(sys_get_temp_dir(), 'sd_ratio_');
+            if ($tmp === false) {
+                imagedestroy($targetImage);
+                return $result;
+            }
+            $tmpPath = $tmp . '.png';
+            @rename($tmp, $tmpPath);
+            imagepng($targetImage, $tmpPath, 9);
+            imagedestroy($targetImage);
+
+            $stored = self::storeInternalAssetFile($tenantId, $tmpPath, 'uploads/aigc_image/' . date('Ymd'));
+            return array_merge($result, [
+                'image_uri' => $stored['uri'],
+                'uri' => $stored['uri'],
+                'storage_scope' => $stored['storage_scope'],
+                'storage_engine' => $stored['storage_engine'],
+                'storage_domain' => $stored['storage_domain'],
+                'width' => $cropWidth,
+                'height' => $cropHeight,
+                'ratio_normalized' => true,
+                'original_image_uri' => $uri,
+                'original_width' => $sourceWidth,
+                'original_height' => $sourceHeight,
+            ]);
+        } catch (\Throwable $e) {
+            Log::write('AI short drama image ratio normalize failed: ' . $e->getMessage());
+            return $result;
+        } finally {
+            if ($tmpPath !== '' && is_file($tmpPath)) {
+                @unlink($tmpPath);
+            }
+        }
     }
 
     private static function generationImageAssetMeta(array $generation, array $params, array $imageParams, array $extra = []): array
@@ -4535,6 +4923,7 @@ class AigcShortDramaService
             return;
         }
         if ($taskType === 'bgm_audio') {
+            self::syncBgmAudioGenerationTask($tenantId, $userId, $generation);
             return;
         }
         self::syncImageGenerationTask($tenantId, $userId, $generation);
@@ -4771,6 +5160,52 @@ class AigcShortDramaService
             ]);
 
             if ((string)$music['audio_uri'] === '') {
+                $musicResult = self::submitBgmMusicGeneration($tenantId, $userId, $music, $params);
+                $musicTaskId = (int)($musicResult['task_id'] ?? 0);
+                if (($musicResult['status'] ?? '') === self::STATUS_FAILED) {
+                    throw new Exception((string)($musicResult['error'] ?? '背景音乐生成失败'));
+                }
+                $musicResults = (array)($musicResult['results'] ?? []);
+                AigcShortDramaGenerationTask::where([
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'task_id' => $taskId,
+                ])->update([
+                    'provider' => self::MUSIC_APP_CODE,
+                    'provider_task_id' => (string)$musicTaskId,
+                    'result_json' => self::jsonEncode([
+                        'music_task_id' => $musicTaskId,
+                        'provider_task_id' => (string)($musicResult['provider_task_id'] ?? ''),
+                        'message' => empty($musicResults) ? '背景音乐任务已提交，等待音乐应用返回结果' : '',
+                    ]),
+                    'update_time' => time(),
+                ]);
+                if (empty($musicResults)) {
+                    return;
+                }
+                $assetId = self::registerBgmMusicResultAsAsset($tenantId, $userId, $generation, $music, (array)$musicResults[0], $musicTaskId);
+                AigcShortDramaGenerationTask::where([
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'task_id' => $taskId,
+                ])->update([
+                    'status' => self::STATUS_SUCCESS,
+                    'progress' => 100,
+                    'provider' => self::MUSIC_APP_CODE,
+                    'provider_task_id' => (string)$musicTaskId,
+                    'result_json' => self::jsonEncode([
+                        'music_task_id' => $musicTaskId,
+                        'asset_ids' => [$assetId],
+                        'bgm_audio_asset_id' => $assetId,
+                        'music_prompt' => (string)$music['prompt'],
+                    ]),
+                    'output_asset_ids' => self::jsonEncode([$assetId]),
+                    'billing_status' => 'none',
+                    'finished_at' => time(),
+                    'update_time' => time(),
+                ]);
+                self::refreshProjectGenerationStatus($tenantId, $userId, $projectId);
+                return;
                 throw new Exception('未配置背景音乐生成模型，请先在后台配');
             }
 
@@ -4827,6 +5262,227 @@ class AigcShortDramaService
         } catch (\Throwable $e) {
             self::failGenerationTaskWithRefund($tenantId, $userId, $generation, $billing, 'bgm_audio_failed', 'AI short drama background music generation failed', $e);
         }
+    }
+
+    private static function estimateBgmAudioGenerationBilling(int $tenantId, array $params, array $plan): array
+    {
+        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
+        $musicPlan = is_array($params['music_plan'] ?? null)
+            ? (array)$params['music_plan']
+            : (is_array($nested['music_plan'] ?? null) ? (array)$nested['music_plan'] : (array)($plan['music_plan'] ?? []));
+        $prompt = trim((string)($params['music_prompt'] ?? $nested['music_prompt'] ?? $musicPlan['global_bgm_prompt'] ?? ''));
+        if ($prompt === '') {
+            $normalizedPlan = self::normalizeMusicPlan([], (array)($plan['storyboard'] ?? []), (array)($plan['duration_stats'] ?? []), (array)($plan['art_style'] ?? []), (string)($plan['story_outline'] ?? ''));
+            $prompt = (string)($normalizedPlan['global_bgm_prompt'] ?? '');
+        }
+        $duration = (float)($params['duration_seconds'] ?? $nested['duration_seconds'] ?? $musicPlan['duration_seconds'] ?? $plan['duration_stats']['estimated_total_seconds'] ?? 0);
+        $duration = max(15, min(600, $duration > 0 ? $duration : 60));
+        $config = self::publicConfig($tenantId);
+        $providerConfig = self::bgmProviderConfig($config);
+        $configuredAudio = trim((string)($params['audio_uri'] ?? $params['audio_url'] ?? $nested['audio_uri'] ?? $nested['audio_url'] ?? $providerConfig['audio_uri'] ?? $providerConfig['audio_url'] ?? $providerConfig['mock_audio_url'] ?? ''));
+        if ($configuredAudio !== '') {
+            return [
+                'billing_unit' => 'task',
+                'quantity' => 1,
+                'tenant_unit_points' => '0.0000',
+                'user_unit_points' => '0.0000',
+                'tenant_cost_points' => '0.00',
+                'user_charge_points' => '0.00',
+                'price_source' => 'configured_audio',
+            ];
+        }
+        $payload = [
+            'title' => trim((string)($musicPlan['music_title'] ?? $params['title'] ?? $nested['title'] ?? 'Short drama background music')),
+            'prompt' => $prompt,
+            'lyrics' => '',
+            'instrumental' => true,
+            'custom' => false,
+            'genre' => trim((string)($musicPlan['style'] ?? $params['genre'] ?? $nested['genre'] ?? '')),
+            'mood' => trim((string)($musicPlan['mood_curve'] ?? $params['mood'] ?? $nested['mood'] ?? '')),
+            'instruments' => implode(',', self::stringList($musicPlan['instruments'] ?? [])),
+            'duration' => (int)ceil($duration),
+        ];
+        foreach (['channel', 'quality'] as $key) {
+            $value = trim((string)($params['music_' . $key] ?? $nested['music_' . $key] ?? $params[$key] ?? $nested[$key] ?? ''));
+            if ($value !== '') {
+                $payload[$key] = $value;
+            }
+        }
+        $estimate = AigcMusicService::estimate($tenantId, $payload);
+        $quantity = max(1, (int)($estimate['quantity'] ?? 1));
+        return [
+            'billing_unit' => 'music_duration',
+            'quantity' => $quantity,
+            'tenant_unit_points' => self::formatUnitPrice((float)($estimate['platform_unit_cost'] ?? 0)),
+            'user_unit_points' => self::formatUnitPrice((float)($estimate['tenant_unit_price'] ?? 0)),
+            'tenant_cost_points' => self::formatBillingPoints((float)($estimate['tenant_cost_points'] ?? 0)),
+            'user_charge_points' => self::formatBillingPoints((float)($estimate['user_charge_points'] ?? 0)),
+            'channel' => (string)($estimate['channel'] ?? ''),
+            'quality' => (string)($estimate['quality'] ?? ''),
+            'duration' => (int)($estimate['duration'] ?? $duration),
+            'unit_seconds' => (int)($estimate['unit_seconds'] ?? 0),
+            'price_source' => self::MUSIC_APP_CODE,
+        ];
+    }
+
+    private static function submitBgmMusicGeneration(int $tenantId, int $userId, array $music, array $params): array
+    {
+        $dependency = self::dependencyItem($tenantId, self::MUSIC_APP_CODE, 'AI音乐生成', '用于短剧背景音乐生成');
+        if (empty($dependency['ready'])) {
+            throw new Exception((string)($dependency['message'] ?? '租户未开通 AI 音乐生成应用'));
+        }
+        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
+        $musicPlan = is_array($params['music_plan'] ?? null)
+            ? (array)$params['music_plan']
+            : (is_array($nested['music_plan'] ?? null) ? (array)$nested['music_plan'] : []);
+        $duration = max(5, min(600, (int)ceil((float)($music['duration_seconds'] ?? $params['duration_seconds'] ?? $nested['duration_seconds'] ?? 60))));
+        $payload = [
+            'title' => trim((string)($musicPlan['music_title'] ?? $params['title'] ?? $nested['title'] ?? '短剧背景音乐')),
+            'prompt' => (string)($music['prompt'] ?? ''),
+            'lyrics' => '',
+            'instrumental' => true,
+            'custom' => false,
+            'genre' => trim((string)($musicPlan['style'] ?? $params['genre'] ?? $nested['genre'] ?? '')),
+            'mood' => trim((string)($musicPlan['mood_curve'] ?? $params['mood'] ?? $nested['mood'] ?? '')),
+            'instruments' => implode('、', self::stringList($musicPlan['instruments'] ?? [])),
+            'duration' => $duration,
+        ];
+        foreach (['channel', 'quality'] as $key) {
+            $value = trim((string)($params['music_' . $key] ?? $nested['music_' . $key] ?? $params[$key] ?? $nested[$key] ?? ''));
+            if ($value !== '') {
+                $payload[$key] = $value;
+            }
+        }
+        return AigcMusicService::generate($tenantId, $userId, $payload);
+    }
+
+    private static function syncBgmAudioGenerationTask(int $tenantId, int $userId, array $generation): void
+    {
+        if (!in_array((string)($generation['status'] ?? ''), [self::STATUS_PENDING, self::STATUS_QUEUED, self::STATUS_RUNNING], true)) {
+            return;
+        }
+        if (self::markGenerationSuccessFromExistingAssets($tenantId, $userId, $generation)) {
+            return;
+        }
+        $result = self::jsonDecode((string)($generation['result_json'] ?? ''));
+        $musicTaskId = (int)($result['music_task_id'] ?? $generation['provider_task_id'] ?? 0);
+        if ($musicTaskId <= 0) {
+            return;
+        }
+        try {
+            $musicTask = AigcMusicService::taskDetail($tenantId, $musicTaskId, $userId);
+        } catch (\Throwable $e) {
+            Log::write('AI short drama music task sync failed: ' . $e->getMessage());
+            return;
+        }
+        $status = (string)($musicTask['status'] ?? '');
+        if (self::isProviderFailedStatus($status)) {
+            $billing = self::jsonDecode((string)($generation['pricing_snapshot'] ?? ''));
+            self::failGenerationTaskWithRefund($tenantId, $userId, $generation, $billing, 'bgm_audio_failed', 'AI short drama background music generation failed', new Exception((string)($musicTask['error'] ?? self::SAFE_ERROR)));
+            return;
+        }
+        if (!self::isProviderSuccessStatus($status)) {
+            return;
+        }
+        $musicResults = (array)($musicTask['results'] ?? []);
+        if (empty($musicResults) || !is_array($musicResults[0])) {
+            return;
+        }
+        $request = self::jsonDecode((string)($generation['request_json'] ?? ''));
+        $music = [
+            'prompt' => (string)($request['music_prompt'] ?? ''),
+            'duration_seconds' => (float)($request['duration_seconds'] ?? $musicTask['duration'] ?? 0),
+        ];
+        $assetId = self::registerBgmMusicResultAsAsset($tenantId, $userId, $generation, $music, (array)$musicResults[0], $musicTaskId);
+        AigcShortDramaGenerationTask::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'task_id' => (string)$generation['task_id'],
+        ])->update([
+            'status' => self::STATUS_SUCCESS,
+            'progress' => 100,
+            'provider' => self::MUSIC_APP_CODE,
+            'provider_task_id' => (string)$musicTaskId,
+            'result_json' => self::jsonEncode([
+                'music_task_id' => $musicTaskId,
+                'asset_ids' => [$assetId],
+                'bgm_audio_asset_id' => $assetId,
+                'music_prompt' => (string)$music['prompt'],
+            ]),
+            'output_asset_ids' => self::jsonEncode([$assetId]),
+            'billing_status' => 'none',
+            'finished_at' => time(),
+            'update_time' => time(),
+        ]);
+        self::refreshProjectGenerationStatus($tenantId, $userId, (int)$generation['project_id']);
+    }
+
+    private static function registerBgmMusicResultAsAsset(int $tenantId, int $userId, array $generation, array $music, array $result, int $musicTaskId): int
+    {
+        $existing = AigcShortDramaAsset::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'project_id' => (int)$generation['project_id'],
+            'task_id' => (string)$generation['task_id'],
+            'asset_type' => 'bgm_audio',
+            'delete_time' => 0,
+        ])->value('id');
+        if ((int)$existing > 0) {
+            return (int)$existing;
+        }
+        $uri = trim((string)($result['audio_uri'] ?? ''));
+        $storageScope = (string)($result['storage_scope'] ?? 'tenant');
+        $storageEngine = (string)($result['storage_engine'] ?? 'local');
+        $storageDomain = (string)($result['storage_domain'] ?? '');
+        $fileSize = (int)($result['file_size'] ?? 0);
+        if ($uri === '') {
+            $audioUrl = trim((string)($result['audio_url'] ?? $result['url'] ?? $result['download_url'] ?? ''));
+            if ($audioUrl !== '') {
+                $audioMeta = self::persistBgmAudio($audioUrl);
+                $uri = (string)$audioMeta['uri'];
+                $fileSize = (int)($audioMeta['file_size'] ?? 0);
+                $storageScope = 'tenant';
+                $storageEngine = 'local';
+                $storageDomain = (string)(StorageConfigService::getEffectiveDomain($tenantId) ?: '');
+            }
+        }
+        if ($uri === '') {
+            throw new Exception('音乐应用未返回可用背景音乐');
+        }
+        $asset = AigcShortDramaAsset::create([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'project_id' => (int)$generation['project_id'],
+            'task_id' => (string)$generation['task_id'],
+            'shot_id' => '',
+            'asset_type' => 'bgm_audio',
+            'title' => (string)($result['title'] ?? '背景音乐'),
+            'uri' => $uri,
+            'cover_uri' => (string)($result['cover_uri'] ?? ''),
+            'storage_scope' => $storageScope,
+            'storage_engine' => $storageEngine,
+            'storage_domain' => $storageDomain,
+            'mime_type' => (string)($result['mime_type'] ?? self::audioMimeType($uri)),
+            'file_size' => $fileSize,
+            'width' => 0,
+            'height' => 0,
+            'duration' => (float)($result['duration'] ?? $music['duration_seconds'] ?? 0),
+            'checksum' => '',
+            'meta_json' => self::jsonEncode([
+                'prompt' => (string)($music['prompt'] ?? ''),
+                'provider' => self::MUSIC_APP_CODE,
+                'model' => (string)($result['model'] ?? ''),
+                'source' => self::MUSIC_APP_CODE,
+                'music_task_id' => $musicTaskId,
+                'music_result_id' => (int)($result['id'] ?? 0),
+                'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
+            ]),
+            'status' => 'ready',
+            'create_time' => time(),
+            'update_time' => time(),
+            'delete_time' => 0,
+        ]);
+        return (int)$asset['id'];
     }
 
     private static function bgmAudioRequest(int $tenantId, array $params, array $plan): array
@@ -5219,7 +5875,7 @@ class AigcShortDramaService
 
     private static function shortDramaVideoParams(int $tenantId, int $userId, int $projectId, array $shot, array $params): array
     {
-        $channel = trim((string)($params['model_id'] ?? $params['channel'] ?? $params['video_model_id'] ?? ''));
+        $params = self::normalizeShortDramaVideoChannelParams($tenantId, $params);
         $plan = self::currentProjectPlanRaw($tenantId, $userId, $projectId);
         $projectRatio = (string)AigcShortDramaProject::where([
             'tenant_id' => $tenantId,
@@ -5231,7 +5887,11 @@ class AigcShortDramaService
             ?: self::requestGenerationRatio($params)
             ?: self::normalizeGenerationRatio((string)($plan['generation_settings']['aspect_ratio'] ?? $plan['generation_settings']['ratio'] ?? ''))
             ?: '9:16';
-        $ratio = trim($ratioSource) ?: '9:16';
+        $params['ratio'] = trim($ratioSource) ?: '9:16';
+        $params['aspect_ratio'] = $params['ratio'];
+        $params = self::prepareShortDramaVideoGenerationParams($tenantId, ['ratio' => $projectRatio], $shot, $params);
+        $channel = trim((string)($params['model_id'] ?? $params['channel'] ?? $params['video_model_id'] ?? ''));
+        $ratio = trim((string)($params['resolved_ratio'] ?? $params['ratio'] ?? '')) ?: '9:16';
         $explicitReferences = self::generationInputReferenceAssets($tenantId, $userId, $projectId, $params, $shot);
         $explicitReferences = self::limitShortDramaVideoReferences($tenantId, $channel, $params, $shot, $explicitReferences);
         // 视频生成只接收本次首尾帧与用 @ 指定参考；不自动提交主体、场景、三视图等辅助图。
@@ -5255,6 +5915,9 @@ class AigcShortDramaService
             'style' => 'general',
             'channel' => $channel,
             'ratio' => $ratio,
+            'requested_ratio' => (string)($params['requested_ratio'] ?? $ratioSource),
+            'resolved_ratio' => $ratio,
+            'ratio_fallback' => $params['ratio_fallback'] ?? [],
             'duration' => $duration,
             'quantity' => 1,
             'reference_assets' => $references['reference_assets'],
@@ -5268,6 +5931,70 @@ class AigcShortDramaService
             $videoParams['quality'] = $quality;
         }
         return $videoParams;
+    }
+
+    private static function prepareShortDramaVideoGenerationParams(int $tenantId, array $project, array $shot, array $params): array
+    {
+        $params = self::normalizeShortDramaVideoChannelParams($tenantId, $params);
+        $channel = trim((string)($params['model_id'] ?? $params['channel'] ?? $params['video_model_id'] ?? ''));
+        if ($channel === '') {
+            $videoConfig = AigcVideoChannelService::userConfig($tenantId);
+            $channel = (string)($videoConfig['defaults']['channel'] ?? '');
+            foreach (['model_id', 'video_model_id', 'channel', 'channel_code'] as $key) {
+                $params[$key] = $channel;
+            }
+        }
+        $projectRatio = self::normalizeGenerationRatio((string)($project['ratio'] ?? ''));
+        $requestedRatio = $projectRatio ?: self::requestGenerationRatio($params);
+        if ($requestedRatio === '') {
+            $requestedRatio = '9:16';
+        }
+        $requestedDuration = max(3, min(15, (int)round((float)($params['duration'] ?? $shot['recommended_duration_seconds'] ?? 5))));
+        $duration = self::normalizeShortDramaVideoDuration($tenantId, $channel, [], $requestedDuration);
+        $selection = AigcVideoChannelService::resolveNearestCompatibleRatioSelection($tenantId, array_merge($params, [
+            'channel' => $channel,
+            'ratio' => $requestedRatio,
+            'duration' => $duration,
+        ]));
+        $resolvedRatio = trim((string)($selection['resolved_ratio'] ?? '')) ?: $requestedRatio;
+        $fallbackApplied = !empty($selection['ratio_fallback']);
+        $fallback = [
+            'applied' => $fallbackApplied,
+            'reason' => $fallbackApplied ? 'closest_supported_ratio' : '',
+            'message' => $fallbackApplied
+                ? sprintf('当前模型不支持 %s 的 %d 秒视频，已自动按最接近的 %s 生成。', $requestedRatio, $duration, $resolvedRatio)
+                : '',
+        ];
+
+        $params['duration'] = $duration;
+        $params['ratio'] = $resolvedRatio;
+        $params['aspect_ratio'] = $resolvedRatio;
+        $params['requested_ratio'] = $requestedRatio;
+        $params['resolved_ratio'] = $resolvedRatio;
+        $params['ratio_fallback'] = $fallback;
+        if (is_array($params['params'] ?? null)) {
+            $params['params']['duration'] = $duration;
+            $params['params']['ratio'] = $resolvedRatio;
+            $params['params']['aspect_ratio'] = $resolvedRatio;
+            $params['params']['requested_ratio'] = $requestedRatio;
+            $params['params']['resolved_ratio'] = $resolvedRatio;
+            $params['params']['ratio_fallback'] = $fallback;
+        }
+        return $params;
+    }
+
+    private static function shortDramaVideoEffectiveParams(array $params): array
+    {
+        $fallback = is_array($params['ratio_fallback'] ?? null) ? $params['ratio_fallback'] : [];
+        return [
+            'channel' => (string)($params['channel'] ?? $params['model_id'] ?? $params['video_model_id'] ?? ''),
+            'quality' => (string)($params['quality'] ?? $params['resolution'] ?? ''),
+            'duration' => (int)($params['duration'] ?? 0),
+            'requested_ratio' => (string)($params['requested_ratio'] ?? $params['ratio'] ?? ''),
+            'resolved_ratio' => (string)($params['resolved_ratio'] ?? $params['ratio'] ?? ''),
+            'ratio_fallback' => !empty($fallback['applied']),
+            'fallback_message' => (string)($fallback['message'] ?? ''),
+        ];
     }
 
     private static function normalizeShortDramaVideoDuration(int $tenantId, string $channelCode, array $referenceAssets, int $requestedDuration): int
@@ -5337,6 +6064,155 @@ class AigcShortDramaService
             return $limit;
         }
         return $limit;
+    }
+
+    private static function imageReferenceImageLimit(int $tenantId, array $imageParams): int
+    {
+        $limit = max(1, AigcImageChannelService::DEFAULT_REFERENCE_LIMIT);
+        try {
+            $selection = AigcImageChannelService::resolveSelection($tenantId, $imageParams);
+            $channelLimit = max(0, (int)($selection['channel']['max_reference_images'] ?? 0));
+            return $channelLimit > 0 ? $channelLimit : $limit;
+        } catch (\Throwable) {
+            return $limit;
+        }
+    }
+
+    private static function limitShortDramaImageReferences(int $tenantId, array $imageParams, array $params, array $shot, array $payload): array
+    {
+        $limit = self::imageReferenceImageLimit($tenantId, $imageParams);
+        $assets = array_values((array)($payload['reference_assets'] ?? []));
+        if ($limit <= 0 || count($assets) <= $limit) {
+            return $payload;
+        }
+
+        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
+        $inputIds = array_values(array_map('intval', (array)($payload['input_asset_ids'] ?? [])));
+        $explicitReferenceIds = array_flip(array_map('intval', array_merge(
+            self::normalizeIdList($params['input_asset_ids'] ?? []),
+            self::normalizeIdList($nested['input_asset_ids'] ?? []),
+            self::normalizeIdList($params['reference_asset_ids'] ?? []),
+            self::normalizeIdList($nested['reference_asset_ids'] ?? [])
+        )));
+        $selectedSubjectIds = array_flip(array_map('strval', array_merge(
+            self::normalizeStringList($params['selected_subject_ids'] ?? []),
+            self::normalizeStringList($nested['selected_subject_ids'] ?? [])
+        )));
+        $selectedSceneIds = array_flip(array_map('strval', array_merge(
+            self::normalizeStringList($params['selected_scene_ids'] ?? []),
+            self::normalizeStringList($nested['selected_scene_ids'] ?? [])
+        )));
+        $shotContext = self::mergeShotReferenceContext($shot, $params);
+        $shotSceneId = (string)($shotContext['scene_ref_id'] ?? $shotContext['scene_ref'] ?? $shotContext['location_id'] ?? '');
+        $shotSubjectIds = array_flip(array_map('strval', self::explicitShotSubjectRefTokens($shotContext)));
+
+        $items = [];
+        foreach ($assets as $index => $asset) {
+            if (!is_array($asset)) {
+                continue;
+            }
+            $id = (int)($asset['id'] ?? ($inputIds[$index] ?? 0));
+            if ($id > 0 && empty($asset['id'])) {
+                $asset['id'] = $id;
+            }
+            $items[] = [
+                'asset' => $asset,
+                'id' => $id,
+                'index' => $index,
+                'group' => self::shortDramaReferenceGroupKey($asset),
+                'priority' => self::shortDramaImageReferencePriority(
+                    $asset,
+                    $id,
+                    $explicitReferenceIds,
+                    $selectedSubjectIds,
+                    $selectedSceneIds,
+                    $shotSceneId,
+                    $shotSubjectIds
+                ),
+            ];
+        }
+        usort($items, static function (array $a, array $b): int {
+            if ($a['priority'] !== $b['priority']) {
+                return $a['priority'] <=> $b['priority'];
+            }
+            return $a['index'] <=> $b['index'];
+        });
+
+        $uniqueItems = [];
+        $seenGroups = [];
+        foreach ($items as $item) {
+            $group = (string)$item['group'];
+            if ($group !== '' && isset($seenGroups[$group])) {
+                continue;
+            }
+            if ($group !== '') {
+                $seenGroups[$group] = true;
+            }
+            $uniqueItems[] = $item;
+        }
+
+        $limited = self::emptyReferencePayload();
+        foreach (array_slice($uniqueItems, 0, $limit) as $item) {
+            self::appendReferenceAsset($limited, (array)$item['asset']);
+        }
+        return $limited;
+    }
+
+    private static function shortDramaImageReferencePriority(array $asset, int $id, array $explicitReferenceIds, array $selectedSubjectIds, array $selectedSceneIds, string $shotSceneId, array $shotSubjectIds): int
+    {
+        $assetType = (string)($asset['asset_type'] ?? '');
+        $meta = (array)($asset['meta'] ?? []);
+        $subjectId = (string)($meta['subject_id'] ?? $meta['subject_ref_id'] ?? $meta['character_id'] ?? $meta['item_id'] ?? '');
+        $sceneId = (string)($meta['scene_id'] ?? $meta['scene_ref_id'] ?? $meta['location_id'] ?? $meta['item_id'] ?? '');
+        if ($id > 0 && isset($explicitReferenceIds[$id])) {
+            return 10;
+        }
+        if (($assetType === 'scene_image' || $sceneId !== '') && $sceneId !== '') {
+            if (isset($selectedSceneIds[$sceneId])) {
+                return 30;
+            }
+            if ($sceneId === $shotSceneId) {
+                return 35;
+            }
+            return 95;
+        }
+        if ($subjectId !== '') {
+            $matchedSubject = isset($selectedSubjectIds[$subjectId]) || isset($shotSubjectIds[$subjectId]);
+            if ($assetType === 'three_view') {
+                return $matchedSubject ? 40 : 80;
+            }
+            if ($assetType === 'subject_image') {
+                return $matchedSubject ? 60 : 90;
+            }
+        }
+        if ($assetType === 'three_view') {
+            return 85;
+        }
+        if ($assetType === 'subject_image') {
+            return 92;
+        }
+        return $assetType === 'reference_image' ? 20 : 100;
+    }
+
+    private static function shortDramaReferenceGroupKey(array $asset): string
+    {
+        $assetType = (string)($asset['asset_type'] ?? '');
+        $meta = (array)($asset['meta'] ?? []);
+        $subjectId = trim((string)($meta['subject_id'] ?? $meta['subject_ref_id'] ?? $meta['character_id'] ?? ''));
+        if ($subjectId === '' && in_array($assetType, ['subject_image', 'three_view'], true)) {
+            $subjectId = trim((string)($meta['item_id'] ?? ''));
+        }
+        if ($subjectId !== '') {
+            return 'subject:' . $subjectId;
+        }
+        $sceneId = trim((string)($meta['scene_id'] ?? $meta['scene_ref_id'] ?? $meta['location_id'] ?? ''));
+        if ($sceneId === '' && $assetType === 'scene_image') {
+            $sceneId = trim((string)($meta['item_id'] ?? ''));
+        }
+        if ($sceneId !== '') {
+            return 'scene:' . $sceneId;
+        }
+        return '';
     }
 
     private static function limitShortDramaVideoReferences(int $tenantId, string $channelCode, array $params, array $shot, array $payload): array
@@ -5501,10 +6377,41 @@ class AigcShortDramaService
             return false;
         }
         $shotType = trim((string)($shot['shot_type'] ?? $shot['frame_type'] ?? $shot['type'] ?? ''));
-        if ($shotType !== '' && str_contains($shotType, '空镜')) {
+        if ($shotType !== '' && self::shotTypeForcesNoSubject($shotType)) {
+            return true;
+        }
+        if (self::isPropOnlyShot($shot)) {
             return true;
         }
         return empty(self::explicitShotSubjectRefTokens($shot));
+    }
+
+    private static function shotTypeForcesNoSubject(string $shotType): bool
+    {
+        return self::containsAnyKeyword($shotType, ['空镜', '转场镜头', '转场', '环境镜头', '场景镜头']);
+    }
+
+    private static function isPropOnlyShot(array $shot): bool
+    {
+        $shotType = trim((string)($shot['shot_type'] ?? $shot['frame_type'] ?? $shot['type'] ?? ''));
+        if (!self::containsAnyKeyword($shotType, ['道具', '物品', '物件', '细节', '关键特写'])) {
+            return false;
+        }
+        $visibleText = self::joinPromptParts([
+            (string)($shot['image_prompt'] ?? ''),
+            (string)($shot['visual_description'] ?? $shot['description'] ?? ''),
+            (string)($shot['action'] ?? ''),
+            (string)($shot['composition'] ?? ''),
+        ]);
+        return trim($visibleText) !== '' && !self::shotTextImpliesVisibleSubject($visibleText);
+    }
+
+    private static function shotTextImpliesVisibleSubject(string $text): bool
+    {
+        if (trim($text) === '') {
+            return false;
+        }
+        return preg_match('/(@\S+|人物|角色|人像|肖像|男人|女人|男生|女生|女孩|男孩|老人|孩子|母亲|父亲|妈妈|爸爸|学生|老师|医生|队员|骑手|船员|脸|面部|身体|手|眼神|头发|服装|穿着|青蛙人|怪人|人形|person|people|human|character|face|hand|body)/iu', $text) === 1;
     }
 
     private static function filterNoSubjectReferencePayload(array $payload): array
@@ -5856,7 +6763,7 @@ class AigcShortDramaService
             $params['params']['selected_mentions'] = $selectedMentions;
             $params['params']['mention_prompts'] = $mentionPrompts;
         }
-        return $params;
+        return self::sanitizeUtf8Payload($params);
     }
 
     private static function referencePayloadFromAssetIds(int $tenantId, int $userId, int $projectId, array $assetIds): array
@@ -6751,24 +7658,94 @@ class AigcShortDramaService
     {
         $negativePrompt = self::firstPromptField($shot, ['image_negative_prompt', 'negative_prompt']);
         if ($noSubjectShot) {
-            return $negativePrompt !== ''
-                ? $negativePrompt
-                : '低质量、模糊、人物、人类、角色、肖像、脸、身体、剪影、文字、水印、标志、拼贴、多宫格、说明文字、色卡、参数栏';
+            return self::ensureNoSubjectImageNegativePrompt($negativePrompt);
         }
         return self::sanitizeCharacterNegativePrompt($negativePrompt);
+    }
+
+    private static function ensureNoSubjectImageNegativePrompt(string $negativePrompt): string
+    {
+        $fallback = '低质量、模糊、人物、人类、角色、肖像、脸、身体、剪影、文字、水印、标志、拼贴、多宫格、说明文字、色卡、参数栏';
+        $negativePrompt = trim($negativePrompt);
+        if ($negativePrompt === '') {
+            return $fallback;
+        }
+        $parts = preg_split('/[，、,;\s]+/u', $negativePrompt) ?: [];
+        $set = [];
+        foreach ($parts as $part) {
+            $part = trim((string)$part);
+            if ($part !== '') {
+                $set[$part] = true;
+            }
+        }
+        foreach (['人物', '人类', '角色', '肖像', '脸', '身体', '剪影'] as $required) {
+            if (!isset($set[$required])) {
+                $parts[] = $required;
+                $set[$required] = true;
+            }
+        }
+        return implode('、', array_values(array_unique(array_filter(array_map('trim', $parts)))));
     }
 
     private static function shotVideoNegativePrompt(array $shot, bool $noSubjectShot): string
     {
         $negativePrompt = self::firstPromptField($shot, ['video_negative_prompt']);
-        if ($noSubjectShot) {
-            return $negativePrompt !== ''
-                ? $negativePrompt
-                : '低质量、模糊、闪烁、场景漂移、人物、人类、角色、脸、身体、肖像、文字、水';
-        }
-        return self::sanitizeCharacterNegativePrompt($negativePrompt !== ''
+        $negativePrompt = $negativePrompt !== ''
             ? $negativePrompt
-            : '低质量、模糊、闪烁、脸部漂移、服装变化、场景变化、多余角色、文字、水');
+            : ($noSubjectShot
+                ? '低质量、模糊、闪烁、场景漂移、人物、人类、角色、脸、身体、肖像、文字、水印'
+                : '低质量、模糊、闪烁、脸部漂移、服装变化、场景变化、多余角色、文字、水印');
+        $negativePrompt = $noSubjectShot ? $negativePrompt : self::sanitizeCharacterNegativePrompt($negativePrompt);
+        return self::adaptShotVideoNegativePrompt($negativePrompt, $shot);
+    }
+
+    private static function adaptShotVideoNegativePrompt(string $negativePrompt, array $shot): string
+    {
+        $positiveText = implode(' ', array_map('strval', [
+            $shot['visual_description'] ?? '',
+            $shot['action'] ?? '',
+            $shot['result'] ?? '',
+            $shot['image_prompt'] ?? '',
+            $shot['video_prompt'] ?? '',
+            $shot['sound_effect'] ?? '',
+        ]));
+        $remove = [];
+        $lowerPositiveText = strtolower($positiveText);
+        if (
+            str_contains($positiveText, '闪烁')
+            || str_contains($positiveText, '闪动')
+            || str_contains($positiveText, '闪光')
+            || str_contains($positiveText, '警告')
+            || str_contains($positiveText, '报错')
+            || str_contains($lowerPositiveText, 'error')
+        ) {
+            $remove['闪烁'] = true;
+        }
+        if (
+            str_contains($positiveText, '文字')
+            || str_contains($positiveText, '字幕')
+            || str_contains($positiveText, '代码')
+            || str_contains($positiveText, '屏幕')
+            || str_contains($positiveText, '弹窗')
+            || str_contains($positiveText, '警告')
+            || str_contains($lowerPositiveText, 'error')
+        ) {
+            $remove['文字'] = true;
+        }
+        $parts = preg_split('/[、,，]+/u', $negativePrompt) ?: (preg_split('/[、,，]+/', $negativePrompt) ?: []);
+        $filtered = [];
+        foreach ($parts as $part) {
+            $part = trim((string)$part);
+            if ($part === '水') {
+                $part = '水印';
+            }
+            if ($part === '' || isset($remove[$part])) {
+                continue;
+            }
+            $filtered[] = $part;
+        }
+        $filtered = array_values(array_unique($filtered));
+        return !empty($filtered) ? implode('、', $filtered) : trim($negativePrompt);
     }
 
     private static function shortDramaImageParams(array $shot, array $params, string $taskType = 'shot_image', array $plan = []): array
@@ -6981,6 +7958,7 @@ class AigcShortDramaService
     {
         $context = self::shotPromptContext($shot, $params, $plan);
         $flexiblePrompt = self::shotFlexibleImagePrompt($context['shot'], $params);
+        $flexiblePrompt = self::separateSubjectNamesInText($flexiblePrompt, (array)($context['raw_subject_names'] ?? $context['subject_names']));
         return self::composeShotProviderPrompt(
             $flexiblePrompt,
             self::shotImageFixedPrompt($context, $flexiblePrompt)
@@ -7051,7 +8029,7 @@ class AigcShortDramaService
             }
         }
 
-        $promptImpliesSubject = self::shotPromptImpliesVisibleSubject($promptShot, $params);
+        $promptImpliesSubject = !$noSubjectShot && self::shotPromptImpliesVisibleSubject($promptShot, $params);
         if ($promptImpliesSubject && empty($subjectNames)) {
             $subjectNames[] = '当前可见主体';
         }
@@ -7067,7 +8045,9 @@ class AigcShortDramaService
             'no_subject_shot' => $noSubjectContext,
             'has_subject_refs' => !$noSubjectContext && (!empty($visibleSubjectIds) || $promptImpliesSubject),
             'visible_subject_ids' => $visibleSubjectIds,
-            'subject_names' => array_values(array_unique($subjectNames)),
+            'raw_subject_names' => array_values(array_unique($subjectNames)),
+            'subject_names' => self::subjectDisplayNames($subjectNames),
+            'subject_reference_text' => self::shotSubjectReferenceText($subjects, $visibleSubjectIds, $subjectNames),
         ];
     }
 
@@ -7158,6 +8138,55 @@ class AigcShortDramaService
         return $prompt;
     }
 
+    private static function separateSubjectNamesInText(string $text, array $subjectNames): string
+    {
+        $names = array_values(array_unique(array_filter(array_map(static fn($name): string => trim((string)$name), $subjectNames))));
+        if (count($names) <= 1 || trim($text) === '') {
+            return $text;
+        }
+        $joined = implode('', $names);
+        if ($joined !== '') {
+            $text = str_replace($joined, implode('、', $names), $text);
+        }
+        return $text;
+    }
+
+    private static function subjectDisplayNames(array $subjectNames): array
+    {
+        $names = array_values(array_unique(array_filter(array_map(static fn($name): string => trim((string)$name), $subjectNames))));
+        if (count($names) <= 1) {
+            return $names;
+        }
+        foreach ($names as $index => &$name) {
+            if ($index < count($names) - 1) {
+                $name .= '、';
+            }
+        }
+        unset($name);
+        $names[count($names) - 1] .= '（' . count($names) . '个彼此独立的主体，分别参考各自主体参考图；各主体之间保留清晰空间边界和独立轮廓；不要融合、合体、附着、共享肢体、脸、服装、盔甲、尾巴或机械结构）';
+        return $names;
+    }
+
+    private static function shotSubjectReferenceText(array $subjects, array $visibleSubjectIds, array $subjectNames): string
+    {
+        $names = array_values(array_unique(array_filter(array_map(static fn($name): string => trim((string)$name), $subjectNames))));
+        if (empty($names)) {
+            return '';
+        }
+        if (count($names) === 1) {
+            return $names[0] . '（独立主体，严格参考对应主体参考图）';
+        }
+        $parts = [];
+        foreach ($names as $index => $name) {
+            $subject = self::planItemByExactId($subjects, (string)($visibleSubjectIds[$index] ?? ''));
+            $category = self::normalizeSubjectCategory($subject);
+            $label = $category === 'prop' ? '道具主体' : '角色主体';
+            $parts[] = ($index + 1) . '. ' . $name . '（' . $label . '，只参考自己的主体参考图）';
+        }
+        return '本镜头包含' . count($names) . '个彼此独立的主体：' . implode('；', $parts)
+            . '。必须把它们画成不同个体，分别保持各自外貌、服装、材质和轮廓；不要融合成一个人，不要共享肢体、脸、服装、盔甲、尾巴或机械结构。';
+    }
+
     private static function shotImageFixedPrompt(array $context, string $flexiblePrompt): array
     {
         $shot = (array)$context['shot'];
@@ -7179,6 +8208,7 @@ class AigcShortDramaService
             self::cleanShotImagePromptText((string)($shot['action'] ?? '')),
             self::cleanShotImagePromptText((string)($shot['result'] ?? '')),
         ]);
+        $actionText = self::separateSubjectNamesInText($actionText, (array)($context['raw_subject_names'] ?? $context['subject_names']));
         $styleText = self::cleanPromptRatioText((string)($context['plan']['art_style']['visual_description'] ?? ''));
         $fixedRule = !empty($context['no_subject_shot'])
             ? '固定要求：保持场景布局、光线和美术风格一致，画面中不要出现人物、角色、脸、身体、肖像。画面清晰，无文字、水印、字幕'
@@ -7221,7 +8251,7 @@ class AigcShortDramaService
             $line = preg_replace('/^\s*[-*•\d\.、\)）]+\s*/u', '', $line) ?? $line;
             $line = preg_replace('/^\s*["\']?(?:image_prompt|video_prompt|visual_prompt|prompt|生图提示词|图像提示词|视频提示词|生视频提示词|视频生成提示词|用户画面描述|用户运动描述)["\']?\s*[：:]\s*/iu', '', $line) ?? $line;
             $line = preg_replace('/[，、]{2,}/u', '', $line) ?? $line;
-            $line = trim($line, " \t\n\r\0\x0B,，。；;、：:");
+            $line = self::trimPromptText($line);
             if ($line !== '') {
                 $result[] = $line;
             }
@@ -7231,13 +8261,19 @@ class AigcShortDramaService
             return $cleaned;
         }
         $fallback = self::cleanPromptRatioText($originalPrompt);
-        return trim($fallback !== '' ? $fallback : $originalPrompt, " \t\n\r\0\x0B,，。；;、：:");
+        return self::trimPromptText($fallback !== '' ? $fallback : $originalPrompt);
+    }
+
+    private static function trimPromptText(string $text): string
+    {
+        $text = trim($text);
+        return preg_replace('/^[,，、。；;：:\'\"]+|[,，、。；;：:\'\"]+$/u', '', $text) ?? $text;
     }
 
     private static function promptLine(string $label, string $value): string
     {
         $value = trim($value);
-        return $value === '' ? '' : $label . '' . $value;
+        return $value === '' ? '' : $label . '：' . $value;
     }
 
     private static function cleanShotImagePromptText(string $prompt, array $removeLines = []): string
@@ -7286,7 +8322,7 @@ class AigcShortDramaService
         $line = preg_replace('/^\s*[-*•\d\.、\)）]+\s*/u', '', $line) ?? $line;
         $line = preg_replace('/^\s*["\']?(?:' . $fieldLabels . ')["\']?\s*[：:]\s*/iu', '', $line) ?? $line;
         $line = preg_replace('/([，。；;、])\s*(?:' . $fieldLabels . ')\s*[：:]\s*/iu', '$1', $line) ?? $line;
-        return trim($line, " \t\n\r\0\x0B,，。；;、：:");
+        return self::trimPromptText($line);
     }
 
     private static function stripShotImagePlanningPhrases(string $line): string
@@ -7296,7 +8332,7 @@ class AigcShortDramaService
         $line = preg_replace('/(?:精准|清楚)?传达情绪升级/u', '呈现清晰可见的表情或动作', $line) ?? $line;
         $line = preg_replace('/(?:为了|用于|以便)[^，。；\n]{0,24}(?:后续生成|剧情推进|下一拍|转场)/u', '', $line) ?? $line;
         $line = preg_replace('/[，、]{2,}/u', '', $line) ?? $line;
-        return trim($line, " \t\n\r\0\x0B,，。；;、：:");
+        return self::trimPromptText($line);
     }
 
     private static function isInvisibleShotImageNarrativeLine(string $line): bool
@@ -7386,7 +8422,7 @@ class AigcShortDramaService
             foreach ($offscreenNames as $name) {
                 $line = preg_replace('/(?:和|与|及|、)?\s*' . preg_quote($name, '/') . '\s*(?:和|与|及|、)?/u', '', $line) ?? $line;
             }
-            $line = trim(preg_replace('/[，、]{2,}/u', '', $line) ?? $line, " \t\n\r\0\x0B,，、。；;");
+            $line = self::trimPromptText(preg_replace('/[，、]{2,}/u', '', $line) ?? $line);
             if ($line !== '') {
                 $filtered[] = $line;
             }
@@ -7401,12 +8437,28 @@ class AigcShortDramaService
         }, $parts)))));
     }
 
+    private static function readablePromptInlineParts(array $parts): string
+    {
+        $result = '';
+        foreach (array_values(array_unique(array_filter(array_map(static function ($part): string {
+            return trim((string)$part);
+        }, $parts)))) as $part) {
+            if ($result === '') {
+                $result = $part;
+                continue;
+            }
+            $result .= preg_match('/[。！？；;，,]$/u', $result) === 1 ? $part : '，' . $part;
+        }
+        return $result;
+    }
+
     private static function buildShotVideoPrompt(array $shot, array $params, array $plan): string
     {
         $duration = (int)($params['duration'] ?? $shot['recommended_duration_seconds'] ?? 3);
         $duration = max(1, $duration);
         $context = self::shotPromptContext($shot, $params, $plan);
         $flexiblePrompt = self::shotFlexibleVideoPrompt($context['shot'], $params);
+        $flexiblePrompt = self::separateSubjectNamesInText($flexiblePrompt, (array)($context['raw_subject_names'] ?? $context['subject_names']));
         $readablePrompt = self::normalizeReadableShotVideoPrompt($flexiblePrompt, $context['shot']);
         $noSubjectShot = !empty($context['no_subject_shot']);
         return self::buildTaggedSingleShotVideoPrompt($context['shot'], array_merge($context, [
@@ -7445,6 +8497,7 @@ class AigcShortDramaService
             self::cleanShotVideoPromptText((string)($shot['action'] ?? '')),
             self::cleanShotVideoPromptText((string)($shot['result'] ?? '')),
         ]);
+        $actionText = self::separateSubjectNamesInText($actionText, (array)($context['raw_subject_names'] ?? $context['subject_names']));
         $styleText = self::cleanPromptRatioText((string)($context['plan']['art_style']['visual_description'] ?? ''));
         $noSubjectShot = !empty($context['no_subject_shot']);
         $fixedRule = $noSubjectShot
@@ -7515,11 +8568,12 @@ class AigcShortDramaService
     private static function normalizeFinalProviderPrompt(string $prompt): string
     {
         $prompt = self::cleanPromptRatioText($prompt);
+        $prompt = self::localizeGenerationPromptText($prompt);
         $prompt = preg_replace('/[ \t]+/u', ' ', $prompt) ?? $prompt;
         $prompt = preg_replace('/[，、]{2,}/u', '', $prompt) ?? $prompt;
         $prompt = preg_replace('/。{2,}/u', '', $prompt) ?? $prompt;
         $prompt = preg_replace('/\n{3,}/u', "\n\n", $prompt) ?? $prompt;
-        return trim($prompt, " \t\n\r\0\x0B'。；;");
+        return self::trimPromptText($prompt);
     }
 
     private static function firstNonEmptyString(...$values): string
@@ -7537,8 +8591,12 @@ class AigcShortDramaService
     {
         $duration = max(1, (int)round((float)($shot['recommended_duration_seconds'] ?? $shot['duration'] ?? 3)));
         $timeRange = self::readableShotTimeRange($shot, $index, $timeline, $duration);
-        $content = self::shotImagePromptInlineParts([
-            self::cleanShotVideoPromptText((string)($shot['visual_description'] ?? '')),
+        $primaryVisual = self::cleanShotVideoPromptText((string)($shot['visual_description'] ?? ''));
+        if ($primaryVisual === '') {
+            $primaryVisual = self::cleanShotVideoPromptText((string)($shot['image_prompt'] ?? ''));
+        }
+        $content = self::readablePromptInlineParts([
+            $primaryVisual,
             self::cleanShotVideoPromptText((string)($shot['action'] ?? '')),
             self::cleanShotVideoPromptText((string)($shot['result'] ?? '')),
         ]);
@@ -7550,8 +8608,8 @@ class AigcShortDramaService
         }
 
         return self::joinPromptParts([
-            '分镜' . self::readableShotId($shot, $index) . '' . $timeRange,
-            self::promptLine('景别', (string)($shot['shot_type'] ?? '') ?: '普通画'),
+            '分镜' . self::readableShotId($shot, $index) . '：' . $timeRange,
+            self::promptLine('景别', self::normalizeShotTypeLabel((string)($shot['shot_type'] ?? '')) ?: '普通画面'),
             self::promptLine('构图', (string)($shot['composition'] ?? '') ?: '按当前画面主体稳定构'),
             self::promptLine('运镜手法', (string)($shot['camera_movement'] ?? '') ?: '固定镜头'),
             self::promptLine('画面内容', $content),
@@ -7563,41 +8621,122 @@ class AigcShortDramaService
     {
         $prompt = trim(self::cleanShotVideoPromptText($prompt));
         $values = self::readableShotVideoPromptValues($prompt);
-        $fallback = self::buildReadableShotVideoPrompt($shot, $index, $timeline);
-        $fallbackValues = self::readableShotVideoPromptValues($fallback);
         $shotId = self::readableShotId($shot, $index);
         $duration = max(1, (int)round((float)($shot['recommended_duration_seconds'] ?? $shot['duration'] ?? 3)));
         $timeRange = self::readableShotTimeRange($shot, $index, $timeline, $duration);
+        $primaryVisual = self::cleanShotVideoPromptText((string)($shot['visual_description'] ?? ''));
+        if ($primaryVisual === '') {
+            $primaryVisual = self::cleanShotVideoPromptText((string)($shot['image_prompt'] ?? ''));
+        }
+        $fallbackContent = self::readablePromptInlineParts([
+            $primaryVisual,
+            self::cleanShotVideoPromptText((string)($shot['action'] ?? '')),
+            self::cleanShotVideoPromptText((string)($shot['result'] ?? '')),
+        ]);
+        if ($fallbackContent === '') {
+            $fallbackContent = self::cleanShotVideoPromptText((string)($shot['description'] ?? ''));
+        }
+        if ($fallbackContent === '') {
+            $fallbackContent = self::isNoSubjectShot($shot) ? '空镜环境保持稳定，呈现当前场景的光线、空间和氛围变化' : '当前可见主体完成一个清晰可见的动作变化';
+        }
 
         $content = (string)($values['画面内容'] ?? '');
+        if (self::isGenericReadableShotContent($content)) {
+            $content = '';
+        }
         if ($content === '' && $prompt !== '' && empty($values)) {
             $content = $prompt;
         }
+        $shotType = self::normalizeShotTypeLabel((string)($values['景别'] ?? $shot['shot_type'] ?? '普通画面'));
+        if (in_array($shotType, ['普通画面'], true) && trim((string)($shot['shot_type'] ?? '')) !== '') {
+            $shotType = self::normalizeShotTypeLabel((string)$shot['shot_type']);
+        }
+        $composition = (string)($values['构图'] ?? $shot['composition'] ?? '按当前画面主体稳定构');
+        if (preg_match('/^按当前画面主体稳定构/u', $composition) === 1 && trim((string)($shot['composition'] ?? '')) !== '') {
+            $composition = (string)$shot['composition'];
+        }
+        $camera = (string)($values['运镜手法'] ?? $values['运镜'] ?? $shot['camera_movement'] ?? '固定镜头');
+        if ($camera === '固定镜头' && trim((string)($shot['camera_movement'] ?? '')) !== '') {
+            $camera = (string)$shot['camera_movement'];
+        }
+        $sound = (string)($values['声音'] ?? self::readableShotSoundText($shot));
+        if (str_contains($sound, '画面中') && !str_contains($sound, '；')) {
+            $sound = self::readableShotSoundText($shot);
+        }
 
         return self::joinPromptParts([
-            '分镜' . $shotId . '' . ((string)($values['分镜'] ?? '') ?: $timeRange),
-            self::promptLine('景别', (string)($values['景别'] ?? $fallbackValues['景别'] ?? '普通画')),
-            self::promptLine('构图', (string)($values['构图'] ?? $fallbackValues['构图'] ?? '按当前画面主体稳定构')),
-            self::promptLine('运镜手法', (string)($values['运镜手法'] ?? $values['运镜'] ?? $fallbackValues['运镜手法'] ?? '固定镜头')),
-            self::promptLine('画面内容', $content !== '' ? $content : (string)($fallbackValues['画面内容'] ?? '当前分镜画面自然呈现')),
-            self::promptLine('声音', (string)($values['声音'] ?? $fallbackValues['声音'] ?? self::readableShotSoundText($shot))),
+            '分镜' . $shotId . '：' . ((string)($values['分镜'] ?? '') ?: $timeRange),
+            self::promptLine('景别', $shotType),
+            self::promptLine('构图', $composition),
+            self::promptLine('运镜手法', $camera),
+            self::promptLine('画面内容', $content !== '' ? $content : $fallbackContent),
+            self::promptLine('声音', $sound),
         ]);
+    }
+
+    private static function isGenericReadableShotContent(string $content): bool
+    {
+        $content = trim($content);
+        return $content === ''
+            || preg_match('/^分镜[一二三四五六七八九十百千万\d]+(?:\s*[：:、\-].*)?$/u', $content) === 1
+            || preg_match('/^当前分镜画面自然呈现。?$/u', $content) === 1;
+    }
+
+    private static function normalizeShotTypeLabel(string $shotType): string
+    {
+        $shotType = trim($shotType);
+        return preg_match('/^普通画[~～。.\s]*$/u', $shotType) === 1 ? '普通画面' : $shotType;
     }
 
     private static function readableShotVideoPromptValues(string $prompt): array
     {
         $values = [];
+        $skipStaleShotBlock = false;
         foreach (preg_split('/\R/u', trim($prompt)) ?: [] as $line) {
             $line = trim((string)$line);
             if ($line === '') {
                 continue;
             }
-            if (preg_match('/^分镜\s*([^：:\s]*)\s*[：:]\s*(.+)$/u', $line, $matches)) {
+            if (preg_match('/^分镜\s*([一二三四五六七八九十百千万\d]*)\s*[：:]\s*(\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}.*)$/u', $line, $matches)) {
                 $values['分镜'] = trim((string)$matches[2]);
                 continue;
             }
-            if (preg_match('/^(景别|构图|运镜手法|运镜|画面内容|声音)\s*[：:]\s*(.*)$/u', $line, $matches)) {
-                $values[(string)$matches[1]] = trim((string)$matches[2]);
+            if (preg_match('/^(景别|构图|运镜手法|运镜(?!手法)|画面内容|声音)\s*[：:]\s*(.*)$/u', $line, $matches)) {
+                $label = (string)$matches[1] === '运镜' ? '运镜手法' : (string)$matches[1];
+                $value = trim((string)$matches[2]);
+                if ($value === '') {
+                    continue;
+                }
+                if ($label === '画面内容' && self::isGenericReadableShotContent($value)) {
+                    $skipStaleShotBlock = true;
+                    continue;
+                }
+                if ($skipStaleShotBlock && $label !== '画面内容') {
+                    continue;
+                }
+                $skipStaleShotBlock = false;
+                $values[$label] = $value;
+                continue;
+            }
+            if (preg_match('/^(景别|构图|运镜手法|运镜(?!手法)|画面内容|声音)\s*(.+)$/u', $line, $matches)) {
+                $label = (string)$matches[1] === '运镜' ? '运镜手法' : (string)$matches[1];
+                $value = trim((string)$matches[2]);
+                if ($value === '') {
+                    continue;
+                }
+                if ($label === '画面内容' && self::isGenericReadableShotContent($value)) {
+                    $skipStaleShotBlock = true;
+                    continue;
+                }
+                if ($skipStaleShotBlock && $label !== '画面内容') {
+                    continue;
+                }
+                $skipStaleShotBlock = false;
+                $values[$label] = $value;
+                continue;
+            }
+            if ($skipStaleShotBlock) {
+                continue;
             }
         }
         return $values;
@@ -7646,7 +8785,9 @@ class AigcShortDramaService
     private static function readableShotSoundText(array $shot): string
     {
         $soundEffect = trim((string)($shot['sound_effect'] ?? ''));
-        $soundPrefix = $soundEffect !== '' ? $soundEffect . '' : '轻微环境声';
+        $soundPrefix = $soundEffect !== ''
+            ? self::trimPromptText($soundEffect) . '；'
+            : '轻微环境声；';
         if (self::isNoSubjectShot($shot)) {
             return $soundPrefix . '画面中无角色出现，全程无人说话';
         }
@@ -7656,9 +8797,9 @@ class AigcShortDramaService
         }
         $voiceRole = trim((string)($shot['voice_role'] ?? ''));
         if (str_contains($voiceRole, '旁白') || str_contains($voiceRole, '画外')) {
-            return $soundPrefix . '画外音响起：' . $dialogue . '' . ($voiceRole !== '' ? '（音色：' . $voiceRole . '' : '') . '';
+            return $soundPrefix . '画外音响起：' . $dialogue . ($voiceRole !== '' ? '（音色：' . $voiceRole . '）' : '');
         }
-        return $soundPrefix . ($voiceRole !== '' ? $voiceRole : '角色') . '开口说：' . $dialogue . '”';
+        return $soundPrefix . ($voiceRole !== '' ? $voiceRole : '角色') . '开口说：“' . $dialogue . '”';
     }
 
     private static function buildTaggedSingleShotVideoPrompt(array $shot, array $context): string
@@ -7694,10 +8835,13 @@ class AigcShortDramaService
         $consistencyRule = $noSubjectShot
             ? '固定要求：保持场景、光线和美术风格一致，画面中不要出现人物、角色、脸、身体、肖像，无字幕、无BGM背景音乐、无水印、无文字'
             : '固定要求：保持人物身份、脸部、发型、服装、道具、场景、光线和美术风格一致，无新增角色，无字幕、无BGM背景音乐、无水印、无文字';
+        if (!$noSubjectShot && count((array)($context['raw_subject_names'] ?? $context['subject_names'] ?? [])) > 1) {
+            $consistencyRule .= ' 多主体规则：每个主体必须保持独立个体和清晰边界，不要融合、合体、附着、共享肢体、脸、服装、盔甲、尾巴或机械结构。';
+        }
         $parts = [
             $directorPrompt,
-            '当前绑定场景' . $locationText . '',
-            $noSubjectShot ? '当前绑定主体：空镜，无可见主体' : '当前绑定主体' . $shootTarget . '',
+            '当前绑定场景：' . $locationText,
+            $noSubjectShot ? '当前绑定主体：空镜，无可见主体' : '当前绑定主体：' . $shootTarget,
             '<duration-ms>' . $durationMs . '</duration-ms>',
             $dialogueText,
             (string)($context['first_frame_rule'] ?? ''),
@@ -7763,7 +8907,7 @@ class AigcShortDramaService
                 $tags[] = $subjectName;
             }
         }
-        return implode('', array_values(array_unique(array_filter($tags))));
+        return implode('；', array_values(array_unique(array_filter($tags))));
     }
 
     private static function findPromptReferenceAsset(array $referenceAssets, array $assetTypes, string $refId, string $name, array $idKeys, array $nameKeys): array
@@ -7873,6 +9017,7 @@ class AigcShortDramaService
 
     private static function cleanShotVideoPromptText(string $prompt, array $removeLines = []): string
     {
+        $originalPrompt = trim($prompt);
         $removeSet = [];
         foreach ($removeLines as $line) {
             $line = trim((string)$line);
@@ -7884,6 +9029,9 @@ class AigcShortDramaService
         $lines = preg_split('/\R/u', $prompt) ?: [];
         $blockedPatterns = [
             '/^\s*(video_prompt|视频提示词|生视频提示词|视频生成提示词|生成视频片段|视频片段|导演说明|分镜说明|镜头目的|剧情作用|叙事目的|情绪目标)\s*[：:]/iu',
+            '/^\s*(当前绑定主体|当前绑定场景|动作结果|固定要求|首帧约束|尾帧约束|视频时长|整体风格|氛围)\s*[：:]?/u',
+            '/^\s*<duration-ms>\s*\d+\s*<\/duration-ms>\s*$/iu',
+            '/^\s*<\/?(?:role|location)(?:\s+[^>]*)?>.*$/iu',
             '/(情绪升级|推动剧情|视觉任务|本镜头|下一拍|做出反应|生成视频片段|承接上一镜|为后续[^，。；\n]{0,20}铺垫|交代剧情|用于视频生成)/u',
         ];
         $result = [];
@@ -7900,12 +9048,15 @@ class AigcShortDramaService
             $line = preg_replace('/^\s*[-*•\d\.、\)）]+\s*/u', '', $line) ?? $line;
             $line = preg_replace('/^\s*["\']?(?:video_prompt|视频提示词|生视频提示词|视频生成提示词|动作指令|首帧状态|中间动作|结束状态|镜头运动|环境运动)["\']?\s*[：:]\s*/iu', '', $line) ?? $line;
             $line = preg_replace('/[，、]{2,}/u', '', $line) ?? $line;
-            $line = trim($line, " \t\n\r\0\x0B,，。；;、：:");
+            $line = self::trimPromptText($line);
             if ($line !== '') {
                 $result[] = $line;
             }
         }
-        return implode("\n", array_values(array_unique($result)));
+        if (!empty($result)) {
+            return implode("\n", array_values(array_unique($result)));
+        }
+        return $originalPrompt;
     }
 
     private static function buildShotVideoPromptFallback(array $shot): string
@@ -8623,6 +9774,15 @@ class AigcShortDramaService
                 $shot['video_prompt'] = self::buildDefaultVideoPrompt($shot);
             }
             $noSubjectShot = self::isNoSubjectShot($shot);
+            if ($noSubjectShot && !empty($shot['subject_ref_ids'])) {
+                $shot['subject_ref_ids'] = [];
+            }
+            if ($noSubjectShot && trim((string)($shot['image_prompt'] ?? '')) !== '') {
+                $filteredImagePrompt = self::filterShotPromptVisibleSubjects((string)$shot['image_prompt'], $subjects, []);
+                if ($filteredImagePrompt !== '') {
+                    $shot['image_prompt'] = $filteredImagePrompt;
+                }
+            }
             $shot['image_negative_prompt'] = self::shotImageNegativePrompt($shot, $noSubjectShot);
             $shot['video_negative_prompt'] = self::shotVideoNegativePrompt($shot, $noSubjectShot);
             if (!$noSubjectShot) {
@@ -8840,7 +10000,7 @@ class AigcShortDramaService
             }
             $sceneRef = trim((string)($shot['scene_ref_id'] ?? ''));
             if ($sceneRef === '' || !in_array($sceneRef, $locationIds, true)) {
-                $issues[] = self::planReviewIssue('shot.scene_ref.invalid', 'blocking', $path . '.scene_ref_id', '分镜 ' . $shotId . ' 场景引用不存');
+                $issues[] = self::planReviewIssue('shot.scene_ref.invalid', 'blocking', $path . '.scene_ref_id', '分镜 ' . $shotId . ' 场景引用不存在');
             }
             foreach (self::splitPlanRefTokens($shot['subject_ref_ids'] ?? []) as $subjectRef) {
                 if ($subjectRef !== '' && !in_array($subjectRef, $subjectIds, true)) {
@@ -8877,7 +10037,12 @@ class AigcShortDramaService
             $targetMinShots = (int)($storyboardDiagnostics['target_min_shots'] ?? 0);
             $targetMaxShots = (int)($storyboardDiagnostics['target_max_shots'] ?? 0);
             if ($targetMinShots > 0 && $actualShotCount < $targetMinShots) {
-                $issues[] = self::planReviewIssue('storyboard.shot_count_under_range', 'blocking', 'storyboard', '实际分镜数量低于命中档位最小范');
+                $issues[] = self::planReviewIssue(
+                    'storyboard.shot_count_under_range',
+                    self::storyboardShotCountUnderRangeSeverity($actualShotCount, $targetMinShots, $storyboard, $locations),
+                    'storyboard',
+                    '实际分镜数量低于命中档位最小范'
+                );
             }
             if ($targetMaxShots > 0 && $actualShotCount > $targetMaxShots) {
                 $issues[] = self::planReviewIssue('storyboard.shot_count_over_range', 'warning', 'storyboard', '实际分镜数量高于命中档位建议范围');
@@ -8928,7 +10093,17 @@ class AigcShortDramaService
                 $repairCount++;
             }
             $noSubjectShot = self::isNoSubjectShot($shot);
+            if ($noSubjectShot && !empty($shot['subject_ref_ids'])) {
+                $shot['subject_ref_ids'] = [];
+                $repairCount++;
+            }
             $imagePrompt = self::cleanShotImagePromptText((string)($shot['image_prompt'] ?? ''));
+            if ($noSubjectShot) {
+                $filteredImagePrompt = self::filterShotPromptVisibleSubjects($imagePrompt, $subjects, []);
+                if ($filteredImagePrompt !== '') {
+                    $imagePrompt = $filteredImagePrompt;
+                }
+            }
             if ($imagePrompt !== (string)($shot['image_prompt'] ?? '')) {
                 $shot['image_prompt'] = $imagePrompt;
                 $repairCount++;
@@ -9035,7 +10210,7 @@ class AigcShortDramaService
             'delete_time' => 0,
         ])->findOrEmpty();
         if ($task->isEmpty()) {
-            throw new Exception('生成任务不存');
+            throw new Exception('生成任务不存在');
         }
         return $task;
     }
@@ -9054,7 +10229,7 @@ class AigcShortDramaService
         }
         $shot = $query->order(['id' => 'desc'])->findOrEmpty();
         if ($shot->isEmpty()) {
-            throw new Exception('分镜不存');
+            throw new Exception('分镜不存在');
         }
         return $shot;
     }
@@ -9265,6 +10440,7 @@ class AigcShortDramaService
     {
         return [
             'id' => (int)$row['id'],
+            'tenant_id' => (int)$row['tenant_id'],
             'project_id' => (int)$row['project_id'],
             'final_video_asset_id' => (int)$row['final_video_asset_id'],
             'cover_asset_id' => (int)$row['cover_asset_id'],
@@ -9541,6 +10717,7 @@ class AigcShortDramaService
             }
         }
         $summary = self::channelPriceSummary($matched);
+        $params = self::normalizeShortDramaChannelQuality($params, $summary);
         $ratioOptions = array_values(array_filter(array_map('strval', (array)($summary['ratio_options'] ?? []))));
         $requestRatio = self::requestGenerationRatio($params);
         if ($requestRatio !== '' && !empty($ratioOptions) && !in_array($requestRatio, $ratioOptions, true)) {
@@ -9555,6 +10732,87 @@ class AigcShortDramaService
                     $params['params']['ratio'] = $fallbackRatio;
                     $params['params']['aspect_ratio'] = $fallbackRatio;
                 }
+            }
+        }
+        return $params;
+    }
+
+    private static function normalizeShortDramaVideoChannelParams(int $tenantId, array $params): array
+    {
+        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
+        $requested = '';
+        foreach (['video_model_id', 'model_id', 'channel', 'channel_code'] as $key) {
+            $value = trim((string)($params[$key] ?? $nested[$key] ?? ''));
+            if ($value !== '') {
+                $requested = $value;
+                break;
+            }
+        }
+        if ($requested === '') {
+            return $params;
+        }
+
+        try {
+            $config = AigcVideoChannelService::userConfig($tenantId);
+            $channels = (array)($config['channels'] ?? []);
+        } catch (\Throwable) {
+            throw new Exception('暂无可用视频模型，请先在后台配置');
+        }
+
+        $matched = [];
+        foreach ($channels as $channel) {
+            if (!is_array($channel)) {
+                continue;
+            }
+            $codes = array_filter([
+                (string)($channel['code'] ?? ''),
+                (string)($channel['name'] ?? ''),
+                (string)($channel['model'] ?? ''),
+            ]);
+            if (in_array($requested, $codes, true)) {
+                $matched = $channel;
+                break;
+            }
+        }
+        if (empty($matched)) {
+            throw new Exception('当前视频模型不可用，请重新选择');
+        }
+
+        $code = (string)($matched['code'] ?? '');
+        if ($code === '') {
+            throw new Exception('当前视频模型不可用，请重新选择');
+        }
+        foreach (['model_id', 'video_model_id', 'channel', 'channel_code'] as $key) {
+            $params[$key] = $code;
+        }
+        if (is_array($params['params'] ?? null)) {
+            foreach (['model_id', 'video_model_id', 'channel', 'channel_code'] as $key) {
+                $params['params'][$key] = $code;
+            }
+        }
+        return self::normalizeShortDramaChannelQuality($params, self::channelPriceSummary($matched));
+    }
+
+    private static function normalizeShortDramaChannelQuality(array $params, array $summary): array
+    {
+        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
+        $requested = trim((string)($params['quality'] ?? $params['resolution'] ?? $nested['quality'] ?? $nested['resolution'] ?? ''));
+        $options = array_values(array_filter(array_map('strval', (array)($summary['quality_options'] ?? []))));
+        if (empty($options)) {
+            return $params;
+        }
+        $quality = in_array($requested, $options, true)
+            ? $requested
+            : (string)($summary['default_quality'] ?? $options[0]);
+        if ($quality === '' || !in_array($quality, $options, true)) {
+            $quality = (string)$options[0];
+        }
+        foreach (['quality', 'resolution'] as $key) {
+            $params[$key] = $quality;
+        }
+        if (is_array($params['params'] ?? null)) {
+            foreach (['quality', 'resolution'] as $key) {
+                $params['params'][$key] = $quality;
             }
         }
         return $params;
@@ -9639,9 +10897,9 @@ class AigcShortDramaService
             ->findOrEmpty();
         if ($row->isEmpty()) {
             $default['background'] = self::formatBackgroundConfig($default['background']);
-            $default['price_config'] = self::normalizePriceConfig($default['price_config']);
+            $default['price_config'] = [];
             $default['export_watermark'] = self::normalizeExportWatermarkConfig((array)$default['export_watermark']);
-            $default['model_groups'] = self::dependencyModelGroups($tenantId, $default['price_config']);
+            $default['model_groups'] = self::dependencyModelGroups($tenantId);
             return $default;
         }
         $json = self::jsonDecode((string)$row['config_json']);
@@ -9658,8 +10916,8 @@ class AigcShortDramaService
             $model['enabled'] = (bool)($model['enabled'] ?? true);
             return $model;
         }, (array)$config['models']));
-        $config['price_config'] = self::normalizePriceConfig((array)($config['price_config'] ?? []));
-        $config['model_groups'] = self::dependencyModelGroups($tenantId, $config['price_config']);
+        $config['price_config'] = [];
+        $config['model_groups'] = self::dependencyModelGroups($tenantId);
         $config['prompt_max_length'] = max(0, min(200000, (int)($config['prompt_max_length'] ?? 20000)));
         $config['storyboard_rules'] = self::normalizeStoryboardRules((array)($config['storyboard_rules'] ?? []));
         $config['export_watermark'] = self::normalizeExportWatermarkConfig((array)($config['export_watermark'] ?? []));
@@ -9732,19 +10990,18 @@ class AigcShortDramaService
         ];
     }
 
-    private static function dependencyModelGroups(int $tenantId, array $priceConfig = []): array
+    private static function dependencyModelGroups(int $tenantId): array
     {
         return [
-            self::llmModelGroup($tenantId, $priceConfig),
-            self::channelModelGroup($tenantId, self::IMAGE_APP_CODE, 'image', 'image', '生图模型', $priceConfig),
-            self::channelModelGroup($tenantId, self::VIDEO_APP_CODE, 'video', 'video', '视频模型', $priceConfig),
+            self::llmModelGroup($tenantId),
+            self::channelModelGroup($tenantId, self::IMAGE_APP_CODE, 'image', 'image', '生图模型'),
+            self::channelModelGroup($tenantId, self::VIDEO_APP_CODE, 'video', 'video', '视频模型'),
         ];
     }
 
-    private static function llmModelGroup(int $tenantId, array $priceConfig = []): array
+    private static function llmModelGroup(int $tenantId): array
     {
         $models = [];
-        $priceMap = self::priceConfigMap($priceConfig);
         try {
             $config = AigcLlmChannelService::userConfig($tenantId);
             foreach ((array)($config['models'] ?? []) as $model) {
@@ -9754,9 +11011,14 @@ class AigcShortDramaService
                 }
                 $platformInput = self::formatUnitPrice((float)($model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? 0));
                 $platformOutput = self::formatUnitPrice((float)($model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? 0));
-                $tenantPrice = $priceMap['script_plan|' . $code] ?? [];
-                $tenantInput = self::formatUnitPrice(max((float)$platformInput, (float)($tenantPrice['tenant_input_unit_price'] ?? $platformInput)));
-                $tenantOutput = self::formatUnitPrice(max((float)$platformOutput, (float)($tenantPrice['tenant_output_unit_price'] ?? $platformOutput)));
+                $tenantInput = self::formatUnitPrice(max(
+                    (float)$platformInput,
+                    (float)($model['tenant_input_unit_price'] ?? $model['tenant_unit_price'] ?? $platformInput)
+                ));
+                $tenantOutput = self::formatUnitPrice(max(
+                    (float)$platformOutput,
+                    (float)($model['tenant_output_unit_price'] ?? $model['tenant_unit_price'] ?? $platformOutput)
+                ));
                 $models[] = [
                     'id' => $code,
                     'value' => $code,
@@ -9794,10 +11056,9 @@ class AigcShortDramaService
         ];
     }
 
-    private static function channelModelGroup(int $tenantId, string $appCode, string $key, string $type, string $label, array $priceConfig = []): array
+    private static function channelModelGroup(int $tenantId, string $appCode, string $key, string $type, string $label): array
     {
         $channels = [];
-        $priceMap = self::priceConfigMap($priceConfig);
         try {
             $config = $appCode === self::IMAGE_APP_CODE
                 ? AigcImageChannelService::userConfig($tenantId)
@@ -9813,8 +11074,10 @@ class AigcShortDramaService
                 continue;
             }
             $summary = self::channelPriceSummary((array)$channel);
-            $tenantPrice = $priceMap[$key . '|' . $code] ?? [];
-            $tenantUnitPrice = self::formatPrice(max((float)$summary['platform_unit_cost'], (float)($tenantPrice['tenant_unit_price'] ?? $summary['platform_unit_cost'])));
+            $tenantUnitPrice = self::formatPrice(max(
+                (float)$summary['platform_unit_cost'],
+                (float)($summary['tenant_unit_price'] ?? $summary['platform_unit_cost'])
+            ));
             $options[] = [
                 'id' => $code,
                 'value' => $code,
@@ -9831,6 +11094,8 @@ class AigcShortDramaService
                 'tenant_unit_price' => $tenantUnitPrice,
                 'spec_count' => $summary['spec_count'],
                 'default_quality' => (string)($summary['default_quality'] ?? ''),
+                'quality_options' => (array)($summary['quality_options'] ?? []),
+                'resolution_options' => (array)($summary['resolution_options'] ?? []),
                 'default_ratio' => (string)($summary['default_ratio'] ?? ''),
                 'ratio_options' => (array)($summary['ratio_options'] ?? []),
                 'max_reference_images' => max(0, (int)($channel['max_reference_images'] ?? 0)),
@@ -9855,12 +11120,37 @@ class AigcShortDramaService
     private static function channelPriceSummary(array $channel): array
     {
         $specs = [];
+        $resolutionOptions = [];
+        $qualityOptions = [];
         foreach ((array)($channel['qualities'] ?? []) as $quality) {
+            if (!is_array($quality)) {
+                continue;
+            }
+            $qualityValue = trim((string)($quality['value'] ?? $quality['quality'] ?? ''));
+            $qualityLabel = trim((string)($quality['label'] ?? $quality['resolution'] ?? $qualityValue));
+            $qualityRatios = [];
             foreach ((array)($quality['ratios'] ?? []) as $ratio) {
                 if (!is_array($ratio)) {
                     continue;
                 }
+                $ratioValue = trim((string)($ratio['value'] ?? $ratio['ratio'] ?? ''));
+                if ($ratioValue !== '' && !in_array($ratioValue, $qualityRatios, true)) {
+                    $qualityRatios[] = $ratioValue;
+                }
                 $specs[] = $ratio;
+            }
+            if ($qualityValue !== '' && !in_array($qualityValue, $qualityOptions, true)) {
+                $qualityOptions[] = $qualityValue;
+                $resolutionLabel = self::shortDramaResolutionLabel(
+                    (string)($quality['resolution'] ?? '') ?: ($qualityLabel !== '' ? $qualityLabel : $qualityValue)
+                );
+                if ($resolutionLabel !== '') {
+                    $resolutionOptions[] = [
+                        'value' => $qualityValue,
+                        'label' => $resolutionLabel,
+                        'ratio_options' => $qualityRatios,
+                    ];
+                }
             }
         }
         $ratioOptions = [];
@@ -9871,13 +11161,17 @@ class AigcShortDramaService
             }
         }
         $platformPrices = array_values(array_filter(array_map(fn(array $item) => (float)($item['platform_unit_cost'] ?? 0), $specs), fn(float $value) => $value > 0));
+        $tenantPrices = array_values(array_filter(array_map(fn(array $item) => (float)($item['tenant_unit_price'] ?? 0), $specs), fn(float $value) => $value > 0));
         $platform = empty($platformPrices) ? 0 : min($platformPrices);
+        $tenant = empty($tenantPrices) ? $platform : min($tenantPrices);
         $count = count($specs);
         return [
             'platform_unit_cost' => self::formatPrice($platform),
-            'tenant_unit_price' => self::formatPrice($platform),
+            'tenant_unit_price' => self::formatPrice(max($platform, $tenant)),
             'spec_count' => $count,
-            'default_quality' => (string)($specs[0]['quality'] ?? ''),
+            'default_quality' => (string)($resolutionOptions[0]['value'] ?? $qualityOptions[0] ?? $specs[0]['quality'] ?? ''),
+            'quality_options' => $qualityOptions,
+            'resolution_options' => $resolutionOptions,
             'default_ratio' => (string)($specs[0]['value'] ?? $specs[0]['ratio'] ?? ''),
             'ratio_options' => $ratioOptions,
             'description' => $count > 0
@@ -10000,7 +11294,7 @@ class AigcShortDramaService
     {
         $groups = (array)($config['model_groups'] ?? []);
         if (empty($groups)) {
-            $groups = self::dependencyModelGroups($tenantId, (array)($config['price_config'] ?? []));
+            $groups = self::dependencyModelGroups($tenantId);
         }
         $selected = [];
         $selections = (array)($request['model_selections'] ?? []);
@@ -10113,6 +11407,10 @@ class AigcShortDramaService
             ->limit(50)
             ->select()
             ->toArray();
+        $rows = array_values(array_filter($rows, static function (array $row): bool {
+            return (string)($row['source'] ?? '') !== 'public'
+                || !in_array((string)($row['name'] ?? ''), self::LEGACY_PUBLIC_SUBJECT_NAMES, true);
+        }));
         return array_map(static function (array $row): array {
             return [
                 'id' => (string)$row['id'],
@@ -10164,12 +11462,18 @@ class AigcShortDramaService
 
     private static function normalizeCreateRequest(array $params, array $config): array
     {
+        $targetDurationSeconds = min(7200, max(0, (int)($params['target_duration_seconds'] ?? $params['target_duration'] ?? 0)));
+        if ($targetDurationSeconds <= 0) {
+            $targetDurationSeconds = min(7200, max(0, self::durationHintToSeconds(
+                self::extractUserTextDurationHint((string)($params['prompt'] ?? ''))
+            )));
+        }
         return [
             'prompt' => '',
             'ratio' => self::requestGenerationRatio($params),
             'multi_episode' => (bool)($params['multi_episode'] ?? false),
             'episode_count' => min(100, max(1, (int)($params['episode_count'] ?? ((bool)($params['multi_episode'] ?? false) ? 3 : 1)))),
-            'target_duration_seconds' => min(7200, max(0, (int)($params['target_duration_seconds'] ?? $params['target_duration'] ?? 0))),
+            'target_duration_seconds' => $targetDurationSeconds,
             'model_id' => trim((string)($params['model_id'] ?? 'script-planner-default')),
             'model_selections' => is_array($params['model_selections'] ?? null) ? $params['model_selections'] : [],
             'style_id' => trim((string)($params['style_id'] ?? '')),
@@ -10515,7 +11819,7 @@ class AigcShortDramaService
             . "20. Script planning does not receive or decide aspect ratio. Do not write ratio, portrait/landscape, vertical screen, horizontal screen, or canvas size into art_style.visual_description or any user-facing planning field.\n"
             . "21. If selected_style_name or selected_style_prompt is not empty, art_style, subject visual locks, location visual locks, image_prompt, and video_prompt must follow the selected style. Conflicting style words in user_prompt may affect plot mood only, not the visual style authority.\n"
             . "22. If no style is selected, derive the visual style from user_text_style_hint and user_text_time_period_hint; if they are empty, use a neutral short-drama visual style.\n"
-            . "23. If selected_duration_hint is not empty, storyboard pacing and total duration must follow it. Otherwise use user_text_duration_hint. Otherwise use the default short-drama pacing.\n"
+            . "23. If selected_duration_hint or user_text_duration_hint is not empty, treat it as an approximate pacing target, not an exact stopwatch value: storyboard total should usually land within about 90%-110% of the target unless story logic clearly needs a slight deviation. Choose shot count from plot density and scene coverage; do not hard-code a fixed number of storyboard items just to hit the target. Otherwise use the default short-drama pacing.\n"
             . "24. music_plan.global_bgm_prompt is required. It must be a complete Chinese prompt for generating one full-film instrumental BGM track. It must include style, mood curve, tempo, instruments, atmosphere, duration target, and negative constraints. No lyrics or human voice unless the user explicitly asks.\n"
             . "25. Every storyboard item must include non-empty Chinese bgm_prompt and sound_effect. bgm_prompt should describe this shot's musical emotion while staying consistent with music_plan.global_bgm_prompt.\n"
             . "26. Revision mode: if revision_message is not empty, use revision_base_result as the previous complete script version and regenerate a new full script plan by applying revision_message. Preserve all unaffected plot, subjects, scenes, style locks, music plan, and storyboard logic from revision_base_result. Only change the parts requested by revision_message, but still return a complete new JSON object with all fields, not a diff, not a partial patch, and not an explanation. If revision_target is provided, only modify that target and directly related consistency fields; keep unrelated subjects, locations, storyboard order, story outline, and prompts unchanged.\n"
@@ -10799,6 +12103,12 @@ PROMPT;
         $styleMeta = self::scriptPlanPriorityMeta($prompt, $request);
         $storyboardRepair = self::repairStoryboardCoverage($storyboard, $locations, $subjects, $prompt, $request, $storyOutline);
         $storyboard = $storyboardRepair['storyboard'];
+        $durationRepair = self::balanceStoryboardDuration($storyboard, $locations, $subjects, $prompt, $request, $storyOutline);
+        $storyboard = $durationRepair['storyboard'];
+        $storyboardRepair['issues_fixed'] = array_values(array_unique(array_merge(
+            (array)($storyboardRepair['issues_fixed'] ?? []),
+            (array)($durationRepair['issues_fixed'] ?? [])
+        )));
         $durationStats = self::durationStats($storyboard, count($locations));
         $storyboardDiagnostics = self::storyboardBreakingDiagnostics($storyboard, $locations, $request, $prompt);
         $musicPlan = self::normalizeMusicPlan((array)($payload['music_plan'] ?? []), $storyboard, $durationStats, $artStyle, $prompt);
@@ -10901,7 +12211,7 @@ PROMPT;
         $text = preg_replace('/(?:recommended\s+aspect\s+ratio|aspect\s+ratio|ratio)\s*[:：]?\s*\d+\s*:\s*\d+[,，、；;\s]*/iu', '', $text) ?? $text;
         $text = preg_replace('/(?:^|[,，、。；;\s])\d+\s*:\s*\d+\s*(?:竖屏|横屏|纵向|横向|portrait|landscape|vertical|horizontal)?[,，、。；;\s]*/iu', '$1', $text) ?? $text;
         $text = preg_replace('/(?:竖屏|横屏|纵向画面|横向画面|portrait\s+canvas|landscape\s+canvas|vertical\s+screen|horizontal\s+screen)[,，、。；;\s]*/iu', '', $text) ?? $text;
-        return trim($text, " \t\n\r\0\x0B,，、。；;");
+        return self::trimPromptText($text);
     }
 
     private static function cleanPromptRatioText(string $text): string
@@ -10921,7 +12231,7 @@ PROMPT;
         }
         $text = preg_replace('/[,，、。；;]\s*([,，、。；;])+/u', '$1', $text) ?? $text;
         $text = preg_replace('/\n{3,}/u', "\n\n", $text) ?? $text;
-        return trim($text, " \t\n\r\0\x0B'。；;");
+        return self::trimPromptText($text);
     }
 
     private static function hasLatinPromptText(string $text): bool
@@ -10932,6 +12242,10 @@ PROMPT;
     private static function localizeGenerationPromptText(string $text, string $fallback = ''): string
     {
         $text = trim($text);
+        $fallback = trim($fallback);
+        if ($fallback !== '' && self::hasLatinPromptText($fallback)) {
+            $fallback = self::localizeGenerationPromptText($fallback);
+        }
         if ($text === '') {
             return $fallback;
         }
@@ -10990,6 +12304,12 @@ PROMPT;
             'empty old room' => '空置的旧房间',
             'empty room' => '空房',
             'old room' => '旧房',
+            'exteriorexterior' => '室外',
+            'interiorinterior' => '室内',
+            'exterior exterior' => '室外',
+            'interior interior' => '室内',
+            'exterior' => '室外',
+            'interior' => '室内',
             'window latch' => '窗闩',
             'window' => '窗户',
             'sheer curtain' => '薄纱窗帘',
@@ -11055,21 +12375,99 @@ PROMPT;
             $translated = preg_replace($pattern, $target, $translated) ?? $translated;
         }
         $translated = str_replace(['、', ', ', ',', '; ', ';', '. ', '.'], ['', '', '', '', '', '', ''], $translated);
-        $translated = preg_replace('/\s*[:：]\s*/u', '', $translated) ?? $translated;
+        $translated = preg_replace('/[ \t]*([:：])[ \t]*/u', '$1', $translated) ?? $translated;
+        $translated = preg_replace('/(室内)\1+/u', '$1', $translated) ?? $translated;
+        $translated = preg_replace('/(室外)\1+/u', '$1', $translated) ?? $translated;
         $translated = preg_replace('/[ \t]+/u', '', $translated) ?? $translated;
         $translated = preg_replace('/\R{3,}/u', "\n\n", $translated) ?? $translated;
-        $translated = trim($translated, " \t\n\r\0\x0B,，。；;、");
+        $translated = self::trimPromptText($translated);
         if (self::hasLatinPromptText($translated)) {
             $cleaned = preg_replace("/[A-Za-z][A-Za-z0-9'_-]*/u", '', $translated) ?? $translated;
             $cleaned = preg_replace('/[ \t]+/u', '', $cleaned) ?? $cleaned;
             $cleaned = preg_replace('/\R{3,}/u', "\n\n", $cleaned) ?? $cleaned;
-            $cleaned = trim($cleaned, " \t\n\r\0\x0B,，。；;、：:");
+            $cleaned = self::trimPromptText($cleaned);
             if ($cleaned !== '' && preg_match('/[\x{4e00}-\x{9fff}]/u', $cleaned)) {
                 return $cleaned;
             }
             return $fallback !== '' ? $fallback : '按当前分镜内容生成电影感画面，保持场景、光线、构图和氛围一致';
         }
         return $translated !== '' ? $translated : ($fallback !== '' ? $fallback : $text);
+    }
+
+    private static function normalizeLegacyStoryboardPromptData(array $shot, int $index = 0): array
+    {
+        $shot = self::localizeLegacyPromptFields($shot, [
+            'scene_name', 'visual_description', 'composition', 'camera_movement', 'action',
+            'result', 'atmosphere',
+        ]);
+        $imagePrompt = trim((string)($shot['image_prompt'] ?? ''));
+        if ($imagePrompt !== '') {
+            $shot['image_prompt'] = self::normalizeFinalProviderPrompt($imagePrompt);
+        }
+        $videoPrompt = trim((string)($shot['video_prompt'] ?? ''));
+        $shot['video_prompt'] = self::normalizeFinalProviderPrompt(
+            self::normalizeReadableShotVideoPrompt(
+                self::localizeGenerationPromptText($videoPrompt, (string)($shot['visual_description'] ?? '')),
+                $shot,
+                $index
+            )
+        );
+        return $shot;
+    }
+
+    private static function normalizeLegacyPromptPlanData(array $plan): array
+    {
+        foreach (['subjects', 'locations', 'scenes'] as $collection) {
+            foreach ((array)($plan[$collection] ?? []) as $index => $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $plan[$collection][$index] = self::localizeLegacyPromptFields($item, [
+                    'name', 'location', 'description', 'visual_prompt', 'main_image_prompt', 'three_view_prompt',
+                    'scene_image_prompt', 'image_prompt', 'negative_prompt', 'main_negative_prompt',
+                    'three_view_negative_prompt', 'scene_negative_prompt', 'appearance_lock', 'face_lock',
+                    'hair_lock', 'outfit_lock', 'layout_lock', 'lighting_lock', 'color_palette',
+                ]);
+            }
+        }
+        foreach ((array)($plan['storyboard'] ?? []) as $index => $shot) {
+            if (is_array($shot)) {
+                $plan['storyboard'][$index] = self::normalizeLegacyStoryboardPromptData($shot, $index);
+            }
+        }
+        if (is_array($plan['art_style'] ?? null)) {
+            $plan['art_style'] = self::localizeLegacyPromptFields($plan['art_style'], [
+                'visual_description', 'base_style', 'palette', 'lighting', 'texture',
+            ]);
+        }
+        return $plan;
+    }
+
+    private static function localizeLegacyPromptFields(array $data, array $fields): array
+    {
+        foreach ($fields as $field) {
+            $value = trim((string)($data[$field] ?? ''));
+            if ($value !== '') {
+                $data[$field] = self::localizeGenerationPromptText($value);
+            }
+        }
+        return $data;
+    }
+
+    private static function legacyStoryboardPromptChanges(array $current, array $next): array
+    {
+        $changes = [];
+        foreach ([
+            'scene_name', 'visual_description', 'composition', 'camera_movement', 'action',
+            'result', 'atmosphere', 'image_prompt', 'video_prompt',
+        ] as $field) {
+            $before = (string)($current[$field] ?? '');
+            $after = (string)($next[$field] ?? '');
+            if ($before !== $after) {
+                $changes[$field] = $after;
+            }
+        }
+        return $changes;
     }
 
     private static function localizeGenerationTaskPayload(array $payload, bool $preserveProviderPrompt = false): array
@@ -11100,6 +12498,9 @@ PROMPT;
                 $payload[$key] = $preserveProviderPrompt
                     ? self::normalizeFinalProviderPrompt($value)
                     : self::localizeGenerationPromptText($value, $fallback);
+                if (!$preserveProviderPrompt && (string)$key === 'video_prompt') {
+                    $payload[$key] = self::normalizeReadableShotVideoPrompt((string)$payload[$key], $payload);
+                }
             }
         }
         return $payload;
@@ -11111,7 +12512,7 @@ PROMPT;
         $duration = (float)($musicPlan['duration_seconds'] ?? $durationStats['estimated_total_seconds'] ?? 0);
         $duration = max(15, min(600, $duration > 0 ? $duration : 60));
         $style = trim((string)($musicPlan['style'] ?? $artStyle['base_style'] ?? '短剧配乐'));
-        $moodCurve = trim((string)($musicPlan['mood_curve'] ?? '开场铺垫悬念，中段逐步紧张，结尾释放情'));
+        $moodCurve = trim((string)($musicPlan['mood_curve'] ?? '开场铺垫悬念，中段逐步紧张，结尾释放情绪'));
         $bpm = trim((string)($musicPlan['bpm'] ?? '80-96 BPM'));
         $instruments = self::stringList($musicPlan['instruments'] ?? []);
         if (empty($instruments)) {
@@ -11121,10 +12522,10 @@ PROMPT;
         if ($globalPrompt === '') {
             $globalPrompt = self::joinPromptParts([
                 '生成一条适用于整部短剧的纯背景音乐，不要歌词，不要人声，不要对白采样',
-                '音乐风格' . $style,
-                '情绪曲线' . $moodCurve,
-                '节奏速度' . $bpm,
-                '主要乐器' . implode('', $instruments),
+                '音乐风格：' . $style,
+                '情绪曲线：' . $moodCurve,
+                '节奏速度：' . $bpm,
+                '主要乐器：' . implode('、', $instruments),
                 '时长目标：约' . (int)$duration . '秒，可循环但不要明显断点',
                 !empty($shotPrompts) ? '分镜情绪参考：' . implode('', array_slice($shotPrompts, 0, 8)) : '',
                 $prompt !== '' ? '故事氛围参考：' . mb_substr($prompt, 0, 180, 'UTF-8') : '',
@@ -11140,7 +12541,7 @@ PROMPT;
             'bpm' => mb_substr($bpm, 0, 40, 'UTF-8'),
             'instruments' => array_slice($instruments, 0, 12),
             'duration_seconds' => $duration,
-            'negative_prompt' => mb_substr(trim((string)($musicPlan['negative_prompt'] ?? '不要歌词，不要人声，不要版权旋律，不要突兀鼓点，不要压过对')), 0, 500, 'UTF-8'),
+            'negative_prompt' => mb_substr(trim((string)($musicPlan['negative_prompt'] ?? '不要歌词，不要人声，不要版权旋律，不要突兀鼓点，不要压过对白')), 0, 500, 'UTF-8'),
         ];
     }
 
@@ -11640,7 +13041,7 @@ PROMPT;
         $parts = preg_split('/[。；;\n\r]+/u', $text) ?: [];
         $details = [];
         foreach ($parts as $part) {
-            $part = trim($part, " \t\n\r\0\x0B'。；;");
+            $part = self::trimPromptText($part);
             if ($part !== '') {
                 $details[] = $part;
             }
@@ -11845,6 +13246,152 @@ PROMPT;
         ];
     }
 
+    private static function shortDramaResolutionLabel(string $value): string
+    {
+        $value = strtoupper(trim($value));
+        if (preg_match('/(?:^|[^A-Z0-9])(2160P|1440P|1080P|720P|480P|[1-9][0-9]*K)(?:$|[^A-Z0-9])/', $value, $matches)) {
+            return match ($matches[1]) {
+                '2160P' => '4K',
+                '1440P' => '2K',
+                default => $matches[1],
+            };
+        }
+        return '';
+    }
+
+    private static function balanceStoryboardDuration(array $storyboard, array $locations, array $subjects, string $prompt, array $request, string $storyOutline = ''): array
+    {
+        $storyboard = array_values(array_filter($storyboard, 'is_array'));
+        $targetSeconds = self::planningTargetDurationSeconds($prompt, $request);
+        if (empty($storyboard) || $targetSeconds <= 0) {
+            return ['storyboard' => $storyboard, 'issues_fixed' => []];
+        }
+
+        $minSeconds = (int)ceil($targetSeconds * 0.9);
+        $maxSeconds = (int)floor($targetSeconds * 1.1);
+        $currentSeconds = self::storyboardDurationSeconds($storyboard);
+        $issuesFixed = [];
+
+        if ($currentSeconds < $minSeconds) {
+            $needed = $minSeconds - $currentSeconds;
+            $indices = self::durationExpansionOrder($storyboard);
+            foreach ($indices as $index) {
+                if ($needed <= 0) {
+                    break;
+                }
+                $duration = (float)($storyboard[$index]['recommended_duration_seconds'] ?? 3);
+                $room = max(0, 5 - $duration);
+                if ($room <= 0) {
+                    continue;
+                }
+                $add = min($room, $needed);
+                $storyboard[$index]['recommended_duration_seconds'] = $duration + $add;
+                $needed -= $add;
+            }
+
+            $locationCount = count($locations);
+            $appendCursor = 0;
+            while ($needed > 0 && $locationCount > 0) {
+                $location = (array)$locations[$appendCursor % $locationCount];
+                $duration = min(5, max(2, $needed));
+                $storyboard[] = self::supplementalStoryboardShot(
+                    $location,
+                    $subjects,
+                    self::nextSceneShotIndex($storyboard, (string)($location['id'] ?? '')),
+                    count($storyboard) + 1,
+                    $storyOutline
+                );
+                $lastIndex = count($storyboard) - 1;
+                $storyboard[$lastIndex]['recommended_duration_seconds'] = (float)$duration;
+                $needed -= $duration;
+                $appendCursor++;
+            }
+            $issuesFixed[] = '已按目标时长区间动态调整分镜时长，避免成片时长与用户要求偏差过大';
+        } elseif ($currentSeconds > $maxSeconds) {
+            $excess = $currentSeconds - $maxSeconds;
+            $indices = array_reverse(self::durationExpansionOrder($storyboard));
+            foreach ($indices as $index) {
+                if ($excess <= 0) {
+                    break;
+                }
+                $duration = (float)($storyboard[$index]['recommended_duration_seconds'] ?? 3);
+                $room = max(0, $duration - 2);
+                if ($room <= 0) {
+                    continue;
+                }
+                $cut = min($room, $excess);
+                $storyboard[$index]['recommended_duration_seconds'] = $duration - $cut;
+                $excess -= $cut;
+            }
+            $issuesFixed[] = '已按目标时长区间动态压缩分镜时长，避免成片时长过长';
+        }
+
+        foreach ($storyboard as $index => &$shot) {
+            $shot['shot_id'] = (string)($index + 1);
+            $shot['title'] = trim((string)($shot['title'] ?? '')) ?: ('分镜' . ($index + 1));
+        }
+        unset($shot);
+
+        return [
+            'storyboard' => $storyboard,
+            'issues_fixed' => $issuesFixed,
+        ];
+    }
+
+    private static function storyboardDurationSeconds(array $storyboard): float
+    {
+        $total = 0.0;
+        foreach ($storyboard as $shot) {
+            if (is_array($shot)) {
+                $total += (float)($shot['recommended_duration_seconds'] ?? 0);
+            }
+        }
+        return $total;
+    }
+
+    private static function durationExpansionOrder(array $storyboard): array
+    {
+        $weighted = [];
+        foreach ($storyboard as $index => $shot) {
+            if (!is_array($shot)) {
+                continue;
+            }
+            $text = implode(' ', [
+                (string)($shot['shot_type'] ?? ''),
+                (string)($shot['visual_description'] ?? ''),
+                (string)($shot['action'] ?? ''),
+                (string)($shot['result'] ?? ''),
+            ]);
+            $score = 0;
+            if (self::shotMatchesKind($shot, 'establishing')) {
+                $score += 4;
+            }
+            if (self::shotMatchesKind($shot, 'reaction') || self::shotMatchesKind($shot, 'closeup')) {
+                $score += 3;
+            }
+            if (str_contains($text, '转场') || str_contains($text, '揭示') || str_contains($text, '签约') || str_contains($text, '定格')) {
+                $score += 2;
+            }
+            $weighted[] = ['index' => $index, 'score' => $score];
+        }
+        usort($weighted, static fn(array $a, array $b): int => ($b['score'] <=> $a['score']) ?: ($a['index'] <=> $b['index']));
+        return array_map(static fn(array $item): int => (int)$item['index'], $weighted);
+    }
+
+    private static function nextSceneShotIndex(array $storyboard, string $sceneRef): int
+    {
+        if ($sceneRef === '') {
+            return count($storyboard) + 1;
+        }
+        $count = 0;
+        foreach ($storyboard as $shot) {
+            if (is_array($shot) && (string)($shot['scene_ref_id'] ?? '') === $sceneRef) {
+                $count++;
+            }
+        }
+        return $count + 1;
+    }
+
     private static function splitTimelineDuration(int $duration): array
     {
         $duration = max(1, $duration);
@@ -12000,7 +13547,7 @@ PROMPT;
         if (str_contains($segmentText, '移动镜头')) {
             return '动作镜头';
         }
-        return '普通画';
+        return '普通画面';
     }
 
     private static function timelineDialogue(string $segmentText): string
@@ -12042,7 +13589,7 @@ PROMPT;
                 'visual' => $subjectLabel . '位于' . $sceneName . '的中景画面，人物站位贴近' . $secondaryDetail . '，眼神或身体方向指向本场景的关键动线',
                 'composition' => '中景，三分法构图，角色与环境同时可见',
                 'camera' => '轻微跟拍或缓慢横移，保持角色动作清晰',
-                'type' => '普通画',
+                'type' => '普通画面',
                 'duration' => 3,
             ],
             3 => [
@@ -12072,6 +13619,17 @@ PROMPT;
         ];
         $template = $templates[$slot];
         $visual = mb_substr($template['visual'], 0, 2000, 'UTF-8');
+        $templateSubjectRefs = $slot === 1 ? [] : $subjectIds;
+        $templateNoSubjectShot = self::isNoSubjectShot([
+            'shot_type' => $template['type'],
+            'visual_description' => $visual,
+            'action' => $visual,
+            'composition' => $template['composition'],
+            'subject_ref_ids' => $templateSubjectRefs,
+        ]);
+        if ($templateNoSubjectShot) {
+            $templateSubjectRefs = [];
+        }
 
         return [
             'shot_id' => (string)$globalIndex,
@@ -12093,14 +13651,14 @@ PROMPT;
             'action' => $visual,
             'result' => '画面停留在清晰可见的动作、表情或关键细节上',
             'atmosphere' => mb_substr((string)($location['story_phase'] ?? '') . ' ' . $sceneDescription, 0, 300, 'UTF-8'),
-            'image_prompt' => $visual . '，保持本剧主体和场景统一，画面清晰，无文字水印',
-            'video_prompt' => $slot === 1
+            'image_prompt' => $visual . ($templateNoSubjectShot ? '，保持场景布局、光线和美术风格一致，画面清晰，无文字水印' : '，保持本剧主体和场景统一，画面清晰，无文字水印'),
+            'video_prompt' => $templateNoSubjectShot
                 ? '生成' . (int)$template['duration'] . '秒视频：起始状态为' . $visual . '；中间只表现环境光影或空间元素的轻微运动，镜头按' . $template['camera'] . '自然变化；结束状态停留在清晰稳定的场景画面，保持场景、光线和美术风格一致，无人物、无字幕、无BGM背景音乐、水印、文字'
                 : '生成' . (int)$template['duration'] . '秒视频：起始状态为' . $visual . '；中间只表现一个核心动作和表情变化，环境有轻微运动，镜头按' . $template['camera'] . '自然变化；结束状态停留在清晰可见的动作结果上，保持人物身份、服装、道具、场景、光线和美术风格一致，无新增角色，无字幕、无BGM背景音乐、水印、文字',
             'bgm_prompt' => '承接全片背景音乐，在' . $sceneName . '中突出本镜头的情绪变化，纯音乐，无歌词无人声',
             'sound_effect' => '加入' . $sceneName . '匹配的轻微环境声和动作音效，保持自然不过度',
             'scene_ref_id' => $sceneRef,
-            'subject_ref_ids' => $slot === 1 ? [] : $subjectIds,
+            'subject_ref_ids' => $templateSubjectRefs,
             'voice_role' => '',
             'dialogue' => '',
             'frame_type' => 'normal',
@@ -12343,7 +13901,7 @@ PROMPT;
             'delete_time' => 0,
         ])->findOrEmpty();
         if ($project->isEmpty()) {
-            throw new Exception('项目不存');
+            throw new Exception('项目不存在');
         }
         return $project;
     }
@@ -12361,7 +13919,7 @@ PROMPT;
         }
         $task = $query->findOrEmpty();
         if ($task->isEmpty()) {
-            throw new Exception('任务不存');
+            throw new Exception('任务不存在');
         }
         return $task;
     }
@@ -12949,6 +14507,7 @@ PROMPT;
         $result = self::jsonDecode((string)($row['result_json'] ?? ''));
         return [
             'id' => (int)$row['id'],
+            'tenant_id' => (int)$row['tenant_id'],
             'project_id' => (int)$row['project_id'],
             'project_title' => (string)($row['project_title'] ?? $result['title'] ?? ''),
             'project_cover_url' => self::fileUrl((string)($row['project_cover_url'] ?? '')),
@@ -13156,6 +14715,7 @@ PROMPT;
         }
         return [
             'id' => (int)$row['id'],
+            'tenant_id' => (int)$row['tenant_id'],
             'project_id' => (int)$row['project_id'],
             'project_title' => (string)($row['project_title'] ?? ''),
             'project_cover_url' => self::fileUrl((string)($row['project_cover_url'] ?? '')),
@@ -13359,6 +14919,7 @@ PROMPT;
         $status = (string)$row['status'];
         return [
             'id' => (int)$row['id'],
+            'tenant_id' => (int)$row['tenant_id'],
             'title' => (string)$row['title'],
             'prompt' => (string)($row['prompt'] ?? ''),
             'cover_url' => self::fileUrl((string)$row['cover_url']),
@@ -13755,6 +15316,8 @@ PROMPT;
                 $config = AigcImageService::config($tenantId);
             } elseif ($appCode === self::VIDEO_APP_CODE) {
                 $config = AigcVideoService::config($tenantId);
+            } elseif ($appCode === self::MUSIC_APP_CODE) {
+                $config = AigcMusicService::config($tenantId);
             } else {
                 $config = AigcLlmService::config($tenantId);
             }
@@ -14151,6 +15714,40 @@ PROMPT;
         return 'in_range';
     }
 
+    private static function storyboardShotCountUnderRangeSeverity(int $actual, int $min, array $storyboard, array $locations): string
+    {
+        $locationCount = count(array_filter($locations, 'is_array'));
+        $viableMinimum = max(20, $locationCount > 0 ? $locationCount * 2 : 0);
+        if ($min > 30 && $actual >= $viableMinimum && self::storyboardCoversEveryLocation($storyboard, $locations)) {
+            return 'warning';
+        }
+        return 'blocking';
+    }
+
+    private static function storyboardCoversEveryLocation(array $storyboard, array $locations): bool
+    {
+        $sceneIds = array_values(array_filter(array_map(static fn($item): string => is_array($item) ? (string)($item['id'] ?? '') : '', $locations)));
+        if (empty($sceneIds)) {
+            return true;
+        }
+        $covered = [];
+        foreach ($storyboard as $shot) {
+            if (!is_array($shot)) {
+                continue;
+            }
+            $sceneRef = (string)($shot['scene_ref_id'] ?? '');
+            if ($sceneRef !== '') {
+                $covered[$sceneRef] = true;
+            }
+        }
+        foreach ($sceneIds as $sceneId) {
+            if (empty($covered[$sceneId])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static function storyboardHasShotKind(array $storyboard, string $kind): bool
     {
         foreach ($storyboard as $shot) {
@@ -14285,6 +15882,31 @@ PROMPT;
 
     private static function extractTimelineSegments(string $prompt): array
     {
+        if (preg_match_all('/([0-9]{1,3})\s*-\s*([0-9]{1,3})\s*(?:s|S)(?![0-9])/u', $prompt, $secondMatches, PREG_OFFSET_CAPTURE)) {
+            $segments = [];
+            $count = count($secondMatches[0]);
+            for ($index = 0; $index < $count; $index++) {
+                $start = (int)$secondMatches[1][$index][0];
+                $end = (int)$secondMatches[2][$index][0];
+                if ($end <= $start) {
+                    continue;
+                }
+                $textStart = $secondMatches[0][$index][1] + strlen($secondMatches[0][$index][0]);
+                $textEnd = $index + 1 < $count ? $secondMatches[0][$index + 1][1] : strlen($prompt);
+                $text = trim(substr($prompt, $textStart, max(0, $textEnd - $textStart)));
+                $segments[] = [
+                    'index' => count($segments) + 1,
+                    'time_range' => $secondMatches[0][$index][0],
+                    'start_seconds' => $start,
+                    'end_seconds' => $end,
+                    'duration_seconds' => $end - $start,
+                    'text' => mb_substr($text, 0, 1200, 'UTF-8'),
+                ];
+            }
+            if (!empty($segments)) {
+                return $segments;
+            }
+        }
         if (!preg_match_all('/(?<!\d)(\d{1,2}):([0-5]\d)\s*[-\x{2013}\x{2014}~～至到]\s*(\d{1,2}):([0-5]\d)(?!\d)/u', $prompt, $matches, PREG_OFFSET_CAPTURE)) {
             return [];
         }
@@ -14323,6 +15945,23 @@ PROMPT;
     private static function durationHintToSeconds(string $hint): int
     {
         $hint = trim($hint);
+        if (preg_match('/([0-9]+)\s*(?:\xE5\x88\x86\xE9\x92\x9F|\xE5\x88\x86)\s*([0-9]+)?\s*(?:\xE7\xA7\x92|s|S)?/', $hint, $match)) {
+            return ((int)$match[1] * 60) + (int)($match[2] ?? 0);
+        }
+        if (preg_match('/([0-9]+)\s*(?:\xE7\xA7\x92|s|S)/', $hint, $match)) {
+            return (int)$match[1];
+        }
+        return 0;
+        $hint = strtr($hint, [
+            '０' => '0', '１' => '1', '２' => '2', '３' => '3', '４' => '4',
+            '５' => '5', '６' => '6', '７' => '7', '８' => '8', '９' => '9',
+        ]);
+        if (preg_match('/([0-9]+)\s*(?:分钟|分)\s*([0-9]+)?\s*(?:秒|s|S)?/u', $hint, $match)) {
+            return ((int)$match[1] * 60) + (int)($match[2] ?? 0);
+        }
+        if (preg_match('/([0-9]+)\s*(?:秒|s|S)/u', $hint, $match)) {
+            return (int)$match[1];
+        }
         if ($hint === '') {
             return 0;
         }
@@ -14388,6 +16027,16 @@ PROMPT;
 
     private static function extractUserTextDurationHint(string $prompt): string
     {
+        if (preg_match('/([0-9]+)\s*(?:\xE5\x88\x86\xE9\x92\x9F|\xE5\x88\x86)(?!\xE9\x95\x9C|\xE6\xAE\xB5|\xE9\x9B\x86)/', $prompt, $match)) {
+            return mb_substr(trim((string)$match[0]), 0, 80, 'UTF-8');
+        }
+        if (preg_match('/([0-9]+)\s*(?:\xE7\xA7\x92|s|S)(?![0-9])/', $prompt, $match)) {
+            return mb_substr(trim((string)$match[0]), 0, 80, 'UTF-8');
+        }
+        return '';
+        if (preg_match('/([0-9０-９]+)\s*(?:分钟|分)(?!镜|段|集)/u', $prompt, $match)) {
+            return mb_substr(trim((string)$match[0]), 0, 80, 'UTF-8');
+        }
         $patterns = [
             '/(?:时长|总时长|片长|视频时长|每集时长)\s*(?:约|大约|大概|控制在|控制|为|是|：|:)?\s*([0-9０-９]+)\s*(?:分|分钟)\s*([0-9０-９]+)?\s*(?:秒|s|S)?/u',
             '/(?:时长|总时长|片长|视频时长|每集时长)\s*(?:约|大约|大概|控制在|控制|为|是|：|:)?\s*([0-9０-９]+)\s*(?:秒|s|S)/u',
@@ -14530,6 +16179,7 @@ PROMPT;
         if (!is_string($decoded)) {
             return '';
         }
+        $decoded = str_replace("\xEF\xBF\xBD", '', $decoded);
         return preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', $decoded) ?? $decoded;
     }
 

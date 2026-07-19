@@ -1,10 +1,10 @@
 {
   "code": "aigc_short_drama",
-  "name": "AI短剧",
-  "version": "1.0.4",
+  "name": "AI\u77ed\u5267",
+  "version": "1.0.6",
   "require_core": ">=1.0.0",
   "description": "Short drama script planning application with a PC immersive creation homepage and structured Agent planning workflow.",
-  "changelog": "1. 优化短剧创作页在小尺寸电脑下的顶部显示。\n2. 修复短剧视频生成失败的问题。\n3. 提升分镜内容区域滚动体验。",
+  "changelog": "1. Add platform tenant aggregate statistics.\n2. Fix platform display text encoding.",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
@@ -12,6 +12,7 @@
   "expire_policy": "allow",
   "sort": 860,
   "frontends": [
+    "platform",
     "tenant",
     "pc"
   ],
@@ -22,9 +23,18 @@
   "migrations": "migrations",
   "frontend_entries": [
     {
+      "terminal": "platform",
+      "entry_key": "aigc_short_drama_platform",
+      "name": "AI\u77ed\u5267",
+      "path": "/platform/aigc-short-drama",
+      "icon": "el-icon-VideoCamera",
+      "sort": 100,
+      "status": 1
+    },
+    {
       "terminal": "tenant",
       "entry_key": "aigc_short_drama_admin",
-      "name": "AI短剧",
+      "name": "AI\u77ed\u5267",
       "path": "/app/aigc_short_drama",
       "icon": "el-icon-VideoCamera",
       "sort": 100,
@@ -33,7 +43,7 @@
     {
       "terminal": "pc",
       "entry_key": "aigc_short_drama",
-      "name": "AI短剧",
+      "name": "AI\u77ed\u5267",
       "path": "/ai/short-drama",
       "icon": "resource/image/common/menu_generator.png",
       "sort": 100,

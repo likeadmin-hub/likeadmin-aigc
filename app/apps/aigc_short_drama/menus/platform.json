@@ -4,12 +4,42 @@
     "app_code": "aigc_short_drama",
     "source": "app",
     "type": "M",
-    "name": "AI短剧",
+    "name": "AI\u77ed\u5267",
     "icon": "el-icon-VideoCamera",
     "sort": 100,
     "perms": "",
     "paths": "aigc-short-drama",
     "component": "",
-    "children": []
+    "children": [
+      {
+        "source_menu_key": "aigc_short_drama_platform_index",
+        "type": "C",
+        "name": "AI\u77ed\u5267",
+        "sort": 30,
+        "perms": "app.aigc_short_drama.dashboard/stat",
+        "paths": "",
+        "component": "apps/aigc_short_drama/overview",
+        "selected": "aigc-short-drama/overview",
+        "is_show": 0
+      },
+      {
+        "source_menu_key": "aigc_short_drama_platform_overview",
+        "type": "C",
+        "name": "\u8fd0\u8425\u6982\u89c8",
+        "sort": 20,
+        "perms": "app.aigc_short_drama.dashboard/stat",
+        "paths": "overview",
+        "component": "apps/aigc_short_drama/overview"
+      },
+      {
+        "source_menu_key": "aigc_short_drama_platform_tenant_usage",
+        "type": "C",
+        "name": "\u79df\u6237\u6570\u636e",
+        "sort": 10,
+        "perms": "app.aigc_short_drama.tenant/stat",
+        "paths": "tenant-usage",
+        "component": "apps/aigc_short_drama/tenant-usage"
+      }
+    ]
   }
 ]

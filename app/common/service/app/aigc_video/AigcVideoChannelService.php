@@ -108,6 +108,122 @@ class AigcVideoChannelService
         throw new Exception('视频通道不可用');
     }
 
+    /**
+     * Resolve a video specification without changing the requested duration or
+     * resolution. Short-drama uses this opt-in helper to gracefully fall back
+     * to the closest enabled ratio when a project ratio is unavailable.
+     */
+    public static function resolveNearestCompatibleRatioSelection(int $tenantId, array $params): array
+    {
+        $requestedRatio = trim((string)($params['ratio'] ?? ''));
+        try {
+            $selection = self::resolveSelection($tenantId, $params);
+            return [
+                'channel' => $selection['channel'],
+                'spec' => $selection['spec'],
+                'requested_ratio' => $requestedRatio,
+                'resolved_ratio' => $requestedRatio !== '' ? $requestedRatio : (string)($selection['spec']['ratio'] ?? ''),
+                'ratio_fallback' => false,
+            ];
+        } catch (Exception $exception) {
+            if ($requestedRatio === '') {
+                throw $exception;
+            }
+        }
+
+        $requestedMetric = self::ratioMetric($requestedRatio);
+        if ($requestedMetric === null) {
+            throw new Exception('当前比例格式不正确');
+        }
+
+        $channels = self::effectiveChannels($tenantId, true);
+        $defaults = self::defaults($channels);
+        $channelCode = (string)($params['channel'] ?? $defaults['channel']);
+        $requestedQuality = trim((string)($params['quality'] ?? ''));
+        $duration = self::normalizeDurationValue($params['duration'] ?? $defaults['duration'] ?? 0);
+
+        foreach ($channels as $channel) {
+            if ((string)($channel['code'] ?? '') !== $channelCode) {
+                continue;
+            }
+            $quality = $requestedQuality !== '' ? $requestedQuality : self::defaultQualityForChannel($channel);
+            $pricingVariant = self::pricingVariantFromParams($channelCode, $params);
+            $candidates = [];
+            foreach ((array)($channel['qualities'] ?? []) as $qualityItem) {
+                if (!self::qualityMatches((array)$qualityItem, $quality)
+                    && !self::seedance2QualityMatches($channelCode, $quality)
+                ) {
+                    continue;
+                }
+                foreach ((array)($qualityItem['ratios'] ?? []) as $ratioItem) {
+                    $candidateRatio = trim((string)($ratioItem['value'] ?? $ratioItem['ratio'] ?? ''));
+                    $candidateMetric = self::ratioMetric($candidateRatio);
+                    if ($candidateMetric === null) {
+                        continue;
+                    }
+                    $spec = self::matchSpecForDuration($channel, (array)$qualityItem, $candidateRatio, $duration, $pricingVariant);
+                    if (empty($spec) || !self::specMatchesPricingVariant($spec, $pricingVariant)) {
+                        continue;
+                    }
+                    $candidates[] = [
+                        'ratio' => $candidateRatio,
+                        'metric' => $candidateMetric,
+                        'spec' => $spec,
+                    ];
+                }
+                break;
+            }
+            if (empty($candidates)) {
+                throw new Exception('当前通道不支持所选时长');
+            }
+
+            $sameOrientation = array_values(array_filter($candidates, static function (array $candidate) use ($requestedMetric): bool {
+                return $candidate['metric']['orientation'] === $requestedMetric['orientation'];
+            }));
+            $pool = !empty($sameOrientation) ? $sameOrientation : $candidates;
+            usort($pool, static function (array $left, array $right) use ($requestedMetric): int {
+                $leftDistance = abs(log($left['metric']['value'] / $requestedMetric['value']));
+                $rightDistance = abs(log($right['metric']['value'] / $requestedMetric['value']));
+                if (abs($leftDistance - $rightDistance) > 0.000001) {
+                    return $leftDistance <=> $rightDistance;
+                }
+                $leftSort = (int)($left['spec']['sort'] ?? 0);
+                $rightSort = (int)($right['spec']['sort'] ?? 0);
+                if ($leftSort !== $rightSort) {
+                    return $rightSort <=> $leftSort;
+                }
+                return strcmp($left['ratio'], $right['ratio']);
+            });
+            $resolved = $pool[0];
+            return [
+                'channel' => $channel,
+                'spec' => $resolved['spec'],
+                'requested_ratio' => $requestedRatio,
+                'resolved_ratio' => $resolved['ratio'],
+                'ratio_fallback' => true,
+            ];
+        }
+
+        throw new Exception('视频通道不可用');
+    }
+
+    private static function ratioMetric(string $ratio): ?array
+    {
+        if (!preg_match('/^\s*(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)\s*$/', $ratio, $matches)) {
+            return null;
+        }
+        $width = (float)$matches[1];
+        $height = (float)$matches[2];
+        if ($width <= 0 || $height <= 0) {
+            return null;
+        }
+        $value = $width / $height;
+        return [
+            'value' => $value,
+            'orientation' => abs($value - 1.0) < 0.000001 ? 'square' : ($value > 1 ? 'landscape' : 'portrait'),
+        ];
+    }
+
     private static function defaultQualityForChannel(array $channel): string
     {
         $quality = (array)(($channel['qualities'] ?? [])[0] ?? []);
@@ -1200,8 +1316,8 @@ class AigcVideoChannelService
     private static function seedance2ProSpecs(): array
     {
         return [
-            ['quality' => 'pro', 'quality_label' => 'Pro 妯″紡姣忕', 'ratio' => 'mode_pro', 'sort' => 2000],
-            ['quality' => 'fast', 'quality_label' => 'Fast 妯″紡姣忕', 'ratio' => 'mode_fast', 'sort' => 1990],
+            ['quality' => 'pro', 'quality_label' => 'Pro 模式每秒', 'ratio' => 'mode_pro', 'sort' => 2000],
+            ['quality' => 'fast', 'quality_label' => 'Fast 模式每秒', 'ratio' => 'mode_fast', 'sort' => 1990],
         ];
     }
 
@@ -1357,7 +1473,7 @@ class AigcVideoChannelService
         }
         $ratio = (string)($ratioOptions[0] ?? 'adaptive');
         $spec['value'] = $ratio;
-        $spec['label'] = $ratio === 'adaptive' ? '鑷€傚簲' : $ratio;
+        $spec['label'] = self::ratioDisplayLabel($ratio);
         $spec['ratio'] = $ratio;
         return $spec;
     }
@@ -1376,7 +1492,7 @@ class AigcVideoChannelService
             }
             $row = $spec;
             $row['value'] = $ratio;
-            $row['label'] = $ratio === 'adaptive' ? '鑷€傚簲' : $ratio;
+            $row['label'] = self::ratioDisplayLabel($ratio);
             $row['ratio'] = $ratio;
             $rows[] = $row;
         }
@@ -1392,6 +1508,11 @@ class AigcVideoChannelService
             'resolution' => $resolution,
             'duration' => $duration,
         ];
+    }
+
+    private static function ratioDisplayLabel(string $ratio): string
+    {
+        return $ratio === 'adaptive' ? '自适应' : $ratio;
     }
 
     private static function normalizeResolution($value): string

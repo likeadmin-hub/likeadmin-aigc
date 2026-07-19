@@ -135,6 +135,7 @@ class AigcCanvasService
                 'user_id',
                 'name',
                 'thumbnail',
+                'nodes_json',
                 'sort',
                 'status',
                 'create_time',
@@ -679,16 +680,27 @@ class AigcCanvasService
         $edgeCount = array_key_exists('edge_count', $row)
             ? max(0, (int)$row['edge_count'])
             : count(self::normalizeList($row['edges_json'] ?? []));
+        $nodes = self::normalizeList($row['nodes_json'] ?? []);
+        $nodeActivityTime = self::latestProjectNodeTime($nodes);
+        $createTime = (int)($row['create_time'] ?? 0);
+        $updateTime = (int)($row['update_time'] ?? 0);
+        if ($updateTime <= 0) {
+            $updateTime = $nodeActivityTime ?: $createTime;
+        }
+        if ($createTime <= 0) {
+            $createTime = $updateTime ?: $nodeActivityTime;
+        }
+        $generatedThumbnail = self::firstGeneratedProjectImageThumbnail($nodes);
         $data = [
             'id' => (int)$row['id'],
             'name' => (string)($row['name'] ?? '未命名项目'),
-            'thumbnail' => self::formatThumbnail((string)($row['thumbnail'] ?? '')),
+            'thumbnail' => self::formatThumbnail($generatedThumbnail ?: (string)($row['thumbnail'] ?? '')),
             'node_count' => $nodeCount,
             'edge_count' => $edgeCount,
-            'createdAt' => ((int)($row['create_time'] ?? 0)) * 1000,
-            'updatedAt' => ((int)($row['update_time'] ?? 0)) * 1000,
-            'create_time' => (int)($row['create_time'] ?? 0),
-            'update_time' => (int)($row['update_time'] ?? 0),
+            'createdAt' => $createTime * 1000,
+            'updatedAt' => $updateTime * 1000,
+            'create_time' => $createTime,
+            'update_time' => $updateTime,
             'tenant_id' => (int)($row['tenant_id'] ?? 0),
             'user_id' => (int)($row['user_id'] ?? 0),
             'sort' => (int)($row['sort'] ?? 0),
@@ -705,6 +717,39 @@ class AigcCanvasService
             $data['registered_assets'] = self::projectRegisteredAssets((int)$row['tenant_id'], (int)$row['user_id'], (int)$row['id']);
         }
         return $data;
+    }
+
+    private static function firstGeneratedProjectImageThumbnail(array $nodes): string
+    {
+        $candidates = [];
+        foreach ($nodes as $index => $node) {
+            if (!is_array($node) || (string)($node['type'] ?? '') !== 'image') {
+                continue;
+            }
+            $metadata = is_array($node['metadata'] ?? null) ? $node['metadata'] : [];
+            $url = self::nodeMetadataMediaUrl('image', $metadata);
+            if ($url === '') {
+                continue;
+            }
+            $source = strtolower((string)($metadata['source'] ?? $metadata['mediaSource'] ?? ''));
+            if (empty($metadata['generatedAt']) && !in_array($source, ['generated', 'agent'], true)) {
+                continue;
+            }
+            $time = (float)($metadata['generatedAt'] ?? $metadata['createdAt'] ?? $metadata['updatedAt'] ?? 0);
+            $candidates[] = [
+                'url' => $url,
+                'time' => $time > 0 ? $time : $index,
+                'index' => $index,
+            ];
+        }
+        if (empty($candidates)) {
+            return '';
+        }
+        usort($candidates, static function (array $left, array $right): int {
+            $timeCompare = $left['time'] <=> $right['time'];
+            return $timeCompare !== 0 ? $timeCompare : ($left['index'] <=> $right['index']);
+        });
+        return (string)($candidates[0]['url'] ?? '');
     }
 
     private static function repairProjectNodesFromRuns(int $tenantId, int $projectId, array $nodes): array
@@ -1057,6 +1102,31 @@ class AigcCanvasService
             return $time === false ? 0 : $time;
         }
         return 0;
+    }
+
+    private static function latestProjectNodeTime(array $nodes): int
+    {
+        $latest = 0;
+        foreach ($nodes as $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            $metadata = is_array($node['metadata'] ?? null) ? $node['metadata'] : [];
+            foreach ([
+                $node['updatedAt'] ?? 0,
+                $node['createdAt'] ?? 0,
+                $node['update_time'] ?? 0,
+                $node['create_time'] ?? 0,
+                $metadata['updatedAt'] ?? 0,
+                $metadata['generatedAt'] ?? 0,
+                $metadata['createdAt'] ?? 0,
+                $metadata['update_time'] ?? 0,
+                $metadata['create_time'] ?? 0,
+            ] as $value) {
+                $latest = max($latest, self::normalizeRunTime($value));
+            }
+        }
+        return $latest;
     }
 
     private static function projectRegisteredAssets(int $tenantId, int $userId, int $projectId): array
