@@ -26,6 +26,10 @@ class MarketVideoRuntimeService
     private const MODEL_TASK_PATH = '/api/v1/tasks';
     private const MODEL_QUERY_PATH = '/api/v1/tasks/{task_id}';
     private const APP_CODES = ['wan', 'seedance', 'happy_horse'];
+    private const APP_DURATION_RANGES = [
+        'happy_horse' => [3, 15],
+        'seedance' => [4, 15],
+    ];
     private const MAX_RUNNING_SECONDS = 7200;
 
     public static function options(int $tenantId, string $resourceType): array
@@ -46,7 +50,11 @@ class MarketVideoRuntimeService
             }
             $validSkus = [];
             foreach ($skus as $market) {
-                $validSkus[] = self::formatSku($market, $product);
+                $sku = self::formatSku($market, $product);
+                if (!self::isSupportedAppDuration($product, (int)$sku['duration'])) {
+                    continue;
+                }
+                $validSkus[] = $sku;
             }
             if ($validSkus === []) {
                 continue;
@@ -55,9 +63,12 @@ class MarketVideoRuntimeService
             $id = self::optionId($resourceType, $product);
             $resolutions = array_values(array_unique(array_filter(array_map(static fn(array $row): string => (string)$row['resolution'], $validSkus))));
             $durations = array_values(array_unique(array_filter(array_map(static fn(array $row): int => (int)$row['duration'], $validSkus))));
-            if ($durations === []) {
+            if (self::hasConfigurableDurationSku($validSkus)) {
+                $durations = array_values(array_unique(array_merge($durations, self::defaultDurations($product))));
+            } elseif ($durations === []) {
                 $durations = self::defaultDurations($product);
             }
+            $durations = self::filterSupportedAppDurations($product, $durations);
             sort($durations);
             $ratios = array_values(array_unique(array_filter(array_map(static fn(array $row): string => (string)($row['locked_params']['ratio'] ?? $row['locked_params']['aspect_ratio'] ?? ''), $validSkus))));
             if ($ratios === []) $ratios = self::ratioOptions($metadata);
@@ -143,10 +154,10 @@ class MarketVideoRuntimeService
         $durationSchema = self::arrayValue($schema['duration'] ?? $schema['seconds'] ?? $schema['video_duration'] ?? []);
         foreach (['default', 'value'] as $key) {
             if (isset($durationSchema[$key]) && is_numeric($durationSchema[$key]) && (int)$durationSchema[$key] > 0) {
-                return (int)$durationSchema[$key];
+                return self::preferredSupportedDuration($market['product'], (int)$durationSchema[$key]);
             }
         }
-        return max(0, $fallback);
+        return self::preferredSupportedDuration($market['product'], $fallback);
     }
 
     /** @return array{app_task_id:int,consumption_id:int,consume_no:string,market_snapshot:array<string,mixed>} */
@@ -355,11 +366,14 @@ class MarketVideoRuntimeService
             try {
                 self::assertSkuMatchesSelection($market, $selection);
             } catch (Exception $e) {
-                // The UI selects a model first and may hold a previous mode's
-                // SKU while reference assets are being added/removed. Resolve
-                // the same market product against the actual input mode so a
-                // text-to-video SKU can never be used for an image/video job.
-                if ($e->getMessage() !== '所选市场 SKU 不支持当前输入模式') {
+                // The UI selects model -> resolution -> duration -> input mode.
+                // While those choices change, the previous SKU can be stale.
+                // Re-resolve inside the same product so price follows the new choice.
+                if (!in_array($e->getMessage(), [
+                    '所选市场 SKU 不支持当前分辨率',
+                    '所选市场 SKU 不支持当前视频时长',
+                    '所选市场 SKU 不支持当前输入模式',
+                ], true)) {
                     throw $e;
                 }
                 $fallback = self::resolveProduct($tenantId, $product->toArray(), self::withoutSku($selection));
@@ -381,6 +395,8 @@ class MarketVideoRuntimeService
         $matches = array_values(array_filter($matches, static function (array $row) use ($quality, $duration, $mode, $productData): bool {
             $locked = self::arrayValue($row['sku']['locked_params'] ?? []); $resolution = self::resolution($locked); $lockedDuration = self::duration($locked); $skuMode = self::skuInputMode($locked);
             if ($quality !== '' && $resolution !== '' && strtolower($quality) !== strtolower($resolution)) return false;
+            if (!self::isSupportedAppDuration($productData, $lockedDuration)) return false;
+            if (!self::isSupportedAppDuration($productData, $duration)) return false;
             if ($duration > 0 && $lockedDuration > 0 && $duration !== $lockedDuration) return false;
             if (!self::skuSupportsInputMode($skuMode, $mode, $productData, $locked)) return false;
             return true;
@@ -484,6 +500,7 @@ class MarketVideoRuntimeService
     private static function appPayload(array $snapshot, array $request, string $idempotency): array
     {
         $app = (string)$snapshot['app_code']; $locked = self::arrayValue($snapshot['locked_params'] ?? []); $assets = self::assets($request); $duration = max(1, (int)($request['duration'] ?? 5)); $resolution = self::value($request, ['resolution', 'quality']) ?: self::resolution($locked);
+        self::assertSupportedAppDuration(['upstream_app_code' => $app], $duration);
         if ($app === 'happy_horse') {
             $model = $assets['image'] === [] ? 'happyhorse-1.0-t2v' : (count($assets['image']) === 1 ? 'happyhorse-1.0-i2v' : 'happyhorse-1.0-r2v');
             return array_filter(array_merge($locked, ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution ?: '720P'), 'duration' => $duration, 'ratio' => (string)($request['ratio'] ?? ''), 'media' => array_map(static fn(string $url): array => ['url' => $url, 'type' => 'image'], $assets['image']), 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
@@ -540,6 +557,7 @@ class MarketVideoRuntimeService
         if ($requestedDuration > 0 && $lockedDuration > 0 && $requestedDuration !== $lockedDuration) {
             throw new Exception('所选市场 SKU 不支持当前视频时长');
         }
+        self::assertSupportedAppDuration($market['product'], $requestedDuration ?: $lockedDuration);
         $mode = self::inputMode($selection); $app = strtolower((string)($market['product']['upstream_app_code'] ?? ''));
         if (!self::skuSupportsInputMode(self::skuInputMode($locked), $mode, $market['product'], $locked)) {
             throw new Exception('所选市场 SKU 不支持当前输入模式');
@@ -596,7 +614,33 @@ class MarketVideoRuntimeService
     private static function lockedQuantity(array $locked): float { foreach (['quantity','billing_quantity','usage_quantity','tokens','duration'] as $key) if (isset($locked[$key]) && is_numeric($locked[$key]) && (float)$locked[$key] > 0) return (float)$locked[$key]; return 0; }
     private static function resolution(array $locked): string { return (string)($locked['resolution'] ?? $locked['quality'] ?? $locked['size'] ?? ''); }
     private static function duration(array $locked): int { foreach (['duration','seconds','video_duration'] as $key) if (isset($locked[$key]) && is_numeric($locked[$key])) return max(0, (int)$locked[$key]); return 0; }
-    private static function defaultDurations(array $product): array { $app = strtolower((string)($product['upstream_app_code'] ?? '')); if ($app === 'wan') return range(2, 15); if ($app === 'happy_horse') return [3, 5, 10, 15]; return []; }
+    private static function defaultDurations(array $product): array
+    {
+        $app = strtolower((string)($product['upstream_app_code'] ?? ''));
+        if ($app === 'wan') return range(2, 15);
+        $range = self::APP_DURATION_RANGES[$app] ?? [];
+        return count($range) === 2 ? range($range[0], $range[1]) : [];
+    }
+    private static function hasConfigurableDurationSku(array $skus): bool { foreach ($skus as $sku) if ((int)($sku['duration'] ?? 0) === 0) return true; return false; }
+    private static function isSupportedAppDuration(array $product, int $duration): bool
+    {
+        if ($duration <= 0) return true;
+        $range = self::APP_DURATION_RANGES[strtolower((string)($product['upstream_app_code'] ?? ''))] ?? [];
+        return count($range) !== 2 || ($duration >= $range[0] && $duration <= $range[1]);
+    }
+    private static function preferredSupportedDuration(array $product, int $duration): int
+    {
+        if ($duration > 0 && self::isSupportedAppDuration($product, $duration)) return $duration;
+        $defaults = self::defaultDurations($product);
+        return (int)($defaults[0] ?? max(0, $duration));
+    }
+    private static function filterSupportedAppDurations(array $product, array $durations): array { return array_values(array_filter($durations, static fn($duration): bool => self::isSupportedAppDuration($product, (int)$duration))); }
+    private static function assertSupportedAppDuration(array $product, int $duration): void
+    {
+        if (self::isSupportedAppDuration($product, $duration)) return;
+        $range = self::APP_DURATION_RANGES[strtolower((string)($product['upstream_app_code'] ?? ''))] ?? [];
+        throw new Exception((string)($product['name'] ?? '当前视频模型') . ' 仅支持 ' . $range[0] . '-' . $range[1] . ' 秒视频');
+    }
     private static function displayName(array $product): string
     {
         if ((string)($product['resource_type'] ?? '') !== PowerMarketService::TYPE_APP_API) {
