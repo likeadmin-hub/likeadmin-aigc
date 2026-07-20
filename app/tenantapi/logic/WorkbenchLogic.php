@@ -118,11 +118,6 @@ class WorkbenchLogic extends BaseLogic
                 'url' => '/aigc-image/channel-price',
             ],
             [
-                'name' => '视频调价',
-                'image' => FileService::getFileUrl(config('project.default_image.menu_file')),
-                'url' => '/aigc-video/channel-price',
-            ],
-            [
                 'name' => '数字人调价',
                 'image' => FileService::getFileUrl(config('project.default_image.menu_file')),
                 'url' => '/aigc-digital-human/channel-price',

@@ -84,7 +84,7 @@ class MarketVideoRuntimeService
                 'resource_type' => $resourceType,
                 'resource_type_label' => $resourceType === PowerMarketService::TYPE_MODEL ? '模型 API' : '应用 API',
                 'market_product_id' => (int)$product['id'],
-                'name' => (string)$product['name'],
+                'name' => self::displayName($product),
                 'description' => (string)($product['description'] ?? ''),
                 'model_code' => (string)$product['upstream_model_code'],
                 'channel_code' => (string)$product['upstream_channel_code'],
@@ -588,6 +588,18 @@ class MarketVideoRuntimeService
     private static function resolution(array $locked): string { return (string)($locked['resolution'] ?? $locked['quality'] ?? $locked['size'] ?? ''); }
     private static function duration(array $locked): int { foreach (['duration','seconds','video_duration'] as $key) if (isset($locked[$key]) && is_numeric($locked[$key])) return max(0, (int)$locked[$key]); return 0; }
     private static function defaultDurations(array $product): array { $app = strtolower((string)($product['upstream_app_code'] ?? '')); if ($app === 'wan') return range(2, 15); if ($app === 'happy_horse') return [3, 5, 10, 15]; return []; }
+    private static function displayName(array $product): string
+    {
+        if ((string)($product['resource_type'] ?? '') !== PowerMarketService::TYPE_APP_API) {
+            return (string)($product['name'] ?? '视频模型');
+        }
+        return match (strtolower((string)($product['upstream_app_code'] ?? ''))) {
+            'seedance' => 'Seedance 2.0',
+            'wan' => 'Wan 视频生成',
+            'happy_horse' => 'Happy Horse',
+            default => preg_replace('/\s*\/\s*(?:创建|提交).*/u', '', (string)($product['name'] ?? '视频生成')) ?: '视频生成',
+        };
+    }
     private static function resourceType(array $selection): string { $value = (string)($selection['resource_type'] ?? ''); if (in_array($value, [PowerMarketService::TYPE_MODEL, PowerMarketService::TYPE_APP_API], true)) return $value; $model = implode('|', array_map('strval', [$selection['model_id'] ?? '', $selection['channel'] ?? ''])); return str_contains($model, 'market_video_app:') ? PowerMarketService::TYPE_APP_API : PowerMarketService::TYPE_MODEL; }
     private static function optionId(string $type, array $product): string { return $type === PowerMarketService::TYPE_MODEL ? 'market_video_model:' . (int)$product['id'] : 'market_video_app:' . (string)$product['upstream_app_code'] . ':' . (int)$product['id']; }
     private static function productId(array $selection): int { $value = self::intSelection($selection, ['market_product_id']); if ($value > 0) return $value; foreach ([$selection['model_id'] ?? '', $selection['video_model_id'] ?? '', $selection['channel'] ?? '', self::arrayValue($selection['params'] ?? [])['model_id'] ?? ''] as $value) if (preg_match('/^market_video_(?:model|app):(?:[a-z_]+:)?(\d+)$/', (string)$value, $m)) return (int)$m[1]; return 0; }

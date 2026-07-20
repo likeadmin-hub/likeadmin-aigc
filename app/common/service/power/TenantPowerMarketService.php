@@ -6,6 +6,7 @@ use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
 use app\common\model\power\TenantPowerMarketProduct;
+use app\common\service\FileService;
 use Exception;
 use think\facade\Db;
 
@@ -128,7 +129,7 @@ class TenantPowerMarketService
             'tenant_id' => $tenantId,
             'product_id' => $productId,
             'name' => mb_substr(trim((string)($params['name'] ?? '')), 0, 160, 'UTF-8'),
-            'icon' => mb_substr(trim((string)($params['icon'] ?? '')), 0, 500, 'UTF-8'),
+            'icon' => mb_substr(FileService::setFileUrl(trim((string)($params['icon'] ?? ''))), 0, 500, 'UTF-8'),
             'description' => mb_substr(trim((string)($params['description'] ?? '')), 0, 1000, 'UTF-8'),
             'update_time' => time(),
         ];
@@ -401,7 +402,8 @@ class TenantPowerMarketService
             $item['origin_name'] = (string)($item['name'] ?? '');
             $item['origin_description'] = (string)($item['description'] ?? '');
             $item['display_name'] = trim((string)($override['name'] ?? '')) ?: $item['origin_name'];
-            $item['display_icon'] = trim((string)($override['icon'] ?? ''));
+            $icon = trim((string)($override['icon'] ?? ''));
+            $item['display_icon'] = $icon === '' ? '' : FileService::getFileUrl($icon);
             $item['display_description'] = trim((string)($override['description'] ?? '')) ?: $item['origin_description'];
             $item['name'] = $item['display_name'];
             $item['description'] = $item['display_description'];

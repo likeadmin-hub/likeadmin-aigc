@@ -1,10 +1,10 @@
 {
   "code": "aigc_video",
   "name": "AIGC视频",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "require_core": ">=1.0.0",
   "description": "AIGC video generation application framework for the LikeAdmin AIGC SaaS aggregation platform.",
-  "changelog": "1. 视频生成改为使用算力市场已上架的模型和应用接口。\n2. 支持按模型、分辨率、时长和参考素材选择可售规格并实时预估点数。\n3. 新任务支持在任务日志中追溯价格、用量和生成结果。",
+  "changelog": "1. 视频生成使用算力市场已上架的模型和应用接口。\n2. 支持按模型、分辨率、时长和参考素材选择可售规格并实时预估点数。\n3. 新任务支持在任务日志中追溯价格、用量和生成结果。\n4. 移除已停止使用的旧通道配置与调价入口。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
