@@ -7,7 +7,11 @@ use Exception;
 
 class UpstreamPricingService
 {
-    private const TIMEOUT = 20;
+    // Pricing is a catalogue operation rather than an interactive model call.
+    // Give an individual small batch enough time to finish, while the market
+    // service keeps the batches bounded so one slow catalogue response cannot
+    // block the entire sync.
+    private const TIMEOUT = 35;
     private const MAX_BATCH_SIZE = 100;
 
     public static function queryModel(string $model, string $channel = ''): array

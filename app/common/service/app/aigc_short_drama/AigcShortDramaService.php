@@ -10362,7 +10362,11 @@ class AigcShortDramaService
             if ($targetMinShots > 0 && $actualShotCount < $targetMinShots) {
                 $issues[] = self::planReviewIssue(
                     'storyboard.shot_count_under_range',
-                    self::storyboardShotCountUnderRangeSeverity($actualShotCount, $targetMinShots, $storyboard, $locations),
+                    // Coverage repair already adds the missing shots where it
+                    // can. A remaining count mismatch is a quality hint for
+                    // editing, not a reason to discard a complete script and
+                    // make the user wait for another full-model repair pass.
+                    'warning',
                     'storyboard',
                     '实际分镜数量低于命中档位最小范'
                 );
@@ -10420,7 +10424,38 @@ class AigcShortDramaService
                 $shot['subject_ref_ids'] = [];
                 $repairCount++;
             }
+            // The planner occasionally omits presentation fields while still
+            // returning a complete story. Those fields have deterministic
+            // fallbacks and must not discard an otherwise usable plan.
+            $visualDescription = trim((string)($shot['visual_description'] ?? ''));
+            if ($visualDescription === '') {
+                $visualDescription = self::joinPromptParts([
+                    (string)($shot['action'] ?? ''),
+                    (string)($shot['result'] ?? ''),
+                    (string)($shot['title'] ?? ''),
+                    (string)($shot['scene_name'] ?? ''),
+                ]);
+                if ($visualDescription !== '') {
+                    $shot['visual_description'] = mb_substr($visualDescription, 0, 2000, 'UTF-8');
+                    $repairCount++;
+                }
+            }
+            if (trim((string)($shot['composition'] ?? '')) === '') {
+                $shot['composition'] = '主体与场景层次清晰，保持视觉重心稳定';
+                $repairCount++;
+            }
+            if (trim((string)($shot['camera_movement'] ?? '')) === '') {
+                $shot['camera_movement'] = '固定镜头，主体动作自然变化';
+                $repairCount++;
+            }
             $imagePrompt = self::cleanShotImagePromptText((string)($shot['image_prompt'] ?? ''));
+            if ($imagePrompt === '') {
+                $imagePrompt = self::buildShotImagePrompt($shot, [], [
+                    'subjects' => $subjects,
+                    'locations' => $locations,
+                ]);
+                $repairCount++;
+            }
             if ($noSubjectShot) {
                 $filteredImagePrompt = self::filterShotPromptVisibleSubjects($imagePrompt, $subjects, []);
                 if ($filteredImagePrompt !== '') {
@@ -12918,6 +12953,15 @@ PROMPT;
             }
             $visualDescription = trim((string)($item['visual_description'] ?? ''));
             if ($visualDescription === '') {
+                $visualDescription = self::joinPromptParts([
+                    (string)($item['action'] ?? ''),
+                    (string)($item['result'] ?? ''),
+                    (string)($item['image_prompt'] ?? ''),
+                    (string)($item['title'] ?? ''),
+                    (string)($item['scene_name'] ?? ''),
+                ]);
+            }
+            if ($visualDescription === '') {
                 continue;
             }
             $frameType = (string)($item['frame_type'] ?? 'normal');
@@ -12941,8 +12985,8 @@ PROMPT;
                 'time_of_day' => mb_substr(trim((string)($item['time_of_day'] ?? '')), 0, 40, 'UTF-8'),
                 'interior_exterior' => in_array($interiorExterior, ['interior', 'exterior'], true) ? $interiorExterior : 'exterior',
                 'visual_description' => mb_substr($visualDescription, 0, 2000, 'UTF-8'),
-                'composition' => mb_substr(trim((string)($item['composition'] ?? '')), 0, 500, 'UTF-8'),
-                'camera_movement' => mb_substr(trim((string)($item['camera_movement'] ?? '')), 0, 500, 'UTF-8'),
+                'composition' => mb_substr(trim((string)($item['composition'] ?? '')) ?: '主体与场景层次清晰，保持视觉重心稳定', 0, 500, 'UTF-8'),
+                'camera_movement' => mb_substr(trim((string)($item['camera_movement'] ?? '')) ?: '固定镜头，主体动作自然变化', 0, 500, 'UTF-8'),
                 'shot_type' => mb_substr(trim((string)($item['shot_type'] ?? '')), 0, 80, 'UTF-8'),
                 'angle' => mb_substr(trim((string)($item['angle'] ?? '')), 0, 80, 'UTF-8'),
                 'action' => mb_substr(trim((string)($item['action'] ?? '')), 0, 1000, 'UTF-8'),

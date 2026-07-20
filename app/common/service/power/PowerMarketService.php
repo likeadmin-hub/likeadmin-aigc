@@ -14,6 +14,7 @@ class PowerMarketService
     public const TYPE_MODEL = 'model';
     public const TYPE_APP_API = 'app_api';
     private const UPSTREAM_RETRY_ATTEMPTS = 2;
+    private const UPSTREAM_PRICING_BATCH_SIZE = 25;
 
     public static function productTypes(): array
     {
@@ -275,23 +276,31 @@ class PowerMarketService
             }
         }
         $syncedScopes = [];
+        $failedPricingBatches = [];
         foreach ($requestsByScope as $scope => $scopeRequests) {
-            try {
-                $scopeItems = [];
-                foreach (array_chunk($scopeRequests, 100) as $chunk) {
+            $scopeItems = [];
+            $scopeComplete = true;
+            foreach (array_chunk($scopeRequests, self::UPSTREAM_PRICING_BATCH_SIZE) as $chunkIndex => $chunk) {
+                try {
                     $scopeItems = array_merge($scopeItems, self::withUpstreamRetry(fn() => UpstreamPricingService::queryBatch($chunk))['items'] ?? []);
+                } catch (\Throwable $e) {
+                    // Keep the last known price for this chunk. A partial
+                    // upstream outage must not unpublish unrelated products.
+                    $scopeComplete = false;
+                    $failedPricingBatches[$scope][] = $chunkIndex + 1;
                 }
-                // A successful transport response with no items is not proof that
-                // every local product in this scope was removed upstream. This can
-                // happen while an upstream catalogue is rebuilding. Only reconcile
-                // missing local products after this scope returned actual items.
-                if ($scopeItems === []) {
-                    continue;
-                }
+            }
+            // A successful transport response with no items is not proof that
+            // every local product in this scope was removed upstream. This can
+            // happen while an upstream catalogue is rebuilding. Only reconcile
+            // missing local products after every batch in this scope completed.
+            if ($scopeItems !== []) {
                 $items = array_merge($items, $scopeItems);
+            }
+            if ($scopeComplete && $scopeItems !== []) {
                 $syncedScopes[$scope] = true;
-            } catch (\Throwable $e) {
-                $typeErrors[str_replace(self::TYPE_MODEL . ':', '', $scope)] = '价格同步失败';
+            } elseif (!$scopeComplete) {
+                $typeErrors[str_replace(self::TYPE_MODEL . ':', '', $scope)] = '部分 SKU 价格同步失败，已保留旧价格';
             }
         }
         foreach ($items as &$item) {
@@ -372,6 +381,8 @@ class PowerMarketService
         $summary['synced_at'] = date('Y-m-d H:i:s');
         $summary['synced_model_types'] = $syncedModelTypes;
         $summary['type_errors'] = $typeErrors;
+        $summary['failed_pricing_batches'] = $failedPricingBatches;
+        $summary['partial_success'] = $failedPricingBatches !== [] || $typeErrors !== [];
         return $summary;
     }
 
@@ -788,12 +799,28 @@ class PowerMarketService
                 return $callback();
             } catch (\Throwable $e) {
                 $lastException = $e;
-                if ($attempt < self::UPSTREAM_RETRY_ATTEMPTS) {
-                    usleep(200000);
+                if ($attempt < self::UPSTREAM_RETRY_ATTEMPTS && self::isRetryableUpstreamError($e)) {
+                    usleep(500000 * $attempt);
+                    continue;
                 }
+                break;
             }
         }
         throw $lastException;
+    }
+
+    private static function isRetryableUpstreamError(\Throwable $exception): bool
+    {
+        $message = mb_strtolower($exception->getMessage(), 'UTF-8');
+        return str_contains($message, '超时')
+            || str_contains($message, 'timeout')
+            || str_contains($message, 'timed out')
+            || str_contains($message, 'connection')
+            || str_contains($message, 'temporarily')
+            || str_contains($message, '429')
+            || str_contains($message, '502')
+            || str_contains($message, '503')
+            || str_contains($message, '504');
     }
 
     private static function fallbackSkuKey(array $sku): string
