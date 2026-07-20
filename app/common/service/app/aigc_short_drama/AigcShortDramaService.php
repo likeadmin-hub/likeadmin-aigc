@@ -16,6 +16,7 @@ use app\common\model\app\aigc_short_drama\AigcShortDramaStoryboard;
 use app\common\model\app\aigc_short_drama\AigcShortDramaStyle;
 use app\common\model\app\aigc_short_drama\AigcShortDramaSubject;
 use app\common\model\app\App;
+use app\common\model\ai\AiConsumptionLog;
 use app\common\model\tenant\Tenant;
 use app\common\model\user\User;
 use app\common\service\app\aigc_image\AigcImageChannelService;
@@ -23,6 +24,11 @@ use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\app\aigc_music\AigcMusicService;
 use app\common\service\app\aigc_digital_human\AigcDigitalHumanService;
 use app\common\service\power\MarketTextModelRuntimeService;
+use app\common\service\power\MarketImageModelRuntimeService;
+use app\common\service\power\MarketMusicAppRuntimeService;
+use app\common\service\power\MarketNanoBananaAppRuntimeService;
+use app\common\service\power\MarketVideoAppRuntimeService;
+use app\common\service\power\MarketVideoModelRuntimeService;
 use app\common\service\app\aigc_video\AigcVideoChannelService;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\app\AppAccessService;
@@ -267,10 +273,8 @@ class AigcShortDramaService
 
     public static function dependencies(int $tenantId = 0): array
     {
-        // Use explicit Unicode code points so the platform payload is not affected by source encoding.
         $items = [
-            self::dependencyItem($tenantId, self::MUSIC_APP_CODE, "AI\u{97F3}\u{4E50}\u{751F}\u{6210}", "\u{7528}\u{4E8E}\u{77ED}\u{5267}\u{80CC}\u{666F}\u{97F3}\u{4E50}\u{751F}\u{6210}"),
-            self::dependencyItem($tenantId, self::IMAGE_APP_CODE, "AIGC \u{751F}\u{56FE}", "\u{4E3B}\u{4F53}\u{56FE}\u{3001}\u{573A}\u{666F}\u{56FE}\u{3001}\u{5206}\u{955C}\u{56FE}\u{751F}\u{6210}"),
+            MarketMusicAppRuntimeService::availability($tenantId),
             self::dependencyItem($tenantId, self::VIDEO_APP_CODE, "AIGC \u{89C6}\u{9891}", "\u{7528}\u{4E8E}\u{5206}\u{955C}\u{89C6}\u{9891}\u{548C}\u{5B8C}\u{6574}\u{89C6}\u{9891}\u{751F}\u{6210}"),
         ];
         return [
@@ -1027,16 +1031,13 @@ class AigcShortDramaService
         }
 
         $config = self::publicConfig($tenantId);
-        $billing = self::estimateGenerationBilling($taskType, [], $config, $params);
-        if ((float)$billing['tenant_cost_points'] > 0 || (float)$billing['user_charge_points'] > 0) {
-            PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$billing['tenant_cost_points'], (float)$billing['user_charge_points']);
-        }
+        $billing = self::estimateImageGenerationBilling($tenantId, $taskType, [], $config, $params);
         $localTaskId = self::makeTaskId('sd_subject');
 
         Db::startTrans();
         try {
             $generation = self::createGenerationTaskRecord($tenantId, $userId, 0, '', $taskType, $localTaskId, self::STATUS_PENDING, [
-                'source_app_code' => self::IMAGE_APP_CODE,
+                'source_app_code' => self::isMarketImageSelection($params) ? 'power_market_image' : self::IMAGE_APP_CODE,
                 'provider' => 'pending',
                 'request' => [
                     'shot' => [],
@@ -1047,7 +1048,7 @@ class AigcShortDramaService
                 'tenant_cost_points' => $billing['tenant_cost_points'],
                 'user_charge_points' => $billing['user_charge_points'],
             ]);
-            if ((float)$billing['tenant_cost_points'] > 0 || (float)$billing['user_charge_points'] > 0) {
+            if (!self::isMarketImageSelection($params) && ((float)$billing['tenant_cost_points'] > 0 || (float)$billing['user_charge_points'] > 0)) {
                 PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$billing['tenant_cost_points'], (float)$billing['user_charge_points'], $localTaskId, 'AI short drama subject generation reserve', [
                     'app_code' => self::APP_CODE,
                     'task_id' => $localTaskId,
@@ -3781,10 +3782,11 @@ class AigcShortDramaService
             : self::findShot($tenantId, $userId, $projectId, $taskId, $shotId);
         if ($taskType === 'shot_video' || self::normalizeGenerationMode($params) === 'video_generate') {
             $params = self::sanitizeVideoGenerationParams($params);
-            $params = self::prepareShortDramaVideoGenerationParams($tenantId, $project->toArray(), $shot ? $shot->toArray() : [], $params);
+            $params = self::prepareMarketShortDramaVideoParams($tenantId, $params, $shot ? $shot->toArray() : []);
+            return self::estimateMarketVideoGenerationBilling($tenantId, $params);
         }
         if ($taskType === 'bgm_audio') {
-            return self::estimateBgmAudioGenerationBilling($tenantId, $params, self::currentProjectPlanRaw($tenantId, $userId, $projectId));
+            return self::estimateMarketBgmAudioGenerationBilling($tenantId, $params, self::currentProjectPlanRaw($tenantId, $userId, $projectId));
         }
         $config = self::publicConfig($tenantId);
         $billing = self::estimateGenerationBilling($taskType, $shot ? $shot->toArray() : [], $config, $params);
@@ -3855,20 +3857,23 @@ class AigcShortDramaService
         $shotPayload = $shot ? $shot->toArray() : [];
         if ($taskType === 'shot_video' || self::normalizeGenerationMode($params) === 'video_generate') {
             $params = self::sanitizeVideoGenerationParams($params);
-            $params = self::prepareShortDramaVideoGenerationParams($tenantId, $project->toArray(), $shotPayload, $params);
+            $params = self::prepareMarketShortDramaVideoParams($tenantId, $params, $shotPayload);
         }
         $config = self::publicConfig($tenantId);
-        $billing = self::estimateGenerationBilling($taskType, $shotPayload, $config, $params);
-        if ((float)$billing['tenant_cost_points'] > 0 || (float)$billing['user_charge_points'] > 0) {
-            PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$billing['tenant_cost_points'], (float)$billing['user_charge_points']);
-        }
+        $billing = $taskType === 'bgm_audio'
+            ? self::estimateMarketBgmAudioGenerationBilling($tenantId, $params, self::currentProjectPlanRaw($tenantId, $userId, $projectId))
+            : ($taskType === 'shot_video'
+                ? self::estimateMarketVideoGenerationBilling($tenantId, $params)
+                : (self::isImageGenerationTask($taskType)
+                ? self::estimateImageGenerationBilling($tenantId, $taskType, $shotPayload, $config, $params)
+                : self::estimateGenerationBilling($taskType, $shotPayload, $config, $params)));
         $localTaskId = self::makeTaskId('sd_gen');
         $time = time();
         Db::startTrans();
         try {
             $generation = self::createGenerationTaskRecord($tenantId, $userId, $projectId, $shotId, $taskType, $localTaskId, self::STATUS_PENDING, [
                 'source_task_id' => $taskId,
-                'source_app_code' => $taskType === 'shot_video' ? self::VIDEO_APP_CODE : (in_array($taskType, ['export_video', 'export_package', 'bgm_audio'], true) ? self::APP_CODE : self::IMAGE_APP_CODE),
+                'source_app_code' => $taskType === 'shot_video' ? 'power_market_video' : ($taskType === 'bgm_audio' ? 'power_market_music_api' : (in_array($taskType, ['export_video', 'export_package'], true) ? self::APP_CODE : (self::isNanoBananaImageSelection($params) ? 'power_market_nano_banana_api' : (self::isMarketImageSelection($params) ? 'power_market_image' : self::IMAGE_APP_CODE)))),
                 'provider' => 'pending',
                 'request' => [
                     'shot' => $shot ? self::formatShot($shot->toArray()) : [],
@@ -3879,7 +3884,7 @@ class AigcShortDramaService
                 'tenant_cost_points' => $billing['tenant_cost_points'],
                 'user_charge_points' => $billing['user_charge_points'],
             ]);
-            if ((float)$billing['tenant_cost_points'] > 0 || (float)$billing['user_charge_points'] > 0) {
+            if ($taskType !== 'bgm_audio' && $taskType !== 'shot_video' && !self::isMarketImageSelection($params) && ((float)$billing['tenant_cost_points'] > 0 || (float)$billing['user_charge_points'] > 0)) {
                 PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$billing['tenant_cost_points'], (float)$billing['user_charge_points'], $localTaskId, 'AI short drama generation reserve', [
                     'app_code' => self::APP_CODE,
                     'task_id' => $localTaskId,
@@ -4021,9 +4026,12 @@ class AigcShortDramaService
         $time = time();
         $row = $task->toArray();
         unset($row['id']);
+        $isMarketImageTask = self::isMarketImageSelection(self::jsonDecode((string)($row['request_json'] ?? ''))['params'] ?? [])
+            || (int)($row['market_sku_id'] ?? 0) > 0
+            || (int)($row['consumption_id'] ?? 0) > 0;
         $billing = self::jsonDecode((string)($row['pricing_snapshot'] ?? ''));
         $hasBilling = (float)($billing['tenant_cost_points'] ?? 0) > 0 || (float)($billing['user_charge_points'] ?? 0) > 0;
-        if ($hasBilling) {
+        if ($hasBilling && !$isMarketImageTask) {
             PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$billing['tenant_cost_points'], (float)$billing['user_charge_points']);
         }
         Db::startTrans();
@@ -4033,7 +4041,9 @@ class AigcShortDramaService
                 'parent_task_id' => (string)$row['task_id'],
                 'status' => self::STATUS_PENDING,
                 'progress' => 0,
-                'billing_status' => $hasBilling ? 'reserved' : 'none',
+                'billing_status' => $isMarketImageTask ? 'none' : ($hasBilling ? 'reserved' : 'none'),
+                'app_task_id' => 0,
+                'consumption_id' => 0,
                 'error_code' => '',
                 'error_msg' => '',
                 'operator_error' => '',
@@ -4044,7 +4054,7 @@ class AigcShortDramaService
                 'update_time' => $time,
                 'delete_time' => 0,
             ]));
-            if ($hasBilling) {
+            if ($hasBilling && !$isMarketImageTask) {
                 PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$billing['tenant_cost_points'], (float)$billing['user_charge_points'], $newTaskId, 'AI short drama generation retry reserve', [
                     'app_code' => self::APP_CODE,
                     'task_id' => $newTaskId,
@@ -4080,6 +4090,29 @@ class AigcShortDramaService
     {
         $task = self::findGenerationTask($tenantId, $userId, $taskId);
         if (in_array((string)$task['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
+            return self::formatGenerationTask($task->toArray(), true);
+        }
+        $consumptionId = (int)($task['consumption_id'] ?? 0);
+        if ($consumptionId > 0) {
+            if ((string)$task['task_type'] === 'bgm_audio') {
+                MarketMusicAppRuntimeService::cancel($consumptionId);
+            } elseif ((string)$task['task_type'] === 'shot_video') {
+                $request = self::jsonDecode((string)$task['request_json']);
+                self::marketVideoRuntime((array)($request['video_params'] ?? $request['params'] ?? []))::cancel($consumptionId);
+            } else {
+                self::isNanoBananaImageSelection(self::jsonDecode((string)$task['request_json'])['params'] ?? [])
+                    ? MarketNanoBananaAppRuntimeService::cancel($consumptionId)
+                    : MarketImageModelRuntimeService::cancel($consumptionId);
+            }
+            $task->save([
+                'status' => self::STATUS_CANCELED,
+                'billing_status' => 'refunded',
+                'error_code' => 'canceled',
+                'error_msg' => 'Task canceled',
+                'finished_at' => time(),
+                'update_time' => time(),
+            ]);
+            self::refreshProjectGenerationStatus($tenantId, $userId, (int)$task['project_id']);
             return self::formatGenerationTask($task->toArray(), true);
         }
         $time = time();
@@ -4519,6 +4552,14 @@ class AigcShortDramaService
                 'update_time' => time(),
             ]);
             $imageParams = self::sanitizeUtf8Payload($imageParams);
+            if (self::isNanoBananaImageSelection($params)) {
+                self::runMarketNanoBananaGenerationTask($tenantId, $userId, $generation, $params, $imageParams, $billing);
+                return;
+            }
+            if (self::isMarketImageSelection($params)) {
+                self::runMarketImageGenerationTask($tenantId, $userId, $generation, $params, $imageParams, $billing);
+                return;
+            }
             $imageResult = AigcImageService::generateWithBillingOverride($tenantId, $userId, $imageParams, [
                 'tenant_cost_points' => 0,
                 'user_charge_points' => 0,
@@ -4650,10 +4691,20 @@ class AigcShortDramaService
             return;
         }
         $taskStatus = (string)($generation['status'] ?? '');
-        if (in_array($taskStatus, [self::STATUS_SUCCESS, self::STATUS_CANCELED], true)) {
+        if (in_array($taskStatus, [self::STATUS_SUCCESS, self::STATUS_CANCELED], true)
+            && (string)($generation['billing_status'] ?? '') !== 'pending_usage') {
             return;
         }
         if (self::markGenerationSuccessFromExistingAssets($tenantId, $userId, $generation)) {
+            return;
+        }
+        if ((int)($generation['consumption_id'] ?? 0) > 0) {
+            $request = self::jsonDecode((string)($generation['request_json'] ?? ''));
+            if (self::isNanoBananaImageSelection((array)($request['params'] ?? []))) {
+                self::syncMarketNanoBananaGenerationTask($tenantId, $userId, $generation);
+            } else {
+                self::syncMarketImageGenerationTask($tenantId, $userId, $generation);
+            }
             return;
         }
         $result = self::jsonDecode((string)($generation['result_json'] ?? ''));
@@ -4717,6 +4768,200 @@ class AigcShortDramaService
             'update_time' => time(),
         ]);
         self::refreshProjectGenerationStatus($tenantId, $userId, (int)$generation['project_id']);
+    }
+
+    /**
+     * Market image tasks deliberately do not create an aigc_image_task. The
+     * short-drama generation task remains the business owner of the result.
+     */
+    private static function runMarketImageGenerationTask(int $tenantId, int $userId, array $generation, array $params, array $imageParams, array $billing): void
+    {
+        $taskId = (string)$generation['task_id'];
+        try {
+            $reserve = MarketImageModelRuntimeService::reserve($tenantId, $userId, (string)$generation['task_type'], $taskId, $params, $imageParams, 1);
+            AigcShortDramaGenerationTask::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'task_id' => $taskId,
+            ])->update([
+                'app_task_id' => (int)$reserve['app_task_id'],
+                'consumption_id' => (int)$reserve['consumption_id'],
+                'market_product_id' => (int)($reserve['market_snapshot']['product_id'] ?? 0),
+                'market_sku_id' => (int)($reserve['market_snapshot']['sku_id'] ?? 0),
+                'model_json' => self::jsonEncode($reserve['market_snapshot']),
+                'pricing_snapshot' => self::jsonEncode($billing),
+                'billing_status' => (string)($billing['settlement_mode'] ?? '') === 'actual_usage' ? 'pending_usage' : 'reserved',
+                'tenant_cost_points' => (float)($billing['tenant_cost_points'] ?? 0),
+                'user_charge_points' => (float)($billing['user_charge_points'] ?? 0),
+                'provider' => self::isNanoBananaImageSelection(self::jsonDecode((string)$generation['request_json'])['params'] ?? []) ? 'power_market_app_api' : 'power_market',
+                'progress' => 30,
+                'update_time' => time(),
+            ]);
+            $business = self::findGenerationTask($tenantId, $userId, $taskId);
+            MarketImageModelRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$business['id']);
+            $result = MarketImageModelRuntimeService::submit((int)$reserve['consumption_id'], $imageParams);
+            if ((string)($result['status'] ?? '') === self::STATUS_FAILED) {
+                throw new Exception('图片模型生成失败');
+            }
+            self::persistMarketImageTaskResult($tenantId, $userId, $taskId, $result, $imageParams);
+        } catch (\Throwable $e) {
+            $current = self::findGenerationTask($tenantId, $userId, $taskId)->toArray();
+            $consumptionId = (int)($current['consumption_id'] ?? 0);
+            if ($consumptionId > 0) {
+                MarketImageModelRuntimeService::fail($consumptionId, $e->getMessage(), 'short_drama_image_failed');
+            }
+            self::failMarketImageGenerationTask($tenantId, $userId, $current, $e);
+        }
+    }
+
+    private static function runMarketNanoBananaGenerationTask(int $tenantId, int $userId, array $generation, array $params, array $imageParams, array $billing): void
+    {
+        $taskId = (string)$generation['task_id'];
+        try {
+            $reserve = MarketNanoBananaAppRuntimeService::reserve($tenantId, $userId, (string)$generation['task_type'], $taskId, $params, $imageParams, 1);
+            AigcShortDramaGenerationTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId])->update([
+                'app_task_id' => (int)$reserve['app_task_id'], 'consumption_id' => (int)$reserve['consumption_id'],
+                'market_product_id' => (int)($reserve['market_snapshot']['product_id'] ?? 0), 'market_sku_id' => (int)($reserve['market_snapshot']['sku_id'] ?? 0),
+                'model_json' => self::jsonEncode($reserve['market_snapshot']), 'pricing_snapshot' => self::jsonEncode($billing), 'billing_status' => (string)($billing['settlement_mode'] ?? '') === 'actual_usage' ? 'pending_usage' : 'reserved',
+                'tenant_cost_points' => (float)($billing['tenant_cost_points'] ?? 0), 'user_charge_points' => (float)($billing['user_charge_points'] ?? 0),
+                'provider' => 'power_market_app_api', 'progress' => 30, 'update_time' => time(),
+            ]);
+            $business = self::findGenerationTask($tenantId, $userId, $taskId);
+            MarketNanoBananaAppRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$business['id']);
+            $result = MarketNanoBananaAppRuntimeService::submit((int)$reserve['consumption_id'], $imageParams);
+            self::persistMarketImageTaskResult($tenantId, $userId, $taskId, $result, $imageParams);
+        } catch (\Throwable $e) {
+            $current = self::findGenerationTask($tenantId, $userId, $taskId)->toArray();
+            if ((int)($current['consumption_id'] ?? 0) > 0) MarketNanoBananaAppRuntimeService::fail((int)$current['consumption_id'], $e->getMessage(), 'short_drama_nano_banana_failed');
+            self::failMarketImageGenerationTask($tenantId, $userId, $current, $e);
+        }
+    }
+
+    private static function syncMarketNanoBananaGenerationTask(int $tenantId, int $userId, array $generation): void
+    {
+        $consumptionId = (int)($generation['consumption_id'] ?? 0);
+        if ($consumptionId <= 0 || in_array((string)($generation['status'] ?? ''), [self::STATUS_FAILED, self::STATUS_CANCELED], true)
+            || ((string)($generation['status'] ?? '') === self::STATUS_SUCCESS && (string)($generation['billing_status'] ?? '') !== 'pending_usage')) return;
+        try {
+            $result = MarketNanoBananaAppRuntimeService::refresh($consumptionId);
+            $request = self::jsonDecode((string)($generation['request_json'] ?? ''));
+            self::persistMarketImageTaskResult($tenantId, $userId, (string)$generation['task_id'], $result, (array)($request['image_params'] ?? []));
+        } catch (\Throwable $e) {
+            MarketNanoBananaAppRuntimeService::fail($consumptionId, $e->getMessage(), 'short_drama_nano_banana_refresh_failed');
+            self::failMarketImageGenerationTask($tenantId, $userId, $generation, $e);
+        }
+    }
+
+    private static function syncMarketImageGenerationTask(int $tenantId, int $userId, array $generation): void
+    {
+        $consumptionId = (int)($generation['consumption_id'] ?? 0);
+        if ($consumptionId <= 0 || in_array((string)($generation['status'] ?? ''), [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
+            return;
+        }
+        try {
+            $result = MarketImageModelRuntimeService::refresh($consumptionId);
+            $request = self::jsonDecode((string)($generation['request_json'] ?? ''));
+            $imageParams = (array)($request['image_params'] ?? []);
+            self::persistMarketImageTaskResult($tenantId, $userId, (string)$generation['task_id'], $result, $imageParams);
+        } catch (\Throwable $e) {
+            MarketImageModelRuntimeService::fail($consumptionId, $e->getMessage(), 'short_drama_image_refresh_failed');
+            self::failMarketImageGenerationTask($tenantId, $userId, $generation, $e);
+        }
+    }
+
+    private static function persistMarketImageTaskResult(int $tenantId, int $userId, string $taskId, array $result, array $imageParams): void
+    {
+        $generation = self::findGenerationTask($tenantId, $userId, $taskId);
+        $row = $generation->toArray();
+        $status = (string)($result['status'] ?? self::STATUS_RUNNING);
+        if ($status === self::STATUS_FAILED) {
+            self::failMarketImageGenerationTask($tenantId, $userId, $row, new Exception('图片模型生成失败'));
+            return;
+        }
+        $providerTaskId = (string)($result['provider_task_id'] ?? '');
+        $providerRequestId = (string)($result['provider_request_id'] ?? '');
+        $images = (array)($result['images'] ?? []);
+        if ($images === []) {
+            $generation->save([
+                'status' => self::STATUS_RUNNING,
+                'progress' => 45,
+                'provider' => 'power_market',
+                'provider_task_id' => $providerTaskId,
+                'provider_request_id' => $providerRequestId,
+                'result_json' => self::jsonEncode(['message' => '图片模型任务已提交，等待结果']),
+                'update_time' => time(),
+            ]);
+            return;
+        }
+        $assetIds = self::registerMarketImageResultsAsAssets($tenantId, $userId, $row, $images, $imageParams);
+        if ($assetIds === []) {
+            throw new Exception('生图结果保存失败');
+        }
+        $pricing = self::jsonDecode((string)($row['pricing_snapshot'] ?? ''));
+        $consumption = (int)($row['consumption_id'] ?? 0) > 0 ? AiConsumptionLog::where('id', (int)$row['consumption_id'])->findOrEmpty() : null;
+        $billingStatus = !$consumption || $consumption->isEmpty()
+            ? (((float)($pricing['tenant_cost_points'] ?? 0) > 0 || (float)($pricing['user_charge_points'] ?? 0) > 0) ? 'deducted' : 'none')
+            : ((string)$consumption['billing_status'] === 'settled' ? 'deducted' : ((string)$consumption['billing_status'] === 'pending_usage' ? 'pending_usage' : (string)$consumption['billing_status']));
+        $generation->save([
+            'status' => self::STATUS_SUCCESS,
+            'progress' => 100,
+            'provider' => self::isNanoBananaImageSelection(self::jsonDecode((string)$generation['request_json'])['params'] ?? []) ? 'power_market_app_api' : 'power_market',
+            'provider_task_id' => $providerTaskId,
+            'provider_request_id' => $providerRequestId,
+            'result_json' => self::jsonEncode(['market_consumption_id' => (int)$row['consumption_id'], 'asset_ids' => $assetIds]),
+            'output_asset_ids' => self::jsonEncode($assetIds),
+            'billing_status' => $billingStatus,
+            'finished_at' => time(),
+            'update_time' => time(),
+        ]);
+        self::selectGeneratedStoryboardAsset($tenantId, $userId, $row, $assetIds);
+        self::refreshProjectGenerationStatus($tenantId, $userId, (int)$row['project_id']);
+    }
+
+    private static function registerMarketImageResultsAsAssets(int $tenantId, int $userId, array $generation, array $results, array $imageParams): array
+    {
+        $assetIds = [];
+        foreach ($results as $index => $result) {
+            if (!is_array($result) || (string)($result['image_uri'] ?? '') === '') {
+                continue;
+            }
+            $assetType = self::generationAssetType((string)($generation['task_type'] ?? 'shot_image'));
+            $result = self::normalizeShortDramaImageResultRatio($tenantId, $userId, $result, $assetType, (string)($imageParams['ratio'] ?? ''));
+            $asset = AigcShortDramaAsset::create([
+                'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => (int)$generation['project_id'], 'task_id' => (string)$generation['task_id'],
+                'shot_id' => (string)($generation['shot_id'] ?? ''), 'asset_type' => $assetType, 'title' => '短剧图片' . ((int)$index + 1),
+                'uri' => (string)$result['image_uri'], 'cover_uri' => '',
+                'storage_scope' => (string)($result['storage_scope'] ?? 'tenant'), 'storage_engine' => (string)($result['storage_engine'] ?? ''), 'storage_domain' => (string)($result['storage_domain'] ?? ''),
+                'mime_type' => 'image/png', 'file_size' => 0, 'width' => (int)($result['width'] ?? 0), 'height' => (int)($result['height'] ?? 0), 'duration' => 0, 'checksum' => '',
+                'meta_json' => self::jsonEncode(self::generationImageAssetMeta($generation, [], $imageParams, ['consumption_id' => (int)($generation['consumption_id'] ?? 0)])),
+                'status' => 'ready', 'create_time' => time(), 'update_time' => time(), 'delete_time' => 0,
+            ]);
+            $assetIds[] = (int)$asset['id'];
+        }
+        return $assetIds;
+    }
+
+    private static function failMarketImageGenerationTask(int $tenantId, int $userId, array $generation, \Throwable $e): void
+    {
+        if ($generation === []) {
+            return;
+        }
+        $billingStatus = 'refunded';
+        $consumptionId = (int)($generation['consumption_id'] ?? 0);
+        if ($consumptionId > 0) {
+            $consumption = AiConsumptionLog::where('id', $consumptionId)->findOrEmpty();
+            if (!$consumption->isEmpty() && (string)$consumption['billing_status'] === 'settled') {
+                $billingStatus = 'deducted';
+            }
+        }
+        AigcShortDramaGenerationTask::where([
+            'tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => (string)$generation['task_id'],
+        ])->update([
+            'status' => self::STATUS_FAILED, 'progress' => 0, 'billing_status' => $billingStatus, 'error_code' => 'market_image_failed',
+            'error_msg' => self::friendlyGenerationError($e->getMessage()), 'operator_error' => mb_substr($e->getMessage(), 0, 1000, 'UTF-8'),
+            'finished_at' => time(), 'update_time' => time(),
+        ]);
+        self::refreshProjectGenerationStatus($tenantId, $userId, (int)($generation['project_id'] ?? 0));
     }
 
     private static function registerImageResultsAsAssets(int $tenantId, int $userId, array $generation, array $results, int $imageTaskId): array
@@ -4936,6 +5181,11 @@ class AigcShortDramaService
     {
         $taskType = (string)($generation['task_type'] ?? '');
         if ($taskType === 'shot_video') {
+            // Market video state is advanced only by the compensating worker;
+            // list/detail reads must remain read-only.
+            if ((int)($generation['consumption_id'] ?? 0) > 0) {
+                return;
+            }
             self::syncVideoGenerationTask($tenantId, $userId, $generation);
             return;
         }
@@ -4964,7 +5214,7 @@ class AigcShortDramaService
         ]);
 
         try {
-            $videoParams = self::shortDramaVideoParams($tenantId, $userId, (int)$generation['project_id'], $shot, $params);
+            $videoParams = self::marketShortDramaVideoParams($tenantId, $userId, (int)$generation['project_id'], $shot, $params);
             AigcShortDramaGenerationTask::where([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
@@ -4979,57 +5229,9 @@ class AigcShortDramaService
                 'update_time' => time(),
             ]);
 
-            $videoResult = AigcVideoService::generateWithBillingOverride($tenantId, $userId, $videoParams, [
-                'tenant_cost_points' => 0,
-                'user_charge_points' => 0,
-            ]);
-            $results = (array)($videoResult['results'] ?? []);
-            if (($videoResult['status'] ?? '') === self::STATUS_FAILED) {
-                throw new Exception((string)($videoResult['error'] ?? '视频生成失败'));
-            }
-            if (empty($results)) {
-                AigcShortDramaGenerationTask::where([
-                    'tenant_id' => $tenantId,
-                    'user_id' => $userId,
-                    'task_id' => $taskId,
-                ])->update([
-                    'status' => self::STATUS_RUNNING,
-                    'progress' => 35,
-                    'provider' => (string)($videoParams['channel'] ?? ''),
-                    'provider_task_id' => (string)($videoResult['task_id'] ?? ''),
-                    'result_json' => self::jsonEncode([
-                        'video_task_id' => (int)($videoResult['task_id'] ?? 0),
-                        'message' => '生视频任务已提交，等待服务商返回结果',
-                    ]),
-                    'update_time' => time(),
-                ]);
-                return;
-            }
-
-            $assetIds = self::registerVideoResultsAsAssets($tenantId, $userId, $generation, $results, (int)($videoResult['task_id'] ?? 0), $videoParams);
-            if (empty($assetIds)) {
-                throw new Exception('视频结果保存失败');
-            }
-            AigcShortDramaGenerationTask::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'task_id' => $taskId,
-            ])->update([
-                'status' => self::STATUS_SUCCESS,
-                'progress' => 100,
-                'provider' => (string)($videoParams['channel'] ?? ''),
-                'provider_task_id' => (string)($videoResult['task_id'] ?? ''),
-                'result_json' => self::jsonEncode([
-                    'video_task_id' => (int)($videoResult['task_id'] ?? 0),
-                    'asset_ids' => $assetIds,
-                ]),
-                'output_asset_ids' => self::jsonEncode($assetIds),
-                'billing_status' => ((float)$billing['tenant_cost_points'] > 0 || (float)$billing['user_charge_points'] > 0) ? 'deducted' : 'none',
-                'finished_at' => time(),
-                'update_time' => time(),
-            ]);
+            self::runMarketVideoGenerationTask($tenantId, $userId, $generation, $videoParams, $billing);
         } catch (\Throwable $e) {
-            self::failGenerationTaskWithRefund($tenantId, $userId, $generation, $billing, 'video_generation_failed', 'AI short drama video generation failed', $e);
+            self::failMarketVideoGenerationTask($tenantId, $userId, $generation, $e);
         }
     }
 
@@ -5039,6 +5241,10 @@ class AigcShortDramaService
             return;
         }
         if (self::markGenerationSuccessFromExistingAssets($tenantId, $userId, $generation)) {
+            return;
+        }
+        if ((int)($generation['consumption_id'] ?? 0) > 0) {
+            self::syncMarketVideoGenerationTask($tenantId, $userId, $generation);
             return;
         }
         $result = self::jsonDecode((string)($generation['result_json'] ?? ''));
@@ -5096,6 +5302,127 @@ class AigcShortDramaService
             'update_time' => time(),
         ]);
         self::refreshProjectGenerationStatus($tenantId, $userId, (int)$generation['project_id']);
+    }
+
+    /** Market video tasks do not create an aigc_video_task; the short-drama task owns the generated asset. */
+    private static function runMarketVideoGenerationTask(int $tenantId, int $userId, array $generation, array $videoParams, array $billing): void
+    {
+        $taskId = (string)$generation['task_id'];
+        $selection = self::marketVideoSelection($videoParams);
+        $runtime = self::marketVideoRuntime($selection);
+        try {
+            $reserve = $runtime::reserve($tenantId, $userId, self::APP_CODE, 'shot_video', 'aigc_short_drama_generation_task', $taskId, $selection, $videoParams);
+            AigcShortDramaGenerationTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId])->update([
+                'app_task_id' => (int)$reserve['app_task_id'], 'consumption_id' => (int)$reserve['consumption_id'],
+                'market_product_id' => (int)($reserve['market_snapshot']['product_id'] ?? 0), 'market_sku_id' => (int)($reserve['market_snapshot']['sku_id'] ?? 0),
+                'model_json' => self::jsonEncode($reserve['market_snapshot']), 'pricing_snapshot' => self::jsonEncode($billing), 'billing_status' => (string)($billing['settlement_mode'] ?? '') === 'actual_usage' ? 'pending_usage' : 'reserved',
+                'tenant_cost_points' => (float)($billing['tenant_cost_points'] ?? 0), 'user_charge_points' => (float)($billing['user_charge_points'] ?? 0),
+                'provider' => str_contains((string)($selection['model_id'] ?? ''), 'market_video_app:') ? 'power_market_app_api' : 'power_market', 'progress' => 30, 'update_time' => time(),
+            ]);
+            $business = self::findGenerationTask($tenantId, $userId, $taskId);
+            $runtime::linkBusinessTask((int)$reserve['app_task_id'], (int)$business['id']);
+            $result = $runtime::submit((int)$reserve['consumption_id'], $videoParams);
+            self::persistMarketVideoTaskResult($tenantId, $userId, $taskId, $result, $videoParams);
+        } catch (\Throwable $e) {
+            $current = self::findGenerationTask($tenantId, $userId, $taskId)->toArray();
+            if ((int)($current['consumption_id'] ?? 0) > 0) {
+                try { $runtime::fail((int)$current['consumption_id'], $e->getMessage(), 'short_drama_video_failed'); } catch (\Throwable) {}
+            }
+            self::failMarketVideoGenerationTask($tenantId, $userId, $current, $e);
+        }
+    }
+
+    private static function syncMarketVideoGenerationTask(int $tenantId, int $userId, array $generation): void
+    {
+        $consumptionId = (int)($generation['consumption_id'] ?? 0);
+        if ($consumptionId <= 0 || in_array((string)($generation['status'] ?? ''), [self::STATUS_FAILED, self::STATUS_CANCELED], true)
+            || ((string)($generation['status'] ?? '') === self::STATUS_SUCCESS && (string)($generation['billing_status'] ?? '') !== 'pending_usage')) return;
+        try {
+            $request = self::jsonDecode((string)($generation['request_json'] ?? ''));
+            $videoParams = (array)($request['video_params'] ?? []);
+            $result = self::marketVideoRuntime(self::marketVideoSelection($videoParams))::refresh($consumptionId);
+            self::persistMarketVideoTaskResult($tenantId, $userId, (string)$generation['task_id'], $result, $videoParams);
+        } catch (\Throwable $e) {
+            self::marketVideoRuntime(self::marketVideoSelection(self::jsonDecode((string)$generation['request_json'])['video_params'] ?? []))::fail($consumptionId, $e->getMessage(), 'short_drama_video_refresh_failed');
+            self::failMarketVideoGenerationTask($tenantId, $userId, $generation, $e);
+        }
+    }
+
+    public static function refreshMarketVideoTasks(int $limit = 20): int
+    {
+        $rows = AigcShortDramaGenerationTask::where('task_type', 'shot_video')
+            ->where('consumption_id', '>', 0)
+            ->whereIn('status', [self::STATUS_PENDING, self::STATUS_QUEUED, self::STATUS_RUNNING, self::STATUS_SUCCESS])
+            ->where('delete_time', 0)
+            ->order('id', 'asc')
+            ->limit(max(1, $limit))
+            ->select()
+            ->toArray();
+        foreach ($rows as $row) {
+            try {
+                self::syncMarketVideoGenerationTask((int)$row['tenant_id'], (int)$row['user_id'], $row);
+            } catch (\Throwable $e) {
+                Log::write('Short drama market video refresh failed: ' . $e->getMessage());
+            }
+        }
+        return count($rows);
+    }
+
+    /** Refresh result delivery and late usage reports for every market media task. */
+    public static function refreshMarketUsageTasks(int $limit = 20): int
+    {
+        $rows = AigcShortDramaGenerationTask::where('consumption_id', '>', 0)
+            ->whereIn('task_type', ['subject_image', 'scene_image', 'three_view', 'shot_image', 'bgm_audio'])
+            ->whereIn('status', [self::STATUS_PENDING, self::STATUS_QUEUED, self::STATUS_RUNNING, self::STATUS_SUCCESS])
+            ->where('delete_time', 0)
+            ->order('id', 'asc')
+            ->limit(max(1, $limit))
+            ->select()
+            ->toArray();
+        foreach ($rows as $row) {
+            try {
+                if ((string)$row['task_type'] === 'bgm_audio') {
+                    self::syncMarketBgmAudioGenerationTask((int)$row['tenant_id'], (int)$row['user_id'], $row);
+                } else {
+                    $request = self::jsonDecode((string)($row['request_json'] ?? ''));
+                    if (self::isNanoBananaImageSelection((array)($request['params'] ?? []))) {
+                        self::syncMarketNanoBananaGenerationTask((int)$row['tenant_id'], (int)$row['user_id'], $row);
+                    } else {
+                        self::syncMarketImageGenerationTask((int)$row['tenant_id'], (int)$row['user_id'], $row);
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::write('Short drama market usage refresh failed: ' . $e->getMessage());
+            }
+        }
+        return count($rows);
+    }
+
+    private static function persistMarketVideoTaskResult(int $tenantId, int $userId, string $taskId, array $result, array $videoParams): void
+    {
+        $generation = self::findGenerationTask($tenantId, $userId, $taskId); $row = $generation->toArray(); $status = (string)($result['status'] ?? self::STATUS_RUNNING);
+        if ($status === self::STATUS_FAILED) { self::failMarketVideoGenerationTask($tenantId, $userId, $row, new Exception('视频模型生成失败')); return; }
+        $taskNo = (string)($result['provider_task_id'] ?? ''); $requestNo = (string)($result['provider_request_id'] ?? ''); $videos = (array)($result['videos'] ?? []);
+        if ($videos === []) { $generation->save(['status' => self::STATUS_RUNNING, 'progress' => 45, 'provider' => 'power_market', 'provider_task_id' => $taskNo, 'provider_request_id' => $requestNo, 'result_json' => self::jsonEncode(['message' => '视频模型任务已提交，等待结果']), 'update_time' => time()]); return; }
+        $assetIds = self::registerVideoResultsAsAssets($tenantId, $userId, $row, $videos, 0, $videoParams);
+        if ($assetIds === []) throw new Exception('视频结果保存失败');
+        $pricing = self::jsonDecode((string)($row['pricing_snapshot'] ?? ''));
+        $consumption = (int)($row['consumption_id'] ?? 0) > 0 ? AiConsumptionLog::where('id', (int)$row['consumption_id'])->findOrEmpty() : null;
+        $billingStatus = !$consumption || $consumption->isEmpty()
+            ? (((float)($pricing['tenant_cost_points'] ?? 0) > 0 || (float)($pricing['user_charge_points'] ?? 0) > 0) ? 'deducted' : 'none')
+            : ((string)$consumption['billing_status'] === 'settled' ? 'deducted' : ((string)$consumption['billing_status'] === 'pending_usage' ? 'pending_usage' : (string)$consumption['billing_status']));
+        $generation->save(['status' => self::STATUS_SUCCESS, 'progress' => 100, 'provider' => 'power_market', 'provider_task_id' => $taskNo, 'provider_request_id' => $requestNo, 'result_json' => self::jsonEncode(['market_consumption_id' => (int)$row['consumption_id'], 'asset_ids' => $assetIds]), 'output_asset_ids' => self::jsonEncode($assetIds), 'billing_status' => $billingStatus, 'finished_at' => time(), 'update_time' => time()]);
+        self::selectGeneratedStoryboardAsset($tenantId, $userId, $row, $assetIds);
+        self::refreshProjectGenerationStatus($tenantId, $userId, (int)$row['project_id']);
+    }
+
+    private static function failMarketVideoGenerationTask(int $tenantId, int $userId, array $generation, \Throwable $e): void
+    {
+        if ($generation === []) return;
+        $status = 'refunded'; $consumptionId = (int)($generation['consumption_id'] ?? 0);
+        if ($consumptionId > 0) { $consumption = AiConsumptionLog::where('id', $consumptionId)->findOrEmpty(); if (!$consumption->isEmpty() && (string)$consumption['billing_status'] === 'settled') $status = 'deducted'; }
+        AigcShortDramaGenerationTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => (string)$generation['task_id']])->update(['status' => self::STATUS_FAILED, 'progress' => 0, 'billing_status' => $status, 'error_code' => 'video_generation_failed', 'error_msg' => self::friendlyGenerationError($e->getMessage()), 'operator_error' => mb_substr($e->getMessage() ?: self::SAFE_ERROR, 0, 1000, 'UTF-8'), 'finished_at' => time(), 'update_time' => time()]);
+        self::refreshProjectGenerationStatus($tenantId, $userId, (int)($generation['project_id'] ?? 0));
     }
 
     private static function registerVideoResultsAsAssets(int $tenantId, int $userId, array $generation, array $results, int $videoTaskId, array $videoParams = []): array
@@ -5164,6 +5491,8 @@ class AigcShortDramaService
         try {
             $plan = self::currentProjectPlanRaw($tenantId, $userId, $projectId);
             $music = self::bgmAudioRequest($tenantId, $params, $plan);
+            self::runMarketBgmAudioGenerationTask($tenantId, $userId, $generation, $params, $music, $billing);
+            return;
             AigcShortDramaGenerationTask::where([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
@@ -5178,56 +5507,6 @@ class AigcShortDramaService
                 'provider' => $music['provider'],
                 'update_time' => time(),
             ]);
-
-            if ((string)$music['audio_uri'] === '') {
-                $musicResult = self::submitBgmMusicGeneration($tenantId, $userId, $music, $params);
-                $musicTaskId = (int)($musicResult['task_id'] ?? 0);
-                if (($musicResult['status'] ?? '') === self::STATUS_FAILED) {
-                    throw new Exception((string)($musicResult['error'] ?? '背景音乐生成失败'));
-                }
-                $musicResults = (array)($musicResult['results'] ?? []);
-                AigcShortDramaGenerationTask::where([
-                    'tenant_id' => $tenantId,
-                    'user_id' => $userId,
-                    'task_id' => $taskId,
-                ])->update([
-                    'provider' => self::MUSIC_APP_CODE,
-                    'provider_task_id' => (string)$musicTaskId,
-                    'result_json' => self::jsonEncode([
-                        'music_task_id' => $musicTaskId,
-                        'provider_task_id' => (string)($musicResult['provider_task_id'] ?? ''),
-                        'message' => empty($musicResults) ? '背景音乐任务已提交，等待音乐应用返回结果' : '',
-                    ]),
-                    'update_time' => time(),
-                ]);
-                if (empty($musicResults)) {
-                    return;
-                }
-                $assetId = self::registerBgmMusicResultAsAsset($tenantId, $userId, $generation, $music, (array)$musicResults[0], $musicTaskId);
-                AigcShortDramaGenerationTask::where([
-                    'tenant_id' => $tenantId,
-                    'user_id' => $userId,
-                    'task_id' => $taskId,
-                ])->update([
-                    'status' => self::STATUS_SUCCESS,
-                    'progress' => 100,
-                    'provider' => self::MUSIC_APP_CODE,
-                    'provider_task_id' => (string)$musicTaskId,
-                    'result_json' => self::jsonEncode([
-                        'music_task_id' => $musicTaskId,
-                        'asset_ids' => [$assetId],
-                        'bgm_audio_asset_id' => $assetId,
-                        'music_prompt' => (string)$music['prompt'],
-                    ]),
-                    'output_asset_ids' => self::jsonEncode([$assetId]),
-                    'billing_status' => 'none',
-                    'finished_at' => time(),
-                    'update_time' => time(),
-                ]);
-                self::refreshProjectGenerationStatus($tenantId, $userId, $projectId);
-                return;
-                throw new Exception('未配置背景音乐生成模型，请先在后台配');
-            }
 
             $asset = AigcShortDramaAsset::create([
                 'tenant_id' => $tenantId,
@@ -5284,96 +5563,127 @@ class AigcShortDramaService
         }
     }
 
-    private static function estimateBgmAudioGenerationBilling(int $tenantId, array $params, array $plan): array
+    private static function estimateMarketBgmAudioGenerationBilling(int $tenantId, array $params, array $plan): array
     {
-        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
-        $musicPlan = is_array($params['music_plan'] ?? null)
-            ? (array)$params['music_plan']
-            : (is_array($nested['music_plan'] ?? null) ? (array)$nested['music_plan'] : (array)($plan['music_plan'] ?? []));
-        $prompt = trim((string)($params['music_prompt'] ?? $nested['music_prompt'] ?? $musicPlan['global_bgm_prompt'] ?? ''));
-        if ($prompt === '') {
-            $normalizedPlan = self::normalizeMusicPlan([], (array)($plan['storyboard'] ?? []), (array)($plan['duration_stats'] ?? []), (array)($plan['art_style'] ?? []), (string)($plan['story_outline'] ?? ''));
-            $prompt = (string)($normalizedPlan['global_bgm_prompt'] ?? '');
-        }
-        $duration = (float)($params['duration_seconds'] ?? $nested['duration_seconds'] ?? $musicPlan['duration_seconds'] ?? $plan['duration_stats']['estimated_total_seconds'] ?? 0);
-        $duration = max(15, min(600, $duration > 0 ? $duration : 60));
-        $config = self::publicConfig($tenantId);
-        $providerConfig = self::bgmProviderConfig($config);
-        $configuredAudio = trim((string)($params['audio_uri'] ?? $params['audio_url'] ?? $nested['audio_uri'] ?? $nested['audio_url'] ?? $providerConfig['audio_uri'] ?? $providerConfig['audio_url'] ?? $providerConfig['mock_audio_url'] ?? ''));
-        if ($configuredAudio !== '') {
-            return [
-                'billing_unit' => 'task',
-                'quantity' => 1,
-                'tenant_unit_points' => '0.0000',
-                'user_unit_points' => '0.0000',
-                'tenant_cost_points' => '0.00',
-                'user_charge_points' => '0.00',
-                'price_source' => 'configured_audio',
-            ];
-        }
-        $payload = [
-            'title' => trim((string)($musicPlan['music_title'] ?? $params['title'] ?? $nested['title'] ?? 'Short drama background music')),
-            'prompt' => $prompt,
-            'lyrics' => '',
-            'instrumental' => true,
-            'custom' => false,
-            'genre' => trim((string)($musicPlan['style'] ?? $params['genre'] ?? $nested['genre'] ?? '')),
-            'mood' => trim((string)($musicPlan['mood_curve'] ?? $params['mood'] ?? $nested['mood'] ?? '')),
-            'instruments' => implode(',', self::stringList($musicPlan['instruments'] ?? [])),
-            'duration' => (int)ceil($duration),
-        ];
-        foreach (['channel', 'quality'] as $key) {
-            $value = trim((string)($params['music_' . $key] ?? $nested['music_' . $key] ?? $params[$key] ?? $nested[$key] ?? ''));
-            if ($value !== '') {
-                $payload[$key] = $value;
-            }
-        }
-        $estimate = AigcMusicService::estimate($tenantId, $payload);
-        $quantity = max(1, (int)($estimate['quantity'] ?? 1));
-        return [
-            'billing_unit' => 'music_duration',
-            'quantity' => $quantity,
-            'tenant_unit_points' => self::formatUnitPrice((float)($estimate['platform_unit_cost'] ?? 0)),
-            'user_unit_points' => self::formatUnitPrice((float)($estimate['tenant_unit_price'] ?? 0)),
-            'tenant_cost_points' => self::formatBillingPoints((float)($estimate['tenant_cost_points'] ?? 0)),
-            'user_charge_points' => self::formatBillingPoints((float)($estimate['user_charge_points'] ?? 0)),
-            'channel' => (string)($estimate['channel'] ?? ''),
-            'quality' => (string)($estimate['quality'] ?? ''),
-            'duration' => (int)($estimate['duration'] ?? $duration),
-            'unit_seconds' => (int)($estimate['unit_seconds'] ?? 0),
-            'price_source' => self::MUSIC_APP_CODE,
-        ];
+        return MarketMusicAppRuntimeService::quote($tenantId, $params);
     }
 
-    private static function submitBgmMusicGeneration(int $tenantId, int $userId, array $music, array $params): array
+    private static function marketBgmPayload(array $music, array $params): array
     {
-        $dependency = self::dependencyItem($tenantId, self::MUSIC_APP_CODE, 'AI音乐生成', '用于短剧背景音乐生成');
-        if (empty($dependency['ready'])) {
-            throw new Exception((string)($dependency['message'] ?? '租户未开通 AI 音乐生成应用'));
-        }
         $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
         $musicPlan = is_array($params['music_plan'] ?? null)
             ? (array)$params['music_plan']
             : (is_array($nested['music_plan'] ?? null) ? (array)$nested['music_plan'] : []);
-        $duration = max(5, min(600, (int)ceil((float)($music['duration_seconds'] ?? $params['duration_seconds'] ?? $nested['duration_seconds'] ?? 60))));
-        $payload = [
+        return [
             'title' => trim((string)($musicPlan['music_title'] ?? $params['title'] ?? $nested['title'] ?? '短剧背景音乐')),
             'prompt' => (string)($music['prompt'] ?? ''),
-            'lyrics' => '',
-            'instrumental' => true,
-            'custom' => false,
             'genre' => trim((string)($musicPlan['style'] ?? $params['genre'] ?? $nested['genre'] ?? '')),
             'mood' => trim((string)($musicPlan['mood_curve'] ?? $params['mood'] ?? $nested['mood'] ?? '')),
             'instruments' => implode('、', self::stringList($musicPlan['instruments'] ?? [])),
-            'duration' => $duration,
+            'duration' => max(5, min(600, (int)ceil((float)($music['duration_seconds'] ?? 60)))),
         ];
-        foreach (['channel', 'quality'] as $key) {
-            $value = trim((string)($params['music_' . $key] ?? $nested['music_' . $key] ?? $params[$key] ?? $nested[$key] ?? ''));
-            if ($value !== '') {
-                $payload[$key] = $value;
+    }
+
+    private static function runMarketBgmAudioGenerationTask(int $tenantId, int $userId, array $generation, array $params, array $music, array $billing): void
+    {
+        $taskId = (string)$generation['task_id'];
+        try {
+            $payload = self::marketBgmPayload($music, $params);
+            AigcShortDramaGenerationTask::where([
+                'tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId,
+            ])->update([
+                'request_json' => self::jsonEncode([
+                    'params' => $params,
+                    'music_prompt' => $music['prompt'],
+                    'duration_seconds' => $music['duration_seconds'],
+                    'music_payload' => $payload,
+                ]),
+                'update_time' => time(),
+            ]);
+            $reserve = MarketMusicAppRuntimeService::reserve($tenantId, $userId, $taskId, $params, $payload);
+            AigcShortDramaGenerationTask::where([
+                'tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId,
+            ])->update([
+                'app_task_id' => (int)$reserve['app_task_id'], 'consumption_id' => (int)$reserve['consumption_id'],
+                'market_product_id' => (int)($reserve['market_snapshot']['product_id'] ?? 0), 'market_sku_id' => (int)($reserve['market_snapshot']['sku_id'] ?? 0),
+                'model_json' => self::jsonEncode($reserve['market_snapshot']), 'pricing_snapshot' => self::jsonEncode($billing),
+                'billing_status' => (string)($billing['settlement_mode'] ?? '') === 'actual_usage' ? 'pending_usage' : 'reserved', 'tenant_cost_points' => (float)($billing['tenant_cost_points'] ?? 0), 'user_charge_points' => (float)($billing['user_charge_points'] ?? 0),
+                'provider' => 'power_market', 'progress' => 35, 'update_time' => time(),
+            ]);
+            $business = self::findGenerationTask($tenantId, $userId, $taskId);
+            MarketMusicAppRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$business['id']);
+            $result = MarketMusicAppRuntimeService::submit((int)$reserve['consumption_id'], $payload);
+            self::persistMarketBgmAudioTaskResult($tenantId, $userId, $taskId, $result, $music);
+        } catch (\Throwable $e) {
+            $current = self::findGenerationTask($tenantId, $userId, $taskId)->toArray();
+            $consumptionId = (int)($current['consumption_id'] ?? 0);
+            if ($consumptionId > 0) {
+                MarketMusicAppRuntimeService::fail($consumptionId, $e->getMessage(), 'short_drama_bgm_failed');
             }
+            self::failMarketBgmAudioGenerationTask($tenantId, $userId, $current, $e);
         }
-        return AigcMusicService::generate($tenantId, $userId, $payload);
+    }
+
+    private static function syncMarketBgmAudioGenerationTask(int $tenantId, int $userId, array $generation): void
+    {
+        $consumptionId = (int)($generation['consumption_id'] ?? 0);
+        if ($consumptionId <= 0 || in_array((string)($generation['status'] ?? ''), [self::STATUS_FAILED, self::STATUS_CANCELED], true)
+            || ((string)($generation['status'] ?? '') === self::STATUS_SUCCESS && (string)($generation['billing_status'] ?? '') !== 'pending_usage')) {
+            return;
+        }
+        try {
+            $request = self::jsonDecode((string)($generation['request_json'] ?? ''));
+            $music = ['prompt' => (string)($request['music_prompt'] ?? ''), 'duration_seconds' => (float)($request['duration_seconds'] ?? 0)];
+            $result = MarketMusicAppRuntimeService::refresh($consumptionId);
+            self::persistMarketBgmAudioTaskResult($tenantId, $userId, (string)$generation['task_id'], $result, $music);
+        } catch (\Throwable $e) {
+            MarketMusicAppRuntimeService::fail($consumptionId, $e->getMessage(), 'short_drama_bgm_refresh_failed');
+            self::failMarketBgmAudioGenerationTask($tenantId, $userId, $generation, $e);
+        }
+    }
+
+    private static function persistMarketBgmAudioTaskResult(int $tenantId, int $userId, string $taskId, array $result, array $music): void
+    {
+        $generation = self::findGenerationTask($tenantId, $userId, $taskId);
+        $row = $generation->toArray();
+        if ((string)($result['status'] ?? '') === self::STATUS_FAILED) {
+            self::failMarketBgmAudioGenerationTask($tenantId, $userId, $row, new Exception('背景音乐生成失败'));
+            return;
+        }
+        $items = (array)($result['items'] ?? []);
+        if ($items === []) {
+            $generation->save(['status' => self::STATUS_RUNNING, 'progress' => 45, 'provider' => 'power_market', 'provider_task_id' => (string)($result['provider_task_id'] ?? ''), 'result_json' => self::jsonEncode(['message' => '背景音乐任务已提交，等待应用 API 返回结果']), 'update_time' => time()]);
+            return;
+        }
+        $item = (array)$items[0];
+        $item['provider_task_id'] = (string)($result['provider_task_id'] ?? '');
+        $assetId = self::registerBgmMusicResultAsAsset($tenantId, $userId, $row, $music, $item, 0);
+        $consumption = (int)($row['consumption_id'] ?? 0) > 0 ? AiConsumptionLog::where('id', (int)$row['consumption_id'])->findOrEmpty() : null;
+        $billingStatus = !$consumption || $consumption->isEmpty()
+            ? 'none'
+            : ((string)$consumption['billing_status'] === 'settled' ? 'deducted' : ((string)$consumption['billing_status'] === 'pending_usage' ? 'pending_usage' : (string)$consumption['billing_status']));
+        $generation->save([
+            'status' => self::STATUS_SUCCESS, 'progress' => 100, 'provider' => 'power_market', 'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
+            'result_json' => self::jsonEncode(['market_consumption_id' => (int)$row['consumption_id'], 'asset_ids' => [$assetId], 'bgm_audio_asset_id' => $assetId, 'music_prompt' => (string)($music['prompt'] ?? '')]),
+            'output_asset_ids' => self::jsonEncode([$assetId]), 'billing_status' => $billingStatus, 'finished_at' => time(), 'update_time' => time(),
+        ]);
+        self::refreshProjectGenerationStatus($tenantId, $userId, (int)$row['project_id']);
+    }
+
+    private static function failMarketBgmAudioGenerationTask(int $tenantId, int $userId, array $generation, \Throwable $e): void
+    {
+        if ($generation === []) return;
+        $billingStatus = 'refunded';
+        $consumptionId = (int)($generation['consumption_id'] ?? 0);
+        if ($consumptionId > 0) {
+            $consumption = AiConsumptionLog::where('id', $consumptionId)->findOrEmpty();
+            if (!$consumption->isEmpty() && (string)$consumption['billing_status'] === 'settled') $billingStatus = 'deducted';
+        }
+        AigcShortDramaGenerationTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => (string)$generation['task_id']])->update([
+            'status' => self::STATUS_FAILED, 'progress' => 0, 'billing_status' => $billingStatus, 'error_code' => 'market_bgm_failed',
+            'error_msg' => self::friendlyGenerationError($e->getMessage()), 'operator_error' => mb_substr($e->getMessage(), 0, 1000, 'UTF-8'), 'finished_at' => time(), 'update_time' => time(),
+        ]);
+        self::refreshProjectGenerationStatus($tenantId, $userId, (int)($generation['project_id'] ?? 0));
     }
 
     private static function syncBgmAudioGenerationTask(int $tenantId, int $userId, array $generation): void
@@ -5382,6 +5692,10 @@ class AigcShortDramaService
             return;
         }
         if (self::markGenerationSuccessFromExistingAssets($tenantId, $userId, $generation)) {
+            return;
+        }
+        if ((int)($generation['consumption_id'] ?? 0) > 0) {
+            self::syncMarketBgmAudioGenerationTask($tenantId, $userId, $generation);
             return;
         }
         $result = self::jsonDecode((string)($generation['result_json'] ?? ''));
@@ -5490,10 +5804,11 @@ class AigcShortDramaService
             'checksum' => '',
             'meta_json' => self::jsonEncode([
                 'prompt' => (string)($music['prompt'] ?? ''),
-                'provider' => self::MUSIC_APP_CODE,
+                'provider' => (int)($generation['consumption_id'] ?? 0) > 0 ? 'power_market' : self::MUSIC_APP_CODE,
                 'model' => (string)($result['model'] ?? ''),
-                'source' => self::MUSIC_APP_CODE,
+                'source' => (int)($generation['consumption_id'] ?? 0) > 0 ? 'power_market_app_api' : self::MUSIC_APP_CODE,
                 'music_task_id' => $musicTaskId,
+                'consumption_id' => (int)($generation['consumption_id'] ?? 0),
                 'music_result_id' => (int)($result['id'] ?? 0),
                 'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
             ]),
@@ -5517,22 +5832,20 @@ class AigcShortDramaService
         }
         $duration = (float)($params['duration_seconds'] ?? $nested['duration_seconds'] ?? $musicPlan['duration_seconds'] ?? $plan['duration_stats']['estimated_total_seconds'] ?? 0);
         $duration = max(15, min(600, $duration > 0 ? $duration : 60));
-        $config = self::publicConfig($tenantId);
-        $providerConfig = self::bgmProviderConfig($config);
-        $audioUrl = trim((string)($params['audio_uri'] ?? $params['audio_url'] ?? $nested['audio_uri'] ?? $nested['audio_url'] ?? $providerConfig['audio_uri'] ?? $providerConfig['audio_url'] ?? $providerConfig['mock_audio_url'] ?? ''));
+        $audioUrl = trim((string)($params['audio_uri'] ?? $params['audio_url'] ?? $nested['audio_uri'] ?? $nested['audio_url'] ?? ''));
         $audioMeta = $audioUrl === '' ? ['uri' => '', 'file_size' => 0] : self::persistBgmAudio($audioUrl);
         return [
             'prompt' => $prompt,
             'duration_seconds' => $duration,
-            'provider' => (string)($providerConfig['provider'] ?? $providerConfig['type'] ?? 'short_drama_bgm'),
-            'model' => (string)($providerConfig['model'] ?? $providerConfig['model_id'] ?? ''),
-            'source' => $audioUrl === '' ? 'missing_provider' : 'configured_audio',
+            'provider' => 'power_market',
+            'model' => '',
+            'source' => $audioUrl === '' ? 'power_market_app_api' : 'provided_audio',
             'audio_uri' => (string)$audioMeta['uri'],
-            'storage_scope' => (string)($providerConfig['storage_scope'] ?? 'tenant'),
+            'storage_scope' => 'tenant',
             'storage_engine' => 'local',
-            'storage_domain' => (string)(StorageConfigService::getEffectiveDomain($tenantId) ?: ($providerConfig['storage_domain'] ?? '')),
+            'storage_domain' => (string)StorageConfigService::getEffectiveDomain($tenantId),
             'mime_type' => self::audioMimeType((string)$audioMeta['uri']),
-            'file_size' => (int)($audioMeta['file_size'] ?? $providerConfig['file_size'] ?? 0),
+            'file_size' => (int)($audioMeta['file_size'] ?? 0),
         ];
     }
 
@@ -5581,16 +5894,6 @@ class AigcShortDramaService
             'uri' => 'uploads/aigc_short_drama/' . $date . '/' . $filename,
             'file_size' => filesize($target) ?: 0,
         ];
-    }
-
-    private static function bgmProviderConfig(array $config): array
-    {
-        foreach (['bgm_audio', 'music_provider', 'bgm_provider'] as $key) {
-            if (is_array($config[$key] ?? null)) {
-                return (array)$config[$key];
-            }
-        }
-        return [];
     }
 
     private static function audioMimeType(string $uri): string
@@ -10609,6 +10912,46 @@ class AigcShortDramaService
         ];
     }
 
+    private static function estimateImageGenerationBilling(int $tenantId, string $taskType, array $shot, array $config, array $params): array
+    {
+        if (self::isImageGenerationTask($taskType)) {
+            try {
+                if (self::isNanoBananaImageSelection($params)) {
+                    return MarketNanoBananaAppRuntimeService::quote($tenantId, $params, max(1, (int)($params['quantity'] ?? 1)));
+                }
+                return MarketImageModelRuntimeService::quote($tenantId, $params, max(1, (int)($params['quantity'] ?? 1)));
+            } catch (\Throwable $e) {
+                throw new Exception($e->getMessage());
+            }
+        }
+        return self::estimateGenerationBilling($taskType, $shot, $config, $params);
+    }
+
+    private static function isImageGenerationTask(string $taskType): bool
+    {
+        return in_array($taskType, ['subject_image', 'scene_image', 'three_view', 'shot_image'], true);
+    }
+
+    private static function isMarketImageSelection(array $params): bool
+    {
+        if (self::isNanoBananaImageSelection($params)) {
+            return true;
+        }
+        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
+        foreach (['market_sku_id', 'sku_id', 'image_model_id', 'model_id', 'channel', 'channel_code'] as $key) {
+            $value = (string)($params[$key] ?? $nested[$key] ?? '');
+            if (str_starts_with($value, 'market_sku:') || str_starts_with($value, 'market_image_model:') || ($key === 'market_sku_id' && (int)$value > 0)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function isNanoBananaImageSelection(array $params): bool
+    {
+        return MarketNanoBananaAppRuntimeService::isSelection($params);
+    }
+
     private static function generationModelBilling(string $taskType, array $shot, array $config, array $params): array
     {
         $groupKey = match ($taskType) {
@@ -10695,66 +11038,25 @@ class AigcShortDramaService
             }
         }
         if ($requested === '') {
-            return $params;
-        }
-
-        try {
-            $config = AigcImageChannelService::userConfig($tenantId);
-            $channels = (array)($config['channels'] ?? []);
-        } catch (\Throwable) {
-            throw new Exception('暂无可用生图模型，请先在后台配置');
-        }
-
-        $matched = [];
-        foreach ($channels as $channel) {
-            if (!is_array($channel)) {
-                continue;
-            }
-            $codes = array_filter([
-                (string)($channel['code'] ?? ''),
-                (string)($channel['name'] ?? ''),
-                (string)($channel['model'] ?? ''),
-            ]);
-            if (in_array($requested, $codes, true)) {
-                $matched = $channel;
-                break;
+            $options = array_merge(MarketImageModelRuntimeService::options($tenantId), MarketNanoBananaAppRuntimeService::options($tenantId));
+            $requested = (string)($options[0]['id'] ?? '');
+            if ($requested === '') {
+                throw new Exception('暂无租户已上架的图片模型规格');
             }
         }
-        if (empty($matched)) {
-            throw new Exception('当前生图模型不可用，请重新选择');
-        }
 
-        $code = (string)($matched['code'] ?? '');
-        if ($code === '') {
-            throw new Exception('当前生图模型不可用，请重新选择');
-        }
-        foreach (['model_id', 'image_model_id', 'channel', 'channel_code'] as $key) {
-            $params[$key] = $code;
-        }
-        if (is_array($params['params'] ?? null)) {
+        if (str_starts_with($requested, 'market_sku:') || str_starts_with($requested, 'market_image_model:') || str_starts_with($requested, 'market_nano_banana:')) {
             foreach (['model_id', 'image_model_id', 'channel', 'channel_code'] as $key) {
-                $params['params'][$key] = $code;
+                $params[$key] = $requested;
             }
-        }
-        $summary = self::channelPriceSummary($matched);
-        $params = self::normalizeShortDramaChannelQuality($params, $summary);
-        $ratioOptions = array_values(array_filter(array_map('strval', (array)($summary['ratio_options'] ?? []))));
-        $requestRatio = self::requestGenerationRatio($params);
-        if ($requestRatio !== '' && !empty($ratioOptions) && !in_array($requestRatio, $ratioOptions, true)) {
-            $fallbackRatio = (string)($summary['default_ratio'] ?? '');
-            if ($fallbackRatio === '' || !in_array($fallbackRatio, $ratioOptions, true)) {
-                $fallbackRatio = (string)$ratioOptions[0];
-            }
-            if ($fallbackRatio !== '') {
-                $params['ratio'] = $fallbackRatio;
-                $params['aspect_ratio'] = $fallbackRatio;
-                if (is_array($params['params'] ?? null)) {
-                    $params['params']['ratio'] = $fallbackRatio;
-                    $params['params']['aspect_ratio'] = $fallbackRatio;
+            if (is_array($params['params'] ?? null)) {
+                foreach (['model_id', 'image_model_id', 'channel', 'channel_code'] as $key) {
+                    $params['params'][$key] = $requested;
                 }
             }
+            return $params;
         }
-        return $params;
+        throw new Exception('短剧生图仅支持租户已上架的算力市场图片模型或 nano-banana 应用 API，请重新选择');
     }
 
     private static function normalizeShortDramaVideoChannelParams(int $tenantId, array $params): array
@@ -11013,11 +11315,88 @@ class AigcShortDramaService
     private static function dependencyModelGroups(int $tenantId): array
     {
         $textGroups = MarketTextModelRuntimeService::modelGroups($tenantId);
+        $imageGroup = MarketImageModelRuntimeService::modelGroup($tenantId);
+        $imageGroup['options'] = array_merge((array)($imageGroup['options'] ?? []), MarketNanoBananaAppRuntimeService::options($tenantId));
+        $imageGroup['default'] = (string)($imageGroup['options'][0]['id'] ?? '');
         return [
             $textGroups[0] ?? self::llmModelGroup($tenantId),
             $textGroups[1] ?? [],
-            self::channelModelGroup($tenantId, self::IMAGE_APP_CODE, 'image', 'image', '生图模型'),
-            self::channelModelGroup($tenantId, self::VIDEO_APP_CODE, 'video', 'video', '视频模型'),
+            $imageGroup,
+            self::marketVideoModelGroup($tenantId),
+        ];
+    }
+
+    private static function marketVideoModelGroup(int $tenantId): array
+    {
+        $models = MarketVideoModelRuntimeService::options($tenantId);
+        $apps = MarketVideoAppRuntimeService::options($tenantId);
+        $options = array_merge($models, $apps);
+        return [
+            'key' => 'video',
+            'label' => '视频模型',
+            'app_code' => 'power_market_video',
+            'type' => 'video',
+            'description' => '通过算力市场视频模型和应用 API 生成短剧分镜视频',
+            'options' => $options,
+            'default' => (string)($options[0]['id'] ?? ''),
+        ];
+    }
+
+    private static function estimateMarketVideoGenerationBilling(int $tenantId, array $params): array
+    {
+        $selection = self::marketVideoSelection($params);
+        return self::marketVideoRuntime($selection)::quote($tenantId, $selection + $params);
+    }
+
+    private static function marketVideoSelection(array $params): array
+    {
+        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
+        $selection = array_merge($nested, $params);
+        if (empty($selection['model_id']) && !empty($selection['video_model_id'])) $selection['model_id'] = $selection['video_model_id'];
+        if (empty($selection['resolution']) && !empty($selection['quality'])) $selection['resolution'] = $selection['quality'];
+        $value = (string)($selection['model_id'] ?? $selection['channel'] ?? '');
+        if (!str_starts_with($value, 'market_video_model:') && !str_starts_with($value, 'market_video_app:') && empty($selection['market_sku_id']) && empty($selection['market_product_id'])) {
+            throw new Exception('请选择算力市场视频模型');
+        }
+        return $selection;
+    }
+
+    private static function marketVideoRuntime(array $selection): string
+    {
+        $value = implode('|', array_map('strval', [$selection['resource_type'] ?? '', $selection['model_id'] ?? '', $selection['channel'] ?? '']));
+        return str_contains($value, 'app_api') || str_contains($value, 'market_video_app:') ? MarketVideoAppRuntimeService::class : MarketVideoModelRuntimeService::class;
+    }
+
+    /** Prepares request details without consulting the legacy video channel/spec tables. */
+    private static function prepareMarketShortDramaVideoParams(int $tenantId, array $params, array $shot): array
+    {
+        $selection = self::marketVideoSelection($params);
+        $requestedDuration = (int)($params['duration'] ?? $shot['recommended_duration_seconds'] ?? 5);
+        $runtime = self::marketVideoRuntime($selection);
+        $params['duration'] = max(1, min(60, $runtime::effectiveDuration($tenantId, $selection, $requestedDuration)));
+        $params['model_id'] = (string)($selection['model_id'] ?? $selection['channel'] ?? '');
+        $params['video_model_id'] = $params['model_id'];
+        $params['resolution'] = (string)($selection['resolution'] ?? $selection['quality'] ?? '');
+        $params['quality'] = $params['resolution'];
+        return $params;
+    }
+
+    private static function marketShortDramaVideoParams(int $tenantId, int $userId, int $projectId, array $shot, array $params): array
+    {
+        $params = self::prepareMarketShortDramaVideoParams($tenantId, $params, $shot);
+        $plan = self::currentProjectPlanRaw($tenantId, $userId, $projectId);
+        $projectRatio = (string)AigcShortDramaProject::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $projectId, 'delete_time' => 0])->value('ratio');
+        $ratio = self::normalizeGenerationRatio($projectRatio) ?: self::requestGenerationRatio($params) ?: '9:16';
+        $references = self::generationInputReferenceAssets($tenantId, $userId, $projectId, $params, $shot);
+        $prompt = self::normalizeFinalProviderPrompt(self::buildShotVideoPrompt($shot, array_merge($params, ['duration' => (int)$params['duration'], 'reference_assets' => (array)$references['reference_assets'], 'has_first_frame_image' => !empty($references['first_frame_image']), 'has_last_frame_image' => !empty($references['last_frame_image'])]), $plan));
+        return [
+            'prompt' => $prompt,
+            'negative_prompt' => self::shotVideoNegativePrompt($shot, self::isNoSubjectShot($shot)),
+            'model_id' => (string)$params['model_id'], 'video_model_id' => (string)$params['model_id'],
+            'market_product_id' => (int)($params['market_product_id'] ?? 0), 'market_sku_id' => (int)($params['market_sku_id'] ?? 0),
+            'resolution' => (string)$params['resolution'], 'quality' => (string)$params['resolution'], 'duration' => (int)$params['duration'],
+            'ratio' => $ratio, 'quantity' => 1, 'reference_assets' => (array)$references['reference_assets'],
+            'reference_images' => (array)$references['reference_images'], 'input_asset_ids' => (array)$references['input_asset_ids'],
         ];
     }
 

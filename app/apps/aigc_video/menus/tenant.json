@@ -30,7 +30,7 @@
       {
         "source_menu_key": "aigc_video_channel_price",
         "type": "C",
-        "name": "通道调价",
+        "name": "历史通道调价",
         "perms": "app.aigc_video.channel/lists",
         "paths": "channel-price",
         "component": "apps/aigc_video/channel-price"

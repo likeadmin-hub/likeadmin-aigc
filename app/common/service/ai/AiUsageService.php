@@ -472,7 +472,11 @@ class AiUsageService
         if ($appTask->isEmpty() || $consumption->isEmpty()) {
             return null;
         }
-        return compact('imageTask', 'appTask', 'consumption');
+        return [
+            'image_task' => $imageTask,
+            'app_task' => $appTask,
+            'consumption' => $consumption,
+        ];
     }
 
     private static function resolveImageMarket(int $tenantId, array $selection): array

@@ -226,6 +226,14 @@
       "need_role_permission": 0
     },
     {
+      "api_path": "app.aigc_video.task/refresh",
+      "api_method": "POST",
+      "permission_key": "aigc_video:task:refresh:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
       "api_path": "app.aigc_video.result/lists",
       "api_method": "GET",
       "permission_key": "aigc_video:result:lists",

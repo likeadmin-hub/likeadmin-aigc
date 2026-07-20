@@ -14,41 +14,21 @@ class SpecController extends BaseAdminController
 
     public function save()
     {
-        try {
-            AigcVideoChannelService::savePlatformSpec($this->request->post());
-            return $this->success('保存成功', [], 1, 1);
-        } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
-        }
+        return $this->fail('视频规格价格已转为历史只读，新任务价格以算力市场 SKU 为准');
     }
 
     public function batchSave()
     {
-        try {
-            AigcVideoChannelService::batchSavePlatformSpecs($this->request->post());
-            return $this->success('保存成功', [], 1, 1);
-        } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
-        }
+        return $this->fail('视频规格价格已转为历史只读，新任务价格以算力市场 SKU 为准');
     }
 
     public function delete()
     {
-        try {
-            AigcVideoChannelService::deletePlatform($this->request->post() + ['type' => 'spec']);
-            return $this->success('删除成功', [], 1, 1);
-        } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
-        }
+        return $this->fail('视频规格价格已转为历史只读');
     }
 
     public function status()
     {
-        try {
-            AigcVideoChannelService::statusPlatform($this->request->post() + ['type' => 'spec']);
-            return $this->success('设置成功', [], 1, 1);
-        } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
-        }
+        return $this->fail('视频规格价格已转为历史只读');
     }
 }

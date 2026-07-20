@@ -21,6 +21,12 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
     public function lists(): array
     {
         $query = PowerMarketProduct::where($this->searchWhere);
+        // A model removed from the upstream catalogue cannot be operated or
+        // sold. Keep its historical rows for consumption snapshots, but do
+        // not expose it as a marketplace card even when the UI selects all.
+        if ((string)$this->request->get('resource_type', '') === PowerMarketService::TYPE_MODEL) {
+            $query->where('status', 1);
+        }
         $keyword = trim((string)$this->request->get('keyword', ''));
         if ($keyword !== '') {
             $query->whereLike('name|product_code|upstream_model_code|upstream_channel_code|upstream_app_code|upstream_api_code', '%' . $keyword . '%');
@@ -58,6 +64,9 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
     public function count(): int
     {
         $query = PowerMarketProduct::where($this->searchWhere);
+        if ((string)$this->request->get('resource_type', '') === PowerMarketService::TYPE_MODEL) {
+            $query->where('status', 1);
+        }
         $keyword = trim((string)$this->request->get('keyword', ''));
         if ($keyword !== '') {
             $query->whereLike('name|product_code|upstream_model_code|upstream_channel_code|upstream_app_code|upstream_api_code', '%' . $keyword . '%');

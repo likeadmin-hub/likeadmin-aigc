@@ -63,19 +63,22 @@ class AigcImageAssetService
         file_put_contents($tmpPath, $content);
         $size = @getimagesize($tmpPath) ?: [];
         try {
-            $uri = self::uploadLocalFile($tmpPath, $tenantId, $userId);
+            $stored = self::uploadLocalFile($tmpPath, $tenantId, $userId);
         } finally {
             @unlink($tmpPath);
         }
         return [
-            'uri' => $uri,
+            'uri' => $stored['uri'],
             'width' => (int)($size[0] ?? 0),
             'height' => (int)($size[1] ?? 0),
             'stored' => true,
+            'storage_scope' => $stored['storage_scope'],
+            'storage_engine' => $stored['storage_engine'],
+            'storage_domain' => $stored['storage_domain'],
         ];
     }
 
-    private static function uploadLocalFile(string $filePath, int $tenantId, int $userId): string
+    private static function uploadLocalFile(string $filePath, int $tenantId, int $userId): array
     {
         $config = StorageConfigService::getEffectiveConfig($tenantId);
         $saveDir = 'uploads/aigc_image/' . date('Ymd');
@@ -85,19 +88,27 @@ class AigcImageAssetService
             throw new Exception($driver->getError() ?: '生成图片保存失败');
         }
         $uri = $saveDir . '/' . str_replace('\\', '/', $driver->getFileName());
+        $scope = (string)($config['scope'] ?? 'tenant');
+        $engine = (string)($config['default'] ?? 'local');
+        $domain = (string)StorageConfigService::getEffectiveDomain($tenantId);
         TenantFile::create([
             'cid' => 0,
             'type' => FileEnum::IMAGE_TYPE,
             'name' => basename($uri),
             'uri' => $uri,
-            'storage_scope' => $config['scope'] ?? 'tenant',
-            'storage_engine' => $config['default'] ?? 'local',
-            'storage_domain' => StorageConfigService::getEffectiveDomain($tenantId),
+            'storage_scope' => $scope,
+            'storage_engine' => $engine,
+            'storage_domain' => $domain,
             'source' => FileEnum::SOURCE_USER,
             'source_id' => $userId,
             'create_time' => time(),
         ]);
-        return $uri;
+        return [
+            'uri' => $uri,
+            'storage_scope' => $scope,
+            'storage_engine' => $engine,
+            'storage_domain' => $domain,
+        ];
     }
 
     private static function extensionFromUrl(string $url, string $content): string

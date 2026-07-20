@@ -9,7 +9,7 @@ class AigcVideoTask extends AppBaseModel
 {
     protected $name = 'aigc_video_task';
     protected $append = ['duration'];
-    protected $json = ['reference_images', 'reference_assets'];
+    protected $json = ['reference_images', 'reference_assets', 'model_json', 'pricing_snapshot'];
     protected $jsonAssoc = true;
 
     public function getDurationAttr($value, $data): int

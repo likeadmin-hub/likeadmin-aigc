@@ -1,7 +1,7 @@
 {
   "code": "aigc_short_drama",
   "name": "AI\u77ed\u5267",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "require_core": ">=1.0.0",
   "description": "Short drama script planning application with a PC immersive creation homepage and structured Agent planning workflow.",
   "changelog": "1. 短剧文本生成接入算力市场文本模型。\n2. 新增短剧文本生成消耗记录。",

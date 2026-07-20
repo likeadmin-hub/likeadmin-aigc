@@ -14,32 +14,16 @@ class ChannelController extends BaseAdminController
 
     public function save()
     {
-        try {
-            AigcVideoChannelService::savePlatform($this->request->post());
-            return $this->success('保存成功', [], 1, 1);
-        } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
-        }
+        return $this->fail('视频通道配置已转为历史只读，新任务请在算力市场管理模型、SKU、上下架和价格');
     }
 
     public function delete()
     {
-        try {
-            AigcVideoChannelService::deletePlatform($this->request->post());
-            return $this->success('删除成功', [], 1, 1);
-        } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
-        }
+        return $this->fail('视频通道配置已转为历史只读');
     }
 
     public function status()
     {
-        try {
-            AigcVideoChannelService::statusPlatform($this->request->post());
-            return $this->success('设置成功', [], 1, 1);
-        } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
-        }
+        return $this->fail('视频通道配置已转为历史只读');
     }
 }
-

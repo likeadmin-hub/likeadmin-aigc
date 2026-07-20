@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_config` (
 
 CREATE TABLE IF NOT EXISTS `la_aigc_video_task` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `app_task_id` int unsigned NOT NULL DEFAULT 0 COMMENT '统一应用任务ID',
+  `consumption_id` int unsigned NOT NULL DEFAULT 0 COMMENT '统一消耗日志ID',
+  `market_product_id` int unsigned NOT NULL DEFAULT 0 COMMENT '算力市场商品ID',
+  `market_sku_id` int unsigned NOT NULL DEFAULT 0 COMMENT '算力市场SKU ID',
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `user_id` int unsigned NOT NULL DEFAULT 0,
   `prompt` text,
@@ -34,6 +38,8 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_task` (
   `provider` varchar(50) NOT NULL DEFAULT '' COMMENT '供应商',
   `model` varchar(100) NOT NULL DEFAULT '' COMMENT '模型',
   `provider_task_id` varchar(120) NOT NULL DEFAULT '' COMMENT '供应商任务ID',
+  `model_json` text COMMENT '市场模型快照',
+  `pricing_snapshot` text COMMENT '市场价格快照',
   `status` varchar(30) NOT NULL DEFAULT 'pending',
   `error` text,
   `create_time` int unsigned NOT NULL DEFAULT 0,
@@ -41,7 +47,9 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_task` (
   `finish_time` int unsigned NOT NULL DEFAULT 0,
   `delete_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  KEY `idx_tenant_user` (`tenant_id`,`user_id`)
+  KEY `idx_tenant_user` (`tenant_id`,`user_id`),
+  KEY `idx_app_task` (`app_task_id`),
+  KEY `idx_consumption` (`consumption_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC视频任务';
 
 CREATE TABLE IF NOT EXISTS `la_aigc_video_result` (

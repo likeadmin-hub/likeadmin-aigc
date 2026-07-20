@@ -14,7 +14,7 @@
       {
         "source_menu_key": "aigc_video_platform_channel",
         "type": "C",
-        "name": "通道管理",
+        "name": "历史通道配置",
         "perms": "app.aigc_video.channel/lists",
         "paths": "channel",
         "component": "apps/aigc_video/channel"
@@ -22,7 +22,7 @@
       {
         "source_menu_key": "aigc_video_platform_spec",
         "type": "C",
-        "name": "规格价格",
+        "name": "历史规格价格",
         "perms": "app.aigc_video.spec/lists",
         "paths": "spec",
         "component": "apps/aigc_video/spec"

@@ -281,6 +281,10 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_asset` (
 
 CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_generation_task` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `app_task_id` int unsigned NOT NULL DEFAULT 0 COMMENT '统一应用任务ID',
+  `consumption_id` int unsigned NOT NULL DEFAULT 0 COMMENT '统一消耗日志ID',
+  `market_product_id` int unsigned NOT NULL DEFAULT 0 COMMENT '算力市场商品ID',
+  `market_sku_id` int unsigned NOT NULL DEFAULT 0 COMMENT '算力市场SKU ID',
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `user_id` int unsigned NOT NULL DEFAULT 0,
   `project_id` int unsigned NOT NULL DEFAULT 0,
@@ -317,6 +321,8 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_generation_task` (
   `delete_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_task_id` (`tenant_id`,`task_id`),
+  KEY `idx_app_task` (`app_task_id`),
+  KEY `idx_consumption` (`consumption_id`),
   KEY `idx_project_type` (`tenant_id`,`project_id`,`task_type`,`status`),
   KEY `idx_shot` (`tenant_id`,`project_id`,`shot_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧生成任务';

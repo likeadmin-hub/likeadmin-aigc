@@ -21,4 +21,14 @@ class TaskController extends BaseApiController
             return $this->fail($e->getMessage());
         }
     }
+
+    public function refresh()
+    {
+        try {
+            $id = (int)$this->request->post('id', 0);
+            return $this->success('刷新成功', AigcVideoService::refreshMarketTask((int)$this->request->tenantId, $id, $this->userId));
+        } catch (\Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
 }

@@ -14,36 +14,16 @@ class ChannelController extends BaseAdminController
 
     public function save()
     {
-        try {
-            AigcVideoChannelService::saveTenant($this->tenantId, $this->request->post());
-            return $this->success('保存成功', [], 1, 1);
-        } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
-        }
+        return $this->fail('视频通道价格已转为历史只读，请在租户算力市场配置 SKU 销售价和上下架');
     }
 
     public function batchSave()
     {
-        try {
-            AigcVideoChannelService::batchSaveTenantSpecs($this->tenantId, $this->request->post());
-            return $this->success('保存成功', [], 1, 1);
-        } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
-        }
+        return $this->fail('视频通道价格已转为历史只读，请在租户算力市场配置 SKU 销售价和上下架');
     }
 
     public function status()
     {
-        try {
-            $params = $this->request->post();
-            if (($params['type'] ?? '') === 'spec') {
-                AigcVideoChannelService::saveTenantSpec($this->tenantId, $params);
-            } else {
-                AigcVideoChannelService::saveTenant($this->tenantId, $params);
-            }
-            return $this->success('设置成功', [], 1, 1);
-        } catch (\Exception $e) {
-            return $this->fail($e->getMessage());
-        }
+        return $this->fail('视频通道价格已转为历史只读，请在租户算力市场配置 SKU 销售价和上下架');
     }
 }

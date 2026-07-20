@@ -13,6 +13,8 @@ use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
 use app\common\service\storage\StorageConfigService;
+use app\common\service\power\MarketVideoAppRuntimeService;
+use app\common\service\power\MarketVideoModelRuntimeService;
 use Exception;
 use think\facade\Db;
 
@@ -31,17 +33,17 @@ class AigcVideoService
                 'model' => 'mock-video',
                 'status' => 1,
                 'config_json' => [],
-                'option_config' => AigcVideoChannelService::userConfig($tenantId),
+                'option_config' => self::marketOptionConfig($tenantId),
             ]);
         }
         $data = $config->toArray();
-        $data['option_config'] = AigcVideoChannelService::userConfig($tenantId);
+        $data['option_config'] = self::marketOptionConfig($tenantId);
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
     }
 
     public static function estimate(int $tenantId, array $params): array
     {
-        return AigcVideoChannelService::estimate($tenantId, $params);
+        return self::marketQuote($tenantId, $params);
     }
 
     public static function saveConfig(int $tenantId, array $params): void
@@ -68,12 +70,199 @@ class AigcVideoService
 
     public static function generate(int $tenantId, int $userId, array $params): array
     {
-        return self::generateInternal($tenantId, $userId, $params);
+        return self::generateMarket($tenantId, $userId, $params);
     }
 
     public static function generateWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride): array
     {
         return self::generateInternal($tenantId, $userId, $params, $billingOverride);
+    }
+
+    /**
+     * All new standalone video tasks use the power-market runtime. The legacy
+     * generateInternal path remains only for historical diagnostics and old
+     * task completion, never for a new public submission.
+     */
+    public static function generateMarket(int $tenantId, int $userId, array $params): array
+    {
+        $params = self::sanitizeUtf8Payload($params);
+        $prompt = trim((string)($params['prompt'] ?? ''));
+        if ($prompt === '') {
+            throw new Exception('请输入提示词');
+        }
+        self::checkSensitiveWords($tenantId, $prompt);
+        $referenceAssets = AigcVideoReferenceAssetService::normalize($params);
+        $params['reference_assets'] = $referenceAssets;
+        $params['reference_images'] = AigcVideoReferenceAssetService::images($referenceAssets);
+        $selection = self::marketSelection($params);
+        $quote = self::marketQuote($tenantId, $selection + $params);
+        $duplicate = self::findRecentMarketDuplicateTask($tenantId, $userId, $prompt, $selection, $params);
+        if ($duplicate !== null) {
+            return self::marketDuplicateResponse($duplicate, $tenantId, $userId);
+        }
+        self::checkQuota($tenantId, $userId, 1);
+        $now = time();
+        $task = AigcVideoTask::create([
+            'tenant_id' => $tenantId, 'user_id' => $userId, 'prompt' => $prompt,
+            'negative_prompt' => (string)($params['negative_prompt'] ?? ''), 'reference_images' => $params['reference_images'], 'reference_assets' => $referenceAssets,
+            'style' => (string)($params['style'] ?? 'general'),
+            'channel' => (string)($selection['model_id'] ?? $selection['channel'] ?? ''),
+            'quality' => (string)($selection['resolution'] ?? $selection['quality'] ?? ''), 'ratio' => (string)($params['ratio'] ?? ''),
+            'duration' => max(1, (int)($params['duration'] ?? 0)), 'quantity' => 1,
+            'tenant_cost_points' => (float)$quote['tenant_cost_points'], 'user_charge_points' => (float)$quote['user_charge_points'],
+            'provider' => 'power_market', 'model' => (string)($selection['model_id'] ?? ''), 'provider_task_id' => '',
+            'status' => 'running', 'error' => '', 'app_task_id' => 0, 'consumption_id' => 0,
+            'market_product_id' => (int)$quote['market_product_id'], 'market_sku_id' => (int)$quote['market_sku_id'],
+            'model_json' => $selection, 'pricing_snapshot' => (array)$quote['market_snapshot'],
+            'create_time' => $now, 'update_time' => $now, 'finish_time' => 0, 'delete_time' => 0,
+        ]);
+        try {
+            $runtime = self::marketRuntime($selection);
+            $reserve = $runtime::reserve($tenantId, $userId, self::APP_CODE, 'video_generate', 'aigc_video_task', (string)$task['id'], $selection, $params);
+            $task->save([
+                'app_task_id' => (int)$reserve['app_task_id'], 'consumption_id' => (int)$reserve['consumption_id'],
+                'market_product_id' => (int)($reserve['market_snapshot']['product_id'] ?? 0), 'market_sku_id' => (int)($reserve['market_snapshot']['sku_id'] ?? 0),
+                'model_json' => $selection, 'pricing_snapshot' => (array)$reserve['market_snapshot'], 'update_time' => time(),
+            ]);
+            $runtime::linkBusinessTask((int)$reserve['app_task_id'], (int)$task['id']);
+            $result = $runtime::submit((int)$reserve['consumption_id'], $params);
+            return self::applyMarketVideoResult($task, $result, $selection);
+        } catch (\Throwable $e) {
+            $current = AigcVideoTask::findOrEmpty((int)$task['id']);
+            if (!$current->isEmpty() && (int)$current['consumption_id'] > 0) {
+                try { self::marketRuntime($selection)::fail((int)$current['consumption_id'], $e->getMessage(), 'submit_failed'); } catch (\Throwable) {}
+            }
+            $task->save(['status' => 'failed', 'error' => self::friendlyRefreshError($e->getMessage()), 'finish_time' => time(), 'update_time' => time()]);
+            throw $e instanceof Exception ? $e : new Exception('视频生成失败');
+        }
+    }
+
+    /** Explicit worker/manual refresh hook. It is intentionally not called by list/detail reads. */
+    public static function refreshMarketTask(int $tenantId, int $taskId, int $userId = 0): array
+    {
+        $query = AigcVideoTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
+        if ($userId > 0) $query->where('user_id', $userId);
+        $task = $query->findOrEmpty();
+        if ($task->isEmpty()) throw new Exception('任务不存在');
+        if ((int)$task['consumption_id'] <= 0 || (string)$task['provider'] !== 'power_market') return self::taskDetail($tenantId, $taskId, $userId);
+        $result = self::marketRuntime((array)($task['model_json'] ?: []))::refresh((int)$task['consumption_id']);
+        self::applyMarketVideoResult($task, $result, (array)($task['model_json'] ?: []));
+        return self::taskDetail($tenantId, $taskId, $userId);
+    }
+
+    private static function applyMarketVideoResult(AigcVideoTask $task, array $result, array $selection): array
+    {
+        $status = (string)($result['status'] ?? 'running');
+        $task->save(['provider_task_id' => (string)($result['provider_task_id'] ?? $task['provider_task_id']), 'update_time' => time()]);
+        if ($status === 'failed') {
+            $task->save(['status' => 'failed', 'error' => (string)($result['error'] ?? '视频生成失败'), 'finish_time' => time(), 'update_time' => time()]);
+            return ['task_id' => (int)$task['id'], 'status' => 'failed', 'results' => []];
+        }
+        $videos = (array)($result['videos'] ?? []);
+        if ($videos === []) return ['task_id' => (int)$task['id'], 'status' => 'running', 'results' => []];
+        $rows = self::finishMarketTaskWithVideos($task, $videos, $selection);
+        return ['task_id' => (int)$task['id'], 'status' => 'success', 'results' => $rows];
+    }
+
+    private static function finishMarketTaskWithVideos(AigcVideoTask $task, array $videos, array $selection): array
+    {
+        $rows = [];
+        Db::transaction(function () use ($task, $videos, &$rows) {
+            $locked = AigcVideoTask::where('id', (int)$task['id'])->lock(true)->findOrEmpty();
+            if ($locked->isEmpty()) throw new Exception('视频任务不存在');
+            $existing = self::existingResultRows((int)$locked['tenant_id'], (int)$locked['user_id'], (int)$locked['id']);
+            if ($existing !== []) { $rows = $existing; return; }
+            $storage = StorageConfigService::getEffectiveConfig((int)$locked['tenant_id']);
+            foreach ($videos as $video) {
+                if (!is_array($video) || empty($video['video_uri'])) continue;
+                $row = AigcVideoResult::create([
+                    'tenant_id' => (int)$locked['tenant_id'], 'task_id' => (int)$locked['id'], 'user_id' => (int)$locked['user_id'],
+                    'channel' => (string)$locked['channel'], 'quality' => (string)$locked['quality'], 'ratio' => (string)$locked['ratio'],
+                    'video_uri' => (string)$video['video_uri'], 'storage_scope' => (string)($video['storage_scope'] ?? $storage['scope']), 'storage_engine' => (string)($video['storage_engine'] ?? $storage['default']), 'storage_domain' => (string)($video['storage_domain'] ?? StorageConfigService::getEffectiveDomain((int)$locked['tenant_id'])),
+                    'width' => (int)($video['width'] ?? 0), 'height' => (int)($video['height'] ?? 0),
+                    'tenant_cost_points' => (float)$locked['tenant_cost_points'], 'user_charge_points' => (float)$locked['user_charge_points'], 'provider_task_id' => (string)$locked['provider_task_id'], 'create_time' => time(), 'delete_time' => 0,
+                ]);
+                $item = $row->toArray(); $item['video_url'] = FileService::getFileUrlByStorage($item['video_uri'], $item['storage_scope'], $item['storage_engine'], $item['storage_domain']); $rows[] = $item;
+            }
+            if ($rows === []) throw new Exception('上游未返回可保存的视频');
+            $locked->save(['status' => 'success', 'error' => '', 'finish_time' => time(), 'update_time' => time()]);
+            self::consumeQuota((int)$locked['tenant_id'], (int)$locked['user_id'], count($rows));
+        });
+        return $rows;
+    }
+
+    private static function marketOptionConfig(int $tenantId): array
+    {
+        $models = MarketVideoModelRuntimeService::options($tenantId);
+        $apps = MarketVideoAppRuntimeService::options($tenantId);
+        return ['market_mode' => true, 'models' => $models, 'applications' => $apps, 'channels' => array_merge($models, $apps), 'defaults' => ['channel' => (string)(($models[0] ?? $apps[0] ?? [])['id'] ?? '')], 'quantity_options' => [1]];
+    }
+
+    private static function marketQuote(int $tenantId, array $params): array
+    {
+        $runtime = self::marketRuntime(self::marketSelection($params));
+        return $runtime::quote($tenantId, self::marketSelection($params));
+    }
+
+    private static function marketSelection(array $params): array
+    {
+        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
+        $selection = array_merge($nested, $params);
+        if (empty($selection['model_id']) && !empty($selection['channel'])) $selection['model_id'] = $selection['channel'];
+        if (empty($selection['resolution']) && !empty($selection['quality'])) $selection['resolution'] = $selection['quality'];
+        $value = (string)($selection['model_id'] ?? $selection['video_model_id'] ?? $selection['channel'] ?? '');
+        if (!str_starts_with($value, 'market_video_model:') && !str_starts_with($value, 'market_video_app:') && empty($selection['market_sku_id']) && empty($selection['market_product_id'])) {
+            throw new Exception('请选择算力市场视频模型');
+        }
+        return $selection;
+    }
+
+    private static function marketRuntime(array $selection): string
+    {
+        $value = implode('|', array_map('strval', [$selection['resource_type'] ?? '', $selection['model_id'] ?? '', $selection['channel'] ?? '']));
+        return str_contains($value, 'app_api') || str_contains($value, 'market_video_app:') ? MarketVideoAppRuntimeService::class : MarketVideoModelRuntimeService::class;
+    }
+
+    private static function findRecentMarketDuplicateTask(int $tenantId, int $userId, string $prompt, array $selection, array $params): ?AigcVideoTask
+    {
+        $skuId = (int)($selection['market_sku_id'] ?? 0);
+        if ($skuId <= 0) {
+            return null;
+        }
+        $rows = AigcVideoTask::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'prompt' => $prompt,
+            'market_sku_id' => $skuId,
+            'delete_time' => 0,
+        ])->where('create_time', '>=', time() - self::DUPLICATE_WINDOW_SECONDS)
+            ->order('id', 'desc')->limit(3)->select();
+        $signature = self::referenceAssetSignature((array)$params['reference_assets'], (array)$params['reference_images']);
+        foreach ($rows as $row) {
+            if (in_array((string)$row['status'], ['failed', 'canceled'], true)) {
+                continue;
+            }
+            if ((string)$row['ratio'] !== (string)($params['ratio'] ?? '') || (int)$row['duration'] !== (int)($params['duration'] ?? 0)) {
+                continue;
+            }
+            if (self::referenceAssetSignature((array)($row['reference_assets'] ?: []), (array)($row['reference_images'] ?: [])) === $signature) {
+                return $row;
+            }
+        }
+        return null;
+    }
+
+    private static function marketDuplicateResponse(AigcVideoTask $task, int $tenantId, int $userId): array
+    {
+        $status = (string)($task['status'] ?: 'running');
+        $response = ['task_id' => (int)$task['id'], 'status' => $status, 'results' => []];
+        if ($status === 'success') {
+            $response['results'] = self::existingResultRows($tenantId, $userId, (int)$task['id']);
+        }
+        if ($status === 'failed') {
+            $response['error'] = (string)$task['error'];
+        }
+        return $response;
     }
 
     private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = []): array
@@ -267,7 +456,6 @@ class AigcVideoService
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
-        self::safeRefreshRunningTasks($tenantId, $userId);
         $query = AigcVideoTask::alias('t')
             ->leftJoin('user u', 'u.id = t.user_id AND u.tenant_id = t.tenant_id')
             ->field('t.*,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
@@ -354,7 +542,6 @@ class AigcVideoService
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
     {
-        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcVideoTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -384,7 +571,10 @@ class AigcVideoService
             'reference_images' => $task['reference_images'] ?: [],
             'reference_assets' => $task['reference_assets'] ?: [],
             'style' => $task['style'],
-            'channel' => $task['channel'],
+            'model_id' => (string)($task['model_json']['model_id'] ?? $task['channel']),
+            'market_product_id' => (int)($task['market_product_id'] ?? 0),
+            'market_sku_id' => (int)($task['market_sku_id'] ?? 0),
+            'resource_type' => (string)($task['model_json']['resource_type'] ?? ''),
             'quality' => $task['quality'],
             'ratio' => $task['ratio'],
             'duration' => (int)($task['duration'] ?? 0),
@@ -412,7 +602,6 @@ class AigcVideoService
 
     public static function resultLists(int $tenantId, int $userId = 0, int $taskId = 0, string $status = ''): array
     {
-        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcVideoTask::where('tenant_id', $tenantId)->where('delete_time', 0)->order('id', 'desc');
         if ($userId > 0) {
             $query->where('user_id', $userId);

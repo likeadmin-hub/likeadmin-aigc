@@ -79,8 +79,9 @@ class MarketTextModelRuntimeService
             'model_code' => $model['model_code'],
             'generation_params' => $generationParams + ['max_tokens' => $maxTokens],
         ];
-        $estimatedInput = self::estimateTokens($content . "\n" . (string)($params['system_prompt'] ?? ''));
-        $reserve = self::quote($model, $estimatedInput, $maxTokens);
+        // Token SKU amounts must come from the upstream usage record. Showing a
+        // locally guessed total or reserving max_tokens makes the price wrong.
+        $reserve = self::quote($model, 0, 0);
         $context = self::createConsumption($tenantId, $userId, $model, $action, $requestSummary, $reserve, (int)($params['parent_app_task_id'] ?? 0));
         if ($onEvent) {
             $onEvent('app_task', [
@@ -93,7 +94,10 @@ class MarketTextModelRuntimeService
         try {
             self::event((int)$context['consumption']['id'], 'submit', 'running', ['model_code' => $model['model_code']]);
             $result = self::request($model, $content, (string)($params['system_prompt'] ?? ''), $referenceImages, $maxTokens, $generationParams, $onEvent);
-            $usage = self::normalizeUsage((array)($result['usage'] ?? []), $content, (string)($result['content'] ?? ''));
+            $usage = self::normalizeUsage((array)($result['usage'] ?? []));
+            if (self::canSettleUsage($model, $usage) && (int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0) {
+                $usage['prompt_tokens'] = (int)$usage['total_tokens'];
+            }
             $actual = self::quote($model, (int)$usage['prompt_tokens'], (int)$usage['completion_tokens']);
             self::settle($context, $actual, $usage, $result, (int)round((microtime(true) - $started) * 1000));
             return $result + [
@@ -102,7 +106,7 @@ class MarketTextModelRuntimeService
                 'provider' => 'power_market',
                 'app_task_id' => (int)$context['appTask']['id'],
                 'consumption_id' => (int)$context['consumption']['id'],
-                'billing' => ['billing_status' => 'settled'] + $actual,
+                'billing' => ['billing_status' => (self::canSettleUsage($model, $usage) ? 'settled' : 'pending_usage')] + $actual,
                 'usage' => $usage,
             ];
         } catch (\Throwable $e) {
@@ -187,51 +191,27 @@ class MarketTextModelRuntimeService
             $userTotal = 0.0;
             $settledAny = false;
             foreach (AiConsumptionLog::where('app_task_id', $appTaskId)->lock(true)->select() as $consumption) {
-                if ((string)$consumption['billing_status'] !== 'reserved') {
+                if (!in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage'], true)) {
                     continue;
                 }
-                $summary = (array)($consumption['request_summary'] ?? []);
-                $prices = (array)($consumption['price_snapshot'] ?? []);
-                $inputTokens = self::estimateTokens(str_repeat('x', max(1, (int)($summary['content_length'] ?? 0) + (int)($summary['system_prompt_length'] ?? 0))));
                 $usage = [
-                    'prompt_tokens' => $inputTokens,
-                    'completion_tokens' => self::estimateTokens($content),
-                    'total_tokens' => $inputTokens + self::estimateTokens($content),
-                    'estimated' => true,
+                    'prompt_tokens' => 0,
+                    'completion_tokens' => 0,
+                    'total_tokens' => 0,
+                    'settlement_basis' => 'awaiting_actual_usage',
                 ];
-                $actual = self::quote([
-                    'input' => (array)($prices['input'] ?? []),
-                    'output' => (array)($prices['output'] ?? []),
-                ], $usage['prompt_tokens'], $usage['completion_tokens']);
-                PointService::settleReservedBusinessAmountsInCurrentTransaction(
-                    (int)$consumption['tenant_id'],
-                    (int)$consumption['user_id'],
-                    (float)$consumption['reserved_tenant_cost'],
-                    (float)$consumption['reserved_user_price'],
-                    (float)$actual['tenant_cost_points'],
-                    (float)$actual['user_charge_points'],
-                    (string)$consumption['consume_no'],
-                    '短剧文本模型流恢复结算',
-                    self::extra($task, $consumption, 'settled')
-                );
                 $now = time();
                 $consumption->save([
                     'upstream_request_id' => $providerRequestId ?: (string)$consumption['upstream_request_id'],
                     'run_status' => 'success',
-                    'billing_status' => 'settled',
+                    'billing_status' => 'pending_usage',
                     'usage_snapshot' => $usage,
                     'response_summary' => ['output_length' => mb_strlen($content, 'UTF-8'), 'recovered_from_stream' => true],
-                    'actual_tenant_cost' => $actual['tenant_cost_points'],
-                    'actual_user_price' => $actual['user_charge_points'],
-                    'tenant_point_sn' => (string)$consumption['consume_no'],
-                    'user_point_sn' => (string)$consumption['consume_no'],
                     'finish_time' => $now,
                     'update_time' => $now,
                 ]);
-                $tenantTotal += (float)$actual['tenant_cost_points'];
-                $userTotal += (float)$actual['user_charge_points'];
                 $settledAny = true;
-                self::event((int)$consumption['id'], 'settle_recovered', 'success', $usage);
+                self::event((int)$consumption['id'], 'await_usage', 'pending', $usage);
             }
             if (!$settledAny) {
                 return;
@@ -295,6 +275,12 @@ class MarketTextModelRuntimeService
                 'supports_vision' => self::supportsVision($snapshot),
                 'input' => $prices['input'],
                 'output' => $prices['output'],
+                'billing_unit' => 'token',
+                'billing_unit_size' => max(
+                    MarketUsageSettlementService::unitSize($prices['input']),
+                    MarketUsageSettlementService::unitSize($prices['output'])
+                ),
+                'settlement_mode' => 'actual_usage',
                 'platform_unit_cost' => $prices['input']['platform_price'],
                 'tenant_unit_price' => $prices['input']['tenant_price'],
                 'platform_input_unit_cost' => $prices['input']['platform_price'],
@@ -319,7 +305,7 @@ class MarketTextModelRuntimeService
                 continue;
             }
             $valid[] = [
-                'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'usage_unit' => (string)$sku['usage_unit'],
+                'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku),
                 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'],
                 'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points'],
             ];
@@ -347,8 +333,8 @@ class MarketTextModelRuntimeService
     {
         $input = (array)$model['input']; $output = (array)$model['output'];
         return [
-            'tenant_cost_points' => self::points($inputTokens * (float)$input['platform_price'] / 1000000 + $outputTokens * (float)$output['platform_price'] / 1000000),
-            'user_charge_points' => self::points($inputTokens * (float)$input['tenant_price'] / 1000000 + $outputTokens * (float)$output['tenant_price'] / 1000000),
+            'tenant_cost_points' => self::points($inputTokens * (float)$input['platform_price'] / MarketUsageSettlementService::unitSize($input) + $outputTokens * (float)$output['platform_price'] / MarketUsageSettlementService::unitSize($output)),
+            'user_charge_points' => self::points($inputTokens * (float)$input['tenant_price'] / MarketUsageSettlementService::unitSize($input) + $outputTokens * (float)$output['tenant_price'] / MarketUsageSettlementService::unitSize($output)),
             'prompt_tokens' => $inputTokens, 'completion_tokens' => $outputTokens,
         ];
     }
@@ -372,15 +358,14 @@ class MarketTextModelRuntimeService
                 'app_code' => 'aigc_short_drama', 'action_code' => $action, 'resource_type' => 'model', 'product_id' => (int)$model['product_id'],
                 'sku_id' => (int)$model['input']['sku_id'], 'model_code' => (string)$model['model_code'], 'api_code' => (string)$model['channel_code'],
                 'protocol' => (string)$model['protocol'], 'provider' => 'power_market', 'upstream_request_id' => '', 'upstream_task_id' => '',
-                'quantity' => 1, 'usage_unit' => 'tokens_1m', 'usage_snapshot' => [],
-                'price_snapshot' => ['input' => $model['input'], 'output' => $model['output'], 'model_code' => $model['model_code']],
-                'request_summary' => $summary, 'response_summary' => [], 'run_status' => 'submitting', 'billing_status' => 'reserved',
-                'reserved_tenant_cost' => $reserve['tenant_cost_points'], 'reserved_user_price' => $reserve['user_charge_points'],
+                'quantity' => 0, 'usage_unit' => 'token', 'usage_snapshot' => ['settlement_basis' => 'awaiting_actual_usage'],
+                'price_snapshot' => ['input' => $model['input'], 'output' => $model['output'], 'model_code' => $model['model_code'], 'usage_unit' => 'token', 'usage_unit_size' => (float)$model['billing_unit_size']],
+                'request_summary' => $summary, 'response_summary' => [], 'run_status' => 'submitting', 'billing_status' => 'pending_usage',
+                'reserved_tenant_cost' => 0, 'reserved_user_price' => 0,
                 'actual_tenant_cost' => 0, 'actual_user_price' => 0, 'tenant_point_sn' => $consumeNo . '-reserve', 'user_point_sn' => $consumeNo . '-reserve',
                 'error_code' => '', 'error_message' => '', 'refresh_requested_at' => 0, 'create_time' => $now, 'update_time' => $now, 'finish_time' => 0,
             ]);
-            PointService::reserveBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$reserve['tenant_cost_points'], (float)$reserve['user_charge_points'], $consumeNo . '-reserve', '短剧文本模型预占', self::extra($appTask, $consumption, 'reserved'));
-            self::event((int)$consumption['id'], 'reserve', 'success', $reserve);
+            self::event((int)$consumption['id'], 'reserve', 'success', $reserve + ['settlement_mode' => 'actual_usage']);
             return compact('appTask', 'consumption');
         });
     }
@@ -390,10 +375,14 @@ class MarketTextModelRuntimeService
         Db::transaction(function () use ($context, $actual, $usage, $result, $elapsed) {
             $c = AiConsumptionLog::lock(true)->findOrEmpty((int)$context['consumption']['id']); if ($c->isEmpty() || $c['billing_status'] === 'settled') return;
             $task = AiAppTask::lock(true)->findOrEmpty((int)$c['app_task_id']); $now = time();
-            PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points'], (string)$c['consume_no'], '短剧文本模型结算', self::extra($task, $c, 'settled'));
-            $c->save(['upstream_request_id' => (string)($result['provider_request_id'] ?? ''), 'run_status' => 'success', 'billing_status' => 'settled', 'usage_snapshot' => $usage, 'response_summary' => ['output_length' => mb_strlen((string)($result['content'] ?? ''), 'UTF-8')], 'actual_tenant_cost' => $actual['tenant_cost_points'], 'actual_user_price' => $actual['user_charge_points'], 'tenant_point_sn' => (string)$c['consume_no'], 'user_point_sn' => (string)$c['consume_no'], 'finish_time' => $now, 'update_time' => $now]);
-            $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => (float)$task['actual_tenant_cost'] + (float)$actual['tenant_cost_points'], 'actual_user_price' => (float)$task['actual_user_price'] + (float)$actual['user_charge_points'], 'finish_time' => $now, 'update_time' => $now]);
-            self::event((int)$c['id'], 'settle', 'success', $usage, $elapsed);
+            $hasActualUsage = self::canSettleUsageFromSnapshot(self::arrayValue($c['price_snapshot'] ?? []), $usage);
+            if ($hasActualUsage) {
+                PointService::assertCanConsumeAmounts((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points']);
+                PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points'], (string)$c['consume_no'], '短剧文本模型实际用量结算', self::extra($task, $c, 'settled'));
+            }
+            $c->save(['upstream_request_id' => (string)($result['provider_request_id'] ?? ''), 'run_status' => 'success', 'billing_status' => $hasActualUsage ? 'settled' : 'pending_usage', 'usage_snapshot' => $usage + ['settlement_basis' => $hasActualUsage ? 'actual_usage' : 'awaiting_actual_usage'], 'response_summary' => ['output_length' => mb_strlen((string)($result['content'] ?? ''), 'UTF-8')], 'actual_tenant_cost' => $hasActualUsage ? $actual['tenant_cost_points'] : 0, 'actual_user_price' => $hasActualUsage ? $actual['user_charge_points'] : 0, 'tenant_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'user_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'finish_time' => $now, 'update_time' => $now]);
+            $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => (float)$task['actual_tenant_cost'] + ($hasActualUsage ? (float)$actual['tenant_cost_points'] : 0), 'actual_user_price' => (float)$task['actual_user_price'] + ($hasActualUsage ? (float)$actual['user_charge_points'] : 0), 'finish_time' => $now, 'update_time' => $now]);
+            self::event((int)$c['id'], $hasActualUsage ? 'settle' : 'await_usage', $hasActualUsage ? 'success' : 'pending', $usage, $elapsed);
         });
     }
 
@@ -412,6 +401,7 @@ class MarketTextModelRuntimeService
     private static function request(array $model, string $content, string $system, array $images, int $maxTokens, array $generationParams, ?callable $onEvent): array
     {
         $source = UpdateSourceClient::getSource(); $base = self::sourceBaseUrl((string)($source['active_base_url'] ?? $source['base_url'] ?? '')); $key = (string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '');
+        $sslVerify = UpdateSourceClient::sslVerify($source);
         if ($base === '' || $key === '') throw new Exception('文本模型 API 暂不可用');
         $protocol = (string)$model['protocol']; $path = match ($protocol) { 'openai_responses' => '/api/v1/responses', 'anthropic_messages' => '/api/v1/messages', default => '/api/v1/chat/completions' };
         $messageContent = $images === [] ? $content : array_merge([['type' => 'text', 'text' => $content]], array_map(static fn($url) => ['type' => 'image_url', 'image_url' => ['url' => $url]], $images));
@@ -424,14 +414,14 @@ class MarketTextModelRuntimeService
             $payload[$paramKey] = $value;
         }
         try {
-            return self::curl($base . $path, $key, $payload, $onEvent);
+            return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify);
         } catch (Exception $e) {
             // Older market snapshots may not yet advertise this optional Qwen-style
             // parameter. Retry once without it when the selected provider rejects it
             // before producing an SSE response.
             if (array_key_exists('enable_thinking', $generationParams) && self::isOptionalParameterRejected($e)) {
                 unset($payload['enable_thinking']);
-                return self::curl($base . $path, $key, $payload, $onEvent);
+                return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify);
             }
             throw $e;
         }
@@ -489,7 +479,7 @@ class MarketTextModelRuntimeService
             || str_contains($message, 'unsupported parameter');
     }
 
-    private static function curl(string $url, string $key, array $payload, ?callable $onEvent): array
+    private static function curl(string $url, string $key, array $payload, ?callable $onEvent, bool $sslVerify): array
     {
         $headers = [
             'Content-Type: application/json',
@@ -497,7 +487,7 @@ class MarketTextModelRuntimeService
             'Accept: ' . ($onEvent ? 'text/event-stream' : 'application/json'),
         ];
         if ($onEvent === null) {
-            return self::requestJson($url, $payload, $headers);
+            return self::requestJson($url, $payload, $headers, $sslVerify);
         }
 
         $state = ['content' => '', 'usage' => [], 'request_id' => '', 'emitted_request_id' => '', 'error' => ''];
@@ -514,6 +504,8 @@ class MarketTextModelRuntimeService
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_TIMEOUT => self::REQUEST_TIMEOUT_SECONDS,
+            CURLOPT_SSL_VERIFYPEER => $sslVerify,
+            CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
             CURLOPT_NOPROGRESS => false,
             CURLOPT_PROGRESSFUNCTION => static function ($curl, $downloadTotal, $downloadNow, $uploadTotal, $uploadNow) use ($onEvent, $startedAt, &$lastHeartbeatAt): int {
                 $now = microtime(true);
@@ -561,7 +553,7 @@ class MarketTextModelRuntimeService
         curl_close($ch);
 
         if ($errno) {
-            throw new Exception('文本模型网络请求失败：' . mb_substr($error ?: '连接异常', 0, 120));
+            throw new Exception(self::networkError($error));
         }
         if ($status >= 400) {
             throw new Exception(self::providerError($body) ?: '文本模型调用失败（HTTP ' . $status . '）');
@@ -576,7 +568,7 @@ class MarketTextModelRuntimeService
     }
 
     /** @return array<string, mixed> */
-    private static function requestJson(string $url, array $payload, array $headers): array
+    private static function requestJson(string $url, array $payload, array $headers, bool $sslVerify): array
     {
         $body = '';
         $ch = curl_init();
@@ -588,6 +580,8 @@ class MarketTextModelRuntimeService
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_TIMEOUT => self::REQUEST_TIMEOUT_SECONDS,
             CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_SSL_VERIFYPEER => $sslVerify,
+            CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
         ]);
         $response = curl_exec($ch);
         $errno = curl_errno($ch);
@@ -596,7 +590,7 @@ class MarketTextModelRuntimeService
         curl_close($ch);
         $body = is_string($response) ? $response : '';
         if ($errno) {
-            throw new Exception('文本模型网络请求失败：' . mb_substr($error ?: '连接异常', 0, 120));
+            throw new Exception(self::networkError($error));
         }
         if ($status >= 400) {
             throw new Exception(self::providerError($body) ?: '文本模型调用失败（HTTP ' . $status . '）');
@@ -614,6 +608,16 @@ class MarketTextModelRuntimeService
             'usage' => (array)($event['usage'] ?? []),
             'provider_request_id' => (string)($event['provider_request_id'] ?? ''),
         ];
+    }
+
+    private static function networkError(string $error): string
+    {
+        $error = trim($error);
+        $lower = strtolower($error);
+        if (str_contains($lower, 'certificate key usage') || str_contains($lower, 'certificate verify failed') || str_contains($lower, 'ssl certificate')) {
+            return '接口渠道 SSL 证书校验失败，请在系统服务 > 接口渠道关闭 SSL 校验，或更换符合规范的 HTTPS 证书';
+        }
+        return '文本模型网络请求失败：' . mb_substr($error ?: '连接异常', 0, 120);
     }
 
     /** @return array<string, mixed>|null */
@@ -814,12 +818,35 @@ class MarketTextModelRuntimeService
         return mb_substr(trim(strip_tags((string)$payload)), 0, 160);
     }
 
-    private static function normalizeUsage(array $usage, string $input, string $output): array
+    private static function normalizeUsage(array $usage): array
     {
         $prompt = (int)($usage['prompt_tokens'] ?? $usage['input_tokens'] ?? 0); $completion = (int)($usage['completion_tokens'] ?? $usage['output_tokens'] ?? 0);
-        $prompt = $prompt > 0 ? $prompt : self::estimateTokens($input);
-        $completion = $completion > 0 ? $completion : self::estimateTokens($output);
-        return ['prompt_tokens' => $prompt, 'completion_tokens' => $completion, 'total_tokens' => (int)($usage['total_tokens'] ?? 0) ?: ($prompt + $completion), 'estimated' => $usage === []];
+        return ['prompt_tokens' => max(0, $prompt), 'completion_tokens' => max(0, $completion), 'total_tokens' => max(0, (int)($usage['total_tokens'] ?? $usage['totalTokens'] ?? ($prompt + $completion))), 'provider_reported' => $usage !== []];
+    }
+
+    private static function canSettleUsage(array $model, array $usage): bool
+    {
+        return self::canSettleUsageFromSnapshot([
+            'input' => (array)($model['input'] ?? []),
+            'output' => (array)($model['output'] ?? []),
+        ], $usage);
+    }
+
+    private static function canSettleUsageFromSnapshot(array $snapshot, array $usage): bool
+    {
+        $prompt = (int)($usage['prompt_tokens'] ?? 0);
+        $completion = (int)($usage['completion_tokens'] ?? 0);
+        if ($prompt > 0 || $completion > 0) {
+            return true;
+        }
+        $total = (int)($usage['total_tokens'] ?? 0);
+        if ($total <= 0) {
+            return false;
+        }
+        $input = (array)($snapshot['input'] ?? []);
+        $output = (array)($snapshot['output'] ?? []);
+        return (float)($input['platform_price'] ?? 0) === (float)($output['platform_price'] ?? 0)
+            && (float)($input['tenant_price'] ?? 0) === (float)($output['tenant_price'] ?? 0);
     }
 
     private static function protocol(string $default, array $protocols): string

@@ -3,10 +3,14 @@
 namespace app\common\command;
 
 use app\common\service\app\aigc_image\AigcImageService;
+use app\common\model\app\aigc_video\AigcVideoTask;
+use app\common\service\app\aigc_video\AigcVideoService;
+use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use think\console\Command;
 use think\console\Input;
 use think\console\input\Option;
 use think\console\Output;
+use think\facade\Db;
 
 class AiUsageReconcile extends Command
 {
@@ -20,8 +24,42 @@ class AiUsageReconcile extends Command
     protected function execute(Input $input, Output $output): int
     {
         $count = AigcImageService::refreshPendingTasks((int)$input->getOption('limit'));
+        $videoCount = 0;
+        if (self::hasColumn('la_aigc_video_task', 'consumption_id')) {
+            $videoTasks = AigcVideoTask::where('provider', 'power_market')
+                ->whereIn('status', ['running', 'success'])
+                ->where('consumption_id', '>', 0)
+                ->where('delete_time', 0)
+                ->order('id', 'asc')
+                ->limit((int)$input->getOption('limit'))
+                ->select();
+            foreach ($videoTasks as $task) {
+                try {
+                    AigcVideoService::refreshMarketTask((int)$task['tenant_id'], (int)$task['id'], (int)$task['user_id']);
+                    $videoCount++;
+                } catch (\Throwable) {
+                    // The next compensation pass will retry transient supplier failures.
+                }
+            }
+        }
+        $shortDramaVideoCount = self::hasColumn('la_aigc_short_drama_generation_task', 'consumption_id')
+            ? AigcShortDramaService::refreshMarketVideoTasks((int)$input->getOption('limit'))
+            : 0;
+        $shortDramaUsageCount = self::hasColumn('la_aigc_short_drama_generation_task', 'consumption_id')
+            ? AigcShortDramaService::refreshMarketUsageTasks((int)$input->getOption('limit'))
+            : 0;
         $purged = \app\common\service\ai\AiUsageService::purgeExpiredPayloads();
-        $output->writeln('refreshed: ' . $count . ', purged_payloads: ' . $purged);
-        return self::SUCCESS;
+        $output->writeln('refreshed: ' . $count . ', video_refreshed: ' . $videoCount . ', short_drama_video_refreshed: ' . $shortDramaVideoCount . ', short_drama_usage_refreshed: ' . $shortDramaUsageCount . ', purged_payloads: ' . $purged);
+        return 0;
+    }
+
+    private static function hasColumn(string $table, string $column): bool
+    {
+        try {
+            $rows = Db::query('SHOW COLUMNS FROM `' . str_replace('`', '', $table) . '` LIKE ?', [$column]);
+            return $rows !== [];
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }

@@ -364,6 +364,8 @@ CREATE TABLE `la_dev_crontab`
 BEGIN;
 INSERT INTO `la_dev_crontab` (`name`,`type`,`system`,`remark`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`create_time`,`update_time`,`delete_time`)
 VALUES ('租户到期扫描', 1, 1, '每日扫描已到期租户并禁用访问', 'tenant:expire_contracts', '', 1, '10 2 * * *', NULL, NULL, '0', '0', 1782604800, 1782604800, NULL);
+INSERT INTO `la_dev_crontab` (`name`,`type`,`system`,`remark`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`create_time`,`update_time`,`delete_time`)
+VALUES ('AIGC任务消耗补偿', 1, 1, '补偿刷新异步生成任务并结算消耗日志', 'ai:usage_reconcile', '--limit=20', 1, '* * * * *', NULL, NULL, '0', '0', 1784505600, 1784505600, NULL);
 COMMIT;
 
 -- ----------------------------
@@ -3897,6 +3899,10 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_config` (
 
 CREATE TABLE IF NOT EXISTS `la_aigc_video_task` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `app_task_id` int unsigned NOT NULL DEFAULT 0 COMMENT '统一应用任务ID',
+  `consumption_id` int unsigned NOT NULL DEFAULT 0 COMMENT '统一消耗日志ID',
+  `market_product_id` int unsigned NOT NULL DEFAULT 0 COMMENT '算力市场商品ID',
+  `market_sku_id` int unsigned NOT NULL DEFAULT 0 COMMENT '算力市场SKU ID',
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `user_id` int unsigned NOT NULL DEFAULT 0,
   `prompt` text,
@@ -3912,6 +3918,8 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_task` (
   `provider` varchar(50) NOT NULL DEFAULT '' COMMENT '供应商',
   `model` varchar(100) NOT NULL DEFAULT '' COMMENT '模型',
   `provider_task_id` varchar(120) NOT NULL DEFAULT '' COMMENT '供应商任务ID',
+  `model_json` text COMMENT '市场模型快照',
+  `pricing_snapshot` text COMMENT '市场价格快照',
   `status` varchar(30) NOT NULL DEFAULT 'pending',
   `error` text,
   `create_time` int unsigned NOT NULL DEFAULT 0,
@@ -3919,7 +3927,9 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_task` (
   `finish_time` int unsigned NOT NULL DEFAULT 0,
   `delete_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  KEY `idx_tenant_user` (`tenant_id`,`user_id`)
+  KEY `idx_tenant_user` (`tenant_id`,`user_id`),
+  KEY `idx_app_task` (`app_task_id`),
+  KEY `idx_consumption` (`consumption_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC视频任务';
 
 CREATE TABLE IF NOT EXISTS `la_aigc_video_result` (
@@ -7704,6 +7714,10 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_asset` (
 
 CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_generation_task` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `app_task_id` int unsigned NOT NULL DEFAULT 0 COMMENT '统一应用任务ID',
+  `consumption_id` int unsigned NOT NULL DEFAULT 0 COMMENT '统一消耗日志ID',
+  `market_product_id` int unsigned NOT NULL DEFAULT 0 COMMENT '算力市场商品ID',
+  `market_sku_id` int unsigned NOT NULL DEFAULT 0 COMMENT '算力市场SKU ID',
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `user_id` int unsigned NOT NULL DEFAULT 0,
   `project_id` int unsigned NOT NULL DEFAULT 0,
@@ -7740,6 +7754,8 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_generation_task` (
   `delete_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_task_id` (`tenant_id`,`task_id`),
+  KEY `idx_app_task` (`app_task_id`),
+  KEY `idx_consumption` (`consumption_id`),
   KEY `idx_project_type` (`tenant_id`,`project_id`,`task_type`,`status`),
   KEY `idx_shot` (`tenant_id`,`project_id`,`shot_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧生成任务';

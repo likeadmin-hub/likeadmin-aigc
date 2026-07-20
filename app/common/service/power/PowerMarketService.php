@@ -30,7 +30,11 @@ class PowerMarketService
             return [];
         }
         $data = self::formatProduct($product->toArray());
+        // Only current upstream SKU rows belong in the editable market price
+        // surface. Retired rows remain in storage for historical consumption
+        // snapshots, but must never be displayed or made sellable again.
         $data['skus'] = PowerMarketSku::where('product_id', $id)
+            ->where('status', 1)
             ->order(['sort' => 'desc', 'id' => 'asc'])
             ->select()
             ->toArray();
@@ -54,7 +58,7 @@ class PowerMarketService
             throw new Exception('商品不存在');
         }
         $skuById = [];
-        foreach (PowerMarketSku::where('product_id', $productId)->select()->toArray() as $sku) {
+        foreach (PowerMarketSku::where('product_id', $productId)->where('status', 1)->select()->toArray() as $sku) {
             $skuById[(int)$sku['id']] = $sku;
         }
         Db::transaction(function () use ($prices, $skuById): void {
@@ -224,6 +228,7 @@ class PowerMarketService
                 ],
             ];
         }
+        self::appendExistingModelsForEmptyCatalogTypes($requests, $emptyModelTypes);
 
         $appsSynced = false;
         try {
@@ -318,14 +323,19 @@ class PowerMarketService
                     : self::TYPE_APP_API;
                 $seenByScope[$scope][] = (int)$product['id'];
                 $summary['products']++;
+                if (!$available) {
+                    PowerMarketSku::where('product_id', (int)$product['id'])->update([
+                        'status' => 0,
+                        'sale_status' => 0,
+                        'update_time' => time(),
+                    ]);
+                    $summary['unavailable']++;
+                    continue;
+                }
                 PowerMarketSku::where('product_id', (int)$product['id'])->update([
                     'status' => 0,
                     'update_time' => time(),
                 ]);
-                if (!$available) {
-                    $summary['unavailable']++;
-                    continue;
-                }
                 foreach ($skuItems as $sku) {
                     self::upsertSku((int)$product['id'], $sku, $item);
                     $summary['skus']++;
@@ -472,6 +482,48 @@ class PowerMarketService
             }
         }
         return array_values($unique);
+    }
+
+    /**
+     * The upstream model catalogue is an index, while pricing/batch is the
+     * pricing authority. When an index temporarily has no rows for a model
+     * type, continue reconciling existing products through pricing/batch so
+     * valid SKUs and prices stay current and explicitly unavailable models are
+     * retired together with their SKUs.
+     *
+     * @param array<int, array<string, mixed>> $requests
+     * @param array<int, string> $modelTypes
+     */
+    private static function appendExistingModelsForEmptyCatalogTypes(array &$requests, array $modelTypes): void
+    {
+        $modelTypes = array_values(array_intersect(['text', 'image', 'video'], array_unique($modelTypes)));
+        if ($modelTypes === []) {
+            return;
+        }
+
+        $products = PowerMarketProduct::where('source_code', self::SOURCE_LIKEADMIN_API)
+            ->where('resource_type', self::TYPE_MODEL)
+            ->whereIn('model_type', $modelTypes)
+            ->select()
+            ->toArray();
+        foreach ($products as $product) {
+            $model = trim((string)($product['upstream_model_code'] ?? ''));
+            if ($model === '') {
+                continue;
+            }
+            $channel = trim((string)($product['upstream_channel_code'] ?? ''));
+            $snapshot = self::arrayValue($product['source_payload'] ?? []);
+            $metadata = self::arrayValue($snapshot['market_metadata'] ?? []);
+            $modelType = self::normalizeModelType((string)($product['model_type'] ?? 'text'));
+            $requests[] = [
+                'local_key' => 'model:' . $model . ':' . $channel,
+                'type' => self::TYPE_MODEL,
+                'model' => $model,
+                'channel' => $channel,
+                'market_scope' => self::TYPE_MODEL . ':' . $modelType,
+                'market_metadata' => $metadata,
+            ];
+        }
     }
 
     /** @param array<string, mixed> $item */
@@ -713,6 +765,11 @@ class PowerMarketService
         }
         if ((string)$row['sku_key'] !== $key) {
             $data['sku_key'] = $key;
+        }
+        // Existing tenant prices are preserved, except when an upstream cost
+        // increase would make the configured platform-to-tenant price invalid.
+        if ((float)($row['sale_points'] ?? 0) < (float)$data['upstream_price']) {
+            $data['sale_points'] = $data['upstream_price'];
         }
         $row->save($data);
     }
