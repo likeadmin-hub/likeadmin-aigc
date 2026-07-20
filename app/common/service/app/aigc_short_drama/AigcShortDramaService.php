@@ -15,7 +15,6 @@ use app\common\model\app\aigc_short_drama\AigcShortDramaScriptTask;
 use app\common\model\app\aigc_short_drama\AigcShortDramaStoryboard;
 use app\common\model\app\aigc_short_drama\AigcShortDramaStyle;
 use app\common\model\app\aigc_short_drama\AigcShortDramaSubject;
-use app\common\model\app\App;
 use app\common\model\ai\AiConsumptionLog;
 use app\common\model\tenant\Tenant;
 use app\common\model\user\User;
@@ -31,9 +30,7 @@ use app\common\service\power\MarketVideoAppRuntimeService;
 use app\common\service\power\MarketVideoModelRuntimeService;
 use app\common\service\app\aigc_video\AigcVideoChannelService;
 use app\common\service\app\aigc_video\AigcVideoService;
-use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
-use app\common\service\app\AppRegistryService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
 use app\common\service\storage\Driver as StorageDriver;
@@ -273,9 +270,30 @@ class AigcShortDramaService
 
     public static function dependencies(int $tenantId = 0): array
     {
+        $groups = self::dependencyModelGroups($tenantId);
+        $script = self::modelGroupByKey($groups, 'script_plan');
+        $vision = self::modelGroupByKey($groups, 'vision_describe');
+        $image = self::modelGroupByKey($groups, 'image');
+        $video = self::modelGroupByKey($groups, 'video');
+        $visionModel = self::configuredVisionModel($tenantId, [], false);
         $items = [
+            self::marketDependencyItem('剧本策划文本模型', '用于故事扩写、剧本策划与分镜文本生成', '模型 API', (array)($script['options'] ?? [])),
+            [
+                'resource_type' => 'model_api',
+                'resource_type_label' => '模型 API',
+                'name' => '视觉文本模型',
+                'required_for' => '用于参考图理解与主体、场景描述生成',
+                'available' => !empty($vision['options']) && !empty($visionModel),
+                'channel_ready' => !empty($visionModel),
+                'ready' => !empty($vision['options']) && !empty($visionModel),
+                'channel_count' => count((array)($vision['options'] ?? [])),
+                'message' => empty($vision['options'])
+                    ? '暂无租户可用的视觉文本模型'
+                    : (empty($visionModel) ? '请在下方选择固定视觉文本模型' : '已固定为 ' . (string)$visionModel['name']),
+            ],
+            self::marketDependencyItem('图片模型/API', '用于主体图、场景图和分镜图生成', '模型 API / 应用 API', (array)($image['options'] ?? []), 'mixed'),
+            self::marketDependencyItem('视频模型/API', '用于短剧分镜视频生成', '模型 API / 应用 API', (array)($video['options'] ?? []), 'mixed'),
             MarketMusicAppRuntimeService::availability($tenantId),
-            self::dependencyItem($tenantId, self::VIDEO_APP_CODE, "AIGC \u{89C6}\u{9891}", "\u{7528}\u{4E8E}\u{5206}\u{955C}\u{89C6}\u{9891}\u{548C}\u{5B8C}\u{6574}\u{89C6}\u{9891}\u{751F}\u{6210}"),
         ];
         return [
             'items' => $items,
@@ -351,6 +369,16 @@ class AigcShortDramaService
         }
         if (array_key_exists('prompt_max_length', $params)) {
             $config['prompt_max_length'] = max(0, min(200000, (int)$params['prompt_max_length']));
+        }
+        if (array_key_exists('vision_model_id', $params)) {
+            $visionModelId = trim((string)$params['vision_model_id']);
+            if ($visionModelId === '') {
+                unset($config['vision_model_id'], $config['vision_model_selection']);
+            } else {
+                $visionModel = MarketTextModelRuntimeService::resolveModel($tenantId, $visionModelId, true);
+                $config['vision_model_id'] = (string)$visionModel['id'];
+                $config['vision_model_selection'] = self::marketModelSnapshot($visionModel);
+            }
         }
         if (isset($params['storyboard_rules']) && is_array($params['storyboard_rules'])) {
             $config['storyboard_rules'] = self::normalizeStoryboardRules($params['storyboard_rules']);
@@ -921,12 +949,18 @@ class AigcShortDramaService
                 '不要出现“保持一致”“参考图”“三视图”“T姿态”等内部控制语。',
             ]);
         }
+        $visionModel = self::configuredVisionModel($tenantId, self::publicConfig($tenantId));
+        if ($visionModel === []) {
+            throw new Exception('暂无可用的视觉文本模型，请在短剧基础配置中选择支持视觉的文本模型');
+        }
         $result = MarketTextModelRuntimeService::generate($tenantId, $userId, [
             'action_code' => 'short_drama_subject_describe',
             'content' => $content,
             'reference_images' => [$image],
             'requires_vision' => true,
-            'model_selection' => $params['vision_model_id'] ?? $params['model_id'] ?? '',
+            // Image understanding is an application-level capability. Do not allow
+            // a request parameter to bypass the tenant's fixed visual model.
+            'model_selection' => $visionModel,
         ]);
         $prompt = trim((string)($result['content'] ?? ''));
         $prompt = preg_replace('/^[`"\']+|[`"\']+$/u', '', $prompt) ?? $prompt;
@@ -1408,6 +1442,7 @@ class AigcShortDramaService
             'prompt_max_length' => (int)($config['prompt_max_length'] ?? 20000),
             'models' => (array)($userModelGroups[0]['options'] ?? []),
             'model_groups' => $userModelGroups,
+            'vision_model_configured' => !empty(self::configuredVisionModel($tenantId, $config, false)),
             'subjects' => self::subjectOptions($tenantId, $userId),
             'styles' => self::styleOptions($tenantId),
             'recent_projects' => $userId > 0 ? self::projectLists($tenantId, $userId, ['page_no' => 1, 'page_size' => 4])['lists'] : [],
@@ -11257,6 +11292,8 @@ class AigcShortDramaService
             $default['price_config'] = [];
             $default['export_watermark'] = self::normalizeExportWatermarkConfig((array)$default['export_watermark']);
             $default['model_groups'] = self::dependencyModelGroups($tenantId);
+            $default['vision_model_id'] = '';
+            $default['vision_model_selection'] = [];
             return $default;
         }
         $json = self::jsonDecode((string)$row['config_json']);
@@ -11275,6 +11312,9 @@ class AigcShortDramaService
         }, (array)$config['models']));
         $config['price_config'] = [];
         $config['model_groups'] = self::dependencyModelGroups($tenantId);
+        $visionModel = self::configuredVisionModel($tenantId, $config, false);
+        $config['vision_model_id'] = (string)($visionModel['id'] ?? '');
+        $config['vision_model_selection'] = $visionModel === [] ? [] : self::marketModelSnapshot($visionModel);
         $config['prompt_max_length'] = max(0, min(200000, (int)($config['prompt_max_length'] ?? 20000)));
         $config['storyboard_rules'] = self::normalizeStoryboardRules((array)($config['storyboard_rules'] ?? []));
         $config['export_watermark'] = self::normalizeExportWatermarkConfig((array)($config['export_watermark'] ?? []));
@@ -11320,7 +11360,7 @@ class AigcShortDramaService
         $visibleGroups = [$scriptGroup];
         foreach ($groups as $group) {
             $key = (string)($group['key'] ?? '');
-            if ($key === '' || $key === 'script_plan') {
+            if ($key === '' || in_array($key, ['script_plan', 'vision_describe'], true)) {
                 continue;
             }
             $group['options'] = array_values(array_filter((array)($group['options'] ?? []), static function ($option): bool {
@@ -11358,6 +11398,63 @@ class AigcShortDramaService
             $textGroups[1] ?? [],
             $imageGroup,
             self::marketVideoModelGroup($tenantId),
+        ];
+    }
+
+    /** @param array<int, array<string, mixed>> $options */
+    private static function marketDependencyItem(string $name, string $requiredFor, string $resourceLabel, array $options, string $resourceType = 'model_api'): array
+    {
+        $count = count($options);
+        return [
+            'resource_type' => $resourceType,
+            'resource_type_label' => $resourceLabel,
+            'name' => $name,
+            'required_for' => $requiredFor,
+            'available' => $count > 0,
+            'channel_ready' => $count > 0,
+            'ready' => $count > 0,
+            'channel_count' => $count,
+            'message' => $count > 0 ? '算力市场已上架 ' . $count . ' 个可用资源' : '暂无租户可用的算力市场资源',
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private static function configuredVisionModel(int $tenantId, array $config = [], bool $strict = true): array
+    {
+        if ($config === []) {
+            $row = AigcShortDramaConfig::whereIn('tenant_id', [$tenantId, 0])
+                ->orderRaw('tenant_id = ' . (int)$tenantId . ' desc')
+                ->findOrEmpty();
+            $config = $row->isEmpty() ? [] : self::jsonDecode((string)$row['config_json']);
+        }
+        $selection = $config['vision_model_id'] ?? $config['vision_model_selection'] ?? '';
+        $selectedId = is_array($selection)
+            ? (string)($selection['id'] ?? $selection['product_id'] ?? $selection['model_code'] ?? '')
+            : trim((string)$selection);
+        if ($selectedId === '') {
+            return [];
+        }
+        try {
+            return MarketTextModelRuntimeService::resolveModel($tenantId, $selectedId, true);
+        } catch (\Throwable $e) {
+            if ($strict) {
+                throw new Exception('已配置的视觉文本模型已下架或不可用，请在短剧基础配置中重新选择');
+            }
+            return [];
+        }
+    }
+
+    /** @return array<string, mixed> */
+    private static function marketModelSnapshot(array $model): array
+    {
+        return [
+            'id' => (string)($model['id'] ?? ''),
+            'product_id' => (int)($model['product_id'] ?? 0),
+            'name' => (string)($model['name'] ?? ''),
+            'model_code' => (string)($model['model_code'] ?? ''),
+            'channel_code' => (string)($model['channel_code'] ?? ''),
+            'protocol' => (string)($model['protocol'] ?? ''),
+            'supports_vision' => !empty($model['supports_vision']),
         ];
     }
 
@@ -15710,37 +15807,6 @@ PROMPT;
         return [
             'type' => in_array(($background['type'] ?? 'video'), ['video', 'image'], true) ? $background['type'] : 'video',
             'items' => $items,
-        ];
-    }
-
-    private static function dependencyItem(int $tenantId, string $appCode, string $name, string $requiredFor): array
-    {
-        $installed = App::where(['code' => $appCode, 'status' => AppRegistryService::STATUS_INSTALLED])->count() > 0;
-        $tenantEnabled = $tenantId <= 0 ? true : AppAccessService::tenantCanUse($tenantId, $appCode);
-        $config = [];
-        try {
-            if ($appCode === self::IMAGE_APP_CODE) {
-                $config = AigcImageService::config($tenantId);
-            } elseif ($appCode === self::VIDEO_APP_CODE) {
-                $config = AigcVideoService::config($tenantId);
-            } elseif ($appCode === self::MUSIC_APP_CODE) {
-                $config = AigcMusicService::config($tenantId);
-            } else {
-                $config = [];
-            }
-        } catch (Exception) {
-            $config = [];
-        }
-        $channels = $config['option_config']['channels'] ?? $config['option_config']['models'] ?? $config['models'] ?? [];
-        return [
-            'app_code' => $appCode,
-            'name' => $name,
-            'required_for' => $requiredFor,
-            'installed' => $installed,
-            'tenant_enabled' => $tenantEnabled,
-            'channel_ready' => !empty($channels),
-            'ready' => $installed && $tenantEnabled && !empty($channels),
-            'message' => $installed ? ($tenantEnabled ? (!empty($channels) ? '可用' : '暂无可用通道') : '租户未启用或未上架该应用') : '应用未安装或未启',
         ];
     }
 
