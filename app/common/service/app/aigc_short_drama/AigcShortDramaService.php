@@ -12591,6 +12591,21 @@ PROMPT;
         if (empty($scriptLines) && $storyOutline !== '') {
             $scriptLines = self::stringList(preg_split('/(?<=[。！？!])\s*/u', $storyOutline) ?: []);
         }
+        if ($storyOutline === '') {
+            $storyOutline = mb_substr(trim($prompt), 0, 500, 'UTF-8');
+        }
+        if (empty($scriptLines) && $storyOutline !== '') {
+            $scriptLines = [$storyOutline];
+        }
+        // These are presentation fields, not evidence that the generated
+        // characters, locations and storyboard are usable. Some otherwise
+        // valid models omit them when a JSON response is truncated.
+        if ($openingFeedback === '') {
+            $openingFeedback = '已根据灵感完成故事主线、人物关系和分镜策划。';
+        }
+        if (empty($planningSteps)) {
+            $planningSteps = ['梳理故事主线与冲突', '确定人物和场景设定', '拆分可执行分镜'];
+        }
         $artStyle = is_array($payload['art_style'] ?? null) ? (array)$payload['art_style'] : [];
         $subjects = self::normalizeGeneratedNamedItems((array)($payload['subjects'] ?? []), 'subject');
         $locations = self::normalizeGeneratedNamedItems((array)($payload['locations'] ?? []), 'location');
@@ -12608,7 +12623,7 @@ PROMPT;
         $storyboardDiagnostics = self::storyboardBreakingDiagnostics($storyboard, $locations, $request, $prompt);
         $musicPlan = self::normalizeMusicPlan((array)($payload['music_plan'] ?? []), $storyboard, $durationStats, $artStyle, $prompt);
 
-        if ($normalizedTitle === '' || $openingFeedback === '' || empty($planningSteps) || empty($scriptLines) || empty($subjects) || empty($locations) || empty($storyboard)) {
+        if ($normalizedTitle === '' || empty($scriptLines) || empty($subjects) || empty($locations) || empty($storyboard)) {
             throw new Exception('AI 剧本策划结果不完整，请重');
         }
 

@@ -14,19 +14,14 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
     {
         return [
             '%like%' => ['name', 'product_code', 'upstream_model_code', 'upstream_app_code', 'upstream_api_code'],
-            '=' => ['resource_type', 'status', 'model_type'],
+            '=' => ['resource_type', 'model_type'],
         ];
     }
 
     public function lists(): array
     {
         $query = PowerMarketProduct::where($this->searchWhere);
-        // A model removed from the upstream catalogue cannot be operated or
-        // sold. Keep its historical rows for consumption snapshots, but do
-        // not expose it as a marketplace card even when the UI selects all.
-        if ((string)$this->request->get('resource_type', '') === PowerMarketService::TYPE_MODEL) {
-            $query->where('status', 1);
-        }
+        $this->applyStatusFilter($query);
         $keyword = trim((string)$this->request->get('keyword', ''));
         if ($keyword !== '') {
             $query->whereLike('name|product_code|upstream_model_code|upstream_channel_code|upstream_app_code|upstream_api_code', '%' . $keyword . '%');
@@ -64,13 +59,46 @@ class PowerMarketProductLists extends BaseAdminDataLists implements ListsSearchI
     public function count(): int
     {
         $query = PowerMarketProduct::where($this->searchWhere);
-        if ((string)$this->request->get('resource_type', '') === PowerMarketService::TYPE_MODEL) {
-            $query->where('status', 1);
-        }
+        $this->applyStatusFilter($query);
         $keyword = trim((string)$this->request->get('keyword', ''));
         if ($keyword !== '') {
             $query->whereLike('name|product_code|upstream_model_code|upstream_channel_code|upstream_app_code|upstream_api_code', '%' . $keyword . '%');
         }
         return $query->count();
+    }
+
+    private function applyStatusFilter($query): void
+    {
+        $resourceType = (string)$this->request->get('resource_type', '');
+        $status = $this->request->get('status', '');
+        if ($resourceType !== PowerMarketService::TYPE_MODEL) {
+            if ($status !== '' && $status !== null) {
+                $query->where('status', (int)$status === 1 ? 1 : 0);
+            }
+            return;
+        }
+
+        // Upstream availability and marketplace shelf state are separate:
+        // status keeps retired models out, while sale_status is what platform
+        // operators control through the on/off switch.
+        $query->where('status', 1);
+        if ($status === '' || $status === null) {
+            return;
+        }
+        $enabledProductIds = array_values(array_unique(array_map(
+            'intval',
+            PowerMarketSku::where(['status' => 1, 'sale_status' => 1])->column('product_id')
+        )));
+        if ((int)$status === 1) {
+            if ($enabledProductIds === []) {
+                $query->whereRaw('1 = 0');
+                return;
+            }
+            $query->whereIn('id', $enabledProductIds);
+            return;
+        }
+        if ($enabledProductIds !== []) {
+            $query->whereNotIn('id', $enabledProductIds);
+        }
     }
 }

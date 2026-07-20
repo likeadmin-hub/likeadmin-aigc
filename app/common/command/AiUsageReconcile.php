@@ -56,7 +56,12 @@ class AiUsageReconcile extends Command
     private static function hasColumn(string $table, string $column): bool
     {
         try {
-            $rows = Db::query('SHOW COLUMNS FROM `' . str_replace('`', '', $table) . '` LIKE ?', [$column]);
+            // MySQL does not accept a prepared placeholder in SHOW COLUMNS
+            // statements under ThinkPHP's raw-query path. This guard used to
+            // always return false and skipped all market-video reconciliation.
+            $safeTable = str_replace('`', '', $table);
+            $safeColumn = str_replace(["'", '\\'], ['', ''], $column);
+            $rows = Db::query("SHOW COLUMNS FROM `{$safeTable}` LIKE '{$safeColumn}'");
             return $rows !== [];
         } catch (\Throwable) {
             return false;

@@ -14,6 +14,7 @@ use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
 use think\facade\Db;
+use think\facade\Log;
 
 /**
  * Internal execution core for video products sold by the power market.
@@ -235,11 +236,8 @@ class MarketVideoRuntimeService
         $c = $context['consumption'];
         if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return self::response($c->toArray());
         $createdAt = self::timestamp($c['create_time'] ?? 0);
-        if ($createdAt > 0 && time() - $createdAt >= self::MAX_RUNNING_SECONDS) {
-            self::fail($consumptionId, '视频任务处理超时', 'timeout');
-            return ['status' => 'failed', 'provider_task_id' => (string)$c['upstream_task_id'], 'videos' => []];
-        }
         $taskId = trim((string)$c['upstream_task_id']); if ($taskId === '') return self::response($c->toArray());
+        $timedOut = $createdAt > 0 && time() - $createdAt >= self::MAX_RUNNING_SECONDS;
         try {
             $snapshot = self::arrayValue($c['price_snapshot'] ?? []);
             $response = self::queryRequest($snapshot, $taskId);
@@ -258,9 +256,20 @@ class MarketVideoRuntimeService
             }
             if ($videos !== []) { self::settle($consumptionId, $videos, self::requestId($response), $taskId, $response); return ['status' => 'success', 'provider_task_id' => $taskId, 'videos' => $videos]; }
             if (in_array(self::status($response), ['failed', 'error', 'canceled', 'cancelled', 'rejected'], true)) { self::fail($consumptionId, self::error($response), 'upstream_failed'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'videos' => []]; }
+            // Always pull a completed provider result before timing out a
+            // delayed local task. A worker outage must not discard media that
+            // was already generated upstream.
+            if ($timedOut) {
+                self::fail($consumptionId, '视频任务处理超时', 'timeout');
+                return ['status' => 'failed', 'provider_task_id' => $taskId, 'videos' => []];
+            }
             self::event($consumptionId, 'poll', 'running', ['upstream_task_id' => $taskId]);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'videos' => []];
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            // A query or result-download failure is not a terminal provider
+            // failure. Keep the task retryable, but leave an audit trail so a
+            // completed upstream task cannot silently remain "running".
+            self::recordRefreshError($consumptionId, $taskId, $e);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'videos' => []];
         }
     }
@@ -769,27 +778,118 @@ class MarketVideoRuntimeService
         }
         return '视频模型调用失败';
     }
-    private static function videos(array $data, int $tenantId, int $userId): array { $urls = []; self::collectUrls($data, $urls); $rows = []; foreach (array_values(array_unique($urls)) as $url) { try { $stored = AigcVideoAssetService::persistGeneratedVideo($url, $tenantId, $userId); $rows[] = ['video_uri' => (string)$stored['uri'], 'width' => (int)($stored['width'] ?? 0), 'height' => (int)($stored['height'] ?? 0), 'storage_scope' => (string)($stored['storage_scope'] ?? 'tenant'), 'storage_engine' => (string)($stored['storage_engine'] ?? ''), 'storage_domain' => (string)($stored['storage_domain'] ?? '')]; } catch (\Throwable) {} } return $rows; }
-    private static function collectUrls($value, array &$urls, bool $videoContext = false): void
+    private static function videos(array $data, int $tenantId, int $userId): array
     {
-        if (is_string($value)) {
-            $path = (string)(parse_url($value, PHP_URL_PATH) ?: $value);
-            $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-            if ($videoContext && (str_starts_with($value, 'data:video/') || in_array($extension, ['mp4', 'webm', 'mov', 'm4v'], true))) {
-                $urls[] = $value;
+        $urls = self::videoUrls($data);
+        if ($urls === []) {
+            return [];
+        }
+        $rows = [];
+        $errors = [];
+        foreach ($urls as $url) {
+            try {
+                $stored = AigcVideoAssetService::persistGeneratedVideo($url, $tenantId, $userId);
+                $rows[] = [
+                    'video_uri' => (string)$stored['uri'],
+                    'width' => (int)($stored['width'] ?? 0),
+                    'height' => (int)($stored['height'] ?? 0),
+                    'storage_scope' => (string)($stored['storage_scope'] ?? 'tenant'),
+                    'storage_engine' => (string)($stored['storage_engine'] ?? ''),
+                    'storage_domain' => (string)($stored['storage_domain'] ?? ''),
+                ];
+            } catch (\Throwable $e) {
+                $errors[] = $e->getMessage();
             }
+        }
+        if ($rows === [] && $errors !== []) {
+            throw new Exception('视频结果保存失败：' . mb_substr((string)$errors[0], 0, 500));
+        }
+        return $rows;
+    }
+
+    /** Match the established Happy Horse result contract, including signed URLs without a file extension. */
+    private static function videoUrls(array $data): array
+    {
+        $candidates = [
+            $data['video_url'] ?? null, $data['videoUrl'] ?? null, $data['url'] ?? null,
+            $data['data']['video_url'] ?? null, $data['data']['videoUrl'] ?? null, $data['data']['url'] ?? null,
+            $data['result']['video_url'] ?? null, $data['result']['videoUrl'] ?? null,
+            $data['data']['result']['video_url'] ?? null, $data['data']['result']['videoUrl'] ?? null,
+            $data['result']['videos'] ?? null, $data['data']['result']['videos'] ?? null,
+            $data['videos'] ?? null, $data['data']['videos'] ?? null,
+            $data['results'] ?? null, $data['data']['results'] ?? null,
+            $data['outputs'] ?? null, $data['data']['outputs'] ?? null,
+            $data['output'] ?? null, $data['data']['output'] ?? null,
+            $data['content'] ?? null, $data['data']['content'] ?? null,
+            $data['display'] ?? null, $data['data']['display'] ?? null,
+            $data['result'] ?? null, $data['data']['result'] ?? null,
+        ];
+        $urls = [];
+        foreach ($candidates as $candidate) {
+            self::collectVideoUrls($candidate, $urls);
+            if ($urls !== []) {
+                break;
+            }
+        }
+        return array_values(array_unique($urls));
+    }
+
+    private static function collectVideoUrls($value, array &$urls, int $depth = 0): void
+    {
+        if ($depth > 8) return;
+        if (is_string($value)) {
+            if (self::isVideoUrlCandidate($value)) $urls[] = trim($value);
             return;
         }
         if (!is_array($value)) return;
-        foreach ($value as $key => $item) {
-            $key = strtolower((string)$key);
-            $isVideoField = $videoContext || in_array($key, ['video', 'videos', 'video_url', 'videourl', 'video_urls', 'videourls', 'video_uri', 'videouri', 'download_url', 'downloadurl', 'result', 'results', 'output', 'outputs'], true);
-            self::collectUrls($item, $urls, $isVideoField);
+        foreach (['url', 'video_url', 'videoUrl', 'video', 'uri', 'src', 'origin_url', 'download_url', 'file_url', 'output_url'] as $key) {
+            if (!empty($value[$key]) && is_string($value[$key]) && self::isVideoUrlCandidate($value[$key])) {
+                $urls[] = trim($value[$key]);
+            }
         }
+        foreach (['outputs', 'output', 'videos', 'results', 'result', 'content', 'display', 'data'] as $key) {
+            if (array_key_exists($key, $value)) self::collectVideoUrls($value[$key], $urls, $depth + 1);
+        }
+        foreach ($value as $item) {
+            if (is_string($item) && self::isVideoUrlCandidate($item)) {
+                $urls[] = trim($item);
+            } elseif (is_array($item)) {
+                self::collectVideoUrls($item, $urls, $depth + 1);
+            }
+        }
+    }
+
+    private static function isVideoUrlCandidate(string $value): bool
+    {
+        $value = trim($value);
+        if ($value === '') return false;
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://') || str_starts_with($value, 'data:video/')) return true;
+        $path = ltrim((string)(parse_url($value, PHP_URL_PATH) ?: $value), '/');
+        return (str_starts_with($path, 'uploads/') || str_starts_with($path, 'resource/'))
+            && in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['mp4', 'webm', 'mov', 'm4v'], true);
     }
     private static function origin(): string { $source = UpdateSourceClient::getSource(); $parts = parse_url(trim((string)($source['active_base_url'] ?? $source['base_url'] ?? ''))); if (empty($parts['host'])) throw new Exception('视频 API 暂不可用'); return (string)($parts['scheme'] ?? 'https') . '://' . $parts['host'] . (isset($parts['port']) ? ':' . (int)$parts['port'] : ''); }
     private static function endpoint(string $app, string $api): string { return self::origin() . '/api/v1/apps/' . rawurlencode($app) . '/' . rawurlencode($api); }
     private static function request(string $method, string $url, array $payload = []): array { $source = UpdateSourceClient::getSource(); $key = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '')); if ($key === '') throw new Exception('视频 API 暂不可用'); $ch = curl_init(); curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $key, 'Accept: application/json', 'Content-Type: application/json'], CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source), CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0]); if ($method === 'POST') { curl_setopt($ch, CURLOPT_POST, true); curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); } $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch); if ($errno) throw new Exception($error ?: '视频 API 网络请求失败'); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('视频 API 响应格式错误'); if ($http >= 400 || isset($data['error']) || (isset($data['code']) && is_numeric($data['code']) && (int)$data['code'] !== 1)) throw new Exception(self::error($data)); return $data; }
+    private static function recordRefreshError(int $consumptionId, string $taskId, \Throwable $e): void
+    {
+        $message = mb_substr($e->getMessage() ?: '视频任务查询失败', 0, 1000);
+        try {
+            AiConsumptionLog::where('id', $consumptionId)->update([
+                'error_code' => 'refresh_retrying',
+                'error_message' => $message,
+                'refresh_requested_at' => time(),
+                'update_time' => time(),
+            ]);
+            self::event($consumptionId, 'poll', 'retrying', [
+                'upstream_task_id' => $taskId,
+                'error' => mb_substr($message, 0, 300),
+            ]);
+        } catch (\Throwable) {
+            // Diagnostics must not interrupt the next provider retry.
+        }
+        Log::warning('Market video refresh retrying: consumption=' . $consumptionId . ' task=' . $taskId . ' error=' . $message);
+    }
     private static function context(int $id, bool $lock): ?array { $query = AiConsumptionLog::where('id', $id); if ($lock) $query->lock(true); $c = $query->findOrEmpty(); if ($c->isEmpty()) return null; $taskQuery = AiAppTask::where('id', (int)$c['app_task_id']); if ($lock) $taskQuery->lock(true); $task = $taskQuery->findOrEmpty(); return $task->isEmpty() ? null : ['consumption' => $c, 'app_task' => $task]; }
     private static function response(array $c): array { $summary = self::arrayValue($c['response_summary'] ?? []); return ['status' => (string)$c['run_status'], 'provider_task_id' => (string)$c['upstream_task_id'], 'provider_request_id' => (string)$c['upstream_request_id'], 'videos' => (array)($summary['videos'] ?? [])]; }
     private static function event(int $id, string $type, string $status, array $summary): void { AiConsumptionEvent::create(['consumption_id' => $id, 'event_type' => $type, 'event_status' => $status, 'attempt_no' => 1, 'payload_summary' => $summary, 'payload_ciphertext' => '', 'http_status' => 0, 'elapsed_ms' => 0, 'create_time' => time()]); }

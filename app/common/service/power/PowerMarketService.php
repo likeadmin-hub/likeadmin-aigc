@@ -346,7 +346,12 @@ class PowerMarketService
                     'update_time' => time(),
                 ]);
                 foreach ($skuItems as $sku) {
-                    self::upsertSku((int)$product['id'], $sku, $item);
+                    self::upsertSku(
+                        (int)$product['id'],
+                        $sku,
+                        $item,
+                        $type === self::TYPE_MODEL && (string)($product['model_type'] ?? '') === 'text' ? 0 : 1
+                    );
                     $summary['skus']++;
                 }
             }
@@ -731,7 +736,7 @@ class PowerMarketService
         return $row;
     }
 
-    private static function upsertSku(int $productId, array $sku, array $item): void
+    private static function upsertSku(int $productId, array $sku, array $item, int $defaultSaleStatus = 1): void
     {
         $upstreamKey = trim((string)($sku['sku_key'] ?? ''));
         $fallbackKey = self::fallbackSkuKey($sku);
@@ -768,7 +773,9 @@ class PowerMarketService
             $data['product_id'] = $productId;
             $data['sku_key'] = $key;
             $data['sale_points'] = $data['upstream_price'];
-            $data['sale_status'] = 1;
+            // Text models are intentionally opt-in. Platform staff select the
+            // small set of models to sell after reviewing the synced catalogue.
+            $data['sale_status'] = $defaultSaleStatus === 1 ? 1 : 0;
             $data['sort'] = 0;
             $data['create_time'] = time();
             PowerMarketSku::create($data);
