@@ -438,6 +438,7 @@ class AiUsageService
         $data = self::formatConsumption($row->toArray());
         $events = AiConsumptionEvent::where('consumption_id', $id)->order('id', 'asc')->select()->toArray();
         foreach ($events as &$event) {
+            $event['create_time_text'] = self::timeText($event['create_time'] ?? 0);
             if (!$includePayload) {
                 unset($event['payload_ciphertext']);
             }
@@ -587,16 +588,36 @@ class AiUsageService
         $row['source_task_id'] = (int)$row['business_id'];
         $row['user_charge_points'] = (float)($row['actual_user_price'] ?: $row['estimated_user_price']);
         $row['tenant_cost_points'] = (float)($row['actual_tenant_cost'] ?: $row['estimated_tenant_cost']);
-        $row['create_time_text'] = !empty($row['create_time']) ? date('Y-m-d H:i:s', (int)$row['create_time']) : '';
-        $row['finish_time_text'] = !empty($row['finish_time']) ? date('Y-m-d H:i:s', (int)$row['finish_time']) : '';
+        $row['create_time_text'] = self::timeText($row['create_time'] ?? 0);
+        $row['finish_time_text'] = self::timeText($row['finish_time'] ?? 0);
         return $row;
     }
 
     private static function formatConsumption(array $row): array
     {
-        $row['create_time_text'] = !empty($row['create_time']) ? date('Y-m-d H:i:s', (int)$row['create_time']) : '';
-        $row['finish_time_text'] = !empty($row['finish_time']) ? date('Y-m-d H:i:s', (int)$row['finish_time']) : '';
+        $row['create_time_text'] = self::timeText($row['create_time'] ?? 0);
+        $row['finish_time_text'] = self::timeText($row['finish_time'] ?? 0);
         return $row;
+    }
+
+    private static function timeText(mixed $value): string
+    {
+        if ($value === null || $value === '' || $value === 0 || $value === '0') {
+            return '';
+        }
+        if (is_string($value)) {
+            $text = trim($value);
+            if ($text === '') {
+                return '';
+            }
+            if (!ctype_digit($text)) {
+                $timestamp = strtotime($text);
+                return $timestamp ? date('Y-m-d H:i:s', $timestamp) : $text;
+            }
+            $value = (int)$text;
+        }
+        $timestamp = (int)$value;
+        return $timestamp > 100000000 ? date('Y-m-d H:i:s', $timestamp) : '';
     }
 
     private static function event(int $consumptionId, string $type, string $status, array $payload = []): void
