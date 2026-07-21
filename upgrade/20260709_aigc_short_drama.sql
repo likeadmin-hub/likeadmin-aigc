@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_project` (
   `episode_count` int unsigned NOT NULL DEFAULT 1,
   `target_duration_seconds` int unsigned NOT NULL DEFAULT 0,
   `input_asset_ids` text,
+  `generation_settings_json` text COMMENT '项目生成配置',
   `cover_url` varchar(500) NOT NULL DEFAULT '',
   `status` varchar(30) NOT NULL DEFAULT 'draft',
   `last_task_id` varchar(64) NOT NULL DEFAULT '',
@@ -482,6 +483,13 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = IF(
   (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'la_aigc_short_drama_project' AND COLUMN_NAME = 'input_asset_ids') = 0,
   'ALTER TABLE `la_aigc_short_drama_project` ADD COLUMN `input_asset_ids` text AFTER `target_duration_seconds`',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'la_aigc_short_drama_project' AND COLUMN_NAME = 'generation_settings_json') = 0,
+  'ALTER TABLE `la_aigc_short_drama_project` ADD COLUMN `generation_settings_json` text COMMENT ''项目生成配置'' AFTER `input_asset_ids`',
   'SELECT 1'
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

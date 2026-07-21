@@ -1225,6 +1225,8 @@ VALUES
 (@core_power_market_id, 'A', '应用列表', '', 0, 'power.market/apps', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_apps', 1, 1782604800, 1782604800),
 (@core_power_market_id, 'A', '应用详情', '', 0, 'power.market/appDetail', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_app_detail', 1, 1782604800, 1782604800),
 (@core_power_market_id, 'A', '保存售价', '', 0, 'power.market/savePrices', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_save_prices', 1, 1782604800, 1782604800),
+(@core_power_market_id, 'A', '批量上架', '', 0, 'power.market/batchShelf', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_batch_shelf', 1, 1782604800, 1782604800),
+(@core_power_market_id, 'A', '保存展示', '', 0, 'power.market/saveDisplay', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_save_display', 1, 1782604800, 1782604800),
 (@core_power_market_id, 'A', '商品类型', '', 0, 'power.market/types', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_types', 1, 1782604800, 1782604800),
 (@core_power_market_id, 'A', '同步上游价格', '', 0, 'power.market/sync', '', '', '', '', 0, 0, 0, '', 'core', 'core_power_market_sync', 1, 1782604800, 1782604800);
 INSERT INTO `la_system_menu` (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
@@ -2192,7 +2194,7 @@ INSERT INTO `la_tenant_system_menu` (`tenant_id`, `pid`, `type`, `name`, `icon`,
 VALUES
 (0, @core_tenant_power_mall_id, 'C', '购买算力', 'el-icon-Coin', 100, 'power.mall/packages', 'buy', 'power_mall/index', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_mall_buy', 1, 1782604800, 1782604800),
 (0, @core_tenant_power_mall_id, 'C', '购买记录', 'el-icon-Document', 90, 'power.mall/orders', 'records', 'power_mall/records', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_mall_records', 1, 1782604800, 1782604800),
-(0, @core_tenant_power_mall_id, 'C', '消耗日志', 'el-icon-Notebook', 80, 'power.mall/consumeLogs', 'consume-logs', 'power_mall/consume_logs', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_mall_consume_logs', 1, 1782604800, 1782604800),
+(0, @core_tenant_power_mall_id, 'C', '点数流水', 'el-icon-Notebook', 80, 'power.mall/consumeLogs', 'consume-logs', 'power_mall/consume_logs', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_mall_consume_logs', 1, 1782604800, 1782604800),
 (0, @core_tenant_power_mall_id, 'C', '算力市场', 'el-icon-Connection', 95, 'power.market/models', 'market', 'power_mall/market', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_market', 1, 1782604800, 1782604800);
 SET @core_tenant_power_market_id := (
   SELECT `id` FROM `la_tenant_system_menu`
@@ -2231,7 +2233,9 @@ VALUES
 (0, @core_tenant_power_market_id, 'A', '详情', '', 0, 'power.market/detail', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_market_detail', 1, 1782604800, 1782604800),
 (0, @core_tenant_power_market_id, 'A', '应用列表', '', 0, 'power.market/apps', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_market_apps', 1, 1782604800, 1782604800),
 (0, @core_tenant_power_market_id, 'A', '应用详情', '', 0, 'power.market/appDetail', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_market_app_detail', 1, 1782604800, 1782604800),
-(0, @core_tenant_power_market_id, 'A', '保存配置', '', 0, 'power.market/savePrices', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_market_save_prices', 1, 1782604800, 1782604800);
+(0, @core_tenant_power_market_id, 'A', '保存配置', '', 0, 'power.market/savePrices', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_market_save_prices', 1, 1782604800, 1782604800),
+(0, @core_tenant_power_market_id, 'A', '批量上架', '', 0, 'power.market/batchShelf', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_market_batch_shelf', 1, 1782604800, 1782604800),
+(0, @core_tenant_power_market_id, 'A', '保存展示', '', 0, 'power.market/saveDisplay', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_power_market_save_display', 1, 1782604800, 1782604800);
 
 UPDATE `la_tenant_system_menu`
 SET `app_code` = '', `source` = 'core', `source_menu_key` = 'core_tenant_message', `is_core` = 1, `update_time` = 1782691200
@@ -3217,6 +3221,15 @@ ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`path`=VALUES(`path`),`icon`=VALUE
 
 INSERT INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`)
 VALUES
+('system_default','power.mall/consumeLogs','GET','power_mall:consume_logs','tenant_admin',1,1,1,1782604800,1782604800),
+('system_default','power.mall/consumeLogDetail','GET','power_mall:consume_log_detail','tenant_admin',1,1,1,1782604800,1782604800),
+('system_default','power.market/models','GET','power_market:models','tenant_admin',1,1,1,1782604800,1782604800),
+('system_default','power.market/apps','GET','power_market:apps','tenant_admin',1,1,1,1782604800,1782604800),
+('system_default','power.market/detail','GET','power_market:detail','tenant_admin',1,1,1,1782604800,1782604800),
+('system_default','power.market/appDetail','GET','power_market:app_detail','tenant_admin',1,1,1,1782604800,1782604800),
+('system_default','power.market/savePrices','POST','power_market:save_prices','tenant_admin',1,1,1,1782604800,1782604800),
+('system_default','power.market/batchShelf','POST','power_market:batch_shelf','tenant_admin',1,1,1,1782604800,1782604800),
+('system_default','power.market/saveDisplay','POST','power_market:save_display','tenant_admin',1,1,1,1782604800,1782604800),
 ('case_gallery','case_gallery.case/lists','GET','case_gallery:case:lists','tenant_admin',1,1,1,1778000000,1778000000),
 ('case_gallery','case_gallery.case/apps','GET','case_gallery:case:apps','tenant_admin',1,1,1,1778000000,1778000000),
 ('case_gallery','case_gallery.case/detail','GET','case_gallery:case:detail','tenant_admin',1,1,1,1778000000,1778000000),
@@ -8072,3 +8085,39 @@ INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sor
 SELECT 0,@install_tenant_task_log_id,'C','消耗日志','el-icon-DataAnalysis',90,'ai_consumption/lists','consumption','power_mall/consumption','','',0,1,0,'','core','core_ai_consumption_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 WHERE @install_tenant_task_log_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_consumption_tenant');
 UPDATE `la_tenant_system_menu` SET `pid`=@install_tenant_task_log_id,`name`='消耗日志',`perms`='ai_consumption/lists',`paths`='consumption',`component`='power_mall/consumption' WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_consumption_tenant';
+
+-- Installation completeness repair: app API declarations and tenant menu templates.
+INSERT INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`)
+VALUES
+('aigc_llm','app.aigc_llm.model/batchStatus','POST','aigc_llm:model:status:platform','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+('aigc_llm','app.aigc_llm.model/syncTextModels','POST','aigc_llm:model:save:platform','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+('aigc_canvas','app.aigc_canvas.agent_chat/runStatus','GET','aigc_canvas:agent_chat:run_status','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+('aigc_digital_human','app.aigc_digital_human.generate/assistScript','POST','aigc_digital_human:generate:assist_script','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+('aigc_digital_human','app.aigc_digital_human.voice/preview','POST','aigc_digital_human:voice:preview:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+('aigc_fitting','app.aigc_fitting.task/delete','POST','aigc_fitting:task:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+('aigc_fitting','app.aigc_fitting.result/delete','POST','aigc_fitting:result:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+('aigc_hairstyle','app.aigc_hairstyle.task/delete','POST','aigc_hairstyle:task:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+('aigc_video','app.aigc_video.task/refresh','POST','aigc_video:task:refresh:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
+ON DUPLICATE KEY UPDATE
+`permission_key`=VALUES(`permission_key`),
+`need_login`=VALUES(`need_login`),
+`need_role_permission`=VALUES(`need_role_permission`),
+`status`=VALUES(`status`),
+`update_time`=VALUES(`update_time`);
+
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT 0,0,'M','服饰套图','el-icon-Picture',84,'','aigc-fashion-lookbook','','','',0,1,0,'aigc_fashion_lookbook','app','aigc_fashion_lookbook',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='aigc_fashion_lookbook');
+SET @install_fashion_lookbook_id := (SELECT `id` FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='aigc_fashion_lookbook' LIMIT 1);
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT 0,@install_fashion_lookbook_id,'C','基础配置','',40,'app.aigc_fashion_lookbook.config/detail','config','apps/aigc_fashion_lookbook/config','','',0,1,0,'aigc_fashion_lookbook','app','aigc_fashion_lookbook_config',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE @install_fashion_lookbook_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='aigc_fashion_lookbook_config');
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT 0,@install_fashion_lookbook_id,'C','模特预设','',35,'app.aigc_fashion_lookbook.model/lists','model','apps/aigc_fashion_lookbook/model','','',0,1,0,'aigc_fashion_lookbook','app','aigc_fashion_lookbook_model',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE @install_fashion_lookbook_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='aigc_fashion_lookbook_model');
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT 0,@install_fashion_lookbook_id,'C','价格配置','',30,'app.aigc_fashion_lookbook.price/detail','price','apps/aigc_fashion_lookbook/price','','',0,1,0,'aigc_fashion_lookbook','app','aigc_fashion_lookbook_price',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE @install_fashion_lookbook_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='aigc_fashion_lookbook_price');
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT 0,@install_fashion_lookbook_id,'C','任务记录','',10,'app.aigc_fashion_lookbook.task/lists','task','apps/aigc_fashion_lookbook/task','','',0,1,0,'aigc_fashion_lookbook','app','aigc_fashion_lookbook_task',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE @install_fashion_lookbook_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='aigc_fashion_lookbook_task');

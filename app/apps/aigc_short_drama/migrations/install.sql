@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_project` (
   `episode_count` int unsigned NOT NULL DEFAULT 1,
   `target_duration_seconds` int unsigned NOT NULL DEFAULT 0,
   `input_asset_ids` text,
+  `generation_settings_json` text COMMENT '项目生成配置',
   `cover_url` varchar(500) NOT NULL DEFAULT '',
   `status` varchar(30) NOT NULL DEFAULT 'draft',
   `last_task_id` varchar(64) NOT NULL DEFAULT '',

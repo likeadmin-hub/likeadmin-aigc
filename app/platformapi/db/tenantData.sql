@@ -522,7 +522,9 @@ VALUES
 ({tenantId},@core_tenant_power_market_id,'A','详情','',0,'power.market/detail','','','','',0,0,0,'','core','core_tenant_power_market_detail',1,1782604800,1782604800),
 ({tenantId},@core_tenant_power_market_id,'A','应用列表','',0,'power.market/apps','','','','',0,0,0,'','core','core_tenant_power_market_apps',1,1782604800,1782604800),
 ({tenantId},@core_tenant_power_market_id,'A','应用详情','',0,'power.market/appDetail','','','','',0,0,0,'','core','core_tenant_power_market_app_detail',1,1782604800,1782604800),
-({tenantId},@core_tenant_power_market_id,'A','保存配置','',0,'power.market/savePrices','','','','',0,0,0,'','core','core_tenant_power_market_save_prices',1,1782604800,1782604800);
+({tenantId},@core_tenant_power_market_id,'A','保存配置','',0,'power.market/savePrices','','','','',0,0,0,'','core','core_tenant_power_market_save_prices',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_market_id,'A','批量上架','',0,'power.market/batchShelf','','','','',0,0,0,'','core','core_tenant_power_market_batch_shelf',1,1782604800,1782604800),
+({tenantId},@core_tenant_power_market_id,'A','保存展示','',0,'power.market/saveDisplay','','','','',0,0,0,'','core','core_tenant_power_market_save_display',1,1782604800,1782604800);
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES ({tenantId},@core_tenant_ai_consumption_id,'A','详情','',0,'ai_consumption/detail','','','','',0,0,0,'','core','core_ai_consumption_tenant_detail',1,1782691200,1782691200);
 
@@ -887,6 +889,21 @@ VALUES
 (9134,{tenantId},9105,'C','基础配置','',50,'app.aigc_video.config/detail','config','apps/aigc_video/config','','',0,1,0,'aigc_video','app','aigc_video_config',0,1778000000,1778000000),
 (9135,{tenantId},9110,'C','基础配置','',50,'app.aigc_digital_human.config/detail','config','apps/aigc_digital_human/config','','',0,1,0,'aigc_digital_human','app','aigc_digital_human_config',0,1778000000,1778000000),
 (9136,{tenantId},9121,'C','基础配置','',50,'app.aigc_canvas.config/detail','config','apps/aigc_canvas/config','','',0,1,0,'aigc_canvas','app','aigc_canvas_config',0,1778000000,1778000000);
+
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES ({tenantId},0,'M','服饰套图','el-icon-Picture',84,'','aigc-fashion-lookbook','','','',0,1,0,'aigc_fashion_lookbook','app','aigc_fashion_lookbook',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+SET @aigc_fashion_lookbook_id := (
+  SELECT `id` FROM `la_tenant_system_menu_{tenantSn}`
+  WHERE `tenant_id`={tenantId} AND `source_menu_key`='aigc_fashion_lookbook'
+  ORDER BY `id` DESC
+  LIMIT 1
+);
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+({tenantId},@aigc_fashion_lookbook_id,'C','基础配置','',40,'app.aigc_fashion_lookbook.config/detail','config','apps/aigc_fashion_lookbook/config','','',0,1,0,'aigc_fashion_lookbook','app','aigc_fashion_lookbook_config',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+({tenantId},@aigc_fashion_lookbook_id,'C','模特预设','',35,'app.aigc_fashion_lookbook.model/lists','model','apps/aigc_fashion_lookbook/model','','',0,1,0,'aigc_fashion_lookbook','app','aigc_fashion_lookbook_model',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+({tenantId},@aigc_fashion_lookbook_id,'C','价格配置','',30,'app.aigc_fashion_lookbook.price/detail','price','apps/aigc_fashion_lookbook/price','','',0,1,0,'aigc_fashion_lookbook','app','aigc_fashion_lookbook_price',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+({tenantId},@aigc_fashion_lookbook_id,'C','任务记录','',10,'app.aigc_fashion_lookbook.task/lists','task','apps/aigc_fashion_lookbook/task','','',0,1,0,'aigc_fashion_lookbook','app','aigc_fashion_lookbook_task',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
 
 -- ----------------------------
 -- Records of la_tenant_dept

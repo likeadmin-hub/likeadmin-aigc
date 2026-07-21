@@ -35,6 +35,16 @@ class AssetController extends BaseApiController
         }
     }
 
+    public function delete()
+    {
+        try {
+            AigcShortDramaService::deleteAsset((int)$this->request->tenantId, $this->userId, $this->request->post());
+            return $this->success('success', [], 1, 1);
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function select()
     {
         try {
