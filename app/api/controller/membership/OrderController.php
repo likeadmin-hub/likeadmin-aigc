@@ -13,7 +13,7 @@ class OrderController extends BaseApiController
     {
         try {
             $planId = (int)$this->request->post('plan_id', 0);
-            $cycle = (string)$this->request->post('cycle', MembershipService::CYCLE_MONTHLY);
+            $cycle = (string)$this->request->post('cycle', MembershipService::CYCLE_PACKAGE);
             $result = MembershipService::createOrder(
                 (int)$this->request->tenantId,
                 $this->userId,

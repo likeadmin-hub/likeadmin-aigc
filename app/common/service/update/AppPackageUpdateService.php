@@ -105,8 +105,10 @@ class AppPackageUpdateService
             if (!empty($package['version']) && $manifest['version'] !== $package['version']) {
                 throw new RuntimeException('应用包版本与下载接口不一致');
             }
-            $current = App::where('code', (string)$manifest['code'])->value('current_version') ?: '';
-            if ($current !== '' && version_compare((string)$manifest['version'], (string)$current, '<=')) {
+            $installedApp = App::where('code', (string)$manifest['code'])->findOrEmpty();
+            $current = !$installedApp->isEmpty() ? (string)($installedApp['current_version'] ?? '') : '';
+            $status = !$installedApp->isEmpty() ? (string)($installedApp['status'] ?? '') : '';
+            if ($status !== AppRegistryService::STATUS_REMOVED && $current !== '' && version_compare((string)$manifest['version'], (string)$current, '<=')) {
                 throw new RuntimeException('应用包版本必须大于当前版本');
             }
             AppRegistryService::assertCoreCompatible($manifest);
@@ -185,7 +187,13 @@ class AppPackageUpdateService
                         'update_time' => time(),
                     ]);
                 } else {
-                    App::where('code', $appCode)->update(['status' => $installed['status'] ?: AppRegistryService::STATUS_INSTALLED]);
+                    $previousStatus = (string)($installed['status'] ?? '');
+                    App::where('code', $appCode)->update([
+                        'status' => $previousStatus !== AppRegistryService::STATUS_REMOVED && $previousStatus !== ''
+                            ? $previousStatus
+                            : AppRegistryService::STATUS_INSTALLED,
+                        'update_time' => time(),
+                    ]);
                 }
             }
             if (DefaultAppService::isDefaultApp($appCode)) {

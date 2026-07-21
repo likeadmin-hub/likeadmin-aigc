@@ -1438,7 +1438,10 @@ class AigcShortDramaService
     public static function home(int $tenantId, int $userId): array
     {
         $config = self::publicConfig($tenantId);
-        $userModelGroups = self::userCreationModelGroups((array)($config['model_groups'] ?? []), (array)($config['models'] ?? []));
+        $userModelGroups = array_merge(
+            self::userScriptModelGroups((array)($config['model_groups'] ?? []), (array)($config['models'] ?? [])),
+            self::userCreationModelGroups((array)($config['model_groups'] ?? []), (array)($config['models'] ?? []))
+        );
         return self::sanitizeUtf8Payload([
             'user' => [
                 'points' => self::userPoints($userId),
@@ -12257,7 +12260,9 @@ class AigcShortDramaService
                 continue;
             }
             if ($key === 'script_plan') {
-                $selected[$key] = self::configuredScriptPlanModel($tenantId, $config, false);
+                $wanted = $selections[$key] ?? ($request['model_id'] ?? '');
+                $selected[$key] = self::matchModelOption($options, $wanted)
+                    ?: self::configuredScriptPlanModel($tenantId, $config, false);
                 continue;
             }
             $wanted = $selections[$key] ?? '';

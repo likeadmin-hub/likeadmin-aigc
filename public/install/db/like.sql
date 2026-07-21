@@ -3481,6 +3481,7 @@ CREATE TABLE IF NOT EXISTS `la_membership_plan` (
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `name` varchar(100) NOT NULL DEFAULT '' COMMENT '套餐名称',
   `description` varchar(255) NOT NULL DEFAULT '' COMMENT '套餐简介',
+  `duration_months` int unsigned NOT NULL DEFAULT 1 COMMENT '有效月数',
   `monthly_price` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '月付价格',
   `yearly_price` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '年付价格',
   `monthly_market_price` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '月付划线价',
@@ -3598,6 +3599,7 @@ INSERT INTO `la_membership_plan` (
   `tenant_id`,
   `name`,
   `description`,
+  `duration_months`,
   `monthly_price`,
   `yearly_price`,
   `monthly_market_price`,
@@ -3615,6 +3617,7 @@ SELECT
   `id`,
   '免费会员',
   '系统默认免费会员，默认AIGC应用可直接使用',
+  1,
   0.00,
   0.00,
   0.00,
@@ -3637,6 +3640,7 @@ INSERT INTO `la_membership_plan` (
   `tenant_id`,
   `name`,
   `description`,
+  `duration_months`,
   `monthly_price`,
   `yearly_price`,
   `monthly_market_price`,
@@ -3654,6 +3658,7 @@ SELECT
   t.`id`,
   plans.`name`,
   plans.`description`,
+  plans.`duration_months`,
   plans.`monthly_price`,
   plans.`yearly_price`,
   plans.`monthly_market_price`,
@@ -3668,9 +3673,9 @@ SELECT
   UNIX_TIMESTAMP()
 FROM `la_tenant` t
 JOIN (
-  SELECT '基础会员' AS `name`, '适合轻量创作用户，赠送基础积分' AS `description`, 19.90 AS `monthly_price`, 199.00 AS `yearly_price`, 29.90 AS `monthly_market_price`, 299.00 AS `yearly_market_price`, 100.00 AS `monthly_bonus_points`, 1500.00 AS `yearly_bonus_points`, '["每月赠送100积分","按年开通赠送1500积分","适合个人轻量创作"]' AS `features`, 0 AS `is_recommend`, 90 AS `sort`
+  SELECT '基础会员' AS `name`, '适合轻量创作用户，赠送基础积分' AS `description`, 1 AS `duration_months`, 19.90 AS `monthly_price`, 19.90 AS `yearly_price`, 29.90 AS `monthly_market_price`, 29.90 AS `yearly_market_price`, 100.00 AS `monthly_bonus_points`, 100.00 AS `yearly_bonus_points`, '["开通赠送100积分","会员有效期1个月","适合个人轻量创作"]' AS `features`, 0 AS `is_recommend`, 90 AS `sort`
   UNION ALL
-  SELECT '高级会员', '适合高频创作用户，赠送更多积分', 39.90, 399.00, 69.90, 699.00, 300.00, 4200.00, '["每月赠送300积分","按年开通赠送4200积分","适合高频图文与视频创作"]', 1, 80
+  SELECT '高级会员', '适合高频创作用户，赠送更多积分', 1, 39.90, 39.90, 69.90, 69.90, 300.00, 300.00, '["开通赠送300积分","会员有效期1个月","适合高频图文与视频创作"]', 1, 80
 ) plans
 WHERE NOT EXISTS (
   SELECT 1 FROM `la_membership_plan` p
