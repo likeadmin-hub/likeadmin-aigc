@@ -6,6 +6,7 @@ use app\common\model\TenantConfig;
 use app\common\model\tenant\Tenant;
 use app\common\service\storage\StorageConfigService;
 use app\common\service\storage\StorageSettingService;
+use app\common\service\ai\AiTaskResultStorageService;
 use app\tenantapi\controller\BaseAdminController;
 
 class StorageController extends BaseAdminController
@@ -26,6 +27,7 @@ class StorageController extends BaseAdminController
         return $this->success('获取成功', [
             'allow_custom_storage' => $this->allowCustomStorage(),
             'allow_local_storage' => $allowLocalStorage,
+            'result_transfer_enabled' => AiTaskResultStorageService::transferEnabled($this->tenantId) ? 1 : 0,
             'lists' => $lists,
         ]);
     }
@@ -48,10 +50,17 @@ class StorageController extends BaseAdminController
 
     public function setup()
     {
+        $params = $this->request->post();
+        if (array_key_exists('result_transfer_enabled', $params)) {
+            AiTaskResultStorageService::setTransferEnabled(
+                $this->tenantId,
+                (int)$params['result_transfer_enabled'] === 1
+            );
+            return $this->success('配置成功', [], 1, 1);
+        }
         if (!$this->allowCustomStorage()) {
             return $this->fail('平台未允许该租户自定义存储');
         }
-        $params = $this->request->post();
         $engine = (string)($params['engine'] ?? 'local');
         $enabled = (int)($params['status'] ?? 0) === 1;
         if ($engine === 'local' && $enabled && !$this->allowLocalStorage()) {

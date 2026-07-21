@@ -1046,3 +1046,8 @@ ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `draft_data` longtext COMME
 ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `draft_meta` longtext COMMENT '草稿页面设置' AFTER `draft_data`;
 ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `published_data` longtext COMMENT '发布数据' AFTER `draft_meta`;
 ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `published_meta` longtext COMMENT '发布页面设置' AFTER `published_data`;
+
+-- Default is external supplier URLs. Tenant administrators can explicitly
+-- enable durable result transfer later without changing the worker contract.
+INSERT INTO `la_tenant_config_{tenantSn}` (`tenant_id`,`type`,`name`,`value`,`create_time`,`update_time`)
+VALUES ({tenantId},'ai_task','result_transfer_enabled','0',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());

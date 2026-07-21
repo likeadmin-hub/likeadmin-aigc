@@ -246,8 +246,6 @@ class AigcImageService
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
-        self::safeRefreshRunningTasks($tenantId, $userId, (int)($params['task_id'] ?? $params['id'] ?? 0));
-
         $query = AigcImageTask::alias('t')
             ->leftJoin('user u', 'u.id = t.user_id AND u.tenant_id = t.tenant_id')
             ->field('t.*,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
@@ -344,8 +342,6 @@ class AigcImageService
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
     {
-        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
-
         $query = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -371,6 +367,15 @@ class AigcImageService
             self::refreshRunningTasks((int)$task['tenant_id'], (int)$task['user_id'], (int)$task['id'], true);
         }
         return count($tasks);
+    }
+
+    /**
+     * Result-worker entry point for one market-backed image task.
+     * Provider submission has already happened; this only queries its result.
+     */
+    public static function refreshMarketTask(int $tenantId, int $taskId, int $userId = 0): void
+    {
+        self::refreshRunningTasks($tenantId, $userId, $taskId, false);
     }
 
     public static function retryTask(int $tenantId, int $taskId): array
@@ -414,8 +419,6 @@ class AigcImageService
 
     public static function resultLists(int $tenantId, int $userId = 0, int $taskId = 0, string $status = '', string $style = ''): array
     {
-        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
-
         $query = AigcImageTask::where('tenant_id', $tenantId)->where('delete_time', 0)->order('id', 'desc');
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -986,9 +989,6 @@ class AigcImageService
 
     private static function buildDuplicateGenerateResponse(AigcImageTask $task, int $tenantId, int $userId): array
     {
-        if ((string)$task['status'] === 'running') {
-            self::refreshRunningTasks($tenantId, $userId, (int)$task['id']);
-        }
         $latest = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => (int)$task['id']])->findOrEmpty();
         if ($latest->isEmpty()) {
             $latest = $task;

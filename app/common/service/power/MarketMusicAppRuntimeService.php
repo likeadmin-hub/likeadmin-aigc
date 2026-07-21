@@ -8,6 +8,7 @@ use app\common\model\ai\AiConsumptionLog;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
+use app\common\service\ai\AiTaskJobService;
 use app\common\service\app\aigc_music\AigcMusicAssetService;
 use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
@@ -141,6 +142,7 @@ class MarketMusicAppRuntimeService
                 $c->save(['run_status' => 'running', 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'update_time' => time()]);
                 self::event((int)$c['id'], 'submit', 'success', ['upstream_task_id' => $taskId]);
             });
+            AiTaskJobService::enqueueQueryResult($consumptionId);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
         } catch (\Throwable $e) {
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');

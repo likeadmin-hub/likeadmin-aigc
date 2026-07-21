@@ -8,6 +8,8 @@ use app\common\model\ai\AiConsumptionLog;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
+use app\common\service\ai\AiTaskJobService;
+use app\common\service\ai\AiTaskResultStorageService;
 use app\common\service\app\aigc_video\AigcVideoAssetService;
 use app\common\service\app\aigc_video\AigcVideoReferenceAssetService;
 use app\common\service\point\PointService;
@@ -63,10 +65,11 @@ class MarketVideoRuntimeService
             $id = self::optionId($resourceType, $product);
             $resolutions = array_values(array_unique(array_filter(array_map(static fn(array $row): string => (string)$row['resolution'], $validSkus))));
             $durations = array_values(array_unique(array_filter(array_map(static fn(array $row): int => (int)$row['duration'], $validSkus))));
+            $metadataDurations = self::durationOptions($metadata);
             if (self::hasConfigurableDurationSku($validSkus)) {
-                $durations = array_values(array_unique(array_merge($durations, self::defaultDurations($product))));
+                $durations = array_values(array_unique(array_merge($durations, $metadataDurations, self::defaultDurations($product))));
             } elseif ($durations === []) {
-                $durations = self::defaultDurations($product);
+                $durations = array_values(array_unique(array_merge($metadataDurations, self::defaultDurations($product))));
             }
             $durations = self::filterSupportedAppDurations($product, $durations);
             sort($durations);
@@ -221,7 +224,7 @@ class MarketVideoRuntimeService
         try {
             $response = self::submitRequest($snapshot, $request, (string)$context['consumption']['consume_no'], $consumptionId);
             $taskId = self::taskId($response);
-            $videos = self::videos($response, (int)$context['consumption']['tenant_id'], (int)$context['consumption']['user_id']);
+            $videos = self::videos($response, (int)$context['consumption']['tenant_id'], (int)$context['consumption']['user_id'], (string)$context['app_task']['app_code'] === 'aigc_short_drama');
             $requestId = self::requestId($response);
             if ($videos === [] && $taskId === '') {
                 throw new Exception('上游未返回视频任务号');
@@ -232,7 +235,11 @@ class MarketVideoRuntimeService
                 $c->save(['run_status' => $videos === [] ? 'running' : 'success', 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'response_summary' => ['video_count' => count($videos), 'videos' => $videos], 'update_time' => time()]);
                 self::event((int)$c['id'], 'submit', 'success', ['upstream_task_id' => $taskId, 'video_count' => count($videos)]);
             });
-            if ($videos !== []) self::settle($consumptionId, $videos, $requestId, $taskId, $response);
+            if ($videos !== []) {
+                self::settle($consumptionId, $videos, $requestId, $taskId, $response);
+                AiTaskJobService::enqueueProcessResult($consumptionId);
+            }
+            else AiTaskJobService::enqueueQueryResult($consumptionId);
             return ['status' => $videos === [] ? 'running' : 'success', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'videos' => $videos];
         } catch (\Throwable $e) {
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
@@ -252,7 +259,7 @@ class MarketVideoRuntimeService
         try {
             $snapshot = self::arrayValue($c['price_snapshot'] ?? []);
             $response = self::queryRequest($snapshot, $taskId);
-            $videos = self::videos($response, (int)$c['tenant_id'], (int)$c['user_id']);
+            $videos = self::videos($response, (int)$c['tenant_id'], (int)$c['user_id'], (string)$context['app_task']['app_code'] === 'aigc_short_drama');
             $upstreamStatus = self::status($response);
             if (in_array($upstreamStatus, ['failed', 'error', 'canceled', 'cancelled', 'rejected'], true)) {
                 $message = self::error($response);
@@ -614,6 +621,46 @@ class MarketVideoRuntimeService
     private static function capabilityLimit(array $meta, string $type): int { $cap = self::arrayValue($meta['capabilities'] ?? []); $keys = ['image' => ['max_reference_images','max_reference_image_count','reference_image_limit'], 'video' => ['max_reference_videos','max_reference_video_count','reference_video_limit'], 'audio' => ['max_reference_audios','max_reference_audio_count','reference_audio_limit']]; foreach ($keys[$type] as $key) foreach ([$meta, $cap] as $source) if (isset($source[$key])) return max(0, (int)$source[$key]); return $type === 'image' && (!empty($meta['supports_reference_images']) || !empty($cap['supports_reference_images'])) ? 1 : 0; }
     private static function supportsFirstLastFrame(array $meta): bool { $cap = self::arrayValue($meta['capabilities'] ?? []); return !empty($meta['supports_first_last_frame']) || !empty($cap['supports_first_last_frame']) || in_array('start_end', (array)($meta['generation_modes'] ?? $cap['generation_modes'] ?? []), true); }
     private static function ratioOptions(array $meta): array { $cap = self::arrayValue($meta['capabilities'] ?? []); $schema = self::arrayValue($meta['params_schema'] ?? []); $values = $meta['supported_ratios'] ?? $meta['ratios'] ?? $cap['supported_ratios'] ?? $schema['aspect_ratio']['options'] ?? []; if (is_string($values)) $values = preg_split('~\s*[,|/]\s*~', $values) ?: []; return array_values(array_filter(array_map('strval', (array)$values))); }
+    private static function durationOptions(array $meta): array
+    {
+        $cap = self::arrayValue($meta['capabilities'] ?? []);
+        $schema = self::arrayValue($meta['params_schema'] ?? []);
+        $durationSchema = self::arrayValue($schema['duration'] ?? $schema['seconds'] ?? $schema['video_duration'] ?? []);
+        $values = $meta['supported_durations']
+            ?? $meta['durations']
+            ?? $cap['supported_durations']
+            ?? $cap['durations']
+            ?? $durationSchema['options']
+            ?? $durationSchema['enum']
+            ?? $durationSchema['values']
+            ?? $durationSchema['allowed_values']
+            ?? $durationSchema['default']
+            ?? $durationSchema['value']
+            ?? [];
+        $items = is_array($values) ? $values : [$values];
+        $durations = [];
+        foreach ($items as $item) {
+            if (is_array($item)) {
+                $item = $item['value'] ?? $item['duration'] ?? $item['seconds'] ?? '';
+            }
+            $value = trim((string)$item);
+            if ($value === '') continue;
+            if (preg_match('/^(\d+)\s*(?:-|~|至)\s*(\d+)$/u', $value, $match)) {
+                $start = (int)$match[1];
+                $end = (int)$match[2];
+                if ($start > 0 && $end >= $start && $end - $start <= 60) {
+                    $durations = array_merge($durations, range($start, $end));
+                }
+                continue;
+            }
+            if (preg_match_all('/\d+/', $value, $matches)) {
+                foreach ($matches[0] as $duration) if ((int)$duration > 0) $durations[] = (int)$duration;
+            }
+        }
+        $durations = array_values(array_unique($durations));
+        sort($durations);
+        return $durations;
+    }
     private static function quantity(array $market, array $selection): float
     {
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
@@ -844,7 +891,7 @@ class MarketVideoRuntimeService
         }
         return '视频模型调用失败';
     }
-    private static function videos(array $data, int $tenantId, int $userId): array
+    private static function videos(array $data, int $tenantId, int $userId, bool $forceTransfer = false): array
     {
         $urls = self::videoUrls($data);
         if ($urls === []) {
@@ -854,6 +901,17 @@ class MarketVideoRuntimeService
         $errors = [];
         foreach ($urls as $url) {
             try {
+                if (!AiTaskResultStorageService::transferEnabled($tenantId, $forceTransfer)) {
+                    $rows[] = [
+                        'video_uri' => $url,
+                        'width' => 0,
+                        'height' => 0,
+                        'storage_scope' => '',
+                        'storage_engine' => '',
+                        'storage_domain' => '',
+                    ];
+                    continue;
+                }
                 $stored = AigcVideoAssetService::persistGeneratedVideo($url, $tenantId, $userId);
                 $rows[] = [
                     'video_uri' => (string)$stored['uri'],

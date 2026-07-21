@@ -149,6 +149,9 @@ class AiUsageService
             'update_time' => time(),
         ]);
         self::event((int)$consumption['id'], 'submit', 'success', $summary);
+        if ($upstreamTaskId !== '' && (int)($summary['image_count'] ?? 0) === 0) {
+            AiTaskJobService::enqueueQueryResult((int)$consumption['id']);
+        }
     }
 
     public static function recordImageEvent(int $imageTaskId, string $type, string $status, array $summary = []): void

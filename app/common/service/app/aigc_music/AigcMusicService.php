@@ -239,7 +239,6 @@ class AigcMusicService
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
-        self::safeRefreshRunningTasks($tenantId, $userId);
         $query = AigcMusicTask::alias('t')
             ->leftJoin('user u', 'u.id = t.user_id AND u.tenant_id = t.tenant_id')
             ->field('t.*,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
@@ -265,7 +264,6 @@ class AigcMusicService
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
     {
-        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcMusicTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -346,7 +344,6 @@ class AigcMusicService
 
     public static function resultLists(int $tenantId, int $userId = 0, int $taskId = 0, array $params = []): array
     {
-        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcMusicResult::where('tenant_id', $tenantId)->where('delete_time', 0)->order('id', 'desc');
         if ($userId > 0) {
             $query->where('user_id', $userId);

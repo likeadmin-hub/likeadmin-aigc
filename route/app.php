@@ -11,6 +11,12 @@
 use think\facade\Console;
 use think\facade\Route;
 
+// Upstream callbacks bypass user authentication. The handler accepts POST only
+// and verifies the HMAC configured with the model API source before waking a job.
+Route::post('ai/task/callback', function () {
+    return (new \app\common\controller\AiTaskCallbackController())->receive(request());
+});
+
 $tenantFrontendRedirect = function (string $frontend, string $childPath = '') {
     $tenantId = request()->param('tenant_id');
     $query = array_merge(request()->get(), ['tenant_id' => $tenantId]);

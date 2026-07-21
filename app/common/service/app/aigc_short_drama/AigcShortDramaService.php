@@ -1251,14 +1251,7 @@ class AigcShortDramaService
             if ((int)($requestParams['subject_id'] ?? $requestParams['item_id'] ?? 0) !== $subjectId) {
                 continue;
             }
-            self::syncGenerationTask($tenantId, $userId, $row);
-            $fresh = AigcShortDramaGenerationTask::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'task_id' => (string)$row['task_id'],
-                'delete_time' => 0,
-            ])->findOrEmpty();
-            $task = self::formatGenerationTask($fresh->isEmpty() ? $row : $fresh->toArray(), true);
+            $task = self::formatGenerationTask($row, true);
             $task['assets'] = self::generationTaskOutputAssets($tenantId, $userId, $task);
             foreach ($task['assets'] as $asset) {
                 $seenAssetIds[(int)($asset['id'] ?? 0)] = true;
@@ -4133,8 +4126,6 @@ class AigcShortDramaService
     public static function generationTaskDetail(int $tenantId, int $userId, string $taskId): array
     {
         $task = self::findGenerationTask($tenantId, $userId, $taskId);
-        self::syncGenerationTask($tenantId, $userId, $task->toArray());
-        $task = self::findGenerationTask($tenantId, $userId, $taskId);
         return self::formatGenerationTask($task->toArray(), true);
     }
 
@@ -4168,14 +4159,7 @@ class AigcShortDramaService
         $rows = $query->limit(min(100, max(1, (int)($params['page_size'] ?? 100))))->select()->toArray();
         $lists = [];
         foreach ($rows as $row) {
-            self::syncGenerationTask($tenantId, $userId, $row);
-            $fresh = AigcShortDramaGenerationTask::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'task_id' => (string)$row['task_id'],
-                'delete_time' => 0,
-            ])->findOrEmpty();
-            $lists[] = self::formatGenerationTask($fresh->isEmpty() ? $row : $fresh->toArray(), true);
+            $lists[] = self::formatGenerationTask($row, true);
         }
         return self::sanitizeUtf8Payload([
             'lists' => $lists,
@@ -5528,6 +5512,38 @@ class AigcShortDramaService
             }
         }
         return count($rows);
+    }
+
+    /**
+     * Worker-only entry point. Reads never invoke supplier refreshes; this
+     * resolves one business task that is already linked to a consumption row.
+     */
+    public static function refreshMarketGenerationTask(int $generationId): void
+    {
+        $generation = AigcShortDramaGenerationTask::where('id', $generationId)
+            ->where('consumption_id', '>', 0)
+            ->where('delete_time', 0)
+            ->findOrEmpty();
+        if ($generation->isEmpty()) {
+            return;
+        }
+        $row = $generation->toArray();
+        $tenantId = (int)$row['tenant_id'];
+        $userId = (int)$row['user_id'];
+        if ((string)$row['task_type'] === 'shot_video') {
+            self::syncMarketVideoGenerationTask($tenantId, $userId, $row);
+            return;
+        }
+        if ((string)$row['task_type'] === 'bgm_audio') {
+            self::syncMarketBgmAudioGenerationTask($tenantId, $userId, $row);
+            return;
+        }
+        $request = self::jsonDecode((string)($row['request_json'] ?? ''));
+        if (self::isNanoBananaImageSelection((array)($request['params'] ?? []))) {
+            self::syncMarketNanoBananaGenerationTask($tenantId, $userId, $row);
+            return;
+        }
+        self::syncMarketImageGenerationTask($tenantId, $userId, $row);
     }
 
     /** Refresh result delivery and late usage reports for every market media task. */
@@ -15572,14 +15588,7 @@ PROMPT;
             if ((string)($params[$matchKey] ?? '') !== $itemId) {
                 continue;
             }
-            self::syncGenerationTask((int)$row['tenant_id'], (int)$row['user_id'], $row);
-            $fresh = AigcShortDramaGenerationTask::where([
-                'tenant_id' => (int)$row['tenant_id'],
-                'user_id' => (int)$row['user_id'],
-                'task_id' => (string)$row['task_id'],
-                'delete_time' => 0,
-            ])->findOrEmpty();
-            $taskRow = $fresh->isEmpty() ? $row : $fresh->toArray();
+            $taskRow = $row;
             $latestCreateTime = max($latestCreateTime, (int)($taskRow['create_time'] ?? 0));
             $taskAssets = self::generationTaskAssets($taskRow);
             $task = self::formatGenerationTask($taskRow, true);
@@ -15780,16 +15789,6 @@ PROMPT;
 
     private static function formatAdminGenerationTask(array $row): array
     {
-        self::syncGenerationTask((int)$row['tenant_id'], (int)$row['user_id'], $row);
-        $fresh = AigcShortDramaGenerationTask::where([
-            'tenant_id' => (int)$row['tenant_id'],
-            'user_id' => (int)$row['user_id'],
-            'task_id' => (string)$row['task_id'],
-            'delete_time' => 0,
-        ])->findOrEmpty();
-        if (!$fresh->isEmpty()) {
-            $row = array_merge($row, $fresh->toArray());
-        }
         $assets = self::generationTaskAssets($row);
         $first = $assets[0] ?? [];
         $status = (string)$row['status'];
@@ -15851,14 +15850,7 @@ PROMPT;
             return [];
         }
         $generation = $row->toArray();
-        self::syncGenerationTask($tenantId, $userId, $generation);
-        $fresh = AigcShortDramaGenerationTask::where([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'task_id' => (string)$generation['task_id'],
-            'delete_time' => 0,
-        ])->findOrEmpty();
-        $taskRow = $fresh->isEmpty() ? $generation : $fresh->toArray();
+        $taskRow = $generation;
         $task = self::formatGenerationTask($taskRow, false);
         $assets = self::generationTaskAssets($taskRow);
         $task['generation_time'] = self::timeText($taskRow['create_time'] ?? 0);
