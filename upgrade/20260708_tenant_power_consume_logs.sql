@@ -1,4 +1,4 @@
--- 租户端「算力商城 > 消耗日志」菜单与权限
+-- 租户端「算力商城 > 点数流水」菜单与权限
 
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT 0,0,'M','算力商城','el-icon-Goods',70,'','power-mall','','','',0,1,0,'','core','core_tenant_power_mall',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
@@ -15,7 +15,7 @@ SET @core_tenant_power_template_id := (
 );
 
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
-SELECT 0,@core_tenant_power_template_id,'C','消耗日志','el-icon-Notebook',80,'power.mall/consumeLogs','consume-logs','power_mall/consume_logs','','',0,1,0,'','core','core_tenant_power_mall_consume_logs',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+SELECT 0,@core_tenant_power_template_id,'C','点数流水','el-icon-Notebook',80,'power.mall/consumeLogs','consume-logs','power_mall/consume_logs','','',0,1,0,'','core','core_tenant_power_mall_consume_logs',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 WHERE @core_tenant_power_template_id IS NOT NULL
   AND NOT EXISTS (
     SELECT 1 FROM `la_tenant_system_menu`
@@ -53,7 +53,7 @@ WHERE (ta.`delete_time` IS NULL OR ta.`delete_time` = 0)
   );
 
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
-SELECT parent.`tenant_id`,parent.`id`,'C','消耗日志','el-icon-Notebook',80,'power.mall/consumeLogs','consume-logs','power_mall/consume_logs','','',0,1,0,'','core','core_tenant_power_mall_consume_logs',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+SELECT parent.`tenant_id`,parent.`id`,'C','点数流水','el-icon-Notebook',80,'power.mall/consumeLogs','consume-logs','power_mall/consume_logs','','',0,1,0,'','core','core_tenant_power_mall_consume_logs',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 FROM `la_tenant_system_menu` parent
 WHERE parent.`source_menu_key` = 'core_tenant_power_mall'
   AND parent.`tenant_id` > 0

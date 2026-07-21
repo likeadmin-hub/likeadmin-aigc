@@ -194,6 +194,14 @@
       "need_role_permission": 0
     },
     {
+      "api_path": "app.aigc_short_drama.project/saveGenerationSettings",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:project:save_generation_settings:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
       "api_path": "app.aigc_short_drama.project/publish",
       "api_method": "POST",
       "permission_key": "aigc_short_drama:project:publish:user",

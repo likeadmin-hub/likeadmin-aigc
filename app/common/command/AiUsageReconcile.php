@@ -2,69 +2,38 @@
 
 namespace app\common\command;
 
-use app\common\service\app\aigc_image\AigcImageService;
-use app\common\model\app\aigc_video\AigcVideoTask;
-use app\common\service\app\aigc_video\AigcVideoService;
-use app\common\service\app\aigc_short_drama\AigcShortDramaService;
+use app\common\model\ai\AiConsumptionLog;
+use app\common\service\ai\AiTaskJobService;
 use think\console\Command;
 use think\console\Input;
 use think\console\input\Option;
 use think\console\Output;
-use think\facade\Db;
 
 class AiUsageReconcile extends Command
 {
     protected function configure(): void
     {
         $this->setName('ai:usage_reconcile')
-            ->setDescription('补偿刷新AIGC任务与消耗日志')
-            ->addOption('limit', null, Option::VALUE_OPTIONAL, '最大刷新任务数', 20);
+            ->setDescription('补投缺失或过期的 AI 结果任务')
+            ->addOption('limit', null, Option::VALUE_OPTIONAL, '最大补投任务数', 100);
     }
 
     protected function execute(Input $input, Output $output): int
     {
-        $count = AigcImageService::refreshPendingTasks((int)$input->getOption('limit'));
-        $videoCount = 0;
-        if (self::hasColumn('la_aigc_video_task', 'consumption_id')) {
-            $videoTasks = AigcVideoTask::where('provider', 'power_market')
-                ->whereIn('status', ['running', 'success'])
-                ->where('consumption_id', '>', 0)
-                ->where('delete_time', 0)
-                ->order('id', 'asc')
-                ->limit((int)$input->getOption('limit'))
-                ->select();
-            foreach ($videoTasks as $task) {
-                try {
-                    AigcVideoService::refreshMarketTask((int)$task['tenant_id'], (int)$task['id'], (int)$task['user_id']);
-                    $videoCount++;
-                } catch (\Throwable) {
-                    // The next compensation pass will retry transient supplier failures.
-                }
-            }
+        $limit = max(1, min(500, (int)$input->getOption('limit')));
+        $rows = AiConsumptionLog::whereIn('run_status', ['reserved', 'submitted', 'running', 'success'])
+            ->whereIn('billing_status', ['reserved', 'pending_usage'])
+            ->order(['refresh_requested_at' => 'asc', 'id' => 'asc'])
+            ->limit($limit)
+            ->select();
+        $count = 0;
+        foreach ($rows as $row) {
+            AiTaskJobService::enqueueQueryResult((int)$row['id'], 10, true);
+            AiConsumptionLog::where('id', (int)$row['id'])->update(['refresh_requested_at' => time(), 'update_time' => time()]);
+            $count++;
         }
-        $shortDramaVideoCount = self::hasColumn('la_aigc_short_drama_generation_task', 'consumption_id')
-            ? AigcShortDramaService::refreshMarketVideoTasks((int)$input->getOption('limit'))
-            : 0;
-        $shortDramaUsageCount = self::hasColumn('la_aigc_short_drama_generation_task', 'consumption_id')
-            ? AigcShortDramaService::refreshMarketUsageTasks((int)$input->getOption('limit'))
-            : 0;
         $purged = \app\common\service\ai\AiUsageService::purgeExpiredPayloads();
-        $output->writeln('refreshed: ' . $count . ', video_refreshed: ' . $videoCount . ', short_drama_video_refreshed: ' . $shortDramaVideoCount . ', short_drama_usage_refreshed: ' . $shortDramaUsageCount . ', purged_payloads: ' . $purged);
+        $output->writeln('enqueued: ' . $count . ', purged_payloads: ' . $purged);
         return 0;
-    }
-
-    private static function hasColumn(string $table, string $column): bool
-    {
-        try {
-            // MySQL does not accept a prepared placeholder in SHOW COLUMNS
-            // statements under ThinkPHP's raw-query path. This guard used to
-            // always return false and skipped all market-video reconciliation.
-            $safeTable = str_replace('`', '', $table);
-            $safeColumn = str_replace(["'", '\\'], ['', ''], $column);
-            $rows = Db::query("SHOW COLUMNS FROM `{$safeTable}` LIKE '{$safeColumn}'");
-            return $rows !== [];
-        } catch (\Throwable) {
-            return false;
-        }
     }
 }

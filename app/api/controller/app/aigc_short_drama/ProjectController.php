@@ -40,6 +40,19 @@ class ProjectController extends BaseApiController
         }
     }
 
+    public function saveGenerationSettings()
+    {
+        try {
+            return $this->success('保存成功', AigcShortDramaService::saveProjectGenerationSettings(
+                (int)$this->request->tenantId,
+                $this->userId,
+                $this->request->post()
+            ), 1, 1);
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function coverOptions()
     {
         try {

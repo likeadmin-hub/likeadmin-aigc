@@ -21,6 +21,7 @@ class AigcImageService
 {
     public const APP_CODE = 'aigc_image';
     private const DUPLICATE_WINDOW_SECONDS = 6;
+    private const READ_REFRESH_INTERVAL_SECONDS = 8;
 
     public static function config(int $tenantId): array
     {
@@ -368,6 +369,15 @@ class AigcImageService
         return count($tasks);
     }
 
+    /**
+     * Result-worker entry point for one market-backed image task.
+     * Provider submission has already happened; this only queries its result.
+     */
+    public static function refreshMarketTask(int $tenantId, int $taskId, int $userId = 0): void
+    {
+        self::refreshRunningTasks($tenantId, $userId, $taskId, false);
+    }
+
     public static function retryTask(int $tenantId, int $taskId): array
     {
         $task = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0)->findOrEmpty();
@@ -651,10 +661,17 @@ class AigcImageService
         if ($userId > 0) {
             $query->where('user_id', $userId);
         }
-        $tasks = $query->limit(10)->select();
+        $tasks = $query
+            ->order('update_time', 'asc')
+            ->order('id', 'asc')
+            ->limit(10)
+            ->select();
         foreach ($tasks as $task) {
             $status = (string)($task['status'] ?? '');
             if ($status !== 'running' && !self::isRecoverableAsyncFailure($task)) {
+                continue;
+            }
+            if (!self::shouldRefreshTask($task, $taskId > 0)) {
                 continue;
             }
             if ($status !== 'running') {
@@ -716,6 +733,15 @@ class AigcImageService
                 }
             }
         }
+    }
+
+    private static function shouldRefreshTask(AigcImageTask $task, bool $explicitTask = false): bool
+    {
+        if ($explicitTask) {
+            return true;
+        }
+        $lastUpdate = self::timestampValue($task['update_time'] ?? 0);
+        return $lastUpdate <= 0 || (time() - $lastUpdate) >= self::READ_REFRESH_INTERVAL_SECONDS;
     }
 
     private static function safeRefreshRunningTasks(int $tenantId, int $userId = 0, int $taskId = 0): void
@@ -963,9 +989,6 @@ class AigcImageService
 
     private static function buildDuplicateGenerateResponse(AigcImageTask $task, int $tenantId, int $userId): array
     {
-        if ((string)$task['status'] === 'running') {
-            self::refreshRunningTasks($tenantId, $userId, (int)$task['id']);
-        }
         $latest = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => (int)$task['id']])->findOrEmpty();
         if ($latest->isEmpty()) {
             $latest = $task;

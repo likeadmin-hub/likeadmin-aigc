@@ -41,7 +41,7 @@ class GenerateController extends BaseApiController
             if (($result['status'] ?? '') === 'failed') {
                 throw new Exception((string)($result['error'] ?? '音乐生成失败'));
             }
-            return $this->success('鐢熸垚鎴愬姛', $this->formatMusicResult($result));
+            return $this->success('生成成功', $this->formatMusicResult($result));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -97,9 +97,9 @@ class GenerateController extends BaseApiController
         try {
             $taskId = (int)$this->request->get('task_id', $this->request->post('task_id', 0));
             if ($taskId <= 0) {
-                throw new Exception('缂哄皯浠诲姟ID');
+                throw new Exception('缺少任务ID');
             }
-            return $this->success('鑾峰彇鎴愬姛', $this->formatMusicTask(AigcCanvasService::musicTaskDetail((int)$this->request->tenantId, $this->userId, $taskId)));
+            return $this->success('获取成功', $this->formatMusicTask(AigcCanvasService::musicTaskDetail((int)$this->request->tenantId, $this->userId, $taskId)));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }

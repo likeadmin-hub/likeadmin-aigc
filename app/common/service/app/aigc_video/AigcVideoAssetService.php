@@ -79,6 +79,7 @@ class AigcVideoAssetService
         file_put_contents($tmpPath, $content);
         try {
             $uri = self::uploadLocalFile($tmpPath, $tenantId, $userId);
+            $config = StorageConfigService::getEffectiveConfig($tenantId);
         } finally {
             @unlink($tmpPath);
         }
@@ -86,6 +87,9 @@ class AigcVideoAssetService
             'uri' => $uri,
             'width' => 0,
             'height' => 0,
+            'storage_scope' => (string)($config['scope'] ?? 'tenant'),
+            'storage_engine' => (string)($config['default'] ?? 'local'),
+            'storage_domain' => (string)StorageConfigService::getEffectiveDomain($tenantId),
             'stored' => true,
         ];
     }
