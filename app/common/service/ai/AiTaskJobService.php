@@ -164,10 +164,6 @@ class AiTaskJobService
     {
         $consumption = AiConsumptionLog::findOrEmpty($consumptionId);
         if ($consumption->isEmpty()) return true;
-        if (in_array((string)$consumption['billing_status'], ['settled', 'refunded'], true)) {
-            self::enqueueProcessResult($consumptionId);
-            return true;
-        }
         $appTask = (int)$consumption['app_task_id'];
         $businessTable = (string)(Db::name('ai_app_task')->where('id', $appTask)->value('business_table') ?: '');
         $businessId = (int)(Db::name('ai_app_task')->where('id', $appTask)->value('business_id') ?: 0);
@@ -178,6 +174,10 @@ class AiTaskJobService
         } elseif ($businessTable === 'aigc_short_drama_generation_task' && $businessId > 0) {
             AigcShortDramaService::refreshMarketGenerationTask($businessId);
         } else {
+            if (in_array((string)$consumption['billing_status'], ['settled', 'refunded'], true)) {
+                self::enqueueProcessResult($consumptionId);
+                return true;
+            }
             // A runtime with no business result adapter must not be marked failed
             // merely because it is not yet migrated. It remains retryable.
             throw new \RuntimeException('未注册的市场结果处理器: ' . $businessTable);
