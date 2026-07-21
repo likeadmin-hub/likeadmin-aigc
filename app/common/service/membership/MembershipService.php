@@ -20,6 +20,7 @@ class MembershipService
     public const EXCLUDED_PLAN_APP_CODES = ['system_default'];
     public const STATUS_ENABLED = 1;
     public const STATUS_DISABLED = 0;
+    public const CYCLE_PACKAGE = 'package';
     public const CYCLE_MONTHLY = 'monthly';
     public const CYCLE_YEARLY = 'yearly';
     public const ORDER_UNPAID = 0;
@@ -61,8 +62,9 @@ class MembershipService
         if (!is_array($features)) {
             $features = [];
         }
-        $monthlyPrice = (float)($params['monthly_price'] ?? 0);
-        $yearlyPrice = (float)($params['yearly_price'] ?? 0);
+        $durationMonths = max(1, (int)($params['duration_months'] ?? 1));
+        $monthlyPrice = (float)($params['monthly_price'] ?? $params['price'] ?? 0);
+        $yearlyPrice = (float)($params['yearly_price'] ?? $monthlyPrice);
         if ($monthlyPrice < 0 || $yearlyPrice < 0) {
             throw new RuntimeException('套餐价格不能小于0');
         }
@@ -71,12 +73,13 @@ class MembershipService
             'tenant_id' => $tenantId,
             'name' => $name,
             'description' => trim((string)($params['description'] ?? '')),
+            'duration_months' => $durationMonths,
             'monthly_price' => self::formatAmount($monthlyPrice),
             'yearly_price' => self::formatAmount($yearlyPrice),
-            'monthly_market_price' => self::formatAmount((float)($params['monthly_market_price'] ?? 0)),
-            'yearly_market_price' => self::formatAmount((float)($params['yearly_market_price'] ?? 0)),
-            'monthly_bonus_points' => self::formatAmount((float)($params['monthly_bonus_points'] ?? 0)),
-            'yearly_bonus_points' => self::formatAmount((float)($params['yearly_bonus_points'] ?? 0)),
+            'monthly_market_price' => self::formatAmount((float)($params['monthly_market_price'] ?? $params['market_price'] ?? 0)),
+            'yearly_market_price' => self::formatAmount((float)($params['yearly_market_price'] ?? $params['monthly_market_price'] ?? $params['market_price'] ?? 0)),
+            'monthly_bonus_points' => self::formatAmount((float)($params['monthly_bonus_points'] ?? $params['bonus_points'] ?? 0)),
+            'yearly_bonus_points' => self::formatAmount((float)($params['yearly_bonus_points'] ?? $params['monthly_bonus_points'] ?? $params['bonus_points'] ?? 0)),
             'features' => array_values($features),
             'is_recommend' => (int)($params['is_recommend'] ?? 0) ? 1 : 0,
             'status' => (int)($params['status'] ?? 1) ? self::STATUS_ENABLED : self::STATUS_DISABLED,
@@ -136,16 +139,26 @@ class MembershipService
 
     public static function createOrder(int $tenantId, int $userId, int $terminal, int $planId, string $cycle): array
     {
-        if (!in_array($cycle, [self::CYCLE_MONTHLY, self::CYCLE_YEARLY], true)) {
+        if ($cycle === '') {
+            $cycle = self::CYCLE_PACKAGE;
+        }
+        if (!in_array($cycle, [self::CYCLE_PACKAGE, self::CYCLE_MONTHLY, self::CYCLE_YEARLY], true)) {
             throw new RuntimeException('购买周期不正确');
         }
         $plan = MembershipPlan::where(['tenant_id' => $tenantId, 'id' => $planId, 'status' => self::STATUS_ENABLED])->findOrEmpty();
         if ($plan->isEmpty()) {
             throw new RuntimeException('会员套餐不存在或已下架');
         }
-        $amount = (float)($cycle === self::CYCLE_YEARLY ? $plan['yearly_price'] : $plan['monthly_price']);
-        $bonus = (float)($cycle === self::CYCLE_YEARLY ? $plan['yearly_bonus_points'] : $plan['monthly_bonus_points']);
-        $durationMonths = $cycle === self::CYCLE_YEARLY ? 12 : 1;
+        $durationMonths = (int)($plan['duration_months'] ?? 0);
+        if ($durationMonths > 0) {
+            $cycle = self::CYCLE_PACKAGE;
+            $amount = (float)$plan['monthly_price'];
+            $bonus = (float)$plan['monthly_bonus_points'];
+        } else {
+            $amount = (float)($cycle === self::CYCLE_YEARLY ? $plan['yearly_price'] : $plan['monthly_price']);
+            $bonus = (float)($cycle === self::CYCLE_YEARLY ? $plan['yearly_bonus_points'] : $plan['monthly_bonus_points']);
+            $durationMonths = $cycle === self::CYCLE_YEARLY ? 12 : 1;
+        }
         $current = self::currentMembership($tenantId, $userId);
         $beforeExpireTime = (int)($current['expire_time'] ?? 0);
         $afterExpireTime = self::calcExpire($beforeExpireTime, $durationMonths);
@@ -315,7 +328,11 @@ class MembershipService
         $order['pay_time'] = empty($order['pay_time']) ? '' : date('Y-m-d H:i:s', (int)$order['pay_time']);
         $order['before_expire_time_text'] = empty($order['before_expire_time']) ? '无' : date('Y-m-d H:i:s', (int)$order['before_expire_time']);
         $order['after_expire_time_text'] = empty($order['after_expire_time']) ? '无' : date('Y-m-d H:i:s', (int)$order['after_expire_time']);
-        $order['cycle_text'] = ($order['cycle'] ?? '') === self::CYCLE_YEARLY ? '按年购买' : '按月购买';
+        if (($order['cycle'] ?? '') === self::CYCLE_PACKAGE) {
+            $order['cycle_text'] = (int)($order['duration_months'] ?? 0) > 0 ? (int)$order['duration_months'] . '个月' : '套餐购买';
+        } else {
+            $order['cycle_text'] = ($order['cycle'] ?? '') === self::CYCLE_YEARLY ? '按年购买' : '按月购买';
+        }
         return $order;
     }
 
