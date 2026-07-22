@@ -10,18 +10,18 @@ use Exception;
 
 class AigcImageAssetService
 {
-    public static function persistGeneratedImage(string $url, int $tenantId, int $userId = 0): array
+    public static function persistGeneratedImage(string $url, int $tenantId, int $userId = 0, ?array $storageConfig = null): array
     {
         if (str_starts_with($url, 'data:image/')) {
-            return self::persistDataUri($url, $tenantId, $userId);
+            return self::persistDataUri($url, $tenantId, $userId, $storageConfig);
         }
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return self::persistRemoteUrl($url, $tenantId, $userId);
+            return self::persistRemoteUrl($url, $tenantId, $userId, $storageConfig);
         }
         return ['uri' => $url, 'width' => 0, 'height' => 0, 'stored' => false];
     }
 
-    private static function persistRemoteUrl(string $url, int $tenantId, int $userId): array
+    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, ?array $storageConfig): array
     {
         $context = stream_context_create([
             'http' => [
@@ -35,10 +35,10 @@ class AigcImageAssetService
         if ($content === false || $content === '') {
             throw new Exception('生成图片下载失败');
         }
-        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content));
+        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content), $storageConfig);
     }
 
-    private static function persistDataUri(string $dataUri, int $tenantId, int $userId): array
+    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, ?array $storageConfig): array
     {
         if (!preg_match('/^data:image\/([a-zA-Z0-9.+-]+);base64,(.+)$/', $dataUri, $matches)) {
             throw new Exception('生成图片格式错误');
@@ -48,10 +48,10 @@ class AigcImageAssetService
             throw new Exception('生成图片解析失败');
         }
         $ext = strtolower($matches[1]);
-        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext);
+        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $storageConfig);
     }
 
-    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext): array
+    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, ?array $storageConfig): array
     {
         $ext = in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? $ext : 'png';
         $tmp = tempnam(sys_get_temp_dir(), 'aigc_image_');
@@ -63,7 +63,7 @@ class AigcImageAssetService
         file_put_contents($tmpPath, $content);
         $size = @getimagesize($tmpPath) ?: [];
         try {
-            $stored = self::uploadLocalFile($tmpPath, $tenantId, $userId);
+            $stored = self::uploadLocalFile($tmpPath, $tenantId, $userId, $storageConfig ?: StorageConfigService::getEffectiveConfig($tenantId));
         } finally {
             @unlink($tmpPath);
         }
@@ -78,9 +78,8 @@ class AigcImageAssetService
         ];
     }
 
-    private static function uploadLocalFile(string $filePath, int $tenantId, int $userId): array
+    private static function uploadLocalFile(string $filePath, int $tenantId, int $userId, array $config): array
     {
-        $config = StorageConfigService::getEffectiveConfig($tenantId);
         $saveDir = 'uploads/aigc_image/' . date('Ymd');
         $driver = new StorageDriver($config);
         $driver->setUploadFileByReal($filePath);
@@ -90,7 +89,7 @@ class AigcImageAssetService
         $uri = $saveDir . '/' . str_replace('\\', '/', $driver->getFileName());
         $scope = (string)($config['scope'] ?? 'tenant');
         $engine = (string)($config['default'] ?? 'local');
-        $domain = (string)StorageConfigService::getEffectiveDomain($tenantId);
+        $domain = StorageConfigService::getStorageDomain($config);
         TenantFile::create([
             'tenant_id' => $tenantId,
             'cid' => 0,

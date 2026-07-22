@@ -10,6 +10,13 @@ use think\facade\Cache;
 
 class StorageConfigService
 {
+    private const ENGINE_LABELS = [
+        'local' => '本地存储',
+        'qiniu' => '七牛云存储',
+        'aliyun' => '阿里云OSS',
+        'qcloud' => '腾讯云COS',
+    ];
+
     public static function getEffectiveConfig(?int $tenantId = null): array
     {
         $scope = self::effectiveScope($tenantId);
@@ -40,12 +47,59 @@ class StorageConfigService
 
     public static function getEffectiveDomain(?int $tenantId = null): string
     {
-        $default = self::getEffectiveDefault($tenantId);
-        if ($default === 'local') {
+        return self::getStorageDomain(self::getEffectiveConfig($tenantId));
+    }
+
+    /**
+     * Returns the storage engines that can actually be used in the tenant's
+     * effective storage scope. Credentials stay server-side.
+     */
+    public static function availableStorageOptions(int $tenantId): array
+    {
+        $options = [];
+        foreach (self::ENGINE_LABELS as $engine => $name) {
+            try {
+                self::getConfiguredStorageConfig($tenantId, $engine);
+                $options[] = ['engine' => $engine, 'name' => $name];
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+        return $options;
+    }
+
+    /**
+     * Resolves one explicitly selected storage engine in the same scope used
+     * by normal tenant uploads. This is intentionally not returned to clients.
+     */
+    public static function getConfiguredStorageConfig(int $tenantId, string $engine): array
+    {
+        $engine = strtolower(trim($engine));
+        if (!array_key_exists($engine, self::ENGINE_LABELS)) {
+            throw new \InvalidArgumentException('不支持的存储方式');
+        }
+        $scope = self::effectiveScope($tenantId);
+        if ($engine === 'local') {
+            if ($scope === 'tenant' && !self::tenantAllowsLocalStorage($tenantId)) {
+                throw new \InvalidArgumentException('当前租户未允许使用本地存储');
+            }
+            return ['scope' => $scope, 'default' => 'local', 'engine' => ['local' => []]];
+        }
+
+        $config = self::getConfig($scope, $tenantId, $engine, []);
+        if (!is_array($config) || !self::configuredEngine($engine, $config)) {
+            throw new \InvalidArgumentException('所选存储方式尚未配置完成');
+        }
+        return ['scope' => $scope, 'default' => $engine, 'engine' => [$engine => $config]];
+    }
+
+    public static function getStorageDomain(array $config): string
+    {
+        $engine = (string)($config['default'] ?? 'local');
+        if ($engine === 'local') {
             return request()->domain();
         }
-        $config = self::getConfig(self::effectiveScope($tenantId), $tenantId, $default, []);
-        return $config['domain'] ?? '';
+        return (string)($config['engine'][$engine]['domain'] ?? '');
     }
 
     public static function getStoredFileConfig(?int $tenantId, ?string $scope, ?string $engine): array
@@ -109,6 +163,25 @@ class StorageConfigService
             return 'tenant';
         }
         return 'platform';
+    }
+
+    private static function tenantAllowsLocalStorage(int $tenantId): bool
+    {
+        return (int)Tenant::where('id', $tenantId)->value('allow_local_storage') === 1;
+    }
+
+    private static function configuredEngine(string $engine, array $config): bool
+    {
+        $required = ['bucket', 'access_key', 'secret_key', 'domain'];
+        if ($engine === 'qcloud') {
+            $required[] = 'region';
+        }
+        foreach ($required as $key) {
+            if (trim((string)($config[$key] ?? '')) === '') {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static function getConfig(string $scope, ?int $tenantId, string $name, mixed $default = null): mixed

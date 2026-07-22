@@ -73,7 +73,27 @@ class AigcShortDramaService
     {
         $config = self::publicConfig($tenantId);
         $config['dependencies'] = self::dependencies($tenantId);
+        $config['result_storage_options'] = StorageConfigService::availableStorageOptions($tenantId);
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $config);
+    }
+
+    public static function resultTransferEnabled(int $tenantId): bool
+    {
+        return (bool)(self::publicConfig($tenantId)['force_result_transfer'] ?? false);
+    }
+
+    /** @return array{scope:string,default:string,engine:array<string,array<string,mixed>>}|null */
+    public static function resultTransferStorageConfig(int $tenantId): ?array
+    {
+        $config = self::publicConfig($tenantId);
+        if (empty($config['force_result_transfer'])) {
+            return null;
+        }
+        $engine = trim((string)($config['result_storage_engine'] ?? ''));
+        if ($engine === '') {
+            throw new Exception('短剧强制转存未选择存储方式');
+        }
+        return StorageConfigService::getConfiguredStorageConfig($tenantId, $engine);
     }
 
     public static function adminStat(int $tenantId = 0): array
@@ -365,7 +385,7 @@ class AigcShortDramaService
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::publicConfig($tenantId);
         $config = $current;
-        unset($config['status'], $config['display_config'], $config['model_groups']);
+        unset($config['status'], $config['display_config'], $config['model_groups'], $config['result_storage_options']);
 
         if (array_key_exists('script_plan_points', $params)) {
             unset($config['script_plan_points']);
@@ -378,6 +398,19 @@ class AigcShortDramaService
         }
         if (array_key_exists('prompt_max_length', $params)) {
             $config['prompt_max_length'] = max(0, min(200000, (int)$params['prompt_max_length']));
+        }
+        if (array_key_exists('force_result_transfer', $params)) {
+            $config['force_result_transfer'] = (int)$params['force_result_transfer'] === 1;
+            if ($config['force_result_transfer']) {
+                $engine = trim((string)($params['result_storage_engine'] ?? ''));
+                if ($engine === '') {
+                    throw new Exception('开启强制转存后请选择存储方式');
+                }
+                StorageConfigService::getConfiguredStorageConfig($tenantId, $engine);
+                $config['result_storage_engine'] = $engine;
+            } else {
+                $config['result_storage_engine'] = '';
+            }
         }
         if (array_key_exists('script_plan_model_id', $params)) {
             $scriptModelId = trim((string)$params['script_plan_model_id']);
@@ -11942,6 +11975,8 @@ class AigcShortDramaService
                 ['label' => '1:1', 'width' => 1, 'height' => 1],
             ],
             'prompt_max_length' => 20000,
+            'force_result_transfer' => false,
+            'result_storage_engine' => '',
             'models' => [
                 [
                     'id' => 'script-planner-default',

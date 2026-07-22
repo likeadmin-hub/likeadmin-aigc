@@ -10,13 +10,13 @@ use Exception;
 
 class AigcVideoAssetService
 {
-    public static function persistGeneratedVideo(string $url, int $tenantId, int $userId = 0): array
+    public static function persistGeneratedVideo(string $url, int $tenantId, int $userId = 0, ?array $storageConfig = null): array
     {
         if (str_starts_with($url, 'data:video/')) {
-            return self::persistDataUri($url, $tenantId, $userId);
+            return self::persistDataUri($url, $tenantId, $userId, $storageConfig);
         }
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return self::persistRemoteUrl($url, $tenantId, $userId);
+            return self::persistRemoteUrl($url, $tenantId, $userId, $storageConfig);
         }
         if (!self::isAllowedLocalVideoUri($url)) {
             throw new Exception('供应商返回的视频地址无效');
@@ -24,7 +24,7 @@ class AigcVideoAssetService
         return ['uri' => $url, 'width' => 0, 'height' => 0, 'stored' => false];
     }
 
-    private static function persistRemoteUrl(string $url, int $tenantId, int $userId): array
+    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, ?array $storageConfig): array
     {
         $context = stream_context_create([
             'http' => [
@@ -47,10 +47,10 @@ class AigcVideoAssetService
         if (self::isTextResponse($contentType, $content)) {
             throw new Exception('生成视频下载失败，远程地址返回的不是视频文件');
         }
-        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content, $contentType));
+        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $content, $contentType), $storageConfig);
     }
 
-    private static function persistDataUri(string $dataUri, int $tenantId, int $userId): array
+    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, ?array $storageConfig): array
     {
         if (!preg_match('/^data:video\/([a-zA-Z0-9.+-]+);base64,(.+)$/', $dataUri, $matches)) {
             throw new Exception('生成视频格式错误');
@@ -60,10 +60,10 @@ class AigcVideoAssetService
             throw new Exception('生成视频解析失败');
         }
         $ext = strtolower($matches[1]);
-        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext);
+        return self::persistBinary($content, $tenantId, $userId, $ext === 'jpeg' ? 'jpg' : $ext, $storageConfig);
     }
 
-    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext): array
+    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, ?array $storageConfig): array
     {
         $detectedExt = self::detectVideoExtension($content);
         if ($detectedExt === '') {
@@ -78,8 +78,8 @@ class AigcVideoAssetService
         @rename($tmp, $tmpPath);
         file_put_contents($tmpPath, $content);
         try {
-            $uri = self::uploadLocalFile($tmpPath, $tenantId, $userId);
-            $config = StorageConfigService::getEffectiveConfig($tenantId);
+            $config = $storageConfig ?: StorageConfigService::getEffectiveConfig($tenantId);
+            $uri = self::uploadLocalFile($tmpPath, $tenantId, $userId, $config);
         } finally {
             @unlink($tmpPath);
         }
@@ -89,14 +89,13 @@ class AigcVideoAssetService
             'height' => 0,
             'storage_scope' => (string)($config['scope'] ?? 'tenant'),
             'storage_engine' => (string)($config['default'] ?? 'local'),
-            'storage_domain' => (string)StorageConfigService::getEffectiveDomain($tenantId),
+            'storage_domain' => StorageConfigService::getStorageDomain($config),
             'stored' => true,
         ];
     }
 
-    private static function uploadLocalFile(string $filePath, int $tenantId, int $userId): string
+    private static function uploadLocalFile(string $filePath, int $tenantId, int $userId, array $config): string
     {
-        $config = StorageConfigService::getEffectiveConfig($tenantId);
         $saveDir = 'uploads/aigc_video/' . date('Ymd');
         $driver = new StorageDriver($config);
         $driver->setUploadFileByReal($filePath);
@@ -112,7 +111,7 @@ class AigcVideoAssetService
             'uri' => $uri,
             'storage_scope' => $config['scope'] ?? 'tenant',
             'storage_engine' => $config['default'] ?? 'local',
-            'storage_domain' => StorageConfigService::getEffectiveDomain($tenantId),
+            'storage_domain' => StorageConfigService::getStorageDomain($config),
             'source' => FileEnum::SOURCE_USER,
             'source_id' => $userId,
             'create_time' => time(),

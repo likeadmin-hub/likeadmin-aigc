@@ -39,8 +39,9 @@ class AiTaskBusinessResultService
         if ($context === null) {
             return false;
         }
-        return (string)$context['app_code'] === 'aigc_short_drama'
-            || (string)$context['business_table'] === 'aigc_short_drama_generation_task';
+        return ((string)$context['app_code'] === AigcShortDramaService::APP_CODE
+            || (string)$context['business_table'] === 'aigc_short_drama_generation_task')
+            && AigcShortDramaService::resultTransferEnabled((int)$context['consumption']['tenant_id']);
     }
 
     private static function assertOptionalBusinessAdapter(array $consumption, string $businessTable): void
