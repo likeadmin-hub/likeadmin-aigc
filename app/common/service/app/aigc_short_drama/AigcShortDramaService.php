@@ -1847,6 +1847,7 @@ class AigcShortDramaService
             'billing_status' => (string)($extra['billing_status'] ?? 'none'),
             'tenant_cost_points' => (float)($extra['tenant_cost_points'] ?? 0),
             'user_charge_points' => (float)($extra['user_charge_points'] ?? 0),
+            'provider_task_id' => (string)($extra['provider_task_id'] ?? ''),
             'provider_request_id' => (string)($extra['provider_request_id'] ?? ''),
             'started_at' => (int)($extra['started_at'] ?? 0),
             'finished_at' => (int)($extra['finished_at'] ?? 0),
@@ -4938,6 +4939,14 @@ class AigcShortDramaService
         }
 
         if ($consumptionId <= 0) {
+            if ($active || $status === self::STATUS_FAILED) {
+                try {
+                    self::syncGenerationTask($tenantId, $userId, $row);
+                    return self::reloadGenerationTaskRow($tenantId, $userId, (string)($row['task_id'] ?? ''), $row);
+                } catch (\Throwable $e) {
+                    Log::write('Short drama legacy generation task refresh failed: ' . $e->getMessage());
+                }
+            }
             return $row;
         }
 
@@ -5680,6 +5689,137 @@ class AigcShortDramaService
             return;
         }
         self::syncMarketImageGenerationTask($tenantId, $userId, $row);
+    }
+
+    /** Refresh old generation rows created before unified consumption binding. */
+    public static function refreshLegacyGenerationTasks(int $limit = 20): int
+    {
+        $rows = AigcShortDramaGenerationTask::where('consumption_id', 0)
+            ->where(function ($query) {
+                $query->where('provider_task_id', '<>', '')
+                    ->whereOr('task_type', 'script_plan');
+            })
+            ->whereIn('status', [self::STATUS_PENDING, self::STATUS_QUEUED, self::STATUS_RUNNING])
+            ->whereNotIn('task_type', ['export_video', 'export_package'])
+            ->where('delete_time', 0)
+            ->order('id', 'asc')
+            ->limit(max(1, min(500, $limit)))
+            ->select()
+            ->toArray();
+        foreach ($rows as $row) {
+            try {
+                if ((string)($row['task_type'] ?? '') === 'script_plan') {
+                    self::refreshLegacyScriptPlanGenerationTask($row);
+                } else {
+                    self::syncGenerationTask((int)$row['tenant_id'], (int)$row['user_id'], $row);
+                }
+            } catch (\Throwable $e) {
+                Log::write('Short drama legacy generation refresh failed: ' . $e->getMessage());
+            }
+        }
+        return count($rows);
+    }
+
+    private static function refreshLegacyScriptPlanGenerationTask(array $generation): void
+    {
+        $tenantId = (int)($generation['tenant_id'] ?? 0);
+        $userId = (int)($generation['user_id'] ?? 0);
+        $taskId = (string)($generation['task_id'] ?? '');
+        if ($tenantId <= 0 || $userId <= 0 || $taskId === '') {
+            return;
+        }
+
+        $task = AigcShortDramaScriptTask::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'task_id' => $taskId,
+            'delete_time' => 0,
+        ])->findOrEmpty();
+        if ($task->isEmpty()) {
+            return;
+        }
+
+        $row = $task->toArray();
+        $row = self::recoverPartialStreamScriptPlanTask($tenantId, $userId, $row);
+        $row = self::recoverCompletedScriptPlanTask($tenantId, $userId, $row);
+        $row = self::recoverStaleScriptPlanTask($tenantId, $userId, $row);
+        self::syncScriptPlanGenerationFromTaskRow($tenantId, $userId, $row);
+    }
+
+    private static function syncScriptPlanGenerationFromTaskRow(int $tenantId, int $userId, array $taskData): void
+    {
+        $taskId = (string)($taskData['task_id'] ?? '');
+        $projectId = (int)($taskData['project_id'] ?? 0);
+        $status = (string)($taskData['status'] ?? '');
+        if ($taskId === '' || $projectId <= 0 || $status === '') {
+            return;
+        }
+
+        $request = self::jsonDecode((string)($taskData['request_json'] ?? ''));
+        $config = self::jsonDecode((string)($taskData['config_snapshot'] ?? ''));
+        $modelSelections = is_array($config['model_selections'] ?? null) ? (array)$config['model_selections'] : [];
+        $model = is_array($modelSelections['script_plan'] ?? null) ? (array)$modelSelections['script_plan'] : [];
+        if ($model === [] && !empty($config['provider'])) {
+            $model = ['provider' => (string)$config['provider'], 'name' => (string)($config['model_id'] ?? '')];
+        }
+        $result = self::jsonDecode((string)($taskData['result_json'] ?? ''));
+        $resultPayload = self::planResultHasContent($result)
+            ? ['script_task_id' => (int)($taskData['id'] ?? 0), 'has_plan' => true]
+            : [];
+        $appTaskId = (int)($taskData['app_task_id'] ?? 0);
+        $consumptionId = $appTaskId > 0
+            ? (int)(AiConsumptionLog::where('app_task_id', $appTaskId)->order('id', 'desc')->value('id') ?: 0)
+            : 0;
+
+        self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $taskId, $status, $request, $model, [
+            'provider' => (string)($taskData['provider'] ?? ''),
+            'provider_request_id' => (string)($taskData['provider_request_id'] ?? ''),
+            'provider_task_id' => (string)($taskData['provider_task_id'] ?? ''),
+            'progress' => (int)($taskData['progress'] ?? ($status === self::STATUS_SUCCESS ? 100 : 0)),
+            'result' => $resultPayload,
+            'pricing' => self::jsonDecode((string)($taskData['pricing_snapshot'] ?? '')),
+            'billing_status' => (string)($taskData['billing_status'] ?? 'none'),
+            'tenant_cost_points' => (float)($taskData['tenant_cost_points'] ?? 0),
+            'user_charge_points' => (float)($taskData['user_charge_points'] ?? 0),
+            'error_msg' => (string)($taskData['error'] ?? ''),
+            'error_code' => (string)($taskData['error'] ?? '') === self::SCRIPT_PLAN_STALE_ERROR ? 'stream_stale' : '',
+            'started_at' => (int)($taskData['started_at'] ?? 0),
+            'finished_at' => (int)($taskData['finished_at'] ?? 0),
+        ]);
+        $linkUpdate = [];
+        if ($appTaskId > 0) {
+            $linkUpdate['app_task_id'] = $appTaskId;
+        }
+        if ($consumptionId > 0) {
+            $linkUpdate['consumption_id'] = $consumptionId;
+        }
+        if ($linkUpdate !== []) {
+            $linkUpdate['update_time'] = time();
+            AigcShortDramaGenerationTask::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'task_id' => $taskId,
+                'delete_time' => 0,
+            ])->update($linkUpdate);
+        }
+    }
+
+    /** Worker adapter for script-plan tasks whose LLM consumption is already terminal. */
+    public static function refreshScriptTask(int $scriptTaskId): void
+    {
+        $task = AigcShortDramaScriptTask::where('id', $scriptTaskId)
+            ->where('delete_time', 0)
+            ->findOrEmpty();
+        if ($task->isEmpty()) {
+            return;
+        }
+        $row = $task->toArray();
+        $tenantId = (int)$row['tenant_id'];
+        $userId = (int)$row['user_id'];
+        $row = self::recoverPartialStreamScriptPlanTask($tenantId, $userId, $row);
+        $row = self::recoverCompletedScriptPlanTask($tenantId, $userId, $row);
+        $row = self::recoverStaleScriptPlanTask($tenantId, $userId, $row);
+        self::syncScriptPlanGenerationFromTaskRow($tenantId, $userId, $row);
     }
 
     /** Refresh result delivery and late usage reports for every market media task. */

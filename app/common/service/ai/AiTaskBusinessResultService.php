@@ -27,6 +27,7 @@ class AiTaskBusinessResultService
         match ($businessTable) {
             'aigc_image_task' => AigcImageService::refreshMarketTask((int)$consumption['tenant_id'], $businessId, (int)$consumption['user_id']),
             'aigc_video_task' => AigcVideoService::refreshMarketTask((int)$consumption['tenant_id'], $businessId, (int)$consumption['user_id']),
+            'aigc_short_drama_script_task' => AigcShortDramaService::refreshScriptTask($businessId),
             'aigc_short_drama_generation_task' => AigcShortDramaService::refreshMarketGenerationTask($businessId),
             default => self::assertOptionalBusinessAdapter($consumption, $businessTable),
         };
