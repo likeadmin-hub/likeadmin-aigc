@@ -1176,18 +1176,6 @@ INSERT INTO `la_system_menu` (`id`, `pid`, `type`, `name`, `icon`, `sort`, `perm
 VALUES (9005, 118, 'A', '租户点数流水', '', 111, 'tenant.tenant/pointLogs', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_point_logs', 1, 1727700000, 1727700000);
 INSERT INTO `la_system_menu` (`id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES (9012, 118, 'A', '进入租户后台', '', 112, 'tenant.tenant/sso', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_sso', 1, 1727700000, 1727700000);
-INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
-VALUES (117, 'C', '租户套餐', 'el-icon-Tickets', 95, 'tenant.package/lists', 'package', 'tenant/package/index', '', '', 0, 1, 0, '', 'core', 'core_tenant_package_platform', 1, 1782604800, 1782604800);
-SET @core_tenant_package_platform_id := LAST_INSERT_ID();
-INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
-VALUES
-(@core_tenant_package_platform_id, 'A', '新增套餐', '', 0, 'tenant.package/add', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_add', 1, 1782604800, 1782604800),
-(@core_tenant_package_platform_id, 'A', '编辑套餐', '', 0, 'tenant.package/edit', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_edit', 1, 1782604800, 1782604800),
-(@core_tenant_package_platform_id, 'A', '删除套餐', '', 0, 'tenant.package/delete', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_delete', 1, 1782604800, 1782604800),
-(@core_tenant_package_platform_id, 'A', '套餐详情', '', 0, 'tenant.package/detail', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_detail', 1, 1782604800, 1782604800),
-(@core_tenant_package_platform_id, 'A', '应用套餐选项', '', 0, 'tenant.package/appPlans', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_app_plans', 1, 1782604800, 1782604800),
-(@core_tenant_package_platform_id, 'A', '额度订单', '', 0, 'tenant.package/quotaOrders', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_quota_orders', 1, 1782604800, 1782604800),
-(@core_tenant_package_platform_id, 'A', '贴牌订单', '', 0, 'tenant.package/brandOrders', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_brand_orders', 1, 1782604800, 1782604800);
 INSERT INTO `la_system_menu` (`id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES (9000, 0, 'M', '应用管理', 'el-icon-Grid', 60, '', 'apps', '', '', '', 0, 1, 0, '', 'core', 'core_app_center', 1, 1727700000, 1727700000);
 INSERT INTO `la_system_menu` (`id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
@@ -1202,6 +1190,18 @@ INSERT INTO `la_system_menu` (`id`, `pid`, `type`, `name`, `icon`, `sort`, `perm
 VALUES (9022, 9020, 'C', '授权信息', 'el-icon-Key', 90, 'upgrade/licenseInfo', 'license', 'update/license/index', '', '', 0, 1, 0, '', 'core', 'core_update_license', 1, 1727700000, 1727700000);
 INSERT INTO `la_system_menu` (`id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES (9023, 9020, 'C', '版本日志', 'el-icon-List', 80, 'upgrade/logs', 'log', 'update/log/index', '', '', 0, 1, 0, '', 'core', 'core_update_log', 1, 1727700000, 1727700000);
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES (117, 'C', '租户套餐', 'el-icon-Tickets', 95, 'tenant.package/lists', 'package', 'tenant/package/index', '', '', 0, 1, 0, '', 'core', 'core_tenant_package_platform', 1, 1782604800, 1782604800);
+SET @core_tenant_package_platform_id := LAST_INSERT_ID();
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+(@core_tenant_package_platform_id, 'A', '新增套餐', '', 0, 'tenant.package/add', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_add', 1, 1782604800, 1782604800),
+(@core_tenant_package_platform_id, 'A', '编辑套餐', '', 0, 'tenant.package/edit', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_edit', 1, 1782604800, 1782604800),
+(@core_tenant_package_platform_id, 'A', '删除套餐', '', 0, 'tenant.package/delete', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_delete', 1, 1782604800, 1782604800),
+(@core_tenant_package_platform_id, 'A', '套餐详情', '', 0, 'tenant.package/detail', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_detail', 1, 1782604800, 1782604800),
+(@core_tenant_package_platform_id, 'A', '应用套餐选项', '', 0, 'tenant.package/appPlans', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_app_plans', 1, 1782604800, 1782604800),
+(@core_tenant_package_platform_id, 'A', '额度订单', '', 0, 'tenant.package/quotaOrders', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_quota_orders', 1, 1782604800, 1782604800),
+(@core_tenant_package_platform_id, 'A', '贴牌订单', '', 0, 'tenant.package/brandOrders', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_brand_orders', 1, 1782604800, 1782604800);
 INSERT INTO `la_system_menu` (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES (0, 'M', '算力商城', 'el-icon-Goods', 700, '', 'power-mall', '', '', '', 0, 1, 0, '', 'core', 'core_power_mall', 1, 1782604800, 1782604800);
 SET @core_power_mall_id := LAST_INSERT_ID();

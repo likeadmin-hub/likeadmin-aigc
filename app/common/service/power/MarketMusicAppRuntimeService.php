@@ -22,6 +22,7 @@ class MarketMusicAppRuntimeService
     private const UPSTREAM_APP_CODE = 'music_generation';
     private const CREATE_API_CODE = 'create';
     private const GENERATE_TYPE = 'generate';
+    private const MAX_RUNNING_SECONDS = 7200;
 
     public static function availability(int $tenantId): array
     {
@@ -156,8 +157,15 @@ class MarketMusicAppRuntimeService
         if ($context === null) throw new Exception('市场音乐消耗记录不存在');
         $consumption = $context['consumption'];
         if (!in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage'], true)) return self::response($consumption->toArray());
+        $timedOut = (int)$consumption['create_time'] > 0 && time() - (int)$consumption['create_time'] >= self::MAX_RUNNING_SECONDS;
         $taskId = trim((string)$consumption['upstream_task_id']);
-        if ($taskId === '') return self::response($consumption->toArray());
+        if ($taskId === '') {
+            if ($timedOut) {
+                self::fail($consumptionId, '音乐任务未返回上游任务号', 'timeout');
+                return ['status' => 'failed', 'provider_task_id' => '', 'items' => []];
+            }
+            return self::response($consumption->toArray());
+        }
         try {
             $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
             $response = self::request('GET', self::endpoint((string)$snapshot['app_code'], 'query') . '?task_id=' . rawurlencode($taskId));
@@ -170,8 +178,10 @@ class MarketMusicAppRuntimeService
                 self::fail($consumptionId, self::error($response), 'upstream_failed');
                 return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []];
             }
+            if ($timedOut) { self::fail($consumptionId, '音乐任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []]; }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
         } catch (\Throwable) {
+            if ($timedOut) { self::fail($consumptionId, '音乐任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []]; }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
         }
     }

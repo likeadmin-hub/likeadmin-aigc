@@ -254,8 +254,15 @@ class MarketVideoRuntimeService
         $c = $context['consumption'];
         if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return self::response($c->toArray());
         $createdAt = self::timestamp($c['create_time'] ?? 0);
-        $taskId = trim((string)$c['upstream_task_id']); if ($taskId === '') return self::response($c->toArray());
         $timedOut = $createdAt > 0 && time() - $createdAt >= self::MAX_RUNNING_SECONDS;
+        $taskId = trim((string)$c['upstream_task_id']);
+        if ($taskId === '') {
+            if ($timedOut) {
+                self::fail($consumptionId, '视频任务未返回上游任务号', 'timeout');
+                return ['status' => 'failed', 'provider_task_id' => '', 'videos' => []];
+            }
+            return self::response($c->toArray());
+        }
         try {
             $snapshot = self::arrayValue($c['price_snapshot'] ?? []);
             $response = self::queryRequest($snapshot, $taskId);
@@ -296,8 +303,13 @@ class MarketVideoRuntimeService
             return ['status' => 'running', 'provider_task_id' => $taskId, 'videos' => []];
         } catch (\Throwable $e) {
             // A query or result-download failure is not a terminal provider
-            // failure. Keep the task retryable, but leave an audit trail so a
-            // completed upstream task cannot silently remain "running".
+            // failure. Keep the task retryable until its deadline, but leave
+            // an audit trail so a completed upstream task cannot silently
+            // remain "running".
+            if ($timedOut) {
+                self::fail($consumptionId, '视频任务处理超时', 'timeout');
+                return ['status' => 'failed', 'provider_task_id' => $taskId, 'videos' => []];
+            }
             self::recordRefreshError($consumptionId, $taskId, $e);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'videos' => []];
         }

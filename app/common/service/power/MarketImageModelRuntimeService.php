@@ -24,6 +24,7 @@ class MarketImageModelRuntimeService
     public const APP_CODE = 'aigc_short_drama';
     private const SUBMIT_PATH = '/api/v1/tasks';
     private const TASK_PATH = '/api/v1/tasks/{task_id}';
+    private const MAX_RUNNING_SECONDS = 7200;
 
     /** @return array{key:string,label:string,type:string,options:array<int,array<string,mixed>>,default:string} */
     public static function modelGroup(int $tenantId): array
@@ -225,15 +226,24 @@ class MarketImageModelRuntimeService
         if ($context === null) throw new Exception('市场图片消耗记录不存在');
         $c = $context['consumption'];
         if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return self::responseFromConsumption($c->toArray());
+        $timedOut = (int)$c['create_time'] > 0 && time() - (int)$c['create_time'] >= self::MAX_RUNNING_SECONDS;
         $taskId = trim((string)$c['upstream_task_id']);
-        if ($taskId === '') return self::responseFromConsumption($c->toArray());
+        if ($taskId === '') {
+            if ($timedOut) {
+                self::fail($consumptionId, '图片任务未返回上游任务号', 'timeout');
+                return ['status' => 'failed', 'provider_task_id' => '', 'images' => []];
+            }
+            return self::responseFromConsumption($c->toArray());
+        }
         try {
             $response = self::request('GET', self::origin() . str_replace('{task_id}', rawurlencode($taskId), self::TASK_PATH));
             $status = self::status($response); $images = self::images($response, (int)$c['tenant_id'], (int)$c['user_id']);
             if ($images !== []) { self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); return ['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
             if (in_array($status, ['failed', 'error', 'canceled', 'cancelled'], true)) { self::fail($consumptionId, self::error($response), 'upstream_failed'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
+            if ($timedOut) { self::fail($consumptionId, '图片任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
+            if ($timedOut) { self::fail($consumptionId, '图片任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
         }
     }
