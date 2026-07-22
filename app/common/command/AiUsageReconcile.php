@@ -3,6 +3,7 @@
 namespace app\common\command;
 
 use app\common\model\ai\AiConsumptionLog;
+use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use app\common\service\ai\AiTaskJobService;
 use think\console\Command;
 use think\console\Input;
@@ -32,8 +33,9 @@ class AiUsageReconcile extends Command
             AiConsumptionLog::where('id', (int)$row['id'])->update(['refresh_requested_at' => time(), 'update_time' => time()]);
             $count++;
         }
+        $legacy = AigcShortDramaService::refreshLegacyGenerationTasks($limit);
         $purged = \app\common\service\ai\AiUsageService::purgeExpiredPayloads();
-        $output->writeln('enqueued: ' . $count . ', purged_payloads: ' . $purged);
+        $output->writeln('enqueued: ' . $count . ', legacy_refreshed: ' . $legacy . ', purged_payloads: ' . $purged);
         return 0;
     }
 }

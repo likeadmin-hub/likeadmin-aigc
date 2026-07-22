@@ -45,13 +45,24 @@ class AiTaskWorker extends Command
                     sleep($sleep);
                     continue;
                 }
+                $output->writeln(sprintf('[worker] claimed %d job(s)', count($jobs)));
                 foreach ($jobs as $job) {
+                    $output->writeln(sprintf(
+                        '[job:%d] start type=%s consumption=%d asset=%d attempts=%d',
+                        (int)$job['id'],
+                        (string)$job['job_type'],
+                        (int)$job['consumption_id'],
+                        (int)$job['result_asset_id'],
+                        (int)$job['attempts']
+                    ));
                     try {
                         $finished = AiTaskJobService::run($job);
                         if ($finished) {
                             AiTaskJobService::succeed($job);
+                            $output->writeln(sprintf('[job:%d] success', (int)$job['id']));
                         } else {
                             AiTaskJobService::reschedule($job, 5);
+                            $output->writeln(sprintf('[job:%d] waiting next_run_in=5s', (int)$job['id']));
                         }
                     } catch (\Throwable $e) {
                         AiTaskJobService::retry($job, $e);
