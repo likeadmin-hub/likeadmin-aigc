@@ -5,6 +5,7 @@ namespace app\common\service\tenant;
 use app\common\model\tenant\Tenant;
 use app\common\model\tenant\TenantDomainAlias;
 use Exception;
+use think\facade\Db;
 
 class TenantDomainAliasService
 {
@@ -98,11 +99,11 @@ class TenantDomainAliasService
                 $primaryCount++;
             }
 
-            $query = TenantDomainAlias::withoutGlobalScope()->where('domain', $domain);
+            $query = Db::name('tenant_domain_alias')->where('domain', $domain);
             if ($tenantId > 0) {
                 $query->where('tenant_id', '<>', $tenantId);
             }
-            if (!$query->findOrEmpty()->isEmpty()) {
+            if (!empty($query->find())) {
                 throw new Exception('租户别名已存在：' . $domain);
             }
 
@@ -127,21 +128,41 @@ class TenantDomainAliasService
     {
         $aliases = self::normalizeAliasList($aliases, $legacyAlias);
         self::validateAliases($aliases, $tenantId, $requireActive);
-        TenantDomainAlias::withoutGlobalScope()->where('tenant_id', $tenantId)->delete();
 
+        $domains = array_values(array_filter(array_map(fn($alias) => (string)($alias['domain'] ?? ''), $aliases)));
+        $deleteQuery = Db::name('tenant_domain_alias')->where('tenant_id', $tenantId);
+        if ($domains !== []) {
+            $deleteQuery->whereNotIn('domain', $domains);
+        }
+        $deleteQuery->delete();
+
+        $now = time();
         $primary = '';
         foreach ($aliases as $alias) {
+            $domain = (string)$alias['domain'];
             if ((int)$alias['is_primary'] === 1) {
-                $primary = (string)$alias['domain'];
+                $primary = $domain;
             }
-            TenantDomainAlias::create([
+
+            $row = Db::name('tenant_domain_alias')->where('domain', $domain)->find();
+            if (!empty($row) && (int)($row['tenant_id'] ?? 0) !== $tenantId) {
+                throw new Exception('租户别名已存在：' . $domain);
+            }
+
+            $data = [
                 'tenant_id' => $tenantId,
-                'domain' => (string)$alias['domain'],
+                'domain' => $domain,
                 'is_primary' => (int)$alias['is_primary'] === 1 ? 1 : 0,
                 'status' => (int)($alias['status'] ?? 1) === 0 ? 0 : 1,
-                'create_time' => time(),
-                'update_time' => time(),
-            ]);
+                'update_time' => $now,
+                'delete_time' => null,
+            ];
+            if (!empty($row)) {
+                Db::name('tenant_domain_alias')->where('id', (int)$row['id'])->update($data);
+                continue;
+            }
+            $data['create_time'] = $now;
+            Db::name('tenant_domain_alias')->insert($data);
         }
 
         return $primary !== '' ? $primary : (string)($aliases[0]['domain'] ?? '');
@@ -196,4 +217,3 @@ class TenantDomainAliasService
         return TenantUrlService::normalizeHost((string)($tenant['domain_alias'] ?? ''));
     }
 }
-
