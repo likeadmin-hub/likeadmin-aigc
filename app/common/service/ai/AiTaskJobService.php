@@ -4,6 +4,7 @@ namespace app\common\service\ai;
 
 use app\common\model\ai\AiConsumptionLog;
 use app\common\model\ai\AiTaskJob;
+use think\facade\Db;
 
 /** Durable DB queue for post-submit result work. Provider submission is never run here. */
 class AiTaskJobService
