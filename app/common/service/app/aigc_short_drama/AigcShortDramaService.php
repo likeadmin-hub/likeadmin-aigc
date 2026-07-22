@@ -5657,16 +5657,50 @@ class AigcShortDramaService
     private static function syncMarketVideoGenerationTask(int $tenantId, int $userId, array $generation): void
     {
         $consumptionId = (int)($generation['consumption_id'] ?? 0);
-        if ($consumptionId <= 0 || in_array((string)($generation['status'] ?? ''), [self::STATUS_FAILED, self::STATUS_CANCELED], true)
-            || ((string)($generation['status'] ?? '') === self::STATUS_SUCCESS && (string)($generation['billing_status'] ?? '') !== 'pending_usage')) return;
+        if ($consumptionId <= 0) {
+            return;
+        }
+
+        $consumption = AiConsumptionLog::where('id', $consumptionId)->findOrEmpty();
+        if ($consumption->isEmpty()) {
+            return;
+        }
+        $consumptionRow = $consumption->toArray();
+        $runStatus = (string)($consumptionRow['run_status'] ?? '');
+        $billingStatus = (string)($consumptionRow['billing_status'] ?? '');
+
+        // Older workers could mark the short-drama row failed when polling
+        // itself errored, while the unified consumption kept waiting. If the
+        // consumption subsequently settled, hydrate the business result from
+        // its saved response instead of making a second supplier request.
+        if (in_array($runStatus, ['success'], true) || $billingStatus === 'settled') {
+            $summary = self::jsonDecode((string)($consumptionRow['response_summary'] ?? ''));
+            $videos = (array)($summary['videos'] ?? []);
+            if ($videos !== []) {
+                self::persistMarketVideoTaskResult($tenantId, $userId, (string)$generation['task_id'], [
+                    'status' => self::STATUS_SUCCESS,
+                    'provider_task_id' => (string)($consumptionRow['upstream_task_id'] ?? ''),
+                    'provider_request_id' => (string)($consumptionRow['upstream_request_id'] ?? ''),
+                    'videos' => $videos,
+                ], (array)(self::jsonDecode((string)($generation['request_json'] ?? ''))['video_params'] ?? []));
+            }
+            return;
+        }
+
+        if (in_array((string)($generation['status'] ?? ''), [self::STATUS_FAILED, self::STATUS_CANCELED], true)
+            || !in_array($billingStatus, ['reserved', 'pending_usage'], true)) {
+            return;
+        }
         try {
             $request = self::jsonDecode((string)($generation['request_json'] ?? ''));
             $videoParams = (array)($request['video_params'] ?? []);
             $result = self::marketVideoRuntime(self::marketVideoSelection($videoParams))::refresh($consumptionId);
             self::persistMarketVideoTaskResult($tenantId, $userId, (string)$generation['task_id'], $result, $videoParams);
         } catch (\Throwable $e) {
-            self::marketVideoRuntime(self::marketVideoSelection(self::jsonDecode((string)$generation['request_json'])['video_params'] ?? []))::fail($consumptionId, $e->getMessage(), 'short_drama_video_refresh_failed');
-            self::failMarketVideoGenerationTask($tenantId, $userId, $generation, $e);
+            // A failed query/download is not proof that the supplier task
+            // failed. Keep the reservation and task queryable until the
+            // supplier explicitly reports a terminal failure.
+            Log::warning('Short drama market video refresh retrying: consumption=' . $consumptionId . ' error=' . $e->getMessage());
         }
     }
 

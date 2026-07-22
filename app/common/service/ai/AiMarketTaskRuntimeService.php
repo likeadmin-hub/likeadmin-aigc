@@ -23,6 +23,13 @@ class AiMarketTaskRuntimeService
         $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
         $upstreamApp = (string)($snapshot['app_code'] ?? '');
 
+        // AIGC image models use local provider runtimes. Market rows only
+        // control availability and pricing, never the submit/query executor.
+        if ((string)$consumption['app_code'] === 'aigc_image') {
+            AiTaskBusinessResultService::syncByConsumptionId($consumptionId);
+            return;
+        }
+
         if ($provider !== 'power_market') {
             AiTaskBusinessResultService::syncByConsumptionId($consumptionId);
             return;

@@ -1,0 +1,27 @@
+import{n as I,ao as F,r,v as R,h as W,L as z,B as C,j as E,o as S,x as N,w as T,c as U,a as l,al as V,a3 as j,y as H,bf as L}from"./entry.e9e2f612.js";const P={class:"glass-surface__filter",xmlns:"http://www.w3.org/2000/svg","aria-hidden":"true"},q=l("feColorMatrix",{in:"dispRed",type:"matrix",values:`1 0 0 0 0
+                                0 0 0 0 0
+                                0 0 0 0 0
+                                0 0 0 1 0`,result:"red"},null,-1),J=l("feColorMatrix",{in:"dispGreen",type:"matrix",values:`0 0 0 0 0
+                                0 1 0 0 0
+                                0 0 0 0 0
+                                0 0 0 1 0`,result:"green"},null,-1),K=l("feColorMatrix",{in:"dispBlue",type:"matrix",values:`0 0 0 0 0
+                                0 0 0 0 0
+                                0 0 1 0 0
+                                0 0 0 1 0`,result:"blue"},null,-1),Q=l("feBlend",{in:"red",in2:"green",mode:"screen",result:"rg"},null,-1),X=l("feBlend",{in:"rg",in2:"blue",mode:"screen",result:"output"},null,-1),Y={class:"glass-surface__content"},ee=I({inheritAttrs:!1,__name:"GlassSurface",props:{tag:{default:"div"},width:{default:200},height:{default:80},borderRadius:{default:20},borderWidth:{default:.07},brightness:{default:50},opacity:{default:.93},blur:{default:11},displace:{default:0},backgroundOpacity:{default:0},saturation:{default:1},distortionScale:{default:-180},redOffset:{default:0},greenOffset:{default:10},blueOffset:{default:20},xChannel:{default:"R"},yChannel:{default:"G"},mixBlendMode:{default:"difference"},className:{default:""},style:{default:()=>({})}},setup(B){const e=B,f=F(),u=k(),d=`glass-filter-${u}`,c=`red-grad-${u}`,h=`blue-grad-${u}`,p=r(!1),i=r(null),g=r(null),m=r(null),y=r(null),b=r(null),x=r(null);let a=null;function k(){return`rb-${Math.random().toString(36).slice(2,9)}`}const v=t=>typeof t=="number"?`${t}px`:t,G=R(()=>({...e.style,width:v(e.width),height:v(e.height),borderRadius:`${e.borderRadius}px`,"--glass-frost":e.backgroundOpacity,"--glass-saturation":e.saturation,"--filter-id":`url(#${d})`})),M=R(()=>{const{class:t,style:s,...n}=f;return n}),A=()=>{var w;const t=(w=i.value)==null?void 0:w.getBoundingClientRect(),s=(t==null?void 0:t.width)||400,n=(t==null?void 0:t.height)||200,o=Math.min(s,n)*(e.borderWidth*.5),D=`
+      <svg viewBox="0 0 ${s} ${n}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="${c}" x1="100%" y1="0%" x2="0%" y2="0%">
+            <stop offset="0%" stop-color="#0000"/>
+            <stop offset="100%" stop-color="red"/>
+          </linearGradient>
+          <linearGradient id="${h}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#0000"/>
+            <stop offset="100%" stop-color="blue"/>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="${s}" height="${n}" fill="black"></rect>
+        <rect x="0" y="0" width="${s}" height="${n}" rx="${e.borderRadius}" fill="url(#${c})" />
+        <rect x="0" y="0" width="${s}" height="${n}" rx="${e.borderRadius}" fill="url(#${h})" style="mix-blend-mode: ${e.mixBlendMode}" />
+        <rect x="${o}" y="${o}" width="${s-o*2}" height="${n-o*2}" rx="${e.borderRadius}" fill="hsl(0 0% ${e.brightness}% / ${e.opacity})" style="filter:blur(${e.blur}px)" />
+      </svg>
+    `;return`data:image/svg+xml,${encodeURIComponent(D)}`},_=()=>{var t;(t=g.value)==null||t.setAttribute("href",A())},$=()=>{var t;_(),[{ref:m,offset:e.redOffset},{ref:y,offset:e.greenOffset},{ref:b,offset:e.blueOffset}].forEach(({ref:s,offset:n})=>{s.value&&(s.value.setAttribute("scale",(e.distortionScale+n).toString()),s.value.setAttribute("xChannelSelector",e.xChannel),s.value.setAttribute("yChannelSelector",e.yChannel))}),(t=x.value)==null||t.setAttribute("stdDeviation",e.displace.toString())},O=()=>{if(typeof window>"u"||typeof document>"u")return!1;const t=/Safari/.test(navigator.userAgent)&&!/Chrome/.test(navigator.userAgent),s=/Firefox/.test(navigator.userAgent);if(t||s)return!1;const n=document.createElement("div");return n.style.backdropFilter=`url(#${d})`,n.style.backdropFilter!==""};return W(()=>[e.width,e.height,e.borderRadius,e.borderWidth,e.brightness,e.opacity,e.blur,e.displace,e.distortionScale,e.redOffset,e.greenOffset,e.blueOffset,e.xChannel,e.yChannel,e.mixBlendMode],()=>C($)),z(()=>{p.value=O(),C($),!(!i.value||typeof ResizeObserver>"u")&&(a=new ResizeObserver(()=>{window.setTimeout(_,0)}),a.observe(i.value))}),E(()=>{a==null||a.disconnect(),a=null}),(t,s)=>(S(),N(L(e.tag),j({ref_key:"containerRef",ref:i,class:["glass-surface",p.value?"glass-surface--svg":"glass-surface--fallback",e.className,H(f).class],style:G.value},M.value),{default:T(()=>[(S(),U("svg",P,[l("defs",null,[l("filter",{id:d,"color-interpolation-filters":"sRGB",x:"0%",y:"0%",width:"100%",height:"100%"},[l("feImage",{ref_key:"feImageRef",ref:g,x:"0",y:"0",width:"100%",height:"100%",preserveAspectRatio:"none",result:"map"},null,512),l("feDisplacementMap",{ref_key:"redChannelRef",ref:m,in:"SourceGraphic",in2:"map",id:"redchannel",result:"dispRed"},null,512),q,l("feDisplacementMap",{ref_key:"greenChannelRef",ref:y,in:"SourceGraphic",in2:"map",id:"greenchannel",result:"dispGreen"},null,512),J,l("feDisplacementMap",{ref_key:"blueChannelRef",ref:b,in:"SourceGraphic",in2:"map",id:"bluechannel",result:"dispBlue"},null,512),K,Q,X,l("feGaussianBlur",{ref_key:"gaussianBlurRef",ref:x,in:"output",stdDeviation:"0.7"},null,512)])])])),l("div",Y,[V(t.$slots,"default")])]),_:3},16,["class","style"]))}});export{ee as _};

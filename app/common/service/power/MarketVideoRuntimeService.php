@@ -502,9 +502,31 @@ class MarketVideoRuntimeService
 
     private static function queryRequest(array $snapshot, string $taskId): array
     {
-        if (($snapshot['resource_type'] ?? '') === PowerMarketService::TYPE_MODEL) return self::request('GET', self::origin() . str_replace('{task_id}', rawurlencode($taskId), self::MODEL_QUERY_PATH), [], true);
-        $app = (string)$snapshot['app_code']; $url = self::endpoint($app, 'query');
-        return $app === 'happy_horse' ? self::request('POST', $url, ['task_id' => $taskId], true) : self::request('GET', $url . '?task_id=' . rawurlencode($taskId), [], true);
+        $taskUrl = self::origin() . str_replace('{task_id}', rawurlencode($taskId), self::MODEL_QUERY_PATH);
+        if (($snapshot['resource_type'] ?? '') === PowerMarketService::TYPE_MODEL) {
+            return self::request('GET', $taskUrl, [], true);
+        }
+
+        $app = (string)$snapshot['app_code'];
+        $url = self::endpoint($app, 'query');
+        try {
+            return $app === 'happy_horse'
+                ? self::request('POST', $url, ['task_id' => $taskId], true)
+                : self::request('GET', $url . '?task_id=' . rawurlencode($taskId), [], true);
+        } catch (\Throwable $appQueryError) {
+            // Application query endpoints sometimes collapse a completed
+            // supplier failure into a generic error. The unified task API
+            // retains the terminal state, so use it only as a query fallback.
+            // If it is also unavailable, preserve the original retry path.
+            try {
+                $task = self::request('GET', $taskUrl, [], true);
+                if (self::taskId($task) !== '' || self::status($task) !== '') {
+                    return $task;
+                }
+            } catch (\Throwable) {
+            }
+            throw $appQueryError;
+        }
     }
 
     private static function modelPayload(array $snapshot, array $request, string $idempotency): array
