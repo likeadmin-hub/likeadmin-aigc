@@ -4,10 +4,6 @@ namespace app\common\service\ai;
 
 use app\common\model\ai\AiConsumptionLog;
 use app\common\model\ai\AiTaskJob;
-use app\common\service\app\aigc_image\AigcImageService;
-use app\common\service\app\aigc_short_drama\AigcShortDramaService;
-use app\common\service\app\aigc_video\AigcVideoService;
-use think\facade\Db;
 
 /** Durable DB queue for post-submit result work. Provider submission is never run here. */
 class AiTaskJobService
@@ -119,7 +115,8 @@ class AiTaskJobService
             return self::queryResult((int)$job['consumption_id']);
         }
         if ($type === self::TYPE_PROCESS_RESULT) {
-            AiTaskResultAssetService::recordConsumptionAssets((int)$job['consumption_id'], self::mustTransfer((int)$job['consumption_id']));
+            AiTaskResultAssetService::recordConsumptionAssets((int)$job['consumption_id'], AiTaskBusinessResultService::requiresForcedTransfer((int)$job['consumption_id']));
+            AiTaskBusinessResultService::syncByConsumptionId((int)$job['consumption_id']);
             return true;
         }
         if ($type === self::TYPE_TRANSFER_RESULT) {
@@ -164,38 +161,18 @@ class AiTaskJobService
     {
         $consumption = AiConsumptionLog::findOrEmpty($consumptionId);
         if ($consumption->isEmpty()) return true;
-        $appTask = (int)$consumption['app_task_id'];
-        $businessTable = (string)(Db::name('ai_app_task')->where('id', $appTask)->value('business_table') ?: '');
-        $businessId = (int)(Db::name('ai_app_task')->where('id', $appTask)->value('business_id') ?: 0);
-        if ($businessTable === 'aigc_image_task' && $businessId > 0) {
-            AigcImageService::refreshMarketTask((int)$consumption['tenant_id'], $businessId, (int)$consumption['user_id']);
-        } elseif ($businessTable === 'aigc_video_task' && $businessId > 0) {
-            AigcVideoService::refreshMarketTask((int)$consumption['tenant_id'], $businessId, (int)$consumption['user_id']);
-        } elseif ($businessTable === 'aigc_short_drama_generation_task' && $businessId > 0) {
-            AigcShortDramaService::refreshMarketGenerationTask($businessId);
-        } else {
-            if (in_array((string)$consumption['billing_status'], ['settled', 'refunded'], true)) {
-                self::enqueueProcessResult($consumptionId);
-                return true;
-            }
-            // A runtime with no business result adapter must not be marked failed
-            // merely because it is not yet migrated. It remains retryable.
-            throw new \RuntimeException('未注册的市场结果处理器: ' . $businessTable);
-        }
+        AiMarketTaskRuntimeService::refresh($consumptionId);
         $latest = AiConsumptionLog::findOrEmpty($consumptionId);
-        if (!$latest->isEmpty() && in_array((string)$latest['billing_status'], ['settled', 'refunded'], true)) {
+        if (!$latest->isEmpty() && self::readyForBusinessProcessing($latest->toArray())) {
             self::enqueueProcessResult($consumptionId);
             return true;
         }
         return false;
     }
 
-    private static function mustTransfer(int $consumptionId): bool
+    private static function readyForBusinessProcessing(array $consumption): bool
     {
-        $task = Db::name('ai_app_task')->alias('t')
-            ->join('ai_consumption_log c', 'c.app_task_id=t.id')
-            ->where('c.id', $consumptionId)->field('t.app_code,t.business_table')->find();
-        return (string)($task['app_code'] ?? '') === 'aigc_short_drama'
-            || (string)($task['business_table'] ?? '') === 'aigc_short_drama_generation_task';
+        return in_array((string)($consumption['run_status'] ?? ''), ['success', 'failed', 'canceled', 'cancelled'], true)
+            || in_array((string)($consumption['billing_status'] ?? ''), ['settled', 'refunded'], true);
     }
 }

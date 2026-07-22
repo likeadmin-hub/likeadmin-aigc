@@ -16,6 +16,7 @@ namespace app\platformapi\logic\tenant;
 use app\common\enum\user\UserTerminalEnum;
 use app\common\logic\BaseLogic;
 use app\common\model\tenant\Tenant;
+use app\common\model\tenant\TenantPackage;
 use app\common\model\user\User;
 use app\common\service\storage\StorageConfigService;
 use app\common\service\tenant\TenantContractService;
@@ -51,7 +52,8 @@ class TenantLogic extends BaseLogic
         $normalizedAliases = TenantDomainAliasService::normalizeAliasList($aliases, $domain_alias);
         TenantDomainAliasService::validateAliases($normalizedAliases, 0, true);
         $domain_alias = (string)($normalizedAliases[0]['domain'] ?? $domain_alias);
-        $expireTime = self::normalizeTime($params['contract_expire_time'] ?? 0);
+        $contract = self::resolveContractFields($params);
+        $expireTime = (int)$contract['expire_time'];
         $contractStatus = $expireTime > 0
             ? ($expireTime > time() ? TenantContractService::STATUS_ACTIVE : TenantContractService::STATUS_EXPIRED)
             : TenantContractService::STATUS_UNSIGNED;
@@ -68,8 +70,8 @@ class TenantLogic extends BaseLogic
             'tactics'             => 0,
             'allow_custom_storage' => $params['allow_custom_storage'] ?? 0,
             'allow_local_storage'  => $params['allow_local_storage'] ?? 1,
-            'contract_package_id'  => (int)($params['contract_package_id'] ?? 0),
-            'contract_package_name' => (string)($params['contract_package_name'] ?? ''),
+            'contract_package_id'  => (int)$contract['package_id'],
+            'contract_package_name' => (string)$contract['package_name'],
             'contract_start_time'  => (int)($params['contract_start_time'] ?? time()),
             'contract_expire_time' => $expireTime,
             'contract_renew_time'  => (int)($params['contract_renew_time'] ?? time()),
@@ -124,7 +126,8 @@ class TenantLogic extends BaseLogic
             $domain_alias = TenantUrlService::normalizeHost((string)($params['domain_alias'] ?? ''));
             $aliases = (array)($params['domain_aliases'] ?? []);
             $domain_alias = TenantDomainAliasService::syncTenantAliases($tenantId, $aliases, $domain_alias, true);
-        $expireTime = self::normalizeTime($params['contract_expire_time'] ?? 0);
+            $contract = self::resolveContractFields($params);
+            $expireTime = (int)$contract['expire_time'];
             $contractStatus = $expireTime > 0
                 ? ($expireTime > time() ? TenantContractService::STATUS_ACTIVE : TenantContractService::STATUS_EXPIRED)
                 : TenantContractService::STATUS_UNSIGNED;
@@ -139,8 +142,8 @@ class TenantLogic extends BaseLogic
                 'notes'               => $params['notes'] ?? '',
                 'allow_custom_storage' => $params['allow_custom_storage'] ?? 0,
                 'allow_local_storage'  => $params['allow_local_storage'] ?? 1,
-                'contract_package_id'  => (int)($params['contract_package_id'] ?? 0),
-                'contract_package_name' => (string)($params['contract_package_name'] ?? ''),
+                'contract_package_id'  => (int)$contract['package_id'],
+                'contract_package_name' => (string)$contract['package_name'],
                 'contract_start_time'  => (int)($params['contract_start_time'] ?? time()),
                 'contract_expire_time' => $expireTime,
                 'contract_renew_time'  => (int)($params['contract_renew_time'] ?? time()),
@@ -238,5 +241,34 @@ class TenantLogic extends BaseLogic
         }
         $time = strtotime($value);
         return $time ? (int)$time : 0;
+    }
+
+    private static function resolveContractFields(array $params): array
+    {
+        $packageId = (int)($params['contract_package_id'] ?? 0);
+        $packageName = trim((string)($params['contract_package_name'] ?? ''));
+        $expireTime = self::normalizeTime($params['contract_expire_time'] ?? 0);
+        if ($packageId <= 0) {
+            return [
+                'package_id' => 0,
+                'package_name' => '',
+                'expire_time' => $expireTime,
+            ];
+        }
+
+        $package = TenantPackage::where('id', $packageId)->findOrEmpty();
+        if ($package->isEmpty()) {
+            throw new Exception('租户套餐不存在');
+        }
+        $packageName = (string)$package['name'];
+        if ($expireTime <= 0) {
+            $expireTime = time() + max(1, (int)$package['duration_days']) * 86400;
+        }
+
+        return [
+            'package_id' => $packageId,
+            'package_name' => $packageName,
+            'expire_time' => $expireTime,
+        ];
     }
 }
