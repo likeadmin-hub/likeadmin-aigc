@@ -5,6 +5,7 @@ namespace app\common\service\app\aigc_image;
 use app\common\model\app\aigc_image\AigcImageChannel;
 use app\common\model\app\aigc_image\AigcImageChannelSpec;
 use app\common\service\app\ChannelSpecPricingSchemaService;
+use app\common\service\power\MarketImageModelRuntimeService;
 use Exception;
 use think\facade\Db;
 
@@ -322,6 +323,9 @@ class AigcImageChannelService
     private static function effectiveChannels(int $tenantId, bool $onlyEnabled): array
     {
         self::ensurePricingSchema();
+        if ($onlyEnabled) {
+            return self::marketRuntimeChannels($tenantId);
+        }
         $platformChannels = AigcImageChannel::where('tenant_id', 0)->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
         $tenantChannels = $tenantId > 0 ? AigcImageChannel::where('tenant_id', $tenantId)->select()->toArray() : [];
         $tenantChannelMap = array_column($tenantChannels, null, 'code');
@@ -415,6 +419,121 @@ class AigcImageChannelService
             }
             $channel['qualities'] = array_values($channel['qualities']);
             if (!$onlyEnabled || !empty($channel['qualities'])) {
+                $channels[] = $channel;
+            }
+        }
+        return $channels;
+    }
+
+    /**
+     * Tenant-visible market SKUs become the image app's selectable channels.
+     * The market owns availability and pricing; the image provider runtime owns
+     * upstream submission and result polling.
+     */
+    private static function marketRuntimeChannels(int $tenantId): array
+    {
+        $channels = [];
+        foreach (MarketImageModelRuntimeService::options($tenantId) as $model) {
+            $modelCode = trim((string)($model['model_code'] ?? ''));
+            $channelCode = trim((string)($model['id'] ?? ''));
+            if ($modelCode === '' || $channelCode === '') {
+                continue;
+            }
+            $channel = [
+                'id' => 0,
+                'tenant_override_id' => 0,
+                'code' => $channelCode,
+                'value' => $channelCode,
+                'name' => (string)($model['name'] ?? $modelCode),
+                'label' => (string)($model['name'] ?? $modelCode),
+                'provider' => 'xhadmin',
+                'model' => $modelCode,
+                'max_reference_images' => (int)($model['max_reference_images'] ?? 0),
+                'status' => 1,
+                'platform_status' => 1,
+                'tenant_status' => 1,
+                'sort' => (int)($model['sort'] ?? 0),
+                'config_json' => [
+                    'model' => $modelCode,
+                    'upstream_channel' => (string)($model['upstream_channel_code'] ?? ''),
+                    'quantity_options' => [1],
+                ],
+                'quantity_options' => [1],
+                'qualities' => [],
+                'specs' => [],
+            ];
+            foreach ((array)($model['skus'] ?? []) as $sku) {
+                if (!is_array($sku)) {
+                    continue;
+                }
+                $qualities = array_values(array_unique(array_filter(array_map('strval', (array)($sku['quality_options'] ?? [])))));
+                if ($qualities === []) {
+                    $qualities = [trim((string)($sku['quality'] ?? ''))];
+                }
+                $qualities = array_values(array_filter($qualities));
+                if ($qualities === []) {
+                    continue;
+                }
+                $ratios = array_values(array_unique(array_map('strval', (array)($sku['ratio_options'] ?? []))));
+                if ($ratios === []) {
+                    $ratios = [''];
+                }
+                foreach ($qualities as $quality) {
+                    foreach ($ratios as $ratio) {
+                        $providerParams = self::normalizeJson($sku['locked_params'] ?? []);
+                        if ($quality !== '') {
+                            $qualityParameter = (string)($sku['quality_parameter'] ?? '');
+                            if (!in_array($qualityParameter, ['quality', 'resolution', 'image_size'], true)) {
+                                $qualityParameter = array_key_exists('image_size', $providerParams) ? 'image_size' : 'resolution';
+                            }
+                            $providerParams[$qualityParameter] = $quality;
+                            if ($qualityParameter === 'image_size') {
+                                $providerParams['omit_resolution'] = true;
+                            }
+                        }
+                        if ($ratio !== '') {
+                            $providerParams['aspect_ratio'] = $ratio;
+                        }
+                        $spec = [
+                        'id' => 0,
+                        'tenant_override_id' => 0,
+                        'channel_code' => $channelCode,
+                        'quality' => $quality,
+                        'value' => $ratio,
+                        'label' => $ratio,
+                        'quality_label' => (string)($sku['title'] ?? strtoupper($quality)),
+                        'ratio' => $ratio,
+                        'width' => 0,
+                        'height' => 0,
+                        'market_product_id' => (int)($model['market_product_id'] ?? 0),
+                        'market_sku_id' => (int)($sku['market_sku_id'] ?? 0),
+                        'upstream_unit_cost' => self::formatPoints((float)($sku['upstream_unit_cost'] ?? 0)),
+                        'platform_unit_cost' => self::formatPoints((float)($sku['platform_unit_cost'] ?? 0)),
+                        'tenant_unit_price' => self::formatPoints((float)($sku['tenant_unit_price'] ?? 0)),
+                        'platform_gross_margin_points' => 0.0,
+                        'tenant_gross_margin_points' => 0.0,
+                        'upstream_cost_text' => '',
+                        'cost_source_url' => '',
+                        'provider_params_json' => $providerParams,
+                        'status' => 1,
+                        'platform_status' => 1,
+                        'tenant_status' => 1,
+                        'sort' => (int)($sku['market_sku_id'] ?? 0),
+                        ];
+                        $channel['specs'][] = $spec;
+                        if (!isset($channel['qualities'][$quality])) {
+                            $channel['qualities'][$quality] = [
+                            'value' => $quality,
+                            'label' => (string)$spec['quality_label'],
+                            'ratios' => [],
+                            ];
+                        }
+                        $channel['qualities'][$quality]['ratios'][] = $spec;
+                    }
+                }
+            }
+            if ($channel['specs'] !== []) {
+                $channel['qualities'] = array_values($channel['qualities']);
                 $channels[] = $channel;
             }
         }

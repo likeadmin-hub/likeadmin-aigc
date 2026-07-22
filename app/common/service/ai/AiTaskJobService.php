@@ -14,6 +14,7 @@ class AiTaskJobService
     public const TYPE_TRANSFER_RESULT = 'transfer_result';
     public const TYPE_SETTLE = 'settle';
     public const TYPE_REFUND = 'refund';
+    public const TYPE_ADMIN_ACTION = 'admin_action';
 
     public static function enqueueQueryResult(int $consumptionId, int $priority = 0, bool $wake = false): int
     {
@@ -30,10 +31,15 @@ class AiTaskJobService
         return self::enqueue(self::TYPE_TRANSFER_RESULT, 0, $assetId, ['forced' => $forced], $forced ? 100 : 0, true);
     }
 
-    public static function enqueue(string $type, int $consumptionId = 0, int $assetId = 0, array $payload = [], int $priority = 0, bool $wake = false): int
+    public static function enqueueAdminAction(int $operationItemId, string $key): int
+    {
+        return self::enqueue(self::TYPE_ADMIN_ACTION, 0, 0, ['operation_item_id' => $operationItemId], 200, true, $key);
+    }
+
+    public static function enqueue(string $type, int $consumptionId = 0, int $assetId = 0, array $payload = [], int $priority = 0, bool $wake = false, string $customKey = ''): int
     {
         $now = time();
-        $key = $type . ':' . ($consumptionId ?: $assetId);
+        $key = $customKey !== '' ? $customKey : $type . ':' . ($consumptionId ?: $assetId);
         return Db::transaction(function () use ($type, $consumptionId, $assetId, $payload, $priority, $wake, $key, $now) {
             $job = AiTaskJob::where('idempotency_key', $key)->lock(true)->findOrEmpty();
             if ($job->isEmpty()) {
@@ -86,7 +92,7 @@ class AiTaskJobService
                     })->whereOr(function ($expired) use ($now) {
                         $expired->where('status', 'running')->where('lease_expire_time', '<=', $now);
                     });
-                })->whereIn('job_type', [self::TYPE_QUERY_RESULT, self::TYPE_PROCESS_RESULT, self::TYPE_TRANSFER_RESULT, self::TYPE_SETTLE, self::TYPE_REFUND])
+                })->whereIn('job_type', [self::TYPE_QUERY_RESULT, self::TYPE_PROCESS_RESULT, self::TYPE_TRANSFER_RESULT, self::TYPE_SETTLE, self::TYPE_REFUND, self::TYPE_ADMIN_ACTION])
                     ->order(['priority' => 'desc', 'next_run_time' => 'asc', 'id' => 'asc'])
                     ->lock(true)
                     ->findOrEmpty();
@@ -123,6 +129,9 @@ class AiTaskJobService
         if ($type === self::TYPE_TRANSFER_RESULT) {
             AiTaskResultAssetService::transfer((int)$job['result_asset_id']);
             return true;
+        }
+        if ($type === self::TYPE_ADMIN_ACTION) {
+            return AiTaskOperationService::runItem((int)($job['payload']['operation_item_id'] ?? 0));
         }
         // Settlement/refund are intentionally represented as durable jobs. The
         // market runtimes own their idempotent row-locked finalization today.

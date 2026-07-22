@@ -109,7 +109,10 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
                 return new AigcImageGenerateResult(false, [], $message);
             }
             if (!is_array($imageUrls) || empty($imageUrls)) {
-                return new AigcImageGenerateResult(false, [], '供应商未返回图片', $taskId);
+                // Some upstreams publish a completed task before its result list
+                // is populated. Keep polling instead of refunding a task that may
+                // still produce its image a few seconds later.
+                return new AigcImageGenerateResult(true, [], '', $taskId);
             }
             $images = [];
             foreach ($imageUrls as $imageUrl) {
@@ -187,7 +190,7 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
     private function normalizeModel(string $model): string
     {
         $model = trim($model);
-        return in_array($model, ['gpt-image-2', 'gpt_image_2'], true) ? 'gpt-image-2-pro' : $model;
+        return $model === 'gpt_image_2' ? 'gpt-image-2' : $model;
     }
 
     private function sourceBaseUrl(string $baseUrl): string
@@ -458,6 +461,7 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
         $candidates = [
             $data['result']['images'] ?? null,
             $data['data']['result']['images'] ?? null,
+            $data['data']['result']['results'] ?? null,
             $data['data']['results'] ?? null,
             $data['results'] ?? null,
             $data['data']['images'] ?? null,

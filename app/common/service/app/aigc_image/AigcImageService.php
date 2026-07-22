@@ -95,6 +95,9 @@ class AigcImageService
             throw new Exception('参考图数量超出限制');
         }
         $providerParams = self::providerParamsForRequest($selection['spec']['provider_params_json'] ?? [], $params);
+        $providerParams['channel_config'] = array_merge($selection['channel']['config_json'] ?? [], [
+            'model' => $selection['channel']['model'],
+        ]);
         self::checkSensitiveWords($tenantId, $prompt);
         $duplicateCriteria = [
             'prompt' => $prompt,
@@ -369,13 +372,77 @@ class AigcImageService
         return count($tasks);
     }
 
-    /**
-     * Result-worker entry point for one market-backed image task.
-     * Provider submission has already happened; this only queries its result.
-     */
-    public static function refreshMarketTask(int $tenantId, int $taskId, int $userId = 0): void
+    /** Provider-runtime result-worker entry point for one image task. */
+    public static function refreshRuntimeTask(int $tenantId, int $taskId, int $userId = 0): void
     {
         self::refreshRunningTasks($tenantId, $userId, $taskId, false);
+    }
+
+    /**
+     * Recover an already-completed upstream task that was refunded only because
+     * older result normalization did not recognize its image list. It is not
+     * part of routine polling because recovery may charge a refunded reservation.
+     */
+    public static function recoverCompletedTask(int $tenantId, int $taskId, int $userId = 0): array
+    {
+        $query = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
+        if ($userId > 0) {
+            $query->where('user_id', $userId);
+        }
+        $task = $query->findOrEmpty();
+        if ($task->isEmpty()) {
+            throw new Exception('任务不存在');
+        }
+        $existingRows = self::existingResultRows($tenantId, $userId, $taskId);
+        if ((string)$task['status'] === 'success' && $existingRows) {
+            if ((string)$task['error'] !== '') {
+                $task->error = '';
+                $task->update_time = time();
+                $task->save();
+            }
+            return $existingRows;
+        }
+        if (!self::isRecoverableCompletedImageFailure($task)) {
+            throw new Exception('该任务不符合结果补偿恢复条件');
+        }
+        if (!self::isAsyncProvider((string)$task['provider'])) {
+            throw new Exception('该任务不支持上游结果恢复');
+        }
+        try {
+            $selection = AigcImageChannelService::resolveSelection($tenantId, [
+                'channel' => $task['channel'],
+                'quality' => $task['quality'],
+                'ratio' => $task['ratio'],
+                'quantity' => $task['quantity'],
+            ]);
+        } catch (\Throwable $e) {
+            $selection = self::selectionFromTask($task);
+            if ($selection === []) {
+                throw $e;
+            }
+        }
+        $provider = self::providerFor((string)$task['provider']);
+        if (!method_exists($provider, 'fetchResult')) {
+            throw new Exception('当前生图通道不支持结果查询');
+        }
+        $result = $provider->fetchResult((string)$task['provider_task_id'], self::buildRequestFromTask($task, $selection));
+        if (!$result->success) {
+            throw new Exception($result->error ?: '上游任务尚未完成');
+        }
+        if (empty($result->images)) {
+            throw new Exception('上游任务尚未返回图片');
+        }
+        $estimate = [
+            'platform_unit_cost' => (float)$task['tenant_cost_points'] / max(1, (int)$task['quantity']),
+            'tenant_unit_price' => (float)$task['user_charge_points'] / max(1, (int)$task['quantity']),
+        ];
+        return self::finishTaskWithImages($task, $selection, $estimate, $result->images, true);
+    }
+
+    /** @deprecated Use refreshRuntimeTask(). */
+    public static function refreshMarketTask(int $tenantId, int $taskId, int $userId = 0): void
+    {
+        self::refreshRuntimeTask($tenantId, $taskId, $userId);
     }
 
     public static function retryTask(int $tenantId, int $taskId): array
@@ -684,12 +751,19 @@ class AigcImageService
                 continue;
             }
             try {
-                $selection = AigcImageChannelService::resolveSelection($tenantId, [
-                    'channel' => $task['channel'],
-                    'quality' => $task['quality'],
-                    'ratio' => $task['ratio'],
-                    'quantity' => $task['quantity'],
-                ]);
+                try {
+                    $selection = AigcImageChannelService::resolveSelection($tenantId, [
+                        'channel' => $task['channel'],
+                        'quality' => $task['quality'],
+                        'ratio' => $task['ratio'],
+                        'quantity' => $task['quantity'],
+                    ]);
+                } catch (\Throwable $e) {
+                    $selection = self::selectionFromTask($task);
+                    if ($selection === []) {
+                        throw $e;
+                    }
+                }
                 $provider = self::providerFor((string)$task['provider']);
                 if (!method_exists($provider, 'fetchResult')) {
                     continue;
@@ -831,6 +905,35 @@ class AigcImageService
         );
     }
 
+    /**
+     * A SKU may be unshelved after an upstream task has been accepted. Keep
+     * polling it with the persisted submit-time runtime configuration.
+     */
+    private static function selectionFromTask(AigcImageTask $task): array
+    {
+        $providerParams = is_array($task['provider_params_json'] ?? null) ? $task['provider_params_json'] : [];
+        $channelConfig = $providerParams['channel_config'] ?? [];
+        if (!is_array($channelConfig)) {
+            return [];
+        }
+        $model = trim((string)($channelConfig['model'] ?? $task['model'] ?? ''));
+        if ($model === '') {
+            return [];
+        }
+        return [
+            'channel' => [
+                'code' => (string)$task['channel'],
+                'model' => $model,
+                'config_json' => $channelConfig,
+            ],
+            'spec' => [
+                'quality' => (string)$task['quality'],
+                'ratio' => (string)$task['ratio'],
+                'provider_params_json' => [],
+            ],
+        ];
+    }
+
     private static function finishOverdueAsyncTask(AigcImageTask $task, array $selection): void
     {
         $timeout = self::asyncProcessingTimeoutSeconds($selection);
@@ -886,6 +989,15 @@ class AigcImageService
             }
         }
         return false;
+    }
+
+    private static function isRecoverableCompletedImageFailure(AigcImageTask $task): bool
+    {
+        if ((string)($task['status'] ?? '') !== 'failed' || (string)($task['provider_task_id'] ?? '') === '') {
+            return false;
+        }
+        return (string)\app\common\model\ai\AiConsumptionLog::where('app_task_id', (int)($task['app_task_id'] ?? 0))
+            ->value('billing_status') === 'refunded';
     }
 
     private static function asyncProcessingTimeoutSeconds(array $selection): int
@@ -1026,7 +1138,7 @@ class AigcImageService
         return json_encode($params, JSON_UNESCAPED_UNICODE);
     }
 
-    private static function finishTaskWithImages(AigcImageTask $task, array $selection, array $estimate, array $images): array
+    private static function finishTaskWithImages(AigcImageTask $task, array $selection, array $estimate, array $images, bool $recoverRefundedBilling = false): array
     {
         $rows = [];
         Db::startTrans();
@@ -1044,6 +1156,7 @@ class AigcImageService
             if ((string)$task['status'] === 'success' || !empty($existingRows)) {
                 if ((string)$task['status'] !== 'success') {
                     $task->status = 'success';
+                    $task->error = '';
                     $task->finish_time = $task['finish_time'] ?: time();
                     $task->update_time = time();
                     $task->save();
@@ -1116,10 +1229,15 @@ class AigcImageService
             }
 
             $costPoints = count($rows);
-            $settlement = $isUnifiedTask ? AiUsageService::settleImageTaskInCurrentTransaction((int)$task['id'], $costPoints, [
+            $settlementSummary = [
                 'result_count' => $costPoints,
                 'provider_task_id' => (string)($images[0]['provider_task_id'] ?? $task['provider_task_id']),
-            ]) : null;
+            ];
+            $settlement = $isUnifiedTask
+                ? ($recoverRefundedBilling
+                    ? AiUsageService::settleRecoveredImageTaskInCurrentTransaction((int)$task['id'], $costPoints, $settlementSummary)
+                    : AiUsageService::settleImageTaskInCurrentTransaction((int)$task['id'], $costPoints, $settlementSummary))
+                : null;
             if ($settlement !== null) {
                 $consumption = \app\common\model\ai\AiConsumptionLog::findOrEmpty((int)$settlement['consumption_id']);
                 AigcImageBilling::where(['tenant_id' => $tenantId, 'task_id' => (int)$task['id']])->update([
@@ -1135,6 +1253,7 @@ class AigcImageService
             $task->tenant_cost_points = number_format((float)($settlement['actual_tenant_cost'] ?? ((float)$estimate['platform_unit_cost'] * $costPoints)), 2, '.', '');
             $task->user_charge_points = number_format((float)($settlement['actual_user_price'] ?? ((float)$estimate['tenant_unit_price'] * $costPoints)), 2, '.', '');
             $task->provider_task_id = (string)($images[0]['provider_task_id'] ?? $task['provider_task_id']);
+            $task->error = '';
             $task->finish_time = time();
             $task->update_time = time();
             $task->save();
