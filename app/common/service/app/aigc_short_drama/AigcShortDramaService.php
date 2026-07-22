@@ -12393,13 +12393,9 @@ class AigcShortDramaService
                 continue;
             }
             if ($key === 'script_plan') {
-<<<<<<< HEAD
-                $selected[$key] = self::configuredScriptPlanModel($tenantId, $config, false);
-=======
                 $wanted = $selections[$key] ?? ($request['model_id'] ?? '');
                 $selected[$key] = self::matchModelOption($options, $wanted)
                     ?: self::configuredScriptPlanModel($tenantId, $config, false);
->>>>>>> origin/develop
                 continue;
             }
             $wanted = $selections[$key] ?? '';
