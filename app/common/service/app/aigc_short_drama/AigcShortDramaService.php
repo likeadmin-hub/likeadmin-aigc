@@ -5143,8 +5143,7 @@ class AigcShortDramaService
             $request = self::jsonDecode((string)($generation['request_json'] ?? ''));
             self::persistMarketImageTaskResult($tenantId, $userId, (string)$generation['task_id'], $result, (array)($request['image_params'] ?? []));
         } catch (\Throwable $e) {
-            MarketNanoBananaAppRuntimeService::fail($consumptionId, $e->getMessage(), 'short_drama_nano_banana_refresh_failed');
-            self::failMarketImageGenerationTask($tenantId, $userId, $generation, $e);
+            Log::warning('Short drama nano-banana result sync retrying: consumption=' . $consumptionId . ' error=' . $e->getMessage());
         }
     }
 
@@ -5160,8 +5159,7 @@ class AigcShortDramaService
             $imageParams = (array)($request['image_params'] ?? []);
             self::persistMarketImageTaskResult($tenantId, $userId, (string)$generation['task_id'], $result, $imageParams);
         } catch (\Throwable $e) {
-            MarketImageModelRuntimeService::fail($consumptionId, $e->getMessage(), 'short_drama_image_refresh_failed');
-            self::failMarketImageGenerationTask($tenantId, $userId, $generation, $e);
+            Log::warning('Short drama market image result sync retrying: consumption=' . $consumptionId . ' error=' . $e->getMessage());
         }
     }
 

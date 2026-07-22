@@ -427,24 +427,9 @@ class MarketImageModelRuntimeService
     /** @return array<int,array<string,mixed>> */
     private static function images(array $data, int $tenantId, int $userId): array
     {
-        $urls = [];
-        foreach ([
-            $data['images'] ?? [],
-            $data['data'] ?? [],
-            $data['results'] ?? [],
-            $data['result']['images'] ?? [],
-            $data['result']['results'] ?? [],
-            $data['output'] ?? [],
-        ] as $rows) {
-            foreach ((array)$rows as $item) {
-                $url = is_string($item) ? $item : (string)($item['url'] ?? $item['image_url'] ?? $item['uri'] ?? '');
-                if ($url !== '') {
-                    $urls[] = $url;
-                }
-            }
-        }
+        $urls = self::imageUrls($data);
         $result = [];
-        foreach (array_values(array_unique($urls)) as $url) {
+        foreach ($urls as $url) {
             $stored = AigcImageAssetService::persistGeneratedImage($url, $tenantId, $userId);
             $result[] = [
                 'image_uri' => (string)$stored['uri'],
@@ -456,6 +441,61 @@ class MarketImageModelRuntimeService
             ];
         }
         return $result;
+    }
+
+    /** @return array<int,string> */
+    private static function imageUrls(array $data): array
+    {
+        $urls = [];
+        self::collectImageUrls($data, $urls);
+        return array_values(array_unique($urls));
+    }
+
+    /** @param array<int,string> $urls */
+    private static function collectImageUrls(mixed $value, array &$urls): void
+    {
+        if (is_string($value)) {
+            $value = trim($value);
+            if (self::isImageUrl($value)) {
+                $urls[] = $value;
+                return;
+            }
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                self::collectImageUrls($decoded, $urls);
+            }
+            return;
+        }
+        if (!is_array($value)) {
+            return;
+        }
+        if (self::isList($value)) {
+            foreach ($value as $item) {
+                self::collectImageUrls($item, $urls);
+            }
+            return;
+        }
+
+        foreach (['url', 'image_url', 'image', 'uri', 'src', 'file_url', 'download_url', 'output_url'] as $key) {
+            if (isset($value[$key])) {
+                self::collectImageUrls($value[$key], $urls);
+            }
+        }
+        foreach (['images', 'image_urls', 'outputs', 'output', 'results', 'result', 'data', 'artifacts', 'files', 'content'] as $key) {
+            if (isset($value[$key])) {
+                self::collectImageUrls($value[$key], $urls);
+            }
+        }
+    }
+
+    private static function isImageUrl(string $value): bool
+    {
+        return preg_match('#^https?://#i', $value) === 1 || str_starts_with($value, '//');
+    }
+
+    private static function isList(array $value): bool
+    {
+        return $value === [] || array_keys($value) === range(0, count($value) - 1);
     }
 
     private static function taskId(array $data): string { foreach ([$data['task_id'] ?? null, $data['id'] ?? null, $data['task']['id'] ?? null] as $v) if (is_scalar($v) && (string)$v !== '') return (string)$v; return ''; }
