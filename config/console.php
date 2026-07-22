@@ -17,6 +17,8 @@ return [
         'ai:task-worker' => 'app\common\command\AiTaskWorker',
         // AIGC 关联业务结果修复
         'ai:repair-linked-results' => 'app\common\command\AiRepairLinkedResults',
+        // 仅恢复因错误本地超时被退款的上游任务
+        'ai:recover-timeout-tasks' => 'app\common\command\AiRecoverTimeoutTasks',
         // 租户合约到期扫描
         'tenant:expire_contracts' => 'app\common\command\ExpireTenantContracts',
         // 短剧任务提示词修复

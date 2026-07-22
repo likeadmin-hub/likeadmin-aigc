@@ -24,7 +24,6 @@ class MarketImageModelRuntimeService
     public const APP_CODE = 'aigc_short_drama';
     private const SUBMIT_PATH = '/api/v1/tasks';
     private const TASK_PATH = '/api/v1/tasks/{task_id}';
-    private const MAX_RUNNING_SECONDS = 7200;
 
     /** @return array{key:string,label:string,type:string,options:array<int,array<string,mixed>>,default:string} */
     public static function modelGroup(int $tenantId): array
@@ -226,13 +225,8 @@ class MarketImageModelRuntimeService
         if ($context === null) throw new Exception('市场图片消耗记录不存在');
         $c = $context['consumption'];
         if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return self::responseFromConsumption($c->toArray());
-        $timedOut = (int)$c['create_time'] > 0 && time() - (int)$c['create_time'] >= self::MAX_RUNNING_SECONDS;
         $taskId = trim((string)$c['upstream_task_id']);
         if ($taskId === '') {
-            if ($timedOut) {
-                self::fail($consumptionId, '图片任务未返回上游任务号', 'timeout');
-                return ['status' => 'failed', 'provider_task_id' => '', 'images' => []];
-            }
             return self::responseFromConsumption($c->toArray());
         }
         try {
@@ -240,10 +234,10 @@ class MarketImageModelRuntimeService
             $status = self::status($response); $images = self::images($response, (int)$c['tenant_id'], (int)$c['user_id']);
             if ($images !== []) { self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); return ['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
             if (in_array($status, ['failed', 'error', 'canceled', 'cancelled'], true)) { self::fail($consumptionId, self::error($response), 'upstream_failed'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
-            if ($timedOut) { self::fail($consumptionId, '图片任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
+            self::event($consumptionId, 'poll', 'running', ['upstream_task_id' => $taskId]);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
-        } catch (\Throwable) {
-            if ($timedOut) { self::fail($consumptionId, '图片任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
+        } catch (\Throwable $e) {
+            self::recordRefreshError($consumptionId, $taskId, $e);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
         }
     }
@@ -409,6 +403,25 @@ class MarketImageModelRuntimeService
         if ($errno) throw new Exception($error ?: '图片模型网络请求失败'); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('图片模型响应格式错误');
         if ($http >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) throw new Exception(self::error($data));
         return is_array($data['data'] ?? null) ? $data['data'] : $data;
+    }
+
+    private static function recordRefreshError(int $consumptionId, string $taskId, \Throwable $e): void
+    {
+        $message = mb_substr($e->getMessage() ?: '图片任务查询失败', 0, 1000);
+        try {
+            AiConsumptionLog::where('id', $consumptionId)->update([
+                'error_code' => 'refresh_retrying',
+                'error_message' => $message,
+                'refresh_requested_at' => time(),
+                'update_time' => time(),
+            ]);
+            self::event($consumptionId, 'poll', 'retrying', [
+                'upstream_task_id' => $taskId,
+                'error' => mb_substr($message, 0, 300),
+            ]);
+        } catch (\Throwable) {
+            // Diagnostics must not interrupt the next provider retry.
+        }
     }
 
     /** @return array<int,array<string,mixed>> */
