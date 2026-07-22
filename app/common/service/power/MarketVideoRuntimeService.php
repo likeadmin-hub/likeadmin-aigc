@@ -10,6 +10,7 @@ use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
 use app\common\service\ai\AiTaskJobService;
 use app\common\service\ai\AiTaskResultStorageService;
+use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use app\common\service\app\aigc_video\AigcVideoAssetService;
 use app\common\service\app\aigc_video\AigcVideoReferenceAssetService;
 use app\common\service\point\PointService;
@@ -223,7 +224,12 @@ class MarketVideoRuntimeService
         try {
             $response = self::submitRequest($snapshot, $request, (string)$context['consumption']['consume_no'], $consumptionId);
             $taskId = self::taskId($response);
-            $videos = self::videos($response, (int)$context['consumption']['tenant_id'], (int)$context['consumption']['user_id'], (string)$context['app_task']['app_code'] === 'aigc_short_drama');
+            $videos = self::videos(
+                $response,
+                (int)$context['consumption']['tenant_id'],
+                (int)$context['consumption']['user_id'],
+                self::shortDramaTransferStorageConfig((string)$context['app_task']['app_code'], (int)$context['consumption']['tenant_id'])
+            );
             $requestId = self::requestId($response);
             if ($videos === [] && $taskId === '') {
                 throw new Exception('上游未返回视频任务号');
@@ -260,7 +266,12 @@ class MarketVideoRuntimeService
         try {
             $snapshot = self::arrayValue($c['price_snapshot'] ?? []);
             $response = self::queryRequest($snapshot, $taskId);
-            $videos = self::videos($response, (int)$c['tenant_id'], (int)$c['user_id'], (string)$context['app_task']['app_code'] === 'aigc_short_drama');
+            $videos = self::videos(
+                $response,
+                (int)$c['tenant_id'],
+                (int)$c['user_id'],
+                self::shortDramaTransferStorageConfig((string)$context['app_task']['app_code'], (int)$c['tenant_id'])
+            );
             $upstreamStatus = self::status($response);
             if (in_array($upstreamStatus, ['failed', 'error', 'canceled', 'cancelled', 'rejected'], true)) {
                 $message = self::error($response);
@@ -885,7 +896,7 @@ class MarketVideoRuntimeService
         }
         return '视频模型调用失败';
     }
-    private static function videos(array $data, int $tenantId, int $userId, bool $forceTransfer = false): array
+    private static function videos(array $data, int $tenantId, int $userId, ?array $forcedStorageConfig = null): array
     {
         $urls = self::videoUrls($data);
         if ($urls === []) {
@@ -895,7 +906,7 @@ class MarketVideoRuntimeService
         $errors = [];
         foreach ($urls as $url) {
             try {
-                if (!AiTaskResultStorageService::transferEnabled($tenantId, $forceTransfer)) {
+                if ($forcedStorageConfig === null && !AiTaskResultStorageService::transferEnabled($tenantId)) {
                     $rows[] = [
                         'video_uri' => $url,
                         'width' => 0,
@@ -906,7 +917,7 @@ class MarketVideoRuntimeService
                     ];
                     continue;
                 }
-                $stored = AigcVideoAssetService::persistGeneratedVideo($url, $tenantId, $userId);
+                $stored = AigcVideoAssetService::persistGeneratedVideo($url, $tenantId, $userId, $forcedStorageConfig);
                 $rows[] = [
                     'video_uri' => (string)$stored['uri'],
                     'width' => (int)($stored['width'] ?? 0),
@@ -923,6 +934,14 @@ class MarketVideoRuntimeService
             throw new Exception('video result save failed: ' . mb_substr((string)$errors[0], 0, 500));
         }
         return $rows;
+    }
+
+    private static function shortDramaTransferStorageConfig(string $appCode, int $tenantId): ?array
+    {
+        if ($appCode !== AigcShortDramaService::APP_CODE) {
+            return null;
+        }
+        return AigcShortDramaService::resultTransferStorageConfig($tenantId);
     }
 
     /** Match the established Happy Horse result contract, including signed URLs without a file extension. */

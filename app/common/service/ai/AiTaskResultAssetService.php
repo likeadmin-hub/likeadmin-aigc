@@ -6,6 +6,7 @@ use app\common\model\ai\AiConsumptionLog;
 use app\common\model\ai\AiTaskResultAsset;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\app\aigc_music\AigcMusicAssetService;
+use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use app\common\service\app\aigc_video\AigcVideoAssetService;
 use Exception;
 
@@ -74,11 +75,12 @@ class AiTaskResultAssetService
         }
         $tenantId = (int)$asset['tenant_id'];
         $userId = (int)$asset['user_id'];
+        $storageConfig = self::shortDramaStorageConfig($asset, $tenantId);
         try {
             $stored = match ((string)$asset['asset_type']) {
-                'image' => AigcImageAssetService::persistGeneratedImage($url, $tenantId, $userId),
-                'video' => AigcVideoAssetService::persistGeneratedVideo($url, $tenantId, $userId),
-                'audio' => AigcMusicAssetService::persistGeneratedAudio($url, $tenantId, $userId),
+                'image' => AigcImageAssetService::persistGeneratedImage($url, $tenantId, $userId, $storageConfig),
+                'video' => AigcVideoAssetService::persistGeneratedVideo($url, $tenantId, $userId, $storageConfig),
+                'audio' => AigcMusicAssetService::persistGeneratedAudio($url, $tenantId, $userId, $storageConfig),
                 default => throw new Exception('不支持的结果资源类型'),
             };
             $asset->save([
@@ -106,6 +108,14 @@ class AiTaskResultAssetService
     private static function isExternal(string $uri): bool
     {
         return str_starts_with($uri, 'http://') || str_starts_with($uri, 'https://') || str_starts_with($uri, 'data:');
+    }
+
+    private static function shortDramaStorageConfig(AiTaskResultAsset $asset, int $tenantId): ?array
+    {
+        if (!AiTaskBusinessResultService::requiresForcedTransfer((int)$asset['consumption_id'])) {
+            return null;
+        }
+        return AigcShortDramaService::resultTransferStorageConfig($tenantId);
     }
 
     private static function arrayValue(mixed $value): array
