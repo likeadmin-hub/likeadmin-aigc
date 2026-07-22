@@ -1,5 +1,0 @@
-<<<<<<<< HEAD:public/admin/assets/department-WXtQ1mzs.js
-import{r as e}from"./index-BPH2C_d2.js";function p(t){return e.get({url:"/dept.dept/lists",params:t})}function r(t){return e.post({url:"/dept.dept/add",params:t})}function u(t){return e.post({url:"/dept.dept/edit",params:t})}function n(t){return e.post({url:"/dept.dept/delete",params:t})}function l(t){return e.get({url:"/dept.dept/detail",params:t})}function s(){return e.get({url:"/dept.dept/all"})}export{u as a,r as b,l as c,s as d,p as e,n as f};
-========
-import{r as e}from"./index-5ekZev-J.js";function p(t){return e.get({url:"/dept.dept/lists",params:t})}function r(t){return e.post({url:"/dept.dept/add",params:t})}function u(t){return e.post({url:"/dept.dept/edit",params:t})}function n(t){return e.post({url:"/dept.dept/delete",params:t})}function l(t){return e.get({url:"/dept.dept/detail",params:t})}function s(){return e.get({url:"/dept.dept/all"})}export{u as a,r as b,l as c,s as d,p as e,n as f};
->>>>>>>> origin/develop:public/admin/assets/department-yTHPAvU2.js
