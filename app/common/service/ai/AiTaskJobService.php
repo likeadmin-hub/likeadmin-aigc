@@ -150,12 +150,14 @@ class AiTaskJobService
         ]);
     }
 
-    public static function reschedule(array $job, int $delay = 5): void
+    public static function reschedule(array $job, int $delay = 5): int
     {
+        $delay = self::rescheduleDelay($job, $delay);
         AiTaskJob::where(['id' => (int)$job['id'], 'lease_token' => (string)$job['lease_token']])->update([
             'status' => 'pending', 'lease_token' => '', 'lease_expire_time' => 0,
             'next_run_time' => time() + max(1, $delay), 'update_time' => time(),
         ]);
+        return $delay;
     }
 
     private static function queryResult(int $consumptionId): bool
@@ -175,5 +177,17 @@ class AiTaskJobService
     {
         return in_array((string)($consumption['run_status'] ?? ''), ['success', 'failed', 'canceled', 'cancelled'], true)
             || in_array((string)($consumption['billing_status'] ?? ''), ['settled', 'refunded'], true);
+    }
+
+    private static function rescheduleDelay(array $job, int $delay): int
+    {
+        if ((string)($job['job_type'] ?? '') !== self::TYPE_QUERY_RESULT) {
+            return max(1, $delay);
+        }
+
+        // Keep early result polls responsive, then reduce pressure from tasks
+        // that remain pending while the provider or its query endpoint is slow.
+        $attempts = max(1, (int)($job['attempts'] ?? 1));
+        return min(60, max(5, $delay, 5 * (int)ceil($attempts / 10)));
     }
 }

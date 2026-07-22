@@ -61,8 +61,8 @@ class AiTaskWorker extends Command
                             AiTaskJobService::succeed($job);
                             $output->writeln(sprintf('[job:%d] success', (int)$job['id']));
                         } else {
-                            AiTaskJobService::reschedule($job, 5);
-                            $output->writeln(sprintf('[job:%d] waiting next_run_in=5s', (int)$job['id']));
+                            $delay = AiTaskJobService::reschedule($job, 5);
+                            $output->writeln(sprintf('[job:%d] waiting next_run_in=%ds', (int)$job['id'], $delay));
                         }
                     } catch (\Throwable $e) {
                         AiTaskJobService::retry($job, $e);
