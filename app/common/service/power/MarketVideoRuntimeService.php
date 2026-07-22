@@ -32,7 +32,6 @@ class MarketVideoRuntimeService
         'happy_horse' => [3, 15],
         'seedance' => [4, 15],
     ];
-    private const MAX_RUNNING_SECONDS = 7200;
 
     public static function options(int $tenantId, string $resourceType): array
     {
@@ -253,14 +252,9 @@ class MarketVideoRuntimeService
         if ($context === null) throw new Exception('市场视频消耗记录不存在');
         $c = $context['consumption'];
         if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return self::response($c->toArray());
-        $createdAt = self::timestamp($c['create_time'] ?? 0);
-        $timedOut = $createdAt > 0 && time() - $createdAt >= self::MAX_RUNNING_SECONDS;
         $taskId = trim((string)$c['upstream_task_id']);
         if ($taskId === '') {
-            if ($timedOut) {
-                self::fail($consumptionId, '视频任务未返回上游任务号', 'timeout');
-                return ['status' => 'failed', 'provider_task_id' => '', 'videos' => []];
-            }
+            self::recordRefreshError($consumptionId, '', new Exception('视频任务尚未返回上游任务号'));
             return self::response($c->toArray());
         }
         try {
@@ -292,24 +286,12 @@ class MarketVideoRuntimeService
                     return ['status' => 'success', 'provider_task_id' => $taskId, 'videos' => $storedVideos];
                 }
             }
-            // Always pull a completed provider result before timing out a
-            // delayed local task. A worker outage must not discard media that
-            // was already generated upstream.
-            if ($timedOut) {
-                self::fail($consumptionId, '视频任务处理超时', 'timeout');
-                return ['status' => 'failed', 'provider_task_id' => $taskId, 'videos' => []];
-            }
             self::event($consumptionId, 'poll', 'running', ['upstream_task_id' => $taskId]);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'videos' => []];
         } catch (\Throwable $e) {
-            // A query or result-download failure is not a terminal provider
-            // failure. Keep the task retryable until its deadline, but leave
-            // an audit trail so a completed upstream task cannot silently
-            // remain "running".
-            if ($timedOut) {
-                self::fail($consumptionId, '视频任务处理超时', 'timeout');
-                return ['status' => 'failed', 'provider_task_id' => $taskId, 'videos' => []];
-            }
+            // A query or result-download failure is never evidence that the
+            // upstream task failed. Keep it active until the supplier returns
+            // an explicit terminal status.
             self::recordRefreshError($consumptionId, $taskId, $e);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'videos' => []];
         }
@@ -1006,7 +988,7 @@ class MarketVideoRuntimeService
     }
     private static function origin(): string { $source = UpdateSourceClient::getSource(); $parts = parse_url(trim((string)($source['active_base_url'] ?? $source['base_url'] ?? ''))); if (empty($parts['host'])) throw new Exception('视频 API 暂不可用'); return (string)($parts['scheme'] ?? 'https') . '://' . $parts['host'] . (isset($parts['port']) ? ':' . (int)$parts['port'] : ''); }
     private static function endpoint(string $app, string $api): string { return self::origin() . '/api/v1/apps/' . rawurlencode($app) . '/' . rawurlencode($api); }
-    private static function request(string $method, string $url, array $payload = [], bool $allowApplicationError = false): array { $source = UpdateSourceClient::getSource(); $key = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '')); if ($key === '') throw new Exception('视频 API 暂不可用'); $ch = curl_init(); curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $key, 'Accept: application/json', 'Content-Type: application/json'], CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source), CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0]); if ($method === 'POST') { curl_setopt($ch, CURLOPT_POST, true); curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); } $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch); if ($errno) throw new Exception($error ?: '视频 API 网络请求失败'); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('视频 API 响应格式错误'); $hasApplicationError = isset($data['error']) || (isset($data['code']) && is_numeric($data['code']) && (int)$data['code'] !== 1); if ($http >= 400 || ($hasApplicationError && !$allowApplicationError)) throw new Exception(self::error($data)); if ($hasApplicationError) { $data['status'] = $data['status'] ?? 'failed'; $data['message'] = self::error($data); } return $data; }
+    private static function request(string $method, string $url, array $payload = [], bool $allowApplicationError = false): array { $source = UpdateSourceClient::getSource(); $key = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '')); if ($key === '') throw new Exception('视频 API 暂不可用'); $ch = curl_init(); curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $key, 'Accept: application/json', 'Content-Type: application/json'], CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source), CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0]); if ($method === 'POST') { curl_setopt($ch, CURLOPT_POST, true); curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); } $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch); if ($errno) throw new Exception($error ?: '视频 API 网络请求失败'); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('视频 API 响应格式错误'); $hasApplicationError = isset($data['error']) || (isset($data['code']) && is_numeric($data['code']) && (int)$data['code'] !== 1); if ($http >= 400 || $hasApplicationError) throw new Exception(self::error($data)); return $data; }
     private static function recordRefreshError(int $consumptionId, string $taskId, \Throwable $e): void
     {
         $message = mb_substr($e->getMessage() ?: '视频任务查询失败', 0, 1000);
