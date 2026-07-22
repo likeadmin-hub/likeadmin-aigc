@@ -1731,7 +1731,8 @@ class AigcDigitalHumanService
             }
             $providerAssetId = trim((string)($clone['voice_id'] ?? ''));
             if ($providerAssetId === '') {
-                throw new Exception('供应商任务已成功但未返回音色ID');
+                $voice->save(['status' => 'running', 'update_time' => time()]);
+                return;
             }
             $data = [
                 'provider_asset_id' => $providerAssetId,

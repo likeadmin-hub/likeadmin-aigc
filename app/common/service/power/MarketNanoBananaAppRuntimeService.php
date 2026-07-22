@@ -8,6 +8,7 @@ use app\common\model\ai\AiConsumptionLog;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
+use app\common\service\ai\AiTaskJobService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
@@ -25,6 +26,11 @@ class MarketNanoBananaAppRuntimeService
     /** @return array<int,array<string,mixed>> */
     public static function options(int $tenantId): array
     {
+        // Query is an internal lifecycle dependency. Do not expose a submit
+        // product for new tasks when its result contract has been unshelved.
+        if (!self::queryAvailable()) {
+            return [];
+        }
         $products = PowerMarketProduct::where([
             'resource_type' => PowerMarketService::TYPE_APP_API,
             'upstream_app_code' => self::UPSTREAM_APP_CODE,
@@ -187,7 +193,11 @@ class MarketNanoBananaAppRuntimeService
                 $c->save(['run_status' => $images === [] ? 'running' : 'success', 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'update_time' => time()]);
                 self::event((int)$c['id'], 'submit', 'success', ['upstream_task_id' => $taskId, 'image_count' => count($images)]);
             });
-            if ($images !== []) self::settle($consumptionId, $images, $requestId, $taskId, $response);
+            if ($images !== []) {
+                self::settle($consumptionId, $images, $requestId, $taskId, $response);
+                AiTaskJobService::enqueueProcessResult($consumptionId);
+            }
+            else AiTaskJobService::enqueueQueryResult($consumptionId);
             if ($images === [] && $taskId === '') throw new Exception('nano-banana 应用 API 未返回任务 ID');
             return ['status' => $images === [] ? 'running' : 'success', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => $images];
         } catch (\Throwable $e) {
@@ -265,6 +275,7 @@ class MarketNanoBananaAppRuntimeService
         if ($productId <= 0 || $model === '') throw new Exception('请选择 nano-banana 应用 API 模型');
         $product = PowerMarketProduct::where(['id' => $productId, 'resource_type' => PowerMarketService::TYPE_APP_API, 'upstream_app_code' => self::UPSTREAM_APP_CODE, 'upstream_api_code' => self::SUBMIT_API_CODE, 'status' => 1])->findOrEmpty();
         if ($product->isEmpty()) throw new Exception('所选 nano-banana 应用 API 已下架');
+        if (!self::queryAvailable()) throw new Exception('nano-banana 应用 API 查询接口已下架');
         $quality = self::quality($selection); $matches = [];
         foreach (self::availableSkus($tenantId, $productId) as $market) {
             $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
@@ -312,6 +323,15 @@ class MarketNanoBananaAppRuntimeService
     }
 
     private static function endpoint(string $appCode, string $apiCode): string { return self::origin() . '/api/v1/apps/' . rawurlencode($appCode ?: self::UPSTREAM_APP_CODE) . '/' . rawurlencode($apiCode); }
+    private static function queryAvailable(): bool
+    {
+        return !PowerMarketProduct::where([
+            'resource_type' => PowerMarketService::TYPE_APP_API,
+            'upstream_app_code' => self::UPSTREAM_APP_CODE,
+            'upstream_api_code' => self::QUERY_API_CODE,
+            'status' => 1,
+        ])->findOrEmpty()->isEmpty();
+    }
     private static function origin(): string { $source = UpdateSourceClient::getSource(); $parts = parse_url(trim((string)($source['active_base_url'] ?? $source['base_url'] ?? ''))); $host = (string)($parts['host'] ?? ''); if ($host === '') throw new Exception('nano-banana 应用 API 暂不可用'); return (string)($parts['scheme'] ?? 'https') . '://' . $host . (isset($parts['port']) ? ':' . (int)$parts['port'] : ''); }
     private static function request(string $method, string $url, array $payload = []): array { $source = UpdateSourceClient::getSource(); $key = trim((string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '')); if ($key === '') throw new Exception('nano-banana 应用 API 暂不可用'); $ch = curl_init(); curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $key, 'Accept: application/json', 'Content-Type: application/json'], CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source), CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0]); if ($method === 'POST') { curl_setopt($ch, CURLOPT_POST, true); curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); } $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch); if ($errno) throw new Exception($error ?: 'nano-banana 应用网络请求失败'); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('nano-banana 应用响应格式错误'); if ($http >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) throw new Exception(self::error($data)); return $data; }
     private static function snapshot(array $market): array { $product = $market['product']; $sku = $market['sku']; return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'model_code' => (string)$market['model'], 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'max_reference_images' => (int)$market['reference_limit']]; }

@@ -365,7 +365,7 @@ BEGIN;
 INSERT INTO `la_dev_crontab` (`name`,`type`,`system`,`remark`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`create_time`,`update_time`,`delete_time`)
 VALUES ('租户到期扫描', 1, 1, '每日扫描已到期租户并禁用访问', 'tenant:expire_contracts', '', 1, '10 2 * * *', NULL, NULL, '0', '0', 1782604800, 1782604800, NULL);
 INSERT INTO `la_dev_crontab` (`name`,`type`,`system`,`remark`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`create_time`,`update_time`,`delete_time`)
-VALUES ('AIGC任务消耗补偿', 1, 1, '补偿刷新异步生成任务并结算消耗日志', 'ai:usage_reconcile', '--limit=20', 1, '* * * * *', NULL, NULL, '0', '0', 1784505600, 1784505600, NULL);
+VALUES ('AIGC任务消耗补偿', 1, 1, '补投异步任务结果处理作业', 'ai:usage_reconcile', '--limit=100', 1, '*/5 * * * *', NULL, NULL, '0', '0', 1784505600, 1784505600, NULL);
 COMMIT;
 
 -- ----------------------------
@@ -3481,6 +3481,7 @@ CREATE TABLE IF NOT EXISTS `la_membership_plan` (
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `name` varchar(100) NOT NULL DEFAULT '' COMMENT '套餐名称',
   `description` varchar(255) NOT NULL DEFAULT '' COMMENT '套餐简介',
+  `duration_months` int unsigned NOT NULL DEFAULT 1 COMMENT '有效月数',
   `monthly_price` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '月付价格',
   `yearly_price` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '年付价格',
   `monthly_market_price` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT '月付划线价',
@@ -3598,6 +3599,7 @@ INSERT INTO `la_membership_plan` (
   `tenant_id`,
   `name`,
   `description`,
+  `duration_months`,
   `monthly_price`,
   `yearly_price`,
   `monthly_market_price`,
@@ -3615,6 +3617,7 @@ SELECT
   `id`,
   '免费会员',
   '系统默认免费会员，默认AIGC应用可直接使用',
+  1,
   0.00,
   0.00,
   0.00,
@@ -3637,6 +3640,7 @@ INSERT INTO `la_membership_plan` (
   `tenant_id`,
   `name`,
   `description`,
+  `duration_months`,
   `monthly_price`,
   `yearly_price`,
   `monthly_market_price`,
@@ -3654,6 +3658,7 @@ SELECT
   t.`id`,
   plans.`name`,
   plans.`description`,
+  plans.`duration_months`,
   plans.`monthly_price`,
   plans.`yearly_price`,
   plans.`monthly_market_price`,
@@ -3668,9 +3673,9 @@ SELECT
   UNIX_TIMESTAMP()
 FROM `la_tenant` t
 JOIN (
-  SELECT '基础会员' AS `name`, '适合轻量创作用户，赠送基础积分' AS `description`, 19.90 AS `monthly_price`, 199.00 AS `yearly_price`, 29.90 AS `monthly_market_price`, 299.00 AS `yearly_market_price`, 100.00 AS `monthly_bonus_points`, 1500.00 AS `yearly_bonus_points`, '["每月赠送100积分","按年开通赠送1500积分","适合个人轻量创作"]' AS `features`, 0 AS `is_recommend`, 90 AS `sort`
+  SELECT '基础会员' AS `name`, '适合轻量创作用户，赠送基础积分' AS `description`, 1 AS `duration_months`, 19.90 AS `monthly_price`, 19.90 AS `yearly_price`, 29.90 AS `monthly_market_price`, 29.90 AS `yearly_market_price`, 100.00 AS `monthly_bonus_points`, 100.00 AS `yearly_bonus_points`, '["开通赠送100积分","会员有效期1个月","适合个人轻量创作"]' AS `features`, 0 AS `is_recommend`, 90 AS `sort`
   UNION ALL
-  SELECT '高级会员', '适合高频创作用户，赠送更多积分', 39.90, 399.00, 69.90, 699.00, 300.00, 4200.00, '["每月赠送300积分","按年开通赠送4200积分","适合高频图文与视频创作"]', 1, 80
+  SELECT '高级会员', '适合高频创作用户，赠送更多积分', 1, 39.90, 39.90, 69.90, 69.90, 300.00, 300.00, '["开通赠送300积分","会员有效期1个月","适合高频图文与视频创作"]', 1, 80
 ) plans
 WHERE NOT EXISTS (
   SELECT 1 FROM `la_membership_plan` p
@@ -8056,6 +8061,21 @@ CREATE TABLE IF NOT EXISTS `la_ai_consumption_event` (
   `id` int unsigned NOT NULL AUTO_INCREMENT, `consumption_id` int unsigned NOT NULL DEFAULT 0, `event_type` varchar(30) NOT NULL DEFAULT '', `event_status` varchar(30) NOT NULL DEFAULT '', `attempt_no` int unsigned NOT NULL DEFAULT 1, `payload_summary` text, `payload_ciphertext` mediumtext, `http_status` int unsigned NOT NULL DEFAULT 0, `elapsed_ms` int unsigned NOT NULL DEFAULT 0, `create_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`), KEY `idx_consumption_time` (`consumption_id`,`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI消耗调用事件';
+
+CREATE TABLE IF NOT EXISTS `la_ai_task_job` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT, `app_task_id` int unsigned NOT NULL DEFAULT 0, `consumption_id` int unsigned NOT NULL DEFAULT 0, `result_asset_id` bigint unsigned NOT NULL DEFAULT 0,
+  `job_type` varchar(32) NOT NULL DEFAULT '', `status` varchar(20) NOT NULL DEFAULT 'pending', `priority` int NOT NULL DEFAULT 0, `payload` text,
+  `attempts` int unsigned NOT NULL DEFAULT 0, `max_attempts` int unsigned NOT NULL DEFAULT 0, `next_run_time` int unsigned NOT NULL DEFAULT 0, `lease_token` varchar(96) NOT NULL DEFAULT '', `lease_expire_time` int unsigned NOT NULL DEFAULT 0,
+  `last_error` varchar(1000) NOT NULL DEFAULT '', `idempotency_key` varchar(120) NOT NULL DEFAULT '', `create_time` int unsigned NOT NULL DEFAULT 0, `update_time` int unsigned NOT NULL DEFAULT 0, `finish_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`), UNIQUE KEY `uk_idempotency` (`idempotency_key`), KEY `idx_claim` (`status`,`next_run_time`,`priority`,`lease_expire_time`), KEY `idx_consumption` (`consumption_id`,`job_type`), KEY `idx_asset` (`result_asset_id`,`job_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI异步结果任务队列';
+
+CREATE TABLE IF NOT EXISTS `la_ai_task_result_asset` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT, `app_task_id` int unsigned NOT NULL DEFAULT 0, `consumption_id` int unsigned NOT NULL DEFAULT 0, `tenant_id` int unsigned NOT NULL DEFAULT 0, `user_id` int unsigned NOT NULL DEFAULT 0,
+  `asset_type` varchar(20) NOT NULL DEFAULT '', `external_url` text, `external_expire_time` int unsigned NOT NULL DEFAULT 0, `local_uri` text, `storage_scope` varchar(20) NOT NULL DEFAULT '', `storage_engine` varchar(32) NOT NULL DEFAULT '', `storage_domain` varchar(255) NOT NULL DEFAULT '', `storage_meta` text,
+  `transfer_status` varchar(20) NOT NULL DEFAULT 'external', `transfer_attempts` int unsigned NOT NULL DEFAULT 0, `last_error` varchar(1000) NOT NULL DEFAULT '', `create_time` int unsigned NOT NULL DEFAULT 0, `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`), KEY `idx_consumption` (`consumption_id`,`asset_type`), KEY `idx_tenant_transfer` (`tenant_id`,`transfer_status`,`update_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI任务结果资源';
 
 ALTER TABLE `la_aigc_image_task` ADD COLUMN `app_task_id` int unsigned NOT NULL DEFAULT 0 COMMENT '统一应用任务ID' AFTER `id`, ADD KEY `idx_app_task` (`app_task_id`);
 ALTER TABLE `la_aigc_image_billing` ADD COLUMN `consumption_id` int unsigned NOT NULL DEFAULT 0 COMMENT '统一消耗日志ID' AFTER `id`, ADD KEY `idx_consumption` (`consumption_id`);

@@ -13,6 +13,10 @@ return [
         'recharge:repair' => 'app\common\command\RepairRecharge',
         // AIGC消耗日志补偿刷新
         'ai:usage_reconcile' => 'app\common\command\AiUsageReconcile',
+        // AIGC 异步结果 Worker（宝塔守护进程）
+        'ai:task-worker' => 'app\common\command\AiTaskWorker',
+        // AIGC 关联业务结果修复
+        'ai:repair-linked-results' => 'app\common\command\AiRepairLinkedResults',
         // 租户合约到期扫描
         'tenant:expire_contracts' => 'app\common\command\ExpireTenantContracts',
         // 短剧任务提示词修复

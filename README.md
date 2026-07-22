@@ -152,6 +152,85 @@ location ~ \.php$ {
 - 生产环境关闭调试：`.env` 中保持 `APP_DEBUG = false`。
 - 如开启在线更新，需确保 PHP 进程对 `server`、`runtime`、`upgrade` 和前端构建目录有写入权限。
 
+## AI 任务结果 Worker 守护
+
+图片、视频、音频等异步生成任务由后台结果 Worker 查询上游状态、保存结果、按租户配置转存资源，并完成结算或退款。用户提交任务后会立即返回本地任务号，前端只读取本地任务状态；不要将结果查询依赖于用户停留在页面上。
+
+首次启用前，请先完成当前系统版本的升级 SQL，再配置 Worker。Worker 命令为：
+
+```bash
+php think ai:task-worker --worker=result --sleep=1 --lease=90 --batch=20
+```
+
+生产环境建议使用项目自带启动脚本，而不是直接在宝塔中填写上述 PHP 命令：
+
+```bash
+/www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh
+```
+
+脚本每次启动都会停止同一项目遗留的结果 Worker，再以当前 PHP 进程启动新的 Worker，避免重复领取任务。默认 PHP 路径为 `/www/server/php/80/bin/php`；若服务器使用其他 PHP 版本，请在宝塔守护命令前设置 `PHP_BIN`，例如：
+
+```bash
+PHP_BIN=/www/server/php/81/bin/php /www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh
+```
+
+### 宝塔进程守护配置
+
+在宝塔面板的“进程守护管理器”中新建守护进程，并按以下配置填写：
+
+| 配置项 | 建议值 |
+| --- | --- |
+| 名称 | `ai-task-worker` |
+| 启动命令 | `/www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh` |
+| 工作目录 | `/www/wwwroot/likeadmin_aigc_saas/server` |
+| 启动用户 | 与站点 PHP-FPM 一致的用户，例如 `www` |
+| 进程数量 | `1` |
+| 开机启动 | 开启 |
+| 异常自动重启 | 开启 |
+| 重启等待 | `1` 秒 |
+
+实际安装目录或 PHP 版本不同时，替换为服务器上的绝对路径。不要同时创建多个相同的守护进程，也不要用多个计划任务重复启动该 Worker。
+
+### 日志与排查
+
+Worker 的 PID 与日志均在 `runtime` 目录：
+
+```text
+runtime/ai_task_worker.pid
+runtime/log/ai_task_worker.log
+runtime/log/ai_task_worker_start.log
+```
+
+常用排查命令：
+
+```bash
+cd /www/wwwroot/likeadmin_aigc_saas/server
+
+# 确认 Worker 进程
+ps -ef | grep '[a]i:task-worker'
+
+# 实时查看 Worker 运行日志
+tail -f runtime/log/ai_task_worker.log
+
+# 查看启动失败原因、PHP 路径或权限错误
+tail -n 100 runtime/log/ai_task_worker_start.log
+
+# 手动停止当前 Worker；宝塔守护会按配置自动拉起新进程
+kill -TERM "$(cat runtime/ai_task_worker.pid)"
+```
+
+如果任务长期没有结果，依次检查：升级 SQL 是否已执行、守护进程是否为运行状态、`runtime` 是否可写、Worker 日志是否出现上游或存储错误。Worker 异常退出后，未完成任务会在租约到期后由新的 Worker 接管，不需要重新提交用户任务。
+
+### 补偿计划任务
+
+结果 Worker 是常驻进程；`ai:usage_reconcile` 仅用于账务和历史任务的补偿扫描，建议保留宝塔计划任务每 5 分钟执行一次：
+
+```bash
+*/5 * * * * /www/server/php/80/bin/php /www/wwwroot/likeadmin_aigc_saas/server/think ai:usage_reconcile >> /www/wwwroot/likeadmin_aigc_saas/server/runtime/log/ai_usage_reconcile.log 2>&1
+```
+
+不要用该计划任务替代常驻结果 Worker。
+
 ## 更新与发布
 
 平台后台提供系统更新能力，更新包会经过下载、预检、签名校验、SQL 执行和文件替换流程。大版本更新前请先完成：

@@ -5,12 +5,26 @@ namespace app\common\service\app\aigc_llm;
 use app\common\model\app\aigc_llm\AigcLlmChannel;
 use app\common\model\app\aigc_llm\AigcLlmModel;
 use app\common\service\app\UpstreamPricingService;
+use app\common\service\power\MarketTextModelRuntimeService;
 use Exception;
 
 class AigcLlmChannelService
 {
     public static function userConfig(int $tenantId): array
     {
+        $marketModels = self::marketUserModels($tenantId);
+        if ($marketModels !== []) {
+            $defaultModel = $marketModels[0];
+            return [
+                'channels' => self::marketUserChannels($marketModels),
+                'models' => $marketModels,
+                'defaults' => [
+                    'channel' => (string)($defaultModel['channel_code'] ?? ''),
+                    'model' => (string)($defaultModel['code'] ?? ''),
+                ],
+            ];
+        }
+
         $channels = self::effectiveChannels($tenantId, true);
         $models = self::effectiveModels($tenantId, true, $channels);
         $defaultModel = $models[0] ?? [];
@@ -46,6 +60,23 @@ class AigcLlmChannelService
 
     public static function resolveUserModel(int $tenantId, array $params, array $config = []): array
     {
+        $marketModels = self::marketUserModels($tenantId);
+        if ($marketModels !== []) {
+            $modelCode = trim((string)($params['model_code'] ?? $config['model'] ?? ''));
+            if ($modelCode !== '') {
+                foreach ($marketModels as $model) {
+                    if (in_array($modelCode, [
+                        (string)$model['code'],
+                        (string)$model['model'],
+                        (string)($model['market_product_id'] ?? ''),
+                    ], true)) {
+                        return $model;
+                    }
+                }
+            }
+            return $marketModels[0];
+        }
+
         $channels = self::effectiveChannels($tenantId, true);
         $models = self::effectiveModels($tenantId, true, $channels);
         if (empty($models)) {
@@ -60,6 +91,86 @@ class AigcLlmChannelService
             }
         }
         return $models[0];
+    }
+
+    /**
+     * AIGC 对话优先复用算力市场文本模型，保持用户侧模型列表、价格和可用性一致。
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private static function marketUserModels(int $tenantId): array
+    {
+        try {
+            $groups = MarketTextModelRuntimeService::modelGroups($tenantId);
+        } catch (\Throwable) {
+            return [];
+        }
+        $options = (array)(($groups[0] ?? [])['options'] ?? []);
+        $models = [];
+        foreach ($options as $index => $option) {
+            if (!is_array($option)) {
+                continue;
+            }
+            $productId = (int)($option['product_id'] ?? $option['id'] ?? 0);
+            $modelCode = trim((string)($option['model_code'] ?? $option['provider_model'] ?? ''));
+            if ($productId <= 0 || $modelCode === '') {
+                continue;
+            }
+            $channelCode = trim((string)($option['channel_code'] ?? '')) ?: 'power_market_text';
+            $defaultParams = is_array($option['default_params'] ?? null) ? (array)$option['default_params'] : [];
+            if (!empty($option['max_tokens']) && empty($defaultParams['max_tokens'])) {
+                $defaultParams['max_tokens'] = (int)$option['max_tokens'];
+            }
+            $models[] = [
+                'code' => 'market_text_' . $productId,
+                'name' => (string)($option['name'] ?? $modelCode),
+                'channel_code' => $channelCode,
+                'provider' => 'openai_compatible',
+                'model' => $modelCode,
+                'context_limit' => max(1, (int)ceil(((int)($option['max_tokens'] ?? 0)) / 1000)),
+                'tenant_unit_price' => self::formatPoints((float)($option['tenant_unit_price'] ?? $option['tenant_input_unit_price'] ?? 0)),
+                'platform_unit_cost' => self::formatPoints((float)($option['platform_unit_cost'] ?? $option['platform_input_unit_cost'] ?? 0)),
+                'platform_input_unit_cost' => self::formatUnitPrice((float)($option['platform_input_unit_cost'] ?? $option['platform_unit_cost'] ?? 0)),
+                'platform_output_unit_cost' => self::formatUnitPrice((float)($option['platform_output_unit_cost'] ?? $option['platform_unit_cost'] ?? 0)),
+                'tenant_input_unit_price' => self::formatUnitPrice((float)($option['tenant_input_unit_price'] ?? $option['tenant_unit_price'] ?? 0)),
+                'tenant_output_unit_price' => self::formatUnitPrice((float)($option['tenant_output_unit_price'] ?? $option['tenant_unit_price'] ?? 0)),
+                'billing_unit' => 'tokens_1m',
+                'config_json' => array_merge($defaultParams, [
+                    'upstream_channel_code' => $channelCode,
+                    'protocol' => (string)($option['protocol'] ?? 'openai_chat'),
+                    'protocols' => (array)($option['protocols'] ?? []),
+                    'support_stream_options' => isset($defaultParams['stream_options']) ? 1 : 0,
+                    'market_product_id' => $productId,
+                ]),
+                'status' => 1,
+                'sort' => max(1, 1000 - $index),
+                'market_product_id' => $productId,
+                'market_model_code' => $modelCode,
+            ];
+        }
+        return $models;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $models
+     * @return array<int, array<string, mixed>>
+     */
+    private static function marketUserChannels(array $models): array
+    {
+        $channels = [];
+        foreach ($models as $model) {
+            $code = (string)($model['channel_code'] ?? 'power_market_text');
+            if (isset($channels[$code])) {
+                continue;
+            }
+            $channels[$code] = [
+                'code' => $code,
+                'name' => $code === 'power_market_text' ? '模型市场' : $code,
+                'provider' => 'openai_compatible',
+                'sort' => (int)($model['sort'] ?? 0),
+            ];
+        }
+        return array_values($channels);
     }
 
     public static function platformChannelLists(): array

@@ -8,6 +8,7 @@ use app\common\model\ai\AiConsumptionLog;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
+use app\common\service\ai\AiTaskJobService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
@@ -205,7 +206,11 @@ class MarketImageModelRuntimeService
                 $c->save(['run_status' => $status, 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'response_summary' => ['image_count' => count($images)], 'update_time' => time()]);
                 self::event((int)$c['id'], 'submit', 'success', ['upstream_task_id' => $taskId, 'image_count' => count($images)], (int)round((microtime(true) - $started) * 1000));
             });
-            if ($images !== []) self::settle($consumptionId, $images, $requestId, $taskId, $response);
+            if ($images !== []) {
+                self::settle($consumptionId, $images, $requestId, $taskId, $response);
+                AiTaskJobService::enqueueProcessResult($consumptionId);
+            }
+            else AiTaskJobService::enqueueQueryResult($consumptionId);
             return ['status' => $images === [] ? 'running' : 'success', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => $images];
         } catch (\Throwable $e) {
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
