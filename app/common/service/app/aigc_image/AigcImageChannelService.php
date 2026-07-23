@@ -6,6 +6,7 @@ use app\common\model\app\aigc_image\AigcImageChannel;
 use app\common\model\app\aigc_image\AigcImageChannelSpec;
 use app\common\service\app\ChannelSpecPricingSchemaService;
 use app\common\service\power\MarketImageModelRuntimeService;
+use app\common\service\power\MarketNanoBananaAppRuntimeService;
 use Exception;
 use think\facade\Db;
 
@@ -530,6 +531,91 @@ class AigcImageChannelService
                         }
                         $channel['qualities'][$quality]['ratios'][] = $spec;
                     }
+                }
+            }
+            if ($channel['specs'] !== []) {
+                $channel['qualities'] = array_values($channel['qualities']);
+                $channels[] = $channel;
+            }
+        }
+        foreach (MarketNanoBananaAppRuntimeService::options($tenantId) as $model) {
+            $channelCode = trim((string)($model['id'] ?? $model['value'] ?? ''));
+            $modelCode = trim((string)($model['model_code'] ?? ''));
+            if ($channelCode === '' || $modelCode === '') {
+                continue;
+            }
+            $channel = [
+                'id' => 0,
+                'tenant_override_id' => 0,
+                'code' => $channelCode,
+                'value' => $channelCode,
+                'name' => (string)($model['name'] ?? $modelCode),
+                'label' => (string)($model['name'] ?? $modelCode),
+                'provider' => 'power_market_app_api',
+                'model' => $modelCode,
+                'display_group' => (string)($model['display_group'] ?? ''),
+                'display_group_label' => (string)($model['display_group_label'] ?? ''),
+                'display_series' => (string)($model['display_series'] ?? ''),
+                'display_series_label' => (string)($model['display_series_label'] ?? ''),
+                'display_variant_label' => (string)($model['display_variant_label'] ?? $model['name'] ?? $modelCode),
+                'max_reference_images' => (int)($model['max_reference_images'] ?? 0),
+                'status' => 1,
+                'platform_status' => 1,
+                'tenant_status' => 1,
+                'sort' => (int)($model['sort'] ?? 0),
+                'config_json' => [
+                    'market_app_code' => 'nano_banana',
+                    'quantity_options' => [1],
+                ],
+                'quantity_options' => [1],
+                'qualities' => [],
+                'specs' => [],
+            ];
+            foreach ((array)($model['skus'] ?? []) as $sku) {
+                if (!is_array($sku)) {
+                    continue;
+                }
+                $quality = strtolower(trim((string)($sku['quality'] ?? $sku['resolution'] ?? '1k'))) ?: '1k';
+                $ratios = array_values(array_unique(array_filter(array_map('strval', (array)($model['ratio_options'] ?? [])))));
+                if ($ratios === []) {
+                    $ratios = ['1:1'];
+                }
+                foreach ($ratios as $ratio) {
+                    $spec = [
+                        'id' => 0,
+                        'tenant_override_id' => 0,
+                        'channel_code' => $channelCode,
+                        'quality' => $quality,
+                        'value' => $ratio,
+                        'label' => $ratio,
+                        'quality_label' => (string)($sku['title'] ?? strtoupper($quality)),
+                        'ratio' => $ratio,
+                        'width' => 0,
+                        'height' => 0,
+                        'market_product_id' => (int)($model['market_product_id'] ?? 0),
+                        'market_sku_id' => (int)($sku['market_sku_id'] ?? 0),
+                        'upstream_unit_cost' => self::formatPoints((float)($sku['upstream_unit_cost'] ?? 0)),
+                        'platform_unit_cost' => self::formatPoints((float)($sku['platform_unit_cost'] ?? 0)),
+                        'tenant_unit_price' => self::formatPoints((float)($sku['tenant_unit_price'] ?? 0)),
+                        'platform_gross_margin_points' => 0.0,
+                        'tenant_gross_margin_points' => 0.0,
+                        'upstream_cost_text' => '',
+                        'cost_source_url' => '',
+                        'provider_params_json' => self::normalizeJson($sku['locked_params'] ?? []),
+                        'status' => 1,
+                        'platform_status' => 1,
+                        'tenant_status' => 1,
+                        'sort' => (int)($sku['market_sku_id'] ?? 0),
+                    ];
+                    $channel['specs'][] = $spec;
+                    if (!isset($channel['qualities'][$quality])) {
+                        $channel['qualities'][$quality] = [
+                            'value' => $quality,
+                            'label' => strtoupper($quality),
+                            'ratios' => [],
+                        ];
+                    }
+                    $channel['qualities'][$quality]['ratios'][] = $spec;
                 }
             }
             if ($channel['specs'] !== []) {

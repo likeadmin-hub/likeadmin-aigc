@@ -157,7 +157,10 @@ class MarketMusicAppRuntimeService
         if ($context === null) throw new Exception('市场音乐消耗记录不存在');
         $consumption = $context['consumption'];
         if (!in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage'], true)) return self::response($consumption->toArray());
-        $timedOut = (int)$consumption['create_time'] > 0 && time() - (int)$consumption['create_time'] >= self::MAX_RUNNING_SECONDS;
+        // Model access returns a formatted date for timestamps. Read the raw
+        // field so new tasks are not treated as if they were created in year 2026.
+        $createdAt = (int)$consumption->getData('create_time');
+        $timedOut = $createdAt > 0 && time() - $createdAt >= self::MAX_RUNNING_SECONDS;
         $taskId = trim((string)$consumption['upstream_task_id']);
         if ($taskId === '') {
             if ($timedOut) {

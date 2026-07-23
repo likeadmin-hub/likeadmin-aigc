@@ -23,7 +23,14 @@ class AiMarketTaskRuntimeService
         $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
         $upstreamApp = (string)($snapshot['app_code'] ?? '');
 
-        // AIGC image models use local provider runtimes. Market rows only
+        // Application APIs own their submit/query protocol even when the
+        // consuming business app is AIGC image.
+        if ($provider === 'power_market' && $protocol === 'application_api' && $upstreamApp === 'nano_banana') {
+            MarketNanoBananaAppRuntimeService::refresh($consumptionId);
+            return;
+        }
+
+        // AIGC image model APIs use local provider runtimes. Market rows only
         // control availability and pricing, never the submit/query executor.
         if ((string)$consumption['app_code'] === 'aigc_image') {
             AiTaskBusinessResultService::syncByConsumptionId($consumptionId);
@@ -44,10 +51,6 @@ class AiMarketTaskRuntimeService
             return;
         }
         if ($protocol === 'application_api') {
-            if ($upstreamApp === 'nano_banana') {
-                MarketNanoBananaAppRuntimeService::refresh($consumptionId);
-                return;
-            }
             if ($upstreamApp === 'music_generation') {
                 MarketMusicAppRuntimeService::refresh($consumptionId);
                 return;

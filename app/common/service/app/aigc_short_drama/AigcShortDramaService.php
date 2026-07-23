@@ -12326,6 +12326,7 @@ class AigcShortDramaService
             'model_id' => (string)$params['model_id'], 'video_model_id' => (string)$params['model_id'],
             'market_product_id' => (int)($params['market_product_id'] ?? 0), 'market_sku_id' => (int)($params['market_sku_id'] ?? 0),
             'resolution' => (string)$params['resolution'], 'quality' => (string)$params['resolution'], 'duration' => (int)$params['duration'],
+            'video_mode' => (string)($params['video_mode'] ?? (is_array($params['params'] ?? null) ? ($params['params']['video_mode'] ?? '') : '')),
             'ratio' => $ratio, 'quantity' => 1, 'reference_assets' => (array)$references['reference_assets'],
             'reference_images' => (array)$references['reference_images'], 'input_asset_ids' => (array)$references['input_asset_ids'],
         ];
