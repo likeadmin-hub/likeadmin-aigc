@@ -270,16 +270,12 @@ class MarketVideoRuntimeService
         try {
             $snapshot = self::arrayValue($c['price_snapshot'] ?? []);
             $response = self::queryRequest($snapshot, $taskId);
-<<<<<<< HEAD
-            $videos = self::videos($response, (int)$c['tenant_id'], (int)$c['user_id'], (string)$context['app_task']['app_code'] === 'aigc_short_drama');
-=======
             $videos = self::videos(
                 $response,
                 (int)$c['tenant_id'],
                 (int)$c['user_id'],
                 self::shortDramaTransferStorageConfig((string)$context['app_task']['app_code'], (int)$c['tenant_id'])
             );
->>>>>>> origin/develop
             $upstreamStatus = self::status($response);
             if (in_array($upstreamStatus, ['failed', 'error', 'canceled', 'cancelled', 'rejected'], true)) {
                 $message = self::error($response);
