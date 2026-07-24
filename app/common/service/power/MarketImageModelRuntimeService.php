@@ -54,17 +54,21 @@ class MarketImageModelRuntimeService
             foreach (self::availableSkus($tenantId, (int)$product['id']) as $market) {
                 $sku = $market['sku'];
                 $locked = self::arrayValue($sku['locked_params'] ?? []);
-                $quality = self::firstValue($locked, ['quality', 'resolution', 'image_size']);
+                $qualityOptions = self::qualityOptions($locked, $meta);
+                $quality = (string)($qualityOptions[0] ?? '');
                 $skus[] = [
                     'market_sku_id' => (int)$sku['id'],
                     'sku_key' => (string)$sku['sku_key'],
                     'title' => (string)$sku['title'],
                     'quality' => $quality,
+                    'quality_options' => $qualityOptions,
+                    'quality_parameter' => self::qualityParameter($locked, $meta),
                     'resolution' => $quality,
                     'ratio_options' => self::ratioOptions($locked, $meta),
                     'locked_params' => $locked,
                     'platform_unit_cost' => self::points((float)$sku['sale_points']),
                     'tenant_unit_price' => self::points((float)$market['tenant_price']),
+                    'upstream_unit_cost' => self::points((float)$sku['upstream_price']),
                     'usage_unit' => (string)$sku['usage_unit'],
                     'usage_unit_size' => MarketUsageSettlementService::unitSize($sku),
                     'settlement_mode' => MarketUsageSettlementService::isActualUsageSku($sku) ? 'actual_usage' : 'reserved',
@@ -73,7 +77,11 @@ class MarketImageModelRuntimeService
             if ($skus === []) {
                 continue;
             }
-            $qualities = array_values(array_unique(array_filter(array_map(static fn(array $item): string => (string)$item['quality'], $skus))));
+            $qualities = array_values(array_unique(array_merge(...array_map(static function (array $item): array {
+                $values = (array)($item['quality_options'] ?? []);
+                return $values !== [] ? $values : [(string)($item['quality'] ?? '')];
+            }, $skus))));
+            $qualities = array_values(array_filter($qualities));
             $ratios = array_values(array_unique(array_merge(...array_map(static fn(array $item): array => (array)$item['ratio_options'], $skus))));
             $first = $skus[0];
             $modelId = self::modelId((int)$product['id']);
@@ -84,6 +92,7 @@ class MarketImageModelRuntimeService
                 'market_sku_id' => 0,
                 'name' => (string)$product['name'],
                 'model_code' => (string)$product['upstream_model_code'],
+                'upstream_channel_code' => (string)$product['upstream_channel_code'],
                 'channel_code' => $modelId,
                 'provider_model' => (string)$product['upstream_model_code'],
                 'quality_options' => $qualities,
@@ -354,8 +363,8 @@ class MarketImageModelRuntimeService
         $matches = [];
         foreach (self::availableSkus($tenantId, $productId) as $market) {
             $sku = (array)$market['sku'];
-            $lockedQuality = self::firstValue(self::arrayValue($sku['locked_params'] ?? []), ['quality', 'resolution', 'image_size']);
-            if ($quality === '' || $lockedQuality === $quality) {
+            $qualityOptions = self::qualityOptions(self::arrayValue($sku['locked_params'] ?? []), self::metadata($product->toArray()));
+            if ($quality === '' || in_array($quality, $qualityOptions, true)) {
                 $matches[] = $market;
             }
         }
@@ -427,24 +436,9 @@ class MarketImageModelRuntimeService
     /** @return array<int,array<string,mixed>> */
     private static function images(array $data, int $tenantId, int $userId): array
     {
-        $urls = [];
-        foreach ([
-            $data['images'] ?? [],
-            $data['data'] ?? [],
-            $data['results'] ?? [],
-            $data['result']['images'] ?? [],
-            $data['result']['results'] ?? [],
-            $data['output'] ?? [],
-        ] as $rows) {
-            foreach ((array)$rows as $item) {
-                $url = is_string($item) ? $item : (string)($item['url'] ?? $item['image_url'] ?? $item['uri'] ?? '');
-                if ($url !== '') {
-                    $urls[] = $url;
-                }
-            }
-        }
+        $urls = self::imageUrls($data);
         $result = [];
-        foreach (array_values(array_unique($urls)) as $url) {
+        foreach ($urls as $url) {
             $stored = AigcImageAssetService::persistGeneratedImage($url, $tenantId, $userId);
             $result[] = [
                 'image_uri' => (string)$stored['uri'],
@@ -456,6 +450,61 @@ class MarketImageModelRuntimeService
             ];
         }
         return $result;
+    }
+
+    /** @return array<int,string> */
+    private static function imageUrls(array $data): array
+    {
+        $urls = [];
+        self::collectImageUrls($data, $urls);
+        return array_values(array_unique($urls));
+    }
+
+    /** @param array<int,string> $urls */
+    private static function collectImageUrls(mixed $value, array &$urls): void
+    {
+        if (is_string($value)) {
+            $value = trim($value);
+            if (self::isImageUrl($value)) {
+                $urls[] = $value;
+                return;
+            }
+            $decoded = json_decode($value, true);
+            if (is_array($decoded)) {
+                self::collectImageUrls($decoded, $urls);
+            }
+            return;
+        }
+        if (!is_array($value)) {
+            return;
+        }
+        if (self::isList($value)) {
+            foreach ($value as $item) {
+                self::collectImageUrls($item, $urls);
+            }
+            return;
+        }
+
+        foreach (['url', 'image_url', 'image', 'uri', 'src', 'file_url', 'download_url', 'output_url'] as $key) {
+            if (isset($value[$key])) {
+                self::collectImageUrls($value[$key], $urls);
+            }
+        }
+        foreach (['images', 'image_urls', 'outputs', 'output', 'results', 'result', 'data', 'artifacts', 'files', 'content'] as $key) {
+            if (isset($value[$key])) {
+                self::collectImageUrls($value[$key], $urls);
+            }
+        }
+    }
+
+    private static function isImageUrl(string $value): bool
+    {
+        return preg_match('#^https?://#i', $value) === 1 || str_starts_with($value, '//');
+    }
+
+    private static function isList(array $value): bool
+    {
+        return $value === [] || array_keys($value) === range(0, count($value) - 1);
     }
 
     private static function taskId(array $data): string { foreach ([$data['task_id'] ?? null, $data['id'] ?? null, $data['task']['id'] ?? null] as $v) if (is_scalar($v) && (string)$v !== '') return (string)$v; return ''; }
@@ -471,9 +520,37 @@ class MarketImageModelRuntimeService
     private static function metadata(array $product): array { $source = self::arrayValue($product['source_payload'] ?? []); return (array)($source['market_metadata'] ?? []); }
     private static function referenceLimit(array $meta): int { $capabilities = self::arrayValue($meta['capabilities'] ?? []); foreach (['max_reference_images','max_reference_image_count','reference_image_limit'] as $key) { if (isset($meta[$key])) return max(0, (int)$meta[$key]); if (isset($capabilities[$key])) return max(0, (int)$capabilities[$key]); } return !empty($meta['supports_reference_images']) || !empty($capabilities['supports_reference_images']) ? 1 : 0; }
     private static function firstValue(array $params, array $keys): string { foreach ($keys as $key) if (isset($params[$key]) && $params[$key] !== '') return (string)$params[$key]; return ''; }
-    private static function qualityOptions(array $locked): array { $v = self::firstValue($locked, ['quality','resolution','image_size']); return $v === '' ? [] : [$v]; }
+    private static function qualityOptions(array $locked, array $meta): array
+    {
+        $lockedValue = self::firstValue($locked, ['quality', 'resolution', 'image_size']);
+        if ($lockedValue !== '') {
+            return [self::normalizeQuality($lockedValue)];
+        }
+        $schema = self::arrayValue($meta['params_schema'] ?? []);
+        $values = $meta['supported_qualities']
+            ?? $meta['qualities']
+            ?? $schema['resolution']['options']
+            ?? $schema['image_size']['options']
+            ?? [];
+        return array_values(array_unique(array_filter(array_map(
+            static fn($value): string => self::normalizeQuality((string)$value),
+            self::optionValues($values)
+        ))));
+    }
+    private static function qualityParameter(array $locked, array $meta): string
+    {
+        foreach (['quality', 'resolution', 'image_size'] as $key) {
+            if (array_key_exists($key, $locked)) {
+                return $key;
+            }
+        }
+        $schema = self::arrayValue($meta['params_schema'] ?? []);
+        return array_key_exists('image_size', $schema) ? 'image_size' : (array_key_exists('resolution', $schema) ? 'resolution' : 'quality');
+    }
     private static function resolutionOptions(array $locked): array { $v = self::firstValue($locked, ['quality','resolution','image_size']); return $v === '' ? [] : [['value' => $v, 'label' => $v, 'ratio_options' => self::ratioOptions($locked, [])]]; }
-    private static function ratioOptions(array $locked, array $meta): array { $v = self::firstValue($locked, ['ratio','aspect_ratio']); if ($v !== '') return [$v]; $schema = self::arrayValue($meta['params_schema'] ?? []); $values = $meta['supported_ratios'] ?? $meta['ratios'] ?? $schema['aspect_ratio']['options'] ?? []; if (is_string($values)) $values = preg_split('/\s*\/\s*/', $values) ?: []; return array_values(array_filter(array_map('strval', (array)$values))); }
+    private static function ratioOptions(array $locked, array $meta): array { $v = self::firstValue($locked, ['ratio','aspect_ratio']); if ($v !== '') return [$v]; $schema = self::arrayValue($meta['params_schema'] ?? []); $values = $meta['supported_ratios'] ?? $meta['ratios'] ?? $schema['aspect_ratio']['options'] ?? []; return array_values(array_unique(array_filter(array_map('strval', self::optionValues($values))))); }
+    private static function optionValues($value): array { if (is_string($value)) return preg_split('/\s*\/\s*/', $value) ?: []; return is_array($value) ? $value : []; }
+    private static function normalizeQuality(string $value): string { return preg_match('/^\d+k$/i', trim($value)) ? strtolower(trim($value)) : trim($value); }
     private static function snapshot(array $market): array { $product = $market['product']; $sku = $market['sku']; return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'max_reference_images' => (int)($market['reference_limit'] ?? 0)]; }
     private static function requestSummary(array $request): array { return ['prompt_length' => mb_strlen((string)($request['prompt'] ?? '')), 'reference_image_count' => count((array)($request['reference_images'] ?? [])), 'ratio' => (string)($request['ratio'] ?? ''), 'quality' => (string)($request['quality'] ?? '')]; }
     private static function assertReferenceImagesAllowed(array $market, array $request): void { $count = count(array_filter((array)($request['reference_images'] ?? []))); $limit = (int)($market['reference_limit'] ?? 0); if ($count > $limit) throw new Exception($limit > 0 ? '所选图片模型最多支持 ' . $limit . ' 张参考图' : '所选图片模型不支持参考图'); }

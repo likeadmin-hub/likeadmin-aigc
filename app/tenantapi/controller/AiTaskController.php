@@ -3,6 +3,7 @@
 namespace app\tenantapi\controller;
 
 use app\common\service\ai\AiTaskRecordService;
+use app\common\service\ai\AiTaskOperationService;
 use think\facade\Log;
 
 class AiTaskController extends BaseAdminController
@@ -42,5 +43,24 @@ class AiTaskController extends BaseAdminController
             ], JSON_UNESCAPED_UNICODE));
             return $this->fail('查询失败，请稍后重试');
         }
+    }
+
+    public function batchAction()
+    {
+        try {
+            $data = AiTaskOperationService::submit((array)$this->request->post('record_keys/a', []), (string)$this->request->post('action', ''), (string)$this->request->post('reason', ''), $this->tenantId, $this->adminId, 'tenant');
+            return $this->success('批量操作已进入队列', $data);
+        } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+    }
+
+    public function batchDetail()
+    {
+        $data = AiTaskOperationService::detail((int)$this->request->get('id', 0), $this->tenantId);
+        return $data ? $this->success('获取成功', $data) : $this->fail('操作单不存在');
+    }
+
+    public function operationLists()
+    {
+        return $this->data(AiTaskOperationService::lists($this->request->get(), $this->tenantId));
     }
 }

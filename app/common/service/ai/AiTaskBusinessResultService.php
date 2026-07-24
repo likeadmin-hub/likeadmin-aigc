@@ -25,7 +25,7 @@ class AiTaskBusinessResultService
         }
 
         match ($businessTable) {
-            'aigc_image_task' => AigcImageService::refreshMarketTask((int)$consumption['tenant_id'], $businessId, (int)$consumption['user_id']),
+            'aigc_image_task' => AigcImageService::refreshRuntimeTask((int)$consumption['tenant_id'], $businessId, (int)$consumption['user_id']),
             'aigc_video_task' => AigcVideoService::refreshMarketTask((int)$consumption['tenant_id'], $businessId, (int)$consumption['user_id']),
             'aigc_short_drama_script_task' => AigcShortDramaService::refreshScriptTask($businessId),
             'aigc_short_drama_generation_task' => AigcShortDramaService::refreshMarketGenerationTask($businessId),
@@ -39,8 +39,9 @@ class AiTaskBusinessResultService
         if ($context === null) {
             return false;
         }
-        return (string)$context['app_code'] === 'aigc_short_drama'
-            || (string)$context['business_table'] === 'aigc_short_drama_generation_task';
+        return ((string)$context['app_code'] === AigcShortDramaService::APP_CODE
+            || (string)$context['business_table'] === 'aigc_short_drama_generation_task')
+            && AigcShortDramaService::resultTransferEnabled((int)$context['consumption']['tenant_id']);
     }
 
     private static function assertOptionalBusinessAdapter(array $consumption, string $businessTable): void

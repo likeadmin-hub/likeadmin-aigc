@@ -143,9 +143,9 @@ class AiTaskRecordService
         ]), $tenantId);
         $count += (int)$unified['count'];
         foreach ((array)$unified['rows'] as $row) {
-            $row['app_name'] = self::appName((string)($row['app_code'] ?? ''));
+            $row['app_name'] = AiUsageService::appDisplayName((string)($row['app_code'] ?? ''));
             $row['source_app_name'] = $row['app_name'];
-            $row['base_app_name'] = '统一应用任务';
+            $row['base_app_name'] = $row['app_name'];
             $row['media_type'] = 'none';
             $row['prompt'] = '';
             $row['quantity'] = 1;

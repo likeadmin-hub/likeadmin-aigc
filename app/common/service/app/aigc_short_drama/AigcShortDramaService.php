@@ -73,7 +73,27 @@ class AigcShortDramaService
     {
         $config = self::publicConfig($tenantId);
         $config['dependencies'] = self::dependencies($tenantId);
+        $config['result_storage_options'] = StorageConfigService::availableStorageOptions($tenantId);
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $config);
+    }
+
+    public static function resultTransferEnabled(int $tenantId): bool
+    {
+        return (bool)(self::publicConfig($tenantId)['force_result_transfer'] ?? false);
+    }
+
+    /** @return array{scope:string,default:string,engine:array<string,array<string,mixed>>}|null */
+    public static function resultTransferStorageConfig(int $tenantId): ?array
+    {
+        $config = self::publicConfig($tenantId);
+        if (empty($config['force_result_transfer'])) {
+            return null;
+        }
+        $engine = trim((string)($config['result_storage_engine'] ?? ''));
+        if ($engine === '') {
+            throw new Exception('短剧强制转存未选择存储方式');
+        }
+        return StorageConfigService::getConfiguredStorageConfig($tenantId, $engine);
     }
 
     public static function adminStat(int $tenantId = 0): array
@@ -365,7 +385,7 @@ class AigcShortDramaService
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::publicConfig($tenantId);
         $config = $current;
-        unset($config['status'], $config['display_config'], $config['model_groups']);
+        unset($config['status'], $config['display_config'], $config['model_groups'], $config['result_storage_options']);
 
         if (array_key_exists('script_plan_points', $params)) {
             unset($config['script_plan_points']);
@@ -378,6 +398,19 @@ class AigcShortDramaService
         }
         if (array_key_exists('prompt_max_length', $params)) {
             $config['prompt_max_length'] = max(0, min(200000, (int)$params['prompt_max_length']));
+        }
+        if (array_key_exists('force_result_transfer', $params)) {
+            $config['force_result_transfer'] = (int)$params['force_result_transfer'] === 1;
+            if ($config['force_result_transfer']) {
+                $engine = trim((string)($params['result_storage_engine'] ?? ''));
+                if ($engine === '') {
+                    throw new Exception('开启强制转存后请选择存储方式');
+                }
+                StorageConfigService::getConfiguredStorageConfig($tenantId, $engine);
+                $config['result_storage_engine'] = $engine;
+            } else {
+                $config['result_storage_engine'] = '';
+            }
         }
         if (array_key_exists('script_plan_model_id', $params)) {
             $scriptModelId = trim((string)$params['script_plan_model_id']);
@@ -5143,8 +5176,7 @@ class AigcShortDramaService
             $request = self::jsonDecode((string)($generation['request_json'] ?? ''));
             self::persistMarketImageTaskResult($tenantId, $userId, (string)$generation['task_id'], $result, (array)($request['image_params'] ?? []));
         } catch (\Throwable $e) {
-            MarketNanoBananaAppRuntimeService::fail($consumptionId, $e->getMessage(), 'short_drama_nano_banana_refresh_failed');
-            self::failMarketImageGenerationTask($tenantId, $userId, $generation, $e);
+            Log::warning('Short drama nano-banana result sync retrying: consumption=' . $consumptionId . ' error=' . $e->getMessage());
         }
     }
 
@@ -5160,8 +5192,7 @@ class AigcShortDramaService
             $imageParams = (array)($request['image_params'] ?? []);
             self::persistMarketImageTaskResult($tenantId, $userId, (string)$generation['task_id'], $result, $imageParams);
         } catch (\Throwable $e) {
-            MarketImageModelRuntimeService::fail($consumptionId, $e->getMessage(), 'short_drama_image_refresh_failed');
-            self::failMarketImageGenerationTask($tenantId, $userId, $generation, $e);
+            Log::warning('Short drama market image result sync retrying: consumption=' . $consumptionId . ' error=' . $e->getMessage());
         }
     }
 
@@ -5626,16 +5657,50 @@ class AigcShortDramaService
     private static function syncMarketVideoGenerationTask(int $tenantId, int $userId, array $generation): void
     {
         $consumptionId = (int)($generation['consumption_id'] ?? 0);
-        if ($consumptionId <= 0 || in_array((string)($generation['status'] ?? ''), [self::STATUS_FAILED, self::STATUS_CANCELED], true)
-            || ((string)($generation['status'] ?? '') === self::STATUS_SUCCESS && (string)($generation['billing_status'] ?? '') !== 'pending_usage')) return;
+        if ($consumptionId <= 0) {
+            return;
+        }
+
+        $consumption = AiConsumptionLog::where('id', $consumptionId)->findOrEmpty();
+        if ($consumption->isEmpty()) {
+            return;
+        }
+        $consumptionRow = $consumption->toArray();
+        $runStatus = (string)($consumptionRow['run_status'] ?? '');
+        $billingStatus = (string)($consumptionRow['billing_status'] ?? '');
+
+        // Older workers could mark the short-drama row failed when polling
+        // itself errored, while the unified consumption kept waiting. If the
+        // consumption subsequently settled, hydrate the business result from
+        // its saved response instead of making a second supplier request.
+        if (in_array($runStatus, ['success'], true) || $billingStatus === 'settled') {
+            $summary = self::jsonDecode((string)($consumptionRow['response_summary'] ?? ''));
+            $videos = (array)($summary['videos'] ?? []);
+            if ($videos !== []) {
+                self::persistMarketVideoTaskResult($tenantId, $userId, (string)$generation['task_id'], [
+                    'status' => self::STATUS_SUCCESS,
+                    'provider_task_id' => (string)($consumptionRow['upstream_task_id'] ?? ''),
+                    'provider_request_id' => (string)($consumptionRow['upstream_request_id'] ?? ''),
+                    'videos' => $videos,
+                ], (array)(self::jsonDecode((string)($generation['request_json'] ?? ''))['video_params'] ?? []));
+            }
+            return;
+        }
+
+        if (in_array((string)($generation['status'] ?? ''), [self::STATUS_FAILED, self::STATUS_CANCELED], true)
+            || !in_array($billingStatus, ['reserved', 'pending_usage'], true)) {
+            return;
+        }
         try {
             $request = self::jsonDecode((string)($generation['request_json'] ?? ''));
             $videoParams = (array)($request['video_params'] ?? []);
             $result = self::marketVideoRuntime(self::marketVideoSelection($videoParams))::refresh($consumptionId);
             self::persistMarketVideoTaskResult($tenantId, $userId, (string)$generation['task_id'], $result, $videoParams);
         } catch (\Throwable $e) {
-            self::marketVideoRuntime(self::marketVideoSelection(self::jsonDecode((string)$generation['request_json'])['video_params'] ?? []))::fail($consumptionId, $e->getMessage(), 'short_drama_video_refresh_failed');
-            self::failMarketVideoGenerationTask($tenantId, $userId, $generation, $e);
+            // A failed query/download is not proof that the supplier task
+            // failed. Keep the reservation and task queryable until the
+            // supplier explicitly reports a terminal failure.
+            Log::warning('Short drama market video refresh retrying: consumption=' . $consumptionId . ' error=' . $e->getMessage());
         }
     }
 
@@ -11944,6 +12009,8 @@ class AigcShortDramaService
                 ['label' => '1:1', 'width' => 1, 'height' => 1],
             ],
             'prompt_max_length' => 20000,
+            'force_result_transfer' => false,
+            'result_storage_engine' => '',
             'models' => [
                 [
                     'id' => 'script-planner-default',
@@ -12259,6 +12326,7 @@ class AigcShortDramaService
             'model_id' => (string)$params['model_id'], 'video_model_id' => (string)$params['model_id'],
             'market_product_id' => (int)($params['market_product_id'] ?? 0), 'market_sku_id' => (int)($params['market_sku_id'] ?? 0),
             'resolution' => (string)$params['resolution'], 'quality' => (string)$params['resolution'], 'duration' => (int)$params['duration'],
+            'video_mode' => (string)($params['video_mode'] ?? (is_array($params['params'] ?? null) ? ($params['params']['video_mode'] ?? '') : '')),
             'ratio' => $ratio, 'quantity' => 1, 'reference_assets' => (array)$references['reference_assets'],
             'reference_images' => (array)$references['reference_images'], 'input_asset_ids' => (array)$references['input_asset_ids'],
         ];

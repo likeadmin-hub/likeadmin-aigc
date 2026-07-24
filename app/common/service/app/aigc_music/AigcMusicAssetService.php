@@ -16,13 +16,13 @@ class AigcMusicAssetService
     private const ALLOWED_AUDIO_EXT = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'opus'];
     private const MAX_REMOTE_AUDIO_BYTES = 104857600;
 
-    public static function persistGeneratedAudio(string $url, int $tenantId, int $userId = 0): array
+    public static function persistGeneratedAudio(string $url, int $tenantId, int $userId = 0, ?array $storageConfig = null): array
     {
         if (str_starts_with($url, 'data:audio/')) {
-            return self::persistDataUri($url, $tenantId, $userId);
+            return self::persistDataUri($url, $tenantId, $userId, $storageConfig);
         }
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return self::persistRemoteUrl($url, $tenantId, $userId);
+            return self::persistRemoteUrl($url, $tenantId, $userId, $storageConfig);
         }
         self::assertAudioUri($url);
         return ['uri' => $url, 'duration' => 0, 'stored' => false];
@@ -173,7 +173,7 @@ class AigcMusicAssetService
         }
     }
 
-    private static function persistRemoteUrl(string $url, int $tenantId, int $userId): array
+    private static function persistRemoteUrl(string $url, int $tenantId, int $userId, ?array $storageConfig): array
     {
         [$content, $headers] = self::downloadRemoteContent($url);
         if ($content === '' || !self::isSuccessfulResponse($headers)) {
@@ -183,10 +183,10 @@ class AigcMusicAssetService
         if (self::isTextResponse($mime, $content)) {
             throw new Exception('生成音乐下载失败，远程地址返回的不是音频文件');
         }
-        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $mime), $mime);
+        return self::persistBinary($content, $tenantId, $userId, self::extensionFromUrl($url, $mime), $mime, $storageConfig);
     }
 
-    private static function persistDataUri(string $dataUri, int $tenantId, int $userId): array
+    private static function persistDataUri(string $dataUri, int $tenantId, int $userId, ?array $storageConfig): array
     {
         if (!preg_match('/^data:audio\/([a-zA-Z0-9.+-]+);base64,(.+)$/', $dataUri, $matches)) {
             throw new Exception('生成音乐格式错误');
@@ -195,7 +195,7 @@ class AigcMusicAssetService
         if ($content === false || $content === '') {
             throw new Exception('生成音乐解析失败');
         }
-        return self::persistBinary($content, $tenantId, $userId, strtolower($matches[1]), 'audio/' . strtolower($matches[1]));
+        return self::persistBinary($content, $tenantId, $userId, strtolower($matches[1]), 'audio/' . strtolower($matches[1]), $storageConfig);
     }
 
     private static function downloadRemoteContent(string $url): array
@@ -237,7 +237,7 @@ class AigcMusicAssetService
         return [$content, $headers];
     }
 
-    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, string $mime = ''): array
+    private static function persistBinary(string $content, int $tenantId, int $userId, string $ext, string $mime = '', ?array $storageConfig = null): array
     {
         $ext = in_array($ext, self::ALLOWED_AUDIO_EXT, true) ? $ext : 'mp3';
         $tmp = tempnam(sys_get_temp_dir(), 'aigc_music_');
@@ -249,7 +249,7 @@ class AigcMusicAssetService
         file_put_contents($tmpPath, $content);
         $duration = MediaDurationService::detect($tmpPath);
         try {
-            $stored = self::uploadLocalGeneratedFile($tmpPath, $tenantId, $userId);
+            $stored = self::uploadLocalGeneratedFile($tmpPath, $tenantId, $userId, $storageConfig ?: StorageConfigService::getEffectiveConfig($tenantId));
         } finally {
             @unlink($tmpPath);
         }
@@ -266,9 +266,8 @@ class AigcMusicAssetService
         ];
     }
 
-    private static function uploadLocalGeneratedFile(string $filePath, int $tenantId, int $userId): array
+    private static function uploadLocalGeneratedFile(string $filePath, int $tenantId, int $userId, array $config): array
     {
-        $config = StorageConfigService::getEffectiveConfig($tenantId);
         $saveDir = 'uploads/aigc_music/' . date('Ymd');
         $driver = new StorageDriver($config);
         $driver->setUploadFileByReal($filePath);
@@ -278,7 +277,7 @@ class AigcMusicAssetService
         $uri = $saveDir . '/' . str_replace('\\', '/', $driver->getFileName());
         $scope = $config['scope'] ?? 'tenant';
         $engine = $config['default'] ?? 'local';
-        $domain = StorageConfigService::getEffectiveDomain($tenantId);
+        $domain = StorageConfigService::getStorageDomain($config);
         TenantFile::create([
             'tenant_id' => $tenantId,
             'cid' => 0,

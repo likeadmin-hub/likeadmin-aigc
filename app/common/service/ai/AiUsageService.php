@@ -284,6 +284,93 @@ class AiUsageService
         ];
     }
 
+    /**
+     * Settle an upstream-completed image task after an earlier response parsing
+     * defect refunded its reservation. This is intentionally operator-triggered
+     * and uses a new source number instead of reusing the refunded reservation.
+     *
+     * @return array{consumption_id: int, actual_tenant_cost: float, actual_user_price: float, status: string}|null
+     */
+    public static function settleRecoveredImageTaskInCurrentTransaction(int $imageTaskId, int $actualQuantity, array $resultSummary = []): ?array
+    {
+        $context = self::imageContext($imageTaskId, true);
+        if (!$context) {
+            return null;
+        }
+        /** @var AiConsumptionLog $consumption */
+        $consumption = $context['consumption'];
+        /** @var AiAppTask $appTask */
+        $appTask = $context['app_task'];
+        if ((string)$consumption['billing_status'] === 'settled') {
+            return [
+                'consumption_id' => (int)$consumption['id'],
+                'actual_tenant_cost' => (float)$consumption['actual_tenant_cost'],
+                'actual_user_price' => (float)$consumption['actual_user_price'],
+                'status' => (string)$appTask['status'],
+            ];
+        }
+        if ((string)$consumption['billing_status'] !== 'refunded') {
+            return self::settleImageTaskInCurrentTransaction($imageTaskId, $actualQuantity, $resultSummary);
+        }
+
+        $requested = max(1, (int)$consumption['quantity']);
+        $actualQuantity = max(0, min($requested, $actualQuantity));
+        if ($actualQuantity <= 0) {
+            throw new RuntimeException('恢复结算必须包含至少一张图片');
+        }
+        $tenantUnit = (float)$consumption['reserved_tenant_cost'] / $requested;
+        $userUnit = (float)$consumption['reserved_user_price'] / $requested;
+        $actualTenant = self::points($tenantUnit * $actualQuantity);
+        $actualUser = self::points($userUnit * $actualQuantity);
+        $recoverySourceSn = (string)$consumption['consume_no'] . '-recovery';
+        PointService::consumeBusinessAmountsInCurrentTransaction(
+            (int)$consumption['tenant_id'],
+            (int)$consumption['user_id'],
+            $actualTenant,
+            $actualUser,
+            $recoverySourceSn,
+            'AIGC生图结果补偿结算',
+            self::pointExtra($appTask, $consumption, 'recovered_settled')
+        );
+
+        $now = time();
+        $status = $actualQuantity === $requested ? self::APP_TASK_SUCCESS : self::APP_TASK_PARTIAL;
+        $consumption->save([
+            'run_status' => 'success',
+            'billing_status' => 'settled',
+            'usage_snapshot' => ['requested_quantity' => $requested, 'actual_quantity' => $actualQuantity],
+            'response_summary' => self::summary($resultSummary),
+            'actual_tenant_cost' => $actualTenant,
+            'actual_user_price' => $actualUser,
+            'tenant_point_sn' => $recoverySourceSn,
+            'user_point_sn' => $recoverySourceSn,
+            'error_code' => '',
+            'error_message' => '',
+            'finish_time' => $now,
+            'update_time' => $now,
+        ]);
+        $appTask->save([
+            'status' => $status,
+            'progress' => 100,
+            'result_summary' => self::summary($resultSummary),
+            'actual_tenant_cost' => $actualTenant,
+            'actual_user_price' => $actualUser,
+            'finish_time' => $now,
+            'update_time' => $now,
+        ]);
+        self::event((int)$consumption['id'], 'recover_settle', 'success', [
+            'actual_quantity' => $actualQuantity,
+            'tenant_cost' => $actualTenant,
+            'user_price' => $actualUser,
+        ]);
+        return [
+            'consumption_id' => (int)$consumption['id'],
+            'actual_tenant_cost' => $actualTenant,
+            'actual_user_price' => $actualUser,
+            'status' => $status,
+        ];
+    }
+
     public static function requestRefresh(int $appTaskId, int $tenantId): void
     {
         AiConsumptionLog::where(['app_task_id' => $appTaskId, 'tenant_id' => $tenantId])
@@ -294,7 +381,8 @@ class AiUsageService
     public static function appTaskLists(array $params, int $tenantId = 0): array
     {
         $query = AiAppTask::alias('t')->leftJoin('user u', 'u.id=t.user_id AND u.tenant_id=t.tenant_id')
-            ->field('t.*,u.nickname user_nickname,u.account user_account,u.mobile user_mobile');
+            ->leftJoin('tenant te', 'te.id=t.tenant_id')
+            ->field('t.*,u.nickname user_nickname,u.account user_account,u.mobile user_mobile,te.name tenant_name,te.sn tenant_sn');
         if ($tenantId > 0) {
             $query->where('t.tenant_id', $tenantId);
         } elseif ($filterTenantId = (int)($params['tenant_id'] ?? 0)) {
@@ -353,8 +441,8 @@ class AiUsageService
         }
         unset($item);
         $firstConsumption = $data['consumptions'][0] ?? [];
-        $data['source_app_name'] = (string)$data['app_code'];
-        $data['base_app_name'] = '统一应用任务';
+        $data['source_app_name'] = self::appDisplayName((string)$data['app_code']);
+        $data['base_app_name'] = $data['source_app_name'];
         $data['prompt'] = '';
         $data['error'] = (string)($firstConsumption['error_message'] ?? '');
         $data['provider_task_id'] = (string)($firstConsumption['upstream_task_id'] ?? $firstConsumption['upstream_request_id'] ?? '');
@@ -376,7 +464,7 @@ class AiUsageService
         $data['upstream_tasks'] = array_map(static fn (array $item): array => [
             'relation' => '消耗调用',
             'app_code' => (string)$item['app_code'],
-            'app_name' => (string)$item['app_code'],
+            'app_name' => self::appDisplayName((string)$item['app_code']),
             'task_id' => (int)$item['id'],
             'task_sn' => (string)$item['consume_no'],
         ], $data['consumptions']);
@@ -388,7 +476,8 @@ class AiUsageService
         $query = AiConsumptionLog::alias('c')
             ->leftJoin('ai_app_task t', 't.id=c.app_task_id')
             ->leftJoin('user u', 'u.id=c.user_id AND u.tenant_id=c.tenant_id')
-            ->field('c.*,t.task_no,t.status app_task_status,t.action_code,u.nickname user_nickname,u.account user_account,u.mobile user_mobile');
+            ->leftJoin('tenant te', 'te.id=c.tenant_id')
+            ->field('c.*,t.task_no,t.status app_task_status,t.action_code,u.nickname user_nickname,u.account user_account,u.mobile user_mobile,te.name tenant_name,te.sn tenant_sn');
         if ($tenantId > 0) {
             $query->where('c.tenant_id', $tenantId);
         } elseif ($filterTenantId = (int)($params['tenant_id'] ?? 0)) {
@@ -485,6 +574,35 @@ class AiUsageService
 
     private static function resolveImageMarket(int $tenantId, array $selection): array
     {
+        $selectedSkuId = (int)($selection['spec']['market_sku_id'] ?? 0);
+        if ($selectedSkuId > 0) {
+            $sku = PowerMarketSku::where(['id' => $selectedSkuId, 'status' => 1, 'sale_status' => 1])->findOrEmpty();
+            if ($sku->isEmpty()) {
+                return [];
+            }
+            $product = PowerMarketProduct::where([
+                'id' => (int)$sku['product_id'],
+                'resource_type' => 'model',
+                'model_type' => 'image',
+                'status' => 1,
+            ])->findOrEmpty();
+            if ($product->isEmpty()) {
+                return [];
+            }
+            $tenantPrice = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => $selectedSkuId])->findOrEmpty();
+            if (!$tenantPrice->isEmpty() && (int)$tenantPrice['sale_status'] !== 1) {
+                return [];
+            }
+            return [
+                'product_id' => (int)$product['id'],
+                'sku_id' => $selectedSkuId,
+                'sku_key' => (string)$sku['sku_key'],
+                'usage_unit' => (string)$sku['usage_unit'],
+                'upstream_price' => (float)$sku['upstream_price'],
+                'platform_price' => (float)$sku['sale_points'],
+                'tenant_price' => $tenantPrice->isEmpty() ? (float)$sku['sale_points'] : (float)$tenantPrice['sale_points'],
+            ];
+        }
         $model = trim((string)($selection['channel']['model'] ?? ''));
         if ($model === '') {
             return [];
@@ -579,12 +697,24 @@ class AiUsageService
         ];
     }
 
+    public static function appDisplayName(string $appCode): string
+    {
+        return [
+            'aigc_image' => 'AIGC生图', 'aigc_video' => 'AIGC视频', 'aigc_llm' => 'AIGC文本',
+            'aigc_short_drama' => 'AI短剧', 'aigc_digital_human' => '数字人视频', 'image_human' => '全驱数字人',
+            'smart_clip' => 'AI视频剪辑', 'aigc_product_image' => 'AI商品图', 'aigc_action_transfer' => '动作迁移',
+            'aigc_person_replacement' => '动作替换',
+        ][$appCode] ?? ($appCode !== '' ? $appCode : '--');
+    }
+
     private static function formatAppTask(array $row): array
     {
         $row['record_key'] = 'app_task:' . (int)$row['id'];
         $row['base_app_code'] = 'ai_app_task';
         $row['task_sn'] = (string)$row['task_no'];
         $row['source_app_code'] = (string)$row['app_code'];
+        $row['app_name'] = self::appDisplayName((string)$row['app_code']);
+        $row['source_app_name'] = $row['app_name'];
         $row['source_task_id'] = (int)$row['business_id'];
         $row['user_charge_points'] = (float)($row['actual_user_price'] ?: $row['estimated_user_price']);
         $row['tenant_cost_points'] = (float)($row['actual_tenant_cost'] ?: $row['estimated_tenant_cost']);
@@ -597,6 +727,8 @@ class AiUsageService
     {
         $row['create_time_text'] = self::timeText($row['create_time'] ?? 0);
         $row['finish_time_text'] = self::timeText($row['finish_time'] ?? 0);
+        $row['record_key'] = 'consumption:' . (int)$row['id'];
+        $row['app_name'] = self::appDisplayName((string)($row['app_code'] ?? ''));
         return $row;
     }
 

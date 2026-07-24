@@ -1,1 +1,0 @@
-import{u as a}from"./index-UfixK-bK.js";const s="算力",r=t=>String(t||"").trim()||s,e=()=>{var n,o,i;const t=a();return r(((n=t.config)==null?void 0:n.point_unit)||((i=(o=t.config)==null?void 0:o.recharge)==null?void 0:i.point_unit))},u=(t,n)=>`${t} ${r(n||e())}`,p=(t,n="",o)=>`${t} ${r(o||e())}${n?`/${n}`:""}`;export{u as a,p as f,e as g,r as n};
