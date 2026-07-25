@@ -27,7 +27,7 @@ class PayConfigController extends BaseAdminController
     public function setConfig(): Json
     {
         $params = (new PayConfigValidate())->post()->goCheck();
-        PayConfigLogic::setConfig($params);
+        PayConfigLogic::setConfig($params, true);
         return $this->success('设置成功', [], 1, 1);
     }
 }
