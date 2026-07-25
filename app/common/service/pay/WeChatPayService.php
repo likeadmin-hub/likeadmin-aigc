@@ -99,24 +99,24 @@ class WeChatPayService extends BasePayService
             switch ($this->terminal) {
                 case UserTerminalEnum::WECHAT_MMP:
                     $config = WeChatConfigService::getMnpConfig();
-                    $result = $this->jsapiPay($from, $order, $config['app_id']);
+                    $result = $this->jsapiPay($from, $order, $this->getPaymentAppId($config));
                     break;
                 case UserTerminalEnum::WECHAT_OA:
                     $config = WeChatConfigService::getOaConfig();
-                    $result = $this->jsapiPay($from, $order, $config['app_id']);
+                    $result = $this->jsapiPay($from, $order, $this->getPaymentAppId($config));
                     break;
                 case UserTerminalEnum::IOS:
                 case UserTerminalEnum::ANDROID:
                     $config = WeChatConfigService::getOpConfig();
-                    $result = $this->appPay($from, $order, $config['app_id']);
+                    $result = $this->appPay($from, $order, $this->getPaymentAppId($config));
                     break;
                 case UserTerminalEnum::H5:
                     $config = WeChatConfigService::getOaConfig();
-                    $result = $this->mwebPay($from, $order, $config['app_id']);
+                    $result = $this->mwebPay($from, $order, $this->getPaymentAppId($config));
                     break;
                 case UserTerminalEnum::PC:
                     $config = WeChatConfigService::getOaConfig();
-                    $result = $this->nativePay($from, $order, $config['app_id']);
+                    $result = $this->nativePay($from, $order, $this->getPaymentAppId($config));
                     break;
                 default:
                     throw new \Exception('支付方式错误');
@@ -486,6 +486,7 @@ class WeChatPayService extends BasePayService
         }
 
         return [
+            'app_id' => $pay['config']['app_id'] ?? '',
             'mch_id' => $pay['config']['mch_id'] ?? '',
             'private_key' => $keyPath,
             'certificate' => $certPath,
@@ -496,6 +497,20 @@ class WeChatPayService extends BasePayService
                 'timeout' => 5.0,
             ],
         ];
+    }
+
+    private function getPaymentAppId(array $channelConfig): string
+    {
+        $appId = $this->usePlatformPay
+            ? ($this->config['app_id'] ?? '')
+            : ($channelConfig['app_id'] ?? '');
+        $appId = trim((string)$appId);
+        if ($appId === '') {
+            throw new \Exception($this->usePlatformPay
+                ? '平台算力商城微信支付未配置微信公众号 AppID'
+                : '微信支付未配置 AppID');
+        }
+        return $appId;
     }
 
 

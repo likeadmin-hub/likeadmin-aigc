@@ -39,15 +39,20 @@ class PayConfigLogic extends BaseLogic
      * @author 段誉
      * @date 2023/2/23 16:16
      */
-    public static function setConfig($params)
+    public static function setConfig($params, bool $requireWechatAppId = false)
     {
         $payConfig = PayConfig::find($params['id']);
 
         $config = '';
         if ($payConfig['pay_way'] == PayEnum::WECHAT_PAY) {
+            $appId = trim((string)($params['config']['app_id'] ?? ''));
+            if ($requireWechatAppId && $appId === '') {
+                throw new \Exception('请填写微信公众号 AppID');
+            }
             $config = [
                 'interface_version' => $params['config']['interface_version'],
                 'merchant_type' => $params['config']['merchant_type'],
+                'app_id' => $appId,
                 'mch_id' => $params['config']['mch_id'],
                 'pay_sign_key' => $params['config']['pay_sign_key'],
                 'apiclient_cert' => $params['config']['apiclient_cert'],
