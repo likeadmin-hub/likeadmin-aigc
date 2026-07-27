@@ -1,1 +1,0 @@
-import{d as e}from"./index-CKiHGwTH.js";import{o as t,j as o}from"./.pnpm-DhKwKlZu.js";const c={},n={class:"page-mate"};function r(s,a){return t(),o("div",n)}const m=e(c,[["render",r]]);export{m as default};
