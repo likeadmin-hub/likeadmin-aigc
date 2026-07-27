@@ -13,12 +13,16 @@ use Exception;
 final class SubAgentDispatcher
 {
     private const ALLOWED = ['planner', 'copy', 'visual', 'canvas'];
+    private const MAX_TASKS = 3;
 
     public static function dispatch(AgentExecutionContext $context, array $arguments, int $parentRunId, string $requestId, string $request, array $canvasContext, ?callable $emit): array
     {
-        $tasks = array_slice(array_values(array_filter((array)($arguments['tasks'] ?? []), 'is_array')), 0, 3);
+        $tasks = array_values(array_filter((array)($arguments['tasks'] ?? []), 'is_array'));
         if ($tasks === []) {
             throw new Exception('At least one sub-agent task is required');
+        }
+        if (count($tasks) > self::MAX_TASKS) {
+            throw new Exception('A maximum of ' . self::MAX_TASKS . ' sub-agent tasks can be delegated at once');
         }
         $validated = [];
         foreach ($tasks as $task) {

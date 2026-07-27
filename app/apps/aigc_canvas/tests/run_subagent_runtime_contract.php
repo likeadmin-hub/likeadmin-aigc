@@ -36,11 +36,13 @@ function phpFiles(string $directory): array
 $servicePath = $root . '/app/common/service/app/aigc_canvas/agent/runtime/SubAgentTaskService.php';
 $tracePath = $root . '/app/common/service/app/aigc_canvas/agent/runtime/AgentTraceLogger.php';
 $runtimePath = $root . '/app/common/service/app/aigc_canvas/AigcCanvasAgentRuntimeService.php';
+$dispatcherPath = $root . '/app/common/service/app/aigc_canvas/agent/runtime/SubAgentDispatcher.php';
 $installMigrationPath = $root . '/app/apps/aigc_canvas/migrations/install.sql';
 
 $service = readSource($servicePath);
 $trace = readSource($tracePath);
 $runtime = readSource($runtimePath);
+$dispatcher = readSource($dispatcherPath);
 $installMigration = readSource($installMigrationPath);
 
 foreach (['parent_run_id', 'child_run_id', 'request_id', 'attempts', 'max_attempts', 'lease_token', 'lease_expire_time'] as $column) {
@@ -73,6 +75,11 @@ if (!$durableSchemaMigration) {
 if (!str_contains($service, "whereIn('status', ['pending', 'retrying'])")
     || !str_contains($service, "where('status', 'running')->where('lease_expire_time', '<=', \$now)")) {
     $failures[] = 'claim does not include pending/retry and expired-lease recovery states';
+}
+if (!str_contains($service, "whereRaw('attempts < max_attempts')")
+    || !str_contains($service, "whereRaw('attempts >= max_attempts')")
+    || !str_contains($service, "'status' => 'failed', 'error' => 'Worker lease expired after maximum attempts'")) {
+    $failures[] = 'lease recovery does not enforce maximum attempts before re-claiming exhausted work';
 }
 if (!str_contains($service, "'status' => 'running'")
     || !str_contains($service, "'attempts' => (int)\$task['attempts'] + 1")
@@ -125,6 +132,20 @@ foreach ($workerCandidates as $workerPath) {
 if (!$hasClaimConsumer || !$hasExecuteConsumer) {
     $failures[] = 'no registered command worker consumes SubAgentTaskService::claim/execute';
 }
+$workerSource = readSource($root . '/app/common/command/CanvasSubAgentWorker.php');
+$recoveryPosition = strpos($workerSource, 'SubAgentTaskService::recoverExpiredLeases');
+$claimPosition = strpos($workerSource, 'SubAgentTaskService::claim');
+if ($recoveryPosition === false || $claimPosition === false || $recoveryPosition > $claimPosition) {
+    $failures[] = 'worker does not recover exhausted leases before claiming new subtasks';
+}
+if (substr_count($service, 'self::isCanceled($context->messageId())') < 2) {
+    $failures[] = 'sub-agent execution does not check cancellation before and after the LLM call';
+}
+if (str_contains($dispatcher, 'array_slice(')
+    || !str_contains($dispatcher, 'private const MAX_TASKS = 3')
+    || !str_contains($dispatcher, 'count($tasks) > self::MAX_TASKS')) {
+    $failures[] = 'sub-agent dispatch must reject over-limit task plans instead of silently dropping work';
+}
 
 $consolePath = $root . '/config/console.php';
 if (!is_file($consolePath) || !str_contains(readSource($consolePath), 'CanvasSubAgentWorker')) {
@@ -140,6 +161,8 @@ echo json_encode([
         'parent_finalization' => true,
         'run_idempotency' => true,
         'worker_consumer' => true,
+        'recovery_guardrails' => true,
+        'delegation_limit' => true,
     ],
     'failures' => $failures,
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
