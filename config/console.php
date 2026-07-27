@@ -9,6 +9,8 @@ return [
         'crontab' => 'app\common\command\Crontab',
         // 退款查询
         'query_refund' => 'app\common\command\QueryRefund',
+        // 到期分销佣金结算
+        'distribution:settle' => 'app\common\command\SettleDistributionCommission',
         // 充值到账修复
         'recharge:repair' => 'app\common\command\RepairRecharge',
         // AIGC消耗日志补偿刷新

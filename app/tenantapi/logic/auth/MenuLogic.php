@@ -82,11 +82,15 @@ class MenuLogic extends BaseLogic
         if ($tenantId <= 0) {
             return;
         }
-        $exists = TenantSystemMenu::where([
+        $hasPackage = TenantSystemMenu::where([
             'tenant_id' => $tenantId,
             'source_menu_key' => 'core_tenant_package',
         ])->count();
-        if ($exists) {
+        $hasDistribution = TenantSystemMenu::where([
+            'tenant_id' => $tenantId,
+            'source_menu_key' => 'core_tenant_distribution',
+        ])->count();
+        if ($hasPackage && $hasDistribution) {
             return;
         }
 

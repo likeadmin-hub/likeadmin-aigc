@@ -3,6 +3,8 @@
     "pages/index/index",
     "pages/news/news",
     "pages/user/user",
+    "pages/distribution/distribution",
+    "pages/distribution/withdrawal",
     "pages/diy/diy",
     "pages/login/login",
     "pages/register/register",

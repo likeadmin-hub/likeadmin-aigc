@@ -8,6 +8,7 @@ use app\common\logic\AccountLogLogic;
 use app\common\model\recharge\RechargeOrder;
 use app\common\model\user\User;
 use app\common\model\user\UserAccountLog;
+use app\common\service\distribution\DistributionService;
 use RuntimeException;
 
 class RechargeCreditService
@@ -31,6 +32,8 @@ class RechargeCreditService
         if (false === $order->save()) {
             throw new RuntimeException('充值订单状态更新失败');
         }
+        // Supports direct repair/complete callers which do not go through PayNotifyLogic.
+        DistributionService::onRechargePaid($orderSn);
     }
 
     public static function repairPaidOrder(string $orderSn, bool $force = false): array

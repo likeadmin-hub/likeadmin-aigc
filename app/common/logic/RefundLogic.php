@@ -24,6 +24,7 @@ use app\common\model\refund\RefundLog;
 use app\common\model\refund\RefundRecord;
 use app\common\service\pay\AliPayService;
 use app\common\service\pay\WeChatPayService;
+use app\common\service\distribution\DistributionService;
 
 
 /**
@@ -151,6 +152,9 @@ class RefundLogic extends BaseLogic
                 RechargeOrder::update([
                     'refund_transaction_id' => $result['tradeNo'] ?? '',
                 ], ['id' => $refundRecord['order_id']]);
+                DistributionService::reverseRechargeByOrderId((int)$refundRecord['order_id']);
+            } elseif ((string)$refundRecord['order_type'] === 'membership') {
+                DistributionService::reverseMembershipByOrderId((int)$refundRecord['order_id']);
             }
         }
     }
