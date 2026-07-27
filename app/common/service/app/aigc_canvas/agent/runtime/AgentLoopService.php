@@ -93,6 +93,11 @@ final class AgentLoopService
         $skills = self::retrieveSkills($tenantId, $request, (int)$runtimePolicy['max_skill_candidates']);
         AgentTurnTraceService::event($turnId, ++$sequence, 'turn.started', ['canvas_nodes' => count((array)($canvas['elements'] ?? [])), 'skill_count' => count($skills)]);
         $taskDecision = AgentTaskDecisionService::decide($tenantId, $request, $context, $selectedSkill, $state);
+        $explicitDelegationTasks = self::explicitDelegationTasks($request);
+        $explicitTextOnlyDelegation = self::isExplicitTextOnlyDelegation($request, $explicitDelegationTasks);
+        if ($explicitTextOnlyDelegation) {
+            self::applyExplicitTextDelegationDecision($taskDecision);
+        }
         $textProfile = self::textProfile($request, $taskDecision);
         $preflight = self::preflightEnrichmentDecision($request, $context, $taskDecision);
         if ($preflight['run']) {
@@ -162,6 +167,9 @@ final class AgentLoopService
             $recheckState['resolved_intent'] = (string)($taskDecision['intent'] ?? '');
             $recheckState['resolved_confidence'] = (float)($taskDecision['confidence'] ?? 0.0);
             $taskDecision = AgentTaskDecisionService::decide($tenantId, $request, $context, $selectedSkill, $recheckState);
+            if ($explicitTextOnlyDelegation) {
+                self::applyExplicitTextDelegationDecision($taskDecision);
+            }
             if (($taskDecision['router_source'] ?? '') === 'reused') {
                 AgentTurnTraceService::event($turnId, ++$sequence, 'intent_route_reused', [
                     'skill_key' => (string)($taskDecision['selected_skill_key'] ?? ''),
@@ -376,6 +384,55 @@ final class AgentLoopService
                     $toolRoute
                 );
             }
+        }
+
+        if ($parentRunId > 0
+            && $explicitDelegationTasks !== []
+            && (!$isStrictContract || in_array('delegate_subagent', $runtimeAllowedTools, true))) {
+            $execution = AgentExecutionContext::from([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'project_id' => $projectId,
+                'thread_id' => $threadId,
+                'message_id' => $messageId,
+                'user_request' => $request,
+                'canvas_context' => $context,
+                'route' => $toolRoute,
+                'emit' => $emit,
+            ]);
+            $delegation = self::executeTool(
+                $execution,
+                'delegate_subagent',
+                ['tasks' => $explicitDelegationTasks, '_turn_id' => $turnId, '_iterations' => 0],
+                $parentRunId,
+                $requestId,
+                $request,
+                $context,
+                $emit,
+                $skillContract,
+                $runtimeAllowedTools
+            );
+            $subtasks = (array)($delegation['subtasks'] ?? []);
+            $result = [
+                'reply' => '已开始分配协作任务，完成后会汇总为一份可执行方案。',
+                'reply_streamed' => false,
+                'tool_calls' => (array)($delegation['tool_calls'] ?? []),
+                'workspace_actions' => [],
+                'assets' => [],
+                'next_action' => 'subagents_pending',
+                'agent_trace' => ['execution_mode' => 'agent_loop', 'iterations' => 0, 'tool_calls' => 1, 'turn_id' => $turnId],
+                'turn_id' => $turnId,
+                'iterations' => 0,
+                'skills' => $skills,
+                'selected_skill' => $skillContract,
+                'task_decision' => $taskDecision,
+                'estimated_tools' => (array)($taskDecision['estimated_tools'] ?? []),
+                'pending_skill_context' => [],
+                'subtasks' => $subtasks,
+                'subtasks_pending' => true,
+            ];
+            AgentTurnTraceService::event($turnId, ++$sequence, 'subagents.explicitly_queued', ['subtask_count' => count($subtasks)]);
+            return $result;
         }
 
         while ($iterations < $maxIterations && $toolCount < $toolLimit) {
@@ -1006,6 +1063,59 @@ final class AgentLoopService
             'skills' => [],
             'canceled' => true,
         ];
+    }
+
+    /**
+     * Respect an explicit, concrete request for parallel collaborators instead
+     * of relying on the model to infer that the delegation tool is mandatory.
+     */
+    private static function explicitDelegationTasks(string $request): array
+    {
+        if (!preg_match('/(?:协作助手|子代理|子任务)/u', $request)
+            || !preg_match('/(?:分配|并行|拆分)/u', $request)) {
+            return [];
+        }
+        $tasks = [];
+        $definitions = [
+            ['agent_code' => 'planner', 'terms' => ['品牌定位', '定位策略', '品牌策略'], 'task' => '制定品牌定位、受众和价值主张。'],
+            ['agent_code' => 'copy', 'terms' => ['主视觉文案', '文案', '标题'], 'task' => '制定主视觉标题、卖点文案和行动号召。'],
+            ['agent_code' => 'visual', 'terms' => ['短视频脚本', '视频脚本', '分镜'], 'task' => '制定短视频脚本、镜头节奏和旁白建议。'],
+        ];
+        foreach ($definitions as $definition) {
+            foreach ($definition['terms'] as $term) {
+                if (mb_stripos($request, $term, 0, 'UTF-8') !== false) {
+                    $tasks[] = ['agent_code' => $definition['agent_code'], 'task' => $definition['task']];
+                    break;
+                }
+            }
+        }
+        return count($tasks) >= 2 ? $tasks : [];
+    }
+
+    /**
+     * An explicit text-only collaboration request is an orchestration command,
+     * not a request to generate the media type mentioned in a subtask.
+     */
+    private static function isExplicitTextOnlyDelegation(string $request, array $tasks): bool
+    {
+        if ($tasks === []) {
+            return false;
+        }
+        $forbidsMedia = preg_match('/(?:不要|不)(?:生成|制作|产出)?(?:媒体|图片|图像|视频|音频)|纯文本/u', $request) === 1;
+        $forbidsCanvasWrites = preg_match('/(?:不要|不)(?:写入|修改|编辑|操作)(?:画布)?|不写入画布/u', $request) === 1;
+        return $forbidsMedia && $forbidsCanvasWrites;
+    }
+
+    private static function applyExplicitTextDelegationDecision(array &$decision): void
+    {
+        $decision['intent'] = 'collaborative_text_plan';
+        $decision['selected_skill_key'] = '';
+        $decision['skill_contract'] = [];
+        $decision['runtime_allowed_tools'] = ['ask_user', 'retrieve_skills', CanvasProtocol::TOOL_QUERY, 'delegate_subagent'];
+        $decision['binding_mode'] = 'none';
+        $decision['missing_hard_slots'] = [];
+        $decision['next_action'] = 'execute_tool';
+        $decision['delegation_override'] = 'explicit_text_only';
     }
 
     private static function executeTool(AgentExecutionContext $context, string $code, array $input, int $parentRunId, string $requestId, string $prompt, array $canvasContext, ?callable $emit, array $skillContract = [], array $runtimeAllowedTools = []): array

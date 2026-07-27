@@ -265,6 +265,10 @@ class SqlMigrationExecutor
             return str_replace('la_', $prefix, $sql);
         }
 
-        return str_replace('`la_', '`' . $prefix, $sql);
+        return str_replace(
+            ['`la_', "'la_", '"la_'],
+            ['`' . $prefix, "'" . $prefix, '"' . $prefix],
+            $sql
+        );
     }
 }
