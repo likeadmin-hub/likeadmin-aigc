@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_canvas_agent_tool_call` (
   `project_id` int unsigned NOT NULL DEFAULT 0 COMMENT 'Canvas project ID',
   `thread_id` int unsigned NOT NULL DEFAULT 0 COMMENT 'Thread ID',
   `message_id` int unsigned NOT NULL DEFAULT 0 COMMENT 'Message ID',
+  `request_id` varchar(96) NOT NULL DEFAULT '' COMMENT 'Agent request ID',
   `tool_code` varchar(80) NOT NULL DEFAULT '' COMMENT 'Tool code',
   `status` varchar(30) NOT NULL DEFAULT 'running' COMMENT 'running/success/failed/canceled',
   `input_json` longtext COMMENT 'Tool input',
@@ -52,6 +53,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_canvas_agent_tool_call` (
   `delete_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `idx_message` (`tenant_id`,`message_id`,`delete_time`),
+  KEY `idx_request` (`tenant_id`,`request_id`,`delete_time`),
   KEY `idx_tool` (`tenant_id`,`tool_code`,`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas agent tool calls';
 

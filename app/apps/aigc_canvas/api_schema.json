@@ -42,14 +42,6 @@
       "need_role_permission": 1
     },
     {
-      "api_path": "app.aigc_canvas.config/dependencies",
-      "api_method": "GET",
-      "permission_key": "aigc_canvas:dependencies",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
       "api_path": "app.aigc_canvas.tenant/stat",
       "api_method": "GET",
       "permission_key": "aigc_canvas:tenant_usage",
@@ -194,6 +186,38 @@
       "need_role_permission": 0
     },
     {
+      "api_path": "app.aigc_canvas.agent_tool/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:agent_tool:lists",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_tool/schemas",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:agent_tool:schemas",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_tool/pricing",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:agent_tool:pricing",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_tool/taskStatus",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:agent_tool:task_status",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
       "api_path": "app.aigc_canvas.generate/imageQuery",
       "api_method": "GET",
       "permission_key": "aigc_canvas:generate:image_query",
@@ -237,6 +261,30 @@
       "api_path": "app.aigc_canvas.agent/scriptStream",
       "api_method": "POST",
       "permission_key": "aigc_canvas:agent:script_stream",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent/onboarding",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:agent:onboarding",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent/brandMemory",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:agent:brand_memory",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent/brandMemorySave",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent:brand_memory_save",
       "scene": "user",
       "need_login": 1,
       "need_role_permission": 0
@@ -450,6 +498,54 @@
       "need_role_permission": 0
     },
     {
+      "api_path": "app.aigc_canvas.agent_generation/schema",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:agent_generation:schema",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_generation/create",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent_generation:create",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_generation/query",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:agent_generation:query",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_generation/cancel",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent_generation:cancel",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_generation/retry",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent_generation:retry",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_generation/recover",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent_generation:recover",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
       "api_path": "app.aigc_canvas.agent_chat/threadCreate",
       "api_method": "POST",
       "permission_key": "aigc_canvas:agent_chat:thread_create",
@@ -530,11 +626,131 @@
       "need_role_permission": 0
     },
     {
+      "api_path": "app.aigc_canvas.agent_chat/planDetail",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:agent_chat:plan_detail",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_chat/planPatch",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent_chat:plan_patch",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_chat/deliveryPlanDetail",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:agent_chat:delivery_plan_detail",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_chat/deliveryItemDetail",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:agent_chat:delivery_item_detail",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_chat/deliveryItemTransition",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent_chat:delivery_item_transition",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_chat/deliveryItemAction",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent_chat:delivery_item_action",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_chat/deliveryItemExecute",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent_chat:delivery_item_execute",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_chat/deliveryItemRefresh",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:agent_chat:delivery_item_refresh",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_chat/deliveryItemCancel",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent_chat:delivery_item_cancel",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_chat/deliveryItemImportAsset",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent_chat:delivery_item_import_asset",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_chat/claimConfirm",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent_chat:claim_confirm",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_chat/planRegenerate",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent_chat:plan_regenerate",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
       "api_path": "app.aigc_canvas.agent_chat/runStatus",
       "api_method": "GET",
       "permission_key": "aigc_canvas:agent_chat:run_status",
       "scene": "user",
       "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_chat/replay",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:agent_chat:replay",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_chat/share",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent_chat:share",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.agent_chat/sharedReplay",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:agent_chat:shared_replay",
+      "scene": "user",
+      "need_login": 0,
       "need_role_permission": 0
     },
     {
@@ -586,6 +802,78 @@
       "need_role_permission": 1
     },
     {
+      "api_path": "app.aigc_canvas.skill/debugRoute",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:skill:debug",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.skill/release",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:skill:release",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.skill/versions",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:skill:versions",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.skill/rollback",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:skill:rollback",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.governance/policies",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:governance:policies",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.governance/savePolicy",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:governance:policies",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.governance/evaluationCases",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:governance:evaluation",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.governance/saveEvaluationCase",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:governance:evaluation",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.governance/runEvaluation",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:governance:evaluation",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
       "api_path": "app.aigc_canvas.skill/usable",
       "api_method": "GET",
       "permission_key": "aigc_canvas:skill:usable:user",
@@ -600,6 +888,30 @@
       "scene": "user",
       "need_login": 1,
       "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.admin_trace/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:trace:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.admin_trace/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:trace:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.admin_trace/promptTrace",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:trace:prompt_trace",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
     }
   ]
 }

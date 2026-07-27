@@ -1,3 +1,72 @@
+CREATE TABLE IF NOT EXISTS `la_aigc_canvas_agent_turn` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `user_id` int unsigned NOT NULL DEFAULT 0,
+  `project_id` int unsigned NOT NULL DEFAULT 0,
+  `thread_id` int unsigned NOT NULL DEFAULT 0,
+  `request_id` varchar(96) NOT NULL DEFAULT '',
+  `status` varchar(30) NOT NULL DEFAULT 'running',
+  `execution_mode` varchar(40) NOT NULL DEFAULT 'agent_loop',
+  `iteration_count` int unsigned NOT NULL DEFAULT 0,
+  `started_at_ms` bigint unsigned NOT NULL DEFAULT 0,
+  `first_status_at_ms` bigint unsigned NOT NULL DEFAULT 0,
+  `first_token_at` int unsigned NOT NULL DEFAULT 0,
+  `first_token_at_ms` bigint unsigned NOT NULL DEFAULT 0,
+  `completed_at` int unsigned NOT NULL DEFAULT 0,
+  `completed_at_ms` bigint unsigned NOT NULL DEFAULT 0,
+  `fallback_reason` varchar(500) NOT NULL DEFAULT '',
+  `input_json` longtext,
+  `output_json` longtext,
+  `error` text,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_request` (`tenant_id`,`user_id`,`request_id`,`delete_time`),
+  KEY `idx_thread_time` (`tenant_id`,`thread_id`,`create_time`,`delete_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas Agent turns';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_canvas_agent_turn_event` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `turn_id` bigint unsigned NOT NULL DEFAULT 0,
+  `sequence` int unsigned NOT NULL DEFAULT 0,
+  `event_type` varchar(80) NOT NULL DEFAULT '',
+  `payload_json` longtext,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `create_time_ms` bigint unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_turn_sequence` (`turn_id`,`sequence`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas Agent turn events';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_canvas_agent_subtask` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `user_id` int unsigned NOT NULL DEFAULT 0,
+  `project_id` int unsigned NOT NULL DEFAULT 0,
+  `thread_id` int unsigned NOT NULL DEFAULT 0,
+  `parent_run_id` bigint unsigned NOT NULL DEFAULT 0,
+  `child_run_id` bigint unsigned NOT NULL DEFAULT 0,
+  `request_id` varchar(96) NOT NULL DEFAULT '',
+  `agent_code` varchar(64) NOT NULL DEFAULT '',
+  `sequence` int unsigned NOT NULL DEFAULT 0,
+  `status` varchar(30) NOT NULL DEFAULT 'pending',
+  `payload_json` longtext,
+  `result_json` longtext,
+  `error` text,
+  `attempts` int unsigned NOT NULL DEFAULT 0,
+  `max_attempts` int unsigned NOT NULL DEFAULT 2,
+  `lease_token` varchar(128) NOT NULL DEFAULT '',
+  `lease_expire_time` int unsigned NOT NULL DEFAULT 0,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  `finish_time` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_parent_status` (`parent_run_id`,`status`,`delete_time`),
+  KEY `idx_claim` (`status`,`lease_expire_time`,`sequence`,`id`),
+  KEY `idx_tenant_request` (`tenant_id`,`user_id`,`request_id`,`delete_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas durable Agent subtasks';
+
 CREATE TABLE IF NOT EXISTS `la_aigc_canvas_project` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `tenant_id` int unsigned NOT NULL DEFAULT 0 COMMENT '租户ID',
@@ -42,6 +111,37 @@ CREATE TABLE IF NOT EXISTS `la_aigc_canvas_run` (
   KEY `idx_source_task` (`source_app_code`,`source_task_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='无限画布运行记录';
 
+CREATE TABLE IF NOT EXISTS `la_aigc_canvas_asset` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `user_id` int unsigned NOT NULL DEFAULT 0,
+  `project_id` int unsigned NOT NULL DEFAULT 0,
+  `task_id` varchar(120) NOT NULL DEFAULT '',
+  `shot_id` varchar(120) NOT NULL DEFAULT '',
+  `asset_type` varchar(40) NOT NULL DEFAULT 'reference_image',
+  `title` varchar(120) NOT NULL DEFAULT '',
+  `uri` text,
+  `cover_uri` text,
+  `storage_scope` varchar(20) NOT NULL DEFAULT 'tenant',
+  `storage_engine` varchar(32) NOT NULL DEFAULT '',
+  `storage_domain` varchar(255) NOT NULL DEFAULT '',
+  `mime_type` varchar(120) NOT NULL DEFAULT '',
+  `file_size` bigint unsigned NOT NULL DEFAULT 0,
+  `width` int unsigned NOT NULL DEFAULT 0,
+  `height` int unsigned NOT NULL DEFAULT 0,
+  `duration` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `checksum` varchar(100) NOT NULL DEFAULT '',
+  `meta_json` longtext,
+  `status` varchar(30) NOT NULL DEFAULT 'ready',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_project_type` (`tenant_id`,`project_id`,`asset_type`,`delete_time`),
+  KEY `idx_user_type` (`tenant_id`,`user_id`,`asset_type`,`delete_time`),
+  KEY `idx_task` (`tenant_id`,`task_id`,`delete_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas assets';
+
 CREATE TABLE IF NOT EXISTS `la_aigc_canvas_skill` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `tenant_id` int unsigned NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
@@ -50,11 +150,11 @@ CREATE TABLE IF NOT EXISTS `la_aigc_canvas_skill` (
   `name` varchar(120) NOT NULL DEFAULT '' COMMENT 'Skill name',
   `description` varchar(500) NOT NULL DEFAULT '' COMMENT 'Skill description',
   `category` varchar(80) NOT NULL DEFAULT 'general' COMMENT 'Skill category',
-  `skill_type` varchar(40) NOT NULL DEFAULT 'agent_prompt' COMMENT 'agent_prompt/workflow_template',
+  `skill_type` varchar(40) NOT NULL DEFAULT 'agent_prompt' COMMENT 'agent_prompt/agent_workflow',
   `source_type` varchar(40) NOT NULL DEFAULT 'tenant' COMMENT 'builtin/tenant',
   `content_markdown` longtext COMMENT 'Agent prompt markdown',
   `trigger_description` text COMMENT 'Trigger description',
-  `workflow_json` longtext COMMENT 'Workflow template JSON',
+  `workflow_json` longtext COMMENT 'Reserved compatibility JSON',
   `examples_json` text COMMENT 'Positive examples JSON',
   `negative_examples_json` text COMMENT 'Negative examples JSON',
   `required_slots_json` text COMMENT 'Required slots JSON',
@@ -66,8 +166,15 @@ CREATE TABLE IF NOT EXISTS `la_aigc_canvas_skill` (
   `agent_policy_json` text COMMENT 'Agent orchestration policy JSON',
   `tool_schema_json` text COMMENT 'Allowed tool schema JSON',
   `canvas_output_policy_json` text COMMENT 'JSON Canvas output policy',
+  `visibility_policy_json` longtext COMMENT 'User visibility policy JSON',
+  `model_policy_json` longtext COMMENT 'Model profile policy JSON',
+  `execution_policy_json` longtext COMMENT 'Agent execution policy JSON',
+  `quality_policy_json` longtext COMMENT 'Delivery quality policy JSON',
+  `safety_policy_json` longtext COMMENT 'Safety policy JSON',
+  `analytics_policy_json` longtext COMMENT 'Skill analytics policy JSON',
   `cover_url` varchar(500) NOT NULL DEFAULT '' COMMENT 'Cover URL',
   `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT 'Status',
+  `release_status` varchar(24) NOT NULL DEFAULT 'active' COMMENT 'draft/testing/canary/active/paused/archived',
   `version` int unsigned NOT NULL DEFAULT 1 COMMENT 'Skill version',
   `sort` int NOT NULL DEFAULT 0 COMMENT 'Sort',
   `create_time` int unsigned NOT NULL DEFAULT 0,
@@ -78,6 +185,55 @@ CREATE TABLE IF NOT EXISTS `la_aigc_canvas_skill` (
   KEY `idx_tenant_type_status` (`tenant_id`,`skill_type`,`status`,`delete_time`),
   KEY `idx_tenant_sort` (`tenant_id`,`sort`,`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas skills';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_canvas_skill_version` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `skill_id` int unsigned NOT NULL DEFAULT 0,
+  `version` int unsigned NOT NULL DEFAULT 1,
+  `release_status` varchar(24) NOT NULL DEFAULT 'draft',
+  `config_json` longtext,
+  `created_by` int unsigned NOT NULL DEFAULT 0,
+  `published_at` int unsigned NOT NULL DEFAULT 0,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_skill_version` (`tenant_id`,`skill_id`,`version`),
+  KEY `idx_tenant_skill_release` (`tenant_id`,`skill_id`,`release_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas product Skill versions';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_canvas_skill_evaluation_case` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `skill_key` varchar(120) NOT NULL DEFAULT '',
+  `name` varchar(160) NOT NULL DEFAULT '',
+  `input_json` longtext,
+  `canvas_fixture_json` longtext,
+  `expected_route_json` longtext,
+  `expected_next_action` varchar(40) NOT NULL DEFAULT '',
+  `tags_json` text,
+  `status` tinyint unsigned NOT NULL DEFAULT 1,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_skill_status` (`tenant_id`,`skill_key`,`status`,`delete_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas Skill evaluation cases';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_canvas_agent_orchestration_policy` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `policy_key` varchar(80) NOT NULL DEFAULT '',
+  `config_json` longtext,
+  `enabled` tinyint unsigned NOT NULL DEFAULT 1,
+  `version` int unsigned NOT NULL DEFAULT 1,
+  `updated_by` int unsigned NOT NULL DEFAULT 0,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenant_policy` (`tenant_id`,`policy_key`,`delete_time`),
+  KEY `idx_tenant_enabled` (`tenant_id`,`enabled`,`delete_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas Agent orchestration policies';
 
 CREATE TABLE IF NOT EXISTS `la_aigc_canvas_agent_batch` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -103,6 +259,11 @@ CREATE TABLE IF NOT EXISTS `la_aigc_canvas_agent_batch` (
   `current_wave` int unsigned NOT NULL DEFAULT 0,
   `notified_wave` int unsigned NOT NULL DEFAULT 0,
   `analysis_json` longtext,
+  `creative_context_json` longtext,
+  `plan_version` int unsigned NOT NULL DEFAULT 1,
+  `prompt_compiler_version` varchar(40) NOT NULL DEFAULT '',
+  `evidence_snapshot_json` longtext,
+  `claim_snapshot_json` longtext,
   `sections_json` longtext,
   `references_json` longtext,
   `media_config_json` longtext,
@@ -117,3 +278,26 @@ CREATE TABLE IF NOT EXISTS `la_aigc_canvas_agent_batch` (
   KEY `idx_batch_project` (`tenant_id`,`project_id`,`delete_time`),
   KEY `idx_batch_parent` (`tenant_id`,`parent_batch_id`,`revision_no`,`delete_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas agent media batches';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_canvas_delivery_plan` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL DEFAULT 0, `user_id` int unsigned NOT NULL DEFAULT 0,
+  `project_id` int unsigned NOT NULL DEFAULT 0, `thread_id` int unsigned NOT NULL DEFAULT 0, `source_message_id` int unsigned NOT NULL DEFAULT 0,
+  `title` varchar(160) NOT NULL DEFAULT '', `intent` varchar(80) NOT NULL DEFAULT '', `status` varchar(40) NOT NULL DEFAULT 'draft',
+  `item_count` int unsigned NOT NULL DEFAULT 0, `meta_json` longtext, `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0, `delete_time` int unsigned NOT NULL DEFAULT 0, PRIMARY KEY (`id`),
+  KEY `idx_delivery_plan_thread` (`tenant_id`,`user_id`,`thread_id`,`status`,`delete_time`), KEY `idx_delivery_plan_project` (`tenant_id`,`project_id`,`delete_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas delivery plans';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_canvas_delivery_item` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL DEFAULT 0, `user_id` int unsigned NOT NULL DEFAULT 0,
+  `project_id` int unsigned NOT NULL DEFAULT 0, `thread_id` int unsigned NOT NULL DEFAULT 0, `plan_id` int unsigned NOT NULL DEFAULT 0,
+  `parent_item_id` int unsigned NOT NULL DEFAULT 0, `source_message_id` int unsigned NOT NULL DEFAULT 0, `item_key` varchar(96) NOT NULL DEFAULT '',
+  `objective` text, `skill_key` varchar(120) NOT NULL DEFAULT '', `tool_code` varchar(80) NOT NULL DEFAULT '', `status` varchar(40) NOT NULL DEFAULT 'draft',
+  `sort_order` int unsigned NOT NULL DEFAULT 0, `retry_count` int unsigned NOT NULL DEFAULT 0, `depends_on_json` longtext, `required_slots_json` longtext,
+  `soft_slots_json` longtext, `slots_json` longtext, `delivery_json` longtext, `creative_context_json` longtext, `reference_assets_json` longtext,
+  `pending_action_json` longtext, `skill_snapshot_json` longtext, `task_snapshot_json` longtext, `cost_json` longtext, `result_json` longtext,
+  `provider_request_id` varchar(160) NOT NULL DEFAULT '', `provider_error_code` varchar(120) NOT NULL DEFAULT '', `provider_error_message` text,
+  `error` text, `meta_json` longtext, `create_time` int unsigned NOT NULL DEFAULT 0, `update_time` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned NOT NULL DEFAULT 0, PRIMARY KEY (`id`), UNIQUE KEY `uk_delivery_item_key` (`plan_id`,`item_key`,`delete_time`),
+  KEY `idx_delivery_item_thread` (`tenant_id`,`user_id`,`thread_id`,`status`,`delete_time`), KEY `idx_delivery_item_plan` (`plan_id`,`sort_order`,`delete_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas delivery items';

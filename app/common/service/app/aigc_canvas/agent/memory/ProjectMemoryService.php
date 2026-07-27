@@ -6,17 +6,19 @@ use think\facade\Db;
 
 final class ProjectMemoryService
 {
-    public static function load(int $tenantId, int $projectId): array
+    public static function load(int $tenantId, int $userId, int $projectId): array
     {
-        if ($tenantId <= 0 || $projectId <= 0) {
+        if ($tenantId <= 0 || $userId <= 0 || $projectId <= 0) {
             return [];
         }
         $rows = Db::name('aigc_canvas_agent_memory')
             ->where([
                 'tenant_id' => $tenantId,
+                'user_id' => $userId,
                 'project_id' => $projectId,
                 'delete_time' => 0,
             ])
+            ->order(['update_time' => 'desc', 'id' => 'desc'])
             ->select()
             ->toArray();
         $memory = [];
@@ -37,17 +39,24 @@ final class ProjectMemoryService
         return $memory;
     }
 
-    public static function rememberRun(int $tenantId, int $userId, int $projectId, array $summary): void
+    public static function retrieve(int $tenantId, int $userId, int $projectId, int $limit = 8): array
     {
-        if ($tenantId <= 0 || $projectId <= 0) {
+        $all = self::load($tenantId, $userId, $projectId);
+        return array_slice($all, 0, max(1, min(8, $limit)), true);
+    }
+
+    public static function remember(int $tenantId, int $userId, int $projectId, string $type, string $key, array $data, array $source = []): void
+    {
+        if ($tenantId <= 0 || $userId <= 0 || $projectId <= 0 || $key === '') {
             return;
         }
-        $key = 'design_brief';
         $now = time();
         $exists = Db::name('aigc_canvas_agent_memory')
             ->where([
                 'tenant_id' => $tenantId,
+                'user_id' => $userId,
                 'project_id' => $projectId,
+                'memory_type' => $type,
                 'memory_key' => $key,
                 'delete_time' => 0,
             ])
@@ -56,11 +65,11 @@ final class ProjectMemoryService
             'tenant_id' => $tenantId,
             'user_id' => $userId,
             'project_id' => $projectId,
-            'memory_type' => 'project',
+            'memory_type' => $type,
             'memory_key' => $key,
-            'memory_json' => json_encode($summary, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'summary' => mb_substr((string)($summary['summary'] ?? ''), 0, 1000, 'UTF-8'),
-            'source_json' => json_encode((array)($summary['source'] ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'memory_json' => json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'summary' => mb_substr((string)($data['summary'] ?? $data['value'] ?? ''), 0, 1000, 'UTF-8'),
+            'source_json' => json_encode($source, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'version' => max(1, (int)($exists['version'] ?? 0) + 1),
             'update_time' => $now,
         ];
@@ -71,6 +80,11 @@ final class ProjectMemoryService
         $data['create_time'] = $now;
         $data['delete_time'] = 0;
         Db::name('aigc_canvas_agent_memory')->insert($data);
+    }
+
+    public static function rememberRun(int $tenantId, int $userId, int $projectId, array $summary): void
+    {
+        self::remember($tenantId, $userId, $projectId, 'project_goal', 'design_brief', $summary, (array)($summary['source'] ?? []));
     }
 
     public static function ensureSchema(): void

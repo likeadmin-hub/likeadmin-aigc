@@ -15,6 +15,9 @@ class AigcCanvasAgentBatch extends AppBaseModel
         'tasks_json',
         'decision_json',
         'scope_json',
+        'creative_context_json',
+        'evidence_snapshot_json',
+        'claim_snapshot_json',
     ];
     protected $jsonAssoc = true;
 }

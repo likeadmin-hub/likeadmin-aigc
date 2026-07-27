@@ -3,7 +3,6 @@
 namespace app\common\service\app\aigc_canvas\agent\planning;
 
 use app\common\service\app\aigc_canvas\AigcCanvasService;
-use app\common\service\app\aigc_llm\AigcLlmService;
 use Exception;
 
 final class FollowUpRouter
@@ -20,7 +19,7 @@ final class FollowUpRouter
             return [];
         }
         try {
-            $result = AigcLlmService::generateText($tenantId, $userId, [
+            $result = AigcCanvasService::llmText($tenantId, $userId, [
                 'content' => json_encode([
                     'task' => 'resolve_continuous_design_follow_up',
                     'user_message' => $content,
