@@ -816,15 +816,28 @@ class AigcCanvasAgentRuntimeService
             self::emit($emit, 'agent.message.done', $payload);
             return $payload;
         } catch (Exception $e) {
+            $userFacingError = '本次处理未完成，请稍后重试或调整描述。';
+            $response = AgentResponseProtocol::fromResult([
+                'next_action' => 'error',
+                'status' => 'failed',
+                'reply' => $userFacingError,
+                'error' => $e->getMessage(),
+            ]);
             $assistant->save([
-                'content' => $e->getMessage(),
-                'content_json' => ['execution_mode' => 'agent_loop', 'error' => $e->getMessage()],
+                'content' => $userFacingError,
+                'content_json' => [
+                    'execution_mode' => 'agent_loop',
+                    'error' => $e->getMessage(),
+                    'response' => $response,
+                    'response_kind' => (string)$response['response_kind'],
+                ],
                 'status' => 'failed',
                 'error' => $e->getMessage(),
                 'update_time' => time(),
             ]);
-            self::emit($emit, 'agent.turn.failed', ['thread_id' => $threadId, 'message_id' => (int)$assistant['id'], 'message' => $e->getMessage()]);
-            self::emit($emit, 'agent.error', ['message' => $e->getMessage(), 'message_id' => (int)$assistant['id']]);
+            self::emit($emit, 'agent.response', $response + ['thread_id' => $threadId, 'message_id' => (int)$assistant['id']]);
+            self::emit($emit, 'agent.turn.failed', ['thread_id' => $threadId, 'message_id' => (int)$assistant['id'], 'message' => $userFacingError]);
+            self::emit($emit, 'agent.error', ['message' => $userFacingError, 'message_id' => (int)$assistant['id']]);
             AgentTraceLogger::failRun($runId, $e->getMessage());
             throw $e;
         }
