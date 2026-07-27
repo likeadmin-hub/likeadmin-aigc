@@ -245,6 +245,33 @@ class PackageProvisionService
             'component' => 'brand/order',
             'source_menu_key' => 'core_tenant_brand_order',
         ]);
+
+        $officialSiteId = self::upsertMenu($table, $tenantId, [
+            'pid' => 0,
+            'type' => 'M',
+            'name' => '官方网站',
+            'icon' => 'el-icon-Monitor',
+            'sort' => 110,
+            'paths' => 'official-site',
+            'source_menu_key' => 'core_tenant_official_site',
+        ]);
+        $officialConfigId = self::upsertMenu($table, $tenantId, [
+            'pid' => $officialSiteId,
+            'type' => 'C',
+            'name' => '官网配置',
+            'sort' => 100,
+            'perms' => 'setting.web.official_site/get',
+            'paths' => 'official-site',
+            'component' => 'official_website/index',
+            'source_menu_key' => 'core_tenant_official_site_config',
+        ]);
+        self::upsertMenu($table, $tenantId, [
+            'pid' => $officialConfigId,
+            'type' => 'A',
+            'name' => '保存',
+            'perms' => 'setting.web.official_site/save',
+            'source_menu_key' => 'core_tenant_official_site_save',
+        ]);
     }
 
     private static function upsertMenu(string $table, int $tenantId, array $menu): int

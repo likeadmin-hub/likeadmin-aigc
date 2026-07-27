@@ -11,5 +11,5 @@ class OrderController extends BaseAdminController
     {
         return $this->dataLists(new TenantBrandOrderLists());
     }
-}
 
+}

@@ -1032,6 +1032,16 @@ VALUES
 ({tenantId},@core_tenant_brand_quota_id,'A','预支付','',0,'brand.pay/prepay','','','','',0,0,0,'','core','core_tenant_brand_pay_prepay',1,1782604800,1782604800),
 ({tenantId},@core_tenant_brand_quota_id,'A','支付状态','',0,'brand.pay/payStatus','','','','',0,0,0,'','core','core_tenant_brand_pay_status',1,1782604800,1782604800);
 
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES ({tenantId},0,'M','官方网站','el-icon-Monitor',110,'','official-site','','','',0,1,0,'','core','core_tenant_official_site',1,1782604800,1782604800);
+SET @core_tenant_official_site_id := LAST_INSERT_ID();
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+({tenantId},@core_tenant_official_site_id,'C','官网配置','',100,'setting.web.official_site/get','official-site','official_website/index','','',0,1,0,'','core','core_tenant_official_site_config',1,1782604800,1782604800);
+SET @core_tenant_official_site_config_id := LAST_INSERT_ID();
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES ({tenantId},@core_tenant_official_site_config_id,'A','保存','',0,'setting.web.official_site/save','','','','',0,0,0,'','core','core_tenant_official_site_save',1,1782604800,1782604800);
+
 ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `template_id` int unsigned NOT NULL DEFAULT 0 COMMENT '模板ID' AFTER `tenant_id`;
 ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `terminal` varchar(20) NOT NULL DEFAULT 'mobile' COMMENT '终端 mobile/pc' AFTER `template_id`;
 ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `channel` varchar(20) NOT NULL DEFAULT 'common' COMMENT '渠道 common/h5/mp_weixin' AFTER `terminal`;

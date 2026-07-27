@@ -16,6 +16,8 @@ namespace app\api\controller;
 use app\api\lists\recharge\RechargeLists;
 use app\api\logic\RechargeLogic;
 use app\api\validate\RechargeValidate;
+use app\common\service\PointUnitService;
+use app\common\service\recharge\RechargePackageService;
 
 
 /**
@@ -25,6 +27,18 @@ use app\api\validate\RechargeValidate;
  */
 class RechargeController extends BaseApiController
 {
+    public array $notNeedLogin = ['plans'];
+
+    /**
+     * Public package list used by the official site pricing page.
+     */
+    public function plans()
+    {
+        return $this->data([
+            'packages' => RechargePackageService::enabledPackages((int)$this->request->tenantId),
+            'point_unit' => PointUnitService::unit(),
+        ]);
+    }
 
     /**
      * @notes 获取充值列表
