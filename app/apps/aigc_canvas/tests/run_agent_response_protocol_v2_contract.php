@@ -64,6 +64,14 @@ $assert(($runtimeClarifyResponse['kind'] ?? '') === 'clarify', 'runtime clarify 
 $assert(($runtimeClarifyResponse['blocks'][1]['type'] ?? '') === 'fields', 'runtime clarify does not preserve fields');
 $assert(($runtimeClarifyResponse['blocks'][1]['items'][0]['label'] ?? '') === '主题/内容', 'runtime clarify field label is incorrect');
 
+$failureMethod = new ReflectionMethod(AigcCanvasAgentRuntimeService::class, 'failureResult');
+$failureMethod->setAccessible(true);
+$runtimeFailure = $failureMethod->invoke(null, 'provider diagnostic must not reach the user');
+$runtimeFailureResponse = AgentResponseProtocol::fromResult($runtimeFailure);
+$assert(($runtimeFailureResponse['kind'] ?? '') === 'error', 'runtime failure kind is incorrect');
+$assert(($runtimeFailureResponse['actions'][0]['type'] ?? '') === 'retry', 'runtime failure has no retry action');
+$assert(!str_contains((string)($runtimeFailure['reply'] ?? ''), 'provider diagnostic'), 'runtime failure exposed a diagnostic');
+
 $plan = AgentResponseProtocol::fromResult([
     'next_action' => 'confirm_plan',
     'reply' => '已整理为三步方案。',
