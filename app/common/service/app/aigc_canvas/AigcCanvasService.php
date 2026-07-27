@@ -451,8 +451,8 @@ class AigcCanvasService
             'user_id' => $userId,
             'name' => mb_substr($name, 0, 120),
             'thumbnail' => self::normalizeThumbnail((string)($params['thumbnail'] ?? ''), $tenantId, $userId),
-            'nodes_json' => self::normalizeList($params['nodes'] ?? []),
-            'edges_json' => self::normalizeList($params['edges'] ?? []),
+            'nodes_json' => self::repairLegacyProjectText(self::normalizeList($params['nodes'] ?? [])),
+            'edges_json' => self::repairLegacyProjectText(self::normalizeList($params['edges'] ?? [])),
             'viewport_json' => self::normalizeViewport($params['viewport'] ?? []),
             'sort' => (int)($params['sort'] ?? 0),
             'status' => 1,
@@ -471,8 +471,8 @@ class AigcCanvasService
             throw new Exception('项目不存在');
         }
         $data = [
-            'nodes_json' => self::normalizeList($params['nodes'] ?? []),
-            'edges_json' => self::normalizeList($params['edges'] ?? []),
+            'nodes_json' => self::repairLegacyProjectText(self::normalizeList($params['nodes'] ?? [])),
+            'edges_json' => self::repairLegacyProjectText(self::normalizeList($params['edges'] ?? [])),
             'viewport_json' => self::normalizeViewport($params['viewport'] ?? []),
             'thumbnail' => self::normalizeThumbnail(
                 (string)($params['thumbnail'] ?? $project['thumbnail'] ?? ''),
@@ -2061,12 +2061,13 @@ class AigcCanvasService
             'status' => (int)($row['status'] ?? 1),
         ];
         if ($full) {
+            $nodes = self::repairLegacyProjectText(self::normalizeList($row['nodes_json'] ?? []));
             $data['nodes'] = self::repairProjectNodesFromRuns(
                 (int)($row['tenant_id'] ?? 0),
                 (int)($row['id'] ?? 0),
-                self::normalizeList($row['nodes_json'] ?? [])
+                $nodes
             );
-            $data['edges'] = self::normalizeList($row['edges_json'] ?? []);
+            $data['edges'] = self::repairLegacyProjectText(self::normalizeList($row['edges_json'] ?? []));
             $data['viewport'] = self::normalizeViewport($row['viewport_json'] ?? []);
             $data['registered_assets'] = self::projectRegisteredAssets((int)$row['tenant_id'], (int)$row['user_id'], (int)$row['id']);
         }
