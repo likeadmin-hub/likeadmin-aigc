@@ -3,6 +3,7 @@
 namespace app\common\service\app\aigc_canvas\agent\agents;
 
 use app\common\service\app\aigc_canvas\agent\contracts\AgentInterface;
+use app\common\service\app\aigc_canvas\agent\memory\CanvasSnapshotBuilder;
 use app\common\service\app\aigc_canvas\agent\orchestrator\AgentExecutionContext;
 use app\common\service\app\aigc_canvas\agent\runtime\AgentLlmGateway;
 use app\common\service\app\aigc_canvas\agent\tools\AddElementTool;
@@ -29,6 +30,7 @@ final class PlannerAgent implements AgentInterface
         $llm = AgentLlmGateway::call($context, $this->code(), implode("\n", [
             'You are Planner Agent for an infinite design canvas.',
             'Use only the supplied functions. Create one page before adding elements.',
+            'Never create text elements automatically. Keep copy in the media plan unless the user explicitly asks for an editable canvas text node.',
             'Return editable layout elements, never provider calls.',
             'For ecommerce detail pages use a 750px wide vertical page and preserve requested section count.',
         ]), [
@@ -36,7 +38,7 @@ final class PlannerAgent implements AgentInterface
             'user_request' => $context->request(),
             'route' => $route,
             'section_count' => $sectionCount,
-            'canvas_context' => $context->context(),
+            'canvas_context' => CanvasSnapshotBuilder::compact($context->context()),
         ], $tools);
         $calls = self::validPlannerCalls((array)($llm['function_calls'] ?? []));
         if (!empty($calls)) {
@@ -53,22 +55,6 @@ final class PlannerAgent implements AgentInterface
                         'width' => 1440,
                         'height' => 900,
                         'background' => '#ffffff',
-                    ],
-                ],
-                [
-                    'name' => 'add_element',
-                    'arguments' => [
-                        'page_id' => 'page_1',
-                        'element' => [
-                            'id' => 'design_title',
-                            'type' => 'text',
-                            'x' => 80,
-                            'y' => 80,
-                            'width' => 680,
-                            'height' => 110,
-                            'content' => $title,
-                            'style' => ['fontSize' => 34, 'fontWeight' => 700],
-                        ],
                     ],
                 ],
             ],
@@ -101,6 +87,9 @@ final class PlannerAgent implements AgentInterface
                     continue;
                 }
                 $hasPage = true;
+            }
+            if ($name === 'add_element' && (string)($call['arguments']['element']['type'] ?? '') === 'text') {
+                continue;
             }
             $result[] = $call;
         }

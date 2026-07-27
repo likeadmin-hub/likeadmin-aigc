@@ -2,7 +2,7 @@
 
 namespace app\common\service\app\aigc_canvas\agent\planning;
 
-use app\common\service\app\aigc_llm\AigcLlmService;
+use app\common\service\app\aigc_canvas\AigcCanvasService;
 use Exception;
 
 final class EcommerceDetailSectionPlanner
@@ -15,6 +15,9 @@ final class EcommerceDetailSectionPlanner
 
     public static function resolve(int $tenantId, int $userId, string $content, array $slots = [], array $referenceImages = []): array
     {
+        if (!self::hasProductEvidence($slots, $referenceImages)) {
+            throw new Exception('请先上传商品图，或补充可识别的商品名称、外观或材质信息，再规划详情页。');
+        }
         $explicitSections = self::extractExplicitSections($content, $slots);
         $requestedCount = !empty($explicitSections) ? count($explicitSections) : self::extractRequestedCount($content);
         $lockedReason = !empty($explicitSections)
@@ -49,8 +52,8 @@ final class EcommerceDetailSectionPlanner
             $count = (int)($llm['recommended_section_count'] ?? count($sections));
             $count = max(self::AUTO_MIN_SECTIONS, min(self::AUTO_MAX_SECTIONS, $count));
             if (count($sections) !== $count) {
-                $count = self::FALLBACK_SECTION_COUNT;
                 $sections = self::fallbackSections($count, $slots, $content);
+                $count = count($sections);
             }
         }
 
@@ -83,11 +86,11 @@ final class EcommerceDetailSectionPlanner
                 'index' => (int)($section['section_index'] ?? 0),
                 'title' => (string)($section['title'] ?? ''),
                 'ratio' => (string)($section['ratio'] ?? self::DEFAULT_RATIO),
-                'prompt_summary' => mb_substr((string)($section['image_prompt'] ?? ''), 0, 120, 'UTF-8'),
+                'prompt_summary' => mb_substr(trim((string)($section['purpose'] ?? $section['narrative'] ?? '')), 0, 120, 'UTF-8'),
             ], $firstBatch),
         ];
         try {
-            $result = AigcLlmService::streamText($tenantId, $userId, [
+            $result = AigcCanvasService::llmText($tenantId, $userId, [
                 'content' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'system_prompt' => implode("\n", [
                     '你是资深电商视觉设计总监，负责向用户解释已经完成的设计分析。',
@@ -115,23 +118,43 @@ final class EcommerceDetailSectionPlanner
         return ['content' => self::fallbackAnalysisReply($plan), 'streamed' => false];
     }
 
+    private static function hasProductEvidence(array $slots, array $referenceImages): bool
+    {
+        if (self::normalizeReferenceImages($referenceImages) !== []) {
+            return true;
+        }
+        $evidence = array_values(array_filter((array)($slots['creative_context']['evidence_catalog'] ?? []), 'is_array'));
+        if ($evidence !== []) {
+            return true;
+        }
+        $brief = trim((string)($slots['product_info'] ?? $slots['product_reference'] ?? $slots['product_name'] ?? ''));
+        if ($brief === '') {
+            return false;
+        }
+        $generic = preg_replace('/(?:帮我|请|生成|制作|创建|设计|电商|淘宝|天猫|京东|商品详情图|商品详情页|详情图|详情页|商品图|产品图|海报|图片|一张|两张|\d+\s*张)/u', '', $brief) ?? $brief;
+        $generic = preg_replace('/[，。！？、；：:,.!？\s]+/u', '', $generic) ?? $generic;
+        return mb_strlen($generic, 'UTF-8') >= 2;
+    }
+
+    /**
+     * The confirmation UI already renders the structured plan. Avoid a second
+     * LLM request solely to restate it on latency-sensitive detail-page flows.
+     */
+    public static function conciseAnalysisReply(array $plan): string
+    {
+        return self::fallbackAnalysisReply($plan);
+    }
+
     public static function normalizeSections(array $sections): array
     {
         $result = [];
         $seenKeys = [];
-        $seenPrompts = [];
         foreach ($sections as $section) {
             if (!is_array($section)) {
                 continue;
             }
             $position = count($result) + 1;
             $title = trim((string)($section['title'] ?? $section['section_key'] ?? '')) ?: '详情区块' . $position;
-            $prompt = self::sanitizeImagePrompt((string)($section['image_prompt'] ?? $section['prompt'] ?? ''));
-            $markerCount = preg_match_all('/第\s*\d+\s*(?:张|页)/u', $prompt);
-            if ($prompt === '' || strlen($prompt) > 3000 || $markerCount > 1 || isset($seenPrompts[md5($prompt)])) {
-                $prompt = self::fallbackPrompt($title, [], '');
-            }
-            $seenPrompts[md5($prompt)] = true;
             $copy = $section['copy_content'] ?? [];
             if (is_string($copy)) {
                 $copy = ['raw' => trim($copy)];
@@ -142,11 +165,16 @@ final class EcommerceDetailSectionPlanner
             }
             $seenKeys[$sectionKey] = true;
             $result[] = [
+                'section_id' => trim((string)($section['section_id'] ?? '')) ?: 'section_' . substr(sha1($sectionKey . '|' . $title), 0, 16),
                 'section_index' => $position,
                 'section_key' => $sectionKey,
                 'title' => mb_substr($title, 0, 80, 'UTF-8'),
+                'purpose' => mb_substr(trim((string)($section['purpose'] ?? $title)), 0, 240, 'UTF-8'),
+                'narrative' => mb_substr(trim((string)($section['narrative'] ?? $section['creative_intent'] ?? $copy['raw'] ?? '')), 0, 800, 'UTF-8'),
+                'evidence_ids' => array_values(array_filter(array_map('strval', (array)($section['evidence_ids'] ?? [])))),
+                'visual_direction' => is_array($section['visual_direction'] ?? null) ? $section['visual_direction'] : [],
+                'status' => in_array((string)($section['status'] ?? ''), ['planned', 'locked', 'queued', 'running', 'success', 'failed'], true) ? (string)$section['status'] : 'planned',
                 'copy_content' => is_array($copy) ? $copy : [],
-                'image_prompt' => self::withSingleFrameConstraint($prompt),
                 'ratio' => self::normalizeRatio((string)($section['ratio'] ?? '')),
             ];
         }
@@ -174,23 +202,20 @@ final class EcommerceDetailSectionPlanner
             $block = trim(substr($content, $start, $end - $start));
             $title = trim((string)$matches[2][$index][0]);
             $title = trim((string)preg_replace('/[（(].*$/u', '', $title));
-            $prompt = self::extractImagePrompt($block);
-            if ($prompt === '') {
-                $prompt = self::fallbackPrompt($title, $slots, $content);
-            }
             $sections[] = [
                 'section_index' => $index + 1,
                 'section_key' => 'section_' . str_pad((string)($index + 1), 2, '0', STR_PAD_LEFT),
                 'title' => $title !== '' ? $title : '详情区块' . ($index + 1),
+                'purpose' => $title,
+                'narrative' => self::extractSemanticNarrative($block),
                 'copy_content' => self::extractCopyContent($block),
-                'image_prompt' => $prompt,
                 'ratio' => trim((string)($slots['ratio'] ?? '')),
             ];
         }
         return self::normalizeSections($sections);
     }
 
-    private static function extractImagePrompt(string $block): string
+    private static function extractSemanticNarrative(string $block): string
     {
         if (!preg_match('/AI\s*生图提示词(?:（[^）]*）|\([^)]*\))?\s*[:：]?\s*(?:中文提示词\s*)?/ui', $block, $match, PREG_OFFSET_CAPTURE)) {
             return '';
@@ -200,7 +225,7 @@ final class EcommerceDetailSectionPlanner
         if (preg_match('/\n\s*英文\s*Prompt\s*\n/ui', $prompt, $english, PREG_OFFSET_CAPTURE)) {
             $prompt = trim(substr($prompt, 0, (int)$english[0][1]));
         }
-        return self::sanitizeImagePrompt($prompt);
+        return self::sanitizeNarrative($prompt);
     }
 
     private static function extractCopyContent(string $block): array
@@ -234,7 +259,7 @@ final class EcommerceDetailSectionPlanner
     ): array {
         $references = self::normalizeReferenceImages($referenceImages);
         try {
-            $response = AigcLlmService::generateText($tenantId, $userId, [
+            $response = AigcCanvasService::llmText($tenantId, $userId, [
                 'content' => json_encode([
                     'task' => 'analyze_and_plan_ecommerce_detail_page',
                     'user_request' => $content,
@@ -244,18 +269,19 @@ final class EcommerceDetailSectionPlanner
                         'section_index' => $section['section_index'],
                         'section_key' => $section['section_key'],
                         'title' => $section['title'],
-                        'image_prompt' => $section['image_prompt'],
+                        'purpose' => $section['purpose'] ?? '',
+                        'narrative' => $section['narrative'] ?? '',
                     ], $explicitSections),
                     'rules' => [
                         'Analyze the product, packaging, material and visual opportunities before planning.',
-                        'If locked_sections exist, never change their count, order, titles or image prompts.',
+                        'If locked_sections exist, never change their count, order, titles or semantic direction.',
                         'If only locked_section_count exists, return exactly that many distinct sections.',
                         'Without a locked count, recommend 3 to 12 sections and explain why.',
-                        'Each section has exactly one standalone image prompt for one complete image.',
+                        'Each section describes one standalone complete image through purpose, narrative, evidence_ids and visual_direction.',
                         'The ecommerce design width is fixed at 750px. Choose each section height independently from its information density.',
                         'For every section choose exactly one ratio from 1:1, 3:4, 2:3, or 9:16. Use 1:1 for concise single-focus visuals, 3:4 for standard product storytelling, 2:3 for richer vertical storytelling, and 9:16 for copy-heavy processes, specifications, comparisons, or multi-part information.',
                         'Do not force all sections to use the same ratio unless the user explicitly requests one global ratio.',
-                        'Reference image URLs are context only and must never appear in image_prompt.',
+                        'Reference image URLs are context only and must never appear in semantic fields.',
                         'Do not claim visual observations unless they are visible in supplied reference images.',
                     ],
                     'output_schema' => [
@@ -276,8 +302,11 @@ final class EcommerceDetailSectionPlanner
                         'detail_sections' => [[
                             'section_key' => 'string',
                             'title' => 'string',
+                            'purpose' => 'string',
+                            'narrative' => 'string',
+                            'evidence_ids' => ['string'],
                             'copy_content' => ['headline' => 'string', 'subheadline' => 'string'],
-                            'image_prompt' => 'string',
+                            'visual_direction' => 'object',
                             'ratio' => 'string',
                         ]],
                     ],
@@ -285,7 +314,7 @@ final class EcommerceDetailSectionPlanner
                 'system_prompt' => 'You are a senior ecommerce visual design strategist. Return one compact JSON object only.',
                 'reference_images' => $references,
                 'response_format' => ['type' => 'json_object'],
-                'max_tokens' => 6000,
+                'max_tokens' => 2400,
                 'source_app_code' => 'aigc_canvas',
                 'source_type' => 'ecommerce_design_analysis',
             ]);
@@ -326,17 +355,24 @@ final class EcommerceDetailSectionPlanner
 
     private static function fallbackSections(int $count, array $slots, string $content): array
     {
-        $names = ['品牌KV主视觉', '核心卖点', '痛点对比', '产地与信任', '工艺与材质', '核心体验', '差异化优势', '产品细节', '使用场景', '品牌背书', '规格参数', '购买引导'];
+        $evidence = array_values(array_filter((array)($slots['creative_context']['evidence_catalog'] ?? []), 'is_array'));
+        if ($evidence === [] && trim((string)($slots['product_info'] ?? $slots['product_name'] ?? '')) === '') {
+            return [];
+        }
         $sections = [];
         for ($index = 0; $index < $count; $index++) {
-            $title = $names[$index] ?? '详情区块' . ($index + 1);
+            $fact = (array)($evidence[$index % max(1, count($evidence))] ?? []);
+            $observation = trim((string)($fact['observation'] ?? ''));
+            $title = $observation !== '' ? mb_substr($observation, 0, 42, 'UTF-8') : 'Product story ' . ($index + 1);
             $sections[] = [
                 'section_index' => $index + 1,
                 'section_key' => 'section_' . str_pad((string)($index + 1), 2, '0', STR_PAD_LEFT),
                 'title' => $title,
+                'purpose' => $observation !== '' ? 'Present a visible product observation without extending it into an unsupported claim.' : 'Introduce the product through a conservative visual narrative.',
+                'narrative' => $observation,
+                'evidence_ids' => !empty($fact['fact_id']) ? [(string)$fact['fact_id']] : [],
                 'copy_content' => [],
-                'image_prompt' => self::fallbackPrompt($title, $slots, $content),
-                'ratio' => self::fallbackRatio($index, $title, (string)($slots['ratio'] ?? '')),
+                'ratio' => self::fallbackRatio($index, '', (string)($slots['ratio'] ?? '')),
             ];
         }
         return self::normalizeSections($sections);
@@ -380,29 +416,12 @@ final class EcommerceDetailSectionPlanner
         return in_array($ratio, self::ALLOWED_RATIOS, true) ? $ratio : self::DEFAULT_RATIO;
     }
 
-    private static function fallbackPrompt(string $title, array $slots, string $content): string
-    {
-        $product = trim((string)($slots['product_name'] ?? $slots['product_info'] ?? ''));
-        if ($product === '' && preg_match('/《([^》]+)》/u', $content, $match)) {
-            $product = trim((string)$match[1]);
-        }
-        $product = $product !== '' ? mb_substr($product, 0, 100, 'UTF-8') : '商品';
-        $style = trim((string)($slots['style'] ?? '高端、真实、商业摄影'));
-        return "{$product}，{$title}，{$style}，商品主体准确，构图完整，适合电商详情页纵向视觉";
-    }
-
-    private static function sanitizeImagePrompt(string $prompt): string
+    private static function sanitizeNarrative(string $prompt): string
     {
         $prompt = preg_replace('/\[@(?:image|video|audio):[^\]]+\]/ui', '', $prompt) ?? $prompt;
         $prompt = preg_replace('/https?:\/\/\S+/ui', '', $prompt) ?? $prompt;
         $prompt = preg_replace('/^\s*(?:中文提示词|Prompt)\s*[:：]?\s*/ui', '', $prompt) ?? $prompt;
         return trim($prompt);
-    }
-
-    private static function withSingleFrameConstraint(string $prompt): string
-    {
-        $constraint = '生成单张独立完整画面，仅表现当前主题。禁止多宫格、拼贴、网格、联系表、多页面预览和多个详情页区块合成。';
-        return str_contains($prompt, '禁止多宫格') ? trim($prompt) : trim($prompt . '。' . $constraint);
     }
 
     private static function fallbackAnalysisReply(array $plan): string

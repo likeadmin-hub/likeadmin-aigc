@@ -15,6 +15,7 @@ return [
         'ai:usage_reconcile' => 'app\common\command\AiUsageReconcile',
         // AIGC 异步结果 Worker（宝塔守护进程）
         'ai:task-worker' => 'app\common\command\AiTaskWorker',
+        'canvas:subagent-worker' => 'app\common\command\CanvasSubAgentWorker',
         // AIGC 关联业务结果修复
         'ai:repair-linked-results' => 'app\common\command\AiRepairLinkedResults',
         // 仅恢复因错误本地超时被退款的上游任务

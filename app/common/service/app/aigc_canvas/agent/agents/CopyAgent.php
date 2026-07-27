@@ -6,7 +6,7 @@ use app\common\service\app\aigc_canvas\agent\contracts\AgentInterface;
 use app\common\service\app\aigc_canvas\agent\orchestrator\AgentExecutionContext;
 use app\common\service\app\aigc_canvas\agent\runtime\AgentLlmGateway;
 use app\common\service\app\aigc_canvas\agent\tools\AddElementTool;
-use app\common\service\app\aigc_llm\AigcLlmService;
+use app\common\service\app\aigc_canvas\AigcCanvasService;
 use Exception;
 
 final class CopyAgent implements AgentInterface
@@ -42,31 +42,13 @@ final class CopyAgent implements AgentInterface
             'section_count' => $sectionCount,
             'planner_result' => $context->result('planner'),
         ], [(new AddElementTool())->schema()]);
-        $calls = array_values(array_filter((array)($llm['function_calls'] ?? []), static fn($call) => (string)($call['name'] ?? '') === 'add_element'));
-        if (!empty($calls)) {
-            return ['summary' => '已生成设计文案模块。', 'copy' => [], 'function_calls' => array_slice($calls, 0, 24)];
-        }
+        // Copy remains part of the approved media plan. It must not become
+        // independent canvas text nodes without an explicit user action.
         $copy = $isEcommerce ? self::ecommerceFallbackCopy($context, $sectionCount) : self::fallbackCopy($context->request());
-        $functionCalls = $isEcommerce ? self::ecommerceFallbackCalls($copy) : [[
-            'name' => 'add_element',
-            'arguments' => [
-                'page_id' => 'page_1',
-                'element' => [
-                    'id' => 'design_brief',
-                    'type' => 'text',
-                    'x' => 80,
-                    'y' => 220,
-                    'width' => 620,
-                    'height' => 420,
-                    'content' => implode("\n\n", $copy),
-                    'style' => ['fontSize' => 16, 'lineHeight' => 1.8],
-                ],
-            ],
-        ]];
         return [
             'summary' => '已生成设计文案模块。',
             'copy' => $copy,
-            'function_calls' => $functionCalls,
+            'function_calls' => [],
         ];
     }
 
@@ -147,7 +129,7 @@ final class CopyAgent implements AgentInterface
             return self::fallbackCopy($context->request());
         }
         try {
-            $result = AigcLlmService::generateText($context->tenantId(), $context->userId(), [
+            $result = AigcCanvasService::llmText($context->tenantId(), $context->userId(), [
                 'content' => json_encode([
                     'task' => 'write_design_copy',
                     'language' => 'Simplified Chinese',

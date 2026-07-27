@@ -28,6 +28,14 @@
         "component": "apps/aigc_canvas/skill"
       },
       {
+        "source_menu_key": "aigc_canvas_governance",
+        "type": "C",
+        "name": "Agent 治理",
+        "perms": "app.aigc_canvas.governance/policies",
+        "paths": "governance",
+        "component": "apps/aigc_canvas/governance"
+      },
+      {
         "source_menu_key": "aigc_canvas_stat",
         "type": "C",
         "name": "用量统计",
@@ -44,12 +52,12 @@
         "component": "apps/aigc_canvas/run"
       },
       {
-        "source_menu_key": "aigc_canvas_dependency",
+        "source_menu_key": "aigc_canvas_trace",
         "type": "C",
-        "name": "依赖状态",
-        "perms": "app.aigc_canvas.config/dependencies",
-        "paths": "dependencies",
-        "component": "apps/aigc_canvas/dependencies"
+        "name": "Agent Trace",
+        "perms": "app.aigc_canvas.admin_trace/lists",
+        "paths": "trace",
+        "component": "apps/aigc_canvas/trace"
       }
     ]
   }

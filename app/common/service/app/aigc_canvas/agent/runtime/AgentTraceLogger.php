@@ -6,16 +6,22 @@ use think\facade\Db;
 
 final class AgentTraceLogger
 {
-    public static function startRun(int $tenantId, int $userId, int $projectId, int $threadId, string $agentCode, array $input, string $requestId = ''): int
+    public static function startRun(int $tenantId, int $userId, int $projectId, int $threadId, string $agentCode, array $input, string $requestId = '', int $parentRunId = 0, string $subAgentCode = '', int $depth = 0, int $sequence = 0, array $handoff = []): int
     {
         $requestId = mb_substr(trim($requestId), 0, 96, 'UTF-8');
         if ($requestId !== '') {
-            $existing = Db::name('aigc_canvas_agent_run')->where([
+            $where = [
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
                 'request_id' => $requestId,
                 'delete_time' => 0,
-            ])->find();
+            ];
+            // Root runs are idempotent per user request. Child runs are
+            // idempotent only inside their parent so every sub-Agent stays visible.
+            if ($parentRunId > 0) {
+                $where['parent_run_id'] = $parentRunId;
+            }
+            $existing = Db::name('aigc_canvas_agent_run')->where($where)->find();
             if (!empty($existing)) {
                 return (int)$existing['id'];
             }
@@ -26,6 +32,11 @@ final class AgentTraceLogger
             'project_id' => $projectId,
             'thread_id' => $threadId,
             'request_id' => $requestId,
+            'parent_run_id' => $parentRunId,
+            'sub_agent_code' => $subAgentCode,
+            'depth' => $depth,
+            'sequence' => $sequence,
+            'handoff_json' => json_encode($handoff, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'agent_code' => $agentCode,
             'status' => 'running',
             'input_json' => json_encode($input, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
@@ -77,6 +88,50 @@ final class AgentTraceLogger
         Db::name('aigc_canvas_agent_run')->where('id', $runId)->update([
             'status' => 'failed',
             'error' => mb_substr($error, 0, 2000, 'UTF-8'),
+            'update_time' => time(),
+        ]);
+    }
+
+    public static function queueRun(int $runId, array $handoff = []): void
+    {
+        if ($runId <= 0) {
+            return;
+        }
+        Db::name('aigc_canvas_agent_run')->where('id', $runId)->update([
+            'status' => 'pending',
+            'handoff_json' => json_encode($handoff, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'update_time' => time(),
+        ]);
+    }
+
+    public static function markRunning(int $runId): void
+    {
+        if ($runId > 0) {
+            Db::name('aigc_canvas_agent_run')->where('id', $runId)->update([
+                'status' => 'running',
+                'update_time' => time(),
+            ]);
+        }
+    }
+
+    public static function setHandoff(int $runId, array $handoff): void
+    {
+        if ($runId > 0) {
+            Db::name('aigc_canvas_agent_run')->where('id', $runId)->update([
+                'handoff_json' => json_encode($handoff, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'update_time' => time(),
+            ]);
+        }
+    }
+
+    public static function cancelRun(int $runId, array $output = []): void
+    {
+        if ($runId <= 0) {
+            return;
+        }
+        Db::name('aigc_canvas_agent_run')->where('id', $runId)->update([
+            'status' => 'canceled',
+            'output_json' => json_encode($output, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'update_time' => time(),
         ]);
     }

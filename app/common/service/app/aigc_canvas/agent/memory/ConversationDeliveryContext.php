@@ -67,8 +67,9 @@ final class ConversationDeliveryContext
                 'remaining_count' => (int)($active['remaining_count'] ?? 0),
             ] : [],
             'selected_canvas_elements' => array_values((array)($requestContext['selected_elements'] ?? [])),
+            'canvas_snapshot' => CanvasSnapshotBuilder::compact($requestContext),
             'uploaded_references' => array_values((array)($requestContext['uploaded_references'] ?? [])),
-            'project_memory' => ProjectMemoryService::load($tenantId, $projectId),
+            'project_memory' => ProjectMemoryService::load($tenantId, $userId, $projectId),
         ];
     }
 
@@ -109,7 +110,7 @@ final class ConversationDeliveryContext
                 'section_index' => (int)($task['section_index'] ?? $section['section_index'] ?? 0),
                 'section_key' => $key,
                 'title' => (string)($task['title'] ?? $section['title'] ?? ''),
-                'prompt' => (string)($section['image_prompt'] ?? $input['prompt'] ?? ''),
+                'creative_intent' => (string)($section['purpose'] ?? $section['narrative'] ?? $input['prompt'] ?? ''),
                 'copy_content' => is_array($section['copy_content'] ?? null) ? $section['copy_content'] : [],
                 'url' => $url,
                 'node_id' => $nodeId,
@@ -141,8 +142,9 @@ final class ConversationDeliveryContext
             'last_delivery' => [],
             'unfinished_work' => [],
             'selected_canvas_elements' => array_values((array)($requestContext['selected_elements'] ?? [])),
+            'canvas_snapshot' => CanvasSnapshotBuilder::compact($requestContext),
             'uploaded_references' => array_values((array)($requestContext['uploaded_references'] ?? [])),
-            'project_memory' => ProjectMemoryService::load($tenantId, $projectId),
+            'project_memory' => ProjectMemoryService::load($tenantId, $userId, $projectId),
         ];
     }
 }

@@ -238,10 +238,6 @@ class PowerMarketService
                 if ($appCode === '') {
                     continue;
                 }
-                $metadata = [
-                    'app_name' => trim((string)($app['name'] ?? $app['title'] ?? $appCode)),
-                    'app_description' => trim((string)($app['description'] ?? $app['remark'] ?? '')),
-                ];
                 foreach ((array)($app['apis'] ?? []) as $api) {
                     if (!is_array($api)) {
                         continue;
@@ -256,7 +252,9 @@ class PowerMarketService
                         'app_code' => $appCode,
                         'api_code' => $apiCode,
                         'market_scope' => self::TYPE_APP_API,
-                        'market_metadata' => $metadata,
+                        // The app catalogue declares capabilities per API. Persist
+                        // that contract so every client uses supplier-backed data.
+                        'market_metadata' => self::appApiMetadata($app, $api),
                     ];
                 }
             }
@@ -389,6 +387,44 @@ class PowerMarketService
         $summary['failed_pricing_batches'] = $failedPricingBatches;
         $summary['partial_success'] = $failedPricingBatches !== [] || $typeErrors !== [];
         return $summary;
+    }
+
+    /**
+     * Store app/API capability data verbatim. Missing ratio or duration data
+     * remains missing: the market must never invent configurable parameters.
+     */
+    private static function appApiMetadata(array $app, array $api): array
+    {
+        $capabilities = array_merge(
+            self::arrayValue($app['capabilities'] ?? []),
+            self::arrayValue($api['capabilities'] ?? [])
+        );
+        $metadata = [
+            'app_name' => trim((string)($app['name'] ?? $app['title'] ?? $app['code'] ?? '')),
+            'app_description' => trim((string)($app['description'] ?? $app['remark'] ?? '')),
+            'api_name' => trim((string)($api['name'] ?? $api['title'] ?? $api['code'] ?? '')),
+            'api_code' => trim((string)($api['code'] ?? '')),
+            'call_type' => (int)($api['call_type'] ?? 0),
+            'method' => strtoupper(trim((string)($api['method'] ?? ''))),
+            'params_schema' => self::arrayValue($api['params_schema'] ?? []),
+            'capabilities' => $capabilities,
+            'upstream_app_metadata' => $app,
+            'upstream_api_metadata' => $api,
+        ];
+        foreach ([
+            'supported_ratios', 'ratio_options', 'ratios', 'aspect_ratio',
+            'supported_durations', 'duration_options', 'durations',
+            'supported_asset_types', 'generation_modes',
+            'supports_first_last_frame', 'supports_reference_images',
+            'supports_vision', 'supports_reasoning',
+            'max_reference_images', 'max_reference_audios', 'max_reference_videos',
+            'max_reference_assets',
+        ] as $field) {
+            if (array_key_exists($field, $api)) {
+                $metadata[$field] = $api[$field];
+            }
+        }
+        return $metadata;
     }
 
     /**
@@ -610,8 +646,13 @@ class PowerMarketService
     {
         $snapshot = self::arrayValue($product['source_payload'] ?? []);
         $metadata = self::arrayValue($snapshot['market_metadata'] ?? []);
+        // The app catalogue snapshot contains every endpoint under `apis`.
+        // It is useful for audit, but must not participate in capability
+        // resolution for one product/API or limits leak between endpoints.
+        $metadataForCapability = $metadata;
+        unset($metadataForCapability['upstream_app_metadata']);
         $sources = [
-            $metadata,
+            $metadataForCapability,
             self::arrayValue($metadata['upstream_metadata'] ?? []),
             self::arrayValue($snapshot['resource'] ?? []),
             self::arrayValue($snapshot['raw'] ?? []),
@@ -630,7 +671,7 @@ class PowerMarketService
 
         $modalities = self::stringValues($sources, [
             'input_modalities', 'modalities', 'supported_input_modalities', 'supported_asset_types', 'inputs',
-            'capabilities', 'features', 'supported_features',
+            'features', 'supported_features',
         ]);
         $vision = self::boolValue($sources, [
             'supports_vision', 'vision', 'supports_image_input', 'image_input', 'multimodal',

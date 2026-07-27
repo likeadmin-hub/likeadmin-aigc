@@ -3,12 +3,15 @@
 namespace app\common\service\app\aigc_canvas\agent\agents;
 
 use app\common\service\app\aigc_canvas\agent\contracts\AgentInterface;
+use app\common\service\app\aigc_canvas\agent\memory\CanvasSnapshotBuilder;
 use app\common\service\app\aigc_canvas\agent\orchestrator\AgentExecutionContext;
 use app\common\service\app\aigc_canvas\agent\planning\EcommerceDetailSectionPlanner;
 use app\common\service\app\aigc_canvas\agent\runtime\AgentLlmGateway;
 use app\common\service\app\aigc_canvas\agent\tools\AddElementTool;
+use app\common\service\app\aigc_canvas\agent\tools\CanvasCapabilityTool;
 use app\common\service\app\aigc_canvas\agent\tools\GenerateImageTool;
 use app\common\service\app\aigc_canvas\agent\tools\GenerateVideoTool;
+use app\common\service\app\aigc_canvas\agent\contracts\CanvasProtocol;
 
 final class VisualAgent implements AgentInterface
 {
@@ -32,18 +35,28 @@ final class VisualAgent implements AgentInterface
                 'function_calls' => $calls,
             ];
         }
-        $tools = [(new AddElementTool())->schema(), (new GenerateImageTool())->schema(), (new GenerateVideoTool())->schema()];
+        $tools = [
+            (new AddElementTool())->schema(),
+            (new GenerateImageTool())->schema(),
+            (new GenerateVideoTool())->schema(),
+            (new CanvasCapabilityTool(CanvasProtocol::TOOL_QUERY))->schema(),
+            (new CanvasCapabilityTool(CanvasProtocol::TOOL_MUTATION))->schema(),
+            (new CanvasCapabilityTool(CanvasProtocol::TOOL_SELECTION_ACTION))->schema(),
+        ];
         $llm = AgentLlmGateway::call($context, $this->code(), implode("\n", [
             'You are Visual Agent for an infinite design canvas.',
             'Use add_element for editable media placeholders and generate_image/generate_video for explicit media deliverables.',
             'Each media tool call must target one placeholder with target_element_id.',
             'Never create more media tasks than requested.',
+            'Use canvas_query before resolving a referenced canvas object when selection is not enough.',
+            'Use canvas_mutation or selection_action only for a proposed editor operation; destructive changes require confirmation.',
         ]), [
             'task' => 'create_visual_plan_and_tool_calls',
             'user_request' => $context->request(),
             'route' => $route,
             'section_count' => $sectionCount,
             'copy_result' => $context->result('copy'),
+            'canvas_context' => CanvasSnapshotBuilder::compact($context->context()),
             'media_config' => [
                 'image' => $context->toolOptions('generate_image'),
                 'video' => $context->toolOptions('generate_video'),
@@ -57,7 +70,10 @@ final class VisualAgent implements AgentInterface
             }
             return ['summary' => "已规划 {$sectionCount} 个详情页视觉区块。", 'visual_prompt' => '', 'function_calls' => $calls];
         }
-        $calls = array_values(array_filter($calls, static fn($call) => in_array((string)($call['name'] ?? ''), ['add_element', 'generate_image', 'generate_video'], true)));
+        $calls = array_values(array_filter($calls, static fn($call) => in_array((string)($call['name'] ?? ''), [
+            'add_element', 'generate_image', 'generate_video',
+            CanvasProtocol::TOOL_QUERY, CanvasProtocol::TOOL_MUTATION, CanvasProtocol::TOOL_SELECTION_ACTION,
+        ], true)));
         if (!empty($calls)) {
             return ['summary' => '已完成主视觉规划。', 'visual_prompt' => '', 'function_calls' => array_slice($calls, 0, 24)];
         }
@@ -142,7 +158,10 @@ final class VisualAgent implements AgentInterface
             $row = intdiv($index, 4);
             $sectionKey = (string)($section['section_key'] ?? 'section_' . ($index + 1));
             $title = (string)($section['title'] ?? '详情区块' . ($index + 1));
-            $prompt = trim((string)($section['image_prompt'] ?? ''));
+            // The placeholder only needs a human-readable label. The generation tool
+            // passes this structured section to PromptSubmissionService, the sole
+            // component permitted to compile a provider prompt.
+            $prompt = trim((string)($section['purpose'] ?? $section['title'] ?? '详情页视觉区块'));
             $calls[] = [
                 'name' => 'add_element',
                 'arguments' => [
@@ -178,11 +197,14 @@ final class VisualAgent implements AgentInterface
             $calls[] = [
                 'name' => 'generate_image',
                 'arguments' => [
-                    'prompt' => $prompt,
+                    'prompt' => (string)($section['user_request'] ?? $context->request()),
                     'quantity' => 1,
                     'ratio' => (string)($section['ratio'] ?? '') ?: $ratio,
                     'target_element_id' => $elementId,
                     'section_key' => $sectionKey,
+                    'prompt_mode' => 'planned',
+                    'delivery' => $section,
+                    'creative_context' => (array)($context->context()['creative_context'] ?? []),
                 ],
             ];
         }
