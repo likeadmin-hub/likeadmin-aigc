@@ -2021,7 +2021,8 @@ class AigcCanvasService
         return [
             'x' => (float)($value['x'] ?? 100),
             'y' => (float)($value['y'] ?? 50),
-            'zoom' => (float)($value['zoom'] ?? 0.82),
+            // PC canvas uses `k`; accept it so older clients do not silently reset zoom.
+            'zoom' => (float)($value['zoom'] ?? $value['k'] ?? 0.82),
         ];
     }
 
