@@ -551,14 +551,22 @@ class AigcCanvasAgentRuntimeService
             return $payload;
         } catch (Exception $e) {
             AgentTurnTraceService::fail($legacyTurnId, 0, $e->getMessage());
+            $failure = self::failureResult($e->getMessage());
+            $response = AgentResponseProtocol::fromResult($failure);
             $assistant->save([
-                'content' => $e->getMessage(),
-                'content_json' => array_merge(['skill_code' => $skillCode, 'error' => $e->getMessage()], $skillMeta),
+                'content' => $failure['reply'],
+                'content_json' => array_merge([
+                    'skill_code' => $skillCode,
+                    'error' => $e->getMessage(),
+                    'response' => $response,
+                    'response_kind' => (string)$response['response_kind'],
+                ], $skillMeta),
                 'status' => 'failed',
                 'error' => $e->getMessage(),
                 'update_time' => time(),
             ]);
-            self::emit($emit, 'agent.error', ['message' => $e->getMessage(), 'message_id' => (int)$assistant['id']]);
+            self::emit($emit, 'agent.response', $response + ['thread_id' => $threadId, 'message_id' => (int)$assistant['id']]);
+            self::emit($emit, 'agent.error', ['message' => $failure['reply'], 'message_id' => (int)$assistant['id']]);
             AgentTraceLogger::failRun($runId, $e->getMessage());
             throw $e;
         }
@@ -816,13 +824,9 @@ class AigcCanvasAgentRuntimeService
             self::emit($emit, 'agent.message.done', $payload);
             return $payload;
         } catch (Exception $e) {
-            $userFacingError = '本次处理未完成，请稍后重试或调整描述。';
-            $response = AgentResponseProtocol::fromResult([
-                'next_action' => 'error',
-                'status' => 'failed',
-                'reply' => $userFacingError,
-                'error' => $e->getMessage(),
-            ]);
+            $failure = self::failureResult($e->getMessage());
+            $userFacingError = $failure['reply'];
+            $response = AgentResponseProtocol::fromResult($failure);
             $assistant->save([
                 'content' => $userFacingError,
                 'content_json' => [
@@ -1487,6 +1491,17 @@ class AigcCanvasAgentRuntimeService
                 'missing_slots' => $missingSlots,
                 'slot_state' => $slotState,
             ],
+        ];
+    }
+
+    /** Keeps provider diagnostics in server logs while returning a retryable user-facing error. */
+    private static function failureResult(string $diagnostic): array
+    {
+        return [
+            'next_action' => 'error',
+            'status' => 'failed',
+            'reply' => '本次处理未完成，请稍后重试或调整描述。',
+            'error' => $diagnostic,
         ];
     }
 
