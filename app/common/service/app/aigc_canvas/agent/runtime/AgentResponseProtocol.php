@@ -90,7 +90,7 @@ final class AgentResponseProtocol
         }
         if (self::isError($nextAction, $result)) return self::ERROR;
         if (self::isOutOfScope($nextAction, $result)) return self::OUT_OF_SCOPE;
-        if ($nextAction === 'clarify') return self::CLARIFY;
+        if ($nextAction === 'clarify' || self::hasMissingRequiredSlots($result)) return self::CLARIFY;
         if (in_array($nextAction, ['confirm_initial_batch', 'confirm_execution', 'confirm_plan'], true) || !empty($result['planned_sections'])) return self::PLAN_REVIEW;
         if (in_array($nextAction, ['generation_submitted', 'execute_tool', 'execute_revision', 'subagents_pending'], true) || !empty($result['tool_calls']) || !empty($result['workspace_actions'])) return self::EXECUTION_STATUS;
         return $creativeSummary !== [] ? self::EVIDENCE_REVIEW : self::FINAL;
@@ -108,6 +108,14 @@ final class AgentResponseProtocol
         return in_array($nextAction, ['out_of_scope', 'unsupported', 'not_supported'], true)
             || in_array((string)($result['task_decision']['status'] ?? ''), ['out_of_scope', 'unsupported', 'not_supported'], true)
             || !empty($result['out_of_scope']);
+    }
+
+    private static function hasMissingRequiredSlots(array $result): bool
+    {
+        $missingSlots = $result['task_decision']['missing_hard_slots']
+            ?? $result['selected_skill']['missing_slots']
+            ?? [];
+        return is_array($missingSlots) && $missingSlots !== [];
     }
 
     private static function content(string $kind, array $result, array $batch, array $creativeSummary): array

@@ -1471,12 +1471,22 @@ class AigcCanvasAgentRuntimeService
 
     private static function clarificationResult(array $route): array
     {
+        $missingSlots = is_array($route['missing_slots'] ?? null) ? $route['missing_slots'] : [];
+        $slotState = is_array($route['slot_state'] ?? null) ? $route['slot_state'] : [];
         return [
             'reply' => (string)($route['clarify_question'] ?? '请补充必要信息后我再继续。'),
             'tool_calls' => [],
             'workspace_actions' => [],
             'assets' => [],
             'next_action' => 'clarify',
+            // Keep the route decision with the reply so the durable response can render fields.
+            'task_decision' => [
+                'missing_hard_slots' => $missingSlots,
+            ],
+            'selected_skill' => [
+                'missing_slots' => $missingSlots,
+                'slot_state' => $slotState,
+            ],
         ];
     }
 

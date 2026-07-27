@@ -6,6 +6,7 @@ $root = dirname(__DIR__, 4);
 require $root . '/vendor/autoload.php';
 
 use app\common\service\app\aigc_canvas\agent\runtime\AgentResponseProtocol;
+use app\common\service\app\aigc_canvas\AigcCanvasAgentRuntimeService;
 
 $failures = [];
 
@@ -41,6 +42,27 @@ $assertV2($clarify, 'clarify');
 $assert(($clarify['kind'] ?? '') === 'clarify', 'clarify kind is incorrect');
 $assert(($clarify['blocks'][1]['type'] ?? '') === 'fields', 'clarify has no fields block');
 $assert(($clarify['blocks'][1]['items'][0]['label'] ?? '') === '主题/内容', 'clarify field label is not user-facing');
+
+$implicitClarify = AgentResponseProtocol::fromResult([
+    'next_action' => 'chat',
+    'reply' => '你想生成什么主体或场景？',
+    'task_decision' => ['missing_hard_slots' => ['visual_subject']],
+]);
+$assertV2($implicitClarify, 'implicit clarify');
+$assert(($implicitClarify['kind'] ?? '') === 'clarify', 'missing required slots must render as clarify');
+$assert(($implicitClarify['title'] ?? '') === '请补充创作信息', 'implicit clarify title is incorrect');
+
+$clarificationMethod = new ReflectionMethod(AigcCanvasAgentRuntimeService::class, 'clarificationResult');
+$clarificationMethod->setAccessible(true);
+$runtimeClarify = $clarificationMethod->invoke(null, [
+    'clarify_question' => '你想生成什么主体或场景？',
+    'missing_slots' => ['subject'],
+    'slot_state' => ['subject' => ['status' => 'missing']],
+]);
+$runtimeClarifyResponse = AgentResponseProtocol::fromResult($runtimeClarify);
+$assert(($runtimeClarifyResponse['kind'] ?? '') === 'clarify', 'runtime clarify kind is incorrect');
+$assert(($runtimeClarifyResponse['blocks'][1]['type'] ?? '') === 'fields', 'runtime clarify does not preserve fields');
+$assert(($runtimeClarifyResponse['blocks'][1]['items'][0]['label'] ?? '') === '主题/内容', 'runtime clarify field label is incorrect');
 
 $plan = AgentResponseProtocol::fromResult([
     'next_action' => 'confirm_plan',
