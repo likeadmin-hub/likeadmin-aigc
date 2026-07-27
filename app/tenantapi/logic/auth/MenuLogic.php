@@ -86,11 +86,41 @@ class MenuLogic extends BaseLogic
             'tenant_id' => $tenantId,
             'source_menu_key' => 'core_tenant_package',
         ])->count();
-        $hasDistribution = TenantSystemMenu::where([
+        $hasDistributionRoot = TenantSystemMenu::where([
             'tenant_id' => $tenantId,
             'source_menu_key' => 'core_tenant_distribution',
         ])->count();
-        if ($hasPackage && $hasDistribution) {
+        // A root alone describes the old flat menu. Require all three groups so
+        // logging in upgrades existing tenants through the idempotent sync path.
+        $hasDistributionTree = $hasDistributionRoot && TenantSystemMenu::where([
+            'tenant_id' => $tenantId,
+            'source_menu_key' => 'core_tenant_distribution_group_config',
+        ])->count() && TenantSystemMenu::where([
+            'tenant_id' => $tenantId,
+            'source_menu_key' => 'core_tenant_distribution_group_promotion',
+        ])->count() && TenantSystemMenu::where([
+            'tenant_id' => $tenantId,
+            'source_menu_key' => 'core_tenant_distribution_group_finance',
+        ])->count();
+        $hasLegacyDistributionDirect = false;
+        if ($hasDistributionRoot) {
+            $distributionId = (int)TenantSystemMenu::where([
+                'tenant_id' => $tenantId,
+                'source_menu_key' => 'core_tenant_distribution',
+            ])->value('id');
+            if ($distributionId > 0) {
+                $hasLegacyDistributionDirect = TenantSystemMenu::where('tenant_id', $tenantId)
+                    ->where('pid', $distributionId)
+                    ->where('source', '<>', 'tenant')
+                    ->whereNotIn('source_menu_key', [
+                        'core_tenant_distribution_group_config',
+                        'core_tenant_distribution_group_promotion',
+                        'core_tenant_distribution_group_finance',
+                    ])
+                    ->count() > 0;
+            }
+        }
+        if ($hasPackage && $hasDistributionTree && !$hasLegacyDistributionDirect) {
             return;
         }
 
