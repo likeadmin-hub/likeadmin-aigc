@@ -53,6 +53,7 @@ class OfficialSiteService
     private static function normalize(array $input): array
     {
         $defaults = self::defaults();
+        $enabled = array_key_exists('enabled', $input) ? (int)!empty($input['enabled']) : 1;
         $basic = array_merge($defaults['basic'], is_array($input['basic'] ?? null) ? $input['basic'] : []);
         $basic = [
             'name' => self::text($basic['name'], 60),
@@ -86,7 +87,7 @@ class OfficialSiteService
         }
         usort($modules, static fn(array $a, array $b) => $b['sort'] <=> $a['sort']);
 
-        return ['basic' => $basic, 'modules' => $modules];
+        return ['enabled' => $enabled, 'basic' => $basic, 'modules' => $modules];
     }
 
     private static function normalizeCards($cards): array

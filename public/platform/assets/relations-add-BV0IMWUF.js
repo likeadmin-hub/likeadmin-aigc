@@ -1,0 +1,1 @@
+import{_ as o}from"./relations-add.vue_vue_type_script_setup_true_lang-Chi5ROAe.js";import"./.pnpm-CdBc3mPM.js";import"./code-C1emTj9F.js";import"./index-ChhhkvCq.js";import"./index-ERv5mTeG.js";import"./useDictOptions-Doe53j87.js";export{o as default};

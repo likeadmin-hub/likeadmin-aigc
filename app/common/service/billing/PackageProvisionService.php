@@ -195,51 +195,7 @@ class PackageProvisionService
         ]);
         self::upsertMenu($table, $tenantId, ['pid' => $orderId, 'type' => 'A', 'name' => '详情', 'perms' => 'finance.membership_order/detail', 'source_menu_key' => 'core_tenant_membership_order_detail']);
 
-        $distributionId = self::upsertMenu($table, $tenantId, [
-            'pid' => 0,
-            'type' => 'M',
-            'name' => '分销管理',
-            'icon' => 'el-icon-Share',
-            'sort' => 640,
-            'paths' => 'distribution',
-            'source_menu_key' => 'core_tenant_distribution',
-        ]);
-        $distributionMenus = [
-            ['name' => '分销概览', 'icon' => 'el-icon-DataAnalysis', 'sort' => 100, 'perms' => 'distribution.distribution/overview', 'paths' => 'overview', 'component' => 'distribution/overview', 'key' => 'overview'],
-            ['name' => '分销设置', 'icon' => 'el-icon-Setting', 'sort' => 90, 'perms' => 'distribution.distribution/config', 'paths' => 'settings', 'component' => 'distribution/settings', 'key' => 'settings'],
-            ['name' => '套餐分销', 'icon' => 'el-icon-Tickets', 'sort' => 80, 'perms' => 'distribution.distribution/packageRules', 'paths' => 'package-rule', 'component' => 'distribution/package_rule', 'key' => 'package_rule'],
-            ['name' => '推广员管理', 'icon' => 'el-icon-User', 'sort' => 70, 'perms' => 'distribution.distribution/promoters', 'paths' => 'promoter', 'component' => 'distribution/promoter', 'key' => 'promoter'],
-            ['name' => '分销关系', 'icon' => 'el-icon-Connection', 'sort' => 60, 'perms' => 'distribution.distribution/relations', 'paths' => 'relation', 'component' => 'distribution/relation', 'key' => 'relation'],
-            ['name' => '分销订单', 'icon' => 'el-icon-Document', 'sort' => 50, 'perms' => 'distribution.distribution/orders', 'paths' => 'order', 'component' => 'distribution/order', 'key' => 'order'],
-            ['name' => '佣金明细', 'icon' => 'el-icon-Coin', 'sort' => 40, 'perms' => 'distribution.distribution/commissions', 'paths' => 'commission', 'component' => 'distribution/commission', 'key' => 'commission'],
-            ['name' => '提现管理', 'icon' => 'el-icon-Wallet', 'sort' => 30, 'perms' => 'distribution.distribution/withdrawals', 'paths' => 'withdrawal', 'component' => 'distribution/withdrawal', 'key' => 'withdrawal'],
-        ];
-        foreach ($distributionMenus as $distributionMenu) {
-            $menuId = self::upsertMenu($table, $tenantId, [
-                'pid' => $distributionId,
-                'type' => 'C',
-                'name' => $distributionMenu['name'],
-                'icon' => $distributionMenu['icon'],
-                'sort' => $distributionMenu['sort'],
-                'perms' => $distributionMenu['perms'],
-                'paths' => $distributionMenu['paths'],
-                'component' => $distributionMenu['component'],
-                'source_menu_key' => 'core_tenant_distribution_' . $distributionMenu['key'],
-            ]);
-            if ($distributionMenu['key'] === 'settings') {
-                self::upsertMenu($table, $tenantId, ['pid' => $menuId, 'type' => 'A', 'name' => '保存', 'perms' => 'distribution.distribution/saveConfig', 'source_menu_key' => 'core_tenant_distribution_save_config']);
-            } elseif ($distributionMenu['key'] === 'package_rule') {
-                self::upsertMenu($table, $tenantId, ['pid' => $menuId, 'type' => 'A', 'name' => '保存规则', 'perms' => 'distribution.distribution/savePackageRule', 'source_menu_key' => 'core_tenant_distribution_save_package_rule']);
-            } elseif ($distributionMenu['key'] === 'relation') {
-                self::upsertMenu($table, $tenantId, ['pid' => $menuId, 'type' => 'A', 'name' => '调整关系', 'perms' => 'distribution.distribution/adjustRelation', 'source_menu_key' => 'core_tenant_distribution_adjust_relation']);
-            } elseif ($distributionMenu['key'] === 'withdrawal') {
-                // The tenant UI calls `review`; keep the historical action alias for API consumers,
-                // but make both routes explicit so they cannot bypass role permission checks.
-                self::upsertMenu($table, $tenantId, ['pid' => $menuId, 'type' => 'A', 'name' => '审核提现', 'perms' => 'distribution.distribution/review', 'source_menu_key' => 'core_tenant_distribution_review']);
-                self::upsertMenu($table, $tenantId, ['pid' => $menuId, 'type' => 'A', 'name' => '审核提现接口', 'perms' => 'distribution.distribution/reviewWithdrawal', 'source_menu_key' => 'core_tenant_distribution_review_withdrawal']);
-                self::upsertMenu($table, $tenantId, ['pid' => $menuId, 'type' => 'A', 'name' => '查看收款资料', 'perms' => 'distribution.distribution/withdrawalDetail', 'source_menu_key' => 'core_tenant_distribution_withdrawal_detail']);
-            }
-        }
+        self::syncDistributionMenus($table, $tenantId);
 
         $brandId = self::upsertMenu($table, $tenantId, [
             'pid' => 0,
@@ -318,6 +274,142 @@ class PackageProvisionService
             'perms' => 'setting.web.official_site/save',
             'source_menu_key' => 'core_tenant_official_site_save',
         ]);
+    }
+
+    /**
+     * Keep the distribution menu tree stable across upgrades. Earlier releases
+     * put all business pages directly below the top-level module; their stable
+     * source keys are reused here so role grants remain attached to the pages.
+     */
+    private static function syncDistributionMenus(string $table, int $tenantId): void
+    {
+        $distributionId = self::upsertMenu($table, $tenantId, [
+            'pid' => 0,
+            'type' => 'M',
+            'name' => '分销管理',
+            'icon' => 'el-icon-Share',
+            'sort' => 640,
+            'paths' => 'distribution',
+            'source_menu_key' => 'core_tenant_distribution',
+        ]);
+
+        $groups = [
+            'config' => ['name' => '配置', 'icon' => 'el-icon-Setting', 'sort' => 100, 'paths' => 'configuration'],
+            'promotion' => ['name' => '推广', 'icon' => 'el-icon-Share', 'sort' => 90, 'paths' => 'promotion'],
+            'finance' => ['name' => '财务', 'icon' => 'el-icon-Wallet', 'sort' => 80, 'paths' => 'finance'],
+        ];
+        $groupIds = [];
+        foreach ($groups as $key => $group) {
+            $groupIds[$key] = self::upsertMenu($table, $tenantId, [
+                'pid' => $distributionId,
+                'type' => 'M',
+                'name' => $group['name'],
+                'icon' => $group['icon'],
+                'sort' => $group['sort'],
+                'paths' => $group['paths'],
+                'source_menu_key' => 'core_tenant_distribution_group_' . $key,
+            ]);
+        }
+
+        $distributionMenus = [
+            ['group' => 'config', 'name' => '分销设置', 'icon' => 'el-icon-Setting', 'sort' => 100, 'perms' => 'distribution.distribution/config', 'paths' => 'settings', 'component' => 'distribution/settings', 'key' => 'settings'],
+            ['group' => 'config', 'name' => '套餐分销', 'icon' => 'el-icon-Tickets', 'sort' => 90, 'perms' => 'distribution.distribution/packageRules', 'paths' => 'package-rule', 'component' => 'distribution/package_rule', 'key' => 'package_rule'],
+            ['group' => 'promotion', 'name' => '分销概览', 'icon' => 'el-icon-DataAnalysis', 'sort' => 100, 'perms' => 'distribution.distribution/overview', 'paths' => 'overview', 'component' => 'distribution/overview', 'key' => 'overview'],
+            ['group' => 'promotion', 'name' => '推广员管理', 'icon' => 'el-icon-User', 'sort' => 90, 'perms' => 'distribution.distribution/promoters', 'paths' => 'promoter', 'component' => 'distribution/promoter', 'key' => 'promoter'],
+            ['group' => 'promotion', 'name' => '分销关系', 'icon' => 'el-icon-Connection', 'sort' => 80, 'perms' => 'distribution.distribution/relations', 'paths' => 'relation', 'component' => 'distribution/relation', 'key' => 'relation'],
+            ['group' => 'finance', 'name' => '分销订单', 'icon' => 'el-icon-Document', 'sort' => 100, 'perms' => 'distribution.distribution/orders', 'paths' => 'order', 'component' => 'distribution/order', 'key' => 'order'],
+            ['group' => 'finance', 'name' => '佣金明细', 'icon' => 'el-icon-Coin', 'sort' => 90, 'perms' => 'distribution.distribution/commissions', 'paths' => 'commission', 'component' => 'distribution/commission', 'key' => 'commission'],
+            ['group' => 'finance', 'name' => '提现管理', 'icon' => 'el-icon-Wallet', 'sort' => 80, 'perms' => 'distribution.distribution/withdrawals', 'paths' => 'withdrawal', 'component' => 'distribution/withdrawal', 'key' => 'withdrawal'],
+        ];
+        $pageIdsByGroup = ['config' => [], 'promotion' => [], 'finance' => []];
+        foreach ($distributionMenus as $distributionMenu) {
+            $menuId = self::upsertMenu($table, $tenantId, [
+                'pid' => $groupIds[$distributionMenu['group']],
+                'type' => 'C',
+                'name' => $distributionMenu['name'],
+                'icon' => $distributionMenu['icon'],
+                'sort' => $distributionMenu['sort'],
+                'perms' => $distributionMenu['perms'],
+                'paths' => $distributionMenu['paths'],
+                'component' => $distributionMenu['component'],
+                'source_menu_key' => 'core_tenant_distribution_' . $distributionMenu['key'],
+            ]);
+            $pageIdsByGroup[$distributionMenu['group']][] = $menuId;
+            if ($distributionMenu['key'] === 'settings') {
+                self::upsertMenu($table, $tenantId, ['pid' => $menuId, 'type' => 'A', 'name' => '保存', 'perms' => 'distribution.distribution/saveConfig', 'source_menu_key' => 'core_tenant_distribution_save_config']);
+            } elseif ($distributionMenu['key'] === 'package_rule') {
+                self::upsertMenu($table, $tenantId, ['pid' => $menuId, 'type' => 'A', 'name' => '保存规则', 'perms' => 'distribution.distribution/savePackageRule', 'source_menu_key' => 'core_tenant_distribution_save_package_rule']);
+            } elseif ($distributionMenu['key'] === 'relation') {
+                self::upsertMenu($table, $tenantId, ['pid' => $menuId, 'type' => 'A', 'name' => '调整关系', 'perms' => 'distribution.distribution/adjustRelation', 'source_menu_key' => 'core_tenant_distribution_adjust_relation']);
+            } elseif ($distributionMenu['key'] === 'withdrawal') {
+                self::upsertMenu($table, $tenantId, ['pid' => $menuId, 'type' => 'A', 'name' => '审核提现', 'perms' => 'distribution.distribution/review', 'source_menu_key' => 'core_tenant_distribution_review']);
+                self::upsertMenu($table, $tenantId, ['pid' => $menuId, 'type' => 'A', 'name' => '审核提现接口', 'perms' => 'distribution.distribution/reviewWithdrawal', 'source_menu_key' => 'core_tenant_distribution_review_withdrawal']);
+                self::upsertMenu($table, $tenantId, ['pid' => $menuId, 'type' => 'A', 'name' => '查看收款资料', 'perms' => 'distribution.distribution/withdrawalDetail', 'source_menu_key' => 'core_tenant_distribution_withdrawal_detail']);
+            }
+        }
+        self::grantDistributionTreeRoles($table, $distributionId, $groupIds, $pageIdsByGroup);
+        self::clearStaleDistributionDirectMenus($table, $tenantId, $distributionId, array_values($groupIds));
+    }
+
+    /** Preserve non-root role visibility after pages are moved under new groups. */
+    private static function grantDistributionTreeRoles(string $menuTable, int $distributionId, array $groupIds, array $pageIdsByGroup): void
+    {
+        $roleTable = str_replace('tenant_system_menu', 'tenant_system_role_menu', $menuTable);
+        if (!self::tableExists($roleTable)) {
+            return;
+        }
+        $roleTargets = [];
+        foreach ($pageIdsByGroup as $group => $pageIds) {
+            if (empty($pageIds)) {
+                continue;
+            }
+            foreach (Db::name($roleTable)->whereIn('menu_id', $pageIds)->column('role_id') as $roleId) {
+                $roleTargets[(int)$roleId][$distributionId] = true;
+                $roleTargets[(int)$roleId][(int)$groupIds[$group]] = true;
+            }
+        }
+        // Roles that already owned the former root retain all new parent groups.
+        foreach (Db::name($roleTable)->where('menu_id', $distributionId)->column('role_id') as $roleId) {
+            $roleTargets[(int)$roleId][$distributionId] = true;
+            foreach ($groupIds as $groupId) {
+                $roleTargets[(int)$roleId][(int)$groupId] = true;
+            }
+        }
+        foreach ($roleTargets as $roleId => $menuIds) {
+            foreach (array_keys($menuIds) as $menuId) {
+                if (Db::name($roleTable)->where(['role_id' => $roleId, 'menu_id' => $menuId])->count() === 0) {
+                    Db::name($roleTable)->insert(['role_id' => $roleId, 'menu_id' => $menuId]);
+                }
+            }
+        }
+    }
+
+    /** Remove legacy core pages still directly hanging from 分销管理, never tenant-owned menus. */
+    private static function clearStaleDistributionDirectMenus(string $table, int $tenantId, int $distributionId, array $groupIds): void
+    {
+        $staleIds = Db::name($table)
+            ->where('tenant_id', $tenantId)
+            ->where('pid', $distributionId)
+            ->where('source', '<>', 'tenant')
+            ->whereNotIn('id', $groupIds)
+            ->column('id');
+        if (empty($staleIds)) {
+            return;
+        }
+        $allIds = $staleIds;
+        $children = $staleIds;
+        while (!empty($children)) {
+            $children = Db::name($table)->where('tenant_id', $tenantId)->whereIn('pid', $children)->column('id');
+            if (empty($children)) {
+                break;
+            }
+            $allIds = array_merge($allIds, $children);
+        }
+        $roleTable = str_replace('tenant_system_menu', 'tenant_system_role_menu', $table);
+        if (self::tableExists($roleTable)) {
+            Db::name($roleTable)->whereIn('menu_id', $allIds)->delete();
+        }
+        Db::name($table)->whereIn('id', $allIds)->delete();
     }
 
     private static function upsertMenu(string $table, int $tenantId, array $menu): int
