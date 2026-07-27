@@ -355,6 +355,9 @@ class PaymentLogic extends BaseLogic
                     if ($order->isEmpty()) {
                         throw new \Exception('贴牌订单不存在');
                     }
+                    if ((int)$order['pay_status'] !== PayEnum::ISPAID && ((int)$order['reserve_status'] !== TenantBrandService::RESERVE_ACTIVE || (int)$order['reserve_expire_time'] <= time())) {
+                        throw new \Exception('贴牌订单已过期，请重新创建订单');
+                    }
                     $order['sn'] = $order['order_sn'];
                     break;
             }

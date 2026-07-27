@@ -2919,6 +2919,7 @@ CREATE TABLE IF NOT EXISTS `la_tenant_brand_quota_bucket` (
   `package_id` int unsigned NOT NULL DEFAULT 0,
   `total_quota` int unsigned NOT NULL DEFAULT 0,
   `remaining_quota` int unsigned NOT NULL DEFAULT 0,
+  `reserved_quota` int unsigned NOT NULL DEFAULT 0 COMMENT '已预占额度',
   `used_quota` int unsigned NOT NULL DEFAULT 0,
   `create_time` int unsigned NOT NULL DEFAULT 0,
   `update_time` int unsigned NOT NULL DEFAULT 0,
@@ -2979,6 +2980,9 @@ CREATE TABLE IF NOT EXISTS `la_tenant_brand_order` (
   `open_status` tinyint unsigned NOT NULL DEFAULT 0,
   `open_time` int unsigned NOT NULL DEFAULT 0,
   `open_error` varchar(500) NOT NULL DEFAULT '' COMMENT '开通失败原因',
+  `reserve_status` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '0无 1预占 2已消耗 3已释放 4已过期',
+  `reserve_time` int unsigned NOT NULL DEFAULT 0,
+  `reserve_expire_time` int unsigned NOT NULL DEFAULT 0,
   `refund_status` tinyint unsigned NOT NULL DEFAULT 0,
   `create_time` int unsigned NOT NULL DEFAULT 0,
   `update_time` int unsigned NOT NULL DEFAULT 0,
@@ -2986,6 +2990,7 @@ CREATE TABLE IF NOT EXISTS `la_tenant_brand_order` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_order_sn` (`order_sn`),
   KEY `idx_tenant_pay` (`tenant_id`,`pay_status`),
+  KEY `idx_reserve_expire` (`pay_status`,`reserve_status`,`reserve_expire_time`),
   KEY `idx_child_tenant` (`child_tenant_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='终端用户购买贴牌租户订单';
 
@@ -8118,6 +8123,22 @@ INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sor
 SELECT 0,@install_tenant_task_log_id,'C','消耗日志','el-icon-DataAnalysis',90,'ai_consumption/lists','consumption','power_mall/consumption','','',0,1,0,'','core','core_ai_consumption_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 WHERE @install_tenant_task_log_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_consumption_tenant');
 UPDATE `la_tenant_system_menu` SET `pid`=@install_tenant_task_log_id,`name`='消耗日志',`perms`='ai_consumption/lists',`paths`='consumption',`component`='power_mall/consumption' WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_consumption_tenant';
+
+-- PC 官方网站模块：固定内容结构，供新租户初始化时复制。
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT 0,0,'M','官方网站','el-icon-Monitor',110,'','official-site','','','',0,1,0,'','core','core_tenant_official_site',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='core_tenant_official_site');
+SET @install_official_site_id := (SELECT `id` FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='core_tenant_official_site' LIMIT 1);
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT 0,@install_official_site_id,'C','官网配置','',100,'setting.web.official_site/get','official-site','official_website/index','','',0,1,0,'','core','core_tenant_official_site_config',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE @install_official_site_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='core_tenant_official_site_config');
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT 0,m.id,'A','保存','',0,'setting.web.official_site/save','','','','',0,0,0,'','core','core_tenant_official_site_save',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_tenant_system_menu` m WHERE m.tenant_id=0 AND m.source_menu_key='core_tenant_official_site_config'
+AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='core_tenant_official_site_save');
+INSERT INTO `la_dev_crontab` (`name`,`type`,`system`,`remark`,`command`,`params`,`status`,`expression`,`error`,`last_time`,`time`,`max_time`,`create_time`,`update_time`,`delete_time`)
+SELECT '贴牌订单超时释放',1,1,'每分钟释放30分钟未支付订单的贴牌额度','tenant:expire_brand_orders','',1,'* * * * *',NULL,NULL,'0','0',UNIX_TIMESTAMP(),UNIX_TIMESTAMP(),NULL
+WHERE NOT EXISTS (SELECT 1 FROM `la_dev_crontab` WHERE `command`='tenant:expire_brand_orders');
 
 -- Installation completeness repair: app API declarations and tenant menu templates.
 INSERT INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`)

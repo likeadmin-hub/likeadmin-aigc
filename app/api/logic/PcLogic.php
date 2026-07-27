@@ -27,6 +27,7 @@ use app\common\service\decorate\DecorateTemplateService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
 use app\common\service\PointUnitService;
+use app\common\service\OfficialSiteService;
 use app\common\service\WebsiteBannerService;
 use app\tenantapi\logic\setting\CustomerServiceLogic;
 
@@ -225,6 +226,7 @@ class PcLogic extends BaseLogic
                 'faqs' => $pcHelpFaqs,
             ],
             'app_display_configs' => AppDisplayConfigService::map((int)request()->tenantId, self::appDisplayConfigCodes()),
+            'official_site' => OfficialSiteService::public(),
             'siteStatistics' => $siteStatistics,
             'version' => config('project.version'),
             'copyright' => $copyright,

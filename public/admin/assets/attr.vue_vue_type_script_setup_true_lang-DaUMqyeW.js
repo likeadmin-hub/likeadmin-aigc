@@ -1,0 +1,1 @@
+import{g as e,o as t,j as o}from"./.pnpm-DhKwKlZu.js";const r=e({__name:"attr",props:{content:{type:Object,default:()=>({})},styles:{type:Object,default:()=>({})}},setup(n){return(a,c)=>(t(),o("div"))}});export{r as _};
