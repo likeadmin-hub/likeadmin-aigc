@@ -25,13 +25,16 @@ $assertV2 = static function (array $response, string $kind) use ($assert, $requi
 
 $onboarding = AgentResponseProtocol::onboarding([
     'agent_name' => '画布助手',
-    'welcome_text' => '我可以帮助你完成图片和文案创作。',
+    'welcome_text' => "你好，告诉我你想创作什么。\n- 生成图片\n- 整理文案",
     'capabilities' => ['生成图片', '整理文案'],
-    'quick_prompts' => ['创建海报'],
+    'quick_prompts' => ['创建海报', '整理画布', '制作视频', '撰写文案'],
 ]);
 $assertV2($onboarding, 'onboarding');
 $assert(($onboarding['kind'] ?? '') === 'onboarding', 'onboarding kind is incorrect');
-$assert(($onboarding['blocks'][1]['type'] ?? '') === 'bullets', 'onboarding has no capability bullets');
+$assert(($onboarding['title'] ?? '') === '', 'onboarding must begin with a direct reply, not a status heading');
+$assert(count((array)($onboarding['blocks'] ?? [])) === 1, 'onboarding must not auto-list capabilities');
+$assert(($onboarding['blocks'][0]['text'] ?? '') === '你好，告诉我你想创作什么。', 'onboarding must keep only a concise direct welcome');
+$assert(count((array)($onboarding['actions'] ?? [])) === 3, 'onboarding must expose at most three example prompts');
 
 $clarify = AgentResponseProtocol::fromResult([
     'next_action' => 'clarify',
@@ -40,8 +43,10 @@ $clarify = AgentResponseProtocol::fromResult([
 ]);
 $assertV2($clarify, 'clarify');
 $assert(($clarify['kind'] ?? '') === 'clarify', 'clarify kind is incorrect');
-$assert(($clarify['blocks'][1]['type'] ?? '') === 'fields', 'clarify has no fields block');
-$assert(($clarify['blocks'][1]['items'][0]['label'] ?? '') === '主题/内容', 'clarify field label is not user-facing');
+$assert(($clarify['title'] ?? '') === '先确认这几项', 'clarify title is not action-oriented');
+$assert(($clarify['summary'] ?? '') === '', 'clarify must not repeat its next action in a summary');
+$assert(($clarify['blocks'][1]['type'] ?? '') === 'bullets', 'clarify must use a compact list');
+$assert(($clarify['blocks'][1]['items'][0]['label'] ?? '') === '主题/内容', 'clarify label is not user-facing');
 
 $implicitClarify = AgentResponseProtocol::fromResult([
     'next_action' => 'chat',
@@ -50,7 +55,7 @@ $implicitClarify = AgentResponseProtocol::fromResult([
 ]);
 $assertV2($implicitClarify, 'implicit clarify');
 $assert(($implicitClarify['kind'] ?? '') === 'clarify', 'missing required slots must render as clarify');
-$assert(($implicitClarify['title'] ?? '') === '请补充创作信息', 'implicit clarify title is incorrect');
+$assert(($implicitClarify['title'] ?? '') === '先确认这几项', 'implicit clarify title is incorrect');
 
 $clarificationMethod = new ReflectionMethod(AigcCanvasAgentRuntimeService::class, 'clarificationResult');
 $clarificationMethod->setAccessible(true);
@@ -61,8 +66,8 @@ $runtimeClarify = $clarificationMethod->invoke(null, [
 ]);
 $runtimeClarifyResponse = AgentResponseProtocol::fromResult($runtimeClarify);
 $assert(($runtimeClarifyResponse['kind'] ?? '') === 'clarify', 'runtime clarify kind is incorrect');
-$assert(($runtimeClarifyResponse['blocks'][1]['type'] ?? '') === 'fields', 'runtime clarify does not preserve fields');
-$assert(($runtimeClarifyResponse['blocks'][1]['items'][0]['label'] ?? '') === '主题/内容', 'runtime clarify field label is incorrect');
+$assert(($runtimeClarifyResponse['blocks'][1]['type'] ?? '') === 'bullets', 'runtime clarify does not preserve a compact slot list');
+$assert(($runtimeClarifyResponse['blocks'][1]['items'][0]['label'] ?? '') === '主题/内容', 'runtime clarify label is incorrect');
 
 $failureMethod = new ReflectionMethod(AigcCanvasAgentRuntimeService::class, 'failureResult');
 $failureMethod->setAccessible(true);
@@ -80,8 +85,11 @@ $plan = AgentResponseProtocol::fromResult([
 ]);
 $assertV2($plan, 'plan');
 $assert(($plan['kind'] ?? '') === 'plan', 'plan kind is incorrect');
+$assert(($plan['title'] ?? '') === '建议这样做', 'plan title is not decision-oriented');
+$assert(($plan['summary'] ?? '') === '', 'plan must not repeat the confirmation instruction');
 $assert(($plan['blocks'][1]['type'] ?? '') === 'steps', 'plan has no steps block');
 $assert(($plan['actions'][0]['type'] ?? '') === 'confirm_plan', 'plan confirmation action is missing');
+$assert(($plan['actions'][0]['label'] ?? '') === '开始生成', 'plan confirmation action is not user-facing');
 
 $execution = AgentResponseProtocol::fromResult([
     'next_action' => 'subagents_pending',
@@ -92,27 +100,47 @@ $assertV2($execution, 'execution');
 $assert(($execution['kind'] ?? '') === 'execution', 'execution kind is incorrect');
 $assert(($execution['title'] ?? '') === '', 'execution must not show a chat status title');
 $assert(($execution['summary'] ?? '') === '', 'execution must not show a chat status summary');
-$assert(count((array)($execution['blocks'] ?? [])) === 1, 'execution must not render a progress card');
+$assert(count((array)($execution['blocks'] ?? [])) === 0, 'execution must not render status text or a progress card');
 
-$final = AgentResponseProtocol::fromResult(['next_action' => 'chat', 'reply' => '方案已完成。']);
+$final = AgentResponseProtocol::fromResult([
+    'next_action' => 'chat',
+    'title' => '已完成',
+    'reply' => "可以按这个方向继续。\n\n- 保留主视觉\n- 调整文案层级",
+]);
 $assertV2($final, 'final');
 $assert(($final['kind'] ?? '') === 'final', 'final kind is incorrect');
 $assert(($final['title'] ?? '') === '', 'ordinary final responses must not show a generic completion title');
+$assert(($final['blocks'][0]['type'] ?? '') === 'paragraph', 'final does not preserve its opening paragraph');
+$assert(($final['blocks'][1]['type'] ?? '') === 'bullets', 'final does not render Markdown list items as a document list');
 
 $outOfScope = AgentResponseProtocol::fromResult(['next_action' => 'out_of_scope', 'reply' => '当前没有启用该能力。']);
 $assertV2($outOfScope, 'out_of_scope');
 $assert(($outOfScope['kind'] ?? '') === 'out_of_scope', 'out_of_scope kind is incorrect');
-$assert(($outOfScope['blocks'][0]['type'] ?? '') === 'notice', 'out_of_scope has no notice');
+$assert(($outOfScope['title'] ?? '') === '', 'out_of_scope must not show a status heading');
+$assert(($outOfScope['blocks'][0]['type'] ?? '') === 'paragraph', 'out_of_scope must use document flow instead of a card');
 
 $error = AgentResponseProtocol::fromResult(['next_action' => 'error', 'error' => '服务暂时不可用。']);
 $assertV2($error, 'error');
 $assert(($error['kind'] ?? '') === 'error', 'error kind is incorrect');
-$assert(($error['blocks'][0]['type'] ?? '') === 'notice', 'error has no notice');
+$assert(($error['title'] ?? '') === '', 'error must not show a status heading');
+$assert(($error['blocks'][0]['type'] ?? '') === 'paragraph', 'error must use document flow instead of a card');
 $assert(($error['actions'][0]['type'] ?? '') === 'retry', 'error retry action is missing');
 
-foreach ([$onboarding, $clarify, $plan, $execution, $final, $outOfScope, $error] as $response) {
+$evidence = AgentResponseProtocol::fromResult([
+    'next_action' => 'chat',
+    'reply' => '我会围绕这些信息继续创作。',
+    'creative_brief' => ['copy_plan' => ['claims' => ['突出蓝色按钮']]],
+], ['visible_facts' => ['蓝色控制按钮']]);
+$assertV2($evidence, 'evidence');
+$assert(($evidence['kind'] ?? '') === 'final', 'evidence presentation kind is incorrect');
+$assert(($evidence['response_kind'] ?? '') === 'evidence_review', 'evidence response kind is incorrect');
+$assert(($evidence['title'] ?? '') === '', 'evidence must begin with its direct reply');
+$assert(($evidence['blocks'][1]['title'] ?? '') === '已确认', 'evidence facts do not have a concise section label');
+$assert(($evidence['blocks'][2]['title'] ?? '') === '可用于创作', 'evidence claims do not have a concise section label');
+
+foreach ([$onboarding, $clarify, $plan, $execution, $final, $outOfScope, $error, $evidence] as $response) {
     foreach ((array)$response['blocks'] as $block) {
-        $assert(in_array((string)($block['type'] ?? ''), ['paragraph', 'bullets', 'fields', 'steps', 'task_progress', 'notice'], true), 'unknown block type was emitted');
+        $assert(in_array((string)($block['type'] ?? ''), ['paragraph', 'bullets', 'steps'], true), 'unknown or card block type was emitted');
     }
 }
 

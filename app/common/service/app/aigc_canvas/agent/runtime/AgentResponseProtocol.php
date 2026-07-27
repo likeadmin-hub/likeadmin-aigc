@@ -56,7 +56,7 @@ final class AgentResponseProtocol
 
     public static function onboarding(array $payload): array
     {
-        $prompts = array_values(array_filter(array_map('strval', (array)($payload['quick_prompts'] ?? []))));
+        $prompts = array_slice(array_values(array_filter(array_map('strval', (array)($payload['quick_prompts'] ?? [])))), 0, 3);
         $content = [
             'agent_name' => (string)($payload['agent_name'] ?? ''),
             'welcome_text' => (string)($payload['welcome_text'] ?? ''),
@@ -155,7 +155,7 @@ final class AgentResponseProtocol
         if ($kind === self::PLAN_REVIEW) {
             return [[
                 'type' => 'confirm_plan',
-                'label' => 'Confirm generation',
+                'label' => '开始生成',
                 'batch_id' => (int)($result['batch_id'] ?? $batch['id'] ?? 0),
             ]];
         }
@@ -166,30 +166,37 @@ final class AgentResponseProtocol
     private static function presentation(string $kind, array $result, array $batch, array $creativeSummary, array $content, array $quickActions): array
     {
         $message = self::text((string)($content['message'] ?? $result['welcome_text'] ?? $result['error'] ?? ''));
-        $blocks = $message === '' ? [] : [['type' => 'paragraph', 'text' => $message]];
+        $blocks = self::documentBlocks($message);
         $title = self::title($kind, $result, $content);
         $summary = self::summary($message, $kind);
 
         if ($kind === self::ONBOARDING) {
-            $capabilities = self::textList((array)($content['capabilities'] ?? []), 5);
-            if ($capabilities !== []) $blocks[] = ['type' => 'bullets', 'items' => $capabilities];
+            $blocks = self::onboardingBlocks($message);
         } elseif ($kind === self::CLARIFY) {
-            $fields = self::slotFields((array)($content['missing_slots'] ?? []));
-            if ($fields !== []) $blocks[] = ['type' => 'fields', 'items' => $fields];
+            $items = self::slotItems((array)($content['missing_slots'] ?? []));
+            if ($items !== []) $blocks[] = ['type' => 'bullets', 'items' => $items];
         } elseif ($kind === self::EVIDENCE_REVIEW) {
             $facts = self::textList((array)($creativeSummary['visible_facts'] ?? []), 5);
-            if ($facts !== []) $blocks[] = ['type' => 'bullets', 'items' => $facts];
+            if ($blocks === []) $blocks[] = ['type' => 'paragraph', 'text' => '我先按画布中的素材整理了这些可见信息。'];
+            if ($facts !== []) $blocks[] = ['type' => 'bullets', 'title' => '已确认', 'items' => $facts];
+            $claims = self::textList((array)($content['claims'] ?? []), 3);
+            if ($claims !== []) $blocks[] = ['type' => 'bullets', 'title' => '可用于创作', 'items' => $claims];
         } elseif ($kind === self::PLAN_REVIEW) {
             $steps = self::planSteps((array)($content['sections'] ?? []));
-            if ($steps !== []) $blocks[] = ['type' => 'steps', 'items' => $steps];
-            $claims = self::textList((array)($content['claims'] ?? []), 5);
-            if ($claims !== []) $blocks[] = ['type' => 'bullets', 'items' => $claims];
+            if ($steps !== []) $blocks[] = ['type' => 'steps', 'title' => '创作步骤', 'items' => $steps];
+            $claims = self::textList((array)($content['claims'] ?? []), 3);
+            if ($claims !== []) $blocks[] = ['type' => 'bullets', 'title' => '创作重点', 'items' => $claims];
+        } elseif ($kind === self::EXECUTION_STATUS) {
+            // Execution is represented by canvas output, never by a chat status or progress card.
+            $blocks = [];
         } elseif ($kind === self::OUT_OF_SCOPE) {
-            $blocks = [];
-            $blocks[] = ['type' => 'notice', 'tone' => 'info', 'text' => $message !== '' ? $message : '当前请求不在已启用能力范围内。'];
+            $blocks = self::documentBlocks($message !== ''
+                ? $message
+                : '这个请求目前不能直接处理。你可以告诉我想在画布中完成的图片、视频或文案任务。');
         } elseif ($kind === self::ERROR) {
-            $blocks = [];
-            $blocks[] = ['type' => 'notice', 'tone' => 'error', 'text' => $message !== '' ? $message : '本次处理未完成，请调整输入后重试。'];
+            $blocks = self::documentBlocks($message !== ''
+                ? $message
+                : '这次没有处理成功。请稍后重试，或换一种更具体的说法。');
         }
 
         return [
@@ -213,25 +220,19 @@ final class AgentResponseProtocol
     private static function title(string $kind, array $result, array $content): string
     {
         return match ($kind) {
-            self::ONBOARDING => self::text((string)($content['agent_name'] ?? '')) !== '' ? '欢迎使用 ' . self::text((string)$content['agent_name']) : '欢迎使用画布助手',
-            self::CLARIFY => '请补充创作信息',
-            self::EVIDENCE_REVIEW => '创作依据',
-            self::PLAN_REVIEW => '请确认创作方案',
+            self::ONBOARDING => '',
+            self::CLARIFY => '先确认这几项',
+            self::EVIDENCE_REVIEW => '',
+            self::PLAN_REVIEW => '建议这样做',
             self::EXECUTION_STATUS => '',
-            self::OUT_OF_SCOPE => '当前暂不支持该请求',
-            self::ERROR => '本次处理未完成',
-            default => self::text((string)($result['title'] ?? '')),
+            self::OUT_OF_SCOPE, self::ERROR => '',
+            default => self::contentTitle((string)($result['title'] ?? '')),
         };
     }
 
     private static function summary(string $message, string $kind): string
     {
         return match ($kind) {
-            self::CLARIFY => '确认必要信息后即可继续。',
-            self::PLAN_REVIEW => '确认后将开始执行。',
-            self::EXECUTION_STATUS => '',
-            self::OUT_OF_SCOPE => '请改用当前已启用的创作能力。',
-            self::ERROR => '请调整输入后重试。',
             default => '',
         };
     }
@@ -251,18 +252,94 @@ final class AgentResponseProtocol
         return $actions;
     }
 
-    private static function slotFields(array $slots): array
+    /**
+     * Maps provider prose to the small block set rendered by the chat UI.
+     * Markdown is retained in legacy reply, while v2 receives only safe text blocks.
+     */
+    private static function documentBlocks(string $message): array
     {
-        $fields = [];
+        $lines = preg_split('/\R/u', self::text($message)) ?: [];
+        $blocks = [];
+        $paragraph = [];
+        $bullets = [];
+
+        $flushParagraph = static function () use (&$blocks, &$paragraph): void {
+            $text = trim(implode("\n", $paragraph));
+            if ($text !== '') $blocks[] = ['type' => 'paragraph', 'text' => self::limit($text, 1600)];
+            $paragraph = [];
+        };
+        $flushBullets = static function () use (&$blocks, &$bullets): void {
+            if ($bullets !== []) $blocks[] = ['type' => 'bullets', 'items' => array_slice($bullets, 0, 8)];
+            $bullets = [];
+        };
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                $flushParagraph();
+                $flushBullets();
+                continue;
+            }
+            if (preg_match('/^#{1,6}\s+(.+)$/u', $line, $matches)) {
+                $flushParagraph();
+                $flushBullets();
+                $heading = self::limit(self::text($matches[1]), 120);
+                if ($heading !== '') $blocks[] = ['type' => 'paragraph', 'title' => $heading];
+                continue;
+            }
+            if (preg_match('/^(?:[-*+]\s+|\d+[.)]\s+)(.+)$/u', $line, $matches)) {
+                $flushParagraph();
+                $item = self::limit(self::text($matches[1]), 280);
+                if ($item !== '') $bullets[] = $item;
+                continue;
+            }
+            $flushBullets();
+            $paragraph[] = $line;
+        }
+        $flushParagraph();
+        $flushBullets();
+
+        return array_slice($blocks, 0, 8);
+    }
+
+    private static function onboardingBlocks(string $message): array
+    {
+        $message = self::text($message);
+        if ($message === '') {
+            return [['type' => 'paragraph', 'text' => '告诉我想创作什么，或从下方示例开始。']];
+        }
+        $introLines = [];
+        foreach (preg_split('/\R/u', $message) ?: [] as $line) {
+            $line = trim($line);
+            if ($line === '' || preg_match('/^(?:[-*+]\s+|\d+[.)]\s+|#{1,6}\s+)/u', $line)) continue;
+            $introLines[] = $line;
+            if (count($introLines) >= 2) break;
+        }
+        $intro = self::text(implode("\n", $introLines));
+        return $intro === ''
+            ? [['type' => 'paragraph', 'text' => '告诉我想创作什么，或从下方示例开始。']]
+            : [['type' => 'paragraph', 'text' => self::limit($intro, 240)]];
+    }
+
+    private static function contentTitle(string $title): string
+    {
+        $title = self::text($title);
+        return in_array(mb_strtolower($title, 'UTF-8'), ['已完成', '完成', 'complete', 'completed', 'final'], true)
+            ? ''
+            : self::limit($title, 120);
+    }
+
+    private static function slotItems(array $slots): array
+    {
+        $items = [];
         foreach (array_slice(array_values(array_unique(array_filter(array_map('strval', $slots)))), 0, 3) as $slot) {
-            $fields[] = [
-                'key' => self::limit($slot, 80),
+            $items[] = [
                 'label' => self::slotLabel($slot),
-                'hint' => '请补充' . self::slotLabel($slot),
-                'required' => true,
+                'description' => '请补充' . self::slotLabel($slot),
+                'key' => self::limit($slot, 80),
             ];
         }
-        return $fields;
+        return $items;
     }
 
     private static function slotLabel(string $slot): string
@@ -285,22 +362,6 @@ final class AgentResponseProtocol
             $steps[] = ['title' => self::limit($title, 120), 'description' => self::limit(self::text((string)($section['description'] ?? $section['purpose'] ?? '')), 240)];
         }
         return $steps;
-    }
-
-    private static function taskProgress(array $tasks): array
-    {
-        $items = [];
-        foreach (array_slice($tasks, 0, 6) as $task) {
-            if (!is_array($task)) continue;
-            $title = self::text((string)($task['title'] ?? $task['role'] ?? $task['tool_code'] ?? $task['task_key'] ?? ''));
-            if ($title === '') continue;
-            $status = (string)($task['status'] ?? 'pending');
-            $items[] = [
-                'title' => self::limit($title, 120),
-                'status' => in_array($status, ['pending', 'queued', 'running', 'success', 'failed', 'canceled'], true) ? $status : 'pending',
-            ];
-        }
-        return $items;
     }
 
     private static function textList(array $values, int $limit): array
