@@ -223,7 +223,7 @@ final class AgentResponseProtocol
             self::EXECUTION_STATUS => (string)($result['next_action'] ?? '') === 'subagents_pending' ? '协作助手正在处理中' : '正在处理创作任务',
             self::OUT_OF_SCOPE => '当前暂不支持该请求',
             self::ERROR => '本次处理未完成',
-            default => '已完成',
+            default => self::text((string)($result['title'] ?? '')),
         };
     }
 

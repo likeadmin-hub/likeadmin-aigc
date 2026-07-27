@@ -87,6 +87,7 @@ $assert(($execution['blocks'][1]['type'] ?? '') === 'task_progress', 'execution 
 $final = AgentResponseProtocol::fromResult(['next_action' => 'chat', 'reply' => '方案已完成。']);
 $assertV2($final, 'final');
 $assert(($final['kind'] ?? '') === 'final', 'final kind is incorrect');
+$assert(($final['title'] ?? '') === '', 'ordinary final responses must not show a generic completion title');
 
 $outOfScope = AgentResponseProtocol::fromResult(['next_action' => 'out_of_scope', 'reply' => '当前没有启用该能力。']);
 $assertV2($outOfScope, 'out_of_scope');
