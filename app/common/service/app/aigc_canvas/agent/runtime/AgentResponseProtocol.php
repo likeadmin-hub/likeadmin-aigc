@@ -184,9 +184,6 @@ final class AgentResponseProtocol
             if ($steps !== []) $blocks[] = ['type' => 'steps', 'items' => $steps];
             $claims = self::textList((array)($content['claims'] ?? []), 5);
             if ($claims !== []) $blocks[] = ['type' => 'bullets', 'items' => $claims];
-        } elseif ($kind === self::EXECUTION_STATUS) {
-            $tasks = self::taskProgress((array)($content['tasks'] ?? []));
-            if ($tasks !== []) $blocks[] = ['type' => 'task_progress', 'items' => $tasks];
         } elseif ($kind === self::OUT_OF_SCOPE) {
             $blocks = [];
             $blocks[] = ['type' => 'notice', 'tone' => 'info', 'text' => $message !== '' ? $message : '当前请求不在已启用能力范围内。'];
@@ -220,7 +217,7 @@ final class AgentResponseProtocol
             self::CLARIFY => '请补充创作信息',
             self::EVIDENCE_REVIEW => '创作依据',
             self::PLAN_REVIEW => '请确认创作方案',
-            self::EXECUTION_STATUS => (string)($result['next_action'] ?? '') === 'subagents_pending' ? '协作助手正在处理中' : '正在处理创作任务',
+            self::EXECUTION_STATUS => '',
             self::OUT_OF_SCOPE => '当前暂不支持该请求',
             self::ERROR => '本次处理未完成',
             default => self::text((string)($result['title'] ?? '')),
@@ -232,7 +229,7 @@ final class AgentResponseProtocol
         return match ($kind) {
             self::CLARIFY => '确认必要信息后即可继续。',
             self::PLAN_REVIEW => '确认后将开始执行。',
-            self::EXECUTION_STATUS => '任务状态会自动更新。',
+            self::EXECUTION_STATUS => '',
             self::OUT_OF_SCOPE => '请改用当前已启用的创作能力。',
             self::ERROR => '请调整输入后重试。',
             default => '',

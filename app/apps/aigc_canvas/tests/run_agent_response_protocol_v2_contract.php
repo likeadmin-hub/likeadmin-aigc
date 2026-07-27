@@ -90,7 +90,9 @@ $execution = AgentResponseProtocol::fromResult([
 ]);
 $assertV2($execution, 'execution');
 $assert(($execution['kind'] ?? '') === 'execution', 'execution kind is incorrect');
-$assert(($execution['blocks'][1]['type'] ?? '') === 'task_progress', 'execution has no progress block');
+$assert(($execution['title'] ?? '') === '', 'execution must not show a chat status title');
+$assert(($execution['summary'] ?? '') === '', 'execution must not show a chat status summary');
+$assert(count((array)($execution['blocks'] ?? [])) === 1, 'execution must not render a progress card');
 
 $final = AgentResponseProtocol::fromResult(['next_action' => 'chat', 'reply' => '方案已完成。']);
 $assertV2($final, 'final');
