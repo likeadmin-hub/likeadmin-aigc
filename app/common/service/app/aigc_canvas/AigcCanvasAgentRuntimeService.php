@@ -275,9 +275,17 @@ class AigcCanvasAgentRuntimeService
             $content,
             self::normalizeContext($params['canvas_snapshot'] ?? $params['context'] ?? [])
         );
-        if (!empty($uploadedReferences)) {
-            $context['uploaded_references'] = $uploadedReferences;
-            $context['uploaded_reference_count'] = count($uploadedReferences);
+        // A referenced canvas image is as much a generation input as an uploaded
+        // attachment. Normalize both sources before routing so every execution
+        // path, including delivery batches, receives the same reference assets.
+        $selectedReferences = self::normalizeSelectedReferences($context, $tenantId);
+        $references = self::normalizeUploadedReferences([
+            'reference_assets' => array_merge($uploadedReferences, $selectedReferences),
+        ], $tenantId);
+        $uploadedReferences = $references;
+        if (!empty($references)) {
+            $context['uploaded_references'] = $references;
+            $context['uploaded_reference_count'] = count($references);
         }
         $brandMemory = BrandMemoryService::context($tenantId, $userId, $projectId);
         if (!empty($brandMemory)) {

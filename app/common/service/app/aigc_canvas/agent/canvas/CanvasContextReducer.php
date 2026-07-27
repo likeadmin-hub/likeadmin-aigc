@@ -44,8 +44,8 @@ final class CanvasContextReducer
         return [
             'id' => (string)($element['id'] ?? $element['element_id'] ?? ''),
             'type' => (string)($element['type'] ?? $data['type'] ?? ''),
-            'name' => mb_substr((string)($element['name'] ?? $data['name'] ?? $data['title'] ?? ''), 0, 100, 'UTF-8'),
-            'text' => mb_substr((string)($element['text'] ?? $data['text'] ?? $data['content'] ?? ''), 0, 240, 'UTF-8'),
+            'name' => mb_substr((string)($element['name'] ?? $element['title'] ?? $data['name'] ?? $data['title'] ?? ''), 0, 100, 'UTF-8'),
+            'text' => mb_substr((string)($element['text'] ?? $element['content'] ?? $data['text'] ?? $data['content'] ?? ''), 0, 240, 'UTF-8'),
             'x' => (float)($element['x'] ?? $position['x'] ?? $style['x'] ?? 0),
             'y' => (float)($element['y'] ?? $position['y'] ?? $style['y'] ?? 0),
             'width' => (float)($element['width'] ?? $style['width'] ?? 0),
