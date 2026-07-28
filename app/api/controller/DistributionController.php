@@ -40,12 +40,28 @@ class DistributionController extends BaseApiController
             $page = (int)$this->request->get('page_no', $this->request->get('page', 1));
             $size = (int)$this->request->get('page_size', $this->request->get('size', 20));
             $tenantId = (int)$this->request->tenantId;
-            $query = \think\facade\Db::name('distribution_relation')->where('tenant_id', $tenantId);
-            $query->where(function ($query) {
-                $query->where('level1_user_id', $this->userId)->whereOr('level2_user_id', $this->userId)->whereOr('level3_user_id', $this->userId);
-            });
+            $level = (int)$this->request->get('level', 0);
+            $query = \think\facade\Db::name('distribution_relation')->alias('r')
+                ->leftJoin('user u', 'u.id = r.user_id AND u.tenant_id = r.tenant_id')
+                ->where('r.tenant_id', $tenantId)
+                ->field('r.*,u.nickname,u.account,u.mobile,u.avatar,u.create_time as user_create_time');
+            if (in_array($level, [1, 2, 3], true)) {
+                $query->where('r.level' . $level . '_user_id', $this->userId);
+            } else {
+                $query->where(function ($query) {
+                    $query->where('r.level1_user_id', $this->userId)->whereOr('r.level2_user_id', $this->userId)->whereOr('r.level3_user_id', $this->userId);
+                });
+            }
+            $keyword = trim((string)$this->request->get('keyword', ''));
+            if ($keyword !== '') {
+                $query->whereLike('u.nickname|u.account|u.mobile', '%' . $keyword . '%');
+            }
+            $startTime = strtotime((string)$this->request->get('start_time', ''));
+            $endTime = strtotime((string)$this->request->get('end_time', ''));
+            if ($startTime !== false) $query->where('r.create_time', '>=', $startTime);
+            if ($endTime !== false) $query->where('r.create_time', '<=', $endTime);
             $count = (clone $query)->count();
-            return $this->success('获取成功', ['count' => $count, 'lists' => $query->order('id desc')->page(max(1, $page), max(1, min(100, $size)))->select()->toArray()]);
+            return $this->success('获取成功', ['count' => $count, 'lists' => $query->order('r.id desc')->page(max(1, $page), max(1, min(100, $size)))->select()->toArray()]);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -104,7 +120,8 @@ class DistributionController extends BaseApiController
             return $this->success('获取成功', DistributionService::withdrawalRows(
                 (int)$this->request->tenantId, $this->userId, false,
                 (int)$this->request->get('page_no', $this->request->get('page', 1)),
-                (int)$this->request->get('page_size', $this->request->get('size', 20))
+                (int)$this->request->get('page_size', $this->request->get('size', 20)),
+                $this->request->get()
             ));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
@@ -113,6 +130,6 @@ class DistributionController extends BaseApiController
 
     private static function inviteUrl(int $tenantId, string $inviteCode): string
     {
-        return rtrim((string)request()->domain(), '/') . '/?tenant_id=' . $tenantId . '&invite_code=' . rawurlencode($inviteCode);
+        return rtrim((string)request()->domain(), '/') . '/?invite_code=' . rawurlencode($inviteCode);
     }
 }

@@ -16,6 +16,7 @@ namespace app\api\controller;
 
 use app\api\validate\{LoginAccountValidate, RegisterValidate, WebScanLoginValidate, WechatLoginValidate};
 use app\api\logic\LoginLogic;
+use app\common\service\distribution\DistributionService;
 
 /**
  * 登录注册
@@ -39,7 +40,11 @@ class LoginController extends BaseApiController
         $params = (new RegisterValidate())->post()->goCheck('register');
         $result = LoginLogic::register($params);
         if (true === $result) {
-            return $this->success('注册成功', [], 1, 1);
+            $inviteCode = trim((string)($params['invite_code'] ?? ''));
+            $tenantId = $inviteCode === ''
+                ? (int)$this->request->tenantId
+                : DistributionService::tenantIdByInviteCode($inviteCode);
+            return $this->success('注册成功', ['tenant_id' => $tenantId], 1, 1);
         }
         return $this->fail(LoginLogic::getError());
     }
