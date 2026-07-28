@@ -20,6 +20,12 @@ class AigcCanvasSkill extends AppBaseModel
         'agent_policy_json',
         'tool_schema_json',
         'canvas_output_policy_json',
+        'visibility_policy_json',
+        'model_policy_json',
+        'execution_policy_json',
+        'quality_policy_json',
+        'safety_policy_json',
+        'analytics_policy_json',
     ];
     protected $jsonAssoc = true;
 }

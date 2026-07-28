@@ -5,6 +5,12 @@ namespace app\api\controller\app\aigc_canvas;
 use app\api\controller\BaseApiController;
 use app\common\service\app\aigc_canvas\AigcCanvasAgentRuntimeService;
 use app\common\service\app\aigc_canvas\agent\batch\EcommerceAgentBatchService;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemService;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryPlanService;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryGraphExecutor;
+use app\common\service\app\aigc_canvas\agent\delivery\PendingActionProtocol;
+use app\common\service\app\aigc_canvas\agent\delivery\ExternalAssetImportService;
+use app\common\service\app\aigc_canvas\agent\replay\CanvasAgentReplayService;
 use Exception;
 use Throwable;
 use think\facade\Log;
@@ -148,6 +154,179 @@ class AgentChatController extends BaseApiController
                 (int)$this->request->tenantId,
                 $this->userId,
                 $this->request->get()
+            ));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function planDetail()
+    {
+        try {
+            return $this->success('success', EcommerceAgentBatchService::planDetail((int)$this->request->tenantId, $this->userId, $this->request->get()));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function planPatch()
+    {
+        try {
+            return $this->success('success', EcommerceAgentBatchService::planPatch((int)$this->request->tenantId, $this->userId, $this->request->post()));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function claimConfirm()
+    {
+        try {
+            return $this->success('success', EcommerceAgentBatchService::claimConfirm((int)$this->request->tenantId, $this->userId, $this->request->post()));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function planRegenerate()
+    {
+        try {
+            return $this->success('success', EcommerceAgentBatchService::planRegenerate((int)$this->request->tenantId, $this->userId, $this->request->post()));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function replay()
+    {
+        try {
+            return $this->success('success', CanvasAgentReplayService::detail((int)$this->request->tenantId, $this->userId, $this->request->get()));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function share()
+    {
+        try {
+            return $this->success('success', CanvasAgentReplayService::share((int)$this->request->tenantId, $this->userId, $this->request->post()));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function sharedReplay()
+    {
+        try {
+            return $this->success('success', CanvasAgentReplayService::shared((int)$this->request->tenantId, $this->request->get()));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function deliveryPlanDetail()
+    {
+        try {
+            return $this->success('success', DeliveryPlanService::detail(
+                (int)$this->request->tenantId,
+                $this->userId,
+                (int)$this->request->get('delivery_plan_id', $this->request->get('plan_id', 0))
+            ));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function deliveryItemDetail()
+    {
+        try {
+            return $this->success('success', DeliveryItemService::find(
+                (int)$this->request->tenantId,
+                $this->userId,
+                (int)$this->request->get('delivery_item_id', $this->request->get('item_id', 0))
+            ));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function deliveryItemTransition()
+    {
+        try {
+            $params = $this->request->post();
+            return $this->success('success', DeliveryItemService::transition(
+                (int)$this->request->tenantId,
+                $this->userId,
+                (int)($params['delivery_item_id'] ?? $params['item_id'] ?? 0),
+                (string)($params['status'] ?? ''),
+                (array)($params['patch'] ?? [])
+            ));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function deliveryItemAction()
+    {
+        try {
+            $params = $this->request->post();
+            $itemId = (int)($params['delivery_item_id'] ?? $params['item_id'] ?? 0);
+            $item = DeliveryItemService::find((int)$this->request->tenantId, $this->userId, $itemId);
+            if ($item === []) throw new Exception('Delivery item not found');
+            $resolution = PendingActionProtocol::resolve($item, $params, (string)($params['content'] ?? ''));
+            if ($resolution === []) throw new Exception('No matching pending action');
+            $item = DeliveryItemService::transition((int)$this->request->tenantId, $this->userId, $itemId, (string)$resolution['status'], (array)$resolution['patch']);
+            if (!empty($resolution['accepted'])) {
+                $type = (string)($resolution['action']['type'] ?? '');
+                if ($type === 'confirm_execution') $item = DeliveryGraphExecutor::execute((int)$this->request->tenantId, $this->userId, $itemId);
+                if ($type === 'retry_item' || ($type === 'resolve_failure' && (string)(($params['structured_value']['resolution'] ?? '') ?: '') === 'retry')) {
+                    $item = DeliveryGraphExecutor::retry((int)$this->request->tenantId, $this->userId, $itemId);
+                }
+            }
+            return $this->success('success', $item);
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function deliveryItemExecute()
+    {
+        try {
+            $params = $this->request->post();
+            return $this->success('success', DeliveryGraphExecutor::execute((int)$this->request->tenantId, $this->userId, (int)($params['delivery_item_id'] ?? $params['item_id'] ?? 0), $params));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function deliveryItemRefresh()
+    {
+        try {
+            return $this->success('success', DeliveryGraphExecutor::refresh((int)$this->request->tenantId, $this->userId, (int)$this->request->get('delivery_item_id', $this->request->get('item_id', 0))));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function deliveryItemCancel()
+    {
+        try {
+            $params = $this->request->post();
+            return $this->success('success', DeliveryGraphExecutor::cancel((int)$this->request->tenantId, $this->userId, (int)($params['delivery_item_id'] ?? $params['item_id'] ?? 0)));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function deliveryItemImportAsset()
+    {
+        try {
+            $params = $this->request->post();
+            return $this->success('success', ExternalAssetImportService::importImage(
+                (int)$this->request->tenantId,
+                $this->userId,
+                (int)($params['delivery_item_id'] ?? $params['item_id'] ?? 0),
+                (string)($params['url'] ?? ''),
+                $params
             ));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());

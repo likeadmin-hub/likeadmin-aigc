@@ -20,9 +20,9 @@
         "component": "apps/aigc_canvas/tenant-usage"
       },
       {
-        "source_menu_key": "aigc_canvas_platform_dependency",
+        "source_menu_key": "aigc_canvas_platform_dependencies",
         "type": "C",
-        "name": "依赖状态",
+        "name": "资源依赖",
         "perms": "app.aigc_canvas.config/dependencies",
         "paths": "dependencies",
         "component": "apps/aigc_canvas/dependencies"

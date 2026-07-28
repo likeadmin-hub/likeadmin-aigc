@@ -30,12 +30,6 @@
     "api_method": "GET"
   },
   {
-    "permission_key": "aigc_canvas:dependencies",
-    "name": "查看无限画布依赖状态",
-    "api_path": "app.aigc_canvas.config/dependencies",
-    "api_method": "GET"
-  },
-  {
     "permission_key": "aigc_canvas:skill:lists",
     "name": "查看 Skills",
     "api_path": "app.aigc_canvas.skill/lists",
@@ -70,5 +64,77 @@
     "name": "删除 Skill",
     "api_path": "app.aigc_canvas.skill/delete",
     "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_canvas:skill:debug",
+    "name": "Skill 调试测试",
+    "api_path": "app.aigc_canvas.skill/debugRoute",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_canvas:skill:release",
+    "name": "发布 Skill",
+    "api_path": "app.aigc_canvas.skill/release",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_canvas:skill:versions",
+    "name": "查看 Skill 版本",
+    "api_path": "app.aigc_canvas.skill/versions",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:skill:rollback",
+    "name": "回滚 Skill 版本",
+    "api_path": "app.aigc_canvas.skill/rollback",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_canvas:governance:policies",
+    "name": "管理 Agent 编排策略",
+    "api_path": "app.aigc_canvas.governance/policies",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:governance:policies",
+    "name": "Save Agent orchestration policy",
+    "api_path": "app.aigc_canvas.governance/savePolicy",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_canvas:governance:evaluation",
+    "name": "运行 Skill 评测",
+    "api_path": "app.aigc_canvas.governance/runEvaluation",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_canvas:governance:evaluation",
+    "name": "List Skill evaluation cases",
+    "api_path": "app.aigc_canvas.governance/evaluationCases",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:governance:evaluation",
+    "name": "Save Skill evaluation case",
+    "api_path": "app.aigc_canvas.governance/saveEvaluationCase",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_canvas:trace:lists",
+    "name": "查看 Agent Trace",
+    "api_path": "app.aigc_canvas.admin_trace/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:trace:detail",
+    "name": "查看 Agent Trace 详情",
+    "api_path": "app.aigc_canvas.admin_trace/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:trace:prompt_trace",
+    "name": "查看 Agent Prompt Trace",
+    "api_path": "app.aigc_canvas.admin_trace/promptTrace",
+    "api_method": "GET"
   }
 ]

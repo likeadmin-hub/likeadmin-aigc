@@ -3,7 +3,6 @@
 namespace app\common\service\app\aigc_canvas\agent\planning;
 
 use app\common\service\app\aigc_canvas\AigcCanvasService;
-use app\common\service\app\aigc_llm\AigcLlmService;
 use Exception;
 
 final class RevisionPlanner
@@ -21,7 +20,7 @@ final class RevisionPlanner
         }
         $planned = [];
         try {
-            $result = AigcLlmService::generateText($tenantId, $userId, [
+            $result = AigcCanvasService::llmText($tenantId, $userId, [
                 'content' => json_encode([
                     'task' => 'plan_independent_design_revisions',
                     'revision_instruction' => $instruction,
@@ -38,9 +37,10 @@ final class RevisionPlanner
                     'rules' => [
                         'Return exactly one revision item for every target section.',
                         'Apply only requested changes and preserve all other product identity, section theme and global style constraints.',
-                        'Each revised_prompt describes one standalone complete image, never a grid, collage, contact sheet or multi-page preview.',
-                        'When the request changes image text, include only that section copy and explicit typography/layout instructions.',
-                        'Do not put source image URLs or conversation transcripts in revised_prompt.',
+                        'Return semantic revision fields, never a provider-ready prompt.',
+                        'Each revision describes one standalone complete image, never a grid, collage, contact sheet or multi-page preview.',
+                        'When the request changes image text, update only that section copy and typography/layout direction.',
+                        'Do not put source image URLs or conversation transcripts in the semantic fields.',
                     ],
                     'output_schema' => [
                         'summary' => 'string',
@@ -48,7 +48,9 @@ final class RevisionPlanner
                             'section_key' => 'string',
                             'updated_copy_content' => 'object',
                             'updated_media_config' => 'object',
-                            'revised_prompt' => 'string',
+                        'purpose' => 'string',
+                        'narrative' => 'string',
+                        'visual_direction' => 'object',
                         ]],
                     ],
                 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
@@ -73,23 +75,20 @@ final class RevisionPlanner
         foreach ($targets as $position => $target) {
             $key = (string)($target['section_key'] ?? 'section_' . ($position + 1));
             $item = $planned[$key] ?? [];
-            $prompt = trim((string)($item['revised_prompt'] ?? ''));
-            if ($prompt === '') {
-                $prompt = trim((string)($target['prompt'] ?? '')) . "\n\n本次修订要求：" . $instruction;
-                $copy = (array)($target['copy_content'] ?? []);
-                if (!empty($copy)) {
-                    $prompt .= "\n当前区块文案：" . json_encode($copy, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-                }
-            }
-            $prompt = self::singleFramePrompt($prompt);
+            $purpose = trim((string)($item['purpose'] ?? $target['title'] ?? ''));
+            // Legacy LLM replies may still contain revised_prompt. Treat it as
+            // semantic narration, never as a final provider prompt.
+            $narrative = trim((string)($item['narrative'] ?? $item['revised_prompt'] ?? $instruction));
             $sections[] = [
                 'section_index' => $position + 1,
                 'section_key' => $key,
                 'title' => (string)($target['title'] ?? ''),
+                'purpose' => $purpose,
+                'narrative' => $narrative,
+                'visual_direction' => is_array($item['visual_direction'] ?? null) ? $item['visual_direction'] : [],
                 'copy_content' => is_array($item['updated_copy_content'] ?? null)
                     ? $item['updated_copy_content']
                     : (array)($target['copy_content'] ?? []),
-                'image_prompt' => $prompt,
                 'ratio' => (string)($item['updated_media_config']['ratio'] ?? $target['ratio'] ?? ''),
                 'source_node_id' => (string)($target['node_id'] ?? ''),
                 'source_target_element_id' => (string)($target['target_element_id'] ?? ''),
@@ -110,13 +109,6 @@ final class RevisionPlanner
             return is_array($asset)
                 && (empty($wanted) || isset($wanted[(string)($asset['section_key'] ?? '')]));
         }));
-    }
-
-    private static function singleFramePrompt(string $prompt): string
-    {
-        $prompt = preg_replace('/https?:\/\/\S+/ui', '', $prompt) ?? $prompt;
-        $constraint = '生成单张独立完整画面，仅表现当前区块主题。禁止多宫格、拼贴、网格、联系表、多页面预览或多个详情页区块合成。';
-        return str_contains($prompt, '禁止多宫格') ? trim($prompt) : trim($prompt . "\n" . $constraint);
     }
 
     private static function parseJson(string $content): array

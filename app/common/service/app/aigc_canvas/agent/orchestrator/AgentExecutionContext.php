@@ -72,6 +72,12 @@ final class AgentExecutionContext
         return is_array($this->state['route'] ?? null) ? $this->state['route'] : [];
     }
 
+    public function deliveryItemId(): int
+    {
+        $route = $this->route();
+        return (int)($this->state['delivery_item_id'] ?? $route['delivery_item_id'] ?? 0);
+    }
+
     public function toolOptions(string $toolCode): array
     {
         $route = $this->route();

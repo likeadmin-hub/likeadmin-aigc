@@ -9,11 +9,7 @@ use app\common\service\app\aigc_canvas\agent\memory\ProjectMemoryService;
 use app\common\service\app\aigc_canvas\agent\runtime\AgentTraceLogger;
 use app\common\service\app\aigc_canvas\agent\runtime\FunctionCallingRuntime;
 use app\common\service\app\aigc_canvas\agent\runtime\JsonCanvasValidator;
-use app\common\service\app\aigc_canvas\agent\tools\AddElementTool;
-use app\common\service\app\aigc_canvas\agent\tools\CreatePageTool;
-use app\common\service\app\aigc_canvas\agent\tools\GenerateImageTool;
-use app\common\service\app\aigc_canvas\agent\tools\GenerateVideoTool;
-use app\common\service\app\aigc_canvas\agent\tools\UpdateElementTool;
+use app\common\service\app\aigc_canvas\agent\tools\CanvasAgentToolRegistryService;
 use Exception;
 
 final class DesignAgentOrchestrator
@@ -58,16 +54,10 @@ final class DesignAgentOrchestrator
                 'user_request' => $content,
                 'canvas_context' => $context,
                 'route' => $route,
-                'memory' => ProjectMemoryService::load($tenantId, $projectId),
+                'memory' => ProjectMemoryService::load($tenantId, $userId, $projectId),
                 'emit' => $emit,
             ]);
-            $runtime = new FunctionCallingRuntime([
-                new CreatePageTool(),
-                new AddElementTool(),
-                new UpdateElementTool(),
-                new GenerateImageTool(),
-                new GenerateVideoTool(),
-            ]);
+            $runtime = new FunctionCallingRuntime(CanvasAgentToolRegistryService::builtinToolInstances());
 
             $master = AgentRouter::resolve('master');
             $masterResult = $master->run($contextObject);
@@ -76,7 +66,7 @@ final class DesignAgentOrchestrator
             $this->progress($threadId, $messageId, $emit, "已拆解任务，开始规划画布结构。\n");
 
             $deferredMediaCalls = [];
-            foreach ((array)($masterResult['agents'] ?? []) as $task) {
+            foreach ((array)($masterResult['agents'] ?? []) as $sequence => $task) {
                 $agentCode = (string)($task['agent'] ?? '');
                 if ($agentCode === '' || $agentCode === 'master') {
                     continue;
@@ -84,7 +74,27 @@ final class DesignAgentOrchestrator
                 $this->progress($threadId, $messageId, $emit, $this->agentProgressText($agentCode));
                 $agent = AgentRouter::resolve($agentCode);
                 $agentContext = $contextObject->withTask($task);
-                $result = $agent->run($agentContext);
+                $childRunId = AgentTraceLogger::startRun(
+                    $tenantId,
+                    $userId,
+                    $projectId,
+                    $threadId,
+                    $agentCode,
+                    ['task' => $task, 'parent_run_id' => $runId],
+                    (string)($route['request_id'] ?? '') . ':sub:' . ((int)$sequence + 1) . ':' . $agentCode,
+                    $runId,
+                    $agentCode,
+                    1,
+                    (int)$sequence + 1,
+                    ['objective' => (string)($task['objective'] ?? '')]
+                );
+                try {
+                    $result = $agent->run($agentContext);
+                    AgentTraceLogger::finishRun($childRunId, $result);
+                } catch (Exception $e) {
+                    AgentTraceLogger::failRun($childRunId, $e->getMessage());
+                    throw $e;
+                }
                 $contextObject->addAgentResult($agentCode, $result);
                 AgentTraceLogger::step($tenantId, $runId, $agentCode, 'run', $task, $result);
                 $calls = (array)($result['function_calls'] ?? []);
@@ -187,6 +197,12 @@ final class DesignAgentOrchestrator
         ]);
         $formatted = AigcCanvasAgentRuntimeService::formatWorkspaceAction($action->toArray());
         if (is_callable($emit)) {
+            $emit('agent.canvas.patch', [
+                'action_type' => 'apply_json_canvas',
+                'canvas_json' => $canvasJson,
+                'run_id' => $runId,
+                'workspace_action' => $formatted,
+            ]);
             $emit('agent.workspace.action_pending', $formatted);
         }
         return $formatted;

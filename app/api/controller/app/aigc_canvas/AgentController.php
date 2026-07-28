@@ -4,12 +4,41 @@ namespace app\api\controller\app\aigc_canvas;
 
 use app\api\controller\BaseApiController;
 use app\common\service\app\aigc_canvas\AigcCanvasAgentService;
+use app\common\service\app\aigc_canvas\agent\memory\BrandMemoryService;
+use app\common\service\app\aigc_canvas\agent\onboarding\CanvasAgentOnboardingService;
 use Exception;
 use Throwable;
 use think\facade\Log;
 
 class AgentController extends BaseApiController
 {
+    public function onboarding()
+    {
+        try {
+            return $this->success('success', CanvasAgentOnboardingService::detail((int)$this->request->tenantId, $this->userId, $this->request->get()));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function brandMemory()
+    {
+        try {
+            return $this->success('success', BrandMemoryService::detail((int)$this->request->tenantId, $this->userId, $this->request->get()));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function brandMemorySave()
+    {
+        try {
+            return $this->success('success', BrandMemoryService::save((int)$this->request->tenantId, $this->userId, $this->request->post()));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function scriptPlan()
     {
         try {

@@ -3,6 +3,7 @@
 namespace app\common\service\app\aigc_canvas\agent\agents;
 
 use app\common\service\app\aigc_canvas\agent\contracts\AgentInterface;
+use app\common\service\app\aigc_canvas\agent\memory\CanvasSnapshotBuilder;
 use app\common\service\app\aigc_canvas\agent\orchestrator\AgentExecutionContext;
 use app\common\service\app\aigc_canvas\agent\runtime\AgentLlmGateway;
 
@@ -28,6 +29,7 @@ final class MasterAgent implements AgentInterface
             'task' => 'plan_agent_execution',
             'user_request' => $request,
             'resolved_route' => $route,
+            'canvas_context' => CanvasSnapshotBuilder::compact($context->context()),
             'memory' => $context->memory(),
             'output_schema' => [
                 'goal' => 'string',

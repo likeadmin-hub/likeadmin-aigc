@@ -4,6 +4,7 @@ namespace app\api\controller\app\aigc_canvas;
 
 use app\api\controller\BaseApiController;
 use app\common\service\app\aigc_canvas\AigcCanvasService;
+use app\common\service\app\aigc_canvas\agent\prompt\PromptSubmissionException;
 use Exception;
 
 class GenerateController extends BaseApiController
@@ -16,6 +17,34 @@ class GenerateController extends BaseApiController
                 throw new Exception((string)($result['error'] ?? '图片生成失败'));
             }
             return $this->success('生成成功', $this->formatImageResult($result));
+        } catch (PromptSubmissionException $e) {
+            return $this->fail($e->getMessage(), $e->diagnostic());
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function cropImage()
+    {
+        try {
+            return $this->success('裁剪成功', AigcCanvasService::cropImage(
+                (int)$this->request->tenantId,
+                $this->userId,
+                $this->request->post()
+            ));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function rotateImage()
+    {
+        try {
+            return $this->success('旋转成功', AigcCanvasService::rotateImage(
+                (int)$this->request->tenantId,
+                $this->userId,
+                $this->request->post()
+            ));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -141,6 +170,14 @@ class GenerateController extends BaseApiController
             'error' => (string)($result['error'] ?? ''),
             'images' => $items,
             'results' => $items,
+            'compiled_prompt' => (string)($result['compiled_prompt'] ?? $result['prompt'] ?? ''),
+            'prompt_hash' => (string)($result['prompt_hash'] ?? ''),
+            'compiler_version' => (string)($result['compiler_version'] ?? ''),
+            'prompt_spec_json' => (array)($result['prompt_spec_json'] ?? []),
+            'creative_spec_json' => (array)($result['creative_spec_json'] ?? []),
+            'preflight' => (array)($result['preflight'] ?? []),
+            'evidence_ids' => array_values((array)($result['evidence_ids'] ?? [])),
+            'claim_ids' => array_values((array)($result['claim_ids'] ?? [])),
         ];
     }
 

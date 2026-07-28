@@ -42,13 +42,19 @@ class MarketTextModelRuntimeService
         $wanted = is_array($selection)
             ? (string)($selection['id'] ?? $selection['product_id'] ?? $selection['model_code'] ?? '')
             : (string)$selection;
+        $wantedSkuId = is_array($selection)
+            ? (int)($selection['market_sku_id'] ?? $selection['sku_id'] ?? $selection['market_input_sku_id'] ?? 0)
+            : 0;
         $options = self::options($tenantId, $requiresVision);
         foreach ($options as $option) {
+            if ($wantedSkuId > 0 && in_array($wantedSkuId, [(int)($option['market_sku_id'] ?? 0), (int)($option['market_input_sku_id'] ?? 0), (int)($option['market_output_sku_id'] ?? 0)], true)) {
+                return $option;
+            }
             if (in_array($wanted, [(string)$option['id'], (string)$option['product_id'], (string)$option['model_code']], true)) {
                 return $option;
             }
         }
-        if ($wanted !== '') {
+        if ($wanted !== '' || $wantedSkuId > 0) {
             throw new Exception('所选文本模型未上架或已不可用');
         }
         if ($options === []) {
@@ -69,9 +75,21 @@ class MarketTextModelRuntimeService
         }
         $referenceImages = array_values(array_filter(array_map('strval', (array)($params['reference_images'] ?? []))));
         $model = self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $referenceImages !== [] || !empty($params['requires_vision']));
-        $maxTokens = self::resolveMaxTokens($model, (array)($params['model_config'] ?? []));
-        $generationParams = self::generationParams($model, (array)($params['model_config'] ?? []));
+        $modelConfig = self::modelConfig($params);
+        $maxTokens = self::resolveMaxTokens($model, $modelConfig);
+        $generationParams = self::generationParams($model, $modelConfig);
+        // Agent runtimes may supply OpenAI-compatible function schemas. These
+        // are capability metadata, not provider credentials, and must reach
+        // the selected market text channel unchanged.
+        foreach (['tools', 'tool_choice', 'response_format'] as $key) {
+            if (array_key_exists($key, $params) && $params[$key] !== null && $params[$key] !== '') {
+                $generationParams[$key] = $params[$key];
+            }
+        }
         $action = (string)($params['action_code'] ?? $params['source_type'] ?? 'text_generate');
+        $appCode = self::safeCode((string)($params['source_app_code'] ?? $params['app_code'] ?? 'aigc_short_drama'), 'aigc_short_drama');
+        $businessTable = self::safeCode((string)($params['business_table'] ?? ($appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task')), $appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task');
+        $businessId = (int)($params['business_id'] ?? 0);
         $requestSummary = [
             'content_length' => mb_strlen($content, 'UTF-8'),
             'system_prompt_length' => mb_strlen((string)($params['system_prompt'] ?? ''), 'UTF-8'),
@@ -82,7 +100,7 @@ class MarketTextModelRuntimeService
         // Token SKU amounts must come from the upstream usage record. Showing a
         // locally guessed total or reserving max_tokens makes the price wrong.
         $reserve = self::quote($model, 0, 0);
-        $context = self::createConsumption($tenantId, $userId, $model, $action, $requestSummary, $reserve, (int)($params['parent_app_task_id'] ?? 0));
+        $context = self::createConsumption($tenantId, $userId, $model, $action, $requestSummary, $reserve, (int)($params['parent_app_task_id'] ?? 0), $appCode, $businessTable, $businessId);
         if ($onEvent) {
             $onEvent('app_task', [
                 'app_task_id' => (int)$context['appTask']['id'],
@@ -91,9 +109,10 @@ class MarketTextModelRuntimeService
         }
 
         $started = microtime(true);
+        $requestTimeout = self::resolveRequestTimeout($params);
         try {
             self::event((int)$context['consumption']['id'], 'submit', 'running', ['model_code' => $model['model_code']]);
-            $result = self::request($model, $content, (string)($params['system_prompt'] ?? ''), $referenceImages, $maxTokens, $generationParams, $onEvent);
+            $result = self::request($model, $content, (string)($params['system_prompt'] ?? ''), $referenceImages, $maxTokens, $generationParams, $onEvent, $requestTimeout);
             $usage = self::normalizeUsage((array)($result['usage'] ?? []));
             if (self::canSettleUsage($model, $usage) && (int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0) {
                 $usage['prompt_tokens'] = (int)$usage['total_tokens'];
@@ -275,6 +294,14 @@ class MarketTextModelRuntimeService
                 'supports_vision' => self::supportsVision($snapshot),
                 'input' => $prices['input'],
                 'output' => $prices['output'],
+                'market_product_id' => (int)$product['id'],
+                'market_sku_id' => (int)$prices['input']['sku_id'],
+                'sku_id' => (int)$prices['input']['sku_id'],
+                'market_input_sku_id' => (int)$prices['input']['sku_id'],
+                'market_output_sku_id' => (int)$prices['output']['sku_id'],
+                'market_input_sku_key' => (string)$prices['input']['sku_key'],
+                'market_output_sku_key' => (string)$prices['output']['sku_key'],
+                'price_source' => 'power_market_text_model',
                 'billing_unit' => 'token',
                 'billing_unit_size' => max(
                     MarketUsageSettlementService::unitSize($prices['input']),
@@ -340,13 +367,13 @@ class MarketTextModelRuntimeService
     }
 
     /** @return array{app_task: AiAppTask, consumption: AiConsumptionLog} */
-    private static function createConsumption(int $tenantId, int $userId, array $model, string $action, array $summary, array $reserve, int $parentTaskId): array
+    private static function createConsumption(int $tenantId, int $userId, array $model, string $action, array $summary, array $reserve, int $parentTaskId, string $appCode, string $businessTable, int $businessId): array
     {
-        return Db::transaction(function () use ($tenantId, $userId, $model, $action, $summary, $reserve, $parentTaskId) {
+        return Db::transaction(function () use ($tenantId, $userId, $model, $action, $summary, $reserve, $parentTaskId, $appCode, $businessTable, $businessId) {
             $now = time();
             $appTask = $parentTaskId > 0 ? AiAppTask::lock(true)->findOrEmpty($parentTaskId) : AiAppTask::create([
-                'task_no' => self::no('AT'), 'tenant_id' => $tenantId, 'user_id' => $userId, 'app_code' => 'aigc_short_drama',
-                'action_code' => $action, 'business_table' => 'aigc_short_drama_script_task', 'business_id' => 0,
+                'task_no' => self::no('AT'), 'tenant_id' => $tenantId, 'user_id' => $userId, 'app_code' => $appCode,
+                'action_code' => $action, 'business_table' => $businessTable, 'business_id' => $businessId,
                 'parent_task_id' => 0, 'status' => 'running', 'progress' => 10, 'request_summary' => $summary, 'result_summary' => [],
                 'estimated_tenant_cost' => $reserve['tenant_cost_points'], 'estimated_user_price' => $reserve['user_charge_points'],
                 'actual_tenant_cost' => 0, 'actual_user_price' => 0, 'idempotency_key' => self::no('IK'), 'create_time' => $now, 'update_time' => $now, 'finish_time' => 0,
@@ -355,7 +382,7 @@ class MarketTextModelRuntimeService
             $consumeNo = self::no('C');
             $consumption = AiConsumptionLog::create([
                 'consume_no' => $consumeNo, 'app_task_id' => (int)$appTask['id'], 'tenant_id' => $tenantId, 'user_id' => $userId,
-                'app_code' => 'aigc_short_drama', 'action_code' => $action, 'resource_type' => 'model', 'product_id' => (int)$model['product_id'],
+                'app_code' => $appCode, 'action_code' => $action, 'resource_type' => 'model', 'product_id' => (int)$model['product_id'],
                 'sku_id' => (int)$model['input']['sku_id'], 'model_code' => (string)$model['model_code'], 'api_code' => (string)$model['channel_code'],
                 'protocol' => (string)$model['protocol'], 'provider' => 'power_market', 'upstream_request_id' => '', 'upstream_task_id' => '',
                 'quantity' => 0, 'usage_unit' => 'token', 'usage_snapshot' => ['settlement_basis' => 'awaiting_actual_usage'],
@@ -378,7 +405,7 @@ class MarketTextModelRuntimeService
             $hasActualUsage = self::canSettleUsageFromSnapshot(self::arrayValue($c['price_snapshot'] ?? []), $usage);
             if ($hasActualUsage) {
                 PointService::assertCanConsumeAmounts((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points']);
-                PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points'], (string)$c['consume_no'], '短剧文本模型实际用量结算', self::extra($task, $c, 'settled'));
+                PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$actual['tenant_cost_points'], (float)$actual['user_charge_points'], (string)$c['consume_no'], self::billingRemark((string)$c['app_code'], 'settled'), self::extra($task, $c, 'settled'));
             }
             $c->save(['upstream_request_id' => (string)($result['provider_request_id'] ?? ''), 'run_status' => 'success', 'billing_status' => $hasActualUsage ? 'settled' : 'pending_usage', 'usage_snapshot' => $usage + ['settlement_basis' => $hasActualUsage ? 'actual_usage' : 'awaiting_actual_usage'], 'response_summary' => ['output_length' => mb_strlen((string)($result['content'] ?? ''), 'UTF-8')], 'actual_tenant_cost' => $hasActualUsage ? $actual['tenant_cost_points'] : 0, 'actual_user_price' => $hasActualUsage ? $actual['user_charge_points'] : 0, 'tenant_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'user_point_sn' => $hasActualUsage ? (string)$c['consume_no'] : '', 'finish_time' => $now, 'update_time' => $now]);
             $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => (float)$task['actual_tenant_cost'] + ($hasActualUsage ? (float)$actual['tenant_cost_points'] : 0), 'actual_user_price' => (float)$task['actual_user_price'] + ($hasActualUsage ? (float)$actual['user_charge_points'] : 0), 'finish_time' => $now, 'update_time' => $now]);
@@ -391,14 +418,14 @@ class MarketTextModelRuntimeService
         Db::transaction(function () use ($context, $message, $code) {
             $c = AiConsumptionLog::lock(true)->findOrEmpty((int)$context['consumption']['id']); if ($c->isEmpty() || in_array((string)$c['billing_status'], ['settled', 'refunded'], true)) return;
             $task = AiAppTask::lock(true)->findOrEmpty((int)$c['app_task_id']);
-            PointService::releaseReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], (string)$c['consume_no'] . '-release', '短剧文本模型失败退回', self::extra($task, $c, 'refunded'));
+            PointService::releaseReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], (string)$c['consume_no'] . '-release', self::billingRemark((string)$c['app_code'], 'failed'), self::extra($task, $c, 'refunded'));
             $now = time(); $c->save(['run_status' => 'failed', 'billing_status' => 'refunded', 'error_code' => $code, 'error_message' => mb_substr($message, 0, 1000), 'finish_time' => $now, 'update_time' => $now]);
             $task->save(['status' => 'failed', 'progress' => 100, 'result_summary' => ['error' => mb_substr($message, 0, 500)], 'finish_time' => $now, 'update_time' => $now]); self::event((int)$c['id'], 'refund', 'success', ['reason' => $message]);
         });
     }
 
     /** @return array<string, mixed> */
-    private static function request(array $model, string $content, string $system, array $images, int $maxTokens, array $generationParams, ?callable $onEvent): array
+    private static function request(array $model, string $content, string $system, array $images, int $maxTokens, array $generationParams, ?callable $onEvent, int $requestTimeout): array
     {
         $source = UpdateSourceClient::getSource(); $base = self::sourceBaseUrl((string)($source['active_base_url'] ?? $source['base_url'] ?? '')); $key = (string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '');
         $sslVerify = UpdateSourceClient::sslVerify($source);
@@ -407,6 +434,7 @@ class MarketTextModelRuntimeService
         $messageContent = $images === [] ? $content : array_merge([['type' => 'text', 'text' => $content]], array_map(static fn($url) => ['type' => 'image_url', 'image_url' => ['url' => $url]], $images));
         $messages = [['role' => 'user', 'content' => $messageContent]];
         $payload = $protocol === 'openai_responses' ? ['model' => $model['model_code'], 'instructions' => $system, 'input' => $messages, 'stream' => $onEvent !== null, 'max_output_tokens' => $maxTokens] : ($protocol === 'anthropic_messages' ? ['model' => $model['model_code'], 'system' => $system, 'messages' => $messages, 'stream' => $onEvent !== null, 'max_tokens' => $maxTokens] : ['model' => $model['model_code'], 'messages' => array_merge($system === '' ? [] : [['role' => 'system', 'content' => $system]], $messages), 'stream' => $onEvent !== null, 'max_tokens' => $maxTokens, 'channel' => $model['channel_code']]);
+        $payload = array_merge(self::marketContext($model), $payload);
         foreach ($generationParams as $paramKey => $value) {
             if ($paramKey === 'stream_options' && $protocol !== 'openai_chat') {
                 continue;
@@ -414,14 +442,23 @@ class MarketTextModelRuntimeService
             $payload[$paramKey] = $value;
         }
         try {
-            return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify);
+            return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify, $requestTimeout);
         } catch (Exception $e) {
             // Older market snapshots may not yet advertise this optional Qwen-style
             // parameter. Retry once without it when the selected provider rejects it
             // before producing an SSE response.
-            if (array_key_exists('enable_thinking', $generationParams) && self::isOptionalParameterRejected($e)) {
-                unset($payload['enable_thinking']);
-                return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify);
+            if (self::isOptionalParameterRejected($e)) {
+                $retryPayload = $payload;
+                $removed = false;
+                foreach (['enable_thinking', 'response_format', 'tools', 'tool_choice'] as $optionalKey) {
+                    if (array_key_exists($optionalKey, $retryPayload)) {
+                        unset($retryPayload[$optionalKey]);
+                        $removed = true;
+                    }
+                }
+                if ($removed) {
+                    return self::curl($base . $path, $key, $retryPayload, $onEvent, $sslVerify, $requestTimeout);
+                }
             }
             throw $e;
         }
@@ -438,6 +475,48 @@ class MarketTextModelRuntimeService
             $value = min($value, $modelLimit);
         }
         return max(256, min(32768, $value));
+    }
+
+    private static function resolveRequestTimeout(array $params): int
+    {
+        $requested = (int)($params['request_timeout_seconds'] ?? 0);
+        if ($requested <= 0) {
+            return self::REQUEST_TIMEOUT_SECONDS;
+        }
+        return max(10, min(self::REQUEST_TIMEOUT_SECONDS, $requested));
+    }
+
+    private static function safeCode(string $value, string $fallback): string
+    {
+        $value = trim($value);
+        return preg_match('/^[a-z][a-z0-9_]{1,63}$/', $value) ? $value : $fallback;
+    }
+
+    private static function billingRemark(string $appCode, string $status): string
+    {
+        $appName = $appCode === 'aigc_canvas' ? 'infinite_canvas' : 'short_drama';
+        return $appName . '_text_model_' . ($status === 'failed' ? 'refund' : 'settle');
+    }
+
+    /** @return array<string, mixed> */
+    private static function modelConfig(array $params): array
+    {
+        $config = (array)($params['model_config'] ?? []);
+        foreach (['max_tokens', 'temperature', 'top_p', 'presence_penalty', 'frequency_penalty', 'enable_thinking'] as $key) {
+            if (array_key_exists($key, $params)) {
+                $config[$key] = $params[$key];
+            }
+        }
+        if (self::validResponseFormat($params['response_format'] ?? null)) {
+            $config['response_format'] = $params['response_format'];
+        }
+        if (!empty($params['tools']) && is_array($params['tools'])) {
+            $config['tools'] = array_values($params['tools']);
+        }
+        if (isset($params['tool_choice']) && (is_string($params['tool_choice']) || is_array($params['tool_choice']))) {
+            $config['tool_choice'] = $params['tool_choice'];
+        }
+        return $config;
     }
 
     /**
@@ -467,7 +546,27 @@ class MarketTextModelRuntimeService
                 $result[$key] = (float)$overrides[$key];
             }
         }
+        if (self::validResponseFormat($overrides['response_format'] ?? null)) {
+            $result['response_format'] = $overrides['response_format'];
+        }
+        if (!empty($overrides['tools']) && is_array($overrides['tools'])) {
+            $result['tools'] = array_values($overrides['tools']);
+        }
+        if (isset($overrides['tool_choice']) && (is_string($overrides['tool_choice']) || is_array($overrides['tool_choice']))) {
+            $result['tool_choice'] = $overrides['tool_choice'];
+        }
         return $result;
+    }
+
+    private static function validResponseFormat($value): bool
+    {
+        if (!is_array($value) || empty($value['type']) || !is_string($value['type'])) {
+            return false;
+        }
+        if ($value['type'] === 'json_schema' && isset($value['json_schema']) && !is_array($value['json_schema'])) {
+            return false;
+        }
+        return true;
     }
 
     private static function isOptionalParameterRejected(Exception $e): bool
@@ -476,10 +575,12 @@ class MarketTextModelRuntimeService
         return str_contains($message, 'http 400')
             || str_contains($message, 'invalid request')
             || str_contains($message, 'unknown parameter')
-            || str_contains($message, 'unsupported parameter');
+            || str_contains($message, 'unsupported parameter')
+            || str_contains($message, 'unknown format')
+            || str_contains($message, 'response_format');
     }
 
-    private static function curl(string $url, string $key, array $payload, ?callable $onEvent, bool $sslVerify): array
+    private static function curl(string $url, string $key, array $payload, ?callable $onEvent, bool $sslVerify, int $requestTimeout): array
     {
         $headers = [
             'Content-Type: application/json',
@@ -487,13 +588,14 @@ class MarketTextModelRuntimeService
             'Accept: ' . ($onEvent ? 'text/event-stream' : 'application/json'),
         ];
         if ($onEvent === null) {
-            return self::requestJson($url, $payload, $headers, $sslVerify);
+            return self::requestJson($url, $payload, $headers, $sslVerify, $requestTimeout);
         }
 
-        $state = ['content' => '', 'usage' => [], 'request_id' => '', 'emitted_request_id' => '', 'error' => ''];
+        $state = ['content' => '', 'usage' => [], 'request_id' => '', 'emitted_request_id' => '', 'error' => '', 'tool_calls' => [], 'delta_count' => 0];
         $buffer = '';
         $body = '';
         $receivedEvent = false;
+        $receivedSseEvent = false;
         $startedAt = microtime(true);
         $lastHeartbeatAt = $startedAt;
         $ch = curl_init();
@@ -503,7 +605,7 @@ class MarketTextModelRuntimeService
             CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT => self::REQUEST_TIMEOUT_SECONDS,
+            CURLOPT_TIMEOUT => $requestTimeout,
             CURLOPT_SSL_VERIFYPEER => $sslVerify,
             CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
             CURLOPT_NOPROGRESS => false,
@@ -515,7 +617,7 @@ class MarketTextModelRuntimeService
                 }
                 return 0;
             },
-            CURLOPT_WRITEFUNCTION => static function ($curl, string $chunk) use (&$buffer, &$body, &$receivedEvent, &$state, $onEvent): int {
+            CURLOPT_WRITEFUNCTION => static function ($curl, string $chunk) use (&$buffer, &$body, &$receivedEvent, &$receivedSseEvent, &$state, $onEvent): int {
                 $body .= $chunk;
                 $buffer .= str_replace("\r\n", "\n", $chunk);
                 while (($pos = strpos($buffer, "\n\n")) !== false) {
@@ -524,6 +626,7 @@ class MarketTextModelRuntimeService
                     $event = self::parseSseBlock($block);
                     if ($event !== null) {
                         $receivedEvent = true;
+                        $receivedSseEvent = true;
                         self::applyStreamEvent($event, $state, $onEvent);
                     }
                 }
@@ -536,6 +639,7 @@ class MarketTextModelRuntimeService
             $event = self::parseSseBlock($buffer);
             if ($event !== null) {
                 $receivedEvent = true;
+                $receivedSseEvent = true;
                 self::applyStreamEvent($event, $state, $onEvent);
             }
         }
@@ -561,14 +665,21 @@ class MarketTextModelRuntimeService
         if ($state['error'] !== '') {
             throw new Exception($state['error']);
         }
-        if (!$receivedEvent || trim((string)$state['content']) === '') {
+        if (!$receivedEvent || (trim((string)$state['content']) === '' && empty($state['tool_calls']))) {
             throw new Exception('文本模型未返回有效内容');
         }
-        return ['content' => $state['content'], 'usage' => $state['usage'], 'provider_request_id' => $state['request_id']];
+        return [
+            'content' => $state['content'],
+            'usage' => $state['usage'],
+            'provider_request_id' => $state['request_id'],
+            'tool_calls' => $state['tool_calls'],
+            'stream_mode' => $receivedSseEvent ? 'sse' : 'buffered_response',
+            'stream_delta_count' => (int)$state['delta_count'],
+        ];
     }
 
     /** @return array<string, mixed> */
-    private static function requestJson(string $url, array $payload, array $headers, bool $sslVerify): array
+    private static function requestJson(string $url, array $payload, array $headers, bool $sslVerify, int $requestTimeout): array
     {
         $body = '';
         $ch = curl_init();
@@ -578,7 +689,7 @@ class MarketTextModelRuntimeService
             CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT => self::REQUEST_TIMEOUT_SECONDS,
+            CURLOPT_TIMEOUT => $requestTimeout,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_SSL_VERIFYPEER => $sslVerify,
             CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
@@ -600,13 +711,15 @@ class MarketTextModelRuntimeService
             throw new Exception((string)($event['message'] ?? '文本模型返回格式异常'));
         }
         $content = (string)($event['content'] ?? '');
-        if (trim($content) === '') {
+        $toolCalls = (array)($event['tool_calls'] ?? []);
+        if (trim($content) === '' && empty($toolCalls)) {
             throw new Exception('文本模型未返回有效内容');
         }
         return [
             'content' => $content,
             'usage' => (array)($event['usage'] ?? []),
             'provider_request_id' => (string)($event['provider_request_id'] ?? ''),
+            'tool_calls' => $toolCalls,
         ];
     }
 
@@ -671,6 +784,10 @@ class MarketTextModelRuntimeService
         if (!empty($event['usage']) && is_array($event['usage'])) {
             $state['usage'] = $event['usage'];
         }
+        if (!empty($event['tool_calls']) && is_array($event['tool_calls'])) {
+            $state['tool_calls'] = self::mergeToolCalls((array)$state['tool_calls'], $event['tool_calls']);
+            $onEvent('tool_calls', ['tool_calls' => $state['tool_calls']]);
+        }
         if (($event['type'] ?? '') !== 'delta') {
             return;
         }
@@ -679,12 +796,16 @@ class MarketTextModelRuntimeService
             return;
         }
         $state['content'] .= $delta;
+        $state['delta_count'] = (int)($state['delta_count'] ?? 0) + 1;
         $onEvent('delta', ['delta' => $delta]);
     }
 
     /** @return array<string, mixed>|null */
     private static function parseProviderPayload(array $json, string $eventName = '', bool $stream = false): ?array
     {
+        if (isset($json['code']) && is_numeric($json['code']) && (int)$json['code'] !== 0 && empty($json['choices']) && empty($json['output'])) {
+            return ['type' => 'error', 'message' => self::providerError($json) ?: (string)($json['message'] ?? 'Provider request failed')];
+        }
         if (isset($json['error'])) {
             return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败'];
         }
@@ -707,13 +828,6 @@ class MarketTextModelRuntimeService
         $requestId = self::providerRequestId($json);
         $usage = self::usageFromPayload($json);
         $choice = is_array($json['choices'][0] ?? null) ? $json['choices'][0] : [];
-        $terminal = !empty($choice['finish_reason']) || in_array($eventType, [
-            'done', 'finish', 'finished', 'complete', 'completed', 'message_stop', 'response.completed', 'response.failed',
-        ], true);
-        if ($terminal) {
-            return ['type' => 'done', 'finish_reason' => (string)($choice['finish_reason'] ?? $json['finish_reason'] ?? 'stop'), 'usage' => $usage, 'provider_request_id' => $requestId];
-        }
-
         $output = is_array($json['output'][0] ?? null) ? $json['output'][0] : [];
         $outputContent = is_array($output['content'][0] ?? null) ? $output['content'][0] : [];
         $delta = self::extractText([
@@ -733,13 +847,68 @@ class MarketTextModelRuntimeService
             $stream ? null : ($outputContent['text'] ?? $outputContent['content'] ?? null),
             $stream ? null : ($json['response']['output_text'] ?? $json['response']['output'] ?? null),
         ]);
+        $toolCalls = self::toolCallsFromPayload($json, $choice, $output);
         if ($delta !== '') {
-            return ['type' => 'delta', 'content' => $delta, 'usage' => $usage, 'provider_request_id' => $requestId];
+            return ['type' => 'delta', 'content' => $delta, 'usage' => $usage, 'provider_request_id' => $requestId, 'tool_calls' => $toolCalls];
+        }
+        if (!empty($toolCalls)) {
+            return ['type' => 'tool_calls', 'tool_calls' => $toolCalls, 'usage' => $usage, 'provider_request_id' => $requestId];
+        }
+        $terminal = !empty($choice['finish_reason']) || in_array($eventType, [
+            'done', 'finish', 'finished', 'complete', 'completed', 'message_stop', 'response.completed', 'response.failed',
+        ], true);
+        if ($terminal) {
+            return ['type' => 'done', 'finish_reason' => (string)($choice['finish_reason'] ?? $json['finish_reason'] ?? 'stop'), 'usage' => $usage, 'provider_request_id' => $requestId];
         }
         if ($usage !== []) {
             return ['type' => 'usage', 'usage' => $usage, 'provider_request_id' => $requestId];
         }
         return null;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private static function toolCallsFromPayload(array $json, array $choice, array $output): array
+    {
+        $calls = $choice['delta']['tool_calls'] ?? $choice['message']['tool_calls'] ?? $choice['tool_calls'] ?? $json['tool_calls'] ?? [];
+        if (!is_array($calls)) {
+            $calls = [];
+        }
+        // Responses API represents a function call as an output item instead.
+        if ($calls === [] && (($output['type'] ?? '') === 'function_call' || !empty($output['name']))) {
+            $calls[] = [
+                'id' => (string)($output['call_id'] ?? $output['id'] ?? ''),
+                'function' => [
+                    'name' => (string)($output['name'] ?? ''),
+                    'arguments' => $output['arguments'] ?? '{}',
+                ],
+            ];
+        }
+        return array_values(array_filter($calls, static fn($call): bool => is_array($call)));
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private static function mergeToolCalls(array $current, array $incoming): array
+    {
+        foreach ($incoming as $position => $call) {
+            if (!is_array($call)) {
+                continue;
+            }
+            $index = (int)($call['index'] ?? $position);
+            $existing = is_array($current[$index] ?? null) ? $current[$index] : [];
+            $existingFunction = is_array($existing['function'] ?? null) ? $existing['function'] : [];
+            $function = is_array($call['function'] ?? null) ? $call['function'] : [];
+            if (isset($function['arguments'])) {
+                $existingFunction['arguments'] = (string)($existingFunction['arguments'] ?? '') . (string)$function['arguments'];
+            }
+            foreach (['name'] as $key) {
+                if (!empty($function[$key])) {
+                    $existingFunction[$key] = $function[$key];
+                }
+            }
+            $current[$index] = array_merge($existing, $call, ['function' => $existingFunction]);
+        }
+        ksort($current);
+        return array_values($current);
     }
 
     private static function looksLikePayload(array $payload): bool
@@ -811,11 +980,49 @@ class MarketTextModelRuntimeService
         if (is_array($payload)) {
             $error = $payload['error'] ?? $payload;
             if (is_array($error)) {
-                return mb_substr((string)($error['message'] ?? $error['msg'] ?? $error['code'] ?? $error['type'] ?? ''), 0, 160);
+                return self::friendlyError((string)($error['message'] ?? $error['msg'] ?? $error['code'] ?? $error['type'] ?? ''));
             }
-            return mb_substr((string)($payload['message'] ?? $payload['msg'] ?? ''), 0, 160);
+            return self::friendlyError((string)($payload['message'] ?? $payload['msg'] ?? ''));
         }
-        return mb_substr(trim(strip_tags((string)$payload)), 0, 160);
+        return self::friendlyError(trim(strip_tags((string)$payload)));
+    }
+
+    private static function friendlyError(string $message): string
+    {
+        $message = trim($message);
+        if ($message !== '' && str_contains($message, 'SKU') && str_contains($message, '定价') && str_contains($message, '未配置')) {
+            return '算力市场文本模型 SKU 定价未配置，请先同步/上架文本模型 SKU 并确认租户售价后再生成';
+        }
+        return mb_substr($message, 0, 160);
+    }
+
+    private static function marketContext(array $model): array
+    {
+        $input = (array)($model['input'] ?? []);
+        $output = (array)($model['output'] ?? []);
+        $inputSkuId = (int)($input['sku_id'] ?? 0);
+        $outputSkuId = (int)($output['sku_id'] ?? 0);
+        $inputSkuKey = trim((string)($input['sku_key'] ?? ''));
+        $outputSkuKey = trim((string)($output['sku_key'] ?? ''));
+        return array_filter([
+            'market_product_id' => (int)($model['product_id'] ?? 0),
+            'market_sku_id' => $inputSkuId,
+            'sku_id' => $inputSkuId,
+            'market_sku_key' => $inputSkuKey,
+            'sku_key' => $inputSkuKey,
+            'pricing_sku_key' => $inputSkuKey,
+            'market_input_sku_id' => $inputSkuId,
+            'input_sku_id' => $inputSkuId,
+            'market_input_sku_key' => $inputSkuKey,
+            'input_sku_key' => $inputSkuKey,
+            'input_pricing_sku_key' => $inputSkuKey,
+            'market_output_sku_id' => $outputSkuId,
+            'output_sku_id' => $outputSkuId,
+            'market_output_sku_key' => $outputSkuKey,
+            'output_sku_key' => $outputSkuKey,
+            'output_pricing_sku_key' => $outputSkuKey,
+            'price_source' => 'power_market_text_model',
+        ], static fn($value) => $value !== '' && $value !== 0 && $value !== null);
     }
 
     private static function normalizeUsage(array $usage): array

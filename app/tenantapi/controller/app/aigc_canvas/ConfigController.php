@@ -18,8 +18,4 @@ class ConfigController extends BaseAdminController
         return $this->success('保存成功', [], 1, 1);
     }
 
-    public function dependencies()
-    {
-        return $this->success('获取成功', AigcCanvasService::dependencies($this->tenantId));
-    }
 }

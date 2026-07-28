@@ -10,6 +10,9 @@ use app\common\service\app\aigc_canvas\AigcCanvasAgentRuntimeService;
 use app\common\service\app\aigc_canvas\AigcCanvasService;
 use app\common\service\app\aigc_canvas\agent\planning\EcommerceDetailSectionPlanner;
 use app\common\service\app\aigc_canvas\agent\planning\RevisionPlanner;
+use app\common\service\app\aigc_canvas\agent\prompt\PromptSpecCompiler;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemService;
+use app\common\service\app\aigc_canvas\agent\delivery\PendingActionProtocol;
 use Exception;
 use think\facade\Db;
 
@@ -29,11 +32,13 @@ final class EcommerceAgentBatchService
         array $route,
         ?callable $emit = null
     ): array {
+        $skillKey = trim((string)($route['skill_key'] ?? 'ecommerce_detail_page')) ?: 'ecommerce_detail_page';
+        $rawSections = (array)($route['slots']['detail_sections'] ?? []);
         $plan = [
             'section_count' => (int)($route['slots']['section_count'] ?? 0),
             'recommended_section_count' => (int)($route['slots']['recommended_section_count'] ?? 0),
             'count_reason' => (string)($route['slots']['count_reason'] ?? ''),
-            'detail_sections' => EcommerceDetailSectionPlanner::normalizeSections((array)($route['slots']['detail_sections'] ?? [])),
+            'detail_sections' => self::normalizeSections($rawSections),
             'design_analysis' => is_array($route['slots']['design_analysis'] ?? null) ? $route['slots']['design_analysis'] : [],
             'analysis_source' => (string)($route['slots']['analysis_source'] ?? 'fallback'),
         ];
@@ -41,13 +46,31 @@ final class EcommerceAgentBatchService
         if ($plan['section_count'] <= 0) {
             throw new Exception('未能生成有效的详情页图片规划，请补充商品资料后重试');
         }
+        if (is_callable($emit)) {
+            $emit('agent.reasoning.step', [
+                'thread_id' => $threadId,
+                'message_id' => $messageId,
+                'stage' => 'section_plan',
+                'status' => 'success',
+                'label' => '详情页区块已规划',
+                'value' => sprintf('%d 个区块，按内容密度分配画幅', (int)$plan['section_count']),
+            ]);
+        }
         $references = self::normalizeReferences(array_merge(
             (array)($route['uploaded_references'] ?? []),
             (array)($context['uploaded_references'] ?? [])
         ));
-        $mediaConfig = is_array($route['tool_options']['generate_image'] ?? null)
-            ? $route['tool_options']['generate_image']
-            : [];
+        $mediaConfig = is_array($route['tool_options'] ?? null) ? $route['tool_options'] : [];
+        $creativeContext = is_array($route['creative_context'] ?? null)
+            ? $route['creative_context']
+            : (array)($context['creative_context'] ?? []);
+        $creativeContext += [
+            'product_identity' => [],
+            'evidence_catalog' => (array)($context['enriched_context']['evidence_catalog'] ?? []),
+            'brand_context' => (array)($context['brand_memory'] ?? []),
+            'global_visual_system' => [],
+            'claim_policy' => ['claims' => (array)($context['enriched_context']['copy_plan']['claims'] ?? [])],
+        ];
         $requestId = trim((string)($route['request_id'] ?? ''));
         $existing = AigcCanvasAgentBatch::where([
             'tenant_id' => $tenantId,
@@ -67,7 +90,7 @@ final class EcommerceAgentBatchService
                 'run_id' => (int)($route['agent_run_id'] ?? 0),
                 'analysis_message_id' => $messageId,
                 'request_id' => $requestId,
-                'skill_key' => 'ecommerce_detail_page',
+                'skill_key' => $skillKey,
                 'status' => 'awaiting_initial_confirmation',
                 'execution_mode' => 'batch',
                 'total_count' => $plan['section_count'],
@@ -76,10 +99,16 @@ final class EcommerceAgentBatchService
                 'current_wave' => 0,
                 'notified_wave' => 0,
                 'analysis_json' => $plan['design_analysis'],
+                'creative_context_json' => $creativeContext,
+                'plan_version' => 1,
+                'prompt_compiler_version' => PromptSpecCompiler::VERSION,
+                'evidence_snapshot_json' => (array)($creativeContext['evidence_catalog'] ?? []),
+                'claim_snapshot_json' => (array)($creativeContext['claim_policy']['claims'] ?? []),
                 'sections_json' => $plan['detail_sections'],
                 'references_json' => $references,
                 'media_config_json' => $mediaConfig,
                 'tasks_json' => [],
+                'scope_json' => ['delivery_item_id' => (int)($route['delivery_item_id'] ?? 0), 'section_item_ids' => []],
                 'error' => '',
                 'create_time' => $now,
                 'update_time' => $now,
@@ -87,22 +116,35 @@ final class EcommerceAgentBatchService
             ]);
         }
 
-        $referenceImages = self::referenceImages($references);
-        $replyResult = EcommerceDetailSectionPlanner::streamAnalysisReply(
-            $tenantId,
-            $userId,
-            $plan,
-            $referenceImages,
-            static function (string $delta) use ($emit, $threadId, $messageId): void {
-                if (is_callable($emit)) {
-                    $emit('agent.message.delta', [
-                        'thread_id' => $threadId,
-                        'message_id' => $messageId,
-                        'delta' => $delta,
-                    ]);
-                }
-            }
-        );
+        $replyResult = $skillKey === 'ecommerce_detail_page'
+            ? ['content' => EcommerceDetailSectionPlanner::conciseAnalysisReply($plan), 'streamed' => false]
+            : ['content' => self::deliveryReply($skillKey, $plan), 'streamed' => false];
+        // Plans are always reviewable before a paid submission. The legacy
+        // branch is retained only for an explicit server-side migration call.
+        if (!empty($route['legacy_auto_execute']) && $plan['section_count'] <= self::BATCH_SIZE) {
+            $execution = self::execute($tenantId, $userId, [
+                'batch_id' => (int)$batch['id'],
+                'action' => 'initial',
+                'request_id' => $requestId . ':auto_initial',
+                'assistant_message_id' => $messageId,
+            ], $emit);
+            $submittedBatch = (array)($execution['batch'] ?? self::formatBatch($batch->toArray()));
+            return [
+                'reply' => sprintf('已提交 %d 张图片生成任务。', $plan['section_count']),
+                'reply_streamed' => false,
+                'tool_calls' => (array)($execution['tool_calls'] ?? []),
+                'workspace_actions' => (array)($execution['workspace_actions'] ?? []),
+                'assets' => [],
+                'next_action' => 'generation_submitted',
+                'batch_id' => (int)$batch['id'],
+                'design_analysis' => $plan['design_analysis'],
+                'planned_sections' => $plan['detail_sections'],
+                'total_count' => $plan['section_count'],
+                'completed_count' => (int)($submittedBatch['completed_count'] ?? 0),
+                'remaining_count' => (int)($submittedBatch['remaining_count'] ?? 0),
+                'batch' => $submittedBatch,
+            ];
+        }
         return [
             'reply' => $replyResult['content'],
             'reply_streamed' => !empty($replyResult['streamed']),
@@ -167,7 +209,8 @@ final class EcommerceAgentBatchService
                 'section_index' => (int)($section['section_index'] ?? 0),
                 'section_key' => (string)($section['section_key'] ?? ''),
                 'title' => (string)($section['title'] ?? ''),
-                'prompt' => (string)($section['image_prompt'] ?? ''),
+                'purpose' => (string)($section['purpose'] ?? ''),
+                'narrative' => (string)($section['narrative'] ?? ''),
                 'copy_content' => is_array($section['copy_content'] ?? null) ? $section['copy_content'] : [],
                 'url' => '',
                 'node_id' => '',
@@ -322,7 +365,8 @@ final class EcommerceAgentBatchService
             'section_index' => (int)($section['section_index'] ?? 0),
             'section_key' => (string)($section['section_key'] ?? ''),
             'title' => (string)($section['title'] ?? ''),
-            'prompt' => (string)($section['image_prompt'] ?? ''),
+            'purpose' => (string)($section['purpose'] ?? ''),
+            'narrative' => (string)($section['narrative'] ?? ''),
             'copy_content' => is_array($section['copy_content'] ?? null) ? $section['copy_content'] : [],
             'url' => '',
             'node_id' => '',
@@ -373,7 +417,7 @@ final class EcommerceAgentBatchService
         return self::formatBatch($batch->toArray());
     }
 
-    public static function execute(int $tenantId, int $userId, array $params): array
+    public static function execute(int $tenantId, int $userId, array $params, ?callable $emit = null): array
     {
         $batchId = (int)($params['batch_id'] ?? 0);
         $action = (string)($params['action'] ?? '');
@@ -445,7 +489,7 @@ final class EcommerceAgentBatchService
             'role' => 'assistant',
             'content' => self::executionMessage($sections, (int)$batch['total_count']),
             'content_json' => [
-                'skill_key' => 'ecommerce_detail_page',
+                'skill_key' => (string)($batch['skill_key'] ?? 'ecommerce_detail_page'),
                 'batch_id' => (int)$batch['id'],
                 'batch_wave' => $wave,
                 'next_action' => 'execute_tool',
@@ -466,19 +510,30 @@ final class EcommerceAgentBatchService
         foreach ($sections as $section) {
             $sectionIndex = (int)($section['section_index'] ?? 0);
             $sectionKey = (string)($section['section_key'] ?? 'section_' . $sectionIndex);
+            $deliveryItemId = (int)(((array)($batch['scope_json'] ?? []))['section_item_ids'][$sectionKey] ?? 0);
             $revisionNo = (int)($batch['revision_no'] ?? 0);
-            $targetId = 'ecommerce_batch_' . (int)$batch['id'] . '_' . $sectionKey . ($revisionNo > 0 ? '_r' . $revisionNo : '');
+            $targetId = 'delivery_batch_' . (int)$batch['id'] . '_' . $sectionKey . ($revisionNo > 0 ? '_r' . $revisionNo : '');
             $sectionReferences = self::referencesForSection((array)$batch['references_json'], $section);
-            $input = array_merge((array)($batch['media_config_json'] ?? []), [
-                'prompt' => (string)($section['image_prompt'] ?? ''),
+            $toolCode = self::toolCodeForSection($section);
+            $toolOptions = (array)($batch['media_config_json'] ?? []);
+            $sectionRequest = trim((string)($section['user_request'] ?? ''));
+            $input = array_merge((array)($toolOptions[$toolCode] ?? []), [
+                // A section title is already rendered as purpose by the compiler.
+                // Do not reuse it as a user request when the planner has no source brief.
+                'prompt' => $sectionRequest,
+                'user_request' => $sectionRequest,
+                'prompt_mode' => 'planned',
+                'delivery' => $section,
+                'creative_context' => (array)($batch['creative_context_json'] ?? []),
                 'project_id' => (int)$batch['project_id'],
                 'quantity' => 1,
-                'ratio' => (string)($section['ratio'] ?? '') ?: (string)(($batch['media_config_json']['ratio'] ?? '3:4')),
+                'ratio' => (string)($section['ratio'] ?? '') ?: (string)(($toolOptions[$toolCode]['ratio'] ?? '3:4')),
                 'design_width' => 750,
                 'target_element_id' => $targetId,
                 'section_key' => $sectionKey,
                 'section_index' => $sectionIndex,
                 'batch_id' => (int)$batch['id'],
+                'delivery_item_id' => $deliveryItemId,
                 'batch_kind' => (string)($batch['batch_kind'] ?? 'initial'),
                 'parent_batch_id' => (int)($batch['parent_batch_id'] ?? 0),
                 'revision_no' => $revisionNo,
@@ -496,11 +551,11 @@ final class EcommerceAgentBatchService
                     (int)$batch['project_id'],
                     (int)$batch['thread_id'],
                     (int)$assistant['id'],
-                    'generate_image',
+                    $toolCode,
                     $input,
                     $input['prompt'],
                     ['uploaded_references' => $sectionReferences],
-                    null,
+                    $emit,
                     1
                 );
                 $tool = (array)($result['tool_calls'][0] ?? []);
@@ -512,30 +567,46 @@ final class EcommerceAgentBatchService
                     'section_index' => $sectionIndex,
                     'section_key' => $sectionKey,
                     'title' => (string)($section['title'] ?? ''),
+                    'tool_code' => $toolCode,
+                    'section_id' => (string)($section['section_id'] ?? $sectionKey),
+                    'prompt_trace' => self::taskPromptTrace((array)($tool['output']['submitted_input'] ?? $tool['input'] ?? $input)),
                     'target_element_id' => $targetId,
                     'source_node_id' => (string)($section['source_node_id'] ?? ''),
                     'revision_no' => $revisionNo,
                     'tool_call_id' => (int)($tool['id'] ?? 0),
                     'workspace_action_id' => (int)($workspace['id'] ?? 0),
                     'task_id' => (int)($tool['provider_task_id'] ?? $tool['output']['task_id'] ?? 0),
+                    'delivery_item_id' => $deliveryItemId,
                     'status' => 'running',
                     'url' => '',
                     'error' => '',
                 ];
+                self::syncDeliveryItem($tenantId, $userId, $deliveryItemId, 'running', [
+                    'task_snapshot_json' => ['task_id' => (string)($tool['provider_task_id'] ?? $tool['output']['task_id'] ?? ''), 'input' => (array)($tool['input'] ?? $input), 'tool_call_id' => (int)($tool['id'] ?? 0)],
+                    'provider_request_id' => (string)($tool['output']['request_id'] ?? $input['request_id']),
+                    'result_json' => ['workspace_actions' => (array)($result['workspace_actions'] ?? [])],
+                ]);
             } catch (Exception $e) {
                 $tasks[] = [
                     'wave' => $wave,
                     'section_index' => $sectionIndex,
                     'section_key' => $sectionKey,
                     'title' => (string)($section['title'] ?? ''),
+                    'tool_code' => $toolCode,
+                    'section_id' => (string)($section['section_id'] ?? $sectionKey),
+                    'prompt_trace' => self::taskPromptTrace($input),
                     'target_element_id' => $targetId,
                     'tool_call_id' => 0,
                     'workspace_action_id' => 0,
                     'task_id' => 0,
+                    'delivery_item_id' => $deliveryItemId,
                     'status' => 'failed',
                     'url' => '',
                     'error' => $e->getMessage(),
                 ];
+                self::syncDeliveryItem($tenantId, $userId, $deliveryItemId, 'failed', [
+                    'error' => $e->getMessage(), 'provider_error_code' => 'provider_submit', 'provider_error_message' => $e->getMessage(),
+                ]);
             }
         }
         $batchModel = self::batchQuery($tenantId, $userId, (int)$batch['id'])->findOrEmpty();
@@ -576,7 +647,7 @@ final class EcommerceAgentBatchService
                 continue;
             }
             try {
-                $detail = AigcCanvasService::imageTaskDetail($tenantId, $userId, $taskId);
+                $detail = self::taskDetail($tenantId, $userId, self::toolCodeForTask($task), $taskId);
                 $status = strtolower((string)($detail['status'] ?? 'running'));
                 $url = self::resultUrl($detail);
                 if ($url !== '') {
@@ -590,6 +661,12 @@ final class EcommerceAgentBatchService
                 $task['url'] = $url;
                 $task['error'] = (string)($detail['error'] ?? '');
                 self::syncWorkspaceAction($tenantId, $userId, $task, $detail);
+                self::syncDeliveryItem($tenantId, $userId, (int)($task['delivery_item_id'] ?? 0), match ($status) {
+                    'success' => 'completed', 'cancelled' => 'canceled', default => $status,
+                }, [
+                    'result_json' => ['url' => $url, 'detail' => $detail], 'error' => (string)($detail['error'] ?? ''),
+                    'provider_error_message' => (string)($detail['error'] ?? ''),
+                ]);
                 $changed = true;
             } catch (Exception $e) {
                 $task['last_query_error'] = $e->getMessage();
@@ -622,6 +699,10 @@ final class EcommerceAgentBatchService
         $remaining = max(0, $total - (int)($batch['next_offset'] ?? 0));
         return [
             'id' => (int)($batch['id'] ?? 0),
+            'skill_key' => (string)($batch['skill_key'] ?? ''),
+            'plan_version' => max(1, (int)($batch['plan_version'] ?? 1)),
+            'creative_context' => is_array($batch['creative_context_json'] ?? null) ? $batch['creative_context_json'] : [],
+            'claims' => is_array($batch['claim_snapshot_json'] ?? null) ? $batch['claim_snapshot_json'] : [],
             'project_id' => (int)($batch['project_id'] ?? 0),
             'thread_id' => (int)($batch['thread_id'] ?? 0),
             'run_id' => (int)($batch['run_id'] ?? 0),
@@ -644,6 +725,182 @@ final class EcommerceAgentBatchService
             'planned_sections' => array_values((array)($batch['sections_json'] ?? [])),
             'tasks' => $tasks,
             'updated_at' => (int)($batch['update_time'] ?? 0),
+        ];
+    }
+
+    public static function planDetail(int $tenantId, int $userId, array $params): array
+    {
+        $batch = self::batchQuery($tenantId, $userId, (int)($params['batch_id'] ?? 0))->findOrEmpty();
+        if ($batch->isEmpty()) throw new Exception('Delivery plan not found.');
+        return self::formatBatch($batch->toArray());
+    }
+
+    public static function planPatch(int $tenantId, int $userId, array $params): array
+    {
+        $batchId = (int)($params['batch_id'] ?? 0);
+        return Db::transaction(function () use ($tenantId, $userId, $batchId, $params): array {
+            $batch = self::batchQuery($tenantId, $userId, $batchId)->lock(true)->findOrEmpty();
+            if ($batch->isEmpty()) throw new Exception('Delivery plan not found.');
+            if (!in_array((string)$batch['status'], ['awaiting_initial_confirmation', 'awaiting_continue'], true)) {
+                throw new Exception('The pending plan cannot be changed after generation starts.');
+            }
+            $sections = array_values(array_filter((array)$batch['sections_json'], 'is_array'));
+            $operation = (string)($params['operation'] ?? 'replace');
+            if ($operation === 'replace') {
+                $sections = self::normalizeSections((array)($params['sections'] ?? []));
+            } elseif ($operation === 'delete') {
+                $key = (string)($params['section_key'] ?? '');
+                $sections = self::normalizeSections(array_values(array_filter($sections, static fn(array $section): bool => (string)($section['section_key'] ?? '') !== $key)));
+            } elseif ($operation === 'duplicate') {
+                $key = (string)($params['section_key'] ?? '');
+                foreach ($sections as $index => $section) {
+                    if ((string)($section['section_key'] ?? '') !== $key) continue;
+                    $copy = $section;
+                    $copy['section_id'] = '';
+                    $copy['section_key'] = (string)($section['section_key'] ?? 'section') . '_copy';
+                    array_splice($sections, $index + 1, 0, [$copy]);
+                    break;
+                }
+                $sections = self::normalizeSections($sections);
+            } elseif ($operation === 'append') {
+                $sections[] = (array)($params['section'] ?? []);
+                $sections = self::normalizeSections($sections);
+            } else {
+                throw new Exception('Unsupported plan operation.');
+            }
+            if ($sections === []) throw new Exception('A delivery plan needs at least one section.');
+            $batch->save([
+                'sections_json' => $sections,
+                'total_count' => count($sections),
+                'next_offset' => min((int)$batch['next_offset'], count($sections)),
+                'plan_version' => max(1, (int)$batch['plan_version']) + 1,
+                'update_time' => time(),
+            ]);
+            return self::formatBatch($batch->toArray());
+        });
+    }
+
+    public static function claimConfirm(int $tenantId, int $userId, array $params): array
+    {
+        $batchId = (int)($params['batch_id'] ?? 0);
+        $claimId = trim((string)($params['claim_id'] ?? ''));
+        $status = (string)($params['status'] ?? 'approved_claim');
+        if ($claimId === '' || !in_array($status, ['approved_claim', 'soft_expression', 'rejected_claim'], true)) throw new Exception('Invalid claim update.');
+        return Db::transaction(function () use ($tenantId, $userId, $batchId, $claimId, $status): array {
+            $batch = self::batchQuery($tenantId, $userId, $batchId)->lock(true)->findOrEmpty();
+            if ($batch->isEmpty()) throw new Exception('Delivery plan not found.');
+            $claims = (array)$batch['claim_snapshot_json'];
+            $matched = false;
+            foreach ($claims as &$claim) {
+                if (!is_array($claim) || (string)($claim['claim_id'] ?? '') !== $claimId) continue;
+                $claim['status'] = $status;
+                $matched = true;
+                break;
+            }
+            unset($claim);
+            if (!$matched) throw new Exception('Claim not found.');
+            $creative = (array)$batch['creative_context_json'];
+            $creative['claim_policy']['claims'] = $claims;
+            $batch->save(['claim_snapshot_json' => $claims, 'creative_context_json' => $creative, 'plan_version' => max(1, (int)$batch['plan_version']) + 1, 'update_time' => time()]);
+            return self::formatBatch($batch->toArray());
+        });
+    }
+
+    public static function planRegenerate(int $tenantId, int $userId, array $params): array
+    {
+        $batchId = (int)($params['batch_id'] ?? 0);
+        $request = trim((string)($params['request'] ?? ''));
+        if ($request === '') throw new Exception('A revised planning request is required.');
+        return Db::transaction(function () use ($tenantId, $userId, $batchId, $request): array {
+            $batch = self::batchQuery($tenantId, $userId, $batchId)->lock(true)->findOrEmpty();
+            if ($batch->isEmpty()) throw new Exception('Delivery plan not found.');
+            if ((string)$batch['skill_key'] !== 'ecommerce_detail_page') throw new Exception('This delivery type cannot regenerate sections.');
+            if ((int)$batch['next_offset'] > 0) throw new Exception('Only the remaining plan can be regenerated after generation starts.');
+            $current = array_values(array_filter((array)$batch['sections_json'], 'is_array'));
+            $locked = array_values(array_filter($current, static fn(array $section): bool => (string)($section['status'] ?? '') === 'locked'));
+            $plan = EcommerceDetailSectionPlanner::resolve(
+                $tenantId,
+                $userId,
+                $request,
+                ['creative_context' => (array)$batch['creative_context_json']],
+                self::referenceImages((array)$batch['references_json'])
+            );
+            $sections = self::normalizeSections((array)($plan['detail_sections'] ?? []));
+            foreach ($locked as $index => $section) {
+                if (isset($sections[$index])) $sections[$index] = $section;
+            }
+            $sections = self::normalizeSections($sections);
+            if ($sections === []) throw new Exception('Unable to create a conservative plan from the available product evidence.');
+            $batch->save([
+                'analysis_json' => (array)($plan['design_analysis'] ?? []),
+                'sections_json' => $sections,
+                'total_count' => count($sections),
+                'next_offset' => 0,
+                'tasks_json' => [],
+                'status' => 'awaiting_initial_confirmation',
+                'plan_version' => max(1, (int)$batch['plan_version']) + 1,
+                'update_time' => time(),
+            ]);
+            return self::formatBatch($batch->toArray());
+        });
+    }
+
+    /** Internal prompt audit data. Expose this only from an admin controller. */
+    public static function promptTrace(int $tenantId, int $userId, array $params): array
+    {
+        $batch = self::batchQuery($tenantId, $userId, (int)($params['batch_id'] ?? 0))->findOrEmpty();
+        if ($batch->isEmpty()) throw new Exception('Delivery plan not found.');
+        $sectionKey = trim((string)($params['section_key'] ?? ''));
+        $tasks = array_values(array_filter((array)$batch['tasks_json'], static fn(array $task): bool => $sectionKey === '' || (string)($task['section_key'] ?? '') === $sectionKey));
+        return ['batch_id' => (int)$batch['id'], 'plan_version' => (int)$batch['plan_version'], 'compiler_version' => (string)$batch['prompt_compiler_version'], 'tasks' => $tasks];
+    }
+
+    /** Bind legacy batch sections to first-class delivery items after planning. */
+    public static function bindDeliveryItems(int $tenantId, int $userId, int $batchId, int $parentItemId, array $items): void
+    {
+        $batch = self::batchQuery($tenantId, $userId, $batchId)->findOrEmpty();
+        if ($batch->isEmpty()) return;
+        $sectionItemIds = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) continue;
+            $sectionKey = (string)($item['delivery']['section_key'] ?? '');
+            if ($sectionKey !== '') $sectionItemIds[$sectionKey] = (int)($item['id'] ?? 0);
+        }
+        $scope = (array)($batch['scope_json'] ?? []);
+        $scope['delivery_item_id'] = $parentItemId;
+        $scope['section_item_ids'] = $sectionItemIds;
+        $batch->save(['scope_json' => $scope, 'update_time' => time()]);
+    }
+
+    private static function syncDeliveryItem(int $tenantId, int $userId, int $itemId, string $status, array $patch = []): void
+    {
+        if ($itemId <= 0 || !in_array($status, DeliveryItemService::STATUSES, true)) return;
+        try {
+            $item = DeliveryItemService::find($tenantId, $userId, $itemId);
+            if ($item === [] || in_array((string)$item['status'], ['completed', 'canceled'], true)) return;
+            if ($status === 'running' && (string)$item['status'] === 'ready') {
+                $item = DeliveryItemService::transition($tenantId, $userId, $itemId, 'queued', ['pending_action_json' => []]);
+            }
+            if ($status === 'failed' && !array_key_exists('pending_action_json', $patch)) {
+                $patch['pending_action_json'] = PendingActionProtocol::confirmation('retry_item');
+            }
+            DeliveryItemService::transition($tenantId, $userId, $itemId, $status, $patch);
+        } catch (Exception) {
+            // Batch history is authoritative for legacy replay even if a child was removed.
+        }
+    }
+
+    private static function taskPromptTrace(array $input): array
+    {
+        return [
+            'compiled_prompt' => (string)($input['compiled_prompt'] ?? $input['prompt'] ?? ''),
+            'prompt_spec_json' => (array)($input['prompt_spec_json'] ?? []),
+            'creative_spec_json' => (array)($input['creative_spec_json'] ?? []),
+            'prompt_hash' => (string)($input['prompt_hash'] ?? ''),
+            'compiler_version' => (string)($input['compiler_version'] ?? ''),
+            'evidence_ids' => array_values((array)($input['evidence_ids'] ?? [])),
+            'claim_ids' => array_values((array)($input['claim_ids'] ?? [])),
+            'preflight' => (array)($input['preflight'] ?? []),
         ];
     }
 
@@ -696,7 +953,7 @@ final class EcommerceAgentBatchService
                 'role' => 'assistant',
                 'content' => $content,
                 'content_json' => [
-                    'skill_key' => 'ecommerce_detail_page',
+                    'skill_key' => (string)($batch['skill_key'] ?? 'ecommerce_detail_page'),
                     'batch_id' => (int)$messageBatch['id'],
                     'batch_wave' => $wave,
                     'batch' => self::formatBatch($messageBatch->toArray()),
@@ -736,7 +993,8 @@ final class EcommerceAgentBatchService
         $asset['status'] = (string)($task['status'] ?? 'running');
         if ($url !== '') {
             $asset['url'] = $url;
-            $asset['image_url'] = $url;
+            $toolCode = self::toolCodeForTask($task);
+            $asset[$toolCode === 'generate_video' ? 'video_url' : ($toolCode === 'generate_music' ? 'audio_url' : 'image_url')] = $url;
         }
         $input['asset'] = $asset;
         $status = (string)($task['status'] ?? '') === 'failed' ? 'failed' : ($url !== '' ? 'applied' : 'pending');
@@ -835,18 +1093,60 @@ final class EcommerceAgentBatchService
         return $result . "。原方案还有 {$remaining} 张尚未生成，是否继续生成下一批 {$next} 张？";
     }
 
+    private static function normalizeSections(array $sections): array
+    {
+        $normalized = EcommerceDetailSectionPlanner::normalizeSections($sections);
+        foreach ($normalized as $index => &$section) {
+            $source = (array)($sections[$index] ?? []);
+            $section['tool_code'] = self::toolCodeForSection($source);
+        }
+        unset($section);
+        return $normalized;
+    }
+
+    private static function toolCodeForSection(array $section): string
+    {
+        $toolCode = (string)($section['tool_code'] ?? 'generate_image');
+        return in_array($toolCode, ['generate_image', 'generate_video', 'generate_music'], true)
+            ? $toolCode
+            : 'generate_image';
+    }
+
+    private static function toolCodeForTask(array $task): string
+    {
+        return self::toolCodeForSection(['tool_code' => (string)($task['tool_code'] ?? '')]);
+    }
+
+    private static function taskDetail(int $tenantId, int $userId, string $toolCode, int $taskId): array
+    {
+        return match ($toolCode) {
+            'generate_video' => AigcCanvasService::videoTaskDetail($tenantId, $userId, $taskId),
+            'generate_music' => AigcCanvasService::musicTaskDetail($tenantId, $userId, $taskId),
+            default => AigcCanvasService::imageTaskDetail($tenantId, $userId, $taskId),
+        };
+    }
+
+    private static function deliveryReply(string $skillKey, array $plan): string
+    {
+        $items = array_values((array)($plan['detail_sections'] ?? []));
+        $labels = array_values(array_filter(array_map(static fn(array $item): string => (string)($item['title'] ?? ''), $items)));
+        return 'Delivery plan prepared for ' . $skillKey . '. It contains ' . count($items)
+            . ' concrete items: ' . implode(', ', array_slice($labels, 0, 5))
+            . '. Confirm the first batch to begin generation.';
+    }
+
     private static function resultUrl(array $detail): string
     {
-        foreach ((array)($detail['results'] ?? $detail['images'] ?? []) as $item) {
+        foreach ((array)($detail['results'] ?? $detail['images'] ?? $detail['videos'] ?? $detail['audios'] ?? $detail['music'] ?? []) as $item) {
             if (!is_array($item)) {
                 continue;
             }
-            $url = trim((string)($item['image_url'] ?? $item['url'] ?? ''));
+            $url = trim((string)($item['image_url'] ?? $item['video_url'] ?? $item['audio_url'] ?? $item['url'] ?? ''));
             if ($url !== '') {
                 return $url;
             }
         }
-        return trim((string)($detail['image_url'] ?? $detail['url'] ?? ''));
+        return trim((string)($detail['image_url'] ?? $detail['video_url'] ?? $detail['audio_url'] ?? $detail['url'] ?? ''));
     }
 
     private static function normalizeReferences(array $references): array

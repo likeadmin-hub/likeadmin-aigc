@@ -871,7 +871,11 @@ VALUES
 (9122,{tenantId},9121,'C','用量统计','',0,'app.aigc_canvas.admin/stat','stat','apps/aigc_canvas/stat','','',0,1,0,'aigc_canvas','app','aigc_canvas_stat',0,1778000000,1778000000),
 (9123,{tenantId},9121,'C','项目管理','',0,'app.aigc_canvas.admin_project/lists','project','apps/aigc_canvas/project','','',0,1,0,'aigc_canvas','app','aigc_canvas_project',0,1778000000,1778000000),
 (9124,{tenantId},9121,'C','创作任务','',0,'app.aigc_canvas.admin_run/lists','run','apps/aigc_canvas/run','','',0,1,0,'aigc_canvas','app','aigc_canvas_run',0,1778000000,1778000000),
-(9125,{tenantId},9121,'C','依赖状态','',0,'app.aigc_canvas.config/dependencies','dependencies','apps/aigc_canvas/dependencies','','',0,1,0,'aigc_canvas','app','aigc_canvas_dependency',0,1778000000,1778000000);
+(9125,{tenantId},9121,'C','Agent Trace','',70,'app.aigc_canvas.admin_trace/lists','trace','apps/aigc_canvas/trace','','',0,1,0,'aigc_canvas','app','aigc_canvas_trace',0,1778000000,1778000000);
+
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+({tenantId},9121,'C','Agent治理','',60,'app.aigc_canvas.governance/policies','governance','apps/aigc_canvas/governance','','',0,1,0,'aigc_canvas','app','aigc_canvas_governance',0,1778000000,1778000000);
 
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
