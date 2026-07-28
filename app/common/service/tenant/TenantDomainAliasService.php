@@ -99,15 +99,12 @@ class TenantDomainAliasService
                 $primaryCount++;
             }
 
-            $query = Db::name('tenant_domain_alias')->where('domain', $domain);
-            if ($tenantId > 0) {
-                $query->where('tenant_id', '<>', $tenantId);
-            }
-            if (!empty($query->find())) {
+            $aliasRow = Db::name('tenant_domain_alias')->where('domain', $domain)->find();
+            if (!empty($aliasRow) && !self::canReuseAliasRow($aliasRow, $tenantId)) {
                 throw new Exception('租户别名已存在：' . $domain);
             }
 
-            $tenantQuery = Tenant::withoutGlobalScope()->where('domain_alias', $domain);
+            $tenantQuery = Tenant::where('domain_alias', $domain);
             if ($tenantId > 0) {
                 $tenantQuery->where('id', '<>', $tenantId);
             }
@@ -145,7 +142,7 @@ class TenantDomainAliasService
             }
 
             $row = Db::name('tenant_domain_alias')->where('domain', $domain)->find();
-            if (!empty($row) && (int)($row['tenant_id'] ?? 0) !== $tenantId) {
+            if (!empty($row) && !self::canReuseAliasRow($row, $tenantId)) {
                 throw new Exception('租户别名已存在：' . $domain);
             }
 
@@ -192,11 +189,28 @@ class TenantDomainAliasService
                 ->where(['domain' => $domain, 'status' => 1])
                 ->findOrEmpty();
             if (!$alias->isEmpty()) {
-                return Tenant::withoutGlobalScope()->where('id', (int)$alias['tenant_id'])->findOrEmpty();
+                $tenant = Tenant::where('id', (int)$alias['tenant_id'])->findOrEmpty();
+                if (!$tenant->isEmpty()) {
+                    return $tenant;
+                }
             }
         } catch (\Throwable) {
         }
-        return Tenant::withoutGlobalScope()->where('domain_alias', $domain)->findOrEmpty();
+        return Tenant::where('domain_alias', $domain)->findOrEmpty();
+    }
+
+    private static function canReuseAliasRow(array $aliasRow, int $tenantId): bool
+    {
+        if ($tenantId <= 0) {
+            return empty($aliasRow);
+        }
+        if ((int)($aliasRow['tenant_id'] ?? 0) === $tenantId) {
+            return true;
+        }
+        if (!empty($aliasRow['delete_time'])) {
+            return true;
+        }
+        return Tenant::where('id', (int)($aliasRow['tenant_id'] ?? 0))->findOrEmpty()->isEmpty();
     }
 
     public static function getPrimaryAlias(array $tenant): string
