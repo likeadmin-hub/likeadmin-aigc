@@ -6,6 +6,7 @@ $root = dirname(__DIR__, 4);
 require $root . '/vendor/autoload.php';
 
 use app\common\service\app\aigc_canvas\agent\runtime\AgentResponseProtocol;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemService;
 use app\common\service\app\aigc_canvas\AigcCanvasAgentRuntimeService;
 
 $failures = [];
@@ -125,6 +126,71 @@ $assert(($error['kind'] ?? '') === 'error', 'error kind is incorrect');
 $assert(($error['title'] ?? '') === '', 'error must not show a status heading');
 $assert(($error['blocks'][0]['type'] ?? '') === 'paragraph', 'error must use document flow instead of a card');
 $assert(($error['actions'][0]['type'] ?? '') === 'retry', 'error retry action is missing');
+
+$deliveryAction = AgentResponseProtocol::fromResult([
+    'next_action' => 'confirm_execution',
+    'delivery_item' => [
+        'id' => 91,
+        'status' => 'awaiting_confirmation',
+        'pending_action' => [
+            'type' => 'confirm_execution',
+            'action_id' => 'confirm_execution:91',
+            'required_input_schema' => ['type' => 'boolean'],
+            'options' => [['value' => true]],
+        ],
+    ],
+]);
+$matchingActions = array_values(array_filter((array)($deliveryAction['actions'] ?? []), static fn(array $item): bool => ($item['type'] ?? '') === 'confirm_execution'));
+$action = (array)($matchingActions[0] ?? []);
+$assert(($action['type'] ?? '') === 'confirm_execution', 'delivery confirmation action is missing');
+$assert(($action['delivery_item_id'] ?? 0) === 91 && ($action['action_id'] ?? '') === 'confirm_execution:91', 'delivery action is missing item identity');
+$assert(array_key_exists('structured_value', $action), 'delivery action is missing structured value');
+$assert(!array_key_exists('skill_key', (array)($deliveryAction['task_context'] ?? [])), 'response protocol exposed an internal skill key');
+
+$publicItem = DeliveryItemService::present([
+    'id' => 91, 'status' => 'failed', 'skill_key' => 'internal_skill',
+    'task_snapshot' => ['input' => ['compiled_prompt' => 'private prompt']],
+    'provider_request_id' => 'provider-debug', 'provider_error_message' => 'provider diagnostic',
+    'result' => ['assets' => [['url' => '/storage/result.png']], 'generation' => ['provider' => 'hidden']],
+]);
+$assert(!array_key_exists('skill_key', $publicItem), 'public delivery item exposed a Skill key');
+$assert(!array_key_exists('task_snapshot', $publicItem), 'public delivery item exposed a prompt snapshot');
+$assert(!array_key_exists('provider_request_id', $publicItem), 'public delivery item exposed a provider identifier');
+$assert(($publicItem['result']['assets'][0]['url'] ?? '') === '/storage/result.png', 'public delivery item lost its result asset');
+
+$sanitizedItem = DeliveryItemService::present([
+    'id' => 92, 'slots' => ['user_request' => '做一张产品图', 'compiled_prompt' => 'private prompt'],
+    'delivery' => ['type' => 'image', 'ratio' => '16:9', 'channel' => 'hidden-channel', 'model' => 'hidden-model'],
+    'reference_assets' => [['url' => '/storage/product.png', 'provider_task_id' => 'hidden-task']],
+    'result' => ['assets' => [['url' => '/storage/result.png', 'provider' => 'hidden-provider']]],
+]);
+$sanitizedJson = json_encode($sanitizedItem, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '';
+$assert(!str_contains($sanitizedJson, 'private prompt') && !str_contains($sanitizedJson, 'hidden-channel') && !str_contains($sanitizedJson, 'hidden-provider'), 'public delivery item retained internal execution data');
+$assert(($sanitizedItem['delivery']['ratio'] ?? '') === '16:9', 'public delivery item lost its creative ratio');
+
+$publicMessage = AigcCanvasAgentRuntimeService::formatMessage([
+    'id' => 0, 'role' => 'assistant', 'content' => '已提交创作任务', 'status' => 'success',
+    'content_json' => [
+        'selected_skill' => ['key' => 'internal_skill'],
+        'task_decision' => ['provider' => 'internal-provider'],
+        'agent_trace' => ['compiled_prompt' => 'private prompt'],
+        'tool_calls' => [['tool_code' => 'generate_image', 'input' => ['compiled_prompt' => 'private prompt']]],
+        'workspace_actions' => [[
+            'id' => 7, 'action_type' => 'insert_image', 'status' => 'pending',
+            'input' => ['asset' => ['url' => '/storage/result.png', 'task_id' => 'task-7'], 'compiled_prompt' => 'private prompt'],
+            'result' => ['provider' => 'internal-provider'],
+        ]],
+        'response' => ['kind' => 'execution', 'actions' => [['type' => 'confirm_execution', 'delivery_item_id' => 91]], 'task_context' => []],
+    ],
+]);
+$messageJson = (array)($publicMessage['content_json'] ?? []);
+foreach (['selected_skill', 'task_decision', 'agent_trace', 'tool_calls'] as $internalKey) {
+    $assert(!array_key_exists($internalKey, $messageJson), 'public message exposed ' . $internalKey);
+}
+$workspaceAction = (array)(($messageJson['workspace_actions'] ?? [])[0] ?? []);
+$assert(($workspaceAction['input']['asset']['url'] ?? '') === '/storage/result.png', 'public workspace action lost its media URL');
+$assert(!str_contains(json_encode($workspaceAction, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '', 'private prompt'), 'public workspace action exposed a prompt');
+$assert(!str_contains(json_encode($workspaceAction, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '', 'internal-provider'), 'public workspace action exposed provider data');
 
 $evidence = AgentResponseProtocol::fromResult([
     'next_action' => 'chat',

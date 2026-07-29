@@ -9,6 +9,7 @@ use app\common\service\app\aigc_canvas\agent\delivery\ConversationTaskResolver;
 use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemService;
 use app\common\service\app\aigc_canvas\agent\delivery\PendingActionProtocol;
 use app\common\service\app\aigc_canvas\agent\delivery\ExternalAssetImportService;
+use app\common\service\app\aigc_canvas\agent\runtime\AgentLoopService;
 
 $failures = [];
 $references = ['uploaded_references' => [['type' => 'image', 'url' => '/storage/product.png']]];
@@ -28,6 +29,22 @@ foreach ($items as $item) {
 $selling = array_values(array_filter($items, static fn(array $item): bool => ($item['skill_key'] ?? '') === 'ecommerce_selling_point'));
 if ((int)($selling[0]['delivery']['quantity'] ?? 0) !== 3) {
     $failures[] = 'selling-point quantity was not retained on its item';
+}
+$functionalSelling = ConversationTaskResolver::preview("\u{964D}\u{566A}\u{548C}\u{957F}\u{7EED}\u{822A}", $references);
+$functionalItem = (array)(($functionalSelling['items'] ?? [])[0] ?? []);
+if (($functionalItem['skill_key'] ?? '') !== 'ecommerce_selling_point'
+    || (int)($functionalItem['delivery']['quantity'] ?? 0) !== 1) {
+    $failures[] = 'product evidence plus functional selling points does not create one direct image item';
+}
+$immediateMethod = new ReflectionMethod(AgentLoopService::class, 'immediatePosterDelivery');
+$immediateMethod->setAccessible(true);
+$immediateProductPlan = $immediateMethod->invoke(null, [
+    'skill_key' => 'ecommerce_selling_point', 'allowed_tools' => ['generate_image'],
+    'defaults' => ['quantity' => 3, 'ratio' => '1:1'],
+], "\u{964D}\u{566A}\u{548C}\u{957F}\u{7EED}\u{822A}", [], $references);
+if (($immediateProductPlan['tool_code'] ?? '') !== 'generate_image'
+    || (int)($immediateProductPlan['input']['quantity'] ?? 0) !== 1) {
+    $failures[] = 'functional selling points do not immediately prepare one product image';
 }
 $detail = array_values(array_filter($items, static fn(array $item): bool => ($item['skill_key'] ?? '') === 'ecommerce_detail_page'));
 if ((int)($detail[0]['delivery']['section_count'] ?? 0) !== 5) {
@@ -54,8 +71,8 @@ $confirmResolution = PendingActionProtocol::resolve([
     'id' => 2, 'status' => 'ready', 'slots' => [], 'pending_action' => $confirm,
     'meta' => [], 'delivery' => [], 'creative_context' => [], 'reference_assets' => [],
 ], ['action' => 'confirm_execution', 'action_id' => (string)$confirm['action_id'], 'structured_value' => true]);
-if (($confirmResolution['status'] ?? '') !== 'queued') {
-    $failures[] = 'confirm_execution action did not transition to queued';
+if (($confirmResolution['status'] ?? '') !== 'ready') {
+    $failures[] = 'confirm_execution action did not preserve the executor-owned queue transition';
 }
 
 $interrupt = ConversationTaskResolver::preview('先做一张白底主图', $references);
@@ -82,17 +99,71 @@ if (!in_array('clarifying', DeliveryItemService::STATUSES, true)
 }
 
 $runtime = file_get_contents($root . '/app/common/service/app/aigc_canvas/AigcCanvasAgentRuntimeService.php') ?: '';
-if (!str_contains($runtime, 'ConversationTaskResolver::resolve') || !str_contains($runtime, "'delivery_item_id'")) {
+if (!str_contains($runtime, 'AgentTaskDecisionService::decide') || !str_contains($runtime, 'ConversationTaskResolver::resolve') || !str_contains($runtime, "'delivery_item_id'")) {
     $failures[] = 'agent runtime does not bind turns to delivery items';
 }
 $loop = file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/runtime/AgentLoopService.php') ?: '';
 if (!str_contains($loop, '$input[\'delivery_item_id\']') || !str_contains($loop, '$toolRoute[\'delivery_item_id\']')) {
     $failures[] = 'delivery item id is not forwarded to tools';
 }
+if (str_contains($loop, "&& !empty(\$skillContract['execution_confirmed'])")) {
+    $failures[] = 'single-image poster execution still waits for a confirmation flag';
+}
+if (!str_contains($loop, "'delivery_item_id' => (int)(\$toolRoute['delivery_item_id'] ?? 0),")) {
+    $failures[] = 'immediate media execution is not bound to its delivery item';
+}
 $graph = file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/delivery/DeliveryGraphExecutor.php') ?: '';
-if (!str_contains($graph, 'CanvasGenerationTaskCenterService') || !str_contains($graph, 'assertDependencies')
+if (!str_contains($graph, 'DeliveryItemTaskSyncService') || !str_contains($graph, 'claimExecution') || !str_contains($graph, 'assertDependencies')
     || !str_contains($graph, 'private static function promptMode') || !str_contains($graph, "return 'direct'")) {
-    $failures[] = 'delivery graph executor does not retain shared task center and dependency guard';
+    $failures[] = 'delivery graph executor does not retain its shared task synchronization and dependency guard';
+}
+if (!str_contains($graph, 'PendingActionProtocol::isPending')) {
+    $failures[] = 'delivery execution can bypass a pending item action';
+}
+$pendingAction = file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/delivery/PendingActionProtocol.php') ?: '';
+if (!str_contains($pendingAction, "if (\$resolution === 'retry') \$status = 'ready';")) {
+    $failures[] = 'failed items without a provider task cannot re-enter the execution service';
+}
+$resolver = file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/delivery/ConversationTaskResolver.php') ?: '';
+if (str_contains($resolver, 'mb_strlen($text, \'UTF-8\') <= 120')) {
+    $failures[] = 'short messages still default to continuation';
+}
+if (!str_contains($resolver, 'high_confidence_revision') || !str_contains($resolver, 'looksLikeRevision')) {
+    $failures[] = 'high-confidence revisions are not kept on their original item';
+}
+$binder = file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/delivery/DeliveryItemContextBinder.php') ?: '';
+if (!str_contains($binder, 'executionContext') || !str_contains($binder, 'reference_assets_json') || !str_contains($binder, 'execution_options')) {
+    $failures[] = 'delivery item context binder is missing durable execution context';
+}
+$bindingMigration = file_get_contents($root . '/app/apps/aigc_canvas/migrations/zz_20260729_canvas_delivery_task_binding.sql') ?: '';
+if (!str_contains($bindingMigration, 'la_aigc_canvas_delivery_task_binding') || !str_contains($bindingMigration, 'idx_delivery_task_generation')) {
+    $failures[] = 'indexed delivery task binding migration is missing';
+}
+foreach ([
+    '/app/apps/aigc_canvas/migrations/install.sql',
+    '/upgrade/20260729_aigc_canvas_delivery_task_binding.sql',
+    '/public/upgrade/20260729_aigc_canvas_delivery_task_binding.sql',
+    '/public/install/db/like.sql',
+] as $sqlPath) {
+    $sql = file_get_contents($root . $sqlPath) ?: '';
+    if (!str_contains($sql, 'la_aigc_canvas_delivery_task_binding')) {
+        $failures[] = 'delivery task binding SQL is missing from ' . $sqlPath;
+    }
+}
+$batch = file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/batch/EcommerceAgentBatchService.php') ?: '';
+if (!str_contains($batch, 'DeliveryGraphExecutor::execute') || !str_contains($batch, 'DeliveryGraphExecutor::refresh')) {
+    $failures[] = 'bound detail-page sections do not share the delivery execution and sync services';
+}
+$runtime = file_get_contents($root . '/app/common/service/app/aigc_canvas/AigcCanvasAgentRuntimeService.php') ?: '';
+if (!str_contains($runtime, '__delivery_graph_execution') || !str_contains($runtime, 'DeliveryGraphExecutor::execute')) {
+    $failures[] = 'external media submission can bypass the delivery execution guard';
+}
+if (!str_contains($runtime, 'deliveryExecutionOptions') || !str_contains($runtime, "'execution_options' =>")) {
+    $failures[] = 'agent media preferences are not persisted for delivery execution';
+}
+$responseProtocol = file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/runtime/AgentResponseProtocol.php') ?: '';
+if (!str_contains($responseProtocol, 'deliveryActions') || !str_contains($responseProtocol, 'delivery_item_id')) {
+    $failures[] = 'response protocol does not expose safe delivery actions';
 }
 $migration = file_get_contents($root . '/app/apps/aigc_canvas/migrations/zz_20260726_canvas_pending_action_protocol.sql') ?: '';
 if (!str_contains($migration, 'pending_action_json')) {

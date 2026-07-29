@@ -14,6 +14,7 @@ final class DeliveryPlanService
     {
         if (self::$schemaChecked) return;
         self::$schemaChecked = true;
+        DeliveryItemTaskSyncService::ensureSchema();
         Db::execute("CREATE TABLE IF NOT EXISTS `la_aigc_canvas_delivery_plan` (
             `id` int unsigned NOT NULL AUTO_INCREMENT,
             `tenant_id` int unsigned NOT NULL DEFAULT 0,
@@ -171,6 +172,15 @@ final class DeliveryPlanService
         return $row->isEmpty() ? [] : DeliveryItemService::format($row->toArray());
     }
 
+    public static function latestItem(int $tenantId, int $userId, int $threadId): array
+    {
+        self::ensureSchema();
+        $row = AigcCanvasDeliveryItem::where([
+            'tenant_id' => $tenantId, 'user_id' => $userId, 'thread_id' => $threadId, 'delete_time' => 0,
+        ])->order('update_time', 'desc')->findOrEmpty();
+        return $row->isEmpty() ? [] : DeliveryItemService::format($row->toArray());
+    }
+
     /** @return array<int, array> */
     public static function pendingItems(int $tenantId, int $userId, int $threadId): array
     {
@@ -273,7 +283,7 @@ final class DeliveryPlanService
 
     public static function format(array $plan, array $items = []): array
     {
-        $formattedItems = array_map(static fn(array $item): array => DeliveryItemService::format($item), $items);
+        $formattedItems = array_map(static fn(array $item): array => DeliveryItemService::present(DeliveryItemService::format($item)), $items);
         return [
             'id' => (int)($plan['id'] ?? 0),
             'thread_id' => (int)($plan['thread_id'] ?? 0),
