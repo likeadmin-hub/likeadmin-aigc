@@ -160,8 +160,10 @@ class AigcCanvasAgentRuntimeService
             'status' => (string)($run['status'] ?? 'running'),
             'run_id' => (int)($run['id'] ?? 0),
             'thread_id' => (int)($run['thread_id'] ?? 0),
-            'output' => is_array($run['output'] ?? null) ? $run['output'] : [],
-            'error' => (string)($run['error'] ?? ''),
+            'output' => AigcCanvasService::repairLegacyCanvasText(
+                is_array($run['output'] ?? null) ? $run['output'] : []
+            ),
+            'error' => (string)AigcCanvasService::repairLegacyCanvasText((string)($run['error'] ?? '')),
             'update_time' => (int)($run['update_time'] ?? 0),
             'subtasks' => SubAgentTaskService::statusForRun($tenantId, $userId, (int)($run['id'] ?? 0)),
             'subtask_summary' => SubAgentTaskService::summaryForRun($tenantId, $userId, (int)($run['id'] ?? 0)),
@@ -3182,13 +3184,16 @@ class AigcCanvasAgentRuntimeService
 
     public static function formatThread(array $row): array
     {
+        $meta = AigcCanvasService::repairLegacyCanvasText(
+            is_array($row['meta_json'] ?? null) ? $row['meta_json'] : []
+        );
         return [
             'id' => (int)($row['id'] ?? 0),
             'project_id' => (int)($row['project_id'] ?? 0),
-            'title' => (string)($row['title'] ?? ''),
+            'title' => (string)AigcCanvasService::repairLegacyCanvasText((string)($row['title'] ?? '')),
             'status' => (string)($row['status'] ?? ''),
-            'summary' => (string)($row['summary'] ?? ''),
-            'meta' => is_array($row['meta_json'] ?? null) ? $row['meta_json'] : [],
+            'summary' => (string)AigcCanvasService::repairLegacyCanvasText((string)($row['summary'] ?? '')),
+            'meta' => is_array($meta) ? $meta : [],
             'created_at' => (int)($row['create_time'] ?? 0),
             'updated_at' => (int)($row['update_time'] ?? 0),
         ];
@@ -3196,7 +3201,10 @@ class AigcCanvasAgentRuntimeService
 
     public static function formatMessage(array $row): array
     {
-        $contentJson = is_array($row['content_json'] ?? null) ? $row['content_json'] : [];
+        $contentJson = AigcCanvasService::repairLegacyCanvasText(
+            is_array($row['content_json'] ?? null) ? $row['content_json'] : []
+        );
+        $contentJson = is_array($contentJson) ? $contentJson : [];
         $messageId = (int)($row['id'] ?? 0);
         if ($messageId > 0) {
             // Workspace actions are updated after the original message is saved. Hydrate
@@ -3217,10 +3225,10 @@ class AigcCanvasAgentRuntimeService
             'project_id' => (int)($row['project_id'] ?? 0),
             'thread_id' => (int)($row['thread_id'] ?? 0),
             'role' => (string)($row['role'] ?? ''),
-            'content' => (string)($row['content'] ?? ''),
+            'content' => (string)AigcCanvasService::repairLegacyCanvasText((string)($row['content'] ?? '')),
             'content_json' => $contentJson,
             'status' => (string)($row['status'] ?? ''),
-            'error' => (string)($row['error'] ?? ''),
+            'error' => (string)AigcCanvasService::repairLegacyCanvasText((string)($row['error'] ?? '')),
             'created_at' => (int)($row['create_time'] ?? 0),
         ];
     }
@@ -3234,9 +3242,9 @@ class AigcCanvasAgentRuntimeService
             'tool_code' => (string)($row['tool_code'] ?? ''),
             'request_id' => (string)($row['request_id'] ?? ''),
             'status' => (string)($row['status'] ?? ''),
-            'input' => self::jsonArray($row['input_json'] ?? []),
-            'output' => self::jsonArray($row['output_json'] ?? []),
-            'error' => (string)($row['error'] ?? ''),
+            'input' => AigcCanvasService::repairLegacyCanvasText(self::jsonArray($row['input_json'] ?? [])),
+            'output' => AigcCanvasService::repairLegacyCanvasText(self::jsonArray($row['output_json'] ?? [])),
+            'error' => (string)AigcCanvasService::repairLegacyCanvasText((string)($row['error'] ?? '')),
             'idempotency_key' => (string)($row['idempotency_key'] ?? ''),
             'provider_task_id' => (string)($row['provider_task_id'] ?? ''),
             'retry_count' => (int)($row['retry_count'] ?? 0),
@@ -3257,9 +3265,9 @@ class AigcCanvasAgentRuntimeService
             'tool_call_id' => (int)($row['tool_call_id'] ?? 0),
             'action_type' => (string)($row['action_type'] ?? ''),
             'status' => (string)($row['status'] ?? ''),
-            'input' => self::jsonArray($row['input_json'] ?? []),
-            'result' => self::jsonArray($row['result_json'] ?? []),
-            'error' => (string)($row['error'] ?? ''),
+            'input' => AigcCanvasService::repairLegacyCanvasText(self::jsonArray($row['input_json'] ?? [])),
+            'result' => AigcCanvasService::repairLegacyCanvasText(self::jsonArray($row['result_json'] ?? [])),
+            'error' => (string)AigcCanvasService::repairLegacyCanvasText((string)($row['error'] ?? '')),
             'created_at' => (int)($row['create_time'] ?? 0),
         ];
     }

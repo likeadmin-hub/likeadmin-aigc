@@ -61,9 +61,6 @@ class MarketVideoRuntimeService
                 $validSkus
             ))));
             $metadataDurations = self::durationOptions($metadata);
-            if ($metadataDurations === []) {
-                $metadataDurations = self::defaultDurationOptions($product);
-            }
             if (self::hasConfigurableDurationSku($validSkus)) {
                 // Only expose durations declared by the SKU or the synchronized
                 // product schema. Provider-wide defaults are not a model contract.
@@ -73,9 +70,6 @@ class MarketVideoRuntimeService
             }
             sort($durations);
             $ratios = self::ratiosForSkus($validSkus, $metadata);
-            if ($ratios === []) {
-                $ratios = self::defaultRatioOptions($product);
-            }
             $qualities = array_map(static function (string $resolution) use ($validSkus, $ratios): array {
                 $matched = array_values(array_filter($validSkus, static fn(array $sku): bool => (string)$sku['resolution'] === $resolution));
                 $firstSku = $matched[0] ?? $validSkus[0] ?? [];
@@ -113,7 +107,7 @@ class MarketVideoRuntimeService
                 'resolution_options' => array_map(static fn(string $value): array => ['value' => $value, 'label' => strtoupper($value)], $resolutions),
                 'qualities' => $qualities,
                 'ratio_options' => $ratios,
-                'specs' => array_map(static fn(array $row): array => ['market_sku_id' => (int)$row['market_sku_id'], 'resolution' => (string)$row['resolution'], 'quality' => (string)$row['resolution'], 'duration' => (int)$row['duration'], 'duration_options' => (array)($row['duration_options'] ?? []), 'ratio' => self::skuRatio((array)$row['locked_params']), 'ratio_options' => self::skuRatios($row), 'model' => (string)($row['model'] ?? ''), 'pricing_variant' => (string)($row['pricing_variant'] ?? ''), 'tenant_unit_price' => (float)$row['tenant_unit_price'], 'platform_unit_cost' => (float)$row['platform_unit_cost'], 'usage_unit' => (string)$row['usage_unit'], 'input_mode' => (string)($row['input_mode'] ?? 'text_to_video'), 'provider_params_json' => $row['locked_params']], $validSkus),
+                'specs' => array_map(static fn(array $row): array => ['market_sku_id' => (int)$row['market_sku_id'], 'resolution' => (string)$row['resolution'], 'quality' => (string)$row['resolution'], 'duration' => (int)$row['duration'], 'duration_options' => (array)($row['duration_options'] ?? []), 'ratio' => self::skuRatio((array)$row['locked_params']), 'ratio_options' => self::skuRatios($row), 'tenant_unit_price' => (float)$row['tenant_unit_price'], 'platform_unit_cost' => (float)$row['platform_unit_cost'], 'usage_unit' => (string)$row['usage_unit'], 'input_mode' => (string)($row['input_mode'] ?? 'text_to_video'), 'provider_params_json' => $row['locked_params']], $validSkus),
                 'durations' => $durations,
                 'duration_options' => $durations,
                 'input_modes' => self::inputModes($resourceType, $product, $metadata),
@@ -394,7 +388,6 @@ class MarketVideoRuntimeService
                     '所选市场 SKU 不支持当前输入模式',
                     'selected market SKU does not support current aspect ratio',
                     'market sku does not support current input mode',
-                    '所选市场 SKU 不支持当前时长',
                 ], true)) {
                     throw $e;
                 }
@@ -417,15 +410,25 @@ class MarketVideoRuntimeService
         $matches = array_values(array_filter($matches, static function (array $row) use ($quality, $duration, $ratio, $mode, $productData): bool {
             $locked = self::arrayValue($row['sku']['locked_params'] ?? []); $resolution = self::resolution($locked); $lockedDuration = self::duration($locked); $skuMode = self::skuInputMode($locked);
             if ($quality !== '' && $resolution !== '' && strtolower($quality) !== strtolower($resolution)) return false;
-            if ($duration > 0 && $lockedDuration > 0 && $lockedDuration !== $duration) return false;
             if (!self::skuSupportsRatio($locked, self::arrayValue($row['sku']['selectable_params'] ?? []), $ratio)) return false;
             if (!self::skuSupportsInputMode($skuMode, $mode, $productData, $locked)) return false;
             return true;
         }));
         if ($matches === []) throw new Exception('当前模型没有可用的市场计费 SKU');
-        $market = self::marketRow($tenantId, $productData, (array)$matches[0]['sku']);
-        self::assertSkuMatchesSelection($market, $selection);
-        return $market;
+        if ($duration > 0) {
+            usort($matches, static function (array $a, array $b) use ($duration): int {
+                $durationA = self::duration(self::arrayValue($a['sku']['locked_params'] ?? []));
+                $durationB = self::duration(self::arrayValue($b['sku']['locked_params'] ?? []));
+                if ($durationA <= 0 && $durationB <= 0) return 0;
+                if ($durationA <= 0) return 1;
+                if ($durationB <= 0) return -1;
+                $diffA = abs($durationA - $duration);
+                $diffB = abs($durationB - $duration);
+                if ($diffA !== $diffB) return $diffA <=> $diffB;
+                return $durationB <=> $durationA;
+            });
+        }
+        return self::marketRow($tenantId, $productData, (array)$matches[0]['sku']);
     }
 
     private static function productAllowed(array $product, string $wanted = ''): bool
@@ -588,20 +591,6 @@ class MarketVideoRuntimeService
         if (!self::skuSupportsRatio($locked, self::arrayValue($market['sku']['selectable_params'] ?? []), self::value($selection, ['ratio', 'aspect_ratio', 'size']))) {
             throw new Exception('selected market SKU does not support current aspect ratio');
         }
-        $requestedDuration = (int)self::value($selection, ['duration', 'seconds', 'video_duration']);
-        $lockedDuration = self::duration($locked);
-        if ($requestedDuration > 0 && $lockedDuration > 0 && $requestedDuration !== $lockedDuration) {
-            throw new Exception('所选市场 SKU 不支持当前时长');
-        }
-        if ($requestedDuration > 0 && $lockedDuration === 0) {
-            $allowedDurations = self::durationOptions(self::metadata($market['product']));
-            if ($allowedDurations === []) {
-                $allowedDurations = self::defaultDurationOptions($market['product']);
-            }
-            if ($allowedDurations !== [] && !in_array($requestedDuration, $allowedDurations, true)) {
-                throw new Exception('当前视频模型不支持所选时长');
-            }
-        }
         $mode = self::inputMode($selection); $app = strtolower((string)($market['product']['upstream_app_code'] ?? ''));
         if (!self::skuSupportsInputMode(self::skuInputMode($locked), $mode, $market['product'], $locked)) {
             throw new Exception('所选市场 SKU 不支持当前输入模式');
@@ -620,7 +609,7 @@ class MarketVideoRuntimeService
             && str_contains(strtolower((string)($locked['_pricing_variant'] ?? $locked['pricing_variant'] ?? '')), 'withvideo')
             ? 'video_edit'
             : self::skuInputMode($locked);
-        return ['market_sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'title' => (string)$sku['title'], 'resolution' => self::resolution($locked), 'duration' => $lockedDuration, 'duration_options' => $durationOptions, 'model' => (string)($locked['model'] ?? $product['upstream_model_code'] ?? ''), 'pricing_variant' => (string)($locked['_pricing_variant'] ?? $locked['pricing_variant'] ?? ''), 'input_mode' => $inputMode, 'locked_params' => $locked, 'selectable_params' => $selectable, 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => max(1, (float)($sku['usage_unit_size'] ?? 1)), 'settlement_mode' => self::isTokenSku($sku) ? 'actual_usage' : 'reserved', 'platform_unit_cost' => self::points((float)$sku['sale_points']), 'tenant_unit_price' => self::points((float)$market['tenant_price'])];
+        return ['market_sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'title' => (string)$sku['title'], 'resolution' => self::resolution($locked), 'duration' => $lockedDuration, 'duration_options' => $durationOptions, 'model' => (string)($locked['model'] ?? $product['upstream_model_code'] ?? ''), 'input_mode' => $inputMode, 'locked_params' => $locked, 'selectable_params' => $selectable, 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => max(1, (float)($sku['usage_unit_size'] ?? 1)), 'settlement_mode' => self::isTokenSku($sku) ? 'actual_usage' : 'reserved', 'platform_unit_cost' => self::points((float)$sku['sale_points']), 'tenant_unit_price' => self::points((float)$market['tenant_price'])];
     }
 
     private static function inputModes(string $resourceType, array $product, array $meta): array
@@ -756,37 +745,6 @@ class MarketVideoRuntimeService
         $durations = array_values(array_unique($durations));
         sort($durations);
         return $durations;
-    }
-
-    /**
-     * The app-market payloads do not yet carry a structured capability schema.
-     * Keep these values aligned with the public AIGC video selector until the
-     * upstream catalog publishes them as SKU metadata.
-     */
-    private static function defaultDurationOptions(array $product): array
-    {
-        if ((string)($product['resource_type'] ?? '') !== PowerMarketService::TYPE_APP_API) {
-            return [];
-        }
-        return match (strtolower((string)($product['upstream_app_code'] ?? ''))) {
-            'happy_horse' => range(3, 15),
-            'seedance' => range(4, 15),
-            'wan' => range(2, 15),
-            default => [],
-        };
-    }
-
-    /** @return array<int,string> */
-    private static function defaultRatioOptions(array $product): array
-    {
-        if ((string)($product['resource_type'] ?? '') !== PowerMarketService::TYPE_APP_API) {
-            return [];
-        }
-        return match (strtolower((string)($product['upstream_app_code'] ?? ''))) {
-            'happy_horse', 'wan' => ['16:9', '9:16', '1:1', '4:3', '3:4'],
-            'seedance' => ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', 'adaptive'],
-            default => [],
-        };
     }
     private static function durationOptionsFromParams(array $params): array
     {
