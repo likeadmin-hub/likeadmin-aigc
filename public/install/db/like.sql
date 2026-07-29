@@ -8258,50 +8258,6 @@ CREATE TABLE IF NOT EXISTS `la_aigc_canvas_agent_subtask` (
   KEY `idx_tenant_request` (`tenant_id`,`user_id`,`request_id`,`delete_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas durable Agent subtasks';
 
-CREATE TABLE IF NOT EXISTS `la_aigc_canvas_project` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `tenant_id` int unsigned NOT NULL DEFAULT 0 COMMENT '??ID',
-  `user_id` int unsigned NOT NULL DEFAULT 0 COMMENT '??ID',
-  `name` varchar(120) NOT NULL DEFAULT '?????? COMMENT '????',
-  `thumbnail` varchar(500) NOT NULL DEFAULT '' COMMENT '????,
-  `nodes_json` longtext COMMENT '??JSON',
-  `edges_json` longtext COMMENT '?JSON',
-  `viewport_json` text COMMENT '??JSON',
-  `sort` int NOT NULL DEFAULT 0 COMMENT '??',
-  `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '???,
-  `create_time` int unsigned NOT NULL DEFAULT 0,
-  `update_time` int unsigned NOT NULL DEFAULT 0,
-  `delete_time` int unsigned NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`),
-  KEY `idx_tenant_user` (`tenant_id`,`user_id`,`delete_time`),
-  KEY `idx_tenant_update` (`tenant_id`,`update_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='??????';
-
-CREATE TABLE IF NOT EXISTS `la_aigc_canvas_run` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `tenant_id` int unsigned NOT NULL DEFAULT 0 COMMENT '??ID',
-  `user_id` int unsigned NOT NULL DEFAULT 0 COMMENT '??ID',
-  `project_id` int unsigned NOT NULL DEFAULT 0 COMMENT '????ID',
-  `node_id` varchar(120) NOT NULL DEFAULT '' COMMENT '??ID',
-  `run_type` varchar(30) NOT NULL DEFAULT '' COMMENT 'image/video/text/workflow',
-  `source_app_code` varchar(64) NOT NULL DEFAULT '' COMMENT '????',
-  `source_task_id` int unsigned NOT NULL DEFAULT 0 COMMENT '????ID',
-  `status` varchar(30) NOT NULL DEFAULT 'running' COMMENT 'running/success/failed',
-  `prompt` text COMMENT '????,
-  `params_json` longtext COMMENT '????',
-  `result_json` longtext COMMENT '????',
-  `error` text COMMENT '????',
-  `duration_ms` int unsigned NOT NULL DEFAULT 0 COMMENT '??',
-  `create_time` int unsigned NOT NULL DEFAULT 0,
-  `update_time` int unsigned NOT NULL DEFAULT 0,
-  `finish_time` int unsigned NOT NULL DEFAULT 0,
-  `delete_time` int unsigned NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`),
-  KEY `idx_tenant_project` (`tenant_id`,`project_id`,`delete_time`),
-  KEY `idx_tenant_user` (`tenant_id`,`user_id`,`delete_time`),
-  KEY `idx_source_task` (`source_app_code`,`source_task_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='????????';
-
 CREATE TABLE IF NOT EXISTS `la_aigc_canvas_asset` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
@@ -8499,8 +8455,8 @@ CREATE TABLE IF NOT EXISTS `la_aigc_canvas_delivery_item` (
 -- Expand canvas run logs for streamed text and multi-image reference payloads.
 
 ALTER TABLE `la_aigc_canvas_run`
-  MODIFY COLUMN `params_json` longtext COMMENT '????',
-  MODIFY COLUMN `result_json` longtext COMMENT '????';
+  MODIFY COLUMN `params_json` longtext COMMENT '调用参数',
+  MODIFY COLUMN `result_json` longtext COMMENT '执行结果';
 
 
 -- AIGC canvas migration: zz_20260714_canvas_agent_chat.sql
@@ -8865,16 +8821,16 @@ INSERT INTO `la_aigc_canvas_skill` (
   `status`,`version`,`sort`,`create_time`,`update_time`,`delete_time`
 )
 SELECT DISTINCT
-  ta.`tenant_id`,0,'ecommerce_detail_page','????????,
-  '?????????????????????????????????????,'ecommerce','agent_workflow','builtin',
-  '# ???????\n?????????????????????????? JSON Canvas ??????,
-  '???????????????????????????????????,'{}',
-  '["???????????????","????????????????"]',
-  '["??????????,"???????????]',
-  '[{"key":"product_info","any_of_context":["uploaded_references"],"label":"??????????"},{"key":"selling_points","label":"????"}]',
+  ta.`tenant_id`,0,'ecommerce_detail_page','电商详情页设计',
+  '根据商品资料和核心卖点规划完整电商详情页，生成分区视觉并组装到无限画布。','ecommerce','agent_workflow','builtin',
+  '# 电商详情页设计\n先确认商品来源和核心卖点，信息完整后生成分区视觉并以 JSON Canvas 纵向组装。',
+  '淘宝详情页、天猫详情页、商品详情长图、电商详情页、整套商品详情视觉。','{}',
+  '["给这款蓝牙耳机做完整淘宝详情页","根据上传商品图生成5个详情页区块"]',
+  '["写一段商品介绍文案","生成一张普通商品主图"]',
+  '[{"key":"product_info","any_of_context":["uploaded_references"],"label":"商品信息或商品参考图"},{"key":"selling_points","label":"核心卖点"}]',
   '["platform","target_audience","style","brand_colors","section_count","ratio","detail_sections"]',
-  '{"platform":"taobao","section_count":5,"style":"?????????????}',
-  '{"max_questions":3,"questions":{"product_info":"??????????????????????,"selling_points":"?????????????}}',
+  '{"platform":"taobao","section_count":5,"style":"高级、简洁、真实商业摄影"}',
+  '{"max_questions":3,"questions":{"product_info":"请告诉我商品是什么，或上传一张清晰商品图。","selling_points":"请补充至少一个核心卖点。"}}',
   '{"allowed_tools":["create_page","add_element","update_element","generate_image"]}',
   '{"format":"json_canvas","workspace_action":"apply_json_canvas"}',
   '{"agents":["master","planner","copy","visual","canvas"],"max_rounds":6,"max_tool_calls":24}',
