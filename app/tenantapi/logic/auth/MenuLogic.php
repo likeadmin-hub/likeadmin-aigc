@@ -92,16 +92,19 @@ class MenuLogic extends BaseLogic
         ])->count();
         // A root alone describes the old flat menu. Require all three groups so
         // logging in upgrades existing tenants through the idempotent sync path.
-        $hasDistributionTree = $hasDistributionRoot && TenantSystemMenu::where([
-            'tenant_id' => $tenantId,
-            'source_menu_key' => 'core_tenant_distribution_group_config',
-        ])->count() && TenantSystemMenu::where([
-            'tenant_id' => $tenantId,
-            'source_menu_key' => 'core_tenant_distribution_group_promotion',
-        ])->count() && TenantSystemMenu::where([
-            'tenant_id' => $tenantId,
-            'source_menu_key' => 'core_tenant_distribution_group_finance',
-        ])->count();
+        $distributionGroups = [
+            'config' => '配置管理',
+            'promotion' => '推广管理',
+            'finance' => '财务管理',
+        ];
+        $hasDistributionTree = $hasDistributionRoot;
+        foreach ($distributionGroups as $key => $name) {
+            $hasDistributionTree = $hasDistributionTree && TenantSystemMenu::where([
+                'tenant_id' => $tenantId,
+                'source_menu_key' => 'core_tenant_distribution_group_' . $key,
+                'name' => $name,
+            ])->count() > 0;
+        }
         $hasLegacyDistributionDirect = false;
         if ($hasDistributionRoot) {
             $distributionId = (int)TenantSystemMenu::where([

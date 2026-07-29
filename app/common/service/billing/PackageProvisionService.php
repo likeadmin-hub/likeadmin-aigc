@@ -294,9 +294,9 @@ class PackageProvisionService
         ]);
 
         $groups = [
-            'config' => ['name' => '配置', 'icon' => 'el-icon-Setting', 'sort' => 100, 'paths' => 'configuration'],
-            'promotion' => ['name' => '推广', 'icon' => 'el-icon-Share', 'sort' => 90, 'paths' => 'promotion'],
-            'finance' => ['name' => '财务', 'icon' => 'el-icon-Wallet', 'sort' => 80, 'paths' => 'finance'],
+            'config' => ['name' => '配置管理', 'icon' => 'el-icon-Setting', 'sort' => 100, 'paths' => 'configuration'],
+            'promotion' => ['name' => '推广管理', 'icon' => 'el-icon-Share', 'sort' => 90, 'paths' => 'promotion'],
+            'finance' => ['name' => '财务管理', 'icon' => 'el-icon-Wallet', 'sort' => 80, 'paths' => 'finance'],
         ];
         $groupIds = [];
         foreach ($groups as $key => $group) {

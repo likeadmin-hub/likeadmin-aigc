@@ -11,7 +11,7 @@ final class JsonCanvasValidator
     public static function assertValid(array $canvasJson): void
     {
         $version = (string)($canvasJson['version'] ?? '');
-        if (!in_array($version, ['1.0', '1.1'], true)) {
+        if (!in_array($version, ['1.0', '1.1', '1.2'], true)) {
             throw new Exception('Unsupported JSON Canvas version');
         }
         $actions = $canvasJson['actions'] ?? [];
