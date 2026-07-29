@@ -5,9 +5,8 @@ namespace app\common\service\app\aigc_canvas\agent\delivery;
 use app\common\service\app\aigc_canvas\AigcCanvasSkillService;
 
 /**
- * Resolves a user turn into a new delivery plan or an update to one item.
- * It is intentionally deterministic for common creation requests so a fast
- * first response does not depend on an additional model call.
+ * Resolves only explicit or high-confidence continuation actions. New work is
+ * created only after AgentTaskDecisionService has made a structured decision.
  */
 final class ConversationTaskResolver
 {
@@ -34,20 +33,28 @@ final class ConversationTaskResolver
             if ($item !== [] && (int)$item['thread_id'] === $threadId) {
                 $resolved = self::resolvePending($tenantId, $userId, $item, $params, $content);
                 if ($resolved !== []) return $resolved;
+                if (self::looksLikeRevision($content)) {
+                    $revised = self::reviseExisting($tenantId, $userId, $item, $content);
+                    if ($revised !== []) return $revised;
+                }
                 return self::existing($tenantId, $userId, $item, 'explicit_item');
             }
         }
 
-        $definition = self::definition($content, $context);
         $pending = DeliveryPlanService::pendingItems($tenantId, $userId, $threadId);
-        if (count($pending) === 1 && $definition === [] && self::canNaturallyContinue($content)) {
+        if (count($pending) === 1 && self::canNaturallyContinue($content)) {
             $resolved = self::resolvePending($tenantId, $userId, $pending[0], $params, $content);
             if ($resolved !== []) return $resolved;
         }
-        $active = DeliveryPlanService::activeItem($tenantId, $userId, $threadId);
-        if ($definition === [] && $active !== [] && self::looksLikeSupplement($content)) {
-            return self::existing($tenantId, $userId, $active, 'supplement_item');
+        if (self::looksLikeRevision($content)) {
+            $item = DeliveryPlanService::activeItem($tenantId, $userId, $threadId);
+            if ($item === []) $item = DeliveryPlanService::latestItem($tenantId, $userId, $threadId);
+            $revised = self::reviseExisting($tenantId, $userId, $item, $content);
+            if ($revised !== []) return $revised;
         }
+        $decision = (array)($params['task_decision'] ?? []);
+        if ((string)($decision['operation'] ?? '') !== 'create') return [];
+        $definition = self::definition($content, $context);
         if ($definition === []) return [];
 
         $plan = DeliveryPlanService::create($tenantId, $userId, $projectId, $threadId, $messageId, $definition);
@@ -70,6 +77,27 @@ final class ConversationTaskResolver
         ];
     }
 
+    private static function reviseExisting(int $tenantId, int $userId, array $item, string $content): array
+    {
+        if ($item === [] || !in_array((string)($item['status'] ?? ''), ['ready', 'awaiting_confirmation', 'failed', 'completed'], true)) return [];
+        $delivery = (array)($item['delivery'] ?? []);
+        $ratio = self::ratio(mb_strtolower($content, 'UTF-8'));
+        if ($ratio !== '') $delivery['ratio'] = $ratio;
+        $slots = array_merge((array)($item['slots'] ?? []), ['user_request' => $content]);
+        $updated = DeliveryItemService::transition($tenantId, $userId, (int)$item['id'], 'ready', [
+            'slots_json' => $slots, 'delivery_json' => $delivery,
+            'pending_action_json' => PendingActionProtocol::confirmation(),
+        ]);
+        return self::existing($tenantId, $userId, $updated, 'high_confidence_revision');
+    }
+
+    private static function looksLikeRevision(string $content): bool
+    {
+        $text = mb_strtolower(trim($content), 'UTF-8');
+        if (preg_match('/\b(?:1:1|3:4|4:3|9:16|16:9)\b/u', $text) === 1) return true;
+        return preg_match('/(?:\x{6539}\x{6210}|\x{8C03}\x{6574}|\x{4FEE}\x{6539}|\x{66F4}\x{6362}|revise|change|edit)/iu', $text) === 1;
+    }
+
     private static function resolvePending(int $tenantId, int $userId, array $item, array $params, string $content): array
     {
         try {
@@ -82,6 +110,7 @@ final class ConversationTaskResolver
                 (string)$resolution['status'],
                 (array)$resolution['patch']
             );
+            $updated = DeliveryItemContextBinder::bind($tenantId, $userId, (int)$updated['id'], [], [], self::binderChanges((array)$resolution['patch']));
             $result = self::existing($tenantId, $userId, $updated, 'pending_action_resolved');
             $result['pending_action'] = (array)($resolution['action'] ?? []);
             $result['pending_action_accepted'] = !empty($resolution['accepted']);
@@ -91,12 +120,23 @@ final class ConversationTaskResolver
         }
     }
 
+    private static function binderChanges(array $patch): array
+    {
+        return [
+            'slots' => (array)($patch['slots_json'] ?? []),
+            'delivery' => (array)($patch['delivery_json'] ?? []),
+            'creative_context' => (array)($patch['creative_context_json'] ?? []),
+            'reference_assets' => (array)($patch['reference_assets_json'] ?? []),
+        ];
+    }
+
     private static function definition(string $content, array $context): array
     {
         $text = mb_strtolower(trim($content), 'UTF-8');
         if ($text === '') return [];
         $hasReference = !empty($context['uploaded_references']) || !empty($context['selected_elements']) || !empty($context['selection']['elements']);
         $items = [];
+        $hasFunctionalSelling = $hasReference && self::hasFunctionalSellingPoint($text);
         $hasDetail = preg_match('/详情页|详情图|详情长图|多屏|一套|\d+\s*(?:屏|页)/u', $text) === 1;
         $hasSelling = preg_match('/卖点图|功能图|场景图|对比图/u', $text) === 1;
         $hasMain = preg_match('/主图|白底图|首图|商品展示图|单张/u', $text) === 1;
@@ -112,6 +152,10 @@ final class ConversationTaskResolver
         if ($hasSelling) {
             $items[] = self::item('selling_point', '生成商品卖点图', 'ecommerce_selling_point', 'generate_image', $hasReference, $content, [
                 'type' => 'ecommerce_selling_point', 'purpose' => '商品卖点图', 'ratio' => self::ratio($text), 'quantity' => self::imageQuantity($text, 3),
+            ]);
+        } elseif ($hasFunctionalSelling) {
+            $items[] = self::item('selling_point', '生成商品卖点图', 'ecommerce_selling_point', 'generate_image', true, $content, [
+                'type' => 'ecommerce_selling_point', 'purpose' => '商品卖点图', 'ratio' => self::ratio($text), 'quantity' => 1,
             ]);
         }
         if ($hasDetail) {
@@ -187,6 +231,11 @@ final class ConversationTaskResolver
         return preg_match('/确认|继续|没有|无|不确定|不用写|改成|调整|补充|上传|这个|比例|风格|颜色|文案/u', $text) === 1;
     }
 
+    private static function hasFunctionalSellingPoint(string $text): bool
+    {
+        return preg_match('/\x{5356}\x{70B9}|\x{7A81}\x{51FA}|\x{7279}\x{70B9}|\x{4F18}\x{52BF}|\x{7EED}\x{822A}|\x{6750}\x{8D28}|\x{529F}\x{80FD}|\x{964D}\x{566A}/u', $text) === 1;
+    }
+
     /**
      * Generic natural-language fallback. Domain-specific routing deliberately
      * remains in definition(); this only recognizes a conversation continuation.
@@ -196,7 +245,7 @@ final class ConversationTaskResolver
         $text = mb_strtolower(trim($content), 'UTF-8');
         if ($text === '') return false;
         return preg_match('/确认|确定|继续|同意|可以|好的|取消|拒绝|不用|重试|修改|调整|补充|改为|yes|confirm|continue|cancel|retry|revise/i', $text) === 1
-            || mb_strlen($text, 'UTF-8') <= 120;
+            ;
     }
 
     private static function ratio(string $text): string

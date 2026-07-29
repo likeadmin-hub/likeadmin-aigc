@@ -1660,7 +1660,7 @@ class AigcCanvasService
             }
             $llmParams = [
                 'content' => $prompt,
-                'system_prompt' => (string)($params['system_prompt'] ?? ''),
+                'system_prompt' => self::resolveTextSystemPrompt($params),
                 'model_code' => (string)($params['model_code'] ?? $params['model'] ?? ''),
                 'reference_images' => $referenceImages,
                 'source_app_code' => self::APP_CODE,
@@ -1706,7 +1706,7 @@ class AigcCanvasService
             }
             $llmParams = [
                 'content' => $prompt,
-                'system_prompt' => (string)($params['system_prompt'] ?? ''),
+                'system_prompt' => self::resolveTextSystemPrompt($params),
                 'model_code' => (string)($params['model_code'] ?? $params['model'] ?? ''),
                 'reference_images' => $referenceImages,
                 'source_app_code' => self::APP_CODE,
@@ -1998,11 +1998,12 @@ class AigcCanvasService
     private static function repairLegacyProjectText($value)
     {
         if (is_string($value)) {
-            return str_replace(
+            $value = str_replace(
                 array_keys(self::LEGACY_TEXT_REPLACEMENTS),
                 array_values(self::LEGACY_TEXT_REPLACEMENTS),
                 $value
             );
+            return self::repairUtf8DecodedAsGb18030($value);
         }
         if (!is_array($value)) {
             return $value;
@@ -2011,6 +2012,93 @@ class AigcCanvasService
             $value[$key] = self::repairLegacyProjectText($item);
         }
         return $value;
+    }
+
+    /**
+     * Applies the legacy canvas text compatibility rules to user-visible API
+     * payloads that are stored outside a project snapshot.
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    public static function repairLegacyCanvasText($value)
+    {
+        return self::repairLegacyProjectText($value);
+    }
+
+    /**
+     * Repair historic text whose UTF-8 bytes were decoded as GBK/GB18030.
+     *
+     * The conversion is intentionally gated by the non-printable/private-use
+     * characters produced by that failure. This prevents ordinary Chinese
+     * prompts from being reinterpreted on every project read.
+     */
+    private static function repairUtf8DecodedAsGb18030(string $value): string
+    {
+        if ($value === '' || !function_exists('iconv') || !function_exists('mb_check_encoding') || !function_exists('mb_convert_encoding')) {
+            return $value;
+        }
+
+        $parts = preg_split('/([\x{3002}\x{FF0C}\x{FF1B}\x{FF1A}\x{FF01}\x{FF1F}\r\n]+)/u', $value, -1, PREG_SPLIT_DELIM_CAPTURE);
+        if (!is_array($parts) || count($parts) === 1) {
+            return self::repairUtf8DecodedAsGb18030Fragment($value);
+        }
+
+        foreach ($parts as $index => $part) {
+            if ($index % 2 === 0) {
+                $parts[$index] = self::repairUtf8DecodedAsGb18030Fragment($part);
+            }
+        }
+        return implode('', $parts);
+    }
+
+    private static function repairUtf8DecodedAsGb18030Fragment(string $value): string
+    {
+        $legacyMarkers = preg_match_all('/[\x{0080}-\x{009F}\x{20AC}\x{E000}-\x{F8FF}]/u', $value, $matches);
+        if ($legacyMarkers === false || $legacyMarkers < 2) {
+            return $value;
+        }
+
+        $singleByteMap = self::legacyGb18030SingleByteMap();
+        $candidate = '';
+        foreach (preg_split('//u', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $character) {
+            $candidate .= $singleByteMap[$character]
+                ?? (@iconv('UTF-8', 'GB18030//IGNORE', $character) ?: '');
+        }
+        if (!is_string($candidate) || $candidate === '') {
+            return $value;
+        }
+
+        if (!mb_check_encoding($candidate, 'UTF-8')) {
+            $candidate = @mb_convert_encoding($candidate, 'UTF-8', 'UTF-8');
+        }
+        if (!is_string($candidate) || $candidate === '' || !mb_check_encoding($candidate, 'UTF-8')) {
+            return $value;
+        }
+
+        $candidateMarkers = preg_match_all('/[\x{0080}-\x{009F}\x{20AC}\x{E000}-\x{F8FF}]/u', $candidate, $matches);
+        if ($candidateMarkers === false || $candidateMarkers >= $legacyMarkers) {
+            return $value;
+        }
+
+        return $candidate;
+    }
+
+    private static function legacyGb18030SingleByteMap(): array
+    {
+        static $map = null;
+        if (is_array($map)) {
+            return $map;
+        }
+
+        $map = [];
+        foreach (range(0x80, 0xFF) as $byte) {
+            $decoded = @mb_convert_encoding(chr($byte), 'UTF-8', 'GB18030');
+            if (is_string($decoded) && $decoded !== '' && preg_match('/^.$/us', $decoded)) {
+                $map[$decoded] = chr($byte);
+            }
+        }
+        return $map;
     }
 
     private static function normalizeViewport($value): array
@@ -3334,6 +3422,17 @@ class AigcCanvasService
             return $instruction;
         }
         return $referenceImages ? '请根据参考图片生成内容。' : '';
+    }
+
+    private static function resolveTextSystemPrompt(array $params): string
+    {
+        $systemPrompt = trim((string)($params['system_prompt'] ?? ''));
+        if ((string)($params['output_contract'] ?? '') !== 'final_only') {
+            return $systemPrompt;
+        }
+
+        $finalOnlyPolicy = '你正在为无限画布的文本节点生成内容。只输出一份可直接使用的最终结果，不要解释、分析过程、多个版本、标题、前后缀或 Markdown 包装。';
+        return $systemPrompt === '' ? $finalOnlyPolicy : $systemPrompt . "\n\n" . $finalOnlyPolicy;
     }
 
     private static function ensureRunSchema(): void
