@@ -12,6 +12,9 @@ use app\common\service\app\aigc_canvas\agent\canvas\CanvasReferenceResolver;
 use app\common\service\app\aigc_canvas\agent\canvas\CanvasContextReducer;
 use app\common\service\app\aigc_canvas\agent\batch\EcommerceAgentBatchService;
 use app\common\service\app\aigc_canvas\agent\delivery\DeliveryPlanService;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryGraphExecutor;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemContextBinder;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemService;
 use app\common\service\app\aigc_canvas\agent\enrichment\CreativeBriefEnricher;
 use app\common\service\app\aigc_canvas\agent\enrichment\ProductFactPolicy;
 use app\common\service\app\aigc_canvas\agent\memory\ConversationMemoryBuilder;
@@ -84,6 +87,14 @@ final class AgentLoopService
         $context = self::inheritConversationReferences($context, $memory);
         $toolRoute = self::toolRoute($state, $requestId);
         $toolRoute['delivery_item_id'] = (int)($state['delivery_item_id'] ?? 0);
+        if ((int)$toolRoute['delivery_item_id'] > 0) {
+            $boundItem = DeliveryItemService::find($tenantId, $userId, (int)$toolRoute['delivery_item_id']);
+            if ($boundItem !== []) {
+                // Once an item exists, request-local upload/canvas payloads are
+                // not execution inputs. The item is the durable source of truth.
+                $context = DeliveryItemContextBinder::executionContext($boundItem);
+            }
+        }
         $projectMemory = MemoryRetriever::retrieve($tenantId, $userId, $projectId);
         if ($projectMemory !== []) {
             $context['project_memory'] = $projectMemory;
@@ -187,6 +198,15 @@ final class AgentLoopService
             if (!empty($enrichment['copy_plan'])) {
                 AgentTurnTraceService::event($turnId, ++$sequence, 'copy_plan_ready', ['claim_sources' => (array)($enrichment['copy_plan']['claim_sources'] ?? [])]);
             }
+        }
+        if ((int)$toolRoute['delivery_item_id'] > 0) {
+            DeliveryItemContextBinder::bind(
+                $tenantId,
+                $userId,
+                (int)$toolRoute['delivery_item_id'],
+                $context,
+                $taskDecision
+            );
         }
         $taskDecision['creative_brief'] = self::creativeBriefSummary($enrichment);
         $creativeSummary = CreativeBriefEnricher::userFacingSummary((array)$taskDecision['creative_brief']);
@@ -359,8 +379,11 @@ final class AgentLoopService
                 AgentTurnTraceService::event($turnId, ++$sequence, 'confirmation.requested', ['reasons' => (array)($taskDecision['upgrade_reasons'] ?? [])]);
                 return $result;
             }
-            $immediateMedia = ($taskDecision['binding_mode'] ?? '') === 'contract' && !empty($skillContract['execution_confirmed'])
-                ? self::immediatePosterDelivery($skillContract, $request, $memory)
+            // A complete, single-image poster brief is executable as soon as
+            // the Agent has bound the product context to its delivery item.
+            // Batch delivery and missing slots are handled by the guards above.
+            $immediateMedia = ($taskDecision['binding_mode'] ?? '') === 'contract'
+                ? self::immediatePosterDelivery($skillContract, $request, $memory, $context)
                 : [];
             if ($immediateMedia !== []) {
                 return self::executeImmediateMedia(
@@ -856,14 +879,22 @@ final class AgentLoopService
         return $prepared;
     }
 
-    private static function immediatePosterDelivery(array $skillContract, string $request, array $memory): array
+    private static function immediatePosterDelivery(array $skillContract, string $request, array $memory, array $context): array
     {
-        if ((string)($skillContract['skill_key'] ?? '') !== 'poster_design'
+        $skillKey = (string)($skillContract['skill_key'] ?? '');
+        $isProductSellingPoint = $skillKey === 'ecommerce_selling_point';
+        if (!in_array($skillKey, ['poster_design', 'ecommerce_selling_point'], true)
             || !empty($skillContract['missing_slots'])
             || !in_array('generate_image', (array)($skillContract['allowed_tools'] ?? []), true)) {
             return [];
         }
+        if ($isProductSellingPoint && !self::hasReferenceAssets($context)) {
+            return [];
+        }
         if (self::isClarifyingQuestion($request)) {
+            return [];
+        }
+        if ($isProductSellingPoint && !self::hasFunctionalSellingPoint($request, $memory)) {
             return [];
         }
         if (preg_match('/详情(?:图|页)|商品主图|主图|列表图|卖点图|首屏|规格|参数/u', $request) === 1) {
@@ -874,7 +905,7 @@ final class AgentLoopService
             array_filter((array)($memory['recent_messages'] ?? []), static fn($message): bool => is_array($message) && (string)($message['role'] ?? '') === 'user')
         );
         $brief = implode('；', array_values(array_filter(array_merge(array_slice($userMessages, -3), [$request]))));
-        if (preg_match('/生成|制作|做一张|做个|创建|设计|海报|帮我/u', $brief) !== 1) {
+        if (!$isProductSellingPoint && preg_match('/生成|制作|做一张|做个|创建|设计|海报|帮我/u', $brief) !== 1) {
             return [];
         }
         $defaults = (array)($skillContract['defaults'] ?? []);
@@ -882,17 +913,17 @@ final class AgentLoopService
         $ratio = self::posterRatio($brief, (string)($resolvedSlots['ratio'] ?? $defaults['ratio'] ?? '3:4'));
         $deliveryPlan = [
             'type' => 'delivery_plan',
-            'title' => 'Poster delivery',
+            'title' => $isProductSellingPoint ? 'Product visual delivery' : 'Poster delivery',
             'groups' => [[
-                'group_key' => 'poster',
-                'label' => 'Poster delivery',
+                'group_key' => $isProductSellingPoint ? 'product_selling_point' : 'poster',
+                'label' => $isProductSellingPoint ? 'Product visual delivery' : 'Poster delivery',
                 'items' => [[
-                    'key' => 'poster',
-                    'label' => 'Poster',
-                    'purpose' => 'Create one standalone poster.',
+                    'key' => $isProductSellingPoint ? 'product_selling_point' : 'poster',
+                    'label' => $isProductSellingPoint ? 'Product visual' : 'Poster',
+                    'purpose' => $isProductSellingPoint ? 'Create one product selling-point visual.' : 'Create one standalone poster.',
                     'creative_intent' => $brief,
                     'tool_code' => 'generate_image',
-                    'quantity' => max(1, min(4, (int)($defaults['quantity'] ?? 1))),
+                    'quantity' => $isProductSellingPoint ? 1 : max(1, min(4, (int)($defaults['quantity'] ?? 1))),
                     'ratio' => $ratio,
                 ]],
             ]],
@@ -902,7 +933,7 @@ final class AgentLoopService
             'delivery_plan' => $deliveryPlan,
             'input' => [
                 'creative_intent' => $brief,
-                'quantity' => max(1, min(4, (int)($defaults['quantity'] ?? 1))),
+                'quantity' => $isProductSellingPoint ? 1 : max(1, min(4, (int)($defaults['quantity'] ?? 1))),
                 'ratio' => $ratio,
             ],
         ];
@@ -947,6 +978,16 @@ final class AgentLoopService
         ];
     }
 
+    private static function hasFunctionalSellingPoint(string $request, array $memory): bool
+    {
+        $userMessages = array_map(
+            static fn(array $message): string => trim((string)($message['content'] ?? '')),
+            array_filter((array)($memory['recent_messages'] ?? []), static fn($message): bool => is_array($message) && (string)($message['role'] ?? '') === 'user')
+        );
+        $brief = implode(' ', array_values(array_filter(array_merge(array_slice($userMessages, -3), [$request]))));
+        return preg_match('/\x{5356}\x{70B9}|\x{7A81}\x{51FA}|\x{7279}\x{70B9}|\x{4F18}\x{52BF}|\x{7EED}\x{822A}|\x{6750}\x{8D28}|\x{529F}\x{80FD}|\x{964D}\x{566A}/u', $brief) === 1;
+    }
+
     private static function posterRatio(string $brief, string $fallback): string
     {
         if (preg_match('/(?<!\d)(1\s*[:xX*]\s*1|3\s*[:xX*]\s*4|4\s*[:xX*]\s*3|9\s*[:xX*]\s*16|16\s*[:xX*]\s*9)(?!\d)/u', $brief, $match) === 1) {
@@ -980,6 +1021,7 @@ final class AgentLoopService
             'project_id' => $projectId,
             'thread_id' => $threadId,
             'message_id' => $messageId,
+            'delivery_item_id' => (int)($toolRoute['delivery_item_id'] ?? 0),
             'user_request' => $request,
             'canvas_context' => $context,
             'route' => $toolRoute,
@@ -1145,6 +1187,18 @@ final class AgentLoopService
         }
         $input = self::toolInput($code, $input, $requestId, $prompt, $canvasContext, $context->projectId(), $skillContract, $context->deliveryItemId());
         if (in_array($code, ['generate_image', 'generate_video', 'generate_music'], true)) {
+            if ($context->deliveryItemId() > 0) {
+                $item = DeliveryGraphExecutor::execute($context->tenantId(), $context->userId(), $context->deliveryItemId(), [], $emit);
+                return [
+                    'tool_calls' => [[
+                        'id' => 0, 'tool_code' => $code, 'input' => ['delivery_item_id' => $context->deliveryItemId()],
+                        'provider_task_id' => (string)($item['task_snapshot']['task_id'] ?? ''),
+                        'output' => ['status' => (string)($item['status'] ?? 'queued'), 'task_id' => (string)($item['task_snapshot']['task_id'] ?? '')],
+                    ]],
+                    'workspace_actions' => (array)($item['result']['workspace_actions'] ?? []),
+                    'assets' => (array)($item['result']['assets'] ?? []),
+                ];
+            }
             return AigcCanvasAgentRuntimeService::executeExternalToolWithActions(
                 $context->tenantId(), $context->userId(), $context->projectId(), $context->threadId(), $context->messageId(),
                 $code, $input, $prompt, $canvasContext, $emit

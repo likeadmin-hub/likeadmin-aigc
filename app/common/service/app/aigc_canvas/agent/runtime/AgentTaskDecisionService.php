@@ -119,6 +119,7 @@ final class AgentTaskDecisionService
 
         return [
             'delivery_item_id' => $deliveryItemId,
+            'operation' => self::operation($deliveryItemId, $intent, $actionMode),
             'intent' => $intent,
             'action_mode' => $actionMode,
             'binding_mode' => $mode,
@@ -148,7 +149,7 @@ final class AgentTaskDecisionService
     private static function noneDecision(bool $bindingEnabled = true, array $context = [], int $deliveryItemId = 0): array
     {
         return [
-            'delivery_item_id' => $deliveryItemId, 'intent' => 'chat', 'action_mode' => 'reply', 'binding_mode' => 'none', 'target' => self::target($context), 'risk' => 'low', 'skill_candidates' => [], 'router_source' => 'fallback', 'selected_skill_key' => '', 'selected_skill_name' => '',
+            'delivery_item_id' => $deliveryItemId, 'operation' => 'reply', 'intent' => 'chat', 'action_mode' => 'reply', 'binding_mode' => 'none', 'target' => self::target($context), 'risk' => 'low', 'skill_candidates' => [], 'router_source' => 'fallback', 'selected_skill_key' => '', 'selected_skill_name' => '',
             'confidence' => 0.0, 'missing_hard_slots' => [], 'inferred_slots' => [], 'default_slots' => [],
             'default_sources' => [], 'clarification_question' => '', 'next_action' => 'reply',
             'upgrade_reasons' => [], 'requires_confirmation' => false, 'estimated_tools' => [], 'pending_context' => [],
@@ -170,6 +171,7 @@ final class AgentTaskDecisionService
         $nextAction = $actionMode === 'clarify' ? 'clarify' : ($actionMode === 'confirm' ? 'confirm_execution' : ($actionMode === 'execute' ? 'execute' : 'reply'));
         return [
             'delivery_item_id' => $deliveryItemId,
+            'operation' => self::operation($deliveryItemId, $isMedia ? 'generation' : ($capability === 'canvas_mutation' ? 'canvas_edit' : 'text_generation'), $actionMode),
             'intent' => $isMedia ? 'generation' : ($capability === 'canvas_mutation' ? 'canvas_edit' : 'text_generation'),
             'action_mode' => $actionMode,
             'binding_mode' => 'generic_contract',
@@ -273,6 +275,9 @@ final class AgentTaskDecisionService
         if (!empty($context['uploaded_references']) && preg_match('/电商|商品图|主图|卖点图|产品图|listing|product\s*image/u', $text) === 1) {
             return 'ecommerce_main_image';
         }
+        if (!empty($context['uploaded_references']) && self::hasFunctionalSellingPoint($text)) {
+            return 'ecommerce_selling_point';
+        }
         if (!empty($context['selected_elements']) && preg_match('/替换|修改|换成|背景|白底|编辑/u', $text) === 1) return 'image_edit';
         if (preg_match('/海报|poster|kv|封面/u', $text) === 1) return 'poster_design';
         if (preg_match('/脚本|文案|分镜|策划|方案|copy/u', $text) === 1) return 'script_planning';
@@ -291,9 +296,12 @@ final class AgentTaskDecisionService
         $allowed = (array)($policy['upgrade_to_contract_on'] ?? ['paid_generation', 'batch', 'canvas_write']);
         $costly = (array)($contract['capability_tools']['costly'] ?? []);
         $isGeneration = $costly !== [] && preg_match('/生成|制作|创建|出图|生成图|render|generate|(?:做|画).*(?:张|图|海报|视频)/u', $text) === 1;
+        $isProductSellingPoint = (string)($contract['skill_key'] ?? '') === 'ecommerce_selling_point'
+            && !empty($context['uploaded_references'])
+            && self::hasFunctionalSellingPoint($text);
         $isVisualRevision = (!empty($context['uploaded_references']) || !empty($context['selected_elements']) || !empty($context['selected_ids']))
             && preg_match('/修改|调整|改成|换成|重新做|重做|太亮|太暗|深色|浅色|色系|颜色|风格|darker|brighter|color\s*scheme|change|revise|edit/u', $text) === 1;
-        if (in_array('paid_generation', $allowed, true) && ($isGeneration || $isVisualRevision)) $reasons[] = 'paid_generation';
+        if (in_array('paid_generation', $allowed, true) && ($isGeneration || $isProductSellingPoint || $isVisualRevision)) $reasons[] = 'paid_generation';
         $isBatchContract = !empty($contract['output_policy']['batch_mode']);
         if (in_array('batch', $allowed, true) && $isGeneration && ($isBatchContract || preg_match('/(?:[2-9]|[1-9]\d+)\s*(?:张|幅|个|套|批)/u', $text) === 1)) {
             $reasons[] = 'batch';
@@ -302,6 +310,11 @@ final class AgentTaskDecisionService
             !empty($context['selected_elements']) || preg_match('/插入画布|写入画布|替换|修改|移动|删除|分组|选中/u', $text) === 1
         )) $reasons[] = 'canvas_write';
         return array_values(array_unique($reasons));
+    }
+
+    private static function hasFunctionalSellingPoint(string $text): bool
+    {
+        return preg_match('/\x{5356}\x{70B9}|\x{7A81}\x{51FA}|\x{7279}\x{70B9}|\x{4F18}\x{52BF}|\x{7EED}\x{822A}|\x{6750}\x{8D28}|\x{529F}\x{80FD}|\x{964D}\x{566A}/u', $text) === 1;
     }
 
     private static function intent(string $request, array $context, array $contract): string
@@ -319,8 +332,16 @@ final class AgentTaskDecisionService
         if ($requiresConfirmation && !$confirmed) return 'confirm';
         if (in_array($intent, ['creative_plan', 'research'], true)) return 'plan';
         if ($confirmed && $risk !== 'low') return 'execute';
+        if ($intent === 'generation' && !$requiresConfirmation) return 'execute';
         if ($intent === 'text_generation' && $missing === []) return 'execute';
         return 'reply';
+    }
+
+    private static function operation(int $deliveryItemId, string $intent, string $actionMode): string
+    {
+        if ($deliveryItemId > 0) return in_array($actionMode, ['execute', 'confirm'], true) ? 'execute' : 'continue';
+        if (in_array($intent, ['generation', 'canvas_edit'], true)) return 'create';
+        return $actionMode === 'clarify' ? 'clarify' : 'reply';
     }
 
     private static function risk(array $upgrades): string
