@@ -94,12 +94,45 @@ class SystemPackageUpdateService
             'current_version' => $current,
             'latest' => $latest,
             'versions' => $versions,
+            'current_version_log' => $this->versionRecord($versions, $current),
+            'worker' => $this->workerGuide(),
             'ignored_version' => $ignored,
             'has_update' => $latestVersion !== '' && version_compare($latestVersion, $current, '>'),
             'is_ignored' => $latestVersion !== '' && $latestVersion === $ignored,
             'environment' => $environment,
             'error' => $error,
         ];
+    }
+
+    private function workerGuide(): array
+    {
+        $directory = rtrim(root_path(), DIRECTORY_SEPARATOR);
+        $script = $directory . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'start-ai-task-worker.sh';
+        if (!is_file($script) && is_file($directory . DIRECTORY_SEPARATOR . 'server' . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'start-ai-task-worker.sh')) {
+            $directory .= DIRECTORY_SEPARATOR . 'server';
+            $script = $directory . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'start-ai-task-worker.sh';
+        }
+
+        return [
+            'name' => 'aigc-task-worker',
+            'start_user' => 'root',
+            'process_count' => '1',
+            'priority' => '999',
+            'remark' => 'AI 任务守护进程',
+            'directory' => $directory,
+            'start_command' => '/bin/sh ' . escapeshellarg($script),
+            'log_command' => 'tail -f ' . escapeshellarg($directory . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'log' . DIRECTORY_SEPARATOR . 'ai_task_worker.log'),
+        ];
+    }
+
+    private function versionRecord(array $versions, string $version): array
+    {
+        foreach ($versions as $item) {
+            if ($this->versionOf($item) === $version) {
+                return $item;
+            }
+        }
+        return ['version' => $version];
     }
 
     public function downloadPackage(string $targetVersion, string $currentVersion = ''): array
