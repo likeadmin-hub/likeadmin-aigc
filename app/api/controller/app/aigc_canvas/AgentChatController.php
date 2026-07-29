@@ -6,7 +6,6 @@ use app\api\controller\BaseApiController;
 use app\common\service\app\aigc_canvas\AigcCanvasAgentRuntimeService;
 use app\common\service\app\aigc_canvas\agent\batch\EcommerceAgentBatchService;
 use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemService;
-use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemContextBinder;
 use app\common\service\app\aigc_canvas\agent\delivery\DeliveryPlanService;
 use app\common\service\app\aigc_canvas\agent\delivery\DeliveryGraphExecutor;
 use app\common\service\app\aigc_canvas\agent\delivery\PendingActionProtocol;
@@ -82,8 +81,7 @@ class AgentChatController extends BaseApiController
         try {
             return $this->success('success', AigcCanvasAgentRuntimeService::send((int)$this->request->tenantId, $this->userId, $this->request->post()));
         } catch (Exception $e) {
-            Log::write('AI canvas agent send failed: ' . $e->getMessage(), 'error');
-            return $this->fail('本次处理未完成，请重试或调整后再试。');
+            return $this->fail($e->getMessage());
         }
     }
 
@@ -101,7 +99,7 @@ class AgentChatController extends BaseApiController
             );
         } catch (Exception $e) {
             Log::write('AI canvas agent stream failed: ' . $e->getMessage(), 'error');
-            $this->emitStreamEvent('agent.error', ['message' => '本次处理未完成，请重试或调整后再试。']);
+            $this->emitStreamEvent('agent.error', ['message' => $e->getMessage()]);
         } catch (Throwable $e) {
             Log::write('AI canvas agent stream fatal: ' . $e->getMessage(), 'error');
             $this->emitStreamEvent('agent.error', ['message' => 'Agent failed. Please try again.']);
@@ -241,11 +239,11 @@ class AgentChatController extends BaseApiController
     public function deliveryItemDetail()
     {
         try {
-            return $this->success('success', DeliveryItemService::present(DeliveryItemService::find(
+            return $this->success('success', DeliveryItemService::find(
                 (int)$this->request->tenantId,
                 $this->userId,
                 (int)$this->request->get('delivery_item_id', $this->request->get('item_id', 0))
-            )));
+            ));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -253,7 +251,18 @@ class AgentChatController extends BaseApiController
 
     public function deliveryItemTransition()
     {
-        return $this->fail('Delivery item state is managed by approved actions');
+        try {
+            $params = $this->request->post();
+            return $this->success('success', DeliveryItemService::transition(
+                (int)$this->request->tenantId,
+                $this->userId,
+                (int)($params['delivery_item_id'] ?? $params['item_id'] ?? 0),
+                (string)($params['status'] ?? ''),
+                (array)($params['patch'] ?? [])
+            ));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
     }
 
     public function deliveryItemAction()
@@ -264,15 +273,8 @@ class AgentChatController extends BaseApiController
             $item = DeliveryItemService::find((int)$this->request->tenantId, $this->userId, $itemId);
             if ($item === []) throw new Exception('Delivery item not found');
             $resolution = PendingActionProtocol::resolve($item, $params, (string)($params['content'] ?? ''));
-            if ($resolution === []) $resolution = PendingActionProtocol::revise($item, $params);
             if ($resolution === []) throw new Exception('No matching pending action');
             $item = DeliveryItemService::transition((int)$this->request->tenantId, $this->userId, $itemId, (string)$resolution['status'], (array)$resolution['patch']);
-            $item = DeliveryItemContextBinder::bind((int)$this->request->tenantId, $this->userId, $itemId, [], [], [
-                'slots' => (array)($resolution['patch']['slots_json'] ?? []),
-                'delivery' => (array)($resolution['patch']['delivery_json'] ?? []),
-                'creative_context' => (array)($resolution['patch']['creative_context_json'] ?? []),
-                'reference_assets' => (array)($resolution['patch']['reference_assets_json'] ?? []),
-            ]);
             if (!empty($resolution['accepted'])) {
                 $type = (string)($resolution['action']['type'] ?? '');
                 if ($type === 'confirm_execution') $item = DeliveryGraphExecutor::execute((int)$this->request->tenantId, $this->userId, $itemId);
@@ -280,7 +282,7 @@ class AgentChatController extends BaseApiController
                     $item = DeliveryGraphExecutor::retry((int)$this->request->tenantId, $this->userId, $itemId);
                 }
             }
-            return $this->success('success', DeliveryItemService::present($item));
+            return $this->success('success', $item);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -290,7 +292,7 @@ class AgentChatController extends BaseApiController
     {
         try {
             $params = $this->request->post();
-            return $this->success('success', DeliveryItemService::present(DeliveryGraphExecutor::execute((int)$this->request->tenantId, $this->userId, (int)($params['delivery_item_id'] ?? $params['item_id'] ?? 0), $params)));
+            return $this->success('success', DeliveryGraphExecutor::execute((int)$this->request->tenantId, $this->userId, (int)($params['delivery_item_id'] ?? $params['item_id'] ?? 0), $params));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -299,12 +301,7 @@ class AgentChatController extends BaseApiController
     public function deliveryItemRefresh()
     {
         try {
-            $item = DeliveryGraphExecutor::refresh(
-                (int)$this->request->tenantId,
-                $this->userId,
-                (int)$this->request->get('delivery_item_id', $this->request->get('item_id', 0))
-            );
-            return $this->success('success', DeliveryItemService::present($item));
+            return $this->success('success', DeliveryGraphExecutor::refresh((int)$this->request->tenantId, $this->userId, (int)$this->request->get('delivery_item_id', $this->request->get('item_id', 0))));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -314,7 +311,7 @@ class AgentChatController extends BaseApiController
     {
         try {
             $params = $this->request->post();
-            return $this->success('success', DeliveryItemService::present(DeliveryGraphExecutor::cancel((int)$this->request->tenantId, $this->userId, (int)($params['delivery_item_id'] ?? $params['item_id'] ?? 0))));
+            return $this->success('success', DeliveryGraphExecutor::cancel((int)$this->request->tenantId, $this->userId, (int)($params['delivery_item_id'] ?? $params['item_id'] ?? 0)));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -324,15 +321,13 @@ class AgentChatController extends BaseApiController
     {
         try {
             $params = $this->request->post();
-            $result = ExternalAssetImportService::importImage(
+            return $this->success('success', ExternalAssetImportService::importImage(
                 (int)$this->request->tenantId,
                 $this->userId,
                 (int)($params['delivery_item_id'] ?? $params['item_id'] ?? 0),
                 (string)($params['url'] ?? ''),
                 $params
-            );
-            $result['delivery_item'] = DeliveryItemService::present((array)($result['delivery_item'] ?? []));
-            return $this->success('success', $result);
+            ));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }

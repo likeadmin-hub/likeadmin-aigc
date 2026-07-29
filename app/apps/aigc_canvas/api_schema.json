@@ -658,6 +658,14 @@
       "need_role_permission": 0
     },
     {
+      "api_path": "app.aigc_canvas.agent_chat/deliveryItemTransition",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:agent_chat:delivery_item_transition",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
       "api_path": "app.aigc_canvas.agent_chat/deliveryItemAction",
       "api_method": "POST",
       "permission_key": "aigc_canvas:agent_chat:delivery_item_action",

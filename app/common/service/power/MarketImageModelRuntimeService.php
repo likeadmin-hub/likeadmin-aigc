@@ -27,6 +27,10 @@ class MarketImageModelRuntimeService
     public const APP_CODE = 'aigc_short_drama';
     private const SUBMIT_PATH = '/api/v1/tasks';
     private const TASK_PATH = '/api/v1/tasks/{task_id}';
+    private const MODEL_QUALITY_OPTIONS = [
+        'nano-banana-2' => ['1k', '2k', '4k'],
+        'nano-banana-pro' => ['1k', '2k', '4k'],
+    ];
 
     /** @return array{key:string,label:string,type:string,options:array<int,array<string,mixed>>,default:string} */
     public static function modelGroup(int $tenantId): array
@@ -77,6 +81,9 @@ class MarketImageModelRuntimeService
                 continue;
             }
             $qualities = array_values(array_unique(array_filter(array_map(static fn(array $item): string => (string)$item['quality'], $skus))));
+            if ($qualities === []) {
+                $qualities = self::modelQualityOptions($product, $meta);
+            }
             $ratios = array_values(array_unique(array_merge(...array_map(static fn(array $item): array => (array)$item['ratio_options'], $skus))));
             $first = $skus[0];
             $modelId = self::modelId((int)$product['id']);
@@ -357,26 +364,50 @@ class MarketImageModelRuntimeService
             if ($sku->isEmpty()) throw new Exception('所选图片模型规格已下架');
             $product = PowerMarketProduct::where(['id' => (int)$sku['product_id'], 'resource_type' => 'model', 'model_type' => 'image', 'status' => 1])->findOrEmpty();
             if ($product->isEmpty()) throw new Exception('所选图片模型已下架');
-            return self::marketRow($tenantId, $product->toArray(), $sku->toArray());
+            $productData = $product->toArray();
+            $market = self::marketRow($tenantId, $productData, $sku->toArray());
+            try {
+                self::assertSkuMatchesSelection($market, $selection);
+            } catch (Exception $e) {
+                // Canvas keeps the selected SKU on a node. When a user changes
+                // resolution or ratio, re-resolve that node instead of silently
+                // submitting the old locked specification.
+                if (!in_array($e->getMessage(), ['所选图片 SKU 不支持当前分辨率', '所选图片 SKU 不支持当前比例'], true)) {
+                    throw $e;
+                }
+                return self::resolveProduct($tenantId, $productData, self::withoutSku($selection));
+            }
+            return $market;
         }
 
         $productId = self::productId($selection);
         if ($productId <= 0) throw new Exception('请选择算力市场图片模型');
         $product = PowerMarketProduct::where(['id' => $productId, 'resource_type' => 'model', 'model_type' => 'image', 'status' => 1])->findOrEmpty();
         if ($product->isEmpty()) throw new Exception('所选图片模型已下架');
+        return self::resolveProduct($tenantId, $product->toArray(), $selection);
+    }
+
+    /** @return array{product:array<string,mixed>,sku:array<string,mixed>,tenant_price:float} */
+    private static function resolveProduct(int $tenantId, array $product, array $selection): array
+    {
         $quality = self::selectionQuality($selection);
+        $ratio = self::normalizedRatio(self::firstValue($selection, ['ratio', 'aspect_ratio', 'size']));
         $matches = [];
-        foreach (self::availableSkus($tenantId, $productId) as $market) {
+        foreach (self::availableSkus($tenantId, (int)$product['id']) as $market) {
             $sku = (array)$market['sku'];
-            $lockedQuality = self::firstValue(self::arrayValue($sku['locked_params'] ?? []), ['quality', 'resolution', 'image_size']);
+            $locked = self::arrayValue($sku['locked_params'] ?? []);
+            $lockedQuality = self::firstValue($locked, ['quality', 'resolution', 'image_size']);
             if ($quality === '' || $lockedQuality === '' || strcasecmp($lockedQuality, $quality) === 0) {
-                $matches[] = $market;
+                $supportedRatios = self::ratioOptions($locked, self::metadata($product));
+                if ($ratio === '' || $supportedRatios === [] || in_array($ratio, $supportedRatios, true)) {
+                    $matches[] = $market;
+                }
             }
         }
         if ($matches === []) {
             throw new Exception($quality === '' ? '所选图片模型暂无可用规格' : '所选图片模型不支持 ' . $quality . ' 分辨率');
         }
-        return self::marketRow($tenantId, $product->toArray(), (array)$matches[0]['sku']);
+        return self::marketRow($tenantId, $product, (array)$matches[0]['sku']);
     }
 
     /** @return array<int,array{sku:array<string,mixed>,tenant_price:float}> */
@@ -385,6 +416,32 @@ class MarketImageModelRuntimeService
         $rows = PowerMarketSku::where(['product_id' => $productId, 'status' => 1, 'sale_status' => 1])->select()->toArray(); $result = [];
         foreach ($rows as $sku) { $tenant = TenantPowerMarketSkuPrice::where(['tenant_id' => $tenantId, 'sku_id' => (int)$sku['id']])->findOrEmpty(); if (!$tenant->isEmpty() && (int)$tenant['sale_status'] !== 1) continue; $result[] = ['sku' => $sku, 'tenant_price' => $tenant->isEmpty() ? (float)$sku['sale_points'] : (float)$tenant['sale_points']]; }
         return $result;
+    }
+
+    /** @param array{product:array<string,mixed>,sku:array<string,mixed>,tenant_price:float} $market */
+    private static function assertSkuMatchesSelection(array $market, array $selection): void
+    {
+        $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
+        $requestedQuality = self::selectionQuality($selection);
+        $lockedQuality = self::firstValue($locked, ['quality', 'resolution', 'image_size']);
+        if ($requestedQuality !== '' && $lockedQuality !== '' && strcasecmp($requestedQuality, $lockedQuality) !== 0) {
+            throw new Exception('所选图片 SKU 不支持当前分辨率');
+        }
+        $ratio = self::normalizedRatio(self::firstValue($selection, ['ratio', 'aspect_ratio', 'size']));
+        $supportedRatios = self::ratioOptions($locked, self::metadata($market['product']));
+        if ($ratio !== '' && $supportedRatios !== [] && !in_array($ratio, $supportedRatios, true)) {
+            throw new Exception('所选图片 SKU 不支持当前比例');
+        }
+    }
+
+    private static function withoutSku(array $selection): array
+    {
+        unset($selection['market_sku_id'], $selection['sku_id'], $selection['image_sku_id']);
+        if (isset($selection['params'])) {
+            $selection['params'] = self::arrayValue($selection['params']);
+            unset($selection['params']['market_sku_id'], $selection['params']['sku_id'], $selection['params']['image_sku_id']);
+        }
+        return $selection;
     }
 
     private static function payload(array $snapshot, array $request, string $idempotencyKey, int $tenantId = 0): array
@@ -550,6 +607,24 @@ class MarketImageModelRuntimeService
     private static function productId(array $selection): int { $value = $selection['market_product_id'] ?? ''; if ((int)$value > 0) return (int)$value; $nested = self::arrayValue($selection['params'] ?? []); foreach ([$selection['model_id'] ?? '', $selection['image_model_id'] ?? '', $selection['channel'] ?? '', $selection['channel_code'] ?? '', $nested['model_id'] ?? ''] as $candidate) { if (is_string($candidate) && preg_match('/^market_image_model:(\\d+)$/', $candidate, $match)) return (int)$match[1]; } return 0; }
     private static function selectionQuality(array $selection): string { $nested = self::arrayValue($selection['params'] ?? []); foreach (['quality', 'resolution', 'image_size'] as $key) { $value = trim((string)($selection[$key] ?? $nested[$key] ?? '')); if ($value !== '') return $value; } return ''; }
     private static function qualityLabel(string $quality): string { return preg_replace_callback('/(\\d+)k\\b/i', static fn(array $match): string => $match[1] . 'K', $quality) ?: $quality; }
+    /** @return array<int,string> */
+    private static function modelQualityOptions(array $product, array $meta): array
+    {
+        $schema = self::arrayValue($meta['params_schema'] ?? []);
+        $values = $meta['quality_options'] ?? $meta['resolution_options'] ?? $schema['image_size']['options'] ?? $schema['resolution']['options'] ?? [];
+        if (is_string($values)) {
+            $values = preg_split('/\s*\/\s*/', $values) ?: [];
+        }
+        $qualities = array_values(array_unique(array_filter(array_map(
+            static fn($value): string => strtolower(trim((string)(is_array($value) ? ($value['value'] ?? $value['code'] ?? '') : $value))),
+            (array)$values
+        ))));
+        if ($qualities !== []) {
+            return $qualities;
+        }
+        return self::MODEL_QUALITY_OPTIONS[strtolower(trim((string)($product['upstream_model_code'] ?? '')))] ?? [];
+    }
+
     private static function metadata(array $product): array { $source = self::arrayValue($product['source_payload'] ?? []); return (array)($source['market_metadata'] ?? []); }
     private static function referenceLimit(array $meta): int { $capabilities = self::arrayValue($meta['capabilities'] ?? []); foreach (['max_reference_images','max_reference_image_count','reference_image_limit'] as $key) { if (isset($meta[$key])) return max(0, (int)$meta[$key]); if (isset($capabilities[$key])) return max(0, (int)$capabilities[$key]); } return !empty($meta['supports_reference_images']) || !empty($capabilities['supports_reference_images']) ? 1 : 0; }
     private static function firstValue(array $params, array $keys): string { foreach ($keys as $key) if (isset($params[$key]) && $params[$key] !== '') return (string)$params[$key]; return ''; }

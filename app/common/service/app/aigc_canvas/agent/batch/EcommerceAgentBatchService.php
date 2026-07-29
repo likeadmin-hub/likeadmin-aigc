@@ -12,8 +12,6 @@ use app\common\service\app\aigc_canvas\agent\planning\EcommerceDetailSectionPlan
 use app\common\service\app\aigc_canvas\agent\planning\RevisionPlanner;
 use app\common\service\app\aigc_canvas\agent\prompt\PromptSpecCompiler;
 use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemService;
-use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemContextBinder;
-use app\common\service\app\aigc_canvas\agent\delivery\DeliveryGraphExecutor;
 use app\common\service\app\aigc_canvas\agent\delivery\PendingActionProtocol;
 use Exception;
 use think\facade\Db;
@@ -547,47 +545,19 @@ final class EcommerceAgentBatchService
                 'reference_assets' => $sectionReferences,
             ]);
             try {
-                if ($deliveryItemId > 0) {
-                    $item = DeliveryItemService::find($tenantId, $userId, $deliveryItemId);
-                    if ($item === []) throw new Exception('Delivery section item not found');
-                    $delivery = array_merge((array)$item['delivery'], $section, [
-                        'target_element_id' => $targetId,
-                        'ratio' => (string)$input['ratio'],
-                        'batch_id' => (int)$batch['id'],
-                        'section_key' => $sectionKey,
-                        'section_index' => $sectionIndex,
-                    ]);
-                    DeliveryItemContextBinder::bind($tenantId, $userId, $deliveryItemId, [], [], [
-                        'delivery' => $delivery,
-                        'creative_context' => (array)$batch['creative_context_json'],
-                        'reference_assets' => $sectionReferences,
-                    ]);
-                    DeliveryItemService::transition($tenantId, $userId, $deliveryItemId, (string)$item['status'], [
-                        'meta_json' => array_merge((array)$item['meta'], [
-                            'execution_options' => self::safeExecutionOptions((array)($toolOptions[$toolCode] ?? [])),
-                        ]),
-                    ]);
-                    $executed = DeliveryGraphExecutor::execute($tenantId, $userId, $deliveryItemId, [], $emit);
-                    $snapshot = (array)($executed['task_snapshot'] ?? []);
-                    $result = [
-                        'tool_calls' => [[
-                            'id' => (int)($snapshot['tool_call_id'] ?? 0),
-                            'tool_code' => $toolCode,
-                            'input' => (array)($snapshot['input'] ?? $input),
-                            'provider_task_id' => (string)($snapshot['task_id'] ?? ''),
-                            'output' => ['task_id' => (string)($snapshot['task_id'] ?? ''), 'status' => (string)($executed['status'] ?? 'running')],
-                        ]],
-                        'workspace_actions' => (array)($executed['result']['workspace_actions'] ?? []),
-                        'assets' => (array)($executed['result']['assets'] ?? []),
-                    ];
-                } else {
-                    // Legacy batches without item bindings keep their former path.
-                    $result = AigcCanvasAgentRuntimeService::executeExternalToolWithActions(
-                        $tenantId, $userId, (int)$batch['project_id'], (int)$batch['thread_id'],
-                        (int)$assistant['id'], $toolCode, $input, $input['prompt'],
-                        ['uploaded_references' => $sectionReferences], $emit, 1
-                    );
-                }
+                $result = AigcCanvasAgentRuntimeService::executeExternalToolWithActions(
+                    $tenantId,
+                    $userId,
+                    (int)$batch['project_id'],
+                    (int)$batch['thread_id'],
+                    (int)$assistant['id'],
+                    $toolCode,
+                    $input,
+                    $input['prompt'],
+                    ['uploaded_references' => $sectionReferences],
+                    $emit,
+                    1
+                );
                 $tool = (array)($result['tool_calls'][0] ?? []);
                 $workspace = (array)($result['workspace_actions'][0] ?? []);
                 $toolCalls = array_merge($toolCalls, (array)($result['tool_calls'] ?? []));
@@ -641,7 +611,6 @@ final class EcommerceAgentBatchService
         }
         $batchModel = self::batchQuery($tenantId, $userId, (int)$batch['id'])->findOrEmpty();
         $batchModel->save(['tasks_json' => $tasks, 'update_time' => time()]);
-        self::syncBatchParentItem($tenantId, $userId, $batchModel->toArray(), $tasks);
         $contentJson = (array)$assistant['content_json'];
         $contentJson['tool_calls'] = $toolCalls;
         $contentJson['workspace_actions'] = $workspaceActions;
@@ -678,26 +647,15 @@ final class EcommerceAgentBatchService
                 continue;
             }
             try {
-                $deliveryItemId = (int)($task['delivery_item_id'] ?? 0);
-                if ($deliveryItemId > 0) {
-                    $item = DeliveryGraphExecutor::refresh($tenantId, $userId, $deliveryItemId);
-                    $detail = (array)($item['result']['generation'] ?? []);
-                    $assets = (array)($item['result']['assets'] ?? []);
-                    $url = (string)(($assets[0]['url'] ?? $assets[0]['uri'] ?? '') ?: '');
-                    $status = match ((string)($item['status'] ?? 'running')) {
-                        'completed' => 'success', 'canceled' => 'cancelled', default => (string)($item['status'] ?? 'running'),
-                    };
-                } else {
-                    $detail = self::taskDetail($tenantId, $userId, self::toolCodeForTask($task), $taskId);
-                    $status = strtolower((string)($detail['status'] ?? 'running'));
-                    $url = self::resultUrl($detail);
-                    if ($url !== '') {
-                        $status = 'success';
-                    } elseif (in_array($status, ['error', 'fail'], true)) {
-                        $status = 'failed';
-                    } elseif (!in_array($status, self::TERMINAL_TASK_STATUSES, true)) {
-                        $status = 'running';
-                    }
+                $detail = self::taskDetail($tenantId, $userId, self::toolCodeForTask($task), $taskId);
+                $status = strtolower((string)($detail['status'] ?? 'running'));
+                $url = self::resultUrl($detail);
+                if ($url !== '') {
+                    $status = 'success';
+                } elseif (in_array($status, ['error', 'fail'], true)) {
+                    $status = 'failed';
+                } elseif (!in_array($status, self::TERMINAL_TASK_STATUSES, true)) {
+                    $status = 'running';
                 }
                 $task['status'] = $status;
                 $task['url'] = $url;
@@ -718,7 +676,6 @@ final class EcommerceAgentBatchService
         if ($changed) {
             $batch->save(['tasks_json' => $tasks, 'update_time' => time()]);
         }
-        self::syncBatchParentItem($tenantId, $userId, $batch->toArray(), $tasks);
 
         $waveTasks = array_values(array_filter($tasks, static fn(array $task): bool => (int)($task['wave'] ?? 0) === $currentWave));
         $waveDone = !empty($waveTasks) && empty(array_filter($waveTasks, static fn(array $task): bool => !in_array((string)($task['status'] ?? ''), self::TERMINAL_TASK_STATUSES, true)));
@@ -736,26 +693,27 @@ final class EcommerceAgentBatchService
     public static function formatBatch(array $batch): array
     {
         $tasks = array_values((array)($batch['tasks_json'] ?? []));
-        $publicTasks = array_map(static fn(array $task): array => array_filter([
-            'section_key' => (string)($task['section_key'] ?? ''),
-            'title' => (string)($task['title'] ?? ''),
-            'status' => (string)($task['status'] ?? ''),
-            'url' => (string)($task['url'] ?? ''),
-            'error' => in_array((string)($task['status'] ?? ''), ['failed', 'canceled', 'cancelled'], true) ? '生成未完成，请重试或调整后再试。' : '',
-        ], static fn($value): bool => $value !== ''), $tasks);
         $completed = count(array_filter($tasks, static fn(array $task): bool => (string)($task['status'] ?? '') === 'success'));
         $failed = count(array_filter($tasks, static fn(array $task): bool => in_array((string)($task['status'] ?? ''), ['failed', 'canceled', 'cancelled'], true)));
         $total = (int)($batch['total_count'] ?? 0);
         $remaining = max(0, $total - (int)($batch['next_offset'] ?? 0));
         return [
             'id' => (int)($batch['id'] ?? 0),
+            'skill_key' => (string)($batch['skill_key'] ?? ''),
             'plan_version' => max(1, (int)($batch['plan_version'] ?? 1)),
             'creative_context' => is_array($batch['creative_context_json'] ?? null) ? $batch['creative_context_json'] : [],
             'claims' => is_array($batch['claim_snapshot_json'] ?? null) ? $batch['claim_snapshot_json'] : [],
             'project_id' => (int)($batch['project_id'] ?? 0),
             'thread_id' => (int)($batch['thread_id'] ?? 0),
+            'run_id' => (int)($batch['run_id'] ?? 0),
             'status' => (string)($batch['status'] ?? ''),
+            'execution_mode' => (string)($batch['execution_mode'] ?? 'batch'),
+            'batch_kind' => (string)($batch['batch_kind'] ?? 'initial'),
+            'parent_batch_id' => (int)($batch['parent_batch_id'] ?? 0),
+            'revision_no' => (int)($batch['revision_no'] ?? 0),
             'revision_instruction' => (string)($batch['revision_instruction'] ?? ''),
+            'decision' => is_array($batch['decision_json'] ?? null) ? $batch['decision_json'] : [],
+            'scope' => is_array($batch['scope_json'] ?? null) ? $batch['scope_json'] : [],
             'total_count' => $total,
             'submitted_count' => (int)($batch['next_offset'] ?? 0),
             'completed_count' => $completed,
@@ -765,7 +723,7 @@ final class EcommerceAgentBatchService
             'current_wave' => (int)($batch['current_wave'] ?? 0),
             'design_analysis' => is_array($batch['analysis_json'] ?? null) ? $batch['analysis_json'] : [],
             'planned_sections' => array_values((array)($batch['sections_json'] ?? [])),
-            'tasks' => $publicTasks,
+            'tasks' => $tasks,
             'updated_at' => (int)($batch['update_time'] ?? 0),
         ];
     }
@@ -920,7 +878,7 @@ final class EcommerceAgentBatchService
         try {
             $item = DeliveryItemService::find($tenantId, $userId, $itemId);
             if ($item === [] || in_array((string)$item['status'], ['completed', 'canceled'], true)) return;
-            if ($status === 'running' && in_array((string)$item['status'], ['ready', 'awaiting_confirmation'], true)) {
+            if ($status === 'running' && (string)$item['status'] === 'ready') {
                 $item = DeliveryItemService::transition($tenantId, $userId, $itemId, 'queued', ['pending_action_json' => []]);
             }
             if ($status === 'failed' && !array_key_exists('pending_action_json', $patch)) {
@@ -930,34 +888,6 @@ final class EcommerceAgentBatchService
         } catch (Exception) {
             // Batch history is authoritative for legacy replay even if a child was removed.
         }
-    }
-
-    private static function safeExecutionOptions(array $options): array
-    {
-        return array_intersect_key($options, array_flip([
-            'channel', 'model_id', 'market_product_id', 'market_sku_id', 'sku_id',
-            'duration', 'quality', 'style', 'seed', 'negative_prompt',
-        ]));
-    }
-
-    private static function syncBatchParentItem(int $tenantId, int $userId, array $batch, array $tasks): void
-    {
-        $parentItemId = (int)(((array)($batch['scope_json'] ?? []))['delivery_item_id'] ?? 0);
-        if ($parentItemId <= 0 || $tasks === []) return;
-        $statuses = array_values(array_filter(array_map(static fn(array $task): string => (string)($task['status'] ?? ''), $tasks)));
-        $active = array_intersect($statuses, ['queued', 'running']) !== [];
-        if ($active) {
-            self::syncDeliveryItem($tenantId, $userId, $parentItemId, 'running', [
-                'result_json' => ['batch_id' => (int)($batch['id'] ?? 0), 'tasks' => $tasks],
-            ]);
-            return;
-        }
-        if (array_filter($statuses, static fn(string $status): bool => !in_array($status, self::TERMINAL_TASK_STATUSES, true)) !== []) return;
-        $allCanceled = array_filter($statuses, static fn(string $status): bool => !in_array($status, ['canceled', 'cancelled'], true)) === [];
-        $allFailed = array_filter($statuses, static fn(string $status): bool => !in_array($status, ['failed', 'canceled', 'cancelled'], true)) === [];
-        self::syncDeliveryItem($tenantId, $userId, $parentItemId, $allCanceled ? 'canceled' : ($allFailed ? 'failed' : 'completed'), [
-            'result_json' => ['batch_id' => (int)($batch['id'] ?? 0), 'tasks' => $tasks],
-        ]);
     }
 
     private static function taskPromptTrace(array $input): array

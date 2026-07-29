@@ -60,6 +60,53 @@ try {
     if (empty(Db::query("SHOW TABLES LIKE '{$prefix}aigc_canvas_agent_subtask'"))) {
         $failures[] = 'upgrade scripts did not preserve the durable subtask table';
     }
+
+    $legacySkillSchemaPath = $root . '/app/apps/aigc_canvas/migrations/zz_20260714_canvas_skill_registry.sql';
+    $legacySkillSchema = file_get_contents($legacySkillSchemaPath);
+    if ($legacySkillSchema === false) {
+        throw new RuntimeException("Unable to read legacy skill schema: {$legacySkillSchemaPath}");
+    }
+    $legacyRepairPaths = [
+        $root . '/app/apps/aigc_canvas/migrations/zz_20260727_canvas_legacy_schema_repair.sql',
+        $root . '/upgrade/20260727_aigc_canvas_legacy_schema_repair.sql',
+        $root . '/public/upgrade/20260727_aigc_canvas_legacy_schema_repair.sql',
+    ];
+    $requiredLegacyTables = [
+        'aigc_canvas_agent_turn',
+        'aigc_canvas_agent_turn_event',
+        'aigc_canvas_asset',
+        'aigc_canvas_skill_version',
+        'aigc_canvas_skill_evaluation_case',
+    ];
+    $requiredSkillPolicyColumns = [
+        'visibility_policy_json',
+        'model_policy_json',
+        'execution_policy_json',
+        'quality_policy_json',
+        'safety_policy_json',
+        'analytics_policy_json',
+    ];
+    foreach ($legacyRepairPaths as $repairIndex => $repairPath) {
+        $repairSql = file_get_contents($repairPath);
+        if ($repairSql === false) {
+            throw new RuntimeException("Unable to read legacy repair script: {$repairPath}");
+        }
+        $legacyPrefix = $prefix . 'legacy_' . ($repairIndex + 1) . '_';
+        SqlMigrationExecutor::execute($legacySkillSchema, $legacyPrefix);
+        SqlMigrationExecutor::execute($repairSql, $legacyPrefix);
+        SqlMigrationExecutor::execute($repairSql, $legacyPrefix);
+
+        foreach ($requiredLegacyTables as $table) {
+            if (empty(Db::query("SHOW TABLES LIKE '{$legacyPrefix}{$table}'"))) {
+                $failures[] = "legacy repair is missing table: {$table}";
+            }
+        }
+        foreach ($requiredSkillPolicyColumns as $column) {
+            if (empty(Db::query("SHOW COLUMNS FROM `{$legacyPrefix}aigc_canvas_skill` LIKE '{$column}'"))) {
+                $failures[] = "legacy repair is missing skill policy column: {$column}";
+            }
+        }
+    }
 } catch (Throwable $e) {
     $failures[] = $e->getMessage();
 } finally {
@@ -87,6 +134,8 @@ echo json_encode([
         'app_registry' => true,
         'frontend_entry' => true,
         'upgrade_scripts' => true,
+        'legacy_schema_repair' => true,
+        'legacy_schema_repair_idempotent' => true,
         'cleanup' => true,
     ],
     'failures' => $failures,

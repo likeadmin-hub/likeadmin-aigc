@@ -25,6 +25,7 @@ class MarketNanoBananaAppRuntimeService
     private const SUBMIT_API_CODE = 'submit';
     private const QUERY_API_CODE = 'query';
     private const MAX_RUNNING_SECONDS = 7200;
+    private const RATIO_OPTIONS = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '5:4', '4:5', '21:9'];
 
     /** @return array<int,array<string,mixed>> */
     public static function options(int $tenantId): array
@@ -51,7 +52,7 @@ class MarketNanoBananaAppRuntimeService
                 if ($model === '') {
                     continue;
                 }
-                $quality = strtolower(trim((string)($locked['resolution'] ?? '')));
+                $quality = self::qualityValue($locked) ?: '1k';
                 $byModel[$model][] = [
                     'market_sku_id' => (int)$sku['id'],
                     'sku_key' => (string)$sku['sku_key'],
@@ -67,11 +68,8 @@ class MarketNanoBananaAppRuntimeService
                 ];
             }
             foreach ($byModel as $model => $skus) {
-                $qualities = array_values(array_unique(array_filter(
-                    array_column($skus, 'quality'),
-                    static fn($quality): bool => trim((string)$quality) !== ''
-                )));
-                $ratios = self::documentedOptions((array)$product, ['aspect_ratio', 'ratio']);
+                $qualities = array_values(array_unique(array_column($skus, 'quality')));
+                $ratios = self::ratioOptions((array)$product);
                 $first = $skus[0];
                 $id = self::selectionId((int)$product['id'], $model);
                 $options[] = [
@@ -81,9 +79,14 @@ class MarketNanoBananaAppRuntimeService
                     'market_product_id' => (int)$product['id'],
                     'resource_type' => PowerMarketService::TYPE_APP_API,
                     'resource_type_label' => '应用 API',
-                    'name' => self::displayName($model),
+                    'name' => self::displayName(self::baseModel($model)),
                     'model_code' => $model,
                     'provider_model' => $model,
+                    'display_group' => 'nano_banana',
+                    'display_group_label' => 'Nano Banana',
+                    'display_series' => self::modelVariant($model),
+                    'display_series_label' => self::variantLabel(self::modelVariant($model)),
+                    'display_variant_label' => self::displayName(self::baseModel($model)),
                     'quality_options' => $qualities,
                     'resolution_options' => array_map(static fn(string $value): array => ['value' => $value, 'label' => self::qualityLabel($value)], $qualities),
                     'default_quality' => (string)($qualities[0] ?? ''),
@@ -309,21 +312,49 @@ class MarketNanoBananaAppRuntimeService
     /** @return array{product:array<string,mixed>,sku:array<string,mixed>,tenant_price:float,model:string,reference_limit:int} */
     private static function resolve(int $tenantId, array $selection): array
     {
-        [$productId, $model] = self::selection($selection);
-        if ($productId <= 0 || $model === '') throw new Exception('请选择 nano-banana 应用 API 模型');
+        [$productId, $selectedModel] = self::selection($selection);
+        if ($productId <= 0 || $selectedModel === '') throw new Exception('请选择 nano-banana 应用 API 模型');
         $product = PowerMarketProduct::where(['id' => $productId, 'resource_type' => PowerMarketService::TYPE_APP_API, 'upstream_app_code' => self::UPSTREAM_APP_CODE, 'upstream_api_code' => self::SUBMIT_API_CODE, 'status' => 1])->findOrEmpty();
         if ($product->isEmpty()) throw new Exception('所选 nano-banana 应用 API 已下架');
         if (!self::queryAvailable()) throw new Exception('nano-banana 应用 API 查询接口已下架');
-        $quality = self::quality($selection); $matches = [];
-        foreach (self::availableSkus($tenantId, $productId) as $market) {
+        $baseModel = self::baseModel($selectedModel);
+        $variant = self::selectionVariant($selection, $selectedModel);
+        $quality = self::quality($selection);
+        $available = self::availableSkus($tenantId, $productId);
+        $skuId = self::skuId($selection);
+        if ($skuId > 0) {
+            foreach ($available as $market) {
+                if ((int)($market['sku']['id'] ?? 0) !== $skuId) {
+                    continue;
+                }
+                $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
+                if (self::baseModel((string)($locked['model'] ?? '')) !== $baseModel || self::modelVariant((string)($locked['model'] ?? '')) !== $variant) {
+                    throw new Exception('所选 nano-banana 规格不属于当前模型或版本');
+                }
+                if (!self::qualityMatches(self::qualityValue($locked), $quality)) {
+                    throw new Exception('所选 nano-banana 规格不支持当前分辨率');
+                }
+                self::assertDocumentedRatio($market, $selection);
+                return self::resolvedMarket($product->toArray(), $market, $selectedModel);
+            }
+            throw new Exception('所选 nano-banana 规格已下架');
+        }
+
+        $matches = [];
+        foreach ($available as $market) {
             $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
             $lockedModel = trim((string)($locked['model'] ?? ''));
-            $lockedQuality = strtolower(trim((string)($locked['resolution'] ?? '')));
-            if ($lockedModel === $model && ($quality === '' || $lockedQuality === $quality || ($lockedQuality === '' && $quality === '1k'))) $matches[] = $market;
+            $lockedQuality = self::qualityValue($locked);
+            if (
+                self::baseModel($lockedModel) === $baseModel
+                && self::modelVariant($lockedModel) === $variant
+                && self::qualityMatches($lockedQuality, $quality)
+            ) $matches[] = $market;
         }
         if ($matches === []) throw new Exception($quality === '' ? '所选 nano-banana 模型暂无可用规格' : '所选 nano-banana 模型不支持 ' . self::qualityLabel($quality));
         $market = $matches[0];
-        return ['product' => (array)$product->toArray(), 'sku' => (array)$market['sku'], 'tenant_price' => (float)$market['tenant_price'], 'model' => $model, 'reference_limit' => max(0, (int)(self::capabilities($product->toArray())['max_reference_images'] ?? 0))];
+        self::assertDocumentedRatio($market, $selection);
+        return self::resolvedMarket($product->toArray(), $market, $selectedModel);
     }
 
     /** @return array<int,array{sku:array<string,mixed>,tenant_price:float}> */
@@ -338,6 +369,20 @@ class MarketNanoBananaAppRuntimeService
         return $result;
     }
 
+    /** @param array<string,mixed> $product @param array<string,mixed> $market */
+    private static function resolvedMarket(array $product, array $market, string $selectedModel): array
+    {
+        $sku = (array)($market['sku'] ?? []);
+        $locked = self::arrayValue($sku['locked_params'] ?? []);
+        return [
+            'product' => $product,
+            'sku' => $sku,
+            'tenant_price' => (float)($market['tenant_price'] ?? 0),
+            'model' => (string)($locked['model'] ?? $selectedModel),
+            'reference_limit' => max(0, (int)(self::capabilities($product)['max_reference_images'] ?? 0)),
+        ];
+    }
+
     private static function payload(array $snapshot, array $request, string $idempotencyKey): array
     {
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
@@ -346,7 +391,7 @@ class MarketNanoBananaAppRuntimeService
             'action' => $references === [] ? 'generate' : 'edit', 'prompt' => (string)($request['prompt'] ?? ''), 'image_urls' => $references,
             'idempotency_key' => $idempotencyKey,
         ]);
-        $resolution = trim((string)($locked['resolution'] ?? $request['quality'] ?? ''));
+        $resolution = self::qualityValue($locked) ?: self::quality($request);
         if ($resolution !== '') {
             $payload['resolution'] = self::qualityLabel($resolution);
         }
@@ -383,7 +428,14 @@ class MarketNanoBananaAppRuntimeService
     private static function marketContext(array $snapshot): array { $skuKey = trim((string)($snapshot['sku_key'] ?? '')); $skuId = (int)($snapshot['sku_id'] ?? 0); return ['market_product_id' => (int)($snapshot['product_id'] ?? 0), 'market_sku_id' => $skuId, 'sku_id' => $skuId, 'market_sku_key' => $skuKey, 'sku_key' => $skuKey, 'pricing_sku_key' => $skuKey, 'price_source' => 'power_market_app_api']; }
     private static function selectionId(int $productId, string $model): string { return 'market_nano_banana:' . $productId . ':' . base64_encode($model); }
     /** @return array{0:int,1:string} */ private static function selection(array $selection): array { $nested = self::arrayValue($selection['params'] ?? []); foreach ([$selection['model_id'] ?? '', $selection['image_model_id'] ?? '', $selection['channel'] ?? '', $selection['channel_code'] ?? '', $nested['model_id'] ?? ''] as $value) if (is_string($value) && preg_match('/^market_nano_banana:(\\d+):(.+)$/', $value, $match)) return [(int)$match[1], (string)base64_decode($match[2], true)]; return [0, '']; }
-    private static function quality(array $selection): string { $nested = self::arrayValue($selection['params'] ?? []); foreach (['quality', 'resolution'] as $key) { $value = strtolower(trim((string)($selection[$key] ?? $nested[$key] ?? ''))); if ($value !== '') return $value; } return ''; }
+    private static function skuId(array $selection): int { $nested = self::arrayValue($selection['params'] ?? []); foreach (['market_sku_id', 'sku_id'] as $key) { $value = $selection[$key] ?? $nested[$key] ?? 0; if (is_string($value)) $value = preg_replace('/^market_sku:/', '', $value); if ((int)$value > 0) return (int)$value; } return 0; }
+    private static function quality(array $selection): string { $nested = self::arrayValue($selection['params'] ?? []); foreach (['quality', 'resolution', 'image_size'] as $key) { $value = strtolower(trim((string)($selection[$key] ?? $nested[$key] ?? ''))); if ($value !== '') return $value; } return ''; }
+    private static function qualityValue(array $locked): string { foreach (['resolution', 'quality', 'image_size'] as $key) { $value = strtolower(trim((string)($locked[$key] ?? ''))); if ($value !== '') return $value; } return ''; }
+    private static function qualityMatches(string $locked, string $selected): bool { return $locked === $selected || ($locked === '' && $selected === '1k'); }
+    private static function baseModel(string $model): string { return preg_replace('/:official$/i', '', trim($model)) ?: ''; }
+    private static function modelVariant(string $model): string { return str_ends_with(strtolower(trim($model)), ':official') ? 'official' : 'standard'; }
+    private static function selectionVariant(array $selection, string $selectedModel): string { $nested = self::arrayValue($selection['params'] ?? []); $value = strtolower(trim((string)($selection['variant'] ?? $selection['edition'] ?? $nested['variant'] ?? $nested['edition'] ?? ''))); if (in_array($value, ['standard', 'official'], true)) return $value; return self::modelVariant($selectedModel); }
+    private static function variantLabel(string $variant): string { return $variant === 'official' ? '官方' : '标准'; }
     private static function qualityLabel(string $value): string { return strtoupper(trim($value)) ?: '1K'; }
     private static function displayName(string $model): string { return match ($model) { 'nano-banana' => 'Nano Banana', 'nano-banana-2' => 'Nano Banana 2', 'nano-banana-2-lite' => 'Nano Banana 2 Lite', 'nano-banana-pro' => 'Nano Banana Pro', 'nano-banana:official' => 'Nano Banana Official', 'nano-banana-2-lite:official' => 'Nano Banana 2 Lite Official', 'nano-banana-2:official' => 'Nano Banana 2 Official', 'nano-banana-pro:official' => 'Nano Banana Pro Official', default => $model }; }
     /** @return array<int,string> */
@@ -398,6 +450,17 @@ class MarketNanoBananaAppRuntimeService
             self::collectDocumentedOptions($schema, $wanted, $values);
         }
         return array_values(array_unique(array_filter(array_map('strval', $values), static fn(string $value): bool => trim($value) !== '')));
+    }
+    /** @return array<int,string> */
+    private static function ratioOptions(array $product): array
+    {
+        $options = self::documentedOptions($product, ['aspect_ratio', 'ratio']);
+        // Earlier market records use 1:1 as a placeholder rather than the full
+        // Nano Banana capability enum. Treat that single-value legacy schema as absent.
+        if ($options === [] || $options === ['1:1']) {
+            return self::RATIO_OPTIONS;
+        }
+        return $options;
     }
     /** @param array<string,bool> $wanted @param array<int,string> $values */
     private static function collectDocumentedOptions($schema, array $wanted, array &$values): void
@@ -426,8 +489,7 @@ class MarketNanoBananaAppRuntimeService
         if ($ratio === '') {
             return;
         }
-        $options = self::documentedOptions((array)($market['product'] ?? []), ['aspect_ratio', 'ratio']);
-        if ($options === [] || !in_array($ratio, $options, true)) {
+        if (!in_array($ratio, self::ratioOptions((array)($market['product'] ?? [])), true)) {
             throw new Exception('所选 nano-banana 应用 API 未声明该生成比例');
         }
     }
