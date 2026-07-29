@@ -20,7 +20,7 @@ class OfficialSiteService
         if (!is_array($stored) || $stored === []) {
             ConfigService::set(self::TYPE, self::KEY, self::toStorage($config));
         }
-        return $config;
+        return self::toEditor($config);
     }
 
     public static function save(array $params): array
@@ -121,6 +121,22 @@ class OfficialSiteService
         unset($module);
         $config['basic']['logo'] = FileService::setFileUrl($config['basic']['logo']);
         $config['basic']['favicon'] = FileService::setFileUrl($config['basic']['favicon']);
+        return $config;
+    }
+
+    /** Convert stored media paths to URLs expected by the admin material picker. */
+    private static function toEditor(array $config): array
+    {
+        $config['basic']['logo'] = self::fileUrl($config['basic']['logo']);
+        $config['basic']['favicon'] = self::fileUrl($config['basic']['favicon']);
+        foreach ($config['modules'] as &$module) {
+            $module['media'] = self::fileUrl((string)($module['media'] ?? ''));
+            foreach ($module['cards'] as &$card) {
+                $card['media'] = self::fileUrl((string)($card['media'] ?? ''));
+            }
+            unset($card);
+        }
+        unset($module);
         return $config;
     }
 

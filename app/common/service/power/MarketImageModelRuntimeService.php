@@ -8,7 +8,9 @@ use app\common\model\ai\AiConsumptionLog;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
+use app\common\service\ai\AiTaskLifecycleEventService;
 use app\common\service\ai\AiTaskJobService;
+use app\common\service\ai\AiTaskResultUrlService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
@@ -246,7 +248,14 @@ class MarketImageModelRuntimeService
             $status = self::status($response); $images = self::images($response, (int)$c['tenant_id'], (int)$c['user_id']);
             if ($images !== []) { self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); return ['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
             if (in_array($status, ['failed', 'error', 'canceled', 'cancelled'], true)) { self::fail($consumptionId, self::error($response), 'upstream_failed'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
-            self::event($consumptionId, 'poll', 'running', ['upstream_task_id' => $taskId]);
+            if (AiTaskLifecycleEventService::isTerminalSuccess($status)) {
+                if (AiTaskLifecycleEventService::terminalResultMissing($consumptionId, $status, $taskId)) {
+                    self::fail($consumptionId, '上游图片任务已完成，但未返回可用结果文件', 'upstream_result_missing');
+                    return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []];
+                }
+                return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
+            }
+            self::event($consumptionId, 'poll', 'running', ['upstream_task_id' => $taskId, 'upstream_status' => $status]);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
         } catch (\Throwable $e) {
             self::recordRefreshError($consumptionId, $taskId, $e);
@@ -493,7 +502,7 @@ class MarketImageModelRuntimeService
 
     private static function providerReferenceUrls(array $references, int $tenantId): array
     {
-        $urls = [];
+        $urls = AiTaskResultUrlService::collect($data);
         foreach ($references as $reference) {
             $url = trim((string)$reference);
             if ($url === '') continue;
@@ -552,11 +561,17 @@ class MarketImageModelRuntimeService
         $urls = [];
         foreach ([
             $data['images'] ?? [],
+            $data['image_urls'] ?? [],
             $data['data'] ?? [],
             $data['results'] ?? [],
             $data['result']['images'] ?? [],
+            $data['result']['image_urls'] ?? [],
             $data['result']['results'] ?? [],
+            $data['result']['data'] ?? [],
             $data['output'] ?? [],
+            $data['output']['images'] ?? [],
+            $data['output']['image_urls'] ?? [],
+            $data['output']['results'] ?? [],
         ] as $rows) {
             foreach ((array)$rows as $item) {
                 $url = is_string($item) ? $item : (string)($item['url'] ?? $item['image_url'] ?? $item['uri'] ?? '');

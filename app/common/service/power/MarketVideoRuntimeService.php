@@ -8,7 +8,9 @@ use app\common\model\ai\AiConsumptionLog;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
+use app\common\service\ai\AiTaskLifecycleEventService;
 use app\common\service\ai\AiTaskJobService;
+use app\common\service\ai\AiTaskResultUrlService;
 use app\common\service\ai\AiTaskResultStorageService;
 use app\common\service\app\aigc_video\AigcVideoAssetService;
 use app\common\service\app\aigc_video\AigcVideoReferenceAssetService;
@@ -294,7 +296,14 @@ class MarketVideoRuntimeService
                     return ['status' => 'success', 'provider_task_id' => $taskId, 'videos' => $storedVideos];
                 }
             }
-            self::event($consumptionId, 'poll', 'running', ['upstream_task_id' => $taskId]);
+            if (AiTaskLifecycleEventService::isTerminalSuccess($upstreamStatus)) {
+                if (AiTaskLifecycleEventService::terminalResultMissing($consumptionId, $upstreamStatus, $taskId)) {
+                    self::fail($consumptionId, '上游视频任务已完成，但未返回可用结果文件', 'upstream_result_missing');
+                    return ['status' => 'failed', 'provider_task_id' => $taskId, 'videos' => []];
+                }
+                return ['status' => 'running', 'provider_task_id' => $taskId, 'videos' => []];
+            }
+            self::event($consumptionId, 'poll', 'running', ['upstream_task_id' => $taskId, 'upstream_status' => $upstreamStatus]);
             return ['status' => 'running', 'provider_task_id' => $taskId, 'videos' => []];
         } catch (\Throwable $e) {
             // A query or result-download failure is never evidence that the
@@ -1093,7 +1102,7 @@ class MarketVideoRuntimeService
                 break;
             }
         }
-        return array_values(array_unique($urls));
+        return array_values(array_unique($urls !== [] ? $urls : AiTaskResultUrlService::collect($data)));
     }
 
     private static function collectVideoUrls($value, array &$urls, int $depth = 0): void

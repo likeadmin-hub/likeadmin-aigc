@@ -8,7 +8,9 @@ use app\common\model\ai\AiConsumptionLog;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
+use app\common\service\ai\AiTaskLifecycleEventService;
 use app\common\service\ai\AiTaskJobService;
+use app\common\service\ai\AiTaskResultUrlService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
@@ -248,10 +250,19 @@ class MarketNanoBananaAppRuntimeService
             $response = self::request('GET', self::endpoint((string)$snapshot['app_code'], self::QUERY_API_CODE) . '?task_id=' . rawurlencode($taskId));
             $images = self::images($response, (int)$consumption['tenant_id'], (int)$consumption['user_id']);
             if ($images !== []) { self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); return ['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
-            if (in_array(self::status($response), ['failed', 'error', 'canceled', 'cancelled'], true)) { self::fail($consumptionId, self::error($response), 'upstream_failed'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
+            $upstreamStatus = self::status($response);
+            if (in_array($upstreamStatus, ['failed', 'error', 'canceled', 'cancelled'], true)) { self::fail($consumptionId, self::error($response), 'upstream_failed'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
+            if (AiTaskLifecycleEventService::isTerminalSuccess($upstreamStatus)) {
+                if (AiTaskLifecycleEventService::terminalResultMissing($consumptionId, $upstreamStatus, $taskId)) {
+                    self::fail($consumptionId, '上游图片任务已完成，但未返回可用结果文件', 'upstream_result_missing');
+                    return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []];
+                }
+                return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
+            }
             if ($timedOut) { self::fail($consumptionId, '图片任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            AiTaskLifecycleEventService::record($consumptionId, 'query_error', 'retrying', ['upstream_task_id' => $taskId, 'error' => $e->getMessage()]);
             if ($timedOut) { self::fail($consumptionId, '图片任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
         }
@@ -394,9 +405,9 @@ class MarketNanoBananaAppRuntimeService
     /** @return array<int,array<string,mixed>> */
     private static function images(array $data, int $tenantId, int $userId): array
     {
-        $root = self::arrayValue($data['data'] ?? $data); $urls = [];
+        $root = self::arrayValue($data['data'] ?? $data); $urls = AiTaskResultUrlService::collect($data);
         foreach ([$data, $root, self::arrayValue($root['response'] ?? [])] as $payload) foreach (['image_url', 'url'] as $key) if (is_string($payload[$key] ?? null) && trim((string)$payload[$key]) !== '') $urls[] = (string)$payload[$key];
-        foreach ([$data['data'] ?? [], $root['images'] ?? [], $root['image_urls'] ?? [], $root['results'] ?? [], $root['result'] ?? []] as $rows) foreach ((array)$rows as $row) { $url = is_string($row) ? $row : (string)($row['image_url'] ?? $row['url'] ?? ''); if ($url !== '') $urls[] = $url; }
+        foreach ([$data['data'] ?? [], $root['images'] ?? [], $root['image_urls'] ?? [], $root['results'] ?? [], $root['result'] ?? [], $root['result']['images'] ?? [], $root['result']['image_urls'] ?? [], $root['result']['data'] ?? [], $root['output'] ?? [], $root['output']['images'] ?? [], $root['output']['image_urls'] ?? []] as $rows) foreach ((array)$rows as $row) { $url = is_string($row) ? $row : (string)($row['image_url'] ?? $row['url'] ?? ''); if ($url !== '') $urls[] = $url; }
         $images = [];
         foreach (array_values(array_unique($urls)) as $url) { $stored = AigcImageAssetService::persistGeneratedImage($url, $tenantId, $userId); $images[] = ['image_uri' => (string)$stored['uri'], 'width' => (int)($stored['width'] ?? 0), 'height' => (int)($stored['height'] ?? 0), 'storage_scope' => (string)($stored['storage_scope'] ?? 'tenant'), 'storage_engine' => (string)($stored['storage_engine'] ?? ''), 'storage_domain' => (string)($stored['storage_domain'] ?? '')]; }
         return $images;
