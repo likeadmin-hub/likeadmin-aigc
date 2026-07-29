@@ -24,11 +24,20 @@ final class DeliveryGraphExecutor
             throw new Exception('This delivery item has no executable tool');
         }
         self::assertDependencies($tenantId, $userId, $item);
-        if (!in_array((string)$item['status'], ['ready', 'queued', 'failed'], true)) {
+        if (PendingActionProtocol::isPending((array)($item['pending_action'] ?? []))) {
+            throw new Exception('This delivery item requires its approved action before execution');
+        }
+        if (in_array((string)$item['status'], ['queued', 'running', 'completed'], true)) {
+            return $item;
+        }
+        if (!in_array((string)$item['status'], ['ready', 'failed'], true)) {
             throw new Exception('Delivery item is not ready to execute');
         }
+        $claim = DeliveryItemService::claimExecution($tenantId, $userId, $itemId);
+        $item = (array)($claim['item'] ?? []);
+        if (empty($claim['claimed'])) return $item;
         $item = DeliveryItemService::transition($tenantId, $userId, $itemId, 'queued', ['pending_action_json' => []]);
-        $input = self::input($item, $params);
+        $input = self::input($item, DeliveryItemService::executionOptions($tenantId, $userId, $itemId));
         try {
             $result = AigcCanvasAgentRuntimeService::executeExternalToolWithActions(
                 $tenantId, $userId, (int)$item['project_id'], (int)$item['thread_id'],
@@ -37,14 +46,22 @@ final class DeliveryGraphExecutor
             );
             $tool = (array)($result['tool_calls'][0] ?? []);
             $output = (array)($tool['output'] ?? []);
+            $submittedInput = (array)($output['submitted_input'] ?? $tool['input'] ?? $input);
             $assets = (array)($result['assets'] ?? []);
             $hasAsset = !empty(array_filter($assets, static fn($asset): bool => is_array($asset) && !empty($asset['url'])));
             $toolStatus = strtolower((string)($output['status'] ?? 'running'));
             $status = $hasAsset || in_array($toolStatus, ['success', 'completed'], true) ? 'completed' : 'running';
+            $taskId = (string)($output['task_id'] ?? $tool['provider_task_id'] ?? '');
+            $providerTaskId = (string)($output['power_task_id'] ?? $output['provider_task_id'] ?? $tool['provider_task_id'] ?? '');
+            DeliveryItemTaskSyncService::bind($tenantId, $userId, $itemId, [
+                'idempotency_key' => (string)$input['request_id'], 'task_id' => $taskId,
+                'provider_task_id' => $providerTaskId, 'status' => $status,
+            ]);
             return DeliveryItemService::transition($tenantId, $userId, $itemId, $status, [
                 'task_snapshot_json' => [
-                    'input' => (array)($tool['input'] ?? $input), 'tool_call_id' => (int)($tool['id'] ?? 0),
-                    'task_id' => (string)($tool['provider_task_id'] ?? $output['task_id'] ?? ''),
+                    'input' => $submittedInput, 'tool_call_id' => (int)($tool['id'] ?? 0),
+                    'task_id' => $taskId, 'provider_task_id' => $providerTaskId, 'idempotency_key' => (string)$input['request_id'],
+                    'prompt_hash' => (string)($submittedInput['prompt_hash'] ?? hash('sha256', (string)($submittedInput['compiled_prompt'] ?? $submittedInput['prompt'] ?? ''))),
                     'tool_code' => (string)$item['tool_code'], 'workspace_actions' => (array)($result['workspace_actions'] ?? []),
                 ],
                 'result_json' => ['assets' => $assets, 'workspace_actions' => (array)($result['workspace_actions'] ?? [])],
@@ -69,27 +86,10 @@ final class DeliveryGraphExecutor
     {
         $item = DeliveryItemService::find($tenantId, $userId, $itemId);
         if ($item === []) throw new Exception('Delivery item not found');
-        $snapshot = (array)($item['task_snapshot'] ?? []);
-        $taskId = trim((string)($snapshot['task_id'] ?? ''));
         if (!in_array((string)$item['tool_code'], self::MEDIA_TOOLS, true)) return $item;
-        if ($taskId === '') return $item;
         try {
-            $detail = CanvasGenerationTaskCenterService::query($tenantId, $userId, [
-                'task_id' => $taskId, 'type' => str_replace('generate_', '', (string)$item['tool_code']),
-            ]);
-            $providerStatus = strtolower((string)($detail['status'] ?? 'running'));
-            $status = in_array($providerStatus, ['success', 'completed'], true) ? 'completed'
-                : (in_array($providerStatus, ['failed', 'error'], true) ? 'failed'
-                    : (in_array($providerStatus, ['canceled', 'cancelled'], true) ? 'canceled' : 'running'));
-            $patch = [
-                'result_json' => ['assets' => (array)($detail['result_assets'] ?? []), 'generation' => $detail],
-                'provider_request_id' => (string)($detail['request_id'] ?? ''),
-                'provider_error_code' => (string)($detail['error_code'] ?? ''),
-                'provider_error_message' => (string)($detail['error_message'] ?? ''),
-                'error' => (string)($detail['error_message'] ?? ''),
-            ];
-            if ($status === 'failed') $patch['pending_action_json'] = PendingActionProtocol::confirmation('retry_item');
-            return DeliveryItemService::transition($tenantId, $userId, $itemId, $status, $patch);
+            $synced = DeliveryItemTaskSyncService::refresh($tenantId, $userId, $itemId);
+            return $synced !== [] ? $synced : $item;
         } catch (Exception $e) {
             return DeliveryItemService::transition($tenantId, $userId, $itemId, 'failed', [
                 'error' => $e->getMessage(), 'provider_error_code' => 'provider_callback',
@@ -110,9 +110,15 @@ final class DeliveryGraphExecutor
             'task_id' => $taskId, 'type' => str_replace('generate_', '', (string)$item['tool_code']),
             'submitted_input' => (array)($snapshot['input'] ?? []),
         ]);
+        $nextTaskId = (string)($result['task_id'] ?? $taskId);
+        $idempotencyKey = 'delivery_item:' . $itemId . ':' . ((int)$item['retry_count'] + 2);
+        DeliveryItemTaskSyncService::bind($tenantId, $userId, $itemId, [
+            'idempotency_key' => $idempotencyKey, 'task_id' => $nextTaskId,
+            'provider_task_id' => (string)($result['power_task_id'] ?? $nextTaskId), 'status' => 'queued',
+        ]);
         return DeliveryItemService::transition($tenantId, $userId, $itemId, 'queued', [
             'retry_count' => (int)$item['retry_count'] + 1, 'pending_action_json' => [],
-            'task_snapshot_json' => array_merge($snapshot, ['task_id' => (string)($result['task_id'] ?? $taskId), 'retry_of' => $taskId]),
+            'task_snapshot_json' => array_merge($snapshot, ['task_id' => $nextTaskId, 'idempotency_key' => $idempotencyKey, 'retry_of' => $taskId]),
         ]);
     }
 
@@ -124,6 +130,13 @@ final class DeliveryGraphExecutor
         if (in_array((string)$item['tool_code'], self::MEDIA_TOOLS, true) && $taskId !== '' && in_array((string)$item['status'], ['queued', 'running'], true)) {
             CanvasGenerationTaskCenterService::cancel($tenantId, $userId, [
                 'task_id' => $taskId, 'type' => str_replace('generate_', '', (string)$item['tool_code']),
+            ]);
+        }
+        $binding = DeliveryItemTaskSyncService::latest($tenantId, $userId, $itemId);
+        if ($binding !== []) {
+            DeliveryItemTaskSyncService::bind($tenantId, $userId, $itemId, [
+                'idempotency_key' => (string)$binding['idempotency_key'], 'task_id' => (string)$binding['generation_task_id'],
+                'provider_task_id' => (string)$binding['provider_task_id'], 'status' => 'canceled',
             ]);
         }
         return DeliveryItemService::transition($tenantId, $userId, $itemId, 'canceled', ['pending_action_json' => []]);
@@ -139,21 +152,31 @@ final class DeliveryGraphExecutor
         }
     }
 
-    private static function input(array $item, array $params): array
+    private static function input(array $item, array $executionOptions): array
     {
         $delivery = (array)($item['delivery'] ?? []);
         $slots = (array)($item['slots'] ?? []);
-        $ratio = trim((string)($params['ratio'] ?? $delivery['ratio'] ?? ''));
-        return array_merge($params, [
+        $ratio = trim((string)($delivery['ratio'] ?? ''));
+        return array_merge(self::executionOptions($executionOptions), [
+            '__delivery_graph_execution' => true,
             'prompt' => (string)($slots['user_request'] ?? $delivery['user_request'] ?? $item['objective']),
             'user_request' => (string)($slots['user_request'] ?? ''), 'prompt_mode' => self::promptMode($item),
             'delivery' => $delivery, 'creative_context' => (array)($item['creative_context'] ?? []),
             'project_id' => (int)$item['project_id'], 'ratio' => $ratio, 'quantity' => 1,
-            'target_element_id' => 'delivery_item_' . (int)$item['id'],
+            'target_element_id' => (string)($delivery['target_element_id'] ?? 'delivery_item_' . (int)$item['id']),
             'request_id' => 'delivery_item:' . (int)$item['id'] . ':' . ((int)$item['retry_count'] + 1),
             'reference_assets' => (array)$item['reference_assets'],
             'reference_images' => array_values(array_filter(array_map(static fn(array $asset): string => (string)($asset['url'] ?? $asset['uri'] ?? ''), array_filter((array)$item['reference_assets'], 'is_array')))),
         ]);
+    }
+
+    /** Only policy-approved server routing values may survive into submission. */
+    private static function executionOptions(array $options): array
+    {
+        return array_intersect_key($options, array_flip([
+            'channel', 'model_id', 'market_product_id', 'market_sku_id', 'sku_id',
+            'duration', 'quality', 'style', 'seed', 'negative_prompt',
+        ]));
     }
 
     /**
