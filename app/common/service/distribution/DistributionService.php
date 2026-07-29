@@ -179,6 +179,9 @@ class DistributionService
         for ($i = 0; $i < 10; $i++) {
             $code = strtoupper(substr(base_convert((string)$userId . random_int(100000, 999999), 10, 36), -10));
             try {
+                if (self::table('relation')->where('invite_code', $code)->value('id')) {
+                    continue;
+                }
                 self::table('relation')->insert([
                     'tenant_id' => $tenantId, 'user_id' => $userId, 'invite_code' => $code,
                     'level1_user_id' => 0, 'level2_user_id' => 0, 'level3_user_id' => 0,
@@ -192,6 +195,21 @@ class DistributionService
             }
         }
         throw new RuntimeException('推广码生成失败');
+    }
+
+    /** Resolve a tenant from an invite code so promotion links do not expose tenant IDs. */
+    public static function tenantIdByInviteCode(string $inviteCode): int
+    {
+        $inviteCode = strtoupper(trim($inviteCode));
+        if ($inviteCode === '') {
+            return 0;
+        }
+        $rows = self::table('relation')->where('invite_code', $inviteCode)->column('tenant_id');
+        $tenantIds = array_values(array_unique(array_map('intval', $rows)));
+        if (count($tenantIds) !== 1 || $tenantIds[0] <= 0) {
+            throw new RuntimeException('推广码不存在或无效');
+        }
+        return $tenantIds[0];
     }
 
     /** Bind once on registration; callers must pass the newly-created user ID. */

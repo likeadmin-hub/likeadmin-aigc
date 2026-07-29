@@ -76,14 +76,25 @@ class AigcImageChannelService
         }
         $defaults = self::defaults($channels);
         $channelCode = trim((string)($params['channel'] ?? '')) ?: $defaults['channel'];
-        $quality = trim((string)($params['quality'] ?? '')) ?: $defaults['quality'];
-        $ratio = self::normalizeRequestedRatio($params['ratio'] ?? '', $defaults['ratio']);
+        $quality = array_key_exists('quality', $params)
+            ? trim((string)$params['quality'])
+            : $defaults['quality'];
+        $ratio = array_key_exists('ratio', $params)
+            ? trim((string)$params['ratio'])
+            : self::normalizeRequestedRatio('', $defaults['ratio']);
+        if ($ratio === 'default') {
+            $ratio = self::normalizeRequestedRatio($ratio, $defaults['ratio']);
+        }
+        $variant = strtolower(trim((string)($params['variant'] ?? '')));
 
         foreach ($channels as $channel) {
             if ($channel['code'] !== $channelCode) {
                 continue;
             }
             foreach ($channel['qualities'] as $qualityItem) {
+                if ($variant !== '' && strtolower(trim((string)($qualityItem['variant'] ?? ''))) !== $variant) {
+                    continue;
+                }
                 if ($qualityItem['value'] !== $quality) {
                     continue;
                 }
@@ -91,7 +102,10 @@ class AigcImageChannelService
                     $ratio = self::firstUsableRatio($qualityItem['ratios'] ?? []);
                 }
                 foreach ($qualityItem['ratios'] as $ratioItem) {
-                    if ($ratioItem['value'] === $ratio) {
+                    if (
+                        $ratioItem['value'] === $ratio
+                        && ($variant === '' || strtolower(trim((string)($ratioItem['variant'] ?? ''))) === $variant)
+                    ) {
                         return [
                             'channel' => $channel,
                             'spec' => $ratioItem,

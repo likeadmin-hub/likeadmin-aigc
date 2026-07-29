@@ -57,7 +57,11 @@ class LoginLogic extends BaseLogic
                 $passwordSalt = Config::get('project.unique_identification');
                 $password = create_password($params['password'], $passwordSalt);
                 $avatar = ConfigService::get('default_image', 'user_avatar');
-                $tenantId = (int)request()->tenantId;
+                $inviteCode = (string)($params['invite_code'] ?? '');
+                $tenantId = trim($inviteCode) === ''
+                    ? (int)request()->tenantId
+                    : DistributionService::tenantIdByInviteCode($inviteCode);
+                request()->tenantId = $tenantId;
                 $user = User::create([
                     'sn' => $userSn,
                     'tenant_id' => $tenantId,
@@ -68,7 +72,7 @@ class LoginLogic extends BaseLogic
                     'channel' => $params['channel'],
                     'is_new_user' => YesNoEnum::YES,
                 ]);
-                DistributionService::bindInviteCode($tenantId, (int)$user['id'], (string)($params['invite_code'] ?? ''), 'register');
+                DistributionService::bindInviteCode($tenantId, (int)$user['id'], $inviteCode, 'register');
                 RegisterBonusService::grantIfEnabled((int)$user['id']);
             });
 

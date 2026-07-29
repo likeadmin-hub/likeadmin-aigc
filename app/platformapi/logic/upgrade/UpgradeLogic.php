@@ -512,13 +512,15 @@ class UpgradeLogic extends BaseLogic
             mkdir($oldFile, 0777, true);
         }
 
-        foreach (glob($tempFile . '*') as $fileName) {
+        $iterator = new \FilesystemIterator($tempFile, \FilesystemIterator::SKIP_DOTS);
+        foreach ($iterator as $item) {
+            $fileName = $item->getPathname();
             // 要处理的是目录时,递归处理文件目录。
-            if (is_dir($fileName)) {
+            if ($item->isDir()) {
                 self::upgradeFile($fileName . '/', $oldFile . basename($fileName) . '/');
             }
             // 要处理的是文件时,判断是否存在 或者 与原来文件不一致 则覆盖
-            if (is_file($fileName)) {
+            if ($item->isFile()) {
                 if (!file_exists($oldFile . basename($fileName))
                     || md5(file_get_contents($fileName)) != md5(file_get_contents($oldFile . basename($fileName)))
                 ) {
