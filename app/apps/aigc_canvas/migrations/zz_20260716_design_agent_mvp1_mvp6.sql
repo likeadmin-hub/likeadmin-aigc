@@ -106,14 +106,6 @@ SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEM
   'ALTER TABLE `la_aigc_canvas_skill` ADD COLUMN `agent_policy_json` text NULL AFTER `output_policy_json`, ADD COLUMN `tool_schema_json` text NULL AFTER `agent_policy_json`, ADD COLUMN `canvas_output_policy_json` text NULL AFTER `tool_schema_json`', 'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-UPDATE `la_aigc_canvas_skill`
-SET `delete_time` = @now + `id`, `update_time` = @now
-WHERE `delete_time` = 0
-  AND NOT (
-    `skill_key` = 'ecommerce_detail_page'
-    AND `source_type` = 'builtin'
-  );
-
 INSERT INTO `la_aigc_canvas_skill` (
   `tenant_id`,`user_id`,`skill_key`,`name`,`description`,`category`,`skill_type`,`source_type`,
   `content_markdown`,`trigger_description`,`workflow_json`,`examples_json`,`negative_examples_json`,
