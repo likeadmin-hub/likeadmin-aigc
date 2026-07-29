@@ -1,7 +1,7 @@
 {
   "code": "aigc_canvas",
   "name": "无限画布",
-  "version": "1.6.15",
+  "version": "1.6.16",
   "require_core": ">=1.0.0",
   "description": "面向多节点编排创作的无限画布应用，提供多 Agent 设计协作、可扩展 Skills、文本对话、图片和视频生成能力。",
   "changelog": "1. 对话创作可结合画布素材、商品信息和创作目标自动完成图片、视频及音乐任务。\n2. 商品图和卖点图创作会保留已上传素材与商品特征，并支持直接生成和后续修改。\n3. 复杂创作支持补充信息、确认执行、修改、取消和失败重试，进度与结果会自动同步到画布。\n4. 文本节点只展示可直接使用的最终结果，画布节点名称和选中交互在缩放时保持清晰稳定。\n5. 对话输入支持引用画布素材，历史创作和既有生成入口继续可用。",
@@ -11,7 +11,11 @@
   "is_builtin": 1,
   "expire_policy": "allow",
   "sort": 880,
-  "frontends": ["platform", "tenant", "pc"],
+  "frontends": [
+    "platform",
+    "tenant",
+    "pc"
+  ],
   "api_prefix": "/app/aigc_canvas",
   "platform_menus": "menus/platform.json",
   "menus": "menus/tenant.json",
