@@ -28,6 +28,7 @@ final class AgentResponseProtocol
         $content = self::content($kind, $result, $batch, $creativeSummary);
         $quickActions = self::quickActions($kind, $result, $batch);
         $presentation = self::presentation($kind, $result, $batch, $creativeSummary, $content, $quickActions);
+        $presentation['actions'] = array_merge($presentation['actions'], self::deliveryActions((array)($result['delivery_item'] ?? [])));
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -43,13 +44,11 @@ final class AgentResponseProtocol
             'content' => $content,
             'quick_actions' => $quickActions,
             'task_context' => [
-                'skill_key' => (string)($result['selected_skill']['skill_key'] ?? $result['task_decision']['selected_skill_key'] ?? ''),
                 'intent' => (string)($result['task_decision']['intent'] ?? ''),
                 'batch_id' => (int)($result['batch_id'] ?? $batch['id'] ?? 0),
                 'section_count' => (int)($result['total_count'] ?? $batch['total_count'] ?? 0),
                 'completed_count' => (int)($result['completed_count'] ?? $batch['completed_count'] ?? 0),
                 'remaining_count' => (int)($result['remaining_count'] ?? $batch['remaining_count'] ?? 0),
-                'turn_id' => (int)($result['turn_id'] ?? 0),
             ],
         ];
     }
@@ -250,6 +249,42 @@ final class AgentResponseProtocol
         }
         if ($kind === self::ERROR) $actions[] = ['type' => 'retry', 'label' => '重试'];
         return $actions;
+    }
+
+    /** Small, user-safe actions; never expose the delivery graph or runtime parameters. */
+    private static function deliveryActions(array $item): array
+    {
+        $itemId = (int)($item['id'] ?? 0);
+        if ($itemId <= 0) return [];
+        $pending = (array)($item['pending_action'] ?? []);
+        $type = (string)($pending['type'] ?? '');
+        $actionId = (string)($pending['action_id'] ?? '');
+        $actions = [];
+        if (in_array($type, ['fill_slot', 'choose_option', 'confirm_execution', 'revise_item', 'retry_item'], true)) {
+            $actions[] = [
+                'type' => $type, 'delivery_item_id' => $itemId, 'action_id' => $actionId,
+                'structured_value' => [], 'required_input_schema' => (array)($pending['required_input_schema'] ?? []),
+                'options' => array_values((array)($pending['options'] ?? [])), 'label' => self::actionLabel($type),
+            ];
+        }
+        if (in_array((string)($item['status'] ?? ''), ['ready', 'awaiting_confirmation', 'failed', 'completed'], true) && $type !== 'revise_item') {
+            $actions[] = [
+                'type' => 'revise_item', 'delivery_item_id' => $itemId, 'action_id' => 'revise_item:' . $itemId,
+                'structured_value' => [], 'label' => self::actionLabel('revise_item'),
+            ];
+        }
+        if (in_array((string)($item['status'] ?? ''), ['ready', 'awaiting_confirmation', 'queued', 'running', 'failed'], true)) {
+            $actions[] = ['type' => 'cancel_item', 'delivery_item_id' => $itemId, 'action_id' => 'cancel_item:' . $itemId, 'structured_value' => [], 'label' => '取消'];
+        }
+        return $actions;
+    }
+
+    private static function actionLabel(string $type): string
+    {
+        return match ($type) {
+            'fill_slot' => '补充信息', 'choose_option' => '选择方案', 'confirm_execution' => '开始生成',
+            'revise_item' => '修改', 'retry_item' => '重试', default => '继续',
+        };
     }
 
     /**

@@ -57,7 +57,8 @@ final class PendingActionProtocol
                 ['value' => true, 'label' => 'confirm'],
                 ['value' => false, 'label' => 'reject'],
             ],
-            'on_success_transition' => 'queued',
+            // Only the execution service may put an item in the queue.
+            'on_success_transition' => 'ready',
             'on_reject_transition' => 'ready',
         ]);
     }
@@ -114,7 +115,7 @@ final class PendingActionProtocol
 
         if ($pending['type'] === 'resolve_failure' && !$isReject && is_array($value)) {
             $resolution = trim((string)($value['resolution'] ?? ''));
-            if ($resolution === 'retry') $status = 'queued';
+            if ($resolution === 'retry') $status = 'ready';
             if ($resolution === 'cancel') $status = 'canceled';
         }
 
@@ -126,6 +127,25 @@ final class PendingActionProtocol
         ];
     }
 
+    /** A policy-controlled revision is available even when no pending card exists. */
+    public static function revise(array $item, array $params): array
+    {
+        $itemId = (int)($item['id'] ?? 0);
+        $actionId = trim((string)($params['action_id'] ?? ''));
+        if ((string)($params['action'] ?? '') !== 'revise_item' || $actionId !== 'revise_item:' . $itemId) return [];
+        if (!in_array((string)($item['status'] ?? ''), ['ready', 'awaiting_confirmation', 'failed', 'completed'], true)) {
+            throw new Exception('This delivery item cannot be revised in its current state');
+        }
+        $value = $params['structured_value'] ?? null;
+        if (!is_array($value)) throw new Exception('Revision action requires structured_value object');
+        return [
+            'status' => 'ready',
+            'patch' => array_merge(['pending_action_json' => self::confirmation()], self::revisionPatch($item, $value)),
+            'action' => self::normalize(['action_id' => $actionId, 'type' => 'revise_item']),
+            'accepted' => true,
+        ];
+    }
+
     private static function revisionPatch(array $item, array $value): array
     {
         $patch = [];
@@ -133,13 +153,8 @@ final class PendingActionProtocol
             $patch['slots_json'] = array_merge((array)($item['slots'] ?? []), $value['slots']);
         }
         if (isset($value['delivery']) && is_array($value['delivery'])) {
-            $patch['delivery_json'] = array_merge((array)($item['delivery'] ?? []), $value['delivery']);
-        }
-        if (isset($value['creative_context']) && is_array($value['creative_context'])) {
-            $patch['creative_context_json'] = array_merge((array)($item['creative_context'] ?? []), $value['creative_context']);
-        }
-        if (isset($value['reference_assets']) && is_array($value['reference_assets'])) {
-            $patch['reference_assets_json'] = array_values($value['reference_assets']);
+            $delivery = array_intersect_key($value['delivery'], array_flip(['ratio', 'quantity', 'purpose', 'type']));
+            $patch['delivery_json'] = array_merge((array)($item['delivery'] ?? []), $delivery);
         }
         return $patch;
     }
