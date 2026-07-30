@@ -693,9 +693,21 @@ class SystemPackageUpdateService
             if ($this->isReadmeSql($relative)) {
                 throw new RuntimeException('增量系统包 sql_order 不允许声明说明文件: ' . $relative);
             }
+            if (strtolower(basename($relative)) === 'install.sql') {
+                throw new RuntimeException('增量系统包不允许执行全新安装 SQL: ' . $relative);
+            }
             if (!is_file(rtrim($extractPath, '/') . '/' . $relative)) {
                 throw new RuntimeException('增量系统包 sql_order 声明的文件不存在: ' . $relative);
             }
+            $this->assertIncrementalSqlSafe($relative, rtrim($extractPath, '/') . '/' . $relative);
+        }
+    }
+
+    private function assertIncrementalSqlSafe(string $relative, string $path): void
+    {
+        $content = (string)file_get_contents($path);
+        if (preg_match('/\b(?:DROP|TRUNCATE)\s+(?:TABLE|DATABASE)\b/i', $content)) {
+            throw new RuntimeException('增量系统包不允许执行破坏性 SQL: ' . $relative);
         }
     }
 
