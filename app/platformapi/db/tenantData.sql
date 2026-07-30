@@ -675,7 +675,7 @@ VALUES
 ({tenantId},'aigc_video','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_digital_human','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_canvas','1.0.1','paid','on','enabled',0,1778000000,1778000000),
-({tenantId},'aigc_llm','1.1.4','paid','on','enabled',0,1778000000,1778000000),
+({tenantId},'aigc_llm','1.1.9','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_hairstyle','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
 ({tenantId},'aigc_fitting','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
 ({tenantId},'aigc_product_image','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
@@ -881,8 +881,6 @@ INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`n
 VALUES
 (9126,{tenantId},0,'M','AIGC对话','el-icon-ChatDotRound',100,'','aigc-llm','','','',0,1,0,'aigc_llm','app','aigc_llm',0,1778000000,1778000000),
 (9127,{tenantId},9126,'C','基础配置','',0,'app.aigc_llm.config/detail','config','apps/aigc_llm/config','','',0,1,0,'aigc_llm','app','aigc_llm_config',0,1778000000,1778000000),
-(9128,{tenantId},9126,'C','通道配置','',0,'app.aigc_llm.channel/lists','channel','apps/aigc_llm/channel','','',0,1,0,'aigc_llm','app','aigc_llm_channel',0,1778000000,1778000000),
-(9129,{tenantId},9126,'C','模型配置','',0,'app.aigc_llm.model/lists','model','apps/aigc_llm/model','','',0,1,0,'aigc_llm','app','aigc_llm_model',0,1778000000,1778000000),
 (9130,{tenantId},9126,'C','会话记录','',0,'app.aigc_llm.admin_session/lists','session','apps/aigc_llm/session','','',0,1,0,'aigc_llm','app','aigc_llm_session',0,1778000000,1778000000),
 (9131,{tenantId},9126,'C','敏感词','',0,'app.aigc_llm.admin/sensitiveWord','sensitive-word','apps/aigc_llm/sensitive-word','','',0,1,0,'aigc_llm','app','aigc_llm_sensitive_word',0,1778000000,1778000000),
 (9132,{tenantId},9126,'C','用量统计','',0,'app.aigc_llm.admin/stat','stat','apps/aigc_llm/stat','','',0,1,0,'aigc_llm','app','aigc_llm_stat',0,1778000000,1778000000);

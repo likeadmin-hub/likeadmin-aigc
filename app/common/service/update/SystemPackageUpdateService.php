@@ -353,11 +353,11 @@ class SystemPackageUpdateService
             if (!$this->applySqlGroup($extractPath, $manifest, 'data')) {
                 throw new RuntimeException('更新数据库数据失败');
             }
-            $this->applyFullReplaceDirs($extractPath, $manifest);
-            $this->applyDeleteFiles($manifest);
             if (!UpgradeLogic::upgradeFile($extractPath . '/files/', UpgradeLogic::getProjectPath())) {
                 throw new RuntimeException('更新文件失败');
             }
+            $this->applyFullReplaceDirs($extractPath, $manifest);
+            $this->applyDeleteFiles($manifest);
             Db::commit();
             if (!$this->applySqlGroup($extractPath, $manifest, 'structure')) {
                 throw new RuntimeException('更新数据库结构失败');
@@ -734,6 +734,7 @@ class SystemPackageUpdateService
         if (!is_array($dirs)) {
             throw new RuntimeException('full_replace_dirs 格式错误');
         }
+        $replacements = [];
         foreach ($dirs as $dir) {
             $relative = $this->normalizePackagePath((string)$dir);
             $this->assertSafeUpdatePath($relative, true);
@@ -745,7 +746,43 @@ class SystemPackageUpdateService
                 throw new RuntimeException('全量覆盖目录不存在: ' . $relative);
             }
             $target = rtrim(UpgradeLogic::getProjectPath(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $relative;
-            $this->clearDirectory($target);
+            $suffix = '.update-' . bin2hex(random_bytes(8));
+            $stage = $target . $suffix . '.stage';
+            $backup = $target . $suffix . '.backup';
+            $this->copyDirectory($source, $stage);
+            $replacements[] = compact('relative', 'target', 'stage', 'backup');
+        }
+
+        $swapped = [];
+        try {
+            foreach ($replacements as $replacement) {
+                if (file_exists($replacement['target']) && !@rename($replacement['target'], $replacement['backup'])) {
+                    throw new RuntimeException('无法备份全量覆盖目录: ' . $replacement['relative']);
+                }
+                if (!@rename($replacement['stage'], $replacement['target'])) {
+                    if (is_dir($replacement['backup'])) {
+                        @rename($replacement['backup'], $replacement['target']);
+                    }
+                    throw new RuntimeException('无法替换全量覆盖目录: ' . $replacement['relative']);
+                }
+                $swapped[] = $replacement;
+            }
+        } catch (Throwable $e) {
+            foreach (array_reverse($swapped) as $replacement) {
+                $this->removeDirectory($replacement['target']);
+                if (is_dir($replacement['backup'])) {
+                    @rename($replacement['backup'], $replacement['target']);
+                }
+            }
+            throw $e;
+        } finally {
+            foreach ($replacements as $replacement) {
+                $this->removeDirectory($replacement['stage']);
+            }
+        }
+
+        foreach ($swapped as $replacement) {
+            $this->removeDirectory($replacement['backup']);
         }
     }
 
@@ -828,6 +865,49 @@ class SystemPackageUpdateService
             } else {
                 @unlink($item->getPathname());
             }
+        }
+    }
+
+    private function copyDirectory(string $source, string $target): void
+    {
+        if (file_exists($target)) {
+            throw new RuntimeException('全量覆盖临时目录已存在: ' . $target);
+        }
+        if (!@mkdir($target, 0777, true) && !is_dir($target)) {
+            throw new RuntimeException('无法创建全量覆盖临时目录: ' . $target);
+        }
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($source, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::SELF_FIRST
+            );
+            foreach ($iterator as $item) {
+                if ($item->isLink()) {
+                    throw new RuntimeException('全量覆盖源目录包含符号链接: ' . $item->getPathname());
+                }
+                $destination = $target . DIRECTORY_SEPARATOR . $iterator->getSubPathName();
+                if ($item->isDir()) {
+                    if (!@mkdir($destination, 0777, true) && !is_dir($destination)) {
+                        throw new RuntimeException('无法创建全量覆盖子目录: ' . $destination);
+                    }
+                } elseif ($item->isFile() && !@copy($item->getPathname(), $destination)) {
+                    throw new RuntimeException('无法复制全量覆盖文件: ' . $item->getPathname());
+                }
+            }
+        } catch (Throwable $e) {
+            $this->removeDirectory($target);
+            throw $e;
+        }
+    }
+
+    private function removeDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $this->clearDirectory($dir);
+        if (!@rmdir($dir)) {
+            throw new RuntimeException('无法清理更新临时目录: ' . $dir);
         }
     }
 

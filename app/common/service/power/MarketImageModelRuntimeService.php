@@ -10,7 +10,6 @@ use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
 use app\common\service\ai\AiTaskLifecycleEventService;
 use app\common\service\ai\AiTaskJobService;
-use app\common\service\ai\AiTaskResultUrlService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
@@ -502,7 +501,7 @@ class MarketImageModelRuntimeService
 
     private static function providerReferenceUrls(array $references, int $tenantId): array
     {
-        $urls = AiTaskResultUrlService::collect($data);
+        $urls = [];
         foreach ($references as $reference) {
             $url = trim((string)$reference);
             if ($url === '') continue;

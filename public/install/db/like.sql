@@ -3402,12 +3402,6 @@ VALUES
 ('aigc_llm','app.aigc_llm.chat/stop','POST','aigc_llm:chat:stop:user','user',1,0,1,1778000000,1778000000),
 ('aigc_llm','app.aigc_llm.config/detail','GET','aigc_llm:config:detail','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_llm','app.aigc_llm.config/setup','POST','aigc_llm:config:setup','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.channel/lists','GET','aigc_llm:channel:lists','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.channel/save','POST','aigc_llm:channel:save','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.channel/status','POST','aigc_llm:channel:status','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.model/lists','GET','aigc_llm:model:lists','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.model/save','POST','aigc_llm:model:save','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.model/status','POST','aigc_llm:model:status','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_llm','app.aigc_llm.admin_session/lists','GET','aigc_llm:session:lists','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_llm','app.aigc_llm.admin_session/detail','GET','aigc_llm:session:detail','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_llm','app.aigc_llm.admin/stat','GET','aigc_llm:stat','tenant_admin',1,1,1,1778000000,1778000000),
@@ -3415,15 +3409,6 @@ VALUES
 ('aigc_llm','app.aigc_llm.admin/sensitiveWord','POST','aigc_llm:sensitive_word:save','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_llm','app.aigc_llm.config/detail','GET','aigc_llm:config:detail:platform','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_llm','app.aigc_llm.config/setup','POST','aigc_llm:config:setup:platform','platform_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.channel/lists','GET','aigc_llm:channel:lists:platform','platform_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.channel/save','POST','aigc_llm:channel:save:platform','platform_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.channel/delete','POST','aigc_llm:channel:delete:platform','platform_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.channel/status','POST','aigc_llm:channel:status:platform','platform_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.model/lists','GET','aigc_llm:model:lists:platform','platform_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.model/save','POST','aigc_llm:model:save:platform','platform_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.model/delete','POST','aigc_llm:model:delete:platform','platform_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.model/status','POST','aigc_llm:model:status:platform','platform_admin',1,1,1,1778000000,1778000000),
-('aigc_llm','app.aigc_llm.model/syncTextModels','POST','aigc_llm:model:save:platform','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_llm','app.aigc_llm.tenant/stat','GET','aigc_llm:tenant_usage:platform','platform_admin',1,1,1,1778000000,1778000000)
 ON DUPLICATE KEY UPDATE `permission_key`=VALUES(`permission_key`),`need_login`=VALUES(`need_login`),`need_role_permission`=VALUES(`need_role_permission`),`status`=VALUES(`status`),`update_time`=VALUES(`update_time`);
 
@@ -3433,7 +3418,7 @@ VALUES
 (0,'aigc_video','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 (0,'aigc_digital_human','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 (0,'aigc_canvas','1.0.1','paid','on','enabled',0,1778000000,1778000000),
-(0,'aigc_llm','1.1.4','paid','on','enabled',0,1778000000,1778000000),
+(0,'aigc_llm','1.1.9','paid','on','enabled',0,1778000000,1778000000),
 (0,'aigc_hairstyle','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
 (0,'aigc_fitting','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
 (0,'aigc_product_image','1.0.0','paid','on','enabled',4102415999,1778000000,1778000000),
@@ -4907,8 +4892,6 @@ INSERT INTO `la_system_menu` (`id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`pa
 VALUES
 (9141,0,'M','AIGC对话','el-icon-ChatDotRound',88,'','aigc-llm','','','',0,1,0,'aigc_llm','app','aigc_llm_platform',0,1778000000,1778000000),
 (9142,9141,'C','基础配置','',0,'app.aigc_llm.config/detail','config','apps/aigc_llm/config','','',0,1,0,'aigc_llm','app','aigc_llm_platform_config',0,1778000000,1778000000),
-(9143,9141,'C','通道管理','',0,'app.aigc_llm.channel/lists','channel','apps/aigc_llm/channel','','',0,1,0,'aigc_llm','app','aigc_llm_platform_channel',0,1778000000,1778000000),
-(9144,9141,'C','模型管理','',0,'app.aigc_llm.model/lists','model','apps/aigc_llm/model','','',0,1,0,'aigc_llm','app','aigc_llm_platform_model',0,1778000000,1778000000),
 (9145,9141,'C','租户统计','',0,'app.aigc_llm.tenant/stat','tenant-usage','apps/aigc_llm/tenant-usage','','',0,1,0,'aigc_llm','app','aigc_llm_platform_tenant_usage',0,1778000000,1778000000);
 
 -- Default app tenant menus for template tenant
@@ -4966,8 +4949,6 @@ INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`
 VALUES
 (9146,0,0,'M','AIGC对话','el-icon-ChatDotRound',100,'','aigc-llm','','','',0,1,0,'aigc_llm','app','aigc_llm',0,1778000000,1778000000),
 (9147,0,9146,'C','基础配置','',0,'app.aigc_llm.config/detail','config','apps/aigc_llm/config','','',0,1,0,'aigc_llm','app','aigc_llm_config',0,1778000000,1778000000),
-(9148,0,9146,'C','通道配置','',0,'app.aigc_llm.channel/lists','channel','apps/aigc_llm/channel','','',0,1,0,'aigc_llm','app','aigc_llm_channel',0,1778000000,1778000000),
-(9149,0,9146,'C','模型配置','',0,'app.aigc_llm.model/lists','model','apps/aigc_llm/model','','',0,1,0,'aigc_llm','app','aigc_llm_model',0,1778000000,1778000000),
 (9150,0,9146,'C','会话记录','',0,'app.aigc_llm.admin_session/lists','session','apps/aigc_llm/session','','',0,1,0,'aigc_llm','app','aigc_llm_session',0,1778000000,1778000000),
 (9151,0,9146,'C','敏感词','',0,'app.aigc_llm.admin/sensitiveWord','sensitive-word','apps/aigc_llm/sensitive-word','','',0,1,0,'aigc_llm','app','aigc_llm_sensitive_word',0,1778000000,1778000000),
 (9152,0,9146,'C','用量统计','',0,'app.aigc_llm.admin/stat','stat','apps/aigc_llm/stat','','',0,1,0,'aigc_llm','app','aigc_llm_stat',0,1778000000,1778000000);
@@ -8143,8 +8124,6 @@ WHERE NOT EXISTS (SELECT 1 FROM `la_dev_crontab` WHERE `command`='tenant:expire_
 -- Installation completeness repair: app API declarations and tenant menu templates.
 INSERT INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`)
 VALUES
-('aigc_llm','app.aigc_llm.model/batchStatus','POST','aigc_llm:model:status:platform','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
-('aigc_llm','app.aigc_llm.model/syncTextModels','POST','aigc_llm:model:save:platform','platform_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_canvas','app.aigc_canvas.agent_chat/runStatus','GET','aigc_canvas:agent_chat:run_status','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_digital_human','app.aigc_digital_human.generate/assistScript','POST','aigc_digital_human:generate:assist_script','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_digital_human','app.aigc_digital_human.voice/preview','POST','aigc_digital_human:voice:preview:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),

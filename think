@@ -2,9 +2,9 @@
 <?php
 namespace think;
 
-// 命令行入口文件
-// 加载基础文件
+// CLI entry point.
+// Load the base file.
 require __DIR__ . '/vendor/autoload.php';
 
-// 应用初始化
+// Application initialization.
 (new App())->console->run();

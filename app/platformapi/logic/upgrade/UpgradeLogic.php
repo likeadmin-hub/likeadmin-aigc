@@ -503,30 +503,47 @@ class UpgradeLogic extends BaseLogic
      */
     public static function upgradeFile($tempFile, $oldFile): bool
     {
-        if (empty(trim($tempFile)) || empty(trim($oldFile))) {
+        $tempFile = rtrim((string)$tempFile, DIRECTORY_SEPARATOR);
+        $oldFile = rtrim((string)$oldFile, DIRECTORY_SEPARATOR);
+        if ($tempFile === '' || $oldFile === '' || !is_dir($tempFile)) {
             return false;
         }
 
-        // 目录不存在就新建
-        if (!is_dir($oldFile)) {
-            mkdir($oldFile, 0777, true);
-        }
-
-        $iterator = new \FilesystemIterator($tempFile, \FilesystemIterator::SKIP_DOTS);
-        foreach ($iterator as $item) {
-            $fileName = $item->getPathname();
-            // 要处理的是目录时,递归处理文件目录。
-            if ($item->isDir()) {
-                self::upgradeFile($fileName . '/', $oldFile . basename($fileName) . '/');
+        try {
+            if (file_exists($oldFile) && !is_dir($oldFile)) {
+                return false;
             }
-            // 要处理的是文件时,判断是否存在 或者 与原来文件不一致 则覆盖
-            if ($item->isFile()) {
-                if (!file_exists($oldFile . basename($fileName))
-                    || md5(file_get_contents($fileName)) != md5(file_get_contents($oldFile . basename($fileName)))
-                ) {
-                    copy($fileName, $oldFile . basename($fileName));
+            if (!is_dir($oldFile) && !@mkdir($oldFile, 0777, true) && !is_dir($oldFile)) {
+                return false;
+            }
+
+            $iterator = new \FilesystemIterator($tempFile, \FilesystemIterator::SKIP_DOTS);
+            foreach ($iterator as $item) {
+                if ($item->isLink()) {
+                    return false;
+                }
+                $fileName = $item->getPathname();
+                $target = $oldFile . DIRECTORY_SEPARATOR . $item->getFilename();
+                if ($item->isDir()) {
+                    if (file_exists($target) && !is_dir($target)) {
+                        return false;
+                    }
+                    if (!self::upgradeFile($fileName, $target)) {
+                        return false;
+                    }
+                    continue;
+                }
+                if (!$item->isFile() || is_dir($target)) {
+                    return false;
+                }
+                if (!file_exists($target) || md5_file($fileName) !== md5_file($target)) {
+                    if (!@copy($fileName, $target)) {
+                        return false;
+                    }
                 }
             }
+        } catch (\Throwable $e) {
+            return false;
         }
         return true;
     }

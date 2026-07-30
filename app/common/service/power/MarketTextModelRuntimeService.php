@@ -50,7 +50,7 @@ class MarketTextModelRuntimeService
             if ($wantedSkuId > 0 && in_array($wantedSkuId, [(int)($option['market_sku_id'] ?? 0), (int)($option['market_input_sku_id'] ?? 0), (int)($option['market_output_sku_id'] ?? 0)], true)) {
                 return $option;
             }
-            if (in_array($wanted, [(string)$option['id'], (string)$option['product_id'], (string)$option['model_code']], true)) {
+            if (in_array($wanted, [(string)$option['id'], (string)$option['product_id'], (string)$option['model_code'], 'market_text_' . (string)$option['product_id']], true)) {
                 return $option;
             }
         }
@@ -74,6 +74,7 @@ class MarketTextModelRuntimeService
             throw new Exception('请输入文本内容');
         }
         $referenceImages = array_values(array_filter(array_map('strval', (array)($params['reference_images'] ?? []))));
+        $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? []);
         $model = self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $referenceImages !== [] || !empty($params['requires_vision']));
         $modelConfig = self::modelConfig($params);
         $maxTokens = self::resolveMaxTokens($model, $modelConfig);
@@ -91,7 +92,8 @@ class MarketTextModelRuntimeService
         $businessTable = self::safeCode((string)($params['business_table'] ?? ($appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task')), $appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task');
         $businessId = (int)($params['business_id'] ?? 0);
         $requestSummary = [
-            'content_length' => mb_strlen($content, 'UTF-8'),
+            'content_length' => array_sum(array_map(static fn(array $message): int => mb_strlen((string)($message['content'] ?? ''), 'UTF-8'), $messages)),
+            'message_count' => count($messages),
             'system_prompt_length' => mb_strlen((string)($params['system_prompt'] ?? ''), 'UTF-8'),
             'reference_image_count' => count($referenceImages),
             'model_code' => $model['model_code'],
@@ -112,7 +114,7 @@ class MarketTextModelRuntimeService
         $requestTimeout = self::resolveRequestTimeout($params);
         try {
             self::event((int)$context['consumption']['id'], 'submit', 'running', ['model_code' => $model['model_code']]);
-            $result = self::request($model, $content, (string)($params['system_prompt'] ?? ''), $referenceImages, $maxTokens, $generationParams, $onEvent, $requestTimeout);
+            $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout);
             $usage = self::normalizeUsage((array)($result['usage'] ?? []));
             if (self::canSettleUsage($model, $usage) && (int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0) {
                 $usage['prompt_tokens'] = (int)$usage['total_tokens'];
@@ -425,14 +427,15 @@ class MarketTextModelRuntimeService
     }
 
     /** @return array<string, mixed> */
-    private static function request(array $model, string $content, string $system, array $images, int $maxTokens, array $generationParams, ?callable $onEvent, int $requestTimeout): array
+    private static function request(array $model, array $messages, string $system, int $maxTokens, array $generationParams, ?callable $onEvent, int $requestTimeout): array
     {
         $source = UpdateSourceClient::getSource(); $base = self::sourceBaseUrl((string)($source['active_base_url'] ?? $source['base_url'] ?? '')); $key = (string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '');
         $sslVerify = UpdateSourceClient::sslVerify($source);
         if ($base === '' || $key === '') throw new Exception('文本模型 API 暂不可用');
         $protocol = (string)$model['protocol']; $path = match ($protocol) { 'openai_responses' => '/api/v1/responses', 'anthropic_messages' => '/api/v1/messages', default => '/api/v1/chat/completions' };
-        $messageContent = $images === [] ? $content : array_merge([['type' => 'text', 'text' => $content]], array_map(static fn($url) => ['type' => 'image_url', 'image_url' => ['url' => $url]], $images));
-        $messages = [['role' => 'user', 'content' => $messageContent]];
+        if ($messages === []) {
+            throw new Exception('请输入文本内容');
+        }
         $payload = $protocol === 'openai_responses' ? ['model' => $model['model_code'], 'instructions' => $system, 'input' => $messages, 'stream' => $onEvent !== null, 'max_output_tokens' => $maxTokens] : ($protocol === 'anthropic_messages' ? ['model' => $model['model_code'], 'system' => $system, 'messages' => $messages, 'stream' => $onEvent !== null, 'max_tokens' => $maxTokens] : ['model' => $model['model_code'], 'messages' => array_merge($system === '' ? [] : [['role' => 'system', 'content' => $system]], $messages), 'stream' => $onEvent !== null, 'max_tokens' => $maxTokens, 'channel' => $model['channel_code']]);
         $payload = array_merge(self::marketContext($model), $payload);
         foreach ($generationParams as $paramKey => $value) {
@@ -462,6 +465,36 @@ class MarketTextModelRuntimeService
             }
             throw $e;
         }
+    }
+
+    /** @return array<int, array{role:string, content:mixed}> */
+    private static function normalizeMessages(string $content, array $referenceImages, $value): array
+    {
+        $messages = [];
+        foreach (is_array($value) ? $value : [] as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $role = strtolower(trim((string)($item['role'] ?? 'user')));
+            if (!in_array($role, ['user', 'assistant'], true)) {
+                continue;
+            }
+            $messageContent = $item['content'] ?? '';
+            if (is_string($messageContent) || is_numeric($messageContent)) {
+                $messageContent = trim((string)$messageContent);
+            }
+            if ($messageContent === '' || $messageContent === []) {
+                continue;
+            }
+            $messages[] = ['role' => $role, 'content' => $messageContent];
+        }
+        if ($messages !== []) {
+            return $messages;
+        }
+        $messageContent = $referenceImages === []
+            ? $content
+            : array_merge([['type' => 'text', 'text' => $content]], array_map(static fn($url) => ['type' => 'image_url', 'image_url' => ['url' => $url]], $referenceImages));
+        return [['role' => 'user', 'content' => $messageContent]];
     }
 
     private static function resolveMaxTokens(array $model, array $overrides): int
@@ -494,7 +527,11 @@ class MarketTextModelRuntimeService
 
     private static function billingRemark(string $appCode, string $status): string
     {
-        $appName = $appCode === 'aigc_canvas' ? 'infinite_canvas' : 'short_drama';
+        $appName = match ($appCode) {
+            'aigc_canvas' => 'infinite_canvas',
+            'aigc_llm' => 'aigc_chat',
+            default => 'short_drama',
+        };
         return $appName . '_text_model_' . ($status === 'failed' ? 'refund' : 'settle');
     }
 
