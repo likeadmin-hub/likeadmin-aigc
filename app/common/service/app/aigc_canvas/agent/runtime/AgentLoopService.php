@@ -11,6 +11,9 @@ use app\common\service\app\aigc_canvas\agent\contracts\FunctionCallSchema;
 use app\common\service\app\aigc_canvas\agent\canvas\CanvasReferenceResolver;
 use app\common\service\app\aigc_canvas\agent\canvas\CanvasContextReducer;
 use app\common\service\app\aigc_canvas\agent\batch\EcommerceAgentBatchService;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemContextBinder;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryGraphExecutor;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemTaskSyncService;
 use app\common\service\app\aigc_canvas\agent\delivery\DeliveryPlanService;
 use app\common\service\app\aigc_canvas\agent\enrichment\CreativeBriefEnricher;
 use app\common\service\app\aigc_canvas\agent\enrichment\ProductFactPolicy;
@@ -74,6 +77,11 @@ final class AgentLoopService
         $toolCount = 0;
         $reply = '';
         $replyStreamed = false;
+        // Provider deltas may contain a native tool payload, portable JSON, or
+        // reasoning before a user-facing answer. Keep a short uncommitted
+        // window and release only complete, verified prose segments.
+        $streamPending = '';
+        $streamBlocked = false;
         $toolCalls = [];
         $workspaceActions = [];
         $assets = [];
@@ -84,7 +92,9 @@ final class AgentLoopService
         $context = self::inheritConversationReferences($context, $memory);
         $toolRoute = self::toolRoute($state, $requestId);
         $toolRoute['delivery_item_id'] = (int)($state['delivery_item_id'] ?? 0);
-        $projectMemory = MemoryRetriever::retrieve($tenantId, $userId, $projectId);
+        $projectMemory = !empty($state['new_conversation'])
+            ? []
+            : MemoryRetriever::retrieve($tenantId, $userId, $projectId);
         if ($projectMemory !== []) {
             $context['project_memory'] = $projectMemory;
         }
@@ -92,7 +102,10 @@ final class AgentLoopService
         $canvas['reference_resolution'] = CanvasReferenceResolver::resolve($request, $canvas);
         $skills = self::retrieveSkills($tenantId, $request, (int)$runtimePolicy['max_skill_candidates']);
         AgentTurnTraceService::event($turnId, ++$sequence, 'turn.started', ['canvas_nodes' => count((array)($canvas['elements'] ?? [])), 'skill_count' => count($skills)]);
-        $taskDecision = AgentTaskDecisionService::decide($tenantId, $request, $context, $selectedSkill, $state);
+        $taskDecision = (array)($state['task_decision'] ?? []);
+        if ($taskDecision === []) {
+            $taskDecision = AgentTaskDecisionService::decide($tenantId, $request, $context, $selectedSkill, $state);
+        }
         $explicitDelegationTasks = self::explicitDelegationTasks($request);
         $explicitTextOnlyDelegation = self::isExplicitTextOnlyDelegation($request, $explicitDelegationTasks);
         if ($explicitTextOnlyDelegation) {
@@ -162,19 +175,13 @@ final class AgentLoopService
             $context = (array)($enrichment['context'] ?? $context);
             $canvas = CanvasContextReducer::reduce($context);
             $canvas['reference_resolution'] = CanvasReferenceResolver::resolve($request, $canvas);
-            $recheckState = $state;
-            $recheckState['resolved_skill_key'] = (string)($taskDecision['selected_skill_key'] ?? '');
-            $recheckState['resolved_intent'] = (string)($taskDecision['intent'] ?? '');
-            $recheckState['resolved_confidence'] = (float)($taskDecision['confidence'] ?? 0.0);
-            $taskDecision = AgentTaskDecisionService::decide($tenantId, $request, $context, $selectedSkill, $recheckState);
-            if ($explicitTextOnlyDelegation) {
-                self::applyExplicitTextDelegationDecision($taskDecision);
-            }
-            if (($taskDecision['router_source'] ?? '') === 'reused') {
-                AgentTurnTraceService::event($turnId, ++$sequence, 'intent_route_reused', [
-                    'skill_key' => (string)($taskDecision['selected_skill_key'] ?? ''),
-                    'intent' => (string)($taskDecision['intent'] ?? ''),
-                ]);
+            if (!empty($state['delivery_item'])) {
+                $state['delivery_item'] = DeliveryItemContextBinder::mergeEnrichment(
+                    $tenantId,
+                    $userId,
+                    (array)$state['delivery_item'],
+                    $enrichment
+                );
             }
             $insights = (array)($enrichment['asset_insights'] ?? []);
             AgentTurnTraceService::event($turnId, ++$sequence, $insights === [] ? 'asset_insight_failed' : 'asset_insight_ready', [
@@ -285,9 +292,10 @@ final class AgentLoopService
                     'emit' => $emit,
                 ]);
                 $clarification = (new AskUserTool())->execute($execution, [
-                    'question' => $clarificationQuestion ?: (string)$skillContract['clarification_question'],
-                    'missing_slots' => $skillContract['missing_slots'],
-                    'reason' => 'selected_skill_required_slots',
+                    'question' => (string)($taskDecision['clarification_question'] ?? '')
+                        ?: ($clarificationQuestion ?: (string)($skillContract['clarification_question'] ?? '')),
+                    'missing_slots' => (array)($taskDecision['missing_hard_slots'] ?? $skillContract['missing_slots'] ?? []),
+                    'reason' => 'required_input',
                 ]);
                 $question = (string)($clarification['tool_calls'][0]['output']['question'] ?? '请补充必要信息后我再继续。');
                 self::emit($emit, 'agent.tool.completed', ['thread_id' => $threadId, 'message_id' => $messageId, 'tool_code' => 'ask_user', 'status' => 'success']);
@@ -487,7 +495,7 @@ final class AgentLoopService
                     'request_timeout_seconds' => self::modelStreamTimeout($timeout, $startedAt),
                 ],
                 $tools,
-                function (string $event, array $data) use ($emit, $threadId, $messageId, $turnId, &$sequence, &$replyStreamed): void {
+                function (string $event, array $data) use ($emit, $threadId, $messageId, $turnId, &$sequence, &$replyStreamed, &$streamPending, &$streamBlocked): void {
                     if ($event === 'heartbeat') {
                         self::emit($emit, 'agent.turn.status', [
                             'thread_id' => $threadId,
@@ -501,14 +509,20 @@ final class AgentLoopService
                     if ($event !== 'delta' || trim((string)($data['delta'] ?? '')) === '') {
                         return;
                     }
-                    $replyStreamed = true;
                     AgentTurnTraceService::firstToken($turnId);
-                    AgentTurnTraceService::event($turnId, ++$sequence, 'message.delta', ['length' => mb_strlen((string)$data['delta'], 'UTF-8')]);
+                    $rawDelta = (string)$data['delta'];
+                    AgentTurnTraceService::event($turnId, ++$sequence, 'message.delta', ['length' => mb_strlen($rawDelta, 'UTF-8')]);
+                    $streamPending .= $rawDelta;
+                    $visibleDelta = self::drainSafeAssistantStream($streamPending, $streamBlocked);
+                    if ($visibleDelta === '') {
+                        return;
+                    }
                     self::emit($emit, 'agent.message.delta', [
                         'thread_id' => $threadId,
                         'message_id' => $messageId,
-                        'delta' => (string)$data['delta'],
+                        'delta' => $visibleDelta,
                     ]);
+                    $replyStreamed = true;
                 }
             );
             if (self::isCanceled($messageId)) {
@@ -643,7 +657,7 @@ final class AgentLoopService
                         break 2;
                     }
                     if (AgentResultValidator::isConfirmedMediaSubmission($code, $validation)) {
-                        $reply = self::mediaSubmissionReply($code, $result);
+                        $reply = self::mediaSubmissionReply($code, $result, $request);
                         $mediaSubmitted = true;
                         continue;
                     }
@@ -652,7 +666,7 @@ final class AgentLoopService
                     self::emit($emit, 'agent.tool.completed', ['thread_id' => $threadId, 'message_id' => $messageId, 'tool_code' => $code, 'status' => 'failed', 'error' => $toolResult['message']]);
                     AgentTurnTraceService::event($turnId, ++$sequence, 'tool.failed', ['tool_code' => $code, 'error' => $toolResult['message']]);
                     if (in_array($code, ['generate_image', 'generate_video', 'generate_music'], true)) {
-                        $reply = self::mediaSubmissionFailureReply($code);
+                        $reply = self::mediaSubmissionFailureReply($code, $input, $request);
                         break 2;
                     }
                 }
@@ -669,7 +683,15 @@ final class AgentLoopService
         if ($subtasksPending) {
             $reply = 'I have split this complex request into focused tasks and am consolidating the results.';
         } elseif ($reply === '') {
-            $reply = !empty($workspaceActions) ? '我已准备好画布修改提案，请确认后应用。' : (!empty($assets) ? '生成任务已提交，完成后会显示在画布中。' : '我已完成当前步骤。');
+            $reply = !empty($workspaceActions)
+                ? '我已准备好画布修改提案，请确认后应用。'
+                : (!empty($assets)
+                    ? self::mediaSubmissionReply(self::mediaToolCode($toolCalls), [
+                        'tool_calls' => $toolCalls,
+                        'workspace_actions' => $workspaceActions,
+                        'assets' => $assets,
+                    ], $request)
+                    : '我已完成当前步骤。');
         }
         $result = [
             'reply' => $reply,
@@ -688,10 +710,26 @@ final class AgentLoopService
             'selected_skill' => $skillContract,
             'task_decision' => $taskDecision,
             'estimated_tools' => (array)($taskDecision['estimated_tools'] ?? []),
+            // Keep the original user wording available only until the response
+            // projection is built. The compiled provider prompt must never be
+            // used as a chat-facing creation direction.
+            'original_user_request' => $request,
             'pending_skill_context' => [],
             'subtasks' => $subtasks,
             'subtasks_pending' => $subtasksPending,
         ];
+        $deliveryItemId = (int)($state['delivery_item_id'] ?? 0);
+        if (!$subtasksPending && $deliveryItemId > 0) {
+            try {
+                $syncedItem = DeliveryItemTaskSyncService::syncTextStage($tenantId, $userId, $deliveryItemId, $result);
+                if ($syncedItem !== []) {
+                    $result['delivery_item'] = $syncedItem;
+                    $result['delivery_plan'] = DeliveryPlanService::detail($tenantId, $userId, (int)($syncedItem['plan_id'] ?? 0));
+                }
+            } catch (Exception) {
+                // A durable workflow projection must not discard an otherwise valid Agent reply.
+            }
+        }
         if ($subtasksPending) {
             AgentTurnTraceService::event($turnId, ++$sequence, 'subagents.queued', ['subtask_count' => count($subtasks)]);
         } else {
@@ -699,6 +737,76 @@ final class AgentLoopService
             AgentTurnTraceService::event($turnId, ++$sequence, 'turn.completed', ['iterations' => $iterations, 'tool_count' => $toolCount]);
         }
         return $result;
+    }
+
+    /**
+     * Sends only complete prose units from a provider stream. Structured model
+     * output is deliberately retained for the existing final response
+     * projection, where AgentResponseProtocol can validate it as a whole.
+     */
+    private static function drainSafeAssistantStream(string &$pending, bool &$blocked): string
+    {
+        if ($blocked || $pending === '') {
+            return '';
+        }
+        if (self::isUnsafeAssistantStream($pending)) {
+            $blocked = true;
+            $pending = '';
+            return '';
+        }
+        if (mb_strlen($pending, 'UTF-8') < 24) {
+            return '';
+        }
+
+        $segments = [];
+        if (preg_match_all('/.*?[。！？!?；;.\n]/us', $pending, $matches) === false) {
+            return '';
+        }
+        foreach ((array)($matches[0] ?? []) as $segment) {
+            $segments[] = $segment;
+        }
+        $visible = implode('', $segments);
+        if ($visible === '' && mb_strlen($pending, 'UTF-8') >= 160) {
+            // Do not make an unbroken long sentence look frozen. Retain a
+            // trailing window so an incomplete protocol marker stays hidden.
+            $visible = mb_substr($pending, 0, 112, 'UTF-8');
+        }
+        if ($visible === '') {
+            return '';
+        }
+        if (self::isUnsafeAssistantStream($visible)) {
+            $blocked = true;
+            $pending = '';
+            return '';
+        }
+
+        $pending = mb_substr($pending, mb_strlen($visible, 'UTF-8'), null, 'UTF-8');
+        return $visible;
+    }
+
+    private static function isUnsafeAssistantStream(string $text): bool
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return false;
+        }
+        if (AgentResponseProtocol::isInternalTrace($text)) {
+            return true;
+        }
+        // JSON, code fences and XML/function payloads may be incomplete while
+        // a provider is streaming. Never speculate that they contain display
+        // text; the final projection already knows how to extract a summary.
+        if (preg_match('/^(?:\{|\[|```(?:json)?\b|<\/?(?:tool|function|analysis|reasoning)\b)/iu', $text) === 1) {
+            return true;
+        }
+        return preg_match(
+            '/(?:^|[\s,{"\'])'
+            . '(?:selected_skill_contract|selected_skill_key|task_decision|project_memory|retrieved_skills|'
+            . 'binding_mode|allowed_tools|available_tools|tool_calls|workspace_actions|runtime_allowed_tools|'
+            . 'pending_skill_context|delivery_specs|function_calls|output_contract|response_format|system_prompt|'
+            . 'tool_choice|enable_thinking|agent_trace|execution_mode)\s*["\']?\s*[:=]/i',
+            $text
+        ) === 1;
     }
 
     /** Keep a bounded stream window while reserving time for the Agent turn to close cleanly. */
@@ -1010,7 +1118,7 @@ final class AgentLoopService
         self::emit($emit, 'agent.tool.completed', ['thread_id' => $threadId, 'message_id' => $messageId, 'tool_code' => $code, 'status' => 'success']);
         AgentTurnTraceService::event($turnId, ++$sequence, 'tool.completed', ['tool_code' => $code, 'output' => self::toolMessage($toolResult)]);
         $result = [
-            'reply' => (string)($toolResult['reply'] ?? '海报生成任务已提交。'),
+            'reply' => self::mediaSubmissionReply($code, $toolResult, $request),
             'reply_streamed' => false,
             'tool_calls' => (array)($toolResult['tool_calls'] ?? []),
             'workspace_actions' => (array)($toolResult['workspace_actions'] ?? []),
@@ -1024,6 +1132,7 @@ final class AgentLoopService
             'selected_skill' => $skillContract,
             'task_decision' => $taskDecision,
             'estimated_tools' => (array)($taskDecision['estimated_tools'] ?? []),
+            'original_user_request' => $request,
             'pending_skill_context' => [],
             'subtasks' => [],
             'subtasks_pending' => false,
@@ -1145,6 +1254,21 @@ final class AgentLoopService
         }
         $input = self::toolInput($code, $input, $requestId, $prompt, $canvasContext, $context->projectId(), $skillContract, $context->deliveryItemId());
         if (in_array($code, ['generate_image', 'generate_video', 'generate_music'], true)) {
+            if ($context->deliveryItemId() > 0) {
+                return DeliveryGraphExecutor::executeFromAgentTool(
+                    $context->tenantId(),
+                    $context->userId(),
+                    $context->projectId(),
+                    $context->threadId(),
+                    $context->messageId(),
+                    $context->deliveryItemId(),
+                    $code,
+                    $input,
+                    $prompt,
+                    $canvasContext,
+                    $emit
+                );
+            }
             return AigcCanvasAgentRuntimeService::executeExternalToolWithActions(
                 $context->tenantId(), $context->userId(), $context->projectId(), $context->threadId(), $context->messageId(),
                 $code, $input, $prompt, $canvasContext, $emit
@@ -1460,16 +1584,17 @@ final class AgentLoopService
         ]);
     }
 
-    private static function mediaSubmissionFailureReply(string $toolCode): string
+    private static function mediaSubmissionFailureReply(string $toolCode, array $input = [], string $request = ''): string
     {
-        return match ($toolCode) {
-            'generate_video' => '视频生成提交失败，服务暂时无法创建任务，请稍后重试。',
-            'generate_music' => '音乐生成提交失败，服务暂时无法创建任务，请稍后重试。',
-            default => '图片生成提交失败，服务暂时无法创建任务，请稍后重试。',
+        $typeLabel = match ($toolCode) {
+            'generate_video' => '视频',
+            'generate_music' => '音乐',
+            default => '图片',
         };
+        return "{$typeLabel}生成任务未能创建，请稍后重试。";
     }
 
-    private static function mediaSubmissionReply(string $toolCode, array $result = []): string
+    private static function mediaSubmissionReply(string $toolCode, array $result = [], string $request = ''): string
     {
         $hasResult = false;
         foreach (array_merge((array)($result['assets'] ?? []), (array)($result['workspace_actions'] ?? [])) as $item) {
@@ -1482,18 +1607,77 @@ final class AgentLoopService
                 break;
             }
         }
-        if ($hasResult) {
-            return match ($toolCode) {
-                'generate_video' => '视频已生成并添加到画布。',
-                'generate_music' => '音乐已生成并添加到画布。',
-                default => '图片已生成并添加到画布。',
-            };
-        }
-        return match ($toolCode) {
-            'generate_video' => '正在生成视频，结果会自动插入画布。',
-            'generate_music' => '正在生成音乐，结果会自动插入画布。',
-            default => '正在生成图片，结果会自动插入画布。',
+        $typeLabel = match ($toolCode) {
+            'generate_video' => '视频',
+            'generate_music' => '音乐',
+            default => '图片',
         };
+        return $hasResult
+            ? "{$typeLabel}已完成渲染，画布节点已更新。"
+            : "已在画布中创建{$typeLabel}生成节点，正在渲染。";
+    }
+
+    /**
+     * Produces a user-facing summary only from the immutable submission input.
+     * It intentionally does not infer a style that the user did not provide.
+     */
+    private static function mediaSubmissionDirection(array $result, string $originalRequest = ''): string
+    {
+        $direction = self::mediaSubmissionText($originalRequest);
+        if ($direction !== '') {
+            return $direction;
+        }
+        $candidates = [];
+        foreach (array_merge((array)($result['workspace_actions'] ?? []), (array)($result['tool_calls'] ?? [])) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $input = is_array($item['input'] ?? null) ? $item['input'] : [];
+            $output = is_array($item['output'] ?? null) ? $item['output'] : [];
+            $submitted = is_array($input['submitted_input'] ?? null)
+                ? $input['submitted_input']
+                : (is_array($output['submitted_input'] ?? null) ? $output['submitted_input'] : $input);
+            // `prompt` may already be the compiler output. Only immutable user
+            // wording may be presented back in the conversation.
+            foreach (['original_user_request', 'user_request', 'creative_intent'] as $key) {
+                $value = trim((string)($submitted[$key] ?? $input[$key] ?? ''));
+                if ($value !== '') {
+                    $candidates[] = $value;
+                }
+            }
+        }
+        $direction = self::mediaSubmissionText((string)($candidates[0] ?? ''));
+        if ($direction === '') {
+            return '按当前已确认的创作请求生成。';
+        }
+        return $direction;
+    }
+
+    private static function mediaToolCode(array $toolCalls): string
+    {
+        foreach ($toolCalls as $call) {
+            if (!is_array($call)) {
+                continue;
+            }
+            $code = (string)($call['tool_code'] ?? $call['code'] ?? $call['name'] ?? '');
+            if (in_array($code, ['generate_image', 'generate_video', 'generate_music'], true)) {
+                return $code;
+            }
+        }
+        return 'generate_image';
+    }
+
+    private static function mediaSubmissionText(string $value): string
+    {
+        $value = trim(preg_replace('/\s+/u', ' ', $value) ?? '');
+        if ($value === '') {
+            return '';
+        }
+        $limit = 96;
+        if (mb_strlen($value, 'UTF-8') <= $limit) {
+            return $value;
+        }
+        return rtrim(mb_substr($value, 0, $limit, 'UTF-8')) . '…';
     }
 
     private static function sanitize($value)

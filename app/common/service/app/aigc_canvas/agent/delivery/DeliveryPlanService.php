@@ -103,8 +103,9 @@ final class DeliveryPlanService
                 'update_time' => $now,
                 'delete_time' => 0,
             ]);
+            $itemIds = [];
             foreach ($items as $index => $item) {
-                AigcCanvasDeliveryItem::create([
+                $created = AigcCanvasDeliveryItem::create([
                     'tenant_id' => $tenantId,
                     'user_id' => $userId,
                     'project_id' => $projectId,
@@ -139,9 +140,76 @@ final class DeliveryPlanService
                     'update_time' => $now,
                     'delete_time' => 0,
                 ]);
+                $itemIds[(string)($item['item_key'] ?? '')] = (int)$created['id'];
+            }
+            foreach ($items as $item) {
+                $key = (string)($item['item_key'] ?? '');
+                $itemId = (int)($itemIds[$key] ?? 0);
+                if ($itemId <= 0) continue;
+                $dependencies = [];
+                foreach ((array)($item['depends_on'] ?? []) as $dependency) {
+                    $dependencyId = is_numeric($dependency) ? (int)$dependency : (int)($itemIds[(string)$dependency] ?? 0);
+                    if ($dependencyId > 0) $dependencies[] = $dependencyId;
+                }
+                if ($dependencies !== []) {
+                    AigcCanvasDeliveryItem::where('id', $itemId)->update(['depends_on_json' => array_values(array_unique($dependencies))]);
+                }
             }
             return self::detail($tenantId, $userId, (int)$plan['id']);
         });
+    }
+
+    /**
+     * Compiles a reusable, linear professional workflow without a separate
+     * workflow table. The template only changes entry criteria and wording;
+     * execution remains owned by ordinary delivery items.
+     */
+    public static function compileWorkflow(string $template, string $request, array $context = []): array
+    {
+        if ($template !== 'brand_planning') return [];
+        $brandName = trim((string)($context['brand_name'] ?? $context['project']['brand_name'] ?? ''));
+        if ($brandName === '' && preg_match('/(?:品牌|品牌名|品牌名称)\s*(?:叫|为|是)?\s*([\p{Han}A-Za-z0-9_-]{2,40})/u', $request, $match) === 1) {
+            $brandName = (string)$match[1];
+        }
+        $baseSlots = ['user_request' => $request];
+        if ($brandName !== '') $baseSlots['brand_name'] = $brandName;
+        $stages = [
+            ['brief', '项目简报', 'generate_text', [], $brandName === '' ? ['brand_name'] : [], []],
+            ['research', '策略研究', 'generate_text', ['brief'], [], []],
+            ['strategy', '品牌策略', 'generate_text', ['research'], [], []],
+            ['copy', '核心文案', 'generate_text', ['strategy'], [], []],
+            ['visual_direction', '视觉方向', 'generate_text', ['copy'], [], []],
+            ['visual_assets', '视觉资产', 'generate_image', ['visual_direction'], [], ['approve_visual_generation']],
+            ['applications', '应用延展', 'generate_text', ['visual_assets'], [], []],
+        ];
+        $items = [];
+        foreach ($stages as [$key, $objective, $tool, $dependsOn, $required, $actions]) {
+            $missing = $key === 'brief' ? $required : [];
+            $pending = $missing !== []
+                ? PendingActionProtocol::forMissingSlots($missing)
+                : ($actions === ['approve_visual_generation'] ? PendingActionProtocol::confirmation('approve_visual_generation') : []);
+            $items[] = [
+                'item_key' => $key,
+                'objective' => $objective,
+                'skill_key' => 'script_planning',
+                'tool_code' => $tool,
+                'status' => $missing !== [] ? 'clarifying' : ($key === 'brief' ? 'ready' : ($pending !== [] ? 'awaiting_confirmation' : 'draft')),
+                'depends_on' => $dependsOn,
+                'required_slots' => $required,
+                'soft_slots' => [],
+                'slots' => $baseSlots,
+                'delivery' => ['type' => $key, 'workflow_template' => $template],
+                'reference_assets' => [],
+                'pending_action' => $pending,
+                'meta' => ['workflow_template' => $template, 'workflow_stage' => $key],
+            ];
+        }
+        return [
+            'title' => '品牌策划工作流',
+            'intent' => 'creative_plan',
+            'items' => $items,
+            'meta' => ['workflow_template' => $template, 'workflow_stages' => array_column($stages, 0), 'source' => 'workflow_compiler'],
+        ];
     }
 
     public static function detail(int $tenantId, int $userId, int $planId): array
@@ -156,6 +224,55 @@ final class DeliveryPlanService
         if ($plan->isEmpty()) return [];
         $items = AigcCanvasDeliveryItem::where(['plan_id' => $planId, 'delete_time' => 0])->order('sort_order', 'asc')->select()->toArray();
         return self::format($plan->toArray(), $items);
+    }
+
+    /** Thin query helpers used by turn classification before any Skill routing. */
+    public static function item(int $tenantId, int $userId, int $itemId): array
+    {
+        return DeliveryItemService::find($tenantId, $userId, $itemId);
+    }
+
+    /**
+     * Returns a stage only when it is the unambiguous next executable item.
+     * This avoids silently selecting between parallel plans in one thread.
+     */
+    public static function nextExecutableItem(int $tenantId, int $userId, int $threadId): array
+    {
+        self::ensureSchema();
+        $rows = AigcCanvasDeliveryItem::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'thread_id' => $threadId,
+            'delete_time' => 0,
+        ])->whereIn('status', ['draft', 'clarifying', 'awaiting_confirmation', 'ready'])
+            ->order('update_time', 'desc')->select()->toArray();
+        $available = [];
+        foreach ($rows as $row) {
+            $item = DeliveryItemService::format($row);
+            if (!empty($item['pending_action'])) continue;
+            $complete = true;
+            foreach ((array)($item['depends_on'] ?? []) as $dependencyId) {
+                $dependency = DeliveryItemService::find($tenantId, $userId, (int)$dependencyId);
+                if ($dependency === [] || (string)($dependency['status'] ?? '') !== 'completed') {
+                    $complete = false;
+                    break;
+                }
+            }
+            if ($complete) $available[] = $item;
+        }
+        return count($available) === 1 ? $available[0] : [];
+    }
+
+    /** Moves only dependency-satisfied draft stages into executor-claimable ready state. */
+    public static function advanceDependencies(int $tenantId, int $userId, int $planId): array
+    {
+        $plan = self::detail($tenantId, $userId, $planId);
+        if ($plan === []) return [];
+        foreach ((array)($plan['items'] ?? []) as $item) {
+            if ((string)($item['status'] ?? '') !== 'draft' || !self::dependenciesCompleted($tenantId, $userId, (array)$item)) continue;
+            DeliveryItemService::transition($tenantId, $userId, (int)$item['id'], 'ready');
+        }
+        return self::detail($tenantId, $userId, $planId);
     }
 
     public static function activeItem(int $tenantId, int $userId, int $threadId): array
@@ -185,7 +302,17 @@ final class DeliveryPlanService
         return array_values(array_filter(array_map(
             static fn(array $item): array => DeliveryItemService::format($item),
             $rows
-        ), static fn(array $item): bool => PendingActionProtocol::isPending((array)($item['pending_action'] ?? []))));
+        ), static fn(array $item): bool => PendingActionProtocol::isPending((array)($item['pending_action'] ?? []))
+            && self::dependenciesCompleted($tenantId, $userId, $item)));
+    }
+
+    private static function dependenciesCompleted(int $tenantId, int $userId, array $item): bool
+    {
+        foreach ((array)($item['depends_on'] ?? []) as $dependencyId) {
+            $dependency = DeliveryItemService::find($tenantId, $userId, (int)$dependencyId);
+            if ($dependency === [] || (string)($dependency['status'] ?? '') !== 'completed') return false;
+        }
+        return true;
     }
 
     /**

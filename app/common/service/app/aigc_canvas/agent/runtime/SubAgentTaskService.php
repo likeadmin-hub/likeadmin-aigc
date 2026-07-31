@@ -381,6 +381,14 @@ final class SubAgentTaskService
             if ($reply === '') {
                 $reply = self::fallbackReply($subtasks);
             }
+            // Delegate synthesis is model output too. It can contain the
+            // orchestration prompt, tool contract or scratchpad, none of
+            // which belongs in the saved conversation.
+            $reply = AgentResponseProtocol::userFacingReply([
+                'reply' => $reply,
+                'next_action' => 'chat',
+                'task_decision' => ['intent' => 'text_generation'],
+            ]);
             $assistant = AigcCanvasAgentMessage::findOrEmpty((int)$context->messageId());
             if ($assistant->isEmpty()) {
                 throw new Exception('Deferred assistant message was not found');
@@ -389,6 +397,11 @@ final class SubAgentTaskService
             $contentJson['subtasks'] = $subtasks;
             $contentJson['next_action'] = 'chat';
             $contentJson['agent_trace'] = array_merge((array)($contentJson['agent_trace'] ?? []), ['subtask_mode' => 'durable_parallel']);
+            $contentJson['response'] = AgentResponseProtocol::fromResult([
+                'reply' => $reply,
+                'next_action' => 'chat',
+                'task_decision' => ['intent' => 'text_generation'],
+            ]);
             $assistant->save(['content' => $reply, 'content_json' => $contentJson, 'status' => 'success', 'update_time' => time()]);
             AigcCanvasAgentThread::where('id', $context->threadId())->update(['update_time' => time()]);
             $thread = AigcCanvasAgentThread::where('id', $context->threadId())->findOrEmpty();

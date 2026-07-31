@@ -5,6 +5,7 @@ namespace app\common\service\app\aigc_canvas\agent\generation;
 use app\common\service\app\aigc_canvas\AigcCanvasAgentService;
 use app\common\service\app\aigc_canvas\AigcCanvasService;
 use app\common\service\app\aigc_canvas\agent\billing\CanvasAgentEntitlementService;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemTaskSyncService;
 use app\common\service\app\aigc_canvas\agent\model\CanvasGenerationPricingService;
 use app\common\service\app\aigc_canvas\agent\model\CanvasModelRouterService;
 use app\common\service\app\aigc_canvas\agent\prompt\PromptSubmissionException;
@@ -70,6 +71,9 @@ final class CanvasGenerationTaskCenterService
             $normalized['claim_ids'] = array_values((array)($submitted['claim_ids'] ?? $result['claim_ids'] ?? []));
             $normalized['submitted_input'] = self::mediaSnapshot($submitted, $type);
         }
+        if ((int)($params['delivery_item_id'] ?? 0) > 0) {
+            DeliveryItemTaskSyncService::syncGenerationTask($tenantId, $userId, $normalized, (int)$params['delivery_item_id']);
+        }
         return $normalized;
     }
 
@@ -79,17 +83,23 @@ final class CanvasGenerationTaskCenterService
         if ($result === []) {
             throw new Exception('Task not found');
         }
-        return self::normalize((string)($result['mode'] ?? self::type($params)), $result);
+        $normalized = self::normalize((string)($result['mode'] ?? self::type($params)), $result);
+        DeliveryItemTaskSyncService::syncGenerationTask($tenantId, $userId, $normalized, (int)($params['delivery_item_id'] ?? 0));
+        return $normalized;
     }
 
     public static function cancel(int $tenantId, int $userId, array $params): array
     {
-        return self::normalize(self::type($params), AigcCanvasAgentService::cancelGeneration($tenantId, $userId, $params));
+        $normalized = self::normalize(self::type($params), AigcCanvasAgentService::cancelGeneration($tenantId, $userId, $params));
+        DeliveryItemTaskSyncService::syncGenerationTask($tenantId, $userId, $normalized, (int)($params['delivery_item_id'] ?? 0));
+        return $normalized;
     }
 
     public static function retry(int $tenantId, int $userId, array $params): array
     {
-        return self::normalize(self::type($params), AigcCanvasAgentService::retryGeneration($tenantId, $userId, $params));
+        $normalized = self::normalize(self::type($params), AigcCanvasAgentService::retryGeneration($tenantId, $userId, $params));
+        DeliveryItemTaskSyncService::syncGenerationTask($tenantId, $userId, $normalized, (int)($params['delivery_item_id'] ?? 0));
+        return $normalized;
     }
 
     public static function recover(int $tenantId, int $userId, array $params): array

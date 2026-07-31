@@ -28,35 +28,75 @@ final class ConversationTaskResolver
         array $params = []
     ): array {
         DeliveryPlanService::ensureSchema();
-        $explicitItemId = (int)($params['delivery_item_id'] ?? 0);
-        if ($explicitItemId > 0) {
+        $taskDecision = (array)($params['task_decision'] ?? []);
+        $relation = (string)($taskDecision['turn_relation'] ?? '');
+        $confidence = (float)($taskDecision['confidence'] ?? 0);
+        $textRetry = (string)($taskDecision['intent'] ?? '') === 'text_generation'
+            && !empty($taskDecision['retry_source']);
+        $explicitItemId = (int)($taskDecision['target_delivery_item_id'] ?? $params['delivery_item_id'] ?? 0);
+        if ($explicitItemId > 0 && in_array($relation, ['continue', 'revise', 'confirm', 'retry', 'cancel'], true)) {
             $item = DeliveryItemService::find($tenantId, $userId, $explicitItemId);
             if ($item !== [] && (int)$item['thread_id'] === $threadId) {
-                $resolved = self::resolvePending($tenantId, $userId, $item, $params, $content);
+                $resolved = self::resolvePending($tenantId, $userId, $item, $params, $content, $relation);
                 if ($resolved !== []) return $resolved;
-                return self::existing($tenantId, $userId, $item, 'explicit_item');
+                $bound = DeliveryItemContextBinder::bindBase($tenantId, $userId, $item, $context + ['content' => $content], $taskDecision);
+                return self::existing($tenantId, $userId, $bound, 'explicit_item');
             }
         }
 
-        $definition = self::definition($content, $context);
         $pending = DeliveryPlanService::pendingItems($tenantId, $userId, $threadId);
-        if (count($pending) === 1 && $definition === [] && self::canNaturallyContinue($content)) {
-            $resolved = self::resolvePending($tenantId, $userId, $pending[0], $params, $content);
+        if (!$textRetry && count($pending) === 1 && $confidence >= 0.8 && in_array($relation, ['continue', 'revise', 'confirm', 'retry', 'cancel'], true)) {
+            $resolved = self::resolvePending($tenantId, $userId, $pending[0], $params, $content, $relation);
             if ($resolved !== []) return $resolved;
         }
-        $active = DeliveryPlanService::activeItem($tenantId, $userId, $threadId);
-        if ($definition === [] && $active !== [] && self::looksLikeSupplement($content)) {
-            return self::existing($tenantId, $userId, $active, 'supplement_item');
-        }
+        $definition = self::definitionFromDecision($taskDecision, $content, $context);
+        // Legacy callers that have not adopted the Runtime decision may retain
+        // deterministic creation, but may never infer a continuation.
+        if ($definition === [] && $taskDecision === []) $definition = self::definition($content, $context);
         if ($definition === []) return [];
 
         $plan = DeliveryPlanService::create($tenantId, $userId, $projectId, $threadId, $messageId, $definition);
+        foreach ((array)($plan['items'] ?? []) as $index => $created) {
+            $plan['items'][$index] = DeliveryItemContextBinder::bindBase(
+                $tenantId,
+                $userId,
+                (array)$created,
+                $context + ['content' => $content],
+                $taskDecision
+            );
+        }
         $item = (array)($plan['items'][0] ?? []);
         return [
             'operation' => count((array)$plan['items']) > 1 ? 'new_composite_task' : 'new_single_task',
             'plan' => $plan,
             'item' => $item,
             'selected_skill' => self::skill($tenantId, (string)($item['skill_key'] ?? '')),
+        ];
+    }
+
+    private static function definitionFromDecision(array $decision, string $content = '', array $context = []): array
+    {
+        $workflow = DeliveryPlanService::compileWorkflow((string)($decision['workflow_template'] ?? ''), $content, $context);
+        if ($workflow !== []) return $workflow;
+        // A clarification never represents an executable deliverable. This
+        // second guard keeps malformed or stale client decisions from creating
+        // an item that the panel would render as ready.
+        if ((string)($decision['execution_mode'] ?? '') === 'clarify'
+            || !empty($decision['missing_hard_slots'])) {
+            return [];
+        }
+        $items = array_values(array_filter((array)($decision['delivery_specs'] ?? []), 'is_array'));
+        if ($items === []) return [];
+        return [
+            'title' => count($items) > 1 ? '组合创作交付计划' : (string)($items[0]['objective'] ?? '创作交付项'),
+            'intent' => count($items) > 1 ? 'composite_generation' : (string)($decision['intent'] ?? 'generation'),
+            'items' => $items,
+            'meta' => [
+                'resolver_version' => 'delivery-plan-v2',
+                'source' => 'agent_task_decision',
+                'turn_relation' => (string)($decision['turn_relation'] ?? ''),
+                'confidence' => (float)($decision['confidence'] ?? 0),
+            ],
         ];
     }
 
@@ -70,9 +110,38 @@ final class ConversationTaskResolver
         ];
     }
 
-    private static function resolvePending(int $tenantId, int $userId, array $item, array $params, string $content): array
+    private static function resolvePending(int $tenantId, int $userId, array $item, array $params, string $content, string $relation = ''): array
     {
         try {
+            if ($relation === 'revise' && trim((string)($params['action'] ?? '')) === '') {
+                $revision = self::naturalRevision($content);
+                if ($revision !== []) {
+                    $revisionAction = PendingActionProtocol::normalize([
+                        'action_id' => 'revise_item:natural',
+                        'type' => 'revise_item',
+                        'required_input_schema' => ['type' => 'object'],
+                        'on_success_transition' => 'ready',
+                        'on_reject_transition' => 'awaiting_confirmation',
+                    ]);
+                    $resolution = PendingActionProtocol::resolve(
+                        array_merge($item, ['pending_action' => $revisionAction]),
+                        ['action' => 'revise_item', 'action_id' => $revisionAction['action_id'], 'structured_value' => $revision]
+                    );
+                    if ($resolution !== []) {
+                        $updated = DeliveryItemService::transition(
+                            $tenantId,
+                            $userId,
+                            (int)$item['id'],
+                            (string)$resolution['status'],
+                            (array)$resolution['patch']
+                        );
+                        $result = self::existing($tenantId, $userId, $updated, 'natural_revision_resolved');
+                        $result['pending_action'] = $revisionAction;
+                        $result['pending_action_accepted'] = true;
+                        return $result;
+                    }
+                }
+            }
             $resolution = PendingActionProtocol::resolve($item, $params, $content);
             if ($resolution === []) return [];
             $updated = DeliveryItemService::transition(
@@ -89,6 +158,20 @@ final class ConversationTaskResolver
         } catch (\Exception $e) {
             return [];
         }
+    }
+
+    /** Extract only explicit, safe revision fields from a natural-language turn. */
+    private static function naturalRevision(string $content): array
+    {
+        $delivery = [];
+        if (preg_match('/\b(1:1|3:4|4:3|9:16|16:9)\b/u', $content, $match) === 1) {
+            $delivery['ratio'] = (string)$match[1];
+        }
+        if (preg_match('/不(?:要|含)文案|无文案|去除文案|不要文字|无文字/u', $content) === 1) {
+            $delivery['copy'] = '';
+            $delivery['copy_content'] = '';
+        }
+        return $delivery === [] ? [] : ['delivery' => $delivery];
     }
 
     private static function definition(string $content, array $context): array
@@ -185,18 +268,6 @@ final class ConversationTaskResolver
         $text = mb_strtolower(trim($content), 'UTF-8');
         if ($text === '' || preg_match('/主图|卖点图|详情页|详情图|海报|logo|包装|视频|音乐|短剧|分镜/u', $text) === 1) return false;
         return preg_match('/确认|继续|没有|无|不确定|不用写|改成|调整|补充|上传|这个|比例|风格|颜色|文案/u', $text) === 1;
-    }
-
-    /**
-     * Generic natural-language fallback. Domain-specific routing deliberately
-     * remains in definition(); this only recognizes a conversation continuation.
-     */
-    private static function canNaturallyContinue(string $content): bool
-    {
-        $text = mb_strtolower(trim($content), 'UTF-8');
-        if ($text === '') return false;
-        return preg_match('/确认|确定|继续|同意|可以|好的|取消|拒绝|不用|重试|修改|调整|补充|改为|yes|confirm|continue|cancel|retry|revise/i', $text) === 1
-            || mb_strlen($text, 'UTF-8') <= 120;
     }
 
     private static function ratio(string $text): string

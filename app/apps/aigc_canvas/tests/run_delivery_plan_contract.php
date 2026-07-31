@@ -54,8 +54,8 @@ $confirmResolution = PendingActionProtocol::resolve([
     'id' => 2, 'status' => 'ready', 'slots' => [], 'pending_action' => $confirm,
     'meta' => [], 'delivery' => [], 'creative_context' => [], 'reference_assets' => [],
 ], ['action' => 'confirm_execution', 'action_id' => (string)$confirm['action_id'], 'structured_value' => true]);
-if (($confirmResolution['status'] ?? '') !== 'queued') {
-    $failures[] = 'confirm_execution action did not transition to queued';
+if (($confirmResolution['status'] ?? '') !== 'ready') {
+    $failures[] = 'confirm_execution must leave the item ready for executor claim';
 }
 
 $interrupt = ConversationTaskResolver::preview('先做一张白底主图', $references);
@@ -82,21 +82,33 @@ if (!in_array('clarifying', DeliveryItemService::STATUSES, true)
 }
 
 $runtime = file_get_contents($root . '/app/common/service/app/aigc_canvas/AigcCanvasAgentRuntimeService.php') ?: '';
-if (!str_contains($runtime, 'ConversationTaskResolver::resolve') || !str_contains($runtime, "'delivery_item_id'")) {
+if (!str_contains($runtime, 'AgentTaskDecisionService::decide') || !str_contains($runtime, 'ConversationTaskResolver::resolve') || !str_contains($runtime, "'task_decision'")) {
     $failures[] = 'agent runtime does not bind turns to delivery items';
+}
+$resolver = file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/delivery/ConversationTaskResolver.php') ?: '';
+if (str_contains($resolver, 'mb_strlen($text, \'UTF-8\') <= 120') || !str_contains($resolver, 'definitionFromDecision')) {
+    $failures[] = 'conversation resolver still uses the short-message continuation fallback';
+}
+$binder = file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/delivery/DeliveryItemContextBinder.php') ?: '';
+if (!str_contains($binder, 'mergeEnrichment') || !str_contains($binder, 'ensureExecutableContext')) {
+    $failures[] = 'delivery item context binder is incomplete';
 }
 $loop = file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/runtime/AgentLoopService.php') ?: '';
 if (!str_contains($loop, '$input[\'delivery_item_id\']') || !str_contains($loop, '$toolRoute[\'delivery_item_id\']')) {
     $failures[] = 'delivery item id is not forwarded to tools';
 }
 $graph = file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/delivery/DeliveryGraphExecutor.php') ?: '';
-if (!str_contains($graph, 'CanvasGenerationTaskCenterService') || !str_contains($graph, 'assertDependencies')
+if (!str_contains($graph, 'CanvasGenerationTaskCenterService') || !str_contains($graph, 'executeFromAgentTool') || !str_contains($graph, 'claimReady') || !str_contains($graph, 'assertDependencies')
     || !str_contains($graph, 'private static function promptMode') || !str_contains($graph, "return 'direct'")) {
     $failures[] = 'delivery graph executor does not retain shared task center and dependency guard';
 }
 $migration = file_get_contents($root . '/app/apps/aigc_canvas/migrations/zz_20260726_canvas_pending_action_protocol.sql') ?: '';
 if (!str_contains($migration, 'pending_action_json')) {
     $failures[] = 'pending action migration is missing';
+}
+$toolMigration = file_get_contents($root . '/app/apps/aigc_canvas/migrations/zz_20260730_canvas_agent_tool_delivery.sql') ?: '';
+if (!str_contains($toolMigration, 'delivery_item_id') || !str_contains($toolMigration, 'attempt_no') || !str_contains($toolMigration, 'idx_provider_task')) {
+    $failures[] = 'agent tool delivery migration is incomplete';
 }
 
 echo json_encode(['passed' => $failures === [], 'failures' => $failures], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . PHP_EOL;

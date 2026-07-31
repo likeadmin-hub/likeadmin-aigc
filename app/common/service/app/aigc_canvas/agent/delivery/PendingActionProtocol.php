@@ -11,8 +11,10 @@ use Exception;
 final class PendingActionProtocol
 {
     public const TYPES = [
-        'fill_slot', 'choose_option', 'confirm_execution', 'revise_item',
-        'approve_plan', 'retry_item', 'resolve_failure',
+        'fill_slot', 'select_option', 'approve_strategy', 'approve_visual_generation',
+        'revise_item', 'retry_item', 'cancel_item',
+        // Historical aliases stay readable and actionable for saved messages.
+        'choose_option', 'confirm_execution', 'approve_plan', 'resolve_failure',
     ];
 
     public static function normalize(array $action): array
@@ -49,6 +51,7 @@ final class PendingActionProtocol
 
     public static function confirmation(string $type = 'confirm_execution'): array
     {
+        $isRetry = $type === 'retry_item';
         return self::normalize([
             'action_id' => $type . ':default',
             'type' => $type,
@@ -57,8 +60,8 @@ final class PendingActionProtocol
                 ['value' => true, 'label' => 'confirm'],
                 ['value' => false, 'label' => 'reject'],
             ],
-            'on_success_transition' => 'queued',
-            'on_reject_transition' => 'ready',
+            'on_success_transition' => $isRetry ? 'failed' : 'ready',
+            'on_reject_transition' => $isRetry ? 'canceled' : 'ready',
         ]);
     }
 
@@ -102,7 +105,7 @@ final class PendingActionProtocol
             $patch['slots_json'] = $slots;
         }
 
-        if ($pending['type'] === 'choose_option' && !$isReject) {
+        if (in_array($pending['type'], ['choose_option', 'select_option'], true) && !$isReject) {
             self::validateOption($pending, $value);
             $patch['meta_json'] = array_merge((array)($item['meta'] ?? []), ['selected_option' => $value]);
         }
@@ -114,7 +117,7 @@ final class PendingActionProtocol
 
         if ($pending['type'] === 'resolve_failure' && !$isReject && is_array($value)) {
             $resolution = trim((string)($value['resolution'] ?? ''));
-            if ($resolution === 'retry') $status = 'queued';
+            if ($resolution === 'retry') $status = 'failed';
             if ($resolution === 'cancel') $status = 'canceled';
         }
 
@@ -133,13 +136,18 @@ final class PendingActionProtocol
             $patch['slots_json'] = array_merge((array)($item['slots'] ?? []), $value['slots']);
         }
         if (isset($value['delivery']) && is_array($value['delivery'])) {
-            $patch['delivery_json'] = array_merge((array)($item['delivery'] ?? []), $value['delivery']);
+            $allowedDelivery = array_intersect_key($value['delivery'], array_flip([
+                'ratio', 'style', 'copy', 'copy_content', 'user_request', 'quantity', 'purpose', 'type', 'section_count',
+            ]));
+            $patch['delivery_json'] = array_merge((array)($item['delivery'] ?? []), $allowedDelivery);
         }
         if (isset($value['creative_context']) && is_array($value['creative_context'])) {
             $patch['creative_context_json'] = array_merge((array)($item['creative_context'] ?? []), $value['creative_context']);
         }
         if (isset($value['reference_assets']) && is_array($value['reference_assets'])) {
-            $patch['reference_assets_json'] = array_values($value['reference_assets']);
+            $patch['reference_assets_json'] = !empty($value['replace_reference_assets'])
+                ? array_values($value['reference_assets'])
+                : array_values(array_merge((array)($item['reference_assets'] ?? []), $value['reference_assets']));
         }
         return $patch;
     }

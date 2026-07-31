@@ -13,12 +13,12 @@ final class DeliveryItemService
         'draft' => ['clarifying', 'ready', 'canceled'],
         'clarifying' => ['ready', 'awaiting_confirmation', 'canceled'],
         'ready' => ['clarifying', 'awaiting_confirmation', 'queued', 'canceled'],
-        'awaiting_confirmation' => ['clarifying', 'ready', 'queued', 'canceled'],
-        'queued' => ['running', 'completed', 'failed', 'canceled'],
+        'awaiting_confirmation' => ['clarifying', 'ready', 'canceled'],
+        'queued' => ['running', 'failed', 'canceled'],
         'running' => ['completed', 'failed', 'canceled'],
-        'failed' => ['ready', 'queued', 'canceled'],
+        'failed' => ['canceled'],
         'completed' => [],
-        'canceled' => ['ready'],
+        'canceled' => [],
     ];
 
     public static function find(int $tenantId, int $userId, int $itemId): array
@@ -57,6 +57,50 @@ final class DeliveryItemService
         ]));
         $row->save(array_merge($allowed, ['status' => $status, 'update_time' => time()]));
         return self::format($row->toArray());
+    }
+
+    /** Atomically claims a confirmed item without holding a DB lock for provider I/O. */
+    public static function claimReady(int $tenantId, int $userId, int $itemId, array $patch = []): array
+    {
+        DeliveryPlanService::ensureSchema();
+        $allowed = array_intersect_key($patch, array_flip([
+            'pending_action_json', 'task_snapshot_json', 'meta_json', 'source_message_id', 'provider_request_id',
+        ]));
+        $updated = AigcCanvasDeliveryItem::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'id' => $itemId,
+            'status' => 'ready',
+            'delete_time' => 0,
+        ])->update(array_merge($allowed, ['status' => 'queued', 'update_time' => time()]));
+        if ($updated !== 1) {
+            $item = self::find($tenantId, $userId, $itemId);
+            if ($item === []) throw new Exception('Delivery item not found');
+            throw new Exception('Delivery item has already been claimed');
+        }
+        return self::find($tenantId, $userId, $itemId);
+    }
+
+    /** Only the backend retry path may create a new attempt from a failure. */
+    public static function beginRetry(int $tenantId, int $userId, int $itemId): array
+    {
+        DeliveryPlanService::ensureSchema();
+        $updated = AigcCanvasDeliveryItem::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'id' => $itemId,
+            'status' => 'failed',
+            'delete_time' => 0,
+        ])->inc('retry_count', 1)->update([
+            'status' => 'ready',
+            'pending_action_json' => [],
+            'provider_error_code' => '',
+            'provider_error_message' => '',
+            'error' => '',
+            'update_time' => time(),
+        ]);
+        if ($updated !== 1) throw new Exception('Only a failed delivery item can be retried');
+        return self::find($tenantId, $userId, $itemId);
     }
 
     public static function format(array $row): array

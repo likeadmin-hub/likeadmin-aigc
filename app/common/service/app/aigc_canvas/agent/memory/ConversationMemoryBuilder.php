@@ -3,6 +3,7 @@
 namespace app\common\service\app\aigc_canvas\agent\memory;
 
 use app\common\model\app\aigc_canvas\AigcCanvasAgentMessage;
+use app\common\service\app\aigc_canvas\agent\runtime\AgentResponseProtocol;
 use Throwable;
 
 /**
@@ -37,6 +38,9 @@ final class ConversationMemoryBuilder
         foreach (array_reverse($rows) as $row) {
             $json = is_array($row['content_json'] ?? null) ? $row['content_json'] : [];
             $content = trim((string)($row['content'] ?? ''));
+            if ((string)($row['role'] ?? '') === 'assistant' && AgentResponseProtocol::isInternalTrace($content)) {
+                $content = '';
+            }
             if ($content !== '') {
                 $messages[] = [
                     'role' => (string)($row['role'] ?? ''),
