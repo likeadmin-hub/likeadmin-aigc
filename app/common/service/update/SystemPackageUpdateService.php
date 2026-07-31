@@ -524,6 +524,7 @@ class SystemPackageUpdateService
 
     private function selectNextVersion(array $versions, string $current): array
     {
+        $versions = array_values(array_filter($versions, fn (array $item): bool => $this->isVersionEnabled($item)));
         if (!$versions) {
             return [];
         }
@@ -573,6 +574,27 @@ class SystemPackageUpdateService
             }
         }
         return [];
+    }
+
+    private function isVersionEnabled(array $item): bool
+    {
+        foreach (['status', 'enabled', 'is_enabled', 'is_published', 'published', 'release_status'] as $field) {
+            if (!array_key_exists($field, $item)) {
+                continue;
+            }
+            $value = $item[$field];
+            if (is_bool($value)) {
+                return $value;
+            }
+            if (is_numeric($value)) {
+                return (int)$value === 1;
+            }
+            $value = strtolower(trim((string)$value));
+            if (in_array($value, ['0', 'false', 'off', 'disabled', 'down', 'unpublished'], true)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private function versionOf(array $item): string
@@ -684,6 +706,7 @@ class SystemPackageUpdateService
                 throw new RuntimeException('增量系统包不允许删除路径: ' . $relative);
             }
         }
+        $declaredSql = [];
         foreach ($manifest['sql_order'] as $file) {
             $relative = $this->normalizePackagePath((string)$file);
             $this->assertSafeUpdatePath($relative, false);
@@ -699,13 +722,50 @@ class SystemPackageUpdateService
             if (!is_file(rtrim($extractPath, '/') . '/' . $relative)) {
                 throw new RuntimeException('增量系统包 sql_order 声明的文件不存在: ' . $relative);
             }
-            $this->assertIncrementalSqlSafe($relative, rtrim($extractPath, '/') . '/' . $relative);
+            $declaredSql[$relative] = true;
+        }
+        $this->assertIncrementalSqlDirectorySafe($extractPath, $declaredSql);
+    }
+
+    private function assertIncrementalSqlDirectorySafe(string $extractPath, array $declaredSql): void
+    {
+        foreach (['sql/data', 'sql/structure'] as $directory) {
+            $root = rtrim($extractPath, '/') . '/' . $directory;
+            if (!is_dir($root)) {
+                continue;
+            }
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($iterator as $item) {
+                if ($item->isLink()) {
+                    throw new RuntimeException('增量系统包 SQL 目录不允许符号链接: ' . $item->getPathname());
+                }
+                if (!$item->isFile() || strtolower($item->getExtension()) !== 'sql') {
+                    continue;
+                }
+                $relative = $this->normalizePackagePath(substr($item->getPathname(), strlen(rtrim($extractPath, '/')) + 1));
+                if ($this->isReadmeSql($relative)) {
+                    continue;
+                }
+                if (strtolower(basename($relative)) === 'install.sql') {
+                    throw new RuntimeException('增量系统包不允许包含全新安装 SQL: ' . $relative);
+                }
+                if (!isset($declaredSql[$relative])) {
+                    throw new RuntimeException('增量系统包 SQL 文件未声明执行顺序: ' . $relative);
+                }
+                $this->assertIncrementalSqlSafe($relative, $item->getPathname());
+            }
         }
     }
 
     private function assertIncrementalSqlSafe(string $relative, string $path): void
     {
         $content = (string)file_get_contents($path);
+        $content = preg_replace_callback('/\/\*!\d*\s*([\s\S]*?)\*\//', static fn (array $match) => ' ' . $match[1] . ' ', $content) ?? $content;
+        $content = preg_replace('/\/\*(?!\!)[\s\S]*?\*\//', ' ', $content) ?? $content;
+        $content = preg_replace('/--[ \t][^\r\n]*/', ' ', $content) ?? $content;
+        $content = preg_replace('/#[^\r\n]*/', ' ', $content) ?? $content;
         if (preg_match('/\b(?:DROP|TRUNCATE)\s+(?:TABLE|DATABASE)\b/i', $content)) {
             throw new RuntimeException('增量系统包不允许执行破坏性 SQL: ' . $relative);
         }

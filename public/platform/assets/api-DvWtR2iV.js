@@ -1,1 +1,0 @@
-import{r as a}from"./index-DliR1nt5.js";function r(){return a.get({url:"/app.aigc_llm.config/detail"})}function e(t){return a.post({url:"/app.aigc_llm.config/setup",params:t})}function g(t){return a.get({url:"/app.aigc_llm.tenant/stat",params:t})}export{g as a,r as g,e as s};

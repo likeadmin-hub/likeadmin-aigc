@@ -73,6 +73,9 @@ class UpgradeController extends BaseAdminController
     public function downloadCloudPackage(): Json
     {
         try {
+            if (!filter_var($this->request->post('backup_confirmed', false), FILTER_VALIDATE_BOOLEAN)) {
+                return $this->fail('请先确认已完成站点文件和数据库备份');
+            }
             $targetVersion = (string)$this->request->post('target_version', '');
             $currentVersion = (string)$this->request->post('current_version', '');
             return $this->success('下载成功', (new SystemPackageUpdateService())->downloadPackage($targetVersion, $currentVersion), 1, 1);
