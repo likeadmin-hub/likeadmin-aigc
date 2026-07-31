@@ -62,6 +62,11 @@ class AiTaskJobService
                     'update_time' => $now,
                     'finish_time' => 0,
                 ]);
+                AiTaskLifecycleEventService::record($consumptionId, 'job_enqueued', 'pending', [
+                    'job_id' => (int)$job['id'],
+                    'job_type' => $type,
+                    'priority' => $priority,
+                ]);
                 return (int)$job['id'];
             }
             if ($wake && !in_array((string)$job['status'], ['success', 'dead'], true)) {
@@ -73,6 +78,11 @@ class AiTaskJobService
                     'lease_expire_time' => 0,
                     'update_time' => $now,
                 ]);
+                AiTaskLifecycleEventService::record($consumptionId, 'job_woken', 'pending', [
+                    'job_id' => (int)$job['id'],
+                    'job_type' => $type,
+                    'previous_status' => (string)$job['status'],
+                ], (int)$job['attempts']);
             }
             return (int)$job['id'];
         });
@@ -107,6 +117,11 @@ class AiTaskJobService
                 ]);
                 $data = $job->toArray();
                 $data['lease_token'] = $token;
+                AiTaskLifecycleEventService::record((int)$data['consumption_id'], 'worker_claim', 'running', [
+                    'job_id' => (int)$data['id'],
+                    'job_type' => (string)$data['job_type'],
+                    'lease_seconds' => max(10, $leaseSeconds),
+                ], (int)$data['attempts']);
                 return $data;
             });
             if ($claimed === null) break;
@@ -118,8 +133,12 @@ class AiTaskJobService
     public static function run(array $job): bool
     {
         $type = (string)$job['job_type'];
+        AiTaskLifecycleEventService::record((int)$job['consumption_id'], 'job_run', 'running', [
+            'job_id' => (int)$job['id'],
+            'job_type' => $type,
+        ], (int)$job['attempts']);
         if ($type === self::TYPE_QUERY_RESULT) {
-            return self::queryResult((int)$job['consumption_id']);
+            return self::queryResult((int)$job['consumption_id'], (int)$job['attempts']);
         }
         if ($type === self::TYPE_PROCESS_RESULT) {
             AiTaskResultAssetService::recordConsumptionAssets((int)$job['consumption_id'], AiTaskBusinessResultService::requiresForcedTransfer((int)$job['consumption_id']));
@@ -145,6 +164,10 @@ class AiTaskJobService
             'status' => 'success', 'lease_token' => '', 'lease_expire_time' => 0,
             'last_error' => '', 'finish_time' => time(), 'update_time' => time(),
         ]);
+        AiTaskLifecycleEventService::record((int)$job['consumption_id'], 'job_success', 'success', [
+            'job_id' => (int)$job['id'],
+            'job_type' => (string)$job['job_type'],
+        ], (int)$job['attempts']);
     }
 
     public static function retry(array $job, \Throwable $error): void
@@ -157,6 +180,13 @@ class AiTaskJobService
             'last_error' => mb_substr($error->getMessage(), 0, 1000),
             'update_time' => time(),
         ]);
+        AiTaskLifecycleEventService::record((int)$job['consumption_id'], 'job_retry', 'retrying', [
+            'job_id' => (int)$job['id'],
+            'job_type' => (string)$job['job_type'],
+            'delay_seconds' => $delay,
+            'error_class' => get_class($error),
+            'error' => mb_substr($error->getMessage(), 0, 300),
+        ], $attempts);
     }
 
     public static function reschedule(array $job, int $delay = 5): int
@@ -166,15 +196,32 @@ class AiTaskJobService
             'status' => 'pending', 'lease_token' => '', 'lease_expire_time' => 0,
             'next_run_time' => time() + max(1, $delay), 'update_time' => time(),
         ]);
+        AiTaskLifecycleEventService::record((int)$job['consumption_id'], 'job_waiting', 'pending', [
+            'job_id' => (int)$job['id'],
+            'job_type' => (string)$job['job_type'],
+            'delay_seconds' => $delay,
+        ], (int)$job['attempts']);
         return $delay;
     }
 
-    private static function queryResult(int $consumptionId): bool
+    private static function queryResult(int $consumptionId, int $attempt = 0): bool
     {
         $consumption = AiConsumptionLog::findOrEmpty($consumptionId);
         if ($consumption->isEmpty()) return true;
+        AiTaskLifecycleEventService::record($consumptionId, 'query_start', 'running', [
+            'provider' => (string)$consumption['provider'],
+            'protocol' => (string)$consumption['protocol'],
+            'upstream_task_id' => (string)$consumption['upstream_task_id'],
+        ], $attempt);
         AiMarketTaskRuntimeService::refresh($consumptionId);
         $latest = AiConsumptionLog::findOrEmpty($consumptionId);
+        if (!$latest->isEmpty()) {
+            AiTaskLifecycleEventService::record($consumptionId, 'query_finish', self::readyForBusinessProcessing($latest->toArray()) ? 'terminal' : 'running', [
+                'run_status' => (string)$latest['run_status'],
+                'billing_status' => (string)$latest['billing_status'],
+                'error_code' => (string)$latest['error_code'],
+            ], $attempt);
+        }
         if (!$latest->isEmpty() && self::readyForBusinessProcessing($latest->toArray())) {
             self::enqueueProcessResult($consumptionId);
             return true;

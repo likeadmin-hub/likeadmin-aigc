@@ -9,6 +9,8 @@ return [
         'crontab' => 'app\common\command\Crontab',
         // 退款查询
         'query_refund' => 'app\common\command\QueryRefund',
+        // 到期分销佣金结算
+        'distribution:settle' => 'app\common\command\SettleDistributionCommission',
         // 充值到账修复
         'recharge:repair' => 'app\common\command\RepairRecharge',
         // AIGC消耗日志补偿刷新
@@ -22,6 +24,8 @@ return [
         'ai:recover-timeout-tasks' => 'app\common\command\AiRecoverTimeoutTasks',
         // 租户合约到期扫描
         'tenant:expire_contracts' => 'app\common\command\ExpireTenantContracts',
+        // 贴牌订单超时释放预占额度
+        'tenant:expire_brand_orders' => 'app\common\command\ExpireTenantBrandOrders',
         // 短剧任务提示词修复
         'short-drama:repair-prompts' => 'app\common\command\RepairShortDramaPrompts',
     ],

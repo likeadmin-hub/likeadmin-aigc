@@ -20,22 +20,6 @@
         "component": "apps/aigc_llm/config"
       },
       {
-        "source_menu_key": "aigc_llm_channel",
-        "type": "C",
-        "name": "通道配置",
-        "perms": "app.aigc_llm.channel/lists",
-        "paths": "channel",
-        "component": "apps/aigc_llm/channel"
-      },
-      {
-        "source_menu_key": "aigc_llm_model",
-        "type": "C",
-        "name": "模型配置",
-        "perms": "app.aigc_llm.model/lists",
-        "paths": "model",
-        "component": "apps/aigc_llm/model"
-      },
-      {
         "source_menu_key": "aigc_llm_session",
         "type": "C",
         "name": "会话记录",

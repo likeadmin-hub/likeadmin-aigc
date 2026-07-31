@@ -2,15 +2,13 @@
 
 namespace app\common\service\app\aigc_llm;
 
-use app\common\model\app\aigc_llm\AigcLlmChannel;
 use app\common\model\app\aigc_llm\AigcLlmConfig;
 use app\common\model\app\aigc_llm\AigcLlmMessage;
-use app\common\model\app\aigc_llm\AigcLlmModel;
 use app\common\model\app\aigc_llm\AigcLlmSensitiveWord;
 use app\common\model\app\aigc_llm\AigcLlmSession;
 use app\common\model\app\aigc_llm\AigcLlmUsage;
 use app\common\service\app\AppDisplayConfigService;
-use app\common\service\point\PointService;
+use app\common\service\power\MarketTextModelRuntimeService;
 use Exception;
 use Throwable;
 use think\facade\Db;
@@ -36,6 +34,7 @@ class AigcLlmService
             ]));
         }
         $data = array_merge($default, $config->toArray());
+        unset($data['provider_mode'], $data['provider'], $data['model']);
         $data['config_json'] = array_merge($default['config_json'], (array)($data['config_json'] ?? []));
         $data['option_config'] = AigcLlmChannelService::userConfig($tenantId);
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
@@ -48,9 +47,6 @@ class AigcLlmService
         $configJson = array_merge((array)($current['config_json'] ?? []), self::normalizeJson($params['config_json'] ?? []));
         $data = [
             'tenant_id' => $tenantId,
-            'provider_mode' => (string)($params['provider_mode'] ?? $current['provider_mode'] ?? 'platform'),
-            'provider' => (string)($params['provider'] ?? $current['provider'] ?? 'openai_compatible'),
-            'model' => (string)($params['model'] ?? $current['model'] ?? 'qwen3_6_plus'),
             'status' => (int)($params['status'] ?? $current['status'] ?? 1),
             'config_json' => [
                 'system_prompt' => trim((string)($configJson['system_prompt'] ?? '')),
@@ -311,7 +307,7 @@ class AigcLlmService
             throw new Exception('对话应用已停用');
         }
         self::checkSensitiveWords($tenantId, $content);
-        $model = AigcLlmChannelService::resolveUserModel($tenantId, $params, $config);
+        $model = self::resolveMarketChatModel($tenantId, $params);
         $sessionId = (int)($params['session_id'] ?? 0);
         $time = time();
 
@@ -441,71 +437,38 @@ class AigcLlmService
             'parent_user_message_id' => (int)$assistantMessage['parent_user_message_id'],
         ]);
 
-        $provider = self::providerFor((string)($context['model']['provider'] ?? 'openai_compatible'));
-        $channelConfig = self::resolveChannelConfig($tenantId, (string)($context['model']['channel_code'] ?? ''));
-
-        $request = new AigcLlmGenerateRequest(
-            $tenantId,
-            $userId,
-            (int)$session['id'],
-            (string)($context['config']['config_json']['system_prompt'] ?? ''),
-            (string)($context['model']['channel_code'] ?? ''),
-            (string)($context['model']['code'] ?? ''),
-            array_map(fn(array $row) => [
-                'role' => $row['role'],
-                'content' => (string)$row['content'],
-            ], $context['history']),
-            $context['model'],
-            $channelConfig
-        );
-
-        $precheck = self::estimateBilling($context['history'], '', $context['model']);
-        if ($precheck['tenant_cost_points'] > 0 || $precheck['user_charge_points'] > 0) {
-            PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$precheck['tenant_cost_points'], (float)$precheck['user_charge_points']);
-        }
-
         $output = '';
-        $usage = [];
-        $finishReason = 'stop';
-        $providerRequestId = '';
+        $stopped = false;
         try {
-            foreach ($provider->stream($request) as $event) {
-                if (self::shouldStopStream($tenantId, (int)$assistantMessage['id'])) {
-                    $finishReason = 'stopped';
-                    $billing = self::finishChatWithBilling($tenantId, $userId, (int)$session['id'], (int)$assistantMessage['id'], $output, self::MESSAGE_STOPPED, $finishReason, $context, $usage, $providerRequestId);
-                    self::emitEvent('done', [
-                        'message_id' => (int)$assistantMessage['id'],
-                        'content' => $output,
-                        'finish_reason' => $finishReason,
-                        'usage' => $billing['usage'],
-                        'billing' => $billing['billing'],
-                        'charge_points' => $billing['billing']['user_charge_points'],
-                    ]);
+            $result = MarketTextModelRuntimeService::generate($tenantId, $userId, [
+                'app_code' => self::APP_CODE,
+                'source_app_code' => self::APP_CODE,
+                'business_table' => 'aigc_llm_message',
+                'business_id' => (int)$assistantMessage['id'],
+                'action_code' => 'chat',
+                'content' => $content,
+                'messages' => array_map(static fn(array $row): array => [
+                    'role' => (string)$row['role'],
+                    'content' => (string)$row['content'],
+                ], $context['history']),
+                'system_prompt' => (string)($context['config']['config_json']['system_prompt'] ?? ''),
+                'model_selection' => ['id' => (string)($context['model']['market_product_id'] ?? '')],
+            ], function (string $event, array $data) use ($tenantId, $assistantMessage, &$stopped): void {
+                if ($event !== 'delta') {
                     return;
                 }
-                $type = (string)($event['type'] ?? 'delta');
-                if (!empty($event['provider_request_id'])) {
-                    $providerRequestId = (string)$event['provider_request_id'];
+                if (self::shouldStopStream($tenantId, (int)$assistantMessage['id'])) {
+                    $stopped = true;
+                    return;
                 }
-                if ($type === 'usage') {
-                    $usage = (array)($event['usage'] ?? []);
-                    continue;
+                $delta = (string)($data['delta'] ?? '');
+                if ($delta !== '') {
+                    self::emitEvent('delta', ['message_id' => (int)$assistantMessage['id'], 'delta' => $delta]);
                 }
-                if ($type === 'done') {
-                    $finishReason = (string)($event['finish_reason'] ?? $finishReason);
-                    continue;
-                }
-                $delta = (string)($event['content'] ?? '');
-                if ($delta === '') {
-                    continue;
-                }
-                $output .= $delta;
-                self::emitEvent('delta', [
-                    'message_id' => (int)$assistantMessage['id'],
-                    'delta' => $delta,
-                ]);
-            }
-            $billing = self::finishChatWithBilling($tenantId, $userId, (int)$session['id'], (int)$assistantMessage['id'], $output, self::MESSAGE_DONE, $finishReason, $context, $usage, $providerRequestId);
+            });
+            $output = (string)($result['content'] ?? '');
+            $finishReason = $stopped ? 'stopped' : 'stop';
+            $billing = self::finishChatWithMarketBilling($tenantId, $userId, (int)$session['id'], (int)$assistantMessage['id'], $output, $stopped ? self::MESSAGE_STOPPED : self::MESSAGE_DONE, $finishReason, $context['model'], $result);
             self::emitEvent('done', [
                 'message_id' => (int)$assistantMessage['id'],
                 'content' => $output,
@@ -519,31 +482,17 @@ class AigcLlmService
                 'content' => $output,
                 'status' => self::MESSAGE_ERROR,
                 'finish_reason' => 'error',
-                'token_usage_json' => self::buildUsage($context['history'], $output, $usage, $context['model'], [
+                'token_usage_json' => [
                     'billing_status' => 'none',
-                    'provider_request_id' => $providerRequestId,
+                    'provider' => 'power_market',
                     'error' => $e->getMessage(),
-                ]),
+                ],
             ]);
             self::finishSession((int)$session['id'], $tenantId);
             self::emitEvent('error', [
                 'message' => $e->getMessage(),
             ]);
         }
-    }
-
-    private static function applyTextModelOverrides(array $model, array $params): array
-    {
-        $overrides = is_array($params['model_config'] ?? null) ? (array)$params['model_config'] : [];
-        if (empty($overrides)) {
-            return $model;
-        }
-        $config = is_array($model['config_json'] ?? null) ? (array)$model['config_json'] : [];
-        if (isset($overrides['max_tokens'])) {
-            $config['max_tokens'] = max(1024, min(32768, (int)$overrides['max_tokens']));
-        }
-        $model['config_json'] = $config;
-        return $model;
     }
 
     public static function generateText(int $tenantId, int $userId, array $params): array
@@ -557,84 +506,7 @@ class AigcLlmService
             throw new Exception('对话应用已停用');
         }
         self::checkSensitiveWords($tenantId, $content);
-
-        $model = AigcLlmChannelService::resolveUserModel($tenantId, [
-            'model_code' => (string)($params['model_code'] ?? $params['model'] ?? ''),
-        ], $config);
-        $model = self::applyTextModelOverrides($model, $params);
-        $systemPrompt = trim((string)($params['system_prompt'] ?? ''));
-        if ($systemPrompt === '') {
-            $systemPrompt = (string)($config['config_json']['system_prompt'] ?? '');
-        }
-        $history = self::buildTextHistory($content, (array)($params['reference_images'] ?? $params['image_urls'] ?? []));
-        $precheck = self::estimateBilling($history, '', $model);
-        if ((float)$precheck['tenant_cost_points'] > 0 || (float)$precheck['user_charge_points'] > 0) {
-            PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$precheck['tenant_cost_points'], (float)$precheck['user_charge_points']);
-        }
-
-        $request = new AigcLlmGenerateRequest(
-            $tenantId,
-            $userId,
-            0,
-            $systemPrompt,
-            (string)($model['channel_code'] ?? ''),
-            (string)($model['code'] ?? ''),
-            $history,
-            $model,
-            self::resolveChannelConfig($tenantId, (string)($model['channel_code'] ?? '')),
-            self::normalizeTools($params['tools'] ?? []),
-            $params['tool_choice'] ?? null,
-            self::normalizeResponseFormat($params['response_format'] ?? []),
-            false
-        );
-
-        $provider = self::providerFor((string)($model['provider'] ?? 'openai_compatible'));
-        $output = '';
-        $usage = [];
-        $finishReason = 'stop';
-        $providerRequestId = '';
-        $toolCalls = [];
-        foreach ($provider->stream($request) as $event) {
-            if (!empty($event['provider_request_id'])) {
-                $providerRequestId = (string)$event['provider_request_id'];
-            }
-            $type = (string)($event['type'] ?? 'delta');
-            if ($type === 'usage') {
-                $usage = (array)($event['usage'] ?? []);
-                continue;
-            }
-            if ($type === 'done') {
-                $finishReason = (string)($event['finish_reason'] ?? $finishReason);
-                continue;
-            }
-            if ($type === 'tool_calls') {
-                self::mergeToolCalls($toolCalls, (array)($event['tool_calls'] ?? []));
-            }
-            $output .= (string)($event['content'] ?? '');
-        }
-        if (trim($output) === '' && empty($toolCalls)) {
-            throw new Exception(self::emptyTextError($finishReason, count(self::normalizeReferenceImages((array)($params['reference_images'] ?? $params['image_urls'] ?? [])))));
-        }
-
-        $billing = self::consumeTextUsage($tenantId, $userId, $history, $output, $model, $usage, $providerRequestId, [
-            'source_app_code' => (string)($params['source_app_code'] ?? 'aigc_canvas'),
-            'source_type' => (string)($params['source_type'] ?? 'text'),
-            'source_id' => (string)($params['source_id'] ?? ''),
-            'finish_reason' => $finishReason,
-            'reference_image_count' => count(self::normalizeReferenceImages((array)($params['reference_images'] ?? $params['image_urls'] ?? []))),
-        ]);
-
-        return [
-            'content' => $output,
-            'model_code' => (string)($model['code'] ?? ''),
-            'channel_code' => (string)($model['channel_code'] ?? ''),
-            'finish_reason' => $finishReason,
-            'usage' => $billing['usage'],
-            'billing' => $billing['billing'],
-            'charge_points' => $billing['billing']['user_charge_points'],
-            'provider_request_id' => $providerRequestId,
-            'tool_calls' => array_values($toolCalls),
-        ];
+        return self::generateMarketText($tenantId, $userId, $params, $config);
     }
 
     public static function streamText(int $tenantId, int $userId, array $params, ?callable $onEvent = null): array
@@ -648,150 +520,102 @@ class AigcLlmService
             throw new Exception('对话应用已停用');
         }
         self::checkSensitiveWords($tenantId, $content);
+        return self::generateMarketText($tenantId, $userId, $params, $config, $onEvent);
+    }
 
-        $model = AigcLlmChannelService::resolveUserModel($tenantId, [
-            'model_code' => (string)($params['model_code'] ?? $params['model'] ?? ''),
-        ], $config);
-        $model = self::applyTextModelOverrides($model, $params);
-        $systemPrompt = trim((string)($params['system_prompt'] ?? ''));
-        if ($systemPrompt === '') {
-            $systemPrompt = (string)($config['config_json']['system_prompt'] ?? '');
-        }
-        $referenceImages = self::normalizeReferenceImages((array)($params['reference_images'] ?? $params['image_urls'] ?? []));
-        $history = self::buildTextHistory($content, $referenceImages);
-        $precheck = self::estimateBilling($history, '', $model);
-        if ((float)$precheck['tenant_cost_points'] > 0 || (float)$precheck['user_charge_points'] > 0) {
-            PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$precheck['tenant_cost_points'], (float)$precheck['user_charge_points']);
-        }
-
-        $request = new AigcLlmGenerateRequest(
-            $tenantId,
-            $userId,
-            0,
-            $systemPrompt,
-            (string)($model['channel_code'] ?? ''),
-            (string)($model['code'] ?? ''),
-            $history,
-            $model,
-            self::resolveChannelConfig($tenantId, (string)($model['channel_code'] ?? '')),
-            self::normalizeTools($params['tools'] ?? []),
-            $params['tool_choice'] ?? null,
-            self::normalizeResponseFormat($params['response_format'] ?? [])
-        );
-
-        $provider = self::providerFor((string)($model['provider'] ?? 'openai_compatible'));
-        $output = '';
-        $usage = [];
-        $finishReason = 'stop';
-        $providerRequestId = '';
-        $emittedProviderRequestId = '';
-        $toolCalls = [];
-        foreach ($provider->stream($request) as $event) {
-            if (!empty($event['provider_request_id'])) {
-                $providerRequestId = (string)$event['provider_request_id'];
-                if ($onEvent && $providerRequestId !== $emittedProviderRequestId) {
-                    $emittedProviderRequestId = $providerRequestId;
-                    $onEvent('provider_request', ['provider_request_id' => $providerRequestId]);
-                }
-            }
-            $type = (string)($event['type'] ?? 'delta');
-            if ($type === 'usage') {
-                $usage = (array)($event['usage'] ?? []);
-                continue;
-            }
-            if ($type === 'done') {
-                $finishReason = (string)($event['finish_reason'] ?? $finishReason);
-                continue;
-            }
-            if ($type === 'tool_calls') {
-                self::mergeToolCalls($toolCalls, (array)($event['tool_calls'] ?? []));
-                if ($onEvent) {
-                    $onEvent('tool_calls', ['tool_calls' => array_values($toolCalls)]);
-                }
-            }
-            $delta = (string)($event['content'] ?? '');
-            if ($delta === '') {
-                continue;
-            }
-            $output .= $delta;
-            if ($onEvent) {
-                $onEvent('delta', ['delta' => $delta]);
-            }
-        }
-        if (trim($output) === '' && empty($toolCalls)) {
-            throw new Exception(self::emptyTextError($finishReason, count($referenceImages)));
-        }
-
-        $billing = self::consumeTextUsage($tenantId, $userId, $history, $output, $model, $usage, $providerRequestId, [
-            'source_app_code' => (string)($params['source_app_code'] ?? 'aigc_canvas'),
-            'source_type' => (string)($params['source_type'] ?? 'text'),
-            'source_id' => (string)($params['source_id'] ?? ''),
-            'finish_reason' => $finishReason,
-            'reference_image_count' => count($referenceImages),
-        ]);
-
+    /** @return array<string, mixed> */
+    private static function resolveMarketChatModel(int $tenantId, array $params): array
+    {
+        $selection = trim((string)($params['model_code'] ?? $params['model'] ?? ''));
+        $model = MarketTextModelRuntimeService::resolveModel($tenantId, $selection);
         return [
-            'content' => $output,
-            'model_code' => (string)($model['code'] ?? ''),
-            'channel_code' => (string)($model['channel_code'] ?? ''),
-            'finish_reason' => $finishReason,
-            'usage' => $billing['usage'],
-            'billing' => $billing['billing'],
-            'charge_points' => $billing['billing']['user_charge_points'],
-            'provider_request_id' => $providerRequestId,
-            'tool_calls' => array_values($toolCalls),
+            'code' => 'market_text_' . (int)$model['product_id'],
+            'market_product_id' => (int)$model['product_id'],
+            'channel_code' => (string)$model['channel_code'],
+            'model' => (string)$model['model_code'],
+            'provider' => 'power_market',
         ];
     }
 
-    private static function normalizeTools($tools): array
+    /** @return array<string, mixed> */
+    private static function generateMarketText(int $tenantId, int $userId, array $params, array $config, ?callable $onEvent = null): array
     {
-        return is_array($tools) ? array_values(array_filter($tools, 'is_array')) : [];
+        $content = trim((string)($params['content'] ?? $params['prompt'] ?? ''));
+        $systemPrompt = trim((string)($params['system_prompt'] ?? ''));
+        $params['content'] = $content;
+        $params['system_prompt'] = $systemPrompt !== '' ? $systemPrompt : (string)($config['config_json']['system_prompt'] ?? '');
+        $params['reference_images'] = self::normalizeReferenceImages((array)($params['reference_images'] ?? $params['image_urls'] ?? []));
+        $params['model_selection'] = trim((string)($params['model_code'] ?? $params['model'] ?? ''));
+        $params['source_app_code'] = (string)($params['source_app_code'] ?? self::APP_CODE);
+        $params['app_code'] = (string)($params['app_code'] ?? $params['source_app_code']);
+        return MarketTextModelRuntimeService::generate($tenantId, $userId, $params, $onEvent);
     }
 
-    private static function normalizeResponseFormat($format): array
+    /** @return array{usage:array<string,mixed>, billing:array<string,mixed>} */
+    private static function finishChatWithMarketBilling(int $tenantId, int $userId, int $sessionId, int $messageId, string $output, string $status, string $finishReason, array $model, array $result): array
     {
-        if (is_string($format)) {
-            $decoded = json_decode($format, true);
-            $format = is_array($decoded) ? $decoded : [];
-        }
-        return is_array($format) ? $format : [];
-    }
-
-    private static function mergeToolCalls(array &$current, array $incoming): void
-    {
-        foreach ($incoming as $position => $call) {
-            if (!is_array($call)) {
-                continue;
-            }
-            $index = (int)($call['index'] ?? $position);
-            $existing = $current[$index] ?? [
-                'id' => '',
-                'type' => 'function',
-                'function' => ['name' => '', 'arguments' => ''],
-            ];
-            $existing['id'] = (string)($call['id'] ?? $existing['id']);
-            $existing['type'] = (string)($call['type'] ?? $existing['type']);
-            $existing['function']['name'] .= (string)($call['name'] ?? '');
-            $existing['function']['arguments'] .= (string)($call['arguments'] ?? '');
-            $current[$index] = $existing;
-        }
-        ksort($current);
-    }
-
-    private static function providerFor(string $provider): AigcLlmProviderInterface
-    {
-        if (in_array($provider, ['openai_compatible', 'qwen', 'deepseek', 'doubao'], true)) {
-            return new OpenAiCompatibleLlmProvider();
-        }
-        throw new Exception('不支持的对话通道类型，请配置 OpenAI 兼容通道');
+        $usage = (array)($result['usage'] ?? []);
+        $billing = (array)($result['billing'] ?? []);
+        $usageJson = [
+            'prompt_tokens' => (int)($usage['prompt_tokens'] ?? 0),
+            'completion_tokens' => (int)($usage['completion_tokens'] ?? 0),
+            'total_tokens' => (int)($usage['total_tokens'] ?? 0),
+            'provider_reported' => !empty($usage['provider_reported']),
+            'channel_code' => (string)($result['channel_code'] ?? $model['channel_code'] ?? ''),
+            'model_code' => (string)($model['code'] ?? ''),
+            'provider' => 'power_market',
+            'provider_model' => (string)($result['model_code'] ?? $model['model'] ?? ''),
+            'billing' => $billing,
+            'market_product_id' => (int)($model['market_product_id'] ?? 0),
+            'app_task_id' => (int)($result['app_task_id'] ?? 0),
+            'consumption_id' => (int)($result['consumption_id'] ?? 0),
+        ];
+        Db::transaction(function () use ($tenantId, $userId, $sessionId, $messageId, $output, $status, $finishReason, $model, $result, $usage, $billing, $usageJson): void {
+            AigcLlmUsage::create([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'session_id' => $sessionId,
+                'message_id' => $messageId,
+                'channel_code' => (string)($result['channel_code'] ?? $model['channel_code'] ?? ''),
+                'model_code' => (string)($model['code'] ?? ''),
+                'provider' => 'power_market',
+                'provider_model' => (string)($result['model_code'] ?? $model['model'] ?? ''),
+                'provider_request_id' => (string)($result['provider_request_id'] ?? ''),
+                'prompt_tokens' => (int)($usage['prompt_tokens'] ?? 0),
+                'completion_tokens' => (int)($usage['completion_tokens'] ?? 0),
+                'total_tokens' => (int)($usage['total_tokens'] ?? 0),
+                'tenant_cost_points' => (float)($billing['tenant_cost_points'] ?? 0),
+                'user_charge_points' => (float)($billing['user_charge_points'] ?? 0),
+                'billing_status' => (string)($billing['billing_status'] ?? 'pending_usage'),
+                'tenant_point_sn' => '',
+                'user_point_sn' => '',
+                'price_json' => ['price_source' => 'power_market_text_model', 'market_product_id' => (int)($model['market_product_id'] ?? 0)],
+                'extra_json' => ['finish_reason' => $finishReason, 'app_task_id' => (int)($result['app_task_id'] ?? 0), 'consumption_id' => (int)($result['consumption_id'] ?? 0)],
+                'create_time' => time(),
+                'update_time' => time(),
+            ]);
+            self::finishAssistantMessage($tenantId, $messageId, [
+                'content' => $output,
+                'status' => $status,
+                'finish_reason' => $finishReason,
+                'token_usage_json' => $usageJson,
+            ]);
+            self::finishSession($sessionId, $tenantId);
+        });
+        return [
+            'usage' => $usageJson,
+            'billing' => [
+                'billing_status' => (string)($billing['billing_status'] ?? 'pending_usage'),
+                'tenant_cost_points' => (float)($billing['tenant_cost_points'] ?? 0),
+                'user_charge_points' => (float)($billing['user_charge_points'] ?? 0),
+                'billing_unit' => 'token',
+            ],
+        ];
     }
 
     private static function defaultConfig(): array
     {
         return [
-            'provider_mode' => 'platform',
-            'provider' => 'openai_compatible',
-            'model' => 'qwen3_6_plus',
             'status' => 1,
             'config_json' => [
                 'system_prompt' => '',
@@ -849,245 +673,6 @@ class AigcLlmService
             $tokens += self::estimateTokensFromText(self::messageText((array)$message));
         }
         return max(1, $tokens);
-    }
-
-    private static function buildUsage(array $history, string $output, array $providerUsage = [], array $model = [], array $extra = []): array
-    {
-        $inputChars = 0;
-        foreach ($history as $message) {
-            $inputChars += mb_strlen(self::messageText((array)$message), 'UTF-8');
-        }
-        $promptTokens = (int)($providerUsage['prompt_tokens'] ?? 0);
-        $completionTokens = (int)($providerUsage['completion_tokens'] ?? 0);
-        if ($promptTokens <= 0) {
-            $promptTokens = self::estimateTokensFromMessages($history);
-            $providerUsage['estimated'] = true;
-        }
-        if ($completionTokens <= 0) {
-            $completionTokens = self::estimateTokensFromText($output);
-            $providerUsage['estimated'] = true;
-        }
-        $totalTokens = (int)($providerUsage['total_tokens'] ?? 0);
-        if ($totalTokens <= 0) {
-            $totalTokens = $promptTokens + $completionTokens;
-        }
-        return [
-            'input_chars' => $inputChars,
-            'output_chars' => mb_strlen($output, 'UTF-8'),
-            'message_count' => count($history),
-            'prompt_tokens' => $promptTokens,
-            'completion_tokens' => $completionTokens,
-            'total_tokens' => $totalTokens,
-            'estimated' => (bool)($providerUsage['estimated'] ?? false),
-            'channel_code' => (string)($model['channel_code'] ?? ''),
-            'model_code' => (string)($model['code'] ?? ''),
-            'provider' => (string)($model['provider'] ?? ''),
-            'provider_model' => (string)($model['model'] ?? ''),
-            'billing' => $extra,
-        ];
-    }
-
-    private static function estimateBilling(array $history, string $output, array $model, array $providerUsage = []): array
-    {
-        $usage = self::buildUsage($history, $output, $providerUsage, $model);
-        $tenantCost = ((int)$usage['prompt_tokens'] * (float)($model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? 0) + (int)$usage['completion_tokens'] * (float)($model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)) / 1000000;
-        $userCharge = ((int)$usage['prompt_tokens'] * (float)($model['tenant_input_unit_price'] ?? $model['tenant_unit_price'] ?? 0) + (int)$usage['completion_tokens'] * (float)($model['tenant_output_unit_price'] ?? $model['tenant_unit_price'] ?? 0)) / 1000000;
-        return [
-            'usage' => $usage,
-            'tenant_cost_points' => self::formatBillingPoints($tenantCost),
-            'user_charge_points' => self::formatBillingPoints($userCharge),
-            'price' => [
-                'platform_input_unit_cost' => self::formatUnitPrice((float)($model['platform_input_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)),
-                'platform_output_unit_cost' => self::formatUnitPrice((float)($model['platform_output_unit_cost'] ?? $model['platform_unit_cost'] ?? 0)),
-                'tenant_input_unit_price' => self::formatUnitPrice((float)($model['tenant_input_unit_price'] ?? $model['tenant_unit_price'] ?? 0)),
-                'tenant_output_unit_price' => self::formatUnitPrice((float)($model['tenant_output_unit_price'] ?? $model['tenant_unit_price'] ?? 0)),
-                'billing_unit' => 'tokens_1m',
-            ],
-        ];
-    }
-
-    private static function finishChatWithBilling(int $tenantId, int $userId, int $sessionId, int $messageId, string $output, string $status, string $finishReason, array $context, array $providerUsage, string $providerRequestId): array
-    {
-        $billing = self::estimateBilling($context['history'], $output, $context['model'], $providerUsage);
-        $usage = $billing['usage'];
-        $billingStatus = 'none';
-        $sourceSn = (string)$messageId;
-        Db::startTrans();
-        try {
-            if ((float)$billing['tenant_cost_points'] > 0 || (float)$billing['user_charge_points'] > 0) {
-                PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$billing['tenant_cost_points'], (float)$billing['user_charge_points'], $sourceSn, 'AIGC对话消费', [
-                    'app_code' => self::APP_CODE,
-                    'session_id' => $sessionId,
-                    'message_id' => $messageId,
-                    'channel_code' => (string)($context['model']['channel_code'] ?? ''),
-                    'model_code' => (string)($context['model']['code'] ?? ''),
-                    'prompt_tokens' => (int)$usage['prompt_tokens'],
-                    'completion_tokens' => (int)$usage['completion_tokens'],
-                ]);
-                $billingStatus = 'deducted';
-            }
-            AigcLlmUsage::create([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'session_id' => $sessionId,
-                'message_id' => $messageId,
-                'channel_code' => (string)($context['model']['channel_code'] ?? ''),
-                'model_code' => (string)($context['model']['code'] ?? ''),
-                'provider' => (string)($context['model']['provider'] ?? ''),
-                'provider_model' => (string)($context['model']['model'] ?? ''),
-                'provider_request_id' => $providerRequestId,
-                'prompt_tokens' => (int)$usage['prompt_tokens'],
-                'completion_tokens' => (int)$usage['completion_tokens'],
-                'total_tokens' => (int)$usage['total_tokens'],
-                'tenant_cost_points' => $billing['tenant_cost_points'],
-                'user_charge_points' => $billing['user_charge_points'],
-                'billing_status' => $billingStatus,
-                'tenant_point_sn' => $billingStatus === 'deducted' ? $sourceSn : '',
-                'user_point_sn' => $billingStatus === 'deducted' ? $sourceSn : '',
-                'price_json' => $billing['price'],
-                'extra_json' => [
-                    'finish_reason' => $finishReason,
-                ],
-                'create_time' => time(),
-                'update_time' => time(),
-            ]);
-            $usageJson = self::buildUsage($context['history'], $output, $providerUsage, $context['model'], [
-                'billing_status' => $billingStatus,
-                'tenant_cost_points' => $billing['tenant_cost_points'],
-                'user_charge_points' => $billing['user_charge_points'],
-                'provider_request_id' => $providerRequestId,
-                'price' => $billing['price'],
-            ]);
-            self::finishAssistantMessage($tenantId, $messageId, [
-                'content' => $output,
-                'status' => $status,
-                'finish_reason' => $finishReason,
-                'token_usage_json' => $usageJson,
-            ]);
-            self::finishSession($sessionId, $tenantId);
-            Db::commit();
-            return [
-                'usage' => $usageJson,
-                'billing' => [
-                    'billing_status' => $billingStatus,
-                    'tenant_cost_points' => $billing['tenant_cost_points'],
-                    'user_charge_points' => $billing['user_charge_points'],
-                    'billing_unit' => 'tokens_1m',
-                ],
-            ];
-        } catch (Throwable $e) {
-            Db::rollback();
-            AigcLlmUsage::create([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'session_id' => $sessionId,
-                'message_id' => $messageId,
-                'channel_code' => (string)($context['model']['channel_code'] ?? ''),
-                'model_code' => (string)($context['model']['code'] ?? ''),
-                'provider' => (string)($context['model']['provider'] ?? ''),
-                'provider_model' => (string)($context['model']['model'] ?? ''),
-                'provider_request_id' => $providerRequestId,
-                'prompt_tokens' => (int)$usage['prompt_tokens'],
-                'completion_tokens' => (int)$usage['completion_tokens'],
-                'total_tokens' => (int)$usage['total_tokens'],
-                'tenant_cost_points' => $billing['tenant_cost_points'],
-                'user_charge_points' => $billing['user_charge_points'],
-                'billing_status' => 'deduct_failed',
-                'price_json' => $billing['price'],
-                'extra_json' => [
-                    'finish_reason' => $finishReason,
-                    'error' => $e->getMessage(),
-                ],
-                'create_time' => time(),
-                'update_time' => time(),
-            ]);
-            throw $e;
-        }
-    }
-
-    private static function consumeTextUsage(int $tenantId, int $userId, array $history, string $output, array $model, array $providerUsage, string $providerRequestId, array $extra = []): array
-    {
-        $billing = self::estimateBilling($history, $output, $model, $providerUsage);
-        $usage = $billing['usage'];
-        $billingStatus = 'none';
-        $sourceSn = 'llm_text_' . md5($tenantId . '_' . $userId . '_' . microtime(true));
-        Db::startTrans();
-        try {
-            if ((float)$billing['tenant_cost_points'] > 0 || (float)$billing['user_charge_points'] > 0) {
-                PointService::consumeBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)$billing['tenant_cost_points'], (float)$billing['user_charge_points'], $sourceSn, 'AIGC文本消费', [
-                    'app_code' => (string)($extra['source_app_code'] ?? self::APP_CODE),
-                    'channel_code' => (string)($model['channel_code'] ?? ''),
-                    'model_code' => (string)($model['code'] ?? ''),
-                    'prompt_tokens' => (int)$usage['prompt_tokens'],
-                    'completion_tokens' => (int)$usage['completion_tokens'],
-                    'source_type' => (string)($extra['source_type'] ?? 'text'),
-                    'source_id' => (string)($extra['source_id'] ?? ''),
-                ]);
-                $billingStatus = 'deducted';
-            }
-            AigcLlmUsage::create([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'session_id' => 0,
-                'message_id' => 0,
-                'channel_code' => (string)($model['channel_code'] ?? ''),
-                'model_code' => (string)($model['code'] ?? ''),
-                'provider' => (string)($model['provider'] ?? ''),
-                'provider_model' => (string)($model['model'] ?? ''),
-                'provider_request_id' => $providerRequestId,
-                'prompt_tokens' => (int)$usage['prompt_tokens'],
-                'completion_tokens' => (int)$usage['completion_tokens'],
-                'total_tokens' => (int)$usage['total_tokens'],
-                'tenant_cost_points' => $billing['tenant_cost_points'],
-                'user_charge_points' => $billing['user_charge_points'],
-                'billing_status' => $billingStatus,
-                'tenant_point_sn' => $billingStatus === 'deducted' ? $sourceSn : '',
-                'user_point_sn' => $billingStatus === 'deducted' ? $sourceSn : '',
-                'price_json' => $billing['price'],
-                'extra_json' => array_merge($extra, [
-                    'output_chars' => mb_strlen($output, 'UTF-8'),
-                ]),
-                'create_time' => time(),
-                'update_time' => time(),
-            ]);
-            Db::commit();
-            return [
-                'usage' => self::buildUsage($history, $output, $providerUsage, $model, [
-                    'billing_status' => $billingStatus,
-                    'tenant_cost_points' => $billing['tenant_cost_points'],
-                    'user_charge_points' => $billing['user_charge_points'],
-                    'provider_request_id' => $providerRequestId,
-                    'price' => $billing['price'],
-                ]),
-                'billing' => [
-                    'billing_status' => $billingStatus,
-                    'tenant_cost_points' => $billing['tenant_cost_points'],
-                    'user_charge_points' => $billing['user_charge_points'],
-                    'billing_unit' => 'tokens_1m',
-                ],
-            ];
-        } catch (Throwable $e) {
-            Db::rollback();
-            throw $e;
-        }
-    }
-
-    private static function resolveChannelConfig(int $tenantId, string $channelCode): array
-    {
-        $tenantChannelConfig = AigcLlmChannel::where([
-            'tenant_id' => $tenantId,
-            'code' => $channelCode,
-        ])->value('config_json');
-        $platformChannelConfig = AigcLlmChannel::where([
-            'tenant_id' => 0,
-            'code' => $channelCode,
-        ])->value('config_json');
-        $channelConfig = array_merge(self::normalizeJson($platformChannelConfig), self::normalizeJson($tenantChannelConfig));
-        if (empty($channelConfig['api_key'])) {
-            $platformConfig = self::normalizeJson($platformChannelConfig);
-            $channelConfig['api_key'] = (string)($platformConfig['api_key'] ?? '');
-        }
-        return $channelConfig;
     }
 
     private static function finishAssistantMessage(int $tenantId, int $messageId, array $data): void

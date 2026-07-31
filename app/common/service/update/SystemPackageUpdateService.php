@@ -94,12 +94,45 @@ class SystemPackageUpdateService
             'current_version' => $current,
             'latest' => $latest,
             'versions' => $versions,
+            'current_version_log' => $this->versionRecord($versions, $current),
+            'worker' => $this->workerGuide(),
             'ignored_version' => $ignored,
             'has_update' => $latestVersion !== '' && version_compare($latestVersion, $current, '>'),
             'is_ignored' => $latestVersion !== '' && $latestVersion === $ignored,
             'environment' => $environment,
             'error' => $error,
         ];
+    }
+
+    private function workerGuide(): array
+    {
+        $directory = rtrim(root_path(), DIRECTORY_SEPARATOR);
+        $script = $directory . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'start-ai-task-worker.sh';
+        if (!is_file($script) && is_file($directory . DIRECTORY_SEPARATOR . 'server' . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'start-ai-task-worker.sh')) {
+            $directory .= DIRECTORY_SEPARATOR . 'server';
+            $script = $directory . DIRECTORY_SEPARATOR . 'scripts' . DIRECTORY_SEPARATOR . 'start-ai-task-worker.sh';
+        }
+
+        return [
+            'name' => 'aigc-task-worker',
+            'start_user' => 'root',
+            'process_count' => '1',
+            'priority' => '999',
+            'remark' => 'AI 任务守护进程',
+            'directory' => $directory,
+            'start_command' => '/bin/sh ' . escapeshellarg($script),
+            'log_command' => 'tail -f ' . escapeshellarg($directory . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'log' . DIRECTORY_SEPARATOR . 'ai_task_worker.log'),
+        ];
+    }
+
+    private function versionRecord(array $versions, string $version): array
+    {
+        foreach ($versions as $item) {
+            if ($this->versionOf($item) === $version) {
+                return $item;
+            }
+        }
+        return ['version' => $version];
     }
 
     public function downloadPackage(string $targetVersion, string $currentVersion = ''): array
@@ -320,11 +353,11 @@ class SystemPackageUpdateService
             if (!$this->applySqlGroup($extractPath, $manifest, 'data')) {
                 throw new RuntimeException('更新数据库数据失败');
             }
-            $this->applyFullReplaceDirs($extractPath, $manifest);
-            $this->applyDeleteFiles($manifest);
             if (!UpgradeLogic::upgradeFile($extractPath . '/files/', UpgradeLogic::getProjectPath())) {
                 throw new RuntimeException('更新文件失败');
             }
+            $this->applyFullReplaceDirs($extractPath, $manifest);
+            $this->applyDeleteFiles($manifest);
             Db::commit();
             if (!$this->applySqlGroup($extractPath, $manifest, 'structure')) {
                 throw new RuntimeException('更新数据库结构失败');
@@ -491,6 +524,7 @@ class SystemPackageUpdateService
 
     private function selectNextVersion(array $versions, string $current): array
     {
+        $versions = array_values(array_filter($versions, fn (array $item): bool => $this->isVersionEnabled($item)));
         if (!$versions) {
             return [];
         }
@@ -540,6 +574,27 @@ class SystemPackageUpdateService
             }
         }
         return [];
+    }
+
+    private function isVersionEnabled(array $item): bool
+    {
+        foreach (['status', 'enabled', 'is_enabled', 'is_published', 'published', 'release_status'] as $field) {
+            if (!array_key_exists($field, $item)) {
+                continue;
+            }
+            $value = $item[$field];
+            if (is_bool($value)) {
+                return $value;
+            }
+            if (is_numeric($value)) {
+                return (int)$value === 1;
+            }
+            $value = strtolower(trim((string)$value));
+            if (in_array($value, ['0', 'false', 'off', 'disabled', 'down', 'unpublished'], true)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private function versionOf(array $item): string
@@ -651,6 +706,7 @@ class SystemPackageUpdateService
                 throw new RuntimeException('增量系统包不允许删除路径: ' . $relative);
             }
         }
+        $declaredSql = [];
         foreach ($manifest['sql_order'] as $file) {
             $relative = $this->normalizePackagePath((string)$file);
             $this->assertSafeUpdatePath($relative, false);
@@ -660,9 +716,58 @@ class SystemPackageUpdateService
             if ($this->isReadmeSql($relative)) {
                 throw new RuntimeException('增量系统包 sql_order 不允许声明说明文件: ' . $relative);
             }
+            if (strtolower(basename($relative)) === 'install.sql') {
+                throw new RuntimeException('增量系统包不允许执行全新安装 SQL: ' . $relative);
+            }
             if (!is_file(rtrim($extractPath, '/') . '/' . $relative)) {
                 throw new RuntimeException('增量系统包 sql_order 声明的文件不存在: ' . $relative);
             }
+            $declaredSql[$relative] = true;
+        }
+        $this->assertIncrementalSqlDirectorySafe($extractPath, $declaredSql);
+    }
+
+    private function assertIncrementalSqlDirectorySafe(string $extractPath, array $declaredSql): void
+    {
+        foreach (['sql/data', 'sql/structure'] as $directory) {
+            $root = rtrim($extractPath, '/') . '/' . $directory;
+            if (!is_dir($root)) {
+                continue;
+            }
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($iterator as $item) {
+                if ($item->isLink()) {
+                    throw new RuntimeException('增量系统包 SQL 目录不允许符号链接: ' . $item->getPathname());
+                }
+                if (!$item->isFile() || strtolower($item->getExtension()) !== 'sql') {
+                    continue;
+                }
+                $relative = $this->normalizePackagePath(substr($item->getPathname(), strlen(rtrim($extractPath, '/')) + 1));
+                if ($this->isReadmeSql($relative)) {
+                    continue;
+                }
+                if (strtolower(basename($relative)) === 'install.sql') {
+                    throw new RuntimeException('增量系统包不允许包含全新安装 SQL: ' . $relative);
+                }
+                if (!isset($declaredSql[$relative])) {
+                    throw new RuntimeException('增量系统包 SQL 文件未声明执行顺序: ' . $relative);
+                }
+                $this->assertIncrementalSqlSafe($relative, $item->getPathname());
+            }
+        }
+    }
+
+    private function assertIncrementalSqlSafe(string $relative, string $path): void
+    {
+        $content = (string)file_get_contents($path);
+        $content = preg_replace_callback('/\/\*!\d*\s*([\s\S]*?)\*\//', static fn (array $match) => ' ' . $match[1] . ' ', $content) ?? $content;
+        $content = preg_replace('/\/\*(?!\!)[\s\S]*?\*\//', ' ', $content) ?? $content;
+        $content = preg_replace('/--[ \t][^\r\n]*/', ' ', $content) ?? $content;
+        $content = preg_replace('/#[^\r\n]*/', ' ', $content) ?? $content;
+        if (preg_match('/\b(?:DROP|TRUNCATE)\s+(?:TABLE|DATABASE)\b/i', $content)) {
+            throw new RuntimeException('增量系统包不允许执行破坏性 SQL: ' . $relative);
         }
     }
 
@@ -701,6 +806,7 @@ class SystemPackageUpdateService
         if (!is_array($dirs)) {
             throw new RuntimeException('full_replace_dirs 格式错误');
         }
+        $replacements = [];
         foreach ($dirs as $dir) {
             $relative = $this->normalizePackagePath((string)$dir);
             $this->assertSafeUpdatePath($relative, true);
@@ -712,7 +818,43 @@ class SystemPackageUpdateService
                 throw new RuntimeException('全量覆盖目录不存在: ' . $relative);
             }
             $target = rtrim(UpgradeLogic::getProjectPath(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $relative;
-            $this->clearDirectory($target);
+            $suffix = '.update-' . bin2hex(random_bytes(8));
+            $stage = $target . $suffix . '.stage';
+            $backup = $target . $suffix . '.backup';
+            $this->copyDirectory($source, $stage);
+            $replacements[] = compact('relative', 'target', 'stage', 'backup');
+        }
+
+        $swapped = [];
+        try {
+            foreach ($replacements as $replacement) {
+                if (file_exists($replacement['target']) && !@rename($replacement['target'], $replacement['backup'])) {
+                    throw new RuntimeException('无法备份全量覆盖目录: ' . $replacement['relative']);
+                }
+                if (!@rename($replacement['stage'], $replacement['target'])) {
+                    if (is_dir($replacement['backup'])) {
+                        @rename($replacement['backup'], $replacement['target']);
+                    }
+                    throw new RuntimeException('无法替换全量覆盖目录: ' . $replacement['relative']);
+                }
+                $swapped[] = $replacement;
+            }
+        } catch (Throwable $e) {
+            foreach (array_reverse($swapped) as $replacement) {
+                $this->removeDirectory($replacement['target']);
+                if (is_dir($replacement['backup'])) {
+                    @rename($replacement['backup'], $replacement['target']);
+                }
+            }
+            throw $e;
+        } finally {
+            foreach ($replacements as $replacement) {
+                $this->removeDirectory($replacement['stage']);
+            }
+        }
+
+        foreach ($swapped as $replacement) {
+            $this->removeDirectory($replacement['backup']);
         }
     }
 
@@ -795,6 +937,49 @@ class SystemPackageUpdateService
             } else {
                 @unlink($item->getPathname());
             }
+        }
+    }
+
+    private function copyDirectory(string $source, string $target): void
+    {
+        if (file_exists($target)) {
+            throw new RuntimeException('全量覆盖临时目录已存在: ' . $target);
+        }
+        if (!@mkdir($target, 0777, true) && !is_dir($target)) {
+            throw new RuntimeException('无法创建全量覆盖临时目录: ' . $target);
+        }
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($source, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::SELF_FIRST
+            );
+            foreach ($iterator as $item) {
+                if ($item->isLink()) {
+                    throw new RuntimeException('全量覆盖源目录包含符号链接: ' . $item->getPathname());
+                }
+                $destination = $target . DIRECTORY_SEPARATOR . $iterator->getSubPathName();
+                if ($item->isDir()) {
+                    if (!@mkdir($destination, 0777, true) && !is_dir($destination)) {
+                        throw new RuntimeException('无法创建全量覆盖子目录: ' . $destination);
+                    }
+                } elseif ($item->isFile() && !@copy($item->getPathname(), $destination)) {
+                    throw new RuntimeException('无法复制全量覆盖文件: ' . $item->getPathname());
+                }
+            }
+        } catch (Throwable $e) {
+            $this->removeDirectory($target);
+            throw $e;
+        }
+    }
+
+    private function removeDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $this->clearDirectory($dir);
+        if (!@rmdir($dir)) {
+            throw new RuntimeException('无法清理更新临时目录: ' . $dir);
         }
     }
 

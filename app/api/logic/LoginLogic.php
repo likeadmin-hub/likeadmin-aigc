@@ -22,6 +22,7 @@ use app\common\model\user\User;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
 use app\common\service\user\RegisterBonusService;
+use app\common\service\distribution\DistributionService;
 use app\common\service\wechat\WeChatConfigService;
 use app\common\service\wechat\WeChatOaService;
 use app\common\service\wechat\WeChatRequestService;
@@ -51,22 +52,29 @@ class LoginLogic extends BaseLogic
     public static function register(array $params)
     {
         try {
-            $userSn = User::createUserSn();
-            $passwordSalt = Config::get('project.unique_identification');
-            $password = create_password($params['password'], $passwordSalt);
-            $avatar = ConfigService::get('default_image', 'user_avatar');
-
-            $user = User::create([
-                'sn' => $userSn,
-                'tenant_id' => request()->tenantId,
-                'avatar' => $avatar,
-                'nickname' => '用户' . $userSn,
-                'account' => $params['account'],
-                'password' => $password,
-                'channel' => $params['channel'],
-                'is_new_user' => YesNoEnum::YES,
-            ]);
-            RegisterBonusService::grantIfEnabled((int)$user['id']);
+            Db::transaction(function () use ($params) {
+                $userSn = User::createUserSn();
+                $passwordSalt = Config::get('project.unique_identification');
+                $password = create_password($params['password'], $passwordSalt);
+                $avatar = ConfigService::get('default_image', 'user_avatar');
+                $inviteCode = (string)($params['invite_code'] ?? '');
+                $tenantId = trim($inviteCode) === ''
+                    ? (int)request()->tenantId
+                    : DistributionService::tenantIdByInviteCode($inviteCode);
+                request()->tenantId = $tenantId;
+                $user = User::create([
+                    'sn' => $userSn,
+                    'tenant_id' => $tenantId,
+                    'avatar' => $avatar,
+                    'nickname' => '用户' . $userSn,
+                    'account' => $params['account'],
+                    'password' => $password,
+                    'channel' => $params['channel'],
+                    'is_new_user' => YesNoEnum::YES,
+                ]);
+                DistributionService::bindInviteCode($tenantId, (int)$user['id'], $inviteCode, 'register');
+                RegisterBonusService::grantIfEnabled((int)$user['id']);
+            });
 
             return true;
         } catch (\Exception $e) {

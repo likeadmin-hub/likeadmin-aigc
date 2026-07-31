@@ -20,6 +20,7 @@ use app\common\model\recharge\RechargeOrder;
 use app\common\model\refund\RefundLog;
 use app\common\model\refund\RefundRecord;
 use app\common\service\pay\WeChatPayService;
+use app\common\service\distribution\DistributionService;
 use think\console\Command;
 use think\console\Input;
 use think\console\Output;
@@ -61,6 +62,13 @@ class QueryRefund extends Command
                 $this->handleRechargeOrder($rechargeRecords);
             }
 
+            $membershipRecords = array_filter($refundRecords, function ($item) {
+                return (string)$item['order_type'] === 'membership';
+            });
+            if (!empty($membershipRecords)) {
+                $this->handleMembershipOrder($membershipRecords);
+            }
+
             return true;
         } catch (\Exception $e) {
             Log::write('订单退款状态查询失败,失败原因:' . $e->getMessage());
@@ -98,6 +106,26 @@ class QueryRefund extends Command
                 'log_sn' => $record['log_sn'],
                 'pay_way' => $order['pay_way'],
                 'order_terminal' => $order['order_terminal'],
+            ]);
+        }
+    }
+
+    /** Future membership refunds use the same provider-final-success boundary. */
+    public function handleMembershipOrder($refundRecords)
+    {
+        $orderIds = array_unique(array_column($refundRecords, 'order_id'));
+        $orders = \app\common\model\membership\MembershipOrder::whereIn('id', $orderIds)->column('*', 'id');
+        foreach ($refundRecords as $record) {
+            if (!isset($orders[$record['order_id']])) {
+                continue;
+            }
+            $order = $orders[$record['order_id']];
+            if (!in_array($order['pay_way'], [PayEnum::WECHAT_PAY, PayEnum::ALI_PAY], true)) {
+                continue;
+            }
+            $this->checkReFundStatus([
+                'record_id' => $record['record_id'], 'log_id' => $record['log_id'], 'log_sn' => $record['log_sn'],
+                'pay_way' => $order['pay_way'], 'order_terminal' => $order['order_terminal'],
             ]);
         }
     }
@@ -178,6 +206,12 @@ class QueryRefund extends Command
         RefundRecord::update([
             'refund_status' => RefundEnum::REFUND_SUCCESS,
         ], ['id' => $recordId]);
+        $record = RefundRecord::where('id', $recordId)->findOrEmpty();
+        if (!$record->isEmpty() && (string)$record['order_type'] === RefundEnum::ORDER_TYPE_RECHARGE) {
+            DistributionService::reverseRechargeByOrderId((int)$record['order_id']);
+        } elseif (!$record->isEmpty() && (string)$record['order_type'] === 'membership') {
+            DistributionService::reverseMembershipByOrderId((int)$record['order_id']);
+        }
     }
 
 

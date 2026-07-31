@@ -37,6 +37,12 @@ class TenantBrandService
     public const OPEN_PENDING = 0;
     public const OPEN_SUCCESS = 1;
     public const OPEN_FAILED = 2;
+    public const RESERVE_NONE = 0;
+    public const RESERVE_ACTIVE = 1;
+    public const RESERVE_CONSUMED = 2;
+    public const RESERVE_RELEASED = 3;
+    public const RESERVE_EXPIRED = 4;
+    public const RESERVE_SECONDS = 1800;
 
     public static function packageRows(int $tenantId, bool $onlyShelf = false): array
     {
@@ -57,7 +63,7 @@ class TenantBrandService
             $packageId = (int)$package['id'];
             $bucket = $buckets[$packageId] ?? [];
             $price = $prices[$packageId] ?? [];
-            $remaining = (int)($bucket['remaining_quota'] ?? 0);
+            $remaining = max(0, (int)($bucket['remaining_quota'] ?? 0) - (int)($bucket['reserved_quota'] ?? 0));
             $salePrice = (float)($price['sale_price'] ?? $package['sale_price'] ?? 0);
             $status = (int)($price['status'] ?? 0);
             if ($onlyShelf && ($status !== self::STATUS_ENABLED || $remaining <= 0)) {
@@ -67,6 +73,7 @@ class TenantBrandService
                 'remaining_quota' => $remaining,
                 'total_quota' => (int)($bucket['total_quota'] ?? 0),
                 'used_quota' => (int)($bucket['used_quota'] ?? 0),
+                'reserved_quota' => (int)($bucket['reserved_quota'] ?? 0),
                 'tenant_sale_price' => self::formatAmount($salePrice),
                 'shelf_status' => $status,
                 'shelf_status_desc' => $status === self::STATUS_ENABLED ? '上架' : '下架',
@@ -181,9 +188,6 @@ class TenantBrandService
         if ($price->isEmpty()) {
             throw new RuntimeException('套餐未上架');
         }
-        if (self::remainingQuota($tenantId, $packageId) <= 0) {
-            throw new RuntimeException('套餐额度不足');
-        }
         $package = TenantPackage::where(['id' => $packageId, 'status' => TenantPackageService::STATUS_ENABLED])->findOrEmpty();
         if ($package->isEmpty()) {
             throw new RuntimeException('平台套餐不存在或已停用');
@@ -197,9 +201,6 @@ class TenantBrandService
             if ($tenantName === '') {
                 throw new RuntimeException('请输入租户名称');
             }
-            if ($domainAlias === '') {
-                throw new RuntimeException('请输入域名别名');
-            }
             if ($account === '') {
                 throw new RuntimeException('请输入管理员账号');
             }
@@ -209,26 +210,33 @@ class TenantBrandService
         }
 
         $orderSn = generate_sn(TenantBrandOrder::class, 'order_sn');
-        $order = TenantBrandOrder::create([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'order_sn' => $orderSn,
-            'order_terminal' => $terminal,
-            'package_id' => $packageId,
-            'package_name' => (string)$package['name'],
-            'quantity' => 1,
-            'unit_price' => self::formatAmount((float)$price['sale_price']),
-            'order_amount' => self::formatAmount((float)$price['sale_price']),
-            'target_tenant_id' => $targetTenantId,
-            'child_tenant_name' => $tenantName,
-            'child_domain_alias' => $domainAlias,
-            'admin_account' => $account,
-            'admin_password_hash' => $password !== '' ? TenantAdminLogic::createPassword($password) : '',
-            'pay_status' => PayEnum::UNPAID,
-            'open_status' => self::OPEN_PENDING,
-            'create_time' => time(),
-            'update_time' => time(),
-        ]);
+        $now = time();
+        $order = Db::transaction(function () use ($tenantId, $userId, $terminal, $packageId, $package, $price, $targetTenantId, $tenantName, $domainAlias, $account, $password, $orderSn, $now) {
+            self::reserveQuota($tenantId, $packageId, 1, $orderSn);
+            return TenantBrandOrder::create([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'order_sn' => $orderSn,
+                'order_terminal' => $terminal,
+                'package_id' => $packageId,
+                'package_name' => (string)$package['name'],
+                'quantity' => 1,
+                'unit_price' => self::formatAmount((float)$price['sale_price']),
+                'order_amount' => self::formatAmount((float)$price['sale_price']),
+                'target_tenant_id' => $targetTenantId,
+                'child_tenant_name' => $tenantName,
+                'child_domain_alias' => $domainAlias,
+                'admin_account' => $account,
+                'admin_password_hash' => $password !== '' ? TenantAdminLogic::createPassword($password) : '',
+                'pay_status' => PayEnum::UNPAID,
+                'open_status' => self::OPEN_PENDING,
+                'reserve_status' => self::RESERVE_ACTIVE,
+                'reserve_time' => $now,
+                'reserve_expire_time' => $now + self::RESERVE_SECONDS,
+                'create_time' => $now,
+                'update_time' => $now,
+            ]);
+        });
         return [
             'order_id' => (int)$order['id'],
             'order_sn' => $orderSn,
@@ -239,48 +247,54 @@ class TenantBrandService
     public static function handleBrandOrderPaid(string $orderSn, array $extra = []): void
     {
         $now = time();
-        try {
-            Db::transaction(function () use ($orderSn, $extra, $now) {
-                $order = TenantBrandOrder::where('order_sn', $orderSn)->lock(true)->findOrEmpty();
-                if ($order->isEmpty()) {
-                    throw new RuntimeException('贴牌订单不存在');
+        Db::transaction(function () use ($orderSn, $extra, $now) {
+            $order = TenantBrandOrder::where('order_sn', $orderSn)->lock(true)->findOrEmpty();
+            if ($order->isEmpty()) throw new RuntimeException('贴牌订单不存在');
+            if ((int)$order['pay_status'] !== PayEnum::ISPAID) {
+                if ((int)$order['reserve_status'] !== self::RESERVE_ACTIVE) {
+                    throw new RuntimeException('订单额度预占已失效');
                 }
-                if ((int)$order['pay_status'] === PayEnum::ISPAID
-                    && in_array((int)$order['open_status'], [self::OPEN_SUCCESS, self::OPEN_FAILED], true)) {
-                    return;
-                }
-                self::decreaseQuota((int)$order['tenant_id'], (int)$order['package_id'], 1, $orderSn, '终端用户购买贴牌套餐');
-                $childTenantId = (int)$order['target_tenant_id'];
-                if ($childTenantId <= 0) {
-                    $childTenantId = self::createChildTenant($order->toArray());
-                }
-                TenantContractService::open($childTenantId, (int)$order['package_id'], 0, '贴牌订单开通/续费', $orderSn);
+                self::consumeReservedQuota((int)$order['tenant_id'], (int)$order['package_id'], 1, $orderSn);
                 $order->save([
-                    'child_tenant_id' => $childTenantId,
                     'transaction_id' => (string)($extra['transaction_id'] ?? ''),
                     'pay_status' => PayEnum::ISPAID,
                     'pay_time' => $now,
-                    'open_status' => self::OPEN_SUCCESS,
-                    'open_time' => $now,
-                    'open_error' => '',
+                    'reserve_status' => self::RESERVE_CONSUMED,
                     'update_time' => $now,
                 ]);
-            });
-        } catch (\Throwable $e) {
-            $order = TenantBrandOrder::where('order_sn', $orderSn)->findOrEmpty();
-            if ($order->isEmpty()) {
-                throw $e;
             }
-            $order->save([
-                'transaction_id' => (string)($extra['transaction_id'] ?? ($order['transaction_id'] ?? '')),
-                'pay_status' => PayEnum::ISPAID,
-                'pay_time' => (int)($order['pay_time'] ?? $now) ?: $now,
-                'open_status' => self::OPEN_FAILED,
-                'open_time' => $now,
-                'open_error' => mb_substr($e->getMessage(), 0, 500),
-                'update_time' => $now,
-            ]);
+        });
+        self::provisionBrandOrder($orderSn);
+    }
+
+    /** Retry only provisioning. The paid order and its consumed quota are never charged again. */
+    public static function retryProvision(string $orderSn): void
+    {
+        $order = TenantBrandOrder::where('order_sn', $orderSn)->findOrEmpty();
+        if ($order->isEmpty() || (int)$order['pay_status'] !== PayEnum::ISPAID) {
+            throw new RuntimeException('仅已支付订单可重试开通');
         }
+        self::provisionBrandOrder($orderSn);
+    }
+
+    public static function expirePendingOrders(): int
+    {
+        $expired = 0;
+        $rows = TenantBrandOrder::where('pay_status', PayEnum::UNPAID)
+            ->where('reserve_status', self::RESERVE_ACTIVE)
+            ->where('reserve_expire_time', '<=', time())
+            ->column('order_sn');
+        foreach ($rows as $orderSn) {
+            $changed = Db::transaction(function () use ($orderSn) {
+                $order = TenantBrandOrder::where('order_sn', $orderSn)->lock(true)->findOrEmpty();
+                if ($order->isEmpty() || (int)$order['pay_status'] !== PayEnum::UNPAID || (int)$order['reserve_status'] !== self::RESERVE_ACTIVE || (int)$order['reserve_expire_time'] > time()) return false;
+                self::releaseReservedQuota((int)$order['tenant_id'], (int)$order['package_id'], 1, $orderSn, '贴牌订单超时释放额度');
+                $order->save(['reserve_status' => self::RESERVE_EXPIRED, 'update_time' => time()]);
+                return true;
+            });
+            if ($changed) $expired++;
+        }
+        return $expired;
     }
 
     public static function formatQuotaOrder(array $row): array
@@ -294,6 +308,7 @@ class TenantBrandService
 
     public static function formatBrandOrder(array $row): array
     {
+        unset($row['admin_password_hash']);
         $row['order_amount'] = self::formatAmount((float)($row['order_amount'] ?? 0));
         $row['unit_price'] = self::formatAmount((float)($row['unit_price'] ?? 0));
         $row['pay_status_desc'] = PayEnum::getPayStatusDesc($row['pay_status'] ?? 0);
@@ -303,18 +318,32 @@ class TenantBrandService
             self::OPEN_FAILED => '开通失败',
             default => '待开通',
         };
+        $row['order_status'] = match (true) {
+            (int)($row['pay_status'] ?? 0) !== PayEnum::ISPAID && (int)($row['reserve_status'] ?? 0) === self::RESERVE_EXPIRED => '已过期',
+            (int)($row['pay_status'] ?? 0) !== PayEnum::ISPAID => '待支付',
+            (int)($row['open_status'] ?? 0) === self::OPEN_SUCCESS => '已开通',
+            (int)($row['open_status'] ?? 0) === self::OPEN_FAILED => '开通失败',
+            default => '已支付开通中',
+        };
+        if ((int)($row['child_tenant_id'] ?? 0) > 0) {
+            $row['login_path'] = '/t/' . (int)$row['child_tenant_id'] . '/admin/login';
+        }
         return $row;
     }
 
     private static function createChildTenant(array $order): int
     {
+        $domainAlias = (string)$order['child_domain_alias'];
+        if ($domainAlias === '') {
+            $domainAlias = 'tenant-' . strtolower((string)$order['order_sn']) . '.local';
+        }
         $tenant = TenantLogic::add([
             'name' => (string)$order['child_tenant_name'],
             'avatar' => '',
             'tel' => '',
-            'domain_alias' => (string)$order['child_domain_alias'],
+            'domain_alias' => $domainAlias,
             'domain_aliases' => [[
-                'domain' => (string)$order['child_domain_alias'],
+                'domain' => $domainAlias,
                 'is_primary' => 1,
                 'status' => 1,
             ]],
@@ -325,6 +354,8 @@ class TenantBrandService
             'source_tenant_id' => (int)$order['tenant_id'],
         ]);
         $tenantId = (int)$tenant['id'];
+        // White-label orders start with the guaranteed tenant-id route; a custom domain is optional and bound later.
+        $tenant->save(['access_mode' => TenantUrlService::ACCESS_ID]);
         ArticleLogic::initialization($tenantId);
         $admin = TenantAdmin::create([
             'tenant_id' => $tenantId,
@@ -357,6 +388,7 @@ class TenantBrandService
             'total_quota' => ($bucket->isEmpty() ? 0 : (int)$bucket['total_quota']) + $quantity,
             'remaining_quota' => $before + $quantity,
             'used_quota' => $bucket->isEmpty() ? 0 : (int)$bucket['used_quota'],
+            'reserved_quota' => $bucket->isEmpty() ? 0 : (int)$bucket['reserved_quota'],
             'update_time' => time(),
         ];
         if ($bucket->isEmpty()) {
@@ -368,20 +400,55 @@ class TenantBrandService
         self::quotaLog($tenantId, $packageId, 'increase', $quantity, $before, $before + $quantity, $sourceSn, $remark);
     }
 
-    private static function decreaseQuota(int $tenantId, int $packageId, int $quantity, string $sourceSn, string $remark): void
+    private static function reserveQuota(int $tenantId, int $packageId, int $quantity, string $sourceSn): void
     {
         $bucket = TenantBrandQuotaBucket::where(['tenant_id' => $tenantId, 'package_id' => $packageId])->lock(true)->findOrEmpty();
-        if ($bucket->isEmpty() || (int)$bucket['remaining_quota'] < $quantity) {
+        if ($bucket->isEmpty() || (int)$bucket['remaining_quota'] - (int)$bucket['reserved_quota'] < $quantity) {
             throw new RuntimeException('贴牌额度不足');
         }
-        $before = (int)$bucket['remaining_quota'];
-        $after = $before - $quantity;
+        $before = (int)$bucket['remaining_quota'] - (int)$bucket['reserved_quota'];
         $bucket->save([
-            'remaining_quota' => $after,
-            'used_quota' => (int)$bucket['used_quota'] + $quantity,
+            'reserved_quota' => (int)$bucket['reserved_quota'] + $quantity,
             'update_time' => time(),
         ]);
-        self::quotaLog($tenantId, $packageId, 'decrease', $quantity, $before, $after, $sourceSn, $remark);
+        self::quotaLog($tenantId, $packageId, 'reserve', $quantity, $before, $before - $quantity, $sourceSn, '贴牌订单预占额度');
+    }
+
+    private static function consumeReservedQuota(int $tenantId, int $packageId, int $quantity, string $sourceSn): void
+    {
+        $bucket = TenantBrandQuotaBucket::where(['tenant_id' => $tenantId, 'package_id' => $packageId])->lock(true)->findOrEmpty();
+        if ($bucket->isEmpty() || (int)$bucket['reserved_quota'] < $quantity || (int)$bucket['remaining_quota'] < $quantity) throw new RuntimeException('贴牌额度预占异常');
+        $before = (int)$bucket['remaining_quota'];
+        $bucket->save(['remaining_quota' => $before - $quantity, 'reserved_quota' => (int)$bucket['reserved_quota'] - $quantity, 'used_quota' => (int)$bucket['used_quota'] + $quantity, 'update_time' => time()]);
+        self::quotaLog($tenantId, $packageId, 'decrease', $quantity, $before, $before - $quantity, $sourceSn, '支付确认消耗贴牌额度');
+    }
+
+    private static function releaseReservedQuota(int $tenantId, int $packageId, int $quantity, string $sourceSn, string $remark): void
+    {
+        $bucket = TenantBrandQuotaBucket::where(['tenant_id' => $tenantId, 'package_id' => $packageId])->lock(true)->findOrEmpty();
+        if ($bucket->isEmpty() || (int)$bucket['reserved_quota'] < $quantity) return;
+        $available = (int)$bucket['remaining_quota'] - (int)$bucket['reserved_quota'];
+        $bucket->save(['reserved_quota' => (int)$bucket['reserved_quota'] - $quantity, 'update_time' => time()]);
+        self::quotaLog($tenantId, $packageId, 'rollback', $quantity, $available, $available + $quantity, $sourceSn, $remark);
+    }
+
+    private static function provisionBrandOrder(string $orderSn): void
+    {
+        try {
+            Db::transaction(function () use ($orderSn) {
+                $order = TenantBrandOrder::where('order_sn', $orderSn)->lock(true)->findOrEmpty();
+                if ($order->isEmpty() || (int)$order['pay_status'] !== PayEnum::ISPAID) throw new RuntimeException('订单未支付');
+                if ((int)$order['open_status'] === self::OPEN_SUCCESS) return;
+                $childTenantId = (int)$order['child_tenant_id'] ?: (int)$order['target_tenant_id'];
+                if ($childTenantId <= 0) $childTenantId = self::createChildTenant($order->toArray());
+                TenantContractService::open($childTenantId, (int)$order['package_id'], 0, '贴牌订单开通/续费', $orderSn);
+                $order->save(['child_tenant_id' => $childTenantId, 'open_status' => self::OPEN_SUCCESS, 'open_time' => time(), 'open_error' => '', 'update_time' => time()]);
+            });
+        } catch (\Throwable $e) {
+            $order = TenantBrandOrder::where('order_sn', $orderSn)->findOrEmpty();
+            if ($order->isEmpty()) throw $e;
+            $order->save(['open_status' => self::OPEN_FAILED, 'open_time' => time(), 'open_error' => mb_substr($e->getMessage(), 0, 500), 'update_time' => time()]);
+        }
     }
 
     private static function quotaLog(int $tenantId, int $packageId, string $changeType, int $quantity, int $before, int $after, string $sourceSn, string $remark): void
@@ -401,7 +468,8 @@ class TenantBrandService
 
     private static function remainingQuota(int $tenantId, int $packageId): int
     {
-        return (int)TenantBrandQuotaBucket::where(['tenant_id' => $tenantId, 'package_id' => $packageId])->value('remaining_quota');
+        $bucket = TenantBrandQuotaBucket::where(['tenant_id' => $tenantId, 'package_id' => $packageId])->findOrEmpty();
+        return $bucket->isEmpty() ? 0 : max(0, (int)$bucket['remaining_quota'] - (int)$bucket['reserved_quota']);
     }
 
     private static function formatAmount(float $amount): string

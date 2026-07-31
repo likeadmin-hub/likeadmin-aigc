@@ -19,6 +19,7 @@ use app\common\logic\BaseLogic;
 use app\common\service\AgreementService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
+use app\common\service\OfficialSiteService;
 
 
 /**
@@ -134,6 +135,19 @@ class WebSettingLogic extends BaseLogic
         ConfigService::set('website', 'shop_name', $params['shop_name']);
         ConfigService::set('website', 'shop_logo', $shopLogo);
         ConfigService::set('website', 'h5_favicon', $h5favicon);
+
+        // Keep legacy PC brand fields and the official-site source in sync while
+        // preserving the existing workbench background configuration above.
+        $officialSite = OfficialSiteService::get();
+        $officialSite['basic'] = array_merge($officialSite['basic'], [
+            'name' => (string)$params['name'],
+            'logo' => $pcLogo,
+            'favicon' => $pcIco,
+            'title' => (string)$params['pc_title'],
+            'description' => (string)($params['pc_desc'] ?? ''),
+            'keywords' => (string)($params['pc_keywords'] ?? ''),
+        ]);
+        OfficialSiteService::save($officialSite);
     }
 
     private static function normalizeFileList($value): array

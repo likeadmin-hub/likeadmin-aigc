@@ -13,84 +13,32 @@ class AigcLlmChannelService
     public static function userConfig(int $tenantId): array
     {
         $marketModels = self::marketUserModels($tenantId);
-        if ($marketModels !== []) {
-            $defaultModel = $marketModels[0];
-            return [
-                'channels' => self::marketUserChannels($marketModels),
-                'models' => $marketModels,
-                'defaults' => [
-                    'channel' => (string)($defaultModel['channel_code'] ?? ''),
-                    'model' => (string)($defaultModel['code'] ?? ''),
-                ],
-            ];
-        }
-
-        $channels = self::effectiveChannels($tenantId, true);
-        $models = self::effectiveModels($tenantId, true, $channels);
-        $defaultModel = $models[0] ?? [];
+        $defaultModel = $marketModels[0] ?? [];
         return [
-            'channels' => array_values(array_map(fn(array $item) => [
-                'code' => $item['code'],
-                'name' => $item['name'],
-                'provider' => $item['provider'],
-                'sort' => (int)$item['sort'],
-            ], $channels)),
-            'models' => array_values(array_map(fn(array $item) => [
-                'code' => $item['code'],
-                'name' => $item['name'],
-                'channel_code' => $item['channel_code'],
-                'provider' => $item['provider'],
-                'model' => $item['model'],
-                'context_limit' => (int)$item['context_limit'],
-                'tenant_unit_price' => self::formatPoints((float)$item['tenant_unit_price']),
-                'platform_unit_cost' => self::formatPoints((float)$item['platform_unit_cost']),
-                'platform_input_unit_cost' => self::formatUnitPrice((float)($item['platform_input_unit_cost'] ?? $item['platform_unit_cost'] ?? 0)),
-                'platform_output_unit_cost' => self::formatUnitPrice((float)($item['platform_output_unit_cost'] ?? $item['platform_unit_cost'] ?? 0)),
-                'tenant_input_unit_price' => self::formatUnitPrice((float)($item['tenant_input_unit_price'] ?? $item['tenant_unit_price'] ?? 0)),
-                'tenant_output_unit_price' => self::formatUnitPrice((float)($item['tenant_output_unit_price'] ?? $item['tenant_unit_price'] ?? 0)),
-                'billing_unit' => (string)($item['billing_unit'] ?? 'tokens_1m'),
-                'sort' => (int)$item['sort'],
-            ], $models)),
+            'channels' => self::marketUserChannels($marketModels),
+            'models' => $marketModels,
             'defaults' => [
-                'channel' => (string)($defaultModel['channel_code'] ?? ($channels[0]['code'] ?? '')),
+                'channel' => (string)($defaultModel['channel_code'] ?? ''),
                 'model' => (string)($defaultModel['code'] ?? ''),
-            ]
+            ],
         ];
     }
 
     public static function resolveUserModel(int $tenantId, array $params, array $config = []): array
     {
         $marketModels = self::marketUserModels($tenantId);
-        if ($marketModels !== []) {
-            $modelCode = trim((string)($params['model_code'] ?? $config['model'] ?? ''));
-            if ($modelCode !== '') {
-                foreach ($marketModels as $model) {
-                    if (in_array($modelCode, [
-                        (string)$model['code'],
-                        (string)$model['model'],
-                        (string)($model['market_product_id'] ?? ''),
-                    ], true)) {
-                        return $model;
-                    }
-                }
-            }
-            return $marketModels[0];
-        }
-
-        $channels = self::effectiveChannels($tenantId, true);
-        $models = self::effectiveModels($tenantId, true, $channels);
-        if (empty($models)) {
+        if ($marketModels === []) {
             throw new Exception('暂无可用对话模型');
         }
-        $modelCode = trim((string)($params['model_code'] ?? $config['model'] ?? ''));
+        $modelCode = trim((string)($params['model_code'] ?? ''));
         if ($modelCode !== '') {
-            foreach ($models as $model) {
-                if ($model['code'] === $modelCode) {
+            foreach ($marketModels as $model) {
+                if (in_array($modelCode, [(string)$model['code'], (string)$model['model'], (string)($model['market_product_id'] ?? '')], true)) {
                     return $model;
                 }
             }
         }
-        return $models[0];
+        return $marketModels[0];
     }
 
     /**

@@ -12,42 +12,6 @@
     "api_method": "POST"
   },
   {
-    "permission_key": "aigc_llm:channel:lists",
-    "name": "查看AIGC对话通道",
-    "api_path": "app.aigc_llm.channel/lists",
-    "api_method": "GET"
-  },
-  {
-    "permission_key": "aigc_llm:channel:save",
-    "name": "保存AIGC对话通道",
-    "api_path": "app.aigc_llm.channel/save",
-    "api_method": "POST"
-  },
-  {
-    "permission_key": "aigc_llm:channel:status",
-    "name": "设置AIGC对话通道状态",
-    "api_path": "app.aigc_llm.channel/status",
-    "api_method": "POST"
-  },
-  {
-    "permission_key": "aigc_llm:model:lists",
-    "name": "查看AIGC对话模型",
-    "api_path": "app.aigc_llm.model/lists",
-    "api_method": "GET"
-  },
-  {
-    "permission_key": "aigc_llm:model:save",
-    "name": "保存AIGC对话模型",
-    "api_path": "app.aigc_llm.model/save",
-    "api_method": "POST"
-  },
-  {
-    "permission_key": "aigc_llm:model:status",
-    "name": "设置AIGC对话模型状态",
-    "api_path": "app.aigc_llm.model/status",
-    "api_method": "POST"
-  },
-  {
     "permission_key": "aigc_llm:session:lists",
     "name": "查看AIGC对话会话",
     "api_path": "app.aigc_llm.admin_session/lists",

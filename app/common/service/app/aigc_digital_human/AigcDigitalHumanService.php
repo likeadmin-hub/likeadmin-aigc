@@ -35,7 +35,6 @@ class AigcDigitalHumanService
     private const VOICE_CLONE_MAX_DURATION = 10;
     private const PROVIDER_SUBMIT_STALE_SECONDS = 300;
     private const VOICE_CLONE_DUPLICATE_SECONDS = 600;
-    private const VOICE_CLONE_SUBMIT_STALE_SECONDS = 300;
     private const VOICE_CLONE_TASK_PREFIX = 'task:';
     private const REMOTE_AUDIO_PROBE_BYTES = 1048576;
 
@@ -1625,15 +1624,15 @@ class AigcDigitalHumanService
                 continue;
             }
             if ((string)$voice['status'] === 'submitting') {
-                if ((int)$voice['update_time'] >= time() - self::VOICE_CLONE_SUBMIT_STALE_SECONDS) {
+                if ((int)$voice['update_time'] >= time() - self::PROVIDER_SUBMIT_STALE_SECONDS) {
                     continue;
                 }
-                self::refundCloneBilling((int)$voice['tenant_id'], (int)$voice['user_id'], AigcDigitalHumanPricingService::TYPE_VOICE_CLONE, 0, (int)$voice['id'], '音色克隆提交结果未确认');
+                // A timeout or lost response does not mean the provider rejected the clone.
+                // Return it to the idempotent submit path so the existing upstream job can be recovered.
                 $voice->save([
-                    'status' => 'failed',
+                    'status' => 'running',
                     'update_time' => time(),
                 ]);
-                continue;
             }
             $affected = AigcDigitalHumanVoice::where('tenant_id', (int)$voice['tenant_id'])
                 ->where('id', (int)$voice['id'])

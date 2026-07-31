@@ -13,7 +13,9 @@ use app\common\service\app\AppCaseService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
+use app\common\service\power\MarketNanoBananaAppRuntimeService;
 use app\common\service\storage\StorageConfigService;
+use app\common\model\ai\AiConsumptionLog;
 use Exception;
 use think\facade\Db;
 
@@ -45,6 +47,24 @@ class AigcImageService
     {
         $estimate = AigcImageChannelService::estimate($tenantId, $params);
         $selection = AigcImageChannelService::resolveSelection($tenantId, $params);
+        $spec = (array)$selection['spec'];
+        if ((string)($selection['channel']['provider'] ?? '') === 'power_market_app_api') {
+            $quote = MarketNanoBananaAppRuntimeService::quote($tenantId, array_merge($params, [
+                'channel' => (string)$selection['channel']['code'],
+                'quality' => (string)($spec['quality'] ?? ''),
+                'ratio' => (string)($spec['ratio'] ?? ''),
+                'variant' => (string)($spec['variant'] ?? $params['variant'] ?? ''),
+                'market_sku_id' => (int)($spec['market_sku_id'] ?? $params['market_sku_id'] ?? 0),
+            ]), (int)($estimate['quantity'] ?? 1));
+            $estimate['platform_unit_cost'] = $quote['tenant_unit_points'];
+            $estimate['tenant_unit_price'] = $quote['user_unit_points'];
+            $estimate['tenant_cost_points'] = $quote['tenant_cost_points'];
+            $estimate['user_charge_points'] = $quote['user_charge_points'];
+            $estimate['market_product_id'] = $quote['market_product_id'];
+            $estimate['market_sku_id'] = $quote['market_sku_id'];
+            $estimate['price_source'] = $quote['price_source'];
+            return $estimate;
+        }
         if (!empty($params['market_sku_id']) || !empty($params['sku_id'])) {
             $selection['market_sku_id'] = (int)($params['market_sku_id'] ?? $params['sku_id']);
         }
@@ -100,8 +120,11 @@ class AigcImageService
         if (count($referenceImages) > (int)$selection['channel']['max_reference_images']) {
             throw new Exception('参考图数量超出限制');
         }
-        $providerParams = self::providerParamsForRequest($selection['spec']['provider_params_json'] ?? [], $params);
         self::checkSensitiveWords($tenantId, $prompt);
+        if ((string)($selection['channel']['provider'] ?? '') === 'power_market_app_api') {
+            return self::generateNanoBanana($tenantId, $userId, $params, $selection, $referenceImages);
+        }
+        $providerParams = self::providerParamsForRequest($selection['spec']['provider_params_json'] ?? [], $params);
         $duplicateCriteria = [
             'prompt' => $prompt,
             'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
@@ -229,6 +252,85 @@ class AigcImageService
         $rows = self::finishTaskWithImages($task, $selection, $estimate, $result->images);
 
         return ['task_id' => $task['id'], 'results' => $rows];
+    }
+
+    /** Submit Nano Banana through its application-API runtime and market SKU. */
+    private static function generateNanoBanana(int $tenantId, int $userId, array $params, array $selection, array $referenceImages): array
+    {
+        $quantity = AigcImageChannelService::normalizeQuantity($params['quantity'] ?? 1);
+        AigcImageChannelService::assertChannelQuantity($selection['channel'], $quantity);
+        $spec = (array)$selection['spec'];
+        $request = array_merge($params, [
+            'channel' => (string)$selection['channel']['code'],
+            'quality' => (string)($spec['quality'] ?? ''),
+            'ratio' => (string)($spec['ratio'] ?? ''),
+            'variant' => (string)($spec['variant'] ?? $params['variant'] ?? ''),
+            'market_sku_id' => (int)($spec['market_sku_id'] ?? $params['market_sku_id'] ?? 0),
+            'quantity' => $quantity,
+            'reference_images' => $referenceImages,
+        ]);
+        $quote = MarketNanoBananaAppRuntimeService::quote($tenantId, $request, $quantity);
+        $providerParams = [
+            'variant' => (string)($request['variant'] ?? ''),
+            'market_sku_id' => (int)($quote['market_sku_id'] ?? 0),
+        ];
+        $task = AigcImageTask::create([
+            'app_task_id' => 0,
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'prompt' => (string)$params['prompt'],
+            'negative_prompt' => (string)($params['negative_prompt'] ?? ''),
+            'reference_images' => $referenceImages,
+            'provider_params_json' => $providerParams,
+            'style' => (string)($params['style'] ?? 'general'),
+            'channel' => (string)$selection['channel']['code'],
+            'quality' => (string)($spec['quality'] ?? ''),
+            'ratio' => (string)($spec['ratio'] ?? ''),
+            'quantity' => $quantity,
+            'tenant_cost_points' => (float)($quote['tenant_cost_points'] ?? 0),
+            'user_charge_points' => (float)($quote['user_charge_points'] ?? 0),
+            'provider' => 'power_market',
+            'model' => (string)(($quote['market_snapshot'] ?? [])['model_code'] ?? $selection['channel']['model'] ?? ''),
+            'status' => 'running',
+            'error' => '',
+            'delete_time' => 0,
+            'create_time' => time(),
+            'update_time' => time(),
+        ]);
+
+        try {
+            $reserve = MarketNanoBananaAppRuntimeService::reserve(
+                $tenantId,
+                $userId,
+                'generate',
+                (string)$task['id'],
+                $request,
+                $request,
+                $quantity,
+                self::APP_CODE,
+                'aigc_image_task'
+            );
+            $task->save(['app_task_id' => (int)$reserve['app_task_id'], 'update_time' => time()]);
+            MarketNanoBananaAppRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$task['id']);
+            $result = MarketNanoBananaAppRuntimeService::submit((int)$reserve['consumption_id'], $request);
+            $task->save([
+                'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
+                'update_time' => time(),
+            ]);
+            return [
+                'task_id' => (int)$task['id'],
+                'results' => [],
+                'status' => (string)($result['status'] ?? 'running'),
+            ];
+        } catch (\Throwable $e) {
+            $task->save([
+                'status' => 'failed',
+                'error' => $e->getMessage(),
+                'finish_time' => time(),
+                'update_time' => time(),
+            ]);
+            throw $e;
+        }
     }
 
     private static function applyBillingOverride(array $estimate, int $quantity, array $billingOverride = []): array
@@ -657,12 +759,11 @@ class AigcImageService
     private static function refreshRunningTasks(int $tenantId, int $userId = 0, int $taskId = 0, bool $swallowErrors = false): void
     {
         $query = AigcImageTask::where('tenant_id', $tenantId)
-            ->where('delete_time', 0)
-            ->where('provider_task_id', '<>', '');
+            ->where('delete_time', 0);
         if ($taskId > 0) {
             $query->where('id', $taskId);
         } else {
-            $query->where('status', 'running');
+            $query->where('status', 'running')->where('provider_task_id', '<>', '');
         }
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -685,6 +786,10 @@ class AigcImageService
                 $task->finish_time = 0;
                 $task->update_time = time();
                 $task->save();
+            }
+            if ((string)$task['provider'] === 'power_market') {
+                self::refreshNanoBananaTask($task);
+                continue;
             }
             if (!self::isAsyncProvider((string)$task['provider'])) {
                 continue;
@@ -739,6 +844,52 @@ class AigcImageService
                 }
             }
         }
+    }
+
+    private static function refreshNanoBananaTask(AigcImageTask $task): void
+    {
+        $consumption = AiConsumptionLog::where([
+            'app_task_id' => (int)$task['app_task_id'],
+            'app_code' => self::APP_CODE,
+            'protocol' => 'application_api',
+        ])->findOrEmpty();
+        if ($consumption->isEmpty()) {
+            throw new Exception('Nano Banana 市场消耗记录不存在');
+        }
+        $result = MarketNanoBananaAppRuntimeService::refresh((int)$consumption['id']);
+        $status = (string)($result['status'] ?? 'running');
+        if ($status === 'failed' || $status === 'canceled') {
+            $task->save([
+                'status' => $status === 'canceled' ? 'canceled' : 'failed',
+                'error' => (string)($consumption['error_message'] ?? '图片生成失败'),
+                'finish_time' => time(),
+                'update_time' => time(),
+            ]);
+            return;
+        }
+        $images = array_map(static fn(array $image): array => [
+            'uri' => (string)($image['image_uri'] ?? $image['uri'] ?? ''),
+            'width' => (int)($image['width'] ?? 0),
+            'height' => (int)($image['height'] ?? 0),
+            'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
+        ], array_filter((array)($result['images'] ?? []), 'is_array'));
+        if ($images === []) {
+            return;
+        }
+        $variant = str_ends_with(strtolower((string)$task['model']), ':official') ? 'official' : 'standard';
+        $selection = AigcImageChannelService::resolveSelection((int)$task['tenant_id'], [
+            'channel' => (string)$task['channel'],
+            'quality' => (string)$task['quality'],
+            'ratio' => (string)$task['ratio'],
+            'variant' => $variant,
+        ]);
+        $latest = AiConsumptionLog::findOrEmpty((int)$consumption['id']);
+        $count = max(1, count($images));
+        $estimate = [
+            'platform_unit_cost' => (float)($latest['actual_tenant_cost'] ?? 0) / $count,
+            'tenant_unit_price' => (float)($latest['actual_user_price'] ?? 0) / $count,
+        ];
+        self::finishTaskWithImages($task, $selection, $estimate, $images, true, (int)$consumption['id']);
     }
 
     private static function shouldRefreshTask(AigcImageTask $task, bool $explicitTask = false): bool
@@ -1032,7 +1183,14 @@ class AigcImageService
         return json_encode($params, JSON_UNESCAPED_UNICODE);
     }
 
-    private static function finishTaskWithImages(AigcImageTask $task, array $selection, array $estimate, array $images): array
+    private static function finishTaskWithImages(
+        AigcImageTask $task,
+        array $selection,
+        array $estimate,
+        array $images,
+        bool $marketAlreadySettled = false,
+        int $marketConsumptionId = 0
+    ): array
     {
         $rows = [];
         Db::startTrans();
@@ -1104,10 +1262,10 @@ class AigcImageService
                     'tenant_unit_price' => $estimate['tenant_unit_price'],
                     'tenant_cost_points' => $estimate['platform_unit_cost'],
                     'user_charge_points' => $estimate['tenant_unit_price'],
-                    'consumption_id' => 0,
-                    'billing_status' => $isUnifiedTask ? 'reserved' : 'deducted',
-                    'tenant_point_sn' => $isUnifiedTask ? '' : $sourceSn,
-                    'user_point_sn' => $isUnifiedTask ? '' : $sourceSn,
+                    'consumption_id' => $marketAlreadySettled ? $marketConsumptionId : 0,
+                    'billing_status' => $marketAlreadySettled ? 'deducted' : ($isUnifiedTask ? 'reserved' : 'deducted'),
+                    'tenant_point_sn' => $marketAlreadySettled ? '' : ($isUnifiedTask ? '' : $sourceSn),
+                    'user_point_sn' => $marketAlreadySettled ? '' : ($isUnifiedTask ? '' : $sourceSn),
                     'create_time' => time(),
                     'update_time' => time(),
                 ]);
@@ -1122,7 +1280,7 @@ class AigcImageService
             }
 
             $costPoints = count($rows);
-            $settlement = $isUnifiedTask ? AiUsageService::settleImageTaskInCurrentTransaction((int)$task['id'], $costPoints, [
+            $settlement = $isUnifiedTask && !$marketAlreadySettled ? AiUsageService::settleImageTaskInCurrentTransaction((int)$task['id'], $costPoints, [
                 'result_count' => $costPoints,
                 'provider_task_id' => (string)($images[0]['provider_task_id'] ?? $task['provider_task_id']),
             ]) : null;
@@ -1152,7 +1310,9 @@ class AigcImageService
             $task->finish_time = time();
             $task->update_time = time();
             $task->save();
-            AiUsageService::failImageTask((int)$task['id'], $e->getMessage(), 'result_persist_failed');
+            if (!$marketAlreadySettled) {
+                AiUsageService::failImageTask((int)$task['id'], $e->getMessage(), 'result_persist_failed');
+            }
             throw $e;
         }
         return $rows;

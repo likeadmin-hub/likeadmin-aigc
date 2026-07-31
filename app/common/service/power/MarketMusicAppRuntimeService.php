@@ -8,7 +8,9 @@ use app\common\model\ai\AiConsumptionLog;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
+use app\common\service\ai\AiTaskLifecycleEventService;
 use app\common\service\ai\AiTaskJobService;
+use app\common\service\ai\AiTaskResultUrlService;
 use app\common\service\app\aigc_music\AigcMusicAssetService;
 use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
@@ -254,9 +256,18 @@ class MarketMusicAppRuntimeService
                 self::fail($consumptionId, self::error($response), 'upstream_failed');
                 return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []];
             }
+            $upstreamStatus = self::status($response);
+            if (AiTaskLifecycleEventService::isTerminalSuccess($upstreamStatus)) {
+                if (AiTaskLifecycleEventService::terminalResultMissing($consumptionId, $upstreamStatus, $taskId)) {
+                    self::fail($consumptionId, '上游音乐任务已完成，但未返回可用结果文件', 'upstream_result_missing');
+                    return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []];
+                }
+                return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
+            }
             if ($timedOut) { self::fail($consumptionId, '音乐任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []]; }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            AiTaskLifecycleEventService::record($consumptionId, 'query_error', 'retrying', ['upstream_task_id' => $taskId, 'error' => $e->getMessage()]);
             if ($timedOut) { self::fail($consumptionId, '音乐任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []]; }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
         }
@@ -344,8 +355,18 @@ class MarketMusicAppRuntimeService
     private static function items(array $data, int $tenantId, int $userId): array
     {
         $root = self::arrayValue($data['data'] ?? $data);
-        $candidates = [$root['results'] ?? [], $root['audios'] ?? [], $root['data'] ?? [], $root['result']['results'] ?? [], $root['result']['data'] ?? []];
-        $urls = [];
+        $candidates = [
+            $root,
+            $root['results'] ?? [],
+            $root['audios'] ?? [],
+            $root['data'] ?? [],
+            $root['output'] ?? [],
+            $root['result'] ?? [],
+            $root['result']['results'] ?? [],
+            $root['result']['data'] ?? [],
+            $root['result']['output'] ?? [],
+        ];
+        $urls = AiTaskResultUrlService::collect($data);
         foreach ($candidates as $rows) foreach ((array)$rows as $row) { $url = is_string($row) ? $row : (string)($row['audio_url'] ?? $row['file_url'] ?? $row['url'] ?? $row['audio'] ?? ''); if ($url !== '') $urls[] = $url; }
         $items = [];
         foreach (array_values(array_unique($urls)) as $url) {
