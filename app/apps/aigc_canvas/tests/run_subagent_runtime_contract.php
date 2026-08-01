@@ -146,6 +146,19 @@ if (str_contains($dispatcher, 'array_slice(')
     || !str_contains($dispatcher, 'count($tasks) > self::MAX_TASKS')) {
     $failures[] = 'sub-agent dispatch must reject over-limit task plans instead of silently dropping work';
 }
+foreach (['creative_strategy', 'copy_deck', 'visual_brief', 'canvas_plan'] as $workUnit) {
+    if (!str_contains($service, "'work_unit' => '" . $workUnit . "'")) {
+        $failures[] = 'sub-agent service is missing typed creative work unit: ' . $workUnit;
+    }
+}
+foreach (['input_snapshot', 'output_contract', 'creative_output_contract', 'structuredOutput', "'output' => \$output"] as $contractPart) {
+    if (!str_contains($service, $contractPart)) {
+        $failures[] = 'sub-agent service is missing structured work-unit contract part: ' . $contractPart;
+    }
+}
+if (!str_contains($dispatcher, 'SubAgentTaskService::normalizeCreativeWorkUnit')) {
+    $failures[] = 'dispatcher does not normalize delegated tasks into typed creative work units';
+}
 
 $consolePath = $root . '/config/console.php';
 if (!is_file($consolePath) || !str_contains(readSource($consolePath), 'CanvasSubAgentWorker')) {
@@ -163,6 +176,7 @@ echo json_encode([
         'worker_consumer' => true,
         'recovery_guardrails' => true,
         'delegation_limit' => true,
+        'structured_creative_work_units' => true,
     ],
     'failures' => $failures,
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;

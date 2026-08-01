@@ -30,6 +30,24 @@ final class AgentTaskDecisionService
             $skill = AigcCanvasSkillService::resolveSkill($tenantId, (string)$pending['skill_key']);
             $effectiveRequest = (string)($pending['original_request'] ?? $request);
             $confirmed = $confirmed || !empty($pending['confirmed']);
+            // A persisted confirmation belongs to the prior, already-routed
+            // action. Treat that resolved contract as explicit on the follow-up
+            // turn so the short confirmation text is not reclassified as chat.
+            $explicit = $skill !== [];
+        }
+        // A previously approved proposal is an already-semantic decision. It
+        // must be resumed as-is instead of making a short "confirm" reply go
+        // through routing, slot filling, and a second model reconstruction.
+        if (!empty($pending['tool_proposal']) && $confirmed) {
+            return self::confirmedProposalDecision($bindingEnabled, $context, $pending, $skill, $request, $params);
+        }
+        // Normal turns deliberately enter the primary model with the live tool
+        // catalog. Ranked Skills are supplied later as advisory context, not as
+        // a pre-routing authority that can hide a valid capability.
+        if (!$explicit && empty($pending['skill_key']) && empty($params['delivery_item_id'])
+            && empty($params['retry_source_message_id']) && empty($params['semantic_decision'])
+            && !self::mayContinuePersistedTask($request) && !self::isTextRetryRequest($request)) {
+            return self::modelFirstDecision($bindingEnabled, $context, $request, $params);
         }
         $candidates = self::candidates($tenantId, $request, $context);
         // Retrieval narrows the prompt when it has a match. If it does not,
@@ -156,11 +174,10 @@ final class AgentTaskDecisionService
         }
 
         $missing = $mode === 'contract' ? (array)($contract['missing_hard_slots'] ?? []) : [];
-        // A contract controls slots and permissions. Confirmation remains an
-        // action-level guard, reserved for paid, batch, or canvas-write work.
-        // A multi-item batch is the only Agent-level confirmation. Canvas
-        // changes retain their own confirmation at the action-application UI.
-        $requiresConfirmation = $mode === 'contract' && in_array('batch', $upgrades, true);
+        // Confirmation is resolved after intent normalization below. The
+        // contract can tell us which tools exist, but only the final turn
+        // intent tells us whether this message would actually bill or mutate.
+        $requiresConfirmation = false;
         $capabilities = (array)($contract['capability_tools'] ?? []);
         $allowed = $mode === 'contract' && $upgrades !== []
             ? (array)($contract['allowed_tools'] ?? [])
@@ -183,10 +200,14 @@ final class AgentTaskDecisionService
         $intent = $workflowTemplate !== '' ? 'creative_plan' : (!empty($taskTarget['item']) && !self::isExplicitNewTask($request)
             ? self::itemIntent((array)$taskTarget['item'])
             : ((string)($router['intent'] ?? '') ?: self::intent($request, $context, $contract)));
+        $visualDelivery = !empty($contract['visual_delivery_policy']['matched']);
+        if ($visualDelivery) {
+            $intent = 'generation';
+        }
         // A model may recommend a Skill, but only its validated semantic intent
         // may authorize media delivery. This prevents "write a video script"
         // from inheriting video-generation tools through a broad Skill contract.
-        if ($intent === 'generation' && !self::authorizesMedia($router, $explicit)) {
+        if ($intent === 'generation' && !$visualDelivery && !self::authorizesMedia($router, $explicit)) {
             $intent = 'chat';
             $runtimeAllowedTools = self::lowRiskTools();
             $contract['allowed_tools'] = $runtimeAllowedTools;
@@ -198,7 +219,6 @@ final class AgentTaskDecisionService
             // valid tool call to be rejected by the executor.
             $mode = 'contract';
             $missing = (array)($contract['missing_hard_slots'] ?? []);
-            $requiresConfirmation = in_array('batch', $upgrades, true);
             $allowed = array_values(array_unique(array_merge(
                 $allowed,
                 (array)($capabilities['costly'] ?? [])
@@ -210,12 +230,30 @@ final class AgentTaskDecisionService
             $runtimeAllowedTools = self::withoutMediaTools($runtimeAllowedTools);
             $contract['allowed_tools'] = self::withoutMediaTools((array)$contract['allowed_tools']);
         }
+        // Confirmation is evaluated against the model's concrete tool input in
+        // AgentToolInvocationPolicy. Request-text heuristics may describe a
+        // possible action, but must not block the model before it proposes one.
+        $requiresConfirmation = false;
         $risk = self::risk($upgrades);
         $actionMode = self::constrainActionMode(
             self::actionMode($intent, $risk, $missing, $requiresConfirmation, $confirmed),
             $intent,
             $router
         );
+        // Advisory conversation must remain a pure answer turn. Retrieved
+        // Skills can guide the model, but they cannot turn ordinary advice
+        // into invisible reads, searches, or generated side effects.
+        if ($actionMode === 'reply' && $intent === 'chat') {
+            $runtimeAllowedTools = [];
+            $contract['allowed_tools'] = [];
+        }
+        // Costly and destructive tools are not merely deferred in the UI.
+        // Remove them from the runtime contract until the explicit follow-up
+        // confirmation is received and the decision is recomputed.
+        if ($requiresConfirmation && !$confirmed) {
+            $runtimeAllowedTools = ['ask_user'];
+            $contract['allowed_tools'] = ['ask_user'];
+        }
         $nextAction = match ($actionMode) {
             'clarify' => 'clarify',
             'confirm' => 'confirm_execution',
@@ -270,7 +308,7 @@ final class AgentTaskDecisionService
             'confidence' => 0.0, 'missing_hard_slots' => [], 'inferred_slots' => [], 'default_slots' => [],
             'default_sources' => [], 'clarification_question' => '', 'next_action' => 'reply',
             'upgrade_reasons' => [], 'requires_confirmation' => false, 'estimated_tools' => [], 'pending_context' => [],
-            'runtime_allowed_tools' => self::lowRiskTools(), 'binding_rollout_enabled' => $bindingEnabled, 'skill_contract' => [],
+            'runtime_allowed_tools' => [], 'binding_rollout_enabled' => $bindingEnabled, 'skill_contract' => [],
         ], $request, $context, $params);
     }
 
@@ -323,17 +361,19 @@ final class AgentTaskDecisionService
     {
         $capability = (string)$contract['capability'];
         $isMedia = in_array($capability, ['generate_image', 'generate_video', 'generate_music'], true);
+        $intent = $isMedia ? 'generation' : ($capability === 'canvas_mutation' ? 'canvas_edit' : 'text_generation');
         $risk = $isMedia ? 'costly' : ($capability === 'canvas_mutation' ? 'canvas_write' : 'low');
         $missing = (array)($contract['missing_hard_slots'] ?? []);
-        // A generic capability is only a tool-safety boundary. It must not
-        // produce a synthetic confirmation reply with invented defaults.
-        $requiresConfirmation = false;
-        $actionMode = self::actionMode($isMedia ? 'generation' : ($capability === 'canvas_mutation' ? 'canvas_edit' : 'text_generation'), $risk, $missing, $requiresConfirmation, $confirmed);
+        $requiresConfirmation = self::requiresConfirmation($intent, [], $contract, $request, $context);
+        $actionMode = self::actionMode($intent, $risk, $missing, $requiresConfirmation, $confirmed);
         $contract['execution_confirmed'] = $confirmed;
+        if ($requiresConfirmation && !$confirmed) {
+            $contract['allowed_tools'] = ['ask_user'];
+        }
         $nextAction = $actionMode === 'clarify' ? 'clarify' : ($actionMode === 'confirm' ? 'confirm_execution' : ($actionMode === 'execute' ? 'execute' : 'reply'));
         return self::decorate([
             'delivery_item_id' => $deliveryItemId,
-            'intent' => $isMedia ? 'generation' : ($capability === 'canvas_mutation' ? 'canvas_edit' : 'text_generation'),
+            'intent' => $intent,
             'action_mode' => $actionMode,
             'binding_mode' => 'generic_contract',
             'capability' => $capability,
@@ -407,7 +447,111 @@ final class AgentTaskDecisionService
                 'request' => (string)($params['_text_retry_context']['source_request'] ?? ''),
             ];
         }
+        // action_mode/execution_mode are legacy transport fields consumed by
+        // the resolver and loop. decision_mode is the stable product-level
+        // contract used by callers that need to distinguish a pure answer
+        // from clarification, planning, execution, and confirmation.
+        $decision['decision_mode'] = self::decisionMode($decision);
         return $decision;
+    }
+
+    private static function modelFirstDecision(bool $bindingEnabled, array $context, string $request, array $params): array
+    {
+        return self::decorate([
+            'delivery_item_id' => 0,
+            'intent' => 'semantic_turn',
+            'action_mode' => 'reply',
+            'binding_mode' => 'none',
+            'target' => self::target($context),
+            'risk' => 'low',
+            'selected_skill_key' => '',
+            'selected_skill_name' => '',
+            'skill_candidates' => [],
+            'router_source' => 'primary_model',
+            'confidence' => 0.0,
+            'missing_hard_slots' => [],
+            'inferred_slots' => [],
+            'default_slots' => [],
+            'default_sources' => [],
+            'clarification_question' => '',
+            'next_action' => 'reply',
+            'upgrade_reasons' => [],
+            'requires_confirmation' => false,
+            'estimated_tools' => [],
+            'pending_context' => [],
+            // An empty runtime list intentionally means the live catalog is
+            // available; it is not a deny-list.
+            'runtime_allowed_tools' => [],
+            'binding_rollout_enabled' => $bindingEnabled,
+            'skill_contract' => [],
+        ], $request, $context, $params);
+    }
+
+    /** Only explicit continuation language may re-enter a persisted workflow. */
+    private static function mayContinuePersistedTask(string $request): bool
+    {
+        return preg_match('/^\s*(?:继续|确认|确定|同意|开始生成|先生成|执行|重试|取消|停止|改成|调整|修改|continue|confirm|retry|cancel|revise)\b/ui', trim($request)) === 1;
+    }
+
+    private static function confirmedProposalDecision(bool $bindingEnabled, array $context, array $pending, array $skill, string $request, array $params): array
+    {
+        $proposal = is_array($pending['tool_proposal'] ?? null) ? $pending['tool_proposal'] : [];
+        $toolCode = trim((string)($proposal['tool_code'] ?? ''));
+        if ($toolCode === '') {
+            return self::modelFirstDecision($bindingEnabled, $context, $request, $params);
+        }
+        $contract = $skill !== []
+            ? AigcCanvasSkillService::compileForAgent($skill, (string)($pending['original_request'] ?? $request), $context, true)
+            : [];
+        $contract['execution_confirmed'] = true;
+        return self::decorate([
+            'delivery_item_id' => (int)($pending['delivery_item_id'] ?? 0),
+            'intent' => 'approved_tool_proposal',
+            'action_mode' => 'execute',
+            'binding_mode' => $contract === [] ? 'none' : 'contract',
+            'target' => self::target($context),
+            'risk' => 'confirmed',
+            'selected_skill_key' => (string)($contract['skill_key'] ?? ''),
+            'selected_skill_name' => (string)($contract['name'] ?? ''),
+            'skill_candidates' => [],
+            'router_source' => 'confirmed_tool_proposal',
+            'confidence' => 1.0,
+            'missing_hard_slots' => [],
+            'inferred_slots' => [],
+            'default_slots' => [],
+            'default_sources' => [],
+            'clarification_question' => '',
+            'next_action' => 'execute',
+            'upgrade_reasons' => [],
+            'requires_confirmation' => false,
+            'estimated_tools' => [],
+            'pending_context' => [],
+            'runtime_allowed_tools' => $contract === [] ? [] : (array)($contract['allowed_tools'] ?? []),
+            'binding_rollout_enabled' => $bindingEnabled,
+            'skill_contract' => $contract,
+            'confirmed_tool_proposal' => [
+                'tool_code' => $toolCode,
+                'arguments' => is_array($proposal['arguments'] ?? null) ? $proposal['arguments'] : [],
+            ],
+        ], $request, $context, $params);
+    }
+
+    private static function decisionMode(array $decision): string
+    {
+        if (!empty($decision['requires_confirmation'])
+            && empty($decision['skill_contract']['execution_confirmed'])) {
+            return 'confirm';
+        }
+        if ((string)($decision['next_action'] ?? '') === 'confirm_execution'
+            || (string)($decision['action_mode'] ?? '') === 'confirm') {
+            return 'confirm';
+        }
+        return match ((string)($decision['execution_mode'] ?? 'reply')) {
+            'clarify' => 'clarify',
+            'plan' => 'plan',
+            'execute' => 'execute',
+            default => 'answer',
+        };
     }
 
     /**
@@ -864,10 +1008,17 @@ final class AgentTaskDecisionService
         return $items;
     }
 
-    /** Keep a disabled rollout on the former strict automatic-Skill path. */
+    /**
+     * Skill retrieval is not a form submission. A Skill may explicitly be
+     * strict, while the normal policy only upgrades to a contract when the
+     * current turn can bill, batch, or mutate the canvas.
+     */
     private static function bindingMode(bool $bindingEnabled, bool $explicit, array $policy): string
     {
-        if ($explicit || !$bindingEnabled) {
+        if (!$bindingEnabled) {
+            return 'contract';
+        }
+        if ((string)($policy['execution_mode'] ?? 'strict_on_execute') === 'strict') {
             return 'contract';
         }
         $mode = (string)($policy['default_mode'] ?? 'advisory');
@@ -1001,7 +1152,8 @@ final class AgentTaskDecisionService
         $policy = (array)($contract['binding_policy'] ?? []);
         $allowed = (array)($policy['upgrade_to_contract_on'] ?? ['paid_generation', 'batch', 'canvas_write']);
         $costly = (array)($contract['capability_tools']['costly'] ?? []);
-        $isGeneration = $costly !== [] && preg_match('/生成|制作|创建|出图|生成图|render|generate|(?:做|画).*(?:张|图|海报|视频)/u', $text) === 1;
+        $isVisualDelivery = !empty($contract['visual_delivery_policy']['matched']);
+        $isGeneration = $costly !== [] && ($isVisualDelivery || preg_match('/生成|制作|创建|出图|生成图|render|generate|(?:做|画).*(?:张|图|海报|视频)/u', $text) === 1);
         $isVisualRevision = (!empty($context['uploaded_references']) || !empty($context['selected_elements']) || !empty($context['selected_ids']))
             && preg_match('/修改|调整|改成|换成|重新做|重做|太亮|太暗|深色|浅色|色系|颜色|风格|darker|brighter|color\s*scheme|change|revise|edit/u', $text) === 1;
         if (in_array('paid_generation', $allowed, true) && ($isGeneration || $isVisualRevision)) $reasons[] = 'paid_generation';
@@ -1009,10 +1161,52 @@ final class AgentTaskDecisionService
         if (in_array('batch', $allowed, true) && $isGeneration && ($isBatchContract || preg_match('/(?:[2-9]|[1-9]\d+)\s*(?:张|幅|个|套|批)/u', $text) === 1)) {
             $reasons[] = 'batch';
         }
+        if (in_array('batch', $allowed, true) && $isGeneration && self::multiOutputQuantity($text) > 1) {
+            $reasons[] = 'batch';
+        }
         if (in_array('canvas_write', $allowed, true) && (
             !empty($context['selected_elements']) || preg_match('/插入画布|写入画布|替换|修改|移动|删除|分组|选中/u', $text) === 1
         )) $reasons[] = 'canvas_write';
+        if (in_array('canvas_write', $reasons, true) && self::isDestructiveCanvasMutation($request)) {
+            $reasons[] = 'destructive_canvas_write';
+        }
         return array_values(array_unique($reasons));
+    }
+
+    /** Normalizes explicit Chinese and Arabic output counts for batch policy. */
+    private static function multiOutputQuantity(string $text): int
+    {
+        if (preg_match('/([1-9]\\d*)\\s*(?:张|幅|个|款|套|条|版|images?|posters?)/ui', $text, $match) === 1) {
+            return max(1, min(50, (int)$match[1]));
+        }
+        if (preg_match('/(两|二|三|四|五|六|七|八|九|十|十一|十二)\\s*(?:张|幅|个|款|套|条|版)/u', $text, $match) === 1) {
+            return [
+                '两' => 2, '二' => 2, '三' => 3, '四' => 4, '五' => 5, '六' => 6,
+                '七' => 7, '八' => 8, '九' => 9, '十' => 10, '十一' => 11, '十二' => 12,
+            ][(string)$match[1]];
+        }
+        return 1;
+    }
+
+    /**
+     * Confirmation is reserved for requests whose effect is meaningfully
+     * broader than the user's explicit one-shot instruction. A concrete
+     * image, video, or music brief must execute directly after its required
+     * slots are present; cost is handled by the normal submission pipeline.
+     */
+    private static function requiresConfirmation(string $intent, array $upgrades, array $contract, string $request, array $context = []): bool
+    {
+        if (in_array('batch', $upgrades, true)) {
+            return true;
+        }
+        return $intent === 'canvas_edit'
+            && (in_array('destructive_canvas_write', $upgrades, true)
+                || self::isDestructiveCanvasMutation($request));
+    }
+
+    private static function isDestructiveCanvasMutation(string $request): bool
+    {
+        return preg_match('/\x{5220}\x{9664}|\x{79fb}\x{9664}|\x{6e05}\x{7a7a}|\x{66ff}\x{6362}|\x{8986}\x{76d6}|\x{5220}\x{6389}|delete|remove|clear|overwrite|replace/iu', $request) === 1;
     }
 
     private static function intent(string $request, array $context, array $contract): string
@@ -1082,12 +1276,17 @@ final class AgentTaskDecisionService
             'original_request' => trim((string)($value['original_request'] ?? '')),
             'confirmed' => !empty($value['confirmed']),
             'delivery_item_id' => max(0, (int)($value['delivery_item_id'] ?? 0)),
+            'tool_proposal' => is_array($value['tool_proposal'] ?? null) ? $value['tool_proposal'] : [],
         ];
     }
 
     private static function estimateTools(int $tenantId, string $request, array $contract): array
     {
         $quantity = 1;
+        $visualDelivery = (array)($contract['visual_delivery_policy'] ?? []);
+        if (!empty($visualDelivery['matched'])) {
+            $quantity = max(1, min(12, (int)($visualDelivery['quantity'] ?? 1)));
+        }
         if (preg_match('/([1-9]\d*)\s*(?:张|幅|个|套|批)/u', $request, $match) === 1) {
             $quantity = max(1, min(50, (int)$match[1]));
         }

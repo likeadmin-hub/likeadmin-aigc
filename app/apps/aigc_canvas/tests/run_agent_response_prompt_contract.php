@@ -63,6 +63,29 @@ if (!str_contains($loopSource, 'AgentResultValidator::isConfirmedMediaSubmission
     $failures[] = 'agent loop does not stop after an accepted media task';
 }
 
+$invalidMediaValidation = AgentResultValidator::validate('generate_image', [
+    'tool_calls' => [[
+        'tool_code' => 'generate_image',
+        'status' => 'success',
+        'output' => ['status' => 'success'],
+    ]],
+    'assets' => [],
+    'workspace_actions' => [],
+]);
+if (!in_array('missing_generation_task_id', (array)($invalidMediaValidation['issues'] ?? []), true)
+    || AgentResultValidator::isConfirmedMediaSubmission('generate_image', $invalidMediaValidation)
+    || !str_contains($loopSource, 'mediaSubmissionVerificationFailureReply')) {
+    $failures[] = 'unverified media result can be presented as a submitted task';
+}
+if (strpos($loopSource, 'if (empty($validation[\'valid\'])) {', strpos($loopSource, 'private static function executeApprovedToolProposal')) === false
+    || strpos($loopSource, "'next_action' => 'chat'", strpos($loopSource, 'private static function executeApprovedToolProposal')) === false) {
+    $failures[] = 'approved tool proposal can bypass the validation gate';
+}
+if (!str_contains($loopSource, 'unverifiedToolResultReply')
+    || !str_contains($loopSource, "'next_action' => \$unverifiedToolResults !== [] ? 'chat'")) {
+    $failures[] = 'unverified non-media output can be projected as completed work';
+}
+
 $evidence = AgentResponseProtocol::fromResult(['next_action' => 'chat'], ['visible_facts' => ['blue product']]);
 if (($evidence['response_kind'] ?? '') !== AgentResponseProtocol::EVIDENCE_REVIEW) {
     $failures[] = 'evidence response is not structured';

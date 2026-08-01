@@ -92,7 +92,7 @@ class MarketTextModelRuntimeService
         $businessTable = self::safeCode((string)($params['business_table'] ?? ($appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task')), $appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task');
         $businessId = (int)($params['business_id'] ?? 0);
         $requestSummary = [
-            'content_length' => array_sum(array_map(static fn(array $message): int => mb_strlen((string)($message['content'] ?? ''), 'UTF-8'), $messages)),
+            'content_length' => array_sum(array_map(static fn(array $message): int => self::messageContentLength($message['content'] ?? ''), $messages)),
             'message_count' => count($messages),
             'system_prompt_length' => mb_strlen((string)($params['system_prompt'] ?? ''), 'UTF-8'),
             'reference_image_count' => count($referenceImages),
@@ -114,7 +114,25 @@ class MarketTextModelRuntimeService
         $requestTimeout = self::resolveRequestTimeout($params);
         try {
             self::event((int)$context['consumption']['id'], 'submit', 'running', ['model_code' => $model['model_code']]);
-            $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout);
+            $compatibilityAttempts = 0;
+            while (true) {
+                try {
+                    $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout);
+                    break;
+                } catch (\Throwable $initialError) {
+                    $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
+                    if ($retry === null || $compatibilityAttempts >= 2) {
+                        throw $initialError;
+                    }
+                    $generationParams = $retry['params'];
+                    $compatibilityAttempts++;
+                    self::event((int)$context['consumption']['id'], 'retry', 'running', [
+                        'reason' => $retry['reason'],
+                        'removed_params' => $retry['removed_params'],
+                        'temperature' => $retry['temperature'],
+                    ]);
+                }
+            }
             $usage = self::normalizeUsage((array)($result['usage'] ?? []));
             if (self::canSettleUsage($model, $usage) && (int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0) {
                 $usage['prompt_tokens'] = (int)$usage['total_tokens'];
@@ -444,27 +462,7 @@ class MarketTextModelRuntimeService
             }
             $payload[$paramKey] = $value;
         }
-        try {
-            return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify, $requestTimeout);
-        } catch (Exception $e) {
-            // Older market snapshots may not yet advertise this optional Qwen-style
-            // parameter. Retry once without it when the selected provider rejects it
-            // before producing an SSE response.
-            if (self::isOptionalParameterRejected($e)) {
-                $retryPayload = $payload;
-                $removed = false;
-                foreach (['enable_thinking', 'response_format', 'tools', 'tool_choice'] as $optionalKey) {
-                    if (array_key_exists($optionalKey, $retryPayload)) {
-                        unset($retryPayload[$optionalKey]);
-                        $removed = true;
-                    }
-                }
-                if ($removed) {
-                    return self::curl($base . $path, $key, $retryPayload, $onEvent, $sslVerify, $requestTimeout);
-                }
-            }
-            throw $e;
-        }
+        return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify, $requestTimeout);
     }
 
     /** @return array<int, array{role:string, content:mixed}> */
@@ -497,6 +495,39 @@ class MarketTextModelRuntimeService
         return [['role' => 'user', 'content' => $messageContent]];
     }
 
+    private static function messageContentLength($content): int
+    {
+        return mb_strlen(self::messageText($content), 'UTF-8');
+    }
+
+    /** Extract textual message parts without counting structured media URLs. */
+    private static function messageText($value): string
+    {
+        if (is_string($value) || is_numeric($value)) {
+            return (string)$value;
+        }
+        if (!is_array($value)) {
+            return '';
+        }
+        if (array_key_exists('text', $value)) {
+            return self::messageText($value['text']);
+        }
+        if (array_key_exists('content', $value)) {
+            return self::messageText($value['content']);
+        }
+
+        $parts = [];
+        foreach ($value as $key => $item) {
+            if (is_int($key)) {
+                $text = self::messageText($item);
+                if ($text !== '') {
+                    $parts[] = $text;
+                }
+            }
+        }
+        return implode('', $parts);
+    }
+
     private static function resolveMaxTokens(array $model, array $overrides): int
     {
         $modelLimit = (int)($model['max_tokens'] ?? 0);
@@ -517,6 +548,75 @@ class MarketTextModelRuntimeService
             return self::REQUEST_TIMEOUT_SECONDS;
         }
         return max(10, min(self::REQUEST_TIMEOUT_SECONDS, $requested));
+    }
+
+    /** @return array{params:array<string,mixed>, reason:string, removed_params:array<int,string>, temperature:?float}|null */
+    private static function compatibleGenerationParams(string $message, array $generationParams): ?array
+    {
+        $temperature = self::requiredTemperature($message, $generationParams);
+        if ($temperature !== null) {
+            $params = $generationParams;
+            $params['temperature'] = $temperature;
+            return [
+                'params' => $params,
+                'reason' => 'provider_temperature_constraint',
+                'removed_params' => [],
+                'temperature' => $temperature,
+            ];
+        }
+
+        $message = strtolower($message);
+        if (!str_contains($message, 'unsupported')
+            && !str_contains($message, 'unknown parameter')
+            && !str_contains($message, 'invalid parameter')
+            && !str_contains($message, 'not support')) {
+            return null;
+        }
+        $parameterHints = [
+            'enable_thinking' => ['enable_thinking', 'thinking'],
+            'response_format' => ['response_format', 'json_object', 'json schema'],
+            'tools' => ['tools', 'tool_calls', 'function calling', 'function_call'],
+            'tool_choice' => ['tool_choice'],
+        ];
+        $params = $generationParams;
+        $removed = [];
+        foreach ($parameterHints as $parameter => $hints) {
+            if (!array_key_exists($parameter, $params)) {
+                continue;
+            }
+            foreach ($hints as $hint) {
+                if (str_contains($message, $hint)) {
+                    unset($params[$parameter]);
+                    $removed[] = $parameter;
+                    break;
+                }
+            }
+        }
+        if ($removed === []) {
+            return null;
+        }
+        if (in_array('tools', $removed, true) && array_key_exists('tool_choice', $params)) {
+            unset($params['tool_choice']);
+            $removed[] = 'tool_choice';
+        }
+        return [
+            'params' => $params,
+            'reason' => 'provider_unsupported_optional_parameter',
+            'removed_params' => array_values(array_unique($removed)),
+            'temperature' => null,
+        ];
+    }
+
+    private static function requiredTemperature(string $message, array $generationParams): ?float
+    {
+        if (!preg_match('/(?:only|must be)\s+([01](?:\.\d+)?)\s+is\s+allowed\s+for\s+this\s+model/i', $message, $matches)) {
+            return null;
+        }
+        $temperature = (float)$matches[1];
+        if ($temperature < 0 || $temperature > 2 || (isset($generationParams['temperature']) && abs((float)$generationParams['temperature'] - $temperature) < 0.000001)) {
+            return null;
+        }
+        return $temperature;
     }
 
     private static function safeCode(string $value, string $fallback): string
@@ -606,17 +706,6 @@ class MarketTextModelRuntimeService
         return true;
     }
 
-    private static function isOptionalParameterRejected(Exception $e): bool
-    {
-        $message = strtolower($e->getMessage());
-        return str_contains($message, 'http 400')
-            || str_contains($message, 'invalid request')
-            || str_contains($message, 'unknown parameter')
-            || str_contains($message, 'unsupported parameter')
-            || str_contains($message, 'unknown format')
-            || str_contains($message, 'response_format');
-    }
-
     private static function curl(string $url, string $key, array $payload, ?callable $onEvent, bool $sslVerify, int $requestTimeout): array
     {
         $headers = [
@@ -628,7 +717,7 @@ class MarketTextModelRuntimeService
             return self::requestJson($url, $payload, $headers, $sslVerify, $requestTimeout);
         }
 
-        $state = ['content' => '', 'usage' => [], 'request_id' => '', 'emitted_request_id' => '', 'error' => '', 'tool_calls' => [], 'delta_count' => 0];
+        $state = ['content' => '', 'reasoning' => '', 'usage' => [], 'request_id' => '', 'emitted_request_id' => '', 'error' => '', 'tool_calls' => [], 'delta_count' => 0];
         $buffer = '';
         $body = '';
         $receivedEvent = false;
@@ -701,6 +790,12 @@ class MarketTextModelRuntimeService
         }
         if ($state['error'] !== '') {
             throw new Exception($state['error']);
+        }
+        // Some OpenAI-compatible reasoning models emit their only textual output
+        // under reasoning_content. Preserve it as a last-resort response instead
+        // of treating a completed provider request as an empty result.
+        if (trim((string)$state['content']) === '' && trim((string)$state['reasoning']) !== '') {
+            $state['content'] = $state['reasoning'];
         }
         if (!$receivedEvent || (trim((string)$state['content']) === '' && empty($state['tool_calls']))) {
             throw new Exception('文本模型未返回有效内容');
@@ -832,16 +927,25 @@ class MarketTextModelRuntimeService
         if ($delta === '') {
             return;
         }
-        $state['content'] .= $delta;
+        if (!empty($event['reasoning'])) {
+            $state['reasoning'] .= $delta;
+        } else {
+            $state['content'] .= $delta;
+        }
         $state['delta_count'] = (int)($state['delta_count'] ?? 0) + 1;
-        $onEvent('delta', ['delta' => $delta]);
+        if (empty($event['reasoning'])) {
+            $onEvent('delta', ['delta' => $delta]);
+        }
     }
 
     /** @return array<string, mixed>|null */
     private static function parseProviderPayload(array $json, string $eventName = '', bool $stream = false): ?array
     {
-        if (isset($json['code']) && is_numeric($json['code']) && (int)$json['code'] !== 0 && empty($json['choices']) && empty($json['output'])) {
-            return ['type' => 'error', 'message' => self::providerError($json) ?: (string)($json['message'] ?? 'Provider request failed')];
+        if (isset($json['code']) && is_numeric($json['code']) && empty($json['choices']) && empty($json['output'])) {
+            $providerMessage = self::providerError($json);
+            if ((int)$json['code'] !== 0 || $providerMessage !== '' || array_key_exists('data', $json)) {
+                return ['type' => 'error', 'message' => $providerMessage ?: 'Provider request failed'];
+            }
         }
         if (isset($json['error'])) {
             return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败'];
@@ -850,7 +954,7 @@ class MarketTextModelRuntimeService
         if (in_array($eventType, ['error', 'failed', 'fail', 'response.failed', 'response.incomplete'], true)) {
             return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败'];
         }
-        foreach (['data', 'result'] as $key) {
+        foreach (['data', 'result', 'output', 'response'] as $key) {
             if (!empty($json[$key]) && is_array($json[$key]) && self::looksLikePayload($json[$key])) {
                 $event = self::parseProviderPayload($json[$key], $eventName, $stream);
                 if ($event !== null) {
@@ -884,9 +988,20 @@ class MarketTextModelRuntimeService
             $stream ? null : ($outputContent['text'] ?? $outputContent['content'] ?? null),
             $stream ? null : ($json['response']['output_text'] ?? $json['response']['output'] ?? null),
         ]);
+        $reasoning = $delta === '' ? self::extractText([
+            $choice['delta']['reasoning_content'] ?? null,
+            $choice['message']['reasoning_content'] ?? null,
+            $choice['delta']['reasoning'] ?? null,
+            $choice['message']['reasoning'] ?? null,
+            $json['reasoning_content'] ?? null,
+            $json['reasoning'] ?? null,
+        ]) : '';
         $toolCalls = self::toolCallsFromPayload($json, $choice, $output);
         if ($delta !== '') {
             return ['type' => 'delta', 'content' => $delta, 'usage' => $usage, 'provider_request_id' => $requestId, 'tool_calls' => $toolCalls];
+        }
+        if ($reasoning !== '') {
+            return ['type' => 'delta', 'content' => $reasoning, 'reasoning' => true, 'usage' => $usage, 'provider_request_id' => $requestId, 'tool_calls' => $toolCalls];
         }
         if (!empty($toolCalls)) {
             return ['type' => 'tool_calls', 'tool_calls' => $toolCalls, 'usage' => $usage, 'provider_request_id' => $requestId];
@@ -950,7 +1065,7 @@ class MarketTextModelRuntimeService
 
     private static function looksLikePayload(array $payload): bool
     {
-        foreach (['choices', 'delta', 'content', 'text', 'answer', 'response', 'message', 'usage', 'output', 'error'] as $key) {
+        foreach (['choices', 'delta', 'content', 'text', 'answer', 'response', 'message', 'usage', 'output', 'reasoning', 'reasoning_content', 'error'] as $key) {
             if (array_key_exists($key, $payload)) {
                 return true;
             }

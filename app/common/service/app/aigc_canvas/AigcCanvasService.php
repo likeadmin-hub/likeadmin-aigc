@@ -30,7 +30,6 @@ use think\facade\Db;
 class AigcCanvasService
 {
     public const APP_CODE = 'aigc_canvas';
-
     private const LEGACY_TEXT_REPLACEMENTS = [
         "\u{74A7}\u{52EA}\u{9A87}\u{7459}\u{55DB}\u{E576}" => '资产视频',
         '璧勪骇鍥剧墖' => '资产图片',
@@ -212,8 +211,18 @@ class AigcCanvasService
         $current = AppDisplayConfigService::detail($tenantId, self::APP_CODE);
         $extra = is_array($current['extra'] ?? null) ? $current['extra'] : [];
         $agent = is_array($extra['agent'] ?? null) ? $extra['agent'] : [];
+        $routerModelCode = trim((string)($params['router_model_code'] ?? ''));
+        if ($routerModelCode !== '') {
+            $modelCodes = array_map(
+                static fn(array $model): string => (string)($model['code'] ?? ''),
+                array_values((array)(self::textConfig($tenantId)['models'] ?? []))
+            );
+            if (!in_array($routerModelCode, $modelCodes, true)) {
+                throw new Exception('所选 Agent 文本模型未上架或当前租户不可用');
+            }
+        }
         $agent['router_enabled'] = (bool)($params['router_enabled'] ?? true);
-        $agent['router_model_code'] = trim((string)($params['router_model_code'] ?? ''));
+        $agent['router_model_code'] = $routerModelCode;
         $agent['agent_loop_enabled'] = !isset($params['agent_loop_enabled']) || !empty($params['agent_loop_enabled']);
         $agent['skill_binding_mode_enabled'] = !isset($params['skill_binding_mode_enabled']) || !empty($params['skill_binding_mode_enabled']);
         $agent['agent_intent_router_enabled'] = !empty($params['agent_intent_router_enabled']);
@@ -1248,13 +1257,14 @@ class AigcCanvasService
     public static function generateImage(int $tenantId, int $userId, array $params): array
     {
         $params = self::prepareMentionParams($params);
+        $modelSelectionExplicit = self::hasExplicitImageModelSelection($params);
         $params['__request_user_id'] = $userId;
         $params = PromptSubmissionService::prepareImageRequest($tenantId, $params);
         $params = CanvasModelRouterService::applyToToolInput($tenantId, 'generate_image', $params);
         $started = microtime(true);
         $run = self::createRun($tenantId, $userId, $params, 'image', 'power_market_image');
         try {
-            $attempts = self::imageMarketAttemptInputs($tenantId, $params);
+            $attempts = self::imageMarketAttemptInputs($tenantId, $params, $modelSelectionExplicit);
             if ($attempts === []) {
                 throw new Exception('暂无可用的算力市场图片模型资源');
             }
@@ -1338,7 +1348,7 @@ class AigcCanvasService
         return self::formatMarketImageResult((int)$reserve['consumption_id'], $reserve, $result);
     }
 
-    private static function imageMarketAttemptInputs(int $tenantId, array $params): array
+    private static function imageMarketAttemptInputs(int $tenantId, array $params, bool $modelSelectionExplicit = false): array
     {
         $attempts = [];
         $seen = [];
@@ -1355,6 +1365,11 @@ class AigcCanvasService
         };
 
         $push($params);
+        // A user-selected model is also a billing and capability choice. Do not
+        // silently submit the same request to another model when it is unavailable.
+        if ($modelSelectionExplicit) {
+            return $attempts;
+        }
         try {
             foreach (MarketImageModelRuntimeService::options($tenantId) as $option) {
                 if (!is_array($option)) {
@@ -1380,6 +1395,24 @@ class AigcCanvasService
         } catch (\Throwable) {
         }
         return $attempts;
+    }
+
+    private static function hasExplicitImageModelSelection(array $params): bool
+    {
+        // Agent requests always send this flag, including false for a project default.
+        // Older/direct callers remain compatible: an explicit model/SKU locks the task.
+        if (array_key_exists('model_selection_explicit', $params)) {
+            return filter_var($params['model_selection_explicit'], FILTER_VALIDATE_BOOL);
+        }
+        if (!empty($params['market_sku_id']) || !empty($params['sku_id']) || !empty($params['image_sku_id']) || !empty($params['market_product_id'])) {
+            return true;
+        }
+        foreach (['channel', 'model', 'model_id', 'image_model_id'] as $key) {
+            if (trim((string)($params[$key] ?? '')) !== '') {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Select a fallback SKU that can honor the user-requested aspect ratio. */
@@ -2123,14 +2156,15 @@ class AigcCanvasService
             ? max(0, (int)$row['edge_count'])
             : count(self::normalizeList($row['edges_json'] ?? []));
         $nodes = self::normalizeList($row['nodes_json'] ?? []);
-        $nodeActivityTime = self::latestProjectNodeTime($nodes);
-        $createTime = (int)($row['create_time'] ?? 0);
-        $updateTime = (int)($row['update_time'] ?? 0);
+        // Existing installations can use DATETIME while newer installs use an
+        // integer timestamp. Normalize both forms before returning project data.
+        $createTime = self::normalizeRunTime($row['create_time'] ?? 0);
+        $updateTime = self::normalizeRunTime($row['update_time'] ?? 0);
         if ($updateTime <= 0) {
-            $updateTime = $nodeActivityTime ?: $createTime;
+            $updateTime = $createTime;
         }
         if ($createTime <= 0) {
-            $createTime = $updateTime ?: $nodeActivityTime;
+            $createTime = $updateTime;
         }
         $generatedThumbnail = self::firstGeneratedProjectImageThumbnail($nodes);
         $data = [
@@ -2141,8 +2175,10 @@ class AigcCanvasService
             'edge_count' => $edgeCount,
             'createdAt' => $createTime * 1000,
             'updatedAt' => $updateTime * 1000,
+            'lastSavedAt' => $updateTime * 1000,
             'create_time' => $createTime,
             'update_time' => $updateTime,
+            'last_saved_at' => $updateTime,
             'tenant_id' => (int)($row['tenant_id'] ?? 0),
             'user_id' => (int)($row['user_id'] ?? 0),
             'sort' => (int)($row['sort'] ?? 0),
@@ -2546,31 +2582,6 @@ class AigcCanvasService
             return $time === false ? 0 : $time;
         }
         return 0;
-    }
-
-    private static function latestProjectNodeTime(array $nodes): int
-    {
-        $latest = 0;
-        foreach ($nodes as $node) {
-            if (!is_array($node)) {
-                continue;
-            }
-            $metadata = is_array($node['metadata'] ?? null) ? $node['metadata'] : [];
-            foreach ([
-                $node['updatedAt'] ?? 0,
-                $node['createdAt'] ?? 0,
-                $node['update_time'] ?? 0,
-                $node['create_time'] ?? 0,
-                $metadata['updatedAt'] ?? 0,
-                $metadata['generatedAt'] ?? 0,
-                $metadata['createdAt'] ?? 0,
-                $metadata['update_time'] ?? 0,
-                $metadata['create_time'] ?? 0,
-            ] as $value) {
-                $latest = max($latest, self::normalizeRunTime($value));
-            }
-        }
-        return $latest;
     }
 
     private static function projectRegisteredAssets(int $tenantId, int $userId, int $projectId): array

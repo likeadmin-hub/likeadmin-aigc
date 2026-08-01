@@ -152,6 +152,23 @@ if (!mb_check_encoding((string)$malformed['compiled_prompt'], 'UTF-8')) {
     $failures[] = 'direct prompt retains malformed UTF-8 bytes';
 }
 
+$enrichmentInput = PromptEnrichmentService::applyDraft([
+    'user_request' => 'a Pomeranian puppy with a 16:9 composition',
+    'prompt' => 'a Pomeranian puppy with a 16:9 composition',
+    'ratio' => '16:9',
+], [
+    'description' => 'a close-up portrait with fluffy texture and soft backlight',
+    'visual_direction' => ['soft backlight', 'shallow depth of field'],
+]);
+$enrichmentTrace = PromptSpecCompiler::compileDirect((string)$enrichmentInput['user_request'], $enrichmentInput);
+if (($enrichmentInput['user_request'] ?? '') !== 'a Pomeranian puppy with a 16:9 composition'
+    || ($enrichmentInput['prompt'] ?? '') !== 'a Pomeranian puppy with a 16:9 composition'
+    || ($enrichmentTrace['prompt_spec_json']['user_request'] ?? '') !== 'a Pomeranian puppy with a 16:9 composition'
+    || !str_contains((string)$enrichmentTrace['compiled_prompt'], 'Pomeranian puppy')
+    || str_contains((string)$enrichmentTrace['compiled_prompt'], 'close-up portrait')) {
+    $failures[] = 'direct prompt enrichment replaces the requested subject';
+}
+
 echo json_encode([
     'passed' => $failures === [],
     'failures' => $failures,

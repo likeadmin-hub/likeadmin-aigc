@@ -166,6 +166,7 @@ final class CanvasGenerationTaskCenterService
             'prompt', 'compiled_prompt', 'prompt_spec_json', 'creative_spec_json', 'prompt_hash', 'compiler_version',
             'prompt_mode', 'evidence_ids', 'claim_ids', 'preflight', 'ratio', 'quantity', 'reference_images',
             'reference_assets', 'channel', 'model_id', 'market_product_id', 'market_sku_id', 'sku_id',
+            'model_selection_explicit',
             'target_element_id', 'section_key', 'section_index', 'batch_id', 'request_id',
             'original_user_request', 'prompt_enrichment', 'prompt_language',
         ];

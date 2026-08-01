@@ -11,6 +11,7 @@ use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemService;
 use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemTaskSyncService;
 use app\common\service\app\aigc_canvas\agent\delivery\DeliveryPlanService;
 use app\common\service\app\aigc_canvas\agent\delivery\ConversationTaskResolver;
+use app\common\service\app\aigc_canvas\agent\delivery\CreativeDeliveryGraphService;
 use app\common\service\app\aigc_canvas\agent\delivery\PendingActionProtocol;
 use app\common\service\app\aigc_canvas\agent\runtime\AgentTaskDecisionService;
 use think\App;
@@ -240,6 +241,58 @@ try {
         ];
     });
 
+    // 0. Delivery plans are the one persisted creative graph. Independent
+    // nodes become runnable together, while replanning never changes a
+    // completed node or introduces a second task state machine.
+    $creativeGraph = CreativeDeliveryGraphService::create(TENANT_ID, USER_ID, 71, 80, 190, [
+        'title' => 'Campaign creative graph',
+        'intent' => 'creative_plan',
+        'items' => [
+            [
+                'item_key' => 'strategy', 'objective' => 'Create campaign strategy', 'skill_key' => 'script_planning',
+                'tool_code' => 'generate_text', 'status' => 'ready', 'slots' => ['user_request' => 'Launch a summer product campaign'],
+                'delivery' => ['type' => 'strategy'], 'quality_policy' => ['checks' => ['output_present', 'brand_constraints']],
+            ],
+            [
+                'item_key' => 'copy', 'objective' => 'Create campaign copy', 'skill_key' => 'script_planning',
+                'tool_code' => 'generate_text', 'status' => 'draft', 'depends_on' => ['strategy'],
+                'slots' => ['user_request' => 'Launch a summer product campaign'], 'delivery' => ['type' => 'copy'],
+            ],
+            [
+                'item_key' => 'visual_prompt', 'objective' => 'Create visual prompt', 'skill_key' => 'general_image',
+                'tool_code' => 'generate_text', 'status' => 'draft', 'depends_on' => ['strategy'],
+                'slots' => ['user_request' => 'Launch a summer product campaign'], 'delivery' => ['type' => 'prompt'],
+            ],
+        ],
+    ], ['uploaded_references' => [['url' => 'https://cdn.example.test/product.jpg']]]);
+    $strategyNode = array_values(array_filter((array)$creativeGraph['items'], static fn(array $node): bool => (string)$node['item_key'] === 'strategy'))[0];
+    assertE2e((int)($creativeGraph['graph']['graph_version'] ?? 0) === 1
+        && (string)($strategyNode['orchestration']['role'] ?? '') === 'creative_director'
+        && (array)($strategyNode['orchestration']['quality_policy']['checks'] ?? []) === ['output_present', 'brand_constraints'],
+        'creative graph metadata was not persisted on the delivery plan/item');
+    $initialRunnable = CreativeDeliveryGraphService::runnableItems(TENANT_ID, USER_ID, (int)$creativeGraph['id']);
+    assertE2e(count($initialRunnable) === 1 && (string)$initialRunnable[0]['item_key'] === 'strategy', 'creative graph did not expose its initial runnable node');
+    $strategyNode = DeliveryItemService::transition(TENANT_ID, USER_ID, (int)$strategyNode['id'], 'queued');
+    $strategyNode = DeliveryItemService::transition(TENANT_ID, USER_ID, (int)$strategyNode['id'], 'running');
+    DeliveryItemService::transition(TENANT_ID, USER_ID, (int)$strategyNode['id'], 'completed', ['result_json' => ['text' => 'strategy complete']]);
+    $parallelRunnable = CreativeDeliveryGraphService::runnableItems(TENANT_ID, USER_ID, (int)$creativeGraph['id']);
+    assertE2e(count($parallelRunnable) === 2, 'independent dependency-satisfied creative nodes were not scheduled together');
+    $replanned = CreativeDeliveryGraphService::updateEditableNodes(TENANT_ID, USER_ID, (int)$creativeGraph['id'], [
+        'title' => 'Campaign creative graph revised', 'intent' => 'creative_plan', 'items' => [
+            ['item_key' => 'strategy', 'objective' => 'Changed strategy must not overwrite completed output', 'tool_code' => 'generate_text'],
+            ['item_key' => 'copy', 'objective' => 'Create revised campaign copy', 'tool_code' => 'generate_text', 'depends_on' => ['strategy'], 'delivery' => ['type' => 'copy']],
+            ['item_key' => 'visual_prompt', 'objective' => 'Create revised visual prompt', 'tool_code' => 'generate_text', 'depends_on' => ['strategy'], 'delivery' => ['type' => 'prompt']],
+        ],
+    ]);
+    $replannedStrategy = array_values(array_filter((array)$replanned['items'], static fn(array $node): bool => (string)$node['item_key'] === 'strategy'))[0];
+    $replannedCopy = array_values(array_filter((array)$replanned['items'], static fn(array $node): bool => (string)$node['item_key'] === 'copy'))[0];
+    assertE2e((int)($replanned['graph']['graph_version'] ?? 0) === 2
+        && (string)$replannedStrategy['objective'] === 'Create campaign strategy'
+        && (string)$replannedCopy['objective'] === 'Create revised campaign copy'
+        && (int)($replannedCopy['depends_on'][0] ?? 0) === (int)$replannedStrategy['id'],
+        'replanning changed a terminal node or lost dependency identity');
+    $checked['creative_graph_parallel_schedule_and_terminal_protection'] = true;
+
     // 1. Uploaded product reference survives binding, graph submission and callback projection.
     $main = item();
     $submittedResult = DeliveryGraphExecutor::execute(TENANT_ID, USER_ID, (int)$main['id']);
@@ -458,10 +511,9 @@ try {
     assertE2e($videoResolution === [], 'direct video render created a delivery item');
     $checked['semantic_text_script_and_direct_video_render'] = true;
 
-    // 15a. A concrete, high-confidence direct media request must expose only
-    // its approved costly tool to the Agent Loop. This prevents a completed
-    // brief or a continuation value such as "1" from being classified as an
-    // advisory reply and then rejected after the model selects generate_image.
+    // 15a. A concrete direct-media brief is executable immediately. Cost is
+    // handled by the submission pipeline, not by an extra conversational
+    // confirmation step.
     $readyImageDecision = AgentTaskDecisionService::decide(TENANT_ID, 'Create a cinematic portrait of a red fox in snowfall', [], [], [
         'user_id' => USER_ID, 'thread_id' => 140,
         'semantic_decision' => [
@@ -469,12 +521,14 @@ try {
             'selected_skill_key' => 'general_image', 'confidence' => 0.98,
         ],
     ]);
-    assertE2e((string)($readyImageDecision['execution_mode'] ?? '') === 'execute'
+    assertE2e((string)($readyImageDecision['decision_mode'] ?? '') === 'execute'
+        && (string)($readyImageDecision['execution_mode'] ?? '') === 'execute'
+        && empty($readyImageDecision['requires_confirmation'])
         && in_array('generate_image', (array)($readyImageDecision['runtime_allowed_tools'] ?? []), true)
         && in_array('generate_image', (array)($readyImageDecision['skill_contract']['allowed_tools'] ?? []), true),
-        'concrete direct image request was not authorized for controlled media execution');
+        'concrete direct image request was not authorized for immediate execution');
     assertE2e((array)($readyImageDecision['delivery_specs'] ?? []) === [], 'direct image request created a delivery item');
-    $checked['direct_media_execution_is_authorized_without_delivery_item'] = true;
+    $checked['direct_media_execution_without_confirmation_or_delivery_item'] = true;
 
     // 15b. A media request without a subject is a clarification, not a
     // ready delivery card or an implicit tool submission.

@@ -67,6 +67,10 @@ foreach ((array)($batchPlan['detail_sections'] ?? []) as $section) {
         break;
     }
 }
+$dramaBatchPlan = BatchDeliveryPlanner::plan('short_drama_preproduction', 'Create a visual storyboard.', [], ['generate_image']);
+if (count((array)($dramaBatchPlan['detail_sections'] ?? [])) !== 4) {
+    $failures[] = 'short drama visual delivery does not create four storyboard frames';
+}
 
 $compound = CanvasDeliveryPlannerService::plan(0, 0, '海报和详情图');
 $groupKeys = array_values(array_filter(array_map(

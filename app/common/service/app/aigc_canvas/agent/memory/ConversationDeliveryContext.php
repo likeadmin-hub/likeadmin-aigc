@@ -15,10 +15,11 @@ final class ConversationDeliveryContext
         int $projectId,
         int $threadId,
         array $requestContext = [],
-        bool $includeProjectMemory = true
+        bool $includeProjectMemory = true,
+        bool $includeConversationGoals = true
     ): array {
         if ($threadId <= 0) {
-            return self::emptyContext($requestContext, $tenantId, $userId, $projectId, $includeProjectMemory);
+            return self::emptyContext($requestContext, $tenantId, $userId, $projectId, $includeProjectMemory, $includeConversationGoals);
         }
 
         $messages = AigcCanvasAgentMessage::where([
@@ -75,7 +76,7 @@ final class ConversationDeliveryContext
             'selected_canvas_elements' => array_values((array)($requestContext['selected_elements'] ?? [])),
             'canvas_snapshot' => CanvasSnapshotBuilder::compact($requestContext),
             'uploaded_references' => array_values((array)($requestContext['uploaded_references'] ?? [])),
-            'project_memory' => $includeProjectMemory ? ProjectMemoryService::load($tenantId, $userId, $projectId) : [],
+            'project_memory' => $includeProjectMemory ? ProjectMemoryService::load($tenantId, $userId, $projectId, $includeConversationGoals) : [],
         ];
     }
 
@@ -140,7 +141,7 @@ final class ConversationDeliveryContext
         ];
     }
 
-    private static function emptyContext(array $requestContext, int $tenantId, int $userId, int $projectId, bool $includeProjectMemory): array
+    private static function emptyContext(array $requestContext, int $tenantId, int $userId, int $projectId, bool $includeProjectMemory, bool $includeConversationGoals): array
     {
         return [
             'recent_messages' => [],
@@ -150,7 +151,7 @@ final class ConversationDeliveryContext
             'selected_canvas_elements' => array_values((array)($requestContext['selected_elements'] ?? [])),
             'canvas_snapshot' => CanvasSnapshotBuilder::compact($requestContext),
             'uploaded_references' => array_values((array)($requestContext['uploaded_references'] ?? [])),
-            'project_memory' => $includeProjectMemory ? ProjectMemoryService::load($tenantId, $userId, $projectId) : [],
+            'project_memory' => $includeProjectMemory ? ProjectMemoryService::load($tenantId, $userId, $projectId, $includeConversationGoals) : [],
         ];
     }
 }

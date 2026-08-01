@@ -17,6 +17,7 @@ use app\common\service\app\aigc_canvas\agent\delivery\DeliveryPlanService;
 use app\common\service\app\aigc_canvas\agent\delivery\PendingActionProtocol;
 use app\common\service\app\aigc_canvas\agent\memory\BrandMemoryService;
 use app\common\service\app\aigc_canvas\agent\memory\ConversationDeliveryContext;
+use app\common\service\app\aigc_canvas\agent\memory\ConversationMemoryBuilder;
 use app\common\service\app\aigc_canvas\agent\orchestrator\DesignAgentOrchestrator;
 use app\common\service\app\aigc_canvas\agent\planning\EcommerceDetailSectionPlanner;
 use app\common\service\app\aigc_canvas\agent\planning\FollowUpRouter;
@@ -47,9 +48,6 @@ class AigcCanvasAgentRuntimeService
         }
         $now = time();
         $meta = self::sanitizeArray($params['meta'] ?? []);
-        // A thread created from "新建对话" must not revive project-level
-        // memory from a different conversation after its first message.
-        $meta['context_isolated'] = true;
         $thread = AigcCanvasAgentThread::create([
             'tenant_id' => $tenantId,
             'user_id' => $userId,
@@ -223,12 +221,13 @@ class AigcCanvasAgentRuntimeService
         }
         $thread = self::resolveThread($tenantId, $userId, $params, $projectId);
         $threadId = (int)$thread['id'];
-        // New threads remain isolated for their entire lifetime. The previous
-        // first-message-only check let the second turn load project memory
-        // from another conversation in the same canvas.
+        // A new thread starts without prior conversation context. Project-level
+        // memory remains available, while an explicitly isolated legacy thread
+        // still keeps its original canvas-context behavior.
         $contextIsolated = self::threadUsesIsolatedContext($thread)
             || !self::threadHasMessages($tenantId, $userId, $threadId);
         $params['new_conversation'] = $contextIsolated;
+        $params['project_memory_enabled'] = true;
         $content = trim((string)($params['content'] ?? $params['prompt'] ?? $params['message'] ?? ''));
         if ($content === '') {
             throw new Exception('Please enter a request');
@@ -301,6 +300,11 @@ class AigcCanvasAgentRuntimeService
             $context['uploaded_references'] = $references;
             $context['uploaded_reference_count'] = count($references);
         }
+        $context = self::inheritThreadReferences(
+            $context,
+            ConversationMemoryBuilder::build($tenantId, $userId, $threadId)
+        );
+        $uploadedReferences = array_values((array)($context['uploaded_references'] ?? []));
         if (!$contextIsolated) {
             $brandMemory = BrandMemoryService::context($tenantId, $userId, $projectId);
             if (!empty($brandMemory)) {
@@ -313,6 +317,7 @@ class AigcCanvasAgentRuntimeService
             $projectId,
             $threadId,
             $context,
+            !empty($params['project_memory_enabled']),
             !$contextIsolated
         );
         $context['conversation_delivery_context'] = $deliveryContext;
@@ -608,17 +613,13 @@ class AigcCanvasAgentRuntimeService
     }
 
     /**
-     * The loop is intentionally entered before legacy intent/Skill routing.
-     * Legacy routing remains a controlled fallback for explicit compatibility.
+     * The loop is the sole request execution path. It receives any selected
+     * product Skill as a contract instead of reviving an alternate router.
      */
     private static function agentLoopDecision(int $tenantId, array $params, array $agentConfig): array
     {
         if (empty($agentConfig['agent_loop_enabled']) || empty($agentConfig['router_available'])) {
             return ['use_loop' => false, 'reason' => empty($agentConfig['agent_loop_enabled']) ? 'agent_loop_disabled' : 'agent_model_unavailable'];
-        }
-        $mode = trim((string)($params['execution_mode'] ?? $params['agent_mode'] ?? ''));
-        if (in_array($mode, ['legacy_router', 'legacy_skill'], true)) {
-            return ['use_loop' => false, 'reason' => 'manual_legacy_mode'];
         }
         if (!empty($agentConfig['agent_loop_auto_fallback_enabled'])) {
             $health = AigcCanvasService::agentLoopHealth($tenantId, $agentConfig);
@@ -765,6 +766,7 @@ class AigcCanvasAgentRuntimeService
                 'content' => $content,
                 'context' => $context,
                 'new_conversation' => !empty($params['new_conversation']),
+                'project_memory_enabled' => !array_key_exists('project_memory_enabled', $params) || !empty($params['project_memory_enabled']),
                 'selected_skill' => $selectedSkill,
                 'delivery_plan' => (array)($deliveryResolution['plan'] ?? []),
                 'delivery_item' => (array)($deliveryResolution['item'] ?? []),
@@ -1634,6 +1636,8 @@ class AigcCanvasAgentRuntimeService
             'section_count' => (int)($value['section_count'] ?? 0),
             'count_reason' => (string)($value['count_reason'] ?? ''),
             'original_request' => (string)($value['original_request'] ?? ''),
+            'delivery_item_id' => max(0, (int)($value['delivery_item_id'] ?? 0)),
+            'tool_proposal' => is_array($value['tool_proposal'] ?? null) ? $value['tool_proposal'] : [],
             'uploaded_references' => is_array($value['uploaded_references'] ?? null) ? $value['uploaded_references'] : [],
         ];
     }
@@ -3047,6 +3051,29 @@ class AigcCanvasAgentRuntimeService
             'brand_memory' => $newConversation ? [] : ($context['brand_memory'] ?? []),
             'context_used' => false,
         ];
+    }
+
+    /** Carry reference assets within the same thread into follow-up requests. */
+    private static function inheritThreadReferences(array $context, array $memory): array
+    {
+        $references = [];
+        foreach (array_merge(
+            (array)($context['uploaded_references'] ?? []),
+            (array)($memory['uploaded_references'] ?? [])
+        ) as $reference) {
+            if (!is_array($reference)) {
+                continue;
+            }
+            $url = trim((string)($reference['url'] ?? $reference['uri'] ?? ''));
+            if ($url !== '') {
+                $references[$url] = $reference + ['url' => $url, 'uri' => $url];
+            }
+        }
+        if ($references !== []) {
+            $context['uploaded_references'] = array_values($references);
+            $context['uploaded_reference_count'] = count($context['uploaded_references']);
+        }
+        return $context;
     }
 
     private static function shouldUseCanvasContext(string $content, array $context): bool

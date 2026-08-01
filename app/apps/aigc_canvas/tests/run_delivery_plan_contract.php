@@ -97,6 +97,18 @@ $loop = file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/run
 if (!str_contains($loop, '$input[\'delivery_item_id\']') || !str_contains($loop, '$toolRoute[\'delivery_item_id\']')) {
     $failures[] = 'delivery item id is not forwarded to tools';
 }
+$creativeGraph = file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/delivery/CreativeDeliveryGraphService.php') ?: '';
+if (!str_contains($resolver, 'CreativeDeliveryGraphService::create')
+    || !str_contains($creativeGraph, 'updateEditableNodes')
+    || !str_contains($creativeGraph, 'runnableItems')
+    || !str_contains($creativeGraph, "'terminal_policy' => 'immutable'")) {
+    $failures[] = 'creative delivery graph is not the canonical plan/item orchestration path';
+}
+if (!str_contains($loop, "'agent.delivery.graph.updated'")
+    || !str_contains($loop, 'CreativeDeliveryGraphService::runnableItems')
+    || !str_contains($loop, "'runnable_delivery_items'")) {
+    $failures[] = 'agent loop does not project creative graph state from the delivery plan';
+}
 $graph = file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/delivery/DeliveryGraphExecutor.php') ?: '';
 if (!str_contains($graph, 'CanvasGenerationTaskCenterService') || !str_contains($graph, 'executeFromAgentTool') || !str_contains($graph, 'claimReady') || !str_contains($graph, 'assertDependencies')
     || !str_contains($graph, 'private static function promptMode') || !str_contains($graph, "return 'direct'")) {

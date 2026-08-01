@@ -418,6 +418,9 @@ class AigcShortDramaService
                 unset($config['script_plan_model_id'], $config['script_plan_model_selection']);
             } else {
                 $scriptModel = MarketTextModelRuntimeService::resolveModel($tenantId, $scriptModelId, false);
+                if (!self::isFixedScriptPlanModel($scriptModel)) {
+                    throw new Exception('剧本策划仅支持 Qwen3.6-Plus，请在短剧基础配置中选择该模型');
+                }
                 $config['script_plan_model_id'] = (string)$scriptModel['id'];
                 $config['script_plan_model_selection'] = self::marketModelSnapshot($scriptModel);
             }
@@ -12188,11 +12191,8 @@ class AigcShortDramaService
         }
         $selection = $config['script_plan_model_id'] ?? $config['script_plan_model_selection'] ?? '';
         $selected = self::matchModelOption($options, $selection);
-        if ($selected !== []) {
+        if ($selected !== [] && self::isFixedScriptPlanModel($selected)) {
             return $selected;
-        }
-        if ($selection !== '' && $strict) {
-            throw new Exception('已配置的剧本固定模型已下架或不可用，请在短剧基础配置中重新选择 Qwen3.6-Plus');
         }
         foreach ($options as $option) {
             if (self::isFixedScriptPlanModel($option)) {
@@ -12601,9 +12601,9 @@ class AigcShortDramaService
                 continue;
             }
             if ($key === 'script_plan') {
-                $wanted = $selections[$key] ?? ($request['model_id'] ?? '');
-                $selected[$key] = self::matchModelOption($options, $wanted)
-                    ?: self::configuredScriptPlanModel($tenantId, $config, false);
+                // Script planning has a platform-selected model contract. Request
+                // payloads must not replace it with arbitrary market text models.
+                $selected[$key] = self::configuredScriptPlanModel($tenantId, $config, true);
                 continue;
             }
             $wanted = $selections[$key] ?? '';

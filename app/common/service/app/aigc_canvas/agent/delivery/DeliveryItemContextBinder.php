@@ -30,6 +30,11 @@ final class DeliveryItemContextBinder
             'turn_relation' => (string)($taskDecision['turn_relation'] ?? ''),
             'confidence' => (float)($taskDecision['confidence'] ?? 0),
         ], static fn($value): bool => $value !== '' && $value !== 0.0));
+        $snapshotItem = array_merge($item, [
+            'slots' => $slots,
+            'reference_assets' => $references,
+            'creative_context' => $creative,
+        ]);
 
         return DeliveryItemService::transition($tenantId, $userId, (int)$item['id'], (string)$item['status'], [
             'slots_json' => $slots,
@@ -40,6 +45,7 @@ final class DeliveryItemContextBinder
                 'context_bound' => true,
                 'reference_policy' => self::requiresReferences($item) ? 'required' : 'optional',
             ]),
+            'meta_json' => CreativeDeliveryGraphService::refreshInputSnapshot($snapshotItem, $requestContext),
         ]);
     }
 

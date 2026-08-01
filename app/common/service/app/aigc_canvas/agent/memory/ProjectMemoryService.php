@@ -6,7 +6,7 @@ use think\facade\Db;
 
 final class ProjectMemoryService
 {
-    public static function load(int $tenantId, int $userId, int $projectId): array
+    public static function load(int $tenantId, int $userId, int $projectId, bool $includeConversationGoals = true): array
     {
         if ($tenantId <= 0 || $userId <= 0 || $projectId <= 0) {
             return [];
@@ -23,6 +23,13 @@ final class ProjectMemoryService
             ->toArray();
         $memory = [];
         foreach ($rows as $row) {
+            if (!$includeConversationGoals && (string)($row['memory_type'] ?? '') === 'project_goal') {
+                continue;
+            }
+            $source = json_decode((string)($row['source_json'] ?? ''), true);
+            if (!self::isPersistentReferenceAsset((string)($row['memory_type'] ?? ''), is_array($source) ? $source : [])) {
+                continue;
+            }
             $key = (string)($row['memory_key'] ?? '');
             if ($key === '') {
                 continue;
@@ -33,15 +40,20 @@ final class ProjectMemoryService
                 'summary' => (string)($row['summary'] ?? ''),
                 'data' => is_array($json) ? $json : [],
                 'version' => (int)($row['version'] ?? 1),
-                'source' => json_decode((string)($row['source_json'] ?? ''), true) ?: [],
+                'source' => is_array($source) ? $source : [],
             ];
         }
         return $memory;
     }
 
-    public static function retrieve(int $tenantId, int $userId, int $projectId, int $limit = 8): array
+    private static function isPersistentReferenceAsset(string $type, array $source): bool
     {
-        $all = self::load($tenantId, $userId, $projectId);
+        return $type !== 'reference_asset' || (string)($source['scope'] ?? '') === 'canvas';
+    }
+
+    public static function retrieve(int $tenantId, int $userId, int $projectId, int $limit = 8, bool $includeConversationGoals = true): array
+    {
+        $all = self::load($tenantId, $userId, $projectId, $includeConversationGoals);
         return array_slice($all, 0, max(1, min(8, $limit)), true);
     }
 

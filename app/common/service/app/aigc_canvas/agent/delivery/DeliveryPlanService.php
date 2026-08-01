@@ -400,7 +400,11 @@ final class DeliveryPlanService
 
     public static function format(array $plan, array $items = []): array
     {
-        $formattedItems = array_map(static fn(array $item): array => DeliveryItemService::format($item), $items);
+        $formattedItems = array_map(
+            static fn(array $item): array => CreativeDeliveryGraphService::describeItem(DeliveryItemService::format($item)),
+            $items
+        );
+        $meta = (array)($plan['meta_json'] ?? []);
         return [
             'id' => (int)($plan['id'] ?? 0),
             'thread_id' => (int)($plan['thread_id'] ?? 0),
@@ -410,7 +414,8 @@ final class DeliveryPlanService
             'intent' => (string)($plan['intent'] ?? ''),
             'status' => (string)($plan['status'] ?? 'draft'),
             'item_count' => (int)($plan['item_count'] ?? count($formattedItems)),
-            'meta' => (array)($plan['meta_json'] ?? []),
+            'meta' => $meta,
+            'graph' => (array)($meta['creative_graph'] ?? []),
             'items' => $formattedItems,
             'created_at' => (int)($plan['create_time'] ?? 0),
             'updated_at' => (int)($plan['update_time'] ?? 0),

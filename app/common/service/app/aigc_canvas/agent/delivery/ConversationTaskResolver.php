@@ -55,7 +55,15 @@ final class ConversationTaskResolver
         if ($definition === [] && $taskDecision === []) $definition = self::definition($content, $context);
         if ($definition === []) return [];
 
-        $plan = DeliveryPlanService::create($tenantId, $userId, $projectId, $threadId, $messageId, $definition);
+        $plan = CreativeDeliveryGraphService::create(
+            $tenantId,
+            $userId,
+            $projectId,
+            $threadId,
+            $messageId,
+            $definition,
+            $context + ['content' => $content]
+        );
         foreach ((array)($plan['items'] ?? []) as $index => $created) {
             $plan['items'][$index] = DeliveryItemContextBinder::bindBase(
                 $tenantId,
@@ -81,7 +89,7 @@ final class ConversationTaskResolver
         // A clarification never represents an executable deliverable. This
         // second guard keeps malformed or stale client decisions from creating
         // an item that the panel would render as ready.
-        if ((string)($decision['execution_mode'] ?? '') === 'clarify'
+        if ((string)($decision['decision_mode'] ?? '') === 'clarify'
             || !empty($decision['missing_hard_slots'])) {
             return [];
         }

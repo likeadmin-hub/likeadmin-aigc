@@ -1,1 +1,0 @@
-import{ci as e}from"./entry.80957ed7.js";function o(t){return $request.post({url:"/login/account",body:{...t,terminal:e()}},{withToken:!1})}function n(){return $request.post({url:"/login/logout"})}function i(t){return $request.post({url:"/login/register",params:{...t,channel:e()}},{withToken:!1})}export{o as a,n as l,i as r};

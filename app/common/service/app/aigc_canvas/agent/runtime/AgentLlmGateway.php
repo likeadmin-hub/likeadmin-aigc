@@ -21,11 +21,13 @@ final class AgentLlmGateway
             'content' => json_encode($task, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'system_prompt' => $systemPrompt,
             'max_tokens' => max(256, min(4096, (int)($task['max_tokens'] ?? 1200))),
-            'enable_thinking' => !empty($task['enable_thinking']),
             'source_app_code' => AigcCanvasService::APP_CODE,
             'source_type' => 'design_agent_' . $agentCode,
             'source_id' => (string)$context->messageId(),
         ];
+        if (!empty($task['enable_thinking'])) {
+            $base['enable_thinking'] = true;
+        }
         $agentConfig = AigcCanvasService::agentConfig($context->tenantId());
         $base['request_timeout_seconds'] = max(10, min(
             self::MAX_MODEL_STREAM_TIMEOUT_SECONDS,
@@ -57,6 +59,7 @@ final class AgentLlmGateway
         $portableTask = array_merge($task, [
             'available_tools' => $tools,
             'output_contract' => [
+                'assistant_reply' => 'natural, specific user-facing response',
                 'summary' => 'string',
                 'tool_calls' => [['name' => 'tool_name', 'arguments' => new \stdClass()]],
             ],
@@ -90,19 +93,23 @@ final class AgentLlmGateway
         $portableTask = array_merge($task, [
             'available_tools' => array_values($tools),
             'output_contract' => [
-                'summary' => 'plain user-facing response or a short internal tool rationale',
+                'assistant_reply' => 'natural, specific user-facing response; never include tool rationale or internal data',
+                'summary' => 'legacy fallback for a plain user-facing response',
                 'tool_calls' => [['name' => 'tool_name', 'arguments' => new \stdClass()]],
+                'streaming_rule' => 'When tool_calls is non-empty, emit tool_calls first and leave assistant_reply empty. When no tool is needed, emit assistant_reply first and tool_calls as an empty array.',
             ],
         ]);
         $base = [
             'content' => json_encode($portableTask, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'system_prompt' => $systemPrompt,
             'max_tokens' => max(256, min(4096, (int)($task['max_tokens'] ?? 1200))),
-            'enable_thinking' => !empty($task['enable_thinking']),
             'source_app_code' => AigcCanvasService::APP_CODE,
             'source_type' => 'design_agent_' . $agentCode,
             'source_id' => (string)$context->messageId(),
         ];
+        if (!empty($task['enable_thinking'])) {
+            $base['enable_thinking'] = true;
+        }
         $agentConfig = AigcCanvasService::agentConfig($context->tenantId());
         if (!empty($agentConfig['router_available']) && !empty($agentConfig['router_model_code'])) {
             $base['model_code'] = (string)$agentConfig['router_model_code'];
@@ -135,8 +142,8 @@ final class AgentLlmGateway
             }
             if (empty($calls)) {
                 $structured = self::parseJson($content);
-                if (!empty($structured['summary']) || !empty($structured['reply'])) {
-                    $content = (string)($structured['summary'] ?? $structured['reply']);
+                if (!empty($structured['assistant_reply']) || !empty($structured['summary']) || !empty($structured['reply'])) {
+                    $content = (string)($structured['assistant_reply'] ?? $structured['summary'] ?? $structured['reply']);
                 }
             }
             return [
@@ -146,13 +153,37 @@ final class AgentLlmGateway
                 'stream_mode' => (string)($result['stream_mode'] ?? ($stream ? 'unknown' : 'disabled')),
                 'stream_delta_count' => (int)($result['stream_delta_count'] ?? 0),
             ];
-        } catch (\Throwable $e) {
-            return [
-                'content' => '',
-                'function_calls' => [],
-                'native_tools' => false,
-                'error' => self::safeError($e->getMessage()),
-            ];
+        } catch (\Throwable $nativeError) {
+            // Some tenant text models accept ordinary chat but reject a large
+            // native function catalog by returning an empty response. Keep the
+            // same semantic tool directory in the portable prompt and retry
+            // once without provider-native tool parameters.
+            try {
+                $result = AigcCanvasService::llmText($context->tenantId(), $context->userId(), $base, $callback);
+                $content = (string)($result['content'] ?? '');
+                $calls = FunctionCallingRuntime::parseFunctionCalls($content);
+                if (empty($calls)) {
+                    $structured = self::parseJson($content);
+                    $calls = self::normalizeNativeToolCalls((array)($structured['tool_calls'] ?? []));
+                    if (!empty($structured['assistant_reply']) || !empty($structured['summary']) || !empty($structured['reply'])) {
+                        $content = (string)($structured['assistant_reply'] ?? $structured['summary'] ?? $structured['reply']);
+                    }
+                }
+                return [
+                    'content' => $content,
+                    'function_calls' => $calls,
+                    'native_tools' => false,
+                    'stream_mode' => (string)($result['stream_mode'] ?? ($stream ? 'unknown' : 'disabled')),
+                    'stream_delta_count' => (int)($result['stream_delta_count'] ?? 0),
+                ];
+            } catch (\Throwable $portableError) {
+                return [
+                    'content' => '',
+                    'function_calls' => [],
+                    'native_tools' => false,
+                    'error' => self::safeError($portableError->getMessage() ?: $nativeError->getMessage()),
+                ];
+            }
         }
     }
 

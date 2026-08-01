@@ -49,6 +49,7 @@ final class BatchDeliveryPlanner
         return match ($skillKey) {
             'ecommerce_product_listing' => 5,
             'ad_creative' => 3,
+            'short_drama_preproduction' => 4,
             default => 3,
         };
     }
@@ -72,6 +73,7 @@ final class BatchDeliveryPlanner
             'ad_creative' => 'Ad creative',
             'product_launch_campaign' => 'Launch asset',
             'campaign_kit' => 'Campaign asset',
+            'short_drama_preproduction' => 'Storyboard frame',
             default => 'Delivery asset',
         };
         return $prefix . ' ' . $index . ' (' . str_replace('generate_', '', $toolCode) . ')';
@@ -79,6 +81,11 @@ final class BatchDeliveryPlanner
 
     private static function narrative(string $request, string $skillKey, string $toolCode, int $index, int $count): string
     {
+        if ($skillKey === 'short_drama_preproduction' && $toolCode === 'generate_image') {
+            $phase = ['opening setup', 'turning point', 'climax', 'ending resolution'][$index - 1] ?? 'story progression';
+            return trim($request) . "\n\nStoryboard frame {$index} of {$count}: {$phase}. "
+                . 'Depict a distinct dramatic beat while preserving character, setting, and visual style continuity.';
+        }
         return trim($request) . "\n\nDelivery item {$index} of {$count} for {$skillKey}. "
             . 'Keep this item distinct within the promised set and preserve the requested medium: '
             . str_replace('generate_', '', $toolCode) . '.';

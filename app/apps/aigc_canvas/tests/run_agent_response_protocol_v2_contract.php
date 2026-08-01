@@ -6,6 +6,7 @@ $root = dirname(__DIR__, 4);
 require $root . '/vendor/autoload.php';
 
 use app\common\service\app\aigc_canvas\agent\runtime\AgentResponseProtocol;
+use app\common\service\app\aigc_canvas\agent\runtime\AssistantReplyStreamDecoder;
 use app\common\service\app\aigc_canvas\AigcCanvasAgentRuntimeService;
 
 $failures = [];
@@ -14,7 +15,7 @@ $assert = static function (bool $condition, string $message) use (&$failures): v
     if (!$condition) $failures[] = $message;
 };
 
-$required = ['schema_version', 'kind', 'title', 'summary', 'blocks', 'actions', 'reply', 'content', 'quick_actions'];
+$required = ['schema_version', 'kind', 'title', 'summary', 'blocks', 'actions', 'assistant_reply', 'reply', 'content', 'quick_actions'];
 $assertV2 = static function (array $response, string $kind) use ($assert, $required): void {
     foreach ($required as $key) $assert(array_key_exists($key, $response), $kind . ' is missing ' . $key);
     $assert(($response['schema_version'] ?? 0) === 2, $kind . ' schema version is not 2');
@@ -118,6 +119,43 @@ $assert(($final['kind'] ?? '') === 'final', 'final kind is incorrect');
 $assert(($final['title'] ?? '') === '', 'ordinary final responses must not show a generic completion title');
 $assert(($final['blocks'][0]['type'] ?? '') === 'paragraph', 'final does not preserve its opening paragraph');
 $assert(($final['blocks'][1]['type'] ?? '') === 'bullets', 'final does not render Markdown list items as a document list');
+$assert(($final['assistant_reply'] ?? '') === ($final['reply'] ?? ''), 'final narrative is not preserved separately from workflow data');
+
+$explicitNarrative = AgentResponseProtocol::fromResult([
+    'next_action' => 'generation_submitted',
+    'assistant_reply' => '我已按你确认的产品海报方向提交生成，结果会更新到画布中。',
+    'reply' => 'This legacy reply should not replace the narrative.',
+    'tool_calls' => [['tool_code' => 'generate_image', 'status' => 'running']],
+]);
+$assert(($explicitNarrative['assistant_reply'] ?? '') === '我已按你确认的产品海报方向提交生成，结果会更新到画布中。', 'explicit narrative was replaced by a fixed media reply');
+
+$safeLegacyNarrative = AgentResponseProtocol::fromResult([
+    'next_action' => 'chat',
+    'assistant_reply' => '{"tool_calls":[{"name":"generate_image"}]}',
+    'reply' => '我已整理好图片方向，可以继续细化画面。',
+]);
+$assert(($safeLegacyNarrative['assistant_reply'] ?? '') === '我已整理好图片方向，可以继续细化画面。', 'a trace assistant_reply suppressed a safe legacy narrative');
+$assert(!str_contains((string)($safeLegacyNarrative['assistant_reply'] ?? ''), 'tool_calls'), 'trace assistant_reply leaked into the response');
+
+$confirmationFallback = AgentResponseProtocol::fromResult([
+    'next_action' => 'confirm_execution',
+    'task_decision' => ['requires_confirmation' => true],
+]);
+$assert(($confirmationFallback['assistant_reply'] ?? '') === '已准备好下一步，请确认后继续。', 'confirmation without a narrative did not receive a user-facing next step');
+$assert(!str_contains((string)($confirmationFallback['assistant_reply'] ?? ''), 'Skill'), 'confirmation fallback exposed an internal Skill label');
+
+$executionTrace = AgentResponseProtocol::fromResult([
+    'next_action' => 'execute_tool',
+    'tool_calls' => [[
+        'tool_code' => 'canvas_query',
+        'input' => ['query' => 'selected elements'],
+        'output' => ['provider_task_id' => 'provider-123'],
+    ]],
+    'workspace_actions' => [['action_type' => 'insert_image', 'input' => ['prompt_spec_json' => ['internal' => true]]]],
+]);
+$assert(($executionTrace['assistant_reply'] ?? '') === '', 'execution fallback rendered an internal status as chat prose');
+$assert(($executionTrace['content']['tool_calls'] ?? null) === [], 'execution response exposed tool-call runtime data');
+$assert(($executionTrace['content']['workspace_actions'] ?? null) === [], 'execution response exposed workspace-action runtime data');
 
 $internalTrace = AgentResponseProtocol::fromResult([
     'next_action' => 'chat',
@@ -128,7 +166,7 @@ $internalTraceText = (string)($internalTrace['reply'] ?? '') . json_encode($inte
 $assert(!str_contains($internalTraceText, 'selected_skill_contract'), 'internal skill contract leaked into the response');
 $assert(!str_contains($internalTraceText, 'allowed_tools'), 'internal tool permission leaked into the response');
 $assert(!str_contains($internalTraceText, 'project_memory'), 'internal memory trace leaked into the response');
-$assert(str_contains((string)($internalTrace['reply'] ?? ''), '没有得到可用的文本结果'), 'internal text trace did not use the safe text fallback');
+$assert(str_contains((string)($internalTrace['reply'] ?? ''), '还没有足够的信息'), 'internal text trace did not use the safe text fallback');
 
 $routingTrace = AgentResponseProtocol::fromResult([
     'next_action' => 'chat',
@@ -147,20 +185,25 @@ $singleFieldJsonTrace = AgentResponseProtocol::fromResult([
 $singleFieldJsonTraceText = (string)($singleFieldJsonTrace['reply'] ?? '') . json_encode($singleFieldJsonTrace['blocks'] ?? []);
 $assert(!str_contains($singleFieldJsonTraceText, 'selected_skill_contract'), 'single-field internal JSON leaked into the response');
 
-$streamDrain = new ReflectionMethod(\app\common\service\app\aigc_canvas\agent\runtime\AgentLoopService::class, 'drainSafeAssistantStream');
-$streamDrain->setAccessible(true);
-$visiblePending = 'A visible response is ready.';
-$visibleBlocked = false;
-$visibleDelta = $streamDrain->invokeArgs(null, [&$visiblePending, &$visibleBlocked]);
-$assert($visibleDelta === 'A visible response is ready.' && !$visibleBlocked && $visiblePending === '', 'safe prose was not released as a stream segment');
-$jsonPending = '{"summary":"A visible response is ready."}';
-$jsonBlocked = false;
-$jsonDelta = $streamDrain->invokeArgs(null, [&$jsonPending, &$jsonBlocked]);
-$assert($jsonDelta === '' && $jsonBlocked && $jsonPending === '', 'structured model output leaked into a stream segment');
-$tracePending = 'task_decision: generate_image.';
-$traceBlocked = false;
-$traceDelta = $streamDrain->invokeArgs(null, [&$tracePending, &$traceBlocked]);
-$assert($traceDelta === '' && $traceBlocked && $tracePending === '', 'internal stream trace leaked into a stream segment');
+$plainStream = new AssistantReplyStreamDecoder();
+$assert($plainStream->push('A visible response is ready.') === 'A visible response is ready.', 'safe prose was not released as a stream segment');
+
+$jsonStream = new AssistantReplyStreamDecoder();
+$jsonDelta = '';
+foreach (['{"ass', 'istant_reply":"A visible ', 'response\\nwith ', 'Unicode \\u4f60\\u597d",', '"tool_calls":[]}'] as $chunk) {
+    $jsonDelta .= $jsonStream->push($chunk);
+}
+$assert($jsonDelta === "A visible response\nwith Unicode 你好", 'assistant_reply JSON was not decoded safely across stream chunks');
+
+$toolOnlyStream = new AssistantReplyStreamDecoder();
+$toolOnlyDelta = '';
+foreach (['{"tool_calls":[{"name":"generate_image",', '","arguments":{"prompt":"hidden"}}],', '"assistant_reply":""}'] as $chunk) {
+    $toolOnlyDelta .= $toolOnlyStream->push($chunk);
+}
+$assert($toolOnlyDelta === '', 'tool protocol leaked into a stream segment');
+
+$traceStream = new AssistantReplyStreamDecoder();
+$assert($traceStream->push('task_decision: generate_image.') === '', 'internal stream trace leaked into a stream segment');
 
 $restoredTrace = AigcCanvasAgentRuntimeService::formatMessage([
     'id' => 0,
@@ -208,6 +251,20 @@ $workflowTypes = array_column((array)$workflowPresentation['blocks'], 'type');
 $assert(in_array('task_status', $workflowTypes, true), 'delivery item status is not projected to presentation');
 $assert(in_array('research_summary', $workflowTypes, true), 'known-information strategy summary is not projected');
 $assert(!in_array('source_list', $workflowTypes, true), 'known-information strategy fabricated a source list');
+
+$canvasDeliveryPresentation = AgentResponseProtocol::fromResult([
+    'next_action' => 'generation_submitted',
+    'delivery_item' => [
+        'id' => 75, 'objective' => 'Poster visual', 'status' => 'running', 'tool_code' => 'generate_image',
+    ],
+]);
+$canvasStatusBlocks = array_values(array_filter(
+    (array)($canvasDeliveryPresentation['blocks'] ?? []),
+    static fn(array $block): bool => ($block['type'] ?? '') === 'task_status'
+));
+$canvasStatusText = (string)($canvasStatusBlocks[0]['items'][0]['value'] ?? '');
+$assert(str_contains($canvasStatusText, "\u{5f53}\u{524d}\u{753b}\u{5e03}"), 'delivery status is not scoped to the current canvas');
+$assert(!str_contains($canvasStatusText, "\u{5de5}\u{4f5c}\u{53f0}"), 'delivery status still directs work to another surface');
 
 $sourcedPresentation = AgentResponseProtocol::fromResult([
     'next_action' => 'chat',

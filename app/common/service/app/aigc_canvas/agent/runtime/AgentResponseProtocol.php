@@ -25,7 +25,8 @@ final class AgentResponseProtocol
         // Providers may return tool plans or reasoning in the same text field as
         // a final answer. Only the user-facing projection may reach chat or the
         // presentation renderer; the original trace remains in runtime storage.
-        $result['reply'] = self::userFacingReply($result);
+        $assistantReply = self::userFacingReply($result);
+        $result['reply'] = $assistantReply;
         $nextAction = (string)($result['next_action'] ?? 'chat');
         $batch = is_array($result['batch'] ?? null) ? $result['batch'] : [];
         $kind = self::kind($nextAction, $result, $creativeSummary);
@@ -42,6 +43,9 @@ final class AgentResponseProtocol
             'summary' => $presentation['summary'],
             'blocks' => $presentation['blocks'],
             'actions' => $presentation['actions'],
+            // Narrative is intentionally separate from workflow presentation.
+            // Clients should render it as the primary conversation content.
+            'assistant_reply' => $assistantReply,
             // Keep reply/content/quick_actions for saved messages and older clients.
             'reply' => (string)($content['message'] ?? ''),
             'content' => $content,
@@ -66,14 +70,15 @@ final class AgentResponseProtocol
      */
     public static function userFacingReply(array $result): string
     {
+        // assistant_reply is the model's intentionally written narrative. It
+        // takes precedence, but a malformed model envelope must not suppress a
+        // safe legacy reply that is available alongside it.
+        $reply = self::firstUserFacingResultText($result, ['assistant_reply', 'reply']);
+        if ($reply !== '') return $reply;
+
         $mediaTool = self::submittedMediaTool($result);
         if ($mediaTool !== '') {
             return self::mediaSubmissionReply($mediaTool, $result);
-        }
-
-        $reply = trim((string)($result['reply'] ?? $result['error'] ?? ''));
-        if ($reply !== '' && !self::isInternalTrace($reply)) {
-            return $reply;
         }
 
         $nextAction = (string)($result['next_action'] ?? 'chat');
@@ -97,13 +102,50 @@ final class AgentResponseProtocol
         if (in_array('generate_music', $toolCodes, true)) return self::mediaSubmissionReply('generate_music', $result);
         if (in_array('generate_image', $toolCodes, true)) return self::mediaSubmissionReply('generate_image', $result);
 
-        $intent = (string)($result['task_decision']['intent'] ?? '');
-        if (in_array($intent, ['text_generation', 'creative_plan', 'research'], true)) {
-            return '这次没有得到可用的文本结果。请告诉我希望保留或调整的方向后，我会重新生成。';
+        return self::fallbackReply($result);
+    }
+
+    /** Returns the first non-trace narrative without treating runtime errors as prose. */
+    private static function firstUserFacingResultText(array $result, array $keys): string
+    {
+        foreach ($keys as $key) {
+            $value = trim((string)($result[$key] ?? ''));
+            if ($value !== '' && !self::isInternalTrace($value)) return $value;
         }
-        return $nextAction === 'chat'
-            ? '这次没有得到可用的回复。请换一种说法，或补充希望继续的方向。'
-            : '当前请求需要补充信息后才能继续。';
+        return '';
+    }
+
+    /**
+     * Keeps the fallback aligned with the user-visible interaction state. These
+     * messages describe the next user decision, never the Skill or Tool used
+     * internally to reach it.
+     */
+    private static function fallbackReply(array $result): string
+    {
+        return match (self::interactionMode($result)) {
+            'clarify' => "\u{8BF7}\u{8865}\u{5145}\u{8FD9}\u{6B21}\u{5E0C}\u{671B}\u{7EE7}\u{7EED}\u{7684}\u{5185}\u{5BB9}\u{6216}\u{8C03}\u{6574}\u{65B9}\u{5411}\u{3002}",
+            'plan' => "\u{6211}\u{5DF2}\u{6574}\u{7406}\u{597D}\u{6267}\u{884C}\u{65B9}\u{6848}\u{FF0C}\u{8BF7}\u{786E}\u{8BA4}\u{540E}\u{7EE7}\u{7EED}\u{3002}",
+            'confirm' => "\u{5DF2}\u{51C6}\u{5907}\u{597D}\u{4E0B}\u{4E00}\u{6B65}\u{FF0C}\u{8BF7}\u{786E}\u{8BA4}\u{540E}\u{7EE7}\u{7EED}\u{3002}",
+            // Running work is represented by the canvas task surface. Do not
+            // add a chat bubble that only repeats an internal status.
+            'execute' => '',
+            'error' => "\u{8FD9}\u{6B21}\u{6CA1}\u{6709}\u{5904}\u{7406}\u{6210}\u{529F}\u{3002}\u{8BF7}\u{7A0D}\u{540E}\u{91CD}\u{8BD5}\u{FF0C}\u{6216}\u{8C03}\u{6574}\u{63CF}\u{8FF0}\u{540E}\u{7EE7}\u{7EED}\u{3002}",
+            'out_of_scope' => "\u{8FD9}\u{4E2A}\u{8BF7}\u{6C42}\u{76EE}\u{524D}\u{65E0}\u{6CD5}\u{76F4}\u{63A5}\u{5728}\u{753B}\u{5E03}\u{4E2D}\u{5B8C}\u{6210}\u{3002}\u{8BF7}\u{8BF4}\u{660E}\u{5E0C}\u{671B}\u{751F}\u{6210}\u{3001}\u{5206}\u{6790}\u{6216}\u{8C03}\u{6574}\u{7684}\u{5185}\u{5BB9}\u{3002}",
+            default => "\u{6211}\u{8FD8}\u{6CA1}\u{6709}\u{8DB3}\u{591F}\u{7684}\u{4FE1}\u{606F}\u{7ED9}\u{51FA}\u{53EF}\u{9760}\u{56DE}\u{590D}\u{3002}\u{8BF7}\u{8865}\u{5145}\u{5E0C}\u{671B}\u{8FBE}\u{6210}\u{7684}\u{7ED3}\u{679C}\u{6216}\u{8C03}\u{6574}\u{65B9}\u{5411}\u{3002}",
+        };
+    }
+
+    private static function interactionMode(array $result): string
+    {
+        $nextAction = (string)($result['next_action'] ?? 'chat');
+        if (self::isError($nextAction, $result)) return 'error';
+        if (self::isOutOfScope($nextAction, $result)) return 'out_of_scope';
+        if ($nextAction === 'clarify' || self::hasMissingRequiredSlots($result)) return 'clarify';
+        if (in_array($nextAction, ['confirm_execution', 'confirm_canvas_mutation', 'confirm_next_batch'], true)) return 'confirm';
+        if (in_array($nextAction, ['confirm_initial_batch', 'confirm_plan'], true) || !empty($result['planned_sections'])) return 'plan';
+        if (in_array($nextAction, ['generation_submitted', 'execute_tool', 'execute_revision', 'subagents_pending'], true)
+            || !empty($result['tool_calls']) || !empty($result['workspace_actions'])) return 'execute';
+        return 'answer';
     }
 
     /**
@@ -133,9 +175,10 @@ final class AgentResponseProtocol
             'generate_music' => "\u{97f3}\u{4e50}",
             default => "\u{56fe}\u{7247}",
         };
+        $direction = self::mediaDirection($result);
         return self::hasRenderedMedia($result)
-            ? "{$type}\u{5df2}\u{5b8c}\u{6210}\u{6e32}\u{67d3}\u{ff0c}\u{753b}\u{5e03}\u{8282}\u{70b9}\u{5df2}\u{66f4}\u{65b0}\u{3002}"
-            : "\u{5df2}\u{5728}\u{753b}\u{5e03}\u{521b}\u{5efa}{$type}\u{751f}\u{6210}\u{8282}\u{70b9}\u{ff0c}\u{6b63}\u{5728}\u{6e32}\u{67d3}\u{3002}";
+            ? "{$type}\u{5df2}\u{5b8c}\u{6210}\u{6e32}\u{67d3}\u{ff0c}\u{5df2}\u{6309}\u{201c}{$direction}\u{201d}\u{66f4}\u{65b0}\u{5230}\u{753b}\u{5e03}\u{3002}"
+            : "\u{5df2}\u{6309}\u{201c}{$direction}\u{201d}\u{521b}\u{5efa}{$type}\u{751f}\u{6210}\u{8282}\u{70b9}\uff0c\u{6e32}\u{67d3}\u{7ed3}\u{679c}\u{4f1a}\u{81ea}\u{52a8}\u{66f4}\u{65b0}\u{5230}\u{753b}\u{5e03}\u{3002}";
     }
 
     private static function mediaDirection(array $result): string
@@ -221,8 +264,13 @@ final class AgentResponseProtocol
             return true;
         }
         // The compiler's quality-token payload is never a user-facing answer.
-        return mb_strlen($text, 'UTF-8') > 160
-            && preg_match('/\b(?:masterpiece|best quality|ultra[- ]?realistic|photorealistic|8k resolution|ray tracing)\b/i', $text) === 1;
+        // Two quality markers are sufficient even when the provider output is short.
+        $qualityCount = preg_match_all(
+            '/\b(?:masterpiece|best quality|ultra[- ]?realistic|photorealistic|(?:4k|8k|16k) resolution|ray tracing|global illumination|highly detailed|sharp focus)\b/i',
+            $text
+        );
+        if ($qualityCount >= 2) return true;
+        return mb_strlen($text, 'UTF-8') > 160 && $qualityCount >= 1;
     }
 
     private static function hasInternalKeys(array $value): bool
@@ -263,6 +311,7 @@ final class AgentResponseProtocol
             'summary' => $presentation['summary'],
             'blocks' => $presentation['blocks'],
             'actions' => $presentation['actions'],
+            'assistant_reply' => (string)$content['welcome_text'],
             'reply' => (string)$content['welcome_text'],
             'content' => $content,
             'quick_actions' => $quickActions,
@@ -329,10 +378,14 @@ final class AgentResponseProtocol
             ];
         }
         if ($kind === self::EXECUTION_STATUS) {
+            // Tool contracts and workspace mutations are retained on the turn
+            // record and task surface. Keep these legacy keys for response
+            // compatibility, but never project their runtime payload into the
+            // user-facing conversation contract.
             return $base + [
-                'tasks' => array_values((array)($result['subtasks'] ?? $batch['tasks'] ?? [])),
-                'tool_calls' => array_values((array)($result['tool_calls'] ?? [])),
-                'workspace_actions' => array_values((array)($result['workspace_actions'] ?? [])),
+                'tasks' => [],
+                'tool_calls' => [],
+                'workspace_actions' => [],
             ];
         }
         return $base;
@@ -486,8 +539,7 @@ final class AgentResponseProtocol
             'title' => self::limit(self::text((string)($item['objective'] ?? '当前任务')), 120),
             'items' => [[
                 'label' => '状态',
-                'value' => (string)($item['status'] ?? ''),
-                'detail' => (string)(($item['meta']['workflow_stage'] ?? '') ?: ''),
+                'value' => self::canvasDeliveryState($item),
             ]],
         ]];
         $result = (array)($item['result'] ?? []);
@@ -518,6 +570,36 @@ final class AgentResponseProtocol
             $blocks[] = ['type' => 'blocked', 'text' => self::text((string)($item['error'] ?? '等待所需信息或后续操作'))];
         }
         return $blocks;
+    }
+
+    /**
+     * Converts durable delivery state into a canvas-local user-facing recap.
+     * The wording is selected from the actual item status and tool type; it
+     * never instructs the user to continue work in another product surface.
+     */
+    private static function canvasDeliveryState(array $item): string
+    {
+        $status = (string)($item['status'] ?? 'draft');
+        $kind = match ((string)($item['tool_code'] ?? '')) {
+            'generate_image' => "\u{56fe}\u{7247}\u{521b}\u{4f5c}",
+            'generate_video' => "\u{89c6}\u{9891}\u{521b}\u{4f5c}",
+            'generate_music' => "\u{97f3}\u{4e50}\u{521b}\u{4f5c}",
+            'canvas_mutation', 'selection_action' => "\u{753b}\u{5e03}\u{8c03}\u{6574}",
+            'asset_analyze' => "\u{7d20}\u{6750}\u{5206}\u{6790}",
+            default => "\u{521b}\u{4f5c}\u{4ea4}\u{4ed8}",
+        };
+        return match ($status) {
+            'draft' => "\u{5df2}\u{5728}\u{5f53}\u{524d}\u{753b}\u{5e03}\u{5efa}\u{7acb}{$kind}\u{4ea4}\u{4ed8}\u{9879}\u{ff0c}\u{6b63}\u{5728}\u{6574}\u{7406}\u{9700}\u{6c42}",
+            'clarifying' => "{$kind}\u{8fd8}\u{9700}\u{8865}\u{5145}\u{4fe1}\u{606f}\u{ff0c}\u{5f53}\u{524d}\u{753b}\u{5e03}\u{672a}\u{63d0}\u{4ea4}\u{751f}\u{6210}",
+            'awaiting_confirmation' => "{$kind}\u{65b9}\u{6848}\u{5df2}\u{5c31}\u{7eea}\u{ff0c}\u{7b49}\u{5f85}\u{4f60}\u{5728}\u{5f53}\u{524d}\u{753b}\u{5e03}\u{786e}\u{8ba4}",
+            'ready' => "{$kind}\u{5df2}\u{5c31}\u{7eea}\u{ff0c}\u{53ef}\u{5728}\u{5f53}\u{524d}\u{753b}\u{5e03}\u{5f00}\u{59cb}\u{6267}\u{884c}",
+            'queued' => "{$kind}\u{5df2}\u{52a0}\u{5165}\u{5f53}\u{524d}\u{753b}\u{5e03}\u{ff0c}\u{7b49}\u{5f85}\u{5904}\u{7406}",
+            'running' => "{$kind}\u{6b63}\u{5728}\u{5f53}\u{524d}\u{753b}\u{5e03}\u{4e2d}\u{63a8}\u{8fdb}",
+            'completed' => "{$kind}\u{5df2}\u{66f4}\u{65b0}\u{5230}\u{5f53}\u{524d}\u{753b}\u{5e03}",
+            'failed' => "{$kind}\u{6682}\u{672a}\u{5b8c}\u{6210}\u{ff0c}\u{53ef}\u{5728}\u{5f53}\u{524d}\u{753b}\u{5e03}\u{4e2d}\u{91cd}\u{8bd5}\u{6216}\u{8fd4}\u{5de5}",
+            'canceled' => "{$kind}\u{5df2}\u{5728}\u{5f53}\u{524d}\u{753b}\u{5e03}\u{4e2d}\u{53d6}\u{6d88}",
+            default => "{$kind}\u{6b63}\u{5728}\u{5f53}\u{524d}\u{753b}\u{5e03}\u{4e2d}\u{63a8}\u{8fdb}",
+        };
     }
 
     /** Maps provider prose to the existing generic presentation block set. */
