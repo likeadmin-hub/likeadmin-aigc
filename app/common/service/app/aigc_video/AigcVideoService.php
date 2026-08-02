@@ -8,6 +8,7 @@ use app\common\model\app\aigc_video\AigcVideoQuota;
 use app\common\model\app\aigc_video\AigcVideoResult;
 use app\common\model\app\aigc_video\AigcVideoSensitiveWord;
 use app\common\model\app\aigc_video\AigcVideoTask;
+use app\common\service\ai\AiTaskBusinessResultService;
 use app\common\service\app\AppCaseService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
@@ -494,6 +495,16 @@ class AigcVideoService
             $query->limit(100);
         }
         $rows = $query->select()->toArray();
+        $reconciled = false;
+        foreach ($rows as $row) {
+            $consumptionId = (int)($row['consumption_id'] ?? 0);
+            if ($consumptionId > 0 && AiTaskBusinessResultService::syncTerminalByConsumptionId($consumptionId)) {
+                $reconciled = true;
+            }
+        }
+        if ($reconciled) {
+            $rows = $query->select()->toArray();
+        }
         $taskIds = array_values(array_unique(array_filter(array_column($rows, 'id'))));
         $resultMap = [];
         if (!empty($taskIds)) {

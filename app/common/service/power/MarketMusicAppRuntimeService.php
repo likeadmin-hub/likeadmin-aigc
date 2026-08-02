@@ -69,6 +69,7 @@ class MarketMusicAppRuntimeService
             'upstream_api_code' => self::CREATE_API_CODE,
             'status' => 1,
         ])->order('id', 'asc')->select()->toArray();
+        TenantPowerMarketService::applyProductDisplays($tenantId, $products);
 
         $options = [];
         foreach ($products as $product) {
@@ -98,8 +99,10 @@ class MarketMusicAppRuntimeService
                 $options[] = [
                     'id' => (string)$sku['id'],
                     'value' => (string)$sku['id'],
-                    'label' => (string)($sku['title'] ?: ($product['name'] ?? '音乐生成 API')),
-                    'name' => (string)($sku['title'] ?: ($product['name'] ?? '音乐生成 API')),
+                    'label' => !empty($product['display_name_overridden']) ? (string)$product['name'] : (string)($sku['title'] ?: ($product['name'] ?? '音乐生成 API')),
+                    'name' => !empty($product['display_name_overridden']) ? (string)$product['name'] : (string)($sku['title'] ?: ($product['name'] ?? '音乐生成 API')),
+                    'description' => (string)($product['description'] ?? ''),
+                    'display_icon' => (string)($product['display_icon'] ?? ''),
                     'resource_type' => 'app_api',
                     'resource_type_label' => '应用 API',
                     'market_product_id' => (int)$product['id'],

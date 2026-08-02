@@ -90,14 +90,24 @@ class MenuLogic extends BaseLogic
             'tenant_id' => $tenantId,
             'source_menu_key' => 'core_tenant_distribution',
         ])->count();
-        // A root alone describes the old flat menu. Require all three groups so
-        // logging in upgrades existing tenants through the idempotent sync path.
+        // Require the current finance -> distribution hierarchy so a tenant is
+        // upgraded through the idempotent menu sync instead of retaining an old
+        // flat or reversed tree.
         $distributionGroups = [
             'config' => '配置管理',
             'promotion' => '推广管理',
-            'finance' => '财务管理',
         ];
-        $hasDistributionTree = $hasDistributionRoot;
+        $financeId = (int)TenantSystemMenu::where([
+            'tenant_id' => $tenantId,
+            'source_menu_key' => 'core_tenant_finance',
+        ])->value('id');
+        $distributionId = (int)TenantSystemMenu::where([
+            'tenant_id' => $tenantId,
+            'source_menu_key' => 'core_tenant_distribution',
+        ])->value('id');
+        $hasDistributionTree = $hasDistributionRoot && $financeId > 0 && $distributionId > 0
+            && (int)TenantSystemMenu::where('id', $financeId)->value('pid') === 0
+            && (int)TenantSystemMenu::where('id', $distributionId)->value('pid') === $financeId;
         foreach ($distributionGroups as $key => $name) {
             $hasDistributionTree = $hasDistributionTree && TenantSystemMenu::where([
                 'tenant_id' => $tenantId,
@@ -107,10 +117,6 @@ class MenuLogic extends BaseLogic
         }
         $hasLegacyDistributionDirect = false;
         if ($hasDistributionRoot) {
-            $distributionId = (int)TenantSystemMenu::where([
-                'tenant_id' => $tenantId,
-                'source_menu_key' => 'core_tenant_distribution',
-            ])->value('id');
             if ($distributionId > 0) {
                 $hasLegacyDistributionDirect = TenantSystemMenu::where('tenant_id', $tenantId)
                     ->where('pid', $distributionId)
@@ -118,7 +124,9 @@ class MenuLogic extends BaseLogic
                     ->whereNotIn('source_menu_key', [
                         'core_tenant_distribution_group_config',
                         'core_tenant_distribution_group_promotion',
-                        'core_tenant_distribution_group_finance',
+                        'core_tenant_distribution_order',
+                        'core_tenant_distribution_commission',
+                        'core_tenant_distribution_withdrawal',
                     ])
                     ->count() > 0;
             }

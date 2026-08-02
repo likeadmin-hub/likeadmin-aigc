@@ -13,7 +13,7 @@ class DefaultAppService
 {
     public static function isDefaultApp(string $appCode): bool
     {
-        return AppAccessService::isDefaultAigcApp($appCode);
+        return AppAccessService::isDefaultApp($appCode);
     }
 
     public static function normalizeAppData(string $appCode, array $data): array
@@ -31,7 +31,7 @@ class DefaultAppService
     public static function syncAllTenants(?string $appCode = null): void
     {
         $query = App::where('status', AppRegistryService::STATUS_INSTALLED)
-            ->whereIn('code', AppAccessService::DEFAULT_AIGC_APP_CODES);
+            ->whereIn('code', AppAccessService::DEFAULT_APP_CODES);
         if ($appCode !== null && $appCode !== '') {
             if (!self::isDefaultApp($appCode)) {
                 return;
@@ -64,7 +64,7 @@ class DefaultAppService
     public static function syncTenantDefaults(int $tenantId, string $tenantSn = '', bool $isSplitTable = false): void
     {
         $apps = App::where('status', AppRegistryService::STATUS_INSTALLED)
-            ->whereIn('code', AppAccessService::DEFAULT_AIGC_APP_CODES)
+            ->whereIn('code', AppAccessService::DEFAULT_APP_CODES)
             ->select()
             ->toArray();
         foreach ($apps as $app) {

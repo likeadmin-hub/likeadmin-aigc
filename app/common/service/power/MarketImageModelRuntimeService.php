@@ -53,6 +53,7 @@ class MarketImageModelRuntimeService
             'model_type' => 'image',
             'status' => 1,
         ])->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
+        TenantPowerMarketService::applyProductDisplays($tenantId, $products);
         $options = [];
         foreach ($products as $product) {
             $meta = self::metadata($product);
@@ -92,6 +93,8 @@ class MarketImageModelRuntimeService
                 'market_product_id' => (int)$product['id'],
                 'market_sku_id' => 0,
                 'name' => (string)$product['name'],
+                'description' => (string)$product['description'],
+                'display_icon' => (string)($product['display_icon'] ?? ''),
                 'model_code' => (string)$product['upstream_model_code'],
                 'channel_code' => $modelId,
                 'provider_model' => (string)$product['upstream_model_code'],

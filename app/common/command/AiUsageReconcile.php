@@ -34,8 +34,13 @@ class AiUsageReconcile extends Command
             $count++;
         }
         $legacy = AigcShortDramaService::refreshLegacyGenerationTasks($limit);
+        $drained = AiTaskJobService::drain(
+            'reconcile:' . (gethostname() ?: 'host') . ':' . getmypid(),
+            60,
+            $limit
+        );
         $purged = \app\common\service\ai\AiUsageService::purgeExpiredPayloads();
-        $output->writeln('enqueued: ' . $count . ', legacy_refreshed: ' . $legacy . ', purged_payloads: ' . $purged);
+        $output->writeln('enqueued: ' . $count . ', legacy_refreshed: ' . $legacy . ', queue_processed: ' . $drained['processed'] . ', queue_waiting: ' . $drained['waiting'] . ', queue_retried: ' . $drained['retried'] . ', purged_payloads: ' . $purged);
         return 0;
     }
 }

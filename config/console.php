@@ -28,5 +28,6 @@ return [
         'tenant:expire_brand_orders' => 'app\common\command\ExpireTenantBrandOrders',
         // 短剧任务提示词修复
         'short-drama:repair-prompts' => 'app\common\command\RepairShortDramaPrompts',
+        'short-drama:dedupe-assets' => 'app\common\command\RepairShortDramaDuplicateAssets',
     ],
 ];

@@ -130,6 +130,40 @@ class AiTaskJobService
         return $jobs;
     }
 
+    /**
+     * Bounded worker fallback for scheduled reconciliation. The realtime
+     * daemon remains the primary consumer; this prevents completed results
+     * from being stranded when that daemon is restarted or temporarily down.
+     *
+     * @return array{processed:int,succeeded:int,waiting:int,retried:int}
+     */
+    public static function drain(string $worker, int $leaseSeconds, int $limit): array
+    {
+        $summary = ['processed' => 0, 'succeeded' => 0, 'waiting' => 0, 'retried' => 0];
+        $limit = max(1, min(500, $limit));
+        while ($summary['processed'] < $limit) {
+            $jobs = self::claim($worker, $leaseSeconds, 1);
+            if ($jobs === []) {
+                break;
+            }
+            $job = $jobs[0];
+            try {
+                if (self::run($job)) {
+                    self::succeed($job);
+                    $summary['succeeded']++;
+                } else {
+                    self::reschedule($job, 5);
+                    $summary['waiting']++;
+                }
+            } catch (\Throwable $e) {
+                self::retry($job, $e);
+                $summary['retried']++;
+            }
+            $summary['processed']++;
+        }
+        return $summary;
+    }
+
     public static function run(array $job): bool
     {
         $type = (string)$job['job_type'];

@@ -8,6 +8,7 @@ use app\common\model\app\aigc_image\AigcImageQuota;
 use app\common\model\app\aigc_image\AigcImageResult;
 use app\common\model\app\aigc_image\AigcImageSensitiveWord;
 use app\common\model\app\aigc_image\AigcImageTask;
+use app\common\service\ai\AiTaskBusinessResultService;
 use app\common\service\ai\AiUsageService;
 use app\common\service\app\AppCaseService;
 use app\common\service\app\AppDisplayConfigService;
@@ -396,6 +397,16 @@ class AigcImageService
             $query->limit(100);
         }
         $rows = $query->select()->toArray();
+        $reconciled = false;
+        foreach ($rows as $row) {
+            $consumptionId = (int)($row['consumption_id'] ?? 0);
+            if ($consumptionId > 0 && AiTaskBusinessResultService::syncTerminalByConsumptionId($consumptionId)) {
+                $reconciled = true;
+            }
+        }
+        if ($reconciled) {
+            $rows = $query->select()->toArray();
+        }
         $taskIds = array_values(array_unique(array_filter(array_column($rows, 'id'))));
         $resultMap = [];
         $seenResultKeys = [];
@@ -856,7 +867,13 @@ class AigcImageService
         if ($consumption->isEmpty()) {
             throw new Exception('Nano Banana 市场消耗记录不存在');
         }
-        $result = MarketNanoBananaAppRuntimeService::refresh((int)$consumption['id']);
+        $hasStoredResult = self::existingResultRows((int)$task['tenant_id'], (int)$task['user_id'], (int)$task['id']) !== [];
+        $result = MarketNanoBananaAppRuntimeService::refresh(
+            (int)$consumption['id'],
+            (string)$consumption['run_status'] === 'success'
+                && (string)$consumption['billing_status'] === 'settled'
+                && !$hasStoredResult
+        );
         $status = (string)($result['status'] ?? 'running');
         if ($status === 'failed' || $status === 'canceled') {
             $task->save([
@@ -876,13 +893,13 @@ class AigcImageService
         if ($images === []) {
             return;
         }
-        $variant = str_ends_with(strtolower((string)$task['model']), ':official') ? 'official' : 'standard';
-        $selection = AigcImageChannelService::resolveSelection((int)$task['tenant_id'], [
-            'channel' => (string)$task['channel'],
-            'quality' => (string)$task['quality'],
-            'ratio' => (string)$task['ratio'],
-            'variant' => $variant,
-        ]);
+        // Submission already validated this specification. Result completion
+        // must use that immutable task snapshot instead of revalidating against
+        // mutable market SKUs, which can change while the upstream task runs.
+        $selection = [
+            'channel' => ['code' => (string)$task['channel']],
+            'spec' => ['quality' => (string)$task['quality'], 'ratio' => (string)$task['ratio']],
+        ];
         $latest = AiConsumptionLog::findOrEmpty((int)$consumption['id']);
         $count = max(1, count($images));
         $estimate = [

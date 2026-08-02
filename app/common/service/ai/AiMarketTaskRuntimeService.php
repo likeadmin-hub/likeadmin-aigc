@@ -14,7 +14,11 @@ class AiMarketTaskRuntimeService
     public static function refresh(int $consumptionId): void
     {
         $consumption = AiConsumptionLog::findOrEmpty($consumptionId);
-        if ($consumption->isEmpty() || self::terminal($consumption->toArray())) {
+        if ($consumption->isEmpty()) {
+            return;
+        }
+        if (self::terminal($consumption->toArray())) {
+            self::syncTerminalBusinessResult($consumptionId);
             return;
         }
 
@@ -37,6 +41,15 @@ class AiMarketTaskRuntimeService
             return;
         }
 
+        // Standalone video records retain the exact runtime selection made at
+        // submission. Some older market records do not have protocol/app-code
+        // metadata, so routing them by those mutable fields leaves the result
+        // worker without a handler even though the business task can refresh.
+        if ((string)$consumption['app_code'] === 'aigc_video') {
+            AiTaskBusinessResultService::syncByConsumptionId($consumptionId);
+            return;
+        }
+
         if ($provider !== 'power_market') {
             AiTaskBusinessResultService::syncByConsumptionId($consumptionId);
             return;
@@ -44,15 +57,18 @@ class AiMarketTaskRuntimeService
 
         if ($protocol === 'image_generate') {
             MarketImageModelRuntimeService::refresh($consumptionId);
+            self::syncTerminalBusinessResult($consumptionId);
             return;
         }
         if ($protocol === 'video_generate' || self::isVideoApp($upstreamApp)) {
             MarketVideoRuntimeService::refresh($consumptionId);
+            self::syncTerminalBusinessResult($consumptionId);
             return;
         }
         if ($protocol === 'application_api') {
             if ($upstreamApp === 'music_generation') {
                 MarketMusicAppRuntimeService::refresh($consumptionId);
+                self::syncTerminalBusinessResult($consumptionId);
                 return;
             }
         }
@@ -68,6 +84,20 @@ class AiMarketTaskRuntimeService
     {
         return in_array((string)($consumption['run_status'] ?? ''), ['success', 'failed', 'canceled', 'cancelled'], true)
             || in_array((string)($consumption['billing_status'] ?? ''), ['settled', 'refunded'], true);
+    }
+
+    /**
+     * Provider runtimes settle the shared consumption before the linked
+     * business record is hydrated. Reconcile that handoff here so a late
+     * callback or a restarted worker cannot leave the user-facing task active.
+     */
+    private static function syncTerminalBusinessResult(int $consumptionId): void
+    {
+        $consumption = AiConsumptionLog::findOrEmpty($consumptionId);
+        if ($consumption->isEmpty() || !self::terminal($consumption->toArray())) {
+            return;
+        }
+        AiTaskBusinessResultService::syncTerminalByConsumptionId($consumptionId);
     }
 
     private static function isVideoApp(string $appCode): bool

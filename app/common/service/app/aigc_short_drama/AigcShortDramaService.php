@@ -66,7 +66,6 @@ class AigcShortDramaService
     private const SCRIPT_PLAN_STREAM_RECOVER_SECONDS = 45;
     private const SCRIPT_PLAN_STALE_ERROR = '剧本生成连接已中断，请重试';
     private const SCRIPT_PLAN_STREAM_FLUSH_SECONDS = 2;
-    private const SCRIPT_PLAN_FIXED_MODEL_CODES = ['qwen36plus'];
     private const LEGACY_PUBLIC_SUBJECT_NAMES = ['清冷师妹', '赛艇少年'];
 
     public static function config(int $tenantId): array
@@ -297,14 +296,13 @@ class AigcShortDramaService
         $vision = self::modelGroupByKey($groups, 'vision_describe');
         $image = self::modelGroupByKey($groups, 'image');
         $video = self::modelGroupByKey($groups, 'video');
-        $scriptModel = self::configuredScriptPlanModel($tenantId, [], false);
         $visionModel = self::configuredVisionModel($tenantId, [], false);
         $scriptItem = self::marketDependencyItem('剧本策划文本模型', '用于故事扩写、剧本策划与分镜文本生成', '模型 API', (array)($script['options'] ?? []));
-        $scriptItem['channel_ready'] = !empty($scriptModel);
-        $scriptItem['ready'] = !empty($script['options']) && !empty($scriptModel);
+        $scriptItem['channel_ready'] = !empty($script['options']);
+        $scriptItem['ready'] = !empty($script['options']);
         $scriptItem['message'] = empty($script['options'])
             ? '暂无租户可用的文本模型'
-            : (empty($scriptModel) ? '请上架或选择 Qwen3.6-Plus 作为剧本固定模型' : '已固定为 ' . (string)$scriptModel['name']);
+            : '用户可在短剧创作页选择文本模型';
         $items = [
             $scriptItem,
             [
@@ -412,19 +410,7 @@ class AigcShortDramaService
                 $config['result_storage_engine'] = '';
             }
         }
-        if (array_key_exists('script_plan_model_id', $params)) {
-            $scriptModelId = trim((string)$params['script_plan_model_id']);
-            if ($scriptModelId === '') {
-                unset($config['script_plan_model_id'], $config['script_plan_model_selection']);
-            } else {
-                $scriptModel = MarketTextModelRuntimeService::resolveModel($tenantId, $scriptModelId, false);
-                if (!self::isFixedScriptPlanModel($scriptModel)) {
-                    throw new Exception('剧本策划仅支持 Qwen3.6-Plus，请在短剧基础配置中选择该模型');
-                }
-                $config['script_plan_model_id'] = (string)$scriptModel['id'];
-                $config['script_plan_model_selection'] = self::marketModelSnapshot($scriptModel);
-            }
-        }
+        unset($config['script_plan_model_id'], $config['script_plan_model_selection']);
         if (array_key_exists('vision_model_id', $params)) {
             $visionModelId = trim((string)$params['vision_model_id']);
             if ($visionModelId === '') {
@@ -4793,7 +4779,7 @@ class AigcShortDramaService
                 $assetType = self::generationAssetType((string)($generation['task_type'] ?? 'shot_image'));
                 $result = self::normalizeShortDramaImageResultRatio($tenantId, $userId, $result, $assetType, (string)($imageParams['ratio'] ?? ''));
                 $uri = (string)($result['image_uri'] ?? $uri);
-                $asset = AigcShortDramaAsset::create([
+                $asset = self::createOrReuseGenerationAsset([
                     'tenant_id' => $tenantId,
                     'user_id' => $userId,
                     'project_id' => $projectId,
@@ -4986,6 +4972,14 @@ class AigcShortDramaService
             return $row;
         }
 
+        // A supplier result may already have been settled while its durable
+        // process job was delayed. This reads only the local consumption
+        // summary and makes the business task immediately consistent; it
+        // never performs an upstream request from a read API.
+        if (self::completeGenerationTaskFromSettledConsumption($tenantId, $userId, $row)) {
+            return self::reloadGenerationTaskRow($tenantId, $userId, (string)($row['task_id'] ?? ''), $row);
+        }
+
         if ($active || (string)($row['billing_status'] ?? '') === 'pending_usage') {
             try {
                 AiTaskJobService::enqueueQueryResult($consumptionId, 100, true);
@@ -4996,10 +4990,6 @@ class AigcShortDramaService
 
         if (!$active && (string)($row['billing_status'] ?? '') !== 'pending_usage') {
             return $row;
-        }
-
-        if (self::completeGenerationTaskFromSettledConsumption($tenantId, $userId, $row)) {
-            return self::reloadGenerationTaskRow($tenantId, $userId, (string)($row['task_id'] ?? ''), $row);
         }
 
         return $row;
@@ -5257,7 +5247,7 @@ class AigcShortDramaService
             }
             $assetType = self::generationAssetType((string)($generation['task_type'] ?? 'shot_image'));
             $result = self::normalizeShortDramaImageResultRatio($tenantId, $userId, $result, $assetType, (string)($imageParams['ratio'] ?? ''));
-            $asset = AigcShortDramaAsset::create([
+                $asset = self::createOrReuseGenerationAsset([
                 'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => (int)$generation['project_id'], 'task_id' => (string)$generation['task_id'],
                 'shot_id' => (string)($generation['shot_id'] ?? ''), 'asset_type' => $assetType, 'title' => '短剧图片' . ((int)$index + 1),
                 'uri' => (string)$result['image_uri'], 'cover_uri' => '',
@@ -5294,6 +5284,50 @@ class AigcShortDramaService
         self::refreshProjectGenerationStatus($tenantId, $userId, (int)($generation['project_id'] ?? 0));
     }
 
+    /**
+     * Registers a provider result once per short-drama task. Polling, callbacks,
+     * and page reads may arrive concurrently, so the generation task row is the
+     * serialization point before an output asset is inserted.
+     */
+    private static function createOrReuseGenerationAsset(array $data): AigcShortDramaAsset
+    {
+        $tenantId = (int)($data['tenant_id'] ?? 0);
+        $userId = (int)($data['user_id'] ?? 0);
+        $projectId = (int)($data['project_id'] ?? 0);
+        $taskId = trim((string)($data['task_id'] ?? ''));
+        $shotId = (string)($data['shot_id'] ?? '');
+        $assetType = trim((string)($data['asset_type'] ?? ''));
+        $uri = trim((string)($data['uri'] ?? ''));
+
+        if ($tenantId <= 0 || $userId <= 0 || $projectId <= 0 || $taskId === '' || $assetType === '' || $uri === '') {
+            return AigcShortDramaAsset::create($data);
+        }
+
+        return Db::transaction(function () use ($data, $tenantId, $userId, $projectId, $taskId, $shotId, $assetType, $uri) {
+            AigcShortDramaGenerationTask::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'task_id' => $taskId,
+            ])->lock(true)->findOrEmpty();
+
+            $existing = AigcShortDramaAsset::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'project_id' => $projectId,
+                'task_id' => $taskId,
+                'shot_id' => $shotId,
+                'asset_type' => $assetType,
+                'uri' => $uri,
+                'delete_time' => 0,
+            ])->order('id', 'desc')->findOrEmpty();
+            if (!$existing->isEmpty()) {
+                return $existing;
+            }
+
+            return AigcShortDramaAsset::create($data);
+        });
+    }
+
     private static function registerImageResultsAsAssets(int $tenantId, int $userId, array $generation, array $results, int $imageTaskId): array
     {
         $assetIds = [];
@@ -5316,7 +5350,7 @@ class AigcShortDramaService
             $targetRatio = (string)($requestImageParams['ratio'] ?? $requestParams['ratio'] ?? $requestParams['aspect_ratio'] ?? '');
             $result = self::normalizeShortDramaImageResultRatio($tenantId, $userId, $result, $assetType, $targetRatio);
             $uri = (string)($result['image_uri'] ?? $uri);
-            $asset = AigcShortDramaAsset::create([
+            $asset = self::createOrReuseGenerationAsset([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
                 'project_id' => (int)$generation['project_id'],
@@ -5958,7 +5992,7 @@ class AigcShortDramaService
             if ($uri === '') {
                 continue;
             }
-            $asset = AigcShortDramaAsset::create([
+            $asset = self::createOrReuseGenerationAsset([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
                 'project_id' => (int)$generation['project_id'],
@@ -6014,72 +6048,6 @@ class AigcShortDramaService
             $plan = self::currentProjectPlanRaw($tenantId, $userId, $projectId);
             $music = self::bgmAudioRequest($tenantId, $params, $plan);
             self::runMarketBgmAudioGenerationTask($tenantId, $userId, $generation, $params, $music, $billing);
-            return;
-            AigcShortDramaGenerationTask::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'task_id' => $taskId,
-            ])->update([
-                'request_json' => self::jsonEncode([
-                    'params' => $params,
-                    'music_prompt' => $music['prompt'],
-                    'duration_seconds' => $music['duration_seconds'],
-                ]),
-                'progress' => 35,
-                'provider' => $music['provider'],
-                'update_time' => time(),
-            ]);
-
-            $asset = AigcShortDramaAsset::create([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'project_id' => $projectId,
-                'task_id' => $taskId,
-                'shot_id' => '',
-                'asset_type' => 'bgm_audio',
-                'title' => '背景音乐',
-                'uri' => (string)$music['audio_uri'],
-                'cover_uri' => '',
-                'storage_scope' => (string)$music['storage_scope'],
-                'storage_engine' => (string)$music['storage_engine'],
-                'storage_domain' => (string)$music['storage_domain'],
-                'mime_type' => (string)$music['mime_type'],
-                'file_size' => (int)$music['file_size'],
-                'width' => 0,
-                'height' => 0,
-                'duration' => (float)$music['duration_seconds'],
-                'checksum' => '',
-                'meta_json' => self::jsonEncode([
-                    'prompt' => (string)$music['prompt'],
-                    'provider' => (string)$music['provider'],
-                    'model' => (string)$music['model'],
-                    'source' => (string)$music['source'],
-                ]),
-                'status' => 'ready',
-                'create_time' => time(),
-                'update_time' => time(),
-                'delete_time' => 0,
-            ]);
-            $assetId = (int)$asset['id'];
-            AigcShortDramaGenerationTask::where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'task_id' => $taskId,
-            ])->update([
-                'status' => self::STATUS_SUCCESS,
-                'progress' => 100,
-                'provider' => (string)$music['provider'],
-                'result_json' => self::jsonEncode([
-                    'asset_ids' => [$assetId],
-                    'bgm_audio_asset_id' => $assetId,
-                    'music_prompt' => (string)$music['prompt'],
-                ]),
-                'output_asset_ids' => self::jsonEncode([$assetId]),
-                'billing_status' => ((float)$billing['tenant_cost_points'] > 0 || (float)$billing['user_charge_points'] > 0) ? 'deducted' : 'none',
-                'finished_at' => time(),
-                'update_time' => time(),
-            ]);
-            self::refreshProjectGenerationStatus($tenantId, $userId, $projectId);
         } catch (\Throwable $e) {
             self::failGenerationTaskWithRefund($tenantId, $userId, $generation, $billing, 'bgm_audio_failed', 'AI short drama background music generation failed', $e);
         }
@@ -6305,7 +6273,7 @@ class AigcShortDramaService
         if ($uri === '') {
             throw new Exception('音乐应用未返回可用背景音乐');
         }
-        $asset = AigcShortDramaAsset::create([
+        $asset = self::createOrReuseGenerationAsset([
             'tenant_id' => $tenantId,
             'user_id' => $userId,
             'project_id' => (int)$generation['project_id'],
@@ -12038,9 +12006,6 @@ class AigcShortDramaService
             $default['price_config'] = [];
             $default['export_watermark'] = self::normalizeExportWatermarkConfig((array)$default['export_watermark']);
             $default['model_groups'] = self::dependencyModelGroups($tenantId);
-            $scriptModel = self::configuredScriptPlanModel($tenantId, $default, false);
-            $default['script_plan_model_id'] = (string)($scriptModel['id'] ?? '');
-            $default['script_plan_model_selection'] = $scriptModel === [] ? [] : self::marketModelSnapshot($scriptModel);
             $default['vision_model_id'] = '';
             $default['vision_model_selection'] = [];
             return $default;
@@ -12061,9 +12026,7 @@ class AigcShortDramaService
         }, (array)$config['models']));
         $config['price_config'] = [];
         $config['model_groups'] = self::dependencyModelGroups($tenantId);
-        $scriptModel = self::configuredScriptPlanModel($tenantId, $config, false);
-        $config['script_plan_model_id'] = (string)($scriptModel['id'] ?? '');
-        $config['script_plan_model_selection'] = $scriptModel === [] ? [] : self::marketModelSnapshot($scriptModel);
+        unset($config['script_plan_model_id'], $config['script_plan_model_selection']);
         $visionModel = self::configuredVisionModel($tenantId, $config, false);
         $config['vision_model_id'] = (string)($visionModel['id'] ?? '');
         $config['vision_model_selection'] = $visionModel === [] ? [] : self::marketModelSnapshot($visionModel);
@@ -12131,7 +12094,7 @@ class AigcShortDramaService
             'value' => $id,
             'name' => (string)($model['name'] ?? $id),
             'description' => (string)($model['description'] ?? ''),
-            'image' => self::fileUrl((string)($model['image'] ?? self::DEFAULT_IMAGE)),
+            'image' => self::fileUrl((string)($model['display_icon'] ?? $model['image'] ?? self::DEFAULT_IMAGE)),
             'enabled' => (bool)($model['enabled'] ?? true),
             'sort' => (int)($model['sort'] ?? 0),
         ];
@@ -12166,55 +12129,6 @@ class AigcShortDramaService
             'channel_count' => $count,
             'message' => $count > 0 ? '算力市场已上架 ' . $count . ' 个可用资源' : '暂无租户可用的算力市场资源',
         ];
-    }
-
-    /** @return array<string, mixed> */
-    private static function configuredScriptPlanModel(int $tenantId, array $config = [], bool $strict = true): array
-    {
-        if ($config === []) {
-            $row = AigcShortDramaConfig::whereIn('tenant_id', [$tenantId, 0])
-                ->orderRaw('tenant_id = ' . (int)$tenantId . ' desc')
-                ->findOrEmpty();
-            $config = $row->isEmpty() ? [] : self::jsonDecode((string)$row['config_json']);
-        }
-        $groups = (array)($config['model_groups'] ?? []);
-        if (empty($groups)) {
-            $groups = self::dependencyModelGroups($tenantId);
-        }
-        $scriptGroup = self::modelGroupByKey($groups, 'script_plan');
-        $options = array_values((array)($scriptGroup['options'] ?? []));
-        if (empty($options)) {
-            if ($strict) {
-                throw new Exception('暂无可用的剧本策划模型，请在算力市场上架 Qwen3.6-Plus');
-            }
-            return [];
-        }
-        $selection = $config['script_plan_model_id'] ?? $config['script_plan_model_selection'] ?? '';
-        $selected = self::matchModelOption($options, $selection);
-        if ($selected !== [] && self::isFixedScriptPlanModel($selected)) {
-            return $selected;
-        }
-        foreach ($options as $option) {
-            if (self::isFixedScriptPlanModel($option)) {
-                return $option;
-            }
-        }
-        if ($strict) {
-            throw new Exception('暂无可用的 Qwen3.6-Plus 剧本策划模型，请在算力市场上架后重试');
-        }
-        return [];
-    }
-
-    private static function isFixedScriptPlanModel(array $model): bool
-    {
-        foreach (['id', 'value', 'name', 'model_code', 'provider_model', 'channel_code'] as $key) {
-            $value = strtolower((string)($model[$key] ?? ''));
-            $normalized = preg_replace('/[^a-z0-9]+/', '', $value) ?: '';
-            if (in_array($normalized, self::SCRIPT_PLAN_FIXED_MODEL_CODES, true)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /** @return array<string, mixed> */
@@ -12598,12 +12512,6 @@ class AigcShortDramaService
             $key = (string)($group['key'] ?? '');
             $options = (array)($group['options'] ?? []);
             if ($key === '' || empty($options)) {
-                continue;
-            }
-            if ($key === 'script_plan') {
-                // Script planning has a platform-selected model contract. Request
-                // payloads must not replace it with arbitrary market text models.
-                $selected[$key] = self::configuredScriptPlanModel($tenantId, $config, true);
                 continue;
             }
             $wanted = $selections[$key] ?? '';

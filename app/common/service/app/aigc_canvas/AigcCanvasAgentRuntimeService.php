@@ -67,6 +67,7 @@ class AigcCanvasAgentRuntimeService
     {
         self::ensureSchema();
         $projectId = (int)($params['project_id'] ?? 0);
+        $unassignedOnly = (int)($params['unassigned_only'] ?? 0) === 1;
         $limit = max(1, min(60, (int)($params['limit'] ?? 30)));
         $query = AigcCanvasAgentThread::where([
             'tenant_id' => $tenantId,
@@ -75,6 +76,8 @@ class AigcCanvasAgentRuntimeService
         ]);
         if ($projectId > 0) {
             $query->where('project_id', $projectId);
+        } elseif ($unassignedOnly) {
+            $query->where('project_id', 0);
         }
         $rows = $query
             ->order(['update_time' => 'desc', 'id' => 'desc'])

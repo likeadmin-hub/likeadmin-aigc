@@ -10,6 +10,29 @@ use think\facade\Db;
 
 class AiTaskBusinessResultService
 {
+    /**
+     * Reconcile a result that is already terminal in local storage. This must
+     * not query a provider, so list/detail APIs can safely recover a delayed
+     * business write without turning reads into upstream polling requests.
+     */
+    public static function syncTerminalByConsumptionId(int $consumptionId): bool
+    {
+        $context = self::context($consumptionId);
+        if ($context === null || !self::terminal($context['consumption'])) {
+            return false;
+        }
+
+        AiTaskResultAssetService::recordConsumptionAssets(
+            $consumptionId,
+            self::requiresForcedTransfer($consumptionId)
+        );
+        if (!self::hasBusinessAdapter((string)$context['business_table'], (int)$context['business_id'])) {
+            return false;
+        }
+        self::syncByConsumptionId($consumptionId);
+        return true;
+    }
+
     public static function syncByConsumptionId(int $consumptionId): void
     {
         $context = self::context($consumptionId);
@@ -49,6 +72,17 @@ class AiTaskBusinessResultService
         if (self::terminal($consumption)) {
             throw new RuntimeException('未注册的关联业务结果处理器: ' . $businessTable);
         }
+    }
+
+    private static function hasBusinessAdapter(string $businessTable, int $businessId): bool
+    {
+        return $businessId > 0 && in_array($businessTable, [
+            'aigc_image_task',
+            'aigc_video_task',
+            'aigc_short_drama_script_task',
+            'aigc_short_drama_generation_task',
+            'aigc_canvas_run',
+        ], true);
     }
 
     private static function terminal(array $consumption): bool

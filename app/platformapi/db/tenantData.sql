@@ -671,6 +671,7 @@ COMMIT;
 
 INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
 VALUES
+({tenantId},'system_default','1.0.0','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_image','1.1.3','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_video','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 ({tenantId},'aigc_digital_human','1.0.1','paid','on','enabled',0,1778000000,1778000000),

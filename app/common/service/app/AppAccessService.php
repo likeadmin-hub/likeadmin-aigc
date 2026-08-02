@@ -18,6 +18,15 @@ class AppAccessService
         'aigc_canvas',
         'aigc_llm',
     ];
+    public const DEFAULT_SYSTEM_APP_CODES = ['system_default'];
+    public const DEFAULT_APP_CODES = [
+        'system_default',
+        'aigc_image',
+        'aigc_video',
+        'aigc_digital_human',
+        'aigc_canvas',
+        'aigc_llm',
+    ];
     public const BUY_PAID = 'paid';
     public const BUY_TRIAL = 'trial';
     public const SHELF_ON = 'on';
@@ -26,6 +35,11 @@ class AppAccessService
     public static function isDefaultAigcApp(string $appCode): bool
     {
         return in_array($appCode, self::DEFAULT_AIGC_APP_CODES, true);
+    }
+
+    public static function isDefaultApp(string $appCode): bool
+    {
+        return in_array($appCode, self::DEFAULT_APP_CODES, true);
     }
 
     public static function enabledTenantAppCodes(int $tenantId): array
@@ -40,7 +54,7 @@ class AppAccessService
 
     public static function tenantCanManage(int $tenantId, string $appCode): bool
     {
-        if (self::isDefaultAigcApp($appCode) && self::isInstalled($appCode)) {
+        if (self::isDefaultApp($appCode) && self::isInstalled($appCode)) {
             DefaultAppService::ensureTenantDefaultApp($tenantId, $appCode);
             return true;
         }
@@ -49,7 +63,7 @@ class AppAccessService
 
     public static function tenantCanUse(int $tenantId, string $appCode): bool
     {
-        if (self::isDefaultAigcApp($appCode) && self::isInstalled($appCode)) {
+        if (self::isDefaultApp($appCode) && self::isInstalled($appCode)) {
             DefaultAppService::ensureTenantDefaultApp($tenantId, $appCode);
             return true;
         }
@@ -104,7 +118,7 @@ class AppAccessService
         foreach ($rows as $row) {
             $appCode = (string)($row['app_code'] ?? '');
             $expireTime = max((int)($row['expire_time'] ?? 0), (int)($paidOrderExpires[$appCode] ?? 0));
-            if (!self::isDefaultAigcApp($appCode) && $expireTime <= 0) {
+            if (!self::isDefaultApp($appCode) && $expireTime <= 0) {
                 continue;
             }
             if ($expireTime <= 0 || $expireTime > time()) {
@@ -116,7 +130,7 @@ class AppAccessService
                 $codes[] = $appCode;
             }
         }
-        return array_values(array_unique(array_merge($codes, self::installedDefaultAigcAppCodes())));
+        return array_values(array_unique(array_merge($codes, self::installedDefaultAppCodes())));
     }
 
     private static function isInstalled(string $appCode): bool
@@ -124,10 +138,10 @@ class AppAccessService
         return App::where(['code' => $appCode, 'status' => AppRegistryService::STATUS_INSTALLED])->count() > 0;
     }
 
-    private static function installedDefaultAigcAppCodes(): array
+    private static function installedDefaultAppCodes(): array
     {
         return App::where('status', AppRegistryService::STATUS_INSTALLED)
-            ->whereIn('code', self::DEFAULT_AIGC_APP_CODES)
+            ->whereIn('code', self::DEFAULT_APP_CODES)
             ->column('code');
     }
 }

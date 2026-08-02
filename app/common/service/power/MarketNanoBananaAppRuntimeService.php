@@ -41,6 +41,7 @@ class MarketNanoBananaAppRuntimeService
             'upstream_api_code' => self::SUBMIT_API_CODE,
             'status' => 1,
         ])->select()->toArray();
+        TenantPowerMarketService::applyProductDisplays($tenantId, $products);
         $options = [];
         foreach ($products as $product) {
             $capabilities = self::capabilities($product);
@@ -79,14 +80,11 @@ class MarketNanoBananaAppRuntimeService
                     'market_product_id' => (int)$product['id'],
                     'resource_type' => PowerMarketService::TYPE_APP_API,
                     'resource_type_label' => '应用 API',
-                    'name' => self::displayName(self::baseModel($model)),
+                    'name' => !empty($product['display_name_overridden']) ? (string)$product['name'] : self::displayName($model),
+                    'description' => (string)($product['description'] ?? ''),
+                    'display_icon' => (string)($product['display_icon'] ?? ''),
                     'model_code' => $model,
                     'provider_model' => $model,
-                    'display_group' => 'nano_banana',
-                    'display_group_label' => 'Nano Banana',
-                    'display_series' => self::modelVariant($model),
-                    'display_series_label' => self::variantLabel(self::modelVariant($model)),
-                    'display_variant_label' => self::displayName(self::baseModel($model)),
                     'quality_options' => $qualities,
                     'resolution_options' => array_map(static fn(string $value): array => ['value' => $value, 'label' => self::qualityLabel($value)], $qualities),
                     'default_quality' => (string)($qualities[0] ?? ''),
@@ -230,12 +228,18 @@ class MarketNanoBananaAppRuntimeService
     }
 
     /** @return array<string,mixed> */
-    public static function refresh(int $consumptionId): array
+    public static function refresh(int $consumptionId, bool $recoverCompletedResult = false): array
     {
         $context = self::context($consumptionId, false);
         if ($context === null) throw new Exception('nano-banana 消耗记录不存在');
         $consumption = $context['consumption'];
-        if (!in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage'], true)) return self::response($consumption->toArray());
+        $isActive = in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage'], true);
+        // A previous parser could persist non-URL response fields as images.
+        // Only the linked business result worker may opt into a one-off recovery
+        // query after settlement; refunded/failed tasks are never resurrected.
+        if (!$isActive && (!$recoverCompletedResult || (string)$consumption['run_status'] !== 'success')) {
+            return self::response($consumption->toArray());
+        }
         $timedOut = (int)$consumption['create_time'] > 0 && time() - (int)$consumption['create_time'] >= self::MAX_RUNNING_SECONDS;
         $taskId = trim((string)$consumption['upstream_task_id']);
         if ($taskId === '') {
@@ -249,7 +253,14 @@ class MarketNanoBananaAppRuntimeService
             $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
             $response = self::request('GET', self::endpoint((string)$snapshot['app_code'], self::QUERY_API_CODE) . '?task_id=' . rawurlencode($taskId));
             $images = self::images($response, (int)$consumption['tenant_id'], (int)$consumption['user_id']);
-            if ($images !== []) { self::settle($consumptionId, $images, self::requestId($response), $taskId, $response); return ['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images]; }
+            if ($images !== []) {
+                if ($isActive) {
+                    self::settle($consumptionId, $images, self::requestId($response), $taskId, $response);
+                } else {
+                    self::repairCompletedResult($consumptionId, $images);
+                }
+                return ['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images];
+            }
             $upstreamStatus = self::status($response);
             if (in_array($upstreamStatus, ['failed', 'error', 'canceled', 'cancelled'], true)) { self::fail($consumptionId, self::error($response), 'upstream_failed'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
             if (AiTaskLifecycleEventService::isTerminalSuccess($upstreamStatus)) {
@@ -306,6 +317,61 @@ class MarketNanoBananaAppRuntimeService
             $c->save(['run_status' => 'success', 'billing_status' => 'settled', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'], 'quantity' => $billedQuantity, 'usage_snapshot' => ['image_count' => $quantity, 'actual_token_usage' => $deferredUsage ? $actualUsage : 0], 'response_summary' => ['image_count' => $quantity, 'images' => $images], 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'tenant_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['tenant_point_sn'], 'user_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['user_point_sn'], 'finish_time' => $now, 'update_time' => $now]);
             $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'finish_time' => $now, 'update_time' => $now]);
             self::event((int)$c['id'], 'settle', 'success', ['image_count' => $quantity]);
+        });
+    }
+
+    /**
+     * Repair result metadata from the authoritative query response without
+     * reopening a terminal task or charging it again.
+     */
+    private static function repairCompletedResult(int $consumptionId, array $images): void
+    {
+        Db::transaction(function () use ($consumptionId, $images) {
+            $ctx = self::context($consumptionId, true);
+            if ($ctx === null) return;
+            $consumption = $ctx['consumption'];
+            $task = $ctx['app_task'];
+            if ((string)$consumption['run_status'] !== 'success' || (string)$consumption['billing_status'] !== 'settled') return;
+
+            $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
+            $count = max(1, count($images));
+            $actualTenant = (float)$consumption['actual_tenant_cost'];
+            $actualUser = (float)$consumption['actual_user_price'];
+            $expectedTenant = $actualTenant;
+            $expectedUser = $actualUser;
+            if (!MarketUsageSettlementService::isActualUsageSku($snapshot)) {
+                $expectedTenant = self::points((float)($snapshot['platform_price'] ?? 0) * $count);
+                $expectedUser = self::points((float)($snapshot['tenant_price'] ?? 0) * $count);
+                $refundTenant = self::points($actualTenant - $expectedTenant);
+                $refundUser = self::points($actualUser - $expectedUser);
+                if ($refundTenant > 0 || $refundUser > 0) {
+                    PointService::refundBusinessAmountsInCurrentTransaction(
+                        (int)$consumption['tenant_id'],
+                        (int)$consumption['user_id'],
+                        $refundTenant,
+                        $refundUser,
+                        (string)$consumption['consume_no'] . '-result-repair-refund-v1',
+                        'Nano Banana result repair refund',
+                        self::extra($task, $consumption, 'result_repaired')
+                    );
+                }
+            }
+
+            $now = time();
+            $consumption->save([
+                'quantity' => $count,
+                'usage_snapshot' => ['image_count' => $count, 'actual_token_usage' => 0],
+                'response_summary' => ['image_count' => $count, 'images' => $images],
+                'actual_tenant_cost' => $expectedTenant,
+                'actual_user_price' => $expectedUser,
+                'update_time' => $now,
+            ]);
+            $task->save([
+                'actual_tenant_cost' => $expectedTenant,
+                'actual_user_price' => $expectedUser,
+                'update_time' => $now,
+            ]);
+            self::event((int)$consumption['id'], 'result_repaired', 'success', ['image_count' => $count]);
         });
     }
 
@@ -405,9 +471,10 @@ class MarketNanoBananaAppRuntimeService
     /** @return array<int,array<string,mixed>> */
     private static function images(array $data, int $tenantId, int $userId): array
     {
-        $root = self::arrayValue($data['data'] ?? $data); $urls = AiTaskResultUrlService::collect($data);
-        foreach ([$data, $root, self::arrayValue($root['response'] ?? [])] as $payload) foreach (['image_url', 'url'] as $key) if (is_string($payload[$key] ?? null) && trim((string)$payload[$key]) !== '') $urls[] = (string)$payload[$key];
-        foreach ([$data['data'] ?? [], $root['images'] ?? [], $root['image_urls'] ?? [], $root['results'] ?? [], $root['result'] ?? [], $root['result']['images'] ?? [], $root['result']['image_urls'] ?? [], $root['result']['data'] ?? [], $root['output'] ?? [], $root['output']['images'] ?? [], $root['output']['image_urls'] ?? []] as $rows) foreach ((array)$rows as $row) { $url = is_string($row) ? $row : (string)($row['image_url'] ?? $row['url'] ?? ''); if ($url !== '') $urls[] = $url; }
+        // The shared collector only returns valid http(s) values from known
+        // result containers. Do not treat task IDs, statuses, or timestamps as
+        // files merely because they appear beside a result object.
+        $urls = AiTaskResultUrlService::collect($data);
         $images = [];
         foreach (array_values(array_unique($urls)) as $url) { $stored = AigcImageAssetService::persistGeneratedImage($url, $tenantId, $userId); $images[] = ['image_uri' => (string)$stored['uri'], 'width' => (int)($stored['width'] ?? 0), 'height' => (int)($stored['height'] ?? 0), 'storage_scope' => (string)($stored['storage_scope'] ?? 'tenant'), 'storage_engine' => (string)($stored['storage_engine'] ?? ''), 'storage_domain' => (string)($stored['storage_domain'] ?? '')]; }
         return $images;
@@ -435,7 +502,6 @@ class MarketNanoBananaAppRuntimeService
     private static function baseModel(string $model): string { return preg_replace('/:official$/i', '', trim($model)) ?: ''; }
     private static function modelVariant(string $model): string { return str_ends_with(strtolower(trim($model)), ':official') ? 'official' : 'standard'; }
     private static function selectionVariant(array $selection, string $selectedModel): string { $nested = self::arrayValue($selection['params'] ?? []); $value = strtolower(trim((string)($selection['variant'] ?? $selection['edition'] ?? $nested['variant'] ?? $nested['edition'] ?? ''))); if (in_array($value, ['standard', 'official'], true)) return $value; return self::modelVariant($selectedModel); }
-    private static function variantLabel(string $variant): string { return $variant === 'official' ? '官方' : '标准'; }
     private static function qualityLabel(string $value): string { return strtoupper(trim($value)) ?: '1K'; }
     private static function displayName(string $model): string { return match ($model) { 'nano-banana' => 'Nano Banana', 'nano-banana-2' => 'Nano Banana 2', 'nano-banana-2-lite' => 'Nano Banana 2 Lite', 'nano-banana-pro' => 'Nano Banana Pro', 'nano-banana:official' => 'Nano Banana Official', 'nano-banana-2-lite:official' => 'Nano Banana 2 Lite Official', 'nano-banana-2:official' => 'Nano Banana 2 Official', 'nano-banana-pro:official' => 'Nano Banana Pro Official', default => $model }; }
     /** @return array<int,string> */

@@ -38,6 +38,7 @@ class MarketVideoRuntimeService
             $where['model_type'] = 'video';
         }
         $products = PowerMarketProduct::where($where)->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
+        TenantPowerMarketService::applyProductDisplays($tenantId, $products);
         $options = [];
         foreach ($products as $product) {
             if ($resourceType === PowerMarketService::TYPE_APP_API && !self::isSupportedAppProduct($product)) {
@@ -107,6 +108,7 @@ class MarketVideoRuntimeService
                 'market_product_id' => (int)$product['id'],
                 'name' => self::displayName($product),
                 'description' => (string)($product['description'] ?? ''),
+                'display_icon' => (string)($product['display_icon'] ?? ''),
                 'model_code' => (string)$product['upstream_model_code'],
                 'channel_code' => (string)$product['upstream_channel_code'],
                 'app_code' => (string)$product['upstream_app_code'],
@@ -488,7 +490,7 @@ class MarketVideoRuntimeService
     private static function snapshot(array $market, float $quantity): array
     {
         $product = $market['product']; $sku = $market['sku']; $meta = self::metadata($product);
-        return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'resource_type' => (string)$product['resource_type'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => max(1, (float)($sku['usage_unit_size'] ?? 1)), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'quantity' => $quantity, 'protocol' => (string)($meta['protocol'] ?? 'video_generate')];
+        return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'resource_type' => (string)$product['resource_type'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'params_schema' => self::arrayValue($meta['params_schema'] ?? []), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => max(1, (float)($sku['usage_unit_size'] ?? 1)), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'quantity' => $quantity, 'protocol' => (string)($meta['protocol'] ?? 'video_generate')];
     }
 
     private static function submitRequest(array $snapshot, array $request, string $idempotency, int $consumptionId): array
@@ -512,24 +514,115 @@ class MarketVideoRuntimeService
         $assets = self::assets($request);
         $duration = self::duration($locked) ?: (int)($request['duration'] ?? 0);
         $quality = self::value($request, ['quality', 'resolution']) ?: self::resolution($locked);
+        $prompt = trim((string)($request['prompt'] ?? ''));
+        $ratio = self::value($request, ['ratio', 'aspect_ratio', 'size']) ?: self::value($locked, ['ratio', 'aspect_ratio', 'size']);
+        $promptKey = self::schemaParameterName($snapshot, ['content', 'prompt'], 'prompt');
+        $ratioKey = self::schemaParameterName($snapshot, ['ratio', 'aspect_ratio', 'size'], 'aspect_ratio');
+        // The model API accepts one contract-defined field for each value. Do
+        // not retain aliases from a SKU when the upstream schema uses another
+        // name; strict providers reject unknown or duplicate input fields.
+        foreach (['prompt', 'content', 'aspect_ratio', 'ratio', 'size'] as $key) {
+            unset($locked[$key]);
+        }
         // Model API video calls share the existing AIGC video provider contract:
         // `quality` and `n` are required by multiple async channels. The
         // market stores `resolution` as UI metadata only, so do not replace the
         // supplier's quality parameter with it.
-        return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_video'), [
+        $payload = array_merge($locked, self::marketContext($snapshot, 'power_market_video'), [
             'model' => (string)$snapshot['model_code'],
             'n' => max(1, (int)($request['quantity'] ?? 1)),
-            'prompt' => trim((string)($request['prompt'] ?? '')),
             'channel' => (string)$snapshot['channel_code'],
             'image_urls' => $assets['image'],
             'quality' => $quality,
-            'aspect_ratio' => (string)($request['ratio'] ?? ''),
             'duration' => $duration > 0 ? $duration : null,
             'negative_prompt' => trim((string)($request['negative_prompt'] ?? '')),
             'video_urls' => $assets['video'],
             'audio_urls' => $assets['audio'],
             'idempotency_key' => $idempotency,
-        ]), static fn($value) => $value !== '' && $value !== null && $value !== []);
+        ]);
+        $payload[$promptKey] = self::schemaParameterUsesArray($snapshot, $promptKey)
+            ? self::schemaTextContent($snapshot, $promptKey, $prompt)
+            : $prompt;
+        $payload[$ratioKey] = $ratio;
+        return array_filter($payload, static fn($value) => $value !== '' && $value !== null && $value !== []);
+    }
+
+    private static function schemaParameterName(array $snapshot, array $candidates, string $fallback): string
+    {
+        $schema = self::arrayValue($snapshot['params_schema'] ?? []);
+        foreach ($candidates as $candidate) {
+            if (self::schemaDeclaresParameter($schema, $candidate)) {
+                return $candidate;
+            }
+        }
+        return $fallback;
+    }
+
+    private static function schemaDeclaresParameter(array $schema, string $parameter, int $depth = 0): bool
+    {
+        if ($depth > 6) {
+            return false;
+        }
+        foreach ($schema as $key => $definition) {
+            if (is_string($key) && strcasecmp($key, $parameter) === 0) {
+                return true;
+            }
+            if (!is_array($definition)) {
+                continue;
+            }
+            foreach (['name', 'key', 'field'] as $nameKey) {
+                if (isset($definition[$nameKey]) && is_string($definition[$nameKey]) && strcasecmp($definition[$nameKey], $parameter) === 0) {
+                    return true;
+                }
+            }
+            if (self::schemaDeclaresParameter($definition, $parameter, $depth + 1)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function schemaParameterUsesArray(array $snapshot, string $parameter): bool
+    {
+        $definition = self::schemaParameterDefinition(self::arrayValue($snapshot['params_schema'] ?? []), $parameter);
+        $type = strtolower(trim((string)($definition['type'] ?? $definition['data_type'] ?? $definition['value_type'] ?? '')));
+        return in_array($type, ['array', 'list'], true);
+    }
+
+    private static function schemaTextContent(array $snapshot, string $parameter, string $prompt): array
+    {
+        $definition = self::schemaParameterDefinition(self::arrayValue($snapshot['params_schema'] ?? []), $parameter);
+        $items = self::arrayValue($definition['items'] ?? $definition['item'] ?? []);
+        $itemType = strtolower(trim((string)($items['type'] ?? $items['data_type'] ?? '')));
+        if ($itemType === 'string') {
+            return [$prompt];
+        }
+        return [['type' => 'text', 'text' => $prompt]];
+    }
+
+    private static function schemaParameterDefinition(array $schema, string $parameter, int $depth = 0): array
+    {
+        if ($depth > 6) {
+            return [];
+        }
+        foreach ($schema as $key => $definition) {
+            if (is_string($key) && strcasecmp($key, $parameter) === 0) {
+                return is_array($definition) ? $definition : ['type' => (string)$definition];
+            }
+            if (!is_array($definition)) {
+                continue;
+            }
+            foreach (['name', 'key', 'field'] as $nameKey) {
+                if (isset($definition[$nameKey]) && is_string($definition[$nameKey]) && strcasecmp($definition[$nameKey], $parameter) === 0) {
+                    return $definition;
+                }
+            }
+            $nested = self::schemaParameterDefinition($definition, $parameter, $depth + 1);
+            if ($nested !== []) {
+                return $nested;
+            }
+        }
+        return [];
     }
 
     private static function appPayload(array $snapshot, array $request, string $idempotency): array
@@ -862,6 +955,9 @@ class MarketVideoRuntimeService
     {
         if ((string)($product['resource_type'] ?? '') !== PowerMarketService::TYPE_APP_API) {
             return (string)($product['name'] ?? '视频模型');
+        }
+        if (!empty($product['display_name_overridden'])) {
+            return (string)($product['name'] ?? '视频生成');
         }
         return match (strtolower((string)($product['upstream_app_code'] ?? ''))) {
             'seedance' => 'Seedance 2.0',

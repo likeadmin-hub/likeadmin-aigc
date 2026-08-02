@@ -45,11 +45,11 @@ class DistributionController extends BaseApiController
                 ->leftJoin('user u', 'u.id = r.user_id AND u.tenant_id = r.tenant_id')
                 ->where('r.tenant_id', $tenantId)
                 ->field('r.*,u.nickname,u.account,u.mobile,u.avatar,u.create_time as user_create_time');
-            if (in_array($level, [1, 2, 3], true)) {
+            if (in_array($level, [1, 2], true)) {
                 $query->where('r.level' . $level . '_user_id', $this->userId);
             } else {
                 $query->where(function ($query) {
-                    $query->where('r.level1_user_id', $this->userId)->whereOr('r.level2_user_id', $this->userId)->whereOr('r.level3_user_id', $this->userId);
+                    $query->where('r.level1_user_id', $this->userId)->whereOr('r.level2_user_id', $this->userId);
                 });
             }
             $keyword = trim((string)$this->request->get('keyword', ''));

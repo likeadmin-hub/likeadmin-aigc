@@ -42,6 +42,7 @@ class TenantPowerMarketService
             'status' => 1,
         ])->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
         self::attachProductStats($tenantId, $products);
+        self::applyProductDisplays($tenantId, $products);
 
         $groups = [];
         foreach ($products as $product) {
@@ -58,8 +59,9 @@ class TenantPowerMarketService
             if (!isset($groups[$appCode])) {
                 $groups[$appCode] = [
                     'app_code' => $appCode,
-                    'name' => trim((string)($resource['app_name'] ?? $metadata['app_name'] ?? $appCode)),
-                    'description' => trim((string)($metadata['app_description'] ?? $resource['description'] ?? '')),
+                    'name' => !empty($product['display_name_overridden']) ? (string)$product['name'] : trim((string)($resource['app_name'] ?? $metadata['app_name'] ?? $appCode)),
+                    'display_icon' => (string)($product['display_icon'] ?? ''),
+                    'description' => !empty($product['display_description_overridden']) ? (string)$product['description'] : trim((string)($metadata['app_description'] ?? $resource['description'] ?? '')),
                     'api_count' => 0,
                     'sku_count' => 0,
                     'min_price' => null,
@@ -124,6 +126,11 @@ class TenantPowerMarketService
         if ($product->isEmpty()) {
             throw new Exception('模型商品不存在或已下架');
         }
+        self::saveDisplay($tenantId, $productId, $params);
+    }
+
+    private static function saveDisplay(int $tenantId, int $productId, array $params): void
+    {
         $row = TenantPowerMarketProduct::where(['tenant_id' => $tenantId, 'product_id' => $productId])->findOrEmpty();
         $data = [
             'tenant_id' => $tenantId,
@@ -147,6 +154,7 @@ class TenantPowerMarketService
         if ($data === []) {
             return [];
         }
+        self::applyProductDisplays($tenantId, $data['apis']);
         $apis = [];
         foreach ((array)($data['apis'] ?? []) as $api) {
             if ((int)($api['status'] ?? 0) !== 1) {
@@ -167,7 +175,38 @@ class TenantPowerMarketService
         self::attachProductStats($tenantId, $rows);
         $data['status'] = max(array_column($rows, 'status'));
         $data['status_text'] = (int)$data['status'] === 1 ? '上架' : '下架';
+        $first = $data['apis'][0] ?? [];
+        if (!empty($first['display_name_overridden'])) {
+            $data['name'] = (string)($first['name'] ?? $data['name'] ?? $appCode);
+        }
+        if (!empty($first['display_description_overridden'])) {
+            $data['description'] = (string)($first['description'] ?? $data['description'] ?? '');
+        }
+        if (!empty($first['display_icon_overridden'])) {
+            $data['display_icon'] = (string)($first['display_icon'] ?? '');
+        }
         return $data;
+    }
+
+    public static function saveAppDisplay(int $tenantId, string $appCode, array $params): void
+    {
+        $appCode = trim($appCode);
+        if ($appCode === '') {
+            throw new Exception('应用标识不能为空');
+        }
+        $products = PowerMarketProduct::where([
+            'resource_type' => PowerMarketService::TYPE_APP_API,
+            'upstream_app_code' => $appCode,
+            'status' => 1,
+        ])->select()->toArray();
+        if ($products === []) {
+            throw new Exception('应用 API 商品不存在或已下架');
+        }
+        Db::transaction(function () use ($tenantId, $products, $params): void {
+            foreach ($products as $product) {
+                self::saveDisplay($tenantId, (int)$product['id'], $params);
+            }
+        });
     }
 
     /**
@@ -387,7 +426,7 @@ class TenantPowerMarketService
     }
 
     /** @param array<int, array<string, mixed>>|array<string, mixed> $rows */
-    private static function applyProductDisplays(int $tenantId, array &$rows): void
+    public static function applyProductDisplays(int $tenantId, array &$rows): void
     {
         $isOne = isset($rows['id']);
         $items = $isOne ? [&$rows] : $rows;
@@ -401,6 +440,10 @@ class TenantPowerMarketService
             $override = $byProduct[(int)$item['id']] ?? [];
             $item['origin_name'] = (string)($item['name'] ?? '');
             $item['origin_description'] = (string)($item['description'] ?? '');
+            $item['display_name_overridden'] = !empty($override['name']);
+            $item['display_icon_overridden'] = !empty($override['icon']);
+            $item['display_description_overridden'] = !empty($override['description']);
+            $item['display_overridden'] = $item['display_name_overridden'] || $item['display_icon_overridden'] || $item['display_description_overridden'];
             $item['display_name'] = trim((string)($override['name'] ?? '')) ?: $item['origin_name'];
             $icon = trim((string)($override['icon'] ?? ''));
             $item['display_icon'] = $icon === '' ? '' : FileService::getFileUrl($icon);

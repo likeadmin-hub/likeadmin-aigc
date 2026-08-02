@@ -287,6 +287,7 @@ class MarketTextModelRuntimeService
     {
         $products = PowerMarketProduct::where(['resource_type' => PowerMarketService::TYPE_MODEL, 'model_type' => 'text', 'status' => 1])
             ->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
+        TenantPowerMarketService::applyProductDisplays($tenantId, $products);
         $options = [];
         foreach ($products as $product) {
             $snapshot = self::arrayValue($product['source_payload'] ?? []);
@@ -304,6 +305,7 @@ class MarketTextModelRuntimeService
                 'product_id' => (int)$product['id'],
                 'name' => (string)$product['name'],
                 'description' => (string)$product['description'],
+                'display_icon' => (string)($product['display_icon'] ?? ''),
                 'model_code' => (string)$product['upstream_model_code'],
                 'channel_code' => (string)$product['upstream_channel_code'],
                 'provider_model' => (string)$product['upstream_model_code'],

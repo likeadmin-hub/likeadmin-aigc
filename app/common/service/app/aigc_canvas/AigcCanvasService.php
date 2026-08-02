@@ -21,7 +21,6 @@ use app\common\service\power\MarketNanoBananaAppRuntimeService;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\power\MarketVideoAppRuntimeService;
 use app\common\service\power\MarketVideoModelRuntimeService;
-use app\common\service\power\TenantPowerMarketService;
 use app\common\service\storage\Driver as StorageDriver;
 use app\common\service\storage\StorageConfigService;
 use Exception;
@@ -120,7 +119,6 @@ class AigcCanvasService
         $resourceStatus = self::resourceStatus($tenantId);
         $text = self::textConfig($tenantId);
         $marketRouter = CanvasModelRouterService::marketOverview($tenantId);
-        self::appendPowerMarketDisplayIcons($tenantId, $text, $marketRouter);
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, [
             'app_code' => self::APP_CODE,
             'name' => '无限画布',
@@ -133,35 +131,6 @@ class AigcCanvasService
             'resource_status' => $resourceStatus,
             'market_router' => $marketRouter,
         ]);
-    }
-
-    private static function appendPowerMarketDisplayIcons(int $tenantId, array &$text, array &$marketRouter): void
-    {
-        $market = TenantPowerMarketService::models($tenantId, '', '', 1, 100);
-        $iconsByProductId = [];
-        foreach ((array)($market['lists'] ?? []) as $product) {
-            $productId = (int)($product['id'] ?? 0);
-            $icon = trim((string)($product['display_icon'] ?? ''));
-            if ($productId > 0 && $icon !== '') {
-                $iconsByProductId[$productId] = $icon;
-            }
-        }
-
-        foreach ((array)($text['models'] ?? []) as $index => $model) {
-            $productId = (int)($model['market_product_id'] ?? 0);
-            if ($productId > 0 && isset($iconsByProductId[$productId])) {
-                $text['models'][$index]['display_icon'] = $iconsByProductId[$productId];
-            }
-        }
-
-        foreach (['image', 'video', 'music'] as $type) {
-            foreach ((array)($marketRouter[$type]['options'] ?? []) as $index => $option) {
-                $productId = (int)($option['market_product_id'] ?? 0);
-                if ($productId > 0 && isset($iconsByProductId[$productId])) {
-                    $marketRouter[$type]['options'][$index]['display_icon'] = $iconsByProductId[$productId];
-                }
-            }
-        }
     }
 
     public static function saveConfig(int $tenantId, array $params): void
@@ -1936,6 +1905,8 @@ class AigcCanvasService
                     $models[$code] = [
                         'code' => $code,
                         'name' => (string)($option['name'] ?? $option['model_code'] ?? $code),
+                        'description' => (string)($option['description'] ?? ''),
+                        'display_icon' => (string)($option['display_icon'] ?? ''),
                         'model_code' => (string)($option['model_code'] ?? ''),
                         'market_product_id' => (int)($option['product_id'] ?? 0),
                         'market_sku_id' => (int)($option['market_sku_id'] ?? 0),

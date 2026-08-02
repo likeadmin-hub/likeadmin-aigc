@@ -72,6 +72,8 @@ class AigcLlmChannelService
             $models[] = [
                 'code' => 'market_text_' . $productId,
                 'name' => (string)($option['name'] ?? $modelCode),
+                'description' => (string)($option['description'] ?? ''),
+                'display_icon' => (string)($option['display_icon'] ?? ''),
                 'channel_code' => $channelCode,
                 'provider' => 'openai_compatible',
                 'model' => $modelCode,

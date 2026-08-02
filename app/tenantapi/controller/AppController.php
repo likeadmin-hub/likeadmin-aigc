@@ -74,7 +74,7 @@ class AppController extends BaseAdminController
         }));
         $apps = App::whereIn('code', array_column($lists, 'app_code') ?: [''])->column('*', 'code');
         $builtinApps = App::where('status', 'installed')
-            ->whereIn('code', AppAccessService::DEFAULT_AIGC_APP_CODES)
+            ->whereIn('code', AppAccessService::DEFAULT_APP_CODES)
             ->order(['sort' => 'desc', 'id' => 'desc'])
             ->select()
             ->toArray();
