@@ -624,6 +624,16 @@ class AigcVideoService
             $query->where('status', $status);
         }
         $tasks = $query->limit(50)->select()->toArray();
+        $reconciled = false;
+        foreach ($tasks as $task) {
+            $consumptionId = (int)($task['consumption_id'] ?? 0);
+            if ($consumptionId > 0 && AiTaskBusinessResultService::syncTerminalByConsumptionId($consumptionId)) {
+                $reconciled = true;
+            }
+        }
+        if ($reconciled) {
+            $tasks = $query->limit(50)->select()->toArray();
+        }
         $taskIds = array_values(array_unique(array_filter(array_column($tasks, 'id'))));
         $resultMap = [];
         if (!empty($taskIds)) {

@@ -5711,7 +5711,8 @@ class AigcShortDramaService
         // consumption subsequently settled, hydrate the business result from
         // its saved response instead of making a second supplier request.
         if (in_array($runStatus, ['success'], true) || $billingStatus === 'settled') {
-            $summary = self::jsonDecode((string)($consumptionRow['response_summary'] ?? ''));
+            $summaryValue = $consumptionRow['response_summary'] ?? [];
+            $summary = is_array($summaryValue) ? $summaryValue : self::jsonDecode((string)$summaryValue);
             $videos = (array)($summary['videos'] ?? []);
             if ($videos !== []) {
                 self::persistMarketVideoTaskResult($tenantId, $userId, (string)$generation['task_id'], [

@@ -238,7 +238,10 @@ class MarketMusicAppRuntimeService
         if ($context === null) throw new Exception('市场音乐消耗记录不存在');
         $consumption = $context['consumption'];
         if (!in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage'], true)) return self::response($consumption->toArray());
-        $timedOut = (int)$consumption['create_time'] > 0 && time() - (int)$consumption['create_time'] >= self::MAX_RUNNING_SECONDS;
+        // AppBaseModel formats timestamps as date strings on read. A direct
+        // integer cast would turn "2026-08-03 ..." into 2026 and time out now.
+        $createTime = self::timestampValue($consumption['create_time'] ?? 0);
+        $timedOut = $createTime > 0 && time() - $createTime >= self::MAX_RUNNING_SECONDS;
         $taskId = trim((string)$consumption['upstream_task_id']);
         if ($taskId === '') {
             if ($timedOut) {
@@ -401,6 +404,7 @@ class MarketMusicAppRuntimeService
     private static function taskLabel(string $appCode): string { return $appCode === self::APP_CODE ? '短剧背景音乐' : '无限画布音乐生成'; }
     private static function extra(AiAppTask $task, AiConsumptionLog $consumption, string $stage): array { return ['app_code' => (string)($task['app_code'] ?? self::APP_CODE), 'app_task_id' => (int)$task['id'], 'app_task_no' => (string)$task['task_no'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => (string)$consumption['consume_no'], 'billing_stage' => $stage]; }
     private static function arrayValue($value): array { if (is_array($value)) return $value; if (is_string($value) && $value !== '') { $decoded = json_decode($value, true); return is_array($decoded) ? $decoded : []; } return []; }
+    private static function timestampValue($value): int { if (is_int($value) || is_float($value)) return (int)$value; if (is_string($value)) { $value = trim($value); if ($value === '') return 0; if (ctype_digit($value)) return (int)$value; $timestamp = strtotime($value); return $timestamp === false ? 0 : $timestamp; } return 0; }
     private static function points(float $value): float { return round(max(0, $value), 6); }
     private static function no(string $prefix): string { return $prefix . date('YmdHis') . strtoupper(bin2hex(random_bytes(5))); }
 }

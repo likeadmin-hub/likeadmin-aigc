@@ -133,7 +133,8 @@ class AiRecoverTimeoutTasks extends Command
             });
         }
         foreach ($recovered as $id) {
-            AiTaskJobService::enqueueQueryResult($id, 100, true);
+            AiTaskJobService::requeueQueryResult($id, 100);
+            AiTaskJobService::requeueProcessResult($id, 100);
             $output->writeln('recovered and queued: ' . $id);
         }
         $output->writeln('recovered: ' . count($recovered));

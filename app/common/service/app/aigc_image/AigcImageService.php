@@ -8,7 +8,6 @@ use app\common\model\app\aigc_image\AigcImageQuota;
 use app\common\model\app\aigc_image\AigcImageResult;
 use app\common\model\app\aigc_image\AigcImageSensitiveWord;
 use app\common\model\app\aigc_image\AigcImageTask;
-use app\common\service\ai\AiTaskBusinessResultService;
 use app\common\service\ai\AiUsageService;
 use app\common\service\app\AppCaseService;
 use app\common\service\app\AppDisplayConfigService;
@@ -397,16 +396,6 @@ class AigcImageService
             $query->limit(100);
         }
         $rows = $query->select()->toArray();
-        $reconciled = false;
-        foreach ($rows as $row) {
-            $consumptionId = (int)($row['consumption_id'] ?? 0);
-            if ($consumptionId > 0 && AiTaskBusinessResultService::syncTerminalByConsumptionId($consumptionId)) {
-                $reconciled = true;
-            }
-        }
-        if ($reconciled) {
-            $rows = $query->select()->toArray();
-        }
         $taskIds = array_values(array_unique(array_filter(array_column($rows, 'id'))));
         $resultMap = [];
         $seenResultKeys = [];
@@ -495,6 +484,52 @@ class AigcImageService
     public static function refreshMarketTask(int $tenantId, int $taskId, int $userId = 0): void
     {
         self::refreshRunningTasks($tenantId, $userId, $taskId, false);
+    }
+
+    /** Persist a settled market response without issuing another provider query. */
+    public static function syncMarketTaskResult(int $tenantId, int $taskId, int $userId = 0): void
+    {
+        $query = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
+        if ($userId > 0) $query->where('user_id', $userId);
+        $task = $query->findOrEmpty();
+        if ($task->isEmpty() || (int)$task['app_task_id'] <= 0 || (string)$task['provider'] !== 'power_market') return;
+
+        $consumption = AiConsumptionLog::where([
+            'app_task_id' => (int)$task['app_task_id'],
+            'app_code' => self::APP_CODE,
+            'protocol' => 'application_api',
+        ])->findOrEmpty();
+        if ($consumption->isEmpty()) return;
+        if (in_array((string)$consumption['run_status'], ['failed', 'canceled', 'cancelled'], true)
+            || (string)$consumption['billing_status'] === 'refunded') {
+            $task->save([
+                'status' => in_array((string)$consumption['run_status'], ['canceled', 'cancelled'], true) ? 'canceled' : 'failed',
+                'error' => (string)($consumption['error_message'] ?? '图片生成失败'),
+                'finish_time' => time(),
+                'update_time' => time(),
+            ]);
+            return;
+        }
+        if ((string)$consumption['run_status'] !== 'success' || !in_array((string)$consumption['billing_status'], ['settled', 'pending_usage'], true)) return;
+
+        $summaryValue = $consumption['response_summary'] ?? [];
+        $summary = is_array($summaryValue) ? $summaryValue : json_decode((string)$summaryValue, true);
+        $summary = is_array($summary) ? $summary : [];
+        $images = array_map(static fn(array $image): array => [
+            'uri' => (string)($image['image_uri'] ?? $image['uri'] ?? $image['url'] ?? ''),
+            'width' => (int)($image['width'] ?? 0),
+            'height' => (int)($image['height'] ?? 0),
+            'provider_task_id' => (string)($consumption['upstream_task_id'] ?? ''),
+        ], array_filter((array)($summary['images'] ?? []), 'is_array'));
+        if ($images === []) return;
+        $count = max(1, count($images));
+        self::finishTaskWithImages($task, [
+            'channel' => ['code' => (string)$task['channel']],
+            'spec' => ['quality' => (string)$task['quality'], 'ratio' => (string)$task['ratio']],
+        ], [
+            'platform_unit_cost' => (float)$consumption['actual_tenant_cost'] / $count,
+            'tenant_unit_price' => (float)$consumption['actual_user_price'] / $count,
+        ], $images, true, (int)$consumption['id']);
     }
 
     public static function retryTask(int $tenantId, int $taskId): array
@@ -1053,6 +1088,13 @@ class AigcImageService
         if ($status !== 'failed') {
             return false;
         }
+        if ((int)$task['app_task_id'] > 0 && AiConsumptionLog::where([
+            'app_task_id' => (int)$task['app_task_id'],
+            'app_code' => self::APP_CODE,
+            'run_status' => 'success',
+        ])->count() > 0) {
+            return true;
+        }
         $error = (string)($task['error'] ?? '');
         foreach (['上游任务长时间未返回结果', '上游任务仍在生成中', '稍后自动重试', '任务查询暂时失败'] as $needle) {
             if ($needle !== '' && str_contains($error, $needle)) {
@@ -1223,8 +1265,9 @@ class AigcImageService
             }
             $existingRows = self::existingResultRows($tenantId, $userId, (int)$task['id']);
             if ((string)$task['status'] === 'success' || !empty($existingRows)) {
-                if ((string)$task['status'] !== 'success') {
+                if ((string)$task['status'] !== 'success' || (string)$task['error'] !== '') {
                     $task->status = 'success';
+                    $task->error = '';
                     $task->finish_time = $task['finish_time'] ?: time();
                     $task->update_time = time();
                     $task->save();
@@ -1316,6 +1359,7 @@ class AigcImageService
             $task->tenant_cost_points = number_format((float)($settlement['actual_tenant_cost'] ?? ((float)$estimate['platform_unit_cost'] * $costPoints)), 2, '.', '');
             $task->user_charge_points = number_format((float)($settlement['actual_user_price'] ?? ((float)$estimate['tenant_unit_price'] * $costPoints)), 2, '.', '');
             $task->provider_task_id = (string)($images[0]['provider_task_id'] ?? $task['provider_task_id']);
+            $task->error = '';
             $task->finish_time = time();
             $task->update_time = time();
             $task->save();
