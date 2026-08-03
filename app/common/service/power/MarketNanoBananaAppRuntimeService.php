@@ -80,7 +80,7 @@ class MarketNanoBananaAppRuntimeService
                     'market_product_id' => (int)$product['id'],
                     'resource_type' => PowerMarketService::TYPE_APP_API,
                     'resource_type_label' => '应用 API',
-                    'name' => !empty($product['display_name_overridden']) ? (string)$product['name'] : self::displayName($model),
+                    'name' => self::optionName($product, $model),
                     'description' => (string)($product['description'] ?? ''),
                     'display_icon' => (string)($product['display_icon'] ?? ''),
                     'model_code' => $model,
@@ -507,6 +507,26 @@ class MarketNanoBananaAppRuntimeService
     private static function selectionVariant(array $selection, string $selectedModel): string { $nested = self::arrayValue($selection['params'] ?? []); $value = strtolower(trim((string)($selection['variant'] ?? $selection['edition'] ?? $nested['variant'] ?? $nested['edition'] ?? ''))); if (in_array($value, ['standard', 'official'], true)) return $value; return self::modelVariant($selectedModel); }
     private static function qualityLabel(string $value): string { return strtoupper(trim($value)) ?: '1K'; }
     private static function displayName(string $model): string { return match ($model) { 'nano-banana' => 'Nano Banana', 'nano-banana-2' => 'Nano Banana 2', 'nano-banana-2-lite' => 'Nano Banana 2 Lite', 'nano-banana-pro' => 'Nano Banana Pro', 'nano-banana:official' => 'Nano Banana Official', 'nano-banana-2-lite:official' => 'Nano Banana 2 Lite Official', 'nano-banana-2:official' => 'Nano Banana 2 Official', 'nano-banana-pro:official' => 'Nano Banana Pro Official', default => $model }; }
+
+    /** Keep a tenant's market label without collapsing its selectable model versions. */
+    private static function optionName(array $product, string $model): string
+    {
+        $modelName = self::displayName($model);
+        if (empty($product['display_name_overridden'])) {
+            return $modelName;
+        }
+
+        $productName = trim((string)($product['name'] ?? ''));
+        if ($productName === '' || self::normalizedDisplayName($productName) === self::normalizedDisplayName($modelName)) {
+            return $modelName;
+        }
+        return $productName . ' - ' . $modelName;
+    }
+
+    private static function normalizedDisplayName(string $value): string
+    {
+        return strtolower((string)preg_replace('/[^a-z0-9]+/i', '', $value));
+    }
     /** @return array<int,string> */
     private static function documentedOptions(array $product, array $names): array
     {
