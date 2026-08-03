@@ -145,7 +145,10 @@ class AigcVideoService
         if ($userId > 0) $query->where('user_id', $userId);
         $task = $query->findOrEmpty();
         if ($task->isEmpty()) throw new Exception('任务不存在');
-        if ((int)$task['consumption_id'] <= 0 || (string)$task['provider'] !== 'power_market') return self::taskDetail($tenantId, $taskId, $userId);
+        if ((int)$task['consumption_id'] <= 0 || (string)$task['provider'] !== 'power_market') {
+            self::refreshRunningTasks($tenantId, $userId, $taskId, false);
+            return self::taskDetail($tenantId, $taskId, $userId);
+        }
         $result = self::marketRuntime((array)($task['model_json'] ?: []))::refresh((int)$task['consumption_id']);
         self::applyMarketVideoResult($task, $result, (array)($task['model_json'] ?: []));
         return self::taskDetail($tenantId, $taskId, $userId);

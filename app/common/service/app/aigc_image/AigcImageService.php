@@ -486,6 +486,28 @@ class AigcImageService
         self::refreshRunningTasks($tenantId, $userId, $taskId, false);
     }
 
+    /**
+     * Worker entry point for a linked image task. Market tasks are hydrated
+     * from their settled consumption record; other async providers must be
+     * queried through their own result endpoint.
+     */
+    public static function refreshAsyncTaskResult(int $tenantId, int $taskId, int $userId = 0): void
+    {
+        $query = AigcImageTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
+        if ($userId > 0) {
+            $query->where('user_id', $userId);
+        }
+        $task = $query->findOrEmpty();
+        if ($task->isEmpty()) {
+            return;
+        }
+        if ((string)$task['provider'] === 'power_market') {
+            self::syncMarketTaskResult($tenantId, $taskId, $userId);
+            return;
+        }
+        self::refreshMarketTask($tenantId, $taskId, $userId);
+    }
+
     /** Persist a settled market response without issuing another provider query. */
     public static function syncMarketTaskResult(int $tenantId, int $taskId, int $userId = 0): void
     {
