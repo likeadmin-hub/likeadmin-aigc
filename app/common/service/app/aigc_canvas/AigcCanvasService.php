@@ -2928,17 +2928,6 @@ class AigcCanvasService
                 }
             }
         }
-        foreach (array_values(array_filter((array)($params['reference_images'] ?? $params['image_urls'] ?? []))) as $image) {
-            $normalized = self::normalizeReferenceAssetItem([
-                'type' => 'image',
-                'uri' => $image,
-                'url' => $image,
-                'role' => 'reference_image',
-            ]);
-            if ($normalized !== []) {
-                $assets[] = $normalized;
-            }
-        }
         foreach (['image' => 'reference_image', 'first_frame_image' => 'first_frame_image', 'last_frame_image' => 'last_frame_image'] as $key => $role) {
             $value = trim((string)($params[$key] ?? ''));
             if ($value !== '') {
@@ -3307,6 +3296,17 @@ class AigcCanvasService
                 if ($ip !== '') {
                     $ips[] = $ip;
                 }
+            }
+        }
+        foreach (array_values(array_filter((array)($params['reference_images'] ?? $params['image_urls'] ?? []))) as $image) {
+            $normalized = self::normalizeReferenceAssetItem([
+                'type' => 'image',
+                'uri' => $image,
+                'url' => $image,
+                'role' => 'reference_image',
+            ]);
+            if ($normalized !== []) {
+                $assets[] = $normalized;
             }
         }
         if (!$ips) {

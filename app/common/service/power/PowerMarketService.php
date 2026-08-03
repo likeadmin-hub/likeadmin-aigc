@@ -414,7 +414,7 @@ class PowerMarketService
         foreach ([
             'supported_ratios', 'ratio_options', 'ratios', 'aspect_ratio',
             'supported_durations', 'duration_options', 'durations',
-            'supported_asset_types', 'generation_modes',
+            'supported_asset_types', 'input_modes', 'generation_modes',
             'supports_first_last_frame', 'supports_reference_images',
             'supports_vision', 'supports_reasoning',
             'max_reference_images', 'max_reference_audios', 'max_reference_videos',

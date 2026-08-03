@@ -121,6 +121,14 @@ class MarketTextModelRuntimeService
                     break;
                 } catch (\Throwable $initialError) {
                     $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
+                    if ($retry === null && self::isTransientProviderFailure($initialError->getMessage())) {
+                        $retry = [
+                            'params' => $generationParams,
+                            'reason' => 'provider_temporarily_unavailable',
+                            'removed_params' => [],
+                            'temperature' => null,
+                        ];
+                    }
                     if ($retry === null || $compatibilityAttempts >= 2) {
                         throw $initialError;
                     }
@@ -131,6 +139,9 @@ class MarketTextModelRuntimeService
                         'removed_params' => $retry['removed_params'],
                         'temperature' => $retry['temperature'],
                     ]);
+                    if ($retry['reason'] === 'provider_temporarily_unavailable') {
+                        usleep($compatibilityAttempts * 500000);
+                    }
                 }
             }
             $usage = self::normalizeUsage((array)($result['usage'] ?? []));
@@ -150,6 +161,21 @@ class MarketTextModelRuntimeService
             ];
         } catch (\Throwable $e) {
             self::fail($context, $e->getMessage(), 'provider_error');
+            $fallback = self::fallbackModel($tenantId, $model, $params, $referenceImages !== [] || !empty($params['requires_vision']));
+            if ($fallback !== []) {
+                if ($onEvent) {
+                    $onEvent('stage', [
+                        'status' => 'running',
+                        'progress' => 12,
+                        'current_step' => '所选模型暂时繁忙，正在切换备用模型',
+                    ]);
+                }
+                $fallbackParams = $params;
+                $fallbackParams['model_selection'] = $fallback;
+                $fallbackParams['model_id'] = (string)$fallback['id'];
+                $fallbackParams['_market_text_fallback_used'] = true;
+                return self::generate($tenantId, $userId, $fallbackParams, $onEvent);
+            }
             throw $e instanceof Exception ? $e : new Exception('文本模型调用失败，请稍后重试');
         }
     }
@@ -309,7 +335,7 @@ class MarketTextModelRuntimeService
                 'model_code' => (string)$product['upstream_model_code'],
                 'channel_code' => (string)$product['upstream_channel_code'],
                 'provider_model' => (string)$product['upstream_model_code'],
-                'protocol' => self::protocol((string)($meta['protocol'] ?? ''), $protocols),
+                'protocol' => self::protocol((string)($meta['protocol'] ?? ''), $protocols, (string)$product['upstream_model_code']),
                 'protocols' => $protocols,
                 'max_tokens' => max(0, (int)($meta['max_tokens'] ?? 0)),
                 'default_params' => self::arrayValue($meta['default_params'] ?? []),
@@ -452,19 +478,126 @@ class MarketTextModelRuntimeService
         $source = UpdateSourceClient::getSource(); $base = self::sourceBaseUrl((string)($source['active_base_url'] ?? $source['base_url'] ?? '')); $key = (string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '');
         $sslVerify = UpdateSourceClient::sslVerify($source);
         if ($base === '' || $key === '') throw new Exception('文本模型 API 暂不可用');
-        $protocol = (string)$model['protocol']; $path = match ($protocol) { 'openai_responses' => '/api/v1/responses', 'anthropic_messages' => '/api/v1/messages', default => '/api/v1/chat/completions' };
+        $protocol = self::protocolForModel($model); $path = match ($protocol) { 'openai_responses' => '/api/v1/responses', 'anthropic_messages' => '/api/v1/messages', default => '/api/v1/chat/completions' };
         if ($messages === []) {
             throw new Exception('请输入文本内容');
         }
-        $payload = $protocol === 'openai_responses' ? ['model' => $model['model_code'], 'instructions' => $system, 'input' => $messages, 'stream' => $onEvent !== null, 'max_output_tokens' => $maxTokens] : ($protocol === 'anthropic_messages' ? ['model' => $model['model_code'], 'system' => $system, 'messages' => $messages, 'stream' => $onEvent !== null, 'max_tokens' => $maxTokens] : ['model' => $model['model_code'], 'messages' => array_merge($system === '' ? [] : [['role' => 'system', 'content' => $system]], $messages), 'stream' => $onEvent !== null, 'max_tokens' => $maxTokens, 'channel' => $model['channel_code']]);
+        $payload = self::requestPayload($protocol, $model, $messages, $system, $maxTokens, $generationParams);
+        $channelCode = trim((string)($model['channel_code'] ?? ''));
+        if ($channelCode !== '') {
+            $payload['channel'] = $channelCode;
+        }
         $payload = array_merge(self::marketContext($model), $payload);
-        foreach ($generationParams as $paramKey => $value) {
-            if ($paramKey === 'stream_options' && $protocol !== 'openai_chat') {
+        // Do this last so neither a model default nor an application override
+        // can disable SSE for a market text request.
+        $payload['stream'] = true;
+        return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify, $requestTimeout);
+    }
+
+    /** Build the provider-specific request body without leaking protocol details to business apps. */
+    private static function requestPayload(string $protocol, array $model, array $messages, string $system, int $maxTokens, array $generationParams): array
+    {
+        if ($protocol === 'openai_responses') {
+            return array_merge([
+                'model' => $model['model_code'],
+                'instructions' => $system,
+                'input' => $messages,
+                'max_output_tokens' => $maxTokens,
+            ], self::protocolGenerationParams($protocol, $generationParams));
+        }
+        if ($protocol === 'anthropic_messages') {
+            $payload = [
+                'model' => $model['model_code'],
+                'messages' => $messages,
+                'max_tokens' => $maxTokens,
+            ];
+            if ($system !== '') {
+                $payload['system'] = $system;
+            }
+            return array_merge($payload, self::protocolGenerationParams($protocol, $generationParams));
+        }
+        return array_merge([
+            'model' => $model['model_code'],
+            'messages' => array_merge($system === '' ? [] : [['role' => 'system', 'content' => $system]], $messages),
+            'max_tokens' => $maxTokens,
+        ], self::protocolGenerationParams($protocol, $generationParams));
+    }
+
+    /** Remove or translate options which are not valid for the selected protocol. */
+    private static function protocolGenerationParams(string $protocol, array $generationParams): array
+    {
+        if ($protocol !== 'anthropic_messages') {
+            if ($protocol !== 'openai_chat') {
+                unset($generationParams['stream_options']);
+            }
+            return $generationParams;
+        }
+
+        // Claude Messages does not accept OpenAI-only penalties, response_format,
+        // stream_options, or the application's boolean thinking switch.
+        foreach (['stream_options', 'presence_penalty', 'frequency_penalty', 'response_format', 'enable_thinking'] as $key) {
+            unset($generationParams[$key]);
+        }
+        // Anthropic accepts temperature or top_p, but not both in one request.
+        if (array_key_exists('temperature', $generationParams)) {
+            unset($generationParams['top_p']);
+        }
+        if (isset($generationParams['tools']) && is_array($generationParams['tools'])) {
+            $generationParams['tools'] = self::anthropicTools($generationParams['tools']);
+            if ($generationParams['tools'] === []) {
+                unset($generationParams['tools'], $generationParams['tool_choice']);
+            }
+        }
+        if (isset($generationParams['tool_choice'])) {
+            $toolChoice = self::anthropicToolChoice($generationParams['tool_choice']);
+            if ($toolChoice === []) {
+                unset($generationParams['tool_choice']);
+            } else {
+                $generationParams['tool_choice'] = $toolChoice;
+            }
+        }
+        return $generationParams;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private static function anthropicTools(array $tools): array
+    {
+        $result = [];
+        foreach ($tools as $tool) {
+            if (!is_array($tool)) {
                 continue;
             }
-            $payload[$paramKey] = $value;
+            $function = is_array($tool['function'] ?? null) ? $tool['function'] : $tool;
+            $name = trim((string)($function['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $item = ['name' => $name, 'input_schema' => is_array($function['parameters'] ?? null) ? $function['parameters'] : ['type' => 'object', 'properties' => []]];
+            $description = trim((string)($function['description'] ?? ''));
+            if ($description !== '') {
+                $item['description'] = $description;
+            }
+            $result[] = $item;
         }
-        return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify, $requestTimeout);
+        return $result;
+    }
+
+    /** @return array<string, string> */
+    private static function anthropicToolChoice($value): array
+    {
+        if (is_string($value)) {
+            return match (strtolower($value)) {
+                'auto' => ['type' => 'auto'],
+                'required', 'any' => ['type' => 'any'],
+                default => [],
+            };
+        }
+        if (!is_array($value)) {
+            return [];
+        }
+        $function = is_array($value['function'] ?? null) ? $value['function'] : $value;
+        $name = trim((string)($function['name'] ?? ''));
+        return $name === '' ? [] : ['type' => 'tool', 'name' => $name];
     }
 
     /** @return array<int, array{role:string, content:mixed}> */
@@ -537,7 +670,7 @@ class MarketTextModelRuntimeService
         $default = (int)($defaults['max_tokens'] ?? 0);
         $requested = (int)($overrides['max_tokens'] ?? 0);
         $value = $requested > 0 ? $requested : ($default > 0 ? $default : self::DEFAULT_MAX_OUTPUT_TOKENS);
-        if ($modelLimit > 0 && $requested <= 0) {
+        if ($modelLimit > 0) {
             $value = min($value, $modelLimit);
         }
         return max(256, min(32768, $value));
@@ -621,6 +754,66 @@ class MarketTextModelRuntimeService
         return $temperature;
     }
 
+    private static function isTransientProviderFailure(string $message): bool
+    {
+        $message = strtolower($message);
+        foreach ([
+            'currently overloaded',
+            'server overloaded',
+            'service unavailable',
+            'temporarily unavailable',
+            'too many requests',
+            'rate limit',
+            'http 429',
+            'http 503',
+        ] as $needle) {
+            if (str_contains($message, $needle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Use a recently successful, still-sellable market model only after the
+     * selected model exhausted its safe transient retries. A request can fall
+     * back once, which keeps a persistent provider outage from looping.
+     */
+    private static function fallbackModel(int $tenantId, array $selected, array $params, bool $requiresVision): array
+    {
+        if (!empty($params['_market_text_fallback_used'])) {
+            return [];
+        }
+        $selectedCode = (string)($selected['model_code'] ?? '');
+        if ($selectedCode === '') {
+            return [];
+        }
+        $optionsByCode = [];
+        foreach (self::options($tenantId, $requiresVision) as $option) {
+            $code = (string)($option['model_code'] ?? '');
+            if ($code !== '' && $code !== $selectedCode) {
+                $optionsByCode[$code] = $option;
+            }
+        }
+        if ($optionsByCode === []) {
+            return [];
+        }
+        $successfulCodes = AiConsumptionLog::where([
+            'tenant_id' => $tenantId,
+            'resource_type' => 'model',
+            'run_status' => 'success',
+        ])
+            ->whereIn('model_code', array_keys($optionsByCode))
+            ->order(['finish_time' => 'desc', 'id' => 'desc'])
+            ->column('model_code');
+        foreach ($successfulCodes as $code) {
+            if (isset($optionsByCode[(string)$code])) {
+                return $optionsByCode[(string)$code];
+            }
+        }
+        return [];
+    }
+
     private static function safeCode(string $value, string $fallback): string
     {
         $value = trim($value);
@@ -674,8 +867,8 @@ class MarketTextModelRuntimeService
         if (array_key_exists('enable_thinking', $defaults) && is_bool($defaults['enable_thinking'])) {
             $result['enable_thinking'] = $defaults['enable_thinking'];
         }
-        if (array_key_exists('enable_thinking', $overrides) && is_bool($overrides['enable_thinking'])) {
-            $result['enable_thinking'] = $overrides['enable_thinking'];
+        if (($overrides['enable_thinking'] ?? null) === true) {
+            $result['enable_thinking'] = true;
         }
         if (isset($defaults['stream_options']) && is_array($defaults['stream_options'])) {
             $result['stream_options'] = $defaults['stream_options'];
@@ -710,14 +903,15 @@ class MarketTextModelRuntimeService
 
     private static function curl(string $url, string $key, array $payload, ?callable $onEvent, bool $sslVerify, int $requestTimeout): array
     {
+        // Upstream text generation is always SSE. Callers without a UI stream
+        // still consume SSE here and receive the assembled result afterwards.
+        $onEvent = $onEvent ?? static function (string $event, array $data): void {
+        };
         $headers = [
             'Content-Type: application/json',
             'Authorization: Bearer ' . $key,
-            'Accept: ' . ($onEvent ? 'text/event-stream' : 'application/json'),
+            'Accept: text/event-stream',
         ];
-        if ($onEvent === null) {
-            return self::requestJson($url, $payload, $headers, $sslVerify, $requestTimeout);
-        }
 
         $state = ['content' => '', 'reasoning' => '', 'usage' => [], 'request_id' => '', 'emitted_request_id' => '', 'error' => '', 'tool_calls' => [], 'delta_count' => 0];
         $buffer = '';
@@ -773,8 +967,9 @@ class MarketTextModelRuntimeService
         }
         if (!$receivedEvent) {
             $event = self::parseJsonResponse($body, true);
-            if ($event !== null) {
-                $receivedEvent = true;
+            // A successful buffered JSON response violates the streaming
+            // contract. Only decode it to retain a provider error message.
+            if (($event['type'] ?? '') === 'error') {
                 self::applyStreamEvent($event, $state, $onEvent);
             }
         }
@@ -1210,9 +1405,26 @@ class MarketTextModelRuntimeService
             && (float)($input['tenant_price'] ?? 0) === (float)($output['tenant_price'] ?? 0);
     }
 
-    private static function protocol(string $default, array $protocols): string
+    private static function protocol(string $default, array $protocols, string $modelCode = ''): string
     {
+        $modelCode = strtolower(trim($modelCode));
+        // Marketplace metadata can lag behind a product migration. Claude and
+        // Anthropic models must never be sent through Chat Completions.
+        if (str_contains($modelCode, 'claude') || str_contains($modelCode, 'anthropic')) {
+            return 'anthropic_messages';
+        }
         $value = strtolower(trim($default ?: ($protocols[0] ?? 'openai_chat'))); return match ($value) { 'responses', 'openai_responses' => 'openai_responses', 'messages', 'anthropic', 'anthropic_messages' => 'anthropic_messages', default => 'openai_chat' };
+    }
+
+    private static function protocolForModel(array $model): string
+    {
+        $identity = implode(' ', [
+            (string)($model['model_code'] ?? ''),
+            (string)($model['provider_model'] ?? ''),
+            (string)($model['channel_code'] ?? ''),
+            (string)($model['name'] ?? ''),
+        ]);
+        return self::protocol((string)($model['protocol'] ?? ''), (array)($model['protocols'] ?? []), $identity);
     }
     private static function sourceBaseUrl(string $baseUrl): string { $parts = parse_url(trim($baseUrl)); if (!is_array($parts) || empty($parts['host'])) return rtrim($baseUrl, '/'); return (string)($parts['scheme'] ?? 'https') . '://' . $parts['host'] . (isset($parts['port']) ? ':' . (int)$parts['port'] : ''); }
     private static function arrayValue($value): array { if (is_array($value)) return $value; $decoded = is_string($value) ? json_decode($value, true) : []; return is_array($decoded) ? $decoded : []; }

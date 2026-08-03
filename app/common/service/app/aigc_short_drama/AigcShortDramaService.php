@@ -12702,10 +12702,14 @@ class AigcShortDramaService
         $modelCode = (string)($model['model_code'] ?? $model['id'] ?? $model['value'] ?? '');
         try {
             $llmParams = [
-                'content' => self::buildScriptPlanPrompt($prompt, $request, $title),
+                'content' => self::buildCompactScriptPlanPrompt($prompt, $request, $title),
                 'system_prompt' => self::scriptPlanSystemPrompt(),
                 'model_selection' => $model,
-                'model_config' => ['max_tokens' => 8192, 'enable_thinking' => false],
+                // The market includes models with a 4096-token ceiling. Ask for
+                // a compact, normalized planning payload that always fits, then
+                // let the existing server-side plan repair enrich presentation
+                // fields and complete the storyboard deterministically.
+                'model_config' => ['max_tokens' => 3200, 'enable_thinking' => false],
                 'source_app_code' => self::APP_CODE,
                 'source_type' => 'script_plan',
                 'source_id' => $title,
@@ -12834,6 +12838,74 @@ class AigcShortDramaService
             return '文本模型调用异常，请检查算力市场模型状态';
         }
         return $message !== '' ? $message : self::SAFE_ERROR;
+    }
+
+    /**
+     * Keep the provider contract deliberately small. A full production plan
+     * contains verbose per-shot image and video prompts, which can exceed the
+     * output ceiling of otherwise valid market text models. The normalizer and
+     * repair pipeline expand this semantic skeleton into that production plan.
+     */
+    private static function buildCompactScriptPlanPrompt(string $prompt, array $request, string $title): string
+    {
+        $styleDetail = self::styleDetail((string)($request['style_id'] ?? ''));
+        $storyboardRule = self::storyboardTargetRule($prompt, $request);
+        $context = [
+            'title_hint' => $title,
+            'user_prompt' => $prompt,
+            'revision_message' => (string)($request['revision_message'] ?? ''),
+            'selected_style_name' => (string)($styleDetail['name'] ?? ''),
+            'selected_style_prompt' => mb_substr((string)($styleDetail['prompt'] ?? ''), 0, 300, 'UTF-8'),
+            'target_duration_seconds' => self::planningTargetDurationSeconds($prompt, $request),
+            'multi_episode' => (bool)($request['multi_episode'] ?? false),
+            'episode_count' => max(1, (int)($request['episode_count'] ?? 1)),
+            'subject_mentions' => array_values(array_slice((array)($request['subject_mentions'] ?? []), 0, 12)),
+            'storyboard_rule' => [
+                'min_shots' => (int)($storyboardRule['min_shots'] ?? 0),
+                'max_shots' => (int)($storyboardRule['max_shots'] ?? 0),
+            ],
+        ];
+        $schema = [
+            'title' => 'short Chinese title',
+            'type_judgement' => 'short Chinese genre',
+            'core_theme' => 'one Chinese sentence',
+            'story_outline' => 'complete Chinese plot in 120-300 characters',
+            'script_lines' => ['Chinese plot beat'],
+            'art_style' => ['base_style' => 'Chinese style', 'visual_description' => 'short Chinese visual style'],
+            'subjects' => [[
+                'id' => 'subject_1',
+                'name' => 'Chinese name',
+                'description' => 'short Chinese role or prop description',
+                'category' => 'character|animal|prop|symbol',
+            ]],
+            'locations' => [[
+                'id' => 'location_1',
+                'story_order' => 1,
+                'name' => 'Chinese location',
+                'description' => 'short Chinese setting description',
+            ]],
+            'storyboard' => [[
+                'shot_id' => '1',
+                'scene_ref_id' => 'location_1',
+                'subject_ref_ids' => ['subject_1'],
+                'visual_description' => 'one concrete Chinese visible action',
+                'shot_type' => 'Chinese shot type',
+                'composition' => 'short Chinese composition',
+                'camera_movement' => 'short Chinese camera movement',
+                'dialogue' => 'Chinese dialogue or empty string',
+                'recommended_duration_seconds' => 3,
+            ]],
+        ];
+
+        return "Create a complete Chinese short-drama story plan from the context.\n"
+            . "Return one valid JSON object only. No markdown, explanations, or code fences.\n"
+            . "This is a compact semantic contract. Do not output image prompts, video prompts, negative prompts, music prompts, long character sheets, or repeated field explanations; the application creates those after validation.\n"
+            . "Preserve the user's key people, events, locations, conflict, turning point, and ending. Use simplified Chinese values.\n"
+            . "Return title, type_judgement, core_theme, story_outline, script_lines, art_style, subjects, locations, and storyboard.\n"
+            . "subjects must contain 1-6 stable items with non-empty id, name, description, and category. locations must contain 1-6 chronological items with non-empty id, name, and description.\n"
+            . "storyboard must contain 1-12 concise representative shots, cover every location at least once, and use only location ids and subject ids defined above. Each visual_description must be a specific visible action, never a planning phrase. Use 2-5 seconds per shot. Keep every string concise so the entire response fits within 2600 Chinese characters.\n"
+            . "Context: " . self::jsonEncode($context) . "\n"
+            . "JSON schema: " . self::jsonEncode($schema);
     }
 
     private static function buildScriptPlanPrompt(string $prompt, array $request, string $title): string
