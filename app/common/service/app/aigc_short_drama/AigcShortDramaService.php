@@ -3892,7 +3892,6 @@ class AigcShortDramaService
                 'shot_video',
                 'bgm_audio',
                 'final_video',
-                'export_package',
                 'reference_image',
             ]);
         }
@@ -4044,6 +4043,7 @@ class AigcShortDramaService
         if ($taskType === 'shot_video' || self::normalizeGenerationMode($params) === 'video_generate') {
             $params = self::sanitizeVideoGenerationParams($params);
             $params = self::prepareMarketShortDramaVideoParams($tenantId, $params, $shotPayload);
+            $params = self::prepareShortDramaVideoReferenceParams($tenantId, $userId, $projectId, $shotPayload, $params);
         }
         $config = self::publicConfig($tenantId);
         $billing = $taskType === 'bgm_audio'
@@ -4096,7 +4096,7 @@ class AigcShortDramaService
             self::runExportVideoTask($tenantId, $userId, $generation->toArray(), $params, $billing);
             $generation = self::findGenerationTask($tenantId, $userId, $localTaskId);
         } elseif ($taskType === 'export_package') {
-            self::runExportPackageTask($tenantId, $userId, $generation->toArray(), $params, $billing);
+            self::runExportPackageTask($tenantId, $userId, $generation->toArray(), $billing);
             $generation = self::findGenerationTask($tenantId, $userId, $localTaskId);
         } elseif ($taskType === 'bgm_audio') {
             self::runBgmAudioGenerationTask($tenantId, $userId, $generation->toArray(), $params, $billing);
@@ -4256,7 +4256,7 @@ class AigcShortDramaService
         } elseif ((string)$generation['task_type'] === 'export_video') {
             self::runExportVideoTask($tenantId, $userId, $generation->toArray(), $params, $billing);
         } elseif ((string)$generation['task_type'] === 'export_package') {
-            self::runExportPackageTask($tenantId, $userId, $generation->toArray(), $params, $billing);
+            self::runExportPackageTask($tenantId, $userId, $generation->toArray(), $billing);
         } elseif ((string)$generation['task_type'] === 'bgm_audio') {
             self::runBgmAudioGenerationTask($tenantId, $userId, $generation->toArray(), $params, $billing);
         } else {
@@ -5241,6 +5241,7 @@ class AigcShortDramaService
     private static function registerMarketImageResultsAsAssets(int $tenantId, int $userId, array $generation, array $results, array $imageParams): array
     {
         $assetIds = [];
+        $results = self::storyboardImageResultsForStorage($generation, $results);
         foreach ($results as $index => $result) {
             if (!is_array($result) || (string)($result['image_uri'] ?? '') === '') {
                 continue;
@@ -5259,6 +5260,26 @@ class AigcShortDramaService
             $assetIds[] = (int)$asset['id'];
         }
         return $assetIds;
+    }
+
+    /**
+     * A storyboard frame is singular. Some image suppliers return multiple
+     * candidates for one request; retaining them all makes a later video
+     * refresh appear to have created duplicate frame records.
+     */
+    private static function storyboardImageResultsForStorage(array $generation, array $results): array
+    {
+        if (self::generationAssetType((string)($generation['task_type'] ?? 'shot_image')) !== 'shot_image') {
+            return $results;
+        }
+
+        foreach ($results as $result) {
+            if (is_array($result) && (string)($result['image_uri'] ?? '') !== '') {
+                return [$result];
+            }
+        }
+
+        return [];
     }
 
     private static function failMarketImageGenerationTask(int $tenantId, int $userId, array $generation, \Throwable $e): void
@@ -5331,6 +5352,7 @@ class AigcShortDramaService
     private static function registerImageResultsAsAssets(int $tenantId, int $userId, array $generation, array $results, int $imageTaskId): array
     {
         $assetIds = [];
+        $results = self::storyboardImageResultsForStorage($generation, $results);
         $request = self::jsonDecode((string)($generation['request_json'] ?? ''));
         $requestParams = (array)($request['params'] ?? []);
         $requestImageParams = (array)($request['image_params'] ?? []);
@@ -6424,7 +6446,7 @@ class AigcShortDramaService
             }
             $ffmpeg = self::resolveFfmpegBinary();
             if ($ffmpeg === '') {
-                throw new Exception('服务器未配置视频合成组件，请安装 FFmpeg 后重');
+                throw new Exception('服务器无法执行视频合成组件，请检查 FFmpeg 路径、PHP 进程 PATH 和 exec 权限后重试');
             }
             $bgmAsset = self::readyBgmAudioAsset($tenantId, $userId, $projectId);
             $nestedParams = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
@@ -6512,7 +6534,7 @@ class AigcShortDramaService
         }
     }
 
-    private static function runExportPackageTask(int $tenantId, int $userId, array $generation, array $params, array $billing): void
+    private static function runExportPackageTask(int $tenantId, int $userId, array $generation, array $billing): void
     {
         $taskId = (string)$generation['task_id'];
         $projectId = (int)$generation['project_id'];
@@ -6527,7 +6549,8 @@ class AigcShortDramaService
             'update_time' => time(),
         ]);
 
-        $workDir = runtime_path() . 'short_drama_export_package_' . $tenantId . '_' . $projectId . '_' . time() . DIRECTORY_SEPARATOR;
+        $workDir = runtime_path() . 'short_drama_export_package_' . $tenantId . '_' . $projectId . '_' . time() . '_' . random_int(1000, 9999) . DIRECTORY_SEPARATOR;
+        $zip = null;
         try {
             if (!class_exists(\ZipArchive::class)) {
                 throw new Exception('服务器未启用 ZIP 打包组件，请安装 ZipArchive 后重');
@@ -6542,11 +6565,7 @@ class AigcShortDramaService
             if (empty($assets)) {
                 throw new Exception('暂无可导出的分镜素材，请先生成或选择素材');
             }
-            $bgmAsset = self::readyBgmAudioAsset($tenantId, $userId, $projectId);
-            $nestedParams = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
-            $watermarkEnabled = array_key_exists('watermark_enabled', $params)
-                ? (bool)$params['watermark_enabled']
-                : (array_key_exists('watermark_enabled', $nestedParams) ? (bool)$nestedParams['watermark_enabled'] : true);
+            $packageFiles = self::prepareExportPackageFiles($assets, $workDir);
             $zipPath = $workDir . 'short_drama_shots_' . $projectId . '_' . date('His') . '_' . random_int(1000, 9999) . '.zip';
             $zip = new \ZipArchive();
             if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
@@ -6554,14 +6573,15 @@ class AigcShortDramaService
             }
             $manifestShots = [];
             $inputAssetIds = [];
-            foreach ($assets as $index => $asset) {
+            foreach ($packageFiles as $item) {
+                $asset = (array)$item['asset'];
                 $inputAssetIds[] = (int)$asset['id'];
-                $localPath = self::assetLocalOrDownloadedPath($asset, $workDir, (int)$index + 1);
-                $ext = self::exportAssetExtension($asset, $localPath);
-                $zipName = sprintf('shots/%03d_%s.%s', (int)$index + 1, self::safeZipSegment((string)($asset['timeline_shot_id'] ?? $asset['shot_id'] ?? $asset['id'])), $ext);
-                $zip->addFile($localPath, $zipName);
+                $zipName = (string)$item['zip_name'];
+                if (!$zip->addFile((string)$item['path'], $zipName)) {
+                    throw new Exception('导出压缩包写入素材失败，请稍后重试');
+                }
                 $manifestShots[] = [
-                    'index' => (int)$index + 1,
+                    'index' => (int)$item['index'],
                     'shot_id' => (string)($asset['timeline_shot_id'] ?? $asset['shot_id'] ?? ''),
                     'asset_id' => (int)$asset['id'],
                     'asset_type' => (string)($asset['asset_type'] ?? ''),
@@ -6569,28 +6589,23 @@ class AigcShortDramaService
                     'duration' => (float)($asset['duration'] ?? 0),
                 ];
             }
-            $bgmZipName = '';
-            if (!empty($bgmAsset)) {
-                $inputAssetIds[] = (int)$bgmAsset['id'];
-                $bgmPath = self::assetLocalOrDownloadedPath($bgmAsset, $workDir, 0);
-                $bgmZipName = 'bgm/background_music.' . self::exportAssetExtension($bgmAsset, $bgmPath);
-                $zip->addFile($bgmPath, $bgmZipName);
-            }
             $manifest = [
                 'project_id' => $projectId,
                 'source_task_id' => (string)($generation['source_task_id'] ?? ''),
                 'generation_task_id' => $taskId,
-                'watermark_enabled' => $watermarkEnabled,
                 'generated_at' => date('c'),
                 'shots' => $manifestShots,
-                'bgm' => $bgmZipName,
             ];
-            $zip->addFromString('manifest.json', self::jsonEncode($manifest));
-            if (!$zip->close()) {
-                throw new Exception('导出压缩包写入失败，请稍后重');
+            if (!$zip->addFromString('manifest.json', self::jsonEncode($manifest))) {
+                throw new Exception('导出压缩包写入目录失败，请稍后重试');
             }
+            if (!$zip->close()) {
+                $zip = null;
+                throw new Exception('导出压缩包写入失败，请稍后重试');
+            }
+            $zip = null;
             if (!is_file($zipPath) || filesize($zipPath) <= 0) {
-                throw new Exception('导出压缩包为空，请稍后重');
+                throw new Exception('导出压缩包为空，请稍后重试');
             }
             $stored = self::storeInternalAssetFile($tenantId, $zipPath, 'uploads/aigc_short_drama/exports/' . date('Ymd'));
             $asset = AigcShortDramaAsset::create([
@@ -6614,8 +6629,6 @@ class AigcShortDramaService
                 'checksum' => hash_file('sha256', $zipPath) ?: '',
                 'meta_json' => self::jsonEncode([
                     'source_asset_ids' => $inputAssetIds,
-                    'bgm_asset_id' => (int)($bgmAsset['id'] ?? 0),
-                    'watermark_enabled' => $watermarkEnabled,
                     'manifest' => $manifest,
                 ]),
                 'status' => 'ready',
@@ -6635,7 +6648,6 @@ class AigcShortDramaService
                 'result_json' => self::jsonEncode([
                     'asset_ids' => [$assetId],
                     'export_package_asset_id' => $assetId,
-                    'bgm_audio_asset_id' => (int)($bgmAsset['id'] ?? 0),
                 ]),
                 'input_asset_ids' => self::jsonEncode($inputAssetIds),
                 'output_asset_ids' => self::jsonEncode([$assetId]),
@@ -6645,6 +6657,12 @@ class AigcShortDramaService
             ]);
             self::refreshProjectGenerationStatus($tenantId, $userId, $projectId);
         } catch (\Throwable $e) {
+            if ($zip instanceof \ZipArchive) {
+                try {
+                    @$zip->close();
+                } catch (\Throwable) {
+                }
+            }
             self::failGenerationTaskWithRefund($tenantId, $userId, $generation, $billing, 'export_package_failed', 'AI short drama package export failed', $e);
         } finally {
             self::removeRuntimeDirectory($workDir);
@@ -6687,116 +6705,6 @@ class AigcShortDramaService
         Log::write('AI short drama generation task failed: ' . $e->getMessage());
     }
 
-    private static function shortDramaVideoParams(int $tenantId, int $userId, int $projectId, array $shot, array $params): array
-    {
-        $params = self::normalizeShortDramaVideoChannelParams($tenantId, $params);
-        $plan = self::currentProjectPlanRaw($tenantId, $userId, $projectId);
-        $projectRatio = (string)AigcShortDramaProject::where([
-            'tenant_id' => $tenantId,
-            'user_id' => $userId,
-            'id' => $projectId,
-            'delete_time' => 0,
-        ])->value('ratio');
-        $ratioSource = self::normalizeGenerationRatio($projectRatio)
-            ?: self::requestGenerationRatio($params)
-            ?: self::normalizeGenerationRatio((string)($plan['generation_settings']['aspect_ratio'] ?? $plan['generation_settings']['ratio'] ?? ''))
-            ?: '9:16';
-        $params['ratio'] = trim($ratioSource) ?: '9:16';
-        $params['aspect_ratio'] = $params['ratio'];
-        $params = self::prepareShortDramaVideoGenerationParams($tenantId, ['ratio' => $projectRatio], $shot, $params);
-        $channel = trim((string)($params['model_id'] ?? $params['channel'] ?? $params['video_model_id'] ?? ''));
-        $ratio = trim((string)($params['resolved_ratio'] ?? $params['ratio'] ?? '')) ?: '9:16';
-        $explicitReferences = self::generationInputReferenceAssets($tenantId, $userId, $projectId, $params, $shot);
-        $explicitReferences = self::limitShortDramaVideoReferences($tenantId, $channel, $params, $shot, $explicitReferences);
-        // 视频生成只接收本次首尾帧与用 @ 指定参考；不自动提交主体、场景、三视图等辅助图。
-        $references = $explicitReferences;
-        $requestedDuration = max(3, min(15, (int)round((float)($params['duration'] ?? $shot['recommended_duration_seconds'] ?? 5))));
-        $duration = self::normalizeShortDramaVideoDuration($tenantId, $channel, (array)$references['reference_assets'], $requestedDuration);
-        $videoPromptParams = array_merge($params, [
-            'duration' => $duration,
-            'has_first_frame_image' => !empty($explicitReferences['first_frame_image']),
-            'has_last_frame_image' => !empty($explicitReferences['last_frame_image']),
-            'reference_assets' => (array)($references['reference_assets'] ?? []),
-            'input_asset_ids' => (array)($references['input_asset_ids'] ?? []),
-            'first_frame_image' => (string)($references['first_frame_image'] ?? ''),
-            'last_frame_image' => (string)($references['last_frame_image'] ?? ''),
-        ]);
-        $prompt = self::buildShotVideoPrompt($shot, $videoPromptParams, $plan);
-        $prompt = self::normalizeFinalProviderPrompt($prompt);
-        $videoParams = [
-            'prompt' => $prompt,
-            'negative_prompt' => self::shotVideoNegativePrompt(self::mergeShotReferenceContext($shot, $params), self::isNoSubjectShot(self::mergeShotReferenceContext($shot, $params))),
-            'style' => 'general',
-            'channel' => $channel,
-            'ratio' => $ratio,
-            'requested_ratio' => (string)($params['requested_ratio'] ?? $ratioSource),
-            'resolved_ratio' => $ratio,
-            'ratio_fallback' => $params['ratio_fallback'] ?? [],
-            'duration' => $duration,
-            'quantity' => 1,
-            'reference_assets' => $references['reference_assets'],
-            // Keep video references in the structured list only. The generic video
-            // service also reads legacy image fields, which can double-count refs.
-            'reference_images' => [],
-            'input_asset_ids' => $references['input_asset_ids'],
-        ];
-        $quality = trim((string)($params['quality'] ?? ''));
-        if ($quality !== '') {
-            $videoParams['quality'] = $quality;
-        }
-        return $videoParams;
-    }
-
-    private static function prepareShortDramaVideoGenerationParams(int $tenantId, array $project, array $shot, array $params): array
-    {
-        $params = self::normalizeShortDramaVideoChannelParams($tenantId, $params);
-        $channel = trim((string)($params['model_id'] ?? $params['channel'] ?? $params['video_model_id'] ?? ''));
-        if ($channel === '') {
-            $videoConfig = AigcVideoChannelService::userConfig($tenantId);
-            $channel = (string)($videoConfig['defaults']['channel'] ?? '');
-            foreach (['model_id', 'video_model_id', 'channel', 'channel_code'] as $key) {
-                $params[$key] = $channel;
-            }
-        }
-        $projectRatio = self::normalizeGenerationRatio((string)($project['ratio'] ?? ''));
-        $requestedRatio = $projectRatio ?: self::requestGenerationRatio($params);
-        if ($requestedRatio === '') {
-            $requestedRatio = '9:16';
-        }
-        $requestedDuration = max(3, min(15, (int)round((float)($params['duration'] ?? $shot['recommended_duration_seconds'] ?? 5))));
-        $duration = self::normalizeShortDramaVideoDuration($tenantId, $channel, [], $requestedDuration);
-        $selection = AigcVideoChannelService::resolveNearestCompatibleRatioSelection($tenantId, array_merge($params, [
-            'channel' => $channel,
-            'ratio' => $requestedRatio,
-            'duration' => $duration,
-        ]));
-        $resolvedRatio = trim((string)($selection['resolved_ratio'] ?? '')) ?: $requestedRatio;
-        $fallbackApplied = !empty($selection['ratio_fallback']);
-        $fallback = [
-            'applied' => $fallbackApplied,
-            'reason' => $fallbackApplied ? 'closest_supported_ratio' : '',
-            'message' => $fallbackApplied
-                ? sprintf('当前模型不支持 %s 的 %d 秒视频，已自动按最接近的 %s 生成。', $requestedRatio, $duration, $resolvedRatio)
-                : '',
-        ];
-
-        $params['duration'] = $duration;
-        $params['ratio'] = $resolvedRatio;
-        $params['aspect_ratio'] = $resolvedRatio;
-        $params['requested_ratio'] = $requestedRatio;
-        $params['resolved_ratio'] = $resolvedRatio;
-        $params['ratio_fallback'] = $fallback;
-        if (is_array($params['params'] ?? null)) {
-            $params['params']['duration'] = $duration;
-            $params['params']['ratio'] = $resolvedRatio;
-            $params['params']['aspect_ratio'] = $resolvedRatio;
-            $params['params']['requested_ratio'] = $requestedRatio;
-            $params['params']['resolved_ratio'] = $resolvedRatio;
-            $params['params']['ratio_fallback'] = $fallback;
-        }
-        return $params;
-    }
-
     private static function shortDramaVideoEffectiveParams(array $params): array
     {
         $fallback = is_array($params['ratio_fallback'] ?? null) ? $params['ratio_fallback'] : [];
@@ -6809,75 +6717,6 @@ class AigcShortDramaService
             'ratio_fallback' => !empty($fallback['applied']),
             'fallback_message' => (string)($fallback['message'] ?? ''),
         ];
-    }
-
-    private static function normalizeShortDramaVideoDuration(int $tenantId, string $channelCode, array $referenceAssets, int $requestedDuration): int
-    {
-        $duration = max(1, $requestedDuration);
-        try {
-            $config = AigcVideoChannelService::userConfig($tenantId);
-            if ($channelCode === '') {
-                $channelCode = (string)($config['defaults']['channel'] ?? '');
-            }
-            foreach ((array)($config['channels'] ?? []) as $channel) {
-                if ((string)($channel['code'] ?? '') !== $channelCode) {
-                    continue;
-                }
-                $options = AigcVideoChannelService::durationOptionsForAssets((array)$channel, $referenceAssets);
-                if (empty($options) || in_array($duration, $options, true)) {
-                    return $duration;
-                }
-                $options = array_values(array_unique(array_filter(array_map('intval', $options))));
-                sort($options);
-                if (empty($options)) {
-                    return $duration;
-                }
-                $closest = (int)$options[0];
-                foreach ($options as $option) {
-                    $option = (int)$option;
-                    $currentDiff = abs($option - $duration);
-                    $closestDiff = abs($closest - $duration);
-                    if ($currentDiff < $closestDiff || ($currentDiff === $closestDiff && $option > $closest)) {
-                        $closest = $option;
-                    }
-                }
-                return $closest;
-            }
-        } catch (\Throwable) {
-            return max(3, min(15, $duration));
-        }
-        return $duration;
-    }
-
-    private static function videoReferenceImageLimit(int $tenantId, string $channelCode): int
-    {
-        $limit = max(1, AigcVideoChannelService::DEFAULT_REFERENCE_LIMIT);
-        try {
-            $config = AigcVideoChannelService::userConfig($tenantId);
-            if ($channelCode === '') {
-                $channelCode = (string)($config['defaults']['channel'] ?? '');
-            }
-            foreach ((array)($config['channels'] ?? []) as $channel) {
-                if ((string)($channel['code'] ?? '') !== $channelCode) {
-                    continue;
-                }
-                $imageLimit = max(0, (int)($channel['max_reference_images'] ?? 0));
-                $assetLimit = max(0, (int)($channel['max_reference_assets'] ?? 0));
-                if ($imageLimit > 0 && $assetLimit > 0) {
-                    return max(1, min($imageLimit, $assetLimit));
-                }
-                if ($imageLimit > 0) {
-                    return max(1, $imageLimit);
-                }
-                if ($assetLimit > 0) {
-                    return max(1, $assetLimit);
-                }
-                return $limit;
-            }
-        } catch (\Throwable) {
-            return $limit;
-        }
-        return $limit;
     }
 
     private static function imageReferenceImageLimit(int $tenantId, array $imageParams): int
@@ -7027,117 +6866,6 @@ class AigcShortDramaService
             return 'scene:' . $sceneId;
         }
         return '';
-    }
-
-    private static function limitShortDramaVideoReferences(int $tenantId, string $channelCode, array $params, array $shot, array $payload): array
-    {
-        $limit = self::videoReferenceImageLimit($tenantId, $channelCode);
-        $assets = array_values((array)($payload['reference_assets'] ?? []));
-        if ($limit <= 0 || count($assets) <= $limit) {
-            return $payload;
-        }
-        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
-        $inputIds = array_values(array_map('intval', (array)($payload['input_asset_ids'] ?? [])));
-        $firstFrameId = (int)($params['first_frame_asset_id'] ?? $nested['first_frame_asset_id'] ?? 0);
-        $lastFrameId = (int)($params['last_frame_asset_id'] ?? $nested['last_frame_asset_id'] ?? 0);
-        $explicitReferenceIds = array_flip(array_map('intval', array_merge(
-            self::normalizeIdList($params['reference_asset_ids'] ?? []),
-            self::normalizeIdList($nested['reference_asset_ids'] ?? [])
-        )));
-        $selectedSubjectIds = array_flip(array_map('strval', array_merge(
-            self::normalizeStringList($params['selected_subject_ids'] ?? []),
-            self::normalizeStringList($nested['selected_subject_ids'] ?? [])
-        )));
-        $selectedSceneIds = array_flip(array_map('strval', array_merge(
-            self::normalizeStringList($params['selected_scene_ids'] ?? []),
-            self::normalizeStringList($nested['selected_scene_ids'] ?? [])
-        )));
-        $shotContext = self::mergeShotReferenceContext($shot, $params);
-        $shotSceneId = (string)($shotContext['scene_ref_id'] ?? $shotContext['scene_ref'] ?? $shotContext['location_id'] ?? '');
-        $shotSubjectIds = array_flip(array_map('strval', self::explicitShotSubjectRefTokens($shotContext)));
-        $items = [];
-        foreach ($assets as $index => $asset) {
-            if (!is_array($asset)) {
-                continue;
-            }
-            $id = (int)($asset['id'] ?? ($inputIds[$index] ?? 0));
-            if ($id > 0 && empty($asset['id'])) {
-                $asset['id'] = $id;
-            }
-            $items[] = [
-                'asset' => $asset,
-                'id' => $id,
-                'index' => $index,
-                'priority' => self::shortDramaVideoReferencePriority(
-                    $asset,
-                    $id,
-                    $firstFrameId,
-                    $lastFrameId,
-                    $explicitReferenceIds,
-                    $selectedSubjectIds,
-                    $selectedSceneIds,
-                    $shotSceneId,
-                    $shotSubjectIds
-                ),
-            ];
-        }
-        usort($items, static function (array $a, array $b): int {
-            if ($a['priority'] !== $b['priority']) {
-                return $a['priority'] <=> $b['priority'];
-            }
-            return $a['index'] <=> $b['index'];
-        });
-        $limited = self::emptyReferencePayload();
-        foreach (array_slice($items, 0, $limit) as $item) {
-            self::appendReferenceAsset($limited, (array)$item['asset']);
-        }
-        $keptIds = array_flip(array_map('intval', (array)$limited['input_asset_ids']));
-        if ($firstFrameId > 0 && isset($keptIds[$firstFrameId]) && !empty($payload['first_frame_image'])) {
-            $limited['first_frame_image'] = (string)$payload['first_frame_image'];
-        }
-        if ($lastFrameId > 0 && isset($keptIds[$lastFrameId]) && !empty($payload['last_frame_image'])) {
-            $limited['last_frame_image'] = (string)$payload['last_frame_image'];
-        }
-        return $limited;
-    }
-
-    private static function shortDramaVideoReferencePriority(array $asset, int $id, int $firstFrameId, int $lastFrameId, array $explicitReferenceIds, array $selectedSubjectIds, array $selectedSceneIds, string $shotSceneId, array $shotSubjectIds): int
-    {
-        if ($id > 0 && $id === $firstFrameId) {
-            return 10;
-        }
-        if ($id > 0 && $id === $lastFrameId) {
-            return 20;
-        }
-        $assetType = (string)($asset['asset_type'] ?? '');
-        $meta = (array)($asset['meta'] ?? []);
-        $subjectId = (string)($meta['subject_id'] ?? $meta['subject_ref_id'] ?? $meta['character_id'] ?? $meta['item_id'] ?? '');
-        $sceneId = (string)($meta['scene_id'] ?? $meta['scene_ref_id'] ?? $meta['location_id'] ?? $meta['item_id'] ?? '');
-        $isExplicit = ($id > 0 && isset($explicitReferenceIds[$id]))
-            || ($subjectId !== '' && isset($selectedSubjectIds[$subjectId]))
-            || ($sceneId !== '' && isset($selectedSceneIds[$sceneId]));
-        if ($isExplicit) {
-            if ($assetType === 'three_view') {
-                return 30;
-            }
-            if ($assetType === 'subject_image' || $subjectId !== '') {
-                return 31;
-            }
-            return ($assetType === 'scene_image' || $sceneId !== '') ? 32 : 33;
-        }
-        if ($subjectId !== '' && isset($shotSubjectIds[$subjectId])) {
-            return $assetType === 'three_view' ? 60 : 70;
-        }
-        if ($sceneId !== '' && $sceneId === $shotSceneId) {
-            return 80;
-        }
-        if ($assetType === 'three_view') {
-            return 90;
-        }
-        if ($assetType === 'subject_image') {
-            return 95;
-        }
-        return $assetType === 'scene_image' ? 100 : 98;
     }
 
     private static function mergeShotReferenceContext(array $shot, array $params): array
@@ -7866,23 +7594,49 @@ class AigcShortDramaService
             return '';
         }
         $runtimeBinary = dirname(__DIR__, 5) . DIRECTORY_SEPARATOR . 'runtime' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . 'ffmpeg' . DIRECTORY_SEPARATOR . 'bin' . DIRECTORY_SEPARATOR . (DIRECTORY_SEPARATOR === '\\' ? 'ffmpeg.exe' : 'ffmpeg');
-        $candidates = array_values(array_filter([
+        $candidates = array_merge([
             (string)env('ffmpeg_binary', ''),
             (string)env('ffmpeg.binary', ''),
             getenv('FFMPEG_BINARY') ?: '',
             $runtimeBinary,
-            'ffmpeg',
-        ]));
-        foreach ($candidates as $candidate) {
-            $cmd = $candidate === 'ffmpeg'
-                ? 'ffmpeg -version'
-                : escapeshellarg($candidate) . ' -version';
+        ], self::ffmpegPlatformCandidates(PHP_OS_FAMILY), ['ffmpeg']);
+        foreach (array_values(array_unique(array_filter(array_map(static function ($candidate): string {
+            return trim(trim((string)$candidate), "\"'");
+        }, $candidates)))) as $candidate) {
+            $output = [];
+            $code = 1;
+            $cmd = escapeshellarg($candidate) . ' -hide_banner -version';
             @\exec($cmd . ' 2>&1', $output, $code);
-            if ($code === 0) {
+            if ($code === 0 && str_contains(strtolower(implode("\n", (array)$output)), 'ffmpeg version')) {
                 return $candidate;
             }
         }
         return '';
+    }
+
+    /** @return array<int, string> */
+    private static function ffmpegPlatformCandidates(string $osFamily): array
+    {
+        if ($osFamily === 'Windows') {
+            $programFiles = rtrim((string)(getenv('ProgramFiles') ?: 'C:\\Program Files'), '\\/');
+            $programFilesX86 = rtrim((string)(getenv('ProgramFiles(x86)') ?: 'C:\\Program Files (x86)'), '\\/');
+            $programData = rtrim((string)(getenv('ProgramData') ?: 'C:\\ProgramData'), '\\/');
+            $chocolatey = rtrim((string)(getenv('ChocolateyInstall') ?: $programData . '\\chocolatey'), '\\/');
+            $userProfile = rtrim((string)(getenv('USERPROFILE') ?: ''), '\\/');
+            return array_values(array_filter([
+                'C:\\ffmpeg\\bin\\ffmpeg.exe',
+                'C:\\tools\\ffmpeg\\bin\\ffmpeg.exe',
+                $programFiles . '\\ffmpeg\\bin\\ffmpeg.exe',
+                $programFilesX86 . '\\ffmpeg\\bin\\ffmpeg.exe',
+                $chocolatey . '\\bin\\ffmpeg.exe',
+                $userProfile === '' ? '' : $userProfile . '\\scoop\\apps\\ffmpeg\\current\\bin\\ffmpeg.exe',
+                'ffmpeg.exe',
+            ]));
+        }
+        if ($osFamily === 'Darwin') {
+            return ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg', 'ffmpeg'];
+        }
+        return ['/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg', '/bin/ffmpeg', '/snap/bin/ffmpeg', '/opt/ffmpeg/bin/ffmpeg', 'ffmpeg'];
     }
 
     private static function concatShotVideos(int $tenantId, int $projectId, array $assets, string $ffmpeg, array $bgmAsset = [], array $watermark = []): array
@@ -8112,6 +7866,47 @@ class AigcShortDramaService
         return trim($value, '_') ?: 'shot';
     }
 
+    private static function prepareExportPackageFiles(array $assets, string $workDir): array
+    {
+        $files = [];
+        foreach ($assets as $index => $asset) {
+            $number = (int)$index + 1;
+            try {
+                $localPath = self::assetLocalOrDownloadedPath($asset, $workDir, $number);
+                if (!is_file($localPath) || !is_readable($localPath) || filesize($localPath) <= 0) {
+                    throw new Exception('素材文件不可读或为空');
+                }
+                $ext = self::exportAssetExtension($asset, $localPath);
+                $zipName = sprintf(
+                    'shots/%03d_%s.%s',
+                    $number,
+                    self::safeZipSegment((string)($asset['timeline_shot_id'] ?? $asset['shot_id'] ?? $asset['id'] ?? $number)),
+                    $ext
+                );
+                $files[] = [
+                    'index' => $number,
+                    'asset' => $asset,
+                    'path' => $localPath,
+                    'zip_name' => $zipName,
+                ];
+            } catch (\Throwable $e) {
+                throw self::exportPackageMaterialException($number, $asset, $e);
+            }
+        }
+        return $files;
+    }
+
+    private static function exportPackageMaterialException(int $index, array $asset, \Throwable $e): Exception
+    {
+        $shotId = trim((string)($asset['timeline_shot_id'] ?? $asset['shot_id'] ?? ''));
+        $label = '第' . $index . '个分镜素材';
+        if ($shotId !== '') {
+            $label .= '(' . $shotId . ')';
+        }
+        $detail = trim(self::friendlyGenerationError($e->getMessage()));
+        return new Exception($label . '下载失败：' . ($detail !== '' ? $detail : '请稍后重试'), 0, $e);
+    }
+
     private static function localPublicFilePath(string $uri): string
     {
         $path = $uri;
@@ -8126,6 +7921,108 @@ class AigcShortDramaService
         return is_file($fullPath) ? $fullPath : '';
     }
 
+    private static function downloadRemoteAssetFile(string $url, string $target, string $label, int $timeout = 90): string
+    {
+        $dir = dirname($target);
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        if (!is_dir($dir) || !is_writable($dir)) {
+            throw new Exception($label . '缓存目录不可写，请检查服务器存储配置');
+        }
+        $lastError = '';
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            $tmp = $target . '.part.' . getmypid() . '.' . $attempt . '.' . random_int(1000, 9999);
+            @unlink($tmp);
+            try {
+                self::downloadRemoteAssetFileOnce($url, $tmp, $timeout);
+                if (is_file($tmp) && filesize($tmp) > 0) {
+                    @unlink($target);
+                    if (!@rename($tmp, $target)) {
+                        @unlink($tmp);
+                        throw new Exception('缓存文件移动失败');
+                    }
+                    return $target;
+                }
+                $lastError = '下载到的文件为空';
+            } catch (\Throwable $e) {
+                $lastError = trim($e->getMessage());
+                @unlink($tmp);
+            }
+            if ($attempt < 3) {
+                usleep(200000 * $attempt);
+            }
+        }
+        throw new Exception($label . '下载失败，请稍后重试' . ($lastError !== '' ? '（' . mb_substr($lastError, 0, 180, 'UTF-8') . '）' : ''));
+    }
+
+    private static function downloadRemoteAssetFileOnce(string $url, string $target, int $timeout): void
+    {
+        $curlError = '';
+        if (function_exists('curl_init')) {
+            $write = @fopen($target, 'wb');
+            if (!$write) {
+                throw new Exception('缓存文件创建失败');
+            }
+            $ch = curl_init($url);
+            $options = [
+                CURLOPT_FILE => $write,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_MAXREDIRS => 5,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_TIMEOUT => max(15, $timeout),
+                CURLOPT_USERAGENT => 'LikeAdmin-AIGC-ShortDramaExport/1.0',
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+            ];
+            if (defined('CURL_HTTP_VERSION_1_1')) {
+                $options[CURLOPT_HTTP_VERSION] = CURL_HTTP_VERSION_1_1;
+            }
+            curl_setopt_array($ch, $options);
+            $ok = curl_exec($ch);
+            $errno = curl_errno($ch);
+            $error = curl_error($ch);
+            $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            fclose($write);
+            if ($ok !== true || $errno !== 0 || ($status > 0 && ($status < 200 || $status >= 300))) {
+                @unlink($target);
+                $curlError = $error !== '' ? $error : ('HTTP ' . $status);
+            } else {
+                return;
+            }
+        }
+
+        $context = stream_context_create(['http' => ['timeout' => $timeout], 'https' => ['timeout' => $timeout]]);
+        $lastWarning = '';
+        set_error_handler(static function ($severity, string $message) use (&$lastWarning): bool {
+            $lastWarning = $message;
+            return true;
+        });
+        $read = @fopen($url, 'rb', false, $context);
+        restore_error_handler();
+        if (!$read) {
+            throw new Exception(trim($curlError . ($curlError !== '' && $lastWarning !== '' ? '; ' : '') . ($lastWarning !== '' ? $lastWarning : '远程文件打开失败')));
+        }
+        $write = @fopen($target, 'wb');
+        if (!$write) {
+            fclose($read);
+            throw new Exception('缓存文件创建失败');
+        }
+        set_error_handler(static function ($severity, string $message) use (&$lastWarning): bool {
+            $lastWarning = $message;
+            return true;
+        });
+        $bytes = stream_copy_to_stream($read, $write);
+        restore_error_handler();
+        fclose($read);
+        fclose($write);
+        if ($bytes === false || $bytes <= 0) {
+            @unlink($target);
+            throw new Exception(trim($curlError . ($curlError !== '' && $lastWarning !== '' ? '; ' : '') . ($lastWarning !== '' ? $lastWarning : '远程文件读取失败')));
+        }
+    }
+
     private static function downloadVideoForFfmpeg(array $asset, string $workDir, int $index): string
     {
         $url = FileService::getFileUrlByStorage(
@@ -8138,19 +8035,7 @@ class AigcShortDramaService
             throw new Exception('分镜视频文件不可用，请重新生成分镜视');
         }
         $target = $workDir . sprintf('input_%03d.mp4', $index);
-        $context = stream_context_create(['http' => ['timeout' => 60], 'https' => ['timeout' => 60]]);
-        $read = @fopen($url, 'rb', false, $context);
-        if (!$read) {
-            throw new Exception('分镜视频下载失败，请稍后重试');
-        }
-        $write = @fopen($target, 'wb');
-        if (!$write) {
-            fclose($read);
-            throw new Exception('分镜视频缓存失败，请稍后重试');
-        }
-        stream_copy_to_stream($read, $write);
-        fclose($read);
-        fclose($write);
+        self::downloadRemoteAssetFile($url, $target, '分镜视频', 90);
         if (!is_file($target) || filesize($target) <= 0) {
             throw new Exception('分镜视频文件为空，请重新生成分镜视频');
         }
@@ -8174,19 +8059,7 @@ class AigcShortDramaService
             $ext = 'png';
         }
         $target = $workDir . sprintf('image_%03d.%s', $index, $ext);
-        $context = stream_context_create(['http' => ['timeout' => 60], 'https' => ['timeout' => 60]]);
-        $read = @fopen($url, 'rb', false, $context);
-        if (!$read) {
-            throw new Exception('分镜图片下载失败，请稍后重试');
-        }
-        $write = @fopen($target, 'wb');
-        if (!$write) {
-            fclose($read);
-            throw new Exception('分镜图片缓存失败，请稍后重试');
-        }
-        stream_copy_to_stream($read, $write);
-        fclose($read);
-        fclose($write);
+        self::downloadRemoteAssetFile($url, $target, '分镜图片', 90);
         if (!is_file($target) || filesize($target) <= 0) {
             throw new Exception('分镜图片文件为空，请重新选择或生成分镜图');
         }
@@ -8224,19 +8097,7 @@ class AigcShortDramaService
             throw new Exception('背景音乐文件不可用，请重新生成背景音');
         }
         $target = $workDir . 'bgm_audio_' . random_int(1000, 9999) . '.mp3';
-        $context = stream_context_create(['http' => ['timeout' => 60], 'https' => ['timeout' => 60]]);
-        $read = @fopen($url, 'rb', false, $context);
-        if (!$read) {
-            throw new Exception('背景音乐下载失败，请稍后重试');
-        }
-        $write = @fopen($target, 'wb');
-        if (!$write) {
-            fclose($read);
-            throw new Exception('背景音乐缓存失败，请稍后重试');
-        }
-        stream_copy_to_stream($read, $write);
-        fclose($read);
-        fclose($write);
+        self::downloadRemoteAssetFile($url, $target, '背景音乐', 90);
         if (!is_file($target) || filesize($target) <= 0) {
             throw new Exception('背景音乐文件为空，请重新生成背景音乐');
         }
@@ -12093,6 +11954,15 @@ class AigcShortDramaService
         return [
             'id' => $id,
             'value' => $id,
+            // Keep the market selection identity intact. The browser only
+            // displays these values, while task submission uses them to bind
+            // the user's choice to the exact enabled market text model.
+            'product_id' => (int)($model['product_id'] ?? $model['market_product_id'] ?? 0),
+            'market_product_id' => (int)($model['market_product_id'] ?? $model['product_id'] ?? 0),
+            'market_sku_id' => (int)($model['market_sku_id'] ?? $model['sku_id'] ?? 0),
+            'sku_id' => (int)($model['sku_id'] ?? $model['market_sku_id'] ?? 0),
+            'model_code' => (string)($model['model_code'] ?? ''),
+            'channel_code' => (string)($model['channel_code'] ?? ''),
             'name' => (string)($model['name'] ?? $id),
             'description' => (string)($model['description'] ?? ''),
             'image' => self::fileUrl((string)($model['display_icon'] ?? $model['image'] ?? self::DEFAULT_IMAGE)),
@@ -12227,13 +12097,216 @@ class AigcShortDramaService
         return $params;
     }
 
+    /**
+     * Resolve the only reference contract short-drama video tasks may submit.
+     * The client may preview this choice, but it never controls the final
+     * material set or the supplier generation method.
+     */
+    private static function prepareShortDramaVideoReferenceParams(int $tenantId, int $userId, int $projectId, array $shot, array $params): array
+    {
+        $contract = self::shortDramaVideoReferenceContract($tenantId, $userId, $projectId, $shot, $params);
+        $params['generation_method'] = (string)$contract['generation_method'];
+        $params['input_asset_ids'] = (array)$contract['input_asset_ids'];
+        $params['reference_asset_ids'] = (string)$contract['generation_method'] === 'start_end'
+            ? []
+            : (array)$contract['input_asset_ids'];
+        $params['reference_plan'] = (array)$contract['reference_plan'];
+        if (is_array($params['params'] ?? null)) {
+            $params['params']['generation_method'] = $params['generation_method'];
+            $params['params']['input_asset_ids'] = $params['input_asset_ids'];
+            $params['params']['reference_asset_ids'] = $params['reference_asset_ids'];
+            $params['params']['reference_plan'] = $params['reference_plan'];
+        }
+        return $params;
+    }
+
+    private static function shortDramaVideoReferenceContract(int $tenantId, int $userId, int $projectId, array $shot, array $params): array
+    {
+        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
+        $selection = self::marketVideoSelection($params);
+        $runtime = self::marketVideoRuntime($selection);
+        $capabilities = (array)$runtime::capabilities($tenantId, $selection);
+        $modes = array_values(array_unique(array_map('strval', (array)($capabilities['generation_modes'] ?? []))));
+        $referenceLimit = self::marketVideoReferenceLimit($capabilities);
+        $firstFrameId = (int)($params['first_frame_asset_id'] ?? $nested['first_frame_asset_id'] ?? 0);
+        $lastFrameId = (int)($params['last_frame_asset_id'] ?? $nested['last_frame_asset_id'] ?? 0);
+        if ($firstFrameId <= 0) {
+            $latest = self::latestShotImageAsset($tenantId, $userId, $projectId, (string)($shot['shot_id'] ?? $params['shot_id'] ?? ''));
+            $firstFrameId = (int)($latest['id'] ?? 0);
+        }
+        if ($firstFrameId <= 0) {
+            throw new Exception('当前分镜缺少可用首帧图');
+        }
+
+        $requestedIds = $lastFrameId > 0 ? [$firstFrameId, $lastFrameId] : [$firstFrameId];
+        $assetMap = self::shortDramaVideoReferenceAssetMap($tenantId, $userId, $projectId, $requestedIds);
+        if (!isset($assetMap[$firstFrameId])) {
+            throw new Exception('首帧素材不存在、未就绪或不属于当前项目');
+        }
+
+        if ($lastFrameId > 0) {
+            if ($firstFrameId === $lastFrameId) {
+                throw new Exception('首帧和尾帧必须使用不同图片');
+            }
+            if (!isset($assetMap[$lastFrameId])) {
+                throw new Exception('尾帧素材不存在、未就绪或不属于当前项目');
+            }
+            if ((string)($assetMap[$firstFrameId]['url'] ?? '') === (string)($assetMap[$lastFrameId]['url'] ?? '')) {
+                throw new Exception('首帧和尾帧必须使用不同图片');
+            }
+            if (
+                !in_array('start_end', $modes, true)
+                || empty($capabilities['supports_first_last_frame'])
+                || $referenceLimit < 2
+            ) {
+                throw new Exception('当前视频模型不支持首尾帧生成');
+            }
+            return self::shortDramaVideoReferenceContractPayload(
+                'start_end',
+                [
+                    ['asset' => $assetMap[$firstFrameId], 'role' => 'first_frame_image'],
+                    ['asset' => $assetMap[$lastFrameId], 'role' => 'last_frame_image'],
+                ],
+                [],
+                $capabilities
+            );
+        }
+
+        $candidates = [['asset' => $assetMap[$firstFrameId], 'role' => 'reference_image']];
+        foreach (self::shortDramaVideoThreeViewAssets($tenantId, $userId, $projectId, $shot) as $asset) {
+            if ((int)($asset['id'] ?? 0) === $firstFrameId) {
+                continue;
+            }
+            $candidates[] = ['asset' => $asset, 'role' => 'reference_image'];
+        }
+        if (in_array('multi_frame', $modes, true) && $referenceLimit >= 2 && count($candidates) >= 2) {
+            $selected = array_slice($candidates, 0, $referenceLimit);
+            return self::shortDramaVideoReferenceContractPayload(
+                'multi_frame',
+                $selected,
+                array_slice($candidates, count($selected)),
+                $capabilities
+            );
+        }
+        if (!in_array('omni_reference', $modes, true) || $referenceLimit < 1) {
+            throw new Exception('当前视频模型不支持可用的首帧参考方式，请更换模型');
+        }
+        return self::shortDramaVideoReferenceContractPayload(
+            'omni_reference',
+            [$candidates[0]],
+            array_slice($candidates, 1),
+            $capabilities
+        );
+    }
+
+    private static function marketVideoReferenceLimit(array $capabilities): int
+    {
+        $limits = array_values(array_filter([
+            (int)($capabilities['max_reference_images'] ?? 0),
+            (int)($capabilities['max_reference_assets'] ?? 0),
+        ], static fn(int $limit): bool => $limit > 0));
+        return $limits === [] ? 0 : min($limits);
+    }
+
+    private static function shortDramaVideoReferenceAssetMap(int $tenantId, int $userId, int $projectId, array $assetIds): array
+    {
+        $payload = self::referencePayloadFromAssetIds($tenantId, $userId, $projectId, $assetIds);
+        $assets = [];
+        foreach ((array)($payload['reference_assets'] ?? []) as $asset) {
+            $id = (int)($asset['id'] ?? 0);
+            if ($id > 0) {
+                $assets[$id] = $asset;
+            }
+        }
+        return $assets;
+    }
+
+    private static function shortDramaVideoThreeViewAssets(int $tenantId, int $userId, int $projectId, array $shot): array
+    {
+        $subjectIds = array_values(array_unique(array_filter(array_map('strval', self::splitPlanRefTokens($shot['subject_ref_ids'] ?? [])))));
+        if ($subjectIds === []) {
+            return [];
+        }
+        $wanted = array_flip($subjectIds);
+        $rows = AigcShortDramaAsset::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'project_id' => $projectId,
+            'asset_type' => 'three_view',
+            'status' => 'ready',
+            'delete_time' => 0,
+        ])->order(['id' => 'desc'])->select()->toArray();
+        $bySubject = [];
+        foreach ($rows as $row) {
+            $meta = self::assetReferenceMeta($row, self::jsonDecode((string)($row['meta_json'] ?? '')));
+            $subjectId = trim((string)($meta['subject_id'] ?? $meta['subject_ref_id'] ?? $meta['character_id'] ?? $meta['item_id'] ?? ''));
+            if ($subjectId === '' || !isset($wanted[$subjectId]) || isset($bySubject[$subjectId])) {
+                continue;
+            }
+            $bySubject[$subjectId] = self::formatAsset($row);
+        }
+        $assets = [];
+        foreach ($subjectIds as $subjectId) {
+            if (isset($bySubject[$subjectId])) {
+                $assets[] = $bySubject[$subjectId];
+            }
+        }
+        return $assets;
+    }
+
+    private static function shortDramaVideoReferenceContractPayload(string $generationMethod, array $selected, array $trimmed, array $capabilities): array
+    {
+        $references = self::emptyReferencePayload();
+        $planAssets = [];
+        foreach ($selected as $item) {
+            $asset = (array)($item['asset'] ?? []);
+            $id = (int)($asset['id'] ?? 0);
+            $role = (string)($item['role'] ?? 'reference_image');
+            if ($id <= 0 || (string)($asset['url'] ?? '') === '') {
+                continue;
+            }
+            $asset['role'] = $role;
+            $references['reference_assets'][] = $asset;
+            $references['reference_images'][] = (string)$asset['url'];
+            $references['input_asset_ids'][] = $id;
+            $planAssets[] = ['id' => $id, 'role' => $role];
+            if ($role === 'first_frame_image') {
+                $references['first_frame_image'] = (string)$asset['url'];
+            }
+            if ($role === 'last_frame_image') {
+                $references['last_frame_image'] = (string)$asset['url'];
+            }
+        }
+        $trimmedIds = array_values(array_filter(array_map(static fn(array $item): int => (int)(($item['asset'] ?? [])['id'] ?? 0), $trimmed)));
+        return [
+            'generation_method' => $generationMethod,
+            'reference_assets' => $references['reference_assets'],
+            'reference_images' => $references['reference_images'],
+            'input_asset_ids' => $references['input_asset_ids'],
+            'first_frame_image' => $references['first_frame_image'],
+            'last_frame_image' => $references['last_frame_image'],
+            'reference_plan' => [
+                'generation_method' => $generationMethod,
+                'assets' => $planAssets,
+                'trimmed_asset_ids' => $trimmedIds,
+                'trim_reason' => $trimmedIds === [] ? '' : 'reference_limit',
+                'model_capabilities' => [
+                    'generation_modes' => array_values((array)($capabilities['generation_modes'] ?? [])),
+                    'supports_first_last_frame' => !empty($capabilities['supports_first_last_frame']),
+                    'max_reference_images' => (int)($capabilities['max_reference_images'] ?? 0),
+                    'max_reference_assets' => (int)($capabilities['max_reference_assets'] ?? 0),
+                ],
+            ],
+        ];
+    }
+
     private static function marketShortDramaVideoParams(int $tenantId, int $userId, int $projectId, array $shot, array $params): array
     {
         $params = self::prepareMarketShortDramaVideoParams($tenantId, $params, $shot);
         $plan = self::currentProjectPlanRaw($tenantId, $userId, $projectId);
         $projectRatio = (string)AigcShortDramaProject::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $projectId, 'delete_time' => 0])->value('ratio');
         $ratio = self::normalizeGenerationRatio($projectRatio) ?: self::requestGenerationRatio($params) ?: '9:16';
-        $references = self::generationInputReferenceAssets($tenantId, $userId, $projectId, $params, $shot);
+        $references = self::shortDramaVideoReferenceContract($tenantId, $userId, $projectId, $shot, $params);
         $prompt = self::normalizeFinalProviderPrompt(self::buildShotVideoPrompt($shot, array_merge($params, ['duration' => (int)$params['duration'], 'reference_assets' => (array)$references['reference_assets'], 'has_first_frame_image' => !empty($references['first_frame_image']), 'has_last_frame_image' => !empty($references['last_frame_image'])]), $plan));
         return [
             'prompt' => $prompt,
@@ -12242,8 +12315,10 @@ class AigcShortDramaService
             'market_product_id' => (int)($params['market_product_id'] ?? 0), 'market_sku_id' => (int)($params['market_sku_id'] ?? 0),
             'resolution' => (string)$params['resolution'], 'quality' => (string)$params['resolution'], 'duration' => (int)$params['duration'],
             'video_mode' => (string)($params['video_mode'] ?? (is_array($params['params'] ?? null) ? ($params['params']['video_mode'] ?? '') : '')),
+            'generation_method' => (string)$references['generation_method'],
             'ratio' => $ratio, 'quantity' => 1, 'reference_assets' => (array)$references['reference_assets'],
-            'reference_images' => (array)$references['reference_images'], 'input_asset_ids' => (array)$references['input_asset_ids'],
+            'reference_images' => [], 'input_asset_ids' => (array)$references['input_asset_ids'],
+            'reference_plan' => (array)$references['reference_plan'],
         ];
     }
 
@@ -12516,22 +12591,51 @@ class AigcShortDramaService
                 continue;
             }
             $wanted = $selections[$key] ?? '';
-            $selected[$key] = self::matchModelOption($options, $wanted) ?: $options[0];
+            $matched = self::matchModelOption($options, $wanted);
+            if ($matched === [] && $key === 'script_plan' && self::hasExplicitModelSelection($wanted)) {
+                throw new Exception('所选剧本策划模型已下架或不可用，请重新选择模型');
+            }
+            $selected[$key] = $matched ?: $options[0];
         }
         return $selected;
+    }
+
+    private static function hasExplicitModelSelection($selection): bool
+    {
+        if (is_array($selection)) {
+            foreach (['id', 'value', 'product_id', 'market_product_id', 'market_sku_id', 'sku_id', 'model_code', 'channel_code'] as $key) {
+                if (trim((string)($selection[$key] ?? '')) !== '') {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return trim((string)$selection) !== '';
     }
 
     private static function matchModelOption(array $options, $wanted): array
     {
         $value = is_array($wanted)
-            ? (string)($wanted['id'] ?? $wanted['value'] ?? $wanted['model_code'] ?? $wanted['channel'] ?? $wanted['channel_code'] ?? '')
+            ? (string)($wanted['id'] ?? $wanted['value'] ?? $wanted['product_id'] ?? $wanted['market_product_id'] ?? $wanted['model_code'] ?? $wanted['channel'] ?? $wanted['channel_code'] ?? '')
             : (string)$wanted;
-        if ($value === '') {
+        $skuId = is_array($wanted)
+            ? (int)($wanted['market_sku_id'] ?? $wanted['sku_id'] ?? 0)
+            : 0;
+        if ($value === '' && $skuId <= 0) {
             return [];
         }
         foreach ($options as $option) {
+            if ($skuId > 0 && in_array($skuId, [
+                (int)($option['market_sku_id'] ?? 0),
+                (int)($option['sku_id'] ?? 0),
+                (int)($option['market_input_sku_id'] ?? 0),
+            ], true)) {
+                return $option;
+            }
             if (in_array($value, [
                 (string)($option['id'] ?? ''),
+                (string)($option['product_id'] ?? ''),
+                (string)($option['market_product_id'] ?? ''),
                 (string)($option['value'] ?? ''),
                 (string)($option['model_code'] ?? ''),
                 (string)($option['channel'] ?? ''),
@@ -13151,31 +13255,144 @@ PROMPT;
     private static function decodeLlmJsonObject(string $content): array
     {
         $content = trim($content);
-        $content = preg_replace('/^```(?:json)?\s*/i', '', $content) ?? $content;
-        $content = preg_replace('/\s*```$/', '', $content) ?? $content;
-        $start = strpos($content, '{');
-        $end = strrpos($content, '}');
-        if ($start === false) {
+        if ($content === '') {
             throw new Exception('AI 返回内容格式异常，请重试');
         }
-        $data = [];
-        if ($end !== false && $end > $start) {
-            $json = substr($content, $start, $end - $start + 1);
-            $data = json_decode($json, true);
-            if (!is_array($data)) {
-                $repaired = preg_replace('/,\s*([}\]])/', '$1', $json) ?? $json;
-                $repaired = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $repaired) ?? $repaired;
-                $data = json_decode($repaired, true);
-            }
-        }
-        if (!is_array($data) || empty($data)) {
+        $data = self::bestPlanPayloadFromContent($content);
+        if ($data === []) {
             $data = self::decodePartialLlmJsonObject($content);
         }
-        if (!is_array($data)) {
+        if ($data === []) {
             Log::write('AI short drama script plan JSON parse failed: ' . json_last_error_msg() . ' excerpt=' . mb_substr($content, 0, 800, 'UTF-8'));
             throw new Exception('AI 返回内容解析失败，请重试');
         }
         return $data;
+    }
+
+    /**
+     * Different market text models can wrap the requested JSON in reasoning,
+     * markdown, or a provider-style data/result/content object. Select the
+     * complete object that most closely resembles the short-drama contract
+     * instead of relying on the first opening and final closing brace.
+     */
+    private static function bestPlanPayloadFromContent(string $content): array
+    {
+        $best = [];
+        $bestScore = 0;
+        foreach (self::completeJsonObjects($content) as $candidate) {
+            foreach (self::planPayloadCandidates($candidate) as $payload) {
+                $score = self::planPayloadScore($payload);
+                if ($score > $bestScore) {
+                    $best = $payload;
+                    $bestScore = $score;
+                }
+            }
+        }
+        return $best;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private static function completeJsonObjects(string $content): array
+    {
+        $objects = [];
+        $seen = [];
+        $length = strlen($content);
+        $inString = false;
+        $escaped = false;
+        for ($offset = 0; $offset < $length; $offset++) {
+            $char = $content[$offset];
+            if ($inString) {
+                if ($escaped) {
+                    $escaped = false;
+                } elseif ($char === '\\') {
+                    $escaped = true;
+                } elseif ($char === '"') {
+                    $inString = false;
+                }
+                continue;
+            }
+            if ($char === '"') {
+                $inString = true;
+                continue;
+            }
+            if ($char !== '{') {
+                continue;
+            }
+            $json = self::readCompleteJsonValue($content, $offset);
+            if ($json === '') {
+                continue;
+            }
+            $decoded = self::decodeCompleteJsonObject($json);
+            if ($decoded === []) {
+                continue;
+            }
+            $signature = md5($json);
+            if (!isset($seen[$signature])) {
+                $seen[$signature] = true;
+                $objects[] = $decoded;
+            }
+        }
+        return $objects;
+    }
+
+    /** @return array<string, mixed> */
+    private static function decodeCompleteJsonObject(string $json): array
+    {
+        $json = preg_replace('/^\xEF\xBB\xBF/', '', trim($json)) ?? trim($json);
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded)) {
+            $repaired = preg_replace('/,\s*([}\]])/', '$1', $json) ?? $json;
+            $repaired = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $repaired) ?? $repaired;
+            $decoded = json_decode($repaired, true);
+        }
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private static function planPayloadCandidates(array $value, int $depth = 0): array
+    {
+        if ($depth > 3) {
+            return [];
+        }
+        $candidates = [$value];
+        foreach (['data', 'result', 'plan', 'payload', 'response', 'output', 'content', 'text', 'message', 'answer'] as $key) {
+            $nested = $value[$key] ?? null;
+            if (is_array($nested)) {
+                $candidates = array_merge($candidates, self::planPayloadCandidates($nested, $depth + 1));
+                continue;
+            }
+            if (!is_string($nested)) {
+                continue;
+            }
+            foreach (self::completeJsonObjects($nested) as $object) {
+                $candidates = array_merge($candidates, self::planPayloadCandidates($object, $depth + 1));
+            }
+        }
+        return $candidates;
+    }
+
+    private static function planPayloadScore(array $payload): int
+    {
+        $score = 0;
+        foreach (['title', 'type_judgement', 'core_theme', 'story_outline'] as $key) {
+            if (trim((string)($payload[$key] ?? '')) !== '') {
+                $score += 1;
+            }
+        }
+        foreach (['script_lines', 'art_style'] as $key) {
+            if (!empty($payload[$key])) {
+                $score += 2;
+            }
+        }
+        foreach (['subjects', 'locations'] as $key) {
+            if (is_array($payload[$key] ?? null) && $payload[$key] !== []) {
+                $score += 8;
+            }
+        }
+        if (is_array($payload['storyboard'] ?? null) && $payload['storyboard'] !== []) {
+            $score += 12;
+        }
+        return $score;
     }
 
     private static function decodePartialLlmJsonObject(string $content): array

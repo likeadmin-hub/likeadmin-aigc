@@ -1,6 +1,7 @@
 /.idea
 /.vscode
 *.log
+/.phpunit.result.cache
 /.env
 /public/.user.ini
 /public/uploads/*

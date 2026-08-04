@@ -138,7 +138,7 @@ class MarketVideoRuntimeService
                 'max_reference_audios' => self::referenceLimit($product, $metadata, 'audio'),
                 'max_reference_assets' => self::referenceAssetLimit($product, $metadata),
                 'generation_modes' => self::generationModes($product, $metadata),
-                'supports_first_last_frame' => self::supportsFirstLastFrame($metadata),
+                'supports_first_last_frame' => self::supportsFirstLastFrame($product, $metadata),
                 'skus' => $validSkus,
                 'default_resolution' => (string)($resolutions[0] ?? ''),
                 'default_duration' => (int)($durations[0] ?? 0),
@@ -158,6 +158,24 @@ class MarketVideoRuntimeService
         $market = self::resolve($tenantId, $selection);
         $quantity = self::quantity($market, $selection);
         return self::quoteMarket($market, $quantity);
+    }
+
+    /**
+     * Returns the supplier capabilities that are safe to expose to business
+     * callers. These values describe implemented request adapters, not merely
+     * catalog metadata.
+     */
+    public static function capabilities(int $tenantId, array $selection): array
+    {
+        $market = self::resolve($tenantId, $selection);
+        $product = (array)$market['product'];
+        $metadata = self::metadata($product);
+        return [
+            'generation_modes' => self::generationModes($product, $metadata),
+            'supports_first_last_frame' => self::supportsFirstLastFrame($product, $metadata),
+            'max_reference_images' => self::referenceLimit($product, $metadata, 'image'),
+            'max_reference_assets' => self::referenceAssetLimit($product, $metadata),
+        ];
     }
 
     /**
@@ -513,6 +531,12 @@ class MarketVideoRuntimeService
 
     private static function submitRequest(array $snapshot, array $request, string $idempotency, int $consumptionId): array
     {
+        // Providers address references by their typed ordinal, while the UI
+        // keeps the user's readable @asset-name prompt intact for auditing.
+        $request['prompt'] = AigcVideoReferenceAssetService::promptWithReferenceAliases(
+            (string)($request['prompt'] ?? ''),
+            $request
+        );
         if (($snapshot['resource_type'] ?? '') === PowerMarketService::TYPE_MODEL) return self::request('POST', self::origin() . self::MODEL_TASK_PATH, self::modelPayload($snapshot, $request, $idempotency));
         $app = (string)$snapshot['app_code'];
         if ($app === 'seedance') self::seedanceAssets($request, $consumptionId);
@@ -974,7 +998,10 @@ class MarketVideoRuntimeService
     }
     private static function assetTypes(array $meta): array { $cap = self::arrayValue($meta['capabilities'] ?? []); $values = $meta['supported_asset_types'] ?? $cap['supported_asset_types'] ?? []; if ($values === []) { foreach (['image','video','audio'] as $type) if (self::capabilityLimit($meta, $type) > 0) $values[] = $type; } return array_values(array_intersect(['image','video','audio'], array_map(static fn($v) => strtolower((string)$v), (array)$values))); }
     private static function capabilityLimit(array $meta, string $type): int { $cap = self::arrayValue($meta['capabilities'] ?? []); $keys = ['image' => ['max_reference_images','max_reference_image_count','reference_image_limit'], 'video' => ['max_reference_videos','max_reference_video_count','reference_video_limit'], 'audio' => ['max_reference_audios','max_reference_audio_count','reference_audio_limit']]; foreach ($keys[$type] as $key) foreach ([$meta, $cap] as $source) if (isset($source[$key])) return max(0, (int)$source[$key]); return $type === 'image' && (!empty($meta['supports_reference_images']) || !empty($cap['supports_reference_images'])) ? 1 : 0; }
-    private static function supportsFirstLastFrame(array $meta): bool { $cap = self::arrayValue($meta['capabilities'] ?? []); return !empty($meta['supports_first_last_frame']) || !empty($cap['supports_first_last_frame']) || in_array('start_end', (array)($meta['generation_modes'] ?? $cap['generation_modes'] ?? []), true); }
+    private static function supportsFirstLastFrame(array $product, array $meta): bool
+    {
+        return self::isH3Product($product) && in_array('start_end', self::generationModes($product, $meta), true);
+    }
     private static function referenceAssetLimit(array $product, array $meta): int
     {
         if (self::isH3Product($product)) {
@@ -992,6 +1019,12 @@ class MarketVideoRuntimeService
     }
     private static function generationModes(array $product, array $meta): array
     {
+        // H3 is currently the only adapter that preserves first/last roles in
+        // its upstream request. All adapters accept an ordered image list, so
+        // multi-reference support is determined by the configured image limit.
+        if (self::isH3Product($product)) {
+            return ['omni_reference', 'start_end', 'multi_frame'];
+        }
         $cap = self::arrayValue($meta['capabilities'] ?? []);
         $configured = $meta['generation_modes'] ?? $cap['generation_modes'] ?? [];
         if (is_string($configured)) $configured = preg_split('~\s*[,|/]\s*~', $configured) ?: [];
@@ -1010,10 +1043,16 @@ class MarketVideoRuntimeService
             };
         }, (array)$configured)));
         $order = ['text_to_video', 'omni_reference', 'image_to_video', 'start_end', 'image_reference', 'video_edit', 'multi_frame', 'audio_reference'];
-        // The supplier's explicit generation_modes declaration is authoritative.
-        // Capability limits only support legacy records that predate this field.
+        $imageLimit = self::referenceLimit($product, $meta, 'image');
+        $supportsMultiFrame = $imageLimit >= 2;
         $declared = array_values(array_intersect($order, array_unique($configured)));
-        if ($declared !== []) return $declared;
+        if ($declared !== []) {
+            $declared = array_values(array_filter($declared, static fn(string $mode): bool => $mode !== 'start_end'));
+            if ($supportsMultiFrame) {
+                $declared[] = 'multi_frame';
+            }
+            return array_values(array_filter($order, static fn(string $mode): bool => in_array($mode, $declared, true)));
+        }
         $configuredInputModes = $meta['input_modes'] ?? $cap['input_modes'] ?? [];
         if (is_string($configuredInputModes)) $configuredInputModes = preg_split('~\s*[,|/]\s*~', $configuredInputModes) ?: [];
         $declaredInputModes = [];
@@ -1033,7 +1072,13 @@ class MarketVideoRuntimeService
             if (in_array($value, $order, true)) $declaredInputModes[] = $value;
         }
         $declaredInputModes = array_values(array_intersect($order, array_unique($declaredInputModes)));
-        if ($declaredInputModes !== []) return $declaredInputModes;
+        if ($declaredInputModes !== []) {
+            $declaredInputModes = array_values(array_filter($declaredInputModes, static fn(string $mode): bool => $mode !== 'start_end'));
+            if ($supportsMultiFrame) {
+                $declaredInputModes[] = 'multi_frame';
+            }
+            return array_values(array_filter($order, static fn(string $mode): bool => in_array($mode, $declaredInputModes, true)));
+        }
         $inputModes = array_column(self::inputModes(PowerMarketService::TYPE_MODEL, $product, $meta), 'value');
         $supported = [];
         if (in_array('text_to_video', $inputModes, true)) {
@@ -1051,17 +1096,14 @@ class MarketVideoRuntimeService
         foreach (['omni_reference', 'start_end', 'multi_frame'] as $mode) {
             if (in_array($mode, $inputModes, true)) $supported[] = $mode;
         }
-        if (self::isH3Product($product)) $configured = ['omni_reference', 'start_end'];
         $assetTypes = self::supportedAssetTypes($product, $meta);
-        $imageLimit = self::referenceLimit($product, $meta, 'image');
-        if ($imageLimit >= 2) $supported[] = 'start_end';
-        if ($imageLimit >= 3) $supported[] = 'multi_frame';
+        if ($supportsMultiFrame) $supported[] = 'multi_frame';
         if (
             in_array('image', $assetTypes, true) && self::referenceLimit($product, $meta, 'image') > 0 &&
             in_array('video', $assetTypes, true) && self::referenceLimit($product, $meta, 'video') > 0 &&
             in_array('audio', $assetTypes, true) && self::referenceLimit($product, $meta, 'audio') > 0
         ) $supported[] = 'omni_reference';
-        foreach (['omni_reference', 'start_end', 'multi_frame'] as $mode) {
+        foreach (['omni_reference', 'multi_frame'] as $mode) {
             if (in_array($mode, $configured, true)) {
                 $supported[] = $mode;
             }
