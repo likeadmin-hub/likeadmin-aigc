@@ -15,6 +15,7 @@ class AppDisplayConfigService
         'aigc_digital_human',
         'aigc_canvas',
         'aigc_llm',
+        'aigc_music',
         'image_human',
         'smart_clip',
         'aigc_hairstyle',
