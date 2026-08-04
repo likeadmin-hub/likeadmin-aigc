@@ -1,1 +1,0 @@
-const a=t=>String(t??"").trim().toLowerCase(),s=(t,o)=>{const e=String(t??"").trim(),i=String(o??"").trim(),r=[a(e),a(i)];return r.some(n=>n==="adaptive"||n==="auto")?"自适应":r.includes("original")?"原比例":r.includes("default")?"默认比例":i||e};export{s as f};
