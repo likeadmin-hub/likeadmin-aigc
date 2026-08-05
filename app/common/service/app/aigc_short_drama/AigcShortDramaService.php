@@ -1253,7 +1253,7 @@ class AigcShortDramaService
 
     public static function subjectThreeViewHistory(int $tenantId, int $userId, int $subjectId): array
     {
-        self::findUserSubject($tenantId, $userId, $subjectId, false);
+        self::findUserSubject($tenantId, $userId, $subjectId, true);
         return self::subjectLibraryAssetHistory($tenantId, $userId, $subjectId, 'three_view');
     }
 
@@ -1724,6 +1724,12 @@ class AigcShortDramaService
         self::checkSensitivePrompt($prompt);
 
         $request = self::normalizeCreateRequest($params, $config);
+        $request['subject_references'] = self::selectedSubjectReferences($tenantId, $userId, (array)$request['subject_ids']);
+        $request['subject_ids'] = array_values(array_map(static fn(array $subject): string => (string)$subject['id'], $request['subject_references']));
+        $request['subject_mentions'] = array_values(array_unique(array_filter(array_merge(
+            (array)$request['subject_mentions'],
+            array_map(static fn(array $subject): string => (string)$subject['name'], $request['subject_references'])
+        ))));
         $request['prompt'] = $prompt;
         $request['storyboard_rules'] = self::normalizeStoryboardRules((array)($config['storyboard_rules'] ?? []));
         $request['storyboard_target_rule'] = self::storyboardTargetRule($prompt, $request);
@@ -2442,6 +2448,7 @@ class AigcShortDramaService
                 AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId])->update(['app_task_id' => $marketAppTaskId, 'update_time' => time()]);
             }
             $result = $generation['result'];
+            $result = self::attachSelectedSubjectReferences($result, $request);
             $projectRatio = self::normalizeGenerationRatio((string)($project['ratio'] ?? '')) ?: self::normalizeGenerationRatio((string)($request['ratio'] ?? ''));
             if ($projectRatio !== '') {
                 $result['generation_settings'] = is_array($result['generation_settings'] ?? null) ? $result['generation_settings'] : [];
@@ -7636,7 +7643,16 @@ class AigcShortDramaService
         if ($osFamily === 'Darwin') {
             return ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg', 'ffmpeg'];
         }
-        return ['/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg', '/bin/ffmpeg', '/snap/bin/ffmpeg', '/opt/ffmpeg/bin/ffmpeg', 'ffmpeg'];
+        return [
+            '/www/server/ffmpeg/bin/ffmpeg',
+            '/www/server/ffmpeg/ffmpeg',
+            '/usr/local/bin/ffmpeg',
+            '/usr/bin/ffmpeg',
+            '/bin/ffmpeg',
+            '/snap/bin/ffmpeg',
+            '/opt/ffmpeg/bin/ffmpeg',
+            'ffmpeg',
+        ];
     }
 
     private static function concatShotVideos(int $tenantId, int $projectId, array $assets, string $ffmpeg, array $bgmAsset = [], array $watermark = []): array
@@ -12723,11 +12739,17 @@ class AigcShortDramaService
             return (string)($row['source'] ?? '') !== 'public'
                 || !in_array((string)($row['name'] ?? ''), self::LEGACY_PUBLIC_SUBJECT_NAMES, true);
         }));
-        return array_map(static function (array $row): array {
+        $subjectIds = array_map(static fn(array $row): int => (int)($row['id'] ?? 0), $rows);
+        $threeViewMap = self::latestSubjectLibraryAssets($tenantId, $userId, $subjectIds, 'three_view');
+        return array_map(static function (array $row) use ($threeViewMap): array {
+            $threeView = (array)($threeViewMap[(int)($row['id'] ?? 0)] ?? []);
             return [
                 'id' => (string)$row['id'],
                 'name' => (string)$row['name'],
                 'image' => self::fileUrl((string)$row['image']),
+                'raw_image' => (string)($row['image'] ?? ''),
+                'three_view_url' => (string)($threeView['url'] ?? ''),
+                'three_view_asset' => $threeView,
                 'source' => (string)$row['source'],
                 'category' => (string)($row['category'] ?? 'character'),
                 'gender' => (string)($row['gender'] ?? 'unknown'),
@@ -12769,7 +12791,7 @@ class AigcShortDramaService
                 'is_new' => (bool)$row['is_new'],
                 'sort' => (int)$row['sort'],
             ];
-        }, $rows);
+        }, $uniqueRows);
     }
 
     private static function normalizeCreateRequest(array $params, array $config): array
@@ -13010,6 +13032,89 @@ class AigcShortDramaService
             . "storyboard must contain 1-12 concise representative shots, cover every location at least once, and use only location ids and subject ids defined above. Each visual_description must be a specific visible action, never a planning phrase. Use 2-5 seconds per shot. Keep every string concise so the entire response fits within 2600 Chinese characters.\n"
             . "Context: " . self::jsonEncode($context) . "\n"
             . "JSON schema: " . self::jsonEncode($schema);
+    }
+
+    private static function selectedSubjectReferences(int $tenantId, int $userId, array $subjectIds): array
+    {
+        $subjectIds = array_values(array_unique(array_filter(array_map('intval', $subjectIds))));
+        if (empty($subjectIds)) {
+            return [];
+        }
+        $rows = AigcShortDramaSubject::whereIn('id', $subjectIds)
+            ->where('status', 1)
+            ->where('delete_time', 0)
+            ->where(function ($query) use ($tenantId, $userId) {
+                $query->where(function ($public) use ($tenantId) {
+                    $public->where('source', 'public')->whereIn('tenant_id', [0, $tenantId]);
+                })->whereOr(function ($user) use ($tenantId, $userId) {
+                    $user->where('source', 'user')->where('tenant_id', $tenantId)->where('user_id', $userId);
+                });
+            })
+            ->select()
+            ->toArray();
+        $threeViewMap = self::latestSubjectLibraryAssets($tenantId, $userId, $subjectIds, 'three_view');
+        $byId = [];
+        foreach ($rows as $row) {
+            $id = (int)($row['id'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+            $threeView = (array)($threeViewMap[$id] ?? []);
+            $byId[$id] = [
+                'id' => (string)$id,
+                'name' => (string)($row['name'] ?? ''),
+                'description' => (string)($row['description'] ?? ''),
+                'category' => (string)($row['category'] ?? 'character'),
+                'image' => self::fileUrl((string)($row['image'] ?? '')),
+                'raw_image' => (string)($row['image'] ?? ''),
+                'three_view_image' => (string)($threeView['url'] ?? ''),
+                'three_view_raw_image' => (string)($threeView['uri'] ?? ''),
+            ];
+        }
+        return array_values(array_filter(array_map(static fn(int $id): array => $byId[$id] ?? [], $subjectIds)));
+    }
+
+    private static function attachSelectedSubjectReferences(array $result, array $request): array
+    {
+        $references = array_values(array_filter((array)($request['subject_references'] ?? []), 'is_array'));
+        if (empty($references)) {
+            return $result;
+        }
+        $subjects = array_values(array_filter((array)($result['subjects'] ?? []), 'is_array'));
+        $existingNames = array_fill_keys(array_filter(array_map(static fn(array $subject): string => trim((string)($subject['name'] ?? '')), $subjects)), true);
+        foreach ($references as $reference) {
+            $name = trim((string)($reference['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $libraryId = (string)($reference['id'] ?? '');
+            $subject = [
+                'id' => 'library_' . $libraryId,
+                'library_subject_id' => $libraryId,
+                'name' => $name,
+                'description' => (string)($reference['description'] ?? ''),
+                'visual_prompt' => (string)($reference['description'] ?? ''),
+                'category' => (string)($reference['category'] ?? 'character'),
+                'image' => (string)($reference['image'] ?? ''),
+                'raw_image' => (string)($reference['raw_image'] ?? ''),
+                'three_view_image' => (string)($reference['three_view_image'] ?? ''),
+                'three_view_raw_image' => (string)($reference['three_view_raw_image'] ?? ''),
+                'is_library_reference' => true,
+            ];
+            if (isset($existingNames[$name])) {
+                foreach ($subjects as $index => $item) {
+                    if ((string)($item['name'] ?? '') === $name) {
+                        $subjects[$index] = array_merge($item, $subject, ['id' => (string)($item['id'] ?? $subject['id'])]);
+                        break;
+                    }
+                }
+                continue;
+            }
+            $subjects[] = $subject;
+            $existingNames[$name] = true;
+        }
+        $result['subjects'] = $subjects;
+        return $result;
     }
 
     private static function buildScriptPlanPrompt(string $prompt, array $request, string $title): string
@@ -15239,28 +15344,68 @@ PROMPT;
 
     private static function replaceStoryboard(int $tenantId, int $userId, int $projectId, string $taskId, array $storyboard): void
     {
-        AigcShortDramaStoryboard::where([
-            'tenant_id' => $tenantId,
-            'task_id' => $taskId,
-        ])->update(['delete_time' => time(), 'update_time' => time()]);
         $time = time();
+        $submittedShotIds = [];
+        $usedShotIds = [];
         foreach (array_values($storyboard) as $index => $shot) {
-            AigcShortDramaStoryboard::create(self::filterStoryboardWritableData(array_merge(self::editableShotData($shot), [
+            $shotId = trim((string)($shot['shot_id'] ?? ($index + 1)));
+            if ($shotId === '' || isset($usedShotIds[$shotId])) {
+                do {
+                    $shotId = self::makeStoryboardShotId($tenantId, $taskId);
+                } while (isset($usedShotIds[$shotId]));
+            }
+            $usedShotIds[$shotId] = true;
+            $submittedShotIds[] = $shotId;
+
+            $data = self::filterStoryboardWritableData(array_merge(self::editableShotData($shot), [
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
                 'project_id' => $projectId,
                 'task_id' => $taskId,
-                'shot_id' => (string)($shot['shot_id'] ?? ($index + 1)),
+                'shot_id' => $shotId,
                 'act' => (string)($shot['act'] ?? ''),
                 'scene_name' => (string)($shot['scene_name'] ?? ''),
                 'time_of_day' => (string)($shot['time_of_day'] ?? ''),
                 'interior_exterior' => in_array(($shot['interior_exterior'] ?? 'exterior'), ['interior', 'exterior'], true) ? $shot['interior_exterior'] : 'exterior',
                 'sort' => $index + 1,
-                'create_time' => $time,
                 'update_time' => $time,
                 'delete_time' => 0,
-            ])));
+            ]));
+            $row = Db::name('aigc_short_drama_storyboard')->where([
+                'tenant_id' => $tenantId,
+                'task_id' => $taskId,
+                'shot_id' => $shotId,
+            ])->find();
+            if (empty($row)) {
+                $data['create_time'] = $time;
+                try {
+                    Db::name('aigc_short_drama_storyboard')->insert($data);
+                } catch (\Throwable $e) {
+                    $row = Db::name('aigc_short_drama_storyboard')->where([
+                        'tenant_id' => $tenantId,
+                        'task_id' => $taskId,
+                        'shot_id' => $shotId,
+                    ])->find();
+                    if (empty($row)) {
+                        throw $e;
+                    }
+                    Db::name('aigc_short_drama_storyboard')->where('id', (int)$row['id'])->update($data);
+                }
+            } else {
+                Db::name('aigc_short_drama_storyboard')->where('id', (int)$row['id'])->update($data);
+            }
         }
+        $deleteQuery = AigcShortDramaStoryboard::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'project_id' => $projectId,
+            'task_id' => $taskId,
+            'delete_time' => 0,
+        ]);
+        if (!empty($submittedShotIds)) {
+            $deleteQuery->whereNotIn('shot_id', array_values(array_unique($submittedShotIds)));
+        }
+        $deleteQuery->update(['delete_time' => $time, 'update_time' => $time]);
     }
 
     private static function activeStoryboardRows(int $tenantId, int $userId, int $projectId, string $taskId): array

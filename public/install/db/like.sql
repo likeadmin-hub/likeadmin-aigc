@@ -3949,7 +3949,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_result` (
   `channel` varchar(64) NOT NULL DEFAULT '' COMMENT '通道',
   `quality` varchar(30) NOT NULL DEFAULT '' COMMENT '视频时长档位',
   `ratio` varchar(30) NOT NULL DEFAULT '' COMMENT '视频比例',
-  `video_uri` varchar(255) NOT NULL DEFAULT '',
+  `video_uri` text,
   `storage_scope` varchar(20) NOT NULL DEFAULT 'platform',
   `storage_engine` varchar(30) NOT NULL DEFAULT 'local',
   `storage_domain` varchar(255) NOT NULL DEFAULT '',
@@ -7553,7 +7553,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_storyboard` (
   `update_time` int unsigned NOT NULL DEFAULT 0,
   `delete_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_task_shot` (`tenant_id`,`task_id`,`shot_id`),
+  UNIQUE KEY `uk_task_shot` (`tenant_id`,`task_id`,`shot_id`,`delete_time`),
   KEY `idx_task_sort` (`tenant_id`,`task_id`,`sort`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧分镜';
 
