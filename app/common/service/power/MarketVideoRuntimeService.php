@@ -1229,6 +1229,21 @@ class MarketVideoRuntimeService
         $hasFrame = $firstFrames > 0 || $lastFrames > 0;
         $hasReference = $referenceImages > 0 || $referenceVideos > 0 || $referenceAudios > 0;
 
+        // The public full_video API selects its mode from content roles rather
+        // than from a generation_method field. Derive it here so storefront
+        // submissions and direct market calls share the documented validation.
+        if ($generationMethod === '') {
+            if ($firstFrames === 1 && $lastFrames === 1) {
+                $generationMethod = 'start_end';
+            } elseif ($hasFrame) {
+                $generationMethod = 'image_to_video';
+            } elseif ($hasReference) {
+                $generationMethod = 'omni_reference';
+            } else {
+                $generationMethod = 'text_to_video';
+            }
+        }
+
         if ($generationMethod === 'text_to_video' && $assetCount > 0) {
             throw new Exception('text-to-video generation does not accept reference assets');
         }
@@ -1255,6 +1270,9 @@ class MarketVideoRuntimeService
         }
         if ($generationMethod === 'omni_reference' && (!$hasReference || $hasFrame)) {
             throw new Exception('full_video omni reference generation requires reference media');
+        }
+        if ($generationMethod === 'omni_reference' && $referenceAudios > 0 && $referenceImages === 0 && $referenceVideos === 0) {
+            throw new Exception('full_video reference audio requires at least one reference image or video');
         }
     }
 
