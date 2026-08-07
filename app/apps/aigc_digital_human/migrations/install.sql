@@ -86,6 +86,16 @@ CREATE TABLE IF NOT EXISTS `la_aigc_digital_human_task` (
   `provider` varchar(50) NOT NULL DEFAULT '',
   `model` varchar(100) NOT NULL DEFAULT '',
   `provider_task_id` varchar(120) NOT NULL DEFAULT '',
+  `app_task_id` int unsigned NOT NULL DEFAULT 0,
+  `consumption_id` int unsigned NOT NULL DEFAULT 0,
+  `market_product_id` int unsigned NOT NULL DEFAULT 0,
+  `market_sku_id` int unsigned NOT NULL DEFAULT 0,
+  `pricing_snapshot` text,
+  `idempotency_key` varchar(100) DEFAULT NULL,
+  `market_request_id` varchar(120) NOT NULL DEFAULT '',
+  `market_retry_count` tinyint unsigned NOT NULL DEFAULT 0,
+  `billing_status` varchar(30) NOT NULL DEFAULT 'none',
+  `market_error_code` varchar(80) NOT NULL DEFAULT '',
   `provider_stage` varchar(50) NOT NULL DEFAULT '' COMMENT '供应商编排阶段',
   `tts_task_id` varchar(120) NOT NULL DEFAULT '' COMMENT 'TTS供应商任务ID',
   `tts_audio_uri` varchar(500) NOT NULL DEFAULT '' COMMENT 'TTS音频地址',
@@ -100,6 +110,10 @@ CREATE TABLE IF NOT EXISTS `la_aigc_digital_human_task` (
   PRIMARY KEY (`id`),
   KEY `idx_tenant_user` (`tenant_id`,`user_id`,`delete_time`),
   KEY `idx_provider_task` (`tenant_id`,`provider`,`provider_task_id`),
+  KEY `idx_market_app_task` (`app_task_id`),
+  KEY `idx_market_consumption` (`consumption_id`),
+  KEY `idx_market_request` (`market_request_id`),
+  KEY `idx_market_idempotency` (`tenant_id`,`user_id`,`idempotency_key`),
   KEY `idx_tts_task` (`tenant_id`,`provider`,`tts_task_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='数字人合成任务';
 

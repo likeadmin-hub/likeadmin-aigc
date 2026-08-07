@@ -6,11 +6,8 @@ use app\common\model\app\aigc_hairstyle\AigcHairstyleConfig;
 use app\common\model\app\aigc_image\AigcImageBilling;
 use app\common\model\app\aigc_image\AigcImageResult;
 use app\common\model\app\aigc_image\AigcImageTask;
-use app\common\model\app\App;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
-use app\common\service\app\AppRegistryService;
-use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
@@ -19,8 +16,6 @@ use Exception;
 class AigcHairstyleService
 {
     public const APP_CODE = 'aigc_hairstyle';
-    public const IMAGE_APP_CODE = 'aigc_image';
-
     public const OPERATION_HAIR_STYLE = 'hair_style';
     public const OPERATION_HAIR_COLOR = 'hair_color';
     public const OPERATION_HAIR_STYLE_COLOR = 'hair_style_color';
@@ -39,7 +34,8 @@ class AigcHairstyleService
         $row = AigcHairstyleConfig::where('tenant_id', $tenantId)->findOrEmpty();
         $data = $row->isEmpty() ? self::defaults() : array_merge(self::defaults(), $row->toArray());
         $data['operation_options'] = self::operationOptions();
-        $data['option_config'] = AigcImageChannelService::userConfig($tenantId);
+        $data['option_config'] = self::marketOptionConfig($tenantId);
+        $data['config_json'] = self::alignMarketConfig((array)$data['config_json'], $data['option_config']);
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, self::sanitizeConfig($data));
     }
 
@@ -59,7 +55,7 @@ class AigcHairstyleService
             'default_operation' => $operation,
             'prompt_template' => self::normalizeTemplate((string)($params['prompt_template'] ?? $current['prompt_template'])),
             'negative_prompt' => trim((string)($params['negative_prompt'] ?? $current['negative_prompt'])),
-            'config_json' => self::normalizeConfigJson($configJson),
+            'config_json' => self::alignMarketConfig(self::normalizeConfigJson($configJson), self::marketOptionConfig($tenantId)),
             'update_time' => time(),
         ];
 
@@ -76,7 +72,7 @@ class AigcHairstyleService
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, false);
-        $imageEstimate = AigcImageService::estimate($tenantId, $prepared['image_payload']);
+        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
         return self::buildHairstyleEstimate($prepared, $imageEstimate);
     }
 
@@ -84,7 +80,7 @@ class AigcHairstyleService
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, true);
-        $imageEstimate = AigcImageService::estimate($tenantId, $prepared['image_payload']);
+        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
         $estimate = self::buildHairstyleEstimate($prepared, $imageEstimate);
         PointService::assertCanConsumeAmounts(
             $tenantId,
@@ -92,10 +88,9 @@ class AigcHairstyleService
             (float)$estimate['tenant_cost_points'],
             (float)$estimate['user_charge_points']
         );
-        return AigcImageService::generateWithBillingOverride($tenantId, $userId, $prepared['image_payload'], [
-            'tenant_cost_points' => $estimate['tenant_cost_points'],
-            'user_charge_points' => $estimate['user_charge_points'],
-        ]);
+        return AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $prepared['image_payload'], [
+            'user_unit_price' => $prepared['unit_price'],
+        ], self::APP_CODE);
     }
 
     public static function taskLists(int $tenantId, int $userId, array $params = []): array
@@ -118,8 +113,17 @@ class AigcHairstyleService
 
     public static function retryTask(int $tenantId, int $taskId): array
     {
-        self::taskDetail($tenantId, $taskId, 0);
-        return AigcImageService::retryTask($tenantId, $taskId);
+        $task = self::taskDetail($tenantId, $taskId, 0);
+        $references = array_values((array)($task['reference_images'] ?? []));
+        return self::generate($tenantId, (int)$task['user_id'], [
+            'person_image' => (string)($references[0] ?? ''),
+            'reference_image' => (string)($references[1] ?? ''),
+            'operation' => self::operationFromPrompt((string)($task['prompt'] ?? '')),
+            'channel' => (string)($task['channel'] ?? ''),
+            'quality' => (string)($task['quality'] ?? ''),
+            'ratio' => (string)($task['ratio'] ?? ''),
+            'quantity' => (int)($task['quantity'] ?? 1),
+        ]);
     }
 
     public static function deleteTask(int $tenantId, int $taskId, int $userId = 0): void
@@ -144,29 +148,8 @@ class AigcHairstyleService
 
     public static function dependencies(int $tenantId = 0): array
     {
-        $installed = App::where(['code' => self::IMAGE_APP_CODE, 'status' => AppRegistryService::STATUS_INSTALLED])->count() > 0;
-        $tenantEnabled = $tenantId <= 0 ? true : AppAccessService::tenantCanUse($tenantId, self::IMAGE_APP_CODE);
-        $channels = [];
-        try {
-            $imageConfig = AigcImageService::config($tenantId);
-            $channels = $imageConfig['option_config']['channels'] ?? [];
-        } catch (Exception) {
-            $channels = [];
-        }
-        $item = [
-            'app_code' => self::IMAGE_APP_CODE,
-            'name' => 'AIGC生图',
-            'required_for' => '图片生成',
-            'installed' => $installed,
-            'tenant_enabled' => $tenantEnabled,
-            'channel_ready' => !empty($channels),
-            'ready' => $installed && $tenantEnabled && !empty($channels),
-            'message' => $installed ? ($tenantEnabled ? (!empty($channels) ? '可用' : '暂无可用通道') : '租户未开通或未上架') : '应用未安装或未启用',
-        ];
-        return [
-            'items' => [$item],
-            'ready' => (bool)$item['ready'],
-        ];
+        $channels = self::marketOptionConfig($tenantId)['channels'] ?? [];
+        return ['items' => [], 'ready' => $channels !== []];
     }
 
     public static function stat(int $tenantId = 0): array
@@ -264,9 +247,6 @@ class AigcHairstyleService
         if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE) !== null) {
             throw new Exception('AI换发型应用未开通或未上架');
         }
-        if (AppAccessService::assertTenantCanUse($tenantId, self::IMAGE_APP_CODE) !== null) {
-            throw new Exception('AIGC生图应用未开通或未上架');
-        }
         $config = self::config($tenantId);
         if ((int)($config['status'] ?? 1) !== 1) {
             throw new Exception('AI换发型应用已停用');
@@ -293,13 +273,21 @@ class AigcHairstyleService
             $userPrompt
         );
         $quantity = max(1, min(4, (int)($params['quantity'] ?? $configJson['quantity'] ?? 1)));
+        $spec = self::marketSpec($config['option_config'] ?? [], [
+            'channel' => (string)($params['channel'] ?? $configJson['channel'] ?? ''),
+            'quality' => (string)($params['quality'] ?? $configJson['quality'] ?? ''),
+            'ratio' => (string)($params['ratio'] ?? $configJson['ratio'] ?? ''),
+        ]);
         $imagePayload = [
             'prompt' => $prompt,
             'negative_prompt' => (string)($params['negative_prompt'] ?? $config['negative_prompt'] ?? self::DEFAULT_NEGATIVE_PROMPT),
             'reference_images' => array_values(array_filter([$personImage, $referenceImage])),
-            'channel' => (string)($params['channel'] ?? $configJson['channel'] ?? ''),
-            'quality' => (string)($params['quality'] ?? $configJson['quality'] ?? ''),
-            'ratio' => (string)($params['ratio'] ?? $configJson['ratio'] ?? ''),
+            'model_id' => (string)$spec['model_id'],
+            'market_product_id' => (int)$spec['market_product_id'],
+            'market_sku_id' => (int)$spec['market_sku_id'],
+            'channel' => (string)$spec['model_id'],
+            'quality' => (string)$spec['quality'],
+            'ratio' => (string)$spec['ratio'],
             'quantity' => $quantity,
             'style' => 'hairstyle',
         ];
@@ -313,18 +301,21 @@ class AigcHairstyleService
 
     private static function buildHairstyleEstimate(array $prepared, array $imageEstimate): array
     {
-        $quantity = max(1, (int)($prepared['image_payload']['quantity'] ?? 1));
+        if ((string)($imageEstimate['settlement_mode'] ?? 'reserved') !== 'reserved') {
+            throw new Exception('AI hairstyle does not support actual-usage image SKUs');
+        }
+        $quantity = max(1, (int)($imageEstimate['quantity'] ?? $prepared['image_payload']['quantity'] ?? 1));
         $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
-        $userUnitPrice = (float)$prepared['unit_price'];
+        $userUnitPrice = (float)($imageEstimate['tenant_unit_price'] ?? $prepared['unit_price']);
         return array_merge($imageEstimate, [
             'operation' => $prepared['operation'],
             'operation_label' => $prepared['operation_label'],
             'quantity' => $quantity,
             'platform_unit_cost' => $tenantUnitCost,
             'tenant_unit_price' => $userUnitPrice,
-            'tenant_cost_points' => round($tenantUnitCost * $quantity, 2),
-            'user_charge_points' => round($userUnitPrice * $quantity, 2),
-            'display_points' => round($userUnitPrice * $quantity, 2),
+            'tenant_cost_points' => round((float)($imageEstimate['tenant_cost_points'] ?? 0), 2),
+            'user_charge_points' => round((float)($imageEstimate['user_charge_points'] ?? 0), 2),
+            'display_points' => round((float)($imageEstimate['user_charge_points'] ?? 0), 2),
         ]);
     }
 
@@ -350,6 +341,150 @@ class AigcHairstyleService
     {
         $template = trim($template);
         return $template !== '' ? $template : self::DEFAULT_PROMPT_TEMPLATE;
+    }
+
+    /** Convert eligible market image SKUs to the app's compact config contract. */
+    private static function marketOptionConfig(int $tenantId): array
+    {
+        $channels = [];
+        foreach (AigcImageService::marketModelOptions($tenantId) as $model) {
+            if (!is_array($model) || (int)($model['max_reference_images'] ?? 0) < 2) {
+                continue;
+            }
+            $modelId = trim((string)($model['id'] ?? $model['value'] ?? ''));
+            $productId = (int)($model['market_product_id'] ?? 0);
+            if ($modelId === '' || $productId <= 0) {
+                continue;
+            }
+            $qualities = [];
+            foreach ((array)($model['skus'] ?? []) as $sku) {
+                if (!is_array($sku) || (string)($sku['settlement_mode'] ?? 'reserved') !== 'reserved') {
+                    continue;
+                }
+                $skuId = (int)($sku['market_sku_id'] ?? 0);
+                $quality = trim((string)($sku['quality'] ?? $sku['resolution'] ?? ''));
+                if ($skuId <= 0 || $quality === '') {
+                    continue;
+                }
+                $qualities[$quality] ??= [
+                    'value' => $quality,
+                    'label' => strtoupper($quality),
+                    'ratios' => [],
+                ];
+                $ratios = (array)($sku['ratio_options'] ?? []);
+                if ($ratios === []) {
+                    $ratios = [''];
+                }
+                foreach ($ratios as $ratio) {
+                    $ratio = is_array($ratio) ? (string)($ratio['value'] ?? $ratio['ratio'] ?? '') : (string)$ratio;
+                    $qualities[$quality]['ratios'][] = [
+                        'value' => $ratio,
+                        'ratio' => $ratio,
+                        'label' => $ratio === '' ? 'Default' : $ratio,
+                        'model_id' => $modelId,
+                        'market_product_id' => $productId,
+                        'market_sku_id' => $skuId,
+                        'quality' => $quality,
+                        'platform_unit_cost' => (float)($sku['platform_unit_cost'] ?? 0),
+                        'tenant_unit_price' => (float)($sku['tenant_unit_price'] ?? 0),
+                        'usage_unit' => (string)($sku['usage_unit'] ?? ''),
+                        'usage_unit_size' => (float)($sku['usage_unit_size'] ?? 1),
+                        'status' => 1,
+                    ];
+                }
+            }
+            if ($qualities === []) {
+                continue;
+            }
+            $channels[] = [
+                'code' => $modelId,
+                'name' => (string)($model['name'] ?? $modelId),
+                'qualities' => array_values($qualities),
+            ];
+        }
+        $channel = $channels[0] ?? [];
+        $quality = (array)(($channel['qualities'] ?? [])[0] ?? []);
+        $spec = (array)(($quality['ratios'] ?? [])[0] ?? []);
+        return [
+            'market_mode' => true,
+            'channels' => $channels,
+            'defaults' => [
+                'channel' => (string)($channel['code'] ?? ''),
+                'quality' => (string)($quality['value'] ?? ''),
+                'ratio' => (string)($spec['ratio'] ?? ''),
+            ],
+        ];
+    }
+
+    private static function alignMarketConfig(array $config, array $options): array
+    {
+        $config = self::normalizeConfigJson($config);
+        $channels = (array)($options['channels'] ?? []);
+        if ($channels === []) {
+            return $config;
+        }
+        $channel = null;
+        foreach ($channels as $item) {
+            if ((string)($item['code'] ?? '') === (string)$config['channel']) {
+                $channel = $item;
+                break;
+            }
+        }
+        $channel = is_array($channel) ? $channel : $channels[0];
+        $config['channel'] = (string)($channel['code'] ?? '');
+        $qualities = (array)($channel['qualities'] ?? []);
+        $quality = null;
+        foreach ($qualities as $item) {
+            if ((string)($item['value'] ?? '') === (string)$config['quality']) {
+                $quality = $item;
+                break;
+            }
+        }
+        $quality = is_array($quality) ? $quality : ($qualities[0] ?? []);
+        $config['quality'] = (string)($quality['value'] ?? '');
+        $ratios = (array)($quality['ratios'] ?? []);
+        $ratio = null;
+        foreach ($ratios as $item) {
+            if ((string)($item['ratio'] ?? $item['value'] ?? '') === (string)$config['ratio']) {
+                $ratio = $item;
+                break;
+            }
+        }
+        $ratio = is_array($ratio) ? $ratio : ($ratios[0] ?? []);
+        $config['ratio'] = (string)($ratio['ratio'] ?? $ratio['value'] ?? '');
+        return $config;
+    }
+
+    private static function marketSpec(array $options, array $selection): array
+    {
+        $aligned = self::alignMarketConfig($selection, $options);
+        foreach ((array)($options['channels'] ?? []) as $channel) {
+            if ((string)($channel['code'] ?? '') !== (string)$aligned['channel']) {
+                continue;
+            }
+            foreach ((array)($channel['qualities'] ?? []) as $quality) {
+                if ((string)($quality['value'] ?? '') !== (string)$aligned['quality']) {
+                    continue;
+                }
+                foreach ((array)($quality['ratios'] ?? []) as $spec) {
+                    if ((string)($spec['ratio'] ?? $spec['value'] ?? '') === (string)$aligned['ratio']
+                        && (int)($spec['market_sku_id'] ?? 0) > 0) {
+                        return $spec;
+                    }
+                }
+            }
+        }
+        throw new Exception('No eligible power-market image SKU is available for AI hairstyle');
+    }
+
+    private static function operationFromPrompt(string $prompt): string
+    {
+        foreach (self::OPERATION_LABELS as $operation => $label) {
+            if ($label !== '' && str_contains($prompt, $label)) {
+                return $operation;
+            }
+        }
+        return self::OPERATION_HAIR_STYLE_COLOR;
     }
 
     private static function normalizeConfigJson(mixed $config): array

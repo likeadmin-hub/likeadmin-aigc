@@ -6,6 +6,7 @@ use app\common\model\app\aigc_llm\AigcLlmChannel;
 use app\common\model\app\aigc_llm\AigcLlmModel;
 use app\common\service\app\UpstreamPricingService;
 use app\common\service\power\MarketTextModelRuntimeService;
+use app\common\service\power\MarketGenerationCatalogService;
 use Exception;
 
 class AigcLlmChannelService
@@ -14,9 +15,13 @@ class AigcLlmChannelService
     {
         $marketModels = self::marketUserModels($tenantId);
         $defaultModel = $marketModels[0] ?? [];
+        $catalog = MarketGenerationCatalogService::options($tenantId, 'text');
         return [
             'channels' => self::marketUserChannels($marketModels),
             'models' => $marketModels,
+            'applications' => $catalog['applications'],
+            'unavailable_applications' => $catalog['unavailable_applications'],
+            'generation_type' => 'text',
             'defaults' => [
                 'channel' => (string)($defaultModel['channel_code'] ?? ''),
                 'model' => (string)($defaultModel['code'] ?? ''),
@@ -75,7 +80,11 @@ class AigcLlmChannelService
                 'description' => (string)($option['description'] ?? ''),
                 'display_icon' => (string)($option['display_icon'] ?? ''),
                 'channel_code' => $channelCode,
-                'provider' => 'openai_compatible',
+                'provider' => 'power_market',
+                'resource_type' => 'model',
+                'model_type' => 'text',
+                'category_code' => 'text',
+                'category_name' => '文本生成',
                 'model' => $modelCode,
                 'context_limit' => max(1, (int)ceil(((int)($option['max_tokens'] ?? 0)) / 1000)),
                 'tenant_unit_price' => self::formatPoints((float)($option['tenant_unit_price'] ?? $option['tenant_input_unit_price'] ?? 0)),
@@ -116,7 +125,10 @@ class AigcLlmChannelService
             $channels[$code] = [
                 'code' => $code,
                 'name' => $code === 'power_market_text' ? '模型市场' : $code,
-                'provider' => 'openai_compatible',
+                'provider' => 'power_market',
+                'resource_type' => 'model',
+                'model_type' => 'text',
+                'category_code' => 'text',
                 'sort' => (int)($model['sort'] ?? 0),
             ];
         }

@@ -223,7 +223,10 @@ class AiTaskJobService
             return self::queryResult((int)$job['consumption_id'], (int)$job['attempts']);
         }
         if ($type === self::TYPE_PROCESS_RESULT) {
-            AiTaskResultAssetService::recordConsumptionAssets((int)$job['consumption_id'], AiTaskBusinessResultService::requiresForcedTransfer((int)$job['consumption_id']));
+            $consumption = AiConsumptionLog::findOrEmpty((int)$job['consumption_id']);
+            if (!$consumption->isEmpty() && in_array((string)$consumption['run_status'], ['success', 'failed', 'canceled', 'cancelled'], true)) {
+                return AiTaskBusinessResultService::syncTerminalByConsumptionId((int)$job['consumption_id']);
+            }
             AiTaskBusinessResultService::syncByConsumptionId((int)$job['consumption_id']);
             return true;
         }

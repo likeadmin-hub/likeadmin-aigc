@@ -21,6 +21,7 @@ use app\common\service\power\MarketNanoBananaAppRuntimeService;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\power\MarketVideoAppRuntimeService;
 use app\common\service\power\MarketVideoModelRuntimeService;
+use app\common\service\power\PowerMarketService;
 use app\common\service\storage\Driver as StorageDriver;
 use app\common\service\storage\StorageConfigService;
 use Exception;
@@ -1344,6 +1345,9 @@ class AigcCanvasService
                 if (!is_array($option)) {
                     continue;
                 }
+                if (!self::isMarketRuntimeOptionAvailable($option)) {
+                    continue;
+                }
                 $candidate = $params;
                 $candidate['channel'] = (string)($option['id'] ?? '');
                 $candidate['model_id'] = (string)($option['id'] ?? '');
@@ -1364,6 +1368,15 @@ class AigcCanvasService
         } catch (\Throwable) {
         }
         return $attempts;
+    }
+
+    private static function isMarketRuntimeOptionAvailable(array $option): bool
+    {
+        $status = (int)($option['status'] ?? (($option['enabled'] ?? true) === false || ($option['available'] ?? true) === false ? 0 : 1));
+        return $status === 1
+            && ($option['enabled'] ?? true) !== false
+            && ($option['available'] ?? true) !== false
+            && !empty($option['skus']);
     }
 
     private static function hasExplicitImageModelSelection(array $params): bool
@@ -1762,6 +1775,80 @@ class AigcCanvasService
         return $marketDetail;
     }
 
+    public static function textTaskDetail(int $tenantId, int $userId, int $taskId): array
+    {
+        $run = self::findTextRunForTask($tenantId, $userId, $taskId);
+        if (!$run->isEmpty()) {
+            $result = self::repairLegacyProjectText(self::normalizeRunPayload($run['result_json'] ?? []));
+            $content = (string)($result['content'] ?? $result['text'] ?? '');
+            return [
+                'id' => $taskId,
+                'task_id' => (int)($run['source_task_id'] ?: $taskId),
+                'run_id' => (int)$run['id'],
+                'status' => (string)($result['status'] ?? $run['status'] ?? ($content !== '' ? 'success' : 'running')),
+                'error' => (string)($result['error'] ?? $run['error'] ?? ''),
+                'content' => $content,
+                'text' => $content,
+                'model_code' => (string)($result['model_code'] ?? ''),
+                'channel_code' => (string)($result['channel_code'] ?? ''),
+                'finish_reason' => (string)($result['finish_reason'] ?? ''),
+                'usage' => $result['usage'] ?? [],
+                'billing' => $result['billing'] ?? [],
+                'charge_points' => $result['charge_points'] ?? '0.00',
+            ];
+        }
+
+        $query = AiConsumptionLog::where([
+            'id' => $taskId,
+            'tenant_id' => $tenantId,
+            'app_code' => self::APP_CODE,
+            'provider' => 'power_market',
+        ]);
+        if ($userId > 0) {
+            $query->where('user_id', $userId);
+        }
+        $consumption = $query->findOrEmpty();
+        if ($consumption->isEmpty()) {
+            return [];
+        }
+        return [
+            'id' => $taskId,
+            'task_id' => $taskId,
+            'run_id' => 0,
+            'status' => (string)($consumption['run_status'] ?? 'running'),
+            'error' => (string)($consumption['error_message'] ?? ''),
+            'content' => '',
+            'text' => '',
+        ];
+    }
+
+    private static function findTextRunForTask(int $tenantId, int $userId, int $taskId)
+    {
+        $query = AigcCanvasRun::where([
+            'tenant_id' => $tenantId,
+            'run_type' => 'text',
+            'source_task_id' => $taskId,
+            'delete_time' => 0,
+        ]);
+        if ($userId > 0) {
+            $query->where('user_id', $userId);
+        }
+        $run = $query->findOrEmpty();
+        if (!$run->isEmpty()) {
+            return $run;
+        }
+        $query = AigcCanvasRun::where([
+            'tenant_id' => $tenantId,
+            'run_type' => 'text',
+            'id' => $taskId,
+            'delete_time' => 0,
+        ]);
+        if ($userId > 0) {
+            $query->where('user_id', $userId);
+        }
+        return $query->findOrEmpty();
+    }
+
     private static function marketImageTaskDetail(int $tenantId, int $userId, int $consumptionId): array
     {
         $query = AiConsumptionLog::where([
@@ -1904,6 +1991,10 @@ class AigcCanvasService
                     }
                     $models[$code] = [
                         'code' => $code,
+                        'resource_type' => PowerMarketService::TYPE_MODEL,
+                        'model_type' => 'text',
+                        'category_code' => 'text',
+                        'category_name' => '文本生成',
                         'name' => (string)($option['name'] ?? $option['model_code'] ?? $code),
                         'description' => (string)($option['description'] ?? ''),
                         'display_icon' => (string)($option['display_icon'] ?? ''),

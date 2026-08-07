@@ -161,21 +161,6 @@ class MarketTextModelRuntimeService
             ];
         } catch (\Throwable $e) {
             self::fail($context, $e->getMessage(), 'provider_error');
-            $fallback = self::fallbackModel($tenantId, $model, $params, $referenceImages !== [] || !empty($params['requires_vision']));
-            if ($fallback !== []) {
-                if ($onEvent) {
-                    $onEvent('stage', [
-                        'status' => 'running',
-                        'progress' => 12,
-                        'current_step' => '所选模型暂时繁忙，正在切换备用模型',
-                    ]);
-                }
-                $fallbackParams = $params;
-                $fallbackParams['model_selection'] = $fallback;
-                $fallbackParams['model_id'] = (string)$fallback['id'];
-                $fallbackParams['_market_text_fallback_used'] = true;
-                return self::generate($tenantId, $userId, $fallbackParams, $onEvent);
-            }
             throw $e instanceof Exception ? $e : new Exception('文本模型调用失败，请稍后重试');
         }
     }
@@ -329,6 +314,10 @@ class MarketTextModelRuntimeService
             $options[] = [
                 'id' => (string)$product['id'],
                 'product_id' => (int)$product['id'],
+                'resource_type' => PowerMarketService::TYPE_MODEL,
+                'model_type' => 'text',
+                'category_code' => 'text',
+                'category_name' => '文本生成',
                 'name' => (string)$product['name'],
                 'description' => (string)$product['description'],
                 'display_icon' => (string)($product['display_icon'] ?? ''),
@@ -339,6 +328,10 @@ class MarketTextModelRuntimeService
                 'protocols' => $protocols,
                 'max_tokens' => max(0, (int)($meta['max_tokens'] ?? 0)),
                 'default_params' => self::arrayValue($meta['default_params'] ?? []),
+                'params_schema' => self::arrayValue($meta['params_schema'] ?? []),
+                'capabilities' => self::arrayValue($meta['capabilities'] ?? []),
+                'developer_doc_slug' => (string)($meta['developer_doc_slug'] ?? ''),
+                'api_doc' => (string)($meta['api_doc'] ?? ''),
                 'supports_vision' => self::supportsVision($snapshot),
                 'input' => $prices['input'],
                 'output' => $prices['output'],
@@ -774,46 +767,6 @@ class MarketTextModelRuntimeService
         return false;
     }
 
-    /**
-     * Use a recently successful, still-sellable market model only after the
-     * selected model exhausted its safe transient retries. A request can fall
-     * back once, which keeps a persistent provider outage from looping.
-     */
-    private static function fallbackModel(int $tenantId, array $selected, array $params, bool $requiresVision): array
-    {
-        if (!empty($params['_market_text_fallback_used'])) {
-            return [];
-        }
-        $selectedCode = (string)($selected['model_code'] ?? '');
-        if ($selectedCode === '') {
-            return [];
-        }
-        $optionsByCode = [];
-        foreach (self::options($tenantId, $requiresVision) as $option) {
-            $code = (string)($option['model_code'] ?? '');
-            if ($code !== '' && $code !== $selectedCode) {
-                $optionsByCode[$code] = $option;
-            }
-        }
-        if ($optionsByCode === []) {
-            return [];
-        }
-        $successfulCodes = AiConsumptionLog::where([
-            'tenant_id' => $tenantId,
-            'resource_type' => 'model',
-            'run_status' => 'success',
-        ])
-            ->whereIn('model_code', array_keys($optionsByCode))
-            ->order(['finish_time' => 'desc', 'id' => 'desc'])
-            ->column('model_code');
-        foreach ($successfulCodes as $code) {
-            if (isset($optionsByCode[(string)$code])) {
-                return $optionsByCode[(string)$code];
-            }
-        }
-        return [];
-    }
-
     private static function safeCode(string $value, string $fallback): string
     {
         $value = trim($value);
@@ -857,37 +810,63 @@ class MarketTextModelRuntimeService
      */
     private static function generationParams(array $model, array $overrides): array
     {
-        $defaults = (array)($model['default_params'] ?? []);
+        $defaults = self::arrayValue($model['default_params'] ?? []);
+        $allowed = array_fill_keys(self::declaredGenerationParamKeys($model, $defaults), true);
         $result = [];
-        foreach (['temperature', 'top_p', 'presence_penalty', 'frequency_penalty'] as $key) {
-            if (isset($defaults[$key]) && is_numeric($defaults[$key])) {
-                $result[$key] = (float)$defaults[$key];
+        foreach ($defaults as $key => $value) {
+            $key = (string)$key;
+            if (!isset($allowed[$key]) || !self::isGenerationParamValue($value)) {
+                continue;
             }
+            $result[$key] = $value;
         }
-        if (array_key_exists('enable_thinking', $defaults) && is_bool($defaults['enable_thinking'])) {
-            $result['enable_thinking'] = $defaults['enable_thinking'];
-        }
-        if (($overrides['enable_thinking'] ?? null) === true) {
-            $result['enable_thinking'] = true;
-        }
-        if (isset($defaults['stream_options']) && is_array($defaults['stream_options'])) {
-            $result['stream_options'] = $defaults['stream_options'];
-        }
-        foreach (['temperature', 'top_p', 'presence_penalty', 'frequency_penalty'] as $key) {
-            if (array_key_exists($key, $overrides) && is_numeric($overrides[$key])) {
-                $result[$key] = (float)$overrides[$key];
+        foreach ($overrides as $key => $value) {
+            $key = (string)$key;
+            if (!isset($allowed[$key]) || !self::isGenerationParamValue($value)) {
+                continue;
             }
-        }
-        if (self::validResponseFormat($overrides['response_format'] ?? null)) {
-            $result['response_format'] = $overrides['response_format'];
-        }
-        if (!empty($overrides['tools']) && is_array($overrides['tools'])) {
-            $result['tools'] = array_values($overrides['tools']);
-        }
-        if (isset($overrides['tool_choice']) && (is_string($overrides['tool_choice']) || is_array($overrides['tool_choice']))) {
-            $result['tool_choice'] = $overrides['tool_choice'];
+            if ($key === 'response_format' && !self::validResponseFormat($value)) {
+                continue;
+            }
+            $result[$key] = $key === 'tools' && is_array($value) ? array_values($value) : $value;
         }
         return $result;
+    }
+
+    /** @return array<int,string> */
+    private static function declaredGenerationParamKeys(array $model, array $defaults): array
+    {
+        $excluded = array_fill_keys([
+            'model', 'messages', 'prompt', 'input', 'content', 'system', 'system_prompt',
+            'max_tokens', 'callback_url', 'callback', 'idempotency_key',
+            'market_product_id', 'market_sku_id', 'sku_id'
+        ], true);
+        $keys = [];
+        foreach (array_keys($defaults) as $key) {
+            $key = (string)$key;
+            if (!isset($excluded[$key])) {
+                $keys[] = $key;
+            }
+        }
+        $schema = self::arrayValue($model['params_schema'] ?? []);
+        $properties = self::arrayValue($schema['properties'] ?? []);
+        foreach (array_keys($properties !== [] ? $properties : $schema) as $key) {
+            $key = (string)$key;
+            if (!isset($excluded[$key])) {
+                $keys[] = $key;
+            }
+        }
+        foreach (['tools', 'tool_choice', 'response_format'] as $key) {
+            if (isset($defaults[$key]) || array_key_exists($key, $properties) || array_key_exists($key, $schema)) {
+                $keys[] = $key;
+            }
+        }
+        return array_values(array_unique($keys));
+    }
+
+    private static function isGenerationParamValue($value): bool
+    {
+        return $value !== null && $value !== '' && (is_scalar($value) || is_array($value));
     }
 
     private static function validResponseFormat($value): bool

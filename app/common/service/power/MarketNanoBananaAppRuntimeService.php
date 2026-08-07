@@ -25,7 +25,6 @@ class MarketNanoBananaAppRuntimeService
     private const SUBMIT_API_CODE = 'submit';
     private const QUERY_API_CODE = 'query';
     private const MAX_RUNNING_SECONDS = 7200;
-    private const RATIO_OPTIONS = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '5:4', '4:5', '21:9'];
 
     /** @return array<int,array<string,mixed>> */
     public static function options(int $tenantId): array
@@ -45,6 +44,7 @@ class MarketNanoBananaAppRuntimeService
         $options = [];
         foreach ($products as $product) {
             $capabilities = self::capabilities($product);
+            $metadata = self::metadata($product);
             $byModel = [];
             foreach (self::availableSkus($tenantId, (int)$product['id']) as $market) {
                 $sku = (array)$market['sku'];
@@ -70,7 +70,7 @@ class MarketNanoBananaAppRuntimeService
             }
             foreach ($byModel as $model => $skus) {
                 $qualities = array_values(array_unique(array_column($skus, 'quality')));
-                $ratios = self::ratioOptions((array)$product);
+                $ratios = self::ratioOptions((array)$product, (string)$model);
                 $first = $skus[0];
                 $id = self::selectionId((int)$product['id'], $model);
                 $options[] = [
@@ -80,6 +80,10 @@ class MarketNanoBananaAppRuntimeService
                     'market_product_id' => (int)$product['id'],
                     'resource_type' => PowerMarketService::TYPE_APP_API,
                     'resource_type_label' => '应用 API',
+                    'category_code' => 'image',
+                    'app_code' => self::UPSTREAM_APP_CODE,
+                    'api_code' => self::SUBMIT_API_CODE,
+                    'category_name' => '图片生成',
                     'name' => self::optionName($product, $model),
                     'description' => (string)($product['description'] ?? ''),
                     'display_icon' => (string)($product['display_icon'] ?? ''),
@@ -91,13 +95,21 @@ class MarketNanoBananaAppRuntimeService
                     'ratio_options' => $ratios,
                     'default_ratio' => (string)($ratios[0] ?? ''),
                     'skus' => $skus,
+                    'params_schema' => self::arrayValue($metadata['params_schema'] ?? []),
+                    'default_params' => self::arrayValue($metadata['default_params'] ?? []),
+                    'content_schema' => self::arrayValue($metadata['content_schema'] ?? []),
+                    'capabilities' => self::arrayValue($metadata['capabilities'] ?? []),
+                    'developer_doc_slug' => (string)($metadata['developer_doc_slug'] ?? ''),
+                    'api_doc' => (string)($metadata['api_doc'] ?? ''),
                     'max_reference_images' => max(0, (int)($capabilities['max_reference_images'] ?? 0)),
                     'supports_reference_images' => !empty($capabilities['supports_vision']),
                     'reference_input_field' => 'image_urls',
                     'platform_unit_cost' => min(array_column($skus, 'platform_unit_cost')),
                     'tenant_unit_price' => min(array_column($skus, 'tenant_unit_price')),
                     'usage_unit' => (string)$first['usage_unit'],
+                    'status' => 1,
                     'enabled' => true,
+                    'available' => true,
                     'sort' => (int)$product['id'],
                 ];
             }
@@ -152,6 +164,11 @@ class MarketNanoBananaAppRuntimeService
         string $businessTable = 'aigc_short_drama_generation_task'
     ): array
     {
+        $idempotencyKey = self::reservationKey($tenantId, $businessTaskId);
+        $existing = self::existingReservation($tenantId, $idempotencyKey);
+        if ($existing !== null) {
+            return $existing;
+        }
         CanvasImagePromptSubmissionGuard::assertPrepared($appCode, $selection);
         $market = self::resolve($tenantId, $selection);
         $quantity = max(1, $quantity);
@@ -162,14 +179,18 @@ class MarketNanoBananaAppRuntimeService
         $userPrice = $deferredUsage ? 0 : self::points((float)$market['tenant_price'] * $quantity);
         if (!$deferredUsage) PointService::assertCanConsumeAmounts($tenantId, $userId, $tenantCost, $userPrice);
 
-        return Db::transaction(function () use ($tenantId, $userId, $action, $businessTaskId, $market, $request, $quantity, $tenantCost, $userPrice, $deferredUsage, $appCode, $businessTable) {
+        return Db::transaction(function () use ($tenantId, $userId, $action, $businessTaskId, $market, $request, $quantity, $tenantCost, $userPrice, $deferredUsage, $appCode, $businessTable, $idempotencyKey) {
+            $existing = self::existingReservation($tenantId, $idempotencyKey, true);
+            if ($existing !== null) {
+                return $existing;
+            }
             $now = time();
             $appTask = AiAppTask::create([
                 'task_no' => self::no('AT'), 'tenant_id' => $tenantId, 'user_id' => $userId,
                 'app_code' => $appCode, 'action_code' => $action, 'business_table' => $businessTable, 'business_id' => 0, 'parent_task_id' => 0,
                 'status' => 'running', 'progress' => 10, 'request_summary' => self::requestSummary($request), 'result_summary' => [],
                 'estimated_tenant_cost' => $tenantCost, 'estimated_user_price' => $userPrice, 'actual_tenant_cost' => 0, 'actual_user_price' => 0,
-                'idempotency_key' => sha1($tenantId . '|' . $businessTaskId . '|nano_banana'), 'create_time' => $now, 'update_time' => $now, 'finish_time' => 0,
+                'idempotency_key' => $idempotencyKey, 'create_time' => $now, 'update_time' => $now, 'finish_time' => 0,
             ]);
             $consumeNo = self::no('C');
             $consumption = AiConsumptionLog::create([
@@ -186,6 +207,37 @@ class MarketNanoBananaAppRuntimeService
             self::event((int)$consumption['id'], 'reserve', 'success', ['quantity' => $quantity, 'settlement_mode' => $deferredUsage ? 'actual_usage' : 'reserved']);
             return ['app_task_id' => (int)$appTask['id'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => $consumeNo, 'market_snapshot' => self::snapshot($market)];
         });
+    }
+
+    private static function reservationKey(int $tenantId, string $businessTaskId): string
+    {
+        return sha1($tenantId . '|' . $businessTaskId . '|nano_banana');
+    }
+
+    private static function existingReservation(int $tenantId, string $idempotencyKey, bool $lock = false): ?array
+    {
+        $taskQuery = AiAppTask::where(['tenant_id' => $tenantId, 'idempotency_key' => $idempotencyKey]);
+        if ($lock) {
+            $taskQuery->lock(true);
+        }
+        $task = $taskQuery->findOrEmpty();
+        if ($task->isEmpty()) {
+            return null;
+        }
+        $consumptionQuery = AiConsumptionLog::where('app_task_id', (int)$task['id'])->order('id', 'asc');
+        if ($lock) {
+            $consumptionQuery->lock(true);
+        }
+        $consumption = $consumptionQuery->findOrEmpty();
+        if ($consumption->isEmpty()) {
+            throw new Exception('Existing idempotent market task has no consumption record');
+        }
+        return [
+            'app_task_id' => (int)$task['id'],
+            'consumption_id' => (int)$consumption['id'],
+            'consume_no' => (string)$consumption['consume_no'],
+            'market_snapshot' => self::arrayValue($consumption['price_snapshot'] ?? []),
+        ];
     }
 
     public static function linkBusinessTask(int $appTaskId, int $businessId): void
@@ -403,7 +455,7 @@ class MarketNanoBananaAppRuntimeService
                 if (!self::qualityMatches(self::qualityValue($locked), $quality)) {
                     throw new Exception('所选 nano-banana 规格不支持当前分辨率');
                 }
-                self::assertDocumentedRatio($market, $selection);
+                self::assertDocumentedRatio($market + ['product' => $product->toArray(), 'model' => $selectedModel], $selection);
                 return self::resolvedMarket($product->toArray(), $market, $selectedModel);
             }
             throw new Exception('所选 nano-banana 规格已下架');
@@ -422,7 +474,7 @@ class MarketNanoBananaAppRuntimeService
         }
         if ($matches === []) throw new Exception($quality === '' ? '所选 nano-banana 模型暂无可用规格' : '所选 nano-banana 模型不支持 ' . self::qualityLabel($quality));
         $market = $matches[0];
-        self::assertDocumentedRatio($market, $selection);
+        self::assertDocumentedRatio($market + ['product' => $product->toArray(), 'model' => $selectedModel], $selection);
         return self::resolvedMarket($product->toArray(), $market, $selectedModel);
     }
 
@@ -541,15 +593,44 @@ class MarketNanoBananaAppRuntimeService
         return array_values(array_unique(array_filter(array_map('strval', $values), static fn(string $value): bool => trim($value) !== '')));
     }
     /** @return array<int,string> */
-    private static function ratioOptions(array $product): array
+    private static function ratioOptions(array $product, string $model = ''): array
     {
         $options = self::documentedOptions($product, ['aspect_ratio', 'ratio']);
-        // Earlier market records use 1:1 as a placeholder rather than the full
-        // Nano Banana capability enum. Treat that single-value legacy schema as absent.
-        if ($options === [] || $options === ['1:1']) {
-            return self::RATIO_OPTIONS;
+        if ($options !== []) {
+            return $options;
         }
-        return $options;
+        return self::marketImageModelRatioOptions($model);
+    }
+
+    /** @return array<int,string> */
+    private static function marketImageModelRatioOptions(string $model): array
+    {
+        $model = trim($model);
+        $baseModel = self::baseModel($model);
+        $candidates = array_values(array_unique(array_filter([$model, $baseModel])));
+        if (str_starts_with($baseModel, 'nano-banana-2-lite')) {
+            $candidates[] = 'nano-banana-2';
+        }
+        $products = [];
+        if ($candidates !== []) {
+            $products = PowerMarketProduct::where([
+                'resource_type' => PowerMarketService::TYPE_MODEL,
+                'model_type' => 'image',
+                'status' => 1,
+            ])->whereIn('upstream_model_code', array_values(array_unique($candidates)))->select()->toArray();
+        }
+        if ($products === [] && str_starts_with($baseModel, 'nano-banana')) {
+            $products = PowerMarketProduct::where([
+                'resource_type' => PowerMarketService::TYPE_MODEL,
+                'model_type' => 'image',
+                'status' => 1,
+            ])->whereLike('upstream_model_code', 'nano-banana%')->select()->toArray();
+        }
+        $values = [];
+        foreach ($products as $product) {
+            $values = array_merge($values, self::documentedOptions((array)$product, ['aspect_ratio', 'ratio']));
+        }
+        return array_values(array_unique(array_filter($values, static fn(string $value): bool => trim($value) !== '')));
     }
     /** @param array<string,bool> $wanted @param array<int,string> $values */
     private static function collectDocumentedOptions($schema, array $wanted, array &$values): void
@@ -563,14 +644,28 @@ class MarketNanoBananaAppRuntimeService
             }
             foreach (['options', 'enum', 'values', 'allowed_values'] as $optionKey) {
                 foreach ((array)($field[$optionKey] ?? []) as $option) {
-                    if (is_scalar($option) && trim((string)$option) !== '') {
-                        $values[] = trim((string)$option);
-                    } elseif (is_array($option) && trim((string)($option['value'] ?? $option['code'] ?? '')) !== '') {
-                        $values[] = trim((string)($option['value'] ?? $option['code']));
+                    foreach (self::documentedOptionValues($option) as $value) {
+                        $values[] = $value;
                     }
                 }
             }
         }
+    }
+
+    /** @return array<int,string> */
+    private static function documentedOptionValues($option): array
+    {
+        if (is_array($option)) {
+            $option = $option['value'] ?? $option['code'] ?? '';
+        }
+        if (!is_scalar($option)) {
+            return [];
+        }
+        $value = trim((string)$option);
+        if ($value === '') {
+            return [];
+        }
+        return array_values(array_filter(array_map('trim', preg_split('/\s*(?:\/|,|，|\|)\s*/u', $value) ?: []), static fn(string $item): bool => $item !== ''));
     }
     private static function assertDocumentedRatio(array $market, array $request): void
     {
@@ -578,10 +673,11 @@ class MarketNanoBananaAppRuntimeService
         if ($ratio === '') {
             return;
         }
-        if (!in_array($ratio, self::ratioOptions((array)($market['product'] ?? [])), true)) {
+        if (!in_array($ratio, self::ratioOptions((array)($market['product'] ?? []), (string)($market['model'] ?? '')), true)) {
             throw new Exception('所选 nano-banana 应用 API 未声明该生成比例');
         }
     }
+    private static function metadata(array $product): array { $source = self::arrayValue($product['source_payload'] ?? []); return self::arrayValue($source['market_metadata'] ?? []); }
     private static function capabilities(array $product): array { $source = self::arrayValue($product['source_payload'] ?? []); $resource = self::arrayValue($source['raw']['resource'] ?? $source['resource'] ?? []); return array_merge(self::arrayValue($resource['capabilities'] ?? []), $resource); }
     private static function requestSummary(array $request): array { return ['prompt_length' => mb_strlen((string)($request['prompt'] ?? '')), 'reference_image_count' => count((array)($request['reference_images'] ?? [])), 'ratio' => (string)($request['ratio'] ?? ''), 'quality' => (string)($request['quality'] ?? '')]; }
     private static function assertReferences(array $market, array $request): void { $count = count(array_filter((array)($request['reference_images'] ?? []))); $limit = (int)$market['reference_limit']; if ($count > $limit) throw new Exception($limit > 0 ? '所选 nano-banana 模型最多支持 ' . $limit . ' 张参考图' : '所选 nano-banana 模型不支持参考图'); }

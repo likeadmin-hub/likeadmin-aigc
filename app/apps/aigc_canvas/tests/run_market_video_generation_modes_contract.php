@@ -70,8 +70,8 @@ $legacyModes = $modesMethod->invoke(null, $product, [
     'supported_asset_types' => ['image'],
     'max_reference_images' => 2,
 ]);
-if ($legacyModes !== ['text_to_video', 'image_to_video', 'start_end', 'image_reference']) {
-    $failures[] = 'legacy video capability fallback was not preserved';
+if ($legacyModes !== ['text_to_video', 'image_to_video', 'image_reference']) {
+    $failures[] = 'market asset-type fallback should not invent start/end frame capability';
 }
 
 $source = file_get_contents($root . '/app/common/service/power/MarketVideoRuntimeService.php');

@@ -286,10 +286,25 @@ class CanvasModelRouterService
                 MarketImageModelRuntimeService::options($tenantId),
                 MarketNanoBananaAppRuntimeService::options($tenantId)
             );
+            $items = self::availableRuntimeOptions($items);
             return ['default' => (string)(($items[0] ?? [])['id'] ?? ''), 'options' => $items];
         } catch (\Throwable) {
             return ['default' => '', 'options' => []];
         }
+    }
+
+    private static function availableRuntimeOptions(array $items): array
+    {
+        return array_values(array_filter($items, static function ($item): bool {
+            if (!is_array($item)) {
+                return false;
+            }
+            $status = (int)($item['status'] ?? (($item['enabled'] ?? true) === false || ($item['available'] ?? true) === false ? 0 : 1));
+            return $status === 1
+                && ($item['enabled'] ?? true) !== false
+                && ($item['available'] ?? true) !== false
+                && !empty($item['skus']);
+        }));
     }
 
     private static function videoOverview(int $tenantId): array

@@ -11,6 +11,7 @@ use app\common\model\power\TenantPowerMarketSkuPrice;
 use app\common\service\ai\AiTaskLifecycleEventService;
 use app\common\service\ai\AiTaskJobService;
 use app\common\service\ai\AiTaskResultUrlService;
+use app\common\service\ai\MarketAppGateService;
 use app\common\service\app\aigc_music\AigcMusicAssetService;
 use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
@@ -73,6 +74,7 @@ class MarketMusicAppRuntimeService
 
         $options = [];
         foreach ($products as $product) {
+            $metadata = self::metadata($product);
             $skus = PowerMarketSku::where([
                 'product_id' => (int)$product['id'],
                 'status' => 1,
@@ -105,6 +107,8 @@ class MarketMusicAppRuntimeService
                     'display_icon' => (string)($product['display_icon'] ?? ''),
                     'resource_type' => 'app_api',
                     'resource_type_label' => '应用 API',
+                    'category_code' => 'audio',
+                    'category_name' => '音频生成',
                     'market_product_id' => (int)$product['id'],
                     'market_sku_id' => (int)$sku['id'],
                     'sku_id' => (int)$sku['id'],
@@ -115,6 +119,12 @@ class MarketMusicAppRuntimeService
                     // declares one. Do not manufacture music durations locally.
                     'duration_options' => $duration > 0 ? [$duration] : [],
                     'locked_params' => $locked,
+                    'params_schema' => self::arrayValue($metadata['params_schema'] ?? []),
+                    'default_params' => self::arrayValue($metadata['default_params'] ?? []),
+                    'content_schema' => self::arrayValue($metadata['content_schema'] ?? []),
+                    'capabilities' => self::arrayValue($metadata['capabilities'] ?? []),
+                    'developer_doc_slug' => (string)($metadata['developer_doc_slug'] ?? ''),
+                    'api_doc' => (string)($metadata['api_doc'] ?? ''),
                     'platform_unit_cost' => self::points((float)$sku['sale_points']),
                     'tenant_unit_price' => self::points($tenantPrice),
                     'usage_unit' => (string)$sku['usage_unit'],
@@ -160,13 +170,25 @@ class MarketMusicAppRuntimeService
         string $businessTable = 'aigc_short_drama_generation_task'
     ): array
     {
+        if (MarketAppGateService::requiresGate($appCode)) {
+            MarketAppGateService::requireMarket($tenantId, $userId, $appCode, (string)($request['idempotency_key'] ?? $businessTaskId));
+        }
+        $idempotencyKey = self::reservationKey($tenantId, $appCode, $actionCode, $businessTaskId);
+        $existing = self::existingReservation($tenantId, $idempotencyKey);
+        if ($existing !== null) {
+            return $existing;
+        }
         $market = self::resolve($tenantId, $selection);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
         $tenantCost = $deferredUsage ? 0 : self::points((float)$market['sku']['sale_points']);
         $userPrice = $deferredUsage ? 0 : self::points((float)$market['tenant_price']);
         if (!$deferredUsage) PointService::assertCanConsumeAmounts($tenantId, $userId, $tenantCost, $userPrice);
 
-        return Db::transaction(function () use ($tenantId, $userId, $businessTaskId, $request, $market, $tenantCost, $userPrice, $deferredUsage, $appCode, $actionCode, $businessTable) {
+        return Db::transaction(function () use ($tenantId, $userId, $businessTaskId, $request, $market, $tenantCost, $userPrice, $deferredUsage, $appCode, $actionCode, $businessTable, $idempotencyKey) {
+            $existing = self::existingReservation($tenantId, $idempotencyKey, true);
+            if ($existing !== null) {
+                return $existing;
+            }
             $now = time();
             $appTask = AiAppTask::create([
                 'task_no' => self::no('AT'), 'tenant_id' => $tenantId, 'user_id' => $userId,
@@ -176,7 +198,7 @@ class MarketMusicAppRuntimeService
                 'request_summary' => self::requestSummary($request), 'result_summary' => [],
                 'estimated_tenant_cost' => $tenantCost, 'estimated_user_price' => $userPrice,
                 'actual_tenant_cost' => 0, 'actual_user_price' => 0,
-                'idempotency_key' => sha1($tenantId . '|' . $appCode . '|' . $actionCode . '|' . $businessTaskId . '|music'),
+                'idempotency_key' => $idempotencyKey,
                 'create_time' => $now, 'update_time' => $now, 'finish_time' => 0,
             ]);
             $consumeNo = self::no('C');
@@ -197,6 +219,37 @@ class MarketMusicAppRuntimeService
             self::event((int)$consumption['id'], 'reserve', 'success', ['settlement_mode' => $deferredUsage ? 'actual_usage' : 'reserved']);
             return ['app_task_id' => (int)$appTask['id'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => $consumeNo, 'market_snapshot' => self::snapshot($market)];
         });
+    }
+
+    private static function reservationKey(int $tenantId, string $appCode, string $actionCode, string $businessTaskId): string
+    {
+        return sha1($tenantId . '|' . $appCode . '|' . $actionCode . '|' . $businessTaskId . '|music');
+    }
+
+    private static function existingReservation(int $tenantId, string $idempotencyKey, bool $lock = false): ?array
+    {
+        $taskQuery = AiAppTask::where(['tenant_id' => $tenantId, 'idempotency_key' => $idempotencyKey]);
+        if ($lock) {
+            $taskQuery->lock(true);
+        }
+        $task = $taskQuery->findOrEmpty();
+        if ($task->isEmpty()) {
+            return null;
+        }
+        $consumptionQuery = AiConsumptionLog::where('app_task_id', (int)$task['id'])->order('id', 'asc');
+        if ($lock) {
+            $consumptionQuery->lock(true);
+        }
+        $consumption = $consumptionQuery->findOrEmpty();
+        if ($consumption->isEmpty()) {
+            throw new Exception('Existing idempotent market task has no consumption record');
+        }
+        return [
+            'app_task_id' => (int)$task['id'],
+            'consumption_id' => (int)$consumption['id'],
+            'consume_no' => (string)$consumption['consume_no'],
+            'market_snapshot' => self::arrayValue($consumption['price_snapshot'] ?? []),
+        ];
     }
 
     public static function linkBusinessTask(int $appTaskId, int $businessId): void
@@ -403,6 +456,7 @@ class MarketMusicAppRuntimeService
     private static function event(int $consumptionId, string $type, string $status, array $summary): void { AiConsumptionEvent::create(['consumption_id' => $consumptionId, 'event_type' => $type, 'event_status' => $status, 'attempt_no' => 1, 'payload_summary' => $summary, 'payload_ciphertext' => '', 'http_status' => 0, 'elapsed_ms' => 0, 'create_time' => time()]); }
     private static function taskLabel(string $appCode): string { return $appCode === self::APP_CODE ? '短剧背景音乐' : '无限画布音乐生成'; }
     private static function extra(AiAppTask $task, AiConsumptionLog $consumption, string $stage): array { return ['app_code' => (string)($task['app_code'] ?? self::APP_CODE), 'app_task_id' => (int)$task['id'], 'app_task_no' => (string)$task['task_no'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => (string)$consumption['consume_no'], 'billing_stage' => $stage]; }
+    private static function metadata(array $product): array { $source = self::arrayValue($product['source_payload'] ?? []); return self::arrayValue($source['market_metadata'] ?? []); }
     private static function arrayValue($value): array { if (is_array($value)) return $value; if (is_string($value) && $value !== '') { $decoded = json_decode($value, true); return is_array($decoded) ? $decoded : []; } return []; }
     private static function timestampValue($value): int { if (is_int($value) || is_float($value)) return (int)$value; if (is_string($value)) { $value = trim($value); if ($value === '') return 0; if (ctype_digit($value)) return (int)$value; $timestamp = strtotime($value); return $timestamp === false ? 0 : $timestamp; } return 0; }
     private static function points(float $value): float { return round(max(0, $value), 6); }

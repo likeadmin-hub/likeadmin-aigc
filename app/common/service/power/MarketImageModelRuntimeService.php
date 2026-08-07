@@ -26,11 +26,6 @@ class MarketImageModelRuntimeService
     public const APP_CODE = 'aigc_short_drama';
     private const SUBMIT_PATH = '/api/v1/tasks';
     private const TASK_PATH = '/api/v1/tasks/{task_id}';
-    private const MODEL_QUALITY_OPTIONS = [
-        'nano-banana-2' => ['1k', '2k', '4k'],
-        'nano-banana-pro' => ['1k', '2k', '4k'],
-    ];
-
     /** @return array{key:string,label:string,type:string,options:array<int,array<string,mixed>>,default:string} */
     public static function modelGroup(int $tenantId): array
     {
@@ -57,6 +52,11 @@ class MarketImageModelRuntimeService
         $options = [];
         foreach ($products as $product) {
             $meta = self::metadata($product);
+            $platformSkuCount = PowerMarketSku::where([
+                'product_id' => (int)$product['id'],
+                'status' => 1,
+                'sale_status' => 1,
+            ])->count();
             $skus = [];
             foreach (self::availableSkus($tenantId, (int)$product['id']) as $market) {
                 $sku = $market['sku'];
@@ -77,20 +77,25 @@ class MarketImageModelRuntimeService
                     'settlement_mode' => MarketUsageSettlementService::isActualUsageSku($sku) ? 'actual_usage' : 'reserved',
                 ];
             }
-            if ($skus === []) {
-                continue;
-            }
+            $available = $skus !== [];
+            $unavailableReason = $available ? '' : ((int)$platformSkuCount > 0 ? '租户未上架该图片模型 SKU' : '暂无可售 SKU');
             $qualities = array_values(array_unique(array_filter(array_map(static fn(array $item): string => (string)$item['quality'], $skus))));
             if ($qualities === []) {
                 $qualities = self::modelQualityOptions($product, $meta);
             }
-            $ratios = array_values(array_unique(array_merge(...array_map(static fn(array $item): array => (array)$item['ratio_options'], $skus))));
-            $first = $skus[0];
+            $ratios = $skus !== []
+                ? array_values(array_unique(array_merge(...array_map(static fn(array $item): array => (array)$item['ratio_options'], $skus))))
+                : self::ratioOptions([], $meta);
+            $first = $skus[0] ?? [];
             $modelId = self::modelId((int)$product['id']);
             $options[] = [
                 'id' => $modelId,
                 'value' => $modelId,
                 'market_product_id' => (int)$product['id'],
+                'resource_type' => PowerMarketService::TYPE_MODEL,
+                'model_type' => 'image',
+                'category_code' => 'image',
+                'category_name' => '图片生成',
                 'market_sku_id' => 0,
                 'name' => (string)$product['name'],
                 'description' => (string)$product['description'],
@@ -102,15 +107,24 @@ class MarketImageModelRuntimeService
                 'resolution_options' => array_map(static fn(string $quality): array => ['value' => $quality, 'label' => self::qualityLabel($quality)], $qualities),
                 'ratio_options' => $ratios,
                 'default_quality' => (string)($qualities[0] ?? ''),
-                'default_ratio' => (string)($first['ratio_options'][0] ?? ''),
+                'default_ratio' => (string)($first['ratio_options'][0] ?? $ratios[0] ?? ''),
                 'skus' => $skus,
+                'params_schema' => self::arrayValue($meta['params_schema'] ?? []),
+                'default_params' => self::arrayValue($meta['default_params'] ?? []),
+                'content_schema' => self::arrayValue($meta['content_schema'] ?? []),
+                'capabilities' => self::arrayValue($meta['capabilities'] ?? []),
+                'developer_doc_slug' => (string)($meta['developer_doc_slug'] ?? ''),
+                'api_doc' => (string)($meta['api_doc'] ?? ''),
                 'max_reference_images' => self::referenceLimit($meta),
-                'supports_reference_images' => self::referenceLimit($meta) > 0,
+                'supports_reference_images' => self::supportsReferenceImages($meta),
                 'reference_input_field' => self::referenceImageField(['market_metadata' => $meta]),
-                'platform_unit_cost' => min(array_column($skus, 'platform_unit_cost')),
-                'tenant_unit_price' => min(array_column($skus, 'tenant_unit_price')),
-                'usage_unit' => (string)$first['usage_unit'],
-                'enabled' => true,
+                'platform_unit_cost' => $available ? min(array_column($skus, 'platform_unit_cost')) : '0.00',
+                'tenant_unit_price' => $available ? min(array_column($skus, 'tenant_unit_price')) : '0.00',
+                'usage_unit' => (string)($first['usage_unit'] ?? ''),
+                'enabled' => $available,
+                'status' => $available ? 1 : 0,
+                'available' => $available,
+                'unavailable_reason' => $unavailableReason,
                 'sort' => (int)$product['id'],
             ];
         }
@@ -118,12 +132,12 @@ class MarketImageModelRuntimeService
     }
 
     /** @return array<string, mixed> */
-    public static function quote(int $tenantId, array $selection, int $quantity = 1): array
+    public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = []): array
     {
         $market = self::resolve($tenantId, $selection);
         $quantity = max(1, $quantity);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
-        return [
+        $quote = [
             'billing_unit' => (string)$market['sku']['usage_unit'],
             'billing_unit_size' => MarketUsageSettlementService::unitSize($market['sku']),
             'quantity' => $deferredUsage ? 0 : $quantity,
@@ -137,6 +151,7 @@ class MarketImageModelRuntimeService
             'market_sku_id' => (int)$market['sku']['id'],
             'market_snapshot' => self::snapshot($market),
         ];
+        return self::applyBillingOverride($quote, $billingOverride);
     }
 
     /** @return array{app_task_id:int,consumption_id:int,consume_no:string,market_snapshot:array<string,mixed>} */
@@ -149,18 +164,23 @@ class MarketImageModelRuntimeService
         array $request,
         int $quantity = 1,
         string $appCode = self::APP_CODE,
-        string $businessTable = 'aigc_short_drama_generation_task'
+        string $businessTable = 'aigc_short_drama_generation_task',
+        array $billingOverride = []
     ): array {
         CanvasImagePromptSubmissionGuard::assertPrepared($appCode, $selection);
         $market = self::resolve($tenantId, $selection);
         $quantity = max(1, $quantity);
         self::assertReferenceImagesAllowed($market, $request);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
-        $tenantCost = $deferredUsage ? 0 : self::points((float)$market['sku']['sale_points'] * $quantity);
-        $userPrice = $deferredUsage ? 0 : self::points((float)$market['tenant_price'] * $quantity);
+        if ($deferredUsage && $billingOverride !== []) {
+            throw new Exception('按应用售价结算暂不支持按实际用量计费的图片 SKU');
+        }
+        $quote = self::quote($tenantId, $selection, $quantity, $billingOverride);
+        $tenantCost = (float)$quote['tenant_cost_points'];
+        $userPrice = (float)$quote['user_charge_points'];
         if (!$deferredUsage) PointService::assertCanConsumeAmounts($tenantId, $userId, $tenantCost, $userPrice);
 
-        return Db::transaction(function () use ($tenantId, $userId, $appCode, $action, $businessTable, $businessTaskId, $request, $quantity, $market, $tenantCost, $userPrice, $deferredUsage) {
+        return Db::transaction(function () use ($tenantId, $userId, $appCode, $action, $businessTable, $businessTaskId, $request, $quantity, $market, $tenantCost, $userPrice, $deferredUsage, $billingOverride) {
             $now = time();
             $appTask = AiAppTask::create([
                 'task_no' => self::no('AT'), 'tenant_id' => $tenantId, 'user_id' => $userId,
@@ -181,7 +201,7 @@ class MarketImageModelRuntimeService
                 'model_code' => (string)$market['product']['upstream_model_code'], 'api_code' => (string)$market['product']['upstream_channel_code'],
                 'protocol' => 'image_generate', 'provider' => 'power_market', 'upstream_request_id' => '', 'upstream_task_id' => '',
                 'quantity' => $deferredUsage ? 0 : $quantity, 'usage_unit' => (string)$market['sku']['usage_unit'], 'usage_snapshot' => ['settlement_basis' => $deferredUsage ? 'awaiting_actual_usage' : 'submit_snapshot'],
-                'price_snapshot' => self::snapshot($market), 'request_summary' => self::requestSummary($request), 'response_summary' => [],
+                'price_snapshot' => self::snapshotWithBillingOverride($market, $billingOverride), 'request_summary' => self::requestSummary($request), 'response_summary' => [],
                 'run_status' => 'reserved', 'billing_status' => $deferredUsage ? 'pending_usage' : 'reserved',
                 'reserved_tenant_cost' => $tenantCost, 'reserved_user_price' => $userPrice,
                 'actual_tenant_cost' => 0, 'actual_user_price' => 0,
@@ -189,7 +209,7 @@ class MarketImageModelRuntimeService
                 'error_code' => '', 'error_message' => '', 'refresh_requested_at' => 0,
                 'create_time' => $now, 'update_time' => $now, 'finish_time' => 0,
             ]);
-            if (!$deferredUsage) PointService::reserveBusinessAmountsInCurrentTransaction($tenantId, $userId, $tenantCost, $userPrice, $consumeNo . '-reserve', '短剧图片模型预占', self::extra($appTask, $consumption, 'reserved'));
+            if (!$deferredUsage) PointService::reserveBusinessAmountsInCurrentTransaction($tenantId, $userId, $tenantCost, $userPrice, $consumeNo . '-reserve', self::taskLabel($appCode) . '预占', self::extra($appTask, $consumption, 'reserved'));
             self::event((int)$consumption['id'], 'reserve', 'success', ['quantity' => $quantity, 'settlement_mode' => $deferredUsage ? 'actual_usage' : 'reserved']);
             return ['app_task_id' => (int)$appTask['id'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => $consumeNo, 'market_snapshot' => self::snapshot($market)];
         });
@@ -331,6 +351,34 @@ class MarketImageModelRuntimeService
         }
     }
 
+    /** A consuming app may set its sale price but never lower market cost. */
+    private static function applyBillingOverride(array $quote, array $billingOverride): array
+    {
+        if ($billingOverride === []) {
+            return $quote;
+        }
+        if (array_key_exists('tenant_unit_cost', $billingOverride)
+            && abs((float)$billingOverride['tenant_unit_cost'] - (float)$quote['tenant_unit_points']) > 0.000001) {
+            throw new Exception('应用不能覆盖算力市场平台成本');
+        }
+        if (array_key_exists('user_unit_price', $billingOverride)) {
+            $unit = self::points((float)$billingOverride['user_unit_price']);
+            $quote['user_unit_points'] = $unit;
+            $quote['user_charge_points'] = self::points($unit * max(1, (int)$quote['quantity']));
+        }
+        return $quote;
+    }
+
+    private static function snapshotWithBillingOverride(array $market, array $billingOverride): array
+    {
+        $snapshot = self::snapshot($market);
+        if (array_key_exists('user_unit_price', $billingOverride)) {
+            $snapshot['fixed_user_unit_price'] = self::points((float)$billingOverride['user_unit_price']);
+            $snapshot['app_sale_price_override'] = true;
+        }
+        return $snapshot;
+    }
+
     private static function settle(int $consumptionId, array $images, string $requestId, string $taskId, array $response): void
     {
         Db::transaction(function () use ($consumptionId, $images, $requestId, $taskId, $response) {
@@ -349,8 +397,10 @@ class MarketImageModelRuntimeService
             }
             $billedQuantity = $deferredUsage ? $actualUsage : $quantity;
             $tenant = $deferredUsage ? MarketUsageSettlementService::price((float)($snapshot['platform_price'] ?? 0), $billedQuantity, $snapshot) : self::points((float)($snapshot['platform_price'] ?? 0) * $quantity);
-            $user = $deferredUsage ? MarketUsageSettlementService::price((float)($snapshot['tenant_price'] ?? 0), $billedQuantity, $snapshot) : self::points((float)($snapshot['tenant_price'] ?? 0) * $quantity);
-            if ($deferredUsage) { PointService::assertCanConsumeAmounts((int)$c['tenant_id'], (int)$c['user_id'], $tenant, $user); PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], $tenant, $user, (string)$c['consume_no'], '短剧图片模型实际用量结算', self::extra($task, $c, 'settled')); } else PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], $tenant, $user, (string)$c['consume_no'], '短剧图片模型结算', self::extra($task, $c, 'settled'));
+            $user = array_key_exists('fixed_user_unit_price', $snapshot)
+                ? self::points((float)$snapshot['fixed_user_unit_price'] * $quantity)
+                : ($deferredUsage ? MarketUsageSettlementService::price((float)($snapshot['tenant_price'] ?? 0), $billedQuantity, $snapshot) : self::points((float)($snapshot['tenant_price'] ?? 0) * $quantity));
+            if ($deferredUsage) { PointService::assertCanConsumeAmounts((int)$c['tenant_id'], (int)$c['user_id'], $tenant, $user); PointService::consumeBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], $tenant, $user, (string)$c['consume_no'], self::taskLabel((string)$task['app_code']) . '实际用量结算', self::extra($task, $c, 'settled')); } else PointService::settleReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], $tenant, $user, (string)$c['consume_no'], self::taskLabel((string)$task['app_code']) . '结算', self::extra($task, $c, 'settled'));
             $now = time(); $c->save(['run_status' => 'success', 'billing_status' => 'settled', 'upstream_request_id' => $requestId ?: (string)$c['upstream_request_id'], 'upstream_task_id' => $taskId ?: (string)$c['upstream_task_id'], 'quantity' => $billedQuantity, 'usage_snapshot' => ['image_count' => $quantity, 'actual_token_usage' => $deferredUsage ? $actualUsage : 0], 'response_summary' => ['image_count' => $quantity, 'images' => $images], 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'tenant_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['consume_no'] . '-reserve', 'user_point_sn' => $deferredUsage ? (string)$c['consume_no'] : (string)$c['consume_no'] . '-reserve', 'error_code' => '', 'error_message' => '', 'refresh_requested_at' => 0, 'finish_time' => $now, 'update_time' => $now]);
             $task->save(['status' => 'success', 'progress' => 100, 'actual_tenant_cost' => $tenant, 'actual_user_price' => $user, 'finish_time' => $now, 'update_time' => $now]);
             self::event((int)$c['id'], 'settle', 'success', ['image_count' => $quantity]);
@@ -624,24 +674,26 @@ class MarketImageModelRuntimeService
         if ($qualities !== []) {
             return $qualities;
         }
-        return self::MODEL_QUALITY_OPTIONS[strtolower(trim((string)($product['upstream_model_code'] ?? '')))] ?? [];
+        return [];
     }
 
     private static function metadata(array $product): array { $source = self::arrayValue($product['source_payload'] ?? []); return (array)($source['market_metadata'] ?? []); }
-    private static function referenceLimit(array $meta): int { $capabilities = self::arrayValue($meta['capabilities'] ?? []); foreach (['max_reference_images','max_reference_image_count','reference_image_limit'] as $key) { if (isset($meta[$key])) return max(0, (int)$meta[$key]); if (isset($capabilities[$key])) return max(0, (int)$capabilities[$key]); } return !empty($meta['supports_reference_images']) || !empty($capabilities['supports_reference_images']) ? 1 : 0; }
+    private static function referenceLimit(array $meta): int { $capabilities = self::arrayValue($meta['capabilities'] ?? []); foreach (['max_reference_images','max_reference_image_count','reference_image_limit'] as $key) { if (isset($meta[$key])) return max(0, (int)$meta[$key]); if (isset($capabilities[$key])) return max(0, (int)$capabilities[$key]); } return 0; }
+    private static function supportsReferenceImages(array $meta): bool { $capabilities = self::arrayValue($meta['capabilities'] ?? []); if (!empty($meta['supports_reference_images']) || !empty($capabilities['supports_reference_images']) || self::referenceLimit($meta) > 0) return true; $schema = self::arrayValue($meta['params_schema'] ?? []); foreach (['urls', 'image_urls', 'images', 'reference_images'] as $field) if (array_key_exists($field, $schema)) return true; return false; }
     private static function firstValue(array $params, array $keys): string { foreach ($keys as $key) if (isset($params[$key]) && $params[$key] !== '') return (string)$params[$key]; return ''; }
     private static function qualityOptions(array $locked): array { $v = self::firstValue($locked, ['quality','resolution','image_size']); return $v === '' ? [] : [$v]; }
     private static function resolutionOptions(array $locked): array { $v = self::firstValue($locked, ['quality','resolution','image_size']); return $v === '' ? [] : [['value' => $v, 'label' => $v, 'ratio_options' => self::ratioOptions($locked, [])]]; }
     private static function ratioOptions(array $locked, array $meta): array { $v = self::firstValue($locked, ['ratio','aspect_ratio']); if ($v !== '' && !self::isPlaceholderRatio($v)) return [$v]; $schema = self::arrayValue($meta['params_schema'] ?? []); $values = $meta['supported_ratios'] ?? $meta['ratios'] ?? $schema['aspect_ratio']['options'] ?? []; if (is_string($values)) $values = preg_split('/\s*\/\s*/', $values) ?: []; return array_values(array_filter(array_map('strval', (array)$values), static fn(string $ratio): bool => !self::isPlaceholderRatio($ratio))); }
-    private static function normalizedRatio(string $ratio): string { $ratio = trim($ratio); if ($ratio === '') return ''; $normalized = strtolower($ratio); if (in_array($normalized, ['auto','adaptive','default','original'], true)) return ''; if (in_array($ratio, ['默认','自适应','原比例'], true)) return ''; return $ratio; }
-    private static function isPlaceholderRatio(string $ratio): bool { $ratio = trim($ratio); if ($ratio === '') return true; $normalized = strtolower($ratio); return in_array($normalized, ['auto','adaptive','default','original'], true) || in_array($ratio, ['默认','自适应','原比例'], true); }
+    private static function normalizedRatio(string $ratio): string { $ratio = trim($ratio); return self::isPlaceholderRatio($ratio) ? '' : $ratio; }
+    private static function isPlaceholderRatio(string $ratio): bool { return trim($ratio) === ''; }
     private static function snapshot(array $market): array { $product = $market['product']; $sku = $market['sku']; return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'market_metadata' => self::metadata($product), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'max_reference_images' => (int)($market['reference_limit'] ?? 0)]; }
     private static function requestSummary(array $request): array { return ['prompt_length' => mb_strlen((string)($request['prompt'] ?? '')), 'reference_image_count' => count((array)($request['reference_images'] ?? [])), 'ratio' => (string)($request['ratio'] ?? ''), 'quality' => (string)($request['quality'] ?? '')]; }
-    private static function assertReferenceImagesAllowed(array $market, array $request): void { $count = count(array_filter((array)($request['reference_images'] ?? []))); $limit = (int)($market['reference_limit'] ?? 0); if ($count > $limit) throw new Exception($limit > 0 ? '所选图片模型最多支持 ' . $limit . ' 张参考图' : '所选图片模型不支持参考图'); }
+    private static function assertReferenceImagesAllowed(array $market, array $request): void { $count = count(array_filter((array)($request['reference_images'] ?? []))); if ($count <= 0) return; $meta = self::metadata($market['product']); $limit = (int)($market['reference_limit'] ?? 0); if (!self::supportsReferenceImages($meta)) throw new Exception('所选图片模型不支持参考图'); if ($limit > 0 && $count > $limit) throw new Exception('所选图片模型最多支持 ' . $limit . ' 张参考图'); }
     private static function context(int $consumptionId, bool $lock): ?array { $q = AiConsumptionLog::where('id', $consumptionId); if ($lock) $q->lock(true); $c = $q->findOrEmpty(); if ($c->isEmpty()) return null; $tq = AiAppTask::where('id', (int)$c['app_task_id']); if ($lock) $tq->lock(true); $t = $tq->findOrEmpty(); return $t->isEmpty() ? null : ['consumption' => $c, 'app_task' => $t]; }
     private static function responseFromConsumption(array $c): array { $summary = self::arrayValue($c['response_summary'] ?? []); return ['status' => (string)$c['run_status'], 'provider_task_id' => (string)$c['upstream_task_id'], 'provider_request_id' => (string)$c['upstream_request_id'], 'images' => (array)($summary['images'] ?? [])]; }
     private static function event(int $id, string $type, string $status, array $summary, int $elapsed = 0): void { AiConsumptionEvent::create(['consumption_id' => $id, 'event_type' => $type, 'event_status' => $status, 'attempt_no' => 1, 'payload_summary' => $summary, 'payload_ciphertext' => '', 'http_status' => 0, 'elapsed_ms' => $elapsed, 'create_time' => time()]); }
     private static function extra(AiAppTask $task, AiConsumptionLog $consumption, string $stage): array { return ['app_code' => (string)($task['app_code'] ?? self::APP_CODE), 'app_task_id' => (int)$task['id'], 'app_task_no' => (string)$task['task_no'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => (string)$consumption['consume_no'], 'billing_stage' => $stage]; }
+    private static function taskLabel(string $appCode): string { return $appCode === 'aigc_hairstyle' ? 'AI换发型' : '算力市场图片模型'; }
     private static function arrayValue($value): array { if (is_array($value)) return $value; if (is_string($value) && $value !== '') { $decoded = json_decode($value, true); return is_array($decoded) ? $decoded : []; } return []; }
     private static function points(float $value): float { return round(max(0, $value), 6); }
     private static function no(string $prefix): string { return $prefix . date('YmdHis') . strtoupper(bin2hex(random_bytes(5))); }

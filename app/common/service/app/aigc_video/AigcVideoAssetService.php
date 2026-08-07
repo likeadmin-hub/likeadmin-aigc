@@ -16,12 +16,40 @@ class AigcVideoAssetService
             return self::persistDataUri($url, $tenantId, $userId, $storageConfig);
         }
         if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return self::persistRemoteUrl($url, $tenantId, $userId, $storageConfig);
+            try {
+                return self::persistRemoteUrl($url, $tenantId, $userId, $storageConfig);
+            } catch (\Throwable $first) {
+                $publicUrl = self::publicObjectUrl($url);
+                if ($publicUrl === '') {
+                    throw $first;
+                }
+                return self::persistRemoteUrl($publicUrl, $tenantId, $userId, $storageConfig);
+            }
         }
         if (!self::isAllowedLocalVideoUri($url)) {
             throw new Exception('供应商返回的视频地址无效');
         }
         return ['uri' => $url, 'width' => 0, 'height' => 0, 'stored' => false];
+    }
+
+    /**
+     * OSS suppliers may return a signed URL for an object that is also public.
+     * A retry is limited to the exact same origin and object path.
+     */
+    private static function publicObjectUrl(string $url): string
+    {
+        $parts = parse_url($url);
+        $query = [];
+        if (is_array($parts) && !empty($parts['query'])) {
+            parse_str((string)$parts['query'], $query);
+        }
+        if (!is_array($parts) || $query === [] || (!isset($query['Expires']) && !isset($query['x-oss-expires']))
+            || empty($parts['scheme']) || empty($parts['host']) || empty($parts['path'])) {
+            return '';
+        }
+        return (string)$parts['scheme'] . '://' . (string)$parts['host']
+            . (isset($parts['port']) ? ':' . (int)$parts['port'] : '')
+            . (string)$parts['path'];
     }
 
     private static function persistRemoteUrl(string $url, int $tenantId, int $userId, ?array $storageConfig): array

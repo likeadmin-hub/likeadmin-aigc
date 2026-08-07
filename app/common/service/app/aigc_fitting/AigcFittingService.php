@@ -4,12 +4,9 @@ namespace app\common\service\app\aigc_fitting;
 
 use app\common\model\app\aigc_fitting\AigcFittingConfig;
 use app\common\model\app\aigc_fitting\AigcFittingTask;
-use app\common\model\app\App;
 use app\common\model\app\aigc_image\AigcImageTask;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
-use app\common\service\app\AppRegistryService;
-use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\FileService;
@@ -22,8 +19,6 @@ use think\facade\Db;
 class AigcFittingService
 {
     public const APP_CODE = 'aigc_fitting';
-    public const IMAGE_APP_CODE = 'aigc_image';
-
     public const MODE_SINGLE = 'single';
     public const MODE_GROUP = 'group';
     public const MODE_CUSTOM = 'custom';
@@ -86,7 +81,8 @@ class AigcFittingService
         $data['model_gender_options'] = self::modelGenderOptions();
         $data['model_clothes_options'] = self::modelClothesOptions($data['config_json']['model_examples'] ?? []);
         $data['model_pose_options'] = self::modelPoseOptions($data['config_json']['model_examples'] ?? []);
-        $data['option_config'] = AigcImageChannelService::userConfig($tenantId);
+        $data['option_config'] = self::marketOptionConfig($tenantId);
+        $data['config_json'] = self::alignMarketConfig($data['config_json'], $data['option_config']);
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
     }
 
@@ -108,7 +104,7 @@ class AigcFittingService
             'default_upload_category' => self::normalizeCategory($params['default_upload_category'] ?? $current['default_upload_category']),
             'prompt_template' => self::normalizeTemplate((string)($params['prompt_template'] ?? $current['prompt_template'])),
             'negative_prompt' => trim((string)($params['negative_prompt'] ?? $current['negative_prompt'])),
-            'config_json' => self::normalizeConfigJson($configJson ?: ($current['config_json'] ?? [])),
+            'config_json' => self::alignMarketConfig(self::normalizeConfigJson($configJson ?: ($current['config_json'] ?? [])), self::marketOptionConfig($tenantId)),
             'update_time' => time(),
         ];
 
@@ -164,7 +160,7 @@ class AigcFittingService
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, false);
-        $imageEstimate = AigcImageService::estimate($tenantId, self::singleImagePayload($prepared['image_payload'], 1));
+        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, self::singleImagePayload($prepared['image_payload'], 1), ['user_unit_price' => $prepared['unit_price']]);
         return self::buildFittingEstimate($prepared, $imageEstimate);
     }
 
@@ -172,7 +168,7 @@ class AigcFittingService
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, true, $userId);
-        $imageEstimate = AigcImageService::estimate($tenantId, self::singleImagePayload($prepared['image_payload'], 1));
+        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, self::singleImagePayload($prepared['image_payload'], 1), ['user_unit_price' => $prepared['unit_price']]);
         $estimate = self::buildFittingEstimate($prepared, $imageEstimate);
         PointService::assertCanConsumeAmounts(
             $tenantId,
@@ -185,10 +181,9 @@ class AigcFittingService
         $imageTaskIds = [];
         $imageTaskId = 0;
         foreach (self::splitImagePayloads($prepared) as $index => $imagePayload) {
-            $imageResult = AigcImageService::generateWithBillingOverride($tenantId, $userId, $imagePayload, [
-                'tenant_cost_points' => $imageEstimate['platform_unit_cost'] ?? 0,
-                'user_charge_points' => $prepared['unit_price'],
-            ]);
+            $imageResult = AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $imagePayload, [
+                'user_unit_price' => $prepared['unit_price'],
+            ], self::APP_CODE);
             $currentImageTaskId = (int)($imageResult['task_id'] ?? 0);
             if ($currentImageTaskId <= 0) {
                 throw new Exception('试衣任务创建失败');
@@ -295,29 +290,8 @@ class AigcFittingService
 
     public static function dependencies(int $tenantId = 0): array
     {
-        $installed = App::where(['code' => self::IMAGE_APP_CODE, 'status' => AppRegistryService::STATUS_INSTALLED])->count() > 0;
-        $tenantEnabled = $tenantId <= 0 ? true : AppAccessService::tenantCanUse($tenantId, self::IMAGE_APP_CODE);
-        $channels = [];
-        try {
-            $imageConfig = AigcImageService::config($tenantId);
-            $channels = $imageConfig['option_config']['channels'] ?? [];
-        } catch (Exception) {
-            $channels = [];
-        }
-        $item = [
-            'app_code' => self::IMAGE_APP_CODE,
-            'name' => 'AIGC生图',
-            'required_for' => '图片生成',
-            'installed' => $installed,
-            'tenant_enabled' => $tenantEnabled,
-            'channel_ready' => !empty($channels),
-            'ready' => $installed && $tenantEnabled && !empty($channels),
-            'message' => $installed ? ($tenantEnabled ? (!empty($channels) ? '可用' : '暂无可用通道') : '租户未开通或未上架') : '应用未安装或未启用',
-        ];
-        return [
-            'items' => [$item],
-            'ready' => (bool)$item['ready'],
-        ];
+        $channels = self::marketOptionConfig($tenantId)['channels'] ?? [];
+        return ['items' => [], 'ready' => $channels !== []];
     }
 
     public static function stat(int $tenantId = 0): array
@@ -446,9 +420,6 @@ class AigcFittingService
         if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE) !== null) {
             throw new Exception('AI试衣应用未开通或未上架');
         }
-        if (AppAccessService::assertTenantCanUse($tenantId, self::IMAGE_APP_CODE) !== null) {
-            throw new Exception('AIGC生图应用未开通或未上架');
-        }
         $config = self::config($tenantId);
         if ((int)($config['status'] ?? 1) !== 1) {
             throw new Exception('AI试衣应用已停用');
@@ -494,13 +465,21 @@ class AigcFittingService
             'pose_filter' => trim((string)($params['pose_filter'] ?? '')),
             'user_prompt' => $userPrompt,
         ]);
+        $spec = self::marketSpec($config['option_config'] ?? [], [
+            'channel' => (string)($params['channel'] ?? $configJson['channel'] ?? ''),
+            'quality' => (string)($params['quality'] ?? $configJson['quality'] ?? ''),
+            'ratio' => (string)($params['ratio'] ?? $configJson['ratio'] ?? ''),
+        ]);
         $imagePayload = [
             'prompt' => $prompt,
             'negative_prompt' => (string)($params['negative_prompt'] ?? $config['negative_prompt'] ?? self::DEFAULT_NEGATIVE_PROMPT),
             'reference_images' => array_values(array_unique(array_merge($garmentImages, $modelImages))),
-            'channel' => (string)($params['channel'] ?? $configJson['channel'] ?? ''),
-            'quality' => (string)($params['quality'] ?? $configJson['quality'] ?? ''),
-            'ratio' => (string)($params['ratio'] ?? $configJson['ratio'] ?? ''),
+            'model_id' => (string)$spec['model_id'],
+            'market_product_id' => (int)$spec['market_product_id'],
+            'market_sku_id' => (int)$spec['market_sku_id'],
+            'channel' => (string)$spec['model_id'],
+            'quality' => (string)$spec['quality'],
+            'ratio' => (string)$spec['ratio'],
             'quantity' => $quantity,
             'style' => 'fitting',
         ];
@@ -521,6 +500,9 @@ class AigcFittingService
 
     private static function buildFittingEstimate(array $prepared, array $imageEstimate): array
     {
+        if ((string)($imageEstimate['settlement_mode'] ?? 'reserved') !== 'reserved') {
+            throw new Exception('AI fitting does not support actual-usage image SKUs');
+        }
         $quantity = max(1, (int)($prepared['image_payload']['quantity'] ?? 1));
         $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
         $userUnitPrice = (float)$prepared['unit_price'];
@@ -1083,6 +1065,135 @@ class AigcFittingService
             }
         }
         return $normalized;
+    }
+
+    /** The largest valid fitting input is two garments plus four model references. */
+    private static function marketOptionConfig(int $tenantId): array
+    {
+        $channels = [];
+        foreach (AigcImageService::marketModelOptions($tenantId) as $model) {
+            if (!is_array($model) || (int)($model['max_reference_images'] ?? 0) < 6) {
+                continue;
+            }
+            $modelId = trim((string)($model['id'] ?? $model['value'] ?? ''));
+            $productId = (int)($model['market_product_id'] ?? 0);
+            if ($modelId === '' || $productId <= 0) {
+                continue;
+            }
+            $qualities = [];
+            foreach ((array)($model['skus'] ?? []) as $sku) {
+                if (!is_array($sku) || (string)($sku['settlement_mode'] ?? 'reserved') !== 'reserved') {
+                    continue;
+                }
+                $skuId = (int)($sku['market_sku_id'] ?? 0);
+                $quality = trim((string)($sku['quality'] ?? $sku['resolution'] ?? ''));
+                if ($skuId <= 0 || $quality === '') {
+                    continue;
+                }
+                $qualities[$quality] ??= ['value' => $quality, 'label' => strtoupper($quality), 'ratios' => []];
+                $ratios = (array)($sku['ratio_options'] ?? []);
+                if ($ratios === []) {
+                    $ratios = [''];
+                }
+                foreach ($ratios as $ratio) {
+                    $ratio = is_array($ratio) ? (string)($ratio['value'] ?? $ratio['ratio'] ?? '') : (string)$ratio;
+                    $qualities[$quality]['ratios'][] = [
+                        'value' => $ratio,
+                        'ratio' => $ratio,
+                        'label' => $ratio === '' ? 'Default' : $ratio,
+                        'model_id' => $modelId,
+                        'market_product_id' => $productId,
+                        'market_sku_id' => $skuId,
+                        'quality' => $quality,
+                        'platform_unit_cost' => (float)($sku['platform_unit_cost'] ?? 0),
+                        'tenant_unit_price' => (float)($sku['tenant_unit_price'] ?? 0),
+                        'usage_unit' => (string)($sku['usage_unit'] ?? ''),
+                        'usage_unit_size' => (float)($sku['usage_unit_size'] ?? 1),
+                        'status' => 1,
+                    ];
+                }
+            }
+            if ($qualities !== []) {
+                $channels[] = [
+                    'code' => $modelId,
+                    'name' => (string)($model['name'] ?? $modelId),
+                    'qualities' => array_values($qualities),
+                ];
+            }
+        }
+        $channel = $channels[0] ?? [];
+        $quality = (array)(($channel['qualities'] ?? [])[0] ?? []);
+        $spec = (array)(($quality['ratios'] ?? [])[0] ?? []);
+        return [
+            'market_mode' => true,
+            'channels' => $channels,
+            'defaults' => [
+                'channel' => (string)($channel['code'] ?? ''),
+                'quality' => (string)($quality['value'] ?? ''),
+                'ratio' => (string)($spec['ratio'] ?? ''),
+            ],
+        ];
+    }
+
+    private static function alignMarketConfig(array $config, array $options): array
+    {
+        $config = self::normalizeConfigJson($config);
+        $channels = (array)($options['channels'] ?? []);
+        if ($channels === []) {
+            return $config;
+        }
+        $channel = null;
+        foreach ($channels as $item) {
+            if ((string)($item['code'] ?? '') === (string)$config['channel']) {
+                $channel = $item;
+                break;
+            }
+        }
+        $channel = is_array($channel) ? $channel : $channels[0];
+        $config['channel'] = (string)($channel['code'] ?? '');
+        $qualities = (array)($channel['qualities'] ?? []);
+        $quality = null;
+        foreach ($qualities as $item) {
+            if ((string)($item['value'] ?? '') === (string)$config['quality']) {
+                $quality = $item;
+                break;
+            }
+        }
+        $quality = is_array($quality) ? $quality : ($qualities[0] ?? []);
+        $config['quality'] = (string)($quality['value'] ?? '');
+        $ratios = (array)($quality['ratios'] ?? []);
+        $ratio = null;
+        foreach ($ratios as $item) {
+            if ((string)($item['ratio'] ?? $item['value'] ?? '') === (string)$config['ratio']) {
+                $ratio = $item;
+                break;
+            }
+        }
+        $ratio = is_array($ratio) ? $ratio : ($ratios[0] ?? []);
+        $config['ratio'] = (string)($ratio['ratio'] ?? $ratio['value'] ?? '');
+        return $config;
+    }
+
+    private static function marketSpec(array $options, array $selection): array
+    {
+        $aligned = self::alignMarketConfig($selection, $options);
+        foreach ((array)($options['channels'] ?? []) as $channel) {
+            if ((string)($channel['code'] ?? '') !== (string)$aligned['channel']) {
+                continue;
+            }
+            foreach ((array)($channel['qualities'] ?? []) as $quality) {
+                if ((string)($quality['value'] ?? '') !== (string)$aligned['quality']) {
+                    continue;
+                }
+                foreach ((array)($quality['ratios'] ?? []) as $spec) {
+                    if ((string)($spec['ratio'] ?? $spec['value'] ?? '') === (string)$aligned['ratio']
+                        && (int)($spec['market_sku_id'] ?? 0) > 0) {
+                        return $spec;
+                    }
+                }
+            }
+        }
+        throw new Exception('No eligible power-market image SKU is available for AI fitting');
     }
 
     private static function normalizeConfigJson(mixed $config): array

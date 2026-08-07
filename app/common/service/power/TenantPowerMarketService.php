@@ -35,7 +35,7 @@ class TenantPowerMarketService
         return self::paginate($rows, $pageNo, $pageSize);
     }
 
-    public static function apps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15): array
+    public static function apps(int $tenantId, string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = ''): array
     {
         $products = PowerMarketProduct::where([
             'resource_type' => PowerMarketService::TYPE_APP_API,
@@ -57,11 +57,16 @@ class TenantPowerMarketService
             $resource = (array)($payload['resource'] ?? []);
             $metadata = (array)($payload['market_metadata'] ?? []);
             if (!isset($groups[$appCode])) {
+                $category = PowerMarketService::appCategory($product);
                 $groups[$appCode] = [
                     'app_code' => $appCode,
                     'name' => !empty($product['display_name_overridden']) ? (string)$product['name'] : trim((string)($resource['app_name'] ?? $metadata['app_name'] ?? $appCode)),
                     'display_icon' => (string)($product['display_icon'] ?? ''),
                     'description' => !empty($product['display_description_overridden']) ? (string)$product['description'] : trim((string)($metadata['app_description'] ?? $resource['description'] ?? '')),
+                    'category_id' => (int)($category['category_id'] ?? 0),
+                    'category_code' => (string)($category['category_code'] ?? ''),
+                    'category_name' => (string)($category['category_name'] ?? ''),
+                    'category' => (array)($category['category'] ?? []),
                     'api_count' => 0,
                     'sku_count' => 0,
                     'min_price' => null,
@@ -99,6 +104,10 @@ class TenantPowerMarketService
         }
         if ($status !== '' && $status !== null) {
             $groups = array_values(array_filter($groups, static fn (array $group): bool => (int)$group['status'] === (int)$status));
+        }
+        $categoryCode = strtolower(trim($categoryCode));
+        if ($categoryCode !== '') {
+            $groups = array_values(array_filter($groups, static fn (array $group): bool => (string)($group['category_code'] ?? '') === $categoryCode));
         }
         usort($groups, static fn (array $left, array $right): int => [$right['status'], $right['update_time'], $left['app_code']] <=> [$left['status'], $left['update_time'], $right['app_code']]);
         return self::paginate($groups, $pageNo, $pageSize);

@@ -7,6 +7,7 @@ use app\common\model\app\aigc_image\AigcImageChannelSpec;
 use app\common\service\app\ChannelSpecPricingSchemaService;
 use app\common\service\power\MarketImageModelRuntimeService;
 use app\common\service\power\MarketNanoBananaAppRuntimeService;
+use app\common\service\power\MarketGenerationCatalogService;
 use Exception;
 use think\facade\Db;
 
@@ -21,8 +22,13 @@ class AigcImageChannelService
     {
         $channels = self::normalizeUserChannels(self::effectiveChannels($tenantId, true));
         $defaults = self::defaults($channels);
+        $catalog = MarketGenerationCatalogService::options($tenantId, 'image');
         return [
             'channels' => self::sanitizeChannels($channels, false),
+            'models' => $catalog['models'],
+            'applications' => $catalog['applications'],
+            'unavailable_applications' => $catalog['unavailable_applications'],
+            'generation_type' => 'image',
             'defaults' => $defaults,
             'quantity_options' => self::quantityOptions($channels),
             'max_reference_images' => self::maxReferenceImages($channels),
@@ -449,6 +455,9 @@ class AigcImageChannelService
     {
         $channels = [];
         foreach (MarketImageModelRuntimeService::options($tenantId) as $model) {
+            if (!self::isMarketRuntimeOptionVisible($model)) {
+                continue;
+            }
             $modelCode = trim((string)($model['model_code'] ?? ''));
             $channelCode = trim((string)($model['id'] ?? ''));
             if ($modelCode === '' || $channelCode === '') {
@@ -463,15 +472,31 @@ class AigcImageChannelService
                 'label' => (string)($model['name'] ?? $modelCode),
                 'description' => (string)($model['description'] ?? ''),
                 'display_icon' => (string)($model['display_icon'] ?? ''),
-                'provider' => 'xhadmin',
+                'resource_type' => 'model',
+                'model_type' => 'image',
+                'category_code' => 'image',
+                'category_name' => '图片生成',
+                'market_product_id' => (int)($model['market_product_id'] ?? 0),
+                'app_code' => '',
+                'api_code' => '',
+                'provider' => 'power_market_model',
                 'model' => $modelCode,
+                'model_code' => $modelCode,
                 'max_reference_images' => (int)($model['max_reference_images'] ?? 0),
-                'status' => 1,
-                'platform_status' => 1,
-                'tenant_status' => 1,
+                'status' => (int)($model['status'] ?? 1),
+                'available' => (bool)($model['available'] ?? ((int)($model['status'] ?? 1) === 1)),
+                'enabled' => (bool)($model['enabled'] ?? ((int)($model['status'] ?? 1) === 1)),
+                'unavailable_reason' => (string)($model['unavailable_reason'] ?? ''),
+                'platform_status' => (int)($model['status'] ?? 1),
+                'tenant_status' => (int)($model['status'] ?? 1),
                 'sort' => (int)($model['sort'] ?? 0),
                 'config_json' => [
                     'model' => $modelCode,
+                    'resource_type' => 'model',
+                    'model_type' => 'image',
+                    'market_product_id' => (int)($model['market_product_id'] ?? 0),
+                    'market_sku_id' => (int)($model['market_sku_id'] ?? 0),
+                    'category_code' => 'image',
                     'upstream_channel' => (string)($model['upstream_channel_code'] ?? ''),
                     'quantity_options' => [1],
                 ],
@@ -489,11 +514,17 @@ class AigcImageChannelService
                 }
                 $qualities = array_values(array_filter($qualities));
                 if ($qualities === []) {
-                    continue;
+                    $qualities = array_values(array_filter(array_map('strval', (array)($model['quality_options'] ?? []))));
+                }
+                if ($qualities === []) {
+                    $qualities = [trim((string)($model['default_quality'] ?? '1k')) ?: '1k'];
                 }
                 $ratios = array_values(array_unique(array_map('strval', (array)($sku['ratio_options'] ?? []))));
                 if ($ratios === []) {
-                    $ratios = [''];
+                    $ratios = array_values(array_unique(array_map('strval', (array)($model['ratio_options'] ?? []))));
+                }
+                if ($ratios === []) {
+                    $ratios = [trim((string)($model['default_ratio'] ?? '1:1')) ?: '1:1'];
                 }
                 foreach ($qualities as $quality) {
                     foreach ($ratios as $ratio) {
@@ -549,12 +580,19 @@ class AigcImageChannelService
                     }
                 }
             }
-            if ($channel['specs'] !== []) {
-                $channel['qualities'] = array_values($channel['qualities']);
-                $channels[] = $channel;
+            $channel['qualities'] = array_values($channel['qualities']);
+            if ($channel['specs'] === []) {
+                $channel['status'] = 0;
+                $channel['available'] = false;
+                $channel['enabled'] = false;
+                $channel['unavailable_reason'] = $channel['unavailable_reason'] ?: '暂无可售 SKU';
             }
+            $channels[] = $channel;
         }
         foreach (MarketNanoBananaAppRuntimeService::options($tenantId) as $model) {
+            if (!self::isMarketRuntimeOptionVisible($model)) {
+                continue;
+            }
             $channelCode = trim((string)($model['id'] ?? $model['value'] ?? ''));
             $modelCode = trim((string)($model['model_code'] ?? ''));
             if ($channelCode === '' || $modelCode === '') {
@@ -569,12 +607,23 @@ class AigcImageChannelService
                 'label' => (string)($model['name'] ?? $modelCode),
                 'description' => (string)($model['description'] ?? ''),
                 'display_icon' => (string)($model['display_icon'] ?? ''),
+                'resource_type' => 'app_api',
+                'model_type' => 'image',
+                'category_code' => 'image',
+                'category_name' => '图片生成',
+                'market_product_id' => (int)($model['market_product_id'] ?? 0),
+                'app_code' => (string)($model['app_code'] ?? 'nano_banana'),
+                'api_code' => (string)($model['api_code'] ?? 'submit'),
                 'provider' => 'power_market_app_api',
                 'model' => $modelCode,
+                'model_code' => $modelCode,
                 'max_reference_images' => (int)($model['max_reference_images'] ?? 0),
-                'status' => 1,
-                'platform_status' => 1,
-                'tenant_status' => 1,
+                'status' => (int)($model['status'] ?? 1),
+                'available' => (bool)($model['available'] ?? ((int)($model['status'] ?? 1) === 1)),
+                'enabled' => (bool)($model['enabled'] ?? ((int)($model['status'] ?? 1) === 1)),
+                'unavailable_reason' => (string)($model['unavailable_reason'] ?? ''),
+                'platform_status' => (int)($model['status'] ?? 1),
+                'tenant_status' => (int)($model['status'] ?? 1),
                 'sort' => (int)($model['sort'] ?? 0),
                 'config_json' => [
                     'market_app_code' => 'nano_banana',
@@ -631,12 +680,24 @@ class AigcImageChannelService
                     $channel['qualities'][$quality]['ratios'][] = $spec;
                 }
             }
-            if ($channel['specs'] !== []) {
-                $channel['qualities'] = array_values($channel['qualities']);
-                $channels[] = $channel;
+            $channel['qualities'] = array_values($channel['qualities']);
+            if ($channel['specs'] === []) {
+                $channel['status'] = 0;
+                $channel['available'] = false;
+                $channel['enabled'] = false;
+                $channel['unavailable_reason'] = $channel['unavailable_reason'] ?: '暂无可售 SKU';
             }
+            $channels[] = $channel;
         }
         return $channels;
+    }
+
+    private static function isMarketRuntimeOptionVisible(array $model): bool
+    {
+        return (int)($model['status'] ?? (($model['enabled'] ?? true) === false || ($model['available'] ?? true) === false ? 0 : 1)) === 1
+            && ($model['enabled'] ?? true) !== false
+            && ($model['available'] ?? true) !== false
+            && !empty($model['skus']);
     }
 
     private static function normalizeRuntimeChannel(array $channel): array

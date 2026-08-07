@@ -13,8 +13,8 @@ use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_llm\AigcLlmService;
-use app\common\service\app\aigc_video\AigcVideoChannelService;
 use app\common\service\app\aigc_video\AigcVideoService;
+use app\common\service\ai\MarketAppGateService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
 use Exception;
@@ -41,19 +41,19 @@ class AigcProductPromoVideoService
         $row = AigcProductPromoVideoConfig::where('tenant_id', $tenantId)->findOrEmpty();
         $data = $row->isEmpty() ? self::defaults() : array_merge(self::defaults(), $row->toArray());
         $data = self::sanitizeConfig($data);
-        $optionConfig = AigcVideoChannelService::userConfig($tenantId);
-        if ((float)$data['unit_price'] <= 0) {
-            $data['unit_price'] = self::defaultSecondUnitPrice($optionConfig, $data);
-        }
+        $data['market_enabled'] = 1;
+        $optionConfig = self::marketOptionConfig($tenantId);
         $data['option_config'] = $optionConfig;
-        $data['spec_options'] = self::buildSpecOptions($optionConfig, (float)$data['unit_price']);
+        $data['spec_options'] = self::buildSpecOptions($optionConfig);
         $data['ratio_options'] = self::buildRatioOptions($data['spec_options'], $data['default_channel'], $data['default_quality']);
         $data['duration_options'] = self::buildDurationOptions($data['spec_options'], $data['default_ratio'], $data['default_channel'], $data['default_quality']);
         $data['types'] = self::typeLists($tenantId, true);
-        $data['dependencies'] = self::dependencies($tenantId);
+        $data['dependencies'] = self::dependencies($tenantId, $optionConfig);
         if ($row->isEmpty()) {
             self::saveConfigSnapshot($tenantId, $data, $row);
         }
+        // Prices are owned by market SKUs and exposed on each concrete spec.
+        unset($data['unit_price'], $data['price_matrix']);
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
     }
 
@@ -65,17 +65,22 @@ class AigcProductPromoVideoService
         $data = [
             'tenant_id' => $tenantId,
             'status' => array_key_exists('status', $params) ? (int)$params['status'] : (int)$current['status'],
-            'default_channel' => self::normalizeCode((string)($params['default_channel'] ?? $configJson['channel'] ?? $current['default_channel'] ?? '')),
+            'market_enabled' => 1,
+            'default_channel' => self::normalizeChannelCode((string)($params['default_channel'] ?? $configJson['channel'] ?? $current['default_channel'] ?? '')),
             'default_quality' => trim((string)($params['default_quality'] ?? $configJson['quality'] ?? $current['default_quality'] ?? '')),
             'default_ratio' => trim((string)($params['default_ratio'] ?? $configJson['ratio'] ?? $current['default_ratio'] ?? '')),
             'default_duration' => 0,
-            'unit_price' => round(max(0, (float)($params['unit_price'] ?? $current['unit_price'] ?? 0)), 2),
+            // Retain the legacy column for schema compatibility; it is no longer
+            // accepted as an application-level price override.
+            'unit_price' => 0,
             'prompt_template' => self::normalizeTemplate((string)($params['prompt_template'] ?? $current['prompt_template'])),
             'negative_prompt' => trim((string)($params['negative_prompt'] ?? $current['negative_prompt'])),
-            'price_matrix' => self::normalizePriceMatrix($current['price_matrix'] ?? []),
+            'price_matrix' => [],
             'config_json' => self::normalizeConfigJson($configJson),
             'update_time' => time(),
         ];
+        $data['config_json']['market_enabled'] = $data['market_enabled'];
+        $data = self::alignDefaultsToOptionConfig($data, self::marketOptionConfig($tenantId));
         $row = AigcProductPromoVideoConfig::where('tenant_id', $tenantId)->findOrEmpty();
         if ($row->isEmpty()) {
             $data['create_time'] = time();
@@ -172,21 +177,43 @@ class AigcProductPromoVideoService
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, false);
-        $videoEstimate = AigcVideoService::estimate($tenantId, $prepared['video_payload']);
+        $videoEstimate = self::videoEstimate($tenantId, $prepared);
         return self::buildEstimate($prepared, $videoEstimate);
     }
 
     public static function generate(int $tenantId, int $userId, array $params): array
     {
+        $idempotencyKey = trim((string)($params['idempotency_key'] ?? ''));
+        MarketAppGateService::requireMarket(
+            $tenantId,
+            $userId,
+            self::APP_CODE,
+            $idempotencyKey
+        );
+        if ($idempotencyKey !== '') {
+            $existing = AigcProductPromoVideoTask::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'idempotency_key' => $idempotencyKey,
+                'delete_time' => 0,
+            ])->order('id', 'asc')->findOrEmpty();
+            if (!$existing->isEmpty()) {
+                self::syncTaskFromVideoTask($existing);
+                return [
+                    'task_id' => (int)$existing['id'],
+                    'video_task_id' => (int)$existing['video_task_id'],
+                    'status' => (string)($existing['status'] ?: 'running'),
+                    'error' => (string)($existing['error'] ?? ''),
+                    'results' => self::taskDetail($tenantId, (int)$existing['id'], $userId)['results'] ?? [],
+                ];
+            }
+        }
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, true);
-        $videoEstimate = AigcVideoService::estimate($tenantId, $prepared['video_payload']);
+        $videoEstimate = self::videoEstimate($tenantId, $prepared);
         $estimate = self::buildEstimate($prepared, $videoEstimate);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
-        $result = AigcVideoService::generateWithBillingOverride($tenantId, $userId, $prepared['video_payload'], [
-            'tenant_cost_points' => $estimate['tenant_cost_points'],
-            'user_charge_points' => $estimate['user_charge_points'],
-        ]);
+        $result = AigcVideoService::generateMarket($tenantId, $userId, $prepared['video_payload'], self::APP_CODE);
         $videoTaskId = (int)($result['task_id'] ?? 0);
         if ($videoTaskId <= 0) {
             throw new Exception('产品宣传视频任务创建失败');
@@ -329,15 +356,18 @@ class AigcProductPromoVideoService
         $row->save(['delete_time' => time(), 'update_time' => time()]);
     }
 
-    public static function dependencies(int $tenantId = 0): array
+    public static function dependencies(int $tenantId = 0, array $optionConfig = []): array
     {
         $installed = App::where(['code' => self::VIDEO_APP_CODE, 'status' => AppRegistryService::STATUS_INSTALLED])->count() > 0;
         $tenantEnabled = $tenantId <= 0 ? true : AppAccessService::tenantCanUse($tenantId, self::VIDEO_APP_CODE);
         $channels = [];
-        try {
-            $channels = AigcVideoService::config($tenantId)['option_config']['channels'] ?? [];
-        } catch (Exception) {
-            $channels = [];
+        $channels = (array)($optionConfig['channels'] ?? []);
+        if ($channels === []) {
+            try {
+                $channels = AigcVideoService::marketOptions($tenantId)['channels'] ?? [];
+            } catch (Exception) {
+                $channels = [];
+            }
         }
         $item = [
             'app_code' => self::VIDEO_APP_CODE,
@@ -382,11 +412,17 @@ class AigcProductPromoVideoService
         $spec = self::resolvePricedSpec($config, $ratio, $duration);
         $userPrompt = mb_substr(trim((string)($params['prompt'] ?? $params['user_prompt'] ?? '')), 0, 2000);
         $finalPrompt = self::buildPrompt($config, $type, $userPrompt);
+        $marketEnabled = true;
+        $generationMethod = (string)($spec['generation_method'] ?? $spec['input_mode'] ?? 'image_reference');
+        $referenceAsset = ['type' => 'image', 'uri' => $sourceImage];
+        if ($generationMethod === 'image_to_video') {
+            $referenceAsset['role'] = 'first_frame_image';
+        }
         $videoPayload = [
             'prompt' => $finalPrompt,
             'negative_prompt' => (string)($params['negative_prompt'] ?? $config['negative_prompt']),
             'reference_images' => array_values(array_filter([$sourceImage])),
-            'reference_assets' => $sourceImage !== '' ? [['type' => 'image', 'uri' => $sourceImage]] : [],
+            'reference_assets' => $sourceImage !== '' ? [$referenceAsset] : [],
             'channel' => $spec['channel'],
             'quality' => $spec['quality'],
             'ratio' => $spec['ratio'],
@@ -394,48 +430,385 @@ class AigcProductPromoVideoService
             'quantity' => 1,
             'style' => 'product_promo_video',
         ];
+        $videoPayload = array_merge($videoPayload, [
+            'model_id' => (string)($spec['model_id'] ?? $spec['channel']),
+            'market_product_id' => (int)($spec['market_product_id'] ?? 0),
+            'market_sku_id' => (int)($spec['market_sku_id'] ?? 0),
+            'resource_type' => (string)($spec['resource_type'] ?? ''),
+            'generation_method' => $generationMethod,
+        ]);
+        if (trim((string)($params['idempotency_key'] ?? '')) !== '') {
+            $videoPayload['idempotency_key'] = trim((string)$params['idempotency_key']);
+        }
         if (!empty($spec['mode'])) {
             $videoPayload['mode'] = $spec['mode'];
         }
-        $resolved = AigcVideoChannelService::resolveSelection($tenantId, $videoPayload);
         return [
             'source_image' => $sourceImage,
             'type' => $type,
             'user_prompt' => $userPrompt,
-            'unit_price' => round(max(0, (float)($config['unit_price'] ?? 0)), 2),
-            'video_payload' => array_merge($videoPayload, [
-                'channel' => (string)$resolved['channel']['code'],
-                'quality' => (string)$resolved['spec']['quality'],
-                'ratio' => (string)($videoPayload['ratio'] ?: $resolved['spec']['ratio']),
-                'duration' => (int)$videoPayload['duration'],
-            ]),
-            'width' => (int)$resolved['spec']['width'],
-            'height' => (int)$resolved['spec']['height'],
-            'quality_label' => (string)($resolved['spec']['quality_label'] ?? $resolved['spec']['quality']),
-            'size_key' => (string)($videoPayload['ratio'] ?: $resolved['spec']['ratio']),
+            'market_enabled' => $marketEnabled,
+            'video_payload' => $videoPayload,
+            'width' => (int)($spec['width'] ?? 0),
+            'height' => (int)($spec['height'] ?? 0),
+            'quality_label' => (string)($spec['quality_label'] ?? $spec['quality']),
+            'size_key' => (string)$videoPayload['ratio'],
             'config' => $config,
         ];
     }
 
     private static function buildEstimate(array $prepared, array $videoEstimate): array
     {
-        $tenantCost = round((float)($videoEstimate['tenant_cost_points'] ?? $videoEstimate['platform_unit_cost'] ?? 0), 2);
+        if ((string)($videoEstimate['settlement_mode'] ?? 'reserved') === 'actual_usage') {
+            throw new Exception('产品宣传视频暂不支持按实际用量计费的视频 SKU');
+        }
+        $tenantCost = round((float)($videoEstimate['tenant_cost_points'] ?? 0), 2);
         $duration = max(1, (int)($prepared['video_payload']['duration'] ?? 0));
-        $userUnitPrice = round((float)$prepared['unit_price'], 2);
-        $userPrice = round($userUnitPrice * $duration, 2);
+        $userPrice = round((float)($videoEstimate['user_charge_points'] ?? 0), 2);
+        $userUnitPrice = round((float)($videoEstimate['user_unit_points'] ?? ($duration > 0 ? $userPrice / $duration : $userPrice)), 2);
         return array_merge($videoEstimate, [
             'quantity' => 1,
             'target_width' => $prepared['width'],
             'target_height' => $prepared['height'],
             'size_key' => $prepared['size_key'],
-            'platform_unit_cost' => $tenantCost,
+            'platform_unit_cost' => $videoEstimate['platform_unit_cost'] ?? $tenantCost,
             'tenant_unit_price' => $userUnitPrice,
-            'unit_price' => $userUnitPrice,
+            // Legacy task column: derived from the market total for history only.
+            'unit_price' => round($userPrice / $duration, 2),
             'duration' => $duration,
             'tenant_cost_points' => $tenantCost,
             'user_charge_points' => $userPrice,
             'display_points' => $userPrice,
         ]);
+    }
+
+    private static function videoEstimate(int $tenantId, array $prepared): array
+    {
+        return AigcVideoService::estimate($tenantId, $prepared['video_payload']);
+    }
+
+    /**
+     * The product-promo UI has a compact channel/quality/ratio contract. Map
+     * market video options into that contract while retaining the exact SKU
+     * required for submission and billing.
+     */
+    private static function marketOptionConfig(int $tenantId): array
+    {
+        $market = AigcVideoService::marketOptions($tenantId);
+        $channels = [];
+        foreach (array_merge((array)($market['models'] ?? []), (array)($market['applications'] ?? [])) as $option) {
+            if (!is_array($option)) {
+                continue;
+            }
+            $generationMethod = self::marketPromoGenerationMethod($option);
+            $qualities = [];
+            foreach ((array)($option['specs'] ?? []) as $spec) {
+                if (!is_array($spec) || (int)($spec['market_sku_id'] ?? 0) <= 0) {
+                    continue;
+                }
+                $resolution = (string)($spec['resolution'] ?? $spec['quality'] ?? '');
+                if ($resolution === '') {
+                    continue;
+                }
+                $selections = self::marketSpecSelections($option, $spec);
+                if ($selections === []) {
+                    continue;
+                }
+                // A SKU's selectable ratio/duration values are already exposed
+                // in its spec. Verify the SKU once; its unit price is fixed.
+                $quote = self::marketImageReferenceQuote($tenantId, $option, array_merge($spec, [
+                    'ratio' => $selections[0]['ratio'],
+                    'duration' => $selections[0]['duration'],
+                ]));
+                $status = 1;
+                $unavailableReason = '';
+                if ($generationMethod === '') {
+                    $status = 0;
+                    $unavailableReason = '该模型或应用不支持产品图片输入';
+                } elseif ($quote === null) {
+                    $status = 0;
+                    $unavailableReason = '当前市场 SKU 暂无法按该规格报价';
+                } elseif ((string)($quote['settlement_mode'] ?? 'reserved') === 'actual_usage') {
+                    $status = 0;
+                    $unavailableReason = '该 SKU 按实际用量计费，产品宣传视频暂不支持';
+                }
+                foreach ($selections as $selection) {
+                    $ratio = $selection['ratio'];
+                    $duration = $selection['duration'];
+                    $inputMode = (string)($quote['generation_method'] ?? $generationMethod);
+                    if ($inputMode === '') {
+                        $inputMode = (string)($spec['input_mode'] ?? 'text_to_video');
+                    }
+                    $qualities[$resolution]['value'] = $resolution;
+                    $qualities[$resolution]['label'] = strtoupper($resolution);
+                    $qualities[$resolution]['ratios'][] = [
+                        'value' => $ratio,
+                        'ratio' => $ratio,
+                        'label' => $ratio,
+                        'duration' => $duration,
+                        'market_product_id' => (int)($option['market_product_id'] ?? 0),
+                        'market_sku_id' => (int)($quote['market_sku_id'] ?? $spec['market_sku_id']),
+                        'model_id' => (string)($option['id'] ?? ''),
+                        'resource_type' => (string)($option['resource_type'] ?? ''),
+                        'platform_unit_cost' => (float)($quote['platform_unit_cost'] ?? $spec['platform_unit_cost'] ?? 0),
+                        'tenant_unit_price' => (float)($quote['tenant_unit_price'] ?? $spec['tenant_unit_price'] ?? 0),
+                        'usage_unit' => (string)($quote['usage_unit'] ?? $spec['usage_unit'] ?? ''),
+                        'usage_unit_size' => (float)($quote['usage_unit_size'] ?? $spec['usage_unit_size'] ?? 1),
+                        'input_mode' => $inputMode,
+                        'generation_method' => (string)($quote['generation_method'] ?? $generationMethod),
+                        'status' => $status,
+                        'unavailable_reason' => $unavailableReason,
+                    ];
+                }
+            }
+            $channelCode = (string)($option['id'] ?? '');
+            $hasUsableSpec = self::channelHasUsableSpec($qualities);
+            $channels[] = [
+                'code' => $channelCode,
+                'name' => (string)($option['name'] ?? $channelCode),
+                'qualities' => array_values($qualities),
+                'resource_type' => (string)($option['resource_type'] ?? ''),
+                'market_product_id' => (int)($option['market_product_id'] ?? 0),
+                'app_code' => (string)($option['app_code'] ?? ''),
+                'api_code' => (string)($option['api_code'] ?? ''),
+                'status' => $hasUsableSpec ? 1 : 0,
+                'unavailable_reason' => $hasUsableSpec ? '' : '该模型或应用当前没有可用于产品宣传视频的固定计费规格',
+            ];
+        }
+        $usableChannels = array_values(array_filter($channels, static fn(array $channel): bool => (int)($channel['status'] ?? 0) === 1));
+        $firstChannel = $usableChannels[0] ?? $channels[0] ?? [];
+        $firstQuality = (array)(($firstChannel['qualities'] ?? [])[0] ?? []);
+        foreach ((array)($firstChannel['qualities'] ?? []) as $quality) {
+            if (self::qualityHasUsableSpec($quality)) {
+                $firstQuality = $quality;
+                break;
+            }
+        }
+        $firstSpec = (array)(($firstQuality['ratios'] ?? [])[0] ?? []);
+        foreach ((array)($firstQuality['ratios'] ?? []) as $spec) {
+            if ((int)($spec['status'] ?? 0) === 1) {
+                $firstSpec = $spec;
+                break;
+            }
+        }
+        return [
+            'market_mode' => true,
+            'channels' => $channels,
+            'defaults' => [
+                'channel' => (string)($firstChannel['code'] ?? ''),
+                'quality' => (string)($firstQuality['value'] ?? ''),
+                'ratio' => (string)($firstSpec['ratio'] ?? ''),
+                'duration' => (int)($firstSpec['duration'] ?? 0),
+            ],
+        ];
+    }
+
+    private static function supportsImageReference(array $option): bool
+    {
+        return self::marketPromoGenerationMethod($option) !== '';
+    }
+
+    private static function channelHasUsableSpec(array $qualities): bool
+    {
+        foreach ($qualities as $quality) {
+            if (self::qualityHasUsableSpec($quality)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function qualityHasUsableSpec(array $quality): bool
+    {
+        foreach ((array)($quality['ratios'] ?? []) as $ratio) {
+            if ((int)($ratio['status'] ?? 0) === 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** @return array<int, array{ratio:string,duration:int}> */
+    private static function marketSpecSelections(array $option, array $spec): array
+    {
+        $ratios = (array)($spec['ratio_options'] ?? []);
+        if ($ratios === []) {
+            $ratios = [(string)($spec['ratio'] ?? '')];
+        }
+        if ($ratios === [] || $ratios === ['']) {
+            $ratios = (array)($option['ratio_options'] ?? []);
+        }
+        $ratios = array_values(array_filter(array_map(static function ($ratio): string {
+            return is_array($ratio) ? (string)($ratio['value'] ?? $ratio['ratio'] ?? '') : (string)$ratio;
+        }, $ratios)));
+
+        $durations = array_values(array_filter(array_map('intval', (array)($spec['duration_options'] ?? []))));
+        if ($durations === [] && (int)($spec['duration'] ?? 0) > 0) {
+            $durations = [(int)$spec['duration']];
+        }
+        if ($durations === []) {
+            $durations = array_values(array_filter(array_map('intval', (array)($option['duration_options'] ?? []))));
+        }
+
+        $selections = [];
+        foreach ($ratios as $ratio) {
+            foreach ($durations as $duration) {
+                $selections[] = ['ratio' => $ratio, 'duration' => $duration];
+            }
+        }
+        return $selections;
+    }
+
+    /**
+     * Some product-level capability declarations cover multiple SKU variants.
+     * Only expose a SKU when image-reference selection resolves back to that
+     * exact SKU, otherwise quote and final submission could diverge.
+     */
+    private static function marketImageReferenceQuote(int $tenantId, array $option, array $spec): ?array
+    {
+        $skuId = (int)($spec['market_sku_id'] ?? 0);
+        if ($skuId <= 0) {
+            return null;
+        }
+        $generationMethod = self::marketPromoGenerationMethod($option);
+        if ($generationMethod === '') {
+            return null;
+        }
+        return [
+            'market_product_id' => (int)($option['market_product_id'] ?? 0),
+            'market_sku_id' => $skuId,
+            'platform_unit_cost' => (float)($spec['platform_unit_cost'] ?? 0),
+            'tenant_unit_price' => (float)($spec['tenant_unit_price'] ?? 0),
+            'usage_unit' => (string)($spec['usage_unit'] ?? ''),
+            'usage_unit_size' => (float)($spec['usage_unit_size'] ?? 1),
+            'settlement_mode' => (string)($spec['settlement_mode'] ?? 'reserved'),
+            'generation_method' => $generationMethod,
+        ];
+    }
+
+    /** Select the strongest mode that can generate a product video from one image. */
+    private static function marketPromoGenerationMethod(array $option): string
+    {
+        $modes = self::promoModes($option);
+        foreach (['image_reference', 'image_to_video', 'omni_reference', 'text_to_video', 'video_edit', 'audio_reference'] as $mode) {
+            if (in_array($mode, $modes, true)) {
+                return $mode;
+            }
+        }
+        $assetTypes = self::promoAssetTypes($option);
+        if (in_array('image', $assetTypes, true) && (int)($option['max_reference_images'] ?? 0) > 0) {
+            return 'image_reference';
+        }
+        if (in_array('video', $assetTypes, true) && (int)($option['max_reference_videos'] ?? 0) > 0) {
+            return 'video_edit';
+        }
+        if (in_array('audio', $assetTypes, true) && (int)($option['max_reference_audios'] ?? 0) > 0) {
+            return 'audio_reference';
+        }
+        return '';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function promoModes(array $option): array
+    {
+        $modes = [];
+        $capabilities = self::arrayValue($option['capabilities'] ?? []);
+        foreach ([
+            (array)($option['input_modes'] ?? []),
+            (array)($option['generation_modes'] ?? []),
+            (array)($capabilities['input_modes'] ?? []),
+            (array)($capabilities['generation_modes'] ?? []),
+        ] as $source) {
+            foreach ($source as $mode) {
+                $value = is_array($mode) ? ($mode['value'] ?? $mode['code'] ?? $mode['mode'] ?? '') : $mode;
+                $value = strtolower(trim((string)$value));
+                $value = match ($value) {
+                    't2v', 'text', 'text2video', 'text-to-video' => 'text_to_video',
+                    'i2v', 'image', 'image2video', 'image-to-video', 'singleimage2video', 'single-image-to-video' => 'image_to_video',
+                    'reference_image', 'image-reference' => 'image_reference',
+                    'mixed2video', 'mixed-to-video' => 'omni_reference',
+                    'video_reference', 'video-reference', 'video_to_video', 'video-to-video', 'videoedit2video', 'video2video', 'video-edit-to-video' => 'video_edit',
+                    'audio2video', 'audio_to_video', 'audio-to-video', 'audio_reference', 'audio-reference' => 'audio_reference',
+                    default => $value,
+                };
+                if (in_array($value, ['text_to_video', 'image_to_video', 'image_reference', 'omni_reference', 'video_edit', 'audio_reference'], true) && !in_array($value, $modes, true)) {
+                    $modes[] = $value;
+                }
+            }
+        }
+        return $modes;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function promoAssetTypes(array $option): array
+    {
+        $capabilities = self::arrayValue($option['capabilities'] ?? []);
+        $values = $option['supported_asset_types'] ?? $capabilities['supported_asset_types'] ?? [];
+        return array_values(array_intersect(['image', 'video', 'audio'], array_map(static fn($value): string => strtolower((string)$value), (array)$values)));
+    }
+
+    /**
+     * A provider switch must not persist the previous provider's model ID.
+     * Keep a matching selection when possible; otherwise use the first SKU
+     * that the new runtime has declared usable.
+     */
+    private static function alignDefaultsToOptionConfig(array $data, array $optionConfig): array
+    {
+        $channels = array_values(array_filter((array)($optionConfig['channels'] ?? []), 'is_array'));
+        if ($channels === []) {
+            throw new Exception('暂无支持产品图片参考输入的算力市场视频规格');
+        }
+
+        $channelCode = (string)($data['default_channel'] ?? $data['config_json']['channel'] ?? '');
+        $channel = null;
+        foreach ($channels as $item) {
+            if ((string)($item['code'] ?? '') === $channelCode && self::channelHasUsableSpec((array)($item['qualities'] ?? []))) {
+                $channel = $item;
+                break;
+            }
+        }
+        $channel ??= array_values(array_filter($channels, static fn(array $item): bool => self::channelHasUsableSpec((array)($item['qualities'] ?? []))))[0] ?? null;
+        $channel ??= $channels[0];
+
+        $qualities = array_values(array_filter((array)($channel['qualities'] ?? []), 'is_array'));
+        if ($qualities === []) {
+            throw new Exception('当前视频模型没有可用规格');
+        }
+        $qualityValue = (string)($data['default_quality'] ?? $data['config_json']['quality'] ?? '');
+        $quality = null;
+        foreach ($qualities as $item) {
+            if ((string)($item['value'] ?? $item['quality'] ?? '') === $qualityValue && self::qualityHasUsableSpec($item)) {
+                $quality = $item;
+                break;
+            }
+        }
+        $quality ??= array_values(array_filter($qualities, static fn(array $item): bool => self::qualityHasUsableSpec($item)))[0] ?? $qualities[0];
+
+        $ratios = array_values(array_filter((array)($quality['ratios'] ?? []), 'is_array'));
+        if ($ratios === []) {
+            throw new Exception('当前视频规格没有可用比例');
+        }
+        $ratioValue = (string)($data['default_ratio'] ?? $data['config_json']['ratio'] ?? '');
+        $ratio = null;
+        foreach ($ratios as $item) {
+            if ((string)($item['value'] ?? $item['ratio'] ?? '') === $ratioValue && (int)($item['status'] ?? 0) === 1) {
+                $ratio = $item;
+                break;
+            }
+        }
+        $ratio ??= array_values(array_filter($ratios, static fn(array $item): bool => (int)($item['status'] ?? 0) === 1))[0] ?? $ratios[0];
+
+        $data['default_channel'] = (string)($channel['code'] ?? '');
+        $data['default_quality'] = (string)($quality['value'] ?? $quality['quality'] ?? '');
+        $data['default_ratio'] = (string)($ratio['value'] ?? $ratio['ratio'] ?? '');
+        $data['config_json']['channel'] = $data['default_channel'];
+        $data['config_json']['quality'] = $data['default_quality'];
+        $data['config_json']['ratio'] = $data['default_ratio'];
+        return $data;
     }
 
     private static function createMappedTask(int $tenantId, int $userId, int $videoTaskId, array $prepared, array $estimate): AigcProductPromoVideoTask
@@ -449,6 +822,12 @@ class AigcProductPromoVideoService
             'tenant_id' => $tenantId,
             'user_id' => $userId,
             'video_task_id' => $videoTaskId,
+            'app_task_id' => (int)($videoTask['app_task_id'] ?? 0),
+            'consumption_id' => (int)($videoTask['consumption_id'] ?? 0),
+            'market_product_id' => (int)($videoTask['market_product_id'] ?? 0),
+            'market_sku_id' => (int)($videoTask['market_sku_id'] ?? 0),
+            'pricing_snapshot' => (array)($videoTask['pricing_snapshot'] ?? []),
+            'billing_status' => (int)($videoTask['consumption_id'] ?? 0) > 0 ? 'reserved' : 'none',
             'source_image' => $prepared['source_image'],
             'type_code' => (string)$type['code'],
             'type_name' => (string)$type['name'],
@@ -464,9 +843,10 @@ class AigcProductPromoVideoService
             'quality' => (string)($videoTask['quality'] ?? $prepared['video_payload']['quality']),
             'quality_label' => $prepared['quality_label'],
             'ratio' => (string)($videoTask['ratio'] ?? $prepared['video_payload']['ratio']),
-            'unit_price' => $prepared['unit_price'],
+            'unit_price' => (float)($estimate['unit_price'] ?? 0),
             'tenant_cost_points' => $estimate['tenant_cost_points'],
             'user_charge_points' => $estimate['user_charge_points'],
+            'idempotency_key' => trim((string)($prepared['video_payload']['idempotency_key'] ?? '')),
             'status' => 'running',
             'error' => '',
             'finish_time' => 0,
@@ -496,10 +876,44 @@ class AigcProductPromoVideoService
         $task->status = (string)($videoTask['status'] ?? 'running') ?: 'running';
         $task->error = trim((string)($videoTask['error'] ?? ''));
         $task->finish_time = (int)($videoTask['finish_time'] ?? 0);
+        $task->app_task_id = (int)($videoTask['app_task_id'] ?? $task['app_task_id'] ?? 0);
+        $task->consumption_id = (int)($videoTask['consumption_id'] ?? $task['consumption_id'] ?? 0);
+        $task->market_product_id = (int)($videoTask['market_product_id'] ?? $task['market_product_id'] ?? 0);
+        $task->market_sku_id = (int)($videoTask['market_sku_id'] ?? $task['market_sku_id'] ?? 0);
+        $task->pricing_snapshot = (array)($videoTask['pricing_snapshot'] ?? $task['pricing_snapshot'] ?? []);
+        $task->billing_status = self::marketBillingStatus((string)($videoTask['status'] ?? ''), (int)($videoTask['consumption_id'] ?? 0));
         $task->tenant_cost_points = number_format((float)($videoTask['tenant_cost_points'] ?? $task['tenant_cost_points'] ?? 0), 2, '.', '');
         $task->user_charge_points = number_format((float)($videoTask['user_charge_points'] ?? $task['user_charge_points'] ?? 0), 2, '.', '');
         $task->update_time = time();
         $task->save();
+    }
+
+    /** Called by the market result worker after the linked video task is reconciled. */
+    public static function syncMarketVideoTask(int $tenantId, int $videoTaskId): void
+    {
+        if ($tenantId <= 0 || $videoTaskId <= 0) {
+            return;
+        }
+        $rows = AigcProductPromoVideoTask::where([
+            'tenant_id' => $tenantId,
+            'video_task_id' => $videoTaskId,
+            'delete_time' => 0,
+        ])->select();
+        foreach ($rows as $row) {
+            self::syncTaskFromVideoTask($row);
+        }
+    }
+
+    private static function marketBillingStatus(string $videoStatus, int $consumptionId): string
+    {
+        if ($consumptionId <= 0) {
+            return 'none';
+        }
+        return match ($videoStatus) {
+            'success' => 'settled',
+            'failed', 'canceled' => 'refunded',
+            default => 'reserved',
+        };
     }
 
     private static function syncResultsFromVideoTask(AigcProductPromoVideoTask $task): void
@@ -710,7 +1124,7 @@ class AigcProductPromoVideoService
         ];
     }
 
-    private static function buildSpecOptions(array $optionConfig, float $unitPrice = 0): array
+    private static function buildSpecOptions(array $optionConfig): array
     {
         $channels = [];
         foreach (($optionConfig['channels'] ?? []) as $channel) {
@@ -731,9 +1145,15 @@ class AigcProductPromoVideoService
                             'width' => (int)($ratio['width'] ?? 0),
                             'height' => (int)($ratio['height'] ?? 0),
                             'platform_unit_cost' => round((float)($ratio['platform_unit_cost'] ?? 0), 2),
-                            'base_unit_price' => self::specSecondUnitPrice($channel, $ratio, (int)$duration),
-                            'unit_price' => round(max(0, $unitPrice), 2),
-                            'user_price' => round(max(0, $unitPrice) * max(1, (int)$duration), 2),
+                            'market_product_id' => (int)($ratio['market_product_id'] ?? 0),
+                            'market_sku_id' => (int)($ratio['market_sku_id'] ?? 0),
+                            'model_id' => (string)($ratio['model_id'] ?? $channel['code'] ?? ''),
+                            'resource_type' => (string)($ratio['resource_type'] ?? ''),
+                            'generation_method' => (string)($ratio['generation_method'] ?? $ratio['input_mode'] ?? 'image_reference'),
+                            'tenant_unit_price' => round(max(0, (float)($ratio['tenant_unit_price'] ?? $ratio['user_price'] ?? 0)), 2),
+                            'base_unit_price' => self::specSecondUnitPrice($ratio, (int)$duration),
+                            'unit_price' => self::specSecondUnitPrice($ratio, (int)$duration),
+                            'user_price' => round(max(0, (float)($ratio['tenant_unit_price'] ?? $ratio['user_price'] ?? 0)), 2),
                             'status' => (int)($ratio['status'] ?? $quality['status'] ?? $channel['status'] ?? 1) ? 1 : 0,
                             'priced' => 1,
                         ];
@@ -807,6 +1227,9 @@ class AigcProductPromoVideoService
 
     private static function durationOptionsForSpec(array $channel, array $quality, array $ratio): array
     {
+        if ((int)($ratio['market_sku_id'] ?? 0) > 0 && (int)($ratio['duration'] ?? 0) > 0) {
+            return [(int)$ratio['duration']];
+        }
         $options = array_values(array_filter(array_map('intval', $channel['duration_options'] ?? [])));
         if (!$options) {
             $duration = (int)($quality['duration'] ?? 0);
@@ -815,58 +1238,14 @@ class AigcProductPromoVideoService
         return array_values(array_unique($options));
     }
 
-    private static function defaultSecondUnitPrice(array $optionConfig, array $config): float
-    {
-        $default = $optionConfig['defaults'] ?? [];
-        $targetChannel = (string)($config['default_channel'] ?? $config['config_json']['channel'] ?? $default['channel'] ?? '');
-        $targetQuality = (string)($config['default_quality'] ?? $config['config_json']['quality'] ?? $default['quality'] ?? '');
-        $targetRatio = (string)($config['default_ratio'] ?? $config['config_json']['ratio'] ?? $default['ratio'] ?? '');
-        $targetDuration = (int)($config['default_duration'] ?? $config['config_json']['duration'] ?? $default['duration'] ?? 0);
-        $fallback = 0.0;
-        foreach (($optionConfig['channels'] ?? []) as $channel) {
-            foreach (($channel['qualities'] ?? []) as $quality) {
-                foreach (($quality['ratios'] ?? []) as $ratio) {
-                    $durations = self::durationOptionsForSpec($channel, $quality, $ratio);
-                    $duration = $targetDuration > 0 && in_array($targetDuration, $durations, true) ? $targetDuration : (int)($durations[0] ?? 0);
-                    $price = self::specSecondUnitPrice($channel, $ratio, $duration);
-                    if ($price <= 0) {
-                        continue;
-                    }
-                    if ($fallback <= 0) {
-                        $fallback = $price;
-                    }
-                    $channelCode = (string)($channel['code'] ?? '');
-                    $qualityValue = (string)($quality['value'] ?? '');
-                    $ratioValue = (string)($ratio['value'] ?? $ratio['ratio'] ?? '');
-                    if (($targetChannel === '' || $channelCode === $targetChannel)
-                        && ($targetQuality === '' || $qualityValue === $targetQuality)
-                        && ($targetRatio === '' || $ratioValue === $targetRatio)
-                    ) {
-                        return $price;
-                    }
-                }
-            }
-        }
-        return round(max(0, $fallback), 2);
-    }
-
-    private static function specSecondUnitPrice(array $channel, array $spec, int $duration = 0): float
+    private static function specSecondUnitPrice(array $spec, int $duration = 0): float
     {
         $price = (float)($spec['tenant_unit_price'] ?? $spec['user_price'] ?? 0);
         if ($price <= 0) {
             return 0.0;
         }
-        $channelCode = (string)($channel['code'] ?? '');
-        if (self::isSecondBillingChannel($channelCode)) {
-            return round($price, 2);
-        }
         $duration = max(1, $duration ?: (int)($spec['duration'] ?? 0));
         return round($price / $duration, 2);
-    }
-
-    private static function isSecondBillingChannel(string $channelCode): bool
-    {
-        return in_array($channelCode, ['happy_horse', 'wan', 'seedance2_pro'], true);
     }
 
     private static function normalizePriceMatrix(mixed $value): array
@@ -884,7 +1263,7 @@ class AigcProductPromoVideoService
                 continue;
             }
             $row = [
-                'channel' => self::normalizeCode((string)($item['channel'] ?? '')),
+                'channel' => self::normalizeChannelCode((string)($item['channel'] ?? '')),
                 'quality' => trim((string)($item['quality'] ?? '')),
                 'ratio' => trim((string)($item['ratio'] ?? '')),
                 'duration' => max(0, (int)($item['duration'] ?? 0)),
@@ -909,6 +1288,7 @@ class AigcProductPromoVideoService
         $payload = [
             'tenant_id' => $tenantId,
             'status' => (int)($data['status'] ?? 1),
+            'market_enabled' => 1,
             'default_channel' => (string)($data['default_channel'] ?? ''),
             'default_quality' => (string)($data['default_quality'] ?? ''),
             'default_ratio' => (string)($data['default_ratio'] ?? ''),
@@ -932,6 +1312,7 @@ class AigcProductPromoVideoService
     {
         return [
             'status' => 1,
+            'market_enabled' => 1,
             'default_channel' => '',
             'default_quality' => '',
             'default_ratio' => '',
@@ -947,7 +1328,8 @@ class AigcProductPromoVideoService
     private static function sanitizeConfig(array $data): array
     {
         $data['status'] = (int)($data['status'] ?? 1);
-        $data['default_channel'] = self::normalizeCode((string)($data['default_channel'] ?? ''));
+        $data['market_enabled'] = 1;
+        $data['default_channel'] = self::normalizeChannelCode((string)($data['default_channel'] ?? ''));
         $data['default_quality'] = trim((string)($data['default_quality'] ?? ''));
         $data['default_ratio'] = trim((string)($data['default_ratio'] ?? ''));
         $data['default_duration'] = max(0, (int)($data['default_duration'] ?? 0));
@@ -960,16 +1342,18 @@ class AigcProductPromoVideoService
         $data['config_json']['quality'] = $data['default_quality'] ?: ($data['config_json']['quality'] ?? '');
         $data['config_json']['ratio'] = $data['default_ratio'] ?: ($data['config_json']['ratio'] ?? '');
         $data['config_json']['duration'] = $data['default_duration'] ?: ($data['config_json']['duration'] ?? 0);
+        $data['config_json']['market_enabled'] = $data['market_enabled'];
         return $data;
     }
 
     private static function normalizeConfigJson(array $config): array
     {
         return [
-            'channel' => self::normalizeCode((string)($config['channel'] ?? '')),
+            'channel' => self::normalizeChannelCode((string)($config['channel'] ?? '')),
             'quality' => trim((string)($config['quality'] ?? '')),
             'ratio' => trim((string)($config['ratio'] ?? '')),
             'duration' => max(0, (int)($config['duration'] ?? 0)),
+            'market_enabled' => 1,
         ];
     }
 
@@ -1000,6 +1384,22 @@ class AigcProductPromoVideoService
     private static function normalizeImage(mixed $value): string
     {
         return trim((string)(is_array($value) ? ($value['uri'] ?? $value['url'] ?? $value['image'] ?? '') : $value));
+    }
+
+    /**
+     * Normalize capability payloads that may be stored as JSON or arrays.
+     * Market metadata is persisted in both forms across existing tenants.
+     */
+    private static function arrayValue(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        if (is_string($value) && trim($value) !== '') {
+            $decoded = json_decode($value, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+        return [];
     }
 
     private static function imageUrl(string $uri): string
@@ -1040,6 +1440,16 @@ class AigcProductPromoVideoService
     private static function normalizeCode(string $code): string
     {
         return preg_replace('/[^a-zA-Z0-9_\-]/', '', trim($code)) ?: '';
+    }
+
+    private static function normalizeChannelCode(string $code): string
+    {
+        $code = trim($code);
+        if (preg_match('/^market_video_model:\d+$/', $code) === 1
+            || preg_match('/^market_video_app:(?:[A-Za-z0-9_-]+:)?\d+$/', $code) === 1) {
+            return $code;
+        }
+        return self::normalizeCode($code);
     }
 
     private static function normalizeTypeCode(string $code): string

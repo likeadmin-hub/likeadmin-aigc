@@ -12,33 +12,10 @@
     "component": "",
     "children": [
       {
-        "source_menu_key": "aigc_canvas_config",
-        "type": "C",
-        "name": "基础配置",
-        "perms": "app.aigc_canvas.config/detail",
-        "paths": "config",
-        "component": "apps/aigc_canvas/config"
-      },
-      {
-        "source_menu_key": "aigc_canvas_skill",
-        "type": "C",
-        "name": "Skills 管理",
-        "perms": "app.aigc_canvas.skill/lists",
-        "paths": "skill",
-        "component": "apps/aigc_canvas/skill"
-      },
-      {
-        "source_menu_key": "aigc_canvas_governance",
-        "type": "C",
-        "name": "Agent 治理",
-        "perms": "app.aigc_canvas.governance/policies",
-        "paths": "governance",
-        "component": "apps/aigc_canvas/governance"
-      },
-      {
         "source_menu_key": "aigc_canvas_stat",
         "type": "C",
         "name": "用量统计",
+        "sort": 10,
         "perms": "app.aigc_canvas.admin/stat",
         "paths": "stat",
         "component": "apps/aigc_canvas/stat"
@@ -47,14 +24,43 @@
         "source_menu_key": "aigc_canvas_run",
         "type": "C",
         "name": "创作任务",
+        "sort": 20,
         "perms": "app.aigc_canvas.admin_run/lists",
         "paths": "run",
         "component": "apps/aigc_canvas/run"
       },
       {
+        "source_menu_key": "aigc_canvas_config",
+        "type": "C",
+        "name": "基础配置",
+        "sort": 30,
+        "perms": "app.aigc_canvas.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_canvas/config"
+      },
+      {
+        "source_menu_key": "aigc_canvas_skill",
+        "type": "C",
+        "name": "Skills管理",
+        "sort": 40,
+        "perms": "app.aigc_canvas.skill/lists",
+        "paths": "skill",
+        "component": "apps/aigc_canvas/skill"
+      },
+      {
+        "source_menu_key": "aigc_canvas_governance",
+        "type": "C",
+        "name": "Agent 治理",
+        "sort": 50,
+        "perms": "app.aigc_canvas.governance/policies",
+        "paths": "governance",
+        "component": "apps/aigc_canvas/governance"
+      },
+      {
         "source_menu_key": "aigc_canvas_trace",
         "type": "C",
         "name": "Agent Trace",
+        "sort": 60,
         "perms": "app.aigc_canvas.admin_trace/lists",
         "paths": "trace",
         "component": "apps/aigc_canvas/trace"
