@@ -1,1 +1,0 @@
-import"./entry.ba20c3e5.js";const a=""+new URL("sahngchuan.2f054d50.svg",import.meta.url).href;export{a as l};
