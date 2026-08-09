@@ -156,41 +156,126 @@ location ~ \.php$ {
 - 建议至少 2 核 CPU、4 GB 内存和 10 GB 可用磁盘。
 - 域名部署需提前解析主域名；多租户子域名模式还需配置泛域名解析。
 
-### 1. 创建部署配置
+### 1. 拉取开源代码
+
+在准备部署的服务器上执行：
+
+```bash
+git clone --branch master --single-branch https://gitee.com/likeadmin/likeadmin-aigc.git
+cd likeadmin-aigc
+```
+
+后面的命令都必须在 `likeadmin-aigc` 仓库根目录执行，也就是能看到 `Dockerfile`、`docker-compose.yml` 和 `.env.docker.example` 的目录。
+
+Docker 镜像只使用这个开源仓库的内容。仓库已经包含平台后台、租户后台、PC 和 H5 的编译产物，不需要拉取非开源前端仓库，也不需要安装 Node.js。
+
+### 2. 检查 Docker 环境
+
+```bash
+docker --version
+docker compose version
+```
+
+两个命令都应正常显示版本。请使用 `docker compose`（中间有空格）的 Compose V2，不要使用已经停止维护的 `docker-compose` V1。尚未安装 Docker 时，请先按 [Docker Engine 官方安装文档](https://docs.docker.com/engine/install/) 完成安装，并确保当前用户有权限执行 Docker 命令。
+
+### 3. 创建部署配置
 
 在仓库根目录执行：
 
 ```bash
 cp .env.docker.example .env.docker
+chmod 600 .env.docker
 ```
 
-编辑 `.env.docker`，必须替换所有 `CHANGE_ME` 值。可以用 `openssl rand -base64 24` 分别生成数据库密码、Root 密码、系统密码盐、租户默认密码和平台管理员密码。
+使用 `nano .env.docker`、`vim .env.docker` 或其他文本编辑器打开配置文件。所有以 `CHANGE_ME` 开头的值都必须替换，不能直接使用模板值。
+
+可以执行下面的命令生成一组不含特殊符号的随机值：
+
+```bash
+printf 'MYSQL_PASSWORD='; openssl rand -hex 24
+printf 'MYSQL_ROOT_PASSWORD='; openssl rand -hex 24
+printf 'PROJECT_UNIQUE_IDENTIFICATION='; openssl rand -hex 32
+printf 'PROJECT_DEFAULT_PASSWORD='; openssl rand -hex 12
+printf 'PLATFORM_ADMIN_PASSWORD='; openssl rand -hex 12
+```
+
+命令会输出 5 行可直接使用的配置。将每行等号后面的随机字符串填入 `.env.docker` 对应位置，并把这些值保存在密码管理器中。`MYSQL_PASSWORD` 和 `MYSQL_ROOT_PASSWORD` 应使用不同的值。
 
 关键配置：
 
 | 配置项 | 说明 |
 | --- | --- |
-| `HTTP_PORT` | 宿主机 HTTP 端口，默认 `8080` |
-| `MYSQL_PASSWORD` | 应用数据库密码 |
-| `MYSQL_ROOT_PASSWORD` | MySQL Root 密码，仅用于数据库管理和备份 |
-| `PROJECT_UNIQUE_IDENTIFICATION` | 系统密码盐，首次安装后禁止修改 |
-| `PROJECT_HTTP_HOST` | 对外访问域名，本机测试可使用 `localhost` |
-| `PROJECT_DEFAULT_PASSWORD` | 新建租户管理员时使用的默认密码，请勿与平台管理员密码相同 |
-| `PLATFORM_ADMIN_USER` | 首次安装时创建的平台管理员账号 |
-| `PLATFORM_ADMIN_PASSWORD` | 首次安装时创建的平台管理员密码，至少 12 位 |
+| `HTTP_PORT` | 映射到服务器的 HTTP 端口，默认 `8080`；端口被占用时可改为其他未占用端口 |
+| `MYSQL_DATABASE` | 应用数据库名，通常保持默认的 `likeadmin_aigc_saas` |
+| `MYSQL_USER` | 应用连接数据库使用的普通账号，通常保持默认的 `likeadmin` |
+| `MYSQL_PASSWORD` | `MYSQL_USER` 对应的数据库密码，仅供容器内部连接数据库，不是后台登录密码 |
+| `MYSQL_ROOT_PASSWORD` | MySQL Root 管理密码，仅用于数据库维护和备份，不是后台登录密码 |
+| `PROJECT_UNIQUE_IDENTIFICATION` | 系统密码哈希密钥，不是登录密码；首次安装后必须永久保持不变 |
+| `PROJECT_HTTP_HOST` | 实际访问系统的域名或服务器 IP，不要填写 `http://`、`https://` 或路径 |
+| `PROJECT_DEFAULT_PASSWORD` | 平台以后新建租户管理员时使用的默认登录密码，请勿与平台管理员密码相同 |
+| `PLATFORM_ADMIN_USER` | 首次安装时自动创建的平台管理员账号，例如 `admin` |
+| `PLATFORM_ADMIN_PASSWORD` | 首次安装时自动创建的平台管理员登录密码，至少 12 位 |
+
+#### `PROJECT_UNIQUE_IDENTIFICATION` 是什么
+
+它可以理解为“本套系统专用的永久随机密钥”，不是任何人的登录密码。系统不会直接保存用户输入的明文密码，而是把用户密码和这个随机密钥一起计算后保存。因此，即使两套系统使用了相同的登录密码，数据库中保存的结果也不同。
+
+需要特别注意：
+
+1. 首次安装前随机生成一次即可，建议使用上面的 `openssl rand -hex 32`。
+2. 安装完成后不能修改。修改后，平台管理员、租户管理员和用户原有密码都会校验失败。
+3. 它不能用于登录，也不需要提供给普通用户。
+4. 备份数据库时必须同时安全备份 `.env.docker`。只备份数据库、不保存这个值，恢复后原有账号密码将无法正常验证。
+
+#### `PROJECT_HTTP_HOST` 怎么填写
+
+- 使用正式域名访问：填写域名，例如 `aigc.example.com`。
+- 暂时使用服务器 IP 访问：填写服务器 IP，例如 `203.0.113.10`。
+- 只在服务器本机浏览器测试：可以填写 `localhost`。
+- 需要允许多个平台域名时可用英文逗号分隔，例如 `aigc.example.com,203.0.113.10`。
+
+如果你在自己电脑上通过服务器 IP 访问，就不能保留模板中的 `localhost`。配置错误时，静态页面可能可以打开，但登录或 API 会提示域名错误。
+
+一个需要手动确认的配置结构如下，等号右侧应替换为你自己的真实值：
+
+```dotenv
+COMPOSE_PROJECT_NAME=likeadmin-aigc
+HTTP_PORT=8080
+TZ=Asia/Shanghai
+
+MYSQL_DATABASE=likeadmin_aigc_saas
+MYSQL_USER=likeadmin
+MYSQL_PASSWORD=替换为随机生成的数据库密码
+MYSQL_ROOT_PASSWORD=替换为另一个随机数据库密码
+
+PROJECT_UNIQUE_IDENTIFICATION=替换为随机生成的永久密钥
+PROJECT_HTTP_HOST=替换为实际域名或服务器IP
+PROJECT_DEFAULT_PASSWORD=替换为租户管理员默认密码
+
+PLATFORM_ADMIN_USER=admin
+PLATFORM_ADMIN_PASSWORD=替换为平台管理员密码
+```
 
 `.env.docker` 已加入 Git 忽略规则，不要将真实密码提交到仓库。
 
-### 2. 检查并启动
+### 4. 校验配置
 
 ```bash
 # 只校验配置，不输出密码
 docker compose --env-file .env.docker config --quiet
+```
 
-# 构建镜像并后台启动
+命令没有任何输出并返回命令提示符，表示 Compose 配置格式正确。不要把 `--quiet` 去掉后将完整输出发到公开场合，因为完整配置中可能包含数据库密码。
+
+### 5. 构建并启动
+
+```bash
 docker compose --env-file .env.docker up -d --build
+```
 
-# 查看全部容器状态
+首次启动需要下载 MySQL、Redis、Nginx、PHP 基础镜像，并安装 PHP 扩展、Composer 依赖和 FFmpeg，耗时取决于服务器网络和性能。命令执行结束且没有报错后，查看全部容器状态：
+
+```bash
 docker compose --env-file .env.docker ps -a
 ```
 
@@ -201,9 +286,34 @@ docker compose --env-file .env.docker ps -a
 3. 运行一次性 `initialize` 服务，按配置创建平台管理员。
 4. 数据库和初始化检查通过后，再启动 PHP-FPM、Nginx、AI Worker 和定时任务。
 
-`initialize` 显示 `Exited (0)` 是正常状态。它在已有管理员时不会重置账号或密码。修改 `.env.docker` 中的管理员密码也不会修改数据库里的现有密码。
+正常情况下，`mysql`、`redis`、`app`、`web`、`ai-worker`、`canvas-worker`、`scheduler` 会显示 `Up` 或 `healthy`；一次性服务 `initialize` 显示 `Exited (0)` 是正常状态。
 
-### 3. 访问系统
+`initialize` 在已有管理员时不会重置账号或密码。数据库卷创建完成后，再修改 `.env.docker` 中的 `PLATFORM_ADMIN_USER` 或 `PLATFORM_ADMIN_PASSWORD`，不会修改数据库里的现有管理员。
+
+### 6. 启动失败时查看日志
+
+某个容器没有正常启动时，先查看全部状态，再查看对应日志：
+
+```bash
+docker compose --env-file .env.docker ps -a
+docker compose --env-file .env.docker logs --tail=200 mysql initialize app web ai-worker canvas-worker scheduler
+```
+
+常见问题：
+
+- 提示端口已被占用：修改 `.env.docker` 中的 `HTTP_PORT` 后重新启动。
+- 镜像或软件包下载超时：检查服务器访问 Docker Hub、Debian 和 Composer 软件源的网络。
+- `initialize` 退出码不是 `0`：重点检查数据库密码是否填写完整，以及所有 `CHANGE_ME` 是否已替换。
+- 页面能打开但登录提示域名错误：检查 `PROJECT_HTTP_HOST` 是否与浏览器使用的域名或 IP 一致。
+- 外网无法访问：检查云服务器安全组和系统防火墙是否放行 `HTTP_PORT`。
+
+修改配置后可执行下面的命令重新创建服务：
+
+```bash
+docker compose --env-file .env.docker up -d --force-recreate
+```
+
+### 7. 访问系统和首次登录
 
 默认端口为 `8080`：
 
@@ -212,7 +322,9 @@ docker compose --env-file .env.docker ps -a
 - PC 前台：`http://服务器IP:8080/pc/`
 - H5：`http://服务器IP:8080/mobile/`
 
-平台后台使用 `.env.docker` 中的 `PLATFORM_ADMIN_USER` 和 `PLATFORM_ADMIN_PASSWORD` 登录。
+如果 `HTTP_PORT=80`，访问地址中可以省略 `:80`。使用域名时，把“服务器IP”换成 `PROJECT_HTTP_HOST` 中配置的域名。
+
+首次登录平台后台使用 `.env.docker` 中的 `PLATFORM_ADMIN_USER` 和 `PLATFORM_ADMIN_PASSWORD`。这是平台总后台账号，不是 MySQL 账号。租户后台账号需要登录平台后台后创建租户时生成。
 
 ### 容器说明
 
