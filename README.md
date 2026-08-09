@@ -145,12 +145,147 @@ location ~ \.php$ {
 - PC 前台：`https://your-domain.com/pc/`
 - H5：`https://your-domain.com/mobile/`
 
-## Docker / 宝塔部署提示
+## Docker Compose 部署
 
-- 宝塔环境中建议 PHP 版本选择 8.0 或更高，并在 PHP 管理中启用所需扩展。
-- Docker 环境需将 `server/public` 映射为 Web 根目录，并持久化 `server/runtime`、`server/public/uploads`、`server/public/storage`。
-- 生产环境关闭调试：`.env` 中保持 `APP_DEBUG = false`。
-- 如开启在线更新，需确保 PHP 进程对 `server`、`runtime`、`upgrade` 和前端构建目录有写入权限。
+仓库已经提供生产可用的 `Dockerfile` 和 `docker-compose.yml`。Docker 部署只使用当前开源仓库，镜像内包含已编译的管理后台、PC 和 H5 资源，不需要获取前端源码仓库，也不需要在服务器安装 Node.js。
+
+### 运行要求
+
+- Docker Engine 24 或更高版本。
+- Docker Compose 2.20 或更高版本，需支持 `service_completed_successfully`。
+- 建议至少 2 核 CPU、4 GB 内存和 10 GB 可用磁盘。
+- 域名部署需提前解析主域名；多租户子域名模式还需配置泛域名解析。
+
+### 1. 创建部署配置
+
+在仓库根目录执行：
+
+```bash
+cp .env.docker.example .env.docker
+```
+
+编辑 `.env.docker`，必须替换所有 `CHANGE_ME` 值。可以用 `openssl rand -base64 24` 分别生成数据库密码、Root 密码、系统密码盐、租户默认密码和平台管理员密码。
+
+关键配置：
+
+| 配置项 | 说明 |
+| --- | --- |
+| `HTTP_PORT` | 宿主机 HTTP 端口，默认 `8080` |
+| `MYSQL_PASSWORD` | 应用数据库密码 |
+| `MYSQL_ROOT_PASSWORD` | MySQL Root 密码，仅用于数据库管理和备份 |
+| `PROJECT_UNIQUE_IDENTIFICATION` | 系统密码盐，首次安装后禁止修改 |
+| `PROJECT_HTTP_HOST` | 对外访问域名，本机测试可使用 `localhost` |
+| `PROJECT_DEFAULT_PASSWORD` | 新建租户管理员时使用的默认密码，请勿与平台管理员密码相同 |
+| `PLATFORM_ADMIN_USER` | 首次安装时创建的平台管理员账号 |
+| `PLATFORM_ADMIN_PASSWORD` | 首次安装时创建的平台管理员密码，至少 12 位 |
+
+`.env.docker` 已加入 Git 忽略规则，不要将真实密码提交到仓库。
+
+### 2. 检查并启动
+
+```bash
+# 只校验配置，不输出密码
+docker compose --env-file .env.docker config --quiet
+
+# 构建镜像并后台启动
+docker compose --env-file .env.docker up -d --build
+
+# 查看全部容器状态
+docker compose --env-file .env.docker ps -a
+```
+
+首次启动会自动完成以下操作：
+
+1. 创建 MySQL、Redis、运行目录、上传目录和本地存储数据卷。
+2. 仅在 MySQL 数据卷为空时导入 `public/install/db/like.sql`。
+3. 运行一次性 `initialize` 服务，按配置创建平台管理员。
+4. 数据库和初始化检查通过后，再启动 PHP-FPM、Nginx、AI Worker 和定时任务。
+
+`initialize` 显示 `Exited (0)` 是正常状态。它在已有管理员时不会重置账号或密码。修改 `.env.docker` 中的管理员密码也不会修改数据库里的现有密码。
+
+### 3. 访问系统
+
+默认端口为 `8080`：
+
+- 平台后台：`http://服务器IP:8080/platform/`
+- 租户后台：`http://服务器IP:8080/admin/`
+- PC 前台：`http://服务器IP:8080/pc/`
+- H5：`http://服务器IP:8080/mobile/`
+
+平台后台使用 `.env.docker` 中的 `PLATFORM_ADMIN_USER` 和 `PLATFORM_ADMIN_PASSWORD` 登录。
+
+### 容器说明
+
+| 服务 | 作用 |
+| --- | --- |
+| `web` | Nginx、静态资源、SPA 路由和 PHP 转发 |
+| `app` | ThinkPHP PHP-FPM API |
+| `mysql` | MySQL 8.0 数据库 |
+| `redis` | 共享缓存 |
+| `ai-worker` | 异步查询 AI 任务结果、资源转存、结算和退款 |
+| `canvas-worker` | 处理画布 Agent 子任务 |
+| `scheduler` | 每分钟触发一次系统统一定时调度 |
+| `initialize` | 首次数据库初始化，成功后退出 |
+
+PHP 镜像已经包含项目依赖的扩展、Composer 生产依赖和 FFmpeg。`runtime`、`public/uploads`、`public/storage`、`public/qrcode`、MySQL 和 Redis 数据均使用具名卷持久化。
+
+### 常用运维命令
+
+```bash
+# 查看运行状态
+docker compose --env-file .env.docker ps -a
+
+# 查看应用与后台任务日志
+docker compose --env-file .env.docker logs -f app web ai-worker canvas-worker scheduler
+
+# 重启应用服务
+docker compose --env-file .env.docker restart app web ai-worker canvas-worker scheduler
+
+# 停止服务但保留所有数据卷
+docker compose --env-file .env.docker down
+```
+
+不要执行 `docker compose down -v`，该命令会删除数据库、上传文件和其他持久化数据。
+
+数据库备份示例：
+
+```bash
+docker compose --env-file .env.docker exec -T mysql \
+  sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' \
+  > likeadmin-backup.sql
+```
+
+### 域名、HTTPS 与反向代理
+
+容器默认提供 HTTP 服务。生产环境建议在宿主机或负载均衡器终止 HTTPS，再代理到 `HTTP_PORT`。反向代理必须保留原始 `Host`，并传递 `X-Forwarded-Proto: https`，否则租户域名识别和部分回调地址可能不正确。
+
+使用域名后同步修改 `.env.docker` 中的 `PROJECT_HTTP_HOST` 并重新创建应用容器：
+
+```bash
+docker compose --env-file .env.docker up -d --force-recreate app ai-worker canvas-worker scheduler web
+```
+
+### Docker 版本升级
+
+Docker 镜像按不可变方式运行，代码目录为只读。不要在平台后台执行“在线更新”：该功能会直接替换 PHP 和前端文件，无法同步到 Nginx、Worker 等多个容器，也会在容器重建后丢失。
+
+升级前必须备份数据库和持久化文件，并根据目标版本发布说明执行对应的升级 SQL 或更新包；确认数据库升级成功后再拉取代码并重建：
+
+```bash
+git pull
+docker compose --env-file .env.docker build --pull
+docker compose --env-file .env.docker up -d
+docker compose --env-file .env.docker ps -a
+```
+
+不要把全新安装用的 `public/install/db/like.sql` 导入已有数据库，该文件包含删表和完整初始化语句。
+
+### 宝塔部署提示
+
+- PHP 版本选择 8.0 或更高，并启用项目所需扩展。
+- Web 根目录必须指向 `server/public`，不能暴露服务端根目录。
+- 生产环境保持 `APP_DEBUG = false`。
+- 使用后台在线更新时，PHP 进程必须能够写入 `server`、`runtime`、`upgrade` 和前端构建目录。
 
 ## AI 任务结果 Worker 守护
 

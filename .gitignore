@@ -3,6 +3,7 @@
 *.log
 /.phpunit.result.cache
 /.env
+/.env.docker
 /public/.user.ini
 /public/uploads/*
 !/public/uploads/index.html
