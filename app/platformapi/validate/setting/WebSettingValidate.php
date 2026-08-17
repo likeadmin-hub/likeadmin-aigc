@@ -30,6 +30,10 @@ class WebSettingValidate extends BaseValidate
         'web_logo_dark' => 'require',
         'login_image' => 'require',
         'point_unit' => 'max:12',
+        'copyright_config' => 'array',
+        'enabled' => 'require|in:0,1',
+        'url' => 'requireIf:enabled,1|max:1000|checkTutorialUrl',
+        'icon' => 'max:500',
     ];
 
     protected $message = [
@@ -39,9 +43,28 @@ class WebSettingValidate extends BaseValidate
         'web_logo_light.require' => '请上传网站亮色主题logo',
         'web_logo_dark.require' => '请上传网站暗色主题logo',
         'login_image.require' => '请上传登录页广告图',
+        'enabled.require' => '请选择是否启用新手教程',
+        'enabled.in' => '新手教程启用状态不正确',
+        'url.requireIf' => '启用新手教程后必须填写教程链接',
+        'url.max' => '新手教程链接最长为1000个字符',
+        'icon.max' => '新手教程图标地址最长为500个字符',
     ];
 
     protected $scene = [
-        'website' => ['name', 'web_favicon', 'web_logo_light','web_logo_dark', 'login_image', 'point_unit', 'shop_name', 'shop_logo', 'pc_logo'],
+        'website' => ['name', 'web_favicon', 'web_logo_light','web_logo_dark', 'login_image', 'point_unit', 'copyright_config', 'shop_name', 'shop_logo', 'pc_logo'],
+        'tutorial' => ['enabled', 'url', 'icon'],
     ];
+
+    public function checkTutorialUrl($value): bool|string
+    {
+        $url = trim((string)$value);
+        if ($url === '') {
+            return true;
+        }
+        if (filter_var($url, FILTER_VALIDATE_URL) === false) {
+            return '请输入有效的新手教程链接';
+        }
+        $scheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
+        return in_array($scheme, ['http', 'https'], true) ?: '新手教程链接仅支持 http 或 https';
+    }
 }

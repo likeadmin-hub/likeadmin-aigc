@@ -2,6 +2,7 @@
 
 namespace app\common\service\app\aigc_llm;
 
+use app\common\service\ai\UpstreamErrorMessageService;
 use app\common\service\PointUnitService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
@@ -612,7 +613,9 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
         if (is_array($data)) {
             $error = $data['error'] ?? $data;
             if (is_array($error)) {
-                return (string)($error['message'] ?? $error['code'] ?? $error['type'] ?? '');
+                $code = trim((string)($error['code'] ?? $error['type'] ?? ''));
+                $message = trim((string)($error['message'] ?? $error['msg'] ?? ''));
+                return trim($code . ($code !== '' && $message !== '' ? ': ' : '') . $message);
             }
             return (string)($data['message'] ?? $data['msg'] ?? '');
         }
@@ -641,7 +644,7 @@ class OpenAiCompatibleLlmProvider implements AigcLlmProviderInterface
                 return $friendly;
             }
         }
-        return mb_substr($message !== '' ? $message : '供应商请求失败', 0, 120, 'UTF-8');
+        return UpstreamErrorMessageService::normalize($message);
     }
 
     private function sourceBaseUrl(string $baseUrl): string

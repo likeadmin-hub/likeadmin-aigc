@@ -8,6 +8,7 @@ use app\common\model\ai\AiConsumptionLog;
 use app\common\model\app\aigc_image\AigcImageTask;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
+use app\common\model\power\TenantPowerMarketProduct;
 use app\common\model\power\TenantPowerMarketSkuPrice;
 use app\common\service\point\PointService;
 use RuntimeException;
@@ -300,9 +301,20 @@ class AiUsageService
         } elseif ($filterTenantId = (int)($params['tenant_id'] ?? 0)) {
             $query->where('t.tenant_id', $filterTenantId);
         }
-        if ($appCode = trim((string)($params['app_code'] ?? ''))) {
+        if (array_key_exists('app_codes', $params)) {
+            $appCodes = array_values(array_unique(array_filter(array_map(
+                static fn($value): string => trim((string)$value),
+                (array)$params['app_codes']
+            ))));
+            if ($appCodes === []) {
+                $query->whereRaw('1=0');
+            } else {
+                $query->whereIn('t.app_code', $appCodes);
+            }
+        } elseif ($appCode = trim((string)($params['app_code'] ?? ''))) {
             $query->where('t.app_code', $appCode);
         }
+        self::applyAppTaskTypeFilter($query, (string)($params['task_type'] ?? ''));
         if ($userId = (int)($params['user_id'] ?? 0)) {
             $query->where('t.user_id', $userId);
         }
@@ -314,6 +326,7 @@ class AiUsageService
                 $query->whereLike('t.task_no|t.app_code|t.action_code|u.nickname|u.account|u.mobile', '%' . $keyword . '%');
             });
         }
+        self::applyConsumptionFilters($query, $params, $tenantId);
         if ($start = strtotime((string)($params['create_time_start'] ?? ''))) {
             $query->where('t.create_time', '>=', $start);
         }
@@ -332,7 +345,189 @@ class AiUsageService
             $row = self::formatAppTask($row);
         }
         unset($row);
+        self::attachConsumptionContext($rows, $params, $tenantId);
         return compact('rows', 'count', 'pageNo', 'pageSize');
+    }
+
+    private static function applyAppTaskTypeFilter($query, string $taskType): void
+    {
+        $taskType = match (strtolower(trim($taskType))) {
+            'image', 'image_generate', '生图', '图片' => 'image',
+            'video', 'video_generate', '视频' => 'video',
+            'text', 'text_generate', '文本' => 'text',
+            'short_drama', 'short_drama_generate', '短剧' => 'short_drama',
+            default => '',
+        };
+        if ($taskType === '') {
+            return;
+        }
+
+        $appCodes = match ($taskType) {
+            'image' => [
+                'aigc_image', 'aigc_product_image', 'aigc_style_transfer', 'aigc_photo_restore',
+                'aigc_model_wear', 'aigc_background_removal', 'aigc_image_translate',
+                'aigc_one_click_cleanup', 'aigc_product_suite', 'aigc_product_multi_angle',
+                'aigc_fashion_lookbook', 'aigc_outpaint', 'aigc_local_redraw', 'aigc_fitting',
+                'aigc_hairstyle',
+            ],
+            'video' => [
+                'aigc_video', 'aigc_digital_human', 'image_human', 'smart_clip',
+                'aigc_product_promo_video', 'aigc_action_transfer', 'aigc_person_replacement',
+            ],
+            'text' => ['aigc_llm'],
+            'short_drama' => ['aigc_short_drama'],
+        };
+        if ($taskType === 'short_drama') {
+            $query->whereIn('t.app_code', $appCodes);
+            return;
+        }
+
+        $protocolQuery = Db::name('ai_consumption_log')->alias('tc')
+            ->fieldRaw('1')
+            ->whereColumn('tc.app_task_id', '=', 't.id')
+            ->where('t.app_code', '<>', 'aigc_short_drama')
+            ->whereLike('tc.protocol', '%' . $taskType . '%');
+        $query->where(function ($subQuery) use ($appCodes, $protocolQuery) {
+            $subQuery->whereIn('t.app_code', $appCodes)
+                ->whereExists($protocolQuery, 'OR');
+        });
+    }
+
+    private static function applyConsumptionFilters($query, array $params, int $tenantId): void
+    {
+        $model = trim((string)($params['model'] ?? ''));
+        $channel = trim((string)($params['channel'] ?? ''));
+        if ($model === '' && $channel === '') {
+            return;
+        }
+
+        $consumptionQuery = Db::name('ai_consumption_log')->alias('c')
+            ->fieldRaw('1')
+            ->whereColumn('c.app_task_id', '=', 't.id');
+        if ($tenantId > 0) {
+            $consumptionQuery->where('c.tenant_id', $tenantId);
+        }
+        if ($model !== '') {
+            $productIds = self::matchingConsumptionProductIds($model, $tenantId);
+            $consumptionQuery->where(function ($subQuery) use ($model, $productIds) {
+                $subQuery->whereLike('c.model_code|c.api_code|c.price_snapshot', '%' . $model . '%');
+                if ($productIds !== []) {
+                    $subQuery->whereIn('c.product_id', $productIds, 'OR');
+                }
+            });
+        }
+        if ($channel !== '') {
+            $consumptionQuery->whereLike(
+                'c.provider|c.api_code|c.protocol|c.price_snapshot',
+                '%' . $channel . '%'
+            );
+        }
+        $query->whereExists($consumptionQuery);
+    }
+
+    /** @return array<int, int> */
+    private static function matchingConsumptionProductIds(string $keyword, int $tenantId): array
+    {
+        try {
+            $ids = PowerMarketProduct::whereLike(
+                'name|product_code|upstream_model_code|upstream_api_code',
+                '%' . $keyword . '%'
+            )->column('id');
+            if ($tenantId > 0) {
+                $ids = array_merge($ids, TenantPowerMarketProduct::where('tenant_id', $tenantId)
+                    ->whereLike('name', '%' . $keyword . '%')->column('product_id'));
+            }
+            return array_values(array_unique(array_filter(array_map('intval', $ids))));
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /** @param array<int, array<string, mixed>> $rows */
+    private static function attachConsumptionContext(array &$rows, array $params, int $tenantId): void
+    {
+        $taskIds = array_values(array_unique(array_filter(array_map(
+            static fn(array $row): int => (int)($row['id'] ?? 0),
+            $rows
+        ))));
+        if ($taskIds === []) {
+            return;
+        }
+
+        $consumptions = AiConsumptionLog::whereIn('app_task_id', $taskIds)
+            ->field('app_task_id,product_id,model_code,api_code,provider,protocol,resource_type,price_snapshot')
+            ->order('id', 'asc')
+            ->select()
+            ->toArray();
+        $model = trim((string)($params['model'] ?? ''));
+        $channel = trim((string)($params['channel'] ?? ''));
+        $matchingProductIds = $model === '' ? [] : self::matchingConsumptionProductIds($model, $tenantId);
+        $byTask = [];
+        $matchedTasks = [];
+        foreach ($consumptions as $consumption) {
+            $taskId = (int)($consumption['app_task_id'] ?? 0);
+            if ($taskId > 0 && !isset($byTask[$taskId])) {
+                $byTask[$taskId] = $consumption;
+            }
+            if ($taskId > 0
+                && !isset($matchedTasks[$taskId])
+                && self::consumptionMatchesDisplayFilters($consumption, $model, $channel, $matchingProductIds)) {
+                $byTask[$taskId] = $consumption;
+                $matchedTasks[$taskId] = true;
+            }
+        }
+        foreach ($rows as &$row) {
+            $context = $byTask[(int)($row['id'] ?? 0)] ?? [];
+            $row['market_product_id'] = (int)($context['product_id'] ?? 0);
+            $row['model_code'] = (string)($context['model_code'] ?? '');
+            $row['model'] = $row['model_code'];
+            $row['api_code'] = (string)($context['api_code'] ?? '');
+            $row['provider'] = (string)($context['provider'] ?? '');
+            $row['channel'] = $row['provider'] !== '' ? $row['provider'] : $row['api_code'];
+            $row['protocol'] = (string)($context['protocol'] ?? '');
+            $row['resource_type'] = (string)($context['resource_type'] ?? '');
+        }
+        unset($row);
+    }
+
+    /** @param array<int, int> $matchingProductIds */
+    private static function consumptionMatchesDisplayFilters(
+        array $consumption,
+        string $model,
+        string $channel,
+        array $matchingProductIds
+    ): bool {
+        if ($model !== '') {
+            $modelText = implode(' ', [
+                (string)($consumption['model_code'] ?? ''),
+                (string)($consumption['api_code'] ?? ''),
+                self::filterText($consumption['price_snapshot'] ?? ''),
+            ]);
+            if (stripos($modelText, $model) === false
+                && !in_array((int)($consumption['product_id'] ?? 0), $matchingProductIds, true)) {
+                return false;
+            }
+        }
+        if ($channel !== '') {
+            $channelText = implode(' ', [
+                (string)($consumption['provider'] ?? ''),
+                (string)($consumption['api_code'] ?? ''),
+                (string)($consumption['protocol'] ?? ''),
+                self::filterText($consumption['price_snapshot'] ?? ''),
+            ]);
+            if (stripos($channelText, $channel) === false) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static function filterText($value): string
+    {
+        if (is_array($value)) {
+            return (string)json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+        return is_scalar($value) ? (string)$value : '';
     }
 
     public static function appTaskDetail(int $id, int $tenantId = 0): array

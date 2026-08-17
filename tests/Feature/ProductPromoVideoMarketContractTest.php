@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use app\common\service\app\aigc_product_promo_video\AigcProductPromoVideoService;
 use app\common\service\app\aigc_video\AigcVideoService;
+use app\common\service\ai\MarketAppGateService;
 use app\common\service\power\MarketVideoRuntimeService;
 use Exception;
 use PHPUnit\Framework\TestCase;
@@ -209,6 +210,20 @@ class ProductPromoVideoMarketContractTest extends TestCase
             'requiresDurableResultStorage',
             'aigc_video'
         ));
+    }
+
+    public function testPromoUsesSelectedVideoSkuWithoutASeparateWrapperMarketGate(): void
+    {
+        self::assertFalse(MarketAppGateService::requiresGate('aigc_product_promo_video'));
+
+        $source = (string)file_get_contents(
+            dirname(__DIR__, 2) . '/app/common/service/app/aigc_product_promo_video/AigcProductPromoVideoService.php'
+        );
+        self::assertStringNotContainsString('MarketAppGateService::requireMarket', $source);
+        self::assertStringContainsString(
+            "AigcVideoService::generateMarket(\$tenantId, \$userId, \$prepared['video_payload'], self::APP_CODE)",
+            $source
+        );
     }
 
     public function testSuccessfulSettlementClearsTransientRefreshDiagnostics(): void

@@ -63,6 +63,68 @@ class ShortDramaTextModelContractTest extends TestCase
         ]);
     }
 
+    public function testConfiguredDefaultKeepsEveryTextModelSelectable(): void
+    {
+        $groups = $this->invoke('applyDefaultTextModel', [[
+            'key' => 'script_plan',
+            'default' => '901',
+            'options' => [
+                ['id' => '901', 'model_code' => 'glm-5.2', 'supports_vision' => false],
+                ['id' => '902', 'model_code' => 'gpt-5.2', 'supports_vision' => true],
+            ],
+        ]], ['id' => '902']);
+
+        self::assertSame('902', $groups[0]['default']);
+        self::assertCount(2, $groups[0]['options']);
+        self::assertFalse($groups[0]['options'][0]['supports_vision']);
+    }
+
+    public function testScriptResolutionUsesConfiguredDefaultWhenUserHasNotSelectedOne(): void
+    {
+        $selected = $this->invoke('resolveSelectedModels', 0, [], [
+            'model_groups' => [[
+                'key' => 'script_plan',
+                'default' => '902',
+                'options' => [
+                    ['id' => '901', 'model_code' => 'glm-5.2'],
+                    ['id' => '902', 'model_code' => 'gpt-5.2'],
+                ],
+            ]],
+        ]);
+
+        self::assertSame('902', $selected['script_plan']['id']);
+    }
+
+    public function testExplicitUserTextModelStillOverridesConfiguredDefault(): void
+    {
+        $selected = $this->invoke('resolveSelectedModels', 0, [
+            'model_selections' => ['script_plan' => ['id' => '901']],
+        ], [
+            'model_groups' => [[
+                'key' => 'script_plan',
+                'default' => '902',
+                'options' => [
+                    ['id' => '901', 'model_code' => 'glm-5.2'],
+                    ['id' => '902', 'model_code' => 'gpt-5.2'],
+                ],
+            ]],
+        ]);
+
+        self::assertSame('901', $selected['script_plan']['id']);
+    }
+
+    public function testAdminSelectorUsesAllTextModelsForTheDefault(): void
+    {
+        $asset = file_get_contents(dirname(__DIR__, 2) . '/public/admin/assets/config-fge0of94.js');
+
+        self::assertIsString($asset);
+        self::assertStringContainsString('default_text_model_id', $asset);
+        self::assertStringContainsString('key)==="script_plan"', $asset);
+        self::assertStringContainsString('label:"默认文本模型"', $asset);
+        self::assertStringContainsString('暂无租户可用的文本模型', $asset);
+        self::assertStringNotContainsString('搜索并选择支持视觉的文本模型', $asset);
+    }
+
     private function planPayload(): array
     {
         return [

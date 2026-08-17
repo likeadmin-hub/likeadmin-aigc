@@ -282,10 +282,7 @@ class CanvasModelRouterService
     private static function imageOverview(int $tenantId): array
     {
         try {
-            $items = array_merge(
-                MarketImageModelRuntimeService::options($tenantId),
-                MarketNanoBananaAppRuntimeService::options($tenantId)
-            );
+            $items = MarketImageModelRuntimeService::options($tenantId);
             $items = self::availableRuntimeOptions($items);
             return ['default' => (string)(($items[0] ?? [])['id'] ?? ''), 'options' => $items];
         } catch (\Throwable) {

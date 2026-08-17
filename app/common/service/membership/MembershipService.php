@@ -268,19 +268,31 @@ class MembershipService
         $current = self::currentMembership($tenantId, $userId);
         if (empty($current)) {
             return [
+                'is_member' => 0,
                 'member_status' => self::MEMBER_NONE,
+                'member_status_text' => '非会员',
                 'member_plan_id' => 0,
                 'membership_plan' => '',
+                'member_cycle' => '',
+                'member_cycle_text' => '',
                 'member_expire_time' => 0,
+                'member_expire_time_text' => '--',
                 'member_apps' => [],
             ];
         }
-        $isActive = (int)$current['expire_time'] > time() && (int)$current['status'] === self::STATUS_ENABLED;
+        $expireTime = (int)$current['expire_time'];
+        $isActive = $expireTime > time() && (int)$current['status'] === self::STATUS_ENABLED;
+        $cycle = self::membershipOrderCycle($current);
         return [
+            'is_member' => $isActive ? 1 : 0,
             'member_status' => $isActive ? self::MEMBER_ACTIVE : self::MEMBER_EXPIRED,
+            'member_status_text' => $isActive ? '有效会员' : '会员已过期',
             'member_plan_id' => (int)$current['plan_id'],
             'membership_plan' => (string)$current['plan_name'],
-            'member_expire_time' => (int)$current['expire_time'],
+            'member_cycle' => $cycle['cycle'],
+            'member_cycle_text' => $cycle['text'],
+            'member_expire_time' => $expireTime,
+            'member_expire_time_text' => $expireTime > 0 ? date('Y-m-d H:i:s', $expireTime) : '--',
             'member_apps' => $isActive ? (array)($current['app_codes'] ?? []) : [],
         ];
     }
@@ -393,6 +405,69 @@ class MembershipService
             ->order('id', 'desc')
             ->findOrEmpty();
         return $row->isEmpty() ? [] : $row->toArray();
+    }
+
+    private static function membershipOrderCycle(array $membership): array
+    {
+        $tenantId = (int)($membership['tenant_id'] ?? 0);
+        $userId = (int)($membership['user_id'] ?? 0);
+        $sourceOrderSn = trim((string)($membership['source_order_sn'] ?? ''));
+        $order = null;
+
+        if ($sourceOrderSn !== '') {
+            $order = MembershipOrder::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'order_sn' => $sourceOrderSn,
+                'pay_status' => PayEnum::ISPAID,
+            ])->field('cycle,duration_months')->findOrEmpty();
+        }
+
+        if ($order === null || $order->isEmpty()) {
+            $order = MembershipOrder::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'plan_id' => (int)($membership['plan_id'] ?? 0),
+                'pay_status' => PayEnum::ISPAID,
+            ])->field('cycle,duration_months')->order('id', 'desc')->findOrEmpty();
+        }
+
+        if ($order->isEmpty()) {
+            return ['cycle' => '', 'text' => ''];
+        }
+
+        return self::formatMembershipCycle(
+            (string)($order['cycle'] ?? ''),
+            (int)($order['duration_months'] ?? 0)
+        );
+    }
+
+    private static function formatMembershipCycle(string $cycle, int $durationMonths): array
+    {
+        $cycle = strtolower(trim($cycle));
+        if (in_array($cycle, ['daily', 'day'], true)) {
+            return ['cycle' => 'daily', 'text' => '日套餐'];
+        }
+        if (in_array($cycle, [self::CYCLE_YEARLY, 'year'], true)) {
+            return ['cycle' => self::CYCLE_YEARLY, 'text' => '年套餐'];
+        }
+        if (in_array($cycle, [self::CYCLE_MONTHLY, 'month'], true)) {
+            return ['cycle' => self::CYCLE_MONTHLY, 'text' => '月套餐'];
+        }
+        if ($durationMonths > 0 && $durationMonths % 12 === 0) {
+            $years = (int)($durationMonths / 12);
+            return [
+                'cycle' => self::CYCLE_YEARLY,
+                'text' => $years === 1 ? '年套餐' : $years . '年套餐',
+            ];
+        }
+        if ($durationMonths === 1) {
+            return ['cycle' => self::CYCLE_MONTHLY, 'text' => '月套餐'];
+        }
+        if ($durationMonths > 1) {
+            return ['cycle' => self::CYCLE_PACKAGE, 'text' => $durationMonths . '个月套餐'];
+        }
+        return ['cycle' => $cycle, 'text' => $cycle === '' ? '' : '套餐'];
     }
 
     private static function calcExpire(int $beforeExpireTime, int $durationMonths): int

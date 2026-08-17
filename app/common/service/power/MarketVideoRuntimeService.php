@@ -13,6 +13,7 @@ use app\common\service\ai\AiTaskJobService;
 use app\common\service\ai\AiTaskResultUrlService;
 use app\common\service\ai\AiTaskResultStorageService;
 use app\common\service\ai\MarketAppGateService;
+use app\common\service\ai\UpstreamErrorMessageService;
 use app\common\service\app\aigc_video\AigcVideoAssetService;
 use app\common\service\app\aigc_video\AigcVideoReferenceAssetService;
 use app\common\service\point\PointService;
@@ -134,7 +135,7 @@ class MarketVideoRuntimeService
                 'category_name' => $categoryName,
                 'market_product_id' => (int)$product['id'],
                 'name' => self::displayName($product),
-                'description' => (string)($product['description'] ?? ''),
+                'description' => self::productDescription($product, $metadata),
                 'display_icon' => (string)($product['display_icon'] ?? ''),
                 'model_code' => (string)$product['upstream_model_code'],
                 'channel_code' => (string)$product['upstream_channel_code'],
@@ -399,7 +400,7 @@ class MarketVideoRuntimeService
             if ($upstreamRejected || in_array($upstreamStatus, ['failed', 'error', 'canceled', 'cancelled', 'rejected'], true)) {
                 $message = self::error($response);
                 self::fail($consumptionId, $message, 'upstream_failed');
-                return ['status' => 'failed', 'provider_task_id' => $taskId, 'videos' => [], 'error_msg' => $message];
+                return self::failureResponse($taskId, $message);
             }
             if ($videos !== []) {
                 self::settle($consumptionId, $videos, self::requestId($response), $taskId, $response);
@@ -422,8 +423,9 @@ class MarketVideoRuntimeService
             }
             if (AiTaskLifecycleEventService::isTerminalSuccess($upstreamStatus)) {
                 if (AiTaskLifecycleEventService::terminalResultMissing($consumptionId, $upstreamStatus, $taskId)) {
-                    self::fail($consumptionId, '上游视频任务已完成，但未返回可用结果文件', 'upstream_result_missing');
-                    return ['status' => 'failed', 'provider_task_id' => $taskId, 'videos' => []];
+                    $message = '上游视频任务已完成，但未返回可用结果文件';
+                    self::fail($consumptionId, $message, 'upstream_result_missing');
+                    return self::failureResponse($taskId, $message);
                 }
                 return ['status' => 'running', 'provider_task_id' => $taskId, 'videos' => []];
             }
@@ -753,37 +755,67 @@ class MarketVideoRuntimeService
     {
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
         $assets = self::assets($request);
-        $duration = self::duration($locked) ?: (int)($request['duration'] ?? 0);
-        $quality = self::value($request, ['quality', 'resolution']) ?: self::resolution($locked);
+        $schema = self::arrayValue($snapshot['params_schema'] ?? []);
+        $requestedDuration = (int)($request['duration'] ?? $request['seconds'] ?? $request['video_duration'] ?? 0);
+        $schemaDuration = (int)self::schemaDefaultValue($schema, 'duration', 0);
+        $duration = self::duration($locked) ?: ($requestedDuration > 0 ? $requestedDuration : $schemaDuration);
+        $quality = self::resolution($locked)
+            ?: self::value($request, ['quality', 'resolution'])
+            ?: (string)self::schemaDefaultValue($schema, 'quality', self::schemaDefaultValue($schema, 'resolution', ''));
         $prompt = trim((string)($request['prompt'] ?? ''));
         $ratio = self::payloadRatio($snapshot, $request, $assets);
+        if ($ratio === '') {
+            $ratio = (string)self::schemaDefaultValue($schema, 'aspect_ratio', self::schemaDefaultValue($schema, 'ratio', ''));
+        }
         if (self::isH3Snapshot($snapshot)) {
             return self::h3Payload($snapshot, $request, $locked, $prompt, $ratio, $quality, $duration, $idempotency);
         }
+        if (self::usesStructuredModelTaskPayload($snapshot)) {
+            return self::structuredModelPayload($snapshot, $request, $locked, $prompt, $ratio, $quality, $duration, $idempotency);
+        }
         $promptKey = self::schemaParameterName($snapshot, ['content', 'prompt'], 'prompt');
         $ratioKey = self::schemaParameterName($snapshot, ['ratio', 'aspect_ratio', 'size'], 'aspect_ratio');
+        $hasSchema = $schema !== [];
         // The model API accepts one contract-defined field for each value. Do
         // not retain aliases from a SKU when the upstream schema uses another
         // name; strict providers reject unknown or duplicate input fields.
-        foreach (['prompt', 'content', 'aspect_ratio', 'ratio', 'size'] as $key) {
+        foreach (['prompt', 'content', 'aspect_ratio', 'ratio', 'size', 'quality', 'resolution', 'duration', 'n', 'negative_prompt', 'image_urls', 'video_urls', 'audio_urls', 'generation_type'] as $key) {
             unset($locked[$key]);
         }
-        // Model API video calls share the existing AIGC video provider contract:
-        // `quality` and `n` are required by multiple async channels. The
-        // market stores `resolution` as UI metadata only, so do not replace the
-        // supplier's quality parameter with it.
         $payload = array_merge($locked, self::marketContext($snapshot, 'power_market_video'), [
             'model' => (string)$snapshot['model_code'],
-            'n' => max(1, (int)($request['quantity'] ?? 1)),
             'channel' => (string)$snapshot['channel_code'],
-            'image_urls' => $assets['image'],
-            'quality' => $quality,
-            'duration' => $duration > 0 ? $duration : null,
-            'negative_prompt' => trim((string)($request['negative_prompt'] ?? '')),
-            'video_urls' => $assets['video'],
-            'audio_urls' => $assets['audio'],
             'idempotency_key' => $idempotency,
         ]);
+        if (!$hasSchema || self::schemaDeclaresParameter($schema, 'n')) {
+            $payload['n'] = max(1, (int)($request['quantity'] ?? 1));
+        }
+        $resolutionKey = self::schemaParameterName($snapshot, ['quality', 'resolution'], $hasSchema ? '' : 'quality');
+        if ($resolutionKey !== '' && $quality !== '') {
+            $payload[$resolutionKey] = $quality;
+        }
+        if (!$hasSchema || self::schemaDeclaresParameter($schema, 'duration')) {
+            $payload['duration'] = $duration > 0 ? $duration : null;
+        }
+        if (!$hasSchema || self::schemaDeclaresParameter($schema, 'negative_prompt')) {
+            $payload['negative_prompt'] = trim((string)($request['negative_prompt'] ?? ''));
+        }
+        if (!$hasSchema || self::schemaDeclaresParameter($schema, 'image_urls')) {
+            $payload['image_urls'] = $assets['image'];
+        }
+        if (!$hasSchema || self::schemaDeclaresParameter($schema, 'video_urls')) {
+            $payload['video_urls'] = $assets['video'];
+        }
+        if (!$hasSchema || self::schemaDeclaresParameter($schema, 'audio_urls')) {
+            $payload['audio_urls'] = $assets['audio'];
+        }
+        if (self::schemaDeclaresParameter($schema, 'generation_type')) {
+            $generationType = self::value($request, ['generation_type', 'generationType'])
+                ?: self::generationTypeForSchema($snapshot, $request, $assets);
+            if ($generationType !== '') {
+                $payload['generation_type'] = $generationType;
+            }
+        }
         $payload[$promptKey] = self::schemaParameterUsesArray($snapshot, $promptKey)
             ? self::schemaTextContent($snapshot, $promptKey, $prompt)
             : $prompt;
@@ -849,6 +881,151 @@ class MarketVideoRuntimeService
             'upstream_model_code' => (string)($snapshot['model_code'] ?? ''),
             'upstream_channel_code' => (string)($snapshot['channel_code'] ?? ''),
         ]);
+    }
+
+    private static function usesStructuredModelTaskPayload(array $snapshot): bool
+    {
+        $schema = self::arrayValue($snapshot['params_schema'] ?? []);
+        if (array_key_exists('input', $schema) && array_key_exists('parameters', $schema)) {
+            return true;
+        }
+        return strtolower((string)($snapshot['model_code'] ?? '')) === 'wan3.0-video';
+    }
+
+    private static function structuredModelPayload(array $snapshot, array $request, array $locked, string $prompt, string $ratio, string $resolution, int $duration, string $idempotency): array
+    {
+        $providerParams = self::arrayValue($request['provider_params'] ?? []);
+        $input = array_replace_recursive(
+            self::arrayValue($locked['input'] ?? []),
+            self::arrayValue($providerParams['input'] ?? [])
+        );
+        $parameters = array_replace_recursive(
+            self::arrayValue($locked['parameters'] ?? []),
+            self::arrayValue($providerParams['parameters'] ?? [])
+        );
+        unset($locked['input'], $locked['parameters'], $providerParams['input'], $providerParams['parameters']);
+        $locked = self::providerParamsForStructuredModelPayload($locked);
+        $providerParams = self::providerParamsForStructuredModelPayload($providerParams);
+        $parameters = array_merge($providerParams, $locked, $parameters);
+
+        if ($prompt !== '') {
+            $input['prompt'] = $prompt;
+        }
+        $media = self::structuredModelMedia($request);
+        if ($media !== []) {
+            $input['media'] = $media;
+        }
+        if ($input === []) {
+            throw new Exception('video generation requires a text prompt or reference media.');
+        }
+        if ($resolution !== '') {
+            $parameters['resolution'] = strtoupper($resolution);
+        }
+        if ($ratio !== '') {
+            $parameters['ratio'] = $ratio;
+        }
+        if ($duration > 0) {
+            $parameters['duration'] = $duration;
+        }
+        foreach (['audio', 'seed', 'watermark'] as $key) {
+            if (array_key_exists($key, $request)) {
+                $parameters[$key] = $request[$key];
+            }
+        }
+
+        $payload = array_merge(self::marketContext($snapshot, 'power_market_video'), [
+            'model' => (string)$snapshot['model_code'],
+            'channel' => (string)$snapshot['channel_code'],
+            'input' => $input,
+            'parameters' => $parameters,
+            'idempotency_key' => $idempotency,
+        ]);
+        $callback = trim((string)($request['callback_url'] ?? $request['callbackUrl'] ?? ''));
+        if ($callback !== '') {
+            $payload['callback_url'] = $callback;
+        }
+        return self::filterEmptyPayload($payload);
+    }
+
+    private static function providerParamsForStructuredModelPayload(array $params): array
+    {
+        foreach (['prompt', 'content', 'aspect_ratio', 'ratio', 'size', 'quality', 'image_urls', 'video_urls', 'audio_urls', 'n', 'negative_prompt'] as $key) {
+            unset($params[$key]);
+        }
+        foreach (array_keys($params) as $key) {
+            if (is_string($key) && str_starts_with($key, '_')) {
+                unset($params[$key]);
+            }
+        }
+        return $params;
+    }
+
+    private static function generationTypeForSchema(array $snapshot, array $request, array $assets): string
+    {
+        $schema = self::arrayValue($snapshot['params_schema'] ?? []);
+        $allowed = array_map('strtoupper', self::schemaOptionValues($schema, 'generation_type'));
+        $default = trim((string)self::schemaDefaultValue($schema, 'generation_type', ''));
+        $method = strtolower(trim((string)($request['generation_method'] ?? $request['generationMethod'] ?? '')));
+        if ($method === 'start_end'
+            || ($assets['image'] !== [] && self::hasFirstAndLastFrameAssets($request))) {
+            return in_array('FIRST&LAST', $allowed, true) ? 'FIRST&LAST' : ($default !== '' ? $default : '');
+        }
+        if ($assets['image'] !== []) {
+            return in_array('REFERENCE', $allowed, true) ? 'REFERENCE' : ($default !== '' ? $default : '');
+        }
+        return in_array('TEXT', $allowed, true) ? 'TEXT' : $default;
+    }
+
+    private static function hasFirstAndLastFrameAssets(array $request): bool
+    {
+        $roles = array_column(AigcVideoReferenceAssetService::normalize($request), 'role');
+        return in_array('first_frame_image', $roles, true) && in_array('last_frame_image', $roles, true);
+    }
+
+    private static function structuredModelMedia(array $request): array
+    {
+        $media = [];
+        foreach (AigcVideoReferenceAssetService::normalize($request) as $asset) {
+            $url = AigcVideoReferenceAssetService::publicUrl($asset);
+            if ($url === '') {
+                continue;
+            }
+            $type = (string)($asset['type'] ?? '');
+            if ($type === 'image') {
+                $media[] = [
+                    'type' => match ((string)($asset['role'] ?? 'reference_image')) {
+                        'first_frame_image' => 'first_frame',
+                        'last_frame_image' => 'last_frame',
+                        default => 'reference_image',
+                    },
+                    'url' => $url,
+                ];
+                continue;
+            }
+            if ($type === 'video') {
+                $media[] = ['type' => 'reference_video', 'url' => $url];
+                continue;
+            }
+            if ($type === 'audio') {
+                $media[] = ['type' => 'reference_audio', 'url' => $url];
+            }
+        }
+        return $media;
+    }
+
+    private static function filterEmptyPayload(array $payload): array
+    {
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $value = self::filterEmptyPayload($value);
+            }
+            if ($value === '' || $value === [] || $value === null) {
+                unset($payload[$key]);
+                continue;
+            }
+            $payload[$key] = $value;
+        }
+        return $payload;
     }
 
     private static function h3Payload(array $snapshot, array $request, array $locked, string $prompt, string $ratio, string $resolution, int $duration, string $idempotency): array
@@ -977,9 +1154,46 @@ class MarketVideoRuntimeService
         return [];
     }
 
+    private static function schemaDefaultValue(array $schema, string $parameter, $fallback)
+    {
+        $definition = self::schemaParameterDefinition($schema, $parameter);
+        foreach (['default', 'value'] as $key) {
+            if (array_key_exists($key, $definition) && $definition[$key] !== '' && $definition[$key] !== null) {
+                return $definition[$key];
+            }
+        }
+        $options = self::schemaOptionValues($schema, $parameter);
+        return count($options) === 1 ? $options[0] : $fallback;
+    }
+
+    /** @return array<int,string> */
+    private static function schemaOptionValues(array $schema, string $parameter): array
+    {
+        $definition = self::schemaParameterDefinition($schema, $parameter);
+        $values = [];
+        foreach (['options', 'enum', 'values', 'allowed_values'] as $key) {
+            if (!array_key_exists($key, $definition)) {
+                continue;
+            }
+            $raw = is_array($definition[$key])
+                ? $definition[$key]
+                : (preg_split('~\s*[,|/]\s*~', (string)$definition[$key]) ?: []);
+            foreach ($raw as $value) {
+                if (is_array($value)) {
+                    $value = $value['value'] ?? $value['code'] ?? $value['name'] ?? '';
+                }
+                $value = trim((string)$value);
+                if ($value !== '') {
+                    $values[] = $value;
+                }
+            }
+        }
+        return array_values(array_unique($values));
+    }
+
     private static function appPayload(array $snapshot, array $request, string $idempotency): array
     {
-        $app = (string)$snapshot['app_code']; $locked = self::arrayValue($snapshot['locked_params'] ?? []); $assets = self::assets($request); $duration = self::duration($locked) ?: (int)($request['duration'] ?? 0); $resolution = self::value($request, ['resolution', 'quality']) ?: self::resolution($locked);
+        $app = (string)$snapshot['app_code']; $locked = self::arrayValue($snapshot['locked_params'] ?? []); $assets = self::assets($request); $duration = self::duration($locked) ?: (int)($request['duration'] ?? 0); $resolution = self::resolution($locked) ?: self::value($request, ['resolution', 'quality']);
         if ($app === 'full_video') {
             $prompt = trim((string)($request['prompt'] ?? ''));
             if ($prompt === '') {
@@ -1347,6 +1561,9 @@ class MarketVideoRuntimeService
         if ($values === []) {
             $values = self::schemaVideoCapabilities($meta)['generation_modes'];
         }
+        if ($values === [] && $resourceType === PowerMarketService::TYPE_APP_API) {
+            return [];
+        }
         if ($values === []) {
             $values[] = 'text_to_video';
             $types = self::supportedAssetTypes($product, $meta);
@@ -1705,6 +1922,7 @@ class MarketVideoRuntimeService
     }
     private static function generationModes(array $product, array $meta): array
     {
+        $isH3 = self::isH3Product($product);
         $cap = self::arrayValue($meta['capabilities'] ?? []);
         $configured = $meta['generation_modes'] ?? $cap['generation_modes'] ?? [];
         if (is_string($configured)) $configured = preg_split('~\s*[,|/]\s*~', $configured) ?: [];
@@ -1725,11 +1943,28 @@ class MarketVideoRuntimeService
         $order = ['text_to_video', 'omni_reference', 'image_to_video', 'start_end', 'image_reference', 'video_edit', 'multi_frame', 'audio_reference'];
         $declared = array_values(array_intersect($order, array_unique($configured)));
         if ($declared !== []) {
+            if (!$isH3) {
+                $declared = array_values(array_diff($declared, ['start_end']));
+            }
+            if (in_array('omni_reference', $declared, true)
+                && ($isH3 || self::referenceLimit($product, $meta, 'image') >= 2)) {
+                $declared[] = 'multi_frame';
+            }
             return array_values(array_filter($order, static fn(string $mode): bool => in_array($mode, $declared, true)));
         }
         $schemaModes = self::schemaVideoCapabilities($meta)['generation_modes'];
         if ($schemaModes !== []) {
+            if (!$isH3) {
+                $schemaModes = array_values(array_diff($schemaModes, ['start_end']));
+            }
+            if (in_array('omni_reference', $schemaModes, true)
+                && ($isH3 || self::referenceLimit($product, $meta, 'image') >= 2)) {
+                $schemaModes[] = 'multi_frame';
+            }
             return array_values(array_filter($order, static fn(string $mode): bool => in_array($mode, $schemaModes, true)));
+        }
+        if ($isH3) {
+            return ['omni_reference', 'start_end', 'multi_frame'];
         }
         $configuredInputModes = $meta['input_modes'] ?? $cap['input_modes'] ?? [];
         if (is_string($configuredInputModes)) $configuredInputModes = preg_split('~\s*[,|/]\s*~', $configuredInputModes) ?: [];
@@ -1923,7 +2158,7 @@ class MarketVideoRuntimeService
     private static function payloadRatio(array $snapshot, array $request, array $assets): string
     {
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
-        $ratio = self::value($request, ['ratio', 'aspect_ratio', 'size']) ?: self::value($locked, ['ratio', 'aspect_ratio', 'size']);
+        $ratio = self::value($locked, ['ratio', 'aspect_ratio', 'size']) ?: self::value($request, ['ratio', 'aspect_ratio', 'size']);
         $isTextToVideo = $assets['image'] === [] && $assets['video'] === [] && $assets['audio'] === [];
         if (empty($snapshot['requires_concrete_text_to_video_ratio']) || !$isTextToVideo) {
             return $ratio;
@@ -2106,6 +2341,24 @@ class MarketVideoRuntimeService
             default => preg_replace('/\s*\/\s*(?:创建|提交).*/u', '', (string)($product['name'] ?? '视频生成')) ?: '视频生成',
         };
     }
+    private static function productDescription(array $product, array $metadata = []): string
+    {
+        foreach ([
+            $product['description'] ?? '',
+            $metadata['description'] ?? '',
+            $metadata['model_description'] ?? '',
+            $metadata['app_description'] ?? '',
+            $metadata['summary'] ?? '',
+            $metadata['introduction'] ?? '',
+        ] as $value) {
+            $description = trim((string)$value);
+            if ($description === '' || preg_match('/^market_(?:video|image|audio|text|app)(?:_|:)/i', $description) === 1) {
+                continue;
+            }
+            return $description;
+        }
+        return '';
+    }
     private static function resourceType(array $selection): string { $value = (string)($selection['resource_type'] ?? ''); if (in_array($value, [PowerMarketService::TYPE_MODEL, PowerMarketService::TYPE_APP_API], true)) return $value; $model = implode('|', array_map('strval', [$selection['model_id'] ?? '', $selection['channel'] ?? ''])); return str_contains($model, 'market_video_app:') ? PowerMarketService::TYPE_APP_API : PowerMarketService::TYPE_MODEL; }
     private static function optionId(string $type, array $product): string { return $type === PowerMarketService::TYPE_MODEL ? 'market_video_model:' . (int)$product['id'] : 'market_video_app:' . (string)$product['upstream_app_code'] . ':' . (int)$product['id']; }
     private static function unavailableOption(string $type, array $product, string $reason): array
@@ -2125,7 +2378,7 @@ class MarketVideoRuntimeService
             'category_code' => (string)($category['code'] ?? 'video'),
             'category_name' => (string)($category['name'] ?? '视频生成'),
             'name' => (string)($product['name'] ?? ''),
-            'description' => (string)($product['description'] ?? ''),
+            'description' => self::productDescription($product, self::metadata($product)),
             'display_icon' => (string)($product['display_icon'] ?? ''),
             'app_code' => (string)($product['upstream_app_code'] ?? ''),
             'api_code' => (string)($product['upstream_api_code'] ?? ''),
@@ -2202,7 +2455,7 @@ class MarketVideoRuntimeService
         $app = strtolower((string)($product['upstream_app_code'] ?? ''));
         if (in_array($app, ['happy_horse', 'grok_video', 'full_video', 'seedance2_pro'], true)) {
             $modes = self::generationModes($product, self::metadata($product));
-            return $modes !== [] ? in_array($requestedMode, $modes, true) : $skuMode === $requestedMode;
+            return in_array($requestedMode, $modes, true) || $skuMode === $requestedMode;
         }
         if ($app === 'seedance') {
             return self::seedanceVideoInputVariant($locked)
@@ -2456,27 +2709,7 @@ class MarketVideoRuntimeService
     private static function marketContext(array $snapshot, string $priceSource): array { $skuKey = trim((string)($snapshot['sku_key'] ?? '')); $skuId = (int)($snapshot['sku_id'] ?? 0); return ['market_product_id' => (int)($snapshot['product_id'] ?? 0), 'market_sku_id' => $skuId, 'sku_id' => $skuId, 'market_sku_key' => $skuKey, 'sku_key' => $skuKey, 'pricing_sku_key' => $skuKey, 'price_source' => $priceSource]; }
     private static function error(array $data): string
     {
-        $root = self::root($data);
-        foreach ([
-            $data['message'] ?? null,
-            $data['msg'] ?? null,
-            $root['message'] ?? null,
-            $root['msg'] ?? null,
-            self::arrayValue($data['error'] ?? [])['message'] ?? null,
-            self::arrayValue($data['error'] ?? [])['msg'] ?? null,
-            self::arrayValue($root['error'] ?? [])['message'] ?? null,
-            self::arrayValue($root['error'] ?? [])['msg'] ?? null,
-            self::arrayValue(self::arrayValue($data['data'] ?? [])['error'] ?? [])['message'] ?? null,
-            self::arrayValue(self::arrayValue($data['data'] ?? [])['error'] ?? [])['msg'] ?? null,
-        ] as $value) {
-            if (is_scalar($value) && trim((string)$value) !== '' && strtolower(trim((string)$value)) !== 'success') {
-                return mb_substr(trim((string)$value), 0, 1000);
-            }
-        }
-        foreach ([$data['error'] ?? null, $root['error'] ?? null] as $value) {
-            if (is_string($value) && trim($value) !== '') return mb_substr(trim($value), 0, 1000);
-        }
-        return '视频模型调用失败';
+        return UpstreamErrorMessageService::fromResponse($data);
     }
     /**
      * These composed apps retain user-visible result histories. Their videos
@@ -2612,7 +2845,20 @@ class MarketVideoRuntimeService
         Log::warning('Market video refresh retrying: consumption=' . $consumptionId . ' task=' . $taskId . ' error=' . $message);
     }
     private static function context(int $id, bool $lock): ?array { $query = AiConsumptionLog::where('id', $id); if ($lock) $query->lock(true); $c = $query->findOrEmpty(); if ($c->isEmpty()) return null; $taskQuery = AiAppTask::where('id', (int)$c['app_task_id']); if ($lock) $taskQuery->lock(true); $task = $taskQuery->findOrEmpty(); return $task->isEmpty() ? null : ['consumption' => $c, 'app_task' => $task]; }
-    private static function response(array $c): array { $summary = self::arrayValue($c['response_summary'] ?? []); return ['status' => (string)$c['run_status'], 'provider_task_id' => (string)$c['upstream_task_id'], 'provider_request_id' => (string)$c['upstream_request_id'], 'videos' => (array)($summary['videos'] ?? [])]; }
+    private static function response(array $c): array
+    {
+        $summary = self::arrayValue($c['response_summary'] ?? []);
+        $response = [
+            'status' => (string)$c['run_status'],
+            'provider_task_id' => (string)$c['upstream_task_id'],
+            'provider_request_id' => (string)$c['upstream_request_id'],
+            'videos' => (array)($summary['videos'] ?? []),
+        ];
+        $message = trim((string)($c['error_message'] ?? ''));
+        return $message !== '' ? array_merge($response, self::failureFields($message)) : $response;
+    }
+    private static function failureResponse(string $taskId, string $message): array { return array_merge(['status' => 'failed', 'provider_task_id' => $taskId, 'videos' => []], self::failureFields($message)); }
+    private static function failureFields(string $message): array { return ['error' => $message, 'error_msg' => $message, 'errorDetails' => $message]; }
     private static function event(int $id, string $type, string $status, array $summary): void { AiConsumptionEvent::create(['consumption_id' => $id, 'event_type' => $type, 'event_status' => $status, 'attempt_no' => 1, 'payload_summary' => $summary, 'payload_ciphertext' => '', 'http_status' => 0, 'elapsed_ms' => 0, 'create_time' => time()]); }
     private static function extra(AiAppTask $task, AiConsumptionLog $c, string $stage): array { return ['app_code' => (string)$task['app_code'], 'app_task_id' => (int)$task['id'], 'app_task_no' => (string)$task['task_no'], 'consumption_id' => (int)$c['id'], 'consume_no' => (string)$c['consume_no'], 'billing_stage' => $stage]; }
     private static function assetLabel(string $type): string { return ['image' => 'image', 'video' => 'video', 'audio' => 'audio'][$type] ?? 'asset'; }

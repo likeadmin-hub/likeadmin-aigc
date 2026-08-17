@@ -24,6 +24,18 @@ class HairstyleMarketContractTest extends TestCase
         self::assertSame('1:1', $aligned['ratio']);
     }
 
+    public function testLegacyModelIdentifierKeepsTheSelectedMarketModel(): void
+    {
+        $aligned = $this->invoke(AigcHairstyleService::class, 'alignMarketConfig', [
+            'channel' => 'market_image_model100',
+            'quality' => '2k',
+            'ratio' => '9:16',
+        ], $this->options());
+
+        self::assertSame('market_image_model:100', $aligned['channel']);
+        self::assertSame('9:16', $aligned['ratio']);
+    }
+
     public function testSelectedMarketSkuIsPreservedForSubmission(): void
     {
         $spec = $this->invoke(AigcHairstyleService::class, 'marketSpec', $this->options(), [

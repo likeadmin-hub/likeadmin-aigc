@@ -1,1 +1,1 @@
-const s="https://aigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/images/20260519/20260519165642975309142.jpg";export{s as P};
+const s=""+new URL("workspace-empty.44a6b6ee.svg",import.meta.url).href;export{s as P};

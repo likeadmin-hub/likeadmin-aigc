@@ -22,6 +22,18 @@ class ModelWearMarketContractTest extends TestCase
         self::assertSame('1:1', $aligned['ratio']);
     }
 
+    public function testLegacyModelIdentifierKeepsTheSelectedMarketModel(): void
+    {
+        $aligned = $this->invoke('alignMarketConfig', [
+            'channel' => 'market_image_model100',
+            'quality' => '1k',
+            'ratio' => '3:4',
+        ], $this->options());
+
+        self::assertSame('market_image_model:100', $aligned['channel']);
+        self::assertSame('3:4', $aligned['ratio']);
+    }
+
     public function testMarketSpecKeepsExactSku(): void
     {
         $spec = $this->invoke('marketSpec', $this->options(), [

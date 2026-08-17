@@ -486,10 +486,10 @@ INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,
 VALUES ({tenantId},0,'M','任务日志','el-icon-Document',50,'','task-log','','','',0,1,0,'','core','core_task_log_tenant',1,1782691200,1782691200);
 SET @core_tenant_task_log_id := LAST_INSERT_ID();
 UPDATE `la_tenant_system_menu_{tenantSn}`
-SET `pid`=@core_tenant_task_log_id,`name`='应用日志',`perms`='ai_task/lists',`paths`='application',`component`='consumer/task/index',`update_time`=1782691200
+SET `pid`=@core_tenant_task_log_id,`name`='应用日志',`sort`=100,`perms`='ai_task/lists',`paths`='application',`component`='consumer/task/index',`update_time`=1782691200
 WHERE `tenant_id`={tenantId} AND `source_menu_key`='core_ai_task_tenant';
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
-VALUES ({tenantId},@core_tenant_task_log_id,'C','消耗日志','el-icon-DataAnalysis',90,'ai_consumption/lists','consumption','power_mall/consumption','','',0,1,0,'','core','core_ai_consumption_tenant',1,1782691200,1782691200);
+VALUES ({tenantId},@core_tenant_task_log_id,'C','消耗日志','el-icon-DataAnalysis',70,'ai_consumption/lists','consumption','power_mall/consumption','','',0,1,0,'','core','core_ai_consumption_tenant',1,1782691200,1782691200);
 SET @core_tenant_ai_consumption_id := LAST_INSERT_ID();
 SET @core_tenant_power_buy_id := (
   SELECT `id` FROM `la_tenant_system_menu_{tenantSn}`
@@ -700,7 +700,7 @@ ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_sta
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
 (9100,{tenantId},0,'M','AIGC生图','el-icon-Picture',100,'','aigc-image','','','',0,1,0,'aigc_image','app','aigc_image',0,1778000000,1778000000),
-(9101,{tenantId},9100,'C','生图任务','',0,'app.aigc_image.admin_task/lists','task','apps/aigc_image/task','','',0,1,0,'aigc_image','app','aigc_image_task',0,1778000000,1778000000),
+(9101,{tenantId},@core_tenant_task_log_id,'C','生图列表','',90,'app.aigc_image.admin_task/lists','image','apps/aigc_image/task','','',0,1,0,'aigc_image','app','aigc_image_task',0,1778000000,1778000000),
 (9102,{tenantId},158,'C','案例广场','el-icon-PictureFilled',98,'case_gallery.case/lists','case-gallery','case_gallery/index','/case-gallery','',0,1,0,'system_default','core','core_tenant_case_gallery',1,1778000000,1778000000),
 (9300,{tenantId},9102,'A','应用选项','',0,'case_gallery.case/apps','','','','',0,0,0,'system_default','core','core_tenant_case_gallery_apps',1,1778000000,1778000000),
 (9301,{tenantId},9102,'A','详情','',0,'case_gallery.case/detail','','','','',0,0,0,'system_default','core','core_tenant_case_gallery_detail',1,1778000000,1778000000),
@@ -720,7 +720,7 @@ VALUES
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
 (9105,{tenantId},0,'M','AIGC视频','el-icon-Picture',100,'','aigc-video','','','',0,1,0,'aigc_video','app','aigc_video',0,1778000000,1778000000),
-(9106,{tenantId},9105,'C','视频任务','',0,'app.aigc_video.admin_task/lists','task','apps/aigc_video/task','','',0,1,0,'aigc_video','app','aigc_video_task',0,1778000000,1778000000),
+(9106,{tenantId},@core_tenant_task_log_id,'C','视频列表','',80,'app.aigc_video.admin_task/lists','video','apps/aigc_video/task','','',0,1,0,'aigc_video','app','aigc_video_task',0,1778000000,1778000000),
 (9108,{tenantId},9105,'C','通道调价','',0,'app.aigc_video.channel/lists','channel-price','apps/aigc_video/channel-price','','',0,1,0,'aigc_video','app','aigc_video_channel_price',0,1778000000,1778000000),
 (9109,{tenantId},9105,'C','用量统计','',0,'app.aigc_video.admin/stat','stat','apps/aigc_video/stat','','',0,1,0,'aigc_video','app','aigc_video_stat',0,1778000000,1778000000);
 
@@ -995,7 +995,7 @@ UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`sou
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_tenant_storage_setup',`is_core`=1 WHERE `id`=55;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_tenant_storage_change',`is_core`=1 WHERE `id`=56;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_tenant_storage_detail',`is_core`=1 WHERE `id`=57;
-UPDATE `la_tenant_system_menu_{tenantSn}` SET `pid`=@core_tenant_task_log_id,`name`='应用日志',`perms`='ai_task/lists',`paths`='application',`component`='consumer/task/index',`app_code`='',`source`='core',`source_menu_key`='core_ai_task_tenant',`is_core`=1 WHERE `id`=9016;
+UPDATE `la_tenant_system_menu_{tenantSn}` SET `pid`=@core_tenant_task_log_id,`name`='应用日志',`sort`=100,`perms`='ai_task/lists',`paths`='application',`component`='consumer/task/index',`app_code`='',`source`='core',`source_menu_key`='core_ai_task_tenant',`is_core`=1 WHERE `id`=9016;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_ai_task_tenant_detail',`is_core`=1 WHERE `id`=9017;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `app_code`='',`source`='core',`source_menu_key`='core_ai_task_tenant_query',`is_core`=1 WHERE `id`=9018;
 UPDATE `la_tenant_system_menu_{tenantSn}` SET `type`='M',`name`='系统应用',`paths`='system-default',`component`='',`icon`='el-icon-Setting',`pid`=9000,`sort`=10,`app_code`='system_default',`source`='core',`source_menu_key`='core_tenant_system_default',`is_core`=1 WHERE `id`=158;

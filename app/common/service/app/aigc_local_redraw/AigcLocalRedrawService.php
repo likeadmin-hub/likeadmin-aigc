@@ -35,10 +35,15 @@ class AigcLocalRedrawService
         $data = $row->isEmpty() ? self::defaults() : array_merge(self::defaults(), $row->toArray());
         $data = self::sanitizeConfig($data);
         $optionConfig = AigcImageChannelService::userConfig($tenantId);
+        $originalConfigJson = $data['config_json'];
+        $data['config_json'] = self::alignConfigSelection($data['config_json'], $optionConfig);
+        $data['default_channel'] = $data['config_json']['channel'];
+        $data['default_quality'] = $data['config_json']['quality'];
+        $data['default_ratio'] = $data['config_json']['ratio'];
         $data['option_config'] = $optionConfig;
         $data['spec_options'] = self::buildSpecOptions($optionConfig);
         $data['dependencies'] = self::dependencies($tenantId);
-        if ($row->isEmpty()) {
+        if ($row->isEmpty() || $originalConfigJson !== $data['config_json']) {
             self::saveConfigSnapshot($tenantId, $data, $row);
         }
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
@@ -49,16 +54,25 @@ class AigcLocalRedrawService
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::config($tenantId);
         $configJson = is_array($params['config_json'] ?? null) ? $params['config_json'] : ($current['config_json'] ?? []);
+        $configJson = array_merge($configJson, [
+            'channel' => $params['default_channel'] ?? $configJson['channel'] ?? $current['default_channel'] ?? '',
+            'quality' => $params['default_quality'] ?? $configJson['quality'] ?? $current['default_quality'] ?? '',
+            'ratio' => $params['default_ratio'] ?? $configJson['ratio'] ?? $current['default_ratio'] ?? '',
+        ]);
+        $configJson = self::alignConfigSelection(
+            self::normalizeConfigJson($configJson),
+            AigcImageChannelService::userConfig($tenantId)
+        );
         $data = [
             'tenant_id' => $tenantId,
             'status' => array_key_exists('status', $params) ? (int)$params['status'] : (int)$current['status'],
-            'default_channel' => self::normalizeCode((string)($params['default_channel'] ?? $configJson['channel'] ?? $current['default_channel'] ?? '')),
-            'default_quality' => trim((string)($params['default_quality'] ?? $configJson['quality'] ?? $current['default_quality'] ?? '')),
-            'default_ratio' => trim((string)($params['default_ratio'] ?? $configJson['ratio'] ?? $current['default_ratio'] ?? '')),
+            'default_channel' => $configJson['channel'],
+            'default_quality' => $configJson['quality'],
+            'default_ratio' => $configJson['ratio'],
             'unit_price' => round(max(0, (float)($params['unit_price'] ?? $current['unit_price'] ?? 0)), 2),
             'prompt_template' => self::normalizeTemplate((string)($params['prompt_template'] ?? $current['prompt_template'])),
             'negative_prompt' => self::normalizeNegativePrompt((string)($params['negative_prompt'] ?? $current['negative_prompt'])),
-            'config_json' => self::normalizeConfigJson($configJson),
+            'config_json' => $configJson,
             'update_time' => time(),
         ];
         $row = AigcLocalRedrawConfig::where('tenant_id', $tenantId)->findOrEmpty();
@@ -277,6 +291,14 @@ class AigcLocalRedrawService
         if ($ratio === '') {
             $ratio = (string)($config['default_ratio'] ?: ($config['config_json']['ratio'] ?? ''));
         }
+        $selection = self::alignConfigSelection([
+            'channel' => $channel,
+            'quality' => $quality,
+            'ratio' => $ratio,
+        ], $config['option_config'] ?? []);
+        $channel = $selection['channel'];
+        $quality = $selection['quality'];
+        $ratio = $selection['ratio'];
         $prompt = self::buildPrompt((string)$config['prompt_template'], $userPrompt);
         $imagePayload = [
             'prompt' => $prompt,
@@ -576,6 +598,86 @@ class AigcLocalRedrawService
         ];
     }
 
+    private static function alignConfigSelection(array $config, array $optionConfig): array
+    {
+        $config = self::normalizeConfigJson($config);
+        $channels = array_values(array_filter(
+            (array)($optionConfig['channels'] ?? []),
+            static fn($channel) => is_array($channel)
+        ));
+        if (!$channels) {
+            return $config;
+        }
+
+        $requestedChannel = self::canonicalMarketChannel((string)$config['channel'], $channels);
+        $defaultChannel = self::canonicalMarketChannel(
+            (string)($optionConfig['defaults']['channel'] ?? ''),
+            $channels
+        );
+        $channel = self::findOption($channels, 'code', $requestedChannel)
+            ?? self::findOption($channels, 'code', $defaultChannel)
+            ?? $channels[0];
+        $config['channel'] = (string)($channel['code'] ?? '');
+
+        $qualities = array_values(array_filter(
+            (array)($channel['qualities'] ?? []),
+            static fn($quality) => is_array($quality)
+        ));
+        $quality = self::findOption($qualities, 'value', (string)$config['quality'])
+            ?? self::findOption($qualities, 'value', (string)($optionConfig['defaults']['quality'] ?? ''))
+            ?? ($qualities[0] ?? []);
+        $config['quality'] = (string)($quality['value'] ?? '');
+
+        $ratios = array_values(array_filter(
+            (array)($quality['ratios'] ?? []),
+            static fn($ratio) => is_array($ratio)
+        ));
+        $ratioValue = static fn(array $ratio): string => (string)($ratio['ratio'] ?? $ratio['value'] ?? '');
+        $ratio = null;
+        foreach ($ratios as $item) {
+            if ($ratioValue($item) === (string)$config['ratio']) {
+                $ratio = $item;
+                break;
+            }
+        }
+        if (!is_array($ratio)) {
+            $defaultRatio = (string)($optionConfig['defaults']['ratio'] ?? '');
+            foreach ($ratios as $item) {
+                if ($ratioValue($item) === $defaultRatio) {
+                    $ratio = $item;
+                    break;
+                }
+            }
+        }
+        $ratio = is_array($ratio) ? $ratio : ($ratios[0] ?? []);
+        $config['ratio'] = $ratioValue($ratio);
+        return $config;
+    }
+
+    private static function canonicalMarketChannel(string $code, array $channels): string
+    {
+        if (self::findOption($channels, 'code', $code)) {
+            return $code;
+        }
+        if (preg_match('/^market_image_model(\d+)$/', $code, $matches)) {
+            $canonical = 'market_image_model:' . $matches[1];
+            if (self::findOption($channels, 'code', $canonical)) {
+                return $canonical;
+            }
+        }
+        return $code;
+    }
+
+    private static function findOption(array $options, string $field, string $value): ?array
+    {
+        foreach ($options as $option) {
+            if ((string)($option[$field] ?? '') === $value) {
+                return $option;
+            }
+        }
+        return null;
+    }
+
     private static function buildSpecOptions(array $optionConfig): array
     {
         $channels = [];
@@ -689,6 +791,6 @@ class AigcLocalRedrawService
 
     private static function normalizeCode(string $code): string
     {
-        return preg_replace('/[^a-zA-Z0-9_\-]/', '', trim($code)) ?: '';
+        return AigcImageChannelService::normalizeRuntimeChannelCode($code);
     }
 }

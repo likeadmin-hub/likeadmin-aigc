@@ -45,6 +45,7 @@ class MenuLogic extends BaseLogic
     public static function getMenuByAdminId($adminId)
     {
         $admin = Admin::findOrEmpty($adminId);
+        self::ensureTutorialMenu();
 
         $where = [];
         $where[] = ['type', 'in', ['M', 'C']];
@@ -61,6 +62,79 @@ class MenuLogic extends BaseLogic
             ->toArray();
 
         return self::sortTopLevelTailMenus(linear_to_tree(self::filterSystemServiceMenus($menu), 'children'));
+    }
+
+    private static function ensureTutorialMenu(): void
+    {
+        try {
+            $website = SystemMenu::where(['type' => 'M', 'paths' => 'website'])->findOrEmpty();
+            if ($website->isEmpty()) {
+                return;
+            }
+
+            $tutorialData = [
+                'pid' => (int)$website->id,
+                'type' => 'C',
+                'name' => '新手教程',
+                'icon' => 'el-icon-Guide',
+                'sort' => 2,
+                'perms' => 'setting.web.web_setting/getTutorial',
+                'paths' => 'tutorial',
+                'component' => 'setting/website/information',
+                'selected' => '',
+                'params' => '',
+                'is_cache' => 0,
+                'is_show' => 1,
+                'is_disable' => 0,
+                'app_code' => '',
+                'source' => 'core',
+                'source_menu_key' => 'core_platform_tutorial',
+                'is_core' => 1,
+            ];
+            $tutorial = SystemMenu::where('source_menu_key', 'core_platform_tutorial')->findOrEmpty();
+            if ($tutorial->isEmpty()) {
+                $tutorial = SystemMenu::create($tutorialData);
+            } else {
+                $tutorial->save($tutorialData);
+            }
+
+            $saveData = [
+                'pid' => (int)$tutorial->id,
+                'type' => 'A',
+                'name' => '保存',
+                'icon' => '',
+                'sort' => 0,
+                'perms' => 'setting.web.web_setting/setTutorial',
+                'paths' => '',
+                'component' => '',
+                'selected' => '',
+                'params' => '',
+                'is_cache' => 0,
+                'is_show' => 0,
+                'is_disable' => 0,
+                'app_code' => '',
+                'source' => 'core',
+                'source_menu_key' => 'core_platform_tutorial_save',
+                'is_core' => 1,
+            ];
+            $save = SystemMenu::where('source_menu_key', 'core_platform_tutorial_save')->findOrEmpty();
+            if ($save->isEmpty()) {
+                $save = SystemMenu::create($saveData);
+            } else {
+                $save->save($saveData);
+            }
+
+            $roleIds = SystemRoleMenu::where('menu_id', (int)$website->id)->column('role_id');
+            foreach ($roleIds as $roleId) {
+                foreach ([(int)$tutorial->id, (int)$save->id] as $menuId) {
+                    if (!SystemRoleMenu::where(['role_id' => $roleId, 'menu_id' => $menuId])->findOrEmpty()->isEmpty()) {
+                        continue;
+                    }
+                    SystemRoleMenu::create(['role_id' => $roleId, 'menu_id' => $menuId]);
+                }
+            }
+        } catch (\Throwable) {
+        }
     }
 
     private static function filterSystemServiceMenus(array $menus): array

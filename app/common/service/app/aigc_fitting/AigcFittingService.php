@@ -75,7 +75,6 @@ class AigcFittingService
         $row = AigcFittingConfig::where('tenant_id', $tenantId)->findOrEmpty();
         $data = $row->isEmpty() ? self::defaults() : array_merge(self::defaults(), $row->toArray());
         $data = self::sanitizeConfig($data);
-        $data['config_json']['model_examples'] = self::appendExampleImageUrls($data['config_json']['model_examples'] ?? []);
         $data['mode_options'] = self::modeOptions();
         $data['category_options'] = self::categoryOptions();
         $data['model_gender_options'] = self::modelGenderOptions();
@@ -83,6 +82,7 @@ class AigcFittingService
         $data['model_pose_options'] = self::modelPoseOptions($data['config_json']['model_examples'] ?? []);
         $data['option_config'] = self::marketOptionConfig($tenantId);
         $data['config_json'] = self::alignMarketConfig($data['config_json'], $data['option_config']);
+        $data['config_json']['model_examples'] = self::appendExampleImageUrls($data['config_json']['model_examples'] ?? []);
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
     }
 
@@ -1142,9 +1142,10 @@ class AigcFittingService
         if ($channels === []) {
             return $config;
         }
+        $requestedChannel = preg_replace('/^market_image_model(\d+)$/', 'market_image_model:$1', (string)$config['channel']);
         $channel = null;
         foreach ($channels as $item) {
-            if ((string)($item['code'] ?? '') === (string)$config['channel']) {
+            if ((string)($item['code'] ?? '') === $requestedChannel) {
                 $channel = $item;
                 break;
             }

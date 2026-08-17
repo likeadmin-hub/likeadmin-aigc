@@ -8,6 +8,7 @@ use app\common\model\app\aigc_image\AigcImageQuota;
 use app\common\model\app\aigc_image\AigcImageResult;
 use app\common\model\app\aigc_image\AigcImageSensitiveWord;
 use app\common\model\app\aigc_image\AigcImageTask;
+use app\common\service\ai\AiTaskRecordService;
 use app\common\service\ai\AiUsageService;
 use app\common\service\app\AppCaseService;
 use app\common\service\app\AppDisplayConfigService;
@@ -531,6 +532,7 @@ class AigcImageService
             }
         }
         foreach ($rows as &$row) {
+            self::appendTaskModelDisplay($row);
             $row['task_id'] = (int)$row['id'];
             $results = $resultMap[(int)$row['id']] ?? [];
             $first = $results[0] ?? [];
@@ -566,6 +568,7 @@ class AigcImageService
             throw new Exception('任务不存在');
         }
         $data = $task->toArray();
+        self::appendTaskModelDisplay($data);
         $data['results'] = self::existingResultRows($tenantId, $userId, $taskId);
         return $data;
     }
@@ -739,6 +742,7 @@ class AigcImageService
             }
         }
         foreach ($tasks as &$task) {
+            self::appendTaskModelDisplay($task);
             $results = $resultMap[(int)$task['id']] ?? [];
             $task['task_id'] = (int)$task['id'];
             $task['results'] = $results;
@@ -854,6 +858,12 @@ class AigcImageService
             ];
         }
         return $query->limit($defaultLimit)->select()->toArray();
+    }
+
+    private static function appendTaskModelDisplay(array &$task): void
+    {
+        $task['model_name'] = AiTaskRecordService::modelDisplayName($task, self::APP_CODE);
+        $task['channel_name'] = $task['model_name'];
     }
 
     public static function saveSensitiveWord(int $tenantId, array $params): void

@@ -1016,6 +1016,10 @@ VALUES (29, 28, 'M', '网站设置', 'el-icon-Basketball', 100, '', 'website', '
 INSERT INTO `la_system_menu` (`id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `create_time`, `update_time`)
 VALUES (30, 29, 'C', '网站信息', '', 1, 'setting.web.web_setting/getWebsite', 'information',
         'setting/website/information', '', '', 0, 1, 0, 1657100306, 1657164412);
+INSERT INTO `la_system_menu` (`id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+(9410,29,'C','新手教程','el-icon-Guide',2,'setting.web.web_setting/getTutorial','tutorial','setting/website/information','','',0,1,0,'','core','core_platform_tutorial',1,1779000000,1779000000),
+(9411,9410,'A','保存','',0,'setting.web.web_setting/setTutorial','','','','',0,0,0,'','core','core_platform_tutorial_save',1,1779000000,1779000000);
 INSERT INTO `la_system_menu` (`id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `create_time`, `update_time`)
 VALUES (31, 29, 'C', '网站备案', '', 1, 'setting.web.web_setting/getCopyright', 'filing', 'setting/website/filing', '',
         '', 0, 1, 1, 1657100434, 1657164723);
@@ -7624,6 +7628,10 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_subject` (
   `category` varchar(40) NOT NULL DEFAULT 'character',
   `gender` varchar(20) NOT NULL DEFAULT 'unknown',
   `age_stage` varchar(30) NOT NULL DEFAULT 'unknown',
+  `voice_id` int unsigned NOT NULL DEFAULT 0 COMMENT '绑定音色ID',
+  `voice_name` varchar(80) NOT NULL DEFAULT '' COMMENT '绑定音色名称',
+  `voice_label` varchar(160) NOT NULL DEFAULT '' COMMENT '绑定音色标签',
+  `voice_source` varchar(20) NOT NULL DEFAULT '' COMMENT '音色来源 official/mine',
   `source` varchar(20) NOT NULL DEFAULT 'public',
   `status` tinyint NOT NULL DEFAULT 1,
   `sort` int NOT NULL DEFAULT 0,
@@ -8169,14 +8177,16 @@ INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sor
 SELECT 0,0,'M','任务日志','el-icon-Document',50,'','task-log','','','',0,1,0,'','core','core_task_log_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 WHERE @install_tenant_task_log_id IS NULL;
 SET @install_tenant_task_log_id := (SELECT `id` FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='core_task_log_tenant' LIMIT 1);
-UPDATE `la_tenant_system_menu` SET `pid`=@install_tenant_task_log_id,`name`='应用日志',`perms`='ai_task/lists',`paths`='application',`component`='consumer/task/index' WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_task_tenant';
+UPDATE `la_tenant_system_menu` SET `pid`=@install_tenant_task_log_id,`name`='应用日志',`sort`=100,`perms`='ai_task/lists',`paths`='application',`component`='consumer/task/index' WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_task_tenant';
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT 0,@install_tenant_task_log_id,'C','应用日志','el-icon-List',100,'ai_task/lists','application','consumer/task/index','','',0,1,0,'','core','core_ai_task_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 WHERE @install_tenant_task_log_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_task_tenant');
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
-SELECT 0,@install_tenant_task_log_id,'C','消耗日志','el-icon-DataAnalysis',90,'ai_consumption/lists','consumption','power_mall/consumption','','',0,1,0,'','core','core_ai_consumption_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+SELECT 0,@install_tenant_task_log_id,'C','消耗日志','el-icon-DataAnalysis',70,'ai_consumption/lists','consumption','power_mall/consumption','','',0,1,0,'','core','core_ai_consumption_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 WHERE @install_tenant_task_log_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_consumption_tenant');
-UPDATE `la_tenant_system_menu` SET `pid`=@install_tenant_task_log_id,`name`='消耗日志',`perms`='ai_consumption/lists',`paths`='consumption',`component`='power_mall/consumption' WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_consumption_tenant';
+UPDATE `la_tenant_system_menu` SET `pid`=@install_tenant_task_log_id,`name`='消耗日志',`sort`=70,`perms`='ai_consumption/lists',`paths`='consumption',`component`='power_mall/consumption' WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_consumption_tenant';
+UPDATE `la_tenant_system_menu` SET `pid`=@install_tenant_task_log_id,`name`='生图列表',`sort`=90,`paths`='image',`update_time`=UNIX_TIMESTAMP() WHERE `tenant_id`=0 AND `source_menu_key`='aigc_image_task';
+UPDATE `la_tenant_system_menu` SET `pid`=@install_tenant_task_log_id,`name`='视频列表',`sort`=80,`paths`='video',`update_time`=UNIX_TIMESTAMP() WHERE `tenant_id`=0 AND `source_menu_key`='aigc_video_task';
 
 -- PC 官方网站模块：固定内容结构，供新租户初始化时复制。
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
