@@ -5,6 +5,7 @@ namespace app\common\service\app\aigc_canvas\agent\memory;
 use app\common\model\app\aigc_canvas\AigcCanvasAgentBatch;
 use app\common\model\app\aigc_canvas\AigcCanvasAgentMessage;
 use app\common\model\app\aigc_canvas\AigcCanvasAgentWorkspaceAction;
+use app\common\service\app\aigc_canvas\agent\runtime\AgentResponseProtocol;
 
 final class ConversationDeliveryContext
 {
@@ -13,10 +14,12 @@ final class ConversationDeliveryContext
         int $userId,
         int $projectId,
         int $threadId,
-        array $requestContext = []
+        array $requestContext = [],
+        bool $includeProjectMemory = true,
+        bool $includeConversationGoals = true
     ): array {
         if ($threadId <= 0) {
-            return self::emptyContext($requestContext, $tenantId, $projectId);
+            return self::emptyContext($requestContext, $tenantId, $userId, $projectId, $includeProjectMemory, $includeConversationGoals);
         }
 
         $messages = AigcCanvasAgentMessage::where([
@@ -27,10 +30,14 @@ final class ConversationDeliveryContext
         ])->order('id', 'desc')->limit(12)->select()->toArray();
         $messages = array_reverse(array_map(static function (array $message): array {
             $json = is_array($message['content_json'] ?? null) ? $message['content_json'] : [];
+            $content = mb_substr((string)($message['content'] ?? ''), 0, 2400, 'UTF-8');
+            if ((string)($message['role'] ?? '') === 'assistant' && AgentResponseProtocol::isInternalTrace($content)) {
+                $content = '';
+            }
             return [
                 'id' => (int)($message['id'] ?? 0),
                 'role' => (string)($message['role'] ?? ''),
-                'content' => mb_substr((string)($message['content'] ?? ''), 0, 2400, 'UTF-8'),
+                'content' => $content,
                 'intent' => (string)($json['intent'] ?? ''),
                 'operation' => (string)($json['operation'] ?? ''),
                 'batch_id' => (int)($json['batch_id'] ?? 0),
@@ -69,7 +76,7 @@ final class ConversationDeliveryContext
             'selected_canvas_elements' => array_values((array)($requestContext['selected_elements'] ?? [])),
             'canvas_snapshot' => CanvasSnapshotBuilder::compact($requestContext),
             'uploaded_references' => array_values((array)($requestContext['uploaded_references'] ?? [])),
-            'project_memory' => ProjectMemoryService::load($tenantId, $userId, $projectId),
+            'project_memory' => $includeProjectMemory ? ProjectMemoryService::load($tenantId, $userId, $projectId, $includeConversationGoals) : [],
         ];
     }
 
@@ -134,7 +141,7 @@ final class ConversationDeliveryContext
         ];
     }
 
-    private static function emptyContext(array $requestContext, int $tenantId, int $projectId): array
+    private static function emptyContext(array $requestContext, int $tenantId, int $userId, int $projectId, bool $includeProjectMemory, bool $includeConversationGoals): array
     {
         return [
             'recent_messages' => [],
@@ -144,7 +151,7 @@ final class ConversationDeliveryContext
             'selected_canvas_elements' => array_values((array)($requestContext['selected_elements'] ?? [])),
             'canvas_snapshot' => CanvasSnapshotBuilder::compact($requestContext),
             'uploaded_references' => array_values((array)($requestContext['uploaded_references'] ?? [])),
-            'project_memory' => ProjectMemoryService::load($tenantId, $userId, $projectId),
+            'project_memory' => $includeProjectMemory ? ProjectMemoryService::load($tenantId, $userId, $projectId, $includeConversationGoals) : [],
         ];
     }
 }

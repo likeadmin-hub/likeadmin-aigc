@@ -28,6 +28,7 @@ use app\common\service\ConfigService;
 use app\common\service\FileService;
 use app\common\service\PointUnitService;
 use app\common\service\OfficialSiteService;
+use app\common\service\TutorialConfigService;
 use app\common\service\WebsiteBannerService;
 use app\tenantapi\logic\setting\CustomerServiceLogic;
 
@@ -209,6 +210,7 @@ class PcLogic extends BaseLogic
             ConfigService::get('customer_service', 'pc_help_faqs', []),
             true
         );
+        $tutorial = TutorialConfigService::get();
 
         return [
             'domain' => FileService::getFileUrl(),
@@ -225,6 +227,7 @@ class PcLogic extends BaseLogic
                 'enabled' => (int)ConfigService::get('customer_service', 'pc_help_enabled', 1),
                 'faqs' => $pcHelpFaqs,
             ],
+            'tutorial' => $tutorial,
             'app_display_configs' => AppDisplayConfigService::map((int)request()->tenantId, self::appDisplayConfigCodes()),
             'official_site' => OfficialSiteService::public(),
             'siteStatistics' => $siteStatistics,

@@ -362,7 +362,7 @@ class SystemPackageUpdateService
             if (!$this->applySqlGroup($extractPath, $manifest, 'structure')) {
                 throw new RuntimeException('更新数据库结构失败');
             }
-            $builtinApps = $this->syncBuiltinApps((string)$package['version']);
+            $builtinApps = $this->syncBuiltinApps($extractPath, (string)$package['version']);
             DefaultAppService::syncAllTenants();
             PackageProvisionService::syncAllTenants();
             $package->save(['status' => 'applied', 'error' => '', 'update_time' => time()]);
@@ -402,11 +402,11 @@ class SystemPackageUpdateService
         set_time_limit(self::UPDATE_EXECUTION_TIMEOUT);
     }
 
-    private function syncBuiltinApps(string $coreVersion): array
+    private function syncBuiltinApps(string $extractPath, string $coreVersion): array
     {
         $this->ensureSqlMigrationExecutorAvailable();
         $result = [];
-        foreach (AppAccessService::DEFAULT_AIGC_APP_CODES as $appCode) {
+        foreach ($this->packagedBuiltinAppCodes($extractPath) as $appCode) {
             $manifestPath = AppRegistryService::manifestPath($appCode);
             if (!is_file($manifestPath)) {
                 $result[] = [
@@ -475,7 +475,14 @@ class SystemPackageUpdateService
     {
         $result = [];
         $incremental = ($manifest['package_mode'] ?? '') === 'incremental';
-        foreach (AppAccessService::DEFAULT_AIGC_APP_CODES as $appCode) {
+        $appCodes = $this->packagedBuiltinAppCodes($extractPath);
+        if (!$incremental) {
+            $appCodes = array_values(array_unique([
+                ...AppAccessService::DEFAULT_AIGC_APP_CODES,
+                ...$appCodes,
+            ]));
+        }
+        foreach ($appCodes as $appCode) {
             $appPath = rtrim($extractPath, '/') . '/files/app/apps/' . $appCode;
             $manifestPath = $appPath . '/manifest.json';
             if (!is_file($manifestPath)) {
@@ -506,6 +513,40 @@ class SystemPackageUpdateService
             ];
         }
         return $result;
+    }
+
+    /**
+     * Only applications shipped by the verified system package are synchronized.
+     * This keeps non-built-in app-center packages outside the system-update path.
+     */
+    private function packagedBuiltinAppCodes(string $extractPath): array
+    {
+        $appsPath = rtrim($extractPath, '/') . '/files/app/apps';
+        if (!is_dir($appsPath)) {
+            return [];
+        }
+
+        $codes = [];
+        foreach (glob($appsPath . '/*', GLOB_ONLYDIR) ?: [] as $appPath) {
+            $manifestPath = $appPath . '/manifest.json';
+            if (!is_file($manifestPath)) {
+                continue;
+            }
+
+            $manifest = json_decode((string)file_get_contents($manifestPath), true);
+            $appCode = basename($appPath);
+            if (!is_array($manifest) || ($manifest['code'] ?? '') !== $appCode) {
+                throw new RuntimeException('系统包应用清单格式错误: ' . $appCode);
+            }
+            if (empty($manifest['is_builtin'])) {
+                continue;
+            }
+            AppRegistryService::assertValidCode($appCode);
+            $codes[] = $appCode;
+        }
+
+        sort($codes, SORT_STRING);
+        return $codes;
     }
 
     private function normalizeVersions(array $data): array

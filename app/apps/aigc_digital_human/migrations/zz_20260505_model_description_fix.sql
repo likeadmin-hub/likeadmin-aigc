@@ -2,8 +2,8 @@ UPDATE `la_aigc_digital_human_channel`
 SET `config_json` = JSON_INSERT(
     CASE
         WHEN JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}'))
-          AND JSON_TYPE(CAST(COALESCE(NULLIF(`config_json`, ''), '{}') AS JSON)) = 'OBJECT'
-        THEN CAST(COALESCE(NULLIF(`config_json`, ''), '{}') AS JSON)
+          AND JSON_TYPE(IF(JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}')), COALESCE(NULLIF(`config_json`, ''), '{}'), '{}')) = 'OBJECT'
+        THEN COALESCE(NULLIF(`config_json`, ''), '{}')
         ELSE JSON_OBJECT()
     END,
     '$.description',
@@ -17,7 +17,7 @@ SET `config_json` = JSON_INSERT(
 WHERE `tenant_id` = 0
   AND (
     NOT JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}'))
-    OR JSON_TYPE(CAST(COALESCE(NULLIF(`config_json`, ''), '{}') AS JSON)) <> 'OBJECT'
-    OR JSON_UNQUOTE(JSON_EXTRACT(CAST(COALESCE(NULLIF(`config_json`, ''), '{}') AS JSON), '$.description')) IS NULL
-    OR JSON_UNQUOTE(JSON_EXTRACT(CAST(COALESCE(NULLIF(`config_json`, ''), '{}') AS JSON), '$.description')) = ''
+    OR JSON_TYPE(IF(JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}')), COALESCE(NULLIF(`config_json`, ''), '{}'), '{}')) <> 'OBJECT'
+    OR JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}')), COALESCE(NULLIF(`config_json`, ''), '{}'), '{}'), '$.description')) IS NULL
+    OR JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}')), COALESCE(NULLIF(`config_json`, ''), '{}'), '{}'), '$.description')) = ''
   );

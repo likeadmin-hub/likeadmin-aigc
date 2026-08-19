@@ -1,0 +1,176 @@
+name: ${COMPOSE_PROJECT_NAME:-likeadmin-aigc}
+
+x-app-environment: &app-environment
+  TZ: ${TZ:-Asia/Shanghai}
+  PHP_APP_DEBUG: "false"
+  PHP_APP_DEFAULT_TIMEZONE: ${TZ:-Asia/Shanghai}
+  PHP_DATABASE_TYPE: mysql
+  PHP_DATABASE_HOSTNAME: mysql
+  PHP_DATABASE_DATABASE: ${MYSQL_DATABASE:-likeadmin_aigc_saas}
+  PHP_DATABASE_USERNAME: ${MYSQL_USER:-likeadmin}
+  PHP_DATABASE_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env.docker}
+  PHP_DATABASE_HOSTPORT: "3306"
+  PHP_DATABASE_CHARSET: utf8mb4
+  PHP_DATABASE_DEBUG: "false"
+  PHP_DATABASE_PREFIX: la_
+  PHP_CACHE_DRIVER: redis
+  PHP_CACHE_HOST: redis
+  PHP_CACHE_PORT: "6379"
+  PHP_PROJECT_UNIQUE_IDENTIFICATION: ${PROJECT_UNIQUE_IDENTIFICATION:?set PROJECT_UNIQUE_IDENTIFICATION in .env.docker}
+  PHP_PROJECT_DEFAULT_PASSWORD: ${PROJECT_DEFAULT_PASSWORD:?set PROJECT_DEFAULT_PASSWORD in .env.docker}
+  PHP_PROJECT_HTTP_HOST: ${PROJECT_HTTP_HOST:-localhost}
+  PHP_PROJECT_DEMO_ENV: "false"
+  PHP_FFMPEG_BINARY: /usr/bin/ffmpeg
+  FFMPEG_BINARY: /usr/bin/ffmpeg
+
+x-app-volumes: &app-volumes
+  - runtime-data:/var/www/html/runtime
+  - uploads-data:/var/www/html/public/uploads
+  - storage-data:/var/www/html/public/storage
+  - qrcode-data:/var/www/html/public/qrcode
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-likeadmin_aigc_saas}
+      MYSQL_USER: ${MYSQL_USER:-likeadmin}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env.docker}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env.docker}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./public/install/db/like.sql:/docker-entrypoint-initdb.d/10-likeadmin.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  initialize:
+    build:
+      context: .
+      target: app
+    environment:
+      <<: *app-environment
+      PLATFORM_ADMIN_USER: ${PLATFORM_ADMIN_USER:-admin}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:?set PLATFORM_ADMIN_PASSWORD in .env.docker}
+    command: ["initialize"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      target: app
+    restart: unless-stopped
+    init: true
+    read_only: true
+    environment: *app-environment
+    volumes: *app-volumes
+    tmpfs:
+      - /tmp
+      - /usr/local/var/run
+    depends_on:
+      initialize:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    stop_grace_period: 30s
+
+  web:
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    read_only: true
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - uploads-data:/var/www/html/public/uploads:ro
+      - storage-data:/var/www/html/public/storage:ro
+      - qrcode-data:/var/www/html/public/qrcode:ro
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+    depends_on:
+      app:
+        condition: service_healthy
+
+  ai-worker:
+    build:
+      context: .
+      target: app
+    restart: unless-stopped
+    init: true
+    read_only: true
+    environment: *app-environment
+    command: ["ai-worker"]
+    volumes: *app-volumes
+    tmpfs:
+      - /tmp
+    depends_on:
+      app:
+        condition: service_healthy
+    stop_grace_period: 120s
+
+  canvas-worker:
+    build:
+      context: .
+      target: app
+    restart: unless-stopped
+    init: true
+    read_only: true
+    environment: *app-environment
+    command: ["canvas-worker"]
+    volumes: *app-volumes
+    tmpfs:
+      - /tmp
+    depends_on:
+      app:
+        condition: service_healthy
+    stop_grace_period: 210s
+
+  scheduler:
+    build:
+      context: .
+      target: app
+    restart: unless-stopped
+    init: true
+    read_only: true
+    environment: *app-environment
+    command: ["scheduler"]
+    volumes: *app-volumes
+    tmpfs:
+      - /tmp
+    depends_on:
+      app:
+        condition: service_healthy
+    stop_grace_period: 30s
+
+volumes:
+  mysql-data:
+  redis-data:
+  runtime-data:
+  uploads-data:
+  storage-data:
+  qrcode-data:

@@ -11,6 +11,8 @@ use app\common\model\power\TenantPowerMarketSkuPrice;
 use app\common\service\ai\AiTaskLifecycleEventService;
 use app\common\service\ai\AiTaskJobService;
 use app\common\service\ai\AiTaskResultUrlService;
+use app\common\service\ai\MarketAppGateService;
+use app\common\service\ai\UpstreamErrorMessageService;
 use app\common\service\app\aigc_music\AigcMusicAssetService;
 use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
@@ -69,9 +71,11 @@ class MarketMusicAppRuntimeService
             'upstream_api_code' => self::CREATE_API_CODE,
             'status' => 1,
         ])->order('id', 'asc')->select()->toArray();
+        TenantPowerMarketService::applyProductDisplays($tenantId, $products);
 
         $options = [];
         foreach ($products as $product) {
+            $metadata = self::metadata($product);
             $skus = PowerMarketSku::where([
                 'product_id' => (int)$product['id'],
                 'status' => 1,
@@ -98,10 +102,14 @@ class MarketMusicAppRuntimeService
                 $options[] = [
                     'id' => (string)$sku['id'],
                     'value' => (string)$sku['id'],
-                    'label' => (string)($sku['title'] ?: ($product['name'] ?? '音乐生成 API')),
-                    'name' => (string)($sku['title'] ?: ($product['name'] ?? '音乐生成 API')),
+                    'label' => !empty($product['display_name_overridden']) ? (string)$product['name'] : (string)($sku['title'] ?: ($product['name'] ?? '音乐生成 API')),
+                    'name' => !empty($product['display_name_overridden']) ? (string)$product['name'] : (string)($sku['title'] ?: ($product['name'] ?? '音乐生成 API')),
+                    'description' => (string)($product['description'] ?? ''),
+                    'display_icon' => (string)($product['display_icon'] ?? ''),
                     'resource_type' => 'app_api',
                     'resource_type_label' => '应用 API',
+                    'category_code' => 'audio',
+                    'category_name' => '音频生成',
                     'market_product_id' => (int)$product['id'],
                     'market_sku_id' => (int)$sku['id'],
                     'sku_id' => (int)$sku['id'],
@@ -112,6 +120,12 @@ class MarketMusicAppRuntimeService
                     // declares one. Do not manufacture music durations locally.
                     'duration_options' => $duration > 0 ? [$duration] : [],
                     'locked_params' => $locked,
+                    'params_schema' => self::arrayValue($metadata['params_schema'] ?? []),
+                    'default_params' => self::arrayValue($metadata['default_params'] ?? []),
+                    'content_schema' => self::arrayValue($metadata['content_schema'] ?? []),
+                    'capabilities' => self::arrayValue($metadata['capabilities'] ?? []),
+                    'developer_doc_slug' => (string)($metadata['developer_doc_slug'] ?? ''),
+                    'api_doc' => (string)($metadata['api_doc'] ?? ''),
                     'platform_unit_cost' => self::points((float)$sku['sale_points']),
                     'tenant_unit_price' => self::points($tenantPrice),
                     'usage_unit' => (string)$sku['usage_unit'],
@@ -157,13 +171,25 @@ class MarketMusicAppRuntimeService
         string $businessTable = 'aigc_short_drama_generation_task'
     ): array
     {
+        if (MarketAppGateService::requiresGate($appCode)) {
+            MarketAppGateService::requireMarket($tenantId, $userId, $appCode, (string)($request['idempotency_key'] ?? $businessTaskId));
+        }
+        $idempotencyKey = self::reservationKey($tenantId, $appCode, $actionCode, $businessTaskId);
+        $existing = self::existingReservation($tenantId, $idempotencyKey);
+        if ($existing !== null) {
+            return $existing;
+        }
         $market = self::resolve($tenantId, $selection);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
         $tenantCost = $deferredUsage ? 0 : self::points((float)$market['sku']['sale_points']);
         $userPrice = $deferredUsage ? 0 : self::points((float)$market['tenant_price']);
         if (!$deferredUsage) PointService::assertCanConsumeAmounts($tenantId, $userId, $tenantCost, $userPrice);
 
-        return Db::transaction(function () use ($tenantId, $userId, $businessTaskId, $request, $market, $tenantCost, $userPrice, $deferredUsage, $appCode, $actionCode, $businessTable) {
+        return Db::transaction(function () use ($tenantId, $userId, $businessTaskId, $request, $market, $tenantCost, $userPrice, $deferredUsage, $appCode, $actionCode, $businessTable, $idempotencyKey) {
+            $existing = self::existingReservation($tenantId, $idempotencyKey, true);
+            if ($existing !== null) {
+                return $existing;
+            }
             $now = time();
             $appTask = AiAppTask::create([
                 'task_no' => self::no('AT'), 'tenant_id' => $tenantId, 'user_id' => $userId,
@@ -173,7 +199,7 @@ class MarketMusicAppRuntimeService
                 'request_summary' => self::requestSummary($request), 'result_summary' => [],
                 'estimated_tenant_cost' => $tenantCost, 'estimated_user_price' => $userPrice,
                 'actual_tenant_cost' => 0, 'actual_user_price' => 0,
-                'idempotency_key' => sha1($tenantId . '|' . $appCode . '|' . $actionCode . '|' . $businessTaskId . '|music'),
+                'idempotency_key' => $idempotencyKey,
                 'create_time' => $now, 'update_time' => $now, 'finish_time' => 0,
             ]);
             $consumeNo = self::no('C');
@@ -194,6 +220,37 @@ class MarketMusicAppRuntimeService
             self::event((int)$consumption['id'], 'reserve', 'success', ['settlement_mode' => $deferredUsage ? 'actual_usage' : 'reserved']);
             return ['app_task_id' => (int)$appTask['id'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => $consumeNo, 'market_snapshot' => self::snapshot($market)];
         });
+    }
+
+    private static function reservationKey(int $tenantId, string $appCode, string $actionCode, string $businessTaskId): string
+    {
+        return sha1($tenantId . '|' . $appCode . '|' . $actionCode . '|' . $businessTaskId . '|music');
+    }
+
+    private static function existingReservation(int $tenantId, string $idempotencyKey, bool $lock = false): ?array
+    {
+        $taskQuery = AiAppTask::where(['tenant_id' => $tenantId, 'idempotency_key' => $idempotencyKey]);
+        if ($lock) {
+            $taskQuery->lock(true);
+        }
+        $task = $taskQuery->findOrEmpty();
+        if ($task->isEmpty()) {
+            return null;
+        }
+        $consumptionQuery = AiConsumptionLog::where('app_task_id', (int)$task['id'])->order('id', 'asc');
+        if ($lock) {
+            $consumptionQuery->lock(true);
+        }
+        $consumption = $consumptionQuery->findOrEmpty();
+        if ($consumption->isEmpty()) {
+            throw new Exception('Existing idempotent market task has no consumption record');
+        }
+        return [
+            'app_task_id' => (int)$task['id'],
+            'consumption_id' => (int)$consumption['id'],
+            'consume_no' => (string)$consumption['consume_no'],
+            'market_snapshot' => self::arrayValue($consumption['price_snapshot'] ?? []),
+        ];
     }
 
     public static function linkBusinessTask(int $appTaskId, int $businessId): void
@@ -235,12 +292,16 @@ class MarketMusicAppRuntimeService
         if ($context === null) throw new Exception('市场音乐消耗记录不存在');
         $consumption = $context['consumption'];
         if (!in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage'], true)) return self::response($consumption->toArray());
-        $timedOut = (int)$consumption['create_time'] > 0 && time() - (int)$consumption['create_time'] >= self::MAX_RUNNING_SECONDS;
+        // AppBaseModel formats timestamps as date strings on read. A direct
+        // integer cast would turn "2026-08-03 ..." into 2026 and time out now.
+        $createTime = self::timestampValue($consumption['create_time'] ?? 0);
+        $timedOut = $createTime > 0 && time() - $createTime >= self::MAX_RUNNING_SECONDS;
         $taskId = trim((string)$consumption['upstream_task_id']);
         if ($taskId === '') {
             if ($timedOut) {
-                self::fail($consumptionId, '音乐任务未返回上游任务号', 'timeout');
-                return ['status' => 'failed', 'provider_task_id' => '', 'items' => []];
+                $message = '音乐任务未返回上游任务号';
+                self::fail($consumptionId, $message, 'timeout');
+                return self::failureResponse('', $message);
             }
             return self::response($consumption->toArray());
         }
@@ -253,22 +314,24 @@ class MarketMusicAppRuntimeService
                 return ['status' => 'success', 'provider_task_id' => $taskId, 'items' => $items];
             }
             if (in_array(self::status($response), ['failed', 'error', 'canceled', 'cancelled'], true)) {
-                self::fail($consumptionId, self::error($response), 'upstream_failed');
-                return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []];
+                $message = self::error($response);
+                self::fail($consumptionId, $message, 'upstream_failed');
+                return self::failureResponse($taskId, $message);
             }
             $upstreamStatus = self::status($response);
             if (AiTaskLifecycleEventService::isTerminalSuccess($upstreamStatus)) {
                 if (AiTaskLifecycleEventService::terminalResultMissing($consumptionId, $upstreamStatus, $taskId)) {
-                    self::fail($consumptionId, '上游音乐任务已完成，但未返回可用结果文件', 'upstream_result_missing');
-                    return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []];
+                    $message = '上游音乐任务已完成，但未返回可用结果文件';
+                    self::fail($consumptionId, $message, 'upstream_result_missing');
+                    return self::failureResponse($taskId, $message);
                 }
                 return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
             }
-            if ($timedOut) { self::fail($consumptionId, '音乐任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []]; }
+            if ($timedOut) { $message = '音乐任务处理超时'; self::fail($consumptionId, $message, 'timeout'); return self::failureResponse($taskId, $message); }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
         } catch (\Throwable $e) {
             AiTaskLifecycleEventService::record($consumptionId, 'query_error', 'retrying', ['upstream_task_id' => $taskId, 'error' => $e->getMessage()]);
-            if ($timedOut) { self::fail($consumptionId, '音乐任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []]; }
+            if ($timedOut) { $message = '音乐任务处理超时'; self::fail($consumptionId, $message, 'timeout'); return self::failureResponse($taskId, $message); }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
         }
     }
@@ -391,13 +454,23 @@ class MarketMusicAppRuntimeService
     private static function taskId(array $data): string { $root = self::arrayValue($data['data'] ?? $data); foreach ([$data['task_id'] ?? null, $data['id'] ?? null, $root['task_id'] ?? null, $root['id'] ?? null, $root['result']['task_id'] ?? null] as $value) if (is_scalar($value) && (string)$value !== '') return (string)$value; return ''; }
     private static function requestId(array $data): string { $root = self::arrayValue($data['data'] ?? $data); return (string)($data['request_id'] ?? $root['request_id'] ?? ''); }
     private static function status(array $data): string { $root = self::arrayValue($data['data'] ?? $data); return strtolower((string)($data['status'] ?? $root['status'] ?? $root['state'] ?? $root['result']['status'] ?? '')); }
-    private static function error(array $data): string { $root = self::arrayValue($data['data'] ?? $data); return mb_substr((string)($data['message'] ?? $data['msg'] ?? $root['message'] ?? $root['msg'] ?? $data['error']['message'] ?? '音乐生成应用调用失败'), 0, 1000); }
-    private static function response(array $consumption): array { $summary = self::arrayValue($consumption['response_summary'] ?? []); return ['status' => (string)$consumption['run_status'], 'provider_task_id' => (string)$consumption['upstream_task_id'], 'items' => (array)($summary['items'] ?? [])]; }
+    private static function error(array $data): string { return UpstreamErrorMessageService::fromResponse($data); }
+    private static function response(array $consumption): array
+    {
+        $summary = self::arrayValue($consumption['response_summary'] ?? []);
+        $response = ['status' => (string)$consumption['run_status'], 'provider_task_id' => (string)$consumption['upstream_task_id'], 'items' => (array)($summary['items'] ?? [])];
+        $message = trim((string)($consumption['error_message'] ?? ''));
+        return $message !== '' ? array_merge($response, self::failureFields($message)) : $response;
+    }
+    private static function failureResponse(string $taskId, string $message): array { return array_merge(['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []], self::failureFields($message)); }
+    private static function failureFields(string $message): array { return ['error' => $message, 'error_msg' => $message, 'errorDetails' => $message]; }
     private static function context(int $consumptionId, bool $lock): ?array { $query = AiConsumptionLog::where('id', $consumptionId); if ($lock) $query->lock(true); $consumption = $query->findOrEmpty(); if ($consumption->isEmpty()) return null; $taskQuery = AiAppTask::where('id', (int)$consumption['app_task_id']); if ($lock) $taskQuery->lock(true); $task = $taskQuery->findOrEmpty(); return $task->isEmpty() ? null : ['consumption' => $consumption, 'app_task' => $task]; }
     private static function event(int $consumptionId, string $type, string $status, array $summary): void { AiConsumptionEvent::create(['consumption_id' => $consumptionId, 'event_type' => $type, 'event_status' => $status, 'attempt_no' => 1, 'payload_summary' => $summary, 'payload_ciphertext' => '', 'http_status' => 0, 'elapsed_ms' => 0, 'create_time' => time()]); }
     private static function taskLabel(string $appCode): string { return $appCode === self::APP_CODE ? '短剧背景音乐' : '无限画布音乐生成'; }
     private static function extra(AiAppTask $task, AiConsumptionLog $consumption, string $stage): array { return ['app_code' => (string)($task['app_code'] ?? self::APP_CODE), 'app_task_id' => (int)$task['id'], 'app_task_no' => (string)$task['task_no'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => (string)$consumption['consume_no'], 'billing_stage' => $stage]; }
+    private static function metadata(array $product): array { $source = self::arrayValue($product['source_payload'] ?? []); return self::arrayValue($source['market_metadata'] ?? []); }
     private static function arrayValue($value): array { if (is_array($value)) return $value; if (is_string($value) && $value !== '') { $decoded = json_decode($value, true); return is_array($decoded) ? $decoded : []; } return []; }
+    private static function timestampValue($value): int { if (is_int($value) || is_float($value)) return (int)$value; if (is_string($value)) { $value = trim($value); if ($value === '') return 0; if (ctype_digit($value)) return (int)$value; $timestamp = strtotime($value); return $timestamp === false ? 0 : $timestamp; } return 0; }
     private static function points(float $value): float { return round(max(0, $value), 6); }
     private static function no(string $prefix): string { return $prefix . date('YmdHis') . strtoupper(bin2hex(random_bytes(5))); }
 }

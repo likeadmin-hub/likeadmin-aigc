@@ -15,6 +15,9 @@ class AppDisplayConfigService
         'aigc_digital_human',
         'aigc_canvas',
         'aigc_llm',
+        'aigc_short_drama',
+        'aigc_geo',
+        'aigc_music',
         'image_human',
         'smart_clip',
         'aigc_hairstyle',
@@ -61,6 +64,16 @@ class AppDisplayConfigService
             'title' => 'AIGC 对话',
             'description' => '多轮上下文大模型对话工作台。',
             'sort' => 80,
+        ],
+        'aigc_short_drama' => [
+            'title' => 'AI短剧',
+            'description' => '从灵感、剧本到分镜和成片的一站式短剧创作。',
+            'sort' => 79,
+        ],
+        'aigc_geo' => [
+            'title' => 'GEO营销优化系统',
+            'description' => '围绕 AI 搜索曝光、内容生产、品牌管理、内容发布和付费投稿构建品牌增长闭环。',
+            'sort' => 78,
         ],
         'image_human' => [
             'title' => '全驱数字人',
@@ -191,11 +204,16 @@ class AppDisplayConfigService
         $data['sort'] = (int)($data['sort'] ?? $default['sort']);
         $data['status'] = (int)($data['status'] ?? 1);
         $data['extra'] = is_array($data['extra'] ?? null) ? $data['extra'] : [];
+        $data['is_recommend'] = self::recommendationValue(
+            $data['extra'],
+            self::recommendationValue($data)
+        );
         return self::withUrls($data);
     }
 
-    public static function lists(int $tenantId, array $appCodes = self::DEFAULT_APP_CODES): array
+    public static function lists(int $tenantId, array $appCodes = []): array
     {
+        $appCodes = $appCodes ?: self::appCodes();
         $rows = [];
         foreach ($appCodes as $appCode) {
             $rows[] = self::detail($tenantId, $appCode);
@@ -210,13 +228,26 @@ class AppDisplayConfigService
         return $rows;
     }
 
-    public static function map(int $tenantId, array $appCodes = self::DEFAULT_APP_CODES): array
+    public static function map(int $tenantId, array $appCodes = []): array
     {
         $map = [];
         foreach (self::lists($tenantId, $appCodes) as $item) {
             $map[$item['app_code']] = $item;
         }
         return $map;
+    }
+
+    public static function appCodes(): array
+    {
+        try {
+            $installed = App::where('status', 'installed')->column('code') ?: [];
+        } catch (Throwable $e) {
+            $installed = [];
+        }
+        return array_values(array_unique(array_filter(array_merge(
+            self::DEFAULT_APP_CODES,
+            array_map('strval', $installed)
+        ))));
     }
 
     public static function saveFromConfigPayload(int $tenantId, string $appCode, array $params): void
@@ -232,6 +263,7 @@ class AppDisplayConfigService
         $appCode = self::normalizeAppCode($appCode);
         $current = self::detail($tenantId, $appCode);
         $cover = FileService::setFileUrl((string)($params['cover_uri'] ?? $params['cover_url'] ?? $params['cover'] ?? $current['cover_uri'] ?? ''));
+        $extra = self::normalizeDisplayExtra($params, $current);
         $data = [
             'tenant_id' => $tenantId,
             'app_code' => $appCode,
@@ -242,7 +274,7 @@ class AppDisplayConfigService
             'virtual_use_count' => mb_substr(trim((string)($params['virtual_use_count'] ?? $params['virtualUseCount'] ?? $current['virtual_use_count'] ?? '')), 0, 50),
             'sort' => (int)($params['sort'] ?? $current['sort'] ?? 0),
             'status' => (int)($params['status'] ?? $current['status'] ?? 1),
-            'extra' => is_array($params['extra'] ?? null) ? $params['extra'] : (array)($current['extra'] ?? []),
+            'extra' => $extra,
             'update_time' => time(),
         ];
         if ($data['title'] === '') {
@@ -286,6 +318,7 @@ class AppDisplayConfigService
             'virtual_use_count' => '',
             'sort' => (int)$local['sort'],
             'status' => 1,
+            'is_recommend' => 0,
             'extra' => [],
             'create_time' => 0,
             'update_time' => 0,
@@ -302,6 +335,32 @@ class AppDisplayConfigService
             $data['sort'] = (int)($appData['sort'] ?? $manifestMeta['sort'] ?? $manifest['sort'] ?? $data['sort']);
         }
         return $data;
+    }
+
+    private static function normalizeDisplayExtra(array $params, array $current): array
+    {
+        $extra = is_array($params['extra'] ?? null)
+            ? $params['extra']
+            : (array)($current['extra'] ?? []);
+        $currentRecommendation = self::recommendationValue(
+            $current,
+            self::recommendationValue((array)($current['extra'] ?? []))
+        );
+        $extra['is_recommend'] = self::recommendationValue(
+            $params,
+            self::recommendationValue((array)($params['extra'] ?? []), $currentRecommendation)
+        );
+        return $extra;
+    }
+
+    private static function recommendationValue(array $data, int $default = 0): int
+    {
+        foreach (['is_recommend', 'recommend'] as $key) {
+            if (array_key_exists($key, $data)) {
+                return (int)$data[$key] === 1 ? 1 : 0;
+            }
+        }
+        return $default === 1 ? 1 : 0;
     }
 
     private static function withUrls(array $data): array

@@ -59,6 +59,7 @@ class AigcStyleTransferService
         $data = $row->isEmpty() ? self::defaults() : array_merge(self::defaults(), $row->toArray());
         $data = self::sanitizeConfig($data);
         $optionConfig = AigcImageChannelService::userConfig($tenantId);
+        $data['config_json'] = AigcImageChannelService::alignConfigSelection($data['config_json'], $optionConfig);
         [$data['config_json']['price_packages'], $priceChanged] = self::ensurePricePackages(
             $data['config_json']['price_packages'] ?? [],
             $optionConfig,
@@ -80,13 +81,17 @@ class AigcStyleTransferService
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::config($tenantId);
         $configJson = is_array($params['config_json'] ?? null) ? $params['config_json'] : ($current['config_json'] ?? []);
+        $configJson = AigcImageChannelService::alignConfigSelection(
+            self::normalizeConfigJson($configJson),
+            AigcImageChannelService::userConfig($tenantId)
+        );
         $data = [
             'tenant_id' => $tenantId,
             'status' => array_key_exists('status', $params) ? (int)$params['status'] : (int)$current['status'],
             'default_size_key' => self::normalizeSizeKey($params['default_size_key'] ?? $current['default_size_key']),
             'prompt_template' => self::normalizeTemplate((string)($params['prompt_template'] ?? $current['prompt_template'])),
             'negative_prompt' => trim((string)($params['negative_prompt'] ?? $current['negative_prompt'])),
-            'config_json' => self::normalizeConfigJson($configJson),
+            'config_json' => $configJson,
             'update_time' => time(),
         ];
         $row = AigcStyleTransferConfig::where('tenant_id', $tenantId)->findOrEmpty();

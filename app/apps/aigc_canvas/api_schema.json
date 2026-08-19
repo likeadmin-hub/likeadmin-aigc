@@ -10,6 +10,30 @@
       "need_role_permission": 1
     },
     {
+      "api_path": "app.aigc_canvas.admin_project/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:project:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.admin_project/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:project:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_canvas.admin_project/clear",
+      "api_method": "POST",
+      "permission_key": "aigc_canvas:project:clear",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
       "api_path": "app.aigc_canvas.admin_run/lists",
       "api_method": "GET",
       "permission_key": "aigc_canvas:run:lists",
@@ -173,6 +197,14 @@
       "api_path": "app.aigc_canvas.generate/textStream",
       "api_method": "POST",
       "permission_key": "aigc_canvas:generate:text",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_canvas.generate/textQuery",
+      "api_method": "GET",
+      "permission_key": "aigc_canvas:generate:text_query",
       "scene": "user",
       "need_login": 1,
       "need_role_permission": 0

@@ -20,6 +20,7 @@ use app\common\service\AgreementService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
 use app\common\service\PointUnitService;
+use app\common\service\TutorialConfigService;
 
 
 /**
@@ -45,6 +46,7 @@ class WebSettingLogic extends BaseLogic
             'web_logo_dark' => FileService::getFileUrl(ConfigService::get('platform', 'web_logo_dark')),
             'login_image' => FileService::getFileUrl(ConfigService::get('platform', 'login_image')),
             'point_unit' => PointUnitService::unit(),
+            'copyright_config' => ConfigService::get('copyright', 'config', []),
         ];
     }
 
@@ -68,6 +70,21 @@ class WebSettingLogic extends BaseLogic
         ConfigService::set('platform', 'web_logo_dark', $logo_dark);
         ConfigService::set('platform', 'login_image', $login);
         ConfigService::set('recharge', 'point_unit', PointUnitService::normalize($params['point_unit'] ?? PointUnitService::DEFAULT_UNIT));
+        if (array_key_exists('copyright_config', $params)) {
+            ConfigService::set('copyright', 'config', $params['copyright_config']);
+        }
+    }
+
+
+    public static function getTutorial(): array
+    {
+        return TutorialConfigService::get();
+    }
+
+
+    public static function setTutorial(array $params): void
+    {
+        TutorialConfigService::save($params);
     }
 
 

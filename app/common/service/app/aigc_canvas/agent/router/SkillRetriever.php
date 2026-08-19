@@ -42,19 +42,6 @@ final class SkillRetriever
             return [];
         }
 
-        $ruleSkill = self::matchByRules($skills, $content, $context);
-        if ((string)($ruleSkill['skill_key'] ?? '') === 'ecommerce_detail_page') {
-            return [
-                'skill' => $ruleSkill,
-                'router_json' => [
-                    'matched' => true,
-                    'intent' => self::intentForRule($ruleSkill, $content, $context),
-                    'confidence' => 0.9,
-                    'reason' => 'ecommerce_rule',
-                ],
-            ];
-        }
-
         $routerJson = self::matchWithLlm($tenantId, $userId, $content, $context, $skills, $pendingContext);
         $skillKey = (string)($routerJson['skill_key'] ?? '');
         $confidence = (float)($routerJson['confidence'] ?? 0);
@@ -65,18 +52,6 @@ final class SkillRetriever
                     return ['skill' => $skill, 'router_json' => $routerJson];
                 }
             }
-        }
-
-        if ($ruleSkill !== []) {
-            return [
-                'skill' => $ruleSkill,
-                'router_json' => [
-                    'matched' => true,
-                    'intent' => self::intentForRule($ruleSkill, $content, $context),
-                    'confidence' => 0.5,
-                    'reason' => 'rule_fallback',
-                ],
-            ];
         }
 
         return [];

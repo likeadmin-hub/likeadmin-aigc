@@ -4,7 +4,6 @@ namespace app\common\service\app\aigc_canvas\agent\tools;
 
 use app\common\service\app\aigc_canvas\AigcCanvasService;
 use app\common\service\app\aigc_canvas\agent\billing\CanvasAgentEntitlementService;
-use app\common\service\app\aigc_canvas\agent\drama\CanvasShortDramaWorkflowService;
 use app\common\service\app\aigc_canvas\agent\enrichment\VisualUnderstandingService;
 use app\common\service\app\aigc_canvas\agent\generation\CanvasGenerationTaskCenterService;
 use app\common\service\app\aigc_canvas\agent\memory\ProjectMemoryService;
@@ -28,7 +27,6 @@ final class CanvasAgentToolExecutor
             'generate_image' => self::executeGenerationTool($tenantId, $userId, $toolCode, $input),
             'generate_video' => self::executeGenerationTool($tenantId, $userId, $toolCode, $input),
             'generate_music' => self::executeGenerationTool($tenantId, $userId, $toolCode, $input),
-            'create_short_drama_plan' => CanvasShortDramaWorkflowService::createScriptPlan($tenantId, $userId, $input),
             'web_fetch' => self::executeWebFetch($input),
             'url_to_design_brief' => self::executeUrlToDesignBrief($input),
             'brand_research' => self::executeBrandResearch($input),
@@ -474,7 +472,7 @@ final class CanvasAgentToolExecutor
 
     private static function rememberAssetInsights(int $tenantId, int $userId, int $projectId, array $insights, array $input): void
     {
-        if ($projectId <= 0) {
+        if ($projectId <= 0 || (string)($input['reference_scope'] ?? '') !== 'canvas') {
             return;
         }
         foreach ($insights as $insight) {
@@ -495,6 +493,7 @@ final class CanvasAgentToolExecutor
                 'confidence' => (float)($insight['confidence'] ?? 0),
             ], [
                 'source_type' => 'visual_understanding',
+                'scope' => 'canvas',
                 'request_id' => (string)($input['request_id'] ?? ''),
             ]);
         }

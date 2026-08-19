@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_storyboard` (
   `update_time` int unsigned NOT NULL DEFAULT 0,
   `delete_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_task_shot` (`tenant_id`,`task_id`,`shot_id`),
+  UNIQUE KEY `uk_task_shot` (`tenant_id`,`task_id`,`shot_id`,`delete_time`),
   KEY `idx_task_sort` (`tenant_id`,`task_id`,`sort`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧分镜';
 
@@ -129,6 +129,10 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_subject` (
   `category` varchar(40) NOT NULL DEFAULT 'character',
   `gender` varchar(20) NOT NULL DEFAULT 'unknown',
   `age_stage` varchar(30) NOT NULL DEFAULT 'unknown',
+  `voice_id` int unsigned NOT NULL DEFAULT 0 COMMENT '绑定音色ID',
+  `voice_name` varchar(80) NOT NULL DEFAULT '' COMMENT '绑定音色名称',
+  `voice_label` varchar(160) NOT NULL DEFAULT '' COMMENT '绑定音色标签',
+  `voice_source` varchar(20) NOT NULL DEFAULT '' COMMENT '音色来源 official/mine',
   `source` varchar(20) NOT NULL DEFAULT 'public',
   `status` tinyint NOT NULL DEFAULT 1,
   `sort` int NOT NULL DEFAULT 0,

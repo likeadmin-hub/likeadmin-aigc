@@ -67,6 +67,53 @@ class AigcVideoReferenceAssetService
         return FileService::getFileUrl($url);
     }
 
+    /**
+     * Converts display aliases in a prompt to the provider's reference order.
+     * The original prompt remains available to the caller for task auditing.
+     */
+    public static function promptWithReferenceAliases(string $prompt, array $params): string
+    {
+        if ($prompt === '') {
+            return '';
+        }
+
+        $labels = [
+            self::TYPE_IMAGE => '图片',
+            self::TYPE_VIDEO => '视频',
+            self::TYPE_AUDIO => '音频',
+        ];
+        $counts = array_fill_keys(array_keys($labels), 0);
+        $aliases = [];
+        foreach (self::normalize($params) as $asset) {
+            $type = (string)($asset['type'] ?? '');
+            if (!isset($labels[$type])) {
+                continue;
+            }
+            $counts[$type]++;
+            $name = ltrim(trim((string)($asset['name'] ?? '')), '@');
+            if ($name === '' || preg_match('/^(图片|视频|音频)\d+$/u', $name)) {
+                continue;
+            }
+            $aliases[$name][] = '@' . $labels[$type] . $counts[$type];
+        }
+
+        // An ambiguous display name cannot safely bind to more than one asset.
+        $aliases = array_filter($aliases, static fn(array $values): bool => count($values) === 1);
+        if ($aliases === []) {
+            return $prompt;
+        }
+
+        $names = array_keys($aliases);
+        usort($names, static fn(string $left, string $right): int => mb_strlen($right, 'UTF-8') <=> mb_strlen($left, 'UTF-8'));
+        $pattern = '/@(' . implode('|', array_map(static fn(string $name): string => preg_quote($name, '/'), $names)) . ')/u';
+        $converted = preg_replace_callback(
+            $pattern,
+            static fn(array $matches): string => $aliases[$matches[1]][0],
+            $prompt
+        );
+        return $converted === null ? $prompt : $converted;
+    }
+
     public static function assertSeedanceSupported(array $assets): void
     {
         $counts = [self::TYPE_IMAGE => 0, self::TYPE_VIDEO => 0, self::TYPE_AUDIO => 0];
@@ -166,11 +213,24 @@ class AigcVideoReferenceAssetService
         if ($uri === '' && $url === '') {
             return [];
         }
+        $name = trim((string)($asset['name'] ?? ''));
+        if ($name === '') {
+            $meta = (array)($asset['meta'] ?? []);
+            foreach (['subject_name', 'character_name', 'scene_name', 'location_name', 'item_name', 'name'] as $key) {
+                $name = trim((string)($meta[$key] ?? ''));
+                if ($name !== '') {
+                    break;
+                }
+            }
+        }
+        if ($name === '') {
+            $name = trim((string)($asset['title'] ?? ''));
+        }
         $normalized = [
             'type' => $type,
             'uri' => $uri !== '' ? $uri : $url,
             'url' => $url !== '' ? $url : $uri,
-            'name' => trim((string)($asset['name'] ?? '')),
+            'name' => $name,
         ];
         $role = trim((string)($asset['role'] ?? ''));
         $allowedRoles = match ($type) {

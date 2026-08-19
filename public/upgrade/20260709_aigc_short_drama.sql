@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_storyboard` (
   `update_time` int unsigned NOT NULL DEFAULT 0,
   `delete_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_task_shot` (`tenant_id`,`task_id`,`shot_id`),
+  UNIQUE KEY `uk_task_shot` (`tenant_id`,`task_id`,`shot_id`,`delete_time`),
   KEY `idx_task_sort` (`tenant_id`,`task_id`,`sort`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧分镜';
 

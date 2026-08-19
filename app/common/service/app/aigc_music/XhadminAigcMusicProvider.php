@@ -2,6 +2,7 @@
 
 namespace app\common\service\app\aigc_music;
 
+use app\common\service\ai\UpstreamErrorMessageService;
 use app\common\service\FileService;
 use app\common\service\PointUnitService;
 use app\common\service\update\UpdateSourceClient;
@@ -84,7 +85,7 @@ class XhadminAigcMusicProvider implements AigcMusicProviderInterface
             $status = 'success';
         }
         if (!in_array($status, ['completed', 'success', 'succeeded'], true)) {
-            return new AigcMusicGenerateResult(false, [], $this->extractError($task) ?: '供应商任务未完成', $taskId, ['submit' => $submit, 'query' => $task]);
+            return new AigcMusicGenerateResult(false, [], $this->friendlyError($this->extractError($task) ?: '供应商任务未完成'), $taskId, ['submit' => $submit, 'query' => $task]);
         }
         if (empty($items)) {
             return new AigcMusicGenerateResult(false, [], '供应商未返回音频', $taskId, ['submit' => $submit, 'query' => $task]);
@@ -426,8 +427,10 @@ class XhadminAigcMusicProvider implements AigcMusicProviderInterface
         if (is_string($error)) {
             return $error;
         }
-        $message = (string)($data['message'] ?? $data['data']['message'] ?? $data['msg'] ?? $data['data']['msg'] ?? '');
-        return strtolower($message) === 'success' ? '' : $message;
+        $message = trim((string)($data['message'] ?? $data['data']['message'] ?? $data['msg'] ?? $data['data']['msg'] ?? ''));
+        $code = trim((string)($data['error_code'] ?? $data['code'] ?? $data['data']['error_code'] ?? ''));
+        if (in_array(strtolower($code), ['0', '1', '200', 'ok', 'success'], true)) $code = '';
+        return strtolower($message) === 'success' ? '' : trim($code . ($code !== '' && $message !== '' ? ': ' : '') . $message);
     }
 
     private function friendlyError(string $message): string
@@ -447,7 +450,7 @@ class XhadminAigcMusicProvider implements AigcMusicProviderInterface
             str_contains($lower, 'auth_failed'),
             str_contains($lower, 'api key') => '供应商鉴权失败，请检查系统服务接口渠道配置',
             str_contains($lower, 'queue_limit_exceeded') => '供应商排队任务已满，请稍后再试',
-            default => $message,
+            default => UpstreamErrorMessageService::normalize($message),
         };
     }
 

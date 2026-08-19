@@ -81,10 +81,10 @@ class LoginMiddleware
                 }
             }
 
-            if ((int)$userInfo['tenant_id'] !== (int)$request->tenantId) {
+            $requestTenantId = (int)($request->tenantId ?? 0);
+            if ($requestTenantId > 0 && (int)$userInfo['tenant_id'] !== $requestTenantId) {
                 if (!$isNotNeedLogin) {
-                    UserTokenService::expireToken($token);
-                    return JsonService::fail('非该站点用户禁止访问', [], -1);
+                    return JsonService::fail('当前登录账号不属于该租户，请切换至所属站点后继续', [], 0, 0);
                 }
             }
         }

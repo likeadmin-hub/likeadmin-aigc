@@ -21,6 +21,54 @@ class AiTaskJobService
         return self::enqueue(self::TYPE_QUERY_RESULT, $consumptionId, 0, [], $priority, $wake);
     }
 
+    /**
+     * Explicitly restart a completed query job after its consumption record is
+     * recovered from an incorrect local terminal state.
+     */
+    public static function requeueQueryResult(int $consumptionId, int $priority = 0): int
+    {
+        return self::requeueCompletedJob(self::TYPE_QUERY_RESULT, $consumptionId, $priority);
+    }
+
+    /** Re-run terminal business-result persistence after a task recovery. */
+    public static function requeueProcessResult(int $consumptionId, int $priority = 0): int
+    {
+        return self::requeueCompletedJob(self::TYPE_PROCESS_RESULT, $consumptionId, $priority);
+    }
+
+    private static function requeueCompletedJob(string $type, int $consumptionId, int $priority): int
+    {
+        if ($consumptionId <= 0) {
+            return 0;
+        }
+
+        $jobId = self::enqueue($type, $consumptionId, 0, [], $priority, true);
+        $now = time();
+        Db::transaction(function () use ($type, $consumptionId, $priority, $jobId, $now) {
+            $job = AiTaskJob::where('id', $jobId)->lock(true)->findOrEmpty();
+            if ($job->isEmpty() || (string)$job['status'] !== 'success') {
+                return;
+            }
+            $job->save([
+                'status' => 'pending',
+                'priority' => max((int)$job['priority'], $priority),
+                'attempts' => 0,
+                'next_run_time' => $now,
+                'lease_token' => '',
+                'lease_expire_time' => 0,
+                'last_error' => '',
+                'finish_time' => 0,
+                'update_time' => $now,
+            ]);
+            AiTaskLifecycleEventService::record($consumptionId, 'job_requeued', 'pending', [
+                'job_id' => (int)$job['id'],
+                'job_type' => $type,
+                'reason' => 'consumption_recovered',
+            ]);
+        });
+        return $jobId;
+    }
+
     public static function enqueueProcessResult(int $consumptionId, int $priority = 0): int
     {
         return self::enqueue(self::TYPE_PROCESS_RESULT, $consumptionId, 0, [], $priority, true);
@@ -130,6 +178,40 @@ class AiTaskJobService
         return $jobs;
     }
 
+    /**
+     * Bounded worker fallback for scheduled reconciliation. The realtime
+     * daemon remains the primary consumer; this prevents completed results
+     * from being stranded when that daemon is restarted or temporarily down.
+     *
+     * @return array{processed:int,succeeded:int,waiting:int,retried:int}
+     */
+    public static function drain(string $worker, int $leaseSeconds, int $limit): array
+    {
+        $summary = ['processed' => 0, 'succeeded' => 0, 'waiting' => 0, 'retried' => 0];
+        $limit = max(1, min(500, $limit));
+        while ($summary['processed'] < $limit) {
+            $jobs = self::claim($worker, $leaseSeconds, 1);
+            if ($jobs === []) {
+                break;
+            }
+            $job = $jobs[0];
+            try {
+                if (self::run($job)) {
+                    self::succeed($job);
+                    $summary['succeeded']++;
+                } else {
+                    self::reschedule($job, 5);
+                    $summary['waiting']++;
+                }
+            } catch (\Throwable $e) {
+                self::retry($job, $e);
+                $summary['retried']++;
+            }
+            $summary['processed']++;
+        }
+        return $summary;
+    }
+
     public static function run(array $job): bool
     {
         $type = (string)$job['job_type'];
@@ -141,7 +223,10 @@ class AiTaskJobService
             return self::queryResult((int)$job['consumption_id'], (int)$job['attempts']);
         }
         if ($type === self::TYPE_PROCESS_RESULT) {
-            AiTaskResultAssetService::recordConsumptionAssets((int)$job['consumption_id'], AiTaskBusinessResultService::requiresForcedTransfer((int)$job['consumption_id']));
+            $consumption = AiConsumptionLog::findOrEmpty((int)$job['consumption_id']);
+            if (!$consumption->isEmpty() && in_array((string)$consumption['run_status'], ['success', 'failed', 'canceled', 'cancelled'], true)) {
+                return AiTaskBusinessResultService::syncTerminalByConsumptionId((int)$job['consumption_id']);
+            }
             AiTaskBusinessResultService::syncByConsumptionId((int)$job['consumption_id']);
             return true;
         }
@@ -223,7 +308,9 @@ class AiTaskJobService
             ], $attempt);
         }
         if (!$latest->isEmpty() && self::readyForBusinessProcessing($latest->toArray())) {
-            self::enqueueProcessResult($consumptionId);
+            // A recovered task may have a completed process job from its
+            // earlier incorrect terminal state, so explicitly wake it again.
+            self::requeueProcessResult($consumptionId);
             return true;
         }
         return false;

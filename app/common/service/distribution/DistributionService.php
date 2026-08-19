@@ -11,6 +11,7 @@ use think\facade\Db;
  */
 class DistributionService
 {
+    public const MAX_LEVEL = 2;
     public const ORDER_RECHARGE = 'recharge';
     public const ORDER_MEMBERSHIP = 'membership';
     public const RULE_INHERIT = 'inherit';
@@ -36,10 +37,10 @@ class DistributionService
         return [
             'tenant_id' => $tenantId,
             'status' => 0,
-            'level_count' => 3,
+            'level_count' => self::MAX_LEVEL,
             'level1_rate' => '10.0000',
             'level2_rate' => '5.0000',
-            'level3_rate' => '2.0000',
+            'level3_rate' => '0.0000',
             'settle_days' => 15,
             'min_withdraw_amount' => '100.00',
             'withdraw_notice' => '',
@@ -56,10 +57,10 @@ class DistributionService
     {
         $config = array_merge(self::config($tenantId), [
             'status' => !empty($input['status']) ? 1 : 0,
-            'level_count' => max(1, min(3, (int)($input['level_count'] ?? 3))),
+            'level_count' => max(1, min(self::MAX_LEVEL, (int)($input['level_count'] ?? self::MAX_LEVEL))),
             'level1_rate' => self::rate($input['level1_rate'] ?? 0),
             'level2_rate' => self::rate($input['level2_rate'] ?? 0),
-            'level3_rate' => self::rate($input['level3_rate'] ?? 0),
+            'level3_rate' => '0.0000',
             'settle_days' => max(0, (int)($input['settle_days'] ?? 0)),
             'min_withdraw_amount' => self::amount($input['min_withdraw_amount'] ?? 0),
             'withdraw_notice' => trim((string)($input['withdraw_notice'] ?? '')),
@@ -91,10 +92,10 @@ class DistributionService
             'order_type' => $orderType,
             'package_id' => $packageId,
             'rule_mode' => $mode,
-            'level_count' => max(1, min(3, (int)($input['level_count'] ?? 3))),
+            'level_count' => max(1, min(self::MAX_LEVEL, (int)($input['level_count'] ?? self::MAX_LEVEL))),
             'level1_rate' => self::rate($input['level1_rate'] ?? 0),
             'level2_rate' => self::rate($input['level2_rate'] ?? 0),
-            'level3_rate' => self::rate($input['level3_rate'] ?? 0),
+            'level3_rate' => '0.0000',
             'update_time' => time(),
         ];
         self::assertRates($row);
@@ -117,7 +118,7 @@ class DistributionService
         ])->find();
         return $row ?: [
             'tenant_id' => $tenantId, 'order_type' => $orderType, 'package_id' => $packageId,
-            'rule_mode' => self::RULE_INHERIT, 'level_count' => 3,
+            'rule_mode' => self::RULE_INHERIT, 'level_count' => self::MAX_LEVEL,
             'level1_rate' => '0.0000', 'level2_rate' => '0.0000', 'level3_rate' => '0.0000',
         ];
     }
@@ -153,7 +154,7 @@ class DistributionService
             return ['enabled' => false, 'level_count' => 0, 'rates' => []];
         }
         $source = $package['rule_mode'] === self::RULE_CUSTOM ? $package : $config;
-        $count = max(1, min(3, (int)$source['level_count'], (int)$config['level_count']));
+        $count = max(1, min(self::MAX_LEVEL, (int)$source['level_count'], (int)$config['level_count']));
         $rates = [];
         for ($level = 1; $level <= $count; $level++) {
             $rates[$level] = self::rate($source['level' . $level . '_rate'] ?? 0);
@@ -230,12 +231,12 @@ class DistributionService
         if ((int)$parent['user_id'] === $userId) {
             throw new RuntimeException('不能绑定自己的推广码');
         }
-        $chain = [(int)$parent['user_id'], (int)$parent['level1_user_id'], (int)$parent['level2_user_id']];
+        $chain = [(int)$parent['user_id'], (int)$parent['level1_user_id']];
         if (in_array($userId, $chain, true)) {
             throw new RuntimeException('推广关系不能形成循环');
         }
         self::table('relation')->where('id', $relation['id'])->update([
-            'level1_user_id' => $chain[0], 'level2_user_id' => $chain[1], 'level3_user_id' => $chain[2],
+            'level1_user_id' => $chain[0], 'level2_user_id' => $chain[1], 'level3_user_id' => 0,
             'bind_time' => time(), 'bind_source' => $source, 'update_time' => time(),
         ]);
         return self::table('relation')->where('id', $relation['id'])->find();
@@ -253,9 +254,9 @@ class DistributionService
             if ($parent && ($parentUserId === $userId || in_array($userId, self::chain($parent), true))) {
                 throw new RuntimeException('调整后的关系形成循环');
             }
-            $after = $parent ? [(int)$parent['user_id'], (int)$parent['level1_user_id'], (int)$parent['level2_user_id']] : [0, 0, 0];
+            $after = $parent ? [(int)$parent['user_id'], (int)$parent['level1_user_id']] : [0, 0];
             self::table('relation')->where('id', $relation['id'])->update([
-                'level1_user_id' => $after[0], 'level2_user_id' => $after[1], 'level3_user_id' => $after[2],
+                'level1_user_id' => $after[0], 'level2_user_id' => $after[1], 'level3_user_id' => 0,
                 'bind_time' => $after[0] ? time() : 0, 'bind_source' => 'admin', 'update_time' => time(),
             ]);
             self::table('relation_log')->insert([
@@ -653,7 +654,7 @@ class DistributionService
     {
         $relation = self::ensurePromoter($tenantId, $userId);
         $team = [];
-        for ($level = 1; $level <= 3; $level++) {
+        for ($level = 1; $level <= self::MAX_LEVEL; $level++) {
             $team['level' . $level] = self::table('relation')->where(['tenant_id' => $tenantId, 'level' . $level . '_user_id' => $userId])->count();
         }
         return ['relation' => $relation, 'team' => $team, 'dashboard' => self::dashboard($tenantId, $userId), 'config' => self::config($tenantId)];
@@ -755,7 +756,7 @@ class DistributionService
 
     private static function chain(array $relation): array
     {
-        return [(int)($relation['level1_user_id'] ?? 0), (int)($relation['level2_user_id'] ?? 0), (int)($relation['level3_user_id'] ?? 0)];
+        return [(int)($relation['level1_user_id'] ?? 0), (int)($relation['level2_user_id'] ?? 0)];
     }
 
     private static function assertOrderType(string $type): void
@@ -767,7 +768,7 @@ class DistributionService
 
     private static function assertRates(array $data): void
     {
-        for ($i = 1; $i <= 3; $i++) {
+        for ($i = 1; $i <= self::MAX_LEVEL; $i++) {
             if ((float)($data['level' . $i . '_rate'] ?? 0) < 0 || (float)($data['level' . $i . '_rate'] ?? 0) > 100) {
                 throw new RuntimeException('佣金比例必须在0到100之间');
             }

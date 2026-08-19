@@ -7,6 +7,6 @@ use app\common\model\app\AppBaseModel;
 class AigcProductPromoVideoTask extends AppBaseModel
 {
     protected $name = 'aigc_product_promo_video_task';
-    protected $json = ['type_snapshot'];
+    protected $json = ['type_snapshot', 'pricing_snapshot'];
     protected $jsonAssoc = true;
 }

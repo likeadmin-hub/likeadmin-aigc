@@ -71,6 +71,27 @@ class UpstreamPricingService
         return is_array($rows) ? array_values(array_filter($rows, 'is_array')) : [];
     }
 
+    public static function queryDeveloperDocDetail(string $slug): array
+    {
+        $slug = trim($slug);
+        if ($slug === '') {
+            return [];
+        }
+        return self::request('GET', '/api/user_center/developerDocDetail', [
+            'slug' => $slug,
+            'terminal' => 4,
+        ]);
+    }
+
+    public static function queryDeveloperDocTree(): array
+    {
+        $response = self::request('GET', '/api/user_center/developerDocTree', [
+            'terminal' => 4,
+        ]);
+        $tree = $response['tree'] ?? $response['data']['tree'] ?? $response;
+        return is_array($tree) ? $tree : [];
+    }
+
     public static function queryBatch(array $items): array
     {
         $payloadItems = [];

@@ -15,6 +15,16 @@ final class DeliveryGraphExecutor
 {
     private const MEDIA_TOOLS = ['generate_image', 'generate_video', 'generate_music'];
     private const ACTION_TOOLS = ['canvas_mutation', 'selection_action'];
+    private static $submissionAdapter = null;
+
+    /**
+     * Isolated integration tests inject a deterministic channel response here.
+     * Production continues through the established runtime submission path.
+     */
+    public static function setSubmissionAdapterForTesting(?callable $adapter): void
+    {
+        self::$submissionAdapter = $adapter;
+    }
 
     public static function execute(int $tenantId, int $userId, int $itemId, array $params = [], ?callable $emit = null): array
     {
@@ -24,46 +34,32 @@ final class DeliveryGraphExecutor
             throw new Exception('This delivery item has no executable tool');
         }
         self::assertDependencies($tenantId, $userId, $item);
-        if (PendingActionProtocol::isPending((array)($item['pending_action'] ?? []))) {
-            throw new Exception('This delivery item requires its approved action before execution');
-        }
-        if (in_array((string)$item['status'], ['queued', 'running', 'completed'], true)) {
-            return $item;
-        }
-        if (!in_array((string)$item['status'], ['ready', 'failed'], true)) {
+        $item = DeliveryItemContextBinder::bindBase($tenantId, $userId, $item, [
+            'content' => (string)($item['slots']['user_request'] ?? ''),
+        ]);
+        DeliveryItemContextBinder::ensureExecutableContext($tenantId, $userId, $item);
+        if ((string)$item['status'] !== 'ready') {
             throw new Exception('Delivery item is not ready to execute');
         }
-        $claim = DeliveryItemService::claimExecution($tenantId, $userId, $itemId);
-        $item = (array)($claim['item'] ?? []);
-        if (empty($claim['claimed'])) return $item;
-        $item = DeliveryItemService::transition($tenantId, $userId, $itemId, 'queued', ['pending_action_json' => []]);
-        $input = self::input($item, DeliveryItemService::executionOptions($tenantId, $userId, $itemId));
+        $item = DeliveryItemService::claimReady($tenantId, $userId, $itemId, ['pending_action_json' => []]);
+        $input = self::input($item, $params);
         try {
-            $result = AigcCanvasAgentRuntimeService::executeExternalToolWithActions(
+            // Claiming is committed above. Provider submission never occurs in
+            // the compare-and-swap update that protects duplicate confirms.
+            $item = DeliveryItemService::transition($tenantId, $userId, $itemId, 'running');
+            $result = self::submit(
                 $tenantId, $userId, (int)$item['project_id'], (int)$item['thread_id'],
                 (int)$item['source_message_id'], (string)$item['tool_code'], $input,
                 (string)$input['prompt'], ['uploaded_references' => (array)$item['reference_assets']], $emit, 1
             );
             $tool = (array)($result['tool_calls'][0] ?? []);
             $output = (array)($tool['output'] ?? []);
-            $submittedInput = (array)($output['submitted_input'] ?? $tool['input'] ?? $input);
             $assets = (array)($result['assets'] ?? []);
             $hasAsset = !empty(array_filter($assets, static fn($asset): bool => is_array($asset) && !empty($asset['url'])));
             $toolStatus = strtolower((string)($output['status'] ?? 'running'));
             $status = $hasAsset || in_array($toolStatus, ['success', 'completed'], true) ? 'completed' : 'running';
-            $taskId = (string)($output['task_id'] ?? $tool['provider_task_id'] ?? '');
-            $providerTaskId = (string)($output['power_task_id'] ?? $output['provider_task_id'] ?? $tool['provider_task_id'] ?? '');
-            DeliveryItemTaskSyncService::bind($tenantId, $userId, $itemId, [
-                'idempotency_key' => (string)$input['request_id'], 'task_id' => $taskId,
-                'provider_task_id' => $providerTaskId, 'status' => $status,
-            ]);
             return DeliveryItemService::transition($tenantId, $userId, $itemId, $status, [
-                'task_snapshot_json' => [
-                    'input' => $submittedInput, 'tool_call_id' => (int)($tool['id'] ?? 0),
-                    'task_id' => $taskId, 'provider_task_id' => $providerTaskId, 'idempotency_key' => (string)$input['request_id'],
-                    'prompt_hash' => (string)($submittedInput['prompt_hash'] ?? hash('sha256', (string)($submittedInput['compiled_prompt'] ?? $submittedInput['prompt'] ?? ''))),
-                    'tool_code' => (string)$item['tool_code'], 'workspace_actions' => (array)($result['workspace_actions'] ?? []),
-                ],
+                'task_snapshot_json' => self::snapshot($item, $tool, $output, $input, $result),
                 'result_json' => ['assets' => $assets, 'workspace_actions' => (array)($result['workspace_actions'] ?? [])],
                 'provider_request_id' => (string)($output['request_id'] ?? $input['request_id'] ?? ''),
                 'provider_error_code' => '', 'provider_error_message' => '', 'error' => '',
@@ -82,14 +78,91 @@ final class DeliveryGraphExecutor
         }
     }
 
+    /**
+     * AgentLoop uses this path for media tools that already have an item. The
+     * graph owns claim/state/snapshot while Runtime keeps provider submission,
+     * prompt compilation, billing and workspace actions unchanged.
+     */
+    public static function executeFromAgentTool(
+        int $tenantId,
+        int $userId,
+        int $projectId,
+        int $threadId,
+        int $messageId,
+        int $itemId,
+        string $toolCode,
+        array $input,
+        string $prompt,
+        array $context,
+        ?callable $emit = null
+    ): array {
+        $item = DeliveryItemService::find($tenantId, $userId, $itemId);
+        if ($item === []) throw new Exception('Delivery item not found');
+        if (!in_array($toolCode, self::MEDIA_TOOLS, true) || (string)$item['tool_code'] !== $toolCode) {
+            throw new Exception('Delivery item tool does not match Agent media tool');
+        }
+        $item = DeliveryItemContextBinder::bindBase($tenantId, $userId, $item, $context + [
+            'content' => (string)($input['user_request'] ?? $input['prompt'] ?? ''),
+        ]);
+        DeliveryItemContextBinder::ensureExecutableContext($tenantId, $userId, $item);
+        $item = DeliveryItemService::claimReady($tenantId, $userId, $itemId, ['pending_action_json' => []]);
+        $input = array_merge($input, [
+            'delivery_item_id' => $itemId,
+            'attempt_no' => (int)$item['retry_count'] + 1,
+            'reference_assets' => (array)$item['reference_assets'],
+        ]);
+        try {
+            DeliveryItemService::transition($tenantId, $userId, $itemId, 'running');
+            $result = self::submit(
+                $tenantId,
+                $userId,
+                $projectId,
+                $threadId,
+                $messageId,
+                $toolCode,
+                $input,
+                $prompt,
+                $context,
+                $emit
+            );
+            $tool = (array)($result['tool_calls'][0] ?? []);
+            $output = (array)($tool['output'] ?? []);
+            $assets = (array)($result['assets'] ?? []);
+            $completed = !empty(array_filter($assets, static fn($asset): bool => is_array($asset) && !empty($asset['url'])))
+                || in_array(strtolower((string)($output['status'] ?? 'running')), ['success', 'completed'], true);
+            DeliveryItemService::transition($tenantId, $userId, $itemId, $completed ? 'completed' : 'running', [
+                'task_snapshot_json' => self::snapshot($item, $tool, $output, $input, $result),
+                'result_json' => ['assets' => $assets, 'workspace_actions' => (array)($result['workspace_actions'] ?? [])],
+                'provider_request_id' => (string)($output['request_id'] ?? $input['request_id'] ?? ''),
+                'provider_error_code' => '',
+                'provider_error_message' => '',
+                'error' => '',
+            ]);
+            return $result;
+        } catch (Exception $e) {
+            DeliveryItemService::transition($tenantId, $userId, $itemId, 'failed', [
+                'error' => $e->getMessage(),
+                'provider_error_code' => 'provider_submit',
+                'provider_error_message' => $e->getMessage(),
+                'pending_action_json' => PendingActionProtocol::confirmation('retry_item'),
+            ]);
+            throw $e;
+        }
+    }
+
     public static function refresh(int $tenantId, int $userId, int $itemId): array
     {
         $item = DeliveryItemService::find($tenantId, $userId, $itemId);
         if ($item === []) throw new Exception('Delivery item not found');
+        $snapshot = (array)($item['task_snapshot'] ?? []);
+        $taskId = trim((string)($snapshot['task_id'] ?? ''));
         if (!in_array((string)$item['tool_code'], self::MEDIA_TOOLS, true)) return $item;
+        if ($taskId === '') return $item;
         try {
-            $synced = DeliveryItemTaskSyncService::refresh($tenantId, $userId, $itemId);
-            return $synced !== [] ? $synced : $item;
+            $detail = CanvasGenerationTaskCenterService::query($tenantId, $userId, [
+                'task_id' => $taskId, 'type' => str_replace('generate_', '', (string)$item['tool_code']), 'delivery_item_id' => $itemId,
+            ]);
+            return DeliveryItemTaskSyncService::syncGenerationTask($tenantId, $userId, $detail, $itemId);
         } catch (Exception $e) {
             return DeliveryItemService::transition($tenantId, $userId, $itemId, 'failed', [
                 'error' => $e->getMessage(), 'provider_error_code' => 'provider_callback',
@@ -100,25 +173,11 @@ final class DeliveryGraphExecutor
 
     public static function retry(int $tenantId, int $userId, int $itemId): array
     {
-        $item = DeliveryItemService::find($tenantId, $userId, $itemId);
-        if ($item === []) throw new Exception('Delivery item not found');
+        $item = DeliveryItemService::beginRetry($tenantId, $userId, $itemId);
         $snapshot = (array)($item['task_snapshot'] ?? []);
-        $taskId = trim((string)($snapshot['task_id'] ?? ''));
-        if (!in_array((string)$item['tool_code'], self::MEDIA_TOOLS, true)) return self::execute($tenantId, $userId, $itemId);
-        if ($taskId === '') return self::execute($tenantId, $userId, $itemId);
-        $result = CanvasGenerationTaskCenterService::retry($tenantId, $userId, [
-            'task_id' => $taskId, 'type' => str_replace('generate_', '', (string)$item['tool_code']),
-            'submitted_input' => (array)($snapshot['input'] ?? []),
-        ]);
-        $nextTaskId = (string)($result['task_id'] ?? $taskId);
-        $idempotencyKey = 'delivery_item:' . $itemId . ':' . ((int)$item['retry_count'] + 2);
-        DeliveryItemTaskSyncService::bind($tenantId, $userId, $itemId, [
-            'idempotency_key' => $idempotencyKey, 'task_id' => $nextTaskId,
-            'provider_task_id' => (string)($result['power_task_id'] ?? $nextTaskId), 'status' => 'queued',
-        ]);
-        return DeliveryItemService::transition($tenantId, $userId, $itemId, 'queued', [
-            'retry_count' => (int)$item['retry_count'] + 1, 'pending_action_json' => [],
-            'task_snapshot_json' => array_merge($snapshot, ['task_id' => $nextTaskId, 'idempotency_key' => $idempotencyKey, 'retry_of' => $taskId]),
+        return self::execute($tenantId, $userId, $itemId, [
+            'retry_of_task_id' => (string)($snapshot['task_id'] ?? ''),
+            'submitted_input' => (array)($snapshot['submitted_input'] ?? $snapshot['input'] ?? []),
         ]);
     }
 
@@ -130,13 +189,6 @@ final class DeliveryGraphExecutor
         if (in_array((string)$item['tool_code'], self::MEDIA_TOOLS, true) && $taskId !== '' && in_array((string)$item['status'], ['queued', 'running'], true)) {
             CanvasGenerationTaskCenterService::cancel($tenantId, $userId, [
                 'task_id' => $taskId, 'type' => str_replace('generate_', '', (string)$item['tool_code']),
-            ]);
-        }
-        $binding = DeliveryItemTaskSyncService::latest($tenantId, $userId, $itemId);
-        if ($binding !== []) {
-            DeliveryItemTaskSyncService::bind($tenantId, $userId, $itemId, [
-                'idempotency_key' => (string)$binding['idempotency_key'], 'task_id' => (string)$binding['generation_task_id'],
-                'provider_task_id' => (string)$binding['provider_task_id'], 'status' => 'canceled',
             ]);
         }
         return DeliveryItemService::transition($tenantId, $userId, $itemId, 'canceled', ['pending_action_json' => []]);
@@ -152,31 +204,86 @@ final class DeliveryGraphExecutor
         }
     }
 
-    private static function input(array $item, array $executionOptions): array
+    private static function submit(
+        int $tenantId,
+        int $userId,
+        int $projectId,
+        int $threadId,
+        int $messageId,
+        string $toolCode,
+        array $input,
+        string $prompt,
+        array $context,
+        ?callable $emit,
+        int $maxActions = 0
+    ): array {
+        if (self::$submissionAdapter !== null) {
+            return (self::$submissionAdapter)([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'project_id' => $projectId,
+                'thread_id' => $threadId,
+                'message_id' => $messageId,
+                'tool_code' => $toolCode,
+                'input' => $input,
+                'prompt' => $prompt,
+                'context' => $context,
+                'emit' => $emit,
+                'max_actions' => $maxActions,
+            ]);
+        }
+        return AigcCanvasAgentRuntimeService::executeExternalToolWithActions(
+            $tenantId, $userId, $projectId, $threadId, $messageId, $toolCode,
+            $input, $prompt, $context, $emit, $maxActions
+        );
+    }
+
+    private static function snapshot(array $item, array $tool, array $output, array $input, array $result): array
+    {
+        $previous = (array)($item['task_snapshot'] ?? []);
+        $attempt = max(1, (int)($item['retry_count'] ?? 0) + 1);
+        $entry = [
+            'tool_call_id' => (int)($tool['id'] ?? 0),
+            'task_id' => (string)($tool['provider_task_id'] ?? $output['task_id'] ?? ''),
+            'provider_task_id' => (string)($tool['provider_task_id'] ?? $output['task_id'] ?? ''),
+            'request_id' => (string)($output['request_id'] ?? $input['request_id'] ?? ''),
+            'attempt_no' => $attempt,
+            'submitted_input' => (array)($tool['input'] ?? $input),
+            'prompt_hash' => hash('sha256', (string)($tool['input']['prompt'] ?? $input['prompt'] ?? '')),
+            'tool_code' => (string)($item['tool_code'] ?? ''),
+            'workspace_actions' => (array)($result['workspace_actions'] ?? []),
+        ];
+        $attempts = array_values((array)($previous['attempts'] ?? []));
+        if ($attempts === [] && !empty($previous['attempt_no'])) {
+            $attempts[] = $previous;
+        }
+        foreach ($attempts as $index => $candidate) {
+            if ((int)($candidate['attempt_no'] ?? 0) === $attempt) {
+                $attempts[$index] = $entry;
+                return $entry + ['attempts' => $attempts];
+            }
+        }
+        $attempts[] = $entry;
+        return $entry + ['attempts' => $attempts];
+    }
+
+    private static function input(array $item, array $params): array
     {
         $delivery = (array)($item['delivery'] ?? []);
         $slots = (array)($item['slots'] ?? []);
-        $ratio = trim((string)($delivery['ratio'] ?? ''));
-        return array_merge(self::executionOptions($executionOptions), [
-            '__delivery_graph_execution' => true,
+        $ratio = trim((string)($params['ratio'] ?? $delivery['ratio'] ?? ''));
+        return array_merge($params, [
             'prompt' => (string)($slots['user_request'] ?? $delivery['user_request'] ?? $item['objective']),
             'user_request' => (string)($slots['user_request'] ?? ''), 'prompt_mode' => self::promptMode($item),
             'delivery' => $delivery, 'creative_context' => (array)($item['creative_context'] ?? []),
             'project_id' => (int)$item['project_id'], 'ratio' => $ratio, 'quantity' => 1,
-            'target_element_id' => (string)($delivery['target_element_id'] ?? 'delivery_item_' . (int)$item['id']),
+            'target_element_id' => 'delivery_item_' . (int)$item['id'],
             'request_id' => 'delivery_item:' . (int)$item['id'] . ':' . ((int)$item['retry_count'] + 1),
+            'delivery_item_id' => (int)$item['id'],
+            'attempt_no' => (int)$item['retry_count'] + 1,
             'reference_assets' => (array)$item['reference_assets'],
             'reference_images' => array_values(array_filter(array_map(static fn(array $asset): string => (string)($asset['url'] ?? $asset['uri'] ?? ''), array_filter((array)$item['reference_assets'], 'is_array')))),
         ]);
-    }
-
-    /** Only policy-approved server routing values may survive into submission. */
-    private static function executionOptions(array $options): array
-    {
-        return array_intersect_key($options, array_flip([
-            'channel', 'model_id', 'market_product_id', 'market_sku_id', 'sku_id',
-            'duration', 'quality', 'style', 'seed', 'negative_prompt',
-        ]));
     }
 
     /**

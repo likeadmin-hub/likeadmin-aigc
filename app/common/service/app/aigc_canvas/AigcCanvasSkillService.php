@@ -19,7 +19,7 @@ class AigcCanvasSkillService
     public const RELEASE_ACTIVE = 'active';
     public const RELEASE_PAUSED = 'paused';
     public const RELEASE_ARCHIVED = 'archived';
-    private const CATALOG_REVISION = '20260726.1';
+    private const CATALOG_REVISION = '20260731.4';
     private const JSON_POLICY_FIELDS = [
         'examples_json',
         'negative_examples_json',
@@ -165,11 +165,17 @@ class AigcCanvasSkillService
         $clarification = (array)($skill['clarification_policy_json'] ?? []);
         $execution = (array)($skill['execution_policy_json'] ?? []);
         $canvas = (array)($skill['canvas_output_policy_json'] ?? []);
+        $agentPolicy = (array)($skill['agent_policy_json'] ?? []);
+        $visualDelivery = self::visualDeliveryPolicy((array)($agentPolicy['visual_delivery'] ?? []), $content);
+        $defaults = (array)($skill['defaults_json'] ?? []);
+        if (!empty($visualDelivery['matched'])) {
+            $defaults['quantity'] = (int)$visualDelivery['quantity'];
+        }
         $required = self::applySlotPolicyDefinitions(
             self::normalizeSlots((array)($skill['required_slots_json'] ?? [])),
-            (array)($skill['agent_policy_json']['slot_policy'] ?? [])
+            (array)($agentPolicy['slot_policy'] ?? [])
         );
-        $slotState = self::resolveSlotState($required, (array)($skill['defaults_json'] ?? []), $content, $context);
+        $slotState = self::resolveSlotState($required, $defaults, $content, $context);
         $missing = (array)$slotState['missing_hard_slots'];
         $questions = (array)($clarification['questions'] ?? []);
         $question = '';
@@ -184,8 +190,25 @@ class AigcCanvasSkillService
             // Media and canvas operations must be explicitly granted in its policy.
             $allowed = ['ask_user', 'generate_text'];
         }
+        if (!empty($visualDelivery['matched'])) {
+            $allowed[] = (string)$visualDelivery['tool_code'];
+            $allowed = array_values(array_unique($allowed));
+        }
         $capabilityTools = self::capabilityTools($toolPolicy, $allowed);
         $bindingPolicy = self::bindingPolicy($skill);
+        $outputPolicy = self::normalizeMediaOutputPolicy(
+            (array)($skill['output_policy_json'] ?? []),
+            $allowed,
+            (string)($skill['skill_type'] ?? '') === self::TYPE_AGENT_WORKFLOW
+        );
+        if (!empty($visualDelivery['matched'])) {
+            $outputPolicy = array_merge($outputPolicy, [
+                'format' => 'media_and_canvas',
+                'write_to_canvas' => true,
+                'batch_mode' => true,
+                'required_deliverables' => ['visual_storyboard_frames'],
+            ]);
+        }
         return [
             'skill_key' => (string)($skill['skill_key'] ?? ''),
             'name' => (string)($skill['name'] ?? ''),
@@ -203,16 +226,43 @@ class AigcCanvasSkillService
             'default_sources' => (array)$slotState['default_sources'],
             'slot_state' => (array)$slotState['slots'],
             'clarification_question' => $question,
-            'defaults' => (array)($skill['defaults_json'] ?? []),
+            'defaults' => $defaults,
             'optional_slots' => self::normalizeSlots((array)($skill['optional_slots_json'] ?? [])),
             'max_tool_calls' => max(1, min(24, (int)($toolPolicy['max_tool_calls'] ?? $execution['max_tool_calls'] ?? 12))),
-            'max_iterations' => max(1, min(6, (int)($execution['max_iterations'] ?? $execution['max_rounds'] ?? ($skill['agent_policy_json']['max_rounds'] ?? 6)))),
+            'max_iterations' => max(1, min(6, (int)($execution['max_iterations'] ?? $execution['max_rounds'] ?? ($agentPolicy['max_rounds'] ?? 6)))),
             'requires_confirmation' => !empty($toolPolicy['requires_confirmation']) || in_array((string)($canvas['writeback'] ?? ''), ['propose_then_apply', 'confirm_before_apply'], true),
             'model_policy' => (array)($skill['model_policy_json'] ?? []),
-            'output_policy' => (array)($skill['output_policy_json'] ?? []),
+            'output_policy' => $outputPolicy,
             'canvas_policy' => $canvas,
             'quality_policy' => (array)($skill['quality_policy_json'] ?? []),
-            'enrichment_policy' => (array)($skill['agent_policy_json']['enrichment_policy'] ?? []),
+            'enrichment_policy' => (array)($agentPolicy['enrichment_policy'] ?? []),
+            'visual_delivery_policy' => $visualDelivery,
+        ];
+    }
+
+    /**
+     * A visual delivery policy is an opt-in delivery contract. It is evaluated
+     * from user wording only, so ordinary planning requests retain their
+     * original text-only workflow.
+     */
+    private static function visualDeliveryPolicy(array $policy, string $content): array
+    {
+        $toolCode = (string)($policy['tool_code'] ?? '');
+        $enabled = !empty($policy['enabled']) && in_array($toolCode, ['generate_image', 'generate_video', 'generate_music'], true);
+        $terms = array_values(array_filter(array_map('strval', (array)($policy['trigger_terms'] ?? []))));
+        $text = mb_strtolower($content, 'UTF-8');
+        $matched = $enabled && array_reduce($terms, static function (bool $matched, string $term) use ($text): bool {
+            return $matched || ($term !== '' && mb_strpos($text, mb_strtolower($term, 'UTF-8')) !== false);
+        }, false);
+        $quantity = max(1, min(12, (int)($policy['default_quantity'] ?? 1)));
+        if (preg_match('/([1-9]\d*)\s*(?:张|幅|个|套|批)/u', $content, $match) === 1) {
+            $quantity = max(1, min((int)($policy['max_quantity'] ?? 12), (int)$match[1]));
+        }
+        return [
+            'enabled' => $enabled,
+            'matched' => $matched,
+            'tool_code' => $toolCode,
+            'quantity' => $quantity,
         ];
     }
 
@@ -557,6 +607,7 @@ class AigcCanvasSkillService
             'creative_plan' => ['ask_user', 'generate_text', 'canvas_query', 'canvas_mutation'],
             'product_image_prompt' => ['ask_user', 'generate_text'],
             'launch_event_plan' => ['ask_user', 'generate_text', 'canvas_mutation'],
+            'short_drama_preproduction' => ['ask_user', 'generate_text', 'canvas_mutation'],
         ];
         $capability = str_contains($key, 'video') ? 'video_generation' : (str_contains($key, 'music') ? 'music_generation' : (str_contains($key, 'image') || str_contains($key, 'poster') ? 'image_generation' : 'text_generation'));
         $p0Definitions = self::p0Definitions();
@@ -591,6 +642,26 @@ class AigcCanvasSkillService
                 'render_copy_in_image' => $key === 'ecommerce_detail_page',
             ]),
         ]);
+        if ($key === 'short_drama_preproduction') {
+            $item['agent_policy_json'] = array_merge((array)$item['agent_policy_json'], [
+                'visual_delivery' => [
+                    'enabled' => true,
+                    'trigger_terms' => ['可视化分镜', '分镜图', '镜头图', '故事板', 'storyboard', 'visual storyboard'],
+                    'tool_code' => 'generate_image',
+                    'default_quantity' => 4,
+                    'max_quantity' => 12,
+                ],
+            ]);
+            $item['output_policy_json']['terminal_tools'] = array_values(array_filter(
+                (array)($item['output_policy_json']['terminal_tools'] ?? []),
+                static fn($tool): bool => (string)$tool !== 'create_short_drama_plan'
+            ));
+        }
+        $item['output_policy_json'] = self::normalizeMediaOutputPolicy(
+            (array)($item['output_policy_json'] ?? []),
+            (array)($item['tool_policy_json']['allowed_tools'] ?? []),
+            $item['skill_type'] === self::TYPE_AGENT_WORKFLOW
+        );
         $item['visibility_policy_json'] = array_merge(['user_visible' => $key !== 'ecommerce_image', 'entry_points' => ['skill_gallery', 'chat_router'], 'tenant_editable' => true], (array)($item['visibility_policy_json'] ?? []));
         $item['model_policy_json'] = array_merge(['capability' => $capability, 'selection_mode' => 'auto', 'budget_mode' => 'balanced'], (array)($item['model_policy_json'] ?? []));
         $item['execution_policy_json'] = array_merge(['mode' => 'agent_loop', 'max_iterations' => $item['skill_type'] === self::TYPE_AGENT_WORKFLOW ? 6 : 4, 'max_tool_calls' => (int)$item['tool_policy_json']['max_tool_calls']], (array)($item['execution_policy_json'] ?? []));
@@ -719,7 +790,7 @@ class AigcCanvasSkillService
             self::catalogProductSkill('packaging_design', '包装设计', 'advanced', self::TYPE_AGENT_WORKFLOW, '生成包装视觉概念与可展示 Mockup。', [self::slot('product_reference', 'asset_or_text', '请上传商品图，或说明产品。', ['uploaded_references', 'selected_element', 'user_text'])], [['key' => 'package_type', 'type' => 'text']], ['ask_user', 'asset_analyze', 'generate_image', 'canvas_mutation'], 'image_generation', '为咖啡豆设计礼盒包装', ['release_status' => self::RELEASE_DRAFT, 'requires_confirmation' => true]),
             self::catalogProductSkill('product_photography', '产品摄影', 'advanced', self::TYPE_AGENT_PROMPT, '生成棚拍、场景和模特产品摄影方向。', [self::slot('product_reference', 'asset_or_text', '请上传商品图，或说明产品。', ['uploaded_references', 'selected_element', 'user_text'])], [['key' => 'scene', 'type' => 'text']], ['ask_user', 'asset_analyze', 'generate_image'], 'image_generation', '为护肤品生成高级棚拍图', ['release_status' => self::RELEASE_DRAFT]),
             self::catalogProductSkill('character_design', '角色设计', 'advanced', self::TYPE_AGENT_WORKFLOW, '生成角色设定、三视图与场景视觉。', [self::slot('character_brief', 'text', '请说明角色身份、外观和性格。')], [['key' => 'style', 'type' => 'text']], ['ask_user', 'generate_text', 'generate_image', 'canvas_mutation'], 'image_generation', '设计一位赛博侦探角色并生成三视图', ['release_status' => self::RELEASE_DRAFT, 'requires_confirmation' => true]),
-            self::catalogProductSkill('short_drama_preproduction', '短剧剧本与分镜规划', 'advanced', self::TYPE_AGENT_WORKFLOW, '先梳理故事梗概、角色、分集节奏和分镜目标，再创建可追踪的短剧剧本任务并交由短剧工作台继续完成。', [self::slot('story_brief', 'text', '请说明短剧故事梗概。')], [['key' => 'episode_count', 'type' => 'number'], ['key' => 'genre', 'type' => 'text'], ['key' => 'target_duration_seconds', 'type' => 'number'], ['key' => 'ratio', 'type' => 'text']], ['ask_user', 'generate_text', 'create_short_drama_plan'], 'text_generation', '为都市悬疑短剧规划 12 集剧本和竖屏分镜', ['release_status' => self::RELEASE_ACTIVE, 'requires_confirmation' => false]),
+            self::catalogProductSkill('short_drama_preproduction', '短剧剧本与分镜规划', 'advanced', self::TYPE_AGENT_WORKFLOW, '在当前画布梳理故事梗概、角色、分集节奏和分镜目标，并将剧本、镜头与视觉交付持续写入同一项目。', [self::slot('story_brief', 'text', '请说明短剧故事梗概。')], [['key' => 'episode_count', 'type' => 'number'], ['key' => 'genre', 'type' => 'text'], ['key' => 'target_duration_seconds', 'type' => 'number'], ['key' => 'ratio', 'type' => 'text']], ['ask_user', 'generate_text', 'generate_image', 'canvas_mutation'], 'text_generation', '为都市悬疑短剧规划 12 集剧本和竖屏分镜', ['release_status' => self::RELEASE_ACTIVE, 'requires_confirmation' => false]),
             self::catalogProductSkill('voiceover_plan', '配音文案', 'advanced', self::TYPE_AGENT_PROMPT, '生成旁白、角色台词和音色建议，不直接提交 TTS。', [self::slot('script_or_goal', 'text', '请提供脚本，或说明配音目标。')], [['key' => 'voice_style', 'type' => 'text']], ['ask_user', 'generate_text', 'canvas_mutation'], 'text_generation', '为产品广告写一段温暖女声旁白', ['release_status' => self::RELEASE_DRAFT]),
         ];
     }
@@ -760,11 +831,14 @@ class AigcCanvasSkillService
         ];
     }
 
-    private static function slot(string $key, string $type, string $ask, array $sources = []): array
+    private static function slot(string $key, string $type, string $ask, array $sources = [], array $evidencePolicy = []): array
     {
         $slot = ['key' => $key, 'type' => $type, 'ask' => $ask];
         if ($sources !== []) {
             $slot['sources'] = $sources;
+        }
+        if ($evidencePolicy !== []) {
+            $slot['evidence_policy'] = $evidencePolicy;
         }
         return $slot;
     }
@@ -1005,6 +1079,7 @@ class AigcCanvasSkillService
         foreach (self::JSON_POLICY_FIELDS as $field) {
             $jsonPolicies[$field] = self::normalizeJsonPayload($params[$field] ?? []);
         }
+        $jsonPolicies = self::normalizeEditableSkillPolicies($jsonPolicies, $type);
         return array_filter(array_merge([
             'skill_key' => $key,
             'name' => $name,
@@ -1018,6 +1093,53 @@ class AigcCanvasSkillService
             'status' => (int)($params['status'] ?? 1),
             'sort' => (int)($params['sort'] ?? 0),
         ], $jsonPolicies), static fn($value) => $value !== '' && $value !== null);
+    }
+
+    /**
+     * Keep tenant-authored Skills usable in a conversational Agent. Authors
+     * grant capabilities explicitly; this normalizer only supplies safe
+     * delivery metadata and prevents unspecified fields from becoming hard
+     * form requirements.
+     */
+    private static function normalizeEditableSkillPolicies(array $policies, string $skillType): array
+    {
+        $toolPolicy = (array)($policies['tool_policy_json'] ?? []);
+        $allowed = array_values(array_unique(array_filter(array_map('strval', (array)($toolPolicy['allowed_tools'] ?? [])))));
+        $mediaTools = array_values(array_intersect($allowed, ['generate_image', 'generate_video', 'generate_music']));
+        if ($mediaTools !== [] && !in_array('ask_user', $allowed, true)) {
+            $allowed[] = 'ask_user';
+        }
+        $toolPolicy['allowed_tools'] = $allowed;
+        $policies['tool_policy_json'] = $toolPolicy;
+
+        $outputPolicy = (array)($policies['output_policy_json'] ?? []);
+        $format = (string)($outputPolicy['format'] ?? '');
+        if ($mediaTools === [] && in_array($format, ['media', 'media_and_canvas', 'json_canvas'], true)) {
+            throw new Exception('A media output Skill must explicitly authorize generate_image, generate_video, or generate_music');
+        }
+        $policies['output_policy_json'] = self::normalizeMediaOutputPolicy(
+            $outputPolicy,
+            $allowed,
+            $skillType === self::TYPE_AGENT_WORKFLOW
+        );
+
+        $slots = [];
+        foreach ((array)($policies['required_slots_json'] ?? []) as $slot) {
+            $slot = is_string($slot) ? ['key' => $slot] : (is_array($slot) ? $slot : []);
+            $key = trim((string)($slot['key'] ?? ''));
+            if ($key === '') {
+                continue;
+            }
+            if (!isset($slot['required_level'])) {
+                $type = (string)($slot['type'] ?? '');
+                $isEvidence = in_array($type, ['asset', 'reference_node'], true)
+                    || in_array($key, ['reference_asset', 'product_reference', 'subject', 'subject_or_reference'], true);
+                $slot['required_level'] = $isEvidence ? 'hard' : 'soft';
+            }
+            $slots[] = $slot;
+        }
+        $policies['required_slots_json'] = $slots;
+        return $policies;
     }
 
     private static function findById(int $tenantId, int $id): AigcCanvasSkill
@@ -1074,7 +1196,11 @@ class AigcCanvasSkillService
             $row = is_string($slot) ? ['key' => $slot] : (is_array($slot) ? $slot : []);
             $key = trim((string)($row['key'] ?? $row['name'] ?? ''));
             if ($key !== '') {
-                $level = (string)($row['required_level'] ?? 'hard');
+                // Back-office Skill authors often describe required inputs as a
+                // simple list. Treat unspecified levels as soft: a natural
+                // language creation request should not become a form unless a
+                // Skill explicitly marks evidence as non-negotiable.
+                $level = (string)($row['required_level'] ?? 'soft');
                 $result[] = array_merge([
                     'key' => $key,
                     'required_level' => in_array($level, ['hard', 'soft', 'inferable', 'optional'], true) ? $level : 'hard',
@@ -1152,9 +1278,11 @@ class AigcCanvasSkillService
     private static function bindingPolicy(array $skill): array
     {
         $policy = (array)($skill['agent_policy_json']['binding_policy'] ?? []);
-        $mode = (string)($policy['default_mode'] ?? 'contract');
+        $mode = (string)($policy['default_mode'] ?? 'advisory');
+        $executionMode = (string)($policy['execution_mode'] ?? 'strict_on_execute');
         return [
-            'default_mode' => in_array($mode, ['none', 'advisory', 'contract'], true) ? $mode : 'contract',
+            'default_mode' => in_array($mode, ['none', 'advisory', 'contract'], true) ? $mode : 'advisory',
+            'execution_mode' => in_array($executionMode, ['advisory', 'strict_on_execute', 'strict'], true) ? $executionMode : 'strict_on_execute',
             'upgrade_to_contract_on' => array_values(array_unique(array_intersect(
                 array_map('strval', (array)($policy['upgrade_to_contract_on'] ?? ['paid_generation', 'batch', 'canvas_write'])),
                 ['paid_generation', 'batch', 'canvas_write']
@@ -1164,10 +1292,11 @@ class AigcCanvasSkillService
 
     private static function builtinBindingPolicy(string $key): array
     {
-        if (in_array($key, ['general_image', 'poster_design', 'script_planning'], true)) {
-            return ['default_mode' => 'advisory', 'upgrade_to_contract_on' => ['paid_generation', 'batch', 'canvas_write']];
-        }
-        return ['default_mode' => 'contract', 'upgrade_to_contract_on' => ['paid_generation', 'batch', 'canvas_write']];
+        return [
+            'default_mode' => 'advisory',
+            'execution_mode' => 'strict_on_execute',
+            'upgrade_to_contract_on' => ['paid_generation', 'batch', 'canvas_write'],
+        ];
     }
 
     private static function applyBuiltinSlotPolicy(string $skillKey, array $slots): array
@@ -1175,6 +1304,12 @@ class AigcCanvasSkillService
         $policies = [
             'general_image' => ['subject' => ['required_level' => 'hard', 'ask_priority' => 1]],
             'poster_design' => ['theme' => ['required_level' => 'hard', 'ask_priority' => 1]],
+            'video_generation' => [
+                'subject_or_reference' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'motion' => ['required_level' => 'soft', 'default_strategy' => 'skill_default', 'default' => 'smooth, product-safe camera movement', 'ask_priority' => 2],
+            ],
+            'music_generation' => ['music_subject' => ['required_level' => 'hard', 'ask_priority' => 1]],
+            'ecommerce_image' => ['product_info' => ['required_level' => 'hard', 'ask_priority' => 1]],
             'script_planning' => [
                 'goal' => ['required_level' => 'soft', 'default_strategy' => 'conversation', 'ask_priority' => 1],
                 'deliverable_type' => ['required_level' => 'inferable', 'default_strategy' => 'intent', 'ask_priority' => 2],
@@ -1183,6 +1318,86 @@ class AigcCanvasSkillService
                 'product_info' => ['required_level' => 'hard', 'ask_priority' => 1],
                 'product_reference' => ['required_level' => 'hard', 'ask_priority' => 1],
                 'selling_points' => ['required_level' => 'soft', 'default_strategy' => 'tenant_default', 'ask_priority' => 2],
+            ],
+            'ecommerce_main_image' => ['product_reference' => ['required_level' => 'hard', 'ask_priority' => 1]],
+            'ecommerce_selling_point' => [
+                'product_reference' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'selling_point' => ['required_level' => 'soft', 'default_strategy' => 'visual_evidence', 'ask_priority' => 2],
+            ],
+            'ecommerce_product_listing' => [
+                'product_reference' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'platform' => ['required_level' => 'inferable', 'default_strategy' => 'skill_default', 'default' => 'taobao', 'ask_priority' => 2],
+            ],
+            'ecommerce_mockup' => [
+                'product_reference' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'scene' => ['required_level' => 'soft', 'default_strategy' => 'commercial_default', 'default' => 'clean commercial lifestyle setting', 'ask_priority' => 2],
+            ],
+            'social_post' => [
+                'topic' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'platform' => ['required_level' => 'inferable', 'default_strategy' => 'skill_default', 'default' => 'generic', 'ask_priority' => 2],
+            ],
+            'rednote_cover' => ['topic' => ['required_level' => 'hard', 'ask_priority' => 1]],
+            'instagram_post' => [
+                'topic' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'post_type' => ['required_level' => 'inferable', 'default_strategy' => 'skill_default', 'default' => 'feed', 'ask_priority' => 2],
+            ],
+            'youtube_thumbnail' => [
+                'topic' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'headline' => ['required_level' => 'soft', 'default_strategy' => 'auto_copy', 'ask_priority' => 2],
+            ],
+            'ad_creative' => [
+                'product_or_offer' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'objective' => ['required_level' => 'inferable', 'default_strategy' => 'conversion', 'default' => 'conversion', 'ask_priority' => 2],
+                'platform' => ['required_level' => 'inferable', 'default_strategy' => 'skill_default', 'default' => 'generic', 'ask_priority' => 3],
+            ],
+            'product_launch_campaign' => [
+                'product' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'deliverables' => ['required_level' => 'soft', 'default_strategy' => 'campaign_default', 'ask_priority' => 2],
+            ],
+            'campaign_kit' => [
+                'campaign_goal' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'asset_types' => ['required_level' => 'soft', 'default_strategy' => 'campaign_default', 'ask_priority' => 2],
+            ],
+            'logo_design' => [
+                'brand_name' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'industry' => ['required_level' => 'soft', 'default_strategy' => 'brand_default', 'ask_priority' => 2],
+                'brand_traits' => ['required_level' => 'soft', 'default_strategy' => 'brand_default', 'ask_priority' => 3],
+            ],
+            'brand_identity' => [
+                'brand_name' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'industry' => ['required_level' => 'soft', 'default_strategy' => 'brand_default', 'ask_priority' => 2],
+            ],
+            'brand_campaign_visual' => [
+                'campaign_theme' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'brand_profile' => ['required_level' => 'soft', 'default_strategy' => 'brand_memory', 'ask_priority' => 2],
+            ],
+            'storyboard' => ['script_or_goal' => ['required_level' => 'hard', 'ask_priority' => 1]],
+            'video_ad' => [
+                'product_or_offer' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'platform' => ['required_level' => 'inferable', 'default_strategy' => 'skill_default', 'default' => 'generic', 'ask_priority' => 2],
+            ],
+            'image_to_video' => [
+                'reference_asset' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'motion' => ['required_level' => 'soft', 'default_strategy' => 'skill_default', 'default' => 'smooth camera movement', 'ask_priority' => 2],
+            ],
+            'presentation_design' => ['topic' => ['required_level' => 'hard', 'ask_priority' => 1]],
+            'landing_page_visual' => ['product_or_offer' => ['required_level' => 'hard', 'ask_priority' => 1]],
+            'packaging_design' => [
+                'product_reference' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'package_type' => ['required_level' => 'soft', 'default_strategy' => 'commercial_default', 'ask_priority' => 2],
+            ],
+            'product_photography' => [
+                'product_reference' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'scene' => ['required_level' => 'soft', 'default_strategy' => 'commercial_default', 'ask_priority' => 2],
+            ],
+            'character_design' => ['character_brief' => ['required_level' => 'hard', 'ask_priority' => 1]],
+            'voiceover_plan' => ['script_or_goal' => ['required_level' => 'hard', 'ask_priority' => 1]],
+            'brand_kit' => [
+                'brand_name' => ['required_level' => 'hard', 'ask_priority' => 1],
+                'logo_or_url' => ['required_level' => 'soft', 'default_strategy' => 'brand_memory', 'ask_priority' => 2],
+            ],
+            'short_drama_preproduction' => [
+                'story_brief' => ['required_level' => 'hard', 'ask_priority' => 1, 'evidence_policy' => ['min_characters' => 36]],
             ],
         ];
         $rules = $policies[$skillKey] ?? [];
@@ -1197,6 +1412,32 @@ class AigcCanvasSkillService
             $slots[$index] = array_merge($slot, (array)($rules[$key] ?? []));
         }
         return $slots;
+    }
+
+    private static function normalizeMediaOutputPolicy(array $policy, array $tools, bool $isWorkflow): array
+    {
+        $mediaTools = array_values(array_intersect($tools, ['generate_image', 'generate_video', 'generate_music']));
+        if ($mediaTools === []) {
+            return $policy;
+        }
+        $primaryTool = (string)$mediaTools[0];
+        $workspaceAction = match ($primaryTool) {
+            'generate_video' => 'insert_video',
+            'generate_music' => 'insert_audio',
+            default => 'insert_image',
+        };
+        return array_merge([
+            'format' => $isWorkflow ? 'media_and_canvas' : 'media',
+            'workspace_action' => $workspaceAction,
+            'write_to_canvas' => true,
+            'partial_delivery' => true,
+        ], $policy, [
+            'format' => in_array((string)($policy['format'] ?? ''), ['media', 'media_and_canvas', 'json_canvas'], true)
+                ? (string)$policy['format']
+                : ($isWorkflow ? 'media_and_canvas' : 'media'),
+            'workspace_action' => (string)($policy['workspace_action'] ?? '') ?: $workspaceAction,
+            'write_to_canvas' => array_key_exists('write_to_canvas', $policy) ? !empty($policy['write_to_canvas']) : true,
+        ]);
     }
 
     private static function slotPolicyFromSlots(array $slots): array
@@ -1260,11 +1501,11 @@ class AigcCanvasSkillService
                 || in_array('uploaded_references', $sources, true)
                 || in_array('selected_element', $sources, true);
             if ($type === 'asset_or_text') {
-                $satisfied = $hasAsset || self::hasInferredSlotValue($context, $key) || self::contentSatisfiesSlot($key, $content);
+                $satisfied = $hasAsset || self::hasInferredSlotValue($context, $key) || self::contentSatisfiesSlot($slot, $content);
             } elseif ($needsAsset) {
                 $satisfied = $hasAsset;
             } else {
-                $satisfied = self::hasInferredSlotValue($context, $key) || self::contentSatisfiesSlot($key, $content, $hasText);
+                $satisfied = self::hasInferredSlotValue($context, $key) || self::contentSatisfiesSlot($slot, $content, $hasText);
             }
             if (!$satisfied) {
                 $missing[] = $key;
@@ -1283,12 +1524,18 @@ class AigcCanvasSkillService
         return is_array($value) ? $value !== [] : trim((string)$value) !== '';
     }
 
-    private static function contentSatisfiesSlot(string $key, string $content, bool $hasText = false): bool
+    private static function contentSatisfiesSlot(array $slot, string $content, bool $hasText = false): bool
     {
         $text = trim(mb_strtolower($content, 'UTF-8'));
         if ($text === '') {
             return false;
         }
+        $evidencePolicy = (array)($slot['evidence_policy'] ?? []);
+        $minimumLength = max(0, (int)($evidencePolicy['min_characters'] ?? 0));
+        if ($minimumLength > 0 && mb_strlen($text, 'UTF-8') >= $minimumLength) {
+            return true;
+        }
+        $key = (string)($slot['key'] ?? '');
         return match ($key) {
             // A request such as "生成商品详情图" describes an output, not a product.
             // Product slots may only be inferred from an identifiable product brief.

@@ -28,6 +28,21 @@ class AigcMusicService
     private const MIN_DURATION = 5;
     private const MAX_DURATION = 600;
 
+    private const DEFAULT_CONFIG_JSON = [
+        'default_type' => 'text_to_music',
+        'enabled_features' => ['text_to_music', 'lyric_to_music', 'audio_to_music'],
+        'max_duration' => 0,
+        'allow_reference_audio' => true,
+        'allow_voice_clone' => false,
+        'safety_review' => true,
+        'default_billing_status' => 'paid',
+    ];
+    private const CONFIG_BOOLEAN_FIELDS = [
+        'allow_reference_audio',
+        'allow_voice_clone',
+        'safety_review',
+    ];
+
     public static function exportTypes(): array
     {
         return [
@@ -47,8 +62,9 @@ class AigcMusicService
             'provider' => 'mock',
             'model' => self::ACTION_MUSIC_GENERATION,
             'status' => 1,
-            'config_json' => [],
+            'config_json' => self::DEFAULT_CONFIG_JSON,
         ] : $config->toArray();
+        $data['config_json'] = self::normalizeConfigJson($data['config_json'] ?? []);
         $data['option_config'] = AigcMusicChannelService::userConfig($tenantId);
         $data['styles'] = self::styleLists($tenantId, ['status' => 1, 'page_size' => 100])['lists'];
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
@@ -64,7 +80,7 @@ class AigcMusicService
             'provider_mode' => $params['provider_mode'] ?? ($current['provider_mode'] ?? 'platform'),
             'provider' => $params['provider'] ?? ($current['provider'] ?? 'mock'),
             'model' => $params['model'] ?? ($current['model'] ?? self::ACTION_MUSIC_GENERATION),
-            'config_json' => is_array($params['config_json'] ?? null) ? $params['config_json'] : ($current['config_json'] ?? []),
+            'config_json' => self::configJsonFromPayload($params, $current['config_json'] ?? []),
             'status' => (int)($params['status'] ?? ($current['status'] ?? 1)),
             'update_time' => time(),
         ];
@@ -239,6 +255,9 @@ class AigcMusicService
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
+        if (!array_key_exists('sync_running', $params) || self::boolValue($params['sync_running'])) {
+            self::safeRefreshRunningTasks($tenantId, $userId);
+        }
         $query = AigcMusicTask::alias('t')
             ->leftJoin('user u', 'u.id = t.user_id AND u.tenant_id = t.tenant_id')
             ->field('t.*,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
@@ -264,6 +283,7 @@ class AigcMusicService
 
     public static function taskDetail(int $tenantId, int $taskId, int $userId = 0): array
     {
+        self::safeRefreshRunningTasks($tenantId, $userId, $taskId);
         $query = AigcMusicTask::where(['tenant_id' => $tenantId, 'id' => $taskId])->where('delete_time', 0);
         if ($userId > 0) {
             $query->where('user_id', $userId);
@@ -618,6 +638,56 @@ class AigcMusicService
             return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
         }
         return false;
+    }
+
+    private static function normalizeConfigJson(mixed $value, mixed $fallback = []): array
+    {
+        $fallback = self::decodeConfigJson($fallback);
+        $value = self::decodeConfigJson($value);
+        $config = array_replace(
+            self::DEFAULT_CONFIG_JSON,
+            is_array($fallback) ? $fallback : [],
+            is_array($value) ? $value : []
+        );
+        if (!is_array($config['enabled_features'] ?? null)) {
+            $config['enabled_features'] = self::DEFAULT_CONFIG_JSON['enabled_features'];
+        }
+        foreach (self::CONFIG_BOOLEAN_FIELDS as $field) {
+            $config[$field] = self::boolValue($config[$field] ?? self::DEFAULT_CONFIG_JSON[$field]);
+        }
+        $config['max_duration'] = max(0, (int)($config['max_duration'] ?? 0));
+        $config['default_type'] = trim((string)($config['default_type'] ?? self::DEFAULT_CONFIG_JSON['default_type']));
+        $config['default_billing_status'] = trim((string)($config['default_billing_status'] ?? self::DEFAULT_CONFIG_JSON['default_billing_status']));
+        return $config;
+    }
+
+    private static function configJsonFromPayload(array $params, mixed $fallback = []): array
+    {
+        $config = self::normalizeConfigJson($params['config_json'] ?? [], $fallback);
+        foreach (self::CONFIG_BOOLEAN_FIELDS as $field) {
+            if (array_key_exists($field, $params)) {
+                $config[$field] = self::boolValue($params[$field]);
+                continue;
+            }
+            $dotKey = 'config_json.' . $field;
+            if (array_key_exists($dotKey, $params)) {
+                $config[$field] = self::boolValue($params[$dotKey]);
+            }
+        }
+        return $config;
+    }
+
+    private static function decodeConfigJson(mixed $value): mixed
+    {
+        if (!is_string($value)) {
+            return $value;
+        }
+        $value = trim($value);
+        if ($value === '') {
+            return [];
+        }
+        $decoded = json_decode($value, true);
+        return is_array($decoded) ? $decoded : null;
     }
 
     private static function finishTaskWithItems(AigcMusicTask $task, array $selection, array $items): array

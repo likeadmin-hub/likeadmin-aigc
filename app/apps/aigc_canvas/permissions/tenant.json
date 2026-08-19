@@ -18,6 +18,24 @@
     "api_method": "GET"
   },
   {
+    "permission_key": "aigc_canvas:project:lists",
+    "name": "查看无限画布项目",
+    "api_path": "app.aigc_canvas.admin_project/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_canvas:project:delete",
+    "name": "删除无限画布项目",
+    "api_path": "app.aigc_canvas.admin_project/delete",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_canvas:project:clear",
+    "name": "清理无限画布项目",
+    "api_path": "app.aigc_canvas.admin_project/clear",
+    "api_method": "POST"
+  },
+  {
     "permission_key": "aigc_canvas:run:lists",
     "name": "查看无限画布创作任务",
     "api_path": "app.aigc_canvas.admin_run/lists",

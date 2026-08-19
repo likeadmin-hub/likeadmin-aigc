@@ -27,7 +27,8 @@ class MarketController extends BaseAdminController
             (string)$this->request->get('keyword', ''),
             $this->request->get('status', ''),
             (int)$this->request->get('page_no', 1),
-            (int)$this->request->get('page_size', 15)
+            (int)$this->request->get('page_size', 15),
+            (string)$this->request->get('category_code', '')
         ));
     }
 
@@ -64,11 +65,14 @@ class MarketController extends BaseAdminController
     public function saveDisplay()
     {
         try {
-            TenantPowerMarketService::saveProductDisplay(
-                (int)$this->adminInfo['tenant_id'],
-                (int)$this->request->post('product_id', 0),
-                $this->request->post()
-            );
+            $tenantId = (int)$this->adminInfo['tenant_id'];
+            $params = $this->request->post();
+            $appCode = trim((string)($params['app_code'] ?? ''));
+            if ($appCode !== '') {
+                TenantPowerMarketService::saveAppDisplay($tenantId, $appCode, $params);
+            } else {
+                TenantPowerMarketService::saveProductDisplay($tenantId, (int)($params['product_id'] ?? 0), $params);
+            }
             return $this->success('保存成功', [], 1, 1);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
