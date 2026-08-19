@@ -53,6 +53,20 @@ class WebSettingController extends BaseAdminController
     }
 
 
+    public function getTutorial()
+    {
+        return $this->data(WebSettingLogic::getTutorial());
+    }
+
+
+    public function setTutorial()
+    {
+        $params = (new WebSettingValidate())->post()->goCheck('tutorial');
+        WebSettingLogic::setTutorial($params);
+        return $this->success('设置成功', [], 1, 1);
+    }
+
+
 
     /**
      * @notes 获取备案信息

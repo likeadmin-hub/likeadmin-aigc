@@ -16,6 +16,7 @@ class AppDisplayConfigService
         'aigc_canvas',
         'aigc_llm',
         'aigc_short_drama',
+        'aigc_geo',
         'aigc_music',
         'image_human',
         'smart_clip',
@@ -68,6 +69,11 @@ class AppDisplayConfigService
             'title' => 'AI短剧',
             'description' => '从灵感、剧本到分镜和成片的一站式短剧创作。',
             'sort' => 79,
+        ],
+        'aigc_geo' => [
+            'title' => 'GEO营销优化系统',
+            'description' => '围绕 AI 搜索曝光、内容生产、品牌管理、内容发布和付费投稿构建品牌增长闭环。',
+            'sort' => 78,
         ],
         'image_human' => [
             'title' => '全驱数字人',

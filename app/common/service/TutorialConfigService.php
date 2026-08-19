@@ -2,44 +2,25 @@
 
 namespace app\common\service;
 
-use app\common\model\Config;
-
 class TutorialConfigService
 {
     private const TYPE = 'tutorial';
 
     public static function get(): array
     {
-        $values = Config::where('type', self::TYPE)->column('value', 'name');
-        $icon = trim((string)($values['icon'] ?? ''));
+        $icon = trim((string)ConfigService::get(self::TYPE, 'icon', ''));
 
         return [
-            'enabled' => (int)($values['enabled'] ?? 0),
-            'url' => trim((string)($values['url'] ?? '')),
+            'enabled' => (int)ConfigService::get(self::TYPE, 'enabled', 0),
+            'url' => trim((string)ConfigService::get(self::TYPE, 'url', '')),
             'icon' => $icon === '' ? '' : FileService::getFileUrl($icon),
         ];
     }
 
     public static function save(array $params): void
     {
-        self::set('enabled', (int)($params['enabled'] ?? 0));
-        self::set('url', trim((string)($params['url'] ?? '')));
-        self::set('icon', FileService::setFileUrl((string)($params['icon'] ?? '')));
-    }
-
-    private static function set(string $name, $value): void
-    {
-        $config = Config::where(['type' => self::TYPE, 'name' => $name])->findOrEmpty();
-        if ($config->isEmpty()) {
-            Config::create([
-                'type' => self::TYPE,
-                'name' => $name,
-                'value' => $value,
-            ]);
-            return;
-        }
-
-        $config->value = $value;
-        $config->save();
+        ConfigService::set(self::TYPE, 'enabled', (int)($params['enabled'] ?? 0));
+        ConfigService::set(self::TYPE, 'url', trim((string)($params['url'] ?? '')));
+        ConfigService::set(self::TYPE, 'icon', FileService::setFileUrl((string)($params['icon'] ?? '')));
     }
 }

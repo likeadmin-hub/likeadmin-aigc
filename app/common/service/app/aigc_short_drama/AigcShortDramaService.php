@@ -4780,7 +4780,16 @@ class AigcShortDramaService
                 }
             } else {
                 $references = self::generationInputReferenceAssets($tenantId, $userId, $projectId, $params, $shot);
-                if ($taskType === 'scene_image') {
+                $nestedParams = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
+                $hasExplicitMentions = !empty($params['selected_mentions'])
+                    || !empty($params['selected_subject_ids'])
+                    || !empty($params['selected_scene_ids'])
+                    || !empty($params['mention_shot_ids'])
+                    || !empty($nestedParams['selected_mentions'])
+                    || !empty($nestedParams['selected_subject_ids'])
+                    || !empty($nestedParams['selected_scene_ids'])
+                    || !empty($nestedParams['mention_shot_ids']);
+                if ($taskType === 'scene_image' && !$hasExplicitMentions) {
                     $references = self::emptyReferencePayload();
                 }
                 $references = self::limitShortDramaImageReferences($tenantId, $imageParams, $params, $shot, $references);
@@ -7430,7 +7439,20 @@ class AigcShortDramaService
             self::normalizeStringList($params['selected_scene_ids'] ?? []),
             self::normalizeStringList($nested['selected_scene_ids'] ?? [])
         )))));
-        if (empty($subjectIds) && empty($sceneIds)) {
+        $mentionedShotIds = self::normalizeStringList(array_merge(
+            self::normalizeStringList($params['mention_shot_ids'] ?? []),
+            self::normalizeStringList($nested['mention_shot_ids'] ?? [])
+        ));
+        foreach (array_merge(
+            is_array($params['selected_mentions'] ?? null) ? (array)$params['selected_mentions'] : [],
+            is_array($nested['selected_mentions'] ?? null) ? (array)$nested['selected_mentions'] : []
+        ) as $mention) {
+            if (is_array($mention) && (string)($mention['type'] ?? '') === 'shot' && !empty($mention['id'])) {
+                $mentionedShotIds[] = (string)$mention['id'];
+            }
+        }
+        $mentionedShotIds = array_values(array_unique(array_filter(array_map('strval', $mentionedShotIds))));
+        if (empty($subjectIds) && empty($sceneIds) && empty($mentionedShotIds)) {
             return self::emptyReferencePayload();
         }
         $payload = self::emptyReferencePayload();
@@ -7483,6 +7505,12 @@ class AigcShortDramaService
         }
         foreach ($sceneIds as $sceneId) {
             $payload = self::mergeReferencePayloads($payload, self::planReferenceAssetsByMeta($tenantId, $userId, $projectId, (string)$sceneId, []));
+        }
+        foreach ($mentionedShotIds as $shotId) {
+            $asset = self::latestShotImageAsset($tenantId, $userId, $projectId, $shotId);
+            if (!empty($asset)) {
+                self::appendReferenceAsset($payload, $asset);
+            }
         }
         return $payload;
     }
@@ -12328,11 +12356,22 @@ class AigcShortDramaService
         }
 
         $candidates = [['asset' => $assetMap[$firstFrameId], 'role' => 'reference_image']];
+        $candidateIds = [$firstFrameId => true];
         foreach (self::shortDramaVideoThreeViewAssets($tenantId, $userId, $projectId, $shot) as $asset) {
-            if ((int)($asset['id'] ?? 0) === $firstFrameId) {
+            $assetId = (int)($asset['id'] ?? 0);
+            if ($assetId <= 0 || isset($candidateIds[$assetId])) {
                 continue;
             }
             $candidates[] = ['asset' => $asset, 'role' => 'reference_image'];
+            $candidateIds[$assetId] = true;
+        }
+        foreach (self::shortDramaVideoMentionedShotAssets($tenantId, $userId, $projectId, $params) as $asset) {
+            $assetId = (int)($asset['id'] ?? 0);
+            if ($assetId <= 0 || isset($candidateIds[$assetId])) {
+                continue;
+            }
+            $candidates[] = ['asset' => $asset, 'role' => 'reference_image'];
+            $candidateIds[$assetId] = true;
         }
         if (in_array('multi_frame', $modes, true) && $referenceLimit >= 2 && count($candidates) >= 2) {
             $selected = array_slice($candidates, 0, $referenceLimit);
@@ -12348,8 +12387,8 @@ class AigcShortDramaService
         }
         return self::shortDramaVideoReferenceContractPayload(
             'omni_reference',
-            [$candidates[0]],
-            array_slice($candidates, 1),
+            array_slice($candidates, 0, $referenceLimit),
+            array_slice($candidates, $referenceLimit),
             $capabilities
         );
     }
@@ -12404,6 +12443,31 @@ class AigcShortDramaService
         foreach ($subjectIds as $subjectId) {
             if (isset($bySubject[$subjectId])) {
                 $assets[] = $bySubject[$subjectId];
+            }
+        }
+        return $assets;
+    }
+
+    private static function shortDramaVideoMentionedShotAssets(int $tenantId, int $userId, int $projectId, array $params): array
+    {
+        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
+        $shotIds = array_merge(
+            self::normalizeStringList($params['mention_shot_ids'] ?? []),
+            self::normalizeStringList($nested['mention_shot_ids'] ?? [])
+        );
+        foreach (array_merge(
+            is_array($params['selected_mentions'] ?? null) ? (array)$params['selected_mentions'] : [],
+            is_array($nested['selected_mentions'] ?? null) ? (array)$nested['selected_mentions'] : []
+        ) as $mention) {
+            if (is_array($mention) && (string)($mention['type'] ?? '') === 'shot' && !empty($mention['id'])) {
+                $shotIds[] = (string)$mention['id'];
+            }
+        }
+        $assets = [];
+        foreach (array_values(array_unique(array_filter(array_map('strval', $shotIds)))) as $shotId) {
+            $asset = self::latestShotImageAsset($tenantId, $userId, $projectId, $shotId);
+            if (!empty($asset)) {
+                $assets[] = $asset;
             }
         }
         return $assets;

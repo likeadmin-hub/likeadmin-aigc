@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\app\AppAccessService;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
@@ -66,6 +67,31 @@ class AppRecommendationContractTest extends TestCase
         self::assertStringContainsString('(int)($display[\'is_recommend\'] ?? 0) !== 1', $source);
         self::assertStringContainsString("'is_recommend' => 1", $source);
         self::assertStringContainsString("AppFrontendManifestService::tenantEntries(\$tenantId, 'pc')", $source);
+    }
+
+    public function testGeoIsAvailableForTenantDisplayManagement(): void
+    {
+        self::assertContains('aigc_geo', AppDisplayConfigService::DEFAULT_APP_CODES);
+        self::assertContains('aigc_geo', AppDisplayConfigService::appCodes());
+        self::assertNotContains('aigc_geo', AppAccessService::DEFAULT_APP_CODES);
+
+        $default = $this->invoke('defaultConfig', ['aigc_geo']);
+        self::assertSame('GEO营销优化系统', $default['title']);
+        self::assertSame(78, $default['sort']);
+        self::assertSame(1, $default['status']);
+
+        $source = file_get_contents(dirname(__DIR__, 2) . '/app/tenantapi/controller/AppController.php');
+        self::assertIsString($source);
+        self::assertStringContainsString('DISPLAY_MANAGED_APP_CODES', $source);
+        self::assertStringContainsString("'aigc_geo'", $source);
+        self::assertStringContainsString('AppDisplayConfigService::save', $source);
+
+        $myAppAsset = file_get_contents(dirname(__DIR__, 2) . '/public/admin/assets/index-Btk9V-ea.js');
+        $marketAsset = file_get_contents(dirname(__DIR__, 2) . '/public/admin/assets/index-C6k9WPfT.js');
+        self::assertIsString($myAppAsset);
+        self::assertIsString($marketAsset);
+        self::assertStringContainsString('Number(e.can_renew)===1&&((e.plans||[]).length)', $myAppAsset);
+        self::assertStringContainsString('Number(s.can_renew)===1&&((s.plans||[]).length)', $marketAsset);
     }
 
     private function invoke(string $method, array $arguments): mixed

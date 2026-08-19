@@ -47,10 +47,28 @@ class ShortDramaSubjectVoiceContractTest extends TestCase
         $workbench = (string)file_get_contents($root . '/public/_nuxt/VisualCreationWorkbench.20b439b0.js');
 
         self::assertStringContainsString('/app.aigc_short_drama.voice/save', $api);
+        self::assertStringContainsString('/app.aigc_short_drama.voice/trim', $api);
+        self::assertStringContainsString('Tt as T', $api);
         self::assertStringContainsString('voiceCloneBusy', $workbench);
         self::assertStringContainsString('voiceUploadInputRef', $workbench);
         self::assertStringContainsString('status!=="ready"', $workbench);
         self::assertStringContainsString('class:"voice-clone-btn"', $workbench);
         self::assertStringContainsString('class:"sound-btn"', $workbench);
+        self::assertStringContainsString('Y as uploadVoiceFile', $workbench);
+        self::assertStringContainsString('T as trimVoiceSample', $workbench);
+        $handlerStart = strpos($workbench, 'handleVoiceUpload=async');
+        self::assertIsInt($handlerStart);
+        $handlerEnd = strpos($workbench, ',ut=async', $handlerStart);
+        self::assertIsInt($handlerEnd);
+        $voiceUploadHandler = substr($workbench, $handlerStart, $handlerEnd - $handlerStart);
+
+        self::assertStringContainsString('await uploadVoiceFile({file:t})', $voiceUploadHandler);
+        self::assertStringContainsString(
+            'await trimVoiceSample({file:t,data:{start:"0",duration:"10"}})',
+            $voiceUploadHandler
+        );
+        self::assertStringContainsString('Math.min(10,Math.ceil', $voiceUploadHandler);
+        self::assertStringNotContainsString('await pl({file:t})', $voiceUploadHandler);
+        self::assertStringNotContainsString('return}const s=await m.prompt', $voiceUploadHandler);
     }
 }

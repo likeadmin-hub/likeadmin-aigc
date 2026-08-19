@@ -226,6 +226,9 @@ class TenantPowerConsumeLogLists extends BaseAdminDataLists implements ListsSear
             'operator_type' => '操作人类型',
             'operator_id' => '操作人ID',
             'billing_side' => '计费侧',
+            'price_source' => '成本来源',
+            'market_product_id' => '市场商品ID',
+            'market_sku_id' => '成本SKU',
         ];
         $items = [
             ['label' => '流水编号', 'value' => (string)$row['sn']],

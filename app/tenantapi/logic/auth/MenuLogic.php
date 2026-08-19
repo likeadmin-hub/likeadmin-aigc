@@ -56,6 +56,7 @@ class MenuLogic extends BaseLogic
             self::ensureSystemDefaultMenu($tenantId);
             self::ensureCaseGalleryMenu($tenantId);
             self::ensurePcNoticeMenu($tenantId);
+            self::ensureTutorialMenu($tenantId);
         }
 
         $where = [];
@@ -365,6 +366,58 @@ class MenuLogic extends BaseLogic
         }
     }
 
+    private static function ensureTutorialMenu(int $tenantId): void
+    {
+        if ($tenantId <= 0) {
+            return;
+        }
+
+        $tables = self::tenantMenuTables($tenantId);
+        $menuTable = $tables['menu'];
+        $roleMenuTable = $tables['role_menu'];
+        if (!self::tableExists($menuTable)) {
+            return;
+        }
+        self::ensureMenuSourceColumns($menuTable);
+
+        try {
+            $systemId = self::systemSettingMenuId($menuTable, $tenantId);
+            if ($systemId <= 0) {
+                return;
+            }
+
+            $tutorialId = self::upsertSystemMenu($menuTable, $tenantId, [
+                'pid' => $systemId,
+                'type' => 'C',
+                'name' => '新手教程',
+                'icon' => 'el-icon-Guide',
+                'sort' => 95,
+                'perms' => 'setting.web.web_setting/getTutorial',
+                'paths' => 'tutorial',
+                'component' => 'setting/website/information',
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_tutorial',
+            ], 9410);
+            self::grantChildMenuToParentRoles($roleMenuTable, $systemId, $tutorialId);
+            self::grantParentMenuToChildRoles($roleMenuTable, $tutorialId, $systemId);
+            self::grantMenuToTenantRoles($roleMenuTable, $tenantId, $tutorialId);
+
+            $saveId = self::upsertSystemMenu($menuTable, $tenantId, [
+                'pid' => $tutorialId,
+                'type' => 'A',
+                'name' => '保存',
+                'sort' => 0,
+                'perms' => 'setting.web.web_setting/setTutorial',
+                'is_show' => 0,
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_tutorial_save',
+            ], 9411);
+            self::grantChildMenuToParentRoles($roleMenuTable, $tutorialId, $saveId);
+            self::grantMenuToTenantRoles($roleMenuTable, $tenantId, $saveId);
+        } catch (Throwable) {
+        }
+    }
+
     private static function upsertSystemMenuTree(string $menuTable, string $roleMenuTable, int $tenantId, array $menu, int $parentId): int
     {
         $children = $menu['children'] ?? [];
@@ -424,6 +477,23 @@ class MenuLogic extends BaseLogic
                 ->where([
                     'tenant_id' => $tenantId,
                     'source_menu_key' => 'core_tenant_system_default',
+                ])
+                ->where('source', '<>', 'tenant')
+                ->value('id');
+        } catch (Throwable) {
+            return 0;
+        }
+    }
+
+    private static function systemSettingMenuId(string $table, int $tenantId): int
+    {
+        try {
+            return (int)Db::name($table)
+                ->where([
+                    'tenant_id' => $tenantId,
+                    'pid' => 0,
+                    'type' => 'M',
+                    'paths' => 'setting',
                 ])
                 ->where('source', '<>', 'tenant')
                 ->value('id');

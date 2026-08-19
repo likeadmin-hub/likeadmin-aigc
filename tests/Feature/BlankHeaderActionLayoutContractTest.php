@@ -32,7 +32,12 @@ class BlankHeaderActionLayoutContractTest extends TestCase
             self::assertStringContainsString('t==="zh-TW"?"\\u65b0\\u624b\\u6559\\u5b78"', $compiledLayout);
             self::assertStringContainsString(':"\\u65b0\\u624b\\u6559\\u7a0b"', $compiledLayout);
             self::assertStringContainsString('title:F', $compiledLayout);
+            self::assertStringContainsString('C=()=>{const t=String(x.value||"");return t==="en"?"Tutorial"', $compiledLayout);
+            self::assertStringContainsString('F=C();return m()', $compiledLayout);
             self::assertStringContainsString('d("span",{class:"blank-tutorial-label"},F)', $compiledLayout);
+            self::assertStringNotContainsString('v as V', $compiledLayout);
+            self::assertStringNotContainsString('F=V(', $compiledLayout);
+            self::assertStringNotContainsString('F.value', $compiledLayout);
             self::assertStringNotContainsString('鏂版墜', $compiledLayout);
             self::assertStringNotContainsString('閺傜増', $compiledLayout);
             self::assertStringNotContainsString('class:["blank-header-actions"', $compiledLayout);

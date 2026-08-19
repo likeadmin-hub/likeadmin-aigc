@@ -13,6 +13,8 @@ class PromptMentionShortcutContractTest extends TestCase
         self::assertStringContainsString('/(^|\\s)@[^\\s@]*$/.test(t)', $source);
         self::assertMatchesRegularExpression('/onInput:\\s*(?:\\(e\\)|e)\\s*=>\\s*handleMentionInput\\(e,\\s*"main"\\)/', $source);
         self::assertMatchesRegularExpression('/onInput:\\s*(?:\\(e\\)|e)\\s*=>\\s*handleMentionInput\\(e,\\s*"floating"\\)/', $source);
+        self::assertStringContainsString('onKeydown:e=>handleMentionKeydown(e,"main")', $source);
+        self::assertStringContainsString('onBeforeinput:e=>handleMentionBeforeInput(e,"floating")', $source);
         self::assertStringContainsString('d.match(/(^|\\s)@[^\\s@]*$/)', $source);
         self::assertMatchesRegularExpression('/n\\.setSelectionRange\\(W,\\s*W\\)/', $source);
     }
@@ -24,6 +26,153 @@ class PromptMentionShortcutContractTest extends TestCase
         self::assertMatchesRegularExpression('/i\\.key\\s*===\\s*"@"/', $source);
         self::assertMatchesRegularExpression('/i\\.preventDefault\\(\\),\\s*Xe\\(\\),\\s*x\\("upload"\\)/', $source);
         self::assertMatchesRegularExpression('/onKeydown:\\s*\\[\\s*Te,/', $source);
+    }
+
+    public function testCreationImageAndVideoPagesUseAtAsTheReferenceUploadShortcut(): void
+    {
+        $imageSource = $this->asset('public/_nuxt/aigc_image.91b50432.js');
+        $videoSource = $this->asset('public/_nuxt/aigc_video.93b37873.js');
+
+        self::assertStringContainsString('imagePromptAtKeydown=e=>{(e.key==="@"', $imageSource);
+        self::assertStringContainsString('e.code==="Digit2"', $imageSource);
+        self::assertStringContainsString('id:"image-prompt"', $imageSource);
+        self::assertStringContainsString('onKeydown:imagePromptAtKeydown', $imageSource);
+        self::assertStringContainsString('onBeforeinput:e=>e.inputType==="insertText"&&e.data==="@"', $imageSource);
+
+        self::assertStringContainsString('videoPromptAtKeydown=e=>{(e.key==="@"', $videoSource);
+        self::assertStringContainsString('id:"video-prompt"', $videoSource);
+        self::assertStringContainsString('onKeydown:videoPromptAtKeydown', $videoSource);
+        self::assertStringContainsString('onBeforeinput:e=>e.inputType==="insertText"&&e.data==="@"', $videoSource);
+    }
+
+    public function testShortDramaWorkbenchPromptsUseAtToOpenSubjectAndScenePickers(): void
+    {
+        $source = $this->asset('public/_nuxt/VisualCreationWorkbench.20b439b0.js');
+
+        self::assertStringContainsString('subjectPromptAtKeydown=e=>{(e.key==="@"', $source);
+        self::assertStringContainsString('scenePromptAtKeydown=e=>{(e.key==="@"', $source);
+        self::assertStringContainsString('onKeydown:subjectPromptAtKeydown', $source);
+        self::assertStringContainsString('onKeydown:scenePromptAtKeydown', $source);
+        self::assertStringContainsString('onBeforeinput:e=>e.inputType==="insertText"&&e.data==="@"&&(e.preventDefault(),jn())', $source);
+    }
+
+    public function testShortDramaDetailCreationPagesShowMentionMenusForAt(): void
+    {
+        $imageSource = $this->asset('public/_nuxt/images.b7453ae1.js');
+        $videoSource = $this->asset('public/_nuxt/video.db2e73b5.js');
+        $imageStyles = $this->asset('public/_nuxt/images.f00320f4.css');
+        $videoStyles = $this->asset('public/_nuxt/video.259a2f0a.css');
+
+        self::assertStringContainsString('activeMentionType=_("")', $imageSource);
+        self::assertStringContainsString(
+            'mentionKey=(s,a)=>{a.key==="Escape"&&(activeMentionType.value=""),a.key==="@"&&!a.ctrlKey&&!a.metaKey&&!a.altKey&&(a.preventDefault(),activeMentionType.value=s)}',
+            $imageSource
+        );
+        self::assertStringContainsString('insertMention=(s,a)=>{const e=mentionLabel(a);', $imageSource);
+        self::assertStringContainsString('selectedMentions=_([])', $imageSource);
+        self::assertStringContainsString('mentionPayload=s=>', $imageSource);
+        self::assertStringContainsString('mention_shot_ids:c', $imageSource);
+        self::assertStringContainsString('...mentionPayload(s),params:{...mentionPayload(s)', $imageSource);
+        self::assertStringContainsString('class:"short-drama-mention-menu"', $imageSource);
+        self::assertStringContainsString('\\u6682\\u65e0\\u53ef\\u5f15\\u7528\\u5185\\u5bb9', $imageSource);
+
+        self::assertStringContainsString('activeMentionType=v(!1)', $videoSource);
+        self::assertStringContainsString(
+            'mentionKey=s=>{s.key==="Escape"&&(activeMentionType.value=!1),s.key==="@"&&!s.ctrlKey&&!s.metaKey&&!s.altKey&&(s.preventDefault(),activeMentionType.value=!0)}',
+            $videoSource
+        );
+        self::assertStringContainsString('insertMention=s=>{const t=mentionLabel(s);', $videoSource);
+        self::assertStringContainsString('selectedMentions=v([])', $videoSource);
+        self::assertStringContainsString('mention_shot_ids:n', $videoSource);
+        self::assertStringContainsString('type:"shot"', $videoSource);
+        self::assertStringContainsString('class:"short-drama-mention-menu"', $videoSource);
+        self::assertStringContainsString('\\u6682\\u65e0\\u53ef\\u5f15\\u7528\\u5185\\u5bb9', $videoSource);
+
+        self::assertStringContainsString('.short-drama-mention-menu', $imageStyles);
+        self::assertStringContainsString('.short-drama-mention-menu', $videoStyles);
+    }
+
+    public function testInfiniteCanvasAgentAndAudioPromptsReactToAt(): void
+    {
+        $agentSource = $this->asset('public/_nuxt/projects.b63ba847.js');
+        $nodeSource = $this->asset('public/_nuxt/_id_.2fb60286.js');
+
+        self::assertStringContainsString('function Ys()', $agentSource);
+        self::assertStringContainsString('function agentMentionBeforeInput(e)', $agentSource);
+        self::assertStringContainsString('e.code==="Digit2"&&e.shiftKey', $agentSource);
+        self::assertStringContainsString('agent-composer-mention-menu', $agentSource);
+        self::assertStringContainsString('Array.isArray(e.elements)?e.elements:Array.isArray(e.nodes)?e.nodes:[]', $agentSource);
+        self::assertStringContainsString('r.metadata)==null?void 0:n.image', $agentSource);
+
+        self::assertStringContainsString('function Dr(o){', $nodeSource);
+        self::assertStringContainsString('function insertTextareaMention(o)', $nodeSource);
+        self::assertStringContainsString('onBeforeinput:mentionBeforeInput', $nodeSource);
+        self::assertStringContainsString(
+            '"data-testid":"canvas-node-audio-prompt-textarea",onInput:Ns,onKeydown:Dr',
+            $nodeSource
+        );
+        self::assertStringContainsString(
+            '"data-testid":"canvas-node-audio-lyrics-textarea",onInput:Ts,onKeydown:Dr',
+            $nodeSource
+        );
+        self::assertStringContainsString(
+            'Array.isArray(_t.elements)&&_t.elements.length===E.value.length',
+            $nodeSource
+        );
+    }
+
+    public function testMentionFixBundlesAreCacheBustedFromPcEntryPoints(): void
+    {
+        $entry = $this->asset('public/_nuxt/entry.c46691d5.js');
+        $canvasHome = $this->asset('public/_nuxt/index.58ab2732.js');
+        $canvasProject = $this->asset('public/_nuxt/_id_.2fb60286.js');
+        $shortDramaSubject = $this->asset('public/_nuxt/subject-create.985b7b2c.js');
+        $shortDramaScene = $this->asset('public/_nuxt/scene.f6c7fe02.js');
+
+        foreach ([
+            'aigc_image.91b50432.js',
+            'aigc_video.93b37873.js',
+            'VisualCreationWorkbench.20b439b0.js',
+            'images.b7453ae1.js',
+            'video.db2e73b5.js',
+            'projects.b63ba847.js',
+            '_id_.2fb60286.js',
+            'images.f00320f4.css',
+            'video.259a2f0a.css',
+            'index.58ab2732.js',
+            'scene.f6c7fe02.js',
+            'subject-create.985b7b2c.js',
+        ] as $asset) {
+            self::assertStringContainsString('./' . $asset . '?v=20260819-atfix', $entry);
+        }
+
+        self::assertStringContainsString('./projects.b63ba847.js?v=20260819-atfix', $canvasHome);
+        self::assertStringContainsString('./projects.b63ba847.js?v=20260819-atfix', $canvasProject);
+        self::assertStringContainsString('./VisualCreationWorkbench.20b439b0.js?v=20260819-atfix', $shortDramaSubject);
+        self::assertStringContainsString('./VisualCreationWorkbench.20b439b0.js?v=20260819-atfix', $shortDramaScene);
+    }
+
+    public function testPcHtmlEntryScriptKeepsOneModuleIdentity(): void
+    {
+        $root = dirname(__DIR__, 2) . '/public/pc';
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $file) {
+            if (!$file->isFile() || $file->getExtension() !== 'html') {
+                continue;
+            }
+
+            $source = (string)file_get_contents($file->getPathname());
+            if (!str_contains($source, '/_nuxt/entry.c46691d5.js')) {
+                continue;
+            }
+
+            self::assertStringContainsString('src="/_nuxt/entry.c46691d5.js"', $source);
+            self::assertStringContainsString('href="/_nuxt/entry.c46691d5.js"', $source);
+            self::assertStringNotContainsString('/_nuxt/entry.c46691d5.js?', $source);
+        }
     }
 
     private function asset(string $path): string

@@ -983,6 +983,12 @@ VALUES
 INSERT IGNORE INTO `la_tenant_system_menu_{tenantSn}`
 (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
+(9410,{tenantId},28,'C','新手教程','el-icon-Guide',95,'setting.web.web_setting/getTutorial','tutorial','setting/website/information','','',0,1,0,'','core','core_tenant_tutorial',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+(9411,{tenantId},9410,'A','保存','',0,'setting.web.web_setting/setTutorial','','','','',0,0,0,'','core','core_tenant_tutorial_save',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+
+INSERT IGNORE INTO `la_tenant_system_menu_{tenantSn}`
+(`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
 (9400,{tenantId},158,'C','客服设置','el-icon-Service',35,'setting.customer_service/getConfig','customer-service','setting/customer_service/index','','',0,1,0,'','core','core_tenant_customer_service',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (9401,{tenantId},9400,'A','保存','',0,'setting.customer_service/setConfig','','','','',0,1,0,'','core','core_tenant_customer_service_save',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 (9402,{tenantId},9400,'A','反馈列表','',0,'setting.pc_feedback/lists','','','','',0,0,0,'','core','core_tenant_pc_feedback_lists',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),

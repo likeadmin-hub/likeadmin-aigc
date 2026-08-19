@@ -1016,10 +1016,6 @@ VALUES (29, 28, 'M', '网站设置', 'el-icon-Basketball', 100, '', 'website', '
 INSERT INTO `la_system_menu` (`id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `create_time`, `update_time`)
 VALUES (30, 29, 'C', '网站信息', '', 1, 'setting.web.web_setting/getWebsite', 'information',
         'setting/website/information', '', '', 0, 1, 0, 1657100306, 1657164412);
-INSERT INTO `la_system_menu` (`id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
-VALUES
-(9410,29,'C','新手教程','el-icon-Guide',2,'setting.web.web_setting/getTutorial','tutorial','setting/website/information','','',0,1,0,'','core','core_platform_tutorial',1,1779000000,1779000000),
-(9411,9410,'A','保存','',0,'setting.web.web_setting/setTutorial','','','','',0,0,0,'','core','core_platform_tutorial_save',1,1779000000,1779000000);
 INSERT INTO `la_system_menu` (`id`, `pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `create_time`, `update_time`)
 VALUES (31, 29, 'C', '网站备案', '', 1, 'setting.web.web_setting/getCopyright', 'filing', 'setting/website/filing', '',
         '', 0, 1, 1, 1657100434, 1657164723);
@@ -2123,6 +2119,11 @@ VALUES
 (194, 0, 193, 'A', '保存', '', 0, 'setting.web.web_banner/save', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner_save', 1, 1778000000, 1778000000),
 (195, 0, 193, 'A', '删除', '', 0, 'setting.web.web_banner/delete', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner_delete', 1, 1778000000, 1778000000),
 (196, 0, 193, 'A', '状态', '', 0, 'setting.web.web_banner/status', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner_status', 1, 1778000000, 1778000000);
+
+INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+(9410,0,28,'C','新手教程','el-icon-Guide',95,'setting.web.web_setting/getTutorial','tutorial','setting/website/information','','',0,1,0,'','core','core_tenant_tutorial',1,1779000000,1779000000),
+(9411,0,9410,'A','保存','',0,'setting.web.web_setting/setTutorial','','','','',0,0,0,'','core','core_tenant_tutorial_save',1,1779000000,1779000000);
 
 INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) VALUES
 (9400,0,158,'C','客服设置','el-icon-Service',35,'setting.customer_service/getConfig','customer-service','setting/customer_service/index','','',0,1,0,'','core','core_tenant_customer_service',1,1778000000,1778000000),
