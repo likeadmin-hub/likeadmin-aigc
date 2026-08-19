@@ -649,9 +649,10 @@ class AigcModelWearService
         if ($channels === []) {
             return $config;
         }
+        $requestedChannel = preg_replace('/^market_image_model(\d+)$/', 'market_image_model:$1', (string)$config['channel']);
         $channel = null;
         foreach ($channels as $item) {
-            if ((string)($item['code'] ?? '') === (string)$config['channel']) {
+            if ((string)($item['code'] ?? '') === $requestedChannel) {
                 $channel = $item;
                 break;
             }

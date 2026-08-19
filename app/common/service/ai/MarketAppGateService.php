@@ -12,7 +12,6 @@ class MarketAppGateService
     public const LEGACY = 'legacy';
     public const MARKET = 'market';
     private const MANAGED_APP_CODES = [
-        'aigc_product_promo_video',
         'aigc_music',
         'aigc_digital_human',
         'image_human',

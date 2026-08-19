@@ -11,6 +11,7 @@ use app\common\model\power\TenantPowerMarketSkuPrice;
 use app\common\service\ai\AiTaskLifecycleEventService;
 use app\common\service\ai\AiTaskJobService;
 use app\common\service\ai\AiTaskResultUrlService;
+use app\common\service\ai\UpstreamErrorMessageService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
 use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
@@ -299,8 +300,9 @@ class MarketNanoBananaAppRuntimeService
         $taskId = trim((string)$consumption['upstream_task_id']);
         if ($taskId === '') {
             if ($timedOut) {
-                self::fail($consumptionId, '图片任务未返回上游任务号', 'timeout');
-                return ['status' => 'failed', 'provider_task_id' => '', 'images' => []];
+                $message = '图片任务未返回上游任务号';
+                self::fail($consumptionId, $message, 'timeout');
+                return self::failureResponse('', $message);
             }
             return self::response($consumption->toArray());
         }
@@ -317,19 +319,24 @@ class MarketNanoBananaAppRuntimeService
                 return ['status' => 'success', 'provider_task_id' => $taskId, 'images' => $images];
             }
             $upstreamStatus = self::status($response);
-            if (in_array($upstreamStatus, ['failed', 'error', 'canceled', 'cancelled'], true)) { self::fail($consumptionId, self::error($response), 'upstream_failed'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
+            if (in_array($upstreamStatus, ['failed', 'error', 'canceled', 'cancelled'], true)) {
+                $message = self::error($response);
+                self::fail($consumptionId, $message, 'upstream_failed');
+                return self::failureResponse($taskId, $message);
+            }
             if (AiTaskLifecycleEventService::isTerminalSuccess($upstreamStatus)) {
                 if (AiTaskLifecycleEventService::terminalResultMissing($consumptionId, $upstreamStatus, $taskId)) {
-                    self::fail($consumptionId, '上游图片任务已完成，但未返回可用结果文件', 'upstream_result_missing');
-                    return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []];
+                    $message = '上游图片任务已完成，但未返回可用结果文件';
+                    self::fail($consumptionId, $message, 'upstream_result_missing');
+                    return self::failureResponse($taskId, $message);
                 }
                 return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
             }
-            if ($timedOut) { self::fail($consumptionId, '图片任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
+            if ($timedOut) { $message = '图片任务处理超时'; self::fail($consumptionId, $message, 'timeout'); return self::failureResponse($taskId, $message); }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
         } catch (\Throwable $e) {
             AiTaskLifecycleEventService::record($consumptionId, 'query_error', 'retrying', ['upstream_task_id' => $taskId, 'error' => $e->getMessage()]);
-            if ($timedOut) { self::fail($consumptionId, '图片任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []]; }
+            if ($timedOut) { $message = '图片任务处理超时'; self::fail($consumptionId, $message, 'timeout'); return self::failureResponse($taskId, $message); }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'images' => []];
         }
     }
@@ -684,8 +691,16 @@ class MarketNanoBananaAppRuntimeService
     private static function taskId(array $data): string { $root = self::arrayValue($data['data'] ?? $data); foreach ([$data['task_id'] ?? null, $data['id'] ?? null, $root['task_id'] ?? null, $root['id'] ?? null] as $value) if (is_scalar($value) && (string)$value !== '') return (string)$value; return ''; }
     private static function requestId(array $data): string { $root = self::arrayValue($data['data'] ?? $data); return (string)($data['request_id'] ?? $root['request_id'] ?? ''); }
     private static function status(array $data): string { $root = self::arrayValue($data['data'] ?? $data); return strtolower((string)($data['status'] ?? $root['status'] ?? $root['state'] ?? '')); }
-    private static function error(array $data): string { $root = self::arrayValue($data['data'] ?? $data); return mb_substr((string)($data['message'] ?? $data['msg'] ?? $root['message'] ?? $root['msg'] ?? $data['error']['message'] ?? 'nano-banana 应用调用失败'), 0, 1000); }
-    private static function response(array $consumption): array { $summary = self::arrayValue($consumption['response_summary'] ?? []); return ['status' => (string)$consumption['run_status'], 'provider_task_id' => (string)$consumption['upstream_task_id'], 'provider_request_id' => (string)$consumption['upstream_request_id'], 'images' => (array)($summary['images'] ?? [])]; }
+    private static function error(array $data): string { return UpstreamErrorMessageService::fromResponse($data); }
+    private static function response(array $consumption): array
+    {
+        $summary = self::arrayValue($consumption['response_summary'] ?? []);
+        $response = ['status' => (string)$consumption['run_status'], 'provider_task_id' => (string)$consumption['upstream_task_id'], 'provider_request_id' => (string)$consumption['upstream_request_id'], 'images' => (array)($summary['images'] ?? [])];
+        $message = trim((string)($consumption['error_message'] ?? ''));
+        return $message !== '' ? array_merge($response, self::failureFields($message)) : $response;
+    }
+    private static function failureResponse(string $taskId, string $message): array { return array_merge(['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []], self::failureFields($message)); }
+    private static function failureFields(string $message): array { return ['error' => $message, 'error_msg' => $message, 'errorDetails' => $message]; }
     private static function context(int $consumptionId, bool $lock): ?array { $query = AiConsumptionLog::where('id', $consumptionId); if ($lock) $query->lock(true); $consumption = $query->findOrEmpty(); if ($consumption->isEmpty()) return null; $taskQuery = AiAppTask::where('id', (int)$consumption['app_task_id']); if ($lock) $taskQuery->lock(true); $task = $taskQuery->findOrEmpty(); return $task->isEmpty() ? null : ['consumption' => $consumption, 'app_task' => $task]; }
     private static function event(int $consumptionId, string $type, string $status, array $summary): void { AiConsumptionEvent::create(['consumption_id' => $consumptionId, 'event_type' => $type, 'event_status' => $status, 'attempt_no' => 1, 'payload_summary' => $summary, 'payload_ciphertext' => '', 'http_status' => 0, 'elapsed_ms' => 0, 'create_time' => time()]); }
     private static function extra(AiAppTask $task, AiConsumptionLog $consumption, string $stage): array { return ['app_code' => (string)($task['app_code'] ?? self::APP_CODE), 'app_task_id' => (int)$task['id'], 'app_task_no' => (string)$task['task_no'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => (string)$consumption['consume_no'], 'billing_stage' => $stage]; }

@@ -20,6 +20,7 @@ use app\common\service\AgreementService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
 use app\common\service\OfficialSiteService;
+use app\common\service\TutorialConfigService;
 
 
 /**
@@ -169,6 +170,18 @@ class WebSettingLogic extends BaseLogic
     private static function fileUrlList($value): array
     {
         return array_map(static fn($item) => FileService::getFileUrl($item), self::normalizeFileList($value));
+    }
+
+
+    public static function getTutorial(): array
+    {
+        return TutorialConfigService::get();
+    }
+
+
+    public static function setTutorial(array $params): void
+    {
+        TutorialConfigService::save($params);
     }
 
 

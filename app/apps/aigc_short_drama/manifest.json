@@ -1,10 +1,10 @@
 {
   "code": "aigc_short_drama",
   "name": "AI\u77ed\u5267",
-  "version": "1.0.10",
+  "version": "1.0.12",
   "require_core": ">=1.0.0",
   "description": "Short drama script planning application with a PC immersive creation homepage and structured Agent planning workflow.",
-  "changelog": "1. 支持自动识别常见服务器环境中的视频合成组件。\n2. 优化短剧成片导出的稳定性。",
+  "changelog": "1. 后台支持自定义剧本系统提示词和生成提示词模板。\n2. 支持恢复系统默认提示词及运行时变量替换。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",

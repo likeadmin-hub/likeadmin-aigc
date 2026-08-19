@@ -7,6 +7,6 @@ use app\common\model\app\AppBaseModel;
 class AigcActionTransferTask extends AppBaseModel
 {
     protected $name = 'aigc_action_transfer_task';
-    protected $json = ['reference_images', 'request_snapshot', 'upstream_usage', 'provider_response'];
+    protected $json = ['reference_images', 'pricing_snapshot', 'request_snapshot', 'upstream_usage', 'provider_response'];
     protected $jsonAssoc = true;
 }

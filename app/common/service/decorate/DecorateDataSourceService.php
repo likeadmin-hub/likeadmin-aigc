@@ -74,7 +74,7 @@ class DecorateDataSourceService
             'video_cases' => self::cases($tenantId, ['aigc_video'], ['limit' => $limit, 'media_type' => 'video']),
             'digital_human_cases' => self::cases($tenantId, ['aigc_digital_human', 'image_human'], ['limit' => $limit]),
             'app_entries' => AppFrontendManifestService::tenantEntries($tenantId, (string)($params['terminal'] ?? $context['terminal'] ?? 'pc')),
-            'ai_tools' => self::aiTools($tenantId),
+            'ai_tools' => self::aiTools($tenantId, $limit),
             'assets' => [],
             default => [],
         };
@@ -175,29 +175,65 @@ class DecorateDataSourceService
         }
     }
 
-    private static function aiTools(int $tenantId): array
+    private static function aiTools(int $tenantId, int $limit = 12): array
     {
-        $cards = [
-            ['id' => 'tool-card-aigc-image', 'app_code' => 'aigc_image', 'path' => '/ai/create?type=image'],
-            ['id' => 'tool-card-aigc-video', 'app_code' => 'aigc_video', 'path' => '/ai/create?type=video'],
-            ['id' => 'tool-card-digital-human-driver', 'app_code' => 'image_human', 'path' => '/ai/avatar?tab=image_human'],
-            ['id' => 'tool-card-canvas', 'app_code' => 'aigc_canvas', 'path' => '/app/aigc_canvas'],
-            ['id' => 'tool-card-llm', 'app_code' => 'aigc_llm', 'path' => '/app/aigc_llm'],
-        ];
-        $displayMap = AppDisplayConfigService::map($tenantId);
-        return array_values(array_filter(array_map(static function ($item) use ($displayMap) {
-            $display = $displayMap[$item['app_code']] ?? [];
-            if ((int)($display['status'] ?? 1) !== 1) {
-                return null;
+        $cards = [];
+        $paths = self::aiToolPaths($tenantId);
+        foreach (AppDisplayConfigService::lists($tenantId) as $display) {
+            if ((int)($display['status'] ?? 1) !== 1 || (int)($display['is_recommend'] ?? 0) !== 1) {
+                continue;
             }
-            return $item + [
-                'title' => $display['title'] ?? $item['app_code'],
+            $appCode = (string)($display['app_code'] ?? '');
+            if ($appCode === '' || ($paths !== [] && !isset($paths[$appCode]))) {
+                continue;
+            }
+            $cards[] = [
+                'id' => $appCode,
+                'app_code' => $appCode,
+                'path' => self::aiToolPath($appCode, $paths[$appCode] ?? ''),
+                'title' => $display['title'] ?? $appCode,
                 'description' => $display['description'] ?? '',
                 'cover' => $display['cover_url'] ?: '',
                 'virtual_use_count' => $display['virtual_use_count'] ?? '',
                 'sort' => (int)($display['sort'] ?? 0),
+                'is_recommend' => 1,
             ];
-        }, $cards)));
+        }
+        return array_slice($cards, 0, max(1, min(50, $limit)));
+    }
+
+    private static function aiToolPaths(int $tenantId): array
+    {
+        try {
+            $entries = AppFrontendManifestService::tenantEntries($tenantId, 'pc');
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        $paths = [];
+        foreach ($entries as $entry) {
+            $appCode = trim((string)($entry['app_code'] ?? ''));
+            $path = trim((string)($entry['path'] ?? ''));
+            if ($appCode !== '' && $path !== '' && !isset($paths[$appCode])) {
+                $paths[$appCode] = $path;
+            }
+        }
+        return $paths;
+    }
+
+    private static function aiToolPath(string $appCode, string $manifestPath = ''): string
+    {
+        return match ($appCode) {
+            'aigc_image' => '/ai/create?type=image',
+            'aigc_video' => '/ai/create?type=video',
+            'aigc_digital_human' => '/ai/avatar',
+            'image_human' => '/ai/avatar?tab=image_human',
+            'smart_clip' => '/ai/smart_clip',
+            'aigc_canvas' => '/app/aigc_canvas',
+            'aigc_llm' => '/app/aigc_llm',
+            'aigc_short_drama' => '/ai/short-drama',
+            default => $manifestPath !== '' ? $manifestPath : '/ai/tools/' . $appCode,
+        };
     }
 
     private static function decodeJson(string $value, array $default): array

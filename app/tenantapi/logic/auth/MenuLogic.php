@@ -52,9 +52,11 @@ class MenuLogic extends BaseLogic
         if (!$admin->isEmpty()) {
             $tenantId = (int)$admin['tenant_id'];
             self::ensurePackageMenus($tenantId);
+            self::ensureTaskLogMenu($tenantId);
             self::ensureSystemDefaultMenu($tenantId);
             self::ensureCaseGalleryMenu($tenantId);
             self::ensurePcNoticeMenu($tenantId);
+            self::ensureTutorialMenu($tenantId);
         }
 
         $where = [];
@@ -144,6 +146,84 @@ class MenuLogic extends BaseLogic
             (string)$tenant['sn'],
             (int)$tenant['tactics'] === 1
         );
+    }
+
+    private static function ensureTaskLogMenu(int $tenantId): void
+    {
+        if ($tenantId <= 0) {
+            return;
+        }
+
+        $tables = self::tenantMenuTables($tenantId);
+        $menuTable = $tables['menu'];
+        $roleMenuTable = $tables['role_menu'];
+        if (!self::tableExists($menuTable)) {
+            return;
+        }
+        self::ensureMenuSourceColumns($menuTable);
+
+        try {
+            $taskLogId = self::upsertSystemMenu($menuTable, $tenantId, [
+                'pid' => 0,
+                'type' => 'M',
+                'name' => '任务日志',
+                'icon' => 'el-icon-Document',
+                'sort' => 50,
+                'paths' => 'task-log',
+                'app_code' => '',
+                'source_menu_key' => 'core_task_log_tenant',
+            ]);
+
+            $coreMenus = [
+                [
+                    'type' => 'C',
+                    'name' => '应用日志',
+                    'icon' => 'el-icon-List',
+                    'sort' => 100,
+                    'perms' => 'ai_task/lists',
+                    'paths' => 'application',
+                    'component' => 'consumer/task/index',
+                    'source_menu_key' => 'core_ai_task_tenant',
+                ],
+                [
+                    'type' => 'C',
+                    'name' => '消耗日志',
+                    'icon' => 'el-icon-DataAnalysis',
+                    'sort' => 70,
+                    'perms' => 'ai_consumption/lists',
+                    'paths' => 'consumption',
+                    'component' => 'power_mall/consumption',
+                    'source_menu_key' => 'core_ai_consumption_tenant',
+                ],
+            ];
+            foreach ($coreMenus as $menu) {
+                $menu['pid'] = $taskLogId;
+                $menu['app_code'] = '';
+                $menuId = self::upsertSystemMenu($menuTable, $tenantId, $menu);
+                self::grantParentMenuToChildRoles($roleMenuTable, $menuId, $taskLogId);
+            }
+
+            foreach ([
+                'aigc_image_task' => ['name' => '生图列表', 'paths' => 'image', 'sort' => 90],
+                'aigc_video_task' => ['name' => '视频列表', 'paths' => 'video', 'sort' => 80],
+            ] as $sourceMenuKey => $menu) {
+                $taskMenuId = (int)Db::name($menuTable)
+                    ->where(['tenant_id' => $tenantId, 'source_menu_key' => $sourceMenuKey])
+                    ->value('id');
+                if ($taskMenuId <= 0) {
+                    continue;
+                }
+                Db::name($menuTable)->where('id', $taskMenuId)->update([
+                    'pid' => $taskLogId,
+                    'name' => $menu['name'],
+                    'paths' => $menu['paths'],
+                    'sort' => $menu['sort'],
+                    'update_time' => time(),
+                ]);
+                self::grantParentMenuToChildRoles($roleMenuTable, $taskMenuId, $taskLogId);
+            }
+        } catch (Throwable) {
+        }
     }
 
     private static function ensureSystemDefaultMenu(int $tenantId): void
@@ -286,6 +366,58 @@ class MenuLogic extends BaseLogic
         }
     }
 
+    private static function ensureTutorialMenu(int $tenantId): void
+    {
+        if ($tenantId <= 0) {
+            return;
+        }
+
+        $tables = self::tenantMenuTables($tenantId);
+        $menuTable = $tables['menu'];
+        $roleMenuTable = $tables['role_menu'];
+        if (!self::tableExists($menuTable)) {
+            return;
+        }
+        self::ensureMenuSourceColumns($menuTable);
+
+        try {
+            $systemId = self::systemSettingMenuId($menuTable, $tenantId);
+            if ($systemId <= 0) {
+                return;
+            }
+
+            $tutorialId = self::upsertSystemMenu($menuTable, $tenantId, [
+                'pid' => $systemId,
+                'type' => 'C',
+                'name' => '新手教程',
+                'icon' => 'el-icon-Guide',
+                'sort' => 95,
+                'perms' => 'setting.web.web_setting/getTutorial',
+                'paths' => 'tutorial',
+                'component' => 'setting/website/information',
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_tutorial',
+            ], 9410);
+            self::grantChildMenuToParentRoles($roleMenuTable, $systemId, $tutorialId);
+            self::grantParentMenuToChildRoles($roleMenuTable, $tutorialId, $systemId);
+            self::grantMenuToTenantRoles($roleMenuTable, $tenantId, $tutorialId);
+
+            $saveId = self::upsertSystemMenu($menuTable, $tenantId, [
+                'pid' => $tutorialId,
+                'type' => 'A',
+                'name' => '保存',
+                'sort' => 0,
+                'perms' => 'setting.web.web_setting/setTutorial',
+                'is_show' => 0,
+                'app_code' => '',
+                'source_menu_key' => 'core_tenant_tutorial_save',
+            ], 9411);
+            self::grantChildMenuToParentRoles($roleMenuTable, $tutorialId, $saveId);
+            self::grantMenuToTenantRoles($roleMenuTable, $tenantId, $saveId);
+        } catch (Throwable) {
+        }
+    }
+
     private static function upsertSystemMenuTree(string $menuTable, string $roleMenuTable, int $tenantId, array $menu, int $parentId): int
     {
         $children = $menu['children'] ?? [];
@@ -345,6 +477,23 @@ class MenuLogic extends BaseLogic
                 ->where([
                     'tenant_id' => $tenantId,
                     'source_menu_key' => 'core_tenant_system_default',
+                ])
+                ->where('source', '<>', 'tenant')
+                ->value('id');
+        } catch (Throwable) {
+            return 0;
+        }
+    }
+
+    private static function systemSettingMenuId(string $table, int $tenantId): int
+    {
+        try {
+            return (int)Db::name($table)
+                ->where([
+                    'tenant_id' => $tenantId,
+                    'pid' => 0,
+                    'type' => 'M',
+                    'paths' => 'setting',
                 ])
                 ->where('source', '<>', 'tenant')
                 ->value('id');

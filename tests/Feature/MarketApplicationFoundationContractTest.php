@@ -32,13 +32,13 @@ class MarketApplicationFoundationContractTest extends TestCase
 
     public function testManagedAppsNeedAnExplicitMarketGate(): void
     {
-        self::assertTrue(MarketAppGateService::requiresGate('aigc_product_promo_video'));
+        self::assertFalse(MarketAppGateService::requiresGate('aigc_product_promo_video'));
         self::assertTrue(MarketAppGateService::requiresGate('aigc_music'));
         self::assertTrue(MarketAppGateService::requiresGate('aigc_person_replacement'));
         self::assertFalse(MarketAppGateService::requiresGate('aigc_video'));
 
         $this->expectException(RuntimeException::class);
-        MarketAppGateService::requireMarket(0, 1, 'aigc_product_promo_video');
+        MarketAppGateService::requireMarket(0, 1, 'aigc_music');
     }
 
     public function testApplicationRuntimeMapsKnownAdapters(): void
@@ -72,6 +72,21 @@ class MarketApplicationFoundationContractTest extends TestCase
     public function testCatalogExposesOnlyTheThreeGenerationTypes(): void
     {
         self::assertSame(['text', 'image', 'video'], MarketGenerationCatalogService::TYPES);
+    }
+
+    public function testImageModelSelectorsOnlyUseBackendModelApis(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $sources = [
+            (string)file_get_contents($root . '/app/common/service/app/aigc_image/AigcImageChannelService.php'),
+            (string)file_get_contents($root . '/app/common/service/app/aigc_canvas/agent/model/CanvasModelRouterService.php'),
+            (string)file_get_contents($root . '/app/common/service/app/aigc_short_drama/AigcShortDramaService.php'),
+        ];
+
+        foreach ($sources as $source) {
+            self::assertStringNotContainsString('MarketNanoBananaAppRuntimeService::options', $source);
+            self::assertStringContainsString('MarketImageModelRuntimeService::', $source);
+        }
     }
 
     public function testTextFallbackIsDisabled(): void

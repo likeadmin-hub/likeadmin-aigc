@@ -2,7 +2,10 @@
 
 namespace app\common\service\ai;
 
+use app\common\model\power\PowerMarketProduct;
+use app\common\model\power\TenantPowerMarketProduct;
 use app\common\service\FileService;
+use app\common\service\power\TenantPowerMarketService;
 use think\facade\Db;
 
 class AiTaskRecordService
@@ -52,6 +55,22 @@ class AiTaskRecordService
 
     private const VIDEO_SOURCE_TABLES = [
         ['app_code' => 'aigc_product_promo_video', 'table' => 'aigc_product_promo_video_task', 'field' => 'video_task_id'],
+    ];
+
+    private const TASK_TYPE_APPS = [
+        'image' => [
+            'aigc_image', 'aigc_product_image', 'aigc_style_transfer', 'aigc_photo_restore',
+            'aigc_model_wear', 'aigc_background_removal', 'aigc_image_translate',
+            'aigc_one_click_cleanup', 'aigc_product_suite', 'aigc_product_multi_angle',
+            'aigc_fashion_lookbook', 'aigc_outpaint', 'aigc_local_redraw', 'aigc_fitting',
+            'aigc_hairstyle',
+        ],
+        'video' => [
+            'aigc_video', 'aigc_digital_human', 'image_human', 'smart_clip',
+            'aigc_product_promo_video', 'aigc_action_transfer', 'aigc_person_replacement',
+        ],
+        'text' => ['aigc_llm'],
+        'short_drama' => ['aigc_short_drama'],
     ];
 
     private const BASE_TASK_SOURCES = [
@@ -116,10 +135,14 @@ class AiTaskRecordService
         $pageNo = max(1, (int)($params['page_no'] ?? 1));
         $pageSize = max(1, (int)($params['page_size'] ?? 15));
         $fetchLimit = $pageNo * $pageSize;
+        $taskType = self::normalizeTaskTypeFilter((string)($params['task_type'] ?? ''));
         $count = 0;
         $rows = [];
 
         foreach (self::BASE_TASK_SOURCES as $baseAppCode => $sourceConfig) {
+            if ($taskType !== '' && !self::sourceMatchesTaskType($baseAppCode, $sourceConfig, $taskType)) {
+                continue;
+            }
             if (!self::tableExists((string)$sourceConfig['table'])) {
                 continue;
             }
@@ -137,7 +160,11 @@ class AiTaskRecordService
             }
         }
 
-        $unified = AiUsageService::appTaskLists(array_merge($params, [
+        $unifiedParams = $params;
+        if (trim((string)($params['app_code'] ?? '')) !== '') {
+            $unifiedParams['app_codes'] = self::matchingAppCodes((string)$params['app_code']);
+        }
+        $unified = AiUsageService::appTaskLists(array_merge($unifiedParams, [
             'page_no' => 1,
             'page_size' => $fetchLimit,
         ]), $tenantId);
@@ -146,7 +173,7 @@ class AiTaskRecordService
             $row['app_name'] = self::appName((string)($row['app_code'] ?? ''));
             $row['source_app_name'] = $row['app_name'];
             $row['base_app_name'] = $row['app_name'];
-            $row['media_type'] = 'none';
+            $row['media_type'] = self::unifiedMediaType($row);
             $row['prompt'] = '';
             $row['quantity'] = 1;
             $row['media_results'] = [];
@@ -154,6 +181,9 @@ class AiTaskRecordService
             $row['point_estimated'] = (float)($row['estimated_user_price'] ?? 0);
             $row['point_actual'] = (float)($row['actual_user_price'] ?? 0);
             $row['initiator_name'] = (string)($row['user_nickname'] ?? '') ?: ((string)($row['user_account'] ?? '') ?: ('用户#' . (int)($row['user_id'] ?? 0)));
+            $row['task_type'] = self::unifiedTaskType($row);
+            self::appendDisplayFields($row, 'ai_app_task', (int)($row['id'] ?? 0));
+            $row['local_task_id'] = (string)($row['task_no'] ?? $row['local_task_id']);
             $rows[] = $row;
         }
 
@@ -170,6 +200,92 @@ class AiTaskRecordService
             'page_size' => $pageSize,
             'extend' => [],
         ];
+    }
+
+    private static function normalizeTaskTypeFilter(string $value): string
+    {
+        return match (strtolower(trim($value))) {
+            'image', 'image_generate', '生图', '图片' => 'image',
+            'video', 'video_generate', '视频' => 'video',
+            'text', 'text_generate', '文本' => 'text',
+            'short_drama', 'short_drama_generate', '短剧' => 'short_drama',
+            default => '',
+        };
+    }
+
+    private static function sourceMatchesTaskType(string $baseAppCode, array $sourceConfig, string $taskType): bool
+    {
+        if ($taskType === 'short_drama') {
+            return $baseAppCode === 'aigc_short_drama';
+        }
+        if ($baseAppCode === 'aigc_short_drama') {
+            return false;
+        }
+        return (string)($sourceConfig['media_type'] ?? '') === $taskType;
+    }
+
+    /** @return array<int, string> */
+    private static function matchingAppCodes(string $filter): array
+    {
+        $filter = trim($filter);
+        if ($filter === '') {
+            return [];
+        }
+
+        $codes = [];
+        foreach (self::APP_NAMES as $appCode => $appName) {
+            if (stripos($appCode, $filter) !== false || stripos($appName, $filter) !== false) {
+                $codes[] = $appCode;
+            }
+        }
+        if ($codes === [] && preg_match('/^[a-z0-9_.-]+$/i', $filter) === 1) {
+            $codes[] = $filter;
+        }
+        return array_values(array_unique($codes));
+    }
+
+    private static function unifiedMediaType(array $row): string
+    {
+        $category = self::unifiedTaskCategory($row);
+        return in_array($category, ['image', 'video', 'text'], true) ? $category : 'none';
+    }
+
+    private static function unifiedTaskType(array $row): string
+    {
+        return match (self::unifiedTaskCategory($row)) {
+            'image' => 'image_generate',
+            'video' => 'video_generate',
+            'text' => 'text_generate',
+            'short_drama' => 'short_drama_generate',
+            default => 'application_task',
+        };
+    }
+
+    private static function unifiedTaskCategory(array $row): string
+    {
+        $appCode = (string)($row['app_code'] ?? '');
+        if (in_array($appCode, self::TASK_TYPE_APPS['short_drama'], true)) {
+            return 'short_drama';
+        }
+
+        $protocol = strtolower(trim((string)($row['protocol'] ?? '')));
+        foreach (['image', 'video', 'text'] as $category) {
+            if ($protocol !== '' && str_contains($protocol, $category)) {
+                return $category;
+            }
+        }
+
+        foreach (self::TASK_TYPE_APPS as $category => $appCodes) {
+            if (in_array($appCode, $appCodes, true)) {
+                return $category;
+            }
+        }
+        return '';
+    }
+
+    public static function modelDisplayName(array $row, string $baseAppCode): string
+    {
+        return self::displayModel($row, $baseAppCode);
     }
 
     public static function detail(int $id, int $tenantId = 0, string $baseAppCode = 'aigc_image'): array
@@ -360,8 +476,31 @@ class AiTaskRecordService
 
     private static function displayModel(array $row, string $baseAppCode): string
     {
-        $model = self::firstDisplayValue([
+        $model = self::firstModelDisplayValue([
             $row['model_name'] ?? '',
+        ]);
+        if ($model !== '') {
+            return $model;
+        }
+
+        $model = self::extractTopLevelDisplayValue($row['model_json'] ?? ($row['model'] ?? []), [
+            'display_name', 'model_name', 'name', 'label'
+        ]);
+        if ($model !== '' && !self::isInternalModelIdentifier($model)) {
+            return $model;
+        }
+
+        $model = self::knownSelectionModelName($row);
+        if ($model !== '') {
+            return $model;
+        }
+
+        $model = self::marketProductDisplayName($row);
+        if ($model !== '') {
+            return $model;
+        }
+
+        $model = self::firstModelDisplayValue([
             $row['provider_model'] ?? '',
             $row['model_code'] ?? '',
             $row['model'] ?? '',
@@ -371,9 +510,128 @@ class AiTaskRecordService
         }
 
         $model = self::extractDisplayValue($row['model_json'] ?? ($row['model'] ?? []), [
-            'name', 'label', 'model_name', 'model_code', 'provider_model', 'model', 'code', 'id', 'value'
+            'provider_model', 'model_code', 'model', 'code', 'value'
         ]);
-        return $model !== '' ? $model : self::appName($baseAppCode);
+        return $model !== '' && !self::isInternalModelIdentifier($model)
+            ? $model
+            : self::appName($baseAppCode);
+    }
+
+    private static function marketProductDisplayName(array $row): string
+    {
+        $productId = self::marketProductId($row);
+        if ($productId <= 0) {
+            return '';
+        }
+
+        $tenantId = (int)($row['tenant_id'] ?? 0);
+        static $cache = [];
+        $cacheKey = $tenantId . ':' . $productId;
+        if (array_key_exists($cacheKey, $cache)) {
+            return $cache[$cacheKey];
+        }
+
+        try {
+            $product = PowerMarketProduct::where('id', $productId)->findOrEmpty();
+            if ($product->isEmpty()) {
+                return $cache[$cacheKey] = '';
+            }
+            $data = $product->toArray();
+            TenantPowerMarketService::applyProductDisplays($tenantId, $data);
+            return $cache[$cacheKey] = self::firstModelDisplayValue([
+                $data['name'] ?? '',
+                $data['upstream_model_code'] ?? '',
+                $data['upstream_api_code'] ?? '',
+            ]);
+        } catch (\Throwable) {
+            return $cache[$cacheKey] = '';
+        }
+    }
+
+    private static function knownSelectionModelName(array $row): string
+    {
+        $selection = self::extractTopLevelDisplayValue($row['model_json'] ?? [], [
+            'model_id', 'image_model_id', 'channel', 'channel_code', 'value'
+        ]);
+        foreach ([$row['channel'] ?? '', $row['model'] ?? '', $selection] as $value) {
+            $model = trim((string)$value);
+            if (preg_match('/^market_nano_banana:\d+:(.+)$/i', $model, $match) === 1) {
+                $decoded = base64_decode((string)$match[1], true);
+                $model = is_string($decoded) ? trim($decoded) : '';
+            }
+            $name = match (strtolower($model)) {
+                'nano-banana' => 'Nano Banana',
+                'nano-banana-2' => 'Nano Banana 2',
+                'nano-banana-2-lite' => 'Nano Banana 2 Lite',
+                'nano-banana-pro' => 'Nano Banana Pro',
+                'nano-banana:official' => 'Nano Banana Official',
+                'nano-banana-2:official' => 'Nano Banana 2 Official',
+                'nano-banana-2-lite:official' => 'Nano Banana 2 Lite Official',
+                'nano-banana-pro:official' => 'Nano Banana Pro Official',
+                default => '',
+            };
+            if ($name !== '') {
+                return $name;
+            }
+        }
+        return '';
+    }
+
+    private static function marketProductId(array $row): int
+    {
+        $productId = (int)($row['market_product_id'] ?? 0);
+        if ($productId > 0) {
+            return $productId;
+        }
+
+        $selection = self::extractTopLevelDisplayValue($row['model_json'] ?? [], [
+            'model_id', 'video_model_id', 'image_model_id', 'channel', 'channel_code', 'value'
+        ]);
+        foreach ([$row['model'] ?? '', $row['channel'] ?? '', $selection] as $value) {
+            $text = self::cleanDisplayText($value);
+            if (!self::isInternalModelIdentifier($text)) {
+                continue;
+            }
+            foreach (array_slice(explode(':', $text), 1) as $part) {
+                if ($part !== '' && ctype_digit($part)) {
+                    return (int)$part;
+                }
+            }
+        }
+        return 0;
+    }
+
+    private static function firstModelDisplayValue(array $values): string
+    {
+        foreach ($values as $value) {
+            $text = self::cleanDisplayText($value);
+            if ($text !== '' && !self::isInternalModelIdentifier($text)) {
+                return $text;
+            }
+        }
+        return '';
+    }
+
+    private static function isInternalModelIdentifier(string $value): bool
+    {
+        return preg_match('/^market_[a-z0-9_]+:/i', trim($value)) === 1;
+    }
+
+    private static function extractTopLevelDisplayValue($value, array $keys): string
+    {
+        $decoded = self::decodeJsonValue($value);
+        if (!is_array($decoded)) {
+            return '';
+        }
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $decoded)) {
+                $text = self::cleanDisplayText($decoded[$key]);
+                if ($text !== '') {
+                    return $text;
+                }
+            }
+        }
+        return '';
     }
 
     private static function displayChannel(array $row): string
@@ -914,7 +1172,7 @@ class AiTaskRecordService
         if (self::columnExists($table, 'request_json')) {
             $fields[] = 't.request_json';
         }
-        foreach (['model_json', 'provider_request_id', 'channel_code', 'model_code', 'provider_model'] as $extraField) {
+        foreach (['model_json', 'market_product_id', 'provider_request_id', 'channel_code', 'model_code', 'provider_model'] as $extraField) {
             if (self::columnExists($table, $extraField)) {
                 $fields[] = 't.' . $extraField;
             }
@@ -978,6 +1236,32 @@ class AiTaskRecordService
                 $query->whereRaw('1=0');
             }
         }
+        if ($appFilter = trim((string)($params['app_code'] ?? ''))) {
+            self::applyApplicationFilter(
+                $query,
+                $table,
+                $baseAppCode,
+                $tenantId > 0 ? $tenantId : (int)($params['tenant_id'] ?? 0),
+                $appFilter
+            );
+        }
+        if ($model = trim((string)($params['model'] ?? ''))) {
+            self::applyTaskTextFilter(
+                $query,
+                $table,
+                ['model_name', 'model', 'model_json', 'model_code', 'provider_model', 'request_json', 'extra_json'],
+                $model,
+                self::matchingMarketProductIds($model, $tenantId > 0 ? $tenantId : (int)($params['tenant_id'] ?? 0))
+            );
+        }
+        if ($channel = trim((string)($params['channel'] ?? ''))) {
+            self::applyTaskTextFilter(
+                $query,
+                $table,
+                ['channel_name', 'channel', 'channel_code', 'provider', 'model_json', 'request_json', 'extra_json'],
+                $channel
+            );
+        }
         if (!empty($params['keyword'])) {
             $keyword = trim((string)$params['keyword']);
             $promptFields = array_values(array_filter(
@@ -1014,6 +1298,197 @@ class AiTaskRecordService
         }
 
         return $query;
+    }
+
+    private static function applyApplicationFilter(
+        $query,
+        string $table,
+        string $baseAppCode,
+        int $tenantId,
+        string $filter
+    ): void {
+        $appCodes = self::matchingAppCodes($filter);
+        if ($appCodes === []) {
+            $query->whereRaw('1=0');
+            return;
+        }
+
+        $baseMatches = in_array($baseAppCode, $appCodes, true);
+        if ($baseAppCode === 'aigc_llm') {
+            if (!self::columnExists($table, 'extra_json')) {
+                if (!$baseMatches) {
+                    $query->whereRaw('1=0');
+                }
+                return;
+            }
+            $query->where(function ($subQuery) use ($appCodes, $baseMatches) {
+                $hasCondition = false;
+                if ($baseMatches) {
+                    $subQuery->where('t.extra_json', 'not like', '%"source_app_code"%');
+                    $hasCondition = true;
+                }
+                foreach ($appCodes as $appCode) {
+                    $method = $hasCondition ? 'whereOr' : 'where';
+                    $subQuery->{$method}('t.extra_json', 'like', '%"source_app_code":"' . $appCode . '"%');
+                    $hasCondition = true;
+                }
+            });
+            return;
+        }
+
+        $sourceTables = match ($baseAppCode) {
+            'aigc_image' => self::IMAGE_SOURCE_TABLES,
+            'aigc_video' => self::VIDEO_SOURCE_TABLES,
+            default => [],
+        };
+        if ($sourceTables === []) {
+            if (!$baseMatches) {
+                $query->whereRaw('1=0');
+            }
+            return;
+        }
+
+        $allMappedIds = [];
+        $matchingMappedIds = [];
+        foreach ($sourceTables as $source) {
+            $taskIds = self::mappedBaseTaskIds($source, $tenantId);
+            $allMappedIds = array_merge($allMappedIds, $taskIds);
+            if (in_array((string)$source['app_code'], $appCodes, true)) {
+                $matchingMappedIds = array_merge($matchingMappedIds, $taskIds);
+            }
+        }
+        $allMappedIds = array_values(array_unique(array_map('intval', $allMappedIds)));
+        $matchingMappedIds = array_values(array_unique(array_map('intval', $matchingMappedIds)));
+
+        if (!$baseMatches) {
+            if ($matchingMappedIds === []) {
+                $query->whereRaw('1=0');
+            } else {
+                $query->whereIn('t.id', $matchingMappedIds);
+            }
+            return;
+        }
+        if ($allMappedIds === []) {
+            return;
+        }
+        $query->where(function ($subQuery) use ($allMappedIds, $matchingMappedIds) {
+            $subQuery->whereNotIn('t.id', $allMappedIds);
+            if ($matchingMappedIds !== []) {
+                $subQuery->whereIn('t.id', $matchingMappedIds, 'OR');
+            }
+        });
+    }
+
+    /** @return array<int, int> */
+    private static function mappedBaseTaskIds(array $source, int $tenantId): array
+    {
+        $table = (string)($source['table'] ?? '');
+        if ($table === '' || !self::tableExists($table)) {
+            return [];
+        }
+
+        static $cache = [];
+        $cacheKey = $tenantId . ':' . $table;
+        if (isset($cache[$cacheKey])) {
+            return $cache[$cacheKey];
+        }
+
+        $fields = [];
+        foreach (['image_task_id', 'image_task_ids', 'video_task_id'] as $field) {
+            if (self::columnExists($table, $field)) {
+                $fields[] = $field;
+            }
+        }
+        if ($fields === []) {
+            return $cache[$cacheKey] = [];
+        }
+
+        $sourceQuery = Db::name($table)->field(implode(',', $fields));
+        if ($tenantId > 0 && self::columnExists($table, 'tenant_id')) {
+            $sourceQuery->where('tenant_id', $tenantId);
+        }
+        if (self::columnExists($table, 'delete_time')) {
+            $sourceQuery->where('delete_time', 0);
+        }
+
+        $ids = [];
+        foreach ($sourceQuery->select()->toArray() as $row) {
+            foreach ($fields as $field) {
+                $value = self::decodeJsonValue($row[$field] ?? []);
+                $values = is_array($value) ? $value : [$value];
+                foreach ($values as $taskId) {
+                    $taskId = (int)$taskId;
+                    if ($taskId > 0) {
+                        $ids[] = $taskId;
+                    }
+                }
+            }
+        }
+        return $cache[$cacheKey] = array_values(array_unique($ids));
+    }
+
+    /** @param array<int, string> $candidateFields @param array<int, int> $marketProductIds */
+    private static function applyTaskTextFilter(
+        $query,
+        string $table,
+        array $candidateFields,
+        string $keyword,
+        array $marketProductIds = []
+    ): void {
+        $fields = array_values(array_filter(
+            $candidateFields,
+            static fn(string $field): bool => self::columnExists($table, $field)
+        ));
+        $hasProductField = $marketProductIds !== [] && self::columnExists($table, 'market_product_id');
+        $productReferenceFields = array_values(array_intersect($fields, ['model', 'model_json', 'request_json', 'extra_json']));
+        if ($fields === [] && !$hasProductField && $productReferenceFields === []) {
+            $query->whereRaw('1=0');
+            return;
+        }
+
+        $query->where(function ($subQuery) use (
+            $fields,
+            $keyword,
+            $marketProductIds,
+            $hasProductField,
+            $productReferenceFields
+        ) {
+            $hasCondition = false;
+            foreach ($fields as $field) {
+                $method = $hasCondition ? 'whereOr' : 'where';
+                $subQuery->{$method}('t.' . $field, 'like', '%' . $keyword . '%');
+                $hasCondition = true;
+            }
+            if ($hasProductField) {
+                $subQuery->whereIn('t.market_product_id', $marketProductIds, $hasCondition ? 'OR' : 'AND');
+                $hasCondition = true;
+            }
+            foreach ($marketProductIds as $productId) {
+                foreach ($productReferenceFields as $field) {
+                    $method = $hasCondition ? 'whereOr' : 'where';
+                    $subQuery->{$method}('t.' . $field, 'like', '%:' . (int)$productId . '%');
+                    $hasCondition = true;
+                }
+            }
+        });
+    }
+
+    /** @return array<int, int> */
+    private static function matchingMarketProductIds(string $keyword, int $tenantId): array
+    {
+        try {
+            $ids = PowerMarketProduct::whereLike(
+                'name|product_code|upstream_model_code|upstream_api_code',
+                '%' . $keyword . '%'
+            )->column('id');
+            if ($tenantId > 0) {
+                $ids = array_merge($ids, TenantPowerMarketProduct::where('tenant_id', $tenantId)
+                    ->whereLike('name', '%' . $keyword . '%')->column('product_id'));
+            }
+            return array_values(array_unique(array_filter(array_map('intval', $ids))));
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     private static function normalizePromptFields(array &$row, string $baseAppCode): void

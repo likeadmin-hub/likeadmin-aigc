@@ -75,6 +75,7 @@ class AigcDigitalHumanService
                 'virtual_use_count' => '',
                 'sort' => 90,
                 'status' => 1,
+                'is_recommend' => 0,
                 'extra' => [],
                 'create_time' => 0,
                 'update_time' => 0,

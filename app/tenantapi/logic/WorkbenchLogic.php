@@ -199,6 +199,7 @@ class WorkbenchLogic extends BaseLogic
         $userCharge = self::sumColumn($appStats, 'user_charge_points');
         $todayTenantCost = self::sumColumn($appStats, 'today_tenant_cost_points');
         $todayUserCharge = self::sumColumn($appStats, 'today_user_charge_points');
+        $rechargeAmounts = self::rechargeAmounts($tenantId, $todayStart);
 
         return [
             'time' => date('Y-m-d H:i:s'),
@@ -210,6 +211,8 @@ class WorkbenchLogic extends BaseLogic
             'today_user_charge_points' => $todayUserCharge,
             'tenant_cost_points' => $tenantCost,
             'user_charge_points' => $userCharge,
+            'today_recharge_amount' => $rechargeAmounts['today'],
+            'recharge_amount_total' => $rechargeAmounts['total'],
             'task_total' => $taskTotal,
             'today_task_total' => $todayTask,
             'success_total' => $successTotal,
@@ -223,8 +226,8 @@ class WorkbenchLogic extends BaseLogic
             'today_recharge_order' => self::paidOrderCount('recharge_order', $tenantId, $todayStart),
 
             // 兼容旧字段
-            'today_sales' => $todayUserCharge,
-            'total_sales' => $userCharge,
+            'today_sales' => $rechargeAmounts['today'],
+            'total_sales' => $rechargeAmounts['total'],
             'today_visitor' => $todayTask,
             'total_visitor' => $taskTotal,
             'total_new_user' => (int)User::where('tenant_id', $tenantId)->count(),
@@ -251,11 +254,11 @@ class WorkbenchLogic extends BaseLogic
                 'sub_value' => self::formatPoints($today['tenant_cost_points']),
             ],
             [
-                'title' => '今日用户收费',
-                'value' => $today['today_user_charge_points'],
-                'unit' => PointUnitService::unit(),
-                'sub_title' => '累计收费',
-                'sub_value' => self::formatPoints($today['user_charge_points']),
+                'title' => '今日充值',
+                'value' => $today['today_recharge_amount'],
+                'unit' => '元',
+                'sub_title' => '累计充值',
+                'sub_value' => self::formatCurrency($today['recharge_amount_total']),
             ],
             [
                 'title' => '用户总数',
@@ -635,6 +638,33 @@ class WorkbenchLogic extends BaseLogic
         return (int)$query->count();
     }
 
+    private static function rechargeAmounts(int $tenantId, int $todayStart): array
+    {
+        $table = 'recharge_order';
+        if (!self::tableExists($table)) {
+            return ['today' => 0, 'total' => 0];
+        }
+
+        $query = Db::name($table)
+            ->where('tenant_id', $tenantId)
+            ->where('pay_status', PayEnum::ISPAID);
+        if (self::hasColumn($table, 'refund_status')) {
+            $query->where('refund_status', 0);
+        }
+        if (self::hasColumn($table, 'delete_time')) {
+            $query->whereNull('delete_time');
+        }
+
+        $total = self::round((clone $query)->sum('order_amount'));
+        $paidAt = self::hasColumn($table, 'pay_time') ? 'pay_time' : 'create_time';
+        $today = self::round((clone $query)
+            ->where($paidAt, '>=', $todayStart)
+            ->where($paidAt, '<', strtotime('tomorrow'))
+            ->sum('order_amount'));
+
+        return ['today' => $today, 'total' => $total];
+    }
+
     private static function sumColumn(array $rows, string $column): float|int
     {
         $sum = 0;
@@ -647,6 +677,11 @@ class WorkbenchLogic extends BaseLogic
     private static function formatPoints(float|int $value): string
     {
         return self::round($value) . ' ' . PointUnitService::unit();
+    }
+
+    private static function formatCurrency(float|int $value): string
+    {
+        return self::round($value) . ' 元';
     }
 
     private static function round(mixed $value): float|int

@@ -12,6 +12,7 @@ use app\common\service\ai\AiTaskLifecycleEventService;
 use app\common\service\ai\AiTaskJobService;
 use app\common\service\ai\AiTaskResultUrlService;
 use app\common\service\ai\MarketAppGateService;
+use app\common\service\ai\UpstreamErrorMessageService;
 use app\common\service\app\aigc_music\AigcMusicAssetService;
 use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
@@ -298,8 +299,9 @@ class MarketMusicAppRuntimeService
         $taskId = trim((string)$consumption['upstream_task_id']);
         if ($taskId === '') {
             if ($timedOut) {
-                self::fail($consumptionId, '音乐任务未返回上游任务号', 'timeout');
-                return ['status' => 'failed', 'provider_task_id' => '', 'items' => []];
+                $message = '音乐任务未返回上游任务号';
+                self::fail($consumptionId, $message, 'timeout');
+                return self::failureResponse('', $message);
             }
             return self::response($consumption->toArray());
         }
@@ -312,22 +314,24 @@ class MarketMusicAppRuntimeService
                 return ['status' => 'success', 'provider_task_id' => $taskId, 'items' => $items];
             }
             if (in_array(self::status($response), ['failed', 'error', 'canceled', 'cancelled'], true)) {
-                self::fail($consumptionId, self::error($response), 'upstream_failed');
-                return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []];
+                $message = self::error($response);
+                self::fail($consumptionId, $message, 'upstream_failed');
+                return self::failureResponse($taskId, $message);
             }
             $upstreamStatus = self::status($response);
             if (AiTaskLifecycleEventService::isTerminalSuccess($upstreamStatus)) {
                 if (AiTaskLifecycleEventService::terminalResultMissing($consumptionId, $upstreamStatus, $taskId)) {
-                    self::fail($consumptionId, '上游音乐任务已完成，但未返回可用结果文件', 'upstream_result_missing');
-                    return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []];
+                    $message = '上游音乐任务已完成，但未返回可用结果文件';
+                    self::fail($consumptionId, $message, 'upstream_result_missing');
+                    return self::failureResponse($taskId, $message);
                 }
                 return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
             }
-            if ($timedOut) { self::fail($consumptionId, '音乐任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []]; }
+            if ($timedOut) { $message = '音乐任务处理超时'; self::fail($consumptionId, $message, 'timeout'); return self::failureResponse($taskId, $message); }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
         } catch (\Throwable $e) {
             AiTaskLifecycleEventService::record($consumptionId, 'query_error', 'retrying', ['upstream_task_id' => $taskId, 'error' => $e->getMessage()]);
-            if ($timedOut) { self::fail($consumptionId, '音乐任务处理超时', 'timeout'); return ['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []]; }
+            if ($timedOut) { $message = '音乐任务处理超时'; self::fail($consumptionId, $message, 'timeout'); return self::failureResponse($taskId, $message); }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
         }
     }
@@ -450,8 +454,16 @@ class MarketMusicAppRuntimeService
     private static function taskId(array $data): string { $root = self::arrayValue($data['data'] ?? $data); foreach ([$data['task_id'] ?? null, $data['id'] ?? null, $root['task_id'] ?? null, $root['id'] ?? null, $root['result']['task_id'] ?? null] as $value) if (is_scalar($value) && (string)$value !== '') return (string)$value; return ''; }
     private static function requestId(array $data): string { $root = self::arrayValue($data['data'] ?? $data); return (string)($data['request_id'] ?? $root['request_id'] ?? ''); }
     private static function status(array $data): string { $root = self::arrayValue($data['data'] ?? $data); return strtolower((string)($data['status'] ?? $root['status'] ?? $root['state'] ?? $root['result']['status'] ?? '')); }
-    private static function error(array $data): string { $root = self::arrayValue($data['data'] ?? $data); return mb_substr((string)($data['message'] ?? $data['msg'] ?? $root['message'] ?? $root['msg'] ?? $data['error']['message'] ?? '音乐生成应用调用失败'), 0, 1000); }
-    private static function response(array $consumption): array { $summary = self::arrayValue($consumption['response_summary'] ?? []); return ['status' => (string)$consumption['run_status'], 'provider_task_id' => (string)$consumption['upstream_task_id'], 'items' => (array)($summary['items'] ?? [])]; }
+    private static function error(array $data): string { return UpstreamErrorMessageService::fromResponse($data); }
+    private static function response(array $consumption): array
+    {
+        $summary = self::arrayValue($consumption['response_summary'] ?? []);
+        $response = ['status' => (string)$consumption['run_status'], 'provider_task_id' => (string)$consumption['upstream_task_id'], 'items' => (array)($summary['items'] ?? [])];
+        $message = trim((string)($consumption['error_message'] ?? ''));
+        return $message !== '' ? array_merge($response, self::failureFields($message)) : $response;
+    }
+    private static function failureResponse(string $taskId, string $message): array { return array_merge(['status' => 'failed', 'provider_task_id' => $taskId, 'items' => []], self::failureFields($message)); }
+    private static function failureFields(string $message): array { return ['error' => $message, 'error_msg' => $message, 'errorDetails' => $message]; }
     private static function context(int $consumptionId, bool $lock): ?array { $query = AiConsumptionLog::where('id', $consumptionId); if ($lock) $query->lock(true); $consumption = $query->findOrEmpty(); if ($consumption->isEmpty()) return null; $taskQuery = AiAppTask::where('id', (int)$consumption['app_task_id']); if ($lock) $taskQuery->lock(true); $task = $taskQuery->findOrEmpty(); return $task->isEmpty() ? null : ['consumption' => $consumption, 'app_task' => $task]; }
     private static function event(int $consumptionId, string $type, string $status, array $summary): void { AiConsumptionEvent::create(['consumption_id' => $consumptionId, 'event_type' => $type, 'event_status' => $status, 'attempt_no' => 1, 'payload_summary' => $summary, 'payload_ciphertext' => '', 'http_status' => 0, 'elapsed_ms' => 0, 'create_time' => time()]); }
     private static function taskLabel(string $appCode): string { return $appCode === self::APP_CODE ? '短剧背景音乐' : '无限画布音乐生成'; }

@@ -8,6 +8,7 @@ use app\common\model\ai\AiConsumptionLog;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
+use app\common\service\ai\UpstreamErrorMessageService;
 use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
@@ -310,7 +311,7 @@ class MarketTextModelRuntimeService
                 continue;
             }
             $meta = (array)($snapshot['market_metadata'] ?? []);
-            $protocols = array_values(array_filter(array_map('strval', (array)($meta['protocols'] ?? []))));
+            $protocols = self::protocolList($meta['protocols'] ?? []);
             $options[] = [
                 'id' => (string)$product['id'],
                 'product_id' => (int)$product['id'],
@@ -1306,11 +1307,7 @@ class MarketTextModelRuntimeService
             $payload = is_array($decoded) ? $decoded : $payload;
         }
         if (is_array($payload)) {
-            $error = $payload['error'] ?? $payload;
-            if (is_array($error)) {
-                return self::friendlyError((string)($error['message'] ?? $error['msg'] ?? $error['code'] ?? $error['type'] ?? ''));
-            }
-            return self::friendlyError((string)($payload['message'] ?? $payload['msg'] ?? ''));
+            return UpstreamErrorMessageService::fromResponse($payload, '');
         }
         return self::friendlyError(trim(strip_tags((string)$payload)));
     }
@@ -1321,7 +1318,7 @@ class MarketTextModelRuntimeService
         if ($message !== '' && str_contains($message, 'SKU') && str_contains($message, '定价') && str_contains($message, '未配置')) {
             return '算力市场文本模型 SKU 定价未配置，请先同步/上架文本模型 SKU 并确认租户售价后再生成';
         }
-        return mb_substr($message, 0, 160);
+        return UpstreamErrorMessageService::normalize($message);
     }
 
     private static function marketContext(array $model): array
@@ -1389,10 +1386,28 @@ class MarketTextModelRuntimeService
         $modelCode = strtolower(trim($modelCode));
         // Marketplace metadata can lag behind a product migration. Claude and
         // Anthropic models must never be sent through Chat Completions.
-        if (str_contains($modelCode, 'claude') || str_contains($modelCode, 'anthropic')) {
+        if (preg_match('/(^|\s)(claude|anthropic)([^a-z0-9]|$)/', $modelCode) === 1) {
             return 'anthropic_messages';
         }
-        $value = strtolower(trim($default ?: ($protocols[0] ?? 'openai_chat'))); return match ($value) { 'responses', 'openai_responses' => 'openai_responses', 'messages', 'anthropic', 'anthropic_messages' => 'anthropic_messages', default => 'openai_chat' };
+        $protocols = self::protocolList($protocols);
+        $defaults = self::protocolList($default);
+        $value = $defaults[0] ?? '';
+        if ($value !== '' && ($protocols === [] || in_array($value, $protocols, true))) {
+            return match ($value) {
+                'openai_responses' => 'openai_responses',
+                'anthropic_messages' => 'anthropic_messages',
+                default => 'openai_chat',
+            };
+        }
+        if (preg_match('/^gpt-5(?:[._-]|$)/i', $modelCode) && ($protocols === [] || in_array('openai_responses', $protocols, true))) {
+            return 'openai_responses';
+        }
+        foreach (['openai_chat', 'openai_responses', 'openai_completions', 'anthropic_messages'] as $protocol) {
+            if (in_array($protocol, $protocols, true)) {
+                return $protocol;
+            }
+        }
+        return $value !== '' ? $value : 'openai_chat';
     }
 
     private static function protocolForModel(array $model): string
@@ -1403,7 +1418,32 @@ class MarketTextModelRuntimeService
             (string)($model['channel_code'] ?? ''),
             (string)($model['name'] ?? ''),
         ]);
-        return self::protocol((string)($model['protocol'] ?? ''), (array)($model['protocols'] ?? []), $identity);
+        return self::protocol((string)($model['protocol'] ?? ''), self::protocolList($model['protocols'] ?? []), $identity);
+    }
+    /** @return array<int,string> */
+    private static function protocolList($value): array
+    {
+        $aliases = [
+            'responses' => 'openai_responses',
+            'openai_responses' => 'openai_responses',
+            'messages' => 'anthropic_messages',
+            'anthropic' => 'anthropic_messages',
+            'anthropic_messages' => 'anthropic_messages',
+            'chat' => 'openai_chat',
+            'openai_chat' => 'openai_chat',
+            'completions' => 'openai_completions',
+            'openai_completions' => 'openai_completions',
+        ];
+        $items = [];
+        foreach (is_array($value) ? $value : [$value] as $item) {
+            foreach (preg_split('/[,|\s]+/', strtolower(trim((string)$item)), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $protocol) {
+                $normalized = $aliases[$protocol] ?? '';
+                if ($normalized !== '') {
+                    $items[] = $normalized;
+                }
+            }
+        }
+        return array_values(array_unique($items));
     }
     private static function sourceBaseUrl(string $baseUrl): string { $parts = parse_url(trim($baseUrl)); if (!is_array($parts) || empty($parts['host'])) return rtrim($baseUrl, '/'); return (string)($parts['scheme'] ?? 'https') . '://' . $parts['host'] . (isset($parts['port']) ? ':' . (int)$parts['port'] : ''); }
     private static function arrayValue($value): array { if (is_array($value)) return $value; $decoded = is_string($value) ? json_decode($value, true) : []; return is_array($decoded) ? $decoded : []; }

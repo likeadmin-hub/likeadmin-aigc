@@ -1,1 +1,0 @@
-import{n as a,G as t,M as _,o,c as n}from"./entry.c46691d5.js";import{_ as s}from"./_plugin-vue_export-helper.c27b6911.js";const r={class:"redirect-page"},c=a({__name:"image_human",setup(m){const e=t();return _(()=>{e.replace({path:"/ai/avatar",query:{tab:"image_human"}})}),(p,u)=>(o(),n("div",r))}});const f=s(c,[["__scopeId","data-v-3012f8f8"]]);export{f as default};

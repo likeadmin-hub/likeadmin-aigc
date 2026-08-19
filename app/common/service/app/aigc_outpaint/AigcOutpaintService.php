@@ -875,7 +875,7 @@ class AigcOutpaintService
 
     private static function normalizeCode(string $code): string
     {
-        return preg_replace('/[^a-zA-Z0-9_\-]/', '', trim($code)) ?: '';
+        return AigcImageChannelService::normalizeRuntimeChannelCode($code);
     }
 
     private static function qualityKey(string $channel, string $quality): string

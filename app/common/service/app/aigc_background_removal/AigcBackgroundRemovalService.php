@@ -38,6 +38,7 @@ class AigcBackgroundRemovalService
         $data = $row->isEmpty() ? self::defaults() : array_merge(self::defaults(), $row->toArray());
         $data = self::sanitizeConfig($data);
         $optionConfig = AigcImageChannelService::userConfig($tenantId);
+        $data = AigcImageChannelService::alignConfigDefaults($data, $optionConfig);
         [$data['price_config'], $priceChanged] = self::ensurePricePackages($data['price_config'], $optionConfig);
         if ($priceChanged) {
             self::saveConfigSnapshot($tenantId, $data, $row);
@@ -66,6 +67,7 @@ class AigcBackgroundRemovalService
             'config_json' => self::normalizeConfigJson($configJson),
             'update_time' => time(),
         ];
+        $data = AigcImageChannelService::alignConfigDefaults($data, AigcImageChannelService::userConfig($tenantId));
         $row = AigcBackgroundRemovalConfig::where('tenant_id', $tenantId)->findOrEmpty();
         if ($row->isEmpty()) {
             $data['create_time'] = time();
@@ -1229,7 +1231,7 @@ class AigcBackgroundRemovalService
 
     private static function normalizeCode(string $code): string
     {
-        return preg_replace('/[^a-zA-Z0-9_\-]/', '', trim($code)) ?: '';
+        return AigcImageChannelService::normalizeRuntimeChannelCode($code);
     }
 
     private static function qualityKey(string $channel, string $quality): string

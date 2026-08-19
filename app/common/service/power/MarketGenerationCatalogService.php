@@ -5,7 +5,7 @@ namespace app\common\service\power;
 use app\common\model\power\PowerMarketProduct;
 
 /**
- * Unified catalogue for the four generation families.
+ * Unified catalogue for the three generation families.
  *
  * Models are selected by model_type; application APIs are selected by the
  * normalized category_code. Unsupported application APIs are returned in a
@@ -13,7 +13,7 @@ use app\common\model\power\PowerMarketProduct;
  */
 class MarketGenerationCatalogService
 {
-    public const TYPES = ['text', 'image', 'video', 'app_api'];
+    public const TYPES = ['text', 'image', 'video'];
 
     /** @return array<string, array<string, mixed>> */
     public static function directory(int $tenantId): array

@@ -14,7 +14,6 @@ use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppRegistryService;
 use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\app\aigc_video\AigcVideoService;
-use app\common\service\ai\MarketAppGateService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
 use Exception;
@@ -184,12 +183,6 @@ class AigcProductPromoVideoService
     public static function generate(int $tenantId, int $userId, array $params): array
     {
         $idempotencyKey = trim((string)($params['idempotency_key'] ?? ''));
-        MarketAppGateService::requireMarket(
-            $tenantId,
-            $userId,
-            self::APP_CODE,
-            $idempotencyKey
-        );
         if ($idempotencyKey !== '') {
             $existing = AigcProductPromoVideoTask::where([
                 'tenant_id' => $tenantId,
