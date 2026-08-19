@@ -2,15 +2,12 @@
 
 namespace app\common\service\app\aigc_model_wear;
 
-use app\common\model\app\App;
 use app\common\model\app\aigc_image\AigcImageTask;
 use app\common\model\app\aigc_model_wear\AigcModelWearConfig;
 use app\common\model\app\aigc_model_wear\AigcModelWearResult;
 use app\common\model\app\aigc_model_wear\AigcModelWearTask;
 use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
-use app\common\service\app\AppRegistryService;
-use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
@@ -20,8 +17,6 @@ use Exception;
 class AigcModelWearService
 {
     public const APP_CODE = 'aigc_model_wear';
-    public const IMAGE_APP_CODE = 'aigc_image';
-
     private const DEFAULT_PROMPT_TEMPLATE = '基于用户上传的模特图和穿戴图生成真实自然的模特穿戴效果图。保持模特身份、姿态、身形比例、面部特征和画面光线稳定，将穿戴图中的服饰、配饰或穿戴元素自然融合到模特身上，准确保留版型、材质、颜色、图案和细节，输出适合电商展示和种草内容使用的高质量图片。{user_prompt}';
     private const DEFAULT_NEGATIVE_PROMPT = '服装变形，身体比例异常，手部畸形，多余肢体，低清晰度，文字，水印，严重穿模，脸部扭曲，材质错误，颜色失真，背景杂乱';
     private const DEFAULT_PRICE_PACKAGE_NAMES = ['标准穿戴', '高清穿戴'];
@@ -31,9 +26,14 @@ class AigcModelWearService
         $row = AigcModelWearConfig::where('tenant_id', $tenantId)->findOrEmpty();
         $data = $row->isEmpty() ? self::defaults() : array_merge(self::defaults(), $row->toArray());
         $data = self::sanitizeConfig($data);
-        $optionConfig = AigcImageChannelService::userConfig($tenantId);
+        $optionConfig = self::marketOptionConfig($tenantId);
+        $originalConfigJson = $data['config_json'];
+        $data['config_json'] = self::alignMarketConfig($data['config_json'], $optionConfig);
+        $data['default_channel'] = $data['config_json']['channel'];
+        $data['default_quality'] = $data['config_json']['quality'];
+        $data['default_ratio'] = $data['config_json']['ratio'];
         [$data['price_config'], $priceChanged] = self::ensurePricePackages($data['price_config'], $optionConfig);
-        if ($priceChanged) {
+        if ($priceChanged || $originalConfigJson !== $data['config_json']) {
             self::saveConfigSnapshot($tenantId, $data, $row);
         }
         $data['option_config'] = $optionConfig;
@@ -48,16 +48,27 @@ class AigcModelWearService
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::config($tenantId);
         $configJson = is_array($params['config_json'] ?? null) ? $params['config_json'] : ($current['config_json'] ?? []);
+        $configJson = array_merge($configJson, [
+            'channel' => $params['default_channel'] ?? $configJson['channel'] ?? $current['default_channel'] ?? '',
+            'quality' => $params['default_quality'] ?? $configJson['quality'] ?? $current['default_quality'] ?? '',
+            'ratio' => $params['default_ratio'] ?? $configJson['ratio'] ?? $current['default_ratio'] ?? '',
+        ]);
+        $optionConfig = self::marketOptionConfig($tenantId);
+        $configJson = self::alignMarketConfig(self::normalizeConfigJson($configJson), $optionConfig);
+        [$priceConfig] = self::ensurePricePackages(
+            self::normalizePriceConfig($params['price_config'] ?? $current['price_config'] ?? []),
+            $optionConfig
+        );
         $data = [
             'tenant_id' => $tenantId,
             'status' => array_key_exists('status', $params) ? (int)$params['status'] : (int)$current['status'],
-            'default_channel' => self::normalizeCode((string)($params['default_channel'] ?? $configJson['channel'] ?? $current['default_channel'] ?? '')),
-            'default_quality' => trim((string)($params['default_quality'] ?? $configJson['quality'] ?? $current['default_quality'] ?? '')),
-            'default_ratio' => trim((string)($params['default_ratio'] ?? $configJson['ratio'] ?? $current['default_ratio'] ?? '')),
+            'default_channel' => $configJson['channel'],
+            'default_quality' => $configJson['quality'],
+            'default_ratio' => $configJson['ratio'],
             'prompt_template' => self::normalizeTemplate((string)($params['prompt_template'] ?? $current['prompt_template'])),
             'negative_prompt' => trim((string)($params['negative_prompt'] ?? $current['negative_prompt'])),
-            'price_config' => self::normalizePriceConfig($params['price_config'] ?? $current['price_config'] ?? []),
-            'config_json' => self::normalizeConfigJson($configJson),
+            'price_config' => $priceConfig,
+            'config_json' => $configJson,
             'update_time' => time(),
         ];
         $row = AigcModelWearConfig::where('tenant_id', $tenantId)->findOrEmpty();
@@ -99,7 +110,7 @@ class AigcModelWearService
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, false);
-        $imageEstimate = AigcImageService::estimate($tenantId, $prepared['image_payload']);
+        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
         return self::buildEstimate($prepared, $imageEstimate);
     }
 
@@ -107,13 +118,12 @@ class AigcModelWearService
     {
         self::assertAvailable($tenantId);
         $prepared = self::prepareGeneratePayload($tenantId, $params, true);
-        $imageEstimate = AigcImageService::estimate($tenantId, $prepared['image_payload']);
+        $imageEstimate = AigcImageService::estimateMarketModel($tenantId, $prepared['image_payload'], ['user_unit_price' => $prepared['unit_price']]);
         $estimate = self::buildEstimate($prepared, $imageEstimate);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
-        $imageResult = AigcImageService::generateWithBillingOverride($tenantId, $userId, $prepared['image_payload'], [
-            'tenant_cost_points' => $estimate['tenant_cost_points'],
-            'user_charge_points' => $estimate['user_charge_points'],
-        ]);
+        $imageResult = AigcImageService::generateMarketModelWithBillingOverride($tenantId, $userId, $prepared['image_payload'], [
+            'user_unit_price' => $prepared['unit_price'],
+        ], self::APP_CODE);
         $imageTaskId = (int)($imageResult['task_id'] ?? 0);
         if ($imageTaskId <= 0) {
             throw new Exception('模特穿戴任务创建失败');
@@ -239,35 +249,13 @@ class AigcModelWearService
 
     public static function dependencies(int $tenantId = 0): array
     {
-        $installed = App::where(['code' => self::IMAGE_APP_CODE, 'status' => AppRegistryService::STATUS_INSTALLED])->count() > 0;
-        $tenantEnabled = $tenantId <= 0 ? true : AppAccessService::tenantCanUse($tenantId, self::IMAGE_APP_CODE);
-        $channels = [];
-        try {
-            $imageConfig = AigcImageService::config($tenantId);
-            $channels = $imageConfig['option_config']['channels'] ?? [];
-        } catch (Exception) {
-            $channels = [];
-        }
-        $item = [
-            'app_code' => self::IMAGE_APP_CODE,
-            'name' => 'AIGC生图',
-            'required_for' => '模特穿戴生成',
-            'installed' => $installed,
-            'tenant_enabled' => $tenantEnabled,
-            'channel_ready' => !empty($channels),
-            'ready' => $installed && $tenantEnabled && !empty($channels),
-            'message' => $installed ? ($tenantEnabled ? (!empty($channels) ? '可用' : '暂无可用生图通道') : '租户未开通或未上架') : '应用未安装或未启用',
-        ];
-        return ['items' => [$item], 'ready' => (bool)$item['ready']];
+        return ['items' => [], 'ready' => true];
     }
 
     private static function assertAvailable(int $tenantId): void
     {
         if (AppAccessService::assertTenantCanUse($tenantId, self::APP_CODE) !== null) {
             throw new Exception('模特穿戴应用未开通或未上架');
-        }
-        if (AppAccessService::assertTenantCanUse($tenantId, self::IMAGE_APP_CODE) !== null) {
-            throw new Exception('AIGC生图应用未开通或未上架');
         }
         $config = self::config($tenantId);
         if ((int)($config['status'] ?? 1) !== 1) {
@@ -291,39 +279,44 @@ class AigcModelWearService
         $quality = (string)$package['quality'];
         $ratio = self::resolvePackageRatio($package, trim((string)($params['ratio'] ?? $config['default_ratio'] ?? '')));
         $userPrompt = trim((string)($params['prompt'] ?? $params['user_prompt'] ?? ''));
+        $spec = self::marketSpec($config['option_config'] ?? [], [
+            'channel' => $channel,
+            'quality' => $quality,
+            'ratio' => $ratio,
+        ]);
         $imagePayload = [
             'prompt' => self::renderPrompt((string)$config['prompt_template'], [
                 'user_prompt' => $userPrompt,
             ]),
             'negative_prompt' => (string)($params['negative_prompt'] ?? $config['negative_prompt']),
             'reference_images' => array_values(array_filter([$modelImage, $wearImage])),
-            'channel' => $channel,
-            'quality' => $quality,
-            'ratio' => $ratio,
+            'model_id' => (string)$spec['model_id'],
+            'market_product_id' => (int)$spec['market_product_id'],
+            'market_sku_id' => (int)$spec['market_sku_id'],
+            'quality' => (string)$spec['quality'],
+            'ratio' => (string)$spec['ratio'],
             'quantity' => 1,
             'style' => 'model_wear',
         ];
-        $resolved = AigcImageChannelService::resolveSelection($tenantId, $imagePayload);
         return [
             'price_package' => $package,
             'model_image' => $modelImage,
             'wear_image' => $wearImage,
             'user_prompt' => $userPrompt,
             'unit_price' => round(max(0, (float)$package['unit_price']), 2),
-            'image_payload' => array_merge($imagePayload, [
-                'channel' => (string)$resolved['channel']['code'],
-                'quality' => (string)$resolved['spec']['quality'],
-                'ratio' => (string)$resolved['spec']['ratio'],
-            ]),
-            'width' => (int)$resolved['spec']['width'],
-            'height' => (int)$resolved['spec']['height'],
-            'quality_label' => (string)($package['quality_label'] ?: $resolved['spec']['quality_label']),
-            'size_key' => (string)$resolved['spec']['ratio'],
+            'image_payload' => $imagePayload,
+            'width' => (int)($spec['width'] ?? 0),
+            'height' => (int)($spec['height'] ?? 0),
+            'quality_label' => (string)($package['quality_label'] ?: $spec['quality']),
+            'size_key' => (string)$spec['ratio'],
         ];
     }
 
     private static function buildEstimate(array $prepared, array $imageEstimate): array
     {
+        if ((string)($imageEstimate['settlement_mode'] ?? 'reserved') !== 'reserved') {
+            throw new Exception('Model wear only supports fixed-price market image SKUs');
+        }
         $tenantUnitCost = (float)($imageEstimate['platform_unit_cost'] ?? 0);
         $userUnitPrice = (float)$prepared['unit_price'];
         return array_merge($imageEstimate, [
@@ -579,6 +572,136 @@ class AigcModelWearService
             'quality' => trim((string)($config['quality'] ?? '')),
             'ratio' => trim((string)($config['ratio'] ?? '')),
         ];
+    }
+
+    /** Model wear needs the model image and the wearable-item image. */
+    private static function marketOptionConfig(int $tenantId): array
+    {
+        $channels = [];
+        foreach (AigcImageService::marketModelOptions($tenantId) as $model) {
+            if (!is_array($model) || (int)($model['max_reference_images'] ?? 0) < 2) {
+                continue;
+            }
+            $modelId = trim((string)($model['id'] ?? $model['value'] ?? ''));
+            $productId = (int)($model['market_product_id'] ?? 0);
+            if ($modelId === '' || $productId <= 0) {
+                continue;
+            }
+            $qualities = [];
+            foreach ((array)($model['skus'] ?? []) as $sku) {
+                if (!is_array($sku) || (string)($sku['settlement_mode'] ?? 'reserved') !== 'reserved') {
+                    continue;
+                }
+                $skuId = (int)($sku['market_sku_id'] ?? 0);
+                $quality = trim((string)($sku['quality'] ?? $sku['resolution'] ?? ''));
+                if ($skuId <= 0 || $quality === '') {
+                    continue;
+                }
+                $qualities[$quality] ??= ['value' => $quality, 'label' => strtoupper($quality), 'ratios' => []];
+                $ratios = (array)($sku['ratio_options'] ?? []);
+                if ($ratios === []) {
+                    $ratios = [(string)($model['default_ratio'] ?? '')];
+                }
+                foreach ($ratios as $ratio) {
+                    $ratio = is_array($ratio) ? (string)($ratio['value'] ?? $ratio['ratio'] ?? '') : (string)$ratio;
+                    $qualities[$quality]['ratios'][] = [
+                        'value' => $ratio,
+                        'ratio' => $ratio,
+                        'label' => $ratio === '' ? 'Default' : $ratio,
+                        'model_id' => $modelId,
+                        'market_product_id' => $productId,
+                        'market_sku_id' => $skuId,
+                        'quality' => $quality,
+                        'platform_unit_cost' => (float)($sku['platform_unit_cost'] ?? 0),
+                        'tenant_unit_price' => (float)($sku['tenant_unit_price'] ?? 0),
+                        'usage_unit' => (string)($sku['usage_unit'] ?? ''),
+                        'usage_unit_size' => (float)($sku['usage_unit_size'] ?? 1),
+                        'status' => 1,
+                    ];
+                }
+            }
+            if ($qualities !== []) {
+                $channels[] = [
+                    'code' => $modelId,
+                    'name' => (string)($model['name'] ?? $modelId),
+                    'qualities' => array_values($qualities),
+                ];
+            }
+        }
+        $channel = $channels[0] ?? [];
+        $quality = (array)(($channel['qualities'] ?? [])[0] ?? []);
+        $spec = (array)(($quality['ratios'] ?? [])[0] ?? []);
+        return [
+            'market_mode' => true,
+            'channels' => $channels,
+            'defaults' => [
+                'channel' => (string)($channel['code'] ?? ''),
+                'quality' => (string)($quality['value'] ?? ''),
+                'ratio' => (string)($spec['ratio'] ?? ''),
+            ],
+        ];
+    }
+
+    private static function alignMarketConfig(array $config, array $options): array
+    {
+        $config = self::normalizeConfigJson($config);
+        $channels = (array)($options['channels'] ?? []);
+        if ($channels === []) {
+            return $config;
+        }
+        $requestedChannel = preg_replace('/^market_image_model(\d+)$/', 'market_image_model:$1', (string)$config['channel']);
+        $channel = null;
+        foreach ($channels as $item) {
+            if ((string)($item['code'] ?? '') === $requestedChannel) {
+                $channel = $item;
+                break;
+            }
+        }
+        $channel = is_array($channel) ? $channel : $channels[0];
+        $config['channel'] = (string)($channel['code'] ?? '');
+        $qualities = (array)($channel['qualities'] ?? []);
+        $quality = null;
+        foreach ($qualities as $item) {
+            if ((string)($item['value'] ?? '') === (string)$config['quality']) {
+                $quality = $item;
+                break;
+            }
+        }
+        $quality = is_array($quality) ? $quality : ($qualities[0] ?? []);
+        $config['quality'] = (string)($quality['value'] ?? '');
+        $ratios = (array)($quality['ratios'] ?? []);
+        $ratio = null;
+        foreach ($ratios as $item) {
+            if ((string)($item['ratio'] ?? $item['value'] ?? '') === (string)$config['ratio']) {
+                $ratio = $item;
+                break;
+            }
+        }
+        $ratio = is_array($ratio) ? $ratio : ($ratios[0] ?? []);
+        $config['ratio'] = (string)($ratio['ratio'] ?? $ratio['value'] ?? '');
+        return $config;
+    }
+
+    private static function marketSpec(array $options, array $selection): array
+    {
+        $aligned = self::alignMarketConfig($selection, $options);
+        foreach ((array)($options['channels'] ?? []) as $channel) {
+            if ((string)($channel['code'] ?? '') !== (string)$aligned['channel']) {
+                continue;
+            }
+            foreach ((array)($channel['qualities'] ?? []) as $quality) {
+                if ((string)($quality['value'] ?? '') !== (string)$aligned['quality']) {
+                    continue;
+                }
+                foreach ((array)($quality['ratios'] ?? []) as $spec) {
+                    if ((string)($spec['ratio'] ?? $spec['value'] ?? '') === (string)$aligned['ratio']
+                        && (int)($spec['market_sku_id'] ?? 0) > 0) {
+                        return $spec;
+                    }
+                }
+            }
+        }
+        throw new Exception('No eligible power-market image SKU is available for model wear');
     }
 
     private static function normalizePriceConfig(mixed $config): array
@@ -1019,7 +1142,7 @@ class AigcModelWearService
 
     private static function normalizeCode(string $code): string
     {
-        return preg_replace('/[^a-zA-Z0-9_\-]/', '', trim($code)) ?: '';
+        return preg_replace('/[^a-zA-Z0-9_:\-]/', '', trim($code)) ?: '';
     }
 
     private static function priceKey(string $channel, string $quality, string $ratio): string

@@ -9,6 +9,7 @@ use app\common\service\app\AppAccessService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
 use app\common\service\point\PointService;
+use app\common\service\power\MarketAppCostPricingService;
 use app\common\service\storage\StorageConfigService;
 use Exception;
 use think\facade\Db;
@@ -61,14 +62,14 @@ class AigcPersonReplacementService
     {
         self::assertAvailable($tenantId);
         $prepared = self::preparePayload($tenantId, $params, false);
-        return self::buildEstimate($prepared);
+        return self::buildEstimate($tenantId, $prepared);
     }
 
     public static function generate(int $tenantId, int $userId, array $params): array
     {
         self::assertAvailable($tenantId, $userId);
         $prepared = self::preparePayload($tenantId, $params, true);
-        $estimate = self::buildEstimate($prepared);
+        $estimate = self::buildEstimate($tenantId, $prepared);
         PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$estimate['tenant_cost_points'], (float)$estimate['user_charge_points']);
 
         $task = AigcPersonReplacementTask::create([
@@ -85,6 +86,9 @@ class AigcPersonReplacementService
             'unit_price' => $estimate['unit_price'],
             'tenant_cost_points' => $estimate['tenant_cost_points'],
             'user_charge_points' => $estimate['user_charge_points'],
+            'market_product_id' => (int)$estimate['market_product_id'],
+            'market_sku_id' => (int)$estimate['market_sku_id'],
+            'pricing_snapshot' => $estimate['pricing_snapshot'],
             'billing_status' => 'none',
             'request_snapshot' => $prepared['provider_payload'],
             'upstream_usage' => [],
@@ -121,6 +125,9 @@ class AigcPersonReplacementService
                 'task_id' => (int)$task['id'],
                 'mode' => $prepared['mode'],
                 'duration' => $prepared['duration'],
+                'price_source' => $estimate['price_source'],
+                'market_product_id' => $estimate['market_product_id'],
+                'market_sku_id' => $estimate['market_sku_id'],
             ]);
             $locked->save([
                 'provider_task_id' => $result->taskId,
@@ -313,20 +320,37 @@ class AigcPersonReplacementService
         ];
     }
 
-    private static function buildEstimate(array $prepared): array
+    private static function buildEstimate(int $tenantId, array $prepared): array
+    {
+        $marketQuote = MarketAppCostPricingService::quote(self::UPSTREAM_APP_CODE, [
+            'tenant_id' => $tenantId,
+            'api_code' => 'submit',
+            'mode' => $prepared['mode'],
+            'face_count' => $prepared['face_count'],
+            'duration' => $prepared['duration'],
+        ]);
+        return self::buildEstimateFromQuote($prepared, $marketQuote);
+    }
+
+    private static function buildEstimateFromQuote(array $prepared, array $marketQuote): array
     {
         $unitPrice = (float)($prepared['config']['price_matrix'][$prepared['mode']] ?? self::MODES[$prepared['mode']]['price'] ?? 1);
         $duration = max(0.01, (float)$prepared['duration']);
-        $points = round($unitPrice * $duration, 2);
+        $userPoints = round($unitPrice * $duration, 2);
         return [
             'mode' => $prepared['mode'],
             'mode_label' => $prepared['mode_label'],
             'face_count' => $prepared['face_count'],
             'duration' => $duration,
             'unit_price' => round($unitPrice, 2),
-            'tenant_cost_points' => $points,
-            'user_charge_points' => $points,
-            'display_points' => $points,
+            'platform_unit_cost' => (float)$marketQuote['platform_unit_cost'],
+            'tenant_cost_points' => (float)$marketQuote['tenant_cost_points'],
+            'user_charge_points' => $userPoints,
+            'display_points' => $userPoints,
+            'price_source' => (string)$marketQuote['price_source'],
+            'market_product_id' => (int)$marketQuote['market_product_id'],
+            'market_sku_id' => (int)$marketQuote['market_sku_id'],
+            'pricing_snapshot' => $marketQuote['market_snapshot'],
         ];
     }
 

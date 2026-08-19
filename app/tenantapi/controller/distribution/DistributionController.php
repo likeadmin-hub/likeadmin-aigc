@@ -84,9 +84,9 @@ class DistributionController extends BaseAdminController
         $count = (clone $query)->count();
         $rows = $query->order('r.id desc')->page(max(1, $page), max(1, min(100, $size)))->select()->toArray();
         $userIds = array_values(array_filter(array_unique(array_map('intval', array_column($rows, 'user_id')))));
-        $teamCounts = [1 => [], 2 => [], 3 => []];
+        $teamCounts = [1 => [], 2 => []];
         if (!empty($userIds)) {
-            foreach ([1, 2, 3] as $level) {
+            foreach ([1, 2] as $level) {
                 $field = 'level' . $level . '_user_id';
                 $teamCounts[$level] = \think\facade\Db::name('distribution_relation')
                     ->where('tenant_id', $this->tenantId)
@@ -99,7 +99,6 @@ class DistributionController extends BaseAdminController
             $userId = (int)$row['user_id'];
             $row['level1_count'] = (int)($teamCounts[1][$userId] ?? 0);
             $row['level2_count'] = (int)($teamCounts[2][$userId] ?? 0);
-            $row['level3_count'] = (int)($teamCounts[3][$userId] ?? 0);
         }
         unset($row);
         return $this->success('获取成功', ['count' => $count, 'lists' => $rows]);
@@ -113,9 +112,8 @@ class DistributionController extends BaseAdminController
             ->leftJoin('user u', 'u.id = r.user_id')
             ->leftJoin('user p1', 'p1.id = r.level1_user_id')
             ->leftJoin('user p2', 'p2.id = r.level2_user_id')
-            ->leftJoin('user p3', 'p3.id = r.level3_user_id')
             ->where('r.tenant_id', $this->tenantId)
-            ->field('r.*,u.nickname,u.account,u.mobile,u.avatar,p1.nickname as level1_name,p2.nickname as level2_name,p3.nickname as level3_name');
+            ->field('r.*,u.nickname,u.account,u.mobile,u.avatar,p1.nickname as level1_name,p2.nickname as level2_name');
         $keyword = trim((string)$this->request->get('user_info', $this->request->get('keyword', '')));
         if ($keyword !== '') {
             $query->whereLike('u.nickname|u.account|u.mobile|r.invite_code', '%' . $keyword . '%');
@@ -123,11 +121,11 @@ class DistributionController extends BaseAdminController
         $userId = (int)$this->request->get('user_id', 0);
         if ($userId > 0) {
             $query->where(function ($q) use ($userId) {
-                $q->where('r.user_id', $userId)->whereOr('r.level1_user_id', $userId)->whereOr('r.level2_user_id', $userId)->whereOr('r.level3_user_id', $userId);
+                $q->where('r.user_id', $userId)->whereOr('r.level1_user_id', $userId)->whereOr('r.level2_user_id', $userId);
             });
         }
         $level = (int)$this->request->get('level', 0);
-        if ($level >= 1 && $level <= 3) {
+        if ($level >= 1 && $level <= 2) {
             $query->where('r.level' . $level . '_user_id', '>', 0);
         }
         $count = (clone $query)->count();

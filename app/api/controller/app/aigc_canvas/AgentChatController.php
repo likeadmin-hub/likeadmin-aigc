@@ -20,7 +20,7 @@ class AgentChatController extends BaseApiController
     public function threadCreate()
     {
         try {
-            return $this->success('created', AigcCanvasAgentRuntimeService::createThread((int)$this->request->tenantId, $this->userId, $this->request->post()), 1, 1);
+            return $this->success('创建成功', AigcCanvasAgentRuntimeService::createThread((int)$this->request->tenantId, $this->userId, $this->request->post()), 1, 1);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -253,13 +253,20 @@ class AgentChatController extends BaseApiController
     {
         try {
             $params = $this->request->post();
-            return $this->success('success', DeliveryItemService::transition(
-                (int)$this->request->tenantId,
-                $this->userId,
-                (int)($params['delivery_item_id'] ?? $params['item_id'] ?? 0),
-                (string)($params['status'] ?? ''),
-                (array)($params['patch'] ?? [])
-            ));
+            $action = (string)($params['action'] ?? '');
+            if (!in_array($action, ['fill_slot', 'select_option', 'approve_strategy', 'approve_visual_generation', 'revise_item', 'confirm_execution', 'retry_item', 'cancel_item', 'import_asset'], true)) {
+                throw new Exception('Direct delivery item status transitions are not supported');
+            }
+            if ($action === 'import_asset') {
+                return $this->success('success', ExternalAssetImportService::importImage(
+                    (int)$this->request->tenantId,
+                    $this->userId,
+                    (int)($params['delivery_item_id'] ?? $params['item_id'] ?? 0),
+                    (string)($params['url'] ?? ''),
+                    $params
+                ));
+            }
+            return $this->deliveryItemAction();
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -272,12 +279,18 @@ class AgentChatController extends BaseApiController
             $itemId = (int)($params['delivery_item_id'] ?? $params['item_id'] ?? 0);
             $item = DeliveryItemService::find((int)$this->request->tenantId, $this->userId, $itemId);
             if ($item === []) throw new Exception('Delivery item not found');
+            if ((string)($params['action'] ?? '') === 'cancel_item') {
+                return $this->success('success', DeliveryGraphExecutor::cancel((int)$this->request->tenantId, $this->userId, $itemId));
+            }
             $resolution = PendingActionProtocol::resolve($item, $params, (string)($params['content'] ?? ''));
             if ($resolution === []) throw new Exception('No matching pending action');
             $item = DeliveryItemService::transition((int)$this->request->tenantId, $this->userId, $itemId, (string)$resolution['status'], (array)$resolution['patch']);
             if (!empty($resolution['accepted'])) {
                 $type = (string)($resolution['action']['type'] ?? '');
-                if ($type === 'confirm_execution') $item = DeliveryGraphExecutor::execute((int)$this->request->tenantId, $this->userId, $itemId);
+                if (in_array($type, ['confirm_execution', 'approve_visual_generation'], true)
+                    && in_array((string)($item['tool_code'] ?? ''), ['generate_image', 'generate_video', 'generate_music'], true)) {
+                    $item = DeliveryGraphExecutor::execute((int)$this->request->tenantId, $this->userId, $itemId);
+                }
                 if ($type === 'retry_item' || ($type === 'resolve_failure' && (string)(($params['structured_value']['resolution'] ?? '') ?: '') === 'retry')) {
                     $item = DeliveryGraphExecutor::retry((int)$this->request->tenantId, $this->userId, $itemId);
                 }

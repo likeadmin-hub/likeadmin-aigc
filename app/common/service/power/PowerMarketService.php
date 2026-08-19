@@ -24,6 +24,18 @@ class PowerMarketService
         ];
     }
 
+    /** @return array<int, array{id:int,code:string,name:string}> */
+    public static function appCategories(): array
+    {
+        return [
+            ['id' => 1, 'code' => 'text', 'name' => '文本生成'],
+            ['id' => 2, 'code' => 'image', 'name' => '图片生成'],
+            ['id' => 3, 'code' => 'video', 'name' => '视频生成'],
+            ['id' => 4, 'code' => 'audio', 'name' => '音频生成'],
+            ['id' => 5, 'code' => 'other', 'name' => '其他'],
+        ];
+    }
+
     public static function detail(int $id): array
     {
         $product = PowerMarketProduct::findOrEmpty($id);
@@ -100,7 +112,7 @@ class PowerMarketService
      *
      * @return array{lists: array<int, array<string, mixed>>, count: int}
      */
-    public static function apps(string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15): array
+    public static function apps(string $keyword = '', $status = '', int $pageNo = 1, int $pageSize = 15, string $categoryCode = ''): array
     {
         $products = PowerMarketProduct::where('resource_type', self::TYPE_APP_API)
             ->order(['status' => 'desc', 'update_time' => 'desc', 'id' => 'desc'])
@@ -116,6 +128,10 @@ class PowerMarketService
         }
         if ($status !== '' && $status !== null) {
             $groups = array_values(array_filter($groups, static fn (array $item): bool => (int)$item['status'] === (int)$status));
+        }
+        $categoryCode = strtolower(trim($categoryCode));
+        if ($categoryCode !== '') {
+            $groups = array_values(array_filter($groups, static fn (array $item): bool => (string)($item['category_code'] ?? '') === $categoryCode));
         }
         $count = count($groups);
         $pageNo = max(1, $pageNo);
@@ -182,6 +198,7 @@ class PowerMarketService
                     $emptyModelTypes[] = $modelType;
                 }
                 foreach ($remoteModels as $model) {
+                    $model = self::mergeDeveloperDocModelDetail($model);
                     $code = trim((string)($model['model_code'] ?? $model['code'] ?? ''));
                     if ($code === '') {
                         continue;
@@ -223,6 +240,9 @@ class PowerMarketService
                     'capabilities' => (array)($model['capabilities'] ?? []),
                     'input_modalities' => (array)($model['input_modalities'] ?? []),
                     'supports_vision' => !empty($model['supports_vision']),
+                    'developer_doc_slug' => trim((string)($model['developer_doc_slug'] ?? '')),
+                    'api_doc' => trim((string)($model['api_doc'] ?? '')),
+                    'developer_doc_content' => trim((string)($model['developer_doc_content'] ?? '')),
                     // Keep the complete model response. New provider capability fields
                     // must be available to the market without another schema release.
                     'upstream_metadata' => $model,
@@ -319,7 +339,14 @@ class PowerMarketService
                 $type = (string)($item['type'] ?? '');
                 $pricing = (array)($item['pricing_v2'] ?? []);
                 $skuItems = array_values(array_filter((array)($pricing['items'] ?? []), 'is_array'));
-                $available = !empty($item['available']) && $skuItems !== [];
+                // A query API is a lifecycle endpoint, not a billable product:
+                // it legitimately has no pricing_v2 SKU rows. Keep it
+                // published when upstream confirms availability so runtimes
+                // can verify the submit API has a complete task loop.
+                $isLifecycleApi = $type === self::TYPE_APP_API
+                    && strtolower(trim((string)($resource['api_code'] ?? ''))) === 'query'
+                    && !empty($item['available']);
+                $available = !empty($item['available']) && ($skuItems !== [] || $isLifecycleApi);
                 $product = self::upsertProduct($type, $resource, $item, $available);
                 if ($product === null) {
                     $summary['unavailable']++;
@@ -390,15 +417,21 @@ class PowerMarketService
     }
 
     /**
-     * Store app/API capability data verbatim. Missing ratio or duration data
+     * Store app/API capability data verbatim while also flattening the fields
+     * that downstream selectors depend on. Missing ratio or duration data
      * remains missing: the market must never invent configurable parameters.
      */
     private static function appApiMetadata(array $app, array $api): array
     {
-        $capabilities = array_merge(
-            self::arrayValue($app['capabilities'] ?? []),
-            self::arrayValue($api['capabilities'] ?? [])
-        );
+        $api = self::mergeDeveloperDocAppApiDetail($app, $api);
+        $appCapabilities = self::arrayValue($app['capabilities'] ?? []);
+        $apiCapabilities = self::arrayValue($api['capabilities'] ?? []);
+        $capabilities = $appCapabilities;
+        foreach ($apiCapabilities as $key => $value) {
+            if (self::metadataValuePresent($value) || !array_key_exists($key, $capabilities)) {
+                $capabilities[$key] = $value;
+            }
+        }
         $metadata = [
             'app_name' => trim((string)($app['name'] ?? $app['title'] ?? $app['code'] ?? '')),
             'app_description' => trim((string)($app['description'] ?? $app['remark'] ?? '')),
@@ -407,24 +440,279 @@ class PowerMarketService
             'call_type' => (int)($api['call_type'] ?? 0),
             'method' => strtoupper(trim((string)($api['method'] ?? ''))),
             'params_schema' => self::arrayValue($api['params_schema'] ?? []),
+            'default_params' => self::arrayValue($api['default_params'] ?? []),
+            'pricing_v2' => self::compactPricingV2(self::arrayValue($api['pricing_v2'] ?? [])),
+            'api_doc' => trim((string)($api['api_doc'] ?? '')),
+            'developer_doc_content' => trim((string)($api['developer_doc_content'] ?? '')),
+            'content_schema' => self::arrayValue($api['content_schema'] ?? []),
+            'developer_doc_slug' => trim((string)($api['developer_doc_slug'] ?? '')),
             'capabilities' => $capabilities,
-            'upstream_app_metadata' => $app,
-            'upstream_api_metadata' => $api,
+            'upstream_app_metadata' => self::compactAppMetadata($app),
+            'upstream_api_metadata' => self::compactApiMetadata($api),
         ];
+        $category = self::categoryFields([$app, $api, $appCapabilities, $apiCapabilities]);
+        $metadata['category_id'] = $category['id'];
+        $metadata['category_code'] = $category['code'];
+        $metadata['category_name'] = $category['name'];
+        $metadata['category'] = $category;
         foreach ([
             'supported_ratios', 'ratio_options', 'ratios', 'aspect_ratio',
             'supported_durations', 'duration_options', 'durations',
-            'supported_asset_types', 'generation_modes',
+            'default_params',
+            'supported_asset_types', 'input_modes', 'generation_modes',
             'supports_first_last_frame', 'supports_reference_images',
             'supports_vision', 'supports_reasoning',
             'max_reference_images', 'max_reference_audios', 'max_reference_videos',
             'max_reference_assets',
         ] as $field) {
-            if (array_key_exists($field, $api)) {
-                $metadata[$field] = $api[$field];
+            foreach ([$api, $app, $apiCapabilities, $appCapabilities] as $source) {
+                if (array_key_exists($field, $source) && self::metadataValuePresent($source[$field])) {
+                    $metadata[$field] = $source[$field];
+                    continue 2;
+                }
             }
         }
         return $metadata;
+    }
+
+    private static function metadataValuePresent($value): bool
+    {
+        if ($value === null) {
+            return false;
+        }
+        if (is_string($value)) {
+            return trim($value) !== '';
+        }
+        if (is_array($value)) {
+            return $value !== [];
+        }
+        return true;
+    }
+
+    private static function mergeDeveloperDocAppApiDetail(array $app, array $api): array
+    {
+        $appCode = trim((string)($app['code'] ?? $app['app_code'] ?? ''));
+        $apiCode = trim((string)($api['code'] ?? $api['api_code'] ?? ''));
+        if ($appCode === '' || $apiCode === '') {
+            return $api;
+        }
+        $detail = self::developerDocDetailForAppApi($appCode, $apiCode, (int)($api['id'] ?? $api['api_id'] ?? 0));
+        $pricing = self::arrayValue($detail['api_pricing'] ?? []);
+        $doc = self::arrayValue($detail['doc'] ?? []);
+        if ($pricing === [] && $doc === []) {
+            return $api;
+        }
+        foreach ([
+            'params_schema', 'default_params', 'pricing_v2', 'supports_vision',
+            'supports_reasoning', 'max_reference_images', 'max_reference_audios',
+            'max_reference_videos', 'pricing_rules', 'pricing_matrix',
+        ] as $field) {
+            if (!self::metadataValuePresent($api[$field] ?? null) && self::metadataValuePresent($pricing[$field] ?? null)) {
+                $api[$field] = $pricing[$field];
+            }
+        }
+        if (!self::metadataValuePresent($api['api_doc'] ?? null) && self::metadataValuePresent($pricing['api_doc'] ?? null)) {
+            $api['api_doc'] = $pricing['api_doc'];
+        }
+        if (self::metadataValuePresent($doc['content'] ?? null)) {
+            $api['developer_doc_content'] = (string)$doc['content'];
+        }
+        $contentSchema = self::contentSchemaFromDeveloperDoc((string)($doc['content'] ?? ''));
+        if ($contentSchema !== []) {
+            $api['content_schema'] = $contentSchema;
+        }
+        if (self::metadataValuePresent($doc['slug'] ?? null)) {
+            $api['developer_doc_slug'] = $doc['slug'];
+        }
+        return $api;
+    }
+
+    private static function mergeDeveloperDocModelDetail(array $model): array
+    {
+        $detail = self::developerDocDetailForModel($model);
+        $pricing = self::arrayValue($detail['model_pricing'] ?? []);
+        $doc = self::arrayValue($detail['doc'] ?? []);
+        if ($pricing === [] && $doc === []) {
+            return $model;
+        }
+        foreach ([
+            'params_schema', 'default_params', 'supports_vision', 'supports_reasoning',
+            'max_reference_images', 'max_reference_audios', 'max_reference_videos',
+            'max_tokens', 'protocol', 'protocols',
+        ] as $field) {
+            if (!self::metadataValuePresent($model[$field] ?? null) && self::metadataValuePresent($pricing[$field] ?? null)) {
+                $model[$field] = $pricing[$field];
+            }
+        }
+        if (!self::metadataValuePresent($model['api_doc'] ?? null) && self::metadataValuePresent($pricing['api_doc'] ?? null)) {
+            $model['api_doc'] = $pricing['api_doc'];
+        }
+        if (self::metadataValuePresent($doc['content'] ?? null)) {
+            $model['developer_doc_content'] = (string)$doc['content'];
+        }
+        if (self::metadataValuePresent($doc['slug'] ?? null)) {
+            $model['developer_doc_slug'] = $doc['slug'];
+        }
+        return $model;
+    }
+
+    private static function developerDocDetailForAppApi(string $appCode, string $apiCode, int $apiId = 0): array
+    {
+        static $cache = [];
+        $slug = $apiId > 0 ? (self::developerDocSlugMaps()['app_api'][$apiId] ?? '') : '';
+        if ($slug === '') {
+            $slug = str_replace('_', '-', strtolower($appCode)) . '-' . str_replace('_', '-', strtolower($apiCode));
+        }
+        if (array_key_exists($slug, $cache)) {
+            return $cache[$slug];
+        }
+        try {
+            $detail = UpstreamPricingService::queryDeveloperDocDetail($slug);
+            $cache[$slug] = is_array($detail) ? $detail : [];
+        } catch (\Throwable) {
+            $cache[$slug] = [];
+        }
+        return $cache[$slug];
+    }
+
+    private static function developerDocDetailForModel(array $model): array
+    {
+        static $cache = [];
+        $pricing = self::arrayValue($model['pricing'] ?? []);
+        $pricingV2 = self::arrayValue($pricing['pricing_v2'] ?? []);
+        $modelId = (int)($model['ai_model_id'] ?? $model['model_id'] ?? $pricingV2['resource_id'] ?? 0);
+        $slug = $modelId > 0 ? (self::developerDocSlugMaps()['model'][$modelId] ?? '') : '';
+        if ($slug === '') {
+            return [];
+        }
+        if (array_key_exists($slug, $cache)) {
+            return $cache[$slug];
+        }
+        try {
+            $detail = UpstreamPricingService::queryDeveloperDocDetail($slug);
+            $cache[$slug] = is_array($detail) ? $detail : [];
+        } catch (\Throwable) {
+            $cache[$slug] = [];
+        }
+        return $cache[$slug];
+    }
+
+    private static function developerDocSlugMaps(): array
+    {
+        static $maps = null;
+        if ($maps !== null) {
+            return $maps;
+        }
+        $maps = ['app_api' => [], 'model' => []];
+        try {
+            self::collectDeveloperDocSlugs(UpstreamPricingService::queryDeveloperDocTree(), $maps);
+        } catch (\Throwable) {
+        }
+        return $maps;
+    }
+
+    private static function collectDeveloperDocSlugs(array $nodes, array &$maps): void
+    {
+        foreach ($nodes as $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            $slug = trim((string)($node['slug'] ?? ''));
+            $apiId = (int)($node['ai_app_api_id'] ?? 0);
+            $modelId = (int)($node['ai_model_id'] ?? 0);
+            if ($slug !== '' && $apiId > 0) {
+                $maps['app_api'][$apiId] = $slug;
+            }
+            if ($slug !== '' && $modelId > 0) {
+                $maps['model'][$modelId] = $slug;
+            }
+            self::collectDeveloperDocSlugs((array)($node['children'] ?? []), $maps);
+        }
+    }
+
+    private static function compactAppMetadata(array $app): array
+    {
+        return array_intersect_key($app, array_flip([
+            'id', 'name', 'title', 'code', 'description', 'remark', 'icon',
+            'driver_code', 'billing_mode', 'category_id', 'category_name',
+            'category_code', 'tenant_sort', 'capabilities',
+        ]));
+    }
+
+    private static function compactApiMetadata(array $api): array
+    {
+        return array_intersect_key($api, array_flip([
+            'id', 'code', 'name', 'title', 'description', 'category_id',
+            'category_name', 'category_code', 'call_type', 'method',
+            'supports_vision', 'supports_reasoning', 'max_reference_images',
+            'max_reference_audios', 'max_reference_videos', 'capabilities',
+            'developer_doc_slug',
+        ]));
+    }
+
+    private static function contentSchemaFromDeveloperDoc(string $content): array
+    {
+        if (trim($content) === '' || mb_stripos($content, 'content 元素', 0, 'UTF-8') === false) {
+            return [];
+        }
+        $items = [];
+        foreach ([
+            'text' => ['asset_type' => 'text', 'roles' => [], 'required_field' => 'text'],
+            'image_url' => ['asset_type' => 'image', 'roles' => ['first_frame', 'last_frame', 'reference_image'], 'required_field' => 'image_url.url'],
+            'video_url' => ['asset_type' => 'video', 'roles' => ['reference_video'], 'required_field' => 'video_url.url'],
+            'audio_url' => ['asset_type' => 'audio', 'roles' => ['reference_audio'], 'required_field' => 'audio_url.url'],
+        ] as $type => $definition) {
+            if (mb_stripos($content, '`' . $type . '`', 0, 'UTF-8') !== false || mb_stripos($content, $type, 0, 'UTF-8') !== false) {
+                $items[$type] = $definition;
+            }
+        }
+        $limits = [];
+        if (preg_match('/首帧(?:和|、|\/)?尾帧[^。；;\\n]{0,20}各最多\\s*(\\d+)/iu', $content, $match)) {
+            $limits['first_frame'] = (int)$match[1];
+            $limits['last_frame'] = (int)$match[1];
+        }
+        if (preg_match('/参考视频(?:和|、|\/)?参考音频[^。；;\\n]{0,20}各最多\\s*(\\d+)/iu', $content, $match)) {
+            $limits['reference_video'] = (int)$match[1];
+            $limits['reference_audio'] = (int)$match[1];
+        }
+        foreach ([
+            'first_frame' => ['首帧', 'first_frame'],
+            'last_frame' => ['尾帧', 'last_frame'],
+            'reference_image' => ['参考图', '参考图片', 'reference_image'],
+            'reference_video' => ['参考视频', 'reference_video'],
+            'reference_audio' => ['参考音频', 'reference_audio'],
+        ] as $role => $needles) {
+            if (isset($limits[$role])) {
+                continue;
+            }
+            foreach ($needles as $needle) {
+                if (preg_match('/' . preg_quote($needle, '/') . '[^。；;，,\\n]{0,40}最多\\s*(\\d+)/iu', $content, $match)) {
+                    $limits[$role] = (int)$match[1];
+                    break;
+                }
+            }
+        }
+        foreach ([
+            'reference_image' => 'image_url',
+            'reference_video' => 'video_url',
+            'reference_audio' => 'audio_url',
+        ] as $role => $type) {
+            if (isset($limits[$role]) || mb_stripos($content, '`' . $type . '`', 0, 'UTF-8') === false) {
+                continue;
+            }
+            if (preg_match('/`' . preg_quote($type, '/') . '`[\\s\\S]{0,360}最多\\s*(\\d+)/iu', $content, $match)) {
+                $limits[$role] = (int)$match[1];
+            }
+        }
+        return [
+            'items' => $items,
+            'limits' => $limits,
+            'rules' => [
+                'requires_text' => mb_stripos($content, '至少一个非空文本项', 0, 'UTF-8') !== false,
+                'frame_and_reference_mutually_exclusive' => mb_stripos($content, '互斥', 0, 'UTF-8') !== false,
+                'reference_audio_requires_visual' => mb_stripos($content, '不能只传音频', 0, 'UTF-8') !== false,
+            ],
+        ];
     }
 
     /**
@@ -629,10 +917,33 @@ class PowerMarketService
     {
         $product['type_text'] = self::productTypes()[$product['resource_type'] ?? ''] ?? '';
         $product['status_text'] = (int)($product['status'] ?? 0) === 1 ? '上架' : '下架';
+        if (($product['resource_type'] ?? '') === self::TYPE_APP_API) {
+            $product = array_merge($product, self::appCategory($product));
+        }
         $capability = self::capability($product);
         $product['capability'] = $capability;
         $product['capability_tags'] = self::capabilityTags($capability);
         return $product;
+    }
+
+    /** @return array{category_id:int,category_code:string,category_name:string,category:array{id:int,code:string,name:string}} */
+    public static function appCategory(array $product): array
+    {
+        $snapshot = self::arrayValue($product['source_payload'] ?? []);
+        $metadata = self::arrayValue($snapshot['market_metadata'] ?? []);
+        $category = self::categoryFields([
+            self::arrayValue($metadata['upstream_app_metadata'] ?? []),
+            self::arrayValue($metadata['upstream_api_metadata'] ?? []),
+            $metadata,
+            self::arrayValue($snapshot['resource'] ?? []),
+            self::arrayValue($snapshot['raw'] ?? []),
+        ]);
+        return [
+            'category_id' => $category['id'],
+            'category_code' => $category['code'],
+            'category_name' => $category['name'],
+            'category' => $category,
+        ];
     }
 
     /**
@@ -889,14 +1200,24 @@ class PowerMarketService
         return [
             'type' => (string)($item['type'] ?? ''),
             'resource' => (array)($item['resource'] ?? []),
-            'pricing_v2' => (array)($item['pricing_v2'] ?? []),
+            'pricing_v2' => self::compactPricingV2((array)($item['pricing_v2'] ?? [])),
             'price_view' => (array)($item['price_view'] ?? []),
             'pricing_source' => (array)($item['pricing_source'] ?? []),
             'market_metadata' => (array)($item['market_metadata'] ?? []),
-            // UpstreamPricingService has already removed secret values. Keep the
-            // remaining source fields for forward-compatible capability parsing.
-            'raw' => (array)($item['raw'] ?? []),
             'synced_at' => date('c'),
+        ];
+    }
+
+    private static function compactPricingV2(array $pricing): array
+    {
+        if ($pricing === []) {
+            return [];
+        }
+        return [
+            'resource_type' => (string)($pricing['resource_type'] ?? ''),
+            'resource_id' => (int)($pricing['resource_id'] ?? 0),
+            'billing_mode' => (string)($pricing['billing_mode'] ?? ''),
+            'attributes' => array_values(array_filter((array)($pricing['attributes'] ?? []), 'is_array')),
         ];
     }
 
@@ -934,10 +1255,20 @@ class PowerMarketService
             $resource = (array)($snapshot['resource'] ?? []);
             $metadata = (array)($snapshot['market_metadata'] ?? []);
             if (!isset($groups[$appCode])) {
+                $category = self::categoryFields([
+                    self::arrayValue($metadata['upstream_app_metadata'] ?? []),
+                    self::arrayValue($metadata['upstream_api_metadata'] ?? []),
+                    $metadata,
+                    $resource,
+                ]);
                 $groups[$appCode] = [
                     'app_code' => $appCode,
                     'name' => trim((string)($resource['app_name'] ?? $metadata['app_name'] ?? $appCode)),
                     'description' => trim((string)($metadata['app_description'] ?? $resource['description'] ?? '')),
+                    'category_id' => $category['id'],
+                    'category_code' => $category['code'],
+                    'category_name' => $category['name'],
+                    'category' => $category,
                     'api_count' => 0,
                     'sku_count' => 0,
                     'min_price' => null,
@@ -971,6 +1302,90 @@ class PowerMarketService
         unset($group);
         usort($groups, static fn (array $left, array $right): int => [$right['status'], $right['update_time'], $left['app_code']] <=> [$left['status'], $left['update_time'], $right['app_code']]);
         return $groups;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $sources
+     * @return array{id:int,code:string,name:string}
+     */
+    private static function categoryFields(array $sources): array
+    {
+        $id = 0;
+        $code = '';
+        $name = '';
+        foreach ($sources as $source) {
+            if (!is_array($source)) {
+                continue;
+            }
+            $nested = is_array($source['category'] ?? null) ? $source['category'] : [];
+            // Only explicit category fields are valid. The generic id/code/name
+            // fields belong to the app/API itself in legacy snapshots.
+            $values = [
+                'category_id' => $source['category_id'] ?? $nested['id'] ?? null,
+                'category_code' => $source['category_code'] ?? $nested['code'] ?? null,
+                'category_name' => $source['category_name'] ?? $nested['name'] ?? $nested['title'] ?? null,
+            ];
+            if ($id <= 0) {
+                $id = max(0, (int)($values['category_id'] ?? 0));
+            }
+            if ($code === '') {
+                $code = trim((string)($values['category_code'] ?? ''));
+            }
+            if ($name === '') {
+                $name = trim((string)($values['category_name'] ?? ''));
+            }
+            if ($id > 0 && $code !== '' && $name !== '') {
+                break;
+            }
+        }
+        if ($id <= 0 && $code === '' && $name === '') {
+            return ['id' => 0, 'code' => '', 'name' => ''];
+        }
+        return self::normalizeAppCategory($id, $code, $name);
+    }
+
+    /** @return array{id:int,code:string,name:string} */
+    private static function normalizeAppCategory(int $id, string $code, string $name): array
+    {
+        $code = strtolower(trim($code));
+        $normalized = str_replace(['-', ' '], '_', $code);
+        $aliases = [
+            'text' => ['text', 'text_generation', 'llm', 'language', 'language_generation'],
+            'image' => ['image', 'image_generation', 'image_edit', 'image_editing'],
+            'video' => ['video', 'video_generation', 'video_editing'],
+            'audio' => ['audio', 'audio_generation', 'music', 'music_generation', 'tts', 'speech'],
+            'other' => ['other', 'utility', 'tool'],
+        ];
+        $canonicalCode = '';
+        foreach ($aliases as $candidate => $values) {
+            if (in_array($normalized, $values, true)) {
+                $canonicalCode = $candidate;
+                break;
+            }
+        }
+        if ($canonicalCode === '') {
+            $canonicalCode = match ($id) {
+                1 => 'text',
+                2 => 'image',
+                3 => 'video',
+                4 => 'audio',
+                5 => 'other',
+                default => '',
+            };
+        }
+        if ($canonicalCode === '') {
+            $name = trim($name);
+            $canonicalCode = str_contains($name, '文本') ? 'text'
+                : (str_contains($name, '图片') ? 'image'
+                : (str_contains($name, '视频') ? 'video'
+                : (str_contains($name, '音频') || str_contains($name, '音乐') ? 'audio' : 'other')));
+        }
+        foreach (self::appCategories() as $category) {
+            if ($category['code'] === $canonicalCode) {
+                return $category;
+            }
+        }
+        return ['id' => 5, 'code' => 'other', 'name' => '其他'];
     }
 
     private static function skuSnapshot(array $sku): array

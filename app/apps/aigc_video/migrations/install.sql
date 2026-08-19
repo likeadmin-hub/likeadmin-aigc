@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_result` (
   `channel` varchar(64) NOT NULL DEFAULT '' COMMENT '通道',
   `quality` varchar(30) NOT NULL DEFAULT '' COMMENT '视频时长档位',
   `ratio` varchar(30) NOT NULL DEFAULT '' COMMENT '视频比例',
-  `video_uri` varchar(255) NOT NULL DEFAULT '',
+  `video_uri` text,
   `storage_scope` varchar(20) NOT NULL DEFAULT 'platform',
   `storage_engine` varchar(30) NOT NULL DEFAULT 'local',
   `storage_domain` varchar(255) NOT NULL DEFAULT '',

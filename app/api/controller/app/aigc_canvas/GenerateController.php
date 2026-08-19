@@ -85,6 +85,19 @@ class GenerateController extends BaseApiController
         }
     }
 
+    public function textQuery()
+    {
+        try {
+            $taskId = (int)$this->request->get('task_id', $this->request->post('task_id', 0));
+            if ($taskId <= 0) {
+                throw new Exception('缺少任务ID');
+            }
+            return $this->success('获取成功', $this->formatTextTask(AigcCanvasService::textTaskDetail((int)$this->request->tenantId, $this->userId, $taskId)));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function textStream()
     {
         @ini_set('zlib.output_compression', '0');
@@ -228,7 +241,12 @@ class GenerateController extends BaseApiController
 
     private function formatTextResult(array $result): array
     {
+        $taskId = (int)($result['task_id'] ?? $result['consumption_id'] ?? 0);
         return [
+            'task_id' => $taskId,
+            'taskId' => (string)$taskId,
+            'status' => (string)($result['status'] ?? (trim((string)($result['content'] ?? '')) === '' ? 'running' : 'success')),
+            'error' => (string)($result['error'] ?? ''),
             'content' => (string)($result['content'] ?? ''),
             'text' => (string)($result['content'] ?? ''),
             'model_code' => (string)($result['model_code'] ?? ''),
@@ -237,6 +255,26 @@ class GenerateController extends BaseApiController
             'usage' => $result['usage'] ?? [],
             'billing' => $result['billing'] ?? [],
             'charge_points' => $result['charge_points'] ?? '0.00',
+        ];
+    }
+
+    private function formatTextTask(array $task): array
+    {
+        $content = (string)($task['content'] ?? $task['text'] ?? '');
+        return [
+            'task_id' => (int)($task['task_id'] ?? $task['id'] ?? 0),
+            'taskId' => (string)($task['task_id'] ?? $task['id'] ?? ''),
+            'run_id' => (int)($task['run_id'] ?? 0),
+            'status' => (string)($task['status'] ?? ($content !== '' ? 'success' : '')),
+            'error' => (string)($task['error'] ?? ''),
+            'content' => $content,
+            'text' => $content,
+            'model_code' => (string)($task['model_code'] ?? ''),
+            'channel_code' => (string)($task['channel_code'] ?? ''),
+            'finish_reason' => (string)($task['finish_reason'] ?? ''),
+            'usage' => $task['usage'] ?? [],
+            'billing' => $task['billing'] ?? [],
+            'charge_points' => $task['charge_points'] ?? '0.00',
         ];
     }
 

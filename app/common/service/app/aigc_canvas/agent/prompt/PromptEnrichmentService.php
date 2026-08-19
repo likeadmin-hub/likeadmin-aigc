@@ -41,23 +41,34 @@ final class PromptEnrichmentService
             if ($draft === []) {
                 return $input;
             }
-            $input['original_user_request'] = $request;
-            $input['user_request'] = (string)$draft['description'];
-            $input['prompt'] = (string)$draft['description'];
-            $input['visual_direction'] = array_values(array_unique(array_merge(
-                self::strings($input['visual_direction'] ?? []),
-                (array)$draft['visual_direction']
-            )));
-            $input['prompt_enrichment'] = [
-                'applied' => true,
-                'version' => 'direct-visual-v1',
-                'original_request' => $request,
-                'description' => (string)$draft['description'],
-                'visual_direction' => (array)$draft['visual_direction'],
-            ];
+            $input = self::applyDraft($input, $draft);
         } catch (\Throwable) {
             // Enrichment improves quality but must not make a valid image request unavailable.
         }
+        return $input;
+    }
+
+    /**
+     * Applies a normalized enrichment draft without allowing it to replace the
+     * canonical request. The model draft is supplementary and can be imperfect;
+     * the user-requested subject and constraints must always reach the provider.
+     */
+    public static function applyDraft(array $input, array $draft): array
+    {
+        $request = self::request($input);
+        $originalRequest = trim((string)($input['original_user_request'] ?? $request));
+        $input['original_user_request'] = $originalRequest !== '' ? $originalRequest : $request;
+        $input['visual_direction'] = array_values(array_unique(array_merge(
+            self::strings($input['visual_direction'] ?? []),
+            self::strings($draft['visual_direction'] ?? [])
+        )));
+        $input['prompt_enrichment'] = [
+            'applied' => true,
+            'version' => 'direct-visual-v1',
+            'original_request' => $input['original_user_request'],
+            'description' => (string)($draft['description'] ?? ''),
+            'visual_direction' => self::strings($draft['visual_direction'] ?? []),
+        ];
         return $input;
     }
 

@@ -15,7 +15,7 @@ class ConfigController extends BaseAdminController
     public function setup()
     {
         try {
-            AigcMusicService::saveConfig(0, $this->request->post());
+            AigcMusicService::saveConfig(0, $this->request->param());
             return $this->success('保存成功', [], 1, 1);
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());

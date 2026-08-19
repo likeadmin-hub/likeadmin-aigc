@@ -25,7 +25,8 @@ class MarketController extends BaseAdminController
             (string)$this->request->get('keyword', ''),
             $this->request->get('status', ''),
             (int)$this->request->get('page_no', 1),
-            (int)$this->request->get('page_size', 15)
+            (int)$this->request->get('page_size', 15),
+            (string)$this->request->get('category_code', '')
         ));
     }
 

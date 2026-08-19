@@ -45,6 +45,7 @@ class MenuLogic extends BaseLogic
     public static function getMenuByAdminId($adminId)
     {
         $admin = Admin::findOrEmpty($adminId);
+        self::removeTutorialMenu();
 
         $where = [];
         $where[] = ['type', 'in', ['M', 'C']];
@@ -61,6 +62,22 @@ class MenuLogic extends BaseLogic
             ->toArray();
 
         return self::sortTopLevelTailMenus(linear_to_tree(self::filterSystemServiceMenus($menu), 'children'));
+    }
+
+    private static function removeTutorialMenu(): void
+    {
+        try {
+            $menuIds = SystemMenu::whereIn('source_menu_key', [
+                'core_platform_tutorial',
+                'core_platform_tutorial_save',
+            ])->column('id');
+            if (empty($menuIds)) {
+                return;
+            }
+            SystemRoleMenu::whereIn('menu_id', $menuIds)->delete();
+            SystemMenu::whereIn('id', $menuIds)->delete();
+        } catch (\Throwable) {
+        }
     }
 
     private static function filterSystemServiceMenus(array $menus): array

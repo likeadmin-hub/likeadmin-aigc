@@ -7,12 +7,13 @@ class AiTaskResultUrlService
 {
     private const URL_FIELDS = [
         'url', 'uri', 'src', 'href', 'link', 'file', 'fileurl', 'download', 'downloadurl',
-        'outputurl', 'sourceurl', 'originurl', 'imageurl', 'videourl', 'audiourl', 'mediaurl',
+        'outputurl', 'sourceurl', 'originurl', 'originalurl', 'resulturl', 'previewurl', 'thumbnailurl',
+        'image', 'imageurl', 'videourl', 'audiourl', 'mediaurl',
     ];
 
     private const CONTAINER_FIELDS = [
         'data', 'result', 'results', 'output', 'outputs', 'files', 'assets', 'media',
-        'images', 'videos', 'audios', 'items', 'content', 'response', 'task', 'file',
+        'images', 'videos', 'audios', 'items', 'content', 'response', 'task', 'file', 'payload',
     ];
 
     /** @return array<int,string> */

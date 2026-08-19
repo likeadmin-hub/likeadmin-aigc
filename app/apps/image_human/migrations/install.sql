@@ -31,6 +31,16 @@ CREATE TABLE IF NOT EXISTS `la_image_human_task` (
   `provider` varchar(50) NOT NULL DEFAULT 'xhadmin',
   `model` varchar(100) NOT NULL DEFAULT 'image_human',
   `provider_task_id` varchar(120) NOT NULL DEFAULT '',
+  `app_task_id` int unsigned NOT NULL DEFAULT 0,
+  `consumption_id` int unsigned NOT NULL DEFAULT 0,
+  `market_product_id` int unsigned NOT NULL DEFAULT 0,
+  `market_sku_id` int unsigned NOT NULL DEFAULT 0,
+  `pricing_snapshot` text,
+  `idempotency_key` varchar(100) DEFAULT NULL,
+  `market_request_id` varchar(120) NOT NULL DEFAULT '',
+  `market_retry_count` tinyint unsigned NOT NULL DEFAULT 0,
+  `billing_status` varchar(30) NOT NULL DEFAULT 'none',
+  `market_error_code` varchar(80) NOT NULL DEFAULT '',
   `provider_stage` varchar(30) NOT NULL DEFAULT '' COMMENT '供应商阶段',
   `tts_task_id` varchar(120) NOT NULL DEFAULT '' COMMENT '音频合成任务ID',
   `provider_payload_json` text COMMENT '供应商提交/查询载荷',
@@ -44,6 +54,10 @@ CREATE TABLE IF NOT EXISTS `la_image_human_task` (
   PRIMARY KEY (`id`),
   KEY `idx_tenant_user` (`tenant_id`,`user_id`,`delete_time`),
   KEY `idx_provider_task` (`tenant_id`,`provider`,`provider_task_id`),
+  KEY `idx_market_app_task` (`app_task_id`),
+  KEY `idx_market_consumption` (`consumption_id`),
+  KEY `idx_market_request` (`market_request_id`),
+  KEY `idx_market_idempotency` (`tenant_id`,`user_id`,`idempotency_key`),
   KEY `idx_status` (`tenant_id`,`status`,`delete_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='全驱动数字人生成任务';
 

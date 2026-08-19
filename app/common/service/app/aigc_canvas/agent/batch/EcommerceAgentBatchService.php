@@ -11,8 +11,8 @@ use app\common\service\app\aigc_canvas\AigcCanvasService;
 use app\common\service\app\aigc_canvas\agent\planning\EcommerceDetailSectionPlanner;
 use app\common\service\app\aigc_canvas\agent\planning\RevisionPlanner;
 use app\common\service\app\aigc_canvas\agent\prompt\PromptSpecCompiler;
-use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemService;
-use app\common\service\app\aigc_canvas\agent\delivery\PendingActionProtocol;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemTaskSyncService;
+use app\common\service\app\aigc_canvas\agent\runtime\AgentResponseProtocol;
 use Exception;
 use think\facade\Db;
 
@@ -581,10 +581,11 @@ final class EcommerceAgentBatchService
                     'url' => '',
                     'error' => '',
                 ];
-                self::syncDeliveryItem($tenantId, $userId, $deliveryItemId, 'running', [
-                    'task_snapshot_json' => ['task_id' => (string)($tool['provider_task_id'] ?? $tool['output']['task_id'] ?? ''), 'input' => (array)($tool['input'] ?? $input), 'tool_call_id' => (int)($tool['id'] ?? 0)],
-                    'provider_request_id' => (string)($tool['output']['request_id'] ?? $input['request_id']),
-                    'result_json' => ['workspace_actions' => (array)($result['workspace_actions'] ?? [])],
+                DeliveryItemTaskSyncService::syncAgentToolCall($tenantId, $userId, (int)($tool['id'] ?? 0), [
+                    'status' => 'running',
+                    'task_id' => (string)($tool['provider_task_id'] ?? $tool['output']['task_id'] ?? ''),
+                    'request_id' => (string)($tool['output']['request_id'] ?? $input['request_id']),
+                    'submitted_input' => (array)($tool['input'] ?? $input),
                 ]);
             } catch (Exception $e) {
                 $tasks[] = [
@@ -604,9 +605,11 @@ final class EcommerceAgentBatchService
                     'url' => '',
                     'error' => $e->getMessage(),
                 ];
-                self::syncDeliveryItem($tenantId, $userId, $deliveryItemId, 'failed', [
-                    'error' => $e->getMessage(), 'provider_error_code' => 'provider_submit', 'provider_error_message' => $e->getMessage(),
-                ]);
+                DeliveryItemTaskSyncService::syncGenerationTask($tenantId, $userId, [
+                    'status' => 'failed',
+                    'error_code' => 'provider_submit',
+                    'error_message' => $e->getMessage(),
+                ], $deliveryItemId);
             }
         }
         $batchModel = self::batchQuery($tenantId, $userId, (int)$batch['id'])->findOrEmpty();
@@ -661,11 +664,11 @@ final class EcommerceAgentBatchService
                 $task['url'] = $url;
                 $task['error'] = (string)($detail['error'] ?? '');
                 self::syncWorkspaceAction($tenantId, $userId, $task, $detail);
-                self::syncDeliveryItem($tenantId, $userId, (int)($task['delivery_item_id'] ?? 0), match ($status) {
-                    'success' => 'completed', 'cancelled' => 'canceled', default => $status,
-                }, [
-                    'result_json' => ['url' => $url, 'detail' => $detail], 'error' => (string)($detail['error'] ?? ''),
-                    'provider_error_message' => (string)($detail['error'] ?? ''),
+                DeliveryItemTaskSyncService::syncAgentToolCall($tenantId, $userId, (int)($task['tool_call_id'] ?? 0), [
+                    'status' => $status,
+                    'task_id' => (string)($task['task_id'] ?? ''),
+                    'result_assets' => $url === '' ? [] : [['url' => $url]],
+                    'error_message' => (string)($detail['error'] ?? ''),
                 ]);
                 $changed = true;
             } catch (Exception $e) {
@@ -872,24 +875,6 @@ final class EcommerceAgentBatchService
         $batch->save(['scope_json' => $scope, 'update_time' => time()]);
     }
 
-    private static function syncDeliveryItem(int $tenantId, int $userId, int $itemId, string $status, array $patch = []): void
-    {
-        if ($itemId <= 0 || !in_array($status, DeliveryItemService::STATUSES, true)) return;
-        try {
-            $item = DeliveryItemService::find($tenantId, $userId, $itemId);
-            if ($item === [] || in_array((string)$item['status'], ['completed', 'canceled'], true)) return;
-            if ($status === 'running' && (string)$item['status'] === 'ready') {
-                $item = DeliveryItemService::transition($tenantId, $userId, $itemId, 'queued', ['pending_action_json' => []]);
-            }
-            if ($status === 'failed' && !array_key_exists('pending_action_json', $patch)) {
-                $patch['pending_action_json'] = PendingActionProtocol::confirmation('retry_item');
-            }
-            DeliveryItemService::transition($tenantId, $userId, $itemId, $status, $patch);
-        } catch (Exception) {
-            // Batch history is authoritative for legacy replay even if a child was removed.
-        }
-    }
-
     private static function taskPromptTrace(array $input): array
     {
         return [
@@ -945,6 +930,10 @@ final class EcommerceAgentBatchService
             }
             $batch->save(['status' => $status, 'notified_wave' => $wave, 'update_time' => time()]);
             $now = time();
+            $content = AgentResponseProtocol::userFacingReply([
+                'reply' => $content,
+                'next_action' => $nextAction,
+            ]);
             $message = AigcCanvasAgentMessage::create([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,

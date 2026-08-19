@@ -2,6 +2,7 @@
 
 namespace app\common\service\app\aigc_image;
 
+use app\common\service\ai\UpstreamErrorMessageService;
 use app\common\service\FileService;
 use app\common\service\PointUnitService;
 use app\common\service\update\UpdateSourceClient;
@@ -104,7 +105,7 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
                 }
             }
             if (!in_array($status, ['completed', 'success', 'succeeded'], true)) {
-                $message = $this->extractError($task) ?: '供应商任务未完成';
+                $message = $this->friendlyError($this->extractError($task) ?: '供应商任务未完成');
                 $this->logTaskFailure($taskId, $status, $message, $task);
                 return new AigcImageGenerateResult(false, [], $message);
             }
@@ -516,13 +517,17 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
     {
         $error = $data['error'] ?? $data['data']['error'] ?? null;
         if (is_array($error)) {
-            return (string)($error['message'] ?? $error['code'] ?? '');
+            $code = trim((string)($error['code'] ?? $error['type'] ?? ''));
+            $message = trim((string)($error['message'] ?? $error['msg'] ?? ''));
+            return trim($code . ($code !== '' && $message !== '' ? ': ' : '') . $message);
         }
         if (is_string($error)) {
             return $error;
         }
-        $message = (string)($data['message'] ?? $data['data']['message'] ?? $data['msg'] ?? $data['data']['msg'] ?? '');
-        return strtolower($message) === 'success' ? '' : $message;
+        $message = trim((string)($data['message'] ?? $data['data']['message'] ?? $data['msg'] ?? $data['data']['msg'] ?? ''));
+        $code = trim((string)($data['error_code'] ?? $data['code'] ?? $data['data']['error_code'] ?? ''));
+        if (in_array(strtolower($code), ['0', '1', '200', 'ok', 'success'], true)) $code = '';
+        return strtolower($message) === 'success' ? '' : trim($code . ($code !== '' && $message !== '' ? ': ' : '') . $message);
     }
 
     private function friendlyError(string $message): string
@@ -541,7 +546,7 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             str_contains($lower, 'auth_failed'),
             str_contains($lower, 'api key') => '供应商鉴权失败，请检查系统服务接口渠道配置',
             str_contains($lower, 'queue_limit_exceeded') => '供应商排队任务已满，请稍后再试',
-            default => $message,
+            default => UpstreamErrorMessageService::normalize($message),
         };
     }
 

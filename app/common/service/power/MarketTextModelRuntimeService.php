@@ -8,6 +8,7 @@ use app\common\model\ai\AiConsumptionLog;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketSkuPrice;
+use app\common\service\ai\UpstreamErrorMessageService;
 use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
@@ -92,7 +93,7 @@ class MarketTextModelRuntimeService
         $businessTable = self::safeCode((string)($params['business_table'] ?? ($appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task')), $appCode === 'aigc_canvas' ? 'aigc_canvas_run' : 'aigc_short_drama_script_task');
         $businessId = (int)($params['business_id'] ?? 0);
         $requestSummary = [
-            'content_length' => array_sum(array_map(static fn(array $message): int => mb_strlen((string)($message['content'] ?? ''), 'UTF-8'), $messages)),
+            'content_length' => array_sum(array_map(static fn(array $message): int => self::messageContentLength($message['content'] ?? ''), $messages)),
             'message_count' => count($messages),
             'system_prompt_length' => mb_strlen((string)($params['system_prompt'] ?? ''), 'UTF-8'),
             'reference_image_count' => count($referenceImages),
@@ -114,7 +115,36 @@ class MarketTextModelRuntimeService
         $requestTimeout = self::resolveRequestTimeout($params);
         try {
             self::event((int)$context['consumption']['id'], 'submit', 'running', ['model_code' => $model['model_code']]);
-            $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout);
+            $compatibilityAttempts = 0;
+            while (true) {
+                try {
+                    $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout);
+                    break;
+                } catch (\Throwable $initialError) {
+                    $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
+                    if ($retry === null && self::isTransientProviderFailure($initialError->getMessage())) {
+                        $retry = [
+                            'params' => $generationParams,
+                            'reason' => 'provider_temporarily_unavailable',
+                            'removed_params' => [],
+                            'temperature' => null,
+                        ];
+                    }
+                    if ($retry === null || $compatibilityAttempts >= 2) {
+                        throw $initialError;
+                    }
+                    $generationParams = $retry['params'];
+                    $compatibilityAttempts++;
+                    self::event((int)$context['consumption']['id'], 'retry', 'running', [
+                        'reason' => $retry['reason'],
+                        'removed_params' => $retry['removed_params'],
+                        'temperature' => $retry['temperature'],
+                    ]);
+                    if ($retry['reason'] === 'provider_temporarily_unavailable') {
+                        usleep($compatibilityAttempts * 500000);
+                    }
+                }
+            }
             $usage = self::normalizeUsage((array)($result['usage'] ?? []));
             if (self::canSettleUsage($model, $usage) && (int)$usage['prompt_tokens'] <= 0 && (int)$usage['completion_tokens'] <= 0) {
                 $usage['prompt_tokens'] = (int)$usage['total_tokens'];
@@ -269,6 +299,7 @@ class MarketTextModelRuntimeService
     {
         $products = PowerMarketProduct::where(['resource_type' => PowerMarketService::TYPE_MODEL, 'model_type' => 'text', 'status' => 1])
             ->order(['update_time' => 'desc', 'id' => 'desc'])->select()->toArray();
+        TenantPowerMarketService::applyProductDisplays($tenantId, $products);
         $options = [];
         foreach ($products as $product) {
             $snapshot = self::arrayValue($product['source_payload'] ?? []);
@@ -280,19 +311,28 @@ class MarketTextModelRuntimeService
                 continue;
             }
             $meta = (array)($snapshot['market_metadata'] ?? []);
-            $protocols = array_values(array_filter(array_map('strval', (array)($meta['protocols'] ?? []))));
+            $protocols = self::protocolList($meta['protocols'] ?? []);
             $options[] = [
                 'id' => (string)$product['id'],
                 'product_id' => (int)$product['id'],
+                'resource_type' => PowerMarketService::TYPE_MODEL,
+                'model_type' => 'text',
+                'category_code' => 'text',
+                'category_name' => '文本生成',
                 'name' => (string)$product['name'],
                 'description' => (string)$product['description'],
+                'display_icon' => (string)($product['display_icon'] ?? ''),
                 'model_code' => (string)$product['upstream_model_code'],
                 'channel_code' => (string)$product['upstream_channel_code'],
                 'provider_model' => (string)$product['upstream_model_code'],
-                'protocol' => self::protocol((string)($meta['protocol'] ?? ''), $protocols),
+                'protocol' => self::protocol((string)($meta['protocol'] ?? ''), $protocols, (string)$product['upstream_model_code']),
                 'protocols' => $protocols,
                 'max_tokens' => max(0, (int)($meta['max_tokens'] ?? 0)),
                 'default_params' => self::arrayValue($meta['default_params'] ?? []),
+                'params_schema' => self::arrayValue($meta['params_schema'] ?? []),
+                'capabilities' => self::arrayValue($meta['capabilities'] ?? []),
+                'developer_doc_slug' => (string)($meta['developer_doc_slug'] ?? ''),
+                'api_doc' => (string)($meta['api_doc'] ?? ''),
                 'supports_vision' => self::supportsVision($snapshot),
                 'input' => $prices['input'],
                 'output' => $prices['output'],
@@ -432,39 +472,126 @@ class MarketTextModelRuntimeService
         $source = UpdateSourceClient::getSource(); $base = self::sourceBaseUrl((string)($source['active_base_url'] ?? $source['base_url'] ?? '')); $key = (string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '');
         $sslVerify = UpdateSourceClient::sslVerify($source);
         if ($base === '' || $key === '') throw new Exception('文本模型 API 暂不可用');
-        $protocol = (string)$model['protocol']; $path = match ($protocol) { 'openai_responses' => '/api/v1/responses', 'anthropic_messages' => '/api/v1/messages', default => '/api/v1/chat/completions' };
+        $protocol = self::protocolForModel($model); $path = match ($protocol) { 'openai_responses' => '/api/v1/responses', 'anthropic_messages' => '/api/v1/messages', default => '/api/v1/chat/completions' };
         if ($messages === []) {
             throw new Exception('请输入文本内容');
         }
-        $payload = $protocol === 'openai_responses' ? ['model' => $model['model_code'], 'instructions' => $system, 'input' => $messages, 'stream' => $onEvent !== null, 'max_output_tokens' => $maxTokens] : ($protocol === 'anthropic_messages' ? ['model' => $model['model_code'], 'system' => $system, 'messages' => $messages, 'stream' => $onEvent !== null, 'max_tokens' => $maxTokens] : ['model' => $model['model_code'], 'messages' => array_merge($system === '' ? [] : [['role' => 'system', 'content' => $system]], $messages), 'stream' => $onEvent !== null, 'max_tokens' => $maxTokens, 'channel' => $model['channel_code']]);
+        $payload = self::requestPayload($protocol, $model, $messages, $system, $maxTokens, $generationParams);
+        $channelCode = trim((string)($model['channel_code'] ?? ''));
+        if ($channelCode !== '') {
+            $payload['channel'] = $channelCode;
+        }
         $payload = array_merge(self::marketContext($model), $payload);
-        foreach ($generationParams as $paramKey => $value) {
-            if ($paramKey === 'stream_options' && $protocol !== 'openai_chat') {
+        // Do this last so neither a model default nor an application override
+        // can disable SSE for a market text request.
+        $payload['stream'] = true;
+        return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify, $requestTimeout);
+    }
+
+    /** Build the provider-specific request body without leaking protocol details to business apps. */
+    private static function requestPayload(string $protocol, array $model, array $messages, string $system, int $maxTokens, array $generationParams): array
+    {
+        if ($protocol === 'openai_responses') {
+            return array_merge([
+                'model' => $model['model_code'],
+                'instructions' => $system,
+                'input' => $messages,
+                'max_output_tokens' => $maxTokens,
+            ], self::protocolGenerationParams($protocol, $generationParams));
+        }
+        if ($protocol === 'anthropic_messages') {
+            $payload = [
+                'model' => $model['model_code'],
+                'messages' => $messages,
+                'max_tokens' => $maxTokens,
+            ];
+            if ($system !== '') {
+                $payload['system'] = $system;
+            }
+            return array_merge($payload, self::protocolGenerationParams($protocol, $generationParams));
+        }
+        return array_merge([
+            'model' => $model['model_code'],
+            'messages' => array_merge($system === '' ? [] : [['role' => 'system', 'content' => $system]], $messages),
+            'max_tokens' => $maxTokens,
+        ], self::protocolGenerationParams($protocol, $generationParams));
+    }
+
+    /** Remove or translate options which are not valid for the selected protocol. */
+    private static function protocolGenerationParams(string $protocol, array $generationParams): array
+    {
+        if ($protocol !== 'anthropic_messages') {
+            if ($protocol !== 'openai_chat') {
+                unset($generationParams['stream_options']);
+            }
+            return $generationParams;
+        }
+
+        // Claude Messages does not accept OpenAI-only penalties, response_format,
+        // stream_options, or the application's boolean thinking switch.
+        foreach (['stream_options', 'presence_penalty', 'frequency_penalty', 'response_format', 'enable_thinking'] as $key) {
+            unset($generationParams[$key]);
+        }
+        // Anthropic accepts temperature or top_p, but not both in one request.
+        if (array_key_exists('temperature', $generationParams)) {
+            unset($generationParams['top_p']);
+        }
+        if (isset($generationParams['tools']) && is_array($generationParams['tools'])) {
+            $generationParams['tools'] = self::anthropicTools($generationParams['tools']);
+            if ($generationParams['tools'] === []) {
+                unset($generationParams['tools'], $generationParams['tool_choice']);
+            }
+        }
+        if (isset($generationParams['tool_choice'])) {
+            $toolChoice = self::anthropicToolChoice($generationParams['tool_choice']);
+            if ($toolChoice === []) {
+                unset($generationParams['tool_choice']);
+            } else {
+                $generationParams['tool_choice'] = $toolChoice;
+            }
+        }
+        return $generationParams;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private static function anthropicTools(array $tools): array
+    {
+        $result = [];
+        foreach ($tools as $tool) {
+            if (!is_array($tool)) {
                 continue;
             }
-            $payload[$paramKey] = $value;
-        }
-        try {
-            return self::curl($base . $path, $key, $payload, $onEvent, $sslVerify, $requestTimeout);
-        } catch (Exception $e) {
-            // Older market snapshots may not yet advertise this optional Qwen-style
-            // parameter. Retry once without it when the selected provider rejects it
-            // before producing an SSE response.
-            if (self::isOptionalParameterRejected($e)) {
-                $retryPayload = $payload;
-                $removed = false;
-                foreach (['enable_thinking', 'response_format', 'tools', 'tool_choice'] as $optionalKey) {
-                    if (array_key_exists($optionalKey, $retryPayload)) {
-                        unset($retryPayload[$optionalKey]);
-                        $removed = true;
-                    }
-                }
-                if ($removed) {
-                    return self::curl($base . $path, $key, $retryPayload, $onEvent, $sslVerify, $requestTimeout);
-                }
+            $function = is_array($tool['function'] ?? null) ? $tool['function'] : $tool;
+            $name = trim((string)($function['name'] ?? ''));
+            if ($name === '') {
+                continue;
             }
-            throw $e;
+            $item = ['name' => $name, 'input_schema' => is_array($function['parameters'] ?? null) ? $function['parameters'] : ['type' => 'object', 'properties' => []]];
+            $description = trim((string)($function['description'] ?? ''));
+            if ($description !== '') {
+                $item['description'] = $description;
+            }
+            $result[] = $item;
         }
+        return $result;
+    }
+
+    /** @return array<string, string> */
+    private static function anthropicToolChoice($value): array
+    {
+        if (is_string($value)) {
+            return match (strtolower($value)) {
+                'auto' => ['type' => 'auto'],
+                'required', 'any' => ['type' => 'any'],
+                default => [],
+            };
+        }
+        if (!is_array($value)) {
+            return [];
+        }
+        $function = is_array($value['function'] ?? null) ? $value['function'] : $value;
+        $name = trim((string)($function['name'] ?? ''));
+        return $name === '' ? [] : ['type' => 'tool', 'name' => $name];
     }
 
     /** @return array<int, array{role:string, content:mixed}> */
@@ -497,6 +624,39 @@ class MarketTextModelRuntimeService
         return [['role' => 'user', 'content' => $messageContent]];
     }
 
+    private static function messageContentLength($content): int
+    {
+        return mb_strlen(self::messageText($content), 'UTF-8');
+    }
+
+    /** Extract textual message parts without counting structured media URLs. */
+    private static function messageText($value): string
+    {
+        if (is_string($value) || is_numeric($value)) {
+            return (string)$value;
+        }
+        if (!is_array($value)) {
+            return '';
+        }
+        if (array_key_exists('text', $value)) {
+            return self::messageText($value['text']);
+        }
+        if (array_key_exists('content', $value)) {
+            return self::messageText($value['content']);
+        }
+
+        $parts = [];
+        foreach ($value as $key => $item) {
+            if (is_int($key)) {
+                $text = self::messageText($item);
+                if ($text !== '') {
+                    $parts[] = $text;
+                }
+            }
+        }
+        return implode('', $parts);
+    }
+
     private static function resolveMaxTokens(array $model, array $overrides): int
     {
         $modelLimit = (int)($model['max_tokens'] ?? 0);
@@ -504,7 +664,7 @@ class MarketTextModelRuntimeService
         $default = (int)($defaults['max_tokens'] ?? 0);
         $requested = (int)($overrides['max_tokens'] ?? 0);
         $value = $requested > 0 ? $requested : ($default > 0 ? $default : self::DEFAULT_MAX_OUTPUT_TOKENS);
-        if ($modelLimit > 0 && $requested <= 0) {
+        if ($modelLimit > 0) {
             $value = min($value, $modelLimit);
         }
         return max(256, min(32768, $value));
@@ -517,6 +677,95 @@ class MarketTextModelRuntimeService
             return self::REQUEST_TIMEOUT_SECONDS;
         }
         return max(10, min(self::REQUEST_TIMEOUT_SECONDS, $requested));
+    }
+
+    /** @return array{params:array<string,mixed>, reason:string, removed_params:array<int,string>, temperature:?float}|null */
+    private static function compatibleGenerationParams(string $message, array $generationParams): ?array
+    {
+        $temperature = self::requiredTemperature($message, $generationParams);
+        if ($temperature !== null) {
+            $params = $generationParams;
+            $params['temperature'] = $temperature;
+            return [
+                'params' => $params,
+                'reason' => 'provider_temperature_constraint',
+                'removed_params' => [],
+                'temperature' => $temperature,
+            ];
+        }
+
+        $message = strtolower($message);
+        if (!str_contains($message, 'unsupported')
+            && !str_contains($message, 'unknown parameter')
+            && !str_contains($message, 'invalid parameter')
+            && !str_contains($message, 'not support')) {
+            return null;
+        }
+        $parameterHints = [
+            'enable_thinking' => ['enable_thinking', 'thinking'],
+            'response_format' => ['response_format', 'json_object', 'json schema'],
+            'tools' => ['tools', 'tool_calls', 'function calling', 'function_call'],
+            'tool_choice' => ['tool_choice'],
+        ];
+        $params = $generationParams;
+        $removed = [];
+        foreach ($parameterHints as $parameter => $hints) {
+            if (!array_key_exists($parameter, $params)) {
+                continue;
+            }
+            foreach ($hints as $hint) {
+                if (str_contains($message, $hint)) {
+                    unset($params[$parameter]);
+                    $removed[] = $parameter;
+                    break;
+                }
+            }
+        }
+        if ($removed === []) {
+            return null;
+        }
+        if (in_array('tools', $removed, true) && array_key_exists('tool_choice', $params)) {
+            unset($params['tool_choice']);
+            $removed[] = 'tool_choice';
+        }
+        return [
+            'params' => $params,
+            'reason' => 'provider_unsupported_optional_parameter',
+            'removed_params' => array_values(array_unique($removed)),
+            'temperature' => null,
+        ];
+    }
+
+    private static function requiredTemperature(string $message, array $generationParams): ?float
+    {
+        if (!preg_match('/(?:only|must be)\s+([01](?:\.\d+)?)\s+is\s+allowed\s+for\s+this\s+model/i', $message, $matches)) {
+            return null;
+        }
+        $temperature = (float)$matches[1];
+        if ($temperature < 0 || $temperature > 2 || (isset($generationParams['temperature']) && abs((float)$generationParams['temperature'] - $temperature) < 0.000001)) {
+            return null;
+        }
+        return $temperature;
+    }
+
+    private static function isTransientProviderFailure(string $message): bool
+    {
+        $message = strtolower($message);
+        foreach ([
+            'currently overloaded',
+            'server overloaded',
+            'service unavailable',
+            'temporarily unavailable',
+            'too many requests',
+            'rate limit',
+            'http 429',
+            'http 503',
+        ] as $needle) {
+            if (str_contains($message, $needle)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static function safeCode(string $value, string $fallback): string
@@ -562,37 +811,63 @@ class MarketTextModelRuntimeService
      */
     private static function generationParams(array $model, array $overrides): array
     {
-        $defaults = (array)($model['default_params'] ?? []);
+        $defaults = self::arrayValue($model['default_params'] ?? []);
+        $allowed = array_fill_keys(self::declaredGenerationParamKeys($model, $defaults), true);
         $result = [];
-        foreach (['temperature', 'top_p', 'presence_penalty', 'frequency_penalty'] as $key) {
-            if (isset($defaults[$key]) && is_numeric($defaults[$key])) {
-                $result[$key] = (float)$defaults[$key];
+        foreach ($defaults as $key => $value) {
+            $key = (string)$key;
+            if (!isset($allowed[$key]) || !self::isGenerationParamValue($value)) {
+                continue;
             }
+            $result[$key] = $value;
         }
-        if (array_key_exists('enable_thinking', $defaults) && is_bool($defaults['enable_thinking'])) {
-            $result['enable_thinking'] = $defaults['enable_thinking'];
-        }
-        if (array_key_exists('enable_thinking', $overrides) && is_bool($overrides['enable_thinking'])) {
-            $result['enable_thinking'] = $overrides['enable_thinking'];
-        }
-        if (isset($defaults['stream_options']) && is_array($defaults['stream_options'])) {
-            $result['stream_options'] = $defaults['stream_options'];
-        }
-        foreach (['temperature', 'top_p', 'presence_penalty', 'frequency_penalty'] as $key) {
-            if (array_key_exists($key, $overrides) && is_numeric($overrides[$key])) {
-                $result[$key] = (float)$overrides[$key];
+        foreach ($overrides as $key => $value) {
+            $key = (string)$key;
+            if (!isset($allowed[$key]) || !self::isGenerationParamValue($value)) {
+                continue;
             }
-        }
-        if (self::validResponseFormat($overrides['response_format'] ?? null)) {
-            $result['response_format'] = $overrides['response_format'];
-        }
-        if (!empty($overrides['tools']) && is_array($overrides['tools'])) {
-            $result['tools'] = array_values($overrides['tools']);
-        }
-        if (isset($overrides['tool_choice']) && (is_string($overrides['tool_choice']) || is_array($overrides['tool_choice']))) {
-            $result['tool_choice'] = $overrides['tool_choice'];
+            if ($key === 'response_format' && !self::validResponseFormat($value)) {
+                continue;
+            }
+            $result[$key] = $key === 'tools' && is_array($value) ? array_values($value) : $value;
         }
         return $result;
+    }
+
+    /** @return array<int,string> */
+    private static function declaredGenerationParamKeys(array $model, array $defaults): array
+    {
+        $excluded = array_fill_keys([
+            'model', 'messages', 'prompt', 'input', 'content', 'system', 'system_prompt',
+            'max_tokens', 'callback_url', 'callback', 'idempotency_key',
+            'market_product_id', 'market_sku_id', 'sku_id'
+        ], true);
+        $keys = [];
+        foreach (array_keys($defaults) as $key) {
+            $key = (string)$key;
+            if (!isset($excluded[$key])) {
+                $keys[] = $key;
+            }
+        }
+        $schema = self::arrayValue($model['params_schema'] ?? []);
+        $properties = self::arrayValue($schema['properties'] ?? []);
+        foreach (array_keys($properties !== [] ? $properties : $schema) as $key) {
+            $key = (string)$key;
+            if (!isset($excluded[$key])) {
+                $keys[] = $key;
+            }
+        }
+        foreach (['tools', 'tool_choice', 'response_format'] as $key) {
+            if (isset($defaults[$key]) || array_key_exists($key, $properties) || array_key_exists($key, $schema)) {
+                $keys[] = $key;
+            }
+        }
+        return array_values(array_unique($keys));
+    }
+
+    private static function isGenerationParamValue($value): bool
+    {
+        return $value !== null && $value !== '' && (is_scalar($value) || is_array($value));
     }
 
     private static function validResponseFormat($value): bool
@@ -606,29 +881,19 @@ class MarketTextModelRuntimeService
         return true;
     }
 
-    private static function isOptionalParameterRejected(Exception $e): bool
-    {
-        $message = strtolower($e->getMessage());
-        return str_contains($message, 'http 400')
-            || str_contains($message, 'invalid request')
-            || str_contains($message, 'unknown parameter')
-            || str_contains($message, 'unsupported parameter')
-            || str_contains($message, 'unknown format')
-            || str_contains($message, 'response_format');
-    }
-
     private static function curl(string $url, string $key, array $payload, ?callable $onEvent, bool $sslVerify, int $requestTimeout): array
     {
+        // Upstream text generation is always SSE. Callers without a UI stream
+        // still consume SSE here and receive the assembled result afterwards.
+        $onEvent = $onEvent ?? static function (string $event, array $data): void {
+        };
         $headers = [
             'Content-Type: application/json',
             'Authorization: Bearer ' . $key,
-            'Accept: ' . ($onEvent ? 'text/event-stream' : 'application/json'),
+            'Accept: text/event-stream',
         ];
-        if ($onEvent === null) {
-            return self::requestJson($url, $payload, $headers, $sslVerify, $requestTimeout);
-        }
 
-        $state = ['content' => '', 'usage' => [], 'request_id' => '', 'emitted_request_id' => '', 'error' => '', 'tool_calls' => [], 'delta_count' => 0];
+        $state = ['content' => '', 'reasoning' => '', 'usage' => [], 'request_id' => '', 'emitted_request_id' => '', 'error' => '', 'tool_calls' => [], 'delta_count' => 0];
         $buffer = '';
         $body = '';
         $receivedEvent = false;
@@ -682,8 +947,9 @@ class MarketTextModelRuntimeService
         }
         if (!$receivedEvent) {
             $event = self::parseJsonResponse($body, true);
-            if ($event !== null) {
-                $receivedEvent = true;
+            // A successful buffered JSON response violates the streaming
+            // contract. Only decode it to retain a provider error message.
+            if (($event['type'] ?? '') === 'error') {
                 self::applyStreamEvent($event, $state, $onEvent);
             }
         }
@@ -701,6 +967,12 @@ class MarketTextModelRuntimeService
         }
         if ($state['error'] !== '') {
             throw new Exception($state['error']);
+        }
+        // Some OpenAI-compatible reasoning models emit their only textual output
+        // under reasoning_content. Preserve it as a last-resort response instead
+        // of treating a completed provider request as an empty result.
+        if (trim((string)$state['content']) === '' && trim((string)$state['reasoning']) !== '') {
+            $state['content'] = $state['reasoning'];
         }
         if (!$receivedEvent || (trim((string)$state['content']) === '' && empty($state['tool_calls']))) {
             throw new Exception('文本模型未返回有效内容');
@@ -832,16 +1104,25 @@ class MarketTextModelRuntimeService
         if ($delta === '') {
             return;
         }
-        $state['content'] .= $delta;
+        if (!empty($event['reasoning'])) {
+            $state['reasoning'] .= $delta;
+        } else {
+            $state['content'] .= $delta;
+        }
         $state['delta_count'] = (int)($state['delta_count'] ?? 0) + 1;
-        $onEvent('delta', ['delta' => $delta]);
+        if (empty($event['reasoning'])) {
+            $onEvent('delta', ['delta' => $delta]);
+        }
     }
 
     /** @return array<string, mixed>|null */
     private static function parseProviderPayload(array $json, string $eventName = '', bool $stream = false): ?array
     {
-        if (isset($json['code']) && is_numeric($json['code']) && (int)$json['code'] !== 0 && empty($json['choices']) && empty($json['output'])) {
-            return ['type' => 'error', 'message' => self::providerError($json) ?: (string)($json['message'] ?? 'Provider request failed')];
+        if (isset($json['code']) && is_numeric($json['code']) && empty($json['choices']) && empty($json['output'])) {
+            $providerMessage = self::providerError($json);
+            if ((int)$json['code'] !== 0 || $providerMessage !== '' || array_key_exists('data', $json)) {
+                return ['type' => 'error', 'message' => $providerMessage ?: 'Provider request failed'];
+            }
         }
         if (isset($json['error'])) {
             return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败'];
@@ -850,7 +1131,7 @@ class MarketTextModelRuntimeService
         if (in_array($eventType, ['error', 'failed', 'fail', 'response.failed', 'response.incomplete'], true)) {
             return ['type' => 'error', 'message' => self::providerError($json) ?: '文本模型调用失败'];
         }
-        foreach (['data', 'result'] as $key) {
+        foreach (['data', 'result', 'output', 'response'] as $key) {
             if (!empty($json[$key]) && is_array($json[$key]) && self::looksLikePayload($json[$key])) {
                 $event = self::parseProviderPayload($json[$key], $eventName, $stream);
                 if ($event !== null) {
@@ -884,9 +1165,20 @@ class MarketTextModelRuntimeService
             $stream ? null : ($outputContent['text'] ?? $outputContent['content'] ?? null),
             $stream ? null : ($json['response']['output_text'] ?? $json['response']['output'] ?? null),
         ]);
+        $reasoning = $delta === '' ? self::extractText([
+            $choice['delta']['reasoning_content'] ?? null,
+            $choice['message']['reasoning_content'] ?? null,
+            $choice['delta']['reasoning'] ?? null,
+            $choice['message']['reasoning'] ?? null,
+            $json['reasoning_content'] ?? null,
+            $json['reasoning'] ?? null,
+        ]) : '';
         $toolCalls = self::toolCallsFromPayload($json, $choice, $output);
         if ($delta !== '') {
             return ['type' => 'delta', 'content' => $delta, 'usage' => $usage, 'provider_request_id' => $requestId, 'tool_calls' => $toolCalls];
+        }
+        if ($reasoning !== '') {
+            return ['type' => 'delta', 'content' => $reasoning, 'reasoning' => true, 'usage' => $usage, 'provider_request_id' => $requestId, 'tool_calls' => $toolCalls];
         }
         if (!empty($toolCalls)) {
             return ['type' => 'tool_calls', 'tool_calls' => $toolCalls, 'usage' => $usage, 'provider_request_id' => $requestId];
@@ -950,7 +1242,7 @@ class MarketTextModelRuntimeService
 
     private static function looksLikePayload(array $payload): bool
     {
-        foreach (['choices', 'delta', 'content', 'text', 'answer', 'response', 'message', 'usage', 'output', 'error'] as $key) {
+        foreach (['choices', 'delta', 'content', 'text', 'answer', 'response', 'message', 'usage', 'output', 'reasoning', 'reasoning_content', 'error'] as $key) {
             if (array_key_exists($key, $payload)) {
                 return true;
             }
@@ -1015,11 +1307,7 @@ class MarketTextModelRuntimeService
             $payload = is_array($decoded) ? $decoded : $payload;
         }
         if (is_array($payload)) {
-            $error = $payload['error'] ?? $payload;
-            if (is_array($error)) {
-                return self::friendlyError((string)($error['message'] ?? $error['msg'] ?? $error['code'] ?? $error['type'] ?? ''));
-            }
-            return self::friendlyError((string)($payload['message'] ?? $payload['msg'] ?? ''));
+            return UpstreamErrorMessageService::fromResponse($payload, '');
         }
         return self::friendlyError(trim(strip_tags((string)$payload)));
     }
@@ -1030,7 +1318,7 @@ class MarketTextModelRuntimeService
         if ($message !== '' && str_contains($message, 'SKU') && str_contains($message, '定价') && str_contains($message, '未配置')) {
             return '算力市场文本模型 SKU 定价未配置，请先同步/上架文本模型 SKU 并确认租户售价后再生成';
         }
-        return mb_substr($message, 0, 160);
+        return UpstreamErrorMessageService::normalize($message);
     }
 
     private static function marketContext(array $model): array
@@ -1093,9 +1381,69 @@ class MarketTextModelRuntimeService
             && (float)($input['tenant_price'] ?? 0) === (float)($output['tenant_price'] ?? 0);
     }
 
-    private static function protocol(string $default, array $protocols): string
+    private static function protocol(string $default, array $protocols, string $modelCode = ''): string
     {
-        $value = strtolower(trim($default ?: ($protocols[0] ?? 'openai_chat'))); return match ($value) { 'responses', 'openai_responses' => 'openai_responses', 'messages', 'anthropic', 'anthropic_messages' => 'anthropic_messages', default => 'openai_chat' };
+        $modelCode = strtolower(trim($modelCode));
+        // Marketplace metadata can lag behind a product migration. Claude and
+        // Anthropic models must never be sent through Chat Completions.
+        if (preg_match('/(^|\s)(claude|anthropic)([^a-z0-9]|$)/', $modelCode) === 1) {
+            return 'anthropic_messages';
+        }
+        $protocols = self::protocolList($protocols);
+        $defaults = self::protocolList($default);
+        $value = $defaults[0] ?? '';
+        if ($value !== '' && ($protocols === [] || in_array($value, $protocols, true))) {
+            return match ($value) {
+                'openai_responses' => 'openai_responses',
+                'anthropic_messages' => 'anthropic_messages',
+                default => 'openai_chat',
+            };
+        }
+        if (preg_match('/^gpt-5(?:[._-]|$)/i', $modelCode) && ($protocols === [] || in_array('openai_responses', $protocols, true))) {
+            return 'openai_responses';
+        }
+        foreach (['openai_chat', 'openai_responses', 'openai_completions', 'anthropic_messages'] as $protocol) {
+            if (in_array($protocol, $protocols, true)) {
+                return $protocol;
+            }
+        }
+        return $value !== '' ? $value : 'openai_chat';
+    }
+
+    private static function protocolForModel(array $model): string
+    {
+        $identity = implode(' ', [
+            (string)($model['model_code'] ?? ''),
+            (string)($model['provider_model'] ?? ''),
+            (string)($model['channel_code'] ?? ''),
+            (string)($model['name'] ?? ''),
+        ]);
+        return self::protocol((string)($model['protocol'] ?? ''), self::protocolList($model['protocols'] ?? []), $identity);
+    }
+    /** @return array<int,string> */
+    private static function protocolList($value): array
+    {
+        $aliases = [
+            'responses' => 'openai_responses',
+            'openai_responses' => 'openai_responses',
+            'messages' => 'anthropic_messages',
+            'anthropic' => 'anthropic_messages',
+            'anthropic_messages' => 'anthropic_messages',
+            'chat' => 'openai_chat',
+            'openai_chat' => 'openai_chat',
+            'completions' => 'openai_completions',
+            'openai_completions' => 'openai_completions',
+        ];
+        $items = [];
+        foreach (is_array($value) ? $value : [$value] as $item) {
+            foreach (preg_split('/[,|\s]+/', strtolower(trim((string)$item)), -1, PREG_SPLIT_NO_EMPTY) ?: [] as $protocol) {
+                $normalized = $aliases[$protocol] ?? '';
+                if ($normalized !== '') {
+                    $items[] = $normalized;
+                }
+            }
+        }
+        return array_values(array_unique($items));
     }
     private static function sourceBaseUrl(string $baseUrl): string { $parts = parse_url(trim($baseUrl)); if (!is_array($parts) || empty($parts['host'])) return rtrim($baseUrl, '/'); return (string)($parts['scheme'] ?? 'https') . '://' . $parts['host'] . (isset($parts['port']) ? ':' . (int)$parts['port'] : ''); }
     private static function arrayValue($value): array { if (is_array($value)) return $value; $decoded = is_string($value) ? json_decode($value, true) : []; return is_array($decoded) ? $decoded : []; }

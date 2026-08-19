@@ -43,9 +43,7 @@ final class ExternalAssetImportService
                 'id' => (int)$asset['id'], 'type' => 'image', 'asset_type' => 'reference_image', 'role' => 'reference_image',
                 'url' => (string)$asset['url'], 'uri' => (string)$asset['uri'], 'name' => (string)$asset['title'],
             ];
-            $updated = DeliveryItemContextBinder::bind($tenantId, $userId, $itemId, [], [], [
-                'reference_assets' => self::uniqueReferences($references),
-            ]);
+            $updated = DeliveryItemService::transition($tenantId, $userId, $itemId, (string)$item['status'], ['reference_assets_json' => self::uniqueReferences($references)]);
             return ['asset' => $asset, 'delivery_item' => $updated, 'source_url' => $download['url']];
         } finally {
             @unlink($download['path']);

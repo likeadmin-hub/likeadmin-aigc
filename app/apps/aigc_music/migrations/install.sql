@@ -76,6 +76,14 @@ CREATE TABLE IF NOT EXISTS `la_aigc_music_task` (
   `provider` varchar(50) NOT NULL DEFAULT '',
   `model` varchar(100) NOT NULL DEFAULT '',
   `provider_task_id` varchar(120) NOT NULL DEFAULT '',
+  `app_task_id` int unsigned NOT NULL DEFAULT 0,
+  `consumption_id` int unsigned NOT NULL DEFAULT 0,
+  `market_product_id` int unsigned NOT NULL DEFAULT 0,
+  `market_sku_id` int unsigned NOT NULL DEFAULT 0,
+  `pricing_snapshot` text,
+  `market_request_id` varchar(120) NOT NULL DEFAULT '',
+  `market_retry_count` tinyint unsigned NOT NULL DEFAULT 0,
+  `market_error_code` varchar(80) NOT NULL DEFAULT '',
   `provider_payload` text,
   `idempotency_key` varchar(100) NOT NULL DEFAULT '',
   `billing_status` varchar(30) NOT NULL DEFAULT 'none',
@@ -93,6 +101,9 @@ CREATE TABLE IF NOT EXISTS `la_aigc_music_task` (
   KEY `idx_tenant_user` (`tenant_id`,`user_id`),
   KEY `idx_status` (`tenant_id`,`status`),
   KEY `idx_provider_task` (`provider_task_id`),
+  KEY `idx_market_app_task` (`app_task_id`),
+  KEY `idx_market_consumption` (`consumption_id`),
+  KEY `idx_market_request` (`market_request_id`),
   KEY `idx_idempotency` (`tenant_id`,`user_id`,`idempotency_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI音乐任务';
 

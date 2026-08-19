@@ -7,7 +7,7 @@ final class MemoryExtractor
 {
     public static function confirmedDecision(string $request, array $decision, array $context): array
     {
-        if (($decision['action_mode'] ?? '') !== 'execute') {
+        if (($decision['decision_mode'] ?? '') !== 'execute') {
             return [];
         }
         $items = [[

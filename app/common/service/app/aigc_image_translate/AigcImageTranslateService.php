@@ -46,6 +46,7 @@ class AigcImageTranslateService
         $data = $row->isEmpty() ? self::defaults() : array_merge(self::defaults(), $row->toArray());
         $data = self::sanitizeConfig($data);
         $optionConfig = AigcImageChannelService::userConfig($tenantId);
+        $data = AigcImageChannelService::alignConfigDefaults($data, $optionConfig);
         [$data['price_config'], $priceChanged] = self::ensurePricePackages($data['price_config'], $optionConfig);
         if ($priceChanged) {
             self::saveConfigSnapshot($tenantId, $data, $row);
@@ -78,6 +79,7 @@ class AigcImageTranslateService
             'config_json' => self::normalizeConfigJson($configJson + ['target_language' => $params['default_target_language'] ?? $current['default_target_language'] ?? self::DEFAULT_TARGET_LANGUAGE]),
             'update_time' => time(),
         ];
+        $data = AigcImageChannelService::alignConfigDefaults($data, AigcImageChannelService::userConfig($tenantId));
         $row = AigcImageTranslateConfig::where('tenant_id', $tenantId)->findOrEmpty();
         if ($row->isEmpty()) {
             $data['create_time'] = time();
@@ -1081,7 +1083,7 @@ class AigcImageTranslateService
 
     private static function normalizeCode(string $code): string
     {
-        return preg_replace('/[^a-zA-Z0-9_\-]/', '', trim($code)) ?: '';
+        return AigcImageChannelService::normalizeRuntimeChannelCode($code);
     }
 
     private static function priceKey(string $channel, string $quality, string $ratio): string

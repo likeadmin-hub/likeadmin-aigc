@@ -40,6 +40,7 @@ class AigcOneClickCleanupService
         $data = $row->isEmpty() ? self::defaults() : array_merge(self::defaults(), $row->toArray());
         $data = self::sanitizeConfig($data);
         $optionConfig = AigcImageChannelService::userConfig($tenantId);
+        $data = AigcImageChannelService::alignConfigDefaults($data, $optionConfig);
         $data['option_config'] = $optionConfig;
         $data['spec_options'] = self::buildSpecOptions($optionConfig);
         $data['options'] = self::optionLists($tenantId, true);
@@ -69,6 +70,7 @@ class AigcOneClickCleanupService
             'config_json' => self::normalizeConfigJson($configJson),
             'update_time' => time(),
         ];
+        $data = AigcImageChannelService::alignConfigDefaults($data, AigcImageChannelService::userConfig($tenantId));
         $row = AigcOneClickCleanupConfig::where('tenant_id', $tenantId)->findOrEmpty();
         if ($row->isEmpty()) {
             $data['create_time'] = time();
@@ -907,7 +909,7 @@ class AigcOneClickCleanupService
 
     private static function normalizeCode(string $code): string
     {
-        return preg_replace('/[^a-zA-Z0-9_\-]/', '', trim($code)) ?: '';
+        return AigcImageChannelService::normalizeRuntimeChannelCode($code);
     }
 
     private static function normalizeOptionCode(string $code): string

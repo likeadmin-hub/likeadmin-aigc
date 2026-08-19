@@ -45,6 +45,9 @@ class WebSettingValidate extends BaseValidate
         'pc_home_bg_poster' => 'array',
         'pc_home_immersive_title' => 'max:80',
         'pc_home_immersive_subtitle' => 'max:120',
+        'enabled' => 'require|in:0,1',
+        'url' => 'requireIf:enabled,1|max:1000|checkTutorialUrl',
+        'icon' => 'max:500',
     ];
 
     protected $message = [
@@ -63,10 +66,29 @@ class WebSettingValidate extends BaseValidate
         'pc_home_bg_type.in' => '请选择正确的PC首页背景类型',
         'pc_home_immersive_title.max' => '首页大标题最长为80个字符',
         'pc_home_immersive_subtitle.max' => '首页小标题最长为120个字符',
+        'enabled.require' => '请选择是否启用新手教程',
+        'enabled.in' => '新手教程启用状态不正确',
+        'url.requireIf' => '启用新手教程后必须填写教程链接',
+        'url.max' => '新手教程链接最长为1000个字符',
+        'icon.max' => '新手教程图标地址最长为500个字符',
     ];
 
     protected $scene = [
         'website' => ['name', 'web_favicon', 'web_logo', 'login_image', 'shop_name', 'shop_logo', 'h5_favicon', 'pc_logo', 'pc_title', 'pc_ico', 'pc_desc', 'pc_keywords', 'pc_login_bg_type', 'pc_login_bg', 'pc_login_bg_poster', 'pc_home_style', 'pc_home_bg_type', 'pc_home_bg', 'pc_home_bg_poster', 'pc_home_immersive_title', 'pc_home_immersive_subtitle'],
         'siteStatistics' => [''],
+        'tutorial' => ['enabled', 'url', 'icon'],
     ];
+
+    public function checkTutorialUrl($value): bool|string
+    {
+        $url = trim((string)$value);
+        if ($url === '') {
+            return true;
+        }
+        if (filter_var($url, FILTER_VALIDATE_URL) === false) {
+            return '请输入有效的新手教程链接';
+        }
+        $scheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
+        return in_array($scheme, ['http', 'https'], true) ?: '新手教程链接仅支持 http 或 https';
+    }
 }

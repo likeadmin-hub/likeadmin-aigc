@@ -59,6 +59,19 @@ class AiTaskResultAssetService
                 }
             }
         }
+        // A worker can resume after the result URLs have already been turned
+        // into durable rows. Keep that recovery path independent of a later
+        // provider-summary refresh.
+        if ($assets === []) {
+            $assets = AiTaskResultAsset::where('consumption_id', $consumptionId)->select()->toArray();
+        }
+        if ($assets !== [] && ($forceTransfer || AiTaskResultStorageService::transferEnabled((int)$consumption['tenant_id']))) {
+            foreach ($assets as $asset) {
+                if ((string)($asset['transfer_status'] ?? '') !== 'stored') {
+                    AiTaskJobService::enqueueTransfer((int)$asset['id'], $forceTransfer);
+                }
+            }
+        }
         return $assets;
     }
 
@@ -94,6 +107,7 @@ class AiTaskResultAssetService
                 'last_error' => '',
                 'update_time' => time(),
             ]);
+            AiTaskJobService::requeueProcessResult((int)$asset['consumption_id']);
         } catch (\Throwable $e) {
             $asset->save([
                 'transfer_status' => 'retrying',

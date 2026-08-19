@@ -12,14 +12,12 @@ use app\common\service\app\aigc_canvas\AigcCanvasSkillService;
 use app\common\service\app\aigc_canvas\agent\batch\EcommerceAgentBatchService;
 use app\common\service\app\aigc_canvas\agent\delivery\CanvasDeliveryBatchService;
 use app\common\service\app\aigc_canvas\agent\delivery\ConversationTaskResolver;
-use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemContextBinder;
-use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemTaskSyncService;
-use app\common\service\app\aigc_canvas\agent\delivery\DeliveryGraphExecutor;
 use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemService;
 use app\common\service\app\aigc_canvas\agent\delivery\DeliveryPlanService;
 use app\common\service\app\aigc_canvas\agent\delivery\PendingActionProtocol;
 use app\common\service\app\aigc_canvas\agent\memory\BrandMemoryService;
 use app\common\service\app\aigc_canvas\agent\memory\ConversationDeliveryContext;
+use app\common\service\app\aigc_canvas\agent\memory\ConversationMemoryBuilder;
 use app\common\service\app\aigc_canvas\agent\orchestrator\DesignAgentOrchestrator;
 use app\common\service\app\aigc_canvas\agent\planning\EcommerceDetailSectionPlanner;
 use app\common\service\app\aigc_canvas\agent\planning\FollowUpRouter;
@@ -49,6 +47,7 @@ class AigcCanvasAgentRuntimeService
             self::assertProject($tenantId, $userId, $projectId);
         }
         $now = time();
+        $meta = self::sanitizeArray($params['meta'] ?? []);
         $thread = AigcCanvasAgentThread::create([
             'tenant_id' => $tenantId,
             'user_id' => $userId,
@@ -56,7 +55,7 @@ class AigcCanvasAgentRuntimeService
             'title' => mb_substr(trim((string)($params['title'] ?? 'Canvas Agent')), 0, 120, 'UTF-8'),
             'status' => 'active',
             'summary' => '',
-            'meta_json' => self::sanitizeArray($params['meta'] ?? []),
+            'meta_json' => $meta,
             'create_time' => $now,
             'update_time' => $now,
             'delete_time' => 0,
@@ -68,6 +67,7 @@ class AigcCanvasAgentRuntimeService
     {
         self::ensureSchema();
         $projectId = (int)($params['project_id'] ?? 0);
+        $unassignedOnly = (int)($params['unassigned_only'] ?? 0) === 1;
         $limit = max(1, min(60, (int)($params['limit'] ?? 30)));
         $query = AigcCanvasAgentThread::where([
             'tenant_id' => $tenantId,
@@ -76,6 +76,8 @@ class AigcCanvasAgentRuntimeService
         ]);
         if ($projectId > 0) {
             $query->where('project_id', $projectId);
+        } elseif ($unassignedOnly) {
+            $query->where('project_id', 0);
         }
         $rows = $query
             ->order(['update_time' => 'desc', 'id' => 'desc'])
@@ -121,7 +123,6 @@ class AigcCanvasAgentRuntimeService
     public static function messageLists(int $tenantId, int $userId, array $params): array
     {
         self::ensureSchema();
-        DeliveryItemTaskSyncService::syncActiveForOwner($tenantId, $userId);
         $threadId = (int)($params['thread_id'] ?? 0);
         if ($threadId <= 0) {
             return [];
@@ -160,19 +161,15 @@ class AigcCanvasAgentRuntimeService
                 'error' => '',
             ];
         }
-        $output = self::publicSendPayload(AigcCanvasService::repairLegacyCanvasText(
-            is_array($run['output'] ?? null) ? $run['output'] : []
-        ));
         return [
             'request_id' => $requestId,
             'status' => (string)($run['status'] ?? 'running'),
             'run_id' => (int)($run['id'] ?? 0),
             'thread_id' => (int)($run['thread_id'] ?? 0),
-            'output' => $output,
-            'error' => self::publicMessageError(
-                (string)($run['status'] ?? ''),
-                (string)AigcCanvasService::repairLegacyCanvasText((string)($run['error'] ?? ''))
+            'output' => AigcCanvasService::repairLegacyCanvasText(
+                is_array($run['output'] ?? null) ? $run['output'] : []
             ),
+            'error' => (string)AigcCanvasService::repairLegacyCanvasText((string)($run['error'] ?? '')),
             'update_time' => (int)($run['update_time'] ?? 0),
             'subtasks' => SubAgentTaskService::statusForRun($tenantId, $userId, (int)($run['id'] ?? 0)),
             'subtask_summary' => SubAgentTaskService::summaryForRun($tenantId, $userId, (int)($run['id'] ?? 0)),
@@ -227,6 +224,13 @@ class AigcCanvasAgentRuntimeService
         }
         $thread = self::resolveThread($tenantId, $userId, $params, $projectId);
         $threadId = (int)$thread['id'];
+        // A new thread starts without prior conversation context. Project-level
+        // memory remains available, while an explicitly isolated legacy thread
+        // still keeps its original canvas-context behavior.
+        $contextIsolated = self::threadUsesIsolatedContext($thread)
+            || !self::threadHasMessages($tenantId, $userId, $threadId);
+        $params['new_conversation'] = $contextIsolated;
+        $params['project_memory_enabled'] = true;
         $content = trim((string)($params['content'] ?? $params['prompt'] ?? $params['message'] ?? ''));
         if ($content === '') {
             throw new Exception('Please enter a request');
@@ -284,7 +288,8 @@ class AigcCanvasAgentRuntimeService
         $uploadedReferences = self::normalizeUploadedReferences($params, $tenantId);
         $context = self::contextForUserRequest(
             $content,
-            self::normalizeContext($params['canvas_snapshot'] ?? $params['context'] ?? [])
+            self::normalizeContext($params['canvas_snapshot'] ?? $params['context'] ?? []),
+            $contextIsolated
         );
         // A referenced canvas image is as much a generation input as an uploaded
         // attachment. Normalize both sources before routing so every execution
@@ -298,11 +303,26 @@ class AigcCanvasAgentRuntimeService
             $context['uploaded_references'] = $references;
             $context['uploaded_reference_count'] = count($references);
         }
-        $brandMemory = BrandMemoryService::context($tenantId, $userId, $projectId);
-        if (!empty($brandMemory)) {
-            $context['brand_memory'] = $brandMemory;
+        $context = self::inheritThreadReferences(
+            $context,
+            ConversationMemoryBuilder::build($tenantId, $userId, $threadId)
+        );
+        $uploadedReferences = array_values((array)($context['uploaded_references'] ?? []));
+        if (!$contextIsolated) {
+            $brandMemory = BrandMemoryService::context($tenantId, $userId, $projectId);
+            if (!empty($brandMemory)) {
+                $context['brand_memory'] = $brandMemory;
+            }
         }
-        $deliveryContext = ConversationDeliveryContext::build($tenantId, $userId, $projectId, $threadId, $context);
+        $deliveryContext = ConversationDeliveryContext::build(
+            $tenantId,
+            $userId,
+            $projectId,
+            $threadId,
+            $context,
+            !empty($params['project_memory_enabled']),
+            !$contextIsolated
+        );
         $context['conversation_delivery_context'] = $deliveryContext;
         $agentConfig = AigcCanvasService::agentConfig($tenantId);
         $loopDecision = self::agentLoopDecision($tenantId, $params, $agentConfig);
@@ -379,7 +399,7 @@ class AigcCanvasAgentRuntimeService
                 'value' => $sectionCount > 0 ? sprintf('%d 个独立区块等待确认', $sectionCount) : '将根据可用商品信息安排页面内容',
             ]);
         }
-        self::emit($emit, 'agent.route.resolved', ['status' => 'ready']);
+        self::emit($emit, 'agent.route.resolved', $routeMeta);
         $dbSkill = is_array($route['db_skill'] ?? null) ? $route['db_skill'] : [];
         $skillCode = (string)($route['skill_code'] ?? '');
         if ($skillCode === '') {
@@ -498,6 +518,10 @@ class AigcCanvasAgentRuntimeService
                     ? AigcCanvasSkillService::runDbSkill($tenantId, $userId, $projectId, $threadId, (int)$assistant['id'], $dbSkill, $content, $context, $emit, $route)
                     : self::runSkill($tenantId, $userId, $projectId, $threadId, (int)$assistant['id'], $skillCode, $content, $context, $params, $emit));
             }
+            $result['reply'] = AgentResponseProtocol::userFacingReply($result);
+            // The compatibility path shares the AgentLoop safety boundary: no
+            // provider stream is considered a user-visible final response.
+            $result['reply_streamed'] = false;
             if (empty($result['reply_streamed'])) {
                 AgentTurnTraceService::firstToken($legacyTurnId);
                 self::emitAssistantReplyDeltas($emit, $threadId, (int)$assistant['id'], (string)($result['reply'] ?? ''));
@@ -521,7 +545,7 @@ class AigcCanvasAgentRuntimeService
                 'update_time' => time(),
             ]);
             AigcCanvasAgentThread::where('id', $threadId)->update(['update_time' => time(), 'title' => self::threadTitle($thread['title'], $content)]);
-            $tracePayload = [
+            $payload = [
                 'thread' => self::formatThread(AigcCanvasAgentThread::where('id', $threadId)->findOrEmpty()->toArray()),
                 'user_message' => self::formatMessage($userMessage->toArray()),
                 'assistant_message' => self::formatMessage($assistant->toArray()),
@@ -557,12 +581,11 @@ class AigcCanvasAgentRuntimeService
                 'decision_trace_summary' => (string)($result['decision_trace_summary'] ?? $route['decision_trace_summary'] ?? ''),
                 'response' => $legacyResponse,
             ];
-            AgentTraceLogger::finishRun($runId, $tracePayload);
+            AgentTraceLogger::finishRun($runId, $payload);
             AgentTurnTraceService::complete($legacyTurnId, 0, [
-                'next_action' => (string)($tracePayload['next_action'] ?? ''),
-                'tool_count' => count((array)($tracePayload['tool_calls'] ?? [])),
+                'next_action' => (string)($payload['next_action'] ?? ''),
+                'tool_count' => count((array)($payload['tool_calls'] ?? [])),
             ], (string)($loopDecision['reason'] ?? ''));
-            $payload = self::publicSendPayload($tracePayload);
             self::emit($emit, 'agent.response', $legacyResponse + [
                 'thread_id' => $threadId,
                 'message_id' => (int)$assistant['id'],
@@ -593,17 +616,13 @@ class AigcCanvasAgentRuntimeService
     }
 
     /**
-     * The loop is intentionally entered before legacy intent/Skill routing.
-     * Legacy routing remains a controlled fallback for explicit compatibility.
+     * The loop is the sole request execution path. It receives any selected
+     * product Skill as a contract instead of reviving an alternate router.
      */
     private static function agentLoopDecision(int $tenantId, array $params, array $agentConfig): array
     {
         if (empty($agentConfig['agent_loop_enabled']) || empty($agentConfig['router_available'])) {
             return ['use_loop' => false, 'reason' => empty($agentConfig['agent_loop_enabled']) ? 'agent_loop_disabled' : 'agent_model_unavailable'];
-        }
-        $mode = trim((string)($params['execution_mode'] ?? $params['agent_mode'] ?? ''));
-        if (in_array($mode, ['legacy_router', 'legacy_skill'], true)) {
-            return ['use_loop' => false, 'reason' => 'manual_legacy_mode'];
         }
         if (!empty($agentConfig['agent_loop_auto_fallback_enabled'])) {
             $health = AigcCanvasService::agentLoopHealth($tenantId, $agentConfig);
@@ -655,11 +674,22 @@ class AigcCanvasAgentRuntimeService
             'update_time' => $now,
             'delete_time' => 0,
         ]);
-        // New-task ownership belongs to the structured Agent decision; the
-        // resolver remains restricted to explicit item/pending continuations.
-        $initialDecision = AgentTaskDecisionService::decide($tenantId, $content, $context, $selectedSkill, array_merge($params, [
-            'user_id' => $userId, 'project_id' => $projectId, 'thread_id' => $threadId,
-        ]));
+        // Resolve the relation once for the whole turn. Both task resolution and
+        // the Agent loop receive this exact snapshot.
+        $decisionParams = array_merge($params, [
+            'user_id' => $userId,
+            'project_id' => $projectId,
+            'thread_id' => $threadId,
+            'message_id' => (int)$userMessage['id'],
+            // Normal AgentLoop turns use the model for task semantics whenever
+            // the configured model is available. The older toggle only guarded
+            // an optional Skill reranker and must not revive keyword routing.
+            'agent_intent_router_enabled' => !empty($agentConfig['router_available']) && !empty($agentConfig['router_model_code']),
+        ]);
+        $taskDecision = AgentTaskDecisionService::decide($tenantId, $content, $context, $selectedSkill, $decisionParams);
+        if ($selectedSkill === [] && !empty($taskDecision['selected_skill_key'])) {
+            $selectedSkill = AigcCanvasSkillService::resolveSkill($tenantId, (string)$taskDecision['selected_skill_key']);
+        }
         $deliveryResolution = ConversationTaskResolver::resolve(
             $tenantId,
             $userId,
@@ -668,33 +698,29 @@ class AigcCanvasAgentRuntimeService
             (int)$userMessage['id'],
             $content,
             $context,
-            array_merge($params, ['task_decision' => $initialDecision])
+            array_merge($params, ['task_decision' => $taskDecision])
         );
         if (!empty($deliveryResolution['selected_skill']) && empty($selectedSkill)) {
             $selectedSkill = (array)$deliveryResolution['selected_skill'];
         }
+        $resolvedItemId = (int)($deliveryResolution['item']['id'] ?? 0);
+        if ($resolvedItemId > 0) {
+            // Preserve the resolver's one-time relation decision while making
+            // the resulting item addressable on a later natural-language turn.
+            $taskDecision['pending_context'] = array_merge(
+                (array)($taskDecision['pending_context'] ?? []),
+                [
+                    'delivery_item_id' => $resolvedItemId,
+                    'original_request' => (string)($deliveryResolution['item']['slots']['user_request'] ?? $content),
+                ]
+            );
+        }
         if ($deliveryResolution !== []) {
-            $itemId = (int)($deliveryResolution['item']['id'] ?? 0);
-            if ($itemId > 0) {
-                $deliveryResolution['item'] = DeliveryItemContextBinder::bind(
-                    $tenantId,
-                    $userId,
-                    $itemId,
-                    $context,
-                    $initialDecision,
-                    [
-                        'execution_options' => self::deliveryExecutionOptions(
-                            $params,
-                            (string)($deliveryResolution['item']['tool_code'] ?? '')
-                        ),
-                    ]
-                );
-                $deliveryResolution['plan'] = DeliveryPlanService::detail($tenantId, $userId, (int)($deliveryResolution['item']['plan_id'] ?? 0));
-            }
             $userContent = is_array($userMessage['content_json'] ?? null) ? $userMessage['content_json'] : [];
             $userContent['delivery_plan'] = (array)($deliveryResolution['plan'] ?? []);
-            $userContent['delivery_item'] = DeliveryItemService::present((array)($deliveryResolution['item'] ?? []));
+            $userContent['delivery_item'] = (array)($deliveryResolution['item'] ?? []);
             $userContent['delivery_operation'] = (string)($deliveryResolution['operation'] ?? '');
+            $userContent['task_decision'] = $taskDecision;
             $userMessage->save(['content_json' => $userContent, 'update_time' => time()]);
         }
         $assistant = AigcCanvasAgentMessage::create([
@@ -708,8 +734,9 @@ class AigcCanvasAgentRuntimeService
                 'execution_mode' => 'agent_loop',
                 'selected_skill_key' => (string)($selectedSkill['skill_key'] ?? ''),
                 'delivery_plan' => (array)($deliveryResolution['plan'] ?? []),
-                'delivery_item' => DeliveryItemService::present((array)($deliveryResolution['item'] ?? [])),
+                'delivery_item' => (array)($deliveryResolution['item'] ?? []),
                 'delivery_operation' => (string)($deliveryResolution['operation'] ?? ''),
+                'task_decision' => $taskDecision,
             ],
             'status' => 'running',
             'meta_json' => [],
@@ -741,15 +768,17 @@ class AigcCanvasAgentRuntimeService
                 'run_id' => $runId,
                 'content' => $content,
                 'context' => $context,
+                'new_conversation' => !empty($params['new_conversation']),
+                'project_memory_enabled' => !array_key_exists('project_memory_enabled', $params) || !empty($params['project_memory_enabled']),
                 'selected_skill' => $selectedSkill,
                 'delivery_plan' => (array)($deliveryResolution['plan'] ?? []),
                 'delivery_item' => (array)($deliveryResolution['item'] ?? []),
                 'delivery_item_id' => (int)($deliveryResolution['item']['id'] ?? 0),
+                'task_decision' => $taskDecision,
                 'agent_decision_context' => $params['agent_decision_context'] ?? [],
-                'initial_task_decision' => $initialDecision,
                 'execution_confirmation' => !empty($params['execution_confirmation']) || !empty($params['confirm_execution'])
                     || (($deliveryResolution['operation'] ?? '') === 'pending_action_resolved'
-                        && in_array((string)($deliveryResolution['pending_action']['type'] ?? ''), ['confirm_execution', 'approve_plan', 'retry_item'], true)
+                        && in_array((string)($deliveryResolution['pending_action']['type'] ?? ''), ['confirm_execution', 'approve_plan', 'approve_strategy', 'approve_visual_generation', 'retry_item'], true)
                         && !empty($deliveryResolution['pending_action_accepted'])),
                 'skill_binding_mode_enabled' => !array_key_exists('skill_binding_mode_enabled', $agentConfig) || !empty($agentConfig['skill_binding_mode_enabled']),
                 'agent_intent_router_enabled' => !array_key_exists('agent_intent_router_enabled', $agentConfig) || !empty($agentConfig['agent_intent_router_enabled']),
@@ -763,41 +792,62 @@ class AigcCanvasAgentRuntimeService
             ]);
             $canceled = !empty($result['canceled']);
             $deferred = !empty($result['subtasks_pending']);
+            $result['reply'] = AgentResponseProtocol::userFacingReply($result);
+            // AgentLoop may release only verified prose segments. Its final
+            // response remains the authoritative projection for persistence.
             if (!$canceled && !$deferred && empty($result['reply_streamed'])) {
                 AgentTurnTraceService::firstToken((int)($result['turn_id'] ?? 0));
                 self::emitAssistantReplyDeltas($emit, $threadId, (int)$assistant['id'], (string)($result['reply'] ?? ''));
             }
             $creativeSummary = self::creativeSummary($result);
-            $deliveryItem = (array)($deliveryResolution['item'] ?? []);
+            $response = AgentResponseProtocol::fromResult($result, $creativeSummary);
+            $textCanvasAction = self::projectCompletedTextAction(
+                $tenantId,
+                $userId,
+                $projectId,
+                $threadId,
+                (int)$assistant['id'],
+                $result
+            );
+            if ($textCanvasAction !== []) {
+                $result['workspace_actions'] = array_merge(
+                    (array)($result['workspace_actions'] ?? []),
+                    [$textCanvasAction]
+                );
+            }
+            // Text/research stages are completed by AgentLoopService before
+            // this response is projected. Prefer that durable item over the
+            // resolver's pre-execution snapshot so history never regresses a
+            // completed stage back to its earlier ready state.
+            $deliveryItem = (array)($result['delivery_item'] ?? $deliveryResolution['item'] ?? []);
             if ($deliveryItem !== []) {
-                $itemStatus = match ((string)($result['next_action'] ?? '')) {
-                    'clarify' => 'clarifying',
-                    'confirm_execution', 'confirm_plan' => 'awaiting_confirmation',
-                    default => (string)($deliveryItem['status'] ?? 'ready'),
-                };
-                try {
-                    $pendingAction = match ((string)($result['next_action'] ?? '')) {
-                        'clarify' => PendingActionProtocol::forMissingSlots((array)($result['selected_skill']['missing_slots'] ?? $deliveryItem['required_slots'] ?? [])),
-                        'confirm_plan' => PendingActionProtocol::confirmation('approve_plan'),
-                        'confirm_execution' => PendingActionProtocol::confirmation(),
-                        default => [],
+                if (!in_array((string)($deliveryItem['status'] ?? ''), ['completed', 'canceled'], true)) {
+                    $itemStatus = match ((string)($result['next_action'] ?? '')) {
+                        'clarify' => 'clarifying',
+                        'confirm_execution', 'confirm_plan' => 'awaiting_confirmation',
+                        default => (string)($deliveryItem['status'] ?? 'ready'),
                     };
-                    $deliveryItem = DeliveryItemService::transition($tenantId, $userId, (int)$deliveryItem['id'], $itemStatus, [
-                        'source_message_id' => (int)$userMessage['id'],
-                        'pending_action_json' => $pendingAction,
-                        'meta_json' => array_merge((array)($deliveryItem['meta'] ?? []), [
-                            'last_assistant_message_id' => (int)$assistant['id'],
-                            'last_next_action' => (string)($result['next_action'] ?? ''),
-                        ]),
-                    ]);
-                } catch (Exception) {
-                    // A terminal item may have been changed by another browser turn.
+                    try {
+                        $pendingAction = match ((string)($result['next_action'] ?? '')) {
+                            'clarify' => PendingActionProtocol::forMissingSlots((array)($result['selected_skill']['missing_slots'] ?? $deliveryItem['required_slots'] ?? [])),
+                            'confirm_plan' => PendingActionProtocol::confirmation('approve_plan'),
+                            'confirm_execution' => PendingActionProtocol::confirmation(),
+                            default => [],
+                        };
+                        $deliveryItem = DeliveryItemService::transition($tenantId, $userId, (int)$deliveryItem['id'], $itemStatus, [
+                            'source_message_id' => (int)$userMessage['id'],
+                            'pending_action_json' => $pendingAction,
+                            'meta_json' => array_merge((array)($deliveryItem['meta'] ?? []), [
+                                'last_assistant_message_id' => (int)$assistant['id'],
+                                'last_next_action' => (string)($result['next_action'] ?? ''),
+                            ]),
+                        ]);
+                    } catch (Exception) {
+                        // A concurrent turn may have changed the item state.
+                    }
                 }
                 $deliveryResolution['plan'] = DeliveryPlanService::detail($tenantId, $userId, (int)($deliveryItem['plan_id'] ?? 0));
             }
-            $result['delivery_item'] = $deliveryItem;
-            $response = AgentResponseProtocol::fromResult($result, $creativeSummary);
-            $deliveryItemPublic = DeliveryItemService::present($deliveryItem);
             $assistant->save([
                 'content' => $canceled ? '已取消当前请求。' : (string)($result['reply'] ?? ''),
                 'content_json' => [
@@ -818,7 +868,7 @@ class AigcCanvasAgentRuntimeService
                     'subtasks' => (array)($result['subtasks'] ?? []),
                     'next_action' => (string)($result['next_action'] ?? 'chat'),
                     'delivery_plan' => (array)($deliveryResolution['plan'] ?? []),
-                    'delivery_item' => $deliveryItemPublic,
+                    'delivery_item' => $deliveryItem,
                     'delivery_operation' => (string)($deliveryResolution['operation'] ?? ''),
                 ],
                 'status' => $canceled ? 'canceled' : ($deferred ? 'running' : 'success'),
@@ -846,7 +896,7 @@ class AigcCanvasAgentRuntimeService
                 'iterations' => (int)($result['iterations'] ?? 0),
                 'subtasks' => (array)($result['subtasks'] ?? []),
                 'delivery_plan' => (array)($deliveryResolution['plan'] ?? []),
-                'delivery_item' => $deliveryItemPublic,
+                'delivery_item' => $deliveryItem,
                 'delivery_operation' => (string)($deliveryResolution['operation'] ?? ''),
             ];
             if ($canceled) {
@@ -920,10 +970,18 @@ class AigcCanvasAgentRuntimeService
         if ($message->isEmpty()) {
             throw new Exception('Retry message not found');
         }
+        $retrySourceMessageId = AgentTaskDecisionService::retrySourceMessageId(
+            $tenantId,
+            $userId,
+            (int)$message['thread_id'],
+            (int)$message['id']
+        );
         return self::send($tenantId, $userId, array_merge($params, [
             'thread_id' => (int)$message['thread_id'],
             'project_id' => (int)$message['project_id'],
             'content' => (string)$message['content'],
+            'retry_source_message_id' => $retrySourceMessageId ?: null,
+            'retry_source_request' => (string)$message['content'],
         ]), $emit);
     }
 
@@ -946,6 +1004,74 @@ class AigcCanvasAgentRuntimeService
             'result_json' => self::sanitizeArray($params['result'] ?? []),
             'error' => (string)($params['error'] ?? ''),
             'update_time' => time(),
+        ]);
+        return self::formatWorkspaceAction($action->toArray());
+    }
+
+    /**
+     * Text work is a finished canvas deliverable, not merely a chat transcript.
+     * Persist the same reply as an auto-applied canvas action so page refreshes
+     * retain its applied state and never insert it a second time.
+     */
+    private static function projectCompletedTextAction(int $tenantId, int $userId, int $projectId, int $threadId, int $messageId, array $result): array
+    {
+        $reply = trim((string)($result['reply'] ?? ''));
+        $nextAction = (string)($result['next_action'] ?? 'chat');
+        $decision = (array)($result['task_decision'] ?? []);
+        $intent = (string)($decision['intent'] ?? '');
+        $outputPolicy = (array)($result['selected_skill']['output_policy'] ?? []);
+        $writesTextToCanvas = !empty($outputPolicy['write_to_canvas'])
+            && (string)($outputPolicy['workspace_action'] ?? '') === 'insert_text';
+
+        if ($messageId <= 0 || $reply === '' || $nextAction !== 'chat' || !empty($result['assets'])) {
+            return [];
+        }
+        if (!$writesTextToCanvas && !in_array($intent, ['text_generation', 'creative_plan', 'research'], true)) {
+            return [];
+        }
+        foreach ((array)($result['workspace_actions'] ?? []) as $action) {
+            if (is_array($action) && (string)($action['action_type'] ?? '') === 'insert_text') {
+                return [];
+            }
+        }
+
+        $existing = AigcCanvasAgentWorkspaceAction::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'message_id' => $messageId,
+            'action_type' => 'insert_text',
+            'delete_time' => 0,
+        ])->order('id', 'asc')->findOrEmpty();
+        if (!$existing->isEmpty()) {
+            return self::formatWorkspaceAction($existing->toArray());
+        }
+
+        $title = match ($intent) {
+            'research' => '研究结论',
+            'creative_plan' => '创作方案',
+            default => '文本结果',
+        };
+        $now = time();
+        $action = AigcCanvasAgentWorkspaceAction::create([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'project_id' => $projectId,
+            'thread_id' => $threadId,
+            'message_id' => $messageId,
+            'tool_call_id' => 0,
+            'action_type' => 'insert_text',
+            'status' => 'pending',
+            'input_json' => [
+                'content' => $reply,
+                'title' => $title,
+                'text_role' => 'document',
+                'source' => 'agent_text_result',
+            ],
+            'result_json' => [],
+            'error' => '',
+            'create_time' => $now,
+            'update_time' => $now,
+            'delete_time' => 0,
         ]);
         return self::formatWorkspaceAction($action->toArray());
     }
@@ -1346,29 +1472,6 @@ class AigcCanvasAgentRuntimeService
         return $route;
     }
 
-    /** The frontend may express a preference; provider validation remains at submission. */
-    private static function deliveryExecutionOptions(array $params, string $toolCode): array
-    {
-        $config = $params['agent_media_config'] ?? [];
-        if (is_string($config)) {
-            $decoded = json_decode($config, true);
-            $config = is_array($decoded) ? $decoded : [];
-        }
-        $mode = match ($toolCode) {
-            'generate_image' => 'image',
-            'generate_video' => 'video',
-            'generate_music' => 'music',
-            default => '',
-        };
-        $options = $mode !== '' && is_array($config[$mode] ?? null)
-            ? self::sanitizeArray($config[$mode])
-            : [];
-        return array_intersect_key($options, array_flip([
-            'channel', 'model_id', 'market_product_id', 'market_sku_id', 'sku_id',
-            'duration', 'quality', 'style', 'seed', 'negative_prompt',
-        ]));
-    }
-
     private static function resolveDbSkillWithRouter(int $tenantId, int $userId, string $content, array $context, array $pendingContext = []): array
     {
         $skills = AigcCanvasSkillService::routerSkills($tenantId);
@@ -1536,6 +1639,8 @@ class AigcCanvasAgentRuntimeService
             'section_count' => (int)($value['section_count'] ?? 0),
             'count_reason' => (string)($value['count_reason'] ?? ''),
             'original_request' => (string)($value['original_request'] ?? ''),
+            'delivery_item_id' => max(0, (int)($value['delivery_item_id'] ?? 0)),
+            'tool_proposal' => is_array($value['tool_proposal'] ?? null) ? $value['tool_proposal'] : [],
             'uploaded_references' => is_array($value['uploaded_references'] ?? null) ? $value['uploaded_references'] : [],
         ];
     }
@@ -1596,14 +1701,16 @@ class AigcCanvasAgentRuntimeService
 
     private static function legacyReasoningSummary(array $route): string
     {
+        $skill = trim((string)($route['skill_name'] ?? $route['skill_key'] ?? $route['skill_code'] ?? ''));
         $intent = trim((string)($route['intent'] ?? ''));
-        return $intent !== '' ? '已整理当前创作方向' : '已整理当前任务的执行方向';
+        if ($skill !== '') {
+            return '已匹配 ' . $skill . '，正在整理可执行方案';
+        }
+        return $intent !== '' ? '已识别为' . $intent . '任务' : '已整理当前任务的执行方向';
     }
 
     private static function emitRouteProtocolEvents(int $tenantId, int $runId, ?callable $emit, array $route, array $routeMeta): void
     {
-        // Route, Skill and planning payloads are audit-only. The response protocol
-        // delivers the user-facing clarification or confirmation instead.
         $intent = [
             'intent' => (string)($route['intent'] ?? ''),
             'confidence' => (float)($route['confidence'] ?? 0),
@@ -1612,7 +1719,7 @@ class AigcCanvasAgentRuntimeService
             'request_id' => (string)($route['request_id'] ?? ''),
             'run_id' => $runId,
         ];
-        self::emit($emit, 'agent.intent.detected', ['status' => 'ready']);
+        self::emit($emit, 'agent.intent.detected', $intent);
         self::traceRouteStep($tenantId, $runId, 'intent_classifier', 'intent_detected', ['route' => $routeMeta], $intent);
 
         $skill = [
@@ -1624,6 +1731,7 @@ class AigcCanvasAgentRuntimeService
             'request_id' => (string)($route['request_id'] ?? ''),
             'run_id' => $runId,
         ];
+        self::emit($emit, 'agent.skill.retrieved', $skill);
         self::traceRouteStep($tenantId, $runId, 'skill_retriever', 'skill_retrieved', ['route' => $routeMeta], $skill);
 
         $slot = [
@@ -1632,6 +1740,7 @@ class AigcCanvasAgentRuntimeService
             'request_id' => (string)($route['request_id'] ?? ''),
             'run_id' => $runId,
         ];
+        self::emit($emit, 'agent.slot.extracted', $slot);
         self::traceRouteStep($tenantId, $runId, 'slot_filler', 'slot_extracted', ['route' => $routeMeta], $slot);
 
         if ((string)($route['next_action'] ?? '') === 'clarify') {
@@ -1642,6 +1751,7 @@ class AigcCanvasAgentRuntimeService
                 'request_id' => (string)($route['request_id'] ?? ''),
                 'run_id' => $runId,
             ];
+            self::emit($emit, 'agent.clarification.request', $clarify);
             self::traceRouteStep($tenantId, $runId, 'clarification_manager', 'clarification_request', ['route' => $routeMeta], $clarify);
         }
 
@@ -1654,10 +1764,11 @@ class AigcCanvasAgentRuntimeService
             'request_id' => (string)($route['request_id'] ?? ''),
             'run_id' => $runId,
         ];
+        self::emit($emit, 'agent.plan.created', $plan);
         self::traceRouteStep($tenantId, $runId, 'agent_planner', 'plan_created', ['route' => $routeMeta], $plan);
 
         if (in_array((string)($route['next_action'] ?? ''), ['confirm_execution', 'confirm_initial_batch'], true)) {
-            self::traceRouteStep($tenantId, $runId, 'agent_planner', 'plan_confirm_required', ['route' => $routeMeta], array_merge($plan, [
+            self::emit($emit, 'agent.plan.confirm_required', array_merge($plan, [
                 'message' => (string)($route['confirmation_message'] ?? ''),
                 'pending_skill_context' => is_array($route['pending_skill_context'] ?? null) ? $route['pending_skill_context'] : [],
             ]));
@@ -2441,6 +2552,8 @@ class AigcCanvasAgentRuntimeService
             'message_id' => $messageId,
             'request_id' => $requestId,
             'tool_code' => $toolCode,
+            'delivery_item_id' => (int)($input['delivery_item_id'] ?? 0),
+            'attempt_no' => max(1, (int)($input['attempt_no'] ?? 1)),
             'idempotency_key' => $idempotencyKey,
             'status' => 'pending',
             'input_json' => self::sanitizeArray($input),
@@ -2456,24 +2569,17 @@ class AigcCanvasAgentRuntimeService
             'delete_time' => 0,
         ]);
         $call->save(['status' => 'running', 'started_at' => $now, 'update_time' => $now]);
-        self::emit($emit, 'agent.tool.started', self::publicToolCall($call->toArray()));
+        self::emit($emit, 'agent.tool.started', self::formatToolCall($call->toArray()));
         try {
             $execution = CanvasAgentToolExecutor::execute(
                 $tenantId,
                 $userId,
                 $toolCode,
                 $input,
-                is_callable($emit)
-                    ? function (string $event, array $data) use ($emit, $threadId, $messageId) {
-                        if ($event === 'delta' && !empty($data['delta'])) {
-                            self::emit($emit, 'agent.message.delta', [
-                                'thread_id' => $threadId,
-                                'message_id' => $messageId,
-                                'delta' => (string)$data['delta'],
-                            ]);
-                        }
-                    }
-                    : null
+                // Tool text may include a provider's scratchpad or JSON. It is
+                // persisted as an internal tool result and projected only once
+                // the Agent has produced a verified final reply.
+                null
             );
             $output = (array)($execution['output'] ?? []);
             $streamed = !empty($execution['streamed']);
@@ -2487,8 +2593,8 @@ class AigcCanvasAgentRuntimeService
             ]);
             $formatted = self::formatToolCall($call->toArray());
             $formatted['streamed'] = $streamed;
-            self::emit($emit, 'agent.tool.completed', self::publicToolCall($call->toArray()));
-            self::emit($emit, 'agent.task.updated', self::publicToolCall($call->toArray()));
+            self::emit($emit, 'agent.tool.completed', $formatted);
+            self::emit($emit, 'agent.task.updated', $formatted);
             return $formatted;
         } catch (PromptSubmissionException $e) {
             $diagnostic = $e->diagnostic();
@@ -2500,11 +2606,11 @@ class AigcCanvasAgentRuntimeService
                 'finished_at' => time(),
                 'update_time' => time(),
             ]);
-            self::emit($emit, 'agent.tool.failed', self::publicToolCall($call->toArray()));
+            self::emit($emit, 'agent.tool.failed', self::formatToolCall($call->toArray()));
             throw $e;
         } catch (Exception $e) {
             $call->save(['status' => 'failed', 'error_code' => 'provider_error', 'error' => $e->getMessage(), 'finished_at' => time(), 'update_time' => time()]);
-            self::emit($emit, 'agent.tool.failed', self::publicToolCall($call->toArray()));
+            self::emit($emit, 'agent.tool.failed', self::formatToolCall($call->toArray()));
             throw $e;
         }
     }
@@ -2516,22 +2622,6 @@ class AigcCanvasAgentRuntimeService
 
     public static function executeExternalToolWithActions(int $tenantId, int $userId, int $projectId, int $threadId, int $messageId, string $toolCode, array $input, string $prompt, array $context, ?callable $emit, int $maxActions = 0): array
     {
-        $deliveryItemId = (int)($input['delivery_item_id'] ?? 0);
-        $fromDeliveryExecutor = !empty($input['__delivery_graph_execution']);
-        unset($input['__delivery_graph_execution']);
-        if (!$fromDeliveryExecutor && $deliveryItemId > 0 && in_array($toolCode, ['generate_image', 'generate_video', 'generate_music'], true)) {
-            $item = DeliveryGraphExecutor::execute($tenantId, $userId, $deliveryItemId, [], $emit);
-            return [
-                'tool_calls' => [[
-                    'id' => (int)($item['task_snapshot']['tool_call_id'] ?? 0), 'tool_code' => $toolCode,
-                    'input' => (array)($item['task_snapshot']['input'] ?? []),
-                    'provider_task_id' => (string)($item['task_snapshot']['task_id'] ?? ''),
-                    'output' => ['task_id' => (string)($item['task_snapshot']['task_id'] ?? ''), 'status' => (string)($item['status'] ?? 'queued')],
-                ]],
-                'workspace_actions' => (array)($item['result']['workspace_actions'] ?? []),
-                'assets' => (array)($item['result']['assets'] ?? []),
-            ];
-        }
         $input = self::attachReferenceInputs($toolCode, $input, $context);
         $tool = self::executeTool($tenantId, $userId, $projectId, $threadId, $messageId, $toolCode, $input, $emit);
         $assets = self::extractAssets($toolCode, $tool['output']);
@@ -2935,11 +3025,16 @@ class AigcCanvasAgentRuntimeService
         return $input;
     }
 
-    private static function contextForUserRequest(string $content, array $context): array
+    private static function contextForUserRequest(string $content, array $context, bool $newConversation = false): array
     {
-        // The canvas is the Agent's workspace. Keep its snapshot for every turn when it
-        // contains elements, rather than requiring the user to repeat a trigger keyword.
-        if (!empty($context['elements']) || self::shouldUseCanvasContext($content, $context)) {
+        if ($newConversation) {
+            unset($context['brand_memory']);
+        }
+        // Existing threads retain their workspace snapshot. A new conversation
+        // receives canvas data only when the user explicitly refers to it or
+        // has selected elements, preventing implicit carry-over from another
+        // conversation in the same project.
+        if ((!$newConversation && !empty($context['elements'])) || self::shouldUseCanvasContext($content, $context)) {
             $context['context_used'] = true;
             $context['selected_elements'] = self::selectedCanvasElementsOnly($context);
             return $context;
@@ -2956,9 +3051,32 @@ class AigcCanvasAgentRuntimeService
             'connections' => [],
             'selected_elements' => [],
             'recent_assets' => [],
-            'brand_memory' => $context['brand_memory'] ?? [],
+            'brand_memory' => $newConversation ? [] : ($context['brand_memory'] ?? []),
             'context_used' => false,
         ];
+    }
+
+    /** Carry reference assets within the same thread into follow-up requests. */
+    private static function inheritThreadReferences(array $context, array $memory): array
+    {
+        $references = [];
+        foreach (array_merge(
+            (array)($context['uploaded_references'] ?? []),
+            (array)($memory['uploaded_references'] ?? [])
+        ) as $reference) {
+            if (!is_array($reference)) {
+                continue;
+            }
+            $url = trim((string)($reference['url'] ?? $reference['uri'] ?? ''));
+            if ($url !== '') {
+                $references[$url] = $reference + ['url' => $url, 'uri' => $url];
+            }
+        }
+        if ($references !== []) {
+            $context['uploaded_references'] = array_values($references);
+            $context['uploaded_reference_count'] = count($context['uploaded_references']);
+        }
+        return $context;
     }
 
     private static function shouldUseCanvasContext(string $content, array $context): bool
@@ -3208,6 +3326,27 @@ class AigcCanvasAgentRuntimeService
         ]);
     }
 
+    private static function threadHasMessages(int $tenantId, int $userId, int $threadId): bool
+    {
+        if ($threadId <= 0) {
+            return false;
+        }
+        return AigcCanvasAgentMessage::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'thread_id' => $threadId,
+            'delete_time' => 0,
+        ])->count() > 0;
+    }
+
+    private static function threadUsesIsolatedContext(array $thread): bool
+    {
+        $meta = is_array($thread['meta'] ?? null)
+            ? $thread['meta']
+            : (is_array($thread['meta_json'] ?? null) ? $thread['meta_json'] : []);
+        return !empty($meta['context_isolated']);
+    }
+
     private static function assertProject(int $tenantId, int $userId, int $projectId): array
     {
         $project = AigcCanvasProject::where([
@@ -3287,16 +3426,26 @@ class AigcCanvasAgentRuntimeService
                 );
             }
         }
-        $contentJson = self::publicContentJson($contentJson);
+        $role = (string)($row['role'] ?? '');
+        $content = (string)AigcCanvasService::repairLegacyCanvasText((string)($row['content'] ?? ''));
+        if ($role === self::ROLE_ASSISTANT && AgentResponseProtocol::isInternalTrace($content)) {
+            // Old conversations can contain raw model analysis from before the
+            // response projection existed. Keep the audit row intact, but do
+            // not return that trace to the chat UI on history restoration.
+            $content = (string)($contentJson['response']['reply'] ?? '');
+            if (AgentResponseProtocol::isInternalTrace($content)) {
+                $content = '';
+            }
+        }
         return [
             'id' => (int)($row['id'] ?? 0),
             'project_id' => (int)($row['project_id'] ?? 0),
             'thread_id' => (int)($row['thread_id'] ?? 0),
-            'role' => (string)($row['role'] ?? ''),
-            'content' => (string)AigcCanvasService::repairLegacyCanvasText((string)($row['content'] ?? '')),
+            'role' => $role,
+            'content' => $content,
             'content_json' => $contentJson,
             'status' => (string)($row['status'] ?? ''),
-            'error' => self::publicMessageError((string)($row['status'] ?? ''), (string)($row['error'] ?? '')),
+            'error' => (string)AigcCanvasService::repairLegacyCanvasText((string)($row['error'] ?? '')),
             'created_at' => (int)($row['create_time'] ?? 0),
         ];
     }
@@ -3308,6 +3457,8 @@ class AigcCanvasAgentRuntimeService
             'thread_id' => (int)($row['thread_id'] ?? 0),
             'message_id' => (int)($row['message_id'] ?? 0),
             'tool_code' => (string)($row['tool_code'] ?? ''),
+            'delivery_item_id' => (int)($row['delivery_item_id'] ?? 0),
+            'attempt_no' => max(1, (int)($row['attempt_no'] ?? 1)),
             'request_id' => (string)($row['request_id'] ?? ''),
             'status' => (string)($row['status'] ?? ''),
             'input' => AigcCanvasService::repairLegacyCanvasText(self::jsonArray($row['input_json'] ?? [])),
@@ -3323,174 +3474,21 @@ class AigcCanvasAgentRuntimeService
         ];
     }
 
-    private static function publicToolCall(array $row): array
-    {
-        $status = (string)($row['status'] ?? '');
-        return [
-            'id' => (int)($row['id'] ?? 0),
-            'message_id' => (int)($row['message_id'] ?? 0),
-            'status' => $status,
-            'error' => self::publicActionError($status),
-        ];
-    }
-
     public static function formatWorkspaceAction(array $row): array
     {
-        $status = (string)($row['status'] ?? '');
         return [
             'id' => (int)($row['id'] ?? 0),
+            'project_id' => (int)($row['project_id'] ?? 0),
+            'thread_id' => (int)($row['thread_id'] ?? 0),
+            'message_id' => (int)($row['message_id'] ?? 0),
+            'tool_call_id' => (int)($row['tool_call_id'] ?? 0),
             'action_type' => (string)($row['action_type'] ?? ''),
-            'status' => $status,
-            'input' => self::publicWorkspaceInput(self::jsonArray($row['input_json'] ?? [])),
-            'result' => self::publicWorkspaceResult(self::jsonArray($row['result_json'] ?? [])),
-            'error' => self::publicActionError($status),
+            'status' => (string)($row['status'] ?? ''),
+            'input' => AigcCanvasService::repairLegacyCanvasText(self::jsonArray($row['input_json'] ?? [])),
+            'result' => AigcCanvasService::repairLegacyCanvasText(self::jsonArray($row['result_json'] ?? [])),
+            'error' => (string)AigcCanvasService::repairLegacyCanvasText((string)($row['error'] ?? '')),
+            'created_at' => (int)($row['create_time'] ?? 0),
         ];
-    }
-
-    /**
-     * Message JSON is a user-facing persistence boundary. Detailed routing, prompt
-     * compilation, provider requests and trace data remain in their audit stores.
-     */
-    private static function publicContentJson(array $content): array
-    {
-        $public = [];
-        foreach (['response_kind', 'next_action', 'batch_id', 'total_count', 'completed_count', 'remaining_count'] as $key) {
-            if (array_key_exists($key, $content)) $public[$key] = $content[$key];
-        }
-        if (is_array($content['response'] ?? null)) $public['response'] = self::publicResponse($content['response']);
-        if (is_array($content['workspace_actions'] ?? null)) {
-            $public['workspace_actions'] = array_values(array_map(
-                static fn(array $action): array => self::formatWorkspaceAction([
-                    'id' => $action['id'] ?? 0,
-                    'action_type' => $action['action_type'] ?? '',
-                    'status' => $action['status'] ?? '',
-                    'input_json' => $action['input'] ?? $action['input_json'] ?? [],
-                    'result_json' => $action['result'] ?? $action['result_json'] ?? [],
-                    'error' => $action['error'] ?? '',
-                ]),
-                array_values(array_filter($content['workspace_actions'], 'is_array'))
-            ));
-        }
-        if (is_array($content['assets'] ?? null)) $public['assets'] = self::publicAssets($content['assets']);
-        if (is_array($content['delivery_item'] ?? null)) $public['delivery_item'] = DeliveryItemService::present($content['delivery_item']);
-        if (is_array($content['delivery_plan'] ?? null)) $public['delivery_plan'] = self::publicDeliveryPlan($content['delivery_plan']);
-        if (is_array($content['batch'] ?? null)) $public['batch'] = self::publicBatch($content['batch']);
-        if (is_array($content['planned_sections'] ?? null)) $public['planned_sections'] = self::publicSections($content['planned_sections']);
-        if (is_array($content['attachments'] ?? null)) $public['attachments'] = self::publicAssets($content['attachments']);
-        if (is_array($content['reference_images'] ?? null)) $public['reference_images'] = self::publicAssets($content['reference_images']);
-        if (is_array($content['creative_summary'] ?? null)) $public['creative_summary'] = $content['creative_summary'];
-        return $public;
-    }
-
-    private static function publicResponse(array $response): array
-    {
-        $keys = ['schema_version', 'kind', 'response_kind', 'next_action', 'title', 'summary', 'blocks', 'actions', 'reply', 'content', 'quick_actions', 'task_context'];
-        return array_filter(array_intersect_key($response, array_flip($keys)), static fn($value): bool => $value !== null);
-    }
-
-    private static function publicWorkspaceInput(array $input): array
-    {
-        $asset = self::publicAsset((array)($input['asset'] ?? []));
-        return $asset === [] ? [] : ['asset' => $asset];
-    }
-
-    private static function publicWorkspaceResult(array $result): array
-    {
-        $asset = self::publicAsset($result);
-        if ($asset === [] && is_array($result['asset'] ?? null)) $asset = self::publicAsset($result['asset']);
-        return $asset === [] ? [] : ['asset' => $asset];
-    }
-
-    private static function publicAssets(array $assets): array
-    {
-        $result = [];
-        foreach ($assets as $asset) {
-            if (!is_array($asset)) continue;
-            $safe = self::publicAsset($asset);
-            if ($safe !== []) $result[] = $safe;
-        }
-        return $result;
-    }
-
-    private static function publicAsset(array $asset): array
-    {
-        $keys = [
-            'url', 'image_url', 'video_url', 'audio_url', 'image', 'video', 'file_url', 'output_url',
-            'poster', 'cover_url', 'cover', 'thumbnail', 'task_id', 'taskId', 'type', 'kind', 'name',
-            'ratio', 'width', 'height', 'duration', 'mime_type', 'target_element_id', 'section_key',
-        ];
-        $safe = array_intersect_key($asset, array_flip($keys));
-        return array_filter($safe, static fn($value): bool => $value !== null && $value !== '');
-    }
-
-    private static function publicActionError(string $status): string
-    {
-        return in_array($status, ['failed', 'rejected', 'canceled', 'cancelled'], true)
-            ? '任务未完成，请重试或调整后再试。'
-            : '';
-    }
-
-    private static function publicMessageError(string $status, string $error): string
-    {
-        if ($error === '') return '';
-        return in_array($status, ['failed', 'error'], true)
-            ? '本次处理未完成，请重试或调整后再试。'
-            : '';
-    }
-
-    private static function publicDeliveryPlan(array $plan): array
-    {
-        $keys = ['id', 'thread_id', 'project_id', 'status', 'title', 'objective', 'created_at', 'updated_at'];
-        $safe = array_intersect_key($plan, array_flip($keys));
-        $items = array_values(array_filter((array)($plan['items'] ?? []), 'is_array'));
-        if ($items !== []) $safe['items'] = array_map(static fn(array $item): array => DeliveryItemService::present($item), $items);
-        return $safe;
-    }
-
-    private static function publicBatch(array $batch): array
-    {
-        $keys = ['id', 'status', 'total_count', 'submitted_count', 'completed_count', 'failed_count', 'remaining_count', 'next_batch_count', 'current_wave', 'updated_at'];
-        $safe = array_intersect_key($batch, array_flip($keys));
-        if (is_array($batch['tasks'] ?? null)) {
-            $safe['tasks'] = array_values(array_map(static fn(array $task): array => array_filter([
-                'section_key' => (string)($task['section_key'] ?? ''),
-                'title' => (string)($task['title'] ?? ''),
-                'status' => (string)($task['status'] ?? ''),
-                'url' => (string)($task['url'] ?? ''),
-            ], static fn($value): bool => $value !== ''), array_values(array_filter($batch['tasks'], 'is_array'))));
-        }
-        return $safe;
-    }
-
-    private static function publicSections(array $sections): array
-    {
-        return array_values(array_map(static fn(array $section): array => array_filter([
-            'section_key' => (string)($section['section_key'] ?? ''),
-            'title' => (string)($section['title'] ?? ''),
-            'description' => (string)($section['description'] ?? ''),
-        ], static fn($value): bool => $value !== ''), array_values(array_filter($sections, 'is_array'))));
-    }
-
-    /** Builds the synchronous/SSE response from already-sanitized message data. */
-    private static function publicSendPayload(array $payload): array
-    {
-        $assistant = (array)($payload['assistant_message'] ?? []);
-        $content = (array)($assistant['content_json'] ?? []);
-        return array_filter([
-            'thread' => (array)($payload['thread'] ?? []),
-            'user_message' => (array)($payload['user_message'] ?? []),
-            'assistant_message' => $assistant,
-            'workspace_actions' => (array)($content['workspace_actions'] ?? []),
-            'assets' => (array)($content['assets'] ?? []),
-            'next_action' => (string)($content['next_action'] ?? 'chat'),
-            'batch_id' => (int)($content['batch_id'] ?? 0),
-            'batch' => (array)($content['batch'] ?? []),
-            'planned_sections' => (array)($content['planned_sections'] ?? []),
-            'total_count' => (int)($content['total_count'] ?? 0),
-            'completed_count' => (int)($content['completed_count'] ?? 0),
-            'remaining_count' => (int)($content['remaining_count'] ?? 0),
-            'response' => (array)($content['response'] ?? []),
-        ], static fn($value): bool => $value !== [] && $value !== '');
     }
 
     private static function jsonArray($value): array
@@ -3817,6 +3815,8 @@ class AigcCanvasAgentRuntimeService
                 `message_id` int unsigned NOT NULL DEFAULT 0,
                 `request_id` varchar(96) NOT NULL DEFAULT '',
                 `tool_code` varchar(80) NOT NULL DEFAULT '',
+                `delivery_item_id` bigint unsigned NOT NULL DEFAULT 0,
+                `attempt_no` int unsigned NOT NULL DEFAULT 1,
                 `status` varchar(30) NOT NULL DEFAULT 'running',
                 `input_json` longtext,
                 `output_json` longtext,
@@ -3827,6 +3827,7 @@ class AigcCanvasAgentRuntimeService
                 PRIMARY KEY (`id`),
                 KEY `idx_message` (`tenant_id`,`message_id`,`delete_time`),
                 KEY `idx_request` (`tenant_id`,`request_id`,`delete_time`),
+                KEY `idx_delivery_item` (`tenant_id`,`user_id`,`delivery_item_id`),
                 KEY `idx_tool` (`tenant_id`,`tool_code`,`status`)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas agent tool calls'");
             self::ensureAgentToolTraceColumns();
@@ -3867,6 +3868,21 @@ class AigcCanvasAgentRuntimeService
             $index = Db::query("SELECT COUNT(*) total FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'la_aigc_canvas_agent_tool_call' AND INDEX_NAME = 'idx_request'", [$dbName]);
             if ((int)($index[0]['total'] ?? 0) === 0) {
                 Db::execute("ALTER TABLE `la_aigc_canvas_agent_tool_call` ADD KEY `idx_request` (`tenant_id`,`request_id`,`delete_time`)");
+            }
+            $deliveryColumn = Db::query("SELECT COUNT(*) total FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'la_aigc_canvas_agent_tool_call' AND COLUMN_NAME = 'delivery_item_id'", [$dbName]);
+            if ((int)($deliveryColumn[0]['total'] ?? 0) === 0) {
+                Db::execute("ALTER TABLE `la_aigc_canvas_agent_tool_call` ADD COLUMN `delivery_item_id` bigint unsigned NOT NULL DEFAULT 0 AFTER `tool_code`, ADD COLUMN `attempt_no` int unsigned NOT NULL DEFAULT 1 AFTER `delivery_item_id`");
+            }
+            $deliveryIndex = Db::query("SELECT COUNT(*) total FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'la_aigc_canvas_agent_tool_call' AND INDEX_NAME = 'idx_delivery_item'", [$dbName]);
+            if ((int)($deliveryIndex[0]['total'] ?? 0) === 0) {
+                Db::execute("ALTER TABLE `la_aigc_canvas_agent_tool_call` ADD KEY `idx_delivery_item` (`tenant_id`,`user_id`,`delivery_item_id`)");
+            }
+            $providerColumn = Db::query("SELECT COUNT(*) total FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'la_aigc_canvas_agent_tool_call' AND COLUMN_NAME = 'provider_task_id'", [$dbName]);
+            if ((int)($providerColumn[0]['total'] ?? 0) > 0) {
+                $providerIndex = Db::query("SELECT COUNT(*) total FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'la_aigc_canvas_agent_tool_call' AND INDEX_NAME = 'idx_provider_task'", [$dbName]);
+                if ((int)($providerIndex[0]['total'] ?? 0) === 0) {
+                    Db::execute("ALTER TABLE `la_aigc_canvas_agent_tool_call` ADD KEY `idx_provider_task` (`tenant_id`,`provider_task_id`)");
+                }
             }
         } catch (Exception $e) {
         }

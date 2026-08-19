@@ -6,8 +6,8 @@ SET c.`provider` = cfg.`provider`,
     c.`config_json` = JSON_INSERT(
         CASE
             WHEN JSON_VALID(COALESCE(NULLIF(c.`config_json`, ''), '{}'))
-              AND JSON_TYPE(CAST(COALESCE(NULLIF(c.`config_json`, ''), '{}') AS JSON)) = 'OBJECT'
-            THEN CAST(COALESCE(NULLIF(c.`config_json`, ''), '{}') AS JSON)
+              AND JSON_TYPE(IF(JSON_VALID(COALESCE(NULLIF(c.`config_json`, ''), '{}')), COALESCE(NULLIF(c.`config_json`, ''), '{}'), '{}')) = 'OBJECT'
+            THEN COALESCE(NULLIF(c.`config_json`, ''), '{}')
             ELSE JSON_OBJECT()
         END,
         '$.lipsync_model',

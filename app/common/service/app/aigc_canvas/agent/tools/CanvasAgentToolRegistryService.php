@@ -210,13 +210,6 @@ final class CanvasAgentToolRegistryService
                 'content' => ['type' => 'string'],
                 'request_id' => ['type' => 'string'],
             ]),
-            'create_short_drama_plan' => FunctionCallSchema::function('create_short_drama_plan', 'Create a durable short-drama script planning task. Use for a short drama, episodic script, or storyboard project. Do not use for a single poster or ordinary copywriting.', [
-                'prompt' => ['type' => 'string'],
-                'episode_count' => ['type' => 'number'],
-                'target_duration_seconds' => ['type' => 'number'],
-                'multi_episode' => ['type' => 'boolean'],
-                'ratio' => ['type' => 'string'],
-            ], ['prompt']),
             'generate_music' => FunctionCallSchema::function('generate_music', 'Generate music or audio from a prompt.', [
                 'prompt' => ['type' => 'string'],
                 'content' => ['type' => 'string'],
@@ -385,7 +378,6 @@ final class CanvasAgentToolRegistryService
             'retrieve_skills' => 'Skill 检索',
             'ask_user' => '用户追问',
             'generate_text' => '文本生成',
-            'create_short_drama_plan' => '短剧剧本任务',
             'generate_image' => '图片生成',
             'generate_video' => '视频生成',
             'generate_music' => '音乐生成',
@@ -409,9 +401,6 @@ final class CanvasAgentToolRegistryService
     {
         if (str_starts_with($code, 'generate_')) {
             return 'generation';
-        }
-        if ($code === 'create_short_drama_plan') {
-            return 'workflow';
         }
         if (in_array($code, ['retrieve_skills', 'ask_user'], true)) {
             return 'agent';

@@ -2120,6 +2120,11 @@ VALUES
 (195, 0, 193, 'A', '删除', '', 0, 'setting.web.web_banner/delete', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner_delete', 1, 1778000000, 1778000000),
 (196, 0, 193, 'A', '状态', '', 0, 'setting.web.web_banner/status', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_website_banner_status', 1, 1778000000, 1778000000);
 
+INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+(9410,0,28,'C','新手教程','el-icon-Guide',95,'setting.web.web_setting/getTutorial','tutorial','setting/website/information','','',0,1,0,'','core','core_tenant_tutorial',1,1779000000,1779000000),
+(9411,0,9410,'A','保存','',0,'setting.web.web_setting/setTutorial','','','','',0,0,0,'','core','core_tenant_tutorial_save',1,1779000000,1779000000);
+
 INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`) VALUES
 (9400,0,158,'C','客服设置','el-icon-Service',35,'setting.customer_service/getConfig','customer-service','setting/customer_service/index','','',0,1,0,'','core','core_tenant_customer_service',1,1778000000,1778000000),
 (9401,0,9400,'A','保存','',0,'setting.customer_service/setConfig','','','','',0,1,0,'','core','core_tenant_customer_service_save',1,1778000000,1778000000),
@@ -3374,7 +3379,6 @@ VALUES
 ('aigc_canvas','app.aigc_canvas.admin_run/lists','GET','aigc_canvas:run:lists','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_canvas','app.aigc_canvas.config/detail','GET','aigc_canvas:config:detail','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_canvas','app.aigc_canvas.config/setup','POST','aigc_canvas:config:setup','tenant_admin',1,1,1,1778000000,1778000000),
-('aigc_canvas','app.aigc_canvas.config/dependencies','GET','aigc_canvas:dependencies','tenant_admin',1,1,1,1778000000,1778000000),
 ('aigc_canvas','app.aigc_canvas.tenant/stat','GET','aigc_canvas:tenant_usage','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_canvas','app.aigc_canvas.tenant/lists','GET','aigc_canvas:tenant_usage','platform_admin',1,1,1,1778000000,1778000000),
 ('aigc_canvas','app.aigc_canvas.config/dependencies','GET','aigc_canvas:dependencies:platform','platform_admin',1,1,1,1778000000,1778000000),
@@ -3414,6 +3418,7 @@ ON DUPLICATE KEY UPDATE `permission_key`=VALUES(`permission_key`),`need_login`=V
 
 INSERT INTO `la_tenant_app` (`tenant_id`,`app_code`,`version`,`buy_status`,`shelf_status`,`enable_status`,`expire_time`,`create_time`,`update_time`)
 VALUES
+(0,'system_default','1.0.0','paid','on','enabled',0,1778000000,1778000000),
 (0,'aigc_image','1.1.6','paid','on','enabled',0,1778000000,1778000000),
 (0,'aigc_video','1.0.1','paid','on','enabled',0,1778000000,1778000000),
 (0,'aigc_digital_human','1.0.1','paid','on','enabled',0,1778000000,1778000000),
@@ -3948,7 +3953,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_video_result` (
   `channel` varchar(64) NOT NULL DEFAULT '' COMMENT '通道',
   `quality` varchar(30) NOT NULL DEFAULT '' COMMENT '视频时长档位',
   `ratio` varchar(30) NOT NULL DEFAULT '' COMMENT '视频比例',
-  `video_uri` varchar(255) NOT NULL DEFAULT '',
+  `video_uri` text,
   `storage_scope` varchar(20) NOT NULL DEFAULT 'platform',
   `storage_engine` varchar(30) NOT NULL DEFAULT 'local',
   `storage_domain` varchar(255) NOT NULL DEFAULT '',
@@ -4269,6 +4274,16 @@ CREATE TABLE IF NOT EXISTS `la_aigc_digital_human_task` (
   `provider` varchar(50) NOT NULL DEFAULT '',
   `model` varchar(100) NOT NULL DEFAULT '',
   `provider_task_id` varchar(120) NOT NULL DEFAULT '',
+  `app_task_id` int unsigned NOT NULL DEFAULT 0,
+  `consumption_id` int unsigned NOT NULL DEFAULT 0,
+  `market_product_id` int unsigned NOT NULL DEFAULT 0,
+  `market_sku_id` int unsigned NOT NULL DEFAULT 0,
+  `pricing_snapshot` text,
+  `idempotency_key` varchar(100) DEFAULT NULL,
+  `market_request_id` varchar(120) NOT NULL DEFAULT '',
+  `market_retry_count` tinyint unsigned NOT NULL DEFAULT 0,
+  `billing_status` varchar(30) NOT NULL DEFAULT 'none',
+  `market_error_code` varchar(80) NOT NULL DEFAULT '',
   `provider_stage` varchar(50) NOT NULL DEFAULT '' COMMENT '供应商编排阶段',
   `tts_task_id` varchar(120) NOT NULL DEFAULT '' COMMENT 'TTS供应商任务ID',
   `tts_audio_uri` varchar(500) NOT NULL DEFAULT '' COMMENT 'TTS音频地址',
@@ -4283,6 +4298,10 @@ CREATE TABLE IF NOT EXISTS `la_aigc_digital_human_task` (
   PRIMARY KEY (`id`),
   KEY `idx_tenant_user` (`tenant_id`,`user_id`,`delete_time`),
   KEY `idx_provider_task` (`tenant_id`,`provider`,`provider_task_id`),
+  KEY `idx_market_app_task` (`app_task_id`),
+  KEY `idx_market_consumption` (`consumption_id`),
+  KEY `idx_market_request` (`market_request_id`),
+  KEY `idx_market_idempotency` (`tenant_id`,`user_id`,`idempotency_key`),
   KEY `idx_tts_task` (`tenant_id`,`provider`,`tts_task_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='数字人合成任务';
 
@@ -4463,8 +4482,8 @@ UPDATE `la_aigc_digital_human_channel`
 SET `config_json` = JSON_SET(
     CASE
         WHEN JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}'))
-          AND JSON_TYPE(CAST(COALESCE(NULLIF(`config_json`, ''), '{}') AS JSON)) = 'OBJECT'
-        THEN CAST(COALESCE(NULLIF(`config_json`, ''), '{}') AS JSON)
+          AND JSON_TYPE(IF(JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}')), COALESCE(NULLIF(`config_json`, ''), '{}'), '{}')) = 'OBJECT'
+        THEN COALESCE(NULLIF(`config_json`, ''), '{}')
         ELSE JSON_OBJECT()
     END,
     '$.description',
@@ -4478,9 +4497,9 @@ SET `config_json` = JSON_SET(
 WHERE `tenant_id` = 0
   AND (
     NOT JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}'))
-    OR JSON_TYPE(CAST(COALESCE(NULLIF(`config_json`, ''), '{}') AS JSON)) <> 'OBJECT'
-    OR JSON_UNQUOTE(JSON_EXTRACT(CAST(COALESCE(NULLIF(`config_json`, ''), '{}') AS JSON), '$.description')) IS NULL
-    OR JSON_UNQUOTE(JSON_EXTRACT(CAST(COALESCE(NULLIF(`config_json`, ''), '{}') AS JSON), '$.description')) = ''
+    OR JSON_TYPE(IF(JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}')), COALESCE(NULLIF(`config_json`, ''), '{}'), '{}')) <> 'OBJECT'
+    OR JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}')), COALESCE(NULLIF(`config_json`, ''), '{}'), '{}'), '$.description')) IS NULL
+    OR JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(COALESCE(NULLIF(`config_json`, ''), '{}')), COALESCE(NULLIF(`config_json`, ''), '{}'), '{}'), '$.description')) = ''
   );
 
 
@@ -4939,10 +4958,8 @@ VALUES
 INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
 (9136,0,0,'M','无限画布','el-icon-Share',96,'','aigc-canvas','','','',0,1,0,'aigc_canvas','app','aigc_canvas',0,1778000000,1778000000),
-(9137,0,9136,'C','用量统计','',0,'app.aigc_canvas.admin/stat','stat','apps/aigc_canvas/stat','','',0,1,0,'aigc_canvas','app','aigc_canvas_stat',0,1778000000,1778000000),
-(9138,0,9136,'C','项目管理','',0,'app.aigc_canvas.admin_project/lists','project','apps/aigc_canvas/project','','',0,1,0,'aigc_canvas','app','aigc_canvas_project',0,1778000000,1778000000),
-(9139,0,9136,'C','运行记录','',0,'app.aigc_canvas.admin_run/lists','run','apps/aigc_canvas/run','','',0,1,0,'aigc_canvas','app','aigc_canvas_run',0,1778000000,1778000000),
-(9140,0,9136,'C','依赖状态','',0,'app.aigc_canvas.config/dependencies','dependencies','apps/aigc_canvas/dependencies','','',0,1,0,'aigc_canvas','app','aigc_canvas_dependency',0,1778000000,1778000000);
+(9137,0,9136,'C','用量统计','',10,'app.aigc_canvas.admin/stat','stat','apps/aigc_canvas/stat','','',0,1,0,'aigc_canvas','app','aigc_canvas_stat',0,1778000000,1778000000),
+(9139,0,9136,'C','创作任务','',20,'app.aigc_canvas.admin_run/lists','run','apps/aigc_canvas/run','','',0,1,0,'aigc_canvas','app','aigc_canvas_run',0,1778000000,1778000000);
 
 
 INSERT INTO `la_tenant_system_menu` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
@@ -4958,7 +4975,13 @@ VALUES
 (9153,0,9104,'C','基础配置','',50,'app.aigc_image.config/detail','config','apps/aigc_image/config','','',0,1,0,'aigc_image','app','aigc_image_config',0,1778000000,1778000000),
 (9154,0,9113,'C','基础配置','',50,'app.aigc_video.config/detail','config','apps/aigc_video/config','','',0,1,0,'aigc_video','app','aigc_video_config',0,1778000000,1778000000),
 (9155,0,9122,'C','基础配置','',50,'app.aigc_digital_human.config/detail','config','apps/aigc_digital_human/config','','',0,1,0,'aigc_digital_human','app','aigc_digital_human_config',0,1778000000,1778000000),
-(9156,0,9136,'C','基础配置','',50,'app.aigc_canvas.config/detail','config','apps/aigc_canvas/config','','',0,1,0,'aigc_canvas','app','aigc_canvas_config',0,1778000000,1778000000);
+(9156,0,9136,'C','基础配置','',30,'app.aigc_canvas.config/detail','config','apps/aigc_canvas/config','','',0,1,0,'aigc_canvas','app','aigc_canvas_config',0,1778000000,1778000000);
+
+INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES
+(0,9136,'C','Skills管理','',40,'app.aigc_canvas.skill/lists','skill','apps/aigc_canvas/skill','','',0,1,0,'aigc_canvas','app','aigc_canvas_skill',0,1778000000,1778000000),
+(0,9136,'C','Agent 治理','',50,'app.aigc_canvas.governance/policies','governance','apps/aigc_canvas/governance','','',0,1,0,'aigc_canvas','app','aigc_canvas_governance',0,1778000000,1778000000),
+(0,9136,'C','Agent Trace','',60,'app.aigc_canvas.admin_trace/lists','trace','apps/aigc_canvas/trace','','',0,1,0,'aigc_canvas','app','aigc_canvas_trace',0,1778000000,1778000000);
 
 -- Migration snapshot: aigc_video/migrations/zz_20260521_happy_horse_channel.sql
 
@@ -6644,6 +6667,16 @@ CREATE TABLE IF NOT EXISTS `la_aigc_product_promo_video_task` (
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `user_id` int unsigned NOT NULL DEFAULT 0,
   `video_task_id` int unsigned NOT NULL DEFAULT 0,
+  `app_task_id` int unsigned NOT NULL DEFAULT 0,
+  `consumption_id` int unsigned NOT NULL DEFAULT 0,
+  `market_product_id` int unsigned NOT NULL DEFAULT 0,
+  `market_sku_id` int unsigned NOT NULL DEFAULT 0,
+  `pricing_snapshot` text,
+  `billing_status` varchar(30) NOT NULL DEFAULT 'none',
+  `idempotency_key` varchar(100) DEFAULT NULL,
+  `market_request_id` varchar(120) NOT NULL DEFAULT '',
+  `market_retry_count` tinyint unsigned NOT NULL DEFAULT 0,
+  `market_error_code` varchar(80) NOT NULL DEFAULT '',
   `source_image` varchar(500) NOT NULL DEFAULT '',
   `type_code` varchar(80) NOT NULL DEFAULT '',
   `type_name` varchar(100) NOT NULL DEFAULT '',
@@ -6671,6 +6704,10 @@ CREATE TABLE IF NOT EXISTS `la_aigc_product_promo_video_task` (
   PRIMARY KEY (`id`),
   KEY `idx_tenant_user` (`tenant_id`,`user_id`),
   KEY `idx_video_task` (`video_task_id`),
+  KEY `idx_app_task` (`app_task_id`),
+  KEY `idx_consumption` (`consumption_id`),
+  KEY `idx_market_request` (`market_request_id`),
+  KEY `idx_market_idempotency` (`tenant_id`,`user_id`,`idempotency_key`),
   KEY `idx_type` (`tenant_id`,`type_code`),
   KEY `idx_status` (`tenant_id`,`status`),
   KEY `idx_delete` (`tenant_id`,`delete_time`)
@@ -6781,6 +6818,15 @@ CREATE TABLE IF NOT EXISTS `la_aigc_action_transfer_task` (
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `user_id` int unsigned NOT NULL DEFAULT 0,
   `provider_task_id` varchar(120) NOT NULL DEFAULT '',
+  `app_task_id` int unsigned NOT NULL DEFAULT 0,
+  `consumption_id` int unsigned NOT NULL DEFAULT 0,
+  `market_product_id` int unsigned NOT NULL DEFAULT 0,
+  `market_sku_id` int unsigned NOT NULL DEFAULT 0,
+  `pricing_snapshot` text,
+  `idempotency_key` varchar(100) DEFAULT NULL,
+  `market_request_id` varchar(120) NOT NULL DEFAULT '',
+  `market_retry_count` tinyint unsigned NOT NULL DEFAULT 0,
+  `market_error_code` varchar(80) NOT NULL DEFAULT '',
   `reference_images` text,
   `video_uri` varchar(500) NOT NULL DEFAULT '',
   `video_url_snapshot` varchar(1000) NOT NULL DEFAULT '',
@@ -6804,6 +6850,10 @@ CREATE TABLE IF NOT EXISTS `la_aigc_action_transfer_task` (
   PRIMARY KEY (`id`),
   KEY `idx_tenant_user` (`tenant_id`,`user_id`),
   KEY `idx_provider_task` (`provider_task_id`),
+  KEY `idx_market_app_task` (`app_task_id`),
+  KEY `idx_market_consumption` (`consumption_id`),
+  KEY `idx_market_request` (`market_request_id`),
+  KEY `idx_market_idempotency` (`tenant_id`,`user_id`,`idempotency_key`),
   KEY `idx_status` (`tenant_id`,`status`),
   KEY `idx_mode` (`tenant_id`,`mode`),
   KEY `idx_delete` (`tenant_id`,`delete_time`)
@@ -7317,6 +7367,15 @@ CREATE TABLE IF NOT EXISTS `la_aigc_person_replacement_task` (
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `user_id` int unsigned NOT NULL DEFAULT 0,
   `provider_task_id` varchar(120) NOT NULL DEFAULT '',
+  `app_task_id` int unsigned NOT NULL DEFAULT 0,
+  `consumption_id` int unsigned NOT NULL DEFAULT 0,
+  `market_product_id` int unsigned NOT NULL DEFAULT 0,
+  `market_sku_id` int unsigned NOT NULL DEFAULT 0,
+  `pricing_snapshot` text,
+  `idempotency_key` varchar(100) DEFAULT NULL,
+  `market_request_id` varchar(120) NOT NULL DEFAULT '',
+  `market_retry_count` tinyint unsigned NOT NULL DEFAULT 0,
+  `market_error_code` varchar(80) NOT NULL DEFAULT '',
   `reference_images` text,
   `video_uri` varchar(500) NOT NULL DEFAULT '',
   `video_url_snapshot` varchar(1000) NOT NULL DEFAULT '',
@@ -7340,6 +7399,10 @@ CREATE TABLE IF NOT EXISTS `la_aigc_person_replacement_task` (
   PRIMARY KEY (`id`),
   KEY `idx_tenant_user` (`tenant_id`,`user_id`),
   KEY `idx_provider_task` (`provider_task_id`),
+  KEY `idx_market_app_task` (`app_task_id`),
+  KEY `idx_market_consumption` (`consumption_id`),
+  KEY `idx_market_request` (`market_request_id`),
+  KEY `idx_market_idempotency` (`tenant_id`,`user_id`,`idempotency_key`),
   KEY `idx_status` (`tenant_id`,`status`),
   KEY `idx_mode` (`tenant_id`,`mode`),
   KEY `idx_delete` (`tenant_id`,`delete_time`)
@@ -7459,6 +7522,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_project` (
   `episode_count` int unsigned NOT NULL DEFAULT 1,
   `target_duration_seconds` int unsigned NOT NULL DEFAULT 0,
   `input_asset_ids` text,
+  `generation_settings_json` text COMMENT 'Project generation settings',
   `cover_url` varchar(500) NOT NULL DEFAULT '',
   `status` varchar(30) NOT NULL DEFAULT 'draft',
   `last_task_id` varchar(64) NOT NULL DEFAULT '',
@@ -7551,7 +7615,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_storyboard` (
   `update_time` int unsigned NOT NULL DEFAULT 0,
   `delete_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_task_shot` (`tenant_id`,`task_id`,`shot_id`),
+  UNIQUE KEY `uk_task_shot` (`tenant_id`,`task_id`,`shot_id`,`delete_time`),
   KEY `idx_task_sort` (`tenant_id`,`task_id`,`sort`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧分镜';
 
@@ -7565,6 +7629,10 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_subject` (
   `category` varchar(40) NOT NULL DEFAULT 'character',
   `gender` varchar(20) NOT NULL DEFAULT 'unknown',
   `age_stage` varchar(30) NOT NULL DEFAULT 'unknown',
+  `voice_id` int unsigned NOT NULL DEFAULT 0 COMMENT '绑定音色ID',
+  `voice_name` varchar(80) NOT NULL DEFAULT '' COMMENT '绑定音色名称',
+  `voice_label` varchar(160) NOT NULL DEFAULT '' COMMENT '绑定音色标签',
+  `voice_source` varchar(20) NOT NULL DEFAULT '' COMMENT '音色来源 official/mine',
   `source` varchar(20) NOT NULL DEFAULT 'public',
   `status` tinyint NOT NULL DEFAULT 1,
   `sort` int NOT NULL DEFAULT 0,
@@ -8033,6 +8101,20 @@ CREATE TABLE IF NOT EXISTS `la_ai_app_task` (
   PRIMARY KEY (`id`), UNIQUE KEY `uk_task_no` (`task_no`), UNIQUE KEY `uk_tenant_idempotency` (`tenant_id`,`idempotency_key`), KEY `idx_tenant_app_time` (`tenant_id`,`app_code`,`create_time`), KEY `idx_business` (`business_table`,`business_id`), KEY `idx_user_time` (`tenant_id`,`user_id`,`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI应用任务';
 
+CREATE TABLE IF NOT EXISTS `la_ai_market_app_gate` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `app_code` varchar(80) NOT NULL DEFAULT '',
+  `status` tinyint NOT NULL DEFAULT 0 COMMENT 'market entry defaults to off',
+  `rollout_percent` tinyint unsigned NOT NULL DEFAULT 0 COMMENT 'stable user rollout percentage',
+  `user_whitelist` text COMMENT 'JSON user whitelist',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenant_app` (`tenant_id`,`app_code`),
+  KEY `idx_app_status` (`app_code`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI market application tenant gate';
+
 CREATE TABLE IF NOT EXISTS `la_ai_consumption_log` (
   `id` int unsigned NOT NULL AUTO_INCREMENT, `consume_no` varchar(48) NOT NULL DEFAULT '', `app_task_id` int unsigned NOT NULL DEFAULT 0, `tenant_id` int unsigned NOT NULL DEFAULT 0, `user_id` int unsigned NOT NULL DEFAULT 0,
   `app_code` varchar(80) NOT NULL DEFAULT '', `action_code` varchar(80) NOT NULL DEFAULT '', `resource_type` varchar(20) NOT NULL DEFAULT '', `product_id` int unsigned NOT NULL DEFAULT 0, `sku_id` int unsigned NOT NULL DEFAULT 0,
@@ -8096,14 +8178,16 @@ INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sor
 SELECT 0,0,'M','任务日志','el-icon-Document',50,'','task-log','','','',0,1,0,'','core','core_task_log_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 WHERE @install_tenant_task_log_id IS NULL;
 SET @install_tenant_task_log_id := (SELECT `id` FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='core_task_log_tenant' LIMIT 1);
-UPDATE `la_tenant_system_menu` SET `pid`=@install_tenant_task_log_id,`name`='应用日志',`perms`='ai_task/lists',`paths`='application',`component`='consumer/task/index' WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_task_tenant';
+UPDATE `la_tenant_system_menu` SET `pid`=@install_tenant_task_log_id,`name`='应用日志',`sort`=100,`perms`='ai_task/lists',`paths`='application',`component`='consumer/task/index' WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_task_tenant';
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT 0,@install_tenant_task_log_id,'C','应用日志','el-icon-List',100,'ai_task/lists','application','consumer/task/index','','',0,1,0,'','core','core_ai_task_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 WHERE @install_tenant_task_log_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_task_tenant');
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
-SELECT 0,@install_tenant_task_log_id,'C','消耗日志','el-icon-DataAnalysis',90,'ai_consumption/lists','consumption','power_mall/consumption','','',0,1,0,'','core','core_ai_consumption_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+SELECT 0,@install_tenant_task_log_id,'C','消耗日志','el-icon-DataAnalysis',70,'ai_consumption/lists','consumption','power_mall/consumption','','',0,1,0,'','core','core_ai_consumption_tenant',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 WHERE @install_tenant_task_log_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_consumption_tenant');
-UPDATE `la_tenant_system_menu` SET `pid`=@install_tenant_task_log_id,`name`='消耗日志',`perms`='ai_consumption/lists',`paths`='consumption',`component`='power_mall/consumption' WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_consumption_tenant';
+UPDATE `la_tenant_system_menu` SET `pid`=@install_tenant_task_log_id,`name`='消耗日志',`sort`=70,`perms`='ai_consumption/lists',`paths`='consumption',`component`='power_mall/consumption' WHERE `tenant_id`=0 AND `source_menu_key`='core_ai_consumption_tenant';
+UPDATE `la_tenant_system_menu` SET `pid`=@install_tenant_task_log_id,`name`='生图列表',`sort`=90,`paths`='image',`update_time`=UNIX_TIMESTAMP() WHERE `tenant_id`=0 AND `source_menu_key`='aigc_image_task';
+UPDATE `la_tenant_system_menu` SET `pid`=@install_tenant_task_log_id,`name`='视频列表',`sort`=80,`paths`='video',`update_time`=UNIX_TIMESTAMP() WHERE `tenant_id`=0 AND `source_menu_key`='aigc_video_task';
 
 -- PC 官方网站模块：固定内容结构，供新租户初始化时复制。
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
@@ -8155,9 +8239,9 @@ INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sor
 SELECT 0,@install_fashion_lookbook_id,'C','任务记录','',10,'app.aigc_fashion_lookbook.task/lists','task','apps/aigc_fashion_lookbook/task','','',0,1,0,'aigc_fashion_lookbook','app','aigc_fashion_lookbook_task',0,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 WHERE @install_fashion_lookbook_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='aigc_fashion_lookbook_task');
 
--- Distribution management schema (kept in sync with upgrade/20260727_distribution_management.sql).
-CREATE TABLE IF NOT EXISTS `la_distribution_config` (`id` int unsigned NOT NULL AUTO_INCREMENT,`tenant_id` int unsigned NOT NULL DEFAULT 0,`status` tinyint unsigned NOT NULL DEFAULT 0,`level_count` tinyint unsigned NOT NULL DEFAULT 3,`level1_rate` decimal(8,4) NOT NULL DEFAULT 0.0000,`level2_rate` decimal(8,4) NOT NULL DEFAULT 0.0000,`level3_rate` decimal(8,4) NOT NULL DEFAULT 0.0000,`settle_days` int unsigned NOT NULL DEFAULT 15,`min_withdraw_amount` decimal(12,2) NOT NULL DEFAULT 0.00,`withdraw_notice` varchar(500) NOT NULL DEFAULT '',`create_time` int unsigned NOT NULL DEFAULT 0,`update_time` int unsigned NOT NULL DEFAULT 0,PRIMARY KEY (`id`),UNIQUE KEY `uk_tenant` (`tenant_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分销全局配置';
-CREATE TABLE IF NOT EXISTS `la_distribution_package_rule` (`id` int unsigned NOT NULL AUTO_INCREMENT,`tenant_id` int unsigned NOT NULL DEFAULT 0,`order_type` varchar(20) NOT NULL DEFAULT '',`package_id` int unsigned NOT NULL DEFAULT 0,`rule_mode` varchar(20) NOT NULL DEFAULT 'inherit',`level_count` tinyint unsigned NOT NULL DEFAULT 3,`level1_rate` decimal(8,4) NOT NULL DEFAULT 0.0000,`level2_rate` decimal(8,4) NOT NULL DEFAULT 0.0000,`level3_rate` decimal(8,4) NOT NULL DEFAULT 0.0000,`create_time` int unsigned NOT NULL DEFAULT 0,`update_time` int unsigned NOT NULL DEFAULT 0,PRIMARY KEY (`id`),UNIQUE KEY `uk_tenant_type_package` (`tenant_id`,`order_type`,`package_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分销套餐规则';
+-- Distribution management schema.
+CREATE TABLE IF NOT EXISTS `la_distribution_config` (`id` int unsigned NOT NULL AUTO_INCREMENT,`tenant_id` int unsigned NOT NULL DEFAULT 0,`status` tinyint unsigned NOT NULL DEFAULT 0,`level_count` tinyint unsigned NOT NULL DEFAULT 2,`level1_rate` decimal(8,4) NOT NULL DEFAULT 0.0000,`level2_rate` decimal(8,4) NOT NULL DEFAULT 0.0000,`level3_rate` decimal(8,4) NOT NULL DEFAULT 0.0000,`settle_days` int unsigned NOT NULL DEFAULT 15,`min_withdraw_amount` decimal(12,2) NOT NULL DEFAULT 0.00,`withdraw_notice` varchar(500) NOT NULL DEFAULT '',`create_time` int unsigned NOT NULL DEFAULT 0,`update_time` int unsigned NOT NULL DEFAULT 0,PRIMARY KEY (`id`),UNIQUE KEY `uk_tenant` (`tenant_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分销全局配置';
+CREATE TABLE IF NOT EXISTS `la_distribution_package_rule` (`id` int unsigned NOT NULL AUTO_INCREMENT,`tenant_id` int unsigned NOT NULL DEFAULT 0,`order_type` varchar(20) NOT NULL DEFAULT '',`package_id` int unsigned NOT NULL DEFAULT 0,`rule_mode` varchar(20) NOT NULL DEFAULT 'inherit',`level_count` tinyint unsigned NOT NULL DEFAULT 2,`level1_rate` decimal(8,4) NOT NULL DEFAULT 0.0000,`level2_rate` decimal(8,4) NOT NULL DEFAULT 0.0000,`level3_rate` decimal(8,4) NOT NULL DEFAULT 0.0000,`create_time` int unsigned NOT NULL DEFAULT 0,`update_time` int unsigned NOT NULL DEFAULT 0,PRIMARY KEY (`id`),UNIQUE KEY `uk_tenant_type_package` (`tenant_id`,`order_type`,`package_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分销套餐规则';
 CREATE TABLE IF NOT EXISTS `la_distribution_relation` (`id` int unsigned NOT NULL AUTO_INCREMENT,`tenant_id` int unsigned NOT NULL DEFAULT 0,`user_id` int unsigned NOT NULL DEFAULT 0,`invite_code` varchar(20) NOT NULL DEFAULT '',`level1_user_id` int unsigned NOT NULL DEFAULT 0,`level2_user_id` int unsigned NOT NULL DEFAULT 0,`level3_user_id` int unsigned NOT NULL DEFAULT 0,`is_frozen` tinyint unsigned NOT NULL DEFAULT 0,`bind_time` int unsigned NOT NULL DEFAULT 0,`bind_source` varchar(30) NOT NULL DEFAULT '',`create_time` int unsigned NOT NULL DEFAULT 0,`update_time` int unsigned NOT NULL DEFAULT 0,PRIMARY KEY (`id`),UNIQUE KEY `uk_tenant_user` (`tenant_id`,`user_id`),UNIQUE KEY `uk_tenant_code` (`tenant_id`,`invite_code`),KEY `idx_level1` (`tenant_id`,`level1_user_id`),KEY `idx_level2` (`tenant_id`,`level2_user_id`),KEY `idx_level3` (`tenant_id`,`level3_user_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户三级分销关系';
 CREATE TABLE IF NOT EXISTS `la_distribution_relation_log` (`id` int unsigned NOT NULL AUTO_INCREMENT,`tenant_id` int unsigned NOT NULL DEFAULT 0,`user_id` int unsigned NOT NULL DEFAULT 0,`operator_id` int unsigned NOT NULL DEFAULT 0,`before_chain` text,`after_chain` text,`reason` varchar(500) NOT NULL DEFAULT '',`create_time` int unsigned NOT NULL DEFAULT 0,PRIMARY KEY (`id`),KEY `idx_tenant_user` (`tenant_id`,`user_id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分销关系调整审计';
 CREATE TABLE IF NOT EXISTS `la_distribution_commission` (`id` int unsigned NOT NULL AUTO_INCREMENT,`tenant_id` int unsigned NOT NULL DEFAULT 0,`order_type` varchar(20) NOT NULL DEFAULT '',`order_sn` varchar(64) NOT NULL DEFAULT '',`order_user_id` int unsigned NOT NULL DEFAULT 0,`package_id` int unsigned NOT NULL DEFAULT 0,`beneficiary_user_id` int unsigned NOT NULL DEFAULT 0,`level` tinyint unsigned NOT NULL DEFAULT 1,`paid_amount` decimal(12,2) NOT NULL DEFAULT 0.00,`rate` decimal(8,4) NOT NULL DEFAULT 0.0000,`commission_amount` decimal(12,2) NOT NULL DEFAULT 0.00,`status` varchar(20) NOT NULL DEFAULT 'pending',`settle_time` int unsigned NOT NULL DEFAULT 0,`reverse_time` int unsigned NOT NULL DEFAULT 0,`rule_source` varchar(20) NOT NULL DEFAULT 'global',`create_time` int unsigned NOT NULL DEFAULT 0,`update_time` int unsigned NOT NULL DEFAULT 0,PRIMARY KEY (`id`),UNIQUE KEY `uk_order_user_level` (`tenant_id`,`order_type`,`order_sn`,`beneficiary_user_id`,`level`),KEY `idx_settle` (`status`,`settle_time`),KEY `idx_tenant_beneficiary` (`tenant_id`,`beneficiary_user_id`,`status`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分销订单佣金快照';
@@ -9004,3 +9088,16 @@ CREATE TABLE IF NOT EXISTS `la_aigc_canvas_agent_subtask` (
   KEY `idx_claim` (`status`,`lease_expire_time`,`sequence`,`id`),
   KEY `idx_tenant_request` (`tenant_id`,`user_id`,`request_id`,`delete_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AIGC canvas durable Agent subtasks';
+
+SET @db_name = DATABASE();
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME='la_aigc_canvas_agent_tool_call' AND COLUMN_NAME='delivery_item_id')=0,
+  'ALTER TABLE `la_aigc_canvas_agent_tool_call` ADD COLUMN `delivery_item_id` bigint unsigned NOT NULL DEFAULT 0 AFTER `tool_code`, ADD COLUMN `attempt_no` int unsigned NOT NULL DEFAULT 1 AFTER `delivery_item_id`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME='la_aigc_canvas_agent_tool_call' AND INDEX_NAME='idx_delivery_item')=0,
+  'ALTER TABLE `la_aigc_canvas_agent_tool_call` ADD KEY `idx_delivery_item` (`tenant_id`,`user_id`,`delivery_item_id`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME='la_aigc_canvas_agent_tool_call' AND COLUMN_NAME='provider_task_id')>0 AND (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME='la_aigc_canvas_agent_tool_call' AND INDEX_NAME='idx_provider_task')=0,
+  'ALTER TABLE `la_aigc_canvas_agent_tool_call` ADD KEY `idx_provider_task` (`tenant_id`,`provider_task_id`)', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

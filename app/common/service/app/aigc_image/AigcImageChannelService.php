@@ -6,7 +6,7 @@ use app\common\model\app\aigc_image\AigcImageChannel;
 use app\common\model\app\aigc_image\AigcImageChannelSpec;
 use app\common\service\app\ChannelSpecPricingSchemaService;
 use app\common\service\power\MarketImageModelRuntimeService;
-use app\common\service\power\MarketNanoBananaAppRuntimeService;
+use app\common\service\power\MarketGenerationCatalogService;
 use Exception;
 use think\facade\Db;
 
@@ -21,12 +21,122 @@ class AigcImageChannelService
     {
         $channels = self::normalizeUserChannels(self::effectiveChannels($tenantId, true));
         $defaults = self::defaults($channels);
+        $catalog = MarketGenerationCatalogService::options($tenantId, 'image');
         return [
             'channels' => self::sanitizeChannels($channels, false),
+            'models' => $catalog['models'],
+            'applications' => $catalog['applications'],
+            'unavailable_applications' => $catalog['unavailable_applications'],
+            'generation_type' => 'image',
             'defaults' => $defaults,
             'quantity_options' => self::quantityOptions($channels),
             'max_reference_images' => self::maxReferenceImages($channels),
         ];
+    }
+
+    public static function normalizeRuntimeChannelCode(string $code): string
+    {
+        $code = preg_replace('/[^a-zA-Z0-9_:\-]/', '', trim($code)) ?: '';
+        if (preg_match('/^market_image_model(\d+)$/', $code, $matches) === 1) {
+            return 'market_image_model:' . $matches[1];
+        }
+        return $code;
+    }
+
+    public static function alignConfigSelection(array $config, array $optionConfig): array
+    {
+        $config['channel'] = self::normalizeRuntimeChannelCode((string)($config['channel'] ?? ''));
+        $config['quality'] = trim((string)($config['quality'] ?? ''));
+        $config['ratio'] = trim((string)($config['ratio'] ?? ''));
+
+        $channels = array_values(array_filter(
+            (array)($optionConfig['channels'] ?? []),
+            static fn($channel): bool => is_array($channel)
+                && trim((string)($channel['code'] ?? '')) !== ''
+        ));
+        if ($channels === []) {
+            return $config;
+        }
+
+        $channel = self::findSelectionOption(
+            $channels,
+            $config['channel'],
+            static fn(array $item): string => self::normalizeRuntimeChannelCode((string)($item['code'] ?? ''))
+        );
+        if ($channel === null) {
+            $channel = self::findSelectionOption(
+                $channels,
+                self::normalizeRuntimeChannelCode((string)($optionConfig['defaults']['channel'] ?? '')),
+                static fn(array $item): string => self::normalizeRuntimeChannelCode((string)($item['code'] ?? ''))
+            );
+        }
+        $channel ??= $channels[0];
+        $config['channel'] = (string)($channel['code'] ?? '');
+
+        $qualities = array_values(array_filter(
+            (array)($channel['qualities'] ?? []),
+            static fn($quality): bool => is_array($quality)
+        ));
+        $quality = self::findSelectionOption(
+            $qualities,
+            $config['quality'],
+            static fn(array $item): string => (string)($item['value'] ?? '')
+        );
+        if ($quality === null) {
+            $quality = self::findSelectionOption(
+                $qualities,
+                (string)($optionConfig['defaults']['quality'] ?? ''),
+                static fn(array $item): string => (string)($item['value'] ?? '')
+            );
+        }
+        $quality ??= $qualities[0] ?? [];
+        $config['quality'] = (string)($quality['value'] ?? '');
+
+        $ratios = array_values(array_filter(
+            (array)($quality['ratios'] ?? []),
+            static fn($ratio): bool => is_array($ratio)
+        ));
+        $ratioValue = static fn(array $item): string => (string)($item['ratio'] ?? $item['value'] ?? '');
+        $ratio = self::findSelectionOption($ratios, $config['ratio'], $ratioValue);
+        if ($ratio === null) {
+            $ratio = self::findSelectionOption(
+                $ratios,
+                (string)($optionConfig['defaults']['ratio'] ?? ''),
+                $ratioValue
+            );
+        }
+        $ratio ??= $ratios[0] ?? [];
+        $config['ratio'] = $ratioValue($ratio);
+        return $config;
+    }
+
+    public static function alignConfigDefaults(array $data, array $optionConfig): array
+    {
+        $config = is_array($data['config_json'] ?? null) ? $data['config_json'] : [];
+        foreach (['channel', 'quality', 'ratio'] as $field) {
+            $defaultField = 'default_' . $field;
+            if (trim((string)($data[$defaultField] ?? '')) !== '') {
+                $config[$field] = $data[$defaultField];
+            }
+        }
+        $data['config_json'] = self::alignConfigSelection($config, $optionConfig);
+        $data['default_channel'] = $data['config_json']['channel'];
+        $data['default_quality'] = $data['config_json']['quality'];
+        $data['default_ratio'] = $data['config_json']['ratio'];
+        return $data;
+    }
+
+    private static function findSelectionOption(array $options, string $requested, callable $value): ?array
+    {
+        if ($requested === '') {
+            return null;
+        }
+        foreach ($options as $option) {
+            if ($value($option) === $requested) {
+                return $option;
+            }
+        }
+        return null;
     }
 
     private static function normalizeUserChannels(array $channels): array
@@ -75,10 +185,14 @@ class AigcImageChannelService
             throw new Exception('暂无可用生图通道');
         }
         $defaults = self::defaults($channels);
-        $channelCode = trim((string)($params['channel'] ?? '')) ?: $defaults['channel'];
+        $channelCode = self::normalizeRuntimeChannelCode((string)($params['channel'] ?? ''))
+            ?: self::normalizeRuntimeChannelCode((string)$defaults['channel']);
         $quality = array_key_exists('quality', $params)
             ? trim((string)$params['quality'])
             : $defaults['quality'];
+        if ($quality === '') {
+            $quality = (string)$defaults['quality'];
+        }
         $ratio = array_key_exists('ratio', $params)
             ? trim((string)$params['ratio'])
             : self::normalizeRequestedRatio('', $defaults['ratio']);
@@ -449,6 +563,9 @@ class AigcImageChannelService
     {
         $channels = [];
         foreach (MarketImageModelRuntimeService::options($tenantId) as $model) {
+            if (!self::isMarketRuntimeOptionVisible($model)) {
+                continue;
+            }
             $modelCode = trim((string)($model['model_code'] ?? ''));
             $channelCode = trim((string)($model['id'] ?? ''));
             if ($modelCode === '' || $channelCode === '') {
@@ -461,15 +578,33 @@ class AigcImageChannelService
                 'value' => $channelCode,
                 'name' => (string)($model['name'] ?? $modelCode),
                 'label' => (string)($model['name'] ?? $modelCode),
-                'provider' => 'xhadmin',
+                'description' => (string)($model['description'] ?? ''),
+                'display_icon' => (string)($model['display_icon'] ?? ''),
+                'resource_type' => 'model',
+                'model_type' => 'image',
+                'category_code' => 'image',
+                'category_name' => '图片生成',
+                'market_product_id' => (int)($model['market_product_id'] ?? 0),
+                'app_code' => '',
+                'api_code' => '',
+                'provider' => 'power_market_model',
                 'model' => $modelCode,
+                'model_code' => $modelCode,
                 'max_reference_images' => (int)($model['max_reference_images'] ?? 0),
-                'status' => 1,
-                'platform_status' => 1,
-                'tenant_status' => 1,
+                'status' => (int)($model['status'] ?? 1),
+                'available' => (bool)($model['available'] ?? ((int)($model['status'] ?? 1) === 1)),
+                'enabled' => (bool)($model['enabled'] ?? ((int)($model['status'] ?? 1) === 1)),
+                'unavailable_reason' => (string)($model['unavailable_reason'] ?? ''),
+                'platform_status' => (int)($model['status'] ?? 1),
+                'tenant_status' => (int)($model['status'] ?? 1),
                 'sort' => (int)($model['sort'] ?? 0),
                 'config_json' => [
                     'model' => $modelCode,
+                    'resource_type' => 'model',
+                    'model_type' => 'image',
+                    'market_product_id' => (int)($model['market_product_id'] ?? 0),
+                    'market_sku_id' => (int)($model['market_sku_id'] ?? 0),
+                    'category_code' => 'image',
                     'upstream_channel' => (string)($model['upstream_channel_code'] ?? ''),
                     'quantity_options' => [1],
                 ],
@@ -487,11 +622,17 @@ class AigcImageChannelService
                 }
                 $qualities = array_values(array_filter($qualities));
                 if ($qualities === []) {
-                    continue;
+                    $qualities = array_values(array_filter(array_map('strval', (array)($model['quality_options'] ?? []))));
+                }
+                if ($qualities === []) {
+                    $qualities = [trim((string)($model['default_quality'] ?? '1k')) ?: '1k'];
                 }
                 $ratios = array_values(array_unique(array_map('strval', (array)($sku['ratio_options'] ?? []))));
                 if ($ratios === []) {
-                    $ratios = [''];
+                    $ratios = array_values(array_unique(array_map('strval', (array)($model['ratio_options'] ?? []))));
+                }
+                if ($ratios === []) {
+                    $ratios = [trim((string)($model['default_ratio'] ?? '1:1')) ?: '1:1'];
                 }
                 foreach ($qualities as $quality) {
                     foreach ($ratios as $ratio) {
@@ -547,97 +688,24 @@ class AigcImageChannelService
                     }
                 }
             }
-            if ($channel['specs'] !== []) {
-                $channel['qualities'] = array_values($channel['qualities']);
-                $channels[] = $channel;
+            $channel['qualities'] = array_values($channel['qualities']);
+            if ($channel['specs'] === []) {
+                $channel['status'] = 0;
+                $channel['available'] = false;
+                $channel['enabled'] = false;
+                $channel['unavailable_reason'] = $channel['unavailable_reason'] ?: '暂无可售 SKU';
             }
-        }
-        foreach (MarketNanoBananaAppRuntimeService::options($tenantId) as $model) {
-            $channelCode = trim((string)($model['id'] ?? $model['value'] ?? ''));
-            $modelCode = trim((string)($model['model_code'] ?? ''));
-            if ($channelCode === '' || $modelCode === '') {
-                continue;
-            }
-            $channel = [
-                'id' => 0,
-                'tenant_override_id' => 0,
-                'code' => $channelCode,
-                'value' => $channelCode,
-                'name' => (string)($model['name'] ?? $modelCode),
-                'label' => (string)($model['name'] ?? $modelCode),
-                'provider' => 'power_market_app_api',
-                'model' => $modelCode,
-                'display_group' => (string)($model['display_group'] ?? ''),
-                'display_group_label' => (string)($model['display_group_label'] ?? ''),
-                'display_series' => (string)($model['display_series'] ?? ''),
-                'display_series_label' => (string)($model['display_series_label'] ?? ''),
-                'display_variant_label' => (string)($model['display_variant_label'] ?? $model['name'] ?? $modelCode),
-                'max_reference_images' => (int)($model['max_reference_images'] ?? 0),
-                'status' => 1,
-                'platform_status' => 1,
-                'tenant_status' => 1,
-                'sort' => (int)($model['sort'] ?? 0),
-                'config_json' => [
-                    'market_app_code' => 'nano_banana',
-                    'quantity_options' => [1],
-                ],
-                'quantity_options' => [1],
-                'qualities' => [],
-                'specs' => [],
-            ];
-            foreach ((array)($model['skus'] ?? []) as $sku) {
-                if (!is_array($sku)) {
-                    continue;
-                }
-                $quality = strtolower(trim((string)($sku['quality'] ?? $sku['resolution'] ?? '1k'))) ?: '1k';
-                $ratios = array_values(array_unique(array_filter(array_map('strval', (array)($model['ratio_options'] ?? [])))));
-                if ($ratios === []) {
-                    $ratios = ['1:1'];
-                }
-                foreach ($ratios as $ratio) {
-                    $spec = [
-                        'id' => 0,
-                        'tenant_override_id' => 0,
-                        'channel_code' => $channelCode,
-                        'quality' => $quality,
-                        'value' => $ratio,
-                        'label' => $ratio,
-                        'quality_label' => (string)($sku['title'] ?? strtoupper($quality)),
-                        'ratio' => $ratio,
-                        'width' => 0,
-                        'height' => 0,
-                        'market_product_id' => (int)($model['market_product_id'] ?? 0),
-                        'market_sku_id' => (int)($sku['market_sku_id'] ?? 0),
-                        'upstream_unit_cost' => self::formatPoints((float)($sku['upstream_unit_cost'] ?? 0)),
-                        'platform_unit_cost' => self::formatPoints((float)($sku['platform_unit_cost'] ?? 0)),
-                        'tenant_unit_price' => self::formatPoints((float)($sku['tenant_unit_price'] ?? 0)),
-                        'platform_gross_margin_points' => 0.0,
-                        'tenant_gross_margin_points' => 0.0,
-                        'upstream_cost_text' => '',
-                        'cost_source_url' => '',
-                        'provider_params_json' => self::normalizeJson($sku['locked_params'] ?? []),
-                        'status' => 1,
-                        'platform_status' => 1,
-                        'tenant_status' => 1,
-                        'sort' => (int)($sku['market_sku_id'] ?? 0),
-                    ];
-                    $channel['specs'][] = $spec;
-                    if (!isset($channel['qualities'][$quality])) {
-                        $channel['qualities'][$quality] = [
-                            'value' => $quality,
-                            'label' => strtoupper($quality),
-                            'ratios' => [],
-                        ];
-                    }
-                    $channel['qualities'][$quality]['ratios'][] = $spec;
-                }
-            }
-            if ($channel['specs'] !== []) {
-                $channel['qualities'] = array_values($channel['qualities']);
-                $channels[] = $channel;
-            }
+            $channels[] = $channel;
         }
         return $channels;
+    }
+
+    private static function isMarketRuntimeOptionVisible(array $model): bool
+    {
+        return (int)($model['status'] ?? (($model['enabled'] ?? true) === false || ($model['available'] ?? true) === false ? 0 : 1)) === 1
+            && ($model['enabled'] ?? true) !== false
+            && ($model['available'] ?? true) !== false
+            && !empty($model['skus']);
     }
 
     private static function normalizeRuntimeChannel(array $channel): array
