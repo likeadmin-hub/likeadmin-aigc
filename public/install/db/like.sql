@@ -1202,6 +1202,8 @@ VALUES
 (@core_tenant_package_platform_id, 'A', '应用套餐选项', '', 0, 'tenant.package/appPlans', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_app_plans', 1, 1782604800, 1782604800),
 (@core_tenant_package_platform_id, 'A', '额度订单', '', 0, 'tenant.package/quotaOrders', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_quota_orders', 1, 1782604800, 1782604800),
 (@core_tenant_package_platform_id, 'A', '贴牌订单', '', 0, 'tenant.package/brandOrders', '', '', '', '', 0, 0, 0, '', 'core', 'core_tenant_package_platform_brand_orders', 1, 1782604800, 1782604800);
+INSERT INTO `la_system_menu` (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+VALUES (117, 'C', '算力消耗明细', 'el-icon-DataLine', 92, 'tenant.power_consume/lists', 'power-consume', 'tenant/power_consume/index', '', '', 0, 1, 0, '', 'core', 'core_tenant_power_consume_platform', 1, 1787184000, 1787184000);
 INSERT INTO `la_system_menu` (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `selected`, `params`, `is_cache`, `is_show`, `is_disable`, `app_code`, `source`, `source_menu_key`, `is_core`, `create_time`, `update_time`)
 VALUES (0, 'M', '算力商城', 'el-icon-Goods', 700, '', 'power-mall', '', '', '', 0, 1, 0, '', 'core', 'core_power_mall', 1, 1782604800, 1782604800);
 SET @core_power_mall_id := LAST_INSERT_ID();

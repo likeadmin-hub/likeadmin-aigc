@@ -73,6 +73,9 @@ class AigcShortDramaService
     {
         $config = self::publicConfig($tenantId);
         $config['script_prompt_defaults'] = self::scriptPromptDefaults();
+        $config['prompt_config_defaults'] = self::runtimePromptDefaults();
+        $config['prompt_config_values'] = self::promptConfigValues($config);
+        $config['prompt_config_definitions'] = self::promptConfigDefinitions();
         $config['dependencies'] = self::dependencies($tenantId);
         $config['result_storage_options'] = StorageConfigService::availableStorageOptions($tenantId);
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $config);
@@ -405,7 +408,17 @@ class AigcShortDramaService
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);
         $current = self::publicConfig($tenantId);
         $config = $current;
-        unset($config['status'], $config['display_config'], $config['model_groups'], $config['result_storage_options']);
+        unset(
+            $config['status'],
+            $config['display_config'],
+            $config['model_groups'],
+            $config['result_storage_options'],
+            $config['prompt_config_defaults'],
+            $config['prompt_config_values'],
+            $config['prompt_config_definitions'],
+            $config['script_prompt_defaults'],
+            $config['dependencies']
+        );
 
         if (array_key_exists('script_plan_points', $params)) {
             unset($config['script_plan_points']);
@@ -424,6 +437,12 @@ class AigcShortDramaService
         }
         if ((string)($config['script_prompt_template'] ?? '') === self::defaultScriptPromptTemplate()) {
             unset($config['script_prompt_template']);
+        }
+        if ((string)($config['multi_episode_script_system_prompt'] ?? '') === self::multiEpisodeScriptPlanSystemPrompt()) {
+            unset($config['multi_episode_script_system_prompt']);
+        }
+        if ((string)($config['multi_episode_script_prompt_template'] ?? '') === self::defaultMultiEpisodeScriptPromptTemplate()) {
+            unset($config['multi_episode_script_prompt_template']);
         }
         if (array_key_exists('script_system_prompt', $params)) {
             $scriptSystemPrompt = self::validateScriptPromptConfigValue(
@@ -447,6 +466,56 @@ class AigcShortDramaService
                 unset($config['script_prompt_template']);
             } else {
                 $config['script_prompt_template'] = $scriptPromptTemplate;
+            }
+        }
+        if (array_key_exists('multi_episode_script_system_prompt', $params)) {
+            $multiEpisodeSystemPrompt = self::validateScriptPromptConfigValue(
+                (string)$params['multi_episode_script_system_prompt'],
+                self::multiEpisodeScriptPlanSystemPrompt(),
+                '多集剧本系统提示词'
+            );
+            if ($multiEpisodeSystemPrompt === self::multiEpisodeScriptPlanSystemPrompt()) {
+                unset($config['multi_episode_script_system_prompt']);
+            } else {
+                $config['multi_episode_script_system_prompt'] = $multiEpisodeSystemPrompt;
+            }
+        }
+        if (array_key_exists('multi_episode_script_prompt_template', $params)) {
+            $multiEpisodePromptTemplate = self::validateScriptPromptConfigValue(
+                (string)$params['multi_episode_script_prompt_template'],
+                self::defaultMultiEpisodeScriptPromptTemplate(),
+                '多集剧本生成提示词模板'
+            );
+            if ($multiEpisodePromptTemplate === self::defaultMultiEpisodeScriptPromptTemplate()) {
+                unset($config['multi_episode_script_prompt_template']);
+            } else {
+                $config['multi_episode_script_prompt_template'] = $multiEpisodePromptTemplate;
+            }
+        }
+        if (isset($params['prompt_config']) && is_array($params['prompt_config'])) {
+            $runtimeDefaults = self::runtimePromptDefaults();
+            $runtimeLabels = self::runtimePromptLabels();
+            $runtimeConfig = is_array($config['prompt_config'] ?? null) ? (array)$config['prompt_config'] : [];
+            foreach ($params['prompt_config'] as $key => $value) {
+                $key = (string)$key;
+                if (!array_key_exists($key, $runtimeDefaults)) {
+                    continue;
+                }
+                $normalized = self::validateScriptPromptConfigValue(
+                    (string)$value,
+                    $runtimeDefaults[$key],
+                    $runtimeLabels[$key] ?? '短剧提示词'
+                );
+                if ($normalized === $runtimeDefaults[$key]) {
+                    unset($runtimeConfig[$key]);
+                } else {
+                    $runtimeConfig[$key] = $normalized;
+                }
+            }
+            if ($runtimeConfig === []) {
+                unset($config['prompt_config']);
+            } else {
+                $config['prompt_config'] = $runtimeConfig;
             }
         }
         if (array_key_exists('force_result_transfer', $params)) {
@@ -475,6 +544,32 @@ class AigcShortDramaService
                 $config['default_text_model_id'] = (string)$defaultTextModel['id'];
                 $config['default_text_model_selection'] = self::marketModelSnapshot($defaultTextModel);
             }
+        }
+        $creationModelGroups = self::dependencyModelGroups($tenantId);
+        foreach ([
+            'image' => ['field' => 'default_image_model_id', 'selection' => 'default_image_model_selection', 'label' => '图片'],
+            'video' => ['field' => 'default_video_model_id', 'selection' => 'default_video_model_selection', 'label' => '视频'],
+        ] as $groupKey => $definition) {
+            $field = $definition['field'];
+            if (!array_key_exists($field, $params)) {
+                continue;
+            }
+            $selectedId = trim((string)$params[$field]);
+            if ($selectedId === '') {
+                unset($config[$field], $config[$definition['selection']]);
+                continue;
+            }
+            $group = self::modelGroupByKey($creationModelGroups, $groupKey);
+            $options = array_values(array_filter(
+                (array)($group['options'] ?? []),
+                [self::class, 'isSelectableCreationModel']
+            ));
+            $selectedModel = self::matchModelOption($options, $selectedId);
+            if ($selectedModel === []) {
+                throw new Exception('所选默认' . $definition['label'] . '模型已下架或不可用，请重新选择');
+            }
+            $config[$field] = self::modelOptionIdentity($selectedModel);
+            $config[$definition['selection']] = self::creationModelSnapshot($selectedModel);
         }
         if (isset($params['storyboard_rules']) && is_array($params['storyboard_rules'])) {
             $config['storyboard_rules'] = self::normalizeStoryboardRules($params['storyboard_rules']);
@@ -4755,7 +4850,7 @@ class AigcShortDramaService
                 }
             }
             $taskType = (string)($generation['task_type'] ?? 'shot_image');
-            $imageParams = self::shortDramaImageParams($shot, $params, $taskType, $plan);
+            $imageParams = self::shortDramaImageParams($tenantId, $shot, $params, $taskType, $plan);
             if ($taskType === 'shot_image') {
                 $shotReferenceContext = self::mergeShotReferenceContext($shot, $params);
                 $references = self::shotReferenceAssets($tenantId, $userId, $projectId, $shotReferenceContext, $plan);
@@ -8545,7 +8640,7 @@ class AigcShortDramaService
         return !empty($filtered) ? implode('、', $filtered) : trim($negativePrompt);
     }
 
-    private static function shortDramaImageParams(array $shot, array $params, string $taskType = 'shot_image', array $plan = []): array
+    private static function shortDramaImageParams(int $tenantId, array $shot, array $params, string $taskType = 'shot_image', array $plan = []): array
     {
         $channel = trim((string)($params['model_id'] ?? $params['channel'] ?? $params['image_model_id'] ?? ''));
         $ratio = self::requestGenerationRatio($params)
@@ -8559,6 +8654,21 @@ class AigcShortDramaService
         $prompt = $taskType === 'shot_image'
             ? self::normalizeFinalProviderPrompt($prompt)
             : self::localizeGenerationPromptText(self::cleanPromptRatioText($prompt), (string)($shot['visual_description'] ?? $shot['description'] ?? ''));
+        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
+        $templateKey = match ($taskType) {
+            'subject_image' => 'subject_image_prompt_template',
+            'three_view' => 'three_view_prompt_template',
+            'scene_image' => 'scene_image_prompt_template',
+            default => 'shot_image_prompt_template',
+        };
+        $prompt = self::applyConfiguredGenerationPromptTemplate($tenantId, $templateKey, $prompt, [
+            'task_type' => $taskType,
+            'subject_name' => (string)($params['subject_name'] ?? $nested['subject_name'] ?? $params['item_name'] ?? $nested['item_name'] ?? ''),
+            'scene_name' => (string)($params['scene_name'] ?? $nested['scene_name'] ?? $params['item_name'] ?? $nested['item_name'] ?? $shot['scene_name'] ?? ''),
+            'shot_title' => (string)($shot['title'] ?? ''),
+            'ratio' => $ratio,
+            'duration' => (string)($params['duration'] ?? ''),
+        ]);
         $noSubjectShot = $taskType === 'shot_image' && self::isNoSubjectShot(self::mergeShotReferenceContext($shot, $params));
         $sceneParams = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
         $sceneForNegative = self::planItemById((array)($plan['scenes'] ?? $plan['locations'] ?? []), (string)($params['scene_id'] ?? $sceneParams['scene_id'] ?? $params['item_id'] ?? $sceneParams['item_id'] ?? ''));
@@ -11965,6 +12075,8 @@ class AigcShortDramaService
             'prompt_max_length' => 20000,
             'script_system_prompt' => self::scriptPlanSystemPrompt(),
             'script_prompt_template' => self::defaultScriptPromptTemplate(),
+            'multi_episode_script_system_prompt' => self::multiEpisodeScriptPlanSystemPrompt(),
+            'multi_episode_script_prompt_template' => self::defaultMultiEpisodeScriptPromptTemplate(),
             'force_result_transfer' => false,
             'result_storage_engine' => '',
             'models' => [
@@ -11995,6 +12107,7 @@ class AigcShortDramaService
             $default['default_text_model_id'] = (string)($defaultTextModel['id'] ?? '');
             $default['default_text_model_selection'] = $defaultTextModel === [] ? [] : self::marketModelSnapshot($defaultTextModel);
             $default['model_groups'] = self::applyDefaultTextModel($default['model_groups'], $defaultTextModel);
+            $default = self::appendDefaultCreationModels($default);
             $default['vision_model_id'] = '';
             $default['vision_model_selection'] = [];
             return $default;
@@ -12020,6 +12133,7 @@ class AigcShortDramaService
         $config['default_text_model_id'] = (string)($defaultTextModel['id'] ?? '');
         $config['default_text_model_selection'] = $defaultTextModel === [] ? [] : self::marketModelSnapshot($defaultTextModel);
         $config['model_groups'] = self::applyDefaultTextModel($config['model_groups'], $defaultTextModel);
+        $config = self::appendDefaultCreationModels($config);
         $visionModel = self::configuredVisionModel($tenantId, $config, false);
         $config['vision_model_id'] = (string)($visionModel['id'] ?? '');
         $config['vision_model_selection'] = $visionModel === [] ? [] : self::marketModelSnapshot($visionModel);
@@ -12031,6 +12145,14 @@ class AigcShortDramaService
         $config['script_prompt_template'] = self::normalizeScriptPromptConfigValue(
             (string)($config['script_prompt_template'] ?? ''),
             self::defaultScriptPromptTemplate()
+        );
+        $config['multi_episode_script_system_prompt'] = self::normalizeScriptPromptConfigValue(
+            (string)($config['multi_episode_script_system_prompt'] ?? ''),
+            self::multiEpisodeScriptPlanSystemPrompt()
+        );
+        $config['multi_episode_script_prompt_template'] = self::normalizeScriptPromptConfigValue(
+            (string)($config['multi_episode_script_prompt_template'] ?? ''),
+            self::defaultMultiEpisodeScriptPromptTemplate()
         );
         $config['storyboard_rules'] = self::normalizeStoryboardRules((array)($config['storyboard_rules'] ?? []));
         $config['export_watermark'] = self::normalizeExportWatermarkConfig((array)($config['export_watermark'] ?? []));
@@ -12134,6 +12256,97 @@ class AigcShortDramaService
         }
         unset($group);
         return $groups;
+    }
+
+    private static function appendDefaultCreationModels(array $config): array
+    {
+        $config['model_groups'] = self::applyDefaultCreationModels(
+            (array)($config['model_groups'] ?? []),
+            $config
+        );
+        foreach ([
+            'image' => ['field' => 'default_image_model_id', 'selection' => 'default_image_model_selection'],
+            'video' => ['field' => 'default_video_model_id', 'selection' => 'default_video_model_selection'],
+        ] as $groupKey => $definition) {
+            $group = self::modelGroupByKey($config['model_groups'], $groupKey);
+            $model = self::matchModelOption(
+                (array)($group['options'] ?? []),
+                (string)($group['default'] ?? '')
+            );
+            $config[$definition['field']] = self::modelOptionIdentity($model);
+            $config[$definition['selection']] = $model === [] ? [] : self::creationModelSnapshot($model);
+        }
+        return $config;
+    }
+
+    private static function applyDefaultCreationModels(array $groups, array $config): array
+    {
+        $definitions = [
+            'image' => ['field' => 'default_image_model_id', 'selection' => 'default_image_model_selection'],
+            'video' => ['field' => 'default_video_model_id', 'selection' => 'default_video_model_selection'],
+        ];
+        foreach ($groups as &$group) {
+            $groupKey = (string)($group['key'] ?? '');
+            if (!isset($definitions[$groupKey])) {
+                continue;
+            }
+            $definition = $definitions[$groupKey];
+            $options = array_values(array_filter(
+                (array)($group['options'] ?? []),
+                [self::class, 'isSelectableCreationModel']
+            ));
+            $wanted = $config[$definition['field']] ?? $config[$definition['selection']] ?? '';
+            $selected = self::matchModelOption($options, $wanted);
+            if ($selected === []) {
+                $selected = self::matchModelOption($options, (string)($group['default'] ?? ''));
+            }
+            if ($selected === []) {
+                $selected = $options[0] ?? [];
+            }
+            $group['default'] = self::modelOptionIdentity($selected);
+            if ($selected !== []) {
+                $selectedId = self::modelOptionIdentity($selected);
+                $group['options'] = array_values(array_merge(
+                    [$selected],
+                    array_filter(
+                        (array)($group['options'] ?? []),
+                        static fn(array $option): bool => self::modelOptionIdentity($option) !== $selectedId
+                    )
+                ));
+            }
+        }
+        unset($group);
+        return $groups;
+    }
+
+    private static function isSelectableCreationModel(array $model): bool
+    {
+        return ($model['enabled'] ?? true) !== false
+            && ($model['available'] ?? true) !== false
+            && (int)($model['status'] ?? 1) === 1;
+    }
+
+    private static function modelOptionIdentity(array $model): string
+    {
+        return trim((string)($model['id']
+            ?? $model['value']
+            ?? $model['channel_code']
+            ?? $model['model_code']
+            ?? ''));
+    }
+
+    private static function creationModelSnapshot(array $model): array
+    {
+        return [
+            'id' => self::modelOptionIdentity($model),
+            'value' => (string)($model['value'] ?? self::modelOptionIdentity($model)),
+            'name' => (string)($model['name'] ?? $model['label'] ?? ''),
+            'model_code' => (string)($model['model_code'] ?? ''),
+            'channel_code' => (string)($model['channel_code'] ?? ''),
+            'resource_type' => (string)($model['resource_type'] ?? ''),
+            'market_product_id' => (int)($model['market_product_id'] ?? $model['product_id'] ?? 0),
+            'market_sku_id' => (int)($model['market_sku_id'] ?? $model['sku_id'] ?? 0),
+        ];
     }
 
     /** @param array<int, array<string, mixed>> $options */
@@ -12527,6 +12740,14 @@ class AigcShortDramaService
         $ratio = self::normalizeGenerationRatio($projectRatio) ?: self::requestGenerationRatio($params) ?: '9:16';
         $references = self::shortDramaVideoReferenceContract($tenantId, $userId, $projectId, $shot, $params);
         $prompt = self::normalizeFinalProviderPrompt(self::buildShotVideoPrompt($shot, array_merge($params, ['duration' => (int)$params['duration'], 'reference_assets' => (array)$references['reference_assets'], 'has_first_frame_image' => !empty($references['first_frame_image']), 'has_last_frame_image' => !empty($references['last_frame_image'])]), $plan));
+        $prompt = self::applyConfiguredGenerationPromptTemplate($tenantId, 'shot_video_prompt_template', $prompt, [
+            'task_type' => 'shot_video',
+            'subject_name' => '',
+            'scene_name' => (string)($shot['scene_name'] ?? ''),
+            'shot_title' => (string)($shot['title'] ?? ''),
+            'ratio' => $ratio,
+            'duration' => (string)$params['duration'],
+        ]);
         return [
             'prompt' => $prompt,
             'negative_prompt' => self::shotVideoNegativePrompt($shot, self::isNoSubjectShot($shot)),
@@ -13051,7 +13272,8 @@ class AigcShortDramaService
         }
 
         $modelCode = (string)($model['model_code'] ?? $model['id'] ?? $model['value'] ?? '');
-        $promptConfig = self::scriptPromptConfig($tenantId);
+        $episodeSettings = self::normalizeEpisodeSettings($request);
+        $promptConfig = self::scriptPromptConfig($tenantId, $episodeSettings['multi_episode']);
         $defaultTaskPrompt = self::buildCompactScriptPlanPrompt($prompt, $request, $title);
         try {
             $llmParams = [
@@ -13064,11 +13286,13 @@ class AigcShortDramaService
                 ),
                 'system_prompt' => (string)$promptConfig['script_system_prompt'],
                 'model_selection' => $model,
-                // The market includes models with a 4096-token ceiling. Ask for
-                // a compact, normalized planning payload that always fits, then
-                // let the existing server-side plan repair enrich presentation
-                // fields and complete the storyboard deterministically.
-                'model_config' => ['max_tokens' => 3200, 'enable_thinking' => false],
+                // Multi-episode outlines need more room than single-episode
+                // plans. The runtime still clamps this to the selected model's
+                // configured output limit.
+                'model_config' => [
+                    'max_tokens' => self::scriptPlanMaxTokens($episodeSettings),
+                    'enable_thinking' => false,
+                ],
                 'source_app_code' => self::APP_CODE,
                 'source_type' => 'script_plan',
                 'source_id' => $title,
@@ -13127,6 +13351,16 @@ class AigcShortDramaService
             'provider' => (string)($model['provider'] ?? ''),
             'raw_content' => $rawContent,
         ];
+    }
+
+    private static function scriptPlanMaxTokens(array $episodeSettings): int
+    {
+        if (empty($episodeSettings['multi_episode'])) {
+            return 3200;
+        }
+
+        $episodeCount = min(10, max(2, (int)($episodeSettings['episode_count'] ?? 3)));
+        return min(8192, 4096 + ($episodeCount * 384));
     }
 
     private static function repairScriptPlanResultWithLlm(int $tenantId, int $userId, string $prompt, array $request, string $title, array $model, array $plan, int $parentAppTaskId = 0, ?callable $onEvent = null): array
@@ -13621,27 +13855,258 @@ PROMPT;
         return '{{default_prompt}}';
     }
 
-    /** @return array{system_prompt:string,prompt_template:string} */
-    private static function scriptPromptDefaults(): array
+    private static function multiEpisodeScriptPlanSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+You are a professional Chinese serialized short-drama writer, story editor, and continuity supervisor.
+Return one valid JSON object only. Do not return Markdown, code fences, explanations, or analysis.
+
+The requested episode count is a hard contract. Build one coherent series arc, then split it into exactly that many numbered episodes. Every episode must have its own setup, conflict escalation, turn, and ending beat. Every episode except the final one must end with a concrete hook that creates a clear reason to watch the next episode; the final episode must resolve the main conflict.
+
+Keep characters, relationships, props, locations, timeline, motivations, and revealed clues consistent across episodes. Do not restart the premise in each episode, duplicate the same event, merge episodes, skip episode numbers, or introduce unexplained continuity changes.
+
+Follow the compact JSON schema in the user prompt exactly. Keep prose concise. Do not add image prompts, video prompts, negative prompts, music prompts, long character sheets, or fields outside the requested schema because the application expands production details after validation. Use simplified Chinese for all story values. Every representative storyboard shot must include episode_number, and every requested episode must own at least one shot.
+PROMPT;
+    }
+
+    private static function defaultMultiEpisodeScriptPromptTemplate(): string
+    {
+        return "这是多集短剧任务。请优先保证跨集连续性、准确集数和每集结尾钩子。\n{{default_prompt}}";
+    }
+
+    /** @return array<string, string> */
+    private static function runtimePromptDefaults(): array
     {
         return [
-            'system_prompt' => self::scriptPlanSystemPrompt(),
-            'prompt_template' => self::defaultScriptPromptTemplate(),
+            'global_system_prompt' => '',
+            'subject_planning_prompt' => '',
+            'scene_planning_prompt' => '',
+            'storyboard_planning_prompt' => '',
+            'subject_image_prompt_template' => '{{prompt}}',
+            'three_view_prompt_template' => '{{prompt}}',
+            'scene_image_prompt_template' => '{{prompt}}',
+            'shot_image_prompt_template' => '{{prompt}}',
+            'shot_video_prompt_template' => '{{prompt}}',
         ];
     }
 
-    /** @return array{script_system_prompt:string,script_prompt_template:string} */
-    private static function scriptPromptConfig(int $tenantId): array
+    /** @return array<string, string> */
+    private static function runtimePromptLabels(): array
+    {
+        return [
+            'global_system_prompt' => '全局追加提示词',
+            'subject_planning_prompt' => '主体规划追加提示词',
+            'scene_planning_prompt' => '场景规划追加提示词',
+            'storyboard_planning_prompt' => '分镜规划追加提示词',
+            'subject_image_prompt_template' => '主体图提交模板',
+            'three_view_prompt_template' => '人物三视图提交模板',
+            'scene_image_prompt_template' => '场景图提交模板',
+            'shot_image_prompt_template' => '分镜图提交模板',
+            'shot_video_prompt_template' => '分镜视频提交模板',
+        ];
+    }
+
+    /** @return array<string, string> */
+    private static function effectiveRuntimePromptConfig(array $config): array
+    {
+        $defaults = self::runtimePromptDefaults();
+        $stored = is_array($config['prompt_config'] ?? null) ? (array)$config['prompt_config'] : [];
+        foreach ($defaults as $key => $default) {
+            $defaults[$key] = self::normalizeScriptPromptConfigValue((string)($stored[$key] ?? ''), $default);
+        }
+        return $defaults;
+    }
+
+    /** @return array<string, string> */
+    private static function promptConfigValues(array $config): array
+    {
+        return array_merge(self::effectiveRuntimePromptConfig($config), [
+            'script_system_prompt' => self::normalizeScriptPromptConfigValue(
+                (string)($config['script_system_prompt'] ?? ''),
+                self::scriptPlanSystemPrompt()
+            ),
+            'script_prompt_template' => self::normalizeScriptPromptConfigValue(
+                (string)($config['script_prompt_template'] ?? ''),
+                self::defaultScriptPromptTemplate()
+            ),
+            'multi_episode_script_system_prompt' => self::normalizeScriptPromptConfigValue(
+                (string)($config['multi_episode_script_system_prompt'] ?? ''),
+                self::multiEpisodeScriptPlanSystemPrompt()
+            ),
+            'multi_episode_script_prompt_template' => self::normalizeScriptPromptConfigValue(
+                (string)($config['multi_episode_script_prompt_template'] ?? ''),
+                self::defaultMultiEpisodeScriptPromptTemplate()
+            ),
+        ]);
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private static function promptConfigDefinitions(): array
+    {
+        $scriptDefaults = self::scriptPromptDefaults();
+        $runtimeDefaults = self::runtimePromptDefaults();
+        return [
+            [
+                'key' => 'general',
+                'label' => '总提示词',
+                'description' => '统一追加到剧本策划、图片和视频生成请求。留空表示不追加。',
+                'items' => [[
+                    'key' => 'global_system_prompt',
+                    'label' => '全局追加提示词',
+                    'description' => '适合放置租户统一的内容方向、品牌规范或生成禁忌。',
+                    'default' => $runtimeDefaults['global_system_prompt'],
+                    'variables' => [],
+                ]],
+            ],
+            [
+                'key' => 'script',
+                'label' => '剧本',
+                'description' => '分别管理单集和多集剧本策划的系统约束与用户请求模板。',
+                'items' => [
+                    ['key' => 'script_system_prompt', 'label' => '单集剧本系统提示词', 'description' => '控制单集剧本、主体、场景和分镜的结构输出。', 'default' => $scriptDefaults['system_prompt'], 'variables' => []],
+                    ['key' => 'script_prompt_template', 'label' => '单集剧本生成模板', 'description' => '组织提交给剧本模型的单集用户提示词。', 'default' => $scriptDefaults['prompt_template'], 'variables' => ['{{default_prompt}}', '{{user_prompt}}', '{{title}}', '{{request_json}}']],
+                    ['key' => 'multi_episode_script_system_prompt', 'label' => '多集剧本系统提示词', 'description' => '控制跨集连续性、集数和每集钩子。', 'default' => $scriptDefaults['multi_episode_system_prompt'], 'variables' => []],
+                    ['key' => 'multi_episode_script_prompt_template', 'label' => '多集剧本生成模板', 'description' => '组织提交给剧本模型的多集用户提示词。', 'default' => $scriptDefaults['multi_episode_prompt_template'], 'variables' => ['{{default_prompt}}', '{{user_prompt}}', '{{title}}', '{{request_json}}']],
+                ],
+            ],
+            [
+                'key' => 'subject',
+                'label' => '主体与三视图',
+                'description' => '管理人物、物品主体规划以及主体参考图、三视图的最终提交提示词。',
+                'items' => [
+                    ['key' => 'subject_planning_prompt', 'label' => '主体规划追加提示词', 'description' => '追加到剧本策划模型的主体提取与一致性要求。', 'default' => $runtimeDefaults['subject_planning_prompt'], 'variables' => []],
+                    ['key' => 'subject_image_prompt_template', 'label' => '主体图提交模板', 'description' => '包装系统生成的主体图提示词。', 'default' => $runtimeDefaults['subject_image_prompt_template'], 'variables' => self::generationPromptVariables()],
+                    ['key' => 'three_view_prompt_template', 'label' => '人物三视图提交模板', 'description' => '包装人物三视图或物品多角度图提示词。', 'default' => $runtimeDefaults['three_view_prompt_template'], 'variables' => self::generationPromptVariables()],
+                ],
+            ],
+            [
+                'key' => 'scene',
+                'label' => '场景',
+                'description' => '管理场景提取规则和场景参考图的最终提交提示词。',
+                'items' => [
+                    ['key' => 'scene_planning_prompt', 'label' => '场景规划追加提示词', 'description' => '追加到剧本策划模型的场景拆分与空间一致性要求。', 'default' => $runtimeDefaults['scene_planning_prompt'], 'variables' => []],
+                    ['key' => 'scene_image_prompt_template', 'label' => '场景图提交模板', 'description' => '包装系统生成的场景参考图提示词。', 'default' => $runtimeDefaults['scene_image_prompt_template'], 'variables' => self::generationPromptVariables()],
+                ],
+            ],
+            [
+                'key' => 'storyboard',
+                'label' => '分镜',
+                'description' => '管理分镜拆解规则以及分镜图、分镜视频的最终提交提示词。',
+                'items' => [
+                    ['key' => 'storyboard_planning_prompt', 'label' => '分镜规划追加提示词', 'description' => '追加到剧本策划模型的分镜拆解与镜头执行要求。', 'default' => $runtimeDefaults['storyboard_planning_prompt'], 'variables' => []],
+                    ['key' => 'shot_image_prompt_template', 'label' => '分镜图提交模板', 'description' => '包装系统生成的单个分镜生图提示词。', 'default' => $runtimeDefaults['shot_image_prompt_template'], 'variables' => self::generationPromptVariables()],
+                    ['key' => 'shot_video_prompt_template', 'label' => '分镜视频提交模板', 'description' => '包装系统生成的单个分镜视频提示词。', 'default' => $runtimeDefaults['shot_video_prompt_template'], 'variables' => self::generationPromptVariables()],
+                ],
+            ],
+        ];
+    }
+
+    /** @return array<int, string> */
+    private static function generationPromptVariables(): array
+    {
+        return ['{{prompt}}', '{{task_type}}', '{{subject_name}}', '{{scene_name}}', '{{shot_title}}', '{{ratio}}', '{{duration}}'];
+    }
+
+    /** @return array<string, string> */
+    private static function configuredRuntimePromptConfig(int $tenantId): array
     {
         $row = AigcShortDramaConfig::whereIn('tenant_id', [$tenantId, 0])
             ->orderRaw('tenant_id = ' . (int)$tenantId . ' desc')
             ->findOrEmpty();
         $config = $row->isEmpty() ? [] : self::jsonDecode((string)$row['config_json']);
+        return self::effectiveRuntimePromptConfig($config);
+    }
+
+    private static function appendPlanningPromptConfig(string $systemPrompt, array $runtimeConfig): string
+    {
+        $sections = [
+            '租户全局要求' => (string)($runtimeConfig['global_system_prompt'] ?? ''),
+            '主体规划补充要求' => (string)($runtimeConfig['subject_planning_prompt'] ?? ''),
+            '场景规划补充要求' => (string)($runtimeConfig['scene_planning_prompt'] ?? ''),
+            '分镜规划补充要求' => (string)($runtimeConfig['storyboard_planning_prompt'] ?? ''),
+        ];
+        foreach ($sections as $label => $value) {
+            $value = trim($value);
+            if ($value !== '') {
+                $systemPrompt .= "\n\n{$label}：\n{$value}";
+            }
+        }
+        return $systemPrompt;
+    }
+
+    private static function applyConfiguredGenerationPromptTemplate(int $tenantId, string $key, string $prompt, array $context = []): string
+    {
+        $runtimeConfig = self::configuredRuntimePromptConfig($tenantId);
+        return self::normalizeFinalProviderPrompt(self::renderGenerationPromptTemplate(
+            (string)($runtimeConfig[$key] ?? '{{prompt}}'),
+            $prompt,
+            $context,
+            (string)($runtimeConfig['global_system_prompt'] ?? '')
+        ));
+    }
+
+    private static function renderGenerationPromptTemplate(string $template, string $prompt, array $context = [], string $globalPrompt = ''): string
+    {
+        $template = self::normalizeScriptPromptConfigValue($template, '{{prompt}}');
+        $replacements = ['{{prompt}}' => $prompt];
+        foreach (['task_type', 'subject_name', 'scene_name', 'shot_title', 'ratio', 'duration'] as $key) {
+            $replacements['{{' . $key . '}}'] = (string)($context[$key] ?? '');
+        }
+        $rendered = trim(strtr($template, $replacements));
+        $globalPrompt = trim($globalPrompt);
+        return $globalPrompt === '' ? $rendered : trim($globalPrompt . "\n\n" . $rendered);
+    }
+
+    /**
+     * @return array{
+     *     system_prompt:string,
+     *     prompt_template:string,
+     *     multi_episode_system_prompt:string,
+     *     multi_episode_prompt_template:string
+     * }
+     */
+    private static function scriptPromptDefaults(): array
+    {
+        return [
+            'system_prompt' => self::scriptPlanSystemPrompt(),
+            'prompt_template' => self::defaultScriptPromptTemplate(),
+            'multi_episode_system_prompt' => self::multiEpisodeScriptPlanSystemPrompt(),
+            'multi_episode_prompt_template' => self::defaultMultiEpisodeScriptPromptTemplate(),
+        ];
+    }
+
+    /** @return array{script_system_prompt:string,script_prompt_template:string} */
+    private static function scriptPromptConfig(int $tenantId, bool $multiEpisode = false): array
+    {
+        $row = AigcShortDramaConfig::whereIn('tenant_id', [$tenantId, 0])
+            ->orderRaw('tenant_id = ' . (int)$tenantId . ' desc')
+            ->findOrEmpty();
+        $config = $row->isEmpty() ? [] : self::jsonDecode((string)$row['config_json']);
+        $runtimeConfig = self::effectiveRuntimePromptConfig($config);
+
+        if ($multiEpisode) {
+            return [
+                'script_system_prompt' => self::appendPlanningPromptConfig(
+                    self::normalizeScriptPromptConfigValue(
+                        (string)($config['multi_episode_script_system_prompt'] ?? ''),
+                        self::multiEpisodeScriptPlanSystemPrompt()
+                    ),
+                    $runtimeConfig
+                ),
+                'script_prompt_template' => self::normalizeScriptPromptConfigValue(
+                    (string)($config['multi_episode_script_prompt_template'] ?? ''),
+                    self::defaultMultiEpisodeScriptPromptTemplate()
+                ),
+            ];
+        }
 
         return [
-            'script_system_prompt' => self::normalizeScriptPromptConfigValue(
-                (string)($config['script_system_prompt'] ?? ''),
-                self::scriptPlanSystemPrompt()
+            'script_system_prompt' => self::appendPlanningPromptConfig(
+                self::normalizeScriptPromptConfigValue(
+                    (string)($config['script_system_prompt'] ?? ''),
+                    self::scriptPlanSystemPrompt()
+                ),
+                $runtimeConfig
             ),
             'script_prompt_template' => self::normalizeScriptPromptConfigValue(
                 (string)($config['script_prompt_template'] ?? ''),

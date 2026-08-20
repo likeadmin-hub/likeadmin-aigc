@@ -510,9 +510,9 @@ class MarketImageModelRuntimeService
         $schema = self::arrayValue(self::metadata($snapshot)['params_schema'] ?? []);
         $params = array_merge($defaultParams, $locked, $providerParams);
         $ratio = self::normalizedRatio(self::firstValue($locked, ['aspect_ratio', 'ratio']))
+            ?: self::normalizedRatio(self::firstValue($request, ['ratio', 'aspect_ratio']))
             ?: self::normalizedRatio(self::firstValue($providerParams, ['aspect_ratio', 'ratio']))
-            ?: self::normalizedRatio(self::firstValue($defaultParams, ['aspect_ratio', 'ratio']))
-            ?: self::normalizedRatio((string)($request['ratio'] ?? ''));
+            ?: self::normalizedRatio(self::firstValue($defaultParams, ['aspect_ratio', 'ratio']));
         $requestedQuality = trim((string)($request['quality'] ?? ''));
         $renderQuality = self::firstValue($locked, ['quality'])
             ?: self::firstValue($providerParams, ['quality'])
@@ -544,7 +544,7 @@ class MarketImageModelRuntimeService
         ]), static fn($v) => $v !== '' && $v !== [] && $v !== null);
         $payload['model'] = (string)$snapshot['model_code'];
         if (!$hasSchema || self::schemaDeclaresParameter($schema, 'n')) {
-            $payload['n'] = $hasSchema ? 1 : max(1, (int)($request['quantity'] ?? 1));
+            $payload['n'] = max(1, (int)($request['quantity'] ?? 1));
         }
         if (!$hasSchema || self::schemaDeclaresParameter($schema, 'prompt')) {
             $payload['prompt'] = (string)($request['prompt'] ?? '');
@@ -637,7 +637,11 @@ class MarketImageModelRuntimeService
         ], $structuredInput);
 
         $parameters = array_merge($params, $structuredParameters);
-        $parameters['n'] = 1;
+        // Structured image APIs support batched output through `n`. Keep it
+        // aligned with the quantity used by the reservation and pricing
+        // snapshot so selecting multiple images produces and charges the same
+        // number of images.
+        $parameters['n'] = max(1, (int)($request['quantity'] ?? 1));
         $size = self::structuredSize($snapshot, $request, $parameters, $ratio, $quality, $imageSize);
         if ($size !== '') {
             $parameters['size'] = $size;
@@ -1209,7 +1213,7 @@ class MarketImageModelRuntimeService
     private static function normalizedRatio(string $ratio): string { $ratio = trim($ratio); return self::isPlaceholderRatio($ratio) ? '' : $ratio; }
     private static function isPlaceholderRatio(string $ratio): bool { return trim($ratio) === ''; }
     private static function snapshot(array $market): array { $product = $market['product']; $sku = $market['sku']; $source = self::arrayValue($product['source_payload'] ?? []); return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'resource_type' => PowerMarketService::TYPE_MODEL, 'model_type' => 'image', 'market_metadata' => self::metadata($product), 'pricing_attributes' => array_values(array_filter((array)($source['pricing_v2']['attributes'] ?? []), 'is_array')), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'max_reference_images' => (int)($market['reference_limit'] ?? 0)]; }
-    private static function requestSummary(array $request): array { return ['prompt_length' => mb_strlen((string)($request['prompt'] ?? '')), 'reference_image_count' => count((array)($request['reference_images'] ?? [])), 'ratio' => (string)($request['ratio'] ?? ''), 'quality' => (string)($request['quality'] ?? '')]; }
+    private static function requestSummary(array $request): array { return ['prompt_length' => mb_strlen((string)($request['prompt'] ?? '')), 'reference_image_count' => count((array)($request['reference_images'] ?? [])), 'ratio' => self::firstValue($request, ['ratio', 'aspect_ratio']), 'quality' => (string)($request['quality'] ?? '')]; }
     private static function assertReferenceImagesAllowed(array $market, array $request): void { $count = count(array_filter((array)($request['reference_images'] ?? []))); if ($count <= 0) return; $meta = self::metadata($market['product']); $limit = (int)($market['reference_limit'] ?? 0); if (!self::supportsReferenceImages($meta)) throw new Exception('所选图片模型不支持参考图'); if ($limit > 0 && $count > $limit) throw new Exception('所选图片模型最多支持 ' . $limit . ' 张参考图'); }
     private static function context(int $consumptionId, bool $lock): ?array { $q = AiConsumptionLog::where('id', $consumptionId); if ($lock) $q->lock(true); $c = $q->findOrEmpty(); if ($c->isEmpty()) return null; $tq = AiAppTask::where('id', (int)$c['app_task_id']); if ($lock) $tq->lock(true); $t = $tq->findOrEmpty(); return $t->isEmpty() ? null : ['consumption' => $c, 'app_task' => $t]; }
     private static function responseFromConsumption(array $c): array

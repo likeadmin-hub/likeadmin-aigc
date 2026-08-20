@@ -31,6 +31,8 @@ class MarketVideoRuntimeService
 {
     private const MODEL_TASK_PATH = '/api/v1/tasks';
     private const MODEL_QUERY_PATH = '/api/v1/tasks/{task_id}';
+    private const WAN_THREE_MIN_DURATION_SECONDS = 2;
+    private const WAN_THREE_MAX_DURATION_SECONDS = 30;
 
     public static function options(int $tenantId, string $resourceType): array
     {
@@ -80,7 +82,7 @@ class MarketVideoRuntimeService
                 static fn(array $row): array => (array)($row['duration_options'] ?? []),
                 $validSkus
             ))));
-            $metadataDurations = self::durationOptions($metadata);
+            $metadataDurations = self::durationOptionsForProduct($product, $metadata);
             if (self::hasConfigurableDurationSku($validSkus)) {
                 // Only expose durations declared by the SKU or the synchronized
                 // product schema. Provider-wide defaults are not a model contract.
@@ -210,28 +212,37 @@ class MarketVideoRuntimeService
         ];
     }
 
-    /**
-     * A duration locked by a market SKU is part of the supplier contract.
-     * The short-drama shot duration is only a fallback for SKUs that leave
-     * duration configurable.
-     */
+    /** A locked SKU wins; configurable SKUs use the caller's requested duration. */
     public static function effectiveDuration(int $tenantId, array $selection, int $fallback = 0): int
     {
         // A stale shot recommendation must not make a fixed-duration SKU fail
         // selection before we have a chance to apply its locked value.
         $market = self::resolve($tenantId, $selection);
+        return self::effectiveDurationFromMarket($market, $fallback);
+    }
+
+    private static function effectiveDurationFromMarket(array $market, int $requestedDuration): int
+    {
         $lockedDuration = self::duration(self::arrayValue($market['sku']['locked_params'] ?? []));
         if ($lockedDuration > 0) {
             return $lockedDuration;
         }
         $metadata = self::metadata($market['product']);
+        return self::configurableDuration($market['product'], $metadata, $requestedDuration);
+    }
+
+    private static function configurableDuration(array $product, array $metadata, int $requestedDuration): int
+    {
+        if ($requestedDuration > 0) {
+            return self::preferredSupportedDuration($product, $requestedDuration);
+        }
         $durationSchema = self::durationSchema($metadata);
-        foreach (['default', 'value'] as $key) {
-            if (isset($durationSchema[$key]) && is_numeric($durationSchema[$key]) && (int)$durationSchema[$key] > 0) {
-                return self::preferredSupportedDuration($market['product'], (int)$durationSchema[$key]);
+        foreach ([$metadata['default_duration'] ?? null, $durationSchema['default'] ?? null, $durationSchema['value'] ?? null] as $value) {
+            if (is_numeric($value) && (int)$value > 0) {
+                return self::preferredSupportedDuration($product, (int)$value);
             }
         }
-        return self::preferredSupportedDuration($market['product'], $fallback);
+        return self::preferredSupportedDuration($product, 0);
     }
 
     /** @return array{app_task_id:int,consumption_id:int,consume_no:string,market_snapshot:array<string,mixed>} */
@@ -707,7 +718,7 @@ class MarketVideoRuntimeService
     {
         $quantity = max(1, $quantity); $sku = $market['sku']; $snapshot = self::snapshot($market, $quantity); $deferred = self::isTokenSnapshot($snapshot);
         return [
-            'billing_unit' => (string)$sku['usage_unit'], 'billing_unit_size' => (float)($snapshot['usage_unit_size'] ?? 1),
+            'billing_unit' => self::billingUnit((array)$market['product'], (array)$sku), 'billing_unit_size' => (float)($snapshot['usage_unit_size'] ?? 1),
             'quantity' => $deferred ? 0 : $quantity,
             'tenant_unit_points' => self::points((float)$sku['sale_points']), 'user_unit_points' => self::points((float)$market['tenant_price']),
             'tenant_cost_points' => $deferred ? 0 : self::priceForQuantity((float)$sku['sale_points'], $quantity, $snapshot),
@@ -721,7 +732,7 @@ class MarketVideoRuntimeService
     {
         $product = $market['product']; $sku = $market['sku']; $meta = self::metadata($product);
         $requiresConcreteRatio = self::requiresConcreteTextToVideoRatio($product, $meta);
-        return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'resource_type' => (string)$product['resource_type'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'params_schema' => self::arrayValue($meta['params_schema'] ?? []), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'requires_concrete_text_to_video_ratio' => $requiresConcreteRatio, 'default_text_to_video_ratio' => $requiresConcreteRatio ? self::defaultConcreteTextToVideoRatio([$market], $meta) : '', 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $meta), 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $meta), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => max(1, (float)($sku['usage_unit_size'] ?? 1)), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'quantity' => $quantity, 'protocol' => (string)($meta['protocol'] ?? 'video_generate')];
+        return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'resource_type' => (string)$product['resource_type'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'app_code' => (string)$product['upstream_app_code'], 'api_code' => (string)$product['upstream_api_code'], 'params_schema' => self::arrayValue($meta['params_schema'] ?? []), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'requires_concrete_text_to_video_ratio' => $requiresConcreteRatio, 'default_text_to_video_ratio' => $requiresConcreteRatio ? self::defaultConcreteTextToVideoRatio([$market], $meta) : '', 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $meta), 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $meta), 'usage_unit' => self::billingUnit($product, $sku), 'usage_unit_size' => self::billingUnitSize($product, $sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'quantity' => $quantity, 'protocol' => (string)($meta['protocol'] ?? 'video_generate')];
     }
 
     private static function submitRequest(array $snapshot, array $request, string $idempotency, int $consumptionId): array
@@ -1507,7 +1518,10 @@ class MarketVideoRuntimeService
             throw new Exception('所选市场 SKU 不支持当前时长');
         }
         if ($requestedDuration > 0 && $lockedDuration === 0) {
-            $allowedDurations = self::durationOptions(self::metadata($market['product']));
+            $allowedDurations = self::durationOptionsForProduct(
+                $market['product'],
+                self::metadata($market['product'])
+            );
             if ($allowedDurations !== [] && !in_array($requestedDuration, $allowedDurations, true)) {
                 throw new Exception('当前视频模型不支持所选时长');
             }
@@ -1530,7 +1544,7 @@ class MarketVideoRuntimeService
             && self::seedanceVideoInputVariant($locked)
             ? 'video_edit'
             : self::skuInputMode($locked);
-        return ['market_sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'title' => (string)$sku['title'], 'resolution' => self::resolution($locked), 'duration' => $lockedDuration, 'duration_options' => $durationOptions, 'model' => (string)($locked['model'] ?? $product['upstream_model_code'] ?? ''), 'pricing_variant' => (string)($locked['_pricing_variant'] ?? $locked['pricing_variant'] ?? ''), 'input_mode' => $inputMode, 'locked_params' => $locked, 'selectable_params' => $selectable, 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => max(1, (float)($sku['usage_unit_size'] ?? 1)), 'settlement_mode' => self::isTokenSku($sku) ? 'actual_usage' : 'reserved', 'platform_unit_cost' => self::points((float)$sku['sale_points']), 'tenant_unit_price' => self::points((float)$market['tenant_price'])];
+        return ['market_sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'title' => (string)$sku['title'], 'resolution' => self::resolution($locked), 'duration' => $lockedDuration, 'duration_options' => $durationOptions, 'model' => (string)($locked['model'] ?? $product['upstream_model_code'] ?? ''), 'pricing_variant' => (string)($locked['_pricing_variant'] ?? $locked['pricing_variant'] ?? ''), 'input_mode' => $inputMode, 'locked_params' => $locked, 'selectable_params' => $selectable, 'usage_unit' => self::billingUnit($product, $sku), 'usage_unit_size' => self::billingUnitSize($product, $sku), 'settlement_mode' => self::isTokenSku($sku) ? 'actual_usage' : 'reserved', 'platform_unit_cost' => self::points((float)$sku['sale_points']), 'tenant_unit_price' => self::points((float)$market['tenant_price'])];
     }
 
     private static function inputModes(string $resourceType, array $product, array $meta): array
@@ -2216,11 +2230,19 @@ class MarketVideoRuntimeService
         return $durations;
     }
 
+    private static function durationOptionsForProduct(array $product, array $meta): array
+    {
+        if (strtolower(trim((string)($product['upstream_model_code'] ?? ''))) === 'wan3.0-video') {
+            return range(self::WAN_THREE_MIN_DURATION_SECONDS, self::WAN_THREE_MAX_DURATION_SECONDS);
+        }
+        return self::durationOptions($meta);
+    }
+
     private static function durationSchema(array $meta): array
     {
         $schema = self::arrayValue($meta['params_schema'] ?? []);
         $properties = self::arrayValue($schema['properties'] ?? []);
-        return self::arrayValue(
+        $definition = self::arrayValue(
             $schema['duration']
                 ?? $schema['seconds']
                 ?? $schema['video_duration']
@@ -2229,6 +2251,34 @@ class MarketVideoRuntimeService
                 ?? $properties['video_duration']
                 ?? []
         );
+        if ($definition !== []) {
+            return $definition;
+        }
+
+        // Structured model contracts wrap provider parameters in an object.
+        // Wan 3.0 currently publishes its default only in that object's example.
+        $parameters = self::arrayValue($schema['parameters'] ?? $properties['parameters'] ?? []);
+        $parameterProperties = self::arrayValue($parameters['properties'] ?? []);
+        $definition = self::arrayValue(
+            $parameters['duration']
+                ?? $parameters['seconds']
+                ?? $parameters['video_duration']
+                ?? $parameterProperties['duration']
+                ?? $parameterProperties['seconds']
+                ?? $parameterProperties['video_duration']
+                ?? []
+        );
+        if ($definition !== []) {
+            return $definition;
+        }
+
+        $example = self::arrayValue($parameters['example'] ?? []);
+        foreach (['duration', 'seconds', 'video_duration'] as $key) {
+            if (isset($example[$key]) && is_numeric($example[$key]) && (int)$example[$key] > 0) {
+                return ['default' => (int)$example[$key]];
+            }
+        }
+        return [];
     }
 
     private static function defaultDurationOption(array $meta, array $durations): int
@@ -2301,7 +2351,7 @@ class MarketVideoRuntimeService
     private static function quantity(array $market, array $selection): float
     {
         $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
-        $unit = strtolower((string)$market['sku']['usage_unit']);
+        $unit = strtolower(self::billingUnit((array)($market['product'] ?? []), (array)$market['sku']));
         if (self::isTokenSku($market['sku'])) return max(0, self::lockedQuantity($locked));
         $lockedDuration = self::duration($locked);
         if (str_contains($unit, 'second') || str_contains($unit, 'sec')) return max(1, (int)($lockedDuration ?: ($selection['duration'] ?? 1)));
@@ -2316,6 +2366,24 @@ class MarketVideoRuntimeService
     {
         $unitSize = max(1, (float)($snapshot['usage_unit_size'] ?? 1));
         return self::points($unitPrice * $quantity / $unitSize);
+    }
+    private static function billingUnit(array $product, array $sku): string
+    {
+        if (self::isGrokPerCallProduct($product)) {
+            return 'per_call';
+        }
+        return trim((string)($sku['usage_unit'] ?? '')) ?: 'per_call';
+    }
+    private static function billingUnitSize(array $product, array $sku): float
+    {
+        return self::isGrokPerCallProduct($product)
+            ? 1.0
+            : max(1, (float)($sku['usage_unit_size'] ?? 1));
+    }
+    private static function isGrokPerCallProduct(array $product): bool
+    {
+        return (string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API
+            && strtolower(trim((string)($product['upstream_app_code'] ?? ''))) === 'grok_video';
     }
     private static function lockedQuantity(array $locked): float { foreach (['quantity','billing_quantity','usage_quantity','tokens','duration'] as $key) if (isset($locked[$key]) && is_numeric($locked[$key]) && (float)$locked[$key] > 0) return (float)$locked[$key]; return 0; }
     private static function resolution(array $locked): string { return (string)($locked['resolution'] ?? $locked['quality'] ?? $locked['size'] ?? ''); }

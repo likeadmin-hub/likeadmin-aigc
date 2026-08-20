@@ -2916,7 +2916,7 @@ class AigcCanvasService
             'style' => (string)($params['style'] ?? 'general'),
             'channel' => (string)($params['channel'] ?? $params['model'] ?? ''),
             'quality' => (string)($params['quality'] ?? ''),
-            'ratio' => (string)($params['ratio'] ?? $params['size'] ?? ''),
+            'ratio' => (string)($params['ratio'] ?? $params['aspect_ratio'] ?? $params['size'] ?? ''),
             'quantity' => max(1, (int)($params['quantity'] ?? 1)),
         ];
     }

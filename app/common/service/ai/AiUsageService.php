@@ -5,11 +5,13 @@ namespace app\common\service\ai;
 use app\common\model\ai\AiAppTask;
 use app\common\model\ai\AiConsumptionEvent;
 use app\common\model\ai\AiConsumptionLog;
+use app\common\model\app\App;
 use app\common\model\app\aigc_image\AigcImageTask;
 use app\common\model\power\PowerMarketProduct;
 use app\common\model\power\PowerMarketSku;
 use app\common\model\power\TenantPowerMarketProduct;
 use app\common\model\power\TenantPowerMarketSkuPrice;
+use app\common\service\PointUnitService;
 use app\common\service\point\PointService;
 use RuntimeException;
 use think\facade\Db;
@@ -543,10 +545,7 @@ class AiUsageService
         $data = self::formatAppTask($task->toArray());
         $data['consumptions'] = AiConsumptionLog::where('app_task_id', (int)$task['id'])
             ->order(['id' => 'asc'])->select()->toArray();
-        foreach ($data['consumptions'] as &$item) {
-            $item = self::formatConsumption($item);
-        }
-        unset($item);
+        $data['consumptions'] = self::formatConsumptions($data['consumptions']);
         $firstConsumption = $data['consumptions'][0] ?? [];
         $data['source_app_name'] = (string)$data['app_code'];
         $data['base_app_name'] = '统一应用任务';
@@ -613,24 +612,25 @@ class AiUsageService
         $count = (int)(clone $query)->count();
         $rows = $query->order(['c.create_time' => 'desc', 'c.id' => 'desc'])
             ->limit(($pageNo - 1) * $pageSize, $pageSize)->select()->toArray();
-        foreach ($rows as &$row) {
-            $row = self::formatConsumption($row);
-        }
-        unset($row);
+        $rows = self::formatConsumptions($rows);
         return compact('rows', 'count', 'pageNo', 'pageSize');
     }
 
     public static function consumptionDetail(int $id, int $tenantId = 0, bool $includePayload = false): array
     {
-        $query = AiConsumptionLog::where('id', $id);
+        $query = AiConsumptionLog::alias('c')
+            ->leftJoin('ai_app_task t', 't.id=c.app_task_id')
+            ->leftJoin('user u', 'u.id=c.user_id AND u.tenant_id=c.tenant_id')
+            ->field('c.*,t.task_no,t.status app_task_status,t.action_code,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
+            ->where('c.id', $id);
         if ($tenantId > 0) {
-            $query->where('tenant_id', $tenantId);
+            $query->where('c.tenant_id', $tenantId);
         }
         $row = $query->findOrEmpty();
         if ($row->isEmpty()) {
             return [];
         }
-        $data = self::formatConsumption($row->toArray());
+        $data = self::formatConsumptions([$row->toArray()])[0] ?? [];
         $events = AiConsumptionEvent::where('consumption_id', $id)->order('id', 'asc')->select()->toArray();
         foreach ($events as &$event) {
             $event['create_time_text'] = self::timeText($event['create_time'] ?? 0);
@@ -817,11 +817,250 @@ class AiUsageService
         return $row;
     }
 
-    private static function formatConsumption(array $row): array
+    private static function formatConsumptions(array $rows): array
     {
+        if ($rows === []) {
+            return [];
+        }
+
+        $skuIds = [];
+        $productIds = [];
+        $appCodes = [];
+        foreach ($rows as $row) {
+            $snapshot = self::arrayValue($row['price_snapshot'] ?? []);
+            $skuIds[] = (int)($row['sku_id'] ?? 0);
+            $productIds[] = (int)($row['product_id'] ?? $snapshot['product_id'] ?? 0);
+            $appCodes[] = trim((string)($row['app_code'] ?? ''));
+            foreach (['billing_sku', 'input', 'output'] as $key) {
+                if (is_array($snapshot[$key] ?? null)) {
+                    $skuIds[] = (int)($snapshot[$key]['sku_id'] ?? 0);
+                }
+            }
+        }
+
+        $skuIds = array_values(array_unique(array_filter($skuIds)));
+        $productIds = array_values(array_unique(array_filter($productIds)));
+        $appCodes = array_values(array_unique(array_filter($appCodes)));
+        $skuMap = [];
+        if ($skuIds !== []) {
+            foreach (PowerMarketSku::whereIn('id', $skuIds)
+                         ->field('id,product_id,sku_key,title,usage_unit,usage_unit_size')
+                         ->select()->toArray() as $sku) {
+                $skuMap[(int)$sku['id']] = $sku;
+            }
+        }
+        $productMap = $productIds === []
+            ? []
+            : PowerMarketProduct::whereIn('id', $productIds)->column('name', 'id');
+        $appNames = $appCodes === [] ? [] : App::whereIn('code', $appCodes)->column('name', 'code');
+        $pointUnit = PointUnitService::unit();
+
+        foreach ($rows as &$row) {
+            $row = self::formatConsumption($row, $skuMap, $productMap, $appNames, $pointUnit);
+        }
+        unset($row);
+        return $rows;
+    }
+
+    private static function formatConsumption(
+        array $row,
+        array $skuMap = [],
+        array $productMap = [],
+        array $appNames = [],
+        string $pointUnit = ''
+    ): array {
+        $pointUnit = $pointUnit !== '' ? $pointUnit : PointUnitService::unit();
+        $snapshot = self::arrayValue($row['price_snapshot'] ?? []);
+        $usage = self::arrayValue($row['usage_snapshot'] ?? []);
+        $billingStatus = (string)($row['billing_status'] ?? 'none');
+        $productId = (int)($row['product_id'] ?? $snapshot['product_id'] ?? 0);
+        $appCode = trim((string)($row['app_code'] ?? ''));
+        $userCharge = self::chargeAmount($row, 'user', $billingStatus);
+        $tenantCost = self::chargeAmount($row, 'tenant', $billingStatus);
+
+        $row['record_key'] = 'consumption:' . (int)($row['id'] ?? 0);
+        $row['app_name'] = (string)($row['app_name'] ?? $appNames[$appCode] ?? $appCode);
+        $row['product_name'] = (string)($row['product_name'] ?? $productMap[$productId] ?? '');
+        $row['sku_display'] = self::skuDisplay($row, $snapshot, $skuMap);
+        $row['usage_display'] = self::usageDisplay($row, $snapshot, $usage);
+        $row['run_status_text'] = self::runStatusText((string)($row['run_status'] ?? ''));
+        $row['billing_status_text'] = self::billingStatusText($billingStatus);
+        $row['user_charge_points'] = $userCharge;
+        $row['tenant_cost_points'] = $tenantCost;
+        $row['user_charge_text'] = self::chargeText($userCharge, $row, 'user', $billingStatus, $pointUnit);
+        $row['tenant_cost_text'] = self::chargeText($tenantCost, $row, 'tenant', $billingStatus, $pointUnit);
         $row['create_time_text'] = self::timeText($row['create_time'] ?? 0);
         $row['finish_time_text'] = self::timeText($row['finish_time'] ?? 0);
         return $row;
+    }
+
+    private static function skuDisplay(array $row, array $snapshot, array $skuMap): string
+    {
+        if (is_array($snapshot['input'] ?? null) || is_array($snapshot['output'] ?? null)) {
+            $parts = [];
+            foreach (['input' => '输入', 'output' => '输出'] as $key => $prefix) {
+                if (!is_array($snapshot[$key] ?? null)) {
+                    continue;
+                }
+                $name = self::skuName($snapshot[$key], $skuMap);
+                if ($name !== '') {
+                    $parts[] = str_starts_with($name, $prefix) ? $name : $prefix . ' ' . $name;
+                }
+            }
+            if ($parts !== []) {
+                return implode(' / ', array_values(array_unique($parts)));
+            }
+        }
+
+        foreach (['billing_sku'] as $key) {
+            if (is_array($snapshot[$key] ?? null)) {
+                $name = self::skuName($snapshot[$key], $skuMap);
+                if ($name !== '') {
+                    return $name;
+                }
+            }
+        }
+        $name = self::skuName([
+            'sku_id' => (int)($row['sku_id'] ?? $snapshot['sku_id'] ?? 0),
+            'sku_key' => (string)($snapshot['sku_key'] ?? ''),
+            'title' => (string)($snapshot['sku_title'] ?? ''),
+        ], $skuMap);
+        return $name !== '' ? $name : '未记录规格';
+    }
+
+    private static function skuName(array $snapshot, array $skuMap): string
+    {
+        $skuId = (int)($snapshot['sku_id'] ?? 0);
+        $sku = $skuMap[$skuId] ?? [];
+        foreach ([$snapshot['title'] ?? '', $snapshot['sku_title'] ?? '', $sku['title'] ?? '', $snapshot['sku_key'] ?? '', $sku['sku_key'] ?? ''] as $value) {
+            $value = trim((string)$value);
+            if ($value !== '') {
+                return $value;
+            }
+        }
+        return '';
+    }
+
+    private static function usageDisplay(array $row, array $snapshot, array $usage): string
+    {
+        $unit = strtolower(trim((string)($row['usage_unit'] ?? $snapshot['usage_unit'] ?? '')));
+        if (str_contains($unit, 'token')) {
+            $input = (float)($usage['prompt_tokens'] ?? $usage['input_tokens'] ?? 0);
+            $output = (float)($usage['completion_tokens'] ?? $usage['output_tokens'] ?? 0);
+            if ($input > 0 || $output > 0) {
+                return '输入 ' . self::quantityText($input) . ' / 输出 ' . self::quantityText($output) . ' Token';
+            }
+        }
+        $quantity = self::firstUsageQuantity($row, $usage);
+        return self::quantityText($quantity) . ' ' . self::usageUnitText($unit);
+    }
+
+    private static function firstUsageQuantity(array $row, array $usage): float
+    {
+        foreach (['settled_quantity', 'actual_quantity', 'actual_token_usage', 'total_tokens', 'image_count', 'video_count', 'audio_count'] as $key) {
+            if (isset($usage[$key]) && is_numeric($usage[$key]) && (float)$usage[$key] > 0) {
+                return (float)$usage[$key];
+            }
+        }
+        return max(0, (float)($row['quantity'] ?? 0));
+    }
+
+    private static function usageUnitText(string $unit): string
+    {
+        return match ($unit) {
+            'per_call', 'call', 'calls', 'request', 'requests' => '次',
+            'image', 'images', 'per_image' => '张',
+            'video', 'videos', 'per_video' => '个视频',
+            'audio', 'audios', 'per_audio' => '段音频',
+            'output_second', 'second', 'seconds', 'per_second', 'video_second', 'audio_second' => '秒',
+            'minute', 'minutes', 'per_minute' => '分钟',
+            'character', 'characters' => '字符',
+            'token', 'tokens', 'input_token', 'output_token', 'total_token' => 'Token',
+            default => $unit !== '' ? $unit : '单位',
+        };
+    }
+
+    private static function quantityText(float $quantity): string
+    {
+        $text = number_format(max(0, $quantity), 6, '.', '');
+        return rtrim(rtrim($text, '0'), '.') ?: '0';
+    }
+
+    private static function chargeAmount(array $row, string $side, string $billingStatus): float
+    {
+        $actualKey = $side === 'user' ? 'actual_user_price' : 'actual_tenant_cost';
+        $reservedKey = $side === 'user' ? 'reserved_user_price' : 'reserved_tenant_cost';
+        $actual = self::points($row[$actualKey] ?? 0);
+        $reserved = self::points($row[$reservedKey] ?? 0);
+        return match ($billingStatus) {
+            'refunded', 'none' => 0.0,
+            'reserved' => $reserved,
+            'settled', 'deducted' => $actual,
+            default => $actual > 0 ? $actual : $reserved,
+        };
+    }
+
+    private static function chargeText(float $amount, array $row, string $side, string $billingStatus, string $pointUnit): string
+    {
+        $reservedKey = $side === 'user' ? 'reserved_user_price' : 'reserved_tenant_cost';
+        $reserved = self::points($row[$reservedKey] ?? 0);
+        if ($billingStatus === 'refunded') {
+            return $reserved > 0
+                ? '已退回 ' . self::amountText($reserved) . ' ' . $pointUnit
+                : '已退回';
+        }
+        if ($billingStatus === 'pending_usage' && $amount <= 0) {
+            return '待结算';
+        }
+        $prefix = $amount > 0 ? '-' : '';
+        $suffix = $billingStatus === 'reserved' ? '（预扣）' : '';
+        return $prefix . self::amountText($amount) . ' ' . $pointUnit . $suffix;
+    }
+
+    private static function amountText(float $amount): string
+    {
+        return number_format(max(0, $amount), 2, '.', '');
+    }
+
+    private static function runStatusText(string $status): string
+    {
+        return match ($status) {
+            'pending' => '待处理',
+            'reserved' => '待提交',
+            'submitting' => '提交中',
+            'submitted' => '已提交',
+            'running', 'processing' => '生成中',
+            'success' => '成功',
+            'partial_success' => '部分成功',
+            'failed' => '失败',
+            'canceled', 'cancelled' => '已取消',
+            default => $status !== '' ? $status : '未知',
+        };
+    }
+
+    private static function billingStatusText(string $status): string
+    {
+        return match ($status) {
+            'none' => '无扣费',
+            'reserved' => '已预扣',
+            'pending_usage' => '待结算',
+            'settled' => '已结算',
+            'deducted' => '已扣费',
+            'refunded' => '已退回',
+            default => $status !== '' ? $status : '未知',
+        };
+    }
+
+    private static function arrayValue($value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        if (is_string($value) && trim($value) !== '') {
+            $decoded = json_decode($value, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+        return [];
     }
 
     private static function timeText(mixed $value): string

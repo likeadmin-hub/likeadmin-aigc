@@ -13,6 +13,7 @@ use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
 use think\facade\Db;
+use think\facade\Log;
 
 /**
  * Executes text models selected from the local power market. Business apps do
@@ -963,6 +964,10 @@ class MarketTextModelRuntimeService
             throw new Exception(self::networkError($error));
         }
         if ($status >= 400) {
+            if (UpstreamErrorMessageService::isClaudeClientRestricted($body)) {
+                $response = trim(preg_replace('/\s+/u', ' ', strip_tags($body)) ?? $body);
+                Log::write('Market text model rejected by Claude client policy: http=' . $status . ' response=' . mb_substr($response, 0, 1500, 'UTF-8'));
+            }
             throw new Exception(self::providerError($body) ?: '文本模型调用失败（HTTP ' . $status . '）');
         }
         if ($state['error'] !== '') {

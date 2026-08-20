@@ -89,4 +89,17 @@ class MarketTextModelPayloadContractTest extends TestCase
             'error' => ['message' => 'provider is temporarily unavailable'],
         ]));
     }
+
+    public function testClaudeCodeOnlyUpstreamErrorDoesNotExposePlaceholderCode(): void
+    {
+        $error = new ReflectionMethod(MarketTextModelRuntimeService::class, 'providerError');
+        $error->setAccessible(true);
+
+        self::assertSame('当前模型仅支持已授权的 Claude Code 渠道，不能通过当前算力市场转发。请切换模型，或由管理员配置官方 Claude API 渠道', $error->invoke(null, [
+            'error' => [
+                'code' => '<nil>',
+                'message' => 'We have detected an anomaly in your client. Please use the standard Claude Code client for requests.',
+            ],
+        ]));
+    }
 }

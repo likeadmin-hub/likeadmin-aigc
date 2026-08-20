@@ -9,6 +9,7 @@ use app\common\model\app\aigc_video\AigcVideoResult;
 use app\common\model\app\aigc_video\AigcVideoSensitiveWord;
 use app\common\model\app\aigc_video\AigcVideoTask;
 use app\common\service\ai\AiTaskBusinessResultService;
+use app\common\service\ai\AiTaskRecordService;
 use app\common\service\app\AppCaseService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
@@ -595,6 +596,7 @@ class AigcVideoService
             }
         }
         foreach ($rows as &$row) {
+            self::appendTaskModelDisplay($row);
             $row['task_id'] = (int)$row['id'];
             $results = $resultMap[(int)$row['id']] ?? [];
             $first = $results[0] ?? [];
@@ -634,6 +636,7 @@ class AigcVideoService
             throw new Exception('任务不存在');
         }
         $data = $task->toArray();
+        self::appendTaskModelDisplay($data);
         $data['results'] = self::existingResultRows($tenantId, $userId, $taskId);
         $data['reference_image_urls'] = self::referenceImageUrls(
             (array)($data['reference_images'] ?: []),
@@ -730,6 +733,7 @@ class AigcVideoService
             }
         }
         foreach ($tasks as &$task) {
+            self::appendTaskModelDisplay($task);
             $results = $resultMap[(int)$task['id']] ?? [];
             $task['task_id'] = (int)$task['id'];
             $task['results'] = $results;
@@ -849,6 +853,12 @@ class AigcVideoService
             ];
         }
         return $query->limit($defaultLimit)->select()->toArray();
+    }
+
+    private static function appendTaskModelDisplay(array &$task): void
+    {
+        $task['model_name'] = AiTaskRecordService::modelDisplayName($task, self::APP_CODE);
+        $task['channel_name'] = $task['model_name'];
     }
 
     public static function saveSensitiveWord(int $tenantId, array $params): void

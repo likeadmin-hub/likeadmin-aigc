@@ -54,6 +54,22 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
         self::assertStringContainsString('"episode_count":4', $prompt);
     }
 
+    public function testMultiEpisodePlansReceiveASeparateOutputBudget(): void
+    {
+        self::assertSame(3200, $this->invoke('scriptPlanMaxTokens', [
+            'multi_episode' => false,
+            'episode_count' => 1,
+        ]));
+        self::assertGreaterThan(4096, $this->invoke('scriptPlanMaxTokens', [
+            'multi_episode' => true,
+            'episode_count' => 3,
+        ]));
+        self::assertSame(7936, $this->invoke('scriptPlanMaxTokens', [
+            'multi_episode' => true,
+            'episode_count' => 10,
+        ]));
+    }
+
     public function testGeneratedMultiEpisodePlanKeepsEpisodeStructureOnFlatStoryboard(): void
     {
         $payload = [

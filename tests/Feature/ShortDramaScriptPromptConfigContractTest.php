@@ -59,26 +59,48 @@ class ShortDramaScriptPromptConfigContractTest extends TestCase
         );
     }
 
+    public function testSingleAndMultiEpisodePromptDefaultsAreDistinct(): void
+    {
+        $defaults = $this->invoke('scriptPromptDefaults');
+
+        self::assertArrayHasKey('system_prompt', $defaults);
+        self::assertArrayHasKey('prompt_template', $defaults);
+        self::assertArrayHasKey('multi_episode_system_prompt', $defaults);
+        self::assertArrayHasKey('multi_episode_prompt_template', $defaults);
+        self::assertNotSame($defaults['system_prompt'], $defaults['multi_episode_system_prompt']);
+        self::assertNotSame($defaults['prompt_template'], $defaults['multi_episode_prompt_template']);
+        self::assertStringContainsString('exactly that many numbered episodes', $defaults['multi_episode_system_prompt']);
+        self::assertStringContainsString('{{default_prompt}}', $defaults['multi_episode_prompt_template']);
+    }
+
     public function testAdminBundleLoadsSavesAndResetsPromptConfiguration(): void
     {
         $root = dirname(__DIR__, 2);
-        $bundle = (string)file_get_contents($root . '/public/admin/assets/config-fge0of94.js');
+        $bundle = (string)file_get_contents($root . '/public/admin/assets/prompt-Df7pQ2mN.js');
+        $basicConfigBundle = (string)file_get_contents($root . '/public/admin/assets/config-fge0of94.js');
         $service = (string)file_get_contents(
             $root . '/app/common/service/app/aigc_short_drama/AigcShortDramaService.php'
         );
 
-        foreach (['script_system_prompt', 'script_prompt_template'] as $field) {
-            self::assertGreaterThanOrEqual(5, substr_count($bundle, $field));
+        foreach ([
+            'script_system_prompt',
+            'script_prompt_template',
+            'multi_episode_script_system_prompt',
+            'multi_episode_script_prompt_template',
+        ] as $field) {
+            self::assertGreaterThanOrEqual(1, substr_count($bundle, $field));
             self::assertStringContainsString("array_key_exists('{$field}', \$params)", $service);
         }
-        foreach (['剧本系统提示词', '剧本生成提示词', '恢复默认'] as $label) {
+        foreach (['短剧提示词配置', '恢复默认', 'prompt_config_definitions', 'prompt_config_values'] as $label) {
             self::assertStringContainsString($label, $bundle);
         }
-        foreach (['{{default_prompt}}', '{{user_prompt}}', '{{title}}', '{{request_json}}'] as $placeholder) {
-            self::assertStringContainsString($placeholder, $bundle);
-        }
+        self::assertStringNotContainsString('label:"单集剧本系统提示词"', $basicConfigBundle);
+        self::assertStringNotContainsString('script_system_prompt:l.script_system_prompt', $basicConfigBundle);
 
-        self::assertStringContainsString("\$promptConfig = self::scriptPromptConfig(\$tenantId)", $service);
+        self::assertStringContainsString(
+            "\$promptConfig = self::scriptPromptConfig(\$tenantId, \$episodeSettings['multi_episode'])",
+            $service
+        );
         self::assertStringContainsString("'script_prompt_defaults'", $service);
     }
 
