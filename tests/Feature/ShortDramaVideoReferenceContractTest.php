@@ -294,6 +294,39 @@ class ShortDramaVideoReferenceContractTest extends TestCase
         }
     }
 
+    public function testCompiledStoryboardResetsIncompatibleFrameStateWhenVideoModelChanges(): void
+    {
+        $projectRoot = dirname(__DIR__, 2);
+        $compiled = (string) file_get_contents($projectRoot . '/public/_nuxt/storyboard.f2381e09.js');
+        $entry = (string) file_get_contents($projectRoot . '/public/_nuxt/entry.c46691d5.js');
+
+        self::assertStringContainsString(
+            'supports_first_last_frame:!!(e!=null&&e.supports_first_last_frame)||Array.isArray(e==null?void 0:e.generation_modes)&&e.generation_modes.some(t=>String(t||"").trim().toLowerCase()==="start_end")',
+            $compiled
+        );
+
+        $switchStart = strpos($compiled, 'po=e=>');
+        $switchEnd = strpos($compiled, ',jr=e=>', $switchStart);
+        self::assertIsInt($switchStart);
+        self::assertIsInt($switchEnd);
+        $switchHandler = substr($compiled, $switchStart, $switchEnd - $switchStart);
+        self::assertStringContainsString('fe.value=e.value||e.id', $switchHandler);
+        self::assertStringContainsString('Yn.value||(Je.value||ls.value)&&Pa()', $switchHandler);
+
+        $batchStart = strpos($compiled, 'Fr=e=>');
+        $batchEnd = strpos($compiled, ',Lr=e=>', $batchStart);
+        self::assertIsInt($batchStart);
+        self::assertIsInt($batchEnd);
+        $batchHandler = substr($compiled, $batchStart, $batchEnd - $batchStart);
+        self::assertStringContainsString('fe.value=t', $batchHandler);
+        self::assertStringContainsString('Yn.value||(Je.value||ls.value)&&Pa()', $batchHandler);
+
+        self::assertStringContainsString(
+            'import("./storyboard.f2381e09.js?v=20260824-video-model-state")',
+            $entry
+        );
+    }
+
     private function invoke(string $class, string $method, mixed ...$arguments): mixed
     {
         $reflection = new ReflectionMethod($class, $method);

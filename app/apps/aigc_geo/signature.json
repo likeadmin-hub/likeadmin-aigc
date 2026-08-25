@@ -1,0 +1,12 @@
+{
+  "algorithm": "sha256",
+  "sha256": {
+    "api_schema.json": "771776b494adcb9f4c4e00134451f80d7a524258ed500c82d39f7abe15e76ae9",
+    "manifest.json": "fcc96826f998772f26844fbe8a115c62fe54e85f67d4ef3f9a78ead72b530c3b",
+    "frontend/README.md": "050eb541ec6cc29413e92aec816787786ebf2342cd4b83e8fd69b7b56e708b29",
+    "menus/platform.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "menus/tenant.json": "8df13cd1d3d3a3c16cf0a3990973f0d7fd2bd815c5acb9b9727d05b39dad36bf",
+    "migrations/install.sql": "077694ea376b91d0ab2b03fad7d1a75a9a744444840817b9e52bea618c15bbcc",
+    "permissions/tenant.json": "3aaa6e9ae6628c8fc675110b4c956246ac270778f8e9a825d4f9342e36ae5356"
+  }
+}

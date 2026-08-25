@@ -9,6 +9,32 @@ use Throwable;
 
 class AppDisplayConfigService
 {
+    /**
+     * Product-level metadata used by the application market before a paid
+     * market SKU is attached. Keeping this separate from tenant display
+     * settings lets operators edit copy without losing billing intent.
+     */
+    private const MARKET_PROFILES = [
+        'aigc_geo' => [
+            'ready' => 1,
+            'listing_status' => 'ready',
+            'category' => 'AI营销',
+            'resource_type' => 'app_api',
+            'settlement' => 'power',
+            'billing_unit' => '次',
+            'upstream_app_code' => 'aigc_geo',
+            'api_codes' => ['question_generate', 'content_generate', 'brand_diagnosis', 'content_publish'],
+            'requires_provider_configuration' => true,
+            'capabilities' => [
+                'ai_search_diagnosis',
+                'question_clustering',
+                'content_generation',
+                'multi_channel_distribution',
+                'brand_monitoring',
+            ],
+        ],
+    ];
+
     public const DEFAULT_APP_CODES = [
         'aigc_image',
         'aigc_video',
@@ -28,6 +54,7 @@ class AppDisplayConfigService
         'aigc_background_removal',
         'aigc_image_translate',
         'aigc_one_click_cleanup',
+        'aigc_watermark_removal',
         'aigc_product_suite',
         'aigc_product_multi_angle',
         'aigc_fashion_lookbook',
@@ -125,6 +152,11 @@ class AppDisplayConfigService
             'description' => '批量清理图片中的水印、文字、贴纸和干扰元素。',
             'sort' => 59,
         ],
+        'aigc_watermark_removal' => [
+            'title' => '短视频去水印',
+            'description' => '输入短视频分享链接，快速生成无水印视频并支持下载。',
+            'sort' => 58,
+        ],
         'aigc_product_suite' => [
             'title' => 'AI商品套图',
             'description' => '上传商品图后一键生成多张电商场景套图。',
@@ -176,6 +208,20 @@ class AppDisplayConfigService
     {
         $config['display_config'] = self::detail($tenantId, $appCode);
         return $config;
+    }
+
+    public static function marketProfile(string $appCode): array
+    {
+        $appCode = self::normalizeAppCode($appCode);
+        return self::MARKET_PROFILES[$appCode] ?? [
+            'ready' => 0,
+            'listing_status' => 'unconfigured',
+            'category' => '',
+            'resource_type' => '',
+            'settlement' => '',
+            'billing_unit' => '',
+            'capabilities' => [],
+        ];
     }
 
     public static function detail(int $tenantId, string $appCode): array

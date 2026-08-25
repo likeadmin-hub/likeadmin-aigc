@@ -374,7 +374,7 @@ class AiUsageService
             ],
             'video' => [
                 'aigc_video', 'aigc_digital_human', 'image_human', 'smart_clip',
-                'aigc_product_promo_video', 'aigc_action_transfer', 'aigc_person_replacement',
+                'aigc_product_promo_video', 'aigc_action_transfer', 'aigc_person_replacement', 'aigc_watermark_removal',
             ],
             'text' => ['aigc_llm'],
             'short_drama' => ['aigc_short_drama'],

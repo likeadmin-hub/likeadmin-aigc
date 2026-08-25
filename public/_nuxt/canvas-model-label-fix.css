@@ -1,0 +1,15 @@
+/* Canvas model choices should show the user-facing name, not the market id. */
+.agent-model-row > span:nth-child(2) > em {
+  display: none !important;
+}
+
+.agent-model-row > span:nth-child(2) > em.canvas-model-description {
+  color: #ffffff70;
+  display: block !important;
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

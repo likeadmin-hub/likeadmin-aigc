@@ -22,6 +22,8 @@ use app\common\model\app\aigc_model_wear\AigcModelWearResult;
 use app\common\model\app\aigc_model_wear\AigcModelWearTask;
 use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupResult;
 use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupTask;
+use app\common\model\app\aigc_watermark_removal\AigcWatermarkRemovalResult;
+use app\common\model\app\aigc_watermark_removal\AigcWatermarkRemovalTask;
 use app\common\model\app\aigc_outpaint\AigcOutpaintResult;
 use app\common\model\app\aigc_outpaint\AigcOutpaintTask;
 use app\common\model\app\aigc_photo_restore\AigcPhotoRestoreResult;
@@ -50,6 +52,7 @@ class AiToolDownloadService
         'aigc_background_removal' => 'background-removal',
         'aigc_image_translate' => 'image-translate',
         'aigc_one_click_cleanup' => 'one-click-cleanup',
+        'aigc_watermark_removal' => 'short-video-watermark-removal',
         'aigc_product_suite' => 'product-suite',
         'aigc_product_multi_angle' => 'product-multi-angle',
         'aigc_fashion_lookbook' => 'fashion-lookbook',
@@ -97,6 +100,12 @@ class AiToolDownloadService
             'task_model' => AigcOneClickCleanupTask::class,
             'result_model' => AigcOneClickCleanupResult::class,
             'fallback_image_result' => true,
+        ],
+        'aigc_watermark_removal' => [
+            'task_model' => AigcWatermarkRemovalTask::class,
+            'result_model' => AigcWatermarkRemovalResult::class,
+            'uri_field' => 'video_uri',
+            'fallback_image_result' => false,
         ],
         'aigc_product_suite' => [
             'task_model' => AigcProductSuiteTask::class,

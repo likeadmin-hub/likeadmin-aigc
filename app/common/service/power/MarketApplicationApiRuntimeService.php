@@ -10,7 +10,11 @@ class MarketApplicationApiRuntimeService
 {
     public static function options(int $tenantId, string $upstreamAppCode): array
     {
-        return self::adapterForSelection(['upstream_app_code' => $upstreamAppCode])::options($tenantId);
+        $adapter = self::adapterForSelection(['upstream_app_code' => $upstreamAppCode]);
+        if ($adapter === MarketGenericImageAppRuntimeService::class) {
+            return $adapter::options($tenantId, $upstreamAppCode);
+        }
+        return $adapter::options($tenantId);
     }
 
     /** @return array<string, mixed> */
@@ -74,6 +78,18 @@ class MarketApplicationApiRuntimeService
         if ($value === 'music_generation') {
             return MarketMusicAppRuntimeService::class;
         }
+        if ($value === MarketSeedSvcAppRuntimeService::UPSTREAM_APP_CODE) {
+            return MarketSeedSvcAppRuntimeService::class;
+        }
+        if ($value === MarketGeoAppRuntimeService::UPSTREAM_APP_CODE || MarketGeoAppRuntimeService::isSelection($selection)) {
+            return MarketGeoAppRuntimeService::class;
+        }
+        if ($value === MarketGenericImageAppRuntimeService::UPSTREAM_APP_CODE) {
+            return MarketGenericImageAppRuntimeService::class;
+        }
+        if ((string)($selection['runtime_adapter'] ?? '') === 'generic_image') {
+            return MarketGenericImageAppRuntimeService::class;
+        }
         throw new Exception('No market application API adapter is registered for this selection');
     }
 
@@ -87,6 +103,8 @@ class MarketApplicationApiRuntimeService
         return self::adapterForSelection([
             'upstream_app_code' => (string)($snapshot['app_code'] ?? ''),
             'model_id' => (string)($snapshot['model'] ?? ''),
+            'category_code' => (string)($snapshot['category_code'] ?? ''),
+            'runtime_adapter' => (string)($snapshot['runtime_adapter'] ?? ''),
         ]);
     }
 

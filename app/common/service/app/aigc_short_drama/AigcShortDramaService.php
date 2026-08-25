@@ -67,6 +67,10 @@ class AigcShortDramaService
     private const SCRIPT_PLAN_STALE_ERROR = '剧本生成连接已中断，请重试';
     private const SCRIPT_PLAN_STREAM_FLUSH_SECONDS = 2;
     private const SCRIPT_PROMPT_MAX_LENGTH = 60000;
+    private const SCRIPT_UPLOAD_MAX_BYTES = 10485760;
+    private const SCRIPT_UPLOAD_EXTENSIONS = ['txt', 'md', 'docx'];
+    private const SCRIPT_MAX_EPISODES = 500;
+    private const SCRIPT_EPISODE_BATCH_SIZE = 10;
     private const LEGACY_PUBLIC_SUBJECT_NAMES = ['清冷师妹', '赛艇少年'];
 
     public static function config(int $tenantId): array
@@ -458,7 +462,10 @@ class AigcShortDramaService
         }
         if (array_key_exists('script_prompt_template', $params)) {
             $scriptPromptTemplate = self::validateScriptPromptConfigValue(
-                (string)$params['script_prompt_template'],
+                self::ensurePlanningPromptTemplateContract(
+                    (string)$params['script_prompt_template'],
+                    self::defaultScriptPromptTemplate()
+                ),
                 self::defaultScriptPromptTemplate(),
                 '剧本生成提示词模板'
             );
@@ -482,7 +489,10 @@ class AigcShortDramaService
         }
         if (array_key_exists('multi_episode_script_prompt_template', $params)) {
             $multiEpisodePromptTemplate = self::validateScriptPromptConfigValue(
-                (string)$params['multi_episode_script_prompt_template'],
+                self::ensurePlanningPromptTemplateContract(
+                    (string)$params['multi_episode_script_prompt_template'],
+                    self::defaultMultiEpisodeScriptPromptTemplate()
+                ),
                 self::defaultMultiEpisodeScriptPromptTemplate(),
                 '多集剧本生成提示词模板'
             );
@@ -1870,6 +1880,12 @@ class AigcShortDramaService
     public static function createScriptPlan(int $tenantId, int $userId, array $params): array
     {
         $prompt = trim((string)($params['prompt'] ?? ''));
+        $uploadedScript = trim((string)($params['script_text'] ?? $params['script_content'] ?? ''));
+        if ($uploadedScript !== '') {
+            $prompt = $prompt === ''
+                ? $uploadedScript
+                : $prompt . "\n\n以下为用户上传的剧本原文：\n" . $uploadedScript;
+        }
         if ($prompt === '') {
             throw new Exception('请输入故事灵感');
         }
@@ -1888,6 +1904,8 @@ class AigcShortDramaService
             array_map(static fn(array $subject): string => (string)$subject['name'], $request['subject_references'])
         ))));
         $request['prompt'] = $prompt;
+        $request['script_source'] = $uploadedScript !== '' ? 'upload' : (string)($request['script_source'] ?? 'manual');
+        $request['script_file_name'] = trim((string)($params['script_file_name'] ?? ''));
         $request['storyboard_rules'] = self::normalizeStoryboardRules((array)($config['storyboard_rules'] ?? []));
         $request['storyboard_target_rule'] = self::storyboardTargetRule($prompt, $request);
         $projectRatio = self::normalizeGenerationRatio((string)($request['ratio'] ?? ''));
@@ -1983,6 +2001,55 @@ class AigcShortDramaService
             'status' => self::STATUS_PENDING,
             'redirect_url' => '/ai/short-drama/plan?project_id=' . (int)$project['id'] . '&task_id=' . $taskId,
         ];
+    }
+
+    /**
+     * Extract a user-uploaded script into plain text for the plan composer.
+     * The original file is not persisted; the client can review/edit the text
+     * before submitting the paid script-planning task.
+     */
+    public static function uploadScript(int $tenantId, int $userId): array
+    {
+        $file = request()->file('file');
+        if ($file === null) {
+            throw new Exception('请选择剧本文件');
+        }
+        $error = method_exists($file, 'getError') ? (int)$file->getError() : 0;
+        if ($error !== 0) {
+            throw new Exception('剧本文件上传失败');
+        }
+        $size = method_exists($file, 'getSize') ? (int)$file->getSize() : 0;
+        if ($size <= 0) {
+            throw new Exception('剧本文件为空');
+        }
+        if ($size > self::SCRIPT_UPLOAD_MAX_BYTES) {
+            throw new Exception('剧本文件不能超过10MB');
+        }
+        $extension = strtolower(trim((string)(method_exists($file, 'extension') ? $file->extension() : '')));
+        if (!in_array($extension, self::SCRIPT_UPLOAD_EXTENSIONS, true)) {
+            throw new Exception('仅支持 TXT、MD、DOCX 格式的剧本文件');
+        }
+        $path = method_exists($file, 'getRealPath') ? (string)$file->getRealPath() : '';
+        if ($path === '' || !is_file($path) || !is_readable($path)) {
+            throw new Exception('剧本文件读取失败');
+        }
+        $text = self::readUploadedScriptText($path, $extension);
+        $text = self::normalizeUploadedScriptText($text);
+        if ($text === '') {
+            throw new Exception('剧本文件没有可读取的正文');
+        }
+        if (mb_strlen($text, 'UTF-8') > self::SCRIPT_PROMPT_MAX_LENGTH) {
+            throw new Exception('剧本内容过长，请控制在 ' . self::SCRIPT_PROMPT_MAX_LENGTH . ' 字以内');
+        }
+
+        $name = method_exists($file, 'getOriginalName') ? (string)$file->getOriginalName() : '';
+        return self::sanitizeUtf8Payload([
+            'name' => mb_substr($name, 0, 180, 'UTF-8'),
+            'extension' => $extension,
+            'text' => $text,
+            'script_text' => $text,
+            'char_count' => mb_strlen($text, 'UTF-8'),
+        ]);
     }
 
     public static function scriptPlanDetail(int $tenantId, int $userId, string $taskId, int $projectId = 0): array
@@ -3462,7 +3529,7 @@ class AigcShortDramaService
             'core_theme' => (string)($previousResult['core_theme'] ?? ''),
             'story_outline' => (string)($previousResult['story_outline'] ?? ''),
             'script_lines' => array_slice((array)($previousResult['script_lines'] ?? []), 0, 30),
-            'episodes' => array_slice((array)($previousResult['episodes'] ?? []), 0, 10),
+            'episodes' => array_slice((array)($previousResult['episodes'] ?? []), 0, self::SCRIPT_MAX_EPISODES),
             'music_plan' => is_array($previousResult['music_plan'] ?? null) ? $previousResult['music_plan'] : [],
             'art_style' => is_array($previousResult['art_style'] ?? null) ? $previousResult['art_style'] : [],
             'subjects' => array_slice((array)($previousResult['subjects'] ?? []), 0, 50),
@@ -12142,15 +12209,14 @@ class AigcShortDramaService
             (string)($config['script_system_prompt'] ?? ''),
             self::scriptPlanSystemPrompt()
         );
-        $config['script_prompt_template'] = self::normalizeScriptPromptConfigValue(
+        $config['script_prompt_template'] = self::ensurePlanningPromptTemplateContract(
             (string)($config['script_prompt_template'] ?? ''),
             self::defaultScriptPromptTemplate()
         );
-        $config['multi_episode_script_system_prompt'] = self::normalizeScriptPromptConfigValue(
-            (string)($config['multi_episode_script_system_prompt'] ?? ''),
-            self::multiEpisodeScriptPlanSystemPrompt()
+        $config['multi_episode_script_system_prompt'] = self::normalizeMultiEpisodeSystemPromptConfigValue(
+            (string)($config['multi_episode_script_system_prompt'] ?? '')
         );
-        $config['multi_episode_script_prompt_template'] = self::normalizeScriptPromptConfigValue(
+        $config['multi_episode_script_prompt_template'] = self::ensurePlanningPromptTemplateContract(
             (string)($config['multi_episode_script_prompt_template'] ?? ''),
             self::defaultMultiEpisodeScriptPromptTemplate()
         );
@@ -13235,7 +13301,7 @@ class AigcShortDramaService
 
         return [
             'multi_episode' => true,
-            'episode_count' => min(10, max(2, $requestedCount > 1 ? $requestedCount : 3)),
+            'episode_count' => min(self::SCRIPT_MAX_EPISODES, max(2, $requestedCount > 1 ? $requestedCount : 3)),
         ];
     }
 
@@ -13244,10 +13310,17 @@ class AigcShortDramaService
         $targetDurationSeconds = min(7200, max(0, (int)($params['target_duration_seconds'] ?? $params['target_duration'] ?? 0)));
         if ($targetDurationSeconds <= 0) {
             $targetDurationSeconds = min(7200, max(0, self::durationHintToSeconds(
-                self::extractUserTextDurationHint((string)($params['prompt'] ?? ''))
+                self::extractUserTextDurationHint((string)($params['prompt'] ?? $params['script_text'] ?? ''))
             )));
         }
         $episodeSettings = self::normalizeEpisodeSettings($params);
+        // A single short-drama request is the one-minute product mode unless
+        // the user or the UI supplies an explicit duration. Multi-episode
+        // projects keep duration open because each episode may have its own
+        // pacing and is described in the episode plan.
+        if ($targetDurationSeconds <= 0 && !$episodeSettings['multi_episode']) {
+            $targetDurationSeconds = 60;
+        }
         return [
             'prompt' => '',
             'ratio' => self::requestGenerationRatio($params),
@@ -13262,7 +13335,52 @@ class AigcShortDramaService
             'input_asset_ids' => array_values(array_filter(array_map('intval', (array)($params['input_asset_ids'] ?? $params['asset_ids'] ?? [])))),
             'source' => trim((string)($params['source'] ?? 'home')),
             'inspiration_id' => (int)($params['inspiration_id'] ?? 0),
+            'script_source' => trim((string)($params['script_source'] ?? 'manual')),
+            'script_file_name' => trim((string)($params['script_file_name'] ?? '')),
         ];
+    }
+
+    private static function readUploadedScriptText(string $path, string $extension): string
+    {
+        if ($extension !== 'docx') {
+            $content = @file_get_contents($path);
+            if (!is_string($content)) {
+                throw new Exception('剧本文件读取失败');
+            }
+            $encoding = function_exists('mb_detect_encoding')
+                ? (mb_detect_encoding($content, ['UTF-8', 'GB18030', 'GBK', 'BIG5', 'ISO-8859-1'], true) ?: 'UTF-8')
+                : 'UTF-8';
+            if (strtoupper($encoding) !== 'UTF-8' && function_exists('mb_convert_encoding')) {
+                $content = mb_convert_encoding($content, 'UTF-8', $encoding);
+            }
+            return $content;
+        }
+
+        if (!class_exists('ZipArchive')) {
+            throw new Exception('当前服务暂不支持读取 DOCX，请改用 TXT 或 MD 文件');
+        }
+        $zip = new \ZipArchive();
+        if ($zip->open($path) !== true) {
+            throw new Exception('DOCX 文件损坏或无法读取');
+        }
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+        if (!is_string($xml) || trim($xml) === '') {
+            throw new Exception('DOCX 文件没有可读取的正文');
+        }
+        $xml = preg_replace('/<w:tab\b[^>]*\/>/i', "\t", $xml) ?? $xml;
+        $xml = preg_replace('/<w:br\b[^>]*\/>/i', "\n", $xml) ?? $xml;
+        $xml = preg_replace('/<\/w:p\s*>/i', "\n", $xml) ?? $xml;
+        $text = strip_tags($xml);
+        return html_entity_decode($text, ENT_QUOTES | ENT_XML1, 'UTF-8');
+    }
+
+    private static function normalizeUploadedScriptText(string $text): string
+    {
+        $text = str_replace(["\xEF\xBB\xBF", "\r\n", "\r"], ['', "\n", "\n"], $text);
+        $text = self::sanitizeUtf8String($text);
+        $text = preg_replace("/\n{3,}/u", "\n\n", $text) ?? $text;
+        return trim($text);
     }
 
     private static function generateScriptPlanResult(int $tenantId, int $userId, string $prompt, array $request, string $title, array $model, ?callable $onEvent = null): array
@@ -13273,6 +13391,13 @@ class AigcShortDramaService
 
         $modelCode = (string)($model['model_code'] ?? $model['id'] ?? $model['value'] ?? '');
         $episodeSettings = self::normalizeEpisodeSettings($request);
+        if (
+            $episodeSettings['multi_episode']
+            && $episodeSettings['episode_count'] >= self::SCRIPT_EPISODE_BATCH_SIZE
+            && empty($request['_short_drama_episode_batch'])
+        ) {
+            return self::generateLargeMultiEpisodePlan($tenantId, $userId, $prompt, $request, $title, $model, $onEvent);
+        }
         $promptConfig = self::scriptPromptConfig($tenantId, $episodeSettings['multi_episode']);
         $defaultTaskPrompt = self::buildCompactScriptPlanPrompt($prompt, $request, $title);
         try {
@@ -13353,14 +13478,246 @@ class AigcShortDramaService
         ];
     }
 
+    /**
+     * Generate long serialized dramas in bounded model requests. A single
+     * response cannot reliably contain hundreds of episodes and their shots;
+     * each batch is normalized independently, then episode references are
+     * shifted and merged into one production plan.
+     */
+    private static function generateLargeMultiEpisodePlan(int $tenantId, int $userId, string $prompt, array $request, string $title, array $model, ?callable $onEvent = null): array
+    {
+        $episodeSettings = self::normalizeEpisodeSettings($request);
+        $totalEpisodes = $episodeSettings['episode_count'];
+        // Ten episodes are also split in two. This keeps a single provider response
+        // below the size at which a full script plus storyboard is commonly truncated.
+        $batchCount = max(2, (int)ceil($totalEpisodes / self::SCRIPT_EPISODE_BATCH_SIZE));
+        $baseBatchSize = intdiv($totalEpisodes, $batchCount);
+        $extraBatchCount = $totalEpisodes % $batchCount;
+        $aggregate = [
+            'title' => $title,
+            'type_judgement' => '',
+            'core_theme' => '',
+            'story_outline' => '',
+            'series_bible' => [],
+            'script_lines' => [],
+            'episodes' => [],
+            'art_style' => [],
+            'subjects' => [],
+            'locations' => [],
+            'storyboard' => [],
+        ];
+        $llmResults = [];
+        $repairResults = [];
+        $rawContents = [];
+        $previousHook = '';
+        $episodeStart = 1;
+
+        for ($batchIndex = 0; $batchIndex < $batchCount; $batchIndex++) {
+            $batchSize = $baseBatchSize + ($batchIndex < $extraBatchCount ? 1 : 0);
+            $episodeEnd = $episodeStart + $batchSize - 1;
+            $chunkRequest = $request;
+            $chunkRequest['multi_episode'] = true;
+            $chunkRequest['episode_count'] = $batchSize;
+            $chunkRequest['episode_total_count'] = $totalEpisodes;
+            $chunkRequest['episode_batch_start'] = $episodeStart;
+            $chunkRequest['episode_batch_end'] = $episodeEnd;
+            $chunkRequest['episode_batch_context'] = self::serializeEpisodeBatchContext(
+                (array)($aggregate['series_bible'] ?? []),
+                $previousHook
+            );
+            $chunkRequest['_short_drama_episode_batch'] = true;
+            unset($chunkRequest['revision_target'], $chunkRequest['revision_base_result']);
+            $chunkPrompt = $prompt;
+            if ($previousHook !== '') {
+                $chunkPrompt .= "\n上一批次结尾承接：" . $previousHook;
+            }
+            if ($onEvent) {
+                $progress = min(78, 20 + (int)floor(($batchIndex / max(1, $batchCount)) * 58));
+                $onEvent('stage', [
+                    'status' => self::STATUS_RUNNING,
+                    'progress' => $progress,
+                    'current_step' => '生成第' . $episodeStart . '-' . $episodeEnd . '集',
+                ]);
+            }
+            $chunk = self::generateScriptPlanResult($tenantId, $userId, $chunkPrompt, $chunkRequest, $title, $model, $onEvent);
+            $chunkPlan = self::offsetMultiEpisodePlan((array)($chunk['result'] ?? []), $episodeStart - 1);
+            $aggregate['title'] = (string)($aggregate['title'] ?: ($chunkPlan['title'] ?? $title));
+            foreach (['type_judgement', 'core_theme', 'story_outline'] as $field) {
+                if ((string)($aggregate[$field] ?? '') === '' && trim((string)($chunkPlan[$field] ?? '')) !== '') {
+                    $aggregate[$field] = (string)$chunkPlan[$field];
+                }
+            }
+            if (empty($aggregate['art_style']) && is_array($chunkPlan['art_style'] ?? null)) {
+                $aggregate['art_style'] = $chunkPlan['art_style'];
+            }
+            if (empty($aggregate['series_bible']) && is_array($chunkPlan['series_bible'] ?? null)) {
+                $aggregate['series_bible'] = $chunkPlan['series_bible'];
+            }
+            $aggregate['episodes'] = array_merge($aggregate['episodes'], array_values(array_filter((array)($chunkPlan['episodes'] ?? []), 'is_array')));
+            $aggregate['subjects'] = self::mergeGeneratedNamedItems($aggregate['subjects'], (array)($chunkPlan['subjects'] ?? []), 'subject');
+            $aggregate['locations'] = self::mergeGeneratedNamedItems($aggregate['locations'], (array)($chunkPlan['locations'] ?? []), 'location');
+            $aggregate['storyboard'] = array_merge($aggregate['storyboard'], array_values(array_filter((array)($chunkPlan['storyboard'] ?? []), 'is_array')));
+            $llmResults[] = (array)($chunk['llm'] ?? []);
+            if (!empty($chunk['repair_llm'])) {
+                $repairResults[] = (array)$chunk['repair_llm'];
+            }
+            if ((string)($chunk['raw_content'] ?? '') !== '') {
+                $rawContents[] = (string)$chunk['raw_content'];
+            }
+            $lastEpisode = end($chunkPlan['episodes']);
+            $previousHook = is_array($lastEpisode) ? trim((string)($lastEpisode['ending_hook'] ?? '')) : '';
+            $episodeStart = $episodeEnd + 1;
+        }
+
+        $aggregateRequest = $request;
+        $aggregateRequest['multi_episode'] = true;
+        $aggregateRequest['episode_count'] = $totalEpisodes;
+        $aggregateRequest['episode_total_count'] = $totalEpisodes;
+        $result = self::normalizeGeneratedPlanResult($aggregate, $prompt, $aggregateRequest, $title);
+        $result = self::enhancePlanResult($result);
+        $result = self::reviewAndRepairPlanResult($result, true, true);
+        if (!empty($request['revision_target']) && is_array($request['revision_target'])) {
+            $result = self::reviewAndRepairPlanResult(self::enhancePlanResult(self::protectRevisionTargetResult($result, $request)), true, true);
+        }
+
+        return [
+            'result' => $result,
+            'llm' => self::mergeScriptPlanLlmResults($llmResults),
+            'repair_llm' => self::mergeScriptPlanLlmResults($repairResults),
+            'provider' => (string)($model['provider'] ?? ''),
+            'raw_content' => implode("\n", $rawContents),
+        ];
+    }
+
+    private static function offsetMultiEpisodePlan(array $plan, int $episodeOffset): array
+    {
+        if ($episodeOffset === 0) {
+            return $plan;
+        }
+        foreach (array_keys((array)($plan['episodes'] ?? [])) as $index) {
+            if (!is_array($plan['episodes'][$index] ?? null)) {
+                continue;
+            }
+            $episode =& $plan['episodes'][$index];
+            $episodeNumber = max(1, (int)($episode['episode_number'] ?? ($index + 1))) + $episodeOffset;
+            $episode['episode_number'] = $episodeNumber;
+            $sceneIdMap = [];
+            foreach (array_keys((array)($episode['scenes'] ?? [])) as $sceneIndex) {
+                if (!is_array($episode['scenes'][$sceneIndex] ?? null)) {
+                    continue;
+                }
+                $scene =& $episode['scenes'][$sceneIndex];
+                $oldSceneId = trim((string)($scene['scene_id'] ?? $scene['id'] ?? ''));
+                $newSceneId = preg_replace('/episode_(\d+)/', 'episode_' . $episodeNumber, $oldSceneId) ?: $oldSceneId;
+                if ($newSceneId === '') {
+                    $newSceneId = 'episode_' . $episodeNumber . '_scene_' . ($sceneIndex + 1);
+                }
+                if ($oldSceneId !== '') {
+                    $sceneIdMap[$oldSceneId] = $newSceneId;
+                }
+                $scene['scene_id'] = $newSceneId;
+                $scene['id'] = $newSceneId;
+                foreach (array_keys((array)($scene['shots'] ?? [])) as $shotIndex) {
+                    if (!is_array($scene['shots'][$shotIndex] ?? null)) {
+                        continue;
+                    }
+                    $scene['shots'][$shotIndex]['episode_number'] = $episodeNumber;
+                    $scene['shots'][$shotIndex]['scene_ref_id'] = $newSceneId;
+                }
+                unset($scene);
+            }
+            foreach (['storyboard', 'shots'] as $shotField) {
+                foreach (array_keys((array)($episode[$shotField] ?? [])) as $shotIndex) {
+                    if (!is_array($episode[$shotField][$shotIndex] ?? null)) {
+                        continue;
+                    }
+                    $episode[$shotField][$shotIndex]['episode_number'] = $episodeNumber;
+                    $sceneRef = trim((string)($episode[$shotField][$shotIndex]['scene_ref_id'] ?? ''));
+                    if (isset($sceneIdMap[$sceneRef])) {
+                        $episode[$shotField][$shotIndex]['scene_ref_id'] = $sceneIdMap[$sceneRef];
+                    }
+                }
+            }
+            unset($episode);
+        }
+        foreach (array_keys((array)($plan['storyboard'] ?? [])) as $index) {
+            if (!is_array($plan['storyboard'][$index] ?? null)) {
+                continue;
+            }
+            $shot =& $plan['storyboard'][$index];
+            $shot['episode_number'] = max(1, (int)($shot['episode_number'] ?? 1)) + $episodeOffset;
+            $shot['shot_id'] = $shot['shot_id'] ?? (string)($index + 1);
+            if (preg_match('/episode_(\d+)/', (string)($shot['scene_ref_id'] ?? ''), $matches)) {
+                $shot['scene_ref_id'] = preg_replace('/episode_' . (int)$matches[1] . '/', 'episode_' . ((int)$matches[1] + $episodeOffset), (string)$shot['scene_ref_id']);
+            }
+            unset($shot);
+        }
+        return $plan;
+    }
+
+    private static function serializeEpisodeBatchContext(array $seriesBible, string $previousHook): string
+    {
+        $context = [];
+        if ($seriesBible !== []) {
+            $context['series_bible'] = $seriesBible;
+        }
+        if (trim($previousHook) !== '') {
+            $context['previous_batch_ending_hook'] = trim($previousHook);
+        }
+        if ($context === []) {
+            return '';
+        }
+
+        // Keep continuity context bounded. The production plan is stored in full,
+        // but a later provider request should receive the compact contract only.
+        return mb_substr(self::jsonEncode($context), 0, 12000, 'UTF-8');
+    }
+
+    private static function mergeScriptPlanLlmResults(array $results): array
+    {
+        if (empty($results)) {
+            return [];
+        }
+        $merged = (array)$results[0];
+        $usage = (array)($merged['usage'] ?? []);
+        $billing = (array)($merged['billing'] ?? []);
+        $promptTokens = (int)($usage['prompt_tokens'] ?? 0);
+        $completionTokens = (int)($usage['completion_tokens'] ?? 0);
+        $tenantCost = (float)($billing['tenant_cost_points'] ?? 0);
+        $userCharge = (float)($billing['user_charge_points'] ?? 0);
+        foreach (array_slice($results, 1) as $item) {
+            $itemUsage = (array)($item['usage'] ?? []);
+            $itemBilling = (array)($item['billing'] ?? []);
+            $promptTokens += (int)($itemUsage['prompt_tokens'] ?? 0);
+            $completionTokens += (int)($itemUsage['completion_tokens'] ?? 0);
+            $tenantCost += (float)($itemBilling['tenant_cost_points'] ?? 0);
+            $userCharge += (float)($itemBilling['user_charge_points'] ?? 0);
+        }
+        $usage['prompt_tokens'] = $promptTokens;
+        $usage['completion_tokens'] = $completionTokens;
+        $usage['billing'] = array_merge((array)($usage['billing'] ?? []), [
+            'tenant_cost_points' => self::formatBillingPoints($tenantCost),
+            'user_charge_points' => self::formatBillingPoints($userCharge),
+        ]);
+        $billing['tenant_cost_points'] = self::formatBillingPoints($tenantCost);
+        $billing['user_charge_points'] = self::formatBillingPoints($userCharge);
+        $merged['usage'] = $usage;
+        $merged['billing'] = $billing;
+        $merged['batch_count'] = count($results);
+        return $merged;
+    }
+
     private static function scriptPlanMaxTokens(array $episodeSettings): int
     {
         if (empty($episodeSettings['multi_episode'])) {
             return 3200;
         }
 
-        $episodeCount = min(10, max(2, (int)($episodeSettings['episode_count'] ?? 3)));
-        return min(8192, 4096 + ($episodeCount * 384));
+        $episodeCount = min(self::SCRIPT_EPISODE_BATCH_SIZE, max(2, (int)($episodeSettings['episode_count'] ?? 3)));
+        // A multi-episode plan now contains episode-level scenes and shots,
+        // not only a short outline. Let the selected market model clamp this
+        // value to its own supported limit in the runtime layer.
+        return min(16384, 7000 + ($episodeCount * 900));
     }
 
     private static function repairScriptPlanResultWithLlm(int $tenantId, int $userId, string $prompt, array $request, string $title, array $model, array $plan, int $parentAppTaskId = 0, ?callable $onEvent = null): array
@@ -13446,22 +13803,44 @@ class AigcShortDramaService
         $episodeSettings = self::normalizeEpisodeSettings($request);
         $multiEpisode = $episodeSettings['multi_episode'];
         $episodeCount = $episodeSettings['episode_count'];
-        $representativeShotLimit = $multiEpisode ? min(20, max($episodeCount, $episodeCount * 2)) : 12;
-        $responseCharacterLimit = $multiEpisode ? min(3000, 2000 + ($episodeCount * 100)) : 2600;
+        $batchStart = max(1, (int)($request['episode_batch_start'] ?? 1));
+        $batchEnd = max($batchStart, (int)($request['episode_batch_end'] ?? ($batchStart + $episodeCount - 1)));
+        $totalEpisodeCount = max($episodeCount, $batchEnd, (int)($request['episode_total_count'] ?? $episodeCount));
+        $batchContext = trim((string)($request['episode_batch_context'] ?? ''));
+        $targetDurationSeconds = self::planningTargetDurationSeconds($prompt, $request);
+        $responseCharacterLimit = $multiEpisode
+            ? min(14000, 4500 + ($episodeCount * 850))
+            : 5200;
         $context = [
             'title_hint' => $title,
             'user_prompt' => $prompt,
             'revision_message' => (string)($request['revision_message'] ?? ''),
             'selected_style_name' => (string)($styleDetail['name'] ?? ''),
             'selected_style_prompt' => mb_substr((string)($styleDetail['prompt'] ?? ''), 0, 300, 'UTF-8'),
-            'target_duration_seconds' => self::planningTargetDurationSeconds($prompt, $request),
+            'target_duration_seconds' => $targetDurationSeconds,
             'multi_episode' => $multiEpisode,
             'episode_count' => $episodeCount,
+            'episode_total_count' => $totalEpisodeCount,
+            'episode_batch_start' => $batchStart,
+            'episode_batch_end' => $batchEnd,
+            'episode_batch_context' => $batchContext,
             'subject_mentions' => array_values(array_slice((array)($request['subject_mentions'] ?? []), 0, 12)),
             'storyboard_rule' => [
                 'min_shots' => (int)($storyboardRule['min_shots'] ?? 0),
                 'max_shots' => (int)($storyboardRule['max_shots'] ?? 0),
             ],
+        ];
+        $shotSchema = [
+            'shot_id' => 'episode_1_shot_1',
+            'episode_number' => 1,
+            'scene_ref_id' => 'episode_1_scene_1',
+            'subject_ref_ids' => ['subject_1'],
+            'visual_description' => 'one concrete Chinese visible action',
+            'shot_type' => 'Chinese shot type',
+            'composition' => 'short Chinese composition',
+            'camera_movement' => 'short Chinese camera movement',
+            'dialogue' => 'Chinese dialogue or empty string',
+            'recommended_duration_seconds' => 3,
         ];
         $schema = [
             'title' => 'short Chinese title',
@@ -13469,13 +13848,14 @@ class AigcShortDramaService
             'core_theme' => 'one Chinese sentence',
             'story_outline' => 'complete Chinese plot in 120-300 characters',
             'script_lines' => ['Chinese plot beat'],
-            'episodes' => [[
-                'episode_number' => 1,
-                'title' => 'short Chinese episode title',
-                'story_outline' => 'concise Chinese episode plot',
-                'script_lines' => ['concise Chinese episode beat'],
-                'ending_hook' => 'Chinese cliffhanger or final resolution',
-            ]],
+            'series_bible' => [
+                'series_arc' => 'complete Chinese arc for the whole series',
+                'theme' => 'one Chinese series theme',
+                'continuity_rules' => ['stable continuity rule'],
+                'characters' => [['id' => 'subject_1', 'name' => 'Chinese name', 'role' => 'series role', 'arc' => 'character arc']],
+                'locations' => [['id' => 'location_1', 'name' => 'Chinese location', 'purpose' => 'recurring narrative purpose']],
+                'episode_summaries' => [['episode_number' => 1, 'summary' => 'one-sentence episode direction', 'ending_hook' => 'hook or resolution']],
+            ],
             'art_style' => ['base_style' => 'Chinese style', 'visual_description' => 'short Chinese visual style'],
             'subjects' => [[
                 'id' => 'subject_1',
@@ -13489,32 +13869,60 @@ class AigcShortDramaService
                 'name' => 'Chinese location',
                 'description' => 'short Chinese setting description',
             ]],
-            'storyboard' => [[
-                'shot_id' => '1',
-                'episode_number' => 1,
-                'scene_ref_id' => 'location_1',
-                'subject_ref_ids' => ['subject_1'],
-                'visual_description' => 'one concrete Chinese visible action',
-                'shot_type' => 'Chinese shot type',
-                'composition' => 'short Chinese composition',
-                'camera_movement' => 'short Chinese camera movement',
-                'dialogue' => 'Chinese dialogue or empty string',
-                'recommended_duration_seconds' => 3,
-            ]],
         ];
 
+        if ($multiEpisode) {
+            $schema['episodes'] = [[
+                'episode_number' => 1,
+                'title' => 'short Chinese episode title',
+                'story_outline' => 'complete episode plot from opening to ending beat',
+                'script_lines' => ['concise Chinese episode script beat'],
+                'ending_hook' => 'Chinese cliffhanger or final resolution',
+                'subjects' => [[
+                    'subject_ref_id' => 'subject_1',
+                    'name' => 'Chinese subject name',
+                    'role_in_episode' => 'role and action in this episode',
+                ]],
+                'scenes' => [[
+                    'scene_id' => 'episode_1_scene_1',
+                    'scene_order' => 1,
+                    'name' => 'Chinese scene name',
+                    'description' => 'concrete Chinese scene setting',
+                    'subject_ref_ids' => ['subject_1'],
+                    'shots' => [$shotSchema],
+                ]],
+            ]];
+            $schema['storyboard'] = [$shotSchema];
+        } else {
+            $schema['episodes'] = [];
+            $singleShot = $shotSchema;
+            $singleShot['shot_id'] = '1';
+            $singleShot['episode_number'] = 1;
+            $singleShot['scene_ref_id'] = 'location_1';
+            $schema['storyboard'] = [$singleShot];
+        }
+
         $episodeContract = $multiEpisode
-            ? "This is a multi-episode story. episodes must contain exactly {$episodeCount} items numbered 1-{$episodeCount}. Every episode needs its own setup, conflict, turn, and ending beat; episodes before the last must end with a concrete hook. Every storyboard shot must have episode_number and every requested episode must own at least one shot.\n"
-            : "This is a single-episode story. Return episodes as an empty array and use episode_number 1 for storyboard shots.\n";
+            ? "This is a serialized multi-episode short drama. The full series has {$totalEpisodeCount} episodes. episodes must contain exactly {$episodeCount} items numbered 1-{$episodeCount} for this provider request; this request covers full-series episodes {$batchStart}-{$batchEnd}, and the application will offset these local numbers after validation. First establish series_bible as the large story, stable character/location continuity, and episode direction. Then write every requested episode's complete story, script beats, subjects used in that episode, scenes, and shots. Do not return an outline-only episode and do not return a single representative shot for an episode. Every episode must contain at least one scene and at least four concrete shots; episodes before the last must end with a concrete hook, and the final episode must resolve the main conflict. Every storyboard shot must have episode_number, scene_ref_id, and subject_ref_ids.\n"
+            : "This is a single-episode short film. Return episodes as an empty array, use episode_number 1 for all storyboard shots, and target approximately {$targetDurationSeconds} seconds by splitting the complete story into concrete 2-5 second shots.\n";
+        if ($multiEpisode && $batchContext !== '') {
+            $episodeContract .= "以下是已确定的系列总纲和批次承接上下文，必须保持一致：{$batchContext}\n";
+            $episodeContract .= "承接上一批次结尾：{$batchContext}\n";
+        }
+
+        $storyboardContract = $multiEpisode
+            ? "For multi-episode output, episodes[].scenes[].shots[] is the source of truth. The top-level storyboard may mirror those shots for backward compatibility, but it must not replace the per-episode scenes and shots. Use stable subject references from subjects and unique scene ids.\n"
+            : "For single-episode output, storyboard must cover the whole beginning, development, conflict, turn, climax, and ending, normally around 12-24 shots for the one-minute default.\n";
 
         return "Create a complete Chinese short-drama story plan from the context.\n"
             . "Return one valid JSON object only. No markdown, explanations, or code fences.\n"
-            . "This is a compact semantic contract. Do not output image prompts, video prompts, negative prompts, music prompts, long character sheets, or repeated field explanations; the application creates those after validation.\n"
+            . "This is a compact semantic contract. Do not output long image prompts, video prompts, negative prompts, or repeated field explanations; the application expands production details after validation.\n"
             . "Preserve the user's key people, events, locations, conflict, turning point, and ending. Use simplified Chinese values.\n"
-            . "Return title, type_judgement, core_theme, story_outline, script_lines, episodes, art_style, subjects, locations, and storyboard.\n"
+            . "Return title, type_judgement, core_theme, story_outline, script_lines, series_bible, episodes, art_style, subjects, locations, and storyboard.\n"
             . $episodeContract
-            . "subjects must contain 1-6 stable items with non-empty id, name, description, and category. locations must contain 1-6 chronological items with non-empty id, name, and description.\n"
-            . "storyboard must contain 1-{$representativeShotLimit} concise representative shots, cover every location at least once, and use only location ids and subject ids defined above. Each visual_description must be a specific visible action, never a planning phrase. Use 2-5 seconds per shot. Keep every string concise so the entire response fits within {$responseCharacterLimit} Chinese characters.\n"
+            . $storyboardContract
+            . "subjects must contain stable items with non-empty id, name, description, and category. locations must contain chronological items with non-empty id, name, and description.\n"
+            . "Every visual_description must be a specific visible action, never a planning phrase. Use 2-5 seconds per shot. Keep every string concise so the entire response fits within {$responseCharacterLimit} Chinese characters.\n"
             . "Context: " . self::jsonEncode($context) . "\n"
             . "JSON schema: " . self::jsonEncode($schema);
     }
@@ -13861,11 +14269,13 @@ PROMPT;
 You are a professional Chinese serialized short-drama writer, story editor, and continuity supervisor.
 Return one valid JSON object only. Do not return Markdown, code fences, explanations, or analysis.
 
-The requested episode count is a hard contract. Build one coherent series arc, then split it into exactly that many numbered episodes. Every episode must have its own setup, conflict escalation, turn, and ending beat. Every episode except the final one must end with a concrete hook that creates a clear reason to watch the next episode; the final episode must resolve the main conflict.
+The requested episode count is a hard contract. First create a compact series_bible containing the complete series arc, theme, continuity rules, stable character and location references, and the episode-level story direction. Then split that arc into exactly that many numbered episodes. Every episode must have its own setup, conflict escalation, turn, and ending beat. Every episode except the final one must end with a concrete hook that creates a clear reason to watch the next episode; the final episode must resolve the main conflict.
 
-Keep characters, relationships, props, locations, timeline, motivations, and revealed clues consistent across episodes. Do not restart the premise in each episode, duplicate the same event, merge episodes, skip episode numbers, or introduce unexplained continuity changes.
+Keep characters, relationships, props, locations, timeline, motivations, and revealed clues consistent across episodes and aligned with series_bible. Do not restart the premise in each episode, duplicate the same event, merge episodes, skip episode numbers, or introduce unexplained continuity changes. When this is a batch of a longer series, treat the supplied series_bible and previous batch context as established facts, not optional suggestions.
 
-Follow the compact JSON schema in the user prompt exactly. Keep prose concise. Do not add image prompts, video prompts, negative prompts, music prompts, long character sheets, or fields outside the requested schema because the application expands production details after validation. Use simplified Chinese for all story values. Every representative storyboard shot must include episode_number, and every requested episode must own at least one shot.
+Each episode is a production unit, not a summary. For every episode return a complete story_outline and script_lines, the subjects used in that episode, and an ordered scenes array. Every scene must include a concrete setting, subject_ref_ids, and a shots array. Every episode must contain at least four executable shots covering its opening, escalation, turn, and ending beat. Every shot must include episode_number, scene_ref_id, subject_ref_ids, visible action, composition, camera movement, dialogue, and recommended_duration_seconds. The nested episode scenes and shots are the source of truth; a top-level storyboard array may mirror them only for legacy clients.
+
+Follow the compact JSON schema in the user prompt exactly. Keep prose concise. Do not add image prompts, video prompts, negative prompts, music prompts, long character sheets, or fields outside the requested schema because the application expands production details after validation. Use simplified Chinese for all story values. Every nested and mirrored storyboard shot must include episode_number, and every requested episode must own its complete scenes and shots.
 PROMPT;
     }
 
@@ -13925,15 +14335,14 @@ PROMPT;
                 (string)($config['script_system_prompt'] ?? ''),
                 self::scriptPlanSystemPrompt()
             ),
-            'script_prompt_template' => self::normalizeScriptPromptConfigValue(
+            'script_prompt_template' => self::ensurePlanningPromptTemplateContract(
                 (string)($config['script_prompt_template'] ?? ''),
                 self::defaultScriptPromptTemplate()
             ),
-            'multi_episode_script_system_prompt' => self::normalizeScriptPromptConfigValue(
-                (string)($config['multi_episode_script_system_prompt'] ?? ''),
-                self::multiEpisodeScriptPlanSystemPrompt()
+            'multi_episode_script_system_prompt' => self::normalizeMultiEpisodeSystemPromptConfigValue(
+                (string)($config['multi_episode_script_system_prompt'] ?? '')
             ),
-            'multi_episode_script_prompt_template' => self::normalizeScriptPromptConfigValue(
+            'multi_episode_script_prompt_template' => self::ensurePlanningPromptTemplateContract(
                 (string)($config['multi_episode_script_prompt_template'] ?? ''),
                 self::defaultMultiEpisodeScriptPromptTemplate()
             ),
@@ -13965,8 +14374,8 @@ PROMPT;
                 'items' => [
                     ['key' => 'script_system_prompt', 'label' => '单集剧本系统提示词', 'description' => '控制单集剧本、主体、场景和分镜的结构输出。', 'default' => $scriptDefaults['system_prompt'], 'variables' => []],
                     ['key' => 'script_prompt_template', 'label' => '单集剧本生成模板', 'description' => '组织提交给剧本模型的单集用户提示词。', 'default' => $scriptDefaults['prompt_template'], 'variables' => ['{{default_prompt}}', '{{user_prompt}}', '{{title}}', '{{request_json}}']],
-                    ['key' => 'multi_episode_script_system_prompt', 'label' => '多集剧本系统提示词', 'description' => '控制跨集连续性、集数和每集钩子。', 'default' => $scriptDefaults['multi_episode_system_prompt'], 'variables' => []],
-                    ['key' => 'multi_episode_script_prompt_template', 'label' => '多集剧本生成模板', 'description' => '组织提交给剧本模型的多集用户提示词。', 'default' => $scriptDefaults['multi_episode_prompt_template'], 'variables' => ['{{default_prompt}}', '{{user_prompt}}', '{{title}}', '{{request_json}}']],
+                    ['key' => 'multi_episode_script_system_prompt', 'label' => '多集剧本系统提示词', 'description' => '控制整部故事、跨集连续性、每集完整剧本、场景、主体、分镜和结尾钩子。', 'default' => $scriptDefaults['multi_episode_system_prompt'], 'variables' => []],
+                    ['key' => 'multi_episode_script_prompt_template', 'label' => '多集剧本生成模板', 'description' => '组织提交给剧本模型的多集完整制作计划，按每集场景和分镜输出。', 'default' => $scriptDefaults['multi_episode_prompt_template'], 'variables' => ['{{default_prompt}}', '{{user_prompt}}', '{{title}}', '{{request_json}}']],
                 ],
             ],
             [
@@ -14087,13 +14496,12 @@ PROMPT;
         if ($multiEpisode) {
             return [
                 'script_system_prompt' => self::appendPlanningPromptConfig(
-                    self::normalizeScriptPromptConfigValue(
+                    self::normalizeMultiEpisodeSystemPromptConfigValue(
                         (string)($config['multi_episode_script_system_prompt'] ?? ''),
-                        self::multiEpisodeScriptPlanSystemPrompt()
                     ),
                     $runtimeConfig
                 ),
-                'script_prompt_template' => self::normalizeScriptPromptConfigValue(
+                'script_prompt_template' => self::ensurePlanningPromptTemplateContract(
                     (string)($config['multi_episode_script_prompt_template'] ?? ''),
                     self::defaultMultiEpisodeScriptPromptTemplate()
                 ),
@@ -14108,7 +14516,7 @@ PROMPT;
                 ),
                 $runtimeConfig
             ),
-            'script_prompt_template' => self::normalizeScriptPromptConfigValue(
+            'script_prompt_template' => self::ensurePlanningPromptTemplateContract(
                 (string)($config['script_prompt_template'] ?? ''),
                 self::defaultScriptPromptTemplate()
             ),
@@ -14148,6 +14556,30 @@ PROMPT;
             return $default;
         }
         return mb_substr($value, 0, self::SCRIPT_PROMPT_MAX_LENGTH, 'UTF-8');
+    }
+
+    private static function ensurePlanningPromptTemplateContract(string $value, string $default): string
+    {
+        $value = self::normalizeScriptPromptConfigValue($value, $default);
+        if (!str_contains($value, '{{default_prompt}}')) {
+            $suffix = "\n\n{{default_prompt}}";
+            $availableLength = max(0, self::SCRIPT_PROMPT_MAX_LENGTH - mb_strlen($suffix, 'UTF-8'));
+            $value = rtrim(mb_substr($value, 0, $availableLength, 'UTF-8')) . $suffix;
+        }
+        return $value;
+    }
+
+    private static function normalizeMultiEpisodeSystemPromptConfigValue(string $value): string
+    {
+        $normalized = self::normalizeScriptPromptConfigValue($value, self::multiEpisodeScriptPlanSystemPrompt());
+        if (
+            str_contains($normalized, 'Every representative storyboard shot must include episode_number')
+            && str_contains($normalized, 'application expands production details after validation')
+            && !str_contains($normalized, 'Each episode is a production unit')
+        ) {
+            return self::multiEpisodeScriptPlanSystemPrompt();
+        }
+        return $normalized;
     }
 
     private static function decodeLlmJsonObject(string $content): array
@@ -14519,14 +14951,36 @@ PROMPT;
         }
         $artStyle = is_array($payload['art_style'] ?? null) ? (array)$payload['art_style'] : [];
         $subjects = self::normalizeGeneratedNamedItems((array)($payload['subjects'] ?? []), 'subject');
-        $locations = self::normalizeGeneratedNamedItems((array)($payload['locations'] ?? []), 'location');
-        $storyboardItems = (array)($payload['storyboard'] ?? []);
-        if (empty($storyboardItems) && $multiEpisode) {
-            $storyboardItems = self::episodeStoryboardItems((array)($payload['episodes'] ?? []));
-        }
+        $subjects = self::mergeGeneratedNamedItems($subjects, self::episodeSubjectItems($episodes), 'subject');
+        $episodeScenes = self::episodeSceneItems($episodes);
+        $locations = !empty($episodeScenes)
+            ? $episodeScenes
+            : self::normalizeGeneratedNamedItems((array)($payload['locations'] ?? []), 'location');
+        $seriesBible = $multiEpisode
+            ? self::normalizeSeriesBible(
+                (array)($payload['series_bible'] ?? $payload['series_plan'] ?? []),
+                $storyOutline,
+                $episodes,
+                $subjects,
+                $locations,
+                $episodeCount,
+                $coreTheme
+            )
+            : [];
+        $topLevelStoryboardItems = array_values(array_filter((array)($payload['storyboard'] ?? []), 'is_array'));
+        $episodeStoryboardItems = self::episodeStoryboardItems($episodes);
+        // Nested episode shots are the authoritative source for multi-episode
+        // plans. The old top-level flat array is still accepted for backwards
+        // compatibility when a tenant's custom prompt has not been updated.
+        $storyboardItems = !empty($episodeStoryboardItems)
+            ? $episodeStoryboardItems
+            : $topLevelStoryboardItems;
+        $hasNestedEpisodeProduction = $multiEpisode && !empty($episodeStoryboardItems);
         $storyboard = self::normalizeGeneratedStoryboard($storyboardItems);
         $styleMeta = self::scriptPlanPriorityMeta($prompt, $request);
-        $storyboardRepair = self::repairStoryboardCoverage($storyboard, $locations, $subjects, $prompt, $request, $storyOutline);
+        $storyboardRepair = $hasNestedEpisodeProduction
+            ? ['storyboard' => $storyboard, 'issues_fixed' => []]
+            : self::repairStoryboardCoverage($storyboard, $locations, $subjects, $prompt, $request, $storyOutline);
         $storyboard = $storyboardRepair['storyboard'];
         $durationRepair = self::balanceStoryboardDuration($storyboard, $locations, $subjects, $prompt, $request, $storyOutline);
         $storyboard = $durationRepair['storyboard'];
@@ -14535,6 +14989,7 @@ PROMPT;
             (array)($storyboardRepair['issues_fixed'] ?? []),
             (array)($durationRepair['issues_fixed'] ?? [])
         )));
+        $episodes = self::attachEpisodeProductionStructure($episodes, $storyboard, $subjects, $locations);
         $durationStats = self::durationStats($storyboard, count($locations));
         $storyboardDiagnostics = self::storyboardBreakingDiagnostics($storyboard, $locations, $request, $prompt);
         $musicPlan = self::normalizeMusicPlan((array)($payload['music_plan'] ?? []), $storyboard, $durationStats, $artStyle, $prompt);
@@ -14559,6 +15014,7 @@ PROMPT;
             'script_lines' => array_slice($scriptLines, 0, $multiEpisode ? 80 : 30),
             'multi_episode' => $multiEpisode,
             'episode_count' => $episodeCount,
+            'series_bible' => $seriesBible,
             'episodes' => $episodes,
             'music_plan' => $musicPlan,
             'art_style' => [
@@ -14591,6 +15047,142 @@ PROMPT;
                 'generation_feasibility' => '已包含分镜画面、构图设计、运镜调度、提示词和时长字段',
                 'issues_fixed' => (array)($storyboardRepair['issues_fixed'] ?? []),
             ],
+        ];
+    }
+
+    private static function normalizeSeriesBible(
+        array $source,
+        string $storyOutline,
+        array $episodes,
+        array $subjects,
+        array $locations,
+        int $episodeCount,
+        string $coreTheme = ''
+    ): array {
+        $seriesArc = trim((string)($source['series_arc'] ?? $source['arc'] ?? $source['story_outline'] ?? $storyOutline));
+        $theme = trim((string)($source['theme'] ?? $source['core_theme'] ?? $coreTheme));
+        $continuityRules = [];
+        foreach ((array)($source['continuity_rules'] ?? $source['continuity'] ?? []) as $rule) {
+            if (is_array($rule)) {
+                $rule = $rule['rule'] ?? $rule['text'] ?? $rule['description'] ?? '';
+            }
+            $rule = trim((string)$rule);
+            if ($rule !== '') {
+                $continuityRules[] = $rule;
+            }
+        }
+        if ($continuityRules === []) {
+            $continuityRules = [
+                '人物关系、动机、道具和已揭示线索跨集保持一致',
+                '场景和时间线按前集结尾自然承接，不重复重启主线',
+            ];
+        }
+
+        $characterItems = (array)($source['characters'] ?? $source['subjects'] ?? []);
+        if ($characterItems === []) {
+            $characterItems = $subjects;
+        }
+        $characters = [];
+        foreach (array_values($characterItems) as $index => $item) {
+            if (is_string($item)) {
+                $item = ['name' => $item];
+            }
+            if (!is_array($item)) {
+                continue;
+            }
+            $name = trim((string)($item['name'] ?? $item['character_name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $characters[] = [
+                'id' => trim((string)($item['id'] ?? $item['subject_ref_id'] ?? '')) ?: ('character_' . ($index + 1)),
+                'name' => mb_substr($name, 0, 80, 'UTF-8'),
+                'role' => mb_substr(trim((string)($item['role'] ?? $item['description'] ?? $item['role_in_series'] ?? '')), 0, 300, 'UTF-8'),
+                'arc' => mb_substr(trim((string)($item['arc'] ?? $item['character_arc'] ?? '')), 0, 500, 'UTF-8'),
+            ];
+        }
+
+        $locationItems = (array)($source['locations'] ?? $source['scenes'] ?? []);
+        if ($locationItems === []) {
+            $locationItems = $locations;
+        }
+        $bibleLocations = [];
+        foreach (array_values($locationItems) as $index => $item) {
+            if (is_string($item)) {
+                $item = ['name' => $item];
+            }
+            if (!is_array($item)) {
+                continue;
+            }
+            $name = trim((string)($item['name'] ?? $item['location_name'] ?? $item['scene_name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $bibleLocations[] = [
+                'id' => trim((string)($item['id'] ?? $item['scene_id'] ?? $item['location_id'] ?? '')) ?: ('location_' . ($index + 1)),
+                'name' => mb_substr($name, 0, 80, 'UTF-8'),
+                'purpose' => mb_substr(trim((string)($item['purpose'] ?? $item['description'] ?? '')), 0, 300, 'UTF-8'),
+            ];
+        }
+
+        $summaryMap = [];
+        foreach ((array)($source['episode_summaries'] ?? $source['episode_outline'] ?? []) as $index => $item) {
+            if (is_string($item)) {
+                $item = ['episode_number' => $index + 1, 'summary' => $item];
+            }
+            if (!is_array($item)) {
+                continue;
+            }
+            $number = (int)($item['episode_number'] ?? $item['episode'] ?? ($index + 1));
+            if ($number < 1 || $number > $episodeCount) {
+                continue;
+            }
+            $summary = trim((string)($item['summary'] ?? $item['story_outline'] ?? $item['outline'] ?? ''));
+            if ($summary !== '') {
+                $summaryMap[$number] = $summary;
+            }
+        }
+        $episodeSummaries = [];
+        foreach ($episodes as $episode) {
+            if (!is_array($episode)) {
+                continue;
+            }
+            $number = max(1, (int)($episode['episode_number'] ?? 1));
+            $summary = trim((string)($summaryMap[$number] ?? $episode['story_outline'] ?? ''));
+            if ($summary === '') {
+                continue;
+            }
+            $episodeSummaries[] = [
+                'episode_number' => $number,
+                'summary' => mb_substr($summary, 0, 500, 'UTF-8'),
+                'ending_hook' => mb_substr(trim((string)($episode['ending_hook'] ?? '')), 0, 200, 'UTF-8'),
+            ];
+        }
+        foreach ($summaryMap as $number => $summary) {
+            $exists = false;
+            foreach ($episodeSummaries as $item) {
+                if ((int)$item['episode_number'] === (int)$number) {
+                    $exists = true;
+                    break;
+                }
+            }
+            if (!$exists) {
+                $episodeSummaries[] = [
+                    'episode_number' => (int)$number,
+                    'summary' => mb_substr($summary, 0, 500, 'UTF-8'),
+                    'ending_hook' => '',
+                ];
+            }
+        }
+        usort($episodeSummaries, static fn(array $left, array $right): int => (int)$left['episode_number'] <=> (int)$right['episode_number']);
+
+        return [
+            'series_arc' => mb_substr($seriesArc, 0, 3000, 'UTF-8'),
+            'theme' => mb_substr($theme, 0, 300, 'UTF-8'),
+            'continuity_rules' => array_slice($continuityRules, 0, 12),
+            'characters' => array_slice($characters, 0, 80),
+            'locations' => array_slice($bibleLocations, 0, 80),
+            'episode_summaries' => array_slice($episodeSummaries, 0, $episodeCount),
         ];
     }
 
@@ -14644,9 +15236,144 @@ PROMPT;
                 'story_outline' => mb_substr($outline !== '' ? $outline : $storyOutline, 0, 1000, 'UTF-8'),
                 'script_lines' => array_slice($lines, 0, 12),
                 'ending_hook' => mb_substr($endingHook, 0, 300, 'UTF-8'),
+                'subjects' => self::normalizeEpisodeSubjectItems(
+                    (array)($item['subjects'] ?? $item['subject_refs'] ?? $item['subject_references'] ?? []),
+                    $number
+                ),
+                'scenes' => self::normalizeEpisodeSceneItems(
+                    (array)($item['scenes'] ?? $item['locations'] ?? []),
+                    $number
+                ),
+                'storyboard' => array_values(array_filter(
+                    (array)($item['storyboard'] ?? $item['shots'] ?? []),
+                    'is_array'
+                )),
             ];
         }
         return $episodes;
+    }
+
+    private static function normalizeEpisodeSubjectItems(array $items, int $episodeNumber): array
+    {
+        $result = [];
+        foreach (array_values($items) as $index => $item) {
+            if (is_string($item)) {
+                $item = ['name' => $item];
+            }
+            if (!is_array($item)) {
+                continue;
+            }
+            $name = trim((string)($item['name'] ?? $item['subject_name'] ?? ''));
+            $id = trim((string)($item['subject_ref_id'] ?? $item['id'] ?? $item['subject_id'] ?? ''));
+            if ($name === '' && $id === '') {
+                continue;
+            }
+            $name = $name !== '' ? $name : $id;
+            $description = trim((string)($item['description'] ?? $item['role_in_episode'] ?? $item['role'] ?? ''));
+            $result[] = [
+                'id' => $id !== '' ? $id : 'episode_' . $episodeNumber . '_subject_' . ($index + 1),
+                'name' => mb_substr($name, 0, 80, 'UTF-8'),
+                'description' => mb_substr($description !== '' ? $description : ($name . '在本集中的叙事主体'), 0, 500, 'UTF-8'),
+                'category' => self::normalizeSubjectCategory($item),
+                'role_in_episode' => mb_substr($description, 0, 300, 'UTF-8'),
+            ];
+        }
+        return $result;
+    }
+
+    private static function normalizeEpisodeSceneItems(array $items, int $episodeNumber): array
+    {
+        $result = [];
+        foreach (array_values($items) as $index => $item) {
+            if (is_string($item)) {
+                $item = ['name' => $item];
+            }
+            if (!is_array($item)) {
+                continue;
+            }
+            $sourceId = trim((string)($item['scene_id'] ?? $item['id'] ?? $item['location_id'] ?? ''));
+            $name = trim((string)($item['name'] ?? $item['scene_name'] ?? $item['location_name'] ?? ''));
+            $description = trim((string)($item['description'] ?? $item['scene_description'] ?? $item['location_description'] ?? ''));
+            if ($name === '' && $description === '') {
+                continue;
+            }
+            $id = $sourceId !== '' ? $sourceId : ('episode_' . $episodeNumber . '_scene_' . ($index + 1));
+            $result[] = [
+                'id' => $id,
+                'source_id' => $sourceId,
+                'story_order' => max(1, (int)($item['scene_order'] ?? $item['story_order'] ?? ($index + 1))),
+                'name' => mb_substr($name !== '' ? $name : ('第' . $episodeNumber . '集场景' . ($index + 1)), 0, 80, 'UTF-8'),
+                'description' => mb_substr($description !== '' ? $description : $name, 0, 500, 'UTF-8'),
+                'visual_prompt' => mb_substr((string)($item['visual_prompt'] ?? $description), 0, 1000, 'UTF-8'),
+                'subject_ref_ids' => array_values(array_filter(array_map('strval', (array)($item['subject_ref_ids'] ?? $item['subject_ids'] ?? [])))),
+                'shots' => array_values(array_filter((array)($item['shots'] ?? $item['storyboard'] ?? []), 'is_array')),
+            ];
+        }
+        return $result;
+    }
+
+    private static function episodeSubjectItems(array $episodes): array
+    {
+        $result = [];
+        foreach ($episodes as $episode) {
+            foreach ((array)($episode['subjects'] ?? []) as $subject) {
+                if (is_array($subject)) {
+                    $result[] = $subject;
+                }
+            }
+        }
+        return $result;
+    }
+
+    private static function episodeSceneItems(array $episodes): array
+    {
+        $result = [];
+        foreach ($episodes as $episode) {
+            foreach ((array)($episode['scenes'] ?? []) as $scene) {
+                if (is_array($scene)) {
+                    $result[] = $scene;
+                }
+            }
+        }
+        return $result;
+    }
+
+    private static function mergeGeneratedNamedItems(array $base, array $extra, string $prefix): array
+    {
+        $result = array_values(array_filter($base, 'is_array'));
+        $byId = [];
+        $byName = [];
+        foreach ($result as $index => $item) {
+            $id = trim((string)($item['id'] ?? ''));
+            $name = trim((string)($item['name'] ?? ''));
+            if ($id !== '') {
+                $byId[$id] = $index;
+            }
+            if ($name !== '') {
+                $byName[$name] = $index;
+            }
+        }
+        foreach (array_values(array_filter($extra, 'is_array')) as $index => $item) {
+            $id = trim((string)($item['id'] ?? ''));
+            $name = trim((string)($item['name'] ?? ''));
+            $existingIndex = $id !== '' && isset($byId[$id]) ? $byId[$id] : ($name !== '' && isset($byName[$name]) ? $byName[$name] : null);
+            if ($existingIndex !== null) {
+                $result[$existingIndex] = array_merge($result[$existingIndex], array_filter($item, static fn($value): bool => $value !== '' && $value !== []));
+                continue;
+            }
+            if ($id === '') {
+                $item['id'] = $prefix . '_episode_' . (count($result) + 1);
+            }
+            $result[] = $item;
+            $newIndex = count($result) - 1;
+            if ((string)($item['id'] ?? '') !== '') {
+                $byId[(string)$item['id']] = $newIndex;
+            }
+            if ($name !== '') {
+                $byName[$name] = $newIndex;
+            }
+        }
+        return $result;
     }
 
     private static function episodeScriptLines(array $episodes): array
@@ -14673,16 +15400,45 @@ PROMPT;
     private static function episodeStoryboardItems(array $episodes): array
     {
         $result = [];
+        $seen = [];
         foreach (array_values($episodes) as $index => $episode) {
             if (!is_array($episode)) {
                 continue;
             }
             $episodeNumber = max(1, (int)($episode['episode_number'] ?? ($index + 1)));
-            foreach ((array)($episode['storyboard'] ?? $episode['shots'] ?? []) as $shot) {
+            $items = array_values(array_filter((array)($episode['storyboard'] ?? $episode['shots'] ?? []), 'is_array'));
+            foreach ((array)($episode['scenes'] ?? []) as $scene) {
+                if (!is_array($scene)) {
+                    continue;
+                }
+                $sceneId = trim((string)($scene['id'] ?? $scene['scene_id'] ?? ''));
+                $sceneSubjectIds = array_values(array_filter(array_map('strval', (array)($scene['subject_ref_ids'] ?? []))));
+                foreach ((array)($scene['shots'] ?? $scene['storyboard'] ?? []) as $sceneShot) {
+                    if (!is_array($sceneShot)) {
+                        continue;
+                    }
+                    if ($sceneId !== '' && trim((string)($sceneShot['scene_ref_id'] ?? '')) === '') {
+                        $sceneShot['scene_ref_id'] = $sceneId;
+                    }
+                    if (empty($sceneShot['subject_ref_ids']) && !empty($sceneSubjectIds)) {
+                        $sceneShot['subject_ref_ids'] = $sceneSubjectIds;
+                    }
+                    $items[] = $sceneShot;
+                }
+            }
+            foreach ($items as $shot) {
                 if (!is_array($shot)) {
                     continue;
                 }
                 $shot['episode_number'] = $episodeNumber;
+                $shotKey = trim((string)($shot['shot_id'] ?? $shot['id'] ?? ''));
+                if ($shotKey !== '') {
+                    $shotKey = $episodeNumber . '|' . $shotKey;
+                    if (isset($seen[$shotKey])) {
+                        continue;
+                    }
+                    $seen[$shotKey] = true;
+                }
                 $result[] = $shot;
             }
         }
@@ -14744,6 +15500,118 @@ PROMPT;
         }
         unset($shot);
         return $storyboard;
+    }
+
+    private static function attachEpisodeProductionStructure(array $episodes, array $storyboard, array $subjects, array $locations): array
+    {
+        $shotsByEpisode = [];
+        foreach (array_values(array_filter($storyboard, 'is_array')) as $shot) {
+            $episodeNumber = max(1, self::storyboardEpisodeNumber($shot));
+            $shotsByEpisode[$episodeNumber][] = $shot;
+        }
+        $subjectById = [];
+        $subjectByName = [];
+        foreach ($subjects as $subject) {
+            if (!is_array($subject)) {
+                continue;
+            }
+            $id = trim((string)($subject['id'] ?? ''));
+            $name = trim((string)($subject['name'] ?? ''));
+            if ($id !== '') {
+                $subjectById[$id] = $subject;
+            }
+            if ($name !== '') {
+                $subjectByName[$name] = $subject;
+            }
+        }
+        $locationById = [];
+        foreach ($locations as $location) {
+            if (is_array($location) && trim((string)($location['id'] ?? '')) !== '') {
+                $locationById[(string)$location['id']] = $location;
+            }
+        }
+
+        foreach ($episodes as $index => &$episode) {
+            if (!is_array($episode)) {
+                $episode = [];
+            }
+            $episodeNumber = max(1, (int)($episode['episode_number'] ?? ($index + 1)));
+            $sceneMap = [];
+            foreach ((array)($episode['scenes'] ?? []) as $sceneIndex => $scene) {
+                if (!is_array($scene)) {
+                    continue;
+                }
+                $sceneId = trim((string)($scene['id'] ?? $scene['scene_id'] ?? ''));
+                if ($sceneId === '') {
+                    $sceneId = 'episode_' . $episodeNumber . '_scene_' . ($sceneIndex + 1);
+                }
+                $sceneMap[$sceneId] = [
+                    'scene_id' => $sceneId,
+                    'scene_order' => max(1, (int)($scene['story_order'] ?? $scene['scene_order'] ?? ($sceneIndex + 1))),
+                    'name' => (string)($scene['name'] ?? $scene['scene_name'] ?? '场景' . ($sceneIndex + 1)),
+                    'description' => (string)($scene['description'] ?? ''),
+                    'subject_ref_ids' => array_values(array_filter(array_map('strval', (array)($scene['subject_ref_ids'] ?? [])))),
+                    'shots' => [],
+                ];
+            }
+            $episodeShots = array_values($shotsByEpisode[$episodeNumber] ?? []);
+            foreach ($episodeShots as $shot) {
+                $sceneId = trim((string)($shot['scene_ref_id'] ?? ''));
+                if ($sceneId === '') {
+                    $sceneId = 'episode_' . $episodeNumber . '_scene_1';
+                    $shot['scene_ref_id'] = $sceneId;
+                }
+                if (!isset($sceneMap[$sceneId])) {
+                    $location = $locationById[$sceneId] ?? [];
+                    $sceneMap[$sceneId] = [
+                        'scene_id' => $sceneId,
+                        'scene_order' => max(1, (int)($location['story_order'] ?? count($sceneMap) + 1)),
+                        'name' => (string)($location['name'] ?? $shot['scene_name'] ?? ('第' . $episodeNumber . '集场景')),
+                        'description' => (string)($location['description'] ?? ''),
+                        'subject_ref_ids' => [],
+                        'shots' => [],
+                    ];
+                }
+                $sceneMap[$sceneId]['shots'][] = $shot;
+                $sceneMap[$sceneId]['subject_ref_ids'] = array_values(array_unique(array_merge(
+                    $sceneMap[$sceneId]['subject_ref_ids'],
+                    array_values(array_filter(array_map('strval', (array)($shot['subject_ref_ids'] ?? []))))
+                )));
+            }
+            $episode['scenes'] = array_values($sceneMap);
+            $episode['storyboard'] = $episodeShots;
+
+            $episodeSubjects = [];
+            $episodeSubjectKeys = [];
+            foreach ((array)($episode['subjects'] ?? []) as $subject) {
+                if (!is_array($subject)) {
+                    continue;
+                }
+                $subjectId = trim((string)($subject['subject_ref_id'] ?? $subject['id'] ?? ''));
+                $subjectName = trim((string)($subject['name'] ?? ''));
+                $key = $subjectId !== '' ? $subjectId : $subjectName;
+                if ($key === '' || isset($episodeSubjectKeys[$key])) {
+                    continue;
+                }
+                $subject['subject_ref_id'] = $subjectId !== '' ? $subjectId : ($subjectByName[$subjectName]['id'] ?? '');
+                $episodeSubjects[] = $subject;
+                $episodeSubjectKeys[$key] = true;
+            }
+            foreach ($episodeShots as $shot) {
+                foreach (array_values(array_filter(array_map('strval', (array)($shot['subject_ref_ids'] ?? [])))) as $subjectId) {
+                    if (isset($episodeSubjectKeys[$subjectId])) {
+                        continue;
+                    }
+                    $subject = $subjectById[$subjectId] ?? ['id' => $subjectId, 'name' => $subjectId, 'description' => ''];
+                    $subject['subject_ref_id'] = $subjectId;
+                    $episodeSubjects[] = $subject;
+                    $episodeSubjectKeys[$subjectId] = true;
+                }
+            }
+            $episode['subjects'] = $episodeSubjects;
+        }
+        unset($episode);
+        return array_values($episodes);
     }
 
     private static function normalizeGeneratedNamedItems(array $items, string $prefix): array
@@ -16607,7 +17475,7 @@ PROMPT;
             ? $requestEpisodeSettings['multi_episode']
             : (int)($project['multi_episode'] ?? 0) === 1;
         $projectEpisodeCount = $projectMultiEpisode
-            ? min(10, max(2, (int)($project->isEmpty() ? $requestEpisodeSettings['episode_count'] : ($project['episode_count'] ?? 3))))
+            ? min(self::SCRIPT_MAX_EPISODES, max(2, (int)($project->isEmpty() ? $requestEpisodeSettings['episode_count'] : ($project['episode_count'] ?? 3))))
             : 1;
         $projectGenerationSettings = $project->isEmpty() ? [] : self::projectGenerationSettingsFromRow($project->toArray());
         if (empty($projectGenerationSettings['image'] ?? []) && !empty($request)) {
@@ -18243,7 +19111,7 @@ PROMPT;
             'timeline_priority_rule' => $timelineOverride
                 ? 'Timeline segments are authoritative. Do not expand the total duration or add extra shots just to satisfy a complexity range.'
                 : 'When no authoritative timeline is provided, judge story complexity first, then choose one matching storyboard rule and split shots by its intensity.',
-            'output_contract' => 'Keep the existing flat storyboard[] structure. Do not output nested scene_id + shots[] data.',
+            'output_contract' => 'Keep the top-level storyboard[] for legacy clients. For multi-episode plans, also keep the authoritative episodes[].scenes[].shots[] structure.',
             'global_rule' => 'Do not add new plot or change character relationships. Each storyboard item expresses one core visible action or one visual information task.',
             'rules' => $items,
         ];
@@ -18489,7 +19357,11 @@ PROMPT;
         if ($timelineSeconds > 0) {
             return $timelineSeconds;
         }
-        return self::durationHintToSeconds(self::extractUserTextDurationHint($prompt));
+        $durationHint = self::durationHintToSeconds(self::extractUserTextDurationHint($prompt));
+        if ($durationHint > 0) {
+            return $durationHint;
+        }
+        return self::normalizeEpisodeSettings($request)['multi_episode'] ? 0 : 60;
     }
 
     private static function minimumStoryboardShotCount(string $prompt, array $request, int $sceneCount = 0): int

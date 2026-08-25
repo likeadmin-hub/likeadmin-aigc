@@ -1,0 +1,17 @@
+{
+  "app_code": "aigc_music_cover",
+  "apis": [
+    { "api_path": "app.aigc_music_cover.config/detail", "api_method": "GET", "permission_key": "aigc_music_cover:config:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_music_cover.config/setup", "api_method": "POST", "permission_key": "aigc_music_cover:config:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_music_cover.asset/upload_audio", "api_method": "POST", "permission_key": "aigc_music_cover:asset:upload_audio:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_music_cover.generate/estimate", "api_method": "POST", "permission_key": "aigc_music_cover:generate:estimate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_music_cover.generate/index", "api_method": "POST", "permission_key": "aigc_music_cover:generate", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_music_cover.task/lists", "api_method": "GET", "permission_key": "aigc_music_cover:task:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_music_cover.task/detail", "api_method": "GET", "permission_key": "aigc_music_cover:task:detail:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_music_cover.task/retry", "api_method": "POST", "permission_key": "aigc_music_cover:task:retry:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_music_cover.task/delete", "api_method": "POST", "permission_key": "aigc_music_cover:task:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_music_cover.result/lists", "api_method": "GET", "permission_key": "aigc_music_cover:result:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_music_cover.result/delete", "api_method": "POST", "permission_key": "aigc_music_cover:result:delete:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_music_cover.config/detail", "api_method": "GET", "permission_key": "aigc_music_cover:config:user", "scene": "user", "need_login": 0, "need_role_permission": 0 }
+  ]
+}

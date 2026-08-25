@@ -108,7 +108,7 @@ const PromptPage=defineComponent({
           type:"warning",
           showIcon:true,
           closable:false,
-          title:"图片和视频模板请保留 {{prompt}}，用于承接系统生成的完整基础提示词；恢复默认后不会改变现有生成效果。"
+          title:"剧本模板请保留 {{default_prompt}}，否则会覆盖单集/多集的结构契约；图片和视频模板请保留 {{prompt}}，用于承接系统生成的完整基础提示词。恢复默认后不会改变现有生成效果。"
         }),
         h("div",{class:"prompt-workspace"},[
           h("nav",{class:"prompt-group-nav"},groups.value.map(item=>h("button",{

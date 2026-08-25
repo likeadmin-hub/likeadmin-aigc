@@ -25,7 +25,7 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
             'episode_count' => 4,
         ], $this->invoke('normalizeEpisodeSettings', ['episode_count' => 4]));
 
-        self::assertSame(10, $this->invoke('normalizeEpisodeSettings', [
+        self::assertSame(99, $this->invoke('normalizeEpisodeSettings', [
             'multi_episode' => true,
             'episode_count' => 99,
         ])['episode_count']);
@@ -39,6 +39,26 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
             'multi_episode' => true,
             'episode_count' => 10,
         ])['episode_count']);
+
+        self::assertSame(500, $this->invoke('normalizeEpisodeSettings', [
+            'multi_episode' => true,
+            'episode_count' => 500,
+        ])['episode_count']);
+
+        self::assertSame(500, $this->invoke('normalizeEpisodeSettings', [
+            'multi_episode' => true,
+            'episode_count' => 501,
+        ])['episode_count']);
+    }
+
+    public function testSingleEpisodeDefaultsToOneMinuteWhenNoDurationIsProvided(): void
+    {
+        $request = $this->invoke('normalizeCreateRequest', [], []);
+
+        self::assertFalse($request['multi_episode']);
+        self::assertSame(1, $request['episode_count']);
+        self::assertSame(60, $request['target_duration_seconds']);
+        self::assertSame(60, $this->invoke('planningTargetDurationSeconds', '', []));
     }
 
     public function testCompactPromptRequiresExactEpisodesAndEpisodeNumberedShots(): void
@@ -51,7 +71,102 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
         self::assertStringContainsString('episodes must contain exactly 4 items', $prompt);
         self::assertStringContainsString('episodes before the last must end with a concrete hook', $prompt);
         self::assertStringContainsString('Every storyboard shot must have episode_number', $prompt);
+        self::assertStringContainsString('Every episode must contain at least one scene and at least four concrete shots', $prompt);
+        self::assertStringContainsString('episodes[].scenes[].shots[] is the source of truth', $prompt);
         self::assertStringContainsString('"episode_count":4', $prompt);
+    }
+
+    public function testBatchPromptAndEpisodeReferencesRemainContinuous(): void
+    {
+        $prompt = $this->invoke('buildCompactScriptPlanPrompt', '悬疑短剧', [
+            'multi_episode' => true,
+            'episode_count' => 5,
+            'episode_batch_start' => 11,
+            'episode_batch_end' => 15,
+            'episode_batch_context' => '第10集结尾，旧宅地库的灯突然熄灭。',
+        ], '旧宅谜案');
+        self::assertStringContainsString('full-series episodes 11-15', $prompt);
+        self::assertStringContainsString('承接上一批次结尾：第10集结尾，旧宅地库的灯突然熄灭。', $prompt);
+
+        $plan = [
+            'episodes' => [[
+                'episode_number' => 1,
+                'scenes' => [[
+                    'scene_id' => 'episode_1_scene_1',
+                    'shots' => [[
+                        'episode_number' => 1,
+                        'scene_ref_id' => 'episode_1_scene_1',
+                    ]],
+                ]],
+                'storyboard' => [[
+                    'episode_number' => 1,
+                    'scene_ref_id' => 'episode_1_scene_1',
+                ]],
+            ]],
+            'storyboard' => [[
+                'episode_number' => 1,
+                'scene_ref_id' => 'episode_1_scene_1',
+            ]],
+        ];
+        $offset = $this->invoke('offsetMultiEpisodePlan', $plan, 10);
+
+        self::assertSame(11, $offset['episodes'][0]['episode_number']);
+        self::assertSame('episode_11_scene_1', $offset['episodes'][0]['scenes'][0]['scene_id']);
+        self::assertSame(11, $offset['episodes'][0]['scenes'][0]['shots'][0]['episode_number']);
+        self::assertSame('episode_11_scene_1', $offset['episodes'][0]['storyboard'][0]['scene_ref_id']);
+        self::assertSame(11, $offset['storyboard'][0]['episode_number']);
+    }
+
+    public function testMultiEpisodePromptCarriesSeriesBibleAndFullSeriesCount(): void
+    {
+        $prompt = $this->invoke('buildCompactScriptPlanPrompt', '一部跨越十五集的悬疑短剧', [
+            'multi_episode' => true,
+            'episode_count' => 5,
+            'episode_total_count' => 15,
+            'episode_batch_start' => 11,
+            'episode_batch_end' => 15,
+        ], '旧宅谜案');
+
+        self::assertStringContainsString('The full series has 15 episodes', $prompt);
+        self::assertStringContainsString('series_bible', $prompt);
+        self::assertStringContainsString('complete Chinese arc for the whole series', $prompt);
+        self::assertStringContainsString('stable character/location continuity', $prompt);
+    }
+
+    public function testSeriesBibleKeepsStableReferencesAndEpisodeDirections(): void
+    {
+        $result = $this->invoke('normalizeSeriesBible', [
+            'series_arc' => '林岚追查旧宅失踪案，最终揭开家族秘密。',
+            'theme' => '真相与勇气。',
+            'continuity_rules' => ['林岚始终保留录音笔。'],
+            'characters' => [['id' => 'subject_1', 'name' => '林岚', 'role' => '调查者', 'arc' => '从怀疑走向揭露']],
+            'locations' => [['id' => 'location_1', 'name' => '旧宅', 'purpose' => '主要调查地点']],
+            'episode_summaries' => [['episode_number' => 2, 'summary' => '林岚发现暗门。', 'ending_hook' => '门后传来脚步声。']],
+        ], '总剧情', [
+            ['episode_number' => 1, 'story_outline' => '林岚回到旧宅。', 'ending_hook' => '楼上传来脚步声。'],
+            ['episode_number' => 2, 'story_outline' => '林岚发现暗门。', 'ending_hook' => '门后传来脚步声。'],
+        ], [
+            ['id' => 'subject_1', 'name' => '林岚', 'description' => '调查者'],
+        ], [
+            ['id' => 'location_1', 'name' => '旧宅', 'description' => '老宅'],
+        ], 2);
+
+        self::assertSame('林岚追查旧宅失踪案，最终揭开家族秘密。', $result['series_arc']);
+        self::assertSame('林岚', $result['characters'][0]['name']);
+        self::assertSame('旧宅', $result['locations'][0]['name']);
+        self::assertSame([1, 2], array_column($result['episode_summaries'], 'episode_number'));
+    }
+
+    public function testEpisodeBatchContextContainsBibleAndPreviousHook(): void
+    {
+        $context = $this->invoke('serializeEpisodeBatchContext', [
+            'series_arc' => '全剧主线',
+            'continuity_rules' => ['人物关系不变'],
+        ], '第10集结尾出现暗门。');
+
+        self::assertStringContainsString('series_bible', $context);
+        self::assertStringContainsString('全剧主线', $context);
+        self::assertStringContainsString('第10集结尾出现暗门', $context);
     }
 
     public function testMultiEpisodePlansReceiveASeparateOutputBudget(): void
@@ -64,7 +179,7 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
             'multi_episode' => true,
             'episode_count' => 3,
         ]));
-        self::assertSame(7936, $this->invoke('scriptPlanMaxTokens', [
+        self::assertSame(16000, $this->invoke('scriptPlanMaxTokens', [
             'multi_episode' => true,
             'episode_count' => 10,
         ]));
@@ -137,9 +252,9 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
         );
     }
 
-    public function testMissingEpisodesAreCompletedAtTwoAndTenEpisodeBoundaries(): void
+    public function testMissingEpisodesAreCompletedAtTwoTenAndFiveHundredEpisodeBoundaries(): void
     {
-        foreach ([2, 10] as $episodeCount) {
+        foreach ([2, 10, 500] as $episodeCount) {
             $payload = $this->multiEpisodePayload(1, false, $episodeCount);
             unset($payload['episodes']);
 
@@ -180,6 +295,67 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
         self::assertSame(5.0, (float)$reviewed['storyboard'][0]['recommended_duration_seconds']);
     }
 
+    public function testNestedEpisodeScenesAndShotsBecomeLegacyFlatStoryboardItems(): void
+    {
+        $payload = $this->multiEpisodePayload(2, false, 0);
+        $payload['episodes'] = [
+            [
+                'episode_number' => 1,
+                'title' => '归来',
+                'story_outline' => '林岚回到旧宅。',
+                'script_lines' => ['林岚推门进入旧宅。'],
+                'ending_hook' => '楼上传来脚步声。',
+                'subjects' => [['subject_ref_id' => 'subject_1', 'name' => '林岚', 'role_in_episode' => '调查旧宅']],
+                'scenes' => [[
+                    'scene_id' => 'ep1_scene1',
+                    'scene_order' => 1,
+                    'name' => '旧宅客厅',
+                    'description' => '积满灰尘的旧宅客厅',
+                    'subject_ref_ids' => ['subject_1'],
+                    'shots' => [
+                        ['shot_id' => 'ep1_shot1', 'visual_description' => '林岚推开积灰的大门。'],
+                        ['shot_id' => 'ep1_shot2', 'visual_description' => '林岚抬头看向楼梯。'],
+                    ],
+                ]],
+            ],
+            [
+                'episode_number' => 2,
+                'title' => '暗门',
+                'story_outline' => '林岚发现暗门。',
+                'script_lines' => ['林岚移开书柜。'],
+                'ending_hook' => '照片揭开旧案真相。',
+                'subjects' => [['subject_ref_id' => 'subject_1', 'name' => '林岚', 'role_in_episode' => '发现线索']],
+                'scenes' => [[
+                    'scene_id' => 'ep2_scene1',
+                    'scene_order' => 1,
+                    'name' => '旧宅书房',
+                    'description' => '堆满旧书的书房',
+                    'subject_ref_ids' => ['subject_1'],
+                    'shots' => [
+                        ['shot_id' => 'ep2_shot1', 'visual_description' => '林岚移开书柜露出暗门。'],
+                        ['shot_id' => 'ep2_shot2', 'visual_description' => '林岚举起暗门里的旧照片。'],
+                    ],
+                ]],
+            ],
+        ];
+
+        $result = $this->invoke('normalizeGeneratedPlanResult', $payload, '一个两集悬疑故事', [
+            'multi_episode' => true,
+            'episode_count' => 2,
+            'model_selections' => [],
+        ], '旧宅谜案');
+
+        self::assertCount(2, $result['episodes']);
+        self::assertCount(4, $result['storyboard']);
+        self::assertSame([1, 1, 2, 2], array_column($result['storyboard'], 'episode_number'));
+        self::assertSame(['ep1_scene1', 'ep1_scene1', 'ep2_scene1', 'ep2_scene1'], array_column($result['storyboard'], 'scene_ref_id'));
+        self::assertCount(1, $result['episodes'][0]['scenes']);
+        self::assertCount(2, $result['episodes'][0]['scenes'][0]['shots']);
+        self::assertSame('ep1_scene1', $result['episodes'][0]['scenes'][0]['scene_id']);
+        self::assertNotEmpty($result['subjects']);
+        self::assertGreaterThanOrEqual(2, count($result['locations']));
+    }
+
     public function testCompiledComposersExposeEpisodeCountControls(): void
     {
         $root = dirname(__DIR__, 2);
@@ -193,9 +369,9 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
         self::assertStringContainsString('episode_count:ta.value?episodeCount.value:1', $home);
         self::assertStringContainsString('episode_count:qt.value?episodeCount.value:1', $plan);
         self::assertStringContainsString('episode_count', $plan);
-        self::assertSame(2, substr_count($home, 's("select",{value:episodeCount.value'));
-        self::assertStringContainsString('onChange:episodeCountInput', $home);
-        self::assertStringContainsString('l("select",{value:episodeCount.value', $plan);
+        self::assertSame(2, substr_count($home, 's("input",{value:episodeCount.value'));
+        self::assertStringContainsString('onInput:episodeCountInput', $home);
+        self::assertStringContainsString('l("input",{value:episodeCount.value', $plan);
         self::assertSame(2, substr_count(
             $home,
             'ta.value?(r(),i("label",{key:1,class:"drama-episode-count"}'
@@ -204,21 +380,31 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
             'qt.value?(c(),u("label",{key:0,class:"plan-composer__episode-count"}',
             $plan
         );
-        self::assertStringContainsString('value:"10"},"10"', $home);
-        self::assertStringContainsString('value:"10"},"10"', $plan);
-        self::assertStringNotContainsString('type:"number",min:"2",max:"10"', $home);
-        self::assertStringNotContainsString('type:"number",min:"2",max:"10"', $plan);
-        self::assertSame(2, substr_count($entry, './index.331744a3.js?v=20260817-20'));
-        self::assertSame(2, substr_count($entry, './plan.d46b14c5.js?v=20260817-20'));
+        self::assertStringContainsString('type:"number",min:"2",max:"500"', $home);
+        self::assertStringContainsString('type:"number",min:"2",max:"500"', $plan);
+        self::assertSame(2, substr_count($entry, './index.331744a3.js?v=20260824-episode500'));
+        self::assertSame(2, substr_count($entry, './plan.d46b14c5.js?v=20260824-episode500'));
         self::assertStringContainsString('./index.a3dd556e20.css', $entry);
         self::assertStringContainsString('./plan.95e7815f20.css', $entry);
         self::assertStringNotContainsString('.css?v=20260817-20', $entry);
-        self::assertStringContainsString('drama-episode-count select', $homeCss);
-        self::assertStringContainsString('plan-composer__episode-count select', $planCss);
-        self::assertStringContainsString('drama-episode-count select option', $homeCss);
-        self::assertStringContainsString('plan-composer__episode-count select option', $planCss);
+        self::assertStringContainsString('drama-episode-count input', $homeCss);
+        self::assertStringContainsString('plan-composer__episode-count input', $planCss);
         self::assertStringContainsString('background:#fff;color:#111', $homeCss);
         self::assertStringContainsString('background:#fff;color:#111', $planCss);
+    }
+
+    public function testPersistenceSchemaSupportsLargeEpisodePlans(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $install = (string)file_get_contents($root . '/app/apps/aigc_short_drama/migrations/install.sql');
+        $upgrade = (string)file_get_contents($root . '/app/apps/aigc_short_drama/migrations/upgrade_20260824_multi_episode_500.sql');
+
+        self::assertStringContainsString('`result_json` longtext', $install);
+        self::assertStringContainsString('`plan_json` longtext', $install);
+        self::assertStringContainsString('`storyboard_json` longtext', $install);
+        self::assertStringContainsString('MODIFY COLUMN `result_json` longtext', $upgrade);
+        self::assertStringContainsString('MODIFY COLUMN `plan_json` longtext', $upgrade);
+        self::assertStringContainsString('MODIFY COLUMN `storyboard_json` longtext', $upgrade);
     }
 
     private function invoke(string $method, mixed ...$arguments): mixed

@@ -46,6 +46,20 @@ class ShortDramaScriptPromptConfigContractTest extends TestCase
         ));
     }
 
+    public function testPlanningTemplatesRetainTheDefaultStructureContract(): void
+    {
+        self::assertStringContainsString('{{default_prompt}}', $this->invoke(
+            'ensurePlanningPromptTemplateContract',
+            '自定义多集规则',
+            '{{default_prompt}}'
+        ));
+        self::assertSame('{{default_prompt}}', $this->invoke(
+            'ensurePlanningPromptTemplateContract',
+            '{{default_prompt}}',
+            '{{default_prompt}}'
+        ));
+    }
+
     public function testPromptConfigurationRejectsOversizedValues(): void
     {
         $this->expectException(Exception::class);

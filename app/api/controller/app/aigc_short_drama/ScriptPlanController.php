@@ -10,6 +10,15 @@ use think\facade\Log;
 
 class ScriptPlanController extends BaseApiController
 {
+    public function upload()
+    {
+        try {
+            return $this->success('上传成功', AigcShortDramaService::uploadScript((int)$this->request->tenantId, $this->userId));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function create()
     {
         try {
