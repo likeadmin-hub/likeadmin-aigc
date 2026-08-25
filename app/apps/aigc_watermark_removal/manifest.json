@@ -2,7 +2,7 @@
   "code": "aigc_watermark_removal",
   "name": "短视频去水印",
   "version": "1.0.1",
-  "require_core": ">=1.0.0",
+  "require_core": ">=1.0.272 <2.0.0",
   "description": "输入短视频分享链接，快速生成无水印视频并支持下载。",
   "changelog": "1. 新增短视频去水印功能。\n2. 支持异步处理和任务进度查看。\n3. 支持无水印视频预览与下载。\n4. 补齐 PC 用户端、租户配置/任务页和应用包前端资源自动部署。",
   "icon": "resource/image/common/menu_generator.png",

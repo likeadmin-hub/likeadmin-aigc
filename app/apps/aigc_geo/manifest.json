@@ -2,7 +2,7 @@
   "code": "aigc_geo",
   "name": "GEO营销优化系统",
   "version": "1.0.0",
-  "require_core": ">=1.0.0",
+  "require_core": ">=1.0.272 <2.0.0",
   "description": "围绕 AI 搜索曝光、问题生成、内容生产、渠道发布和品牌检测构建 GEO 增长闭环。",
   "changelog": "1. 保留现有 GEO 用户端页面和路由。\n2. 补齐租户配置、关键词、文章、检测和任务接口。\n3. 增加算力超市应用 API 依赖状态，支持后续配置真实上游通道。",
   "icon": "resource/image/common/menu_generator.png",
