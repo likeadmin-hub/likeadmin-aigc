@@ -21,11 +21,13 @@ class WatermarkRemovalAppContractTest extends TestCase
 
         self::assertSame('aigc_watermark_removal', $manifest['code']);
         self::assertSame('短视频去水印', $manifest['name']);
-        self::assertSame('1.0.1', $manifest['version']);
+        self::assertSame('1.0.2', $manifest['version']);
+        self::assertSame('>=1.0.0 <2.0.0', $manifest['require_core']);
         self::assertSame(0, $manifest['is_builtin']);
         self::assertSame(['tenant', 'pc'], $manifest['frontends']);
         self::assertStringNotContainsString('/api/', (string)$manifest['description']);
         self::assertStringNotContainsString('/api/', (string)$manifest['changelog']);
+        self::assertFileExists($this->root . '/app/apps/aigc_watermark_removal/signature.json');
     }
 
     public function testApiSchemaMenusAndPermissionsStayInTheAppNamespace(): void
@@ -58,6 +60,9 @@ class WatermarkRemovalAppContractTest extends TestCase
             self::assertStringContainsString('CREATE TABLE IF NOT EXISTS `' . $table . '`', $install);
             self::assertStringContainsString('CREATE TABLE IF NOT EXISTS `' . $table . '`', $upgrade);
         }
+        $planMigration = file_get_contents($this->root . '/app/apps/aigc_watermark_removal/migrations/upgrade_20260826_default_plan.sql');
+        self::assertStringContainsString("'aigc_watermark_removal','一年套餐',12", $planMigration);
+        self::assertStringContainsString('WHERE NOT EXISTS', $planMigration);
         self::assertSame($upgrade, $publicUpgrade);
         self::assertStringNotContainsString('INSERT INTO `la_tenant_app`', $upgrade);
         self::assertStringNotContainsString('INSERT INTO `la_tenant_system_menu`', $upgrade);
@@ -116,6 +121,7 @@ class WatermarkRemovalAppContractTest extends TestCase
         self::assertStringContainsString('app.aigc_watermark_removal.generate/estimate', file_get_contents($this->root . '/public/watermark-removal-page.js'));
         self::assertStringContainsString('app.aigc_watermark_removal.config/setup', file_get_contents($this->root . '/public/watermark-removal-admin.js'));
         self::assertStringContainsString("fetch('/tenantapi/'", file_get_contents($this->root . '/public/watermark-removal-admin.js'));
+        self::assertStringContainsString('aigc-watermark-removal', file_get_contents($this->root . '/public/watermark-removal-admin.js'));
     }
 
     public function testAppInstallerDeploysDeclaredRuntimeAssets(): void
@@ -123,7 +129,23 @@ class WatermarkRemovalAppContractTest extends TestCase
         $registry = file_get_contents($this->root . '/app/common/service/app/AppRegistryService.php');
         $updater = file_get_contents($this->root . '/app/common/service/update/AppPackageUpdateService.php');
         self::assertStringContainsString('self::installPublicAssets($manifest, root_path() . \'app/apps/\' . $appCode)', $registry);
+        self::assertStringContainsString('self::ensureShellAssetTag($targetRelative, $manifest)', $registry);
+        self::assertStringContainsString("public/admin/index.html", $registry);
+        self::assertStringContainsString("public/pc/index.html", $registry);
         self::assertStringContainsString('AppRegistryService::installPublicAssets($manifest, $extractPath)', $updater);
+    }
+
+    public function testSignatureManifestCoversEveryPackageFile(): void
+    {
+        $signature = $this->json('app/apps/aigc_watermark_removal/signature.json');
+        $root = $this->root . '/app/apps/aigc_watermark_removal';
+        $entries = $signature['sha256'] ?? [];
+        self::assertNotEmpty($entries);
+        foreach ($entries as $relative => $hash) {
+            $path = $root . '/' . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+            self::assertFileExists($path, $relative);
+            self::assertSame(strtolower((string)$hash), strtolower((string)hash_file('sha256', $path)), $relative);
+        }
     }
 
     private function json(string $relativePath): array

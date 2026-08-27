@@ -20,16 +20,23 @@ class GeoAppContractTest extends TestCase
     public function testPackageContainsInstallableApplicationContract(): void
     {
         $base = $this->root . '/app/apps/aigc_geo';
-        foreach (['manifest.json', 'api_schema.json', 'signature.json', 'menus/platform.json', 'menus/tenant.json', 'permissions/tenant.json', 'migrations/install.sql', 'frontend/README.md'] as $file) {
+        foreach (['manifest.json', 'api_schema.json', 'signature.json', 'menus/platform.json', 'menus/tenant.json', 'permissions/tenant.json', 'migrations/install.sql', 'migrations/upgrade_20260826_default_plan.sql', 'frontend/README.md'] as $file) {
             self::assertFileExists($base . '/' . $file);
         }
 
         $manifest = json_decode((string)file_get_contents($base . '/manifest.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame('aigc_geo', $manifest['code']);
         self::assertSame('/app/aigc_geo', $manifest['api_prefix']);
+        self::assertSame('>=1.0.0 <2.0.0', $manifest['require_core']);
         self::assertSame(['tenant', 'pc'], $manifest['frontends']);
         self::assertSame('aigc_geo', $manifest['market_profile']['upstream_app_code']);
         self::assertSame(['question_generate', 'content_generate', 'brand_diagnosis', 'content_publish'], $manifest['market_profile']['api_codes']);
+        foreach ($manifest['public_assets'] as $asset) {
+            $signature = json_decode((string)file_get_contents($base . '/signature.json'), true, 512, JSON_THROW_ON_ERROR);
+            self::assertArrayHasKey($asset['source'], $signature['sha256']);
+            self::assertFileExists($this->root . '/' . $asset['target']);
+            self::assertSame(hash_file('sha256', $base . '/' . $asset['source']), hash_file('sha256', $this->root . '/' . $asset['target']));
+        }
     }
 
     public function testSignatureCoversAllPackagePayloadFiles(): void
@@ -53,6 +60,9 @@ class GeoAppContractTest extends TestCase
         foreach (['aigc_geo_config', 'aigc_geo_keyword', 'aigc_geo_article', 'aigc_geo_diagnosis', 'aigc_geo_task'] as $table) {
             self::assertStringContainsString('`la_' . $table . '`', $sql);
         }
+        $planMigration = (string)file_get_contents($this->root . '/app/apps/aigc_geo/migrations/upgrade_20260826_default_plan.sql');
+        self::assertStringContainsString("'aigc_geo','一年套餐',12", $planMigration);
+        self::assertStringContainsString('WHERE NOT EXISTS', $planMigration);
 
         foreach (['Config', 'Console', 'Keyword', 'Article', 'Diagnosis', 'Task'] as $controller) {
             self::assertFileExists($this->root . '/app/tenantapi/controller/app/aigc_geo/' . $controller . 'Controller.php');
@@ -60,6 +70,8 @@ class GeoAppContractTest extends TestCase
         foreach (['Config', 'Console', 'Keyword', 'Article', 'Diagnosis', 'Task'] as $controller) {
             self::assertFileExists($this->root . '/app/api/controller/app/aigc_geo/' . $controller . 'Controller.php');
         }
+        self::assertStringContainsString('if ($row->isEmpty())', file_get_contents($this->root . '/app/common/service/app/aigc_geo/AigcGeoService.php'));
+        self::assertStringContainsString('AigcGeoConfig::create', file_get_contents($this->root . '/app/common/service/app/aigc_geo/AigcGeoService.php'));
     }
 
     public function testCurrentGeoFrontendIsPreserved(): void
@@ -73,6 +85,17 @@ class GeoAppContractTest extends TestCase
         }
         self::assertFileExists($base . '/geo-enhancements.js');
         self::assertFileExists($this->root . '/public/_nuxt/geo-enhancements.css');
+    }
+
+    public function testTenantAdminRuntimeIsValidAndLoadedByTheAdminShell(): void
+    {
+        $tenantRuntime = (string)file_get_contents($this->root . '/public/aigc-geo-admin.js');
+        $adminShell = (string)file_get_contents($this->root . '/public/admin/index.html');
+
+        self::assertFileExists($this->root . '/public/aigc-geo-admin.css');
+        self::assertStringContainsString('aigc-geo', $tenantRuntime);
+        self::assertStringContainsString("addEventListener('hashchange', check)", $tenantRuntime);
+        self::assertStringContainsString('/aigc-geo-admin.js', $adminShell);
     }
 
     public function testPowerMarketAdapterIsExplicitlyRegistered(): void

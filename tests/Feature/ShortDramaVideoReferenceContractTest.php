@@ -322,7 +322,27 @@ class ShortDramaVideoReferenceContractTest extends TestCase
         self::assertStringContainsString('Yn.value||(Je.value||ls.value)&&Pa()', $batchHandler);
 
         self::assertStringContainsString(
-            'import("./storyboard.f2381e09.js?v=20260824-video-model-state")',
+            'Yn.value||(Je.value||ls.value)&&Pa(),Ae(()=>{Yn.value||(Je.value||ls.value)&&Pa()})',
+            $compiled
+        );
+        self::assertStringContainsString(
+            'f0=en(n,"start_end")&&!!(n!=null&&n.supports_first_last_frame)&&s>=2;a&&!f0&&(a=0);',
+            $compiled
+        );
+        self::assertStringContainsString(
+            'if(!en(n,"omni_reference")||s<1)return t?{limit:s,total:v.length,submitted:[],ignored:v,submittedIds:[],ignoredIds:v.map(c=>c.id),generationMethod:"text_to_video",error:""}',
+            $compiled
+        );
+        self::assertStringContainsString(
+            'frameFirst=(g==null?void 0:g.generationMethod)==="start_end"?r:0,frameLast=(g==null?void 0:g.generationMethod)==="start_end"?c:0',
+            $compiled
+        );
+        self::assertSame(
+            2,
+            substr_count($compiled, 'first_frame_asset_id:s?frameFirst:0,last_frame_asset_id:s?frameLast:0')
+        );
+        self::assertStringContainsString(
+            'import("./storyboard.f2381e09.js?v=20260826-video-model-state-v2")',
             $entry
         );
     }

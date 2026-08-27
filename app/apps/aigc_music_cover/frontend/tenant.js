@@ -1,12 +1,16 @@
 (function () {
   'use strict';
 
-  var PATHS = ['/app/aigc_music_cover', '/app/aigc_music_cover/', '/app/aigc_music_cover/config', '/app/aigc_music_cover/config/', '/app/aigc_music_cover/task', '/app/aigc_music_cover/task/'];
+  var ROUTE_PATTERN = /(?:^|\/)(?:app\/)?(?:aigc_music_cover|aigc-music-cover)(?:\/(?:config|task))?\/?$/;
   var ROOT_ID = 'aigc-music-cover-admin';
   var mounted = false;
   var timer = null;
 
-  function isPage() { return PATHS.indexOf(window.location.pathname) !== -1; }
+  function routePath() {
+    var hashPath = window.location.hash.replace(/^#/, '').split('?')[0];
+    return hashPath.charAt(0) === '/' ? hashPath : window.location.pathname;
+  }
+  function isPage() { return ROUTE_PATTERN.test(routePath()); }
   function unwrap(payload) { return payload && payload.data !== undefined ? payload.data : (payload || {}); }
   function text(value) { return value === null || value === undefined ? '' : String(value); }
   function points(value) { var number = Number(value || 0); return isFinite(number) ? number.toFixed(number % 1 ? 2 : 0) : '0'; }
@@ -16,7 +20,7 @@
     if (document.querySelector('link[data-music-cover-admin-css]')) return;
     var link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/music-cover-admin.css?v=20260825-music-cover-v1';
+    link.href = '/music-cover-admin.css?v=20260826-route-v2';
     link.dataset.musicCoverAdminCss = '1';
     document.head.appendChild(link);
   }
@@ -146,7 +150,7 @@
         if (button.dataset.tab === 'config') { if (timer) { clearInterval(timer); timer = null; } loadConfig(); } else loadTasks();
       });
     });
-    if (window.location.pathname.indexOf('/task') !== -1) root.querySelector('[data-tab="tasks"]').click(); else loadConfig();
+    if (routePath().indexOf('/task') !== -1) root.querySelector('[data-tab="tasks"]').click(); else loadConfig();
   }
 
   function check() {
@@ -155,5 +159,6 @@
   }
   ['pushState', 'replaceState'].forEach(function (method) { var original = history[method]; history[method] = function () { var result = original.apply(this, arguments); setTimeout(check, 0); return result; }; });
   window.addEventListener('popstate', check);
+  window.addEventListener('hashchange', check);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', check); else check();
 })();

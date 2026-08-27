@@ -23,6 +23,20 @@ class AigcGeoService
         $data = array_merge(self::defaults(), $row->isEmpty() ? [] : $row->toArray());
         $data['profile_json'] = is_array($data['profile_json'] ?? null) ? $data['profile_json'] : [];
         $data['settings_json'] = is_array($data['settings_json'] ?? null) ? $data['settings_json'] : [];
+        if ($row->isEmpty()) {
+            AigcGeoConfig::create([
+                'tenant_id' => $tenantId,
+                'status' => (int)$data['status'],
+                'brand_name' => (string)$data['brand_name'],
+                'website' => (string)$data['website'],
+                'industry' => (string)$data['industry'],
+                'company_intro' => (string)$data['company_intro'],
+                'profile_json' => $data['profile_json'],
+                'settings_json' => $data['settings_json'],
+                'create_time' => time(),
+                'update_time' => time(),
+            ]);
+        }
         $data['market'] = self::marketOptions($tenantId);
         return AppDisplayConfigService::appendToConfig($tenantId, self::APP_CODE, $data);
     }

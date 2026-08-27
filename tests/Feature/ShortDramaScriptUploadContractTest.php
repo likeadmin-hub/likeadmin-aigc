@@ -30,7 +30,7 @@ class ShortDramaScriptUploadContractTest extends TestCase
         self::assertSame('user', $upload[0]['scene']);
 
         $manifest = $this->json('app/apps/aigc_short_drama/manifest.json');
-        self::assertSame('1.0.13', $manifest['version']);
+        self::assertSame('1.0.14', $manifest['version']);
         self::assertStringContainsString('上传 TXT、MD、DOCX 剧本', $manifest['changelog']);
     }
 

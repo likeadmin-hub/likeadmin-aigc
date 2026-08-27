@@ -21,11 +21,13 @@ class MusicCoverAppContractTest extends TestCase
 
         self::assertSame('aigc_music_cover', $manifest['code']);
         self::assertSame('音乐翻唱', $manifest['name']);
-        self::assertSame('1.0.2', $manifest['version']);
+        self::assertSame('1.0.3', $manifest['version']);
+        self::assertSame('>=1.0.0 <2.0.0', $manifest['require_core']);
         self::assertSame(0, $manifest['is_builtin']);
         self::assertSame(['tenant', 'pc'], $manifest['frontends']);
         self::assertStringNotContainsString('/api/', $manifest['description']);
         self::assertFileExists($this->root . '/app/apps/aigc_music_cover/menus/platform.json');
+        self::assertFileExists($this->root . '/app/apps/aigc_music_cover/signature.json');
     }
 
     public function testSchemaMenusAndPermissionsStayInTheApplicationNamespace(): void
@@ -58,6 +60,9 @@ class MusicCoverAppContractTest extends TestCase
             self::assertStringContainsString('CREATE TABLE IF NOT EXISTS `' . $table . '`', $upgrade);
         }
         self::assertFileExists($this->root . '/app/apps/aigc_music_cover/migrations/upgrade_20260825_release.sql');
+        $planMigration = file_get_contents($this->root . '/app/apps/aigc_music_cover/migrations/upgrade_20260826_default_plan.sql');
+        self::assertStringContainsString("'aigc_music_cover','一年套餐',12", $planMigration);
+        self::assertStringContainsString('WHERE NOT EXISTS', $planMigration);
         foreach (['reference_asset_id', 'reference_uri', 'reference_url'] as $column) {
             self::assertStringContainsString('`' . $column . '`', $install);
             self::assertStringContainsString($column, $upgrade);
@@ -111,6 +116,8 @@ class MusicCoverAppContractTest extends TestCase
         self::assertStringContainsString('app.aigc_music_cover.generate/index', $pc);
         self::assertStringContainsString('app.aigc_music_cover.task/lists', $pc);
         self::assertStringContainsString("fetch('/tenantapi/'", $tenant);
+        self::assertStringContainsString('aigc-music-cover', $tenant);
+        self::assertStringContainsString("addEventListener('hashchange', check)", $tenant);
         self::assertStringContainsString('app.aigc_music_cover.config/setup', $tenant);
         self::assertStringContainsString('app.aigc_music_cover.task/retry', $tenant);
     }
@@ -120,6 +127,19 @@ class MusicCoverAppContractTest extends TestCase
         self::assertStringContainsString('/music-cover-page.js', file_get_contents($this->root . '/public/pc/index.html'));
         self::assertStringContainsString('/music-cover-admin.js', file_get_contents($this->root . '/public/admin/index.html'));
         self::assertFileExists($this->root . '/public/pc/ai/tools/aigc_music_cover/index.html');
+    }
+
+    public function testSignatureManifestCoversEveryPackageFile(): void
+    {
+        $signature = $this->json('app/apps/aigc_music_cover/signature.json');
+        $root = $this->root . '/app/apps/aigc_music_cover';
+        $entries = $signature['sha256'] ?? [];
+        self::assertNotEmpty($entries);
+        foreach ($entries as $relative => $hash) {
+            $path = $root . '/' . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+            self::assertFileExists($path, $relative);
+            self::assertSame(strtolower((string)$hash), strtolower((string)hash_file('sha256', $path)), $relative);
+        }
     }
 
     private function json(string $relativePath): array

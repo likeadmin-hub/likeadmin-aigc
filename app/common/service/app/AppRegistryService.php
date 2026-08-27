@@ -228,6 +228,7 @@ class AppRegistryService
             // local installer, while the business-code copy intentionally omits
             // frontend source. Reuse that already-deployed asset in this case.
             if (!is_file($source) && is_file($target)) {
+                self::ensureShellAssetTag($targetRelative, $manifest);
                 continue;
             }
             if (!is_file($source)) {
@@ -239,6 +240,61 @@ class AppRegistryService
             if (!copy($source, $target)) {
                 throw new RuntimeException('应用前端资源部署失败: ' . $targetRelative);
             }
+            self::ensureShellAssetTag($targetRelative, $manifest);
+        }
+    }
+
+    /**
+     * Register compiled app bridges in the two legacy HTML shells.
+     * This keeps uploaded tenant/PC app packages usable without rebuilding shells.
+     */
+    private static function ensureShellAssetTag(string $targetRelative, array $manifest): void
+    {
+        $normalizedTarget = ltrim(str_replace('\\', '/', trim($targetRelative)), '/');
+        if (!str_starts_with($normalizedTarget, 'public/')) {
+            return;
+        }
+
+        $basename = basename($normalizedTarget);
+        $shellRelative = null;
+        if (str_ends_with($basename, '-admin.js')) {
+            $shellRelative = 'public/admin/index.html';
+        } elseif (str_ends_with($basename, '-page.js')) {
+            $shellRelative = 'public/pc/index.html';
+        }
+        if ($shellRelative === null) {
+            return;
+        }
+
+        $shellPath = root_path() . str_replace('/', DIRECTORY_SEPARATOR, $shellRelative);
+        if (!is_file($shellPath)) {
+            return;
+        }
+        $html = file_get_contents($shellPath);
+        if ($html === false) {
+            throw new RuntimeException('应用前端壳读取失败: ' . $shellRelative);
+        }
+
+        $version = trim((string)($manifest['version'] ?? ''));
+        $src = '/' . $basename . ($version !== '' ? '?v=' . rawurlencode($version) : '');
+        $tag = '<script defer src="' . $src . '"></script>';
+        $pattern = '#<script\\b[^>]*\\bsrc=(["\\\'])/?' . preg_quote($basename, '#') . '(?:\\?[^"\\\']*)?\\1[^>]*>\\s*</script>#i';
+        $updated = preg_replace($pattern, $tag, $html, 1, $count);
+        if ($updated === null) {
+            throw new RuntimeException('应用前端壳脚本标签解析失败: ' . $shellRelative);
+        }
+        if ($count === 0) {
+            $injection = "\n    " . $tag . "\n";
+            $updated = preg_replace('#</body>#i', $injection . '</body>', $html, 1, $bodyCount);
+            if ($updated === null) {
+                throw new RuntimeException('应用前端壳写入失败: ' . $shellRelative);
+            }
+            if ($bodyCount === 0) {
+                $updated = rtrim($html) . $injection;
+            }
+        }
+        if ($updated !== $html && file_put_contents($shellPath, $updated) === false) {
+            throw new RuntimeException('应用前端壳写入失败: ' . $shellRelative);
         }
     }
 

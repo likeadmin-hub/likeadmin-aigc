@@ -49,6 +49,19 @@ class ShortDramaPromptWorkspaceContractTest extends TestCase
             self::assertContains('{{prompt}}', $items[$key]['variables']);
             self::assertStringContainsString('{{prompt}}', $items[$key]['default']);
         }
+        foreach (['script_prompt_template', 'multi_episode_script_prompt_template'] as $key) {
+            foreach ([
+                '{{default_prompt}}',
+                '{{multi_episode_stage}}',
+                '{{multi_episode_stage_label}}',
+                '{{episode_count}}',
+                '{{episode_total_count}}',
+                '{{episode_batch_context}}',
+            ] as $variable) {
+                self::assertContains($variable, $items[$key]['variables']);
+            }
+            self::assertStringContainsString('{{default_prompt}}', $items[$key]['default']);
+        }
     }
 
     public function testGenerationTemplateRendersContextAndGlobalRequirements(): void

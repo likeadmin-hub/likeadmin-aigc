@@ -1,7 +1,7 @@
 {
   "code": "aigc_short_drama",
   "name": "AI短剧",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "require_core": ">=1.0.272 <2.0.0",
   "description": "Short drama script planning application with a PC immersive creation homepage and structured Agent planning workflow.",
   "changelog": "1. 后台支持自定义剧本系统提示词和生成提示词模板。\n2. 支持恢复系统默认提示词及运行时变量替换。\n3. 支持上传 TXT、MD、DOCX 剧本并提取正文后继续创作。\n4. 多集短剧支持选择 2-500 集，生成完整分集剧情、主体、场景与分镜。",

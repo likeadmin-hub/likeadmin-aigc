@@ -108,7 +108,7 @@ const PromptPage=defineComponent({
           type:"warning",
           showIcon:true,
           closable:false,
-          title:"剧本模板请保留 {{default_prompt}}，否则会覆盖单集/多集的结构契约；图片和视频模板请保留 {{prompt}}，用于承接系统生成的完整基础提示词。恢复默认后不会改变现有生成效果。"
+          title:"模板只能使用当前字段下方列出的固定变量。剧本模板请保留 {{default_prompt}}，否则会覆盖单集/多集的结构契约；图片和视频模板请保留 {{prompt}}，用于承接系统生成的完整基础提示词。未列出的变量保存时会提示错误。恢复默认只影响后续生成，不会修改已有剧本。"
         }),
         h("div",{class:"prompt-workspace"},[
           h("nav",{class:"prompt-group-nav"},groups.value.map(item=>h("button",{

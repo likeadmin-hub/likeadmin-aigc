@@ -1,30 +1,64 @@
 {
   "code": "aigc_watermark_removal",
   "name": "短视频去水印",
-  "version": "1.0.1",
-  "require_core": ">=1.0.272 <2.0.0",
+  "version": "1.0.3",
+  "require_core": ">=1.0.0 <2.0.0",
   "description": "输入短视频分享链接，快速生成无水印视频并支持下载。",
-  "changelog": "1. 新增短视频去水印功能。\n2. 支持异步处理和任务进度查看。\n3. 支持无水印视频预览与下载。\n4. 补齐 PC 用户端、租户配置/任务页和应用包前端资源自动部署。",
+  "changelog": "1. 新增短视频去水印功能。\n2. 支持异步处理和任务进度查看。\n3. 支持无水印视频预览与下载。\n4. 补齐 PC 用户端、租户配置/任务页和应用包前端资源自动部署。\n5. 修复租户后台连字符及 hash 路由下配置页空白。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
   "is_builtin": 0,
   "expire_policy": "allow",
   "sort": 58,
-  "frontends": ["tenant", "pc"],
+  "frontends": [
+    "tenant",
+    "pc"
+  ],
   "api_prefix": "/app/aigc_watermark_removal",
   "menus": "menus/tenant.json",
   "permissions": "permissions/tenant.json",
   "migrations": "migrations",
   "frontend_entries": [
-    { "terminal": "tenant", "entry_key": "aigc_watermark_removal_admin", "name": "短视频去水印", "path": "/app/aigc_watermark_removal", "icon": "el-icon-VideoCamera", "sort": 89, "status": 1 },
-    { "terminal": "pc", "entry_key": "aigc_watermark_removal", "name": "短视频去水印", "path": "/ai/tools/aigc_watermark_removal", "icon": "resource/image/common/menu_generator.png", "sort": 83, "status": 1 }
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_watermark_removal_admin",
+      "name": "短视频去水印",
+      "path": "/app/aigc_watermark_removal",
+      "icon": "el-icon-VideoCamera",
+      "sort": 89,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_watermark_removal",
+      "name": "短视频去水印",
+      "path": "/ai/tools/aigc_watermark_removal",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 83,
+      "status": 1
+    }
   ],
   "public_assets": [
-    { "source": "frontend/pc.js", "target": "public/watermark-removal-page.js" },
-    { "source": "frontend/tenant.js", "target": "public/watermark-removal-admin.js" },
-    { "source": "frontend/style.css", "target": "public/watermark-removal-page.css" },
-    { "source": "frontend/admin.css", "target": "public/watermark-removal-admin.css" },
-    { "source": "frontend/pc-entry.html", "target": "public/pc/ai/tools/aigc_watermark_removal/index.html" }
+    {
+      "source": "frontend/pc.js",
+      "target": "public/watermark-removal-page.js"
+    },
+    {
+      "source": "frontend/tenant.js",
+      "target": "public/watermark-removal-admin.js"
+    },
+    {
+      "source": "frontend/style.css",
+      "target": "public/watermark-removal-page.css"
+    },
+    {
+      "source": "frontend/admin.css",
+      "target": "public/watermark-removal-admin.css"
+    },
+    {
+      "source": "frontend/pc-entry.html",
+      "target": "public/pc/ai/tools/aigc_watermark_removal/index.html"
+    }
   ]
 }
