@@ -29,6 +29,8 @@ class AigcMusicCoverService
         $data['options'] = self::marketOptions($tenantId);
         $data['input_type'] = 'audio_pair';
         $data['input_label'] = '原始歌曲 + 目标音色参考音频';
+        $data['upstream_app_code'] = self::UPSTREAM_APP_CODE;
+        $data['upstream_api_code'] = self::UPSTREAM_API_CODE;
         $data['api_path'] = '/api/v1/apps/' . self::UPSTREAM_APP_CODE . '/' . self::UPSTREAM_API_CODE;
         $data['dependencies'] = self::dependencies($data['options']);
         if ($row->isEmpty()) {

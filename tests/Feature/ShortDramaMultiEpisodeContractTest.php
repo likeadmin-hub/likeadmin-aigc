@@ -73,6 +73,31 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
         self::assertSame('production', $this->invoke('nextMultiEpisodeStage', 'episodes'));
     }
 
+    public function testExplicitInitialMultiEpisodeStageIsKeptWithoutChangingSingleEpisodeMode(): void
+    {
+        $outline = $this->invoke('normalizeCreateRequest', [
+            'multi_episode' => true,
+            'episode_count' => 4,
+            'multi_episode_stage' => 'episodes',
+        ], []);
+        self::assertTrue($outline['multi_episode']);
+        self::assertSame(4, $outline['episode_count']);
+        self::assertSame('episodes', $outline['multi_episode_stage']);
+
+        $production = $this->invoke('normalizeCreateRequest', [
+            'multi_episode' => true,
+            'episode_count' => 4,
+            'multi_episode_stage' => 'production',
+        ], []);
+        self::assertSame('production', $production['multi_episode_stage']);
+
+        $single = $this->invoke('normalizeCreateRequest', [
+            'multi_episode_stage' => 'episodes',
+        ], []);
+        self::assertFalse($single['multi_episode']);
+        self::assertSame('production', $single['multi_episode_stage']);
+    }
+
     public function testLegacyTaskRequestCanRecoverEpisodeSettingsFromProject(): void
     {
         $request = $this->invoke('hydrateEpisodeSettingsFromProject', [

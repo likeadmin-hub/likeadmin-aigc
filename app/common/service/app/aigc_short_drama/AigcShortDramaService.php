@@ -1592,6 +1592,8 @@ class AigcShortDramaService
 
         $data['create_time'] = $time;
         $data['delete_time'] = 0;
+        // Only styles seeded from the public library are protected defaults.
+        $data['is_default'] = 0;
         $row = AigcShortDramaStyle::create($data);
         return self::formatAdminStyle($row->toArray());
     }
@@ -1621,6 +1623,9 @@ class AigcShortDramaService
         ])->findOrEmpty();
         if ($row->isEmpty()) {
             throw new Exception('画风不存在');
+        }
+        if (self::isDefaultStyleRow($row->toArray())) {
+            throw new Exception('默认画风不可删除');
         }
         $row->save([
             'delete_time' => time(),
@@ -1660,6 +1665,7 @@ class AigcShortDramaService
                 'image' => (string)($row['image'] ?? ''),
                 'description' => (string)($row['description'] ?? ''),
                 'is_new' => (int)($row['is_new'] ?? 0) ? 1 : 0,
+                'is_default' => 1,
                 'status' => (int)($row['status'] ?? 1) ? 1 : 0,
                 'sort' => (int)($row['sort'] ?? 0),
                 'create_time' => $time,
@@ -13439,6 +13445,7 @@ class AigcShortDramaService
                 'image' => self::fileUrl((string)$row['image']),
                 'description' => (string)($row['description'] ?? ''),
                 'is_new' => (bool)$row['is_new'],
+                'is_default' => self::isDefaultStyleRow($row),
                 'sort' => (int)$row['sort'],
             ];
         }, $uniqueRows);
@@ -13583,14 +13590,20 @@ class AigcShortDramaService
         if ($targetDurationSeconds <= 0 && !$episodeSettings['multi_episode']) {
             $targetDurationSeconds = 60;
         }
+        $requestedStage = trim((string)($params['multi_episode_stage'] ?? $params['plan_stage'] ?? ''));
+        $multiEpisodeStage = $episodeSettings['multi_episode']
+            ? (in_array($requestedStage, [
+                self::MULTI_EPISODE_STAGE_STORY,
+                self::MULTI_EPISODE_STAGE_OUTLINE,
+                self::MULTI_EPISODE_STAGE_PRODUCTION,
+            ], true) ? $requestedStage : self::MULTI_EPISODE_STAGE_STORY)
+            : self::MULTI_EPISODE_STAGE_PRODUCTION;
         return [
             'prompt' => '',
             'ratio' => self::requestGenerationRatio($params),
             'multi_episode' => $episodeSettings['multi_episode'],
             'episode_count' => $episodeSettings['episode_count'],
-            'multi_episode_stage' => $episodeSettings['multi_episode']
-                ? self::MULTI_EPISODE_STAGE_STORY
-                : self::MULTI_EPISODE_STAGE_PRODUCTION,
+            'multi_episode_stage' => $multiEpisodeStage,
             'target_duration_seconds' => $targetDurationSeconds,
             'model_id' => trim((string)($params['model_id'] ?? 'script-planner-default')),
             'model_selections' => is_array($params['model_selections'] ?? null) ? $params['model_selections'] : [],
@@ -19414,11 +19427,17 @@ PROMPT;
             'raw_image' => (string)($row['image'] ?? ''),
             'description' => (string)($row['description'] ?? ''),
             'is_new' => (int)$row['is_new'],
+            'is_default' => self::isDefaultStyleRow($row) ? 1 : 0,
             'status' => (int)$row['status'],
             'sort' => (int)$row['sort'],
             'create_time' => self::timeText($row['create_time'] ?? 0),
             'update_time' => self::timeText($row['update_time'] ?? 0),
         ];
+    }
+
+    private static function isDefaultStyleRow(array $row): bool
+    {
+        return (int)($row['is_default'] ?? ((int)($row['tenant_id'] ?? 0) === 0)) === 1;
     }
 
     private static function normalizeBackgroundConfig(array $payload, array $fallback): array

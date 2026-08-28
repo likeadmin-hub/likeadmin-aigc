@@ -53,6 +53,17 @@ class UserValidate extends BaseValidate
 
 
     /**
+     * @notes 编辑用户信息场景
+     * @return UserValidate
+     * @author Codex
+     */
+    public function sceneSetInfo()
+    {
+        return $this->only(['id', 'field', 'value']);
+    }
+
+
+    /**
      * @notes 用户信息校验
      * @param $value
      * @param $rule
