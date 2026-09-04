@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | ThinkPHP [ WE CAN DO IT JUST THINK ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2006~2023 http://thinkphp.cn All rights reserved.
+// | Copyright (c) 2006~2025 http://thinkphp.cn All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed ( http://www.apache.org/licenses/LICENSE-2.0 )
 // +----------------------------------------------------------------------
@@ -83,7 +83,7 @@ class Http
      */
     public function path(string $path)
     {
-        if (str_ends_with($path, DIRECTORY_SEPARATOR)) {
+        if (!str_ends_with($path, DIRECTORY_SEPARATOR)) {
             $path .= DIRECTORY_SEPARATOR;
         }
 
@@ -149,7 +149,7 @@ class Http
      * @param Request|null $request
      * @return Response
      */
-    public function run(Request $request = null): Response
+    public function run(?Request $request = null): Response
     {
         //初始化
         $this->initialize();
@@ -261,17 +261,22 @@ class Http
         return $this->app->make(Handle::class)->render($request, $e);
     }
 
-    /**
+/**
      * HttpEnd
      * @param Response $response
      * @return void
      */
     public function end(Response $response): void
     {
-        $this->app->event->trigger(HttpEnd::class, $response);
-
-        //执行中间件
-        $this->app->middleware->end($response);
+        try {
+            // 触发HttpEnd事件
+            $this->app->event->trigger(HttpEnd::class, $response);
+            // 执行中间件
+            $this->app->middleware->end($response);
+        } catch (Throwable $e) {
+            // 记录异常
+            $this->app->log->error($e->getMessage());
+        }
 
         // 写入日志
         $this->app->log->save();

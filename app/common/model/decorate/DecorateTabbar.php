@@ -41,9 +41,19 @@ class DecorateTabbar extends BaseModel
      * @author 段誉
      * @date 2022/9/23 12:07
      */
-    public static function getTabbarLists()
+    public static function getTabbarLists(?int $tenantId = null)
     {
-        $tabbar = self::select()->toArray();
+        // Tenant 0 is the platform seed and must bypass the ambient tenant
+        // scope. Tenant rows retain the normal scope so sharded tables work.
+        if ($tenantId === 0) {
+            $query = self::withoutGlobalScope()->where('tenant_id', 0);
+        } else {
+            $query = self::query();
+            if ($tenantId !== null && $tenantId > 0) {
+                $query->where('tenant_id', $tenantId);
+            }
+        }
+        $tabbar = $query->select()->toArray();
 
         if (empty($tabbar)) {
            return $tabbar;

@@ -10,51 +10,51 @@ class AigcVideoFrontendBillingContractTest extends TestCase
 {
     public function testFrontendEstimateUsesSelectedSkuSecondBillingContract(): void
     {
-        $source = (string)file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/aigc_video.93b37873.js');
-        $start = strpos($source, 'et=p(');
-        $end = strpos($source, '),tt=p(', $start === false ? 0 : $start);
+        $source = $this->sourceFile('/pc/pages/app/aigc_video.vue');
 
-        self::assertNotFalse($start);
-        self::assertNotFalse($end);
-        $estimate = substr($source, $start, $end - $start);
-
-        self::assertStringContainsString('usage_unit', $estimate);
-        self::assertStringContainsString('usage_unit_size', $estimate);
-        self::assertStringContainsString('includes("second")', $estimate);
-        self::assertStringContainsString('Q(r.duration)', $estimate);
+        self::assertStringContainsString('const declaredSpecUnit', $source);
+        self::assertStringContainsString('? [declaredSpecUnit]', $source);
+        self::assertStringContainsString('usage_unit_size', $source);
+        self::assertStringContainsString('Math.max(1, durationValue(form.duration)) / unitSize', $source);
     }
 
-    public function testBackendQuoteQuantityUsesDurationForOutputSecondSku(): void
+    public function testBackendQuoteUsesRequestedDurationForEverySecondBillingUnit(): void
     {
         $quantity = new ReflectionMethod(MarketVideoRuntimeService::class, 'quantity');
         $quantity->setAccessible(true);
-        $market = [
-            'sku' => [
-                'usage_unit' => 'output_second',
-                'locked_params' => ['resolution' => '2K'],
-            ],
-        ];
-
-        self::assertSame(10.0, $quantity->invoke(null, $market, ['duration' => 10]));
+        foreach (['input_second', 'output_second'] as $usageUnit) {
+            $market = [
+                'product' => [],
+                'sku' => [
+                    'usage_unit' => $usageUnit,
+                    'locked_params' => ['resolution' => '2K'],
+                ],
+            ];
+            self::assertSame(6.0, $quantity->invoke(null, $market, ['duration' => 6]));
+            self::assertSame(30.0, $quantity->invoke(null, $market, ['seconds' => 30]));
+            self::assertSame(10.0, $quantity->invoke(null, $market, ['video_duration' => 10]));
+        }
 
         $price = new ReflectionMethod(MarketVideoRuntimeService::class, 'priceForQuantity');
         $price->setAccessible(true);
-        self::assertSame(800.0, $price->invoke(null, 80.0, 10.0, ['usage_unit_size' => 1]));
+        self::assertSame(480.0, $price->invoke(null, 80.0, 6.0, ['usage_unit_size' => 1]));
+        self::assertSame(480.0, $price->invoke(null, 80.0, 30.0, ['usage_unit_size' => 5]));
     }
 
-    public function testUnifiedCreatePageUsesSelectedSkuSecondBillingContract(): void
+    public function testUniappEstimateUsesSelectedSkuSecondBillingContract(): void
     {
-        $source = (string)file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/create.a5c396bf.js');
-        $start = strpos($source, 'Kt=f(');
-        $end = strpos($source, '),Ke=f(', $start === false ? 0 : $start);
+        $source = $this->sourceFile('/uniapp/src/apps/aigc_video/pages/index/index.vue');
 
-        self::assertNotFalse($start);
-        self::assertNotFalse($end);
-        $estimate = substr($source, $start, $end - $start);
+        self::assertStringContainsString('const declaredSpecUnit', $source);
+        self::assertStringContainsString('? [declaredSpecUnit]', $source);
+        self::assertStringContainsString('usage_unit_size', $source);
+        self::assertStringContainsString('Math.max(1, Number(form.duration || 0)) / unitSize', $source);
+    }
 
-        self::assertStringContainsString('usage_unit', $estimate);
-        self::assertStringContainsString('usage_unit_size', $estimate);
-        self::assertStringContainsString('includes("second")', $estimate);
-        self::assertStringContainsString('Pe(s.value.duration)', $estimate);
+    private function sourceFile(string $path): string
+    {
+        $source = file_get_contents(dirname(__DIR__, 3) . $path);
+        self::assertNotFalse($source, "Unable to read source file: {$path}");
+        return (string)$source;
     }
 }

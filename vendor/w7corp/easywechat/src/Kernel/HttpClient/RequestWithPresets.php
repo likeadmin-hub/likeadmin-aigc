@@ -2,12 +2,13 @@
 
 namespace EasyWeChat\Kernel\HttpClient;
 
-use function array_merge;
 use EasyWeChat\Kernel\Exceptions\InvalidArgumentException;
 use EasyWeChat\Kernel\Exceptions\RuntimeException;
 use EasyWeChat\Kernel\Form\File;
 use EasyWeChat\Kernel\Form\Form;
 use EasyWeChat\Kernel\Support\Str;
+
+use function array_merge;
 use function in_array;
 use function is_file;
 use function is_string;
@@ -85,17 +86,16 @@ trait RequestWithPresets
 
     /**
      * @throws RuntimeException
-     * @throws InvalidArgumentException
      */
-    public function withFile(string $pathOrContents, string $formName = 'file', string $filename = null): static
+    public function withFile(string $pathOrContents, string $formName = 'file', ?string $filename = null): static
     {
         $file = is_file($pathOrContents) ? File::fromPath(
             $pathOrContents,
             $filename
-        ) : File::withContents($pathOrContents, $filename);
+        ) : File::fromContents($pathOrContents, $filename);
 
         /**
-         * @var array{headers: array<string, string>, body: string}
+         * @var array{headers: array<string, string>, body: string} $options
          */
         $options = Form::create([$formName => $file])->toOptions();
 
@@ -108,16 +108,14 @@ trait RequestWithPresets
 
     /**
      * @throws RuntimeException
-     * @throws InvalidArgumentException
      */
-    public function withFileContents(string $contents, string $formName = 'file', string $filename = null): static
+    public function withFileContents(string $contents, string $formName = 'file', ?string $filename = null): static
     {
         return $this->withFile($contents, $formName, $filename);
     }
 
     /**
      * @throws RuntimeException
-     * @throws InvalidArgumentException
      */
     public function withFiles(array $files): static
     {
@@ -128,6 +126,9 @@ trait RequestWithPresets
         return $this;
     }
 
+    /**
+     * @return array{xml?:array<string,mixed>|string,json?:array<string,mixed>|string,body?:array<string,mixed>|string,query?:array<string,mixed>,headers?:array<string,string>}
+     */
     public function mergeThenResetPrepends(array $options, string $method = 'GET'): array
     {
         $name = in_array(strtoupper($method), ['GET', 'HEAD', 'DELETE']) ? 'query' : 'body';

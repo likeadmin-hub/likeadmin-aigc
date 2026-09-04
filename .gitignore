@@ -10,6 +10,5 @@
 /runtime/*
 !/runtime/index.html
 /config/install.lock
-/vendor/*
 /skill/*
  

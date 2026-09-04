@@ -8,7 +8,7 @@ $region = "ap-beijing"; //替换为用户的 region，已创建桶归属的regio
 $cosClient = new Qcloud\Cos\Client(
     array(
         'region' => $region,
-        'schema' => 'https', //协议头部，默认为http
+        'scheme' => 'https', //协议头部，默认为http
         'credentials'=> array(
             'secretId'  => $secretId,
             'secretKey' => $secretKey)));
@@ -17,6 +17,7 @@ try {
     $blindWatermarkTemplate = new Qcloud\Cos\ImageParamTemplate\BlindWatermarkTemplate();
     $blindWatermarkTemplate->setText("Test");
     $blindWatermarkTemplate->setType(3);
+    $blindWatermarkTemplate->setVersion("2.0");
     $picOperationsTemplate = new Qcloud\Cos\ImageParamTemplate\PicOperationsTransformation();
     $picOperationsTemplate->setIsPicInfo(1);
     $picOperationsTemplate->addRule($blindWatermarkTemplate, "resultobject");

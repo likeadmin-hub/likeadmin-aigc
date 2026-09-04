@@ -78,6 +78,28 @@ class TemplateController extends BaseAdminController
         }
     }
 
+    public function history()
+    {
+        try {
+            $id = $this->request->get('id/d', 0);
+            return $this->success('获取成功', DecorateTemplateService::publishedHistory($this->tenantId, $id));
+        } catch (RuntimeException $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function rollback()
+    {
+        try {
+            $id = $this->request->post('id/d', 0);
+            $historyId = $this->request->post('history_id/s', '');
+            DecorateTemplateService::rollback($this->tenantId, $id, $historyId);
+            return $this->success('回退成功', [], 1, 1);
+        } catch (RuntimeException $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function export()
     {
         try {

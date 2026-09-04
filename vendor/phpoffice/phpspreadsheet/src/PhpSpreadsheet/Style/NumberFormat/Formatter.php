@@ -3,6 +3,7 @@
 namespace PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
 use PhpOffice\PhpSpreadsheet\Calculation\Calculation;
+use PhpOffice\PhpSpreadsheet\Reader\Xls\Color\BIFF8;
 use PhpOffice\PhpSpreadsheet\RichText\RichText;
 use PhpOffice\PhpSpreadsheet\Style\Color;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
@@ -13,6 +14,7 @@ class Formatter
      * Matches any @ symbol that isn't enclosed in quotes.
      */
     private const SYMBOL_AT = '/@(?=(?:[^"]*"[^"]*")*[^"]*\Z)/miu';
+    private const QUOTE_REPLACEMENT = "\u{fffe}"; // invalid Unicode character
 
     /**
      * Matches any ; symbol that isn't enclosed in quotes, for a "section" split.
@@ -67,14 +69,19 @@ class Formatter
         //   3 sections:  [POSITIVE/TEXT] [NEGATIVE] [ZERO]
         //   4 sections:  [POSITIVE] [NEGATIVE] [ZERO] [TEXT]
         $sectionCount = count($sections);
-        $color_regex = '/\\[(' . implode('|', Color::NAMED_COLORS) . ')\\]/mui';
-        $cond_regex = '/\\[(>|>=|<|<=|=|<>)([+-]?\\d+([.]\\d+)?)\\]/';
+        // Colour could be a named colour, or a numeric index entry in the colour-palette
+        $color_regex = '/\[(' . implode('|', Color::NAMED_COLORS) . '|color\s*(\d+))\]/mui';
+        $cond_regex = '/\[(>|>=|<|<=|=|<>)([+-]?\d+([.]\d+)?)\]/';
         $colors = ['', '', '', '', ''];
         $conditionOperations = ['', '', '', '', ''];
         $conditionComparisonValues = [0, 0, 0, 0, 0];
         for ($idx = 0; $idx < $sectionCount; ++$idx) {
             if (preg_match($color_regex, $sections[$idx], $matches)) {
-                $colors[$idx] = $matches[0];
+                if (isset($matches[2])) {
+                    $colors[$idx] = '#' . BIFF8::lookup((int) $matches[2] + 7)['rgb'];
+                } else {
+                    $colors[$idx] = $matches[0];
+                }
                 $sections[$idx] = (string) preg_replace($color_regex, '', $sections[$idx]);
             }
             if (preg_match($cond_regex, $sections[$idx], $matches)) {
@@ -131,8 +138,33 @@ class Formatter
         }
         // For now we do not treat strings in sections, although section 4 of a format code affects strings
         // Process a single block format code containing @ for text substitution
-        if (preg_match(self::SECTION_SPLIT, $format) === 0 && preg_match(self::SYMBOL_AT, $format) === 1) {
-            return str_replace('"', '', preg_replace(self::SYMBOL_AT, (string) $value, $format) ?? '');
+        $formatx = str_replace('\"', self::QUOTE_REPLACEMENT, $format);
+        if (preg_match(self::SECTION_SPLIT, $format) === 0 && preg_match(self::SYMBOL_AT, $formatx) === 1) {
+            if (strpos($format, '"') === false) {
+                $temp = str_replace('@', "$value", $format);
+                if (is_callable($callBack)) {
+                    $temp = $callBack($temp, $format);
+                }
+
+                return $temp;
+            }
+            //escape any dollar signs on the string, so they are not replaced with an empty value
+            $value = str_replace(
+                ['$', '"'],
+                ['\$', self::QUOTE_REPLACEMENT],
+                (string) $value
+            );
+            $temp = preg_replace(self::SYMBOL_AT, $value, $formatx) ?? $value;
+            if (is_callable($callBack)) {
+                $temp = $callBack($temp, $formatx);
+            }
+            /** @var string $temp */
+
+            return str_replace(
+                ['"', self::QUOTE_REPLACEMENT],
+                ['', '"'],
+                $temp
+            );
         }
 
         // If we have a text value, return it "as is"
@@ -150,7 +182,7 @@ class Formatter
         $format = (string) preg_replace('/^\[\$-[^\]]*\]/', '', $format);
 
         $format = (string) preg_replace_callback(
-            '/(["])(?:(?=(\\\\?))\\2.)*?\\1/u',
+            '/(["])(?:(?=(\\\?))\2.)*?\1/u',
             function ($matches) {
                 return str_replace('.', chr(0x00), $matches[0]);
             },
@@ -170,10 +202,11 @@ class Formatter
         $format = (string) preg_replace('/_.?/ui', ' ', $format);
 
         // Let's begin inspecting the format and converting the value to a formatted string
-        //  Check for date/time characters (not inside quotes)
         if (
-            (preg_match('/(\[\$[A-Z]*-[0-9A-F]*\])*[hmsdy](?=(?:[^"]|"[^"]*")*$)/miu', $format)) &&
-            (preg_match('/0(?![^\[]*\])/miu', $format) === 0)
+            //  Check for date/time characters (not inside quotes)
+            (preg_match('/(\[\$[A-Z]*-[0-9A-F]*\])*[hmsdy](?=(?:[^"]|"[^"]*")*$)/miu', $format))
+            // A date/time with a decimal time shouldn't have a digit placeholder before the decimal point
+            && (preg_match('/[0\?#]\.(?![^\[]*\])/miu', $format) === 0)
         ) {
             // datetime format
             $value = DateFormatter::format($value, $format);
@@ -194,8 +227,6 @@ class Formatter
             $value = $writerInstance->$function($value, $colors);
         }
 
-        $value = str_replace(chr(0x00), '.', $value);
-
-        return $value;
+        return str_replace(chr(0x00), '.', $value);
     }
 }

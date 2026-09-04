@@ -1,0 +1,18 @@
+[
+  {
+    "source_menu_key": "aigc_music_cover",
+    "app_code": "aigc_music_cover",
+    "source": "app",
+    "type": "M",
+    "name": "音乐翻唱",
+    "icon": "el-icon-Microphone",
+    "sort": 82,
+    "perms": "",
+    "paths": "aigc-music-cover",
+    "component": "",
+    "children": [
+      { "source_menu_key": "aigc_music_cover_config", "type": "C", "name": "基础配置", "sort": 40, "perms": "app.aigc_music_cover.config/detail", "paths": "config", "component": "apps/aigc_music_cover/config" },
+      { "source_menu_key": "aigc_music_cover_task", "type": "C", "name": "任务记录", "sort": 10, "perms": "app.aigc_music_cover.task/lists", "paths": "task", "component": "apps/aigc_music_cover/task" }
+    ]
+  }
+]

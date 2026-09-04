@@ -43,6 +43,14 @@ class AigcMusicChannelService
             'tenant_unit_price' => self::formatPoints((float)$selection['spec']['tenant_unit_price']),
             'tenant_cost_points' => self::formatPoints((float)$selection['spec']['platform_unit_cost'] * $quantity),
             'user_charge_points' => self::formatPoints((float)$selection['spec']['tenant_unit_price'] * $quantity),
+            'charge_source' => 'aigc_music_channel_spec.tenant_unit_price',
+            'billing_formula' => sprintf(
+                '%s 算力/%d秒 × %d = %s 算力',
+                self::formatPoints((float)$selection['spec']['tenant_unit_price']),
+                $unitSeconds,
+                $quantity,
+                self::formatPoints((float)$selection['spec']['tenant_unit_price'] * $quantity)
+            ),
         ];
     }
 

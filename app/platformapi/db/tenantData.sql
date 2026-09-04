@@ -341,7 +341,7 @@ INSERT INTO `la_tenant_system_menu_{tenantSn}`
 VALUES (9018, {tenantId}, 9016, 'A', '查询', '', 2, 'ai_task/query', '', '', '', '', 0, 1, 0, 1727700000,
         1727700000);
 INSERT INTO `la_tenant_system_menu_{tenantSn}`
-VALUES (140, {tenantId}, 82, 'C', '微信开放平台', 'local-icon-notice_buyer', 70, 'channel.open_setting/getConfig',
+VALUES (140, {tenantId}, 82, 'C', '微信配置', 'local-icon-notice_buyer', 70, 'channel.open_setting/getConfig',
         'open_setting', 'channel/open_setting', '', '', 0, 1, 0, 1666085713, 1710472951);
 INSERT INTO `la_tenant_system_menu_{tenantSn}`
 VALUES (141, {tenantId}, 140, 'A', '保存', '', 0, 'channel.open_setting/setConfig', '', '', '', '', 0, 1, 0, 1666085751,
@@ -700,7 +700,7 @@ ON DUPLICATE KEY UPDATE `version`=VALUES(`version`),`buy_status`=VALUES(`buy_sta
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
 (9100,{tenantId},0,'M','AIGC生图','el-icon-Picture',100,'','aigc-image','','','',0,1,0,'aigc_image','app','aigc_image',0,1778000000,1778000000),
-(9101,{tenantId},@core_tenant_task_log_id,'C','生图列表','',90,'app.aigc_image.admin_task/lists','image','apps/aigc_image/task','','',0,1,0,'aigc_image','app','aigc_image_task',0,1778000000,1778000000),
+(9101,{tenantId},@core_tenant_task_log_id,'C','生图列表','el-icon-Picture',90,'app.aigc_image.admin_task/lists','image','apps/aigc_image/task','','',0,1,0,'aigc_image','app','aigc_image_task',0,1778000000,1778000000),
 (9102,{tenantId},158,'C','案例广场','el-icon-PictureFilled',98,'case_gallery.case/lists','case-gallery','case_gallery/index','/case-gallery','',0,1,0,'system_default','core','core_tenant_case_gallery',1,1778000000,1778000000),
 (9300,{tenantId},9102,'A','应用选项','',0,'case_gallery.case/apps','','','','',0,0,0,'system_default','core','core_tenant_case_gallery_apps',1,1778000000,1778000000),
 (9301,{tenantId},9102,'A','详情','',0,'case_gallery.case/detail','','','','',0,0,0,'system_default','core','core_tenant_case_gallery_detail',1,1778000000,1778000000),
@@ -720,7 +720,7 @@ VALUES
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
 (9105,{tenantId},0,'M','AIGC视频','el-icon-Picture',100,'','aigc-video','','','',0,1,0,'aigc_video','app','aigc_video',0,1778000000,1778000000),
-(9106,{tenantId},@core_tenant_task_log_id,'C','视频列表','',80,'app.aigc_video.admin_task/lists','video','apps/aigc_video/task','','',0,1,0,'aigc_video','app','aigc_video_task',0,1778000000,1778000000),
+(9106,{tenantId},@core_tenant_task_log_id,'C','视频列表','el-icon-VideoCamera',80,'app.aigc_video.admin_task/lists','video','apps/aigc_video/task','','',0,1,0,'aigc_video','app','aigc_video_task',0,1778000000,1778000000),
 (9108,{tenantId},9105,'C','通道调价','',0,'app.aigc_video.channel/lists','channel-price','apps/aigc_video/channel-price','','',0,1,0,'aigc_video','app','aigc_video_channel_price',0,1778000000,1778000000),
 (9109,{tenantId},9105,'C','用量统计','',0,'app.aigc_video.admin/stat','stat','apps/aigc_video/stat','','',0,1,0,'aigc_video','app','aigc_video_stat',0,1778000000,1778000000);
 
@@ -973,6 +973,17 @@ ALTER TABLE `la_tenant_system_menu_{tenantSn}` ADD COLUMN `source` varchar(20) N
 ALTER TABLE `la_tenant_system_menu_{tenantSn}` ADD COLUMN `source_menu_key` varchar(120) NOT NULL DEFAULT '' COMMENT '来源菜单key';
 ALTER TABLE `la_tenant_system_menu_{tenantSn}` ADD COLUMN `is_core` tinyint NOT NULL DEFAULT 1 COMMENT '是否核心菜单';
 
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT {tenantId}, `id`, 'A', '修改密码', '', 1, 'user.user/resetPassword', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_consumer_reset_password', 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
+FROM `la_tenant_system_menu_{tenantSn}`
+WHERE `tenant_id` = {tenantId} AND `type` = 'C' AND `paths` = 'lists' AND `component` = 'consumer/lists/detail'
+  AND NOT EXISTS (
+    SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` existing_menu
+    WHERE existing_menu.`tenant_id` = {tenantId}
+      AND (existing_menu.`source_menu_key` = 'core_tenant_consumer_reset_password'
+        OR existing_menu.`perms` = 'user.user/resetPassword')
+  );
+
 INSERT IGNORE INTO `la_tenant_system_menu_{tenantSn}`
 (`id`,`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES
@@ -1051,22 +1062,109 @@ SET @core_tenant_official_site_config_id := LAST_INSERT_ID();
 INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 VALUES ({tenantId},@core_tenant_official_site_config_id,'A','保存','',0,'setting.web.official_site/save','','','','',0,0,0,'','core','core_tenant_official_site_save',1,1782604800,1782604800);
 
-ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `template_id` int unsigned NOT NULL DEFAULT 0 COMMENT '模板ID' AFTER `tenant_id`;
-ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `terminal` varchar(20) NOT NULL DEFAULT 'mobile' COMMENT '终端 mobile/pc' AFTER `template_id`;
-ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `channel` varchar(20) NOT NULL DEFAULT 'common' COMMENT '渠道 common/h5/mp_weixin' AFTER `terminal`;
-ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `page_code` varchar(64) NOT NULL DEFAULT '' COMMENT '页面标识' AFTER `channel`;
-ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `page_type` varchar(30) NOT NULL DEFAULT 'custom' COMMENT '页面类型' AFTER `page_code`;
-ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `route_path` varchar(255) NOT NULL DEFAULT '' COMMENT '页面路径' AFTER `page_type`;
-ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `is_home` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '是否首页' AFTER `route_path`;
-ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `is_system` tinyint unsigned NOT NULL DEFAULT 0 COMMENT '是否系统页面' AFTER `is_home`;
-ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '状态' AFTER `is_system`;
-ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `sort` int NOT NULL DEFAULT 0 COMMENT '排序' AFTER `status`;
-ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `draft_data` longtext COMMENT '草稿数据' AFTER `meta`;
-ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `draft_meta` longtext COMMENT '草稿页面设置' AFTER `draft_data`;
-ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `published_data` longtext COMMENT '发布数据' AFTER `draft_meta`;
-ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `published_meta` longtext COMMENT '发布页面设置' AFTER `published_data`;
+SET @db_name := DATABASE();
+SET @tenant_page_table := 'la_decorate_page_{tenantSn}';
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='template_id')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `template_id` int unsigned NOT NULL DEFAULT 0 COMMENT ''模板ID'' AFTER `tenant_id`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='terminal')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `terminal` varchar(20) NOT NULL DEFAULT ''mobile'' COMMENT ''终端 mobile/pc'' AFTER `template_id`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='channel')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `channel` varchar(20) NOT NULL DEFAULT ''common'' COMMENT ''渠道 common/h5/mp_weixin'' AFTER `terminal`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='page_code')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `page_code` varchar(64) NOT NULL DEFAULT '''' COMMENT ''页面标识'' AFTER `channel`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='page_type')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `page_type` varchar(30) NOT NULL DEFAULT ''custom'' COMMENT ''页面类型'' AFTER `page_code`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='route_path')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `route_path` varchar(255) NOT NULL DEFAULT '''' COMMENT ''页面路径'' AFTER `page_type`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='is_home')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `is_home` tinyint unsigned NOT NULL DEFAULT 0 COMMENT ''是否首页'' AFTER `route_path`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='is_system')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `is_system` tinyint unsigned NOT NULL DEFAULT 0 COMMENT ''是否系统页面'' AFTER `is_home`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='status')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT ''状态'' AFTER `is_system`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='sort')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `sort` int NOT NULL DEFAULT 0 COMMENT ''排序'' AFTER `status`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='draft_data')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `draft_data` longtext COMMENT ''草稿数据'' AFTER `meta`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='draft_meta')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `draft_meta` longtext COMMENT ''草稿页面设置'' AFTER `draft_data`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='published_data')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `published_data` longtext COMMENT ''发布数据'' AFTER `draft_meta`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='published_meta')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `published_meta` longtext COMMENT ''发布页面设置'' AFTER `published_data`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql := IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME=@tenant_page_table AND COLUMN_NAME='draft_deleted')=0, 'ALTER TABLE `la_decorate_page_{tenantSn}` ADD COLUMN `draft_deleted` tinyint unsigned NOT NULL DEFAULT 0 COMMENT ''草稿待删除'' AFTER `published_meta`', 'SELECT 1'); PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Default is external supplier URLs. Tenant administrators can explicitly
 -- enable durable result transfer later without changing the worker contract.
 INSERT INTO `la_tenant_config_{tenantSn}` (`tenant_id`,`type`,`name`,`value`,`create_time`,`update_time`)
 VALUES ({tenantId},'ai_task','result_transfer_enabled','0',UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
+
+-- 微信开放平台租户菜单：只写菜单，不写入任何真实凭据。
+SET NAMES utf8mb4;
+SET @wechat_open_tenant_channel_id := (
+  SELECT `id` FROM `la_tenant_system_menu_{tenantSn}`
+  WHERE `tenant_id`={tenantId} AND (`source_menu_key`='core_tenant_channel_manage' OR `name`='渠道设置') AND `pid`=0
+  ORDER BY `id` LIMIT 1
+);
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT {tenantId},@wechat_open_tenant_channel_id,'M','微信授权','local-icon-weixin',70,'','wechat_auth','','','',0,1,0,'','core','core_tenant_open_platform',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+WHERE @wechat_open_tenant_channel_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` WHERE `tenant_id`={tenantId} AND `source_menu_key`='core_tenant_open_platform');
+SET @wechat_open_tenant_root_id := (SELECT `id` FROM `la_tenant_system_menu_{tenantSn}` WHERE `tenant_id`={tenantId} AND `source_menu_key`='core_tenant_open_platform' ORDER BY `id` DESC LIMIT 1);
+UPDATE `la_tenant_system_menu_{tenantSn}` SET `name`='微信授权', `type`='M', `perms`='', `paths`='wechat_auth', `component`='', `update_time`=UNIX_TIMESTAMP()
+WHERE `tenant_id`={tenantId} AND `source_menu_key`='core_tenant_open_platform';
+UPDATE `la_tenant_system_menu_{tenantSn}` SET `name`='微信配置', `update_time`=UNIX_TIMESTAMP()
+WHERE `tenant_id`={tenantId} AND `perms`='channel.open_setting/getConfig' AND `name`='微信开放平台';
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT {tenantId},@wechat_open_tenant_root_id,'C',x.name,'',x.sort,x.perms,x.path,'channel/open_platform/index','','',0,1,0,'','core',x.key,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT '授权绑定' name,10 sort,'channel.open_platform/authUrl' perms,'open_platform/bind' path,'core_tenant_open_platform_bind' `key` UNION ALL SELECT '账号管理',20,'channel.open_platform/accounts','open_platform/accounts','core_tenant_open_platform_accounts') x
+WHERE @wechat_open_tenant_root_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` m WHERE m.`tenant_id`={tenantId} AND m.`source_menu_key`=x.`key`);
+UPDATE `la_tenant_system_menu_{tenantSn}` SET `is_show`=0, `is_disable`=1, `update_time`=UNIX_TIMESTAMP()
+WHERE `tenant_id`={tenantId} AND (`source_menu_key` IN ('core_tenant_open_platform_official','core_tenant_open_platform_mini','core_tenant_open_platform_authorizations') OR (`source_menu_key` LIKE 'core_tenant_open_%' AND `source_menu_key` NOT IN ('core_tenant_open_platform','core_tenant_open_platform_bind','core_tenant_open_platform_accounts')));
+
+-- 渠道设置统一使用卡片总览，原有配置页保留为卡片内的手动配置入口。
+SET @tenant_channel_overview_id := (SELECT `id` FROM `la_tenant_system_menu_{tenantSn}` WHERE `tenant_id`={tenantId} AND `source_menu_key`='core_tenant_channel_overview' ORDER BY `id` DESC LIMIT 1);
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT {tenantId},`id`,'C','渠道总览','el-icon-Grid',110,'channel.overview/index','overview','channel/index','','',0,1,0,'','core','core_tenant_channel_overview',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM `la_tenant_system_menu_{tenantSn}`
+WHERE `tenant_id`={tenantId} AND (`source_menu_key`='core_tenant_channel_manage' OR (`name`='渠道设置' AND `pid`=0))
+  AND @tenant_channel_overview_id IS NULL
+ORDER BY `id` LIMIT 1;
+SET @tenant_channel_overview_id := (SELECT `id` FROM `la_tenant_system_menu_{tenantSn}` WHERE `tenant_id`={tenantId} AND `source_menu_key`='core_tenant_channel_overview' ORDER BY `id` DESC LIMIT 1);
+UPDATE `la_tenant_system_menu_{tenantSn}` SET `pid`=(SELECT `id` FROM `la_tenant_system_menu_{tenantSn}` WHERE `tenant_id`={tenantId} AND (`source_menu_key`='core_tenant_channel_manage' OR (`name`='渠道设置' AND `pid`=0)) ORDER BY `id` LIMIT 1), `type`='C', `name`='渠道总览', `paths`='overview', `component`='channel/index', `is_show`=1, `is_disable`=0, `update_time`=UNIX_TIMESTAMP()
+WHERE `tenant_id`={tenantId} AND `source_menu_key`='core_tenant_channel_overview';
+UPDATE `la_tenant_system_menu_{tenantSn}` SET `is_show`=0, `is_disable`=1, `update_time`=UNIX_TIMESTAMP()
+WHERE `tenant_id`={tenantId} AND `pid`=(SELECT `id` FROM `la_tenant_system_menu_{tenantSn}` WHERE `tenant_id`={tenantId} AND (`source_menu_key`='core_tenant_channel_manage' OR (`name`='渠道设置' AND `pid`=0)) ORDER BY `id` LIMIT 1) AND `id`<>COALESCE(@tenant_channel_overview_id,0);
+
+-- 渠道卡片的隐藏入口页：侧栏仅展示渠道总览。
+UPDATE `la_tenant_system_menu_{tenantSn}` SET `selected`='channel/overview', `update_time`=UNIX_TIMESTAMP()
+WHERE `tenant_id`={tenantId} AND `component` LIKE 'channel/%';
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT {tenantId},@tenant_channel_overview_id,'C',x.`name`,'',x.`sort`,x.`perms`,x.`paths`,x.`component`,'channel/overview','',0,0,0,'','core',x.`key`,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
+FROM (SELECT '授权入口' `name`,109 `sort`,'channel.open_platform/authUrl' `perms`,'authorize' `paths`,'channel/open_platform/index' `component`,'core_tenant_channel_authorize' `key` UNION ALL SELECT '公号管理',108,'channel.official_account_setting/getConfig','official','channel/open_platform/official','core_tenant_channel_official' UNION ALL SELECT '小程管理',107,'channel.open_platform/versions','miniprogram','channel/open_platform/miniprogram','core_tenant_channel_miniprogram') x
+WHERE @tenant_channel_overview_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` menu WHERE menu.`tenant_id`={tenantId} AND menu.`source_menu_key`=x.`key`);
+UPDATE `la_tenant_system_menu_{tenantSn}` SET `is_show`=0, `is_disable`=0, `update_time`=UNIX_TIMESTAMP()
+WHERE `tenant_id`={tenantId} AND `source_menu_key` LIKE 'core_tenant_open_platform%';
+
+-- 公众号历史管理页使用独立隐藏路由，避免依赖已隐藏的多级父菜单。
+UPDATE `la_tenant_system_menu_{tenantSn}`
+SET `pid`=(SELECT `id` FROM `la_tenant_system_menu_{tenantSn}` WHERE `tenant_id`={tenantId} AND (`source_menu_key`='core_tenant_channel_manage' OR (`name`='渠道设置' AND `pid`=0)) ORDER BY `id` LIMIT 1),
+    `paths`=CASE `component`
+      WHEN 'channel/wx_oa/config' THEN 'wx_oa/config'
+      WHEN 'channel/wx_oa/menu' THEN 'wx_oa/menu'
+      WHEN 'channel/wx_oa/reply/follow_reply' THEN 'wx_oa/reply/follow_reply'
+      WHEN 'channel/wx_oa/reply/keyword_reply' THEN 'wx_oa/reply/keyword_reply'
+      WHEN 'channel/wx_oa/reply/default_reply' THEN 'wx_oa/reply/default_reply'
+      ELSE `paths`
+    END,
+    `selected`='channel/overview', `is_show`=0, `is_disable`=0, `update_time`=UNIX_TIMESTAMP()
+WHERE `tenant_id`={tenantId} AND `component` IN (
+  'channel/wx_oa/config','channel/wx_oa/menu',
+  'channel/wx_oa/reply/follow_reply','channel/wx_oa/reply/keyword_reply',
+  'channel/wx_oa/reply/default_reply'
+);
+
+-- 租户用户直接设置会员套餐权限。
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT parent.`tenant_id`, parent.`id`, 'A', '设置套餐', '', 2, 'user.user/setMembership', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_consumer_set_membership', 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
+FROM `la_tenant_system_menu_{tenantSn}` parent
+WHERE parent.`tenant_id`={tenantId} AND parent.`type`='C' AND parent.`paths`='lists' AND parent.`component`='consumer/lists/index'
+  AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` existing_menu WHERE existing_menu.`tenant_id`=parent.`tenant_id` AND (existing_menu.`source_menu_key`='core_tenant_consumer_set_membership' OR existing_menu.`perms`='user.user/setMembership'));
+INSERT INTO `la_tenant_system_menu_{tenantSn}` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
+SELECT parent.`tenant_id`, parent.`id`, 'A', '套餐列表', '', 3, 'user.user/membershipPlans', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_consumer_membership_plans', 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
+FROM `la_tenant_system_menu_{tenantSn}` parent
+WHERE parent.`tenant_id`={tenantId} AND parent.`type`='C' AND parent.`paths`='lists' AND parent.`component`='consumer/lists/index'
+  AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu_{tenantSn}` existing_menu WHERE existing_menu.`tenant_id`=parent.`tenant_id` AND (existing_menu.`source_menu_key`='core_tenant_consumer_membership_plans' OR existing_menu.`perms`='user.user/membershipPlans'));
+
+INSERT IGNORE INTO `la_tenant_system_role_menu` (`role_id`,`menu_id`)
+SELECT role.`id`, menu.`id`
+FROM `la_tenant_system_role` role
+JOIN `la_tenant_system_menu_{tenantSn}` menu ON menu.`tenant_id`=role.`tenant_id`
+WHERE role.`tenant_id`={tenantId}
+  AND menu.`source_menu_key` IN ('core_tenant_consumer_set_membership','core_tenant_consumer_membership_plans')
+  AND (role.`delete_time` IS NULL OR role.`delete_time`=0);

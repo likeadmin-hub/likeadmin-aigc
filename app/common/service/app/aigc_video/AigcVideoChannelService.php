@@ -38,7 +38,7 @@ class AigcVideoChannelService
         if (($resolved['channel']['code'] ?? '') === 'seedance2_pro' && isset($params['ratio'])) {
             $displayRatio = (string)$params['ratio'];
         }
-        $billingMultiplier = self::billingMultiplier($resolved['channel'], $duration);
+        $billingMultiplier = self::billingMultiplier($resolved['channel'], $resolved['spec'], $duration);
         $platformUnitCost = (float)$resolved['spec']['platform_unit_cost'] * $billingMultiplier;
         $tenantUnitPrice = (float)$resolved['spec']['tenant_unit_price'] * $billingMultiplier;
         $tenantCost = self::formatPoints($platformUnitCost * $quantity);
@@ -1159,14 +1159,29 @@ class AigcVideoChannelService
         return $options ?: [5];
     }
 
-    private static function billingMultiplier(array $channel, int $duration): float
+    private static function billingMultiplier(array $channel, array $spec, int $duration): float
     {
-        return self::isSecondBillingChannel((string)($channel['code'] ?? '')) ? max(1, $duration) : 1;
+        return self::isDurationBillingUnit($channel, $spec) ? max(1, $duration) : 1;
     }
 
-    private static function isSecondBillingChannel(string $channelCode): bool
+    private static function isDurationBillingUnit(array $channel, array $spec): bool
     {
-        return in_array($channelCode, ['happy_horse', 'wan', 'seedance2_pro'], true);
+        $params = self::normalizeJson($spec['provider_params_json'] ?? []);
+        $config = self::normalizeJson($channel['config_json'] ?? []);
+        foreach ([
+            $spec['usage_unit'] ?? null,
+            $spec['billing_unit'] ?? null,
+            $params['usage_unit'] ?? null,
+            $params['billing_unit'] ?? null,
+            $config['usage_unit'] ?? null,
+            $config['billing_unit'] ?? null,
+        ] as $unit) {
+            $value = strtolower(trim((string)$unit));
+            if (preg_match('/(?:^|_)(?:input_|output_)?(?:second|seconds|sec)(?:$|_)/', $value) === 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static function ensureDefaultRows(): void

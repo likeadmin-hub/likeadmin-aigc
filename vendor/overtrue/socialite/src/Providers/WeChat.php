@@ -114,10 +114,14 @@ class WeChat extends Base
     public function userFromCode(string $code): Contracts\UserInterface
     {
         if (\in_array('snsapi_base', $this->scopes)) {
-            return $this->mapUserToObject($this->fromJsonBody($this->getTokenFromCode($code)));
+            return $this->getSnsapiBaseUserFromCode($code);
         }
 
         $token = $this->tokenFromCode($code);
+
+        if (empty($token['openid'])) {
+            throw new Exceptions\AuthorizeFailedException('Authorization failed: missing openid in token response', $token);
+        }
 
         $this->withOpenid($token['openid']);
 
@@ -126,6 +130,28 @@ class WeChat extends Base
         return $user->setRefreshToken($token[Contracts\RFC6749_ABNF_REFRESH_TOKEN])
             ->setExpiresIn($token[Contracts\RFC6749_ABNF_EXPIRES_IN])
             ->setTokenResponse($token);
+    }
+
+    protected function getSnsapiBaseUserFromCode(string $code): Contracts\UserInterface
+    {
+        $token = $this->fromJsonBody($this->getTokenFromCode($code));
+
+        if (empty($token['openid'])) {
+            throw new Exceptions\AuthorizeFailedException('Authorization failed: missing openid in token response', $token);
+        }
+
+        if (empty($token[$this->accessTokenKey])) {
+            throw new Exceptions\AuthorizeFailedException('Authorization failed: missing access_token in token response', $token);
+        }
+
+        $user = [
+            'openid' => $token['openid'],
+        ];
+        if (isset($token['unionid'])) {
+            $user['unionid'] = $token['unionid'];
+        }
+
+        return $this->mapUserToObject($token)->setProvider($this)->setRaw($user)->setAccessToken($token[$this->accessTokenKey]);
     }
 
     protected function getUserByToken(string $token): array
@@ -140,7 +166,13 @@ class WeChat extends Base
             ]),
         ]);
 
-        return $this->fromJsonBody($response);
+        $response = $this->fromJsonBody($response);
+
+        if (! empty($response['errcode'])) {
+            throw new Exceptions\AuthorizeFailedException((string) ($response['errmsg'] ?? ''), $response);
+        }
+
+        return $response;
     }
 
     #[Pure]
@@ -205,11 +237,11 @@ class WeChat extends Base
             }
         }
 
-        if (2 !== \count($config)) {
+        if (\count($config) !== 2) {
             throw new Exceptions\InvalidArgumentException('Please check your config arguments were available.');
         }
 
-        if (1 === \count($this->scopes) && \in_array('snsapi_login', $this->scopes)) {
+        if (\count($this->scopes) === 1 && \in_array('snsapi_login', $this->scopes)) {
             $this->scopes = ['snsapi_base'];
         }
 

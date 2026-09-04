@@ -46,7 +46,11 @@ class IndexLogic extends BaseLogic
     public static function getIndexData()
     {
         // 装修配置
-        $decoratePage = DecorateTemplateService::activePublishedPage((int)request()->tenantId, DecorateTemplateService::TERMINAL_MOBILE, 'home', 1, 'h5');
+        $channel = request()->get('channel/s', 'h5');
+        if (!in_array($channel, ['h5', 'mp_weixin'], true)) {
+            $channel = 'h5';
+        }
+        $decoratePage = DecorateTemplateService::activePublishedPage((int)request()->tenantId, DecorateTemplateService::TERMINAL_MOBILE, 'home', 1, $channel);
 
         // 首页文章
         $field = [
@@ -101,6 +105,9 @@ class IndexLogic extends BaseLogic
         $terminal = request()->get('terminal/s', DecorateTemplateService::TERMINAL_MOBILE);
         $pageCode = request()->get('page_code/s', '');
         $channel = request()->get('channel/s', 'h5');
+        if (!in_array($channel, ['h5', 'mp_weixin'], true)) {
+            $channel = 'h5';
+        }
         $preview = request()->get('preview/d', 0) === 1;
         $templateId = request()->get('template_id/d', 0);
         $pageId = request()->get('page_id/d', 0);
@@ -120,8 +127,9 @@ class IndexLogic extends BaseLogic
     public static function getConfigData()
     {
         // 底部导航
-        $tabbarConfig = DecorateTemplateService::activeMobileTabbar((int)request()->tenantId);
-        $tabbar = $tabbarConfig['list'] ?? DecorateTabbar::getTabbarLists();
+        $tenantId = (int)request()->tenantId;
+        $tabbarConfig = DecorateTemplateService::activeMobileTabbar($tenantId);
+        $tabbar = $tabbarConfig['list'] ?? DecorateTabbar::getTabbarLists($tenantId);
         // 导航颜色
         $style = $tabbarConfig['style'] ?? ConfigService::get('tabbar', 'style', config('project.decorate.tabbar_style'));
         // 登录配置

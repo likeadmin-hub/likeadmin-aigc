@@ -6,12 +6,12 @@ namespace EasyWeChat\OpenPlatform;
 
 use EasyWeChat\Kernel\Exceptions\RuntimeException;
 use EasyWeChat\OpenPlatform\Contracts\VerifyTicket as VerifyTicketInterface;
-use function is_string;
 use Psr\SimpleCache\CacheInterface;
-use Psr\SimpleCache\InvalidArgumentException;
-use function sprintf;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\Cache\Psr16Cache;
+
+use function is_string;
+use function sprintf;
 
 class VerifyTicket implements VerifyTicketInterface
 {
@@ -37,9 +37,6 @@ class VerifyTicket implements VerifyTicketInterface
         return $this;
     }
 
-    /**
-     * @throws InvalidArgumentException
-     */
     public function setTicket(string $ticket): static
     {
         $this->cache->set($this->getKey(), $ticket, 6000);
@@ -49,7 +46,6 @@ class VerifyTicket implements VerifyTicketInterface
 
     /**
      * @throws RuntimeException
-     * @throws InvalidArgumentException
      */
     public function getTicket(): string
     {

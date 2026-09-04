@@ -25,7 +25,7 @@ class Command implements CommandInterface
     public function __construct(
         $name,
         array $args = [],
-        HandlerStack $handlerStack = null
+        ?HandlerStack $handlerStack = null
     ) {
         $this->name = $name;
         $this->data = $args;
@@ -44,6 +44,10 @@ class Command implements CommandInterface
 
     public function hasParam($name)
     {
+        if ($name === null) {
+            $name = '';
+        }
+
         return array_key_exists($name, $this->data);
     }
 

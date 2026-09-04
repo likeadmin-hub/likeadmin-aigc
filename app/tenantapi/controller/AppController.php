@@ -33,6 +33,7 @@ class AppController extends BaseAdminController
             $tenantApp = $tenantApps[$app['code']] ?? [];
             $display = $displayMap[$app['code']] ?? [];
             $app['display_config'] = $display;
+            $app['market_profile'] = AppDisplayConfigService::marketProfile((string)$app['code']);
             $app['cover_url'] = self::firstImageUrl(
                 $display['cover_url'] ?? '',
                 $display['cover_uri'] ?? '',
@@ -125,6 +126,7 @@ class AppController extends BaseAdminController
             );
             $item['icon_url'] = self::imageUrl((string)($app['icon'] ?? ''));
             $item['display_config'] = $display;
+            $item['market_profile'] = AppDisplayConfigService::marketProfile((string)$item['app_code']);
             $item['description'] = $app['description'] ?? '';
             $item['platform_status'] = $app['status'] ?? 'removed';
             $item['is_builtin'] = $isBuiltin ? 1 : 0;
@@ -292,6 +294,7 @@ class AppController extends BaseAdminController
             'can_renew' => 0,
             'plans' => [],
             'display_config' => $display,
+            'market_profile' => AppDisplayConfigService::marketProfile($appCode),
             'display_config_only' => 1,
             'sort' => (int)($display['sort'] ?? 0),
             'install_time' => 0,

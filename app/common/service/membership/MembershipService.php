@@ -12,6 +12,8 @@ use app\common\model\membership\MembershipPlan;
 use app\common\model\membership\MembershipPlanApp;
 use app\common\model\membership\UserMembership;
 use app\common\model\user\User;
+use app\common\service\PointUnitService;
+use app\common\service\point\UserPointService;
 use RuntimeException;
 use think\facade\Db;
 
@@ -260,6 +262,83 @@ class MembershipService
                 'pay_time' => time(),
                 'update_time' => time(),
             ]);
+        });
+    }
+
+    /**
+     * 由租户管理员直接授予用户会员套餐，不创建支付订单。
+     *
+     * @return array{plan_id:int, plan_name:string, expire_time:int}
+     */
+    public static function assignPlan(int $tenantId, int $userId, int $planId): array
+    {
+        return Db::transaction(function () use ($tenantId, $userId, $planId) {
+            $user = User::where([
+                'tenant_id' => $tenantId,
+                'id' => $userId,
+            ])->lock(true)->findOrEmpty();
+            if ($user->isEmpty()) {
+                throw new RuntimeException('用户不存在');
+            }
+
+            $plan = MembershipPlan::where([
+                'tenant_id' => $tenantId,
+                'id' => $planId,
+                'status' => self::STATUS_ENABLED,
+            ])->findOrEmpty();
+            if ($plan->isEmpty()) {
+                throw new RuntimeException('会员套餐不存在或已下架');
+            }
+
+            $appCodes = MembershipPlanApp::where([
+                'tenant_id' => $tenantId,
+                'plan_id' => $planId,
+            ])->column('app_code');
+            $now = time();
+            $durationMonths = max(1, (int)($plan['duration_months'] ?? 1));
+            $expireTime = self::calcExpire($now, $durationMonths);
+            $sourceSn = 'admin_membership_' . $tenantId . '_' . $userId . '_' . $now . '_' . random_int(1000, 9999);
+
+            $membershipData = [
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'plan_id' => $planId,
+                'plan_name' => (string)$plan['name'],
+                'app_codes' => array_values($appCodes),
+                'features' => (array)($plan['features'] ?? []),
+                'start_time' => $now,
+                'expire_time' => $expireTime,
+                'status' => self::STATUS_ENABLED,
+                'source_order_sn' => $sourceSn,
+                'update_time' => $now,
+            ];
+            $membership = UserMembership::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+            ])->lock(true)->findOrEmpty();
+            if ($membership->isEmpty()) {
+                $membershipData['create_time'] = $now;
+                UserMembership::create($membershipData);
+            } else {
+                $membership->save($membershipData);
+            }
+
+            $bonusPoints = (float)($plan['monthly_bonus_points'] ?? 0);
+            if ($bonusPoints > 0) {
+                UserPointService::grantMembershipBonus(
+                    $userId,
+                    $bonusPoints,
+                    $sourceSn,
+                    '后台设置会员套餐赠送' . PointUnitService::unit(),
+                    ['plan_id' => $planId, 'plan_name' => (string)$plan['name'], 'source' => 'admin_assign']
+                );
+            }
+
+            return [
+                'plan_id' => $planId,
+                'plan_name' => (string)$plan['name'],
+                'expire_time' => $expireTime,
+            ];
         });
     }
 

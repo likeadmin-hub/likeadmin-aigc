@@ -19,30 +19,61 @@ class PromptMentionShortcutContractTest extends TestCase
         self::assertMatchesRegularExpression('/n\\.setSelectionRange\\(W,\\s*W\\)/', $source);
     }
 
-    public function testCreateComposerUsesAtAsTheReferenceUploadShortcut(): void
+    public function testCreateComposerDoesNotUseAtAsTheReferenceUploadShortcut(): void
     {
         $source = $this->asset('public/_nuxt/create.a5c396bf.js');
 
-        self::assertMatchesRegularExpression('/i\\.key\\s*===\\s*"@"/', $source);
-        self::assertMatchesRegularExpression('/i\\.preventDefault\\(\\),\\s*Xe\\(\\),\\s*x\\("upload"\\)/', $source);
+        self::assertStringContainsString('Te=()=>{}', $source);
+        self::assertStringContainsString('Pe=()=>{}', $source);
         self::assertMatchesRegularExpression('/onKeydown:\\s*\\[\\s*Te,/', $source);
+        self::assertStringNotContainsString('i.preventDefault(),Xe(),x("upload")', $source);
     }
 
-    public function testCreationImageAndVideoPagesUseAtAsTheReferenceUploadShortcut(): void
+    public function testCreationImageAndVideoPagesDoNotUseAtAsTheUploadShortcut(): void
     {
         $imageSource = $this->asset('public/_nuxt/aigc_image.91b50432.js');
         $videoSource = $this->asset('public/_nuxt/aigc_video.93b37873.js');
 
-        self::assertStringContainsString('imagePromptAtKeydown=e=>{(e.key==="@"', $imageSource);
-        self::assertStringContainsString('e.code==="Digit2"', $imageSource);
+        self::assertStringContainsString('imagePromptAtKeydown=()=>{}', $imageSource);
         self::assertStringContainsString('id:"image-prompt"', $imageSource);
         self::assertStringContainsString('onKeydown:imagePromptAtKeydown', $imageSource);
-        self::assertStringContainsString('onBeforeinput:e=>e.inputType==="insertText"&&e.data==="@"', $imageSource);
+        self::assertStringContainsString('onBeforeinput:()=>{}', $imageSource);
+        self::assertStringNotContainsString('e.preventDefault(),Qe()', $imageSource);
 
-        self::assertStringContainsString('videoPromptAtKeydown=e=>{(e.key==="@"', $videoSource);
+        self::assertStringContainsString('videoPromptAtKeydown=()=>{}', $videoSource);
         self::assertStringContainsString('id:"video-prompt"', $videoSource);
         self::assertStringContainsString('onKeydown:videoPromptAtKeydown', $videoSource);
-        self::assertStringContainsString('onBeforeinput:e=>e.inputType==="insertText"&&e.data==="@"', $videoSource);
+        self::assertStringContainsString('onBeforeinput:()=>{}', $videoSource);
+        self::assertStringNotContainsString('e.preventDefault(),Rt()', $videoSource);
+    }
+
+    public function testUploadedReferencesAreMentionableAndShortDramaAtOpensThePicker(): void
+    {
+        $fix = $this->asset('public/prompt-mention-fix.js');
+
+        self::assertStringContainsString('textarea.prompt-card__textarea', $fix);
+        self::assertStringContainsString('.reference-item, .upload-panel__preview-frame', $fix);
+        self::assertStringContainsString('prompt-mention-picker', $fix);
+        self::assertStringContainsString('collectReferenceItems(event.target)', $fix);
+        self::assertStringContainsString('var counters = { img: 0, video: 0, audio: 0, reference: 0 }', $fix);
+        self::assertStringContainsString('type === "img" ? "图片"', $fix);
+        self::assertStringContainsString('label.textContent = "@" + item.name', $fix);
+        self::assertStringContainsString('target.dispatchEvent(new Event("input"', $fix);
+        self::assertStringContainsString('target.dispatchEvent(new Event("change"', $fix);
+        self::assertStringContainsString('target.matches(".composer-editor")', $fix);
+        self::assertStringContainsString('button.click()', $fix);
+        self::assertStringContainsString('event.stopImmediatePropagation()', $fix);
+
+        foreach ([
+            'public/pc/ai/index.html',
+            'public/pc/ai/create/index.html',
+            'public/pc/app/aigc_image/index.html',
+            'public/pc/app/aigc_video/index.html',
+            'public/pc/ai/short-drama/index.html',
+            'public/pc/ai/short-drama/storyboard/index.html',
+        ] as $html) {
+            self::assertStringContainsString('/prompt-mention-fix.js?v=20260826-mention-picker', $this->asset($html));
+        }
     }
 
     public function testShortDramaWorkbenchPromptsUseAtToOpenSubjectAndScenePickers(): void
@@ -101,8 +132,12 @@ class PromptMentionShortcutContractTest extends TestCase
         self::assertStringContainsString('function agentMentionBeforeInput(e)', $agentSource);
         self::assertStringContainsString('e.code==="Digit2"&&e.shiftKey', $agentSource);
         self::assertStringContainsString('agent-composer-mention-menu', $agentSource);
-        self::assertStringContainsString('Array.isArray(e.elements)?e.elements:Array.isArray(e.nodes)?e.nodes:[]', $agentSource);
-        self::assertStringContainsString('r.metadata)==null?void 0:n.image', $agentSource);
+        self::assertStringContainsString('Array.isArray(e.visible_nodes)?e.visible_nodes:[]', $agentSource);
+        self::assertStringContainsString('t==null?void 0:t.label', $agentSource);
+        self::assertStringContainsString('t==null?void 0:t.preview_url', $agentSource);
+        self::assertStringContainsString('e.inputType==="insertText"&&e.data==="@"&&setTimeout(Ys,0)', $agentSource);
+        self::assertStringNotContainsString('e.data==="@"&&(e.preventDefault(),setTimeout(Ys,0))', $agentSource);
+        self::assertStringContainsString('t==null?void 0:t.metadata', $agentSource);
 
         self::assertStringContainsString('function Dr(o){', $nodeSource);
         self::assertStringContainsString('function insertTextareaMention(o)', $nodeSource);
@@ -121,6 +156,25 @@ class PromptMentionShortcutContractTest extends TestCase
         );
     }
 
+    public function testInfiniteCanvasAtFallbackIsLoadedFromTheActualPcEntry(): void
+    {
+        $fix = $this->asset('public/canvas-agent-at-fix.js');
+
+        self::assertStringContainsString('.agent-composer-editor', $fix);
+        self::assertStringContainsString('event.preventDefault()', $fix);
+        self::assertStringContainsString('event.stopImmediatePropagation()', $fix);
+        self::assertStringContainsString('document.createTextNode("@")', $fix);
+        self::assertStringContainsString('new KeyboardEvent("keydown"', $fix);
+
+        foreach ([
+            'public/pc/index.html',
+            'public/pc/app/aigc_canvas/index.html',
+            'public/pc/app/aigc_canvas/replay/index.html',
+        ] as $html) {
+            self::assertStringContainsString('/canvas-agent-at-fix.js?v=20260824-canvas-at-v1', $this->asset($html));
+        }
+    }
+
     public function testMentionFixBundlesAreCacheBustedFromPcEntryPoints(): void
     {
         $entry = $this->asset('public/_nuxt/entry.c46691d5.js');
@@ -130,13 +184,9 @@ class PromptMentionShortcutContractTest extends TestCase
         $shortDramaScene = $this->asset('public/_nuxt/scene.f6c7fe02.js');
 
         foreach ([
-            'aigc_image.91b50432.js',
-            'aigc_video.93b37873.js',
             'VisualCreationWorkbench.20b439b0.js',
             'images.b7453ae1.js',
             'video.db2e73b5.js',
-            'projects.b63ba847.js',
-            '_id_.2fb60286.js',
             'images.f00320f4.css',
             'video.259a2f0a.css',
             'index.58ab2732.js',
@@ -146,8 +196,14 @@ class PromptMentionShortcutContractTest extends TestCase
             self::assertStringContainsString('./' . $asset . '?v=20260819-atfix', $entry);
         }
 
-        self::assertStringContainsString('./projects.b63ba847.js?v=20260819-atfix', $canvasHome);
-        self::assertStringContainsString('./projects.b63ba847.js?v=20260819-atfix', $canvasProject);
+        self::assertStringContainsString('./_id_.2fb60286.js?v=20260827-connected-video-v1', $entry);
+        self::assertStringContainsString('./create.a5c396bf.js?v=20260826-mention-picker', $entry);
+        self::assertStringContainsString('./storyboard.f2381e09.js?v=20260826-video-model-state-v2', $entry);
+        self::assertStringContainsString('./aigc_image.91b50432.js?v=20260826-mention-picker', $entry);
+        self::assertStringContainsString('./aigc_video.93b37873.js?v=20260826-mention-picker', $entry);
+        self::assertStringContainsString('./projects.b63ba847.js?v=20260826-local-reference-v1', $entry);
+        self::assertStringContainsString('./projects.b63ba847.js?v=20260826-local-reference-v1', $canvasHome);
+        self::assertStringContainsString('./projects.b63ba847.js?v=20260826-local-reference-v1', $canvasProject);
         self::assertStringContainsString('./VisualCreationWorkbench.20b439b0.js?v=20260819-atfix', $shortDramaSubject);
         self::assertStringContainsString('./VisualCreationWorkbench.20b439b0.js?v=20260819-atfix', $shortDramaScene);
     }

@@ -2,14 +2,16 @@
 
 namespace EasyWeChat\Kernel\Form;
 
+use const PATHINFO_EXTENSION;
+
 use EasyWeChat\Kernel\Exceptions\RuntimeException;
+use Symfony\Component\Mime\MimeTypes;
+use Symfony\Component\Mime\Part\DataPart;
+
 use function file_put_contents;
 use function md5;
 use function pathinfo;
-use const PATHINFO_EXTENSION;
 use function strtolower;
-use Symfony\Component\Mime\MimeTypes;
-use Symfony\Component\Mime\Part\DataPart;
 use function sys_get_temp_dir;
 use function tempnam;
 
@@ -18,14 +20,30 @@ class File extends DataPart
     /**
      * @throws RuntimeException
      */
-    public static function withContents(
+    public static function from(
+        string $pathOrContents,
+        ?string $filename = null,
+        ?string $contentType = null,
+        ?string $encoding = null
+    ): DataPart {
+        if (file_exists($pathOrContents)) {
+            return static::fromPath($pathOrContents, $filename, $contentType);
+        }
+
+        return static::fromContents($pathOrContents, $filename, $contentType, $encoding);
+    }
+
+    /**
+     * @throws RuntimeException
+     */
+    public static function fromContents(
         string $contents,
         ?string $filename = null,
         ?string $contentType = null,
         ?string $encoding = null
     ): DataPart {
-        if (null === $contentType) {
-            $mimeTypes = new MimeTypes();
+        if ($contentType === null) {
+            $mimeTypes = new MimeTypes;
 
             if ($filename) {
                 $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
@@ -43,5 +61,19 @@ class File extends DataPart
         }
 
         return new self($contents, $filename, $contentType, $encoding);
+    }
+
+    /**
+     * @throws RuntimeException
+     *
+     * @deprecated since EasyWeChat 7.0, use fromContents() instead
+     */
+    public static function withContents(
+        string $contents,
+        ?string $filename = null,
+        ?string $contentType = null,
+        ?string $encoding = null
+    ): DataPart {
+        return self::fromContents($contents, $filename, $contentType, $encoding);
     }
 }

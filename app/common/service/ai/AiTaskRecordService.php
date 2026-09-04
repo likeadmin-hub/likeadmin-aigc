@@ -25,6 +25,7 @@ class AiTaskRecordService
         'aigc_background_removal' => '智能去背景',
         'aigc_image_translate' => '图片翻译',
         'aigc_one_click_cleanup' => '一键清理',
+        'aigc_watermark_removal' => '短视频去水印',
         'aigc_product_suite' => 'AI商品套图',
         'aigc_product_multi_angle' => '商品多角度图',
         'aigc_fashion_lookbook' => '服饰 Lookbook',
@@ -67,7 +68,7 @@ class AiTaskRecordService
         ],
         'video' => [
             'aigc_video', 'aigc_digital_human', 'image_human', 'smart_clip',
-            'aigc_product_promo_video', 'aigc_action_transfer', 'aigc_person_replacement',
+            'aigc_product_promo_video', 'aigc_action_transfer', 'aigc_person_replacement', 'aigc_watermark_removal',
         ],
         'text' => ['aigc_llm'],
         'short_drama' => ['aigc_short_drama'],

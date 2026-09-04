@@ -8,7 +8,7 @@ $region = "ap-beijing"; //替换为用户的 region，已创建桶归属的regio
 $cosClient = new Qcloud\Cos\Client(
     array(
         'region' => $region,
-        'schema' => 'https', //协议头部，默认为http
+        'scheme' => 'https', //协议头部，默认为http
         'credentials'=> array(
             'secretId'  => $secretId,
             'secretKey' => $secretKey)));
@@ -112,6 +112,24 @@ try {
                             'EnableBgmFade' => '',
                             'BgmFadeTime' => '',
                         ),
+                    ),
+                ),
+            ),
+            'Watermark' => array(
+                array(
+                    'Type' => 'Text',
+                    'Pos' => 'TopRight',
+                    'LocMode' => 'Absolute',
+                    'Dx' => '128',
+                    'Dy' => '128',
+                    'StartTime' => '',
+                    'EndTime' => '',
+                    'Text' => array(
+                        'FontSize' => '30',
+                        'FontType' => 'simfang.ttf',
+                        'FontColor' => '0x000000',
+                        'Transparency' => '30',
+                        'Text' => '水印内容',
                     ),
                 ),
             ),

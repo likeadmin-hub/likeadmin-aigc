@@ -1,0 +1,485 @@
+.geo-page-body {
+  min-width: 0 !important;
+  width: 100% !important;
+}
+
+.geo-market-kicker,
+.geo-market-status {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.geo-market-kicker {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  border-radius: 999px;
+  color: #087f5b;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 7px 12px;
+}
+
+.geo-market-kicker::before,
+.geo-market-status::before {
+  background: #10b981;
+  border-radius: 999px;
+  content: "";
+  display: inline-block;
+  height: 7px;
+  width: 7px;
+}
+
+.geo-market-strip {
+  align-items: stretch;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 18px auto 0;
+  max-width: 850px;
+  width: min(850px, 92vw);
+}
+
+.geo-market-strip article {
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  border-radius: 9px;
+  color: #344054;
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.geo-market-strip strong {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.geo-market-strip span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.geo-market-button {
+  align-items: center;
+  background: #f0fdf4 !important;
+  border: 1px solid #bbf7d0 !important;
+  color: #087f5b !important;
+  display: inline-flex;
+  gap: 6px;
+  flex: 0 0 76px;
+  justify-content: center;
+  min-width: 76px;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+.geo-market-button::before {
+  background: #10b981;
+  border-radius: 999px;
+  content: "";
+  height: 7px;
+  width: 7px;
+}
+
+.geo-topbar__actions > .el-button {
+  margin-left: 0 !important;
+}
+
+.geo-market-sidebar {
+  align-items: center;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 9px;
+  color: #087f5b;
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 900;
+  gap: 10px;
+  margin: 8px 14px 12px;
+  min-height: 42px;
+  padding: 0 16px;
+  text-align: left;
+  width: calc(100% - 28px);
+}
+
+.geo-market-sidebar::before {
+  background: #10b981;
+  border-radius: 999px;
+  content: "";
+  height: 7px;
+  width: 7px;
+}
+
+.geo-market-banner {
+  align-items: center;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  color: #344054;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin: 0 24px;
+  padding: 10px 14px;
+}
+
+.geo-market-banner strong {
+  color: #087f5b;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.geo-market-banner span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.geo-market-status {
+  color: #087f5b;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.geo-market-backdrop {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.3);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 4000;
+}
+
+.geo-market-panel {
+  background: #fff;
+  border: 1px solid #e5e7ef;
+  border-radius: 12px;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.2);
+  max-width: 680px;
+  padding: 24px;
+  width: min(100%, 680px);
+}
+
+.geo-market-panel__header,
+.geo-market-panel__footer {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.geo-market-panel__header {
+  border-bottom: 1px solid #eef0f6;
+  padding-bottom: 18px;
+}
+
+.geo-market-panel__header h2 {
+  color: #111827;
+  font-size: 20px;
+  font-weight: 900;
+  margin: 0;
+}
+
+.geo-market-panel__header p {
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 6px 0 0;
+}
+
+.geo-market-panel__close {
+  background: #f8f9fd;
+  border: 0;
+  border-radius: 7px;
+  color: #667085;
+  cursor: pointer;
+  font-size: 20px;
+  height: 34px;
+  line-height: 1;
+  width: 34px;
+}
+
+.geo-market-panel__grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 20px 0;
+}
+
+.geo-market-panel__grid article {
+  background: #f8f9fd;
+  border: 1px solid #eef0f6;
+  border-radius: 9px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.geo-market-panel__grid strong {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.geo-market-panel__grid span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.geo-market-panel__grid em {
+  color: #087f5b;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.geo-market-panel__footer {
+  border-top: 1px solid #eef0f6;
+  padding-top: 18px;
+}
+
+.geo-market-panel__footer span {
+  color: #98a2b3;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.geo-market-panel__footer button {
+  background: #2b211e;
+  border: 1px solid #2b211e;
+  border-radius: 7px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+  min-height: 36px;
+  padding: 0 14px;
+}
+
+.geo-enhancement-toast {
+  background: #111827;
+  border-radius: 8px;
+  bottom: 24px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.2);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  left: 50%;
+  max-width: calc(100vw - 32px);
+  padding: 11px 16px;
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 4100;
+}
+
+@media (max-width: 767px) {
+  .geo-landing {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .landing-header {
+    display: flex;
+    gap: 8px;
+    height: 64px;
+    padding: 0 14px;
+  }
+
+  .landing-header .brand {
+    min-width: 0;
+  }
+
+  .landing-header .brand__text {
+    font-size: 14px;
+    line-height: 1.25;
+    max-width: 108px;
+    white-space: normal;
+  }
+
+  .header-nav {
+    display: none;
+  }
+
+  .header-actions {
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .header-actions .btn {
+    font-size: 12px;
+    height: 34px;
+    padding: 0 10px;
+  }
+
+  .hero-section {
+    min-height: 0;
+    padding: 92px 16px 40px;
+  }
+
+  .hero-copy h1 {
+    font-size: 38px;
+    line-height: 1.18;
+  }
+
+  .hero-desc {
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .search-console,
+  .hero-stats,
+  .geo-market-strip {
+    width: 100%;
+  }
+
+  .search-console {
+    margin-top: 22px;
+    padding: 14px;
+  }
+
+  .search-title {
+    font-size: 16px;
+    text-align: left;
+  }
+
+  .platform-tabs {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-stats,
+  .geo-market-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .page-section {
+    padding: 56px 16px;
+    width: 100%;
+  }
+
+  .section-head h2 {
+    font-size: 28px;
+  }
+
+  .rank-layout,
+  .source-content,
+  .workflow-grid,
+  .compare-card,
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rank-card {
+    overflow-x: auto;
+  }
+
+  .rank-table {
+    min-width: 560px;
+  }
+
+  .source-section {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .source-shell {
+    padding: 14px;
+  }
+
+  .source-content {
+    gap: 22px;
+    grid-template-columns: 1fr;
+  }
+
+  .source-list article {
+    grid-template-columns: 12px 86px minmax(0, 1fr) 42px;
+  }
+
+  .geo-console {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .geo-console__aside {
+    height: auto;
+    width: 100% !important;
+  }
+
+  .geo-console__menu-scroll {
+    flex: none;
+    max-height: 280px;
+  }
+
+  .geo-console__main {
+    height: auto;
+  }
+
+  .geo-console__topbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-height: 0;
+    padding: 12px 14px;
+  }
+
+  .geo-topbar__left,
+  .geo-topbar__search,
+  .geo-topbar__actions {
+    width: 100%;
+  }
+
+  .geo-topbar__search {
+    order: 2;
+  }
+
+  .geo-topbar__actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    order: 3;
+  }
+
+  .geo-console__content {
+    overflow: visible;
+    padding: 14px 12px 28px;
+  }
+
+  .geo-market-banner {
+    align-items: flex-start;
+    flex-direction: column;
+    margin: 0 12px;
+  }
+
+  .geo-market-panel {
+    padding: 18px;
+  }
+
+  .geo-market-panel__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .geo-market-panel__footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .geo-market-panel__footer button {
+    width: 100%;
+  }
+}

@@ -315,6 +315,18 @@ class WeChatPayService extends BasePayService
         return $response->toArray(false);
     }
 
+    /**
+     * Query a transaction by the merchant order number.
+     */
+    public function checkPay(string $orderSn): array
+    {
+        $response = $this->app->getClient()->get(
+            'v3/pay/transactions/out-trade-no/' . rawurlencode($orderSn),
+            ['query' => ['mchid' => (string)$this->config['mch_id']]]
+        );
+        return $response->toArray(false);
+    }
+
 
     /**
      * @notes 支付描述
@@ -454,19 +466,19 @@ class WeChatPayService extends BasePayService
     {
         switch ($terminal) {
             case UserTerminalEnum::WECHAT_MMP:
-                $notifyUrl = (string)url('pay/notifyMnp', [], false, true);
+                $notifyUrl = (string)url('api/pay/notifyPlatformMnp', [], false, true);
                 break;
             case UserTerminalEnum::WECHAT_OA:
             case UserTerminalEnum::PC:
             case UserTerminalEnum::H5:
-                $notifyUrl = (string)url('pay/notifyOa', [], false, true);
+                $notifyUrl = (string)url('api/pay/notifyPlatformOa', [], false, true);
                 break;
             case UserTerminalEnum::ANDROID:
             case UserTerminalEnum::IOS:
-                $notifyUrl = (string)url('pay/notifyApp', [], false, true);
+                $notifyUrl = (string)url('api/pay/notifyPlatformApp', [], false, true);
                 break;
             default:
-                $notifyUrl = (string)url('pay/notifyOa', [], false, true);
+                $notifyUrl = (string)url('api/pay/notifyPlatformOa', [], false, true);
                 break;
         }
 

@@ -15,14 +15,14 @@ class AccessTokenExpiredRetryStrategy extends GenericRetryStrategy
 
     protected ?Closure $decider = null;
 
-    public function withAccessToken(AccessTokenInterface $accessToken): self
+    public function withAccessToken(AccessTokenInterface $accessToken): static
     {
         $this->accessToken = $accessToken;
 
         return $this;
     }
 
-    public function decideUsing(Closure $decider): self
+    public function decideUsing(Closure $decider): static
     {
         $this->decider = $decider;
 
@@ -34,7 +34,7 @@ class AccessTokenExpiredRetryStrategy extends GenericRetryStrategy
         ?string $responseContent,
         ?TransportExceptionInterface $exception
     ): ?bool {
-        if ((bool) $responseContent && $this->decider && ($this->decider)($context, $responseContent, $exception)) {
+        if ($responseContent && $this->decider && ($this->decider)($context, $responseContent, $exception)) {
             if ($this->accessToken instanceof RefreshableAccessTokenInterface) {
                 return (bool) $this->accessToken->refresh();
             }

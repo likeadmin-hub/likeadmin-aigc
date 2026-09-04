@@ -15,29 +15,29 @@ abstract class Base implements Contracts\ProviderInterface
 {
     public const NAME = null;
 
-    protected ?string      $state = null;
+    protected ?string $state = null;
 
-    protected Config       $config;
+    protected Config $config;
 
-    protected ?string      $redirectUrl;
+    protected ?string $redirectUrl;
 
-    protected array        $parameters = [];
+    protected array $parameters = [];
 
-    protected array        $scopes = [];
+    protected array $scopes = [];
 
-    protected string       $scopeSeparator = ',';
+    protected string $scopeSeparator = ',';
 
     protected GuzzleClient $httpClient;
 
-    protected array        $guzzleOptions = [];
+    protected array $guzzleOptions = [];
 
-    protected int          $encodingType = PHP_QUERY_RFC1738;
+    protected int $encodingType = PHP_QUERY_RFC1738;
 
-    protected string       $expiresInKey = Contracts\RFC6749_ABNF_EXPIRES_IN;
+    protected string $expiresInKey = Contracts\RFC6749_ABNF_EXPIRES_IN;
 
-    protected string       $accessTokenKey = Contracts\RFC6749_ABNF_ACCESS_TOKEN;
+    protected string $accessTokenKey = Contracts\RFC6749_ABNF_ACCESS_TOKEN;
 
-    protected string       $refreshTokenKey = Contracts\RFC6749_ABNF_REFRESH_TOKEN;
+    protected string $refreshTokenKey = Contracts\RFC6749_ABNF_REFRESH_TOKEN;
 
     public function __construct(array $config)
     {
@@ -53,7 +53,7 @@ abstract class Base implements Contracts\ProviderInterface
         // normalize Contracts\RFC6749_ABNF_CLIENT_ID
         if (! $this->config->has(Contracts\RFC6749_ABNF_CLIENT_ID)) {
             $id = $this->config->get(Contracts\ABNF_APP_ID);
-            if (null != $id) {
+            if ($id != null) {
                 $this->config->set(Contracts\RFC6749_ABNF_CLIENT_ID, $id);
             }
         }
@@ -61,16 +61,25 @@ abstract class Base implements Contracts\ProviderInterface
         // normalize Contracts\RFC6749_ABNF_CLIENT_SECRET
         if (! $this->config->has(Contracts\RFC6749_ABNF_CLIENT_SECRET)) {
             $secret = $this->config->get(Contracts\ABNF_APP_SECRET);
-            if (null != $secret) {
+            if ($secret != null) {
                 $this->config->set(Contracts\RFC6749_ABNF_CLIENT_SECRET, $secret);
             }
         }
 
-        // normalize 'redirect_url'
-        if (! $this->config->has('redirect_url')) {
-            $this->config->set('redirect_url', $this->config->get('redirect'));
+        // normalize redirect uri aliases to RFC6749_ABNF_REDIRECT_URI
+        if (! $this->config->has(Contracts\RFC6749_ABNF_REDIRECT_URI)) {
+            $this->config->set(
+                Contracts\RFC6749_ABNF_REDIRECT_URI,
+                $this->config->get('redirect') ?? $this->config->get('redirect_url')
+            );
         }
-        $this->redirectUrl = $this->config->get('redirect_url');
+
+        // keep legacy alias available for compatibility
+        if (! $this->config->has('redirect_url')) {
+            $this->config->set('redirect_url', $this->config->get(Contracts\RFC6749_ABNF_REDIRECT_URI));
+        }
+
+        $this->redirectUrl = $this->config->get(Contracts\RFC6749_ABNF_REDIRECT_URI);
     }
 
     abstract protected function getAuthUrl(): string;
@@ -133,6 +142,8 @@ abstract class Base implements Contracts\ProviderInterface
     public function withRedirectUrl(string $redirectUrl): Contracts\ProviderInterface
     {
         $this->redirectUrl = $redirectUrl;
+        $this->config->set(Contracts\RFC6749_ABNF_REDIRECT_URI, $redirectUrl);
+        $this->config->set('redirect_url', $redirectUrl);
 
         return $this;
     }

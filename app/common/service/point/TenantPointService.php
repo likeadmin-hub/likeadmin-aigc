@@ -7,6 +7,7 @@ use app\common\model\tenant\TenantPointLog;
 use app\common\service\PointUnitService;
 use app\common\service\power\TenantPowerMallService;
 use RuntimeException;
+use think\facade\Db;
 
 class TenantPointService
 {
@@ -29,6 +30,42 @@ class TenantPointService
             'operator_type' => 'platform_admin',
             'operator_id' => $adminId,
         ]);
+    }
+
+    /**
+     * 平台人工调整租户点数。正数增加，负数减少；减少时优先扣减有效套餐点数。
+     */
+    public static function adjustByPlatform(int $tenantId, float $delta, int $adminId = 0, string $remark = ''): void
+    {
+        if (round($delta, 2) === 0.0) {
+            throw new RuntimeException(PointUnitService::unit() . '调整数量不能为0');
+        }
+
+        TenantPowerMallService::expireBuckets($tenantId);
+        Db::transaction(function () use ($tenantId, $delta, $adminId, $remark): void {
+            $tenant = self::lockTenant($tenantId);
+            $amount = abs(round($delta, 2));
+            $action = $delta > 0 ? self::ACTION_INC : self::ACTION_DEC;
+            if ($action === self::ACTION_DEC && (float)$tenant['point_balance'] < $amount) {
+                throw new RuntimeException('租户' . PointUnitService::unit() . '不足，无法减少');
+            }
+
+            if ($action === self::ACTION_DEC) {
+                // Keep package buckets and the aggregate balance consistent. Any
+                // remainder comes from historical/manual (non-bucket) balance.
+                TenantPowerMallService::consumeBuckets($tenantId, $amount, '', $remark, [], false);
+                $tenant->point_balance = self::formatPoints((float)$tenant['point_balance'] - $amount);
+            } else {
+                $tenant->point_balance = self::formatPoints((float)$tenant['point_balance'] + $amount);
+            }
+            $tenant->save();
+
+            self::log($tenantId, self::TYPE_ADJUST, $action, $amount, (float)$tenant['point_balance'], '', $remark, [
+                'operator_type' => 'platform_admin',
+                'operator_id' => $adminId,
+                'adjust_direction' => $action === self::ACTION_INC ? 'increase' : 'decrease',
+            ]);
+        });
     }
 
     public static function consume(int $tenantId, float $points, string $sourceSn, string $remark = '', array $extra = []): void

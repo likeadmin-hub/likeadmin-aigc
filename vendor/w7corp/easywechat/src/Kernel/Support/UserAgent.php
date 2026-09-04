@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace EasyWeChat\Kernel\Support;
 
+use Composer\InstalledVersions;
+
 use function array_map;
 use function array_unshift;
 use function class_exists;
-use Composer\InstalledVersions;
+use function constant;
 use function curl_version;
 use function defined;
 use function explode;
@@ -19,14 +21,13 @@ class UserAgent
 {
     /**
      * @param  array<string>  $appends
-     * @return string
      */
     public static function create(array $appends = []): string
     {
         $value = array_map('strval', $appends);
 
         if (defined('HHVM_VERSION')) {
-            array_unshift($value, 'HHVM/'.HHVM_VERSION);
+            array_unshift($value, 'HHVM/'.constant('HHVM_VERSION'));
         }
 
         $disabledFunctions = explode(',', ini_get('disable_functions') ?: '');

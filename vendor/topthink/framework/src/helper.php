@@ -2,13 +2,13 @@
 // +----------------------------------------------------------------------
 // | ThinkPHP [ WE CAN DO IT JUST THINK ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2006~2023 http://thinkphp.cn All rights reserved.
+// | Copyright (c) 2006~2025 http://thinkphp.cn All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed ( http://www.apache.org/licenses/LICENSE-2.0 )
 // +----------------------------------------------------------------------
 // | Author: liu21st <liu21st@gmail.com>
 // +----------------------------------------------------------------------
-declare(strict_types=1);
+declare (strict_types = 1);
 
 //------------------------
 // ThinkPHP 助手函数
@@ -37,13 +37,14 @@ use think\response\View;
 use think\response\Xml;
 use think\route\Url as UrlBuild;
 use think\Validate;
+use think\validate\ValidateRuleSet;
 
 if (!function_exists('abort')) {
     /**
      * 抛出HTTP异常
-     * @param integer|Response $code    状态码 或者 Response对象实例
-     * @param string           $message 错误信息
-     * @param array            $header  参数
+     * @param int|Response $code    状态码 或者 Response对象实例
+     * @param string       $message 错误信息
+     * @param array        $header  参数
      */
     function abort($code, string $message = '', array $header = [])
     {
@@ -92,7 +93,7 @@ if (!function_exists('cache')) {
      * @param string $tag     缓存标签
      * @return mixed
      */
-    function cache(string $name = null, $value = '', $options = null, $tag = null)
+    function cache(?string $name = null, $value = '', $options = null, $tag = null)
     {
         if (is_null($name)) {
             return app('cache');
@@ -211,7 +212,7 @@ if (!function_exists('env')) {
      * @param string $default 默认值
      * @return mixed
      */
-    function env(string $name = null, $default = null)
+    function env(?string $name = null, $default = null)
     {
         return Env::get($name, $default);
     }
@@ -537,6 +538,18 @@ if (!function_exists('validate')) {
         }
 
         return $v->message($message)->batch($batch)->failException($failException);
+    }
+}
+
+if (!function_exists('rules')) {
+    /**
+     * 定义ValidateRuleSet规则集合
+     * @param array    $rules     验证因子集
+     * @return ValidateRuleSet
+     */
+    function rules(array $rules): ValidateRuleSet
+    {
+        return ValidateRuleSet::rules($rules);
     }
 }
 

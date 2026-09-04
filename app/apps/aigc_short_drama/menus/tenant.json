@@ -32,6 +32,15 @@
         "component": "apps/aigc_short_drama/config"
       },
       {
+        "source_menu_key": "aigc_short_drama_prompt",
+        "type": "C",
+        "name": "提示词配置",
+        "sort": 6,
+        "perms": "app.aigc_short_drama.config/detail",
+        "paths": "prompt",
+        "component": "apps/aigc_short_drama/prompt"
+      },
+      {
         "source_menu_key": "aigc_short_drama_project",
         "type": "C",
         "name": "剧本列表",

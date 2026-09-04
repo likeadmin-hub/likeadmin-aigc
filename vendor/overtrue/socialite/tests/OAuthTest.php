@@ -1,13 +1,16 @@
 <?php
 
+use GuzzleHttp\Client;
 use Mockery as m;
 use Overtrue\Socialite\Providers\Base;
 use Overtrue\Socialite\User;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamInterface;
 
 class OAuthTest extends TestCase
 {
-    public function tearDown(): void
+    protected function tearDown(): void
     {
         m::close();
     }
@@ -38,7 +41,31 @@ class OAuthTest extends TestCase
         $config += ['redirect_url' => 'fake_redirect'];
         $provider = new OAuthTestProviderStub($config);
 
-        $this->assertSame('http://auth.url?client_id=fake_client_id&redirect_uri=fake_redirect&scope=info&response_type=code', $provider->redirect('fake_redirect'));
+        $this->assertSame('http://auth.url?client_id=fake_client_id&redirect_uri=fake_redirect&scope=info&response_type=code', $provider->redirect());
+    }
+
+    public function test_it_can_get_auth_url_with_redirect_uri_config_alias()
+    {
+        $config = [
+            'client_id' => 'fake_client_id',
+            'client_secret' => 'fake_client_secret',
+            'redirect_uri' => 'fake_redirect',
+        ];
+        $provider = new OAuthTestProviderStub($config);
+
+        $this->assertSame('http://auth.url?client_id=fake_client_id&redirect_uri=fake_redirect&scope=info&response_type=code', $provider->redirect());
+    }
+
+    public function test_it_can_get_auth_url_with_redirect_config_alias()
+    {
+        $config = [
+            'client_id' => 'fake_client_id',
+            'client_secret' => 'fake_client_secret',
+            'redirect' => 'fake_redirect',
+        ];
+        $provider = new OAuthTestProviderStub($config);
+
+        $this->assertSame('http://auth.url?client_id=fake_client_id&redirect_uri=fake_redirect&scope=info&response_type=code', $provider->redirect());
     }
 
     public function test_it_can_get_auth_url_with_scopes()
@@ -76,14 +103,15 @@ class OAuthTest extends TestCase
             'client_secret' => 'fake_client_secret',
         ];
         $provider = new OAuthTestProviderStub($config);
-        $response = m::mock(\Psr\Http\Message\ResponseInterface::class);
+        $response = m::mock(ResponseInterface::class);
+        $stream = m::mock(StreamInterface::class);
 
-        $response->shouldReceive('getBody')->andReturn($response);
-        $response->shouldReceive('__toString')->andReturn(\json_encode([
+        $stream->shouldReceive('__toString')->andReturn(\json_encode([
             'access_token' => 'fake_access_token',
             'refresh_token' => 'fake_refresh_token',
             'expires_in' => 123456,
         ]));
+        $response->shouldReceive('getBody')->andReturn($stream);
 
         $provider->getHttpClient()->shouldReceive('post')->with('http://token.url', [
             'form_params' => [
@@ -127,13 +155,15 @@ class OAuthTest extends TestCase
         ];
         $provider = new OAuthTestProviderStub($config);
 
-        $response = m::mock(\Psr\Http\Message\ResponseInterface::class);
-        $response->shouldReceive('getBody')->andReturn($response);
-        $response->shouldReceive('__toString')->andReturn(\json_encode([
+        $response = m::mock(ResponseInterface::class);
+        $stream = m::mock(StreamInterface::class);
+
+        $stream->shouldReceive('__toString')->andReturn(\json_encode([
             'access_token' => 'fake_access_token',
             'refresh_token' => 'fake_refresh_token',
             'expires_in' => 123456,
         ]));
+        $response->shouldReceive('getBody')->andReturn($stream);
 
         $provider->getHttpClient()->shouldReceive('post')->with('http://token.url', [
             'form_params' => [
@@ -199,15 +229,13 @@ class OAuthTestProviderStub extends Base
 
     /**
      * Get a fresh instance of the Guzzle HTTP client.
-     *
-     * @return \GuzzleHttp\Client
      */
-    public function getHttpClient(): GuzzleHttp\Client
+    public function getHttpClient(): Client
     {
         if ($this->http) {
             return $this->http;
         }
 
-        return $this->http = m::mock(\GuzzleHttp\Client::class);
+        return $this->http = m::mock(Client::class);
     }
 }

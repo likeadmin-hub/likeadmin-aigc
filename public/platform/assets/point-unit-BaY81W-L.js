@@ -1,1 +1,0 @@
-import{u as a}from"./index-Cch4JDPP.js";const s="算力",r=t=>String(t||"").trim()||s,e=()=>{var n,o,i;const t=a();return r(((n=t.config)==null?void 0:n.point_unit)||((i=(o=t.config)==null?void 0:o.recharge)==null?void 0:i.point_unit))},c=(t,n)=>`${t} ${r(n||e())}`,p=(t,n="",o)=>`${t} ${r(e())}${n?`/${n}`:""}`;export{c as a,p as f,e as g,r as n};

@@ -53,6 +53,18 @@ use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupConfig;
 use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupOption;
 use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupResult;
 use app\common\model\app\aigc_one_click_cleanup\AigcOneClickCleanupTask;
+use app\common\model\app\aigc_watermark_removal\AigcWatermarkRemovalConfig;
+use app\common\model\app\aigc_watermark_removal\AigcWatermarkRemovalResult;
+use app\common\model\app\aigc_watermark_removal\AigcWatermarkRemovalTask;
+use app\common\model\app\aigc_music_cover\AigcMusicCoverConfig;
+use app\common\model\app\aigc_music_cover\AigcMusicCoverResult;
+use app\common\model\app\aigc_music_cover\AigcMusicCoverTask;
+use app\common\model\app\aigc_music\AigcMusicAsset;
+use app\common\model\app\aigc_geo\AigcGeoArticle;
+use app\common\model\app\aigc_geo\AigcGeoConfig;
+use app\common\model\app\aigc_geo\AigcGeoDiagnosis;
+use app\common\model\app\aigc_geo\AigcGeoKeyword;
+use app\common\model\app\aigc_geo\AigcGeoTask;
 use app\common\model\app\aigc_local_redraw\AigcLocalRedrawConfig;
 use app\common\model\app\aigc_local_redraw\AigcLocalRedrawResult;
 use app\common\model\app\aigc_local_redraw\AigcLocalRedrawTask;
@@ -146,6 +158,7 @@ class AppRegistryService
         $manifest = self::getManifest($appCode);
         self::assertCoreCompatible($manifest, $coreVersion);
         $migrations = self::runLocalMigrations($appCode, (string)($manifest['version'] ?? '1.0.0'));
+        self::installPublicAssets($manifest, root_path() . 'app/apps/' . $appCode);
         $time = time();
         $appData = DefaultAppService::normalizeAppData($appCode, [
             'code' => $appCode,
@@ -186,6 +199,103 @@ class AppRegistryService
             'manifest' => $manifest,
             'migrations' => $migrations,
         ];
+    }
+
+    /**
+     * Deploy the small runtime assets declared by an app package.
+     * Frontend source is intentionally kept out of app business code; these
+     * declared files are the compiled/static bridge used by the current shell.
+     */
+    public static function installPublicAssets(array $manifest, string $sourceRoot): void
+    {
+        foreach ((array)($manifest['public_assets'] ?? []) as $asset) {
+            if (!is_array($asset)) {
+                continue;
+            }
+            $sourceRelative = trim((string)($asset['source'] ?? ''));
+            $targetRelative = trim((string)($asset['target'] ?? ''));
+            if ($sourceRelative === '' || $targetRelative === '') {
+                continue;
+            }
+            foreach ([$sourceRelative, $targetRelative] as $relative) {
+                if (str_contains($relative, '..') || str_starts_with($relative, '/') || preg_match('/^[A-Za-z]:[\\\\\/]/', $relative)) {
+                    throw new RuntimeException('应用前端资源路径不安全: ' . $relative);
+                }
+            }
+            $target = root_path() . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $targetRelative);
+            $source = rtrim($sourceRoot, '/\\') . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $sourceRelative);
+            // Package updates deploy the declared asset before re-running the
+            // local installer, while the business-code copy intentionally omits
+            // frontend source. Reuse that already-deployed asset in this case.
+            if (!is_file($source) && is_file($target)) {
+                self::ensureShellAssetTag($targetRelative, $manifest);
+                continue;
+            }
+            if (!is_file($source)) {
+                throw new RuntimeException('应用前端资源不存在: ' . $sourceRelative);
+            }
+            if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0777, true) && !is_dir(dirname($target))) {
+                throw new RuntimeException('应用前端资源目录不可写: ' . dirname($target));
+            }
+            if (!copy($source, $target)) {
+                throw new RuntimeException('应用前端资源部署失败: ' . $targetRelative);
+            }
+            self::ensureShellAssetTag($targetRelative, $manifest);
+        }
+    }
+
+    /**
+     * Register compiled app bridges in the two legacy HTML shells.
+     * This keeps uploaded tenant/PC app packages usable without rebuilding shells.
+     */
+    private static function ensureShellAssetTag(string $targetRelative, array $manifest): void
+    {
+        $normalizedTarget = ltrim(str_replace('\\', '/', trim($targetRelative)), '/');
+        if (!str_starts_with($normalizedTarget, 'public/')) {
+            return;
+        }
+
+        $basename = basename($normalizedTarget);
+        $shellRelative = null;
+        if (str_ends_with($basename, '-admin.js')) {
+            $shellRelative = 'public/admin/index.html';
+        } elseif (str_ends_with($basename, '-page.js')) {
+            $shellRelative = 'public/pc/index.html';
+        }
+        if ($shellRelative === null) {
+            return;
+        }
+
+        $shellPath = root_path() . str_replace('/', DIRECTORY_SEPARATOR, $shellRelative);
+        if (!is_file($shellPath)) {
+            return;
+        }
+        $html = file_get_contents($shellPath);
+        if ($html === false) {
+            throw new RuntimeException('应用前端壳读取失败: ' . $shellRelative);
+        }
+
+        $version = trim((string)($manifest['version'] ?? ''));
+        $src = '/' . $basename . ($version !== '' ? '?v=' . rawurlencode($version) : '');
+        $tag = '<script defer src="' . $src . '"></script>';
+        $pattern = '#<script\\b[^>]*\\bsrc=(["\\\'])/?' . preg_quote($basename, '#') . '(?:\\?[^"\\\']*)?\\1[^>]*>\\s*</script>#i';
+        $updated = preg_replace($pattern, $tag, $html, 1, $count);
+        if ($updated === null) {
+            throw new RuntimeException('应用前端壳脚本标签解析失败: ' . $shellRelative);
+        }
+        if ($count === 0) {
+            $injection = "\n    " . $tag . "\n";
+            $updated = preg_replace('#</body>#i', $injection . '</body>', $html, 1, $bodyCount);
+            if ($updated === null) {
+                throw new RuntimeException('应用前端壳写入失败: ' . $shellRelative);
+            }
+            if ($bodyCount === 0) {
+                $updated = rtrim($html) . $injection;
+            }
+        }
+        if ($updated !== $html && file_put_contents($shellPath, $updated) === false) {
+            throw new RuntimeException('应用前端壳写入失败: ' . $shellRelative);
+        }
     }
 
     public static function assertCoreCompatible(array $manifest, string $coreVersion = ''): void
@@ -787,6 +897,24 @@ class AppRegistryService
             AigcOneClickCleanupOption::where('id', '>', 0)->delete();
             AigcOneClickCleanupTask::where('id', '>', 0)->delete();
             AigcOneClickCleanupResult::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_watermark_removal') {
+            AigcWatermarkRemovalConfig::where('id', '>', 0)->delete();
+            AigcWatermarkRemovalTask::where('id', '>', 0)->delete();
+            AigcWatermarkRemovalResult::where('id', '>', 0)->delete();
+        }
+        if ($appCode === 'aigc_music_cover') {
+            AigcMusicCoverConfig::where('id', '>', 0)->delete();
+            AigcMusicCoverTask::where('id', '>', 0)->delete();
+            AigcMusicCoverResult::where('id', '>', 0)->delete();
+            AigcMusicAsset::whereIn('asset_type', ['cover_source', 'cover_reference'])->delete();
+        }
+        if ($appCode === 'aigc_geo') {
+            AigcGeoConfig::where('id', '>', 0)->delete();
+            AigcGeoKeyword::where('id', '>', 0)->delete();
+            AigcGeoArticle::where('id', '>', 0)->delete();
+            AigcGeoDiagnosis::where('id', '>', 0)->delete();
+            AigcGeoTask::where('id', '>', 0)->delete();
         }
         if ($appCode === 'aigc_product_suite') {
             AigcProductSuiteConfig::where('id', '>', 0)->delete();

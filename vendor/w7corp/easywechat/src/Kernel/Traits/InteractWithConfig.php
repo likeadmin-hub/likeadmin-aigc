@@ -6,7 +6,7 @@ namespace EasyWeChat\Kernel\Traits;
 
 use EasyWeChat\Kernel\Config;
 use EasyWeChat\Kernel\Contracts\Config as ConfigInterface;
-use EasyWeChat\Kernel\Exceptions\InvalidArgumentException;
+
 use function is_array;
 
 trait InteractWithConfig
@@ -15,8 +15,6 @@ trait InteractWithConfig
 
     /**
      * @param  array<string,mixed>|ConfigInterface  $config
-     *
-     * @throws InvalidArgumentException
      */
     public function __construct(array|ConfigInterface $config)
     {

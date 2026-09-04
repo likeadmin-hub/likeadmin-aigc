@@ -221,4 +221,65 @@ class OfficialAccountReplyLogic extends BaseLogic
         ])
             ->value('content');
     }
+
+    /**
+     * Resolve an automatic reply for an open-platform authorizer callback.
+     * The public callback has no tenant session, so every query is explicitly
+     * scoped to the authorizer's tenant instead of relying on request context.
+     */
+    public static function authorizerReply(array $message, int $tenantId): string
+    {
+        if ($tenantId <= 0) {
+            return '';
+        }
+
+        $replies = static fn () => OfficialAccountReply::withoutGlobalScope()
+            ->where('tenant_id', $tenantId);
+        $messageType = strtolower((string)($message['MsgType'] ?? ''));
+
+        if ($messageType === OfficialAccountEnum::MSG_TYPE_EVENT
+            && strtolower((string)($message['Event'] ?? '')) === OfficialAccountEnum::EVENT_SUBSCRIBE) {
+            return (string)$replies()
+                ->where([
+                    'reply_type' => OfficialAccountEnum::REPLY_TYPE_FOLLOW,
+                    'status' => YesNoEnum::YES,
+                ])
+                ->value('content');
+        }
+
+        if ($messageType !== OfficialAccountEnum::MSG_TYPE_TEXT) {
+            return '';
+        }
+
+        $content = (string)($message['Content'] ?? '');
+        $replyText = '';
+        $replyList = $replies()
+            ->where([
+                'reply_type' => OfficialAccountEnum::REPLY_TYPE_KEYWORD,
+                'status' => YesNoEnum::YES,
+            ])
+            ->order('sort asc')
+            ->select();
+        foreach ($replyList as $reply) {
+            $keyword = (string)$reply['keyword'];
+            $matched = (int)$reply['matching_type'] === OfficialAccountEnum::MATCHING_TYPE_FULL
+                ? $keyword === $content
+                : stripos($content, $keyword) !== false;
+            if ($matched) {
+                $replyText = (string)$reply['content'];
+                break;
+            }
+        }
+
+        if ($replyText !== '') {
+            return $replyText;
+        }
+
+        return (string)$replies()
+            ->where([
+                'reply_type' => OfficialAccountEnum::REPLY_TYPE_DEFAULT,
+                'status' => YesNoEnum::YES,
+            ])
+            ->value('content');
+    }
 }

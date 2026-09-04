@@ -1,0 +1,1 @@
+.header{width:100%}.header image{width:120rpx;height:120rpx;border-radius:50%}.item{margin-top:2rpx;padding:30rpx;background-color:#fff}.item .label{width:150rpx}.item .content{flex:1;width:80%}

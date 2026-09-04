@@ -11,6 +11,7 @@ class DistributionController extends BaseApiController
     {
         try {
             $tenantId = (int)$this->request->tenantId;
+            DistributionService::assertEnabled($tenantId);
             $overview = DistributionService::userOverview($tenantId, $this->userId);
             $relation = $overview['relation'];
             $account = $overview['dashboard']['account'];
@@ -37,6 +38,7 @@ class DistributionController extends BaseApiController
     public function relations()
     {
         try {
+            DistributionService::assertEnabled((int)$this->request->tenantId);
             $page = (int)$this->request->get('page_no', $this->request->get('page', 1));
             $size = (int)$this->request->get('page_size', $this->request->get('size', 20));
             $tenantId = (int)$this->request->tenantId;
@@ -70,6 +72,7 @@ class DistributionController extends BaseApiController
     public function commissions()
     {
         try {
+            DistributionService::assertEnabled((int)$this->request->tenantId);
             return $this->success('获取成功', DistributionService::commissionRows(
                 (int)$this->request->tenantId,
                 $this->request->get(),
@@ -85,7 +88,9 @@ class DistributionController extends BaseApiController
     public function withdrawAccounts()
     {
         try {
-            return $this->success('获取成功', ['lists' => DistributionService::withdrawAccounts((int)$this->request->tenantId, $this->userId, true)]);
+            $tenantId = (int)$this->request->tenantId;
+            DistributionService::assertEnabled($tenantId);
+            return $this->success('获取成功', ['lists' => DistributionService::withdrawAccounts($tenantId, $this->userId, true)]);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -94,7 +99,9 @@ class DistributionController extends BaseApiController
     public function saveWithdrawAccount()
     {
         try {
-            return $this->success('保存成功', DistributionService::saveWithdrawAccount((int)$this->request->tenantId, $this->userId, $this->request->post()));
+            $tenantId = (int)$this->request->tenantId;
+            DistributionService::assertEnabled($tenantId);
+            return $this->success('保存成功', DistributionService::saveWithdrawAccount($tenantId, $this->userId, $this->request->post()));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
@@ -103,6 +110,7 @@ class DistributionController extends BaseApiController
     public function applyWithdrawal()
     {
         try {
+            DistributionService::assertEnabled((int)$this->request->tenantId);
             return $this->success('申请成功', DistributionService::applyWithdrawal(
                 (int)$this->request->tenantId,
                 $this->userId,
@@ -117,6 +125,7 @@ class DistributionController extends BaseApiController
     public function withdrawalRecords()
     {
         try {
+            DistributionService::assertEnabled((int)$this->request->tenantId);
             return $this->success('获取成功', DistributionService::withdrawalRows(
                 (int)$this->request->tenantId, $this->userId, false,
                 (int)$this->request->get('page_no', $this->request->get('page', 1)),

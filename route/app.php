@@ -11,6 +11,15 @@
 use think\facade\Console;
 use think\facade\Route;
 
+Route::rule('wechat/open-platform/callback', function () {
+    try {
+        $result = \app\common\service\wechat\OpenPlatformCallbackService::handle(request());
+        return response($result, 200, ['Content-Type' => 'text/plain']);
+    } catch (\Throwable $e) {
+        return response('fail', 400, ['Content-Type' => 'text/plain']);
+    }
+}, 'GET|POST');
+
 // Upstream callbacks bypass user authentication. The handler accepts POST only
 // and verifies the HMAC configured with the model API source before waking a job.
 Route::post('ai/task/callback', function () {

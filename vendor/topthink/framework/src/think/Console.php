@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | TopThink [ WE CAN DO IT JUST THINK IT ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2015 http://www.topthink.com All rights reserved.
+// | Copyright (c) 2006~2025 http://www.topthink.com All rights reserved.
 // +----------------------------------------------------------------------
 // | Author: zhangyajun <448901948@qq.com>
 // +----------------------------------------------------------------------
@@ -27,6 +27,8 @@ use think\console\command\make\Model;
 use think\console\command\make\Service;
 use think\console\command\make\Subscribe;
 use think\console\command\make\Validate;
+use think\console\command\optimize\Config;
+use think\console\command\optimize\Optimize;
 use think\console\command\optimize\Route;
 use think\console\command\optimize\Schema;
 use think\console\command\RouteList;
@@ -69,6 +71,8 @@ class Console
         'make:listener'    => Listener::class,
         'make:service'     => Service::class,
         'make:subscribe'   => Subscribe::class,
+        'optimize'         => Optimize::class,
+        'optimize:config'  => Config::class,
         'optimize:route'   => Route::class,
         'optimize:schema'  => Schema::class,
         'run'              => RunServer::class,
@@ -92,6 +96,12 @@ class Console
 
         //加载指令
         $this->loadCommands();
+
+        // 设置执行用户
+        $user = $this->app->config->get('console.user');
+        if (!empty($user)) {
+            $this->setUser($user);
+        }
 
         $this->start();
     }
@@ -590,7 +600,7 @@ class Console
      * @return Command[]
      * @api
      */
-    public function all(string $namespace = null): array
+    public function all(?string $namespace = null): array
     {
         if (null === $namespace) {
             return $this->commands;
@@ -777,5 +787,4 @@ class Console
 
         return $namespaces;
     }
-
 }

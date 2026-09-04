@@ -1,0 +1,17 @@
+[
+  { "permission_key": "aigc_geo:config:detail", "name": "查看GEO品牌配置", "api_path": "app.aigc_geo.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_geo:config:setup", "name": "保存GEO品牌配置", "api_path": "app.aigc_geo.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_geo:console:summary", "name": "查看GEO概览", "api_path": "app.aigc_geo.console/summary", "api_method": "GET" },
+  { "permission_key": "aigc_geo:keyword:lists", "name": "查看GEO问题关键词", "api_path": "app.aigc_geo.keyword/lists", "api_method": "GET" },
+  { "permission_key": "aigc_geo:keyword:save", "name": "保存GEO问题关键词", "api_path": "app.aigc_geo.keyword/save", "api_method": "POST" },
+  { "permission_key": "aigc_geo:keyword:generate", "name": "生成GEO问题关键词", "api_path": "app.aigc_geo.keyword/generate", "api_method": "POST" },
+  { "permission_key": "aigc_geo:article:lists", "name": "查看GEO文章", "api_path": "app.aigc_geo.article/lists", "api_method": "GET" },
+  { "permission_key": "aigc_geo:article:detail", "name": "查看GEO文章详情", "api_path": "app.aigc_geo.article/detail", "api_method": "GET" },
+  { "permission_key": "aigc_geo:article:save", "name": "保存GEO文章", "api_path": "app.aigc_geo.article/save", "api_method": "POST" },
+  { "permission_key": "aigc_geo:article:generate", "name": "生成GEO文章", "api_path": "app.aigc_geo.article/generate", "api_method": "POST" },
+  { "permission_key": "aigc_geo:article:publish", "name": "发布GEO文章", "api_path": "app.aigc_geo.article/publish", "api_method": "POST" },
+  { "permission_key": "aigc_geo:diagnosis:lists", "name": "查看GEO品牌检测", "api_path": "app.aigc_geo.diagnosis/lists", "api_method": "GET" },
+  { "permission_key": "aigc_geo:diagnosis:run", "name": "执行GEO品牌检测", "api_path": "app.aigc_geo.diagnosis/run", "api_method": "POST" },
+  { "permission_key": "aigc_geo:task:lists", "name": "查看GEO任务记录", "api_path": "app.aigc_geo.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_geo:task:detail", "name": "查看GEO任务详情", "api_path": "app.aigc_geo.task/detail", "api_method": "GET" }
+]

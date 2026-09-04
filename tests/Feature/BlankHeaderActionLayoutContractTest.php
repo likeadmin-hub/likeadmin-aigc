@@ -75,6 +75,11 @@ class BlankHeaderActionLayoutContractTest extends TestCase
                 $compiledLayout
             );
             self::assertStringContainsString(
+                'let P;c?P=Math.max(24,Math.round(window.innerWidth-B.left+10)):B.width>480?',
+                $compiledLayout
+            );
+            self::assertStringNotContainsString('let P;B.width>480?', $compiledLayout);
+            self::assertStringContainsString(
                 'if(M)return a.classList.remove("is-in-flow-topbar","is-in-app-header","is-attached"),!1',
                 $compiledLayout
             );
@@ -145,6 +150,10 @@ class BlankHeaderActionLayoutContractTest extends TestCase
             self::assertStringNotContainsString('z-index:1200', $compiledStyles);
             self::assertStringNotContainsString(
                 '.blank-header-actions.is-workspace[data-v-780f342a]{right:232px}',
+                $compiledStyles
+            );
+            self::assertStringContainsString(
+                '@media (max-width:1500px){.blank-header-actions.is-in-flow-topbar.is-attached[data-v-780f342a]{display:none}}',
                 $compiledStyles
             );
         }

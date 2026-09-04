@@ -1,0 +1,13 @@
+{
+  "navigationBarTitleText": "个人资料",
+  "usingComponents": {
+    "avatar-upload": "../../components/avatar-upload/avatar-upload",
+    "u-icon": "../../uni_modules/vk-uview-ui/components/u-icon/u-icon",
+    "u-button": "../../uni_modules/vk-uview-ui/components/u-button/u-button",
+    "u-form-item": "../../uni_modules/vk-uview-ui/components/u-form-item/u-form-item",
+    "u-popup": "../../uni_modules/vk-uview-ui/components/u-popup/u-popup",
+    "u-input": "../../uni_modules/vk-uview-ui/components/u-input/u-input",
+    "u-picker": "../../uni_modules/vk-uview-ui/components/u-picker/u-picker",
+    "u-verification-code": "../../uni_modules/vk-uview-ui/components/u-verification-code/u-verification-code"
+  }
+}

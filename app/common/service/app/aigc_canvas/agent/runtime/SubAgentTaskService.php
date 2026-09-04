@@ -18,6 +18,73 @@ use think\facade\Db;
 final class SubAgentTaskService
 {
     private const MAX_ATTEMPTS = 2;
+    private const CREATIVE_WORK_UNITS = [
+        'planner' => [
+            'work_unit' => 'creative_strategy',
+            'label' => 'Planning',
+            'output_contract' => [
+                'creative_direction' => 'string',
+                'target_audience' => 'string',
+                'deliverables' => 'string[]',
+                'constraints' => 'string[]',
+            ],
+        ],
+        'copy' => [
+            'work_unit' => 'copy_deck',
+            'label' => 'Copy',
+            'output_contract' => [
+                'headline' => 'string',
+                'key_messages' => 'string[]',
+                'cta' => 'string',
+                'tone_guidance' => 'string',
+            ],
+        ],
+        'visual' => [
+            'work_unit' => 'visual_brief',
+            'label' => 'Visual',
+            'output_contract' => [
+                'subject' => 'string',
+                'composition' => 'string',
+                'style_direction' => 'string',
+                'negative_constraints' => 'string[]',
+            ],
+        ],
+        'canvas' => [
+            'work_unit' => 'canvas_plan',
+            'label' => 'Canvas',
+            'output_contract' => [
+                'layout_strategy' => 'string',
+                'placement_guidance' => 'string[]',
+                'preservation_constraints' => 'string[]',
+                'handoff_notes' => 'string',
+            ],
+        ],
+    ];
+
+    /**
+     * Convert a model-proposed delegate into a fixed creative work unit. This
+     * is also used by dispatch() so direct callers cannot bypass the contract.
+     */
+    public static function normalizeCreativeWorkUnit(array $task): array
+    {
+        $agentCode = trim((string)($task['agent_code'] ?? ''));
+        $profile = self::CREATIVE_WORK_UNITS[$agentCode] ?? null;
+        if (!is_array($profile)) {
+            throw new Exception('Unsupported creative work unit: ' . $agentCode);
+        }
+        $focus = mb_substr(trim((string)($task['task'] ?? $task['focus'] ?? '')), 0, 1200, 'UTF-8');
+        if ($focus === '') {
+            throw new Exception('Creative work unit description is required');
+        }
+        return [
+            'agent_code' => $agentCode,
+            'work_unit' => (string)$profile['work_unit'],
+            'label' => (string)$profile['label'],
+            'task' => $focus,
+            'input_snapshot' => self::compactInputSnapshot((array)($task['input_snapshot'] ?? $task['input'] ?? [])),
+            'output_contract' => (array)$profile['output_contract'],
+        ];
+    }
 
     public static function dispatch(
         AgentExecutionContext $context,
@@ -35,11 +102,9 @@ final class SubAgentTaskService
         }
         $scheduled = [];
         foreach (array_values($tasks) as $sequence => $task) {
-            $agentCode = trim((string)($task['agent_code'] ?? ''));
-            $focus = mb_substr(trim((string)($task['task'] ?? $task['focus'] ?? '')), 0, 1200, 'UTF-8');
-            if ($agentCode === '' || $focus === '') {
-                continue;
-            }
+            $task = self::normalizeCreativeWorkUnit((array)$task);
+            $agentCode = (string)$task['agent_code'];
+            $focus = (string)$task['task'];
             $childRunId = AgentTraceLogger::startRun(
                 $context->tenantId(), $context->userId(), $context->projectId(), $context->threadId(),
                 'dynamic_sub_agent', ['request' => $request, 'task' => $focus],
@@ -59,7 +124,10 @@ final class SubAgentTaskService
                 'request_id' => $requestId,
                 'request' => $request,
                 'agent_code' => $agentCode,
+                'work_unit' => (string)$task['work_unit'],
                 'focus' => $focus,
+                'input_snapshot' => (array)$task['input_snapshot'],
+                'output_contract' => (array)$task['output_contract'],
                 'canvas_context' => CanvasSnapshotBuilder::compact($canvasContext),
                 'child_run_id' => $childRunId,
             ];
@@ -90,6 +158,8 @@ final class SubAgentTaskService
                 'id' => $id,
                 'run_id' => $childRunId,
                 'agent_code' => $agentCode,
+                'work_unit' => (string)$task['work_unit'],
+                'label' => (string)$task['label'],
                 'status' => 'pending',
                 'task' => $focus,
             ];
@@ -172,13 +242,11 @@ final class SubAgentTaskService
                 'canvas_context' => (array)($payload['canvas_context'] ?? []),
                 'max_tokens' => 1200,
                 'request_timeout_seconds' => 120,
-                'output_contract' => ['findings' => ['string'], 'recommendation' => 'string'],
+                'creative_work_unit' => (string)$payload['work_unit'],
+                'input_snapshot' => (array)($payload['input_snapshot'] ?? []),
+                'creative_output_contract' => (array)($payload['output_contract'] ?? []),
             ]);
-            $content = trim((string)($result['content'] ?? ''));
-            if ($content === '') {
-                throw new Exception('Sub-agent returned no usable result');
-            }
-            $output = ['agent_code' => (string)$payload['agent_code'], 'task' => (string)$payload['focus'], 'result' => $content];
+            $output = self::structuredOutput($payload, (string)($result['content'] ?? ''));
             if (self::isCanceled($context->messageId())) {
                 self::cancel($task);
                 AgentTraceLogger::cancelRun($childRunId, ['canceled' => true]);
@@ -368,7 +436,13 @@ final class SubAgentTaskService
             $result = self::decode($row['result_json'] ?? []);
             return [
                 'agent_code' => (string)$row['agent_code'], 'status' => (string)$row['status'],
-                'task' => (string)($result['task'] ?? ''), 'result' => (string)($result['result'] ?? ''),
+                'work_unit' => (string)($result['work_unit'] ?? ''),
+                'task' => (string)($result['task'] ?? ''),
+                'output' => (array)($result['output'] ?? []),
+                // Keep the established lightweight result field for existing
+                // conversation/replay consumers while the typed output is used
+                // by the synthesizer.
+                'result' => (string)($result['result'] ?? $result['summary'] ?? ''),
                 'error' => (string)($row['error'] ?? ''),
             ];
         }, $tasks);
@@ -381,6 +455,14 @@ final class SubAgentTaskService
             if ($reply === '') {
                 $reply = self::fallbackReply($subtasks);
             }
+            // Delegate synthesis is model output too. It can contain the
+            // orchestration prompt, tool contract or scratchpad, none of
+            // which belongs in the saved conversation.
+            $reply = AgentResponseProtocol::userFacingReply([
+                'reply' => $reply,
+                'next_action' => 'chat',
+                'task_decision' => ['intent' => 'text_generation'],
+            ]);
             $assistant = AigcCanvasAgentMessage::findOrEmpty((int)$context->messageId());
             if ($assistant->isEmpty()) {
                 throw new Exception('Deferred assistant message was not found');
@@ -389,6 +471,11 @@ final class SubAgentTaskService
             $contentJson['subtasks'] = $subtasks;
             $contentJson['next_action'] = 'chat';
             $contentJson['agent_trace'] = array_merge((array)($contentJson['agent_trace'] ?? []), ['subtask_mode' => 'durable_parallel']);
+            $contentJson['response'] = AgentResponseProtocol::fromResult([
+                'reply' => $reply,
+                'next_action' => 'chat',
+                'task_decision' => ['intent' => 'text_generation'],
+            ]);
             $assistant->save(['content' => $reply, 'content_json' => $contentJson, 'status' => 'success', 'update_time' => time()]);
             AigcCanvasAgentThread::where('id', $context->threadId())->update(['update_time' => time()]);
             $thread = AigcCanvasAgentThread::where('id', $context->threadId())->findOrEmpty();
@@ -416,12 +503,12 @@ final class SubAgentTaskService
 
     private static function prompt(string $agentCode): string
     {
-        return 'You are the ' . $agentCode . ' delegate in a complex canvas task. Complete only the assigned task. Return concise, actionable findings for the parent agent. Do not call media models or modify the canvas.';
+        return 'You are the ' . $agentCode . ' creative work unit in a complex canvas task. Complete only the assigned task. Return one JSON object matching creative_output_contract exactly: include every required key, use strings for string fields and arrays of concise strings for string[] fields. Do not add markdown, tool calls, media generation, canvas mutations, invented source facts, or implementation details.';
     }
 
     private static function synthesisPrompt(): string
     {
-        return 'You are the primary canvas agent. Synthesize completed delegate results into one clear user-facing delivery. Preserve successful partial results, disclose only a short recoverable issue for failed delegates, and do not expose internal task ids, SKUs, providers, or implementation details.';
+        return 'You are the primary canvas agent. Synthesize completed structured creative work-unit outputs into one clear user-facing delivery. Preserve successful partial results, disclose only a short recoverable issue for failed work units, and do not expose internal task ids, SKUs, providers, or implementation details.';
     }
 
     private static function fallbackReply(array $subtasks): string
@@ -446,10 +533,103 @@ final class SubAgentTaskService
         if ($childRunId <= 0 || $childRunId !== (int)($payload['child_run_id'] ?? 0)) {
             throw new Exception('Sub-agent child run identity is invalid');
         }
-        if (!in_array((string)($payload['agent_code'] ?? ''), ['planner', 'copy', 'visual', 'canvas'], true)
+        $profile = self::CREATIVE_WORK_UNITS[(string)($payload['agent_code'] ?? '')] ?? null;
+        if (!is_array($profile)
+            || (string)($payload['work_unit'] ?? '') !== (string)$profile['work_unit']
+            || (array)($payload['output_contract'] ?? []) !== (array)$profile['output_contract']
             || trim((string)($payload['focus'] ?? '')) === '') {
             throw new Exception('Sub-agent payload is invalid');
         }
+    }
+
+    private static function structuredOutput(array $payload, string $content): array
+    {
+        $contract = (array)($payload['output_contract'] ?? []);
+        $decoded = self::decode($content);
+        $candidate = is_array($decoded['output'] ?? null) ? $decoded['output'] : $decoded;
+        if (!is_array($decoded['output'] ?? null) && is_string($decoded['assistant_reply'] ?? null)) {
+            $replyOutput = self::decode((string)$decoded['assistant_reply']);
+            if ($replyOutput !== []) {
+                $candidate = $replyOutput;
+            }
+        }
+        $output = [];
+        foreach ($contract as $field => $type) {
+            if ($type === 'string') {
+                $value = mb_substr(trim((string)($candidate[$field] ?? '')), 0, 1200, 'UTF-8');
+                if ($value === '') {
+                    throw new Exception('Creative work unit returned an invalid ' . $field . ' field');
+                }
+                $output[$field] = $value;
+                continue;
+            }
+            if ($type !== 'string[]' || !is_array($candidate[$field] ?? null)) {
+                throw new Exception('Creative work unit returned an invalid ' . $field . ' field');
+            }
+            $values = [];
+            foreach (array_slice($candidate[$field], 0, 12) as $value) {
+                $value = mb_substr(trim((string)$value), 0, 600, 'UTF-8');
+                if ($value !== '') {
+                    $values[] = $value;
+                }
+            }
+            if ($values === []) {
+                throw new Exception('Creative work unit returned an invalid ' . $field . ' field');
+            }
+            $output[$field] = array_values(array_unique($values));
+        }
+        if ($output === []) {
+            throw new Exception('Creative work unit returned no usable result');
+        }
+        $summary = self::outputSummary($output);
+        return [
+            'agent_code' => (string)$payload['agent_code'],
+            'work_unit' => (string)$payload['work_unit'],
+            'task' => (string)$payload['focus'],
+            'input_snapshot' => (array)($payload['input_snapshot'] ?? []),
+            'output' => $output,
+            'summary' => $summary,
+            'result' => $summary,
+        ];
+    }
+
+    private static function outputSummary(array $output): string
+    {
+        $parts = [];
+        foreach ($output as $value) {
+            $parts[] = is_array($value) ? implode('; ', $value) : (string)$value;
+        }
+        return mb_substr(implode("\n", $parts), 0, 2400, 'UTF-8');
+    }
+
+    private static function compactInputSnapshot(array $input): array
+    {
+        $snapshot = [];
+        foreach (array_slice($input, 0, 16, true) as $key => $value) {
+            $key = mb_substr(trim((string)$key), 0, 64, 'UTF-8');
+            if ($key === '') {
+                continue;
+            }
+            if (is_scalar($value) || $value === null) {
+                $snapshot[$key] = mb_substr(trim((string)$value), 0, 600, 'UTF-8');
+                continue;
+            }
+            if (is_array($value)) {
+                $values = [];
+                foreach (array_slice($value, 0, 8) as $item) {
+                    if (is_scalar($item) || $item === null) {
+                        $item = mb_substr(trim((string)$item), 0, 300, 'UTF-8');
+                        if ($item !== '') {
+                            $values[] = $item;
+                        }
+                    }
+                }
+                if ($values !== []) {
+                    $snapshot[$key] = $values;
+                }
+            }
+        }
+        return $snapshot;
     }
 
     private static function decode($value): array

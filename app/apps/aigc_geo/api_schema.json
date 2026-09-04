@@ -1,0 +1,29 @@
+{
+  "app_code": "aigc_geo",
+  "apis": [
+    { "api_path": "app.aigc_geo.config/detail", "api_method": "GET", "permission_key": "aigc_geo:config:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.config/setup", "api_method": "POST", "permission_key": "aigc_geo:config:setup", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.console/summary", "api_method": "GET", "permission_key": "aigc_geo:console:summary", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.keyword/lists", "api_method": "GET", "permission_key": "aigc_geo:keyword:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.keyword/save", "api_method": "POST", "permission_key": "aigc_geo:keyword:save", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.keyword/generate", "api_method": "POST", "permission_key": "aigc_geo:keyword:generate", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.article/lists", "api_method": "GET", "permission_key": "aigc_geo:article:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.article/detail", "api_method": "GET", "permission_key": "aigc_geo:article:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.article/save", "api_method": "POST", "permission_key": "aigc_geo:article:save", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.article/generate", "api_method": "POST", "permission_key": "aigc_geo:article:generate", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.article/publish", "api_method": "POST", "permission_key": "aigc_geo:article:publish", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.diagnosis/lists", "api_method": "GET", "permission_key": "aigc_geo:diagnosis:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.diagnosis/run", "api_method": "POST", "permission_key": "aigc_geo:diagnosis:run", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.task/lists", "api_method": "GET", "permission_key": "aigc_geo:task:lists", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.task/detail", "api_method": "GET", "permission_key": "aigc_geo:task:detail", "scene": "tenant_admin", "need_login": 1, "need_role_permission": 1 },
+    { "api_path": "app.aigc_geo.config/detail", "api_method": "GET", "permission_key": "aigc_geo:config:user", "scene": "user", "need_login": 0, "need_role_permission": 0 },
+    { "api_path": "app.aigc_geo.console/summary", "api_method": "GET", "permission_key": "aigc_geo:summary:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_geo.keyword/lists", "api_method": "GET", "permission_key": "aigc_geo:keyword:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_geo.keyword/generate", "api_method": "POST", "permission_key": "aigc_geo:keyword:generate:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_geo.article/lists", "api_method": "GET", "permission_key": "aigc_geo:article:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_geo.article/generate", "api_method": "POST", "permission_key": "aigc_geo:article:generate:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_geo.diagnosis/lists", "api_method": "GET", "permission_key": "aigc_geo:diagnosis:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_geo.diagnosis/run", "api_method": "POST", "permission_key": "aigc_geo:diagnosis:run:user", "scene": "user", "need_login": 1, "need_role_permission": 0 },
+    { "api_path": "app.aigc_geo.task/lists", "api_method": "GET", "permission_key": "aigc_geo:task:lists:user", "scene": "user", "need_login": 1, "need_role_permission": 0 }
+  ]
+}

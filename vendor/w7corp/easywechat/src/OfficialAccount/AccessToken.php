@@ -6,22 +6,17 @@ namespace EasyWeChat\OfficialAccount;
 
 use EasyWeChat\Kernel\Contracts\RefreshableAccessToken as RefreshableAccessTokenInterface;
 use EasyWeChat\Kernel\Exceptions\HttpException;
-use function intval;
-use function is_string;
 use JetBrains\PhpStorm\ArrayShape;
-use function json_encode;
 use Psr\SimpleCache\CacheInterface;
-use Psr\SimpleCache\InvalidArgumentException;
-use function sprintf;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\Cache\Psr16Cache;
 use Symfony\Component\HttpClient\HttpClient;
-use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+
+use function intval;
+use function is_string;
+use function json_encode;
+use function sprintf;
 
 class AccessToken implements RefreshableAccessTokenInterface
 {
@@ -29,12 +24,15 @@ class AccessToken implements RefreshableAccessTokenInterface
 
     protected CacheInterface $cache;
 
+    const CACHE_KEY_PREFIX = 'official_account';
+
     public function __construct(
         protected string $appId,
         protected string $secret,
         protected ?string $key = null,
         ?CacheInterface $cache = null,
         ?HttpClientInterface $httpClient = null,
+        protected ?bool $stable = false
     ) {
         $this->httpClient = $httpClient ?? HttpClient::create(['base_uri' => 'https://api.weixin.qq.com/']);
         $this->cache = $cache ?? new Psr16Cache(new FilesystemAdapter(namespace: 'easywechat', defaultLifetime: 1500));
@@ -42,7 +40,7 @@ class AccessToken implements RefreshableAccessTokenInterface
 
     public function getKey(): string
     {
-        return $this->key ?? $this->key = sprintf('official_account.access_token.%s.%s', $this->appId, $this->secret);
+        return $this->key ?? $this->key = sprintf('%s.access_token.%s.%s.%s', static::CACHE_KEY_PREFIX, $this->appId, $this->secret, (int) $this->stable);
     }
 
     public function setKey(string $key): static
@@ -52,20 +50,11 @@ class AccessToken implements RefreshableAccessTokenInterface
         return $this;
     }
 
-    /**
-     * @throws HttpException
-     * @throws ClientExceptionInterface
-     * @throws DecodingExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws TransportExceptionInterface
-     * @throws InvalidArgumentException
-     */
     public function getToken(): string
     {
         $token = $this->cache->get($this->getKey());
 
-        if ((bool) $token && is_string($token)) {
+        if ($token && is_string($token)) {
             return $token;
         }
 
@@ -73,15 +62,7 @@ class AccessToken implements RefreshableAccessTokenInterface
     }
 
     /**
-     * @return array<string, string>
-     *
-     * @throws HttpException
-     * @throws InvalidArgumentException
-     * @throws ClientExceptionInterface
-     * @throws DecodingExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws TransportExceptionInterface
+     * @return array{access_token:string}
      */
     #[ArrayShape(['access_token' => 'string'])]
     public function toQuery(): array
@@ -89,16 +70,42 @@ class AccessToken implements RefreshableAccessTokenInterface
         return ['access_token' => $this->getToken()];
     }
 
-    /**
-     * @throws RedirectionExceptionInterface
-     * @throws DecodingExceptionInterface
-     * @throws InvalidArgumentException
-     * @throws ClientExceptionInterface
-     * @throws HttpException
-     * @throws TransportExceptionInterface
-     * @throws ServerExceptionInterface
-     */
     public function refresh(): string
+    {
+        return $this->stable ? $this->getStableAccessToken() : $this->getAccessToken();
+    }
+
+    /**
+     * @throws HttpException
+     */
+    public function getStableAccessToken(bool $force_refresh = false): string
+    {
+        $response = $this->httpClient->request(
+            'POST',
+            'https://api.weixin.qq.com/cgi-bin/stable_token',
+            [
+                'json' => [
+                    'grant_type' => 'client_credential',
+                    'appid' => $this->appId,
+                    'secret' => $this->secret,
+                    'force_refresh' => $force_refresh,
+                ],
+            ]
+        )->toArray(false);
+
+        if (empty($response['access_token'])) {
+            throw new HttpException('Failed to get stable access_token: '.json_encode($response, JSON_UNESCAPED_UNICODE));
+        }
+
+        $this->cache->set($this->getKey(), $response['access_token'], intval($response['expires_in']));
+
+        return $response['access_token'];
+    }
+
+    /**
+     * @throws HttpException
+     */
+    public function getAccessToken(): string
     {
         $response = $this->httpClient->request(
             'GET',

@@ -15,8 +15,8 @@ namespace app\tenantapi\logic\decorate;
 
 use app\common\logic\BaseLogic;
 use app\common\model\article\Article;
-use app\common\model\decorate\DecoratePage;
 use app\common\model\decorate\DecorateTabbar;
+use app\common\service\decorate\DecorateTemplateService;
 
 /**
  * 装修页-数据
@@ -41,13 +41,36 @@ class DecorateDataLogic extends BaseLogic
         $field = 'id,title,desc,abstract,image,author,content,
         click_virtual,click_actual,create_time';
 
-        return Article::withoutGlobalScope()->where(['is_show' => 1, 'tenant_id' => 0])
+        $tenantId = (int)(request()->tenantId ?? 0);
+        $query = Article::withoutGlobalScope()->where('is_show', 1);
+        if ($tenantId > 0) {
+            $query->where('tenant_id', $tenantId);
+        } else {
+            $query->where('tenant_id', 0);
+        }
+
+        $articles = $query
             ->field($field)
             ->order(['id' => 'desc'])
             ->limit($limit)
             ->append(['click'])
             ->hidden(['click_virtual', 'click_actual'])
             ->select()->toArray();
+
+        // A newly created tenant may not have added articles yet. The platform
+        // defaults are safe to display as a read-only fallback in that case.
+        if ($articles === [] && $tenantId > 0) {
+            $articles = Article::withoutGlobalScope()
+                ->where(['is_show' => 1, 'tenant_id' => 0])
+                ->field($field)
+                ->order(['id' => 'desc'])
+                ->limit($limit)
+                ->append(['click'])
+                ->hidden(['click_virtual', 'click_actual'])
+                ->select()->toArray();
+        }
+
+        return $articles;
     }
 
     /**
@@ -58,7 +81,14 @@ class DecorateDataLogic extends BaseLogic
      */
     public static function pc(): array
     {
-        $pcPage = DecoratePage::findOrEmpty(4)->toArray();
+        $tenantId = (int)(request()->tenantId ?? 0);
+        $pcPage = DecorateTemplateService::activePublishedPage(
+            $tenantId,
+            DecorateTemplateService::TERMINAL_PC,
+            'pc_home',
+            4,
+            DecorateTemplateService::CHANNEL_COMMON
+        );
         $updateTime = !empty($pcPage['update_time']) ? $pcPage['update_time'] : date('Y-m-d H:i:s');
         return [
             'update_time' => $updateTime,
@@ -78,19 +108,24 @@ class DecorateDataLogic extends BaseLogic
      */
     public static function initialization(mixed $tenant_id)
     {
-        // 支付方式配置
-        $page_field = "name,type,data,meta,tenant_id";
-        $tabbar_field = "name,selected,unselected,link,is_show,tenant_id";
-        // 查询装修配置模版数据，此处默认为租户号为0的模板数据
-        $pageList = DecoratePage::where(['tenant_id' => 0])->field($page_field)->select()->toArray();
-        $tabbarList = DecorateTabbar::where(['tenant_id' => 0])->field($tabbar_field)->select()->toArray();
-        foreach ($pageList as $item) {
-            $item['tenant_id'] = $tenant_id;
-            DecoratePage::create($item);
+        $tenantId = (int)$tenant_id;
+        if ($tenantId <= 0) {
+            return;
         }
-        foreach ($tabbarList as $item) {
-            $item['tenant_id'] = $tenant_id;
-            DecorateTabbar::create($item);
+
+        // The template service owns tenant-scoped page creation. Calling it
+        // first makes repeated tenant initialization idempotent.
+        DecorateTemplateService::ensureDefaultTemplate($tenantId);
+
+        // Keep the legacy tabbar table in sync for existing endpoints, but
+        // only seed it once for a tenant.
+        $tabbar_field = "name,selected,unselected,link,is_show,tenant_id";
+        if ((int)DecorateTabbar::where(['tenant_id' => $tenantId])->count() === 0) {
+            $tabbarList = DecorateTabbar::withoutGlobalScope()->where(['tenant_id' => 0])->field($tabbar_field)->select()->toArray();
+            foreach ($tabbarList as $item) {
+                $item['tenant_id'] = $tenantId;
+                DecorateTabbar::create($item);
+            }
         }
     }
 }

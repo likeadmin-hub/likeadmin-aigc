@@ -15,8 +15,10 @@
 namespace app\tenantapi\logic\channel;
 
 use app\common\logic\BaseLogic;
+use app\common\model\tenant\Tenant;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
+use app\common\service\tenant\TenantUrlService;
 
 /**
  * 小程序设置逻辑
@@ -33,7 +35,7 @@ class MnpSettingsLogic extends BaseLogic
      */
     public function getConfig()
     {
-        $domainName = $_SERVER['SERVER_NAME'];
+        $domainName = $this->resolveTenantDomain();
         $qrCode = ConfigService::get('mnp_setting', 'qr_code', '');
         $qrCode = empty($qrCode) ? $qrCode : FileService::getFileUrl($qrCode);
         $config = [
@@ -51,6 +53,35 @@ class MnpSettingsLogic extends BaseLogic
         ];
 
         return $config;
+    }
+
+    /**
+     * Resolve the host that the current tenant's mini-program should call.
+     * The tenant API can run behind a shared reverse proxy, so SERVER_NAME is
+     * not a reliable source and may point at the platform host.
+     */
+    private function resolveTenantDomain(): string
+    {
+        $tenantId = (int)(request()->tenantId ?? 0);
+        if ($tenantId > 0) {
+            $tenant = Tenant::where('id', $tenantId)->findOrEmpty();
+            if (!$tenant->isEmpty()) {
+                $tenantData = $tenant->toArray();
+                $links = TenantUrlService::links($tenantData);
+                $aliasHost = TenantUrlService::normalizeHost((string)($links['alias']['pc'] ?? ''));
+                if ($aliasHost !== '') {
+                    return $aliasHost;
+                }
+                $subdomainHost = TenantUrlService::normalizeHost((string)($links['subdomain']['pc'] ?? ''));
+                if ($subdomainHost !== '') {
+                    return $subdomainHost;
+                }
+            }
+        }
+
+        return TenantUrlService::normalizeHost((string)(
+            $_SERVER['HTTP_HOST'] ?? request()->domain() ?? $_SERVER['SERVER_NAME'] ?? ''
+        ));
     }
 
     /**
