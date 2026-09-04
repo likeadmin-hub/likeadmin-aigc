@@ -1063,7 +1063,11 @@ class SystemPackageUpdateService
         if (!$allowDirectory && str_ends_with($path, '/')) {
             throw new RuntimeException('文件路径格式错误: ' . $path);
         }
+        $isWechatArtifact = (bool)preg_match('#^runtime/wechat-artifacts/\d+\.\d+\.\d+(?:/|$)#', $path);
         foreach (self::PROTECTED_PATH_PATTERNS as $pattern) {
+            if ($isWechatArtifact && $pattern === '#^runtime(/|$)#') {
+                continue;
+            }
             if (preg_match($pattern, $path)) {
                 throw new RuntimeException('更新包路径命中保护规则: ' . $path);
             }
