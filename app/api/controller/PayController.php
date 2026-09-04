@@ -31,7 +31,15 @@ use app\common\service\power\TenantPowerMallService;
 class PayController extends BaseApiController
 {
 
-    public array $notNeedLogin = ['notifyMnp', 'notifyOa', 'aliNotify'];
+    public array $notNeedLogin = [
+        'notifyMnp',
+        'notifyOa',
+        'notifyApp',
+        'notifyPlatformMnp',
+        'notifyPlatformOa',
+        'notifyPlatformApp',
+        'aliNotify',
+    ];
 
     /**
      * @notes 支付方式
@@ -132,6 +140,26 @@ class PayController extends BaseApiController
     public function notifyOa()
     {
         return (new WeChatPayService(UserTerminalEnum::WECHAT_OA))->notify();
+    }
+
+    public function notifyApp()
+    {
+        return (new WeChatPayService(UserTerminalEnum::ANDROID))->notify();
+    }
+
+    public function notifyPlatformMnp()
+    {
+        return (new WeChatPayService(UserTerminalEnum::WECHAT_MMP, null, true))->notify();
+    }
+
+    public function notifyPlatformOa()
+    {
+        return (new WeChatPayService(UserTerminalEnum::WECHAT_OA, null, true))->notify();
+    }
+
+    public function notifyPlatformApp()
+    {
+        return (new WeChatPayService(UserTerminalEnum::ANDROID, null, true))->notify();
     }
 
     /**

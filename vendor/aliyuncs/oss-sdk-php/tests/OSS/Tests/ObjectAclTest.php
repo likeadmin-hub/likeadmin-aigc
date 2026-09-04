@@ -3,6 +3,7 @@
 namespace OSS\Tests;
 
 require_once __DIR__ . '/Common.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'TestOssClientBase.php';
 
 class ObjectAclTest extends TestOssClientBase
 {
@@ -18,9 +19,9 @@ class ObjectAclTest extends TestOssClientBase
         $acl = $client->getObjectAcl($bucket, $object);
         $this->assertEquals('default', $acl);
 
-        $client->putObjectAcl($bucket, $object, 'public-read');
+        $client->putObjectAcl($bucket, $object, 'private');
         $acl = $client->getObjectAcl($bucket, $object);
-        $this->assertEquals('public-read', $acl);
+        $this->assertEquals('private', $acl);
 
         $content = $client->getObject($bucket, $object);
         $this->assertEquals('hello world', $content);

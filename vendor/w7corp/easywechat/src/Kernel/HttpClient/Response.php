@@ -2,44 +2,41 @@
 
 namespace EasyWeChat\Kernel\HttpClient;
 
-use function array_key_exists;
+use const JSON_UNESCAPED_UNICODE;
+
 use ArrayAccess;
-use function base64_encode;
 use Closure;
 use EasyWeChat\Kernel\Contracts\Arrayable;
 use EasyWeChat\Kernel\Contracts\Jsonable;
 use EasyWeChat\Kernel\Exceptions\BadMethodCallException;
 use EasyWeChat\Kernel\Exceptions\BadResponseException;
 use EasyWeChat\Kernel\Support\Xml;
-use function file_put_contents;
 use Http\Discovery\Exception\NotFoundException;
 use Http\Discovery\Psr17FactoryDiscovery;
-use function json_encode;
-use const JSON_UNESCAPED_UNICODE;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
+use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\HttpClient\Response\StreamableInterface;
+use Symfony\Component\HttpClient\Response\StreamWrapper;
+use Symfony\Contracts\HttpClient\ResponseInterface;
+use Throwable;
+
+use function array_key_exists;
+use function base64_encode;
+use function file_put_contents;
+use function json_encode;
 use function sprintf;
 use function str_contains;
 use function str_starts_with;
 use function strtolower;
-use Symfony\Component\HttpClient\Response\MockResponse;
-use Symfony\Component\HttpClient\Response\StreamableInterface;
-use Symfony\Component\HttpClient\Response\StreamWrapper;
-use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
-use Symfony\Contracts\HttpClient\ResponseInterface;
-use Throwable;
 
 /**
- * @implements \ArrayAccess<array-key, mixed>
+ * @implements ArrayAccess<array-key, mixed>
  *
- * @see \Symfony\Contracts\HttpClient\ResponseInterface
+ * @see ResponseInterface
  */
-class Response implements Jsonable, Arrayable, ArrayAccess, ResponseInterface, StreamableInterface
+class Response implements Arrayable, ArrayAccess, Jsonable, ResponseInterface, StreamableInterface
 {
     public function __construct(
         protected ResponseInterface $response,
@@ -72,23 +69,11 @@ class Response implements Jsonable, Arrayable, ArrayAccess, ResponseInterface, S
         return $this;
     }
 
-    /**
-     * @throws TransportExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws ClientExceptionInterface
-     */
     public function isSuccessful(): bool
     {
         return ! $this->isFailed();
     }
 
-    /**
-     * @throws TransportExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws ClientExceptionInterface
-     */
     public function isFailed(): bool
     {
         if ($this->is('text') && $this->failureJudge) {
@@ -96,18 +81,13 @@ class Response implements Jsonable, Arrayable, ArrayAccess, ResponseInterface, S
         }
 
         try {
-            return 400 <= $this->getStatusCode();
+            return $this->getStatusCode() >= 400;
         } catch (Throwable $e) {
             return true;
         }
     }
 
     /**
-     * @throws TransportExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws DecodingExceptionInterface
-     * @throws ClientExceptionInterface
      * @throws BadResponseException
      */
     public function toArray(?bool $throw = null): array
@@ -133,14 +113,6 @@ class Response implements Jsonable, Arrayable, ArrayAccess, ResponseInterface, S
         return $this->response->toArray($throw);
     }
 
-    /**
-     * @throws TransportExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws DecodingExceptionInterface
-     * @throws ClientExceptionInterface
-     * @throws BadResponseException
-     */
     public function toJson(?bool $throw = null): string|false
     {
         return json_encode($this->toArray($throw), JSON_UNESCAPED_UNICODE);
@@ -148,6 +120,8 @@ class Response implements Jsonable, Arrayable, ArrayAccess, ResponseInterface, S
 
     /**
      * {@inheritdoc}
+     *
+     * @throws BadMethodCallException
      */
     public function toStream(?bool $throw = null)
     {
@@ -159,31 +133,28 @@ class Response implements Jsonable, Arrayable, ArrayAccess, ResponseInterface, S
             throw new BadMethodCallException(sprintf('%s does\'t implements %s', \get_class($this->response), StreamableInterface::class));
         }
 
-        return StreamWrapper::createResource(new MockResponse());
+        return StreamWrapper::createResource(new MockResponse);
     }
 
     /**
-     * @throws TransportExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws ClientExceptionInterface
+     * @throws \LogicException
      */
     public function toDataUrl(): string
     {
         return 'data:'.$this->getHeaderLine('content-type').';base64,'.base64_encode($this->getContent());
     }
 
-    public function toPsrResponse(ResponseFactoryInterface $responseFactory = null, StreamFactoryInterface $streamFactory = null): \Psr\Http\Message\ResponseInterface
+    public function toPsrResponse(?ResponseFactoryInterface $responseFactory = null, ?StreamFactoryInterface $streamFactory = null): \Psr\Http\Message\ResponseInterface
     {
         $streamFactory ??= $responseFactory instanceof StreamFactoryInterface ? $responseFactory : null;
 
-        if (null === $responseFactory || null === $streamFactory) {
+        if ($responseFactory === null || $streamFactory === null) {
             if (! class_exists(Psr17Factory::class) && ! class_exists(Psr17FactoryDiscovery::class)) {
                 throw new \LogicException('You cannot use the "Symfony\Component\HttpClient\Psr18Client" as no PSR-17 factories have been provided. Try running "composer require nyholm/psr7".');
             }
 
             try {
-                $psr17Factory = class_exists(Psr17Factory::class, false) ? new Psr17Factory() : null;
+                $psr17Factory = class_exists(Psr17Factory::class, false) ? new Psr17Factory : null;
                 $responseFactory ??= $psr17Factory ?? Psr17FactoryDiscovery::findResponseFactory(); /** @phpstan-ignore-line */
                 $streamFactory ??= $psr17Factory ?? Psr17FactoryDiscovery::findStreamFactory(); /** @phpstan-ignore-line */
 
@@ -212,10 +183,6 @@ class Response implements Jsonable, Arrayable, ArrayAccess, ResponseInterface, S
     }
 
     /**
-     * @throws ClientExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws TransportExceptionInterface
      * @throws BadResponseException
      */
     public function saveAs(string $filename): string
@@ -233,27 +200,11 @@ class Response implements Jsonable, Arrayable, ArrayAccess, ResponseInterface, S
         return '';
     }
 
-    /**
-     * @throws TransportExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws DecodingExceptionInterface
-     * @throws ClientExceptionInterface
-     * @throws BadResponseException
-     */
     public function offsetExists(mixed $offset): bool
     {
         return array_key_exists($offset, $this->toArray());
     }
 
-    /**
-     * @throws TransportExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws DecodingExceptionInterface
-     * @throws ClientExceptionInterface
-     * @throws BadResponseException
-     */
     public function offsetGet(mixed $offset): mixed
     {
         return $this->toArray()[$offset] ?? null;
@@ -303,57 +254,36 @@ class Response implements Jsonable, Arrayable, ArrayAccess, ResponseInterface, S
         $this->response->cancel();
     }
 
-    public function getInfo(string $type = null): mixed
+    public function getInfo(?string $type = null): mixed
     {
         return $this->response->getInfo($type);
     }
 
-    /**
-     * @throws TransportExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws DecodingExceptionInterface
-     * @throws ClientExceptionInterface
-     * @throws BadResponseException
-     */
     public function __toString(): string
     {
         return $this->toJson() ?: '';
     }
 
-    /**
-     * @throws TransportExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws ClientExceptionInterface
-     */
     public function hasHeader(string $name, ?bool $throw = null): bool
     {
         return isset($this->getHeaders($throw)[$name]);
     }
 
-    /**
-     * @return array<array-key, mixed>
-     *
-     * @throws TransportExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws ClientExceptionInterface
-     */
     public function getHeader(string $name, ?bool $throw = null): array
     {
         $name = strtolower($name);
         $throw ??= $this->throw;
 
-        return $this->hasHeader($name, $throw) ? $this->getHeaders($throw)[$name] : [];
+        if (! $this->hasHeader($name, $throw)) {
+            return [];
+        }
+
+        /** @var array<string> $headers */
+        $headers = $this->getHeaders($throw)[$name];
+
+        return $headers;
     }
 
-    /**
-     * @throws TransportExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws ClientExceptionInterface
-     */
     public function getHeaderLine(string $name, ?bool $throw = null): string
     {
         $name = strtolower($name);
@@ -362,12 +292,6 @@ class Response implements Jsonable, Arrayable, ArrayAccess, ResponseInterface, S
         return $this->hasHeader($name, $throw) ? implode(',', $this->getHeader($name, $throw)) : '';
     }
 
-    /**
-     * @throws TransportExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws ClientExceptionInterface
-     */
     public function is(string $type): bool
     {
         $contentType = $this->getHeaderLine('content-type');

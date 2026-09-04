@@ -1,4 +1,4 @@
-# [EasyWeChat](https://www.easywechat.com)
+# [EasyWeChat](https://easywechat.com)
 
 📦 一个 PHP 微信开发 SDK，开源 SaaS 平台提供商 [微擎](https://www.w7.cc/) 旗下开源产品。
 
@@ -38,26 +38,21 @@ $config = [
 
 $app = new Application($config);
 
-$app->getServer()->with(fn() => "您好！EasyWeChat！");
+$server = $app->getServer();
+
+$server->with(fn() => "您好！EasyWeChat！");
 
 $response = $server->serve();
 ```
 
 ## 文档和链接
 
-[官网](https://www.easywechat.com) · [讨论](https://github.com/w7corp/easywechat/discussions) · [更新策略](https://github.com/w7corp/easywechat/security/policy)
+[官网](https://easywechat.com) · [讨论](https://github.com/w7corp/easywechat/discussions) · [更新策略](https://github.com/w7corp/easywechat/security/policy)
 
 ## :heart: 支持我
 
-[![Sponsor me](https://github.com/overtrue/overtrue/blob/master/sponsor-me.svg?raw=true)](https://github.com/sponsors/overtrue)
-
 如果你喜欢我的项目并想支持它，[点击这里 :heart:](https://github.com/sponsors/overtrue)
 
-## 由 JetBrains 赞助
-
-非常感谢 Jetbrains 为我提供的 IDE 开源许可，让我完成此项目和其他开源项目上的开发工作。
-
-[![](https://resources.jetbrains.com/storage/products/company/brand/logos/jb_beam.svg)](https://www.jetbrains.com/?from=https://github.com/overtrue)
 
 ## 可爱的贡献者们
 

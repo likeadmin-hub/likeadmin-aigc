@@ -22,9 +22,12 @@ class Account implements AccountInterface
         return $this->appId;
     }
 
+    /**
+     * @throws RuntimeException
+     */
     public function getSecret(): string
     {
-        if (null === $this->secret) {
+        if ($this->secret === null) {
             throw new RuntimeException('No secret configured.');
         }
 

@@ -47,4 +47,40 @@ class CanvasModelDescriptionContractTest extends TestCase
         self::assertStringContainsString('!/^market_(?:video|image|audio|text|app)(?:_|:)/i.test(b)', $bundle);
         self::assertStringNotContainsString('a.model_intro,a.description,a.introduction,a.capability_label,a.capability,a.default_quality,a.resolution_label,a.resolution', $bundle);
     }
+
+    public function testCanvasAgentModelRowsShowDescriptionAndHideTechnicalValue(): void
+    {
+        $stylesheet = file_get_contents(__DIR__ . '/../../public/_nuxt/canvas-model-label-fix.css');
+        self::assertIsString($stylesheet);
+        self::assertStringContainsString('.agent-model-row > span:nth-child(2) > em', $stylesheet);
+        self::assertStringContainsString('display: none !important', $stylesheet);
+        self::assertStringContainsString('em.canvas-model-description', $stylesheet);
+
+        $script = file_get_contents(__DIR__ . '/../../public/_nuxt/canvas-model-label-fix.js');
+        self::assertIsString($script);
+        self::assertStringContainsString('/api/app.aigc_canvas.config/detail', $script);
+        self::assertStringContainsString('option.description', $script);
+        self::assertStringContainsString('var technicalIdentifier = /^market_/i', $script);
+        self::assertStringContainsString('!technicalIdentifier.test(value)', $script);
+        self::assertStringContainsString("clean(valueNode.textContent) !== description", $script);
+
+        foreach ([
+            __DIR__ . '/../../public/pc/index.html',
+            __DIR__ . '/../../public/pc/app/aigc_canvas/index.html',
+            __DIR__ . '/../../public/pc/app/aigc_canvas/replay/index.html',
+        ] as $entryPoint) {
+            $html = file_get_contents($entryPoint);
+            self::assertIsString($html);
+            self::assertStringContainsString('/_nuxt/canvas-model-label-fix.css?v=20260824-model-label-v2', $html);
+            self::assertStringContainsString('/_nuxt/canvas-model-label-fix.js?v=20260824-model-label-v2', $html);
+            self::assertLessThan(
+                strpos($html, '</head>'),
+                strpos($html, '/_nuxt/canvas-model-label-fix.css?v=20260824-model-label-v2')
+            );
+            self::assertLessThan(
+                strpos($html, '</head>'),
+                strpos($html, '/_nuxt/canvas-model-label-fix.js?v=20260824-model-label-v2')
+            );
+        }
+    }
 }

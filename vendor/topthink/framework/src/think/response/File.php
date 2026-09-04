@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | ThinkPHP [ WE CAN DO IT JUST THINK ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2006~2023 http://thinkphp.cn All rights reserved.
+// | Copyright (c) 2006~2025 http://thinkphp.cn All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed ( http://www.apache.org/licenses/LICENSE-2.0 )
 // +----------------------------------------------------------------------
@@ -53,6 +53,7 @@ class File extends Response
         } else {
             $name = !$this->isContent ? pathinfo($data, PATHINFO_BASENAME) : '';
         }
+        $name = urlencode($name); // 支持中文名称
 
         if ($this->isContent) {
             $mimeType = $this->mimeType;
@@ -65,7 +66,7 @@ class File extends Response
         $this->header['Pragma']                    = 'public';
         $this->header['Content-Type']              = $mimeType ?: 'application/octet-stream';
         $this->header['Cache-control']             = 'max-age=' . $this->expire;
-        $this->header['Content-Disposition']       = ($this->force ? 'attachment; ' : '') . 'filename="' . $name . '"';
+        $this->header['Content-Disposition']       = ($this->force ? 'attachment; ' : '') . 'filename="' . $name . '";' . "filename* = UTF-8''{$name}";
         $this->header['Content-Length']            = $size;
         $this->header['Content-Transfer-Encoding'] = 'binary';
         $this->header['Expires']                   = gmdate("D, d M Y H:i:s", time() + $this->expire) . ' GMT';
@@ -90,7 +91,7 @@ class File extends Response
     /**
      * 设置有效期
      * @access public
-     * @param  integer $expire 有效期
+     * @param  int $expire 有效期
      * @return $this
      */
     public function expire(int $expire)

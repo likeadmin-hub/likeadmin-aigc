@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2017-2018 THL A29 Limited, a Tencent company. All Rights Reserved.
+ * Copyright (c) 2017-2025 Tencent. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,14 +22,14 @@ use TencentCloud\Common\AbstractModel;
  *
  * @method string getSerialNo() 获取发送流水号。
  * @method void setSerialNo(string $SerialNo) 设置发送流水号。
- * @method string getPhoneNumber() 获取手机号码,e.164标准，+[国家或地区码][手机号] ，示例如：+8613711112222， 其中前面有一个+号 ，86为国家码，13711112222为手机号。
- * @method void setPhoneNumber(string $PhoneNumber) 设置手机号码,e.164标准，+[国家或地区码][手机号] ，示例如：+8613711112222， 其中前面有一个+号 ，86为国家码，13711112222为手机号。
+ * @method string getPhoneNumber() 获取手机号码，E.164标准，+[国家或地区码][手机号] ，示例如：+8618501234444， 其中前面有一个+号 ，86为国家码，18501234444为手机号。
+ * @method void setPhoneNumber(string $PhoneNumber) 设置手机号码，E.164标准，+[国家或地区码][手机号] ，示例如：+8618501234444， 其中前面有一个+号 ，86为国家码，18501234444为手机号。
  * @method integer getFee() 获取计费条数，计费规则请查询 [计费策略](https://cloud.tencent.com/document/product/382/36135)。
  * @method void setFee(integer $Fee) 设置计费条数，计费规则请查询 [计费策略](https://cloud.tencent.com/document/product/382/36135)。
  * @method string getSessionContext() 获取用户Session内容。
  * @method void setSessionContext(string $SessionContext) 设置用户Session内容。
- * @method string getCode() 获取短信请求错误码，具体含义请参考错误码。
- * @method void setCode(string $Code) 设置短信请求错误码，具体含义请参考错误码。
+ * @method string getCode() 获取短信请求错误码，具体含义请参考 [错误码](https://cloud.tencent.com/document/product/382/59177#.E7.9F.AD.E4.BF.A1-API-3.0-.E5.8F.91.E9.80.81.E9.94.99.E8.AF.AF.E7.A0.81)。
+ * @method void setCode(string $Code) 设置短信请求错误码，具体含义请参考 [错误码](https://cloud.tencent.com/document/product/382/59177#.E7.9F.AD.E4.BF.A1-API-3.0-.E5.8F.91.E9.80.81.E9.94.99.E8.AF.AF.E7.A0.81)。
  * @method string getMessage() 获取短信请求错误码描述。
  * @method void setMessage(string $Message) 设置短信请求错误码描述。
  * @method string getIsoCode() 获取国家码或地区码，例如CN,US等，对于未识别出国家码或者地区码，默认返回DEF,具体支持列表请参考国际/港澳台计费总览。
@@ -43,7 +43,7 @@ class SendStatus extends AbstractModel
     public $SerialNo;
 
     /**
-     * @var string 手机号码,e.164标准，+[国家或地区码][手机号] ，示例如：+8613711112222， 其中前面有一个+号 ，86为国家码，13711112222为手机号。
+     * @var string 手机号码，E.164标准，+[国家或地区码][手机号] ，示例如：+8618501234444， 其中前面有一个+号 ，86为国家码，18501234444为手机号。
      */
     public $PhoneNumber;
 
@@ -58,7 +58,7 @@ class SendStatus extends AbstractModel
     public $SessionContext;
 
     /**
-     * @var string 短信请求错误码，具体含义请参考错误码。
+     * @var string 短信请求错误码，具体含义请参考 [错误码](https://cloud.tencent.com/document/product/382/59177#.E7.9F.AD.E4.BF.A1-API-3.0-.E5.8F.91.E9.80.81.E9.94.99.E8.AF.AF.E7.A0.81)。
      */
     public $Code;
 
@@ -74,10 +74,10 @@ class SendStatus extends AbstractModel
 
     /**
      * @param string $SerialNo 发送流水号。
-     * @param string $PhoneNumber 手机号码,e.164标准，+[国家或地区码][手机号] ，示例如：+8613711112222， 其中前面有一个+号 ，86为国家码，13711112222为手机号。
+     * @param string $PhoneNumber 手机号码，E.164标准，+[国家或地区码][手机号] ，示例如：+8618501234444， 其中前面有一个+号 ，86为国家码，18501234444为手机号。
      * @param integer $Fee 计费条数，计费规则请查询 [计费策略](https://cloud.tencent.com/document/product/382/36135)。
      * @param string $SessionContext 用户Session内容。
-     * @param string $Code 短信请求错误码，具体含义请参考错误码。
+     * @param string $Code 短信请求错误码，具体含义请参考 [错误码](https://cloud.tencent.com/document/product/382/59177#.E7.9F.AD.E4.BF.A1-API-3.0-.E5.8F.91.E9.80.81.E9.94.99.E8.AF.AF.E7.A0.81)。
      * @param string $Message 短信请求错误码描述。
      * @param string $IsoCode 国家码或地区码，例如CN,US等，对于未识别出国家码或者地区码，默认返回DEF,具体支持列表请参考国际/港澳台计费总览。
      */

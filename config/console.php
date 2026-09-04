@@ -25,6 +25,8 @@ return [
         'ai:recover-timeout-tasks' => 'app\common\command\AiRecoverTimeoutTasks',
         // 租户合约到期扫描
         'tenant:expire_contracts' => 'app\common\command\ExpireTenantContracts',
+        // 算力套餐支付状态核对与补偿
+        'tenant_power:reconcile' => 'app\common\command\ReconcileTenantPowerOrders',
         // 贴牌订单超时释放预占额度
         'tenant:expire_brand_orders' => 'app\common\command\ExpireTenantBrandOrders',
         // 短剧任务提示词修复

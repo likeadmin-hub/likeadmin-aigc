@@ -31,6 +31,8 @@ class MembershipProfileContractTest extends TestCase
     public function testProfileResponseAndUiExposeMembershipFields(): void
     {
         $service = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/membership/MembershipService.php');
+        $userLogic = file_get_contents(dirname(__DIR__, 2) . '/app/api/logic/UserLogic.php');
+        $userController = file_get_contents(dirname(__DIR__, 2) . '/app/api/controller/UserController.php');
         $sidebar = file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/ai-sidebar.50b22e69.js');
 
         $this->assertStringContainsString("'is_member'", $service);
@@ -38,6 +40,20 @@ class MembershipProfileContractTest extends TestCase
             $this->assertStringContainsString("'{$field}'", $service);
             $this->assertStringContainsString($field, $sidebar);
         }
+        $this->assertStringContainsString('MembershipService::status($tenantId, $userId)', $userLogic);
+        $this->assertStringContainsString('UserLogic::info($this->userId,', $userController);
         $this->assertStringContainsString('ai-user-membership', $sidebar);
+    }
+
+    public function testMembershipPaymentStatusReconcilesDelayedCallbacks(): void
+    {
+        $paymentLogic = file_get_contents(dirname(__DIR__, 2) . '/app/common/logic/PaymentLogic.php');
+        $reconcile = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/pay/MembershipPaymentReconcileService.php');
+
+        $this->assertStringContainsString('MembershipPaymentReconcileService::reconcile($order)', $paymentLogic);
+        $this->assertStringContainsString("PayNotifyLogic::handle('membership'", $reconcile);
+        $this->assertStringContainsString('checkPay($paySn)', $reconcile);
+        $this->assertStringContainsString('checkPay((string)$order[\'order_sn\'])', $reconcile);
+        $this->assertStringContainsString("'transaction_id' => (string)\$payment['transaction_id']", $reconcile);
     }
 }

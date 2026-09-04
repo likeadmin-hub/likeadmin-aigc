@@ -1,0 +1,64 @@
+{
+  "code": "aigc_music_cover",
+  "name": "音乐翻唱",
+  "version": "1.0.4",
+  "require_core": ">=1.0.0 <2.0.0",
+  "description": "上传原始歌曲和目标音色参考音频，生成新的演唱版本并支持试听与下载。",
+  "changelog": "1. 新增音乐翻唱工具。\n2. 接入市场 seedsvc/submit 音色修改、AI翻唱接口。\n3. 支持双音频上传或 URL 提交、异步查询和结果下载。\n4. 补齐 PC 用户端、租户配置/任务页和应用包前端资源自动部署。\n5. 修复租户后台连字符及 hash 路由下配置页空白。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 0,
+  "expire_policy": "allow",
+  "sort": 59,
+  "frontends": [
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/aigc_music_cover",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_music_cover_admin",
+      "name": "音乐翻唱",
+      "path": "/app/aigc_music_cover",
+      "icon": "el-icon-Microphone",
+      "sort": 88,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_music_cover",
+      "name": "音乐翻唱",
+      "path": "/ai/tools/aigc_music_cover",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 82,
+      "status": 1
+    }
+  ],
+  "public_assets": [
+    {
+      "source": "frontend/pc.js",
+      "target": "public/music-cover-page.js"
+    },
+    {
+      "source": "frontend/tenant.js",
+      "target": "public/music-cover-admin.js"
+    },
+    {
+      "source": "frontend/style.css",
+      "target": "public/music-cover-page.css"
+    },
+    {
+      "source": "frontend/admin.css",
+      "target": "public/music-cover-admin.css"
+    },
+    {
+      "source": "frontend/pc-entry.html",
+      "target": "public/pc/ai/tools/aigc_music_cover/index.html"
+    }
+  ]
+}

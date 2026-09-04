@@ -9,9 +9,9 @@ use Overtrue\Socialite\User;
 
 class GitHub extends Base
 {
-    public const     NAME = 'github';
+    public const NAME = 'github';
 
-    protected array  $scopes = ['read:user'];
+    protected array $scopes = ['user:email'];
 
     protected string $scopeSeparator = ' ';
 
@@ -36,7 +36,7 @@ class GitHub extends Base
 
         $user = $this->fromJsonBody($response);
 
-        if (\in_array('user:email', $this->scopes)) {
+        if (\in_array('user:email', $this->scopes) || str_contains($this->scopes[0] ?? '', 'user:email')) {
             $user[Contracts\ABNF_EMAIL] = $this->getEmailByToken($token);
         }
 

@@ -1,0 +1,15 @@
+{
+  "algorithm": "sha256",
+  "sha256": {
+    "api_schema.json": "771776b494adcb9f4c4e00134451f80d7a524258ed500c82d39f7abe15e76ae9",
+    "manifest.json": "2d3cf66e8d67deceabb7263f739f149963704e867448894eec2cba423fd9f2b3",
+    "frontend/README.md": "050eb541ec6cc29413e92aec816787786ebf2342cd4b83e8fd69b7b56e708b29",
+    "menus/platform.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "menus/tenant.json": "8df13cd1d3d3a3c16cf0a3990973f0d7fd2bd815c5acb9b9727d05b39dad36bf",
+    "migrations/install.sql": "077694ea376b91d0ab2b03fad7d1a75a9a744444840817b9e52bea618c15bbcc",
+    "migrations/upgrade_20260826_default_plan.sql": "26b28718c612cb40d7e15a03037676e358714e4c897a3db996cdef3fcbbd20bd",
+    "permissions/tenant.json": "3aaa6e9ae6628c8fc675110b4c956246ac270778f8e9a825d4f9342e36ae5356",
+    "frontend/tenant.js": "162e232b754a1148ed27a202d1afa50b834ce305ab0dbdcc75835094682fdc54",
+    "frontend/admin.css": "f9d397371c32d6773456d3c597356a8ccbd08c63e2e2bbcb6b84816e1ec95f4f"
+  }
+}

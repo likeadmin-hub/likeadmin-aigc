@@ -293,6 +293,7 @@ class SystemPackageUpdateService
                 }
                 $this->assertCoreRequirement($manifest);
                 $this->assertIncrementalManifest($manifest, $extract['path']);
+                $this->assertIncrementalComposerRuntime($manifest, $extract['path']);
                 $builtinApps = $this->preflightBuiltinApps($extract['path'], $manifest);
                 $result = [
                     'passed' => true,
@@ -766,6 +767,29 @@ class SystemPackageUpdateService
             $declaredSql[$relative] = true;
         }
         $this->assertIncrementalSqlDirectorySafe($extractPath, $declaredSql);
+    }
+
+    /**
+     * Incremental packages cannot safely update Composer runtime files. They are
+     * copied file by file, so an interrupted or partial vendor update can leave
+     * autoload.php and composer/autoload_real.php from different generations.
+     */
+    private function assertIncrementalComposerRuntime(array $manifest, string $extractPath): void
+    {
+        if (($manifest['package_mode'] ?? '') !== 'incremental') {
+            return;
+        }
+
+        $filesRoot = rtrim($extractPath, '/') . '/files';
+        $forbidden = [];
+        foreach (['composer.json', 'composer.lock', 'vendor'] as $relative) {
+            if (file_exists($filesRoot . '/' . $relative)) {
+                $forbidden[] = $relative;
+            }
+        }
+        if ($forbidden) {
+            throw new RuntimeException('增量系统包不能包含 Composer 运行时文件，请使用完整安装包发布依赖变更: ' . implode(', ', $forbidden));
+        }
     }
 
     private function assertIncrementalSqlDirectorySafe(string $extractPath, array $declaredSql): void

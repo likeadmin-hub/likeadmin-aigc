@@ -3,22 +3,24 @@
 namespace EasyWeChat\Kernel\HttpClient;
 
 use const ARRAY_FILTER_USE_KEY;
-use function array_key_exists;
-use EasyWeChat\Kernel\Support\UserAgent;
-use EasyWeChat\Kernel\Support\Xml;
-use function in_array;
-use InvalidArgumentException;
-use function is_array;
-use function is_string;
-use JetBrains\PhpStorm\ArrayShape;
-use function json_encode;
 use const JSON_FORCE_OBJECT;
 use const JSON_UNESCAPED_UNICODE;
+
+use EasyWeChat\Kernel\Support\UserAgent;
+use EasyWeChat\Kernel\Support\Xml;
+use InvalidArgumentException;
+use JetBrains\PhpStorm\ArrayShape;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7Server\ServerRequestCreator;
 use Psr\Http\Message\ServerRequestInterface;
 use Symfony\Component\HttpClient\Retry\GenericRetryStrategy;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+
+use function array_key_exists;
+use function in_array;
+use function is_array;
+use function is_string;
+use function json_encode;
 
 class RequestUtil
 {
@@ -80,10 +82,15 @@ class RequestUtil
             return $options;
         }
 
+        $contentType = $options['headers']['Content-Type'] ?? $options['headers']['content-type'] ?? null;
         $name = in_array($method, ['GET', 'HEAD', 'DELETE']) ? 'query' : 'body';
 
-        if (($options['headers']['Content-Type'] ?? $options['headers']['content-type'] ?? null) === 'application/json') {
+        if ($contentType === 'application/json') {
             $name = 'json';
+        }
+
+        if ($contentType === 'text/xml') {
+            $name = 'xml';
         }
 
         foreach ($options as $key => $value) {
@@ -97,12 +104,16 @@ class RequestUtil
     }
 
     /**
-     * @param  array<string, array<string,mixed>|mixed>  $options
-     * @return array<string, array|mixed>
+     * @param  array{headers?:array<string, string>, xml?:mixed, body?:array|string, json?:mixed}  $options
+     * @return array{headers?:array<string, string|array<string, string>|array<string>>, xml?:array|string, body?:array|string}
+     *
+     * @throws InvalidArgumentException
      */
     public static function formatBody(array $options): array
     {
-        if (isset($options['xml'])) {
+        $contentType = $options['headers']['Content-Type'] ?? $options['headers']['content-type'] ?? null;
+
+        if (array_key_exists('xml', $options)) {
             if (is_array($options['xml'])) {
                 $options['xml'] = Xml::build($options['xml']);
             }
@@ -111,17 +122,15 @@ class RequestUtil
                 throw new InvalidArgumentException('The type of `xml` must be string or array.');
             }
 
-            /** @phpstan-ignore-next-line */
-            if (! isset($options['headers']['Content-Type']) && ! isset($options['headers']['content-type'])) {
-                /** @phpstan-ignore-next-line */
-                $options['headers']['Content-Type'] = [$options['headers'][] = 'Content-Type: text/xml'];
+            if (! $contentType) {
+                $options['headers']['Content-Type'] = 'text/xml';
             }
 
             $options['body'] = $options['xml'];
             unset($options['xml']);
         }
 
-        if (isset($options['json'])) {
+        if (array_key_exists('json', $options)) {
             if (is_array($options['json'])) {
                 /** XXX: 微信的 JSON 是比较奇葩的，比如菜单不能把中文 encode 为 unicode */
                 $options['json'] = json_encode(
@@ -134,10 +143,8 @@ class RequestUtil
                 throw new InvalidArgumentException('The type of `json` must be string or array.');
             }
 
-            /** @phpstan-ignore-next-line */
-            if (! isset($options['headers']['Content-Type']) && ! isset($options['headers']['content-type'])) {
-                /** @phpstan-ignore-next-line */
-                $options['headers']['Content-Type'] = [$options['headers'][] = 'Content-Type: application/json'];
+            if (! $contentType) {
+                $options['headers']['Content-Type'] = 'application/json';
             }
 
             $options['body'] = $options['json'];
@@ -149,7 +156,7 @@ class RequestUtil
 
     public static function createDefaultServerRequest(): ServerRequestInterface
     {
-        $psr17Factory = new Psr17Factory();
+        $psr17Factory = new Psr17Factory;
 
         $creator = new ServerRequestCreator(
             serverRequestFactory: $psr17Factory,

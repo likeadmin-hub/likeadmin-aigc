@@ -9,6 +9,7 @@ use EasyWeChat\Kernel\Contracts\Config as ConfigInterface;
 use EasyWeChat\Kernel\Exceptions\InvalidArgumentException;
 use EasyWeChat\Kernel\Support\Arr;
 use JetBrains\PhpStorm\Pure;
+
 use function strval;
 
 /**
@@ -53,7 +54,7 @@ class Config implements ArrayAccess, ConfigInterface
 
     /**
      * @param  array<string>  $keys
-     * @return  array<string, mixed>
+     * @return array<string, mixed>
      */
     #[Pure]
     public function getMany(array $keys): array
@@ -71,17 +72,13 @@ class Config implements ArrayAccess, ConfigInterface
         return $config;
     }
 
-    /**
-     * @param  string  $key
-     * @param  mixed|null  $value
-     */
     public function set(string $key, mixed $value = null): void
     {
         Arr::set($this->items, $key, $value);
     }
 
     /**
-     * @return  array<string, mixed>
+     * @return array<string, mixed>
      */
     public function all(): array
     {
@@ -89,25 +86,25 @@ class Config implements ArrayAccess, ConfigInterface
     }
 
     #[Pure]
-    public function offsetExists(mixed $key): bool
+    public function offsetExists(mixed $offset): bool
     {
-        return $this->has(strval($key));
+        return $this->has(strval($offset));
     }
 
     #[Pure]
-    public function offsetGet(mixed $key): mixed
+    public function offsetGet(mixed $offset): mixed
     {
-        return $this->get(strval($key));
+        return $this->get(strval($offset));
     }
 
-    public function offsetSet(mixed $key, mixed $value): void
+    public function offsetSet(mixed $offset, mixed $value): void
     {
-        $this->set(strval($key), $value);
+        $this->set(strval($offset), $value);
     }
 
-    public function offsetUnset(mixed $key): void
+    public function offsetUnset(mixed $offset): void
     {
-        $this->set(strval($key), null);
+        $this->set(strval($offset), null);
     }
 
     /**

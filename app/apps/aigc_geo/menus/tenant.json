@@ -1,0 +1,22 @@
+[
+  {
+    "source_menu_key": "aigc_geo",
+    "app_code": "aigc_geo",
+    "source": "app",
+    "type": "M",
+    "name": "GEO营销优化系统",
+    "icon": "el-icon-DataAnalysis",
+    "sort": 78,
+    "perms": "",
+    "paths": "aigc-geo",
+    "component": "",
+    "children": [
+      { "source_menu_key": "aigc_geo_console", "type": "C", "name": "概览", "sort": 100, "perms": "app.aigc_geo.console/summary", "paths": "console", "component": "apps/aigc_geo/console" },
+      { "source_menu_key": "aigc_geo_config", "type": "C", "name": "品牌配置", "sort": 90, "perms": "app.aigc_geo.config/detail", "paths": "config", "component": "apps/aigc_geo/config" },
+      { "source_menu_key": "aigc_geo_keywords", "type": "C", "name": "问题与关键词", "sort": 80, "perms": "app.aigc_geo.keyword/lists", "paths": "keywords", "component": "apps/aigc_geo/keywords" },
+      { "source_menu_key": "aigc_geo_articles", "type": "C", "name": "内容生产", "sort": 70, "perms": "app.aigc_geo.article/lists", "paths": "articles", "component": "apps/aigc_geo/articles" },
+      { "source_menu_key": "aigc_geo_diagnosis", "type": "C", "name": "品牌检测", "sort": 60, "perms": "app.aigc_geo.diagnosis/lists", "paths": "diagnosis", "component": "apps/aigc_geo/diagnosis" },
+      { "source_menu_key": "aigc_geo_tasks", "type": "C", "name": "任务记录", "sort": 50, "perms": "app.aigc_geo.task/lists", "paths": "tasks", "component": "apps/aigc_geo/tasks" }
+    ]
+  }
+]

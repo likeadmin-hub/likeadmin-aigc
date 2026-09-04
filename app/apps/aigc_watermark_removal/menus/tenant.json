@@ -1,0 +1,18 @@
+[
+  {
+    "source_menu_key": "aigc_watermark_removal",
+    "app_code": "aigc_watermark_removal",
+    "source": "app",
+    "type": "M",
+    "name": "短视频去水印",
+    "icon": "el-icon-VideoCamera",
+    "sort": 83,
+    "perms": "",
+    "paths": "aigc-watermark-removal",
+    "component": "",
+    "children": [
+      { "source_menu_key": "aigc_watermark_removal_config", "type": "C", "name": "基础配置", "sort": 40, "perms": "app.aigc_watermark_removal.config/detail", "paths": "config", "component": "apps/aigc_watermark_removal/config" },
+      { "source_menu_key": "aigc_watermark_removal_task", "type": "C", "name": "任务记录", "sort": 10, "perms": "app.aigc_watermark_removal.task/lists", "paths": "task", "component": "apps/aigc_watermark_removal/task" }
+    ]
+  }
+]

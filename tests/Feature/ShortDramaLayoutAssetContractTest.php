@@ -67,4 +67,25 @@ class ShortDramaLayoutAssetContractTest extends TestCase
         );
         self::assertStringContainsString('object-fit:cover', $css);
     }
+
+    public function testStoryboardGenerationStatusRemainsScrollableAboveComposer(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $css = (string)file_get_contents($root . '/public/_nuxt/storyboard.1ba7be52.css');
+        $javascript = (string)file_get_contents($root . '/public/_nuxt/storyboard.f2381e09.js');
+
+        self::assertStringContainsString(
+            '.draw-scroll[data-v-d7ca7865]{contain:none;overflow-anchor:none;padding-bottom:24px;scroll-padding-bottom:24px}',
+            $css
+        );
+        self::assertStringContainsString(
+            '.conversation-stream[data-v-d7ca7865]{contain:none;content-visibility:visible}',
+            $css
+        );
+        self::assertStringContainsString(
+            'Math.max(0,t.scrollHeight-t.clientHeight)',
+            $javascript
+        );
+        self::assertStringContainsString('requestAnimationFrame(()=>a(!1))', $javascript);
+    }
 }

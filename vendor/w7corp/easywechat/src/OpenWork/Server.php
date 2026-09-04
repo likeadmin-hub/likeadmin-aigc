@@ -10,35 +10,32 @@ use EasyWeChat\Kernel\Encryptor;
 use EasyWeChat\Kernel\Exceptions\BadRequestException;
 use EasyWeChat\Kernel\Exceptions\InvalidArgumentException;
 use EasyWeChat\Kernel\Exceptions\RuntimeException;
-use EasyWeChat\Kernel\HttpClient\RequestUtil;
 use EasyWeChat\Kernel\ServerResponse;
-use EasyWeChat\Kernel\Traits\DecryptXmlMessage;
+use EasyWeChat\Kernel\Traits\DecryptMessage;
 use EasyWeChat\Kernel\Traits\InteractWithHandlers;
+use EasyWeChat\Kernel\Traits\InteractWithServerRequest;
 use EasyWeChat\Kernel\Traits\RespondXmlMessage;
-use function func_get_args;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
+use function func_get_args;
+
 class Server implements ServerInterface
 {
+    use DecryptMessage;
     use InteractWithHandlers;
+    use InteractWithServerRequest;
     use RespondXmlMessage;
-    use DecryptXmlMessage;
 
-    protected ServerRequestInterface $request;
+    protected ?Closure $defaultSuiteTicketHandler = null;
 
-    protected Closure|null $defaultSuiteTicketHandler = null;
-
-    /**
-     * @throws \Throwable
-     */
     public function __construct(
         protected Encryptor $encryptor,
         protected Encryptor $providerEncryptor,
         ?ServerRequestInterface $request = null,
     ) {
-        $this->request = $request ?? RequestUtil::createDefaultServerRequest();
+        $this->request = $request;
     }
 
     /**
@@ -48,20 +45,20 @@ class Server implements ServerInterface
      */
     public function serve(): ResponseInterface
     {
-        $query = $this->request->getQueryParams();
+        $query = $this->getRequest()->getQueryParams();
 
-        if ((bool) ($str = $query['echostr'] ?? '')) {
+        if ($str = $this->getQueryValue($query, 'echostr')) {
             $response = $this->providerEncryptor->decrypt(
                 $str,
-                $query['msg_signature'] ?? '',
-                $query['nonce'] ?? '',
-                $query['timestamp'] ?? ''
+                $this->getQueryValue($query, 'msg_signature'),
+                $this->getQueryValue($query, 'nonce'),
+                $this->getQueryValue($query, 'timestamp')
             );
 
             return new Response(200, [], $response);
         }
 
-        $message = $this->getRequestMessage($this->request);
+        $message = $this->getRequestMessage($this->getRequest());
 
         $this->prepend($this->decryptRequestMessage());
 
@@ -74,18 +71,12 @@ class Server implements ServerInterface
         return ServerResponse::make($response);
     }
 
-    /**
-     * @throws InvalidArgumentException
-     */
     public function withDefaultSuiteTicketHandler(callable $handler): void
     {
         $this->defaultSuiteTicketHandler = fn (): mixed => $handler(...func_get_args());
         $this->handleSuiteTicketRefreshed($this->defaultSuiteTicketHandler);
     }
 
-    /**
-     * @throws InvalidArgumentException
-     */
     public function handleSuiteTicketRefreshed(callable $handler): static
     {
         if ($this->defaultSuiteTicketHandler) {
@@ -219,17 +210,38 @@ class Server implements ServerInterface
         return $this;
     }
 
+    public function handleResetPermanentCode(callable $handler): static
+    {
+        $this->with(function (Message $message, Closure $next) use ($handler): mixed {
+            return $message->InfoType === 'reset_permanent_code' ? $handler($message, $next) : $next($message);
+        });
+
+        return $this;
+    }
+
+    public function handleChangeAppAdmin(callable $handler): static
+    {
+        $this->with(function (Message $message, Closure $next) use ($handler): mixed {
+            return $message->MsgType === 'event' && $message->Event === 'change_app_admin' ? $handler(
+                $message,
+                $next
+            ) : $next($message);
+        });
+
+        return $this;
+    }
+
     protected function decryptRequestMessage(): Closure
     {
-        $query = $this->request->getQueryParams();
+        $query = $this->getRequest()->getQueryParams();
 
         return function (Message $message, Closure $next) use ($query): mixed {
             $this->decryptMessage(
                 $message,
                 $this->encryptor,
-                $query['msg_signature'],
-                $query['timestamp'],
-                $query['nonce']
+                $this->getQueryValue($query, 'msg_signature'),
+                $this->getQueryValue($query, 'timestamp'),
+                $this->getQueryValue($query, 'nonce')
             );
 
             return $next($message);
@@ -241,7 +253,7 @@ class Server implements ServerInterface
      */
     public function getRequestMessage(?ServerRequestInterface $request = null): \EasyWeChat\Kernel\Message
     {
-        return Message::createFromRequest($request ?? $this->request);
+        return Message::createFromRequest($request ?? $this->getRequest());
     }
 
     /**
@@ -250,16 +262,16 @@ class Server implements ServerInterface
      */
     public function getDecryptedMessage(?ServerRequestInterface $request = null): \EasyWeChat\Kernel\Message
     {
-        $request = $request ?? $this->request;
+        $request = $request ?? $this->getRequest();
         $message = $this->getRequestMessage($request);
         $query = $request->getQueryParams();
 
         return $this->decryptMessage(
             message: $message,
             encryptor: $this->encryptor,
-            signature: $query['msg_signature'] ?? '',
-            timestamp: $query['timestamp'] ?? '',
-            nonce: $query['nonce'] ?? ''
+            signature: $this->getQueryValue($query, 'msg_signature'),
+            timestamp: $this->getQueryValue($query, 'timestamp'),
+            nonce: $this->getQueryValue($query, 'nonce')
         );
     }
 }

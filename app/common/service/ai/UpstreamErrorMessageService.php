@@ -6,6 +6,7 @@ namespace app\common\service\ai;
 class UpstreamErrorMessageService
 {
     public const TEMPORARILY_UNAVAILABLE = '上游暂时无法处理该模型，请稍后重试或切换模型';
+    public const CLAUDE_CLIENT_RESTRICTED = '当前模型仅支持已授权的 Claude Code 渠道，不能通过当前算力市场转发。请切换模型，或由管理员配置官方 Claude API 渠道';
 
     public static function fromResponse(array $response, string $fallback = self::TEMPORARILY_UNAVAILABLE): string
     {
@@ -25,6 +26,10 @@ class UpstreamErrorMessageService
             [$parsedCode, $parsedMessage] = self::codeFromMessage($message);
             $code = $parsedCode;
             $message = $parsedMessage;
+        }
+
+        if (self::isClaudeClientRestricted($message)) {
+            return self::CLAUDE_CLIENT_RESTRICTED;
         }
 
         if (self::isParameterError($code, $message)) {
@@ -131,6 +136,13 @@ class UpstreamErrorMessageService
         return false;
     }
 
+    public static function isClaudeClientRestricted(string $message): bool
+    {
+        $value = strtolower($message);
+        return (str_contains($value, 'standard claude code client') && str_contains($value, 'anomaly in your client'))
+            || str_contains($message, '标准 Claude Code 客户端');
+    }
+
     /** @return array{0:string,1:string} */
     private static function codeFromMessage(string $message): array
     {
@@ -156,7 +168,7 @@ class UpstreamErrorMessageService
     private static function cleanCode(string $value): string
     {
         $value = trim($value);
-        if ($value === '' || in_array(strtolower($value), ['0', '1', '200', 'ok', 'success', 'failed', 'error'], true)) {
+        if ($value === '' || in_array(strtolower($value), ['0', '1', '200', 'ok', 'success', 'failed', 'error', 'nil', '<nil>', 'null', '<null>', 'none', 'undefined'], true)) {
             return '';
         }
         return mb_substr($value, 0, 80, 'UTF-8');

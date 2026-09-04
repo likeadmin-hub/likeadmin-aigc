@@ -99,6 +99,15 @@ class PageController extends BaseAdminController
         }
     }
 
+    public function setHome()
+    {
+        try {
+            return $this->success('设置成功', DecorateTemplateService::setPageHome($this->tenantId, $this->request->post()), 1, 1);
+        } catch (RuntimeException $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function copy()
     {
         try {

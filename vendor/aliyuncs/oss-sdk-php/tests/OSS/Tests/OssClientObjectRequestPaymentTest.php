@@ -360,8 +360,8 @@ class OssClientObjectRequestPaymentTest extends TestOssClientBase
         $upload_position = 0;
         $is_check_md5 = false;
         foreach ($pieces as $i => $piece) {
-            $from_pos = $upload_position + (integer)$piece[OssClient::OSS_SEEK_TO];
-            $to_pos = (integer)$piece[OssClient::OSS_LENGTH] + $from_pos - 1;
+            $from_pos = $upload_position + (int)$piece[OssClient::OSS_SEEK_TO];
+            $to_pos = (int)$piece[OssClient::OSS_LENGTH] + $from_pos - 1;
             $up_options = array(
                 OssClient::OSS_FILE_UPLOAD => $upload_file,
                 OssClient::OSS_PART_NUM => ($i + 1),
@@ -451,12 +451,12 @@ class OssClientObjectRequestPaymentTest extends TestOssClientBase
     {
         parent::setUp();
         $this->payerClient = new OssClient(
-            getenv('OSS_PAYER_ACCESS_KEY_ID'),
-            getenv('OSS_PAYER_ACCESS_KEY_SECRET'),
-            getenv('OSS_ENDPOINT'), false);
+            Common::getPayerAccessKeyId(),
+            Common::getPayerAccessKeySecret(),
+            Common::getEndpoint(), false);
 
         $policy = '{"Version":"1","Statement":[{"Action":["oss:*"],"Effect": "Allow",'.
-                  '"Principal":["' . getenv('OSS_PAYER_UID') . '"],'.
+                  '"Principal":["' . Common::getPayerUid() . '"],'.
                   '"Resource": ["acs:oss:*:*:' . $this->bucket . '","acs:oss:*:*:' . $this->bucket . '/*"]}]}';
 
         $this->ossClient->putBucketPolicy($this->bucket, $policy);

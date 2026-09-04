@@ -106,6 +106,39 @@ class UserPointService
         );
     }
 
+    /**
+     * 发放会员套餐赠送点数。
+     *
+     * 通过来源号幂等，避免后台请求重试导致重复到账。
+     */
+    public static function grantMembershipBonus(int $userId, float $points, string $sourceSn, string $remark = '', array $extra = []): void
+    {
+        if ($points <= 0) {
+            return;
+        }
+        if (self::hasLog($userId, AccountLogEnum::UM_INC_MEMBERSHIP_BONUS, AccountLogEnum::INC, $sourceSn, $remark)) {
+            return;
+        }
+        $user = User::where('id', $userId)->lock(true)->findOrEmpty();
+        if ($user->isEmpty()) {
+            throw new RuntimeException('用户不存在');
+        }
+        if (self::hasLog($userId, AccountLogEnum::UM_INC_MEMBERSHIP_BONUS, AccountLogEnum::INC, $sourceSn, $remark)) {
+            return;
+        }
+        $user->user_money = number_format((float)$user['user_money'] + $points, 2, '.', '');
+        $user->save();
+        AccountLogLogic::add(
+            $userId,
+            AccountLogEnum::UM_INC_MEMBERSHIP_BONUS,
+            AccountLogEnum::INC,
+            $points,
+            $sourceSn,
+            $remark,
+            $extra
+        );
+    }
+
     private static function hasLog(int $userId, int $changeType, int $action, string $sourceSn, string $remark = ''): bool
     {
         if ($sourceSn === '') {

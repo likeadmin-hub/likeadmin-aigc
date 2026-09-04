@@ -57,8 +57,8 @@ class ResultTransformer {
             $result['Bucket'] = $command['Bucket'];
         }
         $result['Location'] = $request->getHeader('Host')[0] .  $request->getUri()->getPath();
-        if ($this->config['locationWithSchema']) {
-            $result['Location'] = $this->config['schema'] . '://' . $result['Location'];
+        if ($this->config['locationWithScheme']) {
+            $result['Location'] = $this->config['scheme'] . '://' . $result['Location'];
         }
         return $result;
     }
@@ -86,6 +86,9 @@ class ResultTransformer {
             $length = intval($result['ContentLength']);
             if($length > 0){
                 $content = $this->geCiContentInfo($result, $length);
+                if (version_compare(PHP_VERSION, '8.0.0', '<')) {
+                    libxml_disable_entity_loader(true);
+                }
                 $obj = simplexml_load_string($content, "SimpleXMLElement", LIBXML_NOCDATA);
                 $xmlData = json_decode(json_encode($obj),true);
                 if ($picRuleSize == 1 && isset($xmlData['ProcessResults']['Object'])){
@@ -101,6 +104,9 @@ class ResultTransformer {
             $length = intval($result['ContentLength']);
             if($length > 0){
                 $content = $this->geCiContentInfo($result, $length);
+                if (version_compare(PHP_VERSION, '8.0.0', '<')) {
+                    libxml_disable_entity_loader(true);
+                }
                 $obj = simplexml_load_string($content, "SimpleXMLElement", LIBXML_NOCDATA);
                 $arr = json_decode(json_encode($obj),true);
                 $result['GuetzliStatus'] = isset($arr[0]) ? $arr[0] : '';
@@ -111,6 +117,9 @@ class ResultTransformer {
             $length = intval($result['ContentLength']);
             if($length > 0){
                 $content = $this->geCiContentInfo($result, $length);
+                if (version_compare(PHP_VERSION, '8.0.0', '<')) {
+                    libxml_disable_entity_loader(true);
+                }
                 $obj = simplexml_load_string($content, "SimpleXMLElement", LIBXML_NOCDATA);
                 $arr = json_decode(json_encode($obj),true);
                 $result['CIStatus'] = isset($arr[0]) ? $arr[0] : '';
@@ -122,6 +131,9 @@ class ResultTransformer {
             $length = intval($result['ContentLength']);
             if($length > 0){
                 $content = $this->geCiContentInfo($result, $length);
+                if (version_compare(PHP_VERSION, '8.0.0', '<')) {
+                    libxml_disable_entity_loader(true);
+                }
                 $obj = simplexml_load_string($content, "SimpleXMLElement", LIBXML_NOCDATA);
                 $arr = json_decode(json_encode($obj),true);
                 $result['OriginProtectStatus'] = isset($arr[0]) ? $arr[0] : '';
@@ -133,9 +145,26 @@ class ResultTransformer {
             $length = intval($result['ContentLength']);
             if($length > 0){
                 $content = $this->geCiContentInfo($result, $length);
+                if (version_compare(PHP_VERSION, '8.0.0', '<')) {
+                    libxml_disable_entity_loader(true);
+                }
                 $obj = simplexml_load_string($content, "SimpleXMLElement", LIBXML_NOCDATA);
                 $arr = json_decode(json_encode($obj),true);
                 $result['Hotlink'] = $arr;
+                unset($result['Body']);
+            }
+        }
+
+        if ($action == "AutoTranslationBlockProcess") {
+            $length = intval($result['ContentLength']);
+            if($length > 0){
+                $content = $this->geCiContentInfo($result, $length);
+                if (version_compare(PHP_VERSION, '8.0.0', '<')) {
+                    libxml_disable_entity_loader(true);
+                }
+                $obj = simplexml_load_string($content, "SimpleXMLElement", LIBXML_NOCDATA);
+                $arr = json_decode(json_encode($obj),true);
+                $result['TranslationResult'] = isset($arr[0]) ? $arr[0] : '';
                 unset($result['Body']);
             }
         }
@@ -161,7 +190,6 @@ class ResultTransformer {
             'CreateMediaSDRtoHDRJobs' => 1,
             'CreateMediaDigitalWatermarkJobs' => 1,
             'CreateMediaExtractDigitalWatermarkJobs' => 1,
-            'OpticalOcrRecognition' => 1,
             'GetWorkflowInstance' => 1,
             'CreateMediaTranscodeTemplate' => 1,
             'UpdateMediaTranscodeTemplate' => 1,
@@ -194,9 +222,13 @@ class ResultTransformer {
             $length = intval($result['ContentLength']);
             if($length > 0){
                 $content = $this->geCiContentInfo($result, $length);
+                if (version_compare(PHP_VERSION, '8.0.0', '<')) {
+                    libxml_disable_entity_loader(true);
+                }
                 $obj = simplexml_load_string($content, "SimpleXMLElement", LIBXML_NOCDATA);
                 $xmlData = json_decode(json_encode($obj),true);
                 $result['Response'] = $xmlData;
+                unset($result['Body']);
             }
         }
 

@@ -8,23 +8,21 @@ Socialite 是一个 [OAuth2](https://oauth.net/2/) 认证工具。 它的灵感�
 
 [![Sponsor me](https://github.com/overtrue/overtrue/blob/master/sponsor-me-button-s.svg?raw=true)](https://github.com/sponsors/overtrue)
 
-该工具现已支持平台有：Facebook，Github，Google，Linkedin，Outlook，QQ，TAPD，支付宝，淘宝，百度，钉钉，微博，微信，抖音，飞书，Lark，豆瓣，企业微信，腾讯云，Line，Gitee，Coding。
+该工具现已支持平台有：Apple，Facebook，Github，Google，Linkedin，Outlook，QQ，TAPD，支付宝，淘宝，百度，钉钉，微博，微信，抖音，飞书，Lark，豆瓣，企业微信，腾讯云，Line，Gitee，Coding，Twitter。
 
 如果你喜欢我的项目并想支持我，[点击这里 :heart:](https://github.com/sponsors/overtrue)
 
-# 版本要求
+## 版本要求
 
-```
 PHP >= 8.0.2
-```
 
-# 安装
+## 安装
 
 ```shell
-$ composer require "overtrue/socialite" -vvv
+composer require "overtrue/socialite" -vvv
 ```
 
-# 使用指南
+## 使用指南
 
 用户只需要创建相应配置变量，然后通过工具为各个平台创建认证应用，并轻松获取该平台的 access_token 和用户相关信息。工具实现逻辑详见参照各大平台 OAuth2 文档。
 
@@ -48,7 +46,7 @@ $config = [
     'github' => [
         'client_id'     => 'your-app-id',
         'client_secret' => 'your-app-secret',
-        'redirect'      => 'http://localhost/socialite/callback.php',
+        'redirect_uri' => 'http://localhost/socialite/callback.php',
     ],
 ];
 
@@ -56,7 +54,7 @@ $socialite = new SocialiteManager($config);
 
 $url = $socialite->create('github')->redirect();
 
-return redirect($url); 
+return redirect($url);
 ```
 
 `callback.php`:
@@ -70,7 +68,7 @@ $config = [
     'github' => [
         'client_id' => 'your-app-id',
         'client_secret' => 'your-app-secret',
-        'redirect' => 'http://localhost/socialite/callback.php',
+        'redirect_uri' => 'http://localhost/socialite/callback.php',
     ],
 ];
 
@@ -90,7 +88,8 @@ $user->getEmail();     // "anzhengchao@gmail.com"
 
 ## 配置
 
-为每个平台设置相同的键值对后就能开箱即用：`client_id`, `client_secret`, `redirect`.
+为每个平台设置相同的键值对后就能开箱即用：`client_id`, `client_secret`, `redirect_uri`。
+同时兼容旧键名：`redirect`、`redirect_url`。
 
 示例：
 
@@ -99,12 +98,12 @@ $config = [
   'weibo' => [
     'client_id'     => 'your-app-id',
     'client_secret' => 'your-app-secret',
-    'redirect'      => 'http://localhost/socialite/callback.php',
+    'redirect_uri' => 'http://localhost/socialite/callback.php',
   ],
   'facebook' => [
     'client_id'     => 'your-app-id',
     'client_secret' => 'your-app-secret',
-    'redirect'      => 'http://localhost/socialite/callback.php',
+    'redirect_uri' => 'http://localhost/socialite/callback.php',
   ],
 ];
 ```
@@ -117,20 +116,20 @@ $config = [
 $config = [
   // 为 github 应用起别名为 foo
     'foo' => [
-        'provider' 			=> 'github',  // <-- provider name
-        'client_id' 		=> 'your-app-id',
+        'provider'    => 'github',  // <-- provider name
+        'client_id'   => 'your-app-id',
         'client_secret' => 'your-app-secret',
-        'redirect' 			=> 'http://localhost/socialite/callback.php',
+        'redirect_uri' => 'http://localhost/socialite/callback.php',
     ],
-       
+
     // 另外一个名字叫做 bar 的 github 应用
     'bar' => [
-        'provider' 			=> 'github',  // <-- provider name
-        'client_id' 		=> 'your-app-id',
+        'provider'    => 'github',  // <-- provider name
+        'client_id'   => 'your-app-id',
         'client_secret' => 'your-app-secret',
-        'redirect' 			=> 'http://localhost/socialite/callback.php',
+        'redirect_uri' => 'http://localhost/socialite/callback.php',
     ],
-  
+
     //...
 ];
 
@@ -154,12 +153,12 @@ $config = [
         'provider' => 'myprovider',  // <-- 一个工具还未支持的服务提供程序
         'client_id' => 'your-app-id',
         'client_secret' => 'your-app-secret',
-        'redirect' => 'http://localhost/socialite/callback.php',
+        'redirect_uri' => 'http://localhost/socialite/callback.php',
     ],
 ];
 
 $socialite = new SocialiteManager($config);
-   
+
 $socialite->extend('myprovider', function(array $config) {
     return new MyCustomProvider($config);
 });
@@ -167,12 +166,14 @@ $socialite->extend('myprovider', function(array $config) {
 $app = $socialite->create('foo');
 ```
 
-2. 使用服务提供类
+1. 使用服务提供类
 
->👋🏻 你的自定义服务提供类必须实现`Overtrue\Socialite\Contracts\ProviderInterface` 接口
+> [!IMPORTANT]  
+> 
+> 👋🏻 你的自定义服务提供类必须实现 `Overtrue\Socialite\Contracts\ProviderInterface` 接口
 
 ```php
-class MyCustomProvider implements \Overtrue\Socialite\Contracts\ProviderInterface 
+class MyCustomProvider implements \Overtrue\Socialite\Contracts\ProviderInterface
 {
     //...
 }
@@ -183,18 +184,16 @@ class MyCustomProvider implements \Overtrue\Socialite\Contracts\ProviderInterfac
 ```php
 $config = [
     'foo' => [
-        'provider' 			=> MyCustomProvider::class,  // <-- 类名
-        'client_id' 		=> 'your-app-id',
+        'provider'    => MyCustomProvider::class,  // <-- 类名
+        'client_id'   => 'your-app-id',
         'client_secret' => 'your-app-secret',
-        'redirect'		 	=> 'http://localhost/socialite/callback.php',
+        'redirect_uri' => 'http://localhost/socialite/callback.php',
     ],
 ];
 
 $socialite = new SocialiteManager($config);
 $app = $socialite->create('foo');
 ```
-
-
 
 ## 平台
 
@@ -208,8 +207,8 @@ $app = $socialite->create('foo');
 $config = [
   'alipay' => [
     // 这个键名还能像官方文档那样叫做 'app_id'
-    'client_id' => 'your-app-id', 
- 
+    'client_id' => 'your-app-id',
+
     // 请根据官方文档，在官方管理后台配置 RSA2
     // 注意： 这是你自己的私钥
     // 注意： 不允许私钥内容有其他字符
@@ -217,9 +216,9 @@ $config = [
     'rsa_private_key' => 'your-rsa-private-key',
 
     // 确保这里的值与你在服务后台绑定的地址值一致
-    // 这个键名还能像官方文档那样叫做 'redirect_url'
-    'redirect' => 'http://localhost/socialite/callback.php',
-    
+    // 推荐使用 'redirect_uri'，同时兼容 'redirect' 与 'redirect_url'
+    'redirect_uri' => 'http://localhost/socialite/callback.php',
+
     // 沙箱模式接入地址见 https://opendocs.alipay.com/open/220/105337#%E5%85%B3%E4%BA%8E%E6%B2%99%E7%AE%B1
     'sandbox' => false,
   ]
@@ -252,11 +251,11 @@ $config = [
       // or 'app_id'
       'client_id' => 'your app id',
 
-      // or 'app_secret' 
+      // or 'app_secret'
       'client_secret' => 'your app secret',
 
-      // or 'redirect_url'
-      'redirect' => 'redirect URL'
+      // 兼容旧键名：'redirect' 或 'redirect_url'
+      'redirect_uri' => 'redirect URL'
   ]
 ];
 
@@ -283,7 +282,7 @@ $config = [
 
       'client_secret' => 'your app secret',
 
-      'redirect' => 'redirect URL'
+      'redirect_uri' => 'redirect URL'
   ]
 ];
 
@@ -303,7 +302,7 @@ $config = [
   'toutiao' => [
     'client_id' => 'your app id',
     'client_secret' => 'your app secret',
-    'redirect' => 'redirect URL'
+    'redirect_uri' => 'redirect URL'
   ]
 ];
 
@@ -322,7 +321,7 @@ $config = [
   'xigua' => [
     'client_id' => 'your app id',
     'client_secret' => 'your app secret',
-    'redirect' => 'redirect URL'
+    'redirect_uri' => 'redirect URL'
   ]
 ];
 
@@ -331,7 +330,6 @@ $socialite = new SocialiteManager($config);
 $user = $socialite->create('xigua')->userFromCode('here is auth code');
 $user = $socialite->create('xigua')->withOpenId('openId')->userFromToken('here is the access token');
 ```
-
 
 ### [百度](https://developer.baidu.com/wiki/index.php?title=docs/oauth)
 
@@ -361,11 +359,11 @@ $config = [
         // or 'app_id'
         'client_id' => 'your app id',
 
-        // or 'app_secret' 
+        // or 'app_secret'
         'client_secret' => 'your app secret',
 
-        // or 'redirect_url'
-        'redirect' => 'redirect URL',
+        // 兼容旧键名：'redirect' 或 'redirect_url'
+        'redirect_uri' => 'redirect URL',
 
         // 如果你想使用使用内部应用的方式获取 app_access_token
         // 对这个键设置了 'internal' 值那么你已经开启了内部应用模式
@@ -391,11 +389,11 @@ $config = [
         // or 'app_id'
         'client_id' => 'your app id',
 
-        // or 'app_secret' 
+        // or 'app_secret'
         'client_secret' => 'your app secret',
 
-        // or 'redirect_url'
-        'redirect' => 'redirect URL',
+        // 兼容旧键名：'redirect' 或 'redirect_url'
+        'redirect_uri' => 'redirect URL',
 
         // 如果你想使用使用内部应用的方式获取 app_access_token
         // 对这个键设置了 'internal' 值那么你已经开启了内部应用模式
@@ -413,7 +411,7 @@ $larkDriver->withDefaultMode()->withAppTicket('app_ticket')->userFromCode('here 
 
 ### [淘宝](https://open.taobao.com/doc.htm?docId=102635&docType=1&source=search)
 
-其他配置与其他平台的一样，你能选择你想要展示的重定向页面类型通过使用 `withView()` 
+其他配置与其他平台的一样，你能选择你想要展示的重定向页面类型通过使用 `withView()`
 
 ```php
 $authUrl = $socialite->create('taobao')->withView('wap')->redirect();
@@ -432,9 +430,9 @@ $authUrl = $socialite->create('taobao')->withView('wap')->redirect();
 [
     'wechat' =>
         [
-            'client_id' 		=> 'client_id',
+            'client_id'   => 'client_id',
             'client_secret' => 'client_secret',
-            'redirect' 			=> 'redirect-url',
+            'redirect_uri' => 'redirect-url',
 
             // 开放平台 - 第三方平台所需
             'component' => [
@@ -448,7 +446,6 @@ $authUrl = $socialite->create('taobao')->withView('wap')->redirect();
 ...
 ```
 
-
 ### [Coding](https://coding.net/help/openapi#oauth)
 
 您需要额外配置 `team_url` 为您的团队域名，例如：
@@ -456,11 +453,46 @@ $authUrl = $socialite->create('taobao')->withView('wap')->redirect();
 ```php
 $config = [
     'coding' => [
-        'team_url' => 'https://{your-team}.coding.net', 
+        'team_url' => 'https://{your-team}.coding.net',
         'client_id' => 'your app id',
         'client_secret' => 'your app secret',
-        'redirect' => 'redirect URL',
+        'redirect_uri' => 'redirect URL',
     ]
+];
+```
+
+### [PayPal](https://developer.paypal.com/docs/log-in-with-paypal/)
+
+您可能需要设置responseType，可以使用`withResponseType`函数进行设置，默认是`code` 还可以设置为`id_token` 或`code` & `id_token`
+
+> <https://developer.paypal.com/docs/log-in-with-paypal/integrate/generate-button/>
+
+```php
+$config = [
+    'paypal' => [
+        'client_id'     => 'AT******************',
+        'client_secret' => 'EK**************',
+        'sandbox'      => false,
+        'redirect_uri' => "nativexo://paypalpay",
+    ],
+];
+```
+
+### [Apple](https://developer.apple.com/documentation/sign_in_with_apple/sign_in_with_apple_rest_api)
+
+通过 Apple 登录需要在 Apple Developer 后台创建 Service ID，并配置好 Return URLs。client_secret 可以直接提供，也可以通过 `team_id`、`key_id` 和 `private_key` 自动生成（推荐）。
+
+> <https://developer.apple.com/documentation/sign_in_with_apple/generate_and_validate_tokens>
+
+```php
+$config = [
+    'apple' => [
+        'client_id'   => 'com.example.app',   // Services ID
+        'team_id'     => 'XXXXXXXXXX',         // Apple Developer Team ID
+        'key_id'      => 'XXXXXXXXXX',         // Key ID from Apple Developer
+        'private_key' => file_get_contents('/path/to/AuthKey_XXXXXXXXXX.p8'), // .p8 private key content
+        'redirect_uri' => 'https://example.com/auth/apple/callback',
+    ],
 ];
 ```
 
@@ -477,7 +509,7 @@ $response = $socialite->create('github')
 
 ### Redirect URL
 
-你也可以动态设置' redirect_uri '，你可以使用以下方法来改变 `redirect_uri` URL:
+你也可以动态设置 `redirect_uri`，你可以使用以下方法来改变 `redirect_uri` URL:
 
 ```php
 $url = 'your callback url.';
@@ -498,7 +530,7 @@ $socialite->withRedirectUrl($url)->redirect();
 ```php
 <?php
 session_start();
- 
+
 $config = [
     //...
 ];
@@ -510,7 +542,7 @@ $socialite = new SocialiteManager($config);
 
 $url = $socialite->create('github')->withState($state)->redirect();
 
-return redirect($url); 
+return redirect($url);
 ```
 
 ### 检验回调的 `state`
@@ -520,10 +552,10 @@ return redirect($url);
 ```php
 <?php
 session_start();
- 
+
 $state = request()->query('state');
 $code = request()->query('code');
- 
+
 // Check the state received with current session id
 if ($state != hash('sha256', session_id())) {
     exit('State does not match!');
@@ -544,10 +576,9 @@ $response = $socialite->create('google')
                     ->with(['hd' => 'example.com'])->redirect();
 ```
 
-
 ## User interface
 
-### 标准的 user api：
+### 标准的 user api
 
 ```php
 $user = $socialite->create('github')->userFromCode($code);
@@ -596,7 +627,7 @@ mixed   $user->getId();
 ?string $user->getEmail();
 ?string $user->getAvatar();
 ?string $user->getRaw();
-?string $user->getAccessToken(); 
+?string $user->getAccessToken();
 ?string $user->getRefreshToken();
 ?int    $user->getExpiresIn();
 ?array  $user->getTokenResponse();
@@ -604,7 +635,7 @@ mixed   $user->getId();
 
 ```
 
-###  从 OAuth API 响应中取得原始数据
+### 从 OAuth API 响应中取得原始数据
 
 `$user->getRaw()` 方法会返回一个 **array**。
 
@@ -612,7 +643,7 @@ mixed   $user->getId();
 
 `$user->getTokenResponse()` 方法会返回一个 **array** 里面是响应从获取 token 时候 API 返回的响应。
 
-> 注意：当你使用 `userFromCode()` 时，这个方法只返回一个 **有效的数组**，否则将返回 **null**，因为 `userFromToken() ` 没有 token 的 HTTP 响应。
+> 注意：当你使用 `userFromCode()` 时，这个方法只返回一个 **有效的数组**，否则将返回 **null**，因为 `userFromToken()` 没有 token 的 HTTP 响应。
 
 ### 通过 access token 获取用户信息
 
@@ -621,11 +652,9 @@ $accessToken = 'xxxxxxxxxxx';
 $user = $socialite->userFromToken($accessToken);
 ```
 
+## Enjoy it! :heart:
 
-
-# Enjoy it! :heart:
-
-# 参照
+## 参照
 
 - [Alipay - 用户信息授权](https://opendocs.alipay.com/open/289/105656)
 - [DingTalk - 扫码登录第三方网站](https://ding-doc.dingtalk.com/doc#/serverapi3/mrugr3)
@@ -648,15 +677,15 @@ $user = $socialite->userFromToken($accessToken);
 - [Tapd - 用户授权说明](https://www.tapd.cn/help/show#1120003271001000093)
 - [Line - OAuth 2.0](https://developers.line.biz/en/docs/line-login/integrate-line-login/)
 - [Gitee - OAuth文档](https://gitee.com/api/v5/oauth_doc#/)
+- [PayPal - OAuth文档](https://developer.paypal.com/docs/log-in-with-paypal/)
+- [Apple - Sign in with Apple REST API](https://developer.apple.com/documentation/sign_in_with_apple/sign_in_with_apple_rest_api)
 
-
-
-# PHP 扩展包开发
+## PHP 扩展包开发
 
 > 想知道如何从零开始构建 PHP 扩展包？
 >
 > 请关注我的实战课程，我会在此课程中分享一些扩展开发经验 —— [《PHP 扩展包实战教程 - 从入门到发布》](https://learnku.com/courses/creating-package)
 
-# License
+## License
 
 MIT

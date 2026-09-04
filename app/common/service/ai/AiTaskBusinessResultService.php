@@ -6,6 +6,7 @@ use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\app\aigc_product_promo_video\AigcProductPromoVideoService;
 use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use app\common\service\app\aigc_video\AigcVideoService;
+use app\common\service\app\aigc_watermark_removal\AigcWatermarkRemovalService;
 use RuntimeException;
 use think\facade\Db;
 
@@ -60,6 +61,7 @@ class AiTaskBusinessResultService
             'aigc_short_drama_script_task' => AigcShortDramaService::refreshScriptTask($businessId),
             'aigc_short_drama_generation_task' => AigcShortDramaService::refreshMarketGenerationTask($businessId),
             'aigc_canvas_run' => null,
+            'aigc_watermark_removal_task' => AigcWatermarkRemovalService::syncConsumption($businessId, (int)$consumption['user_id']),
             default => self::assertOptionalBusinessAdapter($consumption, $businessTable),
         };
     }
@@ -70,7 +72,8 @@ class AiTaskBusinessResultService
         if ($context === null) {
             return false;
         }
-        return (string)($context['consumption']['provider'] ?? '') === 'power_market'
+        return ((string)($context['consumption']['provider'] ?? '') === 'power_market'
+                && (string)$context['app_code'] !== 'aigc_watermark_removal')
             || (string)$context['app_code'] === 'aigc_short_drama'
             || (string)$context['business_table'] === 'aigc_short_drama_generation_task';
     }
@@ -96,6 +99,7 @@ class AiTaskBusinessResultService
             'aigc_short_drama_script_task',
             'aigc_short_drama_generation_task',
             'aigc_canvas_run',
+            'aigc_watermark_removal_task',
         ], true);
     }
 

@@ -1313,6 +1313,15 @@ class Service {
                             'location' => 'header',
                             'sentAs' => 'x-cos-tagging',
                         ),
+                        'Expires' => array(
+                            'type' => array(
+                                'object',
+                                'string',
+                                'integer',
+                            ),
+                            'format' => 'date-time-http',
+                            'location' => 'header',
+                        ),
                     )
                 ),
                 // 追加对象
@@ -1562,7 +1571,7 @@ class Service {
                         ),
                     )
                 ),
-                // 设置存储桶（Bucket）的访问权限（Access Control List, ACL)
+                // 设置存储桶（Bucket）的访问权限 (Access Control List, ACL)
                 'PutBucketAcl' => array(
                     'httpMethod' => 'PUT',
                     'uri' => '/{Bucket}?acl',
@@ -3710,6 +3719,7 @@ class Service {
                 'DescribeDocProcessJob' => Descriptions::DescribeDocProcessJob(), // 查询文档转码任务
                 'GetDescribeDocProcessJobs' => Descriptions::GetDescribeDocProcessJobs(), // 拉取符合条件的文档转码任务
                 'DetectImage' => Descriptions::DetectImage(), // 图片审核
+                'DetectImageUrl' => Descriptions::DetectImageUrl(), // 图片审核
                 'DetectImages' => Descriptions::DetectImages(), // 图片审核-批量
                 'DetectVirus' => Descriptions::DetectVirus(), // 云查毒
                 'GetDetectVirusResult' => Descriptions::GetDetectVirusResult(), // 查询病毒检测任务结果
@@ -3786,6 +3796,7 @@ class Service {
                 'CloseOriginProtect' => Descriptions::CloseOriginProtect(), // 关闭原图保护
                 'ImageDetectFace' => Descriptions::ImageDetectFace(), // 人脸检测
                 'ImageFaceEffect' => Descriptions::ImageFaceEffect(), // 人脸特效
+                'ImageUrlFaceEffect' => Descriptions::ImageUrlFaceEffect(), // 人脸特效
                 'IDCardOCR' => Descriptions::IDCardOCR(), // 身份证识别
                 'IDCardOCRByUpload' => Descriptions::IDCardOCRByUpload(), // 身份证识别-上传时处理
                 'GetLiveCode' => Descriptions::GetLiveCode(), // 获取数字验证码
@@ -3810,6 +3821,7 @@ class Service {
                 'GetPicBucketList' => Descriptions::GetPicBucketList(), // 查询图片处理服务状态
                 'GetAiBucketList' => Descriptions::GetAiBucketList(), // 查询 AI 内容识别服务状态
                 'OpenAiService' => Descriptions::OpenAiService(), // 开通 AI 内容识别
+                'CloseAiService' => Descriptions::CloseAiService(), // 关闭AI内容识别服务
                 'GetAiQueueList' => Descriptions::GetAiQueueList(), // 搜索 AI 内容识别队列
                 'UpdateAiQueue' => Descriptions::UpdateAiQueue(), // 更新 AI 内容识别队列
                 'CreateMediaTranscodeProTemplate' => Descriptions::CreateMediaTranscodeProTemplate(), // 创建音视频转码 pro 模板
@@ -3830,6 +3842,49 @@ class Service {
                 'OpenImageSlim' => Descriptions::OpenImageSlim(), // 开通图片瘦身
                 'CloseImageSlim' => Descriptions::CloseImageSlim(), // 关闭图片瘦身
                 'GetImageSlim' => Descriptions::GetImageSlim(), // 查询图片瘦身状态
+                'AutoTranslationBlockProcess' => Descriptions::AutoTranslationBlockProcess(), // 实时文字翻译
+                'RecognizeLogoProcess' => Descriptions::RecognizeLogoProcess(), // Logo 识别
+                'DetectLabelProcess' => Descriptions::DetectLabelProcess(), // 图片标签
+                'AIGameRecProcess' => Descriptions::AIGameRecProcess(), // 游戏场景识别
+                'AIBodyRecognitionProcess' => Descriptions::AIBodyRecognitionProcess(), // 人体识别
+                'DetectPetProcess' => Descriptions::DetectPetProcess(), // 宠物识别
+                'AILicenseRecProcess' => Descriptions::AILicenseRecProcess(), // 卡证识别
+                'CreateMediaTargetRecTemplate' => Descriptions::CreateMediaTargetRecTemplate(), // 创建视频目标检测模板
+                'UpdateMediaTargetRecTemplate' => Descriptions::UpdateMediaTargetRecTemplate(), // 更新视频目标检测模板
+                'CreateMediaTargetRecJobs' => Descriptions::CreateMediaTargetRecJobs(), // 提交视频目标检测任务
+                'CreateMediaSegmentVideoBodyJobs' => Descriptions::CreateMediaSegmentVideoBodyJobs(), // 提交视频人像抠图任务
+                'OpenAsrService' => Descriptions::OpenAsrService(), //开通智能语音服务
+                'GetAsrBucketList' => Descriptions::GetAsrBucketList(), // 查询智能语音服务
+                'CloseAsrService' => Descriptions::CloseAsrService(), // 关闭智能语音服务
+                'GetAsrQueueList' => Descriptions::GetAsrQueueList(), // 查询智能语音队列
+                'UpdateAsrQueue' => Descriptions::UpdateAsrQueue(), // 更新智能语音队列
+                'CreateMediaNoiseReductionTemplate' => Descriptions::CreateMediaNoiseReductionTemplate(), // 创建音频降噪模板
+                'UpdateMediaNoiseReductionTemplate' => Descriptions::UpdateMediaNoiseReductionTemplate(), // 更新音频降噪模板
+                'CreateVoiceSoundHoundJobs' => Descriptions::CreateVoiceSoundHoundJobs(), // 提交听歌识曲任务
+                'CreateVoiceVocalScoreJobs' => Descriptions::CreateVoiceVocalScoreJobs(), // 提交音乐评分任务
+                'CreateDataset' => Descriptions::CreateDataset(), // 创建数据集
+                'CreateDatasetBinding' => Descriptions::CreateDatasetBinding(), // 绑定存储桶与数据集
+                'CreateFileMetaIndex' => Descriptions::CreateFileMetaIndex(), // 创建元数据索引
+                'DatasetFaceSearch' => Descriptions::DatasetFaceSearch(), // 人脸搜索
+                'DatasetSimpleQuery' => Descriptions::DatasetSimpleQuery(), // 简单查询
+                'DeleteDataset' => Descriptions::DeleteDataset(), // 删除数据集
+                'DeleteDatasetBinding' => Descriptions::DeleteDatasetBinding(), // 解绑存储桶与数据集
+                'DeleteFileMetaIndex' => Descriptions::DeleteFileMetaIndex(), // 删除元数据索引
+                'DescribeDataset' => Descriptions::DescribeDataset(), // 查询数据集
+                'DescribeDatasetBinding' => Descriptions::DescribeDatasetBinding(), // 查询数据集与存储桶的绑定关系
+                'DescribeDatasetBindings' => Descriptions::DescribeDatasetBindings(), // 查询绑定关系列表
+                'DescribeDatasets' => Descriptions::DescribeDatasets(), // 列出数据集
+                'DescribeFileMetaIndex' => Descriptions::DescribeFileMetaIndex(), // 查询元数据索引
+                'SearchImage' => Descriptions::SearchImage(), // 图像检索
+                'UpdateDataset' => Descriptions::UpdateDataset(), // 更新数据集
+                'UpdateFileMetaIndex' => Descriptions::UpdateFileMetaIndex(), // 更新元数据索引
+                'ZipFilePreview' => Descriptions::ZipFilePreview(), // 压缩包预览同步请求
+                'GetHLSPlayKey' => Descriptions::GetHLSPlayKey(), // 获取hls播放密钥
+                'PostWatermarkJobs' => Descriptions::PostWatermarkJobs(), // 视频明水印-提交任务
+                'GeneratePlayList' => Descriptions::GeneratePlayList(), // 生成播放列表
+                'CreateWatermarkTemplate' => Descriptions::CreateWatermarkTemplate(), // 创建明水印模板
+                'GetMediaAIGCMetadata' => Descriptions::GetMediaAIGCMetadata(), // 查询 AIGC 音视频元数据标识
+
             ),
             'models' => array(
                 'AbortMultipartUploadOutput' => array(
@@ -5621,11 +5676,21 @@ class Service {
                             'items' => array(
                                 'type' => 'object',
                                 'properties' => array(
-                                    'Name' => array(
-                                        'type' => 'string',
-                                    ),
-                                    'CreationDate' => array(
-                                        'type' => 'string',
+                                    'Bucket' => array(
+                                        'type' => 'array',
+                                        'items' => array(
+                                            'type' => 'object',
+                                            'items' => array(
+                                                'properties' => array(
+                                                    'Name' => array(
+                                                        'type' => 'string',
+                                                    ),
+                                                    'CreationDate' => array(
+                                                        'type' => 'string',
+                                                    ),
+                                                ),
+                                            ),
+                                        )
                                     ),
                                 ),
                             ),
@@ -7453,6 +7518,7 @@ class Service {
                 'GetPicBucketListOutput' => Descriptions::GetPicBucketListOutput(),
                 'GetAiBucketListOutput' => Descriptions::GetAiBucketListOutput(),
                 'OpenAiServiceOutput' => Descriptions::OpenAiServiceOutput(),
+                'CloseAiServiceOutput' => Descriptions::CloseAiServiceOutput(),
                 'GetAiQueueListOutput' => Descriptions::GetAiQueueListOutput(),
                 'UpdateAiQueueOutput' => Descriptions::UpdateAiQueueOutput(),
                 'CreateMediaTranscodeProTemplateOutput' => Descriptions::CreateMediaTranscodeProTemplateOutput(),
@@ -7473,6 +7539,49 @@ class Service {
                 'OpenImageSlimOutput' => Descriptions::OpenImageSlimOutput(),
                 'CloseImageSlimOutput' => Descriptions::CloseImageSlimOutput(),
                 'GetImageSlimOutput' => Descriptions::GetImageSlimOutput(),
+                'AutoTranslationBlockProcessOutput' => Descriptions::AutoTranslationBlockProcessOutput(),
+                'RecognizeLogoProcessOutput' => Descriptions::RecognizeLogoProcessOutput(),
+                'DetectLabelProcessOutput' => Descriptions::DetectLabelProcessOutput(),
+                'AIGameRecProcessOutput' => Descriptions::AIGameRecProcessOutput(),
+                'AIBodyRecognitionProcessOutput' => Descriptions::AIBodyRecognitionProcessOutput(),
+                'DetectPetProcessOutput' => Descriptions::DetectPetProcessOutput(),
+                'AILicenseRecProcessOutput' => Descriptions::AILicenseRecProcessOutput(),
+                'CreateMediaTargetRecTemplateOutput' => Descriptions::CreateMediaTargetRecTemplateOutput(),
+                'UpdateMediaTargetRecTemplateOutput' => Descriptions::UpdateMediaTargetRecTemplateOutput(),
+                'CreateMediaTargetRecJobsOutput' => Descriptions::CreateMediaTargetRecJobsOutput(),
+                'CreateMediaSegmentVideoBodyJobsOutput' => Descriptions::CreateMediaSegmentVideoBodyJobsOutput(),
+                'OpenAsrServiceOutput' => Descriptions::OpenAsrServiceOutput(),
+                'GetAsrBucketListOutput' => Descriptions::GetAsrBucketListOutput(),
+                'CloseAsrServiceOutput' => Descriptions::CloseAsrServiceOutput(),
+                'GetAsrQueueListOutput' => Descriptions::GetAsrQueueListOutput(),
+                'UpdateAsrQueueOutput' => Descriptions::UpdateAsrQueueOutput(),
+                'CreateMediaNoiseReductionTemplateOutput' => Descriptions::CreateMediaNoiseReductionTemplateOutput(),
+                'UpdateMediaNoiseReductionTemplateOutput' => Descriptions::UpdateMediaNoiseReductionTemplateOutput(),
+                'CreateVoiceSoundHoundJobsOutput' => Descriptions::CreateVoiceSoundHoundJobsOutput(),
+                'CreateVoiceVocalScoreJobsOutput' => Descriptions::CreateVoiceVocalScoreJobsOutput(),
+                'CreateDatasetOutput' => Descriptions::CreateDatasetOutput(),
+                'CreateDatasetBindingOutput' => Descriptions::CreateDatasetBindingOutput(),
+                'CreateFileMetaIndexOutput' => Descriptions::CreateFileMetaIndexOutput(),
+                'DatasetFaceSearchOutput' => Descriptions::DatasetFaceSearchOutput(),
+                'DatasetSimpleQueryOutput' => Descriptions::DatasetSimpleQueryOutput(),
+                'DeleteDatasetOutput' => Descriptions::DeleteDatasetOutput(),
+                'DeleteDatasetBindingOutput' => Descriptions::DeleteDatasetBindingOutput(),
+                'DeleteFileMetaIndexOutput' => Descriptions::DeleteFileMetaIndexOutput(),
+                'DescribeDatasetOutput' => Descriptions::DescribeDatasetOutput(),
+                'DescribeDatasetBindingOutput' => Descriptions::DescribeDatasetBindingOutput(),
+                'DescribeDatasetBindingsOutput' => Descriptions::DescribeDatasetBindingsOutput(),
+                'DescribeDatasetsOutput' => Descriptions::DescribeDatasetsOutput(),
+                'DescribeFileMetaIndexOutput' => Descriptions::DescribeFileMetaIndexOutput(),
+                'SearchImageOutput' => Descriptions::SearchImageOutput(),
+                'UpdateDatasetOutput' => Descriptions::UpdateDatasetOutput(),
+                'UpdateFileMetaIndexOutput' => Descriptions::UpdateFileMetaIndexOutput(),
+                'ZipFilePreviewOutput' => Descriptions::ZipFilePreviewOutput(),
+                'GetHLSPlayKeyOutput' => Descriptions::GetHLSPlayKeyOutput(),
+                'PostWatermarkJobsOutput' => Descriptions::PostWatermarkJobsOutput(),
+                'GeneratePlayListOutput' => Descriptions::GeneratePlayListOutput(),
+                'CreateWatermarkTemplateOutput' => Descriptions::CreateWatermarkTemplateOutput(),
+                'GetMediaAIGCMetadataOutput' => Descriptions::GetMediaAIGCMetadataOutput(),
+
             )
         );
     }

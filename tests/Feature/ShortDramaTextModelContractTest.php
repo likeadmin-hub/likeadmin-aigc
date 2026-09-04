@@ -115,14 +115,22 @@ class ShortDramaTextModelContractTest extends TestCase
 
     public function testAdminSelectorUsesAllTextModelsForTheDefault(): void
     {
-        $asset = file_get_contents(dirname(__DIR__, 2) . '/public/admin/assets/config-fge0of94.js');
+        $asset = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/app/aigc_short_drama/AigcShortDramaService.php');
 
         self::assertIsString($asset);
         self::assertStringContainsString('default_text_model_id', $asset);
-        self::assertStringContainsString('key)==="script_plan"', $asset);
-        self::assertStringContainsString('label:"默认文本模型"', $asset);
+        self::assertStringContainsString("'script_plan'", $asset);
+        self::assertStringContainsString("'剧本策划文本模型'", $asset);
         self::assertStringContainsString('暂无租户可用的文本模型', $asset);
-        self::assertStringNotContainsString('搜索并选择支持视觉的文本模型', $asset);
+        self::assertStringContainsString('MarketTextModelRuntimeService::resolveModel($tenantId, $defaultTextModelId, false)', $asset);
+    }
+
+    public function testUnsupportedModelParameterHasAnActionableSafeMessage(): void
+    {
+        self::assertSame(
+            '文本模型不支持当前请求参数，请切换模型或联系管理员同步模型能力',
+            $this->invoke('scriptPlanProviderError', 'invalid_request_error: Unsupported parameter: input_pricing_sku_key')
+        );
     }
 
     private function planPayload(): array

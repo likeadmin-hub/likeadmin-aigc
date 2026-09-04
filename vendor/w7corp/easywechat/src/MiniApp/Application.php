@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace EasyWeChat\MiniApp;
 
-use function array_merge;
 use EasyWeChat\Kernel\Contracts\AccessToken as AccessTokenInterface;
 use EasyWeChat\Kernel\Contracts\Server as ServerInterface;
 use EasyWeChat\Kernel\Encryptor;
@@ -20,23 +19,25 @@ use EasyWeChat\Kernel\Traits\InteractWithHttpClient;
 use EasyWeChat\Kernel\Traits\InteractWithServerRequest;
 use EasyWeChat\MiniApp\Contracts\Account as AccountInterface;
 use EasyWeChat\MiniApp\Contracts\Application as ApplicationInterface;
-use function is_null;
 use JetBrains\PhpStorm\Pure;
 use Psr\Log\LoggerAwareTrait;
-use function str_contains;
 use Symfony\Component\HttpClient\Response\AsyncContext;
 use Symfony\Component\HttpClient\RetryableHttpClient;
+
+use function array_merge;
+use function is_null;
+use function str_contains;
 
 /**
  * @psalm-suppress PropertyNotSetInConstructor
  */
 class Application implements ApplicationInterface
 {
-    use InteractWithConfig;
     use InteractWithCache;
-    use InteractWithServerRequest;
-    use InteractWithHttpClient;
     use InteractWithClient;
+    use InteractWithConfig;
+    use InteractWithHttpClient;
+    use InteractWithServerRequest;
     use LoggerAwareTrait;
 
     protected ?Encryptor $encryptor = null;
@@ -69,7 +70,7 @@ class Application implements ApplicationInterface
     }
 
     /**
-     * @throws \EasyWeChat\Kernel\Exceptions\InvalidConfigException
+     * @throws InvalidConfigException
      */
     public function getEncryptor(): Encryptor
     {
@@ -99,17 +100,14 @@ class Application implements ApplicationInterface
         return $this;
     }
 
-    /**
-     * @throws \ReflectionException
-     * @throws \EasyWeChat\Kernel\Exceptions\InvalidArgumentException
-     * @throws \Throwable
-     */
     public function getServer(): Server|ServerInterface
     {
         if (! $this->server) {
             $this->server = new Server(
                 request: $this->getRequest(),
-                encryptor: $this->getAccount()->getAesKey() ? $this->getEncryptor() : null
+                encryptor: $this->getAccount()->getAesKey() ? $this->getEncryptor() : null,
+                token: $this->getAccount()->getToken(),
+                requireEncryption: (bool) $this->config->get('require_encryption', false),
             );
         }
 
@@ -131,6 +129,7 @@ class Application implements ApplicationInterface
                 secret: $this->getAccount()->getSecret(),
                 cache: $this->getCache(),
                 httpClient: $this->getHttpClient(),
+                stable: $this->config->get('use_stable_access_token', false)
             );
         }
 
@@ -154,7 +153,7 @@ class Application implements ApplicationInterface
     {
         $httpClient = $this->getHttpClient();
 
-        if ((bool) $this->config->get('http.retry', false)) {
+        if ($this->config->get('http.retry', false)) {
             $httpClient = new RetryableHttpClient(
                 $httpClient,
                 $this->getRetryStrategy(),
@@ -167,7 +166,7 @@ class Application implements ApplicationInterface
             accessToken: $this->getAccessToken(),
             failureJudge: fn (
                 Response $response
-            ) => (bool) ($response->toArray()['errcode'] ?? 0) || ! is_null($response->toArray()['error'] ?? null),
+            ) => ($response->toArray()['errcode'] ?? 0) || ! is_null($response->toArray()['error'] ?? null),
             throw: (bool) $this->config->get('http.throw', true),
         ))->setPresets($this->config->all());
     }

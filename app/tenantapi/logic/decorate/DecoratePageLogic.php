@@ -16,6 +16,7 @@ namespace app\tenantapi\logic\decorate;
 
 use app\common\logic\BaseLogic;
 use app\common\model\decorate\DecoratePage;
+use app\common\model\decorate\DecorateTemplate;
 use app\common\service\decorate\DecorateTemplateService;
 
 
@@ -43,7 +44,13 @@ class DecoratePageLogic extends BaseLogic
             $type = $id;
         }
 
-        return self::getOrCreatePage($type)->toArray();
+        $page = self::getOrCreatePage($type)->toArray();
+        // Legacy editor/detail callers should work on the draft snapshot just
+        // like the new template editor. Keep the legacy fields as a fallback
+        // for installations that predate draft/published columns.
+        $page['data'] = $page['draft_data'] ?: $page['data'] ?: '[]';
+        $page['meta'] = $page['draft_meta'] ?: $page['meta'] ?: '';
+        return $page;
     }
 
 
@@ -56,21 +63,43 @@ class DecoratePageLogic extends BaseLogic
      */
     public static function save($params)
     {
+        $tenantId = (int)(request()->tenantId ?? 0);
         $type = (int)($params['type'] ?? 0);
-        $pageData = DecoratePage::where(['id' => (int)$params['id']])->findOrEmpty();
+        DecorateTemplateService::ensureDefaultTemplate($tenantId);
+        $activeTemplate = DecorateTemplate::where([
+            'tenant_id' => $tenantId,
+            'is_active' => 1,
+        ])->findOrEmpty();
+        $pageData = DecoratePage::where([
+            'tenant_id' => $tenantId,
+            'id' => (int)$params['id'],
+        ]);
+        if (!$activeTemplate->isEmpty()) {
+            $pageData->where('template_id', (int)$activeTemplate['id']);
+        }
+        $pageData = $pageData->findOrEmpty();
         if ($pageData->isEmpty() && $type > 0) {
-            $pageData = DecoratePage::where(['type' => $type])->findOrEmpty();
+            $pageQuery = DecoratePage::where([
+                'tenant_id' => $tenantId,
+                'type' => $type,
+            ]);
+            if (!$activeTemplate->isEmpty()) {
+                $pageQuery->where('template_id', (int)$activeTemplate['id']);
+            }
+            $pageData = $pageQuery->findOrEmpty();
         }
         if ($pageData->isEmpty()) {
             $pageData = self::getOrCreatePage($type);
         }
 
         $pageData->type = $type;
-        $pageData->data = $params['data'];
-        $pageData->meta = $params['meta'] ?? '';
+        // Legacy routes remain available, but edits must stay in the draft
+        // snapshot until the owning template is explicitly published.
+        $pageData->draft_data = $params['data'];
+        $pageData->draft_meta = $params['meta'] ?? '';
         $pageData->save();
-        if (isset(request()->tenantId)) {
-            DecorateTemplateService::ensureDefaultTemplate((int)request()->tenantId);
+        if ((int)($pageData['template_id'] ?? 0) > 0) {
+            DecorateTemplateService::markDraft($tenantId, (int)$pageData['template_id']);
         }
         return true;
     }
@@ -81,7 +110,23 @@ class DecoratePageLogic extends BaseLogic
             $type = 1;
         }
 
-        $page = DecoratePage::where(['type' => $type])->findOrEmpty();
+        $tenantId = (int)(request()->tenantId ?? 0);
+        // Legacy routes do not carry a template id. Resolve their page against
+        // the tenant's active template first so an old type-based request can
+        // never edit a page belonging to another template.
+        DecorateTemplateService::ensureDefaultTemplate($tenantId);
+        $activeTemplate = DecorateTemplate::where([
+            'tenant_id' => $tenantId,
+            'is_active' => 1,
+        ])->findOrEmpty();
+        $pageQuery = DecoratePage::where([
+            'tenant_id' => $tenantId,
+            'type' => $type,
+        ]);
+        if (!$activeTemplate->isEmpty()) {
+            $pageQuery->where('template_id', (int)$activeTemplate['id']);
+        }
+        $page = $pageQuery->findOrEmpty();
         if (!$page->isEmpty()) {
             return $page;
         }
@@ -91,16 +136,27 @@ class DecoratePageLogic extends BaseLogic
             ->findOrEmpty();
 
         $data = [
-            'tenant_id' => (int)(request()->tenantId ?? 0),
+            'tenant_id' => $tenantId,
             'type' => $type,
             'name' => self::defaultName($type),
             'data' => '[]',
             'meta' => '',
+            'draft_data' => '[]',
+            'draft_meta' => '',
+            'published_data' => '[]',
+            'published_meta' => '',
         ];
+        if (!$activeTemplate->isEmpty()) {
+            $data['template_id'] = (int)$activeTemplate['id'];
+        }
         if (!$template->isEmpty()) {
             $data['name'] = $template['name'];
             $data['data'] = $template['data'];
             $data['meta'] = $template['meta'];
+            $data['draft_data'] = $template['data'];
+            $data['draft_meta'] = $template['meta'];
+            $data['published_data'] = $template['data'];
+            $data['published_meta'] = $template['meta'];
         }
 
         return DecoratePage::create($data);

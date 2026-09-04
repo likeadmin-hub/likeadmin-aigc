@@ -29,9 +29,12 @@ use app\common\model\recharge\RechargeOrder;
 use app\common\logic\PayNotifyLogic;
 use app\common\model\user\User;
 use app\common\service\pay\AliPayService;
+use app\common\service\pay\MembershipPaymentReconcileService;
+use app\common\service\pay\TenantPowerPaymentReconcileService;
 use app\common\service\pay\WeChatPayService;
 use app\common\service\brand\TenantBrandService;
 use app\common\service\power\TenantPowerMallService;
+use think\facade\Log;
 
 
 /**
@@ -203,6 +206,21 @@ class PaymentLogic extends BaseLogic
                 case 'membership':
                     $order = MembershipOrder::where(['user_id' => $params['user_id'], 'id' => $params['order_id']])
                         ->findOrEmpty();
+                    if ($order->isEmpty()) {
+                        throw new \Exception('会员订单不存在');
+                    }
+                    if ((int)$order['pay_status'] !== PayEnum::ISPAID) {
+                        try {
+                            MembershipPaymentReconcileService::reconcile($order);
+                            $order = MembershipOrder::where([
+                                'tenant_id' => (int)$order['tenant_id'],
+                                'user_id' => (int)$order['user_id'],
+                                'id' => (int)$order['id'],
+                            ])->findOrEmpty();
+                        } catch (\Throwable $e) {
+                            Log::write('会员订单支付状态同步失败-' . $order['order_sn'] . '-' . $e->getMessage());
+                        }
+                    }
                     $payTime = empty($order['pay_time']) ? '' : date('Y-m-d H:i:s', $order['pay_time']);
                     $orderInfo = [
                         'order_id' => $order['id'],
@@ -223,6 +241,14 @@ class PaymentLogic extends BaseLogic
                     }
                     if ($order->isEmpty()) {
                         throw new \Exception('算力订单不存在');
+                    }
+                    if ((int)$order['pay_status'] !== PayEnum::ISPAID) {
+                        try {
+                            TenantPowerPaymentReconcileService::reconcile($order);
+                            $order = TenantPowerOrder::where(['tenant_id' => (int)$order['tenant_id'], 'id' => (int)$order['id']])->findOrEmpty();
+                        } catch (\Throwable $e) {
+                            Log::write('算力订单支付状态同步失败-' . $order['order_sn'] . '-' . $e->getMessage());
+                        }
                     }
                     $payTime = empty($order['pay_time']) ? '' : date('Y-m-d H:i:s', $order['pay_time']);
                     $orderInfo = [

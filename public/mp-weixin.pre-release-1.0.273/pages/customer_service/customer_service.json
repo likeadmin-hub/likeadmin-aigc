@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "联系客服",
+  "usingComponents": {
+    "w-customer-service": "../../components/widgets/customer-service/customer-service"
+  }
+}

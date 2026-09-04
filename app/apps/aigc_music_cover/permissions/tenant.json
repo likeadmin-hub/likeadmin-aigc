@@ -1,0 +1,8 @@
+[
+  { "permission_key": "aigc_music_cover:config:detail", "name": "查看音乐翻唱配置", "api_path": "app.aigc_music_cover.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_music_cover:config:setup", "name": "保存音乐翻唱配置", "api_path": "app.aigc_music_cover.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_music_cover:task:lists", "name": "查看音乐翻唱任务", "api_path": "app.aigc_music_cover.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_music_cover:task:detail", "name": "查看音乐翻唱任务详情", "api_path": "app.aigc_music_cover.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_music_cover:task:retry", "name": "重试音乐翻唱任务", "api_path": "app.aigc_music_cover.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_music_cover:task:delete", "name": "删除音乐翻唱任务", "api_path": "app.aigc_music_cover.task/delete", "api_method": "POST" }
+]
