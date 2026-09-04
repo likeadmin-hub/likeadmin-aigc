@@ -55,7 +55,12 @@ class TenantSsoService
             'update_time' => $time,
         ]);
 
-        $baseUrl = self::rootUrl();
+        // Start SSO on the tenant's effective host (alias/subdomain) so the
+        // newly edited domain is used immediately. The platform host remains
+        // a fallback for legacy tenants without a resolvable current host.
+        $tenantLinks = TenantUrlService::attach($tenantData);
+        $currentAdminUrl = (string)($tenantLinks['links']['current']['admin'] ?? '');
+        $baseUrl = preg_replace('#/admin/?$#', '', $currentAdminUrl) ?: self::rootUrl();
         $query = http_build_query(array_filter([
             'tenant_id' => $tenantId,
             'sso_ticket' => $ticket,

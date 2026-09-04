@@ -115,10 +115,13 @@ class ShortDramaPromptWorkspaceContractTest extends TestCase
         self::assertSame(6, $promptMenu['sort']);
         self::assertSame('apps/aigc_short_drama/prompt', $promptMenu['component']);
 
-        $router = (string)file_get_contents($root . '/public/admin/assets/index-Duk7lJ6Z.js');
-        self::assertStringContainsString('/src/views/apps/aigc_short_drama/prompt.vue', $router);
-        self::assertStringContainsString('prompt-Df7pQ2mN.js', $router);
-        self::assertStringContainsString('assets/prompt-Cx7mN2pQ.css', $router);
+        $tenantRoot = dirname($root) . '/tenant';
+        $router = (string)file_get_contents($tenantRoot . '/src/router/index.ts');
+        self::assertStringContainsString("import.meta.glob('/src/views/**/*.vue')", $router);
+        $promptPage = (string)file_get_contents($tenantRoot . '/src/views/apps/aigc_short_drama/prompt.vue');
+        self::assertStringContainsString('prompt_config_definitions', $promptPage);
+        self::assertStringContainsString('prompt_config_values', $promptPage);
+        self::assertStringContainsString('setAigcShortDramaConfig({ prompt_config:', $promptPage);
 
         $service = (string)file_get_contents(
             $root . '/app/common/service/app/aigc_short_drama/AigcShortDramaService.php'

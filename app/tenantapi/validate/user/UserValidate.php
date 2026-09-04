@@ -30,6 +30,9 @@ class UserValidate extends BaseValidate
         'field' => 'require|checkField',
         'value' => 'require',
         'tenant_id' => 'require',
+        'password' => 'require|length:6,32',
+        'password_confirm' => 'require|confirm',
+        'plan_id' => 'require|integer|gt:0',
     ];
 
     protected $message = [
@@ -37,6 +40,13 @@ class UserValidate extends BaseValidate
         'field.require' => '请选择操作',
         'value.require' => '请输入内容',
         'tenant_id.require' => '请选择租户标识',
+        'password.require' => '请输入新密码',
+        'password.length' => '密码长度须在6-32位字符',
+        'password_confirm.require' => '请输入确认密码',
+        'password_confirm.confirm' => '两次输入的密码不一致',
+        'plan_id.require' => '请选择会员套餐',
+        'plan_id.integer' => '会员套餐参数错误',
+        'plan_id.gt' => '请选择有效的会员套餐',
     ];
 
 
@@ -51,15 +61,28 @@ class UserValidate extends BaseValidate
         return $this->only(['id']);
     }
 
-
-    /**
-     * @notes 编辑用户信息场景
-     * @return UserValidate
-     * @author Codex
-     */
+    /** 租户端编辑身份由登录上下文确定，客户端不提交 tenant_id。 */
     public function sceneSetInfo()
     {
         return $this->only(['id', 'field', 'value']);
+    }
+
+    /**
+     * @notes 修改用户密码场景
+     * @return UserValidate
+     */
+    public function sceneResetPassword()
+    {
+        return $this->only(['id', 'password', 'password_confirm']);
+    }
+
+    /**
+     * @notes 设置用户会员套餐场景
+     * @return UserValidate
+     */
+    public function sceneSetMembership()
+    {
+        return $this->only(['id', 'plan_id']);
     }
 
 

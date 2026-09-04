@@ -10,6 +10,7 @@ use app\common\model\app\aigc_canvas\AigcCanvasRun;
 use app\common\model\ai\AiConsumptionLog;
 use app\common\model\file\TenantFile;
 use app\common\service\app\AppDisplayConfigService;
+use app\common\service\ai\ReferenceMentionPromptService;
 use app\common\service\FileService;
 use app\common\service\app\aigc_canvas\agent\model\CanvasModelRouterService;
 use app\common\service\app\aigc_canvas\agent\prompt\PromptSubmissionService;
@@ -2780,7 +2781,7 @@ class AigcCanvasService
             $basePrompt = trim((string)($params['prompt'] ?? $params['content'] ?? ''));
             $params['prompt'] = self::mergePromptWithMentionPrompts($basePrompt, $mentionPrompts);
         }
-        return $params;
+        return ReferenceMentionPromptService::compile($params);
     }
 
     private static function normalizeMentions($value): array

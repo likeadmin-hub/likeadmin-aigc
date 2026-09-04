@@ -33,30 +33,6 @@ class AppDisplayConfigService
                 'brand_monitoring',
             ],
         ],
-        'aigc_music_cover' => [
-            'ready' => 1,
-            'listing_status' => 'ready',
-            'category' => 'AI音频',
-            'resource_type' => 'app_api',
-            'settlement' => 'power',
-            'billing_unit' => '次',
-            'upstream_app_code' => 'seedsvc',
-            'api_codes' => ['submit'],
-            'requires_provider_configuration' => true,
-            'capabilities' => ['voice_conversion', 'music_cover', 'audio_generation'],
-        ],
-        'aigc_watermark_removal' => [
-            'ready' => 1,
-            'listing_status' => 'ready',
-            'category' => '视频处理',
-            'resource_type' => 'app_api',
-            'settlement' => 'power',
-            'billing_unit' => '次',
-            'upstream_app_code' => 'watermark_removal',
-            'api_codes' => ['remove'],
-            'requires_provider_configuration' => true,
-            'capabilities' => ['short_video_watermark_removal', 'video_download'],
-        ],
     ];
 
     public const DEFAULT_APP_CODES = [
@@ -68,7 +44,6 @@ class AppDisplayConfigService
         'aigc_short_drama',
         'aigc_geo',
         'aigc_music',
-        'aigc_music_cover',
         'image_human',
         'smart_clip',
         'aigc_hairstyle',
@@ -126,11 +101,6 @@ class AppDisplayConfigService
             'title' => 'GEO营销优化系统',
             'description' => '围绕 AI 搜索曝光、内容生产、品牌管理、内容发布和付费投稿构建品牌增长闭环。',
             'sort' => 78,
-        ],
-        'aigc_music_cover' => [
-            'title' => '音乐翻唱',
-            'description' => '上传原始歌曲和目标音色参考，生成新的演唱版本并支持试听与下载。',
-            'sort' => 77,
         ],
         'image_human' => [
             'title' => '全驱数字人',

@@ -74,6 +74,66 @@ class MarketTextModelPayloadContractTest extends TestCase
         self::assertSame(['include_usage' => true], $chatPayload['stream_options']);
     }
 
+    public function testSchemaLessReasoningModelCanExplicitlyDisableThinking(): void
+    {
+        $generationParams = new ReflectionMethod(MarketTextModelRuntimeService::class, 'generationParams');
+        $generationParams->setAccessible(true);
+
+        self::assertSame([
+            'enable_thinking' => false,
+        ], $generationParams->invoke(null, [
+            'model_code' => 'DeepSeek-V4-Pro',
+            'default_params' => [],
+            'params_schema' => [],
+        ], [
+            'enable_thinking' => false,
+            'temperature' => 0.7,
+        ]));
+    }
+
+    public function testUnsupportedSchemaLessThinkingParameterCanBeRemovedOnRetry(): void
+    {
+        $retry = new ReflectionMethod(MarketTextModelRuntimeService::class, 'compatibleGenerationParams');
+        $retry->setAccessible(true);
+
+        self::assertSame([
+            'params' => [],
+            'reason' => 'provider_unsupported_optional_parameter',
+            'removed_params' => ['enable_thinking'],
+            'temperature' => null,
+        ], $retry->invoke(null, 'unknown parameter: enable_thinking', [
+            'enable_thinking' => false,
+        ]));
+    }
+
+    public function testProviderRejectedMarketContextIsRetriedWithoutLeakingBillingSelectors(): void
+    {
+        $retry = new ReflectionMethod(MarketTextModelRuntimeService::class, 'compatibleTransportOptions');
+        $retry->setAccessible(true);
+
+        self::assertSame([
+            'params' => [],
+            'transport' => ['include_market_context' => false, 'include_channel' => true],
+            'reason' => 'provider_rejected_market_transport_context',
+            'removed_params' => ['market_transport_context'],
+            'temperature' => null,
+        ], $retry->invoke(null, 'invalid_request_error: Unsupported parameter: input_pricing_sku_key', [
+            'include_market_context' => true,
+            'include_channel' => true,
+        ]));
+    }
+
+    public function testTransportRetryDoesNotMaskAnUnrelatedInvalidRequest(): void
+    {
+        $retry = new ReflectionMethod(MarketTextModelRuntimeService::class, 'compatibleTransportOptions');
+        $retry->setAccessible(true);
+
+        self::assertNull($retry->invoke(null, 'invalid_request_error: Unsupported parameter: unsupported_feature', [
+            'include_market_context' => true,
+            'include_channel' => true,
+        ]));
+    }
+
     public function testTextModelErrorsKeepCodesAndParameterDetails(): void
     {
         $error = new ReflectionMethod(MarketTextModelRuntimeService::class, 'providerError');

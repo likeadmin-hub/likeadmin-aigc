@@ -94,17 +94,17 @@ class MarketVideoRuntimeService
             $defaultDuration = self::defaultDurationOption($metadata, $durations);
             $requiresConcreteRatio = self::requiresConcreteTextToVideoRatio($product, $metadata);
             $restrictRatioOptions = $requiresConcreteRatio && !self::isFullVideoProduct($product) && !self::isH3Product($product);
-            $ratios = self::ratiosForSkus($validSkus, $metadata);
+            $ratios = self::ratioOptionsForProduct($product, $validSkus, $metadata);
             if ($restrictRatioOptions) {
                 $ratios = self::concreteRatioOptions($ratios);
                 if ($ratios === []) {
                     $ratios = [self::defaultConcreteTextToVideoRatio($validSkus, $metadata)];
                 }
             }
-            $qualities = array_map(static function (string $resolution) use ($validSkus, $ratios, $restrictRatioOptions): array {
+            $qualities = array_map(static function (string $resolution) use ($product, $validSkus, $ratios, $restrictRatioOptions): array {
                 $matched = array_values(array_filter($validSkus, static fn(array $sku): bool => (string)$sku['resolution'] === $resolution));
                 $firstSku = $matched[0] ?? $validSkus[0] ?? [];
-                $qualityRatios = self::ratiosForSkus($matched, []);
+                $qualityRatios = self::ratioOptionsForProduct($product, $matched, []);
                 if ($restrictRatioOptions) {
                     $qualityRatios = self::concreteRatioOptions($qualityRatios);
                 }
@@ -158,10 +158,10 @@ class MarketVideoRuntimeService
                 'developer_doc_slug' => (string)($metadata['developer_doc_slug'] ?? ''),
                 'api_doc' => (string)($metadata['api_doc'] ?? ''),
                 'supported_asset_types' => self::supportedAssetTypes($product, $metadata),
-                'max_reference_images' => self::referenceLimit($product, $metadata, 'image'),
+                'max_reference_images' => self::advertisedReferenceLimit($product, $metadata, 'image'),
                 'max_reference_videos' => self::referenceLimit($product, $metadata, 'video'),
                 'max_reference_audios' => self::referenceLimit($product, $metadata, 'audio'),
-                'max_reference_assets' => self::referenceAssetLimit($product, $metadata),
+                'max_reference_assets' => self::advertisedReferenceAssetLimit($product, $metadata),
                 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $metadata),
                 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $metadata),
                 'generation_modes' => self::generationModes($product, $metadata),
@@ -203,10 +203,10 @@ class MarketVideoRuntimeService
             'generation_modes' => self::generationModes($product, $metadata),
             'supports_first_last_frame' => self::supportsFirstLastFrame($product, $metadata),
             'supported_asset_types' => self::supportedAssetTypes($product, $metadata),
-            'max_reference_images' => self::referenceLimit($product, $metadata, 'image'),
+            'max_reference_images' => self::advertisedReferenceLimit($product, $metadata, 'image'),
             'max_reference_videos' => self::referenceLimit($product, $metadata, 'video'),
             'max_reference_audios' => self::referenceLimit($product, $metadata, 'audio'),
-            'max_reference_assets' => self::referenceAssetLimit($product, $metadata),
+            'max_reference_assets' => self::advertisedReferenceAssetLimit($product, $metadata),
             'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $metadata),
             'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $metadata),
         ];
@@ -1937,6 +1937,7 @@ class MarketVideoRuntimeService
     private static function generationModes(array $product, array $meta): array
     {
         $isH3 = self::isH3Product($product);
+        $supportsStartEndFrames = self::supportsStartEndFrames($product);
         $cap = self::arrayValue($meta['capabilities'] ?? []);
         $configured = $meta['generation_modes'] ?? $cap['generation_modes'] ?? [];
         if (is_string($configured)) $configured = preg_split('~\s*[,|/]\s*~', $configured) ?: [];
@@ -1957,8 +1958,11 @@ class MarketVideoRuntimeService
         $order = ['text_to_video', 'omni_reference', 'image_to_video', 'start_end', 'image_reference', 'video_edit', 'multi_frame', 'audio_reference'];
         $declared = array_values(array_intersect($order, array_unique($configured)));
         if ($declared !== []) {
-            if (!$isH3) {
+            if (!$supportsStartEndFrames) {
                 $declared = array_values(array_diff($declared, ['start_end']));
+            }
+            if ($supportsStartEndFrames && !in_array('start_end', $declared, true)) {
+                $declared[] = 'start_end';
             }
             if (in_array('omni_reference', $declared, true)
                 && ($isH3 || self::referenceLimit($product, $meta, 'image') >= 2)) {
@@ -1968,8 +1972,11 @@ class MarketVideoRuntimeService
         }
         $schemaModes = self::schemaVideoCapabilities($meta)['generation_modes'];
         if ($schemaModes !== []) {
-            if (!$isH3) {
+            if (!$supportsStartEndFrames) {
                 $schemaModes = array_values(array_diff($schemaModes, ['start_end']));
+            }
+            if ($supportsStartEndFrames && !in_array('start_end', $schemaModes, true)) {
+                $schemaModes[] = 'start_end';
             }
             if (in_array('omni_reference', $schemaModes, true)
                 && ($isH3 || self::referenceLimit($product, $meta, 'image') >= 2)) {
@@ -2000,6 +2007,9 @@ class MarketVideoRuntimeService
         }
         $declaredInputModes = array_values(array_intersect($order, array_unique($declaredInputModes)));
         if ($declaredInputModes !== []) {
+            if ($supportsStartEndFrames && !in_array('start_end', $declaredInputModes, true)) {
+                $declaredInputModes[] = 'start_end';
+            }
             return array_values(array_filter($order, static fn(string $mode): bool => in_array($mode, $declaredInputModes, true)));
         }
         $resourceType = (string)($product['resource_type'] ?? PowerMarketService::TYPE_MODEL);
@@ -2029,13 +2039,120 @@ class MarketVideoRuntimeService
                 $supported[] = $mode;
             }
         }
+        if ($supportsStartEndFrames) {
+            $supported[] = 'start_end';
+        }
         return array_values(array_filter($order, static fn(string $mode): bool => in_array($mode, $supported, true)));
+    }
+
+    /** H3 and Wan 3.0 accept an image pair as the first and last frame. */
+    private static function supportsStartEndFrames(array $product): bool
+    {
+        if (self::isH3Product($product)) {
+            return true;
+        }
+        foreach (['upstream_model_code', 'upstream_channel_code', 'model_code', 'channel_code'] as $key) {
+            if (strtolower(trim((string)($product[$key] ?? ''))) === 'wan3.0-video') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** First/last-frame adapters always need exactly two image inputs. */
+    private static function advertisedReferenceLimit(array $product, array $meta, string $type): int
+    {
+        $limit = self::referenceLimit($product, $meta, $type);
+        return $type === 'image' && self::supportsStartEndFrames($product) ? max(2, $limit) : $limit;
+    }
+
+    private static function advertisedReferenceAssetLimit(array $product, array $meta): int
+    {
+        $limit = self::referenceAssetLimit($product, $meta);
+        return self::supportsStartEndFrames($product) ? max(2, $limit) : $limit;
     }
     private static function ratiosForSkus(array $skus, array $metadata): array
     {
         $sets = array_map(static fn(array $row): array => self::skuRatios($row), $skus);
         $ratios = $sets === [] ? [] : array_values(array_unique(array_merge(...$sets)));
         return $ratios !== [] ? $ratios : self::ratioOptions($metadata);
+    }
+
+    /**
+     * The market catalog sometimes publishes a default ratio but omits the
+     * selectable capability. Keep SKU/metadata contracts authoritative and
+     * apply the narrow protocol fallback only when neither one declares ratios.
+     */
+    private static function ratioOptionsForProduct(array $product, array $skus, array $metadata): array
+    {
+        $ratios = self::ratiosForSkus($skus, $metadata);
+        if (self::hasSkuRatioContract($skus) || self::hasMetadataRatioContract($metadata)) {
+            return $ratios;
+        }
+
+        $fallback = self::protocolRatioFallback($product);
+        return $fallback === [] ? $ratios : array_values(array_unique(array_merge($fallback, $ratios)));
+    }
+
+    private static function hasSkuRatioContract(array $skus): bool
+    {
+        foreach ($skus as $sku) {
+            if (self::skuRatios($sku) !== []) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function hasMetadataRatioContract(array $metadata): bool
+    {
+        $capabilities = self::arrayValue($metadata['capabilities'] ?? []);
+        $schema = self::arrayValue($metadata['params_schema'] ?? []);
+        $properties = self::arrayValue($schema['properties'] ?? []);
+        $parameters = self::arrayValue($schema['parameters'] ?? $properties['parameters'] ?? []);
+        $parameterProperties = self::arrayValue($parameters['properties'] ?? []);
+        foreach ([
+            $metadata['supported_ratios'] ?? null,
+            $metadata['ratio_options'] ?? null,
+            $metadata['ratios'] ?? null,
+            $capabilities['supported_ratios'] ?? null,
+            $capabilities['ratio_options'] ?? null,
+        ] as $values) {
+            if (self::ratioValues(['ratio_options' => $values]) !== []) {
+                return true;
+            }
+        }
+        foreach ([
+            $schema['ratio'] ?? [],
+            $schema['aspect_ratio'] ?? [],
+            $properties['ratio'] ?? [],
+            $properties['aspect_ratio'] ?? [],
+            $parameters['ratio'] ?? [],
+            $parameters['aspect_ratio'] ?? [],
+            $parameterProperties['ratio'] ?? [],
+            $parameterProperties['aspect_ratio'] ?? [],
+        ] as $definition) {
+            $definition = self::arrayValue($definition);
+            foreach (['options', 'enum', 'values', 'allowed_values'] as $key) {
+                if (self::ratioValues(['ratio_options' => $definition[$key] ?? null]) !== []) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static function protocolRatioFallback(array $product): array
+    {
+        $model = strtolower(trim((string)($product['upstream_model_code'] ?? '')));
+        if ($model === 'wan3.0-video') {
+            return ['adaptive', '16:9', '4:3', '1:1', '3:4', '9:16'];
+        }
+        if (self::isFullVideoProduct($product)) {
+            // Full Video uses the MiniMax H3-compatible v2 contract.
+            return ['adaptive', '21:9', '16:9', '4:3', '1:1', '3:4', '9:16'];
+        }
+        return [];
     }
     private static function skuRatios(array $sku): array
     {
@@ -2354,10 +2471,25 @@ class MarketVideoRuntimeService
         $unit = strtolower(self::billingUnit((array)($market['product'] ?? []), (array)$market['sku']));
         if (self::isTokenSku($market['sku'])) return max(0, self::lockedQuantity($locked));
         $lockedDuration = self::duration($locked);
-        if (str_contains($unit, 'second') || str_contains($unit, 'sec')) return max(1, (int)($lockedDuration ?: ($selection['duration'] ?? 1)));
+        if (self::isDurationBillingUnit($unit)) {
+            return max(1, $lockedDuration ?: self::requestedDuration($selection));
+        }
         // Per-call SKU pricing is one submitted request regardless of a model
         // parameter such as duration or n in its locked request contract.
         return 1;
+    }
+    private static function requestedDuration(array $selection): int
+    {
+        foreach (['duration', 'seconds', 'video_duration'] as $key) {
+            if (isset($selection[$key]) && is_numeric($selection[$key]) && (int)$selection[$key] > 0) {
+                return (int)$selection[$key];
+            }
+        }
+        return 1;
+    }
+    private static function isDurationBillingUnit(string $unit): bool
+    {
+        return preg_match('/(?:^|_)(?:input_|output_)?(?:second|seconds|sec)(?:$|_)/', $unit) === 1;
     }
     private static function isTokenSku(array $sku): bool { return str_contains(strtolower((string)($sku['usage_unit'] ?? '')), 'token'); }
     private static function isDeferredUsageSku(array $sku): bool { return self::isTokenSku($sku); }

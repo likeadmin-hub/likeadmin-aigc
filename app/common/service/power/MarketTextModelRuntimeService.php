@@ -24,6 +24,14 @@ class MarketTextModelRuntimeService
     public const APP_CODE = 'power_market_text';
     private const REQUEST_TIMEOUT_SECONDS = 1200;
     private const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
+    private const MAX_COMPATIBILITY_ATTEMPTS = 4;
+    /** @var array<int, string> */
+    private const MARKET_CONTEXT_KEYS = [
+        'market_product_id', 'market_sku_id', 'sku_id', 'market_sku_key', 'sku_key', 'pricing_sku_key',
+        'market_input_sku_id', 'input_sku_id', 'market_input_sku_key', 'input_sku_key', 'input_pricing_sku_key',
+        'market_output_sku_id', 'output_sku_id', 'market_output_sku_key', 'output_sku_key', 'output_pricing_sku_key',
+        'price_source',
+    ];
 
     public static function modelGroups(int $tenantId): array
     {
@@ -117,12 +125,16 @@ class MarketTextModelRuntimeService
         try {
             self::event((int)$context['consumption']['id'], 'submit', 'running', ['model_code' => $model['model_code']]);
             $compatibilityAttempts = 0;
+            $transportOptions = ['include_market_context' => true, 'include_channel' => true];
             while (true) {
                 try {
-                    $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout);
+                    $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
                     break;
                 } catch (\Throwable $initialError) {
                     $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);
+                    if ($retry === null) {
+                        $retry = self::compatibleTransportOptions($initialError->getMessage(), $transportOptions);
+                    }
                     if ($retry === null && self::isTransientProviderFailure($initialError->getMessage())) {
                         $retry = [
                             'params' => $generationParams,
@@ -131,10 +143,14 @@ class MarketTextModelRuntimeService
                             'temperature' => null,
                         ];
                     }
-                    if ($retry === null || $compatibilityAttempts >= 2) {
+                    if ($retry === null || $compatibilityAttempts >= self::MAX_COMPATIBILITY_ATTEMPTS) {
                         throw $initialError;
                     }
-                    $generationParams = $retry['params'];
+                    if (isset($retry['transport']) && is_array($retry['transport'])) {
+                        $transportOptions = $retry['transport'];
+                    } else {
+                        $generationParams = $retry['params'];
+                    }
                     $compatibilityAttempts++;
                     self::event((int)$context['consumption']['id'], 'retry', 'running', [
                         'reason' => $retry['reason'],
@@ -468,7 +484,7 @@ class MarketTextModelRuntimeService
     }
 
     /** @return array<string, mixed> */
-    private static function request(array $model, array $messages, string $system, int $maxTokens, array $generationParams, ?callable $onEvent, int $requestTimeout): array
+    private static function request(array $model, array $messages, string $system, int $maxTokens, array $generationParams, ?callable $onEvent, int $requestTimeout, array $transportOptions = []): array
     {
         $source = UpdateSourceClient::getSource(); $base = self::sourceBaseUrl((string)($source['active_base_url'] ?? $source['base_url'] ?? '')); $key = (string)($source['active_api_key'] ?? $source['api_key'] ?? $source['license_key'] ?? '');
         $sslVerify = UpdateSourceClient::sslVerify($source);
@@ -478,11 +494,13 @@ class MarketTextModelRuntimeService
             throw new Exception('请输入文本内容');
         }
         $payload = self::requestPayload($protocol, $model, $messages, $system, $maxTokens, $generationParams);
+        if (($transportOptions['include_market_context'] ?? true) === true) {
+            $payload = array_merge(self::marketContext($model), $payload);
+        }
         $channelCode = trim((string)($model['channel_code'] ?? ''));
-        if ($channelCode !== '') {
+        if (($transportOptions['include_channel'] ?? true) === true && $channelCode !== '') {
             $payload['channel'] = $channelCode;
         }
-        $payload = array_merge(self::marketContext($model), $payload);
         // Do this last so neither a model default nor an application override
         // can disable SSE for a market text request.
         $payload['stream'] = true;
@@ -737,6 +755,56 @@ class MarketTextModelRuntimeService
         ];
     }
 
+    /**
+     * Some market gateways forward their own billing selectors to the upstream
+     * model unchanged. A standards-compliant upstream then rejects those
+     * selectors as unknown request parameters. Retry once without the complete
+     * market context only after it explicitly rejects one of those known keys.
+     * This remains model-agnostic and does not mask ordinary invalid requests.
+     *
+     * @return array{params:array<string,mixed>,transport:array<string,bool>,reason:string,removed_params:array<int,string>,temperature:null}|null
+     */
+    private static function compatibleTransportOptions(string $message, array $transportOptions): ?array
+    {
+        $message = strtolower($message);
+        if (!str_contains($message, 'unsupported')
+            && !str_contains($message, 'unknown parameter')
+            && !str_contains($message, 'invalid parameter')
+            && !str_contains($message, 'not support')) {
+            return null;
+        }
+
+        if (($transportOptions['include_market_context'] ?? true) === true) {
+            foreach (self::MARKET_CONTEXT_KEYS as $key) {
+                if (str_contains($message, strtolower($key))) {
+                    $transport = $transportOptions;
+                    $transport['include_market_context'] = false;
+                    return [
+                        'params' => [],
+                        'transport' => $transport,
+                        'reason' => 'provider_rejected_market_transport_context',
+                        'removed_params' => ['market_transport_context'],
+                        'temperature' => null,
+                    ];
+                }
+            }
+        }
+
+        if (($transportOptions['include_channel'] ?? true) === true && str_contains($message, 'channel')) {
+            $transport = $transportOptions;
+            $transport['include_channel'] = false;
+            return [
+                'params' => [],
+                'transport' => $transport,
+                'reason' => 'provider_rejected_channel_selector',
+                'removed_params' => ['channel'],
+                'temperature' => null,
+            ];
+        }
+
+        return null;
+    }
+
     private static function requiredTemperature(string $message, array $generationParams): ?float
     {
         if (!preg_match('/(?:only|must be)\s+([01](?:\.\d+)?)\s+is\s+allowed\s+for\s+this\s+model/i', $message, $matches)) {
@@ -814,6 +882,15 @@ class MarketTextModelRuntimeService
     {
         $defaults = self::arrayValue($model['default_params'] ?? []);
         $allowed = array_fill_keys(self::declaredGenerationParamKeys($model, $defaults), true);
+        // The market catalogue can omit a parameter schema for an otherwise
+        // executable model. Short-drama JSON generation must be able to
+        // explicitly disable reasoning in that case; reasoning can consume the
+        // entire output budget before a structured response is completed.
+        // Keep this deliberately narrow. If a provider does not accept it, the
+        // existing unsupported-parameter retry removes it before retrying.
+        if (array_key_exists('enable_thinking', $overrides) && $overrides['enable_thinking'] === false) {
+            $allowed['enable_thinking'] = true;
+        }
         $result = [];
         foreach ($defaults as $key => $value) {
             $key = (string)$key;

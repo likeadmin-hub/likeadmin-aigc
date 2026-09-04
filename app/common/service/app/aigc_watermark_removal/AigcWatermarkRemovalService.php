@@ -28,8 +28,6 @@ class AigcWatermarkRemovalService
         $data['options'] = self::marketOptions($tenantId);
         $data['input_type'] = 'video_url';
         $data['input_label'] = '短视频分享链接';
-        $data['upstream_app_code'] = self::UPSTREAM_APP_CODE;
-        $data['upstream_api_code'] = self::UPSTREAM_API_CODE;
         $data['max_videos'] = 1;
         $data['api_path'] = '/api/v1/apps/' . self::UPSTREAM_APP_CODE . '/' . self::UPSTREAM_API_CODE;
         $data['dependencies'] = self::dependencies($data['options']);

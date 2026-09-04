@@ -78,6 +78,50 @@ class MarketVideoModelPayloadContractTest extends TestCase
         ));
     }
 
+    public function testWanThreeAndFullVideoUseProtocolRatioFallbackOnlyWithoutCatalogContract(): void
+    {
+        self::assertSame(['adaptive', '16:9', '4:3', '1:1', '3:4', '9:16'], $this->invokePrivate(
+            'ratioOptionsForProduct',
+            ['upstream_model_code' => 'wan3.0-video'],
+            [['locked_params' => ['resolution' => '720P'], 'selectable_params' => []]],
+            ['params_schema' => ['parameters' => ['example' => ['ratio' => '16:9']]]]
+        ));
+        self::assertSame(['adaptive', '21:9', '16:9', '4:3', '1:1', '3:4', '9:16'], $this->invokePrivate(
+            'ratioOptionsForProduct',
+            ['upstream_app_code' => 'full_video'],
+            [['locked_params' => ['resolution' => '480P'], 'selectable_params' => []]],
+            ['default_params' => ['ratio' => '16:9']]
+        ));
+        self::assertSame(['1:1'], $this->invokePrivate(
+            'ratioOptionsForProduct',
+            ['upstream_model_code' => 'wan3.0-video'],
+            [['locked_params' => ['resolution' => '720P'], 'selectable_params' => ['ratio_options' => ['1:1']]]],
+            []
+        ));
+    }
+
+    public function testFullVideoForwardsEveryConcreteH3AspectRatio(): void
+    {
+        $snapshot = [
+            'product_id' => 183,
+            'sku_id' => 698,
+            'sku_key' => 'full_video_768p_per_second',
+            'app_code' => 'full_video',
+            'model_code' => 'full-video',
+            'locked_params' => ['resolution' => '768P'],
+            'requires_concrete_text_to_video_ratio' => true,
+            'default_text_to_video_ratio' => '16:9',
+        ];
+
+        foreach (['21:9', '16:9', '4:3', '1:1', '3:4', '9:16'] as $ratio) {
+            $payload = $this->invokePrivate('appPayload', $snapshot, [
+                'prompt' => '一艘木船驶过晨雾湖面',
+                'ratio' => $ratio,
+            ], 'full-video-ratio-test');
+            self::assertSame($ratio, $payload['ratio']);
+        }
+    }
+
     public function testWanThreeAcceptsAndSubmitsThirtySecondDuration(): void
     {
         $metadata = [

@@ -6,6 +6,10 @@
   var pollTimer = null;
   var mounted = false;
 
+  // Route cleanup runs outside render(); keep the timer cleanup in this scope
+  // so navigating away cannot raise a ReferenceError or leak polling.
+  function stopPolling() { if (pollTimer) { window.clearInterval(pollTimer); pollTimer = null; } }
+
   function isPage() {
     return PATHS.indexOf(window.location.pathname) !== -1;
   }
@@ -210,8 +214,6 @@
     }
 
     function startPolling() { if (pollTimer) return; pollTimer = window.setInterval(loadTasks, 4500); }
-    function stopPolling() { if (pollTimer) { window.clearInterval(pollTimer); pollTimer = null; } }
-
     async function loadConfig() {
       try {
         state.config = await request('app.aigc_watermark_removal.config/detail', { method: 'GET', headers: {} });

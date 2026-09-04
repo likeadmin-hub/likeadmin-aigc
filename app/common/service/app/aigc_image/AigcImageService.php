@@ -10,6 +10,7 @@ use app\common\model\app\aigc_image\AigcImageSensitiveWord;
 use app\common\model\app\aigc_image\AigcImageTask;
 use app\common\service\ai\AiTaskRecordService;
 use app\common\service\ai\AiUsageService;
+use app\common\service\ai\ReferenceMentionPromptService;
 use app\common\service\app\AppCaseService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
@@ -143,7 +144,7 @@ class AigcImageService
     /** Submit a business app image task through a market model SKU only. */
     public static function generateMarketModelWithBillingOverride(int $tenantId, int $userId, array $params, array $billingOverride, string $appCode): array
     {
-        $params = self::sanitizeUtf8Payload($params);
+        $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
         if ($prompt === '') {
             throw new Exception('请输入提示词');
@@ -186,7 +187,7 @@ class AigcImageService
 
     private static function generateInternal(int $tenantId, int $userId, array $params, array $billingOverride = []): array
     {
-        $params = self::sanitizeUtf8Payload($params);
+        $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
         if ($prompt === '') {
             throw new Exception('请输入提示词');

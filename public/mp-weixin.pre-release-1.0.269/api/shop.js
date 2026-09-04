@@ -1,0 +1,1 @@
+"use strict";const e=require("../utils/request/index.js");exports.getDecorate=function(t){return e.request.get({url:"/index/decorate",data:t},{ignoreCancel:!0,withToken:!1})},exports.getHotSearch=function(){return e.request.get({url:"/search/hotLists"})},exports.getIndex=function(){return e.request.get({url:"/index/index"},{withToken:!1})};

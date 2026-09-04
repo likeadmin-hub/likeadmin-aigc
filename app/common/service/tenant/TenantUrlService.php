@@ -44,7 +44,28 @@ class TenantUrlService
                 'mobile' => $idBase . '/t/' . $id . '/mobile/',
             ],
         ];
-        $links['current'] = self::currentLinks($links, self::normalizeAccessMode($tenant['access_mode'] ?? ''));
+        $accessMode = self::normalizeAccessMode($tenant['access_mode'] ?? '');
+        $links['current'] = self::currentLinks($links, $accessMode);
+
+        // Keep the platform-root ID links above for compatibility, but also
+        // expose ID links on the effective tenant host. These are the links
+        // shown to platform operators after changing a tenant alias.
+        $tenantBase = $subdomainBase;
+        if ($accessMode === self::ACCESS_ALIAS && $aliasBase !== '') {
+            $tenantBase = $aliasBase;
+        } elseif ($accessMode === self::ACCESS_ID) {
+            $tenantBase = $idBase;
+        }
+        $links['tenant_id_query'] = [
+            'admin' => $tenantBase . '/admin/?tenant_id=' . $id,
+            'pc' => $tenantBase . '/?tenant_id=' . $id,
+            'mobile' => $tenantBase . '/mobile/?tenant_id=' . $id,
+        ];
+        $links['tenant_id_path'] = [
+            'admin' => $tenantBase . '/t/' . $id . '/admin/',
+            'pc' => $tenantBase . '/t/' . $id . '/',
+            'mobile' => $tenantBase . '/t/' . $id . '/mobile/',
+        ];
         return $links;
     }
 
@@ -54,7 +75,11 @@ class TenantUrlService
         $tenant['links'] = self::links($tenant, $rootDomain);
         $tenant['default_domain'] = $tenant['links']['subdomain']['admin'];
         $tenant['domain'] = $tenant['links']['current']['admin'] ?? $tenant['default_domain'];
-        $tenant['tenant_id_domain'] = $tenant['links']['id_query']['admin'];
+        // This convenience field follows the effective tenant host. Keep the
+        // old platform-root value available for integrations that explicitly
+        // need the platform ID entry.
+        $tenant['tenant_id_domain'] = $tenant['links']['tenant_id_query']['admin'];
+        $tenant['platform_tenant_id_domain'] = $tenant['links']['id_query']['admin'];
         $tenant['primary_domain_alias'] = $tenant['links']['alias']['admin'] ?? '';
         return $tenant;
     }
@@ -113,6 +138,37 @@ class TenantUrlService
             $host = explode(':', $host)[0];
         }
         return $host;
+    }
+
+    /**
+     * Return the platform hosts configured for platform administration.
+     * A tenant alias must not shadow these hosts or their subdomains because
+     * the platform middleware intentionally treats the whole host tree as a
+     * platform entry surface.
+     */
+    public static function platformHosts(?string $requestHost = null): array
+    {
+        $configured = (string)Config::get('project.http_host');
+        $hosts = preg_split('/\s*,\s*/', trim($configured)) ?: [];
+        if ($requestHost !== null && trim($requestHost) !== '') {
+            $hosts[] = $requestHost;
+        }
+        $hosts = array_map(static fn($host) => self::normalizeHost((string)$host), $hosts);
+        return array_values(array_unique(array_filter($hosts)));
+    }
+
+    public static function isPlatformHost(string $host, ?string $requestHost = null): bool
+    {
+        $host = self::normalizeHost($host);
+        if ($host === '') {
+            return false;
+        }
+        foreach (self::platformHosts($requestHost) as $platformHost) {
+            if ($host === $platformHost || str_ends_with($host, '.' . $platformHost)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static function terminalLinks(string $base): array

@@ -150,7 +150,6 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_style` (
   `image` varchar(500) NOT NULL DEFAULT '',
   `description` varchar(500) NOT NULL DEFAULT '',
   `is_new` tinyint NOT NULL DEFAULT 0,
-  `is_default` tinyint NOT NULL DEFAULT 0 COMMENT '是否默认画风',
   `status` tinyint NOT NULL DEFAULT 1,
   `sort` int NOT NULL DEFAULT 0,
   `create_time` int unsigned NOT NULL DEFAULT 0,
@@ -360,8 +359,8 @@ WHERE NOT EXISTS (SELECT 1 FROM `la_aigc_short_drama_config` WHERE `tenant_id` =
 
 -- Seed default AI short drama style library from backend-cleaned style fields.
 INSERT INTO `la_aigc_short_drama_style`
-(`tenant_id`, `name`, `image`, `description`, `is_new`, `is_default`, `status`, `sort`, `create_time`, `update_time`, `delete_time`)
-SELECT 0, seed.`name`, seed.`image`, seed.`description`, seed.`is_new`, 1, seed.`status`, seed.`sort`, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0
+(`tenant_id`, `name`, `image`, `description`, `is_new`, `status`, `sort`, `create_time`, `update_time`, `delete_time`)
+SELECT 0, seed.`name`, seed.`image`, seed.`description`, seed.`is_new`, seed.`status`, seed.`sort`, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0
 FROM (
     SELECT '复古科幻原子朋克' AS `name`, 'static/aigc_short_drama/style_library/001_1780651424491.webp' AS `image`, '60年代复古科幻原子朋克美学，复古未来主义影像风格，真人写实风格，摄影作品，画面具有60年代复古科幻质感，色调以复古暖橙、海盐蓝、高对比低饱和胶片色彩为主，带明显胶片颗粒、轻微复古胶片柔光和自然日光光晕。光影上使用自然日光、强直射日光和清晰投影，画面明暗对比强烈，高光不过曝，暗部保留完整细节，明暗过渡自然，整体呈现自然立体、怀旧、精致的原子朋克电影感。' AS `description`, 0 AS `is_new`, 1 AS `status`, 1 AS `sort`
     UNION ALL SELECT '宫斗权谋冷峻风格' AS `name`, 'static/aigc_short_drama/style_library/002_1780580870934.webp' AS `image`, '宫廷权谋剧影像风格，古装宫斗冷峻摄影风格，真人写实风格，摄影作品，画面庄重克制，空间秩序感强，色调以低饱和金棕、暗红、冷灰、深木色为主，光影上使用低调照明、烛光感、侧光和深阴影，构图端正严整，整体具有宫廷权力压迫感和古装权谋剧质感。' AS `description`, 0 AS `is_new`, 1 AS `status`, 2 AS `sort`
@@ -1018,8 +1017,8 @@ FROM (
 ) AS seed;
 
 INSERT INTO `la_aigc_short_drama_style`
-(`tenant_id`, `name`, `image`, `description`, `is_new`, `is_default`, `status`, `sort`, `create_time`, `update_time`, `delete_time`)
-SELECT 0, seed.`name`, seed.`image`, seed.`description`, seed.`is_new`, 1, seed.`status`, seed.`sort`, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0
+(`tenant_id`, `name`, `image`, `description`, `is_new`, `status`, `sort`, `create_time`, `update_time`, `delete_time`)
+SELECT 0, seed.`name`, seed.`image`, seed.`description`, seed.`is_new`, seed.`status`, seed.`sort`, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0
 FROM `tmp_aigc_short_drama_style_seed` seed
 WHERE NOT EXISTS (
     SELECT 1 FROM `la_aigc_short_drama_style` existing
@@ -1027,8 +1026,8 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO `la_aigc_short_drama_style`
-(`tenant_id`, `name`, `image`, `description`, `is_new`, `is_default`, `status`, `sort`, `create_time`, `update_time`, `delete_time`)
-SELECT tenant.`id`, seed.`name`, seed.`image`, seed.`description`, seed.`is_new`, 1, seed.`status`, seed.`sort`, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0
+(`tenant_id`, `name`, `image`, `description`, `is_new`, `status`, `sort`, `create_time`, `update_time`, `delete_time`)
+SELECT tenant.`id`, seed.`name`, seed.`image`, seed.`description`, seed.`is_new`, seed.`status`, seed.`sort`, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0
 FROM `la_tenant` tenant
 JOIN `tmp_aigc_short_drama_style_seed` seed
 WHERE IFNULL(tenant.`delete_time`, 0) = 0

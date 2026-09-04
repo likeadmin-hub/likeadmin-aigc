@@ -15,6 +15,7 @@ namespace app\common\service\wechat;
 
 
 use app\common\service\wechat\WeChatConfigService;
+use app\common\model\wechat\WechatAuthorizer;
 use EasyWeChat\Kernel\Exceptions\Exception;
 use EasyWeChat\OfficialAccount\Application;
 
@@ -29,11 +30,29 @@ class WeChatOaService
 
     protected $app;
 
+    protected bool $openPlatformMode = false;
+
     protected $config;
 
 
     public function __construct()
     {
+        $tenantId = (int)(request()->tenantId ?? 0);
+        if ($tenantId > 0) {
+            $authorizer = WechatAuthorizer::withoutGlobalScope()
+                ->where([
+                    'tenant_id' => $tenantId,
+                    'authorizer_type' => 'official',
+                    'authorization_status' => 1,
+                ])
+                ->findOrEmpty();
+            if (!$authorizer->isEmpty()) {
+                $this->openPlatformMode = true;
+                $this->config = [];
+                $this->app = null;
+                return;
+            }
+        }
         $this->config = $this->getConfig();
         $this->app = new Application($this->config);
     }
@@ -50,6 +69,9 @@ class WeChatOaService
      */
     public function getServer()
     {
+        if ($this->openPlatformMode) {
+            throw new Exception('授权公众号回调请使用开放平台回调地址');
+        }
         return $this->app->getServer();
     }
 
@@ -122,6 +144,29 @@ class WeChatOaService
      */
     public function createMenu(array $buttons, array $matchRule = [])
     {
+        $tenantId = (int)(request()->tenantId ?? 0);
+        if ($tenantId > 0) {
+            $path = !empty($matchRule) ? 'cgi-bin/menu/addconditional' : 'cgi-bin/menu/create';
+            $payload = ['button' => $buttons];
+            if (!empty($matchRule)) {
+                $payload['matchrule'] = $matchRule;
+            }
+
+            try {
+                return OpenPlatformService::authorizerRequest(
+                    $tenantId,
+                    'official',
+                    $path,
+                    $payload,
+                    'official.menu.publish'
+                );
+            } catch (\RuntimeException $e) {
+                if ($e->getMessage() !== '当前租户未授权对应微信账号') {
+                    throw $e;
+                }
+            }
+        }
+
         if (!empty($matchRule)) {
             return $this->app->getClient()->postJson('cgi-bin/menu/addconditional', [
                 'button' => $buttons,

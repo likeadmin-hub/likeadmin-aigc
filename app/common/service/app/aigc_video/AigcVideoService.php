@@ -10,6 +10,7 @@ use app\common\model\app\aigc_video\AigcVideoSensitiveWord;
 use app\common\model\app\aigc_video\AigcVideoTask;
 use app\common\service\ai\AiTaskBusinessResultService;
 use app\common\service\ai\AiTaskRecordService;
+use app\common\service\ai\ReferenceMentionPromptService;
 use app\common\service\app\AppCaseService;
 use app\common\service\app\AppDisplayConfigService;
 use app\common\service\FileService;
@@ -96,7 +97,7 @@ class AigcVideoService
 
     private static function generateMarketInternal(int $tenantId, int $userId, array $params, array $billingOverride = [], string $marketAppCode = self::APP_CODE): array
     {
-        $params = self::sanitizeUtf8Payload($params);
+        $params = ReferenceMentionPromptService::compile(self::sanitizeUtf8Payload($params));
         $prompt = trim((string)($params['prompt'] ?? ''));
         if ($prompt === '') {
             throw new Exception('请输入提示词');
