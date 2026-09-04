@@ -9153,6 +9153,7 @@ WHERE `source_menu_key` IN ('core_tenant_open_platform_official','core_tenant_op
 
 -- 渠道设置统一使用卡片总览，原有配置页保留为卡片内的手动配置入口。
 SET @tenant_channel_overview_id := (SELECT `id` FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='core_tenant_channel_overview' ORDER BY `id` DESC LIMIT 1);
+SET @tenant_channel_manage_id := (SELECT `id` FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND (`source_menu_key`='core_tenant_channel_manage' OR (`name`='渠道设置' AND `pid`=0)) ORDER BY `id` LIMIT 1);
 INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`selected`,`params`,`is_cache`,`is_show`,`is_disable`,`app_code`,`source`,`source_menu_key`,`is_core`,`create_time`,`update_time`)
 SELECT 0,`id`,'C','渠道总览','el-icon-Grid',110,'channel.overview/index','overview','channel/index','','',0,1,0,'','core','core_tenant_channel_overview',1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()
 FROM `la_tenant_system_menu`
@@ -9160,10 +9161,10 @@ WHERE `tenant_id`=0 AND (`source_menu_key`='core_tenant_channel_manage' OR (`nam
   AND @tenant_channel_overview_id IS NULL
 ORDER BY `id` LIMIT 1;
 SET @tenant_channel_overview_id := (SELECT `id` FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND `source_menu_key`='core_tenant_channel_overview' ORDER BY `id` DESC LIMIT 1);
-UPDATE `la_tenant_system_menu` SET `pid`=(SELECT `id` FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND (`source_menu_key`='core_tenant_channel_manage' OR (`name`='渠道设置' AND `pid`=0)) ORDER BY `id` LIMIT 1), `type`='C', `name`='渠道总览', `paths`='overview', `component`='channel/index', `is_show`=1, `is_disable`=0, `update_time`=UNIX_TIMESTAMP()
+UPDATE `la_tenant_system_menu` SET `pid`=@tenant_channel_manage_id, `type`='C', `name`='渠道总览', `paths`='overview', `component`='channel/index', `is_show`=1, `is_disable`=0, `update_time`=UNIX_TIMESTAMP()
 WHERE `tenant_id`=0 AND `source_menu_key`='core_tenant_channel_overview';
 UPDATE `la_tenant_system_menu` SET `is_show`=0, `is_disable`=1, `update_time`=UNIX_TIMESTAMP()
-WHERE `tenant_id`=0 AND `pid`=(SELECT `id` FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND (`source_menu_key`='core_tenant_channel_manage' OR (`name`='渠道设置' AND `pid`=0)) ORDER BY `id` LIMIT 1) AND `id`<>COALESCE(@tenant_channel_overview_id,0);
+WHERE `tenant_id`=0 AND `pid`=@tenant_channel_manage_id AND `id`<>COALESCE(@tenant_channel_overview_id,0);
 
 -- 渠道卡片的隐藏入口页：侧栏仅展示渠道总览。
 UPDATE `la_tenant_system_menu` SET `selected`='channel/overview', `update_time`=UNIX_TIMESTAMP()
@@ -9177,7 +9178,7 @@ WHERE `source_menu_key` LIKE 'core_tenant_open_platform%';
 
 -- 公众号历史管理页使用独立隐藏路由，避免依赖已隐藏的多级父菜单。
 UPDATE `la_tenant_system_menu`
-SET `pid`=(SELECT `id` FROM `la_tenant_system_menu` WHERE `tenant_id`=0 AND (`source_menu_key`='core_tenant_channel_manage' OR (`name`='渠道设置' AND `pid`=0)) ORDER BY `id` LIMIT 1),
+SET `pid`=@tenant_channel_manage_id,
     `paths`=CASE `component`
       WHEN 'channel/wx_oa/config' THEN 'wx_oa/config'
       WHEN 'channel/wx_oa/menu' THEN 'wx_oa/menu'
