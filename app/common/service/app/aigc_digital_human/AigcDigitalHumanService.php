@@ -300,7 +300,7 @@ class AigcDigitalHumanService
 
     public static function saveVoice(int $tenantId, int $userId, array $params): array
     {
-        $name = self::normalizeAssetText((string)($params['name'] ?? '我的声音'), '我的声音', 80);
+        $name = self::normalizeVoiceName($params['name'] ?? '我的声音', '我的声音');
         $id = (int)($params['id'] ?? 0);
         if ($id > 0) {
             return self::updateUserVoice($tenantId, $userId, $id, $params, $name);
@@ -3348,11 +3348,29 @@ class AigcDigitalHumanService
         if ((string)($row['status'] ?? '') === 'submitting') {
             $row['status'] = 'running';
         }
+        $row['name'] = self::normalizeVoiceName($row['name'] ?? '', '未命名声音');
         $row['cover_url'] = self::fileUrlForTenant((string)($row['cover_uri'] ?? ''), $tenantId, $row);
         $row['audio_url'] = self::fileUrlForTenant((string)($row['audio_uri'] ?? ''), $tenantId, $row);
         $row['preview_audio_url'] = self::voicePreviewAudioUrl((string)($row['preview_audio_uri'] ?? ''), $tenantId, $row);
         $row['preview_url'] = $row['preview_audio_url'] ?: $row['audio_url'];
         return $row;
+    }
+
+    private static function normalizeVoiceName($value, string $fallback): string
+    {
+        if (is_array($value)) {
+            foreach (['value', 'name', 'label', 'title', 'text'] as $key) {
+                if (array_key_exists($key, $value) && is_scalar($value[$key])) {
+                    $value = $value[$key];
+                    break;
+                }
+            }
+        }
+        if (!is_scalar($value)) {
+            $value = '';
+        }
+        $name = self::normalizeAssetText((string)$value, $fallback, 80);
+        return in_array($name, ['[object Object]', 'Array'], true) ? $fallback : $name;
     }
 
     private static function formatResult(array $row): array

@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright (c) 2017-2018 THL A29 Limited, a Tencent company. All Rights Reserved.
+ * Copyright (c) 2017-2025 Tencent. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,21 +21,21 @@ use TencentCloud\Common\AbstractModel;
  * DescribePhoneNumberInfo请求参数结构体
  *
  * @method array getPhoneNumberSet() 获取查询手机号码，采用 E.164 标准，格式为+[国家或地区码][手机号]，单次请求最多支持200个手机号。
-例如：+8613711112222， 其中前面有一个+号 ，86为国家码，13711112222为手机号。
+例如：+8618501234444， 其中前面有一个+号 ，86为国家码，18501234444为手机号。
  * @method void setPhoneNumberSet(array $PhoneNumberSet) 设置查询手机号码，采用 E.164 标准，格式为+[国家或地区码][手机号]，单次请求最多支持200个手机号。
-例如：+8613711112222， 其中前面有一个+号 ，86为国家码，13711112222为手机号。
+例如：+8618501234444， 其中前面有一个+号 ，86为国家码，18501234444为手机号。
  */
 class DescribePhoneNumberInfoRequest extends AbstractModel
 {
     /**
      * @var array 查询手机号码，采用 E.164 标准，格式为+[国家或地区码][手机号]，单次请求最多支持200个手机号。
-例如：+8613711112222， 其中前面有一个+号 ，86为国家码，13711112222为手机号。
+例如：+8618501234444， 其中前面有一个+号 ，86为国家码，18501234444为手机号。
      */
     public $PhoneNumberSet;
 
     /**
      * @param array $PhoneNumberSet 查询手机号码，采用 E.164 标准，格式为+[国家或地区码][手机号]，单次请求最多支持200个手机号。
-例如：+8613711112222， 其中前面有一个+号 ，86为国家码，13711112222为手机号。
+例如：+8618501234444， 其中前面有一个+号 ，86为国家码，18501234444为手机号。
      */
     function __construct()
     {

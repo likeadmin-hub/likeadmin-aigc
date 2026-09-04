@@ -5,8 +5,10 @@ namespace GuzzleHttp\Command\Guzzle;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Command\CommandInterface;
 use GuzzleHttp\Command\Guzzle\Handler\ValidatedDescriptionHandler;
+use GuzzleHttp\Command\Guzzle\ResponseLocation\ResponseLocationInterface;
 use GuzzleHttp\Command\ServiceClient;
 use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Utils;
 
 /**
  * Default Guzzle web service client implementation.
@@ -34,21 +36,20 @@ class GuzzleClient extends ServiceClient
      * - response_locations: Associative array of location types mapping to
      *   ResponseLocationInterface objects.
      *
-     * @param ClientInterface      $client                      HTTP client to use.
-     * @param DescriptionInterface $description                 Guzzle service description
-     * @param callable             $commandToRequestTransformer
-     * @param callable             $responseToResultTransformer
-     * @param HandlerStack         $commandHandlerStack
-     * @param array                $config                      Configuration options
+     * @param ClientInterface      $client      HTTP client to use.
+     * @param DescriptionInterface $description Guzzle service description
+     * @param array                $config      Configuration options
      */
     public function __construct(
         ClientInterface $client,
         DescriptionInterface $description,
-        callable $commandToRequestTransformer = null,
-        callable $responseToResultTransformer = null,
-        HandlerStack $commandHandlerStack = null,
+        ?callable $commandToRequestTransformer = null,
+        ?callable $responseToResultTransformer = null,
+        ?HandlerStack $commandHandlerStack = null,
         array $config = []
     ) {
+        self::deprecateInvalidConfigOptionTypes($config);
+
         $this->config = $config;
         $this->description = $description;
         $serializer = $this->getSerializer($commandToRequestTransformer);
@@ -70,7 +71,7 @@ class GuzzleClient extends ServiceClient
     public function getCommand($name, array $args = [])
     {
         if (!$this->description->hasOperation($name)) {
-            $name = ucfirst($name);
+            $name = Utils::asciiUcFirst($name);
             if (!$this->description->hasOperation($name)) {
                 throw new \InvalidArgumentException(
                     "No operation found named {$name}"
@@ -99,7 +100,7 @@ class GuzzleClient extends ServiceClient
      *
      * @param callable|null $commandToRequestTransformer
      *
-     * @return \GuzzleHttp\Command\Guzzle\Serializer
+     * @return Serializer
      */
     private function getSerializer($commandToRequestTransformer)
     {
@@ -113,7 +114,7 @@ class GuzzleClient extends ServiceClient
      *
      * @param callable|null $responseToResultTransformer
      *
-     * @return \GuzzleHttp\Command\Guzzle\Deserializer
+     * @return Deserializer
      */
     private function getDeserializer($responseToResultTransformer)
     {
@@ -140,7 +141,78 @@ class GuzzleClient extends ServiceClient
 
     public function setConfig($option, $value)
     {
+        if (is_int($option) || is_string($option)) {
+            self::deprecateInvalidConfigOptionValue((string) $option, $value);
+        }
+
         $this->config[$option] = $value;
+    }
+
+    /**
+     * @return void
+     */
+    private static function deprecateInvalidConfigOptionTypes(array $config)
+    {
+        foreach ($config as $option => $value) {
+            self::deprecateInvalidConfigOptionValue((string) $option, $value);
+        }
+    }
+
+    /**
+     * @param mixed $value
+     *
+     * @return void
+     */
+    private static function deprecateInvalidConfigOptionValue(string $option, $value)
+    {
+        if ($option === 'defaults' && !is_array($value)) {
+            self::deprecateInvalidConfigOptionType($option, 'array', $value);
+
+            return;
+        }
+
+        if (($option === 'validate' || $option === 'process') && !is_bool($value)) {
+            self::deprecateInvalidConfigOptionType($option, 'bool', $value);
+
+            return;
+        }
+
+        if ($option !== 'response_locations') {
+            return;
+        }
+
+        if (!is_array($value)) {
+            self::deprecateInvalidConfigOptionType($option, 'array', $value);
+
+            return;
+        }
+
+        foreach ($value as $name => $location) {
+            if (!$location instanceof ResponseLocationInterface) {
+                self::deprecateInvalidConfigOptionType(
+                    $option.'.'.(string) $name,
+                    ResponseLocationInterface::class,
+                    $location
+                );
+            }
+        }
+    }
+
+    /**
+     * @param mixed $value
+     *
+     * @return void
+     */
+    private static function deprecateInvalidConfigOptionType(string $option, string $expected, $value)
+    {
+        \trigger_deprecation(
+            'guzzlehttp/guzzle-services',
+            '1.7',
+            'Passing %s to GuzzleClient config option "%s" is deprecated; guzzlehttp/guzzle-services 2.0 requires %s.',
+            get_debug_type($value),
+            $option,
+            $expected
+        );
     }
 
     /**

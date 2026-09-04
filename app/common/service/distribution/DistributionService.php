@@ -53,6 +53,18 @@ class DistributionService
         return $row ?: self::defaultConfig($tenantId);
     }
 
+    public static function isEnabled(int $tenantId): bool
+    {
+        return (int)(self::config($tenantId)['status'] ?? 0) === 1;
+    }
+
+    public static function assertEnabled(int $tenantId): void
+    {
+        if (!self::isEnabled($tenantId)) {
+            throw new RuntimeException('分销功能未开启');
+        }
+    }
+
     public static function saveConfig(int $tenantId, array $input): array
     {
         $config = array_merge(self::config($tenantId), [
@@ -210,18 +222,20 @@ class DistributionService
         if (count($tenantIds) !== 1 || $tenantIds[0] <= 0) {
             throw new RuntimeException('推广码不存在或无效');
         }
+        self::assertEnabled($tenantIds[0]);
         return $tenantIds[0];
     }
 
     /** Bind once on registration; callers must pass the newly-created user ID. */
     public static function bindInviteCode(int $tenantId, int $userId, string $inviteCode, string $source = 'register'): array
     {
-        $relation = self::ensurePromoter($tenantId, $userId);
-        if ((int)$relation['bind_time'] > 0) {
-            return $relation;
-        }
         $inviteCode = strtoupper(trim($inviteCode));
         if ($inviteCode === '') {
+            return self::isEnabled($tenantId) ? self::ensurePromoter($tenantId, $userId) : [];
+        }
+        self::assertEnabled($tenantId);
+        $relation = self::ensurePromoter($tenantId, $userId);
+        if ((int)$relation['bind_time'] > 0) {
             return $relation;
         }
         $parent = self::table('relation')->where(['tenant_id' => $tenantId, 'invite_code' => $inviteCode])->lock(true)->find();
@@ -652,6 +666,7 @@ class DistributionService
 
     public static function userOverview(int $tenantId, int $userId): array
     {
+        self::assertEnabled($tenantId);
         $relation = self::ensurePromoter($tenantId, $userId);
         $team = [];
         for ($level = 1; $level <= self::MAX_LEVEL; $level++) {

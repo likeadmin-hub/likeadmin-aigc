@@ -1,0 +1,8 @@
+[
+  { "permission_key": "aigc_watermark_removal:config:detail", "name": "查看短视频去水印配置", "api_path": "app.aigc_watermark_removal.config/detail", "api_method": "GET" },
+  { "permission_key": "aigc_watermark_removal:config:setup", "name": "保存短视频去水印配置", "api_path": "app.aigc_watermark_removal.config/setup", "api_method": "POST" },
+  { "permission_key": "aigc_watermark_removal:task:lists", "name": "查看短视频去水印任务", "api_path": "app.aigc_watermark_removal.task/lists", "api_method": "GET" },
+  { "permission_key": "aigc_watermark_removal:task:detail", "name": "查看短视频去水印任务详情", "api_path": "app.aigc_watermark_removal.task/detail", "api_method": "GET" },
+  { "permission_key": "aigc_watermark_removal:task:retry", "name": "重试短视频去水印任务", "api_path": "app.aigc_watermark_removal.task/retry", "api_method": "POST" },
+  { "permission_key": "aigc_watermark_removal:task:delete", "name": "删除短视频去水印任务", "api_path": "app.aigc_watermark_removal.task/delete", "api_method": "POST" }
+]

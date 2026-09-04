@@ -8,12 +8,12 @@ $region = "ap-beijing"; //替换为用户的 region，已创建桶归属的regio
 $cosClient = new Qcloud\Cos\Client(
     array(
         'region' => $region,
-        'schema' => 'https', //协议头部，默认为http
+        'scheme' => 'https', //协议头部，默认为http
         'credentials'=> array(
             'secretId'  => $secretId,
             'secretKey' => $secretKey)));
 try {
-    // https://cloud.tencent.com/document/product/436/83110 提交文件解压任务-异步
+    // 提交文件解压任务-异步
     $result = $cosClient->createFileUncompressJobs(array(
         'Bucket' => 'examplebucket-125000000', //存储桶名称，由BucketName-Appid 组成，可以在COS控制台查看 https://console.cloud.tencent.com/cos5/bucket
         'Tag' => 'FileUncompress',
@@ -25,6 +25,8 @@ try {
             'FileUncompressConfig' => array(
                 'Prefix' => 'prefix',
                 'PrefixReplaced' => '1',
+//                'UnCompressKey' => base64_encode('解压密钥'), // 解压密钥，传入时需先经过 base64编码
+//                'ListingFile' => false, // 指定查询任务或查看任务回调时，是否输出已解压的文件列表
             ),
             'Output' => array(
                 'Region' => $region,

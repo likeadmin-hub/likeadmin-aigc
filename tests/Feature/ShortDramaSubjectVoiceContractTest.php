@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use app\common\service\app\aigc_short_drama\AigcShortDramaService;
+use app\common\service\app\aigc_digital_human\AigcDigitalHumanService;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
@@ -40,6 +41,18 @@ class ShortDramaSubjectVoiceContractTest extends TestCase
         }
     }
 
+    public function testVoiceNamesAcceptPromptResultObjectsAndHideLegacyObjectStrings(): void
+    {
+        $normalizer = new ReflectionMethod(AigcDigitalHumanService::class, 'normalizeVoiceName');
+        $normalizer->setAccessible(true);
+
+        self::assertSame('我的女主音色', $normalizer->invoke(null, [
+            'value' => '我的女主音色',
+            'action' => 'confirm',
+        ], '我的声音'));
+        self::assertSame('未命名声音', $normalizer->invoke(null, '[object Object]', '未命名声音'));
+    }
+
     public function testCompiledWorkbenchSupportsCloningAndBlocksPendingVoices(): void
     {
         $root = dirname(__DIR__, 2);
@@ -67,6 +80,8 @@ class ShortDramaSubjectVoiceContractTest extends TestCase
             'await trimVoiceSample({file:t,data:{start:"0",duration:"10"}})',
             $voiceUploadHandler
         );
+        self::assertStringContainsString('String(s?.value??s??"").trim()', $voiceUploadHandler);
+        self::assertStringNotContainsString('String(s||"").trim()', $voiceUploadHandler);
         self::assertStringContainsString('Math.min(10,Math.ceil', $voiceUploadHandler);
         self::assertStringNotContainsString('await pl({file:t})', $voiceUploadHandler);
         self::assertStringNotContainsString('return}const s=await m.prompt', $voiceUploadHandler);

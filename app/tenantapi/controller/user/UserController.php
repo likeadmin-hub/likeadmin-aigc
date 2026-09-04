@@ -18,6 +18,8 @@ use app\tenantapi\lists\user\UserLists;
 use app\tenantapi\logic\user\UserLogic;
 use app\tenantapi\validate\user\AdjustUserMoney;
 use app\tenantapi\validate\user\UserValidate;
+use app\common\service\membership\MembershipService;
+use Exception;
 
 /**
  * 用户控制器
@@ -48,7 +50,7 @@ class UserController extends BaseAdminController
     public function detail()
     {
         $params = (new UserValidate())->goCheck('detail');
-        $detail = UserLogic::detail($params['id']);
+        $detail = UserLogic::detail((int)$params['id'], $this->tenantId);
         return $this->success('', $detail);
     }
 
@@ -62,8 +64,48 @@ class UserController extends BaseAdminController
     public function edit()
     {
         $params = (new UserValidate())->post()->goCheck('setInfo');
-        UserLogic::setUserInfo($params);
+        UserLogic::setUserInfo($params, $this->tenantId);
         return $this->success('操作成功', [], 1, 1);
+    }
+
+
+    /**
+     * @notes 修改用户密码
+     * @return \think\response\Json
+     */
+    public function resetPassword()
+    {
+        $params = (new UserValidate())->post()->goCheck('resetPassword');
+        UserLogic::resetPassword($params, $this->tenantId);
+        return $this->success('密码修改成功', [], 1, 1);
+    }
+
+    /**
+     * @notes 获取当前租户可设置的会员套餐
+     * @return \think\response\Json
+     */
+    public function membershipPlans()
+    {
+        return $this->success('获取成功', MembershipService::plans($this->tenantId, true));
+    }
+
+    /**
+     * @notes 直接设置用户会员套餐
+     * @return \think\response\Json
+     */
+    public function setMembership()
+    {
+        $params = (new UserValidate())->post()->goCheck('setMembership');
+        try {
+            $result = MembershipService::assignPlan(
+                $this->tenantId,
+                (int)$params['id'],
+                (int)$params['plan_id']
+            );
+            return $this->success('套餐设置成功', $result, 1, 1);
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
     }
 
 
@@ -76,7 +118,7 @@ class UserController extends BaseAdminController
     public function adjustMoney()
     {
         $params = (new AdjustUserMoney())->post()->goCheck();
-        $res = UserLogic::adjustUserMoney($params);
+        $res = UserLogic::adjustUserMoney($params, $this->tenantId);
         if (true === $res) {
             return $this->success('操作成功', [], 1, 1);
         }

@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace EasyWeChat\Pay;
 
-use function base64_encode;
 use EasyWeChat\Kernel\Support\Str;
 use EasyWeChat\Pay\Contracts\Merchant as MerchantInterface;
-use Exception;
-use function http_build_query;
-use function ltrim;
 use Nyholm\Psr7\Uri;
+use Stringable;
+
+use function array_merge;
+use function base64_encode;
+use function http_build_query;
+use function is_scalar;
+use function ltrim;
 use function openssl_sign;
 use function parse_str;
 use function strtoupper;
@@ -25,15 +28,13 @@ class Signature
 
     /**
      * @param  array<string,mixed>  $options
-     *
-     * @throws Exception
      */
     public function createHeader(string $method, string $url, array $options): string
     {
         $uri = new Uri($url);
 
         parse_str($uri->getQuery(), $query);
-        $uri = $uri->withQuery(http_build_query(array_merge($query, (array) $options['query'])));
+        $uri = $uri->withQuery(http_build_query(array_merge($query, (array) ($options['query'] ?? []))));
 
         $body = '';
         $query = $uri->getQuery();
@@ -41,7 +42,7 @@ class Signature
         $nonce = Str::random();
         $path = '/'.ltrim($uri->getPath().(empty($query) ? '' : '?'.$query), '/');
 
-        if (! empty($options['body'])) {
+        if (! empty($options['body']) && (is_scalar($options['body']) || $options['body'] instanceof Stringable)) {
             $body = strval($options['body']);
         }
 

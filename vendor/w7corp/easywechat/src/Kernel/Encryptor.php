@@ -4,29 +4,37 @@ declare(strict_types=1);
 
 namespace EasyWeChat\Kernel;
 
-use function base64_decode;
-use function base64_encode;
+use const OPENSSL_NO_PADDING;
+use const SORT_STRING;
+
 use EasyWeChat\Kernel\Exceptions\RuntimeException;
 use EasyWeChat\Kernel\Support\Pkcs7;
 use EasyWeChat\Kernel\Support\Str;
 use EasyWeChat\Kernel\Support\Xml;
 use Exception;
+use Throwable;
+
+use function array_map;
+use function base64_decode;
+use function base64_encode;
+use function hash_equals;
 use function implode;
 use function openssl_decrypt;
 use function openssl_encrypt;
-use const OPENSSL_NO_PADDING;
 use function pack;
 use function random_bytes;
 use function sha1;
 use function sort;
-use const SORT_STRING;
 use function strlen;
 use function substr;
-use Throwable;
 use function time;
 use function trim;
 use function unpack;
 
+/**
+ * @link https://developers.weixin.qq.com/doc/offiaccount/Message_Management/Message_encryption_and_decryption_instructions.html
+ * @link https://developer.work.weixin.qq.com/document/path/96211
+ */
 class Encryptor
 {
     public const ERROR_INVALID_SIGNATURE = -40001; // Signature verification failed
@@ -51,15 +59,18 @@ class Encryptor
 
     public const ERROR_XML_BUILD = -40011; // XML build failed
 
+    public const ERROR_JSON_BUILD = -40012; // JOSN build failed
+
     public const ILLEGAL_BUFFER = -41003; // Illegal buffer
+
+    /** AES block size in bytes */
+    private const BLOCK_SIZE = 16;
 
     protected string $appId;
 
     protected string $token;
 
     protected string $aesKey;
-
-    protected int $blockSize = 32;
 
     protected ?string $receiveId = null;
 
@@ -80,17 +91,64 @@ class Encryptor
      * @throws RuntimeException
      * @throws Exception
      */
-    public function encrypt(string $plaintext, string|null $nonce = null, int|string $timestamp = null): string
+    public function encrypt(string $plaintext, ?string $nonce = null, int|string|null $timestamp = null, string $messageType = 'xml'): string
+    {
+        return $messageType === 'xml' ?
+            $this->encryptAsXml($plaintext, $nonce, $timestamp) :
+            $this->encryptAsJson($plaintext, $nonce, $timestamp);
+    }
+
+    public function encryptAsXml(string $plaintext, ?string $nonce = null, int|string|null $timestamp = null): string
+    {
+        $encrypted = $this->encryptAsArray($plaintext, $nonce, $timestamp);
+
+        $response = [
+            'Encrypt' => $encrypted['ciphertext'],
+            'MsgSignature' => $encrypted['signature'],
+            'TimeStamp' => $encrypted['timestamp'],
+            'Nonce' => $encrypted['nonce'],
+        ];
+
+        return Xml::build($response);
+    }
+
+    public function encryptAsJson(string $plaintext, ?string $nonce = null, int|string|null $timestamp = null): string
+    {
+        $encrypted = $this->encryptAsArray($plaintext, $nonce, $timestamp);
+
+        $response = [
+            'encrypt' => $encrypted['ciphertext'],
+            'msgsignature' => $encrypted['signature'],
+            'timestamp' => $encrypted['timestamp'],
+            'nonce' => $encrypted['nonce'],
+        ];
+
+        $jsonStr = json_encode($response, JSON_UNESCAPED_UNICODE);
+
+        if ($jsonStr === false) {
+            throw new RuntimeException('Invalid json data.', self::ERROR_JSON_BUILD);
+        }
+
+        return $jsonStr;
+    }
+
+    /**
+     * @throws RuntimeException
+     */
+    public function encryptAsArray(string $plaintext, ?string $nonce = null, int|string|null $timestamp = null): array
     {
         try {
-            $plaintext = Pkcs7::padding(random_bytes(16).pack('N', strlen($plaintext)).$plaintext.$this->appId, 32);
+            $plaintext = Pkcs7::padding(
+                random_bytes(self::BLOCK_SIZE).pack('N', strlen($plaintext)).$plaintext.$this->appId,
+                blockSize: strlen($this->aesKey)
+            );
             $ciphertext = base64_encode(
                 openssl_encrypt(
                     $plaintext,
                     'aes-256-cbc',
                     $this->aesKey,
                     OPENSSL_NO_PADDING,
-                    substr($this->aesKey, 0, 16)
+                    iv: substr($this->aesKey, 0, self::BLOCK_SIZE)
                 ) ?: ''
             );
         } catch (Throwable $e) {
@@ -100,21 +158,24 @@ class Encryptor
         $nonce ??= Str::random();
         $timestamp ??= time();
 
-        $response = [
-            'Encrypt' => $ciphertext,
-            'MsgSignature' => $this->createSignature($this->token, $timestamp, $nonce, $ciphertext),
-            'TimeStamp' => $timestamp,
-            'Nonce' => $nonce,
+        return [
+            'ciphertext' => $ciphertext,
+            'signature' => $this->createSignature($this->token, $timestamp, $nonce, $ciphertext),
+            'timestamp' => $timestamp,
+            'nonce' => $nonce,
         ];
-
-        return Xml::build($response);
     }
 
-    public function createSignature(mixed ...$attributes): string
+    public function createSignature(string|int ...$attributes): string
     {
+        $attributes = array_map(
+            static fn (string|int $attribute): string => (string) $attribute,
+            $attributes
+        );
+
         sort($attributes, SORT_STRING);
 
-        return sha1(implode($attributes));
+        return sha1(implode('', $attributes));
     }
 
     /**
@@ -124,7 +185,7 @@ class Encryptor
     {
         $signature = $this->createSignature($this->token, $timestamp, $nonce, $ciphertext);
 
-        if ($signature !== $msgSignature) {
+        if (! hash_equals($signature, $msgSignature)) {
             throw new RuntimeException('Invalid Signature.', self::ERROR_INVALID_SIGNATURE);
         }
 
@@ -134,11 +195,11 @@ class Encryptor
                 'aes-256-cbc',
                 $this->aesKey,
                 OPENSSL_NO_PADDING,
-                substr($this->aesKey, 0, 16)
+                iv: substr($this->aesKey, 0, self::BLOCK_SIZE)
             ) ?: '',
-            32
+            blockSize: strlen($this->aesKey)
         );
-        $plaintext = substr($plaintext, 16);
+        $plaintext = substr($plaintext, self::BLOCK_SIZE);
         $contentLength = (unpack('N', substr($plaintext, 0, 4)) ?: [])[1];
 
         if ($this->receiveId && trim(substr($plaintext, $contentLength + 4)) !== $this->receiveId) {

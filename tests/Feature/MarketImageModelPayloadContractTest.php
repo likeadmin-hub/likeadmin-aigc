@@ -45,7 +45,7 @@ class MarketImageModelPayloadContractTest extends TestCase
             ['image' => 'https://example.test/ref.png'],
             ['text' => '生成一个狗'],
         ], $payload['input']['messages'][0]['content']);
-        self::assertSame(1, $payload['parameters']['n']);
+        self::assertSame(4, $payload['parameters']['n']);
         self::assertSame('1024*2048', $payload['parameters']['size']);
         self::assertArrayNotHasKey('sku_key', $payload);
         self::assertSame('低质量', $payload['parameters']['negative_prompt']);
@@ -81,6 +81,66 @@ class MarketImageModelPayloadContractTest extends TestCase
 
         self::assertSame('2048*1024', $payload['parameters']['size']);
         self::assertArrayNotHasKey('sku_key', $payload);
+    }
+
+    public function testFlatImagePayloadPassesRequestedQuantityWhenSchemaSupportsIt(): void
+    {
+        $payload = $this->invokePayload([
+            'product_id' => 103,
+            'sku_id' => 7006,
+            'model_code' => 'batch-image-model',
+            'channel_code' => 'batch-provider',
+            'market_metadata' => [
+                'params_schema' => [
+                    'prompt' => ['type' => 'string', 'required' => true],
+                    'n' => ['type' => 'integer'],
+                ],
+            ],
+        ], [
+            'prompt' => 'generate a product image',
+            'quantity' => 3,
+        ]);
+
+        self::assertSame(3, $payload['n']);
+    }
+
+    public function testRequestedRatioOverridesTheModelDefaultUnlessTheSkuLocksIt(): void
+    {
+        $snapshot = [
+            'product_id' => 97,
+            'sku_id' => 97,
+            'sku_key' => 'gpt_image_2_pro_1k',
+            'model_code' => 'gpt-image-2-pro',
+            'channel_code' => 'OpenaiM',
+            'market_metadata' => [
+                'params_schema' => [
+                    'prompt' => ['type' => 'string', 'required' => true],
+                    'image_size' => ['type' => 'string'],
+                    'aspect_ratio' => ['type' => 'string'],
+                ],
+                'default_params' => [
+                    'image_size' => '1k',
+                    'aspect_ratio' => '1:1',
+                ],
+            ],
+            'locked_params' => ['resolution' => '1k'],
+        ];
+
+        $payload = $this->invokePayload($snapshot, [
+            'prompt' => 'generate a portrait poster',
+            'ratio' => '3:4',
+        ]);
+
+        self::assertSame('3:4', $payload['aspect_ratio']);
+        self::assertSame('1k', $payload['image_size']);
+
+        $snapshot['locked_params']['aspect_ratio'] = '1:1';
+        $lockedPayload = $this->invokePayload($snapshot, [
+            'prompt' => 'generate a portrait poster',
+            'aspect_ratio' => '3:4',
+        ]);
+
+        self::assertSame('1:1', $lockedPayload['aspect_ratio']);
     }
 
     public function testFlatImageModelsFollowSyncedParameterSchema(): void

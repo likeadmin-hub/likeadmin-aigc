@@ -12,7 +12,6 @@ use Exception;
  */
 final class SubAgentDispatcher
 {
-    private const ALLOWED = ['planner', 'copy', 'visual', 'canvas'];
     private const MAX_TASKS = 3;
 
     public static function dispatch(AgentExecutionContext $context, array $arguments, int $parentRunId, string $requestId, string $request, array $canvasContext, ?callable $emit): array
@@ -26,15 +25,7 @@ final class SubAgentDispatcher
         }
         $validated = [];
         foreach ($tasks as $task) {
-            $agentCode = trim((string)($task['agent_code'] ?? ''));
-            if (!in_array($agentCode, self::ALLOWED, true)) {
-                throw new Exception('Unsupported sub-agent: ' . $agentCode);
-            }
-            $focus = mb_substr(trim((string)($task['task'] ?? $task['focus'] ?? '')), 0, 1200, 'UTF-8');
-            if ($focus === '') {
-                throw new Exception('Sub-agent task description is required');
-            }
-            $validated[] = ['agent_code' => $agentCode, 'task' => $focus];
+            $validated[] = SubAgentTaskService::normalizeCreativeWorkUnit($task);
         }
         $scheduled = SubAgentTaskService::dispatch(
             $context,
@@ -50,8 +41,9 @@ final class SubAgentDispatcher
         foreach ($scheduled as $task) {
             self::emit($emit, 'agent.subagent.started', [
                 'agent_code' => $task['agent_code'],
+                'work_unit' => $task['work_unit'],
                 'run_id' => $task['run_id'],
-                'label' => self::label((string)$task['agent_code']),
+                'label' => (string)($task['label'] ?? $task['work_unit']),
                 'status' => 'pending',
             ]);
         }
@@ -67,11 +59,6 @@ final class SubAgentDispatcher
             'subtasks' => $scheduled,
             'subtasks_pending' => true,
         ];
-    }
-
-    private static function label(string $agentCode): string
-    {
-        return ['planner' => 'Planning', 'copy' => 'Copy', 'visual' => 'Visual', 'canvas' => 'Canvas'][$agentCode] ?? $agentCode;
     }
 
     private static function emit(?callable $emit, string $event, array $payload): void

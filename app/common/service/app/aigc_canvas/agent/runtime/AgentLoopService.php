@@ -11,10 +11,11 @@ use app\common\service\app\aigc_canvas\agent\contracts\FunctionCallSchema;
 use app\common\service\app\aigc_canvas\agent\canvas\CanvasReferenceResolver;
 use app\common\service\app\aigc_canvas\agent\canvas\CanvasContextReducer;
 use app\common\service\app\aigc_canvas\agent\batch\EcommerceAgentBatchService;
-use app\common\service\app\aigc_canvas\agent\delivery\DeliveryPlanService;
-use app\common\service\app\aigc_canvas\agent\delivery\DeliveryGraphExecutor;
 use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemContextBinder;
-use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemService;
+use app\common\service\app\aigc_canvas\agent\delivery\CreativeDeliveryGraphService;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryGraphExecutor;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryItemTaskSyncService;
+use app\common\service\app\aigc_canvas\agent\delivery\DeliveryPlanService;
 use app\common\service\app\aigc_canvas\agent\enrichment\CreativeBriefEnricher;
 use app\common\service\app\aigc_canvas\agent\enrichment\ProductFactPolicy;
 use app\common\service\app\aigc_canvas\agent\memory\ConversationMemoryBuilder;
@@ -82,20 +83,15 @@ final class AgentLoopService
         $assets = [];
         $subtasks = [];
         $subtasksPending = false;
+        $unverifiedToolResults = [];
         $startedAt = microtime(true);
         $memory = ConversationMemoryBuilder::build($tenantId, $userId, $threadId, $messageId);
         $context = self::inheritConversationReferences($context, $memory);
         $toolRoute = self::toolRoute($state, $requestId);
         $toolRoute['delivery_item_id'] = (int)($state['delivery_item_id'] ?? 0);
-        if ((int)$toolRoute['delivery_item_id'] > 0) {
-            $boundItem = DeliveryItemService::find($tenantId, $userId, (int)$toolRoute['delivery_item_id']);
-            if ($boundItem !== []) {
-                // Once an item exists, request-local upload/canvas payloads are
-                // not execution inputs. The item is the durable source of truth.
-                $context = DeliveryItemContextBinder::executionContext($boundItem);
-            }
-        }
-        $projectMemory = MemoryRetriever::retrieve($tenantId, $userId, $projectId);
+        $projectMemory = !array_key_exists('project_memory_enabled', $state) || !empty($state['project_memory_enabled'])
+            ? MemoryRetriever::retrieve($tenantId, $userId, $projectId, 8, empty($state['new_conversation']))
+            : [];
         if ($projectMemory !== []) {
             $context['project_memory'] = $projectMemory;
         }
@@ -103,7 +99,10 @@ final class AgentLoopService
         $canvas['reference_resolution'] = CanvasReferenceResolver::resolve($request, $canvas);
         $skills = self::retrieveSkills($tenantId, $request, (int)$runtimePolicy['max_skill_candidates']);
         AgentTurnTraceService::event($turnId, ++$sequence, 'turn.started', ['canvas_nodes' => count((array)($canvas['elements'] ?? [])), 'skill_count' => count($skills)]);
-        $taskDecision = AgentTaskDecisionService::decide($tenantId, $request, $context, $selectedSkill, $state);
+        $taskDecision = (array)($state['task_decision'] ?? []);
+        if ($taskDecision === []) {
+            $taskDecision = AgentTaskDecisionService::decide($tenantId, $request, $context, $selectedSkill, $state);
+        }
         $explicitDelegationTasks = self::explicitDelegationTasks($request);
         $explicitTextOnlyDelegation = self::isExplicitTextOnlyDelegation($request, $explicitDelegationTasks);
         if ($explicitTextOnlyDelegation) {
@@ -173,19 +172,13 @@ final class AgentLoopService
             $context = (array)($enrichment['context'] ?? $context);
             $canvas = CanvasContextReducer::reduce($context);
             $canvas['reference_resolution'] = CanvasReferenceResolver::resolve($request, $canvas);
-            $recheckState = $state;
-            $recheckState['resolved_skill_key'] = (string)($taskDecision['selected_skill_key'] ?? '');
-            $recheckState['resolved_intent'] = (string)($taskDecision['intent'] ?? '');
-            $recheckState['resolved_confidence'] = (float)($taskDecision['confidence'] ?? 0.0);
-            $taskDecision = AgentTaskDecisionService::decide($tenantId, $request, $context, $selectedSkill, $recheckState);
-            if ($explicitTextOnlyDelegation) {
-                self::applyExplicitTextDelegationDecision($taskDecision);
-            }
-            if (($taskDecision['router_source'] ?? '') === 'reused') {
-                AgentTurnTraceService::event($turnId, ++$sequence, 'intent_route_reused', [
-                    'skill_key' => (string)($taskDecision['selected_skill_key'] ?? ''),
-                    'intent' => (string)($taskDecision['intent'] ?? ''),
-                ]);
+            if (!empty($state['delivery_item'])) {
+                $state['delivery_item'] = DeliveryItemContextBinder::mergeEnrichment(
+                    $tenantId,
+                    $userId,
+                    (array)$state['delivery_item'],
+                    $enrichment
+                );
             }
             $insights = (array)($enrichment['asset_insights'] ?? []);
             AgentTurnTraceService::event($turnId, ++$sequence, $insights === [] ? 'asset_insight_failed' : 'asset_insight_ready', [
@@ -198,15 +191,6 @@ final class AgentLoopService
             if (!empty($enrichment['copy_plan'])) {
                 AgentTurnTraceService::event($turnId, ++$sequence, 'copy_plan_ready', ['claim_sources' => (array)($enrichment['copy_plan']['claim_sources'] ?? [])]);
             }
-        }
-        if ((int)$toolRoute['delivery_item_id'] > 0) {
-            DeliveryItemContextBinder::bind(
-                $tenantId,
-                $userId,
-                (int)$toolRoute['delivery_item_id'],
-                $context,
-                $taskDecision
-            );
         }
         $taskDecision['creative_brief'] = self::creativeBriefSummary($enrichment);
         $creativeSummary = CreativeBriefEnricher::userFacingSummary((array)$taskDecision['creative_brief']);
@@ -305,9 +289,10 @@ final class AgentLoopService
                     'emit' => $emit,
                 ]);
                 $clarification = (new AskUserTool())->execute($execution, [
-                    'question' => $clarificationQuestion ?: (string)$skillContract['clarification_question'],
-                    'missing_slots' => $skillContract['missing_slots'],
-                    'reason' => 'selected_skill_required_slots',
+                    'question' => (string)($taskDecision['clarification_question'] ?? '')
+                        ?: ($clarificationQuestion ?: (string)($skillContract['clarification_question'] ?? '')),
+                    'missing_slots' => (array)($taskDecision['missing_hard_slots'] ?? $skillContract['missing_slots'] ?? []),
+                    'reason' => 'required_input',
                 ]);
                 $question = (string)($clarification['tool_calls'][0]['output']['question'] ?? '请补充必要信息后我再继续。');
                 self::emit($emit, 'agent.tool.completed', ['thread_id' => $threadId, 'message_id' => $messageId, 'tool_code' => 'ask_user', 'status' => 'success']);
@@ -335,7 +320,7 @@ final class AgentLoopService
                 AgentTurnTraceService::event($turnId, ++$sequence, 'turn.completed', ['iterations' => 0, 'tool_count' => 1]);
                 return $result;
             }
-            if (($taskDecision['next_action'] ?? '') === 'confirm_execution'
+            if (($taskDecision['decision_mode'] ?? '') === 'confirm'
                 && !empty($skillContract['output_policy']['batch_mode'])) {
                 return self::prepareDeliveryBatch(
                     $tenantId,
@@ -355,7 +340,7 @@ final class AgentLoopService
                     $emit
                 );
             }
-            if (($taskDecision['next_action'] ?? '') === 'confirm_execution') {
+            if (($taskDecision['decision_mode'] ?? '') === 'confirm') {
                 $reply = '';
                 $result = [
                     'reply' => $reply,
@@ -379,34 +364,30 @@ final class AgentLoopService
                 AgentTurnTraceService::event($turnId, ++$sequence, 'confirmation.requested', ['reasons' => (array)($taskDecision['upgrade_reasons'] ?? [])]);
                 return $result;
             }
-            // A complete, single-image poster brief is executable as soon as
-            // the Agent has bound the product context to its delivery item.
-            // Batch delivery and missing slots are handled by the guards above.
-            $immediateMedia = ($taskDecision['binding_mode'] ?? '') === 'contract'
-                ? self::immediatePosterDelivery($skillContract, $request, $memory, $context)
-                : [];
-            if ($immediateMedia !== []) {
-                return self::executeImmediateMedia(
-                    $immediateMedia,
-                    $tenantId,
-                    $userId,
-                    $projectId,
-                    $threadId,
-                    $messageId,
-                    $parentRunId,
-                    $requestId,
-                    $request,
-                    $context,
-                    $emit,
-                    $turnId,
-                    $sequence,
-                    $skills,
-                    $skillContract,
-                    $taskDecision,
-                    $runtimeAllowedTools,
-                    $toolRoute
-                );
-            }
+        }
+
+        $approvedProposal = (array)($taskDecision['confirmed_tool_proposal'] ?? []);
+        if (!empty($approvedProposal['tool_code'])) {
+            return self::executeApprovedToolProposal(
+                $approvedProposal,
+                $tenantId,
+                $userId,
+                $projectId,
+                $threadId,
+                $messageId,
+                $parentRunId,
+                $requestId,
+                $request,
+                $context,
+                $emit,
+                $turnId,
+                $sequence,
+                $skills,
+                $skillContract,
+                $taskDecision,
+                $runtimeAllowedTools,
+                $toolRoute
+            );
         }
 
         if ($parentRunId > 0
@@ -483,6 +464,7 @@ final class AgentLoopService
                 'route' => $toolRoute,
                 'emit' => $emit,
             ]);
+            $streamDecoder = new AssistantReplyStreamDecoder();
             $response = AgentLlmGateway::streamCall(
                 $execution,
                 'canvas_loop',
@@ -510,7 +492,7 @@ final class AgentLoopService
                     'request_timeout_seconds' => self::modelStreamTimeout($timeout, $startedAt),
                 ],
                 $tools,
-                function (string $event, array $data) use ($emit, $threadId, $messageId, $turnId, &$sequence, &$replyStreamed): void {
+                function (string $event, array $data) use ($emit, $threadId, $messageId, $turnId, &$sequence, &$replyStreamed, $streamDecoder): void {
                     if ($event === 'heartbeat') {
                         self::emit($emit, 'agent.turn.status', [
                             'thread_id' => $threadId,
@@ -524,14 +506,19 @@ final class AgentLoopService
                     if ($event !== 'delta' || trim((string)($data['delta'] ?? '')) === '') {
                         return;
                     }
-                    $replyStreamed = true;
                     AgentTurnTraceService::firstToken($turnId);
-                    AgentTurnTraceService::event($turnId, ++$sequence, 'message.delta', ['length' => mb_strlen((string)$data['delta'], 'UTF-8')]);
+                    $rawDelta = (string)$data['delta'];
+                    AgentTurnTraceService::event($turnId, ++$sequence, 'message.delta', ['length' => mb_strlen($rawDelta, 'UTF-8')]);
+                    $visibleDelta = $streamDecoder->push($rawDelta);
+                    if ($visibleDelta === '') {
+                        return;
+                    }
                     self::emit($emit, 'agent.message.delta', [
                         'thread_id' => $threadId,
                         'message_id' => $messageId,
-                        'delta' => (string)$data['delta'],
+                        'delta' => $visibleDelta,
                     ]);
+                    $replyStreamed = true;
                 }
             );
             if (self::isCanceled($messageId)) {
@@ -564,29 +551,6 @@ final class AgentLoopService
             ]);
 
             if (empty($calls)) {
-                $revisionPlan = self::fallbackMediaRevisionDelivery($request, $context, $runtimeAllowedTools);
-                if ($revisionPlan !== []) {
-                    return self::executeImmediateMedia(
-                        $revisionPlan,
-                        $tenantId,
-                        $userId,
-                        $projectId,
-                        $threadId,
-                        $messageId,
-                        $parentRunId,
-                        $requestId,
-                        $request,
-                        $context,
-                        $emit,
-                        $turnId,
-                        $sequence,
-                        $skills,
-                        $skillContract,
-                        $taskDecision,
-                        $runtimeAllowedTools,
-                        $toolRoute
-                    );
-                }
                 $reply = $content !== '' ? $content : '我已分析当前内容。请告诉我希望继续生成、调整还是整理画布。';
                 break;
             }
@@ -600,6 +564,30 @@ final class AgentLoopService
                 $toolCount++;
                 $code = trim((string)($call['name'] ?? ''));
                 $input = is_array($call['arguments'] ?? null) ? $call['arguments'] : [];
+                $invocation = AgentToolInvocationPolicy::evaluate(
+                    $code,
+                    $input,
+                    $taskDecision,
+                    $skillContract,
+                    !empty($state['execution_confirmation'])
+                );
+                $input = (array)($invocation['normalized_input'] ?? $input);
+                if (empty($invocation['allowed'])) {
+                    throw new Exception('Tool invocation rejected by policy: ' . (string)($invocation['reason'] ?? 'not_allowed'));
+                }
+                if (!empty($invocation['requires_confirmation'])) {
+                    return self::toolConfirmationResult(
+                        $code,
+                        $input,
+                        (string)($invocation['reason'] ?? 'confirmation_required'),
+                        $request,
+                        $turnId,
+                        $sequence,
+                        $skills,
+                        $skillContract,
+                        $taskDecision
+                    );
+                }
                 self::emit($emit, 'agent.tool.requested', ['thread_id' => $threadId, 'message_id' => $messageId, 'tool_code' => $code]);
                 AgentTurnTraceService::event($turnId, ++$sequence, 'tool.requested', ['tool_code' => $code, 'input' => self::sanitize($input)]);
                 try {
@@ -653,6 +641,34 @@ final class AgentLoopService
                             ]);
                         }
                     }
+                    if (empty($validation['valid'])) {
+                        $unverifiedToolResults[] = [
+                            'tool_code' => $code,
+                            'issues' => (array)($validation['issues'] ?? []),
+                            'status' => (string)($validation['status'] ?? 'unknown'),
+                        ];
+                        $toolResult = [
+                            'status' => 'unverified',
+                            'issues' => (array)($validation['issues'] ?? []),
+                        ];
+                        self::emit($emit, 'agent.tool.completed', [
+                            'thread_id' => $threadId,
+                            'message_id' => $messageId,
+                            'tool_code' => $code,
+                            'status' => 'failed',
+                            'error' => 'tool_result_unverified',
+                        ]);
+                        AgentTurnTraceService::event($turnId, ++$sequence, 'tool.unverified', [
+                            'tool_code' => $code,
+                            'validation' => $validation,
+                        ]);
+                        if (in_array($code, ['generate_image', 'generate_video', 'generate_music'], true)) {
+                            $reply = self::mediaSubmissionVerificationFailureReply($code);
+                            break 2;
+                        }
+                        $messages[] = ['role' => 'tool', 'name' => $code, 'content' => $toolResult];
+                        continue;
+                    }
                     $toolCalls = array_merge($toolCalls, (array)($result['tool_calls'] ?? []));
                     $workspaceActions = array_merge($workspaceActions, (array)($result['workspace_actions'] ?? []));
                     $assets = array_merge($assets, (array)($result['assets'] ?? []));
@@ -665,8 +681,12 @@ final class AgentLoopService
                         $reply = (string)($result['tool_calls'][0]['output']['question'] ?? '请补充必要信息后我再继续。');
                         break 2;
                     }
+                    if (in_array($code, (array)($skillContract['output_policy']['terminal_tools'] ?? []), true)) {
+                        $reply = $toolResult !== '' ? $toolResult : '当前任务已创建。';
+                        break 2;
+                    }
                     if (AgentResultValidator::isConfirmedMediaSubmission($code, $validation)) {
-                        $reply = self::mediaSubmissionReply($code, $result);
+                        $reply = self::mediaSubmissionReply($code, $result, $request);
                         $mediaSubmitted = true;
                         continue;
                     }
@@ -675,7 +695,7 @@ final class AgentLoopService
                     self::emit($emit, 'agent.tool.completed', ['thread_id' => $threadId, 'message_id' => $messageId, 'tool_code' => $code, 'status' => 'failed', 'error' => $toolResult['message']]);
                     AgentTurnTraceService::event($turnId, ++$sequence, 'tool.failed', ['tool_code' => $code, 'error' => $toolResult['message']]);
                     if (in_array($code, ['generate_image', 'generate_video', 'generate_music'], true)) {
-                        $reply = self::mediaSubmissionFailureReply($code);
+                        $reply = self::mediaSubmissionFailureReply($code, $input, $request);
                         break 2;
                     }
                 }
@@ -689,10 +709,23 @@ final class AgentLoopService
             }
         }
 
-        if ($subtasksPending) {
+        if ($unverifiedToolResults !== []) {
+            // A model may describe an attempted tool call as completed even
+            // when the output did not pass the result contract. This is a
+            // terminal truthfulness guard for every non-media tool path.
+            $reply = self::unverifiedToolResultReply($unverifiedToolResults);
+        } elseif ($subtasksPending) {
             $reply = 'I have split this complex request into focused tasks and am consolidating the results.';
         } elseif ($reply === '') {
-            $reply = !empty($workspaceActions) ? '我已准备好画布修改提案，请确认后应用。' : (!empty($assets) ? '生成任务已提交，完成后会显示在画布中。' : '我已完成当前步骤。');
+            $reply = !empty($workspaceActions)
+                ? '我已准备好画布修改提案，请确认后应用。'
+                : (!empty($assets)
+                    ? self::mediaSubmissionReply(self::mediaToolCode($toolCalls), [
+                        'tool_calls' => $toolCalls,
+                        'workspace_actions' => $workspaceActions,
+                        'assets' => $assets,
+                    ], $request)
+                    : '我已完成当前步骤。');
         }
         $result = [
             'reply' => $reply,
@@ -703,7 +736,7 @@ final class AgentLoopService
             // Media workspace actions are auto-applied as pending canvas nodes.
             // They are not a user confirmation step, even though they also write
             // to the canvas.
-            'next_action' => $subtasksPending ? 'subagents_pending' : (!empty($assets) ? 'generation_submitted' : (!empty($workspaceActions) ? 'confirm_canvas_mutation' : 'chat')),
+            'next_action' => $unverifiedToolResults !== [] ? 'chat' : ($subtasksPending ? 'subagents_pending' : (!empty($assets) ? 'generation_submitted' : (!empty($workspaceActions) ? 'confirm_canvas_mutation' : 'chat'))),
             'agent_trace' => ['execution_mode' => 'agent_loop', 'iterations' => $iterations, 'tool_calls' => $toolCount, 'turn_id' => $turnId],
             'turn_id' => $turnId,
             'iterations' => $iterations,
@@ -711,10 +744,48 @@ final class AgentLoopService
             'selected_skill' => $skillContract,
             'task_decision' => $taskDecision,
             'estimated_tools' => (array)($taskDecision['estimated_tools'] ?? []),
+            // Keep the original user wording available only until the response
+            // projection is built. The compiled provider prompt must never be
+            // used as a chat-facing creation direction.
+            'original_user_request' => $request,
             'pending_skill_context' => [],
+            'unverified_tool_results' => $unverifiedToolResults,
             'subtasks' => $subtasks,
             'subtasks_pending' => $subtasksPending,
         ];
+        $deliveryItemId = (int)($state['delivery_item_id'] ?? 0);
+        if (!$subtasksPending && $deliveryItemId > 0) {
+            try {
+                $syncedItem = DeliveryItemTaskSyncService::syncTextStage($tenantId, $userId, $deliveryItemId, $result);
+                $deliveryItem = $syncedItem !== [] ? $syncedItem : DeliveryPlanService::item($tenantId, $userId, $deliveryItemId);
+                if ($deliveryItem !== []) {
+                    $planId = (int)($deliveryItem['plan_id'] ?? 0);
+                    $result['delivery_item'] = $deliveryItem;
+                    $result['delivery_plan'] = DeliveryPlanService::detail($tenantId, $userId, $planId);
+                    $result['creative_graph'] = (array)($result['delivery_plan']['graph'] ?? []);
+                    $result['runnable_delivery_items'] = CreativeDeliveryGraphService::runnableItems($tenantId, $userId, $planId);
+                    self::emit($emit, 'agent.delivery.graph.updated', [
+                        'thread_id' => $threadId,
+                        'message_id' => $messageId,
+                        'plan_id' => $planId,
+                        'delivery_plan' => $result['delivery_plan'],
+                        'graph' => $result['creative_graph'],
+                        'active_item_id' => (int)($deliveryItem['id'] ?? 0),
+                        'runnable_item_ids' => array_values(array_map(
+                            static fn(array $item): int => (int)($item['id'] ?? 0),
+                            (array)$result['runnable_delivery_items']
+                        )),
+                    ]);
+                    AgentTurnTraceService::event($turnId, ++$sequence, 'delivery.graph', [
+                        'plan_id' => $planId,
+                        'active_item_id' => (int)($deliveryItem['id'] ?? 0),
+                        'runnable_item_count' => count((array)$result['runnable_delivery_items']),
+                    ]);
+                }
+            } catch (Exception) {
+                // A durable workflow projection must not discard an otherwise valid Agent reply.
+            }
+        }
         if ($subtasksPending) {
             AgentTurnTraceService::event($turnId, ++$sequence, 'subagents.queued', ['subtask_count' => count($subtasks)]);
         } else {
@@ -738,6 +809,15 @@ final class AgentLoopService
     {
         $references = [];
         foreach ((array)($context['uploaded_references'] ?? []) as $reference) {
+            if (!is_array($reference)) {
+                continue;
+            }
+            $url = trim((string)($reference['url'] ?? $reference['uri'] ?? ''));
+            if ($url !== '') {
+                $references[$url] = $reference + ['url' => $url, 'uri' => $url];
+            }
+        }
+        foreach ((array)($memory['uploaded_references'] ?? []) as $reference) {
             if (!is_array($reference)) {
                 continue;
             }
@@ -879,88 +959,6 @@ final class AgentLoopService
         return $prepared;
     }
 
-    private static function immediatePosterDelivery(array $skillContract, string $request, array $memory, array $context): array
-    {
-        $skillKey = (string)($skillContract['skill_key'] ?? '');
-        $isProductSellingPoint = $skillKey === 'ecommerce_selling_point';
-        if (!in_array($skillKey, ['poster_design', 'ecommerce_selling_point'], true)
-            || !empty($skillContract['missing_slots'])
-            || !in_array('generate_image', (array)($skillContract['allowed_tools'] ?? []), true)) {
-            return [];
-        }
-        if ($isProductSellingPoint && !self::hasReferenceAssets($context)) {
-            return [];
-        }
-        if (self::isClarifyingQuestion($request)) {
-            return [];
-        }
-        if ($isProductSellingPoint && !self::hasFunctionalSellingPoint($request, $memory)) {
-            return [];
-        }
-        if (preg_match('/详情(?:图|页)|商品主图|主图|列表图|卖点图|首屏|规格|参数/u', $request) === 1) {
-            return [];
-        }
-        $userMessages = array_map(
-            static fn(array $message): string => trim((string)($message['content'] ?? '')),
-            array_filter((array)($memory['recent_messages'] ?? []), static fn($message): bool => is_array($message) && (string)($message['role'] ?? '') === 'user')
-        );
-        $brief = implode('；', array_values(array_filter(array_merge(array_slice($userMessages, -3), [$request]))));
-        if (!$isProductSellingPoint && preg_match('/生成|制作|做一张|做个|创建|设计|海报|帮我/u', $brief) !== 1) {
-            return [];
-        }
-        $defaults = (array)($skillContract['defaults'] ?? []);
-        $resolvedSlots = (array)($skillContract['default_slots'] ?? []);
-        $ratio = self::posterRatio($brief, (string)($resolvedSlots['ratio'] ?? $defaults['ratio'] ?? '3:4'));
-        $deliveryPlan = [
-            'type' => 'delivery_plan',
-            'title' => $isProductSellingPoint ? 'Product visual delivery' : 'Poster delivery',
-            'groups' => [[
-                'group_key' => $isProductSellingPoint ? 'product_selling_point' : 'poster',
-                'label' => $isProductSellingPoint ? 'Product visual delivery' : 'Poster delivery',
-                'items' => [[
-                    'key' => $isProductSellingPoint ? 'product_selling_point' : 'poster',
-                    'label' => $isProductSellingPoint ? 'Product visual' : 'Poster',
-                    'purpose' => $isProductSellingPoint ? 'Create one product selling-point visual.' : 'Create one standalone poster.',
-                    'creative_intent' => $brief,
-                    'tool_code' => 'generate_image',
-                    'quantity' => $isProductSellingPoint ? 1 : max(1, min(4, (int)($defaults['quantity'] ?? 1))),
-                    'ratio' => $ratio,
-                ]],
-            ]],
-        ];
-        return [
-            'tool_code' => 'generate_image',
-            'delivery_plan' => $deliveryPlan,
-            'input' => [
-                'creative_intent' => $brief,
-                'quantity' => $isProductSellingPoint ? 1 : max(1, min(4, (int)($defaults['quantity'] ?? 1))),
-                'ratio' => $ratio,
-            ],
-        ];
-    }
-
-    /** Use a real generation task for concise revisions of an existing visual. */
-    private static function fallbackMediaRevisionDelivery(string $request, array $context, array $runtimeAllowedTools): array
-    {
-        $hasVisualTarget = !empty($context['uploaded_references'])
-            || !empty($context['selected_elements'])
-            || !empty($context['selected_ids']);
-        if (!$hasVisualTarget || self::isClarifyingQuestion($request)) {
-            return [];
-        }
-        if (preg_match('/修改|调整|改成|换成|重新做|重做|太亮|太暗|深色|浅色|色系|颜色|风格|darker|brighter|color\s*scheme|change|revise|edit/u', $request) !== 1) {
-            return [];
-        }
-        $toolCode = preg_match('/视频|短片|动效|video/u', $request) === 1 ? 'generate_video' : 'generate_image';
-        if (!in_array($toolCode, $runtimeAllowedTools, true)) {
-            return [];
-        }
-        return [
-            'tool_code' => $toolCode,
-            'input' => ['prompt' => $request],
-        ];
-    }
-
     private static function toolRoute(array $state, string $requestId): array
     {
         $config = $state['agent_media_config'] ?? [];
@@ -978,50 +976,64 @@ final class AgentLoopService
         ];
     }
 
-    private static function hasFunctionalSellingPoint(string $request, array $memory): bool
+    private static function toolConfirmationResult(string $toolCode, array $input, string $reason, string $request, int $turnId, int &$sequence, array $skills, array $skillContract, array $taskDecision): array
     {
-        $userMessages = array_map(
-            static fn(array $message): string => trim((string)($message['content'] ?? '')),
-            array_filter((array)($memory['recent_messages'] ?? []), static fn($message): bool => is_array($message) && (string)($message['role'] ?? '') === 'user')
-        );
-        $brief = implode(' ', array_values(array_filter(array_merge(array_slice($userMessages, -3), [$request]))));
-        return preg_match('/\x{5356}\x{70B9}|\x{7A81}\x{51FA}|\x{7279}\x{70B9}|\x{4F18}\x{52BF}|\x{7EED}\x{822A}|\x{6750}\x{8D28}|\x{529F}\x{80FD}|\x{964D}\x{566A}/u', $brief) === 1;
+        $pending = [
+            'skill_key' => (string)($skillContract['skill_key'] ?? ''),
+            'original_request' => $request,
+            'delivery_item_id' => (int)($taskDecision['delivery_item_id'] ?? 0),
+            'tool_proposal' => [
+                'tool_code' => $toolCode,
+                'arguments' => $input,
+            ],
+        ];
+        $taskDecision['decision_mode'] = 'confirm';
+        $taskDecision['action_mode'] = 'confirm';
+        $taskDecision['next_action'] = 'confirm_execution';
+        $taskDecision['requires_confirmation'] = true;
+        $taskDecision['confirmation_reason'] = $reason;
+        $taskDecision['pending_context'] = $pending;
+        AgentTurnTraceService::event($turnId, ++$sequence, 'tool.confirmation_required', [
+            'tool_code' => $toolCode,
+            'reason' => $reason,
+        ]);
+        $result = [
+            'reply' => '',
+            'reply_streamed' => false,
+            'tool_calls' => [],
+            'workspace_actions' => [],
+            'assets' => [],
+            'next_action' => 'confirm_execution',
+            'agent_trace' => ['execution_mode' => 'agent_loop', 'iterations' => 1, 'tool_calls' => 0, 'turn_id' => $turnId],
+            'turn_id' => $turnId,
+            'iterations' => 1,
+            'skills' => $skills,
+            'selected_skill' => $skillContract,
+            'task_decision' => $taskDecision,
+            'estimated_tools' => [],
+            'pending_skill_context' => $pending,
+            'subtasks' => [],
+            'subtasks_pending' => false,
+        ];
+        AgentTurnTraceService::complete($turnId, 1, $result);
+        return $result;
     }
 
-    private static function posterRatio(string $brief, string $fallback): string
+    private static function executeApprovedToolProposal(array $proposal, int $tenantId, int $userId, int $projectId, int $threadId, int $messageId, int $parentRunId, string $requestId, string $request, array $context, ?callable $emit, int $turnId, int &$sequence, array $skills, array $skillContract, array $taskDecision, array $runtimeAllowedTools, array $toolRoute): array
     {
-        if (preg_match('/(?<!\d)(1\s*[:xX*]\s*1|3\s*[:xX*]\s*4|4\s*[:xX*]\s*3|9\s*[:xX*]\s*16|16\s*[:xX*]\s*9)(?!\d)/u', $brief, $match) === 1) {
-            return str_replace([' ', 'x', 'X', '*'], ['', ':', ':', ':'], $match[1]);
+        $code = trim((string)($proposal['tool_code'] ?? ''));
+        $input = is_array($proposal['arguments'] ?? null) ? $proposal['arguments'] : [];
+        $invocation = AgentToolInvocationPolicy::evaluate($code, $input, $taskDecision, $skillContract, true);
+        if (empty($invocation['allowed'])) {
+            throw new Exception('Approved tool proposal is no longer permitted: ' . (string)($invocation['reason'] ?? 'not_allowed'));
         }
-        return in_array($fallback, ['1:1', '3:4', '4:3', '9:16', '16:9'], true) ? $fallback : '3:4';
-    }
-
-    private static function isClarifyingQuestion(string $request): bool
-    {
-        $request = trim($request);
-        if ($request === '') {
-            return true;
-        }
-        if (preg_match('/[?？]$/u', $request) === 1) {
-            return true;
-        }
-        if (preg_match('/^(what|why|how|when|where|who|can you|could you|do you|is it)\b/i', $request) === 1) {
-            return true;
-        }
-        return preg_match('/\x{4EC0}\x{4E48}|\x{600E}\x{4E48}|\x{4E3A}\x{4EC0}\x{4E48}|\x{5417}/u', $request) === 1;
-    }
-
-    private static function executeImmediateMedia(array $plan, int $tenantId, int $userId, int $projectId, int $threadId, int $messageId, int $parentRunId, string $requestId, string $request, array $context, ?callable $emit, int $turnId, int &$sequence, array $skills, array $skillContract, array $taskDecision, array $runtimeAllowedTools, array $toolRoute): array
-    {
-        $code = (string)$plan['tool_code'];
-        $input = (array)($plan['input'] ?? []);
+        $input = (array)($invocation['normalized_input'] ?? $input);
         $execution = AgentExecutionContext::from([
             'tenant_id' => $tenantId,
             'user_id' => $userId,
             'project_id' => $projectId,
             'thread_id' => $threadId,
             'message_id' => $messageId,
-            'delivery_item_id' => (int)($toolRoute['delivery_item_id'] ?? 0),
             'user_request' => $request,
             'canvas_context' => $context,
             'route' => $toolRoute,
@@ -1029,7 +1041,7 @@ final class AgentLoopService
         ]);
         self::emit($emit, 'agent.turn.status', ['thread_id' => $threadId, 'message_id' => $messageId, 'stage' => 'generating', 'label' => '正在生成海报第一版']);
         self::emit($emit, 'agent.tool.requested', ['thread_id' => $threadId, 'message_id' => $messageId, 'tool_code' => $code]);
-        AgentTurnTraceService::event($turnId, ++$sequence, 'tool.requested', ['tool_code' => $code, 'input' => self::sanitize($input), 'strategy' => 'immediate_poster_delivery']);
+        AgentTurnTraceService::event($turnId, ++$sequence, 'tool.requested', ['tool_code' => $code, 'input' => self::sanitize($input), 'strategy' => 'approved_tool_proposal']);
         try {
             $toolResult = self::executeTool($execution, $code, $input, $parentRunId, $requestId, $request, $context, $emit, $skillContract, $runtimeAllowedTools);
         } catch (Exception $e) {
@@ -1049,23 +1061,68 @@ final class AgentLoopService
             'issues' => (array)($validation['issues'] ?? []),
         ]);
         AgentTurnTraceService::event($turnId, ++$sequence, 'validation.completed', ['tool_code' => $code, 'validation' => $validation]);
+        if (empty($validation['valid'])) {
+            self::emit($emit, 'agent.tool.completed', [
+                'thread_id' => $threadId,
+                'message_id' => $messageId,
+                'tool_code' => $code,
+                'status' => 'failed',
+                'error' => 'tool_result_unverified',
+            ]);
+            AgentTurnTraceService::event($turnId, ++$sequence, 'tool.unverified', [
+                'tool_code' => $code,
+                'validation' => $validation,
+                'strategy' => 'approved_tool_proposal',
+            ]);
+            $result = [
+                'reply' => self::mediaSubmissionVerificationFailureReply($code),
+                'reply_streamed' => false,
+                'tool_calls' => [],
+                'workspace_actions' => [],
+                'assets' => [],
+                'next_action' => 'chat',
+                'agent_trace' => ['execution_mode' => 'agent_loop', 'iterations' => 0, 'tool_calls' => 1, 'turn_id' => $turnId, 'strategy' => 'approved_tool_proposal'],
+                'turn_id' => $turnId,
+                'iterations' => 0,
+                'skills' => $skills,
+                'selected_skill' => $skillContract,
+                'task_decision' => $taskDecision,
+                'estimated_tools' => (array)($taskDecision['estimated_tools'] ?? []),
+                'original_user_request' => $request,
+                'pending_skill_context' => [],
+                'unverified_tool_results' => [[
+                    'tool_code' => $code,
+                    'issues' => (array)($validation['issues'] ?? []),
+                    'status' => (string)($validation['status'] ?? 'unknown'),
+                ]],
+                'subtasks' => [],
+                'subtasks_pending' => false,
+            ];
+            AgentTurnTraceService::complete($turnId, 0, $result);
+            AgentTurnTraceService::event($turnId, ++$sequence, 'turn.completed', ['iterations' => 0, 'tool_count' => 1, 'outcome' => 'unverified']);
+            return $result;
+        }
         self::emit($emit, 'agent.tool.completed', ['thread_id' => $threadId, 'message_id' => $messageId, 'tool_code' => $code, 'status' => 'success']);
         AgentTurnTraceService::event($turnId, ++$sequence, 'tool.completed', ['tool_code' => $code, 'output' => self::toolMessage($toolResult)]);
         $result = [
-            'reply' => (string)($toolResult['reply'] ?? '海报生成任务已提交。'),
+            'reply' => in_array($code, ['generate_image', 'generate_video', 'generate_music'], true)
+                ? self::mediaSubmissionReply($code, $toolResult, $request)
+                : '',
             'reply_streamed' => false,
             'tool_calls' => (array)($toolResult['tool_calls'] ?? []),
             'workspace_actions' => (array)($toolResult['workspace_actions'] ?? []),
             'assets' => (array)($toolResult['assets'] ?? []),
-            'delivery_plan' => (array)($plan['delivery_plan'] ?? []),
-            'next_action' => 'generation_submitted',
-            'agent_trace' => ['execution_mode' => 'agent_loop', 'iterations' => 0, 'tool_calls' => 1, 'turn_id' => $turnId, 'strategy' => 'immediate_poster_delivery'],
+            'next_action' => in_array($code, ['generate_image', 'generate_video', 'generate_music'], true)
+                ? 'generation_submitted'
+                : (!empty($toolResult['workspace_actions']) ? 'confirm_canvas_mutation' : 'chat'),
+            'agent_trace' => ['execution_mode' => 'agent_loop', 'iterations' => 0, 'tool_calls' => 1, 'turn_id' => $turnId, 'strategy' => 'approved_tool_proposal'],
             'turn_id' => $turnId,
             'iterations' => 0,
             'skills' => $skills,
             'selected_skill' => $skillContract,
             'task_decision' => $taskDecision,
             'estimated_tools' => (array)($taskDecision['estimated_tools'] ?? []),
+            'original_user_request' => $request,
             'pending_skill_context' => [],
             'subtasks' => [],
             'subtasks_pending' => false,
@@ -1073,6 +1130,17 @@ final class AgentLoopService
         AgentTurnTraceService::complete($turnId, 0, $result);
         AgentTurnTraceService::event($turnId, ++$sequence, 'turn.completed', ['iterations' => 0, 'tool_count' => 1]);
         return $result;
+    }
+
+    /** Do not let an unverified tool response be rewritten as completed work. */
+    private static function unverifiedToolResultReply(array $results): string
+    {
+        $codes = array_values(array_unique(array_filter(array_map(
+            static fn (array $item): string => trim((string)($item['tool_code'] ?? '')),
+            $results
+        ))));
+        $label = count($codes) === 1 && $codes[0] !== '' ? '“' . $codes[0] . '”' : '当前操作';
+        return $label . '的结果尚未通过验证，暂不标记为完成。请稍后重试，或调整需求后继续。';
     }
 
     private static function isCanceled(int $messageId): bool
@@ -1185,19 +1253,23 @@ final class AgentLoopService
         if (!in_array($code, self::directToolCodes(), true)) {
             throw new Exception('Agent 请求了不可用工具：' . $code);
         }
+        $input = self::mergeMediaToolOptions($context->toolOptions($code), $input);
         $input = self::toolInput($code, $input, $requestId, $prompt, $canvasContext, $context->projectId(), $skillContract, $context->deliveryItemId());
         if (in_array($code, ['generate_image', 'generate_video', 'generate_music'], true)) {
             if ($context->deliveryItemId() > 0) {
-                $item = DeliveryGraphExecutor::execute($context->tenantId(), $context->userId(), $context->deliveryItemId(), [], $emit);
-                return [
-                    'tool_calls' => [[
-                        'id' => 0, 'tool_code' => $code, 'input' => ['delivery_item_id' => $context->deliveryItemId()],
-                        'provider_task_id' => (string)($item['task_snapshot']['task_id'] ?? ''),
-                        'output' => ['status' => (string)($item['status'] ?? 'queued'), 'task_id' => (string)($item['task_snapshot']['task_id'] ?? '')],
-                    ]],
-                    'workspace_actions' => (array)($item['result']['workspace_actions'] ?? []),
-                    'assets' => (array)($item['result']['assets'] ?? []),
-                ];
+                return DeliveryGraphExecutor::executeFromAgentTool(
+                    $context->tenantId(),
+                    $context->userId(),
+                    $context->projectId(),
+                    $context->threadId(),
+                    $context->messageId(),
+                    $context->deliveryItemId(),
+                    $code,
+                    $input,
+                    $prompt,
+                    $canvasContext,
+                    $emit
+                );
             }
             return AigcCanvasAgentRuntimeService::executeExternalToolWithActions(
                 $context->tenantId(), $context->userId(), $context->projectId(), $context->threadId(), $context->messageId(),
@@ -1208,6 +1280,28 @@ final class AgentLoopService
             $context->tenantId(), $context->userId(), $context->projectId(), $context->threadId(), $context->messageId(), $code, $input, $emit
         );
         return ['tool_calls' => [$tool], 'workspace_actions' => [], 'assets' => []];
+    }
+
+    private static function mergeMediaToolOptions(array $toolOptions, array $input): array
+    {
+        if ($toolOptions === []) {
+            return $input;
+        }
+        $merged = array_merge($toolOptions, $input);
+        $isExplicit = array_key_exists('model_selection_explicit', $toolOptions)
+            && filter_var($toolOptions['model_selection_explicit'], FILTER_VALIDATE_BOOL);
+        if (!$isExplicit) {
+            return $merged;
+        }
+
+        // The LLM can decide creative arguments, but it must never replace the
+        // model, SKU, or billing route explicitly chosen by the user.
+        foreach (['channel', 'model', 'model_id', 'image_model_id', 'market_product_id', 'market_sku_id', 'sku_id', 'model_selection_explicit'] as $key) {
+            if (array_key_exists($key, $toolOptions)) {
+                $merged[$key] = $toolOptions[$key];
+            }
+        }
+        return $merged;
     }
 
     private static function toolSchemas(int $tenantId, string $request, array $canvas, array $skillContract = [], array $runtimeAllowedTools = []): array
@@ -1244,7 +1338,6 @@ final class AgentLoopService
             'generate_image',
             'generate_video',
             'generate_music',
-            'create_short_drama_plan',
             'delegate_subagent',
             'web_fetch',
             'url_to_design_brief',
@@ -1278,7 +1371,7 @@ final class AgentLoopService
 
     private static function directToolCodes(): array
     {
-        return ['ask_user', 'retrieve_skills', 'generate_text', 'generate_image', 'generate_video', 'generate_music', 'create_short_drama_plan', 'web_fetch', 'search_web_info', 'search_image', 'brand_research', 'url_to_design_brief', 'asset_analyze', 'canvas_select', 'canvas_read', 'canvas_patch'];
+        return ['ask_user', 'retrieve_skills', 'generate_text', 'generate_image', 'generate_video', 'generate_music', 'web_fetch', 'search_web_info', 'search_image', 'brand_research', 'url_to_design_brief', 'asset_analyze', 'canvas_select', 'canvas_read', 'canvas_patch'];
     }
 
     private static function toolInput(string $code, array $input, string $requestId, string $prompt, array $context, int $projectId, array $skillContract = [], int $deliveryItemId = 0): array
@@ -1303,32 +1396,27 @@ final class AgentLoopService
                 : !empty($profile['enable_thinking']);
             $input['request_timeout_seconds'] = max(10, min(150, (int)($input['request_timeout_seconds'] ?? $profile['timeout_seconds'])));
         }
-        if ($code === 'create_short_drama_plan') {
-            if (trim((string)($input['prompt'] ?? $input['content'] ?? '')) === '') {
-                $input['prompt'] = $prompt;
-            }
-            $input['episode_count'] = max(1, min(100, (int)($input['episode_count'] ?? 1)));
-            $input['target_duration_seconds'] = max(0, min(7200, (int)($input['target_duration_seconds'] ?? 0)));
-            $input['ratio'] = in_array((string)($input['ratio'] ?? ''), ['9:16', '16:9', '1:1', '3:4', '4:3'], true)
-                ? (string)$input['ratio']
-                : '9:16';
-            $input['multi_episode'] = array_key_exists('multi_episode', $input)
-                ? (bool)$input['multi_episode']
-                : $input['episode_count'] > 1;
-        }
         if ($code === 'canvas_read') {
             $input['canvas_snapshot'] = $context;
         }
         if ($code === 'canvas_select') {
             $input['selected_elements'] = (array)($context['selected_elements'] ?? $context['selection']['elements'] ?? []);
         }
-        if ($code === 'asset_analyze' && empty($input['references'])) {
-            $input['references'] = (array)($context['uploaded_references'] ?? []);
-            if ($input['references'] === []) {
-                $input['references'] = (array)($context['selected_elements'] ?? $context['selection']['elements'] ?? []);
-            }
-        }
         if ($code === 'asset_analyze') {
+            // A reference uploaded in a conversation is available to that conversation only.
+            // Only a selected canvas node represents a reusable project asset.
+            $hasSuppliedAssets = !empty($input['assets']) || !empty($input['references']) || !empty($input['uploaded_references']);
+            if (!$hasSuppliedAssets) {
+                $input['references'] = (array)($context['uploaded_references'] ?? []);
+                if ($input['references'] !== []) {
+                    $input['reference_scope'] = 'conversation';
+                } else {
+                    $input['references'] = (array)($context['selected_elements'] ?? $context['selection']['elements'] ?? []);
+                    $input['reference_scope'] = $input['references'] === [] ? 'conversation' : 'canvas';
+                }
+            } else {
+                $input['reference_scope'] = 'conversation';
+            }
             $input['requires_visual_understanding'] = true;
             $input['request'] = (string)($input['request'] ?? $prompt);
             $input['precomputed_asset_insights'] = (array)($context['enriched_context']['asset_insights'] ?? []);
@@ -1514,16 +1602,28 @@ final class AgentLoopService
         ]);
     }
 
-    private static function mediaSubmissionFailureReply(string $toolCode): string
+    private static function mediaSubmissionFailureReply(string $toolCode, array $input = [], string $request = ''): string
     {
-        return match ($toolCode) {
-            'generate_video' => '视频生成提交失败，服务暂时无法创建任务，请稍后重试。',
-            'generate_music' => '音乐生成提交失败，服务暂时无法创建任务，请稍后重试。',
-            default => '图片生成提交失败，服务暂时无法创建任务，请稍后重试。',
+        $typeLabel = match ($toolCode) {
+            'generate_video' => '视频',
+            'generate_music' => '音乐',
+            default => '图片',
         };
+        return "{$typeLabel}生成任务未能创建，请稍后重试。";
     }
 
-    private static function mediaSubmissionReply(string $toolCode, array $result = []): string
+    /** A rejected result must never be presented as a submitted media task. */
+    private static function mediaSubmissionVerificationFailureReply(string $toolCode): string
+    {
+        $typeLabel = match ($toolCode) {
+            'generate_video' => "\u{89C6}\u{9891}",
+            'generate_music' => "\u{97F3}\u{4E50}",
+            default => "\u{56FE}\u{7247}",
+        };
+        return "{$typeLabel}\u{4EFB}\u{52A1}\u{8FD4}\u{56DE}\u{4E0D}\u{5B8C}\u{6574}\u{FF0C}\u{6211}\u{6CA1}\u{6709}\u{628A}\u{5B83}\u{5F53}\u{4F5C}\u{5DF2}\u{63D0}\u{4EA4}\u{7684}\u{4EFB}\u{52A1}\u{3002}\u{8BF7}\u{7A0D}\u{540E}\u{91CD}\u{8BD5}\u{3002}";
+    }
+
+    private static function mediaSubmissionReply(string $toolCode, array $result = [], string $request = ''): string
     {
         $hasResult = false;
         foreach (array_merge((array)($result['assets'] ?? []), (array)($result['workspace_actions'] ?? [])) as $item) {
@@ -1536,18 +1636,77 @@ final class AgentLoopService
                 break;
             }
         }
-        if ($hasResult) {
-            return match ($toolCode) {
-                'generate_video' => '视频已生成并添加到画布。',
-                'generate_music' => '音乐已生成并添加到画布。',
-                default => '图片已生成并添加到画布。',
-            };
-        }
-        return match ($toolCode) {
-            'generate_video' => '正在生成视频，结果会自动插入画布。',
-            'generate_music' => '正在生成音乐，结果会自动插入画布。',
-            default => '正在生成图片，结果会自动插入画布。',
+        $typeLabel = match ($toolCode) {
+            'generate_video' => '视频',
+            'generate_music' => '音乐',
+            default => '图片',
         };
+        return $hasResult
+            ? "{$typeLabel}已完成渲染，画布节点已更新。"
+            : "已在画布中创建{$typeLabel}生成节点，正在渲染。";
+    }
+
+    /**
+     * Produces a user-facing summary only from the immutable submission input.
+     * It intentionally does not infer a style that the user did not provide.
+     */
+    private static function mediaSubmissionDirection(array $result, string $originalRequest = ''): string
+    {
+        $direction = self::mediaSubmissionText($originalRequest);
+        if ($direction !== '') {
+            return $direction;
+        }
+        $candidates = [];
+        foreach (array_merge((array)($result['workspace_actions'] ?? []), (array)($result['tool_calls'] ?? [])) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $input = is_array($item['input'] ?? null) ? $item['input'] : [];
+            $output = is_array($item['output'] ?? null) ? $item['output'] : [];
+            $submitted = is_array($input['submitted_input'] ?? null)
+                ? $input['submitted_input']
+                : (is_array($output['submitted_input'] ?? null) ? $output['submitted_input'] : $input);
+            // `prompt` may already be the compiler output. Only immutable user
+            // wording may be presented back in the conversation.
+            foreach (['original_user_request', 'user_request', 'creative_intent'] as $key) {
+                $value = trim((string)($submitted[$key] ?? $input[$key] ?? ''));
+                if ($value !== '') {
+                    $candidates[] = $value;
+                }
+            }
+        }
+        $direction = self::mediaSubmissionText((string)($candidates[0] ?? ''));
+        if ($direction === '') {
+            return '按当前已确认的创作请求生成。';
+        }
+        return $direction;
+    }
+
+    private static function mediaToolCode(array $toolCalls): string
+    {
+        foreach ($toolCalls as $call) {
+            if (!is_array($call)) {
+                continue;
+            }
+            $code = (string)($call['tool_code'] ?? $call['code'] ?? $call['name'] ?? '');
+            if (in_array($code, ['generate_image', 'generate_video', 'generate_music'], true)) {
+                return $code;
+            }
+        }
+        return 'generate_image';
+    }
+
+    private static function mediaSubmissionText(string $value): string
+    {
+        $value = trim(preg_replace('/\s+/u', ' ', $value) ?? '');
+        if ($value === '') {
+            return '';
+        }
+        $limit = 96;
+        if (mb_strlen($value, 'UTF-8') <= $limit) {
+            return $value;
+        }
+        return rtrim(mb_substr($value, 0, $limit, 'UTF-8')) . '…';
     }
 
     private static function sanitize($value)
@@ -1567,7 +1726,7 @@ final class AgentLoopService
 
     private static function systemPrompt(): string
     {
-        return '你是无限画布创作 Agent。先理解用户请求、当前选区和画布，再决定回复、追问或调用工具。memory 是已确认的线程短期记忆：连续修改必须优先遵守其中的目标和保留条件，除非用户明确推翻。retrieved_skills 只是候选能力说明，不是关键词触发器；selected_skill_contract 则是用户显式选择的产品交付合同，必须遵守其中的 allowed_tools、missing_slots、确认和画布策略。若 selected_skill_contract 的 missing_slots 非空，优先调用 ask_user，且一次只问一个最高价值问题，不得提交媒体生成。For a contract with output_policy.batch_mode=true or required_deliverables, deliver every planned item. Never substitute one cover image for a multi-item delivery. 画布上下文会给出 reference_resolution：只有 status=resolved 且 confidence 足够时才可作为编辑目标；status=ambiguous 时必须先追问，不能猜测。需要事实或画布目标时先调用查询工具；工具结果会回到你这里继续判断。图片、视频、音乐只能使用提供的生成工具，系统会走算力市场。任何移动、更新、删除、分组等画布改动都必须调用 canvas_mutation 或 selection_action 生成提案，不能声称已直接修改。只有电商详情、多图分镜、脚本到视频等确实复杂的任务才调用 delegate_subagent；简单请求不要拆分子任务。工具失败后根据失败结果改用可行方案或清楚追问。只有来自用户、已解析画布、上传素材识别或工具结果的信息才能作为事实回复；不得把系统默认比例、数量、风格、平台、价格或工具选择表述为已识别到的用户需求。缺少生成主体、场景或关键信息时，调用 ask_user 询问，不要用默认文案填充。最终回复必须面向用户，不得暴露 SKU、密钥、内部参数或系统实现。若渠道不支持原生函数调用，严格返回 JSON 对象 {"summary":"...","tool_calls":[{"name":"工具名","arguments":{}}]}，无需工具时 tool_calls 为空。';
+        return '你是无限画布创作 Agent。先理解用户请求、当前选区和画布，再决定回复、追问或调用工具。memory 是已确认的线程短期记忆：连续修改必须优先遵守其中的目标和保留条件，除非用户明确推翻。retrieved_skills 只是候选能力说明，不是关键词触发器；selected_skill_contract 则是用户显式选择的产品交付合同，必须遵守其中的 allowed_tools、missing_slots、确认和画布策略。若 selected_skill_contract 的 missing_slots 非空，优先调用 ask_user，且一次只问一个最高价值问题，不得提交媒体生成。For a contract with output_policy.batch_mode=true or required_deliverables, deliver every planned item. Never substitute one cover image for a multi-item delivery. 画布上下文会给出 reference_resolution：只有 status=resolved 且 confidence 足够时才可作为编辑目标；status=ambiguous 时必须先追问，不能猜测。需要事实或画布目标时先调用查询工具；工具结果会回到你这里继续判断。图片、视频、音乐只能使用提供的生成工具，系统会走算力市场。任何移动、更新、删除、分组等画布改动都必须调用 canvas_mutation 或 selection_action 生成提案，不能声称已直接修改。只有电商详情、多图分镜、脚本到视频等确实复杂的任务才调用 delegate_subagent；简单请求不要拆分子任务。工具失败后根据失败结果改用可行方案或清楚追问。只有来自用户、已解析画布、上传素材识别或工具结果的信息才能作为事实回复；不得把系统默认比例、数量、风格、平台、价格或工具选择表述为已识别到的用户需求。缺少生成主体、场景或关键信息时，调用 ask_user 询问，不要用默认文案填充。最终回复必须面向用户，不得暴露 SKU、密钥、内部参数或系统实现。回复要先直接回应用户，再给出必要建议或下一步；引用画布或已完成结果时只使用已确认信息，避免模板化状态话术。若渠道不支持原生函数调用，严格返回 JSON 对象 {"assistant_reply":"面向用户的自然回复","tool_calls":[{"name":"工具名","arguments":{}}]}，无需工具时 tool_calls 为空。';
     }
 
     private static function emit(?callable $emit, string $event, array $payload): void

@@ -164,10 +164,22 @@ class TenantController extends BaseAdminController
     {
         $tenantId = (int)$this->request->post('tenant_id', 0);
         $points = (float)$this->request->post('points', 0);
+        $action = (string)$this->request->post('action', 'increase');
         $remark = (string)$this->request->post('remark', '');
         try {
-            TenantPointService::recharge($tenantId, $points, (int)($this->adminInfo['admin_id'] ?? 0), $remark);
-            return $this->success('充值成功', [], 1, 1);
+            if (!in_array($action, ['increase', 'decrease'], true)) {
+                return $this->fail('调整类型错误');
+            }
+            if ($points <= 0) {
+                return $this->fail('调整点数必须大于0');
+            }
+            TenantPointService::adjustByPlatform(
+                $tenantId,
+                $action === 'decrease' ? -$points : $points,
+                (int)($this->adminInfo['admin_id'] ?? 0),
+                $remark
+            );
+            return $this->success('调整成功', [], 1, 1);
         } catch (\Throwable $e) {
             return $this->fail($e->getMessage());
         }

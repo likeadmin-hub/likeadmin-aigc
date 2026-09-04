@@ -85,6 +85,9 @@ class OpenWeWork extends Base
         $user = $this->getUser($this->getSuiteAccessToken(), $code);
 
         if ($this->detailed) {
+            if (empty($user['user_ticket'])) {
+                throw new AuthorizeFailedException('Authorization failed: missing user_ticket in response', $user);
+            }
             $user = \array_merge($user, $this->getUserByTicket($user['user_ticket']));
         }
 
@@ -148,7 +151,7 @@ class OpenWeWork extends Base
     }
 
     /**
-     * @throws Exceptions\AuthorizeFailedException|GuzzleException
+     * @throws AuthorizeFailedException|GuzzleException
      */
     protected function getUser(string $token, string $code): array
     {
@@ -167,7 +170,7 @@ class OpenWeWork extends Base
         $response = $this->fromJsonBody($responseInstance);
 
         if (($response['errcode'] ?? 1) > 0 || (empty($response['UserId']) && empty($response['openid']))) {
-            throw new Exceptions\AuthorizeFailedException((string) $responseInstance->getBody(), $response);
+            throw new AuthorizeFailedException((string) $responseInstance->getBody(), $response);
         } elseif (empty($response['user_ticket'])) {
             $this->detailed = false;
         }
@@ -176,7 +179,7 @@ class OpenWeWork extends Base
     }
 
     /**
-     * @throws Exceptions\AuthorizeFailedException
+     * @throws AuthorizeFailedException
      * @throws GuzzleException
      */
     protected function getUserByTicket(string $userTicket): array
@@ -196,7 +199,7 @@ class OpenWeWork extends Base
         $response = $this->fromJsonBody($responseInstance);
 
         if (($response['errcode'] ?? 1) > 0 || empty($response['userid'])) {
-            throw new Exceptions\AuthorizeFailedException((string) $responseInstance->getBody(), $response);
+            throw new AuthorizeFailedException((string) $responseInstance->getBody(), $response);
         }
 
         return $response;
@@ -221,7 +224,7 @@ class OpenWeWork extends Base
     }
 
     /**
-     * @throws Exceptions\AuthorizeFailedException
+     * @throws AuthorizeFailedException
      * @throws GuzzleException
      */
     protected function requestSuiteAccessToken(): string
@@ -240,7 +243,7 @@ class OpenWeWork extends Base
         $response = $this->fromJsonBody($responseInstance);
 
         if (isset($response['errcode']) && $response['errcode'] > 0) {
-            throw new Exceptions\AuthorizeFailedException((string) $responseInstance->getBody(), $response);
+            throw new AuthorizeFailedException((string) $responseInstance->getBody(), $response);
         }
 
         return $response['suite_access_token'];

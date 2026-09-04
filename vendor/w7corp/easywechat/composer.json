@@ -20,30 +20,27 @@
     "ext-fileinfo": "*",
     "ext-openssl": "*",
     "ext-simplexml": "*",
-    "ext-sodium": "*",
     "ext-libxml": "*",
     "ext-curl": "*",
-    "monolog/monolog": "^2.2",
     "nyholm/psr7": "^1.5",
     "nyholm/psr7-server": "^1.0",
-    "overtrue/socialite": "^3.5|^4.0.1",
+    "overtrue/socialite": "^3.5.4|^4.0.1",
     "psr/simple-cache": "^1.0|^2.0|^3.0",
     "psr/http-client": "^1.0",
-    "symfony/cache": "^5.4|^6.0",
-    "symfony/http-foundation": "^5.4|^6.0",
-    "symfony/psr-http-message-bridge": "^2.1.2",
-    "symfony/http-client": "^5.4|^6.0",
-    "symfony/mime": "^5.4|^6.0",
+    "symfony/cache": "^5.4|^6.0|^7.0|^8.0",
+    "symfony/http-foundation": "^5.4|^6.0|^7.0|^8.0",
+    "symfony/psr-http-message-bridge": "^2.1.2|^6.4.0|^7.1|^8.0",
+    "symfony/http-client": "^5.4|^6.0|^7.0|^8.0",
+    "symfony/mime": "^5.4|^6.0|^7.0|^8.0",
     "symfony/polyfill-php81": "^1.25",
     "thenorthmemory/xml": "^1.0"
   },
   "require-dev": {
-    "brainmaestro/composer-git-hooks": "^2.8",
     "mikey179/vfsstream": "^1.6",
     "mockery/mockery": "^1.4.4",
-    "phpstan/phpstan": "^1.0",
+    "phpstan/phpstan": "^1.0 | ^2",
     "phpunit/phpunit": "^9.5",
-    "symfony/var-dumper": "^5.2",
+    "symfony/var-dumper": "^5.2|^6|^7|^8.0",
     "jetbrains/phpstorm-attributes": "^1.0",
     "laravel/pint": "^1.2"
   },
@@ -57,44 +54,20 @@
       "EasyWeChat\\Tests\\": "tests/"
     }
   },
-  "extra": {
-    "hooks": {
-      "pre-commit": [
-        "composer check-style",
-        "composer phpstan",
-        "composer test"
-      ],
-      "pre-push": [
-        "composer check-style"
-      ],
-      "config": {
-        "stop-on-failure": [
-          "pre-commit",
-          "pre-push"
-        ]
-      }
-    }
-  },
   "scripts": {
-    "post-update-cmd": [
-      "cghooks remove",
-      "cghooks add --ignore-lock",
-      "cghooks update"
-    ],
     "post-merge": "composer install",
-    "post-install-cmd": [
-      "cghooks remove",
-      "cghooks add --ignore-lock",
-      "cghooks update"
-    ],
     "phpstan": "phpstan analyse --memory-limit=-1",
     "check-style": "vendor/bin/pint --test",
     "fix-style": "vendor/bin/pint",
     "test": "phpunit --colors"
   },
+  "conflict": {
+    "overtrue/wechat": "*"
+  },
   "config": {
     "allow-plugins": {
-      "composer/package-versions-deprecated": true
+      "composer/package-versions-deprecated": true,
+      "php-http/discovery": true
     }
   }
 }

@@ -2,7 +2,7 @@
 // +----------------------------------------------------------------------
 // | ThinkPHP [ WE CAN DO IT JUST THINK ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2006~2023 http://thinkphp.cn All rights reserved.
+// | Copyright (c) 2006~2025 http://thinkphp.cn All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed ( http://www.apache.org/licenses/LICENSE-2.0 )
 // +----------------------------------------------------------------------
@@ -15,6 +15,7 @@ namespace think\cache\driver;
 use DateInterval;
 use DateTimeInterface;
 use think\cache\Driver;
+use think\exception\InvalidCacheException;
 
 /**
  * Wincache缓存驱动
@@ -26,10 +27,11 @@ class Wincache extends Driver
      * @var array
      */
     protected $options = [
-        'prefix'     => '',
-        'expire'     => 0,
-        'tag_prefix' => 'tag:',
-        'serialize'  => [],
+        'prefix'      => '',
+        'expire'      => 0,
+        'tag_prefix'  => 'tag:',
+        'serialize'   => [],
+        'fail_delete' => false,
     ];
 
     /**
@@ -74,16 +76,19 @@ class Wincache extends Driver
     public function get($name, $default = null): mixed
     {
         $key = $this->getCacheKey($name);
-
-        return wincache_ucache_exists($key) ? $this->unserialize(wincache_ucache_get($key)) : $default;
+        try {
+            return wincache_ucache_exists($key) ? $this->unserialize(wincache_ucache_get($key)) : $this->getDefaultValue($name, $default);
+        } catch (InvalidCacheException $e) {
+            return $this->getDefaultValue($name, $default, true);
+        }
     }
 
     /**
      * 写入缓存
      * @access public
-     * @param string                                 $name   缓存变量名
-     * @param mixed                                  $value  存储数据
-     * @param integer|DateInterval|DateTimeInterface $expire 有效时间（秒）
+     * @param string                             $name   缓存变量名
+     * @param mixed                              $value  存储数据
+     * @param int|DateInterval|DateTimeInterface $expire 有效时间（秒）
      * @return bool
      */
     public function set($name, $value, $expire = null): bool

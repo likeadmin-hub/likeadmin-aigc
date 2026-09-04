@@ -2,13 +2,7 @@
 
 namespace EasyWeChat\MiniApp;
 
-use EasyWeChat\Kernel\Exceptions\DecryptException;
 use EasyWeChat\Kernel\Exceptions\HttpException;
-use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 
 class Utils
 {
@@ -18,11 +12,6 @@ class Utils
 
     /**
      * @throws HttpException
-     * @throws TransportExceptionInterface
-     * @throws ServerExceptionInterface
-     * @throws RedirectionExceptionInterface
-     * @throws DecodingExceptionInterface
-     * @throws ClientExceptionInterface
      */
     public function codeToSession(string $code): array
     {
@@ -42,11 +31,30 @@ class Utils
         return $response;
     }
 
-    /**
-     * @throws DecryptException
-     */
     public function decryptSession(string $sessionKey, string $iv, string $ciphertext): array
     {
         return Decryptor::decrypt($sessionKey, $iv, $ciphertext);
+    }
+
+    /**
+     * @throws HttpException
+     */
+    public function getPhoneNumber(string $code): array
+    {
+        $response = $this->app->createClient()->request('POST', '/wxa/business/getuserphonenumber', [
+            'json' => [
+                'code' => $code,
+            ],
+        ])->toArray(false);
+
+        if (isset($response['errcode']) && $response['errcode'] !== 0) {
+            throw new HttpException('getPhoneNumber error: '.json_encode($response, JSON_UNESCAPED_UNICODE));
+        }
+
+        if (empty($response['phone_info'])) {
+            throw new HttpException('getPhoneNumber error: '.json_encode($response, JSON_UNESCAPED_UNICODE));
+        }
+
+        return $response;
     }
 }

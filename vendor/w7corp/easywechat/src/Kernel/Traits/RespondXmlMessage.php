@@ -2,16 +2,18 @@
 
 namespace EasyWeChat\Kernel\Traits;
 
-use function array_merge;
 use EasyWeChat\Kernel\Encryptor;
 use EasyWeChat\Kernel\Exceptions\InvalidArgumentException;
 use EasyWeChat\Kernel\Exceptions\RuntimeException;
 use EasyWeChat\Kernel\Message;
 use EasyWeChat\Kernel\Support\Xml;
-use function is_array;
-use function is_callable;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
+
+use function array_merge;
+use function is_array;
+use function is_callable;
+use function is_string;
 use function time;
 
 trait RespondXmlMessage
@@ -48,16 +50,22 @@ trait RespondXmlMessage
      */
     protected function normalizeResponse(mixed $response): array
     {
-        if (is_callable($response)) {
+        if (! is_string($response) && is_callable($response)) {
             $response = $response();
         }
 
         if (is_array($response)) {
-            if (! isset($response['MsgType'])) {
+            $normalized = [];
+
+            foreach ($response as $key => $value) {
+                $normalized[(string) $key] = $value;
+            }
+
+            if (! isset($normalized['MsgType'])) {
                 throw new InvalidArgumentException('MsgType cannot be empty.');
             }
 
-            return $response;
+            return $normalized;
         }
 
         if (is_string($response) || is_numeric($response)) {

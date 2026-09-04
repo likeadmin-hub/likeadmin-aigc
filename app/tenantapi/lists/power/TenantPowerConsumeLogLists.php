@@ -180,7 +180,7 @@ class TenantPowerConsumeLogLists extends BaseAdminDataLists implements ListsSear
             $row['left_amount_text'] = self::formatAmount((float)$row['left_amount']) . ' ' . PointUnitService::unit();
             $row['user_change_amount_text'] = !empty($row['user_change_amount']) ? '-' . self::formatAmount((float)$row['user_change_amount']) . ' ' . PointUnitService::unit() : '';
             $row['user_left_amount_text'] = isset($row['user_left_amount']) && $row['user_left_amount'] !== null ? self::formatAmount((float)$row['user_left_amount']) . ' ' . PointUnitService::unit() : '';
-            $row['create_time_text'] = !empty($row['create_time']) ? date('Y-m-d H:i:s', (int)$row['create_time']) : '-';
+            $row['create_time_text'] = self::formatTime($row['create_time'] ?? null);
             $row['user'] = [
                 'id' => (int)($row['user_id'] ?? 0),
                 'sn' => (string)($row['user_sn'] ?? ''),
@@ -280,5 +280,18 @@ class TenantPowerConsumeLogLists extends BaseAdminDataLists implements ListsSear
     private static function formatAmount(float $amount): string
     {
         return number_format($amount, 2, '.', '');
+    }
+
+    private static function formatTime($value): string
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s');
+        }
+
+        $timestamp = is_numeric($value)
+            ? (int)$value
+            : strtotime(trim((string)$value));
+
+        return $timestamp > 0 ? date('Y-m-d H:i:s', $timestamp) : '-';
     }
 }

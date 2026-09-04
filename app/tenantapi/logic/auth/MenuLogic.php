@@ -204,8 +204,8 @@ class MenuLogic extends BaseLogic
             }
 
             foreach ([
-                'aigc_image_task' => ['name' => '生图列表', 'paths' => 'image', 'sort' => 90],
-                'aigc_video_task' => ['name' => '视频列表', 'paths' => 'video', 'sort' => 80],
+                'aigc_image_task' => ['name' => '生图列表', 'icon' => 'el-icon-Picture', 'paths' => 'image', 'sort' => 90],
+                'aigc_video_task' => ['name' => '视频列表', 'icon' => 'el-icon-VideoCamera', 'paths' => 'video', 'sort' => 80],
             ] as $sourceMenuKey => $menu) {
                 $taskMenuId = (int)Db::name($menuTable)
                     ->where(['tenant_id' => $tenantId, 'source_menu_key' => $sourceMenuKey])
@@ -216,6 +216,7 @@ class MenuLogic extends BaseLogic
                 Db::name($menuTable)->where('id', $taskMenuId)->update([
                     'pid' => $taskLogId,
                     'name' => $menu['name'],
+                    'icon' => $menu['icon'],
                     'paths' => $menu['paths'],
                     'sort' => $menu['sort'],
                     'update_time' => time(),

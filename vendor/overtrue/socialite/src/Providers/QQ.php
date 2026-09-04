@@ -2,6 +2,7 @@
 
 namespace Overtrue\Socialite\Providers;
 
+use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Utils;
 use JetBrains\PhpStorm\ArrayShape;
 use JetBrains\PhpStorm\Pure;
@@ -63,8 +64,8 @@ class QQ extends Base
     }
 
     /**
-     * @throws \GuzzleHttp\Exception\GuzzleException
-     * @throws \Overtrue\Socialite\Exceptions\AuthorizeFailedException
+     * @throws GuzzleException
+     * @throws AuthorizeFailedException
      */
     protected function getUserByToken(string $token): array
     {
@@ -76,6 +77,10 @@ class QQ extends Base
         ]);
 
         $me = $this->fromJsonBody($response);
+
+        if (empty($me['openid'])) {
+            throw new AuthorizeFailedException('Authorization failed: missing openid in token response', $me);
+        }
 
         $response = $this->getHttpClient()->get($this->baseUrl.'/user/get_user_info', [
             'query' => [
@@ -94,7 +99,7 @@ class QQ extends Base
 
         return $user + [
             'unionid' => $me['unionid'] ?? null,
-            'openid' => $me['openid'] ?? null,
+            'openid' => $me['openid'],
         ];
     }
 

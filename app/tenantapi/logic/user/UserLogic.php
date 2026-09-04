@@ -20,6 +20,7 @@ use app\common\logic\BaseLogic;
 use app\common\model\user\User;
 use app\common\model\user\UserAccountLog;
 use app\common\service\JsonService;
+use think\facade\Config;
 use think\facade\Db;
 
 /**
@@ -74,11 +75,43 @@ class UserLogic extends BaseLogic
      * @author 段誉
      * @date 2022/9/22 16:38
      */
-    public static function setUserInfo(array $params)
+    public static function setUserInfo(array $params, int $tenantId): User
     {
-        return User::update([
-            $params['field'] => $params['value']
-        ], ['id' => $params['id']]);
+        $user = User::where([
+            'id' => (int)$params['id'],
+            'tenant_id' => $tenantId,
+        ])->findOrEmpty();
+        if ($user->isEmpty()) {
+            JsonService::throw('用户不存在！');
+        }
+        $user->save([$params['field'] => $params['value']]);
+        return $user;
+    }
+
+
+    /**
+     * @notes 修改租户用户密码
+     * @param array $params
+     * @param int $tenantId
+     * @return bool
+     */
+    public static function resetPassword(array $params, int $tenantId): bool
+    {
+        $user = User::where([
+            'id' => (int)$params['id'],
+            'tenant_id' => $tenantId,
+        ])->findOrEmpty();
+        if ($user->isEmpty()) {
+            JsonService::throw('用户不存在！');
+        }
+
+        $user->password = create_password(
+            $params['password'],
+            Config::get('project.unique_identification')
+        );
+        $user->save();
+
+        return true;
     }
 
 
@@ -89,11 +122,17 @@ class UserLogic extends BaseLogic
      * @author 段誉
      * @date 2023/2/23 14:25
      */
-    public static function adjustUserMoney(array $params)
+    public static function adjustUserMoney(array $params, int $tenantId)
     {
         Db::startTrans();
         try {
-            $user = User::find($params['user_id']);
+            $user = User::where([
+                'id' => (int)$params['user_id'],
+                'tenant_id' => $tenantId,
+            ])->lock(true)->findOrEmpty();
+            if ($user->isEmpty()) {
+                JsonService::throw('用户不存在！');
+            }
             if (AccountLogEnum::INC == $params['action']) {
                 //调整可用点数
                 $user->user_money += $params['num'];
@@ -108,6 +147,9 @@ class UserLogic extends BaseLogic
                     $params['remark'] ?? ''
                 );
             } else {
+                if ((float)$user->user_money < (float)$params['num']) {
+                    JsonService::throw('用户可用点数不足');
+                }
                 $user->user_money -= $params['num'];
                 $user->save();
                 //记录日志

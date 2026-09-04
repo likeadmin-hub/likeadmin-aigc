@@ -92,6 +92,15 @@ class TenantDomainAliasService
             if ($domain === '') {
                 continue;
             }
+            $requestHost = '';
+            try {
+                $requestHost = (string)request()->domain();
+            } catch (\Throwable) {
+                // Validation can also run from a CLI/import context.
+            }
+            if (TenantUrlService::isPlatformHost($domain, $requestHost)) {
+                throw new Exception('租户域名不能与平台域名一致或使用平台域名的子域名：' . $domain);
+            }
             if ((int)($alias['status'] ?? 1) === 1) {
                 $activeCount++;
             }
@@ -126,12 +135,10 @@ class TenantDomainAliasService
         $aliases = self::normalizeAliasList($aliases, $legacyAlias);
         self::validateAliases($aliases, $tenantId, $requireActive);
 
-        $domains = array_values(array_filter(array_map(fn($alias) => (string)($alias['domain'] ?? ''), $aliases)));
-        $deleteQuery = Db::name('tenant_domain_alias')->where('tenant_id', $tenantId);
-        if ($domains !== []) {
-            $deleteQuery->whereNotIn('domain', $domains);
-        }
-        $deleteQuery->delete();
+        // Rebuild the tenant's alias set from the submitted values. A tenant
+        // domain edit must not leave an old alias (including a soft-deleted
+        // row) available to the host resolver or to a later form submission.
+        Db::name('tenant_domain_alias')->where('tenant_id', $tenantId)->delete();
 
         $now = time();
         $primary = '';
@@ -170,6 +177,7 @@ class TenantDomainAliasService
         try {
             return TenantDomainAlias::withoutGlobalScope()
                 ->where('tenant_id', $tenantId)
+                ->whereNull('delete_time')
                 ->order(['is_primary' => 'desc', 'id' => 'asc'])
                 ->select()
                 ->toArray();
@@ -187,6 +195,7 @@ class TenantDomainAliasService
         try {
             $alias = TenantDomainAlias::withoutGlobalScope()
                 ->where(['domain' => $domain, 'status' => 1])
+                ->whereNull('delete_time')
                 ->findOrEmpty();
             if (!$alias->isEmpty()) {
                 $tenant = Tenant::where('id', (int)$alias['tenant_id'])->findOrEmpty();
@@ -220,6 +229,7 @@ class TenantDomainAliasService
             try {
                 $alias = TenantDomainAlias::withoutGlobalScope()
                     ->where(['tenant_id' => $tenantId, 'is_primary' => 1, 'status' => 1])
+                    ->whereNull('delete_time')
                     ->order('id', 'asc')
                     ->findOrEmpty();
                 if (!$alias->isEmpty()) {

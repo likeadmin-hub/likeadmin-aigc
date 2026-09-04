@@ -11,33 +11,30 @@ use EasyWeChat\Kernel\Support\PublicKey;
 use EasyWeChat\Kernel\Traits\InteractWithConfig;
 use EasyWeChat\Kernel\Traits\InteractWithHttpClient;
 use EasyWeChat\Kernel\Traits\InteractWithServerRequest;
+use EasyWeChat\Pay\Contracts\Validator as ValidatorInterface;
+use Psr\Log\LoggerAwareTrait;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-class Application implements \EasyWeChat\Pay\Contracts\Application
+class Application implements Contracts\Application
 {
     use InteractWithConfig;
     use InteractWithHttpClient;
     use InteractWithServerRequest;
+    use LoggerAwareTrait;
 
     protected ?ServerInterface $server = null;
+
+    protected ?ValidatorInterface $validator = null;
 
     protected ?HttpClientInterface $client = null;
 
     protected ?Merchant $merchant = null;
 
-    /**
-     * @throws \EasyWeChat\Kernel\Exceptions\InvalidArgumentException
-     * @throws \EasyWeChat\Kernel\Exceptions\InvalidConfigException
-     */
     public function getUtils(): Utils
     {
         return new Utils($this->getMerchant());
     }
 
-    /**
-     * @throws \EasyWeChat\Kernel\Exceptions\InvalidArgumentException
-     * @throws \EasyWeChat\Kernel\Exceptions\InvalidConfigException
-     */
     public function getMerchant(): Merchant
     {
         if (! $this->merchant) {
@@ -54,11 +51,22 @@ class Application implements \EasyWeChat\Pay\Contracts\Application
         return $this->merchant;
     }
 
-    /**
-     * @throws \ReflectionException
-     * @throws \EasyWeChat\Kernel\Exceptions\InvalidArgumentException
-     * @throws \Throwable
-     */
+    public function getValidator(): ValidatorInterface
+    {
+        if (! $this->validator) {
+            $this->validator = new Validator($this->getMerchant());
+        }
+
+        return $this->validator;
+    }
+
+    public function setValidator(ValidatorInterface $validator): static
+    {
+        $this->validator = $validator;
+
+        return $this;
+    }
+
     public function getServer(): Server|ServerInterface
     {
         if (! $this->server) {
@@ -90,11 +98,7 @@ class Application implements \EasyWeChat\Pay\Contracts\Application
         return $this->config;
     }
 
-    /**
-     * @throws \EasyWeChat\Kernel\Exceptions\InvalidArgumentException
-     * @throws \EasyWeChat\Kernel\Exceptions\InvalidConfigException
-     */
-    public function getClient(): HttpClientInterface
+    public function getClient(): Client|HttpClientInterface
     {
         return $this->client ?? $this->client = (new Client(
             $this->getMerchant(),

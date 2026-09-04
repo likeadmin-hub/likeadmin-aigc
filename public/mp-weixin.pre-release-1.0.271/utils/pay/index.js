@@ -1,0 +1,1 @@
+"use strict";const e=require("./pay.js"),a=require("./alipay.js"),t=require("./wechat.js");var s=(e=>(e[e.BALANCE=1]="BALANCE",e[e.WECHAT=2]="WECHAT",e[e.ALIPAY=3]="ALIPAY",e))(s||{});const A=new t.Wechat;e.Pay.inject(s[2],A);const n=new a.Alipay;e.Pay.inject(s[3],n);const r=new e.Pay;exports.PayWayEnum=s,exports.pay=r;

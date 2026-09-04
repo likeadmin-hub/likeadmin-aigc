@@ -160,8 +160,11 @@ class AppPackageUpdateService
             $manifest = $this->readManifest($extractPath);
             AppRegistryService::assertCoreCompatible($manifest);
             $appCode = (string)$manifest['code'];
+            AppRegistryService::installPublicAssets($manifest, $extractPath);
             $target = root_path() . 'app/apps/' . $appCode;
-            $this->copyDirectory($extractPath, $target, ['frontend']);
+            // Keep the compiled frontend bridge in the installed app directory. The
+            // registry installs declared public assets again after this copy.
+            $this->copyDirectory($extractPath, $target);
             $this->runSqlMigrations($target . '/migrations', $appCode, (string)$manifest['version']);
             $installed = App::where('code', $appCode)->findOrEmpty();
             $tenantStates = TenantApp::where('app_code', $appCode)->select()->toArray();

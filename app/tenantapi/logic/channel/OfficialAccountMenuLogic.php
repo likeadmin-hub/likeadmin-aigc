@@ -187,12 +187,15 @@ class OfficialAccountMenuLogic extends BaseLogic
             self::checkMenu($params);
 
             $result = (new WeChatOaService())->createMenu($params);
-            if ($result['errcode'] == 0) {
+            if ((int)($result['errcode'] ?? 0) === 0) {
                 ConfigService::set('oa_setting', 'menu', $params);
                 return true;
             }
 
-            self::setError('保存发布菜单失败' . json_encode($result->getContent()));
+            $message = is_array($result)
+                ? json_encode($result, JSON_UNESCAPED_UNICODE)
+                : json_encode($result->getContent(), JSON_UNESCAPED_UNICODE);
+            self::setError('保存发布菜单失败' . $message);
 
             return false;
 

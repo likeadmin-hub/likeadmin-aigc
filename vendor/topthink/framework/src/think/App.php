@@ -2,13 +2,13 @@
 // +----------------------------------------------------------------------
 // | ThinkPHP [ WE CAN DO IT JUST THINK ]
 // +----------------------------------------------------------------------
-// | Copyright (c) 2006~2023 http://thinkphp.cn All rights reserved.
+// | Copyright (c) 2006~2025 http://thinkphp.cn All rights reserved.
 // +----------------------------------------------------------------------
 // | Licensed ( http://www.apache.org/licenses/LICENSE-2.0 )
 // +----------------------------------------------------------------------
 // | Author: liu21st <liu21st@gmail.com>
 // +----------------------------------------------------------------------
-declare(strict_types=1);
+declare (strict_types = 1);
 
 namespace think;
 
@@ -39,13 +39,23 @@ use think\initializer\RegisterService;
  */
 class App extends Container
 {
-    const VERSION = '8.0.0';
+    /**
+     * 核心框架版本 
+     * @deprecated 已经废弃 请改用version()方法
+     */    
+    public const VERSION = '8.0.0';
 
     /**
      * 应用调试模式
      * @var bool
      */
     protected $appDebug = false;
+
+    /**
+     * 公共环境变量标识
+     * @var string
+     */
+    protected $baseEnvName = '';
 
     /**
      * 环境变量标识
@@ -61,7 +71,7 @@ class App extends Container
 
     /**
      * 应用内存初始占用
-     * @var integer
+     * @var int
      */
     protected $beginMem;
 
@@ -189,7 +199,7 @@ class App extends Container
      * @param bool           $force   强制重新注册
      * @return Service|null
      */
-    public function register(Service|string $service, bool $force = false)
+    public function register(Service | string $service, bool $force = false)
     {
         $registered = $this->getService($service);
 
@@ -230,7 +240,7 @@ class App extends Container
      * @param string|Service $service
      * @return Service|null
      */
-    public function getService(Service|string $service): ?Service
+    public function getService(Service | string $service): ?Service
     {
         $name = is_string($service) ? $service : $service::class;
         return array_values(array_filter($this->services, function ($value) use ($name) {
@@ -280,6 +290,18 @@ class App extends Container
     public function getNamespace(): string
     {
         return $this->namespace;
+    }
+
+    /**
+     * 设置公共环境变量标识
+     * @access public
+     * @param string $name 环境标识
+     * @return $this
+     */
+    public function setBaseEnvName(string $name)
+    {
+        $this->baseEnvName = $name;
+        return $this;
     }
 
     /**
@@ -405,7 +427,7 @@ class App extends Container
     /**
      * 获取应用初始内存占用
      * @access public
-     * @return integer
+     * @return int
      */
     public function getBeginMem(): int
     {
@@ -436,10 +458,15 @@ class App extends Container
     public function initialize()
     {
         $this->initialized = true;
+        $this->beginTime   = microtime(true);
+        $this->beginMem    = memory_get_usage();
 
-        $this->beginTime = microtime(true);
-        $this->beginMem  = memory_get_usage();
+        // 加载环境变量
+        if ($this->baseEnvName) {
+            $this->loadEnv($this->baseEnvName);
+        }
 
+        $this->envName = $this->envName ?: (string) $this->env->get('env_name', '');
         $this->loadEnv($this->envName);
 
         $this->configExt = $this->env->get('config_ext', '.php');
@@ -512,16 +539,10 @@ class App extends Container
 
         include_once $this->thinkPath . 'helper.php';
 
-        $configPath = $this->getConfigPath();
-
-        $files = [];
-
-        if (is_dir($configPath)) {
-            $files = glob($configPath . '*' . $this->configExt);
-        }
-
-        foreach ($files as $file) {
-            $this->config->load($file, pathinfo($file, PATHINFO_FILENAME));
+        if (is_file($this->runtimePath . 'config.php')) {
+            $this->config->set(include $this->runtimePath . 'config.php');
+        } else {
+            $this->loadConfig();
         }
 
         if (is_file($appPath . 'event.php')) {
@@ -537,6 +558,24 @@ class App extends Container
     }
 
     /**
+     * 加载配置文件
+     * @return void
+     */
+    public function loadConfig()
+    {
+        $configPath = $this->getConfigPath();
+        $files      = [];
+
+        if (is_dir($configPath)) {
+            $files = glob($configPath . '*' . $this->configExt);
+        }
+
+        foreach ($files as $file) {
+            $this->config->load($file, pathinfo($file, PATHINFO_FILENAME));
+        }
+    }
+
+    /**
      * 调试模式设置
      * @access protected
      * @return void
@@ -546,6 +585,9 @@ class App extends Container
         // 应用调试模式
         if (!$this->appDebug) {
             $this->appDebug = $this->env->get('app_debug') ? true : false;
+        }
+
+        if (!$this->appDebug) {
             ini_set('display_errors', 'Off');
         }
 
@@ -579,7 +621,7 @@ class App extends Container
 
         if (isset($event['subscribe'])) {
             $this->event->subscribe($event['subscribe']);
-        }
+        }      
     }
 
     /**

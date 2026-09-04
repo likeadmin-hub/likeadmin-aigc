@@ -22,6 +22,7 @@ use app\common\model\user\User;
 use app\common\model\user\UserAuth;
 use app\common\service\FileService;
 use app\common\service\membership\MembershipService;
+use app\common\service\distribution\DistributionService;
 use app\common\service\sms\SmsDriver;
 use app\common\service\wechat\WeChatMnpService;
 use app\common\{enum\YesNoEnum};
@@ -61,6 +62,7 @@ class UserLogic extends BaseLogic
         foreach ($membership as $key => $value) {
             $user[$key] = $value;
         }
+        $user['distribution_enabled'] = DistributionService::isEnabled((int)($userInfo['tenant_id'] ?? 0));
         $user['sex_code'] = (int)$user->getData('sex');
         $user->hidden(['password']);
         return $user->toArray();
@@ -69,16 +71,23 @@ class UserLogic extends BaseLogic
 
     /**
      * @notes 个人信息
-     * @param $userId
+     * @param int $userId
+     * @param int $tenantId
      * @return array
      * @author 段誉
      * @date 2022/9/20 19:45
      */
-    public static function info(int $userId)
+    public static function info(int $userId, int $tenantId = 0)
     {
         $user = User::where(['id' => $userId])
             ->field('id,sn,sex,account,password,nickname,real_name,avatar,mobile,create_time,user_money')
             ->findOrEmpty();
+        $tenantId = $tenantId > 0 ? $tenantId : (int)(request()->tenantId ?? 0);
+        $membership = MembershipService::status($tenantId, $userId);
+        foreach ($membership as $key => $value) {
+            $user[$key] = $value;
+        }
+        $user['distribution_enabled'] = DistributionService::isEnabled($tenantId);
         $user['has_password'] = !empty($user['password']);
         $user['has_auth'] = self::hasWechatAuth($userId);
         $user['version'] = config('project.version');
