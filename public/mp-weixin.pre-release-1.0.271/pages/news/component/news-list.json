@@ -1,7 +1,0 @@
-{
-  "component": true,
-  "usingComponents": {
-    "news-card": "../../../components/news-card/news-card",
-    "z-paging": "../../../node-modules/z-paging/components/z-paging/z-paging"
-  }
-}
