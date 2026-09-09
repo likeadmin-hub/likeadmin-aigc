@@ -520,6 +520,10 @@ class OpenPlatformService
                 'version' => $version,
                 'upload_status' => $result['success'] ? 'success' : 'failed',
                 'output' => $result['output'],
+                'log_tail' => $result['log_tail'] ?? $result['output'],
+                'error_summary' => $result['error_summary'] ?? '',
+                'error_code' => $result['error_code'] ?? '',
+                'exit_code' => $result['exit_code'] ?? null,
                 'timed_out' => $result['timed_out'],
                 'install_hint' => $result['install_hint'],
             ];
@@ -541,14 +545,14 @@ class OpenPlatformService
         $modulePaths = self::findNodeModulePaths($node, $package);
         $installHint = self::manualInstallHint((string)($package['name'] ?? $packageManager));
         if ($node === null) {
-            return ['success' => false, 'timed_out' => false, 'output' => '服务端未找到 Node.js，请先安装后重试。', 'install_hint' => $installHint];
+            return self::manualUploadFailure('服务端未找到 Node.js，请先安装后重试。', $installHint);
         }
         $setupOutput = '';
         if ($modulePaths === []) {
             $setup = self::installMiniprogramCi($workRoot, $node, (string)($package['name'] ?? $packageManager));
             $setupOutput = $setup['output'];
             if (!$setup['success']) {
-                return ['success' => false, 'timed_out' => false, 'output' => $setupOutput, 'install_hint' => $installHint];
+                return self::manualUploadFailure($setupOutput, $installHint);
             }
             $modulePaths = [$workRoot . DIRECTORY_SEPARATOR . 'node_modules'];
         }
@@ -575,7 +579,7 @@ class OpenPlatformService
         ]);
         $process = @proc_open([$node, $scriptPath], $descriptor, $pipes, $workRoot, $env, ['bypass_shell' => true]);
         if (!is_resource($process)) {
-            return ['success' => false, 'timed_out' => false, 'output' => '无法启动 Node.js 上传进程。', 'install_hint' => $installHint];
+            return self::manualUploadFailure('无法启动 Node.js 上传进程。', $installHint);
         }
         fclose($pipes[0]);
         foreach ([1, 2] as $index) stream_set_blocking($pipes[$index], false);
@@ -620,13 +624,77 @@ class OpenPlatformService
         // as the authoritative fallback for that specific exit-code anomaly.
         $providerConfirmed = str_contains($stdout, '微信小程序代码上传成功');
         $success = !$timedOut && ($exitCode === 0 || ($exitCode === -1 && $providerConfirmed));
-        return ['success' => $success, 'timed_out' => $timedOut, 'output' => mb_substr($output, 0, 4000), 'install_hint' => $installHint];
+        $logTail = mb_substr($output, -16000);
+        if ($success) {
+            return [
+                'success' => true,
+                'timed_out' => false,
+                'output' => $logTail,
+                'log_tail' => $logTail,
+                'error_summary' => '',
+                'error_code' => '',
+                'exit_code' => $exitCode,
+                'install_hint' => $installHint,
+            ];
+        }
+        return self::manualUploadFailure($logTail, $installHint, $timedOut, $exitCode, $stderr);
     }
 
     private static function appendProcessOutput($stream, string &$buffer): void
     {
         $chunk = stream_get_contents($stream);
-        if ($chunk !== false && $chunk !== '') $buffer = mb_substr($buffer . $chunk, -12000);
+        if ($chunk !== false && $chunk !== '') $buffer = mb_substr($buffer . $chunk, -32768);
+    }
+
+    /**
+     * Return a compact, sanitized upload failure contract without losing the
+     * provider's final diagnostic behind miniprogram-ci compilation progress.
+     */
+    private static function manualUploadFailure(string $output, string $installHint, bool $timedOut = false, ?int $exitCode = null, string $stderr = ''): array
+    {
+        $logTail = mb_substr(self::sanitizeProcessOutput(trim($output)), -16000);
+        $diagnostic = self::extractManualUploadDiagnostic($stderr, $logTail);
+        $summary = $timedOut ? '上传进程超过 180 秒，已终止。' : $diagnostic['summary'];
+        if ($summary === '') $summary = '微信小程序代码上传失败，请查看详细日志。';
+        return [
+            'success' => false,
+            'timed_out' => $timedOut,
+            // Keep the historical field for clients which have not yet updated.
+            'output' => $logTail,
+            'log_tail' => $logTail,
+            'error_summary' => $summary,
+            'error_code' => $diagnostic['code'],
+            'exit_code' => $exitCode,
+            'install_hint' => $installHint,
+        ];
+    }
+
+    /** Extract the intentionally emitted Node marker, with a safe stderr fallback. */
+    private static function extractManualUploadDiagnostic(string $stderr, string $logTail): array
+    {
+        $summary = '';
+        $code = '';
+        if (preg_match_all('/WECHAT_UPLOAD_ERROR:(\\{[^\\r\\n]*\\})/', $stderr, $matches) && !empty($matches[1])) {
+            $marker = $matches[1][count($matches[1]) - 1];
+            $payload = json_decode((string)$marker, true);
+            if (is_array($payload)) {
+                $code = trim((string)($payload['errCode'] ?? $payload['code'] ?? ''));
+                $summary = trim((string)($payload['errMsg'] ?? $payload['message'] ?? $payload['name'] ?? ''));
+            }
+        }
+        if ($summary === '') {
+            $lines = preg_split('/\\R/', $logTail) ?: [];
+            for ($index = count($lines) - 1; $index >= 0; $index--) {
+                $line = trim((string)$lines[$index]);
+                if ($line === '' || str_starts_with($line, 'WECHAT_UPLOAD_ERROR:')) continue;
+                $summary = preg_replace('/^微信小程序代码上传失败：\\s*/u', '', $line) ?: $line;
+                break;
+            }
+        }
+        return [
+            'summary' => mb_substr(self::sanitizeProcessOutput($summary), 0, 1000),
+            'code' => mb_substr(self::sanitizeProcessOutput($code), 0, 200),
+        ];
     }
 
     /** Install only miniprogram-ci inside the already isolated upload directory. */
@@ -684,7 +752,7 @@ class OpenPlatformService
     private static function sanitizeProcessOutput(string $output): string
     {
         $output = preg_replace('/-----BEGIN [^-]+-----.*?-----END [^-]+-----/s', '[REDACTED_KEY]', $output) ?: $output;
-        return preg_replace('/(access[_-]?token|secret|private[_-]?key|api[_-]?key|password|authorization|cookie)\s*[:=]\s*[^\s,]+/i', '$1: [REDACTED]', $output) ?: $output;
+        return preg_replace('/(access[_-]?token|token|secret|private[_-]?key|api[_-]?key|password|authorization|cookie)\s*[:=]\s*[^\s,]+/i', '$1: [REDACTED]', $output) ?: $output;
     }
 
     private static function findNodeBinary(): ?string
@@ -843,7 +911,7 @@ class OpenPlatformService
 
     private static function manualUploadScript(string $workRoot, string $projectPath, string $keyPath, string $appId, string $version, string $description): string
     {
-        return "import fs from 'node:fs';\nimport path from 'node:path';\nimport { createRequire } from 'node:module';\n\nconst workRoot = " . json_encode($workRoot, JSON_UNESCAPED_SLASHES) . ";\nconst projectPath = " . json_encode($projectPath, JSON_UNESCAPED_SLASHES) . ";\nconst privateKeyPath = " . json_encode($keyPath, JSON_UNESCAPED_SLASHES) . ";\nconst appid = " . json_encode($appId, JSON_UNESCAPED_SLASHES) . ";\nconst version = " . json_encode($version, JSON_UNESCAPED_SLASHES) . ";\nconst desc = " . json_encode($description, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ";\nlet cleaned = false;\nconst cleanup = () => { if (cleaned) return; cleaned = true; try { fs.rmSync(workRoot, { recursive: true, force: true }); } catch (error) { console.error('临时目录清理失败'); } };\nprocess.on('SIGINT', () => { cleanup(); process.exit(130); });\nprocess.on('SIGTERM', () => { cleanup(); process.exit(143); });\ntry {\n  const require = createRequire(import.meta.url);\n  let ci;\n  try { ci = require('miniprogram-ci'); } catch {}\n  if (!ci) {\n    const modulePaths = (process.env.NODE_PATH || '').split(path.delimiter).filter(Boolean);\n    for (const moduleRoot of modulePaths) {\n      try { ci = require(path.join(moduleRoot, 'miniprogram-ci')); break; } catch {}\n      try { ci = require(require.resolve('miniprogram-ci', { paths: [path.dirname(moduleRoot)] })); break; } catch {}\n    }\n  }\n  if (!ci) throw new Error('未找到 miniprogram-ci，请先安装后重试');\n  const project = new ci.Project({ appid, type: 'miniProgram', projectPath, privateKeyPath, ignores: ['node_modules'] });\n  await ci.upload({ project, version, desc });\n  console.log('微信小程序代码上传成功');\n} catch (error) {\n  console.error('微信小程序代码上传失败：' + (error?.message || error));\n  process.exitCode = 1;\n} finally {\n  cleanup();\n}\n";
+        return "import fs from 'node:fs';\nimport path from 'node:path';\nimport { createRequire } from 'node:module';\n\nconst workRoot = " . json_encode($workRoot, JSON_UNESCAPED_SLASHES) . ";\nconst projectPath = " . json_encode($projectPath, JSON_UNESCAPED_SLASHES) . ";\nconst privateKeyPath = " . json_encode($keyPath, JSON_UNESCAPED_SLASHES) . ";\nconst appid = " . json_encode($appId, JSON_UNESCAPED_SLASHES) . ";\nconst version = " . json_encode($version, JSON_UNESCAPED_SLASHES) . ";\nconst desc = " . json_encode($description, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ";\nlet cleaned = false;\nconst cleanup = () => { if (cleaned) return; cleaned = true; try { fs.rmSync(workRoot, { recursive: true, force: true }); } catch (error) { console.error('临时目录清理失败'); } };\nconst errorText = (value) => String(value ?? '').slice(0, 1000);\nconst reportUploadError = (error) => {\n  const diagnostic = {\n    name: errorText(error?.name),\n    code: errorText(error?.code),\n    errCode: errorText(error?.errCode),\n    errMsg: errorText(error?.errMsg),\n    message: errorText(error?.message || error)\n  };\n  console.error('WECHAT_UPLOAD_ERROR:' + JSON.stringify(diagnostic));\n};\nprocess.on('SIGINT', () => { cleanup(); process.exit(130); });\nprocess.on('SIGTERM', () => { cleanup(); process.exit(143); });\ntry {\n  const require = createRequire(import.meta.url);\n  let ci;\n  try { ci = require('miniprogram-ci'); } catch {}\n  if (!ci) {\n    const modulePaths = (process.env.NODE_PATH || '').split(path.delimiter).filter(Boolean);\n    for (const moduleRoot of modulePaths) {\n      try { ci = require(path.join(moduleRoot, 'miniprogram-ci')); break; } catch {}\n      try { ci = require(require.resolve('miniprogram-ci', { paths: [path.dirname(moduleRoot)] })); break; } catch {}\n    }\n  }\n  if (!ci) throw new Error('未找到 miniprogram-ci，请先安装后重试');\n  const project = new ci.Project({ appid, type: 'miniProgram', projectPath, privateKeyPath, ignores: ['node_modules'] });\n  await ci.upload({ project, version, desc });\n  console.log('微信小程序代码上传成功');\n} catch (error) {\n  console.error('微信小程序代码上传失败：' + (error?.message || error));\n  reportUploadError(error);\n  process.exitCode = 1;\n} finally {\n  cleanup();\n}\n";
     }
 
     private static function removeTree(string $path): void
