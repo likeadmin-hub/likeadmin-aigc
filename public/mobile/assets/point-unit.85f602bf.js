@@ -1,0 +1,1 @@
+import{h as n}from"./index-24781268.js";const t=n=>String(n||"").trim()||"算力",i=()=>{const i=n();return t(i.config?.point_unit||i.config?.recharge?.point_unit)},o=(n,o)=>`${n} ${t(o||i())}`,r=(n,o="",r)=>`${n} ${t(r||i())}${o?`/${o}`:""}`;export{r as a,o as f,i as g};

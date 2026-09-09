@@ -1,0 +1,1 @@
+import{r as n}from"./index-CRx-1ZZl.js";function s(t){return n.post({url:"/channel.mnp_settings/setConfig",params:t})}function r(){return n.get({url:"/channel.mnp_settings/getConfig"})}export{r as g,s};

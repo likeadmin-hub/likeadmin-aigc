@@ -1,1 +1,0 @@
-import{V as l}from"./entry.f3aa7654.js";const c=(e,a,s)=>{const t=(e==null?void 0:e.display_config)||{},r=String((t==null?void 0:t.title)||"").trim(),o=String((t==null?void 0:t.app_code)||"").trim();return l(r&&r!==o?r:a,s)};export{c as r};
