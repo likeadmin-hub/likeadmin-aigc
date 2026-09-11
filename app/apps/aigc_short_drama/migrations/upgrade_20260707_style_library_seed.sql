@@ -123,7 +123,7 @@ SELECT 0, seed.`name`, seed.`image`, seed.`description`, seed.`is_new`, seed.`st
 FROM `tmp_aigc_short_drama_style_seed` seed
 WHERE NOT EXISTS (
     SELECT 1 FROM `la_aigc_short_drama_style` existing
-    WHERE existing.`tenant_id` = 0 AND existing.`name` = seed.`name` AND existing.`delete_time` = 0
+    WHERE existing.`tenant_id` = 0 AND existing.`name` = seed.`name`
 );
 
 INSERT INTO `la_aigc_short_drama_style`
@@ -134,7 +134,7 @@ JOIN `tmp_aigc_short_drama_style_seed` seed
 WHERE IFNULL(tenant.`delete_time`, 0) = 0
   AND NOT EXISTS (
     SELECT 1 FROM `la_aigc_short_drama_style` existing
-    WHERE existing.`tenant_id` = tenant.`id` AND existing.`name` = seed.`name` AND existing.`delete_time` = 0
+    WHERE existing.`tenant_id` = tenant.`id` AND existing.`name` = seed.`name`
   );
 
 UPDATE `la_aigc_short_drama_style` target

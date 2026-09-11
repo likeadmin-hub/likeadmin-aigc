@@ -5,6 +5,7 @@
 return [
     // 指令定义
     'commands' => [
+        'short-drama:episode-worker' => 'app\common\command\ShortDramaEpisodeWorker',
         // 定时任务
         'crontab' => 'app\common\command\Crontab',
         // 退款查询

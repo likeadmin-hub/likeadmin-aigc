@@ -2,9 +2,8 @@
 
 namespace app\common\model\app\aigc_short_drama;
 
-use app\common\model\app\AppBaseModel;
 
-class AigcShortDramaAsset extends AppBaseModel
+class AigcShortDramaAsset extends ShortDramaProductionModel
 {
     protected $name = 'aigc_short_drama_asset';
 }

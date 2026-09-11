@@ -67,7 +67,7 @@ class UploadService
             }
 
             // 4、写入数据库中
-            $file = (AdminTerminalEnum::isPlatform() ? new File() : new TenantFile())->create([
+            $fileData = [
                 'cid'         => $cid,
                 'type'        => FileEnum::IMAGE_TYPE,
                 'name'        => $fileInfo['name'],
@@ -78,7 +78,11 @@ class UploadService
                 'source'      => $source,
                 'source_id'   => $sourceId,
                 'create_time' => time(),
-            ]);
+            ];
+            if (!AdminTerminalEnum::isPlatform()) {
+                $fileData['tenant_id'] = self::tenantUploadTenantId();
+            }
+            $file = (AdminTerminalEnum::isPlatform() ? new File() : new TenantFile())->create($fileData);
 
             // 5、返回结果
             return [
@@ -137,7 +141,7 @@ class UploadService
             }
 
             // 4、写入数据库中
-            $file = (AdminTerminalEnum::isPlatform() ? new File() : new TenantFile())->create([
+            $fileData = [
                 'cid'         => $cid,
                 'type'        => FileEnum::VIDEO_TYPE,
                 'name'        => $fileInfo['name'],
@@ -148,7 +152,11 @@ class UploadService
                 'source'      => $source,
                 'source_id'   => $sourceId,
                 'create_time' => time(),
-            ]);
+            ];
+            if (!AdminTerminalEnum::isPlatform()) {
+                $fileData['tenant_id'] = self::tenantUploadTenantId();
+            }
+            $file = (AdminTerminalEnum::isPlatform() ? new File() : new TenantFile())->create($fileData);
 
             // 5、返回结果
             return [
@@ -207,7 +215,7 @@ class UploadService
             }
 
             // 4、写入数据库中
-            $file = (AdminTerminalEnum::isPlatform() ? new File() : new TenantFile())->create([
+            $fileData = [
                 'cid'         => $cid,
                 'type'        => FileEnum::FILE_TYPE,
                 'name'        => $fileInfo['name'],
@@ -218,7 +226,11 @@ class UploadService
                 'source'      => $source,
                 'source_id'   => $sourceId,
                 'create_time' => time(),
-            ]);
+            ];
+            if (!AdminTerminalEnum::isPlatform()) {
+                $fileData['tenant_id'] = self::tenantUploadTenantId();
+            }
+            $file = (AdminTerminalEnum::isPlatform() ? new File() : new TenantFile())->create($fileData);
 
             // 5、返回结果
             return [
@@ -257,6 +269,15 @@ class UploadService
     private static function getUploadFileConfig()
     {
         return StorageConfigService::getEffectiveConfig(StorageConfigService::currentTenantId());
+    }
+
+    private static function tenantUploadTenantId(): int
+    {
+        $tenantId = (int)(StorageConfigService::currentTenantId() ?? 0);
+        if ($tenantId <= 0) {
+            throw new Exception('租户上下文缺失，请刷新后重试');
+        }
+        return $tenantId;
     }
 
 }

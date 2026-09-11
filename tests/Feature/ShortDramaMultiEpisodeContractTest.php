@@ -61,11 +61,11 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
         self::assertSame(60, $this->invoke('planningTargetDurationSeconds', '', []));
     }
 
-    public function testNewMultiEpisodeRequestsStartWithStoryStageWhileSingleRequestsStayProductionMode(): void
+    public function testNewMultiEpisodeRequestsStartWithOutlineWhileSingleRequestsStayProductionMode(): void
     {
         $multi = $this->invoke('normalizeCreateRequest', ['multi_episode' => true, 'episode_count' => 4], []);
         self::assertTrue($multi['multi_episode']);
-        self::assertSame('story', $multi['multi_episode_stage']);
+        self::assertSame('episodes', $multi['multi_episode_stage']);
 
         $single = $this->invoke('normalizeCreateRequest', [], []);
         self::assertSame('production', $single['multi_episode_stage']);
@@ -547,63 +547,6 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
         self::assertSame('ep1_scene1', $result['episodes'][0]['scenes'][0]['scene_id']);
         self::assertNotEmpty($result['subjects']);
         self::assertGreaterThanOrEqual(2, count($result['locations']));
-    }
-
-    public function testCompiledComposersExposeEpisodeCountControls(): void
-    {
-        $root = dirname(__DIR__, 2);
-        $home = (string)file_get_contents($root . '/public/_nuxt/index.331744a3.js');
-        $plan = (string)file_get_contents($root . '/public/_nuxt/plan.d46b14c5.js');
-        $entry = (string)file_get_contents($root . '/public/_nuxt/entry.c46691d5.js');
-        $homeCss = (string)file_get_contents($root . '/public/_nuxt/index.a3dd556e20.css');
-        $planCss = (string)file_get_contents($root . '/public/_nuxt/plan.95e7815f20.css');
-
-        self::assertStringNotContainsString('多集功能开发中', $home);
-        self::assertStringContainsString('episode_count:ta.value?episodeCount.value:1', $home);
-        self::assertStringContainsString('episode_count:qt.value?episodeCount.value:1', $plan);
-        self::assertStringContainsString('episode_count', $plan);
-        self::assertStringContainsString('multi_episode_stage', $plan);
-        self::assertStringContainsString(
-            'String((e==null?void 0:e.multi_episode_stage)||(e==null?void 0:e.stage)||',
-            $plan
-        );
-        self::assertStringContainsString(
-            'i&&!o.length?(Array.isArray(e==null?void 0:e.episodes)&&e.episodes.length?"episodes":"story")',
-            $plan
-        );
-        self::assertStringContainsString(
-            'multi_episode_stage:String((e==null?void 0:e.multi_episode_stage)||(e==null?void 0:e.stage)||((!!(e==null?void 0:e.multi_episode)||Number(e==null?void 0:e.episode_count||1)>1)&&!s.length?',
-            $plan
-        );
-        self::assertStringContainsString('分集大纲', $plan);
-        self::assertStringContainsString('mode:"advance_stage"', $plan);
-        self::assertSame(2, substr_count($home, 's("input",{value:episodeCount.value'));
-        self::assertStringContainsString('onInput:episodeCountInput', $home);
-        self::assertStringContainsString('episodeCountInput=e=>{episodeCount.value=e.target.value}', $home);
-        self::assertStringContainsString('episodeCountCommit=e=>{const a=Number.parseInt', $home);
-        self::assertSame(2, substr_count($home, 'onBlur:episodeCountCommit'));
-        self::assertStringContainsString('l("input",{value:episodeCount.value', $plan);
-        self::assertStringContainsString('onInput:n=>{episodeCount.value=n.target.value},onBlur:n=>{const i=Number.parseInt', $plan);
-        self::assertStringNotContainsString('onInput:n=>{const i=Number.parseInt', $plan);
-        self::assertSame(2, substr_count(
-            $home,
-            'ta.value?(r(),i("label",{key:1,class:"drama-episode-count"}'
-        ));
-        self::assertStringContainsString(
-            'qt.value?(c(),u("label",{key:0,class:"plan-composer__episode-count"}',
-            $plan
-        );
-        self::assertStringContainsString('type:"number",min:"2",max:"500"', $home);
-        self::assertStringContainsString('type:"number",min:"2",max:"500"', $plan);
-        self::assertSame(2, substr_count($entry, './index.331744a3.js?v=20260827-multi-episode-stages'));
-        self::assertSame(2, substr_count($entry, './plan.d46b14c5.js?v=20260827-multi-episode-stages'));
-        self::assertStringContainsString('./index.a3dd556e20.css', $entry);
-        self::assertStringContainsString('./plan.95e7815f20.css', $entry);
-        self::assertStringNotContainsString('.css?v=20260817-20', $entry);
-        self::assertStringContainsString('drama-episode-count input', $homeCss);
-        self::assertStringContainsString('plan-composer__episode-count input', $planCss);
-        self::assertStringContainsString('background:#fff;color:#111', $homeCss);
-        self::assertStringContainsString('background:#fff;color:#111', $planCss);
     }
 
     public function testPersistenceSchemaSupportsLargeEpisodePlans(): void

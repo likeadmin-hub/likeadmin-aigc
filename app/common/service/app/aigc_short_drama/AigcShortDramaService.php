@@ -1709,6 +1709,8 @@ class AigcShortDramaService
             'delete_time' => 0,
         ]);
         $keyword = trim((string)($params['keyword'] ?? ''));
+        $productionIds = ShortDramaEpisodeService::productionIds($tenantId, $userId);
+        if ($productionIds) $query->whereNotIn('id', $productionIds);
         if ($keyword !== '') {
             $query->whereLike('title|prompt', '%' . $keyword . '%');
         }
@@ -1732,6 +1734,8 @@ class AigcShortDramaService
         $row = $project->toArray();
         $data = self::formatProject($row);
         $data['prompt'] = (string)($row['prompt'] ?? '');
+        $data['episode_context'] = ShortDramaEpisodeService::summary(ShortDramaEpisodeService::context($tenantId, $userId, $projectId));
+        $data['episode_queue_started'] = (bool)Db::name('aigc_short_drama_episode_task')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0])->count();
         $data['multi_episode'] = (int)($row['multi_episode'] ?? 0) === 1;
         $data['current_version'] = self::currentPlanVersion($tenantId, $userId, $projectId);
         $data['versions'] = self::planVersions($tenantId, $userId, $projectId);
@@ -1844,6 +1848,12 @@ class AigcShortDramaService
         $time = time();
         Db::startTrans();
         try {
+            $episodes = Db::name('aigc_short_drama_episode_task')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0])->lock(true)->select()->toArray();
+            if (array_filter($episodes, static fn($e) => $e['status'] === 'running')) throw new Exception('请等待当前剧集生成完成后删除项目');
+            foreach ($episodes as $episode) {
+                if ((int)$episode['production_project_id'] > 0) self::deleteProject($tenantId, $userId, (int)$episode['production_project_id']);
+            }
+            Db::name('aigc_short_drama_episode_task')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0])->update(['delete_time' => $time, 'update_time' => $time]);
             $project->save([
                 'delete_time' => $time,
                 'update_time' => $time,
@@ -1922,7 +1932,134 @@ class AigcShortDramaService
         return self::formatInspiration($row->toArray(), true);
     }
 
-    public static function createScriptPlan(int $tenantId, int $userId, array $params): array
+    /** Internal queue entry; context is never accepted from HTTP parameters. */
+    public static function createEpisodeProduction(int $tenantId, int $userId, array $episode, array $request, array $outline, array $previous): array
+    {
+        $currentOutline = ShortDramaEpisodeService::decode($episode['outline_json']);
+        if (empty($currentOutline['story_outline'])) throw new Exception('本集缺少真实大纲，请重新规划项目');
+        $request['multi_episode'] = false;
+        $request['episode_count'] = 1;
+        unset($request['script_text'], $request['script_content']);
+        $created = self::createScriptPlan($tenantId, $userId, $request, (int)$episode['production_project_id'], [
+                'episode_id' => (int)$episode['id'], 'episode_number' => (int)$episode['episode_number'],
+            // Keep one episode response within conservative provider output
+            // limits; later shot expansion remains available in the editor.
+            'storyboard_target_rule' => ['min_shots' => 2, 'max_shots' => 2],
+            'series_context' => ['outline' => $outline,
+                'current_episode' => $currentOutline,
+                'previous_episodes' => $previous, 'subjects' => $outline['subjects'] ?? [],
+                'locations' => $outline['locations'] ?? []],
+        ]);
+        AigcShortDramaProject::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $created['project_id']])
+            ->update(['title' => mb_substr((string)$episode['title'], 0, 120)]);
+        return $created;
+    }
+
+    public static function importLegacyEpisodes(int $tenantId, int $userId, array $project, array $task, array $plan): void
+    {
+        // Raw database rows keep integer timestamps and original storage URIs.
+        $project = Db::name('aigc_short_drama_project')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $project['id'], 'delete_time' => 0])->find();
+        $task = Db::name('aigc_short_drama_script_task')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $task['task_id'], 'delete_time' => 0])->find();
+        Db::transaction(function () use ($tenantId, $userId, $project, $task, $plan) {
+            AigcShortDramaProject::where(['id' => $project['id'], 'tenant_id' => $tenantId])->lock(true)->find();
+            $scope = ['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $project['id'], 'delete_time' => 0];
+            if (Db::name('aigc_short_drama_episode_task')->where($scope)->count()) return;
+            $assets = Db::name('aigc_short_drama_asset')->where($scope)->select()->toArray();
+            $storedShots = Db::name('aigc_short_drama_storyboard')->where($scope)->select()->toArray();
+            $episodes = [];
+            foreach ((array)($plan['episodes'] ?? []) as $item) $episodes[(int)($item['episode_number'] ?? 0)] = $item;
+            for ($number = 1; $number <= (int)$project['episode_count']; $number++) {
+                $outline = $episodes[$number] ?? [];
+                $shots = array_values(array_filter((array)($plan['storyboard'] ?? []), static fn($s) =>
+                    (int)($s['episode_number'] ?? 0) === $number && mb_strpos((string)($s['title'] ?? ''), '代表分镜') === false));
+                if (!$shots) $shots = array_values(array_filter((array)($outline['storyboard'] ?? []), static fn($s) =>
+                    !empty($s['visual_description']) && mb_strpos((string)($s['title'] ?? ''), '代表分镜') === false));
+                $ready = count($shots) >= 4 && !empty($outline['story_outline']);
+                $childId = 0; $childTaskId = ''; $result = [];
+                if ($ready) {
+                    $child = $project;
+                    unset($child['id']);
+                    $childTaskId = self::makeTaskId('sd_episode_import');
+                    $child['title'] = '第' . $number . '集 ' . ($outline['title'] ?? '');
+                    $child['multi_episode'] = 0; $child['episode_count'] = 1;
+                    $child['last_task_id'] = $childTaskId; $child['current_version_id'] = 0;
+                    $child['current_agent_run_id'] = ''; $child['cover_url'] = '';
+                    $child['timeline_json'] = null; $child['final_video_asset_id'] = 0;
+                    $child['publish_id'] = 0; $child['input_asset_ids'] = '[]';
+                    $child['status'] = 'draft';
+                    $childId = (int)AigcShortDramaProject::create($child)['id'];
+                    $shotIds = array_map('strval', array_column($shots, 'shot_id'));
+                    $sceneIds = array_column($shots, 'scene_ref_id');
+                    $subjectIds = [];
+                    foreach ($shots as $shot) $subjectIds = array_merge($subjectIds, (array)($shot['subject_ref_ids'] ?? []));
+                    $assetMap = [];
+                    foreach ($assets as $asset) {
+                        $meta = self::jsonDecode((string)$asset['meta_json']);
+                        $assetEpisode = (int)($asset['episode_number'] ?: ($meta['episode_number'] ?? 0));
+                        if ($assetEpisode && $assetEpisode !== $number) continue;
+                        $subjectRef = self::resolvePlanItemRefFromPayload($meta, $plan['subjects'] ?? [], ['subject_id', 'item_id', 'subject_ref_id', 'subject_name', 'item_name']);
+                        $sceneRef = self::resolvePlanItemRefFromPayload($meta, $plan['locations'] ?? [], ['scene_id', 'item_id', 'scene_ref_id', 'scene_name', 'item_name']);
+                        $globalReference = (in_array($asset['asset_type'], ['subject_image', 'three_view'], true) && in_array($subjectRef, $subjectIds, true))
+                            || ($asset['asset_type'] === 'scene_image' && in_array($sceneRef, $sceneIds, true));
+                        if (!in_array((string)$asset['shot_id'], $shotIds, true) && $assetEpisode !== $number && !$globalReference) continue;
+                        $oldId = $asset['id']; unset($asset['id']);
+                        $asset['project_id'] = $childId; $asset['task_id'] = $childTaskId;
+                        $assetMap[$oldId] = (int)AigcShortDramaAsset::create($asset)['id'];
+                    }
+                    foreach ($shots as &$shot) {
+                        $shot['episode_number'] = 1;
+                        foreach (['selected_image_asset_id', 'selected_video_asset_id', 'selected_audio_asset_id'] as $key) {
+                            if (isset($shot[$key])) $shot[$key] = $assetMap[$shot[$key]] ?? 0;
+                        }
+                    }
+                    unset($shot);
+                    $result = array_replace($plan, ['title' => $child['title'], 'multi_episode' => false, 'episode_count' => 1,
+                        'multi_episode_stage' => self::MULTI_EPISODE_STAGE_PRODUCTION, 'episodes' => [],
+                        'story_outline' => $outline['story_outline'], 'script_lines' => $outline['script_lines'] ?? [], 'storyboard' => $shots]);
+                    $sceneIds = array_column($shots, 'scene_ref_id');
+                    $result['locations'] = array_values(array_filter((array)($plan['locations'] ?? []), static fn($l) => in_array($l['id'] ?? '', $sceneIds, true)));
+                    if (!$result['locations']) $result['locations'] = $outline['scenes'] ?? [];
+                    $copy = $task; unset($copy['id']);
+                    $request = self::jsonDecode((string)$task['request_json']);
+                    $request['multi_episode'] = false; $request['episode_count'] = 1;
+                    $request['multi_episode_stage'] = self::MULTI_EPISODE_STAGE_PRODUCTION;
+                    unset($request['episode_workflow']);
+                    $copy = array_replace($copy, ['project_id' => $childId, 'task_id' => $childTaskId,
+                        'request_json' => self::jsonEncode($request), 'result_json' => self::jsonEncode($result),
+                        'idempotency_key' => sha1($childTaskId), 'billing_status' => 'none',
+                        'tenant_cost_points' => '0.00', 'user_charge_points' => '0.00']);
+                    AigcShortDramaScriptTask::create($copy);
+                    $version = self::createPlanVersion($tenantId, $userId, $childId, $childTaskId, '', 'script_plan', $result);
+                    AigcShortDramaProject::where('id', $childId)->update(['current_version_id' => $version['id']]);
+                    self::replaceStoryboard($tenantId, $userId, $childId, $childTaskId, $shots);
+                    foreach ($storedShots as $stored) {
+                        if (!in_array((string)$stored['shot_id'], $shotIds, true)) continue;
+                        $selection = [];
+                        foreach (['selected_image_asset_id', 'selected_video_asset_id', 'selected_audio_asset_id'] as $key) {
+                            if (array_key_exists($key, $stored)) $selection[$key] = $assetMap[$stored[$key]] ?? 0;
+                        }
+                        if ($selection) AigcShortDramaStoryboard::where(['tenant_id' => $tenantId, 'project_id' => $childId, 'shot_id' => $stored['shot_id'], 'delete_time' => 0])->update($selection);
+                    }
+                }
+                $episodeId = Db::name('aigc_short_drama_episode_task')->insertGetId(array_replace($scope, [
+                    'episode_number' => $number, 'title' => $outline['title'] ?? ('第' . $number . '集'),
+                    'production_project_id' => $childId, 'task_id' => $childTaskId, 'outline_task_id' => $task['task_id'],
+                    'outline_json' => self::jsonEncode($outline), 'result_json' => self::jsonEncode($result),
+                    'series_json' => $number === 1 ? self::jsonEncode(['plan' => $plan, 'request' => self::jsonDecode((string)$task['request_json'])]) : null,
+                    'continuity_json' => self::jsonEncode(['episode_number' => $number, 'summary' => $outline['story_outline'] ?? '']),
+                    'status' => $ready ? 'success' : 'failed', 'progress' => $ready ? 100 : 0, 'completed_once' => $ready ? 1 : 0,
+                    'error' => $ready ? '' : (empty($outline['story_outline']) ? '历史记录缺少本集大纲，请从原剧本重新创建多集项目' : '历史正文不完整，可重试生成本集'), 'create_time' => time(), 'update_time' => time(),
+                ]));
+                if ($childId) {
+                    foreach (['asset', 'storyboard', 'script_task', 'generation_task', 'plan_version'] as $table) {
+                        Db::name('aigc_short_drama_' . $table)->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $childId])->update(['episode_id' => $episodeId, 'episode_number' => $number]);
+                    }
+                }
+            }
+        });
+    }
+
+    public static function createScriptPlan(int $tenantId, int $userId, array $params, int $existingProjectId = 0, array $internalContext = []): array
     {
         $prompt = trim((string)($params['prompt'] ?? ''));
         $uploadedScript = trim((string)($params['script_text'] ?? $params['script_content'] ?? ''));
@@ -1942,6 +2079,7 @@ class AigcShortDramaService
         self::checkSensitivePrompt($prompt);
 
         $request = self::normalizeCreateRequest($params, $config);
+        $request = array_replace($request, $internalContext);
         $request['subject_references'] = self::selectedSubjectReferences($tenantId, $userId, (array)$request['subject_ids']);
         $request['subject_ids'] = array_values(array_map(static fn(array $subject): string => (string)$subject['id'], $request['subject_references']));
         $request['subject_mentions'] = array_values(array_unique(array_filter(array_merge(
@@ -1965,6 +2103,11 @@ class AigcShortDramaService
 
         Db::startTrans();
         try {
+            if ($existingProjectId > 0) {
+                $project = self::findProject($tenantId, $userId, $existingProjectId);
+                $project->save(['last_task_id' => $taskId, 'current_agent_run_id' => $agentRunId,
+                    'status' => self::PROJECT_STATUS_PLANNING, 'update_time' => $time]);
+            } else {
             $project = AigcShortDramaProject::create([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
@@ -1984,6 +2127,7 @@ class AigcShortDramaService
                 'update_time' => $time,
                 'delete_time' => 0,
             ]);
+            }
 
             AigcShortDramaScriptTask::create([
                 'tenant_id' => $tenantId,
@@ -2103,6 +2247,7 @@ class AigcShortDramaService
     public static function scriptPlanDetail(int $tenantId, int $userId, string $taskId, int $projectId = 0): array
     {
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+        if (ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id'])) return self::formatTask($task->toArray(), true);
         $taskData = self::recoverPartialStreamScriptPlanTask($tenantId, $userId, $task->toArray());
         $taskData = self::recoverCompletedScriptPlanTask($tenantId, $userId, $taskData);
         $taskData = self::recoverStaleScriptPlanTask($tenantId, $userId, $taskData);
@@ -2540,7 +2685,7 @@ class AigcShortDramaService
             || !empty($result['storyboard']);
     }
 
-    public static function streamScriptPlan(int $tenantId, int $userId, array $params, callable $emit): array
+    public static function streamScriptPlan(int $tenantId, int $userId, array $params, callable $emit, bool $episodeWorker = false): array
     {
         $taskId = trim((string)($params['task_id'] ?? ''));
         $projectId = (int)($params['project_id'] ?? 0);
@@ -2548,7 +2693,13 @@ class AigcShortDramaService
             throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
-        $taskData = self::recoverPartialStreamScriptPlanTask($tenantId, $userId, $task->toArray());
+        // Episode calls are dispatched exclusively by the durable series worker.
+        if (!$episodeWorker && ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id'])) {
+            $result = self::formatTask($task->toArray(), true);
+            $emit($task['status'] === self::STATUS_SUCCESS ? 'done' : 'task', $result);
+            return $result;
+        }
+        $taskData = self::recoverPartialStreamScriptPlanTask($tenantId, $userId, $episodeWorker ? $task->getData() : $task->toArray());
         $taskData = self::recoverCompletedScriptPlanTask($tenantId, $userId, $taskData);
         $taskData = self::recoverStaleScriptPlanTask($tenantId, $userId, $taskData);
         $status = (string)($taskData['status'] ?? '');
@@ -2815,6 +2966,7 @@ class AigcShortDramaService
                     'id' => $projectId,
                 ])->update([
                     'status' => self::PROJECT_STATUS_PLAN_REVIEW,
+                    'title' => !empty($request['multi_episode']) && ($request['source'] ?? '') !== 'revision' ? mb_substr((string)$result['title'], 0, 120) : (string)$project['title'],
                     'current_version_id' => (int)$version['id'],
                     'current_agent_run_id' => $agentRunId,
                     'last_task_id' => $taskId,
@@ -2874,7 +3026,7 @@ class AigcShortDramaService
         if ($taskId === '') {
             throw new Exception('任务不存在');
         }
-        $task = self::findTask($tenantId, $userId, $taskId);
+        $task = self::findTask($tenantId, $userId, $taskId, (int)($params['project_id'] ?? 0));
         if (($task['status'] ?? '') === self::STATUS_CANCELED) {
             throw new Exception('Task has been canceled');
         }
@@ -2895,6 +3047,7 @@ class AigcShortDramaService
         $updated = [];
         Db::startTrans();
         try {
+            ShortDramaEpisodeService::guardContentEdit($tenantId, $userId, (int)$task['project_id'], $taskId);
             foreach (array_values($shots) as $index => $shotPayload) {
                 $shotPayload = (array)$shotPayload;
                 $shotId = trim((string)($shotPayload['shot_id'] ?? ''));
@@ -3037,6 +3190,7 @@ class AigcShortDramaService
 
         Db::startTrans();
         try {
+            ShortDramaEpisodeService::guardContentEdit($tenantId, $userId, (int)$task['project_id'], $taskId);
             $rows = self::activeStoryboardRows($tenantId, $userId, $projectId, $taskId);
             $source = [];
             $sourceIndex = null;
@@ -3109,6 +3263,7 @@ class AigcShortDramaService
 
         Db::startTrans();
         try {
+            ShortDramaEpisodeService::guardContentEdit($tenantId, $userId, (int)$task['project_id'], $taskId);
             $rows = self::activeStoryboardRows($tenantId, $userId, $projectId, $taskId);
             if (count($rows) <= 1) {
                 throw new Exception('至少保留一个分镜');
@@ -3202,6 +3357,7 @@ class AigcShortDramaService
 
         Db::startTrans();
         try {
+            ShortDramaEpisodeService::guardContentEdit($tenantId, $userId, (int)$task['project_id'], $taskId);
             $versionUpdate = [
                 'plan_json' => self::jsonEncode($result),
                 'story_bible_json' => self::jsonEncode(self::storyBibleFromResult($result)),
@@ -3571,6 +3727,7 @@ class AigcShortDramaService
         }
         $request = self::jsonDecode((string)$task['request_json']);
         $request = self::hydrateEpisodeSettingsFromProject($request, $project->toArray());
+        if (($request['episode_workflow'] ?? '') === 'outline_queue' && $advanceStage) throw new Exception('请通过确认大纲开始分集生成');
         $currentStage = self::resolveStoredMultiEpisodeStage($request, $previousResult);
         if ($advanceStage) {
             if (empty($request['multi_episode']) && (int)($request['episode_count'] ?? 1) <= 1) {
@@ -3583,7 +3740,8 @@ class AigcShortDramaService
             $request['multi_episode_stage'] = $nextStage;
             $message = self::multiEpisodeStageAdvanceMessage($nextStage);
         } elseif (!empty($request['multi_episode'])) {
-            $request['multi_episode_stage'] = $currentStage;
+            $request['multi_episode_stage'] = self::MULTI_EPISODE_STAGE_OUTLINE;
+            $request['episode_workflow'] = 'outline_queue';
         }
         if (array_key_exists('multi_episode', $params) || array_key_exists('episode_count', $params)) {
             $episodeParams = $request;
@@ -3596,6 +3754,12 @@ class AigcShortDramaService
             $episodeSettings = self::normalizeEpisodeSettings($episodeParams);
             $request['multi_episode'] = $episodeSettings['multi_episode'];
             $request['episode_count'] = $episodeSettings['episode_count'];
+        }
+        if (ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id'])) {
+            $request['multi_episode'] = false;
+            $request['episode_count'] = 1;
+            $request['multi_episode_stage'] = self::MULTI_EPISODE_STAGE_PRODUCTION;
+            unset($request['episode_workflow']);
         }
         if (is_array($params['model_selections'] ?? null)) {
             $request['model_selections'] = (array)$params['model_selections'];
@@ -3621,6 +3785,7 @@ class AigcShortDramaService
         $agentRunId = self::makeTaskId('sd_agent_revision');
         $time = time();
         $revisionBaseResult = [
+            'series_bible' => (array)($previousResult['series_bible'] ?? []),
             'title' => (string)($previousResult['title'] ?? ''),
             'multi_episode_stage' => $currentStage,
             'type_judgement' => (string)($previousResult['type_judgement'] ?? ''),
@@ -3658,6 +3823,7 @@ class AigcShortDramaService
 
         Db::startTrans();
         try {
+            ShortDramaEpisodeService::guardRevision($tenantId, $userId, (int)$task['project_id'], $taskId);
             AigcShortDramaScriptTask::create([
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
@@ -3722,6 +3888,7 @@ class AigcShortDramaService
                 'started_at' => 0,
                 'finished_at' => 0,
             ]);
+            ShortDramaEpisodeService::revisionQueued($tenantId, $userId, (int)$task['project_id'], $newTaskId);
             Db::commit();
         } catch (\Throwable $e) {
             Db::rollback();
@@ -3825,15 +3992,22 @@ class AigcShortDramaService
     public static function retry(int $tenantId, int $userId, string $taskId): array
     {
         $task = self::findTask($tenantId, $userId, $taskId);
+        $episode = ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id']);
+        if ($episode) return ShortDramaEpisodeService::retry($tenantId, $userId, (int)$episode['id']);
         if (($task['status'] ?? '') !== self::STATUS_FAILED) {
             throw new Exception('当前任务不需要重');
         }
-        return self::createScriptPlan($tenantId, $userId, self::jsonDecode((string)$task['request_json']));
+        return Db::transaction(function () use ($tenantId, $userId, $taskId, $task) {
+            ShortDramaEpisodeService::guardRevision($tenantId, $userId, (int)$task['project_id'], $taskId);
+            return self::createScriptPlan($tenantId, $userId, self::jsonDecode((string)$task['request_json']), (int)$task['project_id']);
+        });
     }
 
     public static function cancel(int $tenantId, int $userId, string $taskId): array
     {
         $task = self::findTask($tenantId, $userId, $taskId);
+        $episode = ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id']);
+        if ($episode) return ShortDramaEpisodeService::cancel($tenantId, $userId, (int)$episode['id']);
         if (in_array((string)$task['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
             return self::formatTask($task->toArray(), false);
         }
@@ -4323,7 +4497,7 @@ class AigcShortDramaService
         return $billing;
     }
 
-    public static function createShotGenerationTask(int $tenantId, int $userId, array $params): array
+    public static function createShotGenerationTask(int $tenantId, int $userId, array $params, bool $deferEpisodeExport = false): array
     {
         $projectId = (int)($params['project_id'] ?? 0);
         $taskId = trim((string)($params['task_id'] ?? ''));
@@ -4396,6 +4570,7 @@ class AigcShortDramaService
                 : (self::isImageGenerationTask($taskType)
                 ? self::estimateImageGenerationBilling($tenantId, $taskType, $shotPayload, $config, $params)
                 : self::estimateGenerationBilling($taskType, $shotPayload, $config, $params)));
+        $params['_episode_export'] = $deferEpisodeExport;
         $localTaskId = self::makeTaskId('sd_gen');
         $time = time();
         Db::startTrans();
@@ -4432,6 +4607,7 @@ class AigcShortDramaService
             Db::rollback();
             throw $e instanceof Exception ? $e : new Exception(self::SAFE_ERROR);
         }
+        if ($deferEpisodeExport) return self::formatGenerationTask($generation->toArray(), true);
         if ($taskType === 'shot_video') {
             self::runVideoGenerationTask($tenantId, $userId, $generation->toArray(), $shotPayload, $params, $billing);
             $generation = self::findGenerationTask($tenantId, $userId, $localTaskId);
@@ -4449,6 +4625,37 @@ class AigcShortDramaService
             $generation = self::findGenerationTask($tenantId, $userId, $localTaskId);
         }
         return self::formatGenerationTask($generation->toArray(), true);
+    }
+
+    public static function tickEpisodeExport(int $tenantId = 0, int $projectId = 0): int
+    {
+        $query = Db::name('aigc_short_drama_generation_task')->where('delete_time', 0)->whereIn('status', [self::STATUS_PENDING, self::STATUS_RUNNING])
+            ->whereIn('task_type', ['export_video', 'export_package'])->whereLike('request_json', '%"_episode_export":true%');
+        if ($tenantId) $query->where('tenant_id', $tenantId);
+        if ($projectId) $query->where('project_id', $projectId);
+        $rows = $query->order('id')->limit(20)->select()->toArray();
+        foreach ($rows as $row) {
+            $key = 'short-drama-export:' . $row['tenant_id'] . ':' . $row['id'];
+            if (!(int)(Db::query('SELECT GET_LOCK(?, 0) AS acquired', [$key])[0]['acquired'] ?? 0)) continue;
+            try {
+                $current = self::findGenerationTask((int)$row['tenant_id'], (int)$row['user_id'], $row['task_id']);
+                $request = self::jsonDecode((string)$current['request_json']);
+                $billing = self::jsonDecode((string)$current['pricing_snapshot']);
+                if ($current['status'] === self::STATUS_RUNNING) {
+                    // Acquiring this lock means the previous exporter no longer owns it.
+                    // Recover its output if persisted, otherwise refund the interrupted attempt.
+                    if (!self::markGenerationSuccessFromExistingAssets((int)$row['tenant_id'], (int)$row['user_id'], $current->getData())) {
+                        self::failGenerationTaskWithRefund((int)$row['tenant_id'], (int)$row['user_id'], $current->getData(), $billing, 'export_interrupted', '短剧导出中断退款', new Exception('导出中断，请重试'));
+                    }
+                    return 1;
+                }
+                if ($current['status'] !== self::STATUS_PENDING) continue;
+                if ($row['task_type'] === 'export_video') self::runExportVideoTask((int)$row['tenant_id'], (int)$row['user_id'], $current->getData(), $request['params'] ?? [], $billing);
+                else self::runExportPackageTask((int)$row['tenant_id'], (int)$row['user_id'], $current->getData(), $billing);
+                return 1;
+            } finally { Db::query('SELECT RELEASE_LOCK(?)', [$key]); }
+        }
+        return 0;
     }
 
     public static function streamGenerationTask(int $tenantId, int $userId, array $params, callable $emit): array
@@ -5307,6 +5514,8 @@ class AigcShortDramaService
 
     private static function prepareGenerationTaskForRead(int $tenantId, int $userId, array $row): array
     {
+        $request = self::jsonDecode((string)($row['request_json'] ?? ''));
+        if (!empty($request['params']['_episode_export'])) return $row;
         $status = (string)($row['status'] ?? '');
         $consumptionId = (int)($row['consumption_id'] ?? 0);
         $active = in_array($status, [self::STATUS_PENDING, self::STATUS_QUEUED, self::STATUS_RUNNING], true);
@@ -6221,6 +6430,10 @@ class AigcShortDramaService
         }
 
         $row = $task->toArray();
+        if (ShortDramaEpisodeService::context($tenantId, $userId, (int)$row['project_id'])) {
+            self::syncScriptPlanGenerationFromTaskRow($tenantId, $userId, $row);
+            return;
+        }
         $row = self::recoverPartialStreamScriptPlanTask($tenantId, $userId, $row);
         $row = self::recoverCompletedScriptPlanTask($tenantId, $userId, $row);
         $row = self::recoverStaleScriptPlanTask($tenantId, $userId, $row);
@@ -6947,6 +7160,8 @@ class AigcShortDramaService
             }
             $manifest = [
                 'project_id' => $projectId,
+                'episode_id' => (int)($generation['episode_id'] ?? 0),
+                'episode_number' => (int)($generation['episode_number'] ?? 0),
                 'source_task_id' => (string)($generation['source_task_id'] ?? ''),
                 'generation_task_id' => $taskId,
                 'generated_at' => date('c'),
@@ -6971,7 +7186,7 @@ class AigcShortDramaService
                 'task_id' => $taskId,
                 'shot_id' => '',
                 'asset_type' => 'export_package',
-                'title' => '短剧分镜素材',
+                'title' => !empty($generation['episode_number']) ? '第' . $generation['episode_number'] . '集分镜素材' : '短剧分镜素材',
                 'uri' => (string)$stored['uri'],
                 'cover_uri' => '',
                 'storage_scope' => (string)$stored['storage_scope'],
@@ -7030,6 +7245,12 @@ class AigcShortDramaService
         Db::startTrans();
         try {
             $taskId = (string)$generation['task_id'];
+            $current = AigcShortDramaGenerationTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId, 'delete_time' => 0])->lock(true)->findOrEmpty();
+            if ($current->isEmpty() || in_array($current['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
+                Db::commit();
+                return;
+            }
+            $generation = $current->getData();
             $refundStatus = ((float)($billing['tenant_cost_points'] ?? 0) > 0 || (float)($billing['user_charge_points'] ?? 0) > 0) ? 'refunded' : 'none';
             if ((string)($generation['billing_status'] ?? '') === 'reserved') {
                 PointService::refundBusinessAmountsInCurrentTransaction($tenantId, $userId, (float)($billing['tenant_cost_points'] ?? 0), (float)($billing['user_charge_points'] ?? 0), $taskId . '-refund', $refundTitle, [
@@ -10507,6 +10728,12 @@ class AigcShortDramaService
 
     private static function projectCoverCandidateAssets(int $tenantId, int $userId, int $projectId): array
     {
+        $children = Db::name('aigc_short_drama_episode_task')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'completed_once' => 1, 'delete_time' => 0])->order('episode_number')->column('production_project_id');
+        if ($children) {
+            $candidates = [];
+            foreach ($children as $childId) $candidates = array_merge($candidates, self::projectCoverCandidateAssets($tenantId, $userId, (int)$childId));
+            return $candidates;
+        }
         $shotRows = AigcShortDramaStoryboard::where([
             'tenant_id' => $tenantId,
             'user_id' => $userId,
@@ -11718,6 +11945,8 @@ class AigcShortDramaService
         $meta = self::assetReferenceMeta($row, self::localizeGenerationTaskPayload(self::jsonDecode((string)($row['meta_json'] ?? ''))));
         return self::sanitizeUtf8Payload([
             'id' => (int)$row['id'],
+            'episode_id' => (int)($row['episode_id'] ?? 0),
+            'episode_number' => (int)($row['episode_number'] ?? 0),
             'project_id' => (int)$row['project_id'],
             'task_id' => (string)$row['task_id'],
             'shot_id' => (string)($row['shot_id'] ?? ''),
@@ -13418,9 +13647,12 @@ class AigcShortDramaService
 
     private static function styleOptions(int $tenantId): array
     {
+        // Use the same library as tenant administration. Merging public rows
+        // here would resurrect inherited styles after deletion or disabling.
+        self::seedTenantStylesFromPublic($tenantId);
         $rows = AigcShortDramaStyle::where('status', 1)
             ->where('delete_time', 0)
-            ->whereIn('tenant_id', [0, $tenantId])
+            ->where('tenant_id', $tenantId)
             ->order(['sort' => 'desc', 'tenant_id' => 'desc', 'id' => 'desc'])
             ->limit(200)
             ->select()
@@ -13570,7 +13802,7 @@ class AigcShortDramaService
     {
         return match ($stage) {
             self::MULTI_EPISODE_STAGE_STORY => '这是第一阶段，只生成整部故事设定：完整故事大纲、主题、角色/主体描述、全局场景和系列连续性规则。不要生成 episodes，不要生成 scenes[].shots[]，不要生成 storyboard；用户确认故事设定后才进入分集大纲。',
-            self::MULTI_EPISODE_STAGE_OUTLINE => '这是第二阶段，只生成分集大纲。必须返回 exactly ' . $episodeCount . ' 个按 1-' . $episodeCount . ' 编号的 episodes，每集包含标题、剧情大纲、剧情段落和结尾钩子。不要生成 scenes[].shots[]，不要生成 storyboard；用户确认分集后才进入分集正文。',
+            self::MULTI_EPISODE_STAGE_OUTLINE => '只生成整部大纲，包括剧名、类型、主题、整体故事线、主要角色和全局场景。必须返回 exactly ' . $episodeCount . ' 个按 1-' . $episodeCount . ' 编号的 episodes，每集包含 title、story_outline、conflict_point 和 ending_hook。storyboard 必须为空。用户确认后逐集生成正文。',
             default => '这是第三阶段，必须基于已确认的故事设定和分集大纲，返回每一集完整剧情，并为每集生成对应 scenes[].shots[]；每个 shot 必须带 episode_number 和 scene_ref_id。',
         };
     }
@@ -13597,8 +13829,9 @@ class AigcShortDramaService
             'multi_episode' => $episodeSettings['multi_episode'],
             'episode_count' => $episodeSettings['episode_count'],
             'multi_episode_stage' => $episodeSettings['multi_episode']
-                ? self::MULTI_EPISODE_STAGE_STORY
+                ? self::MULTI_EPISODE_STAGE_OUTLINE
                 : self::MULTI_EPISODE_STAGE_PRODUCTION,
+            'episode_workflow' => $episodeSettings['multi_episode'] ? 'outline_queue' : '',
             'target_duration_seconds' => $targetDurationSeconds,
             'model_id' => trim((string)($params['model_id'] ?? 'script-planner-default')),
             'model_selections' => is_array($params['model_selections'] ?? null) ? $params['model_selections'] : [],
@@ -13689,7 +13922,10 @@ class AigcShortDramaService
                 // plans. The runtime still clamps this to the selected model's
                 // configured output limit.
                 'model_config' => [
-                    'max_tokens' => self::scriptPlanMaxTokens($episodeSettings),
+                    'max_tokens' => self::scriptPlanMaxTokens($episodeSettings + [
+                        'series_context' => $request['series_context'] ?? [],
+                        'episode_id' => $request['episode_id'] ?? 0,
+                    ]),
                     'enable_thinking' => false,
                 ],
                 'source_app_code' => self::APP_CODE,
@@ -13784,7 +14020,7 @@ class AigcShortDramaService
         $baseBatchSize = intdiv($totalEpisodes, $batchCount);
         $extraBatchCount = $totalEpisodes % $batchCount;
         $aggregate = [
-            'title' => $title,
+            'title' => '',
             'type_judgement' => '',
             'core_theme' => '',
             'story_outline' => '',
@@ -13816,7 +14052,12 @@ class AigcShortDramaService
                 $previousHook
             );
             $chunkRequest['_short_drama_episode_batch'] = true;
-            unset($chunkRequest['revision_target'], $chunkRequest['revision_base_result']);
+            unset($chunkRequest['revision_target']);
+            $chunkRequest['episode_batch_context'] = self::jsonEncode([
+                'series_bible' => $aggregate['series_bible'], 'subjects' => $aggregate['subjects'],
+                'locations' => $aggregate['locations'], 'story_outline' => $aggregate['story_outline'],
+                'previous_batch_ending_hook' => $previousHook,
+            ]);
             $chunkPrompt = $prompt;
             if ($previousHook !== '') {
                 $chunkPrompt .= "\n上一批次结尾承接：" . $previousHook;
@@ -14000,7 +14241,10 @@ class AigcShortDramaService
     private static function scriptPlanMaxTokens(array $episodeSettings): int
     {
         if (empty($episodeSettings['multi_episode'])) {
-            return 3200;
+            // A queued episode carries its own storyboard and stable series
+            // references. The old single-episode budget truncated JSON before
+            // the subjects/locations section, which made valid episodes fail.
+            return !empty($episodeSettings['series_context']) || !empty($episodeSettings['episode_id']) ? 12000 : 3200;
         }
 
         $episodeCount = min(self::SCRIPT_EPISODE_BATCH_SIZE, max(2, (int)($episodeSettings['episode_count'] ?? 3)));
@@ -14115,6 +14359,7 @@ class AigcShortDramaService
             'title_hint' => $title,
             'user_prompt' => $prompt,
             'revision_message' => (string)($request['revision_message'] ?? ''),
+            'series_context' => (array)($request['series_context'] ?? []),
             'revision_base_result' => is_array($request['revision_base_result'] ?? null)
                 ? $request['revision_base_result']
                 : [],
@@ -14183,6 +14428,7 @@ class AigcShortDramaService
                 'episode_number' => 1,
                 'title' => 'short Chinese episode title',
                 'story_outline' => 'complete episode outline from opening to ending beat',
+                'conflict_point' => 'specific Chinese conflict in this episode',
                 'script_lines' => ['concise Chinese episode script beat'],
                 'ending_hook' => 'Chinese cliffhanger or final resolution',
             ]];
@@ -14221,11 +14467,11 @@ class AigcShortDramaService
         $episodeContract = $multiEpisode && $multiEpisodeStage === self::MULTI_EPISODE_STAGE_STORY
             ? "This is stage 1 of a serialized multi-episode short drama. Return the complete series story setting, series_bible, stable subjects, and global locations. Do not return episodes, scenes, shots, or storyboard; the user must confirm the story setting before episode outlining.\n"
             : ($multiEpisode && $multiEpisodeStage === self::MULTI_EPISODE_STAGE_OUTLINE
-            ? "This is stage 2 of a serialized multi-episode short drama. The full series has {$totalEpisodeCount} episodes. episodes must contain exactly {$episodeCount} outline items numbered 1-{$episodeCount}; each item needs title, story_outline, script_lines, and ending_hook. Do not return scenes, shots, or storyboard until the user confirms the episode outline.\n"
+            ? "Generate the complete series outline, stable characters and global locations. The full series has {$totalEpisodeCount} episodes. This batch covers episodes {$batchStart}-{$batchEnd}; return exactly {$episodeCount} outline items using local numbers 1-{$episodeCount}. Each needs title, story_outline, conflict_point and ending_hook. Keep global story continuity and conclude only in the actual final episode. Do not generate production shots or storyboard.\n"
             : ($multiEpisode
             ? "This is a serialized multi-episode short drama. The full series has {$totalEpisodeCount} episodes. episodes must contain exactly {$episodeCount} items numbered 1-{$episodeCount} for this provider request; this request covers full-series episodes {$batchStart}-{$batchEnd}, and the application will offset these local numbers after validation. First establish series_bible as the large story, stable character/location continuity, and episode direction. Then write every requested episode's complete story, script beats, subjects used in that episode, scenes, and shots. Do not return an outline-only episode and do not return a single representative shot for an episode. Every episode must contain at least one scene and at least four concrete shots; episodes before the last must end with a concrete hook, and the final episode must resolve the main conflict. Every storyboard shot must have episode_number, scene_ref_id, and subject_ref_ids.\n"
             : "This is a single-episode short film. Return episodes as an empty array, use episode_number 1 for all storyboard shots, and target approximately {$targetDurationSeconds} seconds by splitting the complete story into concrete 2-5 second shots.\n"));
-        if ($multiEpisode && $multiEpisodeStage === self::MULTI_EPISODE_STAGE_PRODUCTION && $batchContext !== '') {
+        if ($multiEpisode && $batchContext !== '') {
             $batchContextData = json_decode($batchContext, true);
             if (is_array($batchContextData)) {
                 $episodeContract .= "以下是已确定的系列总纲和批次承接上下文，必须保持一致（其中 previous_batch_ending_hook 是上一批次结尾）：{$batchContext}\n";
@@ -14243,6 +14489,7 @@ class AigcShortDramaService
                 : "For stage 2, storyboard must be an empty array and all episode items must remain outline-only.\n");
 
         return "Create a complete Chinese short-drama story plan from the context.\n"
+            . (!empty($request['series_context']) ? "This is ONE episode of the confirmed series. Follow series_context.current_episode and all global character/location references, preserve previous continuity summaries, and write ONLY this episode's complete script and storyboard. Never retell other episodes or resolve future conflicts early.\n" : '')
             . "Return one valid JSON object only. No markdown, explanations, or code fences.\n"
             . "This is a compact semantic contract. Do not output long image prompts, video prompts, negative prompts, or repeated field explanations; the application expands production details after validation.\n"
             . "Preserve the user's key people, events, locations, conflict, turning point, and ending. Use simplified Chinese values.\n"
@@ -15566,6 +15813,12 @@ PROMPT;
 
     private static function normalizeGeneratedPlanResult(array $payload, string $prompt, array $request, string $title): array
     {
+        if (($request['episode_workflow'] ?? '') === 'outline_queue') {
+            ShortDramaEpisodeService::validateOutline($payload, (int)$request['episode_count']);
+        }
+        if (!empty($request['series_context']) && (empty($payload['storyboard']) || empty($payload['subjects']) || empty($payload['locations']))) {
+            throw new Exception('本集正文、角色或场景不完整，请重试');
+        }
         $episodeSettings = self::normalizeEpisodeSettings($request);
         $multiEpisode = $episodeSettings['multi_episode'];
         $episodeCount = $episodeSettings['episode_count'];
@@ -15978,6 +16231,7 @@ PROMPT;
                 'story_outline' => mb_substr($outline !== '' ? $outline : $storyOutline, 0, 1000, 'UTF-8'),
                 'script_lines' => array_slice($lines, 0, 12),
                 'ending_hook' => mb_substr($endingHook, 0, 300, 'UTF-8'),
+                'conflict_point' => trim((string)($item['conflict_point'] ?? '')),
                 'subjects' => self::normalizeEpisodeSubjectItems(
                     (array)($item['subjects'] ?? $item['subject_refs'] ?? $item['subject_references'] ?? []),
                     $number
@@ -16220,16 +16474,7 @@ PROMPT;
             if (isset($covered[$episodeNumber])) {
                 continue;
             }
-            $episode = is_array($episodes[$episodeNumber - 1] ?? null) ? $episodes[$episodeNumber - 1] : [];
-            $template = $storyboard[min(count($storyboard) - 1, max(0, $episodeNumber - 1))];
-            $episodeLine = (string)(self::stringList($episode['script_lines'] ?? [])[0] ?? $episode['story_outline'] ?? $template['visual_description'] ?? '');
-            $template['episode_number'] = $episodeNumber;
-            $template['title'] = '第' . $episodeNumber . '集代表分镜';
-            $template['visual_description'] = mb_substr($episodeLine, 0, 2000, 'UTF-8');
-            $template['dialogue'] = '';
-            $template['act'] = self::storyboardEpisodeActTitle((string)($template['act'] ?? ''), $episodeNumber);
-            $template['__episode_sort'] = $shotCount + $episodeNumber;
-            $storyboard[] = $template;
+            // Missing episodes must remain missing. Never clone another episode's shots.
         }
 
         usort($storyboard, static function (array $left, array $right): int {
@@ -17988,11 +18233,16 @@ PROMPT;
                 'act' => (string)($shot['act'] ?? ''),
                 'scene_name' => (string)($shot['scene_name'] ?? ''),
                 'time_of_day' => (string)($shot['time_of_day'] ?? ''),
-                'interior_exterior' => in_array(($shot['interior_exterior'] ?? 'exterior'), ['interior', 'exterior'], true) ? $shot['interior_exterior'] : 'exterior',
+                'interior_exterior' => in_array(($shot['interior_exterior'] ?? 'exterior'), ['interior', 'exterior'], true) ? ($shot['interior_exterior'] ?? 'exterior') : 'exterior',
                 'sort' => $index + 1,
                 'update_time' => $time,
                 'delete_time' => 0,
             ]));
+            $episode = ShortDramaEpisodeService::context($tenantId, $userId, $projectId);
+            if ($episode) {
+                $data['episode_id'] = (int)$episode['id'];
+                $data['episode_number'] = (int)$episode['episode_number'];
+            }
             $row = Db::name('aigc_short_drama_storyboard')->where([
                 'tenant_id' => $tenantId,
                 'task_id' => $taskId,
@@ -18826,6 +19076,7 @@ PROMPT;
         $status = (string)$row['status'];
         $result = self::jsonDecode((string)($row['result_json'] ?? ''));
         return [
+            'episode_context' => ShortDramaEpisodeService::summary(ShortDramaEpisodeService::context((int)$row['tenant_id'], (int)$row['user_id'], (int)$row['project_id'])),
             'id' => (int)$row['id'],
             'tenant_id' => (int)$row['tenant_id'],
             'project_id' => (int)$row['project_id'],
@@ -19214,6 +19465,7 @@ PROMPT;
     {
         $status = (string)$row['status'];
         return [
+            'episode_context' => ShortDramaEpisodeService::summary(ShortDramaEpisodeService::context((int)$row['tenant_id'], (int)$row['user_id'], (int)$row['id'])),
             'id' => (int)$row['id'],
             'tenant_id' => (int)$row['tenant_id'],
             'title' => (string)$row['title'],
