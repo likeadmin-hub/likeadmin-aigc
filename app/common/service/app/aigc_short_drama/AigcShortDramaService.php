@@ -4100,11 +4100,25 @@ class AigcShortDramaService
             $request['style_id'] = trim((string)$params['style_id']);
         }
         if (array_key_exists('subject_ids', $params)) {
-            $request['subject_ids'] = array_values(array_filter((array)$params['subject_ids']));
+            // Resolve this turn's selection with the same ownership checks as
+            // initial creation; never reuse the previous turn's subject snapshot.
+            $request['subject_references'] = self::selectedSubjectReferences($tenantId, $userId, (array)$params['subject_ids']);
+            $request['subject_ids'] = array_column($request['subject_references'], 'id');
         }
         if (array_key_exists('subject_mentions', $params)) {
             $request['subject_mentions'] = array_values(array_filter((array)$params['subject_mentions']));
         }
+        if (array_key_exists('selected_subject_ids', $params)) {
+            // Project IDs and library IDs are separate namespaces. Resolve
+            // project references only from this authorized task's source plan.
+            $projectSubjects = self::selectedScriptProjectSubjects($previousResult, (array)$params['selected_subject_ids']);
+            $referenceAssets = $projectSubjects ? self::selectedPlanReferenceAssets($tenantId, $userId, (int)$task['project_id'], ['selected_subject_ids' => array_column($projectSubjects, 'id')]) : [];
+            $request['project_subject_references'] = self::selectedScriptProjectSubjects($previousResult, (array)$params['selected_subject_ids'], (array)($referenceAssets['reference_assets'] ?? []));
+        }
+        $request['subject_mentions'] = array_values(array_unique(array_merge(
+            (array)($request['subject_mentions'] ?? []),
+            array_column((array)($request['subject_references'] ?? []), 'name')
+        )));
         $fullPlanRevision = !$advanceStage && self::isFullPlanRevisionRequest($message);
         $requestedEpisodeCount = !$advanceStage ? self::revisionEpisodeCountFromMessage($message) : 0;
         if (!$isEpisodeProduction && $requestedEpisodeCount > 0) {
@@ -4377,12 +4391,34 @@ class AigcShortDramaService
     {
         $projectId = (int)($params['project_id'] ?? 0);
         $project = self::findProject($tenantId, $userId, $projectId);
+        if (!empty($params['library_subject_id'])) {
+            $reference = self::selectedSubjectReferences($tenantId, $userId, [(int)$params['library_subject_id']])[0] ?? [];
+            if (!$reference || empty($reference['image'])) {
+                throw new Exception('主体不存在、无权引用或暂无可用图片');
+            }
+            $params['uri'] = $reference['raw_image'] ?: $reference['image'];
+            $params['asset_type'] = 'reference_image';
+            $params['title'] = $reference['name'];
+            $params['meta'] = ['source' => 'subject_library', 'subject_id' => 'library:' . $reference['id'], 'library_subject_id' => $reference['id']];
+            // A retry after a lost response must reuse the registered image.
+            $existing = AigcShortDramaAsset::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'asset_type' => 'reference_image', 'uri' => FileService::setFileUrl($params['uri']), 'status' => 'ready', 'delete_time' => 0])->order('id', 'desc')->select()->toArray();
+            foreach ($existing as $row) {
+                $meta = self::jsonDecode((string)($row['meta_json'] ?? ''));
+                if ((string)($meta['subject_id'] ?? '') === $params['meta']['subject_id']) return self::formatAsset($row);
+            }
+        }
         $assetType = self::normalizeAssetType((string)($params['asset_type'] ?? $params['type'] ?? 'reference_image'));
         $uri = FileService::setFileUrl((string)($params['uri'] ?? $params['url'] ?? ''));
         if ($uri === '') {
             throw new Exception('Asset file is required');
         }
         $storedFile = self::storageInfoForUploadedFile($tenantId, $uri);
+        if (!empty($params['library_subject_id'])) {
+            // Absolute library URLs without a file row are not local paths.
+            $params['storage_scope'] = $storedFile['storage_scope'] ?? 'tenant';
+            $params['storage_engine'] = $storedFile['storage_engine'] ?? (preg_match('/^https?:\/\//i', $uri) ? '' : 'local');
+            $params['storage_domain'] = $storedFile['storage_domain'] ?? '';
+        }
         $meta = is_array($params['meta'] ?? null) ? $params['meta'] : [];
         $meta = array_merge($meta, [
             'source' => (string)($meta['source'] ?? $params['source'] ?? 'pc_upload'),
@@ -5131,6 +5167,14 @@ class AigcShortDramaService
                 : (self::isImageGenerationTask($taskType)
                 ? self::estimateImageGenerationBilling($tenantId, $taskType, $shotPayload, $config, $params)
                 : self::estimateGenerationBilling($taskType, $shotPayload, $config, $params)));
+        if (self::isImageGenerationTask($taskType)
+            && in_array((string)($billing['market_snapshot']['model_code'] ?? ''), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true)) {
+            MarketImageModelRuntimeService::qwenDimensionSummary(
+                (array)$billing['market_snapshot'],
+                self::withQwenImageDimensions((array)$billing['market_snapshot'],
+                    self::shortDramaImageParams($tenantId, $shotPayload, $params, $taskType, self::currentProjectPlanRaw($tenantId, $userId, $projectId)), $params)
+            );
+        }
         $params['_episode_export'] = $deferEpisodeExport;
         $localTaskId = self::makeTaskId('sd_gen');
         $time = time();
@@ -5786,7 +5830,8 @@ class AigcShortDramaService
                 }
             }
             $taskType = (string)($generation['task_type'] ?? 'shot_image');
-            $imageParams = self::shortDramaImageParams($tenantId, $shot, $params, $taskType, $plan);
+            $imageParams = self::withQwenImageDimensions((array)($billing['market_snapshot'] ?? []),
+                self::shortDramaImageParams($tenantId, $shot, $params, $taskType, $plan), $params);
             if ($taskType === 'shot_image') {
                 $shotReferenceContext = self::mergeShotReferenceContext($shot, $params);
                 $references = self::shotReferenceAssets($tenantId, $userId, $projectId, $shotReferenceContext, $plan);
@@ -9600,6 +9645,24 @@ class AigcShortDramaService
         }
         $filtered = array_values(array_unique($filtered));
         return !empty($filtered) ? implode('、', $filtered) : trim($negativePrompt);
+    }
+
+    private static function withQwenImageDimensions(array $snapshot, array $imageParams, array $params): array
+    {
+        if (!in_array((string)($snapshot['model_code'] ?? ''), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true)) {
+            return $imageParams;
+        }
+        $selection = array_replace((array)($params['params'] ?? []), $params);
+        foreach (['size', 'image_size', 'resolution'] as $key) {
+            if (isset($selection[$key])) $imageParams[$key] = $selection[$key];
+        }
+        // Only pass dimension overrides, not arbitrary provider parameters.
+        $provider = (array)($selection['provider_params'] ?? []);
+        $imageParams['provider_params'] = array_intersect_key($provider, array_flip(['size', 'image_size', 'resolution']));
+        if (isset($provider['parameters']['size'])) {
+            $imageParams['provider_params']['parameters']['size'] = $provider['parameters']['size'];
+        }
+        return $imageParams;
     }
 
     private static function shortDramaImageParams(int $tenantId, array $shot, array $params, string $taskType = 'shot_image', array $plan = []): array
@@ -15058,6 +15121,7 @@ class AigcShortDramaService
             'episode_batch_end' => $batchEnd,
             'episode_batch_context' => $batchContext,
             'subject_mentions' => array_values(array_slice((array)($request['subject_mentions'] ?? []), 0, 12)),
+            'subject_references' => self::scriptSubjectReferenceContext($request),
             'storyboard_rule' => [
                 'min_shots' => (int)($storyboardRule['min_shots'] ?? 0),
                 'max_shots' => (int)($storyboardRule['max_shots'] ?? 0),
@@ -15220,6 +15284,30 @@ class AigcShortDramaService
         return $payload;
     }
 
+    private static function scriptSubjectReferenceContext(array $request): array
+    {
+        $fields = array_flip(['id', 'name', 'description', 'category', 'image', 'three_view_image']);
+        return array_values(array_map(
+            static fn(array $reference): array => array_intersect_key($reference, $fields),
+            array_filter(array_merge((array)($request['subject_references'] ?? []), (array)($request['project_subject_references'] ?? [])), 'is_array')
+        ));
+    }
+
+    private static function selectedScriptProjectSubjects(array $plan, array $ids, array $assets = []): array
+    {
+        $ids = array_map('strval', $ids);
+        $subjects = array_values(array_filter((array)($plan['subjects'] ?? []), static fn($subject) => is_array($subject) && in_array((string)($subject['id'] ?? ''), $ids, true)));
+        foreach ($subjects as &$subject) {
+            foreach ($assets as $asset) {
+                if ((string)($asset['meta']['subject_id'] ?? '') !== (string)$subject['id']) continue;
+                $field = ($asset['asset_type'] ?? '') === 'three_view' ? 'three_view_image' : 'image';
+                if (empty($subject[$field]) && !empty($asset['url'])) $subject[$field] = $asset['url'];
+            }
+        }
+        unset($subject);
+        return $subjects;
+    }
+
     private static function selectedSubjectReferences(int $tenantId, int $userId, array $subjectIds): array
     {
         $subjectIds = array_values(array_unique(array_filter(array_map('intval', $subjectIds))));
@@ -15375,6 +15463,7 @@ class AigcShortDramaService
                 'must_output' => 'title, type judgement, core theme, complete beginning-to-ending plot, executable art style, ordered scene list, and scene-based storyboard script',
             ],
             'subject_mentions' => (array)($request['subject_mentions'] ?? []),
+            'subject_references' => self::scriptSubjectReferenceContext($request),
             'revision_message' => (string)($request['revision_message'] ?? ''),
             'revision_base_task_id' => (string)($request['revision_base_task_id'] ?? ''),
             'revision_base_result' => is_array($request['revision_base_result'] ?? null) ? $request['revision_base_result'] : [],

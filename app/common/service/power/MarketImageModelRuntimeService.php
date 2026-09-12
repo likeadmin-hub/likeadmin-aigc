@@ -177,18 +177,22 @@ class MarketImageModelRuntimeService
             throw new Exception('按应用售价结算暂不支持按实际用量计费的图片 SKU');
         }
         $quote = self::quote($tenantId, $selection, $quantity, $billingOverride);
+        // Validate before creating tasks or reserving points; use the exact
+        // same payload adapter as submit, without resolving reference assets.
+        $dimensionSummary = self::qwenDimensionSummary($quote['market_snapshot'], $request);
+        $requestSummary = array_merge(self::requestSummary($request), $dimensionSummary);
         $tenantCost = (float)$quote['tenant_cost_points'];
         $userPrice = (float)$quote['user_charge_points'];
         if (!$deferredUsage) PointService::assertCanConsumeAmounts($tenantId, $userId, $tenantCost, $userPrice);
 
-        return Db::transaction(function () use ($tenantId, $userId, $appCode, $action, $businessTable, $businessTaskId, $request, $quantity, $market, $tenantCost, $userPrice, $deferredUsage, $billingOverride) {
+        return Db::transaction(function () use ($tenantId, $userId, $appCode, $action, $businessTable, $businessTaskId, $request, $requestSummary, $quantity, $market, $tenantCost, $userPrice, $deferredUsage, $billingOverride) {
             $now = time();
             $appTask = AiAppTask::create([
                 'task_no' => self::no('AT'), 'tenant_id' => $tenantId, 'user_id' => $userId,
                 'app_code' => $appCode, 'action_code' => $action,
                 'business_table' => $businessTable, 'business_id' => 0, 'parent_task_id' => 0,
                 'status' => 'running', 'progress' => 10,
-                'request_summary' => self::requestSummary($request), 'result_summary' => [],
+                'request_summary' => $requestSummary, 'result_summary' => [],
                 'estimated_tenant_cost' => $tenantCost, 'estimated_user_price' => $userPrice,
                 'actual_tenant_cost' => 0, 'actual_user_price' => 0,
                 'idempotency_key' => sha1($tenantId . '|' . $businessTaskId . '|image|' . microtime(true)),
@@ -202,7 +206,7 @@ class MarketImageModelRuntimeService
                 'model_code' => (string)$market['product']['upstream_model_code'], 'api_code' => (string)$market['product']['upstream_channel_code'],
                 'protocol' => 'image_generate', 'provider' => 'power_market', 'upstream_request_id' => '', 'upstream_task_id' => '',
                 'quantity' => $deferredUsage ? 0 : $quantity, 'usage_unit' => (string)$market['sku']['usage_unit'], 'usage_snapshot' => ['settlement_basis' => $deferredUsage ? 'awaiting_actual_usage' : 'submit_snapshot'],
-                'price_snapshot' => self::snapshotWithBillingOverride($market, $billingOverride), 'request_summary' => self::requestSummary($request), 'response_summary' => [],
+                'price_snapshot' => self::snapshotWithBillingOverride($market, $billingOverride), 'request_summary' => $requestSummary, 'response_summary' => [],
                 'run_status' => 'reserved', 'billing_status' => $deferredUsage ? 'pending_usage' : 'reserved',
                 'reserved_tenant_cost' => $tenantCost, 'reserved_user_price' => $userPrice,
                 'actual_tenant_cost' => 0, 'actual_user_price' => 0,
@@ -708,8 +712,72 @@ class MarketImageModelRuntimeService
         return $params;
     }
 
+    private static function isQwenImage(array $snapshot): bool
+    {
+        return in_array(strtolower(trim((string)($snapshot['model_code'] ?? ''))), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true);
+    }
+
+    /** Pure preflight, shared by app validation and point reservation. */
+    public static function qwenDimensionSummary(array $snapshot, array $request): array
+    {
+        if (!self::isQwenImage($snapshot)) {
+            return [];
+        }
+        $request['reference_images'] = [];
+        $payload = self::payload($snapshot, $request, '');
+        return [
+            'submitted_size' => (string)($payload['parameters']['size'] ?? ''),
+            'requested_ratio' => self::firstValue($request, ['ratio', 'aspect_ratio']),
+            'requested_quality' => self::firstValue($request, ['quality', 'resolution', 'image_size']),
+        ];
+    }
+
+    private static function qwenSize(string $ratio, string $quality, string $explicitSize = ''): string
+    {
+        $target = self::ratioNumber($ratio);
+        if ($ratio !== '' && ($target < 0.125 || $target > 8)) {
+            throw new Exception('Qwen Image 图片比例须在 1:8 至 8:1 之间');
+        }
+        if ($explicitSize !== '') {
+            if (preg_match('/^(\d+)\s*[*xX]\s*(\d+)$/', trim($explicitSize), $matches) !== 1) {
+                throw new Exception('Qwen Image 图片尺寸须为宽*高');
+            }
+            $w = (int)$matches[1];
+            $h = (int)$matches[2];
+        } else {
+            if (!in_array(strtolower($quality), ['1k', '2k'], true)) {
+                throw new Exception('Qwen Image 请选择 1k 或 2k 图片规格');
+            }
+            $long = self::qualityLongSide($quality);
+            $w = $target >= 1 ? $long : $long * $target;
+            $h = $target >= 1 ? $long / $target : $long;
+            // The contract limits total pixels, not either edge to >= 512.
+            $scale = max(1, sqrt((512 * 512) / ($w * $h)));
+            $w = (int)($scale > 1 ? ceil($w * $scale) : round($w));
+            $h = (int)($scale > 1 ? ceil($h * $scale) : round($h));
+        }
+        if ($w <= 0 || $h <= 0 || $w * $h < 512 * 512 || $w * $h > 2048 * 2048 || $w / $h < 0.125 || $w / $h > 8) {
+            throw new Exception('Qwen Image 图片总像素须在 512*512 至 2048*2048 之间，比例须在 1:8 至 8:1 之间');
+        }
+        // Permit integer-pixel rounding only, never a different aspect ratio.
+        if ($target > 0 && min(abs($w - $h * $target), abs($h - $w / $target)) > 1) {
+            throw new Exception('Qwen Image 图片尺寸与所选 ' . $ratio . ' 比例不一致');
+        }
+        return $w . '*' . $h;
+    }
+
     private static function structuredSize(array $snapshot, array $request, array $parameters, string $ratio, string $quality, string $imageSize): string
     {
+        if (self::isQwenImage($snapshot)) {
+            $explicitSize = trim((string)($parameters['size'] ?? $request['size'] ?? ''));
+            if ($explicitSize === '' && preg_match('/^\d+\s*[*xX]\s*\d+$/', trim($imageSize)) === 1) {
+                $explicitSize = $imageSize;
+            }
+            if ($ratio !== '' || $explicitSize !== '') {
+                return self::qwenSize($ratio, $quality, $explicitSize);
+            }
+            // Preserve historical no-ratio defaults below.
+        }
         foreach ([$parameters['size'] ?? '', $request['size'] ?? '', $imageSize] as $candidate) {
             $candidate = trim((string)$candidate);
             if (preg_match('/^\d+\s*[*xX]\s*\d+$/', $candidate) === 1) {

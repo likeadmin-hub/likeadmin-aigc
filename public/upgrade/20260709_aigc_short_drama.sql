@@ -462,10 +462,7 @@ WHERE NOT EXISTS (
     WHERE existing.`tenant_id` = 0 AND existing.`name` = seed.`name` AND existing.`delete_time` = 0
 );
 
-INSERT INTO `la_aigc_short_drama_inspiration`
-(`tenant_id`, `title`, `video_url`, `cover_url`, `width`, `height`, `duration`, `prompt`, `author_json`, `config_json`, `status`, `sort`, `create_time`, `update_time`, `delete_time`)
-SELECT 0, '冬日河畔的静默', 'https://aigclikeadmin.oss-cn-shenzhen.aliyuncs.com/uploads/video/20260702/20260702030949da9924540.mp4', '', 1080, 1920, 8.20, '创造安妮贝尔。一位来自中国的国际学生，身处纽约州上州的一所寄宿学校。她安静地在码头等一名划船手科尔。黄昏、河水、围巾、书本、校园台阶。', '{"id":1,"nickname":"岩井俊二电影","avatar":"resource/image/common/menu_generator.png"}', '{"ratio":"9:16","multi_episode":true,"style_id":"1","style_name":"岩井俊二电影","model_id":"script-planner-default","model_name":"剧本策划模型"}', 1, 100, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0
-WHERE NOT EXISTS (SELECT 1 FROM `la_aigc_short_drama_inspiration` WHERE `tenant_id` = 0 AND `title` = '冬日河畔的静默');
+-- Inspiration entries are managed by tenants; no bundled demo is seeded.
 
 
 -- Migration snapshot: aigc_short_drama/migrations/upgrade_20260702_project_closure.sql
