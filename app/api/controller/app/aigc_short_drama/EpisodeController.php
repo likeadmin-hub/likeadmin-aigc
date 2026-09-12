@@ -20,7 +20,9 @@ class EpisodeController extends BaseApiController
                 'context' => ShortDramaEpisodeService::summary(ShortDramaEpisodeService::context($t, $u, (int)($params['project_id'] ?? 0))),
                 'start' => ShortDramaEpisodeService::start($t, $u, $params),
                 'retry' => ShortDramaEpisodeService::retry($t, $u, (int)($params['episode_id'] ?? 0)),
-                'cancel' => ShortDramaEpisodeService::cancel($t, $u, (int)($params['episode_id'] ?? 0)),
+                'cancel' => !empty($params['project_id'])
+                    ? ShortDramaEpisodeService::cancelAll($t, $u, (int)$params['project_id'])
+                    : ShortDramaEpisodeService::cancel($t, $u, (int)($params['episode_id'] ?? 0)),
                 'message' => ShortDramaEpisodeService::message($t, $u, $params),
                 'export' => ShortDramaEpisodeService::export($t, $u, $params),
             };

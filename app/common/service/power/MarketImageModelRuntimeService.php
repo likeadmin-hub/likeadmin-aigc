@@ -230,7 +230,12 @@ class MarketImageModelRuntimeService
         $price = (array)$consumption['price_snapshot'];
         $payload = self::payload($price, $request, (string)$consumption['consume_no'], (int)$consumption['tenant_id']);
         $started = microtime(true);
+        $receiptSaved = false;
+        $settled = false;
         try {
+            // Persist result polling BEFORE a paid upstream call. A local queue
+            // failure must never strand an already accepted provider task.
+            AiTaskJobService::enqueueQueryResult($consumptionId);
             $response = self::request('POST', self::origin() . self::SUBMIT_PATH, $payload);
             $taskId = self::taskId($response);
             $images = self::images($response, (int)$consumption['tenant_id'], (int)$consumption['user_id']);
@@ -239,17 +244,31 @@ class MarketImageModelRuntimeService
                 $ctx = self::context($consumptionId, true); if ($ctx === null) return;
                 $c = $ctx['consumption'];
                 if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return;
-                $status = $images === [] ? 'running' : 'success';
-                $c->save(['run_status' => $status, 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'response_summary' => ['image_count' => count($images)], 'update_time' => time()]);
+                // Only settle() may publish success. Otherwise the query worker
+                // can mistake a failed local settlement for a terminal result.
+                $c->save(['run_status' => 'running', 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'response_summary' => ['image_count' => count($images)], 'update_time' => time()]);
                 self::event((int)$c['id'], 'submit', 'success', ['upstream_task_id' => $taskId, 'image_count' => count($images)], (int)round((microtime(true) - $started) * 1000));
             });
+            $receiptSaved = true;
             if ($images !== []) {
                 self::settle($consumptionId, $images, $requestId, $taskId, $response);
+                $settled = true;
                 AiTaskJobService::enqueueProcessResult($consumptionId);
             }
-            else AiTaskJobService::enqueueQueryResult($consumptionId);
             return ['status' => $images === [] ? 'running' : 'success', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => $images];
         } catch (\Throwable $e) {
+            if ($receiptSaved && ($taskId !== '' || $settled)) {
+                // The durable query job will retry settlement/result processing.
+                // Do not refund, resubmit, or report an upstream failure because
+                // post-submit local work failed.
+                AiTaskLifecycleEventService::record($consumptionId, 'post_submit_deferred', 'retrying', [
+                    'upstream_task_id' => $taskId,
+                    'error_class' => get_class($e),
+                    'error_code' => (string)$e->getCode(),
+                ]);
+                return ['status' => $settled ? 'success' : 'running', 'provider_task_id' => $taskId,
+                    'provider_request_id' => $requestId, 'images' => $settled ? $images : []];
+            }
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
             throw $e instanceof Exception ? $e : new Exception('图片模型提交失败');
         }

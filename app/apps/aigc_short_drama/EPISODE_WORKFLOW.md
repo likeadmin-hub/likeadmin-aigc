@@ -15,7 +15,7 @@ PC 大纲采用参考页面的居中单列对话布局，基础信息、角色�
 ## 部署源码与迁移
 
 1. 执行应用迁移 `migrations/upgrade_20260909_episode_queue.sql`。相同 SQL 已同步至 `upgrade`、`public/upgrade` 和全新安装数据库脚本，可重复执行。
-2. 启动 `php think short-drama:episode-worker`，生产环境由 Supervisor / 宝塔守护进程管理。启动入口为 `scripts/start-short-drama-episode-worker.sh`，可通过 PHP_BIN 指定 PHP。配置退出自动重启，并为在途请求留足停止等待时间。
+2. 生产环境由 Supervisor / 宝塔守护一个脚本 `scripts/start-ai-task-worker.sh`，脚本分别启动 `ai:task-worker --worker=result` 和 `short-drama:episode-worker` 两个独立 PHP 进程。两类任务并行处理，各自退出后独立重启，不在 PHP worker 内嵌套执行。可通过 PHP_BIN 指定 PHP，系统需提供 `flock` 防止重复启动。守护配置开启 `autostart=true`、`autorestart=true`、`stopwaitsecs=1800`、`stopasgroup=true`、`killasgroup=true`。迁移时先停止旧的两个独立守护，再启用此脚本，不能同时保留独立短剧守护。脚本收到停止信号后通知两个 worker 优雅退出，等待在途请求结束。日志分别写入 `runtime/log/ai_task_worker.log` 和 `runtime/log/short_drama_episode_worker.log`；独立短剧启动脚本保留用于诊断，不再作为另一条生产守护入口。
 3. 单次检查使用 `php think short-drama:episode-worker --once`。至少保持一个 Worker 常驻；可启动多个，MySQL 按项目的 advisory lock 保证同一项目仅一个生成调用。
 4. Redis 队列迁移为 `migrations/upgrade_20260910_redis_episode_queue.sql`；生产环境执行后再重启 Worker。配置 `short_drama.redis_host`、`short_drama.redis_port`、`short_drama.redis_password` 和 `short_drama.redis_prefix`，默认复用缓存配置。
 

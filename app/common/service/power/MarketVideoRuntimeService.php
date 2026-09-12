@@ -221,6 +221,26 @@ class MarketVideoRuntimeService
         return self::effectiveDurationFromMarket($market, $fallback);
     }
 
+    /**
+     * Selects the billable SKU and normalizes a requested storyboard duration.
+     * A fixed SKU always wins; configurable products use the nearest supported
+     * value, so non-UI callers follow the same smart-duration rule as PC.
+     */
+    public static function normalizeDurationSelection(int $tenantId, array $selection, int $requestedDuration = 0): array
+    {
+        if ($requestedDuration > 0) {
+            $selection['duration'] = $requestedDuration;
+        }
+        $market = self::resolve($tenantId, $selection);
+        $duration = self::effectiveDurationFromMarket($market, $requestedDuration);
+        return [
+            'duration' => max(1, min(60, $duration)),
+            'market_product_id' => (int)($market['product']['id'] ?? 0),
+            'market_sku_id' => (int)($market['sku']['id'] ?? 0),
+            'sku_id' => (int)($market['sku']['id'] ?? 0),
+        ];
+    }
+
     private static function effectiveDurationFromMarket(array $market, int $requestedDuration): int
     {
         $lockedDuration = self::duration(self::arrayValue($market['sku']['locked_params'] ?? []));
@@ -548,7 +568,6 @@ class MarketVideoRuntimeService
                     throw $e;
                 }
                 $fallback = self::resolveProduct($tenantId, $product->toArray(), self::withoutSku($selection));
-                self::assertSkuMatchesSelection($fallback, $selection);
                 return $fallback;
             }
             return $market;
@@ -562,15 +581,29 @@ class MarketVideoRuntimeService
     private static function resolveProduct(int $tenantId, array $productData, array $selection): array
     {
         $productId = (int)$productData['id'];
-        $matches = self::availableSkus($tenantId, $productId); $quality = self::value($selection, ['resolution', 'quality']); $duration = (int)self::value($selection, ['duration']); $ratio = self::value($selection, ['ratio', 'aspect_ratio', 'size']); $mode = self::inputMode($selection);
-        $matches = array_values(array_filter($matches, static function (array $row) use ($quality, $duration, $ratio, $mode, $productData): bool {
+        $allMatches = self::availableSkus($tenantId, $productId); $quality = self::value($selection, ['resolution', 'quality']); $duration = (int)self::value($selection, ['duration']); $ratio = self::value($selection, ['ratio', 'aspect_ratio', 'size']); $mode = self::inputMode($selection);
+        $allMatches = array_values(array_filter($allMatches, static function (array $row) use ($quality, $ratio, $mode, $productData): bool {
             $locked = self::arrayValue($row['sku']['locked_params'] ?? []); $resolution = self::resolution($locked); $lockedDuration = self::duration($locked); $skuMode = self::skuInputMode($locked);
             if ($quality !== '' && $resolution !== '' && strtolower($quality) !== strtolower($resolution)) return false;
-            if ($duration > 0 && $lockedDuration > 0 && $lockedDuration !== $duration) return false;
             if (!self::skuSupportsRatio($locked, self::arrayValue($row['sku']['selectable_params'] ?? []), $ratio)) return false;
             if (!self::skuSupportsInputMode($skuMode, $mode, $productData, $locked)) return false;
             return true;
         }));
+        $matches = array_values(array_filter($allMatches, static function (array $row) use ($duration): bool {
+            $lockedDuration = self::duration(self::arrayValue($row['sku']['locked_params'] ?? []));
+            return $duration <= 0 || $lockedDuration <= 0 || $lockedDuration === $duration;
+        }));
+        if ($matches === [] && $duration > 0 && $allMatches !== []) {
+            usort($allMatches, static function (array $left, array $right) use ($productData, $duration): int {
+                $leftDuration = self::effectiveDurationFromMarket(['product' => $productData, 'sku' => (array)$left['sku']], $duration);
+                $rightDuration = self::effectiveDurationFromMarket(['product' => $productData, 'sku' => (array)$right['sku']], $duration);
+                $leftDelta = abs($leftDuration - $duration); $rightDelta = abs($rightDuration - $duration);
+                if ($leftDelta !== $rightDelta) return $leftDelta <=> $rightDelta;
+                return $rightDuration <=> $leftDuration;
+            });
+            $matches = [$allMatches[0]];
+            $selection['duration'] = self::effectiveDurationFromMarket(['product' => $productData, 'sku' => (array)$matches[0]['sku']], $duration);
+        }
         if ($matches === []) throw new Exception('当前模型没有可用的市场计费 SKU');
         $market = self::marketRow($tenantId, $productData, (array)$matches[0]['sku']);
         self::assertSkuMatchesSelection($market, $selection);
@@ -831,6 +864,7 @@ class MarketVideoRuntimeService
             ? self::schemaTextContent($snapshot, $promptKey, $prompt)
             : $prompt;
         $payload[$ratioKey] = $ratio;
+        $payload = array_merge($payload, self::audioGenerationPayload($snapshot, $request));
         return array_filter($payload, static fn($value) => $value !== '' && $value !== null && $value !== []);
     }
 
@@ -938,6 +972,7 @@ class MarketVideoRuntimeService
         if ($duration > 0) {
             $parameters['duration'] = $duration;
         }
+        $parameters = array_merge($parameters, self::audioGenerationPayload($snapshot, $request));
         foreach (['audio', 'seed', 'watermark'] as $key) {
             if (array_key_exists($key, $request)) {
                 $parameters[$key] = $request[$key];
@@ -1055,7 +1090,7 @@ class MarketVideoRuntimeService
             'duration' => $duration > 0 ? $duration : null,
             'content' => self::h3Content($request, $prompt),
             'idempotency_key' => $idempotency,
-        ]), static fn($value) => $value !== '' && $value !== null && $value !== []);
+        ], self::audioGenerationPayload($snapshot, $request)), static fn($value) => $value !== '' && $value !== null && $value !== []);
     }
 
     private static function h3Content(array $request, string $prompt): array
@@ -1202,9 +1237,22 @@ class MarketVideoRuntimeService
         return array_values(array_unique($values));
     }
 
+    private static function audioGenerationPayload(array $snapshot, array $request): array
+    {
+        if (!array_key_exists('generate_audio', $request)) return [];
+        $value = filter_var($request['generate_audio'], FILTER_VALIDATE_BOOLEAN);
+        if ((string)($snapshot['app_code'] ?? '') === 'seedance') return ['generate_audio' => $value];
+        foreach (['generate_audio', 'enable_audio', 'with_audio', 'audio_output'] as $key) {
+            if (self::schemaDeclaresParameter(self::arrayValue($snapshot['params_schema'] ?? []), $key)) {
+                return [$key => $value];
+            }
+        }
+        return [];
+    }
+
     private static function appPayload(array $snapshot, array $request, string $idempotency): array
     {
-        $app = (string)$snapshot['app_code']; $locked = self::arrayValue($snapshot['locked_params'] ?? []); $assets = self::assets($request); $duration = self::duration($locked) ?: (int)($request['duration'] ?? 0); $resolution = self::resolution($locked) ?: self::value($request, ['resolution', 'quality']);
+        $app = (string)$snapshot['app_code']; $locked = self::arrayValue($snapshot['locked_params'] ?? []); $assets = self::assets($request); $duration = self::duration($locked) ?: (int)($request['duration'] ?? 0); $resolution = self::resolution($locked) ?: self::value($request, ['resolution', 'quality']); $audio = self::audioGenerationPayload($snapshot, $request);
         if ($app === 'full_video') {
             $prompt = trim((string)($request['prompt'] ?? ''));
             if ($prompt === '') {
@@ -1226,22 +1274,22 @@ class MarketVideoRuntimeService
                 'aigc_watermark' => $request['aigc_watermark'] ?? $request['aigcWatermark'] ?? null,
                 'callback_url' => $request['callback_url'] ?? $request['callbackUrl'] ?? null,
                 'idempotency_key' => $idempotency,
-            ]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+            ], $audio), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'happy_horse') {
             $model = trim((string)($locked['model'] ?? ''));
             if ($model === '') {
                 $model = $assets['image'] === [] ? 'happyhorse-1.0-t2v' : (count($assets['image']) === 1 ? 'happyhorse-1.0-i2v' : 'happyhorse-1.0-r2v');
             }
-            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => (string)($request['ratio'] ?? ''), 'media' => array_map(static fn(string $url): array => ['url' => $url, 'type' => 'image'], $assets['image']), 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => (string)($request['ratio'] ?? ''), 'media' => array_map(static fn(string $url): array => ['url' => $url, 'type' => 'image'], $assets['image']), 'idempotency_key' => $idempotency], $audio), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'seedance') {
             $assetIds = self::seedanceAssetReferences($request);
-            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => (string)($locked['model'] ?? ($assetIds['video'] === [] ? 'seedance-2-text-2-video' : 'seedance-2-video-2-video')), 'content' => [['type' => 'text', 'text' => trim((string)($request['prompt'] ?? ''))]], 'ratio' => (string)($request['ratio'] ?? ''), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'image_urls' => $assetIds['image'], 'video_urls' => $assetIds['video'], 'audio_urls' => $assetIds['audio'], 'generate_audio' => $request['generate_audio'] ?? null, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => (string)($locked['model'] ?? ($assetIds['video'] === [] ? 'seedance-2-text-2-video' : 'seedance-2-video-2-video')), 'content' => [['type' => 'text', 'text' => trim((string)($request['prompt'] ?? ''))]], 'ratio' => (string)($request['ratio'] ?? ''), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'image_urls' => $assetIds['image'], 'video_urls' => $assetIds['video'], 'audio_urls' => $assetIds['audio'], 'idempotency_key' => $idempotency], $audio), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'grok_video') {
             $model = trim((string)($locked['model'] ?? $snapshot['model_code'] ?? 'grok-video'));
-            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'aspect_ratio' => (string)($request['aspect_ratio'] ?? $request['ratio'] ?? ''), 'image_urls' => $assets['image'], 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'aspect_ratio' => (string)($request['aspect_ratio'] ?? $request['ratio'] ?? ''), 'image_urls' => $assets['image'], 'idempotency_key' => $idempotency], $audio), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         $model = trim((string)($locked['model'] ?? ''));
         if ($model === '') {
@@ -1250,7 +1298,7 @@ class MarketVideoRuntimeService
         if ($model === '') {
             $model = $assets['video'] !== [] ? 'wan2.7-videoedit' : ($assets['image'] !== [] ? 'wan2.7-r2v' : 'wan2.7');
         }
-        return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'size' => (string)($request['ratio'] ?? ''), 'image_urls' => $assets['image'], 'video_urls' => $assets['video'], 'audio_urls' => $assets['audio'], 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+        return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'size' => (string)($request['ratio'] ?? ''), 'image_urls' => $assets['image'], 'video_urls' => $assets['video'], 'audio_urls' => $assets['audio'], 'idempotency_key' => $idempotency], $audio), static fn($value) => $value !== '' && $value !== [] && $value !== null);
     }
 
     private static function seedanceAssets(array &$request, int $consumptionId): void

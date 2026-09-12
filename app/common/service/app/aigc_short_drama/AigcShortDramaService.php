@@ -940,10 +940,12 @@ class AigcShortDramaService
 
     public static function setInspirationStatus(int $tenantId, int $id, int $status): void
     {
+        if ($tenantId <= 0) throw new Exception('租户不存在');
         $row = AigcShortDramaInspiration::where([
             'id' => $id,
+            'tenant_id' => $tenantId,
             'delete_time' => 0,
-        ])->whereIn('tenant_id', [0, $tenantId])->findOrEmpty();
+        ])->findOrEmpty();
         if ($row->isEmpty()) {
             throw new Exception('灵感作品不存在');
         }
@@ -951,6 +953,91 @@ class AigcShortDramaService
             'status' => $status ? 1 : 0,
             'update_time' => time(),
         ]);
+    }
+
+    public static function saveAdminInspiration(int $tenantId, array $params): array
+    {
+        if ($tenantId <= 0) throw new Exception('租户不存在');
+        $id = (int)($params['id'] ?? 0);
+        $row = $id > 0 ? AigcShortDramaInspiration::where([
+            'id' => $id, 'tenant_id' => $tenantId, 'delete_time' => 0,
+        ])->findOrEmpty() : null;
+        if ($row !== null && $row->isEmpty()) throw new Exception('灵感作品不存在');
+        $old = $row ? $row->toArray() : [];
+        $config = self::jsonDecode((string)($old['config_json'] ?? ''));
+        $type = (string)($params['source_type'] ?? $config['source_type'] ?? 'template');
+        if (!in_array($type, ['template', 'video'], true)) throw new Exception('请选择有效的添加方式');
+        $title = trim((string)($params['title'] ?? ''));
+        $description = trim((string)($params['description'] ?? ''));
+        $prompt = trim((string)($params['prompt'] ?? ''));
+        if ($title === '' || mb_strlen($title) > 120) throw new Exception('请输入不超过120字的标题');
+        if ($type === 'video' && ($description === '' || mb_strlen($description) > 3000)) throw new Exception('请输入不超过3000字的视频介绍');
+        if ($type === 'template' && ($prompt === '' || mb_strlen($prompt) > 3000)) throw new Exception('请输入不超过3000字的提示词');
+        $allow = $type === 'template' ? true : filter_var($params['allow_generate_same'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $config['source_type'] = $type;
+        $config['description'] = $type === 'video' ? $description : '';
+        $config['allow_generate_same'] = $allow;
+        foreach (['ratio', 'style_name', 'model_name'] as $key) {
+            $config[$key] = mb_substr(trim((string)($params[$key] ?? $config[$key] ?? '')), 0, 80);
+        }
+        $data = ['tenant_id' => $tenantId, 'title' => $title,
+            // Uploaded videos are showcase media, not a video-analysis input.
+            'prompt' => $type === 'video' ? ($allow ? $description : '') : $prompt,
+            'width' => max(0, (int)($params['width'] ?? 0)), 'height' => max(0, (int)($params['height'] ?? 0)),
+            'duration' => min(999999, max(0, (float)($params['duration'] ?? 0))),
+            'status' => (int)($params['status'] ?? 1) ? 1 : 0, 'sort' => max(0, (int)($params['sort'] ?? 0)),
+            'update_time' => time()];
+        foreach (['cover_url' => 10, 'video_url' => 20] as $key => $fileType) {
+            $uri = trim((string)($params[$key] ?? ''));
+            if ($old && $uri === self::formatAdminInspiration($old)[$key]) $uri = (string)($old[$key] ?? '');
+            if ($uri === '' && $key === 'video_url' && $type === 'video') throw new Exception('请上传灵感视频');
+            if (mb_strlen($uri) > 500) throw new Exception('素材地址过长');
+            if ($uri !== '' && $uri !== (string)($old[$key] ?? '')) {
+                $file = self::resolveInspirationFile($tenantId, $uri, $fileType);
+                $uri = (string)$file['uri'];
+                $config[$key . '_storage'] = array_intersect_key($file, array_flip(['id', 'storage_scope', 'storage_engine', 'storage_domain']));
+            } elseif ($uri === '') {
+                unset($config[$key . '_storage']);
+            }
+            $data[$key] = $uri;
+        }
+        $data['config_json'] = self::jsonEncode($config);
+        if ($row) {
+            $row->save($data);
+        } else {
+            $data += ['author_json' => '{}', 'create_time' => time(), 'delete_time' => 0];
+            $row = AigcShortDramaInspiration::create($data);
+        }
+        return self::formatAdminInspiration($row->toArray());
+    }
+
+    private static function resolveInspirationFile(int $tenantId, string $uri, int $type): array
+    {
+        $path = ltrim((string)(parse_url($uri, PHP_URL_PATH) ?: $uri), '/');
+        // Custom storage domains can contain a path prefix. Match candidates by
+        // stored URI, then verify the complete authorized URL below.
+        $candidates = [$uri, $path];
+        while (strpos($path, '/') !== false) {
+            $path = substr($path, strpos($path, '/') + 1);
+            $candidates[] = $path;
+        }
+        $files = \app\common\model\file\TenantFile::where(['tenant_id' => $tenantId, 'type' => $type, 'source' => 0])
+            ->whereIn('uri', array_unique($candidates))->select()->toArray();
+        foreach ($files as $file) {
+            $url = FileService::getFileUrlByStorage((string)$file['uri'], (string)($file['storage_scope'] ?? ''),
+                (string)($file['storage_engine'] ?? ''), (string)($file['storage_domain'] ?? ''));
+            if ($uri === (string)$file['uri'] || $uri === $url) return $file;
+        }
+        throw new Exception('请选择当前租户素材库中的有效' . ($type === 20 ? '视频' : '图片'));
+    }
+
+    public static function deleteAdminInspiration(int $tenantId, int $id): void
+    {
+        if ($tenantId <= 0) throw new Exception('租户不存在');
+        $row = AigcShortDramaInspiration::where(['id' => $id, 'tenant_id' => $tenantId, 'delete_time' => 0])->findOrEmpty();
+        if ($row->isEmpty()) throw new Exception('灵感作品不存在');
+        // Remove only the showcase entry; its managed source file may be shared elsewhere.
+        $row->save(['delete_time' => time(), 'update_time' => time()]);
     }
 
     public static function adminSubjectLists(int $tenantId, array $params = []): array
@@ -1735,7 +1822,13 @@ class AigcShortDramaService
         $data = self::formatProject($row);
         $data['prompt'] = (string)($row['prompt'] ?? '');
         $data['episode_context'] = ShortDramaEpisodeService::summary(ShortDramaEpisodeService::context($tenantId, $userId, $projectId));
-        $data['episode_queue_started'] = (bool)Db::name('aigc_short_drama_episode_task')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0])->count();
+        $episodeQueue = Db::name('aigc_short_drama_episode_task')
+            ->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0])
+            ->order('id', 'asc')
+            ->field('outline_task_id')
+            ->find();
+        $data['episode_queue_started'] = !empty($episodeQueue);
+        $data['episode_queue_task_id'] = (string)($episodeQueue['outline_task_id'] ?? '');
         $data['multi_episode'] = (int)($row['multi_episode'] ?? 0) === 1;
         $data['current_version'] = self::currentPlanVersion($tenantId, $userId, $projectId);
         $data['versions'] = self::planVersions($tenantId, $userId, $projectId);
@@ -1820,6 +1913,55 @@ class AigcShortDramaService
             'selected_asset_id' => $selectedAssetId,
             'project' => self::formatProject($projectRow),
         ]);
+    }
+
+    /**
+     * Return the first usable storyboard image for each episode production
+     * workspace without issuing one cover lookup per episode.
+     */
+    public static function episodeStoryboardCovers(int $tenantId, int $userId, array $projectIds): array
+    {
+        $projectIds = array_values(array_unique(array_filter(array_map('intval', $projectIds))));
+        if (empty($projectIds)) {
+            return [];
+        }
+
+        $rows = AigcShortDramaStoryboard::alias('s')
+            ->join('aigc_short_drama_asset a', 'a.tenant_id = s.tenant_id AND a.user_id = s.user_id AND a.project_id = s.project_id AND a.shot_id = s.shot_id AND a.delete_time = 0')
+            ->where([
+                's.tenant_id' => $tenantId,
+                's.user_id' => $userId,
+                's.delete_time' => 0,
+                'a.asset_type' => 'shot_image',
+                'a.status' => 'ready',
+            ])
+            ->whereIn('s.project_id', $projectIds)
+            ->where('a.uri', '<>', '')
+            ->field('s.project_id,s.sort,s.selected_image_asset_id,a.id asset_id,a.uri,a.storage_scope,a.storage_engine,a.storage_domain')
+            ->order('s.project_id', 'asc')
+            ->order('s.sort', 'asc')
+            ->orderRaw('a.id = s.selected_image_asset_id DESC')
+            ->order('a.id', 'desc')
+            ->select()
+            ->toArray();
+
+        $covers = [];
+        foreach ($rows as $row) {
+            $projectId = (int)($row['project_id'] ?? 0);
+            if ($projectId <= 0 || isset($covers[$projectId])) {
+                continue;
+            }
+            $covers[$projectId] = [
+                'asset_id' => (int)($row['asset_id'] ?? 0),
+                'url' => FileService::getFileUrlByStorage(
+                    (string)($row['uri'] ?? ''),
+                    (string)($row['storage_scope'] ?? ''),
+                    (string)($row['storage_engine'] ?? ''),
+                    (string)($row['storage_domain'] ?? '')
+                ),
+            ];
+        }
+        return $covers;
     }
 
     public static function updateProjectCover(int $tenantId, int $userId, int $projectId, int $assetId): array
@@ -2247,12 +2389,73 @@ class AigcShortDramaService
     public static function scriptPlanDetail(int $tenantId, int $userId, string $taskId, int $projectId = 0): array
     {
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
-        if (ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id'])) return self::formatTask($task->toArray(), true);
+        if (ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id'])) {
+            self::reuseEpisodeVisualAssetsForProject($tenantId, $userId, (int)$task['project_id']);
+            return self::hydrateEpisodeScriptPlanAssets(
+                $tenantId,
+                $userId,
+                (int)$task['project_id'],
+                self::formatTask($task->toArray(), true)
+            );
+        }
         $taskData = self::recoverPartialStreamScriptPlanTask($tenantId, $userId, $task->toArray());
         $taskData = self::recoverCompletedScriptPlanTask($tenantId, $userId, $taskData);
         $taskData = self::recoverStaleScriptPlanTask($tenantId, $userId, $taskData);
         $taskData = self::recoverFailedScriptPlanTaskForStream($tenantId, $userId, $taskData);
         return self::formatTask($taskData, true);
+    }
+
+    /**
+     * Include the current episode's ready visual assets in the script payload.
+     * This keeps the script detail, the subject page and the scene page in sync,
+     * including assets inherited from earlier episodes.
+     */
+    private static function hydrateEpisodeScriptPlanAssets(int $tenantId, int $userId, int $projectId, array $taskData): array
+    {
+        $result = is_array($taskData['result'] ?? null) ? (array)$taskData['result'] : [];
+        if (!$result) {
+            return $taskData;
+        }
+        $assetsByKey = [];
+        foreach (self::projectAssets($tenantId, $userId, $projectId) as $asset) {
+            $assetType = (string)($asset['asset_type'] ?? '');
+            if (!in_array($assetType, ['subject_image', 'scene_image'], true)) {
+                continue;
+            }
+            $meta = is_array($asset['meta'] ?? null) ? (array)$asset['meta'] : [];
+            $itemId = trim((string)($meta[$assetType === 'scene_image' ? 'scene_id' : 'subject_id'] ?? $meta['item_id'] ?? ''));
+            if ($itemId !== '' && !isset($assetsByKey[$assetType . ':' . $itemId])) {
+                $assetsByKey[$assetType . ':' . $itemId] = $asset;
+            }
+        }
+        $hydrate = static function (array $items, string $assetType) use ($assetsByKey): array {
+            foreach ($items as $index => $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $asset = $assetsByKey[$assetType . ':' . (string)($item['id'] ?? '')] ?? null;
+                if (!$asset) {
+                    continue;
+                }
+                $url = (string)($asset['url'] ?? $asset['image_url'] ?? $asset['uri'] ?? '');
+                $uri = (string)($asset['uri'] ?? $asset['url'] ?? $asset['image_url'] ?? '');
+                if (empty($item['image']) && $url !== '') {
+                    $item['image'] = $url;
+                }
+                if (empty($item['raw_image']) && $uri !== '') {
+                    $item['raw_image'] = $uri;
+                }
+                $items[$index] = $item;
+            }
+            return $items;
+        };
+        $subjects = $hydrate((array)($result['subjects'] ?? []), 'subject_image');
+        $locations = $hydrate((array)($result['locations'] ?? $result['scenes'] ?? []), 'scene_image');
+        $result['subjects'] = $subjects;
+        $result['locations'] = $locations;
+        $result['scenes'] = $locations;
+        $taskData['result'] = $result;
+        return $taskData;
     }
 
     private static function scriptPlanStreamState(string $streamContent, string $providerRequestId = '', string $error = ''): array
@@ -3603,6 +3806,95 @@ class AigcShortDramaService
         ];
     }
 
+    /**
+     * Infer a single, explicitly named local revision target from the user's message.
+     * A revision without a clear target stays model-guided rather than guessing which
+     * part of the script the user intended to change.
+     */
+    private static function inferRevisionTargetFromMessage(string $message, array $plan): array
+    {
+        $message = trim($message);
+        if ($message === '') {
+            return [];
+        }
+
+        $shotTarget = ShortDramaRevisionScope::shotTarget($message, $plan);
+        if ($shotTarget) return $shotTarget;
+        // Mentioning a speaker is not an instruction to change their character definition.
+        if (preg_match('/台词|对白|说的话|运镜|构图|景别|分镜|镜头/u', $message)) return [];
+
+        $candidates = [];
+        foreach (['subject' => (array)($plan['subjects'] ?? []), 'location' => (array)($plan['locations'] ?? $plan['scenes'] ?? [])] as $type => $items) {
+            foreach ($items as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $id = trim((string)($item['id'] ?? ''));
+                $name = trim((string)($item['name'] ?? $item['title'] ?? ''));
+                if ($id === '' || $name === '' || mb_strpos($message, $name, 0, 'UTF-8') === false) {
+                    continue;
+                }
+                $candidates[$type . ':' . $id] = ['type' => $type, 'id' => $id];
+            }
+        }
+
+        if (count($candidates) === 1) {
+            $candidate = reset($candidates);
+            return self::normalizeRevisionTarget([
+                'target_type' => (string)$candidate['type'],
+                'target_id' => (string)$candidate['id'],
+            ], $plan);
+        }
+
+        $sceneItems = array_values(array_filter((array)($plan['locations'] ?? $plan['scenes'] ?? []), 'is_array'));
+        if (count($sceneItems) === 1 && preg_match('/(?:场景|地点|场地|环境)/u', $message) === 1) {
+            $sceneId = trim((string)($sceneItems[0]['id'] ?? ''));
+            if ($sceneId !== '') {
+                return self::normalizeRevisionTarget([
+                    'target_type' => 'location',
+                    'target_id' => $sceneId,
+                ], $plan);
+            }
+        }
+
+        $subjectItems = array_values(array_filter((array)($plan['subjects'] ?? []), 'is_array'));
+        if (count($subjectItems) === 1 && preg_match('/(?:主体|角色|人物|主角)/u', $message) === 1) {
+            $subjectId = trim((string)($subjectItems[0]['id'] ?? ''));
+            if ($subjectId !== '') {
+                return self::normalizeRevisionTarget([
+                    'target_type' => 'subject',
+                    'target_id' => $subjectId,
+                ], $plan);
+            }
+        }
+
+        return [];
+    }
+
+    /** A user can explicitly promote a revision from local editing to full replanning. */
+    private static function isFullPlanRevisionRequest(string $message): bool
+    {
+        // A quoted line or a negated rewrite must not expand a local edit to the whole episode.
+        $message = preg_replace('/“[^”]*”|「[^」]*」|"[^"]*"/u', '', $message);
+        $message = preg_replace('/(?:不要|不用|不需要|无需|别)[^，。；\n]*(?:重写|重做|重新规划|调整)/u', '', $message);
+        if (preg_match('/第\s*[0-9一二两三四五六七八九十百]+\s*(?:个)?\s*(?:分镜|镜头)|(?:分镜|镜头)\s*[0-9一二两三四五六七八九十百]+/u', $message)
+            && !preg_match('/(?:重写|重做|重新规划)\s*(?:本集剧本|本集|这一集|整集|整个剧本)(?:[，。；\s]|$)|(?:本集|这一集|整集|全剧|整部)(?:剧本)?\s*(?:整体|全部)?\s*(?:重写|重做|重新规划)/u', $message)) {
+            return false;
+        }
+        return preg_match('/(?:全部|整体|全剧|整部|重新规划|重写(?:剧本|大纲)?|重做(?:剧本|大纲)?|改(?:为|成)|调整(?:为|成)|变更(?:为|成)|扩展(?:为|到)|缩减(?:为|到))\s*\d+\s*集/u', $message) === 1
+            || preg_match('/(?:全部|整体|全剧|整部|整集).{0,8}(?:重写|重做|重新规划|调整)/u', $message) === 1
+            || preg_match('/(?:重写|重做|重新规划)\s*(?:本集(?:剧本|剧情|正文)?|这一集|整集|整个剧本|全部剧情|剧本|大纲)(?:[，。；！!?？\s]|$)/u', $message) === 1;
+    }
+
+    /** Extract only an explicit "change to N episodes" request, never an incidental episode mention. */
+    private static function revisionEpisodeCountFromMessage(string $message): int
+    {
+        if (preg_match('/(?:改(?:为|成)|调整(?:为|成)|变更(?:为|成)|扩展(?:为|到)|缩减(?:为|到))\s*(\d{1,3})\s*集/u', $message, $matches) !== 1) {
+            return 0;
+        }
+        return min(self::SCRIPT_MAX_EPISODES, max(1, (int)($matches[1] ?? 0)));
+    }
+
     private static function protectRevisionTargetResult(array $result, array $request): array
     {
         $target = is_array($request['revision_target'] ?? null) ? (array)$request['revision_target'] : [];
@@ -3613,6 +3905,9 @@ class AigcShortDramaService
             return $result;
         }
 
+        if ($type === 'shot_fields') {
+            return ShortDramaRevisionScope::mergeShots(self::stripPlanRuntimeFields($base), $result, $target);
+        }
         $merged = self::stripPlanRuntimeFields(self::enhancePlanResult($base));
         $result = self::enhancePlanResult($result);
         if ($type === 'subject') {
@@ -3626,6 +3921,11 @@ class AigcShortDramaService
                 $locations = self::replacePlanItemById((array)($merged['locations'] ?? $merged['scenes'] ?? []), $id, $item);
                 $merged['locations'] = $locations;
                 $merged['scenes'] = $locations;
+                $merged['storyboard'] = self::replacePlanSceneStoryboardById(
+                    (array)($merged['storyboard'] ?? []),
+                    (array)($result['storyboard'] ?? []),
+                    $id
+                );
             }
         } elseif ($type === 'shot') {
             $shot = self::planShotById((array)($result['storyboard'] ?? []), $id);
@@ -3654,6 +3954,34 @@ class AigcShortDramaService
             'protected' => true,
         ];
         return $merged;
+    }
+
+    /** Keep shots outside a locally revised scene byte-for-byte on the baseline. */
+    private static function replacePlanSceneStoryboardById(array $baseStoryboard, array $revisedStoryboard, string $sceneId): array
+    {
+        $revisedByShotId = [];
+        foreach ($revisedStoryboard as $shot) {
+            if (!is_array($shot)) {
+                continue;
+            }
+            $shotId = trim((string)($shot['shot_id'] ?? $shot['id'] ?? ''));
+            $shotSceneId = trim((string)($shot['scene_ref_id'] ?? $shot['scene_ref'] ?? $shot['location_id'] ?? ''));
+            if ($shotId !== '' && $shotSceneId === $sceneId) {
+                $revisedByShotId[$shotId] = $shot;
+            }
+        }
+        foreach ($baseStoryboard as $index => $shot) {
+            if (!is_array($shot)) {
+                continue;
+            }
+            $shotId = trim((string)($shot['shot_id'] ?? $shot['id'] ?? ''));
+            $shotSceneId = trim((string)($shot['scene_ref_id'] ?? $shot['scene_ref'] ?? $shot['location_id'] ?? ''));
+            if ($shotSceneId !== $sceneId || $shotId === '' || empty($revisedByShotId[$shotId])) {
+                continue;
+            }
+            $baseStoryboard[$index] = array_merge($shot, $revisedByShotId[$shotId], ['shot_id' => (string)($shot['shot_id'] ?? $shotId)]);
+        }
+        return array_values($baseStoryboard);
     }
 
     private static function replacePlanItemById(array $items, string $id, array $replacement): array
@@ -3755,7 +4083,8 @@ class AigcShortDramaService
             $request['multi_episode'] = $episodeSettings['multi_episode'];
             $request['episode_count'] = $episodeSettings['episode_count'];
         }
-        if (ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id'])) {
+        $isEpisodeProduction = (bool)ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id']);
+        if ($isEpisodeProduction) {
             $request['multi_episode'] = false;
             $request['episode_count'] = 1;
             $request['multi_episode_stage'] = self::MULTI_EPISODE_STAGE_PRODUCTION;
@@ -3776,6 +4105,22 @@ class AigcShortDramaService
         if (array_key_exists('subject_mentions', $params)) {
             $request['subject_mentions'] = array_values(array_filter((array)$params['subject_mentions']));
         }
+        $fullPlanRevision = !$advanceStage && self::isFullPlanRevisionRequest($message);
+        $requestedEpisodeCount = !$advanceStage ? self::revisionEpisodeCountFromMessage($message) : 0;
+        if (!$isEpisodeProduction && $requestedEpisodeCount > 0) {
+            $request['multi_episode'] = $requestedEpisodeCount > 1;
+            $request['episode_count'] = $requestedEpisodeCount;
+            $request['multi_episode_stage'] = $requestedEpisodeCount > 1
+                ? self::MULTI_EPISODE_STAGE_OUTLINE
+                : self::MULTI_EPISODE_STAGE_PRODUCTION;
+            if ($requestedEpisodeCount > 1) {
+                $request['episode_workflow'] = 'outline_queue';
+            } else {
+                unset($request['episode_workflow']);
+            }
+            $currentStage = (string)$request['multi_episode_stage'];
+            $fullPlanRevision = true;
+        }
         $config = self::publicConfig($tenantId);
         $selectedModels = self::resolveSelectedModels($tenantId, $request, $config);
         if (empty($request['storyboard_rules']) || !is_array($request['storyboard_rules'])) {
@@ -3784,25 +4129,32 @@ class AigcShortDramaService
         $newTaskId = self::makeTaskId('sd_plan_revision');
         $agentRunId = self::makeTaskId('sd_agent_revision');
         $time = time();
-        $revisionBaseResult = [
-            'series_bible' => (array)($previousResult['series_bible'] ?? []),
-            'title' => (string)($previousResult['title'] ?? ''),
-            'multi_episode_stage' => $currentStage,
-            'type_judgement' => (string)($previousResult['type_judgement'] ?? ''),
-            'core_theme' => (string)($previousResult['core_theme'] ?? ''),
-            'story_outline' => (string)($previousResult['story_outline'] ?? ''),
-            'script_lines' => array_slice((array)($previousResult['script_lines'] ?? []), 0, 30),
-            'episodes' => array_slice((array)($previousResult['episodes'] ?? []), 0, self::SCRIPT_MAX_EPISODES),
-            'music_plan' => is_array($previousResult['music_plan'] ?? null) ? $previousResult['music_plan'] : [],
-            'art_style' => is_array($previousResult['art_style'] ?? null) ? $previousResult['art_style'] : [],
-            'subjects' => array_slice((array)($previousResult['subjects'] ?? []), 0, 50),
-            'locations' => array_slice((array)($previousResult['locations'] ?? $previousResult['scenes'] ?? []), 0, 50),
-            'storyboard' => array_slice((array)($previousResult['storyboard'] ?? []), 0, 80),
-        ];
-        $revisionTarget = self::normalizeRevisionTarget($params, $previousResult);
+        // The task keeps an immutable, complete source plan.  Do not rebuild this
+        // from display-sized slices: a local revision must be able to preserve every
+        // unmentioned subject, scene, episode and storyboard item.
+        $revisionBaseResult = self::stripPlanRuntimeFields($previousResult);
+        $revisionBaseResult['multi_episode_stage'] = $currentStage;
+        $revisionTarget = $fullPlanRevision ? [] : self::normalizeRevisionTarget($params, $previousResult);
+        if (!$fullPlanRevision && empty($revisionTarget)) {
+            $revisionTarget = self::inferRevisionTargetFromMessage($message, $previousResult);
+        }
+        if ($isEpisodeProduction && !$fullPlanRevision && !$revisionTarget) {
+            throw new Exception('请说明要修改的分镜编号、主体或场景，例如“修改第3个分镜的台词”；如需整集调整，请注明“重写本集剧本”');
+        }
         $request['revision_message'] = $message;
         $request['revision_base_task_id'] = $taskId;
         $request['revision_base_result'] = $revisionBaseResult;
+        $request['revision_policy'] = [
+            'mode' => $fullPlanRevision ? 'full_replan' : 'local_only',
+            'preserve_unmentioned' => !$fullPlanRevision,
+            'base_task_id' => $taskId,
+            'rule' => $fullPlanRevision
+                ? 'The user explicitly requested a whole-plan change. Replan every affected outline, episode and storyboard item while preserving requirements that are not contradicted.'
+                : 'Apply only the requested change. Keep every unmentioned section, order, identifier and production setting from the source plan unchanged.',
+        ];
+        // A previous revision may have carried a target; it must not leak into
+        // this new request, especially when the user now asks for a full replan.
+        unset($request['revision_target']);
         if (!empty($revisionTarget)) {
             $request['revision_target'] = $revisionTarget;
         }
@@ -4380,6 +4732,212 @@ class AigcShortDramaService
         @rmdir($dir);
     }
 
+    /**
+     * A multi-episode production uses isolated child projects. Carry visual
+     * references forward only when the current episode already contains the
+     * same subject or location, so batch generation is reserved for new items.
+     */
+    private static function reuseEpisodeVisualAssetsForProject(int $tenantId, int $userId, int $projectId): void
+    {
+        $episode = ShortDramaEpisodeService::context($tenantId, $userId, $projectId);
+        $episodeNumber = (int)($episode['episode_number'] ?? 0);
+        if (!$episode || $episodeNumber <= 1) {
+            return;
+        }
+
+        $plan = self::currentProjectPlanRaw($tenantId, $userId, $projectId);
+        $desired = [];
+        $collect = static function (string $assetType, array $items) use (&$desired): void {
+            $isScene = $assetType === 'scene_image';
+            foreach ($items as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $id = trim((string)($item['id'] ?? ''));
+                $name = trim((string)($item['name'] ?? $item['title'] ?? ''));
+                $existingImage = trim((string)($assetType === 'three_view'
+                    ? ($item['three_view_raw_image'] ?? $item['three_view_image'] ?? '')
+                    : ($item['raw_image'] ?? $item['image'] ?? $item['image_url'] ?? '')));
+                if (($id === '' && $name === '') || $existingImage !== '') {
+                    continue;
+                }
+                $desired[$assetType][] = [
+                    'id' => $id,
+                    'name' => $name,
+                    'is_scene' => $isScene,
+                ];
+            }
+        };
+        $collect('subject_image', (array)($plan['subjects'] ?? []));
+        $collect('three_view', (array)($plan['subjects'] ?? []));
+        $collect('scene_image', (array)($plan['locations'] ?? $plan['scenes'] ?? []));
+        if (!$desired) {
+            return;
+        }
+
+        $previousEpisodes = Db::name('aigc_short_drama_episode_task')->where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'project_id' => (int)$episode['project_id'],
+            'delete_time' => 0,
+            'completed_once' => 1,
+        ])->where('episode_number', '<', $episodeNumber)
+            ->where('production_project_id', '>', 0)
+            ->order('episode_number', 'desc')
+            ->select()->toArray();
+        if (!$previousEpisodes) {
+            return;
+        }
+
+        $sourceProjectIds = array_values(array_filter(array_map(static fn(array $row): int => (int)($row['production_project_id'] ?? 0), $previousEpisodes)));
+        if (!$sourceProjectIds) {
+            return;
+        }
+        $sourceRank = [];
+        foreach ($previousEpisodes as $index => $row) {
+            $sourceRank[(int)$row['production_project_id']] = $index;
+        }
+        $sourceAssets = AigcShortDramaAsset::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'delete_time' => 0,
+            'status' => 'ready',
+        ])->whereIn('project_id', $sourceProjectIds)
+            ->whereIn('asset_type', ['subject_image', 'three_view', 'scene_image'])
+            ->select()->toArray();
+        if (!$sourceAssets) {
+            return;
+        }
+        $sourceTaskMetaByTaskId = [];
+        $sourceTasks = Db::name('aigc_short_drama_generation_task')->where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'delete_time' => 0,
+        ])->whereIn('project_id', $sourceProjectIds)
+            ->whereIn('task_type', ['subject_image', 'three_view', 'scene_image'])
+            ->select()->toArray();
+        foreach ($sourceTasks as $sourceTask) {
+            $sourceTaskId = trim((string)($sourceTask['task_id'] ?? ''));
+            if ($sourceTaskId === '') {
+                continue;
+            }
+            $request = self::jsonDecode((string)($sourceTask['request_json'] ?? ''));
+            $params = is_array($request['params'] ?? null) ? (array)$request['params'] : [];
+            $meta = [];
+            foreach (['item_id', 'item_name', 'subject_id', 'subject_name', 'scene_id', 'scene_name'] as $key) {
+                $value = trim((string)($params[$key] ?? $request[$key] ?? ''));
+                if ($value !== '') {
+                    $meta[$key] = $value;
+                }
+            }
+            if ($meta) {
+                $sourceTaskMetaByTaskId[$sourceTaskId] = $meta;
+            }
+        }
+        usort($sourceAssets, static function (array $left, array $right) use ($sourceRank): int {
+            $leftRank = $sourceRank[(int)($left['project_id'] ?? 0)] ?? PHP_INT_MAX;
+            $rightRank = $sourceRank[(int)($right['project_id'] ?? 0)] ?? PHP_INT_MAX;
+            if ($leftRank !== $rightRank) {
+                return $leftRank <=> $rightRank;
+            }
+            return (int)($right['id'] ?? 0) <=> (int)($left['id'] ?? 0);
+        });
+
+        $targetTaskId = (string)(self::findProject($tenantId, $userId, $projectId)['last_task_id'] ?? '');
+        Db::transaction(function () use ($tenantId, $userId, $projectId, $episode, $episodeNumber, $desired, $sourceAssets, $sourceTaskMetaByTaskId, $targetTaskId): void {
+            $targetAssets = AigcShortDramaAsset::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'project_id' => $projectId,
+                'delete_time' => 0,
+                'status' => 'ready',
+            ])->whereIn('asset_type', ['subject_image', 'three_view', 'scene_image'])->lock(true)->select()->toArray();
+
+            foreach ($desired as $assetType => $items) {
+                foreach ($items as $target) {
+                    $reusedSourceAssetIds = [];
+                    foreach ($targetAssets as $asset) {
+                        if ((string)($asset['asset_type'] ?? '') !== $assetType) {
+                            continue;
+                        }
+                        $meta = self::jsonDecode((string)($asset['meta_json'] ?? ''));
+                        if (!self::episodeVisualAssetMatchesTarget($assetType, $meta, $target)) {
+                            continue;
+                        }
+                        $sourceAssetId = (int)($meta['reused_from_asset_id'] ?? 0);
+                        if ($sourceAssetId > 0) {
+                            $reusedSourceAssetIds[$sourceAssetId] = true;
+                        }
+                    }
+
+                    foreach ($sourceAssets as $source) {
+                        if ((string)($source['asset_type'] ?? '') !== $assetType) {
+                            continue;
+                        }
+                        $sourceMeta = array_replace(
+                            $sourceTaskMetaByTaskId[(string)($source['task_id'] ?? '')] ?? [],
+                            self::jsonDecode((string)($source['meta_json'] ?? ''))
+                        );
+                        if (!self::episodeVisualAssetMatchesTarget($assetType, $sourceMeta, $target)) {
+                            continue;
+                        }
+                        $sourceAssetId = (int)($source['id'] ?? 0);
+                        if ($sourceAssetId > 0 && isset($reusedSourceAssetIds[$sourceAssetId])) {
+                            continue;
+                        }
+                        $copy = $source;
+                        unset($copy['id']);
+                        $copy['project_id'] = $projectId;
+                        $copy['task_id'] = $targetTaskId;
+                        $copy['shot_id'] = '';
+                        $copy['episode_id'] = (int)$episode['id'];
+                        $copy['episode_number'] = $episodeNumber;
+                        $copy['status'] = 'ready';
+                        $copy['create_time'] = time();
+                        $copy['update_time'] = time();
+                        $copy['delete_time'] = 0;
+                        $idKey = $target['is_scene'] ? 'scene_id' : 'subject_id';
+                        $nameKey = $target['is_scene'] ? 'scene_name' : 'subject_name';
+                        $sourceMeta['item_id'] = (string)$target['id'];
+                        $sourceMeta[$idKey] = (string)$target['id'];
+                        $sourceMeta['item_name'] = (string)$target['name'];
+                        $sourceMeta[$nameKey] = (string)$target['name'];
+                        $sourceMeta['source_task_id'] = $targetTaskId;
+                        $sourceMeta['project_task_id'] = $targetTaskId;
+                        $sourceMeta['series_reuse'] = true;
+                        $sourceMeta['reused_from_asset_id'] = (int)($source['id'] ?? 0);
+                        $sourceMeta['reused_from_episode_number'] = (int)($source['episode_number'] ?? 0);
+                        $copy['meta_json'] = self::jsonEncode($sourceMeta);
+                        $created = AigcShortDramaAsset::create($copy);
+                        $targetAssets[] = $created->toArray();
+                        if ($sourceAssetId > 0) {
+                            $reusedSourceAssetIds[$sourceAssetId] = true;
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    private static function episodeVisualAssetMatchesTarget(string $assetType, array $meta, array $target): bool
+    {
+        $isScene = $assetType === 'scene_image';
+        $id = trim((string)($meta[$isScene ? 'scene_id' : 'subject_id'] ?? $meta['item_id'] ?? ''));
+        $targetId = trim((string)($target['id'] ?? ''));
+        if ($targetId !== '' && $id === $targetId) {
+            return true;
+        }
+        $name = self::episodeVisualAssetName((string)($meta[$isScene ? 'scene_name' : 'subject_name'] ?? $meta['item_name'] ?? ''));
+        $targetName = self::episodeVisualAssetName((string)($target['name'] ?? ''));
+        return $targetName !== '' && $name === $targetName;
+    }
+
+    private static function episodeVisualAssetName(string $value): string
+    {
+        $value = mb_strtolower(trim($value), 'UTF-8');
+        return preg_replace('/\\s+/u', '', $value) ?: '';
+    }
+
     public static function assetLists(int $tenantId, int $userId, array $params = []): array
     {
         $projectId = (int)($params['project_id'] ?? 0);
@@ -4387,6 +4945,9 @@ class AigcShortDramaService
         $assetType = (string)($params['asset_type'] ?? '');
         if ($projectId > 0) {
             self::findProject($tenantId, $userId, $projectId);
+            if (in_array($assetType, ['', 'subject_image', 'scene_image', 'three_view'], true)) {
+                self::reuseEpisodeVisualAssetsForProject($tenantId, $userId, $projectId);
+            }
             return self::sanitizeUtf8Payload([
                 'lists' => self::projectAssets($tenantId, $userId, $projectId, $assetType, $sourceTaskId),
             ]);
@@ -7878,6 +8439,11 @@ class AigcShortDramaService
         $params['selected_scene_ids'] = $selectedSceneIds;
         $params['selected_mentions'] = $selectedMentions;
         $params['mention_prompts'] = $mentionPrompts;
+        $durationMode = strtolower(trim((string)($params['duration_mode'] ?? $nested['duration_mode'] ?? 'smart')));
+        $params['duration_mode'] = $durationMode === 'manual' ? 'manual' : 'smart';
+        $audioValue = $params['generate_audio'] ?? $nested['generate_audio'] ?? false;
+        $params['generate_audio'] = filter_var($audioValue, FILTER_VALIDATE_BOOLEAN);
+        $params['requested_duration'] = max(0, (int)($params['requested_duration'] ?? $nested['requested_duration'] ?? 0));
 
         if (isset($params['params']) && is_array($params['params'])) {
             $params['params']['input_asset_ids'] = $inputAssetIds;
@@ -7886,6 +8452,9 @@ class AigcShortDramaService
             $params['params']['selected_scene_ids'] = $selectedSceneIds;
             $params['params']['selected_mentions'] = $selectedMentions;
             $params['params']['mention_prompts'] = $mentionPrompts;
+            $params['params']['duration_mode'] = $params['duration_mode'];
+            $params['params']['generate_audio'] = $params['generate_audio'];
+            $params['params']['requested_duration'] = $params['requested_duration'];
         }
         return self::sanitizeUtf8Payload($params);
     }
@@ -9082,6 +9651,7 @@ class AigcShortDramaService
             'ratio' => $ratio,
             'duration' => self::promptTemplateValue($duration),
         ]);
+        $prompt = self::mergeShortDramaMentionPromptContext($prompt, $params);
         $noSubjectShot = $taskType === 'shot_image' && self::isNoSubjectShot(self::mergeShotReferenceContext($shot, $params));
         $sceneParams = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
         $sceneForNegative = self::planItemById((array)($plan['scenes'] ?? $plan['locations'] ?? []), (string)($params['scene_id'] ?? $sceneParams['scene_id'] ?? $params['item_id'] ?? $sceneParams['item_id'] ?? ''));
@@ -9103,6 +9673,54 @@ class AigcShortDramaService
             $imageParams['quality'] = $quality;
         }
         return $imageParams;
+    }
+
+    /**
+     * Keeps the semantic setting of @主体/@场景 alongside its reference image.
+     * The @name prefix is intentionally retained so ReferenceMentionPromptService
+     * can map it to the matching provider reference placeholder.
+     */
+    private static function mergeShortDramaMentionPromptContext(string $prompt, array $params): string
+    {
+        $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
+        $mentions = array_merge(
+            is_array($params['selected_mentions'] ?? null) ? (array)$params['selected_mentions'] : [],
+            is_array($nested['selected_mentions'] ?? null) ? (array)$nested['selected_mentions'] : []
+        );
+        $lines = [];
+        $seen = [];
+        foreach ($mentions as $mention) {
+            if (!is_array($mention)) {
+                continue;
+            }
+            $name = trim((string)($mention['name'] ?? ''));
+            $detail = self::cleanPromptRatioText((string)($mention['prompt'] ?? $mention['description'] ?? ''));
+            if ($detail === '') {
+                continue;
+            }
+            $line = ($name !== '' ? '@' . $name . '：' : '') . $detail;
+            if (isset($seen[$line])) {
+                continue;
+            }
+            $seen[$line] = true;
+            $seen[$detail] = true;
+            $lines[] = $line;
+        }
+        foreach (array_merge(
+            self::normalizeStringList($params['mention_prompts'] ?? []),
+            self::normalizeStringList($nested['mention_prompts'] ?? [])
+        ) as $detail) {
+            $detail = self::cleanPromptRatioText($detail);
+            if ($detail === '' || isset($seen[$detail])) {
+                continue;
+            }
+            $seen[$detail] = true;
+            $lines[] = $detail;
+        }
+        if ($lines === []) {
+            return $prompt;
+        }
+        return trim($prompt . "\n参考主体与场景设定：\n" . implode("\n", $lines));
     }
 
     private static function buildSubjectImagePrompt(array $shot, array $params, array $plan): string
@@ -11662,6 +12280,12 @@ class AigcShortDramaService
             $result['duration'] = $duration;
             $result['duration_seconds'] = $duration;
         }
+        if ($kind === 'video') {
+            $result['duration_mode'] = strtolower((string)($data['duration_mode'] ?? '')) === 'manual' ? 'manual' : 'smart';
+            if (array_key_exists('generate_audio', $data)) {
+                $result['generate_audio'] = filter_var($data['generate_audio'], FILTER_VALIDATE_BOOLEAN);
+            }
+        }
         return $result;
     }
 
@@ -11749,6 +12373,8 @@ class AigcShortDramaService
             'resolution' => $params['resolution'] ?? $params['quality'] ?? '',
             'quality' => $params['quality'] ?? $params['resolution'] ?? '',
             'duration' => $params['duration'] ?? 0,
+            'duration_mode' => $params['duration_mode'] ?? 'smart',
+            'generate_audio' => $params['generate_audio'] ?? false,
             'ratio' => $ratio,
         ];
         $incoming = ['ratio' => $ratio];
@@ -11968,10 +12594,21 @@ class AigcShortDramaService
 
     private static function formatGenerationTask(array $row, bool $detail = false): array
     {
+        $request = self::localizeGenerationTaskPayload(self::jsonDecode((string)($row['request_json'] ?? '')));
+        $requestParams = (array)($request['params'] ?? []);
+        $subjectId = (string)($requestParams['subject_id'] ?? $request['subject_id'] ?? '');
+        $sceneId = (string)($requestParams['scene_id'] ?? $request['scene_id'] ?? '');
+        $itemId = (string)($requestParams['item_id'] ?? $request['item_id'] ?? '');
+        if ($itemId === '') {
+            $itemId = $subjectId !== '' ? $subjectId : $sceneId;
+        }
         $data = [
             'id' => (int)$row['id'],
             'project_id' => (int)$row['project_id'],
             'shot_id' => (string)($row['shot_id'] ?? ''),
+            'item_id' => $itemId,
+            'subject_id' => $subjectId,
+            'scene_id' => $sceneId,
             'task_id' => (string)$row['task_id'],
             'parent_task_id' => (string)$row['parent_task_id'],
             'source_task_id' => (string)$row['source_task_id'],
@@ -11999,7 +12636,7 @@ class AigcShortDramaService
         ];
         if ($detail) {
             $data['model'] = self::jsonDecode((string)($row['model_json'] ?? ''));
-            $data['request'] = self::localizeGenerationTaskPayload(self::jsonDecode((string)($row['request_json'] ?? '')));
+            $data['request'] = $request;
             $data['result'] = self::localizeGenerationTaskPayload(self::jsonDecode((string)($row['result_json'] ?? '')));
             $data['pricing'] = self::jsonDecode((string)($row['pricing_snapshot'] ?? ''));
             $data['input_assets'] = self::generationTaskInputAssets($row);
@@ -12926,13 +13563,29 @@ class AigcShortDramaService
     private static function prepareMarketShortDramaVideoParams(int $tenantId, array $params, array $shot): array
     {
         $selection = self::marketVideoSelection($params);
-        $requestedDuration = (int)($params['duration'] ?? $shot['recommended_duration_seconds'] ?? 5);
+        $durationMode = strtolower((string)($params['duration_mode'] ?? 'smart')) === 'manual' ? 'manual' : 'smart';
+        $smartRequestedDuration = (int)($params['requested_duration'] ?? 0);
+        if ($smartRequestedDuration <= 0) {
+            $smartRequestedDuration = (int)($shot['duration'] ?? $shot['duration_seconds'] ?? $shot['recommended_duration_seconds'] ?? $params['duration'] ?? 5);
+        }
+        $requestedDuration = $durationMode === 'smart'
+            ? $smartRequestedDuration
+            : (int)($params['duration'] ?? $params['requested_duration'] ?? 5);
+        $requestedDuration = max(1, min(60, $requestedDuration));
         $runtime = self::marketVideoRuntime($selection);
-        $params['duration'] = max(1, min(60, $runtime::effectiveDuration($tenantId, $selection, $requestedDuration)));
+        $normalized = $runtime::normalizeDurationSelection($tenantId, $selection, $requestedDuration);
+        $params = array_merge($params, $normalized);
+        $params['duration_mode'] = $durationMode;
+        $params['requested_duration'] = $requestedDuration;
         $params['model_id'] = (string)($selection['model_id'] ?? $selection['channel'] ?? '');
         $params['video_model_id'] = $params['model_id'];
         $params['resolution'] = (string)($selection['resolution'] ?? $selection['quality'] ?? '');
         $params['quality'] = $params['resolution'];
+        if (is_array($params['params'] ?? null)) {
+            foreach (['duration', 'requested_duration', 'duration_mode', 'generate_audio', 'market_product_id', 'market_sku_id', 'sku_id', 'model_id', 'video_model_id', 'resolution', 'quality'] as $key) {
+                $params['params'][$key] = $params[$key] ?? null;
+            }
+        }
         return $params;
     }
 
@@ -12969,6 +13622,16 @@ class AigcShortDramaService
         $referenceLimit = self::marketVideoReferenceLimit($capabilities);
         $firstFrameId = (int)($params['first_frame_asset_id'] ?? $nested['first_frame_asset_id'] ?? 0);
         $lastFrameId = (int)($params['last_frame_asset_id'] ?? $nested['last_frame_asset_id'] ?? 0);
+        if ($lastFrameId > 0 && (
+            !in_array('start_end', $modes, true)
+            || empty($capabilities['supports_first_last_frame'])
+            || $referenceLimit < 2
+        )) {
+            // A tail frame is model-specific optional state. When the user
+            // switches to a model without start/end support, retain it in the
+            // client but safely generate with the available first-frame mode.
+            $lastFrameId = 0;
+        }
         if ($firstFrameId <= 0) {
             $latest = self::latestShotImageAsset($tenantId, $userId, $projectId, (string)($shot['shot_id'] ?? $params['shot_id'] ?? ''));
             $firstFrameId = (int)($latest['id'] ?? 0);
@@ -12992,13 +13655,6 @@ class AigcShortDramaService
             }
             if ((string)($assetMap[$firstFrameId]['url'] ?? '') === (string)($assetMap[$lastFrameId]['url'] ?? '')) {
                 throw new Exception('首帧和尾帧必须使用不同图片');
-            }
-            if (
-                !in_array('start_end', $modes, true)
-                || empty($capabilities['supports_first_last_frame'])
-                || $referenceLimit < 2
-            ) {
-                throw new Exception('当前视频模型不支持首尾帧生成');
             }
             return self::shortDramaVideoReferenceContractPayload(
                 'start_end',
@@ -13201,6 +13857,7 @@ class AigcShortDramaService
             'ratio' => $ratio,
             'duration' => self::promptTemplateValue($params['duration'] ?? 0),
         ]);
+        $prompt = self::mergeShortDramaMentionPromptContext($prompt, $params);
         return ReferenceMentionPromptService::compile([
             'prompt' => $prompt,
             'negative_prompt' => self::shotVideoNegativePrompt($shot, self::isNoSubjectShot($shot)),
@@ -13278,6 +13935,7 @@ class AigcShortDramaService
                 'default_quality' => (string)($summary['default_quality'] ?? ''),
                 'quality_options' => (array)($summary['quality_options'] ?? []),
                 'resolution_options' => (array)($summary['resolution_options'] ?? []),
+                'skus' => $type === 'image' ? (array)($summary['skus'] ?? []) : [],
                 'default_ratio' => (string)($summary['default_ratio'] ?? ''),
                 'ratio_options' => (array)($summary['ratio_options'] ?? []),
                 'max_reference_images' => max(0, (int)($channel['max_reference_images'] ?? 0)),
@@ -13304,6 +13962,7 @@ class AigcShortDramaService
         $specs = [];
         $resolutionOptions = [];
         $qualityOptions = [];
+        $skus = [];
         foreach ((array)($channel['qualities'] ?? []) as $quality) {
             if (!is_array($quality)) {
                 continue;
@@ -13320,8 +13979,18 @@ class AigcShortDramaService
                     $qualityRatios[] = $ratioValue;
                 }
                 $specs[] = $ratio;
+                if ($qualityValue !== '' && $ratioValue !== '') {
+                    $skus[] = [
+                        'market_sku_id' => (int)($ratio['market_sku_id'] ?? $ratio['sku_id'] ?? 0),
+                        'quality' => $qualityValue,
+                        'resolution' => $qualityValue,
+                        'ratio' => $ratioValue,
+                        'platform_unit_cost' => self::formatPrice((float)($ratio['platform_unit_cost'] ?? 0)),
+                        'tenant_unit_price' => self::formatPrice((float)($ratio['tenant_unit_price'] ?? $ratio['platform_unit_cost'] ?? 0)),
+                    ];
+                }
             }
-            if ($qualityValue !== '' && !in_array($qualityValue, $qualityOptions, true)) {
+            if ($qualityValue !== '' && $qualityRatios !== [] && !in_array($qualityValue, $qualityOptions, true)) {
                 $qualityOptions[] = $qualityValue;
                 $resolutionLabel = self::shortDramaResolutionLabel(
                     (string)($quality['resolution'] ?? '') ?: ($qualityLabel !== '' ? $qualityLabel : $qualityValue)
@@ -13354,6 +14023,7 @@ class AigcShortDramaService
             'default_quality' => (string)($resolutionOptions[0]['value'] ?? $qualityOptions[0] ?? $specs[0]['quality'] ?? ''),
             'quality_options' => $qualityOptions,
             'resolution_options' => $resolutionOptions,
+            'skus' => $skus,
             'default_ratio' => (string)($specs[0]['value'] ?? $specs[0]['ratio'] ?? ''),
             'ratio_options' => $ratioOptions,
             'description' => $count > 0
@@ -13953,6 +14623,11 @@ class AigcShortDramaService
         $rawContent = trim((string)($llmResult['content'] ?? ''));
         $payload = self::decodeLlmJsonObject($rawContent);
         $payload = self::mergeRevisionBasePlanPayload($payload, $request);
+        if (($request['revision_target']['type'] ?? '') === 'shot_fields') {
+            // The baseline is already a complete saved script. Re-expanding it would rewrite untouched prompts.
+            return ['result' => self::protectRevisionTargetResult($payload, $request),
+                'llm' => $llmResult, 'repair_llm' => [], 'provider' => (string)($model['provider'] ?? ''), 'raw_content' => $rawContent];
+        }
         $result = self::reviewAndRepairPlanResult(self::enhancePlanResult(self::normalizeGeneratedPlanResult($payload, $prompt, $request, $title)));
         if (!empty($request['revision_target']) && is_array($request['revision_target'])) {
             $result = self::reviewAndRepairPlanResult(self::enhancePlanResult(self::protectRevisionTargetResult($result, $request)));
@@ -13983,6 +14658,13 @@ class AigcShortDramaService
             }
         }
 
+        // Normalization and quality repair may regenerate fields; enforce the accepted scope last.
+        if (!empty($request['revision_target'])) {
+            $result = self::protectRevisionTargetResult(
+                ($request['revision_target']['type'] ?? '') === 'shot_fields' ? $payload : $result,
+                $request
+            );
+        }
         return [
             'result' => $result,
             'llm' => $llmResult,
@@ -14359,6 +15041,8 @@ class AigcShortDramaService
             'title_hint' => $title,
             'user_prompt' => $prompt,
             'revision_message' => (string)($request['revision_message'] ?? ''),
+            'revision_target' => (array)($request['revision_target'] ?? []),
+            'revision_policy' => (array)($request['revision_policy'] ?? []),
             'series_context' => (array)($request['series_context'] ?? []),
             'revision_base_result' => is_array($request['revision_base_result'] ?? null)
                 ? $request['revision_base_result']
@@ -14488,7 +15172,19 @@ class AigcShortDramaService
                 ? "For stage 1, storyboard must be an empty array.\n"
                 : "For stage 2, storyboard must be an empty array and all episode items must remain outline-only.\n");
 
+        if (($request['revision_target']['type'] ?? '') === 'shot_fields') {
+            return "Edit the existing Chinese episode, using revision_base_result as the authoritative source.\n"
+                . "Return a JSON object with storyboard containing ONLY the selected shot IDs in revision_target.ids. Keep these IDs exactly. "
+                . "For each selected shot include shot_id and every field in revision_target.fields; an empty fields list means return the complete changed shot. "
+                . "Follow revision_message precisely. Preserve each listed field that the user did not ask to change. Empty dialogue means no speech. "
+                . "Do not change characters, scenes, unrelated shots, shot order or any other fields. Long image/video prompts are allowed when they are the requested fields. "
+                . "Do not add commentary or markdown. Context: " . self::jsonEncode($context);
+        }
+        $revisionContract = !empty($request['revision_message'])
+            ? "Revision: revision_base_result is authoritative. Apply revision_message within revision_target and revision_policy. For local_only copy all unmentioned fields and IDs unchanged. For full_replan replan this episode according to the user's requirements; the previous current_episode outline is background and must not override the explicit revision. Never rewrite other episodes.\n"
+            : '';
         return "Create a complete Chinese short-drama story plan from the context.\n"
+            . $revisionContract
             . (!empty($request['series_context']) ? "This is ONE episode of the confirmed series. Follow series_context.current_episode and all global character/location references, preserve previous continuity summaries, and write ONLY this episode's complete script and storyboard. Never retell other episodes or resolve future conflicts early.\n" : '')
             . "Return one valid JSON object only. No markdown, explanations, or code fences.\n"
             . "This is a compact semantic contract. Do not output long image prompts, video prompts, negative prompts, or repeated field explanations; the application expands production details after validation.\n"
@@ -14510,6 +15206,9 @@ class AigcShortDramaService
             : [];
         if ($base === []) {
             return $payload;
+        }
+        if (($request['revision_target']['type'] ?? '') === 'shot_fields') {
+            return ShortDramaRevisionScope::mergeShots($base, $payload, $request['revision_target']);
         }
         foreach (['title', 'type_judgement', 'core_theme', 'story_outline', 'script_lines', 'series_bible', 'art_style', 'subjects', 'locations', 'scenes', 'episodes', 'storyboard', 'music_plan'] as $key) {
             if (!array_key_exists($key, $payload) || $payload[$key] === '' || $payload[$key] === [] || $payload[$key] === null) {
@@ -14680,6 +15379,7 @@ class AigcShortDramaService
             'revision_base_task_id' => (string)($request['revision_base_task_id'] ?? ''),
             'revision_base_result' => is_array($request['revision_base_result'] ?? null) ? $request['revision_base_result'] : [],
             'revision_target' => is_array($request['revision_target'] ?? null) ? $request['revision_target'] : [],
+            'revision_policy' => is_array($request['revision_policy'] ?? null) ? $request['revision_policy'] : [],
         ];
         $schema = [
             'title' => '短剧标题，简体中',
@@ -14805,7 +15505,7 @@ class AigcShortDramaService
             . "23. If selected_duration_hint or user_text_duration_hint is not empty, treat it as an approximate pacing target, not an exact stopwatch value: storyboard total should usually land within about 90%-110% of the target unless story logic clearly needs a slight deviation. Choose shot count from plot density and scene coverage; do not hard-code a fixed number of storyboard items just to hit the target. Otherwise use the default short-drama pacing.\n"
             . "24. music_plan.global_bgm_prompt is required. It must be a complete Chinese prompt for generating one full-film instrumental BGM track. It must include style, mood curve, tempo, instruments, atmosphere, duration target, and negative constraints. No lyrics or human voice unless the user explicitly asks.\n"
             . "25. Every storyboard item must include non-empty Chinese bgm_prompt and sound_effect. bgm_prompt should describe this shot's musical emotion while staying consistent with music_plan.global_bgm_prompt.\n"
-            . "26. Revision mode: if revision_message is not empty, use revision_base_result as the previous complete script version and regenerate a new full script plan by applying revision_message. Preserve all unaffected plot, subjects, scenes, style locks, music plan, and storyboard logic from revision_base_result. Only change the parts requested by revision_message, but still return a complete new JSON object with all fields, not a diff, not a partial patch, and not an explanation. If revision_target is provided, only modify that target and directly related consistency fields; keep unrelated subjects, locations, storyboard order, story outline, and prompts unchanged.\n"
+            . "26. Revision mode: if revision_message is not empty, revision_base_result is the authoritative complete script version. Read revision_policy before editing. When revision_policy.mode is local_only, apply the smallest possible change needed for revision_message; copy every unmentioned value, order, identifier, episode, subject, location, music setting and storyboard item unchanged. Do not rewrite, expand, summarize, rename or reorder other content. When revision_policy.mode is full_replan, the user explicitly requested a whole-plan change (for example a new episode count): regenerate every affected story outline, episode summary and storyboard item so the result is internally consistent, while retaining requirements not contradicted by the user. Return a complete new JSON object, not a diff, partial patch or explanation. If revision_target is provided, modify only that target and storyboard items directly tied to it; all other fields must remain unchanged.\n"
             . "27. Before returning, silently self-check: original key elements preserved, script content is a complete beginning-to-ending plot, locations are chronologically ordered, storyboard is grouped under ordered scenes with no duplicate act title for the same scene_ref_id, each location has enough concrete shots, each shot has one visible visual task, no complex action is packed into one shot, no abstract placeholder visual_description, important emotion/reversal is split into multiple shots, no fixed 8-shot default is used, subjects extracted, selected/user style respected, and AI video production executable.\n"
             . "28. Return one JSON object only. Do not return Markdown, code fences, explanations, or analysis process.\n"
             . "Context: " . self::jsonEncode($context) . "\n"
@@ -18477,19 +19177,16 @@ PROMPT;
             'user_id' => (int)$task['user_id'],
             'id' => (int)$task['project_id'],
             'delete_time' => 0,
-        ])->field('title,ratio,multi_episode,episode_count,generation_settings_json')->findOrEmpty();
-        if (!$project->isEmpty()) {
+        ])->field('title,ratio,multi_episode,episode_count,generation_settings_json,last_task_id')->findOrEmpty();
+        $isCurrentProjectTask = !$project->isEmpty() && (string)$project['last_task_id'] === (string)$task['task_id'];
+        if ($isCurrentProjectTask && !array_key_exists('episode_count', $request) && !array_key_exists('episode_count', $storedResult)) {
             $request = self::hydrateEpisodeSettingsFromProject($request, $project->toArray());
         }
         $projectTitle = $project->isEmpty() ? '' : (string)($project['title'] ?? '');
         $projectRatio = $project->isEmpty() ? '' : (string)($project['ratio'] ?? '');
-        $requestEpisodeSettings = self::normalizeEpisodeSettings($request);
-        $projectMultiEpisode = $project->isEmpty()
-            ? $requestEpisodeSettings['multi_episode']
-            : (int)($project['multi_episode'] ?? 0) === 1;
-        $projectEpisodeCount = $projectMultiEpisode
-            ? min(self::SCRIPT_MAX_EPISODES, max(2, (int)($project->isEmpty() ? $requestEpisodeSettings['episode_count'] : ($project['episode_count'] ?? 3))))
-            : 1;
+        $requestEpisodeSettings = self::normalizeEpisodeSettings(array_merge($request, array_intersect_key($storedResult, array_flip(['multi_episode', 'episode_count']))));
+        $projectMultiEpisode = $requestEpisodeSettings['multi_episode'];
+        $projectEpisodeCount = $requestEpisodeSettings['episode_count'];
         $projectGenerationSettings = $project->isEmpty() ? [] : self::projectGenerationSettingsFromRow($project->toArray());
         if (empty($projectGenerationSettings['image'] ?? []) && !empty($request)) {
             $requestSelections = is_array($request['model_selections'] ?? null) ? (array)$request['model_selections'] : [];
@@ -18513,7 +19210,7 @@ PROMPT;
                 (string)$task['task_id'],
                 $result
             );
-            if ($projectTitle !== '') {
+            if ($projectTitle !== '' && $isCurrentProjectTask) {
                 $result['title'] = $projectTitle;
             }
         }
@@ -18538,6 +19235,7 @@ PROMPT;
             'steps' => self::taskSteps((string)$task['status']),
             'workflow_steps' => self::workflowSteps((string)$task['status'], (array)($result['review_report'] ?? [])),
             'prompt' => (string)($task['prompt'] ?? ''),
+            'revision_message' => (string)($request['revision_message'] ?? ''),
             'ratio' => $projectRatio !== '' ? $projectRatio : (string)($request['ratio'] ?? ''),
             'result' => $result,
             'stream_content' => $streamContent,
@@ -18800,6 +19498,7 @@ PROMPT;
             'cover_asset_id' => (int)$cover['asset_id'],
             'status' => $status,
             'status_label' => self::projectStatusLabel($status),
+            'created_at' => self::timeText($row['create_time'] ?? 0),
             'updated_at' => self::timeText($row['update_time'] ?? 0),
             'ratio' => (string)$row['ratio'],
             'multi_episode' => (int)($row['multi_episode'] ?? 0) === 1,
@@ -18817,6 +19516,14 @@ PROMPT;
     private static function formatInspiration(array $row, bool $detail = false): array
     {
         $config = self::jsonDecode((string)($row['config_json'] ?? ''));
+        $sourceType = ($config['source_type'] ?? '') === 'video' ? 'video' : 'template';
+        $mediaUrl = static function (string $key) use ($row, $config): string {
+            $uri = (string)($row[$key] ?? '');
+            if ($uri === '') return '';
+            $storage = $config[$key . '_storage'] ?? [];
+            return $storage ? FileService::getFileUrlByStorage($uri, (string)($storage['storage_scope'] ?? ''),
+                (string)($storage['storage_engine'] ?? ''), (string)($storage['storage_domain'] ?? '')) : self::fileUrl($uri);
+        };
         $author = self::jsonDecode((string)($row['author_json'] ?? ''));
         if (!empty($author['avatar'])) {
             $author['avatar'] = self::fileUrl((string)$author['avatar']);
@@ -18824,9 +19531,12 @@ PROMPT;
         $data = [
             'id' => (int)$row['id'],
             'title' => (string)$row['title'],
-            'video_url' => self::fileUrl((string)$row['video_url']),
-            'video' => self::fileUrl((string)$row['video_url']),
-            'cover_url' => self::fileUrl((string)$row['cover_url']),
+            'video_url' => $mediaUrl('video_url'),
+            'video' => $mediaUrl('video_url'),
+            'cover_url' => $mediaUrl('cover_url'),
+            'source_type' => $sourceType,
+            'description' => (string)($config['description'] ?? ''),
+            'allow_generate_same' => filter_var($config['allow_generate_same'] ?? ($sourceType === 'template'), FILTER_VALIDATE_BOOLEAN),
             'width' => (int)$row['width'],
             'height' => (int)$row['height'],
             'duration' => (float)$row['duration'],
@@ -19604,7 +20314,9 @@ PROMPT;
 
     private static function formatAdminInspiration(array $row): array
     {
-        $data = self::formatInspiration($row, false);
+        $data = self::formatInspiration($row, true);
+        $data['raw_cover_url'] = (string)$row['cover_url'];
+        $data['raw_video_url'] = (string)$row['video_url'];
         $data['tenant_id'] = (int)$row['tenant_id'];
         $data['status'] = (int)$row['status'];
         $data['sort'] = (int)$row['sort'];
