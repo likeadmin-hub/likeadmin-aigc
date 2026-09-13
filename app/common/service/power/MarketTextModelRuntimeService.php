@@ -345,6 +345,7 @@ class MarketTextModelRuntimeService
                 'protocol' => self::protocol((string)($meta['protocol'] ?? ''), $protocols, (string)$product['upstream_model_code']),
                 'protocols' => $protocols,
                 'max_tokens' => max(0, (int)($meta['max_tokens'] ?? 0)),
+                'context_window' => max(0, (int)($meta['context_window'] ?? $meta['max_context_tokens'] ?? 0)),
                 'default_params' => self::arrayValue($meta['default_params'] ?? []),
                 'params_schema' => self::arrayValue($meta['params_schema'] ?? []),
                 'capabilities' => self::arrayValue($meta['capabilities'] ?? []),

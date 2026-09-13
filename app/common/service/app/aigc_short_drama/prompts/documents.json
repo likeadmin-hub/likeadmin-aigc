@@ -1,0 +1,315 @@
+{
+  "version": 1,
+  "groups": {
+    "script": "剧本创作",
+    "subject": "主体创作",
+    "scene": "场景创作",
+    "storyboard": "分镜创作",
+    "auxiliary": "辅助创作"
+  },
+  "conditions": {
+    "always": "全部任务",
+    "single": "单集剧本",
+    "multi": "多集剧本",
+    "story": "多集故事设定",
+    "episodes": "多集大纲",
+    "production": "正文与分镜",
+    "revision": "修改剧本",
+    "repair": "自动质检修复",
+    "repair_under": "质检发现分镜数量不足",
+    "character": "人物主体",
+    "prop": "物品主体",
+    "empty": "空镜",
+    "has_subject": "有人物的镜头",
+    "multi_subject": "多个主体",
+    "first_character": "人物镜头有首帧",
+    "first_empty": "空镜有首帧",
+    "last": "有尾帧",
+    "missing": "内容缺失时",
+    "missing_character": "人物描述缺失时",
+    "missing_prop": "物品描述缺失时",
+    "missing_subject": "人物镜头描述缺失时",
+    "missing_empty": "空镜描述缺失时"
+  },
+  "extra_defaults": {
+    "pc_three_character": {
+      "document": "subject_views",
+      "condition": "character",
+      "text": "基于主体主图生成角色三视图，保持身份、五官、发型、服装和比例一致，输出正面、侧面、背面，干净背景。"
+    },
+    "pc_three_prop": {
+      "document": "subject_views",
+      "condition": "prop",
+      "text": "基于主体主图生成物体三视图，保持材质、结构、颜色和比例一致，输出正面、侧面、背面，干净背景。"
+    },
+    "music_instruments": {
+      "document": "music",
+      "condition": "missing",
+      "text": "钢琴、低频弦乐、轻打击乐、氛围合成"
+    },
+    "timeline_image": {
+      "document": "shot_image",
+      "condition": "missing",
+      "text": "保持主体和场景统一，无文字水印"
+    },
+    "script_plot": {
+      "document": "script",
+      "condition": "single",
+      "text": "story_outline and script_lines must be a complete beginning-to-ending plot summary, not shot text. script_lines must contain only story prose; never include act titles, scene headers, storyboard titles, type labels, core-theme labels, or role lists."
+    },
+    "image_planning": {
+      "document": "storyboard",
+      "condition": "single",
+      "text": "storyboard.image_prompt is a Chinese image generation instruction, not a planning explanation, and must not contain English prompt words. It must describe only visible content in the current bound scene, include only visible subject_ref_ids, avoid off-screen characters or props, and use one core visible action per prompt. Never write planning phrases such as “本镜头、推动剧情、情绪升级、视觉任务、下一拍、分镜、镜头编号、参考已提供” in image_prompt."
+    },
+    "video_planning": {
+      "document": "storyboard",
+      "condition": "single",
+      "text": "storyboard.video_prompt is not the final provider prompt; it is the frontend director note only. It must keep the exact six labels, describe only the current single shot, mention only visible subject_ref_ids, and never use planning phrases such as “情绪升级、推动剧情、视觉任务、本镜头、下一拍、做出反应、生成视频片段”. Empty shots must have no character action in 画面内容 and 声音 must clearly say no one speaks."
+    },
+    "multi_arc": {
+      "document": "script",
+      "condition": "multi",
+      "text": "The requested episode count is a hard contract. First create a compact series_bible containing the complete series arc, theme, continuity rules, stable character and location references, and the episode-level story direction. Then split that arc into exactly that many numbered episodes. Every episode must have its own setup, conflict escalation, turn, and ending beat. Every episode except the final one must end with a concrete hook that creates a clear reason to watch the next episode; the final episode must resolve the main conflict."
+    },
+    "multi_production": {
+      "document": "storyboard",
+      "condition": "production",
+      "text": "Each episode is a production unit, not a summary. For every episode return a complete story_outline and script_lines, the subjects used in that episode, and an ordered scenes array. Every scene must include a concrete setting, subject_ref_ids, and a shots array. Every episode must contain at least four executable shots covering its opening, escalation, turn, and ending beat. Every shot must include episode_number, scene_ref_id, subject_ref_ids, visible action, composition, camera movement, dialogue, and recommended_duration_seconds. The nested episode scenes and shots are the source of truth; a top-level storyboard array may mirror them only for legacy clients."
+    }
+  },
+  "documents": {
+    "script": {
+      "group": "script",
+      "label": "剧本策划与改写",
+      "used_at": "灵感生成剧本、修改剧本、生成多集故事与大纲",
+      "help": "剧情不完整、叙事节奏或人物塑造不符合预期时调整。主体和场景提取与剧本共用一次请求。",
+      "stage": "script",
+      "sections": {
+        "single": [
+          "script.role",
+          "script.preservation",
+          "script.style",
+          "script.single_extra"
+        ],
+        "multi": [
+          "script.multi_role",
+          "script.multi_continuity"
+        ],
+        "always": [
+          "subject_planning_prompt",
+          "scene_planning_prompt"
+        ],
+        "story": [
+          "script.story_extra"
+        ],
+        "episodes": [
+          "script.episodes_extra"
+        ],
+        "production": [
+          "script.production_extra"
+        ],
+        "revision": [
+          "script.revision_extra"
+        ],
+        "repair": [
+          "repair.preserve"
+        ]
+      }
+    },
+    "storyboard": {
+      "group": "script",
+      "label": "分镜编排与画面描述",
+      "used_at": "剧本生成／修改中的分镜拆分及自动修复",
+      "help": "调整怎么拆镜头、怎样描述可见动作、构图和运镜；不是修改 JSON 字段或实际时长参数。",
+      "stage": "script",
+      "sections": {
+        "always": [
+          "script.visible_action",
+          "script.shot_granularity",
+          "storyboard_planning_prompt"
+        ],
+        "missing": [
+          "fill.bgm",
+          "fill.sound",
+          "fill.composition",
+          "fill.camera",
+          "fill.timeline_result",
+          "fill.timeline_atmosphere",
+          "fill.timeline_music",
+          "fill.timeline_sound"
+        ],
+        "repair_under": [
+          "repair.expansion"
+        ]
+      }
+    },
+    "subject_image": {
+      "group": "subject",
+      "label": "主体参考图",
+      "used_at": "主体页生成／重新生成参考图，含批量生成",
+      "help": "人物经常被裁切、外观和构图不符合预期时调整；物品要求按主体类别自动使用。",
+      "stage": "subject_image",
+      "sections": {
+        "character": [
+          "subject.character",
+          "negative.character"
+        ],
+        "prop": [
+          "subject.prop",
+          "negative.prop"
+        ],
+        "missing_character": [
+          "fill.subject_character"
+        ],
+        "missing_prop": [
+          "fill.subject_prop"
+        ]
+      }
+    },
+    "subject_views": {
+      "group": "subject",
+      "label": "三视图／多角度图",
+      "used_at": "主体页生成人物三视图或物品多角度图",
+      "help": "调整视角、排列、背景及外观一致性；参考素材绑定由系统保护。",
+      "stage": "three_view",
+      "sections": {
+        "character": [
+          "subject.three_view",
+          "negative.three_view"
+        ],
+        "prop": [
+          "subject.multi_angle",
+          "negative.prop"
+        ],
+        "missing_character": [
+          "fill.subject_three_view"
+        ],
+        "missing_prop": [
+          "fill.subject_multi_angle"
+        ]
+      }
+    },
+    "scene_image": {
+      "group": "scene",
+      "label": "场景参考图",
+      "used_at": "场景页生成／重新生成场景图片，含批量生成",
+      "help": "调整环境构图、空间、光线与氛围，不改变用户选择的场景资料。",
+      "stage": "scene_image",
+      "sections": {
+        "always": [
+          "scene.image",
+          "negative.scene"
+        ],
+        "missing": [
+          "fill.scene_image",
+          "fill.scene_negative"
+        ]
+      }
+    },
+    "shot_image": {
+      "group": "storyboard",
+      "label": "分镜图片",
+      "used_at": "分镜页生成图片，含单次和批量生成",
+      "help": "调整镜头构图、主体关系、场景融合和视觉一致性；系统自动判断空镜。",
+      "stage": "shot_image",
+      "sections": {
+        "has_subject": [
+          "shot.image",
+          "negative.shot_image"
+        ],
+        "empty": [
+          "shot.empty_image",
+          "negative.empty_image"
+        ]
+      }
+    },
+    "shot_video": {
+      "group": "storyboard",
+      "label": "分镜视频",
+      "used_at": "分镜页转视频／生成视频，含单次和批量生成",
+      "help": "调整动作、运镜、运动节奏与衔接；文字要求不能改变模型音频能力或计费。",
+      "stage": "shot_video",
+      "sections": {
+        "has_subject": [
+          "video.consistency"
+        ],
+        "empty": [
+          "video.empty_consistency",
+          "negative.empty_video"
+        ],
+        "multi_subject": [
+          "video.multi_subject"
+        ],
+        "first_character": [
+          "video.first_frame"
+        ],
+        "first_empty": [
+          "video.empty_first_frame"
+        ],
+        "last": [
+          "video.last_frame"
+        ],
+        "missing": [
+          "fill.video_composition",
+          "fill.video_camera",
+          "fill.video_sound"
+        ],
+        "missing_subject": [
+          "fill.video_content"
+        ],
+        "missing_empty": [
+          "fill.empty_video_content"
+        ],
+        "character": [
+          "negative.video"
+        ]
+      }
+    },
+    "vision_subject": {
+      "group": "auxiliary",
+      "label": "图片提取主体描述",
+      "used_at": "上传参考图片后，由视觉模型提取主体描述",
+      "help": "调整人物或物品识别时应关注的细节，影响后续生成所使用的描述。",
+      "stage": "vision_subject",
+      "sections": {
+        "always": [
+          "vision.subject",
+          "vision.person_detail",
+          "vision.prop_detail",
+          "vision.no_invention"
+        ]
+      }
+    },
+    "vision_scene": {
+      "group": "auxiliary",
+      "label": "图片提取场景描述",
+      "used_at": "上传参考图片后，由视觉模型提取场景描述",
+      "help": "调整环境识别重点，影响后续场景描述；不会直接修改已生成图片。",
+      "stage": "vision_scene",
+      "sections": {
+        "always": [
+          "vision.scene"
+        ]
+      }
+    },
+    "music": {
+      "group": "auxiliary",
+      "label": "背景音乐生成",
+      "used_at": "分镜页的背景音乐生成",
+      "help": "调整音乐风格、情绪和避免事项；正文直接提交音乐模型，不提供无效的独立负面字段。",
+      "stage": "bgm_audio",
+      "sections": {
+        "always": [
+          "music.submit"
+        ],
+        "missing": [
+          "music.intro",
+          "music.mood",
+          "music.bpm",
+          "music.negative_inline"
+        ]
+      }
+    }
+  }
+}

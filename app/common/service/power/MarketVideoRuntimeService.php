@@ -155,6 +155,7 @@ class MarketVideoRuntimeService
                 'default_params' => self::arrayValue($metadata['default_params'] ?? []),
                 'content_schema' => self::arrayValue($metadata['content_schema'] ?? []),
                 'capabilities' => self::arrayValue($metadata['capabilities'] ?? []),
+                'supports_audio_generation' => self::supportsAudioGeneration($product, $metadata),
                 'developer_doc_slug' => (string)($metadata['developer_doc_slug'] ?? ''),
                 'api_doc' => (string)($metadata['api_doc'] ?? ''),
                 'supported_asset_types' => self::supportedAssetTypes($product, $metadata),
@@ -187,6 +188,14 @@ class MarketVideoRuntimeService
         $market = self::resolve($tenantId, $selection);
         $quantity = self::quantity($market, $selection);
         return self::quoteMarket($market, $quantity);
+    }
+
+    /** Whether the selected upstream contract explicitly accepts an audio-output switch. */
+    public static function supportsGenerateAudio(int $tenantId, array $selection): bool
+    {
+        $market = self::resolve($tenantId, $selection);
+        $product = (array)($market['product'] ?? []);
+        return self::supportsAudioGeneration($product, self::metadata($product));
     }
 
     /**
@@ -1248,6 +1257,20 @@ class MarketVideoRuntimeService
             }
         }
         return [];
+    }
+
+    private static function supportsAudioGeneration(array $product, array $metadata): bool
+    {
+        if (strtolower(trim((string)($product['upstream_app_code'] ?? $product['app_code'] ?? ''))) === 'seedance') {
+            return true;
+        }
+        $schema = self::arrayValue($metadata['params_schema'] ?? []);
+        foreach (['generate_audio', 'enable_audio', 'with_audio', 'audio_output'] as $key) {
+            if (self::schemaDeclaresParameter($schema, $key)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static function appPayload(array $snapshot, array $request, string $idempotency): array

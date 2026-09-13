@@ -1,0 +1,717 @@
+{
+  "version": 1,
+  "groups": {
+    "script": "剧本创作",
+    "subject": "主体生成",
+    "scene": "场景生成",
+    "storyboard": "分镜头创作",
+    "music": "背景音乐",
+    "general": "通用创作要求",
+    "repair": "自动补全与质检"
+  },
+  "items": {
+    "subject.character": {
+      "group": "subject",
+      "label": "人物参考图构图要求",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "正面单主体标准参考图，只生成一个角色，人物居中，完整保留头部、脸部、发型、服装和上半身或全身比例，角色身份清晰，可用于后续分镜保持一致。不要局部特写、半张脸、裁切脸部、拼贴、多宫格、海报、档案卡、说明文字、色卡、参数栏、额外人物",
+      "variables": [],
+      "source_method": "buildSubjectImagePrompt",
+      "used_at": "主体页 → 生成新主体图／重新生成主体图（人物）",
+      "trigger": "普通人物参考图生成时，与主体描述、当前输入和画风合并；不用于三视图。"
+    },
+    "subject.prop": {
+      "group": "subject",
+      "label": "物品参考图构图要求",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "单个物品主图，物品独立清晰摆放，材质、颜色、磨损痕迹和标志性细节可用于后续分镜保持一致。只生成一张统一参考图，不要拼贴、多宫格、海报、档案卡、说明文字、色卡、参数栏。不要出现人物、手、脸、身体、模特或穿戴效果",
+      "variables": [],
+      "source_method": "buildSubjectImagePrompt",
+      "used_at": "主体页 → 生成新主体图／重新生成主体图（物品）",
+      "trigger": "主体识别为物品且不是多角度图时，与物品资料和当前输入合并。"
+    },
+    "subject.three_view": {
+      "group": "subject",
+      "label": "人物三视图要求",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "在一张干净的角色三视图设定图中展示正面、侧面和背面，保持同一张脸、同一服装、同一体态比例",
+      "variables": [],
+      "source_method": "buildSubjectImagePrompt",
+      "used_at": "主体页 → 生成三视图（人物）",
+      "trigger": "人物三视图生成时，与主体资料、三视图提示词和画风合并。"
+    },
+    "subject.multi_angle": {
+      "group": "subject",
+      "label": "物品多角度图要求",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "在一张干净的物品三视图或多角度设定图中展示正面、侧面、背面、俯视或关键细节，保持同一个物品的材质、颜色、磨损痕迹、尺寸比例和标志性细节。只呈现物品本身，不出现人物、手、脸、身体、模特、穿戴效果",
+      "variables": [],
+      "source_method": "buildSubjectImagePrompt",
+      "used_at": "主体页 → 生成三视图／多角度图（物品）",
+      "trigger": "物品多角度生成时，与物品资料和当前输入合并。"
+    },
+    "scene.image": {
+      "group": "scene",
+      "label": "场景参考图要求",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "只生成环境建立图，可复用为场景参考，不要人物，不要角色，不要肖像，不要字幕",
+      "variables": [],
+      "source_method": "buildSceneImagePrompt",
+      "used_at": "场景页 → 生成场景图／重新生成",
+      "trigger": "生成场景参考图时，与场景描述、当前输入和画风合并。"
+    },
+    "shot.image": {
+      "group": "storyboard",
+      "label": "有人物的分镜图片要求",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "固定要求：保持角色身份、服装、道具、场景布局、光线和美术风格一致。画面清晰，无文字、水印、字幕",
+      "variables": [],
+      "source_method": "shotImageFixedPrompt",
+      "used_at": "分镜页 → 生成图片（有人物镜头）",
+      "trigger": "非空镜图片请求中，与当前分镜描述及素材引用要求合并。"
+    },
+    "shot.empty_image": {
+      "group": "storyboard",
+      "label": "空镜图片要求",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "固定要求：保持场景布局、光线和美术风格一致，画面中不要出现人物、角色、脸、身体、肖像。画面清晰，无文字、水印、字幕",
+      "variables": [],
+      "source_method": "shotImageFixedPrompt",
+      "used_at": "分镜页 → 生成图片（空镜）",
+      "trigger": "系统识别为空镜时使用；不添加人物分镜图片的同类默认要求。"
+    },
+    "video.first_frame": {
+      "group": "storyboard",
+      "label": "人物镜头首帧衔接",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "首帧约束：以当前首帧为开场，不改变人物脸、发型、服装、道具、构图、场景和光线",
+      "variables": [],
+      "source_method": "buildShotVideoPrompt",
+      "used_at": "分镜页 → 转视频／生成视频（人物首帧）",
+      "trigger": "人物镜头包含首帧时，用于约束开场画面；与视频正文合并。"
+    },
+    "video.empty_first_frame": {
+      "group": "storyboard",
+      "label": "空镜首帧衔接",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "首帧约束：以当前首帧为开场，不改变构图、场景、光线和色彩",
+      "variables": [],
+      "source_method": "buildShotVideoPrompt",
+      "used_at": "分镜页 → 转视频／生成视频（空镜首帧）",
+      "trigger": "空镜包含首帧时，用于约束开场环境；与视频正文合并。"
+    },
+    "video.last_frame": {
+      "group": "storyboard",
+      "label": "尾帧衔接",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "尾帧约束：自然过渡到尾帧目标画面",
+      "variables": [],
+      "source_method": "buildShotVideoPrompt",
+      "used_at": "分镜页 → 生成视频（设置尾帧）",
+      "trigger": "设置尾帧时，用于首尾画面的自然过渡；未设置尾帧时不使用。"
+    },
+    "video.consistency": {
+      "group": "storyboard",
+      "label": "分镜视频一致性要求",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "固定要求：保持人物身份、脸部、发型、服装、道具、场景、光线和美术风格一致，无新增角色，无字幕、无BGM背景音乐、无水印、无文字",
+      "variables": [],
+      "source_method": "buildTaggedSingleShotVideoPrompt",
+      "used_at": "分镜页 → 转视频／生成视频（人物镜头）",
+      "trigger": "非空镜视频生成时，与画面描述、运镜、引用绑定等规则合并。"
+    },
+    "video.empty_consistency": {
+      "group": "storyboard",
+      "label": "空镜视频要求",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "固定要求：保持场景、光线和美术风格一致，画面中不要出现人物、角色、脸、身体、肖像，无字幕、无BGM背景音乐、无水印、无文字",
+      "variables": [],
+      "source_method": "buildTaggedSingleShotVideoPrompt",
+      "used_at": "分镜页 → 转视频／生成视频（空镜）",
+      "trigger": "空镜视频生成时，与场景、运镜和首尾帧规则合并。"
+    },
+    "video.multi_subject": {
+      "group": "storyboard",
+      "label": "多主体视频要求",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": " 多主体规则：每个主体必须保持独立个体和清晰边界，不要融合、合体、附着、共享肢体、脸、服装、盔甲、尾巴或机械结构。",
+      "variables": [],
+      "source_method": "buildTaggedSingleShotVideoPrompt",
+      "used_at": "分镜页 → 生成视频（多个主体）",
+      "trigger": "视频中有多个主体时追加到一致性规则，约束主体间的独立性。"
+    },
+    "negative.character": {
+      "group": "subject",
+      "label": "人物默认负面提示词",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "低质量、模糊、脸部变形、五官漂移、年龄漂移、服装变化、多余手指、多余肢体、文字、水印、拼贴、多宫格、档案卡、说明文字、色卡、参数栏、局部特写、半张脸、裁切脸",
+      "variables": [],
+      "source_method": "subjectGenerationNegativePrompt",
+      "used_at": "主体页 → 生成人物参考图",
+      "trigger": "未明确提供负面提示词时采用的默认值；与主体资料中的负面要求按生成逻辑合并。"
+    },
+    "negative.prop": {
+      "group": "subject",
+      "label": "物品默认负面提示词",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "低质量、模糊、人物、人类、角色、手、脸、身体、肖像、模特、穿戴效果、文字、水印、拼贴、多宫格、档案卡、说明文字、色卡、参数栏",
+      "variables": [],
+      "source_method": "defaultSubjectNegativePrompt",
+      "used_at": "主体页 → 生成物品参考图／多角度图",
+      "trigger": "物品负面提示词缺失或仍为应用默认时使用；本次明确输入优先。"
+    },
+    "negative.scene": {
+      "group": "scene",
+      "label": "场景参考图默认负面提示词",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "低质量、模糊、人物、人类、角色、肖像、脸、身体、剪影、文字、水印、标志、拼贴、多宫格、说明文字、色卡、参数栏",
+      "variables": [],
+      "source_method": "sceneGenerationNegativePrompt",
+      "used_at": "场景页 → 生成场景图",
+      "trigger": "场景负面提示词缺失或仍为应用默认时使用；本次明确输入优先。"
+    },
+    "negative.video": {
+      "group": "storyboard",
+      "label": "人物视频默认负面提示词",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "低质量、模糊、闪烁、脸部漂移、服装变化、场景变化、多余角色、文字、水印",
+      "variables": [],
+      "source_method": "shotVideoNegativePrompt",
+      "used_at": "分镜页 → 生成人物视频",
+      "trigger": "人物视频负面提示词缺失或仍为应用默认时使用。"
+    },
+    "negative.empty_video": {
+      "group": "storyboard",
+      "label": "空镜视频默认负面提示词",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "低质量、模糊、闪烁、场景漂移、人物、人类、角色、脸、身体、肖像、文字、水印",
+      "variables": [],
+      "source_method": "shotVideoNegativePrompt",
+      "used_at": "分镜页 → 生成空镜视频",
+      "trigger": "空镜视频负面提示词缺失或仍为应用默认时使用。"
+    },
+    "music.intro": {
+      "group": "music",
+      "label": "背景音乐默认生成要求",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "生成一条适用于整部短剧的纯背景音乐，不要歌词，不要人声，不要对白采样",
+      "variables": [],
+      "source_method": "normalizeMusicPlan",
+      "used_at": "剧本生成后 → 自动补全背景音乐方案",
+      "trigger": "音乐方案缺少生成正文时使用，与情绪、速度、乐器、剧情和分镜信息合并；不是每次音乐生成都会追加。"
+    },
+    "music.mood": {
+      "group": "music",
+      "label": "未指定时的音乐情绪曲线",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "开场铺垫悬念，中段逐步紧张，结尾释放情绪",
+      "variables": [],
+      "source_method": "normalizeMusicPlan",
+      "used_at": "剧本生成后 → 背景音乐方案的情绪曲线",
+      "trigger": "音乐方案没有提供情绪曲线时补全；已有情绪曲线不覆盖。"
+    },
+    "music.bpm": {
+      "group": "music",
+      "label": "未指定时的音乐速度",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "80-96 BPM",
+      "variables": [],
+      "source_method": "normalizeMusicPlan",
+      "used_at": "剧本生成后 → 背景音乐方案的速度",
+      "trigger": "音乐方案没有提供速度时补全；已有速度不覆盖。"
+    },
+    "music.negative_inline": {
+      "group": "music",
+      "label": "音乐正文中的负面要求",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "负面要求：不要歌词，不要人声，不要版权旋律，不要突兀鼓点，不要压过对白",
+      "variables": [],
+      "source_method": "normalizeMusicPlan",
+      "used_at": "剧本生成后 → 补全音乐方案正文",
+      "trigger": "缺少音乐正文时拼入正文的负面要求，不是单独的模型负面参数。"
+    },
+    "music.negative": {
+      "group": "music",
+      "label": "音乐方案默认负面提示词",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "不要歌词，不要人声，不要版权旋律，不要突兀鼓点，不要压过对白",
+      "variables": [],
+      "source_method": "normalizeMusicPlan",
+      "used_at": "背景音乐方案 → 默认负面提示词字段",
+      "trigger": "音乐方案缺少负面字段时补全。该字段不会作为独立参数发送给音乐模型；要调整实际生成正文中的限制，请编辑「音乐正文中的负面要求」或「音乐生成补充要求」。"
+    },
+    "repair.preserve": {
+      "group": "repair",
+      "label": "质检修复的剧情保留要求",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "禁止改写故事主线、人物关系、关键场景和核心剧情；只修复质检问题",
+      "variables": [],
+      "source_method": "repairScriptPlanResultWithLlm",
+      "used_at": "剧本生成后 → LLM 自动质检修复",
+      "trigger": "系统判定内容需要 LLM 修复时使用，与原剧本、用户灵感和结构保护要求合并。"
+    },
+    "repair.expansion": {
+      "group": "repair",
+      "label": "分镜数量不足时的细拆要求",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "新增分镜只能细拆原有剧情、动作、反应、线索、转场和反转，不得增加新的故事主线、人物关系或结局",
+      "variables": [],
+      "source_method": "repairScriptPlanResultWithLlm",
+      "used_at": "剧本生成后 → LLM 自动质检修复",
+      "trigger": "质检修复请求中的分镜细拆要求；要求在原内容内部补细节，不是独立的加镜头按钮。"
+    },
+    "script.role": {
+      "group": "script",
+      "label": "策划角色与职责",
+      "description": "剧本策划系统消息中的实际规则；英文原文可直接改为中文。JSON 和引用格式由系统单独保护。",
+      "default": "You are a professional film short planning agent, script doctor, visual director, continuity supervisor, AI video storyboard planner, and background music planner. You are not a generic writing assistant.",
+      "variables": [],
+      "source_method": "scriptPlanSystemPrompt",
+      "used_at": "剧本页 → 单集剧本生成／修改",
+      "trigger": "单集策划系统消息中的创作规则，与用户输入和提取要求合并；不用于多集策划。"
+    },
+    "script.preservation": {
+      "group": "script",
+      "label": "原始灵感保留与分析",
+      "description": "剧本策划系统消息中的实际规则；英文原文可直接改为中文。JSON 和引用格式由系统单独保护。",
+      "default": "Preserve the user's original inspiration and all key characters, events, scenes, props, emotions, conflicts, reversals, ending, style requirements, and special imagery. Infer story type, emotional tone, conflict, relationships, key imagery, theme, and ending meaning, then transform them into a complete Chinese planning document usable for AI video creation.",
+      "variables": [],
+      "source_method": "scriptPlanSystemPrompt",
+      "used_at": "剧本页 → 单集剧本生成／修改",
+      "trigger": "单集策划系统消息中的创作规则，与用户输入和提取要求合并；不用于多集策划。"
+    },
+    "script.style": {
+      "group": "script",
+      "label": "画风转为视觉语言",
+      "description": "剧本策划系统消息中的实际规则；英文原文可直接改为中文。JSON 和引用格式由系统单独保护。",
+      "default": "Translate style names into concrete visual language: color, lighting, texture, composition, atmosphere, rhythm, and emotional tone.",
+      "variables": [],
+      "source_method": "scriptPlanSystemPrompt",
+      "used_at": "剧本页 → 单集剧本生成／修改",
+      "trigger": "单集策划系统消息中的创作规则，与用户输入和提取要求合并；不用于多集策划。"
+    },
+    "script.visible_action": {
+      "group": "script",
+      "label": "可拍摄画面描述要求",
+      "description": "剧本策划系统消息中的实际规则；英文原文可直接改为中文。JSON 和引用格式由系统单独保护。",
+      "default": "storyboard.visual_description must describe visible people, objects, actions, spatial relations, light, and atmosphere, never abstract planning phrases like “主要角色出现、情绪开始推进、角色完成一个单一动作、推动剧情”.",
+      "variables": [],
+      "source_method": "scriptPlanSystemPrompt",
+      "used_at": "剧本页 → 单集剧本生成／修改",
+      "trigger": "单集策划系统消息中的创作规则，与用户输入和提取要求合并；不用于多集策划。"
+    },
+    "script.shot_granularity": {
+      "group": "script",
+      "label": "分镜拆分创作要求",
+      "description": "剧本策划系统消息中的实际规则；英文原文可直接改为中文。JSON 和引用格式由系统单独保护。",
+      "default": "Split storyboard by AI video generation granularity, not literary paragraphs: every shot is 2-5 seconds and has exactly one clear visual task such as establishing space, showing a character, showing a prop, showing a reaction, pushing one action, creating suspense, intensifying emotion, revealing information, completing a transition, or presenting a reversal. Do not pack complex actions into one shot. Important emotions, reveals, climax, and reversals must be split into multiple consecutive shots. The storyboard must cover opening, development, conflict, turn, climax, and ending.",
+      "variables": [],
+      "source_method": "scriptPlanSystemPrompt",
+      "used_at": "剧本页 → 单集剧本生成／修改",
+      "trigger": "单集策划系统消息中的创作规则，与用户输入和提取要求合并；不用于多集策划。"
+    },
+    "script.multi_role": {
+      "group": "script",
+      "label": "多集策划角色",
+      "description": "剧本策划系统消息中的实际规则；英文原文可直接改为中文。JSON 和引用格式由系统单独保护。",
+      "default": "You are a professional Chinese serialized short-drama writer, story editor, and continuity supervisor.",
+      "variables": [],
+      "source_method": "multiEpisodeScriptPlanSystemPrompt",
+      "used_at": "多集剧本 → 故事设定／分集大纲／正文与分镜／修改",
+      "trigger": "多集策划系统消息中的创作规则，与当前阶段要求合并；不用于单集策划。"
+    },
+    "script.multi_continuity": {
+      "group": "script",
+      "label": "跨集剧情连续性",
+      "description": "剧本策划系统消息中的实际规则；英文原文可直接改为中文。JSON 和引用格式由系统单独保护。",
+      "default": "Keep characters, relationships, props, locations, timeline, motivations, and revealed clues consistent across episodes and aligned with series_bible. Do not restart the premise in each episode, duplicate the same event, merge episodes, skip episode numbers, or introduce unexplained continuity changes. When this is a batch of a longer series, treat the supplied series_bible and previous batch context as established facts, not optional suggestions.",
+      "variables": [],
+      "source_method": "multiEpisodeScriptPlanSystemPrompt",
+      "used_at": "多集剧本 → 故事设定／分集大纲／正文与分镜／修改",
+      "trigger": "多集策划系统消息中的创作规则，与当前阶段要求合并；不用于单集策划。"
+    },
+    "fill.bgm": {
+      "group": "repair",
+      "label": "缺少分镜音乐描述时",
+      "description": "仅在模型没有返回相应内容时自动补全；不是另一次模型调用。",
+      "default": "承接全片纯音乐氛围，突出本镜头的情绪变化",
+      "variables": [],
+      "source_method": "normalizeGeneratedStoryboard",
+      "used_at": "剧本生成后 → 补全分镜脚本字段",
+      "trigger": "仅在相应内容缺失、需要缺少分镜音乐描述时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.sound": {
+      "group": "repair",
+      "label": "缺少分镜音效描述时",
+      "description": "仅在模型没有返回相应内容时自动补全；不是另一次模型调用。",
+      "default": "根据画面动作加入轻微环境声和动作音效，保持自然不过度",
+      "variables": [],
+      "source_method": "normalizeGeneratedStoryboard",
+      "used_at": "剧本生成后 → 补全分镜脚本字段",
+      "trigger": "仅在相应内容缺失、需要缺少分镜音效描述时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.composition": {
+      "group": "repair",
+      "label": "缺少分镜构图时",
+      "description": "仅在模型没有返回相应内容时自动补全；不是另一次模型调用。",
+      "default": "主体与场景层次清晰，保持视觉重心稳定",
+      "variables": [],
+      "source_method": "normalizeGeneratedStoryboard",
+      "used_at": "剧本生成后 → 补全分镜脚本字段",
+      "trigger": "仅在相应内容缺失、需要缺少分镜构图时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.camera": {
+      "group": "repair",
+      "label": "缺少运镜描述时",
+      "description": "仅在模型没有返回相应内容时自动补全；不是另一次模型调用。",
+      "default": "固定镜头，主体动作自然变化",
+      "variables": [],
+      "source_method": "normalizeGeneratedStoryboard",
+      "used_at": "剧本生成后 → 补全分镜脚本字段",
+      "trigger": "仅在相应内容缺失、需要缺少运镜描述时采用；不独立调用模型，已有内容优先。"
+    },
+    "global_system_prompt": {
+      "group": "general",
+      "label": "通用创作要求",
+      "description": "用于剧本、参考图、分镜图片、视频、音乐及质检修复。默认不增加额外要求。",
+      "default": "",
+      "variables": [],
+      "source_method": "workspace",
+      "used_at": "剧本创作、主体／场景图、图片描述提取、分镜图片／视频、背景音乐、LLM 质检",
+      "trigger": "新版模式下合并到对应模型请求；不改变音频能力、计费、素材选择和实际时长参数。"
+    },
+    "subject_planning_prompt": {
+      "group": "script",
+      "label": "主体提取补充要求",
+      "description": "与剧本策划合并为同一次 LLM 请求，不会单独调用模型。",
+      "default": "",
+      "variables": [],
+      "source_method": "workspace",
+      "used_at": "剧本页 → 生成／修改剧本 → 提取主体列表",
+      "trigger": "合并到剧本策划的同一次 LLM 请求；不是主体图片生成提示词。"
+    },
+    "scene_planning_prompt": {
+      "group": "script",
+      "label": "场景提取补充要求",
+      "description": "与剧本策划合并为同一次 LLM 请求，不会单独调用模型。",
+      "default": "",
+      "variables": [],
+      "source_method": "workspace",
+      "used_at": "剧本页 → 生成／修改剧本 → 提取场景列表",
+      "trigger": "合并到剧本策划的同一次 LLM 请求；不是场景图片生成提示词。"
+    },
+    "storyboard_planning_prompt": {
+      "group": "script",
+      "label": "分镜规划补充要求",
+      "description": "与剧本策划合并为同一次 LLM 请求，不会单独调用模型。",
+      "default": "",
+      "variables": [],
+      "source_method": "workspace",
+      "used_at": "剧本页 → 生成／修改剧本 → 拆分分镜脚本",
+      "trigger": "合并到剧本策划的同一次 LLM 请求；不是分镜图片或视频生成提示词。"
+    },
+    "script.single_extra": {
+      "group": "script",
+      "label": "单集策划补充要求",
+      "description": "只影响单集剧本策划。",
+      "default": "",
+      "variables": [],
+      "source_method": "workspace",
+      "used_at": "剧本页 → 单集剧本生成／修改",
+      "trigger": "单集模式下追加到策划系统消息，与主体、场景、分镜提取要求合并。"
+    },
+    "script.story_extra": {
+      "group": "script",
+      "label": "多集第一步：故事设定",
+      "description": "只在生成系列故事设定时生效，不能改变本阶段输出字段。",
+      "default": "",
+      "variables": [],
+      "source_method": "workspace",
+      "used_at": "多集剧本 → 第一步：故事设定",
+      "trigger": "仅故事设定阶段使用，与多集策划规则和当前阶段输出格式合并。"
+    },
+    "script.episodes_extra": {
+      "group": "script",
+      "label": "多集第二步：分集大纲",
+      "description": "只在生成分集大纲时生效，不能改变集数。",
+      "default": "",
+      "variables": [],
+      "source_method": "workspace",
+      "used_at": "多集剧本 → 第二步：分集大纲",
+      "trigger": "仅分集大纲阶段使用，与多集策划规则和当前阶段输出格式合并。"
+    },
+    "script.production_extra": {
+      "group": "script",
+      "label": "多集第三步：正文与分镜",
+      "description": "只在生成多集正文与分镜时生效。",
+      "default": "",
+      "variables": [],
+      "source_method": "workspace",
+      "used_at": "多集剧本 → 第三步：正文与分镜",
+      "trigger": "仅生产正文、主体、场景及分镜阶段使用，包括分集／分批生成。"
+    },
+    "script.revision_extra": {
+      "group": "script",
+      "label": "按用户要求修改剧本",
+      "description": "只在用户提交剧本修改指令时使用；系统始终保护未选中的镜头和字段。",
+      "default": "",
+      "variables": [],
+      "source_method": "workspace",
+      "used_at": "剧本页 → 输入修改要求并提交",
+      "trigger": "携带用户修改指令时使用，与当前单集／多集规则合并；不允许覆盖未选中的镜头。"
+    },
+    "music.submit": {
+      "group": "music",
+      "label": "音乐生成补充要求",
+      "description": "作用于真正提交给音乐模型的正文，包括已有音乐方案。",
+      "default": "",
+      "variables": [],
+      "source_method": "workspace",
+      "used_at": "分镜页 → 背景音乐 → 生成音乐",
+      "trigger": "真正提交音乐模型时，与用户输入或已有音乐方案合并；已有方案也会应用本条。"
+    },
+    "vision.scene": {
+      "group": "scene",
+      "label": "从图片提取场景描述",
+      "description": "上传图片后使用视觉模型提取描述时生效。中文纯文本输出格式由系统保护。",
+      "default": "描述空间类型、关键物件、光线、氛围、材质和镜头构图。",
+      "variables": [],
+      "source_method": "describeSubjectImage",
+      "used_at": "场景页 → 上传参考图片后提取描述",
+      "trigger": "调用视觉模型分析场景图片时使用；输出描述后用于场景创作。"
+    },
+    "vision.subject": {
+      "group": "subject",
+      "label": "从图片提取主体描述",
+      "description": "上传图片后使用视觉模型提取描述时生效。中文纯文本输出格式由系统保护。",
+      "default": "描述主体外貌、发型、服装、姿态、气质、材质和可识别特征。",
+      "variables": [],
+      "source_method": "describeSubjectImage",
+      "used_at": "主体页 → 上传参考图片后提取描述",
+      "trigger": "调用视觉模型分析主体图片时使用；与人物／物品识别细节合并。"
+    },
+    "vision.person_detail": {
+      "group": "subject",
+      "label": "图片识别：人物细节",
+      "description": "上传图片后使用视觉模型提取描述时生效。中文纯文本输出格式由系统保护。",
+      "default": "如果主体是人物，请保留年龄段、性别气质、脸型、发型、服装和显著特征。",
+      "variables": [],
+      "source_method": "describeSubjectImage",
+      "used_at": "主体页 → 图片提取描述中的人物识别",
+      "trigger": "主体图片识别请求包含本条；要求模型根据图片中人物提取细节，不影响场景识别。"
+    },
+    "vision.prop_detail": {
+      "group": "subject",
+      "label": "图片识别：物品细节",
+      "description": "上传图片后使用视觉模型提取描述时生效。中文纯文本输出格式由系统保护。",
+      "default": "如果主体是物品或道具，请描述形状、材质、颜色、磨损、纹理和功能感。",
+      "variables": [],
+      "source_method": "describeSubjectImage",
+      "used_at": "主体页 → 图片提取描述中的物品识别",
+      "trigger": "主体图片识别请求包含本条；要求模型根据图片中物品提取细节，不影响场景识别。"
+    },
+    "vision.no_invention": {
+      "group": "subject",
+      "label": "图片识别：不要虚构信息",
+      "description": "上传图片后使用视觉模型提取描述时生效。中文纯文本输出格式由系统保护。",
+      "default": "不要编造图片中不存在的品牌、文字、水印或复杂背景。",
+      "variables": [],
+      "source_method": "describeSubjectImage",
+      "used_at": "主体页 → 上传图片后提取主体描述",
+      "trigger": "主体图片识别时与人物／物品细节要求合并；约束不虚构图片外信息。"
+    },
+    "fill.subject_prop": {
+      "group": "repair",
+      "label": "物品主图提示词补全",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "单个物品独立清晰展示，固定材质、颜色、形状、磨损痕迹、尺寸比例和标志性细节。不要出现人物、手、脸、身体、模特或穿戴效果",
+      "variables": [],
+      "source_method": "enhancePlanResult",
+      "used_at": "剧本生成后 → 补全主体创作资料",
+      "trigger": "仅在相应内容缺失、需要物品主图提示词补全时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.subject_character": {
+      "group": "repair",
+      "label": "人物主图提示词补全",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "单个角色居中清晰展示，固定脸型、发型、服装、体态、年龄感和气质，可用于后续分镜保持一致",
+      "variables": [],
+      "source_method": "enhancePlanResult",
+      "used_at": "剧本生成后 → 补全主体创作资料",
+      "trigger": "仅在相应内容缺失、需要人物主图提示词补全时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.subject_multi_angle": {
+      "group": "repair",
+      "label": "物品多角度提示词补全",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "展示同一个物品的正面、侧面、背面、俯视或关键细节，保持材质、颜色、形状和磨损一致。只呈现物品本身，不出现人物、手、脸、身体、模特或穿戴效果",
+      "variables": [],
+      "source_method": "enhancePlanResult",
+      "used_at": "剧本生成后 → 补全主体创作资料",
+      "trigger": "仅在相应内容缺失、需要物品多角度提示词补全时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.subject_three_view": {
+      "group": "repair",
+      "label": "人物三视图提示词补全",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "展示同一个角色的正面、侧面和背面，保持同一张脸、同一发型、同一服装、同一体态比例和气质",
+      "variables": [],
+      "source_method": "enhancePlanResult",
+      "used_at": "剧本生成后 → 补全主体创作资料",
+      "trigger": "仅在相应内容缺失、需要人物三视图提示词补全时采用；不独立调用模型，已有内容优先。"
+    },
+    "negative.three_view": {
+      "group": "subject",
+      "label": "人物三视图默认负面提示词",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "低质量、模糊、换脸、换装、年龄漂移、比例错误、多余手指、多余肢体、文字、水印、拼贴、档案卡、色卡、参数栏",
+      "variables": [],
+      "source_method": "enhancePlanResult",
+      "used_at": "主体页 → 生成人物三视图",
+      "trigger": "人物三视图负面提示词缺失或仍为应用默认时使用；本次明确输入优先。"
+    },
+    "fill.scene_image": {
+      "group": "repair",
+      "label": "场景图片提示词补全",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "环境建立图，固定空间结构、光线、色彩和氛围，可复用为后续分镜场景参考。不要人物、角色、文字、水印",
+      "variables": [],
+      "source_method": "enhancePlanResult",
+      "used_at": "剧本生成后 → 补全场景创作资料",
+      "trigger": "仅在相应内容缺失、需要场景图片提示词补全时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.scene_negative": {
+      "group": "repair",
+      "label": "场景负面提示词补全",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "人物、人类、角色、肖像、脸、身体、文字、水印、标志、拼贴、多宫格",
+      "variables": [],
+      "source_method": "enhancePlanResult",
+      "used_at": "剧本生成后 → 补全场景创作资料",
+      "trigger": "仅在相应内容缺失、需要场景负面提示词补全时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.empty_video_content": {
+      "group": "repair",
+      "label": "缺少空镜视频内容时",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "空镜环境保持稳定，呈现当前场景的光线、空间和氛围变化",
+      "variables": [],
+      "source_method": "buildReadableShotVideoPrompt",
+      "used_at": "分镜页 → 组装视频提示词",
+      "trigger": "仅在相应内容缺失、需要缺少空镜视频内容时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.video_content": {
+      "group": "repair",
+      "label": "缺少人物视频内容时",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "当前可见主体完成一个清晰可见的动作变化",
+      "variables": [],
+      "source_method": "buildReadableShotVideoPrompt",
+      "used_at": "分镜页 → 组装视频提示词",
+      "trigger": "仅在相应内容缺失、需要缺少人物视频内容时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.video_composition": {
+      "group": "repair",
+      "label": "缺少视频构图时",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "按当前画面主体稳定构",
+      "variables": [],
+      "source_method": "buildReadableShotVideoPrompt",
+      "used_at": "分镜页 → 组装视频提示词",
+      "trigger": "仅在相应内容缺失、需要缺少视频构图时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.video_camera": {
+      "group": "repair",
+      "label": "缺少视频运镜时",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "固定镜头",
+      "variables": [],
+      "source_method": "buildReadableShotVideoPrompt",
+      "used_at": "分镜页 → 组装视频提示词",
+      "trigger": "仅在相应内容缺失、需要缺少视频运镜时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.video_sound": {
+      "group": "repair",
+      "label": "缺少视频环境音时",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "轻微环境声；",
+      "variables": [],
+      "source_method": "readableShotSoundText",
+      "used_at": "分镜页 → 组装视频提示词",
+      "trigger": "仅在相应内容缺失、需要缺少视频环境音时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.timeline_result": {
+      "group": "repair",
+      "label": "按时间节点补全：镜头结束画面",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "画面在本时间段结束时稳定停留在指定画面结果",
+      "variables": [],
+      "source_method": "timelineStoryboardShot",
+      "used_at": "剧本生成后 → 按用户时间节点补齐镜头",
+      "trigger": "仅在相应内容缺失、需要按时间节点补全：镜头结束画面时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.timeline_atmosphere": {
+      "group": "repair",
+      "label": "按时间节点补全：氛围",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "保持该时间段的情绪、光线和美术风格连续",
+      "variables": [],
+      "source_method": "timelineStoryboardShot",
+      "used_at": "剧本生成后 → 按用户时间节点补齐镜头",
+      "trigger": "仅在相应内容缺失、需要按时间节点补全：氛围时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.timeline_music": {
+      "group": "repair",
+      "label": "按时间节点补全：音乐",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "承接全片音乐氛围，保持该时间段的情绪温度",
+      "variables": [],
+      "source_method": "timelineStoryboardShot",
+      "used_at": "剧本生成后 → 按用户时间节点补齐镜头",
+      "trigger": "仅在相应内容缺失、需要按时间节点补全：音乐时采用；不独立调用模型，已有内容优先。"
+    },
+    "fill.timeline_sound": {
+      "group": "repair",
+      "label": "按时间节点补全：音效",
+      "description": "缺少对应字段时的自动补全规则；已有用户内容不重写，不单独调用模型。",
+      "default": "保留自然环境声和轻微动作音效",
+      "variables": [],
+      "source_method": "timelineStoryboardShot",
+      "used_at": "剧本生成后 → 按用户时间节点补齐镜头",
+      "trigger": "仅在相应内容缺失、需要按时间节点补全：音效时采用；不独立调用模型，已有内容优先。"
+    },
+    "negative.shot_image": {
+      "group": "storyboard",
+      "label": "人物分镜图片默认负面提示词",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "低质量、模糊、脸部变形、五官漂移、年龄漂移、服装变化、多余手指、多余肢体、文字、水印、拼贴、多宫格、档案卡、说明文字、色卡、参数栏、局部特写、半张脸、裁切脸",
+      "variables": [],
+      "source_method": "shotImageNegativePrompt",
+      "used_at": "分镜页 → 生成人物分镜图片",
+      "trigger": "人物分镜图片未指定负面提示词时使用，不影响主体参考图。"
+    },
+    "negative.empty_image": {
+      "group": "storyboard",
+      "label": "空镜图片默认负面提示词",
+      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
+      "default": "低质量、模糊、人物、人类、角色、肖像、脸、身体、剪影、文字、水印、标志、拼贴、多宫格、说明文字、色卡、参数栏",
+      "variables": [],
+      "source_method": "ensureNoSubjectImageNegativePrompt",
+      "used_at": "分镜页 → 生成空镜图片",
+      "trigger": "空镜图片的默认负面要求；不影响场景参考图。"
+    }
+  },
+  "systems": {
+    "single": "{{rule:script.role}}\nReturn valid JSON only. Do not return Markdown, code fences, explanations, or analysis process.\n\n{{rule:script.preservation}}\n\n{{document-default:script_plot}}\n\nUser-facing planning, subject, scene, storyboard, music_plan, main_image_prompt, three_view_prompt, scene_image_prompt, image_prompt, video_prompt, negative prompts, bgm_prompt, and sound_effect fields must be Simplified Chinese.\n\nSubject category must describe the subject itself: a human holding or wearing props remains character, and only a standalone object is prop.\n\nPrompt fields must be split by actual generation purpose and must not all repeat one generic prompt: subject main image, subject three-view/object multi-angle, scene image, storyboard still image, and storyboard video each need their own prompt and negative prompt.\n\nCharacter subject prompts and storyboard shots with visible subject_ref_ids must never include negative constraints such as 不要人物、不要角色、不要脸、不要身体、不要肖像. Empty shots and scene reference images may include those constraints.\n\nEvery storyboard.video_prompt must be a user-visible six-line single-shot director note using labels 分镜、景别、构图、运镜手法、画面内容、声音, and must never include backend execution tags such as <location>, <role>, or <duration-ms>.\n\n{{rule:script.style}}\n\nBuild the storyboard from stable locations: locations are ordered by story chronology, acts are scene-based, each shot binds exactly one scene_ref_id, and subject_ref_ids contain only visible subjects in that shot. Every storyboard item bound to the same scene_ref_id must reuse one identical act title; never split one scene into duplicate act groups.\n\n{{rule:script.visible_action}}\n\n{{document-default:image_planning}}\n\n{{document-default:video_planning}}\n\n{{rule:script.shot_granularity}}\n\nExplicit selected style and duration config override conflicting user text hints. Use user text style/time/duration hints only when selected config is empty. Aspect ratio is not part of script planning.\n\nThere is no fixed storyboard count by text length; never use 8 as the default. When no target duration or timeline exists, judge story complexity and follow the tenant-configured storyboard complexity rules and storyboard breaking intensity from context: light for simple talking-head/advertising/single-scene content, standard for ordinary short films, detailed for complex dream/suspense/reversal films, and cinematic detailed for complex multi-scene plots. Timeline segments without selected duration override storyboard intensity ranges and must not be expanded.\n\nAlways keep the flat storyboard[] output structure; never output nested scene_id + shots[] data. All content must come from the user input and reasonable expansion, with stable Chinese characters, subjects, locations, image prompts, video prompts, and one complete full-film instrumental BGM prompt. Do not return English image or video generation prompts.",
+    "multi": "{{rule:script.multi_role}}\nReturn one valid JSON object only. Do not return Markdown, code fences, explanations, or analysis.\n\n{{document-default:multi_arc}}\n\n{{rule:script.multi_continuity}}\n\n{{document-default:multi_production}}\n\nThe application may call you in three stages. In story stage, return only the series story setting, series_bible, stable subjects, and global locations; episodes and storyboard must be empty. In episodes stage, return exactly the requested numbered episode outlines with their story_outline, script_lines, and ending_hook; scenes, shots, and storyboard must be empty. In production stage, return the complete nested scenes and shots for every episode. Never invent production shots in an earlier stage.\n\nFollow the compact JSON schema in the user prompt exactly. Keep prose concise. Do not add image prompts, video prompts, negative prompts, music prompts, long character sheets, or fields outside the requested schema because the application expands production details after validation. Use simplified Chinese for all story values. Every nested and mirrored storyboard shot must include episode_number, and every requested episode must own its complete scenes and shots."
+  },
+  "group_descriptions": {
+    "script": "用于灵感生成剧本、分阶段生成多集剧本，以及剧本页提交修改。主体、场景、分镜提取要求会合并进剧本请求，不是独立生成按钮。",
+    "subject": "用于主体页生成主体参考图、三视图／多角度图，以及上传参考图片后提取主体描述。单张与批量生成共用相应规则。",
+    "scene": "用于场景页生成场景参考图，以及上传图片后提取场景描述。单张与批量生成共用相应规则。",
+    "storyboard": "用于分镜页生成分镜图片、转视频／生成视频。根据人物或空镜、主体数量、首尾帧条件选用规则。",
+    "music": "用于剧本生成后的音乐方案补全和分镜页的背景音乐生成；补全规则与真正提交音乐模型的规则分别标注。",
+    "general": "跨环节的共用要求，与具体环节规则合并。用户本次明确要求优先，具体环节规则优先于通用默认要求。",
+    "repair": "系统处理模型返回内容时自动触发，不对应独立生成按钮。缺失字段补全通常不调用模型；LLM 质检修复会另发修复请求。"
+  }
+}

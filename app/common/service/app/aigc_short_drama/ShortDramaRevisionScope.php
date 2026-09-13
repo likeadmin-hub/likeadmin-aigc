@@ -7,6 +7,23 @@ use Exception;
 /** Resolve displayed shot numbers before character names; never guess a missing shot. */
 class ShortDramaRevisionScope
 {
+    /** Fail closed for ambiguous selections instead of silently rewriting the series. */
+    public static function episodeTarget(string $message, int $total): array
+    {
+        preg_match_all('/第\s*([0-9零〇一二两三四五六七八九十百]+)\s*集/u', $message, $matches);
+        $numbers = array_values(array_unique(array_map([self::class, 'number'], $matches[1])));
+        if (count($numbers) > 1 || preg_match('/第[^。；\n]*?(?:到|至|[-~～]|、|和)\s*(?:第)?[0-9一二三四五六七八九十百]+\s*集/u', $message)) {
+            throw new Exception('为避免误改，请每次明确指定一集，例如“修改第3集”；其他集将保持不变');
+        }
+        if (!$numbers) {
+            if (preg_match('/第.*集|这[一]?集|某[一]?集/u', $message)) throw new Exception('请明确要修改的集号，例如“修改第3集”');
+            return [];
+        }
+        $number = $numbers[0];
+        if ($number < 1 || $number > $total) throw new Exception('指定的集数不存在');
+        return ['type' => 'episode', 'id' => (string)$number, 'rule' => 'Modify only this episode. All other episodes and the confirmed story are immutable.'];
+    }
+
     private static function number(string $value): int
     {
         if (ctype_digit($value)) return (int)$value;

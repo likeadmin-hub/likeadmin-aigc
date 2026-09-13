@@ -470,3 +470,23 @@ WHERE NOT EXISTS (
 );
 
 -- Inspiration entries are managed by tenants; no bundled demo is seeded.
+
+INSERT INTO `la_app_api` (`app_code`,`api_path`,`api_method`,`permission_key`,`scene`,`need_login`,`need_role_permission`,`status`,`create_time`,`update_time`)
+VALUES ('aigc_short_drama','app.aigc_short_drama.generation/delete','POST','aigc_short_drama:generation:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
+ON DUPLICATE KEY UPDATE `permission_key`=VALUES(`permission_key`),`need_login`=1,`need_role_permission`=0,`status`=1,`update_time`=VALUES(`update_time`);
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_planning_unit` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `task_id` varchar(64) NOT NULL,
+  `unit_key` varchar(100) NOT NULL,
+  `status` varchar(24) NOT NULL DEFAULT 'pending',
+  `attempt` int unsigned NOT NULL DEFAULT 0,
+  `request_json` mediumtext,
+  `result_json` mediumtext,
+  `error` text,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `tenant_task_unit` (`tenant_id`,`task_id`,`unit_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

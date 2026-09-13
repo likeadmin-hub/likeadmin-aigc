@@ -7,6 +7,7 @@ class MarketVideoAppRuntimeService
 {
     public static function options(int $tenantId): array { return MarketVideoRuntimeService::options($tenantId, PowerMarketService::TYPE_APP_API); }
     public static function quote(int $tenantId, array $selection): array { return MarketVideoRuntimeService::quote($tenantId, $selection + ['resource_type' => PowerMarketService::TYPE_APP_API]); }
+    public static function supportsGenerateAudio(int $tenantId, array $selection): bool { return MarketVideoRuntimeService::supportsGenerateAudio($tenantId, $selection + ['resource_type' => PowerMarketService::TYPE_APP_API]); }
     public static function capabilities(int $tenantId, array $selection): array { return MarketVideoRuntimeService::capabilities($tenantId, $selection + ['resource_type' => PowerMarketService::TYPE_APP_API]); }
     public static function effectiveDuration(int $tenantId, array $selection, int $fallback = 0): int { return MarketVideoRuntimeService::effectiveDuration($tenantId, $selection + ['resource_type' => PowerMarketService::TYPE_APP_API], $fallback); }
     public static function normalizeDurationSelection(int $tenantId, array $selection, int $requestedDuration = 0): array { return MarketVideoRuntimeService::normalizeDurationSelection($tenantId, $selection + ['resource_type' => PowerMarketService::TYPE_APP_API], $requestedDuration); }

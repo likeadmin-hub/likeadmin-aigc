@@ -13,17 +13,30 @@ class ShortDramaEpisodeQueueTest extends TestCase
 {
     private const TENANT = 90000909;
     private const USER = 90000909;
+    private $previousRedis;
 
     protected function setUp(): void
     {
         if (getenv('SHORT_DRAMA_DB_TESTS') !== '1') $this->markTestSkipped('Set SHORT_DRAMA_DB_TESTS=1 for transactional MySQL tests');
         (new \think\App())->initialize();
+        // Transaction rollbacks do not roll back Redis; never publish fixture jobs to a live worker.
+        $redis = new \ReflectionProperty(\app\common\service\app\aigc_short_drama\ShortDramaRedisQueue::class, 'redis');
+        $redis->setAccessible(true);
+        $this->previousRedis = $redis->getValue();
+        $stub = $this->createMock(\Redis::class);
+        $stub->method('set')->willReturn(true); // grant the fixture's in-memory lease
+        $redis->setValue(null, $stub);
         Db::startTrans();
     }
 
     protected function tearDown(): void
     {
-        if (getenv('SHORT_DRAMA_DB_TESTS') === '1') Db::rollback();
+        if (getenv('SHORT_DRAMA_DB_TESTS') === '1') {
+            Db::rollback();
+            $redis = new \ReflectionProperty(\app\common\service\app\aigc_short_drama\ShortDramaRedisQueue::class, 'redis');
+            $redis->setAccessible(true);
+            $redis->setValue(null, $this->previousRedis);
+        }
     }
 
     public static function counts(): array { return [[2], [3], [10], [500]]; }
@@ -368,7 +381,7 @@ class ShortDramaEpisodeQueueTest extends TestCase
         $result['storyboard'] = [['shot_id' => '1', 'visual_description' => '调查员进入街道']];
         Db::name('aigc_short_drama_script_task')->where('task_id', $created['task_id'])->update(['status' => 'success', 'result_json' => json_encode($result)]);
         Db::name('aigc_short_drama_episode_task')->where('id', $row['id'])->update(['status' => 'success', 'completed_once' => 1]);
-        $revision = Episodes::message(1, 1, ['episode_id' => $row['id'], 'message' => '把本集开场改为雨天']);
+        $revision = Episodes::message(1, 1, ['episode_id' => $row['id'], 'message' => '把第1个分镜的画面改为雨天']);
         $revisionTask = Db::name('aigc_short_drama_script_task')->where('task_id', $revision['task_id'])->find();
         self::assertSame((int)$created['project_id'], (int)$revisionTask['project_id']);
         self::assertSame($outline, Episodes::decode($revisionTask['request_json'])['series_context']['outline']);
@@ -378,7 +391,7 @@ class ShortDramaEpisodeQueueTest extends TestCase
         self::assertSame((int)$created['project_id'], (int)$retry['project_id']);
         self::assertNotSame($revision['task_id'], $retry['task_id']);
         $retryRequest = Episodes::decode(Db::name('aigc_short_drama_script_task')->where('task_id', $retry['task_id'])->value('request_json'));
-        self::assertSame('把本集开场改为雨天', $retryRequest['revision_message']);
+        self::assertSame('把第1个分镜的画面改为雨天', $retryRequest['revision_message']);
         self::assertSame('pending', Episodes::detail(1, 1, $list['lists'][1]['id'])['status']);
     }
 }

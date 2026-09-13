@@ -10,6 +10,17 @@ use think\facade\Log;
 
 class ScriptPlanController extends BaseApiController
 {
+    public function saveDraft()
+    {
+        try {
+            return $this->success('保存成功', \app\common\service\app\aigc_short_drama\ShortDramaStoryDraft::save(
+                (int)$this->request->tenantId, $this->userId, $this->request->post()
+            ));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function upload()
     {
         try {

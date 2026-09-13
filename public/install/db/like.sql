@@ -8062,6 +8062,7 @@ VALUES
 ('aigc_short_drama','app.aigc_short_drama.generation/lists','GET','aigc_short_drama:generation:lists:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.generation/retry','POST','aigc_short_drama:generation:retry:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.generation/cancel','POST','aigc_short_drama:generation:cancel:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+('aigc_short_drama','app.aigc_short_drama.generation/delete','POST','aigc_short_drama:generation:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.publish/submit','POST','aigc_short_drama:publish:submit:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.publish/detail','GET','aigc_short_drama:publish:detail:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
 
@@ -9202,3 +9203,46 @@ SELECT parent.`tenant_id`, parent.`id`, 'A', '套餐列表', '', 3, 'user.user/m
 FROM `la_tenant_system_menu` parent
 WHERE parent.`tenant_id`=0 AND parent.`type`='C' AND parent.`paths`='lists' AND parent.`component`='consumer/lists/index'
   AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` existing_menu WHERE existing_menu.`tenant_id`=parent.`tenant_id` AND (existing_menu.`source_menu_key`='core_tenant_consumer_membership_plans' OR existing_menu.`perms`='user.user/membershipPlans'));
+
+-- AI short drama prompt workspace: append-only tenant revisions, source-only migration.
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_prompt_revision` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `revision` int unsigned NOT NULL DEFAULT 0,
+  `admin_id` int unsigned NOT NULL DEFAULT 0,
+  `action` varchar(32) NOT NULL DEFAULT 'save',
+  `snapshot_json` longtext NOT NULL,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `tenant_revision` (`tenant_id`, `revision`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧提示词版本';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_prompt_request` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `user_id` int unsigned NOT NULL DEFAULT 0,
+  `task_id` varchar(100) NOT NULL DEFAULT '',
+  `stage` varchar(40) NOT NULL DEFAULT '',
+  `revision` int unsigned NOT NULL DEFAULT 0,
+  `audit_json` longtext NOT NULL,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `tenant_created` (`tenant_id`, `id`),
+  KEY `tenant_task` (`tenant_id`, `task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧提示词实发记录';
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_planning_unit` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `task_id` varchar(64) NOT NULL,
+  `unit_key` varchar(100) NOT NULL,
+  `status` varchar(24) NOT NULL DEFAULT 'pending',
+  `attempt` int unsigned NOT NULL DEFAULT 0,
+  `request_json` mediumtext,
+  `result_json` mediumtext,
+  `error` text,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `tenant_task_unit` (`tenant_id`,`task_id`,`unit_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

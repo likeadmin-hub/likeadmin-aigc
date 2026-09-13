@@ -96,6 +96,16 @@ class ShortDramaEpisodeService
             if ($task->isEmpty()) throw new Exception('请等待大纲生成完成');
             $plan = self::decode($task['result_json']);
             $request = self::decode($task['request_json']);
+            if (ShortDramaStoryWorkflow::enabled($request)) {
+                if ((string)$project['last_task_id'] !== $taskId || ShortDramaStoryDraft::stage($request) !== 'episodes' || !empty($request['_story_outline_obsolete'])) throw new Exception('请确认最新版本的分集大纲');
+                ShortDramaStoryDraft::assertVersion($request, $params);
+                $plan = ShortDramaStoryDraft::effective($request, $plan);
+                $issues = ShortDramaStoryWorkflow::issues($plan, 'episodes', (int)$request['episode_count']);
+                if ($issues) throw new Exception($issues[0]['message']);
+                $request['confirmed_outline_snapshot'] = $plan;
+                $request['confirmed_outline_version'] = ShortDramaStoryDraft::version($request);
+            }
+            $request['_prompt_snapshot'] = ShortDramaPromptWorkspace::capture($tenantId);
             $episodeCount = (int)($plan['episode_count'] ?? $request['episode_count'] ?? $project['episode_count']);
             $episodes = self::validateOutline($plan, $episodeCount);
             $project->save(['episode_count' => $episodeCount, 'update_time' => time()]);
@@ -104,7 +114,7 @@ class ShortDramaEpisodeService
                     'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
                     'episode_number' => $index + 1, 'title' => mb_substr($outline['title'], 0, 120),
                     'outline_task_id' => $taskId, 'outline_json' => self::encode($outline),
-                    'series_json' => $index === 0 ? self::encode(['plan' => $plan, 'request' => self::decode($task['request_json'])]) : null,
+                    'series_json' => $index === 0 ? self::encode(['plan' => $plan, 'request' => $request]) : null,
                     'status' => 'pending', 'error' => '', 'create_time' => time(), 'update_time' => time(),
                 ]);
             }

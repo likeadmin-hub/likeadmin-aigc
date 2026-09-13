@@ -75,6 +75,15 @@ class GenerationController extends BaseApiController
         }
     }
 
+    public function delete()
+    {
+        try {
+            return $this->success('success', AigcShortDramaService::deleteFailedGenerationTask((int)$this->request->tenantId, $this->userId, (string)$this->request->post('task_id', '')));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function retry()
     {
         try {

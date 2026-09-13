@@ -48,12 +48,9 @@ class ShortDramaTextModelContractTest extends TestCase
         self::assertSame('901', $matched['id']);
     }
 
-    public function testUnknownExplicitScriptModelDoesNotSilentlyFallback(): void
+    public function testUnknownExplicitScriptModelFallsBackToAnEnabledTenantTextModel(): void
     {
-        $this->expectException(Exception::class);
-        $this->expectExceptionMessage('所选剧本策划模型已下架或不可用');
-
-        $this->invoke('resolveSelectedModels', 0, [
+        $selected = $this->invoke('resolveSelectedModels', 0, [
             'model_selections' => ['script_plan' => ['id' => 'missing-model']],
         ], [
             'model_groups' => [[
@@ -61,6 +58,15 @@ class ShortDramaTextModelContractTest extends TestCase
                 'options' => [['id' => '901', 'model_code' => 'glm-5.2']],
             ]],
         ]);
+
+        self::assertSame('901', $selected['script_plan']['id']);
+    }
+
+    public function testOnlyExplicitModelNotFoundTriggersAutomaticFallback(): void
+    {
+        self::assertTrue($this->invoke('isExplicitModelNotFoundError', 'model_not_found: upstream model is unavailable'));
+        self::assertFalse($this->invoke('isExplicitModelNotFoundError', 'timeout while waiting for upstream provider'));
+        self::assertFalse($this->invoke('isExplicitModelNotFoundError', 'invalid parameter: max_tokens'));
     }
 
     public function testConfiguredDefaultKeepsEveryTextModelSelectable(): void
