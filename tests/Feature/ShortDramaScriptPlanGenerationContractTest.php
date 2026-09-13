@@ -11,6 +11,21 @@ use think\Container;
 /** Exercises the real script-plan assembly/normalization/repair path with a fake provider only. */
 class ShortDramaScriptPlanGenerationContractTest extends TestCase
 {
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testMissingSpeakerTriggersRepairAndSurvivesSavedResult(): void
+    {
+        require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
+        $this->silenceLog();
+        \app\common\service\power\MarketTextModelRuntimeService::reset();
+        \app\common\service\power\MarketTextModelRuntimeService::$missingSpeaker = true;
+        $generated = $this->generate(['multi_episode' => false, 'episode_count' => 1]);
+        self::assertCount(2, \app\common\service\power\MarketTextModelRuntimeService::$requests);
+        self::assertSame($generated['result']['subjects'][0]['name'], $generated['result']['storyboard'][0]['voice_role']);
+        self::assertSame(0, $generated['result']['review_report']['blocking_count']);
+    }
+
     /**
      * @runInSeparateProcess
      * @preserveGlobalState disabled

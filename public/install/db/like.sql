@@ -7635,6 +7635,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_subject` (
   `user_id` int unsigned NOT NULL DEFAULT 0,
   `name` varchar(80) NOT NULL DEFAULT '',
   `image` varchar(500) NOT NULL DEFAULT '',
+  `three_view_image` varchar(500) NOT NULL DEFAULT '',
   `description` varchar(500) NOT NULL DEFAULT '',
   `category` varchar(40) NOT NULL DEFAULT 'character',
   `gender` varchar(20) NOT NULL DEFAULT 'unknown',

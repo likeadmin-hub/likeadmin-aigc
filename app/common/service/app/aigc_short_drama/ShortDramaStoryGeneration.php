@@ -77,6 +77,8 @@ final class ShortDramaStoryGeneration
                     self::assertDistinctFromSaved($episodes, $payload['episodes']);
                 } catch (RuntimeException $error) {
                     if (!in_array($error->getCode(), [413, 422], true)) throw $error;
+                    if ($progress) $progress('story_preview_repair', ['start' => $start, 'count' => $count,
+                        'message' => '第' . $start . '–' . ($start + $count - 1) . '集返回内容未通过校验，正在分段修复；已完成内容保留。']);
                     if ($count > 1) {
                         $left = intdiv($count, 2);
                         $expand($start, $left); $expand($start + $left, $count - $left);

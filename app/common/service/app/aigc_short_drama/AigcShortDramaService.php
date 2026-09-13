@@ -1202,6 +1202,9 @@ class AigcShortDramaService
             'sort' => (int)($params['sort'] ?? 0),
             'update_time' => $time,
         ] + $voiceData;
+        if (array_key_exists('three_view_image', $params)) {
+            $data['three_view_image'] = mb_substr(trim((string)$params['three_view_image']), 0, 500, 'UTF-8');
+        }
         if ($id > 0) {
             $row = AigcShortDramaSubject::where([
                 'id' => $id,
@@ -3278,7 +3281,13 @@ class AigcShortDramaService
                     if ($storyAttempt !== null) {
                         $current = self::findTask($tenantId, $userId, $taskId);
                         if ($current['status'] !== 'running' || (int)$current['retry_count'] !== $storyAttempt) throw new Exception('任务已取消或由新尝试接管');
-                        $previewEvent = in_array($event, ['story_preview_start', 'story_preview_received', 'story_preview_saved', 'delta'], true);
+                        $previewEvent = in_array($event, ['story_preview_start', 'story_preview_received', 'story_preview_saved', 'story_preview_repair', 'delta'], true);
+                        if ($event === 'story_preview_repair') {
+                            $storyPreview['repair_message'] = $data['message'];
+                            if (!empty($storyPreview['content'])) {
+                                $storyPreview['drafts'][$storyPreview['unit']] = $storyPreview['content'];
+                            }
+                        }
                         if ($event === 'story_preview_start') { $storyPreview['unit'] = $data['unit']; $storyPreview['content'] = ''; }
                         if ($event === 'delta') $storyPreview['content'] .= (string)($data['delta'] ?? $data['content'] ?? '');
                         if ($event === 'story_preview_received') $storyPreview['content'] = (string)$data['content'];
@@ -5164,14 +5173,14 @@ class AigcShortDramaService
 
     /**
      * A multi-episode production uses isolated child projects. Carry visual
-     * references forward only when the current episode already contains the
+     * references across the series only when the current episode contains the
      * same subject or location, so batch generation is reserved for new items.
      */
     private static function reuseEpisodeVisualAssetsForProject(int $tenantId, int $userId, int $projectId): void
     {
         $episode = ShortDramaEpisodeService::context($tenantId, $userId, $projectId);
         $episodeNumber = (int)($episode['episode_number'] ?? 0);
-        if (!$episode || $episodeNumber <= 1) {
+        if (!$episode || $episodeNumber < 1) {
             return;
         }
 
@@ -5211,7 +5220,7 @@ class AigcShortDramaService
             'project_id' => (int)$episode['project_id'],
             'delete_time' => 0,
             'completed_once' => 1,
-        ])->where('episode_number', '<', $episodeNumber)
+        ])->where('production_project_id', '<>', $projectId)
             ->where('production_project_id', '>', 0)
             ->order('episode_number', 'desc')
             ->select()->toArray();
@@ -5286,6 +5295,7 @@ class AigcShortDramaService
             foreach ($desired as $assetType => $items) {
                 foreach ($items as $target) {
                     $reusedSourceAssetIds = [];
+                    $hasOwnAsset = false;
                     foreach ($targetAssets as $asset) {
                         if ((string)($asset['asset_type'] ?? '') !== $assetType) {
                             continue;
@@ -5294,10 +5304,17 @@ class AigcShortDramaService
                         if (!self::episodeVisualAssetMatchesTarget($assetType, $meta, $target)) {
                             continue;
                         }
+                        $hasOwnAsset = true;
                         $sourceAssetId = (int)($meta['reused_from_asset_id'] ?? 0);
                         if ($sourceAssetId > 0) {
                             $reusedSourceAssetIds[$sourceAssetId] = true;
                         }
+                    }
+
+                    // Never replace an existing local selection or create a second
+                    // inherited copy on refresh (including reverse-direction reuse).
+                    if ($hasOwnAsset) {
+                        continue;
                     }
 
                     foreach ($sourceAssets as $source) {
@@ -5308,6 +5325,11 @@ class AigcShortDramaService
                             $sourceTaskMetaByTaskId[(string)($source['task_id'] ?? '')] ?? [],
                             self::jsonDecode((string)($source['meta_json'] ?? ''))
                         );
+                        // Use original assets only, not copies inherited by another
+                        // episode, otherwise bidirectional reuse forms copy cycles.
+                        if (!empty($sourceMeta['series_reuse']) || !empty($sourceMeta['reused_from_asset_id'])) {
+                            continue;
+                        }
                         if (!self::episodeVisualAssetMatchesTarget($assetType, $sourceMeta, $target)) {
                             continue;
                         }
@@ -5343,6 +5365,7 @@ class AigcShortDramaService
                         if ($sourceAssetId > 0) {
                             $reusedSourceAssetIds[$sourceAssetId] = true;
                         }
+                        break;
                     }
                 }
             }
@@ -5354,11 +5377,16 @@ class AigcShortDramaService
         $isScene = $assetType === 'scene_image';
         $id = trim((string)($meta[$isScene ? 'scene_id' : 'subject_id'] ?? $meta['item_id'] ?? ''));
         $targetId = trim((string)($target['id'] ?? ''));
-        if ($targetId !== '' && $id === $targetId) {
-            return true;
-        }
         $name = self::episodeVisualAssetName((string)($meta[$isScene ? 'scene_name' : 'subject_name'] ?? $meta['item_name'] ?? ''));
         $targetName = self::episodeVisualAssetName((string)($target['name'] ?? ''));
+        if ($targetId !== '' && $id === $targetId) {
+            // Older episode plans may reuse local IDs for different props/rooms.
+            return $name === '' || $targetName === '' || $name === $targetName;
+        }
+        // Distinct stable IDs represent distinct subjects/scenes or variants.
+        if ($targetId !== '' && $id !== '') {
+            return false;
+        }
         return $targetName !== '' && $name === $targetName;
     }
 
@@ -15146,7 +15174,7 @@ class AigcShortDramaService
                 'name' => (string)$row['name'],
                 'image' => self::fileUrl((string)$row['image']),
                 'raw_image' => (string)($row['image'] ?? ''),
-                'three_view_url' => (string)($threeView['url'] ?? ''),
+                'three_view_url' => (string)($threeView['url'] ?? '') ?: self::fileUrl((string)($row['three_view_image'] ?? '')),
                 'three_view_asset' => $threeView,
                 'source' => (string)$row['source'],
                 'category' => (string)($row['category'] ?? 'character'),
@@ -15507,6 +15535,9 @@ class AigcShortDramaService
         }
         $multiEpisodeStage = self::normalizeMultiEpisodeStage($request, self::MULTI_EPISODE_STAGE_PRODUCTION);
         $messages = self::assembleScriptPromptRequest($tenantId, $prompt, $request, $title);
+        if (!$episodeSettings['multi_episode'] || $multiEpisodeStage === self::MULTI_EPISODE_STAGE_PRODUCTION) {
+            $messages['system_prompt'] .= "\n" . ShortDramaDialogueContract::INSTRUCTION;
+        }
         try {
             $llmParams = [
                 'content' => $messages['content'],
@@ -15554,6 +15585,8 @@ class AigcShortDramaService
 
         $rawContent = trim((string)($llmResult['content'] ?? ''));
         $payload = self::decodeLlmJsonObject($rawContent);
+        $dialogueCheck = ShortDramaDialogueContract::prepare($payload);
+        $payload = $dialogueCheck['payload'];
         $payload = self::mergeRevisionBasePlanPayload($payload, $request);
         if (($request['revision_target']['type'] ?? '') === 'shot_fields') {
             // The baseline is already a complete saved script. Re-expanding it would rewrite untouched prompts.
@@ -15566,6 +15599,9 @@ class AigcShortDramaService
             $result = self::reviewAndRepairPlanResult(self::enhancePlanResult(self::protectRevisionTargetResult($result, $request)));
         }
         $repairLlmResult = [];
+        if (($request['revision_target']['type'] ?? '') !== 'shot_fields') {
+            $result = ShortDramaDialogueContract::review($result, $dialogueCheck['issues']);
+        }
         if ((int)($result['review_report']['blocking_count'] ?? 0) > 0) {
             if ($onEvent) {
                 $onEvent('stage', [
@@ -15576,6 +15612,8 @@ class AigcShortDramaService
             }
             $repairLlmResult = self::repairScriptPlanResultWithLlm($tenantId, $userId, $prompt, $request, $title, $model, $result, (int)($llmResult['app_task_id'] ?? 0), $onEvent);
             $repairPayload = self::decodeLlmJsonObject(trim((string)($repairLlmResult['content'] ?? '')));
+            $repairDialogueCheck = ShortDramaDialogueContract::prepare($repairPayload);
+            $repairPayload = $repairDialogueCheck['payload'];
             $repairPayload = self::mergeRevisionBasePlanPayload($repairPayload, $request);
             $result = self::reviewAndRepairPlanResult(
                 self::enhancePlanResult(self::normalizeGeneratedPlanResult($repairPayload, $prompt, $request, $title)),
@@ -15585,6 +15623,7 @@ class AigcShortDramaService
             if (!empty($request['revision_target']) && is_array($request['revision_target'])) {
                 $result = self::reviewAndRepairPlanResult(self::enhancePlanResult(self::protectRevisionTargetResult($result, $request)), true, true);
             }
+            $result = ShortDramaDialogueContract::review($result, $repairDialogueCheck['issues']);
             if ((int)($result['review_report']['blocking_count'] ?? 0) > 0) {
                 Log::write('AI short drama plan repair failed: ' . self::jsonEncode($result['review_report']));
                 throw new Exception('剧本计划质检未通过，请调整灵感描述后重试');
@@ -15974,6 +16013,7 @@ class AigcShortDramaService
     private static function repairScriptPlanResultWithLlm(int $tenantId, int $userId, string $prompt, array $request, string $title, array $model, array $plan, int $parentAppTaskId = 0, ?callable $onEvent = null): array
     {
         $messages = self::assembleRepairPromptRequest($plan, $prompt);
+        $messages['system_prompt'] .= "\n" . ShortDramaDialogueContract::INSTRUCTION;
         try {
             $repairHeartbeat = $onEvent === null ? null : static function (string $event, array $data) use ($onEvent): void {
                 // The repair response is a second JSON document. Its text must never be
@@ -16098,6 +16138,8 @@ class AigcShortDramaService
             'composition' => 'short Chinese composition',
             'camera_movement' => 'short Chinese camera movement',
             'dialogue' => 'Chinese dialogue or empty string',
+            'voice_role' => 'actual speaking character name from subjects; empty only for narration or silence',
+            'speech_type' => 'character|narration|none',
             'recommended_duration_seconds' => 3,
         ];
         $schema = [
@@ -21609,6 +21651,8 @@ class AigcShortDramaService
             'name' => (string)$row['name'],
             'image' => self::fileUrl((string)($row['image'] ?? '')),
             'raw_image' => (string)($row['image'] ?? ''),
+            'raw_three_view_image' => (string)($row['three_view_image'] ?? ''),
+            'three_view_url' => self::fileUrl((string)($row['three_view_image'] ?? '')),
             'description' => (string)($row['description'] ?? ''),
             'category' => (string)($row['category'] ?? 'character'),
             'gender' => (string)($row['gender'] ?? 'unknown'),
@@ -21713,7 +21757,7 @@ class AigcShortDramaService
         $data['scope'] = (string)($row['source'] ?? '') === 'user' ? 'user' : 'public';
         $data['prompt'] = (string)($row['description'] ?? '');
         $data['three_view_asset'] = $threeViewAsset;
-        $data['three_view_url'] = (string)($threeViewAsset['url'] ?? '');
+        $data['three_view_url'] = (string)($threeViewAsset['url'] ?? '') ?: $data['three_view_url'];
         return $data;
     }
 

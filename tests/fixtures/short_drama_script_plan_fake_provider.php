@@ -10,12 +10,14 @@ namespace app\common\service\power {
         public static array $requests = [];
         public static bool $returnIncompleteFirstOutline = false;
         public static bool $returnIncompleteEveryOutline = false;
+        public static bool $missingSpeaker = false;
         private static bool $incompleteWasReturned = false;
         private static int $lastOutlineCount = 0;
 
         public static function reset(): void
         {
             self::$requests = [];
+            self::$missingSpeaker = false;
             self::$returnIncompleteFirstOutline = false;
             self::$returnIncompleteEveryOutline = false;
             self::$incompleteWasReturned = false;
@@ -45,7 +47,12 @@ namespace app\common\service\power {
                 }
                 return ['content' => json_encode(self::outlinePayload($episodeItems), JSON_UNESCAPED_UNICODE)];
             }
-            return ['content' => json_encode(self::singlePayload(), JSON_UNESCAPED_UNICODE)];
+            $payload = self::singlePayload();
+            if (self::$missingSpeaker) {
+                $payload['storyboard'][0]['dialogue'] = '我找到线索了。';
+                if ($isRepair) $payload['storyboard'][0]['voice_role'] = $payload['subjects'][0]['name'];
+            }
+            return ['content' => json_encode($payload, JSON_UNESCAPED_UNICODE)];
         }
 
         private static function outlineCount(string $content): int
