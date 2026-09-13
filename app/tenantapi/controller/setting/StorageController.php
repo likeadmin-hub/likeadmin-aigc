@@ -13,9 +13,17 @@ class StorageController extends BaseAdminController
 {
     public function lists()
     {
-        $default = $this->getConfig('default', 'local');
-        $enabled = (int)$this->getConfig('enable', 0) === 1;
-        $allowLocalStorage = $this->allowLocalStorage();
+        // When tenant custom storage is disabled, the tenant still uses the
+        // platform storage. The settings page must read the same effective
+        // config as UploadService instead of the stale tenant config.
+        $effective = StorageConfigService::getEffectiveConfig($this->tenantId);
+        $default = (string)($effective['default'] ?? 'local');
+        $enabled = $default !== 'local' || (int)$this->getConfig('enable', 0) === 1;
+        // A tenant-local restriction must not hide the platform's local
+        // engine when the tenant is using platform storage.
+        $allowLocalStorage = $this->allowCustomStorage()
+            ? $this->allowLocalStorage()
+            : $default === 'local';
         $lists = [
             ['name' => '七牛云存储', 'path' => '存储在七牛云，请前往七牛云开通存储服务', 'engine' => 'qiniu', 'status' => $enabled && $default === 'qiniu' ? 1 : 0],
             ['name' => '阿里云OSS', 'path' => '存储在阿里云，请前往阿里云开通存储服务', 'engine' => 'aliyun', 'status' => $enabled && $default === 'aliyun' ? 1 : 0],
@@ -35,12 +43,19 @@ class StorageController extends BaseAdminController
     public function detail()
     {
         $engine = (string)$this->request->get('engine', 'local');
-        if ($engine === 'local' && !$this->allowLocalStorage()) {
+        $effective = StorageConfigService::getEffectiveConfig($this->tenantId);
+        if (!$this->allowCustomStorage()) {
+            $effectiveEngine = (string)($effective['default'] ?? 'local');
+            if ($engine !== $effectiveEngine) {
+                $engine = $effectiveEngine;
+            }
+        }
+        if ($engine === 'local' && $this->allowCustomStorage() && !$this->allowLocalStorage()) {
             return $this->fail('平台未允许该租户使用本地存储');
         }
-        $default = $this->getConfig('default', 'local');
-        $enabled = (int)$this->getConfig('enable', 0) === 1;
-        $config = $engine === 'local' ? [] : $this->getConfig($engine, []);
+        $default = (string)($effective['default'] ?? 'local');
+        $enabled = $default !== 'local' || (int)$this->getConfig('enable', 0) === 1;
+        $config = $engine === 'local' ? [] : (array)($effective['engine'][$engine] ?? []);
         $config['status'] = $enabled && $engine === $default ? 1 : 0;
         $config['enable'] = $enabled ? 1 : 0;
         $config['allow_custom_storage'] = $this->allowCustomStorage();

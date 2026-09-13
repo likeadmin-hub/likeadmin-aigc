@@ -863,7 +863,7 @@ class AigcImageChannelService
             $options = array_values(array_filter(array_map('intval', $config['quantity_options'])));
             return $options ?: self::QUANTITY_OPTIONS;
         }
-        if (in_array((string)($channel['provider'] ?? ''), ['xhadmin', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim', 'gpt_image_2_pro', 'gpt_image_2_fast'], true)) {
+        if (in_array((string)($channel['provider'] ?? ''), ['xhadmin', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim', 'gpt_image_2_pro', 'gpt_image_2_fast', 'gpt_image_2_5', 'gpt_image_2_5_flare', 'gpt_image_2_5_sunburst'], true)) {
             return [1];
         }
         return self::QUANTITY_OPTIONS;
@@ -890,7 +890,7 @@ class AigcImageChannelService
     {
         $code = (string)($channel['code'] ?? '');
         $provider = (string)($channel['provider'] ?? '');
-        if (in_array($code, ['gpt_image_2_pro', 'images2_pro'], true) || in_array($provider, ['gpt_image_2_pro', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim'], true)) {
+        if (in_array($code, ['gpt_image_2_pro', 'images2_pro', 'gpt_image_2_5', 'gpt_image_2_5_flare', 'gpt_image_2_5_sunburst', 'gpt_image_25'], true) || in_array($provider, ['gpt_image_2_pro', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim', 'gpt_image_2_5', 'gpt_image_2_5_flare', 'gpt_image_2_5_sunburst'], true)) {
             return self::GPT_IMAGE_2_PRO_RATIOS;
         }
         if (in_array($code, ['gpt_image_2_fast', 'images2_fast'], true) || $provider === 'gpt_image_2_fast') {

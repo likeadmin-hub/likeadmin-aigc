@@ -26,23 +26,4 @@ class InspirationController extends BaseAdminController
             return $this->fail($e->getMessage());
         }
     }
-
-    public function save()
-    {
-        try {
-            return $this->success('保存成功', AigcShortDramaService::saveAdminInspiration($this->tenantId, $this->request->post()), 1, 1);
-        } catch (Exception $e) {
-            return $this->fail($e->getMessage());
-        }
-    }
-
-    public function delete()
-    {
-        try {
-            AigcShortDramaService::deleteAdminInspiration($this->tenantId, (int)$this->request->post('id', 0));
-            return $this->success('删除成功', [], 1, 1);
-        } catch (Exception $e) {
-            return $this->fail($e->getMessage());
-        }
-    }
 }

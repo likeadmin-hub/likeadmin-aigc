@@ -18,6 +18,7 @@ class AppAccessService
         'aigc_canvas',
         'aigc_llm',
         'aigc_music',
+        'aigc_music_cover',
     ];
     public const DEFAULT_SYSTEM_APP_CODES = ['system_default'];
     public const DEFAULT_APP_CODES = [
@@ -28,6 +29,7 @@ class AppAccessService
         'aigc_canvas',
         'aigc_llm',
         'aigc_music',
+        'aigc_music_cover',
     ];
     public const BUY_PAID = 'paid';
     public const BUY_TRIAL = 'trial';

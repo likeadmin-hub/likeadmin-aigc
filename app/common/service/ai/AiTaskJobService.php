@@ -86,27 +86,19 @@ class AiTaskJobService
 
     public static function enqueue(string $type, int $consumptionId = 0, int $assetId = 0, array $payload = [], int $priority = 0, bool $wake = false, string $customKey = ''): int
     {
-        return self::withContentionRetry(static fn() => self::enqueueOnce($type, $consumptionId, $assetId, $payload, $priority, $wake, $customKey));
-    }
-
-    private static function enqueueOnce(string $type, int $consumptionId, int $assetId, array $payload, int $priority, bool $wake, string $customKey): int
-    {
         $now = time();
         $key = $customKey !== '' ? $customKey : $type . ':' . ($consumptionId ?: $assetId);
-        // One atomic upsert: locking a missing unique key before inserting can
-        // deadlock concurrent submitters through InnoDB gap locks. Model::create
-        // also adds a nested transaction whose rollback can mask that error as
-        // "SAVEPOINT trans2 does not exist".
-        $jobId = (int)Db::name('ai_task_job')
-            ->duplicate(['id' => Db::raw('LAST_INSERT_ID(id)')])
-            ->insertGetId([
+        return Db::transaction(function () use ($type, $consumptionId, $assetId, $payload, $priority, $wake, $key, $now) {
+            $job = AiTaskJob::where('idempotency_key', $key)->lock(true)->findOrEmpty();
+            if ($job->isEmpty()) {
+                $job = AiTaskJob::create([
                     'app_task_id' => $consumptionId > 0 ? (int)(AiConsumptionLog::where('id', $consumptionId)->value('app_task_id') ?: 0) : 0,
                     'consumption_id' => $consumptionId,
                     'result_asset_id' => $assetId,
                     'job_type' => $type,
                     'status' => 'pending',
                     'priority' => $priority,
-                    'payload' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                    'payload' => $payload,
                     'attempts' => 0,
                     'max_attempts' => 0,
                     'next_run_time' => $now,
@@ -117,50 +109,31 @@ class AiTaskJobService
                     'create_time' => $now,
                     'update_time' => $now,
                     'finish_time' => 0,
-            ]);
-        if ($jobId === 0) {
-            // ThinkORM returns affected rows (0), not LAST_INSERT_ID, for a
-            // no-op duplicate update. Read the committed key on the primary.
-            $jobId = (int)Db::name('ai_task_job')->master()->where('idempotency_key', $key)->value('id');
-        }
-        if ($wake) {
-            // Never steal a live worker's lease or reopen a terminal job.
-            // The conditional UPDATE is atomic with respect to worker claims.
-            Db::name('ai_task_job')->where('id', $jobId)
-                ->whereIn('status', ['pending', 'retrying'])->update([
+                ]);
+                AiTaskLifecycleEventService::record($consumptionId, 'job_enqueued', 'pending', [
+                    'job_id' => (int)$job['id'],
+                    'job_type' => $type,
+                    'priority' => $priority,
+                ]);
+                return (int)$job['id'];
+            }
+            if ($wake && !in_array((string)$job['status'], ['success', 'dead'], true)) {
+                $job->save([
                     'status' => 'pending',
-                    'priority' => Db::raw('GREATEST(priority, ' . (int)$priority . ')'),
+                    'priority' => max((int)$job['priority'], $priority),
                     'next_run_time' => $now,
                     'lease_token' => '',
                     'lease_expire_time' => 0,
                     'update_time' => $now,
                 ]);
-        }
-        AiTaskLifecycleEventService::record($consumptionId, 'job_enqueued', 'accepted', [
-            'job_id' => $jobId,
-            'job_type' => $type,
-            'priority' => $priority,
-        ]);
-        return $jobId;
-    }
-
-    /** Only replay local idempotent queue operations, never a provider call. */
-    private static function withContentionRetry(callable $operation)
-    {
-        $pdo = Db::connect()->getPdo();
-        $insideTransaction = $pdo && $pdo->inTransaction();
-        for ($attempt = 0; ; $attempt++) {
-            try { return $operation(); }
-            catch (\Throwable $e) {
-                // A deadlock can roll back an enclosing business transaction.
-                // Its owner must decide how to retry the entire transaction.
-                if ($insideTransaction || $attempt >= 4
-                    || preg_match('/SQLSTATE\[40001\]|\b(1213|1205)\b.*(Deadlock|Lock wait timeout)/i', $e->getMessage()) !== 1) {
-                    throw $e;
-                }
-                usleep(random_int(10000, 30000) * ($attempt + 1));
+                AiTaskLifecycleEventService::record($consumptionId, 'job_woken', 'pending', [
+                    'job_id' => (int)$job['id'],
+                    'job_type' => $type,
+                    'previous_status' => (string)$job['status'],
+                ], (int)$job['attempts']);
             }
-        }
+            return (int)$job['id'];
+        });
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -169,7 +142,7 @@ class AiTaskJobService
         $jobs = [];
         $batch = max(1, min(100, $batch));
         for ($index = 0; $index < $batch; $index++) {
-            $claimed = self::withContentionRetry(static fn() => Db::transaction(function () use ($worker, $leaseSeconds) {
+            $claimed = Db::transaction(function () use ($worker, $leaseSeconds) {
                 $now = time();
                 $job = AiTaskJob::where(function ($query) use ($now) {
                     $query->where(function ($pending) use ($now) {
@@ -183,24 +156,23 @@ class AiTaskJobService
                     ->findOrEmpty();
                 if ($job->isEmpty()) return null;
                 $token = $worker . '-' . bin2hex(random_bytes(8));
-                $changes = [
+                $job->save([
                     'status' => 'running',
                     'attempts' => (int)$job['attempts'] + 1,
                     'lease_token' => $token,
                     'lease_expire_time' => $now + max(10, $leaseSeconds),
                     'update_time' => $now,
-                ];
-                // Avoid Model::save's nested SAVEPOINT under the claim lock.
-                Db::name('ai_task_job')->where('id', (int)$job['id'])->update($changes);
-                return array_merge($job->toArray(), $changes);
-            }));
+                ]);
+                $data = $job->toArray();
+                $data['lease_token'] = $token;
+                AiTaskLifecycleEventService::record((int)$data['consumption_id'], 'worker_claim', 'running', [
+                    'job_id' => (int)$data['id'],
+                    'job_type' => (string)$data['job_type'],
+                    'lease_seconds' => max(10, $leaseSeconds),
+                ], (int)$data['attempts']);
+                return $data;
+            });
             if ($claimed === null) break;
-            // Diagnostics are not part of the lease transaction.
-            AiTaskLifecycleEventService::record((int)$claimed['consumption_id'], 'worker_claim', 'running', [
-                'job_id' => (int)$claimed['id'],
-                'job_type' => (string)$claimed['job_type'],
-                'lease_seconds' => max(10, $leaseSeconds),
-            ], (int)$claimed['attempts']);
             $jobs[] = $claimed;
         }
         return $jobs;

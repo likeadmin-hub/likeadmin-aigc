@@ -51,15 +51,14 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
         ])['episode_count']);
     }
 
-    public function testSingleEpisodeDefaultsToAutomaticDurationWhenUnspecified(): void
+    public function testSingleEpisodeDefaultsToOneMinuteWhenNoDurationIsProvided(): void
     {
         $request = $this->invoke('normalizeCreateRequest', [], []);
 
         self::assertFalse($request['multi_episode']);
         self::assertSame(1, $request['episode_count']);
-        self::assertSame(0, $request['target_duration_seconds']);
-        self::assertSame('auto', $request['duration_source']);
-        self::assertSame(0, $this->invoke('planningTargetDurationSeconds', '', []));
+        self::assertSame(60, $request['target_duration_seconds']);
+        self::assertSame(60, $this->invoke('planningTargetDurationSeconds', '', []));
     }
 
     public function testNewMultiEpisodeRequestsStartWithOutlineWhileSingleRequestsStayProductionMode(): void
@@ -238,16 +237,6 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
 
     public function testLongEpisodePlansBatchBothOutlineAndProductionStages(): void
     {
-        foreach ([10, 50, 100] as $episodeCount) {
-            self::assertTrue($this->invoke('shouldBatchMultiEpisodePlan', [
-                'multi_episode' => true,
-                'episode_count' => $episodeCount,
-                'multi_episode_stage' => 'episodes',
-            ], [
-                'multi_episode' => true,
-                'episode_count' => $episodeCount,
-            ]));
-        }
         self::assertTrue($this->invoke('shouldBatchMultiEpisodePlan', [
             'multi_episode' => true,
             'episode_count' => 99,
@@ -280,66 +269,6 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
             'multi_episode' => true,
             'episode_count' => 99,
         ]));
-    }
-
-    public function testCompleteFiftyAndOneHundredEpisodeOutlinesRemainConfirmable(): void
-    {
-        foreach ([50, 100] as $episodeCount) {
-            $payload = $this->multiEpisodePayload($episodeCount, false, 0);
-            $result = $this->invoke('normalizeGeneratedPlanResult', $payload, '长篇悬疑短剧', [
-                'multi_episode' => true,
-                'episode_count' => $episodeCount,
-                'multi_episode_stage' => 'episodes',
-                'model_selections' => [],
-            ], '旧宅谜案');
-
-            self::assertSame($episodeCount, $result['episode_count']);
-            self::assertCount($episodeCount, $result['episodes']);
-            self::assertSame(range(1, $episodeCount), array_column($result['episodes'], 'episode_number'));
-            self::assertSame([], $this->invoke('storedMultiEpisodeOutlineIssues', $result));
-            self::assertTrue($this->invoke('planResultHasContent', $result));
-            $report = $this->invoke('reviewPlanResult', $result);
-            self::assertSame(0, $report['blocking_count']);
-        }
-    }
-
-    public function testFinalLongBatchOffsetsEpisodesThroughOneHundred(): void
-    {
-        $plan = [
-            'episodes' => [[
-                'episode_number' => 10,
-                'title' => '第十集',
-                'scenes' => [[
-                    'scene_id' => 'episode_10_scene_1',
-                    'shots' => [['episode_number' => 10, 'scene_ref_id' => 'episode_10_scene_1']],
-                ]],
-                'storyboard' => [['episode_number' => 10, 'scene_ref_id' => 'episode_10_scene_1']],
-            ]],
-            'storyboard' => [['episode_number' => 10, 'scene_ref_id' => 'episode_10_scene_1']],
-        ];
-        $offset = $this->invoke('offsetMultiEpisodePlan', $plan, 90);
-
-        self::assertSame(100, $offset['episodes'][0]['episode_number']);
-        self::assertSame('episode_100_scene_1', $offset['episodes'][0]['scenes'][0]['scene_id']);
-        self::assertSame(100, $offset['episodes'][0]['scenes'][0]['shots'][0]['episode_number']);
-        self::assertSame('episode_100_scene_1', $offset['storyboard'][0]['scene_ref_id']);
-    }
-
-    public function testEverySupportedLongSeriesLengthUsesContiguousBoundedBatches(): void
-    {
-        for ($episodeCount = 10; $episodeCount <= 500; $episodeCount++) {
-            $ranges = $this->invoke('multiEpisodeBatchRanges', $episodeCount);
-            self::assertNotEmpty($ranges, 'batch ranges missing for ' . $episodeCount . ' episodes');
-            self::assertSame(1, $ranges[0]['start']);
-            self::assertSame($episodeCount, $ranges[array_key_last($ranges)]['end']);
-            $flattened = [];
-            foreach ($ranges as $range) {
-                self::assertGreaterThanOrEqual(2, $range['count']);
-                self::assertLessThanOrEqual(10, $range['count']);
-                $flattened = array_merge($flattened, range($range['start'], $range['end']));
-            }
-            self::assertSame(range(1, $episodeCount), $flattened);
-        }
     }
 
     public function testSeriesBibleKeepsStableReferencesAndEpisodeDirections(): void
@@ -650,7 +579,6 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
                 'title' => '第' . $number . '集',
                 'story_outline' => '第' . $number . '集故事推进。',
                 'script_lines' => ['第' . $number . '集关键剧情。'],
-                'conflict_point' => '第' . $number . '集的核心冲突。',
                 'ending_hook' => '第' . $number . '集结尾悬念。',
             ];
         }

@@ -11,16 +11,4 @@
 !/runtime/index.html
 /config/install.lock
 /skill/*
-
-# Local frontend build output and deployment-only artifacts.
-# Keep source code, migrations, and upgrade SQL under version control.
-/public/admin/assets/
-/public/platform/assets/
-/public/pc/assets/
-/public/mobile/assets/
-/public/mp-weixin/assets/
-/public/_nuxt/
-/public/media/
-/public/upgrade/
-/.well-known/
-/public/.well-known/
+ 

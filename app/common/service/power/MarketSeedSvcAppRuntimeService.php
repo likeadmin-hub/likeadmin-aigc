@@ -284,7 +284,8 @@ class MarketSeedSvcAppRuntimeService
             throw new Exception('市场音色修改消耗记录不存在');
         }
         $consumption = $context['consumption'];
-        if (in_array((string)$consumption['billing_status'], ['settled', 'refunded'], true)) {
+        if (in_array((string)$consumption['billing_status'], ['settled', 'refunded'], true)
+            || in_array((string)$consumption['run_status'], ['success', 'failed', 'canceled', 'cancelled'], true)) {
             return self::response($consumption->toArray());
         }
         $taskId = trim((string)$consumption['upstream_task_id']);
@@ -323,6 +324,11 @@ class MarketSeedSvcAppRuntimeService
             }
             return ['status' => 'running', 'provider_task_id' => $taskId, 'items' => []];
         } catch (\Throwable $e) {
+            if ((int)$e->getCode() === 422) {
+                $message = $e->getMessage() ?: '音乐翻唱任务失败';
+                self::fail($consumptionId, $message, 'upstream_failed');
+                return self::failureResponse($taskId, $message);
+            }
             if ($timedOut) {
                 self::fail($consumptionId, $e->getMessage(), 'timeout');
                 return self::failureResponse($taskId, $e->getMessage());
@@ -600,22 +606,50 @@ class MarketSeedSvcAppRuntimeService
             throw new Exception('音色修改应用响应格式错误');
         }
         if ($http >= 400 || isset($data['error']) || (array_key_exists('code', $data) && (int)$data['code'] !== 1)) {
-            throw new Exception(self::error($data));
+            throw new Exception(self::error($data), 422);
         }
         return $data;
     }
 
     private static function status(array $data): string
     {
-        $root = self::arrayValue($data['data'] ?? $data);
-        $result = self::arrayValue($root['result'] ?? []);
-        $value = strtolower((string)($data['status'] ?? $root['status'] ?? $root['state'] ?? $root['task_status'] ?? $result['status'] ?? ''));
-        return match ($value) {
-            'done', 'completed', 'complete', 'success', 'succeeded' => 'success',
-            'failed', 'fail', 'error' => 'failed',
-            'canceled', 'cancelled' => 'canceled',
-            default => $value !== '' ? $value : 'running',
-        };
+        $candidates = [];
+        self::collectStatusCandidates($data, $candidates);
+        $normalized = [];
+        foreach ($candidates as $candidate) {
+            $candidate = strtolower(trim((string)$candidate));
+            if ($candidate !== '') {
+                $normalized[] = $candidate;
+            }
+        }
+        if (array_intersect($normalized, ['failed', 'fail', 'error', 'failure', 'rejected', '拒绝', '失败']) !== []) {
+            return 'failed';
+        }
+        if (array_intersect($normalized, ['canceled', 'cancelled']) !== []) {
+            return 'canceled';
+        }
+        if (array_intersect($normalized, ['done', 'completed', 'complete', 'success', 'succeeded', 'finished']) !== []) {
+            return 'success';
+        }
+        return $normalized[0] ?? 'running';
+    }
+
+    /** Collect status fields from common Seedsvc response nesting shapes. */
+    private static function collectStatusCandidates(mixed $value, array &$candidates, int $depth = 0): void
+    {
+        if ($depth > 5 || !is_array($value)) {
+            return;
+        }
+        foreach ($value as $key => $item) {
+            $key = strtolower((string)$key);
+            if (in_array($key, ['status', 'state', 'task_status', 'task_state', 'result_status', 'run_status'], true)
+                && (is_scalar($item) || $item === null)) {
+                $candidates[] = (string)$item;
+            }
+            if (is_array($item)) {
+                self::collectStatusCandidates($item, $candidates, $depth + 1);
+            }
+        }
     }
 
     private static function taskId(array $data): string

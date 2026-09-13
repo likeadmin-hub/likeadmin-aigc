@@ -341,8 +341,8 @@ class AigcProductSuiteService
         if ($userKeyword !== '') {
             $query->where(function ($query) use ($userKeyword) {
                 $query->whereLike('u.nickname', '%' . $userKeyword . '%')
-                    ->whereOrLike('u.account', '%' . $userKeyword . '%')
-                    ->whereOrLike('u.mobile', '%' . $userKeyword . '%');
+                    ->whereOr('u.account', 'like', '%' . $userKeyword . '%')
+                    ->whereOr('u.mobile', 'like', '%' . $userKeyword . '%');
                 if (ctype_digit($userKeyword)) {
                     $query->whereOr('t.user_id', (int)$userKeyword);
                 }

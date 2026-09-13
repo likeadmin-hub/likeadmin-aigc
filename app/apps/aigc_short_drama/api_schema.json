@@ -2,14 +2,6 @@
   "app_code": "aigc_short_drama",
   "apis": [
     {
-      "api_path": "app.aigc_short_drama.script_plan/saveDraft",
-      "api_method": "POST",
-      "permission_key": "aigc_short_drama:script_plan:saveDraft",
-      "scene": "user",
-      "need_login": 1,
-      "need_role_permission": 0
-    },
-    {
       "api_path": "app.aigc_short_drama.config/detail",
       "api_method": "GET",
       "permission_key": "aigc_short_drama:config:detail",
@@ -85,22 +77,6 @@
       "api_path": "app.aigc_short_drama.inspiration/status",
       "api_method": "POST",
       "permission_key": "aigc_short_drama:inspiration:status",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_short_drama.inspiration/save",
-      "api_method": "POST",
-      "permission_key": "aigc_short_drama:inspiration:save",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_short_drama.inspiration/delete",
-      "api_method": "POST",
-      "permission_key": "aigc_short_drama:inspiration:delete",
       "scene": "tenant_admin",
       "need_login": 1,
       "need_role_permission": 1
@@ -474,14 +450,6 @@
       "need_role_permission": 0
     },
     {
-      "api_path": "app.aigc_short_drama.generation/delete",
-      "api_method": "POST",
-      "permission_key": "aigc_short_drama:generation:delete:user",
-      "scene": "user",
-      "need_login": 1,
-      "need_role_permission": 0
-    },
-    {
       "api_path": "app.aigc_short_drama.generation/retry",
       "api_method": "POST",
       "permission_key": "aigc_short_drama:generation:retry:user",
@@ -568,78 +536,6 @@
       "scene": "user",
       "need_login": 1,
       "need_role_permission": 0
-    },
-    {
-      "api_path": "app.aigc_short_drama.prompt/detail",
-      "api_method": "GET",
-      "permission_key": "aigc_short_drama:config:detail",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_short_drama.prompt/preview",
-      "api_method": "POST",
-      "permission_key": "aigc_short_drama:config:detail",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_short_drama.prompt/save",
-      "api_method": "POST",
-      "permission_key": "aigc_short_drama:config:setup",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_short_drama.prompt/history",
-      "api_method": "GET",
-      "permission_key": "aigc_short_drama:config:detail",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_short_drama.prompt/version",
-      "api_method": "GET",
-      "permission_key": "aigc_short_drama:config:detail",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_short_drama.prompt/rollback",
-      "api_method": "POST",
-      "permission_key": "aigc_short_drama:config:setup",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_short_drama.prompt/requests",
-      "api_method": "GET",
-      "permission_key": "aigc_short_drama:config:detail",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_short_drama.prompt/restoreApplication",
-      "api_method": "POST",
-      "permission_key": "aigc_short_drama:config:setup",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
-    },
-    {
-      "api_path": "app.aigc_short_drama.prompt/requestDetail",
-      "api_method": "GET",
-      "permission_key": "aigc_short_drama:config:detail",
-      "scene": "tenant_admin",
-      "need_login": 1,
-      "need_role_permission": 1
     }
   ]
 }

@@ -4,7 +4,7 @@ INSERT INTO `la_tenant_system_menu` (`tenant_id`,`pid`,`type`,`name`,`icon`,`sor
 SELECT parent.`tenant_id`, parent.`id`, 'A', '修改密码', '', 1, 'user.user/resetPassword', '', '', '', '', 0, 1, 0, '', 'core', 'core_tenant_consumer_reset_password', 1, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()
 FROM `la_tenant_system_menu` parent
 WHERE parent.`type` = 'C'
-  AND parent.`paths` = 'lists'
+  AND parent.`paths` = 'lists/detail'
   AND parent.`component` = 'consumer/lists/detail'
   AND NOT EXISTS (
     SELECT 1

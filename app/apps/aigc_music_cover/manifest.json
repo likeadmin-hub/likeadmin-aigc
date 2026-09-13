@@ -8,7 +8,7 @@
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
-  "is_builtin": 0,
+  "is_builtin": 1,
   "expire_policy": "allow",
   "sort": 59,
   "frontends": [
@@ -41,24 +41,12 @@
   ],
   "public_assets": [
     {
-      "source": "frontend/pc.js",
-      "target": "public/music-cover-page.js"
-    },
-    {
       "source": "frontend/tenant.js",
       "target": "public/music-cover-admin.js"
     },
     {
-      "source": "frontend/style.css",
-      "target": "public/music-cover-page.css"
-    },
-    {
       "source": "frontend/admin.css",
       "target": "public/music-cover-admin.css"
-    },
-    {
-      "source": "frontend/pc-entry.html",
-      "target": "public/pc/ai/tools/aigc_music_cover/index.html"
     }
   ]
 }

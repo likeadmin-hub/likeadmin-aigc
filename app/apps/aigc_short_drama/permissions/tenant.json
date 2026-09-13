@@ -60,18 +60,6 @@
     "api_method": "POST"
   },
   {
-    "permission_key": "aigc_short_drama:inspiration:save",
-    "name": "保存AI短剧灵感素材",
-    "api_path": "app.aigc_short_drama.inspiration/save",
-    "api_method": "POST"
-  },
-  {
-    "permission_key": "aigc_short_drama:inspiration:delete",
-    "name": "删除AI短剧灵感素材",
-    "api_path": "app.aigc_short_drama.inspiration/delete",
-    "api_method": "POST"
-  },
-  {
     "permission_key": "aigc_short_drama:subject:lists",
     "name": "查看主体库",
     "api_path": "app.aigc_short_drama.subject/lists",
@@ -136,59 +124,5 @@
     "name": "删除短剧声音",
     "api_path": "app.aigc_short_drama.public_voice/delete",
     "api_method": "POST"
-  },
-  {
-    "api_path": "app.aigc_short_drama.prompt/detail",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:config:detail",
-    "name": "查看提示词目录"
-  },
-  {
-    "api_path": "app.aigc_short_drama.prompt/preview",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:config:detail",
-    "name": "预览提示词"
-  },
-  {
-    "api_path": "app.aigc_short_drama.prompt/save",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:config:setup",
-    "name": "保存提示词"
-  },
-  {
-    "api_path": "app.aigc_short_drama.prompt/history",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:config:detail",
-    "name": "查看提示词版本"
-  },
-  {
-    "api_path": "app.aigc_short_drama.prompt/version",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:config:detail",
-    "name": "查看提示词版本内容"
-  },
-  {
-    "api_path": "app.aigc_short_drama.prompt/rollback",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:config:setup",
-    "name": "回滚提示词"
-  },
-  {
-    "api_path": "app.aigc_short_drama.prompt/requests",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:config:detail",
-    "name": "查看生成提示词记录"
-  },
-  {
-    "api_path": "app.aigc_short_drama.prompt/restoreApplication",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:config:setup",
-    "name": "恢复短剧应用默认提示词"
-  },
-  {
-    "api_path": "app.aigc_short_drama.prompt/requestDetail",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:config:detail",
-    "name": "查看生成提示词内容"
   }
 ]

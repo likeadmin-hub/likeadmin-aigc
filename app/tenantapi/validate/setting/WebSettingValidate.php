@@ -39,7 +39,7 @@ class WebSettingValidate extends BaseValidate
         'pc_login_bg_type' => 'in:image,video,none',
         'pc_login_bg' => 'max:500',
         'pc_login_bg_poster' => 'max:500',
-        'pc_home_style' => 'in:default,immersive',
+        'pc_home_style' => 'in:default,immersive,coral',
         'pc_home_bg_type' => 'in:image,video,none',
         'pc_home_bg' => 'array',
         'pc_home_bg_poster' => 'array',

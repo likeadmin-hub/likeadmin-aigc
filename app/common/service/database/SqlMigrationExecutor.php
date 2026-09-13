@@ -33,6 +33,9 @@ class SqlMigrationExecutor
                 if ($ignoreDuplicateColumn && self::isAddColumnDuplicateError($statement, $e) && self::executeAddColumnsIndividually($statement, $connection)) {
                     continue;
                 }
+                if ($ignoreDuplicateColumn && self::isSkippableIndexMigration($statement, $e)) {
+                    continue;
+                }
                 throw $e;
             }
         }
@@ -155,6 +158,18 @@ class SqlMigrationExecutor
         return strpos($message, '1060') !== false
             || stripos($message, 'Duplicate column') !== false
             || stripos($message, '42S21') !== false;
+    }
+
+    private static function isSkippableIndexMigration(string $statement, Throwable $e): bool
+    {
+        if (!preg_match('/^\s*ALTER\s+TABLE\s+`?[\w]+`?\s+ADD\s+(?:UNIQUE\s+)?INDEX\s+/i', $statement)) {
+            return false;
+        }
+        $message = $e->getMessage();
+        return strpos($message, '1061') !== false
+            || stripos($message, 'Duplicate key name') !== false
+            || strpos($message, '1146') !== false
+            || stripos($message, 'doesn\'t exist') !== false;
     }
 
     private static function executeAddColumnsIndividually(string $statement, $connection = null): bool

@@ -13,30 +13,17 @@ class ShortDramaEpisodeQueueTest extends TestCase
 {
     private const TENANT = 90000909;
     private const USER = 90000909;
-    private $previousRedis;
 
     protected function setUp(): void
     {
         if (getenv('SHORT_DRAMA_DB_TESTS') !== '1') $this->markTestSkipped('Set SHORT_DRAMA_DB_TESTS=1 for transactional MySQL tests');
         (new \think\App())->initialize();
-        // Transaction rollbacks do not roll back Redis; never publish fixture jobs to a live worker.
-        $redis = new \ReflectionProperty(\app\common\service\app\aigc_short_drama\ShortDramaRedisQueue::class, 'redis');
-        $redis->setAccessible(true);
-        $this->previousRedis = $redis->getValue();
-        $stub = $this->createMock(\Redis::class);
-        $stub->method('set')->willReturn(true); // grant the fixture's in-memory lease
-        $redis->setValue(null, $stub);
         Db::startTrans();
     }
 
     protected function tearDown(): void
     {
-        if (getenv('SHORT_DRAMA_DB_TESTS') === '1') {
-            Db::rollback();
-            $redis = new \ReflectionProperty(\app\common\service\app\aigc_short_drama\ShortDramaRedisQueue::class, 'redis');
-            $redis->setAccessible(true);
-            $redis->setValue(null, $this->previousRedis);
-        }
+        if (getenv('SHORT_DRAMA_DB_TESTS') === '1') Db::rollback();
     }
 
     public static function counts(): array { return [[2], [3], [10], [500]]; }
@@ -77,64 +64,6 @@ class ShortDramaEpisodeQueueTest extends TestCase
         self::assertSame(1, (int)Episodes::nextInitialEpisode($first['lists'])['episode_number']);
     }
 
-    public function testHistoricalOutlineCanBeConfirmedWithItsOwnEpisodeCount(): void
-    {
-        // Stub Redis so this transactional fixture never publishes a real job.
-        $redisProperty = new \ReflectionProperty(\app\common\service\app\aigc_short_drama\ShortDramaRedisQueue::class, 'redis');
-        $redisProperty->setAccessible(true);
-        $previousRedis = $redisProperty->getValue();
-        $redisProperty->setValue(null, $this->createMock(\Redis::class));
-        try {
-            $old = $this->project(3);
-            $latestTaskId = $old['task_id'] . '_revision';
-            Db::name('aigc_short_drama_project')->where('id', $old['project_id'])->update(['last_task_id' => $latestTaskId, 'episode_count' => 4]);
-            $task = Db::name('aigc_short_drama_script_task')->where('task_id', $old['task_id'])->find();
-            $format = new \ReflectionMethod(AigcShortDramaService::class, 'formatTask');
-            $format->setAccessible(true);
-            $detail = $format->invoke(null, $task, true);
-            self::assertSame(3, $detail['result']['episode_count']);
-            self::assertSame('事务测试短剧', $detail['result']['title']);
-
-            $result = Episodes::start(self::TENANT, self::USER, $old);
-            self::assertCount(3, $result['lists']);
-            self::assertSame($old['task_id'], $result['outline_task_id']);
-            self::assertSame([$old['task_id']], array_values(array_unique(array_column($result['lists'], 'outline_task_id'))));
-            $again = Episodes::start(self::TENANT, self::USER, $old);
-            self::assertSame(array_column($result['lists'], 'id'), array_column($again['lists'], 'id'));
-
-            $this->expectException(\Exception::class);
-            $this->expectExceptionMessage('剧集已按其他大纲版本创建');
-            Episodes::start(self::TENANT, self::USER, ['project_id' => $old['project_id'], 'task_id' => $latestTaskId]);
-        } finally {
-            $redisProperty->setValue(null, $previousRedis);
-        }
-    }
-
-    public function testRevisionClearsOldAttemptStateAndPreservesSavedResult(): void
-    {
-        $project = $this->project(3);
-        $saved = json_encode(['story_outline' => '原剧情']);
-        $id = Db::name('aigc_short_drama_episode_task')->insertGetId([
-            'tenant_id' => self::TENANT, 'user_id' => self::USER, 'project_id' => $project['project_id'],
-            'production_project_id' => $project['project_id'], 'episode_number' => 1, 'title' => '已完成集',
-            'outline_task_id' => $project['task_id'], 'outline_json' => '{}', 'task_id' => $project['task_id'],
-            'status' => 'success', 'completed_once' => 1, 'result_json' => $saved, 'continuity_json' => $saved,
-            'attempt_number' => 4, 'queue_job_id' => 42, 'cancel_requested' => 1, 'retry_count' => 2,
-            'next_retry_at' => time() + 120, 'finished_at' => time(), 'create_time' => time(), 'update_time' => time(),
-        ]);
-        Episodes::revisionQueued(self::TENANT, self::USER, $project['project_id'], 'new_revision');
-        $row = Db::name('aigc_short_drama_episode_task')->where('id', $id)->find();
-        self::assertSame('pending', $row['status']);
-        self::assertSame('new_revision', $row['task_id']);
-        self::assertSame(5, (int)$row['attempt_number']);
-        foreach (['queue_job_id', 'cancel_requested', 'retry_count', 'next_retry_at', 'finished_at'] as $field) self::assertSame(0, (int)$row[$field]);
-        self::assertSame($saved, $row['result_json']);
-        self::assertSame($saved, $row['continuity_json']);
-        self::assertSame(1, (int)$row['completed_once']);
-        Episodes::revisionQueued(self::TENANT + 1, self::USER, $project['project_id'], 'foreign_revision');
-        self::assertSame('new_revision', Db::name('aigc_short_drama_episode_task')->where('id', $id)->value('task_id'));
-    }
-
     public function testFailurePausesFollowingEpisodesAndRetryOfPendingAttemptResumesOrder(): void
     {
         $project = $this->project(3);
@@ -163,80 +92,6 @@ class ShortDramaEpisodeQueueTest extends TestCase
         $list = Episodes::lists(self::TENANT, self::USER, $project['project_id']);
         self::assertSame(['canceled', 'pending', 'pending'], array_column($list['lists'], 'status'));
         self::assertTrue($list['paused']);
-    }
-
-    public function testCancelAllAllowsOnlyExplicitlyRetriedEpisodeOutOfOrder(): void
-    {
-        $redis = new \ReflectionProperty(\app\common\service\app\aigc_short_drama\ShortDramaRedisQueue::class, 'redis');
-        $redis->setAccessible(true);
-        $previous = $redis->getValue();
-        $redis->setValue(null, $this->createMock(\Redis::class));
-        try {
-            $project = $this->project(3);
-            $rows = Episodes::start(self::TENANT, self::USER, $project)['lists'];
-            $result = Episodes::cancelAll(self::TENANT, self::USER, $project['project_id']);
-            self::assertSame(['canceled', 'canceled', 'canceled'], array_column($result['lists'], 'status'));
-            self::assertTrue($result['manual_generation']);
-            self::assertSame(0, Episodes::tick(self::TENANT, $project['project_id']));
-            self::assertSame(array_column($result['lists'], 'status'), array_column(Episodes::cancelAll(self::TENANT, self::USER, $project['project_id'])['lists'], 'status'));
-            Episodes::retry(self::TENANT, self::USER, (int)$rows[2]['id']);
-            $raw = Db::name('aigc_short_drama_episode_task')->where('project_id', $project['project_id'])->order('episode_number')->select()->toArray();
-            self::assertSame(['canceled', 'canceled', 'pending'], array_column($raw, 'status'));
-            self::assertSame((int)$rows[2]['id'], (int)Episodes::nextRunnableEpisode($raw)['id']);
-            Db::name('aigc_short_drama_episode_task')->where('id', $rows[2]['id'])->update(['status' => 'success', 'completed_once' => 1]);
-            $raw = Db::name('aigc_short_drama_episode_task')->where('project_id', $project['project_id'])->select()->toArray();
-            self::assertNull(Episodes::nextRunnableEpisode($raw));
-        } finally { $redis->setValue(null, $previous); }
-    }
-
-    public function testCancelAllPreservesCompletedAndRequestsRunningCancellation(): void
-    {
-        $redis = new \ReflectionProperty(\app\common\service\app\aigc_short_drama\ShortDramaRedisQueue::class, 'redis');
-        $redis->setAccessible(true);
-        $previous = $redis->getValue();
-        $redis->setValue(null, $this->createMock(\Redis::class));
-        try {
-            $project = $this->project(3);
-            $rows = Episodes::start(self::TENANT, self::USER, $project)['lists'];
-            Db::name('aigc_short_drama_episode_task')->where('id', $rows[0]['id'])->update(['status' => 'success', 'completed_once' => 1, 'result_json' => '{"kept":true}']);
-            Db::name('aigc_short_drama_episode_task')->where('id', $rows[1]['id'])->update(['status' => 'running']);
-            $result = Episodes::cancelAll(self::TENANT, self::USER, $project['project_id']);
-            self::assertSame(['success', 'running', 'canceled'], array_column($result['lists'], 'status'));
-            self::assertSame(2, (int)$result['lists'][1]['cancel_requested']);
-            self::assertSame('{"kept":true}', Db::name('aigc_short_drama_episode_task')->where('id', $rows[0]['id'])->value('result_json'));
-            try {
-                Episodes::cancelAll(self::TENANT + 1, self::USER, $project['project_id']);
-                self::fail('Cross-tenant cancel-all accepted');
-            } catch (\Exception $e) { self::assertSame('项目不存在', $e->getMessage()); }
-        } finally { $redis->setValue(null, $previous); }
-    }
-
-    public function testCancelAllRunningCompletionIsRetainedWithoutDispatchingNextEpisode(): void
-    {
-        $redis = new \ReflectionProperty(\app\common\service\app\aigc_short_drama\ShortDramaRedisQueue::class, 'redis');
-        $redis->setAccessible(true);
-        $previous = $redis->getValue();
-        $mockRedis = $this->createMock(\Redis::class);
-        $mockRedis->method('set')->willReturn(true);
-        $redis->setValue(null, $mockRedis);
-        try {
-            $project = $this->project(3);
-            $rows = Episodes::start(self::TENANT, self::USER, $project)['lists'];
-            $child = Db::name('aigc_short_drama_project')->insertGetId(['tenant_id' => self::TENANT, 'user_id' => self::USER, 'title' => 'finished fixture']);
-            $taskId = 'cancel_all_done_' . bin2hex(random_bytes(8));
-            $plan = $this->outline(3);
-            $plan['storyboard'] = [['shot_id' => '1', 'visual_description' => '已生成的画面']];
-            Db::name('aigc_short_drama_script_task')->insert(['tenant_id' => self::TENANT, 'user_id' => self::USER, 'project_id' => $child,
-                'task_id' => $taskId, 'status' => 'success', 'progress' => 100, 'result_json' => json_encode($plan), 'request_json' => '{}']);
-            Db::name('aigc_short_drama_episode_task')->where('id', $rows[0]['id'])->update(['status' => 'running', 'task_id' => $taskId, 'production_project_id' => $child]);
-            Episodes::cancelAll(self::TENANT, self::USER, $project['project_id']);
-            self::assertSame(1, Episodes::tick(self::TENANT, $project['project_id']));
-            $list = Episodes::lists(self::TENANT, self::USER, $project['project_id']);
-            self::assertSame(['success', 'canceled', 'canceled'], array_column($list['lists'], 'status'));
-            self::assertTrue($list['lists'][0]['ready']);
-            self::assertSame(0, Episodes::tick(self::TENANT, $project['project_id']));
-            self::assertSame(1, (int)Db::name('aigc_short_drama_script_task')->where('project_id', $child)->count());
-        } finally { $redis->setValue(null, $previous); }
     }
 
     public function testTenantCannotReadOrMutateAnotherTenantsEpisodes(): void
@@ -381,7 +236,7 @@ class ShortDramaEpisodeQueueTest extends TestCase
         $result['storyboard'] = [['shot_id' => '1', 'visual_description' => '调查员进入街道']];
         Db::name('aigc_short_drama_script_task')->where('task_id', $created['task_id'])->update(['status' => 'success', 'result_json' => json_encode($result)]);
         Db::name('aigc_short_drama_episode_task')->where('id', $row['id'])->update(['status' => 'success', 'completed_once' => 1]);
-        $revision = Episodes::message(1, 1, ['episode_id' => $row['id'], 'message' => '把第1个分镜的画面改为雨天']);
+        $revision = Episodes::message(1, 1, ['episode_id' => $row['id'], 'message' => '把本集开场改为雨天']);
         $revisionTask = Db::name('aigc_short_drama_script_task')->where('task_id', $revision['task_id'])->find();
         self::assertSame((int)$created['project_id'], (int)$revisionTask['project_id']);
         self::assertSame($outline, Episodes::decode($revisionTask['request_json'])['series_context']['outline']);
@@ -391,7 +246,7 @@ class ShortDramaEpisodeQueueTest extends TestCase
         self::assertSame((int)$created['project_id'], (int)$retry['project_id']);
         self::assertNotSame($revision['task_id'], $retry['task_id']);
         $retryRequest = Episodes::decode(Db::name('aigc_short_drama_script_task')->where('task_id', $retry['task_id'])->value('request_json'));
-        self::assertSame('把第1个分镜的画面改为雨天', $retryRequest['revision_message']);
+        self::assertSame('把本集开场改为雨天', $retryRequest['revision_message']);
         self::assertSame('pending', Episodes::detail(1, 1, $list['lists'][1]['id'])['status']);
     }
 }

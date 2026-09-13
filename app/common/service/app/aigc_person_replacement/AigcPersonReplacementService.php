@@ -183,8 +183,8 @@ class AigcPersonReplacementService
         if ($keyword !== '') {
             $query->where(function ($query) use ($keyword) {
                 $query->whereLike('u.nickname', '%' . $keyword . '%')
-                    ->whereOrLike('u.account', '%' . $keyword . '%')
-                    ->whereOrLike('u.mobile', '%' . $keyword . '%');
+                    ->whereOr('u.account', 'like', '%' . $keyword . '%')
+                    ->whereOr('u.mobile', 'like', '%' . $keyword . '%');
                 if (ctype_digit($keyword)) {
                     $query->whereOr('t.user_id', (int)$keyword);
                 }

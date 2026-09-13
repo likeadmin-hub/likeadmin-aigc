@@ -164,6 +164,7 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
             $upstreamChannel = match ($model) {
                 'gpt-image-2-pro' => 'OpenaiM',
                 'gpt-image-2-fast' => 'openaiD',
+                'gpt-image-2.5', 'gpt-image-25', 'gpt-image-2.5-flare', 'gpt-image-2.5-sunburst' => 'OpenaiM',
                 default => '',
             };
         }
@@ -191,7 +192,13 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
     private function normalizeModel(string $model): string
     {
         $model = trim($model);
-        return $model === 'gpt_image_2' ? 'gpt-image-2' : $model;
+        return match ($model) {
+            'gpt_image_2' => 'gpt-image-2',
+            'gpt_image_2_5', 'gpt_image_25' => 'gpt-image-2.5',
+            'gpt_image_2_5_flare' => 'gpt-image-2.5-flare',
+            'gpt_image_2_5_sunburst' => 'gpt-image-2.5-sunburst',
+            default => $model,
+        };
     }
 
     private function sourceBaseUrl(string $baseUrl): string
@@ -213,7 +220,7 @@ class XhadminAigcImageProvider implements AigcImageProviderInterface
     private function buildPayload(AigcImageGenerateRequest $request, array $config): array
     {
         $providerParams = $request->providerParams;
-        if (in_array((string)($config['model'] ?? ''), ['gpt-image-2-pro', 'gpt-image-2-fast'], true)) {
+        if (in_array((string)($config['model'] ?? ''), ['gpt-image-2-pro', 'gpt-image-2-fast', 'gpt-image-2.5', 'gpt-image-2.5-flare', 'gpt-image-2.5-sunburst'], true)) {
             if (empty($providerParams['image_size'])) {
                 $providerParams['image_size'] = $providerParams['resolution'] ?? $request->quality;
             }

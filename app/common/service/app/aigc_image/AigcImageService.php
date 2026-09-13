@@ -472,7 +472,9 @@ class AigcImageService
         }
         $taskId = $refreshTaskId;
         if ($taskId > 0) {
-            $query->where('t.id', $taskId);
+            $query->where(function ($query) use ($taskId) {
+                $query->where('t.id', $taskId)->whereOr('t.provider_task_id', (string)$taskId);
+            });
         }
         $status = $refreshStatus;
         if ($status !== '') {
@@ -486,8 +488,8 @@ class AigcImageService
         if ($userKeyword !== '') {
             $query->where(function ($query) use ($userKeyword) {
                 $query->whereLike('u.nickname', '%' . $userKeyword . '%')
-                    ->whereOrLike('u.account', '%' . $userKeyword . '%')
-                    ->whereOrLike('u.mobile', '%' . $userKeyword . '%');
+                    ->whereOr('u.account', 'like', '%' . $userKeyword . '%')
+                    ->whereOr('u.mobile', 'like', '%' . $userKeyword . '%');
                 if (ctype_digit($userKeyword)) {
                     $query->whereOr('t.user_id', (int)$userKeyword);
                 }
@@ -1270,7 +1272,7 @@ class AigcImageService
             }
         }
         $provider = strtolower((string)($selection['channel']['provider'] ?? ''));
-        if (in_array($provider, ['gpt_image_2_pro', 'gpt_image_2_fast'], true)) {
+        if (in_array($provider, ['gpt_image_2_pro', 'gpt_image_2_fast', 'gpt_image_2_5', 'gpt_image_2_5_flare', 'gpt_image_2_5_sunburst'], true)) {
             return 3600;
         }
         return 3600;
@@ -1584,7 +1586,7 @@ class AigcImageService
 
     private static function isAsyncProvider(string $provider): bool
     {
-        return in_array(strtolower($provider), ['xhadmin', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim', 'gpt_image_2_pro', 'gpt_image_2_fast'], true);
+        return in_array(strtolower($provider), ['xhadmin', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim', 'gpt_image_2_pro', 'gpt_image_2_fast', 'gpt_image_2_5', 'gpt_image_2_5_flare', 'gpt_image_2_5_sunburst'], true);
     }
 
     private static function sanitizeUtf8Payload(array $data): array
@@ -1621,7 +1623,7 @@ class AigcImageService
     private static function providerFor(string $provider): AigcImageProviderInterface
     {
         return match (strtolower($provider)) {
-            'xhadmin', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim', 'gpt_image_2_pro', 'gpt_image_2_fast' => new XhadminAigcImageProvider(),
+            'xhadmin', 'xhadmin_gpt_image_2', 'gpt_image_2_openaim', 'gpt_image_2_pro', 'gpt_image_2_fast', 'gpt_image_2_5', 'gpt_image_2_5_flare', 'gpt_image_2_5_sunburst' => new XhadminAigcImageProvider(),
             default => new MockAigcImageProvider(),
         };
     }
