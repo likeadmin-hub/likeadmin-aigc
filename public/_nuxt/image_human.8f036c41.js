@@ -1,0 +1,1 @@
+import{g as a,B as _,O as t,o,c as s,_ as n}from"./entry.2ef22229.js";const c={class:"redirect-page"},r=a({__name:"image_human",setup(u){const e=_();return t(()=>{e.replace({path:"/ai/avatar",query:{tab:"image_human"}})}),(m,p)=>(o(),s("div",c))}});const d=n(r,[["__scopeId","data-v-b69a1ca4"]]);export{d as default};

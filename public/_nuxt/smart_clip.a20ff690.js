@@ -1,0 +1,1 @@
+import{g as s,C as a,d$ as c,o,c as r,d_ as n,_ as p}from"./entry.2ef22229.js";const i={class:"smart-clip-redirect"},l=s({__name:"smart_clip",async setup(m){let e,t;const _=a();return[e,t]=c(()=>n({path:"/ai/smart_clip",query:_.query},{replace:!0})),await e,t(),(u,d)=>(o(),r("div",i))}});const y=p(l,[["__scopeId","data-v-4cef5fe2"]]);export{y as default};
