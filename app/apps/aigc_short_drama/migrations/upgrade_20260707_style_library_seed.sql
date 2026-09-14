@@ -15,7 +15,8 @@ CREATE TEMPORARY TABLE IF NOT EXISTS `tmp_aigc_short_drama_style_seed` (
   `sort` int NOT NULL DEFAULT 0
 ) ENGINE=Memory DEFAULT CHARSET=utf8mb4;
 
-TRUNCATE TABLE `tmp_aigc_short_drama_style_seed`;
+-- Clear only this connection's temporary seed rows on repeated execution.
+DELETE FROM `tmp_aigc_short_drama_style_seed`;
 
 INSERT INTO `tmp_aigc_short_drama_style_seed`
 (`name`, `image`, `description`, `is_new`, `status`, `sort`)

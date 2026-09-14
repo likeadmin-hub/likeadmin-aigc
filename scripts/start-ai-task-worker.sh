@@ -1,6 +1,5 @@
 #!/bin/sh
-# Baota Supervisor entry: replace any stale result worker for this checkout,
-# then exec PHP so Supervisor tracks the actual worker PID.
+# Baota Supervisor entry: supervise all three workers as one process group.
 set -eu
 
 SERVER_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -13,6 +12,8 @@ PHP_BIN=${PHP_BIN:-/www/server/php/80/bin/php}
 # or an absolute Baota PHP path, so the executable itself must not be part of
 # the process match.
 WORKER_MATCH="$SERVER_DIR/think ai:task-worker"
+EPISODE_MATCH="$SERVER_DIR/think short-drama:episode-worker"
+PLANNING_MATCH="$SERVER_DIR/think short-drama:planning-worker"
 
 mkdir -p "$LOG_DIR"
 
@@ -21,6 +22,7 @@ log_startup() {
 }
 
 log_startup "starting worker: server=$SERVER_DIR php=$PHP_BIN pid=$$"
+cd "$SERVER_DIR"
 if [ ! -x "$PHP_BIN" ]; then
     log_startup "ERROR: PHP executable not found or not executable: $PHP_BIN"
     exit 127
@@ -61,4 +63,37 @@ rm -f "$PID_FILE"
 export AI_TASK_WORKER_PID_FILE="$PID_FILE"
 echo "$$" > "$PID_FILE"
 log_startup "exec: $PHP_BIN $SERVER_DIR/think ai:task-worker"
-exec "$PHP_BIN" "$SERVER_DIR/think" ai:task-worker --worker=result --sleep=1 --lease=90 --batch=20 >> "$LOG_FILE" 2>&1
+
+# One Supervisor entry owns the general task worker and both short-drama
+# queues. Keep the children in this script's process group so one restart
+# starts the complete worker set and no queue is silently left behind.
+pids=""
+cleanup() {
+    trap - TERM INT EXIT
+    for pid in $pids; do kill -TERM "$pid" 2>/dev/null || true; done
+    for pid in $pids; do wait "$pid" 2>/dev/null || true; done
+}
+trap 'exit 143' TERM
+trap 'exit 130' INT
+trap cleanup EXIT
+
+"$PHP_BIN" "$SERVER_DIR/think" ai:task-worker --worker=result --sleep=1 --lease=90 --batch=20 >> "$LOG_FILE" 2>&1 &
+pids="$pids $!"
+"$PHP_BIN" "$SERVER_DIR/think" short-drama:episode-worker >> "$LOG_FILE" 2>&1 &
+pids="$pids $!"
+"$PHP_BIN" "$SERVER_DIR/think" short-drama:planning-worker >> "$LOG_FILE" 2>&1 &
+pids="$pids $!"
+log_startup "started workers: $pids"
+# POSIX sh (including dash and older Bash in sh mode) has no wait -n.
+# If any child stops, exit nonzero so Supervisor restarts the complete group.
+while :; do
+    for pid in $pids; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            status=0
+            wait "$pid" || status=$?
+            log_startup "ERROR: worker pid=$pid exited status=$status; restarting group"
+            exit 1
+        fi
+    done
+    sleep 1
+done

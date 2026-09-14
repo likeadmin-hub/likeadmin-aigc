@@ -1,3 +1,8 @@
+SET @sql := IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='la_dev_crontab' AND COLUMN_NAME='delete_time')=0, 'ALTER TABLE `la_dev_crontab` ADD COLUMN `delete_time` int unsigned DEFAULT NULL', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 CREATE TABLE IF NOT EXISTS `la_tenant_domain_alias` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `tenant_id` int unsigned NOT NULL DEFAULT 0 COMMENT '租户ID',

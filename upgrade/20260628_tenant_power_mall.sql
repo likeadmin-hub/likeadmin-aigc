@@ -1,3 +1,8 @@
+SET @sql := IF((SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='la_tenant_power_package' AND COLUMN_NAME='delete_time')=0, 'ALTER TABLE `la_tenant_power_package` ADD COLUMN `delete_time` int unsigned DEFAULT NULL', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 CREATE TABLE IF NOT EXISTS `la_tenant_power_package` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `type` varchar(20) NOT NULL DEFAULT 'points' COMMENT '套餐类型:member会员套餐 points点数套餐',

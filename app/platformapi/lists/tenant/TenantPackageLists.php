@@ -19,7 +19,9 @@ class TenantPackageLists extends BaseAdminDataLists implements ListsSearchInterf
 
     public function lists(): array
     {
-        $rows = TenantPackage::where('delete_time', 0)
+        $rows = TenantPackage::where(function ($query) {
+                $query->whereNull('delete_time')->whereOr('delete_time', 0);
+            })
             ->where($this->searchWhere)
             ->order(['sort' => 'desc', 'id' => 'desc'])
             ->limit($this->limitOffset, $this->limitLength)
@@ -30,6 +32,8 @@ class TenantPackageLists extends BaseAdminDataLists implements ListsSearchInterf
 
     public function count(): int
     {
-        return TenantPackage::where('delete_time', 0)->where($this->searchWhere)->count();
+        return TenantPackage::where(function ($query) {
+                $query->whereNull('delete_time')->whereOr('delete_time', 0);
+            })->where($this->searchWhere)->count();
     }
 }

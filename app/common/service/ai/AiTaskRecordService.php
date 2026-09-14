@@ -1269,6 +1269,15 @@ class AiTaskRecordService
                 self::BASE_TASK_SOURCES[$baseAppCode]['prompt_fields'] ?? ['prompt'],
                 static fn($field) => self::columnExists($table, $field)
             ));
+            // Task list search must support both the local task identifier and
+            // the identifier returned by the upstream provider.  Different
+            // app task tables use either task_id/provider_task_id or the
+            // provider_request_id alias, so add only columns that exist.
+            foreach (['task_id', 'provider_task_id', 'provider_request_id'] as $taskIdentifierField) {
+                if (self::columnExists($table, $taskIdentifierField) && !in_array($taskIdentifierField, $promptFields, true)) {
+                    $promptFields[] = $taskIdentifierField;
+                }
+            }
             $query->where(function ($query) use ($keyword, $promptFields) {
                 $hasCondition = false;
                 foreach ($promptFields as $field) {

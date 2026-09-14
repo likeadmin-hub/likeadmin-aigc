@@ -905,6 +905,16 @@ DEALLOCATE PREPARE stmt;
 
 -- Migration snapshot: aigc_short_drama/migrations/upgrade_20260707_style_library_seed.sql
 
+-- Older installations may have the style table without soft-delete support.
+SET @sql := IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'la_aigc_short_drama_style' AND COLUMN_NAME = 'delete_time') = 0,
+  'ALTER TABLE `la_aigc_short_drama_style` ADD COLUMN `delete_time` int unsigned NOT NULL DEFAULT 0',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 -- Seed default AI short drama style library from backend-cleaned style fields.
 UPDATE `la_aigc_short_drama_style`
 SET `delete_time` = UNIX_TIMESTAMP(), `update_time` = UNIX_TIMESTAMP()
@@ -922,7 +932,8 @@ CREATE TEMPORARY TABLE IF NOT EXISTS `tmp_aigc_short_drama_style_seed` (
   `sort` int NOT NULL DEFAULT 0
 ) ENGINE=Memory DEFAULT CHARSET=utf8mb4;
 
-TRUNCATE TABLE `tmp_aigc_short_drama_style_seed`;
+-- Clear only this connection's temporary seed rows on repeated execution.
+DELETE FROM `tmp_aigc_short_drama_style_seed`;
 
 INSERT INTO `tmp_aigc_short_drama_style_seed`
 (`name`, `image`, `description`, `is_new`, `status`, `sort`)

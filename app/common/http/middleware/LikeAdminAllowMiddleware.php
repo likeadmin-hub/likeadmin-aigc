@@ -86,9 +86,22 @@ class LikeAdminAllowMiddleware
             if ($firstSegment !== 'platform') {
                 return $this->handleTenantAccess($tenantModel, $domain, $request, $next, true);
             } else {
-                if (!$this->isAllowedPlatformHost($domain)) {
+                // The platform UI can also be entered through a tenant-bound
+                // domain. On refresh the request comes through this middleware
+                // again, so accept a valid tenant alias before returning the
+                // platform-domain 404 page.
+                $tenantByAlias = TenantDomainAliasService::findTenantByDomain($domain);
+                $isTenantBoundDomain = !$tenantByAlias->isEmpty()
+                    && (int)$tenantByAlias->domain_alias_enable === 0
+                    && TenantContractService::enforceTenantActive($tenantByAlias);
+                if (!$this->isAllowedPlatformHost($domain) && !$isTenantBoundDomain) {
                     return view(app()->getRootPath() . 'public/error/platform/404.html');
                 }else{
+                    if ($isTenantBoundDomain) {
+                        $request->tenantId = (int)$tenantByAlias->id;
+                        $request->tenantSn = (string)$tenantByAlias->sn;
+                        $request->tenantResolveMode = 'domain_alias';
+                    }
                     $this->resolveTenantFromPayload($tenantModel, $request);
                     return $next($request);
                 }

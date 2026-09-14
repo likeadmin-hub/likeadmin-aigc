@@ -20,6 +20,9 @@ class TenantPowerPackageLists extends BaseAdminDataLists implements ListsSearchI
     public function lists(): array
     {
         $lists = TenantPowerPackage::where($this->searchWhere)
+            ->where(function ($query) {
+                $query->whereNull('delete_time')->whereOr('delete_time', 0);
+            })
             ->order(['sort' => 'desc', 'id' => 'desc'])
             ->limit($this->limitOffset, $this->limitLength)
             ->select()
@@ -29,6 +32,10 @@ class TenantPowerPackageLists extends BaseAdminDataLists implements ListsSearchI
 
     public function count(): int
     {
-        return TenantPowerPackage::where($this->searchWhere)->count();
+        return TenantPowerPackage::where($this->searchWhere)
+            ->where(function ($query) {
+                $query->whereNull('delete_time')->whereOr('delete_time', 0);
+            })
+            ->count();
     }
 }

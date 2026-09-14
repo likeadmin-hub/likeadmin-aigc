@@ -97,7 +97,8 @@ class TenantPowerMallService
         }
         $used = TenantPowerOrder::where('package_id', $id)->count();
         if ($used > 0) {
-            $package->save(['status' => self::STATUS_DISABLED, 'update_time' => time()]);
+            // Preserve historical orders while hiding the package from all active lists.
+            $package->save(['status' => self::STATUS_DISABLED, 'delete_time' => time(), 'update_time' => time()]);
             return;
         }
         $package->delete();
