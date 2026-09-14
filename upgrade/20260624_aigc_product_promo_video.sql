@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_product_promo_video_result` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='产品宣传视频结果';
 
 DELETE FROM `la_app` WHERE `code`='aigc_product_promo_video';
-INSERT INTO `la_app` (`code`,`name`,`icon`,`description`,`category`,`cover`,`client_tags`,`is_system`,`is_default`,`is_builtin`,`sort`,`current_version`,`status`,`expire_policy`,`install_time`,`update_time`)
+INSERT INTO `la_app` (`code`,`name`,`icon`,`description`,`category`,`cover`,`client_tags`,`install_count`,`view_count`,`is_builtin`,`sort`,`current_version`,`status`,`expire_policy`,`install_time`,`update_time`)
 VALUES ('aigc_product_promo_video','产品宣传视频','resource/image/common/menu_generator.png','面向电商产品传播的 AI 产品宣传视频工具，支持产品图生成视频、租户配置视频类型和按秒生成售价。','aigc','','tenant,pc',0,0,1,847,'1.0.0','installed','allow',UNIX_TIMESTAMP(),UNIX_TIMESTAMP())
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`description`=VALUES(`description`),`client_tags`=VALUES(`client_tags`),`is_builtin`=VALUES(`is_builtin`),`sort`=VALUES(`sort`),`current_version`=VALUES(`current_version`),`status`=VALUES(`status`),`expire_policy`=VALUES(`expire_policy`),`update_time`=VALUES(`update_time`);
 
