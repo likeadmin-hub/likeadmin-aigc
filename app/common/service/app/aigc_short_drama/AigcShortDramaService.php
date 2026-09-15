@@ -6866,6 +6866,15 @@ class AigcShortDramaService
             return self::reloadGenerationTaskRow($tenantId, $userId, (string)($row['task_id'] ?? ''), $row);
         }
 
+        // Older builds could refund a short-drama task after the supplier had
+        // already accepted it, when only the local result queue failed. Restore
+        // that narrow, provably submitted state before returning a false failure
+        // to the PC. Genuine upstream failures remain terminal.
+        if ($status === self::STATUS_FAILED && $consumptionId > 0
+            && self::recoverAcceptedMarketImageGenerationTask($tenantId, $userId, $row)) {
+            return self::reloadGenerationTaskRow($tenantId, $userId, (string)($row['task_id'] ?? ''), $row);
+        }
+
         if ($consumptionId <= 0) {
             if ($active || $status === self::STATUS_FAILED) {
                 try {
@@ -7093,6 +7102,49 @@ class AigcShortDramaService
             self::persistMarketImageTaskResult($tenantId, $userId, (string)$generation['task_id'], $result, $imageParams);
         } catch (\Throwable $e) {
             Log::warning('Short drama market image result sync retrying: consumption=' . $consumptionId . ' error=' . $e->getMessage());
+        }
+    }
+
+    /**
+     * A failed business row is recoverable only when the market consumption row
+     * proves the provider returned a task ID and the failure was a local
+     * post-submit error. The runtime restores billing atomically and requeues
+     * polling before this row becomes active again.
+     */
+    private static function recoverAcceptedMarketImageGenerationTask(int $tenantId, int $userId, array $generation): bool
+    {
+        $consumptionId = (int)($generation['consumption_id'] ?? 0);
+        if ($consumptionId <= 0 || (string)($generation['status'] ?? '') !== self::STATUS_FAILED) {
+            return false;
+        }
+        try {
+            $recovery = MarketImageModelRuntimeService::recoverAcceptedSubmission($consumptionId);
+            if (empty($recovery['recovered'])) {
+                return false;
+            }
+            AigcShortDramaGenerationTask::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'task_id' => (string)$generation['task_id'],
+            ])->where('status', self::STATUS_FAILED)->update([
+                'status' => self::STATUS_RUNNING,
+                'progress' => 45,
+                'provider' => 'power_market',
+                'provider_task_id' => (string)($recovery['provider_task_id'] ?? ''),
+                'provider_request_id' => (string)($recovery['provider_request_id'] ?? ''),
+                'billing_status' => (string)($recovery['billing_status'] ?? 'reserved'),
+                'result_json' => self::jsonEncode(['message' => '已恢复已提交的图片模型任务，等待结果']),
+                'error_code' => '',
+                'error_msg' => '',
+                'operator_error' => '',
+                'finished_at' => 0,
+                'update_time' => time(),
+            ]);
+            self::refreshProjectGenerationStatus($tenantId, $userId, (int)($generation['project_id'] ?? 0));
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('Short drama accepted market image recovery failed: consumption=' . $consumptionId . ' error=' . $e->getMessage());
+            return false;
         }
     }
 

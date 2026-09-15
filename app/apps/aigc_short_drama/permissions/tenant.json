@@ -84,6 +84,18 @@
     "api_method": "POST"
   },
   {
+    "permission_key": "aigc_short_drama:inspiration:save",
+    "name": "保存AI短剧灵感素材",
+    "api_path": "app.aigc_short_drama.inspiration/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_short_drama:inspiration:delete",
+    "name": "删除AI短剧灵感素材",
+    "api_path": "app.aigc_short_drama.inspiration/delete",
+    "api_method": "POST"
+  },
+  {
     "permission_key": "aigc_short_drama:subject:lists",
     "name": "查看主体库",
     "api_path": "app.aigc_short_drama.subject/lists",

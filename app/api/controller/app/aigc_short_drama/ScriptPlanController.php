@@ -4,12 +4,30 @@ namespace app\api\controller\app\aigc_short_drama;
 
 use app\api\controller\BaseApiController;
 use app\common\service\app\aigc_short_drama\AigcShortDramaService;
+use app\common\service\app\aigc_short_drama\ShortDramaStoryDraft;
 use Exception;
 use Throwable;
 use think\facade\Log;
 
 class ScriptPlanController extends BaseApiController
 {
+    /** Persist an editable story/outline draft without creating a generation task. */
+    public function saveDraft()
+    {
+        try {
+            return $this->success('保存成功', ShortDramaStoryDraft::save(
+                (int)$this->request->tenantId,
+                $this->userId,
+                $this->request->post()
+            ));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        } catch (Throwable $e) {
+            Log::write('AI short drama save draft failed: ' . $e->getMessage(), 'error');
+            return $this->fail('保存失败，请稍后重试');
+        }
+    }
+
     public function upload()
     {
         try {

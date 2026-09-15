@@ -17,6 +17,7 @@ use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
 use think\facade\Db;
+use think\facade\Log;
 
 /**
  * Executes image models sold through the power market. Business apps select a
@@ -230,11 +231,21 @@ class MarketImageModelRuntimeService
         $price = (array)$consumption['price_snapshot'];
         $payload = self::payload($price, $request, (string)$consumption['consume_no'], (int)$consumption['tenant_id']);
         $started = microtime(true);
+        $taskId = '';
+        $requestId = '';
+        $images = [];
+        $upstreamAccepted = false;
         try {
             $response = self::request('POST', self::origin() . self::SUBMIT_PATH, $payload);
             $taskId = self::taskId($response);
             $images = self::images($response, (int)$consumption['tenant_id'], (int)$consumption['user_id']);
             $requestId = self::requestId($response);
+            if ($taskId === '' && $images === []) {
+                throw new Exception('图片模型未返回任务 ID 或结果');
+            }
+            // From here the supplier has accepted work. A later local persistence
+            // or queue error must never refund it or expose it as an upstream failure.
+            $upstreamAccepted = true;
             Db::transaction(function () use ($consumptionId, $taskId, $images, $requestId, $response, $started) {
                 $ctx = self::context($consumptionId, true); if ($ctx === null) return;
                 $c = $ctx['consumption'];
@@ -245,14 +256,101 @@ class MarketImageModelRuntimeService
             });
             if ($images !== []) {
                 self::settle($consumptionId, $images, $requestId, $taskId, $response);
-                AiTaskJobService::enqueueProcessResult($consumptionId);
+                self::enqueueResultJob($consumptionId, true);
+            } else {
+                self::enqueueResultJob($consumptionId);
             }
-            else AiTaskJobService::enqueueQueryResult($consumptionId);
             return ['status' => $images === [] ? 'running' : 'success', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => $images];
         } catch (\Throwable $e) {
+            if ($upstreamAccepted) {
+                self::recordAcceptedSubmissionFailure($consumptionId, $taskId, $requestId, $e);
+                return ['status' => 'running', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => []];
+            }
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
             throw $e instanceof Exception ? $e : new Exception('图片模型提交失败');
         }
+    }
+
+    /**
+     * Restores a task that was submitted to the supplier but was incorrectly
+     * refunded by an old local post-submit failure path. This is intentionally
+     * narrow: genuine supplier failures and user cancellations stay terminal.
+     *
+     * @return array{recovered:bool,status:string,provider_task_id:string,provider_request_id:string,billing_status:string}
+     */
+    public static function recoverAcceptedSubmission(int $consumptionId): array
+    {
+        $result = Db::transaction(function () use ($consumptionId): array {
+            $ctx = self::context($consumptionId, true);
+            if ($ctx === null) {
+                return ['recovered' => false, 'status' => 'failed', 'provider_task_id' => '', 'provider_request_id' => '', 'billing_status' => ''];
+            }
+            $consumption = $ctx['consumption'];
+            $task = $ctx['app_task'];
+            $providerTaskId = trim((string)$consumption['upstream_task_id']);
+            $errorCode = trim((string)$consumption['error_code']);
+            if ($providerTaskId === ''
+                || (string)$consumption['run_status'] !== 'failed'
+                || (string)$consumption['billing_status'] !== 'refunded'
+                || !in_array($errorCode, ['submit_failed', 'short_drama_image_failed'], true)) {
+                return [
+                    'recovered' => false,
+                    'status' => (string)$consumption['run_status'],
+                    'provider_task_id' => $providerTaskId,
+                    'provider_request_id' => (string)$consumption['upstream_request_id'],
+                    'billing_status' => (string)$consumption['billing_status'],
+                ];
+            }
+
+            $snapshot = (array)$consumption['price_snapshot'];
+            $deferredUsage = MarketUsageSettlementService::isActualUsageSku($snapshot);
+            $billingStatus = $deferredUsage ? 'pending_usage' : 'reserved';
+            $reservationSn = (string)$consumption['consume_no'] . '-recovery-reserve';
+            if (!$deferredUsage && ((float)$consumption['reserved_tenant_cost'] > 0 || (float)$consumption['reserved_user_price'] > 0)) {
+                PointService::reserveBusinessAmountsInCurrentTransaction(
+                    (int)$consumption['tenant_id'],
+                    (int)$consumption['user_id'],
+                    (float)$consumption['reserved_tenant_cost'],
+                    (float)$consumption['reserved_user_price'],
+                    $reservationSn,
+                    self::taskLabel((string)$task['app_code']) . '提交恢复预占',
+                    self::extra($task, $consumption, 'recovered')
+                );
+            }
+            $now = time();
+            $consumption->save([
+                'run_status' => 'running',
+                'billing_status' => $billingStatus,
+                'tenant_point_sn' => $reservationSn,
+                'user_point_sn' => $reservationSn,
+                'error_code' => '',
+                'error_message' => '',
+                'finish_time' => 0,
+                'update_time' => $now,
+            ]);
+            $task->save([
+                'status' => 'running',
+                'progress' => max(1, (int)$task['progress']),
+                'result_summary' => ['message' => '已恢复已提交的图片模型任务'],
+                'finish_time' => 0,
+                'update_time' => $now,
+            ]);
+            return [
+                'recovered' => true,
+                'status' => 'running',
+                'provider_task_id' => $providerTaskId,
+                'provider_request_id' => (string)$consumption['upstream_request_id'],
+                'billing_status' => $billingStatus,
+            ];
+        });
+
+        if (!empty($result['recovered'])) {
+            AiTaskLifecycleEventService::record($consumptionId, 'submission_recovered', 'running', [
+                'upstream_task_id' => (string)$result['provider_task_id'],
+            ]);
+            self::enqueueResultJob($consumptionId);
+        }
+        return $result;
     }
 
     /** @return array<string,mixed> */
@@ -297,7 +395,7 @@ class MarketImageModelRuntimeService
             $ctx = self::context($consumptionId, true); if ($ctx === null) return;
             $c = $ctx['consumption']; $task = $ctx['app_task'];
             if (in_array((string)$c['billing_status'], ['settled', 'refunded'], true)) return;
-            if ((float)$c['reserved_tenant_cost'] > 0 || (float)$c['reserved_user_price'] > 0) PointService::releaseReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], (string)$c['consume_no'] . '-release', '短剧图片模型失败退回', self::extra($task, $c, 'refunded'));
+            if ((float)$c['reserved_tenant_cost'] > 0 || (float)$c['reserved_user_price'] > 0) PointService::releaseReservedBusinessAmountsInCurrentTransaction((int)$c['tenant_id'], (int)$c['user_id'], (float)$c['reserved_tenant_cost'], (float)$c['reserved_user_price'], self::reservationReleaseSn($c), '短剧图片模型失败退回', self::extra($task, $c, 'refunded'));
             $now = time(); $c->save(['run_status' => 'failed', 'billing_status' => 'refunded', 'error_code' => $code, 'error_message' => mb_substr($message, 0, 1000), 'finish_time' => $now, 'update_time' => $now]);
             $task->save(['status' => 'failed', 'progress' => 100, 'result_summary' => ['error' => mb_substr($message, 0, 500)], 'finish_time' => $now, 'update_time' => $now]);
             self::event((int)$c['id'], 'refund', 'success', ['reason' => $message]);
@@ -1230,6 +1328,67 @@ class MarketImageModelRuntimeService
     }
     private static function failureResponse(string $taskId, string $message): array { return array_merge(['status' => 'failed', 'provider_task_id' => $taskId, 'images' => []], self::failureFields($message)); }
     private static function failureFields(string $message): array { return ['error' => $message, 'error_msg' => $message, 'errorDetails' => $message]; }
+    /**
+     * Queue delivery is recoverable: the durable consumption record already
+     * contains the upstream task ID and can be polled again after a worker or
+     * request restart. Do not let a queue transaction turn a submitted task
+     * into a refunded supplier failure.
+     */
+    private static function enqueueResultJob(int $consumptionId, bool $processResult = false): void
+    {
+        try {
+            if ($processResult) {
+                AiTaskJobService::enqueueProcessResult($consumptionId);
+                return;
+            }
+            AiTaskJobService::enqueueQueryResult($consumptionId);
+        } catch (\Throwable $e) {
+            AiTaskLifecycleEventService::record($consumptionId, 'job_enqueue_failed', 'pending', [
+                'job_type' => $processResult ? AiTaskJobService::TYPE_PROCESS_RESULT : AiTaskJobService::TYPE_QUERY_RESULT,
+                'reason' => mb_substr($e->getMessage(), 0, 300),
+            ]);
+            Log::warning('Market image result queue enqueue failed: consumption=' . $consumptionId . ' error=' . $e->getMessage());
+        }
+    }
+
+    /** Keep an accepted supplier task active even if a local after-submit step fails. */
+    private static function recordAcceptedSubmissionFailure(int $consumptionId, string $taskId, string $requestId, \Throwable $e): void
+    {
+        try {
+            $now = time();
+            AiConsumptionLog::where('id', $consumptionId)->whereIn('billing_status', ['reserved', 'pending_usage'])->update([
+                'run_status' => 'running',
+                'upstream_task_id' => $taskId,
+                'upstream_request_id' => $requestId,
+                'error_code' => '',
+                'error_message' => '',
+                'finish_time' => 0,
+                'update_time' => $now,
+            ]);
+            AiTaskLifecycleEventService::record($consumptionId, 'post_submit_local_error', 'pending', [
+                'upstream_task_id' => $taskId,
+                'reason' => mb_substr($e->getMessage(), 0, 300),
+            ]);
+            self::enqueueResultJob($consumptionId);
+        } catch (\Throwable $recoveryError) {
+            Log::warning('Market image accepted submission recovery failed: consumption=' . $consumptionId . ' error=' . $recoveryError->getMessage());
+        }
+    }
+
+    /**
+     * Failed legacy submissions may be restored with a distinct reservation.
+     * Release the actual reservation source instead of reusing the original
+     * release idempotency key, which was already consumed by the old refund.
+     */
+    private static function reservationReleaseSn(AiConsumptionLog $consumption): string
+    {
+        $reservationSn = trim((string)($consumption['tenant_point_sn'] ?: $consumption['user_point_sn'] ?: ''));
+        if ($reservationSn !== '' && str_ends_with($reservationSn, '-reserve')) {
+            return substr($reservationSn, 0, -strlen('-reserve')) . '-release';
+        }
+        return (string)$consumption['consume_no'] . '-release';
+    }
+
     private static function event(int $id, string $type, string $status, array $summary, int $elapsed = 0): void { AiConsumptionEvent::create(['consumption_id' => $id, 'event_type' => $type, 'event_status' => $status, 'attempt_no' => 1, 'payload_summary' => $summary, 'payload_ciphertext' => '', 'http_status' => 0, 'elapsed_ms' => $elapsed, 'create_time' => time()]); }
     private static function extra(AiAppTask $task, AiConsumptionLog $consumption, string $stage): array { return ['app_code' => (string)($task['app_code'] ?? self::APP_CODE), 'app_task_id' => (int)$task['id'], 'app_task_no' => (string)$task['task_no'], 'consumption_id' => (int)$consumption['id'], 'consume_no' => (string)$consumption['consume_no'], 'billing_stage' => $stage]; }
     private static function taskLabel(string $appCode): string { return $appCode === 'aigc_hairstyle' ? 'AI换发型' : '算力市场图片模型'; }
