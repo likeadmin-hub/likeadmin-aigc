@@ -32,6 +32,15 @@
         "component": "apps/aigc_short_drama/config"
       },
       {
+        "source_menu_key": "aigc_short_drama_canvas_config",
+        "type": "C",
+        "name": "短剧画布",
+        "sort": 29,
+        "perms": "app.aigc_short_drama.canvas_config/detail",
+        "paths": "canvas-config",
+        "component": "apps/aigc_short_drama/canvas-config"
+      },
+      {
         "source_menu_key": "aigc_short_drama_prompt",
         "type": "C",
         "name": "提示词配置",
@@ -50,49 +59,49 @@
         "component": "apps/aigc_short_drama/project"
       },
       {
-        "source_menu_key": "aigc_short_drama_subject_task",
+        "source_menu_key": "aigc_short_drama_image_task",
         "type": "C",
-        "name": "主体列表",
+        "name": "图片任务",
         "sort": 19,
-        "perms": "app.aigc_short_drama.subject_task/lists",
-        "paths": "subject-task",
-        "component": "apps/aigc_short_drama/subject-task"
-      },
-      {
-        "source_menu_key": "aigc_short_drama_scene_task",
-        "type": "C",
-        "name": "场景列表",
-        "sort": 18,
-        "perms": "app.aigc_short_drama.scene_task/lists",
-        "paths": "scene-task",
-        "component": "apps/aigc_short_drama/scene-task"
-      },
-      {
-        "source_menu_key": "aigc_short_drama_storyboard",
-        "type": "C",
-        "name": "分镜列表",
-        "sort": 17,
-        "perms": "app.aigc_short_drama.storyboard/lists",
-        "paths": "storyboard",
-        "component": "apps/aigc_short_drama/storyboard"
+        "perms": "app.aigc_short_drama.generation_task/lists",
+        "paths": "image-task",
+        "component": "apps/aigc_short_drama/image-task"
       },
       {
         "source_menu_key": "aigc_short_drama_shot_video",
         "type": "C",
-        "name": "视频生成任务",
-        "sort": 16,
+        "name": "视频任务",
+        "sort": 18,
         "perms": "app.aigc_short_drama.generation_task/lists",
-        "paths": "shot-video",
-        "component": "apps/aigc_short_drama/shot-video"
+        "paths": "video-task",
+        "component": "apps/aigc_short_drama/video-task"
+      },
+      {
+        "source_menu_key": "aigc_short_drama_audio_task",
+        "type": "C",
+        "name": "音频任务",
+        "sort": 17,
+        "perms": "app.aigc_short_drama.generation_task/lists",
+        "paths": "audio-task",
+        "component": "apps/aigc_short_drama/audio-task"
       },
       {
         "source_menu_key": "aigc_short_drama_final_video",
         "type": "C",
         "name": "成片合成任务",
-        "sort": 15,
+        "sort": 13,
         "perms": "app.aigc_short_drama.generation_task/lists",
         "paths": "final-video",
         "component": "apps/aigc_short_drama/final-video"
+      },
+      {
+        "source_menu_key": "aigc_short_drama_skill",
+        "type": "C",
+        "name": "Skill 管理",
+        "sort": 11,
+        "perms": "app.aigc_short_drama.skill/lists",
+        "paths": "skill",
+        "component": "apps/aigc_short_drama/skill"
       },
       {
         "source_menu_key": "aigc_short_drama_inspiration",

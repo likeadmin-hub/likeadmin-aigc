@@ -49,7 +49,7 @@ class UserLogic extends BaseLogic
     public static function center(array $userInfo): array
     {
         $user = User::where(['id' => $userInfo['user_id']])
-            ->field('id,sn,sex,account,nickname,real_name,avatar,mobile,create_time,is_new_user,user_money,password')
+            ->field('id,tenant_id,sn,sex,account,nickname,real_name,avatar,mobile,create_time,is_new_user,user_money,password')
             ->findOrEmpty();
 
         if (in_array($userInfo['terminal'], [UserTerminalEnum::WECHAT_MMP, UserTerminalEnum::WECHAT_OA])) {

@@ -77,8 +77,10 @@ class MarketTextModelRuntimeService
      * @param array<string, mixed> $params content, system_prompt, model_selection, action_code
      * @return array<string, mixed>
      */
-    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null): array
+    public static function generate(int $tenantId, int $userId, array $params, ?callable $onEvent = null, bool $tenantAdminConsumption = false): array
     {
+        // Server-only argument for tenant-admin authoring tools; never read from params.
+        if ($tenantAdminConsumption && ($tenantId <= 0 || $userId !== 0)) throw new Exception('租户后台调用身份无效');
         $content = trim((string)($params['content'] ?? ''));
         if ($content === '') {
             throw new Exception('请输入文本内容');
@@ -86,6 +88,11 @@ class MarketTextModelRuntimeService
         $referenceImages = array_values(array_filter(array_map('strval', (array)($params['reference_images'] ?? []))));
         $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? []);
         $model = self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $referenceImages !== [] || !empty($params['requires_vision']));
+        if ($tenantAdminConsumption) {
+            // Persist zero retail price so delayed usage settlement has the same payer.
+            $model['input']['tenant_price'] = 0;
+            $model['output']['tenant_price'] = 0;
+        }
         $modelConfig = self::modelConfig($params);
         $maxTokens = self::resolveMaxTokens($model, $modelConfig);
         $generationParams = self::generationParams($model, $modelConfig);
