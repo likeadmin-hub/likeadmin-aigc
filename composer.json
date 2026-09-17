@@ -62,6 +62,11 @@
         "post-autoload-dump": [
             "@php think service:discover",
             "@php think vendor:publish"
+        ],
+        "test:market-image-contract": [
+            "@php vendor/bin/phpunit tests/Feature/QwenImageDimensionsTest.php",
+            "@php vendor/bin/phpunit tests/Feature/MarketImageSubmitRetryPolicyTest.php",
+            "@php vendor/bin/phpunit tests/Feature/MarketImageModelPayloadContractTest.php"
         ]
     }
 }

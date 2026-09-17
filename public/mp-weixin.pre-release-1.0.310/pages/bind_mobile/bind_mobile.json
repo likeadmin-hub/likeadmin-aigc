@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "绑定手机号",
+  "usingComponents": {
+    "u-input": "../../uni_modules/vk-uview-ui/components/u-input/u-input",
+    "u-verification-code": "../../uni_modules/vk-uview-ui/components/u-verification-code/u-verification-code",
+    "u-button": "../../uni_modules/vk-uview-ui/components/u-button/u-button"
+  }
+}

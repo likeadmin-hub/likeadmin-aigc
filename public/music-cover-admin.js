@@ -10,7 +10,9 @@
     var hashPath = window.location.hash.replace(/^#/, '').split('?')[0];
     return hashPath.charAt(0) === '/' ? hashPath : window.location.pathname;
   }
-  function isPage() { return ROUTE_PATTERN.test(routePath()); }
+  // The tenant Vue application owns these routes.  This legacy standalone
+  // script must never mount over its configuration or task pages.
+  function isPage() { return false; }
   function unwrap(payload) { return payload && payload.data !== undefined ? payload.data : (payload || {}); }
   function text(value) { return value === null || value === undefined ? '' : String(value); }
   function points(value) { var number = Number(value || 0); return isFinite(number) ? number.toFixed(number % 1 ? 2 : 0) : '0'; }

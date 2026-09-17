@@ -1,0 +1,1 @@
+import{as as a}from"./entry.a3c1ce38.js";var c=(t=>(t[t.LOGIN=0]="LOGIN",t[t.FORGOT_PWD=1]="FORGOT_PWD",t[t.REGISTER=2]="REGISTER",t[t.BIND_MOBILE=3]="BIND_MOBILE",t))(c||{});const O=()=>{const t=a(()=>0,"$mZqbhNIHWF"),I=(o=0)=>{t.value=o},s=a(()=>!1,"$WoucAawTnN");return{popupType:t,setPopupType:I,showPopup:s,toggleShowPopup:o=>{s.value=o??!s.value}}};export{c as P,O as u};
