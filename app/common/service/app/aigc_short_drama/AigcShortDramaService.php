@@ -2744,7 +2744,12 @@ class AigcShortDramaService
     {
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
         if (ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id'])) {
-            self::reuseEpisodeVisualAssetsForProject($tenantId, $userId, (int)$task['project_id']);
+            // Script detail is a read path.  Reusing inherited visual assets
+            // writes several rows and used to run here while episode switches
+            // were mounting multiple read requests at once.  Keep that work in
+            // the asset-read path below, where it is serialized per production
+            // project, so a transient asset copy can never make a script page
+            // unreadable.
             return self::hydrateEpisodeScriptPlanAssets(
                 $tenantId,
                 $userId,
@@ -5522,6 +5527,27 @@ class AigcShortDramaService
      * same subject or location, so batch generation is reserved for new items.
      */
     private static function reuseEpisodeVisualAssetsForProject(int $tenantId, int $userId, int $projectId): void
+    {
+        // Several screens load subject, scene and three-view assets in parallel.
+        // Reuse is idempotent, but it inserts inherited assets, so serialize the
+        // whole decision/copy sequence for one production project.  This is the
+        // same short-lived MySQL advisory-lock pattern used by the episode queue.
+        // Waiting briefly lets concurrent subject/scene/three-view reads all
+        // observe one complete inherited-asset snapshot instead of a partial
+        // copy in progress.
+        $lock = substr('sd-visual-reuse:' . $tenantId . ':' . $userId . ':' . $projectId, 0, 64);
+        if ((int)(Db::query('SELECT GET_LOCK(?, 3) AS acquired', [$lock])[0]['acquired'] ?? 0) !== 1) {
+            return;
+        }
+        try {
+            self::reuseEpisodeVisualAssetsForProjectUnlocked($tenantId, $userId, $projectId);
+        } finally {
+            Db::query('SELECT RELEASE_LOCK(?)', [$lock]);
+        }
+    }
+
+    /** Caller holds the per-production-project visual-reuse advisory lock. */
+    private static function reuseEpisodeVisualAssetsForProjectUnlocked(int $tenantId, int $userId, int $projectId): void
     {
         $episode = ShortDramaEpisodeService::context($tenantId, $userId, $projectId);
         $episodeNumber = (int)($episode['episode_number'] ?? 0);
@@ -12942,6 +12968,7 @@ class AigcShortDramaService
         // A repair may change shot durations. Never reuse stale statistics
         // from the provider response when displaying or validating totals.
         $durationStats = self::durationStats($storyboard, count($locations));
+        $plan['duration_stats'] = $durationStats;
         $plan['music_plan'] = self::normalizeMusicPlan((array)($plan['music_plan'] ?? []), $storyboard, $durationStats, (array)($plan['art_style'] ?? []), (string)($plan['story_outline'] ?? ''));
         $plan['agents'] = self::logicalAgentDefinitions();
         if (empty($plan['review_report']) || !is_array($plan['review_report'])) {
@@ -13101,7 +13128,7 @@ class AigcShortDramaService
      * document as a patch: retain every existing entity and shot, and only
      * replace fields that the repair actually supplied.
      */
-    private static function mergeRepairPlanResult(array $baseline, array $repair): array
+    private static function mergeRepairPlanResult(array $baseline, array $repair, bool $preserveValidatedShotFields = false, array $replaceExistingShotFields = []): array
     {
         $merged = $baseline;
         $collectionKeys = ['subjects', 'locations', 'scenes', 'storyboard', 'episodes', 'script_lines', 'planning_steps', 'music_plan'];
@@ -13129,7 +13156,9 @@ class AigcShortDramaService
         $merged['scenes'] = $merged['locations'];
         $merged['storyboard'] = self::mergeRepairStoryboard(
             (array)($baseline['storyboard'] ?? []),
-            (array)($repair['storyboard'] ?? [])
+            (array)($repair['storyboard'] ?? []),
+            $preserveValidatedShotFields,
+            $replaceExistingShotFields
         );
 
         foreach (['episodes', 'script_lines', 'planning_steps', 'music_plan'] as $key) {
@@ -13140,6 +13169,11 @@ class AigcShortDramaService
             } elseif (array_key_exists($key, $baseline)) {
                 $merged[$key] = $original;
             }
+        }
+        // A complete outline repair supersedes diagnostics from the incomplete
+        // first pass. The following review always recalculates this state.
+        if (!empty($repair['episodes']) && count((array)$repair['episodes']) >= count((array)($baseline['episodes'] ?? []))) {
+            unset($merged['outline_validation_issues']);
         }
         $merged['art_style'] = self::mergeRepairItem((array)($baseline['art_style'] ?? []), (array)($repair['art_style'] ?? []));
         return $merged;
@@ -13169,7 +13203,7 @@ class AigcShortDramaService
         return $items;
     }
 
-    private static function mergeRepairStoryboard(array $baseline, array $repair): array
+    private static function mergeRepairStoryboard(array $baseline, array $repair, bool $preserveValidatedFields = false, array $replaceExistingFields = []): array
     {
         $items = array_values(array_filter($baseline, 'is_array'));
         $indexes = [];
@@ -13182,7 +13216,12 @@ class AigcShortDramaService
         foreach (array_values(array_filter($repair, 'is_array')) as $index => $shot) {
             $shotId = trim((string)($shot['shot_id'] ?? $shot['id'] ?? ''));
             if ($shotId !== '' && isset($indexes[$shotId])) {
-                $items[$indexes[$shotId]] = self::mergeRepairItem($items[$indexes[$shotId]], $shot);
+                $items[$indexes[$shotId]] = self::mergeRepairItem(
+                    $items[$indexes[$shotId]],
+                    $shot,
+                    $preserveValidatedFields,
+                    $replaceExistingFields
+                );
                 continue;
             }
             // A complete repair is allowed to add shots; it is never allowed
@@ -13205,15 +13244,51 @@ class AigcShortDramaService
         return $name !== '' ? $type . ':name:' . $name : $type . ':index:' . $index;
     }
 
-    private static function mergeRepairItem(array $baseline, array $repair): array
+    private static function mergeRepairItem(array $baseline, array $repair, bool $preserveExistingFields = false, array $replaceExistingFields = []): array
     {
         foreach ($repair as $key => $value) {
             if ($value === null || (is_string($value) && trim($value) === '') || (is_array($value) && $value === [])) {
                 continue;
             }
+            if ($preserveExistingFields
+                && !in_array((string)$key, $replaceExistingFields, true)
+                && array_key_exists($key, $baseline)
+                && $baseline[$key] !== null
+                && !(is_string($baseline[$key]) && trim($baseline[$key]) === '')
+                && !(is_array($baseline[$key]) && $baseline[$key] === [])) {
+                continue;
+            }
             $baseline[$key] = $value;
         }
         return $baseline;
+    }
+
+    /**
+     * A capped repair response is only a patch. It may replace a field which
+     * was actually reported as blocking, but must not rewrite a valid shot
+     * (especially dialogue attribution) merely because that field appeared
+     * earlier in an incomplete JSON stream.
+     *
+     * @return array<int, string>
+     */
+    private static function repairReplaceExistingShotFields(array $reviewReport): array
+    {
+        $fields = [];
+        foreach ((array)($reviewReport['issues'] ?? []) as $issue) {
+            if (!is_array($issue) || (string)($issue['severity'] ?? '') !== 'blocking') {
+                continue;
+            }
+            $code = (string)($issue['code'] ?? '');
+            $path = (string)($issue['path'] ?? '');
+            if ($code === 'storyboard.duration.mismatch') {
+                $fields['recommended_duration_seconds'] = true;
+                continue;
+            }
+            if (preg_match('/^storyboard\\.\\d+\\.([a-zA-Z0-9_]+)$/', $path, $matches)) {
+                $fields[$matches[1]] = true;
+            }
+        }
+        return array_keys($fields);
     }
 
     private static function appendPlanReviewWarning(array $result, string $code, string $message): array
@@ -16323,6 +16398,41 @@ class AigcShortDramaService
         if (($request['revision_target']['type'] ?? '') !== 'shot_fields') {
             $result = ShortDramaDialogueContract::review($result, $dialogueCheck['issues']);
         }
+        // A missing speaker on an otherwise complete shot is deterministic to
+        // repair when the model chooses from the already accepted subject list.
+        // Do that first with only the failed fields, rather than asking a model
+        // to reproduce an entire plan and risking a truncated JSON response.
+        if ((int)($result['review_report']['blocking_count'] ?? 0) > 0
+            && ShortDramaDialogueContract::hasOnlySpeakerBlockingIssues((array)($result['review_report'] ?? []))) {
+            $dialogueTargets = ShortDramaDialogueContract::repairTargets($result, $dialogueCheck['issues']);
+            if ($dialogueTargets !== []) {
+                if ($onEvent) {
+                    $onEvent('stage', [
+                        'status' => self::STATUS_RUNNING,
+                        'progress' => 90,
+                        'current_step' => '补全台词角色',
+                    ]);
+                }
+                $repairLlmResult = self::repairDialogueSpeakersWithLlm(
+                    $tenantId,
+                    $userId,
+                    $request,
+                    $model,
+                    $result,
+                    $dialogueTargets,
+                    (int)($llmResult['app_task_id'] ?? 0),
+                    $onEvent
+                );
+                $dialogueRepairPayload = self::decodeCompleteJsonObject(trim((string)($repairLlmResult['content'] ?? '')));
+                if ($dialogueRepairPayload === []) {
+                    throw new Exception('AI 台词角色修复返回格式异常，请重试');
+                }
+                $result = ShortDramaDialogueContract::applySpeakerRepairs($result, $dialogueRepairPayload, $dialogueTargets);
+                $result = self::reviewAndRepairPlanResult(self::enhancePlanResult($result), true, true);
+                $mergedDialogueCheck = ShortDramaDialogueContract::prepare($result);
+                $result = ShortDramaDialogueContract::review($mergedDialogueCheck['payload'], $mergedDialogueCheck['issues']);
+            }
+        }
         if ((int)($result['review_report']['blocking_count'] ?? 0) > 0) {
             if ($onEvent) {
                 $onEvent('stage', [
@@ -16332,12 +16442,19 @@ class AigcShortDramaService
                 ]);
             }
             $baselineResult = $result;
-            $repairLlmResult = self::repairScriptPlanResultWithLlm($tenantId, $userId, $prompt, $request, $title, $model, $result, (int)($llmResult['app_task_id'] ?? 0), $onEvent);
-            $repairContent = trim((string)($repairLlmResult['content'] ?? ''));
+            $fullRepairLlmResult = self::repairScriptPlanResultWithLlm($tenantId, $userId, $prompt, $request, $title, $model, $result, (int)($llmResult['app_task_id'] ?? 0), $onEvent);
+            $repairLlmResult = $repairLlmResult === []
+                ? $fullRepairLlmResult
+                : self::mergeScriptPlanLlmResults([$repairLlmResult, $fullRepairLlmResult]);
+            $repairContent = trim((string)($fullRepairLlmResult['content'] ?? ''));
             // A repair response is allowed to be a partial JSON document only
             // as a field-level patch. It must never replace the complete first
             // pass and silently remove already generated storyboard shots.
             $repairWasPartial = self::bestPlanPayloadFromContent($repairContent) === [];
+            $repairReachedOutputLimit = self::llmResponseReachedOutputLimit(
+                $fullRepairLlmResult,
+                self::scriptPlanRepairMaxTokens($request)
+            );
             $repairPayload = self::decodeLlmJsonObject($repairContent);
             $repairDialogueCheck = ShortDramaDialogueContract::prepare($repairPayload);
             $repairPayload = $repairDialogueCheck['payload'];
@@ -16348,7 +16465,12 @@ class AigcShortDramaService
                 true
             );
             $result = self::reviewAndRepairPlanResult(
-                self::enhancePlanResult(self::mergeRepairPlanResult($baselineResult, $repairedResult)),
+                self::enhancePlanResult(self::mergeRepairPlanResult(
+                    $baselineResult,
+                    $repairedResult,
+                    $repairWasPartial || $repairReachedOutputLimit,
+                    self::repairReplaceExistingShotFields((array)($baselineResult['review_report'] ?? []))
+                )),
                 true,
                 true
             );
@@ -16357,12 +16479,60 @@ class AigcShortDramaService
             }
             $mergedDialogueCheck = ShortDramaDialogueContract::prepare($result);
             $result = ShortDramaDialogueContract::review($mergedDialogueCheck['payload'], $mergedDialogueCheck['issues']);
-            if ($repairWasPartial || self::llmResponseReachedOutputLimit($repairLlmResult, self::scriptPlanRepairMaxTokens($request))) {
+            if ($repairWasPartial || $repairReachedOutputLimit) {
                 $result = self::appendPlanReviewWarning(
                     $result,
                     'repair.response_truncated',
                     '修复响应不完整，已保留首轮完整分镜并仅合并可验证的修复字段'
                 );
+            }
+            // A broad repair may fix every structural issue but still end on
+            // one missing dialogue attribution, especially when its complete
+            // JSON response reaches the output limit. Repair that remaining
+            // local field instead of discarding an otherwise usable plan or
+            // asking the model to regenerate all storyboard content again.
+            if ((int)($result['review_report']['blocking_count'] ?? 0) > 0
+                && ShortDramaDialogueContract::hasOnlySpeakerBlockingIssues((array)($result['review_report'] ?? []))) {
+                $finalDialogueCheck = ShortDramaDialogueContract::prepare($result);
+                $speakerTargets = ShortDramaDialogueContract::repairTargets($finalDialogueCheck['payload'], $finalDialogueCheck['issues']);
+                if ($speakerTargets !== []) {
+                    try {
+                        if ($onEvent) {
+                            $onEvent('stage', [
+                                'status' => self::STATUS_RUNNING,
+                                'progress' => 95,
+                                'current_step' => '补全台词角色',
+                            ]);
+                        }
+                        $finalSpeakerRepair = self::repairDialogueSpeakersWithLlm(
+                            $tenantId,
+                            $userId,
+                            $request,
+                            $model,
+                            $finalDialogueCheck['payload'],
+                            $speakerTargets,
+                            (int)($llmResult['app_task_id'] ?? 0),
+                            $onEvent
+                        );
+                        $finalSpeakerPayload = self::decodeCompleteJsonObject(trim((string)($finalSpeakerRepair['content'] ?? '')));
+                        if ($finalSpeakerPayload === []) {
+                            throw new Exception('AI 台词角色修复返回格式异常');
+                        }
+                        $result = ShortDramaDialogueContract::applySpeakerRepairs(
+                            $finalDialogueCheck['payload'],
+                            $finalSpeakerPayload,
+                            $speakerTargets
+                        );
+                        $result = self::reviewAndRepairPlanResult(self::enhancePlanResult($result), true, true);
+                        $finalDialogueCheck = ShortDramaDialogueContract::prepare($result);
+                        $result = ShortDramaDialogueContract::review($finalDialogueCheck['payload'], $finalDialogueCheck['issues']);
+                        $repairLlmResult = self::mergeScriptPlanLlmResults([$repairLlmResult, $finalSpeakerRepair]);
+                    } catch (Exception $e) {
+                        // Keep the original quality decision if this small
+                        // patch cannot be verified; never invent an attribution.
+                        Log::write('AI short drama final dialogue repair failed: ' . $e->getMessage());
+                    }
+                }
             }
             if ((int)($result['review_report']['blocking_count'] ?? 0) > 0) {
                 Log::write('AI short drama plan repair failed: ' . self::jsonEncode($result['review_report']));
@@ -16807,6 +16977,57 @@ class AigcShortDramaService
         }
     }
 
+    /**
+     * Repair missing dialogue attribution without allowing a provider to
+     * rewrite the plan. The response is intentionally a small allow-listed
+     * patch and is validated again by ShortDramaDialogueContract.
+     */
+    private static function repairDialogueSpeakersWithLlm(int $tenantId, int $userId, array $request, array $model, array $plan, array $targets, int $parentAppTaskId = 0, ?callable $onEvent = null): array
+    {
+        $subjects = [];
+        foreach ((array)($plan['subjects'] ?? []) as $subject) {
+            if (!is_array($subject) || trim((string)($subject['name'] ?? '')) === '') continue;
+            $subjects[] = [
+                'id' => (string)($subject['id'] ?? ''),
+                'name' => trim((string)$subject['name']),
+                'description' => mb_substr(trim((string)($subject['description'] ?? $subject['visual_description'] ?? '')), 0, 240, 'UTF-8'),
+            ];
+        }
+        $content = implode("\n", [
+            '只补全下列分镜台词的说话人，不得重写剧本、主体、场景、分镜、台词或任何创作字段。',
+            '角色台词：voice_role 优先从 subjects 的 name 中精确选择；若目标已携带明确的画外角色名，只能原样保留该名称，speech_type="character"。',
+            '真正旁白：voice_role=""，speech_type="narration"。不得猜测或新建角色。',
+            '仅返回合法 JSON：{"dialogue_repairs":[{"shot_id":"...","voice_role":"...","speech_type":"character|narration"}]}。',
+            'subjects=' . self::jsonEncode($subjects),
+            'targets=' . self::jsonEncode($targets),
+        ]);
+        try {
+            $repairHeartbeat = $onEvent === null ? null : static function (string $event, array $data) use ($onEvent): void {
+                if ($event === 'heartbeat') $onEvent('heartbeat', $data);
+            };
+            $runtime = self::generateScriptPlanLlmWithFallback(
+                $tenantId,
+                $userId,
+                [
+                    'content' => $content,
+                    'system_prompt' => '你是短剧台词角色归属修复器。只返回合法 JSON，不要 Markdown，不要解释。',
+                    'model_selection' => $model,
+                    'model_config' => ['max_tokens' => min(2048, max(512, count($targets) * 160)), 'enable_thinking' => false],
+                    'action_code' => 'script_plan_dialogue_repair',
+                    'parent_app_task_id' => $parentAppTaskId,
+                ],
+                $model,
+                $request,
+                'dialogue_repair',
+                $repairHeartbeat
+            );
+            return (array)$runtime['result'];
+        } catch (Exception $e) {
+            Log::write('AI short drama dialogue repair model failed: ' . $e->getMessage());
+            throw new Exception(self::scriptPlanProviderError($e->getMessage()));
+        }
+    }
+
     private static function scriptPlanProviderError(string $message): string
     {
         $lower = strtolower($message);
@@ -16900,7 +17121,7 @@ class AigcShortDramaService
             'composition' => 'short Chinese composition',
             'camera_movement' => 'short Chinese camera movement',
             'dialogue' => 'Chinese dialogue or empty string',
-            'voice_role' => 'actual speaking character name from subjects; empty only for narration or silence',
+            'voice_role' => 'actual speaking character name; use a subjects name when visible, retain an explicitly supplied off-screen role name, empty only for narration or silence',
             'speech_type' => 'character|narration|none',
             'recommended_duration_seconds' => 3,
         ];
@@ -20311,6 +20532,9 @@ class AigcShortDramaService
                 'scene_ref_id' => mb_substr(trim((string)($item['scene_ref_id'] ?? $item['scene_ref'] ?? $item['location_id'] ?? '')), 0, 80, 'UTF-8'),
                 'subject_ref_ids' => array_values(array_filter(array_map('strval', $subjectRefs))),
                 'voice_role' => mb_substr(trim((string)($item['voice_role'] ?? '')), 0, 100, 'UTF-8'),
+                'speech_type' => in_array((string)($item['speech_type'] ?? ''), ['character', 'narration', 'none'], true)
+                    ? (string)$item['speech_type']
+                    : '',
                 'dialogue' => mb_substr(trim((string)($item['dialogue'] ?? '')), 0, 1000, 'UTF-8'),
                 'frame_type' => in_array($frameType, ['normal', 'lip_sync'], true) ? $frameType : 'normal',
                 'recommended_duration_seconds' => $durationSeconds,

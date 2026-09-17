@@ -5,6 +5,8 @@ namespace app\api\controller\app\aigc_short_drama;
 use app\api\controller\BaseApiController;
 use app\common\service\app\aigc_short_drama\ShortDramaEpisodeService;
 use Exception;
+use Throwable;
+use think\facade\Log;
 
 class EpisodeController extends BaseApiController
 {
@@ -29,6 +31,11 @@ class EpisodeController extends BaseApiController
             return $this->success('success', $result);
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
+        } catch (Throwable $e) {
+            // Keep an unexpected read failure observable in server logs rather
+            // than turning a switch between episodes into an opaque HTTP error.
+            Log::error('AI short drama episode ' . $action . ' failed: ' . $e->getMessage());
+            return $this->fail('请求异常，请稍后重试');
         }
     }
 

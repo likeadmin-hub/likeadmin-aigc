@@ -22,6 +22,8 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
         \app\common\service\power\MarketTextModelRuntimeService::$missingSpeaker = true;
         $generated = $this->generate(['multi_episode' => false, 'episode_count' => 1]);
         self::assertCount(2, \app\common\service\power\MarketTextModelRuntimeService::$requests);
+        self::assertSame('script_plan_dialogue_repair', \app\common\service\power\MarketTextModelRuntimeService::$requests[1]['action_code']);
+        self::assertLessThanOrEqual(512, \app\common\service\power\MarketTextModelRuntimeService::$requests[1]['model_config']['max_tokens']);
         self::assertSame($generated['result']['subjects'][0]['name'], $generated['result']['storyboard'][0]['voice_role']);
         self::assertSame(0, $generated['result']['review_report']['blocking_count']);
     }
@@ -42,6 +44,26 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
         self::assertSame('auto', $generated['result']['generation_settings']['duration_source']);
         self::assertSame(0, $generated['result']['review_report']['blocking_count']);
         self::assertCount(1, \app\common\service\power\MarketTextModelRuntimeService::$requests);
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testInvalidSpeakerPatchFallsBackToTheExistingFullQualityRepair(): void
+    {
+        require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
+        $this->silenceLog();
+        \app\common\service\power\MarketTextModelRuntimeService::reset();
+        \app\common\service\power\MarketTextModelRuntimeService::$missingSpeaker = true;
+        \app\common\service\power\MarketTextModelRuntimeService::$invalidDialogueRepair = true;
+
+        $generated = $this->generate(['multi_episode' => false, 'episode_count' => 1]);
+
+        self::assertCount(3, \app\common\service\power\MarketTextModelRuntimeService::$requests);
+        self::assertSame('script_plan_dialogue_repair', \app\common\service\power\MarketTextModelRuntimeService::$requests[1]['action_code']);
+        self::assertSame('script_plan_repair', \app\common\service\power\MarketTextModelRuntimeService::$requests[2]['action_code']);
+        self::assertSame(0, $generated['result']['review_report']['blocking_count']);
     }
 
     /**

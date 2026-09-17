@@ -57,6 +57,12 @@ class ScriptPlanController extends BaseApiController
             ));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
+        } catch (Throwable $e) {
+            // Detail is polled during generation and while switching episodes.
+            // Log an unexpected runtime failure, but return the normal API
+            // envelope so callers can retry without a browser-level exception.
+            Log::error('AI short drama script detail failed: ' . $e->getMessage());
+            return $this->fail('请求异常，请稍后重试');
         }
     }
 

@@ -62,4 +62,31 @@ class ShortDramaRepairResultGuardTest extends TestCase
 
         self::assertGreaterThanOrEqual(12000, $budget);
     }
+
+    public function testCappedRepairCannotOverwriteAValidDialogueRole(): void
+    {
+        $baseline = [
+            'storyboard' => [[
+                'shot_id' => '1',
+                'visual_description' => '医生站在诊室门外',
+                'dialogue' => '最多还有三个月。',
+                'voice_role' => '医生',
+                'speech_type' => 'character',
+            ]],
+        ];
+        $repair = [
+            'storyboard' => [[
+                'shot_id' => '1',
+                'visual_description' => '修复后的诊室画面',
+                'voice_role' => '',
+                'speech_type' => 'narration',
+            ]],
+        ];
+
+        $merged = $this->call('mergeRepairPlanResult', $baseline, $repair, true, []);
+
+        self::assertSame('医生', $merged['storyboard'][0]['voice_role']);
+        self::assertSame('character', $merged['storyboard'][0]['speech_type']);
+        self::assertSame('医生站在诊室门外', $merged['storyboard'][0]['visual_description']);
+    }
 }

@@ -39,7 +39,7 @@ stop_pid() {
     kill -0 "$target" 2>/dev/null || return 0
     command=$(ps -p "$target" -o command= 2>/dev/null || true)
     case "$command" in
-        *"$WORKER_MATCH"*)
+        *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*)
             kill -TERM "$target" 2>/dev/null || true
             i=0
             while kill -0 "$target" 2>/dev/null && [ "$i" -lt 20 ]; do sleep 1; i=$((i + 1)); done
@@ -56,7 +56,9 @@ fi
 ps -axo pid=,command= | while IFS= read -r line; do
     pid=$(printf '%s\n' "$line" | awk '{print $1}')
     command=${line#"$pid"}
-    case "$command" in *"$WORKER_MATCH"*) stop_pid "$pid" ;; esac
+    case "$command" in
+        *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*) stop_pid "$pid" ;;
+    esac
 done
 
 rm -f "$PID_FILE"
