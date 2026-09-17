@@ -70,6 +70,11 @@ class AiTaskOperationService
             ]);
             foreach ($recordKeys as $recordKey) {
                 $target = self::resolve($recordKey, $tenantId);
+                // job_key has a unique index. Do not insert the shared empty
+                // default and update it afterwards, otherwise every operation
+                // after the first can collide before its job is queued.
+                $jobKey = ($target === [] ? 'admin_action_skip:' : 'admin_action:')
+                    . (int)$operation['id'] . ':' . substr(hash('sha256', $recordKey), 0, 24);
                 $item = AiTaskOperationItem::create([
                     'operation_id' => (int)$operation['id'],
                     'tenant_id' => (int)($target['tenant_id'] ?? $tenantId),
@@ -90,14 +95,12 @@ class AiTaskOperationService
                     'before_snapshot' => self::snapshot($target),
                     'after_snapshot' => [],
                     'result_message' => '',
-                    'job_key' => '',
+                    'job_key' => $jobKey,
                     'create_time' => $now,
                     'update_time' => $now,
                     'finish_time' => $target === [] ? $now : 0,
                 ]);
                 if ($target !== []) {
-                    $jobKey = 'admin_action:' . (int)$item['id'];
-                    $item->save(['job_key' => $jobKey]);
                     AiTaskJobService::enqueueAdminAction((int)$item['id'], $jobKey);
                 }
             }

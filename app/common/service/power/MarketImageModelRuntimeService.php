@@ -16,30 +16,8 @@ use app\common\service\FileService;
 use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
-use think\facade\Cache;
 use think\facade\Db;
 use think\facade\Log;
-
-/**
- * A provider can explicitly reject a request before it has accepted any work.
- * Keep that fact separate from ambiguous transport errors: only explicit,
- * retryable rejections are safe to submit again with the same idempotency key.
- */
-final class MarketImageProviderRequestException extends Exception
-{
-    private $retryable;
-
-    public function __construct(string $message, bool $retryable = false, int $code = 0)
-    {
-        $this->retryable = $retryable;
-        parent::__construct($message, $code);
-    }
-
-    public function isRetryable(): bool
-    {
-        return $this->retryable;
-    }
-}
 
 /**
  * Executes image models sold through the power market. Business apps select a
@@ -50,11 +28,6 @@ class MarketImageModelRuntimeService
     public const APP_CODE = 'aigc_short_drama';
     private const SUBMIT_PATH = '/api/v1/tasks';
     private const TASK_PATH = '/api/v1/tasks/{task_id}';
-    /** Explicit supplier rejections only; never retry an ambiguous timeout. */
-    private const SUBMIT_MAX_ATTEMPTS = 3;
-    private const SUBMIT_RETRY_DELAYS_MS = [700, 1800];
-    private const SUBMIT_LANE_INTERVAL_MS = 400;
-    private const SUBMIT_LANE_WAIT_SECONDS = 30;
     /** @return array{key:string,label:string,type:string,options:array<int,array<string,mixed>>,default:string} */
     public static function modelGroup(int $tenantId): array
     {
@@ -160,17 +133,6 @@ class MarketImageModelRuntimeService
         return $options;
     }
 
-    /**
-     * Return the reference-image cap that was captured with a market model
-     * selection.  Callers must use the snapshot instead of a generic image
-     * channel fallback: a market model can have a stricter limit than the
-     * application's default channel limit.
-     */
-    public static function referenceImageLimitFromSnapshot(array $snapshot): int
-    {
-        return self::referenceLimit(self::metadata($snapshot));
-    }
-
     /** @return array<string, mixed> */
     public static function quote(int $tenantId, array $selection, int $quantity = 1, array $billingOverride = []): array
     {
@@ -274,9 +236,7 @@ class MarketImageModelRuntimeService
         $images = [];
         $upstreamAccepted = false;
         try {
-            $submission = self::submitWithTransientRetry($consumptionId, self::origin() . self::SUBMIT_PATH, $payload);
-            $response = $submission['response'];
-            $submitAttempts = $submission['attempts'];
+            $response = self::request('POST', self::origin() . self::SUBMIT_PATH, $payload);
             $taskId = self::taskId($response);
             $images = self::images($response, (int)$consumption['tenant_id'], (int)$consumption['user_id']);
             $requestId = self::requestId($response);
@@ -286,13 +246,13 @@ class MarketImageModelRuntimeService
             // From here the supplier has accepted work. A later local persistence
             // or queue error must never refund it or expose it as an upstream failure.
             $upstreamAccepted = true;
-            Db::transaction(function () use ($consumptionId, $taskId, $images, $requestId, $response, $started, $submitAttempts) {
+            Db::transaction(function () use ($consumptionId, $taskId, $images, $requestId, $response, $started) {
                 $ctx = self::context($consumptionId, true); if ($ctx === null) return;
                 $c = $ctx['consumption'];
                 if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return;
                 $status = $images === [] ? 'running' : 'success';
-                $c->save(['run_status' => $status, 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'response_summary' => ['image_count' => count($images), 'submit_attempts' => $submitAttempts], 'update_time' => time()]);
-                self::event((int)$c['id'], 'submit', 'success', ['upstream_task_id' => $taskId, 'image_count' => count($images), 'submit_attempts' => $submitAttempts], (int)round((microtime(true) - $started) * 1000));
+                $c->save(['run_status' => $status, 'upstream_task_id' => $taskId, 'upstream_request_id' => $requestId, 'response_summary' => ['image_count' => count($images)], 'update_time' => time()]);
+                self::event((int)$c['id'], 'submit', 'success', ['upstream_task_id' => $taskId, 'image_count' => count($images)], (int)round((microtime(true) - $started) * 1000));
             });
             if ($images !== []) {
                 self::settle($consumptionId, $images, $requestId, $taskId, $response);
@@ -308,96 +268,6 @@ class MarketImageModelRuntimeService
             }
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
             throw $e instanceof Exception ? $e : new Exception('图片模型提交失败');
-        }
-    }
-
-    /**
-     * Retries only a response that explicitly proves no provider task was
-     * accepted (429/5xx or a documented temporary-capacity response). The
-     * immutable consumption number is already present in the payload as the
-     * provider idempotency key, so every attempt is one logical paid request.
-     *
-     * @return array{response:array<string,mixed>,attempts:int}
-     */
-    private static function submitWithTransientRetry(int $consumptionId, string $url, array $payload): array
-    {
-        $attempt = 0;
-        while ($attempt < self::SUBMIT_MAX_ATTEMPTS) {
-            $attempt++;
-            try {
-                return ['response' => self::requestInSubmitLane($url, $payload), 'attempts' => $attempt];
-            } catch (MarketImageProviderRequestException $e) {
-                if (!$e->isRetryable() || $attempt >= self::SUBMIT_MAX_ATTEMPTS) {
-                    throw $e;
-                }
-                $delay = self::submitRetryDelayMs($attempt);
-                self::recordSubmitRetry($consumptionId, $attempt, $delay, $e);
-                usleep($delay * 1000);
-            }
-        }
-        throw new Exception('图片模型提交失败');
-    }
-
-    private static function submitRetryDelayMs(int $attempt): int
-    {
-        return (int)(self::SUBMIT_RETRY_DELAYS_MS[max(0, min(count(self::SUBMIT_RETRY_DELAYS_MS) - 1, $attempt - 1))] ?? 1800);
-    }
-
-    private static function recordSubmitRetry(int $consumptionId, int $attempt, int $delayMs, \Throwable $e): void
-    {
-        try {
-            AiConsumptionLog::where('id', $consumptionId)->where('run_status', 'reserved')->update([
-                'response_summary' => ['submit_attempts' => $attempt, 'submit_retrying' => true],
-                'error_code' => 'submit_retrying',
-                'error_message' => mb_substr($e->getMessage(), 0, 1000),
-                'update_time' => time(),
-            ]);
-            self::event($consumptionId, 'submit_retry', 'retrying', [
-                'attempt' => $attempt,
-                'delay_ms' => $delayMs,
-                'provider_http_status' => (int)$e->getCode(),
-            ]);
-        } catch (\Throwable) {
-            // Audit failures must not turn a safe supplier retry into a user failure.
-        }
-    }
-
-    /**
-     * One market model must not be hit by a burst from several batch pages at
-     * once. This is intentionally shared by every caller of this runtime, not
-     * just the short-drama UI. It never holds an application row lock while the
-     * provider request is in flight.
-     */
-    private static function requestInSubmitLane(string $url, array $payload): array
-    {
-        $lane = 'market-image-submit:' . substr(sha1($url . '|' . (string)($payload['channel'] ?? '') . '|' . (string)($payload['model'] ?? '')), 0, 32);
-        $row = Db::query('SELECT GET_LOCK(?, ?) AS acquired', [$lane, self::SUBMIT_LANE_WAIT_SECONDS]);
-        if (!(int)($row[0]['acquired'] ?? 0)) {
-            throw new Exception('图片模型当前请求较多，请稍后重试');
-        }
-        $cooldownKey = 'aigc:' . $lane;
-        try {
-            try {
-                $nextAt = (float)Cache::get($cooldownKey, 0);
-                $waitMs = (int)ceil(($nextAt - microtime(true)) * 1000);
-                if ($waitMs > 0) {
-                    usleep($waitMs * 1000);
-                }
-            } catch (\Throwable) {
-                // The advisory lock still serializes submits when cache is unavailable.
-            }
-            return self::request('POST', $url, $payload);
-        } finally {
-            try {
-                Cache::set($cooldownKey, microtime(true) + (self::SUBMIT_LANE_INTERVAL_MS / 1000), 5);
-            } catch (\Throwable) {
-                // A transient cache outage must not break a paid task submit.
-            }
-            try {
-                Db::query('SELECT RELEASE_LOCK(?)', [$lane]);
-            } catch (\Throwable $e) {
-                Log::warning('Market image submit lane release failed: ' . $e->getMessage());
-            }
         }
     }
 
@@ -917,75 +787,8 @@ class MarketImageModelRuntimeService
         return $params;
     }
 
-    private static function isQwenImage(array $snapshot): bool
-    {
-        return in_array(strtolower(trim((string)($snapshot['model_code'] ?? ''))), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true);
-    }
-
-    /** Pure preflight, shared by app validation and point reservation. */
-    public static function qwenDimensionSummary(array $snapshot, array $request): array
-    {
-        if (!self::isQwenImage($snapshot)) {
-            return [];
-        }
-
-        $request['reference_images'] = [];
-        $payload = self::payload($snapshot, $request, '');
-
-        return [
-            'submitted_size' => (string)($payload['parameters']['size'] ?? ''),
-            'requested_ratio' => self::firstValue($request, ['ratio', 'aspect_ratio']),
-            'requested_quality' => self::firstValue($request, ['quality', 'resolution', 'image_size']),
-        ];
-    }
-
-    private static function qwenSize(string $ratio, string $quality, string $explicitSize = ''): string
-    {
-        $target = self::ratioNumber($ratio);
-        if ($ratio !== '' && ($target < 0.125 || $target > 8)) {
-            throw new Exception('Qwen Image 图片比例须在 1:8 至 8:1 之间');
-        }
-
-        if ($explicitSize !== '') {
-            if (preg_match('/^(\d+)\s*[*xX]\s*(\d+)$/', trim($explicitSize), $matches) !== 1) {
-                throw new Exception('Qwen Image 图片尺寸须为宽*高');
-            }
-            $width = (int)$matches[1];
-            $height = (int)$matches[2];
-        } else {
-            if (!in_array(strtolower($quality), ['1k', '2k'], true)) {
-                throw new Exception('Qwen Image 请选择 1k 或 2k 图片规格');
-            }
-            $longSide = self::qualityLongSide($quality);
-            $width = $target >= 1 ? $longSide : $longSide * $target;
-            $height = $target >= 1 ? $longSide / $target : $longSide;
-            $scale = max(1, sqrt((512 * 512) / ($width * $height)));
-            $width = (int)($scale > 1 ? ceil($width * $scale) : round($width));
-            $height = (int)($scale > 1 ? ceil($height * $scale) : round($height));
-        }
-
-        if ($width <= 0 || $height <= 0 || $width * $height < 512 * 512 || $width * $height > 2048 * 2048 || $width / $height < 0.125 || $width / $height > 8) {
-            throw new Exception('Qwen Image 图片总像素须在 512*512 至 2048*2048 之间，比例须在 1:8 至 8:1 之间');
-        }
-        if ($target > 0 && min(abs($width - $height * $target), abs($height - $width / $target)) > 1) {
-            throw new Exception('Qwen Image 图片尺寸与所选 ' . $ratio . ' 比例不一致');
-        }
-
-        return $width . '*' . $height;
-    }
-
     private static function structuredSize(array $snapshot, array $request, array $parameters, string $ratio, string $quality, string $imageSize): string
     {
-        if (self::isQwenImage($snapshot)) {
-            $explicitSize = trim((string)($parameters['size'] ?? $request['size'] ?? ''));
-            if ($explicitSize === '' && preg_match('/^\d+\s*[*xX]\s*\d+$/', trim($imageSize)) === 1) {
-                $explicitSize = $imageSize;
-            }
-            if ($ratio !== '' || $explicitSize !== '') {
-                return self::qwenSize($ratio, $quality, $explicitSize);
-            }
-        }
-
         foreach ([$parameters['size'] ?? '', $request['size'] ?? '', $imageSize] as $candidate) {
             $candidate = trim((string)$candidate);
             if (preg_match('/^\d+\s*[*xX]\s*\d+$/', $candidate) === 1) {
@@ -1271,28 +1074,9 @@ class MarketImageModelRuntimeService
         curl_setopt_array($ch, [CURLOPT_URL => $url, CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_HTTPHEADER => $headers, CURLOPT_SSL_VERIFYPEER => UpdateSourceClient::sslVerify($source), CURLOPT_SSL_VERIFYHOST => UpdateSourceClient::sslVerify($source) ? 2 : 0]);
         if ($method === 'POST') { curl_setopt($ch, CURLOPT_POST, true); curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); }
         $body = curl_exec($ch); $errno = curl_errno($ch); $error = curl_error($ch); $http = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
-        // A transport timeout is intentionally not retried here: the supplier
-        // may have accepted the request after the connection was interrupted.
         if ($errno) throw new Exception($error ?: '图片模型网络请求失败'); $data = json_decode((string)$body, true); if (!is_array($data)) throw new Exception('图片模型响应格式错误');
-        if ($http >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) {
-            throw new MarketImageProviderRequestException(self::error($data), self::isExplicitTransientProviderResponse($http, $data), $http);
-        }
+        if ($http >= 400 || isset($data['error']) || (isset($data['code']) && (int)$data['code'] !== 1)) throw new Exception(self::error($data));
         return is_array($data['data'] ?? null) ? $data['data'] : $data;
-    }
-
-    /** A retry must be based on an explicit provider rejection, never guesswork. */
-    private static function isExplicitTransientProviderResponse(int $httpStatus, array $data): bool
-    {
-        if (in_array($httpStatus, [408, 425, 429, 500, 502, 503, 504], true)) {
-            return true;
-        }
-        $raw = strtolower((string)json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        foreach (['rate_limit', 'rate limit', 'too_many_requests', 'throttl', 'temporar', 'overload', 'capacity', 'busy', '服务繁忙', '限流', '暂时无法处理'] as $needle) {
-            if (str_contains($raw, $needle)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static function recordRefreshError(int $consumptionId, string $taskId, \Throwable $e): void

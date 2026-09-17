@@ -352,7 +352,6 @@ class MarketTextModelRuntimeService
                 'protocol' => self::protocol((string)($meta['protocol'] ?? ''), $protocols, (string)$product['upstream_model_code']),
                 'protocols' => $protocols,
                 'max_tokens' => max(0, (int)($meta['max_tokens'] ?? 0)),
-                'context_window' => self::contextWindow($snapshot),
                 'default_params' => self::arrayValue($meta['default_params'] ?? []),
                 'params_schema' => self::arrayValue($meta['params_schema'] ?? []),
                 'capabilities' => self::arrayValue($meta['capabilities'] ?? []),
@@ -421,43 +420,6 @@ class MarketTextModelRuntimeService
             foreach ((array)$value as $item) if (in_array(strtolower((string)$item), ['vision', 'image', 'image_input'], true)) return true;
         }
         return !empty($meta['supports_vision']) || !empty($resource['supports_vision']);
-    }
-
-    private static function contextWindow(array $snapshot): int
-    {
-        $metadata = self::arrayValue($snapshot['market_metadata'] ?? []);
-        $capabilities = self::arrayValue($metadata['capabilities'] ?? []);
-        $upstream = self::arrayValue($metadata['upstream_metadata'] ?? []);
-        $upstreamCapabilities = self::arrayValue($upstream['capabilities'] ?? []);
-        $resource = self::arrayValue($snapshot['resource'] ?? []);
-        foreach ([
-            $metadata['context_window'] ?? null,
-            $metadata['context_length'] ?? null,
-            $metadata['max_context_tokens'] ?? null,
-            $metadata['max_input_tokens'] ?? null,
-            $capabilities['context_window'] ?? null,
-            $capabilities['context_length'] ?? null,
-            $capabilities['max_context_tokens'] ?? null,
-            $capabilities['max_input_tokens'] ?? null,
-            $upstream['context_window'] ?? null,
-            $upstream['context_length'] ?? null,
-            $upstream['max_context_tokens'] ?? null,
-            $upstream['max_input_tokens'] ?? null,
-            $upstreamCapabilities['context_window'] ?? null,
-            $upstreamCapabilities['context_length'] ?? null,
-            $upstreamCapabilities['max_context_tokens'] ?? null,
-            $upstreamCapabilities['max_input_tokens'] ?? null,
-            $resource['context_window'] ?? null,
-            $resource['context_length'] ?? null,
-            $resource['max_context_tokens'] ?? null,
-            $resource['max_input_tokens'] ?? null,
-        ] as $value) {
-            $value = is_int($value) || is_float($value) || (is_string($value) && ctype_digit($value)) ? (int)$value : 0;
-            if ($value > 0) {
-                return $value;
-            }
-        }
-        return 0;
     }
 
     private static function quote(array $model, int $inputTokens, int $outputTokens): array

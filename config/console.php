@@ -36,7 +36,5 @@ return [
         // 短剧任务提示词修复
         'short-drama:repair-prompts' => 'app\common\command\RepairShortDramaPrompts',
         'short-drama:dedupe-assets' => 'app\common\command\RepairShortDramaDuplicateAssets',
-        // 租户素材中心历史存储迁移（默认仅预览，需显式传 --apply）
-        'storage:migrate-tenant-materials' => 'app\common\command\MigrateTenantMaterialStorage',
     ],
 ];

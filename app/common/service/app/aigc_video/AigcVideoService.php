@@ -523,7 +523,9 @@ class AigcVideoService
 
     public static function taskLists(int $tenantId, int $userId = 0, array $params = []): array
     {
-        $refreshTaskId = (int)($params['task_id'] ?? $params['id'] ?? 0);
+        $localTaskId = trim((string)($params['task_id'] ?? $params['id'] ?? ''));
+        $upstreamTaskId = trim((string)($params['upstream_task_id'] ?? $params['provider_task_id'] ?? ''));
+        $refreshTaskId = ctype_digit($localTaskId) ? (int)$localTaskId : 0;
         $refreshStatus = trim((string)($params['status'] ?? ''));
         if ($refreshStatus === '' || $refreshStatus === 'running') {
             self::safeRefreshRunningTasks($tenantId, $userId, $refreshTaskId);
@@ -538,9 +540,16 @@ class AigcVideoService
         if ($userId > 0) {
             $query->where('t.user_id', $userId);
         }
-        $taskId = $refreshTaskId;
-        if ($taskId > 0) {
-            $query->where('t.id', $taskId);
+        if ($upstreamTaskId !== '') {
+            $query->whereLike('t.provider_task_id', '%' . $upstreamTaskId . '%');
+        } elseif ($localTaskId !== '') {
+            $query->where(function ($query) use ($localTaskId, $refreshTaskId) {
+                if ($refreshTaskId > 0) {
+                    $query->where('t.id', $refreshTaskId)->whereOr('t.provider_task_id', 'like', '%' . $localTaskId . '%');
+                    return;
+                }
+                $query->whereLike('t.provider_task_id', '%' . $localTaskId . '%');
+            });
         }
         $status = $refreshStatus;
         if ($status !== '') {

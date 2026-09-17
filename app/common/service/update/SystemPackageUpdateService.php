@@ -192,6 +192,58 @@ class SystemPackageUpdateService
         return ['ignored_version' => $version];
     }
 
+    /**
+     * 可回退的版本仅来自已签名的更新源，且只能低于当前本地版本。
+     */
+    public function rollbackVersions(): array
+    {
+        $current = UpdateSourceClient::currentCoreVersion();
+        $versions = $this->normalizeVersions($this->versions());
+        $lists = array_values(array_filter($versions, function (array $item) use ($current): bool {
+            $version = $this->versionOf($item);
+            return $this->isValidVersion($version) && version_compare($version, $current, '<');
+        }));
+
+        return [
+            'current_version' => $current,
+            'lists' => $lists,
+        ];
+    }
+
+    /**
+     * 回退仅重置本地版本标记，以便重新检测、下载对应的升级包；不会回退业务文件或数据库。
+     */
+    public function rollbackVersion(string $version): array
+    {
+        $version = trim($version);
+        $current = UpdateSourceClient::currentCoreVersion();
+        if (!$this->isValidVersion($version)) {
+            throw new RuntimeException('版本号格式不正确');
+        }
+        if (!version_compare($version, $current, '<')) {
+            throw new RuntimeException('只能回退到低于当前系统的历史版本');
+        }
+
+        $availableVersions = $this->rollbackVersions()['lists'];
+        $allowed = array_filter($availableVersions, fn (array $item): bool => $this->versionOf($item) === $version);
+        if (!$allowed) {
+            throw new RuntimeException('该版本不在当前更新源的可回退版本列表中');
+        }
+
+        $this->writeLocalVersion($version);
+        ConfigService::set('update_service', 'ignored_version', '');
+        $this->recordTask('rollback', $version, 'success', 0, [], [
+            'from_version' => $current,
+            'to_version' => $version,
+            'scope' => 'local_version_markers',
+        ]);
+
+        return [
+            'from_version' => $current,
+            'version' => $version,
+        ];
+    }
+
     public function logs(array $params = []): array
     {
         $pageNo = max(1, (int)($params['page_no'] ?? 1));
@@ -651,14 +703,83 @@ class SystemPackageUpdateService
 
     private function writeLocalVersion(string $version): void
     {
-        if ($version === '') {
-            return;
+        if (!$this->isValidVersion($version)) {
+            throw new RuntimeException('版本号格式不正确');
         }
         $dir = PackageExtractService::versionDir() . DIRECTORY_SEPARATOR;
         if (!is_dir($dir)) {
-            mkdir($dir, 0777, true);
+            if (!mkdir($dir, 0777, true) && !is_dir($dir)) {
+                throw new RuntimeException('无法创建版本状态目录');
+            }
         }
-        file_put_contents($dir . 'version.json', json_encode(['version' => $version], JSON_UNESCAPED_UNICODE));
+
+        $projectFile = root_path() . 'config' . DIRECTORY_SEPARATOR . 'project.php';
+        $projectContent = @file_get_contents($projectFile);
+        if ($projectContent === false) {
+            throw new RuntimeException('无法读取项目版本配置文件');
+        }
+        $projectContent = preg_replace(
+            "/('version'\\s*=>\\s*)'[^']*'/",
+            "\$1'{$version}'",
+            $projectContent,
+            1,
+            $replacementCount
+        );
+        if ($projectContent === null || $replacementCount !== 1) {
+            throw new RuntimeException('项目版本配置格式不正确');
+        }
+
+        $versionFile = $dir . 'version.json';
+        $files = [
+            $projectFile => $projectContent,
+            $versionFile => json_encode(['version' => $version], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ];
+        $originals = [];
+        $temporaryFiles = [];
+        try {
+            foreach ($files as $file => $content) {
+                $originals[$file] = is_file($file) ? (string)file_get_contents($file) : null;
+                $temporaryFile = $file . '.tmp.' . bin2hex(random_bytes(6));
+                if (file_put_contents($temporaryFile, $content, LOCK_EX) === false) {
+                    throw new RuntimeException('无法写入本地版本文件');
+                }
+                $temporaryFiles[$file] = $temporaryFile;
+            }
+        } catch (Throwable $e) {
+            foreach ($temporaryFiles as $temporaryFile) {
+                if (is_file($temporaryFile)) {
+                    @unlink($temporaryFile);
+                }
+            }
+            throw $e;
+        }
+
+        try {
+            foreach ($temporaryFiles as $file => $temporaryFile) {
+                if (!rename($temporaryFile, $file)) {
+                    throw new RuntimeException('无法替换本地版本文件');
+                }
+            }
+        } catch (Throwable $e) {
+            foreach ($temporaryFiles as $temporaryFile) {
+                if (is_file($temporaryFile)) {
+                    @unlink($temporaryFile);
+                }
+            }
+            foreach ($originals as $file => $original) {
+                if ($original !== null) {
+                    @file_put_contents($file, $original, LOCK_EX);
+                } else {
+                    @unlink($file);
+                }
+            }
+            throw $e;
+        }
+    }
+
+    private function isValidVersion(string $version): bool
+    {
+        return (bool)preg_match('/^\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?$/', $version);
     }
 
     private function getPackage(int $packageId): UpdatePackage
