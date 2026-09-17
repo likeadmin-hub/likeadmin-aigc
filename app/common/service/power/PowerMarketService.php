@@ -237,6 +237,10 @@ class PowerMarketService
                     // without depending on the legacy AIGC chat application's model tables.
                     'default_params' => is_array($model['default_params'] ?? null) ? $model['default_params'] : [],
                     'max_tokens' => (int)($model['max_tokens'] ?? 0),
+                    // Keep a structured context limit when an upstream catalogue
+                    // provides it. Do not parse prose documentation: it is neither
+                    // stable nor suitable for request-admission decisions.
+                    'context_window' => self::modelContextWindow($model),
                     'capabilities' => (array)($model['capabilities'] ?? []),
                     'input_modalities' => (array)($model['input_modalities'] ?? []),
                     'supports_vision' => !empty($model['supports_vision']),
@@ -1150,6 +1154,28 @@ class PowerMarketService
     {
         $type = strtolower(trim($type));
         return in_array($type, ['text', 'image', 'video'], true) ? $type : 'text';
+    }
+
+    /** @param array<string, mixed> $model */
+    private static function modelContextWindow(array $model): int
+    {
+        $capabilities = (array)($model['capabilities'] ?? []);
+        foreach ([
+            $model['context_window'] ?? null,
+            $model['context_length'] ?? null,
+            $model['max_context_tokens'] ?? null,
+            $model['max_input_tokens'] ?? null,
+            $capabilities['context_window'] ?? null,
+            $capabilities['context_length'] ?? null,
+            $capabilities['max_context_tokens'] ?? null,
+            $capabilities['max_input_tokens'] ?? null,
+        ] as $value) {
+            $value = is_int($value) || is_float($value) || (is_string($value) && ctype_digit($value)) ? (int)$value : 0;
+            if ($value > 0) {
+                return $value;
+            }
+        }
+        return 0;
     }
 
     private static function normalizedUsageUnit(array $sku, array $item): string

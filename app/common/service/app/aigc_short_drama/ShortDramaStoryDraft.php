@@ -12,8 +12,9 @@ final class ShortDramaStoryDraft
 {
     public static function effective(array $request, array $original): array
     {
-        return ShortDramaStoryWorkflow::enabled($request) && is_array($request['_story_draft']['result'] ?? null)
+        $result = ShortDramaStoryWorkflow::enabled($request) && is_array($request['_story_draft']['result'] ?? null)
             ? $request['_story_draft']['result'] : $original;
+        return AigcShortDramaService::normalizeStoryDraftPlanResult($result);
     }
 
     public static function version(array $request): int
@@ -146,7 +147,15 @@ final class ShortDramaStoryDraft
                 throw new InvalidArgumentException('故事设定已确认，不能继续编辑');
             } else {
                 if (($params['stage'] ?? '') !== $stage || !is_array($params['result'] ?? null)) throw new InvalidArgumentException('草稿阶段或内容无效');
-                $result = self::merge(self::effective($request, ShortDramaEpisodeService::decode($locked['result_json'])), $params['result'], $stage);
+                $base = self::effective($request, ShortDramaEpisodeService::decode($locked['result_json']));
+                // Only story-stage subjects are rebound to selected library
+                // references. Outline drafts must keep their stored episode
+                // payload byte-for-byte compatible with the confirmation
+                // workflow.
+                if ($stage === 'story') {
+                    $base = AigcShortDramaService::canonicalizeStoryDraftSubjects($base, $request);
+                }
+                $result = self::merge($base, $params['result'], $stage);
             }
             if ($stage === 'story' && isset($result['episode_count'])) {
                 $request['episode_count'] = $result['episode_count'];

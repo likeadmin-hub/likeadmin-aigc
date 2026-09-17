@@ -61,6 +61,7 @@ final class ShortDramaSkillService
 
     public static function detail(int $tenantId, int $id, bool $publishedOnly = false): array
     {
+        self::syncBuiltinSkills();
         $skill = self::find($tenantId, $id);
         if ($publishedOnly && ((int)$skill['status'] !== 1 || (string)$skill['release_status'] !== self::ACTIVE || (int)$skill['published_version'] <= 0)) throw new Exception('Skill 当前不可用');
         return $publishedOnly ? self::published($skill->toArray()) : self::format($skill->toArray(), true);
@@ -79,7 +80,7 @@ final class ShortDramaSkillService
     public static function update(int $tenantId, int $adminId, array $params): array
     {
         return Db::transaction(static function () use ($tenantId, $adminId, $params): array {
-        $skill = self::find($tenantId, (int)($params['id'] ?? 0)); $data = self::payload($tenantId, $params, false);
+        $skill = self::findOwned($tenantId, (int)($params['id'] ?? 0)); $data = self::payload($tenantId, $params, false);
         self::assertDraftVersion($skill, $params);
         if ($data['skill_key'] !== (string)$skill['skill_key']) self::assertKey($tenantId, $data['skill_key'], (int)$skill['id']);
         $data += ['version' => (int)$skill['version'] + 1, 'release_status' => (int)$skill['published_version'] > 0 ? (string)$skill['release_status'] : self::DRAFT, 'update_time' => time()];
@@ -90,7 +91,7 @@ final class ShortDramaSkillService
     public static function release(int $tenantId, int $adminId, array $params): array
     {
         return Db::transaction(static function () use ($tenantId, $adminId, $params): array {
-        $skill = self::find($tenantId, (int)($params['id'] ?? 0)); $release = trim((string)($params['release_status'] ?? self::ACTIVE));
+        $skill = self::findOwned($tenantId, (int)($params['id'] ?? 0)); $release = trim((string)($params['release_status'] ?? self::ACTIVE));
         self::assertDraftVersion($skill, $params);
         if (!in_array($release, [self::DRAFT, self::TESTING, self::ACTIVE, self::PAUSED, self::ARCHIVED], true)) throw new Exception('发布状态无效');
         $data = ['release_status' => $release, 'update_time' => time()];
@@ -109,7 +110,7 @@ final class ShortDramaSkillService
     public static function rollback(int $tenantId, int $adminId, array $params): array
     {
         return Db::transaction(static function () use ($tenantId, $adminId, $params): array {
-        $skill = self::find($tenantId, (int)($params['id'] ?? 0)); $version = (int)($params['version'] ?? 0);
+        $skill = self::findOwned($tenantId, (int)($params['id'] ?? 0)); $version = (int)($params['version'] ?? 0);
         $row = Db::name('aigc_short_drama_skill_version')->where(['tenant_id' => $tenantId, 'skill_id' => (int)$skill['id']])->where('version', $version)->find();
         if (!$row) throw new Exception('Skill 版本不存在'); $snapshot = self::decode($row['snapshot_json'] ?? []); if (!$snapshot) throw new Exception('Skill 版本无效');
         $data = self::payload($tenantId, $snapshot, false) + ['version' => (int)$skill['version'] + 1, 'release_status' => (int)$skill['published_version'] > 0 ? (string)$skill['release_status'] : self::DRAFT, 'update_time' => time()];
@@ -117,19 +118,33 @@ final class ShortDramaSkillService
         });
     }
 
-    public static function status(int $tenantId, int $id, bool $enabled): void { self::find($tenantId, $id)->save(['status' => $enabled ? 1 : 0, 'update_time' => time()]); }
-    public static function delete(int $tenantId, int $id): void { self::find($tenantId, $id)->save(['delete_time' => time(), 'update_time' => time()]); }
-    public static function versions(int $tenantId, int $id): array { self::find($tenantId, $id); return Db::name('aigc_short_drama_skill_version')->where(['tenant_id' => $tenantId, 'skill_id' => $id])->order('version', 'desc')->select()->toArray(); }
+    public static function status(int $tenantId, int $id, bool $enabled): void { self::findOwned($tenantId, $id)->save(['status' => $enabled ? 1 : 0, 'update_time' => time()]); }
+    public static function delete(int $tenantId, int $id): void { self::findOwned($tenantId, $id)->save(['delete_time' => time(), 'update_time' => time()]); }
+    public static function versions(int $tenantId, int $id): array { $skill = self::find($tenantId, $id); return Db::name('aigc_short_drama_skill_version')->where(['tenant_id' => (int)$skill['tenant_id'], 'skill_id' => $id])->order('version', 'desc')->select()->toArray(); }
 
     public static function featured(int $tenantId, array $params = []): array
     {
-        self::seedCategories($tenantId); $query = AigcShortDramaSkill::where(['tenant_id' => $tenantId, 'status' => 1, 'release_status' => self::ACTIVE, 'delete_time' => 0])->where('published_version', '>', 0);
+        self::syncBuiltinSkills(); self::seedCategories($tenantId);
         $keyword = mb_strtolower(trim((string)($params['keyword'] ?? '')), 'UTF-8');
         $categoryId = (int)($params['category_id'] ?? 0);
         $homeRecommended = (int)($params['home_recommended'] ?? 0) === 1;
-        if ($homeRecommended) $query->where('home_recommended', 1);
         $limit = min($homeRecommended ? 5 : 100, max(1, (int)($params['limit'] ?? 30)));
-        $published = array_map([self::class, 'published'], $query->order(['sort' => 'desc', 'id' => 'desc'])->select()->toArray());
+        $visible = ['status' => 1, 'release_status' => self::ACTIVE, 'delete_time' => 0];
+        $tenantQuery = AigcShortDramaSkill::where(['tenant_id' => $tenantId] + $visible)->where('published_version', '>', 0);
+        $builtinQuery = AigcShortDramaSkill::where(['tenant_id' => 0] + $visible)->where('published_version', '>', 0);
+        if ($homeRecommended) {
+            $tenantQuery->where('home_recommended', 1);
+            $builtinQuery->where('home_recommended', 1);
+        }
+        $tenantRows = $tenantQuery->select()->toArray();
+        $builtinRows = $builtinQuery->select()->toArray();
+        // Built-ins always win by key, so an old tenant-local draft cannot hide
+        // an updated system capability from this or any other tenant.
+        $byKey = [];
+        foreach ($tenantRows as $row) $byKey[(string)$row['skill_key']] = $row;
+        foreach ($builtinRows as $row) $byKey[(string)$row['skill_key']] = $row;
+        $published = array_map(static fn(array $skill): array => self::withTenantCategories(self::published($skill), $tenantId), array_values($byKey));
+        usort($published, static fn(array $left, array $right): int => ((int)$right['sort'] <=> (int)$left['sort']) ?: ((int)$right['id'] <=> (int)$left['id']));
         $published = array_values(array_filter($published, static function ($item) use ($keyword, $categoryId): bool {
             return ($keyword === '' || mb_strpos(mb_strtolower($item['name'] . ' ' . $item['description'], 'UTF-8'), $keyword) !== false)
                 && ($categoryId <= 0 || in_array($categoryId, (array)$item['category_ids']));
@@ -139,8 +154,9 @@ final class ShortDramaSkillService
 
     public static function mine(int $tenantId, int $userId): array
     {
+        self::syncBuiltinSkills();
         $defaults = Db::name('aigc_short_drama_user_skill')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'enabled' => 1, 'delete_time' => 0])->column('skill_id');
-        $skills = $defaults ? AigcShortDramaSkill::whereIn('id', $defaults)->where(['tenant_id' => $tenantId, 'delete_time' => 0])->where('published_version', '>', 0)->select()->toArray() : [];
+        $skills = $defaults ? AigcShortDramaSkill::whereIn('id', $defaults)->whereIn('tenant_id', [$tenantId, 0])->where('delete_time', 0)->where('published_version', '>', 0)->select()->toArray() : [];
         return ['defaults' => array_map(static function ($skill): array {
             return self::published($skill) + ['available' => (int)$skill['status'] === 1 && $skill['release_status'] === self::ACTIVE];
         }, $skills), 'history' => self::history($tenantId, $userId)['lists']];
@@ -182,11 +198,12 @@ final class ShortDramaSkillService
     /** Resolve and freeze the published version when a project is submitted. */
     public static function resolveForTask(int $tenantId, array $params): array
     {
+        self::syncBuiltinSkills();
         $id = (int)($params['skill_id'] ?? 0); if (!$id) return [];
         $skill = self::find($tenantId, $id);
         if ((int)$skill['status'] !== 1 || (string)$skill['release_status'] !== self::ACTIVE || (int)$skill['published_version'] <= 0) throw new Exception('所选 Skill 当前不可用，请重新选择');
         if ((int)($params['skill_version'] ?? 0) > 0 && (int)$params['skill_version'] !== (int)$skill['published_version']) throw new Exception('Skill 已更新，请重新选择并确认新版本');
-        $version = Db::name('aigc_short_drama_skill_version')->where(['tenant_id' => $tenantId, 'skill_id' => $id, 'version' => (int)$skill['published_version']])->find();
+        $version = Db::name('aigc_short_drama_skill_version')->where(['tenant_id' => (int)$skill['tenant_id'], 'skill_id' => $id, 'version' => (int)$skill['published_version']])->find();
         if (!$version) throw new Exception('Skill 已发布版本不存在'); $snapshot = self::decode($version['snapshot_json'] ?? []);
         return ['id' => $id, 'version' => (int)$version['version'], 'source' => in_array(($params['skill_source'] ?? ''), ['manual', 'recommended'], true) ? $params['skill_source'] : 'manual',
             'name' => (string)($snapshot['name'] ?? ''), 'skill_key' => (string)($snapshot['skill_key'] ?? ''), 'definition' => (array)($snapshot['definition'] ?? []), 'model_policy' => (array)($snapshot['model_policy'] ?? []), 'execution_policy' => (array)($snapshot['execution_policy'] ?? [])];
@@ -272,7 +289,129 @@ final class ShortDramaSkillService
         $successful = (int)(clone $query)->where('status', 'success')->count();
         return ['usage_count' => $count, 'success_rate' => $count ? round($successful / $count * 100, 1) : 0, 'last_used_at' => (int)(clone $query)->max('create_time')];
     }
-    private static function find(int $tenantId, int $id): AigcShortDramaSkill { $row = AigcShortDramaSkill::where(['tenant_id' => $tenantId, 'id' => $id, 'delete_time' => 0])->lock(true)->findOrEmpty(); if ($row->isEmpty()) throw new Exception('Skill 不存在'); return $row; }
+
+    /**
+     * Built-in snapshots store category names in the system catalog. Map them
+     * to the receiving tenant's seeded category IDs so their filters work just
+     * like tenant-owned Skills, without copying the Skill into every tenant.
+     */
+    private static function withTenantCategories(array $skill, int $tenantId): array
+    {
+        $names = array_values(array_unique(array_filter(array_map('strval', (array)($skill['category_names'] ?? [])))));
+        if (!$names) return $skill;
+        $idsByName = [];
+        foreach (self::categories($tenantId) as $category) $idsByName[(string)$category['name']] = (int)$category['id'];
+        $skill['category_ids'] = array_values(array_unique(array_filter(array_map(static fn(string $name): int => $idsByName[$name] ?? 0, $names))));
+        return $skill;
+    }
+    /** Ensure packaged defaults are visible after install or any later app update. */
+    private static function syncBuiltinSkills(): void
+    {
+        self::seedCategories(0);
+        foreach (ShortDramaBuiltinSkillCatalog::all() as $definition) {
+            $existing = AigcShortDramaSkill::where([
+                'tenant_id' => 0,
+                'skill_key' => (string)$definition['skill_key'],
+                'delete_time' => 0,
+            ])->findOrEmpty();
+            if (!$existing->isEmpty()) {
+                self::syncBuiltinSkill($existing, $definition);
+                continue;
+            }
+            $now = time();
+            $skill = AigcShortDramaSkill::create(self::builtinPayload($definition) + [
+                'tenant_id' => 0,
+                'creator_admin_id' => 0,
+                'status' => 1,
+                'release_status' => self::ACTIVE,
+                'version' => 1,
+                'published_version' => 1,
+                'published_at' => $now,
+                'create_time' => $now,
+                'update_time' => $now,
+                'delete_time' => 0,
+            ]);
+            self::snapshot(0, $skill->toArray(), 0, self::ACTIVE);
+        }
+    }
+
+    /** Refresh an existing system row when a later app update changes its packaged definition. */
+    private static function syncBuiltinSkill(AigcShortDramaSkill $skill, array $definition): void
+    {
+        $payload = self::builtinPayload($definition);
+        $current = $skill->toArray();
+        $changed = false;
+        foreach ($payload as $field => $value) {
+            if ((string)($current[$field] ?? '') !== (string)$value) {
+                $changed = true;
+                break;
+            }
+        }
+        if ($changed) {
+            $now = time();
+            $nextVersion = (int)$skill['version'] + 1;
+            $skill->save($payload + [
+                'status' => 1,
+                'release_status' => self::ACTIVE,
+                'version' => $nextVersion,
+                'published_version' => $nextVersion,
+                'published_at' => $now,
+                'update_time' => $now,
+            ]);
+        }
+        $version = (int)$skill['version'];
+        if (!Db::name('aigc_short_drama_skill_version')->where(['tenant_id' => 0, 'skill_id' => (int)$skill['id'], 'version' => $version])->find()) {
+            self::snapshot(0, $skill->toArray(), 0, self::ACTIVE);
+        }
+    }
+
+    /** @return array<string,mixed> */
+    private static function builtinPayload(array $definition): array
+    {
+        $categories = Db::name('aigc_short_drama_skill_category')->where([
+            'tenant_id' => 0,
+            'delete_time' => 0,
+        ])->whereIn('name', (array)($definition['category_names'] ?? []))->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray();
+        $idsByName = [];
+        foreach ($categories as $category) {
+            $name = (string)$category['name'];
+            if (!isset($idsByName[$name])) $idsByName[$name] = (int)$category['id'];
+        }
+        $categoryIds = array_values(array_filter(array_map(static fn(string $name): int => $idsByName[$name] ?? 0, array_values(array_unique((array)($definition['category_names'] ?? []))))));
+        return [
+            'skill_key' => (string)$definition['skill_key'],
+            'name' => (string)$definition['name'],
+            'description' => (string)$definition['description'],
+            'invocation_rule' => (string)$definition['invocation_rule'],
+            'category_ids_json' => json_encode(array_map('intval', $categoryIds)),
+            'cover_asset_id' => 0,
+            'cover_url' => (string)($definition['cover_url'] ?? ''),
+            'cover_type' => (string)($definition['cover_type'] ?? 'image'),
+            'definition_json' => json_encode((array)$definition['definition'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'model_policy_json' => json_encode((array)$definition['model_policy'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'execution_policy_json' => json_encode((array)$definition['execution_policy'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'home_recommended' => (int)($definition['home_recommended'] ?? 0),
+            'sort' => (int)($definition['sort'] ?? 0),
+        ];
+    }
+
+    private static function find(int $tenantId, int $id): AigcShortDramaSkill
+    {
+        $row = AigcShortDramaSkill::where(['tenant_id' => $tenantId, 'id' => $id, 'delete_time' => 0])->lock(true)->findOrEmpty();
+        if ($row->isEmpty()) {
+            $row = AigcShortDramaSkill::where(['tenant_id' => 0, 'id' => $id, 'delete_time' => 0])->lock(true)->findOrEmpty();
+        }
+        if ($row->isEmpty()) throw new Exception('Skill 不存在');
+        return $row;
+    }
+
+    /** Built-ins are read-only; tenant management may modify only owned rows. */
+    private static function findOwned(int $tenantId, int $id): AigcShortDramaSkill
+    {
+        $row = AigcShortDramaSkill::where(['tenant_id' => $tenantId, 'id' => $id, 'delete_time' => 0])->lock(true)->findOrEmpty();
+        if ($row->isEmpty()) throw new Exception('Skill 不存在或为内置只读 Skill');
+        return $row;
+    }
     private static function assertDraftVersion(AigcShortDramaSkill $skill, array $params): void
     {
         if (isset($params['version']) && (int)$params['version'] !== (int)$skill['version']) throw new Exception('Skill 已被其他管理员修改，请刷新后重试');

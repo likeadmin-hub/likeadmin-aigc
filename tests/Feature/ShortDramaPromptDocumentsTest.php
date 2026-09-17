@@ -32,6 +32,22 @@ class ShortDramaPromptDocumentsTest extends TestCase
         $outline = $this->call('buildCompactScriptPlanPrompt', '调查旧宅的秘密', ['workflow_variant' => 'story_outline_v2',
             'multi_episode' => true, 'multi_episode_stage' => 'episodes', 'episode_count' => 5, 'episode_total_count' => 101], '旧宅');
         self::assertStringContainsString('"episode_total_count":101', $outline);
+
+        $outlineRequest = ['workflow_variant' => 'story_outline_v2', 'multi_episode' => true,
+            'multi_episode_stage' => 'episodes', 'episode_count' => 2, 'episode_total_count' => 2,
+            'confirmed_story_snapshot' => ['title' => '旧宅', 'story_outline' => '继承已确认的旧宅秘密'],
+            // The outline worker copies the confirmed setting into this field
+            // before every bounded episode batch.
+            'revision_base_result' => ['title' => '旧宅', 'story_outline' => '继承已确认的旧宅秘密']];
+        $outlineMessages = Catalog::run($this->snapshot(), fn() => $this->call(
+            'assembleScriptPromptRequest',
+            701,
+            '这段超长原始附件不应重复进入大纲调用',
+            $outlineRequest,
+            '旧宅'
+        ));
+        self::assertStringContainsString('继承已确认的旧宅秘密', $outlineMessages['content']);
+        self::assertStringNotContainsString('这段超长原始附件不应重复进入大纲调用', $outlineMessages['content']);
     }
 
     private function call(string $method, ...$args) { $r = new \ReflectionMethod(Service::class, $method); $r->setAccessible(true); return $r->invokeArgs(null, $args); }

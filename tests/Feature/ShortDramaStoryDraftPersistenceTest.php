@@ -102,6 +102,49 @@ class ShortDramaStoryDraftPersistenceTest extends TestCase
         self::assertSame($generationTasks, Db::name('aigc_short_drama_generation_task')->count());
     }
 
+    public function testSaveUsesTheSameSelectedSubjectCanonicalizationAsTheWorkspace(): void
+    {
+        $scope = ['task_id' => $this->taskId];
+        $row = Db::name('aigc_short_drama_script_task')->where($scope)->find();
+        $request = json_decode($row['request_json'], true);
+        $request['subject_references'] = [[
+            'id' => 9, 'name' => '美女', 'category' => 'character', 'gender' => 'female',
+            'image' => '/subject.png', 'three_view_image' => '/subject-three-view.png',
+        ]];
+        $modelResult = [
+            'subjects' => [
+                ['id' => 'subject_1', 'name' => '林浅', 'category' => 'character', 'role' => '女主角', 'description' => '完整的生成角色'],
+                ['id' => 'subject_2', 'name' => '陆远', 'category' => 'character', 'role' => '男主角'],
+                ['id' => 'library_9', 'name' => '美女', 'library_subject_id' => '9', 'is_library_reference' => true],
+            ],
+            'locations' => [],
+        ];
+        Db::name('aigc_short_drama_script_task')->where($scope)->update([
+            'request_json' => json_encode($request),
+            'result_json' => json_encode($modelResult),
+        ]);
+
+        // This is the value sent by the workspace after it has bound the
+        // selected library subject to the generated character and removed the
+        // former empty placeholder card.
+        $workspaceResult = [
+            'subjects' => [
+                ['id' => 'subject_1', 'name' => '美女', 'category' => 'character', 'role' => '女主角', 'description' => '完整的生成角色', 'library_subject_id' => '9'],
+                ['id' => 'subject_2', 'name' => '陆远', 'category' => 'character', 'role' => '男主角'],
+            ],
+            'locations' => [],
+        ];
+        ShortDramaStoryDraft::save($this->tenant, 7, [
+            'task_id' => $this->taskId, 'stage' => 'story', 'draft_version' => 0, 'result' => $workspaceResult,
+        ]);
+
+        $savedRequest = json_decode(Db::name('aigc_short_drama_script_task')->where($scope)->value('request_json'), true);
+        $savedSubjects = $savedRequest['_story_draft']['result']['subjects'];
+        self::assertCount(2, $savedSubjects);
+        self::assertSame('美女', $savedSubjects[0]['name']);
+        self::assertSame('9', (string)$savedSubjects[0]['library_subject_id']);
+    }
+
     public function testEpisodeCountSaveUpdatesSubmissionSources(): void
     {
         ShortDramaStoryDraft::save($this->tenant, 7, ['task_id' => $this->taskId, 'stage' => 'story', 'draft_version' => 0, 'result' => ['episode_count' => 10]]);

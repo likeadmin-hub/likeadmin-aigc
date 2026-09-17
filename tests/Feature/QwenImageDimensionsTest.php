@@ -104,4 +104,19 @@ class QwenImageDimensionsTest extends TestCase
         $this->expectExceptionMessage('图片尺寸与所选 16:9 比例不一致');
         Images::qwenDimensionSummary($this->snapshot('qwen-image-3.0'), $mapped);
     }
+
+    public function testShortDramaUsesTheFrozenMarketReferenceLimit(): void
+    {
+        $snapshot = $this->snapshot('qwen-image-3.0-pro');
+        $snapshot['market_metadata']['capabilities']['max_reference_images'] = 3;
+
+        self::assertSame(3, Images::referenceImageLimitFromSnapshot($snapshot));
+
+        $method = new ReflectionMethod(
+            \app\common\service\app\aigc_short_drama\AigcShortDramaService::class,
+            'imageReferenceImageLimit'
+        );
+        $method->setAccessible(true);
+        self::assertSame(3, $method->invoke(null, 1, ['channel' => 'market_image_model:fixture'], $snapshot));
+    }
 }

@@ -19,7 +19,11 @@ $reject = static function (callable $call, string $message) use ($check): void {
 $tenant = random_int(1500000000, 1900000000);
 Db::startTrans();
 try {
-    $check(Skills::featured($tenant)['lists'] === [], 'New tenant catalogue is empty');
+    $builtins = Skills::featured($tenant)['lists'];
+    $builtin = array_values(array_filter($builtins, static fn(array $item): bool => $item['skill_key'] === 'product_promo_short'))[0] ?? [];
+    $check($builtin !== [] && $builtin['name'] === '商品宣传短片', 'New tenant sees packaged product-promo Skill');
+    $check(Skills::detail($tenant + 1, (int)$builtin['id'], true)['skill_key'] === 'product_promo_short', 'Built-in is visible across tenants');
+    $reject(static fn() => Skills::update($tenant, 1, ['id' => (int)$builtin['id']]), 'Built-in is read-only');
     // Material library records use nullable SoftDelete timestamps. A selected
     // image/video cover must therefore be accepted when delete_time is NULL.
     $coverId = (int)Db::name('tenant_file')->insertGetId([
@@ -38,7 +42,8 @@ try {
         'definition' => ['stages' => array_fill_keys(array_keys(Runtime::STAGES), '原创创作规则'), 'keywords' => ['悬疑']]];
     $draft = Skills::create($tenant, 1, $input);
     $id = $draft['id'];
-    $check(Skills::featured($tenant)['lists'] === [], 'Draft is not public');
+    $publicKeys = array_column(Skills::featured($tenant)['lists'], 'skill_key');
+    $check(!in_array('original_story', $publicKeys, true), 'Draft is not public');
     $reject(static fn() => Skills::resolveForTask($tenant, ['skill_id' => $id]), 'Draft cannot execute');
     $reject(static fn() => Skills::detail($tenant + 1, $id), 'Cross-tenant read rejected');
     $reject(static fn() => Skills::update($tenant + 1, 1, $input + ['id' => $id]), 'Cross-tenant edit rejected');
