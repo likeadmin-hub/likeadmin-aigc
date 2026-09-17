@@ -1,234 +1,6 @@
 {
   "app_code": "aigc_short_drama",
   "apis": [
-  {
-    "api_path": "app.aigc_short_drama.canvas_config/detail",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:canvas_config:detail",
-    "scene": "tenant_admin",
-    "need_login": 1,
-    "need_role_permission": 1
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas_config/setup",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:canvas_config:setup",
-    "scene": "tenant_admin",
-    "need_login": 1,
-    "need_role_permission": 1
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/capabilities",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:canvas:capabilities",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/create",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:canvas:create",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/lists",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:canvas:lists",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/detail",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:canvas:detail",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/bind",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:canvas:bind",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/view",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:canvas:view",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/saveView",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:canvas:saveView",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/messages",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:canvas:messages",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/saveIdea",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:canvas:saveIdea",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/events",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:canvas:events",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/submit",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:canvas:submit",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/runStatus",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:canvas:runStatus",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/drafts",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:canvas:drafts",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/proposals",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:canvas:proposals",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/cancelRun",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:canvas:cancelRun",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/createProject",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:canvas:create_project",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/previewDrafts",
-    "api_method": "GET",
-    "permission_key": "aigc_short_drama:canvas:apply_drafts",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/applyDrafts",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:canvas:apply_drafts",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/quoteProposal",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:canvas:submit_proposal",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/submitProposal",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:canvas:submit_proposal",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas/upload",
-    "api_method": "POST",
-    "permission_key": "aigc_short_drama:canvas:upload",
-    "scene": "user",
-    "need_login": 1,
-    "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas_v2/capabilities",
-    "api_method": "GET", "scene": "user", "need_login": 1, "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas_v2/create",
-    "api_method": "POST", "scene": "user", "need_login": 1, "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas_v2/projectWorkspace",
-    "api_method": "GET", "scene": "user", "need_login": 1, "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas_v2/detail",
-    "api_method": "GET", "scene": "user", "need_login": 1, "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas_v2/saveGraph",
-    "api_method": "POST", "scene": "user", "need_login": 1, "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas_v2/messages",
-    "api_method": "GET", "scene": "user", "need_login": 1, "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas_v2/agent",
-    "api_method": "POST", "scene": "user", "need_login": 1, "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas_v2/quoteMedia",
-    "api_method": "POST", "scene": "user", "need_login": 1, "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas_v2/submitMedia",
-    "api_method": "POST", "scene": "user", "need_login": 1, "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas_v2/refreshTask",
-    "api_method": "GET", "scene": "user", "need_login": 1, "need_role_permission": 0
-  },
-  {
-    "api_path": "app.aigc_short_drama.canvas_v2/applyNode",
-    "api_method": "POST", "scene": "user", "need_login": 1, "need_role_permission": 0
-  },
     {
       "api_path": "app.aigc_short_drama.config/detail",
       "api_method": "GET",
@@ -1022,6 +794,60 @@
       "scene": "tenant_admin",
       "need_login": 1,
       "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_short_drama.template/lists",
+      "api_method": "GET",
+      "permission_key": "aigc_short_drama:template:manage",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_short_drama.template/detail",
+      "api_method": "GET",
+      "permission_key": "aigc_short_drama:template:manage",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_short_drama.template/save",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:template:manage",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_short_drama.template/status",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:template:manage",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_short_drama.template/delete",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:template:manage",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.aigc_short_drama.template/homepage",
+      "api_method": "GET",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.template/detail",
+      "api_method": "GET",
+      "scene": "user",
+      "need_login": 0,
+      "need_role_permission": 0
     }
   ]
 }

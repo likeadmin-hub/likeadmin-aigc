@@ -1,10 +1,10 @@
 {
   "code": "aigc_short_drama",
   "name": "AI短剧",
-  "version": "1.0.16",
+  "version": "1.0.21",
   "require_core": ">=1.0.272 <2.0.0",
   "description": "短剧大纲确认、逐集生成与独立分集制作。",
-  "changelog": "1. 新增可版本化、可发布和可回滚的 AI 短剧五阶段 Skill 系统。\n2. 租户后台可管理 Skill 分类、草稿、测试、发布和暂停。\n3. PC 端支持浏览、默认启用、历史查看、手动选择与确认式推荐。\n4. Skill 快照贯穿剧本策划、素材分析、故事板和媒体生成，不影响既有项目。",
+  "changelog": "1. 新增独立的短剧首页工作流模板后台配置与只读前台预览。\n2. 将首页现有五个流程模板内置到后台配置，支持继续编辑、排序与启停。\n3. 模板支持封面、节点连接与可替换素材槽位配置，不影响 Skill 或短剧创作流程。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
@@ -50,10 +50,6 @@
       "status": 1,
       "meta": {
         "pages": [
-          {
-            "name": "短剧画布",
-            "path": "/ai/short-drama/canvas/:workspaceId"
-          },
           {
             "name": "分集列表",
             "path": "/ai/short-drama/episodes"

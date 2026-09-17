@@ -1,15 +1,9 @@
 [
   {
-    "permission_key": "aigc_short_drama:canvas_config:detail",
-    "name": "查看短剧画布配置",
-    "api_path": "app.aigc_short_drama.canvas_config/detail",
+    "permission_key": "aigc_short_drama:template:manage",
+    "name": "管理AI短剧首页模板",
+    "api_path": "app.aigc_short_drama.template/lists",
     "api_method": "GET"
-  },
-  {
-    "permission_key": "aigc_short_drama:canvas_config:setup",
-    "name": "保存短剧画布配置",
-    "api_path": "app.aigc_short_drama.canvas_config/setup",
-    "api_method": "POST"
   },
   {
     "permission_key": "aigc_short_drama:skill:manage",

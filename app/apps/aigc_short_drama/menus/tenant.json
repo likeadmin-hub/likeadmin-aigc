@@ -32,15 +32,6 @@
         "component": "apps/aigc_short_drama/config"
       },
       {
-        "source_menu_key": "aigc_short_drama_canvas_config",
-        "type": "C",
-        "name": "短剧画布",
-        "sort": 29,
-        "perms": "app.aigc_short_drama.canvas_config/detail",
-        "paths": "canvas-config",
-        "component": "apps/aigc_short_drama/canvas-config"
-      },
-      {
         "source_menu_key": "aigc_short_drama_prompt",
         "type": "C",
         "name": "提示词配置",
@@ -93,6 +84,15 @@
         "perms": "app.aigc_short_drama.generation_task/lists",
         "paths": "final-video",
         "component": "apps/aigc_short_drama/final-video"
+      },
+      {
+        "source_menu_key": "aigc_short_drama_template",
+        "type": "C",
+        "name": "首页模板",
+        "sort": 12,
+        "perms": "app.aigc_short_drama.template/lists",
+        "paths": "template",
+        "component": "apps/aigc_short_drama/template"
       },
       {
         "source_menu_key": "aigc_short_drama_skill",

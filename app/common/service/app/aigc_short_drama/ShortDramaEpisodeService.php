@@ -113,13 +113,22 @@ class ShortDramaEpisodeService
         $project = self::project($tenantId, $userId, $projectId);
         self::importLegacy($tenantId, $userId, $project);
         $rows = Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0])->order('episode_number')->select()->toArray();
+        $storyboardCovers = AigcShortDramaService::episodeStoryboardCovers(
+            $tenantId,
+            $userId,
+            array_column($rows, 'production_project_id')
+        );
         $completed = count(array_filter($rows, static fn($r) => (int)$r['completed_once'] === 1));
         $first = self::nextInitialEpisode($rows);
         return ['project_id' => $projectId, 'title' => $project['title'], 'multi_episode' => (bool)$project['multi_episode'],
             'episode_count' => (int)$project['episode_count'], 'outline_task_id' => $project['last_task_id'],
             'completed_count' => $completed, 'started' => count($rows) > 0,
             'paused' => $first && in_array($first['status'], ['failed', 'canceled'], true),
-            'lists' => array_map([self::class, 'summary'], $rows)];
+            'lists' => array_map(static function (array $row) use ($storyboardCovers): array {
+                $episode = self::summary($row);
+                $episode['cover_url'] = (string)($storyboardCovers[(int)($row['production_project_id'] ?? 0)]['url'] ?? '');
+                return $episode;
+            }, $rows)];
     }
 
     public static function summary(array $row): array

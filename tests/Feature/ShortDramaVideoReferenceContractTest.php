@@ -72,6 +72,24 @@ class ShortDramaVideoReferenceContractTest extends TestCase
         self::assertSame([302], $payload['reference_plan']['trimmed_asset_ids']);
     }
 
+    public function testPrimaryCharacterImageUsesDocumentedReferenceRoleAndKeepsLogicalAuditRole(): void
+    {
+        $payload = $this->invoke(
+            AigcShortDramaService::class,
+            'shortDramaVideoReferenceContractPayload',
+            'multi_frame',
+            [
+                ['asset' => ['id' => 311, 'url' => 'https://example.test/first.png'], 'role' => 'reference_image', 'logical_role' => 'first_frame'],
+                ['asset' => ['id' => 312, 'url' => 'https://example.test/hero-primary.png'], 'role' => 'reference_image', 'logical_role' => 'character_primary'],
+            ],
+            [],
+            ['generation_modes' => ['multi_frame'], 'max_reference_images' => 2, 'max_reference_assets' => 2]
+        );
+
+        self::assertSame(['reference_image', 'reference_image'], array_column($payload['reference_assets'], 'role'));
+        self::assertSame(['first_frame', 'character_primary'], array_column($payload['reference_plan']['assets'], 'logical_role'));
+    }
+
     public function testAllMultiImageModelsAdvertiseMultiFrameButOnlyH3AdvertisesStartEnd(): void
     {
         $h3Modes = $this->invoke(
