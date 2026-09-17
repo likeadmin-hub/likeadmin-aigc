@@ -249,24 +249,19 @@ class OpenPlatformService
 
     public static function registerArtifact(string $version, string $sourceSha = ''): array
     {
-        if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) throw new \InvalidArgumentException('版本号格式错误'); $root = self::artifactPath('runtime/wechat-artifacts/' . $version, $version); if (!is_dir($root)) $root = self::artifactPath('mp-weixin.pre-release-' . $version, $version); if (!is_dir($root)) throw new \RuntimeException('产物目录不存在'); $files = self::fileManifest($root); foreach (['app.json', 'project.config.json'] as $required) if (!isset($files[$required])) throw new \RuntimeException('缺少关键文件: ' . $required);
+        if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) throw new \InvalidArgumentException('版本号格式错误'); $root = self::artifactPath('mp-weixin.pre-release-' . $version, $version); if (!is_dir($root)) throw new \RuntimeException('产物目录不存在'); $files = self::fileManifest($root); foreach (['app.json', 'project.config.json'] as $required) if (!isset($files[$required])) throw new \RuntimeException('缺少关键文件: ' . $required);
         $metadataPath = $root . '/.artifact.meta.json'; $metadata = is_file($metadataPath) ? json_decode((string)file_get_contents($metadataPath), true) : null; $manifestHash = hash('sha256', json_encode($files, JSON_UNESCAPED_SLASHES)); if (!is_array($metadata) || (string)($metadata['version'] ?? '') !== $version || (int)($metadata['file_count'] ?? -1) !== count($files) || (string)($metadata['sha256'] ?? '') !== $manifestHash || (array)($metadata['files'] ?? []) !== $files) throw new \RuntimeException('产物元数据校验失败，请重新生成版本产物'); if ($sourceSha !== '' && (string)($metadata['source_sha'] ?? '') !== $sourceSha) throw new \RuntimeException('产物源提交 SHA 与元数据不一致'); $sourceSha = (string)($metadata['source_sha'] ?? $sourceSha);
-        $relativeDir = str_starts_with($root, root_path() . 'runtime' . DIRECTORY_SEPARATOR) ? 'runtime/wechat-artifacts/' . $version : 'mp-weixin.pre-release-' . $version;
+        $relativeDir = 'mp-weixin.pre-release-' . $version;
         $payload = ['version' => $version, 'artifact_dir' => $relativeDir, 'source_sha' => $sourceSha, 'file_count' => count($files), 'sha256_manifest' => json_encode($files, JSON_UNESCAPED_SLASHES), 'built_at' => strtotime((string)($metadata['built_at'] ?? '')) ?: time(), 'verify_status' => 1, 'update_time' => time()]; $row = WechatArtifact::withoutGlobalScope()->where('version', $version)->findOrEmpty(); if ($row->isEmpty()) { $payload['promoted'] = 0; $payload['create_time'] = time(); return WechatArtifact::create($payload)->toArray(); } $row->save($payload); return $row->toArray();
     }
     private static function fileManifest(string $root): array { $files = []; $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)); foreach ($iterator as $file) { if (!$file->isFile() || $file->getFilename() === '.artifact.meta.json') continue; $relative = ltrim(str_replace($root, '', $file->getPathname()), DIRECTORY_SEPARATOR); $files[str_replace(DIRECTORY_SEPARATOR, '/', $relative)] = hash_file('sha256', $file->getPathname()); } ksort($files); return $files; }
-    /** Resolve both new archived paths and legacy public paths during migration. */
+    /** Resolve the formal output and a pending public pre-release directory. */
     private static function artifactPath(string $artifactDir, string $version = ''): string
     {
         $artifactDir = trim(str_replace('\\', '/', $artifactDir), '/');
         if ($artifactDir === 'mp-weixin') return root_path() . 'public/mp-weixin';
-        if (preg_match('/^runtime\/wechat-artifacts\/(\d+\.\d+\.\d+)$/', $artifactDir, $match)) {
-            return root_path() . 'runtime/wechat-artifacts/' . $match[1];
-        }
         if (preg_match('/^mp-weixin\\.pre-release-(\\d+\\.\\d+\\.\\d+)$/', basename($artifactDir), $match)) {
             $version = $version !== '' ? $version : $match[1];
-            $archived = root_path() . 'runtime/wechat-artifacts/' . $version;
-            if (is_dir($archived)) return $archived;
             return root_path() . 'public/' . basename($artifactDir);
         }
         return root_path() . 'public/' . basename($artifactDir);
@@ -330,15 +325,6 @@ class OpenPlatformService
         }
 
         $discovered = [];
-        $runtimeRoot = root_path() . 'runtime/wechat-artifacts';
-        if (is_dir($runtimeRoot)) {
-            foreach (scandir($runtimeRoot) ?: [] as $name) {
-                if ($name === '.' || $name === '..' || !preg_match('/^\d+\.\d+\.\d+$/', $name)) continue;
-                if (is_dir($runtimeRoot . DIRECTORY_SEPARATOR . $name)) {
-                    $discovered[$name] = ['id' => 0, 'version' => $name, 'artifact_dir' => 'runtime/wechat-artifacts/' . $name, 'promoted' => 0];
-                }
-            }
-        }
         $publicRoot = root_path() . 'public';
         if (is_dir($publicRoot)) {
             foreach (scandir($publicRoot) ?: [] as $name) {
@@ -1219,32 +1205,33 @@ class OpenPlatformService
             if (!is_dir($source)) throw new \RuntimeException('产物目录无效');
             $expected = json_decode((string)$artifact['sha256_manifest'], true);
             if (!is_array($expected) || self::fileManifest($source) !== $expected) throw new \RuntimeException('产物校验失败');
+            if (realpath($source) === realpath($target)) return true;
+            $pending = root_path() . 'public/mp-weixin.pre-release-' . (string)$artifact['version'];
+            if (realpath($source) !== realpath($pending)) throw new \RuntimeException('仅可提升当前版本的预发布产物');
             self::replaceFormalArtifact($source, $target, $expected);
             WechatArtifact::withoutGlobalScope()->where('id', '>', 0)->update(['promoted' => 0, 'update_time' => time()]);
-            $artifact->save(['promoted' => 1, 'update_time' => time()]); return true;
+            $artifact->save(['artifact_dir' => 'mp-weixin', 'promoted' => 1, 'update_time' => time()]); return true;
         } finally { SubmitLockService::release($lock); }
     }
     private static function replaceFormalArtifact(string $source, string $target, array $expected): void
     {
         $parent = dirname($target);
-        $stage = $parent . '/.mp-weixin.stage-' . bin2hex(random_bytes(8));
         $backup = $parent . '/.mp-weixin.backup-' . bin2hex(random_bytes(8));
-        if (!mkdir($stage, 0755, true)) throw new \RuntimeException('无法创建正式产物暂存目录');
         try {
-            self::copyTree($source, $stage);
-            if (!is_file($source . '/.artifact.meta.json') || !copy($source . '/.artifact.meta.json', $stage . '/.artifact.meta.json')) throw new \RuntimeException('无法复制产物元数据');
-            if (self::fileManifest($stage) !== $expected) throw new \RuntimeException('正式产物暂存校验失败');
             if (is_dir($target) && !rename($target, $backup)) throw new \RuntimeException('无法备份当前正式产物');
-            if (!rename($stage, $target)) {
+            if (!rename($source, $target)) {
                 if (is_dir($backup)) @rename($backup, $target);
                 throw new \RuntimeException('无法切换正式产物');
             }
+            if (self::fileManifest($target) !== $expected) {
+                @rename($target, $source);
+                if (is_dir($backup)) @rename($backup, $target);
+                throw new \RuntimeException('正式产物校验失败');
+            }
             if (is_dir($backup)) self::removeTree($backup);
         } catch (\Throwable $e) {
-            if (is_dir($stage)) self::removeTree($stage);
             if (is_dir($backup) && !is_dir($target)) @rename($backup, $target);
             throw $e;
         }
     }
-    private static function copyTree(string $source, string $target): void { foreach (scandir($source) ?: [] as $item) { if ($item === '.' || $item === '..' || $item === '.artifact.meta.json') continue; $src = $source . '/' . $item; $dst = $target . '/' . $item; if (is_dir($src)) { if (!is_dir($dst)) mkdir($dst, 0755, true); self::copyTree($src, $dst); } else copy($src, $dst); } }
 }

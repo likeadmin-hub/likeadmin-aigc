@@ -1,5 +1,23 @@
 [
   {
+    "permission_key": "aigc_short_drama:canvas_config:detail",
+    "name": "查看短剧画布配置",
+    "api_path": "app.aigc_short_drama.canvas_config/detail",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_short_drama:canvas_config:setup",
+    "name": "保存短剧画布配置",
+    "api_path": "app.aigc_short_drama.canvas_config/setup",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_short_drama:skill:manage",
+    "name": "管理AI短剧Skill",
+    "api_path": "app.aigc_short_drama.skill/lists",
+    "api_method": "GET"
+  },
+  {
     "permission_key": "aigc_short_drama:config:detail",
     "name": "查看AI短剧配置",
     "api_path": "app.aigc_short_drama.config/detail",
@@ -21,6 +39,12 @@
     "permission_key": "aigc_short_drama:script_task:lists",
     "name": "查看剧本列表",
     "api_path": "app.aigc_short_drama.script_task/lists",
+    "api_method": "GET"
+  },
+  {
+    "permission_key": "aigc_short_drama:script_task:detail",
+    "name": "查看剧本分集详情",
+    "api_path": "app.aigc_short_drama.script_task/detail",
     "api_method": "GET"
   },
   {
@@ -57,6 +81,18 @@
     "permission_key": "aigc_short_drama:inspiration:status",
     "name": "设置AI短剧灵感素材状态",
     "api_path": "app.aigc_short_drama.inspiration/status",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_short_drama:inspiration:save",
+    "name": "保存AI短剧灵感素材",
+    "api_path": "app.aigc_short_drama.inspiration/save",
+    "api_method": "POST"
+  },
+  {
+    "permission_key": "aigc_short_drama:inspiration:delete",
+    "name": "删除AI短剧灵感素材",
+    "api_path": "app.aigc_short_drama.inspiration/delete",
     "api_method": "POST"
   },
   {

@@ -11,6 +11,7 @@ namespace app\common\service\power {
         public static bool $returnIncompleteFirstOutline = false;
         public static bool $returnIncompleteEveryOutline = false;
         public static bool $missingSpeaker = false;
+        public static bool $invalidDialogueRepair = false;
         private static bool $incompleteWasReturned = false;
         private static int $lastOutlineCount = 0;
 
@@ -18,6 +19,7 @@ namespace app\common\service\power {
         {
             self::$requests = [];
             self::$missingSpeaker = false;
+            self::$invalidDialogueRepair = false;
             self::$returnIncompleteFirstOutline = false;
             self::$returnIncompleteEveryOutline = false;
             self::$incompleteWasReturned = false;
@@ -34,6 +36,12 @@ namespace app\common\service\power {
             self::$requests[] = $params;
             $content = (string)($params['content'] ?? '');
             $isRepair = (string)($params['action_code'] ?? '') === 'script_plan_repair';
+            $isDialogueRepair = (string)($params['action_code'] ?? '') === 'script_plan_dialogue_repair';
+            if ($isDialogueRepair) {
+                return ['content' => json_encode(['dialogue_repairs' => [[
+                    'shot_id' => '1', 'voice_role' => self::$invalidDialogueRepair ? '不存在的人' : '林岚', 'speech_type' => 'character',
+                ]]], JSON_UNESCAPED_UNICODE)];
+            }
             $count = self::outlineCount($content);
             if ($isRepair && self::$lastOutlineCount > 0) {
                 $count = self::$lastOutlineCount;

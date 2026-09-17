@@ -7,6 +7,8 @@ return [
     'commands' => [
         'short-drama:episode-worker' => 'app\common\command\ShortDramaEpisodeWorker',
         'short-drama:planning-worker' => 'app\common\command\ShortDramaPlanningWorker',
+        // Recovery only; it never invokes an AI provider or existing short-drama task flow.
+        'short-drama:canvas-worker' => 'app\common\command\ShortDramaCanvasWorker',
         // 定时任务
         'crontab' => 'app\common\command\Crontab',
         // 退款查询

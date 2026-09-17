@@ -94,6 +94,48 @@ class ShortDramaEpisodeQueueTest extends TestCase
         self::assertTrue($list['paused']);
     }
 
+    public function testCancelAllStopsPendingEpisodesAndMarksRunningEpisodeForCompletion(): void
+    {
+        $project = $this->project(3);
+        $rows = Episodes::start(self::TENANT, self::USER, $project)['lists'];
+        $pendingTaskId = 'episode_pending_' . bin2hex(random_bytes(8));
+        Db::name('aigc_short_drama_script_task')->insert([
+            'tenant_id' => self::TENANT,
+            'user_id' => self::USER,
+            'project_id' => $project['project_id'],
+            'task_id' => $pendingTaskId,
+            'status' => 'queued',
+            'create_time' => time(),
+            'update_time' => time(),
+        ]);
+        Db::name('aigc_short_drama_episode_task')->where('id', $rows[0]['id'])->update(['status' => 'running']);
+        Db::name('aigc_short_drama_episode_task')->where('id', $rows[1]['id'])->update(['task_id' => $pendingTaskId]);
+        $pendingJobId = Db::name('aigc_short_drama_episode_job')->insertGetId([
+            'tenant_id' => self::TENANT,
+            'user_id' => self::USER,
+            'project_id' => $project['project_id'],
+            'episode_id' => $rows[1]['id'],
+            'job_type' => 'episode',
+            'status' => 'queued',
+            'attempt' => 0,
+            'idempotency_key' => 'episode_cancel_' . $rows[1]['id'],
+            'next_run_time' => time(),
+            'create_time' => time(),
+            'update_time' => time(),
+        ]);
+
+        $first = Episodes::cancelAll(self::TENANT, self::USER, $project['project_id']);
+        self::assertSame(['project_id' => $project['project_id'], 'canceled_count' => 2, 'finishing_count' => 1], $first);
+        $list = Episodes::lists(self::TENANT, self::USER, $project['project_id'])['lists'];
+        self::assertSame(['running', 'canceled', 'canceled'], array_column($list, 'status'));
+        self::assertSame([1, 1, 1], array_map('intval', array_column($list, 'cancel_requested')));
+        self::assertSame('canceled', Db::name('aigc_short_drama_script_task')->where('task_id', $pendingTaskId)->value('status'));
+        self::assertSame('canceled', Db::name('aigc_short_drama_episode_job')->where('id', $pendingJobId)->value('status'));
+
+        $again = Episodes::cancelAll(self::TENANT, self::USER, $project['project_id']);
+        self::assertSame(['project_id' => $project['project_id'], 'canceled_count' => 0, 'finishing_count' => 0], $again);
+    }
+
     public function testTenantCannotReadOrMutateAnotherTenantsEpisodes(): void
     {
         $project = $this->project(2);
@@ -162,7 +204,7 @@ class ShortDramaEpisodeQueueTest extends TestCase
         self::assertSame([2], array_map('intval', array_column($single['lists'], 'episode_number')));
     }
 
-    public function testWorkerConsumesPersistedCompletionOnceAndAdvancesWithoutProviderResubmission(): void
+    public function testWorkerKeepsCompletedEpisodeViewableWhenQueueIsPaused(): void
     {
         $project = $this->project(3);
         $rows = Episodes::start(self::TENANT, self::USER, $project)['lists'];
@@ -180,14 +222,15 @@ class ShortDramaEpisodeQueueTest extends TestCase
         self::assertSame(1, Episodes::tick(self::TENANT, $project['project_id']));
         $list = Episodes::lists(self::TENANT, self::USER, $project['project_id']);
         self::assertTrue($list['lists'][0]['ready']);
-        self::assertSame('canceled', $list['lists'][0]['status']);
+        self::assertSame('success', $list['lists'][0]['status']);
+        self::assertSame('canceled', $list['lists'][1]['status']);
+        self::assertTrue($list['paused']);
+        self::assertSame('success', Db::name('aigc_short_drama_episode_task')->where('id', $rows[0]['id'])->value('status'));
         self::assertSame(0, Episodes::tick(self::TENANT, $project['project_id']));
-        $resumed = Episodes::retry(self::TENANT, self::USER, $rows[0]['id']);
-        self::assertSame($taskId, $resumed['task_id']);
-        self::assertSame('success', $resumed['status']);
         self::assertSame(1, (int)Db::name('aigc_short_drama_script_task')->where('project_id', $child)->count());
-        $list = Episodes::lists(self::TENANT, self::USER, $project['project_id']);
-        self::assertSame(2, (int)Episodes::nextInitialEpisode($list['lists'])['episode_number']);
+        self::assertSame(2, (int)Episodes::nextInitialEpisode(
+            Db::name('aigc_short_drama_episode_task')->where('project_id', $project['project_id'])->order('episode_number')->select()->toArray()
+        )['episode_number']);
     }
 
     public function testLegacyImportKeepsRealEpisodesAndMarksMissingEpisodeFailed(): void

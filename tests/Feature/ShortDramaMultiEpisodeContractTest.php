@@ -51,14 +51,15 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
         ])['episode_count']);
     }
 
-    public function testSingleEpisodeDefaultsToOneMinuteWhenNoDurationIsProvided(): void
+    public function testSingleEpisodeUsesModelDirectedDurationWhenNoDurationIsProvided(): void
     {
         $request = $this->invoke('normalizeCreateRequest', [], []);
 
         self::assertFalse($request['multi_episode']);
         self::assertSame(1, $request['episode_count']);
-        self::assertSame(60, $request['target_duration_seconds']);
-        self::assertSame(60, $this->invoke('planningTargetDurationSeconds', '', []));
+        self::assertSame(0, $request['target_duration_seconds']);
+        self::assertSame('auto', $request['duration_source']);
+        self::assertSame(0, $this->invoke('planningTargetDurationSeconds', '', []));
     }
 
     public function testNewMultiEpisodeRequestsStartWithOutlineWhileSingleRequestsStayProductionMode(): void
@@ -448,6 +449,11 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
             array_values(array_unique(array_column($reviewed['storyboard'], 'episode_number')))
         );
         self::assertSame(5.0, (float)$reviewed['storyboard'][0]['recommended_duration_seconds']);
+        self::assertSame(
+            array_sum(array_map(static fn(array $shot): float => (float)$shot['recommended_duration_seconds'], $reviewed['storyboard'])),
+            (float)$reviewed['duration_stats']['estimated_total_seconds']
+        );
+        self::assertSame(count($reviewed['storyboard']), (int)$reviewed['duration_stats']['shot_count']);
     }
 
     public function testStoryStageDoesNotFabricateEpisodesOrStoryboard(): void
@@ -578,6 +584,7 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
                 'episode_number' => $number,
                 'title' => '第' . $number . '集',
                 'story_outline' => '第' . $number . '集故事推进。',
+                'conflict_point' => '第' . $number . '集的核心冲突。',
                 'script_lines' => ['第' . $number . '集关键剧情。'],
                 'ending_hook' => '第' . $number . '集结尾悬念。',
             ];

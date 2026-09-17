@@ -98,10 +98,18 @@ class ShortDramaStoryGenerationTest extends TestCase
         self::assertSame(5, $budget['count']);
         self::assertGreaterThanOrEqual(1024, $budget['margin']);
         $this->expectException(\RuntimeException::class);
-        ShortDramaPlanningBudget::calculate(str_repeat('长', 20000), [], 1, true);
+        ShortDramaPlanningBudget::calculate(str_repeat('长', 30000), [], 1, true);
     }
 
-    public function testInvalidStoryJsonGetsOneRepairWithFullAvailableOutputBudget(): void
+    public function testMissingContextMetadataKeepsConservativeInputBudget(): void
+    {
+        $budget = ShortDramaPlanningBudget::calculate(str_repeat('x', 33400), ['max_tokens' => 65536], 3, true);
+        self::assertSame('conservative_fallback', $budget['source']);
+        self::assertSame(32768, $budget['context']);
+        self::assertLessThan(3, $budget['count']);
+    }
+
+    public function testInvalidStoryJsonGetsOneRepairWithStageBoundedOutputBudget(): void
     {
         $calls = [];
         $result = ShortDramaStoryGeneration::generate(['multi_episode_stage' => 'story', 'episode_count' => 50],
@@ -109,7 +117,8 @@ class ShortDramaStoryGenerationTest extends TestCase
             function ($key, $messages, $budget) use (&$calls) {
                 $calls[] = $key;
                 if ($key === 'story') return ['result' => ['content' => '{']];
-                self::assertSame($budget['output_capacity'], $budget['max_tokens']);
+                self::assertSame(5648, $budget['max_tokens']);
+                self::assertLessThan($budget['output_capacity'], $budget['max_tokens']);
                 return ['result' => ['content' => json_encode($this->base())]];
             });
         self::assertSame(['story', 'story_repair'], $calls);

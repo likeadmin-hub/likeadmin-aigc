@@ -184,6 +184,12 @@ class MarketVideoRuntimeService
 
     public static function quote(int $tenantId, array $selection): array
     {
+        $normalized = self::normalizeDurationSelection(
+            $tenantId,
+            $selection,
+            (int)self::value($selection, ['duration', 'seconds', 'video_duration'])
+        );
+        $selection = array_replace($selection, $normalized);
         $market = self::resolve($tenantId, $selection);
         $quantity = self::quantity($market, $selection);
         return self::quoteMarket($market, $quantity);
@@ -215,10 +221,60 @@ class MarketVideoRuntimeService
     /** A locked SKU wins; configurable SKUs use the caller's requested duration. */
     public static function effectiveDuration(int $tenantId, array $selection, int $fallback = 0): int
     {
-        // A stale shot recommendation must not make a fixed-duration SKU fail
-        // selection before we have a chance to apply its locked value.
-        $market = self::resolve($tenantId, $selection);
-        return self::effectiveDurationFromMarket($market, $fallback);
+        $requestedDuration = $fallback > 0
+            ? $fallback
+            : (int)self::value($selection, ['duration', 'seconds', 'video_duration']);
+        return (int)self::normalizeDurationSelection($tenantId, $selection, $requestedDuration)['duration'];
+    }
+
+    /**
+     * Resolves the selected market SKU before a video task is quoted or
+     * persisted. This keeps every caller on the same duration contract:
+     * fixed-duration SKUs win, while configurable SKUs use the nearest
+     * supported duration.
+     *
+     * @return array{duration:int,market_product_id:int,market_sku_id:int,sku_id:int}
+     */
+    public static function normalizeDurationSelection(int $tenantId, array $selection, int $requestedDuration = 0): array
+    {
+        $requestedDuration = max(0, $requestedDuration);
+        $requestedSelection = self::withoutDuration($selection);
+        if ($requestedDuration > 0) {
+            $requestedSelection['duration'] = $requestedDuration;
+        }
+
+        // A storyboard's narrative beat can be shorter than the minimum
+        // renderable duration of a provider (for example, 2–3s versus a
+        // provider's 4–15s contract). Resolve the sellable SKU without that
+        // stale duration first, then negotiate a supported render duration.
+        // This also keeps a locked-duration SKU authoritative.
+        try {
+            $market = self::resolve($tenantId, $requestedSelection);
+        } catch (Exception $error) {
+            if ($requestedDuration <= 0) {
+                throw $error;
+            }
+            try {
+                $market = self::resolve($tenantId, self::withoutDuration($selection));
+            } catch (Exception) {
+                throw $error;
+            }
+        }
+        $duration = self::effectiveDurationFromMarket($market, $requestedDuration);
+
+        // Validate and select using the negotiated duration, never the
+        // original narrative duration. This prevents quote/reserve/submit
+        // from disagreeing about the SKU or billed seconds.
+        $normalizedSelection = self::withoutDuration($selection);
+        $normalizedSelection['duration'] = max(1, min(60, $duration));
+        $market = self::resolve($tenantId, $normalizedSelection);
+
+        return [
+            'duration' => (int)$normalizedSelection['duration'],
+            'market_product_id' => (int)($market['product']['id'] ?? 0),
+            'market_sku_id' => (int)($market['sku']['id'] ?? 0),
+            'sku_id' => (int)($market['sku']['id'] ?? 0),
+        ];
     }
 
     private static function effectiveDurationFromMarket(array $market, int $requestedDuration): int
@@ -234,15 +290,15 @@ class MarketVideoRuntimeService
     private static function configurableDuration(array $product, array $metadata, int $requestedDuration): int
     {
         if ($requestedDuration > 0) {
-            return self::preferredSupportedDuration($product, $requestedDuration);
+            return self::preferredSupportedDuration($product, $requestedDuration, $metadata);
         }
         $durationSchema = self::durationSchema($metadata);
         foreach ([$metadata['default_duration'] ?? null, $durationSchema['default'] ?? null, $durationSchema['value'] ?? null] as $value) {
             if (is_numeric($value) && (int)$value > 0) {
-                return self::preferredSupportedDuration($product, (int)$value);
+                return self::preferredSupportedDuration($product, (int)$value, $metadata);
             }
         }
-        return self::preferredSupportedDuration($product, 0);
+        return self::preferredSupportedDuration($product, 0, $metadata);
     }
 
     /** @return array{app_task_id:int,consumption_id:int,consume_no:string,market_snapshot:array<string,mixed>} */
@@ -256,6 +312,13 @@ class MarketVideoRuntimeService
         if ($existing !== null) {
             return $existing;
         }
+        $requestedDuration = (int)self::value($request, ['duration', 'seconds', 'video_duration']);
+        if ($requestedDuration <= 0) {
+            $requestedDuration = (int)self::value($selection, ['duration', 'seconds', 'video_duration']);
+        }
+        $normalized = self::normalizeDurationSelection($tenantId, $selection, $requestedDuration);
+        $selection = array_replace($selection, $normalized);
+        $request['duration'] = (int)$normalized['duration'];
         CanvasVideoPromptSubmissionGuard::assertPrepared($appCode, $selection);
         $market = self::resolve($tenantId, $selection);
         self::assertAssets($market, $request);
@@ -351,6 +414,12 @@ class MarketVideoRuntimeService
         if ($context === null) throw new Exception('市场视频消耗记录不存在');
         if ((string)$context['consumption']['run_status'] !== 'reserved') return self::response($context['consumption']->toArray());
         $snapshot = self::arrayValue($context['consumption']['price_snapshot'] ?? []);
+        $reservedRequest = self::arrayValue($context['app_task']['request_summary'] ?? []);
+        if ((int)($reservedRequest['duration'] ?? 0) > 0) {
+            // Reserve owns the authoritative, negotiated provider duration.
+            // A caller may still hold the original storyboard beat length.
+            $request['duration'] = (int)$reservedRequest['duration'];
+        }
         try {
             $response = self::submitRequest($snapshot, $request, (string)$context['consumption']['consume_no'], $consumptionId);
             $taskId = self::taskId($response);
@@ -1920,7 +1989,11 @@ class MarketVideoRuntimeService
         )) {
             return true;
         }
-        return self::isH3Product($product);
+        // Wan 3.0 uses the same mutually-exclusive media contract documented
+        // by the supplier: first/last-frame inputs cannot be mixed with
+        // ordinary reference media. Keep this at the shared runtime boundary
+        // so every caller is protected, not just the short-drama workbench.
+        return self::isH3Product($product) || self::isWanThreeProduct($product);
     }
     private static function referenceAssetLimit(array $product, array $meta): int
     {
@@ -1956,6 +2029,14 @@ class MarketVideoRuntimeService
             };
         }, (array)$configured)));
         $order = ['text_to_video', 'omni_reference', 'image_to_video', 'start_end', 'image_reference', 'video_edit', 'multi_frame', 'audio_reference'];
+        // The market catalogue currently declares Wan 3.0 as text +
+        // start/end only. Its provider contract additionally supports a
+        // single first frame and the documented reference media types. Do not
+        // let that incomplete catalogue hint hide supplier capabilities from
+        // every app that uses the shared market runtime.
+        if (self::isWanThreeProduct($product)) {
+            return $order;
+        }
         $declared = array_values(array_intersect($order, array_unique($configured)));
         if ($declared !== []) {
             if (!$supportsStartEndFrames) {
@@ -2048,9 +2129,11 @@ class MarketVideoRuntimeService
     /** H3 and Wan 3.0 accept an image pair as the first and last frame. */
     private static function supportsStartEndFrames(array $product): bool
     {
-        if (self::isH3Product($product)) {
-            return true;
-        }
+        return self::isH3Product($product) || self::isWanThreeProduct($product);
+    }
+
+    private static function isWanThreeProduct(array $product): bool
+    {
         foreach (['upstream_model_code', 'upstream_channel_code', 'model_code', 'channel_code'] as $key) {
             if (strtolower(trim((string)($product[$key] ?? ''))) === 'wan3.0-video') {
                 return true;
@@ -2332,8 +2415,6 @@ class MarketVideoRuntimeService
             $durationSchema['values'] ?? null,
             $durationSchema['allowed_values'] ?? null,
             $durationSchema['description'] ?? null,
-            $durationSchema['default'] ?? null,
-            $durationSchema['value'] ?? null,
         ] as $values) {
             if ($values === null || $values === [] || $values === '') {
                 continue;
@@ -2521,9 +2602,32 @@ class MarketVideoRuntimeService
     private static function resolution(array $locked): string { return (string)($locked['resolution'] ?? $locked['quality'] ?? $locked['size'] ?? ''); }
     private static function duration(array $locked): int { foreach (['duration','seconds','video_duration'] as $key) if (isset($locked[$key]) && is_numeric($locked[$key])) return max(0, (int)$locked[$key]); return 0; }
     private static function hasConfigurableDurationSku(array $skus): bool { foreach ($skus as $sku) if ((int)($sku['duration'] ?? 0) === 0) return true; return false; }
-    private static function preferredSupportedDuration(array $product, int $duration): int
+    private static function preferredSupportedDuration(array $product, int $duration, array $metadata = []): int
     {
-        return max(0, $duration);
+        $durations = self::durationOptionsForProduct($product, $metadata ?: self::metadata($product));
+        if ($durations === []) {
+            return max(0, $duration);
+        }
+
+        sort($durations);
+        $requested = max(0, $duration);
+        if ($requested <= 0) {
+            return (int)$durations[0];
+        }
+
+        // Never shorten the narrative beat when a provider publishes a
+        // discrete duration set: use the first supported value that can hold
+        // it. This turns a 2–3s storyboard beat into a provider's 4s minimum
+        // instead of rejecting it before the task is created.
+        foreach ($durations as $supported) {
+            if ((int)$supported >= $requested) {
+                return (int)$supported;
+            }
+        }
+
+        // Providers cannot render beyond their published maximum. Clamp to
+        // that maximum so every shared caller follows the same contract.
+        return (int)end($durations);
     }
     private static function displayName(array $product): string
     {

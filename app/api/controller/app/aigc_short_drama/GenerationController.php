@@ -16,6 +16,9 @@ class GenerationController extends BaseApiController
             return $this->success('success', AigcShortDramaService::createShotGenerationTask((int)$this->request->tenantId, $this->userId, $this->request->post()));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
+        } catch (Throwable $e) {
+            Log::write('AI short drama generation create controller fatal: ' . $e->getMessage(), 'error');
+            return $this->fail('生成任务提交失败，请稍后重试');
         }
     }
 
@@ -25,6 +28,9 @@ class GenerationController extends BaseApiController
             return $this->success('success', AigcShortDramaService::estimateShotGenerationTask((int)$this->request->tenantId, $this->userId, $this->request->post()));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
+        } catch (Throwable $e) {
+            Log::write('AI short drama generation estimate controller fatal: ' . $e->getMessage(), 'error');
+            return $this->fail('视频任务预估失败，请稍后重试');
         }
     }
 

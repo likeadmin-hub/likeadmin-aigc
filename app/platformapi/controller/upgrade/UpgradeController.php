@@ -112,6 +112,29 @@ class UpgradeController extends BaseAdminController
         }
     }
 
+    public function rollbackVersions(): Json
+    {
+        try {
+            return $this->success('获取成功', (new SystemPackageUpdateService())->rollbackVersions());
+        } catch (\Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function rollbackVersion(): Json
+    {
+        try {
+            return $this->success(
+                '版本标记已回退',
+                (new SystemPackageUpdateService())->rollbackVersion((string)$this->request->post('version', '')),
+                1,
+                1
+            );
+        } catch (\Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function licenseInfo(): Json
     {
         try {

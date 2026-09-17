@@ -11,4 +11,9 @@ class ScriptTaskController extends BaseAdminController
     {
         return $this->success('获取成功', AigcShortDramaService::adminScriptTaskLists($this->tenantId, $this->request->get()));
     }
+
+    public function detail()
+    {
+        return $this->success('获取成功', AigcShortDramaService::adminScriptTaskDetail($this->tenantId, $this->request->get()));
+    }
 }

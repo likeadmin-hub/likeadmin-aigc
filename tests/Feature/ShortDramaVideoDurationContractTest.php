@@ -3,11 +3,20 @@
 namespace Tests\Feature;
 
 use app\common\service\power\MarketVideoRuntimeService;
+use app\common\service\power\MarketVideoAppRuntimeService;
+use app\common\service\power\MarketVideoModelRuntimeService;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
 class ShortDramaVideoDurationContractTest extends TestCase
 {
+    public function testDurationNormalizerIsAvailableToBothMarketVideoRuntimeFacades(): void
+    {
+        self::assertTrue(method_exists(MarketVideoRuntimeService::class, 'normalizeDurationSelection'));
+        self::assertTrue(method_exists(MarketVideoAppRuntimeService::class, 'normalizeDurationSelection'));
+        self::assertTrue(method_exists(MarketVideoModelRuntimeService::class, 'normalizeDurationSelection'));
+    }
+
     public function testRequestedDurationOverridesConfigurableModelDefault(): void
     {
         $duration = $this->invokeConfigurableDuration([
@@ -34,6 +43,34 @@ class ShortDramaVideoDurationContractTest extends TestCase
         self::assertSame(4, $duration);
     }
 
+    public function testNarrativeBeatBelowProviderMinimumUsesTheMinimumRenderableDuration(): void
+    {
+        $metadata = [
+            'params_schema' => [
+                'properties' => [
+                    'duration' => ['minimum' => 4, 'maximum' => 15],
+                ],
+            ],
+        ];
+
+        self::assertSame(4, $this->invokeConfigurableDuration($metadata, 2));
+        self::assertSame(4, $this->invokeConfigurableDuration($metadata, 3));
+        self::assertSame(15, $this->invokeConfigurableDuration($metadata, 16));
+    }
+
+    public function testUnknownDurationUsesTheFirstSupportedProviderDuration(): void
+    {
+        $duration = $this->invokeConfigurableDuration([
+            'params_schema' => [
+                'properties' => [
+                    'duration' => ['minimum' => 4, 'maximum' => 15],
+                ],
+            ],
+        ], 0);
+
+        self::assertSame(4, $duration);
+    }
+
     public function testLockedSkuDurationStillOverridesRequestedDuration(): void
     {
         $method = new ReflectionMethod(MarketVideoRuntimeService::class, 'effectiveDurationFromMarket');
@@ -48,12 +85,13 @@ class ShortDramaVideoDurationContractTest extends TestCase
 
     public function testStoryboardSubmissionsPreferSelectedDurationOverScriptDuration(): void
     {
-        $source = (string)file_get_contents(dirname(__DIR__, 2) . '/public/_nuxt/storyboard.f2381e09.js');
+        $source = (string)file_get_contents(dirname(__DIR__, 3) . '/web/pc/components/short-drama/StoryboardCreationWorkbench.vue');
 
-        self::assertStringContainsString('wn=Number(F.value||((a==null?void 0:a.duration)||0))', $source);
-        self::assertStringContainsString('g=Ya(K.value,l,Number(d||f.duration||0),ne.value)', $source);
-        self::assertStringNotContainsString('wn=Number((a==null?void 0:a.duration)||F.value||0)', $source);
-        self::assertStringNotContainsString('g=Ya(K.value,l,Number(f.duration||d||0),ne.value)', $source);
+        self::assertStringContainsString('const generationDuration = isVideoMode ? closestVideoDurationForModel(', $source);
+        self::assertStringContainsString('duration: generationDuration,', $source);
+        self::assertStringContainsString('requested_duration: isVideoMode ? requestedVideoDuration : 0,', $source);
+        self::assertStringContainsString('const shotDuration = closestVideoDurationForModel(', $source);
+        self::assertStringContainsString('duration: shotDuration,', $source);
     }
 
     private function invokeConfigurableDuration(array $metadata, int $requestedDuration): int

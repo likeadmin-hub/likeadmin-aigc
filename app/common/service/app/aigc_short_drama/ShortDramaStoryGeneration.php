@@ -14,7 +14,9 @@ final class ShortDramaStoryGeneration
         $call = static function (string $key, array $messages, int $count, bool $public) use (&$model, &$receipts, $provider): array {
             $budget = ShortDramaPlanningBudget::calculate($messages['system_prompt'] . $messages['content'], $model, $count, $public);
             if ($budget['count'] < $count) throw new RuntimeException('本批超出模型容量', 413);
-            if (str_contains($key, '_repair')) $budget['max_tokens'] = $budget['output_capacity'];
+            if (str_contains($key, '_repair')) {
+                $budget['max_tokens'] = ShortDramaPlanningBudget::repairMaxTokens($budget, $count, $public);
+            }
             $receipt = $provider($key, $messages, $budget, $model);
             $model = (array)($receipt['model'] ?? $model);
             $receipts[$key] = (array)($receipt['result'] ?? []);
@@ -66,7 +68,11 @@ final class ShortDramaStoryGeneration
                     $chunk['revision_base_result']['episodes'] = array_slice($sourceEpisodes, $start - 1, $count);
                     $chunk['revision_policy'] = $request['revision_policy'];
                 }
-                $chunk['episode_batch_context'] = json_encode(['previous_episodes' => array_slice($payload['episodes'], -2)], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                // Persisted results remain complete. The provider receives a
+                // bounded continuity ledger, not the previous raw episodes.
+                $chunk['episode_batch_context'] = ShortDramaPlanningContext::episodeMemory([
+                    'previous_episodes' => array_slice($payload['episodes'], -2),
+                ]);
                 if ($progress) $progress('stage', ['status' => 'running', 'progress' => 20 + (int)(60 * count($payload['episodes']) / $total),
                     'current_step' => '已完成 ' . count($payload['episodes']) . '/' . $total . ' 集，正在生成第 ' . $start . '–' . ($start + $count - 1) . ' 集']);
                 $messages = $assemble($chunk);

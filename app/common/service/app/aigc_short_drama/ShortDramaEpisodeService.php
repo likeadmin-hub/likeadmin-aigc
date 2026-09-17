@@ -128,6 +128,14 @@ class ShortDramaEpisodeService
         unset($row['outline_json'], $row['result_json'], $row['continuity_json'], $row['series_json'], $row['provider_request_id'], $row['provider_task_id']);
         $row['ready'] = (bool)$row['completed_once'];
         $row['queue_state'] = $row['status'];
+        // A running episode can finish after the user pauses the series. Its
+        // completed plan is already durable and must remain viewable; only
+        // later, not-yet-run episodes are canceled. Keep legacy rows with the
+        // old canceled status compatible with that same behavior.
+        if ($row['ready'] && $row['status'] === 'canceled') {
+            $row['status'] = 'success';
+            $row['error'] = '';
+        }
         $row['can_retry'] = in_array($row['status'], ['failed', 'canceled'], true);
         return $row;
     }
@@ -199,6 +207,86 @@ class ShortDramaEpisodeService
             if ($row['task_id'] !== '') AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id']])->whereIn('status', ['pending', 'queued'])->update(['status' => 'canceled', 'finished_at' => time(), 'update_time' => time()]);
             Db::name(self::TABLE)->where('id', $row['id'])->update(['status' => 'canceled', 'error' => '已取消，后续剧集暂停', 'update_time' => time()]);
             return ['status' => 'canceled'];
+        });
+    }
+
+    /**
+     * Stop every uncompleted episode in one transaction. A running provider
+     * request is allowed to finish once so its result and billing state remain
+     * consistent; all not-yet-submitted episodes are canceled immediately.
+     * Repeating this operation is deliberately a no-op.
+     */
+    public static function cancelAll(int $tenantId, int $userId, int $projectId): array
+    {
+        self::project($tenantId, $userId, $projectId);
+        return Db::transaction(function () use ($tenantId, $userId, $projectId) {
+            $rows = Db::name(self::TABLE)->where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'project_id' => $projectId,
+                'delete_time' => 0,
+            ])->whereIn('status', ['pending', 'running'])->order('episode_number')->lock(true)->select()->toArray();
+            if ($rows === []) {
+                return ['project_id' => $projectId, 'canceled_count' => 0, 'finishing_count' => 0];
+            }
+
+            $now = time();
+            $pendingIds = [];
+            $pendingTaskIds = [];
+            $runningIds = [];
+            foreach ($rows as $row) {
+                if ((string)$row['status'] === 'running') {
+                    if (!(int)$row['cancel_requested']) {
+                        $runningIds[] = (int)$row['id'];
+                    }
+                    continue;
+                }
+                $pendingIds[] = (int)$row['id'];
+                $taskId = trim((string)($row['task_id'] ?? ''));
+                if ($taskId !== '') {
+                    $pendingTaskIds[] = $taskId;
+                }
+            }
+            if ($pendingTaskIds !== []) {
+                AigcShortDramaScriptTask::where([
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'delete_time' => 0,
+                ])->whereIn('task_id', array_values(array_unique($pendingTaskIds)))
+                    ->whereIn('status', ['pending', 'queued'])->update([
+                        'status' => 'canceled',
+                        'finished_at' => $now,
+                        'update_time' => $now,
+                    ]);
+            }
+            if ($pendingIds !== []) {
+                Db::name('aigc_short_drama_episode_job')->where([
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'project_id' => $projectId,
+                ])->whereIn('episode_id', $pendingIds)->whereIn('status', ['pending', 'queued'])->update([
+                    'status' => 'canceled',
+                    'update_time' => $now,
+                ]);
+                Db::name(self::TABLE)->whereIn('id', $pendingIds)->update([
+                    'status' => 'canceled',
+                    'cancel_requested' => 1,
+                    'error' => '已取消自动生成，可按需单独重新生成',
+                    'finished_at' => $now,
+                    'update_time' => $now,
+                ]);
+            }
+            if ($runningIds !== []) {
+                Db::name(self::TABLE)->whereIn('id', $runningIds)->update([
+                    'cancel_requested' => 1,
+                    'update_time' => $now,
+                ]);
+            }
+            return [
+                'project_id' => $projectId,
+                'canceled_count' => count($pendingIds),
+                'finishing_count' => count($runningIds),
+            ];
         });
     }
 
@@ -358,16 +446,18 @@ class ShortDramaEpisodeService
                 $update['result_json'] = self::encode($plan);
                 if (!(int)$row['completed_once']) $update['continuity_json'] = self::encode(['episode_number' => (int)$row['episode_number'], 'summary' => mb_substr((string)($plan['story_outline'] ?? ''), 0, 1000)]);
             }
-            Db::transaction(function () use ($row, $update) {
+            $queueNext = false;
+            $pauseFollowing = false;
+            Db::transaction(function () use ($row, $update, &$queueNext, &$pauseFollowing) {
                 $current = Db::name(self::TABLE)->where(['id' => $row['id'], 'task_id' => $row['task_id'], 'delete_time' => 0])->lock(true)->find();
                 if (!$current || !in_array($current['status'], ['pending', 'running'], true)) return;
-                if (!empty($current['cancel_requested']) && $update['status'] === 'success') {
-                    $update['status'] = 'canceled';
-                    $update['error'] = '本集已完成，后续生成已暂停，可点击继续队列';
-                }
+                $pauseFollowing = $update['status'] === 'success' && !empty($current['cancel_requested']);
+                $queueNext = $update['status'] === 'success' && !$pauseFollowing;
                 Db::name(self::TABLE)->where('id', $row['id'])->update($update);
             });
-            if (($update['status'] ?? '') === 'success') {
+            if ($pauseFollowing) {
+                self::cancelFollowingEpisodes($tenantId, $userId, (int)$row['project_id'], (int)$row['episode_number']);
+            } elseif ($queueNext) {
                 $next = Db::name(self::TABLE)->where(['project_id' => $row['project_id'], 'delete_time' => 0])
                     ->where('episode_number', '>', (int)$row['episode_number'])->order('episode_number')->find();
                 if ($next) self::queueJob($tenantId, $userId, (int)$row['project_id'], (int)$next['id'], (int)$next['attempt_number']);
@@ -388,6 +478,50 @@ class ShortDramaEpisodeService
                 Db::name(self::TABLE)->where(['id' => $row['id'], 'delete_time' => 0])->whereIn('status', ['pending', 'running'])->update(['status' => 'failed', 'error_code' => $temporary ? 'temporary_provider_error' : 'provider_error', 'error' => '本集生成失败，请检查模型配置、可用点数后重试', 'finished_at' => time(), 'update_time' => time()]);
             }
         }
+    }
+
+    /** Pause a sequential series after an in-flight episode has completed. */
+    private static function cancelFollowingEpisodes(int $tenantId, int $userId, int $projectId, int $episodeNumber): void
+    {
+        Db::transaction(function () use ($tenantId, $userId, $projectId, $episodeNumber) {
+            $rows = Db::name(self::TABLE)->where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'project_id' => $projectId,
+                'delete_time' => 0,
+            ])->where('episode_number', '>', $episodeNumber)->where('status', 'pending')->lock(true)->select()->toArray();
+            if ($rows === []) return;
+
+            $now = time();
+            $ids = array_map('intval', array_column($rows, 'id'));
+            $taskIds = array_values(array_filter(array_map(static fn(array $item): string => trim((string)($item['task_id'] ?? '')), $rows)));
+            if ($taskIds !== []) {
+                AigcShortDramaScriptTask::where([
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'delete_time' => 0,
+                ])->whereIn('task_id', array_values(array_unique($taskIds)))->whereIn('status', ['pending', 'queued'])->update([
+                    'status' => 'canceled',
+                    'finished_at' => $now,
+                    'update_time' => $now,
+                ]);
+            }
+            Db::name('aigc_short_drama_episode_job')->where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'project_id' => $projectId,
+            ])->whereIn('episode_id', $ids)->whereIn('status', ['pending', 'queued'])->update([
+                'status' => 'canceled',
+                'update_time' => $now,
+            ]);
+            Db::name(self::TABLE)->whereIn('id', $ids)->update([
+                'status' => 'canceled',
+                'cancel_requested' => 1,
+                'error' => '已取消自动生成，可按需单独重新生成',
+                'finished_at' => $now,
+                'update_time' => $now,
+            ]);
+        });
     }
 
     private static function importLegacy(int $tenantId, int $userId, array $project): void

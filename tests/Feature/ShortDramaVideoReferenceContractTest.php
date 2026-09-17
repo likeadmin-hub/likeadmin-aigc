@@ -98,6 +98,80 @@ class ShortDramaVideoReferenceContractTest extends TestCase
         self::assertSame(['omni_reference'], $singleImageModes);
     }
 
+    public function testWanThreeAdvertisesItsDocumentedFrameAndReferenceModes(): void
+    {
+        $modes = $this->invoke(
+            MarketVideoRuntimeService::class,
+            'generationModes',
+            ['upstream_model_code' => 'wan3.0-video'],
+            ['generation_modes' => ['text_to_video', 'start_end']]
+        );
+
+        self::assertSame([
+            'text_to_video', 'omni_reference', 'image_to_video', 'start_end',
+            'image_reference', 'video_edit', 'multi_frame', 'audio_reference',
+        ], $modes);
+        self::assertTrue($this->invoke(
+            MarketVideoRuntimeService::class,
+            'frameAndReferenceMutuallyExclusive',
+            ['upstream_model_code' => 'wan3.0-video'],
+            []
+        ));
+    }
+
+    public function testWanThreeSingleFirstFrameUsesTheProviderFirstFrameMediaRole(): void
+    {
+        $request = [
+            'generation_method' => 'image_to_video',
+            'reference_assets' => [[
+                'type' => 'image',
+                'url' => 'https://example.test/first.png',
+                'role' => 'first_frame_image',
+            ]],
+        ];
+
+        $this->invoke(
+            MarketVideoRuntimeService::class,
+            'assertAssets',
+            ['product' => [
+                'upstream_model_code' => 'wan3.0-video',
+                'source_payload' => [
+                    'market_metadata' => [
+                        'supported_asset_types' => ['image', 'video', 'audio'],
+                        'max_reference_images' => 10,
+                        'max_reference_videos' => 5,
+                        'max_reference_audios' => 5,
+                        'max_reference_assets' => 20,
+                    ],
+                ],
+            ]],
+            $request
+        );
+        self::assertSame([[
+            'type' => 'first_frame',
+            'url' => 'https://example.test/first.png',
+        ]], $this->invoke(MarketVideoRuntimeService::class, 'structuredModelMedia', $request));
+    }
+
+    public function testSingleFrameShortDramaPlanKeepsTheFirstFrameRole(): void
+    {
+        $payload = $this->invoke(
+            AigcShortDramaService::class,
+            'shortDramaVideoReferenceContractPayload',
+            'image_to_video',
+            [[
+                'asset' => ['id' => 401, 'url' => 'https://example.test/first.png'],
+                'role' => 'first_frame_image',
+            ]],
+            [],
+            ['generation_modes' => ['image_to_video'], 'max_reference_images' => 1, 'max_reference_assets' => 1]
+        );
+
+        self::assertSame('image_to_video', $payload['generation_method']);
+        self::assertSame(['first_frame_image'], array_column($payload['reference_assets'], 'role'));
+        self::assertSame('https://example.test/first.png', $payload['first_frame_image']);
+    }
+
     public function testH3PayloadKeepsFirstAndLastFrameRoles(): void
     {
         $content = $this->invoke(
@@ -294,57 +368,16 @@ class ShortDramaVideoReferenceContractTest extends TestCase
         }
     }
 
-    public function testCompiledStoryboardResetsIncompatibleFrameStateWhenVideoModelChanges(): void
+    public function testStoryboardSourcePreservesTheSingleFirstFrameContract(): void
     {
         $projectRoot = dirname(__DIR__, 2);
-        $compiled = (string) file_get_contents($projectRoot . '/public/_nuxt/storyboard.f2381e09.js');
-        $entry = (string) file_get_contents($projectRoot . '/public/_nuxt/entry.c46691d5.js');
+        $source = (string) file_get_contents(dirname($projectRoot) . '/web/pc/components/short-drama/StoryboardCreationWorkbench.vue');
 
-        self::assertStringContainsString(
-            'supports_first_last_frame:!!(e!=null&&e.supports_first_last_frame)||Array.isArray(e==null?void 0:e.generation_modes)&&e.generation_modes.some(t=>String(t||"").trim().toLowerCase()==="start_end")',
-            $compiled
-        );
-
-        $switchStart = strpos($compiled, 'po=e=>');
-        $switchEnd = strpos($compiled, ',jr=e=>', $switchStart);
-        self::assertIsInt($switchStart);
-        self::assertIsInt($switchEnd);
-        $switchHandler = substr($compiled, $switchStart, $switchEnd - $switchStart);
-        self::assertStringContainsString('fe.value=e.value||e.id', $switchHandler);
-        self::assertStringContainsString('Yn.value||(Je.value||ls.value)&&Pa()', $switchHandler);
-
-        $batchStart = strpos($compiled, 'Fr=e=>');
-        $batchEnd = strpos($compiled, ',Lr=e=>', $batchStart);
-        self::assertIsInt($batchStart);
-        self::assertIsInt($batchEnd);
-        $batchHandler = substr($compiled, $batchStart, $batchEnd - $batchStart);
-        self::assertStringContainsString('fe.value=t', $batchHandler);
-        self::assertStringContainsString('Yn.value||(Je.value||ls.value)&&Pa()', $batchHandler);
-
-        self::assertStringContainsString(
-            'Yn.value||(Je.value||ls.value)&&Pa(),Ae(()=>{Yn.value||(Je.value||ls.value)&&Pa()})',
-            $compiled
-        );
-        self::assertStringContainsString(
-            'f0=en(n,"start_end")&&!!(n!=null&&n.supports_first_last_frame)&&s>=2;a&&!f0&&(a=0);',
-            $compiled
-        );
-        self::assertStringContainsString(
-            'if(!en(n,"omni_reference")||s<1)return t?{limit:s,total:v.length,submitted:[],ignored:v,submittedIds:[],ignoredIds:v.map(c=>c.id),generationMethod:"text_to_video",error:""}',
-            $compiled
-        );
-        self::assertStringContainsString(
-            'frameFirst=(g==null?void 0:g.generationMethod)==="start_end"?r:0,frameLast=(g==null?void 0:g.generationMethod)==="start_end"?c:0',
-            $compiled
-        );
-        self::assertSame(
-            2,
-            substr_count($compiled, 'first_frame_asset_id:s?frameFirst:0,last_frame_asset_id:s?frameLast:0')
-        );
-        self::assertStringContainsString(
-            'import("./storyboard.f2381e09.js?v=20260826-video-model-state-v2")',
-            $entry
-        );
+        self::assertStringContainsString("type VideoGenerationMethod = 'omni_reference' | 'image_to_video' | 'multi_frame' | 'start_end'", $source);
+        self::assertStringContainsString("['omni_reference', 'image_to_video', 'multi_frame', 'start_end']", $source);
+        self::assertStringContainsString("const supportsSingleFirstFrame = videoModelSupportsGenerationMethod(model, 'image_to_video')", $source);
+        self::assertStringContainsString("generationMethod: (supportsSingleFirstFrame ? 'image_to_video' : 'omni_reference')", $source);
+        self::assertSame(2, substr_count($source, "['start_end', 'image_to_video'].includes(budget?.generationMethod || '') ? firstFrameId : 0"));
     }
 
     private function invoke(string $class, string $method, mixed ...$arguments): mixed

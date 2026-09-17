@@ -8022,6 +8022,8 @@ VALUES
 ('aigc_short_drama','app.aigc_short_drama.generation_task/lists','GET','aigc_short_drama:generation_task:lists','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.inspiration/lists','GET','aigc_short_drama:inspiration:lists','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.inspiration/status','POST','aigc_short_drama:inspiration:status','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+('aigc_short_drama','app.aigc_short_drama.inspiration/save','POST','aigc_short_drama:inspiration:save','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+('aigc_short_drama','app.aigc_short_drama.inspiration/delete','POST','aigc_short_drama:inspiration:delete','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.subject/lists','GET','aigc_short_drama:subject:lists','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.subject/save','POST','aigc_short_drama:subject:save','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.subject/status','POST','aigc_short_drama:subject:status','tenant_admin',1,1,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
@@ -8048,6 +8050,7 @@ VALUES
 ('aigc_short_drama','app.aigc_short_drama.subject/threeViewHistory','GET','aigc_short_drama:subject:three_view_history:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.script_plan/create','POST','aigc_short_drama:script_plan:create:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.script_plan/detail','GET','aigc_short_drama:script_plan:detail:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+('aigc_short_drama','app.aigc_short_drama.script_plan/saveDraft','POST','aigc_short_drama:script_plan:save_draft:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.script_plan/saveStoryboard','POST','aigc_short_drama:script_plan:save_storyboard:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.script_plan/insertStoryboardShot','POST','aigc_short_drama:script_plan:insert_storyboard_shot:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.script_plan/copyStoryboardShot','POST','aigc_short_drama:script_plan:copy_storyboard_shot:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
@@ -9205,3 +9208,185 @@ SELECT parent.`tenant_id`, parent.`id`, 'A', '套餐列表', '', 3, 'user.user/m
 FROM `la_tenant_system_menu` parent
 WHERE parent.`tenant_id`=0 AND parent.`type`='C' AND parent.`paths`='lists' AND parent.`component`='consumer/lists/index'
   AND NOT EXISTS (SELECT 1 FROM `la_tenant_system_menu` existing_menu WHERE existing_menu.`tenant_id`=parent.`tenant_id` AND (existing_menu.`source_menu_key`='core_tenant_consumer_membership_plans' OR existing_menu.`perms`='user.user/membershipPlans'));
+
+-- AI short drama prompt workspace: append-only tenant revisions, source-only migration.
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_prompt_revision` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `revision` int unsigned NOT NULL DEFAULT 0,
+  `admin_id` int unsigned NOT NULL DEFAULT 0,
+  `action` varchar(32) NOT NULL DEFAULT 'save',
+  `snapshot_json` longtext NOT NULL,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `tenant_revision` (`tenant_id`, `revision`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧提示词版本';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_prompt_request` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0,
+  `user_id` int unsigned NOT NULL DEFAULT 0,
+  `task_id` varchar(100) NOT NULL DEFAULT '',
+  `stage` varchar(40) NOT NULL DEFAULT '',
+  `revision` int unsigned NOT NULL DEFAULT 0,
+  `audit_json` longtext NOT NULL,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `tenant_created` (`tenant_id`, `id`),
+  KEY `tenant_task` (`tenant_id`, `task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧提示词实发记录';
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_planning_unit` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `task_id` varchar(64) NOT NULL,
+  `unit_key` varchar(100) NOT NULL,
+  `status` varchar(24) NOT NULL DEFAULT 'pending',
+  `attempt` int unsigned NOT NULL DEFAULT 0,
+  `request_json` mediumtext,
+  `result_json` mediumtext,
+  `error` text,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `tenant_task_unit` (`tenant_id`,`task_id`,`unit_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Short-drama-owned canvas. Additive schema only; tenants with short drama
+-- receive this capability by default. No existing rows are changed by schema.
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_workspace` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `project_id` bigint unsigned DEFAULT NULL,
+  `request_key` varchar(64) NOT NULL,
+  `request_hash` char(64) NOT NULL,
+  `title` varchar(120) NOT NULL DEFAULT '',
+  `version` int unsigned NOT NULL DEFAULT 1,
+  `skill_snapshot_json` mediumtext NOT NULL,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_request` (`tenant_id`,`user_id`,`request_key`),
+  UNIQUE KEY `uk_project` (`tenant_id`,`user_id`,`project_id`),
+  KEY `idx_owner` (`tenant_id`,`user_id`,`delete_time`,`update_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_view` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `workspace_id` bigint unsigned NOT NULL,
+  `view_key` varchar(64) NOT NULL,
+  `episode_id` bigint unsigned NOT NULL DEFAULT 0,
+  `production_project_id` bigint unsigned NOT NULL DEFAULT 0,
+  `version` int unsigned NOT NULL DEFAULT 1,
+  `layout_json` mediumtext NOT NULL,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_view` (`tenant_id`,`user_id`,`workspace_id`,`view_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_message` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `workspace_id` bigint unsigned NOT NULL,
+  `view_key` varchar(64) NOT NULL DEFAULT 'global',
+  `run_id` bigint unsigned NOT NULL DEFAULT 0,
+  `request_key` varchar(64) NOT NULL,
+  `request_hash` char(64) NOT NULL,
+  `role` varchar(16) NOT NULL DEFAULT 'user',
+  `content` mediumtext NOT NULL,
+  `attachments_json` text NOT NULL,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_message` (`tenant_id`,`user_id`,`workspace_id`,`request_key`),
+  KEY `idx_history` (`tenant_id`,`user_id`,`workspace_id`,`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_draft` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `workspace_id` bigint unsigned NOT NULL,
+  `view_key` varchar(64) NOT NULL DEFAULT 'global',
+  `draft_key` varchar(64) NOT NULL,
+  `kind` varchar(24) NOT NULL,
+  `version` int unsigned NOT NULL DEFAULT 1,
+  `content_json` mediumtext NOT NULL,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_draft` (`tenant_id`,`user_id`,`workspace_id`,`draft_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_run` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `workspace_id` bigint unsigned NOT NULL,
+  `request_key` varchar(64) NOT NULL,
+  `request_hash` char(64) NOT NULL,
+  `status` varchar(24) NOT NULL DEFAULT 'pending',
+  `active_slot` tinyint unsigned DEFAULT NULL,
+  `skill_snapshot_json` mediumtext NOT NULL,
+  `context_json` mediumtext NOT NULL,
+  `result_json` mediumtext NOT NULL,
+  `lease_token` varchar(64) NOT NULL DEFAULT '',
+  `lease_expires_at` int unsigned NOT NULL DEFAULT 0,
+  `tool_count` tinyint unsigned NOT NULL DEFAULT 0,
+  `app_task_id` bigint unsigned NOT NULL DEFAULT 0,
+  `error_code` varchar(64) NOT NULL DEFAULT '',
+  `error_message` varchar(255) NOT NULL DEFAULT '',
+  `started_at` int unsigned NOT NULL DEFAULT 0,
+  `finished_at` int unsigned NOT NULL DEFAULT 0,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_run_request` (`tenant_id`,`user_id`,`workspace_id`,`request_key`),
+  UNIQUE KEY `uk_active` (`tenant_id`,`user_id`,`workspace_id`,`active_slot`),
+  KEY `idx_recovery` (`status`,`lease_expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_action` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `workspace_id` bigint unsigned NOT NULL,
+  `run_id` bigint unsigned NOT NULL DEFAULT 0,
+  `request_key` varchar(64) NOT NULL,
+  `request_hash` char(64) NOT NULL,
+  `kind` varchar(32) NOT NULL,
+  `status` varchar(24) NOT NULL DEFAULT 'proposed',
+  `version` int unsigned NOT NULL DEFAULT 1,
+  `proposal_json` mediumtext NOT NULL,
+  `result_json` mediumtext NOT NULL,
+  `confirmed_hash` char(64) NOT NULL DEFAULT '',
+  `generation_task_id` varchar(64) DEFAULT NULL,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_action` (`tenant_id`,`user_id`,`workspace_id`,`request_key`),
+  UNIQUE KEY `uk_task` (`generation_task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_event` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `workspace_id` bigint unsigned NOT NULL,
+  `run_id` bigint unsigned NOT NULL DEFAULT 0,
+  `event_key` varchar(64) NOT NULL,
+  `kind` varchar(32) NOT NULL,
+  `payload_json` text NOT NULL,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_event` (`tenant_id`,`user_id`,`workspace_id`,`event_key`),
+  KEY `idx_poll` (`tenant_id`,`user_id`,`workspace_id`,`id`),
+  KEY `idx_retention` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
