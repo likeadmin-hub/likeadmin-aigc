@@ -2063,13 +2063,8 @@ class AigcShortDramaService
             ->page($pageNo, $pageSize)
             ->select()
             ->toArray();
-        $canvasWorkspaceIds = self::canvasV2WorkspaceIds($tenantId, $userId, array_column($rows, 'id'));
         return self::sanitizeUtf8Payload([
-            'lists' => array_map(static function (array $row) use ($canvasWorkspaceIds) {
-                $project = self::formatProject($row);
-                $project['canvas_v2_workspace_id'] = (int)($canvasWorkspaceIds[(int)$project['id']] ?? 0);
-                return $project;
-            }, $rows),
+            'lists' => array_map(static fn(array $row) => self::formatProject($row), $rows),
             'count' => $count,
             'page_no' => $pageNo,
             'page_size' => $pageSize,
@@ -2081,7 +2076,6 @@ class AigcShortDramaService
         $project = self::findProject($tenantId, $userId, $projectId);
         $row = $project->toArray();
         $data = self::formatProject($row);
-        $data['canvas_v2_workspace_id'] = (int)(self::canvasV2WorkspaceIds($tenantId, $userId, [$projectId])[$projectId] ?? 0);
         $data['prompt'] = (string)($row['prompt'] ?? '');
         $data['episode_context'] = ShortDramaEpisodeService::summary(ShortDramaEpisodeService::context($tenantId, $userId, $projectId));
         $episodeQueue = Db::name('aigc_short_drama_episode_task')
@@ -5889,7 +5883,13 @@ class AigcShortDramaService
         if ($taskType === 'shot_video' || self::normalizeGenerationMode($params) === 'video_generate') {
             $params = self::sanitizeVideoGenerationParams($params);
             $params = self::prepareMarketShortDramaVideoParams($tenantId, $params, $shot ? $shot->toArray() : []);
-            return self::estimateMarketVideoGenerationBilling($tenantId, $params);
+            // Quote resolves the same server-owned reference contract used at
+            // submission. The browser can therefore disclose an actual
+            // first-frame / character-primary downgrade before confirmation.
+            $params = self::prepareShortDramaVideoReferenceParams($tenantId, $userId, $projectId, $shot ? $shot->toArray() : [], $params);
+            $billing = self::estimateMarketVideoGenerationBilling($tenantId, $params);
+            $billing['effective_video_params'] = self::shortDramaVideoEffectiveParams($params);
+            return $billing;
         }
         if ($taskType === 'bgm_audio') {
             return self::estimateMarketBgmAudioGenerationBilling($tenantId, $params, self::currentProjectPlanRaw($tenantId, $userId, $projectId));
@@ -8952,6 +8952,8 @@ class AigcShortDramaService
             'resolved_ratio' => (string)($params['resolved_ratio'] ?? $params['ratio'] ?? ''),
             'ratio_fallback' => !empty($fallback['applied']),
             'fallback_message' => (string)($fallback['message'] ?? ''),
+            'generation_method' => (string)($params['generation_method'] ?? ''),
+            'reference_plan' => (array)($params['reference_plan'] ?? []),
         ];
     }
 
@@ -15114,14 +15116,26 @@ class AigcShortDramaService
             );
         }
 
-        $candidates = [['asset' => $assetMap[$firstFrameId], 'role' => 'reference_image']];
+        // Provider roles stay within the documented video contract. The
+        // logical role is retained only in reference_plan so the UI can state
+        // exactly whether the character primary image was submitted or
+        // trimmed by the configured model's reference limit.
+        $candidates = [['asset' => $assetMap[$firstFrameId], 'role' => 'reference_image', 'logical_role' => 'first_frame']];
         $candidateIds = [$firstFrameId => true];
+        foreach (self::shortDramaVideoPrimarySubjectAssets($tenantId, $userId, $projectId, $shot) as $asset) {
+            $assetId = (int)($asset['id'] ?? 0);
+            if ($assetId <= 0 || isset($candidateIds[$assetId])) {
+                continue;
+            }
+            $candidates[] = ['asset' => $asset, 'role' => 'reference_image', 'logical_role' => 'character_primary'];
+            $candidateIds[$assetId] = true;
+        }
         foreach (self::shortDramaVideoThreeViewAssets($tenantId, $userId, $projectId, $shot) as $asset) {
             $assetId = (int)($asset['id'] ?? 0);
             if ($assetId <= 0 || isset($candidateIds[$assetId])) {
                 continue;
             }
-            $candidates[] = ['asset' => $asset, 'role' => 'reference_image'];
+            $candidates[] = ['asset' => $asset, 'role' => 'reference_image', 'logical_role' => 'character_turnaround'];
             $candidateIds[$assetId] = true;
         }
         foreach (self::shortDramaVideoMentionedShotAssets($tenantId, $userId, $projectId, $params) as $asset) {
@@ -15129,7 +15143,7 @@ class AigcShortDramaService
             if ($assetId <= 0 || isset($candidateIds[$assetId])) {
                 continue;
             }
-            $candidates[] = ['asset' => $asset, 'role' => 'reference_image'];
+            $candidates[] = ['asset' => $asset, 'role' => 'reference_image', 'logical_role' => 'mentioned_shot'];
             $candidateIds[$assetId] = true;
         }
         if (in_array('multi_frame', $modes, true) && $referenceLimit >= 2 && count($candidates) >= 2) {
@@ -15215,6 +15229,28 @@ class AigcShortDramaService
         return $assets;
     }
 
+    /** Project-scoped aliases are created before quote/submission; never use a library URL directly. */
+    private static function shortDramaVideoPrimarySubjectAssets(int $tenantId, int $userId, int $projectId, array $shot): array
+    {
+        $subjectIds = array_values(array_unique(array_filter(array_map('strval', self::splitPlanRefTokens($shot['subject_ref_ids'] ?? [])))));
+        if ($subjectIds === []) return [];
+        $wanted = array_flip($subjectIds);
+        $rows = AigcShortDramaAsset::where([
+            'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
+            'asset_type' => 'subject_image', 'status' => 'ready', 'delete_time' => 0,
+        ])->order(['id' => 'desc'])->select()->toArray();
+        $bySubject = [];
+        foreach ($rows as $row) {
+            $meta = self::assetReferenceMeta($row, self::jsonDecode((string)($row['meta_json'] ?? '')));
+            $subjectId = trim((string)($meta['subject_id'] ?? $meta['subject_ref_id'] ?? $meta['character_id'] ?? $meta['item_id'] ?? ''));
+            if ($subjectId === '' || !isset($wanted[$subjectId]) || isset($bySubject[$subjectId])) continue;
+            $bySubject[$subjectId] = self::formatAsset($row);
+        }
+        $assets = [];
+        foreach ($subjectIds as $subjectId) if (isset($bySubject[$subjectId])) $assets[] = $bySubject[$subjectId];
+        return $assets;
+    }
+
     private static function shortDramaVideoMentionedShotAssets(int $tenantId, int $userId, int $projectId, array $params): array
     {
         $nested = is_array($params['params'] ?? null) ? (array)$params['params'] : [];
@@ -15255,7 +15291,7 @@ class AigcShortDramaService
             $references['reference_assets'][] = $asset;
             $references['reference_images'][] = (string)$asset['url'];
             $references['input_asset_ids'][] = $id;
-            $planAssets[] = ['id' => $id, 'role' => $role];
+            $planAssets[] = ['id' => $id, 'role' => $role, 'logical_role' => (string)($item['logical_role'] ?? $role)];
             if ($role === 'first_frame_image') {
                 $references['first_frame_image'] = (string)$asset['url'];
             }
@@ -15264,6 +15300,7 @@ class AigcShortDramaService
             }
         }
         $trimmedIds = array_values(array_filter(array_map(static fn(array $item): int => (int)(($item['asset'] ?? [])['id'] ?? 0), $trimmed)));
+        $trimmedAssets = array_values(array_filter(array_map(static fn(array $item): array => ['id' => (int)(($item['asset'] ?? [])['id'] ?? 0), 'logical_role' => (string)($item['logical_role'] ?? $item['role'] ?? 'reference_image')], $trimmed), static fn(array $item): bool => $item['id'] > 0));
         return [
             'generation_method' => $generationMethod,
             'reference_assets' => $references['reference_assets'],
@@ -15275,6 +15312,7 @@ class AigcShortDramaService
                 'generation_method' => $generationMethod,
                 'assets' => $planAssets,
                 'trimmed_asset_ids' => $trimmedIds,
+                'trimmed_assets' => $trimmedAssets,
                 'trim_reason' => $trimmedIds === [] ? '' : 'reference_limit',
                 'model_capabilities' => [
                     'generation_modes' => array_values((array)($capabilities['generation_modes'] ?? [])),
@@ -22430,29 +22468,6 @@ class AigcShortDramaService
             'final_video_asset_id' => (int)($row['final_video_asset_id'] ?? 0),
             'publish_id' => (int)($row['publish_id'] ?? 0),
         ];
-    }
-
-    /**
-     * Canvas V2 is a short-drama feature. Expose its private workspace mapping
-     * alongside the existing project payload so bookmarks and project cards can
-     * return to the correct workspace without a second app dependency.
-     */
-    private static function canvasV2WorkspaceIds(int $tenantId, int $userId, array $projectIds): array
-    {
-        $projectIds = array_values(array_filter(array_map('intval', $projectIds)));
-        if (!$projectIds) return [];
-        try {
-            $rows = Db::name('aigc_short_drama_canvas_v2_workspace')->where([
-                'tenant_id' => $tenantId,
-                'user_id' => $userId,
-                'delete_time' => 0,
-            ])->whereIn('project_id', $projectIds)->column('id', 'project_id');
-            return array_map('intval', is_array($rows) ? $rows : []);
-        } catch (\Throwable) {
-            // Existing installations can open traditional projects before the
-            // V2 migration runs; their former response contract remains valid.
-            return [];
-        }
     }
 
     private static function formatInspiration(array $row, bool $detail = false): array

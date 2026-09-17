@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_template` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `title` varchar(120) NOT NULL DEFAULT '',
+  `description` varchar(1200) NOT NULL DEFAULT '',
+  `category` varchar(60) NOT NULL DEFAULT '',
+  `cover_asset_id` int unsigned NOT NULL DEFAULT 0,
+  `cover_url` varchar(500) NOT NULL DEFAULT '',
+  `cover_type` varchar(12) NOT NULL DEFAULT 'image',
+  `workflow_nodes_json` longtext,
+  `workflow_edges_json` longtext,
+  `input_slots_json` longtext,
+  `show_on_home` tinyint unsigned NOT NULL DEFAULT 1,
+  `sort` int NOT NULL DEFAULT 0,
+  `status` tinyint unsigned NOT NULL DEFAULT 1,
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_home` (`tenant_id`,`status`,`show_on_home`,`delete_time`,`sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧首页工作流模板';
