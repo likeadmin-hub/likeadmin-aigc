@@ -171,19 +171,25 @@ class ShortDramaCanvasService
     {
         $run = Db::name(self::RUN_TABLE)->where('id', $runId)->find();
         if (!$run) return;
+        $canvas = Db::name(self::DOCUMENT_TABLE)->where([
+            'id' => (int)$run['canvas_id'], 'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'delete_time' => 0,
+        ])->find();
         $taskId = 'canvas_run_' . (int)$run['id'];
         $status = (string)$run['status'];
         $result = self::decode((string)$run['result_json']);
+        $source = self::sourceTaskProjection($run);
         $now = time();
         $data = [
-            'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'project_id' => 0, 'shot_id' => '',
+            'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'project_id' => 0, 'canvas_id' => (int)$run['canvas_id'], 'shot_id' => '',
             'task_id' => $taskId, 'parent_task_id' => '', 'source_task_id' => (string)$run['provider_task_id'],
             'source_app_code' => AigcShortDramaService::APP_CODE, 'task_type' => 'canvas_' . (string)$run['node_type'],
             'skill_id' => 0, 'skill_version' => 0, 'skill_source' => 'none', 'skill_snapshot_json' => '{}',
-            'status' => $status, 'progress' => (int)$run['progress'], 'provider' => 'canvas', 'provider_task_id' => (string)$run['provider_task_id'],
-            'provider_request_id' => '', 'model_json' => '{}', 'request_json' => (string)$run['request_json'],
+            'app_task_id' => (int)($source['app_task_id'] ?? 0), 'consumption_id' => (int)($source['consumption_id'] ?? 0),
+            'market_product_id' => (int)($source['market_product_id'] ?? 0), 'market_sku_id' => (int)($source['market_sku_id'] ?? 0),
+            'status' => $status, 'progress' => (int)$run['progress'], 'provider' => (string)($source['provider'] ?? 'canvas'), 'provider_task_id' => (string)($source['provider_task_id'] ?? ''),
+            'provider_request_id' => (string)($source['provider_request_id'] ?? ''), 'model_json' => json_encode((array)($source['model'] ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'request_json' => (string)$run['request_json'],
             'result_json' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'input_asset_ids' => '[]',
-            'pricing_snapshot' => '{}', 'billing_status' => 'delegated', 'tenant_cost_points' => 0, 'user_charge_points' => 0,
+            'pricing_snapshot' => json_encode((array)($source['pricing'] ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'billing_status' => (string)($source['billing_status'] ?? 'delegated'), 'tenant_cost_points' => (float)($source['tenant_cost_points'] ?? 0), 'user_charge_points' => (float)($source['user_charge_points'] ?? 0),
             'idempotency_key' => sha1((int)$run['tenant_id'] . '|' . (int)$run['user_id'] . '|' . $taskId), 'retry_count' => 0,
             'error_code' => $status === 'failed' ? 'canvas_generation_failed' : '', 'error_msg' => (string)$run['error'],
             'operator_error' => '', 'safety_status' => $status === 'success' ? 'passed' : 'pending', 'started_at' => (int)$run['create_time'],
@@ -202,11 +208,11 @@ class ShortDramaCanvasService
         foreach (Db::name($resultTable)->where(['tenant_id' => (int)$run['tenant_id'], 'task_id' => $providerTaskId, 'delete_time' => 0])->select()->toArray() as $index => $item) {
             $uri = (string)($item[$column] ?? '');
             if ($uri === '') continue;
-            $asset = Db::name('aigc_short_drama_asset')->where(['tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'project_id' => 0, 'task_id' => $taskId, 'uri' => $uri, 'delete_time' => 0])->find();
+            $asset = Db::name('aigc_short_drama_asset')->where(['tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'project_id' => 0, 'canvas_id' => (int)$run['canvas_id'], 'task_id' => $taskId, 'uri' => $uri, 'delete_time' => 0])->find();
             if (!$asset) {
                 $assetId = Db::name('aigc_short_drama_asset')->insertGetId([
-                    'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'project_id' => 0, 'task_id' => $taskId, 'shot_id' => '',
-                    'asset_type' => 'canvas_' . $type, 'title' => '画布' . ($type === 'image' ? '图片' : ($type === 'video' ? '视频' : '音频')) . ((int)$index + 1),
+                    'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'project_id' => 0, 'canvas_id' => (int)$run['canvas_id'], 'task_id' => $taskId, 'shot_id' => '',
+                    'asset_type' => 'canvas_' . $type, 'title' => (string)($canvas['title'] ?? '画布') . ' · ' . ($type === 'image' ? '图片' : ($type === 'video' ? '视频' : '音频')) . ((int)$index + 1),
                     'uri' => $uri, 'cover_uri' => '', 'storage_scope' => (string)($item['storage_scope'] ?? 'tenant'), 'storage_engine' => (string)($item['storage_engine'] ?? 'local'), 'storage_domain' => (string)($item['storage_domain'] ?? ''),
                     'mime_type' => $type === 'image' ? 'image/png' : ($type === 'video' ? 'video/mp4' : 'audio/mpeg'), 'file_size' => 0, 'width' => (int)($item['width'] ?? 0), 'height' => (int)($item['height'] ?? 0), 'duration' => (float)($item['duration'] ?? 0), 'checksum' => '',
                     'meta_json' => json_encode(['source' => 'short_drama_canvas', 'canvas_id' => (int)$run['canvas_id'], 'canvas_run_id' => (int)$run['id'], 'provider_task_id' => $providerTaskId], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'status' => 'ready', 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
@@ -215,6 +221,29 @@ class ShortDramaCanvasService
             $assetIds[] = $assetId;
         }
         if ($assetIds) Db::name('aigc_short_drama_generation_task')->where(['tenant_id' => (int)$run['tenant_id'], 'task_id' => $taskId])->update(['output_asset_ids' => json_encode($assetIds), 'update_time' => time()]);
+    }
+
+    /** Read only the auditable fields from the task created by the delegated runtime. */
+    private static function sourceTaskProjection(array $run): array
+    {
+        $type = (string)($run['node_type'] ?? '');
+        $table = $type === 'image' ? 'aigc_image_task' : ($type === 'video' ? 'aigc_video_task' : ($type === 'audio' ? 'aigc_music_task' : ''));
+        $sourceId = (int)($run['provider_task_id'] ?? 0);
+        if ($table === '' || $sourceId <= 0) return [];
+        $row = Db::name($table)->where(['id' => $sourceId, 'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'delete_time' => 0])->find();
+        if (!$row) return [];
+        $model = self::decode((string)($row['model_json'] ?? ''));
+        if ($model === []) $model = array_filter(['model' => (string)($row['model'] ?? ''), 'channel' => (string)($row['channel'] ?? '')]);
+        return [
+            'app_task_id' => (int)($row['app_task_id'] ?? 0), 'consumption_id' => (int)($row['consumption_id'] ?? 0),
+            'market_product_id' => (int)($row['market_product_id'] ?? 0), 'market_sku_id' => (int)($row['market_sku_id'] ?? 0),
+            'provider' => (string)($row['provider'] ?? 'canvas'),
+            'provider_task_id' => (string)($row['provider_task_id'] ?? ''),
+            'provider_request_id' => (string)($row['provider_request_id'] ?? $row['market_request_id'] ?? ''),
+            'model' => $model, 'pricing' => self::decode((string)($row['pricing_snapshot'] ?? '')),
+            'billing_status' => (string)($row['billing_status'] ?? 'delegated'),
+            'tenant_cost_points' => (float)($row['tenant_cost_points'] ?? 0), 'user_charge_points' => (float)($row['user_charge_points'] ?? 0),
+        ];
     }
 
     private static function generationPayload(string $type, array $params): array

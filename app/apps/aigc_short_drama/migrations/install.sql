@@ -272,6 +272,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_asset` (
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `user_id` int unsigned NOT NULL DEFAULT 0,
   `project_id` int unsigned NOT NULL DEFAULT 0,
+  `canvas_id` int unsigned NOT NULL DEFAULT 0 COMMENT '短剧画布项目ID',
   `task_id` varchar(64) NOT NULL DEFAULT '',
   `shot_id` varchar(40) NOT NULL DEFAULT '',
   `asset_type` varchar(40) NOT NULL DEFAULT 'reference_image',
@@ -294,6 +295,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_asset` (
   `delete_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `idx_project_type` (`tenant_id`,`project_id`,`asset_type`,`delete_time`),
+  KEY `idx_canvas_type` (`tenant_id`,`canvas_id`,`asset_type`,`delete_time`),
   KEY `idx_task` (`tenant_id`,`task_id`,`shot_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧项目资产';
 
@@ -306,6 +308,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_generation_task` (
   `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `user_id` int unsigned NOT NULL DEFAULT 0,
   `project_id` int unsigned NOT NULL DEFAULT 0,
+  `canvas_id` int unsigned NOT NULL DEFAULT 0 COMMENT '短剧画布项目ID',
   `shot_id` varchar(40) NOT NULL DEFAULT '',
   `task_id` varchar(64) NOT NULL DEFAULT '',
   `parent_task_id` varchar(64) NOT NULL DEFAULT '',
@@ -346,6 +349,7 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_generation_task` (
   KEY `idx_app_task` (`app_task_id`),
   KEY `idx_consumption` (`consumption_id`),
   KEY `idx_project_type` (`tenant_id`,`project_id`,`task_type`,`status`),
+  KEY `idx_canvas_type` (`tenant_id`,`canvas_id`,`task_type`,`status`),
   KEY `idx_shot` (`tenant_id`,`project_id`,`shot_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧生成任务';
 
