@@ -55,9 +55,11 @@ class OpenPlatformService
                 $row[$key] = WechatCredentialService::mask(WechatCredentialService::decrypt($row[$key]));
             }
         }
-        // The callback is a fixed application route. Keep an existing override for
-        // compatibility, but do not make platform administrators maintain it.
-        $row['callback_url_display'] = self::callbackUrl(self::rawConfig());
+        // WeChat uses two different callbacks: the component callback is fixed,
+        // while authorizer messages must contain the literal $APPID$ segment.
+        $urls = self::callbackUrls(self::rawConfig());
+        $row['callback_url_display'] = $urls['authorization'];
+        $row['message_callback_url_display'] = $urls['message'];
         return $row;
     }
 
@@ -87,7 +89,13 @@ class OpenPlatformService
     public static function saveConfig(array $data): array
     {
         $old = self::rawConfig();
-        $payload = ['app_id' => trim((string)($data['app_id'] ?? ($old['app_id'] ?? ''))), 'callback_url' => trim((string)($data['callback_url'] ?? ($old['callback_url'] ?? ''))), 'developer_app_id' => trim((string)($data['developer_app_id'] ?? ($old['developer_app_id'] ?? ''))), 'status' => (int)($data['status'] ?? ($old['status'] ?? 1)), 'update_time' => time()];
+        $hasCallbackInput = array_key_exists('callback_url', $data);
+        $callbackInput = trim((string)($data['callback_url'] ?? ($old['callback_url'] ?? '')));
+        if ($hasCallbackInput && $callbackInput !== '' && self::normalizeCallbackUrl($callbackInput) === null) {
+            throw new \InvalidArgumentException('授权事件接收 URL 必须是 HTTPS 地址，且不能包含查询参数或非标准端口');
+        }
+        $normalizedCallback = self::normalizeCallbackUrl($callbackInput);
+        $payload = ['app_id' => trim((string)($data['app_id'] ?? ($old['app_id'] ?? ''))), 'callback_url' => $normalizedCallback ?: '', 'developer_app_id' => trim((string)($data['developer_app_id'] ?? ($old['developer_app_id'] ?? ''))), 'status' => (int)($data['status'] ?? ($old['status'] ?? 1)), 'update_time' => time()];
         foreach (self::SECRET_FIELDS as $key) if (array_key_exists($key, $data) && trim((string)$data[$key]) !== '' && !str_contains((string)$data[$key], '*')) $payload[$key] = WechatCredentialService::encrypt((string)$data[$key]);
         $row = WechatOpenPlatform::withoutGlobalScope()->findOrEmpty(1);
         if ($row->isEmpty()) { $payload['id'] = 1; $payload['create_time'] = time(); WechatOpenPlatform::withoutGlobalScope()->insert($payload); } else $row->save($payload);
@@ -125,14 +133,33 @@ class OpenPlatformService
         if (!$status['configured']) {
             throw new \RuntimeException('请先完善开放平台配置：缺少 ' . implode('、', $status['missing']));
         }
-        $config = self::rawConfig(); self::requireConfig($config, ['app_id']); $state = bin2hex(random_bytes(16)); $callback = self::callbackUrl($config);
+        $config = self::rawConfig(); self::requireConfig($config, ['app_id']); $state = bin2hex(random_bytes(16)); $callback = self::callbackUrls($config)['authorization'];
         $authorizerType = in_array($authorizerType, ['official', 'miniprogram'], true) ? $authorizerType : null;
         Cache::set('wechat.open_platform.auth_state.' . $state, ['tenant_id' => $tenantId ?: 0, 'authorizer_type' => $authorizerType, 'created_at' => time()], 600);
         $query = ['component_appid' => $config['app_id'], 'pre_auth_code' => self::preAuthCode(), 'redirect_uri' => $callback, 'state' => $state];
         if ($authorizerType !== null) $query['auth_type'] = $authorizerType === 'official' ? 1 : 2;
         return ['url' => 'https://mp.weixin.qq.com/cgi-bin/componentloginpage?' . http_build_query($query), 'state' => $state, 'authorizer_type' => $authorizerType];
     }
-    public static function consumeAuthState(string $state): array { $key = 'wechat.open_platform.auth_state.' . $state; $value = Cache::get($key); Cache::delete($key); if (!is_array($value) || time() - (int)($value['created_at'] ?? 0) > 600) throw new \RuntimeException('授权状态已失效'); return $value; }
+    public static function authState(string $state): array
+    {
+        $value = Cache::get('wechat.open_platform.auth_state.' . trim($state));
+        if (!is_array($value) || time() - (int)($value['created_at'] ?? 0) > 600) {
+            throw new \RuntimeException('授权状态已失效');
+        }
+        return $value;
+    }
+
+    public static function consumeAuthState(string $state): array
+    {
+        $value = self::authState($state);
+        Cache::delete('wechat.open_platform.auth_state.' . trim($state));
+        return $value;
+    }
+
+    public static function clearAuthState(string $state): void
+    {
+        if (trim($state) !== '') Cache::delete('wechat.open_platform.auth_state.' . trim($state));
+    }
     public static function saveVerifyTicket(string $ticket): void { if ($ticket === '') throw new \InvalidArgumentException('Ticket 为空'); WechatOpenPlatform::withoutGlobalScope()->where('id', 1)->update(['component_verify_ticket' => WechatCredentialService::encrypt($ticket), 'ticket_expire_time' => time() + 7200, 'update_time' => time()]); Cache::set('wechat.open_platform.verify_ticket', $ticket, 7200); }
 
     public static function queryAuthorization(string $authorizationCode): array
@@ -233,10 +260,49 @@ class OpenPlatformService
         try { $response = Requests::post($url, ['Content-Type' => 'application/json'], json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ['timeout' => 30]); $body = json_decode((string)$response->body, true); if (!is_array($body)) throw new \RuntimeException('微信接口返回格式错误'); $code = (int)($body['errcode'] ?? 0); self::logApi($requestId, $apiName, $code, $started, $code === 0 ? 'success' : 'failed', $tenantId, $authorizerId); if ($code !== 0) throw new \RuntimeException('微信接口调用失败：' . (string)($body['errmsg'] ?? $code)); return $body; } catch (\Throwable $e) { self::logApi($requestId, $apiName, -1, $started, 'failed', $tenantId, $authorizerId); throw $e; }
     }
 
-    private static function callbackUrl(array $config): string
+    public static function callbackUrls(array $config = []): array
     {
-        $callback = trim((string)($config['callback_url'] ?? ''));
-        return $callback !== '' ? $callback : (string)url('/wechat/open-platform/callback', [], false, true);
+        $config = $config ?: self::rawConfig();
+        $configured = self::normalizeCallbackUrl((string)($config['callback_url'] ?? ''));
+        if ($configured !== null) {
+            $configuredParts = parse_url($configured);
+            $configuredPath = (string)($configuredParts['path'] ?? '');
+            if (str_contains($configuredPath, '/$APPID$')) {
+                $configured = self::originFromUrl($configured) . (preg_replace('#/\$APPID\$#', '', $configuredPath) ?: '/wechat/open-platform/callback');
+            }
+        }
+        $authorization = $configured ?: self::defaultCallbackUrl('/wechat/open-platform/callback');
+        $parts = parse_url($authorization);
+        $path = rtrim((string)($parts['path'] ?? '/wechat/open-platform/callback'), '/');
+        $messagePath = preg_replace('#/callback$#', '/$APPID$/callback', $path) ?: $path . '/$APPID$/callback';
+        $message = self::originFromUrl($authorization) . $messagePath;
+        return ['authorization' => $authorization, 'message' => $message];
+    }
+
+    private static function normalizeCallbackUrl(string $url): ?string
+    {
+        $url = rtrim(trim($url), '/');
+        if ($url === '') return null;
+        $parts = parse_url($url);
+        if (!is_array($parts) || strtolower((string)($parts['scheme'] ?? '')) !== 'https' || empty($parts['host']) || array_key_exists('user', $parts) || array_key_exists('pass', $parts) || array_key_exists('query', $parts) || array_key_exists('fragment', $parts)) return null;
+        if (isset($parts['port']) && (int)$parts['port'] !== 443) return null;
+        $path = '/' . ltrim((string)($parts['path'] ?? ''), '/');
+        return 'https://' . $parts['host'] . $path;
+    }
+
+    private static function defaultCallbackUrl(string $path): string
+    {
+        $domain = (string)request()->domain();
+        $parts = parse_url($domain);
+        $host = (string)($parts['host'] ?? request()->host());
+        if ($host === '') throw new \RuntimeException('无法确定开放平台回调域名');
+        return 'https://' . $host . '/' . ltrim($path, '/');
+    }
+
+    private static function originFromUrl(string $url): string
+    {
+        $parts = parse_url($url);
+        return 'https://' . (string)$parts['host'];
     }
     private static function auditItems($row): array
     {
