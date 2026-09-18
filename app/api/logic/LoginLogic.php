@@ -22,7 +22,6 @@ use app\common\model\user\User;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
 use app\common\service\user\RegisterBonusService;
-use app\common\service\distribution\DistributionService;
 use app\common\service\wechat\WeChatConfigService;
 use app\common\service\wechat\WeChatOaService;
 use app\common\service\wechat\WeChatRequestService;
@@ -52,29 +51,22 @@ class LoginLogic extends BaseLogic
     public static function register(array $params)
     {
         try {
-            Db::transaction(function () use ($params) {
-                $userSn = User::createUserSn();
-                $passwordSalt = Config::get('project.unique_identification');
-                $password = create_password($params['password'], $passwordSalt);
-                $avatar = ConfigService::get('default_image', 'user_avatar');
-                $inviteCode = (string)($params['invite_code'] ?? '');
-                $tenantId = trim($inviteCode) === ''
-                    ? (int)request()->tenantId
-                    : DistributionService::tenantIdByInviteCode($inviteCode);
-                request()->tenantId = $tenantId;
-                $user = User::create([
-                    'sn' => $userSn,
-                    'tenant_id' => $tenantId,
-                    'avatar' => $avatar,
-                    'nickname' => '用户' . $userSn,
-                    'account' => $params['account'],
-                    'password' => $password,
-                    'channel' => $params['channel'],
-                    'is_new_user' => YesNoEnum::YES,
-                ]);
-                DistributionService::bindInviteCode($tenantId, (int)$user['id'], $inviteCode, 'register');
-                RegisterBonusService::grantIfEnabled((int)$user['id']);
-            });
+            $userSn = User::createUserSn();
+            $passwordSalt = Config::get('project.unique_identification');
+            $password = create_password($params['password'], $passwordSalt);
+            $avatar = ConfigService::get('default_image', 'user_avatar');
+
+            $user = User::create([
+                'sn' => $userSn,
+                'tenant_id' => request()->tenantId,
+                'avatar' => $avatar,
+                'nickname' => '用户' . $userSn,
+                'account' => $params['account'],
+                'password' => $password,
+                'channel' => $params['channel'],
+                'is_new_user' => YesNoEnum::YES,
+            ]);
+            RegisterBonusService::grantIfEnabled((int)$user['id']);
 
             return true;
         } catch (\Exception $e) {
@@ -179,6 +171,7 @@ class LoginLogic extends BaseLogic
     {
         Db::startTrans();
         try {
+            self::assertWechatEnabled();
             //通过code获取微信 openid
             $response = (new WeChatOaService())->getOaResByCode($params['code']);
             $userServer = new WechatUserService($response, UserTerminalEnum::WECHAT_OA);
@@ -237,6 +230,7 @@ class LoginLogic extends BaseLogic
     {
         Db::startTrans();
         try {
+            self::assertWechatEnabled();
             //通过code获取微信 openid
             $response = (new WeChatMnpService())->getMnpResByCode($params['code']);
             $userServer = new WechatUserService($response, UserTerminalEnum::WECHAT_MMP);
@@ -287,6 +281,7 @@ class LoginLogic extends BaseLogic
     public static function mnpAuthLogin(array $params)
     {
         try {
+            self::assertWechatEnabled();
             //通过code获取微信openid
             $response = (new WeChatMnpService())->getMnpResByCode($params['code']);
             $response['user_id'] = $params['user_id'];
@@ -312,6 +307,7 @@ class LoginLogic extends BaseLogic
     public static function oaAuthLogin(array $params)
     {
         try {
+            self::assertWechatEnabled();
             //通过code获取微信openid
             $response = (new WeChatOaService())->getOaResByCode($params['code']);
             $response['user_id'] = $params['user_id'];
@@ -339,7 +335,20 @@ class LoginLogic extends BaseLogic
         //先检查openid是否有记录
         $isAuth = UserAuth::where('openid', '=', $response['openid'])->findOrEmpty();
         if (!$isAuth->isEmpty()) {
-            throw new \Exception('该微信已被绑定');
+            if ((int)$isAuth->user_id === (int)$response['user_id']) {
+                return true;
+            }
+            $owner = User::where('id', $isAuth->user_id)->findOrEmpty();
+            $current = User::where('id', $response['user_id'])->findOrEmpty();
+            if (self::isMergeableWechatShadow($owner) && !$current->isEmpty() && (!empty($current->mobile) || !empty($current->password))) {
+                $isAuth->user_id = $current->id;
+                $isAuth->save();
+                $owner->is_disable = 1;
+                $owner->delete_time = time();
+                $owner->save();
+                return true;
+            }
+            throw new \Exception('该微信已被其他账号绑定，请先使用绑定手机号的账号登录');
         }
 
         if (isset($response['unionid']) && !empty($response['unionid'])) {
@@ -347,7 +356,16 @@ class LoginLogic extends BaseLogic
             $userAuth = UserAuth::where(['unionid' => $response['unionid']])
                 ->findOrEmpty();
             if (!$userAuth->isEmpty() && $userAuth->user_id != $response['user_id']) {
-                throw new \Exception('该微信已被绑定');
+                $owner = User::where('id', $userAuth->user_id)->findOrEmpty();
+                $current = User::where('id', $response['user_id'])->findOrEmpty();
+                if (self::isMergeableWechatShadow($owner) && !$current->isEmpty() && (!empty($current->mobile) || !empty($current->password))) {
+                    UserAuth::where('user_id', $owner->id)->update(['user_id' => $current->id]);
+                    $owner->is_disable = 1;
+                    $owner->delete_time = time();
+                    $owner->save();
+                } else {
+                    throw new \Exception('该微信已被其他账号绑定，请先使用绑定手机号的账号登录');
+                }
             }
         }
 
@@ -359,6 +377,23 @@ class LoginLogic extends BaseLogic
             'terminal' => $response['terminal'],
         ]);
         return true;
+    }
+
+    private static function isMergeableWechatShadow(User $user): bool
+    {
+        return !$user->isEmpty()
+            && empty($user->mobile)
+            && empty($user->password)
+            && (int)$user->is_new_user === YesNoEnum::YES
+            && str_starts_with((string)$user->account, 'u');
+    }
+
+    private static function assertWechatEnabled(): void
+    {
+        $enabled = ConfigService::get('login', 'wechat_auth', config('project.login.wechat_auth'));
+        if ((int)$enabled !== 1) {
+            throw new \Exception('微信登录已关闭');
+        }
     }
 
 

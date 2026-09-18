@@ -11,14 +11,28 @@
 use think\facade\Console;
 use think\facade\Route;
 
-Route::rule('wechat/open-platform/callback', function () {
+$openPlatformCallback = function () {
     try {
         $result = \app\common\service\wechat\OpenPlatformCallbackService::handle(request());
-        return response($result, 200, ['Content-Type' => 'text/plain']);
+        if (is_array($result) && isset($result['redirect'])) {
+            return redirect((string)$result['redirect']);
+        }
+        if (is_array($result) && array_key_exists('response', $result)) {
+            $result = (string)$result['response'];
+        }
+        $contentType = is_string($result) && str_starts_with(ltrim($result), '<xml')
+            ? 'application/xml; charset=utf-8'
+            : 'text/plain; charset=utf-8';
+        return response($result, 200, ['Content-Type' => $contentType]);
     } catch (\Throwable $e) {
-        return response('fail', 400, ['Content-Type' => 'text/plain']);
+        return response('fail', 400, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
-}, 'GET|POST');
+};
+Route::rule('wechat/open-platform/callback', $openPlatformCallback, 'GET|POST');
+// Authorizer messages are configured with /$APPID$/ in the WeChat console;
+// WeChat replaces it with the authorizer AppID before sending the request.
+Route::rule('wechat/open-platform/:appid/callback', $openPlatformCallback, 'GET|POST')
+    ->pattern(['appid' => '[A-Za-z0-9_-]+']);
 
 // Upstream callbacks bypass user authentication. The handler accepts POST only
 // and verifies the HMAC configured with the model API source before waking a job.

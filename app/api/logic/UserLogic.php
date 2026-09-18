@@ -22,10 +22,11 @@ use app\common\model\user\User;
 use app\common\model\user\UserAuth;
 use app\common\service\FileService;
 use app\common\service\membership\MembershipService;
-use app\common\service\distribution\DistributionService;
 use app\common\service\sms\SmsDriver;
 use app\common\service\wechat\WeChatMnpService;
 use app\common\{enum\YesNoEnum};
+use app\api\service\UserTokenService;
+use think\facade\Db;
 use think\facade\Config;
 
 /**
@@ -49,7 +50,7 @@ class UserLogic extends BaseLogic
     public static function center(array $userInfo): array
     {
         $user = User::where(['id' => $userInfo['user_id']])
-            ->field('id,tenant_id,sn,sex,account,nickname,real_name,avatar,mobile,create_time,is_new_user,user_money,password')
+            ->field('id,sn,sex,account,nickname,real_name,avatar,mobile,create_time,is_new_user,user_money,password')
             ->findOrEmpty();
 
         if (in_array($userInfo['terminal'], [UserTerminalEnum::WECHAT_MMP, UserTerminalEnum::WECHAT_OA])) {
@@ -62,8 +63,6 @@ class UserLogic extends BaseLogic
         foreach ($membership as $key => $value) {
             $user[$key] = $value;
         }
-        $user['distribution_enabled'] = DistributionService::isEnabled((int)($userInfo['tenant_id'] ?? 0));
-        $user['sex_code'] = (int)$user->getData('sex');
         $user->hidden(['password']);
         return $user->toArray();
     }
@@ -71,27 +70,23 @@ class UserLogic extends BaseLogic
 
     /**
      * @notes 个人信息
-     * @param int $userId
-     * @param int $tenantId
+     * @param $userId
      * @return array
      * @author 段誉
      * @date 2022/9/20 19:45
      */
-    public static function info(int $userId, int $tenantId = 0)
+    public static function info(int $userId)
     {
         $user = User::where(['id' => $userId])
             ->field('id,sn,sex,account,password,nickname,real_name,avatar,mobile,create_time,user_money')
             ->findOrEmpty();
-        $tenantId = $tenantId > 0 ? $tenantId : (int)(request()->tenantId ?? 0);
-        $membership = MembershipService::status($tenantId, $userId);
-        foreach ($membership as $key => $value) {
-            $user[$key] = $value;
-        }
-        $user['distribution_enabled'] = DistributionService::isEnabled($tenantId);
         $user['has_password'] = !empty($user['password']);
         $user['has_auth'] = self::hasWechatAuth($userId);
+        $user['has_pc_auth'] = !UserAuth::where([
+            'user_id' => $userId,
+            'terminal' => UserTerminalEnum::PC,
+        ])->findOrEmpty()->isEmpty();
         $user['version'] = config('project.version');
-        $user['sex_code'] = (int)$user->getData('sex');
         $user->hidden(['password']);
         return $user->toArray();
     }
@@ -238,7 +233,15 @@ class UserLogic extends BaseLogic
             ])->findOrEmpty();
 
             if (!$user->isEmpty()) {
-                throw new \Exception('手机号已被其他账号绑定');
+                if (!self::isMergeableWechatShadow((int)$params['user_id'])) {
+                    throw new \Exception('该手机号已有账号，请使用原账号登录后再绑定微信');
+                }
+
+                return self::mergeWechatShadow(
+                    (int)$params['user_id'],
+                    $user,
+                    (int)($params['terminal'] ?? UserTerminalEnum::WECHAT_MMP)
+                );
             }
 
             // 绑定手机号
@@ -246,7 +249,7 @@ class UserLogic extends BaseLogic
                 'mobile' => $phoneNumber
             ], ['id' => $params['user_id']]);
 
-            return true;
+            return ['merged' => false];
         } catch (\Exception $e) {
             self::setError($e->getMessage());
             return false;
@@ -266,17 +269,10 @@ class UserLogic extends BaseLogic
         try {
             // 变更手机号场景
             $sceneId = NoticeEnum::CHANGE_MOBILE_CAPTCHA;
-            $where = [
-                ['id', '=', $params['user_id']],
-                ['mobile', '=', $params['mobile']]
-            ];
 
             // 绑定手机号场景
             if ($params['type'] == 'bind') {
                 $sceneId = NoticeEnum::BIND_MOBILE_CAPTCHA;
-                $where = [
-                    ['mobile', '=', $params['mobile']]
-                ];
             }
 
             // 校验短信
@@ -285,15 +281,109 @@ class UserLogic extends BaseLogic
                 throw new \Exception('验证码错误');
             }
 
-            $user = User::where($where)->findOrEmpty();
+            $user = User::where([
+                ['mobile', '=', $params['mobile']],
+                ['id', '<>', $params['user_id']],
+            ])->findOrEmpty();
             if (!$user->isEmpty()) {
-                throw new \Exception('该手机号已被使用');
+                if ($user->id != $params['user_id'] && self::isMergeableWechatShadow((int)$params['user_id'])) {
+                    return self::mergeWechatShadow(
+                        (int)$params['user_id'],
+                        $user,
+                        (int)($params['terminal'] ?? UserTerminalEnum::PC)
+                    );
+                }
+                throw new \Exception('该手机号已有账号，请使用原账号登录后再绑定');
             }
 
             User::update([
                 'mobile' => $params['mobile'],
             ], ['id' => $params['user_id']]);
 
+            return ['merged' => false];
+        } catch (\Exception $e) {
+            self::setError($e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 微信临时账号只允许在手机号验证成功后合并，避免覆盖已有业务账号。
+     */
+    private static function isMergeableWechatShadow(int $userId): bool
+    {
+        $user = User::where('id', $userId)->findOrEmpty();
+        return !$user->isEmpty()
+            && empty($user->mobile)
+            && empty($user->password)
+            && (int)$user->is_new_user === YesNoEnum::YES
+            && str_starts_with((string)$user->account, 'u');
+    }
+
+    /**
+     * 将微信临时账号的身份记录迁移到已验证的手机号账号，并刷新当前终端 token。
+     */
+    private static function mergeWechatShadow(int $shadowUserId, User $targetUser, int $terminal): array
+    {
+        return Db::transaction(function () use ($shadowUserId, $targetUser, $terminal) {
+            $authRows = UserAuth::where('user_id', $shadowUserId)->select();
+            foreach ($authRows as $auth) {
+                $sameOpenid = UserAuth::where('openid', $auth->openid)
+                    ->where('user_id', '<>', $targetUser->id)
+                    ->findOrEmpty();
+                if (!$sameOpenid->isEmpty() && (int)$sameOpenid->user_id !== $shadowUserId) {
+                    throw new \Exception('微信身份已绑定其他账号，暂时无法合并');
+                }
+
+                $targetAuth = UserAuth::where([
+                    'user_id' => $targetUser->id,
+                    'openid' => $auth->openid,
+                ])->findOrEmpty();
+                if ($targetAuth->isEmpty()) {
+                    $auth->user_id = $targetUser->id;
+                    $auth->save();
+                } else {
+                    $auth->delete();
+                }
+            }
+
+            User::where('id', $shadowUserId)->update([
+                'is_disable' => 1,
+                'delete_time' => time(),
+                'update_time' => time(),
+            ]);
+
+            $tokenInfo = UserTokenService::setToken($targetUser, $terminal);
+            return [
+                'merged' => true,
+                'token' => $tokenInfo['token'],
+                'mobile' => $targetUser->mobile,
+            ];
+        });
+    }
+
+    /**
+     * 解绑当前终端的微信身份。手机号或密码至少保留一种时才允许解绑。
+     */
+    public static function unbindWechat(array $params): bool
+    {
+        try {
+            $user = User::where('id', $params['user_id'])->findOrEmpty();
+            if ($user->isEmpty()) {
+                throw new \Exception('用户不存在');
+            }
+            if (empty($user->mobile) && empty($user->password)) {
+                throw new \Exception('请先绑定手机号或设置登录密码');
+            }
+
+            $auth = UserAuth::where([
+                'user_id' => $params['user_id'],
+                'terminal' => (int)$params['terminal'],
+            ])->findOrEmpty();
+            if ($auth->isEmpty()) {
+                throw new \Exception('当前端未绑定微信');
+            }
+            $auth->delete();
             return true;
         } catch (\Exception $e) {
             self::setError($e->getMessage());
