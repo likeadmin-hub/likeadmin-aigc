@@ -278,7 +278,16 @@ class ShortDramaCanvasService
     private static function formatDocument(array $row, bool $includeRuns = false): array
     {
         $nodes = self::decode((string)$row['nodes_json']);
-        $data = ['id' => (int)$row['id'], 'title' => (string)$row['title'], 'nodes' => $nodes, 'edges' => self::decode((string)$row['edges_json']), 'viewport' => self::decode((string)$row['viewport_json']), 'update_time' => (int)$row['update_time']];
+        $createTime = (int)($row['create_time'] ?? 0);
+        $data = [
+            'id' => (int)$row['id'],
+            'title' => (string)$row['title'],
+            'nodes' => $nodes,
+            'edges' => self::decode((string)$row['edges_json']),
+            'viewport' => self::decode((string)$row['viewport_json']),
+            'created_at' => $createTime > 0 ? date('Y-m-d H:i:s', $createTime) : '',
+            'update_time' => (int)$row['update_time'],
+        ];
         if (!$includeRuns) return $data;
         // A browser can be refreshed after the backend creates a run but before
         // its debounce save writes canvasRunId into nodes_json. Recreate only the
