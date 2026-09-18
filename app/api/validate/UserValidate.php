@@ -27,10 +27,13 @@ class UserValidate extends BaseValidate
 
     protected $rule = [
         'code' => 'require',
+        'terminal' => 'require|in:1,2,3,4,5,6',
     ];
 
     protected $message = [
         'code.require' => '参数缺失',
+        'terminal.require' => '终端参数缺失',
+        'terminal.in' => '终端参数错误',
     ];
 
 
@@ -55,6 +58,11 @@ class UserValidate extends BaseValidate
     public function sceneBindMobile()
     {
         return $this->only(['mobile', 'code']);
+    }
+
+    public function sceneUnbindWechat()
+    {
+        return $this->only(['terminal']);
     }
 
 
