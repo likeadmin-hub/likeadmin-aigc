@@ -277,18 +277,68 @@ class ShortDramaCanvasService
     private static function normalizeStatus(string $status): string { return in_array($status, ['success', 'failed', 'canceled'], true) ? $status : 'running'; }
     private static function formatDocument(array $row, bool $includeRuns = false): array
     {
-        $data = ['id' => (int)$row['id'], 'title' => (string)$row['title'], 'nodes' => self::decode((string)$row['nodes_json']), 'edges' => self::decode((string)$row['edges_json']), 'viewport' => self::decode((string)$row['viewport_json']), 'update_time' => (int)$row['update_time']];
+        $nodes = self::decode((string)$row['nodes_json']);
+        $data = ['id' => (int)$row['id'], 'title' => (string)$row['title'], 'nodes' => $nodes, 'edges' => self::decode((string)$row['edges_json']), 'viewport' => self::decode((string)$row['viewport_json']), 'update_time' => (int)$row['update_time']];
         if (!$includeRuns) return $data;
         // A browser can be refreshed after the backend creates a run but before
-        // its debounce save writes canvasRunId into nodes_json. Return the latest
-        // run per node so that task ownership and recovery stay server-backed.
+        // its debounce save writes canvasRunId into nodes_json. Recreate only the
+        // missing visual nodes from owned run history, then return the latest run
+        // per node so task results remain durable across browser refreshes.
+        $runs = Db::name(self::RUN_TABLE)->where([
+            'tenant_id' => (int)$row['tenant_id'], 'user_id' => (int)$row['user_id'], 'canvas_id' => (int)$row['id'], 'delete_time' => 0,
+        ])->order('id', 'asc')->select()->toArray();
+        $nodeIds = array_fill_keys(array_map(static fn(array $node): string => (string)($node['id'] ?? ''), $nodes), true);
+        $recovered = false;
+        foreach ($runs as $index => $run) {
+            $nodeId = trim((string)$run['node_id']);
+            if ($nodeId === '' || isset($nodeIds[$nodeId])) continue;
+            $nodes[] = self::recoveredNode($run, count($nodes));
+            $nodeIds[$nodeId] = true;
+            $recovered = true;
+        }
+        if ($recovered) {
+            $now = time();
+            Db::name(self::DOCUMENT_TABLE)->where('id', (int)$row['id'])->update([
+                'nodes_json' => json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'update_time' => $now,
+            ]);
+            $data['nodes'] = $nodes;
+            $data['update_time'] = $now;
+        }
         $latest = [];
-        foreach (Db::name(self::RUN_TABLE)->where(['tenant_id' => (int)$row['tenant_id'], 'user_id' => (int)$row['user_id'], 'canvas_id' => (int)$row['id'], 'delete_time' => 0])->order('id', 'desc')->select()->toArray() as $run) {
+        foreach (array_reverse($runs) as $run) {
             $nodeId = (string)$run['node_id'];
             if ($nodeId !== '' && !isset($latest[$nodeId])) $latest[$nodeId] = self::formatRun($run);
         }
         $data['runs'] = array_values($latest);
         return $data;
+    }
+
+    /** Build a durable canvas node for an already-owned generation run. */
+    private static function recoveredNode(array $run, int $index): array
+    {
+        $type = (string)($run['node_type'] ?? 'image');
+        $request = self::decode((string)($run['request_json'] ?? ''));
+        $labels = ['text' => '文本生成器', 'image' => '图像生成器', 'video' => '视频生成器', 'audio' => '音频生成器'];
+        $tones = ['text' => 'orange', 'image' => 'blue', 'video' => 'green', 'audio' => 'purple'];
+        return [
+            'id' => (string)$run['node_id'],
+            'type' => $type,
+            'title' => $labels[$type] ?? '生成器',
+            'description' => '已恢复的画布任务',
+            'tone' => $tones[$type] ?? 'gray',
+            'x' => 120 + ($index % 3) * 340,
+            'y' => 160 + intdiv($index, 3) * 340,
+            'width' => $type === 'audio' ? 444 : 250,
+            'height' => 250,
+            'metadata' => [
+                'canvasRunId' => (int)$run['id'],
+                'status' => (string)($run['status'] ?? 'running'),
+                'progress' => (int)($run['progress'] ?? 0),
+                'prompt' => (string)($request['prompt'] ?? $request['content'] ?? ''),
+                'source' => 'recovered_task',
+            ],
+        ];
     }
     private static function formatRun(array $row): array { $result = self::decode((string)$row['result_json']); return ['id' => (int)$row['id'], 'node_id' => (string)$row['node_id'], 'type' => (string)$row['node_type'], 'status' => (string)$row['status'], 'progress' => (int)$row['progress'], 'error' => (string)$row['error'], 'result' => $result, 'results' => (array)($result['results'] ?? $result['images'] ?? $result['videos'] ?? [])]; }
 }
