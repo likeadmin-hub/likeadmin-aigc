@@ -985,8 +985,9 @@ class AigcShortDramaService
     {
         $query = AigcShortDramaGenerationTask::alias('g')
             ->leftJoin('aigc_short_drama_project p', 'p.id = g.project_id AND p.tenant_id = g.tenant_id AND p.delete_time = 0')
+            ->leftJoin('aigc_short_drama_canvas c', 'c.id = g.canvas_id AND c.tenant_id = g.tenant_id AND c.user_id = g.user_id AND c.delete_time = 0')
             ->leftJoin('user u', 'u.id = g.user_id AND u.tenant_id = g.tenant_id')
-            ->field('g.*,p.title project_title,p.cover_url project_cover_url,p.ratio project_ratio,p.status project_status,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
+            ->field('g.*,p.title project_title,p.cover_url project_cover_url,p.ratio project_ratio,p.status project_status,c.title canvas_title,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
             ->where('g.delete_time', 0)
             ->order(['g.create_time' => 'desc', 'g.id' => 'desc']);
         if ($tenantId > 0) {
@@ -1006,11 +1007,11 @@ class AigcShortDramaService
         }
         $keyword = trim((string)($params['keyword'] ?? ''));
         if ($keyword !== '') {
-            $query->whereLike('g.task_id|g.shot_id|g.error_msg|p.title', '%' . $keyword . '%');
+            $query->whereLike('g.task_id|g.shot_id|g.error_msg|p.title|c.title', '%' . $keyword . '%');
         }
         $projectKeyword = trim((string)($params['project_keyword'] ?? ''));
         if ($projectKeyword !== '') {
-            $query->whereLike('p.title', '%' . $projectKeyword . '%');
+            $query->whereLike('p.title|c.title', '%' . $projectKeyword . '%');
         }
         $userKeyword = trim((string)($params['user_keyword'] ?? ''));
         if ($userKeyword !== '') {
@@ -1055,8 +1056,9 @@ class AigcShortDramaService
 
         $query = AigcShortDramaGenerationTask::alias('g')
             ->leftJoin('aigc_short_drama_project p', 'p.id = g.project_id AND p.tenant_id = g.tenant_id AND p.delete_time = 0')
+            ->leftJoin('aigc_short_drama_canvas c', 'c.id = g.canvas_id AND c.tenant_id = g.tenant_id AND c.user_id = g.user_id AND c.delete_time = 0')
             ->leftJoin('user u', 'u.id = g.user_id AND u.tenant_id = g.tenant_id')
-            ->field('g.*,p.title project_title,p.cover_url project_cover_url,p.ratio project_ratio,p.status project_status,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
+            ->field('g.*,p.title project_title,p.cover_url project_cover_url,p.ratio project_ratio,p.status project_status,c.title canvas_title,u.nickname user_nickname,u.account user_account,u.mobile user_mobile')
             ->where('g.delete_time', 0);
         if ($tenantId > 0) {
             $query->where('g.tenant_id', $tenantId);
@@ -5794,6 +5796,11 @@ class AigcShortDramaService
                 'bgm_audio',
                 'final_video',
                 'reference_image',
+                // Canvas output is still short-drama-owned tenant media. Keep it
+                // visible in the same asset history rather than a parallel store.
+                'canvas_image',
+                'canvas_video',
+                'canvas_audio',
             ]);
         }
         if ($sourceTaskId !== '') {
@@ -15536,7 +15543,10 @@ class AigcShortDramaService
                 'default_quality' => (string)($summary['default_quality'] ?? ''),
                 'quality_options' => (array)($summary['quality_options'] ?? []),
                 'resolution_options' => (array)($summary['resolution_options'] ?? []),
-                'skus' => $type === 'image' ? (array)($summary['skus'] ?? []) : [],
+                // Canvas needs the real tenant SKU price for both image and video
+                // specifications. The UI derives the active price from this list;
+                // task settlement remains owned by the existing channel services.
+                'skus' => (array)($summary['skus'] ?? []),
                 'default_ratio' => (string)($summary['default_ratio'] ?? ''),
                 'ratio_options' => (array)($summary['ratio_options'] ?? []),
                 'max_reference_images' => max(0, (int)($channel['max_reference_images'] ?? 0)),
@@ -22948,7 +22958,9 @@ class AigcShortDramaService
             'id' => (int)$row['id'],
             'tenant_id' => (int)$row['tenant_id'],
             'project_id' => (int)$row['project_id'],
-            'project_title' => (string)($row['project_title'] ?? ''),
+            'canvas_id' => (int)($row['canvas_id'] ?? 0),
+            'canvas_title' => (string)($row['canvas_title'] ?? ''),
+            'project_title' => (string)(($row['project_title'] ?? '') ?: ($row['canvas_title'] ?? '')),
             'project_cover_url' => self::fileUrl((string)($row['project_cover_url'] ?? '')),
             'project_ratio' => (string)($row['project_ratio'] ?? ''),
             'task_id' => (string)$row['task_id'],
@@ -23045,7 +23057,9 @@ class AigcShortDramaService
         return [
             'id' => (int)$row['id'],
             'project_id' => (int)$row['project_id'],
-            'project_title' => (string)($row['project_title'] ?? ''),
+            'canvas_id' => (int)($row['canvas_id'] ?? 0),
+            'canvas_title' => (string)($row['canvas_title'] ?? ''),
+            'project_title' => (string)(($row['project_title'] ?? '') ?: ($row['canvas_title'] ?? '')),
             'project_cover_url' => self::fileUrl((string)($row['project_cover_url'] ?? '')),
             'project_ratio' => (string)($row['project_ratio'] ?? ''),
             'project_status' => (string)($row['project_status'] ?? ''),
@@ -23242,10 +23256,12 @@ class AigcShortDramaService
         $query = AigcShortDramaAsset::where([
             'tenant_id' => $tenantId,
             'user_id' => $userId,
-            'project_id' => $projectId,
             'task_id' => $taskId,
             'delete_time' => 0,
         ]);
+        $canvasId = (int)($task['canvas_id'] ?? 0);
+        if ($canvasId > 0) $query->where('canvas_id', $canvasId);
+        else $query->where('project_id', $projectId);
         if (!empty($assetIds)) {
             $query->whereIn('id', $assetIds);
         }

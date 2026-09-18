@@ -52,6 +52,14 @@
       ]
     },
     {
+      "root": "apps/aigc_music_cover",
+      "pages": [
+        "pages/index/index",
+        "pages/tasks/tasks",
+        "pages/voices/voices"
+      ]
+    },
+    {
       "root": "apps/aigc_llm",
       "pages": [
         "pages/index/index"
