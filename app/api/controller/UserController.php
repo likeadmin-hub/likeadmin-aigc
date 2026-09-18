@@ -53,7 +53,7 @@ class UserController extends BaseApiController
      */
     public function info()
     {
-        $result = UserLogic::info($this->userId, (int)($this->request->tenantId ?? 0));
+        $result = UserLogic::info($this->userId);
         return $this->data($result);
     }
 
@@ -102,11 +102,12 @@ class UserController extends BaseApiController
     {
         $params = (new UserValidate())->post()->goCheck('getMobileByMnp');
         $params['user_id'] = $this->userId;
+        $params['terminal'] = $this->getUserTerminal();
         $result = UserLogic::getMobileByMnp($params);
         if ($result === false) {
             return $this->fail(UserLogic::getError());
         }
-        return $this->success('绑定成功', [], 1, 1);
+        return $this->success($result['merged'] ?? false ? '账号已统一' : '绑定成功', $result, 1, 1);
     }
 
 
@@ -137,9 +138,24 @@ class UserController extends BaseApiController
     {
         $params = (new UserValidate())->post()->goCheck('bindMobile');
         $params['user_id'] = $this->userId;
+        $params['terminal'] = $this->getUserTerminal();
         $result = UserLogic::bindMobile($params);
-        if($result) {
-            return $this->success('绑定成功', [], 1, 1);
+        if ($result) {
+            return $this->success($result['merged'] ?? false ? '账号已统一' : '绑定成功', $result, 1, 1);
+        }
+        return $this->fail(UserLogic::getError());
+    }
+
+    /**
+     * @notes 解绑当前终端微信
+     */
+    public function unbindWechat()
+    {
+        $params = (new UserValidate())->post()->goCheck('unbindWechat');
+        $params['user_id'] = $this->userId;
+        $result = UserLogic::unbindWechat($params);
+        if ($result) {
+            return $this->success('解绑成功', [], 1, 1);
         }
         return $this->fail(UserLogic::getError());
     }

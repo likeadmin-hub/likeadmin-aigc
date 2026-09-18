@@ -16,7 +16,6 @@ namespace app\api\controller;
 
 use app\api\validate\{LoginAccountValidate, RegisterValidate, WebScanLoginValidate, WechatLoginValidate};
 use app\api\logic\LoginLogic;
-use app\common\service\distribution\DistributionService;
 
 /**
  * 登录注册
@@ -26,7 +25,7 @@ use app\common\service\distribution\DistributionService;
 class LoginController extends BaseApiController
 {
 
-    public array $notNeedLogin = ['register', 'account', 'logout', 'codeUrl', 'oaLogin',  'mnpLogin', 'getScanCode', 'scanLogin'];
+    public array $notNeedLogin = ['register', 'account', 'logout', 'codeUrl', 'oaLogin', 'mnpLogin', 'silentLogin', 'getScanCode', 'scanLogin'];
 
 
     /**
@@ -40,11 +39,7 @@ class LoginController extends BaseApiController
         $params = (new RegisterValidate())->post()->goCheck('register');
         $result = LoginLogic::register($params);
         if (true === $result) {
-            $inviteCode = trim((string)($params['invite_code'] ?? ''));
-            $tenantId = $inviteCode === ''
-                ? (int)$this->request->tenantId
-                : DistributionService::tenantIdByInviteCode($inviteCode);
-            return $this->success('注册成功', ['tenant_id' => $tenantId], 1, 1);
+            return $this->success('注册成功', [], 1, 1);
         }
         return $this->fail(LoginLogic::getError());
     }
@@ -129,6 +124,19 @@ class LoginController extends BaseApiController
             return $this->fail(LoginLogic::getError());
         }
         return $this->success('', $res);
+    }
+
+    /**
+     * @notes 小程序静默登录：只解析已有微信身份，不创建新账号
+     */
+    public function silentLogin()
+    {
+        $params = (new WechatLoginValidate())->post()->goCheck('mnpLogin');
+        $res = LoginLogic::silentLogin($params);
+        if (false === $res) {
+            return $this->fail(LoginLogic::getError());
+        }
+        return $this->data($res);
     }
 
 
