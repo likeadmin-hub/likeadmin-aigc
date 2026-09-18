@@ -6,6 +6,7 @@ use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\app\aigc_music\AigcMusicService;
 use app\common\service\app\aigc_video\AigcVideoService;
+use app\common\service\FileService;
 use Exception;
 use think\facade\Db;
 
@@ -20,21 +21,45 @@ class ShortDramaCanvasService
     private const DOCUMENT_TABLE = 'aigc_short_drama_canvas';
     private const RUN_TABLE = 'aigc_short_drama_canvas_run';
 
-    public static function current(int $tenantId, int $userId): array
+    public static function current(int $tenantId, int $userId, int $id = 0): array
     {
-        $row = Db::name(self::DOCUMENT_TABLE)->where([
+        $query = Db::name(self::DOCUMENT_TABLE)->where([
             'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0,
-        ])->order('id', 'desc')->find();
+        ]);
+        if ($id > 0) {
+            $row = $query->where('id', $id)->find();
+            if (!$row) throw new Exception('画布项目不存在或无权访问');
+            return self::formatDocument($row);
+        }
+        $row = $query->order('id', 'desc')->find();
         if (!$row) {
-            $now = time();
-            $id = Db::name(self::DOCUMENT_TABLE)->insertGetId([
-                'tenant_id' => $tenantId, 'user_id' => $userId, 'title' => '无标题空间',
-                'nodes_json' => '[]', 'edges_json' => '[]', 'viewport_json' => '{}',
-                'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
-            ]);
-            $row = Db::name(self::DOCUMENT_TABLE)->where('id', $id)->find();
+            return self::create($tenantId, $userId, []);
         }
         return self::formatDocument($row);
+    }
+
+    public static function create(int $tenantId, int $userId, array $params): array
+    {
+        $title = mb_substr(trim((string)($params['title'] ?? '')) ?: '无标题空间', 0, 40);
+        $now = time();
+        $id = Db::name(self::DOCUMENT_TABLE)->insertGetId([
+            'tenant_id' => $tenantId, 'user_id' => $userId, 'title' => $title,
+            'nodes_json' => '[]', 'edges_json' => '[]', 'viewport_json' => '{}',
+            'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
+        ]);
+        return self::formatDocument(Db::name(self::DOCUMENT_TABLE)->where('id', $id)->find());
+    }
+
+    public static function lists(int $tenantId, int $userId, array $params = []): array
+    {
+        $pageNo = max(1, (int)($params['page_no'] ?? 1));
+        $pageSize = min(50, max(1, (int)($params['page_size'] ?? 20)));
+        $query = Db::name(self::DOCUMENT_TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0]);
+        $keyword = trim((string)($params['keyword'] ?? ''));
+        if ($keyword !== '') $query->whereLike('title', '%' . $keyword . '%');
+        $count = (int)(clone $query)->count();
+        $rows = $query->order(['update_time' => 'desc', 'id' => 'desc'])->page($pageNo, $pageSize)->select()->toArray();
+        return ['lists' => array_map(static fn(array $row): array => self::formatDocument($row), $rows), 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize];
     }
 
     public static function save(int $tenantId, int $userId, array $params): array
@@ -81,10 +106,12 @@ class ShortDramaCanvasService
                 'status' => $status, 'progress' => $status === 'success' ? 100 : 25,
                 'result_json' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'update_time' => time(),
             ]);
+            self::syncShortDramaTask($runId);
         } catch (\Throwable $e) {
             Db::name(self::RUN_TABLE)->where('id', $runId)->update([
                 'status' => 'failed', 'progress' => 0, 'error' => mb_substr($e->getMessage(), 0, 500), 'update_time' => time(),
             ]);
+            self::syncShortDramaTask($runId);
             throw $e instanceof Exception ? $e : new Exception('短剧画布任务提交失败，请稍后重试');
         }
         return self::runDetail($tenantId, $userId, $runId);
@@ -101,7 +128,13 @@ class ShortDramaCanvasService
 
     private static function refreshRun(array $run): void
     {
-        if (in_array((string)$run['status'], ['success', 'failed', 'canceled'], true)) return;
+        // Successful runs are reconciled again on detail reads. This repairs an
+        // expired/raw provider URI into a storage-authorized delivery URL and
+        // backfills short-drama history if a browser closed before polling.
+        if (in_array((string)$run['status'], ['failed', 'canceled'], true)) {
+            self::syncShortDramaTask((int)$run['id']);
+            return;
+        }
         $externalId = (int)($run['provider_task_id'] ?? 0);
         if ($externalId <= 0 || (string)$run['node_type'] === 'text') return;
         $type = (string)$run['node_type'];
@@ -118,14 +151,70 @@ class ShortDramaCanvasService
         $resultTable = $type === 'image' ? 'aigc_image_result' : ($type === 'video' ? 'aigc_video_result' : 'aigc_music_result');
         $column = $type === 'image' ? 'image_uri' : ($type === 'video' ? 'video_uri' : 'audio_uri');
         $results = Db::name($resultTable)->where(['tenant_id' => (int)$run['tenant_id'], 'task_id' => $externalId, 'delete_time' => 0])->order('id', 'asc')->select()->toArray();
-        $urls = array_values(array_filter(array_map(static fn(array $item): string => (string)($item[$column] ?? ''), $results)));
+        $urls = array_values(array_filter(array_map(static function (array $item) use ($column): array {
+            $uri = (string)($item[$column] ?? '');
+            return ['url' => $uri === '' ? '' : FileService::getFileUrlByStorage($uri, (string)($item['storage_scope'] ?? 'tenant'), (string)($item['storage_engine'] ?? 'local'), (string)($item['storage_domain'] ?? '')),
+                'uri' => $uri, 'storage_scope' => (string)($item['storage_scope'] ?? 'tenant'), 'storage_engine' => (string)($item['storage_engine'] ?? 'local'), 'storage_domain' => (string)($item['storage_domain'] ?? '')];
+        }, $results), static fn(array $item): bool => $item['url'] !== ''));
         $payload = json_decode((string)$run['result_json'], true) ?: [];
-        if ($urls) $payload['results'] = array_map(static fn(string $url): array => ['url' => $url], $urls);
+        if ($urls) $payload['results'] = $urls;
         Db::name(self::RUN_TABLE)->where('id', $run['id'])->update([
             'status' => $status, 'progress' => $status === 'success' ? 100 : max(25, (int)($task['progress'] ?? 25)),
             'error' => (string)($task['error'] ?? $task['error_msg'] ?? ''),
             'result_json' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'update_time' => time(),
         ]);
+        self::syncShortDramaTask((int)$run['id']);
+    }
+
+    /** Mirror canvas-owned work into the short-drama task/asset history without sharing another canvas app. */
+    private static function syncShortDramaTask(int $runId): void
+    {
+        $run = Db::name(self::RUN_TABLE)->where('id', $runId)->find();
+        if (!$run) return;
+        $taskId = 'canvas_run_' . (int)$run['id'];
+        $status = (string)$run['status'];
+        $result = self::decode((string)$run['result_json']);
+        $now = time();
+        $data = [
+            'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'project_id' => 0, 'shot_id' => '',
+            'task_id' => $taskId, 'parent_task_id' => '', 'source_task_id' => (string)$run['provider_task_id'],
+            'source_app_code' => AigcShortDramaService::APP_CODE, 'task_type' => 'canvas_' . (string)$run['node_type'],
+            'skill_id' => 0, 'skill_version' => 0, 'skill_source' => 'none', 'skill_snapshot_json' => '{}',
+            'status' => $status, 'progress' => (int)$run['progress'], 'provider' => 'canvas', 'provider_task_id' => (string)$run['provider_task_id'],
+            'provider_request_id' => '', 'model_json' => '{}', 'request_json' => (string)$run['request_json'],
+            'result_json' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'input_asset_ids' => '[]',
+            'pricing_snapshot' => '{}', 'billing_status' => 'delegated', 'tenant_cost_points' => 0, 'user_charge_points' => 0,
+            'idempotency_key' => sha1((int)$run['tenant_id'] . '|' . (int)$run['user_id'] . '|' . $taskId), 'retry_count' => 0,
+            'error_code' => $status === 'failed' ? 'canvas_generation_failed' : '', 'error_msg' => (string)$run['error'],
+            'operator_error' => '', 'safety_status' => $status === 'success' ? 'passed' : 'pending', 'started_at' => (int)$run['create_time'],
+            'finished_at' => in_array($status, ['success', 'failed', 'canceled'], true) ? $now : 0, 'update_time' => $now, 'delete_time' => 0,
+        ];
+        $existing = Db::name('aigc_short_drama_generation_task')->where(['tenant_id' => (int)$run['tenant_id'], 'task_id' => $taskId, 'delete_time' => 0])->find();
+        if ($existing) Db::name('aigc_short_drama_generation_task')->where('id', $existing['id'])->update($data);
+        else Db::name('aigc_short_drama_generation_task')->insert($data + ['output_asset_ids' => '[]', 'create_time' => $now]);
+        if ($status !== 'success' || !in_array((string)$run['node_type'], ['image', 'video', 'audio'], true)) return;
+        $type = (string)$run['node_type'];
+        $resultTable = $type === 'image' ? 'aigc_image_result' : ($type === 'video' ? 'aigc_video_result' : 'aigc_music_result');
+        $column = $type === 'image' ? 'image_uri' : ($type === 'video' ? 'video_uri' : 'audio_uri');
+        $providerTaskId = (int)$run['provider_task_id'];
+        if ($providerTaskId <= 0) return;
+        $assetIds = [];
+        foreach (Db::name($resultTable)->where(['tenant_id' => (int)$run['tenant_id'], 'task_id' => $providerTaskId, 'delete_time' => 0])->select()->toArray() as $index => $item) {
+            $uri = (string)($item[$column] ?? '');
+            if ($uri === '') continue;
+            $asset = Db::name('aigc_short_drama_asset')->where(['tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'project_id' => 0, 'task_id' => $taskId, 'uri' => $uri, 'delete_time' => 0])->find();
+            if (!$asset) {
+                $assetId = Db::name('aigc_short_drama_asset')->insertGetId([
+                    'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'project_id' => 0, 'task_id' => $taskId, 'shot_id' => '',
+                    'asset_type' => 'canvas_' . $type, 'title' => '画布' . ($type === 'image' ? '图片' : ($type === 'video' ? '视频' : '音频')) . ((int)$index + 1),
+                    'uri' => $uri, 'cover_uri' => '', 'storage_scope' => (string)($item['storage_scope'] ?? 'tenant'), 'storage_engine' => (string)($item['storage_engine'] ?? 'local'), 'storage_domain' => (string)($item['storage_domain'] ?? ''),
+                    'mime_type' => $type === 'image' ? 'image/png' : ($type === 'video' ? 'video/mp4' : 'audio/mpeg'), 'file_size' => 0, 'width' => (int)($item['width'] ?? 0), 'height' => (int)($item['height'] ?? 0), 'duration' => (float)($item['duration'] ?? 0), 'checksum' => '',
+                    'meta_json' => json_encode(['source' => 'short_drama_canvas', 'canvas_id' => (int)$run['canvas_id'], 'canvas_run_id' => (int)$run['id'], 'provider_task_id' => $providerTaskId], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'status' => 'ready', 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
+                ]);
+            } else $assetId = (int)$asset['id'];
+            $assetIds[] = $assetId;
+        }
+        if ($assetIds) Db::name('aigc_short_drama_generation_task')->where(['tenant_id' => (int)$run['tenant_id'], 'task_id' => $taskId])->update(['output_asset_ids' => json_encode($assetIds), 'update_time' => time()]);
     }
 
     private static function generationPayload(string $type, array $params): array

@@ -5794,6 +5794,11 @@ class AigcShortDramaService
                 'bgm_audio',
                 'final_video',
                 'reference_image',
+                // Canvas output is still short-drama-owned tenant media. Keep it
+                // visible in the same asset history rather than a parallel store.
+                'canvas_image',
+                'canvas_video',
+                'canvas_audio',
             ]);
         }
         if ($sourceTaskId !== '') {
