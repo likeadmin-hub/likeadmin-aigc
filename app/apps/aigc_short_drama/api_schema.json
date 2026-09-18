@@ -848,38 +848,6 @@
       "scene": "user",
       "need_login": 0,
       "need_role_permission": 0
-    },
-    {
-      "api_path": "app.aigc_short_drama.canvas/current",
-      "api_method": "GET",
-      "permission_key": "aigc_short_drama:canvas:use:user",
-      "scene": "user",
-      "need_login": 1,
-      "need_role_permission": 0
-    },
-    {
-      "api_path": "app.aigc_short_drama.canvas/save",
-      "api_method": "POST",
-      "permission_key": "aigc_short_drama:canvas:use:user",
-      "scene": "user",
-      "need_login": 1,
-      "need_role_permission": 0
-    },
-    {
-      "api_path": "app.aigc_short_drama.canvas/run",
-      "api_method": "POST",
-      "permission_key": "aigc_short_drama:canvas:use:user",
-      "scene": "user",
-      "need_login": 1,
-      "need_role_permission": 0
-    },
-    {
-      "api_path": "app.aigc_short_drama.canvas/task",
-      "api_method": "GET",
-      "permission_key": "aigc_short_drama:canvas:use:user",
-      "scene": "user",
-      "need_login": 1,
-      "need_role_permission": 0
     }
   ]
 }

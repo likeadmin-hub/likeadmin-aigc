@@ -15536,10 +15536,7 @@ class AigcShortDramaService
                 'default_quality' => (string)($summary['default_quality'] ?? ''),
                 'quality_options' => (array)($summary['quality_options'] ?? []),
                 'resolution_options' => (array)($summary['resolution_options'] ?? []),
-                // Canvas needs the real tenant SKU price for both image and video
-                // specifications. The UI derives the active price from this list;
-                // task settlement remains owned by the existing channel services.
-                'skus' => (array)($summary['skus'] ?? []),
+                'skus' => $type === 'image' ? (array)($summary['skus'] ?? []) : [],
                 'default_ratio' => (string)($summary['default_ratio'] ?? ''),
                 'ratio_options' => (array)($summary['ratio_options'] ?? []),
                 'max_reference_images' => max(0, (int)($channel['max_reference_images'] ?? 0)),
