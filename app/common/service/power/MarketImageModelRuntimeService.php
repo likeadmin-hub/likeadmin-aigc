@@ -48,6 +48,12 @@ final class MarketImageProviderRequestException extends Exception
 class MarketImageModelRuntimeService
 {
     public const APP_CODE = 'aigc_short_drama';
+    /**
+     * Qwen Image exposes dimensions through parameters.size rather than an
+     * aspect_ratio schema field. Keep the common ratio picker usable when a
+     * market product only publishes its size pricing attributes.
+     */
+    private const QWEN_IMAGE_RATIOS = ['1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '3:1', '1:3', '21:9', '9:21'];
     private const SUBMIT_PATH = '/api/v1/tasks';
     private const TASK_PATH = '/api/v1/tasks/{task_id}';
     /** Explicit supplier rejections only; never retry an ambiguous timeout. */
@@ -97,7 +103,7 @@ class MarketImageModelRuntimeService
                     'title' => (string)$sku['title'],
                     'quality' => $quality,
                     'resolution' => $quality,
-                    'ratio_options' => self::ratioOptions($locked, $meta),
+                    'ratio_options' => self::ratioOptions($locked, $meta, (string)($product['upstream_model_code'] ?? '')),
                     'locked_params' => $locked,
                     'platform_unit_cost' => self::points((float)$sku['sale_points']),
                     'tenant_unit_price' => self::points((float)$market['tenant_price']),
@@ -114,7 +120,7 @@ class MarketImageModelRuntimeService
             }
             $ratios = $skus !== []
                 ? array_values(array_unique(array_merge(...array_map(static fn(array $item): array => (array)$item['ratio_options'], $skus))))
-                : self::ratioOptions([], $meta);
+                : self::ratioOptions([], $meta, (string)($product['upstream_model_code'] ?? ''));
             $first = $skus[0] ?? [];
             $modelId = self::modelId((int)$product['id']);
             $options[] = [
@@ -684,7 +690,7 @@ class MarketImageModelRuntimeService
             $locked = self::arrayValue($sku['locked_params'] ?? []);
             $lockedQuality = self::skuQuality($sku, $locked);
             if ($quality === '' || $lockedQuality === '' || strcasecmp($lockedQuality, $quality) === 0) {
-                $supportedRatios = self::ratioOptions($locked, self::metadata($product));
+                $supportedRatios = self::ratioOptions($locked, self::metadata($product), (string)($product['upstream_model_code'] ?? ''));
                 if ($ratio === '' || $supportedRatios === [] || in_array($ratio, $supportedRatios, true)) {
                     $matches[] = $market;
                 }
@@ -714,7 +720,7 @@ class MarketImageModelRuntimeService
             throw new Exception('所选图片 SKU 不支持当前分辨率');
         }
         $ratio = self::normalizedRatio(self::firstValue($selection, ['ratio', 'aspect_ratio', 'size']));
-        $supportedRatios = self::ratioOptions($locked, self::metadata($market['product']));
+        $supportedRatios = self::ratioOptions($locked, self::metadata($market['product']), (string)($market['product']['upstream_model_code'] ?? ''));
         if ($ratio !== '' && $supportedRatios !== [] && !in_array($ratio, $supportedRatios, true)) {
             throw new Exception('所选图片 SKU 不支持当前比例');
         }
@@ -1523,7 +1529,8 @@ class MarketImageModelRuntimeService
     private static function firstValue(array $params, array $keys): string { foreach ($keys as $key) if (isset($params[$key]) && $params[$key] !== '') return (string)$params[$key]; return ''; }
     private static function qualityOptions(array $locked): array { $v = self::skuQuality([], $locked); return $v === '' ? [] : [$v]; }
     private static function resolutionOptions(array $locked): array { $v = self::firstValue($locked, ['quality','resolution','image_size']); return $v === '' ? [] : [['value' => $v, 'label' => $v, 'ratio_options' => self::ratioOptions($locked, [])]]; }
-    private static function ratioOptions(array $locked, array $meta): array { $v = self::firstValue($locked, ['ratio','aspect_ratio']); if ($v !== '' && !self::isPlaceholderRatio($v)) return [$v]; $schema = self::arrayValue($meta['params_schema'] ?? []); $values = $meta['supported_ratios'] ?? $meta['ratios'] ?? $schema['aspect_ratio']['options'] ?? []; if (is_string($values)) $values = preg_split('/\s*\/\s*/', $values) ?: []; return array_values(array_filter(array_map('strval', (array)$values), static fn(string $ratio): bool => !self::isPlaceholderRatio($ratio))); }
+    private static function ratioOptions(array $locked, array $meta, string $modelCode = ''): array { $v = self::firstValue($locked, ['ratio','aspect_ratio']); if ($v !== '' && !self::isPlaceholderRatio($v)) return [$v]; $schema = self::arrayValue($meta['params_schema'] ?? []); $values = $meta['supported_ratios'] ?? $meta['ratios'] ?? $schema['aspect_ratio']['options'] ?? []; if (is_string($values)) $values = preg_split('/\s*\/\s*/', $values) ?: []; if ($values === [] && self::isQwenImageModel($modelCode)) $values = self::QWEN_IMAGE_RATIOS; return array_values(array_filter(array_map('strval', (array)$values), static fn(string $ratio): bool => !self::isPlaceholderRatio($ratio))); }
+    private static function isQwenImageModel(string $modelCode): bool { return in_array(strtolower(trim($modelCode)), ['qwen-image-3.0', 'qwen-image-3.0-pro'], true); }
     private static function normalizedRatio(string $ratio): string { $ratio = trim($ratio); return self::isPlaceholderRatio($ratio) ? '' : $ratio; }
     private static function isPlaceholderRatio(string $ratio): bool { return trim($ratio) === ''; }
     private static function snapshot(array $market): array { $product = $market['product']; $sku = $market['sku']; $source = self::arrayValue($product['source_payload'] ?? []); return ['product_id' => (int)$product['id'], 'sku_id' => (int)$sku['id'], 'sku_key' => (string)$sku['sku_key'], 'model_code' => (string)$product['upstream_model_code'], 'channel_code' => (string)$product['upstream_channel_code'], 'resource_type' => PowerMarketService::TYPE_MODEL, 'model_type' => 'image', 'market_metadata' => self::metadata($product), 'pricing_attributes' => array_values(array_filter((array)($source['pricing_v2']['attributes'] ?? []), 'is_array')), 'locked_params' => self::arrayValue($sku['locked_params'] ?? []), 'usage_unit' => (string)$sku['usage_unit'], 'usage_unit_size' => MarketUsageSettlementService::unitSize($sku), 'upstream_price' => (float)$sku['upstream_price'], 'platform_price' => (float)$sku['sale_points'], 'tenant_price' => (float)$market['tenant_price'], 'max_reference_images' => (int)($market['reference_limit'] ?? 0)]; }

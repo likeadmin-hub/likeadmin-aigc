@@ -43,6 +43,21 @@ class QwenImageDimensionsTest extends TestCase
         }
     }
 
+    public function testBothModelsExposeTheCommonRatioPickerWhenTheSchemaOnlyHasSize(): void
+    {
+        $method = new ReflectionMethod(Images::class, 'ratioOptions');
+        $method->setAccessible(true);
+        $expected = ['1:1', '3:2', '2:3', '4:3', '3:4', '5:4', '4:5', '16:9', '9:16', '2:1', '1:2', '3:1', '1:3', '21:9', '9:21'];
+
+        foreach (['qwen-image-3.0', 'qwen-image-3.0-pro'] as $model) {
+            self::assertSame($expected, $method->invoke(null, ['_pricing_variant' => 'qwen_image_1k'], [
+                'params_schema' => ['input' => ['type' => 'object'], 'parameters' => ['type' => 'object']],
+            ], $model));
+        }
+
+        self::assertSame(['1:1'], $method->invoke(null, ['aspect_ratio' => '1:1'], [], 'qwen-image-3.0'));
+    }
+
     public function testBoundaryRatiosAndIntegerRounding(): void
     {
         foreach (['1k', '2k'] as $quality) {
