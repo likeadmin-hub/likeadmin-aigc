@@ -29,13 +29,13 @@ class ShortDramaCanvasService
         if ($id > 0) {
             $row = $query->where('id', $id)->find();
             if (!$row) throw new Exception('画布项目不存在或无权访问');
-            return self::formatDocument($row);
+            return self::formatDocument($row, true);
         }
         $row = $query->order('id', 'desc')->find();
         if (!$row) {
             return self::create($tenantId, $userId, []);
         }
-        return self::formatDocument($row);
+        return self::formatDocument($row, true);
     }
 
     public static function create(int $tenantId, int $userId, array $params): array
@@ -47,7 +47,7 @@ class ShortDramaCanvasService
             'nodes_json' => '[]', 'edges_json' => '[]', 'viewport_json' => '{}',
             'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
         ]);
-        return self::formatDocument(Db::name(self::DOCUMENT_TABLE)->where('id', $id)->find());
+        return self::formatDocument(Db::name(self::DOCUMENT_TABLE)->where('id', $id)->find(), true);
     }
 
     public static function lists(int $tenantId, int $userId, array $params = []): array
@@ -241,11 +241,25 @@ class ShortDramaCanvasService
         if (!$row) throw new Exception('画布不存在或无权访问');
         return $row;
     }
-    private static function currentById(int $tenantId, int $userId, int $id): array { return self::formatDocument(self::ownedDocument($tenantId, $userId, $id)); }
+    private static function currentById(int $tenantId, int $userId, int $id): array { return self::formatDocument(self::ownedDocument($tenantId, $userId, $id), true); }
     private static function normalizeNodes(array $nodes): array { return array_values(array_slice(array_filter($nodes, static fn($node) => is_array($node) && isset($node['id']) && isset($node['type'])), 0, 200)); }
     private static function normalizeEdges(array $edges, array $nodes): array { $ids = array_flip(array_map(static fn($node) => (string)$node['id'], $nodes)); return array_values(array_filter($edges, static fn($edge) => is_array($edge) && isset($ids[(string)($edge['from'] ?? '')], $ids[(string)($edge['to'] ?? '')]) && (string)$edge['from'] !== (string)$edge['to'])); }
     private static function decode(string $json): array { $decoded = json_decode($json, true); return is_array($decoded) ? $decoded : []; }
     private static function normalizeStatus(string $status): string { return in_array($status, ['success', 'failed', 'canceled'], true) ? $status : 'running'; }
-    private static function formatDocument(array $row): array { return ['id' => (int)$row['id'], 'title' => (string)$row['title'], 'nodes' => self::decode((string)$row['nodes_json']), 'edges' => self::decode((string)$row['edges_json']), 'viewport' => self::decode((string)$row['viewport_json']), 'update_time' => (int)$row['update_time']]; }
+    private static function formatDocument(array $row, bool $includeRuns = false): array
+    {
+        $data = ['id' => (int)$row['id'], 'title' => (string)$row['title'], 'nodes' => self::decode((string)$row['nodes_json']), 'edges' => self::decode((string)$row['edges_json']), 'viewport' => self::decode((string)$row['viewport_json']), 'update_time' => (int)$row['update_time']];
+        if (!$includeRuns) return $data;
+        // A browser can be refreshed after the backend creates a run but before
+        // its debounce save writes canvasRunId into nodes_json. Return the latest
+        // run per node so that task ownership and recovery stay server-backed.
+        $latest = [];
+        foreach (Db::name(self::RUN_TABLE)->where(['tenant_id' => (int)$row['tenant_id'], 'user_id' => (int)$row['user_id'], 'canvas_id' => (int)$row['id'], 'delete_time' => 0])->order('id', 'desc')->select()->toArray() as $run) {
+            $nodeId = (string)$run['node_id'];
+            if ($nodeId !== '' && !isset($latest[$nodeId])) $latest[$nodeId] = self::formatRun($run);
+        }
+        $data['runs'] = array_values($latest);
+        return $data;
+    }
     private static function formatRun(array $row): array { $result = self::decode((string)$row['result_json']); return ['id' => (int)$row['id'], 'node_id' => (string)$row['node_id'], 'type' => (string)$row['node_type'], 'status' => (string)$row['status'], 'progress' => (int)$row['progress'], 'error' => (string)$row['error'], 'result' => $result, 'results' => (array)($result['results'] ?? $result['images'] ?? $result['videos'] ?? [])]; }
 }
