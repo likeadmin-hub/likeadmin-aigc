@@ -17,20 +17,23 @@ class OpenPlatformCallbackService
         $token = WechatCredentialService::decrypt($config['token'] ?? '');
         $aesKey = WechatCredentialService::decrypt($config['encoding_aes_key'] ?? '');
         $appId = (string)($config['app_id'] ?? '');
+        $routeAppId = trim((string)$request->param('appid', ''));
         $timestamp = (string)$request->param('timestamp', '');
         $nonce = (string)$request->param('nonce', '');
         // URL verification uses `signature`; encrypted event callbacks use
-        // `msg_signature`. Accept the legacy name only as a compatibility
-        // fallback so the encrypted callback is verified against the right
-        // digest.
-        $signature = (string)$request->param('msg_signature', $request->param('signature', ''));
+        // `msg_signature`. Keep the two flows separate so a stale query value
+        // cannot make WeChat's URL check fail.
+        $isUrlCheck = $request->isGet() && $request->param('auth_code', '') === '';
+        $signature = $isUrlCheck
+            ? (string)$request->param('signature', '')
+            : (string)$request->param('msg_signature', $request->param('signature', ''));
         if ($token === '' || $aesKey === '' || $appId === '') throw new \RuntimeException('开放平台回调配置不完整');
-        if ($request->isGet() && $request->param('auth_code', '') === '') {
+        if ($isUrlCheck) {
             self::verifyPlain($token, $timestamp, $nonce, $signature);
             return (string)$request->param('echostr', '');
         }
         if ($request->isGet() && $request->param('auth_code', '') !== '') {
-            $requestId = bin2hex(random_bytes(12)); $tenantId = 0;
+            $requestId = bin2hex(random_bytes(12)); $tenantId = 0; $context = [];
             try {
                 $state = (string)$request->param('state', ''); if ($state === '') throw new \RuntimeException('授权状态缺失');
                 $context = self::stateContext($state); $tenantId = (int)($context['tenant_id'] ?? 0);
@@ -39,8 +42,13 @@ class OpenPlatformCallbackService
                 $expectedType = (string)($context['authorizer_type'] ?? '');
                 if ($expectedType !== '' && $expectedType !== $type) throw new \RuntimeException('微信返回的账号类型与选择不一致，请重新授权');
                 if ($tenantId > 0) OpenPlatformService::bindAuthorizer($tenantId, (string)$info['authorizer_appid'], $type, ['refresh_token' => $info['authorizer_refresh_token'] ?? '', 'func_info' => $scope, 'name' => $profile['nick_name'] ?? '', 'principal_name' => $profile['principal_name'] ?? '', 'head_img' => $profile['head_img'] ?? '']);
-                self::log($requestId, 'authorized', 1, 'success', '', $tenantId); return 'success';
-            } catch (\Throwable $e) { self::log($requestId, 'authorized', 1, 'failed', $e->getMessage(), $tenantId); throw $e; }
+                OpenPlatformService::clearAuthState($state);
+                self::log($requestId, 'authorized', 1, 'success', '', $tenantId);
+                return self::authorizationRedirect($tenantId, $type, 'success');
+            } catch (\Throwable $e) {
+                self::log($requestId, 'authorized', 1, 'failed', $e->getMessage(), $tenantId);
+                return self::authorizationRedirect($tenantId, (string)($context['authorizer_type'] ?? ''), 'failed');
+            }
         }
         if ($timestamp === '' || $nonce === '' || abs(time() - (int)$timestamp) > 300) throw new \RuntimeException('回调时间戳或 Nonce 已过期');
         $raw = (string)$request->getContent();
@@ -54,6 +62,10 @@ class OpenPlatformCallbackService
         $plain = $encryptor->decrypt($encrypted, $signature, $nonce, $timestamp);
         $message = @simplexml_load_string($plain, 'SimpleXMLElement', LIBXML_NONET | LIBXML_NOCDATA);
         if (!$message) throw new \RuntimeException('回调解密失败');
+        $authorizerAppId = trim((string)($message->ToUserName ?? ''));
+        if ($routeAppId !== '' && ($authorizerAppId === '' || !hash_equals($routeAppId, $authorizerAppId))) {
+            throw new \RuntimeException('消息回调 AppID 与报文不一致');
+        }
         $event = (string)($message->InfoType ?? '');
         $dedupePayload = match ($event) {
             'component_verify_ticket' => (string)($message->ComponentVerifyTicket ?? ''),
@@ -86,6 +98,7 @@ class OpenPlatformCallbackService
                 $expectedType = (string)($context['authorizer_type'] ?? '');
                 if ($expectedType !== '' && $expectedType !== $type) throw new \RuntimeException('微信返回的账号类型与选择不一致，请重新授权');
                 if ($tenantId > 0) OpenPlatformService::bindAuthorizer($tenantId, (string)$info['authorizer_appid'], $type, ['refresh_token' => $info['authorizer_refresh_token'] ?? '', 'func_info' => $scope, 'name' => $profile['nick_name'] ?? '', 'principal_name' => $profile['principal_name'] ?? '', 'head_img' => $profile['head_img'] ?? '']);
+                if ($state !== '') OpenPlatformService::clearAuthState($state);
             } elseif ($event === 'unauthorized') {
                 OpenPlatformService::markUnauthorized((string)($message->AuthorizerAppid ?? ''));
             }
@@ -100,7 +113,17 @@ class OpenPlatformCallbackService
     }
 
     private static function verifyPlain(string $token, string $timestamp, string $nonce, string $signature): void { if ($timestamp === '' || abs(time() - (int)$timestamp) > 300 || $signature === '') throw new \RuntimeException('回调签名参数无效'); $expected = sha1(implode('', self::sorted([$token, $timestamp, $nonce]))); if (!hash_equals($expected, $signature)) throw new \RuntimeException('回调签名校验失败'); }
-    private static function stateContext(string $state): array { return $state === '' ? ['tenant_id' => 0] : OpenPlatformService::consumeAuthState($state); }
+    private static function stateContext(string $state): array { return $state === '' ? ['tenant_id' => 0] : OpenPlatformService::authState($state); }
+
+    private static function authorizationRedirect(int $tenantId, string $type, string $status): array
+    {
+        if ($tenantId <= 0) return ['response' => $status === 'success' ? 'success' : 'fail'];
+        $channel = $type === 'miniprogram' ? 'miniprogram' : 'official';
+        $base = rtrim((string)request()->domain(), '/');
+        $base = (string)(preg_replace('#^http://#i', 'https://', $base) ?: $base);
+        $query = http_build_query(['channel' => $channel, 'wechat_auth' => $status]);
+        return ['redirect' => $base . '/t/' . $tenantId . '/admin/channel/overview?' . $query];
+    }
     private static function sorted(array $values): array { sort($values, SORT_STRING); return $values; }
     private static function authorizerType(array $scope, array $info = []): string
     {
