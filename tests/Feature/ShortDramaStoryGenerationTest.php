@@ -117,7 +117,7 @@ class ShortDramaStoryGenerationTest extends TestCase
             function ($key, $messages, $budget) use (&$calls) {
                 $calls[] = $key;
                 if ($key === 'story') return ['result' => ['content' => '{']];
-                self::assertSame(5648, $budget['max_tokens']);
+                self::assertSame(8192, $budget['max_tokens']);
                 self::assertLessThan($budget['output_capacity'], $budget['max_tokens']);
                 return ['result' => ['content' => json_encode($this->base())]];
             });

@@ -12,7 +12,9 @@ final class ShortDramaStoryGeneration
         $total = (int)$request['episode_count'];
         $receipts = [];
         $call = static function (string $key, array $messages, int $count, bool $public) use (&$model, &$receipts, $provider): array {
-            $budget = ShortDramaPlanningBudget::calculate($messages['system_prompt'] . $messages['content'], $model, $count, $public);
+            $budget = $public
+                ? ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $model, 'story')
+                : ShortDramaPlanningBudget::calculate($messages['system_prompt'] . $messages['content'], $model, $count, false);
             if ($budget['count'] < $count) throw new RuntimeException('本批超出模型容量', 413);
             if (str_contains($key, '_repair')) {
                 $budget['max_tokens'] = ShortDramaPlanningBudget::repairMaxTokens($budget, $count, $public);
@@ -20,25 +22,20 @@ final class ShortDramaStoryGeneration
             $receipt = $provider($key, $messages, $budget, $model);
             $model = (array)($receipt['model'] ?? $model);
             $receipts[$key] = (array)($receipt['result'] ?? []);
-            $content = trim((string)($receipt['result']['content'] ?? ''));
-            $content = preg_replace('/^```(?:json)?\s*|\s*```$/u', '', $content);
-            try { $payload = json_decode($content, true, 512, JSON_THROW_ON_ERROR); }
-            catch (\JsonException $error) { throw new RuntimeException('模型输出不是完整 JSON', 422, $error); }
-            if (!is_array($payload)) throw new RuntimeException('模型输出结构无效', 422);
-            return $payload;
+            return ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []));
         };
         if ($stage === 'story') {
             $messages = $assemble($request);
             try {
-                $payload = $call('story', $messages, 3, true);
+                $payload = $call('story', $messages, 1, true);
                 $issues = ShortDramaStoryWorkflow::issues($payload, 'story', $total);
             } catch (RuntimeException $error) {
-                if ($error->getCode() !== 422) throw $error;
+                if (!in_array($error->getCode(), [413, 422], true)) throw $error;
                 $issues = [['path' => 'result', 'message' => $error->getMessage()]];
             }
             if ($issues) {
                 $messages['content'] .= "\n上次内容未通过校验，请返回完整故事设定。具体缺失：" . json_encode($issues, JSON_UNESCAPED_UNICODE);
-                $payload = $call('story_repair', $messages, 3, true);
+                $payload = $call('story_repair', $messages, 1, true);
                 $issues = ShortDramaStoryWorkflow::issues($payload, 'story', $total);
             }
             if ($issues) throw new RuntimeException($issues[0]['message'], 422);
