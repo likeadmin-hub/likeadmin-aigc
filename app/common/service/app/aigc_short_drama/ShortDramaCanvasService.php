@@ -5,6 +5,7 @@ namespace app\common\service\app\aigc_short_drama;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\app\aigc_music\AigcMusicService;
+use app\common\service\app\aigc_video\AigcVideoPosterService;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\FileService;
@@ -80,6 +81,65 @@ class ShortDramaCanvasService
         ]);
         self::queueVideoPosters($tenantId, $userId, (int)$document['id'], $nodes);
         return self::currentById($tenantId, $userId, (int)$document['id']);
+    }
+
+    /**
+     * Persist a still image for one owned video node.
+     *
+     * This deliberately accepts a canvas/node pair instead of a URL. It keeps
+     * the request tenant-scoped and lets the server read object storage without
+     * relying on the browser's CORS and Content-Disposition behaviour.
+     */
+    public static function captureVideoFrame(int $tenantId, int $userId, array $params): array
+    {
+        $document = self::ownedDocument($tenantId, $userId, (int)($params['canvas_id'] ?? 0));
+        $nodeId = trim((string)($params['node_id'] ?? ''));
+        if ($nodeId === '') throw new Exception('缺少视频节点');
+        $node = null;
+        foreach (self::decode((string)($document['nodes_json'] ?? '[]')) as $item) {
+            if ((string)($item['id'] ?? '') === $nodeId) {
+                $node = $item;
+                break;
+            }
+        }
+        if (!is_array($node)) throw new Exception('视频节点不存在或已被删除');
+        $metadata = is_array($node['metadata'] ?? null) ? $node['metadata'] : [];
+        $isVideo = (string)($node['type'] ?? '') === 'video'
+            || str_starts_with(strtolower((string)($metadata['mimeType'] ?? $metadata['mime_type'] ?? '')), 'video/');
+        if (!$isVideo) throw new Exception('只能对视频节点截帧');
+
+        $uri = self::canvasStoredUri((string)($metadata['video_url'] ?? $metadata['url'] ?? ''));
+        if ($uri === '') throw new Exception('该视频尚未保存到可截帧的存储');
+        $mode = strtolower(trim((string)($params['mode'] ?? 'current')));
+        if (!in_array($mode, ['first', 'current', 'last'], true)) $mode = 'current';
+        $duration = max(0, min(28800, (float)($params['duration'] ?? 0)));
+        $requestedTime = max(0, min(28800, (float)($params['time'] ?? 0)));
+        $time = match ($mode) {
+            'first' => 0.001,
+            'last' => $duration > 0.001 ? max(0.001, $duration - 0.001) : $requestedTime,
+            default => $requestedTime,
+        };
+        if ($time <= 0) $time = 0.001;
+
+        $frame = AigcVideoPosterService::createFrame(
+            $tenantId,
+            $uri,
+            (string)($metadata['storage_scope'] ?? ''),
+            (string)($metadata['storage_engine'] ?? ''),
+            (string)($metadata['storage_domain'] ?? ''),
+            $time,
+            'frames'
+        );
+        return $frame + [
+            'url' => FileService::getFileUrlByStorage(
+                (string)$frame['uri'],
+                (string)$frame['storage_scope'],
+                (string)$frame['storage_engine'],
+                (string)$frame['storage_domain']
+            ),
+            'source_node_id' => $nodeId,
+            'capture_time' => $time,
+        ];
     }
 
     /**
