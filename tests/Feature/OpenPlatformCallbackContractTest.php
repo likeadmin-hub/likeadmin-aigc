@@ -49,11 +49,14 @@ class OpenPlatformCallbackContractTest extends TestCase
     {
         $route = $this->source('route/app.php');
         $service = $this->source('app/common/service/wechat/OpenPlatformService.php');
+        $middleware = $this->source('app/common/http/middleware/LikeAdminAllowMiddleware.php');
 
         self::assertStringContainsString("wechat/open-platform/authorize", $route);
         self::assertStringContainsString('authorizationLaunchPage', $route);
         self::assertStringContainsString("'Cache-Control' => 'no-store'", $route);
         self::assertStringContainsString('window.location.replace', $service);
         self::assertStringContainsString('The WeChat console validates the browser', $service);
+        self::assertStringContainsString("\$normalizedPath === 'wechat/open-platform/authorize'", $middleware);
+        self::assertStringContainsString('platform-owned public endpoints', $middleware);
     }
 }
