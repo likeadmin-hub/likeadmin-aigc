@@ -24,6 +24,12 @@ final class ShortDramaPlanningContext
         }
         $result['series_bible'] = array_intersect_key((array)($source['series_bible'] ?? []),
             array_flip(['audience', 'core_hook', 'logline', 'series_arc', 'theme', 'relationships', 'world_rules', 'continuity_rules']));
+        foreach (['characters', 'locations'] as $key) {
+            if (!isset($source['series_bible'][$key])) continue;
+            $result['series_bible'][$key] = array_map(static fn($item) => array_intersect_key((array)$item,
+                array_flip(['id', 'name', 'category', 'description', 'age', 'role', 'background', 'motivation', 'arc', 'relationships'])),
+                (array)$source['series_bible'][$key]);
+        }
         $result['art_style'] = array_intersect_key((array)($source['art_style'] ?? []), array_flip(['base_style', 'visual_description']));
         return $result;
     }

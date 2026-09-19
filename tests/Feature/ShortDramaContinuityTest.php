@@ -29,6 +29,10 @@ class ShortDramaContinuityTest extends TestCase
         self::assertSame($ledger['digest'], Continuity::context([$ledger])['previous_digest']);
         self::assertStringNotContainsString('private-media', Continuity::messages($plan, [])['content']);
         self::assertSame(15, ShortDramaPlanningContext::lockedStory($plan)['subjects'][0]['library_subject_id']);
+        $plan['series_bible']['characters'] = [['id' => 'p1', 'background' => str_repeat('人物背景', 1000), 'image_url' => 'private']];
+        $locked = ShortDramaPlanningContext::lockedStory($plan);
+        self::assertSame($plan['series_bible']['characters'][0]['background'], $locked['series_bible']['characters'][0]['background']);
+        self::assertArrayNotHasKey('image_url', $locked['series_bible']['characters'][0]);
     }
     public function testInventedEvidenceCannotEnterLedger(): void
     {
