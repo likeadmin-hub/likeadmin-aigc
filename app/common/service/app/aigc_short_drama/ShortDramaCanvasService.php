@@ -288,6 +288,7 @@ class ShortDramaCanvasService
             'model_code' => (string)($params['model_code'] ?? ''), 'model_id' => (string)($params['model_id'] ?? ''),
             'ratio' => (string)($params['ratio'] ?? $params['aspect_ratio'] ?? ''), 'duration' => (int)($params['duration'] ?? 0),
             'quantity' => max(1, min(4, (int)($params['count'] ?? $params['quantity'] ?? 1))),
+            'generation_method' => (string)($params['generation_method'] ?? $params['generationMethod'] ?? ''),
             'reference_images' => array_values((array)($params['reference_images'] ?? [])),
             'reference_assets' => array_values((array)($params['reference_assets'] ?? [])),
             'source_app_code' => AigcShortDramaService::APP_CODE,
