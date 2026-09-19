@@ -16725,7 +16725,7 @@ class AigcShortDramaService
             $review = ShortDramaStructuredResponse::decode((array)$reviewReceipt['result']);
             $result['_continuity'] = ShortDramaContinuity::ledger($review, $result, $request['series_context'], (int)($request['episode_number'] ?? 1));
             foreach ($result['_continuity']['warnings'] as $warning) $result = self::appendPlanReviewWarning($result, 'continuity.review', $warning);
-            $repairLlmResult = self::mergeScriptPlanLlmResults(array_filter([$repairLlmResult, $reviewReceipt['result']]));
+            $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $reviewReceipt['result']])));
         }
         return [
             'result' => $result,
