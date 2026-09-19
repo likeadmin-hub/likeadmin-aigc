@@ -149,6 +149,12 @@ class ShortDramaEpisodeDurationTest extends TestCase
         self::assertSame('00:01.5-00:10', $this->invoke('readableShotTimeRange', [], 0, ['start_seconds' => 1.5], 8.5));
     }
 
+    public function testTimingUsesTheSameDefaultEpisodeCountAsCreation(): void
+    {
+        $policy = $this->invoke('episodeDurationSnapshot', '第三集60秒。', ['multi_episode' => true], []);
+        self::assertSame([3 => 60.0], $policy['episode_overrides']);
+    }
+
     public function testDirectCompleteResponseUsesTheSameTimingGate(): void
     {
         $plan = ['title' => '钥匙', 'story_outline' => '甲找到钥匙', 'script_lines' => ['甲找到钥匙'],

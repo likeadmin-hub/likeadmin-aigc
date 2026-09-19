@@ -15618,7 +15618,8 @@ class AigcShortDramaService
             $prompt .= "\n\n" . ShortDramaPromptCatalog::priority();
         }
         if (ShortDramaEpisodeDuration::active($plan) && !empty($shot['camera_movement'])
-            && empty($params['video_prompt']) && empty($params['visible_prompt']) && empty($params['prompt'])) {
+            && empty($params['video_prompt']) && empty($params['visible_prompt']) && empty($params['prompt']) && empty($params['message'])
+            && empty($params['params']['video_prompt']) && empty($params['params']['visible_prompt']) && empty($params['params']['prompt']) && empty($params['params']['message'])) {
             // Preserve the authored movement through custom templates. Do not
             // globally replace template text or override a user's manual prompt.
             $prompt .= "\n本片段画面运动（按以下描述执行，优先于模板通用镜头要求）：" . $shot['camera_movement'];
@@ -16458,8 +16459,9 @@ class AigcShortDramaService
 
     private static function episodeDurationSnapshot(string $prompt, array $params, array $config): array
     {
-        $multi = !empty($params['multi_episode']) || (int)($params['episode_count'] ?? 1) > 1;
-        $count = max(1, (int)($params['episode_count'] ?? 1));
+        $settings = self::normalizeEpisodeSettings($params);
+        $multi = $settings['multi_episode'];
+        $count = $settings['episode_count'];
         $selected = (float)($params['target_duration_seconds'] ?? $params['target_duration'] ?? 0);
         $overrides = [];
         $timingText = $prompt;
