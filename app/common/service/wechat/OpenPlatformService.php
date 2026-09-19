@@ -60,6 +60,7 @@ class OpenPlatformService
         $urls = self::callbackUrls(self::rawConfig());
         $row['callback_url_display'] = $urls['authorization'];
         $row['message_callback_url_display'] = $urls['message'];
+        $row['authorization_domain_display'] = (string)(parse_url($urls['authorization'], PHP_URL_HOST) ?: '');
         return $row;
     }
 
@@ -90,7 +91,15 @@ class OpenPlatformService
     {
         $old = self::rawConfig();
         $hasCallbackInput = array_key_exists('callback_url', $data);
-        $callbackInput = trim((string)($data['callback_url'] ?? ($old['callback_url'] ?? '')));
+        $callbackInput = array_key_exists('callback_url', $data)
+            ? trim((string)$data['callback_url'])
+            : '';
+        // The platform administrator saves this form on the platform host.
+        // Persist that host once so tenant-domain requests never become the
+        // WeChat redirect_uri fallback later.
+        if ($callbackInput === '') {
+            $callbackInput = self::defaultCallbackUrl('/wechat/open-platform/callback');
+        }
         if ($hasCallbackInput && $callbackInput !== '' && self::normalizeCallbackUrl($callbackInput) === null) {
             throw new \InvalidArgumentException('授权事件接收 URL 必须是 HTTPS 地址，且不能包含查询参数或非标准端口');
         }
@@ -105,7 +114,21 @@ class OpenPlatformService
     public static function startTicket(): array
     {
         $config = self::rawConfig(); self::requireConfig($config, ['app_id', 'app_secret', 'token', 'encoding_aes_key']);
-        return self::request('cgi-bin/component/api_start_push_ticket', ['component_appid' => $config['app_id'], 'component_appsecret' => self::credentialValue($config['app_secret'] ?? '')], 'ticket.start');
+        return self::request('cgi-bin/component/api_start_push_ticket', ['component_appid' => $config['app_id'], 'component_secret' => self::credentialValue($config['app_secret'] ?? '')], 'ticket.start');
+    }
+
+    /** Temporary safe diagnostics for startTicket failures; never exposes the secret itself. */
+    public static function credentialDiagnostics(): array
+    {
+        $config = self::rawConfig();
+        $secret = self::credentialValue($config['app_secret'] ?? '');
+        return [
+            'app_id' => (string)($config['app_id'] ?? ''),
+            'app_secret_present' => $secret !== '',
+            'app_secret_len' => strlen($secret),
+            'app_secret_sha256' => hash('sha256', $secret),
+            'app_secret_suffix' => $secret === '' ? '' : substr($secret, -4),
+        ];
     }
 
     public static function componentAccessToken(bool $force = false): string
