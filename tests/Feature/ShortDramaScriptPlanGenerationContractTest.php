@@ -108,12 +108,12 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
         $enhance->setAccessible(true);
         $review = new ReflectionMethod(AigcShortDramaService::class, 'reviewPlanResult');
         $review->setAccessible(true);
-        $normalized = $enhance->invoke(null, $normalizer->invoke(null, json_decode($raw['content'], true), '模拟测试故事', ['target_duration_seconds' => 6], '模拟测试'));
+        $normalized = $enhance->invoke(null, $normalizer->invoke(null, json_decode($raw['content'], true), '模拟测试故事', ['target_duration_seconds' => 12], '模拟测试'));
         $report = $review->invoke(null, $normalized);
         self::assertSame(0, $report['blocking_count'], json_encode($report['issues'], JSON_UNESCAPED_UNICODE));
         \app\common\service\power\MarketTextModelRuntimeService::reset();
 
-        $single = $this->generate(['target_duration_seconds' => 6]);
+        $single = $this->generate(['target_duration_seconds' => 12]);
         self::assertNotEmpty($single['result']['storyboard']);
         self::assertSame(1, count(\app\common\service\power\MarketTextModelRuntimeService::$requests));
 
