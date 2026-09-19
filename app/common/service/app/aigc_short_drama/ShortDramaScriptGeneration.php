@@ -21,12 +21,17 @@ final class ShortDramaScriptGeneration
         $receipts = [];
         $calls = 0;
         $reservedOutput = 0;
-        $call = static function (string $key, array $input, int $desired = 8192) use (&$receipts, &$calls, &$reservedOutput, &$model, $provider): array {
+        // Timed episode generation reserves room for its audit and at most one
+        // audit-format correction, inside the existing overall budget.
+        $auditReserve = ShortDramaEpisodeDuration::active($request) && !empty($request['series_context']);
+        $callLimit = $auditReserve ? 46 : 48;
+        $outputLimit = $auditReserve ? 183808 : 192000;
+        $call = static function (string $key, array $input, int $desired = 8192) use (&$receipts, &$calls, &$reservedOutput, &$model, $provider, $callLimit, $outputLimit): array {
             unset($input['_stage_content']);
-            if (++$calls > 48) throw new RuntimeException('本集已达到自动处理上限，已保留完成内容，请缩小生成范围', 429);
+            if (++$calls > $callLimit) throw new RuntimeException('本集已达到自动处理上限，已保留完成内容，请缩小生成范围', 429);
             $budget = ShortDramaPlanningBudget::stage($input['system_prompt'] . $input['content'], $model, 'script', $desired);
             $reservedOutput += $budget['max_tokens'];
-            if ($reservedOutput > 192000) throw new RuntimeException('本集自动生成预算已达上限，已完成内容保留，请缩小范围后继续', 429);
+            if ($reservedOutput > $outputLimit) throw new RuntimeException('本集自动生成预算已达上限，已完成内容保留，请缩小范围后继续', 429);
             $receipt = $provider('v3_' . $key, $input, $budget, $model);
             $model = (array)($receipt['model'] ?? $model);
             $receipts[$key] = (array)($receipt['result'] ?? []);

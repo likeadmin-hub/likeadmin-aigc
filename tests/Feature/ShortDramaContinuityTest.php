@@ -50,6 +50,32 @@ class ShortDramaContinuityTest extends TestCase
         $review = $this->review(); $review['hooks'] = [['id' => 'missing', 'description' => '钥匙', 'status' => 'resolved', 'shot_id' => 's1', 'quote' => '钥匙']];
         $this->expectExceptionCode(409); Continuity::ledger($review, $this->plan(), [], 1);
     }
+    public function testNewFieldAuditCanRepairOnceWithoutChangingTheScript(): void
+    {
+        $plan = $this->plan(); $review = $this->review(); $calls = 0;
+        $ledger = Continuity::review($plan, [], 1, static function ($input) use ($review, &$calls) {
+            $calls++;
+            if ($calls === 1) $review['changes'][0]['before'] = '推断的旧值';
+            else self::assertStringContainsString('首次登记的before必须为null', $input['content']);
+            return $review;
+        });
+        self::assertSame(2, $calls);
+        self::assertSame(1, $ledger['review_repairs']);
+        self::assertSame($this->plan(), $plan);
+        self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
+    }
+    public function testKnownStateConflictIsNotAutomaticallyRepairedOrIgnored(): void
+    {
+        $calls = 0;
+        try {
+            Continuity::review($this->plan(), ['continuity' => ['state' => ['p1:item_owner' => '地图']]], 2,
+                function ($input) use (&$calls) { $calls++; return $this->review(); });
+            self::fail('Must reject conflicting registered state');
+        } catch (\RuntimeException $error) {
+            self::assertSame(409, $error->getCode());
+            self::assertSame(1, $calls);
+        }
+    }
     public function testOnlyNarrativeEditsInvalidateDependenciesAndPendingRepairIsNotBlocked(): void
     {
         $plan = $this->plan(); $digest = Continuity::fingerprint($plan);

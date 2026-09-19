@@ -16950,18 +16950,21 @@ class AigcShortDramaService
         }
         if ($v3Generation !== null && !empty($request['series_context'])) {
             if ($onEvent) $onEvent('stage', ['status' => 'running', 'progress' => 97, 'current_step' => '检查人物状态、伏笔与前集衔接']);
-            $continuityInput = ShortDramaContinuity::messages($result, $request['series_context']);
-            $reviewReceipt = self::generateScriptPlanLlmWithFallback($tenantId, $userId, $continuityInput + [
+            $audit = static function (array $continuityInput) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult): array {
+                $reviewReceipt = self::generateScriptPlanLlmWithFallback($tenantId, $userId, $continuityInput + [
                 'model_config' => ['max_tokens' => 4096, 'enable_thinking' => false],
                 'source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
                 'action_code' => 'script_plan_continuity', 'parent_app_task_id' => (int)($llmResult['app_task_id'] ?? 0),
             ], $model, $request, 'continuity_review', $onEvent === null ? null : static function ($event, $data) use ($onEvent) {
                 if ($event !== 'delta') $onEvent($event, $data);
             });
-            $review = ShortDramaStructuredResponse::decode((array)$reviewReceipt['result']);
-            $result['_continuity'] = ShortDramaContinuity::ledger($review, $result, $request['series_context'], (int)($request['episode_number'] ?? 1));
+                $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $reviewReceipt['result']])));
+                return ShortDramaStructuredResponse::decode((array)$reviewReceipt['result']);
+            };
+            $result['_continuity'] = ShortDramaEpisodeDuration::active($request)
+                ? ShortDramaContinuity::review($result, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit)
+                : ShortDramaContinuity::ledger($audit(ShortDramaContinuity::messages($result, $request['series_context'])), $result, $request['series_context'], (int)($request['episode_number'] ?? 1));
             foreach ($result['_continuity']['warnings'] as $warning) $result = self::appendPlanReviewWarning($result, 'continuity.review', $warning);
-            $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $reviewReceipt['result']])));
         }
         if ($v3Generation !== null && empty($episodeSettings['multi_episode'])) {
             self::assertStoryboardBudgetSatisfied($result, $request, $prompt);
