@@ -225,6 +225,12 @@ class PowerMarketService
                 'model' => $code,
                 'channel' => trim((string)($model['channel_code'] ?? '')),
                 'market_scope' => self::TYPE_MODEL . ':' . $modelType,
+                // Factory models are returned by the catalogue with their
+                // authoritative pricing_v2 payload. Keep it with the request
+                // so an older upstream pricing/batch implementation which
+                // cannot resolve a blank channel_code does not block a safe
+                // market-price refresh.
+                'catalog_model' => $model,
                 'market_metadata' => [
                     'model_name' => trim((string)($model['model_name'] ?? $model['name'] ?? $code)),
                     'model_description' => trim((string)($model['description'] ?? '')),
@@ -302,7 +308,16 @@ class PowerMarketService
         foreach ($requestsByScope as $scope => $scopeRequests) {
             $scopeItems = [];
             $scopeComplete = true;
-            foreach (array_chunk($scopeRequests, self::UPSTREAM_PRICING_BATCH_SIZE) as $chunkIndex => $chunk) {
+            $batchRequests = [];
+            foreach ($scopeRequests as $request) {
+                $catalogItem = self::catalogPricingItem($request);
+                if ($catalogItem !== []) {
+                    $scopeItems[] = $catalogItem;
+                    continue;
+                }
+                $batchRequests[] = $request;
+            }
+            foreach (array_chunk($batchRequests, self::UPSTREAM_PRICING_BATCH_SIZE) as $chunkIndex => $chunk) {
                 try {
                     $scopeItems = array_merge($scopeItems, self::withUpstreamRetry(fn() => UpstreamPricingService::queryBatch($chunk))['items'] ?? []);
                 } catch (\Throwable $e) {
@@ -826,6 +841,62 @@ class PowerMarketService
             }
         }
         return array_values($unique);
+    }
+
+    /**
+     * Turns a complete factory-model catalogue price into the same internal
+     * item shape returned by pricing/batch. This is deliberately limited to
+     * blank-channel model records: normal channel-bound models retain the
+     * pricing/batch source of truth and its availability checks.
+     *
+     * @param array<string, mixed> $request
+     * @return array<string, mixed>
+     */
+    private static function catalogPricingItem(array $request): array
+    {
+        if ((string)($request['type'] ?? '') !== self::TYPE_MODEL || trim((string)($request['channel'] ?? '')) !== '') {
+            return [];
+        }
+        $model = self::arrayValue($request['catalog_model'] ?? []);
+        $pricing = self::arrayValue($model['pricing'] ?? []);
+        $pricingV2 = self::arrayValue($pricing['pricing_v2'] ?? []);
+        $skuItems = array_values(array_filter((array)($pricingV2['items'] ?? []), 'is_array'));
+        $modelCode = trim((string)($request['model'] ?? $model['model_code'] ?? $model['code'] ?? ''));
+        if ($modelCode === '' || $skuItems === [] || (string)($pricingV2['resource_type'] ?? '') !== 'factory_model') {
+            return [];
+        }
+
+        $resourceId = (int)($pricingV2['resource_id'] ?? $model['model_id'] ?? 0);
+        $requestPayload = ['type' => self::TYPE_MODEL, 'model' => $modelCode];
+        return [
+            'available' => true,
+            'type' => self::TYPE_MODEL,
+            'resource' => [
+                'model_id' => $resourceId,
+                'model_code' => $modelCode,
+                'model_name' => trim((string)($model['model_name'] ?? $model['name'] ?? $modelCode)),
+                'channel_code' => '',
+                'channel_name' => '',
+                'type_code' => self::normalizeModelType((string)($model['type_code'] ?? 'text')),
+                'type_name' => trim((string)($model['type_name'] ?? '')),
+                'call_type' => $model['call_type'] ?? null,
+                'supports_vision' => !empty($model['supports_vision']),
+                'supports_reasoning' => !empty($model['supports_reasoning']),
+                'max_reference_images' => (int)($model['max_reference_images'] ?? 0),
+                'max_reference_audios' => (int)($model['max_reference_audios'] ?? 0),
+                'max_reference_videos' => (int)($model['max_reference_videos'] ?? 0),
+                'capabilities' => self::arrayValue($model['capabilities'] ?? []),
+            ],
+            'pricing' => $pricing,
+            'pricing_v2' => $pricingV2,
+            'price_view' => self::arrayValue($pricingV2['price_view'] ?? $pricing['price_view'] ?? []),
+            'pricing_source' => ['code' => (string)($pricing['pricing_source'] ?? 'catalog'), 'name' => '模型目录定价'],
+            'error_code' => '',
+            'message' => '',
+            'raw' => $model,
+            'local_key' => (string)($request['local_key'] ?? ''),
+            'request' => $requestPayload,
+        ];
     }
 
     /**
