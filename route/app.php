@@ -12,10 +12,12 @@ use think\facade\Console;
 use think\facade\Route;
 
 $openPlatformCallback = function () {
+    $isAuthorizationCallback = request()->isGet() && (string)request()->param('auth_code', '') !== '';
     try {
         $result = \app\common\service\wechat\OpenPlatformCallbackService::handle(request());
         if (is_array($result) && isset($result['redirect'])) {
-            return redirect((string)$result['redirect']);
+            $response = redirect((string)$result['redirect']);
+            return $isAuthorizationCallback ? $response->cookie(\app\common\service\wechat\OpenPlatformService::authStateCookieName(), '', \app\common\service\wechat\OpenPlatformService::authStateCookieOptions(-3600)) : $response;
         }
         if (is_array($result) && array_key_exists('response', $result)) {
             $result = (string)$result['response'];
@@ -23,9 +25,11 @@ $openPlatformCallback = function () {
         $contentType = is_string($result) && str_starts_with(ltrim($result), '<xml')
             ? 'application/xml; charset=utf-8'
             : 'text/plain; charset=utf-8';
-        return response($result, 200, ['Content-Type' => $contentType]);
+        $response = response($result, 200, ['Content-Type' => $contentType]);
+        return $isAuthorizationCallback ? $response->cookie(\app\common\service\wechat\OpenPlatformService::authStateCookieName(), '', \app\common\service\wechat\OpenPlatformService::authStateCookieOptions(-3600)) : $response;
     } catch (\Throwable $e) {
-        return response('fail', 400, ['Content-Type' => 'text/plain; charset=utf-8']);
+        $response = response('fail', 400, ['Content-Type' => 'text/plain; charset=utf-8']);
+        return $isAuthorizationCallback ? $response->cookie(\app\common\service\wechat\OpenPlatformService::authStateCookieName(), '', \app\common\service\wechat\OpenPlatformService::authStateCookieOptions(-3600)) : $response;
     }
 };
 Route::rule('wechat/open-platform/callback', $openPlatformCallback, 'GET|POST');
@@ -39,11 +43,12 @@ Route::rule('wechat/open-platform/:appid/callback', $openPlatformCallback, 'GET|
 // redirect_uri, so a direct tenant -> WeChat navigation is rejected.
 Route::get('wechat/open-platform/authorize', function () {
     try {
+        $state = (string)request()->param('state', '');
         return response(
-            \app\common\service\wechat\OpenPlatformService::authorizationLaunchPage((string)request()->param('state', '')),
+            \app\common\service\wechat\OpenPlatformService::authorizationLaunchPage($state),
             200,
             ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store']
-        );
+        )->cookie(\app\common\service\wechat\OpenPlatformService::authStateCookieName(), $state, \app\common\service\wechat\OpenPlatformService::authStateCookieOptions());
     } catch (\Throwable $e) {
         return response('授权状态已失效，请返回租户后台重新发起授权', 400, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
     }
