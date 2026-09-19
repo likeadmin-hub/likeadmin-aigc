@@ -3529,17 +3529,23 @@ class AigcShortDramaService
         $request['model_id'] = (string)($selectedModels['script_plan']['id'] ?? $request['model_id'] ?? '');
         $agentRunId = self::resolveScriptPlanAgentRunId($tenantId, $project->toArray(), $taskId);
         $time = time();
-        AigcShortDramaScriptTask::where([
+        // A queued worker can race with the cancel endpoint. Only an active
+        // task may enter the provider path; a terminal task must never be
+        // revived by an older queue receipt.
+        $activated = AigcShortDramaScriptTask::where([
             'tenant_id' => $tenantId,
             'user_id' => $userId,
             'task_id' => $taskId,
-        ])->update([
+        ])->whereIn('status', [self::STATUS_PENDING, self::STATUS_QUEUED, self::STATUS_RUNNING])->update([
             'status' => self::STATUS_RUNNING,
             'progress' => 10,
             'current_step' => $planningStep,
             'started_at' => (int)($taskData['started_at'] ?? 0) > 0 ? (int)$taskData['started_at'] : $time,
             'update_time' => $time,
         ]);
+        if ($activated <= 0) {
+            return self::formatTask(self::findTask($tenantId, $userId, $taskId, $projectId)->toArray(), false);
+        }
         self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $taskId, self::STATUS_RUNNING, $request, $selectedModels['script_plan'] ?? [], [
             'provider' => (string)($selectedModels['script_plan']['provider'] ?? ''),
             'progress' => 10,
@@ -5137,16 +5143,48 @@ class AigcShortDramaService
         $task = self::findTask($tenantId, $userId, $taskId);
         $episode = ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id']);
         if ($episode) return ShortDramaEpisodeService::retry($tenantId, $userId, (int)$episode['id']);
-        $isStoryWorkflow = ShortDramaStoryWorkflow::workerOwned(self::jsonDecode((string)$task['request_json']));
-        if (($task['status'] ?? '') !== self::STATUS_FAILED && !($isStoryWorkflow && $task['status'] === self::STATUS_CANCELED)) {
+        if (!in_array((string)($task['status'] ?? ''), [self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
             throw new Exception('当前任务不需要重');
         }
         return Db::transaction(function () use ($tenantId, $userId, $taskId, $task) {
             ShortDramaEpisodeService::guardRevision($tenantId, $userId, (int)$task['project_id'], $taskId);
             $request = self::jsonDecode((string)$task['request_json']);
             if (ShortDramaStoryWorkflow::workerOwned($request)) {
-                Db::name('aigc_short_drama_planning_unit')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId])->whereIn('status', ['failed', 'running'])->update(['status' => 'pending', 'update_time' => time()]);
-                $task->save(['status' => self::STATUS_PENDING, 'error' => '', 'finished_at' => 0, 'current_step' => '等待继续未完成部分', 'update_time' => time()]);
+                $inFlightUnits = (int)Db::name('aigc_short_drama_planning_unit')->where([
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'task_id' => $taskId,
+                    'status' => 'running',
+                ])->count();
+                if ($inFlightUnits > 0) {
+                    throw new Exception('停止已生效，当前模型请求正在收尾，请稍后输入“继续”重新提交');
+                }
+                // Received units remain immutable receipts. Only units that
+                // definitively failed before a response, or were waiting for
+                // a connection retry, may be submitted again. A still-running
+                // unit is left untouched so a quick “继续” cannot duplicate a
+                // paid provider request that is still returning. The explicit
+                // in-flight guard above makes the state transition atomic from
+                // the user perspective instead of risking a duplicate call.
+                Db::name('aigc_short_drama_planning_unit')->where([
+                    'tenant_id' => $tenantId,
+                    'user_id' => $userId,
+                    'task_id' => $taskId,
+                ])->whereIn('status', ['failed', 'waiting'])->update([
+                    'status' => 'pending',
+                    'error' => '',
+                    'update_time' => time(),
+                ]);
+                $task->save([
+                    'status' => self::STATUS_PENDING,
+                    'error' => '',
+                    'finished_at' => 0,
+                    // New execution epochs fence late callbacks from the
+                    // stopped attempt before any subsequent unit is sent.
+                    'retry_count' => (int)$task['retry_count'] + 1,
+                    'current_step' => '等待继续未完成部分',
+                    'update_time' => time(),
+                ]);
                 return self::formatTask($task->toArray(), false);
             }
             return self::createScriptPlan($tenantId, $userId, $request, (int)$task['project_id'],
@@ -5162,13 +5200,28 @@ class AigcShortDramaService
         if (in_array((string)$task['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
             return self::formatTask($task->toArray(), false);
         }
+        $request = self::jsonDecode((string)$task['request_json']);
+        $fenceExecution = ShortDramaStoryWorkflow::workerOwned($request)
+            || (int)($request['_generation_version'] ?? 0) >= 3;
         $task->save([
             'status' => self::STATUS_CANCELED,
             'error' => 'Task has been canceled',
             'progress' => 0,
+            'current_step' => '已停止，输入继续可重新提交',
+            'retry_count' => $fenceExecution ? (int)$task['retry_count'] + 1 : (int)$task['retry_count'],
             'finished_at' => time(),
             'update_time' => time(),
         ]);
+        self::syncScriptPlanGenerationTask(
+            $tenantId,
+            $userId,
+            (int)$task['project_id'],
+            $taskId,
+            self::STATUS_CANCELED,
+            $request,
+            (array)($request['model_selections']['script_plan'] ?? []),
+            ['progress' => 0, 'error_msg' => '已停止生成', 'error_code' => 'canceled', 'finished_at' => time()]
+        );
         return self::formatTask($task->toArray(), false);
     }
 
