@@ -35,11 +35,11 @@ class ShortDramaScriptTimelineContractTest extends TestCase
             ''
         )['storyboard'];
 
-        self::assertCount(7, $storyboard);
+        self::assertCount(3, $storyboard);
         self::assertSame(30.0, array_sum(array_map(static fn(array $shot): float => (float)$shot['recommended_duration_seconds'], $storyboard)));
         self::assertStringContainsString('第一段明确画面', $storyboard[0]['visual_description']);
-        self::assertStringContainsString('第二段明确画面', $storyboard[2]['visual_description']);
-        self::assertStringContainsString('第三段明确画面', $storyboard[4]['visual_description']);
+        self::assertStringContainsString('第二段明确画面', $storyboard[1]['visual_description']);
+        self::assertStringContainsString('第三段明确画面', $storyboard[2]['visual_description']);
         self::assertSame('interior', $storyboard[0]['interior_exterior']);
     }
 
@@ -65,12 +65,12 @@ class ShortDramaScriptTimelineContractTest extends TestCase
 
         self::assertCount(7, $segments);
         self::assertStringContainsString('金色莲花品牌标志', $segments[6]['text']);
-        self::assertCount(15, $storyboard);
+        self::assertCount(7, $storyboard);
         self::assertSame(60.0, array_sum(array_map(static fn(array $shot): float => (float)$shot['recommended_duration_seconds'], $storyboard)));
-        self::assertSame('分镜15 57-60s', $storyboard[14]['title']);
-        self::assertStringContainsString('金色莲花品牌标志', $storyboard[14]['visual_description']);
-        self::assertStringNotContainsString('0‑8s', $storyboard[14]['visual_description']);
-        self::assertNotSame('：', mb_substr($storyboard[14]['visual_description'], 0, 1, 'UTF-8'));
+        self::assertSame('分镜7 52-60s', $storyboard[6]['title']);
+        self::assertStringContainsString('金色莲花品牌标志', $storyboard[6]['visual_description']);
+        self::assertStringNotContainsString('0‑8s', $storyboard[6]['visual_description']);
+        self::assertNotSame('：', mb_substr($storyboard[6]['visual_description'], 0, 1, 'UTF-8'));
     }
 
     public function testTimelineDurationWinsWhenItConflictsWithTheSelectedDuration(): void
@@ -111,8 +111,8 @@ class ShortDramaScriptTimelineContractTest extends TestCase
         $rule = $this->invoke('storyboardTargetRule', '测试故事', ['target_duration_seconds' => 60], [['id' => 'location_1']]);
 
         self::assertSame('selected_duration', $rule['code']);
-        self::assertSame(12, $rule['min_shots']);
-        self::assertSame(30, $rule['max_shots']);
+        self::assertSame(4, $rule['min_shots']);
+        self::assertSame(15, $rule['max_shots']);
     }
 
     public function testCleanupKeepsAutoRepairedStoryboardShots(): void

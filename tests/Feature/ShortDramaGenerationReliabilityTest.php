@@ -84,7 +84,7 @@ class ShortDramaGenerationReliabilityTest extends TestCase
                     preg_match('/scene_1_(\d+)_(\d+)/', $key, $matches);
                     $plan = ['storyboard' => []];
                     for ($i = (int)$matches[1]; $i < (int)$matches[1] + (int)$matches[2]; $i++) {
-                        $plan['storyboard'][] = ['shot_id' => 's1_' . $i, 'scene_ref_id' => 'l1', 'subject_ref_ids' => ['s1'], 'visual_description' => '调查' . $i, 'recommended_duration_seconds' => 3];
+                        $plan['storyboard'][] = ['shot_id' => 's1_' . $i, 'scene_ref_id' => 'l1', 'subject_ref_ids' => ['s1'], 'visual_description' => '调查' . $i, 'recommended_duration_seconds' => 5];
                     }
                 }
                 return ['result' => ['content' => json_encode($plan)]];
