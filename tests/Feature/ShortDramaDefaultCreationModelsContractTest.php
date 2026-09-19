@@ -52,7 +52,6 @@ class ShortDramaDefaultCreationModelsContractTest extends TestCase
             'product_id' => 19,
             'name' => '市场模型名称',
             'description' => '市场模型介绍',
-            'display_icon' => 'uploads/power-market/model.png',
             // This is the old short-drama fallback and must never be presented
             // as the selected market model icon.
             'image' => 'resource/image/common/menu_generator.png',
@@ -60,7 +59,7 @@ class ShortDramaDefaultCreationModelsContractTest extends TestCase
 
         self::assertSame('市场模型名称', $option['name']);
         self::assertSame('市场模型介绍', $option['description']);
-        self::assertStringEndsWith('uploads/power-market/model.png', $option['display_icon']);
+        self::assertSame('', $option['display_icon']);
         self::assertSame($option['display_icon'], $option['image']);
 
         $withoutMarketIcon = $this->invoke('formatUserModelOption', [
