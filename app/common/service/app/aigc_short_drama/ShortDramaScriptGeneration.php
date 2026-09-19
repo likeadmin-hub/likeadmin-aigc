@@ -137,8 +137,8 @@ final class ShortDramaScriptGeneration
                 || ($shot['scene_ref_id'] ?? '') !== $beat['scene_ref_id'] || empty($shot['visual_description'])
                 || !is_array($shot['subject_ref_ids'] ?? null)
                 || array_diff($shot['subject_ref_ids'], array_column($plan['subjects'], 'id'))
-                || (float)($shot['recommended_duration_seconds'] ?? 0) <= 0) {
-                throw new RuntimeException('分镜标识、素材引用或正文无效', 422);
+                || !ShortDramaShotDuration::contains($shot['recommended_duration_seconds'] ?? null)) {
+                throw new RuntimeException('分镜标识、素材引用或正文无效，单镜头时长须为 4-15 秒', 422);
             }
         }
     }

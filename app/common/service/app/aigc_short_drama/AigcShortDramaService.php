@@ -3944,7 +3944,7 @@ class AigcShortDramaService
                 'voice_role' => '',
                 'dialogue' => '',
                 'frame_type' => 'normal',
-                'recommended_duration_seconds' => 3,
+                'recommended_duration_seconds' => ShortDramaShotDuration::DEFAULT,
                 'selected_image_asset_id' => 0,
                 'selected_video_asset_id' => 0,
                 'sort' => $insertIndex + 1,
@@ -9883,7 +9883,7 @@ class AigcShortDramaService
             if (empty($asset)) {
                 throw new Exception('当前分镜缺少可导出的图片或视频：' . $shotId);
             }
-            $asset['duration'] = max(1, (float)($asset['duration'] ?? 0) ?: (float)($shot['recommended_duration_seconds'] ?? 3));
+            $asset['duration'] = max(1, (float)($asset['duration'] ?? 0) ?: (float)($shot['recommended_duration_seconds'] ?? ShortDramaShotDuration::DEFAULT));
             $asset['timeline_shot_id'] = $shotId;
             $assets[] = $asset;
         }
@@ -10007,7 +10007,7 @@ class AigcShortDramaService
                 if ($imagePath === '') {
                     $imagePath = self::downloadImageForFfmpeg($asset, $workDir, (int)$index + 1);
                 }
-                $path = self::imageClipForFfmpeg($imagePath, $workDir, $ffmpegCmd, (int)$index + 1, (float)($asset['duration'] ?? 3));
+                $path = self::imageClipForFfmpeg($imagePath, $workDir, $ffmpegCmd, (int)$index + 1, (float)($asset['duration'] ?? ShortDramaShotDuration::DEFAULT));
             } else {
                 $path = self::localPublicFilePath((string)($asset['uri'] ?? ''));
                 if ($path === '') {
@@ -10880,7 +10880,7 @@ class AigcShortDramaService
         }
         $duration = (float)($params['duration'] ?? 0);
         if ($duration <= 0) {
-            $duration = (float)($shot['recommended_duration_seconds'] ?? $shot['duration'] ?? 3);
+            $duration = (float)($shot['recommended_duration_seconds'] ?? $shot['duration'] ?? ShortDramaShotDuration::DEFAULT);
         }
         $prompt = self::applyConfiguredGenerationPromptTemplate($tenantId, $templateKey, $prompt, [
             'task_type' => $taskType,
@@ -11651,7 +11651,7 @@ class AigcShortDramaService
 
     private static function buildShotVideoPrompt(array $shot, array $params, array $plan): string
     {
-        $duration = (int)($params['duration'] ?? $shot['recommended_duration_seconds'] ?? 3);
+        $duration = (int)($params['duration'] ?? $shot['recommended_duration_seconds'] ?? ShortDramaShotDuration::DEFAULT);
         $duration = max(1, $duration);
         $context = self::shotPromptContext($shot, $params, $plan);
         $flexiblePrompt = self::shotFlexibleVideoPrompt($context['shot'], $params);
@@ -11798,7 +11798,7 @@ class AigcShortDramaService
 
     private static function buildReadableShotVideoPrompt(array $shot, int $index = 0, array $timeline = []): string
     {
-        $duration = max(1, (int)round((float)($shot['recommended_duration_seconds'] ?? $shot['duration'] ?? 3)));
+        $duration = max(1, (int)round((float)($shot['recommended_duration_seconds'] ?? $shot['duration'] ?? ShortDramaShotDuration::DEFAULT)));
         $timeRange = self::readableShotTimeRange($shot, $index, $timeline, $duration);
         $primaryVisual = self::cleanShotVideoPromptText((string)($shot['visual_description'] ?? ''));
         if ($primaryVisual === '') {
@@ -11835,7 +11835,7 @@ class AigcShortDramaService
         $prompt = trim(self::cleanShotVideoPromptText($prompt));
         $values = self::readableShotVideoPromptValues($prompt);
         $shotId = self::readableShotId($shot, $index);
-        $duration = max(1, (int)round((float)($shot['recommended_duration_seconds'] ?? $shot['duration'] ?? 3)));
+        $duration = max(1, (int)round((float)($shot['recommended_duration_seconds'] ?? $shot['duration'] ?? ShortDramaShotDuration::DEFAULT)));
         $timeRange = self::readableShotTimeRange($shot, $index, $timeline, $duration);
         $primaryVisual = self::cleanShotVideoPromptText((string)($shot['visual_description'] ?? ''));
         if ($primaryVisual === '') {
@@ -12017,7 +12017,7 @@ class AigcShortDramaService
 
     private static function buildTaggedSingleShotVideoPrompt(array $shot, array $context): string
     {
-        $duration = max(1, (int)($context['duration'] ?? $shot['recommended_duration_seconds'] ?? 3));
+        $duration = max(1, (int)($context['duration'] ?? $shot['recommended_duration_seconds'] ?? ShortDramaShotDuration::DEFAULT));
         $durationMs = self::shotDurationMilliseconds($duration);
         $noSubjectShot = !empty($context['no_subject_shot']);
         $locationText = self::buildShotLocationTags(
@@ -13029,7 +13029,7 @@ class AigcShortDramaService
                 $index,
                 ['start_seconds' => $elapsedSeconds]
             );
-            $elapsedSeconds += max(1, (int)round((float)($shot['recommended_duration_seconds'] ?? 3)));
+            $elapsedSeconds += max(1, (int)round((float)($shot['recommended_duration_seconds'] ?? ShortDramaShotDuration::DEFAULT)));
         }
         $plan['storyboard'] = $storyboard;
         $plan['storyboard_breaking_diagnostics'] = self::storyboardBreakingDiagnostics(
@@ -13457,8 +13457,8 @@ class AigcShortDramaService
                 }
             }
             $duration = (float)($shot['recommended_duration_seconds'] ?? 0);
-            if ($duration < 2 || $duration > 5) {
-                $issues[] = self::planReviewIssue('shot.duration.invalid', 'warning', $path . '.recommended_duration_seconds', '分镜 ' . $shotId . ' 时长应在 2-5 ');
+            if (!ShortDramaShotDuration::contains($duration)) {
+                $issues[] = self::planReviewIssue('shot.duration.invalid', 'warning', $path . '.recommended_duration_seconds', '分镜 ' . $shotId . ' 时长应在 4-15 秒');
             }
             $noSubjectShot = self::isNoSubjectShot($shot);
             $imagePrompt = (string)($shot['image_prompt'] ?? '');
@@ -13554,8 +13554,8 @@ class AigcShortDramaService
                 $repairCount++;
             }
             $duration = (float)($shot['recommended_duration_seconds'] ?? 0);
-            if ($duration < 2 || $duration > 5) {
-                $shot['recommended_duration_seconds'] = max(2, min(5, $duration > 0 ? $duration : 3));
+            if (!ShortDramaShotDuration::contains($duration)) {
+                $shot['recommended_duration_seconds'] = ShortDramaShotDuration::normalize($duration);
                 $repairCount++;
             }
             $noSubjectShot = self::isNoSubjectShot($shot);
@@ -16358,6 +16358,12 @@ class AigcShortDramaService
 
     private static function assembleScriptPromptRequest(int $tenantId, string $prompt, array $request, string $title): array
     {
+        // Validate explicit timing before any paid call; never silently stretch a locked timeline.
+        if (!ShortDramaStoryWorkflow::unconfirmedStory($request) && !ShortDramaPlanningContext::isOutline($request)) {
+            foreach (self::extractTimelineSegments($prompt) as $segment) ShortDramaShotDuration::split((int)$segment['duration_seconds']);
+            $target = self::planningTargetDurationSeconds($prompt, $request);
+            if ($target > 0 && $target < ShortDramaShotDuration::MIN) throw new Exception('分镜总时长不能少于 4 秒，请调整目标时长');
+        }
         // Once the story setting is confirmed, it is the canonical source for
         // outlines. Repeating the original attachment/inspiration text in
         // every batch makes calls larger without adding an authoritative fact.
@@ -16382,7 +16388,7 @@ class AigcShortDramaService
             $system[] = ShortDramaPromptCatalog::priority();
             if (ShortDramaStoryWorkflow::scopeInstruction($request) !== '') $system[] = ShortDramaStoryWorkflow::scopeInstruction($request);
             if ($skillInstruction !== '') $system[] = $skillInstruction;
-            return ['system_prompt' => implode("\n\n", $system), 'content' => self::buildCompactScriptPlanPrompt($prompt, $request, $title, true)];
+            return ['system_prompt' => ShortDramaShotDuration::upgradeInstructions(implode("\n\n", $system)) . "\n\n" . ShortDramaShotDuration::INSTRUCTION, 'content' => self::buildCompactScriptPlanPrompt($prompt, $request, $title, true)];
         }
         $config = self::scriptPromptConfig($tenantId, $settings['multi_episode']);
         if ($settings['multi_episode']) {
@@ -16398,9 +16404,9 @@ class AigcShortDramaService
         }
         return [
             'content' => self::renderScriptPlanPromptTemplate($config['script_prompt_template'], self::buildCompactScriptPlanPrompt($prompt, $request, $title), $prompt, $request, $title),
-            'system_prompt' => $config['script_system_prompt']
+            'system_prompt' => ShortDramaShotDuration::upgradeInstructions($config['script_system_prompt']
                 . (ShortDramaStoryWorkflow::scopeInstruction($request) !== '' ? "\n\n" . ShortDramaStoryWorkflow::scopeInstruction($request) : '')
-                . ($skillInstruction !== '' ? "\n\n" . $skillInstruction : ''),
+                . ($skillInstruction !== '' ? "\n\n" . $skillInstruction : '')) . "\n\n" . ShortDramaShotDuration::INSTRUCTION,
         ];
     }
 
@@ -17100,7 +17106,7 @@ class AigcShortDramaService
                 ? '本次必须修复分集大纲：episodes 必须恰好包含每一集，episode_number 连续；每集都必须有 title、story_outline、conflict_point、ending_hook。保留已完整分集的剧情内容，不得复制另一集代替缺失集。'
                 : '',
             $durationMismatch
-                ? '本次必须修复分镜时长：storyboard 所有 recommended_duration_seconds 之和必须精确等于用户选择的目标时长；每个镜头保持 2-5 秒。'
+                ? '本次必须修复分镜时长：storyboard 所有 recommended_duration_seconds 之和必须精确等于用户选择的目标时长；每个镜头保持 4-15 秒。'
                 : '',
             $storyboardRepairRule,
             '必须保留原有 title、story_outline、script_lines、subjects、locations 的主要内容',
@@ -17303,7 +17309,7 @@ class AigcShortDramaService
             'dialogue' => 'Chinese dialogue or empty string',
             'voice_role' => 'actual speaking character name; use a subjects name when visible, retain an explicitly supplied off-screen role name, empty only for narration or silence',
             'speech_type' => 'character|narration|none',
-            'recommended_duration_seconds' => 3,
+            'recommended_duration_seconds' => ShortDramaShotDuration::DEFAULT,
         ];
         $schema = [
             'title' => 'short Chinese title',
@@ -17416,7 +17422,7 @@ class AigcShortDramaService
             : ($multiEpisode
             ? "This is a serialized multi-episode short drama. The full series has {$totalEpisodeCount} episodes. episodes must contain exactly {$episodeCount} items numbered 1-{$episodeCount} for this provider request; this request covers full-series episodes {$batchStart}-{$batchEnd}, and the application will offset these local numbers after validation. First establish series_bible as the large story, stable character/location continuity, and episode direction. Then write every requested episode's complete story, script beats, subjects used in that episode, scenes, and shots. Do not return an outline-only episode and do not return a single representative shot for an episode. Every episode must contain at least one scene and at least four concrete shots; episodes before the last must end with a concrete hook, and the final episode must resolve the main conflict. Every storyboard shot must have episode_number, scene_ref_id, and subject_ref_ids.\n"
             : ($targetDurationSeconds > 0
-                ? "This is a single-episode short film. Return episodes as an empty array, use episode_number 1 for all storyboard shots, and target approximately {$targetDurationSeconds} seconds by splitting the complete story into concrete 2-5 second shots.\n"
+                ? "This is a single-episode short film. Return episodes as an empty array, use episode_number 1 for all storyboard shots, and target approximately {$targetDurationSeconds} seconds by splitting the complete story into concrete 4-15 second shots.\n"
                 : "This is a single-episode short film. Return episodes as an empty array and use episode_number 1 for all storyboard shots. Determine the complete story, shot count and durations from the user's inspiration. There is no fixed total duration or shot count; do not pad or shorten the story to meet a default.\n")));
         if ($multiEpisode && $batchContext !== '' && ($request['workflow_variant'] ?? '') !== ShortDramaStoryWorkflow::VARIANT) {
             $batchContextData = json_decode($batchContext, true);
@@ -17430,7 +17436,7 @@ class AigcShortDramaService
         $storyboardContract = (!$multiEpisode || $multiEpisodeStage === self::MULTI_EPISODE_STAGE_PRODUCTION)
             ? ($multiEpisode
                 ? "For multi-episode output, episodes[].scenes[].shots[] is the source of truth. The top-level storyboard may mirror those shots for backward compatibility, but it must not replace the per-episode scenes and shots. Use stable subject references from subjects and unique scene ids.\n"
-                : "For single-episode output, storyboard must cover the whole beginning, development, conflict, turn, climax, and ending, normally around 12-24 shots for the one-minute default.\n")
+                : "For single-episode output, storyboard must cover the whole beginning, development, conflict, turn, climax, and ending, with shot count determined by the story and requested duration.\n")
             : ($multiEpisodeStage === self::MULTI_EPISODE_STAGE_STORY
                 ? "For stage 1, storyboard must be an empty array.\n"
                 : "For stage 2, storyboard must be an empty array and all episode items must remain outline-only.\n");
@@ -17458,7 +17464,7 @@ class AigcShortDramaService
             . $storyboardContract
             . "subject_references are explicitly @-selected locked library entities, not loose writing hints. Every reference must appear exactly once in subjects with its identical name and library_subject_id. Treat its name as a proper noun even when it looks like a generic Chinese description (for example 美女、帅哥、老人); never rename, translate, paraphrase, or replace it. Preserve the referenced category, gender, age_stage and supplied images. Never change a referenced male into female or a referenced female into male, and never create a duplicate for the same selected reference.\n"
             . "subjects must contain stable items with non-empty id, name, description, and category. locations must contain chronological items with non-empty id, name, and description.\n"
-            . "Every visual_description must be a specific visible action, never a planning phrase. Use 2-5 seconds per shot. "
+            . "Every visual_description must be a specific visible action, never a planning phrase. Use 4-15 seconds per shot. "
             . ($multiEpisode ? "Keep every string concise so the entire response fits within {$responseCharacterLimit} Chinese characters.\n" : "Keep wording concise, but preserve the complete story; there is no fixed character-count target.\n")
             . "Context: " . self::jsonEncode($context) . "\n"
             . "JSON schema: " . self::jsonEncode($schema);
@@ -18235,7 +18241,7 @@ class AigcShortDramaService
                 'target_rule_max_shots' => (int)($storyboardTargetRule['max_shots'] ?? 0),
                 'duration_rule' => $timelineOverride
                     ? 'Follow timeline_segments strictly. Total storyboard duration must equal timeline_total_seconds exactly.'
-                    : 'Every shot is 2-5 seconds. Total storyboard duration should approach effective_target_duration_seconds when it is greater than 0.',
+                    : 'Every shot is 4-15 seconds. Total storyboard duration should approach effective_target_duration_seconds when it is greater than 0.',
             ],
             'script_agent_contract' => [
                 'role' => 'film short planning agent, script doctor, visual director, and AI video storyboard planner',
@@ -18333,7 +18339,7 @@ class AigcShortDramaService
                     'voice_role' => '',
                     'dialogue' => '',
                     'frame_type' => 'normal',
-                    'recommended_duration_seconds' => 3,
+                    'recommended_duration_seconds' => ShortDramaShotDuration::DEFAULT,
                     'scene_ref_id' => 'location_1',
                     'subject_ref_ids' => ['subject_1'],
                     'image_prompt' => '80-180字中文画面生图指令，必须包含可见主体、动作表情、绑定场景、构图景别、光线氛围、风格质感；禁止包含“本镜头、推动剧情、情绪升级、视觉任务、下一拍、分镜、镜头编号、参考已提供”等策划话术；只描述当前画面可见内容，不写英文',
@@ -18355,7 +18361,7 @@ class AigcShortDramaService
             . "5. Expand cinematically only where needed. Short input needs story logic, emotional progression, visual details, and rhythm. Complete input should keep its original structure and only improve film execution.\n"
             . "6. Translate style names into executable visual language: base_style, visual_description, color_tone, lighting_design, camera_texture, atmosphere_keywords, subject visual locks, scene visual locks, image_prompt, and video_prompt.\n"
             . "6A. Subject category is mandatory and must describe the subject itself, not accessories it carries or wears. Use character only for visible human characters, animal for animals/non-human creatures, prop for books, scarves, letters, keys, photos, objects, tools, vehicles, and physical symbols, and symbol for abstract/signature imagery. If a human character holds a book, wears a scarf, carries a key, or has clothing/props in the visual_prompt, the category must still be character. If a subject is prop/object, never describe face, outfit, body shape, hairstyle, expression, or person identity; describe only material, color, shape, wear, scale, pattern, and fixed details, and add negative constraints against people, hands, faces, bodies, models, and wearing effects.\n"
-            . "6B. Prompt fields must be separated by usage and must not all repeat the same text. subjects.main_image_prompt is for one confirmed subject reference image; subjects.three_view_prompt is for character three-view or object multi-angle design; locations.scene_image_prompt is for a reusable empty environment reference; storyboard.image_prompt is for a single still keyframe; storyboard.video_prompt is for 2-5 second motion from the first frame. Negative prompts must also be separated: character subject prompts and storyboard shots with visible subject_ref_ids must never include constraints like 不要人物、不要角色、不要脸、不要身体、不要肖' empty shots or scenes may include those constraints.\n"
+            . "6B. Prompt fields must be separated by usage and must not all repeat the same text. subjects.main_image_prompt is for one confirmed subject reference image; subjects.three_view_prompt is for character three-view or object multi-angle design; locations.scene_image_prompt is for a reusable empty environment reference; storyboard.image_prompt is for a single still keyframe; storyboard.video_prompt is for 4-15 second motion from the first frame. Negative prompts must also be separated: character subject prompts and storyboard shots with visible subject_ref_ids must never include constraints like 不要人物、不要角色、不要脸、不要身体、不要肖' empty shots or scenes may include those constraints.\n"
             . "6C. subject_references are explicitly @-selected locked library entities, not loose writing hints. Every reference must appear exactly once in subjects with its identical name and library_subject_id. Treat its name as a proper noun even when it looks like a generic Chinese description (for example 美女、帅哥、老人); never rename, translate, paraphrase, or replace it. Preserve the referenced category, gender, age_stage and supplied image/three-view. Never change a referenced male into female or a referenced female into male, and never create a duplicate character for the same selected library reference.\n"
             . "7. Extract stable subjects before storyboard. Include main characters, important supporting characters, character variants, monsters, animals, non-human roles, key props, symbolic marks, and special imagery when present. Every recurring character, prop, and place must keep one stable id.\n"
             . "8. Extract stable locations before storyboard and sort them by story_order, which must match the plot chronology. Each location description must include story function, main visual elements, and emotional atmosphere. Do not list scenes by visual preference; list them by when the story happens.\n"
@@ -18364,11 +18370,11 @@ class AigcShortDramaService
             . "11. Split storyboard by AI video shot granularity, not by literary paragraph. Each shot must have exactly one clear visual task: establish space, show a character, show a key prop, show a reaction, push one action, create suspense, intensify emotion, reveal information, complete a transition, or present a reversal.\n"
             . "12. Do not pack complex actions into one shot. If one plot sentence contains multiple actions, split them into consecutive shots. For example, 'she opens the door, sees the monster, turns and runs' must become separate shots: hand touches doorknob, door slowly opens, monster appears behind door, protagonist terrified close-up, protagonist turns and runs.\n"
             . "13. Important emotions and reversals must be decomposed into multiple short shots. Climax, truth reveal, key prop appearance, breakdown, relationship change, and reversal nodes must not be summarized in one shot.\n"
-            . "14. recommended_duration_seconds must be 2, 3, 4, or 5 only. Normal action shots: 2-3 seconds. Emotional close-ups: 3-4 seconds. Establishing shots: 3-5 seconds. Climax/reveal shots: 4-5 seconds.\n"
+            . "14. recommended_duration_seconds must be between 4 and 15 seconds. Choose the duration to fit visible action, dialogue and emotion; do not force every shot to the default duration.\n"
             . "15. There is no fixed storyboard count by text length. Never use 8 as the default answer. If target duration or timeline exists, follow the duration/timeline rule. Otherwise storyboard_target_rule is authoritative: storyboard.length must be at least storyboard_target_rule.min_shots and must not exceed storyboard_target_rule.max_shots when max_shots is greater than 0. Judge the story complexity first, then apply storyboard_complexity_rules and storyboard_breaking_intensity_instruction: simple talking-head/advertising/single-scene content uses light splitting, ordinary short films use standard splitting, complex dream/suspense/reversal films use detailed splitting, and complex multi-scene plots use cinematic detailed splitting. Do not compress key shots just to keep the output short, and do not split meaningless filler shots just to pad count. Use recommended_storyboard_count_hint only as a pacing reference.\n"
             . "16. Each shot expresses one visible action or one visual information task and binds exactly one scene_ref_id from locations. subject_ref_ids must include only subjects visible in the current image frame; never include characters, props, animals, symbols, or locations that do not appear on screen. image_prompt must not mention any off-screen character, prop, object, or location, and each image_prompt may describe only one core visible action.\n"
             . "16A. Storyboard quality gate: every location in locations must appear in storyboard at least once, and normally at least 2-4 shots per location. If effective_target_duration_seconds is set, distribute shots across all ordered locations until the total duration is close to that target. Never stop after only the first one or two locations when later locations exist.\n"
-            . "16B. If timeline_segments is not empty and selected_duration_hint is empty, the user has provided a finished timecoded script. Storyboard must strictly follow timeline_segments: use one storyboard item per time segment by default; split a segment only when it is longer than 5 seconds; the sum of recommended_duration_seconds must equal timeline_total_seconds exactly; do not expand a 30-second timecoded script into a longer film.\n"
+            . "16B. If timeline_segments is not empty and selected_duration_hint is empty, the user has provided a finished timecoded script. Storyboard must strictly follow timeline_segments: use one storyboard item per time segment by default; split a segment only when it is longer than 15 seconds; segments shorter than 4 seconds must be adjusted by the user before generation; the sum of recommended_duration_seconds must equal timeline_total_seconds exactly; do not expand a 30-second timecoded script into a longer film.\n"
             . "17. Each storyboard item must include Simplified Chinese visual_description, composition, camera_movement, voice_role, dialogue, shot_type, frame_type, image_prompt, image_negative_prompt, video_prompt, video_negative_prompt, and recommended_duration_seconds. visual_description must describe only visible people, objects, actions, spatial relations, light, and atmosphere in the frame; it must not be a planning note or abstract function sentence, and must never use phrases such as “主要角色出现、人物状态、情绪开始推进、角色完成一个单一动作、推动剧情、画面任务、镜头结果明确' shot_type must be the user-facing visual type, such as 普通画面、空镜、人物特写、道具特写、动作镜头、转场镜头、情绪镜' frame_type is only the machine value normal or lip_sync. composition must state shot size, angle, and framing method in Chinese, such as 远景、近景特写、极近特写、俯拍、仰拍、对称构图、三分法构图或过肩视' camera_movement must state movement in Chinese, such as 固定镜头、缓慢推镜头、拉镜头、横摇、跟拍、手持晃动、甩镜头、环绕或俯冲. image_prompt must be an 80-180 Chinese-character image generation instruction, not a planning note. It must include visible subject, action/expression, bound scene, composition/shot size, lighting/mood, and style/texture; describe only current visible frame content; do not include English prompt words; do not use planning phrases such as “本镜头、推动剧情、情绪升级、视觉任务、下一拍、分镜、镜头编号、参考已提供' image_negative_prompt must match whether the shot has visible subjects: if subject_ref_ids is empty or shot_type is 空镜, prohibit people; otherwise do not prohibit people, face, body, or portrait. video_prompt is a user-visible single-shot director note and must be exactly 6 labeled lines: 分镜{shot_id}：{start_time}-{end_time}, 景别：{shot_type}, 构图：{composition}, 运镜手法：{camera_movement}, 画面内容：{visible subject/action/result only}, 声音：{dialogue/voice_role/sound_effect/silence}. It must describe only the current single shot, mention only visible subject_ref_ids, and never include backend execution tags such as <location>, <role>, or <duration-ms>, because those tags are generated only by backend from real bound assets. Empty shots must have no character action in 画面内容 and 声音 must clearly say no one speaks. Do not use planning phrases such as “情绪升级、推动剧情、视觉任务、本镜头、下一拍、做出反应、生成视频片段' video_negative_prompt must not include 不要人物、不要角色、不要脸、不要身体、不要肖'when subject_ref_ids is not empty and shot_type is not 空镜.\n"
             . "18. frame_type can only be normal or lip_sync. interior_exterior can only be interior or exterior.\n"
             . "19. User-facing fields must be Simplified Chinese: title, type_judgement, core_theme, opening_feedback, planning_steps, story_outline, script_lines, music_plan, art_style, subjects.name, subjects.description, subjects.visual_prompt, subjects.main_image_prompt, subjects.three_view_prompt, subjects.main_negative_prompt, subjects.three_view_negative_prompt, locations.name, locations.description, locations.visual_prompt, locations.scene_image_prompt, locations.scene_negative_prompt, storyboard.act, storyboard.scene_name, storyboard.time_of_day, storyboard.visual_description, storyboard.composition, storyboard.camera_movement, storyboard.shot_type, storyboard.action, storyboard.result, storyboard.atmosphere, storyboard.image_prompt, storyboard.image_negative_prompt, storyboard.video_prompt, storyboard.video_negative_prompt, voice_role, dialogue, bgm_prompt, sound_effect. Do not return English generation prompts to the frontend. storyboard.act is the only place for act/scene group titles; never duplicate storyboard.act content into script_lines.\n"
@@ -18831,6 +18837,7 @@ class AigcShortDramaService
         $template = self::normalizePromptTemplatePlaceholderSyntax(
             self::normalizeScriptPromptConfigValue($template, self::defaultScriptPromptTemplate())
         );
+        $template = ShortDramaShotDuration::upgradeInstructions($template);
         $episodeSettings = self::normalizeEpisodeSettings($request);
         $multiEpisode = $episodeSettings['multi_episode'];
         $episodeCount = $episodeSettings['episode_count'];
@@ -20688,7 +20695,7 @@ class AigcShortDramaService
             if ($soundEffect === '') {
                 $soundEffect = ShortDramaPromptCatalog::text('fill.sound');
             }
-            $durationSeconds = max(2, min(5, (float)($item['recommended_duration_seconds'] ?? 3)));
+            $durationSeconds = ShortDramaShotDuration::normalize($item['recommended_duration_seconds'] ?? null);
             $shot = [
                 'shot_id' => trim((string)($item['shot_id'] ?? '')) ?: (string)($index + 1),
                 // Keep an omitted episode number distinguishable from an
@@ -21473,8 +21480,8 @@ class AigcShortDramaService
                 if ($needed <= 0) {
                     break;
                 }
-                $duration = (float)($storyboard[$index]['recommended_duration_seconds'] ?? 3);
-                $room = max(0, 5 - $duration);
+                $duration = (float)($storyboard[$index]['recommended_duration_seconds'] ?? ShortDramaShotDuration::DEFAULT);
+                $room = max(0, ShortDramaShotDuration::MAX - $duration);
                 if ($room <= 0) {
                     continue;
                 }
@@ -21487,7 +21494,7 @@ class AigcShortDramaService
             $appendCursor = 0;
             while ($needed > 0 && $locationCount > 0) {
                 $location = (array)$locations[$appendCursor % $locationCount];
-                $duration = min(5, max(2, $needed));
+                $duration = min(ShortDramaShotDuration::MAX, max(ShortDramaShotDuration::MIN, $needed));
                 $storyboard[] = self::supplementalStoryboardShot(
                     $location,
                     $subjects,
@@ -21508,8 +21515,8 @@ class AigcShortDramaService
                 if ($excess <= 0) {
                     break;
                 }
-                $duration = (float)($storyboard[$index]['recommended_duration_seconds'] ?? 3);
-                $room = max(0, $duration - 2);
+                $duration = (float)($storyboard[$index]['recommended_duration_seconds'] ?? ShortDramaShotDuration::DEFAULT);
+                $room = max(0, $duration - ShortDramaShotDuration::MIN);
                 if ($room <= 0) {
                     continue;
                 }
@@ -21522,15 +21529,15 @@ class AigcShortDramaService
 
         // Floating-point values from providers can leave a tiny tail after
         // the constrained pass. Apply it only to a shot that remains within
-        // the supported 2-5 second range; otherwise review blocks the result
+        // the supported 4-15 second range; otherwise review blocks the result
         // and the JSON repair request receives the exact target.
         $finalSeconds = self::storyboardDurationSeconds($storyboard);
         $remaining = $targetSeconds - $finalSeconds;
         if (abs($remaining) > 0.001) {
             foreach (array_reverse(array_keys($storyboard)) as $index) {
-                $duration = (float)($storyboard[$index]['recommended_duration_seconds'] ?? 3);
+                $duration = (float)($storyboard[$index]['recommended_duration_seconds'] ?? ShortDramaShotDuration::DEFAULT);
                 $candidate = $duration + $remaining;
-                if ($candidate >= 2 && $candidate <= 5) {
+                if (ShortDramaShotDuration::contains($candidate)) {
                     $storyboard[$index]['recommended_duration_seconds'] = $candidate;
                     break;
                 }
@@ -21605,21 +21612,7 @@ class AigcShortDramaService
 
     private static function splitTimelineDuration(int $duration): array
     {
-        $duration = max(1, $duration);
-        if ($duration <= 5) {
-            return [$duration];
-        }
-        $parts = [];
-        $remaining = $duration;
-        while ($remaining > 5) {
-            $next = ($remaining - 5) === 1 ? 4 : 5;
-            $parts[] = $next;
-            $remaining -= $next;
-        }
-        if ($remaining > 0) {
-            $parts[] = $remaining;
-        }
-        return $parts;
+        return ShortDramaShotDuration::split($duration);
     }
 
     private static function timelineStoryboardShot(array $source, array $locations, array $subjects, array $segment, int $segmentIndex, int $partIndex, int $globalIndex, float $duration, string $storyOutline = ''): array
@@ -21815,7 +21808,7 @@ class AigcShortDramaService
                 'composition' => '中景，三分法构图，角色与环境同时可见',
                 'camera' => '轻微跟拍或缓慢横移，保持角色动作清晰',
                 'type' => '普通画面',
-                'duration' => 3,
+                'duration' => ShortDramaShotDuration::DEFAULT,
             ],
             3 => [
                 'title' => $sceneName . '关键信息',
@@ -21823,7 +21816,7 @@ class AigcShortDramaService
                 'composition' => '近景或道具特写，视觉焦点集中，背景适度虚化',
                 'camera' => '缓慢推镜头，强化信息揭示',
                 'type' => '道具特写',
-                'duration' => 3,
+                'duration' => ShortDramaShotDuration::DEFAULT,
             ],
             4 => [
                 'title' => $sceneName . '情绪反应',
@@ -21839,7 +21832,7 @@ class AigcShortDramaService
                 'composition' => '中近景，动作方向清晰，画面留出转场空间',
                 'camera' => '跟拍或拉镜头，动作结束后自然转场',
                 'type' => '动作镜头',
-                'duration' => 3,
+                'duration' => ShortDramaShotDuration::DEFAULT,
             ],
         ];
         $template = $templates[$slot];
@@ -22398,7 +22391,7 @@ class AigcShortDramaService
             'voice_role' => mb_substr(trim((string)($payload['voice_role'] ?? '')), 0, 100, 'UTF-8'),
             'dialogue' => mb_substr(trim((string)($payload['dialogue'] ?? '')), 0, 1000, 'UTF-8'),
             'frame_type' => in_array($frameType, ['normal', 'lip_sync'], true) ? $frameType : 'normal',
-            'recommended_duration_seconds' => min(5, max(2, (float)($payload['recommended_duration_seconds'] ?? 3))),
+            'recommended_duration_seconds' => ShortDramaShotDuration::normalize($payload['recommended_duration_seconds'] ?? null),
         ];
     }
 
@@ -22518,7 +22511,7 @@ class AigcShortDramaService
             'voice_role' => (string)($row['voice_role'] ?? ''),
             'dialogue' => (string)($row['dialogue'] ?? ''),
             'frame_type' => (string)($row['frame_type'] ?? 'normal'),
-            'recommended_duration_seconds' => (float)($row['recommended_duration_seconds'] ?? 3),
+            'recommended_duration_seconds' => (float)($row['recommended_duration_seconds'] ?? ShortDramaShotDuration::DEFAULT),
         ]);
     }
 
@@ -23948,9 +23941,9 @@ class AigcShortDramaService
             return [
                 'code' => 'selected_duration',
                 'label' => '用户选择的 ' . $targetDuration . ' 秒时长',
-                'description' => '按每个镜头 2-5 秒拆分，并使分镜时长总和精确等于用户选择的时长',
+                'description' => '按每个镜头 4-15 秒拆分，并使分镜时长总和精确等于用户选择的时长',
                 'min_shots' => $minimum,
-                'max_shots' => max($minimum, (int)ceil($targetDuration / 2)),
+                'max_shots' => max($minimum, (int)floor($targetDuration / ShortDramaShotDuration::MIN)),
                 'sort' => 0,
                 'enabled' => true,
             ];
@@ -24279,7 +24272,7 @@ class AigcShortDramaService
 
         $targetDuration = self::planningTargetDurationSeconds($prompt, $request);
         if ($targetDuration > 0) {
-            return max($sceneCount > 0 ? $sceneCount * 3 : 1, (int)ceil($targetDuration / 5));
+            return max(1, (int)ceil($targetDuration / ShortDramaShotDuration::MAX));
         }
         return 1;
     }
@@ -24294,14 +24287,14 @@ class AigcShortDramaService
 
         $targetDuration = self::planningTargetDurationSeconds($prompt, $request);
         if ($targetDuration > 0) {
-            $min = max(1, (int)ceil($targetDuration / 5));
-            $max = max($min, (int)ceil($targetDuration / 2));
-            return $min . '-' . $max . ' shots based on target duration, distributed by ordered scenes and one visual task per shot. Each shot lasts 2-5 seconds. Do not round, compress, or pad the result to 8.';
+            $min = max(1, (int)ceil($targetDuration / ShortDramaShotDuration::MAX));
+            $max = max($min, (int)floor($targetDuration / ShortDramaShotDuration::MIN));
+            return $min . '-' . $max . ' shots based on target duration, distributed by ordered scenes and one visual task per shot. Each shot lasts 4-15 seconds. Do not round, compress, or pad the result to 8.';
         }
 
         $episodeCount = (int)($request['episode_count'] ?? 1);
         if (!empty($request['multi_episode']) || $episodeCount > 1) {
-            return 'multi-episode story: split by episode sections and ordered scenes. Use AI video granularity: 2-5 seconds per shot, one visual task per shot, and no single fixed total count.';
+            return 'multi-episode story: split by episode sections and ordered scenes. Use AI video granularity: 4-15 seconds per shot, one visual task per shot, and no single fixed total count.';
         }
 
         $targetRule = self::storyboardTargetRule($prompt, $request);

@@ -304,7 +304,7 @@
       "group": "script",
       "label": "分镜拆分创作要求",
       "description": "剧本策划系统消息中的实际规则；英文原文可直接改为中文。JSON 和引用格式由系统单独保护。",
-      "default": "Split storyboard by AI video generation granularity, not literary paragraphs: every shot is 2-5 seconds and has exactly one clear visual task such as establishing space, showing a character, showing a prop, showing a reaction, pushing one action, creating suspense, intensifying emotion, revealing information, completing a transition, or presenting a reversal. Do not pack complex actions into one shot. Important emotions, reveals, climax, and reversals must be split into multiple consecutive shots. The storyboard must cover opening, development, conflict, turn, climax, and ending.",
+      "default": "Split storyboard by AI video generation granularity, not literary paragraphs: every shot is 4-15 seconds and has exactly one clear visual task such as establishing space, showing a character, showing a prop, showing a reaction, pushing one action, creating suspense, intensifying emotion, revealing information, completing a transition, or presenting a reversal. Do not pack complex actions into one shot. Important emotions, reveals, climax, and reversals must be split into multiple consecutive shots. The storyboard must cover opening, development, conflict, turn, climax, and ending.",
       "variables": [],
       "source_method": "scriptPlanSystemPrompt",
       "used_at": "剧本页 → 单集剧本生成／修改",
