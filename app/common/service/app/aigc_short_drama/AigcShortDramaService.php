@@ -2827,18 +2827,19 @@ class AigcShortDramaService
         return $taskData;
     }
 
-    private static function scriptPlanStreamState(string $streamContent, string $providerRequestId = '', string $error = ''): array
+    private static function scriptPlanStreamState(string $streamContent, string $providerRequestId = '', string $error = '', int $revision = 0): array
     {
         return [
             '__stream_content' => $streamContent,
             '__stream_length' => mb_strlen($streamContent, 'UTF-8'),
             '__stream_updated_at' => time(),
+            '__stream_revision' => max(0, $revision),
             '__provider_request_id' => $providerRequestId,
             '__error' => $error,
         ];
     }
 
-    private static function persistScriptPlanStreamState(int $tenantId, int $userId, string $taskId, string $streamContent, string $providerRequestId = '', string $error = ''): void
+    private static function persistScriptPlanStreamState(int $tenantId, int $userId, string $taskId, string $streamContent, string $providerRequestId = '', string $error = '', int $revision = 0): void
     {
         AigcShortDramaScriptTask::where([
             'tenant_id' => $tenantId,
@@ -2846,7 +2847,7 @@ class AigcShortDramaService
             'task_id' => $taskId,
             'delete_time' => 0,
         ])->update([
-            'result_json' => self::jsonEncode(self::scriptPlanStreamState($streamContent, $providerRequestId, $error)),
+            'result_json' => self::jsonEncode(self::scriptPlanStreamState($streamContent, $providerRequestId, $error, $revision)),
             'provider_request_id' => $providerRequestId,
             'update_time' => time(),
         ]);
@@ -3511,6 +3512,7 @@ class AigcShortDramaService
         $streamContent = '';
         $persistedProviderRequestId = '';
         $storyPreview = ['content' => '', 'episodes' => [], 'unit' => ''];
+        $scriptPreview = ['content' => '', 'unit' => '', 'revision' => 0];
         $storyAttempt = (ShortDramaStoryWorkflow::enabled($request) || (int)($request['_generation_version'] ?? 0) >= 3) ? (int)$taskData['retry_count'] : null;
         if ($storyAttempt !== null) $request['_execution_attempt'] = $storyAttempt;
 
@@ -3522,10 +3524,42 @@ class AigcShortDramaService
                 $request,
                 (string)$project['title'],
                 $selectedModels['script_plan'] ?? [],
-                static function (string $event, array $data) use ($emit, $tenantId, $userId, $taskId, $planningStep, $storyAttempt, &$lastHeartbeatAt, &$lastStreamFlushAt, &$streamContent, &$persistedProviderRequestId, &$storyPreview) {
+                static function (string $event, array $data) use ($emit, $tenantId, $userId, $taskId, $planningStep, $storyAttempt, &$lastHeartbeatAt, &$lastStreamFlushAt, &$streamContent, &$persistedProviderRequestId, &$storyPreview, &$scriptPreview) {
                     if ($storyAttempt !== null) {
                         $current = self::findTask($tenantId, $userId, $taskId);
                         if ($current['status'] !== 'running' || (int)$current['retry_count'] !== $storyAttempt) throw new Exception('任务已取消或由新尝试接管');
+                        // V3 single-plan generation is split into independent
+                        // JSON units. Persist the active unit as a versioned
+                        // preview instead of concatenating incompatible JSON
+                        // documents; SSE subscribers read this durable state.
+                        if (in_array($event, ['script_preview_start', 'script_preview_delta', 'script_preview_complete'], true)) {
+                            $unit = trim((string)($data['unit'] ?? ''));
+                            if ($event === 'script_preview_start') {
+                                if ($unit !== '' && $unit !== $scriptPreview['unit']) {
+                                    $scriptPreview['unit'] = $unit;
+                                    $scriptPreview['content'] = '';
+                                    $scriptPreview['revision']++;
+                                }
+                            } elseif ($event === 'script_preview_delta') {
+                                if ($unit !== '' && $unit !== $scriptPreview['unit']) {
+                                    $scriptPreview['unit'] = $unit;
+                                    $scriptPreview['content'] = '';
+                                    $scriptPreview['revision']++;
+                                }
+                                $scriptPreview['content'] .= (string)($data['delta'] ?? $data['content'] ?? '');
+                            } else {
+                                if ($unit !== '' && $unit !== $scriptPreview['unit']) {
+                                    $scriptPreview['unit'] = $unit;
+                                    $scriptPreview['revision']++;
+                                }
+                                $scriptPreview['content'] = (string)($data['content'] ?? '');
+                            }
+                            if ($scriptPreview['content'] !== '' && ($event !== 'script_preview_delta' || microtime(true) - $lastStreamFlushAt >= 0.5)) {
+                                $lastStreamFlushAt = microtime(true);
+                                self::persistScriptPlanStreamState($tenantId, $userId, $taskId, $scriptPreview['content'], $persistedProviderRequestId, '', (int)$scriptPreview['revision']);
+                            }
+                            return;
+                        }
                         $previewEvent = in_array($event, ['story_preview_start', 'story_preview_received', 'story_preview_saved', 'story_preview_repair', 'delta'], true);
                         if ($event === 'story_preview_repair') {
                             $storyPreview['repair_message'] = $data['message'];
@@ -16502,17 +16536,27 @@ class AigcShortDramaService
             $v3Generation = ShortDramaScriptGeneration::generate($request, $model, $messages,
                 static function (string $key, array $input, array $budget, array $selection) use ($tenantId, $userId, $request, $title, $onEvent): array {
                     if ($onEvent) $onEvent('heartbeat', []);
+                    if ($onEvent) $onEvent('script_preview_start', ['unit' => $key]);
                     $params = $input + ['model_selection' => $selection, 'source_app_code' => self::APP_CODE,
                         'source_type' => 'script_plan', 'source_id' => $title,
                         'model_config' => ['max_tokens' => $budget['max_tokens'], 'enable_thinking' => false],
                         '_planning_count' => 1, '_planning_public' => false, '_planning_stage' => 'script'];
-                    // Each unit is a separate JSON document, not a continuation
-                    // of the previous unit's browser text stream.
-                    $events = $onEvent === null ? null : static function (string $event, array $data) use ($onEvent): void {
-                        if ($event !== 'delta') $onEvent($event, $data);
+                    // Each unit is a separate JSON document. Route token deltas
+                    // into a versioned unit preview, never an append-only film
+                    // stream, so reconnects cannot corrupt JSON across units.
+                    $events = $onEvent === null ? null : static function (string $event, array $data) use ($onEvent, $key): void {
+                        if ($event === 'delta') {
+                            $onEvent('script_preview_delta', ['unit' => $key,
+                                'delta' => (string)($data['delta'] ?? $data['content'] ?? '')]);
+                            return;
+                        }
+                        $onEvent($event, $data);
                     };
-                    return ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $key,
+                    $receipt = ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $key,
                         $params, static fn(): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $params, $selection, $request, $key, $events));
+                    if ($onEvent) $onEvent('script_preview_complete', ['unit' => $key,
+                        'content' => (string)($receipt['result']['content'] ?? '')]);
+                    return $receipt;
                 }, $onEvent);
         }
         try {
@@ -22242,6 +22286,7 @@ class AigcShortDramaService
         $storedResult = self::jsonDecode((string)($task['result_json'] ?? ''));
         $streamContent = (string)($storedResult['__stream_content'] ?? '');
         $streamUpdatedAt = (int)($storedResult['__stream_updated_at'] ?? 0);
+        $streamRevision = (int)($storedResult['__stream_revision'] ?? 0);
         // Generation v3 is executed by the durable worker.  It saves its
         // in-progress response as a bounded preview instead of the legacy
         // append-only stream state, so a reconnecting browser must receive
@@ -22392,6 +22437,7 @@ class AigcShortDramaService
             'stream_content' => $streamContent,
             'stream_length' => mb_strlen($streamContent, 'UTF-8'),
             'stream_updated_at' => $streamUpdatedAt,
+            'stream_revision' => $streamRevision,
             'error' => in_array($status, [self::STATUS_FAILED, self::STATUS_CANCELED], true)
                 ? self::scriptPlanProviderError((string)($task['error'] ?? ''))
                 : '',
