@@ -450,6 +450,14 @@
       "need_role_permission": 0
     },
     {
+      "api_path": "app.aigc_short_drama.asset/captureCanvasVideoFrame",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:asset:capture_canvas_video_frame:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
       "api_path": "app.aigc_short_drama.generation/create",
       "api_method": "POST",
       "permission_key": "aigc_short_drama:generation:create:user",

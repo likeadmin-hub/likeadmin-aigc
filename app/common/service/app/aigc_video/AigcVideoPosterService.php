@@ -23,9 +23,28 @@ class AigcVideoPosterService
         string $storageEngine = '',
         string $storageDomain = ''
     ): array {
+        return self::createFrame($tenantId, $uri, $storageScope, $storageEngine, $storageDomain, 0.001, 'posters');
+    }
+
+    /**
+     * Extract a still at a validated media time and save it through tenant storage.
+     *
+     * The caller supplies only a storage URI that it has already authorized; this
+     * service never accepts arbitrary web URLs, which keeps frame extraction from
+     * becoming a server-side fetch primitive.
+     */
+    public static function createFrame(
+        int $tenantId,
+        string $uri,
+        string $storageScope = '',
+        string $storageEngine = '',
+        string $storageDomain = '',
+        float $seconds = 0.001,
+        string $directory = 'frames'
+    ): array {
         $uri = self::canonicalUri($uri);
         if ($uri === '') {
-            throw new Exception('视频地址无效，无法生成首帧');
+            throw new Exception('视频地址无效，无法截帧');
         }
         // Older canvas records predate per-file storage metadata. Resolve that
         // absence once in the worker from the tenant's effective configuration,
@@ -41,12 +60,12 @@ class AigcVideoPosterService
             throw new Exception('服务器未配置 FFmpeg，无法生成视频首帧');
         }
 
-        $workDir = runtime_path() . 'aigc_video_poster_' . $tenantId . '_' . time() . '_' . random_int(1000, 9999) . DIRECTORY_SEPARATOR;
+        $workDir = runtime_path() . 'aigc_video_frame_' . $tenantId . '_' . time() . '_' . random_int(1000, 9999) . DIRECTORY_SEPARATOR;
         if (!is_dir($workDir)) {
             @mkdir($workDir, 0775, true);
         }
         if (!is_dir($workDir) || !is_writable($workDir)) {
-            throw new Exception('视频首帧临时目录不可用');
+            throw new Exception('视频截帧临时目录不可用');
         }
 
         try {
@@ -55,10 +74,10 @@ class AigcVideoPosterService
                 $url = FileService::getFileUrlByStorage($uri, $storageScope, $storageEngine, $storageDomain);
                 $sourcePath = self::downloadVideo($url, $workDir, pathinfo($uri, PATHINFO_EXTENSION));
             }
-            $framePath = $workDir . 'first_frame.jpg';
-            self::extractFirstFrame($ffmpeg, $sourcePath, $framePath);
+            $framePath = $workDir . 'frame.jpg';
+            self::extractFrame($ffmpeg, $sourcePath, $framePath, $seconds);
             $imageSize = @getimagesize($framePath) ?: [];
-            $stored = self::storeImage($tenantId, $framePath);
+            $stored = self::storeImage($tenantId, $framePath, $directory);
             return $stored + [
                 'width' => (int)($imageSize[0] ?? 0),
                 'height' => (int)($imageSize[1] ?? 0),
@@ -146,15 +165,20 @@ class AigcVideoPosterService
         return $target;
     }
 
-    private static function extractFirstFrame(string $ffmpeg, string $sourcePath, string $framePath): void
+    private static function extractFrame(string $ffmpeg, string $sourcePath, string $framePath, float $seconds): void
     {
         $binary = $ffmpeg === 'ffmpeg' ? 'ffmpeg' : escapeshellarg($ffmpeg);
-        // Keep -ss after the input: this decodes the actual opening frame,
-        // rather than choosing a preceding keyframe on long-GOP videos.
+        $seconds = max(0.001, min(28800, $seconds));
+        // Keep -ss after the input: this decodes the requested frame rather
+        // than selecting a preceding keyframe on long-GOP videos.
         $commands = [
-            $binary . ' -y -i ' . escapeshellarg($sourcePath) . ' -ss 0.001 -frames:v 1 -q:v 2 ' . escapeshellarg($framePath) . ' 2>&1',
-            $binary . ' -y -i ' . escapeshellarg($sourcePath) . ' -frames:v 1 -q:v 2 ' . escapeshellarg($framePath) . ' 2>&1',
+            $binary . ' -y -i ' . escapeshellarg($sourcePath) . ' -ss ' . escapeshellarg(sprintf('%.3F', $seconds)) . ' -frames:v 1 -q:v 2 ' . escapeshellarg($framePath) . ' 2>&1',
         ];
+        // A first-frame retry without seeking is safe. For a user-selected
+        // current/last frame it would silently return the wrong image instead.
+        if ($seconds <= 0.001) {
+            $commands[] = $binary . ' -y -i ' . escapeshellarg($sourcePath) . ' -frames:v 1 -q:v 2 ' . escapeshellarg($framePath) . ' 2>&1';
+        }
         $lastOutput = [];
         foreach ($commands as $command) {
             @unlink($framePath);
@@ -170,7 +194,7 @@ class AigcVideoPosterService
             $lastOutput = $output;
         }
         Log::write('AIGC video poster FFmpeg output: ' . implode("\n", (array)$lastOutput), 'error');
-        throw new Exception('FFmpeg 视频首帧提取失败');
+        throw new Exception('FFmpeg 视频截帧失败');
     }
 
     private static function runCommand(string $command, string $logPath): int
@@ -202,12 +226,14 @@ class AigcVideoPosterService
         } while (true);
     }
 
-    private static function storeImage(int $tenantId, string $framePath): array
+    private static function storeImage(int $tenantId, string $framePath, string $directory): array
     {
         $config = StorageConfigService::getEffectiveConfig($tenantId);
         $driver = new StorageDriver($config);
         $driver->setUploadFileByReal($framePath);
-        $saveDir = 'uploads/aigc_video/posters/' . date('Ymd');
+        $directory = trim($directory, '/');
+        $directory = in_array($directory, ['posters', 'frames'], true) ? $directory : 'frames';
+        $saveDir = 'uploads/aigc_video/' . $directory . '/' . date('Ymd');
         if (!$driver->upload($saveDir)) {
             throw new Exception((string)$driver->getError());
         }
