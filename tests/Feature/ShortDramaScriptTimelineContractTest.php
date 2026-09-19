@@ -161,6 +161,59 @@ class ShortDramaScriptTimelineContractTest extends TestCase
         self::assertSame(40, $rule['max_shots']);
     }
 
+    public function testV3SelectsStoryboardRuleFromGeneratedSkeletonRatherThanRawBrief(): void
+    {
+        $request = [
+            'storyboard_rules' => [[
+                'code' => 'daily', 'label' => '日常喜剧', 'keywords' => ['日常', '喜剧'],
+                'min_shots' => 12, 'max_shots' => 24, 'sort' => 10, 'enabled' => true,
+            ], [
+                'code' => 'suspense', 'label' => '悬疑反转', 'keywords' => ['悬疑', '反转', '线索'],
+                'min_shots' => 30, 'max_shots' => 40, 'sort' => 20, 'enabled' => true,
+            ]],
+        ];
+        $skeleton = [
+            'type_judgement' => '悬疑反转',
+            'story_outline' => '侦探根据线索揭露真相。',
+            'locations' => [['id' => 'location_1', 'name' => '旧宅']],
+            'scene_beats' => [['scene_ref_id' => 'location_1', 'goal' => '发现关键线索', 'entry' => '调查', 'exit' => '揭露']],
+        ];
+
+        $rule = $this->invoke('storyboardTargetRuleForSkeleton', $skeleton, $request, '轻松日常故事');
+
+        self::assertSame('suspense', $rule['code']);
+    }
+
+    public function testV3SkeletonBudgetCapsTheFilmBeforeSceneCalls(): void
+    {
+        $skeleton = [
+            'scene_beats' => [
+                ['scene_ref_id' => 'location_1', 'goal' => '开场', 'entry' => 'A', 'exit' => 'B', 'shot_count' => 28],
+                ['scene_ref_id' => 'location_2', 'goal' => '冲突', 'entry' => 'B', 'exit' => 'C', 'shot_count' => 32],
+                ['scene_ref_id' => 'location_3', 'goal' => '结局', 'entry' => 'C', 'exit' => 'D', 'shot_count' => 28],
+            ],
+        ];
+
+        $budgeted = $this->invoke('applyStoryboardBudgetToSkeleton', $skeleton, [
+            'code' => 'daily', 'min_shots' => 12, 'max_shots' => 24,
+        ]);
+
+        self::assertSame(24, array_sum(array_column($budgeted['scene_beats'], 'shot_count')));
+        self::assertSame(7, min(array_column($budgeted['scene_beats'], 'shot_count')));
+        self::assertSame(8, max(array_column($budgeted['scene_beats'], 'shot_count')));
+    }
+
+    public function testV3FinalBudgetGuardRejectsAnOverRangeResult(): void
+    {
+        $this->expectException(\Exception::class);
+        $this->invoke('assertStoryboardBudgetSatisfied', [
+            'locations' => [['id' => 'location_1']],
+            'storyboard' => array_fill(0, 25, ['shot_id' => 'x']),
+        ], [
+            'storyboard_target_rule' => ['code' => 'daily', 'min_shots' => 12, 'max_shots' => 24],
+        ], '普通故事');
+    }
+
     public function testCleanupKeepsAutoRepairedStoryboardShots(): void
     {
         $result = $this->invoke('cleanStoryboardResultData', 0, 0, 0, '', [
