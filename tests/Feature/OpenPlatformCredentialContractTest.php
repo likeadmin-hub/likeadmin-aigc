@@ -1,0 +1,27 @@
+<?php
+
+namespace tests\Feature;
+
+use app\common\service\wechat\OpenPlatformService;
+use PHPUnit\Framework\TestCase;
+
+class OpenPlatformCredentialContractTest extends TestCase
+{
+    public function testMaskedAndLegacyCredentialsAreNotSentAsEmptyValues(): void
+    {
+        $method = new \ReflectionMethod(OpenPlatformService::class, 'credentialValue');
+        $method->setAccessible(true);
+
+        self::assertSame('', $method->invoke(null, 'abcd********wxyz'));
+        self::assertSame('legacy-app-secret', $method->invoke(null, 'legacy-app-secret'));
+    }
+
+    public function testOpenPlatformCallsUseCredentialResolverInsteadOfRawDecryptOnly(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
+
+        self::assertStringContainsString("'component_appsecret' => self::credentialValue", $source);
+        self::assertStringContainsString('private static function credentialValue', $source);
+        self::assertStringContainsString("if (\$value === '' || str_contains(\$value, '*')) return '';", $source);
+    }
+}
