@@ -20,18 +20,20 @@ class ShortDramaCanvasPosterJobService
         string $videoUri,
         string $storageScope = '',
         string $storageEngine = '',
-        string $storageDomain = ''
-    ): void {
+        string $storageDomain = '',
+        ?float $captureTime = null
+    ): int {
         $videoUri = self::canonicalUri($videoUri);
         if ($tenantId <= 0 || $userId <= 0 || $canvasId <= 0 || $nodeId === '' || $videoUri === '') {
-            return;
+            return 0;
         }
         $now = time();
         $key = sha1(implode('|', [$tenantId, $userId, $canvasId, $nodeId, $videoUri]));
-        Db::transaction(function () use ($tenantId, $userId, $canvasId, $nodeId, $videoUri, $storageScope, $storageEngine, $storageDomain, $key, $now): void {
+        if ($captureTime !== null) $key = sha1($key . '|frame|' . sprintf('%.3F', $captureTime));
+        return Db::transaction(function () use ($tenantId, $userId, $canvasId, $nodeId, $videoUri, $storageScope, $storageEngine, $storageDomain, $captureTime, $key, $now): int {
             $job = Db::name(self::TABLE)->where('idempotency_key', $key)->lock(true)->find();
             if (!$job) {
-                Db::name(self::TABLE)->insert([
+                return (int)Db::name(self::TABLE)->insertGetId([
                     'tenant_id' => $tenantId, 'user_id' => $userId, 'canvas_id' => $canvasId,
                     'node_id' => $nodeId, 'video_uri' => $videoUri,
                     'storage_scope' => $storageScope, 'storage_engine' => $storageEngine, 'storage_domain' => $storageDomain,
@@ -40,17 +42,29 @@ class ShortDramaCanvasPosterJobService
                     'poster_uri' => '', 'poster_scope' => '', 'poster_engine' => '', 'poster_domain' => '',
                     'last_error' => '', 'idempotency_key' => $key,
                     'create_time' => $now, 'update_time' => $now, 'finish_time' => 0,
-                ]);
-                return;
-            }
-            if (!in_array((string)$job['status'], ['success', 'dead'], true)) {
-                Db::name(self::TABLE)->where('id', (int)$job['id'])->update([
-                    'status' => 'pending', 'next_run_time' => $now, 'lease_token' => '', 'lease_expire_time' => 0,
-                    'storage_scope' => $storageScope, 'storage_engine' => $storageEngine, 'storage_domain' => $storageDomain,
-                    'update_time' => $now,
+                    'job_kind' => $captureTime === null ? 'poster' : 'frame',
+                    'capture_time' => $captureTime ?? 0.001, 'result_json' => '{}',
                 ]);
             }
+            // Repeated saves/polls must never steal an active lease or reset retry backoff.
+            return (int)$job['id'];
         });
+    }
+
+    public static function frameStatus(int $tenantId, int $userId, int $canvasId, string $nodeId, int $jobId): array
+    {
+        $job = Db::name(self::TABLE)->where([
+            'id' => $jobId, 'tenant_id' => $tenantId, 'user_id' => $userId,
+            'canvas_id' => $canvasId, 'node_id' => $nodeId, 'job_kind' => 'frame',
+        ])->find();
+        if (!$job) throw new \Exception('截帧任务不存在');
+        $status = (string)$job['status'];
+        if ($status === 'dead') throw new \Exception('视频截帧处理失败，请检查媒体服务后重试');
+        $result = $status === 'success' ? (json_decode((string)$job['result_json'], true) ?: []) : [];
+        if ($result) $result['url'] = FileService::getFileUrlByStorage(
+            (string)$result['uri'], (string)$result['storage_scope'], (string)$result['storage_engine'], (string)$result['storage_domain']
+        );
+        return $result + ['job_id' => $jobId, 'status' => $status, 'capture_time' => (float)$job['capture_time'], 'source_node_id' => $nodeId];
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -89,14 +103,17 @@ class ShortDramaCanvasPosterJobService
 
     public static function run(array $job): void
     {
-        $poster = AigcVideoPosterService::createFirstFrame(
+        $isFrame = ($job['job_kind'] ?? 'poster') === 'frame';
+        $poster = AigcVideoPosterService::createFrame(
             (int)$job['tenant_id'],
             (string)$job['video_uri'],
             (string)$job['storage_scope'],
             (string)$job['storage_engine'],
-            (string)$job['storage_domain']
+            (string)$job['storage_domain'],
+            $isFrame ? (float)$job['capture_time'] : 0.001,
+            $isFrame ? 'frames' : 'posters'
         );
-        self::updateCanvasNodePoster($job, $poster);
+        if (!$isFrame) self::updateCanvasNodePoster($job, $poster);
         Db::name(self::TABLE)->where([
             'id' => (int)$job['id'], 'lease_token' => (string)$job['lease_token'],
         ])->update([
@@ -104,6 +121,7 @@ class ShortDramaCanvasPosterJobService
             'poster_uri' => (string)$poster['uri'], 'poster_scope' => (string)$poster['storage_scope'],
             'poster_engine' => (string)$poster['storage_engine'], 'poster_domain' => (string)$poster['storage_domain'],
             'last_error' => '', 'finish_time' => time(), 'update_time' => time(),
+            'result_json' => json_encode($poster, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]);
     }
 
@@ -181,6 +199,7 @@ class ShortDramaCanvasPosterJobService
 
     private static function markCanvasNodePosterFailed(array $job): void
     {
+        if (($job['job_kind'] ?? 'poster') === 'frame') return;
         Db::transaction(function () use ($job): void {
             $document = Db::name('aigc_short_drama_canvas')->where([
                 'id' => (int)$job['canvas_id'], 'tenant_id' => (int)$job['tenant_id'],
