@@ -46,6 +46,12 @@ Automatic cuts require the server-resolved video model capability
 `supports_same_scene_cuts: true` (a boolean); unknown capabilities stay disabled.
 Submission success is not visual acceptance. No video path has been newly marked
 capable by this change; visual model certification remains a separate rollout gate.
+The local image prerequisite succeeded (test project 1107, asset 716, 20 points),
+and the 10-second Grok image-to-video quote resolved the owned first frame at
+50 points. Browser media navigation returned ERR_BLOCKED_BY_CLIENT, so no paid
+video was submitted and neither dialogue nor detail-cut visual acceptance is
+claimed. Do not enable automatic cuts until an accessible playback environment
+has verified the actual video outputs.
 Video quoting and submission reject unsupported planned durations rather than
 silently changing the script. Explicit user-selected render durations are separate.
 
