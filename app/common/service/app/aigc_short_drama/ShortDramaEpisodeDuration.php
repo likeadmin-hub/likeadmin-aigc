@@ -10,7 +10,7 @@ final class ShortDramaEpisodeDuration
 
     public static function defaults(): array
     {
-        return ['enabled' => false, 'target_seconds' => 120, 'min_seconds' => 110, 'max_seconds' => 130];
+        return ['enabled' => true, 'target_seconds' => 120, 'min_seconds' => 110, 'max_seconds' => 130];
     }
 
     public static function normalize(array $rule): array

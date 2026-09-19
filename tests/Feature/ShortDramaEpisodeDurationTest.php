@@ -7,6 +7,16 @@ use ReflectionMethod;
 
 class ShortDramaEpisodeDurationTest extends TestCase
 {
+    public function testTenantDefaultEpisodeDurationRuleIsEnabled(): void
+    {
+        self::assertSame([
+            'enabled' => true,
+            'target_seconds' => 120,
+            'min_seconds' => 110,
+            'max_seconds' => 130,
+        ], ShortDramaEpisodeDuration::defaults());
+    }
+
     private function request(float $seconds = 0, array $timeline = []): array
     {
         return ['episode_duration_policy' => ShortDramaEpisodeDuration::snapshot([], $seconds, 0, $timeline)];
