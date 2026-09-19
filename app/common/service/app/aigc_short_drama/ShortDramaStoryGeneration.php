@@ -12,8 +12,8 @@ final class ShortDramaStoryGeneration
         $total = (int)$request['episode_count'];
         $receipts = [];
         $call = static function (string $key, array $messages, int $count, bool $public) use (&$model, &$receipts, $provider): array {
-            $budget = $public
-                ? ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $model, 'story')
+            $budget = ($public || str_starts_with($key, 'roadmap'))
+                ? ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $model, $public ? 'story' : 'roadmap')
                 : ShortDramaPlanningBudget::calculate($messages['system_prompt'] . $messages['content'], $model, $count, false);
             if ($budget['count'] < $count) throw new RuntimeException('本批超出模型容量', 413);
             if (str_contains($key, '_repair')) {
@@ -46,17 +46,39 @@ final class ShortDramaStoryGeneration
             $payload['episodes'] = [];
             $sourceEpisodes = array_values((array)($request['revision_base_result']['episodes'] ?? []));
             $isRevision = $sourceEpisodes && !empty($request['revision_message']);
+            $roadmap = [];
+            if ((int)($request['_generation_version'] ?? 0) >= 3) {
+                $roadmap = (array)($request['revision_base_result']['series_roadmap'] ?? []);
+                if (!$roadmap) {
+                    $roadmapInput = $assemble($request);
+                    $roadmapInput['system_prompt'] .= "\n当前只做全剧节奏分配，不生成逐集大纲或分镜。返回 {\"segments\":[{\"start\":1,\"end\":5,\"goal\":\"本阶段剧情目标\",\"reveal\":\"本阶段允许揭露的信息\",\"ending\":\"阶段结尾与下一阶段交接\"}]}。阶段集号连续完整覆盖全剧，最多30个阶段，不改变已确认设定，不在非最终阶段提前结束全剧。";
+                    $roadmapInput['content'] = json_encode(['total_episodes' => $total, 'confirmed_story' => ShortDramaPlanningContext::lockedStory($base)], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                    for ($attempt = 0; $attempt < 2; $attempt++) {
+                        try {
+                            $roadmap = (array)($call('roadmap' . ($attempt ? '_repair' : ''), $roadmapInput, 1, false)['segments'] ?? []);
+                            ShortDramaContinuity::assertRoadmap($roadmap, $total);
+                            break;
+                        } catch (RuntimeException $error) {
+                            if ($attempt || !in_array($error->getCode(), [413, 422], true)) throw $error;
+                            $roadmapInput['content'] .= "\n上次校验失败：" . $error->getMessage();
+                        }
+                    }
+                }
+                ShortDramaContinuity::assertRoadmap($roadmap, $total);
+                $payload['series_roadmap'] = $roadmap;
+            }
             $targetEpisode = $isRevision && ($request['revision_target']['type'] ?? '') === 'episode' ? (int)$request['revision_target']['id'] : 0;
             if ($targetEpisode && ($targetEpisode < 1 || $targetEpisode > $total || array_column($sourceEpisodes, 'episode_number') !== range(1, $total))) {
                 throw new RuntimeException('原大纲集号不完整，无法安全局部修改', 422);
             }
-            $expand = function (int $start, int $count) use (&$expand, &$payload, $base, $request, $assemble, $call, $total, $progress, $sourceEpisodes, $isRevision): void {
+            $expand = function (int $start, int $count) use (&$expand, &$payload, $base, $request, $assemble, $call, $total, $progress, $sourceEpisodes, $isRevision, $roadmap): void {
                 $chunk = $request;
                 $chunk['episode_count'] = $count;
                 $chunk['episode_total_count'] = $total;
                 $chunk['episode_batch_start'] = $start;
                 $chunk['episode_batch_end'] = $start + $count - 1;
                 $chunk['_short_drama_episode_batch'] = true;
+                $chunk['series_roadmap'] = $roadmap;
                 $chunk['revision_base_result'] = $base;
                 $chunk['revision_policy'] = ['mode' => 'outline_confirmed_story', 'rule' => '保留已确认的全剧设定与素材 ID，生成当前批次大纲。'];
                 if ($isRevision) {
@@ -73,6 +95,7 @@ final class ShortDramaStoryGeneration
                 if ($progress) $progress('stage', ['status' => 'running', 'progress' => 20 + (int)(60 * count($payload['episodes']) / $total),
                     'current_step' => '已完成 ' . count($payload['episodes']) . '/' . $total . ' 集，正在生成第 ' . $start . '–' . ($start + $count - 1) . ' 集']);
                 $messages = $assemble($chunk);
+                if ($roadmap) $messages['content'] .= "\n全剧已确定的节奏分配（本批必须服从，阶段结束不等于全剧结束）：" . json_encode($roadmap, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
                 $key = 'outline_' . $start . '_' . $count;
                 try {
                     $batch = $call($key, $messages, $count, false);

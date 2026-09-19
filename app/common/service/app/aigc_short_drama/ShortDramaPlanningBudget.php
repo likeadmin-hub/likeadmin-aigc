@@ -70,7 +70,7 @@ final class ShortDramaPlanningBudget
      */
     public static function repairMaxTokens(array $budget, int $count, bool $publicFields = false): int
     {
-        if (($budget['stage'] ?? '') === 'story') return $budget['max_tokens'];
+        if (!empty($budget['stage'])) return $budget['max_tokens'];
         $available = max(1, (int)($budget['output_capacity'] ?? 0));
         $requested = $publicFields
             ? max(4096, 2048 + max(1, $count) * 1200)

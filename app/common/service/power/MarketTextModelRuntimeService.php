@@ -142,7 +142,7 @@ class MarketTextModelRuntimeService
                     if ($retry === null) {
                         $retry = self::compatibleTransportOptions($initialError->getMessage(), $transportOptions);
                     }
-                    if ($retry === null && self::isTransientProviderFailure($initialError->getMessage())) {
+                    if ($retry === null && empty($params['_disable_transient_retry']) && self::isTransientProviderFailure($initialError->getMessage())) {
                         $retry = [
                             'params' => $generationParams,
                             'reason' => 'provider_temporarily_unavailable',
@@ -1165,7 +1165,9 @@ class MarketTextModelRuntimeService
     /** @param array<string, mixed> $state */
     private static function applyStreamEvent(array $event, array &$state, callable $onEvent): void
     {
-        if (!empty($event['finish_reason'])) $state['finish_reason'] = (string)$event['finish_reason'];
+        if (!empty($event['finish_reason']) && ($event['finish_reason'] !== 'stop' || empty($state['finish_reason']))) {
+            $state['finish_reason'] = (string)$event['finish_reason'];
+        }
         $requestId = trim((string)($event['provider_request_id'] ?? ''));
         if ($requestId !== '') {
             $state['request_id'] = $requestId;

@@ -15,6 +15,13 @@ final class ShortDramaStoryWorkflow
             && !empty($request['multi_episode']) && (int)($request['episode_count'] ?? 0) >= 2;
     }
 
+    public static function workerOwned(array $request): bool
+    {
+        // Episode production has its own ordered worker and must not race it.
+        return empty($request['episode_id']) && (self::enabled($request)
+            || ((int)($request['_generation_version'] ?? 0) >= 3 && empty($request['multi_episode'])));
+    }
+
     public static function nextStage(string $stage, bool $advance): string
     {
         if (!in_array($stage, ['story', 'episodes'], true)) {
