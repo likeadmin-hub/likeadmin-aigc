@@ -34,4 +34,13 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString(". 'from_callback'", $source);
         self::assertStringContainsString('sendAuthorizerCustomText', $source);
     }
+
+    public function testArtifactListingCanRecoverFormalAndVersionedDirectories(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
+
+        self::assertStringContainsString("\$fallbackDir = 'mp-weixin.pre-release-' . \$version", $source);
+        self::assertStringContainsString("\$formalMetadataPath = \$formalDirectory . '/.artifact.meta.json'", $source);
+        self::assertStringContainsString("\$relativeDir = 'mp-weixin'", $source);
+    }
 }

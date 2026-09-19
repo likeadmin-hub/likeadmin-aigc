@@ -341,9 +341,24 @@ class OpenPlatformService
         if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) throw new \InvalidArgumentException('版本号格式错误');
         $relativeDir = 'mp-weixin.pre-release-' . $version;
         $root = self::artifactPath($relativeDir, $version);
+        $promoted = 0;
+        // A promoted artifact no longer has a pre-release directory. Allow
+        // the platform to repair its missing registry row from the formal
+        // directory, but only when its signed metadata names this version.
+        if (!is_dir($root)) {
+            $formal = self::artifactPath('mp-weixin', $version);
+            $formalMetadata = is_file($formal . '/.artifact.meta.json')
+                ? json_decode((string)file_get_contents($formal . '/.artifact.meta.json'), true)
+                : null;
+            if (is_dir($formal) && is_array($formalMetadata) && (string)($formalMetadata['version'] ?? '') === $version) {
+                $relativeDir = 'mp-weixin';
+                $root = $formal;
+                $promoted = 1;
+            }
+        }
         if (!is_dir($root)) throw new \RuntimeException('产物目录不存在'); $files = self::fileManifest($root); foreach (['app.json', 'project.config.json'] as $required) if (!isset($files[$required])) throw new \RuntimeException('缺少关键文件: ' . $required);
         $metadataPath = $root . '/.artifact.meta.json'; $metadata = is_file($metadataPath) ? json_decode((string)file_get_contents($metadataPath), true) : null; $manifestHash = hash('sha256', json_encode($files, JSON_UNESCAPED_SLASHES)); if (!is_array($metadata) || (string)($metadata['version'] ?? '') !== $version || (int)($metadata['file_count'] ?? -1) !== count($files) || (string)($metadata['sha256'] ?? '') !== $manifestHash || (array)($metadata['files'] ?? []) !== $files) throw new \RuntimeException('产物元数据校验失败，请重新生成版本产物'); if ($sourceSha !== '' && (string)($metadata['source_sha'] ?? '') !== $sourceSha) throw new \RuntimeException('产物源提交 SHA 与元数据不一致'); $sourceSha = (string)($metadata['source_sha'] ?? $sourceSha);
-        $payload = ['version' => $version, 'artifact_dir' => $relativeDir, 'source_sha' => $sourceSha, 'file_count' => count($files), 'sha256_manifest' => json_encode($files, JSON_UNESCAPED_SLASHES), 'built_at' => strtotime((string)($metadata['built_at'] ?? '')) ?: time(), 'verify_status' => 1, 'update_time' => time()]; $row = WechatArtifact::withoutGlobalScope()->where('version', $version)->findOrEmpty(); if ($row->isEmpty()) { $payload['promoted'] = 0; $payload['create_time'] = time(); return WechatArtifact::create($payload)->toArray(); } $row->save($payload); return $row->toArray();
+        $payload = ['version' => $version, 'artifact_dir' => $relativeDir, 'source_sha' => $sourceSha, 'file_count' => count($files), 'sha256_manifest' => json_encode($files, JSON_UNESCAPED_SLASHES), 'built_at' => strtotime((string)($metadata['built_at'] ?? '')) ?: time(), 'verify_status' => 1, 'promoted' => $promoted, 'update_time' => time()]; $row = WechatArtifact::withoutGlobalScope()->where('version', $version)->findOrEmpty(); if ($row->isEmpty()) { $payload['create_time'] = time(); return WechatArtifact::create($payload)->toArray(); } $row->save($payload); return $row->toArray();
     }
     private static function fileManifest(string $root): array { $files = []; $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)); foreach ($iterator as $file) { if (!$file->isFile() || $file->getFilename() === '.artifact.meta.json') continue; $relative = ltrim(str_replace($root, '', $file->getPathname()), DIRECTORY_SEPARATOR); $files[str_replace(DIRECTORY_SEPARATOR, '/', $relative)] = hash_file('sha256', $file->getPathname()); } ksort($files); return $files; }
     /** Resolve the formal output and a pending public pre-release directory. */
@@ -368,7 +383,16 @@ class OpenPlatformService
     private static function inspectArtifact(array $row, ?array $formalManifest): array
     {
         $version = (string)($row['version'] ?? '');
-        $directory = self::artifactPath((string)($row['artifact_dir'] ?? ''), $version);
+        $artifactDir = (string)($row['artifact_dir'] ?? '');
+        $directory = self::artifactPath($artifactDir, $version);
+        if (!is_dir($directory) && preg_match('/^\d+\.\d+\.\d+$/', $version)) {
+            $fallbackDir = 'mp-weixin.pre-release-' . $version;
+            $fallback = self::artifactPath($fallbackDir, $version);
+            if (is_dir($fallback)) {
+                $artifactDir = $fallbackDir;
+                $directory = $fallback;
+            }
+        }
         $files = is_dir($directory) ? self::fileManifest($directory) : [];
         $metadataPath = $directory . '/.artifact.meta.json';
         $metadata = is_file($metadataPath) ? json_decode((string)file_get_contents($metadataPath), true) : null;
@@ -394,7 +418,7 @@ class OpenPlatformService
         return array_merge($row, [
             'id' => (int)($row['id'] ?? 0),
             'version' => $version,
-            'artifact_dir' => (string)($row['artifact_dir'] ?? ''),
+            'artifact_dir' => $artifactDir,
             'source_sha' => (string)($metadata['source_sha'] ?? ($row['source_sha'] ?? '')),
             'file_count' => count($files),
             'sha256_manifest' => json_encode($files, JSON_UNESCAPED_SLASHES),
@@ -434,6 +458,23 @@ class OpenPlatformService
         }
         foreach ($discovered as $version => $row) {
             if (!isset($registered[$version])) $artifacts[] = self::inspectArtifact($row, $formalManifest);
+        }
+
+        // A promoted formal artifact is intentionally no longer present under
+        // a versioned pre-release directory. Surface it when its metadata is
+        // valid but the registry row was lost during deployment.
+        $formalMetadataPath = $formalDirectory . '/.artifact.meta.json';
+        $formalMetadata = is_file($formalMetadataPath)
+            ? json_decode((string)file_get_contents($formalMetadataPath), true)
+            : null;
+        $formalVersion = is_array($formalMetadata) ? (string)($formalMetadata['version'] ?? '') : '';
+        if (preg_match('/^\d+\.\d+\.\d+$/', $formalVersion) && !isset($registered[$formalVersion]) && !isset($discovered[$formalVersion])) {
+            $artifacts[] = self::inspectArtifact([
+                'id' => 0,
+                'version' => $formalVersion,
+                'artifact_dir' => 'mp-weixin',
+                'promoted' => 1,
+            ], $formalManifest);
         }
 
         usort($artifacts, static fn(array $left, array $right): int => version_compare((string)$right['version'], (string)$left['version']));
