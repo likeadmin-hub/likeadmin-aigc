@@ -16,7 +16,7 @@ final class ShortDramaContinuity
         $value = array_intersect_key($plan, array_flip(['title', 'story_outline', 'script_lines']));
         foreach (['subjects', 'locations'] as $key) {
             $value[$key] = array_map(static fn($item) => array_intersect_key((array)$item,
-                array_flip(['id', 'name', 'description', 'role', 'background', 'motivation', 'arc'])), (array)($plan[$key] ?? []));
+                array_flip(['id', 'name', 'category', 'description', 'age', 'role', 'background', 'motivation', 'arc'])), (array)($plan[$key] ?? []));
         }
         $value['storyboard'] = array_map(static fn($shot) => array_intersect_key((array)$shot,
             array_flip(['shot_id', 'scene_ref_id', 'subject_ref_ids', 'visual_description', 'dialogue', 'voice_role', 'speech_type'])), (array)($plan['storyboard'] ?? []));
