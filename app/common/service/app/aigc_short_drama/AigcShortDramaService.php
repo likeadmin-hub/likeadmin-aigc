@@ -2347,11 +2347,15 @@ class AigcShortDramaService
         $request['episode_count'] = 1;
         $episodePolicy = ShortDramaEpisodeDuration::policy($request);
         if (ShortDramaEpisodeDuration::active($request)) {
+            $episodeOverride = (float)($episodePolicy['episode_overrides'][(int)$episode['episode_number']] ?? 0);
             if (($episodePolicy['scope'] ?? '') === 'series') {
                 $allocated = (float)($currentOutline['target_duration_seconds'] ?? 0);
                 if ($allocated <= 0) throw new Exception('分集大纲缺少本集时长分配，请重新生成分集大纲');
                 $episodePolicy = array_replace($episodePolicy, ['scope' => 'episode', 'source' => 'user',
                     'target_seconds' => $allocated, 'min_seconds' => $allocated, 'max_seconds' => $allocated, 'timeline_segments' => []]);
+            } elseif ($episodeOverride > 0) {
+                $episodePolicy = array_replace($episodePolicy, ['scope' => 'episode', 'source' => 'user',
+                    'target_seconds' => $episodeOverride, 'min_seconds' => $episodeOverride, 'max_seconds' => $episodeOverride, 'timeline_segments' => []]);
             }
         }
         unset($request['script_text'], $request['script_content']);
@@ -3925,7 +3929,7 @@ class AigcShortDramaService
                     $shotId = (string)($index + 1);
                     $shotPayload['shot_id'] = $shotId;
                 }
-                $data = self::editableShotData($shotPayload);
+                $data = self::editableShotData($shotPayload, ShortDramaShotDuration::rule(self::jsonDecode((string)$task['request_json'])));
                 $data = array_merge($data, self::rebuildEditableShotPrompts($tenantId, $userId, $task, array_merge($shotPayload, $data)));
                 $data['update_time'] = time();
                 if ($replaceStoryboard) {
@@ -16449,12 +16453,49 @@ class AigcShortDramaService
 
     private static function episodeDurationSnapshot(string $prompt, array $params, array $config): array
     {
-        $explicitText = (float)self::durationHintToSeconds(self::extractUserTextDurationHint($prompt));
         $multi = !empty($params['multi_episode']) || (int)($params['episode_count'] ?? 1) > 1;
-        $seriesTotal = $multi && preg_match('/(?:整部|全剧|全片|全系列|所有集|全部剧集).{0,12}(?:总时长|时长|分钟|秒)/u', $prompt) === 1;
+        $count = max(1, (int)($params['episode_count'] ?? 1));
+        $selected = (float)($params['target_duration_seconds'] ?? $params['target_duration'] ?? 0);
+        $overrides = [];
+        $timingText = $prompt;
+        if ($multi) {
+            // Extract only explicit per-episode requirements, not all numerals
+            // appearing in the story. Keep the original prompt untouched.
+            $timingText = preg_replace_callback('/第\s*(\d+|[一二三四五六七八九十]+)\s*集\s*(?:时长|总时长|控制在|为|约|:|：|是)?\s*(\d+(?:\.\d+)?\s*(?:分钟|分|秒钟|秒))/u',
+                static function ($match) use (&$overrides, $count) {
+                    $digits = ['一'=>1,'二'=>2,'三'=>3,'四'=>4,'五'=>5,'六'=>6,'七'=>7,'八'=>8,'九'=>9];
+                    $number = ctype_digit($match[1]) ? (int)$match[1] : ($digits[$match[1]] ?? 0);
+                    if (!$number && str_contains($match[1], '十')) {
+                        $parts = explode('十', $match[1]);
+                        $number = ($parts[0] === '' ? 1 : ($digits[$parts[0]] ?? 0)) * 10 + ($digits[$parts[1]] ?? 0);
+                    }
+                    $seconds = (float)self::durationHintToSeconds($match[2]);
+                    if ($number < 1 || $number > $count || $seconds <= 0 || (isset($overrides[$number]) && $overrides[$number] !== $seconds)) {
+                        throw new Exception('分集时长要求存在无效集号或冲突，请调整后提交');
+                    }
+                    $overrides[$number] = $seconds;
+                    return '';
+                }, $timingText) ?? $timingText;
+        }
+        $seriesTotal = $multi && preg_match('/(?:整部|全剧|全片|全系列|所有集|全部剧集)[^。；;\n]{0,20}?(\d+(?:\.\d+)?\s*(?:分钟|分|秒钟|秒))/u', $timingText, $whole) === 1;
+        $explicitText = (float)self::durationHintToSeconds(self::extractUserTextDurationHint($timingText));
+        if ($seriesTotal) {
+            $explicitText = (float)self::durationHintToSeconds($whole[1]);
+            if (preg_match('/每集[^。；;\n]{0,12}?(\d+(?:\.\d+)?\s*(?:分钟|分|秒钟|秒))/u', $timingText, $perEpisode)) {
+                $perEpisodeSeconds = (float)self::durationHintToSeconds($perEpisode[1]);
+                if ($selected > 0 && abs($selected - $perEpisodeSeconds) > 0.001) throw new Exception('所选每集时长与文字要求冲突');
+                $selected = $perEpisodeSeconds;
+            }
+            if ($selected > 0) {
+                for ($episode = 1; $episode <= $count; $episode++) $overrides[$episode] = $overrides[$episode] ?? $selected;
+            }
+            if (array_sum($overrides) > $explicitText || (count($overrides) === $count && abs(array_sum($overrides) - $explicitText) > 0.001)) {
+                throw new Exception('整部总时长与各集时长合计冲突，请统一后提交');
+            }
+            $selected = 0;
+        }
         return ShortDramaEpisodeDuration::snapshot((array)($config['episode_duration_rule'] ?? []),
-            (float)($params['target_duration_seconds'] ?? $params['target_duration'] ?? 0), $explicitText,
-            self::extractTimelineSegments($prompt), $seriesTotal);
+            $selected, $explicitText, self::extractTimelineSegments($prompt), $seriesTotal) + ['episode_overrides' => $overrides];
     }
 
     private static function readUploadedScriptText(string $path, string $extension): string
@@ -22152,6 +22193,8 @@ class AigcShortDramaService
     private static function replaceStoryboard(int $tenantId, int $userId, int $projectId, string $taskId, array $storyboard): void
     {
         $time = time();
+        $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+        $durationRule = ShortDramaShotDuration::rule(self::jsonDecode((string)$task['request_json']));
         $submittedShotIds = [];
         $usedShotIds = [];
         foreach (array_values($storyboard) as $index => $shot) {
@@ -22164,7 +22207,7 @@ class AigcShortDramaService
             $usedShotIds[$shotId] = true;
             $submittedShotIds[] = $shotId;
 
-            $data = self::filterStoryboardWritableData(array_merge(self::editableShotData($shot), [
+            $data = self::filterStoryboardWritableData(array_merge(self::editableShotData($shot, $durationRule), [
                 'tenant_id' => $tenantId,
                 'user_id' => $userId,
                 'project_id' => $projectId,
@@ -22600,7 +22643,7 @@ class AigcShortDramaService
         return array_map([self::class, 'formatShot'], $rows);
     }
 
-    private static function editableShotData(array $payload): array
+    private static function editableShotData(array $payload, array $durationRule = []): array
     {
         $frameType = (string)($payload['frame_type'] ?? 'normal');
         return [
@@ -22622,7 +22665,7 @@ class AigcShortDramaService
             'voice_role' => mb_substr(trim((string)($payload['voice_role'] ?? '')), 0, 100, 'UTF-8'),
             'dialogue' => mb_substr(trim((string)($payload['dialogue'] ?? '')), 0, 1000, 'UTF-8'),
             'frame_type' => in_array($frameType, ['normal', 'lip_sync'], true) ? $frameType : 'normal',
-            'recommended_duration_seconds' => ShortDramaShotDuration::normalize($payload['recommended_duration_seconds'] ?? null),
+            'recommended_duration_seconds' => ShortDramaShotDuration::normalize($payload['recommended_duration_seconds'] ?? null, $durationRule),
         ];
     }
 

@@ -144,12 +144,15 @@ final class ShortDramaStoryGeneration
             $timing = ShortDramaEpisodeDuration::policy($request);
             if (ShortDramaEpisodeDuration::active($request) && ($timing['scope'] ?? '') === 'series' && $targetEpisode <= 0) {
                 $input = ['system_prompt' => '只规划分集时长，不改剧情。返回JSON {"episode_durations":[数字秒数,...]}，按集号顺序完整覆盖每集，均大于0，合计必须等于整部总时长。根据各集剧情分配。',
-                    'content' => json_encode(['total_seconds' => $timing['target_seconds'], 'episodes' => array_map(static fn($item) => array_intersect_key($item,
+                    'content' => json_encode(['total_seconds' => $timing['target_seconds'], 'fixed_episode_seconds' => $timing['episode_overrides'] ?? [], 'episodes' => array_map(static fn($item) => array_intersect_key($item,
                         array_flip(['episode_number', 'title', 'story_outline'])), $payload['episodes'])], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
                 for ($attempt = 0; $attempt < 2; $attempt++) {
                     try {
                         $allocation = (array)($call('roadmap_timing' . ($attempt ? '_repair' : ''), $input, 1, false)['episode_durations'] ?? []);
                         self::assertDurationAllocation($allocation, $total, (float)$timing['target_seconds']);
+                        foreach ((array)($timing['episode_overrides'] ?? []) as $number => $seconds) {
+                            if (abs((float)($allocation[(int)$number - 1] ?? 0) - $seconds) > 0.001) throw new RuntimeException('第' . $number . '集必须保留用户明确的' . $seconds . '秒', 422);
+                        }
                         break;
                     } catch (RuntimeException $error) {
                         if ($attempt || !in_array($error->getCode(), [413, 422], true)) throw $error;

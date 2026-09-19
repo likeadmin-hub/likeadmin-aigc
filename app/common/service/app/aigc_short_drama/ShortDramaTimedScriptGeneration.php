@@ -14,13 +14,13 @@ final class ShortDramaTimedScriptGeneration
             'content' => $messages['_stage_content'] ?? $messages['content']];
         $skeletonInput = $base;
         $skeletonInput['system_prompt'] .= '\n本阶段仅生成骨架JSON：title、type_judgement、core_theme、story_outline、script_lines、series_bible、subjects、locations、art_style、scene_beats。'
-            . '沿用稳定主体和场景id。scene_beats按剧情顺序，每项为scene_ref_id、goal、entry、exit、duration_seconds、shot_durations（每张卡片秒数数组）、key_events（必须保留的具体事件或台词数组）。'
+            . 'subjects每项必须有id、name、description，locations每项必须有id、name、description。沿用稳定主体和场景id。scene_beats按剧情顺序，每项为scene_ref_id（必须引用locations中某项id，不是beat编号）、goal、entry、exit、duration_seconds、shot_durations（每张卡片秒数数组）、key_events（必须保留的具体事件或台词数组）。'
             . '每场shot_durations合计等于duration_seconds，整集合计满足时间策略。镜头数量按内容决定，不使用固定数量档位。每个片段时长遵守任务范围。'
             . '时间码存在时，每条scene_beat严格对应一个时间段，时长完全一致；不要跨段合并。每场最多40个片段，总场次最多24。不要返回storyboard。';
         $skeleton = [];
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
-                $skeleton = $call('timed_skeleton_' . $attempt, $skeletonInput, 8192);
+                $skeleton = self::canonicalSkeleton($call('timed_skeleton_' . $attempt, $skeletonInput, 8192));
                 self::assertSkeleton($skeleton, $request);
                 break;
             } catch (RuntimeException $e) {
@@ -76,6 +76,24 @@ final class ShortDramaTimedScriptGeneration
         return $skeleton;
     }
 
+    /** Existing providers use these documented aliases. Never infer a reference. */
+    public static function canonicalSkeleton(array $plan): array
+    {
+        foreach (['subjects' => 'subject_id', 'locations' => 'location_id'] as $collection => $alias) {
+            if (!is_array($plan[$collection] ?? null)) continue;
+            $seen = [];
+            foreach ($plan[$collection] as &$item) {
+                if (!is_array($item)) throw new RuntimeException($collection . '必须返回对象数组', 422);
+                if (empty($item['id']) && !empty($item[$alias])) $item['id'] = (string)$item[$alias];
+                $id = (string)($item['id'] ?? '');
+                if ($id === '' || isset($seen[$id])) throw new RuntimeException($collection . '中的id缺失或重复', 422);
+                $seen[$id] = true;
+            }
+            unset($item);
+        }
+        return $plan;
+    }
+
     public static function assertSkeleton(array $plan, array $request): void
     {
         foreach (['title', 'story_outline', 'subjects', 'locations', 'scene_beats'] as $key) {
@@ -88,8 +106,11 @@ final class ShortDramaTimedScriptGeneration
         $shots = [];
         $rule = ShortDramaShotDuration::rule($request);
         foreach ($beats as $index => $beat) {
-            if (!is_array($beat) || !in_array($beat['scene_ref_id'] ?? '', array_column($plan['locations'], 'id'), true)
-                || empty($beat['goal']) || empty($beat['entry']) || empty($beat['exit']) || empty($beat['key_events'])
+            if (!is_array($beat)) throw new RuntimeException('scene_beats必须返回对象数组', 422);
+            if (!in_array($beat['scene_ref_id'] ?? '', array_column($plan['locations'], 'id'), true)) {
+                throw new RuntimeException('scene_beats[' . $index . '].scene_ref_id必须引用真实locations.id，可选值=' . implode(',', array_column($plan['locations'], 'id')) . '；不能使用beat编号', 422);
+            }
+            if (empty($beat['goal']) || empty($beat['entry']) || empty($beat['exit']) || empty($beat['key_events'])
                 || !is_array($beat['shot_durations'] ?? null) || !$beat['shot_durations'] || count($beat['shot_durations']) > 40) {
                 throw new RuntimeException('场景骨架、关键事件或分镜时间预算缺失', 422);
             }
