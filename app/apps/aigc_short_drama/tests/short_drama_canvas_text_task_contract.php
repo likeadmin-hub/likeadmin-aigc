@@ -6,6 +6,7 @@ $root = dirname(__DIR__, 4);
 $canvas = (string)file_get_contents($root . '/app/common/service/app/aigc_short_drama/ShortDramaCanvasService.php');
 $service = (string)file_get_contents($root . '/app/common/service/app/aigc_short_drama/AigcShortDramaService.php');
 $menu = (string)file_get_contents($root . '/app/apps/aigc_short_drama/menus/tenant.json');
+$backfill = (string)file_get_contents($root . '/app/apps/aigc_short_drama/migrations/zz_20260919_canvas_text_task_backfill.sql');
 
 $failures = [];
 $assert = static function (bool $condition, string $message) use (&$failures): void {
@@ -21,6 +22,8 @@ $assert(str_contains($service, "'result_content' => self::generationTaskResultCo
 $assert(str_contains($service, "($row['task_type'] ?? '') !== 'canvas_text'"), 'text output is not limited to canvas text tasks');
 $assert(str_contains($menu, 'aigc_short_drama_creation_task'), 'creation-task tenant menu is missing');
 $assert(!str_contains($menu, 'aigc_short_drama_image_task'), 'legacy image task menu remains in the app menu');
+$assert(str_contains($backfill, "`node_type` = 'text'") && str_contains($backfill, "`status` = 'success'"), 'completed legacy canvas text runs are not repaired during upgrade');
+$assert(str_contains($backfill, "task.`task_type` = 'canvas_text'"), 'legacy canvas text history is not repaired during upgrade');
 
 if ($failures !== []) {
     fwrite(STDERR, implode(PHP_EOL, $failures) . PHP_EOL);
