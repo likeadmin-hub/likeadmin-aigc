@@ -6,7 +6,7 @@ use RuntimeException;
 /** Budget-first generation, using the existing durable provider-unit callback. */
 final class ShortDramaTimedScriptGeneration
 {
-    public static function generate(array $request, array $messages, callable $call, ?callable $progress): array
+    public static function generate(array $request, array $messages, callable $call, ?callable $progress, int $outputBudget = 8192): array
     {
         $policy = ShortDramaEpisodeDuration::policy($request);
         $rule = ShortDramaShotDuration::rule($request);
@@ -16,7 +16,8 @@ final class ShortDramaTimedScriptGeneration
         $skeletonInput['system_prompt'] .= '\n本阶段仅生成骨架JSON：title、type_judgement、core_theme、story_outline、script_lines、series_bible、subjects、locations、art_style、scene_beats。'
             . 'subjects每项必须有id、name、description，locations每项必须有id、name、description。沿用稳定主体和场景id。scene_beats按剧情顺序，每项为scene_ref_id（必须引用locations中某项id，不是beat编号）、goal、entry、exit、duration_seconds、shot_durations（每张卡片秒数数组）、key_events（必须保留的具体事件或台词数组）。'
             . '每场shot_durations合计等于duration_seconds，整集合计满足时间策略。镜头数量按内容决定，不使用固定数量档位。每个片段时长遵守任务范围。'
-            . '时间码存在时，每条scene_beat严格对应一个时间段，时长完全一致；不要跨段合并。每场最多40个片段，总场次最多24。不要返回storyboard。';
+            . '时间码存在时，每条scene_beat严格对应一个时间段，时长完全一致；不要跨段合并。每场最多40个片段，总场次最多24。不要返回storyboard。'
+            . '这是紧凑骨架，不生成任何图片、视频、三视图、音乐、负面提示词；主体与场景description各不超过120字；保留具体剧情，不写重复风格说明。';
         $skeleton = [];
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
@@ -32,16 +33,21 @@ final class ShortDramaTimedScriptGeneration
         if ($progress) $progress('stage', ['status' => 'running', 'progress' => 25, 'current_step' => '已规划各场时长，正在生成分镜']);
         $shots = [];
         $contentRepairs = 0;
+        // Size output units to the selected model, not to a fixed shot count.
+        // Reserve room for identifiers, JSON and dialogue as well as descriptions.
+        $partSize = max(1, min(4, (int)floor(($outputBudget - 500) / 1600)));
         foreach ($skeleton['scene_beats'] as $sceneIndex => $beat) {
             $sceneRepairUsed = false;
             $durations = array_values($beat['shot_durations']);
-            for ($offset = 0; $offset < count($durations); $offset += 4) {
-                $partDurations = array_slice($durations, $offset, 4);
+            for ($offset = 0; $offset < count($durations); $offset += $partSize) {
+                $partDurations = array_slice($durations, $offset, $partSize);
                 $ids = array_map(static fn($n) => 's' . ($sceneIndex + 1) . '_' . ($offset + $n + 1), array_keys($partDurations));
                 $input = $base;
                 $input['system_prompt'] .= '\n本阶段仅返回{"storyboard":[...]}，每项包含shot_id、scene_ref_id、subject_ref_ids、visual_description、composition、camera_movement、dialogue、voice_role、speech_type、recommended_duration_seconds。'
                     . '严格采用required_shots的ID及时长，不重新决定数量。覆盖当前片段应承载的key_events并保持前后衔接，不重复其他分段事件。'
-                    . '对白务必能在片段内自然说完，保留停顿；speech_type为character、narration或none。voice_role写真实说话角色，静默留空。';
+                    . '对白务必能在片段内自然说完，保留停顿；speech_type为character、narration或none。voice_role写真实说话角色，静默留空。'
+                    . '仅返回列出的11个字段，不额外生成image_prompt、video_prompt、negative_prompt、风格和素材定义；它们由现有系统根据本段字段组装。'
+                    . 'visual_description每镜最多120字，composition最多40字，camera_movement最多100字，准确简练保留关键动作、位置、情绪与连续性。';
                 $input['content'] = self::json([
                     'creative_context' => $base['content'],
                     'locked_plan' => array_intersect_key($skeleton, array_flip(['title', 'story_outline', 'series_bible', 'subjects', 'locations', 'art_style'])),
