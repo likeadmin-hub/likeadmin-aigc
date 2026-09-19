@@ -16388,7 +16388,8 @@ class AigcShortDramaService
             $system[] = ShortDramaPromptCatalog::priority();
             if (ShortDramaStoryWorkflow::scopeInstruction($request) !== '') $system[] = ShortDramaStoryWorkflow::scopeInstruction($request);
             if ($skillInstruction !== '') $system[] = $skillInstruction;
-            return ['system_prompt' => ShortDramaShotDuration::upgradeInstructions(implode("\n\n", $system)) . "\n\n" . ShortDramaShotDuration::INSTRUCTION, 'content' => self::buildCompactScriptPlanPrompt($prompt, $request, $title, true)];
+            return ['system_prompt' => ShortDramaShotDuration::upgradeInstructions(implode("\n\n", $system)) . "\n\n" . ShortDramaShotDuration::INSTRUCTION, 'content' => self::buildCompactScriptPlanPrompt($prompt, $request, $title, true),
+                '_stage_content' => self::buildCompactScriptPlanPrompt($prompt, $request, $title, true, true)];
         }
         $config = self::scriptPromptConfig($tenantId, $settings['multi_episode']);
         if ($settings['multi_episode']) {
@@ -16404,6 +16405,10 @@ class AigcShortDramaService
         }
         return [
             'content' => self::renderScriptPlanPromptTemplate($config['script_prompt_template'], self::buildCompactScriptPlanPrompt($prompt, $request, $title), $prompt, $request, $title),
+            // A custom template may carry user-authored creative requirements.
+            // Preserve it verbatim; only the built-in template can be removed safely.
+            '_stage_content' => trim($config['script_prompt_template']) === trim(self::defaultScriptPromptTemplate())
+                ? self::buildCompactScriptPlanPrompt($prompt, $request, $title, false, true) : null,
             'system_prompt' => ShortDramaShotDuration::upgradeInstructions($config['script_system_prompt']
                 . (ShortDramaStoryWorkflow::scopeInstruction($request) !== '' ? "\n\n" . ShortDramaStoryWorkflow::scopeInstruction($request) : '')
                 . ($skillInstruction !== '' ? "\n\n" . $skillInstruction : '')) . "\n\n" . ShortDramaShotDuration::INSTRUCTION,
@@ -16445,6 +16450,7 @@ class AigcShortDramaService
             $generation = ShortDramaStoryGeneration::generate($request, $model,
                 static fn(array $chunk): array => self::assembleScriptPromptRequest($tenantId, $prompt, $chunk, $title),
                 static function (string $key, array $messages, array $budget, array $selection) use ($tenantId, $userId, $request, $title, $onEvent): array {
+                    unset($messages['_stage_content']);
                     if ($onEvent) $onEvent('heartbeat', []); // fence cancellation before each new provider submission
                     if ($onEvent) $onEvent('story_preview_start', ['unit' => $key]);
                     $params = $messages + ['model_selection' => $selection, 'source_app_code' => self::APP_CODE,
@@ -17244,7 +17250,7 @@ class AigcShortDramaService
      * output ceiling of otherwise valid market text models. The normalizer and
      * repair pipeline expand this semantic skeleton into that production plan.
      */
-    private static function buildCompactScriptPlanPrompt(string $prompt, array $request, string $title, bool $technicalOnly = false): string
+    private static function buildCompactScriptPlanPrompt(string $prompt, array $request, string $title, bool $technicalOnly = false, bool $contextOnly = false): string
     {
         $styleDetail = self::styleDetail((string)($request['style_id'] ?? ''));
         $storyboardRule = self::storyboardTargetRule($prompt, $request);
@@ -17297,6 +17303,10 @@ class AigcShortDramaService
             // Scale changes narrative depth, not an unbounded asset list or output budget.
             $responseCharacterLimit = 10000;
         }
+        // Drop absent optional values only. Keep false/zero and all nested
+        // narrative data, including deliberately empty revision fields.
+        $context = array_filter($context, static fn($value) => $value !== '' && $value !== [] && $value !== null);
+        if ($contextOnly) return self::jsonEncode($context);
         $shotSchema = [
             'shot_id' => 'episode_1_shot_1',
             'episode_number' => 1,
@@ -17462,7 +17472,7 @@ class AigcShortDramaService
             . ($multiEpisode ? self::multiEpisodeStageInstruction($multiEpisodeStage, $episodeCount) . "\n" : '')
             . $episodeContract
             . $storyboardContract
-            . "subject_references are explicitly @-selected locked library entities, not loose writing hints. Every reference must appear exactly once in subjects with its identical name and library_subject_id. Treat its name as a proper noun even when it looks like a generic Chinese description (for example 美女、帅哥、老人); never rename, translate, paraphrase, or replace it. Preserve the referenced category, gender, age_stage and supplied images. Never change a referenced male into female or a referenced female into male, and never create a duplicate for the same selected reference.\n"
+            . (!empty($context['subject_references']) ? "subject_references are locked entities: include each exactly once with identical name, library_subject_id, category, gender, age_stage and supplied images. Never rename or duplicate them.\n" : '')
             . "subjects must contain stable items with non-empty id, name, description, and category. locations must contain chronological items with non-empty id, name, and description.\n"
             . "Every visual_description must be a specific visible action, never a planning phrase. Use 4-15 seconds per shot. "
             . ($multiEpisode ? "Keep every string concise so the entire response fits within {$responseCharacterLimit} Chinese characters.\n" : "Keep wording concise, but preserve the complete story; there is no fixed character-count target.\n")

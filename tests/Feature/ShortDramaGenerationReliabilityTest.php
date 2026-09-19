@@ -157,4 +157,21 @@ class ShortDramaGenerationReliabilityTest extends TestCase
         } catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); }
         self::assertSame(2, $calls);
     }
+
+    public function testStagedContextOmitsFullSchemaWithoutLosingCreativeRules(): void
+    {
+        $plan = $this->plan();
+        $plan['storyboard'][0] += ['scene_ref_id' => 'l1', 'subject_ref_ids' => ['s1'], 'recommended_duration_seconds' => 8];
+        Script::generate([], ['max_tokens' => 4096], [
+            'system_prompt' => '主角不能失忆', 'content' => str_repeat('完整剧本结构示例', 100),
+            '_stage_content' => '{"user_prompt":"找回信件","series_context":{"ending":"重逢"}}',
+        ], static function ($key, $messages) use ($plan) {
+            self::assertArrayNotHasKey('_stage_content', $messages);
+            self::assertStringNotContainsString('完整剧本结构示例', $messages['content']);
+            self::assertStringContainsString('主角不能失忆', $messages['content']);
+            self::assertStringContainsString('找回信件', $messages['content']);
+            self::assertStringContainsString('重逢', $messages['content']);
+            return ['result' => ['content' => json_encode($plan)]];
+        });
+    }
 }

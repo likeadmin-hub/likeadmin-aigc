@@ -14,6 +14,7 @@ final class ShortDramaScriptGeneration
         $calls = 0;
         $reservedOutput = 0;
         $call = static function (string $key, array $input, int $desired = 8192) use (&$receipts, &$calls, &$reservedOutput, &$model, $provider): array {
+            unset($input['_stage_content']);
             if (++$calls > 48) throw new RuntimeException('本集已达到自动处理上限，已保留完成内容，请缩小生成范围', 429);
             $budget = ShortDramaPlanningBudget::stage($input['system_prompt'] . $input['content'], $model, 'script', $desired);
             $reservedOutput += $budget['max_tokens'];
@@ -80,7 +81,8 @@ final class ShortDramaScriptGeneration
             $expand = function (int $start, int $size) use (&$expand, &$sceneShots, &$shots, $beat, $sceneIndex, $skeleton, $messages, $call, $progress): void {
                 $input = self::stageMessages($messages, '分场分镜', '只返回 {"storyboard":[...]}，不重复人物和场景列表，不生成其他场景。按 scene_beat.goal/entry/exit 衔接剧情。每镜头包含 shot_id、scene_ref_id、subject_ref_ids、visual_description、dialogue、voice_role、speech_type、recommended_duration_seconds，沿用素材中其他镜头字段。严格使用指定ID及数量，不补造事件、不提前结束场景。');
                 $input['content'] .= "\n分段任务=" . json_encode([
-                    'locked_plan' => array_intersect_key($skeleton, array_flip(['title', 'story_outline', 'subjects', 'locations', 'art_style'])),
+                    'locked_plan' => array_intersect_key($skeleton, array_flip(['title', 'story_outline', 'series_bible', 'subjects', 'locations', 'art_style'])),
+                    'scene_continuity' => array_map(static fn($item) => array_intersect_key($item, array_flip(['scene_ref_id', 'goal', 'entry', 'exit'])), $skeleton['scene_beats']),
                     'scene_beat' => $beat, 'shot_start' => $start, 'shot_count' => $size,
                     'required_shot_ids' => array_map(static fn($n) => 's' . ($sceneIndex + 1) . '_' . $n, range($start, $start + $size - 1)),
                     'previous_shots' => array_slice(array_merge($shots, $sceneShots), -2),
@@ -123,7 +125,10 @@ final class ShortDramaScriptGeneration
             'system_prompt' => '你是短剧创作助手。本次阶段：' . $stage . '。只返回合法JSON。以下是本阶段唯一输出结构约束：' . $contract
                 . "\n用户消息中的原始提示是创作参考：保留其剧情、人物、场景、风格、集数与连续性要求；其中完整剧本示例、字段清单及输出格式不适用于本阶段。"
                 . "\n" . ShortDramaShotDuration::INSTRUCTION,
-            'content' => json_encode(['creative_context' => $messages], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            'content' => json_encode(['creative_context' => [
+                'creative_rules' => $messages['system_prompt'],
+                'task' => $messages['_stage_content'] ?? $messages['content'],
+            ]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
         ];
     }
 

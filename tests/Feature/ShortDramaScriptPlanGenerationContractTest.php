@@ -14,6 +14,28 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
      */
+    public function testCompactStageContextPreservesNarrativeAndOmitsSchema(): void
+    {
+        require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
+        Container::getInstance()->instance('config', new \think\Config());
+        $method = new ReflectionMethod(AigcShortDramaService::class, 'buildCompactScriptPlanPrompt');
+        $method->setAccessible(true);
+        $request = ['multi_episode' => false, 'series_context' => ['current_episode' => ['story_outline' => '必须重逢']],
+            'revision_base_result' => ['dialogue' => '']];
+        $full = $method->invoke(null, '找回信件', $request, '信件');
+        $compact = $method->invoke(null, '找回信件', $request, '信件', false, true);
+        $context = json_decode($compact, true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('找回信件', $context['user_prompt']);
+        self::assertSame('必须重逢', $context['series_context']['current_episode']['story_outline']);
+        self::assertArrayNotHasKey('revision_message', $context);
+        self::assertFalse($context['multi_episode']);
+        self::assertLessThan(strlen($full), strlen($compact));
+        self::assertStringNotContainsString('JSON schema:', $compact);
+    }
+
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
     public function testV3SingleAndEpisodeUseRealNormalizationAndContinuityBoundary(): void
     {
         require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
