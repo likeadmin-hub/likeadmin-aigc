@@ -11899,7 +11899,7 @@ class AigcShortDramaService
 
     private static function buildReadableShotVideoPrompt(array $shot, int $index = 0, array $timeline = []): string
     {
-        $duration = max(1, (int)round((float)($shot['recommended_duration_seconds'] ?? $shot['duration'] ?? ShortDramaShotDuration::DEFAULT)));
+        $duration = max(0.001, (float)($shot['recommended_duration_seconds'] ?? $shot['duration'] ?? ShortDramaShotDuration::DEFAULT));
         $timeRange = self::readableShotTimeRange($shot, $index, $timeline, $duration);
         $primaryVisual = self::cleanShotVideoPromptText((string)($shot['visual_description'] ?? ''));
         if ($primaryVisual === '') {
@@ -11936,7 +11936,7 @@ class AigcShortDramaService
         $prompt = trim(self::cleanShotVideoPromptText($prompt));
         $values = self::readableShotVideoPromptValues($prompt);
         $shotId = self::readableShotId($shot, $index);
-        $duration = max(1, (int)round((float)($shot['recommended_duration_seconds'] ?? $shot['duration'] ?? ShortDramaShotDuration::DEFAULT)));
+        $duration = max(0.001, (float)($shot['recommended_duration_seconds'] ?? $shot['duration'] ?? ShortDramaShotDuration::DEFAULT));
         $timeRange = self::readableShotTimeRange($shot, $index, $timeline, $duration);
         $primaryVisual = self::cleanShotVideoPromptText((string)($shot['visual_description'] ?? ''));
         if ($primaryVisual === '') {
@@ -12073,27 +12073,30 @@ class AigcShortDramaService
         return $shotId !== '' ? $shotId : (string)($index + 1);
     }
 
-    private static function readableShotTimeRange(array $shot, int $index, array $timeline, int $duration): string
+    private static function readableShotTimeRange(array $shot, int $index, array $timeline, float $duration): string
     {
         $range = trim((string)($shot['time_range'] ?? ''));
         if ($range !== '') {
             return $range;
         }
         $start = isset($timeline['start_seconds'])
-            ? (int)round((float)$timeline['start_seconds'])
-            : max(0, (int)($shot['start_seconds'] ?? 0));
+            ? (float)$timeline['start_seconds']
+            : max(0, (float)($shot['start_seconds'] ?? 0));
         $end = isset($shot['end_seconds'])
-            ? max($start + 1, (int)round((float)$shot['end_seconds']))
+            ? max($start + 0.001, (float)$shot['end_seconds'])
             : $start + $duration;
         return self::formatReadableTimecode($start) . '-' . self::formatReadableTimecode($end);
     }
 
-    private static function formatReadableTimecode(int $seconds): string
+    private static function formatReadableTimecode(float $seconds): string
     {
         $seconds = max(0, $seconds);
-        $minutes = intdiv($seconds, 60);
-        $remaining = $seconds % 60;
-        return str_pad((string)$minutes, 2, '0', STR_PAD_LEFT) . ':' . str_pad((string)$remaining, 2, '0', STR_PAD_LEFT);
+        $milliseconds = (int)round($seconds * 1000);
+        $minutes = intdiv($milliseconds, 60000);
+        $remaining = intdiv($milliseconds % 60000, 1000);
+        $fraction = $milliseconds % 1000;
+        return str_pad((string)$minutes, 2, '0', STR_PAD_LEFT) . ':' . str_pad((string)$remaining, 2, '0', STR_PAD_LEFT)
+            . ($fraction ? '.' . rtrim(str_pad((string)$fraction, 3, '0', STR_PAD_LEFT), '0') : '');
     }
 
     private static function readableShotSoundText(array $shot): string
@@ -13127,8 +13130,10 @@ class AigcShortDramaService
         $plan['subjects'] = $subjects;
         $plan['locations'] = $locations;
         $plan['scenes'] = $locations;
-        $storyboard = self::sortStoryboardBySceneAndOrder($storyboard);
-        $elapsedSeconds = 0;
+        // Repeated visits to a scene are narrative order, not a sorting error.
+        // Regrouping them would move dialogue and break locked time boundaries.
+        if (!ShortDramaEpisodeDuration::active($plan)) $storyboard = self::sortStoryboardBySceneAndOrder($storyboard);
+        $elapsedSeconds = (float)(ShortDramaEpisodeDuration::policy($plan)['timeline_segments'][0]['start_seconds'] ?? 0);
         foreach ($storyboard as $index => $shot) {
             $storyboard[$index]['video_prompt'] = self::normalizeReadableShotVideoPrompt(
                 (string)($shot['video_prompt'] ?? ''),
@@ -13136,7 +13141,7 @@ class AigcShortDramaService
                 $index,
                 ['start_seconds' => $elapsedSeconds]
             );
-            $elapsedSeconds += max(1, (int)round((float)($shot['recommended_duration_seconds'] ?? ShortDramaShotDuration::DEFAULT)));
+            $elapsedSeconds += max(0.001, (float)($shot['recommended_duration_seconds'] ?? ShortDramaShotDuration::DEFAULT));
         }
         $plan['storyboard'] = $storyboard;
         $plan['storyboard_breaking_diagnostics'] = self::storyboardBreakingDiagnostics(
@@ -19820,6 +19825,7 @@ class AigcShortDramaService
                 'model' => $scriptModelName,
                 'episode_duration_policy' => ShortDramaEpisodeDuration::policy($request),
                 'same_scene_cut_policy' => (array)($request['same_scene_cut_policy'] ?? []),
+                'timing_diagnostics' => (array)($payload['timing_diagnostics'] ?? []),
                 'local_timing_revision' => ShortDramaEpisodeDuration::localRevision($request),
                 'mode' => 'script_plan',
                 'shot_duration_rule' => ShortDramaShotDuration::rule($request),
