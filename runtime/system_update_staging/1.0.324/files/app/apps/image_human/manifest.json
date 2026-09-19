@@ -1,0 +1,53 @@
+{
+  "code": "image_human",
+  "name": "全驱数字人",
+  "version": "1.0.7",
+  "require_core": ">=1.0.0",
+  "description": "基于人物图片和参考音频生成全驱数字人视频，首版提供PC端创作、任务轮询和作品展示。",
+  "changelog": "全驱数字人选择克隆音色和输入文案时，先异步合成音频再提交视频任务，并补齐任务阶段迁移。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 890,
+  "frontends": [
+    "platform",
+    "tenant",
+    "pc"
+  ],
+  "api_prefix": "/app/image_human",
+  "platform_menus": "menus/platform.json",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "platform",
+      "entry_key": "image_human_platform",
+      "name": "全驱数字人",
+      "path": "/app/image_human",
+      "icon": "el-icon-VideoCamera",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "tenant",
+      "entry_key": "image_human_admin",
+      "name": "全驱数字人",
+      "path": "/app/image_human",
+      "icon": "el-icon-VideoCamera",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "image_human",
+      "name": "全驱数字人",
+      "path": "/ai/avatar?tab=image_human",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 98,
+      "status": 1
+    }
+  ]
+}
