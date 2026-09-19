@@ -2347,9 +2347,11 @@ class AigcShortDramaService
             'locked_subject_references' => self::lockedSubjectReferences($request),
             'episode_id' => (int)$episode['id'], 'episode_number' => (int)$episode['episode_number'],
             '_generation_version' => (int)($request['_generation_version'] ?? 0),
-            'series_context' => ['outline' => $outline,
+            'series_context' => ['outline' => (int)($request['_generation_version'] ?? 0) >= 3 ? ShortDramaPlanningContext::lockedStory($outline) : $outline,
                 'current_episode' => $currentOutline,
-                'previous_episodes' => $previous, 'subjects' => $outline['subjects'] ?? [],
+                'series_roadmap' => $outline['series_roadmap'] ?? [],
+                'continuity' => ShortDramaContinuity::context($previous),
+                'previous_episodes' => (int)($request['_generation_version'] ?? 0) >= 3 ? ShortDramaContinuity::context($previous)['recent_episodes'] : $previous, 'subjects' => $outline['subjects'] ?? [],
                 'locations' => $outline['locations'] ?? []],
         ]);
         AigcShortDramaProject::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $created['project_id']])
@@ -2756,7 +2758,8 @@ class AigcShortDramaService
                 self::formatTask($task->toArray(), true)
             );
         }
-        if (ShortDramaStoryWorkflow::enabled(self::jsonDecode((string)$task['request_json']))) {
+        if (ShortDramaStoryWorkflow::workerOwned(self::jsonDecode((string)$task['request_json']))
+            || (int)(self::jsonDecode((string)$task['request_json'])['_generation_version'] ?? 0) >= 3) {
             return self::formatTask($task->toArray(), true);
         }
         $taskData = self::recoverPartialStreamScriptPlanTask($tenantId, $userId, $task->toArray());
@@ -3354,7 +3357,7 @@ class AigcShortDramaService
             throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
-        if (ShortDramaStoryWorkflow::enabled(self::jsonDecode((string)$task['request_json']))) {
+        if (ShortDramaStoryWorkflow::workerOwned(self::jsonDecode((string)$task['request_json']))) {
             // Subscribe only: the durable worker owns generation and billing.
             $deadline = microtime(true) + 25;
             $last = ''; $heartbeat = 0;
@@ -3379,6 +3382,14 @@ class AigcShortDramaService
             $result = self::formatTask($task->toArray(), true);
             $emit($task['status'] === self::STATUS_SUCCESS ? 'done' : 'task', $result);
             return $result;
+        }
+        if ($episodeWorker && (int)(self::jsonDecode((string)$task['request_json'])['_generation_version'] ?? 0) >= 3) {
+            if (!in_array($task['status'], [self::STATUS_PENDING, self::STATUS_QUEUED, self::STATUS_RUNNING], true)
+                || !ShortDramaPlanningUnit::ready($tenantId, $userId, $taskId)) return self::formatTask($task->toArray(), true);
+            // The series advisory lock is held by the caller. Reuse completed
+            // receipts after a restart; ambiguous in-flight receipts stop safely.
+            $task->save(['retry_count' => (int)$task['retry_count'] + 1]);
+            return self::executeScriptPlanTask($tenantId, $userId, $task->getData(), $emit);
         }
         $taskData = self::recoverPartialStreamScriptPlanTask($tenantId, $userId, $episodeWorker ? $task->getData() : $task->toArray());
         $taskData = self::recoverCompletedScriptPlanTask($tenantId, $userId, $taskData);
@@ -3415,7 +3426,7 @@ class AigcShortDramaService
         if ((int)(Db::query('SELECT GET_LOCK(?, 0) AS acquired', [$lock])[0]['acquired'] ?? 0) !== 1) return false;
         try {
             $task = self::findTask($tenantId, $userId, $taskId);
-            if (!ShortDramaStoryWorkflow::enabled(self::jsonDecode((string)$task['request_json'])) || !in_array($task['status'], ['pending', 'queued', 'running'], true)) return false;
+            if (!ShortDramaStoryWorkflow::workerOwned(self::jsonDecode((string)$task['request_json'])) || !in_array($task['status'], ['pending', 'queued', 'running'], true)) return false;
             if (!ShortDramaPlanningUnit::ready($tenantId, $userId, $taskId)) return false;
             $task->save(['retry_count' => (int)$task['retry_count'] + 1]);
             self::executeScriptPlanTask($tenantId, $userId, $task->toArray(), static function () {});
@@ -3494,7 +3505,8 @@ class AigcShortDramaService
         $streamContent = '';
         $persistedProviderRequestId = '';
         $storyPreview = ['content' => '', 'episodes' => [], 'unit' => ''];
-        $storyAttempt = ShortDramaStoryWorkflow::enabled($request) ? (int)$taskData['retry_count'] : null;
+        $storyAttempt = (ShortDramaStoryWorkflow::enabled($request) || (int)($request['_generation_version'] ?? 0) >= 3) ? (int)$taskData['retry_count'] : null;
+        if ($storyAttempt !== null) $request['_execution_attempt'] = $storyAttempt;
 
         try {
             $generation = self::generateScriptPlanResult(
@@ -3661,6 +3673,8 @@ class AigcShortDramaService
             Db::startTrans();
             try {
                 if ($storyAttempt !== null) {
+                    $latestProject = AigcShortDramaProject::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'id' => $projectId])->lock(true)->find();
+                    if (!$latestProject || (string)$latestProject['last_task_id'] !== $taskId) throw new Exception('已有新版本，旧任务结果不会覆盖当前剧本');
                     $current = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId])->lock(true)->find();
                     if ($current['status'] !== 'running' || (int)$current['retry_count'] !== $storyAttempt) throw new Exception('任务已取消或由新尝试接管');
                 }
@@ -3774,7 +3788,7 @@ class AigcShortDramaService
                 'progress' => 0,
                 'current_step' => '剧本策划失败',
                 'error' => $message,
-                'result_json' => self::jsonEncode(self::scriptPlanStreamState($streamContent, $persistedProviderRequestId, $message)),
+                'result_json' => $storyAttempt !== null ? (string)$current['result_json'] : self::jsonEncode(self::scriptPlanStreamState($streamContent, $persistedProviderRequestId, $message)),
                 'finished_at' => time(),
                 'update_time' => time(),
             ]);
@@ -5025,14 +5039,14 @@ class AigcShortDramaService
         $task = self::findTask($tenantId, $userId, $taskId);
         $episode = ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id']);
         if ($episode) return ShortDramaEpisodeService::retry($tenantId, $userId, (int)$episode['id']);
-        $isStoryWorkflow = ShortDramaStoryWorkflow::enabled(self::jsonDecode((string)$task['request_json']));
+        $isStoryWorkflow = ShortDramaStoryWorkflow::workerOwned(self::jsonDecode((string)$task['request_json']));
         if (($task['status'] ?? '') !== self::STATUS_FAILED && !($isStoryWorkflow && $task['status'] === self::STATUS_CANCELED)) {
             throw new Exception('当前任务不需要重');
         }
         return Db::transaction(function () use ($tenantId, $userId, $taskId, $task) {
             ShortDramaEpisodeService::guardRevision($tenantId, $userId, (int)$task['project_id'], $taskId);
             $request = self::jsonDecode((string)$task['request_json']);
-            if (ShortDramaStoryWorkflow::enabled($request)) {
+            if (ShortDramaStoryWorkflow::workerOwned($request)) {
                 Db::name('aigc_short_drama_planning_unit')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId])->whereIn('status', ['failed', 'running'])->update(['status' => 'pending', 'update_time' => time()]);
                 $task->save(['status' => self::STATUS_PENDING, 'error' => '', 'finished_at' => 0, 'current_step' => '等待继续未完成部分', 'update_time' => time()]);
                 return self::formatTask($task->toArray(), false);
@@ -14181,6 +14195,8 @@ class AigcShortDramaService
     private static function continuityFromResult(array $result): array
     {
         return [
+            'narrative_digest' => ShortDramaContinuity::fingerprint($result),
+            'ledger' => (array)($result['_continuity'] ?? []),
             'subjects' => array_values(array_map(static fn($item) => [
                 'id' => (string)($item['id'] ?? ''),
                 'name' => (string)($item['name'] ?? ''),
@@ -15891,8 +15907,15 @@ class AigcShortDramaService
      */
     private static function generateScriptPlanLlmWithFallback(int $tenantId, int $userId, array $params, array $model, array $request, string $stage, ?callable $onEvent = null): array
     {
+        if (isset($request['_execution_attempt']) && !empty($request['_prompt_task_id'])) {
+            $active = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
+                'task_id' => $request['_prompt_task_id'], 'status' => self::STATUS_RUNNING,
+                'retry_count' => $request['_execution_attempt']])->count();
+            if (!$active) throw new Exception('任务已取消或由新尝试接管');
+        }
+        if ((int)($request['_generation_version'] ?? 0) >= 3) $params['_disable_transient_retry'] = true;
         if ((int)($request['_generation_version'] ?? 0) >= 3 && empty($request['_repair_unit_claimed'])
-            && in_array($stage, ['repair', 'dialogue_repair'], true)) {
+            && in_array($stage, ['repair', 'dialogue_repair', 'continuity_review'], true)) {
             $params['_planning_count'] = 1;
             $params['_planning_public'] = false;
             $params['_planning_stage'] = 'script';
@@ -16688,6 +16711,21 @@ class AigcShortDramaService
         } catch (Exception $e) {
             Log::write('AI short drama outline remains incomplete after repair: ' . $e->getMessage());
             throw new Exception('多集大纲自动补全后仍不完整，请重试');
+        }
+        if ($v3Generation !== null && !empty($request['series_context'])) {
+            if ($onEvent) $onEvent('stage', ['status' => 'running', 'progress' => 97, 'current_step' => '检查人物状态、伏笔与前集衔接']);
+            $continuityInput = ShortDramaContinuity::messages($result, $request['series_context']);
+            $reviewReceipt = self::generateScriptPlanLlmWithFallback($tenantId, $userId, $continuityInput + [
+                'model_config' => ['max_tokens' => 4096, 'enable_thinking' => false],
+                'source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
+                'action_code' => 'script_plan_continuity', 'parent_app_task_id' => (int)($llmResult['app_task_id'] ?? 0),
+            ], $model, $request, 'continuity_review', $onEvent === null ? null : static function ($event, $data) use ($onEvent) {
+                if ($event !== 'delta') $onEvent($event, $data);
+            });
+            $review = ShortDramaStructuredResponse::decode((array)$reviewReceipt['result']);
+            $result['_continuity'] = ShortDramaContinuity::ledger($review, $result, $request['series_context'], (int)($request['episode_number'] ?? 1));
+            foreach ($result['_continuity']['warnings'] as $warning) $result = self::appendPlanReviewWarning($result, 'continuity.review', $warning);
+            $repairLlmResult = self::mergeScriptPlanLlmResults(array_filter([$repairLlmResult, $reviewReceipt['result']]));
         }
         return [
             'result' => $result,
@@ -19511,7 +19549,7 @@ class AigcShortDramaService
             'opening_feedback' => mb_substr($openingFeedback, 0, 500, 'UTF-8'),
             'planning_steps' => array_slice($planningSteps, 0, 8),
             'story_outline' => $storyOutline !== '' ? $storyOutline : mb_substr($prompt, 0, 500, 'UTF-8'),
-            'script_lines' => array_slice($scriptLines, 0, $multiEpisode ? 80 : 30),
+            'script_lines' => (int)($request['_generation_version'] ?? 0) >= 3 ? $scriptLines : array_slice($scriptLines, 0, $multiEpisode ? 80 : 30),
             'multi_episode' => $multiEpisode,
             'episode_count' => $episodeCount,
             'multi_episode_stage' => $multiEpisodeStage,

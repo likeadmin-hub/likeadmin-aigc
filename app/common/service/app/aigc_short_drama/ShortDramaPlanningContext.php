@@ -14,6 +14,20 @@ final class ShortDramaPlanningContext
 {
     public const VERSION = 1;
 
+    /** Lossless allow-list for confirmed facts. No arbitrary runtime/storage fields. */
+    public static function lockedStory(array $source): array
+    {
+        $result = array_intersect_key($source, array_flip(['title', 'type_judgement', 'core_theme', 'story_outline']));
+        foreach (['subjects', 'locations'] as $key) {
+            $result[$key] = array_map(static fn($item) => array_intersect_key((array)$item,
+                array_flip(['id', 'name', 'library_subject_id', 'category', 'description', 'age', 'role', 'background', 'motivation', 'arc'])), (array)($source[$key] ?? []));
+        }
+        $result['series_bible'] = array_intersect_key((array)($source['series_bible'] ?? []),
+            array_flip(['audience', 'core_hook', 'logline', 'series_arc', 'theme', 'relationships', 'world_rules', 'continuity_rules']));
+        $result['art_style'] = array_intersect_key((array)($source['art_style'] ?? []), array_flip(['base_style', 'visual_description']));
+        return $result;
+    }
+
     public static function isOutline(array $request): bool
     {
         return ShortDramaStoryWorkflow::enabled($request)
@@ -49,8 +63,15 @@ final class ShortDramaPlanningContext
             ];
         }
 
+        $base = self::revisionBase((array)($request['revision_base_result'] ?? []));
+        if ((int)($request['_generation_version'] ?? 0) >= 3) {
+            $source = (array)($request['revision_base_result'] ?? []);
+            $base = self::lockedStory($source);
+            if (isset($source['episodes'])) $base['episodes'] = array_map(static fn($episode) => array_intersect_key((array)$episode,
+                array_flip(['episode_number', 'title', 'story_outline', 'conflict_point', 'ending_hook'])), $source['episodes']);
+        }
         return [
-            'revision_base_result' => self::revisionBase((array)($request['revision_base_result'] ?? [])),
+            'revision_base_result' => $base,
             'episode_batch_context' => self::episodeMemory($request['episode_batch_context'] ?? []),
             'subject_references' => self::subjectReferences(array_merge(
                 (array)($request['locked_subject_references'] ?? []),
@@ -84,6 +105,10 @@ final class ShortDramaPlanningContext
         ]));
         $result['context_pack_version'] = self::VERSION;
         $result['confirmed_story_snapshot'] = self::storyBible((array)($request['confirmed_story_snapshot'] ?? []));
+        if ((int)($request['_generation_version'] ?? 0) >= 3) {
+            $result['confirmed_story_snapshot'] = self::lockedStory((array)($request['confirmed_story_snapshot'] ?? []));
+            $result['series_roadmap'] = $request['series_roadmap'] ?? [];
+        }
         $result['revision_base_result'] = $values['revision_base_result'];
         $result['episode_batch_context'] = $values['episode_batch_context'];
         $result['locked_subject_references'] = $values['subject_references'];

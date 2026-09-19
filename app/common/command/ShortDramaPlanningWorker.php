@@ -14,7 +14,7 @@ class ShortDramaPlanningWorker extends Command
     {
         $this->setName('short-drama:planning-worker')->addOption('once', null, Option::VALUE_NONE, 'Process one planning task')
             ->addOption('task', null, Option::VALUE_OPTIONAL, 'Restrict to a task ID')
-            ->setDescription('Run story setting and outline tasks independently of the browser');
+            ->setDescription('Run story, outline and v3 standalone script tasks independently of the browser');
     }
     protected function execute(Input $input, Output $output)
     {
@@ -29,7 +29,13 @@ class ShortDramaPlanningWorker extends Command
         do {
             try {
             $query = Db::name('aigc_short_drama_script_task')->where('delete_time', 0)->whereIn('status', ['pending', 'queued', 'running'])
-                ->whereLike('request_json', '%story_outline_v2%');
+                ->whereRaw("JSON_VALID(request_json) AND COALESCE(JSON_EXTRACT(request_json, '$.episode_id'), 0) = 0")
+                ->where(function ($query) {
+                    $query->whereLike('request_json', '%story_outline_v2%')->whereOr(function ($v3) {
+                        $v3->whereRaw("JSON_EXTRACT(request_json, '$._generation_version') >= 3")
+                            ->whereRaw("COALESCE(JSON_EXTRACT(request_json, '$.multi_episode'), false) = false");
+                    });
+                });
             if ($input->getOption('task')) $query->where('task_id', $input->getOption('task'));
             $rows = $query->order('id')->limit(20)->select()->toArray();
             $processed = false;
