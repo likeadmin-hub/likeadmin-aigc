@@ -165,4 +165,34 @@ class ShortDramaEpisodeDurationTest extends TestCase
         $this->expectException(\RuntimeException::class);
         ShortDramaTimedScriptGeneration::assertCompletePlan($plan, $this->request(60));
     }
+
+    public function testSmallModelSplitsOutputWithoutChangingPlannedTimeOrShotCount(): void
+    {
+        $sizes = [];
+        $plan = ShortDramaTimedScriptGeneration::generate($this->request(), ['system_prompt' => '', 'content' => '甲找到钥匙'],
+            static function ($key, $input, $budget) use (&$sizes) {
+                if (str_contains($key, 'skeleton')) return ['title' => '钥匙', 'story_outline' => '找到钥匙', 'script_lines' => ['找钥匙'],
+                    'subjects' => [['id' => 'a', 'name' => '甲']], 'locations' => [['id' => 'room', 'name' => '家']],
+                    'scene_beats' => [['scene_ref_id' => 'room', 'goal' => '找到钥匙', 'entry' => '寻找', 'exit' => '找到',
+                        'key_events' => ['找到钥匙'], 'duration_seconds' => 50, 'shot_durations' => [10,10,10,10,10]]]];
+                $context = json_decode(explode("\n以上全局剧情", $input['content'])[0], true);
+                $sizes[] = count($context['required_shots']);
+                return ['storyboard' => array_map(static fn($shot) => ['shot_id' => $shot['shot_id'], 'scene_ref_id' => 'room',
+                    'subject_ref_ids' => ['a'], 'visual_description' => '甲寻找钥匙', 'dialogue' => '',
+                    'recommended_duration_seconds' => $shot['duration_seconds']], $context['required_shots'])];
+            }, null, 4096);
+        self::assertSame([2, 2, 1], $sizes);
+        self::assertCount(5, $plan['storyboard']);
+        self::assertEquals(50, $plan['timing_diagnostics']['total_seconds']);
+        self::assertSame(0, $plan['timing_diagnostics']['time_repairs']);
+    }
+
+    public function testStorySettingUsesFrozenPolicyInsteadOfLegacyOpenDurationHint(): void
+    {
+        $request = $this->request() + ['workflow_variant' => 'story_outline_v2', 'multi_episode' => true, 'episode_count' => 2, 'multi_episode_stage' => 'story'];
+        $instruction = \app\common\service\app\aigc_short_drama\ShortDramaStoryWorkflow::scopeInstruction($request);
+        self::assertStringContainsString('每集时长目标120秒', $instruction);
+        self::assertStringContainsString('不补长、不重试', $instruction);
+        self::assertStringNotContainsString('否则保持时长开放', $instruction);
+    }
 }
