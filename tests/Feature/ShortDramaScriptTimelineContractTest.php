@@ -17,6 +17,26 @@ class ShortDramaScriptTimelineContractTest extends TestCase
         self::assertSame([8, 18, 30], array_column($segments, 'end_seconds'));
     }
 
+    /** @dataProvider standardTimelineFormats */
+    public function testTimelineAcceptsStandardTimecodeFormats(string $prompt, array $starts, array $ends): void
+    {
+        $segments = $this->invoke('extractTimelineSegments', $prompt);
+        self::assertSame($starts, array_column($segments, 'start_seconds'));
+        self::assertSame($ends, array_column($segments, 'end_seconds'));
+    }
+
+    public static function standardTimelineFormats(): array
+    {
+        return [
+            'minutes and seconds' => ["00:00-00:08 开场\n00:08-00:18 冲突", [0, 8], [8, 18]],
+            'hours minutes seconds' => ["00:00:00-00:00:08 开场\n00:00:08-00:00:18 冲突", [0, 8], [8, 18]],
+            'srt arrows and milliseconds' => ["00:00:00,000 --> 00:00:08,500 开场\n00:00:08,500 --> 00:00:18,000 冲突", [0, 8.5], [8.5, 18]],
+            'full width punctuation' => ["００：００－００：０８ 开场\n００：０８→００：１８ 冲突", [0, 8], [8, 18]],
+            'minute second notation' => ["0分00秒至0分08秒 开场\n0分08秒到0分18秒 冲突", [0, 8], [8, 18]],
+            'english seconds' => ["0sec-8sec 开场\n8.5s -> 18.5seconds 冲突", [0, 8.5], [8, 18.5]],
+        ];
+    }
+
     public function testTimelineRemainsAuthoritativeWhenTotalDurationIsSelected(): void
     {
         $prompt = "0‑8s 第一段明确画面\n8‑18s 第二段明确画面\n18‑30s 第三段明确画面";
@@ -82,6 +102,14 @@ class ShortDramaScriptTimelineContractTest extends TestCase
         );
 
         self::assertSame(30, $duration);
+    }
+
+    public function testMillisecondTimelinePreservesTheExactTotal(): void
+    {
+        $storyboard = $this->invoke('repairStoryboardCoverage', [], [['id' => 'location_1', 'name' => '室内']], [],
+            "00:00:00,000 --> 00:00:08,500 开场\n00:00:08,500 --> 00:00:18,000 收束", [], '')['storyboard'];
+        self::assertSame(18.0, array_sum(array_column($storyboard, 'recommended_duration_seconds')));
+        self::assertSame(8.5, $storyboard[0]['recommended_duration_seconds']);
     }
 
     public function testSelectedDurationIsBalancedToTheExactTotal(): void
