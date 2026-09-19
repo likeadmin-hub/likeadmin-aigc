@@ -6,6 +6,7 @@ use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\app\aigc_music\AigcMusicService;
 use app\common\service\app\aigc_video\AigcVideoService;
+use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\FileService;
 use Exception;
 use think\facade\Db;
@@ -133,12 +134,25 @@ class ShortDramaCanvasService
                 'video' => AigcVideoService::generate($tenantId, $userId, $payload),
                 'audio' => AigcMusicService::generate($tenantId, $userId, $payload),
             };
-            $status = self::normalizeStatus((string)($result['status'] ?? 'running'));
+            // Text generation is a synchronous market request. Its successful
+            // response carries content rather than an asynchronous task status,
+            // so treating an omitted status as "running" leaves the canvas node
+            // polling forever even though the provider has already finished.
+            $status = $type === 'text'
+                ? 'success'
+                : self::normalizeStatus((string)($result['status'] ?? 'running'));
             Db::name(self::RUN_TABLE)->where('id', $runId)->update([
                 'provider_task_id' => (string)($result['task_id'] ?? $result['id'] ?? ''),
                 'status' => $status, 'progress' => $status === 'success' ? 100 : 25,
                 'result_json' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'update_time' => time(),
             ]);
+            if ($type === 'text') {
+                MarketTextModelRuntimeService::bindBusinessTask(
+                    (int)($result['app_task_id'] ?? 0),
+                    self::RUN_TABLE,
+                    $runId
+                );
+            }
             self::syncShortDramaTask($runId);
         } catch (\Throwable $e) {
             Db::name(self::RUN_TABLE)->where('id', $runId)->update([
@@ -211,6 +225,9 @@ class ShortDramaCanvasService
         $status = (string)$run['status'];
         $result = self::decode((string)$run['result_json']);
         $source = self::sourceTaskProjection($run);
+        if ((string)$run['node_type'] === 'text') {
+            $source = array_merge($source, self::textResultProjection($result));
+        }
         $now = time();
         $data = [
             'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'project_id' => 0, 'canvas_id' => (int)$run['canvas_id'], 'shot_id' => '',
@@ -276,6 +293,29 @@ class ShortDramaCanvasService
             'model' => $model, 'pricing' => self::decode((string)($row['pricing_snapshot'] ?? '')),
             'billing_status' => (string)($row['billing_status'] ?? 'delegated'),
             'tenant_cost_points' => (float)($row['tenant_cost_points'] ?? 0), 'user_charge_points' => (float)($row['user_charge_points'] ?? 0),
+        ];
+    }
+
+    /** Map the synchronous text runtime result into short-drama task history. */
+    private static function textResultProjection(array $result): array
+    {
+        $billing = (array)($result['billing'] ?? []);
+        return [
+            'app_task_id' => (int)($result['app_task_id'] ?? 0),
+            'consumption_id' => (int)($result['consumption_id'] ?? 0),
+            'market_product_id' => (int)($result['market_product_id'] ?? 0),
+            'market_sku_id' => (int)($result['market_sku_id'] ?? 0),
+            'provider' => (string)($result['provider'] ?? 'power_market'),
+            'provider_task_id' => (string)($result['provider_task_id'] ?? ''),
+            'provider_request_id' => (string)($result['provider_request_id'] ?? ''),
+            'model' => array_filter([
+                'model_code' => (string)($result['model_code'] ?? ''),
+                'channel_code' => (string)($result['channel_code'] ?? ''),
+            ]),
+            'pricing' => $billing,
+            'billing_status' => (string)($billing['billing_status'] ?? 'settled'),
+            'tenant_cost_points' => (float)($billing['tenant_cost_points'] ?? 0),
+            'user_charge_points' => (float)($billing['user_charge_points'] ?? 0),
         ];
     }
 

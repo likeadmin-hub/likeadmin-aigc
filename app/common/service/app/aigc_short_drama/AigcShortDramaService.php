@@ -23084,6 +23084,7 @@ class AigcShortDramaService
             'input_assets' => self::generationTaskInputAssets($row),
             'output_assets' => $assets,
             'asset_count' => count($assets),
+            'result_content' => self::generationTaskResultContent($row),
             'image_url' => (string)($first['asset_type'] ?? '') === 'shot_video' ? '' : (string)($first['url'] ?? ''),
             'video_url' => in_array((string)($first['asset_type'] ?? ''), ['shot_video', 'final_video'], true) ? (string)($first['url'] ?? '') : '',
             'final_video_url' => (string)($first['asset_type'] ?? '') === 'final_video' ? (string)($first['url'] ?? '') : '',
@@ -23098,6 +23099,22 @@ class AigcShortDramaService
             'create_time' => self::timeText($row['create_time'] ?? 0),
             'update_time' => self::timeText($row['update_time'] ?? 0),
         ];
+    }
+
+    /** Text canvas tasks have no media asset; expose their completed content directly. */
+    private static function generationTaskResultContent(array $row): string
+    {
+        if ((string)($row['task_type'] ?? '') !== 'canvas_text') {
+            return '';
+        }
+        $result = self::jsonDecode((string)($row['result_json'] ?? ''));
+        foreach (['content', 'text', 'output'] as $key) {
+            $value = trim((string)($result[$key] ?? ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+        return '';
     }
 
     private static function latestAdminGenerationTask(int $tenantId, int $userId, int $projectId, string $shotId): array
