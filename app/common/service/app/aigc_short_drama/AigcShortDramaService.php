@@ -2358,6 +2358,7 @@ class AigcShortDramaService
         $created = self::createScriptPlan($tenantId, $userId, $request, (int)$episode['production_project_id'], [
             '_prompt_snapshot' => ShortDramaPromptWorkspace::forTask($tenantId, $request),
             'episode_duration_policy' => $episodePolicy,
+            'same_scene_cut_policy' => (array)($request['same_scene_cut_policy'] ?? []),
             'shot_duration_rule' => (array)($request['shot_duration_rule'] ?? []),
             // This is copied from the parent task after it has been resolved
             // on the server; it is intentionally not accepted from HTTP.
@@ -2611,6 +2612,9 @@ class AigcShortDramaService
             : self::storyboardTargetRule($prompt, $request);
         $projectRatio = self::normalizeGenerationRatio((string)($request['ratio'] ?? ''));
         $selectedModels = self::resolveSelectedModels($tenantId, $request, $config);
+        if (ShortDramaEpisodeDuration::active($request) && !isset($request['same_scene_cut_policy'])) {
+            $request['same_scene_cut_policy'] = ShortDramaSameSceneCuts::snapshot((array)($selectedModels['video'] ?? []));
+        }
         ShortDramaSkillRuntime::validateMedia($skillSnapshot, 'script_plan', ['model_code' => (string)($selectedModels['script_plan']['model_code'] ?? $selectedModels['script_plan']['id'] ?? '')]);
         $request['model_selections'] = self::modelSelectionsSnapshot($selectedModels);
         $request['model_id'] = (string)($selectedModels['script_plan']['id'] ?? $request['model_id'] ?? '');
@@ -6044,7 +6048,8 @@ class AigcShortDramaService
             : self::findShot($tenantId, $userId, $projectId, $taskId, $shotId);
         if ($taskType === 'shot_video' || self::normalizeGenerationMode($params) === 'video_generate') {
             $params = self::sanitizeVideoGenerationParams($params);
-            $params = self::prepareMarketShortDramaVideoParams($tenantId, $params, $shot ? $shot->toArray() : []);
+            $timing = self::videoTimingRequest($tenantId, $userId, $projectId, (string)($params['task_id'] ?? ''));
+            $params = self::prepareMarketShortDramaVideoParams($tenantId, $params, $shot ? $shot->toArray() : [], $timing);
             // Quote resolves the same server-owned reference contract used at
             // submission. The browser can therefore disclose an actual
             // first-frame / character-primary downgrade before confirmation.
@@ -6067,7 +6072,7 @@ class AigcShortDramaService
     public static function createShotGenerationTask(int $tenantId, int $userId, array $params, bool $deferEpisodeExport = false): array
     {
         // Never accept a client-supplied prompt snapshot. Retries use stored task params instead.
-        unset($params['_prompt_snapshot'], $params['params']['_prompt_snapshot'], $params['_skill_snapshot'], $params['params']['_skill_snapshot'], $params['_skill_origin_task_id']);
+        unset($params['_prompt_snapshot'], $params['params']['_prompt_snapshot'], $params['_skill_snapshot'], $params['params']['_skill_snapshot'], $params['_skill_origin_task_id'], $params['_episode_duration_policy'], $params['params']['_episode_duration_policy']);
         $params['_prompt_snapshot'] = ShortDramaPromptWorkspace::capture($tenantId);
         $projectId = (int)($params['project_id'] ?? 0);
         $taskId = trim((string)($params['task_id'] ?? ''));
@@ -6137,7 +6142,9 @@ class AigcShortDramaService
         $shotPayload = $shot ? $shot->toArray() : [];
         if ($taskType === 'shot_video' || self::normalizeGenerationMode($params) === 'video_generate') {
             $params = self::sanitizeVideoGenerationParams($params);
-            $params = self::prepareMarketShortDramaVideoParams($tenantId, $params, $shotPayload);
+            $timing = self::videoTimingRequest($tenantId, $userId, $projectId, $taskId);
+            $params['_episode_duration_policy'] = ShortDramaEpisodeDuration::policy($timing);
+            $params = self::prepareMarketShortDramaVideoParams($tenantId, $params, $shotPayload, $timing);
             $params = self::prepareShortDramaVideoReferenceParams($tenantId, $userId, $projectId, $shotPayload, $params);
         }
         $config = self::publicConfig($tenantId);
@@ -12102,6 +12109,12 @@ class AigcShortDramaService
         if (str_contains($voiceRole, '旁白') || str_contains($voiceRole, '画外')) {
             return $soundPrefix . '画外音响起：' . $dialogue . ($voiceRole !== '' ? '（音色：' . $voiceRole . '）' : '');
         }
+        // Keep explicitly attributed turns separate; never quote all turns as
+        // if spoken by the first voice_role. The existing dialogue stays a string.
+        if (preg_match_all('/(?:^|[\n；])\s*([^：:\n；]{1,20})[：:]\s*\S/u', $dialogue, $turns)
+            && count(array_unique($turns[1])) > 1) {
+            return $soundPrefix . '角色依次说话（仅标注者开口，其他角色不说话）：' . $dialogue;
+        }
         return $soundPrefix . ($voiceRole !== '' ? $voiceRole : '角色') . '开口说：“' . $dialogue . '”';
     }
 
@@ -15185,7 +15198,16 @@ class AigcShortDramaService
     }
 
     /** Prepares request details without consulting the legacy video channel/spec tables. */
-    private static function prepareMarketShortDramaVideoParams(int $tenantId, array $params, array $shot): array
+    private static function videoTimingRequest(int $tenantId, int $userId, int $projectId, string $taskId): array
+    {
+        if ($taskId !== '') {
+            $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+            return self::jsonDecode((string)$task['request_json']);
+        }
+        return self::currentProjectPlanRaw($tenantId, $userId, $projectId);
+    }
+
+    private static function prepareMarketShortDramaVideoParams(int $tenantId, array $params, array $shot, array $timing = []): array
     {
         $selection = self::marketVideoSelection($params);
         $durationMode = strtolower((string)($params['duration_mode'] ?? 'smart')) === 'manual' ? 'manual' : 'smart';
@@ -15199,6 +15221,12 @@ class AigcShortDramaService
         $requestedDuration = max(1, min(60, $requestedDuration));
         $runtime = self::marketVideoRuntime($selection);
         $normalized = $runtime::normalizeDurationSelection($tenantId, $selection, $requestedDuration);
+        if (ShortDramaEpisodeDuration::active($timing)) {
+            $planned = $durationMode === 'manual'
+                ? (float)($params['duration'] ?? $params['requested_duration'] ?? 0)
+                : (float)($shot['duration'] ?? $shot['duration_seconds'] ?? $shot['recommended_duration_seconds'] ?? $params['requested_duration'] ?? 0);
+            ShortDramaEpisodeDuration::assertRenderableDuration($planned, (float)($normalized['duration'] ?? 0));
+        }
         $params = array_merge($params, $normalized);
         $params['duration_mode'] = $durationMode;
         $params['requested_duration'] = $requestedDuration;
@@ -15508,7 +15536,8 @@ class AigcShortDramaService
 
     private static function marketShortDramaVideoParamsScoped(int $tenantId, int $userId, int $projectId, array $shot, array $params): array
     {
-        $params = self::prepareMarketShortDramaVideoParams($tenantId, $params, $shot);
+        $params = self::prepareMarketShortDramaVideoParams($tenantId, $params, $shot,
+            ['episode_duration_policy' => (array)($params['_episode_duration_policy'] ?? [])]);
         $selection = self::marketVideoSelection($params);
         $runtime = self::marketVideoRuntime($selection);
         $generateAudio = self::marketVideoSupportsGenerateAudio($runtime, $tenantId, $selection)
@@ -15578,6 +15607,12 @@ class AigcShortDramaService
         if (ShortDramaPromptDocuments::custom('shot_video')) {
             $prompt = ShortDramaPromptDocuments::append($prompt, 'shot_video', ['empty' => self::isNoSubjectShot($shot), 'subject_count' => count((array)($shot['subject_ref_ids'] ?? [])), 'first_frame' => !empty($references['first_frame_image']), 'last_frame' => !empty($references['last_frame_image']), 'missing' => empty($shot['visual_description'])]);
             $prompt .= "\n\n" . ShortDramaPromptCatalog::priority();
+        }
+        if (ShortDramaEpisodeDuration::active($plan) && !empty($shot['camera_movement'])
+            && empty($params['video_prompt']) && empty($params['visible_prompt']) && empty($params['prompt'])) {
+            // Preserve the authored movement through custom templates. Do not
+            // globally replace template text or override a user's manual prompt.
+            $prompt .= "\n本片段画面运动（按以下描述执行，优先于模板通用镜头要求）：" . $shot['camera_movement'];
         }
         $prompt = self::applyShortDramaVideoAudioPreference($prompt, $generateAudio);
         $negativePrompt = ShortDramaPromptDocuments::custom('shot_video')
@@ -17417,6 +17452,7 @@ class AigcShortDramaService
             'user_prompt' => $prompt,
             'revision_message' => (string)($request['revision_message'] ?? ''),
             'episode_duration_policy' => ShortDramaEpisodeDuration::policy($request),
+            'same_scene_cut_policy' => (array)($request['same_scene_cut_policy'] ?? []),
             'pacing_references' => ShortDramaEpisodeDuration::active($request) ? array_map(static fn($rule) => array_intersect_key($rule, array_flip(['label', 'description'])), self::storyboardRulesFromRequest($request)) : [],
             'revision_target' => (array)($request['revision_target'] ?? []),
             'revision_policy' => (array)($request['revision_policy'] ?? []),
@@ -19742,6 +19778,7 @@ class AigcShortDramaService
             'generation_settings' => [
                 'model' => $scriptModelName,
                 'episode_duration_policy' => ShortDramaEpisodeDuration::policy($request),
+                'same_scene_cut_policy' => (array)($request['same_scene_cut_policy'] ?? []),
                 'local_timing_revision' => ShortDramaEpisodeDuration::localRevision($request),
                 'mode' => 'script_plan',
                 'shot_duration_rule' => ShortDramaShotDuration::rule($request),
