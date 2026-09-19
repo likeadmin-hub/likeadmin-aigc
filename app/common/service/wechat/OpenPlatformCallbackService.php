@@ -43,7 +43,7 @@ class OpenPlatformCallbackService
                 $scope = (array)($info['func_info'] ?? []); $profile = OpenPlatformService::authorizerProfileByAppid((string)$info['authorizer_appid']); $type = self::authorizerType($scope, array_merge($info, ['authorizer_info' => $profile]));
                 $expectedType = (string)($context['authorizer_type'] ?? '');
                 if ($expectedType !== '' && $expectedType !== $type) throw new \RuntimeException('微信返回的账号类型与选择不一致，请重新授权');
-                if ($tenantId > 0) OpenPlatformService::bindAuthorizer($tenantId, (string)$info['authorizer_appid'], $type, ['refresh_token' => $info['authorizer_refresh_token'] ?? '', 'func_info' => $scope, 'name' => $profile['nick_name'] ?? '', 'principal_name' => $profile['principal_name'] ?? '', 'head_img' => $profile['head_img'] ?? '']);
+                if ($tenantId > 0) OpenPlatformService::bindAuthorizer($tenantId, (string)$info['authorizer_appid'], $type, array_merge($profile, ['refresh_token' => $info['authorizer_refresh_token'] ?? '', 'func_info' => $scope]));
                 OpenPlatformService::clearAuthState($state);
                 self::log($requestId, 'authorized', 1, 'success', '', $tenantId);
                 return self::authorizationRedirect($tenantId, $type, 'success', (string)($context['return_origin'] ?? ''));
@@ -108,7 +108,7 @@ class OpenPlatformCallbackService
                 $type = self::authorizerType($scope, array_merge($info, ['authorizer_info' => $profile]));
                 $expectedType = (string)($context['authorizer_type'] ?? '');
                 if ($expectedType !== '' && $expectedType !== $type) throw new \RuntimeException('微信返回的账号类型与选择不一致，请重新授权');
-                if ($tenantId > 0) OpenPlatformService::bindAuthorizer($tenantId, (string)$info['authorizer_appid'], $type, ['refresh_token' => $info['authorizer_refresh_token'] ?? '', 'func_info' => $scope, 'name' => $profile['nick_name'] ?? '', 'principal_name' => $profile['principal_name'] ?? '', 'head_img' => $profile['head_img'] ?? '']);
+                if ($tenantId > 0) OpenPlatformService::bindAuthorizer($tenantId, (string)$info['authorizer_appid'], $type, array_merge($profile, ['refresh_token' => $info['authorizer_refresh_token'] ?? '', 'func_info' => $scope]));
                 if ($state !== '') OpenPlatformService::clearAuthState($state);
             } elseif ($event === 'unauthorized') {
                 OpenPlatformService::markUnauthorized((string)($message->AuthorizerAppid ?? ''));

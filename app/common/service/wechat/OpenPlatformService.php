@@ -381,8 +381,12 @@ class OpenPlatformService
 
     public static function authorizerInfo(int $id): array
     {
-        $row = WechatAuthorizer::withoutGlobalScope()->findOrEmpty($id); if ($row->isEmpty()) throw new \RuntimeException('授权账号不存在'); $result = self::request('cgi-bin/component/api_get_authorizer_info', ['component_appid' => self::rawConfig()['app_id'], 'authorizer_appid' => $row['authorizer_appid']], 'auth.info', ['component_access_token' => self::componentAccessToken()], (int)$row['tenant_id'], $id); $profile = (array)($result['authorizer_info'] ?? []);
-        if ($profile) $row->save(['authorizer_name' => (string)($profile['nick_name'] ?? $row['authorizer_name']), 'principal_name' => (string)($profile['principal_name'] ?? $row['principal_name']), 'head_img' => (string)($profile['head_img'] ?? $row['head_img']), 'func_info' => json_encode($profile['func_info'] ?? [], JSON_UNESCAPED_UNICODE), 'last_sync_time' => time(), 'update_time' => time()]); return $profile;
+        $row = WechatAuthorizer::withoutGlobalScope()->findOrEmpty($id);
+        if ($row->isEmpty()) throw new \RuntimeException('授权账号不存在');
+        $result = self::request('cgi-bin/component/api_get_authorizer_info', ['component_appid' => self::rawConfig()['app_id'], 'authorizer_appid' => $row['authorizer_appid']], 'auth.info', ['component_access_token' => self::componentAccessToken()], (int)$row['tenant_id'], $id);
+        $profile = (array)($result['authorizer_info'] ?? []);
+        if ($profile) $row->save(array_merge(self::authorizerProfilePayload($profile), ['last_sync_time' => time(), 'update_time' => time()]));
+        return $profile;
     }
 
     public static function syncAuthorizers(): array
@@ -399,6 +403,17 @@ class OpenPlatformService
         if ($draftId <= 0) throw new \InvalidArgumentException('draft_id 必须为正整数');
         $artifact = WechatArtifact::withoutGlobalScope()->findOrEmpty($artifactId); if ($artifact->isEmpty() || (int)$artifact['verify_status'] !== 1) throw new \RuntimeException('产物不存在或未通过校验');
         $source = self::artifactPath((string)$artifact['artifact_dir'], (string)$artifact['version']); $manifest = json_decode((string)$artifact['sha256_manifest'], true); if (!is_dir($source) || !is_array($manifest) || self::fileManifest($source) !== $manifest) throw new \RuntimeException('产物校验失败');
+        $drafts = self::templateDrafts();
+        $draft = null;
+        foreach ($drafts as $item) {
+            if ((int)($item['draft_id'] ?? 0) === $draftId) {
+                $draft = $item;
+                break;
+            }
+        }
+        if ($draft === null) {
+            throw new \RuntimeException('微信草稿库中不存在该草稿 ID；请刷新草稿列表后选择。草稿 ID 不是本地产品版本号');
+        }
         $lock = SubmitLockService::acquire('wechat.template.upload.' . $artifactId, 0, 0);
         $row = WechatTemplate::withoutGlobalScope()->where('artifact_id', $artifactId)->where('template_version', $artifact['version'])->order('id desc')->findOrEmpty();
         if (!$row->isEmpty() && (string)$row['upload_status'] === 'success' && (int)$row['draft_id'] === $draftId && (string)$row['template_id'] !== '') {
@@ -650,6 +665,28 @@ class OpenPlatformService
         return $artifacts;
     }
     public static function templates(): array { return WechatTemplate::withoutGlobalScope()->order('id desc')->select()->toArray(); }
+    /**
+     * Draft IDs belong to the WeChat component draft box. They must never be
+     * inferred from an internal artifact/version number.
+     */
+    public static function templateDrafts(): array
+    {
+        $result = self::request('wxa/gettemplatedraftlist', [], 'template.drafts', ['component_access_token' => self::componentAccessToken()]);
+        $items = $result['drafttemplate_list'] ?? $result['draft_list'] ?? [];
+        if (!is_array($items)) return [];
+        $drafts = [];
+        foreach ($items as $item) {
+            if (!is_array($item) || (int)($item['draft_id'] ?? 0) <= 0) continue;
+            $drafts[] = [
+                'draft_id' => (int)$item['draft_id'],
+                'user_version' => (string)($item['user_version'] ?? ''),
+                'user_desc' => (string)($item['user_desc'] ?? ''),
+                'create_time' => (int)($item['create_time'] ?? 0),
+            ];
+        }
+        usort($drafts, static fn(array $left, array $right): int => $right['create_time'] <=> $left['create_time']);
+        return $drafts;
+    }
     public static function uploadTemplateForArtifact(int $artifactId, int $draftId, string $description = ''): array { return self::uploadTemplate($artifactId, $draftId, $description); }
     /**
      * Account data used by platform and tenant management pages.
@@ -668,6 +705,14 @@ class OpenPlatformService
                 'authorizer_name',
                 'principal_name',
                 'head_img',
+                'original_id',
+                'qrcode_url',
+                'alias',
+                'service_type',
+                'verify_type',
+                'business_info',
+                'mini_program_info',
+                'profile_json',
                 'func_info',
                 'authorization_status',
                 'unbind_time',
@@ -1480,8 +1525,29 @@ class OpenPlatformService
     {
         if ($appid === '' || !in_array($type, ['official', 'miniprogram'], true)) throw new \InvalidArgumentException('授权账号参数错误'); $existing = WechatAuthorizer::withoutGlobalScope()->where('authorizer_appid', $appid)->findOrEmpty(); if (!$existing->isEmpty() && (int)$existing['tenant_id'] !== $tenantId) throw new \RuntimeException('该账号已绑定其他租户');
         $active = WechatAuthorizer::withoutGlobalScope()->where(['tenant_id' => $tenantId, 'authorizer_type' => $type, 'authorization_status' => 1])->select(); foreach ($active as $item) if ((int)$item['id'] !== (int)($existing['id'] ?? 0)) $item->save(['authorization_status' => 0, 'unbind_time' => time(), 'update_time' => time()]);
-        $payload = ['tenant_id' => $tenantId, 'authorizer_appid' => $appid, 'authorizer_type' => $type, 'authorization_status' => 1, 'last_sync_time' => time(), 'update_time' => time()]; foreach (['name' => 'authorizer_name', 'principal_name' => 'principal_name', 'head_img' => 'head_img'] as $src => $dst) if (!empty($profile[$src])) $payload[$dst] = (string)$profile[$src]; if (array_key_exists('func_info', $profile)) $payload['func_info'] = json_encode($profile['func_info'], JSON_UNESCAPED_UNICODE); if (!empty($profile['refresh_token'])) $payload['authorizer_refresh_token_ciphertext'] = WechatCredentialService::encrypt((string)$profile['refresh_token']);
+        $payload = ['tenant_id' => $tenantId, 'authorizer_appid' => $appid, 'authorizer_type' => $type, 'authorization_status' => 1, 'last_sync_time' => time(), 'update_time' => time()];
+        $payload = array_merge($payload, self::authorizerProfilePayload($profile));
+        if (array_key_exists('func_info', $profile)) $payload['func_info'] = json_encode($profile['func_info'], JSON_UNESCAPED_UNICODE);
+        if (!empty($profile['refresh_token'])) $payload['authorizer_refresh_token_ciphertext'] = WechatCredentialService::encrypt((string)$profile['refresh_token']);
         if ($existing->isEmpty()) { $payload['create_time'] = time(); $existing = WechatAuthorizer::create($payload); } else $existing->save($payload); return $existing->toArray();
+    }
+
+    /** Persist the non-secret account profile returned by api_get_authorizer_info. */
+    private static function authorizerProfilePayload(array $profile): array
+    {
+        $payload = [];
+        foreach (['nick_name' => 'authorizer_name', 'principal_name' => 'principal_name', 'head_img' => 'head_img', 'user_name' => 'original_id', 'qrcode_url' => 'qrcode_url', 'alias' => 'alias'] as $source => $target) {
+            if (array_key_exists($source, $profile) && $profile[$source] !== null && (string)$profile[$source] !== '') $payload[$target] = (string)$profile[$source];
+        }
+        foreach (['service_type_info' => 'service_type', 'verify_type_info' => 'verify_type'] as $source => $target) {
+            if (isset($profile[$source]) && is_array($profile[$source]) && array_key_exists('id', $profile[$source])) $payload[$target] = (int)$profile[$source]['id'];
+        }
+        foreach (['business_info', 'MiniProgramInfo' => 'mini_program_info'] as $source => $target) {
+            if (isset($profile[$source]) && is_array($profile[$source])) $payload[$target] = json_encode($profile[$source], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+        $safeProfile = array_intersect_key($profile, array_flip(['nick_name', 'head_img', 'service_type_info', 'verify_type_info', 'user_name', 'principal_name', 'business_info', 'alias', 'qrcode_url', 'MiniProgramInfo', 'signature']));
+        if ($safeProfile) $payload['profile_json'] = json_encode($safeProfile, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        return $payload;
     }
     public static function unbindAuthorizer(int $tenantId, int $id): bool { $row = WechatAuthorizer::withoutGlobalScope()->where(['id' => $id, 'tenant_id' => $tenantId])->findOrEmpty(); if ($row->isEmpty()) throw new \RuntimeException('授权账号不存在'); $row->save(['authorization_status' => 0, 'unbind_time' => time(), 'update_time' => time()]); return true; }
     public static function createVersion(int $tenantId, array $data): array { foreach (['authorizer_id', 'template_id', 'version'] as $key) if (empty($data[$key])) throw new \InvalidArgumentException('缺少' . $key); if (!preg_match('/^\d+\.\d+\.\d+$/', (string)$data['version'])) throw new \InvalidArgumentException('版本号格式错误'); $authorizer = WechatAuthorizer::withoutGlobalScope()->where(['id' => (int)$data['authorizer_id'], 'tenant_id' => $tenantId, 'authorizer_type' => 'miniprogram', 'authorization_status' => 1])->findOrEmpty(); if ($authorizer->isEmpty()) throw new \RuntimeException('授权小程序不存在'); $template = WechatTemplate::withoutGlobalScope()->where(['id' => (int)$data['template_id'], 'upload_status' => 'success'])->findOrEmpty(); if ($template->isEmpty() || (string)$template['template_id'] === '') throw new \RuntimeException('模板不存在或未上传成功'); $runtimeConfig = self::tenantRuntimeConfig($tenantId); $extJson = is_array($data['ext_json'] ?? null) ? $data['ext_json'] : []; $extJson['runtime_config'] = $runtimeConfig; $runtimeHash = hash('sha256', json_encode($runtimeConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); return WechatMnpVersion::create(['tenant_id' => $tenantId, 'authorizer_id' => (int)$data['authorizer_id'], 'template_id' => (int)$data['template_id'], 'version' => (string)$data['version'], 'description' => (string)($data['description'] ?? ''), 'ext_json' => json_encode($extJson, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'upload_mode' => 'template', 'upload_status' => 'success', 'runtime_config_hash' => $runtimeHash, 'api_base_url' => (string)$runtimeConfig['apiBaseUrl'], 'runtime_config_version' => (string)$runtimeConfig['configVersion'], 'experience_status' => 'pending', 'audit_status' => 'none', 'release_status' => 'none', 'create_time' => time(), 'update_time' => time()])->toArray(); }

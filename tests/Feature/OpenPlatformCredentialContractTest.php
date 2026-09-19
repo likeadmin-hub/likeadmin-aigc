@@ -43,4 +43,21 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString("\$formalMetadataPath = \$formalDirectory . '/.artifact.meta.json'", $source);
         self::assertStringContainsString("\$relativeDir = 'mp-weixin'", $source);
     }
+
+    public function testAuthorizationProfileAndTemplateDraftsHaveExplicitPersistenceContracts(): void
+    {
+        $service = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
+        $callback = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformCallbackService.php');
+        $platformController = file_get_contents(dirname(__DIR__, 2) . '/app/platformapi/controller/OpenPlatformController.php');
+        $tenantController = file_get_contents(dirname(__DIR__, 2) . '/app/tenantapi/controller/channel/OpenPlatformController.php');
+
+        self::assertStringContainsString('authorizerProfilePayload', $service);
+        self::assertStringContainsString("'user_name' => 'original_id'", $service);
+        self::assertStringContainsString("'qrcode_url' => 'qrcode_url'", $service);
+        self::assertStringContainsString("'wxa/gettemplatedraftlist'", $service);
+        self::assertStringContainsString('草稿 ID 不是本地产品版本号', $service);
+        self::assertStringContainsString('array_merge($profile', $callback);
+        self::assertStringContainsString('function templateDrafts()', $platformController);
+        self::assertStringContainsString('function syncAccount()', $tenantController);
+    }
 }
