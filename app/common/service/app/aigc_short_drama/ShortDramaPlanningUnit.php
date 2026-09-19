@@ -7,6 +7,24 @@ use RuntimeException;
 /** Receipts are persisted before parsing. A restart must never replay a received paid response. */
 final class ShortDramaPlanningUnit
 {
+    /** Presentation metadata can differ between HTTP and workers; paid input cannot. */
+    public static function requestSignature(array $input): string
+    {
+        unset($input['_unit_signature']);
+        if (is_array($input['model_selection'] ?? null)) {
+            foreach (['display_icon', 'name', 'description', 'category_name', 'resource_type_label', 'api_doc', 'developer_doc_slug', 'sort'] as $key) {
+                unset($input['model_selection'][$key]);
+            }
+        }
+        $canonical = static function (array $value) use (&$canonical): array {
+            if ($value !== [] && array_keys($value) !== range(0, count($value) - 1)) ksort($value);
+            foreach ($value as &$item) if (is_array($item)) $item = $canonical($item);
+            unset($item);
+            return $value;
+        };
+        return hash('sha256', json_encode($canonical($input), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+    }
+
     public static function ready(int $tenant, int $user, string $task): bool
     {
         foreach (Db::name('aigc_short_drama_planning_unit')->where(['tenant_id' => $tenant, 'user_id' => $user, 'task_id' => $task, 'status' => 'waiting'])->select()->toArray() as $row) {
@@ -28,9 +46,12 @@ final class ShortDramaPlanningUnit
         // Serialize the claim only. Never hold a DB lock across the paid call.
         $claim = Db::transaction(static function () use ($scope, $input, $tenant, $user, $task, $key): array {
             $row = Db::name('aigc_short_drama_planning_unit')->where($scope)->lock(true)->find();
-            $signature = hash('sha256', json_encode($input, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+            $signature = self::requestSignature($input);
             $saved = $row ? json_decode((string)$row['request_json'], true) : [];
-            if (isset($saved['_unit_signature']) && !hash_equals($saved['_unit_signature'], $signature)) {
+            // Old receipts retain their original raw signature. Compare the
+            // canonical saved request too, without rewriting or resubmitting it.
+            if (isset($saved['_unit_signature']) && !hash_equals($saved['_unit_signature'], $signature)
+                && !hash_equals(self::requestSignature($saved), $signature)) {
                 throw new RuntimeException('生成上下文已变化，请新建版本；原有结果已保留', 409);
             }
             if ($row && $row['status'] === 'received') return ['result' => json_decode($row['result_json'], true, 512, JSON_THROW_ON_ERROR)];
