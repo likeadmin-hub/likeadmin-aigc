@@ -18,7 +18,7 @@ $assert = static function (bool $condition, string $message) use (&$failures): v
 $assert(str_contains($canvas, '$status = $type === \'text\'') && str_contains($canvas, "? 'success'"), 'canvas text result is not completed synchronously');
 $assert(str_contains($canvas, 'MarketTextModelRuntimeService::bindBusinessTask'), 'canvas text app task is not bound to its run');
 $assert(str_contains($canvas, 'textResultProjection($result)'), 'canvas text billing projection is missing');
-$assert(str_contains($service, "'result_content' => self::generationTaskResultContent($row)"), 'tenant task API does not expose text output');
+$assert(str_contains($service, "'result_content' => self::generationTaskResultContent(\$row)"), 'tenant task API does not expose text output');
 $assert(str_contains($service, '($row[\'task_type\'] ?? \'\') !== \'canvas_text\''), 'text output is not limited to canvas text tasks');
 $assert(str_contains($menu, 'aigc_short_drama_creation_task'), 'creation-task tenant menu is missing');
 $assert(!str_contains($menu, 'aigc_short_drama_image_task'), 'legacy image task menu remains in the app menu');
