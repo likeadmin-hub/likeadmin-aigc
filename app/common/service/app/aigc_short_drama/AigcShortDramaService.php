@@ -22242,6 +22242,22 @@ class AigcShortDramaService
         $storedResult = self::jsonDecode((string)($task['result_json'] ?? ''));
         $streamContent = (string)($storedResult['__stream_content'] ?? '');
         $streamUpdatedAt = (int)($storedResult['__stream_updated_at'] ?? 0);
+        // Generation v3 is executed by the durable worker.  It saves its
+        // in-progress response as a bounded preview instead of the legacy
+        // append-only stream state, so a reconnecting browser must receive
+        // that preview through the same public stream_content contract.  Keep
+        // story-workspace previews separate: they have their own structured
+        // renderer and are not a single-script token stream.
+        $isStoryWorkspace = ShortDramaStoryWorkflow::enabled($request);
+        if ($streamContent === '' && !$isStoryWorkspace) {
+            $preview = $storedResult['__story_preview'] ?? null;
+            if (is_array($preview)) {
+                $streamContent = (string)($preview['content'] ?? '');
+                if ($streamContent !== '') {
+                    $streamUpdatedAt = max($streamUpdatedAt, (int)($task['update_time'] ?? 0));
+                }
+            }
+        }
         $result = $withResult && ($task['status'] ?? '') === self::STATUS_SUCCESS ? $storedResult : null;
         $project = AigcShortDramaProject::where([
             'tenant_id' => (int)$task['tenant_id'],
@@ -22292,7 +22308,7 @@ class AigcShortDramaService
         }
         $streamContent = self::sanitizeUtf8String($streamContent);
         $storyWorkspace = null;
-        if (ShortDramaStoryWorkflow::enabled($request)) {
+        if ($isStoryWorkspace) {
             if ($result !== null) {
                 // The draft snapshot intentionally replaces model evidence for
                 // story editing. Re-run plan enhancement afterwards so an old
