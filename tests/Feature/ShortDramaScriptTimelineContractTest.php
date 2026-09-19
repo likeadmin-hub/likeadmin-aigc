@@ -143,6 +143,24 @@ class ShortDramaScriptTimelineContractTest extends TestCase
         self::assertSame(15, $rule['max_shots']);
     }
 
+    public function testAutoDurationFreezesTheMatchedTenantStoryboardRule(): void
+    {
+        $request = [
+            'storyboard_rules' => [[
+                'code' => 'suspense', 'label' => '悬疑剧情', 'keywords' => ['悬疑', '反转'],
+                'min_shots' => 30, 'max_shots' => 40, 'sort' => 10, 'enabled' => true,
+            ], [
+                'code' => 'ordinary', 'label' => '常规剧情', 'keywords' => ['都市'],
+                'min_shots' => 20, 'max_shots' => 35, 'sort' => 20, 'enabled' => true,
+            ]],
+        ];
+        $rule = $this->invoke('storyboardTargetRule', '都市悬疑反转故事', $request, []);
+
+        self::assertSame('suspense', $rule['code']);
+        self::assertSame(30, $rule['min_shots']);
+        self::assertSame(40, $rule['max_shots']);
+    }
+
     public function testCleanupKeepsAutoRepairedStoryboardShots(): void
     {
         $result = $this->invoke('cleanStoryboardResultData', 0, 0, 0, '', [
