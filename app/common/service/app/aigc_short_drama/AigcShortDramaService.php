@@ -2346,6 +2346,7 @@ class AigcShortDramaService
             // on the server; it is intentionally not accepted from HTTP.
             'locked_subject_references' => self::lockedSubjectReferences($request),
             'episode_id' => (int)$episode['id'], 'episode_number' => (int)$episode['episode_number'],
+            '_generation_version' => (int)($request['_generation_version'] ?? 0),
             'series_context' => ['outline' => $outline,
                 'current_episode' => $currentOutline,
                 'previous_episodes' => $previous, 'subjects' => $outline['subjects'] ?? [],
@@ -2514,6 +2515,8 @@ class AigcShortDramaService
             : (is_array($internalContext['_skill_snapshot'] ?? null) ? $internalContext['_skill_snapshot'] : ShortDramaSkillService::resolveForTask($tenantId, $params));
         $request = self::normalizeCreateRequest($params, $config);
         $request = array_replace($request, $internalContext);
+        $request['_generation_version'] = (int)($internalContext['_generation_version']
+            ?? \think\facade\Config::get('short_drama.generation_version', 0));
         if ($skillSnapshot) {
             $request['_skill_snapshot'] = $skillSnapshot;
             $request['skill_id'] = (int)$skillSnapshot['id'];
@@ -15888,6 +15891,16 @@ class AigcShortDramaService
      */
     private static function generateScriptPlanLlmWithFallback(int $tenantId, int $userId, array $params, array $model, array $request, string $stage, ?callable $onEvent = null): array
     {
+        if ((int)($request['_generation_version'] ?? 0) >= 3 && empty($request['_repair_unit_claimed'])
+            && in_array($stage, ['repair', 'dialogue_repair'], true)) {
+            $params['_planning_count'] = 1;
+            $params['_planning_public'] = false;
+            $params['_planning_stage'] = 'script';
+            $key = 'v3_' . $stage . '_' . substr(hash('sha256', self::jsonEncode($params)), 0, 24);
+            return ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $key, $params,
+                static fn(): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $params, $model,
+                    array_replace($request, ['_repair_unit_claimed' => true]), $stage, $onEvent));
+        }
         $candidates = self::scriptPlanModelCandidates($tenantId, $model);
         if ($candidates === []) {
             throw new Exception('暂无可用的剧本策划模型，请在算力市场上架文本模型');
@@ -15898,8 +15911,10 @@ class AigcShortDramaService
             $params['model_selection'] = $candidate;
             if (isset($params['_planning_count'])) {
                 $candidate['_planning_fallback'] = (array)\think\facade\Config::get('short_drama', []);
-                $budget = ShortDramaPlanningBudget::calculate($params['system_prompt'] . $params['content'], $candidate,
-                    (int)$params['_planning_count'], (bool)$params['_planning_public']);
+                $budget = !empty($params['_planning_stage'])
+                    ? ShortDramaPlanningBudget::stage($params['system_prompt'] . $params['content'], $candidate, $params['_planning_stage'], (int)($params['model_config']['max_tokens'] ?? 8192))
+                    : ShortDramaPlanningBudget::calculate($params['system_prompt'] . $params['content'], $candidate,
+                        (int)$params['_planning_count'], (bool)$params['_planning_public']);
                 if ($budget['count'] < (int)$params['_planning_count']) throw new \RuntimeException('切换后的模型无法容纳当前批次', 413);
                 $params['model_config']['max_tokens'] = !empty($params['_planning_repair'])
                     ? ShortDramaPlanningBudget::repairMaxTokens($budget, (int)$params['_planning_count'], (bool)$params['_planning_public'])
@@ -16403,6 +16418,7 @@ class AigcShortDramaService
                         'source_type' => 'script_plan', 'source_id' => $title,
                         'model_config' => ['max_tokens' => $budget['max_tokens'], 'enable_thinking' => false],
                         '_planning_count' => $budget['count'], '_planning_public' => str_starts_with($key, 'story'),
+                        '_planning_stage' => $budget['stage'] ?? '',
                         '_planning_repair' => str_contains($key, '_repair')];
                     $receipt = ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $key,
                         $params + ['budget' => $budget], static fn(): array => self::generateScriptPlanLlmWithFallback(
@@ -16430,7 +16446,30 @@ class AigcShortDramaService
         if (!$episodeSettings['multi_episode'] || $multiEpisodeStage === self::MULTI_EPISODE_STAGE_PRODUCTION) {
             $messages['system_prompt'] .= "\n" . ShortDramaDialogueContract::INSTRUCTION;
         }
+        $v3Generation = null;
+        if ((int)($request['_generation_version'] ?? 0) >= ShortDramaScriptGeneration::VERSION && !$episodeSettings['multi_episode']) {
+            $model['_planning_fallback'] = (array)\think\facade\Config::get('short_drama', []);
+            $v3Generation = ShortDramaScriptGeneration::generate($request, $model, $messages,
+                static function (string $key, array $input, array $budget, array $selection) use ($tenantId, $userId, $request, $title, $onEvent): array {
+                    if ($onEvent) $onEvent('heartbeat', []);
+                    $params = $input + ['model_selection' => $selection, 'source_app_code' => self::APP_CODE,
+                        'source_type' => 'script_plan', 'source_id' => $title,
+                        'model_config' => ['max_tokens' => $budget['max_tokens'], 'enable_thinking' => false],
+                        '_planning_count' => 1, '_planning_public' => false, '_planning_stage' => 'script'];
+                    // Each unit is a separate JSON document, not a continuation
+                    // of the previous unit's browser text stream.
+                    $events = $onEvent === null ? null : static function (string $event, array $data) use ($onEvent): void {
+                        if ($event !== 'delta') $onEvent($event, $data);
+                    };
+                    return ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $key,
+                        $params, static fn(): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $params, $selection, $request, $key, $events));
+                }, $onEvent);
+        }
         try {
+            if ($v3Generation !== null) {
+                $llmResult = self::mergeScriptPlanLlmResults($v3Generation['receipts']);
+                $model = $v3Generation['model'];
+            } else {
             $llmParams = [
                 'content' => $messages['content'],
                 'system_prompt' => $messages['system_prompt'],
@@ -16460,6 +16499,7 @@ class AigcShortDramaService
             );
             $llmResult = (array)$runtime['result'];
             $model = (array)$runtime['model'];
+            }
         } catch (Exception $e) {
             Log::write('AI short drama script planning model failed: ' . $e->getMessage());
             throw new Exception(self::scriptPlanProviderError($e->getMessage()));
@@ -16475,8 +16515,8 @@ class AigcShortDramaService
             ]);
         }
 
-        $rawContent = trim((string)($llmResult['content'] ?? ''));
-        $payload = self::decodeLlmJsonObject($rawContent);
+        $rawContent = $v3Generation !== null ? self::jsonEncode($v3Generation['payload']) : trim((string)($llmResult['content'] ?? ''));
+        $payload = $v3Generation !== null ? $v3Generation['payload'] : self::decodeLlmJsonObject($rawContent);
         $dialogueCheck = ShortDramaDialogueContract::prepare($payload);
         $payload = $dialogueCheck['payload'];
         $payload = self::mergeRevisionBasePlanPayload($payload, $request);
@@ -16969,6 +17009,8 @@ class AigcShortDramaService
 
     private static function llmResponseReachedOutputLimit(array $result, int $limit): bool
     {
+        if (in_array((string)($result['finish_reason'] ?? ''), ['length', 'max_tokens', 'max_output_tokens'], true)) return true;
+        if ((int)($result['effective_max_tokens'] ?? 0) > 0) $limit = (int)$result['effective_max_tokens'];
         if ($limit <= 0) {
             return false;
         }
@@ -18935,7 +18977,7 @@ class AigcShortDramaService
             $data = self::decodePartialLlmJsonObject($content);
         }
         if ($data === []) {
-            Log::write('AI short drama script plan JSON parse failed: ' . json_last_error_msg() . ' excerpt=' . mb_substr($content, 0, 800, 'UTF-8'));
+            Log::write('AI short drama script plan JSON parse failed: bytes=' . strlen($content) . ' sha256=' . hash('sha256', $content));
             throw new Exception('AI 返回内容解析失败，请重试');
         }
         return $data;

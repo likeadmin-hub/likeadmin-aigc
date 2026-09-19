@@ -176,6 +176,7 @@ class MarketTextModelRuntimeService
             $actual = self::quote($model, (int)$usage['prompt_tokens'], (int)$usage['completion_tokens']);
             self::settle($context, $actual, $usage, $result, (int)round((microtime(true) - $started) * 1000));
             return $result + [
+                'effective_max_tokens' => $maxTokens,
                 'model_code' => $model['model_code'],
                 'channel_code' => $model['channel_code'],
                 'provider' => 'power_market',
@@ -352,6 +353,9 @@ class MarketTextModelRuntimeService
                 'protocol' => self::protocol((string)($meta['protocol'] ?? ''), $protocols, (string)$product['upstream_model_code']),
                 'protocols' => $protocols,
                 'max_tokens' => max(0, (int)($meta['max_tokens'] ?? 0)),
+                'max_output_tokens' => TextModelCapacity::metadata($meta)['max_output_tokens'],
+                'context_window' => TextModelCapacity::metadata($meta)['context_window'],
+                'max_input_tokens' => TextModelCapacity::metadata($meta)['max_input_tokens'],
                 'default_params' => self::arrayValue($meta['default_params'] ?? []),
                 'params_schema' => self::arrayValue($meta['params_schema'] ?? []),
                 'capabilities' => self::arrayValue($meta['capabilities'] ?? []),
@@ -685,15 +689,7 @@ class MarketTextModelRuntimeService
 
     private static function resolveMaxTokens(array $model, array $overrides): int
     {
-        $modelLimit = (int)($model['max_tokens'] ?? 0);
-        $defaults = (array)($model['default_params'] ?? []);
-        $default = (int)($defaults['max_tokens'] ?? 0);
-        $requested = (int)($overrides['max_tokens'] ?? 0);
-        $value = $requested > 0 ? $requested : ($default > 0 ? $default : self::DEFAULT_MAX_OUTPUT_TOKENS);
-        if ($modelLimit > 0) {
-            $value = min($value, $modelLimit);
-        }
-        return max(256, min(32768, $value));
+        return TextModelCapacity::output($model, (int)($overrides['max_tokens'] ?? 0), self::DEFAULT_MAX_OUTPUT_TOKENS);
     }
 
     private static function resolveRequestTimeout(array $params): int
@@ -1073,6 +1069,7 @@ class MarketTextModelRuntimeService
             'tool_calls' => $state['tool_calls'],
             'stream_mode' => $receivedSseEvent ? 'sse' : 'buffered_response',
             'stream_delta_count' => (int)$state['delta_count'],
+            'finish_reason' => (string)($state['finish_reason'] ?? ''),
         ];
     }
 
@@ -1118,6 +1115,7 @@ class MarketTextModelRuntimeService
             'usage' => (array)($event['usage'] ?? []),
             'provider_request_id' => (string)($event['provider_request_id'] ?? ''),
             'tool_calls' => $toolCalls,
+            'finish_reason' => (string)($event['finish_reason'] ?? ''),
         ];
     }
 
@@ -1167,6 +1165,7 @@ class MarketTextModelRuntimeService
     /** @param array<string, mixed> $state */
     private static function applyStreamEvent(array $event, array &$state, callable $onEvent): void
     {
+        if (!empty($event['finish_reason'])) $state['finish_reason'] = (string)$event['finish_reason'];
         $requestId = trim((string)($event['provider_request_id'] ?? ''));
         if ($requestId !== '') {
             $state['request_id'] = $requestId;
@@ -1263,8 +1262,9 @@ class MarketTextModelRuntimeService
             $json['reasoning'] ?? null,
         ]) : '';
         $toolCalls = self::toolCallsFromPayload($json, $choice, $output);
+        $finishReason = (string)($choice['finish_reason'] ?? $json['stop_reason'] ?? $json['delta']['stop_reason'] ?? $json['finish_reason'] ?? '');
         if ($delta !== '') {
-            return ['type' => 'delta', 'content' => $delta, 'usage' => $usage, 'provider_request_id' => $requestId, 'tool_calls' => $toolCalls];
+            return ['type' => 'delta', 'content' => $delta, 'usage' => $usage, 'provider_request_id' => $requestId, 'tool_calls' => $toolCalls, 'finish_reason' => $finishReason];
         }
         if ($reasoning !== '') {
             return ['type' => 'delta', 'content' => $reasoning, 'reasoning' => true, 'usage' => $usage, 'provider_request_id' => $requestId, 'tool_calls' => $toolCalls];
@@ -1272,11 +1272,11 @@ class MarketTextModelRuntimeService
         if (!empty($toolCalls)) {
             return ['type' => 'tool_calls', 'tool_calls' => $toolCalls, 'usage' => $usage, 'provider_request_id' => $requestId];
         }
-        $terminal = !empty($choice['finish_reason']) || in_array($eventType, [
+        $terminal = $finishReason !== '' || in_array($eventType, [
             'done', 'finish', 'finished', 'complete', 'completed', 'message_stop', 'response.completed', 'response.failed',
         ], true);
         if ($terminal) {
-            return ['type' => 'done', 'finish_reason' => (string)($choice['finish_reason'] ?? $json['finish_reason'] ?? 'stop'), 'usage' => $usage, 'provider_request_id' => $requestId];
+            return ['type' => 'done', 'finish_reason' => $finishReason ?: 'stop', 'usage' => $usage, 'provider_request_id' => $requestId];
         }
         if ($usage !== []) {
             return ['type' => 'usage', 'usage' => $usage, 'provider_request_id' => $requestId];
