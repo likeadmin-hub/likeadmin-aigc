@@ -34,6 +34,21 @@ Route::rule('wechat/open-platform/callback', $openPlatformCallback, 'GET|POST');
 Route::rule('wechat/open-platform/:appid/callback', $openPlatformCallback, 'GET|POST')
     ->pattern(['appid' => '[A-Za-z0-9_-]+']);
 
+// Tenant browsers load this page on the configured platform host before
+// entering WeChat.  WeChat checks this entry-page host separately from its
+// redirect_uri, so a direct tenant -> WeChat navigation is rejected.
+Route::get('wechat/open-platform/authorize', function () {
+    try {
+        return response(
+            \app\common\service\wechat\OpenPlatformService::authorizationLaunchPage((string)request()->param('state', '')),
+            200,
+            ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store']
+        );
+    } catch (\Throwable $e) {
+        return response('授权状态已失效，请返回租户后台重新发起授权', 400, ['Content-Type' => 'text/plain; charset=utf-8', 'Cache-Control' => 'no-store']);
+    }
+});
+
 // Upstream callbacks bypass user authentication. The handler accepts POST only
 // and verifies the HMAC configured with the model API source before waking a job.
 Route::post('ai/task/callback', function () {

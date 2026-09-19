@@ -22,6 +22,8 @@ class OpenPlatformCallbackContractTest extends TestCase
         self::assertStringContainsString('必须是 HTTPS 地址', $source);
         self::assertStringContainsString('public static function authState', $source);
         self::assertStringContainsString('public static function clearAuthState', $source);
+        self::assertStringContainsString('public static function authorizationLaunchUrl', $source);
+        self::assertStringContainsString('public static function authorizationLaunchPage', $source);
 
         $urls = OpenPlatformService::callbackUrls([
             'callback_url' => 'https://example.test/wechat/open-platform/callback',
@@ -37,9 +39,21 @@ class OpenPlatformCallbackContractTest extends TestCase
 
         self::assertStringContainsString("wechat/open-platform/:appid/callback", $route);
         self::assertStringContainsString("application/xml; charset=utf-8", $route);
-        self::assertStringContainsString("消息回调 AppID 与报文不一致", $callback);
+        self::assertStringContainsString('route/message appid differ', $callback);
         self::assertStringContainsString('authorizationRedirect', $callback);
         self::assertStringContainsString("'/t/' . \$tenantId . '/admin/channel/overview?'", $callback);
 
+    }
+
+    public function testTenantAuthorizationUsesPlatformHostedEntryRelay(): void
+    {
+        $route = $this->source('route/app.php');
+        $service = $this->source('app/common/service/wechat/OpenPlatformService.php');
+
+        self::assertStringContainsString("wechat/open-platform/authorize", $route);
+        self::assertStringContainsString('authorizationLaunchPage', $route);
+        self::assertStringContainsString("'Cache-Control' => 'no-store'", $route);
+        self::assertStringContainsString('window.location.replace', $service);
+        self::assertStringContainsString('The WeChat console validates the browser', $service);
     }
 }

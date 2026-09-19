@@ -156,12 +156,49 @@ class OpenPlatformService
         if (!$status['configured']) {
             throw new \RuntimeException('请先完善开放平台配置：缺少 ' . implode('、', $status['missing']));
         }
-        $config = self::rawConfig(); self::requireConfig($config, ['app_id']); $state = bin2hex(random_bytes(16)); $callback = self::callbackUrls($config)['authorization'];
+        $config = self::rawConfig(); self::requireConfig($config, ['app_id']); $state = bin2hex(random_bytes(16));
         $authorizerType = in_array($authorizerType, ['official', 'miniprogram'], true) ? $authorizerType : null;
         Cache::set('wechat.open_platform.auth_state.' . $state, ['tenant_id' => $tenantId ?: 0, 'authorizer_type' => $authorizerType, 'created_at' => time()], 600);
-        $query = ['component_appid' => $config['app_id'], 'pre_auth_code' => self::preAuthCode(), 'redirect_uri' => $callback, 'state' => $state];
-        if ($authorizerType !== null) $query['auth_type'] = $authorizerType === 'official' ? 1 : 2;
-        return ['url' => 'https://mp.weixin.qq.com/cgi-bin/componentloginpage?' . http_build_query($query), 'state' => $state, 'authorizer_type' => $authorizerType];
+        // The WeChat console validates the browser's authorization-entry host,
+        // not only redirect_uri.  A tenant browser must therefore first load a
+        // page on the configured platform host before that page enters WeChat.
+        return ['url' => self::authorizationLaunchUrl($state, $config), 'state' => $state, 'authorizer_type' => $authorizerType];
+    }
+
+    public static function authorizationLaunchUrl(string $state, array $config = []): string
+    {
+        $state = trim($state);
+        if (!preg_match('/^[a-f0-9]{32}$/', $state)) {
+            throw new \InvalidArgumentException('授权状态无效');
+        }
+        $callback = self::callbackUrls($config ?: self::rawConfig())['authorization'];
+        return self::originFromUrl($callback) . '/wechat/open-platform/authorize?state=' . rawurlencode($state);
+    }
+
+    /**
+     * Render a same-origin relay page instead of issuing an HTTP redirect.
+     * A server redirect preserves the tenant Referer in some browsers, while
+     * this document makes the configured platform host the actual entry page.
+     */
+    public static function authorizationLaunchPage(string $state): string
+    {
+        $auth = self::authState($state);
+        $config = self::rawConfig();
+        self::requireConfig($config, ['app_id']);
+        $callback = self::callbackUrls($config)['authorization'];
+        $query = [
+            'component_appid' => $config['app_id'],
+            'pre_auth_code' => self::preAuthCode(),
+            'redirect_uri' => $callback,
+            'state' => trim($state),
+        ];
+        $authorizerType = (string)($auth['authorizer_type'] ?? '');
+        if (in_array($authorizerType, ['official', 'miniprogram'], true)) {
+            $query['auth_type'] = $authorizerType === 'official' ? 1 : 2;
+        }
+        $wechatUrl = 'https://mp.weixin.qq.com/cgi-bin/componentloginpage?' . http_build_query($query);
+        $encodedUrl = json_encode($wechatUrl, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="referrer" content="origin"><title>正在跳转微信授权</title></head><body><script>window.location.replace(' . $encodedUrl . ');</script></body></html>';
     }
     public static function authState(string $state): array
     {
