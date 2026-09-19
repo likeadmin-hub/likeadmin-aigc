@@ -72,6 +72,9 @@ class OpenPlatformCallbackContractTest extends TestCase
         self::assertStringContainsString('componentloginpage does not reliably round-trip', $callback);
         self::assertStringContainsString('$request->cookie(OpenPlatformService::authStateCookieName()', $callback);
         self::assertStringContainsString('authStateCookieOptions(-3600)', $route);
+        self::assertStringContainsString('componentloginpage can treat a bare 302', $route);
+        self::assertStringContainsString('window.location.replace', $route);
+        self::assertStringContainsString("'text/html; charset=utf-8'", $route);
     }
 
     public function testSignedStateRecoversTenantContextWithoutCache(): void
