@@ -52,7 +52,7 @@ class OpenPlatformService
         $row = self::rawConfig();
         foreach (self::CONFIG_MASK_FIELDS as $key) {
             if (array_key_exists($key, $row)) {
-                $row[$key] = WechatCredentialService::mask(WechatCredentialService::decrypt($row[$key]));
+                $row[$key] = WechatCredentialService::mask(self::credentialValue($row[$key]));
             }
         }
         // WeChat uses two different callbacks: the component callback is fixed,
@@ -78,7 +78,7 @@ class OpenPlatformService
         ];
         $missing = [];
         foreach ($labels as $field => $label) {
-            $value = WechatCredentialService::decrypt($config[$field] ?? '') ?: (string)($config[$field] ?? '');
+            $value = self::credentialValue($config[$field] ?? '');
             if (trim($value) === '') {
                 $missing[] = $label;
             }
@@ -105,7 +105,7 @@ class OpenPlatformService
     public static function startTicket(): array
     {
         $config = self::rawConfig(); self::requireConfig($config, ['app_id', 'app_secret', 'token', 'encoding_aes_key']);
-        return self::request('cgi-bin/component/api_start_push_ticket', ['component_appid' => $config['app_id'], 'component_appsecret' => WechatCredentialService::decrypt($config['app_secret'])], 'ticket.start');
+        return self::request('cgi-bin/component/api_start_push_ticket', ['component_appid' => $config['app_id'], 'component_appsecret' => self::credentialValue($config['app_secret'] ?? '')], 'ticket.start');
     }
 
     public static function componentAccessToken(bool $force = false): string
@@ -113,10 +113,10 @@ class OpenPlatformService
         $lock = SubmitLockService::acquire('wechat.token.component', 0, 0, true);
         try {
             $config = self::rawConfig(); self::requireConfig($config, ['app_id', 'app_secret']); $now = time();
-            $cached = WechatCredentialService::decrypt($config['component_access_token'] ?? '') ?: (string)($config['component_access_token'] ?? '');
+            $cached = self::credentialValue($config['component_access_token'] ?? '');
             if (!$force && $cached !== '' && (int)($config['component_token_expire_time'] ?? 0) > $now + 60) return $cached;
-            $ticket = WechatCredentialService::decrypt($config['component_verify_ticket'] ?? ''); if ($ticket === '') throw new \RuntimeException('尚未收到 component_verify_ticket，请先启动 Ticket 推送');
-            $result = self::request('cgi-bin/component/api_component_token', ['component_appid' => $config['app_id'], 'component_appsecret' => WechatCredentialService::decrypt($config['app_secret']), 'component_verify_ticket' => $ticket], 'token.component');
+            $ticket = self::credentialValue($config['component_verify_ticket'] ?? ''); if ($ticket === '') throw new \RuntimeException('尚未收到 component_verify_ticket，请先启动 Ticket 推送');
+            $result = self::request('cgi-bin/component/api_component_token', ['component_appid' => $config['app_id'], 'component_appsecret' => self::credentialValue($config['app_secret'] ?? ''), 'component_verify_ticket' => $ticket], 'token.component');
             $token = (string)$result['component_access_token']; $ttl = max(60, (int)($result['expires_in'] ?? 7200) - 300);
             WechatOpenPlatform::withoutGlobalScope()->where('id', 1)->update(['component_access_token' => WechatCredentialService::encrypt($token), 'component_token_expire_time' => $now + $ttl, 'update_time' => $now]); Cache::set('wechat.open_platform.component_token', $token, $ttl); return $token;
         } finally { SubmitLockService::release($lock); }
@@ -191,9 +191,9 @@ class OpenPlatformService
         $lock = SubmitLockService::acquire('wechat.token.authorizer.' . $id, 0, 0, true);
         try {
             $row = WechatAuthorizer::withoutGlobalScope()->findOrEmpty($id); if ($row->isEmpty() || (int)$row['authorization_status'] !== 1) throw new \RuntimeException('授权账号不存在或已失效'); $now = time();
-            $cached = WechatCredentialService::decrypt($row['access_token_ciphertext'] ?? '') ?: (string)($row['access_token_ciphertext'] ?? '');
+            $cached = self::credentialValue($row['access_token_ciphertext'] ?? '');
             if (!$force && (int)$row['access_token_expire_time'] > $now + 60 && $cached !== '') return $cached;
-            $refresh = WechatCredentialService::decrypt($row['authorizer_refresh_token_ciphertext']); if ($refresh === '') throw new \RuntimeException('授权账号缺少刷新令牌'); $config = self::rawConfig();
+            $refresh = self::credentialValue($row['authorizer_refresh_token_ciphertext'] ?? ''); if ($refresh === '') throw new \RuntimeException('授权账号缺少刷新令牌'); $config = self::rawConfig();
             $result = self::request('cgi-bin/component/api_authorizer_token', ['component_appid' => $config['app_id'], 'authorizer_appid' => $row['authorizer_appid'], 'authorizer_refresh_token' => $refresh], 'token.authorizer', ['component_access_token' => self::componentAccessToken()]); $token = (string)$result['authorizer_access_token']; $ttl = max(60, (int)($result['expires_in'] ?? 7200) - 300);
             $row->save(['access_token_ciphertext' => WechatCredentialService::encrypt($token), 'access_token_expire_time' => $now + $ttl, 'update_time' => $now]); return $token;
         } finally { SubmitLockService::release($lock); }
@@ -311,7 +311,19 @@ class OpenPlatformService
         return array_values(array_filter($items, static fn($item) => is_array($item) && !empty($item['address'])));
     }
     private static function logApi(string $requestId, string $apiName, int $code, float $started, string $result, int $tenantId = 0, int $authorizerId = 0): void { try { WechatApiLog::withoutGlobalScope()->insert(['request_id' => $requestId, 'tenant_id' => $tenantId, 'authorizer_id' => $authorizerId, 'api_name' => $apiName, 'wechat_code' => $code, 'elapsed_ms' => (int)((microtime(true) - $started) * 1000), 'retry_count' => 0, 'result' => $result, 'create_time' => time()]); } catch (\Throwable $ignored) {} }
-    private static function requireConfig(array $config, array $fields): void { foreach ($fields as $field) if (trim(WechatCredentialService::decrypt($config[$field] ?? '') ?: (string)($config[$field] ?? '')) === '') throw new \RuntimeException('请先完善开放平台配置'); }
+    /**
+     * Read an encrypted credential while remaining compatible with installations
+     * created before credential encryption was introduced. Masked values are
+     * never accepted as credentials and therefore cannot be sent to WeChat.
+     */
+    private static function credentialValue(?string $value): string
+    {
+        $value = trim((string)$value);
+        if ($value === '' || str_contains($value, '*')) return '';
+        return WechatCredentialService::decrypt($value) ?: $value;
+    }
+
+    private static function requireConfig(array $config, array $fields): void { foreach ($fields as $field) if (self::credentialValue($config[$field] ?? '') === '') throw new \RuntimeException('请先完善开放平台配置'); }
 
     public static function registerArtifact(string $version, string $sourceSha = ''): array
     {
@@ -529,7 +541,7 @@ class OpenPlatformService
         $credential = WechatCredential::withoutGlobalScope()->where('tenant_id', $tenantId)->findOrEmpty()->toArray();
         $privateKey = '';
         foreach (['upload_private_key', 'upload_private_pem'] as $key) {
-            $privateKey = WechatCredentialService::decrypt($credential[$key] ?? '');
+            $privateKey = self::credentialValue($credential[$key] ?? '');
             if ($privateKey !== '') break;
         }
         if ($privateKey === '') throw new \RuntimeException('请先上传小程序代码上传密钥');
@@ -1057,7 +1069,7 @@ class OpenPlatformService
 
     private static function credentialView(array $row): array
     {
-        foreach (array_merge(self::SECRET_FIELDS, ['api_key']) as $key) if (isset($row[$key])) $row[$key] = WechatCredentialService::mask(WechatCredentialService::decrypt($row[$key]));
+        foreach (array_merge(self::SECRET_FIELDS, ['api_key']) as $key) if (isset($row[$key])) $row[$key] = WechatCredentialService::mask(self::credentialValue($row[$key]));
         foreach (['settings_json', 'filing_json'] as $key) $row[$key] = json_decode((string)($row[$key] ?? ''), true) ?: [];
         unset($row['id']);
         return $row;
@@ -1071,7 +1083,7 @@ class OpenPlatformService
         $appSecret = trim((string)ConfigService::get('mnp_setting', 'app_secret', ''));
         $credentials = WechatCredential::withoutGlobalScope()->where('tenant_id', $tenantId)->findOrEmpty()->toArray();
         $hasKey = false;
-        foreach (['upload_private_key', 'upload_private_pem'] as $key) if (!empty($credentials[$key]) && WechatCredentialService::decrypt($credentials[$key]) !== '') $hasKey = true;
+        foreach (['upload_private_key', 'upload_private_pem'] as $key) if (!empty($credentials[$key]) && self::credentialValue($credentials[$key]) !== '') $hasKey = true;
         $hasManual = $appId !== '' && $appSecret !== '';
         $account = $authorized->isEmpty() ? null : $authorized->toArray();
         if ($account !== null) {
@@ -1111,7 +1123,7 @@ class OpenPlatformService
         $credentials = WechatCredential::withoutGlobalScope()->where('tenant_id', $tenantId)->findOrEmpty()->toArray();
         $hasKey = false;
         foreach (['upload_private_key', 'upload_private_pem'] as $key) {
-            if (!empty($credentials[$key]) && WechatCredentialService::decrypt($credentials[$key]) !== '') {
+            if (!empty($credentials[$key]) && self::credentialValue($credentials[$key]) !== '') {
                 $hasKey = true;
                 break;
             }
