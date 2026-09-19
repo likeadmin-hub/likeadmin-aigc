@@ -9,7 +9,7 @@ class OpenPlatformController extends BaseAdminController
     private function idempotencyKey(): string { return trim((string)$this->request->header('Idempotency-Key', '')); }
     public function config() { return $this->data(OpenPlatformService::config()); }
     public function saveConfig() { try { $p=(array)$this->request->post(); return $this->data(OpenPlatformService::runIdempotent('config.save',$this->idempotencyKey(),0,fn()=>OpenPlatformService::saveConfig($p))); } catch (\Throwable $e) { return $this->fail($e->getMessage()); } }
-    public function startTicket() { try { return $this->data(OpenPlatformService::runIdempotent('ticket.start',$this->idempotencyKey(),0,fn()=>OpenPlatformService::startTicket())); } catch (\Throwable $e) { return $this->fail($e->getMessage()); } }
+    public function startTicket() { try { return $this->data(OpenPlatformService::runIdempotent('ticket.start',$this->idempotencyKey(),0,fn()=>OpenPlatformService::startTicket())); } catch (\Throwable $e) { return $this->fail($e->getMessage(), ['credential_debug' => OpenPlatformService::credentialDiagnostics()]); } }
     public function authUrl()
     {
         try { return $this->data(OpenPlatformService::authUrl()); } catch (\Throwable $e) { return $this->fail($e->getMessage()); }

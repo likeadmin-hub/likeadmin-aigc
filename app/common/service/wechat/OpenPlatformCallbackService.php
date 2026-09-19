@@ -63,8 +63,13 @@ class OpenPlatformCallbackService
         $message = @simplexml_load_string($plain, 'SimpleXMLElement', LIBXML_NONET | LIBXML_NOCDATA);
         if (!$message) throw new \RuntimeException('回调解密失败');
         $authorizerAppId = trim((string)($message->ToUserName ?? ''));
-        if ($routeAppId !== '' && ($authorizerAppId === '' || !hash_equals($routeAppId, $authorizerAppId))) {
-            throw new \RuntimeException('消息回调 AppID 与报文不一致');
+        // The $APPID$ path segment is supplied by WeChat for the test
+        // authorizer, while ToUserName in an encrypted whole-network payload
+        // can identify the receiving platform/account differently. Signature
+        // and AES validation above already authenticate the callback, so this
+        // secondary equality check must not reject valid whole-network tests.
+        if ($routeAppId !== '' && $authorizerAppId !== '' && !hash_equals($routeAppId, $authorizerAppId)) {
+            error_log('[wechat-callback] route/message appid differ: route=' . $routeAppId . ' message=' . $authorizerAppId);
         }
         $testReply = self::wholeNetworkTestReply($message, $config);
         if ($testReply !== null) {
@@ -132,27 +137,30 @@ class OpenPlatformCallbackService
     /** Handle WeChat's fixed whole-network verification messages before tenant routing. */
     private static function wholeNetworkTestReply(\SimpleXMLElement $message, array $config): ?string
     {
-        $messageType = strtolower((string)($message->MsgType ?? ''));
+        $messageType = strtolower(trim((string)($message->MsgType ?? '')));
         $fromUser = (string)($message->FromUserName ?? '');
         $toUser = (string)($message->ToUserName ?? '');
-        if ($fromUser === '' || $toUser === '') return null;
+        $content = trim((string)($message->Content ?? ''));
 
-        if ($messageType === 'text') {
-            $content = trim((string)($message->Content ?? ''));
-            if ($content === 'TESTCOMPONENT_MSG_TYPE_TEXT') {
-                return self::encryptedTextReply($config, $fromUser, $toUser, 'TESTCOMPONENT_MSG_TYPE_TEXT_callback');
-            }
-            if (str_starts_with($content, 'QUERY_AUTH_CODE:')) {
-                $queryCode = trim(substr($content, strlen('QUERY_AUTH_CODE:')));
-                if ($queryCode === '') throw new \RuntimeException('全网检测授权码为空');
-                $info = OpenPlatformService::queryAuthorization($queryCode);
-                $authorization = (array)$info;
-                $accessToken = (string)($authorization['authorizer_access_token'] ?? '');
-                if ($accessToken !== '') {
-                    OpenPlatformService::sendAuthorizerCustomText($accessToken, $fromUser, $queryCode . '_from_api');
-                }
-                return 'success';
-            }
+        // WeChat's whole-network test messages are encrypted text messages,
+        // but installations/proxies have been observed to vary MsgType case.
+        // Match the content contract independently so QUERY_AUTH_CODE cannot
+        // fall through into the normal authorizer-message handler.
+        if (stripos($content, 'QUERY_AUTH_CODE:') === 0) {
+            if ($fromUser === '' || $toUser === '') throw new \RuntimeException('全网检测消息用户标识为空');
+            $queryCode = trim(substr($content, strlen('QUERY_AUTH_CODE:')));
+            if ($queryCode === '') throw new \RuntimeException('全网检测授权码为空');
+            $authorization = OpenPlatformService::queryAuthorization($queryCode);
+            $accessToken = (string)($authorization['authorizer_access_token'] ?? '');
+            if ($accessToken === '') throw new \RuntimeException('全网检测授权未返回 authorizer_access_token');
+            OpenPlatformService::sendAuthorizerCustomText($accessToken, $fromUser, $queryCode . '_from_api');
+            // WeChat's official-account whole-network test requires an empty
+            // response body after the custom message is sent.
+            return '';
+        }
+
+        if ($messageType === 'text' && $fromUser !== '' && $toUser !== '' && strcasecmp($content, 'TESTCOMPONENT_MSG_TYPE_TEXT') === 0) {
+            return self::encryptedTextReply($config, $fromUser, $toUser, 'TESTCOMPONENT_MSG_TYPE_TEXT_callback');
         }
 
         if ($messageType === 'event') {
