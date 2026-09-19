@@ -537,7 +537,7 @@ class AigcShortDramaService
             $config['ratios'] = self::normalizeRatioConfig($params['ratios'], (array)($current['ratios'] ?? []));
         }
         if (array_key_exists('home_style', $params)) {
-            $config['home_style'] = in_array($params['home_style'], ['default', 'imagine'], true) ? $params['home_style'] : 'default';
+            $config['home_style'] = in_array($params['home_style'], ['default', 'imagine'], true) ? $params['home_style'] : 'imagine';
         }
         if (isset($params['imagine_background']) && is_array($params['imagine_background'])) {
             $config['imagine_background'] = self::normalizeImagineBackground($params['imagine_background']);
@@ -2035,7 +2035,7 @@ class AigcShortDramaService
                 'enabled' => (int)($config['status'] ?? 1) === 1,
                 'message' => '',
             ],
-            'home_style' => ($config['home_style'] ?? 'default') === 'imagine' ? 'imagine' : 'default',
+            'home_style' => ($config['home_style'] ?? 'imagine') === 'default' ? 'default' : 'imagine',
             'background' => $config['background'],
             'imagine_background' => $config['imagine_background'],
             'ratios' => $config['ratios'],
@@ -14782,7 +14782,7 @@ class AigcShortDramaService
                 ['label' => '21:9', 'width' => 21, 'height' => 9],
                 ['label' => '1:1', 'width' => 1, 'height' => 1],
             ],
-            'home_style' => 'default',
+            'home_style' => 'imagine',
             'imagine_background' => self::normalizeImagineBackground([]),
             'prompt_max_length' => 20000,
             'script_system_prompt' => self::scriptPlanSystemPrompt(),
