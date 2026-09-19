@@ -32,7 +32,7 @@ class OpenPlatformController extends BaseAdminController
             return $this->data(OpenPlatformService::authorizers($this->tenantId));
         } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
     }
-    public function templates() { return $this->data(OpenPlatformService::templates()); }
+    public function templates() { return $this->data(OpenPlatformService::availableTemplates()); }
     public function versions() { return $this->data(OpenPlatformService::versions($this->tenantId)); }
     public function reviews() { return $this->data(OpenPlatformService::reviews($this->tenantId)); }
     public function createVersion() { try { return $this->data(OpenPlatformService::runIdempotent('version.create', $this->idempotencyKey(), $this->tenantId, fn() => OpenPlatformService::createVersion($this->tenantId, (array)$this->request->post()))); } catch (\Throwable $e) { return $this->fail($e->getMessage()); } }

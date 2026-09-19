@@ -664,7 +664,79 @@ class OpenPlatformService
         usort($artifacts, static fn(array $left, array $right): int => version_compare((string)$right['version'], (string)$left['version']));
         return $artifacts;
     }
-    public static function templates(): array { return WechatTemplate::withoutGlobalScope()->order('id desc')->select()->toArray(); }
+    /**
+     * The component template library is owned by WeChat.  A local upload row
+     * only records our attempt and must never be presented as the library
+     * source of truth.
+     */
+    public static function templates(): array
+    {
+        return self::syncTemplates();
+    }
+
+    /**
+     * Return only local add-to-template attempts. Remote templates cached by
+     * synchronization have no artifact and are not upload attempts.
+     */
+    public static function templateRecords(): array
+    {
+        return WechatTemplate::withoutGlobalScope()->where('artifact_id', '>', 0)->order('id desc')->select()->toArray();
+    }
+
+    /** Tenant version creation reads the verified local cache, without a remote call. */
+    public static function availableTemplates(): array
+    {
+        return WechatTemplate::withoutGlobalScope()
+            ->where('upload_status', 'success')
+            ->where('template_id', '<>', '')
+            ->order('upload_time desc')
+            ->order('id desc')
+            ->select()
+            ->toArray();
+    }
+
+    /**
+     * Read WeChat's template library and upsert the returned templates locally
+     * so tenants can subsequently select a verified template by internal ID.
+     */
+    public static function syncTemplates(): array
+    {
+        $result = self::request('wxa/gettemplatelist', [], 'template.list', ['component_access_token' => self::componentAccessToken()]);
+        $items = $result['template_list'] ?? [];
+        if (!is_array($items)) return [];
+
+        $templates = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) continue;
+            $templateId = trim((string)($item['template_id'] ?? ''));
+            if ($templateId === '') continue;
+            $payload = [
+                'template_id' => $templateId,
+                'template_version' => trim((string)($item['user_version'] ?? $item['template_version'] ?? '')),
+                'template_desc' => trim((string)($item['user_desc'] ?? $item['template_desc'] ?? '')),
+                'upload_status' => 'success',
+                'upload_time' => (int)($item['create_time'] ?? 0),
+                'error_message' => '',
+                'update_time' => time(),
+            ];
+            $row = WechatTemplate::withoutGlobalScope()
+                ->where('template_id', $templateId)
+                ->order('id desc')
+                ->findOrEmpty();
+            if ($row->isEmpty()) {
+                $row = WechatTemplate::create(array_merge($payload, [
+                    'draft_id' => 0,
+                    'artifact_id' => 0,
+                    'create_time' => time(),
+                ]));
+            } else {
+                $row->save($payload);
+            }
+            $templates[] = $row->toArray();
+        }
+        usort($templates, static fn(array $left, array $right): int => (int)($right['upload_time'] ?? 0) <=> (int)($left['upload_time'] ?? 0));
+        return $templates;
+    }
     /**
      * Draft IDs belong to the WeChat component draft box. They must never be
      * inferred from an internal artifact/version number.
