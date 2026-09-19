@@ -14829,7 +14829,11 @@ class AigcShortDramaService
             'channel_code' => (string)($model['channel_code'] ?? ''),
             'name' => (string)($model['name'] ?? $id),
             'description' => (string)($model['description'] ?? ''),
-            'image' => self::fileUrl((string)($model['display_icon'] ?? $model['image'] ?? self::DEFAULT_IMAGE)),
+            // Model presentation belongs to the power market.  Do not fall back
+            // to the short-drama avatar: that makes unrelated models appear to
+            // have the same identity when the market has no configured icon.
+            'display_icon' => self::fileUrl((string)($model['display_icon'] ?? '')),
+            'image' => self::fileUrl((string)($model['display_icon'] ?? '')),
             'enabled' => (bool)($model['enabled'] ?? true),
             'sort' => (int)($model['sort'] ?? 0),
         ];
