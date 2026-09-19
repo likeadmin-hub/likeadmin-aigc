@@ -17,6 +17,7 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
     public function testV3SingleAndEpisodeUseRealNormalizationAndContinuityBoundary(): void
     {
         require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
+        Container::getInstance()->instance('config', new \think\Config());
         $this->silenceLog();
         foreach ([false, true] as $episode) {
             \app\common\service\power\MarketTextModelRuntimeService::reset();
