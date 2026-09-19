@@ -3,6 +3,8 @@
 namespace app\common\service\app\aigc_short_drama;
 
 use app\common\service\app\aigc_image\AigcImageService;
+use app\common\service\app\aigc_canvas\AigcCanvasService;
+use app\common\service\app\aigc_local_redraw\AigcLocalRedrawService;
 use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\app\aigc_music\AigcMusicService;
 use app\common\service\app\aigc_video\AigcVideoPosterService;
@@ -92,7 +94,9 @@ class ShortDramaCanvasService
      */
     public static function captureVideoFrame(int $tenantId, int $userId, array $params): array
     {
-        $document = self::ownedDocument($tenantId, $userId, (int)($params['canvas_id'] ?? 0));
+        $canvasId = (int)($params['canvas_id'] ?? 0);
+        if ($canvasId <= 0) throw new Exception('缺少画布项目');
+        $document = self::ownedDocument($tenantId, $userId, $canvasId);
         $nodeId = trim((string)($params['node_id'] ?? ''));
         if ($nodeId === '') throw new Exception('缺少视频节点');
         $node = null;
@@ -115,11 +119,13 @@ class ShortDramaCanvasService
         $duration = max(0, min(28800, (float)($params['duration'] ?? 0)));
         $requestedTime = max(0, min(28800, (float)($params['time'] ?? 0)));
         $time = match ($mode) {
-            'first' => 0.001,
-            'last' => $duration > 0.001 ? max(0.001, $duration - 0.001) : $requestedTime,
+            'first' => $requestedTime,
+            'last' => $requestedTime > 0 ? $requestedTime : max(0.001, $duration - 0.05),
             default => $requestedTime,
         };
         if ($time <= 0) $time = 0.001;
+        // A playhead at duration is beyond the final decodable frame.
+        if ($duration > 0) $time = min($time, max(0.001, $duration - 0.05));
 
         $frame = AigcVideoPosterService::createFrame(
             $tenantId,
@@ -140,6 +146,29 @@ class ShortDramaCanvasService
             'source_node_id' => $nodeId,
             'capture_time' => $time,
         ];
+    }
+
+    /** Reuse native canvas image processing, with short-drama ownership checks. */
+    public static function editImage(int $tenantId, int $userId, array $params): array
+    {
+        $id = (int)($params['canvas_id'] ?? 0);
+        if ($id <= 0) throw new Exception('缺少画布项目');
+        $document = self::ownedDocument($tenantId, $userId, $id);
+        foreach (self::decode((string)$document['nodes_json']) as $node) {
+            if ((string)$node['id'] !== (string)($params['node_id'] ?? '')) continue;
+            if (($node['type'] ?? '') !== 'image') throw new Exception('只能编辑图片节点');
+            $meta = (array)($node['metadata'] ?? []);
+            $source = (string)($meta['image'] ?? $meta['url'] ?? '');
+            if ($source === '' || str_starts_with($source, 'blob:')) throw new Exception('请等待图片上传完成');
+            // Never allow the request to choose a different source file.
+            $params['source_url'] = $source;
+            return match ((string)($params['operation'] ?? '')) {
+                'crop' => AigcCanvasService::cropImage($tenantId, $userId, $params),
+                'transform' => AigcCanvasService::rotateImage($tenantId, $userId, $params),
+                default => throw new Exception('不支持的图片编辑操作'),
+            };
+        }
+        throw new Exception('图片节点不存在或已被删除');
     }
 
     /**
@@ -193,7 +222,9 @@ class ShortDramaCanvasService
         try {
             $result = match ($type) {
                 'text' => AigcLlmService::generateText($tenantId, $userId, $payload),
-                'image' => AigcImageService::generate($tenantId, $userId, $payload),
+                'image' => ($payload['operation'] ?? '') === 'local_redraw'
+                    ? AigcLocalRedrawService::generate($tenantId, $userId, $payload)
+                    : AigcImageService::generate($tenantId, $userId, $payload),
                 'video' => AigcVideoService::generate($tenantId, $userId, $payload),
                 'audio' => AigcMusicService::generate($tenantId, $userId, $payload),
             };
@@ -205,7 +236,7 @@ class ShortDramaCanvasService
                 ? 'success'
                 : self::normalizeStatus((string)($result['status'] ?? 'running'));
             Db::name(self::RUN_TABLE)->where('id', $runId)->update([
-                'provider_task_id' => (string)($result['task_id'] ?? $result['id'] ?? ''),
+                'provider_task_id' => (string)($result['image_task_id'] ?? $result['task_id'] ?? $result['id'] ?? ''),
                 'status' => $status, 'progress' => $status === 'success' ? 100 : 25,
                 'result_json' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'update_time' => time(),
             ]);
@@ -449,6 +480,15 @@ class ShortDramaCanvasService
             'source_app_code' => AigcShortDramaService::APP_CODE,
         ];
         if ($type === 'audio') $payload['lyrics'] = (string)($params['lyrics'] ?? '');
+        if ($type === 'image' && ($params['operation'] ?? '') === 'local_redraw') {
+            $payload['operation'] = 'local_redraw';
+            $payload['source_image'] = trim((string)($params['source_image'] ?? ''));
+            $payload['mask_image'] = trim((string)($params['mask_image'] ?? ''));
+            if ($payload['source_image'] === '' || $payload['mask_image'] === '') throw new Exception('请选择原图并绘制蒙版');
+        }
+        foreach (['quality', 'resolution', 'negative_prompt'] as $key) {
+            if (isset($params[$key])) $payload[$key] = (string)$params[$key];
+        }
         return array_filter($payload, static fn($value) => $value !== '' && $value !== 0 || is_array($value));
     }
 
