@@ -8067,6 +8067,7 @@ VALUES
 ('aigc_short_drama','app.aigc_short_drama.generation/detail','GET','aigc_short_drama:generation:detail:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.generation/lists','GET','aigc_short_drama:generation:lists:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.generation/retry','POST','aigc_short_drama:generation:retry:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
+('aigc_short_drama','app.aigc_short_drama.generation/delete','POST','aigc_short_drama:generation:delete:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.generation/cancel','POST','aigc_short_drama:generation:cancel:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.publish/submit','POST','aigc_short_drama:publish:submit:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP()),
 ('aigc_short_drama','app.aigc_short_drama.publish/detail','GET','aigc_short_drama:publish:detail:user','user',1,0,1,UNIX_TIMESTAMP(),UNIX_TIMESTAMP());
