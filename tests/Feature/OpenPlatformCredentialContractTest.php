@@ -55,9 +55,15 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString("'user_name' => 'original_id'", $service);
         self::assertStringContainsString("'qrcode_url' => 'qrcode_url'", $service);
         self::assertStringContainsString("'wxa/gettemplatedraftlist'", $service);
+        self::assertStringContainsString("'wxa/gettemplatelist'", $service);
+        self::assertStringContainsString('public static function syncTemplates()', $service);
+        self::assertStringContainsString('public static function templateRecords()', $service);
+        self::assertStringContainsString('public static function availableTemplates()', $service);
         self::assertStringContainsString('草稿 ID 不是本地产品版本号', $service);
         self::assertStringContainsString('array_merge($profile', $callback);
         self::assertStringContainsString('function templateDrafts()', $platformController);
+        self::assertStringContainsString('function templateRecords()', $platformController);
         self::assertStringContainsString('function syncAccount()', $tenantController);
+        self::assertStringContainsString('OpenPlatformService::availableTemplates()', $tenantController);
     }
 }
