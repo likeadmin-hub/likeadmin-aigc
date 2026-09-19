@@ -16360,7 +16360,7 @@ class AigcShortDramaService
     {
         // Validate explicit timing before any paid call; never silently stretch a locked timeline.
         if (!ShortDramaStoryWorkflow::unconfirmedStory($request) && !ShortDramaPlanningContext::isOutline($request)) {
-            foreach (self::extractTimelineSegments($prompt) as $segment) ShortDramaShotDuration::split((int)$segment['duration_seconds']);
+            foreach (self::extractTimelineSegments($prompt) as $segment) self::splitTimelineDuration((float)$segment['duration_seconds']);
             $target = self::planningTargetDurationSeconds($prompt, $request);
             if ($target > 0 && $target < ShortDramaShotDuration::MIN) throw new Exception('分镜总时长不能少于 4 秒，请调整目标时长');
         }
@@ -21412,7 +21412,7 @@ class AigcShortDramaService
         $issuesFixed = [];
 
         foreach (array_values($timelineSegments) as $segmentIndex => $segment) {
-            $durationParts = self::splitTimelineDuration((int)($segment['duration_seconds'] ?? 0));
+            $durationParts = self::splitTimelineDuration((float)($segment['duration_seconds'] ?? 0));
             foreach ($durationParts as $partIndex => $duration) {
                 $source = is_array($sourceShots[$sourceIndex] ?? null) ? $sourceShots[$sourceIndex] : [];
                 $sourceIndex++;
@@ -21620,19 +21620,30 @@ class AigcShortDramaService
         return $count + 1;
     }
 
-    private static function splitTimelineDuration(int $duration): array
+    private static function splitTimelineDuration(int|float $duration): array
     {
-        return ShortDramaShotDuration::split($duration);
+        if (!is_finite($duration) || $duration < ShortDramaShotDuration::MIN) {
+            throw new \InvalidArgumentException('单个时间码段至少为 ' . ShortDramaShotDuration::MIN . ' 秒');
+        }
+        if (abs($duration - round($duration)) < 0.000001) {
+            return ShortDramaShotDuration::split((int)round($duration));
+        }
+        $parts = max(1, (int)ceil($duration / ShortDramaShotDuration::MAX));
+        while ($parts > 1 && ($duration / $parts) < ShortDramaShotDuration::MIN) $parts--;
+        $part = self::timelineDurationNumber(round($duration / $parts, 3));
+        $result = array_fill(0, $parts, $part);
+        $result[$parts - 1] = self::timelineDurationNumber(round($duration - ($part * ($parts - 1)), 3));
+        return $result;
     }
 
     private static function timelineStoryboardShot(array $source, array $locations, array $subjects, array $segment, int $segmentIndex, int $partIndex, int $globalIndex, float $duration, string $storyOutline = ''): array
     {
         $segmentText = trim((string)($segment['text'] ?? ''));
-        $partStart = (int)($segment['start_seconds'] ?? 0);
-        foreach (array_slice(self::splitTimelineDuration((int)($segment['duration_seconds'] ?? 0)), 0, $partIndex) as $previousDuration) {
-            $partStart += (int)$previousDuration;
+        $partStart = (float)($segment['start_seconds'] ?? 0);
+        foreach (array_slice(self::splitTimelineDuration((float)($segment['duration_seconds'] ?? 0)), 0, $partIndex) as $previousDuration) {
+            $partStart += (float)$previousDuration;
         }
-        $partEnd = $partStart + max(1, (int)round($duration));
+        $partEnd = $partStart + $duration;
         $timeRange = self::timelinePartRangeLabel($partStart, $partEnd);
         $location = self::timelineLocationForSegment($segmentText, $source, $locations, $segmentIndex);
         $sceneName = trim((string)($source['scene_name'] ?? '')) ?: (string)($location['name'] ?? '场景');
@@ -21694,9 +21705,10 @@ class AigcShortDramaService
         return $shot;
     }
 
-    private static function timelinePartRangeLabel(int $start, int $end): string
+    private static function timelinePartRangeLabel(float $start, float $end): string
     {
-        return max(0, $start) . '-' . max($start + 1, $end) . 's';
+        $format = static fn(float $value): string => rtrim(rtrim(number_format(max(0, $value), 3, '.', ''), '0'), '.');
+        return $format($start) . '-' . $format(max($start + 0.001, $end)) . 's';
     }
 
     private static function timelineLocationForSegment(string $segmentText, array $source, array $locations, int $segmentIndex): array
@@ -24252,7 +24264,7 @@ class AigcShortDramaService
         return self::containsAnyKeyword($text, $keywords[$kind] ?? []);
     }
 
-    private static function planningTargetDurationSeconds(string $prompt, array $request): int
+    private static function planningTargetDurationSeconds(string $prompt, array $request): int|float
     {
         $timelineSeconds = self::timelineTotalSeconds(self::extractTimelineSegments($prompt));
         if ($timelineSeconds > 0) {
@@ -24326,39 +24338,29 @@ class AigcShortDramaService
 
     private static function extractTimelineSegments(string $prompt): array
     {
-        if (preg_match_all('/([0-9]{1,3})\s*[-\x{2010}\x{2011}\x{2012}\x{2013}\x{2014}\x{2212}~～至到]\s*([0-9]{1,3})\s*(?:s|S|秒)(?![0-9])/u', $prompt, $secondMatches, PREG_OFFSET_CAPTURE)) {
-            $segments = [];
-            $count = count($secondMatches[0]);
-            for ($index = 0; $index < $count; $index++) {
-                $start = (int)$secondMatches[1][$index][0];
-                $end = (int)$secondMatches[2][$index][0];
-                if ($end <= $start) {
-                    continue;
-                }
-                $textStart = $secondMatches[0][$index][1] + strlen($secondMatches[0][$index][0]);
-                $textEnd = $index + 1 < $count ? $secondMatches[0][$index + 1][1] : strlen($prompt);
-                $text = trim(substr($prompt, $textStart, max(0, $textEnd - $textStart)));
-                $segments[] = [
-                    'index' => count($segments) + 1,
-                    'time_range' => $secondMatches[0][$index][0],
-                    'start_seconds' => $start,
-                    'end_seconds' => $end,
-                    'duration_seconds' => $end - $start,
-                    'text' => mb_substr($text, 0, 1200, 'UTF-8'),
-                ];
-            }
-            if (!empty($segments)) {
-                return self::selectAuthoritativeTimelineSegments($segments);
-            }
+        $range = '(?:--?>|→|[\-\x{FF0D}\x{2010}\x{2011}\x{2012}\x{2013}\x{2014}\x{2212}~～至到])';
+        $second = '[0-9０-９]{1,3}(?:[\.,，][0-9０-９]{1,3})?';
+        $secondUnit = '(?:s|S|sec(?:ond)?s?|秒)';
+        $timecode = '(?:(?:[0-9０-９]{1,3}[：:]){1,2}[0-5０-５][0-9０-９](?:[\.,，][0-9０-９]{1,3})?)';
+        $minuteSecond = '[0-9０-９]{1,3}\s*(?:分钟|分|m)\s*' . $second . '\s*(?:秒|s|S)?';
+        foreach ([
+            ['pattern' => '/(?<![0-9０-９])(' . $second . ')(?:\s*' . $secondUnit . ')?\s*' . $range . '\s*(' . $second . ')\s*' . $secondUnit . '(?![0-9０-９])/u', 'parser' => 'timelineSecondsValue'],
+            ['pattern' => '/(?<![0-9０-９])(' . $timecode . ')\s*' . $range . '\s*(' . $timecode . ')(?![0-9０-９])/u', 'parser' => 'timelineTimecodeValue'],
+            ['pattern' => '/(?<![0-9０-９])(' . $minuteSecond . ')\s*' . $range . '\s*(' . $minuteSecond . ')(?![0-9０-９])/u', 'parser' => 'timelineMinuteSecondValue'],
+        ] as $definition) {
+            if ($segments = self::timelineSegmentsFromPattern($prompt, $definition['pattern'], $definition['parser'])) return $segments;
         }
-        if (!preg_match_all('/(?<!\d)(\d{1,2}):([0-5]\d)\s*[-\x{2013}\x{2014}~～至到]\s*(\d{1,2}):([0-5]\d)(?!\d)/u', $prompt, $matches, PREG_OFFSET_CAPTURE)) {
-            return [];
-        }
+        return [];
+    }
+
+    private static function timelineSegmentsFromPattern(string $prompt, string $pattern, string $parser): array
+    {
+        if (!preg_match_all($pattern, $prompt, $matches, PREG_OFFSET_CAPTURE)) return [];
         $segments = [];
         $count = count($matches[0]);
         for ($index = 0; $index < $count; $index++) {
-            $start = ((int)$matches[1][$index][0] * 60) + (int)$matches[2][$index][0];
-            $end = ((int)$matches[3][$index][0] * 60) + (int)$matches[4][$index][0];
+            $start = call_user_func([self::class, $parser], (string)$matches[1][$index][0]);
+            $end = call_user_func([self::class, $parser], (string)$matches[2][$index][0]);
             if ($end <= $start) {
                 continue;
             }
@@ -24375,6 +24377,33 @@ class AigcShortDramaService
             ];
         }
         return self::selectAuthoritativeTimelineSegments($segments);
+    }
+
+    private static function timelineSecondsValue(string $value): int|float
+    {
+        return self::timelineDurationNumber((float)strtr(trim($value), ['０' => '0', '１' => '1', '２' => '2', '３' => '3', '４' => '4', '５' => '5', '６' => '6', '７' => '7', '８' => '8', '９' => '9', '，' => '.', ',' => '.']));
+    }
+
+    private static function timelineTimecodeValue(string $value): int|float
+    {
+        $value = strtr(trim($value), ['：' => ':', '，' => '.', ',' => '.', '０' => '0', '１' => '1', '２' => '2', '３' => '3', '４' => '4', '５' => '5', '６' => '6', '７' => '7', '８' => '8', '９' => '9']);
+        $parts = explode(':', $value);
+        $seconds = (float)array_pop($parts);
+        $minutes = (int)array_pop($parts);
+        $hours = (int)array_pop($parts);
+        return self::timelineDurationNumber(($hours * 3600) + ($minutes * 60) + $seconds);
+    }
+
+    private static function timelineMinuteSecondValue(string $value): int|float
+    {
+        $value = strtr(trim($value), ['０' => '0', '１' => '1', '２' => '2', '３' => '3', '４' => '4', '５' => '5', '６' => '6', '７' => '7', '８' => '8', '９' => '9', '，' => '.', ',' => '.']);
+        if (!preg_match('/(\d+)\s*(?:分钟|分|m)\s*(\d+(?:\.\d+)?)\s*(?:秒|s|S)?/u', $value, $matches)) return 0;
+        return self::timelineDurationNumber(((int)$matches[1] * 60) + (float)$matches[2]);
+    }
+
+    private static function timelineDurationNumber(float $value): int|float
+    {
+        return abs($value - round($value)) < 0.000001 ? (int)round($value) : $value;
     }
 
     /**
@@ -24425,11 +24454,11 @@ class AigcShortDramaService
         return $selected;
     }
 
-    private static function timelineTotalSeconds(array $segments): int
+    private static function timelineTotalSeconds(array $segments): int|float
     {
         $total = 0;
         foreach ($segments as $segment) {
-            $total = max($total, (int)($segment['end_seconds'] ?? 0));
+            $total = max($total, $segment['end_seconds'] ?? 0);
         }
         return $total;
     }
