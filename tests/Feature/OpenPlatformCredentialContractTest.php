@@ -21,7 +21,7 @@ class OpenPlatformCredentialContractTest extends TestCase
         $source = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
 
         self::assertStringContainsString("'component_appsecret' => self::credentialValue", $source);
-        self::assertStringContainsString('private static function credentialValue', $source);
+        self::assertStringContainsString('public static function credentialValue', $source);
         self::assertStringContainsString("if (\$value === '' || str_contains(\$value, '*')) return '';", $source);
     }
 }

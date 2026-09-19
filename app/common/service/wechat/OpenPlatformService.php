@@ -316,7 +316,7 @@ class OpenPlatformService
      * created before credential encryption was introduced. Masked values are
      * never accepted as credentials and therefore cannot be sent to WeChat.
      */
-    private static function credentialValue(?string $value): string
+    public static function credentialValue(?string $value): string
     {
         $value = trim((string)$value);
         if ($value === '' || str_contains($value, '*')) return '';
