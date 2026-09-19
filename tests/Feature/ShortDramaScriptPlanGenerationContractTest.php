@@ -14,6 +14,30 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
      */
+    public function testV3SingleAndEpisodeUseRealNormalizationAndContinuityBoundary(): void
+    {
+        require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
+        $this->silenceLog();
+        foreach ([false, true] as $episode) {
+            \app\common\service\power\MarketTextModelRuntimeService::reset();
+            $request = ['_generation_version' => 3, 'multi_episode' => false, 'episode_count' => 1];
+            if ($episode) {
+                $request['episode_id'] = 5; $request['episode_number'] = 2;
+                $request['series_context'] = ['current_episode' => ['story_outline' => '主角找到线索'],
+                    'continuity' => ['previous_digest' => 'previous']];
+            }
+            $generated = $this->generate($request);
+            self::assertCount(12, $generated['result']['storyboard']);
+            self::assertSame(0, $generated['result']['review_report']['blocking_count']);
+            self::assertCount($episode ? 2 : 1, \app\common\service\power\MarketTextModelRuntimeService::$requests);
+            if ($episode) self::assertSame('previous', $generated['result']['_continuity']['previous_digest']);
+            else self::assertArrayNotHasKey('_continuity', $generated['result']);
+            self::assertTrue(\app\common\service\power\MarketTextModelRuntimeService::$requests[0]['_disable_transient_retry']);
+        }
+    }
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
     public function testMissingSpeakerTriggersRepairAndSurvivesSavedResult(): void
     {
         require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';

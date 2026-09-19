@@ -34,6 +34,9 @@ namespace app\common\service\power {
         public static function generate(int $tenantId, int $userId, array $params, ?callable $callback = null): array
         {
             self::$requests[] = $params;
+            if (($params['action_code'] ?? '') === 'script_plan_continuity') {
+                return ['content' => json_encode(['summary' => '主角找到线索', 'changes' => [], 'hooks' => [], 'warnings' => []], JSON_UNESCAPED_UNICODE)];
+            }
             $content = (string)($params['content'] ?? '');
             $isRepair = (string)($params['action_code'] ?? '') === 'script_plan_repair';
             $isDialogueRepair = (string)($params['action_code'] ?? '') === 'script_plan_dialogue_repair';

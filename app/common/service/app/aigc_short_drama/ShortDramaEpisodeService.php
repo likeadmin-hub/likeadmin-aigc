@@ -89,16 +89,27 @@ class ShortDramaEpisodeService
             if (Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'project_id' => $projectId, 'delete_time' => 0])->count()) return;
             $taskId = (string)($params['task_id'] ?? $project['last_task_id']);
             if ($taskId !== (string)$project['last_task_id']) throw new Exception('大纲已更新，请刷新后确认最新版本');
-            $task = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'task_id' => $taskId, 'status' => 'success', 'delete_time' => 0])->findOrEmpty();
+            $task = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'task_id' => $taskId, 'status' => 'success', 'delete_time' => 0])->lock(true)->findOrEmpty();
             if ($task->isEmpty()) throw new Exception('请等待大纲生成完成');
+            $request = self::decode($task['request_json']);
             $plan = self::decode($task['result_json']);
+            if (ShortDramaStoryWorkflow::enabled($request)) {
+                if (ShortDramaStoryDraft::stage($request) !== 'episodes') throw new Exception('请先确认故事设定并完成分集大纲');
+                ShortDramaStoryDraft::assertVersion($request, $params);
+                $plan = ShortDramaStoryDraft::effective($request, $plan);
+                $issues = ShortDramaStoryWorkflow::issues($plan, 'episodes', (int)$project['episode_count']);
+                if ($issues) throw new Exception($issues[0]['message']);
+                $request['confirmed_outline_version'] = ShortDramaStoryDraft::version($request);
+                $request['confirmed_outline_snapshot'] = $plan;
+                $task->save(['request_json' => self::encode($request), 'update_time' => time()]);
+            }
             $episodes = self::validateOutline($plan, (int)$project['episode_count']);
             foreach ($episodes as $index => $outline) {
                 Db::name(self::TABLE)->insert([
                     'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
                     'episode_number' => $index + 1, 'title' => mb_substr($outline['title'], 0, 120),
                     'outline_task_id' => $taskId, 'outline_json' => self::encode($outline),
-                    'series_json' => $index === 0 ? self::encode(['plan' => $plan, 'request' => self::decode($task['request_json'])]) : null,
+                    'series_json' => $index === 0 ? self::encode(['plan' => $plan, 'request' => $request]) : null,
                     'status' => 'pending', 'error' => '', 'create_time' => time(), 'update_time' => time(),
                 ]);
             }
