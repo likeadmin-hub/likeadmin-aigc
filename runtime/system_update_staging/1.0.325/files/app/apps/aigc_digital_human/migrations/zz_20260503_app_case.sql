@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS `la_app_case` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL DEFAULT 0 COMMENT '租户ID',
+  `app_code` varchar(64) NOT NULL DEFAULT '' COMMENT '应用标识',
+  `title` varchar(120) NOT NULL DEFAULT '' COMMENT '案例标题',
+  `prompt` text COMMENT '提示词',
+  `media_type` varchar(20) NOT NULL DEFAULT 'image' COMMENT 'image/video',
+  `cover_uri` varchar(500) NOT NULL DEFAULT '' COMMENT '封面资源',
+  `media_uri` varchar(500) NOT NULL DEFAULT '' COMMENT '作品资源',
+  `reference_images` text COMMENT '参考图',
+  `config_json` text COMMENT '生成参数',
+  `source_task_id` int unsigned NOT NULL DEFAULT 0 COMMENT '来源任务ID',
+  `source_result_id` int unsigned NOT NULL DEFAULT 0 COMMENT '来源作品ID',
+  `status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '状态',
+  `sort` int NOT NULL DEFAULT 0 COMMENT '排序',
+  `create_time` int unsigned NOT NULL DEFAULT 0,
+  `update_time` int unsigned NOT NULL DEFAULT 0,
+  `delete_time` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_app` (`tenant_id`,`app_code`,`delete_time`,`status`,`sort`),
+  KEY `idx_source` (`tenant_id`,`app_code`,`source_task_id`,`source_result_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='应用案例广场';
