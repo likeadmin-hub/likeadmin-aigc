@@ -21,6 +21,7 @@ class OpenPlatformService
     private const API = 'https://api.weixin.qq.com/';
     private const AUTH_STATE_TTL = 600;
     private const AUTH_STATE_COOKIE = 'wechat_open_platform_auth_state';
+    private const AUTH_RETURN_ORIGIN_COOKIE = 'wechat_open_platform_return_origin';
     private const SECRET_FIELDS = ['app_secret', 'token', 'encoding_aes_key', 'developer_secret', 'upload_private_key', 'upload_certificate', 'upload_private_pem'];
     private const CONFIG_MASK_FIELDS = ['app_secret', 'token', 'encoding_aes_key', 'developer_secret', 'upload_private_key', 'upload_certificate', 'upload_private_pem', 'component_verify_ticket', 'component_access_token'];
 
@@ -160,7 +161,7 @@ class OpenPlatformService
         }
         $config = self::rawConfig(); self::requireConfig($config, ['app_id', 'app_secret']);
         $authorizerType = in_array($authorizerType, ['official', 'miniprogram'], true) ? $authorizerType : null;
-        $context = ['tenant_id' => max(0, (int)$tenantId), 'authorizer_type' => $authorizerType, 'created_at' => time()];
+        $context = ['tenant_id' => max(0, (int)$tenantId), 'authorizer_type' => $authorizerType, 'return_origin' => self::currentRequestOrigin(), 'created_at' => time()];
         // WeChat's component-login callback only guarantees auth_code and
         // expires_in.  Preserve the tenant context in a short-lived signed
         // state as well as cache, so an OPC callback can recover after a
@@ -240,6 +241,46 @@ class OpenPlatformService
         return ['expire' => $expire, 'path' => '/wechat/open-platform/', 'secure' => true, 'httponly' => true, 'samesite' => 'lax'];
     }
 
+    public static function authReturnOriginCookieName(): string
+    {
+        return self::AUTH_RETURN_ORIGIN_COOKIE;
+    }
+
+    public static function authReturnOriginCookieValue(string $origin): string
+    {
+        $origin = self::normalizeReturnOrigin($origin);
+        if ($origin === '') return '';
+        $encoded = rtrim(strtr(base64_encode($origin), '+/', '-_'), '=');
+        return $encoded . '.' . self::authReturnOriginSignature($encoded, self::rawConfig());
+    }
+
+    public static function authReturnOriginFromCookie(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '' || !preg_match('/^([A-Za-z0-9_-]{1,512})\.([a-f0-9]{32})$/', $value, $matches)) return '';
+        if (!hash_equals(self::authReturnOriginSignature($matches[1], self::rawConfig()), $matches[2])) return '';
+        $raw = base64_decode(strtr($matches[1], '-_', '+/'), true);
+        return $raw === false ? '' : self::normalizeReturnOrigin($raw);
+    }
+
+    private static function currentRequestOrigin(): string
+    {
+        try {
+            return self::normalizeReturnOrigin('https://' . (string)request()->host());
+        } catch (\Throwable $ignored) {
+            return '';
+        }
+    }
+
+    public static function normalizeReturnOrigin(string $origin): string
+    {
+        $parts = parse_url(trim($origin));
+        if (!is_array($parts) || strtolower((string)($parts['scheme'] ?? '')) !== 'https' || empty($parts['host']) || isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) return '';
+        $host = strtolower((string)$parts['host']);
+        if (!preg_match('/^(?:[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?|\[[0-9a-f:]+\])$/i', $host)) return '';
+        return 'https://' . $host . (isset($parts['port']) && (int)$parts['port'] !== 443 ? ':' . (int)$parts['port'] : '');
+    }
+
     private static function signedAuthState(array $context, array $config): string
     {
         $nonce = bin2hex(random_bytes(16));
@@ -274,6 +315,13 @@ class OpenPlatformService
         $secret = self::credentialValue($config['app_secret'] ?? '');
         if ($secret === '') throw new \RuntimeException('开放平台 AppSecret 不完整');
         return substr(hash_hmac('sha256', 'wechat.open_platform.auth_state.v1|' . $payload, $secret), 0, 32);
+    }
+
+    private static function authReturnOriginSignature(string $payload, array $config): string
+    {
+        $secret = self::credentialValue($config['app_secret'] ?? '');
+        if ($secret === '') throw new \RuntimeException('开放平台 AppSecret 不完整');
+        return substr(hash_hmac('sha256', 'wechat.open_platform.return_origin.v1|' . $payload, $secret), 0, 32);
     }
 
     private static function isAuthStateFormat(string $state): bool
