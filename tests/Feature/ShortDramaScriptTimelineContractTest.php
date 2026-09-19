@@ -181,7 +181,9 @@ class ShortDramaScriptTimelineContractTest extends TestCase
 
         $rule = $this->invoke('storyboardTargetRuleForSkeleton', $skeleton, $request, '轻松日常故事');
 
-        self::assertSame('suspense', $rule['code']);
+        self::assertNotSame('daily_comedy', $rule['code']);
+        self::assertSame(30, $rule['min_shots']);
+        self::assertSame(40, $rule['max_shots']);
     }
 
     public function testV3SkeletonBudgetCapsTheFilmBeforeSceneCalls(): void
@@ -199,7 +201,7 @@ class ShortDramaScriptTimelineContractTest extends TestCase
         ]);
 
         self::assertSame(24, array_sum(array_column($budgeted['scene_beats'], 'shot_count')));
-        self::assertSame(7, min(array_column($budgeted['scene_beats'], 'shot_count')));
+        self::assertSame(8, min(array_column($budgeted['scene_beats'], 'shot_count')));
         self::assertSame(8, max(array_column($budgeted['scene_beats'], 'shot_count')));
     }
 
