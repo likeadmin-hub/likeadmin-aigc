@@ -70,6 +70,14 @@ class ShortDramaCanvasService
     {
         $document = self::ownedDocument($tenantId, $userId, (int)($params['id'] ?? 0));
         $nodes = self::normalizeNodes((array)($params['nodes'] ?? []));
+        $removed = array_unique(array_merge(
+            self::decode((string)($document['removed_node_ids_json'] ?? '[]')),
+            array_map('strval', (array)($params['removed_node_ids'] ?? []))
+        ));
+        // Explicit undo/recreation with the same ID restores a node; missing
+        // snapshots alone are not deletion evidence and must remain recoverable.
+        $present = array_map(static fn(array $node): string => (string)$node['id'], $nodes);
+        $removed = array_values(array_diff($removed, $present));
         $nodes = self::mergePersistedVideoPosters($nodes, self::decode((string)($document['nodes_json'] ?? '')));
         $edges = self::normalizeEdges((array)($params['edges'] ?? []), $nodes);
         self::queueVideoPosters($tenantId, $userId, (int)$document['id'], $nodes, false);
@@ -78,6 +86,7 @@ class ShortDramaCanvasService
         Db::name(self::DOCUMENT_TABLE)->where('id', $document['id'])->update([
             'title' => $title, 'nodes_json' => json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'edges_json' => json_encode($edges, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'removed_node_ids_json' => json_encode($removed),
             'viewport_json' => json_encode((array)($params['viewport'] ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'update_time' => time(),
         ]);
@@ -601,6 +610,7 @@ class ShortDramaCanvasService
             'id' => (int)$row['id'],
             'title' => (string)$row['title'],
             'nodes' => $nodes,
+            'removed_node_ids' => self::decode((string)($row['removed_node_ids_json'] ?? '[]')),
             'edges' => self::decode((string)$row['edges_json']),
             'viewport' => self::decode((string)$row['viewport_json']),
             'created_at' => $createTime > 0 ? date('Y-m-d H:i:s', $createTime) : '',
@@ -618,7 +628,7 @@ class ShortDramaCanvasService
         $recovered = false;
         foreach ($runs as $index => $run) {
             $nodeId = trim((string)$run['node_id']);
-            if ($nodeId === '' || isset($nodeIds[$nodeId])) continue;
+            if ($nodeId === '' || isset($nodeIds[$nodeId]) || in_array($nodeId, $data['removed_node_ids'], true)) continue;
             $nodes[] = self::recoveredNode($run, count($nodes));
             $nodeIds[$nodeId] = true;
             $recovered = true;
@@ -635,7 +645,7 @@ class ShortDramaCanvasService
         $latest = [];
         foreach (array_reverse($runs) as $run) {
             $nodeId = (string)$run['node_id'];
-            if ($nodeId !== '' && !isset($latest[$nodeId])) $latest[$nodeId] = self::formatRun($run);
+            if ($nodeId !== '' && !in_array($nodeId, $data['removed_node_ids'], true) && !isset($latest[$nodeId])) $latest[$nodeId] = self::formatRun($run);
         }
         $data['runs'] = array_values($latest);
         return $data;
