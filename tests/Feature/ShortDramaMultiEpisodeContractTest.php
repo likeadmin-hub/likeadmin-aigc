@@ -448,7 +448,7 @@ class ShortDramaMultiEpisodeContractTest extends TestCase
             [1, 2, 3],
             array_values(array_unique(array_column($reviewed['storyboard'], 'episode_number')))
         );
-        self::assertSame(5.0, (float)$reviewed['storyboard'][0]['recommended_duration_seconds']);
+        self::assertSame(15.0, (float)$reviewed['storyboard'][0]['recommended_duration_seconds']);
         self::assertSame(
             array_sum(array_map(static fn(array $shot): float => (float)$shot['recommended_duration_seconds'], $reviewed['storyboard'])),
             (float)$reviewed['duration_stats']['estimated_total_seconds']

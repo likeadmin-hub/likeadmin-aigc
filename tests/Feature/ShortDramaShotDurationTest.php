@@ -83,4 +83,15 @@ class ShortDramaShotDurationTest extends TestCase
         self::assertStringContainsString('Every shot is 4-15 seconds.', $template);
         self::assertStringContainsString('对白：等待2-5秒', $template);
     }
+
+    public function testProductionSourcesCannotReintroduceTheRetiredRange(): void
+    {
+        $root = __DIR__ . '/../../app/common/service/app/aigc_short_drama/';
+        foreach (['AigcShortDramaService.php', 'prompts/catalog.json', 'prompts/documents.json'] as $file) {
+            $text = file_get_contents($root . $file);
+            self::assertDoesNotMatchRegularExpression('/2\s*[-–~～]\s*5\s*(?:秒|seconds?)/u', $text, $file);
+            self::assertStringNotContainsString('max(2, min(5, $duration', $text, $file);
+            self::assertStringNotContainsString('$duration < 2 || $duration > 5', $text, $file);
+        }
+    }
 }
