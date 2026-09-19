@@ -11,6 +11,7 @@ use app\common\service\app\aigc_video\AigcVideoPosterService;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\FileService;
+use app\common\service\storage\StorageConfigService;
 use Exception;
 use think\facade\Db;
 
@@ -161,7 +162,7 @@ class ShortDramaCanvasService
             $source = (string)($meta['image'] ?? $meta['url'] ?? '');
             if ($source === '' || str_starts_with($source, 'blob:')) throw new Exception('请等待图片上传完成');
             // Never allow the request to choose a different source file.
-            $params['source_url'] = $source;
+            $params['source_url'] = self::imageProcessingSource($tenantId, $source, $meta);
             return match ((string)($params['operation'] ?? '')) {
                 'crop' => AigcCanvasService::cropImage($tenantId, $userId, $params),
                 'transform' => AigcCanvasService::rotateImage($tenantId, $userId, $params),
@@ -169,6 +170,38 @@ class ShortDramaCanvasService
             };
         }
         throw new Exception('图片节点不存在或已被删除');
+    }
+
+    private static function imageProcessingSource(int $tenantId, string $source, array $meta): string
+    {
+        $uri = self::canvasStoredUri($source);
+        if ($uri === '' || str_contains($uri, '..') || str_contains($uri, "\0")) throw new Exception('图片存储地址无效');
+        $config = StorageConfigService::getStoredFileConfig($tenantId, $meta['storage_scope'] ?? null, $meta['storage_engine'] ?? null);
+        $engine = (string)($config['default'] ?? 'local');
+        if ($engine === 'local') return $uri;
+        // Resolve the host from server-managed storage configuration, never a
+        // client-supplied URL. cURL handles TLS/proxies consistently with uploads.
+        $url = FileService::getFileUrlByStorage($uri, (string)($config['scope'] ?? 'tenant'), $engine, StorageConfigService::getStorageDomain($config));
+        $content = '';
+        $handle = curl_init($url);
+        curl_setopt_array($handle, [
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$content): int {
+                if (strlen($content) + strlen($chunk) > 20 * 1024 * 1024) return 0;
+                $content .= $chunk;
+                return strlen($chunk);
+            },
+        ]);
+        $ok = curl_exec($handle);
+        $status = (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+        curl_close($handle);
+        if (!$ok || $status !== 200 || $content === '') throw new Exception('图片读取失败，请稍后重试');
+        $info = @getimagesizefromstring($content);
+        if (!$info || (int)$info[0] * (int)$info[1] > 40000000) throw new Exception('图片格式或尺寸不支持编辑');
+        return 'data:' . (string)$info['mime'] . ';base64,' . base64_encode($content);
     }
 
     /**
