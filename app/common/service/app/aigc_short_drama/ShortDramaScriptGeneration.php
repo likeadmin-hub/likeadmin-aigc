@@ -8,7 +8,14 @@ final class ShortDramaScriptGeneration
 {
     public const VERSION = 3;
 
-    public static function generate(array $request, array $model, array $messages, callable $provider, ?callable $progress = null): array
+    public static function generate(
+        array $request,
+        array $model,
+        array $messages,
+        callable $provider,
+        ?callable $progress = null,
+        ?callable $normalizeSkeleton = null
+    ): array
     {
         $durationRule = ShortDramaShotDuration::rule($request);
         $receipts = [];
@@ -67,6 +74,14 @@ final class ShortDramaScriptGeneration
                 // plan; the caller continues its normal story quality review.
                 if (self::completePlan($skeleton, $durationRule)) return self::result($skeleton, $receipts, $model);
                 self::assertSkeleton($skeleton);
+                // The skeleton is the first point where the model has exposed
+                // the actual story scope. Let the caller turn its scene and
+                // event structure into a durable shot budget before any
+                // storyboard unit is submitted.
+                if ($normalizeSkeleton !== null) {
+                    $skeleton = $normalizeSkeleton($skeleton);
+                    self::assertSkeleton($skeleton);
+                }
                 break;
             } catch (RuntimeException $error) {
                 if ($attempt || !in_array($error->getCode(), [413, 422], true)) throw $error;

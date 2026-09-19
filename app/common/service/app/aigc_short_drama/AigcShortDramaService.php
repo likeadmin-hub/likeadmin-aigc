@@ -2578,7 +2578,14 @@ class AigcShortDramaService
         $request['script_file_name'] = trim((string)($params['script_file_name'] ?? ''));
         $request['storyboard_rules'] = self::normalizeStoryboardRules((array)($config['storyboard_rules'] ?? []));
         $request['shot_duration_rule'] = ShortDramaShotDuration::normalizeRule((array)($config['shot_duration_rule'] ?? $request['shot_duration_rule'] ?? []));
-        $request['storyboard_target_rule'] = self::storyboardTargetRule($prompt, $request);
+        // V3 first asks for a story skeleton. Its actual scenes and beats are
+        // more reliable than keyword matching against the user's short input,
+        // so defer the storyboard budget until that skeleton exists.
+        $request['storyboard_target_rule'] = (int)($request['_generation_version'] ?? 0) >= ShortDramaScriptGeneration::VERSION
+            && empty($request['multi_episode'])
+            && (int)($request['episode_count'] ?? 1) <= 1
+            ? []
+            : self::storyboardTargetRule($prompt, $request);
         $projectRatio = self::normalizeGenerationRatio((string)($request['ratio'] ?? ''));
         $selectedModels = self::resolveSelectedModels($tenantId, $request, $config);
         ShortDramaSkillRuntime::validateMedia($skillSnapshot, 'script_plan', ['model_code' => (string)($selectedModels['script_plan']['model_code'] ?? $selectedModels['script_plan']['id'] ?? '')]);
@@ -3478,7 +3485,13 @@ class AigcShortDramaService
             $request['storyboard_rules'] = self::normalizeStoryboardRules((array)($config['storyboard_rules'] ?? []));
         }
         $request['shot_duration_rule'] = ShortDramaShotDuration::normalizeRule((array)($request['shot_duration_rule'] ?? $config['shot_duration_rule'] ?? []));
-        if (empty($request['storyboard_target_rule']) || !is_array($request['storyboard_target_rule'])) {
+        if ((int)($request['_generation_version'] ?? 0) >= ShortDramaScriptGeneration::VERSION
+            && empty($request['multi_episode'])
+            && (int)($request['episode_count'] ?? 1) <= 1) {
+            // Recalculate from the skeleton below even for tasks created by
+            // an older request payload that still contains a keyword match.
+            $request['storyboard_target_rule'] = [];
+        } elseif (empty($request['storyboard_target_rule']) || !is_array($request['storyboard_target_rule'])) {
             $request['storyboard_target_rule'] = self::storyboardTargetRule($prompt, $request);
         }
         $request['model_selections'] = self::modelSelectionsSnapshot($selectedModels);
@@ -4871,7 +4884,11 @@ class AigcShortDramaService
         $request['model_selections'] = self::modelSelectionsSnapshot($selectedModels);
         $request['model_id'] = (string)($selectedModels['script_plan']['id'] ?? $request['model_id'] ?? '');
         $prompt = trim((string)($task['prompt'] ?? $request['prompt'] ?? $project['prompt'] ?? ''));
-        if (empty($request['storyboard_target_rule']) || !is_array($request['storyboard_target_rule'])) {
+        if ((int)($request['_generation_version'] ?? 0) >= ShortDramaScriptGeneration::VERSION
+            && empty($request['multi_episode'])
+            && (int)($request['episode_count'] ?? 1) <= 1) {
+            $request['storyboard_target_rule'] = [];
+        } elseif (empty($request['storyboard_target_rule']) || !is_array($request['storyboard_target_rule'])) {
             $request['storyboard_target_rule'] = self::storyboardTargetRule(
                 $prompt,
                 $request,
@@ -16557,7 +16574,11 @@ class AigcShortDramaService
                     if ($onEvent) $onEvent('script_preview_complete', ['unit' => $key,
                         'content' => (string)($receipt['result']['content'] ?? '')]);
                     return $receipt;
-                }, $onEvent);
+                }, $onEvent, static function (array $skeleton) use (&$request, $prompt): array {
+                    $targetRule = self::storyboardTargetRuleForSkeleton($skeleton, $request, $prompt);
+                    $request['storyboard_target_rule'] = $targetRule;
+                    return self::applyStoryboardBudgetToSkeleton($skeleton, $targetRule);
+                });
         }
         try {
             if ($v3Generation !== null) {
@@ -16797,6 +16818,9 @@ class AigcShortDramaService
             $result['_continuity'] = ShortDramaContinuity::ledger($review, $result, $request['series_context'], (int)($request['episode_number'] ?? 1));
             foreach ($result['_continuity']['warnings'] as $warning) $result = self::appendPlanReviewWarning($result, 'continuity.review', $warning);
             $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $reviewReceipt['result']])));
+        }
+        if ($v3Generation !== null && empty($episodeSettings['multi_episode'])) {
+            self::assertStoryboardBudgetSatisfied($result, $request, $prompt);
         }
         return [
             'result' => $result,
@@ -24112,6 +24136,113 @@ class AigcShortDramaService
 
         $rules = self::storyboardRulesFromRequest($request);
         return self::storyboardMatchedRule($rules, [], $locations, $prompt);
+    }
+
+    /**
+     * A short user brief cannot reliably tell us how many locations, event
+     * turns, or visual beats the finished story contains. V3 therefore calls
+     * this only after the skeleton exists, using model-produced story facts
+     * instead of the raw user prompt to select a tenant's storyboard policy.
+     */
+    private static function storyboardTargetRuleForSkeleton(array $skeleton, array $request, string $prompt): array
+    {
+        if (!empty($request['multi_episode']) || (int)($request['episode_count'] ?? 1) > 1) {
+            return [];
+        }
+        // A user-supplied timeline is authoritative; it must not be expanded
+        // or compressed to fit a generic complexity range.
+        if (!empty(self::extractTimelineSegments($prompt))) {
+            return [];
+        }
+        // Explicit selected or textual total duration remains a hard pacing
+        // target and intentionally takes precedence over story complexity.
+        if (self::planningTargetDurationSeconds($prompt, $request) > 0) {
+            return self::storyboardTargetRule($prompt, $request, (array)($skeleton['locations'] ?? []));
+        }
+
+        $profile = self::jsonEncode([
+            'type_judgement' => (string)($skeleton['type_judgement'] ?? ''),
+            'core_theme' => (string)($skeleton['core_theme'] ?? ''),
+            'story_outline' => (string)($skeleton['story_outline'] ?? ''),
+            'locations' => array_map(static fn(array $item): array => array_intersect_key($item, array_flip(['name', 'description'])), array_values(array_filter((array)($skeleton['locations'] ?? []), 'is_array'))),
+            'scene_beats' => array_map(static fn(array $item): array => array_intersect_key($item, array_flip(['goal', 'entry', 'exit'])), array_values(array_filter((array)($skeleton['scene_beats'] ?? []), 'is_array'))),
+        ]);
+        return self::storyboardMatchedRule(
+            self::storyboardRulesFromRequest($request),
+            [],
+            (array)($skeleton['locations'] ?? []),
+            $profile
+        );
+    }
+
+    /**
+     * Convert the skeleton's relative per-scene density into a fixed total
+     * budget before any scene chunks are sent to the provider. This prevents
+     * independent scene calls from each choosing a valid local count but
+     * producing an invalid film-wide total.
+     */
+    private static function applyStoryboardBudgetToSkeleton(array $skeleton, array $targetRule): array
+    {
+        $beats = array_values(array_filter((array)($skeleton['scene_beats'] ?? []), 'is_array'));
+        if ($beats === [] || $targetRule === []) {
+            return $skeleton;
+        }
+        $minimum = max(1, (int)($targetRule['min_shots'] ?? 1));
+        $maximum = max(0, (int)($targetRule['max_shots'] ?? 0));
+        if ($maximum > 0 && count($beats) > $maximum) {
+            throw new Exception('故事骨架场景数超过当前分镜预算上限，请缩小剧情范围或调整后台规则');
+        }
+
+        $originalCounts = array_map(static fn(array $beat): int => max(1, (int)($beat['shot_count'] ?? 1)), $beats);
+        $originalTotal = array_sum($originalCounts);
+        $targetTotal = max($minimum, $originalTotal);
+        if ($maximum > 0) {
+            $targetTotal = min($targetTotal, $maximum);
+        }
+        $targetTotal = max($targetTotal, count($beats));
+
+        $allocated = array_fill(0, count($beats), 1);
+        $remaining = $targetTotal - count($beats);
+        if ($remaining > 0) {
+            $weightTotal = max(1, array_sum($originalCounts));
+            $fractions = [];
+            foreach ($originalCounts as $index => $count) {
+                $weighted = ($count / $weightTotal) * $remaining;
+                $extra = (int)floor($weighted);
+                $allocated[$index] += $extra;
+                $fractions[$index] = $weighted - $extra;
+            }
+            $unassigned = $targetTotal - array_sum($allocated);
+            arsort($fractions, SORT_NUMERIC);
+            foreach (array_keys($fractions) as $index) {
+                if ($unassigned <= 0) {
+                    break;
+                }
+                $allocated[$index]++;
+                $unassigned--;
+            }
+        }
+
+        foreach ($beats as $index => $beat) {
+            $beats[$index]['shot_count'] = $allocated[$index];
+        }
+        $skeleton['scene_beats'] = $beats;
+        return $skeleton;
+    }
+
+    /** A final guard: never mark a V3 plan successful outside its accepted budget. */
+    private static function assertStoryboardBudgetSatisfied(array $plan, array $request, string $prompt): void
+    {
+        $rule = self::storyboardTargetRule($prompt, $request, (array)($plan['locations'] ?? $plan['scenes'] ?? []));
+        if ($rule === []) {
+            return;
+        }
+        $actual = count(array_filter((array)($plan['storyboard'] ?? []), 'is_array'));
+        $minimum = max(1, (int)($rule['min_shots'] ?? 1));
+        $maximum = max(0, (int)($rule['max_shots'] ?? 0));
+        if ($actual < $minimum || ($maximum > 0 && $actual > $maximum)) {
+            throw new Exception('分镜数量未满足剧情骨架预算，请重试');
+        }
     }
 
     private static function storyboardRuleRangeLabel(array $rule): string
