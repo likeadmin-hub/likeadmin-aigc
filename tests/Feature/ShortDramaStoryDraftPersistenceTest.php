@@ -82,6 +82,7 @@ class ShortDramaStoryDraftPersistenceTest extends TestCase
             ]);
         }
 
+        Db::name('aigc_short_drama_script_task')->where($scope)->update(['status' => 'running', 'current_step' => '测试运行中任务']);
         \app\common\service\app\aigc_short_drama\AigcShortDramaService::cancel($this->tenant, 7, $this->taskId);
         $canceled = Db::name('aigc_short_drama_script_task')->where($scope)->find();
         self::assertSame('canceled', $canceled['status']);
