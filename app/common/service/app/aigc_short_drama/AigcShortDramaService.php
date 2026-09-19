@@ -16952,12 +16952,12 @@ class AigcShortDramaService
             if ($onEvent) $onEvent('stage', ['status' => 'running', 'progress' => 97, 'current_step' => '检查人物状态、伏笔与前集衔接']);
             $audit = static function (array $continuityInput) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult): array {
                 $reviewReceipt = self::generateScriptPlanLlmWithFallback($tenantId, $userId, $continuityInput + [
-                'model_config' => ['max_tokens' => 4096, 'enable_thinking' => false],
-                'source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
-                'action_code' => 'script_plan_continuity', 'parent_app_task_id' => (int)($llmResult['app_task_id'] ?? 0),
-            ], $model, $request, 'continuity_review', $onEvent === null ? null : static function ($event, $data) use ($onEvent) {
-                if ($event !== 'delta') $onEvent($event, $data);
-            });
+                    'model_config' => ['max_tokens' => 4096, 'enable_thinking' => false],
+                    'source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
+                    'action_code' => 'script_plan_continuity', 'parent_app_task_id' => (int)($llmResult['app_task_id'] ?? 0),
+                ], $model, $request, 'continuity_review', $onEvent === null ? null : static function ($event, $data) use ($onEvent) {
+                    if ($event !== 'delta') $onEvent($event, $data);
+                });
                 $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $reviewReceipt['result']])));
                 return ShortDramaStructuredResponse::decode((array)$reviewReceipt['result']);
             };
