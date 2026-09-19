@@ -18154,7 +18154,7 @@ class AigcShortDramaService
      */
     public static function normalizeStoryDraftPlanResult(array $plan): array
     {
-        $plan['subjects'] = self::deduplicateSubjectReferences((array)($plan['subjects'] ?? []));
+        if (array_key_exists('subjects', $plan)) $plan['subjects'] = self::deduplicateSubjectReferences((array)$plan['subjects']);
         return $plan;
     }
 

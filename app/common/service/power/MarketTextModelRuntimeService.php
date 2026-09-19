@@ -1244,7 +1244,7 @@ class MarketTextModelRuntimeService
             $choice['text'] ?? null,
             $json['delta']['text'] ?? null,
             $json['delta']['content'] ?? null,
-            $json['delta'] ?? null,
+            is_string($json['delta'] ?? null) ? $json['delta'] : null,
             $json['content'] ?? null,
             $json['output_text'] ?? null,
             $json['text'] ?? null,
