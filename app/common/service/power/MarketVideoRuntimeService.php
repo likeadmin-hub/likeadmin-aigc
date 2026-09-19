@@ -1674,11 +1674,32 @@ class MarketVideoRuntimeService
     }
     private static function supportedAssetTypes(array $product, array $meta): array
     {
-        return self::assetTypes($meta);
+        $types = self::assetTypes($meta);
+        // Older H3 market rows may omit both a content schema and
+        // supported_asset_types. Its documented nine-image reference contract
+        // still makes image input valid; do not turn missing catalogue text
+        // into an artificial provider rejection.
+        if ($types === [] && self::isH3Product($product)) {
+            return ['image'];
+        }
+        return $types;
     }
     private static function referenceLimit(array $product, array $meta, string $type): int
     {
-        return self::capabilityLimit($meta, $type);
+        $configured = self::capabilityLimit($meta, $type);
+        if ($configured > 0) {
+            return $configured;
+        }
+        // H3's supplier contract permits up to nine ordinary image
+        // references. This is deliberately distinct from the two images used
+        // by its first/last-frame mode. Some older market records have no
+        // reference limit in their metadata, so keep the documented fallback
+        // at the shared runtime boundary instead of silently clipping every
+        // consumer to the minimum start/end pair.
+        if ($type === 'image' && self::isH3Product($product)) {
+            return 9;
+        }
+        return 0;
     }
     private static function assetTypes(array $meta): array { $cap = self::arrayValue($meta['capabilities'] ?? []); $values = $meta['supported_asset_types'] ?? $cap['supported_asset_types'] ?? []; if ($values === []) $values = self::schemaVideoCapabilities($meta)['asset_types']; if ($values === []) { foreach (['image','video','audio'] as $type) if (self::capabilityLimit($meta, $type) > 0) $values[] = $type; } return array_values(array_intersect(['image','video','audio'], array_map(static fn($v) => strtolower((string)$v), (array)$values))); }
     private static function capabilityLimit(array $meta, string $type): int { $cap = self::arrayValue($meta['capabilities'] ?? []); $keys = ['image' => ['max_reference_images','max_reference_image_count','reference_image_limit'], 'video' => ['max_reference_videos','max_reference_video_count','reference_video_limit'], 'audio' => ['max_reference_audios','max_reference_audio_count','reference_audio_limit']]; foreach ($keys[$type] as $key) foreach ([$meta, $cap] as $source) if (isset($source[$key]) && (int)$source[$key] > 0) return max(0, (int)$source[$key]); return self::docReferenceLimit($meta, $type); }

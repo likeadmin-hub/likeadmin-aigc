@@ -15308,16 +15308,12 @@ class AigcShortDramaService
             throw new Exception('首帧素材不存在、未就绪或不属于当前项目');
         }
 
-        if ($lastFrameId > 0) {
-            if ($firstFrameId === $lastFrameId) {
-                throw new Exception('首帧和尾帧必须使用不同图片');
-            }
-            if (!isset($assetMap[$lastFrameId])) {
-                throw new Exception('尾帧素材不存在、未就绪或不属于当前项目');
-            }
-            if ((string)($assetMap[$firstFrameId]['url'] ?? '') === (string)($assetMap[$lastFrameId]['url'] ?? '')) {
-                throw new Exception('首帧和尾帧必须使用不同图片');
-            }
+        $hasValidLastFrame = $lastFrameId > 0
+            && $firstFrameId !== $lastFrameId
+            && isset($assetMap[$lastFrameId])
+            && (string)($assetMap[$firstFrameId]['url'] ?? '') !== ''
+            && (string)($assetMap[$firstFrameId]['url'] ?? '') !== (string)($assetMap[$lastFrameId]['url'] ?? '');
+        if ($hasValidLastFrame) {
             return self::shortDramaVideoReferenceContractPayload(
                 'start_end',
                 [
@@ -15329,36 +15325,18 @@ class AigcShortDramaService
             );
         }
 
-        // Provider roles stay within the documented video contract. The
-        // logical role is retained only in reference_plan so the UI can state
-        // exactly whether the character primary image was submitted or
-        // trimmed by the configured model's reference limit.
-        $candidates = [['asset' => $assetMap[$firstFrameId], 'role' => 'reference_image', 'logical_role' => 'first_frame']];
-        $candidateIds = [$firstFrameId => true];
-        foreach (self::shortDramaVideoPrimarySubjectAssets($tenantId, $userId, $projectId, $shot) as $asset) {
-            $assetId = (int)($asset['id'] ?? 0);
-            if ($assetId <= 0 || isset($candidateIds[$assetId])) {
-                continue;
-            }
-            $candidates[] = ['asset' => $asset, 'role' => 'reference_image', 'logical_role' => 'character_primary'];
-            $candidateIds[$assetId] = true;
-        }
-        foreach (self::shortDramaVideoThreeViewAssets($tenantId, $userId, $projectId, $shot) as $asset) {
-            $assetId = (int)($asset['id'] ?? 0);
-            if ($assetId <= 0 || isset($candidateIds[$assetId])) {
-                continue;
-            }
-            $candidates[] = ['asset' => $asset, 'role' => 'reference_image', 'logical_role' => 'character_turnaround'];
-            $candidateIds[$assetId] = true;
-        }
-        foreach (self::shortDramaVideoMentionedShotAssets($tenantId, $userId, $projectId, $params) as $asset) {
-            $assetId = (int)($asset['id'] ?? 0);
-            if ($assetId <= 0 || isset($candidateIds[$assetId])) {
-                continue;
-            }
-            $candidates[] = ['asset' => $asset, 'role' => 'reference_image', 'logical_role' => 'mentioned_shot'];
-            $candidateIds[$assetId] = true;
-        }
+        // Without a valid tail frame, use only the established reference
+        // priority below. The contract is intentionally built server-side so
+        // old clients and crafted requests cannot reorder or add references:
+        // current first frame > bound subject turnaround > bound scene > bound
+        // subject primary image > explicitly mentioned storyboard image.
+        $candidates = self::shortDramaVideoReferenceCandidates(
+            $assetMap[$firstFrameId],
+            self::shortDramaVideoThreeViewAssets($tenantId, $userId, $projectId, $shot),
+            self::shortDramaVideoSceneAssets($tenantId, $userId, $projectId, $shot),
+            self::shortDramaVideoPrimarySubjectAssets($tenantId, $userId, $projectId, $shot),
+            self::shortDramaVideoMentionedShotAssets($tenantId, $userId, $projectId, $params)
+        );
         if (in_array('multi_frame', $modes, true) && $referenceLimit >= 2 && count($candidates) >= 2) {
             $selected = array_slice($candidates, 0, $referenceLimit);
             return self::shortDramaVideoReferenceContractPayload(
@@ -15385,6 +15363,33 @@ class AigcShortDramaService
             array_slice($candidates, $referenceLimit),
             $capabilities
         );
+    }
+
+    /**
+     * Normal-reference ordering is a source-of-truth contract shared by all
+     * short-drama entry points. Tail-frame mode never reaches this method.
+     */
+    private static function shortDramaVideoReferenceCandidates(array $firstFrame, array $threeViews, array $sceneAssets, array $primarySubjectAssets, array $mentionedShotAssets): array
+    {
+        $candidates = [];
+        $candidateIds = [];
+        $append = static function (array $assets, string $logicalRole) use (&$candidates, &$candidateIds): void {
+            foreach ($assets as $asset) {
+                $asset = (array)$asset;
+                $assetId = (int)($asset['id'] ?? 0);
+                if ($assetId <= 0 || (string)($asset['url'] ?? '') === '' || isset($candidateIds[$assetId])) {
+                    continue;
+                }
+                $candidates[] = ['asset' => $asset, 'role' => 'reference_image', 'logical_role' => $logicalRole];
+                $candidateIds[$assetId] = true;
+            }
+        };
+        $append([$firstFrame], 'first_frame');
+        $append($threeViews, 'character_turnaround');
+        $append($sceneAssets, 'scene_image');
+        $append($primarySubjectAssets, 'character_primary');
+        $append($mentionedShotAssets, 'mentioned_shot');
+        return $candidates;
     }
 
     private static function marketVideoReferenceLimit(array $capabilities): int
@@ -15462,6 +15467,30 @@ class AigcShortDramaService
         $assets = [];
         foreach ($subjectIds as $subjectId) if (isset($bySubject[$subjectId])) $assets[] = $bySubject[$subjectId];
         return $assets;
+    }
+
+    private static function shortDramaVideoSceneAssets(int $tenantId, int $userId, int $projectId, array $shot): array
+    {
+        $sceneId = trim((string)($shot['scene_ref_id'] ?? ''));
+        if ($sceneId === '') {
+            return [];
+        }
+        $rows = AigcShortDramaAsset::where([
+            'tenant_id' => $tenantId,
+            'user_id' => $userId,
+            'project_id' => $projectId,
+            'asset_type' => 'scene_image',
+            'status' => 'ready',
+            'delete_time' => 0,
+        ])->order(['id' => 'desc'])->select()->toArray();
+        foreach ($rows as $row) {
+            $meta = self::assetReferenceMeta($row, self::jsonDecode((string)($row['meta_json'] ?? '')));
+            $assetSceneId = trim((string)($meta['scene_id'] ?? $meta['scene_ref_id'] ?? $meta['location_id'] ?? $meta['item_id'] ?? ''));
+            if ($assetSceneId === $sceneId) {
+                return [self::formatAsset($row)];
+            }
+        }
+        return [];
     }
 
     private static function shortDramaVideoMentionedShotAssets(int $tenantId, int $userId, int $projectId, array $params): array
