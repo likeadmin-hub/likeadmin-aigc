@@ -23,6 +23,14 @@ one failed content unit per scene may be repaired once. Calls share V3's existin
 48-call and 192000 reserved-output-token budget, and existing durable unit keys.
 Completed provider units are reusable after restart. Timing checks precede
 normalization; legacy padding and quantity-range gates are bypassed for v1.
+Timed episode generation reserves two calls / 8192 output tokens inside that
+budget for continuity review and one audit-format correction. A first-seen state
+field must have `before:null`; malformed audit JSON may be corrected once without
+rewriting any script. Conflicts against already registered facts still block.
+Receipt identity excludes model presentation-only fields such as display icons;
+actual prompts, model identity, parameters and budgets remain protected. Historical
+raw fingerprints are compared through the same canonical request without changing
+or re-submitting the old receipts.
 
 Verification: `ShortDramaEpisodeDurationTest`, existing timing, generation,
 story-workflow, revision, dialogue and video-duration contracts. Real smoke tests
@@ -51,18 +59,26 @@ Tenant 1 only; all cases below used the server-resolved Qwen3.6-Plus model.
 | 1106 | Explicit 0–2s, 2–10s timeline | 2 | 10 | 3 | 0 / 0 |
 | 1107 | Fast conflict | 13 | 120 | 7 | 0 / 0 |
 | 1108 | Emotional story, no padding | 12 | 100 | 4 | 0 / 0 |
+| 1111 | Series 1110, episode 1 | 14 | 120 | 6 | 0 / 0 |
+| 1112 | Series 1110, episode 2 | 16 | 120 | 7 | 0 / 0 |
 
 Project 1108 confirms the default lower bound is advisory: all twelve planned
 cards were retained unchanged and no padding or lower-bound repair call occurred.
 Project 1106 retains durations 2 and 8 seconds after persistence. Browser checks
 confirmed progressive script body/SSE updates and tenant timing configuration.
 Tenant production build passes (existing Sass/chunk-size warnings remain).
+The second episode receives the first episode's state and digest. It initially
+failed on an audit that invented `before` values for newly registered fields.
+Recovery reused all five completed generation units and the original audit;
+only one corrective audit call was added. Existing semantic warnings remain
+visible for editorial review; tests do not imply perfect creative quality.
 
 Regression coverage includes timing, legacy duration, story continuity, explicit
 timeline persistence, provider prompt capture, transactional unit persistence,
 dialogue, multi-episode contracts and director prompt formatting. Historical
 AutoDuration's minimum expectation and two PlanNormalizationContract fallback
 cases also fail on pre-change commit 4023ff761; they are not silently rebaselined.
-Paid multi-episode end-to-end and video visual acceptance must be reported
-separately from these contract tests. Disable the tenant switch to stop adoption
+142 focused regression tests / 5279 assertions pass, including the transactional
+persistence suites. Video visual acceptance must be reported separately from
+these contract tests. Disable the tenant switch to stop adoption
 by new tasks; running tasks continue using their own policy snapshots.
