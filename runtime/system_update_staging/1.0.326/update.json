@@ -1,0 +1,24 @@
+{
+  "product_code": "likeadmin_aigc_saas",
+  "title": "上游模型同步与平台菜单优化",
+  "summary": "优化上游模型价格同步与平台菜单展示。",
+  "version": "1.0.326",
+  "package_mode": "incremental",
+  "update_type": "patch",
+  "require_core": ">=1.0.116 <2.0.0",
+  "changelog": [
+    "1. 优化上游模型价格同步的兼容性。",
+    "2. 优化平台开放能力菜单展示。"
+  ],
+  "sql_order": [
+    "sql/structure/20260919_hide_legacy_open_platform_menu.sql"
+  ],
+  "delete_files": [],
+  "full_replace_dirs": [],
+  "base_version": "1.0.325",
+  "target_version": "1.0.326",
+  "included_versions": [
+    "1.0.325",
+    "1.0.326"
+  ]
+}

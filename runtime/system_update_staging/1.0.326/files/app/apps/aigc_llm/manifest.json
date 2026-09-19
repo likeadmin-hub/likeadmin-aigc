@@ -1,0 +1,61 @@
+{
+  "code": "aigc_llm",
+  "name": "AIGC对话",
+  "version": "1.1.9",
+  "require_core": ">=1.0.0",
+  "description": "AIGC large model conversation application with multi-session, multi-turn context and SSE streaming.",
+  "changelog": "1. AIGC对话统一使用模型API市场的可用文本模型。\n2. 移除对话通道和模型配置。\n3. 简化基础配置中的模型服务设置。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 880,
+  "frontends": [
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_llm",
+  "platform_menus": "menus/platform.json",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_llm_admin",
+      "name": "AIGC对话",
+      "path": "/app/aigc_llm",
+      "icon": "el-icon-ChatDotRound",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_llm",
+      "name": "AIGC对话",
+      "path": "/app/aigc_llm",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_llm",
+      "name": "AIGC对话",
+      "path": "/apps/aigc_llm/pages/index/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 100,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "对话首页",
+            "path": "/apps/aigc_llm/pages/index/index"
+          }
+        ]
+      }
+    }
+  ]
+}
