@@ -96,6 +96,53 @@ class MarketApplicationFoundationContractTest extends TestCase
         self::assertStringNotContainsString('_market_text_fallback_used', $source);
     }
 
+    public function testBlankChannelFactoryModelUsesCompleteCataloguePricing(): void
+    {
+        $item = $this->invoke(PowerMarketService::class, 'catalogPricingItem', [
+            'type' => PowerMarketService::TYPE_MODEL,
+            'model' => 'gpt-5.5',
+            'channel' => '',
+            'local_key' => 'model:gpt-5.5:',
+            'catalog_model' => [
+                'model_code' => 'gpt-5.5',
+                'model_name' => 'GPT-5.5',
+                'type_code' => 'text',
+                'pricing' => [
+                    'pricing_v2' => [
+                        'resource_type' => 'factory_model',
+                        'resource_id' => 1,
+                        'items' => [[
+                            'sku_key' => 'gpt_5_5_token',
+                            'usage_unit' => 'token',
+                            'usage_unit_size' => 1000000,
+                            'price' => ['points' => 3000],
+                        ]],
+                    ],
+                ],
+            ],
+        ]);
+
+        self::assertTrue($item['available']);
+        self::assertSame('gpt-5.5', $item['resource']['model_code']);
+        self::assertSame('', $item['resource']['channel_code']);
+        self::assertSame('gpt_5_5_token', $item['pricing_v2']['items'][0]['sku_key']);
+        self::assertSame(['type' => 'model', 'model' => 'gpt-5.5'], $item['request']);
+    }
+
+    public function testChannelBoundModelStillUsesPricingBatch(): void
+    {
+        $item = $this->invoke(PowerMarketService::class, 'catalogPricingItem', [
+            'type' => PowerMarketService::TYPE_MODEL,
+            'model' => 'qwen3.6-plus',
+            'channel' => 'dashscope_compatible',
+            'catalog_model' => [
+                'pricing' => ['pricing_v2' => ['items' => [['sku_key' => 'should_not_be_used']]]],
+            ],
+        ]);
+
+        self::assertSame([], $item);
+    }
+
     public function testApplicationCategoryIsFlattenedAndReturnedForImageVideoAndAudioApps(): void
     {
         $samples = [
