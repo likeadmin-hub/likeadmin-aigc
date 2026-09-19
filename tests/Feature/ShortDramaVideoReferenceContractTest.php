@@ -90,6 +90,84 @@ class ShortDramaVideoReferenceContractTest extends TestCase
         self::assertSame(['first_frame', 'character_primary'], array_column($payload['reference_plan']['assets'], 'logical_role'));
     }
 
+    public function testNormalReferenceCandidatesUseTheStoryboardPriorityContract(): void
+    {
+        $candidates = $this->invoke(
+            AigcShortDramaService::class,
+            'shortDramaVideoReferenceCandidates',
+            ['id' => 501, 'url' => 'https://example.test/first.png'],
+            [
+                ['id' => 502, 'url' => 'https://example.test/hero-three-view.png'],
+                ['id' => 503, 'url' => 'https://example.test/partner-three-view.png'],
+            ],
+            [['id' => 504, 'url' => 'https://example.test/scene.png']],
+            [
+                ['id' => 502, 'url' => 'https://example.test/duplicate-three-view.png'],
+                ['id' => 505, 'url' => 'https://example.test/hero-primary.png'],
+            ],
+            [['id' => 506, 'url' => 'https://example.test/mentioned-shot.png']]
+        );
+
+        self::assertSame([501, 502, 503, 504, 505, 506], array_map(
+            static fn(array $candidate): int => (int)$candidate['asset']['id'],
+            $candidates
+        ));
+        self::assertSame([
+            'first_frame', 'character_turnaround', 'character_turnaround',
+            'scene_image', 'character_primary', 'mentioned_shot',
+        ], array_column($candidates, 'logical_role'));
+    }
+
+    public function testH3UsesItsDocumentedNineImageFallbackWhenMarketMetadataIsMissing(): void
+    {
+        $product = ['upstream_model_code' => 'h3-video'];
+        self::assertSame(9, $this->invoke(MarketVideoRuntimeService::class, 'referenceLimit', $product, [], 'image'));
+        self::assertSame(9, $this->invoke(MarketVideoRuntimeService::class, 'advertisedReferenceLimit', $product, [], 'image'));
+        self::assertSame(9, $this->invoke(MarketVideoRuntimeService::class, 'referenceAssetLimit', $product, []));
+        self::assertSame(9, $this->invoke(MarketVideoRuntimeService::class, 'advertisedReferenceAssetLimit', $product, []));
+        self::assertSame(['image'], $this->invoke(MarketVideoRuntimeService::class, 'supportedAssetTypes', $product, []));
+
+        // Explicit market capability data remains authoritative for every
+        // model, including H3 variants with a provider-specific limit.
+        self::assertSame(6, $this->invoke(
+            MarketVideoRuntimeService::class,
+            'referenceLimit',
+            $product,
+            ['max_reference_images' => 6],
+            'image'
+        ));
+    }
+
+    public function testH3ReferenceContractAcceptsNineImagesAndRejectsTheTenth(): void
+    {
+        $market = ['product' => ['upstream_model_code' => 'h3-video']];
+        $references = array_map(static fn(int $id): array => [
+            'type' => 'image',
+            'url' => 'https://example.test/reference-' . $id . '.png',
+            'role' => 'reference_image',
+        ], range(1, 9));
+
+        $this->invoke(MarketVideoRuntimeService::class, 'assertAssets', $market, [
+            'generation_method' => 'multi_frame',
+            'reference_assets' => $references,
+        ]);
+
+        $references[] = [
+            'type' => 'image',
+            'url' => 'https://example.test/reference-10.png',
+            'role' => 'reference_image',
+        ];
+        try {
+            $this->invoke(MarketVideoRuntimeService::class, 'assertAssets', $market, [
+                'generation_method' => 'multi_frame',
+                'reference_assets' => $references,
+            ]);
+            self::fail('The H3 contract accepted more than nine image references.');
+        } catch (\Exception $error) {
+            self::assertStringContainsString('at most 9 reference image', $error->getMessage());
+        }
+    }
+
     public function testAllMultiImageModelsAdvertiseMultiFrameButOnlyH3AdvertisesStartEnd(): void
     {
         $h3Modes = $this->invoke(
