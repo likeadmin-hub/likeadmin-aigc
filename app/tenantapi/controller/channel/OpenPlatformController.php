@@ -23,6 +23,15 @@ class OpenPlatformController extends BaseAdminController
     }
     public function authUrl() { try { return $this->data(OpenPlatformService::authUrl($this->tenantId, (string)$this->request->param('authorizer_type', ''))); } catch (\Throwable $e) { return $this->fail($e->getMessage()); } }
     public function accounts() { return $this->data(OpenPlatformService::authorizers($this->tenantId)); }
+    public function syncAccount() {
+        try {
+            $id = (int)$this->request->post('id');
+            $row = \app\common\model\wechat\WechatAuthorizer::withoutGlobalScope()->where(['id' => $id, 'tenant_id' => $this->tenantId, 'authorization_status' => 1])->findOrEmpty();
+            if ($row->isEmpty()) throw new \RuntimeException('授权账号不存在或已失效');
+            OpenPlatformService::authorizerInfo($id);
+            return $this->data(OpenPlatformService::authorizers($this->tenantId));
+        } catch (\Throwable $e) { return $this->fail($e->getMessage()); }
+    }
     public function templates() { return $this->data(OpenPlatformService::templates()); }
     public function versions() { return $this->data(OpenPlatformService::versions($this->tenantId)); }
     public function reviews() { return $this->data(OpenPlatformService::reviews($this->tenantId)); }

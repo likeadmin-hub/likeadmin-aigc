@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS `la_wechat_authorizers` (
   `id` int unsigned NOT NULL AUTO_INCREMENT, `tenant_id` int unsigned NOT NULL DEFAULT 0,
   `authorizer_appid` varchar(64) NOT NULL, `authorizer_type` varchar(20) NOT NULL DEFAULT '',
   `authorizer_name` varchar(120) NOT NULL DEFAULT '', `principal_name` varchar(160) NOT NULL DEFAULT '', `head_img` varchar(255) NOT NULL DEFAULT '',
-  `func_info` longtext,
+  `original_id` varchar(128) NOT NULL DEFAULT '', `qrcode_url` varchar(500) NOT NULL DEFAULT '', `alias` varchar(120) NOT NULL DEFAULT '',
+  `service_type` smallint NOT NULL DEFAULT 0, `verify_type` smallint NOT NULL DEFAULT 0,
+  `business_info` longtext, `mini_program_info` longtext, `profile_json` longtext, `func_info` longtext,
   `authorizer_refresh_token_ciphertext` text, `access_token_ciphertext` text, `access_token_expire_time` int unsigned NOT NULL DEFAULT 0,
   `authorization_status` tinyint unsigned NOT NULL DEFAULT 1, `unbind_time` int unsigned NOT NULL DEFAULT 0,
   `last_sync_time` int unsigned NOT NULL DEFAULT 0, `create_time` int unsigned NOT NULL DEFAULT 0, `update_time` int unsigned NOT NULL DEFAULT 0,
@@ -51,6 +53,9 @@ SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEM
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME='la_wechat_authorizers' AND COLUMN_NAME='func_info')=0,
   'ALTER TABLE `la_wechat_authorizers` ADD COLUMN `func_info` longtext NULL AFTER `head_img`', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME='la_wechat_authorizers' AND COLUMN_NAME='original_id')=0,
+  'ALTER TABLE `la_wechat_authorizers` ADD COLUMN `original_id` varchar(128) NOT NULL DEFAULT '''' AFTER `head_img`, ADD COLUMN `qrcode_url` varchar(500) NOT NULL DEFAULT '''' AFTER `original_id`, ADD COLUMN `alias` varchar(120) NOT NULL DEFAULT '''' AFTER `qrcode_url`, ADD COLUMN `service_type` smallint NOT NULL DEFAULT 0 AFTER `alias`, ADD COLUMN `verify_type` smallint NOT NULL DEFAULT 0 AFTER `service_type`, ADD COLUMN `business_info` longtext NULL AFTER `verify_type`, ADD COLUMN `mini_program_info` longtext NULL AFTER `business_info`, ADD COLUMN `profile_json` longtext NULL AFTER `mini_program_info`', 'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@db_name AND TABLE_NAME='la_wechat_templates' AND COLUMN_NAME='draft_id')=0,
   'ALTER TABLE `la_wechat_templates` ADD COLUMN `draft_id` bigint unsigned NOT NULL DEFAULT 0 AFTER `template_id`', 'SELECT 1');
