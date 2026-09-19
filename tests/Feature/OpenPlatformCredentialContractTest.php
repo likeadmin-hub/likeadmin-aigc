@@ -24,4 +24,14 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString('public static function credentialValue', $source);
         self::assertStringContainsString("if (\$value === '' || str_contains(\$value, '*')) return '';", $source);
     }
+
+    public function testWholeNetworkCallbacksHaveFixedTextAndEventReplies(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformCallbackService.php');
+
+        self::assertStringContainsString('TESTCOMPONENT_MSG_TYPE_TEXT_callback', $source);
+        self::assertStringContainsString('QUERY_AUTH_CODE:', $source);
+        self::assertStringContainsString(". 'from_callback'", $source);
+        self::assertStringContainsString('sendAuthorizerCustomText', $source);
+    }
 }
