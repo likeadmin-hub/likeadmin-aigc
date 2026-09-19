@@ -81,6 +81,25 @@ final class ShortDramaContinuity
             ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
     }
 
+    /** Correct one malformed audit response, never rewrite or relax the script. */
+    public static function review(array $plan, array $context, int $episode, callable $call): array
+    {
+        $input = self::messages($plan, $context);
+        $review = [];
+        for ($attempt = 0; $attempt < 2; $attempt++) {
+            try {
+                $review = $call($input);
+                return self::ledger($review, $plan, $context, $episode) + ['review_repairs' => $attempt];
+            } catch (RuntimeException $error) {
+                if ($attempt || $error->getCode() !== 422) throw $error;
+                $input['content'] .= "\n仅修正审校JSON，不改写剧本、状态快照或证据，不删除有效事实来绕过检查：" . $error->getMessage()
+                    . '\nchanges.before必须逐字引用previous.state已有值；该entity_id:field尚未登记时必须为null，不能根据剧情推断旧值。保留所有warnings。原审校='
+                    . json_encode($review, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+            }
+        }
+        throw new RuntimeException('连续性审校未完成', 422);
+    }
+
     public static function ledger(array $review, array $plan, array $context, int $episode): array
     {
         if (!is_string($review['summary'] ?? null) || trim($review['summary']) === '') throw new RuntimeException('连续性摘要缺失', 422);
@@ -97,6 +116,9 @@ final class ShortDramaContinuity
                 || !preg_match('/^[a-zA-Z0-9_\x{4e00}-\x{9fff}]{1,80}$/u', $item['field'])
                 || !is_string($item['after'] ?? null) || mb_strlen($item['after']) > 1200) throw new RuntimeException('剧情状态标识或内容无效', 422);
             $key = $item['entity_id'] . ':' . $item['field'];
+            if (!array_key_exists($key, $state) && ($item['before'] ?? null) !== null) {
+                throw new RuntimeException('连续性审校字段' . $key . '首次登记的before必须为null，不能推断未记录的旧状态', 422);
+            }
             if (($state[$key] ?? null) !== ($item['before'] ?? null)) {
                 throw new RuntimeException('本集剧情状态与前集不一致，请检查衔接后修改；已完成内容保留', 409);
             }
