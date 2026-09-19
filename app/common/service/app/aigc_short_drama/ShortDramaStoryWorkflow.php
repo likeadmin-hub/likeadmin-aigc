@@ -37,7 +37,7 @@ final class ShortDramaStoryWorkflow
         return self::enabled($request) && ($request['multi_episode_stage'] ?? '') === 'story';
     }
 
-    /** UI planning metadata is not a creative constraint before confirmation. */
+    /** Remove premature episode allocation and stale counts in prior drafts. */
     public static function withoutEpisodeAllocation(array $data): array
     {
         foreach ($data as $key => $value) {
@@ -47,6 +47,19 @@ final class ShortDramaStoryWorkflow
                 $data[$key] = self::withoutEpisodeAllocation($value);
             }
         }
+        return $data;
+    }
+
+    /** The current requested scale informs setting, without allocating episodes. */
+    public static function storyContext(array $data, array $request): array
+    {
+        $data = self::withoutEpisodeAllocation($data);
+        $data['story_scale'] = [
+            'target_episode_count' => min(500, max(2, (int)($request['episode_count'] ?? 3))),
+            // Legacy normalization also extracts whole-film duration from prose.
+            // Do not relabel that ambiguous field as per-episode or multiply it.
+            'target_duration_seconds' => max(0, (int)($request['target_duration_seconds'] ?? 0)),
+        ];
         return $data;
     }
 
@@ -62,7 +75,17 @@ final class ShortDramaStoryWorkflow
         $count = (int)$request['episode_count'];
         $total = (int)($request['episode_total_count'] ?? $count);
         if (($request['multi_episode_stage'] ?? '') === 'story') {
-            return '当前仅生成尚未确认的故事设定，集数尚未确定。series_arc 按开端、发展、转折、高潮和结局描述全剧主线，不按集数分配剧情，不出现第几集或集号范围。用户确认故事设定后才按最终集数生成分集大纲；本次 episodes、storyboard 为空，不生成分集摘要或制作分镜。';
+            $scale = self::storyContext([], $request)['story_scale'];
+            $count = $scale['target_episode_count'];
+            $duration = $scale['target_duration_seconds'];
+            $durationHint = $duration > 0
+                ? "任务时长参数={$duration}秒；按用户原文判断它是单集还是全剧时长。明确为单集时长才结合目标集数估算全剧容量；明确为全剧总时长则在目标集数内分配，含义未明确时不得默认按单集乘以集数。"
+                : '未设置单集时长；如用户明确提供单集或全剧时长，按其原意结合目标集数评估容量，区分单集与全剧时长；否则保持时长开放，不擅自假定固定时长。';
+            return "当前仅生成待确认的故事设定。用户目标集数={$count}集，这是故事容量依据，确认前可调整。" . $durationHint
+                . '据目标集数、时长、题材和用户故事共同规划主线长度、支线深度、阶段性冲突及人物成长；少集数突出集中冲突和完整收束，多集数需要可持续推进的矛盾、递进的阶段目标与伏笔回收，避免重复冲突和灌水。'
+                . '主体与场景数量由叙事需要决定，不按集数线性增加，不设置每集新增配额。尊重用户指定阵容、场景和已绑定素材，核心主体的身份、关系及素材 ID 保持稳定；长篇按需要规划阶段性配角、对手和关系演变。'
+                . '场景优先规划可复用的主要地点及其叙事用途，在全剧主线中说明后续阶段拓展方向；不预先穷举全部逐集临时人物、道具或地点。把已明确的阶段性角色定位与成长写入 subjects 的 role、arc，把场景用途与出现阶段写入 locations 的 description，便于后续继承。'
+                . 'series_arc 按开端、发展、转折、高潮和结局描述足以支撑目标容量的全剧主线，不按集数分配剧情，不出现第几集或集号范围。用户确认故事设定后才按最终集数生成分集大纲；本次 episodes、storyboard 为空，不生成分集摘要或制作分镜。';
         }
         $start = (int)($request['episode_batch_start'] ?? 1);
         $end = $start + $count - 1;

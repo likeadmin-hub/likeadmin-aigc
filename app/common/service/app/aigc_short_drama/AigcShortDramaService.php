@@ -16366,7 +16366,7 @@ class AigcShortDramaService
         $skillInstruction = ShortDramaSkillRuntime::instruction((array)($request['_skill_snapshot'] ?? []), 'script_plan');
         if (!$outlineContext && !empty($request['skill_inputs'])) $prompt .= "\n\n用户补充的创作信息：\n" . self::jsonEncode($request['skill_inputs']);
         if (!$outlineContext && !empty($request['_skill_asset_inventory'])) $prompt .= "\n\n已校验可复用素材清单，优先按 ID 引用绑定：\n" . self::jsonEncode($request['_skill_asset_inventory']);
-        ShortDramaPromptCatalog::rememberContext(['request' => self::stripPromptDiagnostics(ShortDramaStoryWorkflow::unconfirmedStory($request) ? ShortDramaStoryWorkflow::withoutEpisodeAllocation($request) : $request), 'prompt' => $prompt, 'title' => $title]);
+        ShortDramaPromptCatalog::rememberContext(['request' => self::stripPromptDiagnostics(ShortDramaStoryWorkflow::unconfirmedStory($request) ? ShortDramaStoryWorkflow::storyContext($request, $request) : $request), 'prompt' => $prompt, 'title' => $title]);
         if (ShortDramaPromptCatalog::enabled()) {
             foreach (['global_system_prompt', 'subject_planning_prompt', 'scene_planning_prompt', 'storyboard_planning_prompt'] as $key) ShortDramaPromptCatalog::text($key);
         }
@@ -17287,8 +17287,8 @@ class AigcShortDramaService
         ];
         $unconfirmedStory = ShortDramaStoryWorkflow::unconfirmedStory($request);
         if ($unconfirmedStory) {
-            $context = ShortDramaStoryWorkflow::withoutEpisodeAllocation($context);
-            // Story-setting output size must not depend on the editable UI count either.
+            $context = ShortDramaStoryWorkflow::storyContext($context, $request);
+            // Scale changes narrative depth, not an unbounded asset list or output budget.
             $responseCharacterLimit = 10000;
         }
         $shotSchema = [
@@ -18863,10 +18863,13 @@ class AigcShortDramaService
             '{{revision_base_result}}' => $revisionBaseResult,
         ];
         if (ShortDramaStoryWorkflow::unconfirmedStory($request)) {
-            $safeRequest = ShortDramaStoryWorkflow::withoutEpisodeAllocation($templateRequest);
+            $safeRequest = ShortDramaStoryWorkflow::storyContext($templateRequest, $request);
             $replacements['{{request_json}}'] = self::jsonEncode($safeRequest);
             $replacements['{{revision_base_result}}'] = self::promptTemplateValue($safeRequest['revision_base_result'] ?? '');
-            foreach (['episode_count', 'episode_total_count', 'episode_batch_start', 'episode_batch_end', 'episode_batch_context'] as $key) {
+            $replacements['{{episode_count}}'] = (string)$safeRequest['story_scale']['target_episode_count'];
+            $replacements['{{episode_total_count}}'] = (string)$safeRequest['story_scale']['target_episode_count'];
+            $replacements['{{stage_instruction}}'] = ShortDramaStoryWorkflow::scopeInstruction($request);
+            foreach (['episode_batch_start', 'episode_batch_end', 'episode_batch_context'] as $key) {
                 $replacements['{{' . $key . '}}'] = '尚未确认（本阶段不分集）';
             }
         }
