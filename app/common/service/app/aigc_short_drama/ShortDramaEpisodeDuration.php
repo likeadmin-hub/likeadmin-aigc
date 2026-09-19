@@ -53,7 +53,8 @@ final class ShortDramaEpisodeDuration
             $duration = (float)($segment['duration_seconds'] ?? 0);
             $start = (float)($segment['start_seconds'] ?? 0);
             $end = (float)($segment['end_seconds'] ?? ($start + $duration));
-            if ($duration <= 0 || ($lastEnd !== null && abs($start - $lastEnd) > 0.001)) {
+            if (!is_finite($duration) || !is_finite($start) || !is_finite($end) || $duration <= 0 || $start < 0
+                || abs($end - $start - $duration) > 0.001 || ($lastEnd !== null && abs($start - $lastEnd) > 0.001)) {
                 throw new RuntimeException('时间码存在重叠、空档或无效时长，请调整后提交', 422);
             }
             $lastEnd = $end;
@@ -73,6 +74,14 @@ final class ShortDramaEpisodeDuration
             'max_seconds' => $explicit ? $target : $rule['max_seconds'],
             'timeline_segments' => $timeline,
         ];
+    }
+
+    /** Provider coercion must not silently rewrite an editorial duration. */
+    public static function assertRenderableDuration(float $planned, float $effective): void
+    {
+        if ($planned <= 0 || !is_finite($planned) || abs($planned - $effective) > 0.001) {
+            throw new RuntimeException('当前视频模型不支持分镜要求的' . $planned . '秒（当前规格为' . $effective . '秒），请更换支持该时长的模型，或明确调整视频生成时长；剧本时长保持不变', 422);
+        }
     }
 
     public static function instruction(array $request): string

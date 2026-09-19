@@ -10,7 +10,7 @@ final class ShortDramaTimedScriptGeneration
     {
         $policy = ShortDramaEpisodeDuration::policy($request);
         $rule = ShortDramaShotDuration::rule($request);
-        $base = ['system_prompt' => $messages['system_prompt'] . "\n" . ShortDramaEpisodeDuration::instruction($request),
+        $base = ['system_prompt' => $messages['system_prompt'] . "\n" . ShortDramaEpisodeDuration::instruction($request) . "\n" . ShortDramaSameSceneCuts::instruction($request),
             'content' => $messages['_stage_content'] ?? $messages['content']];
         $skeletonInput = $base;
         $skeletonInput['system_prompt'] .= '\n本阶段仅生成骨架JSON：title、type_judgement、core_theme、story_outline、script_lines、series_bible、subjects、locations、art_style、scene_beats。'
@@ -54,6 +54,7 @@ final class ShortDramaTimedScriptGeneration
                     try {
                         $part = $call('timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . ($attempt ? '_repair' : ''), $input, 1800 + count($ids) * 750);
                         self::assertPart($part, $skeleton, $beat, $ids, $partDurations);
+                        foreach ($part['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                         break;
                     } catch (RuntimeException $e) {
                         if ($attempt || $sceneRepairUsed || !in_array($e->getCode(), [413, 422], true)) throw $e;
@@ -87,7 +88,7 @@ final class ShortDramaTimedScriptGeneration
         $shots = [];
         $rule = ShortDramaShotDuration::rule($request);
         foreach ($beats as $index => $beat) {
-            if (!in_array($beat['scene_ref_id'] ?? '', array_column($plan['locations'], 'id'), true)
+            if (!is_array($beat) || !in_array($beat['scene_ref_id'] ?? '', array_column($plan['locations'], 'id'), true)
                 || empty($beat['goal']) || empty($beat['entry']) || empty($beat['exit']) || empty($beat['key_events'])
                 || !is_array($beat['shot_durations'] ?? null) || !$beat['shot_durations'] || count($beat['shot_durations']) > 40) {
                 throw new RuntimeException('场景骨架、关键事件或分镜时间预算缺失', 422);
@@ -118,7 +119,8 @@ final class ShortDramaTimedScriptGeneration
                 throw new RuntimeException('本段标识、主体场景绑定或时长与已确认预算不一致', 422);
             }
             $dialogue = $shot['dialogue'] ?? '';
-            $text = is_string($dialogue) ? $dialogue : self::json($dialogue);
+            if (!is_string($dialogue)) throw new RuntimeException('dialogue必须是带角色名的台词字符串，不能返回数组或对象', 422);
+            $text = $dialogue;
             // A deliberately generous guard catches impossible delivery, not acting style.
             $characters = mb_strlen(preg_replace('/[\s\p{P}]/u', '', $text) ?? $text, 'UTF-8');
             if ($characters > $durations[$index] * 8) throw new RuntimeException('本段对白过密，请保留关键含义并缩短台词，为动作和停顿留出时间', 422);

@@ -142,7 +142,7 @@ final class ShortDramaStoryGeneration
             $issues = ShortDramaStoryWorkflow::issues($payload, 'episodes', $total);
             if ($issues) throw new RuntimeException($issues[0]['message'], 422);
             $timing = ShortDramaEpisodeDuration::policy($request);
-            if (ShortDramaEpisodeDuration::active($request) && ($timing['scope'] ?? '') === 'series') {
+            if (ShortDramaEpisodeDuration::active($request) && ($timing['scope'] ?? '') === 'series' && $targetEpisode <= 0) {
                 $input = ['system_prompt' => '只规划分集时长，不改剧情。返回JSON {"episode_durations":[数字秒数,...]}，按集号顺序完整覆盖每集，均大于0，合计必须等于整部总时长。根据各集剧情分配。',
                     'content' => json_encode(['total_seconds' => $timing['target_seconds'], 'episodes' => array_map(static fn($item) => array_intersect_key($item,
                         array_flip(['episode_number', 'title', 'story_outline'])), $payload['episodes'])], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
