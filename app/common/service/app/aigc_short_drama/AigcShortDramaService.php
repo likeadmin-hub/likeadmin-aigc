@@ -5059,6 +5059,9 @@ class AigcShortDramaService
 
     public static function registerAsset(int $tenantId, int $userId, array $params): array
     {
+        if ((int)($params['canvas_id'] ?? 0) > 0) {
+            return self::registerCanvasAsset($tenantId, $userId, $params);
+        }
         $projectId = (int)($params['project_id'] ?? 0);
         $project = self::findProject($tenantId, $userId, $projectId);
         if (!empty($params['library_subject_id'])) {
@@ -5125,6 +5128,51 @@ class AigcShortDramaService
             'delete_time' => 0,
         ]);
         self::touchProject($project, ['update_time' => $time]);
+        return self::formatAsset($asset->toArray());
+    }
+
+    /** Register a canvas node result in the existing short-drama asset library. */
+    private static function registerCanvasAsset(int $tenantId, int $userId, array $params): array
+    {
+        $canvasId = (int)$params['canvas_id'];
+        $canvas = Db::name('aigc_short_drama_canvas')->where([
+            'id' => $canvasId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0,
+        ])->find();
+        if (!$canvas) {
+            throw new Exception('画布不存在或无权访问');
+        }
+        $nodeType = strtolower(trim((string)($params['node_type'] ?? $params['type'] ?? 'image')));
+        if (!in_array($nodeType, ['text', 'image', 'video', 'audio'], true)) {
+            throw new Exception('不支持的画布资产类型');
+        }
+        $uri = FileService::setFileUrl((string)($params['uri'] ?? $params['url'] ?? ''));
+        if ($nodeType !== 'text' && $uri === '') {
+            throw new Exception('当前节点没有可保存的媒体');
+        }
+        $storedFile = $uri === '' ? [] : self::storageInfoForUploadedFile($tenantId, $uri);
+        $meta = is_array($params['meta'] ?? null) ? $params['meta'] : [];
+        $meta['source'] = 'short_drama_canvas';
+        $meta['canvas_id'] = $canvasId;
+        $meta['node_id'] = (string)($params['node_id'] ?? '');
+        $meta['node_type'] = $nodeType;
+        $meta['content'] = $nodeType === 'text' ? mb_substr((string)($params['content'] ?? ''), 0, 60000, 'UTF-8') : '';
+        $assetType = 'canvas_' . $nodeType;
+        $time = time();
+        $asset = AigcShortDramaAsset::create([
+            'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => 0, 'canvas_id' => $canvasId,
+            'task_id' => '', 'shot_id' => '', 'asset_type' => $assetType,
+            'title' => mb_substr(trim((string)($params['title'] ?? '画布素材')), 0, 120, 'UTF-8'),
+            'uri' => $uri,
+            'cover_uri' => FileService::setFileUrl((string)($params['cover_uri'] ?? $params['cover_url'] ?? '')),
+            'storage_scope' => (string)($params['storage_scope'] ?? $storedFile['storage_scope'] ?? 'tenant'),
+            'storage_engine' => (string)($params['storage_engine'] ?? $storedFile['storage_engine'] ?? 'local'),
+            'storage_domain' => (string)($params['storage_domain'] ?? $storedFile['storage_domain'] ?? ''),
+            'mime_type' => mb_substr(trim((string)($params['mime_type'] ?? ($nodeType === 'text' ? 'text/plain' : ''))), 0, 120, 'UTF-8'),
+            'file_size' => (int)($params['file_size'] ?? 0), 'width' => (int)($params['width'] ?? 0),
+            'height' => (int)($params['height'] ?? 0), 'duration' => (float)($params['duration'] ?? 0),
+            'checksum' => '', 'meta_json' => self::jsonEncode($meta), 'status' => 'ready',
+            'create_time' => $time, 'update_time' => $time, 'delete_time' => 0,
+        ]);
         return self::formatAsset($asset->toArray());
     }
 
@@ -23084,6 +23132,7 @@ class AigcShortDramaService
             'input_assets' => self::generationTaskInputAssets($row),
             'output_assets' => $assets,
             'asset_count' => count($assets),
+            'result_content' => self::generationTaskResultContent($row),
             'image_url' => (string)($first['asset_type'] ?? '') === 'shot_video' ? '' : (string)($first['url'] ?? ''),
             'video_url' => in_array((string)($first['asset_type'] ?? ''), ['shot_video', 'final_video'], true) ? (string)($first['url'] ?? '') : '',
             'final_video_url' => (string)($first['asset_type'] ?? '') === 'final_video' ? (string)($first['url'] ?? '') : '',
@@ -23098,6 +23147,22 @@ class AigcShortDramaService
             'create_time' => self::timeText($row['create_time'] ?? 0),
             'update_time' => self::timeText($row['update_time'] ?? 0),
         ];
+    }
+
+    /** Text canvas tasks have no media asset; expose their completed content directly. */
+    private static function generationTaskResultContent(array $row): string
+    {
+        if ((string)($row['task_type'] ?? '') !== 'canvas_text') {
+            return '';
+        }
+        $result = self::jsonDecode((string)($row['result_json'] ?? ''));
+        foreach (['content', 'text', 'output'] as $key) {
+            $value = trim((string)($result[$key] ?? ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+        return '';
     }
 
     private static function latestAdminGenerationTask(int $tenantId, int $userId, int $projectId, string $shotId): array
