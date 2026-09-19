@@ -1,0 +1,8 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "white",
+  "navigationBarTitleText": "克隆形象",
+  "usingComponents": {
+    "u-icon": "../../../../../uni_modules/vk-uview-ui/components/u-icon/u-icon"
+  }
+}

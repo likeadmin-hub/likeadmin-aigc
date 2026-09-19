@@ -1,0 +1,48 @@
+[
+  {
+    "source_menu_key": "aigc_llm",
+    "app_code": "aigc_llm",
+    "source": "app",
+    "type": "M",
+    "name": "AIGC对话",
+    "icon": "el-icon-ChatDotRound",
+    "sort": 100,
+    "perms": "",
+    "paths": "aigc-llm",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_llm_config",
+        "type": "C",
+        "name": "基础配置",
+        "perms": "app.aigc_llm.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_llm/config"
+      },
+      {
+        "source_menu_key": "aigc_llm_session",
+        "type": "C",
+        "name": "会话记录",
+        "perms": "app.aigc_llm.admin_session/lists",
+        "paths": "session",
+        "component": "apps/aigc_llm/session"
+      },
+      {
+        "source_menu_key": "aigc_llm_sensitive_word",
+        "type": "C",
+        "name": "敏感词",
+        "perms": "app.aigc_llm.admin/sensitiveWord",
+        "paths": "sensitive-word",
+        "component": "apps/aigc_llm/sensitive-word"
+      },
+      {
+        "source_menu_key": "aigc_llm_stat",
+        "type": "C",
+        "name": "用量统计",
+        "perms": "app.aigc_llm.admin/stat",
+        "paths": "stat",
+        "component": "apps/aigc_llm/stat"
+      }
+    ]
+  }
+]

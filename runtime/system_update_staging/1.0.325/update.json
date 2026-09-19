@@ -1,0 +1,26 @@
+{
+  "product_code": "likeadmin_aigc_saas",
+  "title": "微信模板与小程序构建体验优化",
+  "summary": "优化微信模板管理和小程序版本构建体验。",
+  "version": "1.0.325",
+  "package_mode": "incremental",
+  "update_type": "patch",
+  "require_core": ">=1.0.116 <2.0.0",
+  "changelog": [
+    "1. 优化微信小程序本地构建版本展示。",
+    "2. 支持独立查看模板加入记录并重新选择微信草稿。",
+    "3. 同步更新小程序构建版本。"
+  ],
+  "sql_order": [],
+  "delete_files": [],
+  "full_replace_dirs": [
+    "public/mp-weixin",
+    "public/platform"
+  ],
+  "base_version": "1.0.324",
+  "target_version": "1.0.325",
+  "included_versions": [
+    "1.0.324",
+    "1.0.325"
+  ]
+}
