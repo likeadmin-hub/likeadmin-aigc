@@ -16,7 +16,14 @@ $openPlatformCallback = function () {
     try {
         $result = \app\common\service\wechat\OpenPlatformCallbackService::handle(request());
         if (is_array($result) && isset($result['redirect'])) {
-            $response = redirect((string)$result['redirect']);
+            // componentloginpage can treat a bare 302 callback response as a
+            // downloadable resource. Return an explicit HTML navigation page
+            // instead so the browser always completes the tenant redirect.
+            $target = (string)$result['redirect'];
+            $encodedTarget = json_encode($target, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+            $safeTarget = htmlspecialchars($target, ENT_QUOTES, 'UTF-8');
+            $content = '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>授权完成</title></head><body><p>授权完成，正在返回渠道配置页…</p><p><a href="' . $safeTarget . '">如未自动跳转，请点击这里继续</a></p><script>window.location.replace(' . $encodedTarget . ');</script></body></html>';
+            $response = response($content, 200, ['Content-Type' => 'text/html; charset=utf-8', 'Cache-Control' => 'no-store']);
             return $isAuthorizationCallback ? $response->cookie(\app\common\service\wechat\OpenPlatformService::authStateCookieName(), '', \app\common\service\wechat\OpenPlatformService::authStateCookieOptions(-3600)) : $response;
         }
         if (is_array($result) && array_key_exists('response', $result)) {
