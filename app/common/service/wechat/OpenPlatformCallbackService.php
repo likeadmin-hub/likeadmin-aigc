@@ -35,7 +35,7 @@ class OpenPlatformCallbackService
         if ($request->isGet() && $request->param('auth_code', '') !== '') {
             $requestId = bin2hex(random_bytes(12)); $tenantId = 0; $context = [];
             try {
-                $state = (string)$request->param('state', ''); if ($state === '') throw new \RuntimeException('授权状态缺失');
+                $state = self::authorizationState($request); if ($state === '') throw new \RuntimeException('授权状态缺失');
                 $context = self::stateContext($state); $tenantId = (int)($context['tenant_id'] ?? 0);
                 $info = OpenPlatformService::queryAuthorization((string)$request->param('auth_code'));
                 $scope = (array)($info['func_info'] ?? []); $profile = OpenPlatformService::authorizerProfileByAppid((string)$info['authorizer_appid']); $type = self::authorizerType($scope, array_merge($info, ['authorizer_info' => $profile]));
@@ -123,6 +123,18 @@ class OpenPlatformCallbackService
 
     private static function verifyPlain(string $token, string $timestamp, string $nonce, string $signature): void { if ($timestamp === '' || abs(time() - (int)$timestamp) > 300 || $signature === '') throw new \RuntimeException('回调签名参数无效'); $expected = sha1(implode('', self::sorted([$token, $timestamp, $nonce]))); if (!hash_equals($expected, $signature)) throw new \RuntimeException('回调签名校验失败'); }
     private static function stateContext(string $state): array { return $state === '' ? ['tenant_id' => 0] : OpenPlatformService::authState($state); }
+
+    /**
+     * componentloginpage does not reliably round-trip a custom state value.
+     * The relay therefore stores the signed value in an HttpOnly, same-site
+     * cookie on the configured OPC host. Query state is still preferred for
+     * compatibility with providers that do return it.
+     */
+    private static function authorizationState($request): string
+    {
+        $state = trim((string)$request->param('state', ''));
+        return $state !== '' ? $state : trim((string)$request->cookie(OpenPlatformService::authStateCookieName(), ''));
+    }
 
     private static function authorizationRedirect(int $tenantId, string $type, string $status): array
     {

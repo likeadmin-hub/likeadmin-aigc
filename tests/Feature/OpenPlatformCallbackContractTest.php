@@ -55,8 +55,38 @@ class OpenPlatformCallbackContractTest extends TestCase
         self::assertStringContainsString('authorizationLaunchPage', $route);
         self::assertStringContainsString("'Cache-Control' => 'no-store'", $route);
         self::assertStringContainsString('window.location.replace', $service);
+        self::assertStringContainsString('signedAuthState', $service);
+        self::assertStringContainsString("'httponly' => true", $service);
+        self::assertStringContainsString("'samesite' => 'lax'", $service);
+        self::assertStringContainsString('authStateCookieName', $route);
         self::assertStringContainsString('The WeChat console validates the browser', $service);
         self::assertStringContainsString("\$normalizedPath === 'wechat/open-platform/authorize'", $middleware);
         self::assertStringContainsString('platform-owned public endpoints', $middleware);
+    }
+
+    public function testCallbackFallsBackToSameOriginSignedStateCookie(): void
+    {
+        $callback = $this->source('app/common/service/wechat/OpenPlatformCallbackService.php');
+        $route = $this->source('route/app.php');
+
+        self::assertStringContainsString('componentloginpage does not reliably round-trip', $callback);
+        self::assertStringContainsString('$request->cookie(OpenPlatformService::authStateCookieName()', $callback);
+        self::assertStringContainsString('authStateCookieOptions(-3600)', $route);
+    }
+
+    public function testSignedStateRecoversTenantContextWithoutCache(): void
+    {
+        $reflection = new \ReflectionClass(OpenPlatformService::class);
+        $make = $reflection->getMethod('signedAuthState');
+        $parse = $reflection->getMethod('signedAuthStateContext');
+        $make->setAccessible(true);
+        $parse->setAccessible(true);
+        $config = ['app_secret' => 'test-component-secret'];
+        $context = ['tenant_id' => 42, 'authorizer_type' => 'miniprogram', 'created_at' => time()];
+
+        $state = $make->invoke(null, $context, $config);
+
+        self::assertSame($context, $parse->invoke(null, $state, $config));
+        self::assertNull($parse->invoke(null, substr_replace($state, '0', -1), $config));
     }
 }

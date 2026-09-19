@@ -19,6 +19,8 @@ use WpOrg\Requests\Requests;
 class OpenPlatformService
 {
     private const API = 'https://api.weixin.qq.com/';
+    private const AUTH_STATE_TTL = 600;
+    private const AUTH_STATE_COOKIE = 'wechat_open_platform_auth_state';
     private const SECRET_FIELDS = ['app_secret', 'token', 'encoding_aes_key', 'developer_secret', 'upload_private_key', 'upload_certificate', 'upload_private_pem'];
     private const CONFIG_MASK_FIELDS = ['app_secret', 'token', 'encoding_aes_key', 'developer_secret', 'upload_private_key', 'upload_certificate', 'upload_private_pem', 'component_verify_ticket', 'component_access_token'];
 
@@ -156,9 +158,15 @@ class OpenPlatformService
         if (!$status['configured']) {
             throw new \RuntimeException('请先完善开放平台配置：缺少 ' . implode('、', $status['missing']));
         }
-        $config = self::rawConfig(); self::requireConfig($config, ['app_id']); $state = bin2hex(random_bytes(16));
+        $config = self::rawConfig(); self::requireConfig($config, ['app_id', 'app_secret']);
         $authorizerType = in_array($authorizerType, ['official', 'miniprogram'], true) ? $authorizerType : null;
-        Cache::set('wechat.open_platform.auth_state.' . $state, ['tenant_id' => $tenantId ?: 0, 'authorizer_type' => $authorizerType, 'created_at' => time()], 600);
+        $context = ['tenant_id' => max(0, (int)$tenantId), 'authorizer_type' => $authorizerType, 'created_at' => time()];
+        // WeChat's component-login callback only guarantees auth_code and
+        // expires_in.  Preserve the tenant context in a short-lived signed
+        // state as well as cache, so an OPC callback can recover after a
+        // browser/node cache boundary without trusting client-supplied data.
+        $state = self::signedAuthState($context, $config);
+        Cache::set('wechat.open_platform.auth_state.' . $state, $context, self::AUTH_STATE_TTL);
         // The WeChat console validates the browser's authorization-entry host,
         // not only redirect_uri.  A tenant browser must therefore first load a
         // page on the configured platform host before that page enters WeChat.
@@ -168,7 +176,7 @@ class OpenPlatformService
     public static function authorizationLaunchUrl(string $state, array $config = []): string
     {
         $state = trim($state);
-        if (!preg_match('/^[a-f0-9]{32}$/', $state)) {
+        if (!self::isAuthStateFormat($state)) {
             throw new \InvalidArgumentException('授权状态无效');
         }
         $callback = self::callbackUrls($config ?: self::rawConfig())['authorization'];
@@ -202,11 +210,12 @@ class OpenPlatformService
     }
     public static function authState(string $state): array
     {
-        $value = Cache::get('wechat.open_platform.auth_state.' . trim($state));
-        if (!is_array($value) || time() - (int)($value['created_at'] ?? 0) > 600) {
-            throw new \RuntimeException('授权状态已失效');
-        }
-        return $value;
+        $state = trim($state);
+        $value = Cache::get('wechat.open_platform.auth_state.' . $state);
+        if (is_array($value) && time() - (int)($value['created_at'] ?? 0) <= self::AUTH_STATE_TTL) return $value;
+        $signedContext = self::signedAuthStateContext($state);
+        if ($signedContext !== null) return $signedContext;
+        throw new \RuntimeException('授权状态已失效');
     }
 
     public static function consumeAuthState(string $state): array
@@ -219,6 +228,58 @@ class OpenPlatformService
     public static function clearAuthState(string $state): void
     {
         if (trim($state) !== '') Cache::delete('wechat.open_platform.auth_state.' . trim($state));
+    }
+
+    public static function authStateCookieName(): string
+    {
+        return self::AUTH_STATE_COOKIE;
+    }
+
+    public static function authStateCookieOptions(int $expire = self::AUTH_STATE_TTL): array
+    {
+        return ['expire' => $expire, 'path' => '/wechat/open-platform/', 'secure' => true, 'httponly' => true, 'samesite' => 'lax'];
+    }
+
+    private static function signedAuthState(array $context, array $config): string
+    {
+        $nonce = bin2hex(random_bytes(16));
+        $tenantId = max(0, (int)($context['tenant_id'] ?? 0));
+        $type = match ((string)($context['authorizer_type'] ?? '')) {
+            'official' => 'o',
+            'miniprogram' => 'm',
+            default => 'n',
+        };
+        $createdAt = (int)($context['created_at'] ?? time());
+        $payload = implode('.', [$nonce, $tenantId, $type, $createdAt]);
+        return $payload . '.' . self::authStateSignature($payload, $config);
+    }
+
+    private static function signedAuthStateContext(string $state, array $config = []): ?array
+    {
+        if (!preg_match('/^([a-f0-9]{32})\.(0|[1-9][0-9]{0,9})\.([omn])\.([1-9][0-9]{9})\.([a-f0-9]{32})$/', $state, $matches)) return null;
+        $createdAt = (int)$matches[4];
+        if ($createdAt > time() + 60 || time() - $createdAt > self::AUTH_STATE_TTL) return null;
+        $payload = implode('.', array_slice($matches, 1, 4));
+        $config = $config ?: self::rawConfig();
+        if (!hash_equals(self::authStateSignature($payload, $config), $matches[5])) return null;
+        return [
+            'tenant_id' => (int)$matches[2],
+            'authorizer_type' => ['o' => 'official', 'm' => 'miniprogram'][$matches[3]] ?? null,
+            'created_at' => $createdAt,
+        ];
+    }
+
+    private static function authStateSignature(string $payload, array $config): string
+    {
+        $secret = self::credentialValue($config['app_secret'] ?? '');
+        if ($secret === '') throw new \RuntimeException('开放平台 AppSecret 不完整');
+        return substr(hash_hmac('sha256', 'wechat.open_platform.auth_state.v1|' . $payload, $secret), 0, 32);
+    }
+
+    private static function isAuthStateFormat(string $state): bool
+    {
+        return preg_match('/^[a-f0-9]{32}$/', $state) === 1
+            || preg_match('/^[a-f0-9]{32}\.(0|[1-9][0-9]{0,9})\.[omn]\.[1-9][0-9]{9}\.[a-f0-9]{32}$/', $state) === 1;
     }
     public static function saveVerifyTicket(string $ticket): void { if ($ticket === '') throw new \InvalidArgumentException('Ticket 为空'); WechatOpenPlatform::withoutGlobalScope()->where('id', 1)->update(['component_verify_ticket' => WechatCredentialService::encrypt($ticket), 'ticket_expire_time' => time() + 7200, 'update_time' => time()]); Cache::set('wechat.open_platform.verify_ticket', $ticket, 7200); }
 
