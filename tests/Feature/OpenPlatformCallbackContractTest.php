@@ -59,6 +59,9 @@ class OpenPlatformCallbackContractTest extends TestCase
         self::assertStringContainsString("'httponly' => true", $service);
         self::assertStringContainsString("'samesite' => 'lax'", $service);
         self::assertStringContainsString('authStateCookieName', $route);
+        self::assertStringContainsString('authReturnOriginCookieName', $route);
+        self::assertStringContainsString('authReturnOriginSignature', $service);
+        self::assertStringContainsString('return_origin', $service);
         self::assertStringContainsString('The WeChat console validates the browser', $service);
         self::assertStringContainsString("\$normalizedPath === 'wechat/open-platform/authorize'", $middleware);
         self::assertStringContainsString('platform-owned public endpoints', $middleware);
@@ -75,6 +78,7 @@ class OpenPlatformCallbackContractTest extends TestCase
         self::assertStringContainsString('componentloginpage can treat a bare 302', $route);
         self::assertStringContainsString('window.location.replace', $route);
         self::assertStringContainsString("'text/html; charset=utf-8'", $route);
+        self::assertStringContainsString('授权已完成', $route);
     }
 
     public function testSignedStateRecoversTenantContextWithoutCache(): void

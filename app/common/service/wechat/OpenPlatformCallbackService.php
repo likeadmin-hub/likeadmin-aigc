@@ -36,7 +36,9 @@ class OpenPlatformCallbackService
             $requestId = bin2hex(random_bytes(12)); $tenantId = 0; $context = [];
             try {
                 $state = self::authorizationState($request); if ($state === '') throw new \RuntimeException('授权状态缺失');
-                $context = self::stateContext($state); $tenantId = (int)($context['tenant_id'] ?? 0);
+                $context = self::stateContext($state);
+                if (empty($context['return_origin'])) $context['return_origin'] = OpenPlatformService::authReturnOriginFromCookie((string)$request->cookie(OpenPlatformService::authReturnOriginCookieName(), ''));
+                $tenantId = (int)($context['tenant_id'] ?? 0);
                 $info = OpenPlatformService::queryAuthorization((string)$request->param('auth_code'));
                 $scope = (array)($info['func_info'] ?? []); $profile = OpenPlatformService::authorizerProfileByAppid((string)$info['authorizer_appid']); $type = self::authorizerType($scope, array_merge($info, ['authorizer_info' => $profile]));
                 $expectedType = (string)($context['authorizer_type'] ?? '');
@@ -44,10 +46,10 @@ class OpenPlatformCallbackService
                 if ($tenantId > 0) OpenPlatformService::bindAuthorizer($tenantId, (string)$info['authorizer_appid'], $type, ['refresh_token' => $info['authorizer_refresh_token'] ?? '', 'func_info' => $scope, 'name' => $profile['nick_name'] ?? '', 'principal_name' => $profile['principal_name'] ?? '', 'head_img' => $profile['head_img'] ?? '']);
                 OpenPlatformService::clearAuthState($state);
                 self::log($requestId, 'authorized', 1, 'success', '', $tenantId);
-                return self::authorizationRedirect($tenantId, $type, 'success');
+                return self::authorizationRedirect($tenantId, $type, 'success', (string)($context['return_origin'] ?? ''));
             } catch (\Throwable $e) {
                 self::log($requestId, 'authorized', 1, 'failed', $e->getMessage(), $tenantId);
-                return self::authorizationRedirect($tenantId, (string)($context['authorizer_type'] ?? ''), 'failed');
+                return self::authorizationRedirect($tenantId, (string)($context['authorizer_type'] ?? ''), 'failed', (string)($context['return_origin'] ?? ''));
             }
         }
         if ($timestamp === '' || $nonce === '' || abs(time() - (int)$timestamp) > 300) throw new \RuntimeException('回调时间戳或 Nonce 已过期');
@@ -136,12 +138,15 @@ class OpenPlatformCallbackService
         return $state !== '' ? $state : trim((string)$request->cookie(OpenPlatformService::authStateCookieName(), ''));
     }
 
-    private static function authorizationRedirect(int $tenantId, string $type, string $status): array
+    private static function authorizationRedirect(int $tenantId, string $type, string $status, string $returnOrigin = ''): array
     {
         if ($tenantId <= 0) return ['response' => $status === 'success' ? 'success' : 'fail'];
         $channel = $type === 'miniprogram' ? 'miniprogram' : 'official';
-        $base = rtrim((string)request()->domain(), '/');
-        $base = (string)(preg_replace('#^http://#i', 'https://', $base) ?: $base);
+        $base = OpenPlatformService::normalizeReturnOrigin($returnOrigin);
+        if ($base === '') {
+            $base = rtrim((string)request()->domain(), '/');
+            $base = (string)(preg_replace('#^http://#i', 'https://', $base) ?: $base);
+        }
         $query = http_build_query(['channel' => $channel, 'wechat_auth' => $status]);
         return ['redirect' => $base . '/t/' . $tenantId . '/admin/channel/overview?' . $query];
     }
