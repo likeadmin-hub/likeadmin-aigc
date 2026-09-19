@@ -7,6 +7,29 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaStoryGenerationTest extends TestCase
 {
+    public function testLongStoryScaleDoesNotGenerateEpisodesOrMultiplyStoryCalls(): void
+    {
+        foreach ([3, 300, 500] as $count) {
+            $request = ['workflow_variant' => 'story_outline_v2', 'multi_episode' => true,
+                'multi_episode_stage' => 'story', 'episode_count' => $count];
+            $calls = [];
+            $result = ShortDramaStoryGeneration::generate($request,
+                ['context_window' => 100000, 'max_tokens' => 16384],
+                static fn($r) => ['system_prompt' => \app\common\service\app\aigc_short_drama\ShortDramaStoryWorkflow::scopeInstruction($r), 'content' => '旧宅谜案'],
+                function ($key, $messages, $budget) use (&$calls, $count) {
+                    $calls[] = $key;
+                    self::assertSame(1, $budget['count']);
+                    self::assertStringContainsString("用户目标集数={$count}集", $messages['system_prompt']);
+                    return ['result' => ['content' => json_encode($this->base())]];
+                });
+            self::assertSame(['story'], $calls);
+            self::assertSame($count, $result['result']['episode_count']);
+            self::assertSame([], $result['result']['episodes']);
+            self::assertSame([], $result['result']['storyboard']);
+            self::assertSame($this->base()['subjects'], $result['result']['subjects']);
+        }
+    }
+
     public function testTargetedRevisionCannotChangeOtherEpisodesOrConfirmedStory(): void
     {
         $original = $this->runOutline(30, fn($key, $messages) => $this->response($messages))['result']['episodes'];

@@ -53,4 +53,24 @@ class ShortDramaStoryWorkflowTest extends TestCase
         self::assertStringContainsString('全剧最终集是第 100 集', $scope);
         self::assertSame('', ShortDramaStoryWorkflow::scopeInstruction(['episode_count' => 3]));
     }
+
+    public function testStoryScaleUsesCurrentCountAndKeepsDurationUnknownUnlessProvided(): void
+    {
+        $request = ['workflow_variant' => ShortDramaStoryWorkflow::VARIANT, 'multi_episode' => true,
+            'multi_episode_stage' => 'story', 'episode_count' => 300];
+        $data = ['episode_count' => 3, 'episode_total_count' => 3, 'episode_batch_context' => ['old'],
+            'revision_base_result' => ['episode_count' => 3, 'subjects' => [['id' => 's1', 'name' => '甲']]]];
+        $context = ShortDramaStoryWorkflow::storyContext($data, $request);
+        self::assertSame(['target_episode_count' => 300, 'target_duration_seconds' => 0], $context['story_scale']);
+        self::assertArrayNotHasKey('episode_count', $context['revision_base_result']);
+        self::assertArrayNotHasKey('episode_batch_context', $context);
+        self::assertSame($data['revision_base_result']['subjects'], $context['revision_base_result']['subjects']);
+        self::assertSame(3, $data['episode_count']);
+        $instruction = ShortDramaStoryWorkflow::scopeInstruction($request);
+        self::assertStringContainsString('未设置单集时长', $instruction);
+        self::assertStringNotContainsString('全剧预计总时长=', $instruction);
+        self::assertStringContainsString('不按集数线性增加', $instruction);
+        self::assertStringContainsString('素材 ID 保持稳定', $instruction);
+        self::assertStringContainsString('不预先穷举', $instruction);
+    }
 }
