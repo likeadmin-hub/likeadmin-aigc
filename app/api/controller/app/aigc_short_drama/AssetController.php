@@ -45,6 +45,15 @@ class AssetController extends BaseApiController
         }
     }
 
+    public function editCanvasImage()
+    {
+        try {
+            return $this->success('success', ShortDramaCanvasService::editImage((int)$this->request->tenantId, $this->userId, $this->request->post()));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function delete()
     {
         try {
