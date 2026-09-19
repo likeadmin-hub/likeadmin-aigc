@@ -315,9 +315,11 @@ class OpenPlatformService
 
     public static function registerArtifact(string $version, string $sourceSha = ''): array
     {
-        if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) throw new \InvalidArgumentException('版本号格式错误'); $root = self::artifactPath('mp-weixin.pre-release-' . $version, $version); if (!is_dir($root)) throw new \RuntimeException('产物目录不存在'); $files = self::fileManifest($root); foreach (['app.json', 'project.config.json'] as $required) if (!isset($files[$required])) throw new \RuntimeException('缺少关键文件: ' . $required);
-        $metadataPath = $root . '/.artifact.meta.json'; $metadata = is_file($metadataPath) ? json_decode((string)file_get_contents($metadataPath), true) : null; $manifestHash = hash('sha256', json_encode($files, JSON_UNESCAPED_SLASHES)); if (!is_array($metadata) || (string)($metadata['version'] ?? '') !== $version || (int)($metadata['file_count'] ?? -1) !== count($files) || (string)($metadata['sha256'] ?? '') !== $manifestHash || (array)($metadata['files'] ?? []) !== $files) throw new \RuntimeException('产物元数据校验失败，请重新生成版本产物'); if ($sourceSha !== '' && (string)($metadata['source_sha'] ?? '') !== $sourceSha) throw new \RuntimeException('产物源提交 SHA 与元数据不一致'); $sourceSha = (string)($metadata['source_sha'] ?? $sourceSha);
+        if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) throw new \InvalidArgumentException('版本号格式错误');
         $relativeDir = 'mp-weixin.pre-release-' . $version;
+        $root = self::artifactPath($relativeDir, $version);
+        if (!is_dir($root)) throw new \RuntimeException('产物目录不存在'); $files = self::fileManifest($root); foreach (['app.json', 'project.config.json'] as $required) if (!isset($files[$required])) throw new \RuntimeException('缺少关键文件: ' . $required);
+        $metadataPath = $root . '/.artifact.meta.json'; $metadata = is_file($metadataPath) ? json_decode((string)file_get_contents($metadataPath), true) : null; $manifestHash = hash('sha256', json_encode($files, JSON_UNESCAPED_SLASHES)); if (!is_array($metadata) || (string)($metadata['version'] ?? '') !== $version || (int)($metadata['file_count'] ?? -1) !== count($files) || (string)($metadata['sha256'] ?? '') !== $manifestHash || (array)($metadata['files'] ?? []) !== $files) throw new \RuntimeException('产物元数据校验失败，请重新生成版本产物'); if ($sourceSha !== '' && (string)($metadata['source_sha'] ?? '') !== $sourceSha) throw new \RuntimeException('产物源提交 SHA 与元数据不一致'); $sourceSha = (string)($metadata['source_sha'] ?? $sourceSha);
         $payload = ['version' => $version, 'artifact_dir' => $relativeDir, 'source_sha' => $sourceSha, 'file_count' => count($files), 'sha256_manifest' => json_encode($files, JSON_UNESCAPED_SLASHES), 'built_at' => strtotime((string)($metadata['built_at'] ?? '')) ?: time(), 'verify_status' => 1, 'update_time' => time()]; $row = WechatArtifact::withoutGlobalScope()->where('version', $version)->findOrEmpty(); if ($row->isEmpty()) { $payload['promoted'] = 0; $payload['create_time'] = time(); return WechatArtifact::create($payload)->toArray(); } $row->save($payload); return $row->toArray();
     }
     private static function fileManifest(string $root): array { $files = []; $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)); foreach ($iterator as $file) { if (!$file->isFile() || $file->getFilename() === '.artifact.meta.json') continue; $relative = ltrim(str_replace($root, '', $file->getPathname()), DIRECTORY_SEPARATOR); $files[str_replace(DIRECTORY_SEPARATOR, '/', $relative)] = hash_file('sha256', $file->getPathname()); } ksort($files); return $files; }
@@ -329,6 +331,13 @@ class OpenPlatformService
         if (preg_match('/^mp-weixin\\.pre-release-(\\d+\\.\\d+\\.\\d+)$/', basename($artifactDir), $match)) {
             $version = $version !== '' ? $version : $match[1];
             return root_path() . 'public/' . basename($artifactDir);
+        }
+        // Keep historical runtime records readable after the artifact storage
+        // contract moved to public/mp-weixin.pre-release-{version}. New
+        // artifacts are never created in this compatibility location.
+        if (preg_match('#^runtime/wechat-artifacts/(\\d+\\.\\d+\\.\\d+)$#', $artifactDir, $match)) {
+            $version = $version !== '' ? $version : $match[1];
+            return root_path() . 'runtime/wechat-artifacts/' . $version;
         }
         return root_path() . 'public/' . basename($artifactDir);
     }
