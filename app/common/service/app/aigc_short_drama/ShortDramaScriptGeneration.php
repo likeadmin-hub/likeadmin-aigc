@@ -33,7 +33,8 @@ final class ShortDramaScriptGeneration
             return ShortDramaStructuredResponse::decode($receipts[$key]);
         };
         if (ShortDramaEpisodeDuration::active($request) && !ShortDramaEpisodeDuration::localRevision($request)) {
-            $payload = ShortDramaTimedScriptGeneration::generate($request, $messages, $call, $progress);
+            $budget = ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $model, 'script', 8192);
+            $payload = ShortDramaTimedScriptGeneration::generate($request, $messages, $call, $progress, (int)$budget['max_tokens']);
             return self::result($payload, $receipts, $model);
         }
         $duration = (int)($request['target_duration_seconds'] ?? 0);
