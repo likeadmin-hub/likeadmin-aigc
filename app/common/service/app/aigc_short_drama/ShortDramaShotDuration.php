@@ -22,13 +22,21 @@ final class ShortDramaShotDuration
         $min = max(1, min(60, (int)($rule['min_seconds'] ?? self::MIN)));
         $max = max($min, min(60, (int)($rule['max_seconds'] ?? self::MAX)));
         $default = max($min, min($max, (int)($rule['default_seconds'] ?? self::DEFAULT)));
-        return ['min_seconds' => $min, 'max_seconds' => $max, 'default_seconds' => $default];
+        return ['min_seconds' => !empty($rule['timeline_override']) ? 0.001 : $min, 'max_seconds' => $max, 'default_seconds' => $default]
+            + (!empty($rule['timeline_override']) ? ['timeline_override' => true] : []);
     }
 
     public static function rule(array $request = []): array
     {
         $candidate = $request['shot_duration_rule'] ?? ($request['generation_settings']['shot_duration_rule'] ?? []);
-        return self::normalizeRule(is_array($candidate) ? $candidate : []);
+        $rule = self::normalizeRule(is_array($candidate) ? $candidate : []);
+        $timing = ShortDramaEpisodeDuration::policy($request);
+        if (ShortDramaEpisodeDuration::active($request) && (($timing['source'] ?? '') === 'timeline'
+            || (($timing['source'] ?? '') === 'user' && $timing['target_seconds'] < $rule['min_seconds']))) {
+            $rule['timeline_override'] = true;
+            $rule['min_seconds'] = 0.001;
+        }
+        return $rule;
     }
 
     public static function normalize(mixed $value, array $rule = []): float

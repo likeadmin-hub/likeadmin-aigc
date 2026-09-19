@@ -738,6 +738,9 @@ class AigcShortDramaService
         if (isset($params['shot_duration_rule']) && is_array($params['shot_duration_rule'])) {
             $config['shot_duration_rule'] = ShortDramaShotDuration::normalizeRule($params['shot_duration_rule']);
         }
+        if (isset($params['episode_duration_rule']) && is_array($params['episode_duration_rule'])) {
+            $config['episode_duration_rule'] = ShortDramaEpisodeDuration::normalize($params['episode_duration_rule']);
+        }
         if (isset($params['export_watermark']) && is_array($params['export_watermark'])) {
             $config['export_watermark'] = self::normalizeExportWatermarkConfig($params['export_watermark']);
         }
@@ -2342,9 +2345,20 @@ class AigcShortDramaService
         if (empty($currentOutline['story_outline'])) throw new Exception('本集缺少真实大纲，请重新规划项目');
         $request['multi_episode'] = false;
         $request['episode_count'] = 1;
+        $episodePolicy = ShortDramaEpisodeDuration::policy($request);
+        if (ShortDramaEpisodeDuration::active($request)) {
+            if (($episodePolicy['scope'] ?? '') === 'series') {
+                $allocated = (float)($currentOutline['target_duration_seconds'] ?? 0);
+                if ($allocated <= 0) throw new Exception('分集大纲缺少本集时长分配，请重新生成分集大纲');
+                $episodePolicy = array_replace($episodePolicy, ['scope' => 'episode', 'source' => 'user',
+                    'target_seconds' => $allocated, 'min_seconds' => $allocated, 'max_seconds' => $allocated, 'timeline_segments' => []]);
+            }
+        }
         unset($request['script_text'], $request['script_content']);
         $created = self::createScriptPlan($tenantId, $userId, $request, (int)$episode['production_project_id'], [
             '_prompt_snapshot' => ShortDramaPromptWorkspace::forTask($tenantId, $request),
+            'episode_duration_policy' => $episodePolicy,
+            'shot_duration_rule' => (array)($request['shot_duration_rule'] ?? []),
             // This is copied from the parent task after it has been resolved
             // on the server; it is intentionally not accepted from HTTP.
             'locked_subject_references' => self::lockedSubjectReferences($request),
@@ -2574,10 +2588,19 @@ class AigcShortDramaService
             array_map(static fn(array $subject): string => (string)$subject['name'], $lockedSubjectReferences)
         ))));
         $request['prompt'] = $prompt;
+        // Only new user submissions adopt tenant defaults. Internal retries and
+        // episode continuations retain their original immutable policy version.
+        if ($internalContext === [] && !empty($config['episode_duration_rule']['enabled'])) {
+            $request['episode_duration_policy'] = self::episodeDurationSnapshot($prompt, $params, $config);
+        }
+        if (ShortDramaEpisodeDuration::active($request)) {
+            $request['_generation_version'] = max(3, (int)$request['_generation_version']);
+            $request['duration_source'] = ShortDramaEpisodeDuration::policy($request)['source'];
+        }
         $request['script_source'] = $uploadedScript !== '' ? 'upload' : (string)($request['script_source'] ?? 'manual');
         $request['script_file_name'] = trim((string)($params['script_file_name'] ?? ''));
         $request['storyboard_rules'] = self::normalizeStoryboardRules((array)($config['storyboard_rules'] ?? []));
-        $request['shot_duration_rule'] = ShortDramaShotDuration::normalizeRule((array)($config['shot_duration_rule'] ?? $request['shot_duration_rule'] ?? []));
+        $request['shot_duration_rule'] = ShortDramaShotDuration::normalizeRule((array)($internalContext['shot_duration_rule'] ?? $config['shot_duration_rule'] ?? []));
         // V3 first asks for a story skeleton. Its actual scenes and beats are
         // more reliable than keyword matching against the user's short input,
         // so defer the storyboard budget until that skeleton exists.
@@ -4884,6 +4907,13 @@ class AigcShortDramaService
         $request['model_selections'] = self::modelSelectionsSnapshot($selectedModels);
         $request['model_id'] = (string)($selectedModels['script_plan']['id'] ?? $request['model_id'] ?? '');
         $prompt = trim((string)($task['prompt'] ?? $request['prompt'] ?? $project['prompt'] ?? ''));
+        if ($fullPlanRevision && !empty($config['episode_duration_rule']['enabled'])) {
+            $newDuration = self::durationHintToSeconds(self::extractUserTextDurationHint($message));
+            $timingPrompt = $newDuration > 0 || self::extractTimelineSegments($message) ? $message : $prompt;
+            $request['episode_duration_policy'] = self::episodeDurationSnapshot($timingPrompt,
+                array_replace($request, ['target_duration_seconds' => $newDuration > 0 ? $newDuration : (float)($request['target_duration_seconds'] ?? 0)]), $config);
+            $request['_generation_version'] = max(3, (int)($request['_generation_version'] ?? 0));
+        }
         if ((int)($request['_generation_version'] ?? 0) >= ShortDramaScriptGeneration::VERSION
             && empty($request['multi_episode'])
             && (int)($request['episode_count'] ?? 1) <= 1) {
@@ -13574,7 +13604,13 @@ class AigcShortDramaService
         }
 
         $targetDuration = (float)($plan['generation_settings']['target_duration_seconds'] ?? 0);
-        if ($targetDuration > 0 && !empty($storyboard)) {
+        if (ShortDramaEpisodeDuration::active($plan) && !empty($storyboard) && empty($plan['generation_settings']['local_timing_revision'])) {
+            try {
+                ShortDramaEpisodeDuration::assertPlan($plan, $plan);
+            } catch (\RuntimeException $error) {
+                $issues[] = self::planReviewIssue('storyboard.duration.mismatch', 'blocking', 'storyboard', $error->getMessage());
+            }
+        } elseif (!ShortDramaEpisodeDuration::active($plan) && $targetDuration > 0 && !empty($storyboard)) {
             $actualDuration = self::storyboardDurationSeconds($storyboard);
             if (abs($actualDuration - $targetDuration) > 0.001) {
                 $issues[] = self::planReviewIssue(
@@ -14746,6 +14782,7 @@ class AigcShortDramaService
             'price_config' => [],
             'storyboard_rules' => self::defaultStoryboardRules(),
             'shot_duration_rule' => ShortDramaShotDuration::defaultRule(),
+            'episode_duration_rule' => ShortDramaEpisodeDuration::defaults(),
             'export_watermark' => self::defaultExportWatermarkConfig(),
         ];
         $default['models'][0]['name'] = '剧本策划模型';
@@ -14818,6 +14855,7 @@ class AigcShortDramaService
         );
         $config['storyboard_rules'] = self::normalizeStoryboardRules((array)($config['storyboard_rules'] ?? []));
         $config['shot_duration_rule'] = ShortDramaShotDuration::normalizeRule((array)($config['shot_duration_rule'] ?? []));
+        $config['episode_duration_rule'] = ShortDramaEpisodeDuration::normalize((array)($config['episode_duration_rule'] ?? []));
         $config['export_watermark'] = self::normalizeExportWatermarkConfig((array)($config['export_watermark'] ?? []));
         return $config;
     }
@@ -16374,6 +16412,16 @@ class AigcShortDramaService
         ];
     }
 
+    private static function episodeDurationSnapshot(string $prompt, array $params, array $config): array
+    {
+        $explicitText = (float)self::durationHintToSeconds(self::extractUserTextDurationHint($prompt));
+        $multi = !empty($params['multi_episode']) || (int)($params['episode_count'] ?? 1) > 1;
+        $seriesTotal = $multi && preg_match('/(?:整部|全剧|全片|全系列|所有集|全部剧集).{0,12}(?:总时长|时长|分钟|秒)/u', $prompt) === 1;
+        return ShortDramaEpisodeDuration::snapshot((array)($config['episode_duration_rule'] ?? []),
+            (float)($params['target_duration_seconds'] ?? $params['target_duration'] ?? 0), $explicitText,
+            self::extractTimelineSegments($prompt), $seriesTotal);
+    }
+
     private static function readUploadedScriptText(string $path, string $extension): string
     {
         if ($extension !== 'docx') {
@@ -16419,8 +16467,17 @@ class AigcShortDramaService
 
     private static function assembleScriptPromptRequest(int $tenantId, string $prompt, array $request, string $title): array
     {
+        $messages = self::assembleScriptPromptRequestBase($tenantId, $prompt, $request, $title);
+        if (ShortDramaEpisodeDuration::active($request)) {
+            $messages['system_prompt'] .= "\n" . ShortDramaEpisodeDuration::instruction($request);
+        }
+        return $messages;
+    }
+
+    private static function assembleScriptPromptRequestBase(int $tenantId, string $prompt, array $request, string $title): array
+    {
         // Validate explicit timing before any paid call; never silently stretch a locked timeline.
-        if (!ShortDramaStoryWorkflow::unconfirmedStory($request) && !ShortDramaPlanningContext::isOutline($request)) {
+        if (!ShortDramaEpisodeDuration::active($request) && !ShortDramaStoryWorkflow::unconfirmedStory($request) && !ShortDramaPlanningContext::isOutline($request)) {
             $durationRule = ShortDramaShotDuration::rule($request);
             foreach (self::extractTimelineSegments($prompt) as $segment) self::splitTimelineDuration((float)$segment['duration_seconds'], $durationRule);
             $target = self::planningTargetDurationSeconds($prompt, $request);
@@ -16685,6 +16742,10 @@ class AigcShortDramaService
             }
         }
         if ((int)($result['review_report']['blocking_count'] ?? 0) > 0) {
+            if (ShortDramaEpisodeDuration::active($request)) {
+                $blocking = array_values(array_filter((array)$result['review_report']['issues'], static fn($issue) => ($issue['severity'] ?? '') === 'blocking'));
+                throw new Exception('本集部分内容未通过检查，已保留生成结果：' . (string)($blocking[0]['message'] ?? '请重试未完成部分'));
+            }
             if ($onEvent) {
                 $onEvent('stage', [
                     'status' => self::STATUS_RUNNING,
@@ -17355,6 +17416,8 @@ class AigcShortDramaService
             'title_hint' => $title,
             'user_prompt' => $prompt,
             'revision_message' => (string)($request['revision_message'] ?? ''),
+            'episode_duration_policy' => ShortDramaEpisodeDuration::policy($request),
+            'pacing_references' => ShortDramaEpisodeDuration::active($request) ? array_map(static fn($rule) => array_intersect_key($rule, array_flip(['label', 'description'])), self::storyboardRulesFromRequest($request)) : [],
             'revision_target' => (array)($request['revision_target'] ?? []),
             'revision_policy' => (array)($request['revision_policy'] ?? []),
             'series_context' => (array)($request['series_context'] ?? []),
@@ -19678,6 +19741,8 @@ class AigcShortDramaService
             'outline_validation_issues' => $outlineValidationIssues,
             'generation_settings' => [
                 'model' => $scriptModelName,
+                'episode_duration_policy' => ShortDramaEpisodeDuration::policy($request),
+                'local_timing_revision' => ShortDramaEpisodeDuration::localRevision($request),
                 'mode' => 'script_plan',
                 'shot_duration_rule' => ShortDramaShotDuration::rule($request),
                 'aspect_ratio' => $aspectRatio,
@@ -19976,6 +20041,7 @@ class AigcShortDramaService
             }
             $episodes[] = [
                 'episode_number' => $number,
+                'target_duration_seconds' => (float)($item['target_duration_seconds'] ?? 0),
                 'title' => mb_substr($title !== '' ? $title : ('第' . $number . '集'), 0, 80, 'UTF-8'),
                 'story_outline' => mb_substr($outline !== '' ? $outline : $storyOutline, 0, 1000, 'UTF-8'),
                 'script_lines' => array_slice($lines, 0, 12),
@@ -21347,6 +21413,7 @@ class AigcShortDramaService
 
     private static function repairStoryboardCoverage(array $storyboard, array $locations, array $subjects, string $prompt, array $request, string $storyOutline = ''): array
     {
+        if (ShortDramaEpisodeDuration::active($request)) return ['storyboard' => $storyboard, 'issues_fixed' => []];
         if (self::planningTargetDurationSeconds($prompt, $request) <= 0) {
             // Missing story content must be repaired by the model, never by
             // appending generic shots to satisfy a default count.
@@ -21548,6 +21615,7 @@ class AigcShortDramaService
 
     private static function balanceStoryboardDuration(array $storyboard, array $locations, array $subjects, string $prompt, array $request, string $storyOutline = ''): array
     {
+        if (ShortDramaEpisodeDuration::active($request)) return ['storyboard' => $storyboard, 'issues_fixed' => []];
         $durationRule = ShortDramaShotDuration::rule($request);
         $storyboard = array_values(array_filter($storyboard, 'is_array'));
         $timelineSegments = self::extractTimelineSegments($prompt);
@@ -24100,6 +24168,7 @@ class AigcShortDramaService
 
     private static function storyboardTargetRule(string $prompt, array $request, array $locations = []): array
     {
+        if (ShortDramaEpisodeDuration::active($request)) return [];
         if (!empty(self::extractTimelineSegments($prompt))) {
             return [];
         }
@@ -24233,6 +24302,10 @@ class AigcShortDramaService
     /** A final guard: never mark a V3 plan successful outside its accepted budget. */
     private static function assertStoryboardBudgetSatisfied(array $plan, array $request, string $prompt): void
     {
+        if (ShortDramaEpisodeDuration::active($request)) {
+            ShortDramaEpisodeDuration::assertPlan($plan, $request);
+            return;
+        }
         $rule = self::storyboardTargetRule($prompt, $request, (array)($plan['locations'] ?? $plan['scenes'] ?? []));
         if ($rule === []) {
             return;
@@ -24320,6 +24393,10 @@ class AigcShortDramaService
 
     private static function storyboardBreakingDiagnostics(array $storyboard, array $locations = [], array $request = [], string $prompt = '', array $existing = []): array
     {
+        if (ShortDramaEpisodeDuration::active($request) || ($existing['policy'] ?? '') === 'episode_timing') {
+            return ['policy' => 'episode_timing', 'target_min_shots' => 0, 'target_max_shots' => 0,
+                'actual_shot_count' => count($storyboard), 'range_status' => 'advisory'];
+        }
         $rules = self::storyboardRulesFromRequest($request);
         $timelineOverride = !empty(self::extractTimelineSegments($prompt));
         if (array_key_exists('timeline_override', $existing)) {
@@ -24530,6 +24607,7 @@ class AigcShortDramaService
 
     private static function planningTargetDurationSeconds(string $prompt, array $request): int|float
     {
+        if (ShortDramaEpisodeDuration::active($request)) return (float)ShortDramaEpisodeDuration::policy($request)['target_seconds'];
         $timelineSeconds = self::timelineTotalSeconds(self::extractTimelineSegments($prompt));
         if ($timelineSeconds > 0) {
             return $timelineSeconds;

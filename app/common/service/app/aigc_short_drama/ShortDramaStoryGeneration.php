@@ -141,6 +141,24 @@ final class ShortDramaStoryGeneration
             }
             $issues = ShortDramaStoryWorkflow::issues($payload, 'episodes', $total);
             if ($issues) throw new RuntimeException($issues[0]['message'], 422);
+            $timing = ShortDramaEpisodeDuration::policy($request);
+            if (ShortDramaEpisodeDuration::active($request) && ($timing['scope'] ?? '') === 'series') {
+                $input = ['system_prompt' => '只规划分集时长，不改剧情。返回JSON {"episode_durations":[数字秒数,...]}，按集号顺序完整覆盖每集，均大于0，合计必须等于整部总时长。根据各集剧情分配。',
+                    'content' => json_encode(['total_seconds' => $timing['target_seconds'], 'episodes' => array_map(static fn($item) => array_intersect_key($item,
+                        array_flip(['episode_number', 'title', 'story_outline'])), $payload['episodes'])], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
+                for ($attempt = 0; $attempt < 2; $attempt++) {
+                    try {
+                        $allocation = (array)($call('roadmap_timing' . ($attempt ? '_repair' : ''), $input, 1, false)['episode_durations'] ?? []);
+                        self::assertDurationAllocation($allocation, $total, (float)$timing['target_seconds']);
+                        break;
+                    } catch (RuntimeException $error) {
+                        if ($attempt || !in_array($error->getCode(), [413, 422], true)) throw $error;
+                        $input['content'] .= "\n修复：" . $error->getMessage();
+                    }
+                }
+                foreach ($payload['episodes'] as $index => &$episode) $episode['target_duration_seconds'] = (float)$allocation[$index];
+                unset($episode);
+            }
         }
         $payload['multi_episode'] = true;
         $payload['episode_count'] = $total;
@@ -170,6 +188,14 @@ final class ShortDramaStoryGeneration
             $seen[trim($episode['story_outline'])] = true;
         }
         return array_values($episodes);
+    }
+
+    public static function assertDurationAllocation(array $allocation, int $count, float $total): void
+    {
+        if (count($allocation) !== $count || array_filter($allocation, static fn($n) => !is_numeric($n) || !is_finite((float)$n) || $n <= 0)
+            || abs(array_sum($allocation) - $total) > 0.001) {
+            throw new RuntimeException('分集时长分配不完整或与整部总时长不一致', 422);
+        }
     }
 
     private static function assertDistinctFromSaved(array $episodes, array $saved): void
