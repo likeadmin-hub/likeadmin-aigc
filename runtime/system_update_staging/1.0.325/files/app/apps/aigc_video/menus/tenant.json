@@ -1,0 +1,40 @@
+[
+  {
+    "source_menu_key": "aigc_video",
+    "app_code": "aigc_video",
+    "source": "app",
+    "type": "M",
+    "name": "AIGC视频",
+    "icon": "el-icon-Picture",
+    "sort": 100,
+    "perms": "",
+    "paths": "aigc-video",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_video_config",
+        "type": "C",
+        "name": "基础配置",
+        "perms": "app.aigc_video.config/detail",
+        "paths": "config",
+        "component": "apps/aigc_video/config"
+      },
+      {
+        "source_menu_key": "aigc_video_task",
+        "type": "C",
+        "name": "视频任务",
+        "perms": "app.aigc_video.admin_task/lists",
+        "paths": "task",
+        "component": "apps/aigc_video/task"
+      },
+      {
+        "source_menu_key": "aigc_video_stat",
+        "type": "C",
+        "name": "用量统计",
+        "perms": "app.aigc_video.admin/stat",
+        "paths": "stat",
+        "component": "apps/aigc_video/stat"
+      }
+    ]
+  }
+]

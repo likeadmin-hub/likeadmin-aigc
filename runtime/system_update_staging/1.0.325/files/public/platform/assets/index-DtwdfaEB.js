@@ -1,0 +1,1 @@
+import{a as o}from"./vendor-vue-router-H7DpL5_y.js";import{l as e}from"./vendor-_vue_runtime-core-CaQof5Sa.js";import"./vendor-_vue_reactivity-DY0CvClj.js";import"./vendor-_vue_shared-CuzOstOM.js";const s=e({__name:"index",setup(r){return o().replace("/channel/open_platform/config"),()=>{}}});export{s as default};

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <link rel="icon" href="/favicon.ico" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>后台管理系统</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+            }
+            .preload {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                width: 100vw;
+            }
+
+            .circular {
+                height: 42px;
+                width: 42px;
+                animation: loading-rotate 2s linear infinite;
+            }
+
+            .circular .path {
+                animation: loading-dash 1.5s ease-in-out infinite;
+                stroke-dasharray: 90, 150;
+                stroke-dashoffset: 0;
+                stroke-width: 2;
+                stroke: #4073fa;
+                stroke-linecap: round;
+            }
+
+            @keyframes loading-rotate {
+                100% {
+                    transform: rotate(1turn);
+                }
+            }
+
+            @keyframes loading-dash {
+                0% {
+                    stroke-dasharray: 90, 150;
+                    stroke-dashoffset: -40px;
+                }
+
+                100% {
+                    stroke-dasharray: 90, 150;
+                    stroke-dashoffset: -120px;
+                }
+            }
+        </style>
+      <script type="module" crossorigin src="/platform/assets/index-JYQYzXbp.js"></script>
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-nprogress-YfsRLVDS.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-_vue_shared-CuzOstOM.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-_vue_reactivity-DY0CvClj.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-_vue_runtime-core-CaQof5Sa.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-vue-router-H7DpL5_y.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-pinia-D-VA9P0p.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-axios-DEWho_Gc.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-lodash-BcHYIY-i.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-_vueuse_shared-CwcFmPy8.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-_vueuse_core-Cj263a37.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-_vue_runtime-dom-BrYngMhO.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-lodash-es-DVGGNlzX.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-async-validator-9PlIezaS.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-_element-plus_icons-vue-vH9GSxwv.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-_sxzz_popperjs-es-C5az9QE8.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-dayjs-tpzvIYNU.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-_ctrl_tinycolor-C4Rzlq_k.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-normalize-wheel-es-BQoi3Ox2.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-memoize-one-BdPwpGay.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-_floating-ui_utils-Bfzswmz-.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-_floating-ui_core-ahqRXTuk.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-_floating-ui_dom-CgaYYgpU.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-element-plus-DeCgVUs4.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-clone-CuIhj1wH.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-color-name-azjA-L48.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-color-convert-CZ-IfC7E.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-color-string-CmCQKYsR.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-color-B9VwcEAz.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-balanced-match-D4yLO45F.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-ms-CzQ2E3wO.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-debug-D5j7Sce9.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-css-color-function-wuSsSWAD.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-clipboard-B3e4HGId.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-vue-clipboard3-BFQSK4SP.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-tslib-BDyQ-Jie.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-zrender-B5Fvf4Z1.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-echarts-wixNos6f.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-highlight_js-C8ijXSd_.js">
+      <link rel="modulepreload" crossorigin href="/platform/assets/vendor-_highlightjs_vue-plugin-CPYfErQx.js">
+      <link rel="stylesheet" crossorigin href="/platform/assets/vendor-nprogress-CSXic_Zd.css">
+      <link rel="stylesheet" crossorigin href="/platform/assets/vendor-element-plus-CWiXfINo.css">
+      <link rel="stylesheet" crossorigin href="/platform/assets/vendor-highlight_js-BfC0goYb.css">
+      <link rel="stylesheet" crossorigin href="/platform/assets/index-DqUYCAy3.css">
+    </head>
+    <body>
+        <div id="app">
+            <div class="preload">
+                <svg viewBox="25 25 50 50" class="circular">
+                    <circle cx="50" cy="50" r="20" fill="none" class="path"></circle>
+                </svg>
+            </div>
+        </div>
+    </body>
+</html>

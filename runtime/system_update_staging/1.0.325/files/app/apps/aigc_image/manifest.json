@@ -1,0 +1,69 @@
+{
+  "code": "aigc_image",
+  "name": "AIGC生图",
+  "version": "1.1.7",
+  "require_core": ">=1.0.0",
+  "description": "AIGC image generation sample application for the LikeAdmin AIGC SaaS aggregation platform.",
+  "changelog": "1. 新增统一应用任务和消耗日志关联。\n2. 生图任务支持预占、结算和失败退回。\n3. 管理端可追溯生图调用与结算明细。",
+  "icon": "resource/image/common/menu_generator.png",
+  "category": "aigc",
+  "cover": "",
+  "is_builtin": 1,
+  "expire_policy": "allow",
+  "sort": 900,
+  "frontends": [
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
+  "api_prefix": "/app/aigc_image",
+  "platform_menus": "menus/platform.json",
+  "menus": "menus/tenant.json",
+  "permissions": "permissions/tenant.json",
+  "migrations": "migrations",
+  "frontend_entries": [
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_image_admin",
+      "name": "AIGC生图",
+      "path": "/app/aigc_image",
+      "icon": "el-icon-Picture",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_image",
+      "name": "AIGC生图",
+      "path": "/app/aigc_image",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 100,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_image",
+      "name": "AIGC生图",
+      "path": "/apps/aigc_image/pages/index/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 100,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "创作首页",
+            "path": "/apps/aigc_image/pages/index/index"
+          },
+          {
+            "name": "生图任务",
+            "path": "/apps/aigc_image/pages/tasks/tasks"
+          },
+          {
+            "name": "作品列表",
+            "path": "/apps/aigc_image/pages/results/results"
+          }
+        ]
+      }
+    }
+  ]
+}

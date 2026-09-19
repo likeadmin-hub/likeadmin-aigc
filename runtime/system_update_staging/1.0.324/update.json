@@ -1,0 +1,25 @@
+{
+  "product_code": "likeadmin_aigc_saas",
+  "title": "微信模板管理流程优化",
+  "summary": "优化微信小程序草稿选择与模板同步流程。",
+  "version": "1.0.324",
+  "package_mode": "incremental",
+  "update_type": "patch",
+  "require_core": ">=1.0.116 <2.0.0",
+  "changelog": [
+    "1. 支持直接选择微信草稿加入代码模板库。",
+    "2. 支持同步微信模板库并展示模板状态。",
+    "3. 优化租户创建小程序版本时的模板选择体验。"
+  ],
+  "sql_order": [],
+  "delete_files": [],
+  "full_replace_dirs": [
+    "public/platform"
+  ],
+  "base_version": "1.0.323",
+  "target_version": "1.0.324",
+  "included_versions": [
+    "1.0.323",
+    "1.0.324"
+  ]
+}

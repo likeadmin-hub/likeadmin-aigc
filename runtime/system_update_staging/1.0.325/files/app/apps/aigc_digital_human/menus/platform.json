@@ -1,0 +1,40 @@
+[
+  {
+    "source_menu_key": "aigc_digital_human_platform",
+    "app_code": "aigc_digital_human",
+    "source": "app",
+    "type": "M",
+    "name": "数字人视频",
+    "icon": "el-icon-Picture",
+    "sort": 90,
+    "perms": "",
+    "paths": "aigc-digital-human",
+    "component": "",
+    "children": [
+      {
+        "source_menu_key": "aigc_digital_human_platform_channel",
+        "type": "C",
+        "name": "计费配置",
+        "perms": "app.aigc_digital_human.channel/lists",
+        "paths": "channel",
+        "component": "apps/aigc_digital_human/channel"
+      },
+      {
+        "source_menu_key": "aigc_digital_human_platform_task_log",
+        "type": "C",
+        "name": "任务日志",
+        "perms": "app.aigc_digital_human.task_log/lists",
+        "paths": "task-log",
+        "component": "apps/aigc_digital_human/task-log"
+      },
+      {
+        "source_menu_key": "aigc_digital_human_platform_tenant_usage",
+        "type": "C",
+        "name": "租户用量",
+        "perms": "app.aigc_digital_human.tenant/stat",
+        "paths": "tenant-usage",
+        "component": "apps/aigc_digital_human/tenant-usage"
+      }
+    ]
+  }
+]

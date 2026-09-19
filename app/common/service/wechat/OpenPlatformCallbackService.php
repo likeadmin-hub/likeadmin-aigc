@@ -35,19 +35,21 @@ class OpenPlatformCallbackService
         if ($request->isGet() && $request->param('auth_code', '') !== '') {
             $requestId = bin2hex(random_bytes(12)); $tenantId = 0; $context = [];
             try {
-                $state = (string)$request->param('state', ''); if ($state === '') throw new \RuntimeException('授权状态缺失');
-                $context = self::stateContext($state); $tenantId = (int)($context['tenant_id'] ?? 0);
+                $state = self::authorizationState($request); if ($state === '') throw new \RuntimeException('授权状态缺失');
+                $context = self::stateContext($state);
+                if (empty($context['return_origin'])) $context['return_origin'] = OpenPlatformService::authReturnOriginFromCookie((string)$request->cookie(OpenPlatformService::authReturnOriginCookieName(), ''));
+                $tenantId = (int)($context['tenant_id'] ?? 0);
                 $info = OpenPlatformService::queryAuthorization((string)$request->param('auth_code'));
                 $scope = (array)($info['func_info'] ?? []); $profile = OpenPlatformService::authorizerProfileByAppid((string)$info['authorizer_appid']); $type = self::authorizerType($scope, array_merge($info, ['authorizer_info' => $profile]));
                 $expectedType = (string)($context['authorizer_type'] ?? '');
                 if ($expectedType !== '' && $expectedType !== $type) throw new \RuntimeException('微信返回的账号类型与选择不一致，请重新授权');
-                if ($tenantId > 0) OpenPlatformService::bindAuthorizer($tenantId, (string)$info['authorizer_appid'], $type, ['refresh_token' => $info['authorizer_refresh_token'] ?? '', 'func_info' => $scope, 'name' => $profile['nick_name'] ?? '', 'principal_name' => $profile['principal_name'] ?? '', 'head_img' => $profile['head_img'] ?? '']);
+                if ($tenantId > 0) OpenPlatformService::bindAuthorizer($tenantId, (string)$info['authorizer_appid'], $type, array_merge($profile, ['refresh_token' => $info['authorizer_refresh_token'] ?? '', 'func_info' => $scope]));
                 OpenPlatformService::clearAuthState($state);
                 self::log($requestId, 'authorized', 1, 'success', '', $tenantId);
-                return self::authorizationRedirect($tenantId, $type, 'success');
+                return self::authorizationRedirect($tenantId, $type, 'success', (string)($context['return_origin'] ?? ''));
             } catch (\Throwable $e) {
                 self::log($requestId, 'authorized', 1, 'failed', $e->getMessage(), $tenantId);
-                return self::authorizationRedirect($tenantId, (string)($context['authorizer_type'] ?? ''), 'failed');
+                return self::authorizationRedirect($tenantId, (string)($context['authorizer_type'] ?? ''), 'failed', (string)($context['return_origin'] ?? ''));
             }
         }
         if ($timestamp === '' || $nonce === '' || abs(time() - (int)$timestamp) > 300) throw new \RuntimeException('回调时间戳或 Nonce 已过期');
@@ -106,7 +108,7 @@ class OpenPlatformCallbackService
                 $type = self::authorizerType($scope, array_merge($info, ['authorizer_info' => $profile]));
                 $expectedType = (string)($context['authorizer_type'] ?? '');
                 if ($expectedType !== '' && $expectedType !== $type) throw new \RuntimeException('微信返回的账号类型与选择不一致，请重新授权');
-                if ($tenantId > 0) OpenPlatformService::bindAuthorizer($tenantId, (string)$info['authorizer_appid'], $type, ['refresh_token' => $info['authorizer_refresh_token'] ?? '', 'func_info' => $scope, 'name' => $profile['nick_name'] ?? '', 'principal_name' => $profile['principal_name'] ?? '', 'head_img' => $profile['head_img'] ?? '']);
+                if ($tenantId > 0) OpenPlatformService::bindAuthorizer($tenantId, (string)$info['authorizer_appid'], $type, array_merge($profile, ['refresh_token' => $info['authorizer_refresh_token'] ?? '', 'func_info' => $scope]));
                 if ($state !== '') OpenPlatformService::clearAuthState($state);
             } elseif ($event === 'unauthorized') {
                 OpenPlatformService::markUnauthorized((string)($message->AuthorizerAppid ?? ''));
@@ -124,12 +126,27 @@ class OpenPlatformCallbackService
     private static function verifyPlain(string $token, string $timestamp, string $nonce, string $signature): void { if ($timestamp === '' || abs(time() - (int)$timestamp) > 300 || $signature === '') throw new \RuntimeException('回调签名参数无效'); $expected = sha1(implode('', self::sorted([$token, $timestamp, $nonce]))); if (!hash_equals($expected, $signature)) throw new \RuntimeException('回调签名校验失败'); }
     private static function stateContext(string $state): array { return $state === '' ? ['tenant_id' => 0] : OpenPlatformService::authState($state); }
 
-    private static function authorizationRedirect(int $tenantId, string $type, string $status): array
+    /**
+     * componentloginpage does not reliably round-trip a custom state value.
+     * The relay therefore stores the signed value in an HttpOnly, same-site
+     * cookie on the configured OPC host. Query state is still preferred for
+     * compatibility with providers that do return it.
+     */
+    private static function authorizationState($request): string
+    {
+        $state = trim((string)$request->param('state', ''));
+        return $state !== '' ? $state : trim((string)$request->cookie(OpenPlatformService::authStateCookieName(), ''));
+    }
+
+    private static function authorizationRedirect(int $tenantId, string $type, string $status, string $returnOrigin = ''): array
     {
         if ($tenantId <= 0) return ['response' => $status === 'success' ? 'success' : 'fail'];
         $channel = $type === 'miniprogram' ? 'miniprogram' : 'official';
-        $base = rtrim((string)request()->domain(), '/');
-        $base = (string)(preg_replace('#^http://#i', 'https://', $base) ?: $base);
+        $base = OpenPlatformService::normalizeReturnOrigin($returnOrigin);
+        if ($base === '') {
+            $base = rtrim((string)request()->domain(), '/');
+            $base = (string)(preg_replace('#^http://#i', 'https://', $base) ?: $base);
+        }
         $query = http_build_query(['channel' => $channel, 'wechat_auth' => $status]);
         return ['redirect' => $base . '/t/' . $tenantId . '/admin/channel/overview?' . $query];
     }
