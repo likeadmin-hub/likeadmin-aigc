@@ -1,35 +1,44 @@
-<p align="center">
-  <img src="./public/readme/aigc-saas-preview-rounded.png" alt="LikeAdmin AIGC SaaS 搭建示例" width="100%" />
-</p>
+![LikeAdmin AIGC SaaS 搭建示例](./public/readme/aigc-saas-preview-rounded.png)
 
-<h1 align="center">LikeAdmin AIGC SaaS</h1>
+# LikeAdmin AIGC SaaS
 
-<p align="center">
-  面向 AI 时代的应用生产基础设施，把模型能力、应用市场、租户运营、点数计费、内容生成和持续更新整合到同一套系统。
-</p>
+面向 AI 时代的应用生产基础设施，把模型能力、应用市场、租户运营、点数计费、内容生成和持续更新整合到同一套系统。
 
-<p align="center">
-  <a href="https://api.likeadmin.cn"><strong>api.likeadmin.cn 算力超市</strong></a>
-  ·
-  <a href="https://mp.weixin.qq.com/s/FNEqnnG6IWGotshb2ITgXQ"><strong>算力超市怎么做？</strong></a>
-  ·
-  <a href="https://likeadmin.cn"><strong>likeadmin.cn 免费开源框架</strong></a>
-</p>
+**[api.likeadmin.cn 算力超市](https://api.likeadmin.cn)** · **[算力超市怎么做？](https://mp.weixin.qq.com/s/FNEqnnG6IWGotshb2ITgXQ)** · **[likeadmin.cn 免费开源框架](https://likeadmin.cn)**
 
-<p align="center">
-  <strong>AI 应用聚合平台</strong> ·
-  <strong>企业私有 AI 门户</strong> ·
-  <strong>数字人生产平台</strong> ·
-  <strong>内容商业化系统</strong>
-</p>
+**AI 应用聚合平台** · **企业私有 AI 门户** · **数字人生产平台** · **内容商业化系统**
 
 ---
+
+## 诚邀开源大佬加入
+
+如果你执着于开源或者平常时间比较多，可以加入我们一起迭代这个产品，解决问题并提交代码，会有相应的报酬和奖励，也可以长期参与维护，报酬可谈。
+
+但是我们有几个小小的前提条件，首先热爱开源，其次需要有成熟的开源项目经验，当然最重要的是要能够熟悉使用AI进行开发，我们提供不限量的GPT账号。
+
+## 提交需求和反馈BUG
+
+我们的目标是打造一套市面上极具竞争力的AIGC系统，但是收集意见反馈的入口有限，如果你在使用过程中有任何问题，可以直接提交issue，我们会第一时间处理并更新版本。
+
+如果你发现市面上有一些不错的好的工具应用，也可以直接反馈，由开发者认领并完成后迭代更新。
+
+## 关于LikeAdmin AIGC SaaS
+
+- 目前名称还未定下来，先用这个名称 LikeAdmin AIGC SaaS 。
 
 LikeAdmin AIGC SaaS 不是一套普通后台，而是一套可部署、可更新、可运营的 AI 商业底座。它适合用来搭建 AIGC 聚合平台、企业私有 AI 门户、行业模型应用市场、数字人生产平台、AI 内容商业化系统、会员制智能工具站，以及面向政企、教育、电商、传媒、本地生活等行业的专属智能服务平台。
 
 系统上游连接模型与算力，下游连接客户、场景、权益和收入，中间沉淀可复用的应用、数据、权限、账单和运营能力。下一代平台的价值不在于接入多少个模型，而在于能否把模型能力组织成可交付、可计费、可增长的生意。
 
-商务与技术支持：18786709420。
+## 声明
+
+开源版本允许商业使用，但是请保留公司版权和logo。
+
+前端vue代码预计2.0放出来，是因为目前不太完善，所以没有直接放出，还请各位嘴下留情，如果想对第三方API也可以的，改接口适配就好了。
+
+我们在这个系统上的技术投入和时间都比较多，但是我们依然保持开源，就是为了让大家能够享受到技术普惠，我们面对的客户群体有创业者、也有终端客户，所以没办法做到大都满意，但是我们尽可能做到千人千面。
+
+关注公众号：`程序员在囧途` ，可以找到我。
 
 ## 核心能力
 
@@ -41,6 +50,8 @@ LikeAdmin AIGC SaaS 不是一套普通后台，而是一套可部署、可更新
 - 支持云端系统更新、私有更新源、版本签名校验和长任务更新流程。
 - 支持本地化部署，便于企业掌控数据、密钥、模型通道和商业策略。
 
+
+
 ## 运行环境
 
 - Linux / 宝塔 / Docker 均可部署，推荐 Nginx + PHP-FPM。
@@ -49,6 +60,8 @@ LikeAdmin AIGC SaaS 不是一套普通后台，而是一套可部署、可更新
 - Composer 2.x。
 - Web 目录指向 `server/public`。
 - 需要在线更新和解压更新包时，服务器需支持 `ZipArchive`，或安装 `unzip` / `7z` / `tar` 命令之一。
+
+
 
 ## 目录说明
 
@@ -73,6 +86,8 @@ server/
 └── think                   # 命令行入口
 ```
 
+
+
 ## 全新安装
 
 1. 上传或拉取代码到服务器，例如 `/www/wwwroot/likeadmin_aigc_saas/server`。
@@ -84,14 +99,14 @@ cd /www/wwwroot/likeadmin_aigc_saas/server
 composer install --no-dev --optimize-autoloader
 ```
 
-4. 配置目录权限：
+1. 配置目录权限：
 
 ```bash
 chmod -R 755 .
 chmod -R 777 runtime public/uploads upgrade
 ```
 
-5. 复制环境文件并按实际情况修改数据库、域名等配置：
+1. 复制环境文件并按实际情况修改数据库、域名等配置：
 
 ```bash
 cp .example.env .env
@@ -114,13 +129,13 @@ UNIQUE_IDENTIFICATION = likeadmin_aigc_saas
 DEFAULT_PASSWORD = 123456
 ```
 
-6. 导入数据库。可通过浏览器访问安装器，也可手动导入：
+1. 导入数据库。可通过浏览器访问安装器，也可手动导入：
 
 ```bash
 mysql -uroot -p likeadmin_aigc_saas < public/install/db/like.sql
 ```
 
-7. 配置伪静态。Nginx 示例：
+1. 配置伪静态。Nginx 示例：
 
 ```nginx
 location / {
@@ -138,12 +153,14 @@ location ~ \.php$ {
 }
 ```
 
-8. 访问入口：
+1. 访问入口：
 
 - 平台后台：`https://your-domain.com/platform/`
 - 租户后台：`https://your-domain.com/admin/`
 - PC 前台：`https://your-domain.com/pc/`
 - H5：`https://your-domain.com/mobile/`
+
+
 
 ## Docker Compose 部署
 
@@ -155,6 +172,8 @@ location ~ \.php$ {
 - Docker Compose 2.20 或更高版本，需支持 `service_completed_successfully`。
 - 建议至少 2 核 CPU、4 GB 内存和 10 GB 可用磁盘。
 - 域名部署需提前解析主域名；多租户子域名模式还需配置泛域名解析。
+
+
 
 ### 1. 拉取开源代码
 
@@ -203,18 +222,22 @@ printf 'PLATFORM_ADMIN_PASSWORD='; openssl rand -hex 12
 
 关键配置：
 
-| 配置项 | 说明 |
-| --- | --- |
-| `HTTP_PORT` | 映射到服务器的 HTTP 端口，默认 `8080`；端口被占用时可改为其他未占用端口 |
-| `MYSQL_DATABASE` | 应用数据库名，通常保持默认的 `likeadmin_aigc_saas` |
-| `MYSQL_USER` | 应用连接数据库使用的普通账号，通常保持默认的 `likeadmin` |
-| `MYSQL_PASSWORD` | `MYSQL_USER` 对应的数据库密码，仅供容器内部连接数据库，不是后台登录密码 |
-| `MYSQL_ROOT_PASSWORD` | MySQL Root 管理密码，仅用于数据库维护和备份，不是后台登录密码 |
-| `PROJECT_UNIQUE_IDENTIFICATION` | 系统密码哈希密钥，不是登录密码；首次安装后必须永久保持不变 |
-| `PROJECT_HTTP_HOST` | 实际访问系统的域名或服务器 IP，不要填写 `http://`、`https://` 或路径 |
-| `PROJECT_DEFAULT_PASSWORD` | 平台以后新建租户管理员时使用的默认登录密码，请勿与平台管理员密码相同 |
-| `PLATFORM_ADMIN_USER` | 首次安装时自动创建的平台管理员账号，例如 `admin` |
-| `PLATFORM_ADMIN_PASSWORD` | 首次安装时自动创建的平台管理员登录密码，至少 12 位 |
+
+| 配置项                             | 说明                                             |
+| ------------------------------- | ---------------------------------------------- |
+| `HTTP_PORT`                     | 映射到服务器的 HTTP 端口，默认 `8080`；端口被占用时可改为其他未占用端口     |
+| `MYSQL_DATABASE`                | 应用数据库名，通常保持默认的 `likeadmin_aigc_saas`           |
+| `MYSQL_USER`                    | 应用连接数据库使用的普通账号，通常保持默认的 `likeadmin`             |
+| `MYSQL_PASSWORD`                | `MYSQL_USER` 对应的数据库密码，仅供容器内部连接数据库，不是后台登录密码     |
+| `MYSQL_ROOT_PASSWORD`           | MySQL Root 管理密码，仅用于数据库维护和备份，不是后台登录密码           |
+| `PROJECT_UNIQUE_IDENTIFICATION` | 系统密码哈希密钥，不是登录密码；首次安装后必须永久保持不变                  |
+| `PROJECT_HTTP_HOST`             | 实际访问系统的域名或服务器 IP，不要填写 `http://`、`https://` 或路径 |
+| `PROJECT_DEFAULT_PASSWORD`      | 平台以后新建租户管理员时使用的默认登录密码，请勿与平台管理员密码相同             |
+| `PLATFORM_ADMIN_USER`           | 首次安装时自动创建的平台管理员账号，例如 `admin`                   |
+| `PLATFORM_ADMIN_PASSWORD`       | 首次安装时自动创建的平台管理员登录密码，至少 12 位                    |
+
+
+
 
 #### `PROJECT_UNIQUE_IDENTIFICATION` 是什么
 
@@ -226,6 +249,8 @@ printf 'PLATFORM_ADMIN_PASSWORD='; openssl rand -hex 12
 2. 安装完成后不能修改。修改后，平台管理员、租户管理员和用户原有密码都会校验失败。
 3. 它不能用于登录，也不需要提供给普通用户。
 4. 备份数据库时必须同时安全备份 `.env.docker`。只备份数据库、不保存这个值，恢复后原有账号密码将无法正常验证。
+
+
 
 #### `PROJECT_HTTP_HOST` 怎么填写
 
@@ -313,6 +338,8 @@ docker compose --env-file .env.docker logs --tail=200 mysql initialize app web a
 docker compose --env-file .env.docker up -d --force-recreate
 ```
 
+
+
 ### 7. 访问系统和首次登录
 
 默认端口为 `8080`：
@@ -328,16 +355,18 @@ docker compose --env-file .env.docker up -d --force-recreate
 
 ### 容器说明
 
-| 服务 | 作用 |
-| --- | --- |
-| `web` | Nginx、静态资源、SPA 路由和 PHP 转发 |
-| `app` | ThinkPHP PHP-FPM API |
-| `mysql` | MySQL 8.0 数据库 |
-| `redis` | 共享缓存 |
-| `ai-worker` | 异步查询 AI 任务结果、资源转存、结算和退款 |
-| `canvas-worker` | 处理画布 Agent 子任务 |
-| `scheduler` | 每分钟触发一次系统统一定时调度 |
-| `initialize` | 首次数据库初始化，成功后退出 |
+
+| 服务              | 作用                        |
+| --------------- | ------------------------- |
+| `web`           | Nginx、静态资源、SPA 路由和 PHP 转发 |
+| `app`           | ThinkPHP PHP-FPM API      |
+| `mysql`         | MySQL 8.0 数据库             |
+| `redis`         | 共享缓存                      |
+| `ai-worker`     | 异步查询 AI 任务结果、资源转存、结算和退款   |
+| `canvas-worker` | 处理画布 Agent 子任务            |
+| `scheduler`     | 每分钟触发一次系统统一定时调度           |
+| `initialize`    | 首次数据库初始化，成功后退出            |
+
 
 PHP 镜像已经包含项目依赖的扩展、Composer 生产依赖和 FFmpeg。`runtime`、`public/uploads`、`public/storage`、`public/qrcode`、MySQL 和 Redis 数据均使用具名卷持久化。
 
@@ -367,6 +396,8 @@ docker compose --env-file .env.docker exec -T mysql \
   > likeadmin-backup.sql
 ```
 
+
+
 ### 域名、HTTPS 与反向代理
 
 容器默认提供 HTTP 服务。生产环境建议在宿主机或负载均衡器终止 HTTPS，再代理到 `HTTP_PORT`。反向代理必须保留原始 `Host`，并传递 `X-Forwarded-Proto: https`，否则租户域名识别和部分回调地址可能不正确。
@@ -376,6 +407,8 @@ docker compose --env-file .env.docker exec -T mysql \
 ```bash
 docker compose --env-file .env.docker up -d --force-recreate app ai-worker canvas-worker scheduler web
 ```
+
+
 
 ### Docker 版本升级
 
@@ -399,6 +432,8 @@ docker compose --env-file .env.docker ps -a
 - 生产环境保持 `APP_DEBUG = false`。
 - 使用后台在线更新时，PHP 进程必须能够写入 `server`、`runtime`、`upgrade` 和前端构建目录。
 
+
+
 ## AI 任务结果 Worker 守护
 
 图片、视频、音频等异步生成任务由后台结果 Worker 查询上游状态、保存结果、按租户配置转存资源，并完成结算或退款。用户提交任务后会立即返回本地任务号，前端只读取本地任务状态；不要将结果查询依赖于用户停留在页面上。
@@ -421,20 +456,24 @@ php think ai:task-worker --worker=result --sleep=1 --lease=90 --batch=20
 PHP_BIN=/www/server/php/81/bin/php /www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh
 ```
 
+
+
 ### 宝塔进程守护配置
 
 在宝塔面板的“进程守护管理器”中新建守护进程，并按以下配置填写：
 
-| 配置项 | 建议值 |
-| --- | --- |
-| 名称 | `ai-task-worker` |
-| 启动命令 | `/www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh` |
-| 工作目录 | `/www/wwwroot/likeadmin_aigc_saas/server` |
-| 启动用户 | 与站点 PHP-FPM 一致的用户，例如 `www` |
-| 进程数量 | `1` |
-| 开机启动 | 开启 |
-| 异常自动重启 | 开启 |
-| 重启等待 | `1` 秒 |
+
+| 配置项    | 建议值                                                                       |
+| ------ | ------------------------------------------------------------------------- |
+| 名称     | `ai-task-worker`                                                          |
+| 启动命令   | `/www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh` |
+| 工作目录   | `/www/wwwroot/likeadmin_aigc_saas/server`                                 |
+| 启动用户   | 与站点 PHP-FPM 一致的用户，例如 `www`                                                |
+| 进程数量   | `1`                                                                       |
+| 开机启动   | 开启                                                                        |
+| 异常自动重启 | 开启                                                                        |
+| 重启等待   | `1` 秒                                                                     |
+
 
 实际安装目录或 PHP 版本不同时，替换为服务器上的绝对路径。不要同时创建多个相同的守护进程，也不要用多个计划任务重复启动该 Worker。
 
@@ -505,12 +544,16 @@ php think vendor:publish
 php -l app/common/service/update/SystemPackageUpdateService.php
 ```
 
+
+
 ## 安全建议
 
 - 不要提交或分发 `.env`、`config/install.lock`、`runtime/`、`public/uploads/` 中的运行数据。
 - 管理员默认密码仅用于初始化，首次登录后请立即修改。
 - 生产环境建议开启 HTTPS，并限制平台后台访问来源。
 - 第三方 AI 通道、短信、支付、对象存储等密钥请通过后台配置或安全环境变量保存。
+
+
 
 ## 联系我们
 
