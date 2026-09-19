@@ -114,4 +114,37 @@ class ShortDramaEpisodeDurationTest extends TestCase
         self::assertSame(0, $this->invoke('planningTargetDurationSeconds', '旧任务', []));
         self::assertSame(120.0, $this->invoke('planningTargetDurationSeconds', '新任务', ['episode_duration_policy' => $policy]));
     }
+
+    public function testAliasesDoNotRequirePaidRepairButInvalidReferencesStillFail(): void
+    {
+        $plan = ShortDramaTimedScriptGeneration::canonicalSkeleton(['title' => '故事', 'story_outline' => '找钥匙',
+            'subjects' => [['subject_id' => 'a', 'name' => '甲']], 'locations' => [['location_id' => 'room', 'name' => '家']],
+            'scene_beats' => [['scene_ref_id' => 'room', 'goal' => '找钥匙', 'entry' => '寻找', 'exit' => '找到', 'key_events' => ['找到钥匙'], 'duration_seconds' => 10, 'shot_durations' => [10]]]]);
+        ShortDramaTimedScriptGeneration::assertSkeleton($plan, $this->request());
+        self::assertSame('a', $plan['subjects'][0]['id']);
+        $plan['scene_beats'][0]['scene_ref_id'] = 'beat_01';
+        $this->expectExceptionMessage('必须引用真实locations.id');
+        ShortDramaTimedScriptGeneration::assertSkeleton($plan, $this->request());
+    }
+
+    public function testEpisodeOverridesAndSeriesTotalStayDistinct(): void
+    {
+        $config = ['episode_duration_rule' => ['enabled' => true]];
+        $policy = $this->invoke('episodeDurationSnapshot', '第一集60秒，第二集90秒。找回钥匙。', ['multi_episode' => true, 'episode_count' => 2], $config);
+        self::assertSame('default', $policy['source']);
+        self::assertSame([1 => 60.0, 2 => 90.0], $policy['episode_overrides']);
+        $policy = $this->invoke('episodeDurationSnapshot', '整部总时长240秒，每集120秒。', ['multi_episode' => true, 'episode_count' => 2], $config);
+        self::assertSame('series', $policy['scope']);
+        self::assertEquals(240, $policy['target_seconds']);
+        self::assertEquals([1 => 120, 2 => 120], $policy['episode_overrides']);
+        $this->expectException(\Exception::class);
+        $this->invoke('episodeDurationSnapshot', '整部总时长240秒，每集100秒。', ['multi_episode' => true, 'episode_count' => 2], $config);
+    }
+
+    public function testEditableTimelineRetainsShortDuration(): void
+    {
+        $rule = ShortDramaShotDuration::rule($this->request(0, [['start_seconds' => 0, 'end_seconds' => 1.5, 'duration_seconds' => 1.5]]));
+        $saved = $this->invoke('editableShotData', ['recommended_duration_seconds' => 1.5], $rule);
+        self::assertSame(1.5, $saved['recommended_duration_seconds']);
+    }
 }
