@@ -89,16 +89,27 @@ class ShortDramaEpisodeService
             if (Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'project_id' => $projectId, 'delete_time' => 0])->count()) return;
             $taskId = (string)($params['task_id'] ?? $project['last_task_id']);
             if ($taskId !== (string)$project['last_task_id']) throw new Exception('大纲已更新，请刷新后确认最新版本');
-            $task = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'task_id' => $taskId, 'status' => 'success', 'delete_time' => 0])->findOrEmpty();
+            $task = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'task_id' => $taskId, 'status' => 'success', 'delete_time' => 0])->lock(true)->findOrEmpty();
             if ($task->isEmpty()) throw new Exception('请等待大纲生成完成');
+            $request = self::decode($task['request_json']);
             $plan = self::decode($task['result_json']);
+            if (ShortDramaStoryWorkflow::enabled($request)) {
+                if (ShortDramaStoryDraft::stage($request) !== 'episodes') throw new Exception('请先确认故事设定并完成分集大纲');
+                ShortDramaStoryDraft::assertVersion($request, $params);
+                $plan = ShortDramaStoryDraft::effective($request, $plan);
+                $issues = ShortDramaStoryWorkflow::issues($plan, 'episodes', (int)$project['episode_count']);
+                if ($issues) throw new Exception($issues[0]['message']);
+                $request['confirmed_outline_version'] = ShortDramaStoryDraft::version($request);
+                $request['confirmed_outline_snapshot'] = $plan;
+                $task->save(['request_json' => self::encode($request), 'update_time' => time()]);
+            }
             $episodes = self::validateOutline($plan, (int)$project['episode_count']);
             foreach ($episodes as $index => $outline) {
                 Db::name(self::TABLE)->insert([
                     'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
                     'episode_number' => $index + 1, 'title' => mb_substr($outline['title'], 0, 120),
                     'outline_task_id' => $taskId, 'outline_json' => self::encode($outline),
-                    'series_json' => $index === 0 ? self::encode(['plan' => $plan, 'request' => self::decode($task['request_json'])]) : null,
+                    'series_json' => $index === 0 ? self::encode(['plan' => $plan, 'request' => $request]) : null,
                     'status' => 'pending', 'error' => '', 'create_time' => time(), 'update_time' => time(),
                 ]);
             }
@@ -118,12 +129,13 @@ class ShortDramaEpisodeService
             $userId,
             array_column($rows, 'production_project_id')
         );
+        $rows = self::withContinuityStatus($tenantId, $userId, $rows);
         $completed = count(array_filter($rows, static fn($r) => (int)$r['completed_once'] === 1));
         $first = self::nextInitialEpisode($rows);
         return ['project_id' => $projectId, 'title' => $project['title'], 'multi_episode' => (bool)$project['multi_episode'],
             'episode_count' => (int)$project['episode_count'], 'outline_task_id' => $project['last_task_id'],
             'completed_count' => $completed, 'started' => count($rows) > 0,
-            'paused' => $first && in_array($first['status'], ['failed', 'canceled'], true),
+            'paused' => $first && (in_array($first['status'], ['failed', 'canceled'], true) || !empty($first['needs_review'])),
             'lists' => array_map(static function (array $row) use ($storyboardCovers): array {
                 $episode = self::summary($row);
                 $episode['cover_url'] = (string)($storyboardCovers[(int)($row['production_project_id'] ?? 0)]['url'] ?? '');
@@ -134,6 +146,8 @@ class ShortDramaEpisodeService
     public static function summary(array $row): array
     {
         if (!$row) return [];
+        $ledger = self::decode($row['continuity_json'] ?? '');
+        $row['continuity_warnings'] = (array)($ledger['warnings'] ?? []);
         unset($row['outline_json'], $row['result_json'], $row['continuity_json'], $row['series_json'], $row['provider_request_id'], $row['provider_task_id']);
         $row['ready'] = (bool)$row['completed_once'];
         $row['queue_state'] = $row['status'];
@@ -145,7 +159,7 @@ class ShortDramaEpisodeService
             $row['status'] = 'success';
             $row['error'] = '';
         }
-        $row['can_retry'] = in_array($row['status'], ['failed', 'canceled'], true);
+        $row['can_retry'] = in_array($row['status'], ['failed', 'canceled'], true) || !empty($row['needs_review']);
         return $row;
     }
 
@@ -171,14 +185,32 @@ class ShortDramaEpisodeService
     public static function nextInitialEpisode(array $rows): ?array
     {
         usort($rows, static fn($a, $b) => (int)$a['episode_number'] <=> (int)$b['episode_number']);
-        foreach ($rows as $row) if ($row['status'] !== 'success') return $row;
+        foreach ($rows as $row) if ($row['status'] !== 'success' || !empty($row['needs_review'])) return $row;
         return null;
+    }
+
+    /** One batch read; no per-card query and no mutation during polling. */
+    private static function withContinuityStatus(int $tenantId, int $userId, array $rows): array
+    {
+        $ids = array_values(array_filter(array_column($rows, 'production_project_id')));
+        $versions = $ids ? Db::name('aigc_short_drama_plan_version')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'is_current' => 1, 'delete_time' => 0])
+            ->whereIn('project_id', $ids)->field('project_id,continuity_json')->select()->toArray() : [];
+        $current = [];
+        foreach ($versions as $version) $current[(int)$version['project_id']] = self::decode($version['continuity_json']);
+        return ShortDramaContinuity::dependencyStatus($rows, $current);
     }
 
     public static function retry(int $tenantId, int $userId, int $id): array
     {
         return self::locked($tenantId, $userId, $id, function (array $row) use ($tenantId, $userId) {
-            if (!in_array($row['status'], ['failed', 'canceled'], true)) throw new Exception('当前剧集无需重试');
+            $siblings = self::withContinuityStatus($tenantId, $userId, Db::name(self::TABLE)->where(['tenant_id' => $tenantId, 'user_id' => $userId,
+                'project_id' => $row['project_id'], 'delete_time' => 0])->order('episode_number')->select()->toArray());
+            $review = false;
+            foreach ($siblings as $sibling) {
+                if ((int)$sibling['id'] === (int)$row['id']) { $review = !empty($sibling['needs_review']); break; }
+                if (!empty($sibling['needs_review'])) throw new Exception('请先复核前面的剧集，避免继续使用旧剧情');
+            }
+            if (!in_array($row['status'], ['failed', 'canceled'], true) && !($row['status'] === 'success' && $review)) throw new Exception('当前剧集无需重试');
             if ($row['status'] === 'canceled' && (int)$row['completed_once'] && $row['task_id'] !== '') {
                 $status = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id']])->value('status');
                 if ($status === 'success') {
@@ -191,8 +223,33 @@ class ShortDramaEpisodeService
                 $old = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id'], 'delete_time' => 0])->findOrEmpty();
                 if (!$old->isEmpty()) {
                     $request = self::decode($old['request_json']);
-                    $created = AigcShortDramaService::createScriptPlan($tenantId, $userId, $request, (int)$row['production_project_id'], $request);
-                    $newTask = $created['task_id'];
+                    $originalContext = $request['series_context'] ?? [];
+                    if ((int)($request['_generation_version'] ?? 0) >= 3) {
+                        $previous = [];
+                        foreach ($siblings as $sibling) {
+                            if ((int)$sibling['episode_number'] < (int)$row['episode_number'] && (int)$sibling['completed_once']) $previous[] = self::decode($sibling['continuity_json']);
+                        }
+                        $request['series_context']['continuity'] = ShortDramaContinuity::context($previous);
+                        $request['series_context']['previous_episodes'] = ShortDramaContinuity::context($previous)['recent_episodes'];
+                        if ($review) {
+                            $version = Db::name('aigc_short_drama_plan_version')->where(['tenant_id' => $tenantId, 'user_id' => $userId,
+                                'project_id' => $row['production_project_id'], 'is_current' => 1, 'delete_time' => 0])->find();
+                            $request['revision_base_result'] = self::decode($version['plan_json'] ?? $row['result_json']);
+                            $request['revision_message'] = '复核当前剧本与最新前集的连续性，只修复明确矛盾；保留其他剧情、镜头、台词和所有素材标识。';
+                            $request['revision_policy'] = ['mode' => 'local_only', 'preserve_unmentioned' => true];
+                            unset($request['revision_target']);
+                        }
+                    }
+                    if (!$review && (int)($request['_generation_version'] ?? 0) >= 3
+                        && $originalContext === ($request['series_context'] ?? [])) {
+                        Db::name('aigc_short_drama_planning_unit')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $row['task_id']])
+                            ->whereIn('status', ['failed', 'running'])->update(['status' => 'pending', 'update_time' => time()]);
+                        $old->save(['status' => 'pending', 'error' => '', 'finished_at' => 0, 'update_time' => time()]);
+                        $newTask = (string)$old['task_id'];
+                    } else {
+                        $created = AigcShortDramaService::createScriptPlan($tenantId, $userId, $request, (int)$row['production_project_id'], $request);
+                        $newTask = $created['task_id'];
+                    }
                 }
             }
             Db::name(self::TABLE)->where('id', $row['id'])->update(['status' => 'pending', 'task_id' => $newTask,
@@ -385,8 +442,9 @@ class ShortDramaEpisodeService
             try {
                 self::project($t, $u, $p);
                 $rows = Db::name(self::TABLE)->where(['tenant_id' => $t, 'user_id' => $u, 'project_id' => $p, 'delete_time' => 0])->order('episode_number')->select()->toArray();
+                $rows = self::withContinuityStatus($t, $u, $rows);
                 $first = self::nextInitialEpisode($rows);
-                $selected = $first && in_array($first['status'], ['pending', 'running'], true) ? $first : null;
+                $selected = $first && empty($first['needs_review']) && in_array($first['status'], ['pending', 'running'], true) ? $first : null;
                 if (!$selected) continue;
                 if ((int)$selected['queue_job_id'] === 0) self::queueJob($t, $u, $p, (int)$selected['id'], (int)$selected['attempt_number']);
                 $queueMessage = ShortDramaRedisQueue::claim(gethostname() . '-' . getmypid(), 1);
@@ -453,7 +511,8 @@ class ShortDramaEpisodeService
                 if (empty($plan['storyboard']) || empty($plan['subjects']) || empty($plan['locations'])) throw new Exception('本集内容不完整，请重试');
                 $update['completed_once'] = 1;
                 $update['result_json'] = self::encode($plan);
-                if (!(int)$row['completed_once']) $update['continuity_json'] = self::encode(['episode_number' => (int)$row['episode_number'], 'summary' => mb_substr((string)($plan['story_outline'] ?? ''), 0, 1000)]);
+                if (!empty($plan['_continuity'])) $update['continuity_json'] = self::encode($plan['_continuity']);
+                elseif (!(int)$row['completed_once']) $update['continuity_json'] = self::encode(['episode_number' => (int)$row['episode_number'], 'summary' => mb_substr((string)($plan['story_outline'] ?? ''), 0, 1000)]);
             }
             $queueNext = false;
             $pauseFollowing = false;

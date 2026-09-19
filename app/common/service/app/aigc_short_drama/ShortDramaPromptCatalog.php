@@ -30,6 +30,9 @@ final class ShortDramaPromptCatalog
         }
         if (ShortDramaPromptDocuments::replacesRule($key)) return '';
         $value = self::$context['values'][$key] ?? $items[$key]['default'];
+        if (str_starts_with($key, 'script.') || $key === 'storyboard_planning_prompt') {
+            $value = ShortDramaShotDuration::upgradeInstructions($value);
+        }
         self::$used[$key] = ['key' => $key, 'label' => $items[$key]['label'], 'source' => self::$context['sources'][$key] ?? 'application', 'text' => $value];
         return $value;
     }

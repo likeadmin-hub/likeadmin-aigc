@@ -1,10 +1,10 @@
 {
   "code": "aigc_short_drama",
   "name": "AI短剧",
-  "version": "1.0.21",
+  "version": "1.0.23",
   "require_core": ">=1.0.272 <2.0.0",
-  "description": "短剧大纲确认、逐集生成与独立分集制作。",
-  "changelog": "1. 新增独立的短剧首页工作流模板后台配置与只读前台预览。\n2. 将首页现有五个流程模板内置到后台配置，支持继续编辑、排序与启停。\n3. 模板支持封面、节点连接与可替换素材槽位配置，不影响 Skill 或短剧创作流程。",
+  "description": "短剧设定与大纲确认、分段剧本生成、跨集连续性复核与独立分集制作。",
+  "changelog": "1. 增加可配置的每集时间预算，按剧情安排分镜节奏。\n2. 默认时长不足时保留实际内容，不追加镜头。\n3. 用户明确时长和时间码优先，历史项目保持兼容。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",

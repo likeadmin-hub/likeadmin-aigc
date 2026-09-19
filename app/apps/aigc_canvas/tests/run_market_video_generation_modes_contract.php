@@ -27,11 +27,10 @@ $metadata = [
 $modes = $modesMethod->invoke(null, $product, $metadata);
 $expected = [
     'omni_reference',
-    'start_end',
     'multi_frame',
 ];
 if ($modes !== $expected) {
-    $failures[] = 'explicit video generation modes were expanded beyond the upstream declaration';
+    $failures[] = 'generic model unexpectedly retained unsupported start/end frame capability';
 }
 
 $imageOnlyModes = $modesMethod->invoke(null, $product, [
@@ -62,8 +61,8 @@ $objectModes = $modesMethod->invoke(null, $product, [
         ['mode' => 'frames2video'],
     ],
 ]);
-if ($objectModes !== ['text_to_video', 'omni_reference', 'start_end']) {
-    $failures[] = 'object-form generation modes were not normalized';
+if ($objectModes !== ['text_to_video', 'omni_reference']) {
+    $failures[] = 'object-form generation modes were not normalized or retained unsupported start/end capability';
 }
 
 $legacyModes = $modesMethod->invoke(null, $product, [

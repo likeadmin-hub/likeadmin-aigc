@@ -9,23 +9,33 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaPromptDocumentsTest extends TestCase
 {
-    public function testUnconfirmedStoryDoesNotSendEditableEpisodeCountToModel(): void
+    public function testStoryUsesRequestedScaleWithoutPrematureEpisodeAllocation(): void
     {
         foreach ([[], ['script' => ['mode' => 'custom', 'body' => '按用户灵感创作故事设定']]] as $settings) {
             $prompts = [];
-            foreach ([3, 100, 500] as $count) {
+            foreach ([3, 300, 500] as $count) {
                 $request = ['workflow_variant' => 'story_outline_v2', 'multi_episode' => true,
                     'multi_episode_stage' => 'story', 'episode_count' => $count,
                     'episode_total_count' => $count, 'episode_batch_end' => $count,
-                    'revision_base_result' => ['episode_count' => $count, 'title' => '旧宅']];
+                    'target_duration_seconds' => 60,
+                    'revision_base_result' => ['episode_count' => 12, 'title' => '旧宅']];
                 $prompts[] = Catalog::run($this->snapshot($settings), fn() => $this->call('assembleScriptPromptRequest', 701, '调查旧宅的秘密', $request, '旧宅'));
-                $template = $this->call('renderScriptPlanPromptTemplate', '{{request_json}} {{episode_count}} {{episode_total_count}} {{revision_base_result}}', '', '', $request, '');
+                $template = $this->call('renderScriptPlanPromptTemplate', '{{request_json}} count={{episode_count}} total={episode_total_count} batch={{episode_batch_start}} {{revision_base_result}}', '', '', $request, '');
                 self::assertStringNotContainsString('"episode_count"', $template);
-                self::assertStringContainsString('尚未确认', $template);
+                self::assertStringContainsString('"target_episode_count":' . $count, $template);
+                self::assertStringContainsString('"target_duration_seconds":60', $template);
+                self::assertStringContainsString("count={$count} total={$count} batch=尚未确认", $template);
                 self::assertSame($count, $request['episode_count']);
+                $messages = end($prompts);
+                self::assertStringContainsString('"target_episode_count":' . $count, $messages['content']);
+                self::assertStringContainsString("用户目标集数={$count}集", $messages['system_prompt']);
+                self::assertStringContainsString('任务时长参数=60秒', $messages['system_prompt']);
+                self::assertStringContainsString('含义未明确时不得默认按单集乘以集数', $messages['system_prompt']);
+                self::assertStringNotContainsString('"episode_batch_start"', $messages['content']);
+                self::assertStringNotContainsString('集数尚未确定', $messages['system_prompt']);
             }
-            self::assertSame($prompts[0], $prompts[1]);
-            self::assertSame($prompts[0], $prompts[2]);
+            self::assertNotSame($prompts[0], $prompts[1]);
+            self::assertNotSame($prompts[0], $prompts[2]);
             self::assertStringNotContainsString('"episode_count"', $prompts[0]['content']);
             self::assertStringContainsString('不按集数分配剧情', $prompts[0]['system_prompt']);
         }

@@ -8,6 +8,20 @@ use ReflectionMethod;
 
 class MarketTextModelPayloadContractTest extends TestCase
 {
+    public function testAnthropicTerminalEventDoesNotEraseOutputTruncation(): void
+    {
+        $parse = new ReflectionMethod(MarketTextModelRuntimeService::class, 'parseProviderPayload'); $parse->setAccessible(true);
+        $apply = new ReflectionMethod(MarketTextModelRuntimeService::class, 'applyStreamEvent'); $apply->setAccessible(true);
+        $state = ['request_id' => '', 'emitted_request_id' => '', 'content' => '', 'reasoning' => '', 'tool_calls' => []]; $emit = static function () {};
+        foreach ([['type' => 'message_delta', 'delta' => ['stop_reason' => 'max_tokens']], ['type' => 'message_stop']] as $payload) {
+            $event = $parse->invoke(null, $payload, '', true);
+            $apply->invokeArgs(null, [$event, &$state, $emit]);
+        }
+        self::assertSame('max_tokens', $state['finish_reason']);
+        self::assertSame('', $state['content'], 'Stop metadata is not model output');
+        $event = $parse->invoke(null, ['choices' => [['message' => ['content' => '{}'], 'finish_reason' => 'length']]], '', false);
+        self::assertSame('length', $event['finish_reason']);
+    }
     public function testSyncedCommaSeparatedProtocolsAreParsedBeforeSelectingPayloadContract(): void
     {
         $protocol = new ReflectionMethod(MarketTextModelRuntimeService::class, 'protocolForModel');

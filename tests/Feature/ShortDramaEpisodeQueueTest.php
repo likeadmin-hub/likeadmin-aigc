@@ -268,7 +268,9 @@ class ShortDramaEpisodeQueueTest extends TestCase
         self::assertSame($row['id'], $request['episode_id']);
         self::assertFalse($request['multi_episode']);
         self::assertSame(1, $request['episode_count']);
-        self::assertSame($outline, $request['series_context']['outline']);
+        $lockedOutline = \app\common\service\app\aigc_short_drama\ShortDramaPlanningContext::lockedStory($outline);
+        self::assertSame(3, $request['_generation_version']);
+        self::assertSame($lockedOutline, $request['series_context']['outline']);
         self::assertSame((int)$row['id'], (int)$stored['episode_id']);
         $observed = AigcShortDramaService::streamScriptPlan(1, 1, $created, static function () {});
         self::assertSame('pending', $observed['status']);
@@ -282,12 +284,12 @@ class ShortDramaEpisodeQueueTest extends TestCase
         $revision = Episodes::message(1, 1, ['episode_id' => $row['id'], 'message' => '把本集开场改为雨天']);
         $revisionTask = Db::name('aigc_short_drama_script_task')->where('task_id', $revision['task_id'])->find();
         self::assertSame((int)$created['project_id'], (int)$revisionTask['project_id']);
-        self::assertSame($outline, Episodes::decode($revisionTask['request_json'])['series_context']['outline']);
+        self::assertSame($lockedOutline, Episodes::decode($revisionTask['request_json'])['series_context']['outline']);
         Db::name('aigc_short_drama_script_task')->where('task_id', $revision['task_id'])->update(['status' => 'failed']);
         Db::name('aigc_short_drama_episode_task')->where('id', $row['id'])->update(['status' => 'failed']);
         $retry = Episodes::retry(1, 1, $row['id']);
         self::assertSame((int)$created['project_id'], (int)$retry['project_id']);
-        self::assertNotSame($revision['task_id'], $retry['task_id']);
+        self::assertSame($revision['task_id'], $retry['task_id'], 'Same-context retries reuse durable receipts');
         $retryRequest = Episodes::decode(Db::name('aigc_short_drama_script_task')->where('task_id', $retry['task_id'])->value('request_json'));
         self::assertSame('把本集开场改为雨天', $retryRequest['revision_message']);
         self::assertSame('pending', Episodes::detail(1, 1, $list['lists'][1]['id'])['status']);

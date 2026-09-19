@@ -14,6 +14,53 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
     /** @runInSeparateProcess
      * @preserveGlobalState disabled
      */
+    public function testCompactStageContextPreservesNarrativeAndOmitsSchema(): void
+    {
+        require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
+        Container::getInstance()->instance('config', new \think\Config());
+        $method = new ReflectionMethod(AigcShortDramaService::class, 'buildCompactScriptPlanPrompt');
+        $method->setAccessible(true);
+        $request = ['multi_episode' => false, 'series_context' => ['current_episode' => ['story_outline' => '必须重逢']],
+            'revision_base_result' => ['dialogue' => '']];
+        $full = $method->invoke(null, '找回信件', $request, '信件');
+        $compact = $method->invoke(null, '找回信件', $request, '信件', false, true);
+        $context = json_decode($compact, true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('找回信件', $context['user_prompt']);
+        self::assertSame('必须重逢', $context['series_context']['current_episode']['story_outline']);
+        self::assertArrayNotHasKey('revision_message', $context);
+        self::assertFalse($context['multi_episode']);
+        self::assertLessThan(strlen($full), strlen($compact));
+        self::assertStringNotContainsString('JSON schema:', $compact);
+    }
+
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testV3SingleAndEpisodeUseRealNormalizationAndContinuityBoundary(): void
+    {
+        require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
+        Container::getInstance()->instance('config', new \think\Config());
+        $this->silenceLog();
+        foreach ([false, true] as $episode) {
+            \app\common\service\power\MarketTextModelRuntimeService::reset();
+            $request = ['_generation_version' => 3, 'multi_episode' => false, 'episode_count' => 1];
+            if ($episode) {
+                $request['episode_id'] = 5; $request['episode_number'] = 2;
+                $request['series_context'] = ['current_episode' => ['story_outline' => '主角找到线索'],
+                    'continuity' => ['previous_digest' => 'previous']];
+            }
+            $generated = $this->generate($request);
+            self::assertCount(12, $generated['result']['storyboard']);
+            self::assertSame(0, $generated['result']['review_report']['blocking_count']);
+            self::assertCount($episode ? 2 : 1, \app\common\service\power\MarketTextModelRuntimeService::$requests);
+            if ($episode) self::assertSame('previous', $generated['result']['_continuity']['previous_digest']);
+            else self::assertArrayNotHasKey('_continuity', $generated['result']);
+            self::assertTrue(\app\common\service\power\MarketTextModelRuntimeService::$requests[0]['_disable_transient_retry']);
+        }
+    }
+    /** @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
     public function testMissingSpeakerTriggersRepairAndSurvivesSavedResult(): void
     {
         require __DIR__ . '/../fixtures/short_drama_script_plan_fake_provider.php';
@@ -83,12 +130,12 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
         $enhance->setAccessible(true);
         $review = new ReflectionMethod(AigcShortDramaService::class, 'reviewPlanResult');
         $review->setAccessible(true);
-        $normalized = $enhance->invoke(null, $normalizer->invoke(null, json_decode($raw['content'], true), '模拟测试故事', ['target_duration_seconds' => 6], '模拟测试'));
+        $normalized = $enhance->invoke(null, $normalizer->invoke(null, json_decode($raw['content'], true), '模拟测试故事', ['target_duration_seconds' => 12], '模拟测试'));
         $report = $review->invoke(null, $normalized);
         self::assertSame(0, $report['blocking_count'], json_encode($report['issues'], JSON_UNESCAPED_UNICODE));
         \app\common\service\power\MarketTextModelRuntimeService::reset();
 
-        $single = $this->generate(['target_duration_seconds' => 6]);
+        $single = $this->generate(['target_duration_seconds' => 12]);
         self::assertNotEmpty($single['result']['storyboard']);
         self::assertSame(1, count(\app\common\service\power\MarketTextModelRuntimeService::$requests));
 

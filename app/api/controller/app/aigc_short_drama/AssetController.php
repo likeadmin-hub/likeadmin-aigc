@@ -4,6 +4,7 @@ namespace app\api\controller\app\aigc_short_drama;
 
 use app\api\controller\BaseApiController;
 use app\common\service\app\aigc_short_drama\AigcShortDramaService;
+use app\common\service\app\aigc_short_drama\ShortDramaCanvasService;
 use Exception;
 
 class AssetController extends BaseApiController
@@ -26,10 +27,28 @@ class AssetController extends BaseApiController
         }
     }
 
+    public function captureCanvasVideoFrame()
+    {
+        try {
+            return $this->success('success', ShortDramaCanvasService::captureVideoFrame((int)$this->request->tenantId, $this->userId, $this->request->post()));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function lists()
     {
         try {
             return $this->success('success', AigcShortDramaService::assetLists((int)$this->request->tenantId, $this->userId, $this->request->get()));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
+    public function editCanvasImage()
+    {
+        try {
+            return $this->success('success', ShortDramaCanvasService::editImage((int)$this->request->tenantId, $this->userId, $this->request->post()));
         } catch (Exception $e) {
             return $this->fail($e->getMessage());
         }
