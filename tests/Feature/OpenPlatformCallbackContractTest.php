@@ -17,6 +17,7 @@ class OpenPlatformCallbackContractTest extends TestCase
         $source = $this->source('app/common/service/wechat/OpenPlatformService.php');
 
         self::assertStringContainsString("'message_callback_url_display'", $source);
+        self::assertStringContainsString("'authorization_domain_display'", $source);
         self::assertStringContainsString('/$APPID$/callback', $source);
         self::assertStringContainsString('必须是 HTTPS 地址', $source);
         self::assertStringContainsString('public static function authState', $source);

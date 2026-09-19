@@ -73,6 +73,14 @@ class LikeAdminAllowMiddleware
         $baseUrlSegments = explode('/', trim((string)$request->baseUrl(), '/'));
         $firstSegment = $pathSegments[0] ?? '';
         $firstOriginalSegment = $baseUrlSegments[0] ?? '';
+        // WeChat open-platform callbacks are system webhooks. They must not
+        // enter tenant-domain resolution, even when received on the platform
+        // root domain, otherwise the callback is rejected as a tenant request.
+        $normalizedPath = trim($request->pathinfo(), '/');
+        if ($normalizedPath === 'wechat/open-platform/callback'
+            || preg_match('#^wechat/open-platform/[A-Za-z0-9_-]+/callback$#', $normalizedPath)) {
+            return $next($request);
+        }
         // 处理API请求
         if (str_contains($firstSegment, 'api') || str_contains($firstOriginalSegment, 'api')) {
             if ($firstSegment !== 'platformapi' && $firstOriginalSegment !== 'platformapi') {

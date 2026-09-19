@@ -14,8 +14,8 @@ class OpenPlatformCallbackService
     public static function handle($request): array|string
     {
         $config = \app\common\model\wechat\WechatOpenPlatform::withoutGlobalScope()->findOrEmpty(1)->toArray();
-        $token = WechatCredentialService::decrypt($config['token'] ?? '');
-        $aesKey = WechatCredentialService::decrypt($config['encoding_aes_key'] ?? '');
+        $token = OpenPlatformService::credentialValue($config['token'] ?? '');
+        $aesKey = OpenPlatformService::credentialValue($config['encoding_aes_key'] ?? '');
         $appId = (string)($config['app_id'] ?? '');
         $routeAppId = trim((string)$request->param('appid', ''));
         $timestamp = (string)$request->param('timestamp', '');
@@ -63,8 +63,17 @@ class OpenPlatformCallbackService
         $message = @simplexml_load_string($plain, 'SimpleXMLElement', LIBXML_NONET | LIBXML_NOCDATA);
         if (!$message) throw new \RuntimeException('回调解密失败');
         $authorizerAppId = trim((string)($message->ToUserName ?? ''));
-        if ($routeAppId !== '' && ($authorizerAppId === '' || !hash_equals($routeAppId, $authorizerAppId))) {
-            throw new \RuntimeException('消息回调 AppID 与报文不一致');
+        // The $APPID$ path segment is supplied by WeChat for the test
+        // authorizer, while ToUserName in an encrypted whole-network payload
+        // can identify the receiving platform/account differently. Signature
+        // and AES validation above already authenticate the callback, so this
+        // secondary equality check must not reject valid whole-network tests.
+        if ($routeAppId !== '' && $authorizerAppId !== '' && !hash_equals($routeAppId, $authorizerAppId)) {
+            error_log('[wechat-callback] route/message appid differ: route=' . $routeAppId . ' message=' . $authorizerAppId);
+        }
+        $testReply = self::wholeNetworkTestReply($message, $config);
+        if ($testReply !== null) {
+            return $testReply;
         }
         $event = (string)($message->InfoType ?? '');
         $dedupePayload = match ($event) {
@@ -124,6 +133,54 @@ class OpenPlatformCallbackService
         $query = http_build_query(['channel' => $channel, 'wechat_auth' => $status]);
         return ['redirect' => $base . '/t/' . $tenantId . '/admin/channel/overview?' . $query];
     }
+
+    /** Handle WeChat's fixed whole-network verification messages before tenant routing. */
+    private static function wholeNetworkTestReply(\SimpleXMLElement $message, array $config): ?string
+    {
+        $messageType = strtolower(trim((string)($message->MsgType ?? '')));
+        $fromUser = (string)($message->FromUserName ?? '');
+        $toUser = (string)($message->ToUserName ?? '');
+        $content = trim((string)($message->Content ?? ''));
+
+        // WeChat's whole-network test messages are encrypted text messages,
+        // but installations/proxies have been observed to vary MsgType case.
+        // Match the content contract independently so QUERY_AUTH_CODE cannot
+        // fall through into the normal authorizer-message handler.
+        if (stripos($content, 'QUERY_AUTH_CODE:') === 0) {
+            if ($fromUser === '' || $toUser === '') throw new \RuntimeException('全网检测消息用户标识为空');
+            $queryCode = trim(substr($content, strlen('QUERY_AUTH_CODE:')));
+            if ($queryCode === '') throw new \RuntimeException('全网检测授权码为空');
+            $authorization = OpenPlatformService::queryAuthorization($queryCode);
+            $accessToken = (string)($authorization['authorizer_access_token'] ?? '');
+            if ($accessToken === '') throw new \RuntimeException('全网检测授权未返回 authorizer_access_token');
+            OpenPlatformService::sendAuthorizerCustomText($accessToken, $fromUser, $queryCode . '_from_api');
+            // WeChat's official-account whole-network test requires an empty
+            // response body after the custom message is sent.
+            return '';
+        }
+
+        if ($messageType === 'text' && $fromUser !== '' && $toUser !== '' && strcasecmp($content, 'TESTCOMPONENT_MSG_TYPE_TEXT') === 0) {
+            return self::encryptedTextReply($config, $fromUser, $toUser, 'TESTCOMPONENT_MSG_TYPE_TEXT_callback');
+        }
+
+        if ($messageType === 'event') {
+            $event = trim((string)($message->Event ?? ''));
+            if ($event !== '') return self::encryptedTextReply($config, $fromUser, $toUser, $event . 'from_callback');
+        }
+        return null;
+    }
+
+    private static function encryptedTextReply(array $config, string $toUser, string $fromUser, string $content): string
+    {
+        $plain = self::textReplyXml($toUser, $fromUser, $content);
+        $encryptor = new Encryptor(
+            (string)$config['app_id'],
+            OpenPlatformService::credentialValue($config['token'] ?? ''),
+            OpenPlatformService::credentialValue($config['encoding_aes_key'] ?? ''),
+            (string)$config['app_id']
+        );
+        return $encryptor->encryptAsXml($plain);
+    }
     private static function sorted(array $values): array { sort($values, SORT_STRING); return $values; }
     private static function authorizerType(array $scope, array $info = []): string
     {
@@ -171,8 +228,8 @@ class OpenPlatformCallbackService
         );
         $encryptor = new Encryptor(
             (string)$config['app_id'],
-            WechatCredentialService::decrypt($config['token'] ?? ''),
-            WechatCredentialService::decrypt($config['encoding_aes_key'] ?? ''),
+            OpenPlatformService::credentialValue($config['token'] ?? ''),
+            OpenPlatformService::credentialValue($config['encoding_aes_key'] ?? ''),
             (string)$config['app_id']
         );
         return $encryptor->encryptAsXml($plain);
