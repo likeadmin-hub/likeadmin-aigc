@@ -78,6 +78,39 @@ class ShortDramaCanvasService
         return self::currentById($tenantId, $userId, (int)$document['id']);
     }
 
+    /**
+     * Soft-delete only the canvas workspace and its execution projections.
+     * Generated assets remain part of the user's historical asset library.
+     */
+    public static function delete(int $tenantId, int $userId, int $id): array
+    {
+        $document = self::ownedDocument($tenantId, $userId, $id);
+        Db::transaction(function () use ($tenantId, $userId, $document): void {
+            $running = Db::name(self::RUN_TABLE)->where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'canvas_id' => (int)$document['id'],
+                'delete_time' => 0,
+            ])->whereIn('status', ['pending', 'running'])->lock(true)->count();
+            if ($running > 0) throw new Exception('请等待画布任务完成后删除项目');
+
+            $time = time();
+            Db::name(self::DOCUMENT_TABLE)->where([
+                'id' => (int)$document['id'],
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'delete_time' => 0,
+            ])->update(['delete_time' => $time, 'update_time' => $time]);
+            Db::name(self::RUN_TABLE)->where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'canvas_id' => (int)$document['id'],
+                'delete_time' => 0,
+            ])->update(['delete_time' => $time, 'update_time' => $time]);
+        });
+        return ['id' => (int)$document['id']];
+    }
+
     public static function submit(int $tenantId, int $userId, array $params): array
     {
         $document = self::ownedDocument($tenantId, $userId, (int)($params['canvas_id'] ?? 0));
