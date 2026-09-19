@@ -50,40 +50,13 @@
         "component": "apps/aigc_short_drama/project"
       },
       {
-        "source_menu_key": "aigc_short_drama_image_task",
+        "source_menu_key": "aigc_short_drama_creation_task",
         "type": "C",
-        "name": "图片任务",
+        "name": "创作任务",
         "sort": 19,
         "perms": "app.aigc_short_drama.generation_task/lists",
-        "paths": "image-task",
-        "component": "apps/aigc_short_drama/image-task"
-      },
-      {
-        "source_menu_key": "aigc_short_drama_shot_video",
-        "type": "C",
-        "name": "视频任务",
-        "sort": 18,
-        "perms": "app.aigc_short_drama.generation_task/lists",
-        "paths": "video-task",
-        "component": "apps/aigc_short_drama/video-task"
-      },
-      {
-        "source_menu_key": "aigc_short_drama_audio_task",
-        "type": "C",
-        "name": "音频任务",
-        "sort": 17,
-        "perms": "app.aigc_short_drama.generation_task/lists",
-        "paths": "audio-task",
-        "component": "apps/aigc_short_drama/audio-task"
-      },
-      {
-        "source_menu_key": "aigc_short_drama_final_video",
-        "type": "C",
-        "name": "成片合成任务",
-        "sort": 13,
-        "perms": "app.aigc_short_drama.generation_task/lists",
-        "paths": "final-video",
-        "component": "apps/aigc_short_drama/final-video"
+        "paths": "creation-task",
+        "component": "apps/aigc_short_drama/creation-task"
       },
       {
         "source_menu_key": "aigc_short_drama_template",
