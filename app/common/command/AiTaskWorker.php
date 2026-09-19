@@ -3,6 +3,7 @@
 namespace app\common\command;
 
 use app\common\service\ai\AiTaskJobService;
+use app\common\service\app\aigc_short_drama\ShortDramaCanvasPosterJobService;
 use think\console\Command;
 use think\console\Input;
 use think\console\input\Option;
@@ -40,8 +41,22 @@ class AiTaskWorker extends Command
         $output->writeln('AI result worker started: ' . $worker);
         try {
             while ($running) {
+                ShortDramaCanvasPosterJobService::recoverExpired();
                 $jobs = AiTaskJobService::claim($worker, $lease, $batch);
                 if ($jobs === []) {
+                    $posterJobs = ShortDramaCanvasPosterJobService::claim($worker, max(180, $lease), 1);
+                    foreach ($posterJobs as $posterJob) {
+                        try {
+                            ShortDramaCanvasPosterJobService::run($posterJob);
+                            $output->writeln(sprintf('[poster:%d] success', (int)$posterJob['id']));
+                        } catch (\Throwable $e) {
+                            ShortDramaCanvasPosterJobService::retry($posterJob, $e);
+                            $output->writeln(sprintf('[poster:%d] %s', (int)$posterJob['id'], $e->getMessage()));
+                        }
+                    }
+                    if ($posterJobs !== []) {
+                        continue;
+                    }
                     sleep($sleep);
                     continue;
                 }
@@ -67,6 +82,17 @@ class AiTaskWorker extends Command
                     } catch (\Throwable $e) {
                         AiTaskJobService::retry($job, $e);
                         $output->writeln(sprintf('[job:%d] %s', (int)$job['id'], $e->getMessage()));
+                    }
+                }
+                // Do not starve lightweight canvas previews while a tenant has
+                // a sustained stream of provider-result jobs.
+                foreach (ShortDramaCanvasPosterJobService::claim($worker, max(180, $lease), 1) as $posterJob) {
+                    try {
+                        ShortDramaCanvasPosterJobService::run($posterJob);
+                        $output->writeln(sprintf('[poster:%d] success', (int)$posterJob['id']));
+                    } catch (\Throwable $e) {
+                        ShortDramaCanvasPosterJobService::retry($posterJob, $e);
+                        $output->writeln(sprintf('[poster:%d] %s', (int)$posterJob['id'], $e->getMessage()));
                     }
                 }
             }

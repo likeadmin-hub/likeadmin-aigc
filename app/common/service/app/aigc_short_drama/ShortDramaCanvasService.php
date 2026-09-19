@@ -67,7 +67,9 @@ class ShortDramaCanvasService
     {
         $document = self::ownedDocument($tenantId, $userId, (int)($params['id'] ?? 0));
         $nodes = self::normalizeNodes((array)($params['nodes'] ?? []));
+        $nodes = self::mergePersistedVideoPosters($nodes, self::decode((string)($document['nodes_json'] ?? '')));
         $edges = self::normalizeEdges((array)($params['edges'] ?? []), $nodes);
+        self::queueVideoPosters($tenantId, $userId, (int)$document['id'], $nodes, false);
         $title = trim((string)($params['title'] ?? $document['title']));
         $title = mb_substr($title ?: '无标题空间', 0, 40);
         Db::name(self::DOCUMENT_TABLE)->where('id', $document['id'])->update([
@@ -76,6 +78,7 @@ class ShortDramaCanvasService
             'viewport_json' => json_encode((array)($params['viewport'] ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'update_time' => time(),
         ]);
+        self::queueVideoPosters($tenantId, $userId, (int)$document['id'], $nodes);
         return self::currentById($tenantId, $userId, (int)$document['id']);
     }
 
@@ -198,10 +201,18 @@ class ShortDramaCanvasService
         $resultTable = $type === 'image' ? 'aigc_image_result' : ($type === 'video' ? 'aigc_video_result' : 'aigc_music_result');
         $column = $type === 'image' ? 'image_uri' : ($type === 'video' ? 'video_uri' : 'audio_uri');
         $results = Db::name($resultTable)->where(['tenant_id' => (int)$run['tenant_id'], 'task_id' => $externalId, 'delete_time' => 0])->order('id', 'asc')->select()->toArray();
-        $urls = array_values(array_filter(array_map(static function (array $item) use ($column): array {
+        $urls = array_values(array_filter(array_map(static function (array $item) use ($column, $type): array {
             $uri = (string)($item[$column] ?? '');
-            return ['url' => $uri === '' ? '' : FileService::getFileUrlByStorage($uri, (string)($item['storage_scope'] ?? 'tenant'), (string)($item['storage_engine'] ?? 'local'), (string)($item['storage_domain'] ?? '')),
-                'uri' => $uri, 'storage_scope' => (string)($item['storage_scope'] ?? 'tenant'), 'storage_engine' => (string)($item['storage_engine'] ?? 'local'), 'storage_domain' => (string)($item['storage_domain'] ?? '')];
+            $scope = (string)($item['storage_scope'] ?? 'tenant');
+            $engine = (string)($item['storage_engine'] ?? 'local');
+            $domain = (string)($item['storage_domain'] ?? '');
+            $coverUri = $type === 'video' ? (string)($item['cover_uri'] ?? '') : '';
+            return [
+                'url' => $uri === '' ? '' : FileService::getFileUrlByStorage($uri, $scope, $engine, $domain),
+                'uri' => $uri, 'storage_scope' => $scope, 'storage_engine' => $engine, 'storage_domain' => $domain,
+                'poster_uri' => $coverUri,
+                'poster_url' => $coverUri === '' ? '' : FileService::getFileUrlByStorage($coverUri, $scope, $engine, $domain),
+            ];
         }, $results), static fn(array $item): bool => $item['url'] !== ''));
         $payload = json_decode((string)$run['result_json'], true) ?: [];
         if ($urls) $payload['results'] = $urls;
@@ -210,7 +221,51 @@ class ShortDramaCanvasService
             'error' => (string)($task['error'] ?? $task['error_msg'] ?? ''),
             'result_json' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'update_time' => time(),
         ]);
+        if ($type === 'video' && $status === 'success' && $urls) {
+            self::projectVideoRunToCanvas($run, $urls[0]);
+        }
         self::syncShortDramaTask((int)$run['id']);
+    }
+
+    /** Persist completed video metadata even when the browser closes before its next poll. */
+    private static function projectVideoRunToCanvas(array $run, array $result): void
+    {
+        $canvasId = (int)($run['canvas_id'] ?? 0);
+        $nodeId = (string)($run['node_id'] ?? '');
+        $uri = self::canvasStoredUri((string)($result['uri'] ?? $result['url'] ?? ''));
+        if ($canvasId <= 0 || $nodeId === '' || $uri === '') return;
+        Db::transaction(function () use ($run, $result, $canvasId, $nodeId, $uri): void {
+            $document = Db::name(self::DOCUMENT_TABLE)->where([
+                'id' => $canvasId, 'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'delete_time' => 0,
+            ])->lock(true)->find();
+            if (!$document) return;
+            $nodes = self::decode((string)($document['nodes_json'] ?? ''));
+            $changed = false;
+            foreach ($nodes as &$node) {
+                if ((string)($node['id'] ?? '') !== $nodeId) continue;
+                $metadata = is_array($node['metadata'] ?? null) ? $node['metadata'] : [];
+                if ((int)($metadata['canvasRunId'] ?? 0) !== (int)$run['id']) continue;
+                $metadata = array_merge($metadata, [
+                    'url' => (string)$result['url'], 'video_url' => (string)$result['url'],
+                    'storage_scope' => (string)($result['storage_scope'] ?? ''),
+                    'storage_engine' => (string)($result['storage_engine'] ?? ''),
+                    'storage_domain' => (string)($result['storage_domain'] ?? ''),
+                    'poster_url' => (string)($result['poster_url'] ?? ''),
+                    'poster_uri' => (string)($result['poster_uri'] ?? ''),
+                    'poster_status' => !empty($result['poster_url']) ? 'ready' : 'pending',
+                    'status' => 'success', 'progress' => 100, 'error' => '',
+                ]);
+                $node['metadata'] = $metadata;
+                $changed = true;
+                break;
+            }
+            unset($node);
+            if (!$changed) return;
+            self::queueVideoPosters((int)$run['tenant_id'], (int)$run['user_id'], $canvasId, $nodes);
+            Db::name(self::DOCUMENT_TABLE)->where('id', $canvasId)->update([
+                'nodes_json' => json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'update_time' => time(),
+            ]);
+        });
     }
 
     /** Mirror canvas-owned work into the short-drama task/asset history without sharing another canvas app. */
@@ -346,6 +401,67 @@ class ShortDramaCanvasService
     }
     private static function currentById(int $tenantId, int $userId, int $id): array { return self::formatDocument(self::ownedDocument($tenantId, $userId, $id), true); }
     private static function normalizeNodes(array $nodes): array { return array_values(array_slice(array_filter($nodes, static fn($node) => is_array($node) && isset($node['id']) && isset($node['type'])), 0, 200)); }
+    /** Keep a completed poster when an older browser snapshot saves unrelated canvas changes. */
+    private static function mergePersistedVideoPosters(array $nodes, array $persisted): array
+    {
+        $persistedById = [];
+        foreach ($persisted as $node) $persistedById[(string)($node['id'] ?? '')] = $node;
+        foreach ($nodes as &$node) {
+            $metadata = is_array($node['metadata'] ?? null) ? $node['metadata'] : [];
+            if (!empty($metadata['poster_url']) || !empty($metadata['poster_uri'])) continue;
+            $saved = $persistedById[(string)($node['id'] ?? '')] ?? null;
+            $savedMetadata = is_array($saved['metadata'] ?? null) ? $saved['metadata'] : [];
+            $source = self::canvasStoredUri((string)($metadata['video_url'] ?? $metadata['url'] ?? ''));
+            $sameVideo = $source !== '' && $source === self::canvasStoredUri((string)($savedMetadata['video_url'] ?? $savedMetadata['url'] ?? ''));
+            if ($sameVideo && (!empty($savedMetadata['poster_url']) || !empty($savedMetadata['poster_uri']))) {
+                foreach (['poster_url', 'poster_uri', 'poster_status'] as $key) if (isset($savedMetadata[$key])) $metadata[$key] = $savedMetadata[$key];
+                $node['metadata'] = $metadata;
+            }
+        }
+        unset($node);
+        return $nodes;
+    }
+    /** Queue only persisted video nodes without a durable poster. Saving stays constant-time. */
+    private static function queueVideoPosters(int $tenantId, int $userId, int $canvasId, array &$nodes, bool $enqueue = true): void
+    {
+        foreach ($nodes as &$node) {
+            $metadata = is_array($node['metadata'] ?? null) ? $node['metadata'] : [];
+            $isVideo = (string)($node['type'] ?? '') === 'video'
+                || str_starts_with(strtolower((string)($metadata['mimeType'] ?? $metadata['mime_type'] ?? '')), 'video/');
+            if (!$isVideo || !empty($metadata['poster_url']) || !empty($metadata['poster_uri'])) {
+                continue;
+            }
+            $source = (string)($metadata['video_url'] ?? $metadata['url'] ?? '');
+            $uri = self::canvasStoredUri($source);
+            if ($uri === '') {
+                continue;
+            }
+            $metadata['poster_status'] = 'pending';
+            $node['metadata'] = $metadata;
+            if ($enqueue) {
+                ShortDramaCanvasPosterJobService::enqueue(
+                    $tenantId,
+                    $userId,
+                    $canvasId,
+                    (string)$node['id'],
+                    $uri,
+                    (string)($metadata['storage_scope'] ?? ''),
+                    (string)($metadata['storage_engine'] ?? ''),
+                    (string)($metadata['storage_domain'] ?? '')
+                );
+            }
+        }
+        unset($node);
+    }
+    private static function canvasStoredUri(string $value): string
+    {
+        $value = trim($value);
+        if (preg_match('#^https?://#i', $value) === 1) {
+            $value = ltrim(rawurldecode((string)(parse_url($value, PHP_URL_PATH) ?: '')), '/');
+        }
+        $value = ltrim($value, '/');
+        return str_starts_with($value, 'uploads/') || str_starts_with($value, 'resource/') ? $value : '';
+    }
     private static function normalizeEdges(array $edges, array $nodes): array { $ids = array_flip(array_map(static fn($node) => (string)$node['id'], $nodes)); return array_values(array_filter($edges, static fn($edge) => is_array($edge) && isset($ids[(string)($edge['from'] ?? '')], $ids[(string)($edge['to'] ?? '')]) && (string)$edge['from'] !== (string)$edge['to'])); }
     private static function decode(string $json): array { $decoded = json_decode($json, true); return is_array($decoded) ? $decoded : []; }
     private static function normalizeStatus(string $status): string { return in_array($status, ['success', 'failed', 'canceled'], true) ? $status : 'running'; }
