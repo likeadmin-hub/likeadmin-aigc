@@ -4,6 +4,7 @@ namespace app\common\service\app\aigc_short_drama;
 
 use app\common\service\app\aigc_video\AigcVideoPosterService;
 use app\common\service\FileService;
+use app\common\service\storage\StorageConfigService;
 use think\facade\Db;
 
 /** Durable, bounded background work for short-drama canvas video posters. */
@@ -104,12 +105,13 @@ class ShortDramaCanvasPosterJobService
     public static function run(array $job): void
     {
         $isFrame = ($job['job_kind'] ?? 'poster') === 'frame';
+        $config = StorageConfigService::getStoredFileConfig((int)$job['tenant_id'], $job['storage_scope'] ?: null, $job['storage_engine'] ?: null);
         $poster = AigcVideoPosterService::createFrame(
             (int)$job['tenant_id'],
             (string)$job['video_uri'],
-            (string)$job['storage_scope'],
-            (string)$job['storage_engine'],
-            (string)$job['storage_domain'],
+            (string)($config['scope'] ?? 'tenant'),
+            (string)($config['default'] ?? 'local'),
+            StorageConfigService::getStorageDomain($config),
             $isFrame ? (float)$job['capture_time'] : 0.001,
             $isFrame ? 'frames' : 'posters'
         );
@@ -240,6 +242,7 @@ class ShortDramaCanvasPosterJobService
             $value = ltrim(rawurldecode((string)(parse_url($value, PHP_URL_PATH) ?: '')), '/');
         }
         $value = ltrim($value, '/');
+        if (str_contains($value, '..') || str_contains($value, "\0")) return '';
         return str_starts_with($value, 'uploads/') || str_starts_with($value, 'resource/') ? $value : '';
     }
 }
