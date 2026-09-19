@@ -104,4 +104,57 @@ class ShortDramaGenerationReliabilityTest extends TestCase
         } catch (\RuntimeException $error) { self::assertSame(403, $error->getCode()); }
         self::assertSame(1, $calls);
     }
+
+    public function testSkeletonReusesValidCompletePlanWithoutAnotherPaidCall(): void
+    {
+        $calls = 0;
+        $plan = $this->plan();
+        $plan['storyboard'][0] += ['scene_ref_id' => 'l1', 'subject_ref_ids' => ['s1'], 'recommended_duration_seconds' => 8];
+        $result = Script::generate([], ['max_tokens' => 4096], ['system_prompt' => '完整剧本必须返回storyboard', 'content' => '保留故事结局'],
+            static function ($key, $messages) use (&$calls, $plan) {
+                $calls++;
+                self::assertSame('v3_skeleton', $key);
+                self::assertStringNotContainsString('完整剧本必须返回storyboard', $messages['system_prompt']);
+                self::assertStringContainsString('scene_beats', $messages['system_prompt']);
+                self::assertStringContainsString('保留故事结局', $messages['content']);
+                return ['result' => ['content' => json_encode($plan)]];
+            });
+        self::assertSame(1, $calls);
+        self::assertSame($plan, $result['payload']);
+    }
+
+    public function testMissingBeatsRepairKeepsFactsAndRejectsInvalidFullPlan(): void
+    {
+        $calls = [];
+        $result = Script::generate(['episode_id' => 3], ['max_tokens' => 4096], ['system_prompt' => '自定义完整结构', 'content' => '承接第二集'],
+            function ($key, $messages) use (&$calls) {
+                $calls[] = $key;
+                $plan = $this->plan();
+                if ($key === 'v3_skeleton_repair') {
+                    self::assertStringContainsString('调查真相', $messages['content']);
+                    self::assertStringContainsString('只补齐', $messages['content']);
+                    $plan['scene_beats'] = [['scene_ref_id' => 'l1', 'goal' => '调查', 'entry' => '门外', 'exit' => '屋内', 'shot_count' => 1]];
+                } elseif ($key === 'v3_scene_1_1_1') {
+                    self::assertStringNotContainsString('自定义完整结构', $messages['system_prompt']);
+                    self::assertStringContainsString('承接第二集', $messages['content']);
+                    $plan = ['storyboard' => [['shot_id' => 's1_1', 'scene_ref_id' => 'l1', 'subject_ref_ids' => ['s1'], 'visual_description' => '调查', 'recommended_duration_seconds' => 8]]];
+                }
+                return ['result' => ['content' => json_encode($plan)]];
+            });
+        self::assertSame(['v3_skeleton', 'v3_skeleton_repair', 'v3_scene_1_1_1'], $calls);
+        self::assertSame('s1_1', $result['payload']['storyboard'][0]['shot_id']);
+    }
+
+    public function testMissingBeatsStopsAfterOneRepair(): void
+    {
+        $calls = 0;
+        try {
+            Script::generate([], ['max_tokens' => 4096], ['system_prompt' => '', 'content' => '故事'], function () use (&$calls) {
+                $calls++;
+                return ['result' => ['content' => json_encode($this->plan())]];
+            });
+            self::fail('Invalid plan accepted');
+        } catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); }
+        self::assertSame(2, $calls);
+    }
 }

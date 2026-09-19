@@ -55,17 +55,22 @@ final class ShortDramaScriptGeneration
             }
         }
         if ($progress) $progress('stage', ['status' => 'running', 'progress' => 25, 'current_step' => '按场景分段生成，已完成内容将保留']);
-        $skeletonMessages = $messages;
-        $skeletonMessages['system_prompt'] .= "\n本次是分段生成的骨架步骤，覆盖完整输出要求：暂不写详细分镜。保留全部用户剧情约束，返回 title、type_judgement、core_theme、story_outline、script_lines、subjects、locations、art_style，以及 scene_beats 数组。scene_beats 每项含 scene_ref_id（必须引用 locations.id）、goal（本场完整剧情和关键台词）、entry（开场状态）、exit（结束状态）、shot_count（本场计划镜头数量，1至40）。按剧情顺序覆盖整集，最多24场；不要缩写掉原文事件。storyboard 暂为空。";
+        $skeletonMessages = self::stageMessages($messages, '骨架',
+            '返回 title、type_judgement、core_theme、story_outline、script_lines、series_bible、subjects、locations、art_style、scene_beats。subjects 和 locations 沿用素材对象结构并提供稳定 id。scene_beats 为非空数组，每项含 scene_ref_id（引用 locations.id）、goal（完整剧情和关键台词）、entry（开场状态）、exit（结束状态）、shot_count（整数1至40）。按剧情顺序覆盖整集，最多24场，相邻场次状态连续。不得返回 storyboard 或 episodes，不写详细分镜。');
         $skeleton = [];
         for ($attempt = 0; $attempt < 2; $attempt++) {
             try {
                 $skeleton = $call('skeleton' . ($attempt ? '_repair' : ''), $skeletonMessages, 8192);
+                // Some models still produce a full plan. Reuse only a valid
+                // plan; the caller continues its normal story quality review.
+                if (self::completePlan($skeleton)) return self::result($skeleton, $receipts, $model);
                 self::assertSkeleton($skeleton);
                 break;
             } catch (RuntimeException $error) {
                 if ($attempt || !in_array($error->getCode(), [413, 422], true)) throw $error;
                 $skeletonMessages['content'] .= "\n上次骨架未通过：" . $error->getMessage() . '。修复结构，保留完整剧情。';
+                if ($skeleton) $skeletonMessages['content'] .= "\n已生成内容=" . json_encode($skeleton, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
+                    . "\n保留已有角色、场景ID、故事事实和顺序，只补齐或修正不合格字段。返回完整骨架JSON。";
             }
         }
         $shots = [];
@@ -73,8 +78,7 @@ final class ShortDramaScriptGeneration
             $sceneShots = [];
             $count = (int)$beat['shot_count'];
             $expand = function (int $start, int $size) use (&$expand, &$sceneShots, &$shots, $beat, $sceneIndex, $skeleton, $messages, $call, $progress): void {
-                $input = $messages;
-                $input['system_prompt'] .= "\n本次只生成当前场景指定范围的分镜，返回 {\"storyboard\":[...]}，不要重复人物和场景列表，不生成其他场景。必须按 scene_beat.goal/entry/exit 衔接剧情。每镜头必须包含 shot_id、scene_ref_id、subject_ref_ids、visual_description、dialogue、voice_role、speech_type、recommended_duration_seconds，沿用原结构其他镜头字段。不得补造未发生事件或提前跳到本场结尾。";
+                $input = self::stageMessages($messages, '分场分镜', '只返回 {"storyboard":[...]}，不重复人物和场景列表，不生成其他场景。按 scene_beat.goal/entry/exit 衔接剧情。每镜头包含 shot_id、scene_ref_id、subject_ref_ids、visual_description、dialogue、voice_role、speech_type、recommended_duration_seconds，沿用素材中其他镜头字段。严格使用指定ID及数量，不补造事件、不提前结束场景。');
                 $input['content'] .= "\n分段任务=" . json_encode([
                     'locked_plan' => array_intersect_key($skeleton, array_flip(['title', 'story_outline', 'subjects', 'locations', 'art_style'])),
                     'scene_beat' => $beat, 'shot_start' => $start, 'shot_count' => $size,
@@ -111,6 +115,33 @@ final class ShortDramaScriptGeneration
         foreach (['title', 'story_outline', 'subjects', 'locations', 'storyboard'] as $key) {
             if (empty($plan[$key])) throw new RuntimeException('剧本缺少必要内容：' . $key, 422);
         }
+    }
+
+    private static function stageMessages(array $messages, string $stage, string $contract): array
+    {
+        return [
+            'system_prompt' => '你是短剧创作助手。本次阶段：' . $stage . '。只返回合法JSON。以下是本阶段唯一输出结构约束：' . $contract
+                . "\n用户消息中的原始提示是创作参考：保留其剧情、人物、场景、风格、集数与连续性要求；其中完整剧本示例、字段清单及输出格式不适用于本阶段。"
+                . "\n" . ShortDramaShotDuration::INSTRUCTION,
+            'content' => json_encode(['creative_context' => $messages], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+        ];
+    }
+
+    private static function completePlan(array $plan): bool
+    {
+        try { self::assertPlan($plan); } catch (RuntimeException $error) { return false; }
+        if (!is_array($plan['subjects']) || !is_array($plan['locations']) || !is_array($plan['storyboard'])) return false;
+        $ids = [];
+        foreach ($plan['storyboard'] as $shot) {
+            if (!is_array($shot) || empty($shot['shot_id']) || isset($ids[$shot['shot_id']])
+                || !in_array($shot['scene_ref_id'] ?? null, array_column($plan['locations'], 'id'), true)
+                || !is_array($shot['subject_ref_ids'] ?? null)
+                || array_diff($shot['subject_ref_ids'], array_column($plan['subjects'], 'id'))
+                || empty($shot['visual_description'])
+                || !ShortDramaShotDuration::contains($shot['recommended_duration_seconds'] ?? null)) return false;
+            $ids[$shot['shot_id']] = true;
+        }
+        return true;
     }
 
     private static function assertSkeleton(array $plan): void
