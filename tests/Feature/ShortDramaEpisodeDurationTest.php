@@ -146,5 +146,17 @@ class ShortDramaEpisodeDurationTest extends TestCase
         $rule = ShortDramaShotDuration::rule($this->request(0, [['start_seconds' => 0, 'end_seconds' => 1.5, 'duration_seconds' => 1.5]]));
         $saved = $this->invoke('editableShotData', ['recommended_duration_seconds' => 1.5], $rule);
         self::assertSame(1.5, $saved['recommended_duration_seconds']);
+        self::assertSame('00:01.5-00:10', $this->invoke('readableShotTimeRange', [], 0, ['start_seconds' => 1.5], 8.5));
+    }
+
+    public function testDirectCompleteResponseUsesTheSameTimingGate(): void
+    {
+        $plan = ['title' => '钥匙', 'story_outline' => '甲找到钥匙', 'script_lines' => ['甲找到钥匙'],
+            'subjects' => [['id' => 'a', 'name' => '甲']], 'locations' => [['id' => 'room', 'name' => '家']],
+            'storyboard' => [['shot_id' => '1', 'scene_ref_id' => 'room', 'subject_ref_ids' => ['a'], 'visual_description' => '甲拿起钥匙', 'dialogue' => '', 'recommended_duration_seconds' => 10]]];
+        ShortDramaTimedScriptGeneration::assertCompletePlan($plan, $this->request());
+        self::assertTrue(true);
+        $this->expectException(\RuntimeException::class);
+        ShortDramaTimedScriptGeneration::assertCompletePlan($plan, $this->request(60));
     }
 }

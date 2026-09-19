@@ -13,7 +13,7 @@ final class ShortDramaTimedScriptGeneration
         $base = ['system_prompt' => $messages['system_prompt'] . "\n" . ShortDramaEpisodeDuration::instruction($request) . "\n" . ShortDramaSameSceneCuts::instruction($request),
             'content' => $messages['_stage_content'] ?? $messages['content']];
         $skeletonInput = $base;
-        $skeletonInput['system_prompt'] .= '\n本阶段仅生成骨架JSON：title、type_judgement、core_theme、story_outline、script_lines、series_bible、subjects、locations、art_style、scene_beats。'
+        $skeletonInput['system_prompt'] .= "\n本阶段仅生成骨架JSON：title、type_judgement、core_theme、story_outline、script_lines、series_bible、subjects、locations、art_style、scene_beats。"
             . 'subjects每项必须有id、name、description，locations每项必须有id、name、description。沿用稳定主体和场景id。scene_beats按剧情顺序，每项为scene_ref_id（必须引用locations中某项id，不是beat编号）、goal、entry、exit、duration_seconds、shot_durations（每张卡片秒数数组）、key_events（必须保留的具体事件或台词数组）。'
             . '每场shot_durations合计等于duration_seconds，整集合计满足时间策略。镜头数量按内容决定，不使用固定数量档位。每个片段时长遵守任务范围。'
             . '时间码存在时，每条scene_beat严格对应一个时间段，时长完全一致；不要跨段合并。每场最多40个片段，总场次最多24。不要返回storyboard。'
@@ -22,6 +22,12 @@ final class ShortDramaTimedScriptGeneration
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
                 $skeleton = self::canonicalSkeleton($call('timed_skeleton_' . $attempt, $skeletonInput, 8192));
+                if (!empty($skeleton['storyboard'])) {
+                    self::assertCompletePlan($skeleton, $request);
+                    $skeleton['timing_diagnostics'] = ['version' => 1, 'content_repairs' => 0, 'time_repairs' => $attempt,
+                        'total_seconds' => array_sum(array_column($skeleton['storyboard'], 'recommended_duration_seconds')), 'policy' => $policy];
+                    return $skeleton;
+                }
                 self::assertSkeleton($skeleton, $request);
                 break;
             } catch (RuntimeException $e) {
@@ -30,6 +36,7 @@ final class ShortDramaTimedScriptGeneration
                     . "\n保留已确定的角色、场景和事实，仅修复不合格预算或结构，返回完整骨架。已有骨架=" . self::json($skeleton);
             }
         }
+        $timeRepairs = $attempt;
         if ($progress) $progress('stage', ['status' => 'running', 'progress' => 25, 'current_step' => '已规划各场时长，正在生成分镜']);
         $shots = [];
         $contentRepairs = 0;
@@ -43,10 +50,10 @@ final class ShortDramaTimedScriptGeneration
                 $partDurations = array_slice($durations, $offset, $partSize);
                 $ids = array_map(static fn($n) => 's' . ($sceneIndex + 1) . '_' . ($offset + $n + 1), array_keys($partDurations));
                 $input = $base;
-                $input['system_prompt'] .= '\n本阶段仅返回{"storyboard":[...]}，每项包含shot_id、scene_ref_id、subject_ref_ids、visual_description、composition、camera_movement、dialogue、voice_role、speech_type、recommended_duration_seconds。'
+                $input['system_prompt'] .= "\n本阶段仅返回{\"storyboard\":[...]}，每项包含shot_id、scene_ref_id、subject_ref_ids、visual_description、composition、camera_movement、dialogue、voice_role、speech_type、recommended_duration_seconds。"
                     . '严格采用required_shots的ID及时长，不重新决定数量。覆盖当前片段应承载的key_events并保持前后衔接，不重复其他分段事件。'
                     . '对白务必能在片段内自然说完，保留停顿；speech_type为character、narration或none。voice_role写真实说话角色，静默留空。'
-                    . '仅返回列出的11个字段，不额外生成image_prompt、video_prompt、negative_prompt、风格和素材定义；它们由现有系统根据本段字段组装。'
+                    . '仅返回列出的10个字段，不额外生成image_prompt、video_prompt、negative_prompt、风格和素材定义；它们由现有系统根据本段字段组装。'
                     . 'visual_description每镜最多120字，composition最多40字，camera_movement最多100字，准确简练保留关键动作、位置、情绪与连续性。';
                 $input['content'] = self::json([
                     'creative_context' => $base['content'],
@@ -55,6 +62,9 @@ final class ShortDramaTimedScriptGeneration
                     'required_shots' => array_map(static fn($id, $duration) => ['shot_id' => $id, 'duration_seconds' => $duration], $ids, $partDurations),
                     'shot_offset' => $offset, 'previous_shots' => array_slice($shots, -2),
                 ]);
+                $input['content'] .= "\n以上全局剧情仅用于保持连续性，不要求重写整集。本次只输出" . count($ids)
+                    . '个分镜，ID依次为' . implode(',', $ids) . '，对应秒数为' . implode(',', $partDurations)
+                    . '。不得输出其他ID、场次或重复已经完成的分镜。忽略上下文模板要求的整集输出格式，当前仅返回storyboard数组。';
                 $part = [];
                 for ($attempt = 0; $attempt < 2; $attempt++) {
                     try {
@@ -76,10 +86,30 @@ final class ShortDramaTimedScriptGeneration
         }
         $skeleton['storyboard'] = $shots;
         $skeleton['episodes'] = [];
-        $skeleton['timing_diagnostics'] = ['version' => ShortDramaEpisodeDuration::VERSION, 'content_repairs' => $contentRepairs,
+        $skeleton['timing_diagnostics'] = ['version' => ShortDramaEpisodeDuration::VERSION, 'content_repairs' => $contentRepairs, 'time_repairs' => $timeRepairs,
             'total_seconds' => array_sum(array_column($shots, 'recommended_duration_seconds')), 'policy' => $policy];
         ShortDramaEpisodeDuration::assertPlan($skeleton, $request);
         return $skeleton;
+    }
+
+    public static function assertCompletePlan(array $plan, array $request): void
+    {
+        foreach (['title', 'story_outline', 'script_lines', 'subjects', 'locations', 'storyboard'] as $field) {
+            if (empty($plan[$field])) throw new RuntimeException('完整剧本缺少' . $field, 422);
+        }
+        $rule = ShortDramaShotDuration::rule($request);
+        $seen = [];
+        foreach ($plan['storyboard'] as $shot) {
+            $id = (string)($shot['shot_id'] ?? '');
+            if ($id === '' || isset($seen[$id]) || !ShortDramaShotDuration::contains($shot['recommended_duration_seconds'] ?? null, $rule)
+                || !in_array($shot['scene_ref_id'] ?? '', array_column($plan['locations'], 'id'), true)) {
+                throw new RuntimeException('完整剧本的分镜ID、场景或时长不符合要求', 422);
+            }
+            $seen[$id] = true;
+            self::assertPart(['storyboard' => [$shot]], $plan, ['scene_ref_id' => $shot['scene_ref_id']], [$id], [$shot['recommended_duration_seconds']]);
+            ShortDramaSameSceneCuts::assertShot($shot, $plan, $request);
+        }
+        ShortDramaEpisodeDuration::assertPlan($plan, $request);
     }
 
     /** Existing providers use these documented aliases. Never infer a reference. */
