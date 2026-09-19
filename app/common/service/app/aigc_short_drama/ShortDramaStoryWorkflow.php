@@ -55,12 +55,12 @@ final class ShortDramaStoryWorkflow
     {
         $data = self::withoutEpisodeAllocation($data);
         $data['story_scale'] = [
-            'episode_duration_policy' => ShortDramaEpisodeDuration::policy($request),
             'target_episode_count' => min(500, max(2, (int)($request['episode_count'] ?? 3))),
             // Legacy normalization also extracts whole-film duration from prose.
             // Do not relabel that ambiguous field as per-episode or multiply it.
             'target_duration_seconds' => max(0, (int)($request['target_duration_seconds'] ?? 0)),
         ];
+        if (ShortDramaEpisodeDuration::active($request)) $data['story_scale']['episode_duration_policy'] = ShortDramaEpisodeDuration::policy($request);
         return $data;
     }
 
