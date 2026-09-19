@@ -66,6 +66,10 @@ class OpenPlatformCallbackService
         if ($routeAppId !== '' && ($authorizerAppId === '' || !hash_equals($routeAppId, $authorizerAppId))) {
             throw new \RuntimeException('消息回调 AppID 与报文不一致');
         }
+        $testReply = self::wholeNetworkTestReply($message, $config);
+        if ($testReply !== null) {
+            return $testReply;
+        }
         $event = (string)($message->InfoType ?? '');
         $dedupePayload = match ($event) {
             'component_verify_ticket' => (string)($message->ComponentVerifyTicket ?? ''),
@@ -123,6 +127,51 @@ class OpenPlatformCallbackService
         $base = (string)(preg_replace('#^http://#i', 'https://', $base) ?: $base);
         $query = http_build_query(['channel' => $channel, 'wechat_auth' => $status]);
         return ['redirect' => $base . '/t/' . $tenantId . '/admin/channel/overview?' . $query];
+    }
+
+    /** Handle WeChat's fixed whole-network verification messages before tenant routing. */
+    private static function wholeNetworkTestReply(\SimpleXMLElement $message, array $config): ?string
+    {
+        $messageType = strtolower((string)($message->MsgType ?? ''));
+        $fromUser = (string)($message->FromUserName ?? '');
+        $toUser = (string)($message->ToUserName ?? '');
+        if ($fromUser === '' || $toUser === '') return null;
+
+        if ($messageType === 'text') {
+            $content = trim((string)($message->Content ?? ''));
+            if ($content === 'TESTCOMPONENT_MSG_TYPE_TEXT') {
+                return self::encryptedTextReply($config, $fromUser, $toUser, 'TESTCOMPONENT_MSG_TYPE_TEXT_callback');
+            }
+            if (str_starts_with($content, 'QUERY_AUTH_CODE:')) {
+                $queryCode = trim(substr($content, strlen('QUERY_AUTH_CODE:')));
+                if ($queryCode === '') throw new \RuntimeException('全网检测授权码为空');
+                $info = OpenPlatformService::queryAuthorization($queryCode);
+                $authorization = (array)$info;
+                $accessToken = (string)($authorization['authorizer_access_token'] ?? '');
+                if ($accessToken !== '') {
+                    OpenPlatformService::sendAuthorizerCustomText($accessToken, $fromUser, $queryCode . '_from_api');
+                }
+                return 'success';
+            }
+        }
+
+        if ($messageType === 'event') {
+            $event = trim((string)($message->Event ?? ''));
+            if ($event !== '') return self::encryptedTextReply($config, $fromUser, $toUser, $event . 'from_callback');
+        }
+        return null;
+    }
+
+    private static function encryptedTextReply(array $config, string $toUser, string $fromUser, string $content): string
+    {
+        $plain = self::textReplyXml($toUser, $fromUser, $content);
+        $encryptor = new Encryptor(
+            (string)$config['app_id'],
+            OpenPlatformService::credentialValue($config['token'] ?? ''),
+            OpenPlatformService::credentialValue($config['encoding_aes_key'] ?? ''),
+            (string)$config['app_id']
+        );
+        return $encryptor->encryptAsXml($plain);
     }
     private static function sorted(array $values): array { sort($values, SORT_STRING); return $values; }
     private static function authorizerType(array $scope, array $info = []): string

@@ -166,6 +166,17 @@ class OpenPlatformService
     {
         if ($authorizationCode === '') throw new \InvalidArgumentException('授权码不能为空'); $config = self::rawConfig(); $result = self::request('cgi-bin/component/api_query_auth', ['component_appid' => $config['app_id'], 'authorization_code' => $authorizationCode], 'auth.query', ['component_access_token' => self::componentAccessToken()]); $info = (array)($result['authorization_info'] ?? []); if (empty($info['authorizer_appid'])) throw new \RuntimeException('微信未返回授权账号'); return $info;
     }
+
+    /** Reply to WeChat's whole-network access test through the authorizer API. */
+    public static function sendAuthorizerCustomText(string $accessToken, string $toUser, string $content): array
+    {
+        if ($accessToken === '' || $toUser === '') throw new \InvalidArgumentException('全网检测消息参数不完整');
+        return self::request('cgi-bin/message/custom/send', [
+            'touser' => $toUser,
+            'msgtype' => 'text',
+            'text' => ['content' => $content],
+        ], 'callback.test.custom', ['access_token' => $accessToken]);
+    }
     /**
      * Query the authorizer profile after authorization. The profile is the
      * reliable source for distinguishing a mini program from an official
