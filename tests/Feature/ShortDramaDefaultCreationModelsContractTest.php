@@ -45,6 +45,33 @@ class ShortDramaDefaultCreationModelsContractTest extends TestCase
         self::assertSame('video-b', $selected['video']['id']);
     }
 
+    public function testUserScriptModelPresentationUsesOnlyThePowerMarketDisplayFields(): void
+    {
+        $option = $this->invoke('formatUserModelOption', [
+            'id' => 'market-text-1',
+            'product_id' => 19,
+            'name' => '市场模型名称',
+            'description' => '市场模型介绍',
+            'display_icon' => 'uploads/power-market/model.png',
+            // This is the old short-drama fallback and must never be presented
+            // as the selected market model icon.
+            'image' => 'resource/image/common/menu_generator.png',
+        ]);
+
+        self::assertSame('市场模型名称', $option['name']);
+        self::assertSame('市场模型介绍', $option['description']);
+        self::assertStringEndsWith('uploads/power-market/model.png', $option['display_icon']);
+        self::assertSame($option['display_icon'], $option['image']);
+
+        $withoutMarketIcon = $this->invoke('formatUserModelOption', [
+            'id' => 'market-text-2',
+            'name' => '无图标市场模型',
+            'image' => 'resource/image/common/menu_generator.png',
+        ]);
+        self::assertSame('', $withoutMarketIcon['display_icon']);
+        self::assertSame('', $withoutMarketIcon['image']);
+    }
+
     public function testTenantAdminConfigContainsBothCreationModelSelectors(): void
     {
         $asset = (string)file_get_contents(dirname(__DIR__, 2) . '/public/admin/assets/config-fge0of94.js');
