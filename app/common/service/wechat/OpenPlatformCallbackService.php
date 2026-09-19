@@ -14,8 +14,8 @@ class OpenPlatformCallbackService
     public static function handle($request): array|string
     {
         $config = \app\common\model\wechat\WechatOpenPlatform::withoutGlobalScope()->findOrEmpty(1)->toArray();
-        $token = WechatCredentialService::decrypt($config['token'] ?? '');
-        $aesKey = WechatCredentialService::decrypt($config['encoding_aes_key'] ?? '');
+        $token = OpenPlatformService::credentialValue($config['token'] ?? '');
+        $aesKey = OpenPlatformService::credentialValue($config['encoding_aes_key'] ?? '');
         $appId = (string)($config['app_id'] ?? '');
         $routeAppId = trim((string)$request->param('appid', ''));
         $timestamp = (string)$request->param('timestamp', '');
@@ -171,8 +171,8 @@ class OpenPlatformCallbackService
         );
         $encryptor = new Encryptor(
             (string)$config['app_id'],
-            WechatCredentialService::decrypt($config['token'] ?? ''),
-            WechatCredentialService::decrypt($config['encoding_aes_key'] ?? ''),
+            OpenPlatformService::credentialValue($config['token'] ?? ''),
+            OpenPlatformService::credentialValue($config['encoding_aes_key'] ?? ''),
             (string)$config['app_id']
         );
         return $encryptor->encryptAsXml($plain);
