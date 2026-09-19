@@ -32,6 +32,10 @@ final class ShortDramaScriptGeneration
             $receipts[$key] = (array)($receipt['result'] ?? []);
             return ShortDramaStructuredResponse::decode($receipts[$key]);
         };
+        if (ShortDramaEpisodeDuration::active($request) && !ShortDramaEpisodeDuration::localRevision($request)) {
+            $payload = ShortDramaTimedScriptGeneration::generate($request, $messages, $call, $progress);
+            return self::result($payload, $receipts, $model);
+        }
         $duration = (int)($request['target_duration_seconds'] ?? 0);
         $budget = ShortDramaPlanningBudget::stage($messages['system_prompt'] . $messages['content'], $model, 'script', 12000);
         // Local revisions must never fall back to rewriting the entire film.
