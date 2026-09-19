@@ -7,7 +7,6 @@ use app\common\service\app\aigc_canvas\AigcCanvasService;
 use app\common\service\app\aigc_local_redraw\AigcLocalRedrawService;
 use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\app\aigc_music\AigcMusicService;
-use app\common\service\app\aigc_video\AigcVideoPosterService;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\FileService;
@@ -100,6 +99,9 @@ class ShortDramaCanvasService
         $document = self::ownedDocument($tenantId, $userId, $canvasId);
         $nodeId = trim((string)($params['node_id'] ?? ''));
         if ($nodeId === '') throw new Exception('缺少视频节点');
+        if (!empty($params['job_id'])) {
+            return ShortDramaCanvasPosterJobService::frameStatus($tenantId, $userId, $canvasId, $nodeId, (int)$params['job_id']);
+        }
         $node = null;
         foreach (self::decode((string)($document['nodes_json'] ?? '[]')) as $item) {
             if ((string)($item['id'] ?? '') === $nodeId) {
@@ -128,25 +130,18 @@ class ShortDramaCanvasService
         // A playhead at duration is beyond the final decodable frame.
         if ($duration > 0) $time = min($time, max(0.001, $duration - 0.05));
 
-        $frame = AigcVideoPosterService::createFrame(
+        $jobId = ShortDramaCanvasPosterJobService::enqueue(
             $tenantId,
+            $userId,
+            $canvasId,
+            $nodeId,
             $uri,
             (string)($metadata['storage_scope'] ?? ''),
             (string)($metadata['storage_engine'] ?? ''),
             (string)($metadata['storage_domain'] ?? ''),
-            $time,
-            'frames'
+            $time
         );
-        return $frame + [
-            'url' => FileService::getFileUrlByStorage(
-                (string)$frame['uri'],
-                (string)$frame['storage_scope'],
-                (string)$frame['storage_engine'],
-                (string)$frame['storage_domain']
-            ),
-            'source_node_id' => $nodeId,
-            'capture_time' => $time,
-        ];
+        return ShortDramaCanvasPosterJobService::frameStatus($tenantId, $userId, $canvasId, $nodeId, $jobId);
     }
 
     /** Reuse native canvas image processing, with short-drama ownership checks. */
