@@ -52,6 +52,21 @@ class ShortDramaShotDurationTest extends TestCase
         $this->call('splitTimelineDuration', 3);
     }
 
+    public function testTenantDurationPolicyIsNormalizedAndAppliedToNewPlans(): void
+    {
+        $rule = Duration::normalizeRule(['min_seconds' => 3, 'max_seconds' => 8, 'default_seconds' => 6]);
+        self::assertSame(['min_seconds' => 3, 'max_seconds' => 8, 'default_seconds' => 6], $rule);
+        self::assertSame(6.0, Duration::normalize(null, $rule));
+        self::assertSame(3.0, Duration::normalize(1, $rule));
+        self::assertSame(8.0, Duration::normalize(12, $rule));
+        self::assertTrue(Duration::contains(3, $rule));
+        self::assertFalse(Duration::contains(9, $rule));
+        self::assertSame([6, 6], Duration::split(12, $rule));
+
+        $shot = ['shot_id' => 'a', 'visual_description' => '甲拿起信件', 'recommended_duration_seconds' => 12];
+        self::assertSame(8.0, $this->call('normalizeGeneratedStoryboard', [$shot], $rule)[0]['recommended_duration_seconds']);
+    }
+
     public function testDurationBalancingAndCountHintsUseNewLimits(): void
     {
         foreach ([16, 30, 31, 60] as $target) {
