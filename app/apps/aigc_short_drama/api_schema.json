@@ -354,6 +354,14 @@
       "need_role_permission": 0
     },
     {
+      "api_path": "app.aigc_short_drama.script_plan/createParseUpload",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:script_plan:create_parse_upload:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
       "api_path": "app.aigc_short_drama.script_plan/create",
       "api_method": "POST",
       "permission_key": "aigc_short_drama:script_plan:create:user",
