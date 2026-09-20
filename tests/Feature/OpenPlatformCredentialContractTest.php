@@ -76,7 +76,7 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString("'wxa/gettemplatelist'", $service);
         self::assertStringContainsString("'template.list', ['component_access_token' => self::componentAccessToken()], 0, 0, 'GET'", $service);
         self::assertStringContainsString("'template.drafts', ['component_access_token' => self::componentAccessToken()], 0, 0, 'GET'", $service);
-        self::assertStringContainsString("$method === 'GET'", $service);
+        self::assertStringContainsString("\$method === 'GET'", $service);
         self::assertStringContainsString('beforeTemplateIds', $service);
         self::assertStringContainsString('public static function syncTemplates()', $service);
         self::assertStringContainsString('public static function templateRecords()', $service);
@@ -120,14 +120,18 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString('@open_platform_root_id IS NOT NULL', $serverUpgrade);
     }
 
-    public function testTemplateVersionAndWeChatConsoleAuditContractsAreEnforced(): void
+    public function testTemplateVersionAndAuthorizedAuditContractsAreEnforced(): void
     {
         $service = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
 
         self::assertStringContainsString("foreach (['authorizer_id', 'template_id'] as \$key)", $service);
         self::assertStringContainsString("\$version = trim((string)\$template['template_version']);", $service);
-        self::assertStringContainsString("'wxa/get_latest_auditstatus'", $service);
-        self::assertStringContainsString('请在微信小程序后台提交审核', $service);
+        self::assertStringContainsString("'cgi-bin/wxopen/getcategory'", $service);
+        self::assertStringContainsString("'wxa/submit_audit'", $service);
+        self::assertStringContainsString("'wxa/get_auditstatus'", $service);
+        self::assertStringContainsString("'wxa/undocodeaudit'", $service);
+        self::assertStringContainsString('buildAuditItem', $service);
+        self::assertStringContainsString('miniprogramManagement', $service);
         self::assertStringContainsString('downloadExperienceQrcode', $service);
         self::assertStringContainsString("\$query->where('upload_mode', 'template');", $service);
     }

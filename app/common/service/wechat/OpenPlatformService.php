@@ -521,25 +521,13 @@ class OpenPlatformService
             if ((string)$row['experience_status'] !== 'success') throw new \RuntimeException('请先提交体验版');
             if ((string)$row['audit_status'] === 'pending') return self::formatVersion($row->toArray());
             $token = self::authorizerToken((int)$authorizer['id']);
-            $categoryResult = self::request('wxa/get_category', [], 'release.audit.category', ['access_token' => $token], $tenantId, (int)$authorizer['id'], 'GET');
+            // The current Open Platform API obtains categories from the
+            // authorizer's configured category list.  Do not use the obsolete
+            // wxa/get_category endpoint and never ask the tenant to invent
+            // audit fields locally: category is managed in WeChat Console.
+            $categoryResult = self::request('cgi-bin/wxopen/getcategory', [], 'release.audit.category', ['access_token' => $token], $tenantId, (int)$authorizer['id'], 'GET');
             $pageResult = self::request('wxa/get_page', [], 'release.audit.page', ['access_token' => $token], $tenantId, (int)$authorizer['id'], 'GET');
-            $category = (array)($categoryResult['category_list'][0] ?? []);
-            $page = trim((string)($pageResult['page_list'][0] ?? ''));
-            if ($page === '' || !$category) throw new \RuntimeException('微信未返回可用于审核的页面或类目，请先在小程序后台完成基础设置');
-            $tag = trim((string)($category['second_class'] ?? $category['first_class'] ?? ''));
-            $title = trim((string)($authorizer['authorizer_name'] ?? $authorizer['principal_name'] ?? '小程序首页'));
-            if ($tag === '') throw new \RuntimeException('微信未返回可用于审核的类目标签，请先在小程序后台完成基础设置');
-            $item = array_filter([
-                'address' => $page,
-                'tag' => mb_substr($tag, 0, 20),
-                'first_class' => (string)($category['first_class'] ?? ''),
-                'second_class' => (string)($category['second_class'] ?? ''),
-                'third_class' => (string)($category['third_class'] ?? ''),
-                'first_id' => (int)($category['first_id'] ?? 0),
-                'second_id' => (int)($category['second_id'] ?? 0),
-                'third_id' => (int)($category['third_id'] ?? 0),
-                'title' => mb_substr($title, 0, 32),
-            ], static fn($value) => $value !== '' && $value !== 0);
+            $item = self::buildAuditItem($categoryResult, $pageResult);
             $result = self::request('wxa/submit_audit', ['item_list' => [$item]], 'release.audit.submit', ['access_token' => $token], $tenantId, (int)$authorizer['id']);
             $auditNo = trim((string)($result['auditid'] ?? ''));
             if ($auditNo === '') throw new \RuntimeException('微信未返回审核编号');
@@ -561,6 +549,80 @@ class OpenPlatformService
         $review->save($payload);
         $row->save(['audit_status' => $auditStatus, 'update_time' => time()]);
         return self::formatVersion($row->toArray());
+    }
+    public static function undoAudit(int $tenantId, int $id): array
+    {
+        $lock = SubmitLockService::acquire('wechat.version.audit.undo.' . $id, $tenantId, 0);
+        try {
+            [$row, $authorizer] = self::versionForTenant($tenantId, $id);
+            if ((string)$row['audit_status'] !== 'pending') throw new \RuntimeException('当前版本没有可撤回的审核');
+            $review = WechatMnpReview::withoutGlobalScope()->where('version_id', $id)->order('id desc')->findOrEmpty();
+            if ($review->isEmpty() || trim((string)$review['audit_no']) === '') throw new \RuntimeException('未找到微信审核编号');
+            self::request('wxa/undocodeaudit', [], 'release.audit.undo', ['access_token' => self::authorizerToken((int)$authorizer['id'])], $tenantId, (int)$authorizer['id']);
+            $review->save(['audit_status' => 'withdrawn', 'reason' => '已撤回审核', 'finish_time' => time()]);
+            $row->save(['audit_status' => 'none', 'update_time' => time()]);
+            return self::formatVersion($row->toArray());
+        } finally { SubmitLockService::release($lock); }
+    }
+
+    /**
+     * Read authorizer-owned configuration from WeChat. These values are a
+     * snapshot for display and audit preparation; no tenant-entered category,
+     * privacy or page data is persisted as if it were official data.
+     */
+    public static function miniprogramManagement(int $tenantId): array
+    {
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        $token = self::authorizerToken((int)$authorizer['id']);
+        $categories = self::request('cgi-bin/wxopen/getcategory', [], 'miniprogram.category.list', ['access_token' => $token], $tenantId, (int)$authorizer['id'], 'GET');
+        $pages = self::request('wxa/get_page', [], 'miniprogram.page.list', ['access_token' => $token], $tenantId, (int)$authorizer['id'], 'GET');
+        $privacy = self::request('cgi-bin/component/getprivacysetting', [], 'miniprogram.privacy.get', ['access_token' => $token], $tenantId, (int)$authorizer['id']);
+        return [
+            'authorizer_appid' => (string)$authorizer['authorizer_appid'],
+            'categories' => array_values(array_filter((array)($categories['category_list'] ?? []), 'is_array')),
+            'pages' => array_values(array_filter((array)($pages['page_list'] ?? []), 'is_string')),
+            'privacy' => $privacy,
+            'synced_at' => time(),
+        ];
+    }
+
+    private static function effectiveMiniprogramAuthorizer(int $tenantId): WechatAuthorizer
+    {
+        $authorizer = WechatAuthorizer::withoutGlobalScope()->where([
+            'tenant_id' => $tenantId,
+            'authorizer_type' => 'miniprogram',
+            'authorization_status' => 1,
+        ])->order('id desc')->findOrEmpty();
+        if ($authorizer->isEmpty()) throw new \RuntimeException('当前租户未授权小程序');
+        return $authorizer;
+    }
+
+    /** Build the minimal valid item_list payload defined by api_submitaudit. */
+    private static function buildAuditItem(array $categoryResult, array $pageResult): array
+    {
+        $categories = array_values(array_filter((array)($categoryResult['category_list'] ?? []), static function ($category): bool {
+            return is_array($category)
+                && trim((string)($category['first_class'] ?? '')) !== ''
+                && trim((string)($category['second_class'] ?? '')) !== ''
+                && (int)($category['first_id'] ?? 0) > 0
+                && (int)($category['second_id'] ?? 0) > 0;
+        }));
+        if (!$categories) throw new \RuntimeException('微信未返回已配置的审核类目，请先在微信小程序后台完成类目配置');
+        $category = $categories[0];
+        $item = [
+            'first_class' => (string)$category['first_class'],
+            'second_class' => (string)$category['second_class'],
+            'first_id' => (int)$category['first_id'],
+            'second_id' => (int)$category['second_id'],
+        ];
+        $pageList = (array)($pageResult['page_list'] ?? []);
+        $page = trim((string)($pageList[0] ?? ''));
+        if ($page !== '') $item['address'] = $page;
+        if (trim((string)($category['third_class'] ?? '')) !== '' && (int)($category['third_id'] ?? 0) > 0) {
+            $item['third_class'] = (string)$category['third_class'];
+            $item['third_id'] = (int)$category['third_id'];
+        }
+        return $item;
     }
     public static function releaseVersion(int $tenantId, int $id): array { $lock = SubmitLockService::acquire('wechat.version.release.' . $id, $tenantId, 0); try { [$row, $authorizer] = self::versionForTenant($tenantId, $id); if ((string)$row['audit_status'] !== 'approved') throw new \RuntimeException('审核尚未通过'); if ((string)$row['release_status'] === 'released') return $row->toArray(); self::request('wxa/release', [], 'release.publish', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $row->save(['release_status' => 'released', 'update_time' => time()]); return $row->toArray(); } finally { SubmitLockService::release($lock); } }
     public static function rollbackVersion(int $tenantId, int $id, int $fromId = 0): array { $lock = SubmitLockService::acquire('wechat.version.rollback.' . $id, $tenantId, 0); try { [$row, $authorizer] = self::versionForTenant($tenantId, $id); if ((string)$row['release_status'] !== 'released') throw new \RuntimeException('当前版本未发布'); self::request('wxa/revertcoderelease', [], 'release.rollback', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $row->save(['release_status' => 'rolled_back', 'rollback_from_id' => $fromId, 'update_time' => time()]); return $row->toArray(); } finally { SubmitLockService::release($lock); } }
