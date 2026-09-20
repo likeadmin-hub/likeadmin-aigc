@@ -15,6 +15,20 @@ class ShortDramaFileQaLifecycleContractTest extends TestCase
         self::assertFalse($this->invoke('isMarketFileQaParseRequest', []));
     }
 
+    public function testFileQaTaskNeverEntersTheLlmStreamStaleRecovery(): void
+    {
+        $task = [
+            'status' => 'running',
+            'task_id' => 'sd_parse_contract',
+            'request_json' => json_encode(['source' => 'market_file_qa_parse'], JSON_UNESCAPED_UNICODE),
+            'result_json' => '{}',
+            'started_at' => 1,
+            'update_time' => 1,
+        ];
+
+        self::assertSame($task, $this->invoke('recoverStaleScriptPlanTask', 1, 1, $task));
+    }
+
     public function testFileQaMirrorBindsConsumptionAndBypassesTheLlmStaleGuard(): void
     {
         $source = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/app/aigc_short_drama/AigcShortDramaService.php');
