@@ -10251,25 +10251,10 @@ class AigcShortDramaService
         if (!is_dir($dir) || !is_writable($dir)) {
             throw new Exception('成片输出目录不可写，请检查服务器存储配置');
         }
-        $listPath = $workDir . 'concat.txt';
-        $list = implode("\n", array_map(static function (string $path): string {
-            return "file '" . str_replace("'", "'\\''", str_replace('\\', '/', $path)) . "'";
-        }, $paths));
-        file_put_contents($listPath, $list);
         $filename = 'final_' . $projectId . '_' . date('His') . '_' . random_int(1000, 9999) . '.mp4';
         $outputPath = $dir . $filename;
         $concatPath = empty($bgmAsset) ? $outputPath : $workDir . 'concat_output.mp4';
-        $output = [];
-        $cmd = $ffmpegCmd . ' -y -f concat -safe 0 -i ' . escapeshellarg($listPath) . ' -c copy -movflags +faststart ' . escapeshellarg($concatPath) . ' 2>&1';
-        @\exec($cmd, $output, $code);
-        if ($code !== 0 || !is_file($concatPath)) {
-            $cmd = $ffmpegCmd . ' -y -f concat -safe 0 -i ' . escapeshellarg($listPath) . ' -c:v libx264 -c:a aac -movflags +faststart ' . escapeshellarg($concatPath) . ' 2>&1';
-            @\exec($cmd, $output, $code);
-        }
-        if ($code !== 0 || !is_file($concatPath)) {
-            Log::write('AI short drama FFmpeg export failed: ' . implode("\n", (array)$output));
-            throw new Exception('最终视频导出失败，请检查分镜视频格式或 FFmpeg 配置');
-        }
+        self::concatNormalizedExportClips($ffmpegCmd, $paths, $concatPath);
         if (!empty($bgmAsset)) {
             $audioPath = self::localPublicFilePath((string)($bgmAsset['uri'] ?? ''));
             if ($audioPath === '') {
@@ -10318,6 +10303,42 @@ class AigcShortDramaService
             'video_duration' => (float)$timing['video_duration'],
             'audio_duration' => (float)$timing['audio_duration'],
         ];
+    }
+
+    /**
+     * The concat demuxer plus stream copy preserves each MP4's edit-list and
+     * B-frame timestamps.  Browsers can then pause or retime at a shot boundary
+     * even when the container's total duration looks valid.  Concatenating decoded
+     * normalized clips through the filter creates one fresh, continuous timeline.
+     *
+     * @param array<int, string> $paths
+     */
+    private static function concatNormalizedExportClips(string $ffmpegCmd, array $paths, string $outputPath): void
+    {
+        if (empty($paths)) {
+            throw new Exception('暂无可导出的分镜素材');
+        }
+        $inputs = '';
+        $streams = '';
+        foreach (array_values($paths) as $index => $path) {
+            $inputs .= ' -i ' . escapeshellarg($path);
+            $streams .= '[' . $index . ':v:0][' . $index . ':a:0]';
+        }
+        $filter = $streams
+            . 'concat=n=' . count($paths) . ':v=1:a=1[concatv][concata];'
+            . '[concatv]fps=30,format=yuv420p[v];'
+            . '[concata]aresample=48000,asetpts=N/SR/TB[a]';
+        $output = [];
+        $cmd = $ffmpegCmd . ' -y' . $inputs
+            . ' -filter_complex ' . escapeshellarg($filter)
+            . ' -map ' . escapeshellarg('[v]') . ' -map ' . escapeshellarg('[a]')
+            . ' -c:v libx264 -pix_fmt yuv420p -r 30 -c:a aac -ar 48000 -ac 2 -movflags +faststart '
+            . escapeshellarg($outputPath) . ' 2>&1';
+        @\exec($cmd, $output, $code);
+        if ($code !== 0 || !is_file($outputPath) || filesize($outputPath) <= 0) {
+            Log::write('AI short drama normalized clip concat failed: ' . implode("\n", (array)$output));
+            throw new Exception('最终视频导出失败，请检查分镜视频格式或 FFmpeg 配置');
+        }
     }
 
     /**
