@@ -123,9 +123,16 @@ class ShortDramaVideoReferenceContractTest extends TestCase
             $candidates
         ));
         self::assertSame([
-            'first_frame', 'character_turnaround', 'character_turnaround',
+            'first_frame', 'character_reference', 'character_reference',
             'scene_image', 'mentioned_shot',
         ], array_column($candidates, 'logical_role'));
+    }
+
+    public function testBoundSubjectReferenceFallsBackToTheMainImageWhenNoTurnaroundExists(): void
+    {
+        $source = (string)file_get_contents(dirname(__DIR__, 2) . '/app/common/service/app/aigc_short_drama/AigcShortDramaService.php');
+        self::assertStringContainsString("whereIn('asset_type', ['three_view', 'subject_image'])", $source);
+        self::assertStringContainsString("\$bySubject['three_view'][\$subjectId] ?? \$bySubject['subject_image'][\$subjectId] ?? null", $source);
     }
 
     public function testH3UsesItsDocumentedNineImageFallbackWhenMarketMetadataIsMissing(): void

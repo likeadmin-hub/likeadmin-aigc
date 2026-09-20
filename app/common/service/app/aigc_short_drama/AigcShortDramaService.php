@@ -16135,12 +16135,11 @@ class AigcShortDramaService
         // priority below. The contract is intentionally built server-side so
         // old clients and crafted requests cannot reorder or add references:
         // current first frame > bound subject turnaround > bound scene >
-        // explicitly mentioned storyboard image. Subject primary images are
-        // intentionally not video references: the turnaround is the only
-        // bound-subject source for this fallback contract.
+        // explicitly mentioned storyboard image. Each bound subject uses its
+        // turnaround when ready, falling back to its main image otherwise.
         $candidates = self::shortDramaVideoReferenceCandidates(
             $assetMap[$firstFrameId],
-            self::shortDramaVideoThreeViewAssets($tenantId, $userId, $projectId, $shot),
+            self::shortDramaVideoSubjectReferenceAssets($tenantId, $userId, $projectId, $shot),
             self::shortDramaVideoSceneAssets($tenantId, $userId, $projectId, $shot),
             self::shortDramaVideoMentionedShotAssets($tenantId, $userId, $projectId, $params)
         );
@@ -16176,7 +16175,7 @@ class AigcShortDramaService
      * Normal-reference ordering is a source-of-truth contract shared by all
      * short-drama entry points. Tail-frame mode never reaches this method.
      */
-    private static function shortDramaVideoReferenceCandidates(array $firstFrame, array $threeViews, array $sceneAssets, array $mentionedShotAssets): array
+    private static function shortDramaVideoReferenceCandidates(array $firstFrame, array $subjectAssets, array $sceneAssets, array $mentionedShotAssets): array
     {
         $candidates = [];
         $candidateIds = [];
@@ -16192,7 +16191,7 @@ class AigcShortDramaService
             }
         };
         $append([$firstFrame], 'first_frame');
-        $append($threeViews, 'character_turnaround');
+        $append($subjectAssets, 'character_reference');
         $append($sceneAssets, 'scene_image');
         $append($mentionedShotAssets, 'mentioned_shot');
         return $candidates;
@@ -16220,7 +16219,7 @@ class AigcShortDramaService
         return $assets;
     }
 
-    private static function shortDramaVideoThreeViewAssets(int $tenantId, int $userId, int $projectId, array $shot): array
+    private static function shortDramaVideoSubjectReferenceAssets(int $tenantId, int $userId, int $projectId, array $shot): array
     {
         $subjectIds = array_values(array_unique(array_filter(array_map('strval', self::splitPlanRefTokens($shot['subject_ref_ids'] ?? [])))));
         if ($subjectIds === []) {
@@ -16231,23 +16230,24 @@ class AigcShortDramaService
             'tenant_id' => $tenantId,
             'user_id' => $userId,
             'project_id' => $projectId,
-            'asset_type' => 'three_view',
             'status' => 'ready',
             'delete_time' => 0,
-        ])->order(['id' => 'desc'])->select()->toArray();
-        $bySubject = [];
+        ])->whereIn('asset_type', ['three_view', 'subject_image'])->order(['id' => 'desc'])->select()->toArray();
+        $bySubject = ['three_view' => [], 'subject_image' => []];
         foreach ($rows as $row) {
+            $assetType = (string)($row['asset_type'] ?? '');
             $meta = self::assetReferenceMeta($row, self::jsonDecode((string)($row['meta_json'] ?? '')));
             $subjectId = trim((string)($meta['subject_id'] ?? $meta['subject_ref_id'] ?? $meta['character_id'] ?? $meta['item_id'] ?? ''));
-            if ($subjectId === '' || !isset($wanted[$subjectId]) || isset($bySubject[$subjectId])) {
+            if ($subjectId === '' || !isset($wanted[$subjectId]) || !isset($bySubject[$assetType]) || isset($bySubject[$assetType][$subjectId])) {
                 continue;
             }
-            $bySubject[$subjectId] = self::formatAsset($row);
+            $bySubject[$assetType][$subjectId] = self::formatAsset($row);
         }
         $assets = [];
         foreach ($subjectIds as $subjectId) {
-            if (isset($bySubject[$subjectId])) {
-                $assets[] = $bySubject[$subjectId];
+            $asset = $bySubject['three_view'][$subjectId] ?? $bySubject['subject_image'][$subjectId] ?? null;
+            if ($asset !== null) {
+                $assets[] = $asset;
             }
         }
         return $assets;
