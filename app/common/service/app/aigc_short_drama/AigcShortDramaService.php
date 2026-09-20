@@ -2885,14 +2885,54 @@ class AigcShortDramaService
             $reserve = MarketFileQaAppRuntimeService::reserve($tenantId, $userId, 'script_parse', $parseTaskId, $selection, $request);
             $scriptTask = self::findTask($tenantId, $userId, $parseTaskId, $projectId);
             MarketFileQaAppRuntimeService::linkBusinessTask((int)$reserve['app_task_id'], (int)$scriptTask['id']);
+            // A script parse has two local projections: the script task used by
+            // the plan page and its generation-task mirror used by task workers.
+            // Bind both projections to the same market consumption before any
+            // asynchronous work starts. Otherwise the legacy LLM refresher sees
+            // an unbound script_plan row and can incorrectly apply stream rules.
+            $marketSnapshot = (array)($reserve['market_snapshot'] ?? []);
             AigcShortDramaScriptTask::where('id', (int)$scriptTask['id'])->update([
-                'app_task_id' => (int)$reserve['app_task_id'], 'pricing_snapshot' => self::jsonEncode($reserve['market_snapshot']),
+                'app_task_id' => (int)$reserve['app_task_id'], 'pricing_snapshot' => self::jsonEncode($marketSnapshot),
                 'status' => self::STATUS_RUNNING, 'progress' => 15, 'current_step' => '正在提交剧本解析', 'update_time' => time(),
+            ]);
+            AigcShortDramaGenerationTask::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'task_id' => $parseTaskId,
+                'task_type' => 'script_plan',
+                'delete_time' => 0,
+            ])->update([
+                'app_task_id' => (int)$reserve['app_task_id'],
+                'consumption_id' => (int)$reserve['consumption_id'],
+                'market_product_id' => (int)($marketSnapshot['product_id'] ?? 0),
+                'market_sku_id' => (int)($marketSnapshot['sku_id'] ?? 0),
+                'provider' => 'power_market',
+                'source_app_code' => 'file_qa',
+                'model_json' => self::jsonEncode($marketSnapshot),
+                'pricing_snapshot' => self::jsonEncode($marketSnapshot),
+                'billing_status' => 'pending_usage',
+                'status' => self::STATUS_RUNNING,
+                'progress' => 15,
+                'error_code' => '',
+                'error_msg' => '',
+                'update_time' => time(),
             ]);
             $submitted = MarketFileQaAppRuntimeService::submit((int)$reserve['consumption_id'], $request);
             AigcShortDramaScriptTask::where('id', (int)$scriptTask['id'])->update([
                 'provider_task_id' => (string)($submitted['provider_task_id'] ?? ''), 'status' => self::STATUS_RUNNING,
                 'progress' => 25, 'current_step' => '正在解析剧本', 'update_time' => time(),
+            ]);
+            AigcShortDramaGenerationTask::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'task_id' => $parseTaskId,
+                'task_type' => 'script_plan',
+                'delete_time' => 0,
+            ])->update([
+                'provider_task_id' => (string)($submitted['provider_task_id'] ?? ''),
+                'status' => self::STATUS_RUNNING,
+                'progress' => 25,
+                'update_time' => time(),
             ]);
         } catch (\Throwable $e) {
             AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $parseTaskId])->update([
@@ -3013,10 +3053,11 @@ class AigcShortDramaService
 
     private static function syncScriptPlanGenerationTask(int $tenantId, int $userId, int $projectId, string $taskId, string $status, array $request, array $model, array $extra = []): void
     {
+        $isMarketFileQa = self::isMarketFileQaParseRequest($request);
         $row = self::createGenerationTaskRecord($tenantId, $userId, $projectId, '', 'script_plan', $taskId, $status, [
-            'provider' => (string)($model['provider'] ?? $extra['provider'] ?? ''),
-            'source_app_code' => self::LLM_APP_CODE,
-            'model_snapshot' => $model,
+            'provider' => $isMarketFileQa ? 'power_market' : (string)($model['provider'] ?? $extra['provider'] ?? ''),
+            'source_app_code' => $isMarketFileQa ? 'file_qa' : self::LLM_APP_CODE,
+            'model_snapshot' => $isMarketFileQa ? (array)($extra['pricing'] ?? []) : $model,
             'request' => $request,
             'result' => is_array($extra['result'] ?? null) ? $extra['result'] : [],
             'pricing' => is_array($extra['pricing'] ?? null) ? $extra['pricing'] : [],
@@ -3219,8 +3260,19 @@ class AigcShortDramaService
         ];
     }
 
+    /** A file_qa parse is a market application task, never an LLM stream. */
+    private static function isMarketFileQaParseRequest(array $request): bool
+    {
+        return (string)($request['source'] ?? '') === 'market_file_qa_parse';
+    }
+
     private static function recoverStaleScriptPlanTask(int $tenantId, int $userId, array $taskData): array
     {
+        if (self::isMarketFileQaParseRequest(self::jsonDecode((string)($taskData['request_json'] ?? '')))) {
+            // file_qa is an independently polled application API. Its service
+            // owns timeout and terminal transitions, not the LLM stream guard.
+            return $taskData;
+        }
         if ((string)($taskData['status'] ?? '') !== self::STATUS_RUNNING) {
             return $taskData;
         }
@@ -8401,6 +8453,15 @@ class AigcShortDramaService
         }
 
         $row = $task->toArray();
+        if (self::isMarketFileQaParseRequest(self::jsonDecode((string)($row['request_json'] ?? '')))) {
+            // Historical rows may have been created before the consumption link
+            // existed. Keep their mirror in sync, but never run LLM stream
+            // recovery against an application-API parse task.
+            self::syncMarketFileQaScriptTask($row);
+            $fresh = AigcShortDramaScriptTask::where('id', (int)$row['id'])->findOrEmpty();
+            self::syncScriptPlanGenerationFromTaskRow($tenantId, $userId, $fresh->isEmpty() ? $row : $fresh->toArray());
+            return;
+        }
         if (ShortDramaEpisodeService::context($tenantId, $userId, (int)$row['project_id'])) {
             self::syncScriptPlanGenerationFromTaskRow($tenantId, $userId, $row);
             return;
@@ -8485,7 +8546,7 @@ class AigcShortDramaService
         $tenantId = (int)$row['tenant_id'];
         $userId = (int)$row['user_id'];
         $request = self::jsonDecode((string)($row['request_json'] ?? ''));
-        if ((string)($request['source'] ?? '') === 'market_file_qa_parse') {
+        if (self::isMarketFileQaParseRequest($request)) {
             self::syncMarketFileQaScriptTask($row);
             return;
         }
