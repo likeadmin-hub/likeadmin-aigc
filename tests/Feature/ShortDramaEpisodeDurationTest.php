@@ -142,6 +142,28 @@ class ShortDramaEpisodeDurationTest extends TestCase
         self::assertEquals(40, array_sum(array_column($payload['storyboard'], 'recommended_duration_seconds')));
     }
 
+    public function testTruncatedTimedPartSplitsWithStableIdsAndPreviousShots(): void
+    {
+        $calls = [];
+        $skeleton = ['title' => '钥匙', 'story_outline' => '找到钥匙离开', 'script_lines' => ['找到钥匙离开'],
+            'subjects' => [['id' => 'p1', 'name' => '甲']], 'locations' => [['id' => 'l1', 'name' => '房间']],
+            'scene_beats' => [['scene_ref_id' => 'l1', 'goal' => '离开', 'entry' => '寻找', 'exit' => '离开',
+                'key_events' => ['找钥匙', '开门'], 'duration_seconds' => 20, 'shot_durations' => [10, 10]]]];
+        $result = ShortDramaTimedScriptGeneration::generate($this->request(), ['system_prompt' => '创作', 'content' => '故事'],
+            static function ($key, $input) use (&$calls, $skeleton) {
+                $calls[] = $key;
+                if (str_contains($key, 'skeleton')) return $skeleton;
+                if ($key === 'timed_scene_1_1') throw new \RuntimeException('输出截断', 413);
+                $number = str_contains($key, 'scene_1_2') ? 2 : 1;
+                if ($number === 2) self::assertStringContainsString('s1_1', $input['content']);
+                return ['storyboard' => [['shot_id' => 's1_' . $number, 'scene_ref_id' => 'l1', 'subject_ref_ids' => ['p1'],
+                    'visual_description' => '甲走向门口', 'dialogue' => '', 'recommended_duration_seconds' => 10]]];
+            }, null, 4096);
+        self::assertSame(['timed_skeleton_0', 'timed_scene_1_1', 'timed_scene_1_1_split_1', 'timed_scene_1_2_split_1'], $calls);
+        self::assertSame(['s1_1', 's1_2'], array_column($result['storyboard'], 'shot_id'));
+        self::assertEquals(20, $result['timing_diagnostics']['total_seconds']);
+    }
+
     public function testDenseDialogueUsesTargetedFieldRepairInsteadOfRegeneratingTheStoryboardPart(): void
     {
         $request = $this->request(0, [['start_seconds' => 0, 'end_seconds' => 5, 'duration_seconds' => 5]]);

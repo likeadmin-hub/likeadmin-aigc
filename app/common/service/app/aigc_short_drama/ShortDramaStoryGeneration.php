@@ -26,6 +26,7 @@ final class ShortDramaStoryGeneration
         };
         if ($stage === 'story') {
             $messages = $assemble($request);
+            $payload = [];
             try {
                 $payload = $call('story', $messages, 1, true);
                 $issues = ShortDramaStoryWorkflow::issues($payload, 'story', $total);
@@ -35,6 +36,8 @@ final class ShortDramaStoryGeneration
             }
             if ($issues) {
                 $messages['content'] .= "\n上次内容未通过校验，请返回完整故事设定。具体缺失：" . json_encode($issues, JSON_UNESCAPED_UNICODE);
+                if ($payload) $messages['content'] .= "\n已有结果=" . json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
+                    . "\n保留已有角色、场景ID、剧情事实及合格字段，仅修复上述问题。";
                 $payload = $call('story_repair', $messages, 1, true);
                 $issues = ShortDramaStoryWorkflow::issues($payload, 'story', $total);
             }
@@ -97,6 +100,7 @@ final class ShortDramaStoryGeneration
                 $messages = $assemble($chunk);
                 if ($roadmap) $messages['content'] .= "\n全剧已确定的节奏分配（本批必须服从，阶段结束不等于全剧结束）：" . json_encode($roadmap, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
                 $key = 'outline_' . $start . '_' . $count;
+                $batch = [];
                 try {
                     $batch = $call($key, $messages, $count, false);
                     $episodes = self::episodes($batch, $count, $start);
@@ -112,6 +116,8 @@ final class ShortDramaStoryGeneration
                     }
                     if ($error->getCode() === 413) throw $error;
                     $messages['content'] .= "\n上次返回未通过完整性校验：" . $error->getMessage() . '。只修复本集，返回完整 JSON。';
+                    if ($batch) $messages['content'] .= "\n已有结果=" . json_encode($batch, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
+                        . "\n保留已生成的合格剧情字段，仅修复指出的问题，不改变已确认设定。";
                     $episodes = self::episodes($call($key . '_repair_v2', $messages, 1, false), 1, $start);
                     self::assertDistinctFromSaved($episodes, $payload['episodes']);
                 }

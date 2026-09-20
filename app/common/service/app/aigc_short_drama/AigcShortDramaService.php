@@ -17721,6 +17721,11 @@ class AigcShortDramaService
             // The confirmed setting is input, not repeated output. This also keeps a one-episode tail within budget.
             unset($schema['episodes'][0]['script_lines']);
             $schema = ['episodes' => $schema['episodes'], 'storyboard' => []];
+            return '根据已确认故事设定生成本批分集大纲。只返回合法 JSON，输出字段仅为 episodes 和空数组 storyboard；不要重复输出人物、场景、全剧设定或制作分镜。'
+                . "全剧 {$totalEpisodeCount} 集，本批对应 {$batchStart}-{$batchEnd}，恰好返回 {$episodeCount} 集，使用局部集号 1-{$episodeCount}。"
+                . '保留已确认的剧情事实、人物关系和连续性；仅在全剧最后一集收束主线。每集必须有 title、story_outline、conflict_point、ending_hook。'
+                . '存在 revision_message 时严格按 revision_target 和 revision_policy 修改，保留未要求修改的内容。'
+                . "\n任务资料：" . self::jsonEncode($context) . "\nJSON 字段结构：" . self::jsonEncode($schema);
         }
         if ($technicalOnly) {
             // Example prose is creative guidance too. Keep types/IDs, not hidden plot or length preferences.
