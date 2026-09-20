@@ -1,0 +1,277 @@
+{
+  "app_code": "image_human",
+  "apis": [
+    {
+      "api_path": "app.image_human.config/detail",
+      "api_method": "GET",
+      "permission_key": "image_human:config:detail:platform",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.config/setup",
+      "api_method": "POST",
+      "permission_key": "image_human:config:setup:platform",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.tenant/stat",
+      "api_method": "GET",
+      "permission_key": "image_human:tenant_usage",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.task_log/lists",
+      "api_method": "GET",
+      "permission_key": "image_human:task_log:lists",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.task_log/detail",
+      "api_method": "GET",
+      "permission_key": "image_human:task_log:detail",
+      "scene": "platform_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.config/detail",
+      "api_method": "GET",
+      "permission_key": "image_human:config:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.config/setup",
+      "api_method": "POST",
+      "permission_key": "image_human:config:setup",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.admin/stat",
+      "api_method": "GET",
+      "permission_key": "image_human:stat",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.admin_task/lists",
+      "api_method": "GET",
+      "permission_key": "image_human:task:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.admin_task/detail",
+      "api_method": "GET",
+      "permission_key": "image_human:task:detail",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.admin_task/delete",
+      "api_method": "POST",
+      "permission_key": "image_human:task:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.generate/estimate",
+      "api_method": "POST",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.generate/submit",
+      "api_method": "POST",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.task/lists",
+      "api_method": "GET",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.task/detail",
+      "api_method": "GET",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.result/lists",
+      "api_method": "GET",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.result/delete",
+      "api_method": "POST",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.avatar/lists",
+      "api_method": "GET",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.avatar/save",
+      "api_method": "POST",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.avatar/delete",
+      "api_method": "POST",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.voice/lists",
+      "api_method": "GET",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.voice/save",
+      "api_method": "POST",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.voice/delete",
+      "api_method": "POST",
+      "permission_key": "",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.image_human.public_avatar/lists",
+      "api_method": "GET",
+      "permission_key": "image_human:public_avatar:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.public_avatar/save",
+      "api_method": "POST",
+      "permission_key": "image_human:public_avatar:save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.public_avatar/delete",
+      "api_method": "POST",
+      "permission_key": "image_human:public_avatar:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.user_avatar/lists",
+      "api_method": "GET",
+      "permission_key": "image_human:user_avatar:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.user_avatar/delete",
+      "api_method": "POST",
+      "permission_key": "image_human:user_avatar:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.public_voice/lists",
+      "api_method": "GET",
+      "permission_key": "image_human:public_voice:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.public_voice/save",
+      "api_method": "POST",
+      "permission_key": "image_human:public_voice:save",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.public_voice/delete",
+      "api_method": "POST",
+      "permission_key": "image_human:public_voice:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.user_voice/lists",
+      "api_method": "GET",
+      "permission_key": "image_human:user_voice:lists",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.user_voice/publish",
+      "api_method": "POST",
+      "permission_key": "image_human:user_voice:publish",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    },
+    {
+      "api_path": "app.image_human.user_voice/delete",
+      "api_method": "POST",
+      "permission_key": "image_human:user_voice:delete",
+      "scene": "tenant_admin",
+      "need_login": 1,
+      "need_role_permission": 1
+    }
+  ]
+}

@@ -66,4 +66,17 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString('function syncAccount()', $tenantController);
         self::assertStringContainsString('OpenPlatformService::availableTemplates()', $tenantController);
     }
+
+    public function testLegacyNestedOpenPlatformMenuHasAnIdempotentHideUpgrade(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $serverUpgrade = (string)file_get_contents($root . '/upgrade/20260919_hide_legacy_open_platform_menu.sql');
+        $publicUpgrade = (string)file_get_contents($root . '/public/upgrade/20260919_hide_legacy_open_platform_menu.sql');
+
+        self::assertSame($serverUpgrade, $publicUpgrade);
+        self::assertStringContainsString("`source_menu_key` = 'core_channel_manage'", $serverUpgrade);
+        self::assertStringContainsString("`source_menu_key` = 'core_open_platform'", $serverUpgrade);
+        self::assertStringContainsString('`is_show` = 0, `is_disable` = 1', $serverUpgrade);
+        self::assertStringContainsString('@open_platform_root_id IS NOT NULL', $serverUpgrade);
+    }
 }
