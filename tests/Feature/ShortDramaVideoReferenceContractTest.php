@@ -10,6 +10,38 @@ use ReflectionMethod;
 
 class ShortDramaVideoReferenceContractTest extends TestCase
 {
+    public function testFfmpegExportDefersOnlyWhenTheWebSapiCannotExecuteCommands(): void
+    {
+        self::assertTrue($this->invoke(
+            AigcShortDramaService::class,
+            'shouldDeferFfmpegExport',
+            'export_video',
+            false,
+            'fpm-fcgi'
+        ));
+        self::assertFalse($this->invoke(
+            AigcShortDramaService::class,
+            'shouldDeferFfmpegExport',
+            'export_video',
+            true,
+            'fpm-fcgi'
+        ));
+        self::assertFalse($this->invoke(
+            AigcShortDramaService::class,
+            'shouldDeferFfmpegExport',
+            'export_video',
+            false,
+            'cli'
+        ));
+        self::assertFalse($this->invoke(
+            AigcShortDramaService::class,
+            'shouldDeferFfmpegExport',
+            'export_package',
+            false,
+            'fpm-fcgi'
+        ));
+    }
+
     public function testMultiFramePlanKeepsOnlyReferenceRolesAndRecordsTrimmedAssets(): void
     {
         $payload = $this->invoke(
