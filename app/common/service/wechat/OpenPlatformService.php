@@ -53,7 +53,12 @@ class OpenPlatformService
     }
     public static function config(): array
     {
-        $row = self::rawConfig();
+        // Keep the raw record until readiness has been determined. Credentials
+        // returned to the console are masked below, and masked values are
+        // intentionally rejected by credentialValue().
+        $raw = self::rawConfig();
+        $row = $raw;
+        $row['draft_miniprogram_configured'] = self::draftMiniprogramConfigured($raw);
         foreach (self::CONFIG_MASK_FIELDS as $key) {
             if (array_key_exists($key, $row)) {
                 $row[$key] = WechatCredentialService::mask(self::credentialValue($row[$key]));
@@ -65,8 +70,6 @@ class OpenPlatformService
         $row['callback_url_display'] = $urls['authorization'];
         $row['message_callback_url_display'] = $urls['message'];
         $row['authorization_domain_display'] = (string)(parse_url($urls['authorization'], PHP_URL_HOST) ?: '');
-        $row['draft_miniprogram_configured'] = trim((string)($row['developer_app_id'] ?? '')) !== ''
-            && self::credentialValue($row['upload_private_key'] ?? '') !== '';
         return $row;
     }
 
@@ -541,6 +544,12 @@ class OpenPlatformService
         $value = trim((string)$value);
         if ($value === '' || str_contains($value, '*')) return '';
         return WechatCredentialService::decrypt($value) ?: $value;
+    }
+
+    private static function draftMiniprogramConfigured(array $config): bool
+    {
+        return trim((string)($config['developer_app_id'] ?? '')) !== ''
+            && self::credentialValue($config['upload_private_key'] ?? '') !== '';
     }
 
     private static function requireConfig(array $config, array $fields): void { foreach ($fields as $field) if (self::credentialValue($config[$field] ?? '') === '') throw new \RuntimeException('请先完善开放平台配置'); }

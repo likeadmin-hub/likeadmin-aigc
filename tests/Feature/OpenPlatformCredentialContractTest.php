@@ -25,6 +25,24 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString("if (\$value === '' || str_contains(\$value, '*')) return '';", $source);
     }
 
+    public function testDraftMiniProgramReadinessUsesRawCredentialBeforeItIsMasked(): void
+    {
+        $method = new \ReflectionMethod(OpenPlatformService::class, 'draftMiniprogramConfigured');
+        $method->setAccessible(true);
+
+        self::assertTrue($method->invoke(null, [
+            'developer_app_id' => 'wx1234567890abcdef',
+            'upload_private_key' => 'legacy-private-key',
+        ]));
+        self::assertFalse($method->invoke(null, [
+            'developer_app_id' => 'wx1234567890abcdef',
+            'upload_private_key' => 'lega*********-key',
+        ]));
+
+        $source = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
+        self::assertStringContainsString("\$row['draft_miniprogram_configured'] = self::draftMiniprogramConfigured(\$raw);", $source);
+    }
+
     public function testWholeNetworkCallbacksHaveFixedTextAndEventReplies(): void
     {
         $source = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformCallbackService.php');
