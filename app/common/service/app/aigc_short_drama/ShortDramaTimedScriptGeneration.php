@@ -23,8 +23,33 @@ final class ShortDramaTimedScriptGeneration
             try {
                 $skeleton = self::canonicalSkeleton($call('timed_skeleton_' . $attempt, $skeletonInput, 8192));
                 if (!empty($skeleton['storyboard'])) {
-                    self::assertCompletePlan($skeleton, $request);
-                    $skeleton['timing_diagnostics'] = ['version' => 1, 'content_repairs' => 0, 'time_repairs' => $attempt,
+                    try {
+                        self::assertCompletePlan($skeleton, $request);
+                    } catch (RuntimeException $error) {
+                        if (!self::isDialogueDensityError($error)) throw $error;
+                        $part = ['storyboard' => (array)$skeleton['storyboard']];
+                        $durations = array_column($part['storyboard'], 'recommended_duration_seconds');
+                        try {
+                            $part = self::repairDenseDialogues($part, $durations, $call, 0, 0);
+                            $skeleton['storyboard'] = $part['storyboard'];
+                            self::assertCompletePlan($skeleton, $request);
+                            $skeleton['timing_diagnostics'] = ['version' => 1, 'content_repairs' => 0,
+                                'dialogue_repairs' => 1, 'dialogue_fallback_repairs' => 0, 'time_repairs' => $attempt,
+                                'total_seconds' => array_sum(array_column($skeleton['storyboard'], 'recommended_duration_seconds')), 'policy' => $policy];
+                            return $skeleton;
+                        } catch (RuntimeException) {
+                            $compact = self::compactDenseDialogues($part, $durations);
+                            if ($compact === null) throw $error;
+                            $skeleton['storyboard'] = $compact['storyboard'];
+                            self::assertCompletePlan($skeleton, $request);
+                            $skeleton['timing_diagnostics'] = ['version' => 1, 'content_repairs' => 0,
+                                'dialogue_repairs' => 0, 'dialogue_fallback_repairs' => 1, 'time_repairs' => $attempt,
+                                'total_seconds' => array_sum(array_column($skeleton['storyboard'], 'recommended_duration_seconds')), 'policy' => $policy];
+                            return $skeleton;
+                        }
+                    }
+                    $skeleton['timing_diagnostics'] = ['version' => 1, 'content_repairs' => 0,
+                        'dialogue_repairs' => 0, 'dialogue_fallback_repairs' => 0, 'time_repairs' => $attempt,
                         'total_seconds' => array_sum(array_column($skeleton['storyboard'], 'recommended_duration_seconds')), 'policy' => $policy];
                     return $skeleton;
                 }
@@ -40,6 +65,8 @@ final class ShortDramaTimedScriptGeneration
         if ($progress) $progress('stage', ['status' => 'running', 'progress' => 25, 'current_step' => '已规划各场时长，正在生成分镜']);
         $shots = [];
         $contentRepairs = 0;
+        $dialogueRepairs = 0;
+        $dialogueFallbackRepairs = 0;
         // Size output units to the selected model, not to a fixed shot count.
         // Reserve room for identifiers, JSON and dialogue as well as descriptions.
         $partSize = max(1, min(4, (int)floor(($outputBudget - 500) / 1600)));
@@ -73,6 +100,42 @@ final class ShortDramaTimedScriptGeneration
                         foreach ($part['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                         break;
                     } catch (RuntimeException $e) {
+                        // Dialogue density is a field-level quality problem. Asking
+                        // the provider to reproduce a full storyboard part has made
+                        // otherwise valid scripts fail unnecessarily, especially on
+                        // five-second shots where providers sometimes mix action
+                        // descriptions into dialogue. Repair only the affected
+                        // dialogue fields first and keep the approved shot budget,
+                        // scene references and visual copy untouched.
+                        if (self::isDialogueDensityError($e) && $part !== []) {
+                            try {
+                                $part = self::repairDenseDialogues($part, $partDurations, $call, $sceneIndex, $offset);
+                                self::assertPart($part, $skeleton, $beat, $ids, $partDurations);
+                                foreach ($part['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                $dialogueRepairs++;
+                                break;
+                            } catch (RuntimeException $dialogueRepairError) {
+                                // The first response is still useful when it only
+                                // leaked staging prose such as “他转身说道：”. Strip
+                                // that non-spoken wrapper locally before falling
+                                // back to a complete part repair. This operates only
+                                // on provider output, never on user-supplied text.
+                                $compact = self::compactDenseDialogues($part, $partDurations);
+                                if ($compact !== null) {
+                                    try {
+                                        self::assertPart($compact, $skeleton, $beat, $ids, $partDurations);
+                                        foreach ($compact['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
+                                        $part = $compact;
+                                        $dialogueFallbackRepairs++;
+                                        break;
+                                    } catch (RuntimeException) {
+                                        // Continue through the existing bounded
+                                        // full-part repair when compaction cannot
+                                        // produce a valid dialogue contract.
+                                    }
+                                }
+                            }
+                        }
                         if ($attempt || $sceneRepairUsed || !in_array($e->getCode(), [413, 422], true)) throw $e;
                         $sceneRepairUsed = true;
                         $contentRepairs++;
@@ -86,7 +149,8 @@ final class ShortDramaTimedScriptGeneration
         }
         $skeleton['storyboard'] = $shots;
         $skeleton['episodes'] = [];
-        $skeleton['timing_diagnostics'] = ['version' => ShortDramaEpisodeDuration::VERSION, 'content_repairs' => $contentRepairs, 'time_repairs' => $timeRepairs,
+        $skeleton['timing_diagnostics'] = ['version' => ShortDramaEpisodeDuration::VERSION, 'content_repairs' => $contentRepairs,
+            'dialogue_repairs' => $dialogueRepairs, 'dialogue_fallback_repairs' => $dialogueFallbackRepairs, 'time_repairs' => $timeRepairs,
             'total_seconds' => array_sum(array_column($shots, 'recommended_duration_seconds')), 'policy' => $policy];
         ShortDramaEpisodeDuration::assertPlan($skeleton, $request);
         return $skeleton;
@@ -177,11 +241,125 @@ final class ShortDramaTimedScriptGeneration
             }
             $dialogue = $shot['dialogue'] ?? '';
             if (!is_string($dialogue)) throw new RuntimeException('dialogue必须是带角色名的台词字符串，不能返回数组或对象', 422);
-            $text = $dialogue;
             // A deliberately generous guard catches impossible delivery, not acting style.
-            $characters = mb_strlen(preg_replace('/[\s\p{P}]/u', '', $text) ?? $text, 'UTF-8');
+            $characters = self::dialogueCharacterCount($dialogue);
             if ($characters > $durations[$index] * 8) throw new RuntimeException('本段对白过密，请保留关键含义并缩短台词，为动作和停顿留出时间', 422);
         }
+    }
+
+    /**
+     * Repair dense dialogue without handing a valid multi-shot result back to
+     * the model as an open-ended rewrite request. The returned structure is
+     * deliberately tiny and every repaired ID must have been part of the
+     * failed provider response.
+     */
+    private static function repairDenseDialogues(array $part, array $durations, callable $call, int $sceneIndex, int $offset): array
+    {
+        $targets = [];
+        foreach (array_values((array)($part['storyboard'] ?? [])) as $index => $shot) {
+            if (!is_array($shot)) continue;
+            $dialogue = $shot['dialogue'] ?? '';
+            $limit = max(1, (int)floor(((float)($durations[$index] ?? 0)) * 8));
+            if (!is_string($dialogue) || self::dialogueCharacterCount($dialogue) <= $limit) continue;
+            $shotId = trim((string)($shot['shot_id'] ?? ''));
+            if ($shotId === '') throw new RuntimeException('超长对白缺少分镜标识，无法自动修复', 422);
+            $targets[$shotId] = [
+                'shot_id' => $shotId,
+                'duration_seconds' => (float)($durations[$index] ?? 0),
+                'max_dialogue_characters' => $limit,
+                'dialogue' => $dialogue,
+                'voice_role' => (string)($shot['voice_role'] ?? ''),
+                'speech_type' => (string)($shot['speech_type'] ?? ''),
+            ];
+        }
+        if ($targets === []) throw new RuntimeException('未找到可自动修复的超长对白', 422);
+
+        $input = [
+            'system_prompt' => '你是短剧台词编辑。只返回合法 JSON，不要 Markdown 或解释。只允许输出 {'
+                . '"dialogue_repairs":[{"shot_id":"","dialogue":""}]}。逐条改写指定分镜的 dialogue：保留关键剧情和情绪，删除动作、镜头、人物表情、说话方式等非说出口内容；不得新增分镜、人物、字段或改写时长。dialogue 可以为空；每条必须不超过给定的有效字符上限。',
+            'content' => self::json(['dialogue_repairs' => array_values($targets)]),
+        ];
+        $response = $call('timed_dialogue_repair_' . ($sceneIndex + 1) . '_' . ($offset + 1), $input, 1024 + count($targets) * 160);
+        $repairs = (array)($response['dialogue_repairs'] ?? []);
+        $byShotId = [];
+        foreach ($repairs as $repair) {
+            if (!is_array($repair)) continue;
+            $shotId = trim((string)($repair['shot_id'] ?? ''));
+            if ($shotId === '' || !isset($targets[$shotId]) || !array_key_exists('dialogue', $repair) || !is_string($repair['dialogue'])) {
+                throw new RuntimeException('对白自动修复返回了无效分镜或台词', 422);
+            }
+            $byShotId[$shotId] = $repair['dialogue'];
+        }
+        if (count($byShotId) !== count($targets)) throw new RuntimeException('对白自动修复未覆盖全部超长分镜', 422);
+
+        foreach ((array)($part['storyboard'] ?? []) as $index => $shot) {
+            if (!is_array($shot)) continue;
+            $shotId = trim((string)($shot['shot_id'] ?? ''));
+            if (array_key_exists($shotId, $byShotId)) $part['storyboard'][$index]['dialogue'] = trim($byShotId[$shotId]);
+        }
+        return $part;
+    }
+
+    /**
+     * Last-resort cleanup for provider output that embeds screenplay prose in
+     * dialogue (for example “甲转身喊道：快走！”). It only succeeds when the
+     * resulting spoken text fits the already approved timing budget.
+     */
+    private static function compactDenseDialogues(array $part, array $durations): ?array
+    {
+        $changed = false;
+        foreach ((array)($part['storyboard'] ?? []) as $index => $shot) {
+            if (!is_array($shot) || !is_string($shot['dialogue'] ?? null)) continue;
+            $limit = max(1, (int)floor(((float)($durations[$index] ?? 0)) * 8));
+            $dialogue = trim($shot['dialogue']);
+            if (self::dialogueCharacterCount($dialogue) <= $limit) continue;
+            $compact = self::compactDialogue($dialogue, $limit);
+            if ($compact === '' || $compact === $dialogue || self::dialogueCharacterCount($compact) > $limit) return null;
+            $part['storyboard'][$index]['dialogue'] = $compact;
+            $changed = true;
+        }
+        return $changed ? $part : null;
+    }
+
+    private static function compactDialogue(string $dialogue, int $limit): string
+    {
+        $dialogue = preg_replace('/\s+/u', '', trim($dialogue)) ?? trim($dialogue);
+        $clauses = preg_split('/(?<=[。！？!?])/u', $dialogue, -1, PREG_SPLIT_NO_EMPTY) ?: [$dialogue];
+        $spoken = [];
+        foreach ($clauses as $clause) {
+            $fullWidthColon = mb_strrpos($clause, '：', 0, 'UTF-8');
+            $asciiColon = mb_strrpos($clause, ':', 0, 'UTF-8');
+            if ($fullWidthColon !== false || $asciiColon !== false) {
+                $colon = max($fullWidthColon === false ? -1 : $fullWidthColon, $asciiColon === false ? -1 : $asciiColon);
+                $after = trim(mb_substr($clause, $colon + 1, null, 'UTF-8'));
+                if ($after !== '') $clause = $after;
+            }
+            if ($clause !== '') $spoken[] = $clause;
+        }
+        $candidate = implode('', $spoken) ?: $dialogue;
+        if (self::dialogueCharacterCount($candidate) <= $limit) return $candidate;
+
+        $kept = '';
+        foreach ($spoken as $clause) {
+            if (self::dialogueCharacterCount($kept . $clause) > $limit) break;
+            $kept .= $clause;
+        }
+        if ($kept !== '') return $kept;
+
+        // There is no safe sentence boundary inside one overlong spoken line.
+        // The provider has already supplied the content, so retain its leading
+        // spoken portion rather than failing an entire script for one field.
+        return mb_substr($candidate, 0, $limit, 'UTF-8');
+    }
+
+    private static function dialogueCharacterCount(string $text): int
+    {
+        return mb_strlen(preg_replace('/[\s\p{P}]/u', '', $text) ?? $text, 'UTF-8');
+    }
+
+    private static function isDialogueDensityError(RuntimeException $error): bool
+    {
+        return $error->getCode() === 422 && str_contains($error->getMessage(), '本段对白过密');
     }
 
     private static function json(array $value): string
