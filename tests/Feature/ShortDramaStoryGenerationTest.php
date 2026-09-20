@@ -7,6 +7,28 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaStoryGenerationTest extends TestCase
 {
+    public function testStoryRepairReceivesExistingCreativeFacts(): void
+    {
+        $calls = [];
+        $base = $this->base();
+        $result = ShortDramaStoryGeneration::generate(['multi_episode_stage' => 'story', 'episode_count' => 3],
+            ['context_window' => 100000, 'max_tokens' => 16384],
+            static fn($request) => ['system_prompt' => '', 'content' => '故事'],
+            static function ($key, $messages) use (&$calls, $base) {
+                $calls[] = $key;
+                if ($key === 'story_repair') {
+                    self::assertStringContainsString('已有结果=', $messages['content']);
+                    self::assertStringContainsString('老宅', $messages['content']);
+                    return ['result' => ['content' => json_encode($base)]];
+                }
+                $partial = $base;
+                unset($partial['core_theme']);
+                return ['result' => ['content' => json_encode($partial)]];
+            });
+        self::assertSame(['story', 'story_repair'], $calls);
+        self::assertSame($base['subjects'], $result['result']['subjects']);
+    }
+
     public function testLongStoryScaleDoesNotGenerateEpisodesOrMultiplyStoryCalls(): void
     {
         foreach ([3, 300, 500] as $count) {

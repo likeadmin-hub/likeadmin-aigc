@@ -37,6 +37,8 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
         self::assertSame(1, $calls);
         self::assertFalse(Unit::retryableBeforeSubmission('Operation timed out after 120000 milliseconds'));
         self::assertTrue(Unit::retryableBeforeSubmission('Could not resolve host: provider.test'));
+        self::assertTrue(Unit::retryableBeforeSubmission('cURL error 6: Could not resolve host'));
+        self::assertTrue(Unit::retryableBeforeSubmission('Network is unreachable'));
     }
     public function testConnectionEstablishmentFailureBacksOffBeforeRetry(): void
     {

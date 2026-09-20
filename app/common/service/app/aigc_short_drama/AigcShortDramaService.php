@@ -6220,7 +6220,12 @@ class AigcShortDramaService
                     self::shortDramaImageParams($tenantId, $shotPayload, $params, $taskType, self::currentProjectPlanRaw($tenantId, $userId, $projectId)), $params)
             );
         }
-        $params['_episode_export'] = $deferEpisodeExport;
+        // HTTP PHP-FPM is commonly hardened by disabling exec, while the
+        // dedicated short-drama worker runs under the CLI SAPI with FFmpeg
+        // available. Queue only this incompatible export path instead of
+        // weakening the web process's command-execution policy.
+        $deferExportToWorker = $deferEpisodeExport || self::shouldDeferFfmpegExport($taskType);
+        $params['_episode_export'] = $deferExportToWorker;
         ShortDramaSkillRuntime::validateMedia((array)$params['_skill_snapshot'], $taskType, array_replace($params, ['model_code' => (string)($billing['market_snapshot']['model_code'] ?? $params['model_code'] ?? $params['model_id'] ?? '')]));
         $localTaskId = self::makeTaskId('sd_gen');
         $time = time();
@@ -6258,7 +6263,7 @@ class AigcShortDramaService
             Db::rollback();
             throw $e instanceof Exception ? $e : new Exception(self::SAFE_ERROR);
         }
-        if ($deferEpisodeExport) return self::formatGenerationTask($generation->toArray(), true);
+        if ($deferExportToWorker) return self::formatGenerationTask($generation->toArray(), true);
         if ($taskType === 'shot_video') {
             self::runVideoGenerationTask($tenantId, $userId, $generation->toArray(), $shotPayload, $params, $billing);
             $generation = self::findGenerationTask($tenantId, $userId, $localTaskId);
@@ -6276,6 +6281,16 @@ class AigcShortDramaService
             $generation = self::findGenerationTask($tenantId, $userId, $localTaskId);
         }
         return self::formatGenerationTask($generation->toArray(), true);
+    }
+
+    private static function shouldDeferFfmpegExport(string $taskType, ?bool $execAvailable = null, ?string $sapi = null): bool
+    {
+        if ($taskType !== 'export_video') {
+            return false;
+        }
+        $execAvailable ??= function_exists('exec');
+        $sapi ??= PHP_SAPI;
+        return !$execAvailable && !in_array(strtolower($sapi), ['cli', 'phpdbg'], true);
     }
 
     public static function tickEpisodeExport(int $tenantId = 0, int $projectId = 0): int
@@ -8704,6 +8719,18 @@ class AigcShortDramaService
         $storageEngine = (string)($result['storage_engine'] ?? 'local');
         $storageDomain = (string)($result['storage_domain'] ?? '');
         $fileSize = (int)($result['file_size'] ?? 0);
+        // Music providers can return a short-lived URL in audio_uri.  Keeping
+        // that URL as if it were a storage URI makes a later export depend on
+        // the provider still serving the exact file.  Persist it while the
+        // music task succeeds so the export always reads a tenant asset.
+        if ($uri !== '' && self::isRemoteHttpUrl($uri)) {
+            $audioMeta = self::persistBgmAudio($uri);
+            $uri = (string)$audioMeta['uri'];
+            $fileSize = (int)($audioMeta['file_size'] ?? 0);
+            $storageScope = 'tenant';
+            $storageEngine = 'local';
+            $storageDomain = (string)(StorageConfigService::getEffectiveDomain($tenantId) ?: '');
+        }
         if ($uri === '') {
             $audioUrl = trim((string)($result['audio_url'] ?? $result['url'] ?? $result['download_url'] ?? ''));
             if ($audioUrl !== '') {
@@ -8819,7 +8846,7 @@ class AigcShortDramaService
     private static function persistBgmAudio(string $audioUrl): array
     {
         $localUri = FileService::setFileUrl($audioUrl);
-        if (!str_starts_with($audioUrl, 'http://') && !str_starts_with($audioUrl, 'https://')) {
+        if (!self::isRemoteHttpUrl($audioUrl)) {
             $path = self::localPublicFilePath($localUri);
             return [
                 'uri' => $localUri,
@@ -8834,26 +8861,10 @@ class AigcShortDramaService
         if (!is_dir($dir) || !is_writable($dir)) {
             throw new Exception('背景音乐存储目录不可写，请检查服务器存储配置');
         }
-        $path = strtolower((string)(parse_url($audioUrl, PHP_URL_PATH) ?: ''));
-        $ext = pathinfo($path, PATHINFO_EXTENSION);
-        if (!in_array($ext, ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac'], true)) {
-            $ext = 'mp3';
-        }
+        $ext = self::audioFileExtension($audioUrl);
         $filename = 'bgm_' . date('His') . '_' . random_int(1000, 9999) . '.' . $ext;
         $target = $dir . $filename;
-        $context = stream_context_create(['http' => ['timeout' => 60], 'https' => ['timeout' => 60]]);
-        $read = @fopen($audioUrl, 'rb', false, $context);
-        if (!$read) {
-            throw new Exception('背景音乐下载失败，请稍后重试');
-        }
-        $write = @fopen($target, 'wb');
-        if (!$write) {
-            fclose($read);
-            throw new Exception('背景音乐保存失败，请稍后重试');
-        }
-        stream_copy_to_stream($read, $write);
-        fclose($read);
-        fclose($write);
+        self::downloadRemoteAssetFile($audioUrl, $target, '背景音乐', 90);
         if (!is_file($target) || filesize($target) <= 0) {
             throw new Exception('背景音乐文件为空，请重新生成');
         }
@@ -8876,6 +8887,31 @@ class AigcShortDramaService
             return 'audio/ogg';
         }
         return 'audio/mpeg';
+    }
+
+    private static function isRemoteHttpUrl(string $uri): bool
+    {
+        return (bool)preg_match('/^https?:\/\//i', trim($uri));
+    }
+
+    private static function audioFileExtension(string $uri, string $mimeType = ''): string
+    {
+        $path = strtolower((string)(parse_url($uri, PHP_URL_PATH) ?: $uri));
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+        if (in_array($extension, ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'opus', 'flac', 'webm'], true)) {
+            return $extension;
+        }
+        $mimeType = strtolower(trim($mimeType));
+        return match (true) {
+            str_contains($mimeType, 'wav') => 'wav',
+            str_contains($mimeType, 'mp4'), str_contains($mimeType, 'm4a') => 'm4a',
+            str_contains($mimeType, 'aac') => 'aac',
+            str_contains($mimeType, 'ogg') => 'ogg',
+            str_contains($mimeType, 'opus') => 'opus',
+            str_contains($mimeType, 'flac') => 'flac',
+            str_contains($mimeType, 'webm') => 'webm',
+            default => 'mp3',
+        };
     }
 
     private static function runExportVideoTask(int $tenantId, int $userId, array $generation, array $params, array $billing): void
@@ -8933,7 +8969,10 @@ class AigcShortDramaService
                 'file_size' => (int)($export['file_size'] ?? 0),
                 'width' => 0,
                 'height' => 0,
-                'duration' => (float)array_sum(array_map(static fn(array $item): float => (float)($item['duration'] ?? 0), $assets)),
+                // Persist the duration that was actually muxed.  Provider video files
+                // occasionally report a duration different from the requested shot
+                // length, so summing database metadata makes the timeline lie.
+                'duration' => (float)($export['duration'] ?? 0),
                 'checksum' => (string)($export['checksum'] ?? ''),
                 'meta_json' => self::jsonEncode([
                     'source_asset_ids' => $inputAssetIds,
@@ -8941,6 +8980,9 @@ class AigcShortDramaService
                     'bgm_volume' => empty($bgmAsset) ? 0 : 0.18,
                     'ffmpeg' => basename($ffmpeg),
                     'watermark_enabled' => $watermarkEnabled,
+                    'planned_duration' => (float)array_sum(array_map(static fn(array $item): float => (float)($item['duration'] ?? 0), $assets)),
+                    'video_duration' => (float)($export['video_duration'] ?? 0),
+                    'audio_duration' => (float)($export['audio_duration'] ?? 0),
                 ]),
                 'status' => 'ready',
                 'create_time' => time(),
@@ -10037,7 +10079,13 @@ class AigcShortDramaService
             if (empty($asset)) {
                 throw new Exception('当前分镜缺少可导出的图片或视频：' . $shotId);
             }
-            $asset['duration'] = max(1, (float)($asset['duration'] ?? 0) ?: (float)($shot['recommended_duration_seconds'] ?? ShortDramaShotDuration::DEFAULT));
+            // The storyboard is the export timeline's source of truth.  A model may
+            // return a file that is longer or shorter than the requested generation
+            // duration; concat must not let that drift move all following shots.
+            $plannedDuration = (float)($shot['recommended_duration_seconds'] ?? 0);
+            $asset['duration'] = max(1, $plannedDuration > 0
+                ? $plannedDuration
+                : ((float)($asset['duration'] ?? 0) ?: (float)ShortDramaShotDuration::DEFAULT));
             $asset['timeline_shot_id'] = $shotId;
             $assets[] = $asset;
         }
@@ -10149,7 +10197,7 @@ class AigcShortDramaService
 
     private static function concatShotVideos(int $tenantId, int $projectId, array $assets, string $ffmpeg, array $bgmAsset = [], array $watermark = []): array
     {
-        $paths = [];
+        $sourcePaths = [];
         $workDir = runtime_path() . 'short_drama_export_' . $tenantId . '_' . $projectId . '_' . time() . DIRECTORY_SEPARATOR;
         if (!is_dir($workDir)) {
             @mkdir($workDir, 0775, true);
@@ -10168,7 +10216,32 @@ class AigcShortDramaService
                     $path = self::downloadVideoForFfmpeg($asset, $workDir, (int)$index + 1);
                 }
             }
-            $paths[] = $path;
+            if (!is_file($path) || filesize($path) <= 0) {
+                throw new Exception('分镜素材不可读，请重新生成后再导出');
+            }
+            $sourcePaths[] = $path;
+        }
+        if (empty($sourcePaths)) {
+            throw new Exception('暂无可导出的分镜素材');
+        }
+
+        // Never concat provider originals directly.  Their codec, frame rate, audio
+        // track and real duration are not contractual.  Normalize every shot to the
+        // storyboard duration and add an audio track even for image fallback clips.
+        // This keeps the visual and audio timelines on the same clock.
+        $ffprobe = self::resolveFfprobeBinary($ffmpeg);
+        $targetSpec = self::exportVideoTargetSpec($ffmpegCmd, $ffprobe, $sourcePaths[0]);
+        $paths = [];
+        foreach ($sourcePaths as $index => $sourcePath) {
+            $paths[] = self::normalizeExportClipForFfmpeg(
+                $ffmpegCmd,
+                $ffprobe,
+                $sourcePath,
+                $workDir,
+                $index + 1,
+                (float)($assets[$index]['duration'] ?? ShortDramaShotDuration::DEFAULT),
+                $targetSpec
+            );
         }
         $date = date('Ymd');
         $dir = public_path() . 'uploads/aigc_short_drama/' . $date . '/';
@@ -10178,30 +10251,19 @@ class AigcShortDramaService
         if (!is_dir($dir) || !is_writable($dir)) {
             throw new Exception('成片输出目录不可写，请检查服务器存储配置');
         }
-        $listPath = $workDir . 'concat.txt';
-        $list = implode("\n", array_map(static function (string $path): string {
-            return "file '" . str_replace("'", "'\\''", str_replace('\\', '/', $path)) . "'";
-        }, $paths));
-        file_put_contents($listPath, $list);
         $filename = 'final_' . $projectId . '_' . date('His') . '_' . random_int(1000, 9999) . '.mp4';
         $outputPath = $dir . $filename;
         $concatPath = empty($bgmAsset) ? $outputPath : $workDir . 'concat_output.mp4';
-        $output = [];
-        $cmd = $ffmpegCmd . ' -y -f concat -safe 0 -i ' . escapeshellarg($listPath) . ' -c copy ' . escapeshellarg($concatPath) . ' 2>&1';
-        @\exec($cmd, $output, $code);
-        if ($code !== 0 || !is_file($concatPath)) {
-            $cmd = $ffmpegCmd . ' -y -f concat -safe 0 -i ' . escapeshellarg($listPath) . ' -c:v libx264 -c:a aac -movflags +faststart ' . escapeshellarg($concatPath) . ' 2>&1';
-            @\exec($cmd, $output, $code);
-        }
-        if ($code !== 0 || !is_file($concatPath)) {
-            Log::write('AI short drama FFmpeg export failed: ' . implode("\n", (array)$output));
-            throw new Exception('最终视频导出失败，请检查分镜视频格式或 FFmpeg 配置');
-        }
+        self::concatNormalizedExportClips($ffmpegCmd, $paths, $concatPath);
         if (!empty($bgmAsset)) {
             $audioPath = self::localPublicFilePath((string)($bgmAsset['uri'] ?? ''));
             if ($audioPath === '') {
                 $audioPath = self::downloadAudioForFfmpeg($bgmAsset, $workDir);
             }
+            // Providers produce several browser-playable formats.  Normalizing
+            // first prevents the final mix from depending on the source codec,
+            // channel layout, sample rate, or a misleading filename extension.
+            $audioPath = self::normalizeBgmForFfmpeg($ffmpegCmd, $audioPath, $workDir, (int)($bgmAsset['id'] ?? 0));
             $mixOutput = [];
             $cmd = $ffmpegCmd
                 . ' -y -i ' . escapeshellarg($concatPath)
@@ -10231,12 +10293,241 @@ class AigcShortDramaService
                 @copy($watermarkPath, $outputPath);
             }
         }
+        $timing = self::assertExportMediaTiming($ffmpegCmd, $ffprobe, $outputPath);
         $uri = 'uploads/aigc_short_drama/' . $date . '/' . $filename;
         return [
             'uri' => $uri,
             'file_size' => filesize($outputPath) ?: 0,
             'checksum' => hash_file('sha256', $outputPath) ?: '',
+            'duration' => (float)$timing['duration'],
+            'video_duration' => (float)$timing['video_duration'],
+            'audio_duration' => (float)$timing['audio_duration'],
         ];
+    }
+
+    /**
+     * The concat demuxer plus stream copy preserves each MP4's edit-list and
+     * B-frame timestamps.  Browsers can then pause or retime at a shot boundary
+     * even when the container's total duration looks valid.  Concatenating decoded
+     * normalized clips through the filter creates one fresh, continuous timeline.
+     *
+     * @param array<int, string> $paths
+     */
+    private static function concatNormalizedExportClips(string $ffmpegCmd, array $paths, string $outputPath): void
+    {
+        if (empty($paths)) {
+            throw new Exception('暂无可导出的分镜素材');
+        }
+        $inputs = '';
+        $streams = '';
+        foreach (array_values($paths) as $index => $path) {
+            $inputs .= ' -i ' . escapeshellarg($path);
+            $streams .= '[' . $index . ':v:0][' . $index . ':a:0]';
+        }
+        $filter = $streams
+            . 'concat=n=' . count($paths) . ':v=1:a=1[concatv][concata];'
+            . '[concatv]fps=30,format=yuv420p[v];'
+            . '[concata]aresample=48000,asetpts=N/SR/TB[a]';
+        $output = [];
+        $cmd = $ffmpegCmd . ' -y' . $inputs
+            . ' -filter_complex ' . escapeshellarg($filter)
+            . ' -map ' . escapeshellarg('[v]') . ' -map ' . escapeshellarg('[a]')
+            . ' -c:v libx264 -pix_fmt yuv420p -r 30 -c:a aac -ar 48000 -ac 2 -movflags +faststart '
+            . escapeshellarg($outputPath) . ' 2>&1';
+        @\exec($cmd, $output, $code);
+        if ($code !== 0 || !is_file($outputPath) || filesize($outputPath) <= 0) {
+            Log::write('AI short drama normalized clip concat failed: ' . implode("\n", (array)$output));
+            throw new Exception('最终视频导出失败，请检查分镜视频格式或 FFmpeg 配置');
+        }
+    }
+
+    /**
+     * Resolve ffprobe from the same FFmpeg distribution when possible.  The export
+     * still works without it by falling back to FFmpeg's input inspection output.
+     */
+    private static function resolveFfprobeBinary(string $ffmpeg): string
+    {
+        if (!function_exists('exec')) {
+            return '';
+        }
+        $candidates = [];
+        if ($ffmpeg !== '' && $ffmpeg !== 'ffmpeg' && !str_contains($ffmpeg, ' ')) {
+            $candidates[] = dirname($ffmpeg) . DIRECTORY_SEPARATOR . (DIRECTORY_SEPARATOR === '\\' ? 'ffprobe.exe' : 'ffprobe');
+        }
+        $candidates = array_merge($candidates, [
+            function_exists('env') ? (string)env('ffprobe_binary', '') : '',
+            function_exists('env') ? (string)env('ffprobe.binary', '') : '',
+            getenv('FFPROBE_BINARY') ?: '',
+            '/usr/local/bin/ffprobe',
+            '/usr/bin/ffprobe',
+            '/bin/ffprobe',
+            'ffprobe',
+        ]);
+        foreach (array_values(array_unique(array_filter(array_map(static fn($candidate): string => trim(trim((string)$candidate), "\"'"), $candidates)))) as $candidate) {
+            $output = [];
+            $code = 1;
+            @\exec(escapeshellarg($candidate) . ' -hide_banner -version 2>&1', $output, $code);
+            if ($code === 0 && str_contains(strtolower(implode("\n", (array)$output)), 'ffprobe version')) {
+                return $candidate;
+            }
+        }
+        return '';
+    }
+
+    /** @return array{width:int,height:int} */
+    private static function exportVideoTargetSpec(string $ffmpegCmd, string $ffprobe, string $firstPath): array
+    {
+        $probe = self::probeExportMedia($ffmpegCmd, $ffprobe, $firstPath);
+        $width = (int)($probe['width'] ?? 0);
+        $height = (int)($probe['height'] ?? 0);
+        if ($width < 2 || $height < 2) {
+            // A safe fallback for corrupted metadata.  It keeps the first export
+            // usable instead of reintroducing incompatible concat streams.
+            return ['width' => 720, 'height' => 1280];
+        }
+        return [
+            'width' => max(2, $width - ($width % 2)),
+            'height' => max(2, $height - ($height % 2)),
+        ];
+    }
+
+    /**
+     * Encode one timeline clip with an exact duration and a normalized silent/audio
+     * track.  A short provider video freezes its final frame; a long one is trimmed.
+     */
+    private static function normalizeExportClipForFfmpeg(string $ffmpegCmd, string $ffprobe, string $sourcePath, string $workDir, int $index, float $duration, array $targetSpec): string
+    {
+        $duration = max(1, min(600, $duration));
+        $target = $workDir . sprintf('normalized_clip_%03d.mp4', $index);
+        $durationArg = number_format($duration, 3, '.', '');
+        $width = max(2, (int)($targetSpec['width'] ?? 720));
+        $height = max(2, (int)($targetSpec['height'] ?? 1280));
+        $probe = self::probeExportMedia($ffmpegCmd, $ffprobe, $sourcePath);
+        if (empty($probe['has_video'])) {
+            throw new Exception('分镜素材不是有效视频，请重新生成后再导出');
+        }
+        $videoFilter = sprintf(
+            '[0:v]fps=30,scale=%d:%d:force_original_aspect_ratio=decrease,pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=black,tpad=stop_mode=clone:stop_duration=%s,trim=duration=%s,setpts=PTS-STARTPTS,format=yuv420p[v]',
+            $width,
+            $height,
+            $width,
+            $height,
+            $durationArg,
+            $durationArg
+        );
+        if (!empty($probe['has_audio'])) {
+            $audioFilter = sprintf(
+                '[0:a]aresample=48000,apad=pad_dur=%s,atrim=duration=%s,asetpts=N/SR/TB[sourcea];[sourcea][1:a]amix=inputs=2:duration=longest:dropout_transition=0,atrim=duration=%s,asetpts=N/SR/TB[a]',
+                $durationArg,
+                $durationArg,
+                $durationArg
+            );
+        } else {
+            $audioFilter = sprintf('[1:a]atrim=duration=%s,asetpts=N/SR/TB[a]', $durationArg);
+        }
+        $output = [];
+        $cmd = $ffmpegCmd
+            . ' -y -i ' . escapeshellarg($sourcePath)
+            . ' -f lavfi -t ' . escapeshellarg($durationArg) . ' -i ' . escapeshellarg('anullsrc=channel_layout=stereo:sample_rate=48000')
+            . ' -filter_complex ' . escapeshellarg($videoFilter . ';' . $audioFilter)
+            . ' -map ' . escapeshellarg('[v]') . ' -map ' . escapeshellarg('[a]')
+            . ' -c:v libx264 -pix_fmt yuv420p -r 30 -c:a aac -ar 48000 -ac 2 -movflags +faststart -shortest '
+            . escapeshellarg($target) . ' 2>&1';
+        @\exec($cmd, $output, $code);
+        if ($code !== 0 || !is_file($target) || filesize($target) <= 0) {
+            Log::write('AI short drama clip normalization failed: ' . implode("\n", (array)$output));
+            throw new Exception('分镜视频标准化失败，请检查素材格式或 FFmpeg 配置');
+        }
+        self::assertExportMediaTiming($ffmpegCmd, $ffprobe, $target, 0.15);
+        return $target;
+    }
+
+    /** @return array{duration:float,video_duration:float,audio_duration:float,width:int,height:int,has_video:bool,has_audio:bool} */
+    private static function probeExportMedia(string $ffmpegCmd, string $ffprobe, string $path): array
+    {
+        $result = ['duration' => 0.0, 'video_duration' => 0.0, 'audio_duration' => 0.0, 'width' => 0, 'height' => 0, 'has_video' => false, 'has_audio' => false];
+        if (!is_file($path) || filesize($path) <= 0) {
+            return $result;
+        }
+        if ($ffprobe !== '') {
+            $output = [];
+            $code = 1;
+            $cmd = escapeshellarg($ffprobe) . ' -v error -show_entries format=duration -show_entries stream=codec_type,duration,width,height -of json ' . escapeshellarg($path) . ' 2>&1';
+            @\exec($cmd, $output, $code);
+            $data = $code === 0 ? json_decode(implode("\n", (array)$output), true) : null;
+            if (is_array($data)) {
+                $result['duration'] = (float)($data['format']['duration'] ?? 0);
+                foreach ((array)($data['streams'] ?? []) as $stream) {
+                    $type = (string)($stream['codec_type'] ?? '');
+                    $streamDuration = (float)($stream['duration'] ?? 0);
+                    if ($type === 'video' && !$result['has_video']) {
+                        $result['has_video'] = true;
+                        $result['video_duration'] = $streamDuration;
+                        $result['width'] = (int)($stream['width'] ?? 0);
+                        $result['height'] = (int)($stream['height'] ?? 0);
+                    }
+                    if ($type === 'audio' && !$result['has_audio']) {
+                        $result['has_audio'] = true;
+                        $result['audio_duration'] = $streamDuration;
+                    }
+                }
+                $result['video_duration'] = $result['video_duration'] > 0 ? $result['video_duration'] : $result['duration'];
+                $result['audio_duration'] = $result['audio_duration'] > 0 ? $result['audio_duration'] : ($result['has_audio'] ? $result['duration'] : 0.0);
+                return $result;
+            }
+        }
+        // Some minimal server images ship FFmpeg without ffprobe.  FFmpeg's input
+        // description remains enough to choose a safe stream path and preserve the
+        // timing invariant; it is deliberately a fallback rather than a dependency.
+        $output = [];
+        @\exec($ffmpegCmd . ' -hide_banner -i ' . escapeshellarg($path) . ' 2>&1', $output);
+        $text = implode("\n", (array)$output);
+        $result['has_video'] = (bool)preg_match('/Stream #.*Video:/i', $text);
+        $result['has_audio'] = (bool)preg_match('/Stream #.*Audio:/i', $text);
+        if (preg_match('/(\\d{2,5})x(\\d{2,5})/', $text, $size)) {
+            $result['width'] = (int)$size[1];
+            $result['height'] = (int)$size[2];
+        }
+        if (preg_match('/Duration:\\s*(\\d+):(\\d+):(\\d+(?:\\.\\d+)?)/', $text, $durationMatch)) {
+            $result['duration'] = ((int)$durationMatch[1] * 3600) + ((int)$durationMatch[2] * 60) + (float)$durationMatch[3];
+        }
+        $result['video_duration'] = $result['has_video'] ? $result['duration'] : 0.0;
+        $result['audio_duration'] = $result['has_audio'] ? $result['duration'] : 0.0;
+        return $result;
+    }
+
+    /** @return array{duration:float,video_duration:float,audio_duration:float,width:int,height:int,has_video:bool,has_audio:bool} */
+    private static function assertExportMediaTiming(string $ffmpegCmd, string $ffprobe, string $path, float $tolerance = 0.35): array
+    {
+        $timing = self::probeExportMedia($ffmpegCmd, $ffprobe, $path);
+        if (empty($timing['has_video']) || empty($timing['has_audio']) || (float)$timing['video_duration'] <= 0 || (float)$timing['audio_duration'] <= 0) {
+            throw new Exception('最终视频缺少有效画面或音轨，请检查分镜素材后重试');
+        }
+        if (abs((float)$timing['video_duration'] - (float)$timing['audio_duration']) > $tolerance) {
+            Log::write(sprintf('AI short drama export timing mismatch: video=%0.3F, audio=%0.3F, path=%s', (float)$timing['video_duration'], (float)$timing['audio_duration'], $path));
+            throw new Exception('最终视频画面与音轨时长不一致，请重新导出');
+        }
+        $timing['duration'] = max((float)$timing['video_duration'], (float)$timing['audio_duration']);
+        return $timing;
+    }
+
+    private static function normalizeBgmForFfmpeg(string $ffmpegCmd, string $audioPath, string $workDir, int $assetId = 0): string
+    {
+        if (!is_file($audioPath) || filesize($audioPath) <= 0) {
+            throw new Exception('背景音乐文件为空，请重新生成背景音乐');
+        }
+        $target = $workDir . 'bgm_normalized_' . ($assetId > 0 ? $assetId : random_int(1000, 9999)) . '.m4a';
+        $output = [];
+        $cmd = $ffmpegCmd
+            . ' -y -v error -i ' . escapeshellarg($audioPath)
+            . ' -map 0:a:0 -vn -sn -dn -ac 2 -ar 48000 -c:a aac -b:a 160k -movflags +faststart '
+            . escapeshellarg($target) . ' 2>&1';
+        @\exec($cmd, $output, $code);
+        if ($code === 0 && is_file($target) && filesize($target) > 0) {
+            return $target;
+        }
+        Log::write('AI short drama BGM normalization failed (asset ' . $assetId . '): ' . implode("\n", (array)$output));
+        throw new Exception('背景音乐格式无法兼容，请重新生成背景音乐后再导出');
     }
 
     private static function applyExportWatermark(int $tenantId, string $ffmpegCmd, string $inputPath, string $outputPath, array $watermark, string $workDir): bool
@@ -10604,7 +10895,10 @@ class AigcShortDramaService
         if ($url === '') {
             throw new Exception('背景音乐文件不可用，请重新生成背景音');
         }
-        $target = $workDir . 'bgm_audio_' . random_int(1000, 9999) . '.mp3';
+        $target = $workDir . 'bgm_audio_' . random_int(1000, 9999) . '.' . self::audioFileExtension(
+            (string)($asset['uri'] ?? $url),
+            (string)($asset['mime_type'] ?? '')
+        );
         self::downloadRemoteAssetFile($url, $target, '背景音乐', 90);
         if (!is_file($target) || filesize($target) <= 0) {
             throw new Exception('背景音乐文件为空，请重新生成背景音乐');
@@ -15381,13 +15675,14 @@ class AigcShortDramaService
         // Without a valid tail frame, use only the established reference
         // priority below. The contract is intentionally built server-side so
         // old clients and crafted requests cannot reorder or add references:
-        // current first frame > bound subject turnaround > bound scene > bound
-        // subject primary image > explicitly mentioned storyboard image.
+        // current first frame > bound subject turnaround > bound scene >
+        // explicitly mentioned storyboard image. Subject primary images are
+        // intentionally not video references: the turnaround is the only
+        // bound-subject source for this fallback contract.
         $candidates = self::shortDramaVideoReferenceCandidates(
             $assetMap[$firstFrameId],
             self::shortDramaVideoThreeViewAssets($tenantId, $userId, $projectId, $shot),
             self::shortDramaVideoSceneAssets($tenantId, $userId, $projectId, $shot),
-            self::shortDramaVideoPrimarySubjectAssets($tenantId, $userId, $projectId, $shot),
             self::shortDramaVideoMentionedShotAssets($tenantId, $userId, $projectId, $params)
         );
         if (in_array('multi_frame', $modes, true) && $referenceLimit >= 2 && count($candidates) >= 2) {
@@ -15422,7 +15717,7 @@ class AigcShortDramaService
      * Normal-reference ordering is a source-of-truth contract shared by all
      * short-drama entry points. Tail-frame mode never reaches this method.
      */
-    private static function shortDramaVideoReferenceCandidates(array $firstFrame, array $threeViews, array $sceneAssets, array $primarySubjectAssets, array $mentionedShotAssets): array
+    private static function shortDramaVideoReferenceCandidates(array $firstFrame, array $threeViews, array $sceneAssets, array $mentionedShotAssets): array
     {
         $candidates = [];
         $candidateIds = [];
@@ -15440,7 +15735,6 @@ class AigcShortDramaService
         $append([$firstFrame], 'first_frame');
         $append($threeViews, 'character_turnaround');
         $append($sceneAssets, 'scene_image');
-        $append($primarySubjectAssets, 'character_primary');
         $append($mentionedShotAssets, 'mentioned_shot');
         return $candidates;
     }
@@ -15497,28 +15791,6 @@ class AigcShortDramaService
                 $assets[] = $bySubject[$subjectId];
             }
         }
-        return $assets;
-    }
-
-    /** Project-scoped aliases are created before quote/submission; never use a library URL directly. */
-    private static function shortDramaVideoPrimarySubjectAssets(int $tenantId, int $userId, int $projectId, array $shot): array
-    {
-        $subjectIds = array_values(array_unique(array_filter(array_map('strval', self::splitPlanRefTokens($shot['subject_ref_ids'] ?? [])))));
-        if ($subjectIds === []) return [];
-        $wanted = array_flip($subjectIds);
-        $rows = AigcShortDramaAsset::where([
-            'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
-            'asset_type' => 'subject_image', 'status' => 'ready', 'delete_time' => 0,
-        ])->order(['id' => 'desc'])->select()->toArray();
-        $bySubject = [];
-        foreach ($rows as $row) {
-            $meta = self::assetReferenceMeta($row, self::jsonDecode((string)($row['meta_json'] ?? '')));
-            $subjectId = trim((string)($meta['subject_id'] ?? $meta['subject_ref_id'] ?? $meta['character_id'] ?? $meta['item_id'] ?? ''));
-            if ($subjectId === '' || !isset($wanted[$subjectId]) || isset($bySubject[$subjectId])) continue;
-            $bySubject[$subjectId] = self::formatAsset($row);
-        }
-        $assets = [];
-        foreach ($subjectIds as $subjectId) if (isset($bySubject[$subjectId])) $assets[] = $bySubject[$subjectId];
         return $assets;
     }
 
@@ -17721,6 +17993,11 @@ class AigcShortDramaService
             // The confirmed setting is input, not repeated output. This also keeps a one-episode tail within budget.
             unset($schema['episodes'][0]['script_lines']);
             $schema = ['episodes' => $schema['episodes'], 'storyboard' => []];
+            return '根据已确认故事设定生成本批分集大纲。只返回合法 JSON，输出字段仅为 episodes 和空数组 storyboard；不要重复输出人物、场景、全剧设定或制作分镜。'
+                . "全剧 {$totalEpisodeCount} 集，本批对应 {$batchStart}-{$batchEnd}，恰好返回 {$episodeCount} 集，使用局部集号 1-{$episodeCount}。"
+                . '保留已确认的剧情事实、人物关系和连续性；仅在全剧最后一集收束主线。每集必须有 title、story_outline、conflict_point、ending_hook。'
+                . '存在 revision_message 时严格按 revision_target 和 revision_policy 修改，保留未要求修改的内容。'
+                . "\n任务资料：" . self::jsonEncode($context) . "\nJSON 字段结构：" . self::jsonEncode($schema);
         }
         if ($technicalOnly) {
             // Example prose is creative guidance too. Keep types/IDs, not hidden plot or length preferences.
@@ -20996,7 +21273,7 @@ class AigcShortDramaService
     private static function normalizeGeneratedStoryboard(array $items, array $durationRule = []): array
     {
         $result = [];
-        $elapsedSeconds = 0;
+        $elapsedSeconds = 0.0;
         foreach (array_values($items) as $index => $item) {
             if (!is_array($item)) {
                 continue;
@@ -21059,14 +21336,19 @@ class AigcShortDramaService
                 'frame_type' => in_array($frameType, ['normal', 'lip_sync'], true) ? $frameType : 'normal',
                 'recommended_duration_seconds' => $durationSeconds,
             ];
+            if (array_key_exists('time_range', $item) || array_key_exists('start_seconds', $item) || array_key_exists('end_seconds', $item)) {
+                $shot['time_range'] = trim((string)($item['time_range'] ?? ''));
+                $shot['start_seconds'] = is_numeric($item['start_seconds'] ?? null) ? (float)$item['start_seconds'] : $elapsedSeconds;
+                $shot['end_seconds'] = is_numeric($item['end_seconds'] ?? null) ? (float)$item['end_seconds'] : ($shot['start_seconds'] + $durationSeconds);
+            }
             $shot['video_prompt'] = self::normalizeReadableShotVideoPrompt(
                 self::localizeGenerationPromptText(trim((string)($item['video_prompt'] ?? '')), $visualDescription),
                 $shot,
                 $index,
-                ['start_seconds' => $elapsedSeconds]
+                ['start_seconds' => (float)($shot['start_seconds'] ?? $elapsedSeconds)]
             );
             $result[] = ShortDramaPromptDocuments::markGeneratedFields($item, $shot, ['composition', 'camera_movement', 'image_prompt', 'video_prompt', 'bgm_prompt', 'sound_effect']);
-            $elapsedSeconds += (int)round($durationSeconds);
+            $elapsedSeconds += $durationSeconds;
         }
         return $result;
     }
