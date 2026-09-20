@@ -10,7 +10,9 @@ final class ShortDramaTimedScriptGeneration
     {
         $policy = ShortDramaEpisodeDuration::policy($request);
         $rule = ShortDramaShotDuration::rule($request);
-        $base = ['system_prompt' => $messages['system_prompt'] . "\n" . ShortDramaEpisodeDuration::instruction($request) . "\n" . ShortDramaSameSceneCuts::instruction($request),
+        $base = ['system_prompt' => $messages['system_prompt']
+                . "\n当前采用分阶段生成。上述规则中的创作、角色、风格、剧情与连续性要求完整保留；完整剧本的字段清单和输出示例由下方本阶段输出结构替代。只输出本阶段指定字段。"
+                . "\n" . ShortDramaEpisodeDuration::instruction($request) . "\n" . ShortDramaSameSceneCuts::instruction($request),
             'content' => $messages['_stage_content'] ?? $messages['content']];
         $skeletonInput = $base;
         $skeletonInput['system_prompt'] .= "\n本阶段仅生成骨架JSON：title、type_judgement、core_theme、story_outline、script_lines、series_bible、subjects、locations、art_style、scene_beats。"
@@ -72,8 +74,13 @@ final class ShortDramaTimedScriptGeneration
         $partSize = max(1, min(4, (int)floor(($outputBudget - 500) / 1600)));
         foreach ($skeleton['scene_beats'] as $sceneIndex => $beat) {
             $durations = array_values($beat['shot_durations']);
+            $pending = [];
             for ($offset = 0; $offset < count($durations); $offset += $partSize) {
-                $partDurations = array_slice($durations, $offset, $partSize);
+                $pending[] = [$offset, min($partSize, count($durations) - $offset), ''];
+            }
+            while ($pending) {
+                [$offset, $size, $splitKey] = array_shift($pending);
+                $partDurations = array_slice($durations, $offset, $size);
                 $ids = array_map(static fn($n) => 's' . ($sceneIndex + 1) . '_' . ($offset + $n + 1), array_keys($partDurations));
                 $input = $base;
                 $input['system_prompt'] .= "\n本阶段仅返回{\"storyboard\":[...]}，每项包含shot_id、scene_ref_id、subject_ref_ids、visual_description、composition、camera_movement、dialogue、voice_role、speech_type、recommended_duration_seconds。"
@@ -94,11 +101,19 @@ final class ShortDramaTimedScriptGeneration
                 $part = [];
                 for ($attempt = 0; $attempt < 2; $attempt++) {
                     try {
-                        $part = $call('timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . ($attempt ? '_repair' : ''), $input, 1800 + count($ids) * 750);
+                        $part = $call('timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . ($attempt ? '_repair' : ''), $input, 1800 + count($ids) * 750);
                         self::assertPart($part, $skeleton, $beat, $ids, $partDurations);
                         foreach ($part['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                         break;
                     } catch (RuntimeException $e) {
+                        if ($e->getCode() === 413 && $size > 1) {
+                            $left = intdiv($size, 2);
+                            // Distinct durable keys prevent replaying the truncated
+                            // parent's receipt for a smaller request at the same offset.
+                            array_unshift($pending, [$offset, $left, '_split_' . $left],
+                                [$offset + $left, $size - $left, '_split_' . ($size - $left)]);
+                            continue 2;
+                        }
                         // Dialogue density is a field-level quality problem. Asking
                         // the provider to reproduce a full storyboard part has made
                         // otherwise valid scripts fail unnecessarily, especially on
