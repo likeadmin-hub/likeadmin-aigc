@@ -135,7 +135,7 @@ class ShortDramaEpisodeDurationTest extends TestCase
                     'visual_description' => $n < 3 ? '甲继续寻找钥匙' : '甲拿着钥匙走向门口', 'dialogue' => '', 'recommended_duration_seconds' => 10];
                 if (!str_contains($key, '_repair')) $shots[0]['recommended_duration_seconds'] = 9;
                 return ['storyboard' => $shots];
-            }, null);
+            }, null, 4096);
 
         self::assertSame(['timed_skeleton_0', 'timed_scene_1_1', 'timed_scene_1_1_repair', 'timed_scene_1_3', 'timed_scene_1_3_repair'], $calls);
         self::assertSame(2, $payload['timing_diagnostics']['content_repairs']);
