@@ -96,6 +96,19 @@ class ShortDramaExportAudioCompatibilityTest extends TestCase
             $timing = (array)$this->invoke('assertExportMediaTiming', $ffmpegCmd, $ffprobe, $concat, 0.15);
             self::assertEqualsWithDelta(3.0, (float)$timing['duration'], 0.2);
             self::assertEqualsWithDelta((float)$timing['video_duration'], (float)$timing['audio_duration'], 0.15);
+
+            $bgm = $workDir . DIRECTORY_SEPARATOR . 'short-bgm.m4a';
+            $this->runFfmpeg($ffmpegCmd . ' -hide_banner -loglevel error -y -f lavfi -i ' . escapeshellarg('sine=frequency=220:sample_rate=48000:duration=0.25') . ' -c:a aac ' . escapeshellarg($bgm));
+            $mixed = $workDir . DIRECTORY_SEPARATOR . 'mixed.mp4';
+            $this->runFfmpeg(
+                $ffmpegCmd . ' -hide_banner -loglevel error -y -i ' . escapeshellarg($concat)
+                . ' -stream_loop -1 -i ' . escapeshellarg($bgm)
+                . ' -filter_complex ' . escapeshellarg('[1:a]volume=0.18[bgm];[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=0[a]')
+                . ' -map 0:v:0 -map ' . escapeshellarg('[a]') . ' -c:v copy -c:a aac -shortest ' . escapeshellarg($mixed)
+            );
+            $mixedTiming = (array)$this->invoke('assertExportMediaTiming', $ffmpegCmd, $ffprobe, $mixed, 0.15);
+            self::assertEqualsWithDelta(3.0, (float)$mixedTiming['duration'], 0.2);
+            self::assertEqualsWithDelta((float)$mixedTiming['video_duration'], (float)$mixedTiming['audio_duration'], 0.15);
         } finally {
             foreach (glob($workDir . DIRECTORY_SEPARATOR . '*') ?: [] as $file) {
                 @unlink($file);
