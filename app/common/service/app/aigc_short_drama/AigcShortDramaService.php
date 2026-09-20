@@ -6220,7 +6220,12 @@ class AigcShortDramaService
                     self::shortDramaImageParams($tenantId, $shotPayload, $params, $taskType, self::currentProjectPlanRaw($tenantId, $userId, $projectId)), $params)
             );
         }
-        $params['_episode_export'] = $deferEpisodeExport;
+        // HTTP PHP-FPM is commonly hardened by disabling exec, while the
+        // dedicated short-drama worker runs under the CLI SAPI with FFmpeg
+        // available. Queue only this incompatible export path instead of
+        // weakening the web process's command-execution policy.
+        $deferExportToWorker = $deferEpisodeExport || self::shouldDeferFfmpegExport($taskType);
+        $params['_episode_export'] = $deferExportToWorker;
         ShortDramaSkillRuntime::validateMedia((array)$params['_skill_snapshot'], $taskType, array_replace($params, ['model_code' => (string)($billing['market_snapshot']['model_code'] ?? $params['model_code'] ?? $params['model_id'] ?? '')]));
         $localTaskId = self::makeTaskId('sd_gen');
         $time = time();
@@ -6258,7 +6263,7 @@ class AigcShortDramaService
             Db::rollback();
             throw $e instanceof Exception ? $e : new Exception(self::SAFE_ERROR);
         }
-        if ($deferEpisodeExport) return self::formatGenerationTask($generation->toArray(), true);
+        if ($deferExportToWorker) return self::formatGenerationTask($generation->toArray(), true);
         if ($taskType === 'shot_video') {
             self::runVideoGenerationTask($tenantId, $userId, $generation->toArray(), $shotPayload, $params, $billing);
             $generation = self::findGenerationTask($tenantId, $userId, $localTaskId);
@@ -6276,6 +6281,16 @@ class AigcShortDramaService
             $generation = self::findGenerationTask($tenantId, $userId, $localTaskId);
         }
         return self::formatGenerationTask($generation->toArray(), true);
+    }
+
+    private static function shouldDeferFfmpegExport(string $taskType, ?bool $execAvailable = null, ?string $sapi = null): bool
+    {
+        if ($taskType !== 'export_video') {
+            return false;
+        }
+        $execAvailable ??= function_exists('exec');
+        $sapi ??= PHP_SAPI;
+        return !$execAvailable && !in_array(strtolower($sapi), ['cli', 'phpdbg'], true);
     }
 
     public static function tickEpisodeExport(int $tenantId = 0, int $projectId = 0): int
