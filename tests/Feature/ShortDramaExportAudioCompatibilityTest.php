@@ -89,10 +89,8 @@ class ShortDramaExportAudioCompatibilityTest extends TestCase
             self::assertEqualsWithDelta(2.0, (float)$secondTiming['video_duration'], 0.15);
             self::assertEqualsWithDelta(2.0, (float)$secondTiming['audio_duration'], 0.15);
 
-            $list = $workDir . DIRECTORY_SEPARATOR . 'concat.txt';
-            file_put_contents($list, "file '" . str_replace("'", "'\\\\''", $first) . "'\nfile '" . str_replace("'", "'\\\\''", $second) . "'");
             $concat = $workDir . DIRECTORY_SEPARATOR . 'concat.mp4';
-            $this->runFfmpeg($ffmpegCmd . ' -hide_banner -loglevel error -y -f concat -safe 0 -i ' . escapeshellarg($list) . ' -c copy ' . escapeshellarg($concat));
+            $this->invoke('concatNormalizedExportClips', $ffmpegCmd, [$first, $second], $concat);
             $timing = (array)$this->invoke('assertExportMediaTiming', $ffmpegCmd, $ffprobe, $concat, 0.15);
             self::assertEqualsWithDelta(3.0, (float)$timing['duration'], 0.2);
             self::assertEqualsWithDelta((float)$timing['video_duration'], (float)$timing['audio_duration'], 0.15);
