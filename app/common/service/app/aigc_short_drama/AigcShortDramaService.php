@@ -2930,7 +2930,7 @@ class AigcShortDramaService
             'script_file_name' => $name,
             'script_file_url' => $publicUrl,
             'file_urls' => [$publicUrl],
-            'parse_mode' => in_array((string)($params['parse_mode'] ?? ''), ['auto', 'existing_episodes', 'screenplay_scenes', 'novel', 'outline', 'split_by_ai'], true) ? (string)$params['parse_mode'] : 'auto',
+            'parse_mode' => in_array((string)($params['parse_mode'] ?? ''), ['auto', 'existing_episodes', 'screenplay_scenes', 'novel', 'outline', 'split_by_ai'], true) ? (string)$params['parse_mode'] : 'split_by_ai',
             'preserve_original' => true,
             'multi_episode' => true,
             // The parser returns a complete editable outline, not a staged
