@@ -24,8 +24,8 @@ class ShortDramaExportAudioCompatibilityTest extends TestCase
 
     public function testBgmIsNormalizedToAacBeforeFinalMix(): void
     {
-        $ffmpeg = (string)$this->invoke('resolveFfmpegBinary');
-        if ($ffmpeg === '' || !function_exists('exec')) {
+        $ffmpeg = $this->ffmpegBinary();
+        if ($ffmpeg === '') {
             self::markTestSkipped('FFmpeg is not available in this test environment.');
         }
         $workDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'short_drama_bgm_' . bin2hex(random_bytes(6));
@@ -58,5 +58,27 @@ class ShortDramaExportAudioCompatibilityTest extends TestCase
         $reflection->setAccessible(true);
 
         return $reflection->invokeArgs(null, $arguments);
+    }
+
+    private function ffmpegBinary(): string
+    {
+        if (!function_exists('exec')) {
+            return '';
+        }
+        foreach (array_filter([
+            (string)(getenv('FFMPEG_BINARY') ?: ''),
+            '/usr/bin/ffmpeg',
+            '/usr/local/bin/ffmpeg',
+            '/opt/homebrew/bin/ffmpeg',
+            'ffmpeg',
+        ]) as $candidate) {
+            $output = [];
+            $code = 1;
+            @exec(escapeshellarg($candidate) . ' -hide_banner -version 2>&1', $output, $code);
+            if ($code === 0) {
+                return $candidate;
+            }
+        }
+        return '';
     }
 }
