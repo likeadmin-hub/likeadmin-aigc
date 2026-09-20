@@ -36,7 +36,7 @@ final class ShortDramaPlanningUnit
     public static function retryableBeforeSubmission(string $error): bool
     {
         // These are connection establishment failures, not ambiguous read timeouts after submission.
-        return (bool)preg_match('/SSL_connect:|Could not resolve host|Failed to connect to|Connection refused/i', $error);
+        return (bool)preg_match('/SSL_connect:|Could not resolve host|Temporary failure in name resolution|Name or service not known|Network is unreachable|Failed to connect to|Connection refused|cURL error (?:6|7)\b/i', $error);
     }
 
     public static function call(int $tenant, int $user, string $task, string $key, array $input, callable $generate): array

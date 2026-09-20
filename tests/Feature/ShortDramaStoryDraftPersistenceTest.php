@@ -234,6 +234,8 @@ class ShortDramaStoryDraftPersistenceTest extends TestCase
     {
         $unit = \app\common\service\app\aigc_short_drama\ShortDramaPlanningUnit::class;
         self::assertTrue($unit::retryableBeforeSubmission('OpenSSL SSL_connect: SSL_ERROR_SYSCALL'));
+        self::assertTrue($unit::retryableBeforeSubmission('Temporary failure in name resolution'));
+        self::assertTrue($unit::retryableBeforeSubmission('cURL error 7: Failed to connect'));
         self::assertFalse($unit::retryableBeforeSubmission('Operation timed out after response started'));
         self::assertFalse($unit::retryableBeforeSubmission('余额不足'));
         self::assertFalse($unit::retryableBeforeSubmission('内容安全审核失败'));
