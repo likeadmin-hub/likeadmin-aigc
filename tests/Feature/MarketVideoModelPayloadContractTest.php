@@ -122,7 +122,7 @@ class MarketVideoModelPayloadContractTest extends TestCase
         }
     }
 
-    public function testH3PayloadUsesOnlyItsDocumentedTopLevelContract(): void
+    public function testH3PayloadUsesItsDocumentedTopLevelContractAndStringDurationEnum(): void
     {
         $payload = $this->invokeModelPayload([
             'product_id' => 98,

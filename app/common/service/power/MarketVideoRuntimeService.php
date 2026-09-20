@@ -1121,10 +1121,9 @@ class MarketVideoRuntimeService
             'model' => (string)$snapshot['model_code'],
             'ratio' => $ratio,
             'resolution' => $resolution,
-            // Compatibility probe: keep duration numeric for local SKU and
-            // billing calculations, but serialize H3's outbound value as a
-            // string. This lets us verify the provider's actual coercion
-            // behavior without changing any shared selection semantics.
+            // H3's duration catalogue is represented as a string enum by the
+            // active gateway. Keep local SKU and billing calculations numeric,
+            // while serializing only its outbound duration value as a string.
             'duration' => $duration > 0 ? (string)$duration : null,
             'content' => self::h3Content($request, $prompt),
         ];
