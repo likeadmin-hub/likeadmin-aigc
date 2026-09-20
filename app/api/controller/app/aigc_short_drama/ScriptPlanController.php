@@ -37,6 +37,22 @@ class ScriptPlanController extends BaseApiController
         }
     }
 
+    public function parseUpload()
+    {
+        try {
+            return $this->success('剧本解析任务已提交', AigcShortDramaService::parseUploadedScript(
+                (int)$this->request->tenantId,
+                $this->userId,
+                $this->request->post()
+            ));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        } catch (Throwable $e) {
+            Log::error('AI short drama script parse upload failed: ' . $e->getMessage());
+            return $this->fail('剧本解析提交失败，请稍后重试');
+        }
+    }
+
     public function create()
     {
         try {
