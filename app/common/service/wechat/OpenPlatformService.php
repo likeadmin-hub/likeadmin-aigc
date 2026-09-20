@@ -1179,7 +1179,12 @@ class OpenPlatformService
     {
         $logTail = mb_substr(self::sanitizeProcessOutput(trim($output)), -16000);
         $diagnostic = self::extractManualUploadDiagnostic($stderr, $logTail);
-        $summary = $timedOut ? '上传进程超过 180 秒，已终止。' : $diagnostic['summary'];
+        // miniprogram-ci can leave compiler handles alive after it has already
+        // returned a provider error. Preserve that actionable error rather than
+        // overwriting it with our process deadline message.
+        $summary = $diagnostic['summary'] !== ''
+            ? $diagnostic['summary']
+            : ($timedOut ? '上传进程超过 180 秒，已终止。' : '');
         if ($summary === '') $summary = '微信小程序代码上传失败，请查看详细日志。';
         return [
             'success' => false,
