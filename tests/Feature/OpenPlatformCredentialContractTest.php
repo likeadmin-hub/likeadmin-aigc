@@ -59,12 +59,30 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString('public static function syncTemplates()', $service);
         self::assertStringContainsString('public static function templateRecords()', $service);
         self::assertStringContainsString('public static function availableTemplates()', $service);
+        self::assertStringContainsString('public static function addTemplateFromDraft(', $service);
+        self::assertStringContainsString('public static function uploadDraftForArtifact(', $service);
+        self::assertStringContainsString("'wechat.draft.upload'", $service);
+        self::assertStringContainsString("(int)\$item['draft_id'] < 0", $service);
         self::assertStringContainsString('草稿 ID 不是本地产品版本号', $service);
         self::assertStringContainsString('array_merge($profile', $callback);
         self::assertStringContainsString('function templateDrafts()', $platformController);
         self::assertStringContainsString('function templateRecords()', $platformController);
+        self::assertStringContainsString('function uploadDraft()', $platformController);
         self::assertStringContainsString('function syncAccount()', $tenantController);
         self::assertStringContainsString('OpenPlatformService::availableTemplates()', $tenantController);
+    }
+
+    public function testDraftUploadSchemaIsMirroredForUpgradeAndFreshInstall(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $serverUpgrade = (string)file_get_contents($root . '/upgrade/20260920_wechat_template_drafts.sql');
+        $publicUpgrade = (string)file_get_contents($root . '/public/upgrade/20260920_wechat_template_drafts.sql');
+        $install = (string)file_get_contents($root . '/public/install/db/like.sql');
+
+        self::assertSame($serverUpgrade, $publicUpgrade);
+        self::assertStringContainsString('CREATE TABLE IF NOT EXISTS `la_wechat_template_drafts`', $serverUpgrade);
+        self::assertStringContainsString('`developer_app_id` varchar(64)', $serverUpgrade);
+        self::assertStringContainsString('CREATE TABLE IF NOT EXISTS `la_wechat_template_drafts`', $install);
     }
 
     public function testLegacyNestedOpenPlatformMenuHasAnIdempotentHideUpgrade(): void
