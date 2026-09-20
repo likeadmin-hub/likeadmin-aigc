@@ -3063,6 +3063,19 @@ class AigcShortDramaService
     public static function scriptPlanDetail(int $tenantId, int $userId, string $taskId, int $projectId = 0): array
     {
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+        if (self::isMarketFileQaParseRequest(self::jsonDecode((string)$task['request_json']))) {
+            if (!in_array((string)$task['status'], [self::STATUS_SUCCESS, self::STATUS_FAILED, self::STATUS_CANCELED], true)) {
+                $consumptionId = (int)(AiConsumptionLog::where([
+                    'tenant_id' => $tenantId, 'user_id' => $userId, 'app_task_id' => (int)$task['app_task_id'],
+                ])->order('id', 'desc')->value('id') ?: 0);
+                if ($consumptionId > 0) {
+                    MarketFileQaAppRuntimeService::refresh($consumptionId);
+                    self::syncMarketFileQaScriptTask($task->toArray());
+                    $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+                }
+            }
+            return self::formatTask($task->toArray(), true);
+        }
         if (ShortDramaEpisodeService::context($tenantId, $userId, (int)$task['project_id'])) {
             // Script detail is a read path.  Reusing inherited visual assets
             // writes several rows and used to run here while episode switches
