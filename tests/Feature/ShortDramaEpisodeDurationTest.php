@@ -116,6 +116,55 @@ class ShortDramaEpisodeDurationTest extends TestCase
         self::assertSame(1, $payload['timing_diagnostics']['content_repairs']);
     }
 
+    public function testDenseDialogueUsesTargetedFieldRepairInsteadOfRegeneratingTheStoryboardPart(): void
+    {
+        $request = $this->request(0, [['start_seconds' => 0, 'end_seconds' => 5, 'duration_seconds' => 5]]);
+        $calls = [];
+        $skeleton = ['title' => '测试', 'story_outline' => '甲和乙在门口争执', 'script_lines' => ['甲和乙在门口争执'],
+            'subjects' => [['id' => 'a', 'name' => '甲'], ['id' => 'b', 'name' => '乙']], 'locations' => [['id' => 'door', 'name' => '门口']],
+            'scene_beats' => [['scene_ref_id' => 'door', 'goal' => '赶人', 'entry' => '甲守门', 'exit' => '乙离开', 'key_events' => ['甲赶乙离开'],
+                'duration_seconds' => 5, 'shot_durations' => [5]]]];
+        $payload = ShortDramaTimedScriptGeneration::generate($request, ['system_prompt' => '创作', 'content' => '故事'],
+            static function ($key, $input, $budget) use (&$calls, $skeleton) {
+                $calls[] = $key;
+                if (str_contains($key, 'skeleton')) return $skeleton;
+                if (str_contains($key, 'dialogue_repair')) return ['dialogue_repairs' => [['shot_id' => 's1_1', 'dialogue' => '出去，别再烦我。']]];
+                return ['storyboard' => [[
+                    'shot_id' => 's1_1', 'scene_ref_id' => 'door', 'subject_ref_ids' => ['a', 'b'], 'visual_description' => '甲在门口挥袖赶人，乙后退',
+                    'dialogue' => '甲气冲冲地挥袖指着门口对乙怒喊：出去！别再烦我！乙一边后退一边对镜头笑着大声说：开个玩笑，别生气！',
+                    'voice_role' => '甲', 'speech_type' => 'character', 'recommended_duration_seconds' => 5,
+                ]]];
+            }, null);
+
+        self::assertSame(['timed_skeleton_0', 'timed_scene_1_1', 'timed_dialogue_repair_1_1'], $calls);
+        self::assertSame('出去，别再烦我。', $payload['storyboard'][0]['dialogue']);
+        self::assertSame(1, $payload['timing_diagnostics']['dialogue_repairs']);
+        self::assertSame(0, $payload['timing_diagnostics']['content_repairs']);
+    }
+
+    public function testCompleteProviderPlanRepairsOnlyItsDenseDialogue(): void
+    {
+        $request = $this->request(0, [['start_seconds' => 0, 'end_seconds' => 5, 'duration_seconds' => 5]]);
+        $calls = [];
+        $completePlan = ['title' => '测试', 'story_outline' => '甲赶走乙', 'script_lines' => ['甲赶走乙'],
+            'subjects' => [['id' => 'a', 'name' => '甲'], ['id' => 'b', 'name' => '乙']], 'locations' => [['id' => 'door', 'name' => '门口']],
+            'storyboard' => [[
+                'shot_id' => 's1', 'scene_ref_id' => 'door', 'subject_ref_ids' => ['a', 'b'], 'visual_description' => '甲在门口赶走乙',
+                'dialogue' => '甲气冲冲地挥袖指着门口对乙怒喊：出去！别再烦我！乙一边后退一边对镜头笑着大声说：开个玩笑，别生气！',
+                'voice_role' => '甲', 'speech_type' => 'character', 'recommended_duration_seconds' => 5,
+            ]]];
+        $payload = ShortDramaTimedScriptGeneration::generate($request, ['system_prompt' => '创作', 'content' => '故事'],
+            static function ($key, $input, $budget) use (&$calls, $completePlan) {
+                $calls[] = $key;
+                if (str_contains($key, 'dialogue_repair')) return ['dialogue_repairs' => [['shot_id' => 's1', 'dialogue' => '出去，别再烦我。']]];
+                return $completePlan;
+            }, null);
+
+        self::assertSame(['timed_skeleton_0', 'timed_dialogue_repair_1_1'], $calls);
+        self::assertSame('出去，别再烦我。', $payload['storyboard'][0]['dialogue']);
+        self::assertSame(1, $payload['timing_diagnostics']['dialogue_repairs']);
+    }
+
     public function testNewConfigSnapshotAndLegacyPathsAreSeparate(): void
     {
         $policy = $this->invoke('episodeDurationSnapshot', '女孩找猫', [], ['episode_duration_rule' => ['enabled' => true]]);
