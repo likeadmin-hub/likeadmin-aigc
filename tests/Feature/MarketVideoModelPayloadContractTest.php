@@ -122,6 +122,46 @@ class MarketVideoModelPayloadContractTest extends TestCase
         }
     }
 
+    public function testH3PayloadUsesOnlyItsDocumentedTopLevelContract(): void
+    {
+        $payload = $this->invokeModelPayload([
+            'product_id' => 98,
+            'sku_id' => 119,
+            'sku_key' => 'h3_768p_output_second',
+            'model_code' => 'h3-video',
+            'channel_code' => 'minimax',
+            'locked_params' => ['resolution' => '768P'],
+        ], [
+            'prompt' => '基于全部参考图片生成自然镜头运动。',
+            'ratio' => '9:16',
+            'duration' => 5,
+            'callback_url' => 'https://example.test/h3-callback',
+            'reference_assets' => array_map(static fn(int $index): array => [
+                'type' => 'image',
+                'url' => 'https://example.test/reference-' . $index . '.png',
+                'role' => 'reference_image',
+            ], range(1, 7)),
+        ]);
+
+        self::assertSame(
+            ['model', 'ratio', 'resolution', 'duration', 'content', 'callback_url'],
+            array_keys($payload)
+        );
+        self::assertSame('h3-video', $payload['model']);
+        self::assertSame('9:16', $payload['ratio']);
+        self::assertSame('768P', $payload['resolution']);
+        self::assertSame(5, $payload['duration']);
+        self::assertCount(8, $payload['content']);
+        self::assertSame('text', $payload['content'][0]['type']);
+        self::assertSame(
+            array_fill(0, 7, 'reference_image'),
+            array_column(array_slice($payload['content'], 1), 'role')
+        );
+        foreach (['channel', 'market_product_id', 'market_sku_id', 'sku_id', 'sku_key', 'pricing_sku_key', 'price_source', 'idempotency_key'] as $field) {
+            self::assertArrayNotHasKey($field, $payload);
+        }
+    }
+
     public function testWanThreeAcceptsAndSubmitsThirtySecondDuration(): void
     {
         $metadata = [
