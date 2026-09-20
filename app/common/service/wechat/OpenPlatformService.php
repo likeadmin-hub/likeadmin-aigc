@@ -451,10 +451,20 @@ class OpenPlatformService
         $payload = ['draft_id' => $draftId, 'template_version' => (string)($draft['user_version'] ?? ($artifact['version'] ?? '')), 'template_desc' => $description !== '' ? $description : (string)($draft['user_desc'] ?? ''), 'artifact_id' => $artifactId, 'upload_status' => 'uploading', 'update_time' => time(), 'error_message' => ''];
         if ($row->isEmpty()) { $payload['create_time'] = time(); $row = WechatTemplate::create($payload); } else $row->save($payload);
         try {
-            // The draft is created by the local WeChat developer tool. The server only
-            // promotes that draft into the component template library.
-            $template = self::request('wxa/addtotemplate', ['draft_id' => $draftId], 'template.add', ['component_access_token' => self::componentAccessToken()]);
-            $templateId = (string)($template['template_id'] ?? ''); if ($templateId === '') throw new \RuntimeException('微信未返回模板 ID');
+            // addtotemplate only returns errcode/errmsg. Capture the template
+            // library before and after the call to resolve its generated ID.
+            $beforeTemplateIds = [];
+            foreach (self::syncTemplates() as $template) {
+                $templateId = trim((string)($template['template_id'] ?? ''));
+                if ($templateId !== '') $beforeTemplateIds[$templateId] = true;
+            }
+            self::request('wxa/addtotemplate', ['draft_id' => $draftId], 'template.add', ['component_access_token' => self::componentAccessToken()]);
+            $newTemplates = array_values(array_filter(self::syncTemplates(), static function (array $template) use ($beforeTemplateIds): bool {
+                $templateId = trim((string)($template['template_id'] ?? ''));
+                return $templateId !== '' && !isset($beforeTemplateIds[$templateId]);
+            }));
+            if (count($newTemplates) !== 1) throw new \RuntimeException('微信已处理加入模板请求，但模板库同步未发现唯一的新模板；请刷新模板列表后确认。');
+            $templateId = trim((string)$newTemplates[0]['template_id']);
             $row->save(['template_id' => $templateId, 'upload_status' => 'success', 'upload_time' => time(), 'update_time' => time(), 'error_message' => '']);
             return $row->toArray();
         } catch (\Throwable $e) {
@@ -477,10 +487,18 @@ class OpenPlatformService
     public static function releaseVersion(int $tenantId, int $id): array { $lock = SubmitLockService::acquire('wechat.version.release.' . $id, $tenantId, 0); try { [$row, $authorizer] = self::versionForTenant($tenantId, $id); if ((string)$row['audit_status'] !== 'approved') throw new \RuntimeException('审核尚未通过'); if ((string)$row['release_status'] === 'released') return $row->toArray(); self::request('wxa/release', [], 'release.publish', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $row->save(['release_status' => 'released', 'update_time' => time()]); return $row->toArray(); } finally { SubmitLockService::release($lock); } }
     public static function rollbackVersion(int $tenantId, int $id, int $fromId = 0): array { $lock = SubmitLockService::acquire('wechat.version.rollback.' . $id, $tenantId, 0); try { [$row, $authorizer] = self::versionForTenant($tenantId, $id); if ((string)$row['release_status'] !== 'released') throw new \RuntimeException('当前版本未发布'); self::request('wxa/revertcoderelease', [], 'release.rollback', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $row->save(['release_status' => 'rolled_back', 'rollback_from_id' => $fromId, 'update_time' => time()]); return $row->toArray(); } finally { SubmitLockService::release($lock); } }
 
-    private static function request(string $path, array $payload, string $apiName, array $query = [], int $tenantId = 0, int $authorizerId = 0): array
+    private static function request(string $path, array $payload, string $apiName, array $query = [], int $tenantId = 0, int $authorizerId = 0, string $method = 'POST'): array
     {
         $url = self::API . ltrim($path, '/'); if ($query) $url .= '?' . http_build_query($query); $requestId = bin2hex(random_bytes(12)); $started = microtime(true);
-        try { $response = Requests::post($url, ['Content-Type' => 'application/json'], json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ['timeout' => 30]); $body = json_decode((string)$response->body, true); if (!is_array($body)) throw new \RuntimeException('微信接口返回格式错误'); $code = (int)($body['errcode'] ?? 0); self::logApi($requestId, $apiName, $code, $started, $code === 0 ? 'success' : 'failed', $tenantId, $authorizerId); if ($code !== 0) throw new \RuntimeException('微信接口调用失败：' . (string)($body['errmsg'] ?? $code)); return $body; } catch (\Throwable $e) { self::logApi($requestId, $apiName, -1, $started, 'failed', $tenantId, $authorizerId); throw $e; }
+        $method = strtoupper(trim($method));
+        if (!in_array($method, ['GET', 'POST'], true)) throw new \InvalidArgumentException('不支持的微信接口请求方法');
+        try {
+            $headers = ['Content-Type' => 'application/json'];
+            $response = $method === 'GET'
+                ? Requests::get($url, $headers, ['timeout' => 30])
+                : Requests::post($url, $headers, json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ['timeout' => 30]);
+            $body = json_decode((string)$response->body, true); if (!is_array($body)) throw new \RuntimeException('微信接口返回格式错误'); $code = (int)($body['errcode'] ?? 0); self::logApi($requestId, $apiName, $code, $started, $code === 0 ? 'success' : 'failed', $tenantId, $authorizerId); if ($code !== 0) throw new \RuntimeException('微信接口调用失败：' . (string)($body['errmsg'] ?? $code)); return $body;
+        } catch (\Throwable $e) { self::logApi($requestId, $apiName, -1, $started, 'failed', $tenantId, $authorizerId); throw $e; }
     }
 
     public static function callbackUrls(array $config = []): array
@@ -735,7 +753,7 @@ class OpenPlatformService
      */
     public static function syncTemplates(): array
     {
-        $result = self::request('wxa/gettemplatelist', [], 'template.list', ['component_access_token' => self::componentAccessToken()]);
+        $result = self::request('wxa/gettemplatelist', [], 'template.list', ['component_access_token' => self::componentAccessToken()], 0, 0, 'GET');
         $items = $result['template_list'] ?? [];
         if (!is_array($items)) return [];
 
@@ -777,7 +795,7 @@ class OpenPlatformService
      */
     public static function templateDrafts(): array
     {
-        $result = self::request('wxa/gettemplatedraftlist', [], 'template.drafts', ['component_access_token' => self::componentAccessToken()]);
+        $result = self::request('wxa/gettemplatedraftlist', [], 'template.drafts', ['component_access_token' => self::componentAccessToken()], 0, 0, 'GET');
         $items = $result['drafttemplate_list'] ?? $result['draft_list'] ?? [];
         if (!is_array($items)) return [];
         $drafts = [];
