@@ -10334,8 +10334,8 @@ class AigcShortDramaService
             $candidates[] = dirname($ffmpeg) . DIRECTORY_SEPARATOR . (DIRECTORY_SEPARATOR === '\\' ? 'ffprobe.exe' : 'ffprobe');
         }
         $candidates = array_merge($candidates, [
-            (string)env('ffprobe_binary', ''),
-            (string)env('ffprobe.binary', ''),
+            function_exists('env') ? (string)env('ffprobe_binary', '') : '',
+            function_exists('env') ? (string)env('ffprobe.binary', '') : '',
             getenv('FFPROBE_BINARY') ?: '',
             '/usr/local/bin/ffprobe',
             '/usr/bin/ffprobe',
