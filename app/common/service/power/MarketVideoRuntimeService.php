@@ -1113,18 +1113,22 @@ class MarketVideoRuntimeService
         if ($prompt === '') {
             throw new Exception('H3 video generation requires a text prompt.');
         }
-        foreach (['prompt', 'content', 'aspect_ratio', 'ratio', 'size', 'quality', 'n', 'negative_prompt', 'image_urls', 'video_urls', 'audio_urls'] as $key) {
-            unset($locked[$key]);
-        }
-        return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_video'), [
+        // H3 uses the documented public model-task contract.  The market SKU
+        // context and local idempotency key are for our own accounting only;
+        // forwarding them makes a strict provider reject an otherwise valid
+        // multi-modal content request as containing unknown top-level fields.
+        $payload = [
             'model' => (string)$snapshot['model_code'],
-            'channel' => (string)$snapshot['channel_code'],
             'ratio' => $ratio,
             'resolution' => $resolution,
             'duration' => $duration > 0 ? $duration : null,
             'content' => self::h3Content($request, $prompt),
-            'idempotency_key' => $idempotency,
-        ]), static fn($value) => $value !== '' && $value !== null && $value !== []);
+        ];
+        $callbackUrl = trim((string)($request['callback_url'] ?? $request['callbackUrl'] ?? ''));
+        if ($callbackUrl !== '') {
+            $payload['callback_url'] = $callbackUrl;
+        }
+        return array_filter($payload, static fn($value) => $value !== '' && $value !== null && $value !== []);
     }
 
     private static function h3Content(array $request, string $prompt): array
