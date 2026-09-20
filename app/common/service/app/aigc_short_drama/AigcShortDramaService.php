@@ -15428,13 +15428,14 @@ class AigcShortDramaService
         // Without a valid tail frame, use only the established reference
         // priority below. The contract is intentionally built server-side so
         // old clients and crafted requests cannot reorder or add references:
-        // current first frame > bound subject turnaround > bound scene > bound
-        // subject primary image > explicitly mentioned storyboard image.
+        // current first frame > bound subject turnaround > bound scene >
+        // explicitly mentioned storyboard image. Subject primary images are
+        // intentionally not video references: the turnaround is the only
+        // bound-subject source for this fallback contract.
         $candidates = self::shortDramaVideoReferenceCandidates(
             $assetMap[$firstFrameId],
             self::shortDramaVideoThreeViewAssets($tenantId, $userId, $projectId, $shot),
             self::shortDramaVideoSceneAssets($tenantId, $userId, $projectId, $shot),
-            self::shortDramaVideoPrimarySubjectAssets($tenantId, $userId, $projectId, $shot),
             self::shortDramaVideoMentionedShotAssets($tenantId, $userId, $projectId, $params)
         );
         if (in_array('multi_frame', $modes, true) && $referenceLimit >= 2 && count($candidates) >= 2) {
@@ -15469,7 +15470,7 @@ class AigcShortDramaService
      * Normal-reference ordering is a source-of-truth contract shared by all
      * short-drama entry points. Tail-frame mode never reaches this method.
      */
-    private static function shortDramaVideoReferenceCandidates(array $firstFrame, array $threeViews, array $sceneAssets, array $primarySubjectAssets, array $mentionedShotAssets): array
+    private static function shortDramaVideoReferenceCandidates(array $firstFrame, array $threeViews, array $sceneAssets, array $mentionedShotAssets): array
     {
         $candidates = [];
         $candidateIds = [];
@@ -15487,7 +15488,6 @@ class AigcShortDramaService
         $append([$firstFrame], 'first_frame');
         $append($threeViews, 'character_turnaround');
         $append($sceneAssets, 'scene_image');
-        $append($primarySubjectAssets, 'character_primary');
         $append($mentionedShotAssets, 'mentioned_shot');
         return $candidates;
     }
@@ -15544,28 +15544,6 @@ class AigcShortDramaService
                 $assets[] = $bySubject[$subjectId];
             }
         }
-        return $assets;
-    }
-
-    /** Project-scoped aliases are created before quote/submission; never use a library URL directly. */
-    private static function shortDramaVideoPrimarySubjectAssets(int $tenantId, int $userId, int $projectId, array $shot): array
-    {
-        $subjectIds = array_values(array_unique(array_filter(array_map('strval', self::splitPlanRefTokens($shot['subject_ref_ids'] ?? [])))));
-        if ($subjectIds === []) return [];
-        $wanted = array_flip($subjectIds);
-        $rows = AigcShortDramaAsset::where([
-            'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
-            'asset_type' => 'subject_image', 'status' => 'ready', 'delete_time' => 0,
-        ])->order(['id' => 'desc'])->select()->toArray();
-        $bySubject = [];
-        foreach ($rows as $row) {
-            $meta = self::assetReferenceMeta($row, self::jsonDecode((string)($row['meta_json'] ?? '')));
-            $subjectId = trim((string)($meta['subject_id'] ?? $meta['subject_ref_id'] ?? $meta['character_id'] ?? $meta['item_id'] ?? ''));
-            if ($subjectId === '' || !isset($wanted[$subjectId]) || isset($bySubject[$subjectId])) continue;
-            $bySubject[$subjectId] = self::formatAsset($row);
-        }
-        $assets = [];
-        foreach ($subjectIds as $subjectId) if (isset($bySubject[$subjectId])) $assets[] = $bySubject[$subjectId];
         return $assets;
     }
 
