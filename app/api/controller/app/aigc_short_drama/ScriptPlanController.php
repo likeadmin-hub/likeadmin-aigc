@@ -53,6 +53,23 @@ class ScriptPlanController extends BaseApiController
         }
     }
 
+    /** Create a project and submit its uploaded screenplay to the tenant file-qa app. */
+    public function createParseUpload()
+    {
+        try {
+            return $this->success('剧本解析任务已提交', AigcShortDramaService::createAndParseUploadedScript(
+                (int)$this->request->tenantId,
+                $this->userId,
+                $this->request->post()
+            ));
+        } catch (Exception $e) {
+            return $this->fail($e->getMessage());
+        } catch (Throwable $e) {
+            Log::error('AI short drama home script parse upload failed: ' . $e->getMessage());
+            return $this->fail('剧本解析提交失败，请稍后重试');
+        }
+    }
+
     public function create()
     {
         try {

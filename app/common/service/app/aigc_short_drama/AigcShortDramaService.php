@@ -2788,6 +2788,23 @@ class AigcShortDramaService
     }
 
     /**
+     * Home submissions create exactly one project and one file-qa parse task.
+     * They deliberately do not create an intermediate LLM script-plan task.
+     */
+    public static function createAndParseUploadedScript(int $tenantId, int $userId, array $params): array
+    {
+        $serializedSelections = $params['model_selections_json'] ?? '';
+        if (is_string($serializedSelections) && $serializedSelections !== '') {
+            $decodedSelections = self::jsonDecode($serializedSelections);
+            if (is_array($decodedSelections)) {
+                $params['model_selections'] = $decodedSelections;
+            }
+        }
+        $params['source'] = 'home_script_upload';
+        return self::parseUploadedScript($tenantId, $userId, $params);
+    }
+
+    /**
      * Store an uploaded screenplay and submit it to the tenant's file_qa market API.
      * The parser result is deliberately kept asynchronous: a script-plan task is
      * created first and its normal detail endpoint remains the only client poll.
@@ -2796,11 +2813,14 @@ class AigcShortDramaService
     {
         $projectId = (int)($params['project_id'] ?? 0);
         $sourceTaskId = trim((string)($params['task_id'] ?? ''));
-        if ($projectId <= 0 || $sourceTaskId === '') {
+        $isHomeSubmission = $projectId <= 0
+            && $sourceTaskId === ''
+            && (string)($params['source'] ?? '') === 'home_script_upload';
+        if (!$isHomeSubmission && ($projectId <= 0 || $sourceTaskId === '')) {
             throw new Exception('请在项目剧本页上传并解析文件');
         }
-        $project = self::findProject($tenantId, $userId, $projectId);
-        $sourceTask = self::findTask($tenantId, $userId, $sourceTaskId, $projectId);
+        $project = $isHomeSubmission ? null : self::findProject($tenantId, $userId, $projectId);
+        $sourceTask = $isHomeSubmission ? null : self::findTask($tenantId, $userId, $sourceTaskId, $projectId);
         $file = request()->file('file');
         if ($file === null || (method_exists($file, 'getError') && (int)$file->getError() !== 0)) {
             throw new Exception('剧本文件上传失败');
@@ -2815,6 +2835,83 @@ class AigcShortDramaService
         $checksum = hash_file('sha256', $path) ?: '';
         $mime = mb_substr(trim((string)(method_exists($file, 'getMime') ? $file->getMime() : '')), 0, 120, 'UTF-8');
 
+        $homeProject = [];
+        $homeSubmissionKey = trim((string)($params['submission_key'] ?? ''));
+        if ($isHomeSubmission) {
+            if ($homeSubmissionKey === '' || mb_strlen($homeSubmissionKey, 'UTF-8') > 120) {
+                throw new Exception('剧本提交标识无效，请重新提交');
+            }
+            $idempotencyKey = sha1('short-drama-home-script|' . $tenantId . '|' . $userId . '|' . $homeSubmissionKey);
+            $existing = AigcShortDramaScriptTask::where([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'idempotency_key' => $idempotencyKey,
+                'delete_time' => 0,
+            ])->order('id', 'desc')->findOrEmpty();
+            if (!$existing->isEmpty()) {
+                return [
+                    'project_id' => (int)$existing['project_id'],
+                    'task_id' => (string)$existing['task_id'],
+                    'status' => self::publicTaskStatus((string)$existing['status']),
+                    'redirect_url' => '/ai/short-drama/plan?project_id=' . (int)$existing['project_id'] . '&task_id=' . (string)$existing['task_id'],
+                ];
+            }
+            $instruction = '按照剧本进行策划';
+            $supplement = mb_substr(trim((string)($params['supplement'] ?? '')), 0, 4000, 'UTF-8');
+            $taskPrompt = $supplement === '' ? $instruction : $instruction . "\n\n补充要求：" . $supplement;
+            self::checkSensitivePrompt($taskPrompt);
+            $config = self::publicConfig($tenantId);
+            $sourceRequest = self::normalizeCreateRequest(array_replace($params, [
+                'prompt' => $taskPrompt,
+                'source' => 'home_script_upload',
+                'multi_episode' => true,
+                'episode_count' => 2,
+                'workflow_variant' => '',
+                'multi_episode_stage' => self::MULTI_EPISODE_STAGE_OUTLINE,
+            ]), $config);
+            $requestedSubjectIds = array_values(array_unique(array_map('intval', (array)($sourceRequest['subject_ids'] ?? []))));
+            $references = self::selectedSubjectReferences($tenantId, $userId, $requestedSubjectIds);
+            if (count($references) !== count($requestedSubjectIds)) {
+                throw new Exception('所选主体不存在或无权使用，请重新选择');
+            }
+            $references = self::freezeSubjectReferences($references);
+            $sourceRequest['locked_subject_references'] = $references;
+            $sourceRequest['subject_references'] = $references;
+            $sourceRequest['subject_ids'] = array_values(array_map(static fn(array $subject): string => (string)$subject['id'], $references));
+            $sourceRequest['subject_mentions'] = array_values(array_unique(array_filter(array_map(static fn(array $subject): string => (string)$subject['name'], $references))));
+            $sourceRequest['prompt'] = $taskPrompt;
+            $sourceRequest['multi_episode'] = true;
+            $sourceRequest['episode_count'] = 2;
+            $sourceRequest['episode_total_count'] = 2;
+            $sourceRequest['multi_episode_stage'] = self::MULTI_EPISODE_STAGE_OUTLINE;
+            $sourceRequest['workflow_variant'] = '';
+            $sourceRequest['_generation_version'] = max(3, (int)($sourceRequest['_generation_version'] ?? 0));
+            $selectedModels = self::resolveSelectedModels($tenantId, $sourceRequest, $config);
+            $sourceRequest['model_selections'] = self::modelSelectionsSnapshot($selectedModels);
+            $sourceRequest['model_id'] = (string)($selectedModels['script_plan']['id'] ?? $sourceRequest['model_id'] ?? '');
+            $projectRatio = self::normalizeGenerationRatio((string)($sourceRequest['ratio'] ?? ''));
+            $homeProject = [
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'title' => self::makeTitle($taskPrompt),
+                'prompt' => $taskPrompt,
+                'ratio' => $projectRatio,
+                'multi_episode' => 1,
+                'episode_count' => 2,
+                'target_duration_seconds' => (int)($sourceRequest['target_duration_seconds'] ?? 0),
+                'input_asset_ids' => self::jsonEncode((array)($sourceRequest['input_asset_ids'] ?? [])),
+                'generation_settings_json' => self::jsonEncode(self::projectGenerationSettingsFromRequest($projectRatio, $sourceRequest, $selectedModels)),
+                'cover_url' => '',
+                'status' => self::PROJECT_STATUS_PLANNING,
+                'last_task_id' => '',
+                'current_agent_run_id' => '',
+                'delete_time' => 0,
+            ];
+        } else {
+            $sourceRequest = self::jsonDecode((string)$sourceTask['request_json']);
+            $idempotencyKey = '';
+        }
+
         // UploadService selects the tenant-effective storage engine and stores
         // ownership metadata; the market API receives only its resolved URL.
         $uploaded = UploadService::file(0, 0, FileEnum::SOURCE_USER, 'uploads/aigc_short_drama/script_documents');
@@ -2824,7 +2921,6 @@ class AigcShortDramaService
         $storage = self::storageInfoForUploadedFile($tenantId, $rawUri);
         $parseTaskId = self::makeTaskId('sd_parse');
         $now = time();
-        $sourceRequest = self::jsonDecode((string)$sourceTask['request_json']);
         $request = array_replace($sourceRequest, [
             'source' => 'market_file_qa_parse',
             'script_source' => 'upload',
@@ -2841,14 +2937,31 @@ class AigcShortDramaService
             'source_task_id' => $sourceTaskId,
             '_generation_version' => max(3, (int)($sourceRequest['_generation_version'] ?? 0)),
         ]);
+        if ($isHomeSubmission) {
+            $request['submission'] = [
+                'type' => 'script_upload',
+                'instruction' => '按照剧本进行策划',
+                'supplement' => $supplement,
+                'attachment_name' => $name,
+            ];
+        }
         unset($request['_story_draft'], $request['confirmed_story_snapshot'], $request['confirmed_story_task_id']);
-        $request['episode_count'] = max(2, min(self::SCRIPT_MAX_EPISODES, (int)($sourceRequest['episode_count'] ?? $project['episode_count'] ?? 2)));
+        $request['episode_count'] = max(2, min(self::SCRIPT_MAX_EPISODES, (int)($sourceRequest['episode_count'] ?? ($project['episode_count'] ?? 2))));
         $request['episode_total_count'] = $request['episode_count'];
-        $request['idempotency_key'] = sha1($tenantId . '|' . $userId . '|' . $projectId . '|' . $checksum . '|' . $parseTaskId);
+        $request['idempotency_key'] = $idempotencyKey !== '' ? $idempotencyKey : sha1($tenantId . '|' . $userId . '|' . $projectId . '|' . $checksum . '|' . $parseTaskId);
 
-        Db::transaction(function () use ($tenantId, $userId, $projectId, $project, $parseTaskId, $request, $name, $rawUri, $storage, $mime, $size, $checksum, $now) {
-            $lockedProject = AigcShortDramaProject::where(['id' => $projectId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])->lock(true)->findOrEmpty();
-            if ($lockedProject->isEmpty()) throw new Exception('项目不存在');
+        Db::transaction(function () use ($tenantId, $userId, &$projectId, $project, $parseTaskId, $request, $name, $rawUri, $storage, $mime, $size, $checksum, $now, $isHomeSubmission, $homeProject, $sourceTaskId) {
+            if ($isHomeSubmission) {
+                $lockedProject = AigcShortDramaProject::create(array_replace($homeProject, [
+                    'last_task_id' => $parseTaskId,
+                    'create_time' => $now,
+                    'update_time' => $now,
+                ]));
+                $projectId = (int)$lockedProject['id'];
+            } else {
+                $lockedProject = AigcShortDramaProject::where(['id' => $projectId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])->lock(true)->findOrEmpty();
+                if ($lockedProject->isEmpty()) throw new Exception('项目不存在');
+            }
             $asset = AigcShortDramaAsset::create([
                 'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
                 'task_id' => $parseTaskId, 'shot_id' => '', 'asset_type' => 'script_document',
@@ -2864,9 +2977,9 @@ class AigcShortDramaService
             $lockedProject->save(['last_task_id' => $parseTaskId, 'status' => self::PROJECT_STATUS_PLANNING, 'update_time' => $now]);
             $scriptTask = AigcShortDramaScriptTask::create([
                 'app_task_id' => 0, 'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
-                'task_id' => $parseTaskId, 'parent_task_id' => (string)$project['last_task_id'],
+                'task_id' => $parseTaskId, 'parent_task_id' => $sourceTaskId,
                 'status' => self::STATUS_PENDING, 'progress' => 5, 'current_step' => '剧本文件已上传，等待解析',
-                'prompt' => '解析上传剧本：' . $name, 'request_json' => self::jsonEncode($request),
+                'prompt' => $isHomeSubmission ? (string)$request['prompt'] : '解析上传剧本：' . $name, 'request_json' => self::jsonEncode($request),
                 'config_snapshot' => self::jsonEncode(['provider' => 'power_market', 'market_app_code' => 'file_qa', 'market_api_code' => 'parse']),
                 'pricing_snapshot' => self::jsonEncode([]), 'result_json' => self::jsonEncode([]), 'error' => '',
                 'billing_status' => 'pending_usage', 'tenant_cost_points' => 0, 'user_charge_points' => 0,
@@ -23161,6 +23274,15 @@ class AigcShortDramaService
             (int)$task['user_id'],
             self::stripPromptDiagnostics(self::jsonDecode((string)($task['request_json'] ?? '')))
         );
+        $submission = (array)($request['submission'] ?? []);
+        $publicSubmission = (string)($submission['type'] ?? '') === 'script_upload'
+            ? [
+                'type' => 'script_upload',
+                'instruction' => (string)($submission['instruction'] ?? '按照剧本进行策划'),
+                'supplement' => (string)($submission['supplement'] ?? ''),
+                'attachment_name' => (string)($submission['attachment_name'] ?? $request['script_file_name'] ?? ''),
+            ]
+            : null;
         $status = (string)($task['status'] ?? '');
         $storedResult = self::jsonDecode((string)($task['result_json'] ?? ''));
         $streamContent = (string)($storedResult['__stream_content'] ?? '');
@@ -23310,6 +23432,7 @@ class AigcShortDramaService
             'steps' => self::taskSteps((string)$task['status']),
             'workflow_steps' => self::workflowSteps((string)$task['status'], (array)($result['review_report'] ?? [])),
             'prompt' => (string)($task['prompt'] ?? ''),
+            'submission' => $publicSubmission,
             'revision_message' => (string)($request['revision_message'] ?? ''),
             'ratio' => $projectRatio !== '' ? $projectRatio : (string)($request['ratio'] ?? ''),
             'result' => $result,
