@@ -12102,7 +12102,7 @@ class AigcShortDramaService
         $duration = (int)($params['duration'] ?? $shot['recommended_duration_seconds'] ?? ShortDramaShotDuration::DEFAULT);
         $duration = max(1, $duration);
         $context = self::shotPromptContext($shot, $params, $plan);
-        $flexiblePrompt = self::shotFlexibleVideoPrompt($context['shot'], $params);
+        $flexiblePrompt = self::stripShotTimelinePromptHeaders(self::shotFlexibleVideoPrompt($context['shot'], $params));
         $flexiblePrompt = self::separateSubjectNamesInText($flexiblePrompt, (array)($context['raw_subject_names'] ?? $context['subject_names']));
         $nested = (array)($params['params'] ?? []);
         $submittedPrompt = self::firstNonEmptyString(
@@ -12718,7 +12718,7 @@ class AigcShortDramaService
         if (!empty($result)) {
             return implode("\n", array_values(array_unique($result)));
         }
-        return $originalPrompt;
+        return self::stripShotTimelinePromptHeaders($originalPrompt);
     }
 
     /** The storyboard timecode belongs to UI/audit metadata, never model text. */
