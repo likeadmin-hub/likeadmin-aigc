@@ -150,7 +150,7 @@ class MarketVideoModelPayloadContractTest extends TestCase
         self::assertSame('h3-video', $payload['model']);
         self::assertSame('9:16', $payload['ratio']);
         self::assertSame('768P', $payload['resolution']);
-        self::assertSame(5, $payload['duration']);
+        self::assertSame('5', $payload['duration']);
         self::assertCount(8, $payload['content']);
         self::assertSame('text', $payload['content'][0]['type']);
         self::assertSame(
