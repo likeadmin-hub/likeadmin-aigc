@@ -9,6 +9,7 @@ use app\common\model\wechat\WechatMnpReview;
 use app\common\model\wechat\WechatMnpVersion;
 use app\common\model\wechat\WechatOpenPlatform;
 use app\common\model\wechat\WechatTemplate;
+use app\common\model\wechat\WechatTemplateDraft;
 use app\common\model\wechat\WechatCredential;
 use app\common\service\SubmitLockService;
 use app\common\service\ConfigService;
@@ -64,6 +65,8 @@ class OpenPlatformService
         $row['callback_url_display'] = $urls['authorization'];
         $row['message_callback_url_display'] = $urls['message'];
         $row['authorization_domain_display'] = (string)(parse_url($urls['authorization'], PHP_URL_HOST) ?: '');
+        $row['draft_miniprogram_configured'] = trim((string)($row['developer_app_id'] ?? '')) !== ''
+            && self::credentialValue($row['upload_private_key'] ?? '') !== '';
         return $row;
     }
 
@@ -107,7 +110,17 @@ class OpenPlatformService
             throw new \InvalidArgumentException('授权事件接收 URL 必须是 HTTPS 地址，且不能包含查询参数或非标准端口');
         }
         $normalizedCallback = self::normalizeCallbackUrl($callbackInput);
-        $payload = ['app_id' => trim((string)($data['app_id'] ?? ($old['app_id'] ?? ''))), 'callback_url' => $normalizedCallback ?: '', 'developer_app_id' => trim((string)($data['developer_app_id'] ?? ($old['developer_app_id'] ?? ''))), 'status' => (int)($data['status'] ?? ($old['status'] ?? 1)), 'update_time' => time()];
+        $developerAppId = trim((string)($data['developer_app_id'] ?? ($old['developer_app_id'] ?? '')));
+        if ($developerAppId !== '' && !preg_match('/^wx[a-zA-Z0-9]{16,}$/', $developerAppId)) {
+            throw new \InvalidArgumentException('草稿小程序 AppID 格式无效');
+        }
+        if (array_key_exists('upload_private_key', $data) && trim((string)$data['upload_private_key']) !== '' && !str_contains((string)$data['upload_private_key'], '*')) {
+            $privateKey = trim((string)$data['upload_private_key']);
+            if (strlen($privateKey) > 20000 || !str_contains($privateKey, 'PRIVATE KEY') || !openssl_pkey_get_private($privateKey)) {
+                throw new \InvalidArgumentException('草稿小程序代码上传密钥格式无效');
+            }
+        }
+        $payload = ['app_id' => trim((string)($data['app_id'] ?? ($old['app_id'] ?? ''))), 'callback_url' => $normalizedCallback ?: '', 'developer_app_id' => $developerAppId, 'status' => (int)($data['status'] ?? ($old['status'] ?? 1)), 'update_time' => time()];
         foreach (self::SECRET_FIELDS as $key) if (array_key_exists($key, $data) && trim((string)$data[$key]) !== '' && !str_contains((string)$data[$key], '*')) $payload[$key] = WechatCredentialService::encrypt((string)$data[$key]);
         $row = WechatOpenPlatform::withoutGlobalScope()->findOrEmpty(1);
         if ($row->isEmpty()) { $payload['id'] = 1; $payload['create_time'] = time(); WechatOpenPlatform::withoutGlobalScope()->insert($payload); } else $row->save($payload);
@@ -400,9 +413,21 @@ class OpenPlatformService
 
     public static function uploadTemplate(int $artifactId, int $draftId, string $description = ''): array
     {
-        if ($draftId <= 0) throw new \InvalidArgumentException('draft_id 必须为正整数');
-        $artifact = WechatArtifact::withoutGlobalScope()->findOrEmpty($artifactId); if ($artifact->isEmpty() || (int)$artifact['verify_status'] !== 1) throw new \RuntimeException('产物不存在或未通过校验');
-        $source = self::artifactPath((string)$artifact['artifact_dir'], (string)$artifact['version']); $manifest = json_decode((string)$artifact['sha256_manifest'], true); if (!is_dir($source) || !is_array($manifest) || self::fileManifest($source) !== $manifest) throw new \RuntimeException('产物校验失败');
+        return self::addTemplateFromDraft($draftId, $description, $artifactId);
+    }
+
+    /** Add a real WeChat component draft to the template library. */
+    public static function addTemplateFromDraft(int $draftId, string $description = '', int $artifactId = 0): array
+    {
+        if ($draftId < 0) throw new \InvalidArgumentException('draft_id 无效');
+        $artifact = null;
+        if ($artifactId > 0) {
+            $artifact = WechatArtifact::withoutGlobalScope()->findOrEmpty($artifactId);
+            if ($artifact->isEmpty() || (int)$artifact['verify_status'] !== 1) throw new \RuntimeException('产物不存在或未通过校验');
+            $source = self::artifactPath((string)$artifact['artifact_dir'], (string)$artifact['version']);
+            $manifest = json_decode((string)$artifact['sha256_manifest'], true);
+            if (!is_dir($source) || !is_array($manifest) || self::fileManifest($source) !== $manifest) throw new \RuntimeException('产物校验失败');
+        }
         $drafts = self::templateDrafts();
         $draft = null;
         foreach ($drafts as $item) {
@@ -414,13 +439,13 @@ class OpenPlatformService
         if ($draft === null) {
             throw new \RuntimeException('微信草稿库中不存在该草稿 ID；请刷新草稿列表后选择。草稿 ID 不是本地产品版本号');
         }
-        $lock = SubmitLockService::acquire('wechat.template.upload.' . $artifactId, 0, 0);
-        $row = WechatTemplate::withoutGlobalScope()->where('artifact_id', $artifactId)->where('template_version', $artifact['version'])->order('id desc')->findOrEmpty();
+        $lock = SubmitLockService::acquire('wechat.template.upload.' . $draftId, 0, 0);
+        $row = WechatTemplate::withoutGlobalScope()->where('draft_id', $draftId)->where('artifact_id', $artifactId)->order('id desc')->findOrEmpty();
         if (!$row->isEmpty() && (string)$row['upload_status'] === 'success' && (int)$row['draft_id'] === $draftId && (string)$row['template_id'] !== '') {
             SubmitLockService::release($lock);
             return $row->toArray();
         }
-        $payload = ['draft_id' => $draftId, 'template_version' => $artifact['version'], 'template_desc' => $description, 'artifact_id' => $artifactId, 'upload_status' => 'uploading', 'update_time' => time(), 'error_message' => ''];
+        $payload = ['draft_id' => $draftId, 'template_version' => (string)($draft['user_version'] ?? ($artifact['version'] ?? '')), 'template_desc' => $description !== '' ? $description : (string)($draft['user_desc'] ?? ''), 'artifact_id' => $artifactId, 'upload_status' => 'uploading', 'update_time' => time(), 'error_message' => ''];
         if ($row->isEmpty()) { $payload['create_time'] = time(); $row = WechatTemplate::create($payload); } else $row->save($payload);
         try {
             // The draft is created by the local WeChat developer tool. The server only
@@ -748,7 +773,7 @@ class OpenPlatformService
         if (!is_array($items)) return [];
         $drafts = [];
         foreach ($items as $item) {
-            if (!is_array($item) || (int)($item['draft_id'] ?? 0) <= 0) continue;
+            if (!is_array($item) || !array_key_exists('draft_id', $item) || (int)$item['draft_id'] < 0) continue;
             $drafts[] = [
                 'draft_id' => (int)$item['draft_id'],
                 'user_version' => (string)($item['user_version'] ?? ''),
@@ -760,6 +785,86 @@ class OpenPlatformService
         return $drafts;
     }
     public static function uploadTemplateForArtifact(int $artifactId, int $draftId, string $description = ''): array { return self::uploadTemplate($artifactId, $draftId, $description); }
+    public static function uploadDraftForArtifact(int $artifactId, array $data = []): array
+    {
+        self::cleanupStaleDraftUploadDirs();
+        $config = self::rawConfig();
+        $appId = trim((string)($config['developer_app_id'] ?? ''));
+        $privateKey = self::credentialValue($config['upload_private_key'] ?? '');
+        if ($appId === '' || $privateKey === '') {
+            throw new \RuntimeException('请先在平台配置中完成草稿小程序 AppID 与代码上传私钥配置');
+        }
+        $artifact = WechatArtifact::withoutGlobalScope()->findOrEmpty($artifactId);
+        if ($artifact->isEmpty() || (int)$artifact['verify_status'] !== 1) throw new \RuntimeException('产物不存在或未通过校验');
+        $source = self::artifactPath((string)$artifact['artifact_dir'], (string)$artifact['version']);
+        $manifest = json_decode((string)$artifact['sha256_manifest'], true);
+        if (!is_dir($source) || !is_array($manifest) || self::fileManifest($source) !== $manifest) throw new \RuntimeException('产物校验失败');
+        $version = trim((string)($data['version'] ?? $artifact['version']));
+        $description = trim((string)($data['description'] ?? ('小程序 ' . $version)));
+        if ($version === '' || !preg_match('/^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9._-]+)?$/', $version)) throw new \InvalidArgumentException('草稿版本号格式无效');
+        if (mb_strlen($description) > 255) throw new \InvalidArgumentException('草稿说明不能超过 255 个字符');
+        $lock = SubmitLockService::acquire('wechat.draft.upload', 0, 0, true);
+        $workRoot = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'likeadmin-wechat-draft-upload' . DIRECTORY_SEPARATOR . bin2hex(random_bytes(12));
+        $projectPath = $workRoot . DIRECTORY_SEPARATOR . 'project';
+        if (!mkdir($projectPath, 0700, true) && !is_dir($projectPath)) {
+            SubmitLockService::release($lock);
+            throw new \RuntimeException('无法创建草稿上传临时目录');
+        }
+        $record = null;
+        try {
+            self::copyTree($source, $projectPath);
+            self::replaceProjectAppId($projectPath, $appId);
+            $keyPath = $workRoot . DIRECTORY_SEPARATOR . 'private.key';
+            if (file_put_contents($keyPath, $privateKey, LOCK_EX) === false) throw new \RuntimeException('无法写入草稿上传临时密钥');
+            @chmod($keyPath, 0600);
+            $record = WechatTemplateDraft::create([
+                'artifact_id' => $artifactId,
+                'draft_id' => 0,
+                'developer_app_id' => $appId,
+                'version' => $version,
+                'description' => $description,
+                'source_sha' => (string)$artifact['source_sha'],
+                'upload_status' => 'running',
+                'output' => '',
+                'error_message' => '',
+                'create_time' => time(),
+                'update_time' => time(),
+            ]);
+            $scriptPath = $workRoot . DIRECTORY_SEPARATOR . 'upload.mjs';
+            if (file_put_contents($scriptPath, self::manualUploadScript($workRoot, $projectPath, $keyPath, $appId, $version, $description), LOCK_EX) === false) throw new \RuntimeException('无法生成草稿上传脚本');
+            @chmod($scriptPath, 0700);
+            $result = self::executeManualUpload($workRoot, $scriptPath, (string)($data['package_manager'] ?? 'npm'));
+            $payload = [
+                'upload_status' => $result['success'] ? 'success' : 'failed',
+                'output' => mb_substr((string)($result['log_tail'] ?? $result['output'] ?? ''), -16000),
+                'error_message' => mb_substr((string)($result['error_summary'] ?? ''), 0, 2000),
+                'update_time' => time(),
+            ];
+            if ($result['success']) {
+                try {
+                    $candidates = array_values(array_filter(self::templateDrafts(), static fn(array $draft): bool =>
+                        (string)$draft['user_version'] === $version && (string)$draft['user_desc'] === $description
+                    ));
+                    if (count($candidates) === 1) $payload['draft_id'] = (int)$candidates[0]['draft_id'];
+                } catch (\Throwable $ignored) {
+                    // Upload success is authoritative. The administrator can refresh and select the draft later.
+                }
+            }
+            $record->save($payload);
+            return array_merge($record->toArray(), [
+                'draft_id' => (int)($payload['draft_id'] ?? $record['draft_id'] ?? 0),
+                'message' => $result['success'] ? '已上传至微信草稿箱，请在代码模板页添加代码模板。' : '上传草稿失败，请查看错误日志。',
+            ]);
+        } catch (\Throwable $e) {
+            if ($record !== null) {
+                $record->save(['upload_status' => 'failed', 'error_message' => mb_substr(self::sanitizeProcessOutput($e->getMessage()), 0, 2000), 'update_time' => time()]);
+            }
+            throw $e;
+        } finally {
+            self::removeTree($workRoot);
+            SubmitLockService::release($lock);
+        }
+    }
     /**
      * Account data used by platform and tenant management pages.
      *
@@ -1333,9 +1438,44 @@ class OpenPlatformService
         @rmdir($path);
     }
 
+    private static function copyTree(string $source, string $target): void
+    {
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($source, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
+        foreach ($iterator as $item) {
+            $relative = ltrim(str_replace($source, '', $item->getPathname()), DIRECTORY_SEPARATOR);
+            $destination = $target . DIRECTORY_SEPARATOR . $relative;
+            if ($item->isDir()) {
+                if (!is_dir($destination) && !mkdir($destination, 0700, true) && !is_dir($destination)) throw new \RuntimeException('无法复制小程序产物目录');
+            } elseif (!copy($item->getPathname(), $destination)) {
+                throw new \RuntimeException('无法复制小程序产物文件');
+            }
+        }
+    }
+
+    private static function replaceProjectAppId(string $projectPath, string $appId): void
+    {
+        $path = $projectPath . DIRECTORY_SEPARATOR . 'project.config.json';
+        $config = is_file($path) ? json_decode((string)file_get_contents($path), true) : null;
+        if (!is_array($config)) throw new \RuntimeException('小程序产物 project.config.json 无效');
+        $config['appid'] = $appId;
+        if (file_put_contents($path, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) . "\n", LOCK_EX) === false) {
+            throw new \RuntimeException('无法写入草稿小程序 AppID');
+        }
+    }
+
     private static function cleanupStaleManualUploadDirs(): void
     {
-        $root = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'likeadmin-wechat-upload';
+        self::cleanupStaleUploadDirs('likeadmin-wechat-upload');
+    }
+
+    private static function cleanupStaleDraftUploadDirs(): void
+    {
+        self::cleanupStaleUploadDirs('likeadmin-wechat-draft-upload');
+    }
+
+    private static function cleanupStaleUploadDirs(string $directory): void
+    {
+        $root = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $directory;
         if (!is_dir($root)) return;
         foreach (scandir($root) ?: [] as $entry) {
             if ($entry === '.' || $entry === '..') continue;

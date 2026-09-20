@@ -22,7 +22,8 @@ class OpenPlatformController extends BaseAdminController
     public function templates() { try { return $this->data(OpenPlatformService::templates()); } catch (\Throwable $e) { return $this->fail($e->getMessage()); } }
     public function templateRecords() { return $this->data(OpenPlatformService::templateRecords()); }
     public function templateDrafts() { try { return $this->data(OpenPlatformService::templateDrafts()); } catch (\Throwable $e) { return $this->fail($e->getMessage()); } }
-    public function uploadTemplate() { $p = (array)$this->request->post(); try { return $this->data(OpenPlatformService::runIdempotent('template.add',$this->idempotencyKey(),0,fn()=>OpenPlatformService::uploadTemplateForArtifact((int)($p['artifact_id'] ?? 0),(int)($p['draft_id'] ?? 0),(string)($p['description'] ?? '')))); } catch (\Throwable $e) { return $this->fail($e->getMessage()); } }
+    public function uploadTemplate() { $p = (array)$this->request->post(); try { if (!array_key_exists('draft_id', $p)) throw new \InvalidArgumentException('请选择微信草稿'); return $this->data(OpenPlatformService::runIdempotent('template.add',$this->idempotencyKey(),0,fn()=>OpenPlatformService::addTemplateFromDraft((int)$p['draft_id'],(string)($p['description'] ?? ''),(int)($p['artifact_id'] ?? 0)))); } catch (\Throwable $e) { return $this->fail($e->getMessage()); } }
+    public function uploadDraft() { $p = (array)$this->request->post(); try { return $this->data(OpenPlatformService::runIdempotent('draft.upload',$this->idempotencyKey(),0,fn()=>OpenPlatformService::uploadDraftForArtifact((int)($p['artifact_id'] ?? 0),$p))); } catch (\Throwable $e) { return $this->fail($e->getMessage()); } }
     public function versions() { return $this->data(OpenPlatformService::versions(0)); }
     public function logs() { return $this->data(OpenPlatformService::apiLogs()); }
 }
