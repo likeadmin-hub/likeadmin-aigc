@@ -1121,7 +1121,11 @@ class MarketVideoRuntimeService
             'model' => (string)$snapshot['model_code'],
             'ratio' => $ratio,
             'resolution' => $resolution,
-            'duration' => $duration > 0 ? $duration : null,
+            // Compatibility probe: keep duration numeric for local SKU and
+            // billing calculations, but serialize H3's outbound value as a
+            // string. This lets us verify the provider's actual coercion
+            // behavior without changing any shared selection semantics.
+            'duration' => $duration > 0 ? (string)$duration : null,
             'content' => self::h3Content($request, $prompt),
         ];
         $callbackUrl = trim((string)($request['callback_url'] ?? $request['callbackUrl'] ?? ''));
