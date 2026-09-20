@@ -513,30 +513,52 @@ class OpenPlatformService
             return self::formatVersion($row->toArray());
         } finally { SubmitLockService::release($lock); }
     }
-    /** Audit metadata belongs to the authorizer's WeChat console, not this system. */
     public static function submitAudit(int $tenantId, int $id): array
     {
-        self::versionForTenant($tenantId, $id);
-        throw new \RuntimeException('请在微信小程序后台提交审核，完成后在此同步审核结果');
+        $lock = SubmitLockService::acquire('wechat.version.audit.' . $id, $tenantId, 0);
+        try {
+            [$row, $authorizer] = self::versionForTenant($tenantId, $id);
+            if ((string)$row['experience_status'] !== 'success') throw new \RuntimeException('请先提交体验版');
+            if ((string)$row['audit_status'] === 'pending') return self::formatVersion($row->toArray());
+            $token = self::authorizerToken((int)$authorizer['id']);
+            $categoryResult = self::request('wxa/get_category', [], 'release.audit.category', ['access_token' => $token], $tenantId, (int)$authorizer['id'], 'GET');
+            $pageResult = self::request('wxa/get_page', [], 'release.audit.page', ['access_token' => $token], $tenantId, (int)$authorizer['id'], 'GET');
+            $category = (array)($categoryResult['category_list'][0] ?? []);
+            $page = trim((string)($pageResult['page_list'][0] ?? ''));
+            if ($page === '' || !$category) throw new \RuntimeException('微信未返回可用于审核的页面或类目，请先在小程序后台完成基础设置');
+            $tag = trim((string)($category['second_class'] ?? $category['first_class'] ?? ''));
+            $title = trim((string)($authorizer['authorizer_name'] ?? $authorizer['principal_name'] ?? '小程序首页'));
+            if ($tag === '') throw new \RuntimeException('微信未返回可用于审核的类目标签，请先在小程序后台完成基础设置');
+            $item = array_filter([
+                'address' => $page,
+                'tag' => mb_substr($tag, 0, 20),
+                'first_class' => (string)($category['first_class'] ?? ''),
+                'second_class' => (string)($category['second_class'] ?? ''),
+                'third_class' => (string)($category['third_class'] ?? ''),
+                'first_id' => (int)($category['first_id'] ?? 0),
+                'second_id' => (int)($category['second_id'] ?? 0),
+                'third_id' => (int)($category['third_id'] ?? 0),
+                'title' => mb_substr($title, 0, 32),
+            ], static fn($value) => $value !== '' && $value !== 0);
+            $result = self::request('wxa/submit_audit', ['item_list' => [$item]], 'release.audit.submit', ['access_token' => $token], $tenantId, (int)$authorizer['id']);
+            $auditNo = trim((string)($result['auditid'] ?? ''));
+            if ($auditNo === '') throw new \RuntimeException('微信未返回审核编号');
+            WechatMnpReview::withoutGlobalScope()->create(['version_id' => $id, 'audit_no' => $auditNo, 'audit_status' => 'pending', 'detail' => json_encode(['item' => $item, 'response' => $result], JSON_UNESCAPED_UNICODE), 'response_summary' => json_encode(['auditid' => $auditNo], JSON_UNESCAPED_UNICODE), 'submit_time' => time(), 'finish_time' => 0, 'create_time' => time()]);
+            $row->save(['audit_status' => 'pending', 'update_time' => time()]);
+            return self::formatVersion($row->toArray());
+        } finally { SubmitLockService::release($lock); }
     }
     public static function queryAudit(int $tenantId, int $id): array
     {
         [$row, $authorizer] = self::versionForTenant($tenantId, $id);
         if ((string)$row['experience_status'] !== 'success') throw new \RuntimeException('请先提交体验版');
-        // 微信仅提供“最新审核单”，并不携带本地推送版本号。限制为最近一次
-        // 已提交体验版，避免管理员把旧审核结果同步到历史版本。
-        $latestExperienceId = (int)WechatMnpVersion::withoutGlobalScope()
-            ->where(['tenant_id' => $tenantId, 'authorizer_id' => (int)$authorizer['id'], 'upload_mode' => 'template', 'experience_status' => 'success'])
-            ->order('experience_time desc,id desc')
-            ->value('id');
-        if ($latestExperienceId !== $id) throw new \RuntimeException('仅可同步最近一次已提交体验版的微信审核结果');
-        $result = self::request('wxa/get_latest_auditstatus', [], 'release.audit.latest', ['access_token' => self::authorizerToken((int)$authorizer['id'])], $tenantId, (int)$authorizer['id'], 'GET');
-        $auditNo = trim((string)($result['auditid'] ?? ''));
-        if ($auditNo === '') throw new \RuntimeException('微信暂无审核记录，请先在微信小程序后台提交审核');
+        $review = WechatMnpReview::withoutGlobalScope()->where('version_id', $id)->order('id desc')->findOrEmpty();
+        if ($review->isEmpty()) throw new \RuntimeException('请先提交审核');
+        $auditNo = (string)$review['audit_no'];
+        $result = self::request('wxa/get_auditstatus', [], 'release.audit.status', ['access_token' => self::authorizerToken((int)$authorizer['id']), 'auditid' => $auditNo], $tenantId, (int)$authorizer['id'], 'GET');
         $auditStatus = [0 => 'approved', 1 => 'rejected', 2 => 'pending', 3 => 'rejected'][(int)($result['status'] ?? -1)] ?? 'pending';
-        $review = WechatMnpReview::withoutGlobalScope()->where(['version_id' => $id, 'audit_no' => $auditNo])->findOrEmpty();
         $payload = ['audit_status' => $auditStatus, 'reason' => (string)($result['reason'] ?? ''), 'detail' => json_encode($result, JSON_UNESCAPED_UNICODE), 'response_summary' => json_encode(['auditid' => $auditNo], JSON_UNESCAPED_UNICODE), 'finish_time' => $auditStatus === 'pending' ? 0 : time()];
-        if ($review->isEmpty()) WechatMnpReview::withoutGlobalScope()->create(array_merge($payload, ['version_id' => $id, 'audit_no' => $auditNo, 'submit_time' => time(), 'create_time' => time()])); else $review->save($payload);
+        $review->save($payload);
         $row->save(['audit_status' => $auditStatus, 'update_time' => time()]);
         return self::formatVersion($row->toArray());
     }
