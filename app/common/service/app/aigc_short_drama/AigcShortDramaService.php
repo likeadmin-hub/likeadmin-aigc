@@ -8704,6 +8704,18 @@ class AigcShortDramaService
         $storageEngine = (string)($result['storage_engine'] ?? 'local');
         $storageDomain = (string)($result['storage_domain'] ?? '');
         $fileSize = (int)($result['file_size'] ?? 0);
+        // Music providers can return a short-lived URL in audio_uri.  Keeping
+        // that URL as if it were a storage URI makes a later export depend on
+        // the provider still serving the exact file.  Persist it while the
+        // music task succeeds so the export always reads a tenant asset.
+        if ($uri !== '' && self::isRemoteHttpUrl($uri)) {
+            $audioMeta = self::persistBgmAudio($uri);
+            $uri = (string)$audioMeta['uri'];
+            $fileSize = (int)($audioMeta['file_size'] ?? 0);
+            $storageScope = 'tenant';
+            $storageEngine = 'local';
+            $storageDomain = (string)(StorageConfigService::getEffectiveDomain($tenantId) ?: '');
+        }
         if ($uri === '') {
             $audioUrl = trim((string)($result['audio_url'] ?? $result['url'] ?? $result['download_url'] ?? ''));
             if ($audioUrl !== '') {
@@ -8819,7 +8831,7 @@ class AigcShortDramaService
     private static function persistBgmAudio(string $audioUrl): array
     {
         $localUri = FileService::setFileUrl($audioUrl);
-        if (!str_starts_with($audioUrl, 'http://') && !str_starts_with($audioUrl, 'https://')) {
+        if (!self::isRemoteHttpUrl($audioUrl)) {
             $path = self::localPublicFilePath($localUri);
             return [
                 'uri' => $localUri,
@@ -8834,26 +8846,10 @@ class AigcShortDramaService
         if (!is_dir($dir) || !is_writable($dir)) {
             throw new Exception('背景音乐存储目录不可写，请检查服务器存储配置');
         }
-        $path = strtolower((string)(parse_url($audioUrl, PHP_URL_PATH) ?: ''));
-        $ext = pathinfo($path, PATHINFO_EXTENSION);
-        if (!in_array($ext, ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac'], true)) {
-            $ext = 'mp3';
-        }
+        $ext = self::audioFileExtension($audioUrl);
         $filename = 'bgm_' . date('His') . '_' . random_int(1000, 9999) . '.' . $ext;
         $target = $dir . $filename;
-        $context = stream_context_create(['http' => ['timeout' => 60], 'https' => ['timeout' => 60]]);
-        $read = @fopen($audioUrl, 'rb', false, $context);
-        if (!$read) {
-            throw new Exception('背景音乐下载失败，请稍后重试');
-        }
-        $write = @fopen($target, 'wb');
-        if (!$write) {
-            fclose($read);
-            throw new Exception('背景音乐保存失败，请稍后重试');
-        }
-        stream_copy_to_stream($read, $write);
-        fclose($read);
-        fclose($write);
+        self::downloadRemoteAssetFile($audioUrl, $target, '背景音乐', 90);
         if (!is_file($target) || filesize($target) <= 0) {
             throw new Exception('背景音乐文件为空，请重新生成');
         }
@@ -8876,6 +8872,31 @@ class AigcShortDramaService
             return 'audio/ogg';
         }
         return 'audio/mpeg';
+    }
+
+    private static function isRemoteHttpUrl(string $uri): bool
+    {
+        return (bool)preg_match('/^https?:\/\//i', trim($uri));
+    }
+
+    private static function audioFileExtension(string $uri, string $mimeType = ''): string
+    {
+        $path = strtolower((string)(parse_url($uri, PHP_URL_PATH) ?: $uri));
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+        if (in_array($extension, ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'opus', 'flac', 'webm'], true)) {
+            return $extension;
+        }
+        $mimeType = strtolower(trim($mimeType));
+        return match (true) {
+            str_contains($mimeType, 'wav') => 'wav',
+            str_contains($mimeType, 'mp4'), str_contains($mimeType, 'm4a') => 'm4a',
+            str_contains($mimeType, 'aac') => 'aac',
+            str_contains($mimeType, 'ogg') => 'ogg',
+            str_contains($mimeType, 'opus') => 'opus',
+            str_contains($mimeType, 'flac') => 'flac',
+            str_contains($mimeType, 'webm') => 'webm',
+            default => 'mp3',
+        };
     }
 
     private static function runExportVideoTask(int $tenantId, int $userId, array $generation, array $params, array $billing): void
@@ -10202,6 +10223,10 @@ class AigcShortDramaService
             if ($audioPath === '') {
                 $audioPath = self::downloadAudioForFfmpeg($bgmAsset, $workDir);
             }
+            // Providers produce several browser-playable formats.  Normalizing
+            // first prevents the final mix from depending on the source codec,
+            // channel layout, sample rate, or a misleading filename extension.
+            $audioPath = self::normalizeBgmForFfmpeg($ffmpegCmd, $audioPath, $workDir, (int)($bgmAsset['id'] ?? 0));
             $mixOutput = [];
             $cmd = $ffmpegCmd
                 . ' -y -i ' . escapeshellarg($concatPath)
@@ -10237,6 +10262,25 @@ class AigcShortDramaService
             'file_size' => filesize($outputPath) ?: 0,
             'checksum' => hash_file('sha256', $outputPath) ?: '',
         ];
+    }
+
+    private static function normalizeBgmForFfmpeg(string $ffmpegCmd, string $audioPath, string $workDir, int $assetId = 0): string
+    {
+        if (!is_file($audioPath) || filesize($audioPath) <= 0) {
+            throw new Exception('背景音乐文件为空，请重新生成背景音乐');
+        }
+        $target = $workDir . 'bgm_normalized_' . ($assetId > 0 ? $assetId : random_int(1000, 9999)) . '.m4a';
+        $output = [];
+        $cmd = $ffmpegCmd
+            . ' -y -v error -i ' . escapeshellarg($audioPath)
+            . ' -map 0:a:0 -vn -sn -dn -ac 2 -ar 48000 -c:a aac -b:a 160k -movflags +faststart '
+            . escapeshellarg($target) . ' 2>&1';
+        @\exec($cmd, $output, $code);
+        if ($code === 0 && is_file($target) && filesize($target) > 0) {
+            return $target;
+        }
+        Log::write('AI short drama BGM normalization failed (asset ' . $assetId . '): ' . implode("\n", (array)$output));
+        throw new Exception('背景音乐格式无法兼容，请重新生成背景音乐后再导出');
     }
 
     private static function applyExportWatermark(int $tenantId, string $ffmpegCmd, string $inputPath, string $outputPath, array $watermark, string $workDir): bool
@@ -10604,7 +10648,10 @@ class AigcShortDramaService
         if ($url === '') {
             throw new Exception('背景音乐文件不可用，请重新生成背景音');
         }
-        $target = $workDir . 'bgm_audio_' . random_int(1000, 9999) . '.mp3';
+        $target = $workDir . 'bgm_audio_' . random_int(1000, 9999) . '.' . self::audioFileExtension(
+            (string)($asset['uri'] ?? $url),
+            (string)($asset['mime_type'] ?? '')
+        );
         self::downloadRemoteAssetFile($url, $target, '背景音乐', 90);
         if (!is_file($target) || filesize($target) <= 0) {
             throw new Exception('背景音乐文件为空，请重新生成背景音乐');
