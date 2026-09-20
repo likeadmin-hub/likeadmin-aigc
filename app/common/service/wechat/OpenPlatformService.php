@@ -523,6 +523,13 @@ class OpenPlatformService
     {
         [$row, $authorizer] = self::versionForTenant($tenantId, $id);
         if ((string)$row['experience_status'] !== 'success') throw new \RuntimeException('请先提交体验版');
+        // 微信仅提供“最新审核单”，并不携带本地推送版本号。限制为最近一次
+        // 已提交体验版，避免管理员把旧审核结果同步到历史版本。
+        $latestExperienceId = (int)WechatMnpVersion::withoutGlobalScope()
+            ->where(['tenant_id' => $tenantId, 'authorizer_id' => (int)$authorizer['id'], 'upload_mode' => 'template', 'experience_status' => 'success'])
+            ->order('experience_time desc,id desc')
+            ->value('id');
+        if ($latestExperienceId !== $id) throw new \RuntimeException('仅可同步最近一次已提交体验版的微信审核结果');
         $result = self::request('wxa/get_latest_auditstatus', [], 'release.audit.latest', ['access_token' => self::authorizerToken((int)$authorizer['id'])], $tenantId, (int)$authorizer['id'], 'GET');
         $auditNo = trim((string)($result['auditid'] ?? ''));
         if ($auditNo === '') throw new \RuntimeException('微信暂无审核记录，请先在微信小程序后台提交审核');
