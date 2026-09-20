@@ -72,25 +72,7 @@ class ShortDramaVideoReferenceContractTest extends TestCase
         self::assertSame([302], $payload['reference_plan']['trimmed_asset_ids']);
     }
 
-    public function testPrimaryCharacterImageUsesDocumentedReferenceRoleAndKeepsLogicalAuditRole(): void
-    {
-        $payload = $this->invoke(
-            AigcShortDramaService::class,
-            'shortDramaVideoReferenceContractPayload',
-            'multi_frame',
-            [
-                ['asset' => ['id' => 311, 'url' => 'https://example.test/first.png'], 'role' => 'reference_image', 'logical_role' => 'first_frame'],
-                ['asset' => ['id' => 312, 'url' => 'https://example.test/hero-primary.png'], 'role' => 'reference_image', 'logical_role' => 'character_primary'],
-            ],
-            [],
-            ['generation_modes' => ['multi_frame'], 'max_reference_images' => 2, 'max_reference_assets' => 2]
-        );
-
-        self::assertSame(['reference_image', 'reference_image'], array_column($payload['reference_assets'], 'role'));
-        self::assertSame(['first_frame', 'character_primary'], array_column($payload['reference_plan']['assets'], 'logical_role'));
-    }
-
-    public function testNormalReferenceCandidatesUseTheStoryboardPriorityContract(): void
+    public function testNormalReferenceCandidatesUseOnlyTheStoryboardPriorityContract(): void
     {
         $candidates = $this->invoke(
             AigcShortDramaService::class,
@@ -101,20 +83,16 @@ class ShortDramaVideoReferenceContractTest extends TestCase
                 ['id' => 503, 'url' => 'https://example.test/partner-three-view.png'],
             ],
             [['id' => 504, 'url' => 'https://example.test/scene.png']],
-            [
-                ['id' => 502, 'url' => 'https://example.test/duplicate-three-view.png'],
-                ['id' => 505, 'url' => 'https://example.test/hero-primary.png'],
-            ],
             [['id' => 506, 'url' => 'https://example.test/mentioned-shot.png']]
         );
 
-        self::assertSame([501, 502, 503, 504, 505, 506], array_map(
+        self::assertSame([501, 502, 503, 504, 506], array_map(
             static fn(array $candidate): int => (int)$candidate['asset']['id'],
             $candidates
         ));
         self::assertSame([
             'first_frame', 'character_turnaround', 'character_turnaround',
-            'scene_image', 'character_primary', 'mentioned_shot',
+            'scene_image', 'mentioned_shot',
         ], array_column($candidates, 'logical_role'));
     }
 
