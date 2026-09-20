@@ -12246,8 +12246,6 @@ class AigcShortDramaService
 
     private static function buildReadableShotVideoPrompt(array $shot, int $index = 0, array $timeline = []): string
     {
-        $duration = max(0.001, (float)($shot['recommended_duration_seconds'] ?? $shot['duration'] ?? ShortDramaShotDuration::DEFAULT));
-        $timeRange = self::readableShotTimeRange($shot, $index, $timeline, $duration);
         $primaryVisual = self::cleanShotVideoPromptText((string)($shot['visual_description'] ?? ''));
         if ($primaryVisual === '') {
             $primaryVisual = self::cleanShotVideoPromptText((string)($shot['image_prompt'] ?? ''));
@@ -12265,7 +12263,6 @@ class AigcShortDramaService
         }
 
         return self::joinPromptParts([
-            '分镜' . self::readableShotId($shot, $index) . '：' . $timeRange,
             self::promptLine('景别', self::normalizeShotTypeLabel((string)($shot['shot_type'] ?? '')) ?: '普通画面'),
             self::promptLine('构图', (string)($shot['composition'] ?? '') ?: ShortDramaPromptCatalog::text('fill.video_composition')),
             self::promptLine('运镜手法', (string)($shot['camera_movement'] ?? '') ?: ShortDramaPromptCatalog::text('fill.video_camera')),
@@ -12282,9 +12279,6 @@ class AigcShortDramaService
         }
         $prompt = trim(self::cleanShotVideoPromptText($prompt));
         $values = self::readableShotVideoPromptValues($prompt);
-        $shotId = self::readableShotId($shot, $index);
-        $duration = max(0.001, (float)($shot['recommended_duration_seconds'] ?? $shot['duration'] ?? ShortDramaShotDuration::DEFAULT));
-        $timeRange = self::readableShotTimeRange($shot, $index, $timeline, $duration);
         $primaryVisual = self::cleanShotVideoPromptText((string)($shot['visual_description'] ?? ''));
         if ($primaryVisual === '') {
             $primaryVisual = self::cleanShotVideoPromptText((string)($shot['image_prompt'] ?? ''));
@@ -12326,7 +12320,6 @@ class AigcShortDramaService
         }
 
         return self::joinPromptParts([
-            '分镜' . $shotId . '：' . ((string)($values['分镜'] ?? '') ?: $timeRange),
             self::promptLine('景别', $shotType),
             self::promptLine('构图', $composition),
             self::promptLine('运镜手法', $camera),
@@ -12358,8 +12351,7 @@ class AigcShortDramaService
             if ($line === '') {
                 continue;
             }
-            if (preg_match('/^分镜\s*([一二三四五六七八九十百千万\d]*)\s*[：:]\s*(\d{1,2}:\d{2}\s*[-–—]\s*\d{1,2}:\d{2}.*)$/u', $line, $matches)) {
-                $values['分镜'] = trim((string)$matches[2]);
+            if (self::isShotTimelinePromptHeader($line)) {
                 continue;
             }
             if (preg_match('/^(景别|构图|运镜手法|运镜(?!手法)|画面内容|声音)\s*[：:]\s*(.*)$/u', $line, $matches)) {
@@ -12406,7 +12398,7 @@ class AigcShortDramaService
     private static function readableShotVideoPromptHasRequiredColumns(string $prompt): bool
     {
         $values = self::readableShotVideoPromptValues($prompt);
-        foreach (['分镜', '景别', '构图', '运镜手法', '画面内容', '声音'] as $key) {
+        foreach (['景别', '构图', '运镜手法', '画面内容', '声音'] as $key) {
             if (trim((string)($values[$key] ?? '')) === '') {
                 return false;
             }
@@ -12707,7 +12699,7 @@ class AigcShortDramaService
         $result = [];
         foreach ($lines as $line) {
             $line = trim((string)$line);
-            if ($line === '' || isset($removeSet[$line])) {
+            if ($line === '' || isset($removeSet[$line]) || self::isShotTimelinePromptHeader($line)) {
                 continue;
             }
             foreach ($blockedPatterns as $pattern) {
@@ -12727,6 +12719,18 @@ class AigcShortDramaService
             return implode("\n", array_values(array_unique($result)));
         }
         return $originalPrompt;
+    }
+
+    /** The storyboard timecode belongs to UI/audit metadata, never model text. */
+    private static function isShotTimelinePromptHeader(string $line): bool
+    {
+        return preg_match('/^\s*分镜\s*(?:[一二三四五六七八九十百千万零〇\d]+)?\s*[：:]\s*\d{1,2}:\d{2}(?:\.\d+)?\s*[-~～—–至]\s*\d{1,2}:\d{2}(?:\.\d+)?\s*$/u', trim($line)) === 1;
+    }
+
+    private static function stripShotTimelinePromptHeaders(string $prompt): string
+    {
+        $lines = preg_split('/\R/u', $prompt) ?: [];
+        return implode("\n", array_values(array_filter($lines, static fn($line): bool => !self::isShotTimelinePromptHeader((string)$line))));
     }
 
     private static function buildShotVideoPromptFallback(array $shot): string
@@ -15962,6 +15966,9 @@ class AigcShortDramaService
             'ratio' => $ratio,
             'duration' => self::promptTemplateValue($params['duration'] ?? 0),
         ]);
+        // A tenant template or legacy client may still contain a storyboard
+        // time range. Keep it out of every provider submission.
+        $prompt = self::stripShotTimelinePromptHeaders($prompt);
         $prompt = self::mergeShortDramaMentionPromptContext($prompt, $params);
         $prompt = self::joinPromptParts([
             $prompt,
