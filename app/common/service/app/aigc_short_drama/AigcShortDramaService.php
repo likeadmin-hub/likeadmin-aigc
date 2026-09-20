@@ -8713,7 +8713,8 @@ class AigcShortDramaService
             self::syncScriptPlanGenerationFromTaskRow($tenantId, $userId, $taskRow);
             return;
         }
-        $summary = self::jsonDecode((string)($consumption['response_summary'] ?? ''));
+        $summary = $consumption['response_summary'] ?? [];
+        $summary = is_array($summary) ? $summary : self::jsonDecode((string)$summary);
         $parseResult = is_array($summary['parse_result'] ?? null) ? (array)$summary['parse_result'] : [];
         try {
             $plan = self::fileQaParsePlan($parseResult, $request, (string)($taskRow['prompt'] ?? ''));
@@ -8740,7 +8741,7 @@ class AigcShortDramaService
             $cost = ['tenant_cost_points' => (float)$consumption['actual_tenant_cost'], 'user_charge_points' => (float)$consumption['actual_user_price'], 'billing_status' => (string)$consumption['billing_status'], 'provider_request_id' => (string)$consumption['upstream_request_id']];
             $task->save([
                 'status' => self::STATUS_SUCCESS, 'progress' => 100, 'current_step' => '剧本解析完成',
-                'request_json' => self::jsonEncode($request), 'pricing_snapshot' => (string)$consumption['price_snapshot'],
+                'request_json' => self::jsonEncode($request), 'pricing_snapshot' => is_array($consumption['price_snapshot']) ? self::jsonEncode($consumption['price_snapshot']) : (string)$consumption['price_snapshot'],
                 'result_json' => self::jsonEncode($plan), 'error' => '', 'billing_status' => (string)$consumption['billing_status'],
                 'tenant_cost_points' => (float)$consumption['actual_tenant_cost'], 'user_charge_points' => (float)$consumption['actual_user_price'],
                 'provider' => 'power_market', 'provider_task_id' => (string)$consumption['upstream_task_id'],
@@ -8755,7 +8756,7 @@ class AigcShortDramaService
             self::syncScriptPlanGenerationTask($tenantId, $userId, $projectId, $taskId, self::STATUS_SUCCESS, $request, ['provider' => 'power_market', 'name' => '文件问答剧本解析'], [
                 'provider' => 'power_market', 'provider_task_id' => (string)$consumption['upstream_task_id'],
                 'provider_request_id' => (string)$consumption['upstream_request_id'], 'progress' => 100,
-                'result' => ['script_task_id' => (int)$task['id'], 'has_plan' => true], 'pricing' => self::jsonDecode((string)$consumption['price_snapshot']),
+                'result' => ['script_task_id' => (int)$task['id'], 'has_plan' => true], 'pricing' => is_array($consumption['price_snapshot']) ? $consumption['price_snapshot'] : self::jsonDecode((string)$consumption['price_snapshot']),
                 'billing_status' => (string)$cost['billing_status'], 'tenant_cost_points' => (float)$cost['tenant_cost_points'],
                 'user_charge_points' => (float)$cost['user_charge_points'], 'started_at' => (int)$task['started_at'], 'finished_at' => $now,
             ]);
