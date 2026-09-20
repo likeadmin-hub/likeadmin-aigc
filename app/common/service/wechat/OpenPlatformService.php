@@ -11,6 +11,7 @@ use app\common\model\wechat\WechatOpenPlatform;
 use app\common\model\wechat\WechatTemplate;
 use app\common\model\wechat\WechatTemplateDraft;
 use app\common\model\wechat\WechatCredential;
+use app\common\service\FileService;
 use app\common\service\SubmitLockService;
 use app\common\service\ConfigService;
 use think\facade\Cache;
@@ -481,9 +482,57 @@ class OpenPlatformService
         if ((string)$row['upload_mode'] !== 'template' || (int)$row['authorizer_id'] <= 0) throw new \RuntimeException('手动配置版本请使用代码上传，不能执行开放平台发布操作');
         $authorizer = WechatAuthorizer::withoutGlobalScope()->where(['id' => $row['authorizer_id'], 'tenant_id' => $tenantId, 'authorization_status' => 1])->findOrEmpty(); if ($authorizer->isEmpty()) throw new \RuntimeException('授权小程序不存在'); return [$row, $authorizer];
     }
-    public static function submitExperience(int $tenantId, int $id): array { $lock = SubmitLockService::acquire('wechat.version.experience.' . $id, $tenantId, 0); try { [$row, $authorizer] = self::versionForTenant($tenantId, $id); $template = WechatTemplate::withoutGlobalScope()->findOrEmpty((int)$row['template_id']); if ($template->isEmpty() || (string)$template['upload_status'] !== 'success') throw new \RuntimeException('模板不存在或未上传成功'); if (!in_array((string)$row['experience_status'], ['pending', 'failed'], true)) return $row->toArray(); $row->save(['experience_status' => 'running', 'update_time' => time()]); try { $extJson = self::templateExtJson($row, $authorizer); self::request('wxa/commit', ['template_id' => $template['template_id'], 'ext_json' => json_encode($extJson, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'user_version' => (string)$row['version'], 'user_desc' => (string)$row['description']], 'release.experience', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $row->save(['experience_status' => 'success', 'update_time' => time()]); } catch (\Throwable $e) { $row->save(['experience_status' => 'failed', 'update_time' => time()]); throw $e; } return $row->toArray(); } finally { SubmitLockService::release($lock); } }
-    public static function submitAudit(int $tenantId, int $id): array { $lock = SubmitLockService::acquire('wechat.version.audit.' . $id, $tenantId, 0); try { [$row, $authorizer] = self::versionForTenant($tenantId, $id); if ((string)$row['experience_status'] !== 'success') throw new \RuntimeException('请先提交体验版'); if ((string)$row['audit_status'] === 'pending') return $row->toArray(); if ((string)$row['audit_status'] === 'rejected') throw new \RuntimeException('审核已驳回，请新建版本后重新提交'); $result = self::request('wxa/submit_audit', ['item_list' => self::auditItems($row)], 'release.audit', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $row->save(['audit_status' => 'pending', 'update_time' => time()]); WechatMnpReview::withoutGlobalScope()->create(['version_id' => $id, 'audit_no' => (string)($result['auditid'] ?? ''), 'audit_status' => 'pending', 'reason' => '', 'detail' => '', 'response_summary' => json_encode(['auditid' => $result['auditid'] ?? ''], JSON_UNESCAPED_UNICODE), 'submit_time' => time(), 'create_time' => time()]); return $row->toArray(); } finally { SubmitLockService::release($lock); } }
-    public static function queryAudit(int $tenantId, int $id): array { [$row, $authorizer] = self::versionForTenant($tenantId, $id); $review = WechatMnpReview::withoutGlobalScope()->where('version_id', $id)->order('id desc')->findOrEmpty(); if ($review->isEmpty() || (string)$review['audit_no'] === '') throw new \RuntimeException('暂无审核记录'); $result = self::request('wxa/get_auditstatus', ['auditid' => (int)$review['audit_no']], 'release.audit.status', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $status = (int)($result['status'] ?? -1); $mapped = [0 => 'approved', 1 => 'rejected', 2 => 'pending', 3 => 'rejected']; $auditStatus = $mapped[$status] ?? 'pending'; $review->save(['audit_status' => $auditStatus, 'reason' => (string)($result['reason'] ?? ''), 'detail' => json_encode($result, JSON_UNESCAPED_UNICODE), 'finish_time' => $auditStatus === 'pending' ? 0 : time()]); $row->save(['audit_status' => $auditStatus, 'update_time' => time()]); return $row->toArray(); }
+    public static function submitExperience(int $tenantId, int $id): array
+    {
+        $lock = SubmitLockService::acquire('wechat.version.experience.' . $id, $tenantId, 0);
+        try {
+            [$row, $authorizer] = self::versionForTenant($tenantId, $id);
+            $template = WechatTemplate::withoutGlobalScope()->findOrEmpty((int)$row['template_id']);
+            if ($template->isEmpty() || (string)$template['upload_status'] !== 'success') throw new \RuntimeException('模板不存在或未上传成功');
+            $extJson = self::versionExtJson($row);
+            if ((string)$row['experience_status'] !== 'success') {
+                if (!in_array((string)$row['experience_status'], ['pending', 'failed'], true)) return self::formatVersion($row->toArray());
+                $row->save(['experience_status' => 'running', 'update_time' => time()]);
+                try {
+                    self::request('wxa/commit', ['template_id' => $template['template_id'], 'ext_json' => json_encode(self::templateExtJson($row, $authorizer), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'user_version' => (string)$row['version'], 'user_desc' => (string)$row['description']], 'release.experience', ['access_token' => self::authorizerToken((int)$authorizer['id'])]);
+                    $row->save(['experience_status' => 'success', 'update_time' => time()]);
+                } catch (\Throwable $e) {
+                    $row->save(['experience_status' => 'failed', 'update_time' => time()]);
+                    throw $e;
+                }
+            }
+            if (empty($extJson['experience_qr_uri'])) {
+                try {
+                    $extJson['experience_qr_uri'] = self::downloadExperienceQrcode($authorizer, $tenantId, $id);
+                    unset($extJson['experience_qr_error']);
+                } catch (\Throwable $e) {
+                    $extJson['experience_qr_error'] = $e->getMessage();
+                }
+                $row->save(['ext_json' => json_encode($extJson, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'update_time' => time()]);
+            }
+            return self::formatVersion($row->toArray());
+        } finally { SubmitLockService::release($lock); }
+    }
+    /** Audit metadata belongs to the authorizer's WeChat console, not this system. */
+    public static function submitAudit(int $tenantId, int $id): array
+    {
+        self::versionForTenant($tenantId, $id);
+        throw new \RuntimeException('请在微信小程序后台提交审核，完成后在此同步审核结果');
+    }
+    public static function queryAudit(int $tenantId, int $id): array
+    {
+        [$row, $authorizer] = self::versionForTenant($tenantId, $id);
+        if ((string)$row['experience_status'] !== 'success') throw new \RuntimeException('请先提交体验版');
+        $result = self::request('wxa/get_latest_auditstatus', [], 'release.audit.latest', ['access_token' => self::authorizerToken((int)$authorizer['id'])], $tenantId, (int)$authorizer['id'], 'GET');
+        $auditNo = trim((string)($result['auditid'] ?? ''));
+        if ($auditNo === '') throw new \RuntimeException('微信暂无审核记录，请先在微信小程序后台提交审核');
+        $auditStatus = [0 => 'approved', 1 => 'rejected', 2 => 'pending', 3 => 'rejected'][(int)($result['status'] ?? -1)] ?? 'pending';
+        $review = WechatMnpReview::withoutGlobalScope()->where(['version_id' => $id, 'audit_no' => $auditNo])->findOrEmpty();
+        $payload = ['audit_status' => $auditStatus, 'reason' => (string)($result['reason'] ?? ''), 'detail' => json_encode($result, JSON_UNESCAPED_UNICODE), 'response_summary' => json_encode(['auditid' => $auditNo], JSON_UNESCAPED_UNICODE), 'finish_time' => $auditStatus === 'pending' ? 0 : time()];
+        if ($review->isEmpty()) WechatMnpReview::withoutGlobalScope()->create(array_merge($payload, ['version_id' => $id, 'audit_no' => $auditNo, 'submit_time' => time(), 'create_time' => time()])); else $review->save($payload);
+        $row->save(['audit_status' => $auditStatus, 'update_time' => time()]);
+        return self::formatVersion($row->toArray());
+    }
     public static function releaseVersion(int $tenantId, int $id): array { $lock = SubmitLockService::acquire('wechat.version.release.' . $id, $tenantId, 0); try { [$row, $authorizer] = self::versionForTenant($tenantId, $id); if ((string)$row['audit_status'] !== 'approved') throw new \RuntimeException('审核尚未通过'); if ((string)$row['release_status'] === 'released') return $row->toArray(); self::request('wxa/release', [], 'release.publish', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $row->save(['release_status' => 'released', 'update_time' => time()]); return $row->toArray(); } finally { SubmitLockService::release($lock); } }
     public static function rollbackVersion(int $tenantId, int $id, int $fromId = 0): array { $lock = SubmitLockService::acquire('wechat.version.rollback.' . $id, $tenantId, 0); try { [$row, $authorizer] = self::versionForTenant($tenantId, $id); if ((string)$row['release_status'] !== 'released') throw new \RuntimeException('当前版本未发布'); self::request('wxa/revertcoderelease', [], 'release.rollback', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $row->save(['release_status' => 'rolled_back', 'rollback_from_id' => $fromId, 'update_time' => time()]); return $row->toArray(); } finally { SubmitLockService::release($lock); } }
 
@@ -545,11 +594,45 @@ class OpenPlatformService
         $parts = parse_url($url);
         return 'https://' . (string)$parts['host'];
     }
-    private static function auditItems($row): array
+    private static function versionExtJson(WechatMnpVersion $row): array
     {
-        $ext = json_decode((string)$row['ext_json'], true); $items = is_array($ext) && isset($ext['item_list']) && is_array($ext['item_list']) ? $ext['item_list'] : [];
-        if (!$items) throw new \RuntimeException('请在版本配置中填写审核项目');
-        return array_values(array_filter($items, static fn($item) => is_array($item) && !empty($item['address'])));
+        $data = json_decode((string)$row['ext_json'], true);
+        return is_array($data) ? $data : [];
+    }
+
+    private static function formatVersion(array $row): array
+    {
+        $ext = json_decode((string)($row['ext_json'] ?? ''), true);
+        $uri = is_array($ext) ? trim((string)($ext['experience_qr_uri'] ?? '')) : '';
+        $row['experience_qr_code'] = $uri === '' ? '' : FileService::getFileUrl($uri);
+        $row['experience_qr_error'] = is_array($ext) ? trim((string)($ext['experience_qr_error'] ?? '')) : '';
+        return $row;
+    }
+
+    private static function downloadExperienceQrcode(WechatAuthorizer $authorizer, int $tenantId, int $versionId): string
+    {
+        $requestId = bin2hex(random_bytes(12));
+        $started = microtime(true);
+        try {
+            $url = self::API . 'wxa/get_qrcode?' . http_build_query(['access_token' => self::authorizerToken((int)$authorizer['id'])]);
+            $response = Requests::get($url, [], ['timeout' => 30]);
+            $body = (string)$response->body;
+            $error = json_decode($body, true);
+            if (is_array($error)) throw new \RuntimeException('微信接口调用失败：' . (string)($error['errmsg'] ?? '获取体验二维码失败'));
+            $image = @getimagesizefromstring($body);
+            if ($image === false || !in_array((int)$image[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)) throw new \RuntimeException('微信未返回有效的体验二维码图片');
+            $extension = (int)$image[2] === IMAGETYPE_PNG ? 'png' : 'jpg';
+            $uri = 'uploads/wechat/experience/' . date('Ymd') . '/' . $tenantId . '-' . $versionId . '-' . bin2hex(random_bytes(6)) . '.' . $extension;
+            $path = rtrim(public_path(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $uri;
+            $directory = dirname($path);
+            if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) throw new \RuntimeException('无法创建体验二维码目录');
+            if (file_put_contents($path, $body, LOCK_EX) === false) throw new \RuntimeException('无法保存体验二维码');
+            self::logApi($requestId, 'release.experience.qrcode', 0, $started, 'success', $tenantId, (int)$authorizer['id']);
+            return $uri;
+        } catch (\Throwable $e) {
+            self::logApi($requestId, 'release.experience.qrcode', -1, $started, 'failed', $tenantId, (int)$authorizer['id']);
+            throw $e;
+        }
     }
     private static function logApi(string $requestId, string $apiName, int $code, float $started, string $result, int $tenantId = 0, int $authorizerId = 0): void { try { WechatApiLog::withoutGlobalScope()->insert(['request_id' => $requestId, 'tenant_id' => $tenantId, 'authorizer_id' => $authorizerId, 'api_name' => $apiName, 'wechat_code' => $code, 'elapsed_ms' => (int)((microtime(true) - $started) * 1000), 'retry_count' => 0, 'result' => $result, 'create_time' => time()]); } catch (\Throwable $ignored) {} }
     /**
@@ -1794,7 +1877,20 @@ class OpenPlatformService
         return $payload;
     }
     public static function unbindAuthorizer(int $tenantId, int $id): bool { $row = WechatAuthorizer::withoutGlobalScope()->where(['id' => $id, 'tenant_id' => $tenantId])->findOrEmpty(); if ($row->isEmpty()) throw new \RuntimeException('授权账号不存在'); $row->save(['authorization_status' => 0, 'unbind_time' => time(), 'update_time' => time()]); return true; }
-    public static function createVersion(int $tenantId, array $data): array { foreach (['authorizer_id', 'template_id', 'version'] as $key) if (empty($data[$key])) throw new \InvalidArgumentException('缺少' . $key); if (!preg_match('/^\d+\.\d+\.\d+$/', (string)$data['version'])) throw new \InvalidArgumentException('版本号格式错误'); $authorizer = WechatAuthorizer::withoutGlobalScope()->where(['id' => (int)$data['authorizer_id'], 'tenant_id' => $tenantId, 'authorizer_type' => 'miniprogram', 'authorization_status' => 1])->findOrEmpty(); if ($authorizer->isEmpty()) throw new \RuntimeException('授权小程序不存在'); $template = WechatTemplate::withoutGlobalScope()->where(['id' => (int)$data['template_id'], 'upload_status' => 'success'])->findOrEmpty(); if ($template->isEmpty() || (string)$template['template_id'] === '') throw new \RuntimeException('模板不存在或未上传成功'); $runtimeConfig = self::tenantRuntimeConfig($tenantId); $extJson = is_array($data['ext_json'] ?? null) ? $data['ext_json'] : []; $extJson['runtime_config'] = $runtimeConfig; $runtimeHash = hash('sha256', json_encode($runtimeConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); return WechatMnpVersion::create(['tenant_id' => $tenantId, 'authorizer_id' => (int)$data['authorizer_id'], 'template_id' => (int)$data['template_id'], 'version' => (string)$data['version'], 'description' => (string)($data['description'] ?? ''), 'ext_json' => json_encode($extJson, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'upload_mode' => 'template', 'upload_status' => 'success', 'runtime_config_hash' => $runtimeHash, 'api_base_url' => (string)$runtimeConfig['apiBaseUrl'], 'runtime_config_version' => (string)$runtimeConfig['configVersion'], 'experience_status' => 'pending', 'audit_status' => 'none', 'release_status' => 'none', 'create_time' => time(), 'update_time' => time()])->toArray(); }
+    public static function createVersion(int $tenantId, array $data): array
+    {
+        foreach (['authorizer_id', 'template_id'] as $key) if (empty($data[$key])) throw new \InvalidArgumentException('缺少' . $key);
+        $authorizer = WechatAuthorizer::withoutGlobalScope()->where(['id' => (int)$data['authorizer_id'], 'tenant_id' => $tenantId, 'authorizer_type' => 'miniprogram', 'authorization_status' => 1])->findOrEmpty();
+        if ($authorizer->isEmpty()) throw new \RuntimeException('授权小程序不存在');
+        $template = WechatTemplate::withoutGlobalScope()->where(['id' => (int)$data['template_id'], 'upload_status' => 'success'])->findOrEmpty();
+        if ($template->isEmpty() || (string)$template['template_id'] === '') throw new \RuntimeException('模板不存在或未上传成功');
+        $version = trim((string)$template['template_version']);
+        if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) throw new \RuntimeException('所选代码模板的版本号格式无效');
+        $runtimeConfig = self::tenantRuntimeConfig($tenantId);
+        $extJson = ['runtime_config' => $runtimeConfig];
+        $runtimeHash = hash('sha256', json_encode($runtimeConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        return self::formatVersion(WechatMnpVersion::create(['tenant_id' => $tenantId, 'authorizer_id' => (int)$data['authorizer_id'], 'template_id' => (int)$data['template_id'], 'version' => $version, 'description' => trim((string)($data['description'] ?? $template['template_desc'] ?? '')), 'ext_json' => json_encode($extJson, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'upload_mode' => 'template', 'upload_status' => 'success', 'runtime_config_hash' => $runtimeHash, 'api_base_url' => (string)$runtimeConfig['apiBaseUrl'], 'runtime_config_version' => (string)$runtimeConfig['configVersion'], 'experience_status' => 'pending', 'audit_status' => 'none', 'release_status' => 'none', 'create_time' => time(), 'update_time' => time()])->toArray());
+    }
     private static function templateExtJson(WechatMnpVersion $row, WechatAuthorizer $authorizer): array
     {
         $data = json_decode((string)$row['ext_json'], true);
@@ -1809,8 +1905,21 @@ class OpenPlatformService
             'ext' => ['runtime_config' => $runtimeConfig],
         ];
     }
-    public static function versions(int $tenantId): array { return WechatMnpVersion::withoutGlobalScope()->where('tenant_id', $tenantId)->order('id desc')->select()->toArray(); }
-    public static function reviews(int $tenantId): array { $ids = WechatMnpVersion::withoutGlobalScope()->where('tenant_id', $tenantId)->column('id'); return $ids ? WechatMnpReview::withoutGlobalScope()->whereIn('version_id', $ids)->order('id desc')->select()->toArray() : []; }
+    public static function versions(int $tenantId): array
+    {
+        $query = WechatMnpVersion::withoutGlobalScope()->where('tenant_id', $tenantId);
+        if ($tenantId > 0) $query->where('upload_mode', 'template');
+        return array_map(static fn(array $row) => self::formatVersion($row), $query->order('id desc')->select()->toArray());
+    }
+    public static function reviews(int $tenantId): array
+    {
+        $query = WechatMnpVersion::withoutGlobalScope()->where('tenant_id', $tenantId);
+        if ($tenantId > 0) $query->where('upload_mode', 'template');
+        $versions = $query->field('id,version')->select()->toArray();
+        if (!$versions) return [];
+        $versionMap = array_column($versions, 'version', 'id');
+        return array_map(static function (array $row) use ($versionMap): array { $row['version'] = $versionMap[(int)$row['version_id']] ?? ''; return $row; }, WechatMnpReview::withoutGlobalScope()->whereIn('version_id', array_keys($versionMap))->order('id desc')->select()->toArray());
+    }
     public static function transitionVersion(int $tenantId, int $id, string $action, array $extra = []): array { $row = WechatMnpVersion::withoutGlobalScope()->where(['id' => $id, 'tenant_id' => $tenantId])->findOrEmpty(); if ($row->isEmpty()) throw new \RuntimeException('版本不存在'); $maps = ['experience' => ['field' => 'experience_status', 'states' => ['pending' => 'running', 'running' => 'success', 'success' => 'success']], 'audit' => ['field' => 'audit_status', 'states' => ['none' => 'pending', 'pending' => 'approved', 'approved' => 'approved']], 'release' => ['field' => 'release_status', 'states' => ['none' => 'running', 'running' => 'released', 'released' => 'released']], 'rollback' => ['field' => 'release_status', 'states' => ['released' => 'rollbacking', 'rollbacking' => 'rolled_back']]]; if (!isset($maps[$action])) throw new \InvalidArgumentException('不支持的操作'); $field = $maps[$action]['field']; $next = $maps[$action]['states'][(string)$row[$field]] ?? null; if ($next === null) throw new \RuntimeException('当前状态不允许此操作'); $row->save(array_merge([$field => $next, 'update_time' => time()], $extra)); if ($action === 'audit') WechatMnpReview::withoutGlobalScope()->create(['version_id' => $id, 'audit_status' => $next, 'reason' => '', 'response_summary' => '', 'submit_time' => time(), 'create_time' => time()]); return $row->toArray(); }
     public static function apiLogs(): array { return WechatApiLog::withoutGlobalScope()->order('id desc')->limit(200)->select()->toArray(); }
     public static function promote(int $id): bool

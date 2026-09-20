@@ -119,4 +119,16 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString('`is_show` = 0, `is_disable` = 1', $serverUpgrade);
         self::assertStringContainsString('@open_platform_root_id IS NOT NULL', $serverUpgrade);
     }
+
+    public function testTemplateVersionAndWeChatConsoleAuditContractsAreEnforced(): void
+    {
+        $service = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
+
+        self::assertStringContainsString("foreach (['authorizer_id', 'template_id'] as \$key)", $service);
+        self::assertStringContainsString("\$version = trim((string)\$template['template_version']);", $service);
+        self::assertStringContainsString("'wxa/get_latest_auditstatus'", $service);
+        self::assertStringContainsString('请在微信小程序后台提交审核', $service);
+        self::assertStringContainsString('downloadExperienceQrcode', $service);
+        self::assertStringContainsString("\$query->where('upload_mode', 'template');", $service);
+    }
 }
