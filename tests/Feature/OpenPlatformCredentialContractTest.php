@@ -74,6 +74,10 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString("'qrcode_url' => 'qrcode_url'", $service);
         self::assertStringContainsString("'wxa/gettemplatedraftlist'", $service);
         self::assertStringContainsString("'wxa/gettemplatelist'", $service);
+        self::assertStringContainsString("'template.list', ['component_access_token' => self::componentAccessToken()], 0, 0, 'GET'", $service);
+        self::assertStringContainsString("'template.drafts', ['component_access_token' => self::componentAccessToken()], 0, 0, 'GET'", $service);
+        self::assertStringContainsString("$method === 'GET'", $service);
+        self::assertStringContainsString('beforeTemplateIds', $service);
         self::assertStringContainsString('public static function syncTemplates()', $service);
         self::assertStringContainsString('public static function templateRecords()', $service);
         self::assertStringContainsString('public static function availableTemplates()', $service);
