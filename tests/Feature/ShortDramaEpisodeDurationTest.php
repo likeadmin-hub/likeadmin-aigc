@@ -116,6 +116,32 @@ class ShortDramaEpisodeDurationTest extends TestCase
         self::assertSame(1, $payload['timing_diagnostics']['content_repairs']);
     }
 
+    public function testEachTimedPartCanUseItsOwnStructuralRepair(): void
+    {
+        $request = $this->request();
+        $calls = [];
+        $skeleton = ['title' => '测试', 'story_outline' => '甲找到钥匙后离开房间', 'script_lines' => ['甲找到钥匙后离开房间'],
+            'subjects' => [['id' => 'p1', 'name' => '甲']], 'locations' => [['id' => 'l1', 'name' => '房间']],
+            'scene_beats' => [['scene_ref_id' => 'l1', 'goal' => '找钥匙', 'entry' => '寻找', 'exit' => '离开', 'key_events' => ['发现钥匙', '离开'],
+                'duration_seconds' => 40, 'shot_durations' => [10, 10, 10, 10]]]];
+        $payload = ShortDramaTimedScriptGeneration::generate($request, ['system_prompt' => '创作', 'content' => '故事'],
+            static function ($key, $input, $budget) use (&$calls, $skeleton) {
+                $calls[] = $key;
+                if (str_contains($key, 'skeleton')) return $skeleton;
+                preg_match('/timed_scene_1_(\d+)/', $key, $matches);
+                $start = (int)($matches[1] ?? 1);
+                $shots = [];
+                for ($n = $start; $n < $start + 2; $n++) $shots[] = ['shot_id' => 's1_' . $n, 'scene_ref_id' => 'l1', 'subject_ref_ids' => ['p1'],
+                    'visual_description' => $n < 3 ? '甲继续寻找钥匙' : '甲拿着钥匙走向门口', 'dialogue' => '', 'recommended_duration_seconds' => 10];
+                if (!str_contains($key, '_repair')) $shots[0]['recommended_duration_seconds'] = 9;
+                return ['storyboard' => $shots];
+            }, null);
+
+        self::assertSame(['timed_skeleton_0', 'timed_scene_1_1', 'timed_scene_1_1_repair', 'timed_scene_1_3', 'timed_scene_1_3_repair'], $calls);
+        self::assertSame(2, $payload['timing_diagnostics']['content_repairs']);
+        self::assertEquals(40, array_sum(array_column($payload['storyboard'], 'recommended_duration_seconds')));
+    }
+
     public function testDenseDialogueUsesTargetedFieldRepairInsteadOfRegeneratingTheStoryboardPart(): void
     {
         $request = $this->request(0, [['start_seconds' => 0, 'end_seconds' => 5, 'duration_seconds' => 5]]);

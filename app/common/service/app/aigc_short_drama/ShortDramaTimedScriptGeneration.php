@@ -71,7 +71,6 @@ final class ShortDramaTimedScriptGeneration
         // Reserve room for identifiers, JSON and dialogue as well as descriptions.
         $partSize = max(1, min(4, (int)floor(($outputBudget - 500) / 1600)));
         foreach ($skeleton['scene_beats'] as $sceneIndex => $beat) {
-            $sceneRepairUsed = false;
             $durations = array_values($beat['shot_durations']);
             for ($offset = 0; $offset < count($durations); $offset += $partSize) {
                 $partDurations = array_slice($durations, $offset, $partSize);
@@ -136,8 +135,11 @@ final class ShortDramaTimedScriptGeneration
                                 }
                             }
                         }
-                        if ($attempt || $sceneRepairUsed || !in_array($e->getCode(), [413, 422], true)) throw $e;
-                        $sceneRepairUsed = true;
+                        // A scene can be split into several independent provider
+                        // calls. A malformed earlier part must not consume the
+                        // bounded structural repair available to a later part.
+                        // `$attempt` still caps each part at one full retry.
+                        if ($attempt || !in_array($e->getCode(), [413, 422], true)) throw $e;
                         $contentRepairs++;
                         $input['content'] .= "\n仅修复本段：" . $e->getMessage() . "\n原返回=" . self::json($part);
                     }
