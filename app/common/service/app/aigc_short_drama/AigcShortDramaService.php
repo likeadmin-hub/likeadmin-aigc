@@ -2857,7 +2857,10 @@ class AigcShortDramaService
                 ];
             }
             $instruction = '按照剧本进行策划';
-            $supplement = mb_substr(trim((string)($params['supplement'] ?? '')), 0, 4000, 'UTF-8');
+            $supplement = trim((string)($params['supplement'] ?? ''));
+            if (mb_strlen($supplement, 'UTF-8') > 4000) {
+                throw new Exception('剧本补充要求不能超过 4000 字');
+            }
             $taskPrompt = $supplement === '' ? $instruction : $instruction . "\n\n补充要求：" . $supplement;
             self::checkSensitivePrompt($taskPrompt);
             $config = self::publicConfig($tenantId);
