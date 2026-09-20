@@ -78,6 +78,42 @@ class ShortDramaEpisodeDurationTest extends TestCase
         ShortDramaEpisodeDuration::assertPlan(['storyboard' => [['recommended_duration_seconds' => 5], ['recommended_duration_seconds' => 5]]], $request);
     }
 
+    public function testTimelineKeepsEachEligibleSegmentAsOneShotAndLabelsItsRange(): void
+    {
+        $request = $this->request(0, [
+            ['start_seconds' => 0, 'end_seconds' => 5, 'duration_seconds' => 5],
+            ['start_seconds' => 5, 'end_seconds' => 25, 'duration_seconds' => 20],
+        ]);
+        $skeleton = [
+            'title' => '时间码测试', 'story_outline' => '甲在房间寻找钥匙后离开', 'script_lines' => ['甲找到钥匙并离开'],
+            'subjects' => [['id' => 'a', 'name' => '甲']], 'locations' => [['id' => 'room', 'name' => '房间']],
+            'scene_beats' => [
+                ['scene_ref_id' => 'room', 'goal' => '寻找', 'entry' => '进入房间', 'exit' => '找到钥匙', 'key_events' => ['寻找钥匙'], 'duration_seconds' => 5, 'shot_durations' => [2, 3]],
+                ['scene_ref_id' => 'room', 'goal' => '离开', 'entry' => '拿到钥匙', 'exit' => '离开房间', 'key_events' => ['走向门口'], 'duration_seconds' => 20, 'shot_durations' => [5, 5, 5, 5]],
+            ],
+        ];
+        $payload = ShortDramaTimedScriptGeneration::generate($request, ['system_prompt' => '创作', 'content' => '故事'],
+            static function ($key, $input) use ($skeleton) {
+                if (str_contains($key, 'skeleton')) {
+                    return $skeleton;
+                }
+                $context = json_decode(explode("\n以上全局剧情", $input['content'])[0], true);
+                return ['storyboard' => array_map(static fn(array $shot): array => [
+                    'shot_id' => $shot['shot_id'], 'scene_ref_id' => 'room', 'subject_ref_ids' => ['a'],
+                    'visual_description' => '甲完成当前时间码段动作', 'dialogue' => '',
+                    'recommended_duration_seconds' => $shot['duration_seconds'],
+                ], $context['required_shots'])];
+            }, null);
+
+        self::assertEquals([5, 10, 10], array_column($payload['storyboard'], 'recommended_duration_seconds'));
+        self::assertSame(['00:00-00:05', '00:05-00:15', '00:15-00:25'], array_column($payload['storyboard'], 'time_range'));
+        $this->expectExceptionMessage('分镜未按用户时间码逐段对齐');
+        ShortDramaEpisodeDuration::assertPlan(['storyboard' => [
+            ['recommended_duration_seconds' => 2], ['recommended_duration_seconds' => 3],
+            ['recommended_duration_seconds' => 10], ['recommended_duration_seconds' => 10],
+        ]], $request);
+    }
+
     public function testLocalRevisionDoesNotRebalanceWholeFilm(): void
     {
         $request = $this->request() + ['revision_message' => '修改第一镜台词', 'revision_policy' => ['mode' => 'local_only']];

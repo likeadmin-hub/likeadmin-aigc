@@ -92,7 +92,7 @@ final class ShortDramaEpisodeDuration
             . '目标' . $policy['target_seconds'] . '秒，允许' . $policy['min_seconds'] . '-' . $policy['max_seconds'] . '秒。'
             . '具体时间码和对应剧情必须完整保留。剧情类型只提供节奏参考，忽略旧模板的分镜数量上下限、按场景最少几个镜头及固定单集默认时长。'
             . '按实际对白、动作和情绪安排时长与镜头数，不追加镜头凑时长，不通过仅修改秒数压缩对白。默认时长不足时正常返回，默认下限仅为参考，不补长、不重试；明确用户时长仍严格遵守。'
-            . '骨架先分配各场时间预算，再展开分镜。明确时间码可短于通常片段下限；长片段允许连续拆分但不改变原时间边界。'
+            . '骨架先分配各场时间预算，再展开分镜。明确时间码可短于通常片段下限；每个未超过单镜头上限的时间码段必须恰好对应一个分镜，只有超过上限的长片段才允许连续拆分，并且不得改变原时间边界。'
             . (self::localRevision($request) ? '当前为局部修改，保留未选中内容及其时长，不执行整集时间再平衡。' : '')
             . "\n时间策略=" . json_encode($policy, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
@@ -114,12 +114,42 @@ final class ShortDramaEpisodeDuration
         if (!$shots || (($policy['source'] ?? '') !== 'default' && $total < $policy['min_seconds'] - 0.001) || $total > $policy['max_seconds'] + 0.001) {
             throw new RuntimeException('分镜总时长' . round($total, 3) . '秒不符合本集' . $policy['min_seconds'] . '-' . $policy['max_seconds'] . '秒要求', 422);
         }
-        $elapsed = 0.0;
-        foreach ((array)($policy['timeline_segments'] ?? []) as $segment) {
-            $elapsed += (float)$segment['duration_seconds'];
-            if (!array_filter($boundaries, static fn($n) => abs($n - $elapsed) < 0.001)) {
-                throw new RuntimeException('分镜未保留用户时间码边界', 422);
+        $timeline = (array)($policy['timeline_segments'] ?? []);
+        if (empty($timeline)) {
+            return;
+        }
+        $shotIndex = 0;
+        foreach ($timeline as $segment) {
+            foreach (self::timelineShotDurations((float)($segment['duration_seconds'] ?? 0), $request) as $duration) {
+                $shot = (array)($shots[$shotIndex] ?? []);
+                if (abs((float)($shot['recommended_duration_seconds'] ?? 0) - $duration) > 0.001) {
+                    throw new RuntimeException('分镜未按用户时间码逐段对齐', 422);
+                }
+                $shotIndex++;
             }
         }
+        if ($shotIndex !== count($shots)) {
+            throw new RuntimeException('分镜未按用户时间码逐段对齐', 422);
+        }
+    }
+
+    /**
+     * Timecode is an editorial contract: retain one card per segment whenever
+     * possible, and split only a segment that exceeds the active per-shot cap.
+     */
+    public static function timelineShotDurations(float $duration, array $request): array
+    {
+        if (!is_finite($duration) || $duration <= 0) {
+            throw new RuntimeException('时间码片段缺少有效时长', 422);
+        }
+        $maxSeconds = max(0.001, (float)(ShortDramaShotDuration::rule($request)['max_seconds'] ?? ShortDramaShotDuration::MAX));
+        if ($duration <= $maxSeconds + 0.001) {
+            return [$duration];
+        }
+        $parts = max(2, (int)ceil($duration / $maxSeconds));
+        $base = round($duration / $parts, 3);
+        $durations = array_fill(0, $parts, $base);
+        $durations[$parts - 1] = round($duration - ($base * ($parts - 1)), 3);
+        return $durations;
     }
 }

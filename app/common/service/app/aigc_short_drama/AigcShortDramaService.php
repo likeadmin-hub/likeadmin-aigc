@@ -21041,7 +21041,7 @@ class AigcShortDramaService
     private static function normalizeGeneratedStoryboard(array $items, array $durationRule = []): array
     {
         $result = [];
-        $elapsedSeconds = 0;
+        $elapsedSeconds = 0.0;
         foreach (array_values($items) as $index => $item) {
             if (!is_array($item)) {
                 continue;
@@ -21104,14 +21104,19 @@ class AigcShortDramaService
                 'frame_type' => in_array($frameType, ['normal', 'lip_sync'], true) ? $frameType : 'normal',
                 'recommended_duration_seconds' => $durationSeconds,
             ];
+            if (array_key_exists('time_range', $item) || array_key_exists('start_seconds', $item) || array_key_exists('end_seconds', $item)) {
+                $shot['time_range'] = trim((string)($item['time_range'] ?? ''));
+                $shot['start_seconds'] = is_numeric($item['start_seconds'] ?? null) ? (float)$item['start_seconds'] : $elapsedSeconds;
+                $shot['end_seconds'] = is_numeric($item['end_seconds'] ?? null) ? (float)$item['end_seconds'] : ($shot['start_seconds'] + $durationSeconds);
+            }
             $shot['video_prompt'] = self::normalizeReadableShotVideoPrompt(
                 self::localizeGenerationPromptText(trim((string)($item['video_prompt'] ?? '')), $visualDescription),
                 $shot,
                 $index,
-                ['start_seconds' => $elapsedSeconds]
+                ['start_seconds' => (float)($shot['start_seconds'] ?? $elapsedSeconds)]
             );
             $result[] = ShortDramaPromptDocuments::markGeneratedFields($item, $shot, ['composition', 'camera_movement', 'image_prompt', 'video_prompt', 'bgm_prompt', 'sound_effect']);
-            $elapsedSeconds += (int)round($durationSeconds);
+            $elapsedSeconds += $durationSeconds;
         }
         return $result;
     }

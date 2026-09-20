@@ -23,7 +23,10 @@ final class ShortDramaTimedScriptGeneration
         $skeleton = [];
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
-                $skeleton = self::canonicalSkeleton($call('timed_skeleton_' . $attempt, $skeletonInput, 8192));
+                $skeleton = self::lockTimelineShotDurations(
+                    self::canonicalSkeleton($call('timed_skeleton_' . $attempt, $skeletonInput, 8192)),
+                    $request
+                );
                 if (!empty($skeleton['storyboard'])) {
                     try {
                         self::assertCompletePlan($skeleton, $request);
@@ -164,7 +167,7 @@ final class ShortDramaTimedScriptGeneration
                     'current_step' => '已生成' . count($shots) . '个分镜，约' . round(array_sum(array_column($shots, 'recommended_duration_seconds'))) . '秒']);
             }
         }
-        $skeleton['storyboard'] = $shots;
+        $skeleton['storyboard'] = self::attachTimelineRanges($shots, $request);
         $skeleton['episodes'] = [];
         $skeleton['timing_diagnostics'] = ['version' => ShortDramaEpisodeDuration::VERSION, 'content_repairs' => $contentRepairs,
             'dialogue_repairs' => $dialogueRepairs, 'dialogue_fallback_repairs' => $dialogueFallbackRepairs, 'time_repairs' => $timeRepairs,
@@ -241,8 +244,73 @@ final class ShortDramaTimedScriptGeneration
             $sum = array_sum($beat['shot_durations']);
             if (abs($sum - (float)($beat['duration_seconds'] ?? 0)) > 0.001) throw new RuntimeException('场次时长与片段合计不一致', 422);
             if ($timeline && abs($sum - (float)$timeline[$index]['duration_seconds']) > 0.001) throw new RuntimeException('场次时长与用户时间码不一致', 422);
+            if ($timeline) {
+                $expectedDurations = ShortDramaEpisodeDuration::timelineShotDurations((float)$timeline[$index]['duration_seconds'], $request);
+                if (count($beat['shot_durations']) !== count($expectedDurations)) {
+                    throw new RuntimeException('时间码段只能在超过单镜头上限时拆分', 422);
+                }
+                foreach (array_values($beat['shot_durations']) as $durationIndex => $duration) {
+                    if (abs((float)$duration - (float)$expectedDurations[$durationIndex]) > 0.001) {
+                        throw new RuntimeException('时间码段只能在超过单镜头上限时拆分', 422);
+                    }
+                }
+            }
         }
         ShortDramaEpisodeDuration::assertPlan(['storyboard' => $shots], $request);
+    }
+
+    private static function lockTimelineShotDurations(array $plan, array $request): array
+    {
+        $timeline = (array)(ShortDramaEpisodeDuration::policy($request)['timeline_segments'] ?? []);
+        if (empty($timeline) || !is_array($plan['scene_beats'] ?? null)) {
+            return $plan;
+        }
+        foreach ($timeline as $index => $segment) {
+            if (!isset($plan['scene_beats'][$index]) || !is_array($plan['scene_beats'][$index])) {
+                continue;
+            }
+            $duration = (float)($segment['duration_seconds'] ?? 0);
+            $plan['scene_beats'][$index]['duration_seconds'] = $duration;
+            $plan['scene_beats'][$index]['shot_durations'] = ShortDramaEpisodeDuration::timelineShotDurations($duration, $request);
+        }
+        return $plan;
+    }
+
+    private static function attachTimelineRanges(array $shots, array $request): array
+    {
+        $timeline = (array)(ShortDramaEpisodeDuration::policy($request)['timeline_segments'] ?? []);
+        if (empty($timeline)) {
+            return $shots;
+        }
+        $shotIndex = 0;
+        foreach ($timeline as $segment) {
+            $start = (float)($segment['start_seconds'] ?? 0);
+            foreach (ShortDramaEpisodeDuration::timelineShotDurations((float)($segment['duration_seconds'] ?? 0), $request) as $duration) {
+                if (!isset($shots[$shotIndex]) || !is_array($shots[$shotIndex])) {
+                    break 2;
+                }
+                $end = $start + $duration;
+                $shots[$shotIndex]['start_seconds'] = $start;
+                $shots[$shotIndex]['end_seconds'] = $end;
+                $shots[$shotIndex]['time_range'] = self::timeRangeLabel($start, $end);
+                $start = $end;
+                $shotIndex++;
+            }
+        }
+        return $shots;
+    }
+
+    private static function timeRangeLabel(float $start, float $end): string
+    {
+        $format = static function (float $seconds): string {
+            $milliseconds = (int)round(max(0, $seconds) * 1000);
+            $minutes = intdiv($milliseconds, 60000);
+            $wholeSeconds = intdiv($milliseconds % 60000, 1000);
+            $fraction = $milliseconds % 1000;
+            return str_pad((string)$minutes, 2, '0', STR_PAD_LEFT) . ':' . str_pad((string)$wholeSeconds, 2, '0', STR_PAD_LEFT)
+                . ($fraction ? '.' . rtrim(str_pad((string)$fraction, 3, '0', STR_PAD_LEFT), '0') : '');
+        };
+        return $format($start) . '-' . $format($end);
     }
 
     public static function assertPart(array $part, array $plan, array $beat, array $ids, array $durations): void
