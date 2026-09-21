@@ -207,3 +207,42 @@ server `2880d3825`；web 未改。普通 save 在事务内先锁定所属画布�
 P1 **否**；P2—P6 **NOT_RUN**。普通保存/后台 JSON 写入已共用持久化版本边界，但这不是完整 Graph DTO/权限闭环：普通保存仍需服务端元数据保护、内容/布局版本治理；生产可重复迁移及安装/升级一致性未完成；生成请求 key/hash、提交快照、outbox、恢复对账未实现。G06/G07 仅有部分投影/前端迟到结果证据，不是四类 Provider 完整乱序/删除回调验证。G12 完整手工浏览器生成与开关回归未完成。不得启用 Agent 后台图写入。
 
 原业务库缺少音乐表的风险仍在；真实模型协议、物理文件转存、真实付费小样本、生产迁移与部署均未执行。没有修改原 Worker、PC 本地代理、用户 canvas 11 或既有 Story/Episode 生成服务。
+
+## 10. 2026-09-21 后续实现与实测（取代第 9 节的当前状态，不删除历史证据）
+
+### 10.1 已实现范围
+
+- 图结构的应用安装、应用增量升级、系统升级和完整安装 SQL 已增加版本与幂等回执；在隔离库执行真实 SQL，验证重复执行、旧 JSON/删除墓碑/已有回执保留、四份列定义一致及 key 大小写敏感。完整安装器、应用注册及新租户生命周期仍未测；业务库未执行迁移。
+- 版本化普通保存由服务端维护内容/布局版本及任务、费用、资产归属字段，合法旧手工任务绑定验证实际 owned run。旧 schema-v1 的兼容保存仍保留限制，不能泛称所有旧客户端已有 CAS。
+- 增加未开放路由的 GenerationIntentService 和 Canvas::submitIdempotent：冻结输入与 Skill 快照，数据库原子建立逻辑 run 与提交意图，claim token/fence/lease 防重复提交；十独立进程仅一个下游接收。下游 PointService 仍是扣费权威。
+- 结果不明/过期不重提、不假退款。原 worker 迟到回执保留任务编号与结果，仍为 needs_reconciliation；错误 token/fence 与冲突回执拒绝，普通轮询不能擅自把未核实状态变为成功。完整对账查询、进程终止恢复和生产级 outbox 扫描尚未完成。
+- 四类结果写回验证 active generation、输入签名和节点存在；删除/旧回调不复活节点、不覆盖新结果，历史保留。视频复用原异步封面任务和租户存储元数据，不在图锁内下载或提取媒体。
+- PC 本地草稿保存 base_revision/base_document_token，保留人工导出与明确重读，不按时间戳覆盖云端。未实现局部未确认操作自动重放。
+
+### 10.2 最新验证与失败记录
+
+Server 功能基准 `2d03320bc`，本地 develop 合入后完整串行回归：
+
+| 脚本 | PASS |
+| --- | ---: |
+| p0_baseline / p0_generation / p0_controller / p0_http | 10 / 16 / 15 / 8 |
+| p1_graph / p1_graph_wire / p1_graph_operations / p1_concurrency | 19 / 18 / 11 / 14 |
+| p1_poster_save / p1_save_cas / p1_read_recovery / p1_revision_integration | 4 / 5 / 10 / 12 |
+| p1_migrations / p1_generation_intent / p1_generation_projection / p1_manual_authority | 10 / 33 / 34 / 10 |
+| p0_generation.php idempotent | 24 |
+
+共 253 个断言，exit 0；不是 253 条阶段验收项。各脚本末尾 NOT_RUN 仅说明该脚本的覆盖范围，阶段结论以本节为准。
+
+Web `fdec432` 的真实 HTTP 浏览器场景 7 PASS：独立 headless Chrome → 容器内真实 HTTP/middleware/controller → 隔离 MySQL；四类工具栏建节点、标题及文本编辑、文本拖动后再编辑、保存刷新重开、同文本双标签页冲突与明确重读均通过。账户/模型目录请求仍用空夹具，仅 current/save 转发真实后端；禁止生成及其他写路由、禁止外站，不是浏览器生成全链路验收。
+
+Web 六组纯逻辑/源码契约测试本轮 29 PASS，Vue script/template 编译 PASS。合成响应冲突浏览器 8 PASS；新增草稿版本断言发现导出分支未保留 base_revision，已于 `84a2a66` 修复并复测通过，缓存及冲突后导出均保留权威基础版本。
+
+失败如实保留：真实浏览器最初不能双击文本，定位到 stage 过早 pointer capture，改为文本拖动超过阈值后捕获，编辑/拖动/再编辑验证通过；早期测试错误选到 composer editable 已改为具体文本编辑器。双标签页夹具曾被后来创建的媒体遮挡，改用真实拖动移开文本；曾在第一标签页输入与失焦保存未结束前比较 revision，改为稳定读检查后通过。未使用强制点击或伪造 DOM 事件绕过问题。
+
+### 10.3 P1 准入与用户交互约束
+
+P1 **尚未放行**，P2—P6 **NOT_RUN**。G01 已有真实双标签页文本冲突证据；G02/G03/G04/G06/G07/G08/G09/G10/G11 有数据库或模拟执行边界证据，但不能据此宣称真实 Provider 回调/完整 Worker 已通过。G12 手工连接及四类生成的浏览器闭环、关闭 Agent 开关的完整回归尚未完成。生成意图 schema 仍为隔离测试草案，未注册生产迁移；patch/幂等提交新入口尚未开放，后台 Agent 图写入仍禁止。
+
+用户补充约束：整个右侧区域为 Agent 对话面板，右下角输入框是对话入口；对话使用所选推理模型，图片/视频动作使用各自模型偏好；不额外增加 Agent 入口，不以问答自动创建作品节点或触发媒体生成。进入 P2 时必须在现有面板接入，而非另建独立聊天页面。
+
+分支统一为 `feature/short-drama-optimization`；本地 develop 仅集成与验证。未推送 develop、未部署、未触碰真实付费生成或业务迁移。
