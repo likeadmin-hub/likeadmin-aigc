@@ -8,6 +8,7 @@ use app\common\service\app\aigc_local_redraw\AigcLocalRedrawService;
 use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\app\aigc_music\AigcMusicService;
 use app\common\service\app\aigc_video\AigcVideoService;
+use app\common\service\app\aigc_short_drama\canvas_agent\GraphService;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\FileService;
 use app\common\service\storage\StorageConfigService;
@@ -73,6 +74,7 @@ class ShortDramaCanvasService
         // before reading, merging and saving so a completed poster cannot be
         // overwritten between the read and the document update.
         $document = self::ownedDocument($tenantId, $userId, (int)($params['id'] ?? 0), true);
+        GraphService::validateSaveRevision($document, $params);
         // Transitional CAS for the deployed schema. This detects every JSON
         // writer without requiring a live migration. Legacy callers remain
         // compatible until the versioned graph contract is fully rolled out.
@@ -96,13 +98,13 @@ class ShortDramaCanvasService
         self::queueVideoPosters($tenantId, $userId, (int)$document['id'], $nodes, false);
         $title = trim((string)($params['title'] ?? $document['title']));
         $title = mb_substr($title ?: '无标题空间', 0, 40);
-        Db::name(self::DOCUMENT_TABLE)->where('id', $document['id'])->update([
+        GraphService::persistLockedDocument($document, [
             'title' => $title, 'nodes_json' => json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'edges_json' => json_encode($edges, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'removed_node_ids_json' => json_encode($removed),
             'viewport_json' => json_encode((array)($params['viewport'] ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'update_time' => time(),
-        ]);
+        ] + (array_key_exists('expected_revision', $params) ? ['schema_version'=>2] : []));
         self::queueVideoPosters($tenantId, $userId, (int)$document['id'], $nodes);
         return self::currentById($tenantId, $userId, (int)$document['id']);
         });
@@ -416,7 +418,7 @@ class ShortDramaCanvasService
             unset($node);
             if (!$changed) return;
             self::queueVideoPosters((int)$run['tenant_id'], (int)$run['user_id'], $canvasId, $nodes);
-            Db::name(self::DOCUMENT_TABLE)->where('id', $canvasId)->update([
+            GraphService::persistLockedDocument($document, [
                 'nodes_json' => json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'update_time' => time(),
             ]);
         });
@@ -682,6 +684,10 @@ class ShortDramaCanvasService
             'update_time' => (int)$row['update_time'],
             'document_token' => self::documentToken($row),
         ];
+        if (array_key_exists('graph_revision', $row)) {
+            $data['graph_revision'] = (int)$row['graph_revision'];
+            $data['schema_version'] = (int)($row['schema_version'] ?? 1);
+        }
         if (!$includeRuns) return $data;
         // A browser can be refreshed after the backend creates a run but before
         // its debounce save writes canvasRunId into nodes_json. Recreate only the
@@ -705,7 +711,7 @@ class ShortDramaCanvasService
         }
         if ($recovered) {
             $now = time();
-            Db::name(self::DOCUMENT_TABLE)->where('id', (int)$row['id'])->update([
+            $row = GraphService::persistLockedDocument($row, [
                 'nodes_json' => json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'update_time' => $now,
             ]);
@@ -713,6 +719,7 @@ class ShortDramaCanvasService
             $data['update_time'] = $now;
             $row['nodes_json'] = json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             $data['document_token'] = self::documentToken($row);
+            if (array_key_exists('graph_revision', $row)) $data['graph_revision'] = (int)$row['graph_revision'];
         }
         $latest = [];
         foreach (array_reverse($runs) as $run) {
