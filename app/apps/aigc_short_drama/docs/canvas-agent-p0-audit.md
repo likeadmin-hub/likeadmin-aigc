@@ -373,3 +373,13 @@ B05 **部分 PASS / 原文口径 BLOCKED**：当前 AppAccessService::tenantCanU
 验证：web 已合入的本地 develop 执行 Node --test `short-drama-conversation-state.test.cjs`（10 PASS）与 `short-drama-canvas-run-result-policy.test.cjs`（3 PASS），共 **13 PASS / FAIL 0、exit 0**，`git diff --check` 通过。前者实际调用状态模块而非源码正则；后者保护原四节点迟到结果/删除节点行为。无 HTTP、数据库、模型或文件写入。纯字符串保留测试不是 HTML 安全渲染验收；浏览器 DOM/XSS 验证仍 NOT_RUN。
 
 此模块尚未绑定右侧面板，也尚无新链路发送、轮询和刷新浏览器证据，A11/A13/A15 不因此整体放行。下一步仍是现有右侧面板的受控接口接入与浏览器测试、真实 Provider 的账本/审核/预算适配；不得注册付费生产调度或启用业务租户。P2 未完成，P3—P6 未开始。没有生产迁移、付费生成、部署、发布或源码推送。
+
+## 19. P2 有界客户端读取协调层
+
+web `21180aa`（feature/short-drama-optimization）新增 `conversation-reader.mjs`，server 仅更新报告。读取协调层组合第 18 节状态模块，显式传 tenant_id/canvas_id/thread_id，不把 user_id 当作请求身份；API transport 由后续现有页面接入注入。本轮不调用真实 HTTP，不导入旧 canvas_v2/workspace 接口，不开启业务 Agent，也不改变现有节点请求卡和手工生成。
+
+每次 refresh 串行读取 run → messages → events，各流每次至多一页；重叠调用返回 busy 而不新增请求。先读取任务终态，再排空消息和事件页，避免成功后立即停轮询遗漏最后回复。queued/running 建议继续轮询；终态/待核实在页面读尽后停止，不做无界重试。切换 scope 后旧响应及旧 finally 不能污染或解锁新 scope 的请求；dispose 清空状态。中途读失败保留已经成功提交的流游标，错误只输出通用 code，不泄漏原始诊断。
+
+在合入最新源码的 web develop 执行三个 Node 行为套件：reader 8、state 10、原四节点 run-result-policy 3，共 **21 PASS / FAIL 0、exit 0**；git diff --check 通过。模拟 Promise 延迟/失败覆盖重叠、跨租户旧回包、新请求锁保护、分页 101 条、最后回复、读失败恢复、dispose 和畸形页。测试名称中的 contract 指传参行为，不代表真实网络或中间件验收。本轮未重跑后端数据库/浏览器套件，没有新阶段放行。
+
+尚未接入右侧面板和实际计时器/HTTP transport；发送幂等恢复、刷新选择会话、DOM 安全渲染及浏览器 A11/A13/A15 仍 NOT_RUN。P2 不因此宣称完成。后续继续把此模块绑定现有右侧聊天区域，先在隔离 mock 环境验证，再处理真实模型预检/账本等未完成能力；P3—P6 仍未开始。两仓库保持 feature 分支，无生产迁移、付费生成、发布或部署。
