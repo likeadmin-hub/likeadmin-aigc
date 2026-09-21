@@ -109,6 +109,13 @@ try {
             echo json_encode(['result'=>Db::name('aigc_short_drama_canvas_agent_preference')->where(['tenant_id'=>94011,'user_id'=>95011])->find() ?: null]),PHP_EOL;
             continue;
         }
+        if ($agentConversation && $action==='agentAttachmentEvidence') {
+            $run=Db::name('aigc_short_drama_canvas_agent_run')->where(['tenant_id'=>94011,'user_id'=>95011,'canvas_id'=>$canvasId])->order('id','desc')->find();
+            $message=$run ? Db::name('aigc_short_drama_canvas_agent_message')->where(['run_id'=>$run['id'],'role'=>'user'])->find() : [];
+            $snapshot=json_decode((string)($run['context_snapshot']??'{}'),true);
+            echo json_encode(['result'=>['attachments'=>json_decode((string)($message['attachments_json']??'[]'),true),'image_count'=>count((array)($snapshot['attachment_images']??[]))]]),PHP_EOL;
+            continue;
+        }
         if ($agentConversation && $action==='agentSeedAmbiguousImages') {
             // Add only owned, metadata-free image placeholders after the
             // normal conversation test. This exercises the real graph and
@@ -162,6 +169,7 @@ try {
             continue;
         }
         $allowed=in_array($action,['current','save'],true) && (int)($body['id']??0)===$canvasId;
+        if ($agentConversation && $action==='assetRegister') $allowed=(int)($body['canvas_id']??0)===$canvasId;
         if (in_array($action,['assets','independentCanvas'],true)) $allowed=$method==='GET';
         if ($mockGeneration && $action==='run') $allowed=(int)($body['canvas_id']??0)===$canvasId;
         if ($mockGeneration && $action==='task') $allowed=Db::name('aigc_short_drama_canvas_run')->where(['id'=>(int)($body['id']??0),'canvas_id'=>$canvasId,'tenant_id'=>94011,'user_id'=>95011])->count()===1;
@@ -178,6 +186,7 @@ try {
         if (!$allowed || !in_array($method,['GET','POST'],true)) throw new RuntimeException('Request outside isolated browser fixture');
         $path=isset($agentActions[$action]) ? 'app.aigc_short_drama.canvas_agent/'.$agentActions[$action] : match ($action) {
             'assets'=>'app.aigc_short_drama.asset/lists',
+            'assetRegister'=>'app.aigc_short_drama.asset/register',
             'independentCanvas'=>'app.aigc_canvas.project/lists',
             default=>'app.aigc_short_drama.canvas/'.$action,
         };
