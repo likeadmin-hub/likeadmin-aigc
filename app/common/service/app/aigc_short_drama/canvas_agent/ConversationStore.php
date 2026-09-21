@@ -5,7 +5,7 @@ namespace app\common\service\app\aigc_short_drama\canvas_agent;
 use RuntimeException;
 use think\facade\Db;
 
-/** Internal persistence only. No HTTP route, model invocation or graph writes.
+/** App-scoped persistence. No model invocation or graph writes.
  * Callers must resolve/authorize model and Skill snapshots server-side before
  * enqueue; never pass a request body as the trusted snapshot argument.
  */
@@ -133,6 +133,28 @@ final class ConversationStore
         $scope=self::scope($tenant,$user,$canvas);self::thread($scope,$thread);
         $rows=Db::name(self::PREFIX.'event')->where($scope+['thread_id'=>$thread])->where('id','>',max(0,$after))->order('id')->limit(100)->select()->toArray();
         return array_map(static fn($row)=>['cursor'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'kind'=>$row['kind'],'payload'=>json_decode($row['payload_json'],true,512,JSON_THROW_ON_ERROR)],$rows);
+    }
+
+    /** Read-only refresh/polling snapshot. Cursors remain owned by their
+     * respective message/event streams; reading status must not skip either.
+     * Never expose provider snapshots, leases, raw errors or private evidence.
+     */
+    public static function run(int $tenant,int $user,int $canvas,int $thread,int $run): array
+    {
+        self::canvas($tenant,$user,$canvas);
+        $scope=self::scope($tenant,$user,$canvas);self::thread($scope,$thread);
+        $row=Db::name(self::PREFIX.'run')->where($scope+['thread_id'=>$thread,'id'=>$run,'delete_time'=>0])->find();
+        if (!$row) throw new RuntimeException('RUN_NOT_FOUND');
+        $status=(string)$row['status'];
+        if (!in_array($status,['queued','running','success','failed','canceled','needs_reconciliation'],true)) throw new RuntimeException('INVALID_RUN_STATE');
+        // Client actions depend on durable state, never a guessed provider
+        // result. Unknown outcomes are not offered automatic retry/refund.
+        return ['id'=>(int)$row['id'],'thread_id'=>(int)$row['thread_id'],
+            'status'=>$status,'version'=>(int)$row['version'],
+            'can_stop'=>in_array($status,['queued','running'],true),
+            'needs_reconciliation'=>$status==='needs_reconciliation',
+            'error_code'=>$status==='failed'?($row['error_code']==='PRECHECK_FAILED'?'PRECHECK_FAILED':'RUN_FAILED'):($status==='canceled'?'USER_STOPPED_BEFORE_SUBMIT':''),
+            'create_time'=>(int)$row['create_time'],'update_time'=>(int)$row['update_time']];
     }
 
     private static function canvas(int $tenant,int $user,int $canvas,bool $lock=false): array

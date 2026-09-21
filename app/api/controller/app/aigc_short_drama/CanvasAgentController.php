@@ -49,6 +49,11 @@ final class CanvasAgentController extends BaseApiController
         return ConversationExecution::stop((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null),self::number($p['thread_id']??null),self::number($p['run_id']??null));
     }); }
 
+    public function run() { return $this->respond(function () {
+        $p=$this->request->get();
+        return ConversationStore::run((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null),self::number($p['thread_id']??null),self::number($p['run_id']??null));
+    }); }
+
     private function respond(\Closure $action) {
         try {return $this->success('success',$action());}
         catch (\Throwable $error) {
