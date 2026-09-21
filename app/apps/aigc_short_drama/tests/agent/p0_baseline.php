@@ -38,8 +38,15 @@ try {
     echo ($result['nodes'][0]['metadata']['content'] === 'Stale writer' ? 'KNOWN_GAP' : 'CHANGED_BASELINE'), " G01 stale whole-document write accepted\n";
     $overCapacity = [];
     for ($i = 1; $i <= 201; $i++) $overCapacity[] = ['id' => $i, 'type' => 'text', 'metadata' => []];
+    $before = Db::name('aigc_short_drama_canvas')->where('id', $doc['id'])->find();
+    $rejected = false;
+    try { Canvas::save(91001, 92001, ['id' => $doc['id'], 'nodes' => $overCapacity]); }
+    catch (Exception $e) { $rejected = str_starts_with($e->getMessage(), 'CANVAS_CAPACITY_EXCEEDED'); }
+    agentCheck($rejected, 'G08 existing save rejects 201 nodes explicitly');
+    agentCheck(Db::name('aigc_short_drama_canvas')->where('id', $doc['id'])->find() === $before, 'G08 oversized save leaves entire document unchanged');
+    array_pop($overCapacity);
     $result = Canvas::save(91001, 92001, ['id' => $doc['id'], 'nodes' => $overCapacity]);
-    echo 'KNOWN_GAP G08 requested=201 retained=', count($result['nodes']), PHP_EOL;
+    agentCheck(count($result['nodes']) === 200, 'G08 capacity boundary accepts all 200 nodes');
 } finally {
     Db::rollback();
 }
