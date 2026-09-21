@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace app\common\service\app\aigc_short_drama\canvas_agent;
 
 use RuntimeException;
+use app\common\service\app\aigc_short_drama\ShortDramaCanvasPosterJobService;
 use think\facade\Db;
 
 /** Durable submission boundary. Not exposed until the Canvas adapter is integrated. */
@@ -182,6 +183,12 @@ final class GenerationIntentService
                         $metadata['poster_url']=(string)($media['poster_url']??'');
                         $metadata['poster_uri']=(string)($media['poster_uri']??'');
                         $metadata['poster_status']=$metadata['poster_url']!==''?'ready':'pending';
+                        if ($metadata['poster_url']==='' && $metadata['poster_uri']==='') {
+                            // Reuse the existing tenant-scoped asynchronous job;
+                            // do not download or extract media under graph locks.
+                            ShortDramaCanvasPosterJobService::enqueue($tenant,$user,(int)$document['id'],(string)$node['id'],
+                                (string)($media['uri']??$media['url']),$metadata['storage_scope'],$metadata['storage_engine'],$metadata['storage_domain']);
+                        }
                     }
                 }
                 $node['metadata']=array_replace($metadata,['status'=>'success','progress'=>100,'error'=>'','projected_generation_id'=>$runId,'content_revision'=>(int)($metadata['content_revision']??0)+1]);
