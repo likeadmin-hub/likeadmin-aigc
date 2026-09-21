@@ -1,5 +1,17 @@
 # 短剧画布 Agent P0 核对报告
 
+## 最新增量：2026-09-21 续跑 SSE 重连验收
+
+本段更新后文历史状态。P0 按第 18 节限定口径、P1 隔离验收通过；P2 尚未放行，P3—P6 NOT_RUN。分支 `feature/short-drama-optimization`，本轮 server 仅改隔离测试桥接及报告，web 无源码变更，API/权限/迁移契约不变。
+
+- 本轮实际验证：在两仓库已集成的本地 develop 执行 state/reader/run-result-policy，21 PASS、0 FAIL；真实 Chrome → 隔离 HTTP/MySQL 的 Agent 浏览器套件修复后 8 PASS、exit 0。包含账户模型偏好、不建作品节点的会话提交、持久回复经 SSE 展示、刷新不重复发送、停止、SPA 租户切换清理、安全文本渲染。Provider 未接入此夹具，媒体任务和双方积分账本均为零。
+- 失败及修复：首次浏览器测试因 localhost:3000 拒绝连接未进入页面；随后 3000 服务已恢复。额外启动的开发服务选到 3001，已仅停止该新增进程，没有停止原服务或修改代理。第二次进入页面后，SSE 重连重复触发夹具领取已成功 run，服务端正确拒绝，夹具报错。测试提交 `f297a8e1c` 允许仅对 success 且持久回复内容严格相同的运行重放 SSE；其他状态或不同内容仍拒绝。修复先提交 feature、合入 develop，再完成上述 8 项复测，不放宽业务 claim 规则。
+- 本地运行状态：此前用户授权真实测试后，运行 #4/#5/#6 已成功并产生真实消费；这些是此前会话的验收记录，不是本轮付费复测。此前用户“执行配置”后，tenant 1 的 Agent Worker 已加入本机 Supervisor，退出后自动恢复已测试。本轮只读确认 `short-drama-canvas-agent_00` RUNNING、PID 1185820；没有重启或故障注入业务 Worker。配置在宿主机持久挂载的 panel/plugin/supervisor/profile 中，不交付进源码。完整容器重启仍 NOT_RUN。
+- SSE 当前传递持久状态及完整回复，不是模型逐 token 输出；任务提交仍由 durable outbox/Worker 执行，不能称为已经完成用户要求的同步逐字流式链路。纯问答成功样本也不能代替媒体、预算、未知用量、图像理解或工具规划验收。
+- 保留第 23 节的审核产品策略 BLOCKED 与其他 P2 缺项；本轮未做付费生成、业务迁移、部署、发布或远端推送。后续先补 P2 未完成项，不能由本次 8 项通过直接进入 P3。
+
+复测命令：web develop 执行 `CANVAS_TEST_BROWSER_CHANNEL=chrome NODE_PATH=/Users/panda/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules /Users/panda/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node pc/tests/short-drama-agent-http-browser.cjs`。隔离桥接仍遮盖 `.env`、源码只读、internal 网络及限定测试身份；本轮未接触私有素材或供应商密钥。
+
 > 当前进度以末尾最新章节为准；前面各节为历史审计证据。第 18 节按用户在 B05 验收口径确认问题后的“继续”推进，采用已说明的独立应用不可用隔离口径，保留默认应用策略及与 tenant-only 关闭的差异。P0 隔离基线与 P1 已通过，P2 尚未放行。
 
 日期：2026-09-21。状态：只读核对、静态/纯逻辑及隔离数据库服务级基线已执行；浏览器/HTTP 行为基线未完成，**P0 尚未完整放行**。P1 仅有未接入业务入口的 GraphService 基础切片，不能视为阶段完成；P2—P6 未实施。
