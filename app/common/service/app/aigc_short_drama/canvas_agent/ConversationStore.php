@@ -88,7 +88,14 @@ final class ConversationStore
                 }
             }
             if (count($selected)!==count($ids)) throw new RuntimeException('NODE_NOT_FOUND');
-            $context=['graph_revision'=>$revision,'selected_nodes'=>array_map(static fn($id)=>$selected[$id],$ids),'material_trust'=>'untrusted'];
+            $history=Db::name(self::PREFIX.'message')->where($scope+['thread_id'=>$thread,'delete_time'=>0])->order('sequence','desc')->limit(38)->select()->toArray();
+            $messages=[];
+            foreach (array_reverse($history) as $message) {
+                if (!in_array($message['role'],['user','assistant'],true)) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
+                $messages[]=['role'=>$message['role'],'content'=>(string)(json_decode($message['content_json'],true,512,JSON_THROW_ON_ERROR)['text']??'')];
+            }
+            $messages[]=['role'=>'user','content'=>$content];
+            $context=['graph_revision'=>$revision,'selected_nodes'=>array_map(static fn($id)=>$selected[$id],$ids),'material_trust'=>'untrusted','messages'=>$messages,'history_policy'=>'last_38_plus_current'];
             $contextJson=self::json($context);
             $settings=self::json($resolvedSnapshot['settings']);$skill=self::json($resolvedSnapshot['skill']);
             if (strlen($contextJson)+strlen($settings)+strlen($skill)>1048576) throw new RuntimeException('CONTEXT_TOO_LARGE');
