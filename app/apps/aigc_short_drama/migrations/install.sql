@@ -362,12 +362,30 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas` (
   `nodes_json` longtext,
   `edges_json` longtext,
   `viewport_json` text,
+  `removed_node_ids_json` mediumtext,
+  `graph_revision` int unsigned NOT NULL DEFAULT 0,
+  `schema_version` int unsigned NOT NULL DEFAULT 1,
   `create_time` int unsigned NOT NULL DEFAULT 0,
   `update_time` int unsigned NOT NULL DEFAULT 0,
   `delete_time` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `idx_owner` (`tenant_id`,`user_id`,`delete_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧画布';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_mutation_receipt` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `canvas_id` int unsigned NOT NULL,
+  `request_key` varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `request_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `base_revision` int unsigned NOT NULL,
+  `result_revision` int unsigned NOT NULL,
+  `result_json` longtext NOT NULL,
+  `create_time` int unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_scope_key` (`tenant_id`,`user_id`,`canvas_id`,`request_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧画布图操作回执';
 
 CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_run` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
