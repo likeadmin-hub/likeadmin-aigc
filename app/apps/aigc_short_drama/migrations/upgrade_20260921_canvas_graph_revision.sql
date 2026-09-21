@@ -23,3 +23,8 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_mutation_receipt` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_scope_key` (`tenant_id`,`user_id`,`canvas_id`,`request_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧画布图操作回执';
+-- Upgrade early graph drafts too; request keys are validated ASCII identifiers.
+SET @canvas_key_sql = IF((SELECT COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'la_aigc_short_drama_canvas_mutation_receipt' AND COLUMN_NAME = 'request_key') <> 'ascii_bin', 'ALTER TABLE `la_aigc_short_drama_canvas_mutation_receipt` MODIFY COLUMN `request_key` varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL, MODIFY COLUMN `request_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL', 'SELECT 1');
+PREPARE canvas_key_stmt FROM @canvas_key_sql;
+EXECUTE canvas_key_stmt;
+DEALLOCATE PREPARE canvas_key_stmt;
