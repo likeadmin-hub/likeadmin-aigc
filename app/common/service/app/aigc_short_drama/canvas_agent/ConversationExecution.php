@@ -61,6 +61,21 @@ final class ConversationExecution
         });
     }
 
+    /** Only a server-owned no-cost preflight may use this before generate(). */
+    public static function rejectBeforeSubmit(int $tenant,int $user,int $runId,string $token,int $fence): void
+    {
+        Db::transaction(function () use ($tenant,$user,$runId,$token,$fence): void {
+            [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
+            if ($run['status']==='failed' && $run['error_code']==='PRECHECK_FAILED') return;
+            if ($run['status']!=='running' || $outbox['state']!=='processing' || (int)$outbox['lease_until']<=time()) throw new RuntimeException('STALE_WORKER');
+            if ((int)$thread['active_run_id']!==$runId) throw new RuntimeException('RUN_SUPERSEDED');
+            self::state($run,'failed','PRECHECK_FAILED');
+            self::event($run,'run.failed',['status'=>'failed','code'=>'PRECHECK_FAILED']);
+            Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'failed','lease_until'=>0,'update_time'=>time()]);
+            Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(['active_run_id'=>0,'update_time'=>time()]);
+        });
+    }
+
     /** Unknown provider outcome is NOT a retryable failure and does not refund. */
     public static function unknown(int $tenant,int $user,int $runId,string $token,int $fence): void
     {
