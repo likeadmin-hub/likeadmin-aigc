@@ -134,6 +134,10 @@ final class GraphService
                     self::geometry($node);
                     $node['metadata'] = ($node['metadata'] ?? []) + ['content_revision'=>1,'layout_revision'=>1];
                     $nodes[] = $node;
+                } elseif ($op === 'apply_agent_text') {
+                    $i=self::index($nodes,self::nodeId($operation['node_id']??null));
+                    if ($i===null) throw new RuntimeException('NODE_NOT_FOUND');
+                    $nodes[$i]=ConversationTextWriteback::apply($scope,$operation,$nodes[$i]);
                 } elseif ($op === 'update_node_content') {
                     $id = self::nodeId($operation['node_id'] ?? null);
                     $i = self::index($nodes,$id);
