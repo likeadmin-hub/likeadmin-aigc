@@ -25,6 +25,24 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString("if (\$value === '' || str_contains(\$value, '*')) return '';", $source);
     }
 
+    public function testDraftMiniProgramReadinessUsesRawCredentialBeforeItIsMasked(): void
+    {
+        $method = new \ReflectionMethod(OpenPlatformService::class, 'draftMiniprogramConfigured');
+        $method->setAccessible(true);
+
+        self::assertTrue($method->invoke(null, [
+            'developer_app_id' => 'wx1234567890abcdef',
+            'upload_private_key' => 'legacy-private-key',
+        ]));
+        self::assertFalse($method->invoke(null, [
+            'developer_app_id' => 'wx1234567890abcdef',
+            'upload_private_key' => 'lega*********-key',
+        ]));
+
+        $source = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
+        self::assertStringContainsString("\$row['draft_miniprogram_configured'] = self::draftMiniprogramConfigured(\$raw);", $source);
+    }
+
     public function testWholeNetworkCallbacksHaveFixedTextAndEventReplies(): void
     {
         $source = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformCallbackService.php');
@@ -56,15 +74,37 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString("'qrcode_url' => 'qrcode_url'", $service);
         self::assertStringContainsString("'wxa/gettemplatedraftlist'", $service);
         self::assertStringContainsString("'wxa/gettemplatelist'", $service);
+        self::assertStringContainsString("'template.list', ['component_access_token' => self::componentAccessToken()], 0, 0, 'GET'", $service);
+        self::assertStringContainsString("'template.drafts', ['component_access_token' => self::componentAccessToken()], 0, 0, 'GET'", $service);
+        self::assertStringContainsString("\$method === 'GET'", $service);
+        self::assertStringContainsString('beforeTemplateIds', $service);
         self::assertStringContainsString('public static function syncTemplates()', $service);
         self::assertStringContainsString('public static function templateRecords()', $service);
         self::assertStringContainsString('public static function availableTemplates()', $service);
+        self::assertStringContainsString('public static function addTemplateFromDraft(', $service);
+        self::assertStringContainsString('public static function uploadDraftForArtifact(', $service);
+        self::assertStringContainsString("'wechat.draft.upload'", $service);
+        self::assertStringContainsString("(int)\$item['draft_id'] < 0", $service);
         self::assertStringContainsString('草稿 ID 不是本地产品版本号', $service);
         self::assertStringContainsString('array_merge($profile', $callback);
         self::assertStringContainsString('function templateDrafts()', $platformController);
         self::assertStringContainsString('function templateRecords()', $platformController);
+        self::assertStringContainsString('function uploadDraft()', $platformController);
         self::assertStringContainsString('function syncAccount()', $tenantController);
         self::assertStringContainsString('OpenPlatformService::availableTemplates()', $tenantController);
+    }
+
+    public function testDraftUploadSchemaIsMirroredForUpgradeAndFreshInstall(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $serverUpgrade = (string)file_get_contents($root . '/upgrade/20260920_wechat_template_drafts.sql');
+        $publicUpgrade = (string)file_get_contents($root . '/public/upgrade/20260920_wechat_template_drafts.sql');
+        $install = (string)file_get_contents($root . '/public/install/db/like.sql');
+
+        self::assertSame($serverUpgrade, $publicUpgrade);
+        self::assertStringContainsString('CREATE TABLE IF NOT EXISTS `la_wechat_template_drafts`', $serverUpgrade);
+        self::assertStringContainsString('`developer_app_id` varchar(64)', $serverUpgrade);
+        self::assertStringContainsString('CREATE TABLE IF NOT EXISTS `la_wechat_template_drafts`', $install);
     }
 
     public function testLegacyNestedOpenPlatformMenuHasAnIdempotentHideUpgrade(): void
@@ -78,5 +118,42 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString("`source_menu_key` = 'core_open_platform'", $serverUpgrade);
         self::assertStringContainsString('`is_show` = 0, `is_disable` = 1', $serverUpgrade);
         self::assertStringContainsString('@open_platform_root_id IS NOT NULL', $serverUpgrade);
+    }
+
+    public function testTemplateVersionAndWeChatConsoleAuditContractsAreEnforced(): void
+    {
+        $service = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
+
+        self::assertStringContainsString("foreach (['authorizer_id', 'template_id'] as \$key)", $service);
+        self::assertStringContainsString("\$version = trim((string)\$template['template_version']);", $service);
+        self::assertStringContainsString("'wxa/get_auditstatus', ['auditid' => (int)\$auditNo]", $service);
+        self::assertStringContainsString('请先提交审核', $service);
+        self::assertStringContainsString('downloadExperienceQrcode', $service);
+        self::assertStringContainsString("\$query->where('upload_mode', 'template');", $service);
+    }
+
+    public function testAuthorizedTenantExtJsonIsGeneratedAtCommitTime(): void
+    {
+        $service = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
+
+        self::assertStringContainsString('self::tenantRuntimeConfig($tenantId, true)', $service);
+        self::assertStringContainsString('self::templateExtJson($runtimeConfig, $authorizer)', $service);
+        self::assertStringContainsString("'ext_json' => '{}'", $service);
+        self::assertStringContainsString("'ext' => ['runtime_config' => \$runtimeConfig]", $service);
+        self::assertStringContainsString('请先配置租户小程序业务域名后再提交体验版', $service);
+    }
+
+    public function testLegacyMiniProgramManagementEndpointsRemainCompatibleDuringRollingUpgrade(): void
+    {
+        $service = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
+        $controller = file_get_contents(dirname(__DIR__, 2) . '/app/tenantapi/controller/channel/OpenPlatformController.php');
+
+        self::assertStringContainsString('public static function miniprogramManagement(int $tenantId)', $service);
+        self::assertStringContainsString('public static function undoAudit(int $tenantId, int $id)', $service);
+        self::assertStringContainsString("['privacy_ver' => 2], 'miniprogram.privacy.get'", $service);
+        self::assertStringContainsString("'wxa/undocodeaudit', [], 'release.audit.undo', ['access_token' => self::authorizerToken((int)\$authorizer['id'])], \$tenantId, (int)\$authorizer['id'], 'GET');", $service);
+        self::assertStringContainsString("'wxa/get_auditstatus', ['auditid' => (int)\$auditNo]", $service);
+        self::assertStringContainsString('OpenPlatformService::miniprogramManagement($this->tenantId)', $controller);
+        self::assertStringContainsString('OpenPlatformService::undoAudit($this->tenantId, $id)', $controller);
     }
 }

@@ -10,6 +10,7 @@ class OpenPlatformController extends BaseAdminController
     private function idempotencyKey(): string { return trim((string)$this->request->header('Idempotency-Key', '')); }
     public function status() { return $this->data(OpenPlatformService::configStatus()); }
     public function miniprogramStatus() { return $this->data(OpenPlatformService::tenantMiniprogramStatus($this->tenantId)); }
+    public function miniprogramManagement() { try { return $this->data(OpenPlatformService::miniprogramManagement($this->tenantId)); } catch (\Throwable $e) { return $this->fail($e->getMessage()); } }
     public function miniprogramEnvironment() { return $this->data(OpenPlatformService::manualUploadEnvironment($this->tenantId)); }
     public function credentials() { return $this->data(OpenPlatformService::credentials($this->tenantId)); }
     public function prepareManualUpload() {
@@ -39,6 +40,7 @@ class OpenPlatformController extends BaseAdminController
     public function experience() { return $this->versionAction('version.experience', fn(int $id) => OpenPlatformService::submitExperience($this->tenantId, $id)); }
     public function submitAudit() { return $this->versionAction('version.audit', fn(int $id) => OpenPlatformService::submitAudit($this->tenantId, $id)); }
     public function queryAudit() { return $this->versionAction('version.audit.query', fn(int $id) => OpenPlatformService::queryAudit($this->tenantId, $id)); }
+    public function undoAudit() { return $this->versionAction('version.audit.undo', fn(int $id) => OpenPlatformService::undoAudit($this->tenantId, $id)); }
     public function release() { return $this->versionAction('version.release', fn(int $id) => OpenPlatformService::releaseVersion($this->tenantId, $id)); }
     public function rollback() { return $this->versionAction('version.rollback', fn(int $id) => OpenPlatformService::rollbackVersion($this->tenantId, $id)); }
     public function unbind() { try{$id=(int)$this->request->post('id'); OpenPlatformService::runIdempotent('authorizer.unbind',$this->idempotencyKey(),$this->tenantId,fn()=>OpenPlatformService::unbindAuthorizer($this->tenantId,$id));return $this->success('已解绑');}catch(\Throwable $e){return $this->fail($e->getMessage());} }
