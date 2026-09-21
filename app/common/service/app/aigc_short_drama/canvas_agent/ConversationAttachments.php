@@ -14,8 +14,9 @@ final class ConversationAttachments
         foreach ($items as $item) {
             if (!is_array($item) || !is_string($item['type']??null)) throw new RuntimeException('INVALID_ATTACHMENTS');
             if ($item['type']==='image') {
-                if (array_diff(array_keys($item),['type','asset_id','name']) || !is_int($item['asset_id']??null) || $item['asset_id']<=0 || !is_string($item['name']??null) || mb_strlen($item['name'])>120) throw new RuntimeException('INVALID_ATTACHMENTS');
-                $result[]=['type'=>'image','asset_id'=>$item['asset_id'],'name'=>$item['name']];
+                $assetId=$item['asset_id']??null;
+                if (array_diff(array_keys($item),['type','asset_id','name']) || (!is_int($assetId) && !is_string($assetId)) || !preg_match('/^[1-9][0-9]{0,15}$/D',(string)$assetId) || (float)$assetId>9007199254740991 || !is_string($item['name']??null) || mb_strlen($item['name'])>120) throw new RuntimeException('INVALID_ATTACHMENTS');
+                $result[]=['type'=>'image','asset_id'=>(int)$assetId,'name'=>$item['name']];
                 continue;
             }
             if (array_diff(array_keys($item),['type','name','content']) || $item['type']!=='text') throw new RuntimeException('INVALID_ATTACHMENTS');
