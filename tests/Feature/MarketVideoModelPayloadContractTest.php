@@ -8,6 +8,50 @@ use ReflectionMethod;
 
 class MarketVideoModelPayloadContractTest extends TestCase
 {
+    public function testIdenticalFrameImageRetainsBothRolesInProviderPayload(): void
+    {
+        $uri = 'https://fixtures.invalid/shared.png';
+        $payload = $this->invokeModelPayload(['model_code'=>'wan3.0-video','channel_code'=>'isolated'], [
+            'prompt'=>'Synthetic frame test', 'generation_method'=>'start_end',
+            'reference_assets'=>[
+                ['type'=>'image','url'=>$uri,'role'=>'first_frame_image'],
+                ['type'=>'image','url'=>$uri,'role'=>'last_frame_image'],
+            ],
+            'reference_images'=>[$uri],
+        ]);
+        self::assertSame([
+            ['type'=>'first_frame','url'=>$uri], ['type'=>'last_frame','url'=>$uri],
+        ], $payload['input']['media']);
+        self::assertSame('idem-video-1', $payload['idempotency_key']);
+    }
+
+    public function testSwappingFrameAssignmentsChangesRolesWithoutLosingOrder(): void
+    {
+        $snapshot=['model_code'=>'wan3.0-video','channel_code'=>'isolated'];
+        $request=['prompt'=>'Synthetic frame test','generation_method'=>'start_end','reference_assets'=>[
+            ['type'=>'image','url'=>'https://fixtures.invalid/a.png','role'=>'first_frame_image'],
+            ['type'=>'image','url'=>'https://fixtures.invalid/b.png','role'=>'last_frame_image'],
+        ]];
+        $before=$this->invokeModelPayload($snapshot,$request);
+        $request['reference_assets'][0]['role']='last_frame_image';
+        $request['reference_assets'][1]['role']='first_frame_image';
+        $after=$this->invokeModelPayload($snapshot,$request);
+        self::assertSame(['first_frame','last_frame'],array_column($before['input']['media'],'type'));
+        self::assertSame(['last_frame','first_frame'],array_column($after['input']['media'],'type'));
+        self::assertSame(array_column($before['input']['media'],'url'),array_column($after['input']['media'],'url'));
+        self::assertNotSame($before['input']['media'],$after['input']['media']);
+    }
+
+    public function testSameUseUploadAndNodeReferenceReachProviderPayloadOnlyOnce(): void
+    {
+        $reference=['type'=>'image','url'=>'https://fixtures.invalid/one.png','role'=>'reference_image'];
+        $payload=$this->invokeModelPayload(['model_code'=>'wan3.0-video','channel_code'=>'isolated'],[
+            'prompt'=>'Synthetic reference test',
+            'reference_assets'=>[$reference,$reference], 'reference_images'=>[$reference['url']],
+        ]);
+        self::assertSame([['type'=>'reference_image','url'=>$reference['url']]],$payload['input']['media']);
+    }
+
     public function testWanVideoModelUsesDocumentedInputAndParametersPayload(): void
     {
         $payload = $this->invokeModelPayload([
