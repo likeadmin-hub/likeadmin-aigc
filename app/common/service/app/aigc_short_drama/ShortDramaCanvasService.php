@@ -9,6 +9,7 @@ use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\app\aigc_music\AigcMusicService;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\app\aigc_short_drama\canvas_agent\GraphService;
+use app\common\service\app\aigc_short_drama\canvas_agent\GenerationIntentService;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\FileService;
 use app\common\service\storage\StorageConfigService;
@@ -285,14 +286,7 @@ class ShortDramaCanvasService
             'result_json' => '{}', 'error' => '', 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
         ]);
         try {
-            $result = match ($type) {
-                'text' => AigcLlmService::generateText($tenantId, $userId, $payload),
-                'image' => ($payload['operation'] ?? '') === 'local_redraw'
-                    ? AigcLocalRedrawService::generate($tenantId, $userId, $payload)
-                    : AigcImageService::generate($tenantId, $userId, $payload),
-                'video' => AigcVideoService::generate($tenantId, $userId, $payload),
-                'audio' => AigcMusicService::generate($tenantId, $userId, $payload),
-            };
+            $result = self::executeGenerationPayload($type, $tenantId, $userId, $payload);
             // Text generation is a synchronous market request. Its successful
             // response carries content rather than an asynchronous task status,
             // so treating an omitted status as "running" leaves the canvas node
@@ -321,6 +315,55 @@ class ShortDramaCanvasService
             throw $e instanceof Exception ? $e : new Exception('短剧画布任务提交失败，请稍后重试');
         }
         return self::runDetail($tenantId, $userId, $runId);
+    }
+
+    /** P1 integration boundary, deliberately not routed until recovery/UI gates pass. */
+    public static function submitIdempotent(int $tenantId, int $userId, array $params): array
+    {
+        $document=self::ownedDocument($tenantId,$userId,(int)($params['canvas_id']??0));
+        $nodeId=trim((string)($params['node_id']??''));
+        $type=strtolower(trim((string)($params['type']??'')));
+        if (!in_array($type,['text','image','video','audio'],true)) throw new Exception('不支持的短剧画布节点类型');
+        $key=(string)($params['request_key']??'');
+        $payload=self::generationPayload($type,$params);
+        $requestInput=$payload+['skill_id'=>(int)($params['skill_id']??0),'skill_version'=>(int)($params['skill_version']??0),'skill_inputs'=>(array)($params['skill_inputs']??[])];
+        $intent=GenerationIntentService::lookup($tenantId,$userId,(int)$document['id'],$key,$nodeId,$type,$requestInput);
+        if (!$intent) {
+            if ((int)($params['skill_id']??0)>0) $payload=self::applyComposerSkill($type,$payload,$params,ShortDramaSkillService::resolveForTask($tenantId,$params));
+            $intent=GenerationIntentService::reserve($tenantId,$userId,(int)$document['id'],$key,$nodeId,$type,$payload,$requestInput);
+        }
+        $runId=(int)$intent['canvas_run_id'];
+        $claim=GenerationIntentService::claim($tenantId,$userId,(int)$intent['id']);
+        if (!$claim) return self::runDetail($tenantId,$userId,$runId);
+        // Use the winner's persisted snapshot, never the losing request's newly
+        // resolved Skill/model input. Provider I/O is outside intent transactions.
+        $snapshot=json_decode($claim['snapshot_json'],true,512,JSON_THROW_ON_ERROR);
+        try {
+            $result=self::executeGenerationPayload($type,$tenantId,$userId,$snapshot['input']);
+        } catch (\Throwable $error) {
+            // Lower services remain billing authorities. An unclassified error
+            // cannot prove that no external task was accepted or that a refund ran.
+            GenerationIntentService::unknown($tenantId,$userId,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version']);
+            self::syncShortDramaTask($runId);
+            return self::runDetail($tenantId,$userId,$runId);
+        }
+        GenerationIntentService::accepted($tenantId,$userId,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],
+            (string)($result['image_task_id']??$result['task_id']??$result['id']??''),$result,$type==='text');
+        if ($type==='text') MarketTextModelRuntimeService::bindBusinessTask((int)($result['app_task_id']??0),self::RUN_TABLE,$runId);
+        self::syncShortDramaTask($runId);
+        return self::runDetail($tenantId,$userId,$runId);
+    }
+
+    private static function executeGenerationPayload(string $type,int $tenantId,int $userId,array $payload): array
+    {
+        return match ($type) {
+            'text'=>AigcLlmService::generateText($tenantId,$userId,$payload),
+            'image'=>($payload['operation']??'')==='local_redraw'
+                ? AigcLocalRedrawService::generate($tenantId,$userId,$payload)
+                : AigcImageService::generate($tenantId,$userId,$payload),
+            'video'=>AigcVideoService::generate($tenantId,$userId,$payload),
+            'audio'=>AigcMusicService::generate($tenantId,$userId,$payload),
+        };
     }
 
     public static function runDetail(int $tenantId, int $userId, int $runId): array
@@ -425,9 +468,14 @@ class ShortDramaCanvasService
     }
 
     /** Mirror canvas-owned work into the short-drama task/asset history without sharing another canvas app. */
-    private static function syncShortDramaTask(int $runId): void
+    private static function syncShortDramaTask(int $runId, bool $locked=false): void
     {
-        $run = Db::name(self::RUN_TABLE)->where('id', $runId)->find();
+        if (!$locked) {
+            Db::transaction(static function () use ($runId): void { self::syncShortDramaTask($runId,true); });
+            return;
+        }
+        // Serialize history/asset upserts for concurrent retries and polling.
+        $run = Db::name(self::RUN_TABLE)->where('id', $runId)->lock(true)->find();
         if (!$run) return;
         $canvas = Db::name(self::DOCUMENT_TABLE)->where([
             'id' => (int)$run['canvas_id'], 'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'delete_time' => 0,
