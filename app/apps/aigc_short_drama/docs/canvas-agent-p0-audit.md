@@ -827,3 +827,19 @@ server `465d231c5` 仅扩展隔离 `p3_quote.php`。先断言合成商品的租�
 本地 develop 合入后，internal 网络/独立测试库执行公开 quote/reserve 套件 **18 PASS / 0 FAIL**，其中本轮新增 5 项。全部 fixture 事务回滚；未调用 Provider、未改业务余额、未迁移/部署/推送。web 无改动；本次无需重载 Worker。
 
 M15 的公开市场服务拒绝路径已有行为证据，但画布/Agent 失败状态保存和 UI 明确呈现仍 NOT_RUN，不能将整项或 P3 阶段宣称全部通过。M01、M06 与其余未满足项继续保留，不跳过门槛进入 P4。
+
+## 40. P3 画布预检失败与未知提交结果分流（2026-09-22）
+
+沿 M15 追踪发现：市场余额预检已经明确拒绝，但 Canvas::submitIdempotent 对所有下游异常统一调用 unknown，造成未进入预占/Provider 的请求也变成 needs_reconciliation。server `a10a152cc` 新增内部 PreSubmissionRejected 类型，只在 MarketVideoRuntimeService 的只读余额预检 RuntimeException 边界抛出；预占事务内或 Provider 提交后的异常不作此分类。不解析错误文案猜测提交是否发生，不修改 PointService 的余额算法。
+
+Canvas 对此已知拒绝持久化 intent failed/PRE_SUBMISSION_REJECTED、run failed/原始预检原因、释放 lease，并同步短剧历史；相同键重放返回原失败 run，不重新调用下游。普通异常仍保留 needs_reconciliation。无新增接口、数据库迁移或前端样式修改；状态使用已有 failed 值。
+
+本地 develop 合入后，在 internal 网络和独立测试库执行：
+
+- PASS：`p3_preflight_rejection.php` 11 项。真实 Canvas/Market reserve/PointService；仅视频应用入口由测试桥替换，以确保绝无 Provider 网络调用。验证失败状态、原因、租约、零市场任务/消费/积分日志、余额不变、三次重放不重提、历史失败与未知异常对照。
+- PASS：`p1_generation_intent.php` 35 项，冻结输入、幂等、身份隔离、fencing、迟到回执、过期与图变更保护。
+- PASS：`p1_generation_crash.php` 14 项，仅终止隔离测试子进程，不触碰常驻业务 Worker。
+- PASS：`p3_quote.php` 18 项，真实市场入口超限/模态/双方余额拒绝与合法预占。
+- PASS：`p0_generation.php idempotent` 48 项，四节点、未知受理、乱序/删除结果、历史资产及积分只扣一次。
+
+本次无付费调用、业务库变更、迁移、部署或推送。未重载 FPM/Worker，不能声称线上常驻进程已使用此分类。M15 画布服务与历史保存已补证；实际 AigcVideoService 全路径、HTTP/浏览器失败展示及 Agent 工具触发仍 NOT_RUN。P3 仍未整体放行；下一步需继续补完整能力矩阵/资产引用和 UI 证据，不以本轮服务测试替代。
