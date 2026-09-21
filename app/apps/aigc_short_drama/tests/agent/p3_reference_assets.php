@@ -34,4 +34,10 @@ $rejected=false;
 try {$assertAssets->invoke(null,$market,['reference_assets'=>[$mixed[1]]]);}
 catch (Exception $error) {$rejected=str_contains($error->getMessage(),'does not support reference video');}
 agentCheck($rejected,'M02 selected model validator rejects unsupported input despite another possible model');
+$assetsMethod=new ReflectionMethod(app\common\service\power\MarketVideoRuntimeService::class,'assets');
+$assetsMethod->setAccessible(true);
+$slots=$assetsMethod->invoke(null,['reference_assets'=>$frames]);
+agentCheck(count($slots['image'])===2,'M05 market runtime preserves two semantic frame slots for identical URI');
+$slots=$assetsMethod->invoke(null,['reference_assets'=>[$image,$image],'reference_images'=>[$image['uri']]]);
+agentCheck(count($slots['image'])===1,'M04 market runtime still deduplicates same-role image references');
 echo "NOT_RUN ownership, public quote/reserve, billing and Provider submission; normalization and actual market validator only\n";
