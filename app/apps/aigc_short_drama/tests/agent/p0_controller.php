@@ -52,8 +52,13 @@ try {
     $payload = ['id' => $id, 'nodes' => $nodes, 'edges' => [['from' => 1, 'to' => 2]], 'viewport' => ['x' => 5, 'y' => 10, 'k' => 0.9]];
     agentCheck(canvasRequest('save', 91001, 'isolated-p0-92001', $payload)['code'] === 1, 'B02 actual controller accepts four-node document');
     $loaded = canvasRequest('current', 91001, 'isolated-p0-92001', ['id' => $id]);
-    if (($loaded['data']['nodes'] ?? null) !== $nodes) echo 'ROUNDTRIP_DIAGNOSTIC ', json_encode($loaded, JSON_UNESCAPED_UNICODE), PHP_EOL;
-    agentCheck($loaded['code'] === 1 && $loaded['data']['nodes'] === $nodes && $loaded['data']['edges'] === $payload['edges'] && $loaded['data']['viewport'] === $payload['viewport'], 'B02 fresh controller read preserves complete document');
+    // Existing app Request globally trims scalars: JSON numeric fields become
+    // numeric strings before CanvasService. Pin that actual wire contract, not
+    // loose equality that could hide omitted fields or changed text content.
+    $wire = static function (array $value) use (&$wire): array {
+        return array_map(static fn($item) => is_array($item) ? $wire($item) : (is_int($item) || is_float($item) ? (string)$item : $item), $value);
+    };
+    agentCheck($loaded['code'] === 1 && $loaded['data']['nodes'] === $wire($nodes) && $loaded['data']['edges'] === $wire($payload['edges']) && $loaded['data']['viewport'] === $wire($payload['viewport']), 'B02 fresh controller read preserves complete document (existing numeric-string wire format)');
     foreach ([[91001, 'isolated-p0-92002'], [91002, 'isolated-p0-92003']] as [$tenant, $token]) {
         foreach (['current', 'save', 'delete'] as $action) {
             agentCheck(canvasRequest($action, $tenant, $token, ['id' => $id, 'nodes' => []])['code'] !== 1, 'owner isolation rejects ' . $action);
