@@ -275,3 +275,19 @@ P1 **尚未放行**，P2—P6 **NOT_RUN**。G01 已有真实双标签页文本�
 本轮新增失败与修复：浏览器模型夹具最初未匹配真实 dot-route，已改为正确目录请求；开启真实模拟生成后发现旧富文本盖住新文本、重载恢复无变化也保存、视频参考数组无变化也触发保存、相同视频轮询递增图 revision，均修复后完整回归通过；HTTP patch 测试首次误将现有数字字符串坐标当整数，改为严格验证现有线协议，未使用宽松比较。
 
 剩余风险/边界：旧 schema-v1 不带 token/revision 的兼容覆盖仍明确 KNOWN_GAP，只允许旧未启用并发文档；Agent 使用的版本化路径有 CAS。尚未跑完整安装器/新租户注册生命周期、完整 Nuxt build/typecheck、真实 Provider 协议/物理文件转存和付费样本。现有业务 x_cn 缺少音乐表仍未迁移。P2 继续保持 Agent 默认关闭；付费调用、业务迁移、部署须另行确认。事件/对话表及对话调度将在 P2 扩展，不将当前 generation intent 冒充完整多步骤 outbox。
+
+## 12. P2 会话持久化及执行边界增量（尚未阶段放行）
+
+分支 `feature/short-drama-optimization`，本轮仅 server 源码；web 未修改。新增独立 thread/message/run/event/outbox 五表，新装、应用增量、系统新装和系统升级定义一致，未复用既有 Story/Episode Agent 表。正式增量 SQL 仅在已授权的隔离库执行，业务库和真实 Worker 未动。源码提交 `fe0c1883a`、`0f17d5961`、`ef2f87187`、`8f222cb2e`、`7ed30b106` 均先 feature 提交再合入本地 develop 验证，未推送共享分支或部署。
+
+内部 `ConversationStore` 实现 scoped create/list/messages/events、幂等消息接受；canvas→thread→run 锁序，重复请求先回放再检查忙碌及图版本；一次事务包含用户消息、运行、冻结模型/Skill/ID 引用快照、事件、outbox 和会话游标。发送和读取不会创建或改写作品节点。陌生租户/用户/画布、关闭开关、冲突请求键、旧图版本、缺失引用、未支持附件字段明确拒绝。每个会话暂只允许一个活动运行。
+
+内部 `ConversationExecution` 提供 claim、complete、unknown、expire 边界；仅第一个 claim 获得 token/fence，完成生成顺序消息和持久化事件；过期及结果不明进入 needs_reconciliation，不自动重提、不退款。迟到回复单独保留证据，不作为成功 assistant 消息，重复相同回执稳定、不同回执拒绝。尚无生产扫描调度器、真实模型调用或自动对账；不能把此类称为已运行的生产 Worker。
+
+测试：既有 P0/P1 完整串行 318 PASS；P2 migration 34、conversation 57、独立多进程 concurrency 23、execution 67，共新增 181 个断言。十进程相同请求只落一份消息/运行/事件/outbox；同 key 不同内容竞争和不同 key 同会话竞争只有一方成功。末尾 outbox 插入故障验证先写入的 run/message/event 一并回滚。执行状态四场景包括 success、expire、unknown、直接迟到。均隔离库、不访问真实模型、不改业务积分账本。不是 181 项完整 P2 验收。
+
+本轮失败：首轮 conversation 测试发现 insertGetId 产生字符串而事件读取返回整数，严格游标比较失败；修复 acknowledgement 中 run_id/event_cursor 的输出类型后 57 项重测通过，未改成宽松断言。
+
+**P2 未放行，P3—P6 未开始。** 现有内部快照参数只能由未来服务端解析器提供，不允许直接传 HTTP 请求体。模型可用性/能力校验、真实短剧 Skill 版本解析、素材归属、完整多模态上下文、安全审核、成本/预算确认、模型调用账本绑定、进程故障恢复、API 权限、客户端事件去重/安全渲染/租户切换和右侧面板接入仍未完成。当前快照仅含所选节点的 ID/类型/坐标/文本/prompt/内容版本，不假称已有图片理解。晚到证据事件不应由前端按成功回复展示。旧 schema-v1 无 token 兼容覆盖问题仍为 KNOWN_GAP。
+
+后续明确沿用整个右侧对话区域和右下角输入框，聊天用所选推理模型、媒体用各自模型偏好，不新建独立 Agent 入口。当前 UI 尚未切到新消息链路，仍保留原逻辑；在模型校验和 HTTP/隔离集成测试就绪前不开放新写入口，也不启用业务租户。

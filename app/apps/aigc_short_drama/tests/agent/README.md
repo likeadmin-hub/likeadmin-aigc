@@ -104,3 +104,9 @@ CANVAS_TEST_BROWSER_CHANNEL=chrome NODE_PATH=/Users/panda/.cache/codex-runtimes/
 `p1_generation_crash.php` 仅对自己创建的独立测试子进程发送 SIGKILL，在独立数据库验证已提交数据；finally 只清除此次确切 canvas scope。不要对业务 Worker 运行故障注入。生成意图 SQL 已有正式 source-only 安装/增量/系统升级定义；测试计数表仍只在测试 schema 中，不能带入业务库。全部迁移行为仍限隔离库。
 
 当前保留测试容器/网络用于后续阶段，没有碰业务库或原 Worker。若后续清理，应先核对上述精确容器和网络名称，另行确认是否保留测试证据；不要运行 Docker 全局 prune，也不要删除业务卷。
+
+## P2 内部持久化与执行边界
+
+最新范围见审计第 12 节，P2 尚未放行。四个新增脚本按同一 Docker 命令串行执行：`p2_migrations.php`（34 PASS）、`p2_conversation.php`（57 PASS）、`p2_conversation_concurrency.php`（23 PASS）、`p2_execution.php`（67 PASS）。后面三项需先将 `migrations/upgrade_20260921_canvas_agent_conversations.sql` 仅应用到 `short_drama_agent_test`；不得默认迁移业务库。migration 脚本使用检查为空的 `ag2_*` 精确临时表，结束删除本次创建的表。
+
+conversation/execution 在事务中回滚夹具；concurrency 用真实独立 PHP 进程/连接，结束按本次创建 canvas_id 与合成身份删除精确记录，测试 config 预检查不存在才创建并清理。不要并发执行这些脚本或与浏览器共享数据库夹具同时运行。新增测试不调用 Provider，无真实积分或媒体消费，不代表 HTTP/前端/真实模型已通过。未知执行保持 needs_reconciliation，不在测试外擅自清理或自动重试。
