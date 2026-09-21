@@ -25,6 +25,12 @@
 - A04：Chrome 验收在候选点击后创建真实持久会话，隔离桥通过 GraphService 将被引用节点 x 从 320 移至 999；run 快照仍为 node `2` / x `320`。随后浏览器先重读新 revision 才发送下一条，证明不会用陈旧页面覆盖图。该浏览器套件仍 **9 PASS / 0 FAIL**（新增断言并入既有流程）。
 - A10：`ConversationTextContext` 从历史 user 消息中仅提取明确且长度受限的画风、比例、时长，作为当前 user-role JSON 的 `known_creation_constraints`；提示模型除非用户修改，不重复询问。没有把这些文本提升为 system 指令、工具参数或生成任务。隔离 Worker 验证后续请求收到 `国风水墨 / 9:16 / 15 秒`。队列为空后本地 Agent Worker 从 PID 1191069 优雅重启至 PID 1204377 并加载 develop；真实 tenant 1 / user 1 / canvas 7 / thread 9 的 run 13、14 使用 Qwen3.6-Plus 连续完成，第二轮直接给出 15 秒国风水墨 9:16 分镜建议、未含问号且未创建媒体任务。A10 为 PASS；不将单样本结果扩展为所有语言表达或复杂规划质量。
 
+### P2 当前阶段门槛复测
+
+在新增实现和真实样本后，从 server 本地 `develop` 串行执行 `p2_migrations`、`p2_conversation`、`p2_conversation_concurrency`、`p2_execution`、`p2_settings`、`p2_send`、`p2_http`、`p2_worker`、`p2_queue_crash`、`p2_stop`、`p2_stop_race`、`p2_recovery`：**647 PASS / 0 FAIL**。测试持续使用 internal Docker 网络、遮盖 `.env`、隔离 MySQL 与模拟 Provider；真实 A01/A10 样本单列在上，不混入这 647 项。
+
+P2 仍为 **BLOCKED，不能进入 P3**：短剧 Agent 尚缺经产品确认的审核等级、审核范围、人工复核和最小化审计保留期；现有其他应用词表不可跨应用复用，不能用静态弱规则伪装通过。附件上传/多文件撤销与视频/音频理解也仍未验收，前端保持明确拒绝附件，避免假称已发送给模型。其余 A01—A15 的已实现问答、引用、Skill、刷新、停止、幂等和安全文本展示均有上述隔离或真实行为证据。
+
 ## 最新：2026-09-21 当前实现全量回归验收
 
 本节在两仓库已集成最新 feature 的本地 `develop` 执行。当前实现范围的全量后端、PC 行为和隔离浏览器验收已经完成；没有重新触发真实付费媒体生成。此前取得的真实 Qwen 文本写回和单图理解账本证据仍保留在下一节，未因本轮全量回归删除。
