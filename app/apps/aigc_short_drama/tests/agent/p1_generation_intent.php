@@ -81,6 +81,10 @@ try {
     $nodes=Canvas::current(91001,92001,$id)['nodes'];$nodes[0]['x']=999;
     Canvas::save(91001,92001,['id'=>$id,'nodes'=>$nodes]);
     agentCheck(Intent::claim(91001,92001,(int)$moved['id'])!==null,'moving node does not invalidate frozen generation input');
+    $older=Intent::reserve(91001,92001,$id,'prepared-older','1','text',$input);
+    $newer=Intent::reserve(91001,92001,$id,'prepared-newer','1','text',$input);
+    agentCheck(Intent::claim(91001,92001,(int)$older['id'])===null && Db::name(Intent::TABLE)->where('id',$older['id'])->value('error_code')==='GENERATION_SUPERSEDED_BEFORE_SUBMIT','superseded prepared generation is canceled before any provider call');
+    agentCheck(Intent::claim(91001,92001,(int)$newer['id'])!==null,'latest prepared generation remains eligible to submit');
     $edited=Intent::reserve(91001,92001,$id,'edited','1','text',$input);
     $nodes[0]['metadata']['prompt']='User changed prompt';
     Canvas::save(91001,92001,['id'=>$id,'nodes'=>$nodes]);
