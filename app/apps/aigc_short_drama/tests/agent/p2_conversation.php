@@ -54,7 +54,7 @@ try {
     rejectsConversation(fn()=>Store::enqueue(91001,92001,$canvas,$second['id'],$request,$snapshot),'IDEMPOTENCY_CONFLICT');
     $fresh=array_replace($request,['request_key'=>'fresh']);
     rejectsConversation(fn()=>Store::enqueue(91001,92001,$canvas,$second['id'],array_replace($fresh,['base_revision'=>0]),$snapshot),'VERSION_CONFLICT');
-    rejectsConversation(fn()=>Store::enqueue(91001,92001,$canvas,$second['id'],array_replace($fresh,['selected_node_ids'=>['2']]),$snapshot),'NODE_NOT_FOUND');
+    rejectsConversation(fn()=>Store::enqueue(91001,92001,$canvas,$second['id'],array_replace($fresh,['selected_node_ids'=>['99']]),$snapshot),'NODE_NOT_FOUND');
     rejectsConversation(fn()=>Store::enqueue(91001,92001,$canvas,$second['id'],$fresh,['settings'=>[]]),'INVALID_RESOLVED_SNAPSHOT');
     foreach (['run','message','event','outbox'] as $kind) agentCheck(Db::name(Store::PREFIX.$kind)->where('canvas_id',$canvas)->count()===1,'failed acceptance leaves no partial '.$kind);
     // Inject failure at the LAST insertion boundary using a predicted outbox key.
