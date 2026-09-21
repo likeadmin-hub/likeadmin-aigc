@@ -8,6 +8,10 @@ if (getenv('SHORT_DRAMA_AGENT_TEST') !== 'isolated-mysql') {
 }
 require dirname(__DIR__, 5) . '/vendor/autoload.php';
 (new think\App())->initialize();
+set_exception_handler(static function (Throwable $error): void {
+    fwrite(STDERR, get_class($error) . ': ' . $error->getMessage() . PHP_EOL . $error->getTraceAsString() . PHP_EOL);
+    exit(1);
+});
 $database = config('database');
 $database['default'] = 'mysql';
 $database['connections']['mysql'] = array_replace($database['connections']['mysql'], [
@@ -16,7 +20,6 @@ $database['connections']['mysql'] = array_replace($database['connections']['mysq
     'prefix' => 'la_', 'fields_cache' => false, 'trigger_sql' => false,
 ]);
 config($database, 'database');
-think\facade\Db::setConfig($database);
 if (think\facade\Db::query('SELECT DATABASE() AS db')[0]['db'] !== 'short_drama_agent_test') {
     throw new RuntimeException('Wrong test database');
 }
