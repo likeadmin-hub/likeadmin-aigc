@@ -114,3 +114,5 @@ conversation/execution 在事务中回滚夹具；concurrency 用真实独立 PH
 继续执行（第 13 节）：新增 `p2_settings.php` 24、`p2_send.php` 26、`p2_http.php` 21、`p2_worker.php` 44 PASS，追加到既有串行列表，总计 614 PASS。仍使用上述 Docker 隔离命令，从已合入的本地 develop 执行。`p2_http` 在容器内部监听 127.0.0.1:19082，专用 router 仅接受五个会话路由，无生成入口、无发布宿主机端口；生成回复由内部隔离服务夹具模拟，绝不调用真实 Provider。`p2_worker` 不包外层事务，以检查 Provider 调用时确无未提交事务；结束清理本次 canvas/config 精确记录。模型解析的产品/SKU/Skill 合成数据均事务回滚。不应并发使用相同 fixture 身份。
 
 Provider interface 只有隔离测试替身，未注册生产适配或扫描任务。真实计费、安全审核及前端集成未验证，P2 仍未放行。额外可用相同只读源码 Docker 命令执行 `app/apps/aigc_short_drama/tests/canvas_composer_skill.php`，验证共享 Skill 应用的原有参数与必填项行为。
+
+最新第 14 节：`p2_execution` 71、`p2_worker` 70，新增 `p2_queue_crash.php` 31；完整串行共 675 PASS。新脚本沿用相同 Docker 命令和 develop 执行规则，预检查测试 config/outbox 为空，精确终止自己创建的五个 PHP 子进程，最终清理本次 canvas scope 和测试 config。它使用既有隔离 Provider receipt 测试表，绝不针对业务进程执行。不要并发运行共享 91001/92001 fixture 的其他脚本。队列扫描服务尚未注册生产 supervisor，也未连接真实 Provider。
