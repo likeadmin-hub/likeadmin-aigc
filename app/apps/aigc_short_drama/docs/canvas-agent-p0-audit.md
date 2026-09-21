@@ -1,6 +1,6 @@
 # 短剧画布 Agent P0 核对报告
 
-日期：2026-09-21。状态：只读核对及静态/纯逻辑基线完成；行为基线未完成，**P0 尚未放行，P1—P6 未实施**。
+日期：2026-09-21。状态：只读核对、静态/纯逻辑及隔离数据库服务级基线已执行；浏览器/HTTP 行为基线未完成，**P0 尚未完整放行**。P1 仅有未接入业务入口的 GraphService 基础切片，不能视为阶段完成；P2—P6 未实施。
 
 ## 1. 输入和基线
 
@@ -61,7 +61,7 @@
 
 ## 4. 测试证据和准入
 
-所有执行命令运行在对应本地 develop。未提交生成请求，没有 Provider 接收次数或消费账本行为证据，不能记为“计费通过”。
+所有执行命令运行在对应本地 develop。初次核对未提交生成请求；用户随后批准隔离测试环境，补充结果见第 6 节。模拟下游接收次数和真实 PointService 测试账本均已有证据，但不能据此认定真实 Provider 或完整 UI 计费链路通过。
 
 | P0 用例 | 状态 | 证据/缺口 |
 |---|---|---|
@@ -104,4 +104,35 @@ docker exec -w /www/wwwroot/likeadmin-aigc/server baota php app/apps/aigc_short_
 
 待冻结 DTO：GraphSnapshot(id, graph_revision, schema_version, nodes, edges, viewport, removed_node_ids)；GraphMutation(request_key, expected_revision, operations)；MutationReceipt(request_hash, base_revision, result_revision, result)；GenerationInputSnapshot（模型/Skill/素材版本/input_hash）；TaskRef(source_app_code, source_task_id, provider_task_id)。节点继续兼容安全整数，边继续兼容 from/to，身份与归属永远服务端解析。
 
-准入结论：**否**。需指定或确认新建隔离数据库、T1/T2 与 U1/U2/U3，以及无真实 Provider 密钥的测试进程。不得把当前 x_cn 当可迁移/故障注入环境。P1—P6 全部 NOT_RUN；不能用已通过的静态检查跳过 G01—G12。
+初次核对准入结论：**否**。该时点隔离环境尚未批准。以下第 6 节更新此后的状态；不得把当前 x_cn 当可迁移/故障注入环境，不能用静态或服务级测试跳过浏览器及 G01—G12 验收。
+
+## 6. 获准隔离环境后的补充记录
+
+用户明确允许建立隔离测试环境。创建 Docker internal 网络 `short-drama-agent-test`、无宿主机端口映射的 `short-drama-agent-test-db`（MySQL 8）以及仅运行 CLI 测试的 `short-drama-agent-test-php:local`。测试数据库固定 `short_drama_agent_test`，`.env` 被空设备覆盖，源码只读，runtime 为临时内存目录。仅复制原库表结构，不复制业务行、素材或供应商密钥；未启动原有 Worker。
+
+原业务账号 CREATE DATABASE 被 MySQL 1044 拒绝，默认 root socket 无密码被 1045 拒绝；没有修改授权或读取面板 root 密码，改用独立容器。原 `x_cn`、PC 代理及原 Worker 不变。
+
+### 6.1 可复现测试结果
+
+环境搭建和运行命令见 `../tests/agent/README.md`。以下脚本分别独立运行，退出码均为 0：
+
+| 脚本 / 实现提交 | 断言 | 真实覆盖边界 |
+|---|---|---|
+| p0_baseline.php / 7dfce8637 | 7 PASS；2 KNOWN_GAP | 四节点 JSON 数据库往返、旧 from/to、视口、租户/用户拒绝访问与回滚；重现旧整图保存覆盖和 201 节点截断为 200 |
+| p0_generation.php / d1babc71c | 13 PASS | 实际 CanvasService、AppAccessService、PointService 和任务/资产投影；只替换下游生成服务边界 |
+| p1_graph.php / 058bee077 | 19 PASS | 事务 CAS、重复 patch 10 次稳定返回、receipt 唯一、同 key 不同负载拒绝、越权/字段伪造拒绝、容量错误原子回滚、内容修改保留坐标 |
+
+模拟下游接收四类独立调用共 4 次，重复轮询未再提交。测试租户余额 100→96，用户余额 100→92；真实积分服务生成租户消费记录 4 条、用户消费记录 4 条；短剧任务 4 条、媒体资产 3 条，均 project_id=0，重复读取不增加投影。所有这些行在 finally 中回滚。这里的接收计数位于模拟下游服务边界，不是实际供应商的 HTTP 接收计数。
+
+测试搭建期间修复了夹具 sn/account 唯一键冲突、图片任务表无 billing_status 列等问题；它们不是产品行为失败。测试引导器修复异常退出码，未将打印异常但退出 0 作为通过。
+
+### 6.2 新发现与阶段门槛
+
+- 原业务库没有 `aigc_music` 任务/结果表。仅在测试库执行已有音乐应用 install.sql，使模拟音频投影可测；未安装或迁移业务库。真实环境音频可用性仍未验证，不能以测试库结果掩盖差异。
+- B02 数据库存取已 PASS，浏览器创建/保存/刷新重开仍 NOT_RUN。
+- B03 服务级四类调用与账本已 PASS，手工 UI 到 HTTP 的端到端、实际 Provider Adapter、物理文件转存仍 NOT_RUN。
+- B05 AppAccessService 和 CanvasService 在独立画布应用禁用时已 PASS；HTTP 中间件与浏览器资源入口仍 NOT_RUN。
+- P1 图服务目前没有 API 注册、正式迁移或业务调用者。测试 schema 是一次性的草案，不是可上线迁移；现有保存、封面 Job、生成提交和前端缓存均未迁移到该服务。
+- P1 的 19 个断言是串行数据库行为测试，不是双标签页或独立进程竞争测试。G01—G12 **尚未全部通过**，禁止开放 Agent 后台图写入；P2—P6 保持 NOT_RUN。
+
+当前决定：先补齐 P0 端到端基线，继续记录无法验证项，不将基础切片或模拟成功视为完整阶段验收。没有真实付费调用、生产迁移、部署或发布。
