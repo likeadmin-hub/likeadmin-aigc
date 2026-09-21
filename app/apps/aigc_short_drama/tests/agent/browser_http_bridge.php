@@ -7,6 +7,7 @@ use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 // JSON-lines bridge to real HTTP inside the internal network. No host port,
 // business credentials, arbitrary URLs, provider routes or user profile.
 $inserted=[];$canvasId=0;$process=null;
+$mockGeneration=($argv[1]??'')==='mock-generation';
 try {
     if (Db::name('tenant')->where('id',94011)->count() || Db::name('user')->where('id',95011)->count() || Db::name('app')->where('code','aigc_short_drama')->count()) throw new RuntimeException('Browser fixture scope is not empty');
     foreach ([
@@ -16,8 +17,12 @@ try {
         ['app',['code'=>'aigc_short_drama','status'=>'installed']],
         ['tenant_app',['tenant_id'=>94011,'app_code'=>'aigc_short_drama','buy_status'=>'paid','enable_status'=>'enabled','shelf_status'=>'on','expire_time'=>time()+3600]],
     ] as [$table,$row]) $inserted[]=[$table,Db::name($table)->insertGetId($row)];
+    if ($mockGeneration) {
+        Db::name('tenant')->where('id',94011)->update(['point_balance'=>100]);
+        Db::name('user')->where('id',95011)->update(['user_money'=>100]);
+    }
     $canvasId=Canvas::create(94011,95011,['title'=>'HTTP browser fixture'])['id'];
-    $process=proc_open([PHP_BINARY,'-S','127.0.0.1:19080','-t',app()->getRootPath().'public',__DIR__.'/http_router.php'],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
+    $process=proc_open([PHP_BINARY,'-S','127.0.0.1:19080','-t',app()->getRootPath().'public',__DIR__.($mockGeneration?'/browser_generation_router.php':'/http_router.php')],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
     if (!is_resource($process)) throw new RuntimeException('Cannot start isolated HTTP fixture');
     $ready=false;
     for ($i=0;$i<50;$i++) {
@@ -31,7 +36,22 @@ try {
         $request=json_decode($line,true,512,JSON_THROW_ON_ERROR);
         if (($request['action']??'')==='close') break;
         $action=$request['action']??'';$method=$request['method']??'GET';$body=$request['body']??[];
-        if (!in_array($action,['current','save'],true) || !in_array($method,['GET','POST'],true) || (int)($body['id']??0)!==$canvasId) throw new RuntimeException('Request outside isolated browser fixture');
+        if ($mockGeneration && $action==='evidence') {
+            $scope=['tenant_id'=>94011,'user_id'=>95011];
+            echo json_encode(['result'=>[
+                'received'=>Db::name('aigc_short_drama_test_provider_receipt')->where($scope)->count(),
+                'runs'=>Db::name('aigc_short_drama_canvas_run')->where($scope+['canvas_id'=>$canvasId])->count(),
+                'tenant_balance'=>Db::name('tenant')->where('id',94011)->value('point_balance'),
+                'user_balance'=>Db::name('user')->where('id',95011)->value('user_money'),
+                'tenant_charges'=>Db::name('tenant_point_log')->where('tenant_id',94011)->count(),
+                'user_charges'=>Db::name('user_account_log')->where('user_id',95011)->count(),
+            ]]),PHP_EOL;
+            continue;
+        }
+        $allowed=in_array($action,['current','save'],true) && (int)($body['id']??0)===$canvasId;
+        if ($mockGeneration && $action==='run') $allowed=(int)($body['canvas_id']??0)===$canvasId;
+        if ($mockGeneration && $action==='task') $allowed=Db::name('aigc_short_drama_canvas_run')->where(['id'=>(int)($body['id']??0),'canvas_id'=>$canvasId,'tenant_id'=>94011,'user_id'=>95011])->count()===1;
+        if (!$allowed || !in_array($method,['GET','POST'],true)) throw new RuntimeException('Request outside isolated browser fixture');
         $url='http://127.0.0.1:19080/api/app.aigc_short_drama.canvas/'.$action.'?tenant_id=94011';
         if ($method==='GET') $url.='&'.http_build_query($body);
         $context=stream_context_create(['http'=>['method'=>$method,'timeout'=>10,'ignore_errors'=>true,
@@ -43,6 +63,11 @@ try {
     }
 } finally {
     if (is_resource($process)) {proc_terminate($process);foreach ($pipes as $pipe) fclose($pipe);proc_close($process);}
+    if ($mockGeneration && $canvasId) {
+        foreach (['aigc_short_drama_test_provider_receipt','aigc_short_drama_canvas_run','aigc_short_drama_generation_task','aigc_short_drama_asset','aigc_short_drama_canvas_poster_job','aigc_image_result','aigc_image_task','aigc_video_result','aigc_video_task','aigc_music_result','aigc_music_task'] as $table) Db::name($table)->where(['tenant_id'=>94011,'user_id'=>95011])->delete();
+        Db::name('tenant_point_log')->where('tenant_id',94011)->delete();
+        Db::name('user_account_log')->where('user_id',95011)->delete();
+    }
     if ($canvasId) Db::name('aigc_short_drama_canvas')->where(['id'=>$canvasId,'tenant_id'=>94011,'user_id'=>95011])->delete();
     foreach (array_reverse($inserted) as [$table,$id]) Db::name($table)->where('id',$id)->delete();
 }
