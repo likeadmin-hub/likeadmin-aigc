@@ -66,6 +66,7 @@ final class ConversationExecution
     {
         return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence): string {
             [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
+            if ($run['status']==='canceled') return 'canceled';
             if ($run['status']==='failed' && $run['error_code']==='PRECHECK_FAILED') return 'failed';
             if ($run['status']==='needs_reconciliation') return 'needs_reconciliation';
             if ($run['status']!=='running' || $outbox['state']!=='processing') throw new RuntimeException('STALE_WORKER');
@@ -122,6 +123,34 @@ final class ConversationExecution
             [$run,,$outbox]=self::locked($tenant,$user,$runId);
             if ($run['status']!=='running' || !in_array($outbox['state'],['processing','submitting'],true) || (int)$outbox['lease_until']>time()) return false;
             self::uncertain($run,$outbox,'WORKER_LEASE_EXPIRED');return true;
+        });
+    }
+
+    /** Stop is allowed even after the Agent feature is switched off. Identity
+     * still comes from the authenticated actor, never from the request body.
+     * The durable submitting boundary separates local cancellation from an
+     * upstream outcome we cannot promise to cancel or refund.
+     */
+    public static function stop(int $tenant,int $user,int $canvas,int $threadId,int $runId): array
+    {
+        return Db::transaction(function () use ($tenant,$user,$canvas,$threadId,$runId): array {
+            [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);
+            if ((int)$run['canvas_id']!==$canvas || (int)$run['thread_id']!==$threadId) throw new RuntimeException('RUN_NOT_FOUND');
+            $status=$run['status'];
+            if (in_array($status,['success','failed','canceled'],true)) return ['run_id'=>$runId,'status'=>$status,'cancellation_confirmed'=>$status==='canceled'];
+            if (($status==='queued' && $outbox['state']==='pending') || ($status==='running' && $outbox['state']==='processing')) {
+                self::state($run,'canceled','USER_STOPPED_BEFORE_SUBMIT');
+                self::event($run,'run.canceled',['status'=>'canceled','code'=>'USER_STOPPED_BEFORE_SUBMIT']);
+                Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'canceled','lease_until'=>0,'update_time'=>time()]);
+                if ((int)$thread['active_run_id']===$runId) Db::name(ConversationStore::PREFIX.'thread')->where('id',$threadId)->update(['active_run_id'=>0,'update_time'=>time()]);
+                return ['run_id'=>$runId,'status'=>'canceled','cancellation_confirmed'=>true];
+            }
+            if (($status==='running' && $outbox['state']==='submitting') || $status==='needs_reconciliation') {
+                if (!Db::name(ConversationStore::PREFIX.'event')->where(['run_id'=>$runId,'kind'=>'run.stop_requested'])->find()) self::event($run,'run.stop_requested',['status'=>'needs_reconciliation','cancellation_confirmed'=>false]);
+                self::uncertain($run,$outbox,'USER_STOP_REQUESTED');
+                return ['run_id'=>$runId,'status'=>'needs_reconciliation','cancellation_confirmed'=>false];
+            }
+            throw new RuntimeException('INVALID_RUN_STATE');
         });
     }
 

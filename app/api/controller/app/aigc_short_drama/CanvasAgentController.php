@@ -5,6 +5,7 @@ namespace app\api\controller\app\aigc_short_drama;
 use app\api\controller\BaseApiController;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationService;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution;
 use RuntimeException;
 
 /** Authenticated short-drama conversation API; send is persistence-only. */
@@ -40,6 +41,12 @@ final class CanvasAgentController extends BaseApiController
         $p['base_revision']=self::number($p['base_revision']??null,true);
         foreach (['skill_id','skill_version'] as $key) if (array_key_exists($key,$p)) $p[$key]=self::number($p[$key],true);
         return ConversationService::send((int)$this->request->tenantId,$this->userId,$canvas,$thread,$p);
+    }); }
+
+    public function stop() { return $this->respond(function () {
+        $p=$this->request->post();
+        if (array_diff(array_keys($p),['canvas_id','thread_id','run_id'])) throw new RuntimeException('UNSUPPORTED_MESSAGE_FIELD');
+        return ConversationExecution::stop((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null),self::number($p['thread_id']??null),self::number($p['run_id']??null));
     }); }
 
     private function respond(\Closure $action) {
