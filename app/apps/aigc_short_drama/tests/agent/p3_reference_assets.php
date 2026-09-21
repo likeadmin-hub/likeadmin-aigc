@@ -40,4 +40,11 @@ $slots=$assetsMethod->invoke(null,['reference_assets'=>$frames]);
 agentCheck(count($slots['image'])===2,'M05 market runtime preserves two semantic frame slots for identical URI');
 $slots=$assetsMethod->invoke(null,['reference_assets'=>[$image,$image],'reference_images'=>[$image['uri']]]);
 agentCheck(count($slots['image'])===1,'M04 market runtime still deduplicates same-role image references');
+$market['product']['upstream_model_code']='wan3.0-video';
+$assertAssets->invoke(null,$market,['generation_method'=>'start_end','reference_assets'=>$frames]);
+agentCheck(true,'M05 selected start/end-capable model accepts identical image in both slots');
+$rejected=false;
+try {$assertAssets->invoke(null,$market,['generation_method'=>'image_to_video','reference_assets'=>$frames]);}
+catch (Exception $error) {$rejected=str_contains($error->getMessage(),'exactly one first-frame image');}
+agentCheck($rejected,'single-frame mode does not silently consume two same-URI slots');
 echo "NOT_RUN ownership, public quote/reserve, billing and Provider submission; normalization and actual market validator only\n";
