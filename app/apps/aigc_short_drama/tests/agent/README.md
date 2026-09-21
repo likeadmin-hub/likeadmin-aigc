@@ -67,7 +67,7 @@ docker run --rm --network short-drama-agent-test -v /Users/panda/Documents/docke
 在 server 本地 develop（最新 feature 已合入）执行，任一脚本失败即停止：
 
 ```sh
-for test_file in p0_baseline p0_generation p0_controller p0_http p1_graph p1_graph_wire p1_graph_operations p1_concurrency p1_poster_save p1_save_cas p1_read_recovery p1_revision_integration p1_migrations p1_generation_intent p1_generation_projection p1_manual_authority; do
+for test_file in p0_baseline p0_generation p0_controller p0_http p1_graph p1_graph_wire p1_graph_operations p1_concurrency p1_poster_save p1_save_cas p1_read_recovery p1_revision_integration p1_migrations p1_generation_intent p1_generation_projection p1_manual_authority p1_generation_crash; do
   docker run --rm --network short-drama-agent-test -v /Users/panda/Documents/docker-dir/bt/wwwroot/likeadmin-aigc/server:/app:ro -v /dev/null:/app/.env:ro --tmpfs /app/runtime short-drama-agent-test-php:local app/apps/aigc_short_drama/tests/agent/${test_file}.php || exit
 done
 docker run --rm --network short-drama-agent-test -v /Users/panda/Documents/docker-dir/bt/wwwroot/likeadmin-aigc/server:/app:ro -v /dev/null:/app/.env:ro --tmpfs /app/runtime short-drama-agent-test-php:local app/apps/aigc_short_drama/tests/agent/p0_generation.php idempotent
@@ -98,5 +98,9 @@ CANVAS_TEST_BROWSER_CHANNEL=chrome NODE_PATH=/Users/panda/.cache/codex-runtimes/
 7 PASS。`browser_http_bridge.php` 使用专属 94011/95011 合成身份和新建画布，仅 current/save 转发真实隔离 HTTP；其余目录/账户读取是合成夹具，未知写请求和生成被阻止。finally 删除此次精确 fixture，不访问用户 canvas 11，不复制私有素材或密钥。此结果不等同于四类生成的浏览器验收。
 
 ## 保留与清理
+
+最新结果以审计报告第 11 节为准：上述后端命令 318 PASS。真实 HTTP 浏览器默认模式 8 项（新增显式 Agent 关闭断言）；带 `CANVAS_TEST_MOCK_GENERATION=1` 的模式已实测 14 PASS，覆盖手工连线、四类模拟生成和真实积分账本。该变量只选择测试路由 `browser_generation_router.php`；Mock 类替换最下游服务，internal 网络、只读源码、遮盖 .env、不发布端口等限制不变。它不会启用真实 Provider。普通模式仍禁止生成。
+
+`p1_generation_crash.php` 仅对自己创建的独立测试子进程发送 SIGKILL，在独立数据库验证已提交数据；finally 只清除此次确切 canvas scope。不要对业务 Worker 运行故障注入。生成意图 SQL 已有正式 source-only 安装/增量/系统升级定义；测试计数表仍只在测试 schema 中，不能带入业务库。全部迁移行为仍限隔离库。
 
 当前保留测试容器/网络用于后续阶段，没有碰业务库或原 Worker。若后续清理，应先核对上述精确容器和网络名称，另行确认是否保留测试证据；不要运行 Docker 全局 prune，也不要删除业务卷。
