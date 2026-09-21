@@ -28,6 +28,11 @@ try {
     rejectsSend(fn()=>Service::send(91001,92001,$canvas,$thread,array_replace($request,['skill_version'=>0])),'INVALID_SKILL_SELECTION');
     rejectsSend(fn()=>Service::send(91001,92001,$canvas,$thread,$request+['resolvedSnapshot'=>['settings'=>[]]]),'UNSUPPORTED_MESSAGE_FIELD');
     rejectsSend(fn()=>Service::send(91001,92001,$canvas,$thread,array_replace($request,['preferences'=>['reasoning_model'=>'nonexistent']])),'REASONING_MODEL_UNAVAILABLE');
+    Db::name('aigc_short_drama_skill_version')->where('skill_id',$skill)->update(['delete_time'=>time()]);
+    rejectsSend(fn()=>Service::send(91001,92001,$canvas,$thread,$request),'SKILL_UNAVAILABLE');
+    Db::name('aigc_short_drama_skill_version')->where('skill_id',$skill)->update(['delete_time'=>0,'release_status'=>'draft']);
+    rejectsSend(fn()=>Service::send(91001,92001,$canvas,$thread,$request),'SKILL_UNAVAILABLE');
+    Db::name('aigc_short_drama_skill_version')->where('skill_id',$skill)->update(['release_status'=>'active']);
     agentCheck(Db::name(Store::PREFIX.'run')->where('canvas_id',$canvas)->count()===0,'invalid model/Skill resolution creates no run');
     $ack=Service::send(91001,92001,$canvas,$thread,$request);
     $run=Db::name(Store::PREFIX.'run')->where('id',$ack['run_id'])->find();
