@@ -1,5 +1,17 @@
 # 短剧画布 Agent P0 核对报告
 
+## 最新增量：P2 冻结文本引用进入模型消息
+
+本段为最新状态，下面各节保留历史证据。server `f721185f6` / `5929a4463`，分支 `feature/short-drama-optimization`，web 无改动；无 API、数据库迁移、权限或计费契约变更。
+
+查明并修复：ConversationStore 已冻结 selected_nodes，但真实文本 Provider 只转发 messages，导致节点材料未实际进入模型输入。新增 ConversationTextContext，在 Worker 预检之前用冻结快照构造 user-role JSON 材料，保留本轮请求、graph_revision、node_id/content_revision/文本及提示词。材料不提升为 system 或工具指令，不查当前节点、不请求媒体 URL。非文本节点明确标记 media_understanding_available=false，不用媒体提示词冒充视觉理解；无引用时历史消息格式保持原样。格式及大小异常在 Provider 调用前拒绝。
+
+本地 develop 合入每个 feature 提交后实际执行：p2_worker 79 PASS、p2_conversation 57 PASS、p2_queue_crash 31 PASS、p2_stop 76 PASS，共 243 PASS，四脚本 exit 0；diff check PASS。遵循回归保护技能，覆盖共享 Worker 的普通对话、冻结材料、幂等、进程故障恢复、停止与未授权工具拒绝。测试全部在独立数据库/internal 网络/模拟 Provider 中执行，未调用付费模型。新用例确认发送后移动和改写节点时，Provider 仍收到旧内容和版本，实时画布不被覆盖，材料中的“生成100个视频”没有执行权限或媒体任务。
+
+首次新增测试失败为测试 request_key 含空格，被实际 Store 正确拒绝 INVALID_REQUEST_KEY；改用合法夹具 key 后完整复测通过，没有放宽产品校验。业务常驻 Worker 本轮未重启，不能声称其已加载新 PHP 类；真实选中文本的浏览器到供应商验收仍 NOT_RUN。
+
+A02 仍仅部分实现：冻结原内容可追踪、模型输入已连通，但尚无“新文本版本写回并在 UI 可见”的完整闭环；A04 获得发送后移动仍保持引用 ID 的服务端证据，尚无相应用例浏览器验收。A01 图片理解、审核策略、规划/工具执行等缺项继续保留。P2 不放行，P3—P6 NOT_RUN。
+
 ## 最新增量：2026-09-21 续跑 SSE 重连验收
 
 本段更新后文历史状态。P0 按第 18 节限定口径、P1 隔离验收通过；P2 尚未放行，P3—P6 NOT_RUN。分支 `feature/short-drama-optimization`，本轮 server 仅改隔离测试桥接及报告，web 无源码变更，API/权限/迁移契约不变。
