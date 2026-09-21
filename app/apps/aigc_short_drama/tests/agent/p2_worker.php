@@ -37,6 +37,16 @@ $config=0;$canvas=0;$imageAsset=0;$imageAsset2=0;
 try {
     $config=Db::name('aigc_short_drama_config')->insertGetId(['tenant_id'=>91001,'config_json'=>'{"canvas_agent":{"enabled":true}}','status'=>1]);
     $canvas=Canvas::create(91001,92001,['title'=>'P2 finite Worker fixture'])['id'];
+    $skillThread=Store::create(91001,92001,$canvas,'frozen-skill')['id'];
+    $skillSnapshot=['id'=>123,'version'=>1,'name'=>'短剧写作规范','definition'=>['instructions'=>'分成三句，每句不超过十字'],'model_policy'=>['private_hint'=>'must not reach model'],'execution_policy'=>[]];
+    $skillRun=Store::enqueue(91001,92001,$canvas,$skillThread,['request_key'=>'skill-v1','content'=>'描写一次重逢','base_revision'=>0],['settings'=>['reasoning_model'=>['id'=>'isolated-model']],'skill'=>$skillSnapshot])['run_id'];
+    $skillSnapshot['version']=2;$skillSnapshot['definition']['instructions']='后续发布的新规范';
+    $skillProvider=new IsolatedConversationProvider('success');
+    agentCheck(Worker::process(91001,92001,$skillRun,$skillProvider)==='success','selected Skill reaches Worker execution');
+    $skillMessage=$skillProvider->requests[0]['messages'][0];
+    agentCheck($skillMessage['role']==='user' && str_contains($skillMessage['content'],'分成三句，每句不超过十字'),'frozen Skill creative definition reaches model messages');
+    agentCheck(!str_contains($skillMessage['content'],'后续发布的新规范') && !str_contains($skillMessage['content'],'must not reach model'),'new publication and model policy cannot replace frozen creative context');
+    agentCheck($skillProvider->requests[0]['tools']===[],'Skill does not authorize tool execution');
     foreach (['success','preflight','throw','malformed','tool','late','expired_preflight','expired_throw','short_lease','disabled_preflight'] as $scenario) {
         $thread=Store::create(91001,92001,$canvas,$scenario)['id'];
         $request=['request_key'=>$scenario,'content'=>'仅讨论，不生成节点','base_revision'=>0];
