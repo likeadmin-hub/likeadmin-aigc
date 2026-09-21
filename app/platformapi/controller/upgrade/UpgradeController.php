@@ -38,6 +38,21 @@ class UpgradeController extends BaseAdminController
         }
     }
 
+    public function saveAutoUpdate(): Json
+    {
+        try {
+            $enabled = filter_var($this->request->post('enabled', false), FILTER_VALIDATE_BOOLEAN);
+            return $this->success(
+                '自动更新设置已保存',
+                (new SystemPackageUpdateService())->saveAutoUpdateEnabled($enabled),
+                1,
+                1
+            );
+        } catch (\Exception $e) {
+            return $this->fail($e->getMessage());
+        }
+    }
+
     public function source(): Json
     {
         try {
