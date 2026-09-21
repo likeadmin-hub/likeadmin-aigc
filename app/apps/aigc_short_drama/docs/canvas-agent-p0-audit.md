@@ -602,3 +602,16 @@ web `c5688e9` 增加右侧“写回原文本节点”确认框，明确告知原
 验证：本地 develop 上 Chrome → 受限 HTTP bridge → 隔离 MySQL **12 PASS / 0 FAIL**，含确认写回、文本附件撤销、SSE、刷新、候选歧义、停止、图片附件、租户切换和 XSS 文本渲染；web Node 附件/state/reader 行为套件 **24 PASS / 0 FAIL**。未调用 Provider、未创建媒体任务、未扣费；确认写回不是生产短剧正文/剧集写入，也没有执行生产迁移或部署。
 
 P2 放行门槛仍未满足：A02 现有确认式文本版本证据，A03 仅候选歧义证据；A01 实际图片理解、A09 多格式素材处理、A10 上下文补问、A12 工具修复、A14 规划提交以及真实模型账本、审核 Provider、调度对账仍未完整验收。P3—P6 继续 NOT_RUN。
+
+## 27. P2 未满足项复测与异常模型输出修复（尚未阶段放行）
+
+本轮按 P2 尚未满足项复核代码和行为测试，先修复了一个可在隔离环境复现的缺陷：Provider 已返回结果但 `tool_calls` 不是空数组（例如畸形 JSON 或越权 `delete_canvas` 工具）时，旧 Worker 会把它归为未知上游结果并进入 reconciliation。P2 的合同不允许执行工具，因此该情况是**已知的无效模型输出**，不应重试或伪装成未知。
+
+- `ConversationWorker` 现在将空/超长文本、畸形 `tool_calls` 和任意工具调用统一终结为 `UNSUPPORTED_MODEL_RESPONSE`；不发布 assistant 消息、不重试、不创建媒体任务、不写画布。租约过期或传输异常仍保持 `needs_reconciliation`，不会把真正未知的收费结果误标为失败。
+- 入队 `run.queued` 事件包含不可变 P2 intent：`conversation`、`tools=[]`、`media_generation=false`、`graph_mutation=false`。它与原有事件 cursor 共存，避免前端 SSE/刷新因新增事件而漏读或重复读取。十次同 request key 的重放保持同一 run/同一事件/同一 outbox。
+- 图片理解链路维持显式已授权 asset 的最多四张、顺序冻结与执行前复核；模型选择在本地市场目录预检查 `requires_vision=true`。文本附件只以 user-role 不可信材料传入；TXT/Markdown 之外、视频/音频及未解析 PDF/Word 在当前 P2 UI/接口明确拒绝，不会被静默上传、作为提示词执行或创建任务。PDF/Word/音视频的内容提取与理解不是本轮已经实现的能力。
+- 已给出的画风、比例、时长以受限 `known_creation_constraints` 进入后续 user 消息；隔离 Provider 断言它不会替换用户本轮请求或成为 system/tool 输入。
+
+在 server 本地 `develop` 串行执行 `p2_migrations`、`p2_conversation`、`p2_conversation_concurrency`、`p2_execution`、`p2_settings`、`p2_send`、`p2_http`、`p2_safety`、`p2_worker`、`p2_queue_crash`、`p2_stop`、`p2_stop_race`、`p2_recovery`、`p2_attachments`：**698 PASS / 0 FAIL**。PHP lint 和 diff check 通过。web 本地 `develop` 执行附件/state/reader/SFC 合同：**25 PASS / 0 FAIL**；Chrome → 受限 bridge → 隔离 MySQL：**12 PASS / 0 FAIL**。所有测试使用 internal Docker 网络、隔离数据库、模拟 Provider；未复制私有素材或密钥。
+
+仍不能标记为已全部放行的项目：真实付费 Provider 的视觉质量/多格式解析质量、真实积分账本结算与未知用量对账、外部语义审核 Provider、生产 Worker supervisor/调度及生产迁移/部署。这些需要外部服务或生产授权；本任务边界不调用付费 Provider、不执行生产迁移或部署，故保持 **NOT_RUN**，不以模拟测试替代。P2 的本地安全合同已通过；若 P3 的进入条件要求上述生产级外部验收，则仍为 BLOCKED。
