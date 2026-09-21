@@ -101,7 +101,12 @@ final class CanvasAgentController extends BaseApiController
                 $messages=ConversationStore::messages($tenant,$user,$canvas,$thread,$messageAfter);
                 foreach ($messages as $message) {
                     $messageAfter=max($messageAfter,(int)$message['sequence']);
-                    $this->emitStreamEvent('message',['id'=>(int)$message['id'],'run_id'=>(int)$message['run_id'],'sequence'=>(int)$message['sequence'],'role'=>(string)$message['role'],'text'=>(string)($message['content']['text']??'')]);
+                    $payload=['id'=>(int)$message['id'],'run_id'=>(int)$message['run_id'],'sequence'=>(int)$message['sequence'],'role'=>(string)$message['role'],'text'=>(string)($message['content']['text']??'')];
+                    // Clarification cards are already ownership-filtered by
+                    // ConversationStore.  Forward only their small public
+                    // projection, never a graph snapshot or asset URI.
+                    if (!empty($message['reference_candidates']) && is_array($message['reference_candidates'])) $payload['reference_candidates']=$message['reference_candidates'];
+                    $this->emitStreamEvent('message',$payload);
                     $emitted=true;
                 }
                 $events=$this->publicEvents(ConversationStore::events($tenant,$user,$canvas,$thread,$eventAfter));
@@ -116,7 +121,7 @@ final class CanvasAgentController extends BaseApiController
                     $this->emitStreamEvent('run',$snapshot);
                     $emitted=true;
                 }
-                if (in_array($snapshot['status'],['success','failed','canceled','needs_reconciliation'],true)) {
+                if (in_array($snapshot['status'],['clarify','success','failed','canceled','needs_reconciliation'],true)) {
                     $this->emitStreamEvent('complete',['run_id'=>$run,'status'=>$snapshot['status'],'event_after'=>$eventAfter,'message_after'=>$messageAfter]);
                     break;
                 }

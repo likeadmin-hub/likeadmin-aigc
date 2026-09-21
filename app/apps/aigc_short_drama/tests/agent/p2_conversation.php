@@ -21,7 +21,13 @@ try {
     rejectsConversation(fn()=>Store::threads(91002,92001,$canvas),'CANVAS_NOT_FOUND');
     rejectsConversation(fn()=>Store::threads(91001,92002,$canvas),'CANVAS_NOT_FOUND');
     rejectsConversation(fn()=>Store::messages(91001,92001,$other,$thread['id']),'THREAD_NOT_FOUND');
-    Graph::patch(91001,92001,$canvas,['request_key'=>'add','expected_revision'=>0,'operations'=>[['op'=>'add_node','node'=>['id'=>1,'type'=>'text','x'=>10,'y'=>20,'metadata'=>['content'=>'参考材料']]]]]);
+    Graph::patch(91001,92001,$canvas,['request_key'=>'add','expected_revision'=>0,'operations'=>[
+        ['op'=>'add_node','node'=>['id'=>1,'type'=>'text','x'=>10,'y'=>20,'metadata'=>['content'=>'参考材料']]],
+        // These image nodes intentionally overlap in the left position band.
+        // A positional prompt must clarify instead of choosing either one.
+        ['op'=>'add_node','node'=>['id'=>2,'type'=>'image','title'=>'左侧角色图','x'=>320,'y'=>20,'width'=>240,'height'=>180,'metadata'=>[]]],
+        ['op'=>'add_node','node'=>['id'=>3,'type'=>'image','title'=>'左侧场景图','x'=>340,'y'=>240,'width'=>240,'height'=>180,'metadata'=>[]]],
+    ]]);
     $before=Db::name(Graph::TABLE)->where('id',$canvas)->find();
     $request=['request_key'=>'message','content'=>'分析这段文字，不要生成节点','selected_node_ids'=>['1'],'base_revision'=>1];
     $snapshot=['settings'=>['reasoning_model'=>'isolated-model','image_model'=>'isolated-image','video_model'=>'isolated-video'],'skill'=>['id'=>7,'version'=>2,'content'=>'frozen skill']];
@@ -63,6 +69,19 @@ try {
     Db::name(Graph::TABLE)->where('id',$canvas)->update(['graph_revision'=>2]);
     agentCheck(Store::enqueue(91001,92001,$canvas,$thread['id'],$request,['settings'=>[],'skill'=>[]])===$ack,'same request replays after graph and settings change');
     agentCheck(Db::name(Store::PREFIX.'run')->where('id',$ack['run_id'])->value('settings_snapshot')===$run['settings_snapshot'],'retry cannot replace frozen models');
+    $clarifyThread=Store::create(91001,92001,$canvas,'clarify-thread','澄清引用');
+    $clarifyRequest=['request_key'=>'clarify-left-image','content'=>'请分析左边那张图片','selected_node_ids'=>[],'base_revision'=>2];
+    $outboxBefore=Db::name(Store::PREFIX.'outbox')->where('canvas_id',$canvas)->count();
+    $clarified=Store::enqueue(91001,92001,$canvas,$clarifyThread['id'],$clarifyRequest,['settings'=>[],'skill'=>[]]);
+    agentCheck($clarified['status']==='clarify','ambiguous positional image request becomes a clarification run');
+    agentCheck(Db::name(Store::PREFIX.'outbox')->where('canvas_id',$canvas)->count()===$outboxBefore,'clarification creates no provider outbox event');
+    $clarifyMessages=Store::messages(91001,92001,$canvas,$clarifyThread['id']);
+    agentCheck(count($clarifyMessages)===2 && $clarifyMessages[1]['role']==='assistant','clarification persists a user request and assistant card');
+    agentCheck(array_column($clarifyMessages[1]['reference_candidates'],'node_id')===['2','3'],'clarification returns only deterministic public image candidates');
+    agentCheck(Store::enqueue(91001,92001,$canvas,$clarifyThread['id'],$clarifyRequest,['settings'=>[],'skill'=>[]])===$clarified,'clarification replay is idempotent');
+    $explicitThread=Store::create(91001,92001,$canvas,'clarify-explicit','确认引用');
+    $explicit=Store::enqueue(91001,92001,$canvas,$explicitThread['id'],array_replace($clarifyRequest,['request_key'=>'clarify-explicit-image','selected_node_ids'=>['2']]),$snapshot);
+    agentCheck($explicit['status']==='queued','explicit candidate selection proceeds as a normal Agent request');
     Db::name('aigc_short_drama_config')->where('tenant_id',91001)->update(['config_json'=>'{}']);
     rejectsConversation(fn()=>Store::messages(91001,92001,$canvas,$thread['id']),'CANVAS_AGENT_DISABLED');
 } finally {Db::rollback();}

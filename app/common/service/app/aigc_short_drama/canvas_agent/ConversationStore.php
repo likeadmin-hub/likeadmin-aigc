@@ -71,12 +71,15 @@ final class ConversationStore
             }
             if ((int)$conversation['active_run_id']!==0) throw new RuntimeException('THREAD_BUSY');
             if ((int)$document['graph_revision']!==$revision) throw new RuntimeException('VERSION_CONFLICT');
+            $nodes=json_decode($document['nodes_json']?:'[]',true,512,JSON_THROW_ON_ERROR);
+            $candidates=ConversationReferenceResolver::ambiguousImageCandidates($nodes,$ids,$content);
+            if ($candidates) return self::clarifyReference($scope,$conversation,$key,$hash,$revision,$content,$candidates);
             // Server-owned resolver performs local catalog reads only. Never
             // do provider I/O here; replay must not re-resolve changing defaults.
             if ($resolvedSnapshot instanceof \Closure) $resolvedSnapshot=$resolvedSnapshot();
             if (array_diff(array_keys($resolvedSnapshot),['settings','skill']) || !is_array($resolvedSnapshot['settings']??null) || !is_array($resolvedSnapshot['skill']??null)) throw new RuntimeException('INVALID_RESOLVED_SNAPSHOT');
             $selected=[];
-            foreach (json_decode($document['nodes_json']?:'[]',true,512,JSON_THROW_ON_ERROR) as $node) {
+            foreach ($nodes as $node) {
                 if (in_array((string)$node['id'],$ids,true)) {
                     // Node material is data, never privileged instructions.
                     $selected[(string)$node['id']]=[
@@ -134,7 +137,11 @@ final class ConversationStore
         $scope=self::scope($tenant,$user,$canvas);self::thread($scope,$thread);
         $rows=Db::name(self::PREFIX.'message')->where($scope+['thread_id'=>$thread,'delete_time'=>0])->where('sequence','>',max(0,$after))->order('sequence')->limit(100)->select()->toArray();
         return array_map(static function ($row) use ($scope,$thread) {
-            $message=['id'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'role'=>$row['role'],'content'=>json_decode($row['content_json'],true,512,JSON_THROW_ON_ERROR),'attachments'=>json_decode($row['attachments_json'],true,512,JSON_THROW_ON_ERROR)];
+            $content=json_decode($row['content_json'],true,512,JSON_THROW_ON_ERROR);
+            if (!is_array($content) || !is_string($content['text']??null)) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
+            $message=['id'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'role'=>$row['role'],'content'=>$content,'attachments'=>json_decode($row['attachments_json'],true,512,JSON_THROW_ON_ERROR)];
+            $candidates=ConversationReferenceResolver::publicCandidates($content['reference_candidates']??null);
+            if ($candidates) $message['reference_candidates']=$candidates;
             $snapshot=Db::name(self::PREFIX.'run')->where($scope+['id'=>$row['run_id'],'thread_id'=>$thread,'delete_time'=>0])->value('context_snapshot');
             $references=[];
             foreach ((json_decode((string)$snapshot,true)['selected_nodes']??[]) as $node) {
@@ -164,7 +171,7 @@ final class ConversationStore
         $row=Db::name(self::PREFIX.'run')->where($scope+['thread_id'=>$thread,'id'=>$run,'delete_time'=>0])->find();
         if (!$row) throw new RuntimeException('RUN_NOT_FOUND');
         $status=(string)$row['status'];
-        if (!in_array($status,['queued','running','success','failed','canceled','needs_reconciliation'],true)) throw new RuntimeException('INVALID_RUN_STATE');
+        if (!in_array($status,['clarify','queued','running','success','failed','canceled','needs_reconciliation'],true)) throw new RuntimeException('INVALID_RUN_STATE');
         // Client actions depend on durable state, never a guessed provider
         // result. Unknown outcomes are not offered automatic retry/refund.
         return ['id'=>(int)$row['id'],'thread_id'=>(int)$row['thread_id'],
@@ -193,6 +200,22 @@ final class ConversationStore
         return $row;
     }
     private static function scope(int $tenant,int $user,int $canvas): array { return ['tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas]; }
+    /** Persist a no-cost clarification as a terminal local run. No outbox is
+     * written, so a Worker can never submit it to a Provider. */
+    private static function clarifyReference(array $scope,array $thread,string $key,string $hash,int $revision,string $content,array $candidates): array
+    {
+        $now=time();$sequence=(int)$thread['next_message_sequence'];
+        $context=['graph_revision'=>$revision,'selected_nodes'=>[],'reference_candidates'=>$candidates,'material_trust'=>'untrusted','messages'=>[['role'=>'user','content'=>$content]],'history_policy'=>'clarification_only'];
+        $run=Db::name(self::PREFIX.'run')->insertGetId($scope+['thread_id'=>$thread['id'],'request_key'=>$key,'request_hash'=>$hash,'status'=>'clarify','context_snapshot'=>self::json($context),'skill_snapshot'=>'{}','settings_snapshot'=>'{}','ack_json'=>'{}','create_time'=>$now,'update_time'=>$now]);
+        Db::name(self::PREFIX.'message')->insert($scope+['thread_id'=>$thread['id'],'run_id'=>$run,'sequence'=>$sequence,'role'=>'user','content_json'=>self::json(['text'=>$content]),'attachments_json'=>'[]','create_time'=>$now]);
+        $reply='画布中有多个可能的图片，请选择要引用的节点后再发送。';
+        Db::name(self::PREFIX.'message')->insert($scope+['thread_id'=>$thread['id'],'run_id'=>$run,'sequence'=>$sequence+1,'role'=>'assistant','content_json'=>self::json(['text'=>$reply,'reference_candidates'=>$candidates]),'attachments_json'=>'[]','create_time'=>$now]);
+        $cursor=Db::name(self::PREFIX.'event')->insertGetId($scope+['thread_id'=>$thread['id'],'run_id'=>$run,'sequence'=>1,'kind'=>'run.clarify','payload_json'=>self::json(['status'=>'clarify','candidate_count'=>count($candidates)]),'create_time'=>$now]);
+        $ack=['thread_id'=>(int)$thread['id'],'run_id'=>(int)$run,'status'=>'clarify','event_cursor'=>(int)$cursor,'message_sequence'=>$sequence+1];
+        Db::name(self::PREFIX.'run')->where('id',$run)->update(['ack_json'=>self::json($ack)]);
+        Db::name(self::PREFIX.'thread')->where('id',$thread['id'])->update(['next_message_sequence'=>$sequence+2,'update_time'=>$now]);
+        return $ack;
+    }
     private static function canonical(array $value): array {
         if (!array_is_list($value)) ksort($value);
         foreach ($value as &$item) if (is_array($item)) $item=self::canonical($item);
