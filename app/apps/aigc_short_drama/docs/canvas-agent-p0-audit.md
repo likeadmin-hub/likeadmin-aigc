@@ -628,3 +628,23 @@ P2 放行门槛仍未满足：A02 现有确认式文本版本证据，A03 仅候
 | 非媒体约束 | PASS | 本 canvas 的 `aigc_short_drama_canvas_run` 仍为 `0`；事件 intent 固定 `tools=[]`、`media_generation=false`、`graph_mutation=false` |
 
 该真实样本只验证一次纯文本、成功结算和账本关联，不扩大为图片视觉质量、多格式素材解析、取消/退款、未知 Provider 用量、外部语义审核或生产迁移/部署的验收。这些项目仍保持各自的 NOT_RUN/BLOCKED 状态。
+
+## 29. P2 真实图片理解、附件存储修复与 Worker 重启验收（2026-09-22）
+
+用户授权仅在本地 tenant 1 使用画布素材与无敏感测试文件，每次真实调用不超过 2000 积分；本节没有远程生产操作、部署或生产迁移。
+
+首次真实图片调用使用本地上传的仓库静态测试图片，Provider 返回 `InternalError.Algo.InvalidParameter`。账本 `1092` 明确为 `failed/refunded`、实际用户及租户费用均为 `0`；运行 `18` 因当时的上游失败保留为 `needs_reconciliation`，没有把它标作成功或再次自动提交。定位后发现旧 PC 上传响应可携带空 storage 字段，使短剧 asset 的空值覆盖 `tenant_file` 中已验证的对象存储元数据，Provider 因而收到了不支持的数据 URL。
+
+修复提交 `8d1aa5f2e` 与 `b45f64c8c`：资产登记对空 storage 字段回退到受控上传记录；执行前在冻结身份严格校验不变的前提下，仅对同 tenant/user 的 `tenant_file` 恢复缺失的存储元数据。真实 FPM 禁用源码时间戳检查，因此在本机平滑 reload PHP-FPM 后，确认无活动 Agent run 时 TERM 常驻 Worker；supervisor 将 Worker 从 PID `1256124` 重启为 `1256848`。隔离 internal Docker 的 `p2_attachments.php` 和 `p2_worker.php` 复测均 PASS（附件授权/撤销、冻结、无 URI 投影、执行前复核、无媒体副作用与 Worker 有界行为）。
+
+第二次使用同一无敏感图片、独立新会话及默认视觉推理模型 `qwen3.6-plus`，真实结果如下：
+
+| 检查项 | 结果 | 真实证据 |
+| --- | --- | --- |
+| 已授权图片附件与视觉响应 | PASS | run `19` 完成；右侧面板显示图片内容、配色和构图的实际分析回复；附件公开投影只有名称与 asset ID，不显示 URI |
+| 输入/输出审核 | PASS（默认策略范围） | 最新安全审计 `9` 为 `passed`；输入和输出均经过短剧应用专属审核边界。外部语义审核 Provider 仍未配置，不能扩大为语义审核通过 |
+| Provider/唯一账本结算 | PASS | `ai_app_task` `1071` 关联 run `19`，`ai_consumption_log` `1093` 为 `power_market` / `qwen3.6-plus` / `success` / `settled`；实际用户与租户费用均为 `2.0034` 积分，低于单次 2000 上限 |
+| 不生成媒体或改写画布 | PASS | 事件依序 `run.queued → run.running → run.submitting → run.succeeded`，canvas 17 的媒体 run 数仍为 `0` |
+| 常驻 Worker | PASS（本机） | 重启后 Supervisor 重新拉起 tenant 1 Worker，真实图片 run 由新 PID 处理并成功结算 |
+
+本节使真实文本/图片 Provider、实际账本、默认审核边界、图片附件授权与本机 Worker 路径具备行为证据。仍未完成：PDF/Word、视频和音频的内容提取/理解；外部语义审核 Provider；已提交上游请求的真实取消、未知用量查询与退款对账；生产调度/部署。它们继续是 P2 的未放行项，不能被本次图片成功替代。
