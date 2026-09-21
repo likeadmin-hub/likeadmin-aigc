@@ -60,7 +60,29 @@ docker run --rm --network short-drama-agent-test -v /Users/panda/Documents/docke
 
 并发测试同时启动 10 个独立 PHP 进程/连接，经就绪屏障一起提交同 key；另用两个不同 key 竞争相同版本。该测试不能放在一个总事务内，finally 只删除本次创建的确切 canvas ID 和对应租户/用户回执，不影响其他测试画布；测试 fixture 行为会推进自增序号。若进程异常终止，先核对 fixture title/ownership，再单独清理，不要清空整库。连续 5 轮复测退出 0。
 
-完整验收缺口与提交版本见 `../../docs/canvas-agent-p0-audit.md`。浏览器、HTTP 路由/租户解析、故障注入、Provider Adapter、文件转存和 P1 集成仍需补测。未进行真实付费测试。
+以上为初始切片的历史运行结果；最新结果及剩余边界见下节和 `../../docs/canvas-agent-p0-audit.md` 第 9 节。未进行真实付费测试。
+
+## 当前完整回归
+
+在 server 本地 develop（最新 feature 已合入）执行，任一脚本失败即停止：
+
+```sh
+for test_file in p0_baseline p0_generation p0_controller p0_http p1_graph p1_graph_wire p1_graph_operations p1_concurrency p1_poster_save p1_save_cas p1_read_recovery p1_revision_integration; do
+  docker run --rm --network short-drama-agent-test -v /Users/panda/Documents/docker-dir/bt/wwwroot/likeadmin-aigc/server:/app:ro -v /dev/null:/app/.env:ro --tmpfs /app/runtime short-drama-agent-test-php:local app/apps/aigc_short_drama/tests/agent/${test_file}.php || exit
+done
+```
+
+当前分别 10/16/15/6/19/18/11/10/4/5/10/12 PASS，共 136 断言，exit 0。`p0_http.php` 在容器内部 127.0.0.1:19080 启动真实 HTTP 内核；合成租户/用户为 94001/95001，finally 删除本次确切 fixture。HTTP allowlist 禁止所有生成路由，不暴露宿主机端口。并发脚本同样按确切 fixture 清理，其余主要脚本事务回滚。不要并行执行这些共享 ID 的脚本。
+
+版本集成测试只依赖隔离库已存在的草案 schema；代码不会自动迁移业务库。未迁移 schema 保留内容 token 路径；已版本化文档拒绝缺少 revision 的旧保存。Graph patch 暂未注册 HTTP API。测试末尾 NOT_RUN 是各脚本自己的未覆盖边界，整个阶段以审计报告为准。
+
+前端在 web 本地 develop 执行（已有 localhost:3000 PC 开发服务）：
+
+```sh
+CANVAS_TEST_BROWSER_CHANNEL=chrome NODE_PATH=/Users/panda/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules /Users/panda/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node pc/tests/short-drama-canvas-conflict-browser.cjs
+```
+
+8 PASS，使用独立临时 headless Chrome context，不访问用户 profile；浏览器 API 全部合成拦截，验证 UI 行为而非真实后端生成。无外部请求、无付费调用。完整浏览器到真实数据库的四节点生成、Provider Adapter、文件转存及故障恢复尚未通过验收。
 
 ## 保留与清理
 
