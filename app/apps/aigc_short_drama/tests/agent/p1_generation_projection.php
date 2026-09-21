@@ -14,7 +14,7 @@ Db::startTrans();
 try {
     foreach (['text','image','video','audio'] as $type) {
         $id=Canvas::create(91001,92001,['title'=>'P1 '.$type.' projection'])['id'];
-        Canvas::save(91001,92001,['id'=>$id,'nodes'=>[['id'=>1,'type'=>$type,'x'=>10,'y'=>20,'metadata'=>['prompt'=>'original']]]]);
+        Canvas::save(91001,92001,['id'=>$id,'nodes'=>[['id'=>1,'type'=>$type,'x'=>10,'y'=>20,'metadata'=>['prompt'=>'original','richContent'=>'<p>Old result</p>']]]]);
         $a=Intent::reserve(91001,92001,$id,'a','1',$type,['prompt'=>'A']);$a=Intent::claim(91001,92001,(int)$a['id']);
         $b=Intent::reserve(91001,92001,$id,'b','1',$type,['prompt'=>'B']);$b=Intent::claim(91001,92001,(int)$b['id']);
         finishFixture($b,$type,'B');
@@ -24,6 +24,7 @@ try {
         $current=Canvas::current(91001,92001,$id);
         $field=$type==='text'?'content':'url';$expected=$type==='text'?'Result B':'uploads/fixture/B';
         agentCheck($current['nodes'][0]['x']===999 && $current['nodes'][0]['metadata'][$field]===$expected,$type.' background result preserves concurrent movement');
+        if ($type==='text') agentCheck($current['nodes'][0]['metadata']['richContent']==='','text generation removes obsolete rich-text preview');
         $revision=$current['graph_revision'];
         agentCheck(!Intent::projectResult(91001,92001,(int)$b['canvas_run_id']) && Canvas::current(91001,92001,$id)['graph_revision']===$revision,$type.' duplicate projection does not change graph revision');
         finishFixture($a,$type,'A');
