@@ -652,8 +652,17 @@ class ShortDramaCanvasService
     private static function normalizeEdges(array $edges, array $nodes): array { $ids = array_flip(array_map(static fn($node) => (string)$node['id'], $nodes)); return array_values(array_filter($edges, static fn($edge) => is_array($edge) && isset($ids[(string)($edge['from'] ?? '')], $ids[(string)($edge['to'] ?? '')]) && (string)$edge['from'] !== (string)$edge['to'])); }
     private static function decode(string $json): array { $decoded = json_decode($json, true); return is_array($decoded) ? $decoded : []; }
     private static function normalizeStatus(string $status): string { return in_array($status, ['success', 'failed', 'canceled'], true) ? $status : 'running'; }
-    private static function formatDocument(array $row, bool $includeRuns = false): array
+    private static function formatDocument(array $row, bool $includeRuns = false, bool $locked = false): array
     {
+        if ($includeRuns && !$locked) {
+            // This legacy read path can recover nodes from run history. Re-read
+            // under the same document lock as save/projectors before merging;
+            // the caller's earlier row may already be stale.
+            return Db::transaction(function () use ($row): array {
+                $current = self::ownedDocument((int)$row['tenant_id'], (int)$row['user_id'], (int)$row['id'], true);
+                return self::formatDocument($current, true, true);
+            });
+        }
         $nodes = self::decode((string)$row['nodes_json']);
         $createTime = (int)($row['create_time'] ?? 0);
         $data = [
