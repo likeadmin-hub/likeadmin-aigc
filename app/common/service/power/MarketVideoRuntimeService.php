@@ -1405,7 +1405,9 @@ class MarketVideoRuntimeService
     private static function assets(array $request): array
     {
         $assets = AigcVideoReferenceAssetService::normalize($request); $result = ['image' => [], 'video' => [], 'audio' => []];
-        foreach ($assets as $asset) { $type = (string)($asset['type'] ?? ''); if (!isset($result[$type])) continue; $raw = trim((string)($asset['url'] ?? $asset['uri'] ?? '')); $url = str_starts_with($raw, 'asset://') ? $raw : AigcVideoReferenceAssetService::publicUrl($asset); if ($url !== '' && !in_array($url, $result[$type], true)) $result[$type][] = $url; }
+        // normalize already deduplicates by media identity AND semantic role.
+        // URL-only dedup here would collapse identical first/last frame slots.
+        foreach ($assets as $asset) { $type = (string)($asset['type'] ?? ''); if (!isset($result[$type])) continue; $raw = trim((string)($asset['url'] ?? $asset['uri'] ?? '')); $url = str_starts_with($raw, 'asset://') ? $raw : AigcVideoReferenceAssetService::publicUrl($asset); if ($url !== '') $result[$type][] = $url; }
         return $result;
     }
 
