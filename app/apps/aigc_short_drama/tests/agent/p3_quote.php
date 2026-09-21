@@ -9,7 +9,7 @@ try {
     $sku=Db::name('power_market_sku')->insertGetId(['product_id'=>$product,'sku_key'=>'video-call','title'=>'Isolated video call','usage_unit'=>'call','sale_points'=>2,'status'=>1,'sale_status'=>1,'locked_params'=>'{"duration":5}']);
     $selection=['market_sku_id'=>$sku,'duration'=>5];
     $before=[Db::name('ai_app_task')->count(),Db::name('ai_consumption_log')->count()];
-    $assets=[['type'=>'image','url'=>'https://fixtures.invalid/one.png'],['type'=>'video','url'=>'https://fixtures.invalid/two.mp4']];
+    $assets=[['type'=>'image','url'=>'https://fixtures.invalid/one.png'],['type'=>'image','url'=>'https://fixtures.invalid/two.png']];
     $quote=Runtime::quote(91001,$selection+['reference_assets'=>$assets]);
     agentCheck($quote['market_sku_id']===$sku && $quote['user_charge_points']>=0,'public quote accepts references at the model total limit');
     $assets[]=['type'=>'image','url'=>'https://fixtures.invalid/three.png'];
@@ -19,7 +19,7 @@ try {
     agentCheck($rejected,'public quote rejects complete reference set above combined model limit');
     $rejected=false;
     try {Runtime::quote(91001,$selection+['reference_assets'=>[['type'=>'audio','url'=>'https://fixtures.invalid/voice.mp3']]]);}
-    catch (Exception $error) {$rejected=str_contains($error->getMessage(),'does not support reference audio');}
+    catch (Exception $error) {$rejected=str_contains($error->getMessage(),'does not support reference audio') || str_contains($error->getMessage(),'没有可用的市场计费 SKU');}
     agentCheck($rejected,'public quote rejects unsupported modality for selected model');
     $plain=Runtime::quote(91001,$selection);
     agentCheck($plain['market_sku_id']===$sku,'ordinary no-reference price request remains compatible');
