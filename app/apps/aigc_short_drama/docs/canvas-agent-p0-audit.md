@@ -155,6 +155,8 @@ P1 仍未放行：G01/G03 只在独立 GraphService 边界有行为证据；G08 
 
 本轮业务改变仅容量超限拒绝；没有修改计费服务、现有短剧故事/剧集服务、素材存储、前端代理、业务库 schema、真实 Worker 或供应商配置。后续重点是统一图写入与缓存冲突，不能仅接一个 patch API 就宣布 P1 完成。
 
+> 以上各节为当时的历史检查结果；以下最新记录覆盖其中已经补测或修复的缺口，不代表 P1 整体放行。
+
 ## 8. 保存与封面写回保护（部分 G11）
 
 server `2880d3825`；web 未改。普通 save 在事务内先锁定所属画布，再读取、合并、保存，与既有视频/封面投影使用同一行锁。对于同一视频，服务端已有的持久封面优先于旧浏览器快照中的非空旧封面；不同视频不合并旧封面。没有增加 API、字段或迁移，没有启动真实 Worker。
@@ -162,3 +164,46 @@ server `2880d3825`；web 未改。普通 save 在事务内先锁定所属画布�
 在本地 develop 执行 `p1_poster_save.php`：4 PASS，exit 0，验证位置修改保留、同视频旧封面不可覆盖、新视频不继承封面、已有封面不重复排队。重新执行 p0_baseline.php / p0_controller.php / p0_generation.php：10 / 15 / 13 PASS，exit 0；原整图过期覆盖继续明确输出 KNOWN_GAP。
 
 新增测试使用合成 URL 和数据库回滚，不进行文件请求。运行方法沿用 tests/agent/README.md 的 docker run 参数，将脚本名换为 `p1_poster_save.php`。这里只验证陈旧快照的合并行为，不把行锁代码视为“真实封面 Worker 并发测试已通过”。G11 整体验收仍待独立进程/真实写入路径测试，版本号、GET 恢复写入、前端缓存和生成恢复仍待统一。P1 不放行，P2—P6 未启动。
+
+## 9. 连续实施：冲突恢复、真实 HTTP 与统一图版本
+
+代码基线：server `656526bf8`（包含 `bf343ff87` 统一写入、`57a7b1f56` 图操作、`8329cf0cf` 容量恢复、`d20d467fe` wire 校验）；web `065ffd1`（包含 `23118ea` 浏览器覆盖、`146fe94` 容量提示及 `68e3ad2` 生成保护）。均先提交 feature，再合入本地 develop 执行测试，没有推送 develop，没有迁移业务库。
+
+### 9.1 已实现的边界
+
+- 现有 save 支持可选 `expected_document_token`，对未迁移库也能检测整图变化。新 PC 保存携带读取到的 token；冲突时暂停自动重试、保留后续本地编辑、允许导出草稿和明确重新读取云端。旧缓存时间戳再大也不自动整图上传。加载后的 watcher 在允许保存前排空，避免页面初始化自动覆盖。
+- 已有 `graph_revision` 列时，save、patch、GET 历史补节点、视频结果、封面成功/失败写回均通过 `GraphService::persistLockedDocument` 推进版本；调用者保留所属画布行锁。新 PC 携带返回的 `expected_revision`。首次版本化保存/patch 将该文档标为 schema v2，此后缺少 revision 的旧保存明确拒绝。没有新列的业务库继续 token 兼容路径，不自动 ALTER。
+- Graph patch 对版本字段兼容当前 Request 的数字字符串，只接受规范无符号整数；服务端在锁内分配不复用墓碑的安全整数节点 ID。新增 set_group（沿用现有 `agentGroupId`）、精确 remove_edge、语义重复边拒绝；同素材首帧和尾帧用途不会误合并。patch 尚未公开为 API，能力矩阵检查尚未完成。
+- GET 恢复在锁内重新读最新节点和墓碑，不覆盖并发编辑；数字墓碑兼容字符串比较；200 节点时保留历史并返回 `recovery_pending_node_ids`，PC 明确提示。不会补出第 201 节点，也不会截掉原节点。
+- 提交前拒绝不存在/类型已变的节点，不建 run 或调用下游。PC 任意节点保存失败后不继续生成；轮询返回后再次确认节点对象及当前 run，旧 run 或已删除对象不写当前画布。尚不等于服务端提交幂等或完整 generation fencing。
+
+### 9.2 本轮实际结果
+
+以下 12 个脚本在相同隔离环境串行完整执行，exit 0，共 **136 条断言**（不是 136 条阶段用例）：
+
+| 脚本 | PASS | 证据边界 |
+|---|---:|---|
+| p0_baseline.php | 10 | 四节点数据库往返/归属/容量；仍输出未版本化旧客户端覆盖 KNOWN_GAP |
+| p0_generation.php | 16 | 四类模拟生成、真实账本；非法节点不产生 run/费用 |
+| p0_controller.php | 15 | 实际中间件/控制器，进程内 |
+| p0_http.php | 6 | 测试容器内真实 PHP HTTP 内核、路由、租户解析、登录和应用中间件；只有读/建/存/列表路由，禁止生成 |
+| p1_graph.php | 19 | patch CAS/回执/权限/字段保护/原子容量错误 |
+| p1_graph_wire.php | 18 | 数字字符串版本、分配 ID、非法 wire 不写图或回执 |
+| p1_graph_operations.php | 11 | 分组、旧边/位置兼容、不同用途引用、精确删线与版本冲突 |
+| p1_concurrency.php | 10 | 10 个独立进程重复 key；同版本不同 key；实际 save 与封面投影竞争 |
+| p1_poster_save.php | 4 | 同视频保留持久封面，不同视频不继承 |
+| p1_save_cas.php | 5 | 实际 save 的内容 token 冲突 |
+| p1_read_recovery.php | 10 | 锁内恢复、墓碑、容量、历史保留和延后恢复 |
+| p1_revision_integration.php | 12 | 普通保存/patch/视频/封面/恢复共用 revision，版本化文档拒绝旧客户端 |
+
+四类模拟下游接收仍为 4 次，租户/用户消费记录各 4 条，任务 4 条、媒体资产 3 条；没有真正供应商调用。并发 save/封面测试另连续 3 轮通过；只调用真实投影方法，不运行视频下载/FFmpeg。
+
+前端 30 项纯逻辑/源码契约检查通过；Vue script/template 编译通过。独立临时 Chrome 的浏览器冲突测试增加为 8 项，覆盖草稿归档、未来时间戳、冲突停存、后续草稿导出、明确重读、容量提示与无未捕获异常。所有 API 在浏览器测试中被合成响应拦截，禁止外站/未知写请求；**不能与真实 HTTP 测试拼称浏览器到数据库生成 E2E 已通过**。
+
+本轮失败记录：浏览器运行器最初没有 bundled Chromium，改用已有 Chrome 的隔离 profile；夹具曾误拦截 Nuxt API 模块路径，已缩小匹配；浏览器发现初始化 watcher 误触发保存，修复后通过。HTTP router 最初 SCRIPT_FILENAME 导致 ThinkPHP 误选 app，修复 fixture 的 public/index.php 身份后通过。版本集成 fixture 最初用了不被 managed URI 规则接受的 `fixture/` 路径，改为合成 `uploads/fixture/` 后投影断言通过，未放宽产品规则。
+
+### 9.3 仍未放行的项目
+
+P1 **否**；P2—P6 **NOT_RUN**。普通保存/后台 JSON 写入已共用持久化版本边界，但这不是完整 Graph DTO/权限闭环：普通保存仍需服务端元数据保护、内容/布局版本治理；生产可重复迁移及安装/升级一致性未完成；生成请求 key/hash、提交快照、outbox、恢复对账未实现。G06/G07 仅有部分投影/前端迟到结果证据，不是四类 Provider 完整乱序/删除回调验证。G12 完整手工浏览器生成与开关回归未完成。不得启用 Agent 后台图写入。
+
+原业务库缺少音乐表的风险仍在；真实模型协议、物理文件转存、真实付费小样本、生产迁移与部署均未执行。没有修改原 Worker、PC 本地代理、用户 canvas 11 或既有 Story/Episode 生成服务。
