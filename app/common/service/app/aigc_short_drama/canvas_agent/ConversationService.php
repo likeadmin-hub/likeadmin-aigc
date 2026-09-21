@@ -20,7 +20,10 @@ final class ConversationService
             $settings=ConversationSettings::resolve($tenant,$preferences);
             $skill=[];
             if ($skillId>0) {
-                try { $skill=ShortDramaSkillService::resolveForTask($tenant,['skill_id'=>$skillId,'skill_version'=>$skillVersion,'skill_source'=>'manual']); }
+                try {
+                    $skill=ShortDramaSkillService::resolveForTask($tenant,['skill_id'=>$skillId,'skill_version'=>$skillVersion,'skill_source'=>'manual']);
+                    ConversationSkillPolicy::assertSafe($skill);
+                }
                 catch (\Throwable $error) {throw new RuntimeException('SKILL_UNAVAILABLE',0,$error);}
             }
             return ['settings'=>$settings,'skill'=>$skill];
