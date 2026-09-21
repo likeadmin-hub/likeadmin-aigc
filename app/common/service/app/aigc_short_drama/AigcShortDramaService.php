@@ -2022,6 +2022,17 @@ class AigcShortDramaService
         AigcShortDramaStyle::insertAll($seedRows);
     }
 
+    /** Read the same model directory as the canvas without loading user projects/assets. */
+    public static function canvasModelGroups(int $tenantId): array
+    {
+        $config = self::publicConfig($tenantId);
+        if ((int)($config['status'] ?? 1) !== 1) return [];
+        return self::sanitizeUtf8Payload(array_merge(
+            self::userScriptModelGroups((array)($config['model_groups'] ?? []), (array)($config['models'] ?? [])),
+            self::userCreationModelGroups((array)($config['model_groups'] ?? []), (array)($config['models'] ?? []))
+        ));
+    }
+
     public static function home(int $tenantId, int $userId): array
     {
         $config = self::publicConfig($tenantId);
