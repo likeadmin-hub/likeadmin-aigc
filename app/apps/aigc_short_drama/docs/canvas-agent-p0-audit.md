@@ -789,3 +789,16 @@ P3 M03/M04/M05/M06 的归一化层有行为证据，但模型能力、总限额�
 本地 develop 已集成后执行：公开 quote/reserve **13 PASS / 0 FAIL**；参考归一化与实际市场校验器 **8 PASS / 0 FAIL**。本次是实际服务与数据库行为证据，不是静态检查，但不等同 HTTP/UI、Provider submit 或完整 settle/refund 生命周期通过。M02/M03 的服务端提交前校验已补证，M01 的前后端共享 16 组合及其余未覆盖条目仍继续，**P3 未整体放行，P4—P6 NOT_RUN**。仅测试/证据源码变化，无 web 变化、业务迁移、付费调用、部署或推送。
 
 相关运行维护另见 `worker-unbound-result-regression.md`：结果任务 3268 的已退款无绑定目标无限轮询已修复并由真实本地 Worker 正常收尾；不将原始失败生成误记为成功，也不据此替代 P3 门槛。
+
+## 37. P3 下游市场运行时首尾帧槽位二次去重修复（2026-09-22）
+
+核对 M01 的后端映射时发现：GraphService::add_edge 当前只校验结构/端点/角色身份，不读取模型目录；因此不能把其接受连线视为前后端能力矩阵一致，M01 仍未通过。继续追踪市场参考校验又发现 M05 已修归一化之后，MarketVideoRuntimeService::assets 仍按 URL 二次去重，同图 first_frame_image/last_frame_image 因此合成一个槽位。
+
+- 测试 `898388439` 在本地 develop 的隔离环境稳定复现 FAIL：市场投影图片数为 1 而非 2；没有改断言掩盖失败。
+- 修复 `e38b3fbcf`：共享市场投影复用归一化后的去重结果，不再次按 URL 合并不同语义角色；同用途重复仍由归一化层去重。不硬编码素材 ID、租户或模型例外。
+- PASS：`p3_reference_assets.php` 12 项，包括同图双槽位、同用途去重、支持首尾帧的选定模型接受双槽位、单帧模式明确拒绝双槽位。
+- PASS：`p3_quote.php` 13 项，公开报价/预占、拒绝零副作用和预占幂等保持通过。
+- PASS：ShortDramaVideoReferenceContractTest 与 MarketVideoModelPayloadContractTest 合计 36 tests / 125 assertions；包括行为和源码合同，不计为 Provider 端到端。
+- 环境：只读 server/web 源码挂载，真实 .env 遮盖，internal 网络，runtime/uploads 临时文件系统；没有付费请求、业务写入、迁移、推送或部署。已有 PHPUnit 全目录加载的 ReflectionMethod 警告仍存在，不影响上述测试结果。
+
+本轮仅 server 修改；无 API/schema/UI 变化。未重载常驻 FPM/Worker，不能宣称常驻进程已加载此修复。M05 当前证明归一化、市场投影及校验器，尚不代替最终 Provider 请求和 UI 流程；M01 共享 16 组合、M06 最终请求/报价快照等未覆盖项继续，P3 未整体放行。
