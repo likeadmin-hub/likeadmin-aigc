@@ -125,6 +125,17 @@ final class GenerationIntentService
         });
     }
 
+    public static function rejected(int $tenant, int $user, int $id, string $token, int $fence, \app\common\service\ai\PreSubmissionRejected $error): void
+    {
+        Db::transaction(function () use ($tenant,$user,$id,$token,$fence,$error): void {
+            $row=self::owned($tenant,$user,$id);
+            self::assertClaim($row,$token,$fence);
+            self::transition($row,['state'=>'failed','error_code'=>'PRE_SUBMISSION_REJECTED','lease_until'=>0],[
+                'status'=>'failed','progress'=>0,'error'=>mb_substr($error->getMessage(),0,500),
+            ]);
+        });
+    }
+
     public static function unknown(int $tenant, int $user, int $id, string $token, int $fence): void
     {
         Db::transaction(function () use ($tenant,$user,$id,$token,$fence): void {

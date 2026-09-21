@@ -334,7 +334,14 @@ class MarketVideoRuntimeService
             throw new Exception('按应用售价结算暂不支持按实际用量计费的视频 SKU');
         }
         if (!$deferredUsage) {
-            PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$quote['tenant_cost_points'], (float)$quote['user_charge_points']);
+            try {
+                PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$quote['tenant_cost_points'], (float)$quote['user_charge_points']);
+            } catch (\RuntimeException $error) {
+                // This read-only check precedes the reservation transaction and
+                // Provider I/O. Callers can safely distinguish it from a lost
+                // response after a paid submission. Do not classify later errors.
+                throw new \app\common\service\ai\PreSubmissionRejected($error->getMessage(), 0, $error);
+            }
         }
         return Db::transaction(function () use ($tenantId, $userId, $appCode, $action, $businessTable, $businessTaskId, $request, $market, $quantity, $quote, $deferredUsage, $billingOverride, $idempotencyKey) {
             $existing = self::existingReservation($tenantId, $idempotencyKey, true);
