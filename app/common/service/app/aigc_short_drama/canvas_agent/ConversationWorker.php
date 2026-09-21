@@ -14,9 +14,8 @@ final class ConversationWorker
         $claim=ConversationExecution::claim($tenant,$user,$run);
         if (!$claim) return 'not_claimed';
         try {
-            $context=$claim['context'];$messages=$context['messages']??null;
-            if (!is_array($messages) || !$messages || !array_is_list($messages)) throw new RuntimeException('INVALID_CONTEXT');
-            foreach ($messages as $message) if (!in_array($message['role']??'', ['user','assistant'],true) || !is_string($message['content']??null)) throw new RuntimeException('INVALID_CONTEXT');
+            $context=$claim['context'];
+            $messages=ConversationTextContext::messages($context);
             $request=[
                 'app_code'=>'aigc_short_drama','action_code'=>'canvas_agent_chat','run_id'=>$run,
                 'business_table'=>ConversationStore::PREFIX.'run','business_id'=>$run,
