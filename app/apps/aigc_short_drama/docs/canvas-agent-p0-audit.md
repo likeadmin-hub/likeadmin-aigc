@@ -1,5 +1,30 @@
 # 短剧画布 Agent P0 核对报告
 
+## 最新：确认式文本写回、图片理解与本地真实验收
+
+2026-09-21，用户明确要求实时同步本地真实数据并做真实测试，确认采用“展示回复→点击写回原节点”的流程，并单独批准仅向本地 x_cn 新增偏好表。分支仍为 `feature/short-drama-optimization`。server 实现 `58b1ff47e`、`6023d2f1e`、`b6c724596`、`30322bb35`，测试 `68d973565`；web `f8db625`。每个提交均已先合入各自本地 develop；没有推送 develop、远程部署或发布。
+
+已实现：PC 发送前保存画布并传实际选中节点 ID；发送重试保留同一负载。消息返回已授权的冻结原文/版本，使用文本插值展示。点击“写回原文本节点”走现有 canvas/patch 的新增 apply_agent_text 操作：只读取本用户、本画布成功 run 的真实 assistant 回复，核对原节点内容/提示词/版本，去掉旧 richContent、推进版本，保留布局；Graph receipt 保证重复请求不再写一版。原内容保留在 run 快照并可在对话展开查看。没有新增 API 路由或新增业务表；默认模型偏好表是此前既有增量 DDL，本次获准后只执行了该表的 CREATE IF NOT EXISTS，读取返回空偏好/revision 0，不擅自改用户默认模型。
+
+图像理解：只解析当前用户、当前画布的短剧图片资产；执行前复核未删除及冻结 URI/存储元数据。真实模型必须通过 requiresVision 校验。受管本地图片需额外证明来自该用户 tenant_file 上传记录或其生成任务 output_asset_ids；只读 public/uploads 下真实路径，限制图片数 4、单图 8 MiB 和 PNG/JPEG/WebP MIME，以 data URI 发送给真实模型；不让供应商读取 localhost、不获取任意浏览器路径。远程图沿用存储服务 URL。未配置视觉的推理模型拒绝，不自动替换模型。附件上传、多图复杂比较质量和视频/音频理解仍未验收，不能把此次单图验收扩大为完整多模态能力。
+
+真实证据（均 tenant 1 / user 1，本轮新建验收数据，没有改原画布 13）：
+
+| 项目 | 结果与真实数据 |
+| --- | --- |
+| 文本推理 | canvas 14 / thread 5 / run 8、9，Qwen3.6-Plus，两次 success，app_task 1059/1060，实际消费 2.139200 / 2.608200 积分 |
+| 版本保护与确认写回 | 第一次 run 8 引用 v1，页面初始化补模型配置后成为 v2，真实按钮返回冲突，未覆盖；基于 v2 的 run 9 再次成功后，在真实浏览器点击确认，节点显示改写文本、content_revision=3，原文仍在对话可展开查看。PASS |
+| 图像理解 | canvas 15 / thread 6 / run 10，真实 Qwen3.6-Plus 正确回答图片英文 Admin、白色文字、蓝色背景；app_task 1061，实际消费 0.485800 积分。输入是项目自带公开 Logo 的验收副本，不是私有素材。真实回复在浏览器可见。PASS |
+| 账本 | 上述三笔 consumption 均 run_status=success、billing_status=settled，总用户消费 5.233200 积分；两个验收画布媒体生成 run 数为 0。PASS |
+| 本地文件来源保护 | 初次公开测试文件仅注册短剧资产，新增保护后拒绝；为真实验收副本补登记用户上传文件元数据（tenant_file 495）后，实际本地 PNG 转为 6650 字节 data URI、图片数 1。未为此再次付费调用。PASS |
+| Worker | 确认 active_outbox=0 后由 Supervisor 优雅重启；首次更新 PID 1189327，收尾再次重启以加载来源保护。启动后 RUNNING。没有中断执行中的任务；完整容器重启 NOT_RUN |
+
+回归：隔离 p2_worker 最新 90 PASS；p1_graph 19、p1_manual_authority 10、p2_conversation 57、p2_http 47 PASS；前端 state/reader 18 PASS、现有 Agent 隔离浏览器 8 PASS；均 exit 0。后四后端脚本及前端浏览器在最后本地文件来源小修前执行，不伪称最终提交全量重跑；最后实际本地文件解析和 p2_worker 在最终实现上通过。根据回归保护技能覆盖图写入、权限、幂等、普通对话与既有节点字段。未运行完整构建/全部 P0—P6。
+
+失败记录：图片测试夹具最初把远程 URI 标为 local，被存储服务重写而断言失败，纠正为 oss 后通过；真实初始化图片节点误用 Graph add_node 的受限 metadata.image，正确拒绝且图事务回滚，随后沿用现有手工 Canvas save 入口建立图片节点，没有放宽 Graph 白名单。文件来源复查发现 tenant_file 活跃记录使用 delete_time=NULL，已兼容 NULL/0 并实际复测，不把有效上传当已删除。测试资产/画布/账本和公开 Logo 副本保留供用户查看，未静默清理真实记录。
+
+剩余：A02 取得真实确认写回与原文追踪证据；A01 取得真实单图视觉能力证据，但双图比较仍 NOT_RUN。完整审核策略仍 BLOCKED；规划/工具执行、预算等 P2 原缺项不因本次通过而放行。SSE 仍推送完整持久回复，逐 token 同步输出未实现。P2 未全部完成，P3—P6 未放行。
+
 ## 最新增量：P2 冻结文本引用进入模型消息
 
 本段为最新状态，下面各节保留历史证据。server `f721185f6` / `5929a4463`，分支 `feature/short-drama-optimization`，web 无改动；无 API、数据库迁移、权限或计费契约变更。
