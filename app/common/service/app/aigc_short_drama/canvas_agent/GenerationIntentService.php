@@ -80,6 +80,10 @@ final class GenerationIntentService
                 self::transition($row,['state'=>'canceled','error_code'=>'NODE_REMOVED_BEFORE_SUBMIT'],['status'=>'canceled','error'=>'节点已删除，未提交生成']);
                 return null;
             }
+            if ((int)($target['metadata']['active_generation_id']??0)!==(int)$row['canvas_run_id']) {
+                self::transition($row,['state'=>'canceled','error_code'=>'GENERATION_SUPERSEDED_BEFORE_SUBMIT'],['status'=>'canceled','error'=>'已有更新的生成请求，旧请求未提交']);
+                return null;
+            }
             $snapshot=json_decode($row['snapshot_json'],true,512,JSON_THROW_ON_ERROR);
             if (!isset($snapshot['target_signature']) || !hash_equals($snapshot['target_signature'],self::nodeInputSignature($target))) {
                 self::transition($row,['state'=>'canceled','error_code'=>'INPUT_CHANGED_BEFORE_SUBMIT'],['status'=>'canceled','error'=>'节点输入已变化，请确认新参数后重新提交']);
