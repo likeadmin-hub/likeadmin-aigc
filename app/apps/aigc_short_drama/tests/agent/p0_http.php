@@ -73,7 +73,8 @@ try {
     $inserted[]=['aigc_short_drama_config',$configId];
     $patched=fixtureHttp('patch','POST',$patch);
     if ($patched['code']!==1) echo 'SYNTHETIC_PATCH_FAILURE ',json_encode($patched),PHP_EOL;
-    agentCheck($patched['code']===1 && $patched['data']['graph_revision']===2 && $patched['data']['nodes'][0]['x']===777,'explicit isolated opt-in permits authenticated graph patch');
+    // Existing ThinkPHP numeric-string geometry contract is preserved.
+    agentCheck($patched['code']===1 && $patched['data']['graph_revision']===2 && $patched['data']['nodes'][0]['x']==='777','explicit isolated opt-in permits authenticated graph patch');
     $stable=true;
     for ($i=0;$i<10;$i++) $stable=$stable && fixtureHttp('patch','POST',$patch)['data']===$patched['data'];
     agentCheck($stable && Db::name('aigc_short_drama_canvas_mutation_receipt')->where('canvas_id',$id)->count()===1,'ten real HTTP patch retries return one stable receipt');
