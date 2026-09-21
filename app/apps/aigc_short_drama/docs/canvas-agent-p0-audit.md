@@ -550,3 +550,5 @@ P2 继续**未放行**：A01—A03 图像理解/歧义候选、A02 可追踪文�
 隔离验证：`p2_migrations.php` 49 PASS / 0 FAIL，验证新装、完整安装、应用增量和系统增量的列/索引一致及审计去重；`p2_safety.php` 10 PASS / 0 FAIL，覆盖输入无 run/outbox、输出不发布、摘要脱敏、跨租户隔离和 30 天清理；`p2_send.php` 27 PASS / 0 FAIL，确认策略加入后既有模型/Skill 快照和幂等重放未回退；`p2_worker.php` 99 PASS / 0 FAIL，确认 Worker 不创建媒体任务且既有冻结上下文保持。
 
 本轮没有实际调用付费模型、没有执行本地业务库迁移、没有部署或发布。输出审核在真实语义 Provider 上的质量与最终计费对账仍 NOT_RUN；附件上传/撤销/授权语义也仍未验收。因此 P2 仍未放行到 P3，下一项应先补齐附件语义并在已授权环境验证。
+
+补充回归与本地验证：上述功能提交合入本地 `develop` 后，13 个 P2 隔离套件完整串行运行 **665 PASS / 0 FAIL**（migration、conversation、concurrency、execution、settings、send、HTTP、safety、worker、queue crash、stop、stop race、recovery）。用户已授权的本地 `x_cn` 仅应用该条 `CREATE TABLE IF NOT EXISTS` 审计表增量，确认创建 17 列；应用前 outbox 只有历史 `done/canceled`，没有 pending/processing/submitting 项，随后以 TERM 平滑重启常驻 Worker 并确认新 PID。租户 1 读取到 `enabled=true`、`execution_enabled=true`、输入/输出审核、直接拒绝、30 天、无人工复核。未运行真实 Provider、没有写入真实对话/审计数据、没有扣费、生产迁移、部署或发布。
