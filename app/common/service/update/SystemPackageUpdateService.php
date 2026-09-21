@@ -19,6 +19,8 @@ class SystemPackageUpdateService
 {
     private const UPDATE_EXECUTION_TIMEOUT = 600;
     private const STEP_UPDATE_BRIDGE_VERSION = '1.0.116';
+    private const CONFIG_TYPE = 'update_service';
+    private const AUTO_UPDATE_ENABLED_CONFIG = 'auto_update_enabled';
     private const FULL_REPLACE_ALLOWED_DIRS = [
         'public/admin',
         'public/platform',
@@ -73,7 +75,7 @@ class SystemPackageUpdateService
     public function overview(): array
     {
         $current = UpdateSourceClient::currentCoreVersion();
-        $ignored = (string)ConfigService::get('update_service', 'ignored_version', '');
+        $ignored = (string)ConfigService::get(self::CONFIG_TYPE, 'ignored_version', '');
         $environment = PackageExtractService::environment(UpgradeLogic::getProjectPath());
         $versions = [];
         $latest = [];
@@ -97,11 +99,30 @@ class SystemPackageUpdateService
             'current_version_log' => $this->versionRecord($versions, $current),
             'worker' => $this->workerGuide(),
             'ignored_version' => $ignored,
+            'auto_update_enabled' => $this->autoUpdateEnabled(),
             'has_update' => $latestVersion !== '' && version_compare($latestVersion, $current, '>'),
             'is_ignored' => $latestVersion !== '' && $latestVersion === $ignored,
             'environment' => $environment,
             'error' => $error,
         ];
+    }
+
+    public function saveAutoUpdateEnabled(bool $enabled): array
+    {
+        ConfigService::set(self::CONFIG_TYPE, self::AUTO_UPDATE_ENABLED_CONFIG, $enabled ? 1 : 0);
+        $this->recordTask('auto_update_config', '', 'success', 0, [], [
+            'enabled' => $enabled,
+        ]);
+
+        return ['enabled' => $enabled];
+    }
+
+    private function autoUpdateEnabled(): bool
+    {
+        return filter_var(
+            ConfigService::get(self::CONFIG_TYPE, self::AUTO_UPDATE_ENABLED_CONFIG, 0),
+            FILTER_VALIDATE_BOOLEAN
+        );
     }
 
     private function workerGuide(): array
@@ -187,7 +208,7 @@ class SystemPackageUpdateService
 
     public function ignoreVersion(string $version): array
     {
-        ConfigService::set('update_service', 'ignored_version', $version);
+        ConfigService::set(self::CONFIG_TYPE, 'ignored_version', $version);
         $this->recordTask('ignore', $version, 'success', 0, [], ['ignored_version' => $version]);
         return ['ignored_version' => $version];
     }
@@ -231,7 +252,7 @@ class SystemPackageUpdateService
         }
 
         $this->writeLocalVersion($version);
-        ConfigService::set('update_service', 'ignored_version', '');
+        ConfigService::set(self::CONFIG_TYPE, 'ignored_version', '');
         $this->recordTask('rollback', $version, 'success', 0, [], [
             'from_version' => $current,
             'to_version' => $version,
