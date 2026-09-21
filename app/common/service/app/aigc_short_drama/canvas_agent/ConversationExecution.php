@@ -34,13 +34,13 @@ final class ConversationExecution
             self::identity($outbox,$token,$fence);
             $hash=hash('sha256',$text);
             if ($run['status']==='success') {
-                $prior=Db::name(ConversationStore::PREFIX.'message')->where(['run_id'=>$runId,'role'=>'assistant'])->value('content_json');
+                $prior=Db::name(ConversationStore::PREFIX.'message')->where(['run_id'=>$runId,'role'=>'assistant'])->lock(true)->value('content_json');
                 if ($prior!==self::json(['text'=>$text])) throw new RuntimeException('REPLY_CONFLICT');
                 return true;
             }
             if (!in_array($run['status'],['running','needs_reconciliation'],true)) throw new RuntimeException('INVALID_RUN_STATE');
             if ($run['status']==='needs_reconciliation' || (int)$outbox['lease_until']<=time()) {
-                $prior=Db::name(ConversationStore::PREFIX.'event')->where(['run_id'=>$runId,'kind'=>'run.late_reply'])->find();
+                $prior=Db::name(ConversationStore::PREFIX.'event')->where(['run_id'=>$runId,'kind'=>'run.late_reply'])->lock(true)->find();
                 if ($prior) {
                     if ((json_decode($prior['payload_json'],true)['reply_hash']??'')!==$hash) throw new RuntimeException('REPLY_CONFLICT');
                 } else {
@@ -146,7 +146,7 @@ final class ConversationExecution
                 return ['run_id'=>$runId,'status'=>'canceled','cancellation_confirmed'=>true];
             }
             if (($status==='running' && $outbox['state']==='submitting') || $status==='needs_reconciliation') {
-                if (!Db::name(ConversationStore::PREFIX.'event')->where(['run_id'=>$runId,'kind'=>'run.stop_requested'])->find()) self::event($run,'run.stop_requested',['status'=>'needs_reconciliation','cancellation_confirmed'=>false]);
+                if (!Db::name(ConversationStore::PREFIX.'event')->where(['run_id'=>$runId,'kind'=>'run.stop_requested'])->lock(true)->find()) self::event($run,'run.stop_requested',['status'=>'needs_reconciliation','cancellation_confirmed'=>false]);
                 self::uncertain($run,$outbox,'USER_STOP_REQUESTED');
                 return ['run_id'=>$runId,'status'=>'needs_reconciliation','cancellation_confirmed'=>false];
             }
@@ -181,7 +181,11 @@ final class ConversationExecution
         Db::name(ConversationStore::PREFIX.'run')->where('id',$run['id'])->update(['status'=>$status,'version'=>(int)$run['version']+1,'error_code'=>$error,'update_time'=>time()]);
     }
     private static function event(array $run,string $kind,array $payload): void {
-        $sequence=(int)Db::name(ConversationStore::PREFIX.'event')->where('run_id',$run['id'])->max('sequence')+1;
+        // The identity lookup can establish an older REPEATABLE READ snapshot
+        // before we wait for the canvas lock. Use a current read under the run
+        // lock, not a snapshot MAX(), to include the preceding owner's events.
+        $last=Db::name(ConversationStore::PREFIX.'event')->where('run_id',$run['id'])->order('sequence','desc')->lock(true)->find();
+        $sequence=(int)($last['sequence']??0)+1;
         Db::name(ConversationStore::PREFIX.'event')->insert(self::scope($run)+['thread_id'=>$run['thread_id'],'run_id'=>$run['id'],'sequence'=>$sequence,'kind'=>$kind,'payload_json'=>self::json($payload),'create_time'=>time()]);
     }
     private static function scope(array $run): array {return ['tenant_id'=>$run['tenant_id'],'user_id'=>$run['user_id'],'canvas_id'=>$run['canvas_id']];}
