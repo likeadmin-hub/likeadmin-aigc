@@ -718,3 +718,28 @@ P2 放行门槛仍未满足：A02 现有确认式文本版本证据，A03 仅候
 最终本地 develop 上串行 15 个后端 P2 套件：**718 PASS / 0 FAIL**（migration 48、conversation 63、concurrency 23、execution 71、settings 36、send 30、HTTP 51、safety 11、Worker 109、queue crash 31、stop 76、stop race 52、recovery 84、attachments 22、reconciliation 11）。前端本轮 Markdown/reader/state **22 PASS / 0 FAIL**。隔离测试使用 internal 网络和独立数据库；真实费用仅为上述明确列出的业务样本。第 26 节浏览器桥 12 PASS 是保留的历史证据，不伪称本轮重跑。
 
 **阶段结论：P2 按原清单本地放行，进入 P3。** 当前 P3 尚无专属 M01—M16 全套测试，下一步先补共享能力矩阵与四节点引用行为夹具，不能将已有手工生成或静态合同测试等同 P3 全通过。P4—P6 NOT_RUN。SSE 当前返回持久完整回复，不是逐 token 输出；PDF/Office/音视频解析、外部语义审核、Provider 取消/未知用量查询等能力继续如实保留在后续阶段，不借放行结论宣称已实现。
+
+## 32. P3 首轮连线行为测试与参考上限修复（2026-09-22）
+
+继续原清单 M01—M16，未重做 P0/P2 审计。两仓库 feature/short-drama-optimization，测试在合入本地 develop 后执行。本轮无 API、迁移、权限、计费或节点类型变更；没有调用真实 Provider、扣费、部署或推送。
+
+新增 web `short-drama-p3-connections.test.cjs` 直接加载生产 TypeScript 规则执行（不是正则匹配）：16 种源/目标组合、替代兼容模型、图片/视频完整参考集合总限额、能力文本分隔符、同用途上传+连线去重。测试提交 `01e4daf` / `50c174a`，修复提交 `5af948f`。
+
+实际发现与处理：
+
+- 初跑测试夹具未设置 TypeScript target，Set 展开被降级为旧 JS 语义，产生 3 个视频兼容假失败。仅修正夹具为 ES2022 后，16 个组合全部通过；未为假失败改产品规则。
+- 随后稳定复现 3 个产品失败：图片和视频均忽略 `capabilities.max_reference_assets`，三个分别合法的参考可突破总上限；空格分隔 `input_modalities` 因正则双反斜杠被错误解析。
+- 规则现按顶层优先、capabilities 回退读取总限额，修正空白分隔符。未扩大默认能力、未修改界面样式、未替换用户当前模型。
+
+验证：新增 P3 前端行为 **21 PASS / 0 FAIL**；加现有连线静态合同 10 项、Markdown 行为 3 项、会话状态行为 11 项，共 **45 PASS / 0 FAIL**。其中静态合同不算端到端证据。后端真实 CanvasService + PointService / 模拟下游的 `p0_generation.php idempotent` **48 PASS / 0 FAIL**：四类节点、十次重放、无重复扣费、删除与乱序完成、历史/资产投影、未知结果不盲重提均保持通过；下游应用服务被模拟，不证明真实媒体 Provider 能力。
+
+| P3 项 | 当前证据与状态 |
+| --- | --- |
+| M01 | 前端 16 组合 PASS；与服务端共享夹具一致性 NOT_RUN，整项尚未通过 |
+| M02 | 前端可选其他兼容模型、保留当前选项 PASS；实际生成选定模型校验仍待验证 |
+| M03 | 图片/视频前端合并总上限 PASS（已修复）；服务端提交拦截仍待验证 |
+| M04 | 前端同用途 URL 参考去重 PASS；真实 Adapter 输入去重待验证 |
+| M11/M12/M13/M16 | 既有隔离 Canvas 生成回归提供部分证据；不得等同 Agent 与手动并发、真实 Adapter、选择旧版本引用的完整验收 |
+| 其余 M05—M16 未覆盖部分 | NOT_RUN，仍需逐项实现和行为测试 |
+
+P3 尚未放行。下一切片：跟踪 ShortDramaCanvasService 提交参数及下游模型校验，建立前后端同一参考能力夹具，先补 M01/M02/M03 的服务端行为；随后按顺序推进角色槽位、资产解析与媒体适配闭环。P4—P6 保持 NOT_RUN。
