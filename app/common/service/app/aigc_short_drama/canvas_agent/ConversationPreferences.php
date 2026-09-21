@@ -59,11 +59,12 @@ final class ConversationPreferences
         // The existing resolver is the model-availability authority.  It also
         // keeps image/video optional for text-only tenants.
         $resolved=ConversationSettings::resolve($tenant,$preferences);
-        $result=['generation_mode'=>(string)$resolved['generation_mode']];
+        $result=[];
         foreach (['reasoning_model','image_model','video_model'] as $field) {
             $id=(string)($resolved[$field]['id']??'');
             if ($id!=='') $result[$field]=$id;
         }
+        $result['generation_mode']=(string)$resolved['generation_mode'];
         return $result;
     }
 
