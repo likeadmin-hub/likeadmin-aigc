@@ -11,13 +11,16 @@ use app\common\service\app\AppAccessService;
 class P0Provider {
     public static array $received = [];
     public static bool $loseResponse = false;
+    public static ?Closure $beforeReturn = null;
     public static function submit(string $type, int $tenant, int $user, array $input): array {
         $receipt = count(self::$received) + 1;
         self::$received[] = [$type, $tenant, $user, $input];
         PointService::consumeBusinessAmountsInCurrentTransaction($tenant, $user, 1, 2, 'p0-mock-' . $receipt, 'P0 synthetic provider');
         if (self::$loseResponse) throw new RuntimeException('Simulated accepted request with lost response');
+        $callback=self::$beforeReturn;self::$beforeReturn=null;
+        if ($callback) $callback();
         $billing = ['tenant_cost_points' => 1, 'user_charge_points' => 2, 'billing_status' => 'settled'];
-        if ($type === 'text') return ['content' => 'Synthetic response', 'provider' => 'p0-mock', 'billing' => $billing];
+        if ($type === 'text') return ['content' => 'Synthetic response '.($input['prompt']??''), 'provider' => 'p0-mock', 'billing' => $billing];
         $table = ['image' => 'aigc_image', 'video' => 'aigc_video', 'audio' => 'aigc_music'][$type];
         $fields = array_flip(array_column(Db::query('SHOW COLUMNS FROM `la_' . $table . '_task`'), 'Field'));
         $id = Db::name($table . '_task')->insertGetId(array_intersect_key(['tenant_id' => $tenant, 'user_id' => $user, 'status' => 'success', 'provider_task_id' => 'mock-' . $receipt] + $billing, $fields));
@@ -84,6 +87,35 @@ try {
         $request['prompt']='changed';$conflict=false;
         try {Canvas::submitIdempotent(91001,92001,$request);} catch (RuntimeException $error) {$conflict=$error->getMessage()==='IDEMPOTENCY_CONFLICT';}
         agentCheck($conflict && count(P0Provider::$received)===5,'same generation key with changed input rejects before downstream');
+        P0Provider::$loseResponse=false;
+        foreach (['text','image','video','audio'] as $type) {
+            $deleted=Canvas::create(91001,92001,['title'=>'Deleted during '.$type.' submit']);
+            Canvas::save(91001,92001,['id'=>$deleted['id'],'expected_revision'=>0,'nodes'=>[['id'=>1,'type'=>$type,'metadata'=>[]]]]);
+            P0Provider::$beforeReturn=static function () use ($deleted): void {
+                $current=Canvas::current(91001,92001,$deleted['id']);
+                Canvas::save(91001,92001,['id'=>$deleted['id'],'expected_revision'=>$current['graph_revision'],'nodes'=>[],'removed_node_ids'=>['1']]);
+            };
+            $run=Canvas::submitIdempotent(91001,92001,['canvas_id'=>$deleted['id'],'node_id'=>'1','type'=>$type,'prompt'=>'Deleted fixture','request_key'=>'delete-during-submit']);
+            agentCheck($run['status']==='success' && Canvas::current(91001,92001,$deleted['id'])['nodes']===[],$type.' completion after in-flight deletion never resurrects the node');
+            agentCheck(Db::name('aigc_short_drama_generation_task')->where('canvas_id',$deleted['id'])->count()===1,$type.' deleted-node completion remains in actual short-drama history');
+            if ($type!=='text') agentCheck(Db::name('aigc_short_drama_asset')->where('canvas_id',$deleted['id'])->count()===1,$type.' deleted-node completion retains owned media asset');
+
+            $race=Canvas::create(91001,92001,['title'=>'Out-of-order '.$type.' submit']);
+            Canvas::save(91001,92001,['id'=>$race['id'],'expected_revision'=>0,'nodes'=>[['id'=>1,'type'=>$type,'metadata'=>[]]]]);
+            $newRun=null;
+            P0Provider::$beforeReturn=static function () use ($race,$type,&$newRun): void {
+                $newRun=Canvas::submitIdempotent(91001,92001,['canvas_id'=>$race['id'],'node_id'=>'1','type'=>$type,'prompt'=>'New fixture','request_key'=>'new-request']);
+            };
+            $oldRun=Canvas::submitIdempotent(91001,92001,['canvas_id'=>$race['id'],'node_id'=>'1','type'=>$type,'prompt'=>'Old fixture','request_key'=>'old-request']);
+            $current=Canvas::current(91001,92001,$race['id']);$meta=$current['nodes'][0]['metadata'];
+            $actual=$type==='text'?$meta['content']:$meta['url'];
+            $expected=$type==='text'?$newRun['result']['content']:$newRun['results'][0]['url'];
+            agentCheck($oldRun['status']==='success' && $actual===$expected && (int)$meta['active_generation_id']===$newRun['id'],$type.' actual Canvas adapter preserves later request when first response arrives last');
+            agentCheck(Db::name('aigc_short_drama_generation_task')->where('canvas_id',$race['id'])->count()===2,$type.' both out-of-order completions remain in actual task history');
+            if ($type!=='text') agentCheck(Db::name('aigc_short_drama_asset')->where('canvas_id',$race['id'])->count()===2,$type.' both out-of-order media versions retain owned asset records');
+        }
+        agentCheck(count(P0Provider::$received)===17 && Db::name('tenant_point_log')->where('tenant_id',91001)->count()===17 && Db::name('user_account_log')->where('user_id',92001)->count()===17,'late/deleted completion history projection never adds a second generation charge');
+        agentCheck((float)Db::name('tenant')->where('id',91001)->value('point_balance')===83.0 && (float)Db::name('user')->where('id',92001)->value('user_money')===66.0,'complete lifecycle mock cost matches authoritative balances');
     }
 } finally { Db::rollback(); }
 echo "NOT_RUN actual Provider adapters, HTTP auth, browser generation and physical file transfer\n";
