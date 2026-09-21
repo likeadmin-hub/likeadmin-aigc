@@ -13,7 +13,10 @@ function fixtureHttp(string $action, string $method = 'GET', array $body = [], s
     ]]);
     $raw = file_get_contents($url, false, $context);
     $result = json_decode((string)$raw, true);
-    if (!is_array($result)) throw new RuntimeException('Invalid HTTP response: ' . substr((string)$raw, 0, 500));
+    if (!is_array($result)) {
+        preg_match_all('#<(?:h1|h2|p)[^>]*>(.*?)</(?:h1|h2|p)>#s', (string)$raw, $messages);
+        throw new RuntimeException('Invalid HTTP response: ' . substr(strip_tags(implode(' ', $messages[1])), 0, 1600));
+    }
     return $result;
 }
 
