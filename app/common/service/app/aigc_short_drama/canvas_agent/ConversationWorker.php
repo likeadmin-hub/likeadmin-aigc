@@ -29,9 +29,10 @@ final class ConversationWorker
         } catch (\Throwable $error) {
             // No provider call occurred. Do not expose exception text, which
             // can contain policy internals or tenant configuration secrets.
-            ConversationExecution::rejectBeforeSubmit($tenant,$user,$run,$claim['token'],$claim['fence']);
-            return 'failed';
+            return ConversationExecution::rejectBeforeSubmit($tenant,$user,$run,$claim['token'],$claim['fence']);
         }
+        $authorization=ConversationExecution::authorizeSubmission($tenant,$user,$run,$claim['token'],$claim['fence'],$request['request_timeout_seconds']);
+        if ($authorization!=='authorized') return $authorization;
         try {
             // Database transaction ended before crossing this boundary.
             $result=$provider->generate($tenant,$user,$request);

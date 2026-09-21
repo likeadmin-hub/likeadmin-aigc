@@ -57,6 +57,14 @@ try {
         }
         agentCheck((int)Db::name(Store::PREFIX.'outbox')->where('run_id',$run)->value('attempts')===1,$scenario.' has one dispatch attempt');
     }
+    $thread=Store::create(91001,92001,$canvas,'authorize-once')['id'];
+    $ack=Store::enqueue(91001,92001,$canvas,$thread,['request_key'=>'authorize-once','content'=>'one handoff','base_revision'=>0],['settings'=>[],'skill'=>[]]);
+    $claim=Execution::claim(91001,92001,$ack['run_id']);
+    agentCheck(Execution::authorizeSubmission(91001,92001,$ack['run_id'],$claim['token'],$claim['fence'])==='authorized','valid lease authorizes one durable handoff');
+    agentCheck(Execution::authorizeSubmission(91001,92001,$ack['run_id'],$claim['token'],$claim['fence'])==='not_claimed','same claim cannot authorize second handoff');
+    Db::name(Store::PREFIX.'outbox')->where('run_id',$ack['run_id'])->update(['lease_until'=>time()-1]);
+    agentCheck(Execution::expire(91001,92001,$ack['run_id']),'submitting handoff expires into reconciliation');
+    agentCheck(Execution::authorizeSubmission(91001,92001,$ack['run_id'],$claim['token'],$claim['fence'])==='needs_reconciliation','expired handoff cannot authorize a retry');
     agentCheck(Db::name(Graph::TABLE)->where('id',$canvas)->find()===$before,'conversation lifecycle never mutates canvas');
     agentCheck(Db::name('aigc_short_drama_canvas_run')->where('canvas_id',$canvas)->count()===0,'conversation lifecycle creates no media run');
 } finally {Db::rollback();}

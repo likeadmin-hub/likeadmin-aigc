@@ -62,17 +62,46 @@ final class ConversationExecution
     }
 
     /** Only a server-owned no-cost preflight may use this before generate(). */
-    public static function rejectBeforeSubmit(int $tenant,int $user,int $runId,string $token,int $fence): void
+    public static function rejectBeforeSubmit(int $tenant,int $user,int $runId,string $token,int $fence): string
     {
-        Db::transaction(function () use ($tenant,$user,$runId,$token,$fence): void {
+        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence): string {
             [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
-            if ($run['status']==='failed' && $run['error_code']==='PRECHECK_FAILED') return;
-            if ($run['status']!=='running' || $outbox['state']!=='processing' || (int)$outbox['lease_until']<=time()) throw new RuntimeException('STALE_WORKER');
+            if ($run['status']==='failed' && $run['error_code']==='PRECHECK_FAILED') return 'failed';
+            if ($run['status']==='needs_reconciliation') return 'needs_reconciliation';
+            if ($run['status']!=='running' || $outbox['state']!=='processing') throw new RuntimeException('STALE_WORKER');
+            if ((int)$outbox['lease_until']<=time()) {
+                self::uncertain($run,$outbox,'WORKER_LEASE_EXPIRED');return 'needs_reconciliation';
+            }
             if ((int)$thread['active_run_id']!==$runId) throw new RuntimeException('RUN_SUPERSEDED');
             self::state($run,'failed','PRECHECK_FAILED');
             self::event($run,'run.failed',['status'=>'failed','code'=>'PRECHECK_FAILED']);
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'failed','lease_until'=>0,'update_time'=>time()]);
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(['active_run_id'=>0,'update_time'=>time()]);
+            return 'failed';
+        });
+    }
+
+    /** Durable one-time handoff immediately before provider I/O. No locks are
+     * retained during HTTP; disabling after this handoff cannot cancel an
+     * already submitted request and must use reconciliation, never resubmit.
+     */
+    public static function authorizeSubmission(int $tenant,int $user,int $runId,string $token,int $fence,int $timeoutSeconds=120): string
+    {
+        if ($timeoutSeconds<1 || $timeoutSeconds>3600) throw new RuntimeException('INVALID_PROVIDER_TIMEOUT');
+        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$timeoutSeconds): string {
+            [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
+            if ($run['status']==='needs_reconciliation') return 'needs_reconciliation';
+            if ($run['status']!=='running' || $outbox['state']!=='processing') return 'not_claimed';
+            if ((int)$thread['active_run_id']!==$runId) throw new RuntimeException('RUN_SUPERSEDED');
+            if ((int)$outbox['lease_until']-time()<$timeoutSeconds+5) {
+                self::uncertain($run,$outbox,'INSUFFICIENT_SUBMISSION_LEASE');return 'needs_reconciliation';
+            }
+            if (!FeatureGate::enabled($tenant)) {
+                return self::rejectBeforeSubmit($tenant,$user,$runId,$token,$fence);
+            }
+            Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'submitting','update_time'=>time()]);
+            self::event($run,'run.submitting',['status'=>'running']);
+            return 'authorized';
         });
     }
 
@@ -91,7 +120,7 @@ final class ConversationExecution
     {
         return Db::transaction(function () use ($tenant,$user,$runId): bool {
             [$run,,$outbox]=self::locked($tenant,$user,$runId);
-            if ($run['status']!=='running' || $outbox['state']!=='processing' || (int)$outbox['lease_until']>time()) return false;
+            if ($run['status']!=='running' || !in_array($outbox['state'],['processing','submitting'],true) || (int)$outbox['lease_until']>time()) return false;
             self::uncertain($run,$outbox,'WORKER_LEASE_EXPIRED');return true;
         });
     }
