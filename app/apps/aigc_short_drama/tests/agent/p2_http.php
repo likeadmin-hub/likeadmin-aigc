@@ -106,6 +106,15 @@ try {
     agentCheck(!str_contains(json_encode($unknown),'private late evidence') && !str_contains(json_encode($unknown),$claim['token']),'run snapshot excludes late text and worker token');
     $sse=agentSse($args+['run_id'=>$second['run_id'],'event_after'=>0,'message_after'=>0,'wait_seconds'=>0]);
     agentCheck(!str_contains($sse,'private late evidence') && str_contains($sse,'needs_reconciliation'),'SSE excludes private late reply evidence');
+    $asset=Db::name('aigc_short_drama_asset')->insertGetId(['tenant_id'=>94001,'user_id'=>95001,'canvas_id'=>$canvas,'asset_type'=>'canvas_image','title'=>'HTTP 图片','uri'=>'https://assets.example.test/http-owned.png','storage_scope'=>'tenant','storage_engine'=>'oss','storage_domain'=>'https://assets.example.test','status'=>'ready']);$inserted[]=['aigc_short_drama_asset',$asset];
+    $imageThread=agentHttp('createThread','POST',['canvas_id'=>$canvas,'request_key'=>'image-thread'])['data']['id'];
+    $imageSend=agentHttp('send','POST',['canvas_id'=>$canvas,'thread_id'=>$imageThread,'request_key'=>'image-attachment','content'=>'分析图片','base_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product],'attachments'=>[['type'=>'image','asset_id'=>$asset,'name'=>'HTTP 图片','url'=>'https://forged.example/private.png']]]);
+    agentCheck($imageSend['code']!==1 && $imageSend['msg']==='INVALID_ATTACHMENTS','HTTP rejects forged image URL fields');
+    $imageSend=agentHttp('send','POST',['canvas_id'=>$canvas,'thread_id'=>$imageThread,'request_key'=>'image-attachment','content'=>'分析图片','base_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product],'attachments'=>[['type'=>'image','asset_id'=>$asset,'name'=>'HTTP 图片']]]);
+    agentCheck($imageSend['code']===1 && agentHttp('messages','GET',['canvas_id'=>$canvas,'thread_id'=>$imageThread])['data'][0]['attachments']===[['type'=>'image','asset_id'=>$asset,'name'=>'HTTP 图片']],'HTTP accepts only an owned image asset ID and exposes no storage URL');
+    Db::name('aigc_short_drama_asset')->where('id',$asset)->update(['delete_time'=>time()]);
+    $imageClaim=Execution::claim(94001,95001,$imageSend['data']['run_id']);
+    agentCheck($imageClaim!==null,'image attachment run remains claimable before execution validation');
     agentCheck(Db::name('aigc_short_drama_canvas_run')->where('canvas_id',$canvas)->count()===0,'HTTP conversation creates no media tasks');
     agentCheck((int)Db::name('aigc_short_drama_canvas')->where('id',$canvas)->value('graph_revision')===0,'HTTP conversation does not mutate graph');
     Db::name('tenant_app')->where(['tenant_id'=>94001,'app_code'=>'aigc_short_drama'])->update(['shelf_status'=>'off']);
