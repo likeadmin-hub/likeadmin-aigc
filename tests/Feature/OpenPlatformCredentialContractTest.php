@@ -132,6 +132,20 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString("\$query->where('upload_mode', 'template');", $service);
     }
 
+    public function testAuditSubmissionRecoversAnAcceptedWeChatAuditBeforeRetrying(): void
+    {
+        $service = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
+
+        self::assertStringContainsString('private static function syncLatestAudit(', $service);
+        self::assertStringContainsString("'wxa/get_latest_auditstatus'", $service);
+        self::assertStringContainsString('self::isAuditAlreadyPendingError($e)', $service);
+        self::assertStringContainsString("'already submit a version under auditing'", $service);
+        self::assertStringContainsString('private static function saveMnpReview(', $service);
+        self::assertStringNotContainsString('WechatMnpReview::withoutGlobalScope()->create(', $service);
+        self::assertStringContainsString('new WechatMnpReview()', $service);
+        self::assertStringContainsString("->order('id desc')", $service);
+    }
+
     public function testAuthorizedTenantExtJsonIsGeneratedAtCommitTime(): void
     {
         $service = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
