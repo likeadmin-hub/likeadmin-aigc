@@ -1,5 +1,7 @@
 # 短剧画布 Agent P0 核对报告
 
+> **当前结论（2026-09-22，第 31 节）**：按原始验收清单 A01—A15，P2 本地阶段已通过，可进入 P3。此前将 PDF/Office、完整取消恢复、外部语义审核 Provider、生产部署等泛化为 P2 阻碍的结论在此纠正；历史记录保留但不再代表当前门槛。P3—P6 尚未验收完成。P0/P1 沿用第 18 节限定口径及既有验收证据。
+
 ## 最新增量：P2 文本附件发送、移除与恢复（2026-09-21）
 
 已接通右下角 TXT/Markdown 多附件路径：浏览器读取文本，发送前移除的附件不进入请求；提交后按消息冻结姓名和内容，刷新/SSE 恢复附件卡，可展开查看原文。历史附件以 user-role 不可信材料参与后续对话，不提升为系统指令或用户确认的风格约束。单文件 100KB、总文本 400KB、最多 10 个，服务端拒绝任意 URL、路径、二进制 NUL、无效 UTF-8 和多余字段；输入审核包含附件内容。附件内容/顺序进入请求幂等身份，移除或修改附件后前端生成新请求键，避免复用旧请求体。
@@ -665,3 +667,54 @@ P2 放行门槛仍未满足：A02 现有确认式文本版本证据，A03 仅候
 这完成了本地可观察终态的账本对账与提交后停止语义，不等同真实 Provider 取消 API、上游未知用量查询、上游退款确认或生产调度。后四项仍为 P2 未放行项；PDF/Word、视频/音频内容理解与外部语义审核 Provider 也仍未完成。
 
 对账合入本地 `develop` 后重新串行执行 P2 的 15 个隔离套件（迁移、会话、并发、执行、偏好、发送、HTTP、安全、Worker、队列故障、停止、停止竞争、恢复、附件、对账），共 **709 PASS / 0 FAIL**；测试环境仍是 internal Docker 网络与隔离数据库，未使用业务素材、供应商密钥或真实积分。随后本机 tenant 1 Worker 以 `--once` 扫描确认 `scanned=0`，且 Supervisor 常驻 Worker 已恢复。这个扫描只能证明本地运行路径可用，不等同生产调度或部署验收。
+
+## 31. P2 原始门槛校正、Skill 实际送达与安全 Markdown（2026-09-22）
+
+### 放行口径纠正
+
+重新读取用户提供的《短剧画布Agent阶段测试与验收清单.md》第 4 节：P2 为 A01—A15，放行条件是问答、文本生成、引用、Skill 与刷新恢复均具备行为证据。此前第 25—30 节及顶部历史增量把后续能力笼统加入 P2，造成错误阻塞。本节明确覆盖那些阶段判断，不删除历史失败证据。
+
+- PDF/Office 解析异常在 P4 R18；完整取消、退款、恢复与未知结果收敛按 P4 的对应条目继续验收。
+- 不支持视频分析时明确告知属于 P3 M07 的合法行为，不要求在 P2 假装所有媒体均可理解。
+- 用户已确认默认审核策略，现有输入/输出审核边界测试通过；未配置外部语义审核 Provider 不得伪称语义审核通过，也不能无依据扩大为 A01—A15 的前置条件。
+- 生产迁移、生产部署、远程操作不是本地 P2 放行前提。本轮依然没有执行这些动作。
+
+### 本轮修复与验证
+
+1. `320ce98fe`：Skill 原先只冻结在 run 中，却未进入实际模型消息。Worker 现在把冻结 Skill 的 id/version/name/definition 作为受限创作材料送入 user-role 上下文；不传内部 model/execution policy，不赋予工具、计费或模型选择权限。隔离 Worker 断言实际模型消息包含 v1 规范，不受后续 v2 更改影响。
+2. `28f1d6c03`：使用独立画布应用的真实 Skill 表结构建立隔离同名、同 ID 冲突夹具；实际 send 只解析短剧 Skill。发布 v2 后，旧 run 快照保持 v1，新会话显式选 v2 得到 v2；原请求重放不会重新解析或收费。
+3. web `845bba5` / `7d4c737`：增加无第三方依赖的有界 Markdown 文本解析与 Vue 安全渲染。支持标题、表格、列表、代码及粗体；不解析原始 HTML、链接或图片地址，不使用 v-html。实际 Vue SSR 行为测试证明脚本、事件属性、iframe、SVG 等保持转义文本。真实浏览器显示语义 heading/table。
+4. 在确认 tenant 1 活动 run 为 0 后，平滑重载本机 PHP-FPM，并 TERM 旧 Agent Worker PID 1258849，由既有 Supervisor 拉起；未重启其他生成 Worker。随后真实 run 21 成功，证明常驻 Worker 实际处理新请求。
+
+### 真实两图与账本证据
+
+仅本地 tenant 1 / user 1 / canvas 17 / thread 15，新上传仓库自带无敏感图片 `app_1.png`、`app_2.png` 为 asset 862、863。经正式 ConversationService 提交 run 21（request key `p2-real-two-images-20260922`），模型 Qwen3.6-Plus 返回两图人物、背景、配色的区别。页面实见“图片对比分析”二级标题及三列表格，内容区未溢出面板。模型实际输出三列而不是提示要求的两列，不伪称精确格式遵循。
+
+- run 21：success；app_task 1073：success；唯一账本 1095：success / settled。
+- 实际用户和租户费用均为 **2.037 积分**，低于单次 2000 授权上限。
+- canvas 17 媒体 run 数为 0。页面重载/自动保存期间 graph_revision 从 372 变为 374，故本次不以版本号声称画布完全零写入；Agent send/Worker 不改图由隔离行为断言独立证明。
+- 本次通过服务端正式业务服务提交，浏览器验收上传、刷新与结果展示；不将其称作本轮从点击发送按钮开始的完整浏览器端到端测试。该按钮/HTTP/SSE链路沿用第 26 节已通过的浏览器证据。
+
+### A01—A15 证据索引
+
+| ID | 状态 | 对应行为证据（隔离与真实范围分开） |
+| --- | --- | --- |
+| A01 | PASS | 原有 canvas 7 / run 12 两个已选图片节点真实理解；本轮 run 21 两附件真实比较；隔离 Worker 保留顺序并验证无额外媒体任务 |
+| A02 | PASS | canvas 14 / run 9 真实确认写回、content_revision=3、冻结原文可展开；第 26 节浏览器版本写回与冲突保护 |
+| A03 | PASS | p2_conversation 歧义两候选、无 outbox；浏览器点击候选后显式 node ID 发送 |
+| A04 | PASS | 浏览器桥移动 node 2 后，原 run 仍冻结原 ID / 原坐标；Worker 使用冻结原文 |
+| A05 | PASS | p2_http / p2_send / p2_recovery 的跨 tenant/user canvas/thread/run/message/event 拒绝与无信息泄漏 |
+| A06 | PASS | 本轮 p2_send 同名、同 ID 的独立画布 Skill 无法覆盖短剧解析；Worker 实际收到短剧创作定义 |
+| A07 | PASS | 本轮发布 v2、新选用 v2、在途 v1 保持不变；重放十次不重新解析；Worker 从冻结上下文执行 |
+| A08 | PASS | p2_send 拒绝“绕过积分/任意模型”Skill；Worker tools=[]，不接受模型返回工具调用 |
+| A09 | PASS | 文本附件与节点材料以 user-role 不可信上下文进入模型，不能授权工具/媒体任务；p2_attachments / p2_worker / p2_safety |
+| A10 | PASS | 已有真实 run 13/14 使用国风水墨、9:16、15 秒连续回复、不重复询问；本轮 Worker 再验 known_creation_constraints |
+| A11 | PASS | 第 26 节真实浏览器桥刷新恢复；p2_recovery 与前端 reader/state 再验读取不产生重复消息/run |
+| A12 | PASS | 非法 tool_calls、畸形 JSON 或不存在工具明确 UNSUPPORTED_MODEL_RESPONSE，有限终结、不猜测执行 |
+| A13 | PASS | 浏览器租户切换验收；本轮 reader/state 验证旧响应无法写入新 scope |
+| A14 | PASS | 十独立并发请求和十次重放，同一消息/run/event/outbox；conversation intent 固定不产生媒体任务 |
+| A15 | PASS | 本轮实际 Vue 渲染器 XSS 测试；真实 run 21 在浏览器呈现标题和表格；不执行 HTML |
+
+最终本地 develop 上串行 15 个后端 P2 套件：**718 PASS / 0 FAIL**（migration 48、conversation 63、concurrency 23、execution 71、settings 36、send 30、HTTP 51、safety 11、Worker 109、queue crash 31、stop 76、stop race 52、recovery 84、attachments 22、reconciliation 11）。前端本轮 Markdown/reader/state **22 PASS / 0 FAIL**。隔离测试使用 internal 网络和独立数据库；真实费用仅为上述明确列出的业务样本。第 26 节浏览器桥 12 PASS 是保留的历史证据，不伪称本轮重跑。
+
+**阶段结论：P2 按原清单本地放行，进入 P3。** 当前 P3 尚无专属 M01—M12 全套测试，下一步先补共享能力矩阵与四节点引用行为夹具，不能将已有手工生成或静态合同测试等同 P3 全通过。P4—P6 NOT_RUN。SSE 当前返回持久完整回复，不是逐 token 输出；PDF/Office/音视频解析、外部语义审核、Provider 取消/未知用量查询等能力继续如实保留在后续阶段，不借放行结论宣称已实现。
