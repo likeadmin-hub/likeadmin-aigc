@@ -458,14 +458,20 @@ class ShortDramaCanvasService
                 $metadata = is_array($node['metadata'] ?? null) ? $node['metadata'] : [];
                 if ((int)($metadata['canvasRunId'] ?? 0) !== (int)$run['id']) continue;
                 $previousMetadata = $metadata;
+                $posterUrl = (string)($result['poster_url'] ?? '');
+                $posterUri = (string)($result['poster_uri'] ?? '');
+                if ($posterUrl === '' && $posterUri === '' && self::canvasStoredUri((string)($metadata['video_url'] ?? $metadata['url'] ?? '')) === $uri) {
+                    $posterUrl = (string)($metadata['poster_url'] ?? '');
+                    $posterUri = (string)($metadata['poster_uri'] ?? '');
+                }
                 $metadata = array_merge($metadata, [
                     'url' => (string)$result['url'], 'video_url' => (string)$result['url'],
                     'storage_scope' => (string)($result['storage_scope'] ?? ''),
                     'storage_engine' => (string)($result['storage_engine'] ?? ''),
                     'storage_domain' => (string)($result['storage_domain'] ?? ''),
-                    'poster_url' => (string)($result['poster_url'] ?? ''),
-                    'poster_uri' => (string)($result['poster_uri'] ?? ''),
-                    'poster_status' => !empty($result['poster_url']) ? 'ready' : 'pending',
+                    'poster_url' => $posterUrl,
+                    'poster_uri' => $posterUri,
+                    'poster_status' => $posterUrl !== '' || $posterUri !== '' ? 'ready' : 'pending',
                     'status' => 'success', 'progress' => 100, 'error' => '',
                 ]);
                 if ($metadata === $previousMetadata) break;
