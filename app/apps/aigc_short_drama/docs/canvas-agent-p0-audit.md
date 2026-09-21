@@ -1,5 +1,23 @@
 # 短剧画布 Agent P0 核对报告
 
+## 最新：2026-09-21 当前实现全量回归验收
+
+本节在两仓库已集成最新 feature 的本地 `develop` 执行。当前实现范围的全量后端、PC 行为和隔离浏览器验收已经完成；没有重新触发真实付费媒体生成。此前取得的真实 Qwen 文本写回和单图理解账本证据仍保留在下一节，未因本轮全量回归删除。
+
+| 验收面 | 状态 | 本轮可复现证据 |
+| --- | --- | --- |
+| P0/P1/P2 后端隔离回归 | PASS | 29 个脚本串行通过，**905 PASS / 0 FAIL**。覆盖 P0 基线/生成/控制器/HTTP，P1 图 CAS、并发、迁移、手工生成投影和崩溃恢复，P2 会话、偏好、执行、Worker、队列崩溃、停止竞态与恢复。测试数据库/网络/Provider 保持隔离。 |
+| PC 行为与状态 | PASS | `short-drama-*.test.cjs` **127 PASS / 0 FAIL**。覆盖四节点画布、Agent 作用域、冻结选区写回、模型偏好、文本安全渲染、保存冲突、运行结果保护和现有短剧流程。 |
+| Chrome 浏览器链路 | PASS | **41 PASS / 0 FAIL**：本地草稿冲突恢复 8、真实 HTTP/隔离 MySQL 四节点持久化 9、四种模拟生成与权威账本 16、Agent 右侧面板/SSE/停止/刷新/租户切换/XSS 8。未调用真实 Provider 或真实媒体生成。 |
+| PC 静态生成 | PASS | Nuxt 成功 prerender **125** 条路由，包含 `/ai/short-drama/canvas`；仅生成 `.output` 本机验证产物，未复制至 server/public、未提交。 |
+| 常驻 Agent Worker | PASS（运行态） | 容器内 `short-drama-canvas-agent:short-drama-canvas-agent_00` 为 RUNNING，PID 1191069，由 Supervisor 管理；本轮不重启、不注入业务故障。 |
+| Vue 全类型检查 | BLOCKED（环境） | 仓库未安装 `vue-tsc`，Nuxt 调用 `npx -p vue-tsc -p typescript vue-tsc --noEmit` 时本机无 `npx`，因此未进入类型诊断。未下载或修改依赖；Vue SFC 编译行为测试已纳入上述 127 PASS。 |
+| 历史独立画布 E2E | NOT_RUN（接口已退役） | `short-drama-canvas-entry.e2e.mjs` 仍断言旧的 `capabilities/create/detail/saveView` 独立画布及“无限画布”入口；当前四节点画布为 `canvas/current|save|run`，不恢复旧接口以让历史脚本变绿。 |
+
+本轮先后发现三项**测试合同陈旧**，均已修正并重跑全量 PC 套件：Agent 测试将动态选区错误写死为 `selected_node_ids: []`；分镜最小时长错误写死为静态 `min="4"`；时间轴 VM 夹具缺少当前正常化函数。另将冲突浏览器用例改为复用机器已安装的 Chrome，避免下载缺失的 Playwright Chromium。修复均只改测试；没有改变短剧业务、Agent API、计费或数据库行为。web 提交 `f0c56c0`、`0e03acb`、`a6c1055` 已各自先进入 feature 再无冲突合入本地 develop。
+
+阶段结论：P0 仍按第 17—18 节已确认的 B05“独立应用不可用”限定口径通过，P1 隔离验收通过；P2 已具备上述实现和回归证据，但因短剧 Agent 审核策略仍 BLOCKED、双图比较/附件语义、结构化规划工具、真实预算与未知用量对账、生产调度恢复等未验收能力，**P2 不放行**。P3—P6 **NOT_RUN**，不可将本轮 0 FAIL 表述为方案全部完成。无生产迁移、部署、发布、远程推送或批量真实付费生成。
+
 ## 最新：确认式文本写回、图片理解与本地真实验收
 
 2026-09-21，用户明确要求实时同步本地真实数据并做真实测试，确认采用“展示回复→点击写回原节点”的流程，并单独批准仅向本地 x_cn 新增偏好表。分支仍为 `feature/short-drama-optimization`。server 实现 `58b1ff47e`、`6023d2f1e`、`b6c724596`、`30322bb35`，测试 `68d973565`；web `f8db625`。每个提交均已先合入各自本地 develop；没有推送 develop、远程部署或发布。
