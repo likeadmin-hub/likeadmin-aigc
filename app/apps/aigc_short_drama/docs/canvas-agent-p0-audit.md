@@ -802,3 +802,15 @@ P3 M03/M04/M05/M06 的归一化层有行为证据，但模型能力、总限额�
 - 环境：只读 server/web 源码挂载，真实 .env 遮盖，internal 网络，runtime/uploads 临时文件系统；没有付费请求、业务写入、迁移、推送或部署。已有 PHPUnit 全目录加载的 ReflectionMethod 警告仍存在，不影响上述测试结果。
 
 本轮仅 server 修改；无 API/schema/UI 变化。未重载常驻 FPM/Worker，不能宣称常驻进程已加载此修复。M05 当前证明归一化、市场投影及校验器，尚不代替最终 Provider 请求和 UI 流程；M01 共享 16 组合、M06 最终请求/报价快照等未覆盖项继续，P3 未整体放行。
+
+## 38. P3 结构化 Provider 请求载荷角色验证（2026-09-22）
+
+server `b4078f4c9` 给 MarketVideoModelPayloadContractTest 新增三个直接执行生产 modelPayload 的行为用例，没有模拟请求构造器，也没有发送 Provider 网络请求。
+
+- PASS / M04 载荷层：同用途节点引用、重复显式参考和 legacy reference_images 只生成一个 reference_image 项。
+- PASS / M05 载荷层：同一图片 URI 指定首帧和尾帧时，最终结构化 input.media 保留 first_frame/last_frame 两项，幂等键保留。
+- PASS / M06 载荷层：保持素材数组顺序、交换两张图片角色后，载荷角色相应互换、URL 顺序不变；不根据数组位置猜角色。
+
+从已合入的本地 develop，在只读源码、遮盖 .env、internal 网络、临时 runtime/uploads 的容器中执行两套共享回归：**39 tests / 132 assertions PASS**（含本轮新增 3 tests / 7 assertions）。只有测试源码变化，web 无变化；没有付费调用、迁移、业务数据写入、重载、推送或部署。已有全目录加载 ReflectionMethod 警告仍记录为环境警告。
+
+边界：只证明当前 Wan 结构化请求构造路径，不泛化为所有 Provider 协议通过。M06 的 UI 次序操作及报价/hash/快照更新仍 NOT_RUN；M01 共享矩阵、资产所有权/状态解析及其余门槛继续按原清单补齐，P3 未整体放行。
