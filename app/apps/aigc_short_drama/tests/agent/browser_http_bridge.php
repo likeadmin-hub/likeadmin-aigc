@@ -99,10 +99,11 @@ try {
             $result=Graph::patch(94011,95011,$canvasId,['request_key'=>'browser-move-selected-image','expected_revision'=>(int)$document['graph_revision'],'operations'=>[
                 ['op'=>'move_nodes','nodes'=>[['id'=>2,'x'=>999,'expected_layout_revision'=>(int)($node['metadata']['layout_revision']??0)]]],
             ]]);
+            $moved=current(array_filter((array)($result['nodes']??[]),static fn(array $item): bool => (string)($item['id']??'')==='2'));
             $snapshot=Db::name('aigc_short_drama_canvas_agent_run')->where(['tenant_id'=>94011,'user_id'=>95011,'canvas_id'=>$canvasId])->order('id','desc')->value('context_snapshot');
             $context=json_decode((string)$snapshot,true,512,JSON_THROW_ON_ERROR);
             $frozen=(array)(($context['selected_nodes']??[])[0]??[]);
-            echo json_encode(['result'=>['graph_x'=>(int)$result['nodes'][0]['x'],'frozen_id'=>(string)($frozen['id']??''),'frozen_x'=>(int)($frozen['x']??-1)]]),PHP_EOL;
+            echo json_encode(['result'=>['graph_x'=>(int)($moved['x']??-1),'frozen_id'=>(string)($frozen['id']??''),'frozen_x'=>(int)($frozen['x']??-1)]]),PHP_EOL;
             continue;
         }
         if ($agentConversation && $action==='agentPreferenceEvidence') {
