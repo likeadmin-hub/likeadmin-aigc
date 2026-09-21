@@ -5,6 +5,7 @@ require __DIR__ . '/bootstrap.php';
 use think\facade\Db;
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\GraphService as Graph;
+use app\common\service\app\aigc_short_drama\canvas_agent\GenerationIntentService as Intent;
 
 function posterRaceNode(): array
 {
@@ -17,6 +18,17 @@ function posterRaceNode(): array
 if (($argv[1] ?? '') === 'worker') {
     echo "READY\n";
     if (trim((string)fgets(STDIN)) !== 'GO') throw new RuntimeException('Missing barrier release');
+    if ($argv[3] === 'intent-submit') {
+        $intent=Intent::reserve(91001,92001,(int)$argv[2],'same-generation-key','1','text',['prompt'=>'Independent process fixture']);
+        $claim=Intent::claim(91001,92001,(int)$intent['id']);
+        if ($claim) {
+            // This is the simulated external acceptance boundary, separate from local run count.
+            Db::name('aigc_short_drama_test_provider_receipt')->insert(['tenant_id'=>91001,'user_id'=>92001,'canvas_id'=>(int)$argv[2],'intent_id'=>$intent['id'],'create_time'=>time()]);
+            Intent::accepted(91001,92001,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],'concurrent-provider-receipt',['content'=>'fixture'],true);
+        }
+        echo json_encode(['run_id'=>(int)$intent['canvas_run_id'],'submitted'=>$claim!==null]), PHP_EOL;
+        exit(0);
+    }
     if ($argv[3] === 'poster-save') {
         $node = posterRaceNode();
         $node['x'] = 999;
@@ -103,10 +115,20 @@ try {
     $node = Canvas::current(91001, 92001, $id)['nodes'][0];
     agentCheck($node['x'] === 999, 'G11 concurrent poster projection preserves saved position');
     agentCheck($node['metadata']['poster_uri'] === 'uploads/fixtures/new.jpg', 'G11 concurrent old snapshot save preserves newly projected poster');
+
+    $id=Canvas::create(91001,92001,['title'=>'P1 generation intent concurrency'])['id'];
+    $ownedIds[]=$id;
+    Canvas::save(91001,92001,['id'=>$id,'nodes'=>[['id'=>1,'type'=>'text','metadata'=>[]]]]);
+    $results=raceGraph($id,array_fill(0,10,'intent-submit'));
+    agentCheck(count(array_unique(array_column($results,'run_id')))===1,'ten independent generation requests return one logical run');
+    agentCheck(count(array_filter($results,static fn($row)=>$row['submitted']))===1,'only one independent process claims downstream submission');
+    agentCheck(Db::name('aigc_short_drama_test_provider_receipt')->where('canvas_id',$id)->count()===1,'simulated provider independently records exactly one acceptance');
+    agentCheck(Db::name('aigc_short_drama_canvas_run')->where('canvas_id',$id)->count()===1 && Db::name(Intent::TABLE)->where('canvas_id',$id)->count()===1,'concurrent intent/run inserts are atomic and unique');
 } finally {
     // Transactions cannot cover independent processes. Remove only exact rows
     // created by this invocation, always scoped to isolated fixture ownership.
     foreach ($ownedIds as $id) {
+        foreach (['aigc_short_drama_test_provider_receipt',Intent::TABLE,'aigc_short_drama_canvas_run'] as $table) Db::name($table)->where(['canvas_id'=>$id,'tenant_id'=>91001,'user_id'=>92001])->delete();
         Db::name(Graph::RECEIPTS)->where(['canvas_id' => $id, 'tenant_id' => 91001, 'user_id' => 92001])->delete();
         Db::name(Graph::TABLE)->where(['id' => $id, 'tenant_id' => 91001, 'user_id' => 92001])->delete();
     }

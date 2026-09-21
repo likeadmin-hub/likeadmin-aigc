@@ -12,3 +12,11 @@ CREATE TABLE IF NOT EXISTS la_aigc_short_drama_canvas_generation_intent (
  UNIQUE KEY uk_scope_key(tenant_id,user_id,canvas_id,request_key),
  UNIQUE KEY uk_canvas_run(canvas_run_id), KEY idx_recovery(state,lease_until)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Test provider's independent acceptance counter; never an application migration.
+CREATE TABLE IF NOT EXISTS la_aigc_short_drama_test_provider_receipt (
+ id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ tenant_id INT UNSIGNED NOT NULL, user_id INT UNSIGNED NOT NULL,
+ canvas_id INT UNSIGNED NOT NULL, intent_id BIGINT UNSIGNED NOT NULL,
+ create_time INT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
