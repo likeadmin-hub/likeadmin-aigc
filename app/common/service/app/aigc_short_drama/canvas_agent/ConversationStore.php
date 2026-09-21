@@ -131,6 +131,24 @@ final class ConversationStore
         self::canvas($tenant,$user,$canvas);
     }
 
+    /** Ownership validation used before a pre-enqueue safety decision. */
+    public static function assertThreadAccess(int $tenant,int $user,int $canvas,int $thread): void
+    {
+        self::canvas($tenant,$user,$canvas);
+        self::thread(self::scope($tenant,$user,$canvas),$thread);
+    }
+
+    /** A replay is already a durable decision. Do not reinterpret it using a
+     * policy changed after the original request; enqueue remains the final
+     * request-hash and idempotency authority. */
+    public static function hasRunRequestKey(int $tenant,int $user,int $canvas,int $thread,string $key): bool
+    {
+        self::key($key);
+        self::canvas($tenant,$user,$canvas);
+        $scope=self::scope($tenant,$user,$canvas);self::thread($scope,$thread);
+        return Db::name(self::PREFIX.'run')->where($scope+['thread_id'=>$thread,'request_key'=>$key,'delete_time'=>0])->count()>0;
+    }
+
     public static function messages(int $tenant,int $user,int $canvas,int $thread,int $after=0): array
     {
         self::canvas($tenant,$user,$canvas);
@@ -178,7 +196,7 @@ final class ConversationStore
             'status'=>$status,'version'=>(int)$row['version'],
             'can_stop'=>in_array($status,['queued','running'],true),
             'needs_reconciliation'=>$status==='needs_reconciliation',
-            'error_code'=>$status==='failed'?($row['error_code']==='PRECHECK_FAILED'?'PRECHECK_FAILED':'RUN_FAILED'):($status==='canceled'?'USER_STOPPED_BEFORE_SUBMIT':''),
+            'error_code'=>$status==='failed'?($row['error_code']==='PRECHECK_FAILED'?'PRECHECK_FAILED':($row['error_code']==='SAFETY_OUTPUT_BLOCKED'?'CONTENT_BLOCKED':'RUN_FAILED')):($status==='canceled'?'USER_STOPPED_BEFORE_SUBMIT':''),
             'create_time'=>(int)$row['create_time'],'update_time'=>(int)$row['update_time']];
     }
 

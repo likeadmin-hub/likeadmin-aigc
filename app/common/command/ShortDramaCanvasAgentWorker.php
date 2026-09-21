@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace app\common\command;
 
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationQueue;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationSafety;
 use app\common\service\app\aigc_short_drama\canvas_agent\FeatureGate;
 use app\common\service\app\aigc_short_drama\canvas_agent\MarketTextConversationProvider;
 use think\console\Command;
@@ -40,6 +41,7 @@ final class ShortDramaCanvasAgentWorker extends Command
             $tenants=$tenantOption>0 ? [$tenantOption] : array_map('intval',Db::name('aigc_short_drama_config')->where('status',1)->column('tenant_id'));
             foreach (array_values(array_unique($tenants)) as $tenant) {
                 if (!FeatureGate::executionEnabled($tenant)) continue;
+                ConversationSafety::purgeExpired($tenant,100);
                 $result=ConversationQueue::tick($tenant,$provider,0,20);
                 $processed+=(int)($result['scanned']??0);
             }

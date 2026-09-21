@@ -24,6 +24,7 @@ use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\app\aigc_music\AigcMusicService;
 use app\common\service\app\aigc_digital_human\AigcDigitalHumanService;
+use app\common\service\app\aigc_short_drama\canvas_agent\FeatureGate;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\power\MarketFileQaAppRuntimeService;
 use app\common\service\power\MarketImageModelRuntimeService;
@@ -702,9 +703,11 @@ class AigcShortDramaService
             $agent=(array)$params['canvas_agent'];
             $enabled=in_array($agent['enabled']??false,[true,1,'1','true'],true);
             $executionEnabled=$enabled && in_array($agent['execution_enabled']??false,[true,1,'1','true'],true);
-            // Persist only these two product settings. Provider credentials,
-            // model identities and prices always remain server-owned.
-            $config['canvas_agent']=['enabled'=>$enabled,'execution_enabled'=>$executionEnabled];
+            // Provider credentials, model identities and prices always remain
+            // server-owned. Safety is a short-drama tenant policy, not a
+            // cross-app sensitive-word list.
+            $config['canvas_agent']=['enabled'=>$enabled,'execution_enabled'=>$executionEnabled,
+                'safety'=>FeatureGate::normalizeSafetyPolicy($agent['safety']??($current['canvas_agent']['safety']??[]))];
         }
         unset($config['script_plan_model_id'], $config['script_plan_model_selection']);
         $defaultTextKey = array_key_exists('default_text_model_id', $params)
@@ -15619,7 +15622,7 @@ class AigcShortDramaService
             'multi_episode_script_prompt_template' => self::defaultMultiEpisodeScriptPromptTemplate(),
             'force_result_transfer' => false,
             'result_storage_engine' => '',
-            'canvas_agent' => ['enabled' => true, 'execution_enabled' => false],
+            'canvas_agent' => ['enabled' => true, 'execution_enabled' => false, 'safety' => FeatureGate::defaultSafetyPolicy()],
             'models' => [
                 [
                     'id' => 'script-planner-default',

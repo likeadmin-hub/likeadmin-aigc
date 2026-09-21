@@ -22,6 +22,37 @@ final class FeatureGate
         return is_array($config) ? $config : [];
     }
 
+    /** Product-approved P2 default: both directions are checked, rejects are
+     * terminal, audit records retain only a digest for 30 days, and no manual
+     * review queue is created. */
+    public static function defaultSafetyPolicy(): array
+    {
+        return ['version'=>ConversationSafety::POLICY_VERSION,'input_review'=>true,'output_review'=>true,
+            'action'=>'reject','audit_retention_days'=>30,'manual_review'=>false,'blocked_terms'=>[]];
+    }
+
+    /** Accept only a small tenant-scoped rule set; provider identities never
+     * enter tenant configuration. */
+    public static function normalizeSafetyPolicy(mixed $value): array
+    {
+        $policy=self::defaultSafetyPolicy();
+        if (!is_array($value)) return $policy;
+        $terms=[];
+        foreach ((array)($value['blocked_terms']??[]) as $term) {
+            if (!is_string($term)) continue;
+            $term=trim($term);
+            if ($term!=='' && mb_strlen($term,'UTF-8')<=100) $terms[$term]=true;
+            if (count($terms)>=100) break;
+        }
+        $policy['blocked_terms']=array_keys($terms);
+        return $policy;
+    }
+
+    public static function safetyPolicy(int $tenant): array
+    {
+        return self::normalizeSafetyPolicy((array)((self::config($tenant)['canvas_agent']??[])['safety']??[]));
+    }
+
     public static function enabled(int $tenant): bool
     {
         $config=self::config($tenant);
