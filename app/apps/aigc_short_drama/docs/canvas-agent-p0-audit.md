@@ -814,3 +814,16 @@ server `b4078f4c9` 给 MarketVideoModelPayloadContractTest 新增三个直接执
 从已合入的本地 develop，在只读源码、遮盖 .env、internal 网络、临时 runtime/uploads 的容器中执行两套共享回归：**39 tests / 132 assertions PASS**（含本轮新增 3 tests / 7 assertions）。只有测试源码变化，web 无变化；没有付费调用、迁移、业务数据写入、重载、推送或部署。已有全目录加载 ReflectionMethod 警告仍记录为环境警告。
 
 边界：只证明当前 Wan 结构化请求构造路径，不泛化为所有 Provider 协议通过。M06 的 UI 次序操作及报价/hash/快照更新仍 NOT_RUN；M01 共享矩阵、资产所有权/状态解析及其余门槛继续按原清单补齐，P3 未整体放行。
+
+## 39. P3 租户/用户余额不足的公开预占入口验证（2026-09-22）
+
+server `465d231c5` 仅扩展隔离 `p3_quote.php`。先断言合成商品的租户成本与用户售价均大于零，再分别设置测试 tenant 91001 余额 0/user 92001 余额 100，以及反向余额。调用真实 MarketVideoRuntimeService::reserve 与 PointService，不替换余额检查。
+
+- PASS：用户有余额但租户不足时返回包含租户与不足的明确错误。
+- PASS：租户有余额但用户不足时返回用户侧不足错误，与租户不足可区分。
+- PASS：两类失败均不改变调用前的合成余额，任务/消费记录数量不增，不留下孤立预占任务。
+- PASS：恢复合成余额后，合法请求仍可正常预占，同键重放无重复扣费。
+
+本地 develop 合入后，internal 网络/独立测试库执行公开 quote/reserve 套件 **18 PASS / 0 FAIL**，其中本轮新增 5 项。全部 fixture 事务回滚；未调用 Provider、未改业务余额、未迁移/部署/推送。web 无改动；本次无需重载 Worker。
+
+M15 的公开市场服务拒绝路径已有行为证据，但画布/Agent 失败状态保存和 UI 明确呈现仍 NOT_RUN，不能将整项或 P3 阶段宣称全部通过。M01、M06 与其余未满足项继续保留，不跳过门槛进入 P4。
