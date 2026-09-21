@@ -10,7 +10,7 @@ final class ConversationService
 {
     public static function send(int $tenant,int $user,int $canvas,int $thread,array $request): array
     {
-        $messageKeys=['request_key','content','selected_node_ids','base_revision'];
+        $messageKeys=['request_key','content','selected_node_ids','base_revision','attachments'];
         if (array_diff(array_keys($request),array_merge($messageKeys,['preferences','skill_id','skill_version']))) throw new RuntimeException('UNSUPPORTED_MESSAGE_FIELD');
         $preferences=$request['preferences']??[];
         if (!is_array($preferences) || strlen(json_encode($preferences,JSON_THROW_ON_ERROR))>4096) throw new RuntimeException('INVALID_AGENT_PREFERENCES');
@@ -22,8 +22,9 @@ final class ConversationService
         // Audit only after ownership is known. A blocked input never creates
         // a run/outbox and therefore can never reach a billable Provider.
         ConversationStore::assertThreadAccess($tenant,$user,$canvas,$thread);
+        $attachments=ConversationAttachments::normalize($request['attachments']??[]);
         if (!ConversationStore::hasRunRequestKey($tenant,$user,$canvas,$thread,$key)) {
-            ConversationSafety::assertInput($tenant,$user,$canvas,$thread,$key,$content);
+            ConversationSafety::assertInput($tenant,$user,$canvas,$thread,$key,$content.($attachments ? "\n".json_encode($attachments,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR) : ''));
         }
         return ConversationStore::enqueue($tenant,$user,$canvas,$thread,array_intersect_key($request,array_flip($messageKeys)),static function () use ($tenant,$preferences,$skillId,$skillVersion): array {
             $settings=ConversationSettings::resolve($tenant,$preferences);
