@@ -1,7 +1,7 @@
 {
-  "version": "1.0.343",
-  "source_sha": "2d97b7e45ca2ae985b2d0bf231eb4ab2f910e5d8",
-  "built_at": "2026-09-21T09:33:32.514Z",
+  "version": "1.0.347",
+  "source_sha": "57fd1ea68b699685a676e7e4c68106c9b20e1ad8",
+  "built_at": "2026-09-21T10:31:53.732Z",
   "file_count": 521,
   "files": {
     "api/account.js": "71fb4799e085c4e4712fb9e98671b6ba3cac1c7606b5e194d88235cb8aec8299",
@@ -11,7 +11,7 @@
     "api/pay.js": "5d4639241338786342201589a462c524650dec4c1f6312cd5b1ef9bc64a1be3a",
     "api/recharge.js": "e11d2e10c6d02e7329dc007e6e2626968161e3bf6c7b6c5b2daedc9a3778b0c3",
     "api/shop.js": "614c20aa005b2046f7bb97cefac08573360559d8f38f1959fa9240f65fe5418f",
-    "api/user.js": "ae8a4c66856ea5c89f8f1f2b78fc3f02e57a7bd0612398fcdfc484830b8a208c",
+    "api/user.js": "80283e8b561f566ed180c5cec22bcfdf409c3bf0ec325f1248ca233465ab6f55",
     "app.js": "dcad03336ac1b4b3788159b94b91048e94f0d3a53c8d8e0e04725422e15d0a63",
     "app.json": "2fcb3501fc87dfea1a0dcb7c98ac952172654c6b2f66977f896e24e6a8ca23c2",
     "app.wxss": "65b7219d0e44877add8dbea9c70a5a4db51360a949c1a10c0051a77cf967ef08",
@@ -283,9 +283,9 @@
     "pages/index/index.json": "88e1683d9c65d009d219a7728d66c99577e03f2a4e53c89a5eeb3f86873e0099",
     "pages/index/index.wxml": "50123485799ca279fddbac1daa4b7b842e72306d5d859b17a3ce486cab981a1c",
     "pages/index/index.wxss": "70eaeb39388b34b4baacc6812f0419cabe4eb9e86b55e18f17c68e9dcbc2e235",
-    "pages/login/login.js": "3a6edb80d16a779188223d8a8e0a6782ddbeff2f6c9c5519489623be6aa43135",
+    "pages/login/login.js": "ca161692fed35cb1ec2dca24b5d25c03d70d30b824b1da89cca7c2823a226774",
     "pages/login/login.json": "6a889719c2b85f658d9446a88dd5b7d1d99a6aeb0b684ee3556a62f1bf591a70",
-    "pages/login/login.wxml": "70addfa09109dae124ff62a5bb8fbfa4c39ee90ef52f5dff53b23e33ac972306",
+    "pages/login/login.wxml": "080c6033160fa713ac35f38faad4d2025bc93d0f619ed731aab53a00c22d42b9",
     "pages/login/login.wxss": "3bdf58e5d419e303598bcc93821cf16793ea7d294994a37fbc347c6b69b933ee",
     "pages/news/component/news-list.js": "775a31eb42ec78247806ecf971181196c63257f6531cd015e85c531365247abf",
     "pages/news/component/news-list.json": "8b145da9d03f270d3bf57b0c58c8464a2872785ecc6212130372fb49e6dae84c",
@@ -526,5 +526,5 @@
     "utils/theme.js": "e4c4fbd666eca3132796c5edb24bd7ac949517879d0ae9b5de8d60a83ae6264f",
     "utils/util.js": "0c1ba13dc7a9027d840ce031ffe02e546872df55800581b4ae7b504af908e377"
   },
-  "sha256": "5a264dd2f232d69653bb199103b2ccfdbe4d6b5b17be3c07f216346b5a436703"
+  "sha256": "68e6563aad2e2bbad91bad1afac2acebbaa157c7457574c24e8e5c8f7faf9ff1"
 }
