@@ -40,5 +40,17 @@ try {
         agentCheck(!Intent::projectResult(91001,92001,(int)$d['canvas_run_id']) && Canvas::current(91001,92001,$id)['nodes']===[],$type.' deleted node never resurrects on late completion');
         agentCheck(Db::name('aigc_short_drama_canvas_run')->where('canvas_id',$id)->where('status','success')->count()===4,$type.' deletion retains all completed run records');
     }
+    $id=Canvas::create(91001,92001,['title'=>'P1 missing video poster'])['id'];
+    Canvas::save(91001,92001,['id'=>$id,'nodes'=>[['id'=>1,'type'=>'video','metadata'=>[]]]]);
+    $intent=Intent::reserve(91001,92001,$id,'poster','1','video',[]);
+    $claim=Intent::claim(91001,92001,(int)$intent['id']);
+    Intent::accepted(91001,92001,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],'fixture-poster',[
+        'results'=>[['url'=>'uploads/fixture/video.mp4','uri'=>'uploads/fixture/video.mp4','storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'']],
+    ],true);
+    Intent::projectResult(91001,92001,(int)$claim['canvas_run_id']);
+    Intent::projectResult(91001,92001,(int)$claim['canvas_run_id']);
+    $jobs=Db::name('aigc_short_drama_canvas_poster_job')->where(['canvas_id'=>$id,'tenant_id'=>91001,'user_id'=>92001])->select()->toArray();
+    agentCheck(count($jobs)===1 && $jobs[0]['status']==='pending','intent video projection queues exactly one existing asynchronous poster job');
+    agentCheck($jobs[0]['video_uri']==='uploads/fixture/video.mp4' && $jobs[0]['storage_scope']==='tenant','poster job retains source URI and tenant storage metadata');
 } finally {Db::rollback();}
 echo "NOT_RUN real callbacks, asset version selection and browser generation UI; persisted run/projector behavior only\n";
