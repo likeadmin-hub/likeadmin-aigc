@@ -105,8 +105,17 @@ try {
             }
             if (trim((string)($body['content']??''))!=='') {
                 $claim=ConversationExecution::claim(94011,95011,$run);
-                if (!$claim) throw new RuntimeException('Agent helper cannot claim isolated SSE run');
-                ConversationExecution::complete(94011,95011,$run,$claim['token'],$claim['fence'],(string)$body['content']);
+                if ($claim) {
+                    ConversationExecution::complete(94011,95011,$run,$claim['token'],$claim['fence'],(string)$body['content']);
+                } else {
+                    // SSE reconnects read the already completed run; they must
+                    // not claim it again or silently accept a different reply.
+                    $status=Db::name('aigc_short_drama_canvas_agent_run')->where(['id'=>$run,'tenant_id'=>94011,'user_id'=>95011,'canvas_id'=>$canvasId])->value('status');
+                    $reply=Db::name('aigc_short_drama_canvas_agent_message')->where(['run_id'=>$run,'tenant_id'=>94011,'user_id'=>95011,'canvas_id'=>$canvasId,'role'=>'assistant'])->value('content_json');
+                    if ($status!=='success' || (json_decode((string)$reply,true)['text']??null)!==(string)$body['content']) {
+                        throw new RuntimeException('Agent helper cannot replay isolated SSE run');
+                    }
+                }
             }
             $url='http://127.0.0.1:19080/api/app.aigc_short_drama.canvas_agent/stream?tenant_id=94011';
             $streamBody=['canvas_id'=>$canvasId,'thread_id'=>$thread,'run_id'=>$run,'event_after'=>0,'message_after'=>0,'wait_seconds'=>0];
