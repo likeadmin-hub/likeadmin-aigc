@@ -85,6 +85,9 @@ final class ConversationStore
                         'content'=>$node['metadata']['content']??'',
                         'prompt'=>$node['metadata']['prompt']??'',
                     ];
+                    if ($node['type']==='image' && trim((string)($node['metadata']['image']??$node['metadata']['url']??''))!=='') {
+                        $selected[(string)$node['id']]['image_asset']=ConversationImages::freeze($tenant,$user,$canvas,(string)($node['metadata']['image']??$node['metadata']['url']));
+                    }
                 }
             }
             if (count($selected)!==count($ids)) throw new RuntimeException('NODE_NOT_FOUND');
@@ -130,7 +133,16 @@ final class ConversationStore
         self::canvas($tenant,$user,$canvas);
         $scope=self::scope($tenant,$user,$canvas);self::thread($scope,$thread);
         $rows=Db::name(self::PREFIX.'message')->where($scope+['thread_id'=>$thread,'delete_time'=>0])->where('sequence','>',max(0,$after))->order('sequence')->limit(100)->select()->toArray();
-        return array_map(static fn($row)=>['id'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'role'=>$row['role'],'content'=>json_decode($row['content_json'],true,512,JSON_THROW_ON_ERROR),'attachments'=>json_decode($row['attachments_json'],true,512,JSON_THROW_ON_ERROR)],$rows);
+        return array_map(static function ($row) use ($scope,$thread) {
+            $message=['id'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'role'=>$row['role'],'content'=>json_decode($row['content_json'],true,512,JSON_THROW_ON_ERROR),'attachments'=>json_decode($row['attachments_json'],true,512,JSON_THROW_ON_ERROR)];
+            $snapshot=Db::name(self::PREFIX.'run')->where($scope+['id'=>$row['run_id'],'thread_id'=>$thread,'delete_time'=>0])->value('context_snapshot');
+            $references=[];
+            foreach ((json_decode((string)$snapshot,true)['selected_nodes']??[]) as $node) {
+                if (($node['type']??'')==='text') $references[]=['node_id'=>(string)$node['id'],'content_revision'=>(int)($node['content_revision']??0),'text'=>(string)($node['content']??'')];
+            }
+            if ($references) $message['text_references']=$references;
+            return $message;
+        },$rows);
     }
 
     public static function events(int $tenant,int $user,int $canvas,int $thread,int $after=0): array

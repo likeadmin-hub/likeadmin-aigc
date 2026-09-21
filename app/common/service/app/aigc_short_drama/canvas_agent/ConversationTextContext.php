@@ -30,7 +30,7 @@ final class ConversationTextContext
             } else {
                 // Text chat has not read pixels, audio or video. Do not turn
                 // a media prompt into a claim that the media was understood.
-                $material['media_understanding_available']=false;
+                $material['media_understanding_available']=$node['type']==='image' && !empty($node['image_asset']);
             }
             $materials[]=$material;
         }
