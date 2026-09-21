@@ -44,7 +44,8 @@ final class GenerationIntentService
                 'request_json'=>self::json($input),'result_json'=>'{}','error'=>'','create_time'=>$now,'update_time'=>$now,'delete_time'=>0,
             ]);
             $snapshot=['graph_revision'=>$document['graph_revision']??null,
-                'content_revision'=>$node['metadata']['content_revision']??0,'node_id'=>$nodeId,'type'=>$type,'input'=>$input];
+                'content_revision'=>$node['metadata']['content_revision']??0,'target_signature'=>self::nodeInputSignature($node),
+                'node_id'=>$nodeId,'type'=>$type,'input'=>$input];
             $id=Db::name(self::TABLE)->insertGetId($scope+[
                 'request_key'=>$key,'request_hash'=>$hash,'canvas_run_id'=>$run,'node_id'=>$nodeId,
                 'snapshot_json'=>self::json($snapshot),'state'=>'prepared','fencing_version'=>0,
@@ -65,10 +66,15 @@ final class GenerationIntentService
             $document=Db::name(GraphService::TABLE)->where(['id'=>$identity['canvas_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find();
             $row=self::owned($tenant,$user,$id);
             if ($row['state']!=='prepared') return null;
-            $found=false;
-            foreach (json_decode($document['nodes_json']??'[]',true)?:[] as $node) if ((string)$node['id']===(string)$row['node_id']) {$found=true;break;}
-            if (!$found) {
+            $target=null;
+            foreach (json_decode($document['nodes_json']??'[]',true)?:[] as $node) if ((string)$node['id']===(string)$row['node_id']) {$target=$node;break;}
+            if (!$target) {
                 self::transition($row,['state'=>'canceled','error_code'=>'NODE_REMOVED_BEFORE_SUBMIT'],['status'=>'canceled','error'=>'节点已删除，未提交生成']);
+                return null;
+            }
+            $snapshot=json_decode($row['snapshot_json'],true,512,JSON_THROW_ON_ERROR);
+            if (!isset($snapshot['target_signature']) || !hash_equals($snapshot['target_signature'],self::nodeInputSignature($target))) {
+                self::transition($row,['state'=>'canceled','error_code'=>'INPUT_CHANGED_BEFORE_SUBMIT'],['status'=>'canceled','error'=>'节点输入已变化，请确认新参数后重新提交']);
                 return null;
             }
             $changes=['state'=>'submitting','claim_token'=>bin2hex(random_bytes(24)),
@@ -133,6 +139,12 @@ final class GenerationIntentService
     }
     private static function requestHash(string $nodeId,string $type,array $input): string {
         return hash('sha256',self::json(self::canonical(['node_id'=>$nodeId,'type'=>$type,'input'=>$input])));
+    }
+    private static function nodeInputSignature(array $node): string {
+        $metadata=(array)($node['metadata']??[]);
+        foreach (['status','progress','error','errorDetails','canvasRunId','active_generation_id','layout_revision','groupId','agentGroupId','poster_url','poster_uri','poster_status','poster'] as $field) unset($metadata[$field]);
+        // Layout and progress do not authorize a different generation input.
+        return hash('sha256',self::json(self::canonical(['type'=>$node['type']??'','title'=>$node['title']??'','metadata'=>$metadata])));
     }
     private static function json(array $value): string {return json_encode($value,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);}
 }
