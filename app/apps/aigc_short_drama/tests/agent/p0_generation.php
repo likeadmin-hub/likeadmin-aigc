@@ -17,7 +17,8 @@ class P0Provider {
         $billing = ['tenant_cost_points' => 1, 'user_charge_points' => 2, 'billing_status' => 'settled'];
         if ($type === 'text') return ['content' => 'Synthetic response', 'provider' => 'p0-mock', 'billing' => $billing];
         $table = ['image' => 'aigc_image', 'video' => 'aigc_video', 'audio' => 'aigc_music'][$type];
-        $id = Db::name($table . '_task')->insertGetId(['tenant_id' => $tenant, 'user_id' => $user, 'status' => 'success', 'provider_task_id' => 'mock-' . $receipt] + $billing);
+        $fields = array_flip(array_column(Db::query('SHOW COLUMNS FROM `la_' . $table . '_task`'), 'Field'));
+        $id = Db::name($table . '_task')->insertGetId(array_intersect_key(['tenant_id' => $tenant, 'user_id' => $user, 'status' => 'success', 'provider_task_id' => 'mock-' . $receipt] + $billing, $fields));
         $column = ['image' => 'image_uri', 'video' => 'video_uri', 'audio' => 'audio_uri'][$type];
         Db::name($table . '_result')->insert(['tenant_id' => $tenant, 'user_id' => $user, 'task_id' => $id, $column => 'https://fixtures.invalid/p0-' . $receipt, 'storage_scope' => 'tenant', 'storage_engine' => 'local']);
         return ['id' => $id, 'status' => 'success'];
