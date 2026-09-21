@@ -743,3 +743,17 @@ P2 放行门槛仍未满足：A02 现有确认式文本版本证据，A03 仅候
 | 其余 M05—M16 未覆盖部分 | NOT_RUN，仍需逐项实现和行为测试 |
 
 P3 尚未放行。下一切片：跟踪 ShortDramaCanvasService 提交参数及下游模型校验，建立前后端同一参考能力夹具，先补 M01/M02/M03 的服务端行为；随后按顺序推进角色槽位、资产解析与媒体适配闭环。P4—P6 保持 NOT_RUN。
+
+## 33. P3 服务端参考归一化、首尾帧角色修复（2026-09-22）
+
+路径核对：ShortDramaCanvasService 将视频提交至 AigcVideoService 的市场运行时；旧 `generateInternal` 已直接报“旧视频 Provider 提交链路已移除”。因此其中 `assertReferenceAssetsSupported` 不能作为当前线上路径验证证据，后续 M01/M03 必须验证实际 MarketVideoRuntimeService quote/submit。
+
+在此之前发现共享 AigcVideoReferenceAssetService 两个可复现问题：归一化按 URI 去重会合并同图首帧/尾帧；超过 15 个素材时 `array_slice` 静默截断，使下游无法审核完整集合。新增 `p3_reference_assets.php`，首次实际失败于 M05；实现修复后又发现 legacy reference_images 被赋予 reference_image role，会追加第三份，随后修正兼容投影并复测。
+
+- 服务端 `8373015fb` / `d7ee1da3f`：同源首尾帧以角色区分，同角色重复仍去重，顺序保持；legacy 无角色用途的图片投影不会在显式首尾帧之外多算一份。显式不同用途 reference_image 保留，不吞掉用户的角色。
+- 超出既有归一化最大数量时明确报错，不静默丢素材；未改变模型本身能力或限额。此处的 15 是既有归一化边界，不是宣称所有模型都支持 15 个参考。
+- 无 API/schema/账本变更，无下载或物理素材改写。共享消费者包含独立视频、短剧及市场视频运行时，所以按回归保护技能验证了短剧参考与市场载荷，而不是只测新函数。
+
+本地 develop 验证：`p3_reference_assets.php` **5 PASS**（同用途去重、同图双角色、反向顺序、溢出拒绝、边界接受）；`ShortDramaVideoReferenceContractTest` **24 tests / 57 assertions PASS**；`MarketVideoModelPayloadContractTest` **12 tests / 68 assertions PASS**。后两套含行为与源码合同，不标成完整 Provider 端到端。首次 PHPUnit 因只读测试目录和缺少 web 挂载报 2 个环境错误，改用容器临时 uploads 与只读 web 挂载复测通过；未改变宿主业务 uploads。一次挂载到不存在的只读子目录失败后，改挂已有 uploads 路径，容器退出即移除临时测试文件。
+
+P3 M03/M04/M05/M06 的归一化层有行为证据，但模型能力、总限额报价拒绝、前后端 16 组合一致性与收费前拒绝仍未完整验证，**P3 未放行**。本轮仅 server 源码变化，web 无源码变更；无付费调用、业务迁移、生产部署或推送。未重启本机 FPM/常驻媒体 Worker，不能声称常驻进程已加载本轮共享 PHP 修复。
