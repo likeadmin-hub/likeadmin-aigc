@@ -4,6 +4,7 @@ require __DIR__.'/bootstrap.php';
 use think\facade\Db;
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution;
+use app\common\service\app\aigc_short_drama\canvas_agent\GraphService as Graph;
 
 // JSON-lines bridge to real HTTP inside the internal network. No host port,
 // business credentials, arbitrary URLs, provider routes or user profile.
@@ -83,8 +84,27 @@ try {
             ]]),PHP_EOL;
             continue;
         }
+        if ($agentConversation && $action==='agentLastSelectionEvidence') {
+            $snapshot=Db::name('aigc_short_drama_canvas_agent_run')->where(['tenant_id'=>94011,'user_id'=>95011,'canvas_id'=>$canvasId])->order('id','desc')->value('context_snapshot');
+            $context=json_decode((string)$snapshot,true,512,JSON_THROW_ON_ERROR);
+            echo json_encode(['result'=>array_values(array_map(static fn(array $node): string => (string)$node['id'],(array)($context['selected_nodes']??[])))]),PHP_EOL;
+            continue;
+        }
         if ($agentConversation && $action==='agentPreferenceEvidence') {
             echo json_encode(['result'=>Db::name('aigc_short_drama_canvas_agent_preference')->where(['tenant_id'=>94011,'user_id'=>95011])->find() ?: null]),PHP_EOL;
+            continue;
+        }
+        if ($agentConversation && $action==='agentSeedAmbiguousImages') {
+            // Add only owned, metadata-free image placeholders after the
+            // normal conversation test. This exercises the real graph and
+            // Agent ambiguity path without a file, provider or charge.
+            $document=Db::name(Graph::TABLE)->where(['id'=>$canvasId,'tenant_id'=>94011,'user_id'=>95011,'delete_time'=>0])->find();
+            if (!$document) throw new RuntimeException('Agent fixture canvas missing');
+            $result=Graph::patch(94011,95011,$canvasId,['request_key'=>'browser-ambiguous-images','expected_revision'=>(int)$document['graph_revision'],'operations'=>[
+                ['op'=>'add_node','node'=>['id'=>2,'type'=>'image','title'=>'左侧角色图','x'=>320,'y'=>20,'width'=>240,'height'=>180,'metadata'=>[]]],
+                ['op'=>'add_node','node'=>['id'=>3,'type'=>'image','title'=>'左侧场景图','x'=>340,'y'=>240,'width'=>240,'height'=>180,'metadata'=>[]]],
+            ]]);
+            echo json_encode(['result'=>$result]),PHP_EOL;
             continue;
         }
         // Browser-only harness helpers drive the real durable completion and
