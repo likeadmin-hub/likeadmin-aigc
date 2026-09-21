@@ -49,6 +49,17 @@ try {
     } else agentCheck(P3PreflightVideo::$calls===1,'failed request replay does not redispatch');
     $history=Db::name('aigc_short_drama_generation_task')->where(['tenant_id'=>91001,'user_id'=>92001,'task_id'=>'canvas_run_'.$result['id']])->find();
     agentCheck($history && $history['status']==='failed','short-drama task history retains failure');
+    $fresh=Canvas::current(91001,92001,$canvas);
+    agentCheck(count($fresh['runs'])===1 && $fresh['runs'][0]['id']===$result['id'] && $fresh['runs'][0]['status']==='failed'
+        && $fresh['runs'][0]['error']===$result['error'],'refresh projection restores authoritative failure and its reason');
+    $again=Canvas::current(91001,92001,$canvas);
+    agentCheck($again['runs']===$fresh['runs'] && $again['graph_revision']===$fresh['graph_revision'] && $before===$counts(),'repeated failure reads neither resubmit nor mutate graph or billing');
+    foreach ([[91002,92001],[91001,92002]] as [$otherTenant,$otherUser]) {
+        $denied=false;
+        try {Canvas::runDetail($otherTenant,$otherUser,(int)$result['id']);}
+        catch (Exception $error) {$denied=str_contains($error->getMessage(),'无权访问');}
+        agentCheck($denied,'failed run remains inaccessible outside its tenant/user scope');
+    }
     if (!$realApp) {
     P3PreflightVideo::$unknown=true;
     $params['request_key']='p3-unknown';
