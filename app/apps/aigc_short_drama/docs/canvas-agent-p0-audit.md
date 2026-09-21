@@ -757,3 +757,11 @@ P3 尚未放行。下一切片：跟踪 ShortDramaCanvasService 提交参数及�
 本地 develop 验证：`p3_reference_assets.php` **5 PASS**（同用途去重、同图双角色、反向顺序、溢出拒绝、边界接受）；`ShortDramaVideoReferenceContractTest` **24 tests / 57 assertions PASS**；`MarketVideoModelPayloadContractTest` **12 tests / 68 assertions PASS**。后两套含行为与源码合同，不标成完整 Provider 端到端。首次 PHPUnit 因只读测试目录和缺少 web 挂载报 2 个环境错误，改用容器临时 uploads 与只读 web 挂载复测通过；未改变宿主业务 uploads。一次挂载到不存在的只读子目录失败后，改挂已有 uploads 路径，容器退出即移除临时测试文件。
 
 P3 M03/M04/M05/M06 的归一化层有行为证据，但模型能力、总限额报价拒绝、前后端 16 组合一致性与收费前拒绝仍未完整验证，**P3 未放行**。本轮仅 server 源码变化，web 无源码变更；无付费调用、业务迁移、生产部署或推送。未重启本机 FPM/常驻媒体 Worker，不能声称常驻进程已加载本轮共享 PHP 修复。
+
+## 34. P3 实际市场视频校验器行为（2026-09-22）
+
+增量测试 `bae33005b` 直接执行 MarketVideoRuntimeService 当前 reserve 调用的 `assertAssets`（不使用已停用旧视频方法）：合成模型允许图片/视频/音频各 3 个、总量 2 个时，两种素材通过，三种分别合法的素材因总量超限被拒绝；将所选模型限制为图片后，视频参考明确拒绝，不因其他模型可能支持而放行。
+
+隔离 `p3_reference_assets.php` **8 PASS / 0 FAIL**，含之前 5 项归一化回归与新增 3 项实际校验器行为。此测试通过反射调用真实校验方法，不访问远端、不扣费、不写业务库；只证明该校验器，不伪称公开 quote/reserve 端到端通过。
+
+源码定位显示 reserve 在 quoteMarket 与余额操作之前调用 assertAssets，而公开 quote 只解析时长/选择并计算报价，未调用 assertAssets。因此“非法参考在扣费前拒绝”的完整入口行为仍需隔离市场目录/报价夹具验证；“报价也拒绝非法参考”仍未完成。P3 继续未放行，web 本轮无变更，未重启业务进程或发布。

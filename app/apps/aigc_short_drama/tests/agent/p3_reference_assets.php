@@ -34,4 +34,4 @@ $rejected=false;
 try {$assertAssets->invoke(null,$market,['reference_assets'=>[$mixed[1]]]);}
 catch (Exception $error) {$rejected=str_contains($error->getMessage(),'does not support reference video');}
 agentCheck($rejected,'M02 selected model validator rejects unsupported input despite another possible model');
-echo "NOT_RUN selected-model limits, ownership, quote, billing and Provider submission; normalization behavior only\n";
+echo "NOT_RUN ownership, public quote/reserve, billing and Provider submission; normalization and actual market validator only\n";
