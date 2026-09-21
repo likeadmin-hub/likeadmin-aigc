@@ -24,6 +24,10 @@ try {
     $canvas=Canvas::create(91031,92031,['title'=>'P2 safety fixture'])['id'];
     $thread=Store::create(91031,92031,$canvas,'safety-thread')['id'];
     try {
+        Service::send(91031,92031,$canvas,$thread,['request_key'=>'blocked-attachment','content'=>'分析材料','base_revision'=>0,'attachments'=>[['type'=>'text','name'=>'input.md','content'=>'拒绝输入标记']]]);
+        throw new RuntimeException('Expected blocked attachment');
+    } catch (\RuntimeException $error) {agentCheck($error->getMessage()==='CONTENT_BLOCKED','attachment text participates in pre-submit moderation');}
+    try {
         Service::send(91031,92031,$canvas,$thread,['request_key'=>'blocked-input','content'=>'请处理拒绝输入标记','base_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product]]);
         throw new RuntimeException('Expected blocked input');
     } catch (\RuntimeException $error) { agentCheck($error->getMessage()==='CONTENT_BLOCKED','blocked input returns the generic public safety result'); }
@@ -40,7 +44,7 @@ try {
     $outputAudit=Db::name(ConversationSafety::TABLE)->where(['tenant_id'=>91031,'canvas_id'=>$canvas,'run_id'=>$ack['run_id'],'direction'=>'output'])->find();
     agentCheck((string)$outputAudit['decision']==='blocked' && (int)$outputAudit['provider_submitted']===1 && !str_contains(json_encode($outputAudit,JSON_UNESCAPED_UNICODE),'拒绝输出标记'),'output audit is redacted and marks the submitted boundary');
     ConversationSafety::assertInput(91032,92032,7,8,'tenant-two','独立内容');
-    agentCheck(Db::name(ConversationSafety::TABLE)->where(['tenant_id'=>91031,'canvas_id'=>$canvas])->count()===3 && Db::name(ConversationSafety::TABLE)->where(['tenant_id'=>91032,'request_key'=>'tenant-two'])->count()===1,'safety audit is isolated by tenant and canvas scope');
+    agentCheck(Db::name(ConversationSafety::TABLE)->where(['tenant_id'=>91031,'canvas_id'=>$canvas])->count()===4 && Db::name(ConversationSafety::TABLE)->where(['tenant_id'=>91032,'request_key'=>'tenant-two'])->count()===1,'safety audit is isolated by tenant and canvas scope');
     Db::name(ConversationSafety::TABLE)->where(['tenant_id'=>91031,'canvas_id'=>$canvas,'request_key'=>'blocked-input'])->update(['expires_at'=>time()-1]);
     agentCheck(ConversationSafety::purgeExpired(91031)===1 && Db::name(ConversationSafety::TABLE)->where(['tenant_id'=>91031,'canvas_id'=>$canvas,'request_key'=>'blocked-input'])->count()===0,'expired minimal audit is purged without touching another tenant');
 } finally {
