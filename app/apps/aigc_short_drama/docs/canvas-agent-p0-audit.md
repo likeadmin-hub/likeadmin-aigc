@@ -853,3 +853,9 @@ server `4c82ab6f8` 为 p3_preflight_rejection 增加 `real-app` 模式，禁用�
 - PASS：原测试桥模式 **11 项**重新执行，包含未知提交异常仍 needs_reconciliation 的对照，不因新增 real-app 模式削弱原验收。
 
 两模式均从已集成本地 develop 运行并事务回滚；本轮仅测试源码变化，无业务数据改动、付费调用、迁移、重载、部署或推送。实际视频应用的**预检失败链路**已补证，不扩展为 Provider 成功生成全流程通过。HTTP/UI 明确展示、Agent 工具触发及 P3 其他未满足门槛继续 NOT_RUN，P3 未整体放行。
+
+## 42. P3 失败状态刷新投影与身份隔离（2026-09-22）
+
+server `18111ece0` 扩展同一预检失败套件：真实 Canvas::current 返回原 failed run 与原错误原因；连续读取不改变 graph_revision、run 投影或市场/积分记录；其他 tenant 或 user 均无法通过 runDetail 读取失败任务。现有 nodes metadata 不是本项的权威运行态断言，页面应消费 current.runs；没有把读取服务测试写成浏览器展示已通过。
+
+本地 develop、独立 internal 网络/测试库实测：real-app 模式 **13 PASS**，测试桥模式 **15 PASS**，全部退出 0、fixture 回滚。仅测试源码变化，无业务数据、付费调用、迁移、进程重载、推送或部署。当前失败持久化/刷新/隔离已有行为证据，HTTP/浏览器显示仍 NOT_RUN；P3 其他门槛不变，未整体放行。
