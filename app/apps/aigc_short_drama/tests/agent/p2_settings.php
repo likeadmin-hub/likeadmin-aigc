@@ -46,7 +46,7 @@ try {
     agentCheck($real['reasoning_model']['supports_vision']===true && $real['reasoning_model']['market_input_sku_id']===(int)$sku,'market capabilities and SKU resolved server-side');
     agentCheck(ConversationPreferences::read(91001,92001)===['preferences'=>[],'revision'=>0],'account preference starts empty at revision zero');
     $saved=ConversationPreferences::save(91001,92001,0,['reasoning_model'=>(string)$product,'generation_mode'=>'auto']);
-    agentCheck($saved===['preferences'=>['generation_mode'=>'auto','reasoning_model'=>(string)$product],'revision'=>1],'preference save persists only validated model IDs and mode');
+    agentCheck($saved===['preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'auto'],'revision'=>1],'preference save persists only validated model IDs and mode');
     agentCheck(ConversationPreferences::read(91001,92001)===$saved,'preference read returns durable account-scoped revision');
     rejectsSettings(fn()=>ConversationPreferences::save(91001,92001,0,['reasoning_model'=>(string)$product]),'PREFERENCE_VERSION_CONFLICT');
     agentCheck(ConversationPreferences::save(91001,92002,0,['reasoning_model'=>(string)$product])['revision']===1,'different users have independent default model preferences');
