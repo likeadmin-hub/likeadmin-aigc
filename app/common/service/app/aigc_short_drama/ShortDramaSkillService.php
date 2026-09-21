@@ -203,7 +203,7 @@ final class ShortDramaSkillService
         $skill = self::find($tenantId, $id);
         if ((int)$skill['status'] !== 1 || (string)$skill['release_status'] !== self::ACTIVE || (int)$skill['published_version'] <= 0) throw new Exception('所选 Skill 当前不可用，请重新选择');
         if ((int)($params['skill_version'] ?? 0) > 0 && (int)$params['skill_version'] !== (int)$skill['published_version']) throw new Exception('Skill 已更新，请重新选择并确认新版本');
-        $version = Db::name('aigc_short_drama_skill_version')->where(['tenant_id' => (int)$skill['tenant_id'], 'skill_id' => $id, 'version' => (int)$skill['published_version']])->find();
+        $version = Db::name('aigc_short_drama_skill_version')->where(['tenant_id' => (int)$skill['tenant_id'], 'skill_id' => $id, 'version' => (int)$skill['published_version'], 'release_status' => self::ACTIVE, 'delete_time' => 0])->find();
         if (!$version) throw new Exception('Skill 已发布版本不存在'); $snapshot = self::decode($version['snapshot_json'] ?? []);
         return ['id' => $id, 'version' => (int)$version['version'], 'source' => in_array(($params['skill_source'] ?? ''), ['manual', 'recommended'], true) ? $params['skill_source'] : 'manual',
             'name' => (string)($snapshot['name'] ?? ''), 'skill_key' => (string)($snapshot['skill_key'] ?? ''), 'definition' => (array)($snapshot['definition'] ?? []), 'model_policy' => (array)($snapshot['model_policy'] ?? []), 'execution_policy' => (array)($snapshot['execution_policy'] ?? [])];
