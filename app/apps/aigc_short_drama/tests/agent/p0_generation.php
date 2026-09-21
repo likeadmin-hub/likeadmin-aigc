@@ -33,7 +33,7 @@ foreach (['P0Text' => 'aigc_llm\\AigcLlmService', 'P0Image' => 'aigc_image\\Aigc
 Db::startTrans();
 try {
     foreach ([91001,91002] as $id) Db::name('tenant')->insert(['id'=>$id,'sn'=>'p0-'.$id,'create_time'=>time(),'point_balance'=>100]);
-    foreach ([[92001,91001],[92002,91001],[92003,91002]] as [$id,$tenant]) Db::name('user')->insert(['id'=>$id,'sn'=>$id,'tenant_id'=>$tenant,'user_money'=>100]);
+    foreach ([[92001,91001],[92002,91001],[92003,91002]] as [$id,$tenant]) Db::name('user')->insert(['id'=>$id,'sn'=>$id,'account'=>'p0-'.$id,'tenant_id'=>$tenant,'user_money'=>100]);
     Db::name('app')->insert(['code'=>'aigc_short_drama','status'=>'installed']);
     Db::name('app')->insert(['code'=>'aigc_canvas','status'=>'disabled']);
     Db::name('tenant_app')->insert(['tenant_id'=>91001,'app_code'=>'aigc_short_drama','buy_status'=>'paid','enable_status'=>'enabled','shelf_status'=>'on','expire_time'=>time()+3600]);
