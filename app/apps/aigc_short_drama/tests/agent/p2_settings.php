@@ -2,7 +2,10 @@
 declare(strict_types=1);
 require __DIR__.'/bootstrap.php';
 use think\facade\Db;
+use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationSettings as Settings;
+use app\common\service\app\aigc_short_drama\canvas_agent\FeatureGate;
+use app\common\service\app\aigc_short_drama\canvas_agent\MarketTextConversationProvider;
 function rejectsSettings(callable $action,string $code): void {
     try {$action();} catch (RuntimeException $error) {agentCheck($error->getMessage()===$code,$code);return;}
     throw new RuntimeException('Expected '.$code);
@@ -40,6 +43,15 @@ try {
     $real=Settings::resolve(91001,['reasoning_model'=>(string)$product]);
     agentCheck($real['reasoning_model']['id']===(string)$product && $real['reasoning_model']['model_code']==='isolated-reasoning','real database catalog resolves exact requested market identity');
     agentCheck($real['reasoning_model']['supports_vision']===true && $real['reasoning_model']['market_input_sku_id']===(int)$sku,'market capabilities and SKU resolved server-side');
+    agentCheck(!FeatureGate::executionEnabled(91001),'Agent model execution remains opt-in when only the conversation panel is enabled');
+    $provider=new MarketTextConversationProvider();
+    rejectsSettings(fn()=>$provider->preflight(91001,92001,['settings'=>['reasoning_model'=>['id'=>(string)$product]]]),'CANVAS_AGENT_EXECUTION_DISABLED');
+    AigcShortDramaService::saveConfig(91001,['canvas_agent'=>['enabled'=>true,'execution_enabled'=>true]]);
+    agentCheck(FeatureGate::enabled(91001) && FeatureGate::executionEnabled(91001),'tenant configuration explicitly enables Agent model execution');
+    $provider->preflight(91001,92001,['settings'=>['reasoning_model'=>['id'=>(string)$product]]]);
+    agentCheck(true,'enabled Agent preflight accepts the server-resolved market model without invoking it');
+    AigcShortDramaService::saveConfig(91001,['canvas_agent'=>['enabled'=>false,'execution_enabled'=>true]]);
+    agentCheck(!FeatureGate::enabled(91001) && !FeatureGate::executionEnabled(91001),'turning off Agent also disables paid model execution');
     Db::name('tenant_power_market_sku_price')->insert(['tenant_id'=>91002,'sku_id'=>$sku,'sale_status'=>0,'sale_points'=>1]);
     rejectsSettings(fn()=>Settings::resolve(91002,['reasoning_model'=>(string)$product]),'REASONING_MODEL_UNAVAILABLE');
     agentCheck(Settings::resolve(91001,['reasoning_model'=>(string)$product])['reasoning_model']['id']===(string)$product,'another tenant disabling SKU does not hide current tenant model');

@@ -695,6 +695,17 @@ class AigcShortDramaService
                 $config['result_storage_engine'] = '';
             }
         }
+        if (array_key_exists('canvas_agent', $params)) {
+            if (!is_array($params['canvas_agent'])) {
+                throw new Exception('Agent 配置格式不正确');
+            }
+            $agent=(array)$params['canvas_agent'];
+            $enabled=in_array($agent['enabled']??false,[true,1,'1','true'],true);
+            $executionEnabled=$enabled && in_array($agent['execution_enabled']??false,[true,1,'1','true'],true);
+            // Persist only these two product settings. Provider credentials,
+            // model identities and prices always remain server-owned.
+            $config['canvas_agent']=['enabled'=>$enabled,'execution_enabled'=>$executionEnabled];
+        }
         unset($config['script_plan_model_id'], $config['script_plan_model_selection']);
         $defaultTextKey = array_key_exists('default_text_model_id', $params)
             ? 'default_text_model_id'
@@ -15608,6 +15619,7 @@ class AigcShortDramaService
             'multi_episode_script_prompt_template' => self::defaultMultiEpisodeScriptPromptTemplate(),
             'force_result_transfer' => false,
             'result_storage_engine' => '',
+            'canvas_agent' => ['enabled' => false, 'execution_enabled' => false],
             'models' => [
                 [
                     'id' => 'script-planner-default',
