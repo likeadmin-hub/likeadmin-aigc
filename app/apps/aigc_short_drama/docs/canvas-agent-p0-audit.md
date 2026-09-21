@@ -615,3 +615,16 @@ P2 放行门槛仍未满足：A02 现有确认式文本版本证据，A03 仅候
 在 server 本地 `develop` 串行执行 `p2_migrations`、`p2_conversation`、`p2_conversation_concurrency`、`p2_execution`、`p2_settings`、`p2_send`、`p2_http`、`p2_safety`、`p2_worker`、`p2_queue_crash`、`p2_stop`、`p2_stop_race`、`p2_recovery`、`p2_attachments`：**698 PASS / 0 FAIL**。PHP lint 和 diff check 通过。web 本地 `develop` 执行附件/state/reader/SFC 合同：**25 PASS / 0 FAIL**；Chrome → 受限 bridge → 隔离 MySQL：**12 PASS / 0 FAIL**。所有测试使用 internal Docker 网络、隔离数据库、模拟 Provider；未复制私有素材或密钥。
 
 仍不能标记为已全部放行的项目：真实付费 Provider 的视觉质量/多格式解析质量、真实积分账本结算与未知用量对账、外部语义审核 Provider、生产 Worker supervisor/调度及生产迁移/部署。这些需要外部服务或生产授权；本任务边界不调用付费 Provider、不执行生产迁移或部署，故保持 **NOT_RUN**，不以模拟测试替代。P2 的本地安全合同已通过；若 P3 的进入条件要求上述生产级外部验收，则仍为 BLOCKED。
+
+## 28. P2 真实付费文本 Agent 与账本验收（2026-09-22）
+
+用户明确授权本轮真实付费测试，总额上限为 2000 积分。使用 tenant 1 / user 1 / canvas 17 的新建会话提交一条最短纯文本请求：只回复“真实 Agent 验收成功”，不得创建节点、媒体或工具调用。常驻 `short-drama:canvas-agent-worker --tenant=1` 使用市场目录中的 `qwen3.6-plus` 完成一次真实调用。
+
+| 检查项 | 结果 | 真实证据 |
+| --- | --- | --- |
+| 对话与 SSE/UI 投影 | PASS | run `17` 从 queued → running → submitting → success；右侧面板显示用户请求和“真实 Agent 验收成功” |
+| Provider 与账本关联 | PASS | `ai_app_task` `1069` 关联 `aigc_short_drama_canvas_agent_run:17`；`ai_consumption_log` `1091` 的 provider 为 `power_market`、model 为 `qwen3.6-plus`、状态 `success/settled` |
+| 真实结算与额度 | PASS | 实际用户与租户扣费均为 `0.623` 积分；用户余额 `874.82 → 874.20`、租户余额 `70567.43 → 70566.81`，低于授权上限 |
+| 非媒体约束 | PASS | 本 canvas 的 `aigc_short_drama_canvas_run` 仍为 `0`；事件 intent 固定 `tools=[]`、`media_generation=false`、`graph_mutation=false` |
+
+该真实样本只验证一次纯文本、成功结算和账本关联，不扩大为图片视觉质量、多格式素材解析、取消/退款、未知 Provider 用量、外部语义审核或生产迁移/部署的验收。这些项目仍保持各自的 NOT_RUN/BLOCKED 状态。
