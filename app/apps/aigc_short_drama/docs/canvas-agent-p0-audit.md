@@ -571,3 +571,24 @@ P2 继续**未放行**：A01—A03 图像理解/歧义候选、A02 可追踪文�
 本轮没有实际调用付费模型、没有执行本地业务库迁移、没有部署或发布。输出审核在真实语义 Provider 上的质量与最终计费对账仍 NOT_RUN；附件上传/撤销/授权语义也仍未验收。因此 P2 仍未放行到 P3，下一项应先补齐附件语义并在已授权环境验证。
 
 补充回归与本地验证：上述功能提交合入本地 `develop` 后，13 个 P2 隔离套件完整串行运行 **665 PASS / 0 FAIL**（migration、conversation、concurrency、execution、settings、send、HTTP、safety、worker、queue crash、stop、stop race、recovery）。用户已授权的本地 `x_cn` 仅应用该条 `CREATE TABLE IF NOT EXISTS` 审计表增量，确认创建 17 列；应用前 outbox 只有历史 `done/canceled`，没有 pending/processing/submitting 项，随后以 TERM 平滑重启常驻 Worker 并确认新 PID。租户 1 读取到 `enabled=true`、`execution_enabled=true`、输入/输出审核、直接拒绝、30 天、无人工复核。未运行真实 Provider、没有写入真实对话/审计数据、没有扣费、生产迁移、部署或发布。
+
+## 25. P2 图片附件登记、撤销与执行前授权复核（尚未阶段放行）
+
+本轮完成第 24 节明确留下的图片附件语义；不改变四节点画布、既有短剧生成、计费或业务库 schema。server 功能/测试提交 `0921491db`、`5bf0b9e6e`、`a31d5f468`、`3dc896425`，web 提交 `1391625`、`fa69725`、`30b44a2`；均先在 matching feature 分支提交、无冲突合入本地 develop 后验证，未推送 develop、未运行生产迁移、部署或付费生成。
+
+- 右下角 Agent 输入框最多接受四个已完成的图片附件。素材库图片直接复用已有短剧 asset ID；本地图片上传成功后调用既有短剧 `asset/register`，登记为当前画布资产后才允许发送。浏览器仅发送 `{type,image,asset_id,name}`，不上传 storage URI、域名、引擎、用户身份或模型参数。文件移除只从草稿移除，不删除共享素材；已发送消息保留其当时的公开附件摘要，新请求不会重新携带已移除项。
+- 接收事务锁定同 tenant/user、未删除、ready 的短剧资产，且只允许当前 canvas 或 asset-library（`canvas_id=0`）图片类型；冻结的内部 URI/storage 元信息只进入 run context。其他用户、其他租户、其他画布、非图片/未就绪/删除资产和含伪造 URL 的请求一律拒绝。消息读取、事件和 SSE 只投影 asset ID/name，绝不返回 URI 或存储元数据。
+- Provider 前置检查和实际 generate 均重新读取冻结资产的归属、删除状态与可用 URI；发送后被删除/撤销的引用返回 `IMAGE_REFERENCE_UNAVAILABLE`，不会以过期 URI 调用模型。图片附件与画布已选图片合并后上限四项。文本附件继续视为不可信的 user-role 材料，不会变成 system 指令或创建节点/媒体任务。
+
+实际验证均在已合入本地 develop 的隔离环境完成：
+
+| 范围 | 结果 | 证据 |
+| --- | --- | --- |
+| 后端附件归属、冻结、移除、投影与删除后复核 | PASS，22 | `p2_attachments.php`：当前画布及素材库图片顺序冻结、跨用户拒绝、消息无 URI、模型上下文无 URI、删除后执行前拒绝、无节点/媒体 run |
+| 真实中间件/控制器 HTTP | PASS | `p2_http.php`：拒绝伪造 URL、接受所属 asset ID、公开投影无 URI、删除后仍可 claim 但在执行复核失败、无图/账本副作用 |
+| Chrome → 本地上传模拟 → 真实短剧 asset/register → Agent API → 隔离 MySQL | PASS，11 | 新增用例验证本地上传登记后仅发送授权 asset ID；原有模型偏好、SSE、文本附件移除、刷新、歧义、停止、租户切换和文本 DOM 安全用例同时通过 |
+| web 附件/状态/读取行为 | PASS，24 | Node 测试确认图片 helper 丢弃 URL/storage 字段、最多四项、错误项拒绝，状态层不接受畸形公开投影 |
+
+浏览器桥接只为该合成身份放行 `asset/register` 这一 POST；其他素材写入和所有生成路由仍拒绝。上传 API 响应本身由浏览器夹具模拟，且使用隔离 internal Docker 网络；因此这证明真实前后端合同、资产授权和撤销语义，**不证明**物理对象转存、视频/音频/PDF/Word 解析、图像理解质量、真实 Provider、真实计费或生产 Worker。
+
+P2 仍未放行：除上述附件图片范围外，A01—A03 的真实图像理解/候选歧义与可追踪文本版本、A09 完整多媒体素材指令、A10 上下文补问、A12 有界结构化工具、A14 单次规划提交，以及真实执行的预算/唯一账本/未知用量、生产调度与对账仍缺完整行为证据。P3—P6 继续 NOT_RUN；不会以本轮附件验收替代这些门槛。
