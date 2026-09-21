@@ -28,7 +28,14 @@ function stopRace(int $canvas,int $thread,int $run,array $claim): array {
         foreach ($children as [, $pipes]) if (trim((string)fgets($pipes[1]))!=='READY') throw new RuntimeException('Child readiness failed');
         foreach ($children as [, $pipes]) fwrite($pipes[0],"GO\n");
         $results=[];
-        foreach ($children as [, $pipes]) $results[]=json_decode((string)fgets($pipes[1]),true,512,JSON_THROW_ON_ERROR);
+        foreach ($children as [$process, $pipes]) {
+            $line=fgets($pipes[1]);
+            if ($line===false) {
+                stream_set_blocking($pipes[2],false);
+                throw new RuntimeException('Race child returned no result: '.stream_get_contents($pipes[2]));
+            }
+            $results[]=json_decode($line,true,512,JSON_THROW_ON_ERROR);
+        }
         return $results;
     } finally {
         foreach ($children as [$process,$pipes]) {
