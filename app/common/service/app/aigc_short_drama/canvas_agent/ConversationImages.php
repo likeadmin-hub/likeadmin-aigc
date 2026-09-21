@@ -43,7 +43,8 @@ final class ConversationImages
         foreach ($assets as $image) {
             $row=Db::name('aigc_short_drama_asset')->where(['id'=>(int)($image['id']??0),'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0,'status'=>'ready'])->find();
             if (!$row || $row['uri']!==($image['uri']??null) || $row['storage_scope']!==($image['storage_scope']??null) || $row['storage_engine']!==($image['storage_engine']??null) || $row['storage_domain']!==($image['storage_domain']??null)) throw new RuntimeException('IMAGE_REFERENCE_UNAVAILABLE');
-            if ($row['storage_engine']==='local') {
+            $storage=self::effectiveStorage($row,$tenant,$user);
+            if ($storage['storage_engine']==='local') {
                 $uri=$row['uri'];
                 if (preg_match('#^https?://#i',$uri)) $uri=(string)parse_url($uri,PHP_URL_PATH);
                 $uri=ltrim($uri,'/');
@@ -66,11 +67,31 @@ final class ConversationImages
                 $urls[]='data:'.$mime.';base64,'.base64_encode($bytes);
                 continue;
             }
-            $url=FileService::getFileUrlByStorage($row['uri'],$row['storage_scope'],$row['storage_engine'],$row['storage_domain']);
+            $url=FileService::getFileUrlByStorage($row['uri'],$storage['storage_scope'],$storage['storage_engine'],$storage['storage_domain']);
             if (!preg_match('#^https?://#i',$url)) throw new RuntimeException('IMAGE_REFERENCE_UNAVAILABLE');
             $urls[]=$url;
         }
         if (count($urls)>4) throw new RuntimeException('TOO_MANY_IMAGE_REFERENCES');
         return $urls;
+    }
+
+    /**
+     * Earlier PC uploads could persist empty storage columns on the app asset
+     * while the tenant-owned upload record had the real OSS metadata.  Keep
+     * the frozen asset comparison strict, then recover only blank values from
+     * that same user's verified tenant_file row before a Provider request.
+     */
+    private static function effectiveStorage(array $row,int $tenant,int $user): array
+    {
+        $storage=['storage_scope'=>(string)$row['storage_scope'],'storage_engine'=>(string)$row['storage_engine'],'storage_domain'=>(string)$row['storage_domain']];
+        if ($storage['storage_scope']!=='' && $storage['storage_engine']!=='' && $storage['storage_domain']!=='') return $storage;
+        $uri=(string)$row['uri'];
+        if (preg_match('#^https?://#i',$uri)) $uri=(string)parse_url($uri,PHP_URL_PATH);
+        $uri=ltrim($uri,'/');
+        if ($uri==='') return $storage;
+        $upload=Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>10,'uri'=>$uri])->whereRaw('(delete_time IS NULL OR delete_time = 0)')->order('id','desc')->find();
+        if (!$upload) return $storage;
+        foreach (array_keys($storage) as $key) if ($storage[$key]==='' && (string)($upload[$key]??'')!=='') $storage[$key]=(string)$upload[$key];
+        return $storage;
     }
 }
