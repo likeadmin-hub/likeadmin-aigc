@@ -99,6 +99,13 @@ try {
     $image=ConversationImages::freeze(91001,92001,$canvas,'https://assets.example.test/owned.png');
     $context=['selected_nodes'=>[['type'=>'image','image_asset'=>$image]]];
     agentCheck(ConversationImages::urls(91001,92001,$context)===['https://assets.example.test/owned.png'],'vision input resolves an app-owned image snapshot without fetching it');
+    try { ConversationImages::urls(91001,92001,['selected_nodes'=>array_fill(0,5,$context['selected_nodes'][0])]); throw new RuntimeException('Expected image limit rejection'); }
+    catch (RuntimeException $e) { agentCheck($e->getMessage()==='TOO_MANY_IMAGE_REFERENCES','image count is bounded before reading bytes'); }
+    Db::name('aigc_short_drama_asset')->where('id',$imageAsset)->update(['uri'=>'uploads/another-user/private.png','storage_engine'=>'local','storage_domain'=>'']);
+    $forged=ConversationImages::freeze(91001,92001,$canvas,'uploads/another-user/private.png');
+    try { ConversationImages::urls(91001,92001,['selected_nodes'=>[['type'=>'image','image_asset'=>$forged]]]); throw new RuntimeException('Expected local file provenance rejection'); }
+    catch (RuntimeException $e) { agentCheck($e->getMessage()==='IMAGE_REFERENCE_UNAVAILABLE','owned asset with forged local path cannot read another user file'); }
+    Db::name('aigc_short_drama_asset')->where('id',$imageAsset)->update(['uri'=>'https://assets.example.test/owned.png','storage_engine'=>'oss','storage_domain'=>'https://assets.example.test']);
     try { ConversationImages::freeze(91001,92002,$canvas,'https://assets.example.test/owned.png'); throw new RuntimeException('Expected image owner rejection'); }
     catch (RuntimeException $e) { agentCheck($e->getMessage()==='IMAGE_REFERENCE_UNAVAILABLE','foreign user image rejected before model call'); }
     Db::name('aigc_short_drama_asset')->where('id',$imageAsset)->update(['delete_time'=>time()]);
