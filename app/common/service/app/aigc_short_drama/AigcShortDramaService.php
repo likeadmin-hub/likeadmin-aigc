@@ -1764,9 +1764,13 @@ class AigcShortDramaService
             'title' => mb_substr(trim((string)($params['title'] ?? $subject['name'] ?? '')), 0, 120, 'UTF-8'),
             'uri' => $uri,
             'cover_uri' => FileService::setFileUrl((string)($params['cover_uri'] ?? $params['cover_url'] ?? '')),
-            'storage_scope' => (string)($params['storage_scope'] ?? $storedFile['storage_scope'] ?? 'tenant'),
-            'storage_engine' => (string)($params['storage_engine'] ?? $storedFile['storage_engine'] ?? 'local'),
-            'storage_domain' => (string)($params['storage_domain'] ?? $storedFile['storage_domain'] ?? ''),
+            // Browser upload endpoints in older clients may omit storage
+            // metadata or send empty strings.  An empty client value must not
+            // erase the authoritative tenant_file storage record, otherwise
+            // an owned OSS upload is later treated as a local file.
+            'storage_scope' => self::assetStorageValue($params, 'storage_scope', $storedFile, 'tenant'),
+            'storage_engine' => self::assetStorageValue($params, 'storage_engine', $storedFile, 'local'),
+            'storage_domain' => self::assetStorageValue($params, 'storage_domain', $storedFile, ''),
             'mime_type' => mb_substr(trim((string)($params['mime_type'] ?? 'image/png')), 0, 120, 'UTF-8'),
             'file_size' => (int)($params['file_size'] ?? 0),
             'width' => (int)($params['width'] ?? 0),
@@ -5606,9 +5610,9 @@ class AigcShortDramaService
             'title' => mb_substr(trim((string)($params['title'] ?? '')), 0, 120, 'UTF-8'),
             'uri' => $uri,
             'cover_uri' => FileService::setFileUrl((string)($params['cover_uri'] ?? $params['cover_url'] ?? '')),
-            'storage_scope' => (string)($params['storage_scope'] ?? $storedFile['storage_scope'] ?? 'tenant'),
-            'storage_engine' => (string)($params['storage_engine'] ?? $storedFile['storage_engine'] ?? 'local'),
-            'storage_domain' => (string)($params['storage_domain'] ?? $storedFile['storage_domain'] ?? ''),
+            'storage_scope' => self::assetStorageValue($params, 'storage_scope', $storedFile, 'tenant'),
+            'storage_engine' => self::assetStorageValue($params, 'storage_engine', $storedFile, 'local'),
+            'storage_domain' => self::assetStorageValue($params, 'storage_domain', $storedFile, ''),
             'mime_type' => mb_substr(trim((string)($params['mime_type'] ?? '')), 0, 120, 'UTF-8'),
             'file_size' => (int)($params['file_size'] ?? 0),
             'width' => (int)($params['width'] ?? 0),
@@ -5884,6 +5888,21 @@ class AigcShortDramaService
             ];
         }
         return [];
+    }
+
+    /**
+     * Uploaded-file metadata is authoritative when a browser leaves an
+     * optional storage field blank.  Explicit non-empty values remain
+     * supported for imports whose source is not represented by tenant_file.
+     */
+    private static function assetStorageValue(array $params, string $key, array $storedFile, string $fallback): string
+    {
+        $value = trim((string)($params[$key] ?? ''));
+        if ($value !== '') {
+            return $value;
+        }
+        $stored = trim((string)($storedFile[$key] ?? ''));
+        return $stored !== '' ? $stored : $fallback;
     }
 
     /**
