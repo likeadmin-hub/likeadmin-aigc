@@ -82,11 +82,15 @@ try {
             ]]),PHP_EOL;
             continue;
         }
+        if ($agentConversation && $action==='agentPreferenceEvidence') {
+            echo json_encode(['result'=>Db::name('aigc_short_drama_canvas_agent_preference')->where(['tenant_id'=>94011,'user_id'=>95011])->find() ?: null]),PHP_EOL;
+            continue;
+        }
         $allowed=in_array($action,['current','save'],true) && (int)($body['id']??0)===$canvasId;
         if (in_array($action,['assets','independentCanvas'],true)) $allowed=$method==='GET';
         if ($mockGeneration && $action==='run') $allowed=(int)($body['canvas_id']??0)===$canvasId;
         if ($mockGeneration && $action==='task') $allowed=Db::name('aigc_short_drama_canvas_run')->where(['id'=>(int)($body['id']??0),'canvas_id'=>$canvasId,'tenant_id'=>94011,'user_id'=>95011])->count()===1;
-        $agentActions=['agentThreads'=>'threads','agentCreateThread'=>'createThread','agentMessages'=>'messages','agentEvents'=>'events','agentSend'=>'send','agentRun'=>'run','agentStop'=>'stop'];
+        $agentActions=['agentThreads'=>'threads','agentPreferences'=>'preferences','agentSavePreferences'=>'savePreferences','agentCreateThread'=>'createThread','agentMessages'=>'messages','agentEvents'=>'events','agentSend'=>'send','agentRun'=>'run','agentStop'=>'stop'];
         if ($agentConversation && isset($agentActions[$action])) {
             $allowed=(int)($body['canvas_id']??0)===$canvasId;
             foreach (['thread_id','run_id'] as $key) {
@@ -123,6 +127,7 @@ try {
     }
     if ($agentConversation && $canvasId) {
         foreach (['outbox','event','message','run','thread'] as $kind) Db::name('aigc_short_drama_canvas_agent_'.$kind)->where(['canvas_id'=>$canvasId,'tenant_id'=>94011,'user_id'=>95011])->delete();
+        Db::name('aigc_short_drama_canvas_agent_preference')->where(['tenant_id'=>94011,'user_id'=>95011])->delete();
     }
     if ($canvasId) Db::name('aigc_short_drama_canvas')->where(['id'=>$canvasId,'tenant_id'=>94011,'user_id'=>95011])->delete();
     foreach (array_reverse($inserted) as [$table,$id]) Db::name($table)->where('id',$id)->delete();

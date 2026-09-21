@@ -6,6 +6,7 @@ use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationSettings as Settings;
 use app\common\service\app\aigc_short_drama\canvas_agent\FeatureGate;
 use app\common\service\app\aigc_short_drama\canvas_agent\MarketTextConversationProvider;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationPreferences;
 function rejectsSettings(callable $action,string $code): void {
     try {$action();} catch (RuntimeException $error) {agentCheck($error->getMessage()===$code,$code);return;}
     throw new RuntimeException('Expected '.$code);
@@ -43,6 +44,14 @@ try {
     $real=Settings::resolve(91001,['reasoning_model'=>(string)$product]);
     agentCheck($real['reasoning_model']['id']===(string)$product && $real['reasoning_model']['model_code']==='isolated-reasoning','real database catalog resolves exact requested market identity');
     agentCheck($real['reasoning_model']['supports_vision']===true && $real['reasoning_model']['market_input_sku_id']===(int)$sku,'market capabilities and SKU resolved server-side');
+    agentCheck(ConversationPreferences::read(91001,92001)===['preferences'=>[],'revision'=>0],'account preference starts empty at revision zero');
+    $saved=ConversationPreferences::save(91001,92001,0,['reasoning_model'=>(string)$product,'generation_mode'=>'auto']);
+    agentCheck($saved===['preferences'=>['generation_mode'=>'auto','reasoning_model'=>(string)$product],'revision'=>1],'preference save persists only validated model IDs and mode');
+    agentCheck(ConversationPreferences::read(91001,92001)===$saved,'preference read returns durable account-scoped revision');
+    rejectsSettings(fn()=>ConversationPreferences::save(91001,92001,0,['reasoning_model'=>(string)$product]),'PREFERENCE_VERSION_CONFLICT');
+    agentCheck(ConversationPreferences::save(91001,92002,0,['reasoning_model'=>(string)$product])['revision']===1,'different users have independent default model preferences');
+    rejectsSettings(fn()=>ConversationPreferences::save(91001,92001,1,['reasoning_model'=>'unknown']),'REASONING_MODEL_UNAVAILABLE');
+    rejectsSettings(fn()=>ConversationPreferences::save(91001,92001,1,['reasoning_model'=>(string)$product,'provider_url'=>'forged']),'INVALID_AGENT_PREFERENCES');
     agentCheck(!FeatureGate::executionEnabled(91001),'Agent model execution remains opt-in when only the conversation panel is enabled');
     $provider=new MarketTextConversationProvider();
     rejectsSettings(fn()=>$provider->preflight(91001,92001,['settings'=>['reasoning_model'=>['id'=>(string)$product]]]),'CANVAS_AGENT_EXECUTION_DISABLED');

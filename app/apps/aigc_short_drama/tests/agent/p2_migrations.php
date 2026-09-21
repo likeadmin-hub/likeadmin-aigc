@@ -5,7 +5,7 @@ use think\facade\Db;
 use app\common\service\database\SqlMigrationExecutor as Sql;
 
 $prefixes=['ag2_fresh_','ag2_full_','ag2_upgrade_','ag2_root_'];
-$suffixes=array_map(static fn($kind)=>'aigc_short_drama_canvas_agent_'.$kind,['thread','message','run','event','outbox']);
+$suffixes=array_map(static fn($kind)=>'aigc_short_drama_canvas_agent_'.$kind,['thread','message','run','event','outbox','preference']);
 $created=[];
 foreach ($prefixes as $prefix) foreach ($suffixes as $suffix) {
     if (Db::query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',[$prefix.$suffix])) throw new RuntimeException('Existing migration fixture: '.$prefix.$suffix);
@@ -13,9 +13,9 @@ foreach ($prefixes as $prefix) foreach ($suffixes as $suffix) {
 function conversationDdl(string $path): string {
     $found=[];
     foreach (Sql::split((string)file_get_contents($path)) as $sql) {
-        if (preg_match('/^CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_agent_(thread|message|run|event|outbox)`/',$sql)) $found[]=$sql.';';
+        if (preg_match('/^CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_agent_(thread|message|run|event|outbox|preference)`/',$sql)) $found[]=$sql.';';
     }
-    if (count($found)!==5) throw new RuntimeException('Missing conversation schema: '.$path);
+    if (count($found)!==6) throw new RuntimeException('Missing conversation schema: '.$path);
     return implode("\n",$found);
 }
 function conversationSchema(string $table, bool $indexes=false): array {
@@ -48,6 +48,10 @@ try {
     agentCheck($duplicate,'same scoped request key has database uniqueness');
     Db::table('ag2_upgrade_aigc_short_drama_canvas_agent_thread')->insert(array_replace($row,['tenant_id'=>91002]));
     agentCheck(Db::table('ag2_upgrade_aigc_short_drama_canvas_agent_thread')->count()===3,'independent tenant request keys do not collide');
+    Db::table('ag2_upgrade_aigc_short_drama_canvas_agent_preference')->insert(['tenant_id'=>91001,'user_id'=>92001,'preferences_json'=>'{"reasoning_model":"1"}','revision'=>1,'create_time'=>time(),'update_time'=>time()]);
+    $duplicate=false;
+    try { Db::table('ag2_upgrade_aigc_short_drama_canvas_agent_preference')->insert(['tenant_id'=>91001,'user_id'=>92001,'preferences_json'=>'{}','revision'=>1,'create_time'=>time(),'update_time'=>time()]); } catch (Throwable $error) { $duplicate=str_contains($error->getMessage(),'Duplicate entry'); }
+    agentCheck($duplicate,'account preference has one tenant/user row');
 } finally {
     foreach (array_reverse($created) as $table) Db::execute('DROP TABLE IF EXISTS `'.$table.'`');
 }
