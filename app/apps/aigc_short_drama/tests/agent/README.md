@@ -110,3 +110,7 @@ CANVAS_TEST_BROWSER_CHANNEL=chrome NODE_PATH=/Users/panda/.cache/codex-runtimes/
 最新范围见审计第 12 节，P2 尚未放行。四个新增脚本按同一 Docker 命令串行执行：`p2_migrations.php`（34 PASS）、`p2_conversation.php`（57 PASS）、`p2_conversation_concurrency.php`（23 PASS）、`p2_execution.php`（67 PASS）。后面三项需先将 `migrations/upgrade_20260921_canvas_agent_conversations.sql` 仅应用到 `short_drama_agent_test`；不得默认迁移业务库。migration 脚本使用检查为空的 `ag2_*` 精确临时表，结束删除本次创建的表。
 
 conversation/execution 在事务中回滚夹具；concurrency 用真实独立 PHP 进程/连接，结束按本次创建 canvas_id 与合成身份删除精确记录，测试 config 预检查不存在才创建并清理。不要并发执行这些脚本或与浏览器共享数据库夹具同时运行。新增测试不调用 Provider，无真实积分或媒体消费，不代表 HTTP/前端/真实模型已通过。未知执行保持 needs_reconciliation，不在测试外擅自清理或自动重试。
+
+继续执行（第 13 节）：新增 `p2_settings.php` 24、`p2_send.php` 26、`p2_http.php` 21、`p2_worker.php` 44 PASS，追加到既有串行列表，总计 614 PASS。仍使用上述 Docker 隔离命令，从已合入的本地 develop 执行。`p2_http` 在容器内部监听 127.0.0.1:19082，专用 router 仅接受五个会话路由，无生成入口、无发布宿主机端口；生成回复由内部隔离服务夹具模拟，绝不调用真实 Provider。`p2_worker` 不包外层事务，以检查 Provider 调用时确无未提交事务；结束清理本次 canvas/config 精确记录。模型解析的产品/SKU/Skill 合成数据均事务回滚。不应并发使用相同 fixture 身份。
+
+Provider interface 只有隔离测试替身，未注册生产适配或扫描任务。真实计费、安全审核及前端集成未验证，P2 仍未放行。额外可用相同只读源码 Docker 命令执行 `app/apps/aigc_short_drama/tests/canvas_composer_skill.php`，验证共享 Skill 应用的原有参数与必填项行为。
