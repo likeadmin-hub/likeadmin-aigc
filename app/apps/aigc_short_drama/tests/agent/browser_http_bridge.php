@@ -15,7 +15,7 @@ try {
         ['user',['id'=>95011,'sn'=>95011,'account'=>'browser-fixture','tenant_id'=>94011]],
         ['user_session',['tenant_id'=>94011,'user_id'=>95011,'token'=>'isolated-browser-http','terminal'=>4,'expire_time'=>time()+3600]],
         ['app',['code'=>'aigc_short_drama','status'=>'installed']],
-        ['app',['code'=>'aigc_canvas','status'=>'installed']],
+        ['app',['code'=>'aigc_canvas','status'=>'disabled']],
         ['tenant_app',['tenant_id'=>94011,'app_code'=>'aigc_canvas','buy_status'=>'paid','enable_status'=>'disabled','shelf_status'=>'on','expire_time'=>time()+3600]],
         ['tenant_app',['tenant_id'=>94011,'app_code'=>'aigc_short_drama','buy_status'=>'paid','enable_status'=>'enabled','shelf_status'=>'on','expire_time'=>time()+3600]],
         ['aigc_short_drama_config',['tenant_id'=>94011,'config_json'=>'{"canvas_agent":{"enabled":false}}','status'=>1]],
@@ -58,7 +58,7 @@ try {
         if (!$allowed || !in_array($method,['GET','POST'],true)) throw new RuntimeException('Request outside isolated browser fixture');
         $path=match ($action) {
             'assets'=>'app.aigc_short_drama.asset/lists',
-            'independentCanvas'=>'app.aigc_canvas.canvas/lists',
+            'independentCanvas'=>'app.aigc_canvas.project/lists',
             default=>'app.aigc_short_drama.canvas/'.$action,
         };
         // Read-only resource probes cannot invoke project material repair or
