@@ -85,7 +85,11 @@ class ShortDramaCanvasService
                 throw new Exception('VERSION_CONFLICT: 云端画布已变化，本地修改已保留，请重新读取后再编辑');
             }
         }
-        $nodes = self::normalizeNodes((array)($params['nodes'] ?? []));
+        $rawNodes=(array)($params['nodes']??[]);
+        // Validate before legacy normalization can discard malformed entries.
+        $nodes=((int)($document['schema_version']??1)>=2 || array_key_exists('expected_revision',$params))
+            ? GraphService::sanitizeManualNodes($document,$rawNodes) : $rawNodes;
+        $nodes = self::normalizeNodes($nodes);
         $removed = array_unique(array_merge(
             self::decode((string)($document['removed_node_ids_json'] ?? '[]')),
             array_map('strval', (array)($params['removed_node_ids'] ?? []))

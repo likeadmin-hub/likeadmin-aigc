@@ -10,7 +10,52 @@ final class GraphService
 {
     public const TABLE = 'aigc_short_drama_canvas';
     public const RECEIPTS = 'aigc_short_drama_canvas_mutation_receipt';
-    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision'];
+    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision'];
+
+    /** Whole-document compatibility adapter for concurrency-enabled documents. */
+    public static function sanitizeManualNodes(array $document,array $nodes): array
+    {
+        $saved=[];
+        foreach (json_decode($document['nodes_json']?:'[]',true,512,JSON_THROW_ON_ERROR) as $node) $saved[(string)$node['id']]=$node;
+        $seen=[];
+        foreach ($nodes as &$node) {
+            if (!is_array($node) || !in_array($node['type']??'',['text','image','video','audio'],true)) throw new RuntimeException('INVALID_NODE_TYPE');
+            $id=self::nodeId($node['id']??null);
+            if (isset($seen[$id])) throw new RuntimeException('NODE_ID_CONFLICT');
+            $seen[$id]=true;
+            self::geometry($node);
+            $incoming=$node['metadata']??[];
+            if (!is_array($incoming)) throw new RuntimeException('INVALID_METADATA');
+            $previous=$saved[$id]??[];$authoritative=(array)($previous['metadata']??[]);
+            $metadata=$incoming;
+            foreach (self::SERVER_FIELDS as $field) {
+                unset($node[$field],$metadata[$field]);
+                if (array_key_exists($field,$authoritative)) $metadata[$field]=$authoritative[$field];
+            }
+            // Legacy manual generation binds only a real, latest owned run.
+            // Intent-backed nodes already have a server-bound active generation.
+            $requestedRun=(int)($incoming['canvasRunId']??0);
+            if (empty($authoritative['active_generation_id']) && $requestedRun>0) {
+                $run=Db::name('aigc_short_drama_canvas_run')->where(['tenant_id'=>$document['tenant_id'],'user_id'=>$document['user_id'],'canvas_id'=>$document['id'],'node_id'=>$id,'node_type'=>$node['type'],'delete_time'=>0])->order('id','desc')->find();
+                if ($run && (int)$run['id']===$requestedRun) $metadata=array_replace($metadata,['canvasRunId'=>$requestedRun,'status'=>$run['status'],'progress'=>(int)$run['progress'],'error'=>$run['error']]);
+            }
+            $content=static function (array $item): array {
+                $meta=(array)($item['metadata']??[]);
+                foreach (array_merge(self::SERVER_FIELDS,['groupId','agentGroupId','poster_url','poster_uri','poster_status']) as $field) unset($meta[$field]);
+                return ['type'=>$item['type']??'','title'=>$item['title']??'','metadata'=>$meta];
+            };
+            $layout=static function (array $item): array {
+                return ['x'=>(float)($item['x']??0),'y'=>(float)($item['y']??0),'width'=>(float)($item['width']??0),'height'=>(float)($item['height']??0),
+                    'group'=>(string)($item['metadata']['agentGroupId']??$item['metadata']['groupId']??'')];
+            };
+            $node['metadata']=$metadata;
+            $metadata['content_revision']=(int)($authoritative['content_revision']??0)+(!$previous || self::canonical($content($node))!==self::canonical($content($previous))?1:0);
+            $metadata['layout_revision']=(int)($authoritative['layout_revision']??0)+(!$previous || $layout($node)!==$layout($previous)?1:0);
+            $node['metadata']=$metadata;
+        }
+        unset($node);
+        return $nodes;
+    }
 
     /** Internal writers only: caller must hold the owned document row lock. */
     public static function persistLockedDocument(array $document, array $changes): array
