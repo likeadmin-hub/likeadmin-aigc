@@ -40,6 +40,20 @@ try {
         agentCheck($before===[Db::name('ai_app_task')->count(),Db::name('ai_consumption_log')->count()] && $balances()===$initial,'rejected '.$case.' leaves tasks, ledger and balances unchanged');
     }
     $request=['duration'=>5,'reference_assets'=>array_slice($assets,0,2)];
+    agentCheck((float)$quote['tenant_cost_points']>0 && (float)$quote['user_charge_points']>0,'insufficient-balance fixture is billable for both tenant and user');
+    foreach (['tenant','user'] as $shortage) {
+        // Synthetic fixture balances only; all mutations are rolled back.
+        Db::name('tenant')->where('id',91001)->update(['point_balance'=>$shortage==='tenant'?0:100]);
+        Db::name('user')->where('id',92001)->update(['user_money'=>$shortage==='user'?0:100]);
+        $beforeReject=$balances();
+        $message='';
+        try {Runtime::reserve(91001,92001,'aigc_short_drama','video','aigc_short_drama_generation_task','p3-shortage-'.$shortage,$selection,$request);}
+        catch (Exception $error) {$message=$error->getMessage();}
+        agentCheck(str_contains($message,'不足') && (str_contains($message,'租户')===($shortage==='tenant')),'public reserve clearly rejects '.$shortage.' shortage');
+        agentCheck($balances()===$beforeReject && $before===[Db::name('ai_app_task')->count(),Db::name('ai_consumption_log')->count()],'rejected '.$shortage.' shortage does not charge or create orphan task/consumption');
+    }
+    Db::name('tenant')->where('id',91001)->update(['point_balance'=>100]);
+    Db::name('user')->where('id',92001)->update(['user_money'=>100]);
     $reserve=Runtime::reserve(91001,92001,'aigc_short_drama','video','aigc_short_drama_generation_task','p3-valid',$selection,$request);
     agentCheck($reserve['app_task_id']>0 && $reserve['consumption_id']>0,'valid reference boundary reserves through actual public service');
     $reservedBalances=$balances();
