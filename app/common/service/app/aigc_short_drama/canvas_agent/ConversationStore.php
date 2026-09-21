@@ -33,7 +33,7 @@ final class ConversationStore
         });
     }
 
-    /** Accept bounded text material; storage-backed attachments require separate authorization. */
+    /** Accept bounded text and server-authorized short-drama image material. */
     public static function enqueue(int $tenant,int $user,int $canvas,int $thread,array $request,array|\Closure $resolvedSnapshot,array $selectionIdentity=[]): array
     {
         if (array_diff(array_keys($request),['request_key','content','selected_node_ids','base_revision','attachments'])) throw new RuntimeException('UNSUPPORTED_MESSAGE_FIELD');
@@ -106,13 +106,16 @@ final class ConversationStore
             }
             $messages[]=['role'=>'user','content'=>$content];
             if ($attachments) $messages[count($messages)-1]['attachments']=$attachments;
-            $context=['graph_revision'=>$revision,'selected_nodes'=>array_map(static fn($id)=>$selected[$id],$ids),'material_trust'=>'untrusted','messages'=>$messages,'history_policy'=>'last_38_plus_current'];
+            $attachmentImages=[];
+            foreach ($attachments as $attachment) if ($attachment['type']==='image') $attachmentImages[]=ConversationImages::freezeAsset($tenant,$user,$canvas,(int)$attachment['asset_id']);
+            if (count(array_filter($selected,static fn(array $node)=>$node['type']==='image'))+count($attachmentImages)>4) throw new RuntimeException('TOO_MANY_IMAGE_REFERENCES');
+            $context=['graph_revision'=>$revision,'selected_nodes'=>array_map(static fn($id)=>$selected[$id],$ids),'attachment_images'=>$attachmentImages,'material_trust'=>'untrusted','messages'=>$messages,'history_policy'=>'last_38_plus_current'];
             $contextJson=self::json($context);
             $settings=self::json($resolvedSnapshot['settings']);$skill=self::json($resolvedSnapshot['skill']);
             if (strlen($contextJson)+strlen($settings)+strlen($skill)>1048576) throw new RuntimeException('CONTEXT_TOO_LARGE');
             $now=time();$sequence=(int)$conversation['next_message_sequence'];
             $run=Db::name(self::PREFIX.'run')->insertGetId($scope+['thread_id'=>$thread,'request_key'=>$key,'request_hash'=>$hash,'status'=>'queued','context_snapshot'=>$contextJson,'skill_snapshot'=>$skill,'settings_snapshot'=>$settings,'ack_json'=>'{}','create_time'=>$now,'update_time'=>$now]);
-            Db::name(self::PREFIX.'message')->insert($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>$sequence,'role'=>'user','content_json'=>self::json(['text'=>$content]),'attachments_json'=>self::json($attachments),'create_time'=>$now]);
+            Db::name(self::PREFIX.'message')->insert($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>$sequence,'role'=>'user','content_json'=>self::json(['text'=>$content]),'attachments_json'=>self::json(ConversationAttachments::public($attachments)),'create_time'=>$now]);
             $cursor=Db::name(self::PREFIX.'event')->insertGetId($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>1,'kind'=>'run.queued','payload_json'=>self::json(['status'=>'queued','message_sequence'=>$sequence]),'create_time'=>$now]);
             Db::name(self::PREFIX.'outbox')->insert($scope+['run_id'=>$run,'event_key'=>'run:'.$run,'available_at'=>$now,'create_time'=>$now,'update_time'=>$now]);
             $ack=['thread_id'=>$thread,'run_id'=>(int)$run,'status'=>'queued','event_cursor'=>(int)$cursor,'message_sequence'=>$sequence];

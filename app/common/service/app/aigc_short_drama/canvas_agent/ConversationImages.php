@@ -8,6 +8,15 @@ use app\common\service\FileService;
 
 final class ConversationImages
 {
+    private const IMAGE_TYPES=['reference_image','canvas_image','shot_image','character_image','scene_image','subject_image','three_view'];
+
+    public static function freezeAsset(int $tenant,int $user,int $canvas,int $assetId): array
+    {
+        $row=Db::name('aigc_short_drama_asset')->where(['id'=>$assetId,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0,'status'=>'ready'])->find();
+        if (!$row || !in_array((string)$row['asset_type'],self::IMAGE_TYPES,true) || !in_array((int)$row['canvas_id'],[0,$canvas],true) || (string)$row['uri']==='') throw new RuntimeException('IMAGE_REFERENCE_UNAVAILABLE');
+        return ['id'=>(int)$row['id'],'uri'=>(string)$row['uri'],'storage_scope'=>(string)$row['storage_scope'],'storage_engine'=>(string)$row['storage_engine'],'storage_domain'=>(string)$row['storage_domain']];
+    }
+
     public static function freeze(int $tenant,int $user,int $canvas,string $url): array
     {
         // Resolve only this app's owned, ready assets. Never fetch a browser URL.
@@ -22,11 +31,16 @@ final class ConversationImages
 
     public static function urls(int $tenant,int $user,array $context): array
     {
-        $urls=[];
+        $assets=[];
         if (count(array_filter($context['selected_nodes']??[],static fn($node)=>($node['type']??'')==='image'))>4) throw new RuntimeException('TOO_MANY_IMAGE_REFERENCES');
         foreach ($context['selected_nodes']??[] as $node) {
             if (($node['type']??'')!=='image') continue;
-            $image=$node['image_asset']??[];
+            $assets[]=$node['image_asset']??[];
+        }
+        foreach ($context['attachment_images']??[] as $image) $assets[]=$image;
+        if (count($assets)>4) throw new RuntimeException('TOO_MANY_IMAGE_REFERENCES');
+        $urls=[];
+        foreach ($assets as $image) {
             $row=Db::name('aigc_short_drama_asset')->where(['id'=>(int)($image['id']??0),'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0,'status'=>'ready'])->find();
             if (!$row || $row['uri']!==($image['uri']??null) || $row['storage_scope']!==($image['storage_scope']??null) || $row['storage_engine']!==($image['storage_engine']??null) || $row['storage_domain']!==($image['storage_domain']??null)) throw new RuntimeException('IMAGE_REFERENCE_UNAVAILABLE');
             if ($row['storage_engine']==='local') {
