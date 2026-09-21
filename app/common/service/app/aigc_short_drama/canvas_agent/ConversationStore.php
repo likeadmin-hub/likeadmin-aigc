@@ -119,6 +119,12 @@ final class ConversationStore
         return array_map([self::class,'threadView'],$query->order('id','desc')->limit(50)->select()->toArray());
     }
 
+    /** Shared ownership gate for account preferences reached from a canvas UI. */
+    public static function assertCanvasAccess(int $tenant,int $user,int $canvas): void
+    {
+        self::canvas($tenant,$user,$canvas);
+    }
+
     public static function messages(int $tenant,int $user,int $canvas,int $thread,int $after=0): array
     {
         self::canvas($tenant,$user,$canvas);

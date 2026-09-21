@@ -44,6 +44,15 @@ try {
     $config=Db::name('aigc_short_drama_config')->insertGetId(['tenant_id'=>94001,'config_json'=>'{"canvas_agent":{"enabled":true}}','status'=>1]);$inserted[]=['aigc_short_drama_config',$config];
     $product=Db::name('power_market_product')->insertGetId(['product_code'=>'agent-http-text','resource_type'=>'model','model_type'=>'text','name'=>'Isolated reasoning','source_code'=>'isolated-agent-test','upstream_resource_key'=>'agent-http-text','upstream_model_code'=>'isolated-text','upstream_channel_code'=>'isolated-channel','source_payload'=>'{}','status'=>1]);$inserted[]=['power_market_product',$product];
     $inserted[]=['power_market_sku',Db::name('power_market_sku')->insertGetId(['product_id'=>$product,'sku_key'=>'input','usage_unit'=>'token','sale_points'=>1,'status'=>1,'sale_status'=>1])];
+    agentCheck(agentHttp('preferences','GET',['canvas_id'=>$canvas],'')['code']!==1,'preferences require login');
+    agentCheck(agentHttp('preferences','GET',['canvas_id'=>$canvas])['data']===['preferences'=>[],'revision'=>0],'HTTP preferences start at account revision zero');
+    agentCheck(agentHttp('savePreferences','POST',['canvas_id'=>$canvas,'expected_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'auto'],'user_id'=>95002])['msg']==='UNSUPPORTED_MESSAGE_FIELD','preference body cannot forge actor identity');
+    $savedPreferences=agentHttp('savePreferences','POST',['canvas_id'=>$canvas,'expected_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'auto']]);
+    agentCheck($savedPreferences['code']===1 && $savedPreferences['data']===['preferences'=>['generation_mode'=>'auto','reasoning_model'=>(string)$product],'revision'=>1],'HTTP persists validated default model with CAS revision');
+    agentCheck(agentHttp('preferences','GET',['canvas_id'=>$canvas])['data']===$savedPreferences['data'],'HTTP reads saved default model for same owner');
+    agentCheck(agentHttp('savePreferences','POST',['canvas_id'=>$canvas,'expected_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product]])['msg']==='PREFERENCE_VERSION_CONFLICT','HTTP rejects stale preference update without overwrite');
+    agentCheck(agentHttp('preferences','GET',['canvas_id'=>$canvas],'isolated-agent-other')['code']!==1,'preference read requires canvas owner');
+    agentCheck(Db::name(Store::PREFIX.'thread')->where('canvas_id',$canvas)->count()===0 && Db::name(Store::PREFIX.'run')->where('canvas_id',$canvas)->count()===0,'preference API does not create thread or run');
     $create=['canvas_id'=>$canvas,'request_key'=>'thread','title'=>'新对话'];
     $created=agentHttp('createThread','POST',$create);
     if ($created['code']!==1) throw new RuntimeException('Create thread failed: '.json_encode($created));
@@ -120,6 +129,7 @@ try {
         foreach (['outbox','event','message','run','thread'] as $kind) Db::name(Store::PREFIX.$kind)->where(['canvas_id'=>$canvas,'tenant_id'=>94001,'user_id'=>95001])->delete();
         Db::name('aigc_short_drama_canvas')->where(['id'=>$canvas,'tenant_id'=>94001,'user_id'=>95001])->delete();
     }
+    Db::name('aigc_short_drama_canvas_agent_preference')->where(['tenant_id'=>94001,'user_id'=>95001])->delete();
     foreach (array_reverse($inserted) as [$table,$id]) Db::name($table)->where('id',$id)->delete();
 }
 echo "NOT_RUN Provider, billing, production migration and frontend; completion uses isolated direct service fixture\n";

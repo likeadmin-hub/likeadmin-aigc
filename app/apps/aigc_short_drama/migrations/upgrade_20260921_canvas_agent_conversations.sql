@@ -58,3 +58,11 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_agent_outbox` (
   PRIMARY KEY (`id`), UNIQUE KEY `uk_event` (`tenant_id`,`user_id`,`canvas_id`,`event_key`),
   KEY `idx_delivery` (`state`,`available_at`,`lease_until`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='短剧画布Agent持久化投递';
+
+CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_agent_preference` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `tenant_id` int unsigned NOT NULL, `user_id` int unsigned NOT NULL,
+  `preferences_json` text NOT NULL, `revision` int unsigned NOT NULL DEFAULT 1,
+  `create_time` int unsigned NOT NULL, `update_time` int unsigned NOT NULL,
+  PRIMARY KEY (`id`), UNIQUE KEY `uk_account` (`tenant_id`,`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='短剧画布Agent账户默认偏好';

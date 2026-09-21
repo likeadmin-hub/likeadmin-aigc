@@ -6,6 +6,7 @@ use app\api\controller\BaseApiController;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationService;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationPreferences;
 use RuntimeException;
 
 /** Authenticated short-drama conversation API; send is persistence-only. */
@@ -46,6 +47,21 @@ final class CanvasAgentController extends BaseApiController
     public function run() { return $this->respond(function () {
         $p=$this->request->get();
         return ConversationStore::run((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null),self::number($p['thread_id']??null),self::number($p['run_id']??null));
+    }); }
+
+    public function preferences() { return $this->respond(function () {
+        $p=$this->request->get();
+        ConversationStore::assertCanvasAccess((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null));
+        return ConversationPreferences::read((int)$this->request->tenantId,$this->userId);
+    }); }
+
+    public function savePreferences() { return $this->respond(function () {
+        $p=$this->request->post();
+        if (array_diff(array_keys($p),['canvas_id','expected_revision','preferences'])) throw new RuntimeException('UNSUPPORTED_MESSAGE_FIELD');
+        ConversationStore::assertCanvasAccess((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null));
+        $revision=self::number($p['expected_revision']??null,true);
+        if (!is_array($p['preferences']??null)) throw new RuntimeException('INVALID_AGENT_PREFERENCES');
+        return ConversationPreferences::save((int)$this->request->tenantId,$this->userId,$revision,$p['preferences']);
     }); }
 
     /**
@@ -118,7 +134,7 @@ final class CanvasAgentController extends BaseApiController
         try {return $this->success('success',$action());}
         catch (\Throwable $error) {
             $code=$error->getMessage();
-            $public=['CANVAS_NOT_FOUND','THREAD_NOT_FOUND','RUN_NOT_FOUND','CANVAS_AGENT_DISABLED','IDEMPOTENCY_CONFLICT','THREAD_BUSY','VERSION_CONFLICT','NODE_NOT_FOUND','INVALID_IDENTIFIER','INVALID_THREAD_REQUEST','INVALID_THREAD_TITLE','INVALID_REQUEST_KEY','INVALID_MESSAGE','INVALID_NODE_REFERENCES','INVALID_BASE_REVISION','UNSUPPORTED_MESSAGE_FIELD','CONTEXT_TOO_LARGE','INVALID_AGENT_PREFERENCES','INVALID_GENERATION_MODE','INVALID_MODEL_SELECTION','REASONING_MODEL_UNAVAILABLE','IMAGE_MODEL_UNAVAILABLE','VIDEO_MODEL_UNAVAILABLE','INVALID_SKILL_SELECTION','SKILL_UNAVAILABLE'];
+            $public=['CANVAS_NOT_FOUND','THREAD_NOT_FOUND','RUN_NOT_FOUND','CANVAS_AGENT_DISABLED','IDEMPOTENCY_CONFLICT','THREAD_BUSY','VERSION_CONFLICT','PREFERENCE_VERSION_CONFLICT','INVALID_PREFERENCE_REVISION','NODE_NOT_FOUND','INVALID_IDENTIFIER','INVALID_THREAD_REQUEST','INVALID_THREAD_TITLE','INVALID_REQUEST_KEY','INVALID_MESSAGE','INVALID_NODE_REFERENCES','INVALID_BASE_REVISION','UNSUPPORTED_MESSAGE_FIELD','CONTEXT_TOO_LARGE','INVALID_AGENT_PREFERENCES','INVALID_GENERATION_MODE','INVALID_MODEL_SELECTION','REASONING_MODEL_UNAVAILABLE','IMAGE_MODEL_UNAVAILABLE','VIDEO_MODEL_UNAVAILABLE','INVALID_SKILL_SELECTION','SKILL_UNAVAILABLE'];
             return $this->fail(in_array($code,$public,true)?$code:'AGENT_REQUEST_FAILED');
         }
     }
