@@ -562,7 +562,15 @@ class ShortDramaCanvasService
         return $row;
     }
     private static function currentById(int $tenantId, int $userId, int $id): array { return self::formatDocument(self::ownedDocument($tenantId, $userId, $id), true); }
-    private static function normalizeNodes(array $nodes): array { return array_values(array_slice(array_filter($nodes, static fn($node) => is_array($node) && isset($node['id']) && isset($node['type'])), 0, 200)); }
+    private static function normalizeNodes(array $nodes): array
+    {
+        // Reject before poster jobs or document writes. Never silently remove
+        // existing nodes when an oversized snapshot is submitted.
+        if (count($nodes) > 200) {
+            throw new Exception('CANVAS_CAPACITY_EXCEEDED: 画布最多支持 200 个节点，请减少节点后重试');
+        }
+        return array_values(array_filter($nodes, static fn($node) => is_array($node) && isset($node['id']) && isset($node['type'])));
+    }
     /** Keep a completed poster when an older browser snapshot saves unrelated canvas changes. */
     private static function mergePersistedVideoPosters(array $nodes, array $persisted): array
     {
