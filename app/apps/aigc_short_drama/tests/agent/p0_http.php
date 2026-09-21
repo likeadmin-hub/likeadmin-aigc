@@ -53,12 +53,15 @@ try {
     agentCheck($id > 0, 'HTTP actual route creates isolated owned canvas');
     $nodes = [];
     foreach (['text', 'image', 'video', 'audio'] as $index => $type) $nodes[] = ['id' => $index + 1, 'type' => $type, 'x' => $index * 300, 'y' => 20, 'width' => 250, 'height' => 220, 'metadata' => ['content' => 'fixture-' . $type]];
-    $saved = fixtureHttp('save', 'POST', ['id' => $id, 'nodes' => $nodes, 'edges' => [['from' => 1, 'to' => 2]], 'expected_document_token' => $created['data']['document_token']]);
+    $saved = fixtureHttp('save', 'POST', ['id' => $id, 'nodes' => $nodes, 'edges' => [['from' => 1, 'to' => 2]], 'expected_document_token' => $created['data']['document_token'], 'expected_revision' => $created['data']['graph_revision']]);
     agentCheck($saved['code'] === 1, 'HTTP real middleware/controller saves four nodes with content token');
+    agentCheck($saved['data']['graph_revision']===1 && $saved['data']['schema_version']===2, 'HTTP numeric revision passes real request filter and advances graph');
     $loaded = fixtureHttp('current', 'GET', ['id' => $id]);
     agentCheck($loaded['code'] === 1 && count($loaded['data']['nodes']) === 4 && $loaded['data']['nodes'] === $saved['data']['nodes'], 'HTTP reload preserves four-node response');
     $conflict = fixtureHttp('save', 'POST', ['id' => $id, 'nodes' => [], 'expected_document_token' => $created['data']['document_token']]);
     agentCheck($conflict['code'] !== 1 && str_starts_with($conflict['msg'], 'VERSION_CONFLICT'), 'HTTP stale snapshot returns conflict instead of overwriting');
+    $conflict = fixtureHttp('save', 'POST', ['id'=>$id,'nodes'=>[],'expected_revision'=>0]);
+    agentCheck($conflict['code']!==1 && str_starts_with($conflict['msg'],'VERSION_CONFLICT'), 'HTTP stale numeric revision cannot bypass graph CAS');
     $wrongTenant = fixtureHttp('current', 'GET', ['id' => $id], 'isolated-http-fixture', 94002);
     agentCheck($wrongTenant['code'] !== 1, 'HTTP tenant resolver rejects unowned tenant context');
 } finally {

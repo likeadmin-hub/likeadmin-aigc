@@ -35,19 +35,25 @@ try {
         if (str_starts_with($statement,'CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas`')) Sql::execute($statement.';','agt_upgrade_',null,false);
     }
     Sql::execute((string)file_get_contents(dirname(__DIR__,2).'/migrations/upgrade_20260919_canvas_removed_nodes.sql'),'agt_upgrade_',null,false);
+    // Early draft receipt table used a case-insensitive database default.
+    foreach (Sql::split(graphDdl(dirname(__DIR__,2).'/migrations/install.sql')) as $statement) {
+        if (str_starts_with($statement,'CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_mutation_receipt`')) Sql::execute(str_replace('CHARACTER SET ascii COLLATE ascii_bin','',$statement).';','agt_upgrade_',null,false);
+    }
+    $receipt=['tenant_id'=>91001,'user_id'=>92001,'canvas_id'=>1,'request_hash'=>str_repeat('a',64),'base_revision'=>0,'result_revision'=>1,'result_json'=>'{}','create_time'=>time()];
+    Db::table('agt_upgrade_aigc_short_drama_canvas_mutation_receipt')->insert($receipt+['request_key'=>'LegacyKey']);
     Db::table('agt_upgrade_aigc_short_drama_canvas')->insert(['tenant_id'=>91001,'user_id'=>92001,'nodes_json'=>'[{"id":1,"type":"text","x":7}]','edges_json'=>'[]','viewport_json'=>'{"k":1}','removed_node_ids_json'=>'[9]']);
     Sql::execute($migration,'agt_upgrade_',null,false);
     Sql::execute($migration,'agt_upgrade_',null,false);
     Sql::execute($migration,'agt_fresh_',null,false);
     agentCheck(Db::table('agt_upgrade_aigc_short_drama_canvas')->value('nodes_json')==='[{"id":1,"type":"text","x":7}]','repeated upgrade preserves old graph JSON');
     agentCheck(Db::table('agt_upgrade_aigc_short_drama_canvas')->value('removed_node_ids_json')==='[9]','repeated upgrade preserves deletion tombstones');
+    agentCheck(Db::table('agt_upgrade_aigc_short_drama_canvas_mutation_receipt')->value('request_key')==='LegacyKey','repeated upgrade preserves existing mutation receipt');
     Sql::execute((string)file_get_contents(root_path().'upgrade/20260921_short_drama_canvas_graph_revision.sql'),'agt_root_',null,false);
     Sql::execute((string)file_get_contents(root_path().'upgrade/20260921_short_drama_canvas_graph_revision.sql'),'agt_root_',null,false);
     foreach ($suffixes as $suffix) {
         $expected=graphColumns('agt_fresh_',$suffix);
         foreach (['agt_upgrade_','agt_full_','agt_root_'] as $prefix) agentCheck(graphColumns($prefix,$suffix)===$expected,'schema parity '.$prefix.$suffix);
     }
-    $receipt=['tenant_id'=>91001,'user_id'=>92001,'canvas_id'=>1,'request_hash'=>str_repeat('a',64),'base_revision'=>0,'result_revision'=>1,'result_json'=>'{}','create_time'=>time()];
     Db::table('agt_fresh_aigc_short_drama_canvas_mutation_receipt')->insert($receipt+['request_key'=>'CaseKey']);
     Db::table('agt_fresh_aigc_short_drama_canvas_mutation_receipt')->insert($receipt+['request_key'=>'casekey']);
     agentCheck(Db::table('agt_fresh_aigc_short_drama_canvas_mutation_receipt')->count()===2,'request keys retain case-sensitive identity');
