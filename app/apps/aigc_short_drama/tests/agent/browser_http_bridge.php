@@ -116,6 +116,30 @@ try {
             echo json_encode(['result'=>['attachments'=>json_decode((string)($message['attachments_json']??'[]'),true),'image_count'=>count((array)($snapshot['attachment_images']??[]))]]),PHP_EOL;
             continue;
         }
+        if ($agentConversation && $action==='agentTextWritebackEvidence') {
+            $document=Db::name(Graph::TABLE)->where(['id'=>$canvasId,'tenant_id'=>94011,'user_id'=>95011,'delete_time'=>0])->find();
+            $nodes=json_decode((string)($document['nodes_json']??'[]'),true,512,JSON_THROW_ON_ERROR);
+            $node=current(array_filter($nodes,static fn(array $item): bool => (string)($item['id']??'')==='1'));
+            $run=Db::name('aigc_short_drama_canvas_agent_run')->where(['tenant_id'=>94011,'user_id'=>95011,'canvas_id'=>$canvasId])->order('id')->find();
+            $snapshot=json_decode((string)($run['context_snapshot']??'{}'),true,512,JSON_THROW_ON_ERROR);
+            $original=(array)(($snapshot['selected_nodes']??[])[0]??[]);
+            echo json_encode(['result'=>[
+                'content'=>(string)($node['metadata']['content']??''),
+                'content_revision'=>(int)($node['metadata']['content_revision']??0),
+                'source_content'=>(string)($original['content']??''),
+                'source_revision'=>(int)($original['content_revision']??0),
+            ]]),PHP_EOL;
+            continue;
+        }
+        if ($agentConversation && $action==='agentSeedTextNode') {
+            $document=Db::name(Graph::TABLE)->where(['id'=>$canvasId,'tenant_id'=>94011,'user_id'=>95011,'delete_time'=>0])->find();
+            if (!$document) throw new RuntimeException('Agent fixture canvas missing');
+            $result=Graph::patch(94011,95011,$canvasId,['request_key'=>'browser-text-writeback','expected_revision'=>(int)$document['graph_revision'],'operations'=>[
+                ['op'=>'add_node','node'=>['id'=>1,'type'=>'text','title'=>'原始文本节点','x'=>40,'y'=>20,'width'=>300,'height'=>180,'metadata'=>['content'=>'原始描述，需要精简成三句话。']]],
+            ]]);
+            echo json_encode(['result'=>$result]),PHP_EOL;
+            continue;
+        }
         if ($agentConversation && $action==='agentSeedAmbiguousImages') {
             // Add only owned, metadata-free image placeholders after the
             // normal conversation test. This exercises the real graph and
