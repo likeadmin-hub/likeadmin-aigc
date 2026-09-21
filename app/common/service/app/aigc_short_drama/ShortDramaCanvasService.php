@@ -744,6 +744,7 @@ class ShortDramaCanvasService
         $createTime = (int)($row['create_time'] ?? 0);
         $data = [
             'id' => (int)$row['id'],
+            'agent_enabled' => \app\common\service\app\aigc_short_drama\canvas_agent\FeatureGate::enabled((int)$row['tenant_id']),
             'title' => (string)$row['title'],
             'nodes' => $nodes,
             'removed_node_ids' => array_map('strval', self::decode((string)($row['removed_node_ids_json'] ?? '[]'))),
