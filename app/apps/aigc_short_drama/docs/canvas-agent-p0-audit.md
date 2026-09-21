@@ -765,3 +765,13 @@ P3 M03/M04/M05/M06 的归一化层有行为证据，但模型能力、总限额�
 隔离 `p3_reference_assets.php` **8 PASS / 0 FAIL**，含之前 5 项归一化回归与新增 3 项实际校验器行为。此测试通过反射调用真实校验方法，不访问远端、不扣费、不写业务库；只证明该校验器，不伪称公开 quote/reserve 端到端通过。
 
 源码定位显示 reserve 在 quoteMarket 与余额操作之前调用 assertAssets，而公开 quote 只解析时长/选择并计算报价，未调用 assertAssets。因此“非法参考在扣费前拒绝”的完整入口行为仍需隔离市场目录/报价夹具验证；“报价也拒绝非法参考”仍未完成。P3 继续未放行，web 本轮无变更，未重启业务进程或发布。
+
+## 35. 公开视频报价参考校验缺口修复（2026-09-22）
+
+用户明确要求修复第 34 节缺口。`62b551bab` 在 MarketVideoRuntimeService::quote 的实际商品/SKU解析后、quoteMarket 前复用 reserve 的 assertAssets 与 assertTextToVideoRatio。非法参考不再获得有效报价，不新增另一套能力规则；无 API/schema/计费算法变更。共享影响范围为所有调用市场视频 quote 的业务，包括独立视频与短剧。
+
+新增隔离 `p3_quote.php` 通过公开 quote 方法和真实测试库市场 product/SKU 查询执行，不模拟 quote、不只反射调用私有方法。首个夹具因视频参考与图片 SKU 不兼容被原有选择逻辑拒绝，修正为匹配 SKU 的图片集合后，修复前稳定复现“三张图超过总上限两张仍返回报价”；修复后通过。
+
+验收：公开 quote **5 PASS**（合法边界、完整集合超限拒绝、不支持的输入模式拒绝、无参考兼容、任务/消费账本零新增）；既有参考校验 **8 PASS**；共享消费者回归 `ShortDramaVideoReferenceContractTest` **24 tests / 57 assertions PASS**、`MarketVideoModelPayloadContractTest` **12 tests / 68 assertions PASS**。全部从已集成本地 develop 执行，隔离网络/数据库，不请求 Provider、不扣真实积分。未通过修改余额或绕过校验使测试通过。
+
+本节公开服务报价缺口已修复；HTTP/UI报价、reserve 完整事务及 P3 其余门槛仍不能由本轮替代，P3 未整体放行。本轮 web 无源码变化。未重启常驻进程、未迁移业务库、未部署/推送。
