@@ -7,6 +7,7 @@ return [
     'commands' => [
         'short-drama:episode-worker' => 'app\common\command\ShortDramaEpisodeWorker',
         'short-drama:planning-worker' => 'app\common\command\ShortDramaPlanningWorker',
+        'short-drama:canvas-agent-worker' => 'app\common\command\ShortDramaCanvasAgentWorker',
         // 定时任务
         'crontab' => 'app\common\command\Crontab',
         // 退款查询
