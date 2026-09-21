@@ -35,6 +35,17 @@ final class ConversationQueue
             }
             $result['items'][]=['run_id'=>$run,'state'=>$state];
         }
+        // Reconciliation is intentionally a separate, bounded local-ledger
+        // pass. It never invokes the Provider and never converts an unknown
+        // upstream request into another submission.
+        $pending=Db::name(ConversationStore::PREFIX.'outbox')->where(['tenant_id'=>$tenant,'state'=>'needs_reconciliation'])
+            ->where('id','>',$after)->order('id')->limit($limit)->select()->toArray();
+        foreach ($pending as $row) {
+            $result['cursor']=max($result['cursor'],(int)$row['id']);
+            try {$state=ConversationReconciliation::reconcile($tenant,(int)$row['user_id'],(int)$row['run_id']);}
+            catch (\Throwable $error) {$state='reconciliation_error';}
+            $result['items'][]=['run_id'=>(int)$row['run_id'],'state'=>$state];
+        }
         return $result;
     }
 }
