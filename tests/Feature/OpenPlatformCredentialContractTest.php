@@ -131,4 +131,15 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString('downloadExperienceQrcode', $service);
         self::assertStringContainsString("\$query->where('upload_mode', 'template');", $service);
     }
+
+    public function testAuthorizedTenantExtJsonIsGeneratedAtCommitTime(): void
+    {
+        $service = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
+
+        self::assertStringContainsString('self::tenantRuntimeConfig($tenantId, true)', $service);
+        self::assertStringContainsString('self::templateExtJson($runtimeConfig, $authorizer)', $service);
+        self::assertStringContainsString("'ext_json' => '{}'", $service);
+        self::assertStringContainsString("'ext' => ['runtime_config' => \$runtimeConfig]", $service);
+        self::assertStringContainsString('请先配置租户小程序业务域名后再提交体验版', $service);
+    }
 }

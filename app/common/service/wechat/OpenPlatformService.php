@@ -494,8 +494,14 @@ class OpenPlatformService
                 if (!in_array((string)$row['experience_status'], ['pending', 'failed'], true)) return self::formatVersion($row->toArray());
                 $row->save(['experience_status' => 'running', 'update_time' => time()]);
                 try {
-                    self::request('wxa/commit', ['template_id' => $template['template_id'], 'ext_json' => json_encode(self::templateExtJson($row, $authorizer), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'user_version' => (string)$row['version'], 'user_desc' => (string)$row['description']], 'release.experience', ['access_token' => self::authorizerToken((int)$authorizer['id'])]);
-                    $row->save(['experience_status' => 'success', 'update_time' => time()]);
+                    // Templates remain tenant-neutral. Generate this payload only
+                    // for the tenant that is committing its own mini-program.
+                    $runtimeConfig = self::tenantRuntimeConfig($tenantId, true);
+                    $runtimeHash = hash('sha256', json_encode($runtimeConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+                    self::request('wxa/commit', ['template_id' => $template['template_id'], 'ext_json' => json_encode(self::templateExtJson($runtimeConfig, $authorizer), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'user_version' => (string)$row['version'], 'user_desc' => (string)$row['description']], 'release.experience', ['access_token' => self::authorizerToken((int)$authorizer['id'])]);
+                    // Keep only an auditable summary of the payload. Do not reuse
+                    // stored ext_json as a later tenant's live runtime config.
+                    $row->save(['experience_status' => 'success', 'api_base_url' => (string)$runtimeConfig['apiBaseUrl'], 'runtime_config_version' => (string)$runtimeConfig['configVersion'], 'runtime_config_hash' => $runtimeHash, 'update_time' => time()]);
                 } catch (\Throwable $e) {
                     $row->save(['experience_status' => 'failed', 'update_time' => time()]);
                     throw $e;
@@ -1629,12 +1635,15 @@ class OpenPlatformService
     }
 
     /** Resolve the tenant's configured host for the package runtime. */
-    private static function tenantRuntimeConfig(int $tenantId): array
+    private static function tenantRuntimeConfig(int $tenantId, bool $requireConfiguredDomain = false): array
     {
         $domain = '';
         $credential = WechatCredential::withoutGlobalScope()->where('tenant_id', $tenantId)->findOrEmpty()->toArray();
         $settings = json_decode((string)($credential['settings_json'] ?? ''), true);
         $configuredDomain = is_array($settings) ? trim((string)($settings['business_domain'] ?? '')) : '';
+        if ($requireConfiguredDomain && $configuredDomain === '') {
+            throw new \RuntimeException('请先配置租户小程序业务域名后再提交体验版');
+        }
         if ($configuredDomain !== '') {
             $domain = preg_match('#^https?://#i', $configuredDomain) ? $configuredDomain : 'https://' . $configuredDomain;
         }
@@ -1651,7 +1660,8 @@ class OpenPlatformService
             }
         }
         $domain = rtrim($domain, '/') . '/';
-        if (!preg_match('#^https?://[^/]+/$#i', $domain)) {
+        $validDomain = $requireConfiguredDomain ? '#^https://[^/]+/$#i' : '#^https?://[^/]+/$#i';
+        if (!preg_match($validDomain, $domain)) {
             throw new \RuntimeException('当前租户域名无效，请先完成域名配置');
         }
         $config = [
@@ -1915,19 +1925,12 @@ class OpenPlatformService
         if ($template->isEmpty() || (string)$template['template_id'] === '') throw new \RuntimeException('模板不存在或未上传成功');
         $version = trim((string)$template['template_version']);
         if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) throw new \RuntimeException('所选代码模板的版本号格式无效');
-        $runtimeConfig = self::tenantRuntimeConfig($tenantId);
-        $extJson = ['runtime_config' => $runtimeConfig];
-        $runtimeHash = hash('sha256', json_encode($runtimeConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-        return self::formatVersion(WechatMnpVersion::create(['tenant_id' => $tenantId, 'authorizer_id' => (int)$data['authorizer_id'], 'template_id' => (int)$data['template_id'], 'version' => $version, 'description' => trim((string)($data['description'] ?? $template['template_desc'] ?? '')), 'ext_json' => json_encode($extJson, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'upload_mode' => 'template', 'upload_status' => 'success', 'runtime_config_hash' => $runtimeHash, 'api_base_url' => (string)$runtimeConfig['apiBaseUrl'], 'runtime_config_version' => (string)$runtimeConfig['configVersion'], 'experience_status' => 'pending', 'audit_status' => 'none', 'release_status' => 'none', 'create_time' => time(), 'update_time' => time()])->toArray());
+        // The version selects a shared template only. Its tenant-specific
+        // ext_json is generated immediately before wxa/commit.
+        return self::formatVersion(WechatMnpVersion::create(['tenant_id' => $tenantId, 'authorizer_id' => (int)$data['authorizer_id'], 'template_id' => (int)$data['template_id'], 'version' => $version, 'description' => trim((string)($data['description'] ?? $template['template_desc'] ?? '')), 'ext_json' => '{}', 'upload_mode' => 'template', 'upload_status' => 'success', 'runtime_config_hash' => '', 'api_base_url' => '', 'runtime_config_version' => '', 'experience_status' => 'pending', 'audit_status' => 'none', 'release_status' => 'none', 'create_time' => time(), 'update_time' => time()])->toArray());
     }
-    private static function templateExtJson(WechatMnpVersion $row, WechatAuthorizer $authorizer): array
+    private static function templateExtJson(array $runtimeConfig, WechatAuthorizer $authorizer): array
     {
-        $data = json_decode((string)$row['ext_json'], true);
-        $data = is_array($data) ? $data : [];
-        $runtimeConfig = $data['runtime_config'] ?? null;
-        if (!is_array($runtimeConfig)) {
-            $runtimeConfig = self::tenantRuntimeConfig((int)$row['tenant_id']);
-        }
         return [
             'extEnable' => true,
             'extAppid' => (string)$authorizer['authorizer_appid'],
