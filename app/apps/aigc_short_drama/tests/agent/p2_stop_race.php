@@ -10,6 +10,7 @@ if (($argv[1]??'')==='worker') {
     echo "READY\n";flush();
     if (trim((string)fgets(STDIN))!=='GO') throw new RuntimeException('Missing race barrier');
     if ($action==='stop') $result=Execution::stop(91001,92001,(int)$canvas,(int)$thread,(int)$run);
+    elseif ($action==='complete') $result=['completed'=>Execution::complete(91001,92001,(int)$run,$token,(int)$fence,'same concurrent reply')];
     else {
         $state=Execution::authorizeSubmission(91001,92001,(int)$run,$token,(int)$fence);
         if ($state==='authorized') Db::name('aigc_short_drama_test_provider_receipt')->insert(['tenant_id'=>91001,'user_id'=>92001,'canvas_id'=>(int)$canvas,'intent_id'=>(int)$run,'create_time'=>time()]);
@@ -17,10 +18,10 @@ if (($argv[1]??'')==='worker') {
     }
     echo json_encode($result,JSON_THROW_ON_ERROR),PHP_EOL;exit(0);
 }
-function stopRace(int $canvas,int $thread,int $run,array $claim): array {
+function stopRace(int $canvas,int $thread,int $run,array $claim,array $actions=['stop','permit']): array {
     $children=[];
     try {
-        foreach (['stop','permit'] as $action) {
+        foreach ($actions as $action) {
             $process=proc_open([PHP_BINARY,__FILE__,'worker',$action,(string)$canvas,(string)$thread,(string)$run,$claim['token'],(string)$claim['fence']],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
             if (!is_resource($process)) throw new RuntimeException('Cannot start owned child');
             stream_set_timeout($pipes[1],15);$children[]=[$process,$pipes];
@@ -61,6 +62,22 @@ try {
         agentCheck($stop['cancellation_confirmed']===!$submitted,'race '.$i.' never falsely confirms upstream cancellation');
         agentCheck(Db::name('aigc_short_drama_test_provider_receipt')->where('canvas_id',$canvas)->count()===($submitted?1:0),'race '.$i.' has at most one authorized provider acceptance');
         agentCheck(Execution::claim(91001,92001,$run)===null,'race '.$i.' cannot reclaim stopped run');
+    }
+    foreach (['stop','complete','late'] as $scenario) {
+        $canvas=(int)Canvas::create(91001,92001,['title'=>'P2 concurrent replay'])['id'];$owned[]=$canvas;
+        $thread=Store::create(91001,92001,$canvas,'thread')['id'];
+        $run=Store::enqueue(91001,92001,$canvas,$thread,['request_key'=>'send','content'=>'replay','base_revision'=>0],['settings'=>[],'skill'=>[]])['run_id'];
+        $claim=Execution::claim(91001,92001,$run);
+        Execution::authorizeSubmission(91001,92001,$run,$claim['token'],$claim['fence']);
+        if ($scenario==='late') Execution::unknown(91001,92001,$run,$claim['token'],$claim['fence']);
+        $action=$scenario==='stop'?'stop':'complete';
+        [$first,$second]=stopRace($canvas,$thread,$run,$claim,[$action,$action]);
+        agentCheck($first===$second,$scenario.' concurrent replay has stable response');
+        $status=Db::name(Store::PREFIX.'run')->where('id',$run)->value('status');
+        agentCheck($status===($scenario==='complete'?'success':'needs_reconciliation'),$scenario.' concurrent replay preserves state');
+        $kind=['stop'=>'run.stop_requested','complete'=>'run.succeeded','late'=>'run.late_reply'][$scenario];
+        agentCheck(Db::name(Store::PREFIX.'event')->where(['run_id'=>$run,'kind'=>$kind])->count()===1,$scenario.' concurrent replay emits evidence only once');
+        agentCheck(Db::name(Store::PREFIX.'message')->where(['run_id'=>$run,'role'=>'assistant'])->count()===($scenario==='complete'?1:0),$scenario.' concurrent replay never duplicates assistant message');
     }
 } finally {
     foreach ($owned as $canvas) {
