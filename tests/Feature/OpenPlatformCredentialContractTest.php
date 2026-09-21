@@ -142,4 +142,15 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString("'ext' => ['runtime_config' => \$runtimeConfig]", $service);
         self::assertStringContainsString('请先配置租户小程序业务域名后再提交体验版', $service);
     }
+
+    public function testLegacyMiniProgramManagementEndpointsRemainCompatibleDuringRollingUpgrade(): void
+    {
+        $service = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
+        $controller = file_get_contents(dirname(__DIR__, 2) . '/app/tenantapi/controller/channel/OpenPlatformController.php');
+
+        self::assertStringContainsString('public static function miniprogramManagement(int $tenantId)', $service);
+        self::assertStringContainsString('public static function undoAudit(int $tenantId, int $id)', $service);
+        self::assertStringContainsString('OpenPlatformService::miniprogramManagement($this->tenantId)', $controller);
+        self::assertStringContainsString('OpenPlatformService::undoAudit($this->tenantId, $id)', $controller);
+    }
 }

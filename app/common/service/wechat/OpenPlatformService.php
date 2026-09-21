@@ -568,6 +568,54 @@ class OpenPlatformService
         $row->save(['audit_status' => $auditStatus, 'update_time' => time()]);
         return self::formatVersion($row->toArray());
     }
+
+    /**
+     * Backward-compatible data endpoint for tenants still running the
+     * pre-channel-overview console.  Keep it until the corresponding tenant
+     * frontend bundle has been upgraded everywhere.
+     */
+    public static function miniprogramManagement(int $tenantId): array
+    {
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        $token = self::authorizerToken((int)$authorizer['id']);
+        $categories = self::request('cgi-bin/wxopen/getcategory', [], 'miniprogram.category.list', ['access_token' => $token], $tenantId, (int)$authorizer['id'], 'GET');
+        $pages = self::request('wxa/get_page', [], 'miniprogram.page.list', ['access_token' => $token], $tenantId, (int)$authorizer['id'], 'GET');
+        $privacy = self::request('cgi-bin/component/getprivacysetting', [], 'miniprogram.privacy.get', ['access_token' => $token], $tenantId, (int)$authorizer['id']);
+        return [
+            'authorizer_appid' => (string)$authorizer['authorizer_appid'],
+            'categories' => array_values(array_filter((array)($categories['category_list'] ?? []), 'is_array')),
+            'pages' => array_values(array_filter((array)($pages['page_list'] ?? []), 'is_string')),
+            'privacy' => $privacy,
+            'synced_at' => time(),
+        ];
+    }
+
+    public static function undoAudit(int $tenantId, int $id): array
+    {
+        $lock = SubmitLockService::acquire('wechat.version.audit.undo.' . $id, $tenantId, 0);
+        try {
+            [$row, $authorizer] = self::versionForTenant($tenantId, $id);
+            if ((string)$row['audit_status'] !== 'pending') throw new \RuntimeException('当前版本没有可撤回的审核');
+            $review = WechatMnpReview::withoutGlobalScope()->where('version_id', $id)->order('id desc')->findOrEmpty();
+            if ($review->isEmpty() || trim((string)$review['audit_no']) === '') throw new \RuntimeException('未找到微信审核编号');
+            self::request('wxa/undocodeaudit', [], 'release.audit.undo', ['access_token' => self::authorizerToken((int)$authorizer['id'])], $tenantId, (int)$authorizer['id']);
+            $review->save(['audit_status' => 'withdrawn', 'reason' => '已撤回审核', 'finish_time' => time()]);
+            $row->save(['audit_status' => 'none', 'update_time' => time()]);
+            return self::formatVersion($row->toArray());
+        } finally { SubmitLockService::release($lock); }
+    }
+
+    private static function effectiveMiniprogramAuthorizer(int $tenantId): WechatAuthorizer
+    {
+        $authorizer = WechatAuthorizer::withoutGlobalScope()->where([
+            'tenant_id' => $tenantId,
+            'authorizer_type' => 'miniprogram',
+            'authorization_status' => 1,
+        ])->order('id desc')->findOrEmpty();
+        if ($authorizer->isEmpty()) throw new \RuntimeException('当前租户未授权小程序');
+        return $authorizer;
+    }
+
     public static function releaseVersion(int $tenantId, int $id): array { $lock = SubmitLockService::acquire('wechat.version.release.' . $id, $tenantId, 0); try { [$row, $authorizer] = self::versionForTenant($tenantId, $id); if ((string)$row['audit_status'] !== 'approved') throw new \RuntimeException('审核尚未通过'); if ((string)$row['release_status'] === 'released') return $row->toArray(); self::request('wxa/release', [], 'release.publish', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $row->save(['release_status' => 'released', 'update_time' => time()]); return $row->toArray(); } finally { SubmitLockService::release($lock); } }
     public static function rollbackVersion(int $tenantId, int $id, int $fromId = 0): array { $lock = SubmitLockService::acquire('wechat.version.rollback.' . $id, $tenantId, 0); try { [$row, $authorizer] = self::versionForTenant($tenantId, $id); if ((string)$row['release_status'] !== 'released') throw new \RuntimeException('当前版本未发布'); self::request('wxa/revertcoderelease', [], 'release.rollback', ['access_token' => self::authorizerToken((int)$authorizer['id'])]); $row->save(['release_status' => 'rolled_back', 'rollback_from_id' => $fromId, 'update_time' => time()]); return $row->toArray(); } finally { SubmitLockService::release($lock); } }
 
