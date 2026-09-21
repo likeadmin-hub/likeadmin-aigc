@@ -385,7 +385,12 @@ class ShortDramaCanvasService
             return;
         }
         $externalId = (int)($run['provider_task_id'] ?? 0);
-        if ($externalId <= 0 || (string)$run['node_type'] === 'text') return;
+        $intentRun=!empty(self::decode((string)$run['request_json'])['__canvas_intent_version']);
+        if ((string)$run['node_type'] === 'text') {
+            if ($intentRun) GenerationIntentService::projectResult((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
+            return;
+        }
+        if ($externalId <= 0) return;
         $type = (string)$run['node_type'];
         // Image-market tasks expose an explicit reconciliation hook. Video and
         // music runtimes publish their status through their own callback flows,
@@ -420,9 +425,10 @@ class ShortDramaCanvasService
             'error' => (string)($task['error'] ?? $task['error_msg'] ?? ''),
             'result_json' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'update_time' => time(),
         ]);
-        if ($type === 'video' && $status === 'success' && $urls) {
+        if (!$intentRun && $type === 'video' && $status === 'success' && $urls) {
             self::projectVideoRunToCanvas($run, $urls[0]);
         }
+        if ($intentRun) GenerationIntentService::projectResult((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
         self::syncShortDramaTask((int)$run['id']);
     }
 

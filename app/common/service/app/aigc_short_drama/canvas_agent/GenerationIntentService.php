@@ -42,7 +42,7 @@ final class GenerationIntentService
             $now=time();
             $run=Db::name(self::RUNS)->insertGetId($scope+[
                 'node_id'=>$nodeId,'node_type'=>$type,'status'=>'queued','progress'=>0,
-                'request_json'=>self::json($input),'result_json'=>'{}','error'=>'','create_time'=>$now,'update_time'=>$now,'delete_time'=>0,
+                'request_json'=>self::json($input+['__canvas_intent_version'=>1]),'result_json'=>'{}','error'=>'','create_time'=>$now,'update_time'=>$now,'delete_time'=>0,
             ]);
             $snapshot=['graph_revision'=>$document['graph_revision']??null,
                 'content_revision'=>$node['metadata']['content_revision']??0,'target_signature'=>self::nodeInputSignature($node),
@@ -127,6 +127,52 @@ final class GenerationIntentService
             return true;
         });
     }
+
+    /** Project only an authoritative completed run, never a caller-supplied result. */
+    public static function projectResult(int $tenant,int $user,int $runId): bool
+    {
+        return Db::transaction(function () use ($tenant,$user,$runId): bool {
+            $identity=Db::name(self::RUNS)->where(['id'=>$runId,'tenant_id'=>$tenant,'user_id'=>$user])->find();
+            if (!$identity) return false;
+            $document=Db::name(GraphService::TABLE)->where(['id'=>$identity['canvas_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find();
+            if (!$document) return false;
+            $intent=Db::name(self::TABLE)->where(['canvas_run_id'=>$runId,'canvas_id'=>$document['id'],'tenant_id'=>$tenant,'user_id'=>$user])->lock(true)->find();
+            if (!$intent || $intent['state']!=='accepted') return false;
+            $run=Db::name(self::RUNS)->where('id',$runId)->lock(true)->find();
+            if ($run['status']!=='success') return false;
+            $nodes=json_decode($document['nodes_json']?:'[]',true,512,JSON_THROW_ON_ERROR);
+            $snapshot=json_decode($intent['snapshot_json'],true,512,JSON_THROW_ON_ERROR);
+            foreach ($nodes as &$node) {
+                if ((string)$node['id']!==(string)$intent['node_id']) continue;
+                $metadata=(array)($node['metadata']??[]);
+                if ((int)($metadata['active_generation_id']??0)!==$runId || (int)($metadata['canvasRunId']??0)!==$runId || (int)($metadata['projected_generation_id']??0)===$runId) return false;
+                if (!isset($snapshot['target_signature']) || !hash_equals($snapshot['target_signature'],self::nodeInputSignature($node))) return false;
+                $result=json_decode($run['result_json']?:'{}',true,512,JSON_THROW_ON_ERROR);
+                if ($run['node_type']==='text') {
+                    $content=$result['content']??$result['text']??'';
+                    if (!is_string($content) || $content==='') return false;
+                    $metadata['content']=$content;
+                } else {
+                    $media=$result['results'][0]??null;
+                    if (!is_array($media) || empty($media['url'])) return false;
+                    $metadata['url']=(string)$media['url'];
+                    $field=['image'=>'image','video'=>'video_url','audio'=>'audio_url'][$run['node_type']]??null;
+                    if (!$field) return false;
+                    $metadata[$field]=(string)$media['url'];
+                    foreach (['storage_scope','storage_engine','storage_domain'] as $key) $metadata[$key]=(string)($media[$key]??'');
+                    if ($run['node_type']==='video') {
+                        $metadata['poster_url']=(string)($media['poster_url']??'');
+                        $metadata['poster_uri']=(string)($media['poster_uri']??'');
+                        $metadata['poster_status']=$metadata['poster_url']!==''?'ready':'pending';
+                    }
+                }
+                $node['metadata']=array_replace($metadata,['status'=>'success','progress'=>100,'error'=>'','projected_generation_id'=>$runId,'content_revision'=>(int)($metadata['content_revision']??0)+1]);
+                GraphService::persistLockedDocument($document,['nodes_json'=>self::json($nodes),'update_time'=>time()]);
+                return true;
+            }
+            return false;
+        });
+    }
     private static function owned(int $tenant,int $user,int $id): array {
         $row=Db::name(self::TABLE)->where(['id'=>$id,'tenant_id'=>$tenant,'user_id'=>$user])->lock(true)->find();
         if (!$row) throw new RuntimeException('GENERATION_INTENT_NOT_FOUND');
@@ -149,7 +195,7 @@ final class GenerationIntentService
     }
     private static function nodeInputSignature(array $node): string {
         $metadata=(array)($node['metadata']??[]);
-        foreach (['status','progress','error','errorDetails','canvasRunId','active_generation_id','layout_revision','groupId','agentGroupId','poster_url','poster_uri','poster_status','poster'] as $field) unset($metadata[$field]);
+        foreach (['status','progress','error','errorDetails','canvasRunId','active_generation_id','projected_generation_id','layout_revision','groupId','agentGroupId','poster_url','poster_uri','poster_status','poster'] as $field) unset($metadata[$field]);
         // Layout and progress do not authorize a different generation input.
         return hash('sha256',self::json(self::canonical(['type'=>$node['type']??'','title'=>$node['title']??'','metadata'=>$metadata])));
     }
