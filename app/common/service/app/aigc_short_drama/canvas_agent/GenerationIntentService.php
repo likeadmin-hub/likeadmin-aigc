@@ -11,11 +11,18 @@ final class GenerationIntentService
     public const TABLE = 'aigc_short_drama_canvas_generation_intent';
     private const RUNS = 'aigc_short_drama_canvas_run';
 
-    public static function reserve(int $tenant, int $user, int $canvas, string $key, string $nodeId, string $type, array $input): array
+    public static function lookup(int $tenant,int $user,int $canvas,string $key,string $nodeId,string $type,array $requestInput): ?array
+    {
+        $row=Db::name(self::TABLE)->where(['tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas,'request_key'=>$key])->find();
+        if ($row && !hash_equals($row['request_hash'],self::requestHash($nodeId,$type,$requestInput))) throw new RuntimeException('IDEMPOTENCY_CONFLICT');
+        return $row ?: null;
+    }
+
+    public static function reserve(int $tenant, int $user, int $canvas, string $key, string $nodeId, string $type, array $input, ?array $requestInput=null): array
     {
         if (!preg_match('/^[a-zA-Z0-9_.:-]{1,100}$/D',$key)) throw new RuntimeException('INVALID_REQUEST_KEY');
         if (!in_array($type,['text','image','video','audio'],true)) throw new RuntimeException('INVALID_NODE_TYPE');
-        $hash=hash('sha256',self::json(self::canonical(['node_id'=>$nodeId,'type'=>$type,'input'=>$input])));
+        $hash=self::requestHash($nodeId,$type,$requestInput??$input);
         return Db::transaction(function () use ($tenant,$user,$canvas,$key,$nodeId,$type,$input,$hash): array {
             $document=Db::name(GraphService::TABLE)->where(['id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find();
             if (!$document) throw new RuntimeException('CANVAS_NOT_FOUND');
@@ -123,6 +130,9 @@ final class GenerationIntentService
         if (array_keys($value)!==range(0,count($value)-1)) ksort($value);
         foreach ($value as &$item) if (is_array($item)) $item=self::canonical($item);
         return $value;
+    }
+    private static function requestHash(string $nodeId,string $type,array $input): string {
+        return hash('sha256',self::json(self::canonical(['node_id'=>$nodeId,'type'=>$type,'input'=>$input])));
     }
     private static function json(array $value): string {return json_encode($value,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);}
 }
