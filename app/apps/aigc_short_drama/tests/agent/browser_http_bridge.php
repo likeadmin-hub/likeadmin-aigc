@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/bootstrap.php';
 use think\facade\Db;
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution;
 
 // JSON-lines bridge to real HTTP inside the internal network. No host port,
 // business credentials, arbitrary URLs, provider routes or user profile.
@@ -84,6 +85,36 @@ try {
         }
         if ($agentConversation && $action==='agentPreferenceEvidence') {
             echo json_encode(['result'=>Db::name('aigc_short_drama_canvas_agent_preference')->where(['tenant_id'=>94011,'user_id'=>95011])->find() ?: null]),PHP_EOL;
+            continue;
+        }
+        // Browser-only harness helpers drive the real durable completion and
+        // SSE read paths without registering a Provider, scheduler or billable
+        // model. They are unavailable outside this isolated JSON-lines bridge.
+        if ($agentConversation && in_array($action,['agentComplete','agentStream'],true)) {
+            $thread=(int)($body['thread_id']??0);$run=(int)($body['run_id']??0);
+            $owned=$thread>0 && $run>0
+                && Db::name('aigc_short_drama_canvas_agent_thread')->where(['id'=>$thread,'tenant_id'=>94011,'user_id'=>95011,'canvas_id'=>$canvasId])->count()===1
+                && Db::name('aigc_short_drama_canvas_agent_run')->where(['id'=>$run,'thread_id'=>$thread,'tenant_id'=>94011,'user_id'=>95011,'canvas_id'=>$canvasId])->count()===1;
+            if (!$owned) throw new RuntimeException('Agent helper outside isolated browser fixture');
+            if ($action==='agentComplete') {
+                $claim=ConversationExecution::claim(94011,95011,$run);
+                if (!$claim) throw new RuntimeException('Agent helper cannot claim isolated run');
+                $result=ConversationExecution::complete(94011,95011,$run,$claim['token'],$claim['fence'],(string)($body['content']??''));
+                echo json_encode(['result'=>['completed'=>$result]]),PHP_EOL;
+                continue;
+            }
+            if (trim((string)($body['content']??''))!=='') {
+                $claim=ConversationExecution::claim(94011,95011,$run);
+                if (!$claim) throw new RuntimeException('Agent helper cannot claim isolated SSE run');
+                ConversationExecution::complete(94011,95011,$run,$claim['token'],$claim['fence'],(string)$body['content']);
+            }
+            $url='http://127.0.0.1:19080/api/app.aigc_short_drama.canvas_agent/stream?tenant_id=94011';
+            $streamBody=['canvas_id'=>$canvasId,'thread_id'=>$thread,'run_id'=>$run,'event_after'=>0,'message_after'=>0,'wait_seconds'=>0];
+            $context=stream_context_create(['http'=>['method'=>'POST','timeout'=>10,'ignore_errors'=>true,
+                'header'=>"Content-Type: application/json\r\nAccept: text/event-stream\r\ntoken: isolated-browser-http\r\n",'content'=>json_encode($streamBody)]]);
+            $stream=file_get_contents($url,false,$context);
+            if (!is_string($stream)) throw new RuntimeException('Agent helper SSE response missing');
+            echo json_encode(['result'=>$stream]),PHP_EOL;
             continue;
         }
         $allowed=in_array($action,['current','save'],true) && (int)($body['id']??0)===$canvasId;
