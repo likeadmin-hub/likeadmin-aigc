@@ -68,7 +68,11 @@ class ShortDramaCanvasService
 
     public static function save(int $tenantId, int $userId, array $params): array
     {
-        $document = self::ownedDocument($tenantId, $userId, (int)($params['id'] ?? 0));
+        return Db::transaction(function () use ($tenantId, $userId, $params): array {
+        // Poster/video projectors already lock this row. Acquire the same lock
+        // before reading, merging and saving so a completed poster cannot be
+        // overwritten between the read and the document update.
+        $document = self::ownedDocument($tenantId, $userId, (int)($params['id'] ?? 0), true);
         $nodes = self::normalizeNodes((array)($params['nodes'] ?? []));
         $removed = array_unique(array_merge(
             self::decode((string)($document['removed_node_ids_json'] ?? '[]')),
@@ -92,6 +96,7 @@ class ShortDramaCanvasService
         ]);
         self::queueVideoPosters($tenantId, $userId, (int)$document['id'], $nodes);
         return self::currentById($tenantId, $userId, (int)$document['id']);
+        });
     }
 
     /**
@@ -554,10 +559,14 @@ class ShortDramaCanvasService
         return array_filter($payload, static fn($value) => $value !== '' && $value !== 0 || is_array($value));
     }
 
-    private static function ownedDocument(int $tenantId, int $userId, int $id): array
+    private static function ownedDocument(int $tenantId, int $userId, int $id, bool $lock = false): array
     {
-        if ($id <= 0) return self::current($tenantId, $userId);
-        $row = Db::name(self::DOCUMENT_TABLE)->where(['id' => $id, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])->find();
+        if ($id <= 0) {
+            $current = self::current($tenantId, $userId);
+            if (!$lock) return $current;
+            $id = (int)$current['id'];
+        }
+        $row = Db::name(self::DOCUMENT_TABLE)->where(['id' => $id, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])->lock($lock)->find();
         if (!$row) throw new Exception('画布不存在或无权访问');
         return $row;
     }
@@ -578,7 +587,6 @@ class ShortDramaCanvasService
         foreach ($persisted as $node) $persistedById[(string)($node['id'] ?? '')] = $node;
         foreach ($nodes as &$node) {
             $metadata = is_array($node['metadata'] ?? null) ? $node['metadata'] : [];
-            if (!empty($metadata['poster_url']) || !empty($metadata['poster_uri'])) continue;
             $saved = $persistedById[(string)($node['id'] ?? '')] ?? null;
             $savedMetadata = is_array($saved['metadata'] ?? null) ? $saved['metadata'] : [];
             $source = self::canvasStoredUri((string)($metadata['video_url'] ?? $metadata['url'] ?? ''));
