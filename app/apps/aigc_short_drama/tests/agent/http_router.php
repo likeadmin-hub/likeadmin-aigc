@@ -10,7 +10,7 @@ if (PHP_SAPI !== 'cli-server') throw new RuntimeException('Test HTTP router requ
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 // Defense in depth: this test server cannot reach any generation endpoint.
 $actions=defined('SHORT_DRAMA_BROWSER_MOCK_PROVIDER')?'current|create|save|lists|patch|run|task':'current|create|save|lists|patch';
-$resourceRead=$_SERVER['REQUEST_METHOD']==='GET' && in_array($path,['/api/app.aigc_short_drama.asset/lists','/api/app.aigc_canvas.canvas/lists'],true);
+$resourceRead=$_SERVER['REQUEST_METHOD']==='GET' && in_array($path,['/api/app.aigc_short_drama.asset/lists','/api/app.aigc_canvas.project/lists'],true);
 if (!$resourceRead && !preg_match('#^/api/app\.aigc_short_drama\.canvas/('.$actions.')$#D', (string)$path)) {
     http_response_code(404);
     exit;
