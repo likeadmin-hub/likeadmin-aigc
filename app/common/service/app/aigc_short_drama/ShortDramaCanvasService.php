@@ -381,6 +381,9 @@ class ShortDramaCanvasService
 
     private static function refreshRun(array $run): void
     {
+        // A retained late receipt is evidence, not permission for ordinary
+        // polling to settle an unresolved submission or invoke provider sync.
+        if ((string)$run['status']==='needs_reconciliation') return;
         // Successful runs are reconciled again on detail reads. This repairs an
         // expired/raw provider URI into a storage-authorized delivery URL and
         // backfills short-drama history if a browser closed before polling.
