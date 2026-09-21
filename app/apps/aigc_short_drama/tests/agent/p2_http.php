@@ -76,8 +76,16 @@ try {
     Db::name('tenant_app')->where(['tenant_id'=>94001,'app_code'=>'aigc_short_drama'])->update(['shelf_status'=>'off']);
     agentCheck(agentHttp('threads','GET',['canvas_id'=>$canvas])['code']!==1,'unshelved tenant app blocks conversation API');
     Db::name('tenant_app')->where(['tenant_id'=>94001,'app_code'=>'aigc_short_drama'])->update(['shelf_status'=>'on']);
+    $stopThread=agentHttp('createThread','POST',['canvas_id'=>$canvas,'request_key'=>'stop-thread'])['data']['id'];
+    $stopRun=agentHttp('send','POST',array_replace($send,['thread_id'=>$stopThread,'request_key'=>'stop-pending']))['data']['run_id'];
+    $stopArgs=['canvas_id'=>$canvas,'thread_id'=>$stopThread,'run_id'=>$stopRun];
+    agentCheck(agentHttp('stop','POST',$stopArgs,'')['code']!==1,'stop endpoint requires authenticated owner');
+    agentCheck(agentHttp('stop','POST',$stopArgs,'isolated-agent-other')['msg']==='RUN_NOT_FOUND','foreign user cannot stop pending run');
     Db::name('aigc_short_drama_config')->where('id',$config)->update(['config_json'=>'{}']);
     agentCheck(agentHttp('messages','GET',$args)['msg']==='CANVAS_AGENT_DISABLED','turning Agent off blocks message entry again');
+    $stopped=agentHttp('stop','POST',$stopArgs);
+    agentCheck($stopped['code']===1 && $stopped['data']['status']==='canceled' && $stopped['data']['cancellation_confirmed']===true,'HTTP owner can stop queued run after Agent is disabled');
+    agentCheck(agentHttp('stop','POST',$stopArgs)['data']===$stopped['data'],'HTTP repeat stop returns stable result');
 } finally {
     if (is_resource($process)) {proc_terminate($process);foreach ($pipes as $pipe) fclose($pipe);proc_close($process);}
     if ($canvas) {
