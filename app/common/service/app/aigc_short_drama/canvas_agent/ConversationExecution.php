@@ -101,6 +101,26 @@ final class ConversationExecution
         });
     }
 
+    /** A response was received, but it violates the P2 text-only contract.
+     * This is a known terminal result, unlike a transport timeout: retain no
+     * reply and never retry it. Billing adapters remain responsible for their
+     * own already-settled ledger records. */
+    public static function rejectInvalidResponse(int $tenant,int $user,int $runId,string $token,int $fence): string
+    {
+        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence): string {
+            [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
+            if ($run['status']==='failed' && $run['error_code']==='UNSUPPORTED_MODEL_RESPONSE') return 'failed';
+            if ($run['status']==='needs_reconciliation') return 'needs_reconciliation';
+            if ($run['status']!=='running' || $outbox['state']!=='submitting') throw new RuntimeException('STALE_WORKER');
+            if ((int)$outbox['lease_until']<=time()) { self::uncertain($run,$outbox,'WORKER_LEASE_EXPIRED');return 'needs_reconciliation'; }
+            self::state($run,'failed','UNSUPPORTED_MODEL_RESPONSE');
+            self::event($run,'run.failed',['status'=>'failed','code'=>'UNSUPPORTED_MODEL_RESPONSE']);
+            Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'failed','lease_until'=>0,'update_time'=>time()]);
+            if ((int)$thread['active_run_id']===$runId) Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(['active_run_id'=>0,'update_time'=>time()]);
+            return 'failed';
+        });
+    }
+
     /** Durable one-time handoff immediately before provider I/O. No locks are
      * retained during HTTP; disabling after this handoff cannot cancel an
      * already submitted request and must use reconciliation, never resubmit.

@@ -44,7 +44,7 @@ try {
         $ack=Store::enqueue(91001,92001,$canvas,$thread,$request,$snapshot);
         $provider=new IsolatedConversationProvider($scenario);
         $state=Worker::process(91001,92001,$ack['run_id'],$provider);
-        agentCheck($state===($scenario==='success'?'success':(in_array($scenario,['preflight','disabled_preflight'],true)?'failed':'needs_reconciliation')),$scenario.' has expected terminal/quarantine status');
+        agentCheck($state===($scenario==='success'?'success':(in_array($scenario,['preflight','disabled_preflight','malformed','tool'],true)?'failed':'needs_reconciliation')),$scenario.' has expected terminal/quarantine status');
         if ($scenario==='disabled_preflight') Db::name('aigc_short_drama_config')->where('id',$config)->update(['config_json'=>'{"canvas_agent":{"enabled":true}}']);
         agentCheck(Worker::process(91001,92001,$ack['run_id'],$provider)==='not_claimed',$scenario.' duplicate Worker does not resubmit');
         agentCheck($provider->calls===(in_array($scenario,['preflight','expired_preflight','expired_throw','short_lease','disabled_preflight'],true)?0:1),$scenario.' provider attempt count');
@@ -52,6 +52,9 @@ try {
         agentCheck(!str_contains(json_encode($events),'private'),$scenario.' errors do not expose private provider/policy details');
         $messages=Store::messages(91001,92001,$canvas,$thread);
         agentCheck(count($messages)===($scenario==='success'?2:1),$scenario.' only validated success publishes assistant message');
+        if (in_array($scenario,['malformed','tool'],true)) {
+            agentCheck((string)Db::name(Store::PREFIX.'run')->where('id',$ack['run_id'])->value('error_code')==='UNSUPPORTED_MODEL_RESPONSE',$scenario.' is a clear bounded no-tool failure, not a retryable unknown');
+        }
         if ($scenario==='success') {
             $dto=$provider->requests[0];
             agentCheck($dto['settings']['reasoning_model']['id']==='isolated-model' && $dto['tools']===[] && $dto['automatic_retry']===false,'Worker preserves chosen model and disables tools/retries');
@@ -65,6 +68,8 @@ try {
     }
     agentCheck(Db::name('aigc_short_drama_canvas_run')->where('canvas_id',$canvas)->count()===0,'Worker never creates media generation tasks');
     agentCheck((int)Db::name('aigc_short_drama_canvas')->where('id',$canvas)->value('graph_revision')===0,'Worker does not mutate graph');
+    $intentEvents=Store::events(91001,92001,$canvas,$thread);
+    agentCheck(count(array_filter($intentEvents,static fn(array $event)=>$event['kind']==='run.intent' && $event['payload']===['kind'=>'conversation','tools'=>[],'media_generation'=>false,'graph_mutation'=>false]))===1,'every accepted Agent run has one immutable no-tool conversation intent');
     $constraintThread=Store::create(91001,92001,$canvas,'known-constraints')['id'];
     $constraintFirst=Store::enqueue(91001,92001,$canvas,$constraintThread,['request_key'=>'known-constraints-first','content'=>'画风为国风水墨，比例 9:16，时长 15 秒','base_revision'=>0],$snapshot);
     $constraintProvider=new IsolatedConversationProvider('success');

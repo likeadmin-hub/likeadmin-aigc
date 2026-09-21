@@ -47,6 +47,15 @@ final class ConversationWorker
             return ConversationExecution::complete($tenant,$user,$run,$claim['token'],$claim['fence'],$result['content'])?'success':'needs_reconciliation';
         } catch (ConversationSafetyViolation $error) {
             return ConversationExecution::rejectAfterSubmit($tenant,$user,$run,$claim['token'],$claim['fence']);
+        } catch (RuntimeException $error) {
+            // The P2 contract accepts text only and never executes tools. A
+            // malformed/completion-with-tools response is therefore known bad
+            // output, not an unknown upstream outcome requiring a resend.
+            if ($error->getMessage()==='UNSUPPORTED_MODEL_RESPONSE') {
+                return ConversationExecution::rejectInvalidResponse($tenant,$user,$run,$claim['token'],$claim['fence']);
+            }
+            ConversationExecution::unknown($tenant,$user,$run,$claim['token'],$claim['fence']);
+            return 'needs_reconciliation';
         } catch (\Throwable $error) {
             // Provider/settlement/response-validation outcomes are conservative:
             // never call generate a second time or invent a success/refund.

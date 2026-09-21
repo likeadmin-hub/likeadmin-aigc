@@ -116,7 +116,11 @@ final class ConversationStore
             $now=time();$sequence=(int)$conversation['next_message_sequence'];
             $run=Db::name(self::PREFIX.'run')->insertGetId($scope+['thread_id'=>$thread,'request_key'=>$key,'request_hash'=>$hash,'status'=>'queued','context_snapshot'=>$contextJson,'skill_snapshot'=>$skill,'settings_snapshot'=>$settings,'ack_json'=>'{}','create_time'=>$now,'update_time'=>$now]);
             Db::name(self::PREFIX.'message')->insert($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>$sequence,'role'=>'user','content_json'=>self::json(['text'=>$content]),'attachments_json'=>self::json(ConversationAttachments::public($attachments)),'create_time'=>$now]);
+            // P2 has a deliberately narrow immutable plan: one conversation
+            // response, no graph mutation, no media generation and no tools.
+            // Store it as an event so retries preserve the same intent.
             $cursor=Db::name(self::PREFIX.'event')->insertGetId($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>1,'kind'=>'run.queued','payload_json'=>self::json(['status'=>'queued','message_sequence'=>$sequence]),'create_time'=>$now]);
+            Db::name(self::PREFIX.'event')->insert($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>2,'kind'=>'run.intent','payload_json'=>self::json(['kind'=>'conversation','tools'=>[],'media_generation'=>false,'graph_mutation'=>false]),'create_time'=>$now]);
             Db::name(self::PREFIX.'outbox')->insert($scope+['run_id'=>$run,'event_key'=>'run:'.$run,'available_at'=>$now,'create_time'=>$now,'update_time'=>$now]);
             $ack=['thread_id'=>$thread,'run_id'=>(int)$run,'status'=>'queued','event_cursor'=>(int)$cursor,'message_sequence'=>$sequence];
             Db::name(self::PREFIX.'run')->where('id',$run)->update(['ack_json'=>self::json($ack)]);
@@ -204,7 +208,7 @@ final class ConversationStore
             'status'=>$status,'version'=>(int)$row['version'],
             'can_stop'=>in_array($status,['queued','running'],true),
             'needs_reconciliation'=>$status==='needs_reconciliation',
-            'error_code'=>$status==='failed'?($row['error_code']==='PRECHECK_FAILED'?'PRECHECK_FAILED':($row['error_code']==='SAFETY_OUTPUT_BLOCKED'?'CONTENT_BLOCKED':'RUN_FAILED')):($status==='canceled'?'USER_STOPPED_BEFORE_SUBMIT':''),
+            'error_code'=>$status==='failed'?($row['error_code']==='PRECHECK_FAILED'?'PRECHECK_FAILED':($row['error_code']==='SAFETY_OUTPUT_BLOCKED'?'CONTENT_BLOCKED':($row['error_code']==='UNSUPPORTED_MODEL_RESPONSE'?'UNSUPPORTED_MODEL_RESPONSE':'RUN_FAILED'))):($status==='canceled'?'USER_STOPPED_BEFORE_SUBMIT':''),
             'create_time'=>(int)$row['create_time'],'update_time'=>(int)$row['update_time']];
     }
 
