@@ -73,6 +73,15 @@ class ShortDramaCanvasService
         // before reading, merging and saving so a completed poster cannot be
         // overwritten between the read and the document update.
         $document = self::ownedDocument($tenantId, $userId, (int)($params['id'] ?? 0), true);
+        // Transitional CAS for the deployed schema. This detects every JSON
+        // writer without requiring a live migration. Legacy callers remain
+        // compatible until the versioned graph contract is fully rolled out.
+        if (array_key_exists('expected_document_token', $params)) {
+            $expected = (string)$params['expected_document_token'];
+            if (!preg_match('/^[a-f0-9]{64}$/D', $expected) || !hash_equals(self::documentToken($document), $expected)) {
+                throw new Exception('VERSION_CONFLICT: 云端画布已变化，本地修改已保留，请重新读取后再编辑');
+            }
+        }
         $nodes = self::normalizeNodes((array)($params['nodes'] ?? []));
         $removed = array_unique(array_merge(
             self::decode((string)($document['removed_node_ids_json'] ?? '[]')),
@@ -656,6 +665,7 @@ class ShortDramaCanvasService
             'viewport' => self::decode((string)$row['viewport_json']),
             'created_at' => $createTime > 0 ? date('Y-m-d H:i:s', $createTime) : '',
             'update_time' => (int)$row['update_time'],
+            'document_token' => self::documentToken($row),
         ];
         if (!$includeRuns) return $data;
         // A browser can be refreshed after the backend creates a run but before
@@ -682,6 +692,8 @@ class ShortDramaCanvasService
             ]);
             $data['nodes'] = $nodes;
             $data['update_time'] = $now;
+            $row['nodes_json'] = json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $data['document_token'] = self::documentToken($row);
         }
         $latest = [];
         foreach (array_reverse($runs) as $run) {
@@ -690,6 +702,16 @@ class ShortDramaCanvasService
         }
         $data['runs'] = array_values($latest);
         return $data;
+    }
+
+    /** Opaque content token, not a graph revision or a mutation receipt. */
+    private static function documentToken(array $row): string
+    {
+        $fields = [];
+        foreach (['id', 'tenant_id', 'user_id', 'title', 'nodes_json', 'edges_json', 'viewport_json', 'removed_node_ids_json', 'delete_time'] as $field) {
+            $fields[$field] = (string)($row[$field] ?? '');
+        }
+        return hash('sha256', json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
     /** Build a durable canvas node for an already-owned generation run. */
