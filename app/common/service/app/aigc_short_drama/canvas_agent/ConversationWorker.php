@@ -15,7 +15,7 @@ final class ConversationWorker
         if (!$claim) return 'not_claimed';
         try {
             $context=$claim['context'];
-            $messages=ConversationTextContext::messages($context);
+            $messages=ConversationTextContext::messages($context,$claim['skill']);
             $request=[
                 'app_code'=>'aigc_short_drama','action_code'=>'canvas_agent_chat','run_id'=>$run,
                 'business_table'=>ConversationStore::PREFIX.'run','business_id'=>$run,
