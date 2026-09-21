@@ -175,6 +175,7 @@ final class GenerationIntentService
                     $content=$result['content']??$result['text']??'';
                     if (!is_string($content) || $content==='') return false;
                     $metadata['content']=$content;
+                    $metadata['richContent']='';
                 } else {
                     $media=$result['results'][0]??null;
                     if (!is_array($media) || empty($media['url'])) return false;
