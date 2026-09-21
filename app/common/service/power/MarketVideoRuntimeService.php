@@ -191,6 +191,10 @@ class MarketVideoRuntimeService
         );
         $selection = array_replace($selection, $normalized);
         $market = self::resolve($tenantId, $selection);
+        // Quote the same validated reference set that reserve will submit.
+        // Otherwise an impossible request can receive a misleading price.
+        self::assertAssets($market, $selection);
+        self::assertTextToVideoRatio($market, $selection);
         $quantity = self::quantity($market, $selection);
         return self::quoteMarket($market, $quantity);
     }
