@@ -25,6 +25,13 @@ class AigcVideoReferenceAssetService
         }
 
         foreach (self::legacyImageAssets($params) as $asset) {
+            if (($asset['role'] ?? '') === 'reference_image' && array_filter($assets, static fn(array $existing): bool =>
+                ($existing['type'] ?? '') === self::TYPE_IMAGE
+                && ($existing['uri'] ?? '') === ($asset['uri'] ?? '')
+                && in_array($existing['role'] ?? '', ['first_frame_image', 'last_frame_image'], true)
+            )) {
+                continue;
+            }
             $normalized = self::normalizeItem($asset);
             if (!empty($normalized)) {
                 $assets[] = $normalized;
