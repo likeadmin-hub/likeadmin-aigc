@@ -111,7 +111,9 @@ try {
     $imageSend=agentHttp('send','POST',['canvas_id'=>$canvas,'thread_id'=>$imageThread,'request_key'=>'image-attachment','content'=>'分析图片','base_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product],'attachments'=>[['type'=>'image','asset_id'=>$asset,'name'=>'HTTP 图片','url'=>'https://forged.example/private.png']]]);
     agentCheck($imageSend['code']!==1 && $imageSend['msg']==='INVALID_ATTACHMENTS','HTTP rejects forged image URL fields');
     $imageSend=agentHttp('send','POST',['canvas_id'=>$canvas,'thread_id'=>$imageThread,'request_key'=>'image-attachment','content'=>'分析图片','base_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product],'attachments'=>[['type'=>'image','asset_id'=>$asset,'name'=>'HTTP 图片']]]);
-    agentCheck($imageSend['code']===1 && agentHttp('messages','GET',['canvas_id'=>$canvas,'thread_id'=>$imageThread])['data'][0]['attachments']===[['type'=>'image','asset_id'=>$asset,'name'=>'HTTP 图片']],'HTTP accepts only an owned image asset ID and exposes no storage URL');
+    agentCheck($imageSend['code']===1,'HTTP accepts an owned image asset ID');
+    $imageMessages=agentHttp('messages','GET',['canvas_id'=>$canvas,'thread_id'=>$imageThread])['data'];
+    agentCheck($imageMessages[0]['attachments']===[['type'=>'image','asset_id'=>$asset,'name'=>'HTTP 图片']],'HTTP image projection exposes no storage URL');
     Db::name('aigc_short_drama_asset')->where('id',$asset)->update(['delete_time'=>time()]);
     $imageClaim=Execution::claim(94001,95001,$imageSend['data']['run_id']);
     agentCheck($imageClaim!==null,'image attachment run remains claimable before execution validation');
