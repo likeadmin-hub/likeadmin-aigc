@@ -1,5 +1,24 @@
 # 短剧画布 Agent P0 核对报告
 
+## 最新增量：P2 A03 位置指代歧义澄清（2026-09-21）
+
+本轮在两仓库 `feature/short-drama-optimization` 实现后先合入本地 `develop` 验收；没有调用真实 Provider、创建媒体生成任务、扣费、迁移业务库或发布。server 实现提交 `48bbb6f80`，随后测试夹具修正 `9207631aa`；web 提交 `2c5d8d2`。二者均已以 `--no-ff` 合入各自本地 `develop`。
+
+- 对未显式选择节点、含“左边/右边 + 图片”位置指代的请求，服务端只在多个图片节点落入同一前导位置带时创建 `clarify` 终态会话：保存用户消息、Agent 澄清消息和最多 4 个安全候选标签；不写 outbox、不设置 active run，Worker 永远不可提交它。
+- 候选只包含当前租户、当前用户、当前画布的 node ID、标题和固定类型；不返回图快照、素材 URL、存储 URI 或 Provider 输入。用户必须点击一个候选使画布选区成为明确 node ID，再由右下角输入框重新发送。未做“自动猜左图”的降级。
+- SSE 的持久消息投影包含同一份受限候选字段，`clarify` 被视为终态；PC 状态机仅接收 assistant 的 2–4 个合法图片候选，页面以文本插值卡片展示，防止候选数据成为 HTML。
+
+实际验收（全部在已合入的本地 `develop`）：
+
+| 验收面 | 结果 |
+| --- | --- |
+| 隔离 MySQL P2 会话 | PASS，`p2_conversation.php` **64 PASS / 0 FAIL**。覆盖歧义澄清、无 outbox、持久候选、幂等重放和显式节点后恢复普通 queued 请求。 |
+| 隔离 Worker 回归 | PASS，`p2_worker.php` **90 PASS / 0 FAIL**。确认共享会话/冻结上下文/写回/视觉输入既有行为未回退。 |
+| PC 状态机 | PASS，`short-drama-conversation-state.test.cjs` **11 PASS / 0 FAIL**；伪造 user 候选会被拒绝。 |
+| Chrome → 隔离 HTTP/MySQL | PASS，`short-drama-agent-http-browser.cjs` **9 PASS / 0 FAIL**。真实右侧面板先展示两张候选卡，点击后下一条请求实际带 `selected_node_ids=['2']`；澄清 run 的 outbox=0，整个夹具媒体 run/双方积分账本均为 0。 |
+
+该项满足验收清单 A03 的“不随机选择、显示候选、用户确认后再提交、无额外费用”行为门槛。候选卡目前显示节点图标、标题和 ID，而不是复制素材 URL 作为缩略图；多图真实理解/比较质量和附件语义仍为 NOT_RUN。P2 仍受审核产品策略、结构化规划/受限工具、预算和未知用量对账等未完成项约束，**不可放行到 P3**。
+
 ## 最新：2026-09-21 当前实现全量回归验收
 
 本节在两仓库已集成最新 feature 的本地 `develop` 执行。当前实现范围的全量后端、PC 行为和隔离浏览器验收已经完成；没有重新触发真实付费媒体生成。此前取得的真实 Qwen 文本写回和单图理解账本证据仍保留在下一节，未因本轮全量回归删除。
