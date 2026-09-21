@@ -12,12 +12,17 @@ final class IsolatedConversationProvider implements ConversationProviderInterfac
     public array $requests=[];
     public function __construct(private string $scenario) {}
     public function preflight(int $tenant,int $user,array $request): void {
+        if (in_array($this->scenario,['expired_preflight','expired_throw'],true)) Db::name(Store::PREFIX.'outbox')->where('run_id',$request['run_id'])->update(['lease_until'=>time()-1]);
+        if ($this->scenario==='short_lease') Db::name(Store::PREFIX.'outbox')->where('run_id',$request['run_id'])->update(['lease_until'=>time()+60]);
+        if ($this->scenario==='disabled_preflight') Db::name('aigc_short_drama_config')->where('tenant_id',$tenant)->update(['config_json'=>'{}']);
+        if ($this->scenario==='expired_throw') throw new RuntimeException('private expired precheck');
         if ($this->scenario==='preflight') throw new RuntimeException('private policy detail');
         if ($tenant!==91001 || $user!==92001 || $request['app_code']!=='aigc_short_drama') throw new RuntimeException('Wrong provider scope');
     }
     public function generate(int $tenant,int $user,array $request): array {
         $this->calls++;$this->requests[]=$request;
         agentCheck(!Db::connect()->getPdo()->inTransaction(),'provider boundary has no open DB transaction');
+        agentCheck(Db::name(Store::PREFIX.'outbox')->where('run_id',$request['run_id'])->value('state')==='submitting','provider is called only after durable submission authorization');
         if ($this->scenario==='throw') throw new RuntimeException('private upstream detail');
         if ($this->scenario==='malformed') return ['content'=>'ignored','tool_calls'=>'not json'];
         if ($this->scenario==='tool') return ['content'=>'ignored','tool_calls'=>[['name'=>'delete_canvas','arguments'=>'{broken']]];
@@ -30,16 +35,17 @@ $config=0;$canvas=0;
 try {
     $config=Db::name('aigc_short_drama_config')->insertGetId(['tenant_id'=>91001,'config_json'=>'{"canvas_agent":{"enabled":true}}','status'=>1]);
     $canvas=Canvas::create(91001,92001,['title'=>'P2 finite Worker fixture'])['id'];
-    foreach (['success','preflight','throw','malformed','tool','late'] as $scenario) {
+    foreach (['success','preflight','throw','malformed','tool','late','expired_preflight','expired_throw','short_lease','disabled_preflight'] as $scenario) {
         $thread=Store::create(91001,92001,$canvas,$scenario)['id'];
         $request=['request_key'=>$scenario,'content'=>'仅讨论，不生成节点','base_revision'=>0];
         $snapshot=['settings'=>['reasoning_model'=>['id'=>'isolated-model']],'skill'=>[]];
         $ack=Store::enqueue(91001,92001,$canvas,$thread,$request,$snapshot);
         $provider=new IsolatedConversationProvider($scenario);
         $state=Worker::process(91001,92001,$ack['run_id'],$provider);
-        agentCheck($state===($scenario==='success'?'success':($scenario==='preflight'?'failed':'needs_reconciliation')),$scenario.' has expected terminal/quarantine status');
+        agentCheck($state===($scenario==='success'?'success':(in_array($scenario,['preflight','disabled_preflight'],true)?'failed':'needs_reconciliation')),$scenario.' has expected terminal/quarantine status');
+        if ($scenario==='disabled_preflight') Db::name('aigc_short_drama_config')->where('id',$config)->update(['config_json'=>'{"canvas_agent":{"enabled":true}}']);
         agentCheck(Worker::process(91001,92001,$ack['run_id'],$provider)==='not_claimed',$scenario.' duplicate Worker does not resubmit');
-        agentCheck($provider->calls===($scenario==='preflight'?0:1),$scenario.' provider attempt count');
+        agentCheck($provider->calls===(in_array($scenario,['preflight','expired_preflight','expired_throw','short_lease','disabled_preflight'],true)?0:1),$scenario.' provider attempt count');
         $events=Store::events(91001,92001,$canvas,$thread);
         agentCheck(!str_contains(json_encode($events),'private'),$scenario.' errors do not expose private provider/policy details');
         $messages=Store::messages(91001,92001,$canvas,$thread);
