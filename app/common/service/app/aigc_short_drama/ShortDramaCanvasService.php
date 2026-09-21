@@ -344,6 +344,10 @@ class ShortDramaCanvasService
         $snapshot=json_decode($claim['snapshot_json'],true,512,JSON_THROW_ON_ERROR);
         try {
             $result=self::executeGenerationPayload($type,$tenantId,$userId,$snapshot['input']);
+        } catch (\app\common\service\ai\PreSubmissionRejected $error) {
+            GenerationIntentService::rejected($tenantId,$userId,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],$error);
+            self::syncShortDramaTask($runId);
+            return self::runDetail($tenantId,$userId,$runId);
         } catch (\Throwable $error) {
             // Lower services remain billing authorities. An unclassified error
             // cannot prove that no external task was accepted or that a refund ran.
