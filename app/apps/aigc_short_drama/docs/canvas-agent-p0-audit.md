@@ -663,3 +663,5 @@ P2 放行门槛仍未满足：A02 现有确认式文本版本证据，A03 仅候
 | 20 | success / settled，提交后停止 | failed / `UPSTREAM_COMPLETED_AFTER_STOP` | 0.5796 |
 
 这完成了本地可观察终态的账本对账与提交后停止语义，不等同真实 Provider 取消 API、上游未知用量查询、上游退款确认或生产调度。后四项仍为 P2 未放行项；PDF/Word、视频/音频内容理解与外部语义审核 Provider 也仍未完成。
+
+对账合入本地 `develop` 后重新串行执行 P2 的 15 个隔离套件（迁移、会话、并发、执行、偏好、发送、HTTP、安全、Worker、队列故障、停止、停止竞争、恢复、附件、对账），共 **709 PASS / 0 FAIL**；测试环境仍是 internal Docker 网络与隔离数据库，未使用业务素材、供应商密钥或真实积分。随后本机 tenant 1 Worker 以 `--once` 扫描确认 `scanned=0`，且 Supervisor 常驻 Worker 已恢复。这个扫描只能证明本地运行路径可用，不等同生产调度或部署验收。
