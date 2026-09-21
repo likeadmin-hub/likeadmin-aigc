@@ -118,3 +118,5 @@ Provider interface 只有隔离测试替身，未注册生产适配或扫描任�
 最新第 14 节：`p2_execution` 71、`p2_worker` 70，新增 `p2_queue_crash.php` 31；完整串行共 675 PASS。新脚本沿用相同 Docker 命令和 develop 执行规则，预检查测试 config/outbox 为空，精确终止自己创建的五个 PHP 子进程，最终清理本次 canvas scope 和测试 config。它使用既有隔离 Provider receipt 测试表，绝不针对业务进程执行。不要并发运行共享 91001/92001 fixture 的其他脚本。队列扫描服务尚未注册生产 supervisor，也未连接真实 Provider。
 
 第 15 节新增 `p2_stop.php` 76、`p2_stop_race.php` 52 PASS；`p2_http.php` 现为 25 PASS，测试 router 只增加 stop，共六个会话路由。完整串行曾通过 795 个断言，之后 stop_race 新增 12 个回放竞争断言并单独重跑 52 PASS；各套件最新结果合计 807，扩展后未再次跑全部串行。停止测试沿用上述只读 Docker/隔离数据库/develop 命令，stop 使用事务回滚，stop_race 使用真实独立连接和精确 fixture 清理，不能与其他共享身份脚本并行。独立竞争发现并修复 RR 旧快照事件序号冲突，证据见审计第 15 节。未知上游结果不会被当作已取消或退款，真实 Provider 取消和前端停止仍未验证。
+
+第 16 节新增 `p2_recovery.php`（84 PASS，事务回滚），`p2_http.php` 现为 37 PASS，router 仅增加只读 run 路由，共七个会话路由。本轮按 recovery/conversation/conversation_concurrency/execution/http/worker/queue_crash/stop/stop_race 顺序串行执行 501 PASS、exit 0。使用同一隔离 Docker 命令，禁止在 feature 上测试或访问业务库。恢复状态测试不等于前端刷新验收；本轮未重跑旧 P0/P1 和浏览器套件。每个脚本末尾的 NOT_RUN 仅表示其自身边界，总体进度以最新审计节为准。

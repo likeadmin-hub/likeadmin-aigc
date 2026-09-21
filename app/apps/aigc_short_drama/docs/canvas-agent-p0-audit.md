@@ -335,3 +335,13 @@ P1 **尚未放行**，P2—P6 **NOT_RUN**。G01 已有真实双标签页文本�
 验证：完整 28 脚本串行回归 **795 PASS、exit 0**（原 675 + HTTP 新增 4 + stop 76 + stop_race 40）。随后扩展并单独重跑 stop_race **52 PASS、exit 0**：10 轮独立进程停止/提交竞争，以及重复停止、重复成功回复、重复迟到回复 3 组竞争各 4 个断言；当前各套件最新结果合计 **807 PASS**，不将其表述为扩展后已再次完整串行运行。测试 finally 仅清理本次合成 canvas scope/config；真实业务 Worker、数据库及积分未改。
 
 尚未验证真实 Provider 取消/退款、实际计费及审核、生产调度、前端停止按钮和整个右侧对话面板接入；前端本轮没有重新验收。P2 仍未放行，P3—P6 不提前执行。下一步沿用右下角唯一输入入口和现有右侧聊天区域，不新增独立 Agent 页面；所选推理模型用于对话，图片/视频偏好独立保留。第 14 节其余缺项及 schema-v1 KNOWN_GAP 继续有效。
+
+## 16. P2 刷新恢复状态读取契约（尚未阶段放行）
+
+本轮分支仍为 `feature/short-drama-optimization`，server 功能 `45d280192`、测试 `dcc0be595`；web `788c454` 未改。新增 GET `app.aigc_short_drama.canvas_agent/run`，沿用 canvas:use:user、登录及应用/租户开关，不新增表或迁移。不改变原四节点生成、Story/Episode 或扣费逻辑。
+
+该接口按认证 tenant/user + canvas/thread/run 完整范围查询未删除记录，只返回 id、thread_id、status、version、can_stop、needs_reconciliation、安全 error_code、创建和更新时间。排队/运行显示可停止，待核实不会承诺取消成功或允许自动重试；错误只输出白名单或 RUN_FAILED。冻结上下文、模型配置、租约 token、原始错误和迟到回复证据不进入响应。状态查询不推进消息/事件游标，不生成消息或启动任务。开关关闭后普通读取仍拒绝，所属用户停止既有任务的例外保持不变。
+
+本轮从合入最新 feature 的本地 develop 串行执行 9 个相关套件：recovery 84、conversation 57、concurrency 23、execution 71、HTTP 37、worker 70、queue_crash 31、stop 76、stop_race 52，合计 **501 PASS、exit 0**。HTTP 比上轮增加 12 个断言；recovery 新增 84 个。重复读取六种状态时五张会话表前后完全相同，软删除 run/thread/canvas 拒绝，未知错误内容被安全映射。`git diff --check` 通过。本轮未重跑 P0/P1、前端或完整安装生命周期，不把历次累计数说成本轮全量测试。
+
+未发现本轮测试失败。适用技能为应用接口规范、Provider/计费边界及共享回归保护：检查已有 Market 文本服务后保持其后结算/兼容重试契约不动，没有将它直接接入生产 Agent。真实付费、预算预留、审核、账本关联仍需专门适配验证。A11 目前只有后端刷新恢复证据，尚无右侧面板浏览器证据，不能标记整体通过；P2 未放行，P3—P6 未开始。无业务库迁移、真实生成或部署。
