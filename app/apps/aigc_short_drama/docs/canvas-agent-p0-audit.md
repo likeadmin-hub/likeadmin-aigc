@@ -308,3 +308,17 @@ P1 **尚未放行**，P2—P6 **NOT_RUN**。G01 已有真实双标签页文本�
 检查发现并记录：既有文本 Market runtime 使用实际 usage 后结算和兼容重试。是否满足新 Agent 的预算/预检、未知结果不重提及账本关联要求仍需专门适配验证；尚未把它直接作为真实 Provider 连接到 Worker，也没有更改共享市场计费/重试行为。内容审核适配亦未完成，不能用预检接口的存在冒充审核已实现。
 
 剩余：真实 Provider Adapter 的所选模型复核、安全审核、计费/预算与 app_task 绑定；持久调度扫描与进程故障恢复；附件/图片理解和完整上下文预算；偏好 CAS、stop/retry、前端安全渲染和事件去重/租户切换；现有右侧对话面板及右下角输入框接新接口。当前浏览器仍运行原前端，不宣称用户已能通过新链路聊天。生产迁移/付费样本/部署继续需单独确认。旧 schema-v1 兼容覆盖仍为 KNOWN_GAP；P3—P6 未开始。
+
+## 14. P2 提交前复核与持久扫描恢复
+
+阶段仍为 P2，**未放行**。本轮仅 server，分支 `feature/short-drama-optimization`；实现提交 `4338cf83a`、`3c3e5063c`，web 未改。未修改共享 PointService/Market runtime 的计费规则，未执行业务迁移或部署，未注册生产常驻任务。
+
+执行边界补充：预检成功不等于仍持有有效提交权限。`authorizeSubmission` 在调用 Provider 前重新锁定会话/运行/outbox，核对 token/fence、活动运行、剩余租约足够覆盖请求超时以及 Agent 开关。outbox 从 processing 变为 submitting，并写 run.submitting 事件后才允许一次外部调用；同一 claim 第二次申请不会再次授权。预检期间租约过期/不足会进入待核实，开关关闭会在无外部请求时失败。预检抛错与过期同时发生也不再误报普通失败或继续提交。提交许可之后发生的开关变化不能声称撤销已发出的请求，仍须对账。
+
+`ConversationQueue::tick` 增加租户限定、有上限、有 cursor 的持久 outbox 扫描。只处理到期 pending；过期 processing/submitting 仅进入 needs_reconciliation，不调用 Provider。Agent 关闭时 pending 保留并延后，由调用方扫描到末尾后重置 cursor 再访问。单条扫描异常返回内部 dispatch_error，不暴露原始错误，也不擅自修改未知状态或阻塞整个批次。该服务需要服务端显式注入 Provider adapter；尚无默认真实适配器或生产 supervisor 注册，不能称为已经部署的常驻 Worker。删除画布等失效记录的运维清理策略尚未实现，扫描会保留诊断状态而不自动删除数据。
+
+新增 `p2_queue_crash.php` **31 PASS**：独立 PHP 子进程在 queued、claimed、handoff、模拟 Provider received、completed 五个持久化边界精确 SIGKILL。重新扫描后 queued 执行一次、completed 不重复执行；中间三个不确定边界只待核实。独立测试接收计数表证实无重复接收，只有已确认结果成为 assistant 消息。另验证关闭开关不提交、分页 cursor、回到零重扫延后项和跨租户不可见。未中断任何业务 Worker。
+
+完整后端串行 **675 PASS、exit 0**：第 13 节 614 + execution 新增 4（现 71）+ worker 新增 26（现 70）+ queue_crash 31。Provider 边界没有数据库事务的断言仍通过；预检后关闭、过期、剩余不足和过期抛错四场景外部调用为零。属于隔离 SQL/模拟 Provider 验收，非真实供应商或付费验收。旧 schema-v1 无 token 写覆盖风险仍单列 KNOWN_GAP。
+
+计费核对遵循方案 16.1—16.2：实际扣费权威仍是原执行服务，Agent 预算不是第二个钱包。本轮仅读取 PointService、文本 Market runtime 和相关方案，确认后结算、重试及待用量恢复路径需要专门适配与测试；没有额外扣费或未经验证的全平台计费改动。下一步仍需完成真实适配器的余额/预算/价格确认、审核、账本引用及未知用量处理，再接生产调度和现有右侧对话 UI。其余 P2 缺项沿用第 13 节，P3—P6 未开始。
