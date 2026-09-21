@@ -16,6 +16,7 @@ try {
         ['user_session',['tenant_id'=>94011,'user_id'=>95011,'token'=>'isolated-browser-http','terminal'=>4,'expire_time'=>time()+3600]],
         ['app',['code'=>'aigc_short_drama','status'=>'installed']],
         ['tenant_app',['tenant_id'=>94011,'app_code'=>'aigc_short_drama','buy_status'=>'paid','enable_status'=>'enabled','shelf_status'=>'on','expire_time'=>time()+3600]],
+        ['aigc_short_drama_config',['tenant_id'=>94011,'config_json'=>'{"canvas_agent":{"enabled":false}}','status'=>1]],
     ] as [$table,$row]) $inserted[]=[$table,Db::name($table)->insertGetId($row)];
     if ($mockGeneration) {
         Db::name('tenant')->where('id',94011)->update(['point_balance'=>100]);
