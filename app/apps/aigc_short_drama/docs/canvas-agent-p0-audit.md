@@ -1,5 +1,7 @@
 # 短剧画布 Agent P0 核对报告
 
+> 当前进度以末尾最新章节为准；前面各节为历史审计证据。第 17 节重新核对 P0：B02/B03 隔离浏览器基线已通过，B05 的“独立应用不可用”边界通过，但原文“仅租户关闭默认应用”的验收口径与平台默认应用策略冲突，等待确认，不擅自改为 PASS。P2 已有受限源码切片，尚未放行。
+
 日期：2026-09-21。状态：只读核对、静态/纯逻辑及隔离数据库服务级基线已执行；浏览器/HTTP 行为基线未完成，**P0 尚未完整放行**。P1 仅有未接入业务入口的 GraphService 基础切片，不能视为阶段完成；P2—P6 未实施。
 
 ## 1. 输入和基线
@@ -345,3 +347,17 @@ P1 **尚未放行**，P2—P6 **NOT_RUN**。G01 已有真实双标签页文本�
 本轮从合入最新 feature 的本地 develop 串行执行 9 个相关套件：recovery 84、conversation 57、concurrency 23、execution 71、HTTP 37、worker 70、queue_crash 31、stop 76、stop_race 52，合计 **501 PASS、exit 0**。HTTP 比上轮增加 12 个断言；recovery 新增 84 个。重复读取六种状态时五张会话表前后完全相同，软删除 run/thread/canvas 拒绝，未知错误内容被安全映射。`git diff --check` 通过。本轮未重跑 P0/P1、前端或完整安装生命周期，不把历次累计数说成本轮全量测试。
 
 未发现本轮测试失败。适用技能为应用接口规范、Provider/计费边界及共享回归保护：检查已有 Market 文本服务后保持其后结算/兼容重试契约不动，没有将它直接接入生产 Agent。真实付费、预算预留、审核、账本关联仍需专门适配验证。A11 目前只有后端刷新恢复证据，尚无右侧面板浏览器证据，不能标记整体通过；P2 未放行，P3—P6 未开始。无业务库迁移、真实生成或部署。
+
+## 17. 自动续跑：P0 浏览器基线补验与 B05 口径差异
+
+本轮先核对未验收 P0，而非重做 P1 或提前推进 P3。分支 `feature/short-drama-optimization`；server 测试提交 `e0e10dd88` / `97a25f0ca`，web 测试提交 `5a8eee5` / `47d7b0a` / `75694ca`。仅测试及报告修改，无产品 API/权限/迁移变化。两仓库提交后合入本地 develop 执行，结束返回 feature；未推送共享分支。
+
+沿用真实 Chrome → 受限 JSON-lines bridge → 隔离 HTTP 内核 → MySQL 的手工生成测试，新增独立应用不可用的实际 `app.aigc_canvas.project/lists` 探针和真实 `app.aigc_short_drama.asset/lists` 读取。测试路由仅增加这两个 GET；素材探针固定无 project_id，避免读取时触发项目素材修复。夹具预检查两个 app code 均为空，仅创建合成数据，finally 清除自身记录。禁止外部网络/付费 Provider；四类生成仍是最低层模拟调用、实际应用任务/素材/积分账本。
+
+实际执行：在 web develop 使用 README 的 Node/Chrome 命令并设置 CANVAS_TEST_MOCK_GENERATION=1，**16 PASS、exit 0**。包括独立应用中间件拒绝、Agent 显式关闭、四类型手工按钮、端口连线、保存重开、双标签页冲突恢复、恰好四次模拟接收及双方各四条账本、浏览器读取三份 canvas_image/video/audio 资产。既有 P0 B02/B03 隔离基线本轮得到重测证据；真实 Provider 和物理文件转存仍 NOT_RUN，不需付费才能声称模拟范围成立。
+
+失败及修复：第一次探针误用不存在的独立 canvas/lists 路由，HTTP 返回 HTML，桥接 JSON 解析失败，随后清理 EPIPE 遮蔽原始错误。修复子进程诊断与关闭保护，改为实际 project/lists，重测通过。未以非 JSON/404 充当权限拒绝。
+
+B05 **部分 PASS / 原文口径 BLOCKED**：当前 AppAccessService::tenantCanUse 对 installed 默认应用调用 DefaultAppService::ensureTenantDefaultApp 并放行；后者将 shelf_status/enable_status 恢复为 on/enabled。aigc_canvas 属于该默认集合。因此“仅关测试租户开关并保持关闭”与现有策略冲突，此结论来自源码核对，不声称已通过 tenant-only 关闭浏览器测试。本轮用隔离 app.status=disabled（同时合成租户记录 disabled）验证独立应用确实不可用时短剧存取、生成、素材不受影响，不能偷换为 tenant-only 用例通过。
+
+需要确认：是否接受以“独立无限画布应用不可用，而授权短剧仍可用”作为 B05 的隔离验收口径，并保留默认应用自动启用策略；若必须支持租户关闭默认应用，需要另行明确全平台策略变更范围。本任务不擅自修改 DefaultAppService/AppAccessService，不重新触发同一探针或跳过门槛。P0 全项放行在此确认前保持待定，既有 P2 切片保留、不启用业务租户。无生产迁移、部署、发布或真实生成。
