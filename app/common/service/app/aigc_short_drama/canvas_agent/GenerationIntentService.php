@@ -96,6 +96,22 @@ final class GenerationIntentService
     {
         Db::transaction(function () use ($tenant,$user,$id,$token,$fence,$providerTaskId,$result,$synchronous): void {
             $row=self::owned($tenant,$user,$id);
+            self::assertClaimIdentity($row,$token,$fence);
+            if ($row['state']==='needs_reconciliation' || ($row['state']==='submitting' && (int)$row['lease_until']<=time())) {
+                // A lease fences state advancement, not durable evidence. The
+                // original worker may receive a valid task receipt after expiry.
+                // Retain it for reconciliation without re-submitting or charging.
+                if ($row['error_code']==='LATE_ACCEPTANCE_RECORDED') {
+                    $run=Db::name(self::RUNS)->where('id',$row['canvas_run_id'])->lock(true)->find();
+                    if ($row['provider_task_id']!==$providerTaskId || ($run['result_json']??'')!==self::json($result)) throw new RuntimeException('PROVIDER_RECEIPT_CONFLICT');
+                    return;
+                }
+                self::transition($row,['state'=>'needs_reconciliation','provider_task_id'=>$providerTaskId,'lease_until'=>0,'error_code'=>'LATE_ACCEPTANCE_RECORDED'],[
+                    'provider_task_id'=>$providerTaskId,'result_json'=>self::json($result),'status'=>'needs_reconciliation',
+                    'error'=>'已保留迟到的生成回执，待核实任务状态',
+                ]);
+                return;
+            }
             self::assertClaim($row,$token,$fence);
             self::transition($row,['state'=>'accepted','provider_task_id'=>$providerTaskId,'lease_until'=>0],[
                 'provider_task_id'=>$providerTaskId,'status'=>$synchronous?'success':'running','progress'=>$synchronous?100:25,
@@ -108,7 +124,9 @@ final class GenerationIntentService
     {
         Db::transaction(function () use ($tenant,$user,$id,$token,$fence): void {
             $row=self::owned($tenant,$user,$id);
-            self::assertClaim($row,$token,$fence);
+            self::assertClaimIdentity($row,$token,$fence);
+            if ($row['state']==='needs_reconciliation') return;
+            if ($row['state']!=='submitting') throw new RuntimeException('STALE_SUBMISSION_CLAIM');
             self::transition($row,['state'=>'needs_reconciliation','error_code'=>'SUBMISSION_OUTCOME_UNKNOWN','lease_until'=>0],[
                 'status'=>'needs_reconciliation','error'=>'生成提交结果待核实，请勿重复提交',
             ]);
@@ -180,6 +198,9 @@ final class GenerationIntentService
     }
     private static function assertClaim(array $row,string $token,int $fence): void {
         if ($row['state']!=='submitting' || !hash_equals($row['claim_token'],$token) || (int)$row['fencing_version']!==$fence || (int)$row['lease_until']<=time()) throw new RuntimeException('STALE_SUBMISSION_CLAIM');
+    }
+    private static function assertClaimIdentity(array $row,string $token,int $fence): void {
+        if ($token==='' || !hash_equals($row['claim_token'],$token) || $fence<1 || (int)$row['fencing_version']!==$fence) throw new RuntimeException('STALE_SUBMISSION_CLAIM');
     }
     private static function transition(array $row,array $intent,array $run): void {
         Db::name(self::TABLE)->where('id',$row['id'])->update($intent+['update_time'=>time()]);
