@@ -675,7 +675,7 @@ class ShortDramaCanvasService
             'id' => (int)$row['id'],
             'title' => (string)$row['title'],
             'nodes' => $nodes,
-            'removed_node_ids' => self::decode((string)($row['removed_node_ids_json'] ?? '[]')),
+            'removed_node_ids' => array_map('strval', self::decode((string)($row['removed_node_ids_json'] ?? '[]'))),
             'edges' => self::decode((string)$row['edges_json']),
             'viewport' => self::decode((string)$row['viewport_json']),
             'created_at' => $createTime > 0 ? date('Y-m-d H:i:s', $createTime) : '',
@@ -692,9 +692,13 @@ class ShortDramaCanvasService
         ])->order('id', 'asc')->select()->toArray();
         $nodeIds = array_fill_keys(array_map(static fn(array $node): string => (string)($node['id'] ?? ''), $nodes), true);
         $recovered = false;
+        $pendingRecovery = [];
         foreach ($runs as $index => $run) {
             $nodeId = trim((string)$run['node_id']);
             if ($nodeId === '' || isset($nodeIds[$nodeId]) || in_array($nodeId, $data['removed_node_ids'], true)) continue;
+            // Do not turn a valid full canvas into an unsaveable 201+ node
+            // document on GET. Keep all run history and report deferred IDs.
+            if (count($nodes) >= 200) { $pendingRecovery[$nodeId] = $nodeId; continue; }
             $nodes[] = self::recoveredNode($run, count($nodes));
             $nodeIds[$nodeId] = true;
             $recovered = true;
@@ -716,6 +720,7 @@ class ShortDramaCanvasService
             if ($nodeId !== '' && !in_array($nodeId, $data['removed_node_ids'], true) && !isset($latest[$nodeId])) $latest[$nodeId] = self::formatRun($run);
         }
         $data['runs'] = array_values($latest);
+        $data['recovery_pending_node_ids'] = array_values($pendingRecovery);
         return $data;
     }
 
