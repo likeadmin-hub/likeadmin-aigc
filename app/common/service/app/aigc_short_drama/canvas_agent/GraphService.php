@@ -12,6 +12,32 @@ final class GraphService
     public const RECEIPTS = 'aigc_short_drama_canvas_mutation_receipt';
     private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision'];
 
+    /** Internal writers only: caller must hold the owned document row lock. */
+    public static function persistLockedDocument(array $document, array $changes): array
+    {
+        if (array_diff(array_keys($changes), ['title','nodes_json','edges_json','viewport_json','removed_node_ids_json','schema_version','update_time'])) throw new RuntimeException('INVALID_GRAPH_WRITE');
+        $query = Db::name(self::TABLE)->where(['id'=>(int)$document['id'],'tenant_id'=>(int)$document['tenant_id'],'user_id'=>(int)$document['user_id'],'delete_time'=>0]);
+        if (array_key_exists('graph_revision',$document)) {
+            $revision = self::revision($document['graph_revision'],'INVALID_GRAPH_REVISION');
+            if ($revision===4294967295) throw new RuntimeException('GRAPH_REVISION_EXHAUSTED');
+            $query->where('graph_revision',$revision);
+            $changes['graph_revision']=$revision+1;
+        }
+        $written=$query->update($changes);
+        if (array_key_exists('graph_revision',$document) && $written!==1) throw new RuntimeException('VERSION_CONFLICT');
+        return array_replace($document,$changes);
+    }
+
+    public static function validateSaveRevision(array $document, array $params): void
+    {
+        if (!array_key_exists('expected_revision',$params)) {
+            if ((int)($document['schema_version']??1)>=2) throw new RuntimeException('VERSION_CONFLICT: 请刷新页面后保存，当前画布需要版本校验');
+            return; // Only legacy, not concurrency-enabled documents allow old clients.
+        }
+        if (!array_key_exists('graph_revision',$document)) throw new RuntimeException('GRAPH_SCHEMA_UPGRADE_REQUIRED');
+        if (self::revision($params['expected_revision'],'EXPECTED_REVISION_REQUIRED')!==(int)$document['graph_revision']) throw new RuntimeException('VERSION_CONFLICT: 云端画布已变化，请重新读取');
+    }
+
     public static function patch(int $tenant, int $user, int $canvas, array $request): array
     {
         $key = (string)($request['request_key'] ?? '');
@@ -138,9 +164,9 @@ final class GraphService
                 if (count($nodes)>200) throw new RuntimeException('CANVAS_CAPACITY_EXCEEDED');
             }
             $revision=(int)$document['graph_revision']+1;
-            Db::name(self::TABLE)->where('id',$canvas)->where('graph_revision',$request['expected_revision'])->update([
+            self::persistLockedDocument($document,[
                 'nodes_json'=>self::json($nodes),'edges_json'=>self::json($edges),'removed_node_ids_json'=>self::json($removed),
-                'graph_revision'=>$revision,'schema_version'=>2,'update_time'=>time(),
+                'schema_version'=>2,'update_time'=>time(),
             ]);
             $result=['id'=>$canvas,'graph_revision'=>$revision,'schema_version'=>2,'nodes'=>$nodes,'edges'=>$edges,'removed_node_ids'=>$removed];
             Db::name(self::RECEIPTS)->insert($scope+['request_key'=>$key,'request_hash'=>$hash,'base_revision'=>$request['expected_revision'],'result_revision'=>$revision,'result_json'=>self::json($result),'create_time'=>time()]);

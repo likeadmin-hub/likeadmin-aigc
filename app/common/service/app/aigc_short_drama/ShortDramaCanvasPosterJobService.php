@@ -3,6 +3,7 @@
 namespace app\common\service\app\aigc_short_drama;
 
 use app\common\service\app\aigc_video\AigcVideoPosterService;
+use app\common\service\app\aigc_short_drama\canvas_agent\GraphService;
 use app\common\service\FileService;
 use app\common\service\storage\StorageConfigService;
 use think\facade\Db;
@@ -191,7 +192,7 @@ class ShortDramaCanvasPosterJobService
             }
             unset($node);
             if ($changed) {
-                Db::name('aigc_short_drama_canvas')->where('id', (int)$document['id'])->update([
+                GraphService::persistLockedDocument($document, [
                     'nodes_json' => json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                     'update_time' => time(),
                 ]);
@@ -227,7 +228,7 @@ class ShortDramaCanvasPosterJobService
             }
             unset($node);
             if ($changed) {
-                Db::name('aigc_short_drama_canvas')->where('id', (int)$document['id'])->update([
+                GraphService::persistLockedDocument($document, [
                     'nodes_json' => json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                     'update_time' => time(),
                 ]);
