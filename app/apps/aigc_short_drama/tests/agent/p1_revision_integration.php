@@ -35,6 +35,8 @@ try {
     $project->invoke(null,$run,$result);
     $doc=Canvas::current(91001,92001,$id);
     agentCheck($doc['graph_revision']===4 && $doc['nodes'][0]['x']===777,'video result advances same revision and preserves user layout');
+    $project->invoke(null,$run,$result);
+    agentCheck(Canvas::current(91001,92001,$id)['graph_revision']===4,'repeated identical video projection does not advance graph revision');
     $run['id']=$runId+999;$project->invoke(null,$run,['url'=>'uploads/fixture/late-video.mp4','poster_url'=>'uploads/fixture/late.jpg']);
     $doc=Canvas::current(91001,92001,$id);
     agentCheck($doc['graph_revision']===4 && $doc['nodes'][0]['metadata']['video_url']==='uploads/fixture/new-video.mp4','old run does not change current video or graph revision');
