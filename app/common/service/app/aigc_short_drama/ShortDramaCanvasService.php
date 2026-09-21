@@ -249,6 +249,12 @@ class ShortDramaCanvasService
         if (!in_array($type, ['text', 'image', 'video', 'audio'], true)) throw new Exception('不支持的短剧画布节点类型');
         if ($nodeId === '') throw new Exception('缺少画布节点');
         $payload = self::generationPayload($type, $params);
+        // Resolve on the server so disabled, cross-tenant and stale Skills
+        // cannot be submitted by replaying a saved composer selection.
+        if ((int)($params['skill_id'] ?? 0) > 0) {
+            $skill = ShortDramaSkillService::resolveForTask($tenantId, $params);
+            $payload = self::applyComposerSkill($type, $payload, $params, $skill);
+        }
         $now = time();
         $runId = Db::name(self::RUN_TABLE)->insertGetId([
             'tenant_id' => $tenantId, 'user_id' => $userId, 'canvas_id' => (int)$document['id'], 'node_id' => $nodeId,
@@ -412,11 +418,14 @@ class ShortDramaCanvasService
             $source = array_merge($source, self::textResultProjection($result));
         }
         $now = time();
+        $request = self::decode((string)$run['request_json']);
+        $skill = (array)($request['skill_snapshot'] ?? []);
         $data = [
             'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'project_id' => 0, 'canvas_id' => (int)$run['canvas_id'], 'shot_id' => '',
             'task_id' => $taskId, 'parent_task_id' => '', 'source_task_id' => (string)$run['provider_task_id'],
             'source_app_code' => AigcShortDramaService::APP_CODE, 'task_type' => 'canvas_' . (string)$run['node_type'],
-            'skill_id' => 0, 'skill_version' => 0, 'skill_source' => 'none', 'skill_snapshot_json' => '{}',
+            'skill_id' => (int)($skill['id'] ?? 0), 'skill_version' => (int)($skill['version'] ?? 0),
+            'skill_source' => $skill ? 'manual' : 'none', 'skill_snapshot_json' => $skill ? json_encode($skill, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : '{}',
             'app_task_id' => (int)($source['app_task_id'] ?? 0), 'consumption_id' => (int)($source['consumption_id'] ?? 0),
             'market_product_id' => (int)($source['market_product_id'] ?? 0), 'market_sku_id' => (int)($source['market_sku_id'] ?? 0),
             'status' => $status, 'progress' => (int)$run['progress'], 'provider' => (string)($source['provider'] ?? 'canvas'), 'provider_task_id' => (string)($source['provider_task_id'] ?? ''),
@@ -500,6 +509,22 @@ class ShortDramaCanvasService
             'tenant_cost_points' => (float)($billing['tenant_cost_points'] ?? 0),
             'user_charge_points' => (float)($billing['user_charge_points'] ?? 0),
         ];
+    }
+
+    private static function applyComposerSkill(string $type, array $payload, array $params, array $skill): array
+    {
+        $missing = ShortDramaSkillRuntime::missingSlots($skill, $params);
+        if ($missing) throw new Exception('请填写技能所需信息：' . implode('、', array_map(static fn(array $slot): string => (string)($slot['label'] ?? $slot['key']), $missing)));
+        $stage = ['text' => 'script_plan', 'image' => 'shot_image', 'video' => 'shot_video', 'audio' => 'bgm_audio'][$type];
+        ShortDramaSkillRuntime::validateMedia($skill, $stage, array_replace($payload, ['model_code' => $payload['model_code'] ?? $payload['channel'] ?? '']));
+        $inputs = [];
+        foreach ((array)($params['skill_inputs'] ?? []) as $key => $value) {
+            if (is_scalar($value)) $inputs[] = mb_substr((string)$key, 0, 100) . '：' . mb_substr((string)$value, 0, 2000);
+        }
+        $payload['prompt'] .= ($inputs ? "\n\n【技能输入】\n" . implode("\n", array_slice($inputs, 0, 30)) : '') . ShortDramaSkillRuntime::instruction($skill, $stage);
+        $payload['content'] = $payload['prompt'];
+        $payload['skill_snapshot'] = $skill;
+        return $payload;
     }
 
     private static function generationPayload(string $type, array $params): array

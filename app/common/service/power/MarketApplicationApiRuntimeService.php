@@ -78,6 +78,9 @@ class MarketApplicationApiRuntimeService
         if ($value === 'music_generation') {
             return MarketMusicAppRuntimeService::class;
         }
+        if ($value === 'file_qa') {
+            return MarketFileQaAppRuntimeService::class;
+        }
         if ($value === MarketSeedSvcAppRuntimeService::UPSTREAM_APP_CODE) {
             return MarketSeedSvcAppRuntimeService::class;
         }
