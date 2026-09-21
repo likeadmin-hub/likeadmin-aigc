@@ -15619,7 +15619,7 @@ class AigcShortDramaService
             'multi_episode_script_prompt_template' => self::defaultMultiEpisodeScriptPromptTemplate(),
             'force_result_transfer' => false,
             'result_storage_engine' => '',
-            'canvas_agent' => ['enabled' => false, 'execution_enabled' => false],
+            'canvas_agent' => ['enabled' => true, 'execution_enabled' => false],
             'models' => [
                 [
                     'id' => 'script-planner-default',

@@ -24,7 +24,12 @@ final class FeatureGate
 
     public static function enabled(int $tenant): bool
     {
-        return self::truthy(self::config($tenant)['canvas_agent']['enabled']??false);
+        $config=self::config($tenant);
+        if ($config===[]) return false;
+        // Agent conversation is part of the short-drama canvas by default.
+        // Existing tenants can still explicitly disable it in tenant admin.
+        return !array_key_exists('enabled',(array)($config['canvas_agent']??[]))
+            || self::truthy($config['canvas_agent']['enabled']);
     }
 
     /** A separate, explicit opt-in is required before a Worker can spend

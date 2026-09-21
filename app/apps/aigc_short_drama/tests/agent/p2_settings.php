@@ -52,6 +52,7 @@ try {
     agentCheck(true,'enabled Agent preflight accepts the server-resolved market model without invoking it');
     AigcShortDramaService::saveConfig(91001,['canvas_agent'=>['enabled'=>false,'execution_enabled'=>true]]);
     agentCheck(!FeatureGate::enabled(91001) && !FeatureGate::executionEnabled(91001),'turning off Agent also disables paid model execution');
+    AigcShortDramaService::saveConfig(91001,['canvas_agent'=>['enabled'=>true,'execution_enabled'=>false]]);
     Db::name('tenant_power_market_sku_price')->insert(['tenant_id'=>91002,'sku_id'=>$sku,'sale_status'=>0,'sale_points'=>1]);
     rejectsSettings(fn()=>Settings::resolve(91002,['reasoning_model'=>(string)$product]),'REASONING_MODEL_UNAVAILABLE');
     agentCheck(Settings::resolve(91001,['reasoning_model'=>(string)$product])['reasoning_model']['id']===(string)$product,'another tenant disabling SKU does not hide current tenant model');

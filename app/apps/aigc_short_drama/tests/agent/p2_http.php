@@ -13,6 +13,13 @@ function agentHttp(string $action,string $method='GET',array $body=[],string $to
     if (!is_array($result)) throw new RuntimeException('Invalid isolated Agent HTTP response');
     return $result;
 }
+function agentSse(array $body,string $token='isolated-agent-http',int $tenant=94001): string {
+    $url='http://127.0.0.1:19082/api/app.aigc_short_drama.canvas_agent/stream?tenant_id='.$tenant;
+    $context=stream_context_create(['http'=>['method'=>'POST','timeout'=>10,'ignore_errors'=>true,'header'=>"Content-Type: application/json\r\nAccept: text/event-stream\r\ntoken: ".$token."\r\n",'content'=>json_encode($body)]]);
+    $result=file_get_contents($url,false,$context);
+    if (!is_string($result)) throw new RuntimeException('Invalid isolated Agent SSE response');
+    return $result;
+}
 $inserted=[];$canvas=0;$process=null;
 try {
     if (Db::name('tenant')->where('id',94001)->count() || Db::name('user')->whereIn('id',[95001,95002])->count() || Db::name('app')->where('code','aigc_short_drama')->count() || Db::name('aigc_short_drama_config')->where('tenant_id',94001)->count()) throw new RuntimeException('HTTP fixture scope is not empty');
@@ -77,6 +84,8 @@ try {
     $completed=agentHttp('run','GET',$runArgs)['data'];
     agentCheck($completed['status']==='success' && !$completed['can_stop'] && $completed['version']>$running['version'],'refresh restores completed state without resend');
     agentCheck(array_column(agentHttp('events','GET',$args)['data'],'kind')===['run.queued','run.running','run.succeeded'],'HTTP events expose ordered lifecycle');
+    $sse=agentSse($args+['run_id'=>$ack['run_id'],'event_after'=>0,'message_after'=>0,'wait_seconds'=>0]);
+    agentCheck(str_contains($sse,'event: ready') && str_contains($sse,'event: message') && str_contains($sse,'隔离测试回复') && str_contains($sse,'event: lifecycle') && str_contains($sse,'event: complete'),'SSE emits durable reply and lifecycle without provider dispatch');
     $second=agentHttp('send','POST',array_replace($send,['request_key'=>'second']))['data'];
     $claim=Execution::claim(94001,95001,$second['run_id']);
     Execution::unknown(94001,95001,$second['run_id'],$claim['token'],$claim['fence']);
@@ -86,6 +95,8 @@ try {
     $unknown=agentHttp('run','GET',array_replace($runArgs,['run_id'=>$second['run_id']]))['data'];
     agentCheck($unknown['status']==='needs_reconciliation' && $unknown['needs_reconciliation'] && !$unknown['can_stop'],'refresh preserves unknown state without retry or cancellation promise');
     agentCheck(!str_contains(json_encode($unknown),'private late evidence') && !str_contains(json_encode($unknown),$claim['token']),'run snapshot excludes late text and worker token');
+    $sse=agentSse($args+['run_id'=>$second['run_id'],'event_after'=>0,'message_after'=>0,'wait_seconds'=>0]);
+    agentCheck(!str_contains($sse,'private late evidence') && str_contains($sse,'needs_reconciliation'),'SSE excludes private late reply evidence');
     agentCheck(Db::name('aigc_short_drama_canvas_run')->where('canvas_id',$canvas)->count()===0,'HTTP conversation creates no media tasks');
     agentCheck((int)Db::name('aigc_short_drama_canvas')->where('id',$canvas)->value('graph_revision')===0,'HTTP conversation does not mutate graph');
     Db::name('tenant_app')->where(['tenant_id'=>94001,'app_code'=>'aigc_short_drama'])->update(['shelf_status'=>'off']);
