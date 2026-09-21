@@ -118,9 +118,9 @@ final class ConversationStore
             Db::name(self::PREFIX.'message')->insert($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>$sequence,'role'=>'user','content_json'=>self::json(['text'=>$content]),'attachments_json'=>self::json(ConversationAttachments::public($attachments)),'create_time'=>$now]);
             // P2 has a deliberately narrow immutable plan: one conversation
             // response, no graph mutation, no media generation and no tools.
-            // Store it as an event so retries preserve the same intent.
-            $cursor=Db::name(self::PREFIX.'event')->insertGetId($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>1,'kind'=>'run.queued','payload_json'=>self::json(['status'=>'queued','message_sequence'=>$sequence]),'create_time'=>$now]);
-            Db::name(self::PREFIX.'event')->insert($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>2,'kind'=>'run.intent','payload_json'=>self::json(['kind'=>'conversation','tools'=>[],'media_generation'=>false,'graph_mutation'=>false]),'create_time'=>$now]);
+            // Keep it in the existing queued event so event cursors remain
+            // backward-compatible while retries preserve the same intent.
+            $cursor=Db::name(self::PREFIX.'event')->insertGetId($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>1,'kind'=>'run.queued','payload_json'=>self::json(['status'=>'queued','message_sequence'=>$sequence,'intent'=>['kind'=>'conversation','tools'=>[],'media_generation'=>false,'graph_mutation'=>false]]),'create_time'=>$now]);
             Db::name(self::PREFIX.'outbox')->insert($scope+['run_id'=>$run,'event_key'=>'run:'.$run,'available_at'=>$now,'create_time'=>$now,'update_time'=>$now]);
             $ack=['thread_id'=>$thread,'run_id'=>(int)$run,'status'=>'queued','event_cursor'=>(int)$cursor,'message_sequence'=>$sequence];
             Db::name(self::PREFIX.'run')->where('id',$run)->update(['ack_json'=>self::json($ack)]);

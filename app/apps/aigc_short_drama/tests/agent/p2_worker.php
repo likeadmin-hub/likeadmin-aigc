@@ -69,7 +69,7 @@ try {
     agentCheck(Db::name('aigc_short_drama_canvas_run')->where('canvas_id',$canvas)->count()===0,'Worker never creates media generation tasks');
     agentCheck((int)Db::name('aigc_short_drama_canvas')->where('id',$canvas)->value('graph_revision')===0,'Worker does not mutate graph');
     $intentEvents=Store::events(91001,92001,$canvas,$thread);
-    agentCheck(count(array_filter($intentEvents,static fn(array $event)=>$event['kind']==='run.intent' && $event['payload']===['kind'=>'conversation','tools'=>[],'media_generation'=>false,'graph_mutation'=>false]))===1,'every accepted Agent run has one immutable no-tool conversation intent');
+    agentCheck(count(array_filter($intentEvents,static fn(array $event)=>$event['kind']==='run.queued' && ($event['payload']['intent']??null)===['kind'=>'conversation','tools'=>[],'media_generation'=>false,'graph_mutation'=>false]))===1,'every accepted Agent run has one immutable no-tool conversation intent');
     $constraintThread=Store::create(91001,92001,$canvas,'known-constraints')['id'];
     $constraintFirst=Store::enqueue(91001,92001,$canvas,$constraintThread,['request_key'=>'known-constraints-first','content'=>'画风为国风水墨，比例 9:16，时长 15 秒','base_revision'=>0],$snapshot);
     $constraintProvider=new IsolatedConversationProvider('success');
