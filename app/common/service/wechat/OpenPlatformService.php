@@ -396,6 +396,64 @@ class OpenPlatformService
         } finally { SubmitLockService::release($lock); }
     }
 
+    /**
+     * Whether this request belongs to a mini-program authorized through the
+     * open platform.  Login must use the component APIs in this mode; sending
+     * its login code to a directly configured mini-program causes 40029.
+     */
+    public static function hasAuthorizedMiniprogram(int $tenantId): bool
+    {
+        if ($tenantId <= 0) return false;
+        return !WechatAuthorizer::withoutGlobalScope()->where([
+            'tenant_id' => $tenantId,
+            'authorizer_type' => 'miniprogram',
+            'authorization_status' => 1,
+        ])->findOrEmpty()->isEmpty();
+    }
+
+    /** Exchange a tenant-authorized mini-program login code through component mode. */
+    public static function authorizedMnpSessionByCode(int $tenantId, string $code): array
+    {
+        $code = trim($code);
+        if ($code === '') throw new \InvalidArgumentException('小程序登录 code 不能为空');
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        $config = self::rawConfig();
+        self::requireConfig($config, ['app_id']);
+        $result = self::request(
+            'sns/component/jscode2session',
+            [],
+            'login.mnp.session',
+            [
+                'appid' => (string)$authorizer['authorizer_appid'],
+                'js_code' => $code,
+                'grant_type' => 'authorization_code',
+                'component_appid' => (string)$config['app_id'],
+                'component_access_token' => self::componentAccessToken(),
+            ],
+            $tenantId,
+            (int)$authorizer['id'],
+            'GET'
+        );
+        if (empty($result['openid'])) throw new \RuntimeException('获取openID失败');
+        return $result;
+    }
+
+    /** Resolve getPhoneNumber codes for an authorized mini-program. */
+    public static function authorizedMnpPhoneNumber(int $tenantId, string $code): array
+    {
+        $code = trim($code);
+        if ($code === '') throw new \InvalidArgumentException('手机号授权 code 不能为空');
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        return self::request(
+            'wxa/business/getuserphonenumber',
+            ['code' => $code],
+            'login.mnp.phone',
+            ['access_token' => self::authorizerToken((int)$authorizer['id'])],
+            $tenantId,
+            (int)$authorizer['id']
+        );
+    }
+
     public static function authorizerInfo(int $id): array
     {
         $row = WechatAuthorizer::withoutGlobalScope()->findOrEmpty($id);

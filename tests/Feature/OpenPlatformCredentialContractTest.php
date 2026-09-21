@@ -170,4 +170,20 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString('OpenPlatformService::miniprogramManagement($this->tenantId)', $controller);
         self::assertStringContainsString('OpenPlatformService::undoAudit($this->tenantId, $id)', $controller);
     }
+
+    public function testAuthorizedMiniProgramLoginAndPhoneCodesUseOpenPlatformEndpoints(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $service = (string)file_get_contents($root . '/app/common/service/wechat/OpenPlatformService.php');
+        $mnp = (string)file_get_contents($root . '/app/common/service/wechat/WeChatMnpService.php');
+
+        self::assertStringContainsString('public static function hasAuthorizedMiniprogram(int $tenantId)', $service);
+        self::assertStringContainsString("'sns/component/jscode2session'", $service);
+        self::assertStringContainsString("'component_appid' => (string)\$config['app_id']", $service);
+        self::assertStringContainsString("'wxa/business/getuserphonenumber'", $service);
+        self::assertStringContainsString("['access_token' => self::authorizerToken((int)\$authorizer['id'])]", $service);
+        self::assertStringContainsString('OpenPlatformService::hasAuthorizedMiniprogram($this->tenantId)', $mnp);
+        self::assertStringContainsString('OpenPlatformService::authorizedMnpSessionByCode($this->tenantId, $code)', $mnp);
+        self::assertStringContainsString('OpenPlatformService::authorizedMnpPhoneNumber($this->tenantId, $code)', $mnp);
+    }
 }
