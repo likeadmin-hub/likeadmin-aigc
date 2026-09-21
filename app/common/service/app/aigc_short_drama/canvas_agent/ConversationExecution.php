@@ -21,7 +21,7 @@ final class ConversationExecution
             $claim=['token'=>bin2hex(random_bytes(24)),'fence'=>(int)$outbox['fencing_version']+1,'lease_until'=>time()+max(1,min(3600,$seconds))];
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'processing','lease_token'=>$claim['token'],'fencing_version'=>$claim['fence'],'lease_until'=>$claim['lease_until'],'attempts'=>(int)$outbox['attempts']+1,'update_time'=>time()]);
             self::state($run,'running');self::event($run,'run.running',['status'=>'running']);
-            return $claim+['run_id'=>$runId,'thread_id'=>(int)$thread['id'],'context'=>json_decode($run['context_snapshot'],true,512,JSON_THROW_ON_ERROR),'settings'=>json_decode($run['settings_snapshot'],true,512,JSON_THROW_ON_ERROR),'skill'=>json_decode($run['skill_snapshot'],true,512,JSON_THROW_ON_ERROR)];
+            return $claim+['run_id'=>$runId,'thread_id'=>(int)$thread['id'],'canvas_id'=>(int)$run['canvas_id'],'context'=>json_decode($run['context_snapshot'],true,512,JSON_THROW_ON_ERROR),'settings'=>json_decode($run['settings_snapshot'],true,512,JSON_THROW_ON_ERROR),'skill'=>json_decode($run['skill_snapshot'],true,512,JSON_THROW_ON_ERROR)];
         });
     }
 
@@ -78,6 +78,25 @@ final class ConversationExecution
             self::event($run,'run.failed',['status'=>'failed','code'=>'PRECHECK_FAILED']);
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'failed','lease_until'=>0,'update_time'=>time()]);
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(['active_run_id'=>0,'update_time'=>time()]);
+            return 'failed';
+        });
+    }
+
+    /** The Provider request may already exist, but output was withheld before
+     * publication. The Provider adapter releases any still-reserved usage
+     * before this terminal conversation transition. */
+    public static function rejectAfterSubmit(int $tenant,int $user,int $runId,string $token,int $fence): string
+    {
+        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence): string {
+            [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
+            if ($run['status']==='failed' && $run['error_code']==='SAFETY_OUTPUT_BLOCKED') return 'failed';
+            if ($run['status']==='needs_reconciliation') return 'needs_reconciliation';
+            if ($run['status']!=='running' || $outbox['state']!=='submitting') throw new RuntimeException('STALE_WORKER');
+            if ((int)$outbox['lease_until']<=time()) { self::uncertain($run,$outbox,'WORKER_LEASE_EXPIRED');return 'needs_reconciliation'; }
+            self::state($run,'failed','SAFETY_OUTPUT_BLOCKED');
+            self::event($run,'run.failed',['status'=>'failed','code'=>'SAFETY_OUTPUT_BLOCKED']);
+            Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'failed','lease_until'=>0,'update_time'=>time()]);
+            if ((int)$thread['active_run_id']===$runId) Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(['active_run_id'=>0,'update_time'=>time()]);
             return 'failed';
         });
     }

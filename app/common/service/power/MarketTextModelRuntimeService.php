@@ -85,6 +85,8 @@ class MarketTextModelRuntimeService
         if ($content === '') {
             throw new Exception('请输入文本内容');
         }
+        $resultValidator=$params['_result_validator']??null;
+        if ($resultValidator!==null && !is_callable($resultValidator)) throw new Exception('文本结果校验器无效');
         $referenceImages = array_values(array_filter(array_map('strval', (array)($params['reference_images'] ?? []))));
         $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? []);
         $model = self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $referenceImages !== [] || !empty($params['requires_vision']));
@@ -136,6 +138,7 @@ class MarketTextModelRuntimeService
             while (true) {
                 try {
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
+                    if ($resultValidator!==null) $resultValidator($result);
                     break;
                 } catch (\Throwable $initialError) {
                     $retry = self::compatibleGenerationParams($initialError->getMessage(), $generationParams);

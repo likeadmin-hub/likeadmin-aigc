@@ -16,6 +16,15 @@ final class ConversationService
         if (!is_array($preferences) || strlen(json_encode($preferences,JSON_THROW_ON_ERROR))>4096) throw new RuntimeException('INVALID_AGENT_PREFERENCES');
         $skillId=$request['skill_id']??0;$skillVersion=$request['skill_version']??0;
         if (!is_int($skillId) || !is_int($skillVersion) || $skillId<0 || $skillVersion<0 || ($skillId===0 && $skillVersion!==0) || ($skillId>0 && $skillVersion===0)) throw new RuntimeException('INVALID_SKILL_SELECTION');
+        $key=$request['request_key']??null;$content=$request['content']??null;
+        if (!is_string($key) || !preg_match('/^[a-zA-Z0-9_.:-]{1,100}$/D',$key)) throw new RuntimeException('INVALID_REQUEST_KEY');
+        if (!is_string($content) || trim($content)==='' || mb_strlen($content)>20000) throw new RuntimeException('INVALID_MESSAGE');
+        // Audit only after ownership is known. A blocked input never creates
+        // a run/outbox and therefore can never reach a billable Provider.
+        ConversationStore::assertThreadAccess($tenant,$user,$canvas,$thread);
+        if (!ConversationStore::hasRunRequestKey($tenant,$user,$canvas,$thread,$key)) {
+            ConversationSafety::assertInput($tenant,$user,$canvas,$thread,$key,$content);
+        }
         return ConversationStore::enqueue($tenant,$user,$canvas,$thread,array_intersect_key($request,array_flip($messageKeys)),static function () use ($tenant,$preferences,$skillId,$skillVersion): array {
             $settings=ConversationSettings::resolve($tenant,$preferences);
             $skill=[];
