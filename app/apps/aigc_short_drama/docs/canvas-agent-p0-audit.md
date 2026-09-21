@@ -843,3 +843,13 @@ Canvas 对此已知拒绝持久化 intent failed/PRE_SUBMISSION_REJECTED、run f
 - PASS：`p0_generation.php idempotent` 48 项，四节点、未知受理、乱序/删除结果、历史资产及积分只扣一次。
 
 本次无付费调用、业务库变更、迁移、部署或推送。未重载 FPM/Worker，不能声称线上常驻进程已使用此分类。M15 画布服务与历史保存已补证；实际 AigcVideoService 全路径、HTTP/浏览器失败展示及 Agent 工具触发仍 NOT_RUN。P3 仍未整体放行；下一步需继续补完整能力矩阵/资产引用和 UI 证据，不以本轮服务测试替代。
+
+## 41. P3 实际视频应用预检拒绝贯通（2026-09-22）
+
+server `4c82ab6f8` 为 p3_preflight_rejection 增加 `real-app` 模式，禁用视频服务 class_alias，使用真实 Canvas::submitIdempotent → AigcVideoService::generate → MarketVideoModelRuntimeService → MarketVideoRuntimeService::reserve → PointService 链路。目录/账户为隔离合成数据，无真实供应商密钥，网络 internal。
+
+- PASS：real-app **9 项**，余额不足经实际视频应用捕获后仍保留 PreSubmissionRejected 类型，画布和短剧历史失败、原因明确、租约释放；用户/租户余额、市场任务/消费和积分日志不变。
+- PASS：真实视频应用保留一条 failed 且 consumption_id=0 的业务任务用于展示失败；同键三次重放不再创建视频任务。这与“市场任务零新增”不冲突，两者是不同表/生命周期。
+- PASS：原测试桥模式 **11 项**重新执行，包含未知提交异常仍 needs_reconciliation 的对照，不因新增 real-app 模式削弱原验收。
+
+两模式均从已集成本地 develop 运行并事务回滚；本轮仅测试源码变化，无业务数据改动、付费调用、迁移、重载、部署或推送。实际视频应用的**预检失败链路**已补证，不扩展为 Provider 成功生成全流程通过。HTTP/UI 明确展示、Agent 工具触发及 P3 其他未满足门槛继续 NOT_RUN，P3 未整体放行。
