@@ -322,3 +322,16 @@ P1 **尚未放行**，P2—P6 **NOT_RUN**。G01 已有真实双标签页文本�
 完整后端串行 **675 PASS、exit 0**：第 13 节 614 + execution 新增 4（现 71）+ worker 新增 26（现 70）+ queue_crash 31。Provider 边界没有数据库事务的断言仍通过；预检后关闭、过期、剩余不足和过期抛错四场景外部调用为零。属于隔离 SQL/模拟 Provider 验收，非真实供应商或付费验收。旧 schema-v1 无 token 写覆盖风险仍单列 KNOWN_GAP。
 
 计费核对遵循方案 16.1—16.2：实际扣费权威仍是原执行服务，Agent 预算不是第二个钱包。本轮仅读取 PointService、文本 Market runtime 和相关方案，确认后结算、重试及待用量恢复路径需要专门适配与测试；没有额外扣费或未经验证的全平台计费改动。下一步仍需完成真实适配器的余额/预算/价格确认、审核、账本引用及未知用量处理，再接生产调度和现有右侧对话 UI。其余 P2 缺项沿用第 13 节，P3—P6 未开始。
+
+## 15. P2 停止接口及独立进程竞争校验（尚未阶段放行）
+
+仅 server，分支 `feature/short-drama-optimization`；web 保持 `788c454` 未改。功能提交 `a3deae3e9`，并发修复 `1801dae11`，测试扩展 `2af629984`。全部先提交 feature，再合入本地 develop 执行隔离测试；没有推送 develop、业务迁移、真实付费生成或部署。
+
+- 新增 POST `app.aigc_short_drama.canvas_agent/stop`，沿用登录及 canvas:use:user 权限，仅接受 canvas_id/thread_id/run_id，身份取认证上下文。跨租户、用户、画布、会话均拒绝。Agent 开关关闭后，所属用户仍可停止既有任务。
+- queued/pending 或 running/processing 可以本地确定取消，释放活动会话，不再获得提交许可。预检过程中停止，包括预检随后抛错，均不调用模拟 Provider。
+- 已取得 durable submitting 许可或已有未知结果，只记录停止请求并进入 needs_reconciliation，保持会话执行隔离；不会声称上游已取消、自动退款或重新提交。迟到回复保留证据而不成为正常成功消息。完成的任务不会被停止操作倒退。
+- 首次独立 stop/permit 进程竞争失败：MySQL REPEATABLE READ 下，锁前身份查询建立旧快照，等待锁后 MAX(sequence) 仍读旧序号，触发 uk_run_sequence 重复。改为持有既有执行锁时使用 current locking read 读取最新事件；成功消息回放、停止请求去重、迟到证据去重也使用 current read，未降低隔离级别、移除唯一键或吞掉冲突。
+
+验证：完整 28 脚本串行回归 **795 PASS、exit 0**（原 675 + HTTP 新增 4 + stop 76 + stop_race 40）。随后扩展并单独重跑 stop_race **52 PASS、exit 0**：10 轮独立进程停止/提交竞争，以及重复停止、重复成功回复、重复迟到回复 3 组竞争各 4 个断言；当前各套件最新结果合计 **807 PASS**，不将其表述为扩展后已再次完整串行运行。测试 finally 仅清理本次合成 canvas scope/config；真实业务 Worker、数据库及积分未改。
+
+尚未验证真实 Provider 取消/退款、实际计费及审核、生产调度、前端停止按钮和整个右侧对话面板接入；前端本轮没有重新验收。P2 仍未放行，P3—P6 不提前执行。下一步沿用右下角唯一输入入口和现有右侧聊天区域，不新增独立 Agent 页面；所选推理模型用于对话，图片/视频偏好独立保留。第 14 节其余缺项及 schema-v1 KNOWN_GAP 继续有效。

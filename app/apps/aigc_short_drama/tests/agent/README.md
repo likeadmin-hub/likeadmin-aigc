@@ -116,3 +116,5 @@ conversation/execution 在事务中回滚夹具；concurrency 用真实独立 PH
 Provider interface 只有隔离测试替身，未注册生产适配或扫描任务。真实计费、安全审核及前端集成未验证，P2 仍未放行。额外可用相同只读源码 Docker 命令执行 `app/apps/aigc_short_drama/tests/canvas_composer_skill.php`，验证共享 Skill 应用的原有参数与必填项行为。
 
 最新第 14 节：`p2_execution` 71、`p2_worker` 70，新增 `p2_queue_crash.php` 31；完整串行共 675 PASS。新脚本沿用相同 Docker 命令和 develop 执行规则，预检查测试 config/outbox 为空，精确终止自己创建的五个 PHP 子进程，最终清理本次 canvas scope 和测试 config。它使用既有隔离 Provider receipt 测试表，绝不针对业务进程执行。不要并发运行共享 91001/92001 fixture 的其他脚本。队列扫描服务尚未注册生产 supervisor，也未连接真实 Provider。
+
+第 15 节新增 `p2_stop.php` 76、`p2_stop_race.php` 52 PASS；`p2_http.php` 现为 25 PASS，测试 router 只增加 stop，共六个会话路由。完整串行曾通过 795 个断言，之后 stop_race 新增 12 个回放竞争断言并单独重跑 52 PASS；各套件最新结果合计 807，扩展后未再次跑全部串行。停止测试沿用上述只读 Docker/隔离数据库/develop 命令，stop 使用事务回滚，stop_race 使用真实独立连接和精确 fixture 清理，不能与其他共享身份脚本并行。独立竞争发现并修复 RR 旧快照事件序号冲突，证据见审计第 15 节。未知上游结果不会被当作已取消或退款，真实 Provider 取消和前端停止仍未验证。
