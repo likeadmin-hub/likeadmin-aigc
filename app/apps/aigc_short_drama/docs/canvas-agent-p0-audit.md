@@ -648,3 +648,18 @@ P2 放行门槛仍未满足：A02 现有确认式文本版本证据，A03 仅候
 | 常驻 Worker | PASS（本机） | 重启后 Supervisor 重新拉起 tenant 1 Worker，真实图片 run 由新 PID 处理并成功结算 |
 
 本节使真实文本/图片 Provider、实际账本、默认审核边界、图片附件授权与本机 Worker 路径具备行为证据。仍未完成：PDF/Word、视频和音频的内容提取/理解；外部语义审核 Provider；已提交上游请求的真实取消、未知用量查询与退款对账；生产调度/部署。它们继续是 P2 的未放行项，不能被本次图片成功替代。
+
+## 30. P2 本地权威账本对账与真实提交后停止验收（2026-09-22）
+
+本轮在用户明确授权的本地 tenant 1 / user 1 / canvas 17 上验证了提交边界和对账收敛；未执行远程生产操作、部署或生产迁移。真实停止样本 `run 20` 已写入 `run.submitting` 后点击停止，因此系统没有伪称“上游已取消”：它记录 `run.stop_requested` 并进入 `needs_reconciliation`。随后本地权威账本显示关联 `ai_app_task 1072` 为 `success`、消费记录为 `success/settled`，实际用户与租户费用均为 `0.5796` 积分（低于单次 2000 上限）。
+
+为避免这种已知终态永久占用会话，新增有界 `ConversationReconciliation`：只读取同 tenant/user、同 Agent run 的本地 `ai_app_task` 与 `ai_consumption_log`，且仅在任务与账本均为权威终态时收敛；不调用 Provider、不重试、不取消上游、不改写账本、不再次扣费或退款。对于提交后停止但上游已结算的样本，run 收敛为 `failed / UPSTREAM_COMPLETED_AFTER_STOP`，不发布迟到模型回复；对于已失败且已退款的 `run 18`，收敛为 `failed / UPSTREAM_FAILED_REFUNDED`，账本仍为零费用。二者均释放对应 thread 的 active run 并留下 `run.reconciled` 事件。
+
+隔离数据库 `p2_reconciliation.php` 11 PASS，覆盖未知外部结果保持待核实、失败退款收敛、停止后成功结算收敛、线程/outbox 释放、账本不变与幂等重放；既有 `p2_stop.php` 76 PASS。代码 lint 通过。真实本地 DB 复核如下：
+
+| run | 上游/账本终态 | 本地对账后状态 | 实际费用 |
+| --- | --- | --- | --- |
+| 18 | failed / refunded | failed / `UPSTREAM_FAILED_REFUNDED` | 0 |
+| 20 | success / settled，提交后停止 | failed / `UPSTREAM_COMPLETED_AFTER_STOP` | 0.5796 |
+
+这完成了本地可观察终态的账本对账与提交后停止语义，不等同真实 Provider 取消 API、上游未知用量查询、上游退款确认或生产调度。后四项仍为 P2 未放行项；PDF/Word、视频/音频内容理解与外部语义审核 Provider 也仍未完成。
