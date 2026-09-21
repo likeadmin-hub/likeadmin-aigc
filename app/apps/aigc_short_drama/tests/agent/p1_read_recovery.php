@@ -21,5 +21,20 @@ try {
     Db::name('aigc_short_drama_canvas')->where('id', $doc['id'])->update(['nodes_json' => json_encode([$node]), 'removed_node_ids_json' => '["2"]']);
     $result = $method->invoke(null, $stale, true);
     agentCheck(count($result['nodes']) === 1 && $result['removed_node_ids'] === ['2'], 'read recovery consults latest tombstones and does not resurrect deleted task node');
+    Db::name('aigc_short_drama_canvas')->where('id', $doc['id'])->update(['removed_node_ids_json' => '[2]']);
+    $result = Canvas::current(91001, 92001, $doc['id']);
+    agentCheck(count($result['nodes']) === 1 && $result['removed_node_ids'] === ['2'], 'legacy numeric tombstones also prevent resurrection');
+    $full = [];
+    for ($i=100; $i<300; $i++) $full[] = ['id'=>$i,'type'=>'text','x'=>$i,'y'=>20,'metadata'=>['content'=>'capacity fixture']];
+    Db::name('aigc_short_drama_canvas')->where('id', $doc['id'])->update(['nodes_json'=>json_encode($full),'removed_node_ids_json'=>'[]']);
+    $result = Canvas::current(91001, 92001, $doc['id']);
+    agentCheck($result['nodes'] === $full, 'full-canvas read preserves all 200 nodes without appending or truncation');
+    agentCheck($result['recovery_pending_node_ids'] === ['2'], 'capacity-deferred recovery is explicitly reported');
+    agentCheck(count($result['runs']) === 1 && $result['runs'][0]['node_id'] === '2', 'capacity-deferred node retains run history');
+    agentCheck(json_decode(Db::name('aigc_short_drama_canvas')->where('id',$doc['id'])->value('nodes_json'),true) === $full, 'full-canvas read does not mutate persisted graph');
+    array_pop($full);
+    Db::name('aigc_short_drama_canvas')->where('id', $doc['id'])->update(['nodes_json'=>json_encode($full)]);
+    $result = Canvas::current(91001, 92001, $doc['id']);
+    agentCheck(count($result['nodes']) === 200 && !$result['recovery_pending_node_ids'], 'deferred history recovers when a slot becomes available');
 } finally { Db::rollback(); }
 echo "NOT_RUN live callback race; deterministic interleaving at actual read-repair boundary\n";
