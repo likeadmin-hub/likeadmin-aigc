@@ -427,3 +427,15 @@ server `7fba5ca11` 在 Agent 会话接受边界增加 `ConversationSkillPolicy`�
 本轮先出现两项测试问题并修复后复测：服务端首次保存响应与读取响应的关联数组字段顺序不一致，已固定为模型字段后模式字段；SSE 连接失败最初会留下未处理 Promise，已改为受控回退。长期 SSE 使浏览器测试的 `networkidle` 不再成立，夹具改为等待 DOM 后验证持久 UI。以上均有复测通过结果，不把第一次失败隐去。
 
 阶段结论：默认模型偏好不再只是浏览器本地保存，P2 仍**未放行**。A01—A03 的图片/候选歧义、附件与视觉理解，完整内容审核，Skill 到执行计划的绑定，文本调用的预算/唯一账本/未知用量处理，生产调度与对账，及 A13 的真实浏览器租户切换仍为 FAIL/BLOCKED/NOT_RUN（按各项尚无完整行为证据，不以本轮测试替代）。P3—P6 继续 NOT_RUN。
+
+## 23. P2 租户作用域切换补验与审核边界核对（尚未阶段放行）
+
+web `1d85ab4`（页面作用域失效保护）与 `7b6f330`（浏览器用例）均先在 `feature/short-drama-optimization` 提交，再无冲突合入本地 develop 验证；server 本节只记录审计结果。未执行生产迁移、部署、推送或真实/付费 Provider 调用。
+
+右侧会话 state/reader 原本已能在 tenant/user/canvas/thread 改变时丢弃旧回包，但页面级画布文档读取和保存没有同等保护。本轮为画布 route tenant、canvas ID 与认证用户建立作用域 generation：切换时立即清空节点、选中状态、Agent 开关、模型 revision 与内存中的 document token；旧读取、旧保存响应只有在仍属于相同作用域时才可安装或写回。清理过程不把旧作用域内存写入新作用域 localStorage。Agent 子组件因开关先关闭而卸载，其 SSE AbortController 也不会继续向新面板投递。
+
+验证在 web develop 中实际使用 Chrome、Nuxt router 的 SPA `push` 和受限 HTTP→隔离 MySQL bridge：先创建一条持久化的 Agent 消息，再切换到 bridge 不拥有的 tenant 94012。新租户的所有 API 请求明确返回 scope 拒绝；页面在新文档接受前已卸载旧 Agent 面板、节点数为零、旧消息不在 DOM，且无未捕获 page error。完整浏览器流程 **7 PASS / FAIL 0**，同时重新执行 Composer/state/reader/SFC 行为套件 **35 PASS / FAIL 0**。因此 **A13（切换租户后旧请求返回）在此隔离浏览器范围为 PASS**；该项不包含真实业务租户数据读取。
+
+内容审核状态经源码与平台服务核对后为 **BLOCKED（缺少产品策略，未以弱规则冒充完成）**：现有 `AigcLlmSensitiveWord` 属于另一个 app 的数据域；直接复用会破坏短剧应用隔离。短剧现有 `checkSensitivePrompt` 只有少量凭据词拦截，`ConversationSkillPolicy` 仅审核已发布 Skill 越权文本，二者都不能替代 Agent 用户消息审核。当前短剧 Agent 没有自身的可配置审核策略、审核 Provider adapter、最小化审计记录/保留期或管理员申诉/复核规范。未新增一个静态词表来声称“内容安全已通过”，也未发送任何用户内容到外部审核服务。要解除该阻碍，需产品确认短剧 Agent 的审核等级、可编辑范围、人工复核与审计保留策略，然后按 tenant/app scope 另行实现和隔离验证。
+
+P2 继续**未放行**：A01—A03 图像理解/歧义候选、A02 可追踪文本版本、A09 完整素材指令处理、A10 上下文补问策略、A12 有界结构化工具修复、A14 一次规划提交意图、以及真实执行的预算/账本/未知用量和生产调度/对账均仍需逐项行为证据。P3—P6 均 NOT_RUN。
