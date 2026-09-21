@@ -262,6 +262,12 @@ class ShortDramaCanvasService
         $type = strtolower(trim((string)($params['type'] ?? '')));
         if (!in_array($type, ['text', 'image', 'video', 'audio'], true)) throw new Exception('不支持的短剧画布节点类型');
         if ($nodeId === '') throw new Exception('缺少画布节点');
+        $savedNode = null;
+        foreach (self::decode((string)($document['nodes_json'] ?? '[]')) as $candidate) {
+            if ((string)($candidate['id'] ?? '') === $nodeId) { $savedNode = $candidate; break; }
+        }
+        if (!$savedNode) throw new Exception('NODE_NOT_FOUND: 请先保存节点，已删除的节点不能生成');
+        if ((string)($savedNode['type'] ?? '') !== $type) throw new Exception('NODE_TYPE_MISMATCH: 节点类型已变化，请重新读取画布');
         $payload = self::generationPayload($type, $params);
         // Resolve on the server so disabled, cross-tenant and stale Skills
         // cannot be submitted by replaying a saved composer selection.

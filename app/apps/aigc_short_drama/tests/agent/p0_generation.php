@@ -44,6 +44,13 @@ try {
     $nodes=[];
     foreach (['text','image','video','audio'] as $i=>$type) $nodes[]=['id'=>$i+1,'type'=>$type,'metadata'=>[]];
     Canvas::save(91001,92001,['id'=>$doc['id'],'nodes'=>$nodes]);
+    foreach ([['node_id' => '999', 'type' => 'text', 'error' => 'NODE_NOT_FOUND'], ['node_id' => '1', 'type' => 'video', 'error' => 'NODE_TYPE_MISMATCH']] as $invalid) {
+        $rejected = false;
+        try { Canvas::submit(91001,92001,['canvas_id'=>$doc['id'],'node_id'=>$invalid['node_id'],'type'=>$invalid['type'],'prompt'=>'Must not reach provider']); }
+        catch (Exception $e) { $rejected = str_starts_with($e->getMessage(), $invalid['error']); }
+        agentCheck($rejected, 'invalid generation rejected: ' . $invalid['error']);
+    }
+    agentCheck(count(P0Provider::$received) === 0 && Db::name('aigc_short_drama_canvas_run')->where('canvas_id', $doc['id'])->count() === 0, 'invalid node requests create no run, provider submission or charge');
     foreach ($nodes as $node) {
         $result=Canvas::submit(91001,92001,['canvas_id'=>$doc['id'],'node_id'=>(string)$node['id'],'type'=>$node['type'],'prompt'=>'Synthetic only']);
         agentCheck($result['status']==='success','B03 synthetic '.$node['type'].' submission completes');
