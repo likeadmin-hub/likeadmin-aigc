@@ -33,10 +33,11 @@ final class ConversationStore
         });
     }
 
-    /** Request whitelist intentionally excludes attachments until asset authorization is wired. */
+    /** Accept bounded text material; storage-backed attachments require separate authorization. */
     public static function enqueue(int $tenant,int $user,int $canvas,int $thread,array $request,array|\Closure $resolvedSnapshot,array $selectionIdentity=[]): array
     {
-        if (array_diff(array_keys($request),['request_key','content','selected_node_ids','base_revision'])) throw new RuntimeException('UNSUPPORTED_MESSAGE_FIELD');
+        if (array_diff(array_keys($request),['request_key','content','selected_node_ids','base_revision','attachments'])) throw new RuntimeException('UNSUPPORTED_MESSAGE_FIELD');
+        $attachments=ConversationAttachments::normalize($request['attachments']??[]);
         $key=$request['request_key']??null;
         if (!is_string($key)) throw new RuntimeException('INVALID_REQUEST_KEY');
         self::key($key);
@@ -53,11 +54,12 @@ final class ConversationStore
         $revision=$request['base_revision']??null;
         if (!is_int($revision) || $revision<0) throw new RuntimeException('INVALID_BASE_REVISION');
         $identity=['thread'=>$thread,'content'=>$content,'nodes'=>$ids,'revision'=>$revision];
+        if ($attachments) $identity['attachments']=$attachments;
         // Preserve the original storage-only hash when no selection identity
         // was supplied. Explicit model/Skill choices are part of send identity.
         if ($selectionIdentity!==[]) $identity['selection']=self::canonical($selectionIdentity);
         $hash=hash('sha256',self::json($identity));
-        return Db::transaction(function () use ($tenant,$user,$canvas,$thread,$key,$content,$ids,$revision,$hash,$resolvedSnapshot): array {
+        return Db::transaction(function () use ($tenant,$user,$canvas,$thread,$key,$content,$ids,$revision,$hash,$resolvedSnapshot,$attachments): array {
             // Fixed lock order: canvas -> thread -> run. Replay precedes busy/CAS
             // checks, so a retry remains stable after subsequent canvas edits.
             $document=self::canvas($tenant,$user,$canvas,true);
@@ -72,7 +74,7 @@ final class ConversationStore
             if ((int)$conversation['active_run_id']!==0) throw new RuntimeException('THREAD_BUSY');
             if ((int)$document['graph_revision']!==$revision) throw new RuntimeException('VERSION_CONFLICT');
             $nodes=json_decode($document['nodes_json']?:'[]',true,512,JSON_THROW_ON_ERROR);
-            $candidates=ConversationReferenceResolver::ambiguousImageCandidates($nodes,$ids,$content);
+            $candidates=$attachments ? [] : ConversationReferenceResolver::ambiguousImageCandidates($nodes,$ids,$content);
             if ($candidates) return self::clarifyReference($scope,$conversation,$key,$hash,$revision,$content,$candidates);
             // Server-owned resolver performs local catalog reads only. Never
             // do provider I/O here; replay must not re-resolve changing defaults.
@@ -99,15 +101,18 @@ final class ConversationStore
             foreach (array_reverse($history) as $message) {
                 if (!in_array($message['role'],['user','assistant'],true)) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
                 $messages[]=['role'=>$message['role'],'content'=>(string)(json_decode($message['content_json'],true,512,JSON_THROW_ON_ERROR)['text']??'')];
+                $prior=ConversationAttachments::normalize(json_decode($message['attachments_json']?:'[]',true,512,JSON_THROW_ON_ERROR));
+                if ($prior) $messages[count($messages)-1]['attachments']=$prior;
             }
             $messages[]=['role'=>'user','content'=>$content];
+            if ($attachments) $messages[count($messages)-1]['attachments']=$attachments;
             $context=['graph_revision'=>$revision,'selected_nodes'=>array_map(static fn($id)=>$selected[$id],$ids),'material_trust'=>'untrusted','messages'=>$messages,'history_policy'=>'last_38_plus_current'];
             $contextJson=self::json($context);
             $settings=self::json($resolvedSnapshot['settings']);$skill=self::json($resolvedSnapshot['skill']);
             if (strlen($contextJson)+strlen($settings)+strlen($skill)>1048576) throw new RuntimeException('CONTEXT_TOO_LARGE');
             $now=time();$sequence=(int)$conversation['next_message_sequence'];
             $run=Db::name(self::PREFIX.'run')->insertGetId($scope+['thread_id'=>$thread,'request_key'=>$key,'request_hash'=>$hash,'status'=>'queued','context_snapshot'=>$contextJson,'skill_snapshot'=>$skill,'settings_snapshot'=>$settings,'ack_json'=>'{}','create_time'=>$now,'update_time'=>$now]);
-            Db::name(self::PREFIX.'message')->insert($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>$sequence,'role'=>'user','content_json'=>self::json(['text'=>$content]),'attachments_json'=>'[]','create_time'=>$now]);
+            Db::name(self::PREFIX.'message')->insert($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>$sequence,'role'=>'user','content_json'=>self::json(['text'=>$content]),'attachments_json'=>self::json($attachments),'create_time'=>$now]);
             $cursor=Db::name(self::PREFIX.'event')->insertGetId($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>1,'kind'=>'run.queued','payload_json'=>self::json(['status'=>'queued','message_sequence'=>$sequence]),'create_time'=>$now]);
             Db::name(self::PREFIX.'outbox')->insert($scope+['run_id'=>$run,'event_key'=>'run:'.$run,'available_at'=>$now,'create_time'=>$now,'update_time'=>$now]);
             $ack=['thread_id'=>$thread,'run_id'=>(int)$run,'status'=>'queued','event_cursor'=>(int)$cursor,'message_sequence'=>$sequence];
