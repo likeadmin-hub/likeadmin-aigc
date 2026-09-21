@@ -1,5 +1,10 @@
 <?php
 declare(strict_types=1);
+// Match the deployed front controller; ThinkPHP multi-app resolves the app
+// from SCRIPT_FILENAME before processing PATH_INFO.
+$_SERVER['SCRIPT_FILENAME'] = dirname(__DIR__, 5) . '/public/index.php';
+$_SERVER['SCRIPT_NAME'] = '/index.php';
+$_SERVER['PHP_SELF'] = '/index.php';
 require __DIR__ . '/bootstrap.php';
 if (PHP_SAPI !== 'cli-server') throw new RuntimeException('Test HTTP router requires isolated CLI server');
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
