@@ -49,7 +49,7 @@ try {
     agentCheck(Store::events(91001,92001,$canvas,$thread['id'],$ack['event_cursor'])===[],'event cursor does not replay old events');
     rejectsConversation(fn()=>Store::enqueue(91001,92001,$canvas,$thread['id'],array_replace($request,['content'=>'changed']),$snapshot),'IDEMPOTENCY_CONFLICT');
     rejectsConversation(fn()=>Store::enqueue(91001,92001,$canvas,$thread['id'],array_replace($request,['request_key'=>'second']),$snapshot),'THREAD_BUSY');
-    rejectsConversation(fn()=>Store::enqueue(91001,92001,$canvas,$thread['id'],$request+['attachments'=>[['url'=>'https://invalid.test']]],$snapshot),'UNSUPPORTED_MESSAGE_FIELD');
+    rejectsConversation(fn()=>Store::enqueue(91001,92001,$canvas,$thread['id'],$request+['attachments'=>[['url'=>'https://invalid.test']]],$snapshot),'INVALID_ATTACHMENTS');
     $second=Store::create(91001,92001,$canvas,'another');
     rejectsConversation(fn()=>Store::enqueue(91001,92001,$canvas,$second['id'],$request,$snapshot),'IDEMPOTENCY_CONFLICT');
     $fresh=array_replace($request,['request_key'=>'fresh']);
