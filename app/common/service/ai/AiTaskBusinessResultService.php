@@ -24,6 +24,14 @@ class AiTaskBusinessResultService
             return false;
         }
 
+        // A provider call may fail before its business row is created/bound
+        // (for example script validation). Refunded failures have no result
+        // to write back; absence of a target is not an unfinished transfer.
+        // Keep successful, unsettled and unknown-adapter cases recoverable.
+        if (self::refundedWithoutBusinessTarget($context)) {
+            return true;
+        }
+
         $assets = AiTaskResultAssetService::recordConsumptionAssets(
             $consumptionId,
             self::requiresForcedTransfer($consumptionId)
@@ -101,6 +109,16 @@ class AiTaskBusinessResultService
             'aigc_canvas_run',
             'aigc_watermark_removal_task',
         ], true);
+    }
+
+    private static function refundedWithoutBusinessTarget(array $context): bool
+    {
+        $consumption = $context['consumption'];
+        return (int)($consumption['app_task_id'] ?? 0) > 0
+            && (int)$context['business_id'] === 0
+            && self::hasBusinessAdapter((string)$context['business_table'], 1)
+            && in_array((string)($consumption['run_status'] ?? ''), ['failed', 'canceled', 'cancelled'], true)
+            && (string)($consumption['billing_status'] ?? '') === 'refunded';
     }
 
     private static function terminal(array $consumption): bool
