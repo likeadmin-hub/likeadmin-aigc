@@ -24,7 +24,10 @@ final class GraphService
             $scope = ['tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas];
             $document = Db::name(self::TABLE)->where(['id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find();
             if (!$document) throw new RuntimeException('CANVAS_NOT_FOUND');
-            $receipt = Db::name(self::RECEIPTS)->where($scope + ['request_key'=>$key])->find();
+            // The canvas lock serializes writers, but a repeatable-read snapshot
+            // can still predate the winner's receipt. Read the receipt as a
+            // current locking read too, before comparing the graph revision.
+            $receipt = Db::name(self::RECEIPTS)->where($scope + ['request_key'=>$key])->lock(true)->find();
             if ($receipt) {
                 if (!hash_equals($receipt['request_hash'],$hash)) throw new RuntimeException('IDEMPOTENCY_CONFLICT');
                 return json_decode($receipt['result_json'],true,512,JSON_THROW_ON_ERROR);

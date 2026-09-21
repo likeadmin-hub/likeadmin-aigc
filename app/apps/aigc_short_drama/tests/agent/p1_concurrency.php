@@ -58,6 +58,7 @@ try {
     $id = Canvas::create(91001, 92001, ['title' => 'P1 concurrent receipt'])['id'];
     $ownedIds[] = $id;
     $results = raceGraph($id, array_fill(0, 10, 'concurrent-same-key'));
+    if (!isset($results[0]['ok'])) echo 'RACE_DIAGNOSTIC ', json_encode($results), PHP_EOL;
     agentCheck(isset($results[0]['ok']), 'G03 first concurrent request succeeds');
     agentCheck(count(array_filter($results, static fn($result) => $result === $results[0])) === 10, 'G03 ten independent processes return identical receipt');
     $row = Db::name(Graph::TABLE)->where('id', $id)->find();
