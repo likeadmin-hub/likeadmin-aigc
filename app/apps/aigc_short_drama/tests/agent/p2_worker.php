@@ -33,7 +33,7 @@ final class IsolatedConversationProvider implements ConversationProviderInterfac
     }
 }
 if (Db::name('aigc_short_drama_config')->where('tenant_id',91001)->count()) throw new RuntimeException('Existing fixture config');
-$config=0;$canvas=0;$imageAsset=0;
+$config=0;$canvas=0;$imageAsset=0;$imageAsset2=0;
 try {
     $config=Db::name('aigc_short_drama_config')->insertGetId(['tenant_id'=>91001,'config_json'=>'{"canvas_agent":{"enabled":true}}','status'=>1]);
     $canvas=Canvas::create(91001,92001,['title'=>'P2 finite Worker fixture'])['id'];
@@ -99,6 +99,11 @@ try {
     $image=ConversationImages::freeze(91001,92001,$canvas,'https://assets.example.test/owned.png');
     $context=['selected_nodes'=>[['type'=>'image','image_asset'=>$image]]];
     agentCheck(ConversationImages::urls(91001,92001,$context)===['https://assets.example.test/owned.png'],'vision input resolves an app-owned image snapshot without fetching it');
+    $imageAsset2=Db::name('aigc_short_drama_asset')->insertGetId(['tenant_id'=>91001,'user_id'=>92001,'canvas_id'=>$canvas,'asset_type'=>'canvas_image','uri'=>'https://assets.example.test/second.png','storage_scope'=>'tenant','storage_engine'=>'oss','storage_domain'=>'https://assets.example.test','status'=>'ready']);
+    $secondImage=ConversationImages::freeze(91001,92001,$canvas,'https://assets.example.test/second.png');
+    $twoImageContext=['selected_nodes'=>[['type'=>'image','image_asset'=>$image],['type'=>'image','image_asset'=>$secondImage]]];
+    agentCheck(ConversationImages::urls(91001,92001,$twoImageContext)===['https://assets.example.test/owned.png','https://assets.example.test/second.png'],'two owned image references retain explicit selection order');
+    agentCheck(count(ConversationImages::urls(91001,92001,$twoImageContext))===2,'two-image analysis input has no synthetic media task or hidden extra image');
     try { ConversationImages::urls(91001,92001,['selected_nodes'=>array_fill(0,5,$context['selected_nodes'][0])]); throw new RuntimeException('Expected image limit rejection'); }
     catch (RuntimeException $e) { agentCheck($e->getMessage()==='TOO_MANY_IMAGE_REFERENCES','image count is bounded before reading bytes'); }
     Db::name('aigc_short_drama_asset')->where('id',$imageAsset)->update(['uri'=>'uploads/another-user/private.png','storage_engine'=>'local','storage_domain'=>'']);
@@ -112,7 +117,7 @@ try {
     try { ConversationImages::urls(91001,92001,$context); throw new RuntimeException('Expected deleted image rejection'); }
     catch (RuntimeException $e) { agentCheck($e->getMessage()==='IMAGE_REFERENCE_UNAVAILABLE','image deleted after send rejected at execution'); }
 } finally {
-    if ($imageAsset) Db::name('aigc_short_drama_asset')->where(['id'=>$imageAsset,'tenant_id'=>91001,'user_id'=>92001])->delete();
+    foreach ([$imageAsset,$imageAsset2] as $assetId) if ($assetId) Db::name('aigc_short_drama_asset')->where(['id'=>$assetId,'tenant_id'=>91001,'user_id'=>92001])->delete();
     if ($canvas) {
         foreach (['outbox','event','message','run','thread'] as $kind) Db::name(Store::PREFIX.$kind)->where(['canvas_id'=>$canvas,'tenant_id'=>91001,'user_id'=>92001])->delete();
         Db::name('aigc_short_drama_canvas')->where(['id'=>$canvas,'tenant_id'=>91001,'user_id'=>92001])->delete();
