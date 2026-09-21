@@ -47,9 +47,20 @@ docker run --rm --network short-drama-agent-test -v /Users/panda/Documents/docke
 docker run --rm --network short-drama-agent-test -v /Users/panda/Documents/docker-dir/bt/wwwroot/likeadmin-aigc/server:/app:ro -v /dev/null:/app/.env:ro --tmpfs /app/runtime short-drama-agent-test-php:local app/apps/aigc_short_drama/tests/agent/p1_graph.php
 ```
 
-最新结果分别是 7 / 13 / 19 个 PASS。基线脚本还明确输出两个旧实现 KNOWN_GAP：过期整图覆盖、超量节点静默截断。GraphService 的安全断言仅覆盖未接入业务入口的基础切片，不能宣告这些缺陷已在现有页面修复。
+原始结果分别是 7 / 13 / 19 个 PASS；容量保护修复后基线脚本为 10 PASS，保留过期整图覆盖 KNOWN_GAP。201 节点现在明确拒绝、原文档不变，200 节点边界可保存。GraphService 的并发保护仍未接入现有页面，不能宣告旧整图覆盖已修复。
 
-完整验收缺口与提交版本见 `../../docs/canvas-agent-p0-audit.md`。浏览器、HTTP 鉴权、独立进程并发、故障注入、Provider Adapter、文件转存和 P1 集成仍需补测。未进行真实付费测试。
+新增中间件/控制器与独立进程并发测试（相同隔离环境，串行运行脚本）：
+
+```sh
+docker run --rm --network short-drama-agent-test -v /Users/panda/Documents/docker-dir/bt/wwwroot/likeadmin-aigc/server:/app:ro -v /dev/null:/app/.env:ro --tmpfs /app/runtime short-drama-agent-test-php:local app/apps/aigc_short_drama/tests/agent/p0_controller.php
+docker run --rm --network short-drama-agent-test -v /Users/panda/Documents/docker-dir/bt/wwwroot/likeadmin-aigc/server:/app:ro -v /dev/null:/app/.env:ro --tmpfs /app/runtime short-drama-agent-test-php:local app/apps/aigc_short_drama/tests/agent/p1_concurrency.php
+```
+
+分别 15 / 7 PASS。控制器测试使用数据库会话令牌，真实 LoginMiddleware/AppAccessMiddleware 和 CanvasController，不替代 Web 路由、租户解析或浏览器测试。它固定旧 Request 的数字转字符串契约，内容严格比较，不采用宽松相等掩盖数据变化。
+
+并发测试同时启动 10 个独立 PHP 进程/连接，经就绪屏障一起提交同 key；另用两个不同 key 竞争相同版本。该测试不能放在一个总事务内，finally 只删除本次创建的确切 canvas ID 和对应租户/用户回执，不影响其他测试画布；测试 fixture 行为会推进自增序号。若进程异常终止，先核对 fixture title/ownership，再单独清理，不要清空整库。连续 5 轮复测退出 0。
+
+完整验收缺口与提交版本见 `../../docs/canvas-agent-p0-audit.md`。浏览器、HTTP 路由/租户解析、故障注入、Provider Adapter、文件转存和 P1 集成仍需补测。未进行真实付费测试。
 
 ## 保留与清理
 

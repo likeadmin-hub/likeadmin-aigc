@@ -136,3 +136,21 @@ docker exec -w /www/wwwroot/likeadmin-aigc/server baota php app/apps/aigc_short_
 - P1 的 19 个断言是串行数据库行为测试，不是双标签页或独立进程竞争测试。G01—G12 **尚未全部通过**，禁止开放 Agent 后台图写入；P2—P6 保持 NOT_RUN。
 
 当前决定：先补齐 P0 端到端基线，继续记录无法验证项，不将基础切片或模拟成功视为完整阶段验收。没有真实付费调用、生产迁移、部署或发布。
+
+## 7. 继续执行：控制器基线、容量保护与多进程竞争
+
+代码：server `9e06e877e`（控制器基线）、`3c5fc88f0`（容量保护）、`ef5ea3aef`（并发回执修复）；web 保持 `637cfb8`，无新增前端实现。命令依旧在本地 develop 合入 feature 后执行。
+
+1. `p0_controller.php`：15 PASS，exit 0。数据库合成 session 经真实 LoginMiddleware 和 AppAccessMiddleware，再调用真实 CanvasController。验证缺失/无效 token、token 与租户不匹配、请求体伪造 owner、跨用户/跨租户读写删、应用下架，以及禁用独立画布时短剧四节点存取。
+2. 最初夹具漏填 user_session.tenant_id，exit 1；修复测试夹具。其后四节点严格相等失败，证据显示现有 Request 全局 trim 把数值字段转成数字字符串，并非节点丢失。测试明确固定现行 wire format 后通过；未来 Graph API 需处理 revision 的解析，不可直接将当前 Request 输出当整型 DTO。
+3. 已修复现有 CanvasService 超量保存静默截断：写入和排队前检测容量，201 节点明确报 CANVAS_CAPACITY_EXCEEDED，原文档完全不变；200 节点仍可保存。`p0_baseline.php` 当前 10 PASS / 1 KNOWN_GAP（旧整图覆盖），exit 0。
+4. `p1_concurrency.php` 使用独立进程/连接、就绪屏障真实竞争。首次失败：同 key 并发回执读取遇到旧快照，产生版本冲突。GraphService 回执查询改为锁定的当前读，在版本判断前处理已完成回执；复测 7 PASS，并额外连续 5 轮 exit 0。不是仅检查本地行数：还严格比较 10 个返回值一致，竞争不同 key 时一成功一冲突。
+5. 重新执行 p0_generation.php：13 PASS；p1_graph.php：19 PASS。原四类模拟生成接收 4 次、租户/用户消费各 4 条、短剧任务 4 条、媒体资产 3 条保持。前端已有 22 项纯逻辑/源码契约检查 exit 0。五个数据库测试共 64 个断言（多次重复轮次不重复计数），并非 64 条阶段验收用例。
+
+### 当前准入解释
+
+P0 的入口与服务端对象契约已清晰且基线可复现，可继续 P1 的受限开发；此前“等待隔离环境”的阻碍已经解除。但 **P0 浏览器/完整 HTTP 端到端仍 NOT_RUN**，不声称所有 P0 验收完成。该限制必须保留到阶段总验收，不得用进程内控制器测试冒充网络/浏览器证据。
+
+P1 仍未放行：G01/G03 只在独立 GraphService 边界有行为证据；G08 已覆盖现有保存入口的服务层，尚无浏览器证据。G02/G05/G06/G07/G11/G12 的集成验证、普通保存与后台写入统一、客户端缓存 revision、正式幂等迁移与生成恢复仍未完成。GraphService 没有新增可访问 API，仍不开放 Agent 后台写图。P2—P6 NOT_RUN。
+
+本轮业务改变仅容量超限拒绝；没有修改计费服务、现有短剧故事/剧集服务、素材存储、前端代理、业务库 schema、真实 Worker 或供应商配置。后续重点是统一图写入与缓存冲突，不能仅接一个 patch API 就宣布 P1 完成。
