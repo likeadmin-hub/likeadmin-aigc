@@ -383,3 +383,21 @@ web `21180aa`（feature/short-drama-optimization）新增 `conversation-reader.m
 在合入最新源码的 web develop 执行三个 Node 行为套件：reader 8、state 10、原四节点 run-result-policy 3，共 **21 PASS / FAIL 0、exit 0**；git diff --check 通过。模拟 Promise 延迟/失败覆盖重叠、跨租户旧回包、新请求锁保护、分页 101 条、最后回复、读失败恢复、dispose 和畸形页。测试名称中的 contract 指传参行为，不代表真实网络或中间件验收。本轮未重跑后端数据库/浏览器套件，没有新阶段放行。
 
 尚未接入右侧面板和实际计时器/HTTP transport；发送幂等恢复、刷新选择会话、DOM 安全渲染及浏览器 A11/A13/A15 仍 NOT_RUN。P2 不因此宣称完成。后续继续把此模块绑定现有右侧聊天区域，先在隔离 mock 环境验证，再处理真实模型预检/账本等未完成能力；P3—P6 仍未开始。两仓库保持 feature 分支，无生产迁移、付费生成、发布或部署。
+
+## 20. P2 右侧 Agent 面板隔离浏览器验收（尚未阶段放行）
+
+本轮把第 18—19 节的 scoped reader 接入现有右侧面板及右下角 `CanvasComposer`，没有新建 Agent 页面，也没有改变原四节点画布的手工生成入口。server 测试桥接提交 `9001a7a65`；web 面板/API/浏览器测试提交 `96de185`、`ba2fc95`、`cde054b`、`db15e43`。每个 feature 提交均已合入各自本地 develop 后执行验证，随后切回 feature；未推送 develop、未执行生产迁移、未部署或调用付费模型。
+
+实现边界：当服务端 `current` 返回当前租户显式启用的 `agent_enabled` 时，只有右侧面板替换为会话组件；关闭时完整保留原 ComposerChats、CanvasComposer 和既有节点流程。会话组件只调用 `threads/createThread/messages/events/run/send/stop`，使用认证租户请求头，POST body 不再携带可伪造的 `tenant_id`。浏览器的推理模型选择仍来自服务端实际画布模型目录；隔离场景插入本地市场产品与 SKU 仅为目录解析夹具，不调用其 Provider。图片/视频默认偏好保持独立；素材附件在未完成授权与多模态验收前由 UI 明确拒绝，不会伪装为已发送给 Agent。消息用 Vue 文本插值渲染，未使用 `v-html`、`innerHTML`、浏览器 Provider 请求或原 canvas 媒体 run。
+
+验证均在本地 develop：
+
+| 范围 | 结果 | 证据与限制 |
+| --- | --- | --- |
+| Agent HTTP 真实中间件/控制器/隔离 MySQL | PASS，37 | 登录、租户/用户隔离、严格 ID、幂等、刷新、停止、开关和不写图均通过；Provider、账本与生产迁移仍 NOT_RUN |
+| Composer/reader/state/SFC 行为套件 | PASS，35 | 包含新 POST scope 边界、序列/游标、旧 scope 回包、状态终态和 SFC 编译；不是浏览器 Provider 验收 |
+| 启用 Agent 的真实 Chrome → 受限 HTTP bridge → 隔离 MySQL | PASS，5 | 右侧面板出现；下方输入创建一个 thread/message/run/outbox；刷新恢复 queued 且没有第二次发送；停止转 canceled；`<img …>` 内容作为文字显示、不生成 DOM 图片、不执行脚本、无 page error |
+
+浏览器夹具的最终数据库证据为 1 thread、2 user messages、2 queued/canceled runs、2 outbox，0 canvas media runs、0 tenant/user 积分账本记录。桥接仅允许 canvas current/save 和上述 Agent routes；Agent router 不加载 Provider mock，所有其他生成路由 404，Docker 网络为 internal。因此这证明“对话接受、读取、停止和安全展示”的用户路径，不证明模型生成质量、真实视觉理解、模型账本、退款、审核或上游取消。
+
+阶段映射：A11 的“刷新恢复且不重复发送”已有浏览器 PASS；A15 的 Agent 文本 DOM 安全渲染已有浏览器 PASS；A13 仍只有客户端 state 行为测试，尚无浏览器中真实租户切换验收；A01—A10、A12、A14 的部分服务端证据不等同整项阶段通过。默认模型偏好目前仅浏览器本地保存，服务端默认偏好 CAS 尚未实现；附件/图片理解、Skill 运行绑定、审核、预算/付费账本、真实 Provider adapter/worker 和生产调度也仍未验收。故 **P2 未放行，P3—P6 继续 NOT_RUN**。
