@@ -76,7 +76,7 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString("'wxa/gettemplatelist'", $service);
         self::assertStringContainsString("'template.list', ['component_access_token' => self::componentAccessToken()], 0, 0, 'GET'", $service);
         self::assertStringContainsString("'template.drafts', ['component_access_token' => self::componentAccessToken()], 0, 0, 'GET'", $service);
-        self::assertStringContainsString("$method === 'GET'", $service);
+        self::assertStringContainsString("\$method === 'GET'", $service);
         self::assertStringContainsString('beforeTemplateIds', $service);
         self::assertStringContainsString('public static function syncTemplates()', $service);
         self::assertStringContainsString('public static function templateRecords()', $service);
@@ -126,8 +126,8 @@ class OpenPlatformCredentialContractTest extends TestCase
 
         self::assertStringContainsString("foreach (['authorizer_id', 'template_id'] as \$key)", $service);
         self::assertStringContainsString("\$version = trim((string)\$template['template_version']);", $service);
-        self::assertStringContainsString("'wxa/get_latest_auditstatus'", $service);
-        self::assertStringContainsString('请在微信小程序后台提交审核', $service);
+        self::assertStringContainsString("'wxa/get_auditstatus', ['auditid' => (int)\$auditNo]", $service);
+        self::assertStringContainsString('请先提交审核', $service);
         self::assertStringContainsString('downloadExperienceQrcode', $service);
         self::assertStringContainsString("\$query->where('upload_mode', 'template');", $service);
     }
@@ -150,6 +150,9 @@ class OpenPlatformCredentialContractTest extends TestCase
 
         self::assertStringContainsString('public static function miniprogramManagement(int $tenantId)', $service);
         self::assertStringContainsString('public static function undoAudit(int $tenantId, int $id)', $service);
+        self::assertStringContainsString("['privacy_ver' => 2], 'miniprogram.privacy.get'", $service);
+        self::assertStringContainsString("'wxa/undocodeaudit', [], 'release.audit.undo', ['access_token' => self::authorizerToken((int)\$authorizer['id'])], \$tenantId, (int)\$authorizer['id'], 'GET');", $service);
+        self::assertStringContainsString("'wxa/get_auditstatus', ['auditid' => (int)\$auditNo]", $service);
         self::assertStringContainsString('OpenPlatformService::miniprogramManagement($this->tenantId)', $controller);
         self::assertStringContainsString('OpenPlatformService::undoAudit($this->tenantId, $id)', $controller);
     }

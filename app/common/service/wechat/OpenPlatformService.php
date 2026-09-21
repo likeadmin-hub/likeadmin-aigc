@@ -561,7 +561,7 @@ class OpenPlatformService
         $review = WechatMnpReview::withoutGlobalScope()->where('version_id', $id)->order('id desc')->findOrEmpty();
         if ($review->isEmpty()) throw new \RuntimeException('请先提交审核');
         $auditNo = (string)$review['audit_no'];
-        $result = self::request('wxa/get_auditstatus', [], 'release.audit.status', ['access_token' => self::authorizerToken((int)$authorizer['id']), 'auditid' => $auditNo], $tenantId, (int)$authorizer['id'], 'GET');
+        $result = self::request('wxa/get_auditstatus', ['auditid' => (int)$auditNo], 'release.audit.status', ['access_token' => self::authorizerToken((int)$authorizer['id'])], $tenantId, (int)$authorizer['id']);
         $auditStatus = [0 => 'approved', 1 => 'rejected', 2 => 'pending', 3 => 'rejected'][(int)($result['status'] ?? -1)] ?? 'pending';
         $payload = ['audit_status' => $auditStatus, 'reason' => (string)($result['reason'] ?? ''), 'detail' => json_encode($result, JSON_UNESCAPED_UNICODE), 'response_summary' => json_encode(['auditid' => $auditNo], JSON_UNESCAPED_UNICODE), 'finish_time' => $auditStatus === 'pending' ? 0 : time()];
         $review->save($payload);
@@ -580,7 +580,7 @@ class OpenPlatformService
         $token = self::authorizerToken((int)$authorizer['id']);
         $categories = self::request('cgi-bin/wxopen/getcategory', [], 'miniprogram.category.list', ['access_token' => $token], $tenantId, (int)$authorizer['id'], 'GET');
         $pages = self::request('wxa/get_page', [], 'miniprogram.page.list', ['access_token' => $token], $tenantId, (int)$authorizer['id'], 'GET');
-        $privacy = self::request('cgi-bin/component/getprivacysetting', [], 'miniprogram.privacy.get', ['access_token' => $token], $tenantId, (int)$authorizer['id']);
+        $privacy = self::request('cgi-bin/component/getprivacysetting', ['privacy_ver' => 2], 'miniprogram.privacy.get', ['access_token' => $token], $tenantId, (int)$authorizer['id']);
         return [
             'authorizer_appid' => (string)$authorizer['authorizer_appid'],
             'categories' => array_values(array_filter((array)($categories['category_list'] ?? []), 'is_array')),
@@ -598,7 +598,7 @@ class OpenPlatformService
             if ((string)$row['audit_status'] !== 'pending') throw new \RuntimeException('当前版本没有可撤回的审核');
             $review = WechatMnpReview::withoutGlobalScope()->where('version_id', $id)->order('id desc')->findOrEmpty();
             if ($review->isEmpty() || trim((string)$review['audit_no']) === '') throw new \RuntimeException('未找到微信审核编号');
-            self::request('wxa/undocodeaudit', [], 'release.audit.undo', ['access_token' => self::authorizerToken((int)$authorizer['id'])], $tenantId, (int)$authorizer['id']);
+            self::request('wxa/undocodeaudit', [], 'release.audit.undo', ['access_token' => self::authorizerToken((int)$authorizer['id'])], $tenantId, (int)$authorizer['id'], 'GET');
             $review->save(['audit_status' => 'withdrawn', 'reason' => '已撤回审核', 'finish_time' => time()]);
             $row->save(['audit_status' => 'none', 'update_time' => time()]);
             return self::formatVersion($row->toArray());
