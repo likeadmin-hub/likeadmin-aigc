@@ -457,6 +457,7 @@ class ShortDramaCanvasService
                 if ((string)($node['id'] ?? '') !== $nodeId) continue;
                 $metadata = is_array($node['metadata'] ?? null) ? $node['metadata'] : [];
                 if ((int)($metadata['canvasRunId'] ?? 0) !== (int)$run['id']) continue;
+                $previousMetadata = $metadata;
                 $metadata = array_merge($metadata, [
                     'url' => (string)$result['url'], 'video_url' => (string)$result['url'],
                     'storage_scope' => (string)($result['storage_scope'] ?? ''),
@@ -467,6 +468,7 @@ class ShortDramaCanvasService
                     'poster_status' => !empty($result['poster_url']) ? 'ready' : 'pending',
                     'status' => 'success', 'progress' => 100, 'error' => '',
                 ]);
+                if ($metadata === $previousMetadata) break;
                 $node['metadata'] = $metadata;
                 $changed = true;
                 break;
