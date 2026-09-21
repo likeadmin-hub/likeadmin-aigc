@@ -52,6 +52,7 @@ try {
     $payload = ['id' => $id, 'nodes' => $nodes, 'edges' => [['from' => 1, 'to' => 2]], 'viewport' => ['x' => 5, 'y' => 10, 'k' => 0.9]];
     agentCheck(canvasRequest('save', 91001, 'isolated-p0-92001', $payload)['code'] === 1, 'B02 actual controller accepts four-node document');
     $loaded = canvasRequest('current', 91001, 'isolated-p0-92001', ['id' => $id]);
+    if (($loaded['data']['nodes'] ?? null) !== $nodes) echo 'ROUNDTRIP_DIAGNOSTIC ', json_encode($loaded, JSON_UNESCAPED_UNICODE), PHP_EOL;
     agentCheck($loaded['code'] === 1 && $loaded['data']['nodes'] === $nodes && $loaded['data']['edges'] === $payload['edges'] && $loaded['data']['viewport'] === $payload['viewport'], 'B02 fresh controller read preserves complete document');
     foreach ([[91001, 'isolated-p0-92002'], [91002, 'isolated-p0-92003']] as [$tenant, $token]) {
         foreach (['current', 'save', 'delete'] as $action) {
