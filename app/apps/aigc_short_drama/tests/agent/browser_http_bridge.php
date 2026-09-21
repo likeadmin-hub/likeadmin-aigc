@@ -199,7 +199,9 @@ try {
             'header'=>"Content-Type: application/json\r\ntoken: isolated-browser-http\r\n",
             'content'=>$method==='POST'?json_encode($body):'',
         ]]);
-        $result=json_decode((string)file_get_contents($url,false,$context),true,512,JSON_THROW_ON_ERROR);
+        $raw=file_get_contents($url,false,$context);
+        if (!is_string($raw) || trim($raw)==='') throw new RuntimeException('Isolated API response missing for '.$action);
+        $result=json_decode($raw,true,512,JSON_THROW_ON_ERROR);
         echo json_encode(['result'=>$result]),PHP_EOL;
     }
 } finally {
