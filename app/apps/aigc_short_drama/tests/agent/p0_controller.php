@@ -33,7 +33,7 @@ try {
     }
     foreach ([[92001, 91001], [92002, 91001], [92003, 91002]] as [$id, $tenant]) {
         Db::name('user')->insert(['id' => $id, 'sn' => $id, 'account' => 'p0-' . $id, 'tenant_id' => $tenant]);
-        Db::name('user_session')->insert(['user_id' => $id, 'token' => 'isolated-p0-' . $id, 'terminal' => 4, 'expire_time' => time() + 86400 * 365]);
+        Db::name('user_session')->insert(['tenant_id' => $tenant, 'user_id' => $id, 'token' => 'isolated-p0-' . $id, 'terminal' => 4, 'expire_time' => time() + 86400 * 365]);
     }
     Db::name('app')->insert(['code' => 'aigc_short_drama', 'status' => 'installed']);
     Db::name('app')->insert(['code' => 'aigc_canvas', 'status' => 'disabled']);
