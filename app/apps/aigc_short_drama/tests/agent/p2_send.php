@@ -9,6 +9,13 @@ function rejectsSend(callable $action,string $code): void {
     try {$action();} catch (RuntimeException $error) {agentCheck($error->getMessage()===$code,$code);return;}
     throw new RuntimeException('Expected '.$code);
 }
+// Use the independent app's actual schema in the isolated database only.
+// A same-name/same-ID record must never shadow short-drama Skill resolution.
+if (!Db::query("SHOW TABLES LIKE 'la_aigc_canvas_skill'")) {
+    $schema=(string)file_get_contents(dirname(__DIR__,3).'/aigc_canvas/migrations/install.sql');
+    if (!preg_match('/CREATE TABLE IF NOT EXISTS `la_aigc_canvas_skill` \([\s\S]*?ENGINE=InnoDB[^;]*;/',$schema,$ddl)) throw new RuntimeException('Independent Skill schema not found');
+    Db::execute($ddl[0]);
+}
 Db::startTrans();
 try {
     Db::name('aigc_short_drama_config')->insert(['tenant_id'=>91001,'config_json'=>'{"canvas_agent":{"enabled":true}}','status'=>1,'create_time'=>time(),'update_time'=>time()]);
@@ -17,6 +24,7 @@ try {
     $product=Db::name('power_market_product')->insertGetId(['product_code'=>'isolated-send-text','resource_type'=>'model','model_type'=>'text','name'=>'Isolated reasoning fixture','source_code'=>'isolated-agent-test','upstream_resource_key'=>'isolated-send-text','upstream_model_code'=>'isolated-reasoning','upstream_channel_code'=>'isolated-channel','source_payload'=>'{}','status'=>1]);
     Db::name('power_market_sku')->insert(['product_id'=>$product,'sku_key'=>'input','title'=>'Isolated tokens','usage_unit'=>'token','sale_points'=>1,'status'=>1,'sale_status'=>1]);
     $skill=Db::name('aigc_short_drama_skill')->insertGetId(['tenant_id'=>91001,'skill_key'=>'isolated_chat_skill','name'=>'Isolated Skill','status'=>1,'release_status'=>'active','version'=>1,'published_version'=>1]);
+    Db::name('aigc_canvas_skill')->insert(['id'=>$skill,'tenant_id'=>91001,'skill_key'=>'isolated_chat_skill','name'=>'Isolated Skill','content_markdown'=>'INDEPENDENT_CANVAS_SHADOW_MUST_NOT_RUN','status'=>1]);
     $foreign=Db::name('aigc_short_drama_skill')->insertGetId(['tenant_id'=>91002,'skill_key'=>'isolated_chat_skill','name'=>'Foreign Skill','status'=>1,'release_status'=>'active','version'=>1,'published_version'=>1]);
     $definition=['name'=>'Isolated Skill','skill_key'=>'isolated_chat_skill','definition'=>['instructions'=>'frozen reference'],'model_policy'=>[],'execution_policy'=>[]];
     Db::name('aigc_short_drama_skill_version')->insert(['tenant_id'=>91001,'skill_id'=>$skill,'version'=>1,'release_status'=>'active','snapshot_json'=>json_encode($definition)]);
@@ -43,6 +51,15 @@ try {
     agentCheck(json_decode($run['settings_snapshot'],true)['reasoning_model']['id']===(string)$product,'send freezes server-resolved model');
     $frozen=json_decode($run['skill_snapshot'],true);
     agentCheck($frozen['id']===(int)$skill && $frozen['version']===1 && $frozen['definition']===$definition['definition'],'send freezes actual short-drama published Skill');
+    agentCheck(!str_contains($run['skill_snapshot'],'INDEPENDENT_CANVAS_SHADOW_MUST_NOT_RUN'),'same-name same-ID independent canvas Skill cannot shadow short-drama selection');
+    $definitionV2=$definition;$definitionV2['definition']['instructions']='published v2 creative reference';
+    Db::name('aigc_short_drama_skill_version')->insert(['tenant_id'=>91001,'skill_id'=>$skill,'version'=>2,'release_status'=>'active','snapshot_json'=>json_encode($definitionV2)]);
+    Db::name('aigc_short_drama_skill')->where('id',$skill)->update(['version'=>2,'published_version'=>2]);
+    $nextThread=Store::create(91001,92001,$canvas,'v2-thread')['id'];
+    $next=Service::send(91001,92001,$canvas,$nextThread,array_replace($request,['request_key'=>'new-version','skill_version'=>2]));
+    $nextSnapshot=json_decode(Db::name(Store::PREFIX.'run')->where('id',$next['run_id'])->value('skill_snapshot'),true);
+    agentCheck($nextSnapshot['version']===2 && $nextSnapshot['definition']===$definitionV2['definition'],'new selection resolves newly published short-drama version');
+    agentCheck(Db::name(Store::PREFIX.'run')->where('id',$ack['run_id'])->value('skill_snapshot')===$run['skill_snapshot'],'publishing version two does not modify in-flight version one');
     $reordered=$request;$reordered['preferences']=['generation_mode'=>'manual','reasoning_model'=>(string)$product];
     agentCheck(Service::send(91001,92001,$canvas,$thread,$reordered)===$ack,'preference JSON key order does not change request identity');
     rejectsSend(fn()=>Service::send(91001,92001,$canvas,$thread,array_replace($request,['preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'auto']])),'IDEMPOTENCY_CONFLICT');
