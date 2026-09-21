@@ -34,7 +34,7 @@ final class ConversationStore
     }
 
     /** Request whitelist intentionally excludes attachments until asset authorization is wired. */
-    public static function enqueue(int $tenant,int $user,int $canvas,int $thread,array $request,array $resolvedSnapshot): array
+    public static function enqueue(int $tenant,int $user,int $canvas,int $thread,array $request,array|\Closure $resolvedSnapshot,array $selectionIdentity=[]): array
     {
         if (array_diff(array_keys($request),['request_key','content','selected_node_ids','base_revision'])) throw new RuntimeException('UNSUPPORTED_MESSAGE_FIELD');
         $key=$request['request_key']??null;
@@ -52,7 +52,11 @@ final class ConversationStore
         $ids=array_values(array_unique($ids));
         $revision=$request['base_revision']??null;
         if (!is_int($revision) || $revision<0) throw new RuntimeException('INVALID_BASE_REVISION');
-        $hash=hash('sha256',self::json(['thread'=>$thread,'content'=>$content,'nodes'=>$ids,'revision'=>$revision]));
+        $identity=['thread'=>$thread,'content'=>$content,'nodes'=>$ids,'revision'=>$revision];
+        // Preserve the original storage-only hash when no selection identity
+        // was supplied. Explicit model/Skill choices are part of send identity.
+        if ($selectionIdentity!==[]) $identity['selection']=self::canonical($selectionIdentity);
+        $hash=hash('sha256',self::json($identity));
         return Db::transaction(function () use ($tenant,$user,$canvas,$thread,$key,$content,$ids,$revision,$hash,$resolvedSnapshot): array {
             // Fixed lock order: canvas -> thread -> run. Replay precedes busy/CAS
             // checks, so a retry remains stable after subsequent canvas edits.
@@ -67,6 +71,9 @@ final class ConversationStore
             }
             if ((int)$conversation['active_run_id']!==0) throw new RuntimeException('THREAD_BUSY');
             if ((int)$document['graph_revision']!==$revision) throw new RuntimeException('VERSION_CONFLICT');
+            // Server-owned resolver performs local catalog reads only. Never
+            // do provider I/O here; replay must not re-resolve changing defaults.
+            if ($resolvedSnapshot instanceof \Closure) $resolvedSnapshot=$resolvedSnapshot();
             if (array_diff(array_keys($resolvedSnapshot),['settings','skill']) || !is_array($resolvedSnapshot['settings']??null) || !is_array($resolvedSnapshot['skill']??null)) throw new RuntimeException('INVALID_RESOLVED_SNAPSHOT');
             $selected=[];
             foreach (json_decode($document['nodes_json']?:'[]',true,512,JSON_THROW_ON_ERROR) as $node) {
@@ -139,6 +146,11 @@ final class ConversationStore
         return $row;
     }
     private static function scope(int $tenant,int $user,int $canvas): array { return ['tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas]; }
+    private static function canonical(array $value): array {
+        if (!array_is_list($value)) ksort($value);
+        foreach ($value as &$item) if (is_array($item)) $item=self::canonical($item);
+        unset($item);return $value;
+    }
     private static function key(string $key): void { if (!preg_match('/^[a-zA-Z0-9_.:-]{1,100}$/D',$key)) throw new RuntimeException('INVALID_REQUEST_KEY'); }
     private static function json(array $value): string { return json_encode($value,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR); }
     private static function threadView(array $row): array { return ['id'=>(int)$row['id'],'title'=>$row['title'],'active_run_id'=>(int)$row['active_run_id'],'create_time'=>(int)$row['create_time']]; }
