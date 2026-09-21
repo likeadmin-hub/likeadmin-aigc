@@ -775,3 +775,17 @@ P3 M03/M04/M05/M06 的归一化层有行为证据，但模型能力、总限额�
 验收：公开 quote **5 PASS**（合法边界、完整集合超限拒绝、不支持的输入模式拒绝、无参考兼容、任务/消费账本零新增）；既有参考校验 **8 PASS**；共享消费者回归 `ShortDramaVideoReferenceContractTest` **24 tests / 57 assertions PASS**、`MarketVideoModelPayloadContractTest` **12 tests / 68 assertions PASS**。全部从已集成本地 develop 执行，隔离网络/数据库，不请求 Provider、不扣真实积分。未通过修改余额或绕过校验使测试通过。
 
 本节公开服务报价缺口已修复；HTTP/UI报价、reserve 完整事务及 P3 其余门槛仍不能由本轮替代，P3 未整体放行。本轮 web 无源码变化。未重启常驻进程、未迁移业务库、未部署/推送。
+
+## 36. P3 公开 reserve 收费前拒绝与预占幂等验收（2026-09-22）
+
+接续第 35 节，server `8715cb6cc` 扩展 `p3_quote.php`，在独立 internal Docker 网络和测试库中调用真实 MarketVideoRuntimeService::quote/reserve；不替换市场目录、reserve 或 PointService。合成 tenant/user 各初始 100 积分，测试事务最终回滚，未复制业务数据或密钥。
+
+- PASS：完整集合三张参考超过所选模型总限额两张，公开 reserve 明确拒绝。
+- PASS：所选模型不支持音频时，公开 reserve 明确拒绝；不会以其他模型可能兼容为由放行。
+- PASS：上述两类拒绝各自保持任务/消费记录数量及用户/租户余额不变。
+- PASS：合法参考边界通过真实 reserve，任务与消费记录各新增一条，合成余额变化严格等于 quote 的租户/用户金额。
+- PASS：相同业务键重放返回相同 app_task_id/consumption_id，余额不再变化，不重复建任务或消费记录。
+
+本地 develop 已集成后执行：公开 quote/reserve **13 PASS / 0 FAIL**；参考归一化与实际市场校验器 **8 PASS / 0 FAIL**。本次是实际服务与数据库行为证据，不是静态检查，但不等同 HTTP/UI、Provider submit 或完整 settle/refund 生命周期通过。M02/M03 的服务端提交前校验已补证，M01 的前后端共享 16 组合及其余未覆盖条目仍继续，**P3 未整体放行，P4—P6 NOT_RUN**。仅测试/证据源码变化，无 web 变化、业务迁移、付费调用、部署或推送。
+
+相关运行维护另见 `worker-unbound-result-regression.md`：结果任务 3268 的已退款无绑定目标无限轮询已修复并由真实本地 Worker 正常收尾；不将原始失败生成误记为成功，也不据此替代 P3 门槛。
