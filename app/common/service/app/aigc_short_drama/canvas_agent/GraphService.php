@@ -24,7 +24,7 @@ final class GraphService
         foreach ($operations as &$operation) {
             if (!is_array($operation)) throw new RuntimeException('INVALID_OPERATION');
             if (array_key_exists('expected_content_revision', $operation)) $operation['expected_content_revision'] = self::revision($operation['expected_content_revision'], 'CONTENT_VERSION_REQUIRED');
-            if (($operation['op'] ?? '') === 'move_nodes' && is_array($operation['nodes'] ?? null)) {
+            if (in_array($operation['op'] ?? '', ['move_nodes','set_group'], true) && is_array($operation['nodes'] ?? null)) {
                 foreach ($operation['nodes'] as &$move) {
                     if (is_array($move) && array_key_exists('expected_layout_revision', $move)) $move['expected_layout_revision'] = self::revision($move['expected_layout_revision'], 'LAYOUT_VERSION_REQUIRED');
                 }
@@ -90,6 +90,19 @@ final class GraphService
                         foreach (['x','y'] as $field) if (isset($move[$field])) $nodes[$i][$field]=$move[$field];
                         $nodes[$i]['metadata']['layout_revision']=(int)($nodes[$i]['metadata']['layout_revision']??0)+1;
                     }
+                } elseif ($op === 'set_group') {
+                    $group = $operation['group_id'] ?? null;
+                    $members = $operation['nodes'] ?? null;
+                    if (!is_string($group) || strlen($group)>100 || !preg_match('/^[a-zA-Z0-9_.:-]*$/D',$group) || !is_array($members) || !$members || count($members)>200) throw new RuntimeException('INVALID_GROUP');
+                    foreach ($members as $member) {
+                        if (!is_array($member) || array_diff(array_keys($member),['id','expected_layout_revision'])) throw new RuntimeException('INVALID_GROUP');
+                        $i = self::index($nodes,self::nodeId($member['id']??null));
+                        if ($i===null) throw new RuntimeException('NODE_NOT_FOUND');
+                        if (self::revision($member['expected_layout_revision']??null,'LAYOUT_VERSION_REQUIRED')!==(int)($nodes[$i]['metadata']['layout_revision']??0)) throw new RuntimeException('LAYOUT_VERSION_CONFLICT');
+                        // Existing four-node UI persists agentGroupId, not groupId.
+                        $nodes[$i]['metadata']['agentGroupId']=$group;
+                        $nodes[$i]['metadata']['layout_revision']=(int)($nodes[$i]['metadata']['layout_revision']??0)+1;
+                    }
                 } elseif ($op==='remove_nodes') {
                     $ids=array_map([self::class,'nodeId'],(array)($operation['node_ids']??[]));
                     $nodes=array_values(array_filter($nodes,static fn($n)=>!in_array((string)$n['id'],$ids,true)));
@@ -101,7 +114,26 @@ final class GraphService
                     $from=self::nodeId($edge['from']??null); $to=self::nodeId($edge['to']??null);
                     if ($from===$to||self::index($nodes,$from)===null||self::index($nodes,$to)===null) throw new RuntimeException('INVALID_EDGE');
                     if (!in_array($edge['kind']??'reference',['reference','annotation'],true)) throw new RuntimeException('INVALID_EDGE_KIND');
+                    foreach ($edges as $existing) {
+                        if ((isset($edge['id']) && isset($existing['id']) && (string)$edge['id']===(string)$existing['id']) || self::edgeIdentity($edge)===self::edgeIdentity($existing)) throw new RuntimeException('EDGE_ALREADY_EXISTS');
+                    }
                     $edges[]=$edge;
+                } elseif ($op==='remove_edge') {
+                    $selector=$operation['edge']??null;
+                    if (!is_array($selector) || !$selector || array_diff(array_keys($selector),['id','from','to','kind','role','order'])) throw new RuntimeException('INVALID_EDGE');
+                    if (!isset($selector['id']) && (!isset($selector['from']) || !isset($selector['to']))) throw new RuntimeException('INVALID_EDGE');
+                    $matches=[];
+                    foreach ($edges as $i=>$edge) {
+                        $match=true;
+                        foreach ($selector as $field=>$value) {
+                            if (!is_scalar($value) || !array_key_exists($field,$edge) || (string)$edge[$field] !== (string)$value) { $match=false; break; }
+                        }
+                        if ($match) $matches[]=$i;
+                    }
+                    if (!$matches) throw new RuntimeException('EDGE_NOT_FOUND');
+                    if (count($matches)>1) throw new RuntimeException('AMBIGUOUS_EDGE');
+                    unset($edges[$matches[0]]);
+                    $edges=array_values($edges);
                 } else throw new RuntimeException('UNSUPPORTED_OPERATION');
                 if (count($nodes)>200) throw new RuntimeException('CANVAS_CAPACITY_EXCEEDED');
             }
@@ -119,7 +151,10 @@ final class GraphService
         if (!is_array($metadata)) throw new RuntimeException('INVALID_METADATA');
         if (array_intersect(array_keys($metadata),self::SERVER_FIELDS)) throw new RuntimeException('SERVER_FIELD_FORBIDDEN');
         // Explicit allowlist, not a blacklist that new authority fields could bypass.
-        if (array_diff(array_keys($metadata),['content','prompt','groupId','model_code','channel','ratio','resolution','duration','count','quality'])) throw new RuntimeException('INVALID_METADATA_FIELD');
+        if (array_diff(array_keys($metadata),['content','prompt','groupId','agentGroupId','model_code','channel','ratio','resolution','duration','count','quality'])) throw new RuntimeException('INVALID_METADATA_FIELD');
+    }
+    private static function edgeIdentity(array $edge): array {
+        return [(string)($edge['from']??''),(string)($edge['to']??''),(string)($edge['kind']??'reference'),(string)($edge['role']??''),(string)($edge['order']??0)];
     }
     private static function geometry(array $node): void {
         foreach (['x','y','width','height'] as $key) if (array_key_exists($key, $node) && (!is_numeric($node[$key]) || !is_finite((float)$node[$key]) || abs((float)$node[$key])>10000000 || (in_array($key,['width','height'],true) && (float)$node[$key]<=0))) throw new RuntimeException('INVALID_GEOMETRY');
