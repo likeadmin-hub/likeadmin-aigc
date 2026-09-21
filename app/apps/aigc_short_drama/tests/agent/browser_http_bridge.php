@@ -193,6 +193,14 @@ try {
             continue;
         }
         $allowed=in_array($action,['current','save'],true) && (int)($body['id']??0)===$canvasId;
+        if ($agentConversation && $action==='patch') {
+            $operations=$body['operations']??null;
+            $allowed=(int)($body['canvas_id']??0)===$canvasId
+                && is_array($operations) && count($operations)===1
+                && is_array($operations[0])
+                && array_keys($operations[0])===['op','node_id','run_id']
+                && ($operations[0]['op']??null)==='apply_agent_text';
+        }
         if ($agentConversation && $action==='assetRegister') $allowed=(int)($body['canvas_id']??0)===$canvasId;
         if (in_array($action,['assets','independentCanvas'],true)) $allowed=$method==='GET';
         if ($mockGeneration && $action==='run') $allowed=(int)($body['canvas_id']??0)===$canvasId;
