@@ -67,9 +67,10 @@ docker run --rm --network short-drama-agent-test -v /Users/panda/Documents/docke
 在 server 本地 develop（最新 feature 已合入）执行，任一脚本失败即停止：
 
 ```sh
-for test_file in p0_baseline p0_generation p0_controller p0_http p1_graph p1_graph_wire p1_graph_operations p1_concurrency p1_poster_save p1_save_cas p1_read_recovery p1_revision_integration; do
+for test_file in p0_baseline p0_generation p0_controller p0_http p1_graph p1_graph_wire p1_graph_operations p1_concurrency p1_poster_save p1_save_cas p1_read_recovery p1_revision_integration p1_migrations p1_generation_intent p1_generation_projection p1_manual_authority; do
   docker run --rm --network short-drama-agent-test -v /Users/panda/Documents/docker-dir/bt/wwwroot/likeadmin-aigc/server:/app:ro -v /dev/null:/app/.env:ro --tmpfs /app/runtime short-drama-agent-test-php:local app/apps/aigc_short_drama/tests/agent/${test_file}.php || exit
 done
+docker run --rm --network short-drama-agent-test -v /Users/panda/Documents/docker-dir/bt/wwwroot/likeadmin-aigc/server:/app:ro -v /dev/null:/app/.env:ro --tmpfs /app/runtime short-drama-agent-test-php:local app/apps/aigc_short_drama/tests/agent/p0_generation.php idempotent
 ```
 
 当前分别 10/16/15/6/19/18/11/10/4/5/10/12 PASS，共 136 断言，exit 0。`p0_http.php` 在容器内部 127.0.0.1:19080 启动真实 HTTP 内核；合成租户/用户为 94001/95001，finally 删除本次确切 fixture。HTTP allowlist 禁止所有生成路由，不暴露宿主机端口。并发脚本同样按确切 fixture 清理，其余主要脚本事务回滚。不要并行执行这些共享 ID 的脚本。
@@ -83,6 +84,18 @@ CANVAS_TEST_BROWSER_CHANNEL=chrome NODE_PATH=/Users/panda/.cache/codex-runtimes/
 ```
 
 8 PASS，使用独立临时 headless Chrome context，不访问用户 profile；浏览器 API 全部合成拦截，验证 UI 行为而非真实后端生成。无外部请求、无付费调用。完整浏览器到真实数据库的四节点生成、Provider Adapter、文件转存及故障恢复尚未通过验收。
+
+## 最新前置条件与结果（2026-09-21）
+
+上文 136 断言为历史结果；完整串行命令现为 253 PASS、exit 0，分项见审计报告第 10 节。运行前隔离库需具有真实图版本升级 SQL 和 `tests/agent/p1_generation_schema.sql`（本环境均已执行）。后者仅为隔离草案，含模拟 Provider 接收计数表，绝不可用作业务迁移。真实图升级源码为 `migrations/upgrade_20260921_canvas_graph_revision.sql`，测试只在指定隔离库或明确的临时前缀表执行。没有业务库自动迁移。
+
+真实浏览器持久化/双标签页测试：两仓库均在已合入的 develop，且没有其他数据库夹具并发执行时，从 web 根目录运行：
+
+```sh
+CANVAS_TEST_BROWSER_CHANNEL=chrome NODE_PATH=/Users/panda/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules /Users/panda/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node pc/tests/short-drama-canvas-http-browser.cjs
+```
+
+7 PASS。`browser_http_bridge.php` 使用专属 94011/95011 合成身份和新建画布，仅 current/save 转发真实隔离 HTTP；其余目录/账户读取是合成夹具，未知写请求和生成被阻止。finally 删除此次精确 fixture，不访问用户 canvas 11，不复制私有素材或密钥。此结果不等同于四类生成的浏览器验收。
 
 ## 保留与清理
 
