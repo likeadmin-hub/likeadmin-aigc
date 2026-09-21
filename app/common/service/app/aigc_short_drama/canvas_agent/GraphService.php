@@ -16,9 +16,22 @@ final class GraphService
     {
         $key = (string)($request['request_key'] ?? '');
         if (!preg_match('/^[a-zA-Z0-9_.:-]{1,100}$/D', $key)) throw new RuntimeException('INVALID_REQUEST_KEY');
-        if (!isset($request['expected_revision']) || !is_int($request['expected_revision']) || $request['expected_revision'] < 0) throw new RuntimeException('EXPECTED_REVISION_REQUIRED');
+        // ThinkPHP's request filter serializes numeric JSON values as strings.
+        // Normalize only canonical unsigned integers, never floats/bools/exponents.
+        $request['expected_revision'] = self::revision($request['expected_revision'] ?? null, 'EXPECTED_REVISION_REQUIRED');
         $operations = $request['operations'] ?? null;
         if (!is_array($operations) || !$operations || count($operations) > 200) throw new RuntimeException('INVALID_OPERATIONS');
+        foreach ($operations as &$operation) {
+            if (!is_array($operation)) throw new RuntimeException('INVALID_OPERATION');
+            if (array_key_exists('expected_content_revision', $operation)) $operation['expected_content_revision'] = self::revision($operation['expected_content_revision'], 'CONTENT_VERSION_REQUIRED');
+            if (($operation['op'] ?? '') === 'move_nodes' && is_array($operation['nodes'] ?? null)) {
+                foreach ($operation['nodes'] as &$move) {
+                    if (is_array($move) && array_key_exists('expected_layout_revision', $move)) $move['expected_layout_revision'] = self::revision($move['expected_layout_revision'], 'LAYOUT_VERSION_REQUIRED');
+                }
+                unset($move);
+            }
+        }
+        unset($operation);
         $hash = hash('sha256', self::json(self::canonical(['expected_revision'=>$request['expected_revision'],'operations'=>$operations])));
         return Db::transaction(function () use ($tenant,$user,$canvas,$request,$key,$hash,$operations): array {
             $scope = ['tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas];
@@ -42,7 +55,8 @@ final class GraphService
                 if ($op === 'add_node') {
                     $node = $operation['node'] ?? [];
                     if (!is_array($node) || !in_array($node['type'] ?? '',['text','image','video','audio'],true)) throw new RuntimeException('INVALID_NODE_TYPE');
-                    $id = self::nodeId($node['id'] ?? null);
+                    if (!array_key_exists('id', $node)) $node['id'] = self::allocateNodeId($nodes, $removed);
+                    $id = self::nodeId($node['id']);
                     if (self::index($nodes,$id) !== null || in_array($id,$removed,true)) throw new RuntimeException('NODE_ID_CONFLICT');
                     self::editable($node['metadata'] ?? []);
                     if (array_diff(array_keys($node),['id','type','title','x','y','width','height','metadata'])) throw new RuntimeException('INVALID_NODE_FIELD');
@@ -54,7 +68,7 @@ final class GraphService
                     $i = self::index($nodes,$id);
                     if ($i === null) throw new RuntimeException('NODE_NOT_FOUND');
                     $metadata = (array)($nodes[$i]['metadata'] ?? []);
-                    if (($operation['expected_content_revision'] ?? null) !== (int)($metadata['content_revision'] ?? 0)) throw new RuntimeException('CONTENT_VERSION_CONFLICT');
+                    if (self::revision($operation['expected_content_revision'] ?? null, 'CONTENT_VERSION_REQUIRED') !== (int)($metadata['content_revision'] ?? 0)) throw new RuntimeException('CONTENT_VERSION_CONFLICT');
                     $patch = $operation['patch'] ?? [];
                     if (!is_array($patch) || array_diff(array_keys($patch),['title','content','prompt'])) throw new RuntimeException('INVALID_CONTENT_FIELD');
                     foreach ($patch as $field=>$value) {
@@ -64,10 +78,13 @@ final class GraphService
                     $metadata['content_revision']=(int)($metadata['content_revision']??0)+1;
                     $nodes[$i]['metadata']=$metadata;
                 } elseif ($op === 'move_nodes') {
-                    foreach ((array)($operation['nodes'] ?? []) as $move) {
+                    $moves = $operation['nodes'] ?? null;
+                    if (!is_array($moves) || !$moves || count($moves) > 200) throw new RuntimeException('INVALID_LAYOUT');
+                    foreach ($moves as $move) {
+                        if (!is_array($move) || (!array_key_exists('x', $move) && !array_key_exists('y', $move))) throw new RuntimeException('INVALID_LAYOUT');
                         $i = self::index($nodes,self::nodeId($move['id']??null));
                         if ($i===null) throw new RuntimeException('NODE_NOT_FOUND');
-                        if (($move['expected_layout_revision']??null)!==(int)($nodes[$i]['metadata']['layout_revision']??0)) throw new RuntimeException('LAYOUT_VERSION_CONFLICT');
+                        if (self::revision($move['expected_layout_revision']??null, 'LAYOUT_VERSION_REQUIRED')!==(int)($nodes[$i]['metadata']['layout_revision']??0)) throw new RuntimeException('LAYOUT_VERSION_CONFLICT');
                         if (array_diff(array_keys($move),['id','x','y','expected_layout_revision'])) throw new RuntimeException('INVALID_LAYOUT_FIELD');
                         self::geometry($move);
                         foreach (['x','y'] as $field) if (isset($move[$field])) $nodes[$i][$field]=$move[$field];
@@ -105,7 +122,20 @@ final class GraphService
         if (array_diff(array_keys($metadata),['content','prompt','groupId','model_code','channel','ratio','resolution','duration','count','quality'])) throw new RuntimeException('INVALID_METADATA_FIELD');
     }
     private static function geometry(array $node): void {
-        foreach (['x','y','width','height'] as $key) if (isset($node[$key]) && (!is_numeric($node[$key]) || !is_finite((float)$node[$key]) || abs((float)$node[$key])>10000000)) throw new RuntimeException('INVALID_GEOMETRY');
+        foreach (['x','y','width','height'] as $key) if (array_key_exists($key, $node) && (!is_numeric($node[$key]) || !is_finite((float)$node[$key]) || abs((float)$node[$key])>10000000 || (in_array($key,['width','height'],true) && (float)$node[$key]<=0))) throw new RuntimeException('INVALID_GEOMETRY');
+    }
+    private static function revision($value, string $error): int {
+        if ((!is_int($value) && !is_string($value)) || !preg_match('/^(0|[1-9][0-9]{0,9})$/D', (string)$value) || (float)$value > 4294967295) throw new RuntimeException($error);
+        return (int)$value;
+    }
+    private static function allocateNodeId(array $nodes, array $removed): int {
+        $maximum = 0;
+        foreach (array_merge(array_column($nodes, 'id'), $removed) as $id) {
+            // Preserve legacy IDs. Only supported numeric IDs participate in allocation.
+            if (preg_match('/^[1-9][0-9]{0,15}$/D', (string)$id)) $maximum = max($maximum, (int)$id);
+        }
+        if ($maximum >= 9007199254740991) throw new RuntimeException('NODE_ID_EXHAUSTED');
+        return $maximum + 1;
     }
     private static function nodeId($id): string {
         if ((!is_string($id)&&!is_int($id)) || !preg_match('/^[1-9][0-9]{0,15}$/D',(string)$id) || (float)$id>9007199254740991) throw new RuntimeException('INVALID_NODE_ID');
