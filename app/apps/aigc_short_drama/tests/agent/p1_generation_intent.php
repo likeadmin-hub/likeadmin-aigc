@@ -19,6 +19,8 @@ try {
     $intent=Intent::reserve(91001,92001,$id,'first','1','text',$input);
     $snapshot=json_decode($intent['snapshot_json'],true);
     agentCheck($snapshot['input']===$input && $snapshot['content_revision']===3,'intent freezes graph target revision and input snapshot');
+    $bound=Canvas::current(91001,92001,$id);
+    agentCheck((int)$bound['nodes'][0]['metadata']['active_generation_id']===(int)$intent['canvas_run_id'],'reservation atomically binds authoritative active generation');
     $received=0;
     for ($i=0;$i<10;$i++) {
         $duplicate=Intent::reserve(91001,92001,$id,'first','1','text',$input);
