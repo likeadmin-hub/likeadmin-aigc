@@ -64,13 +64,38 @@ try {
     agentCheck($conflict['code']!==1 && str_starts_with($conflict['msg'],'VERSION_CONFLICT'), 'HTTP stale numeric revision cannot bypass graph CAS');
     $wrongTenant = fixtureHttp('current', 'GET', ['id' => $id], 'isolated-http-fixture', 94002);
     agentCheck($wrongTenant['code'] !== 1, 'HTTP tenant resolver rejects unowned tenant context');
+    agentCheck($loaded['data']['agent_enabled']===false,'Agent is off without an explicit tenant configuration');
+    $patch=['canvas_id'=>$id,'request_key'=>'http-patch','expected_revision'=>1,'operations'=>[['op'=>'move_nodes','nodes'=>[['id'=>1,'x'=>777,'expected_layout_revision'=>$saved['data']['nodes'][0]['metadata']['layout_revision']]]]]];
+    $disabled=fixtureHttp('patch','POST',$patch+['agent_enabled'=>true]);
+    agentCheck($disabled['code']!==1 && $disabled['msg']==='CANVAS_AGENT_DISABLED','request body cannot enable disabled Agent graph writes');
+    if (Db::name('aigc_short_drama_config')->where('tenant_id',94001)->count()) throw new RuntimeException('Unexpected existing tenant Agent configuration');
+    $configId=Db::name('aigc_short_drama_config')->insertGetId(['tenant_id'=>94001,'config_json'=>'{"canvas_agent":{"enabled":true}}','status'=>1]);
+    $inserted[]=['aigc_short_drama_config',$configId];
+    $patched=fixtureHttp('patch','POST',$patch);
+    agentCheck($patched['code']===1 && $patched['data']['graph_revision']===2 && $patched['data']['nodes'][0]['x']===777,'explicit isolated opt-in permits authenticated graph patch');
+    $stable=true;
+    for ($i=0;$i<10;$i++) $stable=$stable && fixtureHttp('patch','POST',$patch)['data']===$patched['data'];
+    agentCheck($stable && Db::name('aigc_short_drama_canvas_mutation_receipt')->where('canvas_id',$id)->count()===1,'ten real HTTP patch retries return one stable receipt');
+    $changed=$patch;$changed['operations'][0]['nodes'][0]['x']=999;
+    $changedResult=fixtureHttp('patch','POST',$changed);
+    agentCheck($changedResult['code']!==1 && $changedResult['msg']==='IDEMPOTENCY_CONFLICT','HTTP changed payload cannot reuse patch key');
+    agentCheck(fixtureHttp('patch','POST',$patch,'')['code']!==1,'Agent patch requires authenticated user');
+    agentCheck(fixtureHttp('patch','POST',$patch,'isolated-http-fixture',94002)['code']!==1,'Agent patch rejects foreign tenant context');
+    Db::name('aigc_short_drama_config')->where('id',$configId)->update(['config_json'=>'{"canvas_agent":{"enabled":false}}']);
+    $disabled=fixtureHttp('patch','POST',$patch);
+    agentCheck($disabled['code']!==1 && $disabled['msg']==='CANVAS_AGENT_DISABLED','disabling Agent also stops graph receipt replay entry');
+    $manual=fixtureHttp('save','POST',['id'=>$id,'nodes'=>$patched['data']['nodes'],'edges'=>$patched['data']['edges'],'expected_revision'=>2]);
+    agentCheck($manual['code']===1 && $manual['data']['agent_enabled']===false,'manual save remains available with Agent explicitly disabled');
 } finally {
     if (is_resource($process)) {
         proc_terminate($process);
         foreach ($pipes as $pipe) fclose($pipe);
         proc_close($process);
     }
-    foreach ($canvasIds as $id) Db::name('aigc_short_drama_canvas')->where(['id' => $id, 'tenant_id' => 94001, 'user_id' => 95001])->delete();
+    foreach ($canvasIds as $id) {
+        Db::name('aigc_short_drama_canvas_mutation_receipt')->where(['canvas_id'=>$id,'tenant_id'=>94001,'user_id'=>95001])->delete();
+        Db::name('aigc_short_drama_canvas')->where(['id' => $id, 'tenant_id' => 94001, 'user_id' => 95001])->delete();
+    }
     foreach (array_reverse($inserted) as [$table, $id]) Db::name($table)->where('id', $id)->delete();
 }
 echo "NOT_RUN browser-to-database generation; HTTP fixture only permits read/create/save/list\n";
