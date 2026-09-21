@@ -69,6 +69,14 @@ try {
     Db::name(Intent::TABLE)->where('id',$claim['id'])->update(['lease_until'=>time()-1]);
     Intent::unknown(91001,92001,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version']);
     agentCheck(Db::name(Intent::TABLE)->where('id',$claim['id'])->value('state')==='needs_reconciliation','expired transport error records unknown outcome instead of losing recovery state');
+    $videoCanvas=Canvas::create(91001,92001,['title'=>'Unresolved video receipt'])['id'];
+    Canvas::save(91001,92001,['id'=>$videoCanvas,'nodes'=>[['id'=>1,'type'=>'video','metadata'=>[]]]]);
+    $video=Intent::reserve(91001,92001,$videoCanvas,'late-video','1','video',[]);
+    $claim=Intent::claim(91001,92001,(int)$video['id']);
+    $videoTask=Db::name('aigc_video_task')->insertGetId(['tenant_id'=>91001,'user_id'=>92001,'status'=>'success']);
+    Db::name(Intent::TABLE)->where('id',$claim['id'])->update(['lease_until'=>time()-1]);
+    Intent::accepted(91001,92001,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],(string)$videoTask,[],false);
+    agentCheck(Canvas::runDetail(91001,92001,(int)$claim['canvas_run_id'])['status']==='needs_reconciliation','ordinary media polling cannot resolve a fenced late receipt');
     $moved=Intent::reserve(91001,92001,$id,'movement','1','text',$input);
     $nodes=Canvas::current(91001,92001,$id)['nodes'];$nodes[0]['x']=999;
     Canvas::save(91001,92001,['id'=>$id,'nodes'=>$nodes]);
