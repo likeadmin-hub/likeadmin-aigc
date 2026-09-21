@@ -47,6 +47,14 @@ try {
     Db::name(Intent::TABLE)->where('id',$claim['id'])->update(['lease_until'=>time()-1]);
     agentCheck(Intent::expire(91001,92001,(int)$claim['id']) && Intent::claim(91001,92001,(int)$claim['id'])===null,'expired submit enters reconciliation instead of being requeued');
     intentReject(fn()=>Intent::accepted(91001,92001,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],'stale',[],true),'STALE_SUBMISSION_CLAIM');
+    $moved=Intent::reserve(91001,92001,$id,'movement','1','text',$input);
+    $nodes=Canvas::current(91001,92001,$id)['nodes'];$nodes[0]['x']=999;
+    Canvas::save(91001,92001,['id'=>$id,'nodes'=>$nodes]);
+    agentCheck(Intent::claim(91001,92001,(int)$moved['id'])!==null,'moving node does not invalidate frozen generation input');
+    $edited=Intent::reserve(91001,92001,$id,'edited','1','text',$input);
+    $nodes[0]['metadata']['prompt']='User changed prompt';
+    Canvas::save(91001,92001,['id'=>$id,'nodes'=>$nodes]);
+    agentCheck(Intent::claim(91001,92001,(int)$edited['id'])===null && Db::name(Intent::TABLE)->where('id',$edited['id'])->value('error_code')==='INPUT_CHANGED_BEFORE_SUBMIT','content change before claim cancels stale generation without submission');
     $deleted=Intent::reserve(91001,92001,$id,'deleted','1','text',$input);
     Canvas::save(91001,92001,['id'=>$id,'nodes'=>[],'removed_node_ids'=>['1']]);
     agentCheck(Intent::claim(91001,92001,(int)$deleted['id'])===null && Db::name(Intent::TABLE)->where('id',$deleted['id'])->value('state')==='canceled','node deleted before claim never reaches downstream');
