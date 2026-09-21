@@ -90,7 +90,7 @@ final class ConversationStore
             Db::name(self::PREFIX.'message')->insert($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>$sequence,'role'=>'user','content_json'=>self::json(['text'=>$content]),'attachments_json'=>'[]','create_time'=>$now]);
             $cursor=Db::name(self::PREFIX.'event')->insertGetId($scope+['thread_id'=>$thread,'run_id'=>$run,'sequence'=>1,'kind'=>'run.queued','payload_json'=>self::json(['status'=>'queued','message_sequence'=>$sequence]),'create_time'=>$now]);
             Db::name(self::PREFIX.'outbox')->insert($scope+['run_id'=>$run,'event_key'=>'run:'.$run,'available_at'=>$now,'create_time'=>$now,'update_time'=>$now]);
-            $ack=['thread_id'=>$thread,'run_id'=>$run,'status'=>'queued','event_cursor'=>$cursor,'message_sequence'=>$sequence];
+            $ack=['thread_id'=>$thread,'run_id'=>(int)$run,'status'=>'queued','event_cursor'=>(int)$cursor,'message_sequence'=>$sequence];
             Db::name(self::PREFIX.'run')->where('id',$run)->update(['ack_json'=>self::json($ack)]);
             Db::name(self::PREFIX.'thread')->where('id',$thread)->update(['active_run_id'=>$run,'next_message_sequence'=>$sequence+1,'update_time'=>$now]);
             return $ack;
