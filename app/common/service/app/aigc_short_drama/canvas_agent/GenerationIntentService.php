@@ -32,9 +32,10 @@ final class GenerationIntentService
                 if (!hash_equals($existing['request_hash'],$hash)) throw new RuntimeException('IDEMPOTENCY_CONFLICT');
                 return $existing;
             }
-            $node=null;
-            foreach (json_decode($document['nodes_json']?:'[]',true,512,JSON_THROW_ON_ERROR) as $candidate) {
-                if ((string)$candidate['id']===$nodeId) {$node=$candidate;break;}
+            $node=null;$nodeIndex=null;
+            $nodes=json_decode($document['nodes_json']?:'[]',true,512,JSON_THROW_ON_ERROR);
+            foreach ($nodes as $index=>$candidate) {
+                if ((string)$candidate['id']===$nodeId) {$node=$candidate;$nodeIndex=$index;break;}
             }
             if (!$node) throw new RuntimeException('NODE_NOT_FOUND');
             if (($node['type']??'')!==$type) throw new RuntimeException('NODE_TYPE_MISMATCH');
@@ -51,6 +52,12 @@ final class GenerationIntentService
                 'snapshot_json'=>self::json($snapshot),'state'=>'prepared','fencing_version'=>0,
                 'claim_token'=>'','lease_until'=>0,'provider_task_id'=>'','error_code'=>'','create_time'=>$now,'update_time'=>$now,
             ]);
+            // Bind the authoritative active generation before any provider call.
+            // A late earlier run may remain in history but cannot replace it.
+            $nodes[$nodeIndex]['metadata']=array_replace((array)($node['metadata']??[]),[
+                'canvasRunId'=>$run,'active_generation_id'=>$run,'status'=>'queued','progress'=>0,'error'=>'',
+            ]);
+            GraphService::persistLockedDocument($document,['nodes_json'=>self::json($nodes),'update_time'=>$now]);
             return Db::name(self::TABLE)->where('id',$id)->find();
         });
     }
