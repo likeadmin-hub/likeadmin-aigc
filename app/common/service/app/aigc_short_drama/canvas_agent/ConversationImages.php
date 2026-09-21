@@ -33,7 +33,7 @@ final class ConversationImages
                 $uri=$row['uri'];
                 if (preg_match('#^https?://#i',$uri)) $uri=(string)parse_url($uri,PHP_URL_PATH);
                 $uri=ltrim($uri,'/');
-                $ownedUpload=Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>10,'uri'=>$uri,'delete_time'=>0])->find();
+                $ownedUpload=Db::name('tenant_file')->where(['tenant_id'=>$tenant,'source'=>1,'source_id'=>$user,'type'=>10,'uri'=>$uri,'storage_engine'=>'local'])->whereRaw('(delete_time IS NULL OR delete_time = 0)')->find();
                 $ownedGenerated=false;
                 if (!$ownedUpload && $row['task_id']!=='') {
                     $task=Db::name('aigc_short_drama_generation_task')->where(['tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$row['canvas_id'],'task_id'=>$row['task_id'],'delete_time'=>0])->find();
