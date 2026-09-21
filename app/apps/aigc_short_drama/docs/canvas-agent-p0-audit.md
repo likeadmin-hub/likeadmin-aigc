@@ -717,4 +717,4 @@ P2 放行门槛仍未满足：A02 现有确认式文本版本证据，A03 仅候
 
 最终本地 develop 上串行 15 个后端 P2 套件：**718 PASS / 0 FAIL**（migration 48、conversation 63、concurrency 23、execution 71、settings 36、send 30、HTTP 51、safety 11、Worker 109、queue crash 31、stop 76、stop race 52、recovery 84、attachments 22、reconciliation 11）。前端本轮 Markdown/reader/state **22 PASS / 0 FAIL**。隔离测试使用 internal 网络和独立数据库；真实费用仅为上述明确列出的业务样本。第 26 节浏览器桥 12 PASS 是保留的历史证据，不伪称本轮重跑。
 
-**阶段结论：P2 按原清单本地放行，进入 P3。** 当前 P3 尚无专属 M01—M12 全套测试，下一步先补共享能力矩阵与四节点引用行为夹具，不能将已有手工生成或静态合同测试等同 P3 全通过。P4—P6 NOT_RUN。SSE 当前返回持久完整回复，不是逐 token 输出；PDF/Office/音视频解析、外部语义审核、Provider 取消/未知用量查询等能力继续如实保留在后续阶段，不借放行结论宣称已实现。
+**阶段结论：P2 按原清单本地放行，进入 P3。** 当前 P3 尚无专属 M01—M16 全套测试，下一步先补共享能力矩阵与四节点引用行为夹具，不能将已有手工生成或静态合同测试等同 P3 全通过。P4—P6 NOT_RUN。SSE 当前返回持久完整回复，不是逐 token 输出；PDF/Office/音视频解析、外部语义审核、Provider 取消/未知用量查询等能力继续如实保留在后续阶段，不借放行结论宣称已实现。
