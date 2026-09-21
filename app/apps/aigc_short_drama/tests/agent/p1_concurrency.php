@@ -6,9 +6,32 @@ use think\facade\Db;
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\GraphService as Graph;
 
+function posterRaceNode(): array
+{
+    return ['id' => 1, 'type' => 'video', 'x' => 10, 'y' => 20, 'metadata' => [
+        'url' => 'uploads/fixtures/race.mp4', 'poster_uri' => 'uploads/fixtures/old.jpg',
+        'poster_url' => '/uploads/fixtures/old.jpg', 'poster_status' => 'ready',
+    ]];
+}
+
 if (($argv[1] ?? '') === 'worker') {
     echo "READY\n";
     if (trim((string)fgets(STDIN)) !== 'GO') throw new RuntimeException('Missing barrier release');
+    if ($argv[3] === 'poster-save') {
+        $node = posterRaceNode();
+        $node['x'] = 999;
+        Canvas::save(91001, 92001, ['id' => (int)$argv[2], 'nodes' => [$node]]);
+        echo "{\"ok\":true}\n";
+        exit(0);
+    }
+    if ($argv[3] === 'poster-project') {
+        $project = new ReflectionMethod(\app\common\service\app\aigc_short_drama\ShortDramaCanvasPosterJobService::class, 'updateCanvasNodePoster');
+        $project->setAccessible(true);
+        $project->invoke(null, ['canvas_id' => (int)$argv[2], 'tenant_id' => 91001, 'user_id' => 92001, 'node_id' => '1', 'video_uri' => 'uploads/fixtures/race.mp4'],
+            ['uri' => 'uploads/fixtures/new.jpg', 'storage_scope' => 'tenant', 'storage_engine' => 'local', 'storage_domain' => '']);
+        echo "{\"ok\":true}\n";
+        exit(0);
+    }
     try {
         $result = Graph::patch(91001, 92001, (int)$argv[2], [
             'request_key' => $argv[3], 'expected_revision' => 0,
@@ -71,6 +94,15 @@ try {
     agentCheck(count(array_filter($results, static fn($result) => isset($result['ok']))) === 1, 'G01 only one same-base concurrent writer succeeds');
     agentCheck(count(array_filter($results, static fn($result) => ($result['error'] ?? '') === 'VERSION_CONFLICT')) === 1, 'G01 other concurrent writer receives version conflict');
     agentCheck(Db::name(Graph::RECEIPTS)->where('canvas_id', $id)->count() === 1, 'G01 rejected writer does not leave receipt');
+
+    $id = Canvas::create(91001, 92001, ['title' => 'P1 actual save/poster projection race'])['id'];
+    $ownedIds[] = $id;
+    Db::name(Graph::TABLE)->where('id', $id)->update(['nodes_json' => json_encode([posterRaceNode()])]);
+    $results = raceGraph($id, ['poster-save', 'poster-project']);
+    agentCheck($results === [['ok' => true], ['ok' => true]], 'G11 actual save and poster projection complete in independent processes');
+    $node = Canvas::current(91001, 92001, $id)['nodes'][0];
+    agentCheck($node['x'] === 999, 'G11 concurrent poster projection preserves saved position');
+    agentCheck($node['metadata']['poster_uri'] === 'uploads/fixtures/new.jpg', 'G11 concurrent old snapshot save preserves newly projected poster');
 } finally {
     // Transactions cannot cover independent processes. Remove only exact rows
     // created by this invocation, always scoped to isolated fixture ownership.
@@ -79,4 +111,4 @@ try {
         Db::name(Graph::TABLE)->where(['id' => $id, 'tenant_id' => 91001, 'user_id' => 92001])->delete();
     }
 }
-echo "NOT_RUN browser concurrent saves and existing background writers; GraphService remains unexposed\n";
+echo "NOT_RUN browser concurrent saves and full poster extraction worker; actual save/projector boundary tested; GraphService remains unexposed\n";
