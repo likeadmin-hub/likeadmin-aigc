@@ -194,6 +194,8 @@ final class GenerationIntentService
                     $field=['image'=>'image','video'=>'video_url','audio'=>'audio_url'][$run['node_type']]??null;
                     if (!$field) return false;
                     $metadata[$field]=(string)$media['url'];
+                    $metadata['uri']=(string)($media['uri']??$metadata['uri']??'');
+                    if ((int)($media['asset_id']??0)>0) $metadata['asset_id']=(int)$media['asset_id'];
                     foreach (['storage_scope','storage_engine','storage_domain'] as $key) $metadata[$key]=(string)($media[$key]??'');
                     if ($run['node_type']==='video') {
                         $metadata['poster_url']=(string)($media['poster_url']??'');

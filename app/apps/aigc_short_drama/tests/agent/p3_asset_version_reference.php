@@ -31,8 +31,10 @@ try {
     $run=Canvas::submitIdempotent(91001,92001,$request);
     $stored=json_decode((string)Db::name('aigc_short_drama_canvas_run')->where('id',$run['id'])->value('request_json'),true,512,JSON_THROW_ON_ERROR);
     agentCheck($run['status']==='success' && count(P3AssetVersionVideoProvider::$requests)===1,'M16 selected old asset version submits one video run');
-    agentCheck((int)$stored['reference_assets'][0]['asset_id']===$old && str_contains((string)$stored['reference_assets'][0]['url'],'old-version.png') && !str_contains((string)$stored['reference_assets'][0]['url'],'forged.invalid'),'M16 request snapshot resolves selected old asset identity rather than browser URL');
-    agentCheck((int)P3AssetVersionVideoProvider::$requests[0]['reference_assets'][0]['asset_id']===$old && str_contains((string)P3AssetVersionVideoProvider::$requests[0]['reference_assets'][0]['url'],'old-version.png'),'M16 Provider receives the user-selected old asset version');
+agentCheck((int)$stored['reference_assets'][0]['asset_id']===$old && str_contains((string)$stored['reference_assets'][0]['url'],'old-version.png') && !str_contains((string)$stored['reference_assets'][0]['url'],'forged.invalid'),'M16 request snapshot resolves selected old asset identity rather than browser URL');
+agentCheck((int)P3AssetVersionVideoProvider::$requests[0]['reference_assets'][0]['asset_id']===$old && str_contains((string)P3AssetVersionVideoProvider::$requests[0]['reference_assets'][0]['url'],'old-version.png'),'M16 Provider receives the user-selected old asset version');
+$history=Db::name('aigc_short_drama_generation_task')->where(['tenant_id'=>91001,'user_id'=>92001,'task_id'=>'canvas_run_'.(int)$run['id']])->find();
+agentCheck($history && json_decode((string)$history['input_asset_ids'],true)===[(int)$old],'M16 task history records the linked input asset identity');
     agentCheck(Db::name('aigc_short_drama_asset')->where(['id'=>$new,'delete_time'=>0,'status'=>'ready'])->count()===1,'M16 newer version remains separate and does not replace selected old asset');
     $foreign=Db::name('aigc_short_drama_asset')->insertGetId(array_replace($assetBase,['user_id'=>92002,'task_id'=>'foreign','uri'=>'https://fixtures.invalid/foreign.png']));
     $blocked=false;
