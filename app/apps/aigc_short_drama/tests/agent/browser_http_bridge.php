@@ -9,8 +9,13 @@ use app\common\service\app\aigc_short_drama\canvas_agent\GraphService as Graph;
 // JSON-lines bridge to real HTTP inside the internal network. No host port,
 // business credentials, arbitrary URLs, provider routes or user profile.
 $inserted=[];$canvasId=0;$process=null;
-$mockGeneration=($argv[1]??'')==='mock-generation';
-$agentConversation=($argv[1]??'')==='agent-conversation';
+$mode=(string)($argv[1]??'');
+// The combined mode is an isolated test-only fixture. It proves that an
+// explicit Agent-panel node submission and a manual replay hit the same
+// CanvasService intent without exposing either route outside the internal
+// Docker test network.
+$mockGeneration=in_array($mode,['mock-generation','agent-generation'],true);
+$agentConversation=in_array($mode,['agent-conversation','agent-generation'],true);
 try {
     if (Db::name('tenant')->where('id',94011)->count() || Db::name('user')->where('id',95011)->count() || Db::name('app')->whereIn('code',['aigc_short_drama','aigc_canvas'])->count()) throw new RuntimeException('Browser fixture scope is not empty');
     foreach ([
@@ -44,7 +49,9 @@ try {
         Db::name('user')->where('id',95011)->update(['user_money'=>100]);
     }
     $canvasId=Canvas::create(94011,95011,['title'=>'HTTP browser fixture'])['id'];
-    $router=$mockGeneration?'/browser_generation_router.php':($agentConversation?'/browser_agent_router.php':'/http_router.php');
+    $router=$mode==='agent-generation'
+        ? '/browser_agent_generation_router.php'
+        : ($mockGeneration?'/browser_generation_router.php':($agentConversation?'/browser_agent_router.php':'/http_router.php'));
     $process=proc_open([PHP_BINARY,'-S','127.0.0.1:19080','-t',app()->getRootPath().'public',__DIR__.$router],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
     if (!is_resource($process)) throw new RuntimeException('Cannot start isolated HTTP fixture');
     $ready=false;
