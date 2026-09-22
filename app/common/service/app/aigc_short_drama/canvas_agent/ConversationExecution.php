@@ -62,7 +62,7 @@ final class ConversationExecution
             $workflow=(array)($context['workflow']??[]);
             $currentThreadSettings=(array)json_decode((string)$thread['settings_json'],true,512,JSON_THROW_ON_ERROR);
             $proposals=ConversationWorkflow::materializeTextReferences($workflow,$proposals);
-            $planSettings=ConversationWorkflow::freezeImagePlanLocked($tenant,$workflow,$settings,$context,$proposals,$runId,$currentThreadSettings);
+            $planSettings=ConversationWorkflow::freezeImagePlanLocked($tenant,$workflow,$settings,$context,$proposals,$runId,$currentThreadSettings,$document);
             $stagePlanSettings=$planSettings===null
                 ? ConversationWorkflow::freezeStagePlanLocked($workflow,$context,$proposals,$runId,$currentThreadSettings)
                 : null;

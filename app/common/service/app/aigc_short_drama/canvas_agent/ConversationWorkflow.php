@@ -273,7 +273,7 @@ final class ConversationWorkflow
      * The estimate is a local catalog/billing read only; no task, reservation
      * or Provider request happens on this path.
      */
-    public static function freezeImagePlanLocked(int $tenant,array $workflow,array $settings,array $context,array $proposals,int $runId,array $threadSettings): ?array
+    public static function freezeImagePlanLocked(int $tenant,array $workflow,array $settings,array $context,array $proposals,int $runId,array $threadSettings,array $document): ?array
     {
         if (($workflow['workflow_snapshot']['key']??'')!==self::KEY || ($settings['generation_mode']??'manual')!=='auto') return null;
         $stage=(string)($workflow['stage_state']['key']??'');
@@ -299,12 +299,39 @@ final class ConversationWorkflow
             $quotes[]=self::publicImageQuote($quote);
         }
         $sources=[];
+        $live=[];
+        foreach (json_decode((string)($document['nodes_json']??'[]'),true,512,JSON_THROW_ON_ERROR) as $node) if (is_array($node)) $live[(string)($node['id']??'')]=$node;
+        $source=static function (array $node): array {
+            $meta=(array)($node['metadata']??[]);
+            return ['id'=>(string)$node['id'],'type'=>(string)($node['type']??''),'content_revision'=>(int)($meta['content_revision']??0),
+                'asset_id'=>(int)($meta['asset_id']??0),'projected_generation_id'=>(int)($meta['projected_generation_id']??0)];
+        };
         foreach ((array)($context['selected_nodes']??[]) as $node) {
             if (!is_array($node) || !preg_match('/^[1-9][0-9]{0,15}$/D',(string)($node['id']??''))) continue;
-            $source=['id'=>(string)$node['id'],'type'=>(string)($node['type']??''),'content_revision'=>(int)($node['content_revision']??0)];
-            if (is_array($node['image_asset']??null)) $source['image_asset']=array_intersect_key($node['image_asset'],array_flip(['id','uri','storage_scope','storage_engine','storage_domain']));
-            $sources[]=$source;
+            $id=(string)$node['id'];
+            if (!isset($live[$id])) throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
+            $item=$source($live[$id]);
+            if ($item['type']!==(string)($node['type']??'') || $item['content_revision']!==(int)($node['content_revision']??0)) throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
+            if (is_array($node['image_asset']??null)) $item['image_asset']=array_intersect_key($node['image_asset'],array_flip(['id','uri','storage_scope','storage_engine','storage_domain']));
+            $sources[$id]=$item;
         }
+        if (self::compactOutput($workflow)) {
+            $memory=[];
+            foreach ((array)($workflow['artifact_memory']??[]) as $artifact) if (is_array($artifact) && ($artifact['reference_key']??'')!=='') $memory[(string)$artifact['reference_key']]=$artifact;
+            foreach ($proposals as $proposal) foreach ((array)($proposal['reference_keys']??[]) as $key) {
+                $key=(string)$key;
+                if (str_starts_with($key,'selected:node_')) {
+                    $id=substr($key,14);
+                    if (!isset($sources[$id])) throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
+                    continue;
+                }
+                $artifact=$memory[$key]??null;
+                $id=(string)($artifact['node_id']??'');
+                if ($id==='' || !isset($live[$id]) || (string)($live[$id]['metadata']['workflow_key']??'')!==$key) throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
+                $sources[$id]=$source($live[$id]);
+            }
+        }
+        $sources=array_values($sources);
         $attachments=[];
         foreach ((array)($context['attachment_images']??[]) as $asset) if (is_array($asset) && (int)($asset['id']??0)>0) $attachments[]=array_intersect_key($asset,array_flip(['id','uri','storage_scope','storage_engine','storage_domain']));
         $plan=['nodes'=>array_values($proposals),'sources'=>$sources,'attachment_images'=>$attachments,'image_model'=>self::publicModel($model),'parameters'=>['quantity'=>1],'quotes'=>$quotes,'run_id'=>$runId];
@@ -605,6 +632,8 @@ final class ConversationWorkflow
             if (!is_array($source) || !isset($live[(string)($source['id']??'')])) throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
             $node=$live[(string)$source['id']];
             if (($node['type']??'')!==($source['type']??'') || (int)($node['metadata']['content_revision']??0)!==(int)($source['content_revision']??0)) throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
+            if (array_key_exists('asset_id',$source) && (int)($node['metadata']['asset_id']??0)!==(int)$source['asset_id']) throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
+            if (array_key_exists('projected_generation_id',$source) && (int)($node['metadata']['projected_generation_id']??0)!==(int)$source['projected_generation_id']) throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
         }
         foreach ((array)($plan['attachment_images']??[]) as $asset) {
             if (!is_array($asset) || (int)($asset['id']??0)<=0) throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
