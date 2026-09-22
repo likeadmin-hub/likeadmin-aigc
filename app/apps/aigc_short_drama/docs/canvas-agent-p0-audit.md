@@ -1063,7 +1063,7 @@ web `dbf5b64` 在 Composer 上传链补齐 P4 的首个可靠性切片：附件�
 - PASS / R18 解析失败边界：同一测试逐项覆盖 `.pdf`、`.doc`、`.docx` 的明确拒绝文案及“未创建任务”语义；现有 Composer 回归与其合并运行，共 **19 PASS / 0 FAIL**。
 - 未宣称完整 PASS：浏览器对真正进行中的 HTTP 上传尚未具备取消/删除临时对象的服务端契约，因此本轮不把物理上传中断或临时文件清理伪称完成；P4 的 R17/R18 仍需该后端能力及端到端行为验收。没有 Provider 调用、付费扣费、业务库写入、迁移、部署或推送。
 
-## 63. P4 Agent PDF/DOC/DOCX 附件解析入口（待本地 develop 验证，2026-09-22）
+## 63. P4 Agent PDF/DOC/DOCX 附件解析入口（本地回归通过，真实解析待验收，2026-09-22）
 
 用户确认上游 `file_qa` 支持 PDF、DOC、DOCX，因此撤回第 62 节“明确拒绝 Office 文件”的临时边界；该拒绝不会作为产品能力保留。
 
@@ -1072,4 +1072,22 @@ web `dbf5b64` 在 Composer 上传链补齐 P4 的首个可靠性切片：附件�
 - 解析/上下文：解析任务只经 `MarketFileQaAppRuntimeService` 提交与轮询，持久化在已归属的短剧资产元数据中；成功后只冻结上游返回的至多 100KB UTF-8 结果。会话历史和浏览器只保留 `{type: document, asset_id, name}`，不泄露 URI、签名 URL 或 Provider 诊断；服务端在创建不可变 run 快照时才把受控结果转换成不可信文本材料。
 - UI：附件状态为“上传中 → 待确认解析 → 解析中 → 可发送 / 失败”。待解析或解析中不能发送；PDF/DOC/DOCX 解析完成后与 TXT/Markdown、图片一起走同一 Agent 消息请求键，不会创建画布节点。
 
-本节仅记录实现范围，**尚未标记 PASS**：需要按分支规则合入本地 develop 后运行前端/隔离后端回归；真实上游解析仍要求用户看到具体 quote 后逐笔确认，不能用本次源码修改代替付费 Provider 验收。
+- PASS / 隔离后端：`p2_attachments.php` **33 PASS / 0 FAIL**，覆盖 PDF/DOC/DOCX 附件规范化、当前 tenant/user/canvas 归属、不可变上下文身份与解析状态边界；未使用真实 Provider。
+
+- PASS / PC 回归：`short-drama-p4-attachments.test.cjs`、Composer 与会话附件相关测试共 **26 PASS / 0 FAIL**，覆盖上传→待确认→解析中→可发送状态、撤销晚到结果和 document-only API payload。
+
+真实上游解析仍为 **NOT_RUN**：必须在用户看到该具体文档、模型与 quote 后逐笔确认，不能将本地回归当作付费 Provider 验收。
+
+## 64. P3 节点输出资产化与下游连接闭环（2026-09-22）
+
+此前画布已具备文本、图片、视频节点的提交、投影和连线能力，但媒体节点完成后只向浏览器回传交付 URL；下游边引用因此可能依赖会过期的签名 URL，且短剧生成历史没有记录已选择输入素材的持久身份。本轮将画布链路收敛为“输出结果 → tenant-owned asset → 节点元数据 → 下游 `reference_assets` → Provider/账本历史”。音频未在本轮新增或扩展。
+
+- 实现：图片/视频任务同步生成短剧资产时，将对应 `asset_id` 写回画布 run 的 `results`；意图投影把 `asset_id` 和稳定 `uri` 写入权威节点。轮询后的前端只读取并保存服务端给出的身份，不能伪造。
+- 实现：上传素材在创建画布节点后立即登记为当前 canvas 资产；登记失败则该上传不会显示为可用于后续生成的成功素材。新建连线优先提交 `asset_id`，以资产 ID（再到 URI/URL）去重，因此签名 URL 刷新不会把同一素材错误扩展成两份 Provider 引用。
+- 实现：短剧生成历史 `input_asset_ids` 由已解析的 `reference_assets` 写入，输出资产继续写入 `output_asset_ids`。服务端仍在提交时按 tenant/user/canvas、状态和允许资产类型重新解析 ID，浏览器 URL 不是授权凭证。
+- PASS / 节点投影：隔离 `p1_generation_projection.php` **38 PASS / 0 FAIL**。文本、图片、视频、音频的旧结果保护和投影仍通过；图片、视频、音频的投影均验证保留了服务端 output asset identity。该项为无 Provider 的数据库行为测试。
+- PASS / 连接与浏览器输入：本地 web develop 运行 `short-drama-canvas-connections.test.cjs`、`short-drama-canvas-idempotent-run.test.cjs` 共 **16 PASS / 0 FAIL**。覆盖四节点连线能力、连接输入带入生成 payload、Agent/手动共用提交路径、上传登记、ID 去重、报价确认与结果 URL 刷新不重提。
+- PASS / 资产版本与历史：隔离 `p3_asset_version_reference.php` **6 PASS / 0 FAIL**。用户明确选择旧图片资产时，run 快照和模拟 Video Provider 均收到旧 `asset_id`/URI，短剧历史记录同一 input asset ID；新版本、伪造 URL 和其他用户资产不能替换该选择。该 fixture 现执行完整 quote → confirm → submit 流程。
+- PASS / 报价保护回归：隔离 `p3_quote_confirmation.php` **9 PASS / 0 FAIL**，确认同一资产版本、模型、分辨率、时长或目标节点内容变更仍会在 Provider 前失效。
+
+本节不把隔离模拟 Provider 记为真实付费媒体调用；真实文本和视频的既有本地证据仍见第 51、52、59 节。若实际使用图片或视频模型，PC 仍必须先展示该次报价并由用户确认；本轮没有新付费调用、生产操作、部署、发布或推送。
