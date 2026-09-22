@@ -116,6 +116,7 @@ try {
     agentCheck(!str_contains($sse,'private late evidence') && str_contains($sse,'needs_reconciliation'),'SSE excludes private late reply evidence');
     $workflowThread=agentHttp('createThread','POST',['canvas_id'=>$canvas,'request_key'=>'workflow-thread'])['data']['id'];
     $workflowSend=agentHttp('send','POST',['canvas_id'=>$canvas,'thread_id'=>$workflowThread,'request_key'=>'workflow-route','content'=>'我想创作一部悬疑短剧','base_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'manual']]);
+    if ($workflowSend['code']!==1) throw new RuntimeException('Workflow send failed: '.json_encode($workflowSend,JSON_UNESCAPED_UNICODE));
     agentCheck($workflowSend['code']===1,'HTTP accepts a semantic short-drama workflow route without invoking a Provider');
     $workflowArgs=['canvas_id'=>$canvas,'thread_id'=>$workflowThread];
     $workflowView=agentHttp('workflow','GET',$workflowArgs);
