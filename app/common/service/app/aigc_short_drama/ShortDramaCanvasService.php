@@ -497,11 +497,15 @@ class ShortDramaCanvasService
             'error' => (string)($task['error'] ?? $task['error_msg'] ?? ''),
             'result_json' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'update_time' => time(),
         ]);
+        // Asset registration enriches the immutable run result with the
+        // canvas-owned asset id. Do it before intent projection: downstream
+        // nodes must receive an identity that survives a signed URL refresh.
+        self::syncShortDramaTask((int)$run['id']);
+        $run = Db::name(self::RUN_TABLE)->where('id', $run['id'])->find() ?: $run;
         if (!$intentRun && $type === 'video' && $status === 'success' && $urls) {
             self::projectVideoRunToCanvas($run, $urls[0]);
         }
         if ($intentRun) GenerationIntentService::projectResult((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
-        self::syncShortDramaTask((int)$run['id']);
     }
 
     /** Persist completed video metadata even when the browser closes before its next poll. */
@@ -575,6 +579,10 @@ class ShortDramaCanvasService
         }
         $now = time();
         $request = self::decode((string)$run['request_json']);
+        $inputAssetIds = array_values(array_unique(array_filter(array_map(
+            static fn($reference): int => is_array($reference) ? (int)($reference['asset_id'] ?? 0) : 0,
+            (array)($request['reference_assets'] ?? [])
+        ))));
         $skill = (array)($request['skill_snapshot'] ?? []);
         $data = [
             'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'project_id' => 0, 'canvas_id' => (int)$run['canvas_id'], 'shot_id' => '',
@@ -586,7 +594,7 @@ class ShortDramaCanvasService
             'market_product_id' => (int)($source['market_product_id'] ?? 0), 'market_sku_id' => (int)($source['market_sku_id'] ?? 0),
             'status' => $status, 'progress' => (int)$run['progress'], 'provider' => (string)($source['provider'] ?? 'canvas'), 'provider_task_id' => (string)($source['provider_task_id'] ?? ''),
             'provider_request_id' => (string)($source['provider_request_id'] ?? ''), 'model_json' => json_encode((array)($source['model'] ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'request_json' => (string)$run['request_json'],
-            'result_json' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'input_asset_ids' => '[]',
+            'result_json' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'input_asset_ids' => json_encode($inputAssetIds),
             'pricing_snapshot' => json_encode((array)($source['pricing'] ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'billing_status' => (string)($source['billing_status'] ?? 'delegated'), 'tenant_cost_points' => (float)($source['tenant_cost_points'] ?? 0), 'user_charge_points' => (float)($source['user_charge_points'] ?? 0),
             'idempotency_key' => sha1((int)$run['tenant_id'] . '|' . (int)$run['user_id'] . '|' . $taskId), 'retry_count' => 0,
             'error_code' => $status === 'failed' ? 'canvas_generation_failed' : '', 'error_msg' => (string)$run['error'],
@@ -603,6 +611,7 @@ class ShortDramaCanvasService
         $providerTaskId = (int)$run['provider_task_id'];
         if ($providerTaskId <= 0) return;
         $assetIds = [];
+        $assetIdsByUri = [];
         foreach (Db::name($resultTable)->where(['tenant_id' => (int)$run['tenant_id'], 'task_id' => $providerTaskId, 'delete_time' => 0])->select()->toArray() as $index => $item) {
             $uri = (string)($item[$column] ?? '');
             if ($uri === '') continue;
@@ -617,8 +626,25 @@ class ShortDramaCanvasService
                 ]);
             } else $assetId = (int)$asset['id'];
             $assetIds[] = $assetId;
+            $assetIdsByUri[$uri] = $assetId;
         }
-        if ($assetIds) Db::name('aigc_short_drama_generation_task')->where(['tenant_id' => (int)$run['tenant_id'], 'task_id' => $taskId])->update(['output_asset_ids' => json_encode($assetIds), 'update_time' => time()]);
+        if (!$assetIds) return;
+        // Keep the task history and the canvas run in sync. The run is what
+        // Graph projection and browser polling consume, so it must expose the
+        // same durable output identity as the asset library.
+        $resultItems = (array)($result['results'] ?? $result['images'] ?? $result['videos'] ?? []);
+        foreach ($resultItems as &$item) {
+            if (!is_array($item)) continue;
+            $uri = self::canvasStoredUri((string)($item['uri'] ?? $item['url'] ?? ''));
+            if ($uri !== '' && isset($assetIdsByUri[$uri])) $item['asset_id'] = $assetIdsByUri[$uri];
+        }
+        unset($item);
+        $result['results'] = $resultItems;
+        $encodedResult = json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        Db::name(self::RUN_TABLE)->where('id', (int)$run['id'])->update(['result_json' => $encodedResult, 'update_time' => time()]);
+        Db::name('aigc_short_drama_generation_task')->where(['tenant_id' => (int)$run['tenant_id'], 'task_id' => $taskId])->update([
+            'output_asset_ids' => json_encode($assetIds), 'result_json' => $encodedResult, 'update_time' => time(),
+        ]);
     }
 
     /** Read only the auditable fields from the task created by the delegated runtime. */

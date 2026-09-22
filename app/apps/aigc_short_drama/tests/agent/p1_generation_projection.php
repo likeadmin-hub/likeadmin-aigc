@@ -5,7 +5,7 @@ use think\facade\Db;
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\GenerationIntentService as Intent;
 function projectedFixture(string $type,string $version): array {
-    return $type==='text'?['content'=>'Result '.$version]:['results'=>[['url'=>'uploads/fixture/'.$version,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','poster_url'=>'uploads/fixture/poster.jpg']]];
+    return $type==='text'?['content'=>'Result '.$version]:['results'=>[['url'=>'uploads/fixture/'.$version,'uri'=>'uploads/fixture/'.$version,'asset_id'=>123,'storage_scope'=>'tenant','storage_engine'=>'local','storage_domain'=>'','poster_url'=>'uploads/fixture/poster.jpg']]];
 }
 function finishFixture(array $claim,string $type,string $version): void {
     Intent::accepted(91001,92001,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],'fixture-'.$version,projectedFixture($type,$version),true);
@@ -24,6 +24,7 @@ try {
         $current=Canvas::current(91001,92001,$id);
         $field=$type==='text'?'content':'url';$expected=$type==='text'?'Result B':'uploads/fixture/B';
         agentCheck($current['nodes'][0]['x']===999 && $current['nodes'][0]['metadata'][$field]===$expected,$type.' background result preserves concurrent movement');
+        if (in_array($type,['image','video','audio'],true)) agentCheck((int)($current['nodes'][0]['metadata']['asset_id']??0)===123,$type.' projection retains durable output asset identity');
         if ($type==='text') agentCheck($current['nodes'][0]['metadata']['richContent']==='','text generation removes obsolete rich-text preview');
         $revision=$current['graph_revision'];
         agentCheck(!Intent::projectResult(91001,92001,(int)$b['canvas_run_id']) && Canvas::current(91001,92001,$id)['graph_revision']===$revision,$type.' duplicate projection does not change graph revision');
