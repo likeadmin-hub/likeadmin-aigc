@@ -19,13 +19,12 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         }
         $settings=(array)($request['settings']??[]);
         $selection=(array)($settings['reasoning_model']??[]);
-        if ((string)($selection['id']??'')==='') {
-            throw new RuntimeException('REASONING_MODEL_UNAVAILABLE');
-        }
         // This is a local market/catalog lookup. It must succeed before the
-        // shared runtime creates a billable consumption record.
+        // shared runtime creates a billable consumption record. A missing or
+        // image-incompatible browser preference intentionally resolves to an
+        // enabled tenant model here; model routing is server-owned.
         $images=ConversationImages::urls($tenant,$user,(array)($request['context']??[]));
-        MarketTextModelRuntimeService::resolveModel($tenant,$selection,$images!==[]);
+        MarketTextModelRuntimeService::resolveRoutedModel($tenant,$selection,$images!==[]);
     }
 
     public function generate(int $tenant,int $user,array $request): array

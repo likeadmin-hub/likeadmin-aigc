@@ -403,8 +403,16 @@ class ShortDramaCanvasService
         // Use the winner's persisted snapshot, never the losing request's newly
         // resolved Skill/model input. Provider I/O is outside intent transactions.
         $snapshot=json_decode($claim['snapshot_json'],true,512,JSON_THROW_ON_ERROR);
+        $executionInput=$snapshot['input'];
+        if ($type==='text') {
+            // Persist the canvas-run ownership before a synchronous text call.
+            // This makes a failed initial model and any server-routed fallback
+            // auditable without relying on browser state.
+            $executionInput['business_table']=self::RUN_TABLE;
+            $executionInput['business_id']=$runId;
+        }
         try {
-            $result=self::executeGenerationPayload($type,$tenantId,$userId,$snapshot['input']);
+            $result=self::executeGenerationPayload($type,$tenantId,$userId,$executionInput);
         } catch (\app\common\service\ai\PreSubmissionRejected $error) {
             GenerationIntentService::rejected($tenantId,$userId,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],$error);
             self::syncShortDramaTask($runId);
@@ -741,14 +749,23 @@ class ShortDramaCanvasService
     {
         $prompt = trim((string)($params['prompt'] ?? $params['content'] ?? ''));
         if ($prompt === '') throw new Exception('请输入提示内容');
+        $referenceAssets=self::resolveOwnedReferenceAssets($tenantId, $userId, $canvasId, (array)($params['reference_assets'] ?? []));
+        // Owned user uploads take precedence over transient URLs. Their signed
+        // delivery URLs are resolved server-side and image references force the
+        // shared text runtime onto a vision-capable tenant model.
+        $referenceImages=[];
+        foreach ($referenceAssets as $reference) {
+            if (is_array($reference) && strtolower((string)($reference['type'] ?? ''))==='image' && trim((string)($reference['url'] ?? ''))!=='') $referenceImages[]=(string)$reference['url'];
+        }
+        foreach ((array)($params['reference_images'] ?? []) as $image) if (is_string($image) && trim($image)!=='') $referenceImages[]=trim($image);
         $payload = [
             'prompt' => $prompt, 'content' => $prompt, 'channel' => (string)($params['channel'] ?? ''),
             'model_code' => (string)($params['model_code'] ?? ''), 'model_id' => (string)($params['model_id'] ?? ''),
             'ratio' => (string)($params['ratio'] ?? $params['aspect_ratio'] ?? ''), 'duration' => (int)($params['duration'] ?? 0),
             'quantity' => max(1, min(4, (int)($params['count'] ?? $params['quantity'] ?? 1))),
             'generation_method' => (string)($params['generation_method'] ?? $params['generationMethod'] ?? ''),
-            'reference_images' => array_values((array)($params['reference_images'] ?? [])),
-            'reference_assets' => self::resolveOwnedReferenceAssets($tenantId, $userId, $canvasId, (array)($params['reference_assets'] ?? [])),
+            'reference_images' => array_values(array_unique($referenceImages)),
+            'reference_assets' => $referenceAssets,
             'source_app_code' => AigcShortDramaService::APP_CODE,
         ];
         if ($type === 'audio') $payload['lyrics'] = (string)($params['lyrics'] ?? '');
