@@ -42,7 +42,7 @@ try {
         Canvas::submitIdempotent(91034,92034,['canvas_id'=>$canvas,'node_id'=>(string)$nodes[1]['id'],'type'=>'image','prompt'=>'不应在前序完成前调用','channel'=>'image-model','request_key'=>'manual-dependency-probe']);
         throw new RuntimeException('manual dependency bypassed');
     } catch (\Exception $error) {
-        agentCheck($error->getMessage()==='前序节点尚未生成完成，请稍后再试','manual submit uses the same dependency gate before intent or Provider');
+        agentCheck($error->getMessage()==='前序或引用节点尚未生成完成，请稍后再试','manual submit uses the same dependency gate before intent or Provider');
     }
     agentCheck(Db::name('aigc_short_drama_canvas_run')->where(['tenant_id'=>91034,'user_id'=>92034,'canvas_id'=>$canvas])->count()===$runsBefore,'manual dependency gate creates no run before its prerequisite');
     $nodes[0]['metadata']['status']='running';
