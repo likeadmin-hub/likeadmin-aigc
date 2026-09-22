@@ -969,3 +969,14 @@ server `449e0346f` 将此前可执行的授权服务覆盖扩展到缺失的中�
 - PASS：本地 web develop 使用桌面受管 Node 运行生产 `connection-rules.ts` 行为测试 **27 PASS / 0 FAIL**；覆盖同一 16 组合以及 M02/M03/M04/M05/M10。
 
 这是前后端各自实际生产规则的对照与服务端强制边界，不把两个独立实现错误称为“同一共享源码”。浏览器拖放到真实 API、图片/视频真实 Provider 成功和 M09 私有签名刷新仍未运行；M06/M11/M12/M14/M16 也未完成，故 P3 仍**未整体放行**，P4—P6 NOT_RUN。没有业务数据库写入、付费请求、迁移、部署或推送。
+
+## 55. P3 画布媒体映射、版本保留与唯一扣费回归（2026-09-22）
+
+从本地 develop 的 internal Docker 隔离库运行 `p0_generation.php idempotent`，**57 PASS / 0 FAIL**。测试执行实际 Canvas、GenerationIntent、短剧历史/资产投影和 PointService；仅四类下游 Provider Adapter 被测试替身替换，避免外部请求，所有夹具事务回滚。
+
+- PASS：text/image/video/audio 的 canvas run 都可完成，短剧历史保留 4 条自由画布归属记录；三种媒体分别建立资产，重复详情读取不重复建立资产。
+- PASS：实际 tenant/user PointService 各只产生每次接受一次的账本记录；重放十次、未知结果重试、延迟回执、节点删除和乱序完成均不重复扣费，且已完成媒体保留其历史资产版本。
+- PASS：模型、分辨率、参考集合、首尾帧角色或顺序变化不能复用相同 generation key，也不能覆盖已冻结请求快照或到达下游。
+- 结合第 51 节真实 Qwen 文本调用，canvas run、短剧历史、app task 与消费记录的实际生产映射已确认一条；本节补齐四类节点的服务级投影、资产版本和唯一 PointService 扣费行为。
+
+M12 仍标为**部分 PASS**：该套件的媒体 Adapter 是隔离替身，尚没有一条真实图片/视频/音频 Provider 成功且从浏览器完成的 app-task/consumption/asset 全链路证据。M14 的“报价后确认 hash 失效”尚未实现；现有 generation key 冲突只能保护重复提交，不能替代报价确认。P3 因 M09、M11、M12 完整媒体链路、M14、M16 等仍未整体放行，P4—P6 NOT_RUN；没有真实付费调用、迁移、部署或推送。
