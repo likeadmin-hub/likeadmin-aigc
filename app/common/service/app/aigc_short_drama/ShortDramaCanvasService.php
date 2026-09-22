@@ -70,6 +70,17 @@ class ShortDramaCanvasService
         return ['lists' => array_map(static fn(array $row): array => self::formatDocument($row), $rows), 'count' => $count, 'page_no' => $pageNo, 'page_size' => $pageSize];
     }
 
+    /** A formal target is opt-in; free canvas reads never require this table. */
+    public static function binding(int $tenantId, int $userId, int $canvasId): array
+    {
+        return ShortDramaCanvasBindingService::current($tenantId, $userId, $canvasId);
+    }
+
+    public static function bindProject(int $tenantId, int $userId, array $params): array
+    {
+        return ShortDramaCanvasBindingService::bind($tenantId, $userId, $params);
+    }
+
     public static function save(int $tenantId, int $userId, array $params): array
     {
         return Db::transaction(function () use ($tenantId, $userId, $params): array {
