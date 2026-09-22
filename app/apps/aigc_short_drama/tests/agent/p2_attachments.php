@@ -25,7 +25,7 @@ try {
     foreach (['材料.pdf','大纲.doc','剧本.docx'] as $name) {
         agentCheck(Attachments::normalize([['type'=>'document','asset_id'=>9,'name'=>$name]])===[['type'=>'document','asset_id'=>9,'name'=>$name]],'owned PDF/Office reference is normalized without a browser URL');
     }
-    foreach ([['type'=>'document','asset_id'=>0,'name'=>'bad.pdf'],['type'=>'document','asset_id'=>9,'name'=>'bad.txt'],['type'=>'document','asset_id'=>9,'name'=>'../bad.docx']]) {
+    foreach ([['type'=>'document','asset_id'=>0,'name'=>'bad.pdf'],['type'=>'document','asset_id'=>9,'name'=>'bad.txt'],['type'=>'document','asset_id'=>9,'name'=>'../bad.docx']] as $invalid) {
         rejectAttachment(fn()=>Attachments::normalize([$invalid]),'INVALID_ATTACHMENTS');
     }
     $request=['request_key'=>'attachment-send','content'=>'分析附件','base_revision'=>0,'attachments'=>[$a,$b]];
