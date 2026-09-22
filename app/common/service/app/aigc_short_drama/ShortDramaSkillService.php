@@ -152,6 +152,28 @@ final class ShortDramaSkillService
         return ['categories' => self::categories($tenantId), 'lists' => array_slice($published, 0, $limit), 'count' => count($published)];
     }
 
+    /**
+     * Tenant-admin workflow configuration only needs safe identity/version
+     * choices.  Do not return a full Skill definition here: stage instructions
+     * are frozen later by the worker-side resolver after authorization is
+     * checked again.
+     *
+     * @return list<array{id:int,version:int,name:string,skill_key:string,description:string}>
+     */
+    public static function workflowEligible(int $tenantId): array
+    {
+        $published = self::featured($tenantId, ['limit' => 100])['lists'];
+        return array_values(array_map(static function (array $skill) use ($tenantId): array {
+            return [
+                'id' => (int)($skill['id'] ?? 0),
+                'version' => (int)($skill['published_version'] ?? $skill['version'] ?? 0),
+                'name' => (string)($skill['name'] ?? ''),
+                'skill_key' => (string)($skill['skill_key'] ?? ''),
+                'description' => (string)($skill['description'] ?? ''),
+            ];
+        }, $published));
+    }
+
     public static function mine(int $tenantId, int $userId): array
     {
         self::syncBuiltinSkills();
