@@ -992,3 +992,16 @@ server `bcf2c4aa4` 与 web `b5a603b` 修复：图片/视频/音频素材库引�
 - PASS：本地 web develop 的源码契约确认 image/video/audio 三类素材引用都将 asset ID 保留到 `reference_assets`。
 
 本项为服务端身份/快照与前端 payload 验证，尚未执行浏览器素材选择器到真实媒体 Provider 的付费闭环；M16 的“用户选定旧版本作为下游输入”服务边界通过，完整浏览器/真实 Provider 证据仍待补充。P3 仍受 M09、M11、M12 完整媒体链路、M14 等门槛限制，未整体放行；无真实付费调用、迁移、部署或推送。
+
+## 57. P3 画布幂等提交与视频报价确认（2026-09-22）
+
+server `ced018ea6` 已将公开 `/canvas/run` 入口切换到既有 `GenerationIntentService`，web `7608a46` 为每个节点保存输入签名和 `request_key`：同一输入的浏览器/网络重试复用同一请求键，用户修改输入后生成新键。该改动不让 Agent 模型自动执行工具；Agent 仍是右侧对话，任何生成均须由用户明确操作。
+
+随后 server `5a1b11169` 增加视频报价确认的服务端边界和 `upgrade_20260922_canvas_quote_confirmation.sql`：报价只调用市场 quote，不创建任务或积分冻结；确认令牌绑定 tenant/user/canvas/node/request_key、服务端规范化的模型/分辨率/时长/引用资产身份及 graph_revision。模型、分辨率、时长、已选素材身份或画布计划版本变化时，提交返回 `QUOTE_INPUT_CHANGED`，不能使用旧确认；已接受的同 key 重放仍返回既有 run，不需再次报价也不重发 Provider。PC 视频节点在提交前先显示积分确认框，确认后才请求 `/canvas/confirmQuote` 和 `/canvas/run`。
+
+- PASS / M11（手动路径）：本地 develop 执行 `p0_generation.php idempotent` **59 PASS / 0 FAIL**。四节点重放十次仍仅有一次下游提交与一次 PointService 账本；变更模型/分辨率/参考集合/角色/顺序在下游前拒绝。视频删除、乱序完成等旧回归现已使用与产品一致的 quote→confirm→submit 流程。
+- PASS / M14（服务边界）：隔离 `p3_quote_confirmation.php` **9 PASS / 0 FAIL**。实际市场 quote 验证不创建 app-task/consumption、不调用 Provider；显式确认可重放；模型、分辨率、时长和 graph revision 的变更均在 Provider 前失效；匹配确认仅创建一个 generation intent，随后重放不再提交。
+- PASS / 本地迁移：在已授权的本地 `x_cn` 开发库执行该增量 SQL，确认只新增 `la_aigc_short_drama_canvas_quote`（15 字段）。未迁移远程/生产库、未部署/推送。
+- PASS / PC 静态回归：本地 web develop 的 7 项 Canvas 回归均通过，覆盖 request_key 持久化、视频 quote/confirm UI 调用、运行结果围栏和画布持久化。
+
+仍为 **NOT_RUN**：真实浏览器点击视频确认并完成真实媒体 Provider/Worker/资产闭环（需在具体模型、报价与本次积分明确后逐笔确认）；Agent 与手动**同一个** generation request_key 的 UI 操作闭环尚无 Agent 受确认的生成动作，不能将手动 M11 PASS 扩展为 Agent M11 PASS；M09 私有签名 URL 刷新也仍未具备私有测试存储证据。因此 P3 未整体放行，P4—P6 NOT_RUN。
