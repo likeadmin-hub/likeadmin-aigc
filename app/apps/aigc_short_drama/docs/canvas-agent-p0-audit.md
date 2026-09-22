@@ -927,3 +927,13 @@ web `aa4e34e` 添加 generationInputError，在 runNativeNode 设置 running、�
 - PASS / M07：选中图片节点进入文本对话上下文时只携带“媒体理解能力不可用”的受控声明，既不读取媒体 URL、也不伪称识别像素；文本分析不创建媒体任务或改写画布。这是实际 Worker DTO 行为验证，不是提示词字符串检查。
 
 本轮没有真实 Provider、积分账本或浏览器请求；不将隔离模拟 Provider 计为真实端到端成功。M09 仍 **NOT_RUN**：现有实现使用稳定 asset ID/URI 与存储元数据在每次执行前重新经 FileService 取得授权 URL，但尚未用真实私有存储的过期签名 URL 完成刷新验收。模型目录全部显示不可用导致的真实 Provider 成功请求，及其余 M01/M06/M09/M12/M14/M16 门槛仍待补齐，P3 未整体放行，P4—P6 NOT_RUN。
+
+## 51. P3 本地 tenant 1 真实浏览器文本 Provider 与账本验收（2026-09-22）
+
+依用户逐笔确认，在本地 tenant 1 / user 1 的专用画布 18 `P3真实端到端验收-20260922` 执行一条最小文本节点请求，输入为“请只回复：P3真实文本验收通过。”。不上传附件、不引用私有素材、不操作远程生产环境。此前 GPT-5.4 与 Qwen 的早期提交均得到 `model_not_found` 并以零积分失败；本轮在浏览器实际选择 `Qwen3.6-Plus` 后提交，未绕过 UI 或直接构造 Provider 请求。
+
+- PASS：浏览器节点进入生成态后刷新同一页面，节点最终显示 `P3真实文本验收通过。`；页面积分由 **10869.58** 变为 **10869.25**。这验证实际浏览器 → 本地 API/Worker → Provider → 画布投影的成功文本路径。
+- PASS：本地业务账本任务 `canvas_run_25`（generation task 974）为 success/100；关联 app task 1076 绑定 `aigc_short_drama_canvas_run:25`，消费 1098 的模型为 `qwen3.6-plus` / `dashscope_compatible`，run_status=success、billing_status=settled。
+- PASS：该消费事件恰有一次 `reserve`、一次 `submit`、一次 `settle`，均为 attempt 1；tenant 与 user 实际成本各 **0.327600** 积分（页面按两位数显示 0.33）。没有重放或第二次 Provider 提交。
+
+这只放行了真实文本成功、刷新投影和一次结算的对应部分；它不代表附件解析、图像/视频模型、撤销、退款、取消、过期签名 URL、能力矩阵、报价确认失效或 Agent 对话真实 Provider 路径均已完成。尤其 M01/M06/M09/M12/M14/M16 仍按各自证据状态继续，**P3 未整体放行，P4—P6 NOT_RUN**。本轮真实调用在用户授权的 2000 积分上限内；没有迁移、部署、发布、推送或密钥复制。
