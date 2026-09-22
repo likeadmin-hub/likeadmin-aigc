@@ -2051,7 +2051,30 @@ class OpenPlatformService
             $version = $formalVersion;
             if (preg_match('/^\d+\.\d+\.\d+$/', $version)) {
                 $row = WechatArtifact::withoutGlobalScope()->where('version', $version)->findOrEmpty();
-                if ($row->isEmpty()) return null;
+                // The platform may already have atomically promoted the public
+                // artifact while its registry row was lost or has not reached
+                // this installation yet. Tenant uploads only need the signed
+                // formal directory, so do not reject that verified artifact
+                // merely because the optional registry record is absent.
+                if ($row->isEmpty()) {
+                    $formalDirectory = root_path() . 'public/mp-weixin';
+                    $formalFiles = is_dir($formalDirectory) ? self::fileManifest($formalDirectory) : [];
+                    $formalHash = hash('sha256', json_encode($formalFiles, JSON_UNESCAPED_SLASHES));
+                    if ((int)($formalMetadata['file_count'] ?? -1) !== count($formalFiles)
+                        || (array)($formalMetadata['files'] ?? []) !== $formalFiles
+                        || (string)($formalMetadata['sha256'] ?? '') !== $formalHash) {
+                        return null;
+                    }
+                    $runtimePath = $formalDirectory . '/config/runtime.js';
+                    $runtimeSource = is_file($runtimePath) ? (string)file_get_contents($runtimePath) : '';
+                    if (!is_file($formalDirectory . '/app.json')
+                        || !is_file($formalDirectory . '/project.config.json')
+                        || !str_contains($runtimeSource, '__TENANT_API_BASE_URL__')
+                        || !str_contains($runtimeSource, '__TENANT_ID__')) {
+                        return null;
+                    }
+                    return ['id' => 0, 'version' => $version, 'dir' => 'mp-weixin'];
+                }
             }
         }
         if ($row->isEmpty()) return null;
