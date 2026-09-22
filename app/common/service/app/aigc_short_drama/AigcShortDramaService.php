@@ -98,6 +98,7 @@ class AigcShortDramaService
                 'label' => (string)($stage['label'] ?? ''),
                 'skills' => array_values(array_map('strval', (array)($stage['skills'] ?? []))),
                 'creates_nodes' => !empty($stage['creates_nodes']),
+                'output_fields' => \app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::outputContract((string)($stage['key'] ?? '')),
             ], array_filter((array)($catalog['stages'] ?? []), 'is_array'))),
         ];
         $config['canvas_agent']['workflow']['available_skills'] = ShortDramaSkillService::workflowEligible($tenantId);

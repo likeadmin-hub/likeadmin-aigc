@@ -18,7 +18,7 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-22.3';
+    public const VERSION = '2026-09-23.1';
 
     /** @return array<string,mixed> */
     public static function catalog(): array
@@ -38,11 +38,11 @@ final class ConversationWorkflow
             ],
             'stages'=>[
                 ['key'=>'intake','label'=>'创作采集','skills'=>['创作采集'],'creates_nodes'=>false],
-                ['key'=>'script','label'=>'剧本与角色设定','skills'=>['剧本创作','角色设定'],'creates_nodes'=>false],
-                ['key'=>'art','label'=>'画风与美术规划','skills'=>['画风设计','主体设计','场景设计','道具设计'],'creates_nodes'=>false],
+                ['key'=>'script','label'=>'剧本与角色设定','skills'=>['剧本创作','角色设定'],'creates_nodes'=>true],
+                ['key'=>'art','label'=>'画风与美术规划','skills'=>['画风设计','主体设计','场景设计','道具设计'],'creates_nodes'=>true],
                 ['key'=>'assets','label'=>'主体资产','skills'=>['主体图','主体三视图'],'creates_nodes'=>true,'auto_types'=>['image']],
                 ['key'=>'storyboard','label'=>'场景与分镜图','skills'=>['场景设计','道具设计','分镜设计','分镜图'],'creates_nodes'=>true,'auto_types'=>['image']],
-                ['key'=>'video_plan','label'=>'分镜视频规划','skills'=>['分镜视频规划'],'creates_nodes'=>false],
+                ['key'=>'video_plan','label'=>'分镜视频规划','skills'=>['分镜视频规划'],'creates_nodes'=>true],
                 ['key'=>'video_nodes','label'=>'分镜视频节点','skills'=>['分镜视频'],'creates_nodes'=>true,'manual_types'=>['video']],
                 ['key'=>'audio_plan','label'=>'音频规划','skills'=>['音频规划'],'creates_nodes'=>true,'disabled_types'=>['audio']],
             ],
@@ -51,6 +51,7 @@ final class ConversationWorkflow
                 'video_submission'=>'manual_quote_confirmed',
                 'audio_submission'=>'disabled',
                 'image_auto_submission'=>'requires_plan_confirmation',
+                'structured_text_projection'=>'server_validated_canvas_actions',
             ],
         ];
     }
@@ -268,12 +269,15 @@ final class ConversationWorkflow
         $configured=self::stageSkillNames((array)$workflow['workflow_snapshot'],$stage);
         if ($configured) $labels=$configured;
         if ($stage==='intake') return "\n【短剧工作流】当前在创作采集阶段。只补问尚未确认的信息，不创建画布节点、不提交媒体任务。";
+        $contract=self::outputContract($stage);
+        $contractText=$contract ? '本阶段结构化交付字段：'.implode('、',$contract).'。这些字段必须写入受控文本节点的内容；不能输出任意画布 JSON。' : '';
         $suffix=$stage==='assets'
-            ? '若建议生成节点，仍须使用受限 canvas-actions 格式；主体三视图必须真实依赖同批主体图；只引用已提供的画布素材，不能编造素材 ID、价格或任务状态。'
+            ? '若建议生成节点，仍须使用受限 canvas-actions 格式；主体三视图必须真实依赖同批主体图；前序剧本和美术文本节点会被服务器建立为真实参考连线；只引用已提供的画布素材，不能编造素材 ID、价格或任务状态。'
             : ($stage==='storyboard'
-                ? '若建议生成节点，仍须使用受限 canvas-actions 格式；分镜图必须真实依赖同批场景或道具，系统会把前序主体资产写入参考连线；不能编造素材 ID、价格或任务状态。'
-            : (in_array($stage,['video_nodes','audio_plan'],true) ? '视频节点只能建议插入，绝不能自动提交；音频只可规划，不能建议生成。' : '只在对话中交付内容，不创建故事设定或分集大纲文本节点。'));
-        return "\n【短剧工作流】当前阶段：{$stage}。读取技能指令：".implode('、',$labels)."。{$suffix}";
+                ? '若建议生成节点，仍须使用受限 canvas-actions 格式；分镜图必须真实依赖同批场景或道具，系统会把前序剧本、美术和主体资产写入参考连线；不能编造素材 ID、价格或任务状态。'
+                : (in_array($stage,['video_nodes','audio_plan'],true) ? '视频节点只能建议插入，绝不能自动提交；音频只可规划，不能建议生成。' : '按本阶段受控结构化交付规则输出，不能创建任意画布 JSON。'));
+        if (in_array($stage,['script','art','video_plan'],true)) $suffix='必须在答复末尾使用受限 canvas-actions 创建本阶段的文本节点；'.$suffix;
+        return "\n【短剧工作流】当前阶段：{$stage}。读取技能指令：".implode('、',$labels)."。{$contractText}{$suffix}";
     }
 
     private static function route(array $state,string $content): ?string
@@ -367,7 +371,8 @@ final class ConversationWorkflow
         $stageIndex=0;
         foreach ($stages as $index=>$item) if (($item['key']??'')===$stageKey) {$stageIndex=$index+1;break;}
         $stageCard=['stage'=>$stageKey,'stage_label'=>(string)($definition['label']??'短剧创作'),'skills'=>$configured?:array_values((array)($definition['skills']??[])),
-            'stage_index'=>$stageIndex,'stage_total'=>count($stages),'completed'=>array_values(array_map('strval',(array)($stage['completed']??[])))];
+            'stage_index'=>$stageIndex,'stage_total'=>count($stages),'completed'=>array_values(array_map('strval',(array)($stage['completed']??[]))),
+            'output_fields'=>self::outputContract($stageKey)];
         if (($stage['key']??'')==='intake' && ($stage['status']??'')==='collecting') {
             $slot=self::nextSlot($state); if (!$slot) return null;
             return $stageCard+['type'=>'question','title'=>'《短剧》剧集初始配置','step'=>count((array)$state['slot_values'])+1,'total'=>count((array)$state['workflow_snapshot']['slot_schema']),
@@ -376,7 +381,7 @@ final class ConversationWorkflow
         if (in_array(($stage['key']??''),['assets','storyboard'],true) && ($stage['status']??'')==='awaiting_plan_confirmation') {
             return $stageCard+['type'=>'confirmation','title'=>'确认图片创作计划','body'=>'本批图片的模型、提示词、引用与预估积分已冻结。确认后才会插入画布并按既有任务链路生成；视频仍需逐节点报价确认。','plan_hash'=>$state['plan_hash'],'plan'=>self::publicImagePlan((array)($state['image_plan']??[]))];
         }
-        if (($stage['key']??'')==='script' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'创作采集已完成','body'=>'下一条消息将进入剧本与角色设定；设定与分集内容只保留在对话中。'];
+        if (($stage['key']??'')==='script' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'创作采集已完成','body'=>'下一条消息会生成剧本设定、分集大纲和分镜脚本，并写回受控文本节点。'];
         if (($stage['key']??'')==='video_nodes' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'准备插入分镜视频节点','body'=>'下一次受控对话会一次性插入全部分镜视频待生成节点；它们不会自动报价或提交。'];
         if (($stage['key']??'')==='audio_plan' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'准备音频规划','body'=>'音频规划节点只用于展示与后续衔接，当前没有生成入口。'];
         return $stageCard+['type'=>'stage','title'=>'工作流进行中','body'=>'当前阶段状态已冻结，等待下一次受控对话执行。'];
@@ -393,6 +398,21 @@ final class ConversationWorkflow
         if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_array($snapshot['stage_skill_versions']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_array($state['image_plan']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1 || !is_array($state['plan_confirmation']??null)) throw new RuntimeException('INVALID_WORKFLOW_STATE');
     }
     private static function nextStage(string $stage): string { return ['script'=>'art','art'=>'assets','assets'=>'storyboard','storyboard'=>'video_plan','video_plan'=>'video_nodes','video_nodes'=>'audio_plan','audio_plan'=>'complete'][$stage]??''; }
+    /** Server-owned output contracts are frozen with the workflow snapshot and
+     * shown to the model as writing requirements.  They are intentionally
+     * fields, not executable model tools or client supplied graph JSON. */
+    public static function outputContract(string $stage): array {
+        return match ($stage) {
+            'script'=>['project_title','logline','world_setting','character_profiles','episode_outline','scene_script','storyboard_script'],
+            'art'=>['art_bible','character_asset_spec','scene_asset_spec','prop_asset_spec','subject_image_prompt','three_view_prompt','scene_image_prompt','storyboard_image_prompt'],
+            'assets'=>['subject_image_prompt','three_view_prompt'],
+            'storyboard'=>['shot_number','shot_duration','camera','action','dialogue_or_caption','image_prompt','asset_references'],
+            'video_plan'=>['shot_number','duration','first_frame','last_frame','camera_motion','action_sequence','video_prompt','asset_references'],
+            'video_nodes'=>['video_prompt','asset_references'],
+            'audio_plan'=>['shot_number','dialogue','voiceover','ambient_sound','sound_effect','music_mood'],
+            default=>[],
+        };
+    }
     private static function publicModel(array $model): array { return ['id'=>(string)($model['id']??''),'model_code'=>(string)($model['model_code']??''),'market_product_id'=>(int)($model['market_product_id']??0),'market_sku_id'=>(int)($model['market_sku_id']??0)]; }
     private static function publicImageQuote(array $quote): array { return ['market_product_id'=>(int)($quote['market_product_id']??0),'market_sku_id'=>(int)($quote['market_sku_id']??0),'tenant_cost_points'=>(float)($quote['tenant_cost_points']??0),'user_charge_points'=>(float)($quote['user_charge_points']??0),'usage_unit'=>(string)($quote['usage_unit']??''),'settlement_mode'=>(string)($quote['settlement_mode']??'')]; }
     private static function publicImagePlan(array $plan): array {
