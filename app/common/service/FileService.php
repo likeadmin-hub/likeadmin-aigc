@@ -15,6 +15,7 @@
 namespace app\common\service;
 
 use app\common\service\storage\StorageConfigService;
+use app\common\service\storage\StorageSignedUrlService;
 
 class FileService
 {
