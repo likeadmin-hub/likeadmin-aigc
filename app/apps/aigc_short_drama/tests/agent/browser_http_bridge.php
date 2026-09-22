@@ -17,13 +17,14 @@ $mode=(string)($argv[1]??'');
 $mockGeneration=in_array($mode,['mock-generation','agent-generation'],true);
 $agentConversation=in_array($mode,['agent-conversation','agent-generation'],true);
 try {
-    if (Db::name('tenant')->where('id',94011)->count() || Db::name('user')->where('id',95011)->count() || Db::name('app')->whereIn('code',['aigc_short_drama','aigc_canvas'])->count()) throw new RuntimeException('Browser fixture scope is not empty');
+    if (Db::name('tenant')->where('id',94011)->count() || Db::name('user')->where('id',95011)->count()) throw new RuntimeException('Browser fixture scope is not empty');
     foreach ([
         ['tenant',['id'=>94011,'sn'=>'browser-fixture','name'=>'Local acceptance browser','create_time'=>time(),'delete_time'=>null]],
         ['user',['id'=>95011,'sn'=>95011,'account'=>'browser-fixture','tenant_id'=>94011]],
         ['user_session',['tenant_id'=>94011,'user_id'=>95011,'token'=>'local-acceptance-browser-http','terminal'=>4,'expire_time'=>time()+3600]],
-        ['app',['code'=>'aigc_short_drama','status'=>'installed']],
-        ['app',['code'=>'aigc_canvas','status'=>'disabled']],
+        // `app` is global, so local acceptance must reuse the installed app
+        // records instead of creating or deleting them.  Tenant-level rows
+        // below provide the scoped enable/disable behavior under test.
         ['tenant_app',['tenant_id'=>94011,'app_code'=>'aigc_canvas','buy_status'=>'paid','enable_status'=>'disabled','shelf_status'=>'on','expire_time'=>time()+3600]],
         ['tenant_app',['tenant_id'=>94011,'app_code'=>'aigc_short_drama','buy_status'=>'paid','enable_status'=>'enabled','shelf_status'=>'on','expire_time'=>time()+3600]],
         ['aigc_short_drama_config',['tenant_id'=>94011,'config_json'=>$agentConversation?'{"canvas_agent":{"enabled":true}}':'{"canvas_agent":{"enabled":false}}','status'=>1]],
