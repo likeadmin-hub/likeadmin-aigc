@@ -20,7 +20,7 @@ final class ConversationActionPlan
     public static function instruction(string $mode): string
     {
         $delivery = $mode === 'auto'
-            ? '自动模式会在校验后创建节点；文本和图片节点会由页面自动提交，视频仍须完成平台既有报价确认。'
+            ? '自动模式会在校验后创建节点；文本和图片节点会由页面自动提交。视频节点（尤其是分镜视频）只会插入画布并连接已有参考，绝不自动提交；用户必须在该节点点击生成并完成平台既有报价确认。'
             : '手动模式只会创建待生成节点，用户必须在画布节点上点击生成。';
         return "当且仅当用户明确要求创建或生成画布内容、且所需提示词已经足够时，你可以在正常答复末尾附加一个严格 JSON 包裹：<canvas-actions>{\"nodes\":[{\"type\":\"text|image|video\",\"title\":\"简短标题\",\"prompt\":\"生成提示词\",\"key\":\"step_1\"},{\"type\":\"image\",\"title\":\"后续图片\",\"prompt\":\"生成提示词\",\"key\":\"step_2\",\"depends_on\":[\"step_1\"]}]}</canvas-actions>。key 和 depends_on 仅在本次包裹中表达前序步骤依赖；depends_on 只能引用前面已出现的 key。最多 4 个节点；不要包含模型、价格、URL、身份、工具调用、素材 ID 或任何其它字段。用户只是咨询、信息不足、要求修改正式业务内容或要求批量媒体时，不要输出该包裹，而是说明或补问。{$delivery}";
     }
