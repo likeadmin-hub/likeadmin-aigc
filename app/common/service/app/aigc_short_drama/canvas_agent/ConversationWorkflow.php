@@ -276,7 +276,7 @@ final class ConversationWorkflow
             : ($stage==='storyboard'
                 ? '若建议生成节点，仍须使用受限 canvas-actions 格式；分镜图必须真实依赖同批场景或道具，系统会把前序剧本、美术和主体资产写入参考连线；不能编造素材 ID、价格或任务状态。'
                 : (in_array($stage,['video_nodes','audio_plan'],true) ? '视频节点只能建议插入，绝不能自动提交；音频只可规划，不能建议生成。' : '按本阶段受控结构化交付规则输出，不能创建任意画布 JSON。'));
-        if (in_array($stage,['script','art','video_plan'],true)) $suffix='必须在答复末尾使用受限 canvas-actions 创建本阶段的文本节点；'.$suffix;
+        if (in_array($stage,['script','art','video_plan'],true)) $suffix='必须输出唯一的结构化结果对象，由 reply_markdown 展示正文、canvas_actions 写入受限文本节点；缺少任一项会被服务器拒绝。'.$suffix;
         return "\n【短剧工作流】当前阶段：{$stage}。读取技能指令：".implode('、',$labels)."。{$contractText}{$suffix}";
     }
 
