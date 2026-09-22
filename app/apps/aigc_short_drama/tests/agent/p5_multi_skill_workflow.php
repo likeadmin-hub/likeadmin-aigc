@@ -102,6 +102,11 @@ try {
     $artReply='美术规划已完成。<canvas-actions>{"nodes":[{"type":"text","artifact":"art_bible","title":"美术圣经","prompt":"art_bible: 电影写实，冷蓝雨夜与暖黄室内对照。","key":"art"},{"type":"text","artifact":"character_asset_spec","title":"主体资产设定","prompt":"character_asset_spec: 林夏短发风衣、录音笔。\nsubject_image_prompt: 都市悬疑女记者，电影写实。","key":"character"},{"type":"text","artifact":"scene_asset_spec","title":"场景资产设定","prompt":"scene_asset_spec: 雨夜办公室与旧档案室。\nscene_image_prompt: 雨夜办公室，冷蓝霓虹。","key":"scene"},{"type":"text","artifact":"three_view_prompt","title":"主体三视图提示词","prompt":"three_view_prompt: 同一林夏正侧背三视图，保持风衣与录音笔一致。","key":"views"}]}</canvas-actions>';
     $afterArt=$runStage('workflow-art-stage',$artReply);
     agentCheck(($afterArt['workflow']['stage_state']['key']??'')==='assets' && ($afterArt['workflow']['stage_state']['status']??'')==='ready','art reply advances to the controlled asset plan stage after writing art and prompt nodes');
+    $artContext=(string)($provider->lastRequest['messages'][0]['content']??'');
+    agentCheck(str_contains($artContext,'confirmed_artifacts') && str_contains($artContext,'雨夜回音') && !str_contains($artContext,'这是本阶段的本地验收回复。'),'later Skills receive compact confirmed graph artifacts rather than replaying the full chat transcript');
+    $history=Store::messages($tenant,$user,$canvas,$thread);
+    $workflowMessages=array_values(array_filter($history,static fn(array $message): bool => ($message['role']??'')==='assistant' && !empty($message['workflow_timeline'])));
+    agentCheck(count($workflowMessages)>=2 && ($workflowMessages[0]['workflow_timeline'][0]['kind']??'')==='skill','published assistant replies expose only server-derived Skill/tool timeline evidence');
     $artNodes=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('nodes_json'),true);
     agentCheck(count($artNodes)===7 && ($artNodes[3]['metadata']['workflow_artifact']??'')==='art_bible' && str_contains((string)($artNodes[3]['metadata']['content']??''),'电影写实'),'art stage writes durable art direction and image-prompt text nodes');
     $assetReply='主体资产计划已完成。<canvas-actions>{"nodes":[{"type":"image","artifact":"subject","title":"女主主体图","prompt":"都市悬疑女记者，电影写实","key":"subject"},{"type":"image","artifact":"three_view","title":"女主三视图","prompt":"同一女记者正侧背三视图，电影写实","key":"three_view","depends_on":["subject"]}]}</canvas-actions>';

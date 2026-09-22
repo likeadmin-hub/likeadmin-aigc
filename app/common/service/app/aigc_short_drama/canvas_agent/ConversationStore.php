@@ -177,13 +177,24 @@ final class ConversationStore
             $message=['id'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'role'=>$row['role'],'content'=>$content,'attachments'=>json_decode($row['attachments_json'],true,512,JSON_THROW_ON_ERROR)];
             $actions=$content['canvas_actions']??null;
             if ($actions!==null) {
-                if ($row['role']!=='assistant' || !is_array($actions) || !in_array($actions['mode']??'', ['manual','auto'], true) || !is_int($actions['graph_revision']??null) || !is_array($actions['nodes']??null) || count($actions['nodes'])>4) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
+                if ($row['role']!=='assistant' || !is_array($actions) || !in_array($actions['mode']??'', ['manual','auto'], true) || !is_int($actions['graph_revision']??null) || !is_array($actions['nodes']??null) || count($actions['nodes'])>60) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
                 $public=[];
                 foreach ($actions['nodes'] as $node) {
-                    if (!is_array($node) || !preg_match('/^[1-9][0-9]{0,15}$/D',(string)($node['id']??'')) || !in_array($node['type']??'', ['text','image','video'],true) || !is_bool($node['auto_submit']??null)) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
+                    if (!is_array($node) || !preg_match('/^[1-9][0-9]{0,15}$/D',(string)($node['id']??'')) || !in_array($node['type']??'', ['text','image','video','audio'],true) || !is_bool($node['auto_submit']??null)) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
                     $public[]=['id'=>(string)$node['id'],'type'=>$node['type'],'auto_submit'=>$node['auto_submit']];
                 }
                 $message['canvas_actions']=['mode'=>$actions['mode'],'graph_revision'=>$actions['graph_revision'],'nodes'=>$public];
+            }
+            $timeline=$content['workflow_timeline']??null;
+            if ($timeline!==null) {
+                if ($row['role']!=='assistant' || !is_array($timeline) || !array_is_list($timeline) || count($timeline)>3) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
+                $public=[];
+                foreach ($timeline as $item) {
+                    if (!is_array($item) || !in_array($item['kind']??'', ['skill','tool'],true) || !is_string($item['label']??null) || !is_string($item['detail']??null)
+                        || mb_strlen($item['label'])>24 || mb_strlen($item['detail'])>240) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
+                    $public[]=['kind'=>$item['kind'],'label'=>$item['label'],'detail'=>$item['detail']];
+                }
+                if ($public) $message['workflow_timeline']=$public;
             }
             $candidates=ConversationReferenceResolver::publicCandidates($content['reference_candidates']??null);
             if ($candidates) $message['reference_candidates']=$candidates;

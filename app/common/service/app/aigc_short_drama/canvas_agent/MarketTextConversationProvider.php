@@ -40,7 +40,7 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         $settings=(array)($request['settings']??[]);
         $validator=$request['result_validator']??null;
         if ($validator!==null && !is_callable($validator)) throw new RuntimeException('INVALID_RESULT_VALIDATOR');
-        $result=MarketTextModelRuntimeService::generate($tenant,$user,[
+        $runtimeRequest=[
             'action_code'=>'short_drama_canvas_agent_chat',
             'source_app_code'=>'aigc_short_drama',
             'content'=>$content,
@@ -58,7 +58,16 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
             // Internal callable: runs after Provider response but before usage
             // settlement, so a blocked reply is never published.
             '_result_validator'=>$validator,
-        ]);
+        ];
+        // The worker owns the workflow output budget.  Forward it to the
+        // shared runtime instead of merely storing it on the local request;
+        // otherwise a structured stage can stream an unbounded completion.
+        if (is_array($request['response_format']??null)) $runtimeRequest['response_format']=$request['response_format'];
+        $modelConfig=[];
+        if (isset($request['max_tokens']) && is_int($request['max_tokens']) && $request['max_tokens']>0) $modelConfig['max_tokens']=$request['max_tokens'];
+        if (array_key_exists('enable_thinking',$request) && is_bool($request['enable_thinking'])) $modelConfig['enable_thinking']=$request['enable_thinking'];
+        if ($modelConfig) $runtimeRequest['model_config']=$modelConfig;
+        $result=MarketTextModelRuntimeService::generate($tenant,$user,$runtimeRequest);
         $answer=trim((string)($result['content']??''));
         if ($answer==='') throw new RuntimeException('EMPTY_MODEL_RESPONSE');
         return ['content'=>$answer,'tool_calls'=>[],'safety_checked'=>$validator!==null];
