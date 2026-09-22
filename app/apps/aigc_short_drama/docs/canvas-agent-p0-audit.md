@@ -901,3 +901,11 @@ M13 的画布服务边界已有直接行为证据，无需新增产品补丁。�
 本地 develop 集成后 p0_generation.php idempotent **59 PASS / 0 FAIL**，其中本轮新增 6 项；原四节点与计费/乱序/删除回归保留。依回归保护技能保留实际 Canvas 与 PointService，仅下游应用生成服务为测试替身；internal 网络、真实 .env 遮盖、独立数据库事务回滚，无业务数据或付费调用。
 
 重要边界：request_hash 是生成幂等校验，不是 quote_hash。本轮仅证明 M06/M14 的冻结输入与重复提交防护部分，报价变化后的确认失效机制仍未实现/验收，不能把这些 PASS 算成 M14 完整放行。仅 server 测试/文档修改，web/API/schema 不变，无进程重载、部署或推送。P3 未整体放行，P4—P6 NOT_RUN。
+
+## 48. P3 前端同图首尾帧槽位统计修复（2026-09-22）
+
+检查前端能力规则时发现 videoReferenceSummary 仅以类型/URL 去重，candidateReferences 又丢弃 referenceImages.role。新增测试 `8496daa` 实际执行生产 TypeScript，稳定复现两项 FAIL：同 URI 首尾帧计数为 1，以及 composer 对双槽位首尾帧模型兼容列表为空。
+
+web 修复 `caf5dfa` 将角色纳入参考统计身份，保留 referenceImages 的显式角色；未声明角色使用 reference_image 等既有默认用途。同角色重复仍去重、同图不同帧角色分别计数。没有修改连线清理机制、界面样式、本地代理配置或后端 API/schema。
+
+本地 develop 集成后前端规则套件 **24 PASS / 0 FAIL**，包括四种源/目标 16 组合、替代模型、完整总量上限和原同用途去重。遵循前端体验与回归保护技能覆盖生产规则消费者；本轮未运行浏览器生成或 Provider 请求，无付费调用/业务写入/部署/推送。server 仅记录本节；M05 前端统计与兼容筛选补证，不代表全部 UI 操作或全部 Provider 验收通过。最初拟核对的 M10 前端未知能力策略仍待独立实现，未借本轮改动宣称完成；P3 未整体放行，P4—P6 NOT_RUN。
