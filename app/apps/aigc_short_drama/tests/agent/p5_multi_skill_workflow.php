@@ -5,6 +5,7 @@ require __DIR__.'/bootstrap.php';
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationActionPlan as ActionPlan;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution as Execution;
+use app\common\service\app\aigc_short_drama\canvas_agent\FeatureGate;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationProviderInterface;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore as Store;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorker as Worker;
@@ -43,6 +44,9 @@ try {
     $stageSkill=Db::name('aigc_short_drama_skill')->insertGetId(['tenant_id'=>$tenant,'skill_key'=>'workflow_script_fixture','name'=>'剧本创作验收 Skill','status'=>1,'release_status'=>'active','version'=>1,'published_version'=>1]);
     Db::name('aigc_short_drama_skill_version')->insert(['tenant_id'=>$tenant,'skill_id'=>$stageSkill,'version'=>1,'release_status'=>'active','snapshot_json'=>json_encode(['name'=>'剧本创作验收 Skill','skill_key'=>'workflow_script_fixture','definition'=>['instructions'=>'先确认故事的冲突与角色动机。'],'model_policy'=>[],'execution_policy'=>[]],JSON_UNESCAPED_UNICODE)]);
     $config=Db::name('aigc_short_drama_config')->insertGetId(['tenant_id'=>$tenant,'config_json'=>json_encode(['canvas_agent'=>['enabled'=>true,'workflow'=>['enabled'=>true,'enabled_workflows'=>['short_drama_creation'],'stage_skills'=>['script'=>[['skill_id'=>$stageSkill,'skill_version'=>1]]]]]],JSON_UNESCAPED_UNICODE),'status'=>1,'create_time'=>time(),'update_time'=>time()]);
+    $defaultSkills=FeatureGate::workflowStageSkillSelections($tenant);
+    agentCheck(count(Workflow::defaultSkillKeys())===8 && count($defaultSkills['intake']??[])===1 && count($defaultSkills['assets']??[])===2 && count($defaultSkills['storyboard']??[])===4,'platform workflow provides a complete executable multi-Skill baseline for every stage');
+    agentCheck(($defaultSkills['script'][0]['skill_id']??0)===$stageSkill,'a tenant-persisted stage Skill overrides only that stage while untouched stages retain platform defaults');
     $canvas=Canvas::create($tenant,$user,['title'=>'P5 workflow fixture'])['id'];
     $thread=Store::create($tenant,$user,$canvas,'workflow-thread')['id'];
     $ack=Store::enqueue($tenant,$user,$canvas,$thread,['request_key'=>'workflow-route','content'=>'我想创作一部悬疑短剧','base_revision'=>0],static function (array $conversation) use ($tenant): array {

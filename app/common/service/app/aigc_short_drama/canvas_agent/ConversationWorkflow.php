@@ -18,7 +18,7 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-22.2';
+    public const VERSION = '2026-09-22.3';
 
     /** @return array<string,mixed> */
     public static function catalog(): array
@@ -52,6 +52,28 @@ final class ConversationWorkflow
                 'audio_submission'=>'disabled',
                 'image_auto_submission'=>'requires_plan_confirmation',
             ],
+        ];
+    }
+
+    /**
+     * The concrete Skill keys behind the platform-owned stage sequence.
+     * Keep this mapping in code, not tenant JSON: tenant admin chooses from
+     * published versions but cannot silently omit a required safety boundary
+     * or substitute a product-ad skill for a narrative-production stage.
+     *
+     * @return array<string,list<string>>
+     */
+    public static function defaultSkillKeys(): array
+    {
+        return [
+            'intake' => ['short_drama_intake'],
+            'script' => ['short_drama_script', 'short_drama_character_design'],
+            'art' => ['short_drama_art_direction', 'short_drama_subject_design', 'short_drama_scene_design', 'short_drama_prop_design'],
+            'assets' => ['short_drama_subject_image', 'short_drama_three_view'],
+            'storyboard' => ['short_drama_scene_design', 'short_drama_prop_design', 'short_drama_storyboard_design', 'short_drama_storyboard_image'],
+            'video_plan' => ['short_drama_video_plan'],
+            'video_nodes' => ['short_drama_storyboard_video'],
+            'audio_plan' => ['short_drama_audio_plan'],
         ];
     }
 
@@ -341,7 +363,11 @@ final class ConversationWorkflow
         $definition=self::stageDefinition((array)$state['workflow_snapshot'],(string)($stage['key']??''));
         $stageKey=(string)($stage['key']??'');
         $configured=self::stageSkillNames((array)$state['workflow_snapshot'],$stageKey);
-        $stageCard=['stage'=>$stageKey,'stage_label'=>(string)($definition['label']??'短剧创作'),'skills'=>$configured?:array_values((array)($definition['skills']??[]))];
+        $stages=array_values(array_filter((array)($state['workflow_snapshot']['stages']??[]),'is_array'));
+        $stageIndex=0;
+        foreach ($stages as $index=>$item) if (($item['key']??'')===$stageKey) {$stageIndex=$index+1;break;}
+        $stageCard=['stage'=>$stageKey,'stage_label'=>(string)($definition['label']??'短剧创作'),'skills'=>$configured?:array_values((array)($definition['skills']??[])),
+            'stage_index'=>$stageIndex,'stage_total'=>count($stages),'completed'=>array_values(array_map('strval',(array)($stage['completed']??[])))];
         if (($stage['key']??'')==='intake' && ($stage['status']??'')==='collecting') {
             $slot=self::nextSlot($state); if (!$slot) return null;
             return $stageCard+['type'=>'question','title'=>'《短剧》剧集初始配置','step'=>count((array)$state['slot_values'])+1,'total'=>count((array)$state['workflow_snapshot']['slot_schema']),
