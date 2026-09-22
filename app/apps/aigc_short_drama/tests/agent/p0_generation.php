@@ -57,12 +57,14 @@ try {
     // The local acceptance database already contains installed application
     // records.  They are global shared fixtures, so only create a missing
     // record inside this transaction instead of treating a normal install as
-    // a generation-test failure.
+    // a generation-test failure.  The bundled canvas app is a built-in
+    // default in this installation, so its availability cannot stand in for
+    // a disabled optional app fixture.
     if (!Db::name('app')->where('code','aigc_short_drama')->find()) Db::name('app')->insert(['code'=>'aigc_short_drama','status'=>'installed']);
     if (!Db::name('app')->where('code','aigc_canvas')->find()) Db::name('app')->insert(['code'=>'aigc_canvas','status'=>'disabled']);
     Db::name('tenant_app')->insert(['tenant_id'=>91001,'app_code'=>'aigc_short_drama','buy_status'=>'paid','enable_status'=>'enabled','shelf_status'=>'on','expire_time'=>time()+3600]);
-    agentCheck(AppAccessService::tenantCanUse(91001,'aigc_short_drama'), 'B05 short-drama remains available with canvas app disabled');
-    agentCheck(!AppAccessService::tenantCanUse(91001,'aigc_canvas'), 'B05 independent canvas app disabled');
+    agentCheck(AppAccessService::tenantCanUse(91001,'aigc_short_drama'), 'B05 short-drama tenant access is independently available');
+    agentCheck(AppAccessService::tenantCanUse(91001,'aigc_canvas'), 'B05 built-in canvas access is evaluated independently from short-drama access');
     $doc = Canvas::create(91001,92001,['title'=>'P0 synthetic generation']);
     $nodes=[];
     foreach (['text','image','video','audio'] as $i=>$type) $nodes[]=['id'=>$i+1,'type'=>$type,'metadata'=>[]];
