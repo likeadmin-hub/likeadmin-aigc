@@ -17,8 +17,11 @@ final class ConversationActionPlan
     private const OPEN = '<canvas-actions>';
     private const CLOSE = '</canvas-actions>';
 
-    public static function instruction(string $mode): string
+    public static function instruction(string $mode,string $workflowStage=''): string
     {
+        if ($workflowStage==='video_nodes') return "当前为分镜视频节点阶段。只在答复末尾输出一次严格 JSON 包裹 <canvas-actions>{\"nodes\":[...]}</canvas-actions>；nodes 只能是 video，数量 1 至 60，全部为待用户生成的分镜视频节点。每项只允许 type、title、prompt、key、depends_on；不得声明价格、模型、URL、素材 ID 或任务状态。";
+        if ($workflowStage==='audio_plan') return "当前为音频规划阶段。只在答复末尾输出一次严格 JSON 包裹 <canvas-actions>{\"nodes\":[{\"type\":\"audio\",\"title\":\"音频规划（暂未开放）\",\"prompt\":\"...\",\"key\":\"audio_plan\"}]}</canvas-actions>；只允许一个 audio 节点。该节点仅展示规划，绝不能生成或计费。";
+        if (in_array($workflowStage,['assets','storyboard'],true)) return "当前为短剧图片资产阶段。只在答复末尾输出严格 JSON 包裹 <canvas-actions>{\"nodes\":[...]}</canvas-actions>；nodes 只能是 image，最多 4 项，每项只允许 type、title、prompt、key、depends_on。不得声明价格、模型、URL、素材 ID 或任务状态。";
         $delivery = $mode === 'auto'
             ? '自动模式会在校验后创建节点；文本和图片节点会由页面自动提交。视频节点（尤其是分镜视频）只会插入画布并连接已有参考，绝不自动提交；用户必须在该节点点击生成并完成平台既有报价确认。'
             : '手动模式只会创建待生成节点，用户必须在画布节点上点击生成。';
@@ -26,7 +29,7 @@ final class ConversationActionPlan
     }
 
     /** @return array{text:string,nodes:list<array{type:string,title:string,prompt:string,key?:string,depends_on?:list<string>}>} */
-    public static function parse(string $reply): array
+    public static function parse(string $reply,string $workflowStage=''): array
     {
         $start = strpos($reply, self::OPEN);
         if ($start === false) return ['text' => trim($reply), 'nodes' => []];
@@ -37,13 +40,17 @@ final class ConversationActionPlan
         $body = trim(substr($reply, $start + strlen(self::OPEN), $end - ($start + strlen(self::OPEN))));
         try { $action = json_decode($body, true, 32, JSON_THROW_ON_ERROR); }
         catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_ACTION', 0, $error); }
-        if (!is_array($action) || array_keys($action) !== ['nodes'] || !is_array($action['nodes']) || !array_is_list($action['nodes']) || !$action['nodes'] || count($action['nodes']) > 4) throw new RuntimeException('INVALID_AGENT_ACTION');
+        $allowedTypes=match ($workflowStage) {
+            'assets','storyboard'=>['image'], 'video_nodes'=>['video'], 'audio_plan'=>['audio'], default=>['text','image','video'],
+        };
+        $maximum=$workflowStage==='video_nodes'?60:($workflowStage==='audio_plan'?1:4);
+        if (!is_array($action) || array_keys($action) !== ['nodes'] || !is_array($action['nodes']) || !array_is_list($action['nodes']) || !$action['nodes'] || count($action['nodes']) > $maximum) throw new RuntimeException('INVALID_AGENT_ACTION');
         $nodes = [];
         $keys = [];
         foreach ($action['nodes'] as $node) {
             if (!is_array($node) || array_diff(array_keys($node), ['type','title','prompt','key','depends_on'])) throw new RuntimeException('INVALID_AGENT_ACTION');
             $type = (string)($node['type'] ?? ''); $title = trim((string)($node['title'] ?? '')); $prompt = trim((string)($node['prompt'] ?? ''));
-            if (!in_array($type, ['text','image','video'], true) || $title === '' || mb_strlen($title) > 80 || $prompt === '' || mb_strlen($prompt) > 20000) throw new RuntimeException('INVALID_AGENT_ACTION');
+            if (!in_array($type, $allowedTypes, true) || $title === '' || mb_strlen($title) > 80 || $prompt === '' || mb_strlen($prompt) > 20000) throw new RuntimeException('INVALID_AGENT_ACTION');
             $proposal = ['type'=>$type, 'title'=>$title, 'prompt'=>$prompt];
             if (array_key_exists('key', $node) && !is_string($node['key'])) throw new RuntimeException('INVALID_AGENT_ACTION');
             $key = trim((string)($node['key'] ?? ''));
