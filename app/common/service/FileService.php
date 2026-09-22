@@ -77,6 +77,21 @@ class FileService
             return self::format(request()->domain(), $localUri);
         }
 
+        // Private cloud media is always re-signed at read time from immutable
+        // storage metadata.  Do this before treating an http(s) value as an
+        // already-deliverable URL, otherwise a stale signature could bypass
+        // the private-delivery policy.
+        $signed = StorageSignedUrlService::resolve(
+            $uri,
+            $storageScope,
+            $storageEngine,
+            $storageDomain,
+            StorageConfigService::currentTenantId()
+        );
+        if ($signed !== null) {
+            return $signed;
+        }
+
         if (strstr($uri, 'http://'))  return $uri;
         if (strstr($uri, 'https://')) return $uri;
 

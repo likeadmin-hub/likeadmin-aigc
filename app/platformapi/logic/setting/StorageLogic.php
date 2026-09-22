@@ -90,6 +90,7 @@ class StorageLogic extends BaseLogic
             'access_key' => '',
             'secret_key' => '',
             'domain' => '',
+            'private_access' => false,
             'status' => $default == 'qiniu' ? 1 : 0
         ]);
 
@@ -99,6 +100,7 @@ class StorageLogic extends BaseLogic
             'access_key' => '',
             'secret_key' => '',
             'domain' => '',
+            'private_access' => false,
             'status' => $default == 'aliyun' ? 1 : 0
         ]);
 
@@ -109,6 +111,7 @@ class StorageLogic extends BaseLogic
             'access_key' => '',
             'secret_key' => '',
             'domain' => '',
+            'private_access' => false,
             'status' => $default == 'qcloud' ? 1 : 0
         ]);
 
@@ -152,7 +155,8 @@ class StorageLogic extends BaseLogic
                     'bucket' => $params['bucket'] ?? '',
                     'access_key' => $params['access_key'] ?? '',
                     'secret_key' => $params['secret_key'] ?? '',
-                    'domain' => $params['domain'] ?? ''
+                    'domain' => $params['domain'] ?? '',
+                    'private_access' => !empty($params['private_access']),
                 ]);
                 break;
             case 'aliyun':
@@ -160,7 +164,8 @@ class StorageLogic extends BaseLogic
                     'bucket' => $params['bucket'] ?? '',
                     'access_key' => $params['access_key'] ?? '',
                     'secret_key' => $params['secret_key'] ?? '',
-                    'domain' => $params['domain'] ?? ''
+                    'domain' => $params['domain'] ?? '',
+                    'private_access' => !empty($params['private_access']),
                 ]);
                 break;
             case 'qcloud':
@@ -170,6 +175,7 @@ class StorageLogic extends BaseLogic
                     'access_key' => $params['access_key'] ?? '',
                     'secret_key' => $params['secret_key'] ?? '',
                     'domain' => $params['domain'] ?? '',
+                    'private_access' => !empty($params['private_access']),
                 ]);
                 break;
         }
