@@ -162,12 +162,18 @@ final class ShortDramaSkillService
      */
     public static function workflowEligible(int $tenantId): array
     {
-        $published = self::featured($tenantId, ['limit' => 100])['lists'];
-        return array_values(array_map(static function (array $skill) use ($tenantId): array {
+        $published = Db::name('aigc_short_drama_skill')->alias('s')
+            ->join('aigc_short_drama_skill_version v', 'v.skill_id = s.id AND v.tenant_id = s.tenant_id AND v.version = s.published_version')
+            ->whereIn('s.tenant_id', [0, $tenantId])
+            ->where(['s.status'=>1, 's.release_status'=>self::ACTIVE, 's.delete_time'=>0, 'v.release_status'=>self::ACTIVE, 'v.delete_time'=>0])
+            ->field('s.id,s.skill_key,s.name,s.description,s.published_version,v.snapshot_json')
+            ->order('s.id', 'asc')->select()->toArray();
+        return array_values(array_map(static function (array $skill): array {
+            $snapshot = self::decode($skill['snapshot_json'] ?? '');
             return [
                 'id' => (int)($skill['id'] ?? 0),
                 'version' => (int)($skill['published_version'] ?? $skill['version'] ?? 0),
-                'name' => (string)($skill['name'] ?? ''),
+                'name' => (string)($snapshot['name'] ?? $skill['name'] ?? ''),
                 'skill_key' => (string)($skill['skill_key'] ?? ''),
                 'description' => (string)($skill['description'] ?? ''),
             ];
