@@ -160,6 +160,9 @@ try {
     $semanticEdges=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('edges_json'),true);
     $semanticEdge=$semanticEdges[$legacySemanticIndex]??[];
     agentCheck(($semanticRepair['normalized']??0)>=1 && ($semanticEdge['kind']??'')==='reference' && ($semanticEdge['role']??'')==='agent_dependency' && isset($semanticEdge['order']),'legacy browser saves restore the semantic role/order of workflow-owned prerequisite edges without changing user edges');
+    $healthyRevision=(int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision');
+    $idempotentRepair=GraphService::repairLegacyAgentAssetReferences($tenant,$user,$canvas);
+    agentCheck(empty($idempotentRepair['changed']) && ($idempotentRepair['graph_revision']??0)===$healthyRevision,'a healthy repaired graph does not receive another version-changing rewrite during verification');
     try {
         ActionPlan::parse('<canvas-actions>{"nodes":[{"type":"image","artifact":"three_view","title":"孤立三视图","prompt":"invalid","key":"three_view"}]}</canvas-actions>','assets');
         throw new RuntimeException('three view without subject was accepted');
