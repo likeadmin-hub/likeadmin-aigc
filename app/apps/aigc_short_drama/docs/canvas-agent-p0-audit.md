@@ -1163,3 +1163,18 @@ R11/R12 的本地组件行为现已覆盖；完整 P4 仍未放行，R01–R10�
 - NOT_RUN：真实上游取消、退款、外部任务状态回写、浏览器停止按钮与独立进程 stop-vs-submit 竞争。它们未被本次本地单进程回归伪称通过。
 
 因此 R08 的本地“停止后不虚报外部状态”保护已有行为证据；完整 R08 仍必须取得真实 Provider 取消/账本契约或明确标记为不支持，不能靠本地状态替代。
+
+## 71. P5 正式项目绑定与 P6 本地兼容性起始验收（2026-09-22）
+
+本轮只使用既有 Baota `baota` 容器、当前 `x_cn` 数据库和回滚夹具；未创建测试数据库、镜像、容器、网络或额外 Worker，未调用 Provider 或积分接口。
+
+- 实现：新增 `la_aigc_short_drama_canvas_binding`，其唯一范围为 tenant/user/canvas。绑定只记录**当前**正式目标；自由画布既有任务和资产继续保持 `project_id=0` 与原 `canvas_id`，不会被迁移、重写或重新计费。
+- 实现：`POST app.aigc_short_drama.canvas/bind` 与 `GET .../binding` 均按画布、项目和剧集的 tenant/user 归属校验。客户端传入 `production_project_id` 会直接拒绝；选择剧集时由服务端从 `aigc_short_drama_episode_task` 反查所属故事项目及制作项目，不能把父项目 ID 当作制作项目 ID。
+- 实现：绑定表同时写入应用安装 SQL、增量迁移和完整安装快照。已在本地 `x_cn` 正常应用 `upgrade_20260922_canvas_binding.sql`；它只新增该表，未变更历史业务行。
+- PASS / P5 D01、D02、D03、D09：本地 `p5_binding.php` 10 PASS / 0 FAIL。覆盖自由画布任务/资产归属、跨租户项目和读取拒绝、故事/剧集→制作项目的服务端 ID 映射、伪造制作项目拒绝、等值绑定重放，以及绑定前后历史任务/资产逐字段不变。
+- PARTIAL / P5 D10：未绑定画布明确返回 `bound=false`，没有隐式正式目标；“应用正式分镜”的项目写入入口尚未实现，故不能把这项记为完整 PASS。
+- PASS / 既有短剧基线：本地 develop 的 `ShortDramaStoryWorkflowTest` 6/27、`ShortDramaOutlineValidationTest` 3/8、`ShortDramaContinuityTest` 10/33、`ShortDramaGenerationReliabilityTest` 12/37 均通过。它们分别保留故事阶段、大纲无镜头/媒体、剧集顺序/承接与生成可靠性既有边界；但没有把画布草稿投影到正式镜头，因此 D04–D08 仍不扩大为 P5 通过。
+- PASS / P6 O01–O03 的可验证部分：`p6_local_compatibility.php` 7 PASS / 0 FAIL。应用安装 SQL、完整安装快照与增量迁移的绑定 DDL 完全一致；在当前本地库连续执行同一迁移两次，表结构与唯一索引稳定；历史 JSON 夹具的节点、边、视口读取无损。
+- PASS / 手工画布基础回归：`p0_controller.php` 的实际中间件/控制器验收通过登录、短剧应用访问、四节点完整保存、伪造 owner 忽略、跨用户/跨租户读取/保存/删除拒绝和短剧应用下架拒绝。独立无限画布当前在本机安装状态为启用，测试不为制造负例改写全局应用状态，故其“禁用路由拒绝”记录为 NOT_RUN。
+
+P5 仍为 **NOT_RUN / 未放行**：正式应用到故事设定、分集大纲或某一镜头的明确写入合同尚未定义/实现；D04–D08 不能由既有流程测试替代。P6 仍为 **NOT_RUN / 未放行**：O04–O10（功能开关历史可读、审计脱敏追踪、过期事件重连、200 节点负载统计、真实模型样本、兼容回退和独立无限画布完整回归）均须逐项在当前本地运行态继续验证。未将本轮源代码或局部回归冒充为正式发布验收。
