@@ -947,3 +947,13 @@ web `aa4e34e` 添加 generationInputError，在 runNativeNode 设置 running、�
 - PASS：run 22 对应 app task 1077（`aigc_short_drama_canvas_agent_run:22`）和消费 1099；模型 `qwen3.6-plus` / `dashscope_compatible`，billing_status=settled。消费事件恰有一次 attempt 1 的 `reserve`、`submit`、`settle`；tenant/user 各实际结算 **0.525000** 积分，页面账户余额从 10869.25 变为 **10868.73**。
 
 该项补齐真实 Agent Provider、SSE 可见回复、会话持久化与唯一账本的成功路径，不推断附件视觉理解、停止后的真实上游取消/退款、未知结果查询、模型能力矩阵或签名 URL 刷新也已通过。它不调用 Agent 工具，P3 的 M01/M06/M09/M12/M14/M16 等剩余门槛仍按单项继续，**P3 未整体放行，P4—P6 NOT_RUN**。本次在用户授权 2000 积分上限内，未迁移、部署、发布、推送或复制密钥。
+
+## 53. P3 附件中间态、视频声明与取消/对账回归（2026-09-22）
+
+server `449e0346f` 将此前可执行的授权服务覆盖扩展到缺失的中间态和视频语义：不更改生产附件处理、Provider 或计费代码，只让隔离测试直接执行现有真实服务。变更已按分支规则合入本地 develop 后执行，再切回 feature。
+
+- PASS / M08：`p2_attachments.php` **28 PASS / 0 FAIL**。已冻结的图片在 Provider 执行前被改为 `uploading` 或 `transferring` 时，`ConversationImages::urls` 均明确拒绝 `IMAGE_REFERENCE_UNAVAILABLE`；软删除、跨 tenant/user、伪造本地路径与撤销后不再附加亦保持通过。不会将未就绪的文件发送到 Provider。
+- PASS / M07：`p2_worker.php` **109 PASS / 0 FAIL**。同一真实冻结上下文同时选择文本、图片和视频节点时，文本 Agent DTO 不携带私有图片/视频 URI；图片和视频都标识 `media_understanding_available=false`，因此不会声称读过像素或视频内容，也不会创建媒体任务或改写画布。
+- PASS / 取消与账本终态：`p2_stop.php` **76 PASS / 0 FAIL**，`p2_reconciliation.php` **11 PASS / 0 FAIL**。排队/处理中停止可围栏 Provider 提交并幂等释放会话；已提交后只记录停止请求且不伪称上游已取消；失败退款、已结算的迟到结果和未知终态均经本地 app-task/消费账本对齐，不重复扣费、退款或改写权威账本。
+
+测试在 internal Docker 网络和独立 `short_drama_agent_test` 库执行，真实 `.env` 被遮盖、runtime 为 tmpfs；没有访问 tenant 1 业务数据或产生付费调用。**仍不能把取消/退款宣称为真实 Provider 上游操作 PASS**：当前接入的 Qwen 文本流协议没有可调用、可验证的取消 API 或 Provider 侧用量查询契约；真实 Agent 成功路径已在第 52 节通过，但其停止后的上游取消/退款仍为 `BLOCKED`，不能用本地围栏/账本测试替代。M09 私有签名刷新、M01 共享能力矩阵、M06/M14 报价确认失效、M11 Agent/手动同请求幂等和 M12 完整浏览器映射仍未满足，**P3 未整体放行，P4—P6 NOT_RUN**。
