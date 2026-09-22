@@ -11,8 +11,10 @@ use app\common\service\app\AppAccessService;
 class P0Provider {
     public static array $received = [];
     public static bool $loseResponse = false;
+    public static string $knownFailure = '';
     public static ?Closure $beforeReturn = null;
     public static function submit(string $type, int $tenant, int $user, array $input): array {
+        if (self::$knownFailure !== '') throw new RuntimeException(self::$knownFailure);
         $receipt = count(self::$received) + 1;
         self::$received[] = [$type, $tenant, $user, $input];
         PointService::consumeBusinessAmountsInCurrentTransaction($tenant, $user, 1, 2, 'p0-mock-' . $receipt, 'P0 synthetic provider');
@@ -129,6 +131,20 @@ try {
     agentCheck(Db::name('aigc_short_drama_generation_task')->where(['canvas_id'=>$doc['id'],'project_id'=>0])->count()===4,'B03 four short-drama projections retain free-canvas ownership');
     agentCheck(Db::name('aigc_short_drama_asset')->where(['canvas_id'=>$doc['id'],'project_id'=>0])->count()===3,'B03 three media assets; repeated reads do not duplicate assets');
     if ($submitMethod==='submitIdempotent') {
+        $knownUnavailable=Canvas::create(91001,92001,['title'=>'Known unavailable model fixture'])['id'];
+        Canvas::save(91001,92001,['id'=>$knownUnavailable,'nodes'=>[['id'=>1,'type'=>'text','metadata'=>[]]]]);
+        $knownRequest=['canvas_id'=>$knownUnavailable,'node_id'=>'1','type'=>'text','prompt'=>'Known unavailable model fixture','request_key'=>'known-model-unavailable'];
+        $beforeKnownCalls=count(P0Provider::$received);
+        $beforeKnownBalances=[(float)Db::name('tenant')->where('id',91001)->value('point_balance'),(float)Db::name('user')->where('id',92001)->value('user_money')];
+        P0Provider::$knownFailure='model_not_found: synthetic unavailable model';
+        $knownFailure=Canvas::submitIdempotent(91001,92001,$knownRequest);
+        P0Provider::$knownFailure='';
+        agentCheck($knownFailure['status']==='failed' && $knownFailure['error']==='当前选择的模型暂不可用，请切换模型后重新提交','explicit upstream model rejection is a terminal actionable failure');
+        $knownIntent=Db::name('aigc_short_drama_canvas_generation_intent')->where(['canvas_id'=>$knownUnavailable,'request_key'=>'known-model-unavailable'])->find();
+        agentCheck($knownIntent['state']==='failed' && $knownIntent['error_code']==='UPSTREAM_MODEL_UNAVAILABLE','explicit model rejection never enters reconciliation');
+        agentCheck(count(P0Provider::$received)===$beforeKnownCalls && $beforeKnownBalances===[(float)Db::name('tenant')->where('id',91001)->value('point_balance'),(float)Db::name('user')->where('id',92001)->value('user_money')],'terminal model rejection neither reaches Provider receipt nor changes balances');
+        $knownReplay=Canvas::submitIdempotent(91001,92001,$knownRequest);
+        agentCheck($knownReplay['id']===$knownFailure['id'] && $knownReplay['status']==='failed','known unavailable model replay returns the same failed run');
         P0Provider::$loseResponse=true;
         $request=['canvas_id'=>$doc['id'],'node_id'=>'1','type'=>'text','prompt'=>'Lost response fixture','request_key'=>'lost-response'];
         $unknown=Canvas::submitIdempotent(91001,92001,$request);

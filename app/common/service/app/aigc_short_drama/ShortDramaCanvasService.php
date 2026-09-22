@@ -410,9 +410,19 @@ class ShortDramaCanvasService
             self::syncShortDramaTask($runId);
             return self::runDetail($tenantId,$userId,$runId);
         } catch (\Throwable $error) {
-            // Lower services remain billing authorities. An unclassified error
-            // cannot prove that no external task was accepted or that a refund ran.
-            GenerationIntentService::unknown($tenantId,$userId,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version']);
+            if (self::isConfirmedModelUnavailable($error)) {
+                // The text market has already recorded/refunded this specific
+                // request without an upstream receipt. It is safe to expose a
+                // terminal failure and allow a new request key after switching
+                // models; it must not be presented as an ambiguous paid submit.
+                GenerationIntentService::failed($tenantId,$userId,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],
+                    'UPSTREAM_MODEL_UNAVAILABLE','当前选择的模型暂不可用，请切换模型后重新提交');
+            } else {
+                // Lower services remain billing authorities. An unclassified
+                // error cannot prove that no external task was accepted or that
+                // a refund ran, so it is never automatically resubmitted.
+                GenerationIntentService::unknown($tenantId,$userId,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version']);
+            }
             self::syncShortDramaTask($runId);
             return self::runDetail($tenantId,$userId,$runId);
         }
@@ -433,6 +443,24 @@ class ShortDramaCanvasService
             'video'=>AigcVideoService::generate($tenantId,$userId,$payload),
             'audio'=>AigcMusicService::generate($tenantId,$userId,$payload),
         };
+    }
+
+    /**
+     * Only classify a response as terminal when the Provider explicitly says
+     * the requested model does not exist or is not sellable. Timeouts, 5xx and
+     * connection failures remain ambiguous because they may follow acceptance.
+     */
+    private static function isConfirmedModelUnavailable(\Throwable $error): bool
+    {
+        $message=mb_strtolower(trim($error->getMessage()),'UTF-8');
+        foreach ([
+            'model_not_found','model not found','invalid_model','invalid model',
+            'unsupported_model','unsupported model','所选文本模型未上架',
+            '所选文本模型已不可用','当前模型已下架','当前模型不可用',
+        ] as $needle) {
+            if (str_contains($message,$needle)) return true;
+        }
+        return false;
     }
 
     public static function runDetail(int $tenantId, int $userId, int $runId): array

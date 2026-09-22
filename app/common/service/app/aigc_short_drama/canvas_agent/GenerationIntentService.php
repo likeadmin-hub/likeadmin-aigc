@@ -136,6 +136,27 @@ final class GenerationIntentService
         });
     }
 
+    /**
+     * Record a Provider rejection that proves no external task was accepted.
+     *
+     * This is deliberately separate from unknown(): callers must only use it
+     * when durable Provider/billing evidence confirms the request failed before
+     * an external task receipt existed. Ambiguous transport failures must stay
+     * in needs_reconciliation so they can never be resubmitted and charged.
+     */
+    public static function failed(int $tenant, int $user, int $id, string $token, int $fence, string $errorCode, string $message): void
+    {
+        Db::transaction(function () use ($tenant,$user,$id,$token,$fence,$errorCode,$message): void {
+            $row=self::owned($tenant,$user,$id);
+            self::assertClaim($row,$token,$fence);
+            self::transition($row,[
+                'state'=>'failed','error_code'=>mb_substr($errorCode,0,64),'lease_until'=>0,
+            ],[
+                'status'=>'failed','progress'=>0,'error'=>mb_substr($message,0,500),
+            ]);
+        });
+    }
+
     public static function unknown(int $tenant, int $user, int $id, string $token, int $fence): void
     {
         Db::transaction(function () use ($tenant,$user,$id,$token,$fence): void {
