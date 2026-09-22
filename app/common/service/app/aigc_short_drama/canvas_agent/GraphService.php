@@ -10,14 +10,14 @@ final class GraphService
 {
     public const TABLE = 'aigc_short_drama_canvas';
     public const RECEIPTS = 'aigc_short_drama_canvas_mutation_receipt';
-    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_manual_submit','workflow_source_stage','workflow_artifact','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash'];
+    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_manual_submit','workflow_source_stage','workflow_artifact','workflow_key','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash'];
 
     /**
      * Server-only Agent writer.  ConversationExecution already owns the
      * document lock when this method is called, so this shares the exact same
      * CAS/revision path as manual saves and runtime projections.
      *
-     * @param list<array{type:string,title:string,prompt:string,artifact?:string,key?:string,depends_on?:list<string>}> $proposals
+     * @param list<array{type:string,title:string,prompt:string,artifact?:string,key?:string,depends_on?:list<string>,reference_keys?:list<string>}> $proposals
      * @param list<string> $sourceIds frozen IDs from the accepted conversation
      * @return array{graph_revision:int,nodes:list<array{id:string,type:string,auto_submit:bool}>}
      */
@@ -40,11 +40,6 @@ final class GraphService
         $maximumX=0.0; $maximumY=0.0;
         foreach ($nodes as $node) { $maximumX=max($maximumX,(float)($node['x']??0)); $maximumY=max($maximumY,(float)($node['y']??0)); }
         self::validateAgentProposals($proposals,$workflowStage);
-        // These are durable graph references, not prompt-only labels.  The
-        // workflow stage determines exactly which already-created assets can
-        // flow into the next artifact class.  Incoming user-selected sources
-        // remain available independently as agent_context references.
-        $workflowSources=self::workflowReferenceSources($nodes,$workflowStage);
         $created=[];
         $createdByKey=[];
         foreach ($proposals as $offset=>$proposal) {
@@ -58,6 +53,7 @@ final class GraphService
             if ($workflowStage!=='') {
                 $metadata['workflow_source_stage']=$workflowStage;
                 $metadata['workflow_artifact']=(string)($proposal['artifact']??'');
+                if (isset($proposal['key'])) $metadata['workflow_key']=$workflowStage.':'.(string)$proposal['key'];
                 $metadata['workflow_plan_hash']=(string)($workflow['plan_hash']??'');
             }
             if ($type==='text') $metadata['model_code']=(string)($settings['reasoning_model']['id']??'');
@@ -89,6 +85,11 @@ final class GraphService
                 $metadata['agent_auto_request_key']='agent.'.$agentRunId.'.'.$id;
             }
             $node=['id'=>(int)$id,'type'=>$type,'title'=>$title,'x'=>$maximumX+420+($offset%2)*40,'y'=>$maximumY+($offset*360),'width'=>$size[0],'height'=>$size[1],'metadata'=>$metadata];
+            // Workflow references are durable graph facts. The model can only
+            // select from server-derived workflow keys, so it cannot forge a
+            // node ID or turn every historic artifact into a noisy input.
+            // Selected user material remains an independent agent_context.
+            $workflowSources=self::workflowReferenceSources($nodes,$workflowStage,$proposal);
             $referenceSources=[];
             foreach ($workflowSources as $sourceId) $referenceSources[$sourceId]='workflow_reference';
             foreach ($liveSources as $sourceId) $referenceSources[$sourceId]='agent_context';
@@ -373,7 +374,7 @@ final class GraphService
         $keys=[];
         $keyArtifacts=[];
         foreach ($proposals as $proposal) {
-            $fields=$allowedArtifacts ? ['type','artifact','title','prompt','key','depends_on'] : ['type','title','prompt','key','depends_on'];
+            $fields=$allowedArtifacts ? ['type','artifact','title','prompt','key','depends_on','reference_keys'] : ['type','title','prompt','key','depends_on'];
             if (!is_array($proposal) || array_diff(array_keys($proposal),$fields)) throw new RuntimeException('INVALID_AGENT_ACTION');
             $type=(string)($proposal['type']??''); $title=trim((string)($proposal['title']??'')); $prompt=trim((string)($proposal['prompt']??''));
             if (!in_array($type,$allowedTypes,true) || $title==='' || mb_strlen($title)>80 || $prompt==='' || mb_strlen($prompt)>20000) throw new RuntimeException('INVALID_AGENT_ACTION');
@@ -387,6 +388,14 @@ final class GraphService
                 foreach ($proposal['depends_on'] as $dependency) {
                     if (!is_string($dependency) || !isset($keys[$dependency]) || isset($dependencies[$dependency])) throw new RuntimeException('INVALID_AGENT_ACTION');
                     $dependencies[$dependency]=true;
+                }
+            }
+            if (array_key_exists('reference_keys',$proposal)) {
+                if (!is_array($proposal['reference_keys']) || !array_is_list($proposal['reference_keys']) || !$proposal['reference_keys'] || count($proposal['reference_keys'])>6) throw new RuntimeException('INVALID_AGENT_ACTION');
+                $references=[];
+                foreach ($proposal['reference_keys'] as $reference) {
+                    if (!is_string($reference) || !preg_match('/^[a-z][a-z0-9_-]{0,47}:[a-z][a-z0-9_-]{0,31}$/D',$reference) || isset($references[$reference])) throw new RuntimeException('INVALID_AGENT_ACTION');
+                    $references[$reference]=true;
                 }
             }
             if ($key!=='') {
@@ -412,8 +421,8 @@ final class GraphService
             }
         }
     }
-    /** @return list<string> workflow-owned node IDs allowed as durable references for this stage. */
-    private static function workflowReferenceSources(array $nodes,string $stage): array {
+    /** @return list<string> workflow-owned node IDs allowed as durable references for this exact proposed artifact. */
+    private static function workflowReferenceSources(array $nodes,string $stage,array $proposal): array {
         $sourceStages=match ($stage) {
             'assets'=>['script','art'],
             'storyboard'=>['script','art','assets'],
@@ -423,13 +432,39 @@ final class GraphService
             default=>[],
         };
         if (!$sourceStages) return [];
+        $requested=array_values((array)($proposal['reference_keys']??[]));
+        $requestedLookup=array_fill_keys($requested,true);
+        $fallbackArtifacts=match ($stage) {
+            'assets'=>match ((string)($proposal['artifact']??'')) {
+                'subject'=>['character_asset_spec','subject_image_prompt'],
+                'three_view'=>['three_view_prompt'],
+                default=>[],
+            },
+            'storyboard'=>match ((string)($proposal['artifact']??'')) {
+                'scene'=>['scene_asset_spec','scene_image_prompt'],
+                'prop'=>['prop_asset_spec'],
+                'storyboard'=>['storyboard_image_prompt'],
+                default=>[],
+            },
+            'video_plan'=>['storyboard_script'],
+            'video_nodes'=>['video_prompt_plan'],
+            'audio_plan'=>['video_prompt_plan'],
+            default=>[],
+        };
         $ids=[];
         foreach ($nodes as $node) {
             $metadata=(array)($node['metadata']??[]);
             if (!in_array((string)($node['type']??''),['text','image'],true) || !in_array((string)($metadata['workflow_source_stage']??''),$sourceStages,true)) continue;
+            $workflowKey=(string)($metadata['workflow_key']??'');
+            $artifact=(string)($metadata['workflow_artifact']??'');
+            if ($requestedLookup) {
+                if (!isset($requestedLookup[$workflowKey])) continue;
+                unset($requestedLookup[$workflowKey]);
+            } elseif (!in_array($artifact,$fallbackArtifacts,true)) continue;
             $id=(string)($node['id']??'');
             if (preg_match('/^[1-9][0-9]{0,15}$/D',$id)) $ids[]=$id;
         }
+        if ($requestedLookup) throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
         return array_values(array_unique($ids));
     }
     /**

@@ -28,10 +28,10 @@ final class ConversationActionPlan
     {
         if ($workflowStage==='script') return self::structuredEnvelopeInstruction('剧本与角色设定', 'story_setting、episode_outline、storyboard_script', '每项 prompt 是可直接阅读的结构化正文，必须覆盖 project_title、logline、world_setting、character_profiles、episode_outline、scene_script 或 storyboard_script 中与该节点匹配的字段；三个 artifact 均须各创建一项，episode_outline 必须依赖 story_setting，storyboard_script 必须依赖 episode_outline。');
         if ($workflowStage==='art') return self::structuredEnvelopeInstruction('画风与美术规划', 'art_bible、character_asset_spec、scene_asset_spec、prop_asset_spec、subject_image_prompt、three_view_prompt、scene_image_prompt 或 storyboard_image_prompt', '每项 prompt 是可直接阅读的结构化正文，覆盖 art_bible、角色/场景/道具资产说明及后续生图提示词；按已确认的创作需要输出完整的资产计划。');
-        if ($workflowStage==='video_nodes') return "当前为分镜视频节点阶段。只在答复末尾输出一次严格 JSON 包裹 <canvas-actions>{\"nodes\":[...]}</canvas-actions>；nodes 只能是 video，数量 1 至 60，artifact 必须是 storyboard_video，全部为待用户生成的分镜视频节点。每项只允许 type、artifact、title、prompt、key、depends_on；不得声明价格、模型、URL、素材 ID 或任务状态。";
+        if ($workflowStage==='video_nodes') return "当前为分镜视频节点阶段。只在答复末尾输出一次严格 JSON 包裹 <canvas-actions>{\"nodes\":[...]}</canvas-actions>；nodes 只能是 video，数量 1 至 60，artifact 必须是 storyboard_video，全部为待用户生成的分镜视频节点。每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys；reference_keys 只能选用阶段输入 workflow_reference_catalog 的 reference_key。不得声明价格、模型、URL、素材 ID 或任务状态。";
         if ($workflowStage==='audio_plan') return "当前为音频规划阶段。只在答复末尾输出一次严格 JSON 包裹 <canvas-actions>{\"nodes\":[{\"type\":\"audio\",\"artifact\":\"audio_plan\",\"title\":\"音频规划（暂未开放）\",\"prompt\":\"...\",\"key\":\"audio_plan\"}]}</canvas-actions>；只允许一个 audio 节点。该节点仅展示规划，绝不能生成或计费。";
-        if ($workflowStage==='assets') return "当前为短剧主体资产阶段。只在答复末尾输出严格 JSON 包裹 <canvas-actions>{\"nodes\":[...]}</canvas-actions>；nodes 只能是 image，artifact 只能是 subject 或 three_view；每个 three_view 必须通过 depends_on 引用前面同批的 subject。最多 4 项，每项只允许 type、artifact、title、prompt、key、depends_on。不得声明价格、模型、URL、素材 ID 或任务状态。";
-        if ($workflowStage==='storyboard') return "当前为场景与分镜图阶段。只在答复末尾输出严格 JSON 包裹 <canvas-actions>{\"nodes\":[...]}</canvas-actions>；nodes 只能是 image，artifact 只能是 scene、prop 或 storyboard；storyboard 必须通过 depends_on 引用前面同批的 scene 或 prop。最多 4 项，每项只允许 type、artifact、title、prompt、key、depends_on。不得声明价格、模型、URL、素材 ID 或任务状态。";
+        if ($workflowStage==='assets') return "当前为短剧主体资产阶段。只在答复末尾输出严格 JSON 包裹 <canvas-actions>{\"nodes\":[...]}</canvas-actions>；nodes 只能是 image，artifact 只能是 subject 或 three_view；每个 three_view 必须通过 depends_on 引用前面同批的 subject。reference_keys 只能选 workflow_reference_catalog 的 reference_key：角色主体只引用该角色的 character_asset_spec 或 subject_image_prompt；三视图只引用对应的 three_view_prompt，主体通过 depends_on 连接。最多 4 项，每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys。不得声明价格、模型、URL、素材 ID 或任务状态。";
+        if ($workflowStage==='storyboard') return "当前为场景与分镜图阶段。只在答复末尾输出严格 JSON 包裹 <canvas-actions>{\"nodes\":[...]}</canvas-actions>；nodes 只能是 image，artifact 只能是 scene、prop 或 storyboard；storyboard 必须通过 depends_on 引用前面同批的 scene 或 prop。reference_keys 只能选 workflow_reference_catalog 中直接决定本节点的 reference_key，不得把所有前序剧本和资产都连接到同一节点。最多 4 项，每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys。不得声明价格、模型、URL、素材 ID 或任务状态。";
         if ($workflowStage==='video_plan') return self::structuredEnvelopeInstruction('分镜视频规划', 'video_prompt_plan', '每项 prompt 必须覆盖 shot_number、duration、first_frame、last_frame、camera_motion、action_sequence、video_prompt、asset_references；只规划，不报价、不提交视频任务。');
         $delivery = $mode === 'auto'
             ? '自动模式会在校验后创建节点；文本和图片节点会由页面自动提交。视频节点（尤其是分镜视频）只会插入画布并连接已有参考，绝不自动提交；用户必须在该节点点击生成并完成平台既有报价确认。'
@@ -47,7 +47,7 @@ final class ConversationActionPlan
 
     private static function structuredEnvelopeInstruction(string $label,string $artifacts,string $requirements): string
     {
-        return "当前为{$label}阶段。只输出一个合法 JSON 对象，不要 Markdown 代码块、不要前后说明。对象只能有 reply_markdown 和 canvas_actions 两个字段：reply_markdown 是要展示给用户的真实、完整短剧内容；canvas_actions 只能是 {\"nodes\":[...]}。nodes 只能是 text，artifact 只能是 {$artifacts}。{$requirements} 每项只允许 type、artifact、title、prompt、key、depends_on；不得输出模型、价格、URL、素材 ID、任务状态或任意画布 JSON。";
+        return "当前为{$label}阶段。只输出一个合法 JSON 对象，不要 Markdown 代码块、不要前后说明。对象只能有 reply_markdown 和 canvas_actions 两个字段：reply_markdown 是要展示给用户的真实、完整短剧内容；canvas_actions 只能是 {\"nodes\":[...]}。nodes 只能是 text，artifact 只能是 {$artifacts}。{$requirements} 每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys；reference_keys 只能使用 workflow_reference_catalog 的 reference_key，且只选直接依赖的产物；不得输出模型、价格、URL、素材 ID、任务状态或任意画布 JSON。";
     }
 
     /** @return array{text:string,nodes:list<array{type:string,title:string,prompt:string,key?:string,depends_on?:list<string>}>} */
@@ -69,7 +69,7 @@ final class ConversationActionPlan
         $keys = [];
         $keyArtifacts = [];
         foreach ($action['nodes'] as $node) {
-            $fields=$allowedArtifacts ? ['type','artifact','title','prompt','key','depends_on'] : ['type','title','prompt','key','depends_on'];
+            $fields=$allowedArtifacts ? ['type','artifact','title','prompt','key','depends_on','reference_keys'] : ['type','title','prompt','key','depends_on'];
             if (!is_array($node) || array_diff(array_keys($node), $fields)) throw new RuntimeException('INVALID_AGENT_ACTION');
             $type = (string)($node['type'] ?? ''); $title = trim((string)($node['title'] ?? '')); $prompt = trim((string)($node['prompt'] ?? ''));
             if (!in_array($type, $allowedTypes, true) || $title === '' || mb_strlen($title) > 80 || $prompt === '' || mb_strlen($prompt) > 20000) throw new RuntimeException('INVALID_AGENT_ACTION');
@@ -93,6 +93,15 @@ final class ConversationActionPlan
                     $dependencies[$dependency] = true;
                 }
                 $proposal['depends_on'] = array_keys($dependencies);
+            }
+            if (array_key_exists('reference_keys',$node)) {
+                if (!is_array($node['reference_keys']) || !array_is_list($node['reference_keys']) || !$node['reference_keys'] || count($node['reference_keys'])>6) throw new RuntimeException('INVALID_AGENT_ACTION');
+                $references=[];
+                foreach ($node['reference_keys'] as $reference) {
+                    if (!is_string($reference) || !preg_match('/^[a-z][a-z0-9_-]{0,47}:[a-z][a-z0-9_-]{0,31}$/D',$reference) || isset($references[$reference])) throw new RuntimeException('INVALID_AGENT_ACTION');
+                    $references[$reference]=true;
+                }
+                $proposal['reference_keys']=array_keys($references);
             }
             if ($key !== '') {
                 $keys[$key] = true;
