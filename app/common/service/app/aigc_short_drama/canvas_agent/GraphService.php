@@ -10,7 +10,7 @@ final class GraphService
 {
     public const TABLE = 'aigc_short_drama_canvas';
     public const RECEIPTS = 'aigc_short_drama_canvas_mutation_receipt';
-    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_manual_submit'];
+    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_manual_submit','workflow_source_stage','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash'];
 
     /**
      * Server-only Agent writer.  ConversationExecution already owns the
@@ -21,9 +21,11 @@ final class GraphService
      * @param list<string> $sourceIds frozen IDs from the accepted conversation
      * @return array{graph_revision:int,nodes:list<array{id:string,type:string,auto_submit:bool}>}
      */
-    public static function appendAgentNodesLocked(array $document, array $proposals, array $sourceIds, bool $auto, array $settings=[], int $agentRunId=0): array
+    public static function appendAgentNodesLocked(array $document, array $proposals, array $sourceIds, bool $auto, array $settings=[], int $agentRunId=0, array $workflow=[]): array
     {
-        if (!$proposals || count($proposals) > 4) throw new RuntimeException('INVALID_AGENT_ACTION');
+        $workflowStage=(string)($workflow['stage_state']['key']??'');
+        $maximum=$workflowStage==='video_nodes'?60:($workflowStage==='audio_plan'?1:4);
+        if (!$proposals || count($proposals) > $maximum) throw new RuntimeException('INVALID_AGENT_ACTION');
         $nodes = json_decode($document['nodes_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);
         $edges = json_decode($document['edges_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);
         $removed = json_decode($document['removed_node_ids_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);
@@ -36,7 +38,7 @@ final class GraphService
         }
         $maximumX=0.0; $maximumY=0.0;
         foreach ($nodes as $node) { $maximumX=max($maximumX,(float)($node['x']??0)); $maximumY=max($maximumY,(float)($node['y']??0)); }
-        self::validateAgentProposals($proposals);
+        self::validateAgentProposals($proposals,$workflowStage);
         $created=[];
         $createdByKey=[];
         foreach ($proposals as $offset=>$proposal) {
@@ -44,6 +46,10 @@ final class GraphService
             $id=(string)self::allocateNodeId($nodes,$removed);
             $size=$type==='text' ? [320,280] : [420,320];
             $metadata=['prompt'=>$prompt,'content'=>'','status'=>'idle','progress'=>0,'error'=>'','content_revision'=>1,'layout_revision'=>1];
+            if ($workflowStage!=='') {
+                $metadata['workflow_source_stage']=$workflowStage;
+                $metadata['workflow_plan_hash']=(string)($workflow['plan_hash']??'');
+            }
             if ($type==='text') $metadata['model_code']=(string)($settings['reasoning_model']['id']??'');
             else $metadata['channel']=(string)($settings[$type.'_model']['id']??'');
             // Videos are deliberately never automatic Agent work.  A video
@@ -52,8 +58,15 @@ final class GraphService
             // node-level quote/submit flow.  Keeping this server-owned makes
             // a stale browser, a worker restart or a forged save unable to
             // turn an automatic image plan into a paid video submission.
-            $autoSubmit = $auto && $type !== 'video';
-            if ($type === 'video') $metadata['agent_manual_submit']=1;
+            $autoSubmit = $auto && $type !== 'video' && $type !== 'audio';
+            if ($type === 'video') {
+                $metadata['agent_manual_submit']=1;
+                $metadata['workflow_submission_policy']='manual_quote_confirmed';
+            }
+            if ($type === 'audio') {
+                $metadata['workflow_audio_disabled']=1;
+                $metadata['workflow_submission_policy']='disabled';
+            }
             if ($autoSubmit) {
                 if ($agentRunId <= 0) throw new RuntimeException('INVALID_AGENT_ACTION');
                 // This key is allocated by the server before the document is
@@ -334,12 +347,15 @@ final class GraphService
         return [(string)($edge['from']??''),(string)($edge['to']??''),(string)($edge['kind']??'reference'),(string)($edge['role']??''),(string)($edge['order']??0)];
     }
     /** Validate the model proposal again at the graph authority boundary. */
-    private static function validateAgentProposals(array $proposals): void {
+    private static function validateAgentProposals(array $proposals,string $workflowStage=''): void {
+        $allowedTypes=match ($workflowStage) {
+            'assets','storyboard'=>['image'], 'video_nodes'=>['video'], 'audio_plan'=>['audio'], default=>['text','image','video'],
+        };
         $keys=[];
         foreach ($proposals as $proposal) {
             if (!is_array($proposal) || array_diff(array_keys($proposal),['type','title','prompt','key','depends_on'])) throw new RuntimeException('INVALID_AGENT_ACTION');
             $type=(string)($proposal['type']??''); $title=trim((string)($proposal['title']??'')); $prompt=trim((string)($proposal['prompt']??''));
-            if (!in_array($type,['text','image','video'],true) || $title==='' || mb_strlen($title)>80 || $prompt==='' || mb_strlen($prompt)>20000) throw new RuntimeException('INVALID_AGENT_ACTION');
+            if (!in_array($type,$allowedTypes,true) || $title==='' || mb_strlen($title)>80 || $prompt==='' || mb_strlen($prompt)>20000) throw new RuntimeException('INVALID_AGENT_ACTION');
             if (array_key_exists('key',$proposal) && !is_string($proposal['key'])) throw new RuntimeException('INVALID_AGENT_ACTION');
             $key=trim((string)($proposal['key']??''));
             if (array_key_exists('key',$proposal) && (!preg_match('/^[a-z][a-z0-9_-]{0,31}$/D',$key) || isset($keys[$key]))) throw new RuntimeException('INVALID_AGENT_ACTION');

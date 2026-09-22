@@ -3,11 +3,13 @@ declare(strict_types=1);
 require __DIR__.'/bootstrap.php';
 
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationActionPlan as ActionPlan;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution as Execution;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationProviderInterface;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore as Store;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorker as Worker;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow as Workflow;
+use app\common\service\app\aigc_short_drama\canvas_agent\GraphService;
 use think\facade\Db;
 
 final class WorkflowAcceptanceProvider implements ConversationProviderInterface
@@ -66,6 +68,26 @@ try {
     } catch (RuntimeException $error) { agentCheck($error->getMessage()==='WORKFLOW_PLAN_CONFIRMATION_REQUIRED','unconfirmed auto plan blocks the next Agent request'); }
     $confirmed=Workflow::confirmPlan($tenant,$user,$canvas,$thread,(int)$afterArt['workflow']['state_revision'],(string)$afterArt['workflow']['plan_hash']);
     agentCheck(($confirmed['workflow']['plan_confirmation']['status']??'')==='confirmed' && Workflow::mayAutoSubmit($confirmed['workflow']),'confirmed plan is the only workflow state eligible for image auto-submit');
+    $videoPlan=ActionPlan::parse('分镜视频节点已规划。<canvas-actions>{"nodes":[{"type":"video","title":"分镜 01","prompt":"角色推门进入办公室","key":"shot_1"},{"type":"video","title":"分镜 02","prompt":"角色回头看向窗外","key":"shot_2","depends_on":["shot_1"]}]}</canvas-actions>','video_nodes');
+    agentCheck(count($videoPlan['nodes'])===2 && $videoPlan['nodes'][1]['type']==='video','video stage accepts one bounded batch of storyboard video nodes');
+    $videoWorkflow=$confirmed['workflow'];$videoWorkflow['stage_state']=['key'=>'video_nodes','status'=>'running'];
+    $videoEffects=Db::transaction(static function () use ($canvas,$videoPlan,$videoWorkflow): array {
+        $document=Db::name(GraphService::TABLE)->where('id',$canvas)->lock(true)->find();
+        return GraphService::appendAgentNodesLocked($document,$videoPlan['nodes'],[],true,[],1,$videoWorkflow);
+    });
+    agentCheck(!array_filter($videoEffects['nodes'],static fn(array $node): bool => $node['auto_submit']),'storyboard videos are inserted but never auto-submitted');
+    $audioPlan=ActionPlan::parse('音频规划已插入。<canvas-actions>{"nodes":[{"type":"audio","title":"音频规划（暂未开放）","prompt":"片头音乐与角色对白节奏规划","key":"audio_plan"}]}</canvas-actions>','audio_plan');
+    $audioWorkflow=$confirmed['workflow'];$audioWorkflow['stage_state']=['key'=>'audio_plan','status'=>'running'];
+    $audioEffects=Db::transaction(static function () use ($canvas,$audioPlan,$audioWorkflow): array {
+        $document=Db::name(GraphService::TABLE)->where('id',$canvas)->lock(true)->find();
+        return GraphService::appendAgentNodesLocked($document,$audioPlan['nodes'],[],false,[],1,$audioWorkflow);
+    });
+    $audioNodeId=(string)$audioEffects['nodes'][0]['id'];
+    $persistedNodes=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('nodes_json'),true);
+    $audioNode=array_values(array_filter($persistedNodes,static fn(array $node): bool => (string)$node['id']===$audioNodeId))[0]??[];
+    agentCheck(!empty($audioNode['metadata']['workflow_audio_disabled']) && ($audioNode['metadata']['workflow_submission_policy']??'')==='disabled','audio planning node is server-marked as not generatable');
+    try { Canvas::submitIdempotent($tenant,$user,['canvas_id'=>$canvas,'node_id'=>$audioNodeId,'type'=>'audio']); throw new RuntimeException('disabled audio task reached provider boundary'); }
+    catch (Throwable $error) { agentCheck($error->getMessage()==='WORKFLOW_AUDIO_GENERATION_UNAVAILABLE','audio planning node cannot enter Provider or billing submission'); }
     try { Workflow::read($tenant+1,$user,$canvas,$thread); throw new RuntimeException('cross tenant workflow read passed'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='CANVAS_NOT_FOUND','workflow state cannot be read across tenants'); }
     $plain=Store::create($tenant,$user,$canvas,'plain-thread')['id'];

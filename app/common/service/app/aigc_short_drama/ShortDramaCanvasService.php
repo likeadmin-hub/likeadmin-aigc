@@ -400,6 +400,12 @@ class ShortDramaCanvasService
         // issue, nor cause a quote lookup.
         self::assertGenerationNode($document, $nodeId, $type);
         $nodes=self::decode((string)($document['nodes_json']??'[]'));
+        foreach ($nodes as $node) {
+            $metadata=is_array($node['metadata']??null)?$node['metadata']:[];
+            if ((string)($node['id']??'')===$nodeId && !empty($metadata['workflow_audio_disabled'])) {
+                throw new Exception('WORKFLOW_AUDIO_GENERATION_UNAVAILABLE');
+            }
+        }
         $edges=self::decode((string)($document['edges_json']??'[]'));
         $planDependency=self::agentPlanDependencyState($nodes,$edges,$nodeId);
         if ($planDependency['state']==='blocked') throw new Exception('前序节点生成失败，请先重试前序节点');
