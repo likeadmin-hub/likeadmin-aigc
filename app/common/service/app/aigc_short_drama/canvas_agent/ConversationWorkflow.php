@@ -546,7 +546,7 @@ final class ConversationWorkflow
             $node=$live[(string)$source['id']];
             if (($node['type']??'')!==($source['type']??'') || (int)($node['metadata']['content_revision']??0)!==(int)($source['content_revision']??0)) throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
         }
-        foreach ((array)$plan['attachment_images'] as $asset) {
+        foreach ((array)($plan['attachment_images']??[]) as $asset) {
             if (!is_array($asset) || (int)($asset['id']??0)<=0) throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
             $row=Db::name('aigc_short_drama_asset')->where(['id'=>(int)$asset['id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0,'status'=>'ready'])->find();
             if (!$row || !in_array((int)($row['canvas_id']??0),[0,$canvas],true) || (string)$row['uri']!==(string)($asset['uri']??'') || (string)$row['storage_scope']!==(string)($asset['storage_scope']??'') || (string)$row['storage_engine']!==(string)($asset['storage_engine']??'') || (string)$row['storage_domain']!==(string)($asset['storage_domain']??'')) throw new RuntimeException('WORKFLOW_PLAN_SOURCE_CHANGED');
