@@ -79,7 +79,7 @@ try {
     agentCheck(($afterScript['workflow']['stage_state']['key']??'')==='art' && ($afterScript['workflow']['stage_state']['status']??'')==='ready','script reply advances to art planning');
     $afterArt=$runStage('workflow-art-stage');
     agentCheck(($afterArt['workflow']['stage_state']['key']??'')==='assets' && ($afterArt['workflow']['stage_state']['status']??'')==='ready','art reply advances to the controlled asset plan stage without creating nodes');
-    $assetReply='主体资产计划已完成。<canvas-actions>{"nodes":[{"type":"image","title":"女主主体图","prompt":"都市悬疑女记者，电影写实","key":"subject"},{"type":"image","title":"女主三视图","prompt":"同一女记者正侧背三视图，电影写实","key":"three_view","depends_on":["subject"]}]}</canvas-actions>';
+    $assetReply='主体资产计划已完成。<canvas-actions>{"nodes":[{"type":"image","artifact":"subject","title":"女主主体图","prompt":"都市悬疑女记者，电影写实","key":"subject"},{"type":"image","artifact":"three_view","title":"女主三视图","prompt":"同一女记者正侧背三视图，电影写实","key":"three_view","depends_on":["subject"]}]}</canvas-actions>';
     $afterAssets=$runStage('workflow-assets-stage',$assetReply);
     agentCheck(($afterAssets['workflow']['stage_state']['key']??'')==='assets' && ($afterAssets['workflow']['stage_state']['status']??'')==='awaiting_plan_confirmation','auto asset reply is held as a priced plan before graph creation');
     agentCheck(preg_match('/^[a-f0-9]{64}$/D',(string)($afterAssets['workflow']['plan_hash']??''))===1 && ($afterAssets['workflow']['image_plan']['node_count']??0)===2 && ($afterAssets['workflow']['image_plan']['estimated_user_charge_points']??0)===10.0,'plan hash binds the real bounded proposals and aggregate estimate');
@@ -92,7 +92,23 @@ try {
     agentCheck(($confirmed['workflow']['plan_confirmation']['status']??'')==='confirmed' && ($confirmed['workflow']['stage_state']['key']??'')==='storyboard' && ($confirmed['canvas_actions']['mode']??'')==='auto','confirmed exact plan atomically creates the auto image graph batch and advances stage');
     $assetNodes=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('nodes_json'),true);
     agentCheck(count($assetNodes)===2 && !empty($assetNodes[0]['metadata']['agent_auto_submit']) && !empty($assetNodes[1]['metadata']['agent_auto_submit']),'confirmed plan nodes carry server-owned auto request keys only after confirmation');
-    $videoPlan=ActionPlan::parse('分镜视频节点已规划。<canvas-actions>{"nodes":[{"type":"video","title":"分镜 01","prompt":"角色推门进入办公室","key":"shot_1"},{"type":"video","title":"分镜 02","prompt":"角色回头看向窗外","key":"shot_2","depends_on":["shot_1"]}]}</canvas-actions>','video_nodes');
+    $assetEdges=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('edges_json'),true);
+    agentCheck(count(array_filter($assetEdges,static fn(array $edge): bool => ($edge['role']??'')==='agent_dependency'))===1,'subject and three-view are joined by a server-owned dependency edge');
+    try {
+        ActionPlan::parse('<canvas-actions>{"nodes":[{"type":"image","artifact":"three_view","title":"孤立三视图","prompt":"invalid","key":"three_view"}]}</canvas-actions>','assets');
+        throw new RuntimeException('three view without subject was accepted');
+    } catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_ACTION','workflow rejects a three-view without its subject dependency'); }
+    $storyboardPlan=ActionPlan::parse('场景与分镜图已规划。<canvas-actions>{"nodes":[{"type":"image","artifact":"scene","title":"雨夜办公室","prompt":"雨夜办公室，电影写实","key":"scene_1"},{"type":"image","artifact":"prop","title":"旧录音笔","prompt":"旧录音笔特写","key":"prop_1"},{"type":"image","artifact":"storyboard","title":"分镜 01","prompt":"女主手握录音笔进入办公室","key":"board_1","depends_on":["scene_1","prop_1"]}]}</canvas-actions>','storyboard');
+    $storyboardWorkflow=$confirmed['workflow'];$storyboardWorkflow['stage_state']=['key'=>'storyboard','status'=>'running'];
+    $storyboardEffects=Db::transaction(static function () use ($canvas,$storyboardPlan,$storyboardWorkflow): array {
+        $document=Db::name(GraphService::TABLE)->where('id',$canvas)->lock(true)->find();
+        return GraphService::appendAgentNodesLocked($document,$storyboardPlan['nodes'],[],true,[],1,$storyboardWorkflow);
+    });
+    $storyboardId=(string)$storyboardEffects['nodes'][2]['id'];
+    $storyboardEdges=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('edges_json'),true);
+    $storyboardInputs=array_map(static fn(array $edge): string => (string)$edge['from'],array_filter($storyboardEdges,static fn(array $edge): bool => (string)($edge['to']??'')===$storyboardId));
+    agentCheck(count(array_intersect($storyboardInputs,[(string)$assetNodes[0]['id'],(string)$assetNodes[1]['id'],(string)$storyboardEffects['nodes'][0]['id'],(string)$storyboardEffects['nodes'][1]['id']]))===4,'storyboard receives real subject, three-view, scene and prop reference edges');
+    $videoPlan=ActionPlan::parse('分镜视频节点已规划。<canvas-actions>{"nodes":[{"type":"video","artifact":"storyboard_video","title":"分镜 01","prompt":"角色推门进入办公室","key":"shot_1"},{"type":"video","artifact":"storyboard_video","title":"分镜 02","prompt":"角色回头看向窗外","key":"shot_2","depends_on":["shot_1"]}]}</canvas-actions>','video_nodes');
     agentCheck(count($videoPlan['nodes'])===2 && $videoPlan['nodes'][1]['type']==='video','video stage accepts one bounded batch of storyboard video nodes');
     $videoWorkflow=$confirmed['workflow'];$videoWorkflow['stage_state']=['key'=>'video_nodes','status'=>'running'];
     $videoEffects=Db::transaction(static function () use ($canvas,$videoPlan,$videoWorkflow): array {
@@ -100,7 +116,11 @@ try {
         return GraphService::appendAgentNodesLocked($document,$videoPlan['nodes'],[],true,[],1,$videoWorkflow);
     });
     agentCheck(!array_filter($videoEffects['nodes'],static fn(array $node): bool => $node['auto_submit']),'storyboard videos are inserted but never auto-submitted');
-    $audioPlan=ActionPlan::parse('音频规划已插入。<canvas-actions>{"nodes":[{"type":"audio","title":"音频规划（暂未开放）","prompt":"片头音乐与角色对白节奏规划","key":"audio_plan"}]}</canvas-actions>','audio_plan');
+    $videoId=(string)$videoEffects['nodes'][0]['id'];
+    $videoEdges=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('edges_json'),true);
+    $videoInputs=array_map(static fn(array $edge): string => (string)$edge['from'],array_filter($videoEdges,static fn(array $edge): bool => (string)($edge['to']??'')===$videoId));
+    agentCheck(in_array($storyboardId,$videoInputs,true) && in_array((string)$assetNodes[0]['id'],$videoInputs,true),'storyboard video receives durable storyboard and subject reference edges');
+    $audioPlan=ActionPlan::parse('音频规划已插入。<canvas-actions>{"nodes":[{"type":"audio","artifact":"audio_plan","title":"音频规划（暂未开放）","prompt":"片头音乐与角色对白节奏规划","key":"audio_plan"}]}</canvas-actions>','audio_plan');
     $audioWorkflow=$confirmed['workflow'];$audioWorkflow['stage_state']=['key'=>'audio_plan','status'=>'running'];
     $audioEffects=Db::transaction(static function () use ($canvas,$audioPlan,$audioWorkflow): array {
         $document=Db::name(GraphService::TABLE)->where('id',$canvas)->lock(true)->find();
