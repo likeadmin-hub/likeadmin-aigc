@@ -16,7 +16,7 @@ Db::execute('CREATE TABLE IF NOT EXISTS `la_tenant_config` (`id` int unsigned NO
 
 $tenant=91003;
 Db::name('tenant')->where('id',$tenant)->delete();
-Db::name('tenant')->insert(['id'=>$tenant,'allow_custom_storage'=>1,'allow_local_storage'=>1]);
+Db::name('tenant')->insert(['id'=>$tenant,'sn'=>'p3-private-signature','allow_custom_storage'=>1,'allow_local_storage'=>1,'create_time'=>time(),'point_balance'=>0]);
 foreach ([
     'enable'=>1,
     'default'=>'qiniu',
