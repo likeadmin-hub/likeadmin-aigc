@@ -22,14 +22,16 @@ function agentSse(array $body,string $token='isolated-agent-http',int $tenant=94
 }
 $inserted=[];$canvas=0;$process=null;
 try {
-    if (Db::name('tenant')->where('id',94001)->count() || Db::name('user')->whereIn('id',[95001,95002])->count() || Db::name('app')->where('code','aigc_short_drama')->count() || Db::name('aigc_short_drama_config')->where('tenant_id',94001)->count()) throw new RuntimeException('HTTP fixture scope is not empty');
+    // `app` is global and is already installed in the existing local stack.
+    // This local acceptance fixture must reuse it instead of treating a normal
+    // installed application as disposable test data.
+    if (Db::name('tenant')->where('id',94001)->count() || Db::name('user')->whereIn('id',[95001,95002])->count() || Db::name('aigc_short_drama_config')->where('tenant_id',94001)->count()) throw new RuntimeException('HTTP fixture scope is not empty');
     foreach ([
         ['tenant',['id'=>94001,'sn'=>'agent-http','name'=>'Isolated Agent HTTP','create_time'=>time(),'delete_time'=>null]],
         ['user',['id'=>95001,'sn'=>95001,'account'=>'agent-http','tenant_id'=>94001]],
         ['user',['id'=>95002,'sn'=>95002,'account'=>'agent-other','tenant_id'=>94001]],
         ['user_session',['tenant_id'=>94001,'user_id'=>95001,'token'=>'isolated-agent-http','terminal'=>4,'expire_time'=>time()+86400]],
         ['user_session',['tenant_id'=>94001,'user_id'=>95002,'token'=>'isolated-agent-other','terminal'=>4,'expire_time'=>time()+86400]],
-        ['app',['code'=>'aigc_short_drama','status'=>'installed']],
         ['tenant_app',['tenant_id'=>94001,'app_code'=>'aigc_short_drama','buy_status'=>'paid','enable_status'=>'enabled','shelf_status'=>'on','expire_time'=>time()+3600]],
     ] as [$table,$row]) $inserted[]=[$table,Db::name($table)->insertGetId($row)];
     $canvas=Canvas::create(94001,95001,['title'=>'Agent HTTP fixture'])['id'];
