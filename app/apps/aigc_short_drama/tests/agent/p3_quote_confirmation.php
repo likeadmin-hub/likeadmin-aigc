@@ -73,11 +73,17 @@ try {
     $nextQuote = Canvas::quote(91001, 92001, array_diff_key($next, ['quote_token' => true]));
     Canvas::confirmQuote(91001, 92001, ['canvas_id' => $canvas, 'node_id' => '1', 'quote_token' => $nextQuote['quote_token']]);
     $current = Canvas::current(91001, 92001, $canvas);
-    Canvas::save(91001, 92001, ['id' => $canvas, 'nodes' => $current['nodes'], 'edges' => $current['edges'], 'expected_revision' => $current['graph_revision']]);
+    // A real target-node edit must invalidate a quote.  A bare document save
+    // is intentionally not part of the commercial hash: runtime progress and
+    // unrelated layout changes can advance graph_revision while the user is
+    // reading the confirmation dialog.
+    $changedNodes = $current['nodes'];
+    $changedNodes[0]['metadata']['prompt'] = 'Edited after quote';
+    Canvas::save(91001, 92001, ['id' => $canvas, 'nodes' => $changedNodes, 'edges' => $current['edges'], 'expected_revision' => $current['graph_revision']]);
     $next['quote_token'] = $nextQuote['quote_token'];
     $blocked = false;
     try { Canvas::submitIdempotent(91001, 92001, $next); } catch (Throwable $error) { $blocked = $error->getMessage() === 'QUOTE_INPUT_CHANGED'; }
-    agentCheck($blocked && P3QuoteConfirmationVideo::$calls === 1, 'M14 newer plan revision invalidates a previously confirmed quote');
+    agentCheck($blocked && P3QuoteConfirmationVideo::$calls === 1, 'M14 priced target-node edit invalidates a previously confirmed quote');
 } finally {
     Db::rollback();
 }

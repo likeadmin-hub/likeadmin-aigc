@@ -756,9 +756,14 @@ class ShortDramaCanvasService
     private static function quoteInputForDocument(array $document, string $nodeId, array $payload): array
     {
         $input = self::quoteInput($nodeId, $payload);
-        $input['graph_revision'] = (int)($document['graph_revision'] ?? 0);
         foreach (self::decode((string)($document['nodes_json'] ?? '[]')) as $node) {
             if ((string)($node['id'] ?? '') === $nodeId) {
+                // A graph revision also advances for server-owned runtime state
+                // (queued/running/failed progress) and for unrelated nodes.  It
+                // must not invalidate a price confirmation while the browser is
+                // waiting on its confirmation dialog.  The canonical request
+                // already covers every billable option; retain the target
+                // content revision as the document-side stale-edit guard.
                 $input['node_content_revision'] = (int)($node['metadata']['content_revision'] ?? 0);
                 break;
             }
