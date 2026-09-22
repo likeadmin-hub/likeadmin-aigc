@@ -65,7 +65,7 @@ try {
 
     $request['quote_token'] = $confirmed['quote_token'];
     $run = Canvas::submitIdempotent(91001, 92001, $request);
-    agentCheck($run['status'] === 'success' && P3QuoteConfirmationVideo::$calls === 1, 'M14 matching confirmed quote reaches one idempotent generation intent');
+    agentCheck($run['status'] === 'running' && P3QuoteConfirmationVideo::$calls === 1, 'M14 matching confirmed quote reaches one idempotent generation intent');
     $replay = Canvas::submitIdempotent(91001, 92001, array_diff_key($request, ['quote_token' => true]));
     agentCheck($replay['id'] === $run['id'] && P3QuoteConfirmationVideo::$calls === 1, 'M14 accepted run replay does not require a fresh quote or resubmit');
 
