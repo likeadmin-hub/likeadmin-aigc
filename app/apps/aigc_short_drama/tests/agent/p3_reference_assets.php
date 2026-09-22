@@ -47,4 +47,9 @@ $rejected=false;
 try {$assertAssets->invoke(null,$market,['generation_method'=>'image_to_video','reference_assets'=>$frames]);}
 catch (Exception $error) {$rejected=str_contains($error->getMessage(),'exactly one first-frame image');}
 agentCheck($rejected,'single-frame mode does not silently consume two same-URI slots');
+$unknown=['product'=>['upstream_model_code'=>'isolated-unknown-capabilities','source_payload'=>['market_metadata'=>['supported_asset_types'=>['image']]]]];
+$rejected=false;
+try {$assertAssets->invoke(null,$unknown,['reference_assets'=>[$image]]);}
+catch (Exception $error) {$rejected=str_contains($error->getMessage(),'reference limit is unavailable');}
+agentCheck($rejected,'M10 declared modality without any known reference limit fails closed');
 echo "NOT_RUN ownership, public quote/reserve, billing and Provider submission; normalization and actual market validator only\n";
