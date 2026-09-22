@@ -93,7 +93,9 @@ final class FeatureGate
      */
     public static function workflowStageSkillSelections(int $tenant): array
     {
-        $raw=(array)(((array)((self::config($tenant)['canvas_agent']??[]))['workflow']??[])['stage_skills']??[]);
+        $agent=(array)(self::config($tenant)['canvas_agent']??[]);
+        $workflow=(array)($agent['workflow']??[]);
+        $raw=(array)($workflow['stage_skills']??[]);
         $result=[];
         foreach ($raw as $stage=>$items) {
             if (!is_string($stage) || !preg_match('/^[a-z_]{2,64}$/D',$stage) || !is_array($items) || !array_is_list($items)) continue;
