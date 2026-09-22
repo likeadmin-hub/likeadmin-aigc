@@ -1103,3 +1103,15 @@ web `dbf5b64` 在 Composer 上传链补齐 P4 的首个可靠性切片：附件�
 - PASS：在本机既有 PC 依赖中运行 `short-drama-p4-attachments.test.cjs` 与 `short-drama-canvas-composer.test.cjs`，共 **20 PASS / 0 FAIL**。新增断言验证解析中文档被阻止移除，而待确认文档和已就绪图片不受影响。
 
 本项只明确了已提交解析任务的前端真实语义，不等于真实 `file_qa` 解析、上游取消/退款或临时对象清理验收；这些能力继续保持各自的 NOT_RUN/BLOCKED 状态。本轮未创建新环境、数据库、容器或额外 Worker，未调用 Provider 或积分。
+
+## 66. P4 Skill 临时模型预设恢复语义（本地 PC 回归通过，2026-09-22）
+
+`aigc_short_drama_skill` 的已发布快照本来已经携带 `model_policy.default_models`，但画布 Composer 选择 Skill 时没有消费该字段。因此此前不能满足“移除 Skill 后只撤销 Skill 自身覆盖”的 R11/R12 行为。
+
+- 已实现：选择已发布 Skill 时，仅对其中仍属于当前租户可用模型目录的 `image`、`video`、`text` 默认模型施加**当前 Skill 期间的临时覆盖**；过期、禁用或目录中不存在的模型 ID 会被忽略。
+- 已实现：移除 Skill token 后立即清除临时覆盖并恢复账号原有默认值；Skill 预设不会写入本地存储或账号偏好。
+- 已实现：用户在选择 Skill 后手动切换某一类模型时，只保存该类模型作为账号偏好，并标记为用户后改；随后移除 Skill 会保留该手动选择，不粗暴恢复旧值。更换推理模型也不写入图片、视频类的 Skill 临时值。
+- PASS（PC 组件契约）：在现有本机 PC 依赖运行 `short-drama-canvas-composer.test.cjs` 与 `short-drama-p4-attachments.test.cjs`，共 **21 PASS / 0 FAIL**。新用例验证可用模型过滤、Skill 临时覆盖、手动文本模型优先和移除 Skill 后恢复；Vue SFC 编译检查同批通过。
+- BLOCKED（浏览器 Agent 回归）：`short-drama-agent-http-browser.cjs` 在当前既有 PC 依赖下无法加载，因为未安装 `playwright`（`MODULE_NOT_FOUND`）。根据当前“不新增/改变验收环境”的约束，本轮没有安装依赖、创建容器、创建数据库或运行浏览器端替代环境；该项不能记为浏览器端到端通过。
+
+R11/R12 的本地组件行为现已覆盖；完整 P4 仍未放行，R01–R10、R14–R20 及需要真实上游/Worker 的边界仍须按各自用例验收。本轮没有 Provider 调用、积分、迁移、部署、推送或运行配置变更。
