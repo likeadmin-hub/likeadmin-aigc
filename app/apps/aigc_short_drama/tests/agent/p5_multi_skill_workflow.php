@@ -26,8 +26,8 @@ try {
     $canvas=Canvas::create($tenant,$user,['title'=>'P5 workflow fixture'])['id'];
     $thread=Store::create($tenant,$user,$canvas,'workflow-thread')['id'];
     $ack=Store::enqueue($tenant,$user,$canvas,$thread,['request_key'=>'workflow-route','content'=>'我想创作一部悬疑短剧','base_revision'=>0],static function (array $conversation) use ($tenant): array {
-        $prepared=Workflow::prepare($tenant,$conversation,'我想创作一部悬疑短剧',[],[],['generation_mode'=>'manual','reasoning_model'=>'text-a']);
-        return ['settings'=>['generation_mode'=>'manual','reasoning_model'=>['id'=>'text-a']],'skill'=>[],'workflow'=>$prepared['workflow'],'thread_settings'=>$prepared['thread_settings']];
+        $prepared=Workflow::prepare($tenant,$conversation,'我想创作一部悬疑短剧',[],[],['generation_mode'=>'auto','reasoning_model'=>'text-a']);
+        return ['settings'=>['generation_mode'=>'auto','reasoning_model'=>['id'=>'text-a']],'skill'=>[],'workflow'=>$prepared['workflow'],'thread_settings'=>$prepared['thread_settings']];
     });
     $snapshot=json_decode((string)Db::name(Store::PREFIX.'run')->where('id',$ack['run_id'])->value('context_snapshot'),true);
     agentCheck(($snapshot['workflow']['workflow_snapshot']['key']??'')==='short_drama_creation','semantic route freezes the platform workflow key in the run');
