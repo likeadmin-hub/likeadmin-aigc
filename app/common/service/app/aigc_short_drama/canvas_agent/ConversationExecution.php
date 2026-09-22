@@ -61,6 +61,7 @@ final class ConversationExecution
             $settings=json_decode($run['settings_snapshot'],true,512,JSON_THROW_ON_ERROR);
             $workflow=(array)($context['workflow']??[]);
             $currentThreadSettings=(array)json_decode((string)$thread['settings_json'],true,512,JSON_THROW_ON_ERROR);
+            $proposals=ConversationWorkflow::materializeTextReferences($workflow,$proposals);
             $planSettings=ConversationWorkflow::freezeImagePlanLocked($tenant,$workflow,$settings,$context,$proposals,$runId,$currentThreadSettings);
             $stagePlanSettings=$planSettings===null
                 ? ConversationWorkflow::freezeStagePlanLocked($workflow,$context,$proposals,$runId,$currentThreadSettings)
@@ -91,7 +92,7 @@ final class ConversationExecution
             $threadUpdate=['active_run_id'=>0,'next_message_sequence'=>$sequence+1,'update_time'=>time()];
             if ($planSettings!==null) $threadUpdate['settings_json']=json_encode($planSettings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
             elseif ($stagePlanSettings!==null) $threadUpdate['settings_json']=json_encode($stagePlanSettings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
-            elseif ($nextSettings=ConversationWorkflow::advanceAfterReplyLocked($thread,$workflow,$currentThreadSettings,$text,$proposals)) $threadUpdate['settings_json']=json_encode($nextSettings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+            elseif ($nextSettings=ConversationWorkflow::advanceAfterReplyLocked($thread,$workflow,$currentThreadSettings,$text,$proposals,$effects)) $threadUpdate['settings_json']=json_encode($nextSettings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update($threadUpdate);
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'done','lease_until'=>0,'update_time'=>time()]);
             self::state($run,'success');self::event($run,'run.succeeded',['status'=>'success','message_sequence'=>$sequence]+($effects?['canvas_actions'=>$effects]:[]));
