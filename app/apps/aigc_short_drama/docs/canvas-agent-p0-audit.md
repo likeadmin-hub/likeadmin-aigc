@@ -1203,3 +1203,12 @@ P5 仍为 **NOT_RUN / 未放行**：正式应用到故事设定、分集大纲�
 - `p2_settings.php`、`p2_http.php`：均 **PASS**；HTTP 仍确认工作流路由、SSE 和权限边界。`short-drama-canvas-composer.test.cjs`：**21 PASS / 0 FAIL**。
 
 仍未宣称完成：完整“全剧一次性图片总计划”当前按主体资产和场景/分镜两个受控图片批次分别确认；真实 Provider、真实浏览器端到端、以及配置页对阶段 Skill 选择器的管理界面未在本轮新增或验收。它们保持 **NOT_RUN**，不能由上述本地服务/组件回归替代。未执行付费 Provider、生产迁移、部署、发布或推送。
+
+## 69. 租户后台阶段 Skill 配置入口（2026-09-22）
+
+- 已补齐 `AI短剧 → 基础配置 → 短剧画布 Agent → 阶段 Skill`，展示服务端八阶段目录、工作流版本与已发布 Skill 多选（每阶段最多四个）；失效版本需要重新选择。
+- 沿用现有 config/detail、config/setup 权限和接口。读取仅返回当前租户/平台已发布版本的轻量选项；保存再次检查归属、可用版本和 Skill 策略。旧表单遗漏 stage_skills 时保留已有选择。
+- **PASS**：既有宝塔 PHP 语法检查；租户配置 Vue script/template 编译；本地 tenant 1 读取八阶段和两个已发布 Skill。
+- **PASS**：本地 tenant 1 事务内选择保存/回读、旧表单保存保留选择、过期版本拒绝。验证后事务回滚，未改变租户原配置。
+- **BLOCKED**：浏览器已打开现有租户开发后台 http://localhost:5174/admin/?tenant_id=1，但停在登录页，尚未完成登录后的真实选择/保存点击验收。未新增运行环境、容器、数据库或 Worker，未调用付费生成。
+- 源码：server `c2da9b181`（含 `8bb557255` 的读取目录实现）；web `08f640e`。均已集成本地 develop 并在该分支验证，随后返回 feature/short-drama-optimization。未推送。
