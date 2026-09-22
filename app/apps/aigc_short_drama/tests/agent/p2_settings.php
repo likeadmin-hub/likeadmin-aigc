@@ -65,6 +65,9 @@ try {
     rejectsSettings(fn()=>$provider->preflight(91001,92001,['settings'=>['reasoning_model'=>['id'=>(string)$product]]]),'CANVAS_AGENT_EXECUTION_DISABLED');
     AigcShortDramaService::saveConfig(91001,['canvas_agent'=>['enabled'=>true,'execution_enabled'=>true]]);
     agentCheck(FeatureGate::enabled(91001) && FeatureGate::executionEnabled(91001),'tenant configuration explicitly enables Agent model execution');
+    AigcShortDramaService::saveConfig(91001,['canvas_agent'=>['enabled'=>true,'execution_enabled'=>true,'workflow'=>['enabled'=>false]]]);
+    agentCheck(!FeatureGate::workflowEnabled(91001,'short_drama_creation') && FeatureGate::executionEnabled(91001),'tenant can stop the platform workflow without overriding its rules or disabling the Agent');
+    AigcShortDramaService::saveConfig(91001,['canvas_agent'=>['enabled'=>true,'execution_enabled'=>true,'workflow'=>['enabled'=>true]]]);
     $provider->preflight(91001,92001,['settings'=>['reasoning_model'=>['id'=>(string)$product]]]);
     agentCheck(true,'enabled Agent preflight accepts the server-resolved market model without invoking it');
     $routed=MarketTextModelRuntimeService::resolveRoutedModel(91001,['id'=>(string)$textOnly],true);
