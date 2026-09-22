@@ -137,7 +137,7 @@ try {
     agentCheck(count($assetReferenceEdges)===2 && count(array_intersect($assetReferenceSources,[(string)$artNodes[4]['id'],(string)$artNodes[7]['id']]))===2,'each subject asset receives only its explicitly selected character or three-view reference, not every historic workflow artifact');
     $subjectContext=Canvas::agentAutoDependencyState($allAfterAssets,$assetEdges,(string)$assetNodes[0]['id']);
     agentCheck(($subjectContext['state']??'')==='ready' && str_contains((string)($subjectContext['text_context'][0]['content']??''),'character_asset_spec'),'a linked workflow text artifact is a bounded real generation input rather than a decorative graph edge');
-    GraphService::patch($tenant,$user,$canvas,['expected_revision'=>(int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision'),'request_key'=>'legacy-workflow-overlink','operations'=>[['op'=>'add_edge','edge'=>['from'=>$scriptNodes[0]['id'],'to'=>$assetNodes[0]['id'],'kind'=>'reference','role'=>'legacy','order'=>999]]]);
+    GraphService::patch($tenant,$user,$canvas,['expected_revision'=>(int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision'),'request_key'=>'legacy-workflow-overlink','operations'=>[['op'=>'add_edge','edge'=>['from'=>$scriptNodes[0]['id'],'to'=>$assetNodes[0]['id'],'kind'=>'reference','role'=>'legacy','order'=>999]]]]);
     $repair=GraphService::repairLegacyAgentAssetReferences($tenant,$user,$canvas);
     $allAfterAssets=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('nodes_json'),true);
     $assetEdges=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('edges_json'),true);
