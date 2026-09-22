@@ -147,7 +147,7 @@ final class GraphService
      * edges from workflow-owned script/art/asset nodes only, leaving every
      * non-workflow (therefore potentially user-created) edge unchanged.
      *
-     * @return array{changed:bool,removed:int,added:int,graph_revision:int}
+     * @return array{changed:bool,removed:int,added:int,normalized:int,graph_revision:int}
      */
     public static function repairLegacyAgentAssetReferences(int $tenant,int $user,int $canvas): array
     {
@@ -164,7 +164,7 @@ final class GraphService
                 if (($metadata['workflow_source_stage']??'')==='assets' && in_array((string)($metadata['workflow_artifact']??''),['subject','three_view'],true)) $assetNodes[]=$node;
                 if (($metadata['workflow_source_stage']??'')==='art' && (string)($node['type']??'')==='text') $artSources[(string)($metadata['workflow_artifact']??'')][]=$id;
             }
-            if (!$assetNodes) return ['changed'=>false,'removed'=>0,'added'=>0,'graph_revision'=>(int)($document['graph_revision']??0)];
+            if (!$assetNodes) return ['changed'=>false,'removed'=>0,'added'=>0,'normalized'=>0,'graph_revision'=>(int)($document['graph_revision']??0)];
             $assetIds=array_fill_keys(array_map(static fn(array $node): string=>(string)$node['id'],$assetNodes),true);
             $removed=0;
             $edges=array_values(array_filter($edges,static function (array $edge) use ($assetIds,$byId,&$removed): bool {
@@ -191,9 +191,34 @@ final class GraphService
                 $subject=self::matchingSubject($subjects,(string)($node['title']??''));
                 if ($subject!==null) $addEdge((string)$subject['id'],$id,'agent_dependency');
             }
-            if (!$removed && !$added) return ['changed'=>false,'removed'=>0,'added'=>0,'graph_revision'=>(int)($document['graph_revision']??0)];
+            // Old browser releases hydrated only `from`/`to` and then wrote a
+            // whole-document save. Restore the meaning of *Agent-owned* edges
+            // that survived that save without guessing at user-created edges.
+            // Script/art workflow steps are prerequisites; art-to-asset edges
+            // are actual bounded generation context. Asset-to-asset edges are
+            // prerequisites again (for example, subject -> three view).
+            $normalized=0;
+            foreach ($edges as $index=>&$edge) {
+                if (!is_array($edge) || (string)($edge['kind']??'reference')!=='reference') continue;
+                $source=$byId[(string)($edge['from']??'')]??null;
+                $target=$byId[(string)($edge['to']??'')]??null;
+                if (!$source || !$target) continue;
+                $sourceStage=(string)(($source['metadata']['workflow_source_stage']??''));
+                $targetStage=(string)(($target['metadata']['workflow_source_stage']??''));
+                if (!in_array($sourceStage,['script','art','assets'],true) || !in_array($targetStage,['script','art','assets'],true)) continue;
+                $changed=false;
+                if (!isset($edge['kind']) || $edge['kind']==='') {$edge['kind']='reference';$changed=true;}
+                if (trim((string)($edge['role']??''))==='') {
+                    $edge['role']=$sourceStage==='art' && $targetStage==='assets' ? 'workflow_reference' : 'agent_dependency';
+                    $changed=true;
+                }
+                if (!isset($edge['order']) || !is_int($edge['order']) || $edge['order']<0) {$edge['order']=$index;$changed=true;}
+                if ($changed) $normalized++;
+            }
+            unset($edge);
+            if (!$removed && !$added && !$normalized) return ['changed'=>false,'removed'=>0,'added'=>0,'normalized'=>0,'graph_revision'=>(int)($document['graph_revision']??0)];
             $updated=self::persistLockedDocument($document,['edges_json'=>self::json($edges),'schema_version'=>2,'update_time'=>time()]);
-            return ['changed'=>true,'removed'=>$removed,'added'=>$added,'graph_revision'=>(int)($updated['graph_revision']??0)];
+            return ['changed'=>true,'removed'=>$removed,'added'=>$added,'normalized'=>$normalized,'graph_revision'=>(int)($updated['graph_revision']??0)];
         });
     }
 

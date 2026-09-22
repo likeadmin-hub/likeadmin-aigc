@@ -145,6 +145,21 @@ try {
     $repairedSubjectInputs=array_values(array_filter($assetEdges,static fn(array $edge): bool => (string)($edge['to']??'')===(string)$assetNodes[0]['id']));
     $repairedThreeViewInputs=array_values(array_filter($assetEdges,static fn(array $edge): bool => (string)($edge['to']??'')===(string)$assetNodes[1]['id']));
     agentCheck(!empty($repair['changed']) && ($repair['removed']??0)>=4 && ($repair['added']??0)>=3 && count($repairedSubjectInputs)===1 && count($repairedThreeViewInputs)===2,'legacy Agent asset graph repair removes broad workflow inputs and restores only scoped subject/three-view references');
+    $byWorkflowNode=[];
+    foreach ($allAfterAssets as $node) $byWorkflowNode[(string)($node['id']??'')]=$node;
+    $legacySemanticIndex=null;
+    foreach ($assetEdges as $index=>$edge) {
+        $source=(array)($byWorkflowNode[(string)($edge['from']??'')]??[]);
+        $target=(array)($byWorkflowNode[(string)($edge['to']??'')]??[]);
+        if (($source['metadata']['workflow_source_stage']??'')==='script' && ($target['metadata']['workflow_source_stage']??'')==='script') {$legacySemanticIndex=$index;break;}
+    }
+    agentCheck($legacySemanticIndex!==null,'fixture contains a workflow-owned prerequisite edge for semantic recovery');
+    unset($assetEdges[$legacySemanticIndex]['kind'],$assetEdges[$legacySemanticIndex]['role'],$assetEdges[$legacySemanticIndex]['order']);
+    Db::name(GraphService::TABLE)->where('id',$canvas)->update(['edges_json'=>json_encode($assetEdges,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);
+    $semanticRepair=GraphService::repairLegacyAgentAssetReferences($tenant,$user,$canvas);
+    $semanticEdges=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('edges_json'),true);
+    $semanticEdge=$semanticEdges[$legacySemanticIndex]??[];
+    agentCheck(($semanticRepair['normalized']??0)>=1 && ($semanticEdge['kind']??'')==='reference' && ($semanticEdge['role']??'')==='agent_dependency' && isset($semanticEdge['order']),'legacy browser saves restore the semantic role/order of workflow-owned prerequisite edges without changing user edges');
     try {
         ActionPlan::parse('<canvas-actions>{"nodes":[{"type":"image","artifact":"three_view","title":"孤立三视图","prompt":"invalid","key":"three_view"}]}</canvas-actions>','assets');
         throw new RuntimeException('three view without subject was accepted');
