@@ -20,7 +20,7 @@ class ShortDramaOutlineValidationTest extends TestCase
         self::assertContains('outline.episode.missing', array_column($result['outline_validation_issues'], 'code'));
         self::assertSame([], $result['storyboard']);
         self::assertSame([], $result['duration_stats']);
-        self::assertArrayNotHasKey('scenes', $result['episodes'][1]);
+        self::assertSame([], $result['episodes'][1]['scenes']);
         self::assertArrayNotHasKey('shots', $result['episodes'][1]);
     }
 
