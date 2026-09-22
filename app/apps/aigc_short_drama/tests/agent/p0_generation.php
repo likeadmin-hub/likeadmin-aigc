@@ -31,7 +31,10 @@ class P0Provider {
 }
 class P0Text { public static function generateText($t,$u,$p) { return P0Provider::submit('text',$t,$u,$p); } }
 class P0Image { public static function generate($t,$u,$p) { return P0Provider::submit('image',$t,$u,$p); } public static function syncMarketTaskResult(...$unused) {} }
-class P0Video { public static function generate($t,$u,$p) { return P0Provider::submit('video',$t,$u,$p); } }
+class P0Video {
+    public static function estimate($t,$p): array { return ['market_product_id'=>1,'market_sku_id'=>1,'tenant_cost_points'=>1,'user_charge_points'=>2,'usage_unit'=>'call','settlement_mode'=>'reserved']; }
+    public static function generate($t,$u,$p) { return P0Provider::submit('video',$t,$u,$p); }
+}
 class P0Music { public static function generate($t,$u,$p) { return P0Provider::submit('audio',$t,$u,$p); } }
 foreach (['P0Text' => 'aigc_llm\\AigcLlmService', 'P0Image' => 'aigc_image\\AigcImageService', 'P0Video' => 'aigc_video\\AigcVideoService', 'P0Music' => 'aigc_music\\AigcMusicService'] as $fixture => $service) {
     class_alias($fixture, 'app\\common\\service\\app\\' . $service);
@@ -63,6 +66,11 @@ try {
             ['type'=>'image','uri'=>'https://fixtures.invalid/first.png','role'=>'first_frame_image'],
             ['type'=>'image','uri'=>'https://fixtures.invalid/last.png','role'=>'last_frame_image'],
         ]];
+        if ($node['type']==='video' && $submitMethod==='submitIdempotent') {
+            $quote=Canvas::quote(91001,92001,$request);
+            $confirmed=Canvas::confirmQuote(91001,92001,['canvas_id'=>$doc['id'],'node_id'=>(string)$node['id'],'quote_token'=>$quote['quote_token']]);
+            $request['quote_token']=$confirmed['quote_token'];
+        }
         $result=Canvas::$submitMethod(91001,92001,$request);
         agentCheck($result['status']==='success','B03 synthetic '.$node['type'].' submission completes');
         if ($submitMethod==='submitIdempotent') {

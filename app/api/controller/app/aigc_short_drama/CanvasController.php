@@ -13,6 +13,8 @@ class CanvasController extends BaseApiController
     public function create() { try { return $this->success('创建成功', ShortDramaCanvasService::create((int)$this->request->tenantId, $this->userId, $this->request->post())); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
     public function save() { try { return $this->success('保存成功', ShortDramaCanvasService::save((int)$this->request->tenantId, $this->userId, $this->request->post())); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
     public function delete() { try { return $this->success('删除成功', ShortDramaCanvasService::delete((int)$this->request->tenantId, $this->userId, (int)$this->request->post('id', 0)), 1, 1); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
+    public function quote() { try { return $this->success('报价已生成', ShortDramaCanvasService::quote((int)$this->request->tenantId, $this->userId, $this->request->post())); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
+    public function confirmQuote() { try { return $this->success('报价已确认', ShortDramaCanvasService::confirmQuote((int)$this->request->tenantId, $this->userId, $this->request->post())); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
     /**
      * The public canvas submission boundary is intentionally idempotent.
      *
