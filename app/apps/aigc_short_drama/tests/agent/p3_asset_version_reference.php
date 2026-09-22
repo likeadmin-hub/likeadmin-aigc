@@ -8,6 +8,14 @@ use think\facade\Db;
 final class P3AssetVersionVideoProvider
 {
     public static array $requests=[];
+    public static function estimate(int $tenant, array $payload): array
+    {
+        return [
+            'market_product_id' => 1, 'market_sku_id' => 1,
+            'tenant_cost_points' => 0, 'user_charge_points' => 0,
+            'usage_unit' => 'call', 'settlement_mode' => 'fixture',
+        ];
+    }
     public static function generate(int $tenant, int $user, array $payload): array
     {
         self::$requests[]=$payload;
@@ -28,6 +36,9 @@ try {
     $old=Db::name('aigc_short_drama_asset')->insertGetId($assetBase+['task_id'=>'canvas_run_old','uri'=>'https://fixtures.invalid/old-version.png']);
     $new=Db::name('aigc_short_drama_asset')->insertGetId($assetBase+['task_id'=>'canvas_run_new','title'=>'new image version','uri'=>'https://fixtures.invalid/new-version.png']);
     $request=['canvas_id'=>$canvas,'node_id'=>'1','type'=>'video','prompt'=>'只使用用户选择的旧版本','request_key'=>'old-version','reference_assets'=>[['type'=>'image','asset_id'=>$old,'url'=>'https://forged.invalid/newest.png','role'=>'first_frame_image']]];
+    $quote=Canvas::quote(91001,92001,$request);
+    $confirmed=Canvas::confirmQuote(91001,92001,['canvas_id'=>$canvas,'node_id'=>'1','quote_token'=>$quote['quote_token']]);
+    $request['quote_token']=$confirmed['quote_token'];
     $run=Canvas::submitIdempotent(91001,92001,$request);
     $stored=json_decode((string)Db::name('aigc_short_drama_canvas_run')->where('id',$run['id'])->value('request_json'),true,512,JSON_THROW_ON_ERROR);
     agentCheck($run['status']==='success' && count(P3AssetVersionVideoProvider::$requests)===1,'M16 selected old asset version submits one video run');
