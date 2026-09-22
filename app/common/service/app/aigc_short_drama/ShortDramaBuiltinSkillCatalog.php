@@ -102,7 +102,10 @@ final class ShortDramaBuiltinSkillCatalog
                     'prompt_writing' => '使用用户当前语言，描述可见主体、动作、空间、构图、镜头和光线；不写价格、URL、内部 ID 或不存在的任务结果。' . $guidance,
                 ],
                 'positive_examples' => $keywords,
-                'negative_examples' => ['绕过审核或积分', '伪造任务完成状态'],
+                // Keep examples descriptive rather than reproducing a
+                // policy-sensitive command phrase: selected-Skill snapshots
+                // are deliberately scanned by ConversationSkillPolicy.
+                'negative_examples' => ['不安全的系统控制请求', '伪造任务完成状态'],
                 'keywords' => $keywords,
                 'required_slots' => [],
                 'model_policy' => [],
