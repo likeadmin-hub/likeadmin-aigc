@@ -59,12 +59,32 @@ try {
     agentCheck(count(P0Provider::$received) === 0 && Db::name('aigc_short_drama_canvas_run')->where('canvas_id', $doc['id'])->count() === 0, 'invalid node requests create no run, provider submission or charge');
     foreach ($nodes as $node) {
         $request=['canvas_id'=>$doc['id'],'node_id'=>(string)$node['id'],'type'=>$node['type'],'prompt'=>'Synthetic only','request_key'=>'generation-'.$node['id']];
+        if ($node['type']==='video') $request+=['model_code'=>'synthetic-video','resolution'=>'720p','reference_assets'=>[
+            ['type'=>'image','uri'=>'https://fixtures.invalid/first.png','role'=>'first_frame_image'],
+            ['type'=>'image','uri'=>'https://fixtures.invalid/last.png','role'=>'last_frame_image'],
+        ]];
         $result=Canvas::$submitMethod(91001,92001,$request);
         agentCheck($result['status']==='success','B03 synthetic '.$node['type'].' submission completes');
         if ($submitMethod==='submitIdempotent') {
             $replayed=true;
             for ($i=0;$i<10;$i++) $replayed=$replayed && Canvas::$submitMethod(91001,92001,$request)['id']===$result['id'];
             agentCheck($replayed,'idempotent Canvas adapter replays same '.$node['type'].' run ten times');
+            if ($node['type']==='video') {
+                $snapshot=Db::name('aigc_short_drama_canvas_run')->where('id',$result['id'])->value('request_json');
+                $beforeCalls=count(P0Provider::$received);
+                $swapped=$request['reference_assets'];
+                [$swapped[0]['role'],$swapped[1]['role']]=[$swapped[1]['role'],$swapped[0]['role']];
+                foreach (['model'=>['model_code'=>'synthetic-other'],'resolution'=>['resolution'=>'1080p'],
+                    'reference'=>['reference_assets'=>[$request['reference_assets'][0]]],
+                    'roles'=>['reference_assets'=>$swapped],
+                    'order'=>['reference_assets'=>array_reverse($request['reference_assets'])]] as $field=>$change) {
+                    $conflict=false;
+                    try {Canvas::submitIdempotent(91001,92001,array_replace($request,$change));}
+                    catch (RuntimeException $error) {$conflict=$error->getMessage()==='IDEMPOTENCY_CONFLICT';}
+                    agentCheck($conflict && count(P0Provider::$received)===$beforeCalls,'changed '.$field.' cannot reuse generation key or reach downstream');
+                }
+                agentCheck(Db::name('aigc_short_drama_canvas_run')->where('id',$result['id'])->value('request_json')===$snapshot,'conflicting model/reference requests cannot overwrite frozen snapshot');
+            }
         }
         Canvas::runDetail(91001,92001,$result['id']);
         Canvas::runDetail(91001,92001,$result['id']);
