@@ -1,5 +1,6 @@
 #!/bin/sh
-# Baota Supervisor entry: supervise all three workers as one process group.
+# Baota Supervisor entry: supervise all background AI workers as one process
+# group. Do not create separate Baota entries for individual queue consumers.
 set -eu
 
 SERVER_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -14,6 +15,8 @@ PHP_BIN=${PHP_BIN:-/www/server/php/80/bin/php}
 WORKER_MATCH="$SERVER_DIR/think ai:task-worker"
 EPISODE_MATCH="$SERVER_DIR/think short-drama:episode-worker"
 PLANNING_MATCH="$SERVER_DIR/think short-drama:planning-worker"
+SHORT_DRAMA_AGENT_MATCH="$SERVER_DIR/think short-drama:canvas-agent-worker"
+CANVAS_SUBAGENT_MATCH="$SERVER_DIR/think canvas:subagent-worker"
 
 mkdir -p "$LOG_DIR"
 
@@ -39,7 +42,7 @@ stop_pid() {
     kill -0 "$target" 2>/dev/null || return 0
     command=$(ps -p "$target" -o command= 2>/dev/null || true)
     case "$command" in
-        *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*)
+        *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*|*"$SHORT_DRAMA_AGENT_MATCH"*|*"$CANVAS_SUBAGENT_MATCH"*)
             kill -TERM "$target" 2>/dev/null || true
             i=0
             while kill -0 "$target" 2>/dev/null && [ "$i" -lt 20 ]; do sleep 1; i=$((i + 1)); done
@@ -57,7 +60,7 @@ ps -axo pid=,command= | while IFS= read -r line; do
     pid=$(printf '%s\n' "$line" | awk '{print $1}')
     command=${line#"$pid"}
     case "$command" in
-        *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*) stop_pid "$pid" ;;
+        *"$WORKER_MATCH"*|*"$EPISODE_MATCH"*|*"$PLANNING_MATCH"*|*"$SHORT_DRAMA_AGENT_MATCH"*|*"$CANVAS_SUBAGENT_MATCH"*) stop_pid "$pid" ;;
     esac
 done
 
@@ -66,9 +69,10 @@ export AI_TASK_WORKER_PID_FILE="$PID_FILE"
 echo "$$" > "$PID_FILE"
 log_startup "exec: $PHP_BIN $SERVER_DIR/think ai:task-worker"
 
-# One Supervisor entry owns the general task worker and both short-drama
-# queues. Keep the children in this script's process group so one restart
-# starts the complete worker set and no queue is silently left behind.
+# One Baota Supervisor entry owns the general task worker, short-drama queues,
+# short-drama Agent conversation queue, and Canvas sub-agent queue. Keep every
+# child in this script's process group so one restart starts the complete set
+# and no queue is silently left behind.
 pids=""
 cleanup() {
     trap - TERM INT EXIT
@@ -84,6 +88,10 @@ pids="$pids $!"
 "$PHP_BIN" "$SERVER_DIR/think" short-drama:episode-worker >> "$LOG_FILE" 2>&1 &
 pids="$pids $!"
 "$PHP_BIN" "$SERVER_DIR/think" short-drama:planning-worker >> "$LOG_FILE" 2>&1 &
+pids="$pids $!"
+"$PHP_BIN" "$SERVER_DIR/think" short-drama:canvas-agent-worker --sleep=2 >> "$LOG_FILE" 2>&1 &
+pids="$pids $!"
+"$PHP_BIN" "$SERVER_DIR/think" canvas:subagent-worker --worker=subagent --sleep=1 --lease=180 >> "$LOG_FILE" 2>&1 &
 pids="$pids $!"
 log_startup "started workers: $pids"
 # POSIX sh (including dash and older Bash in sh mode) has no wait -n.
