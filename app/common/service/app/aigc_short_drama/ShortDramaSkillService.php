@@ -209,6 +209,20 @@ final class ShortDramaSkillService
             'name' => (string)($snapshot['name'] ?? ''), 'skill_key' => (string)($snapshot['skill_key'] ?? ''), 'definition' => (array)($snapshot['definition'] ?? []), 'model_policy' => (array)($snapshot['model_policy'] ?? []), 'execution_policy' => (array)($snapshot['execution_policy'] ?? [])];
     }
 
+    /** Resolve an explicit /skill_key without trusting a browser-supplied ID.
+     * Built-in rows win a same-key tenant row, matching the visible catalogue. */
+    public static function resolveForTaskByKey(int $tenantId, string $skillKey): array
+    {
+        self::syncBuiltinSkills();
+        $skillKey=strtolower(trim($skillKey));
+        if (!preg_match('/^[a-z][a-z0-9_]{1,79}$/D',$skillKey)) return [];
+        $where=['skill_key'=>$skillKey,'status'=>1,'release_status'=>self::ACTIVE,'delete_time'=>0];
+        $skill=AigcShortDramaSkill::where(['tenant_id'=>0]+$where)->where('published_version','>',0)->findOrEmpty();
+        if ($skill->isEmpty()) $skill=AigcShortDramaSkill::where(['tenant_id'=>$tenantId]+$where)->where('published_version','>',0)->findOrEmpty();
+        if ($skill->isEmpty()) return [];
+        return self::resolveForTask($tenantId,['skill_id'=>(int)$skill['id'],'skill_version'=>(int)$skill['published_version'],'skill_source'=>'manual']);
+    }
+
     public static function recordUsage(int $tenantId, int $userId, int $projectId, string $taskId, array $snapshot, string $status = 'submitted'): void
     {
         if (!$snapshot) return;

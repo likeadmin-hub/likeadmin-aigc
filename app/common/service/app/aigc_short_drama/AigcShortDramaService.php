@@ -712,8 +712,9 @@ class AigcShortDramaService
             $workflow=(array)($agent['workflow']??($current['canvas_agent']['workflow']??[]));
             $workflowEnabled=!array_key_exists('enabled',$workflow)
                 || in_array($workflow['enabled'],[true,1,'1','true'],true);
+            $stageSkills=self::normalizeCanvasAgentStageSkills($workflow['stage_skills']??[]);
             $config['canvas_agent']=['enabled'=>$enabled,'execution_enabled'=>$executionEnabled,
-                'workflow'=>['enabled'=>$workflowEnabled,'enabled_workflows'=>[\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::KEY]],
+                'workflow'=>['enabled'=>$workflowEnabled,'enabled_workflows'=>[\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::KEY],'stage_skills'=>$stageSkills],
                 'safety'=>FeatureGate::normalizeSafetyPolicy($agent['safety']??($current['canvas_agent']['safety']??[]))];
         }
         unset($config['script_plan_model_id'], $config['script_plan_model_selection']);
@@ -15665,7 +15666,7 @@ class AigcShortDramaService
             'multi_episode_script_prompt_template' => self::defaultMultiEpisodeScriptPromptTemplate(),
             'force_result_transfer' => false,
             'result_storage_engine' => '',
-            'canvas_agent' => ['enabled' => true, 'execution_enabled' => false, 'workflow'=>['enabled'=>true,'enabled_workflows'=>[\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::KEY]], 'safety' => FeatureGate::defaultSafetyPolicy()],
+            'canvas_agent' => ['enabled' => true, 'execution_enabled' => false, 'workflow'=>['enabled'=>true,'enabled_workflows'=>[\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::KEY],'stage_skills'=>[]], 'safety' => FeatureGate::defaultSafetyPolicy()],
             'models' => [
                 [
                     'id' => 'script-planner-default',
@@ -26004,6 +26005,32 @@ class AigcShortDramaService
         }
         $data = json_decode($json, true);
         return is_array($data) ? $data : [];
+    }
+
+    /** Keep tenant workflow configuration to an authorization selection only.
+     * Stage order, node policy, billing and safety remain in the platform
+     * catalog; a tenant can merely select up to four published Skill versions
+     * per known stage. Availability is rechecked on conversation start. */
+    private static function normalizeCanvasAgentStageSkills(mixed $value): array
+    {
+        if (!is_array($value)) return [];
+        $allowed=[];
+        foreach (\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::catalog()['stages'] as $stage) {
+            if (is_array($stage) && is_string($stage['key']??null)) $allowed[$stage['key']]=true;
+        }
+        $result=[];
+        foreach ($value as $stage=>$items) {
+            if (!is_string($stage) || !isset($allowed[$stage]) || !is_array($items) || !array_is_list($items)) continue;
+            $seen=[];
+            foreach (array_slice($items,0,4) as $item) {
+                if (!is_array($item)) continue;
+                $id=(int)($item['skill_id']??0);$version=(int)($item['skill_version']??0);
+                if ($id<=0 || $version<=0 || isset($seen[$id.':'.$version])) continue;
+                $seen[$id.':'.$version]=true;
+                $result[$stage][]=['skill_id'=>$id,'skill_version'=>$version];
+            }
+        }
+        return $result;
     }
 
     private static function jsonEncode(array $data): string

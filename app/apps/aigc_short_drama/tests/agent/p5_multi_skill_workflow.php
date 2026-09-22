@@ -15,9 +15,11 @@ use think\facade\Db;
 final class WorkflowAcceptanceProvider implements ConversationProviderInterface
 {
     public string $content='这是本阶段的本地验收回复。';
+    public array $lastRequest=[];
     public function preflight(int $tenant,int $user,array $request): void {}
     public function generate(int $tenant,int $user,array $request): array
     {
+        $this->lastRequest=$request;
         return ['content'=>$this->content,'tool_calls'=>[],'safety_checked'=>true];
     }
 }
@@ -35,10 +37,12 @@ final class WorkflowImageQuoteFixture
 }
 class_alias(WorkflowImageQuoteFixture::class,'app\\common\\service\\app\\aigc_image\\AigcImageService');
 
-$tenant=91051;$user=92051;$config=0;$canvas=0;
+$tenant=91051;$user=92051;$config=0;$canvas=0;$stageSkill=0;
 if (Db::name('aigc_short_drama_config')->where('tenant_id',$tenant)->count()) throw new RuntimeException('Existing fixture config');
 try {
-    $config=Db::name('aigc_short_drama_config')->insertGetId(['tenant_id'=>$tenant,'config_json'=>json_encode(['canvas_agent'=>['enabled'=>true,'workflow'=>['enabled'=>true,'enabled_workflows'=>['short_drama_creation']]]],JSON_UNESCAPED_UNICODE),'status'=>1,'create_time'=>time(),'update_time'=>time()]);
+    $stageSkill=Db::name('aigc_short_drama_skill')->insertGetId(['tenant_id'=>$tenant,'skill_key'=>'workflow_script_fixture','name'=>'剧本创作验收 Skill','status'=>1,'release_status'=>'active','version'=>1,'published_version'=>1]);
+    Db::name('aigc_short_drama_skill_version')->insert(['tenant_id'=>$tenant,'skill_id'=>$stageSkill,'version'=>1,'release_status'=>'active','snapshot_json'=>json_encode(['name'=>'剧本创作验收 Skill','skill_key'=>'workflow_script_fixture','definition'=>['instructions'=>'先确认故事的冲突与角色动机。'],'model_policy'=>[],'execution_policy'=>[]],JSON_UNESCAPED_UNICODE)]);
+    $config=Db::name('aigc_short_drama_config')->insertGetId(['tenant_id'=>$tenant,'config_json'=>json_encode(['canvas_agent'=>['enabled'=>true,'workflow'=>['enabled'=>true,'enabled_workflows'=>['short_drama_creation'],'stage_skills'=>['script'=>[['skill_id'=>$stageSkill,'skill_version'=>1]]]]]],JSON_UNESCAPED_UNICODE),'status'=>1,'create_time'=>time(),'update_time'=>time()]);
     $canvas=Canvas::create($tenant,$user,['title'=>'P5 workflow fixture'])['id'];
     $thread=Store::create($tenant,$user,$canvas,'workflow-thread')['id'];
     $ack=Store::enqueue($tenant,$user,$canvas,$thread,['request_key'=>'workflow-route','content'=>'我想创作一部悬疑短剧','base_revision'=>0],static function (array $conversation) use ($tenant): array {
@@ -49,6 +53,7 @@ try {
     $snapshot=json_decode((string)Db::name(Store::PREFIX.'run')->where('id',$ack['run_id'])->value('context_snapshot'),true);
     agentCheck(($snapshot['workflow']['workflow_snapshot']['key']??'')==='short_drama_creation','semantic route freezes the platform workflow key in the run');
     agentCheck(($snapshot['workflow']['workflow_snapshot']['version']??'')===Workflow::VERSION,'workflow version is immutable in the accepted run');
+    agentCheck(($snapshot['workflow']['workflow_snapshot']['stage_skill_versions']['script'][0]['skill_key']??'')==='workflow_script_fixture' && ($snapshot['workflow']['workflow_snapshot']['stage_skill_versions']['script'][0]['version']??0)===1,'workflow freezes the tenant-authorized published Skill version for its configured stage');
     agentCheck(($snapshot['workflow']['stage_state']['key']??'')==='intake','short drama route starts in collection without a canvas node');
     agentCheck(Execution::stop($tenant,$user,$canvas,$thread,$ack['run_id'])['status']==='canceled','workflow card actions wait for the active conversational run to finish');
     $view=Workflow::read($tenant,$user,$canvas,$thread);
@@ -77,6 +82,7 @@ try {
     };
     $afterScript=$runStage('workflow-script-stage');
     agentCheck(($afterScript['workflow']['stage_state']['key']??'')==='art' && ($afterScript['workflow']['stage_state']['status']??'')==='ready','script reply advances to art planning');
+    agentCheck(str_contains((string)($provider->lastRequest['messages'][count($provider->lastRequest['messages'])-1]['content']??''),'workflow_stage_skills') && str_contains((string)($provider->lastRequest['messages'][count($provider->lastRequest['messages'])-1]['content']??''),'workflow_script_fixture'),'Worker receives only the frozen configured stage Skill in its structured conversation context');
     $afterArt=$runStage('workflow-art-stage');
     agentCheck(($afterArt['workflow']['stage_state']['key']??'')==='assets' && ($afterArt['workflow']['stage_state']['status']??'')==='ready','art reply advances to the controlled asset plan stage without creating nodes');
     $assetReply='主体资产计划已完成。<canvas-actions>{"nodes":[{"type":"image","artifact":"subject","title":"女主主体图","prompt":"都市悬疑女记者，电影写实","key":"subject"},{"type":"image","artifact":"three_view","title":"女主三视图","prompt":"同一女记者正侧背三视图，电影写实","key":"three_view","depends_on":["subject"]}]}</canvas-actions>';
@@ -143,5 +149,9 @@ try {
         Db::name('aigc_short_drama_canvas')->where(['id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user])->delete();
     }
     if ($config) Db::name('aigc_short_drama_config')->where(['id'=>$config,'tenant_id'=>$tenant])->delete();
+    if ($stageSkill) {
+        Db::name('aigc_short_drama_skill_version')->where(['tenant_id'=>$tenant,'skill_id'=>$stageSkill])->delete();
+        Db::name('aigc_short_drama_skill')->where(['tenant_id'=>$tenant,'id'=>$stageSkill])->delete();
+    }
 }
 echo "NOT_RUN real Provider, image plan quotation and paid media submission\n";
