@@ -22,6 +22,7 @@ if (think\facade\Db::query('SELECT DATABASE() AS db')[0]['db'] !== 'x_cn') {
 foreach ([
     'la_aigc_short_drama_canvas_agent_safety_audit',
     'la_aigc_short_drama_canvas_quote',
+    'la_aigc_short_drama_canvas_binding',
 ] as $table) {
     if (!think\facade\Db::query("SHOW TABLES LIKE '" . $table . "'")) {
         throw new RuntimeException('Required local migration is missing: ' . $table);
