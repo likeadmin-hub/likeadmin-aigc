@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace app\common\service\app\aigc_short_drama\canvas_agent;
 
 use RuntimeException;
+use app\common\service\app\aigc_short_drama\ShortDramaSkillService;
 use think\facade\Db;
 
 /** Explicit tenant opt-in; absent configuration never enables Agent writes. */
@@ -107,6 +108,14 @@ final class FeatureGate
                 $seen[$id.':'.$version]=true;
                 $result[$stage][]=['skill_id'=>$id,'skill_version'=>$version];
             }
+        }
+        // An empty tenant setting means “use the platform baseline”, not “run
+        // with no Skill instructions”.  Non-empty tenant selections remain
+        // authoritative and are validated again when the conversation is
+        // frozen. This lets the tenant manager persist a custom version while
+        // keeping a newly enabled workflow immediately executable.
+        foreach (ShortDramaSkillService::workflowDefaultSelections($tenant) as $stage=>$defaults) {
+            if (empty($result[$stage])) $result[$stage]=$defaults;
         }
         return $result;
     }

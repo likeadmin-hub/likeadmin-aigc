@@ -101,11 +101,15 @@ class AigcShortDramaService
             ], array_filter((array)($catalog['stages'] ?? []), 'is_array'))),
         ];
         $config['canvas_agent']['workflow']['available_skills'] = ShortDramaSkillService::workflowEligible($tenantId);
+        // Return the effective stage selection, including platform defaults,
+        // so the tenant workflow manager shows a usable configuration on the
+        // first visit and can persist it as an explicit tenant choice.
+        $config['canvas_agent']['workflow']['stage_skills'] = FeatureGate::workflowStageSkillSelections($tenantId);
         // Collection contract for the tenant workflow manager. Each future
         // workflow needs its own registered executor before it can be listed.
         $config['canvas_agent_workflows'] = [$config['canvas_agent']['workflow']['catalog'] + [
             'enabled' => !in_array($config['canvas_agent']['workflow']['enabled'] ?? true, [false, 0, '0'], true),
-            'stage_skills' => $config['canvas_agent']['workflow']['stage_skills'] ?? [],
+            'stage_skills' => $config['canvas_agent']['workflow']['stage_skills'],
         ]];
         $config['script_prompt_defaults'] = self::scriptPromptDefaults();
         $config['prompt_config_defaults'] = self::runtimePromptDefaults();

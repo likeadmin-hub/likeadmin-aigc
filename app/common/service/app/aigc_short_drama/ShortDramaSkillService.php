@@ -162,6 +162,11 @@ final class ShortDramaSkillService
      */
     public static function workflowEligible(int $tenantId): array
     {
+        // Tenant workflow configuration is also the first page that a tenant
+        // admin opens after an application update.  Synchronize packaged,
+        // read-only Skills here so the workflow never renders dangling stage
+        // names before its selectable versions exist.
+        self::syncBuiltinSkills();
         $published = Db::name('aigc_short_drama_skill')->alias('s')
             ->join('aigc_short_drama_skill_version v', 'v.skill_id = s.id AND v.tenant_id = s.tenant_id AND v.version = s.published_version')
             ->whereIn('s.tenant_id', [0, $tenantId])
@@ -178,6 +183,33 @@ final class ShortDramaSkillService
                 'description' => (string)($skill['description'] ?? ''),
             ];
         }, $published));
+    }
+
+    /**
+     * Platform supplies a usable, versioned short-drama baseline.  A tenant
+     * may persist a different published Skill for a stage, but an untouched
+     * tenant immediately gets the safe product defaults rather than an empty
+     * workflow snapshot.
+     *
+     * @return array<string,list<array{skill_id:int,skill_version:int}>>
+     */
+    public static function workflowDefaultSelections(int $tenantId): array
+    {
+        self::syncBuiltinSkills();
+        $mapping = \app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::defaultSkillKeys();
+        $keys = [];
+        foreach ($mapping as $stageKeys) foreach ($stageKeys as $key) $keys[(string)$key] = true;
+        if (!$keys) return [];
+        $rows = AigcShortDramaSkill::where(['tenant_id' => 0, 'status' => 1, 'release_status' => self::ACTIVE, 'delete_time' => 0])
+            ->whereIn('skill_key', array_keys($keys))->where('published_version', '>', 0)
+            ->field('id,skill_key,published_version')->select()->toArray();
+        $byKey = [];
+        foreach ($rows as $row) $byKey[(string)$row['skill_key']] = ['skill_id' => (int)$row['id'], 'skill_version' => (int)$row['published_version']];
+        $result = [];
+        foreach ($mapping as $stage => $stageKeys) {
+            foreach ($stageKeys as $key) if (isset($byKey[$key])) $result[$stage][] = $byKey[$key];
+        }
+        return $result;
     }
 
     public static function mine(int $tenantId, int $userId): array
