@@ -1186,3 +1186,20 @@ P5 仍为 **NOT_RUN / 未放行**：正式应用到故事设定、分集大纲�
 持久化套件初次失败并已修复：旧断言要求不存在于当前产品的 `writeCanvasSnapshot/readCanvasSnapshot` 全量 localStorage 机制。当前实现已采用服务端权威文档保存，仅保留 session 诊断标记与可导出的旧未确认草稿；测试已改为验证该实际语义、服务端保存、700ms 去抖和卸载 flush。该修复只调整回归断言，不改变画布产品逻辑。
 
 此结果补强 P6 O03/O10 的 PC 基础回归，但不覆盖 O04–O09，尤其不替代独立无限画布应用自身的完整任务/Skills 回归、浏览器端到端、负载统计或真实模型样本；P6 继续未放行。
+## 68. P5/P6 多 Skill 短剧工作流受控实现（本地回归通过，2026-09-22）
+
+本轮按产品确认的“多 Skill 工作流”收敛现有短剧画布 Agent：不新增 Docker、数据库、Worker 或第二套任务/积分系统；所有节点仍通过既有 GraphService、generation intent、报价确认和统一 Worker 边界处理。
+
+- 已实现：平台固定 `short_drama_creation` 工作流版本 `2026-09-22.2`。租户配置只能为既有阶段选择至多四个已发布 Skill 的 `{skill_id, skill_version}`，不能增加阶段、变更阶段顺序，或覆盖安全、模型、计费、音频禁用和视频手动确认规则。
+- 已实现：新对话冻结完整工作流版本、阶段 Skill 已发布版本、模型偏好、槽位和引用；Worker 仅收到当前阶段的冻结 Skill 定义。后台随后修改 Skill 或租户配置不会改变进行中的对话。浏览器接口只返回 Skill 名称/版本/键，不返回该定义。
+- 已实现：显式 `/skill_key` 在服务端解析为当前租户可用的短剧 Skill，不能由前端伪造 ID 或版本；工作流别名仍优先进入平台工作流，其他不存在的斜杠命令不会被短剧工作流截获。
+- 已实现：主体图 → 主体三视图、主体/三视图 + 场景/道具 → 分镜图、主体/分镜图 → 分镜视频都以 GraphService 写入的真实 reference/dependency 边保存。模型只能选择受限 artifact 标签，不能提交任意节点 JSON、来源 ID、模型、价格或任务状态。
+- 已实现：自动图片提案先按冻结模型读取既有 estimate 边界，生成 `plan_hash` 后停在确认卡；确认后才原子插入图谱并交给既有自动节点路径。视频节点始终 `manual_quote_confirmed`，音频节点始终 `disabled`，均不能绕过现有计费/Provider 边界。
+
+验证均从本机既有 local `develop` 分支运行：
+
+- `p5_multi_skill_workflow.php`：**42 PASS / 0 FAIL**，覆盖语义路由、阶段槽位、已发布 Skill 冻结、上下文注入、自动图片计划确认、依赖图边、视频手动、音频硬禁用和租户隔离。
+- `p2_send.php`：**29 PASS / 0 FAIL**，新增 `/skill_key` 服务端解析与不可变 Skill 快照；测试夹具不再覆盖跨目录同数值 ID 的本地数据。
+- `p2_settings.php`、`p2_http.php`：均 **PASS**；HTTP 仍确认工作流路由、SSE 和权限边界。`short-drama-canvas-composer.test.cjs`：**21 PASS / 0 FAIL**。
+
+仍未宣称完成：完整“全剧一次性图片总计划”当前按主体资产和场景/分镜两个受控图片批次分别确认；真实 Provider、真实浏览器端到端、以及配置页对阶段 Skill 选择器的管理界面未在本轮新增或验收。它们保持 **NOT_RUN**，不能由上述本地服务/组件回归替代。未执行付费 Provider、生产迁移、部署、发布或推送。
