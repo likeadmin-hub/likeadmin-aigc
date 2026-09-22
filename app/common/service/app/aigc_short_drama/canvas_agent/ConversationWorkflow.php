@@ -18,7 +18,7 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-23.1';
+    public const VERSION = '2026-09-23.2';
 
     /** @return array<string,mixed> */
     public static function catalog(): array
@@ -91,7 +91,10 @@ final class ConversationWorkflow
             $state=[
                 'workflow_snapshot'=>self::snapshot($tenant,$catalog,$route,$selectedIds,$attachments,$preferences),
                 'stage_state'=>['key'=>'intake','status'=>'collecting','completed'=>[]],
-                'slot_values'=>[], 'plan_hash'=>'', 'image_plan'=>[], 'plan_confirmation'=>['status'=>'not_required'],
+                // Keep only server-validated stage artifacts here.  This is
+                // the compact continuity ledger used by later Skills; it is
+                // intentionally not a copy of the full chat transcript.
+                'slot_values'=>[], 'artifact_memory'=>[], 'plan_hash'=>'', 'image_plan'=>[], 'plan_confirmation'=>['status'=>'not_required'],
                 'state_revision'=>1,
             ];
         } elseif (($state['stage_state']['status']??'')==='awaiting_plan_confirmation') {
@@ -179,6 +182,7 @@ final class ConversationWorkflow
             $state['plan_confirmation']=['status'=>'confirmed','confirmed_at'=>time(),'plan_hash'=>$planHash];
             $effects=GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),true,$frozenSettings,(int)$plan['run_id'],self::publicState($state));
             $effects['mode']='auto';
+            self::rememberArtifacts($state,$stage,(array)$plan['nodes']);
             $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$stage])));
             $state['stage_state']=['key'=>self::nextStage($stage),'status'=>'ready','completed'=>$completed];
             $state['state_revision']++;
@@ -239,7 +243,7 @@ final class ConversationWorkflow
     }
 
     /** Called only by ConversationExecution while it owns the thread lock. */
-    public static function advanceAfterReplyLocked(array $thread,array $workflow,array $settings,string $text): ?array
+    public static function advanceAfterReplyLocked(array $thread,array $workflow,array $settings,string $text,array $proposals=[]): ?array
     {
         if (($workflow['workflow_snapshot']['key']??'')!==self::KEY) return null;
         $state=self::stateFromSettings($settings); if ($state===[]) return null; self::assertState($state);
@@ -247,10 +251,35 @@ final class ConversationWorkflow
         $current=(string)$state['stage_state']['key'];
         $next=self::nextStage($current);
         if ($next==='') return null;
+        self::rememberArtifacts($state,$current,$proposals);
         $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$current])));
         $state['stage_state']=['key'=>$next,'status'=>'ready','completed'=>$completed];$state['state_revision']++;
         $settings['workflow_state']=$state;
         return $settings;
+    }
+
+    /**
+     * Timeline entries are derived from the frozen Skill snapshot and from
+     * completed server actions only.  The UI may render them like Seko's
+     * status chips, but they never claim a tool call that did not happen.
+     *
+     * @return list<array{kind:string,label:string,detail:string}>
+     */
+    public static function timeline(array $workflow,array $proposals,array $effects): array
+    {
+        if (($workflow['workflow_snapshot']['key']??'')!==self::KEY) return [];
+        $stage=(string)($workflow['stage_state']['key']??'');
+        $skills=self::stageSkillNames((array)$workflow['workflow_snapshot'],$stage);
+        if (!$skills) {
+            $definition=self::stageDefinition((array)$workflow['workflow_snapshot'],$stage);
+            $skills=array_values(array_filter((array)($definition['skills']??[]),'is_string'));
+        }
+        $items=[];
+        if ($skills) $items[]=['kind'=>'skill','label'=>'已调用技能','detail'=>implode('、',$skills)];
+        $textNodes=count(array_filter($proposals,static fn($node): bool=>is_array($node) && ($node['type']??'')==='text'));
+        if ($textNodes>0 && !empty($effects['nodes'])) $items[]=['kind'=>'tool','label'=>'已调用工具','detail'=>'文本节点创建 · '.$textNodes.' 项'];
+        if (!empty($effects['nodes']) && !$textNodes) $items[]=['kind'=>'tool','label'=>'已调用工具','detail'=>'画布节点创建 · '.count((array)$effects['nodes']).' 项'];
+        return $items;
     }
 
     public static function mayAutoSubmit(array $workflow): bool
@@ -355,6 +384,7 @@ final class ConversationWorkflow
         // them must remain safe; the field is populated only when a later
         // image phase actually produces a priced proposal.
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('image_plan',$state)) $state['image_plan']=[];
+        if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('artifact_memory',$state)) $state['artifact_memory']=[];
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('stage_skill_versions',$state['workflow_snapshot'])) $state['workflow_snapshot']['stage_skill_versions']=[];
         return $state;
     }
@@ -392,10 +422,10 @@ final class ConversationWorkflow
     }
     /** Complete frozen state used only inside the immutable run snapshot. */
     private static function runState(array $state): array { return $state; }
-    private static function publicState(array $state): array { return ['workflow_snapshot'=>self::publicWorkflowSnapshot((array)$state['workflow_snapshot']),'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'plan_hash'=>$state['plan_hash'],'image_plan'=>self::publicImagePlan((array)($state['image_plan']??[])),'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
+    private static function publicState(array $state): array { return ['workflow_snapshot'=>self::publicWorkflowSnapshot((array)$state['workflow_snapshot']),'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'artifact_memory'=>self::publicArtifacts((array)($state['artifact_memory']??[])),'plan_hash'=>$state['plan_hash'],'image_plan'=>self::publicImagePlan((array)($state['image_plan']??[])),'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
     private static function assertState(array $state): void {
         $snapshot=(array)($state['workflow_snapshot']??[]);$stage=(array)($state['stage_state']??[]);
-        if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_array($snapshot['stage_skill_versions']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_array($state['image_plan']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1 || !is_array($state['plan_confirmation']??null)) throw new RuntimeException('INVALID_WORKFLOW_STATE');
+        if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_array($snapshot['stage_skill_versions']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_array($state['artifact_memory']??null) || !is_array($state['image_plan']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1 || !is_array($state['plan_confirmation']??null)) throw new RuntimeException('INVALID_WORKFLOW_STATE');
     }
     private static function nextStage(string $stage): string { return ['script'=>'art','art'=>'assets','assets'=>'storyboard','storyboard'=>'video_plan','video_plan'=>'video_nodes','video_nodes'=>'audio_plan','audio_plan'=>'complete'][$stage]??''; }
     /** Server-owned output contracts are frozen with the workflow snapshot and
@@ -418,6 +448,28 @@ final class ConversationWorkflow
     private static function publicImagePlan(array $plan): array {
         if (!self::validImagePlan($plan)) return [];
         return ['node_count'=>count((array)$plan['nodes']),'estimated_tenant_cost_points'=>array_sum(array_map(static fn(array $quote): float=>(float)($quote['tenant_cost_points']??0),(array)$plan['quotes'])),'estimated_user_charge_points'=>array_sum(array_map(static fn(array $quote): float=>(float)($quote['user_charge_points']??0),(array)$plan['quotes'])),'image_model'=>self::publicModel((array)$plan['image_model'])];
+    }
+    /** Keep the cross-stage creative context bounded and durable. Text node
+     * content can be long, so a later provider gets the latest six artifacts
+     * capped to a predictable request size rather than an ever-growing chat.
+     */
+    private static function rememberArtifacts(array &$state,string $stage,array $proposals): void {
+        $memory=array_values(array_filter((array)($state['artifact_memory']??[]),'is_array'));
+        foreach ($proposals as $proposal) {
+            if (!is_array($proposal)) continue;
+            $content=trim((string)($proposal['prompt']??''));
+            $artifact=trim((string)($proposal['artifact']??''));
+            if ($content==='' || $artifact==='') continue;
+            $memory[]=['stage'=>$stage,'artifact'=>$artifact,'title'=>mb_substr(trim((string)($proposal['title']??'')),0,80),'content'=>mb_substr($content,0,6000)];
+        }
+        $state['artifact_memory']=array_slice($memory,-12);
+    }
+    private static function publicArtifacts(array $artifacts): array {
+        $items=[];
+        foreach (array_slice($artifacts,-12) as $artifact) if (is_array($artifact)) $items[]=[
+            'stage'=>(string)($artifact['stage']??''),'artifact'=>(string)($artifact['artifact']??''),'title'=>(string)($artifact['title']??''),
+        ];
+        return $items;
     }
     private static function validImagePlan(array $plan): bool {
         return preg_match('/^[a-f0-9]{64}$/D',(string)($plan['hash']??''))===1 && is_array($plan['nodes']??null) && $plan['nodes']!==[] && count($plan['nodes'])<=4 && is_array($plan['sources']??null) && is_array($plan['attachment_images']??null) && (array)($plan['parameters']??[])===['quantity'=>1] && is_array($plan['quotes']??null) && count($plan['quotes'])===count($plan['nodes']) && (int)($plan['run_id']??0)>0;
