@@ -22,7 +22,7 @@ docker exec -e SHORT_DRAMA_AGENT_TEST=local-existing -w /www/wwwroot/likeadmin-a
 按阶段串行运行其他脚本，任一失败立即停止；不要并行运行共享夹具：
 
 ```sh
-for test_file in p0_generation p0_controller p0_http p1_graph p1_graph_wire p1_graph_operations p1_concurrency p1_poster_save p1_save_cas p1_read_recovery p1_revision_integration p1_migrations p1_generation_intent p1_generation_projection p1_manual_authority p1_generation_crash p2_migrations p2_conversation p2_conversation_concurrency p2_execution p2_settings p2_send p2_http p2_worker p2_queue_crash p2_stop p2_stop_race p2_recovery p2_attachments p2_safety p2_reconciliation p3_asset_version_reference p3_connection_matrix p3_preflight_rejection p3_private_signed_url p3_quote p3_quote_confirmation p3_reference_assets; do
+for test_file in p0_generation p0_controller p0_http p1_graph p1_graph_wire p1_graph_operations p1_concurrency p1_poster_save p1_save_cas p1_read_recovery p1_revision_integration p1_migrations p1_generation_intent p1_generation_projection p1_manual_authority p1_generation_crash p2_migrations p2_conversation p2_conversation_concurrency p2_execution p2_settings p2_send p2_http p2_worker p2_queue_crash p2_stop p2_stop_race p2_recovery p2_attachments p2_safety p2_reconciliation p3_asset_version_reference p3_connection_matrix p3_preflight_rejection p3_private_signed_url p3_quote p3_quote_confirmation p3_reference_assets p5_binding p6_local_compatibility; do
   docker exec -e SHORT_DRAMA_AGENT_TEST=local-existing -w /www/wwwroot/likeadmin-aigc/server baota \
     php "app/apps/aigc_short_drama/tests/agent/${test_file}.php" || exit 1
 done
