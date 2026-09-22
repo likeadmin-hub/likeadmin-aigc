@@ -62,15 +62,15 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString("\$relativeDir = 'mp-weixin'", $source);
     }
 
-    public function testManualUploadCanUseAVerifiedFormalArtifactWithoutARegistryRow(): void
+    public function testManualUploadUsesTheCurrentPublicArtifactContract(): void
     {
         $source = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
 
-        self::assertStringContainsString('Tenant uploads only need the signed', $source);
-        self::assertStringContainsString("return ['id' => 0, 'version' => \$version, 'dir' => 'mp-weixin'];", $source);
-        self::assertStringContainsString("(array)(\$formalMetadata['files'] ?? []) !== \$formalFiles", $source);
-        self::assertStringContainsString("(string)(\$formalMetadata['sha256'] ?? '') !== \$formalHash", $source);
-        self::assertStringContainsString("\$formalDirectory . '/config/runtime.js'", $source);
+        self::assertStringContainsString('private static function manualUploadArtifactCandidate', $source);
+        self::assertStringContainsString("\$artifactDir !== 'mp-weixin.pre-release-' . \$version", $source);
+        self::assertStringContainsString('foreach (self::artifacts() as $artifact)', $source);
+        self::assertStringContainsString("if (\$candidate['dir'] === 'mp-weixin') return \$candidate;", $source);
+        self::assertStringContainsString('runtime/wechat-artifacts is intentionally', $source);
     }
 
     public function testAuthorizationProfileAndTemplateDraftsHaveExplicitPersistenceContracts(): void

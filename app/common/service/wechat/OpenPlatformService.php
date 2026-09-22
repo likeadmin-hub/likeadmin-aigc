@@ -2035,57 +2035,53 @@ class OpenPlatformService
         ];
     }
 
+    /**
+     * Convert an already inspected artifact into a tenant-upload candidate.
+     *
+     * New artifacts live only in the public versioned directory and the
+     * promoted public directory. runtime/wechat-artifacts is intentionally
+     * excluded here: it is read compatibility for legacy database rows, not a
+     * source for new tenant code uploads.
+     */
+    private static function manualUploadArtifactCandidate(array $artifact): ?array
+    {
+        $version = (string)($artifact['version'] ?? '');
+        $artifactDir = trim((string)($artifact['artifact_dir'] ?? ''), '/');
+        if ((int)($artifact['verify_status'] ?? 0) !== 1
+            || !preg_match('/^\d+\.\d+\.\d+$/', $version)
+            || ($artifactDir !== 'mp-weixin' && $artifactDir !== 'mp-weixin.pre-release-' . $version)) {
+            return null;
+        }
+
+        $directory = self::artifactPath($artifactDir, $version);
+        $runtimePath = $directory . '/config/runtime.js';
+        $runtimeSource = is_file($runtimePath) ? (string)file_get_contents($runtimePath) : '';
+        if (!is_file($directory . '/app.json')
+            || !is_file($directory . '/project.config.json')
+            || !str_contains($runtimeSource, '__TENANT_API_BASE_URL__')
+            || !str_contains($runtimeSource, '__TENANT_ID__')) {
+            return null;
+        }
+
+        return ['id' => (int)($artifact['id'] ?? 0), 'version' => $version, 'dir' => $artifactDir];
+    }
+
     private static function latestManualArtifact(): ?array
     {
-        $formalMetadataPath = root_path() . 'public/mp-weixin/.artifact.meta.json';
-        $formalMetadata = is_file($formalMetadataPath) ? json_decode((string)file_get_contents($formalMetadataPath), true) : [];
-        $formalVersion = is_array($formalMetadata) ? (string)($formalMetadata['version'] ?? '') : '';
-        $promotedRows = WechatArtifact::withoutGlobalScope()->where('promoted', 1)->where('verify_status', 1)->order('update_time desc')->select();
-        $row = null;
-        foreach ($promotedRows as $candidate) {
-            if ($formalVersion !== '' && (string)$candidate['version'] === $formalVersion) { $row = $candidate; break; }
-            if ($formalVersion === '' && $row === null) $row = $candidate;
+        $pending = [];
+        foreach (self::artifacts() as $artifact) {
+            $candidate = self::manualUploadArtifactCandidate($artifact);
+            if ($candidate === null) continue;
+
+            // A formal promotion is the active release. Its registry row may
+            // be absent after deployment, but artifacts() validates and
+            // discovers the signed formal directory independently.
+            if ($candidate['dir'] === 'mp-weixin') return $candidate;
+            $pending[] = $candidate;
         }
-        if ($row === null) $row = WechatArtifact::withoutGlobalScope()->findOrEmpty(0);
-        if ($row->isEmpty()) {
-            $version = $formalVersion;
-            if (preg_match('/^\d+\.\d+\.\d+$/', $version)) {
-                $row = WechatArtifact::withoutGlobalScope()->where('version', $version)->findOrEmpty();
-                // The platform may already have atomically promoted the public
-                // artifact while its registry row was lost or has not reached
-                // this installation yet. Tenant uploads only need the signed
-                // formal directory, so do not reject that verified artifact
-                // merely because the optional registry record is absent.
-                if ($row->isEmpty()) {
-                    $formalDirectory = root_path() . 'public/mp-weixin';
-                    $formalFiles = is_dir($formalDirectory) ? self::fileManifest($formalDirectory) : [];
-                    $formalHash = hash('sha256', json_encode($formalFiles, JSON_UNESCAPED_SLASHES));
-                    if ((int)($formalMetadata['file_count'] ?? -1) !== count($formalFiles)
-                        || (array)($formalMetadata['files'] ?? []) !== $formalFiles
-                        || (string)($formalMetadata['sha256'] ?? '') !== $formalHash) {
-                        return null;
-                    }
-                    $runtimePath = $formalDirectory . '/config/runtime.js';
-                    $runtimeSource = is_file($runtimePath) ? (string)file_get_contents($runtimePath) : '';
-                    if (!is_file($formalDirectory . '/app.json')
-                        || !is_file($formalDirectory . '/project.config.json')
-                        || !str_contains($runtimeSource, '__TENANT_API_BASE_URL__')
-                        || !str_contains($runtimeSource, '__TENANT_ID__')) {
-                        return null;
-                    }
-                    return ['id' => 0, 'version' => $version, 'dir' => 'mp-weixin'];
-                }
-            }
-        }
-        if ($row->isEmpty()) return null;
-        $version = (string)$row['version'];
-        $directory = self::artifactPath((string)$row['artifact_dir'], $version);
-        if (!is_file($directory . '/app.json') || !is_file($directory . '/project.config.json') || !is_file($directory . '/config/runtime.js')) return null;
-        $runtimeSource = (string)file_get_contents($directory . '/config/runtime.js');
-        if (!str_contains($runtimeSource, '__TENANT_API_BASE_URL__') || !str_contains($runtimeSource, '__TENANT_ID__')) return null;
-        $manifest = json_decode((string)$row['sha256_manifest'], true);
-        if (!is_array($manifest) || self::fileManifest($directory) !== $manifest) return null;
-        return ['id' => (int)$row['id'], 'version' => $version, 'dir' => (string)$row['artifact_dir']];
+
+        usort($pending, static fn(array $left, array $right): int => version_compare($right['version'], $left['version']));
+        return $pending[0] ?? null;
     }
 
     public static function bindAuthorizer(int $tenantId, string $appid, string $type, array $profile = []): array
