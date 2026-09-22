@@ -85,6 +85,7 @@ final class ConversationTextContext
         $workflow=(array)($context['workflow']??[]);
         $state=(array)($workflow['stage_state']??[]);
         $artifacts=[];
+        $referenceCatalog=[];
         foreach (array_slice((array)($workflow['artifact_memory']??[]),-6) as $item) {
             if (!is_array($item)) continue;
             $content=trim((string)($item['content']??''));
@@ -94,6 +95,17 @@ final class ConversationTextContext
                 'artifact'=>mb_substr((string)($item['artifact']??''),0,64),
                 'title'=>mb_substr((string)($item['title']??''),0,80),
                 'content'=>mb_substr($content,0,6000),
+            ];
+        }
+        foreach (array_slice((array)($workflow['artifact_memory']??[]),-12) as $item) {
+            if (!is_array($item)) continue;
+            $referenceKey=trim((string)($item['reference_key']??''));
+            if ($referenceKey==='' || !preg_match('/^[a-z][a-z0-9_-]{0,47}:[a-z][a-z0-9_-]{0,31}$/D',$referenceKey)) continue;
+            $referenceCatalog[$referenceKey]=[
+                'reference_key'=>$referenceKey,
+                'stage'=>mb_substr((string)($item['stage']??''),0,48),
+                'artifact'=>mb_substr((string)($item['artifact']??''),0,64),
+                'title'=>mb_substr((string)($item['title']??''),0,80),
             ];
         }
         $materials=[];
@@ -112,6 +124,7 @@ final class ConversationTextContext
             'workflow_stage'=>(string)($state['key']??''),
             'workflow_slots'=>(array)($workflow['slot_values']??[]),
             'confirmed_artifacts'=>$artifacts,
+            'workflow_reference_catalog'=>array_values($referenceCatalog),
             'selected_node_material'=>$materials,
             'workflow_stage_skills'=>$workflowSkills,
             'generation_mode'=>(($settings['generation_mode']??'manual')==='auto'?'auto':'manual'),

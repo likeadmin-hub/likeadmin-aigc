@@ -520,7 +520,8 @@ final class ConversationWorkflow
             $content=trim((string)($proposal['prompt']??''));
             $artifact=trim((string)($proposal['artifact']??''));
             if ($content==='' || $artifact==='') continue;
-            $memory[]=['stage'=>$stage,'artifact'=>$artifact,'title'=>mb_substr(trim((string)($proposal['title']??'')),0,80),'content'=>mb_substr($content,0,6000)];
+            $key=trim((string)($proposal['key']??''));
+            $memory[]=['stage'=>$stage,'artifact'=>$artifact,'key'=>$key,'reference_key'=>$key===''?'':$stage.':'.$key,'title'=>mb_substr(trim((string)($proposal['title']??'')),0,80),'content'=>mb_substr($content,0,6000)];
         }
         $state['artifact_memory']=array_slice($memory,-12);
     }
