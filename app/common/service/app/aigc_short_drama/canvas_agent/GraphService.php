@@ -189,6 +189,7 @@ final class GraphService
                     $from=self::nodeId($edge['from']??null); $to=self::nodeId($edge['to']??null);
                     if ($from===$to||self::index($nodes,$from)===null||self::index($nodes,$to)===null) throw new RuntimeException('INVALID_EDGE');
                     if (!in_array($edge['kind']??'reference',['reference','annotation'],true)) throw new RuntimeException('INVALID_EDGE_KIND');
+                    if (($edge['kind']??'reference')==='reference' && !self::referenceConnectionAllowed($nodes,self::index($nodes,$from),self::index($nodes,$to))) throw new RuntimeException('EDGE_CAPABILITY_UNSUPPORTED');
                     foreach ($edges as $existing) {
                         if ((isset($edge['id']) && isset($existing['id']) && (string)$edge['id']===(string)$existing['id']) || self::edgeIdentity($edge)===self::edgeIdentity($existing)) throw new RuntimeException('EDGE_ALREADY_EXISTS');
                     }
@@ -230,6 +231,22 @@ final class GraphService
     }
     private static function edgeIdentity(array $edge): array {
         return [(string)($edge['from']??''),(string)($edge['to']??''),(string)($edge['kind']??'reference'),(string)($edge['role']??''),(string)($edge['order']??0)];
+    }
+    /**
+     * The canvas graph stores only four node kinds. This is a deliberately
+     * model-independent association boundary: an alternative model may make a
+     * valid reference generatable later, so selected-model capacity and modes
+     * remain the responsibility of the submit-time Market capability check.
+     */
+    private static function referenceConnectionAllowed(array $nodes, int $fromIndex, int $toIndex): bool {
+        $source=(string)($nodes[$fromIndex]['type']??'');
+        $target=(string)($nodes[$toIndex]['type']??'');
+        return in_array($target,[
+            'text'=>['text','image','video','audio'],
+            'image'=>['text','image','video'],
+            'video'=>['text','video'],
+            'audio'=>['text','video','audio'],
+        ][$source]??[],true);
     }
     private static function geometry(array $node): void {
         foreach (['x','y','width','height'] as $key) if (array_key_exists($key, $node) && (!is_numeric($node[$key]) || !is_finite((float)$node[$key]) || abs((float)$node[$key])>10000000 || (in_array($key,['width','height'],true) && (float)$node[$key]<=0))) throw new RuntimeException('INVALID_GEOMETRY');
