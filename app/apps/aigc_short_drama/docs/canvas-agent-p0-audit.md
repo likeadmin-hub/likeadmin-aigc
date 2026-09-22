@@ -937,3 +937,13 @@ web `aa4e34e` 添加 generationInputError，在 runNativeNode 设置 running、�
 - PASS：该消费事件恰有一次 `reserve`、一次 `submit`、一次 `settle`，均为 attempt 1；tenant 与 user 实际成本各 **0.327600** 积分（页面按两位数显示 0.33）。没有重放或第二次 Provider 提交。
 
 这只放行了真实文本成功、刷新投影和一次结算的对应部分；它不代表附件解析、图像/视频模型、撤销、退款、取消、过期签名 URL、能力矩阵、报价确认失效或 Agent 对话真实 Provider 路径均已完成。尤其 M01/M06/M09/M12/M14/M16 仍按各自证据状态继续，**P3 未整体放行，P4—P6 NOT_RUN**。本轮真实调用在用户授权的 2000 积分上限内；没有迁移、部署、发布、推送或密钥复制。
+
+## 52. P3 本地 tenant 1 真实 Agent SSE、账本与会话验收（2026-09-22）
+
+依用户逐笔确认，在相同专用画布 18 的右侧 Agent 输入框中，用账号默认推理模型 `Qwen3.6-Plus` 发送最小消息“请只回复：Agent真实Provider验收通过。”；未附加素材、Skill 或生成工具，未直接请求 Provider。
+
+- PASS：浏览器先显示“正在处理…”，随后同一右侧对话区域通过现有事件/刷新路径显示 Agent 回复 `Agent真实Provider验收通过。`，而画布节点不新增、不被改写。
+- PASS：本地持久化 thread 16 的 run 22 为 success，thread.active_run_id 回到 0，消息序列严格为 user、assistant 两条，证明完成后会话可继续而不是仅浏览器临时文本。
+- PASS：run 22 对应 app task 1077（`aigc_short_drama_canvas_agent_run:22`）和消费 1099；模型 `qwen3.6-plus` / `dashscope_compatible`，billing_status=settled。消费事件恰有一次 attempt 1 的 `reserve`、`submit`、`settle`；tenant/user 各实际结算 **0.525000** 积分，页面账户余额从 10869.25 变为 **10868.73**。
+
+该项补齐真实 Agent Provider、SSE 可见回复、会话持久化与唯一账本的成功路径，不推断附件视觉理解、停止后的真实上游取消/退款、未知结果查询、模型能力矩阵或签名 URL 刷新也已通过。它不调用 Agent 工具，P3 的 M01/M06/M09/M12/M14/M16 等剩余门槛仍按单项继续，**P3 未整体放行，P4—P6 NOT_RUN**。本次在用户授权 2000 积分上限内，未迁移、部署、发布、推送或复制密钥。
