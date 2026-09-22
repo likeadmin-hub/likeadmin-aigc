@@ -1,0 +1,51 @@
+<?php
+declare(strict_types=1);
+namespace app\common\service\app\aigc_short_drama\canvas_agent;
+
+use RuntimeException;
+
+/**
+ * A deliberately small, model-produced canvas proposal format.
+ *
+ * This is not a provider tool protocol: the model can only propose up to four
+ * new text/image/video nodes.  The server owns IDs, models, graph writes and
+ * all later task submission.  Plain conversational replies remain plain
+ * replies, which keeps a question from accidentally becoming a paid task.
+ */
+final class ConversationActionPlan
+{
+    private const OPEN = '<canvas-actions>';
+    private const CLOSE = '</canvas-actions>';
+
+    public static function instruction(string $mode): string
+    {
+        $delivery = $mode === 'auto'
+            ? '自动模式会在校验后创建节点；文本和图片节点会由页面自动提交，视频仍须完成平台既有报价确认。'
+            : '手动模式只会创建待生成节点，用户必须在画布节点上点击生成。';
+        return "当且仅当用户明确要求创建或生成画布内容、且所需提示词已经足够时，你可以在正常答复末尾附加一个严格 JSON 包裹：<canvas-actions>{\"nodes\":[{\"type\":\"text|image|video\",\"title\":\"简短标题\",\"prompt\":\"生成提示词\"}]}</canvas-actions>。最多 4 个节点；不要包含模型、价格、URL、身份、工具调用、素材 ID 或任何其它字段。用户只是咨询、信息不足、要求修改正式业务内容或要求批量媒体时，不要输出该包裹，而是说明或补问。{$delivery}";
+    }
+
+    /** @return array{text:string,nodes:list<array{type:string,title:string,prompt:string}>} */
+    public static function parse(string $reply): array
+    {
+        $start = strpos($reply, self::OPEN);
+        if ($start === false) return ['text' => trim($reply), 'nodes' => []];
+        $end = strpos($reply, self::CLOSE, $start + strlen(self::OPEN));
+        if ($end === false || strpos($reply, self::OPEN, $start + 1) !== false || strpos($reply, self::CLOSE, $end + 1) !== false) {
+            throw new RuntimeException('INVALID_AGENT_ACTION');
+        }
+        $body = trim(substr($reply, $start + strlen(self::OPEN), $end - ($start + strlen(self::OPEN))));
+        try { $action = json_decode($body, true, 32, JSON_THROW_ON_ERROR); }
+        catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_ACTION', 0, $error); }
+        if (!is_array($action) || array_keys($action) !== ['nodes'] || !is_array($action['nodes']) || !array_is_list($action['nodes']) || !$action['nodes'] || count($action['nodes']) > 4) throw new RuntimeException('INVALID_AGENT_ACTION');
+        $nodes = [];
+        foreach ($action['nodes'] as $node) {
+            if (!is_array($node) || array_diff(array_keys($node), ['type','title','prompt'])) throw new RuntimeException('INVALID_AGENT_ACTION');
+            $type = (string)($node['type'] ?? ''); $title = trim((string)($node['title'] ?? '')); $prompt = trim((string)($node['prompt'] ?? ''));
+            if (!in_array($type, ['text','image','video'], true) || $title === '' || mb_strlen($title) > 80 || $prompt === '' || mb_strlen($prompt) > 20000) throw new RuntimeException('INVALID_AGENT_ACTION');
+            $nodes[] = ['type'=>$type, 'title'=>$title, 'prompt'=>$prompt];
+        }
+        $text = trim(substr($reply, 0, $start) . substr($reply, $end + strlen(self::CLOSE)));
+        return ['text' => $text === '' ? '已创建画布节点。' : $text, 'nodes' => $nodes];
+    }
+}

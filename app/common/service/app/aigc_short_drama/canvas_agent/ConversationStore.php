@@ -172,6 +172,16 @@ final class ConversationStore
             $content=json_decode($row['content_json'],true,512,JSON_THROW_ON_ERROR);
             if (!is_array($content) || !is_string($content['text']??null)) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
             $message=['id'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'role'=>$row['role'],'content'=>$content,'attachments'=>json_decode($row['attachments_json'],true,512,JSON_THROW_ON_ERROR)];
+            $actions=$content['canvas_actions']??null;
+            if ($actions!==null) {
+                if ($row['role']!=='assistant' || !is_array($actions) || !in_array($actions['mode']??'', ['manual','auto'], true) || !is_int($actions['graph_revision']??null) || !is_array($actions['nodes']??null) || count($actions['nodes'])>4) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
+                $public=[];
+                foreach ($actions['nodes'] as $node) {
+                    if (!is_array($node) || !preg_match('/^[1-9][0-9]{0,15}$/D',(string)($node['id']??'')) || !in_array($node['type']??'', ['text','image','video'],true) || !is_bool($node['auto_submit']??null)) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
+                    $public[]=['id'=>(string)$node['id'],'type'=>$node['type'],'auto_submit'=>$node['auto_submit']];
+                }
+                $message['canvas_actions']=['mode'=>$actions['mode'],'graph_revision'=>$actions['graph_revision'],'nodes'=>$public];
+            }
             $candidates=ConversationReferenceResolver::publicCandidates($content['reference_candidates']??null);
             if ($candidates) $message['reference_candidates']=$candidates;
             $snapshot=Db::name(self::PREFIX.'run')->where($scope+['id'=>$row['run_id'],'thread_id'=>$thread,'delete_time'=>0])->value('context_snapshot');
