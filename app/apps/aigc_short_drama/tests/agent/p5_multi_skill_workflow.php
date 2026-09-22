@@ -135,6 +135,16 @@ try {
     $assetReferenceEdges=array_values(array_filter($assetEdges,static fn(array $edge): bool => ($edge['role']??'')==='workflow_reference'));
     $assetReferenceSources=array_map(static fn(array $edge): string => (string)$edge['from'],$assetReferenceEdges);
     agentCheck(count($assetReferenceEdges)===2 && count(array_intersect($assetReferenceSources,[(string)$artNodes[4]['id'],(string)$artNodes[7]['id']]))===2,'each subject asset receives only its explicitly selected character or three-view reference, not every historic workflow artifact');
+    $subjectContext=Canvas::agentAutoDependencyState($allAfterAssets,$assetEdges,(string)$assetNodes[0]['id']);
+    agentCheck(($subjectContext['state']??'')==='ready' && str_contains((string)($subjectContext['text_context'][0]['content']??''),'character_asset_spec'),'a linked workflow text artifact is a bounded real generation input rather than a decorative graph edge');
+    GraphService::patch($tenant,$user,$canvas,['expected_revision'=>(int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision'),'request_key'=>'legacy-workflow-overlink','operations'=>[['op'=>'add_edge','edge'=>['from'=>$scriptNodes[0]['id'],'to'=>$assetNodes[0]['id'],'kind'=>'reference','role'=>'legacy','order'=>999]]]);
+    $repair=GraphService::repairLegacyAgentAssetReferences($tenant,$user,$canvas);
+    $allAfterAssets=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('nodes_json'),true);
+    $assetEdges=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('edges_json'),true);
+    $assetNodes=array_values(array_filter($allAfterAssets,static fn(array $node): bool => ($node['metadata']['workflow_source_stage']??'')==='assets'));
+    $repairedSubjectInputs=array_values(array_filter($assetEdges,static fn(array $edge): bool => (string)($edge['to']??'')===(string)$assetNodes[0]['id']));
+    $repairedThreeViewInputs=array_values(array_filter($assetEdges,static fn(array $edge): bool => (string)($edge['to']??'')===(string)$assetNodes[1]['id']));
+    agentCheck(!empty($repair['changed']) && ($repair['removed']??0)>=4 && ($repair['added']??0)>=3 && count($repairedSubjectInputs)===1 && count($repairedThreeViewInputs)===2,'legacy Agent asset graph repair removes broad workflow inputs and restores only scoped subject/three-view references');
     try {
         ActionPlan::parse('<canvas-actions>{"nodes":[{"type":"image","artifact":"three_view","title":"孤立三视图","prompt":"invalid","key":"three_view"}]}</canvas-actions>','assets');
         throw new RuntimeException('three view without subject was accepted');

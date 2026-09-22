@@ -141,6 +141,72 @@ final class GraphService
         });
     }
 
+    /**
+     * Repair only the legacy Agent asset batch that was written before
+     * workflow references became scoped. It intentionally touches incoming
+     * edges from workflow-owned script/art/asset nodes only, leaving every
+     * non-workflow (therefore potentially user-created) edge unchanged.
+     *
+     * @return array{changed:bool,removed:int,added:int,graph_revision:int}
+     */
+    public static function repairLegacyAgentAssetReferences(int $tenant,int $user,int $canvas): array
+    {
+        return Db::transaction(function () use ($tenant,$user,$canvas): array {
+            $document=Db::name(self::TABLE)->where(['id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find();
+            if (!$document) throw new RuntimeException('CANVAS_NOT_FOUND');
+            $nodes=json_decode((string)($document['nodes_json']??'[]'),true,512,JSON_THROW_ON_ERROR);
+            $edges=json_decode((string)($document['edges_json']??'[]'),true,512,JSON_THROW_ON_ERROR);
+            $byId=[];$assetNodes=[];$artSources=[];
+            foreach ($nodes as $node) {
+                $id=(string)($node['id']??'');$metadata=(array)($node['metadata']??[]);
+                if ($id==='') continue;
+                $byId[$id]=$node;
+                if (($metadata['workflow_source_stage']??'')==='assets' && in_array((string)($metadata['workflow_artifact']??''),['subject','three_view'],true)) $assetNodes[]=$node;
+                if (($metadata['workflow_source_stage']??'')==='art' && (string)($node['type']??'')==='text') $artSources[(string)($metadata['workflow_artifact']??'')][]=$id;
+            }
+            if (!$assetNodes) return ['changed'=>false,'removed'=>0,'added'=>0,'graph_revision'=>(int)($document['graph_revision']??0)];
+            $assetIds=array_fill_keys(array_map(static fn(array $node): string=>(string)$node['id'],$assetNodes),true);
+            $removed=0;
+            $edges=array_values(array_filter($edges,static function (array $edge) use ($assetIds,$byId,&$removed): bool {
+                if (!isset($assetIds[(string)($edge['to']??'')])) return true;
+                $source=$byId[(string)($edge['from']??'')]??[];
+                $stage=(string)(($source['metadata']['workflow_source_stage']??''));
+                if (in_array($stage,['script','art','assets'],true)) {$removed++;return false;}
+                return true;
+            }));
+            $added=0;
+            $addEdge=static function (string $from,string $to,string $role) use (&$edges,&$added): void {
+                foreach ($edges as $edge) if ((string)($edge['from']??'')===$from && (string)($edge['to']??'')===$to && (string)($edge['kind']??'reference')==='reference' && (string)($edge['role']??'')===$role) return;
+                $edges[]=['from'=>(int)$from,'to'=>(int)$to,'kind'=>'reference','role'=>$role,'order'=>count($edges)];$added++;
+            };
+            $subjects=[];
+            foreach ($assetNodes as $node) {
+                $metadata=(array)($node['metadata']??[]);$artifact=(string)($metadata['workflow_artifact']??'');$id=(string)$node['id'];
+                if ($artifact==='subject') {
+                    foreach (array_merge((array)($artSources['character_asset_spec']??[]),(array)($artSources['subject_image_prompt']??[])) as $sourceId) $addEdge($sourceId,$id,'workflow_reference');
+                    $subjects[]=$node;
+                    continue;
+                }
+                foreach ((array)($artSources['three_view_prompt']??[]) as $sourceId) $addEdge($sourceId,$id,'workflow_reference');
+                $subject=self::matchingSubject($subjects,(string)($node['title']??''));
+                if ($subject!==null) $addEdge((string)$subject['id'],$id,'agent_dependency');
+            }
+            if (!$removed && !$added) return ['changed'=>false,'removed'=>0,'added'=>0,'graph_revision'=>(int)($document['graph_revision']??0)];
+            $updated=self::persistLockedDocument($document,['edges_json'=>self::json($edges),'schema_version'=>2,'update_time'=>time()]);
+            return ['changed'=>true,'removed'=>$removed,'added'=>$added,'graph_revision'=>(int)($updated['graph_revision']??0)];
+        });
+    }
+
+    private static function matchingSubject(array $subjects,string $threeViewTitle): ?array
+    {
+        $normalized=trim(str_replace(['角色三视图','三视图','主体定妆照','主体图'],'',$threeViewTitle));
+        foreach (array_reverse($subjects) as $subject) {
+            $title=(string)($subject['title']??'');
+            if ($normalized!=='' && str_contains($title,$normalized)) return $subject;
+        }
+        return $subjects ? end($subjects) : null;
+    }
+
     /** Whole-document compatibility adapter for concurrency-enabled documents. */
     public static function sanitizeManualNodes(array $document,array $nodes): array
     {
