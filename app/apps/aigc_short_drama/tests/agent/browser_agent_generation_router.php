@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-if (getenv('SHORT_DRAMA_AGENT_TEST') !== 'isolated-mysql') {
-    throw new RuntimeException('Isolated Agent generation browser router only');
+if (getenv('SHORT_DRAMA_AGENT_TEST') !== 'local-existing') {
+    throw new RuntimeException('Local acceptance Agent generation browser router only');
 }
 
 // Both flags are intentionally limited to browser_http_bridge's internal

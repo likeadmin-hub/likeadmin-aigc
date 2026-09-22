@@ -6,11 +6,11 @@ use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution;
 use app\common\service\app\aigc_short_drama\canvas_agent\GraphService as Graph;
 
-// JSON-lines bridge to real HTTP inside the internal network. No host port,
-// business credentials, arbitrary URLs, provider routes or user profile.
+// JSON-lines bridge to real HTTP inside the existing local Baota container.
+// It neither creates a runtime nor exposes a new host port.
 $inserted=[];$canvasId=0;$process=null;
 $mode=(string)($argv[1]??'');
-// The combined mode is an isolated test-only fixture. It proves that an
+// The combined mode is a local acceptance fixture. It proves that an
 // explicit Agent-panel node submission and a manual replay hit the same
 // CanvasService intent without exposing either route outside the internal
 // Docker test network.
@@ -19,9 +19,9 @@ $agentConversation=in_array($mode,['agent-conversation','agent-generation'],true
 try {
     if (Db::name('tenant')->where('id',94011)->count() || Db::name('user')->where('id',95011)->count() || Db::name('app')->whereIn('code',['aigc_short_drama','aigc_canvas'])->count()) throw new RuntimeException('Browser fixture scope is not empty');
     foreach ([
-        ['tenant',['id'=>94011,'sn'=>'browser-fixture','name'=>'Isolated browser','create_time'=>time(),'delete_time'=>null]],
+        ['tenant',['id'=>94011,'sn'=>'browser-fixture','name'=>'Local acceptance browser','create_time'=>time(),'delete_time'=>null]],
         ['user',['id'=>95011,'sn'=>95011,'account'=>'browser-fixture','tenant_id'=>94011]],
-        ['user_session',['tenant_id'=>94011,'user_id'=>95011,'token'=>'isolated-browser-http','terminal'=>4,'expire_time'=>time()+3600]],
+        ['user_session',['tenant_id'=>94011,'user_id'=>95011,'token'=>'local-acceptance-browser-http','terminal'=>4,'expire_time'=>time()+3600]],
         ['app',['code'=>'aigc_short_drama','status'=>'installed']],
         ['app',['code'=>'aigc_canvas','status'=>'disabled']],
         ['tenant_app',['tenant_id'=>94011,'app_code'=>'aigc_canvas','buy_status'=>'paid','enable_status'=>'disabled','shelf_status'=>'on','expire_time'=>time()+3600]],
@@ -29,14 +29,14 @@ try {
         ['aigc_short_drama_config',['tenant_id'=>94011,'config_json'=>$agentConversation?'{"canvas_agent":{"enabled":true}}':'{"canvas_agent":{"enabled":false}}','status'=>1]],
     ] as [$table,$row]) $inserted[]=[$table,Db::name($table)->insertGetId($row)];
     if ($agentConversation) {
-        // An isolated market record makes ConversationSettings exercise the
+        // A local fixture market record makes ConversationSettings exercise the
         // same catalog resolver as production.  The test never starts a
         // worker or calls this model/provider.
         $product=Db::name('power_market_product')->insertGetId([
-            'product_code'=>'isolated-browser-agent-text','resource_type'=>'model','model_type'=>'text',
-            'name'=>'Isolated browser reasoning','source_code'=>'isolated-agent-test',
-            'upstream_resource_key'=>'isolated-browser-agent-text','upstream_model_code'=>'isolated-browser-reasoning',
-            'upstream_channel_code'=>'isolated-browser-channel','source_payload'=>'{}','status'=>1,
+            'product_code'=>'local-acceptance-browser-agent-text','resource_type'=>'model','model_type'=>'text',
+            'name'=>'Local acceptance browser reasoning','source_code'=>'local-acceptance-agent-test',
+            'upstream_resource_key'=>'local-acceptance-browser-agent-text','upstream_model_code'=>'local-acceptance-browser-reasoning',
+            'upstream_channel_code'=>'local-acceptance-browser-channel','source_payload'=>'{}','status'=>1,
         ]);
         $inserted[]=['power_market_product',$product];
         $sku=Db::name('power_market_sku')->insertGetId([
@@ -53,7 +53,7 @@ try {
         ? '/browser_agent_generation_router.php'
         : ($mockGeneration?'/browser_generation_router.php':($agentConversation?'/browser_agent_router.php':'/http_router.php'));
     $process=proc_open([PHP_BINARY,'-S','127.0.0.1:19080','-t',app()->getRootPath().'public',__DIR__.$router],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
-    if (!is_resource($process)) throw new RuntimeException('Cannot start isolated HTTP fixture');
+    if (!is_resource($process)) throw new RuntimeException('Cannot start local HTTP fixture');
     $ready=false;
     for ($i=0;$i<50;$i++) {
         $socket=@fsockopen('127.0.0.1',19080,$errno,$error,0.1);
@@ -172,16 +172,16 @@ try {
         }
         // Browser-only harness helpers drive the real durable completion and
         // SSE read paths without registering a Provider, scheduler or billable
-        // model. They are unavailable outside this isolated JSON-lines bridge.
+        // model. They are unavailable outside this explicit local bridge.
         if ($agentConversation && in_array($action,['agentComplete','agentStream'],true)) {
             $thread=(int)($body['thread_id']??0);$run=(int)($body['run_id']??0);
             $owned=$thread>0 && $run>0
                 && Db::name('aigc_short_drama_canvas_agent_thread')->where(['id'=>$thread,'tenant_id'=>94011,'user_id'=>95011,'canvas_id'=>$canvasId])->count()===1
                 && Db::name('aigc_short_drama_canvas_agent_run')->where(['id'=>$run,'thread_id'=>$thread,'tenant_id'=>94011,'user_id'=>95011,'canvas_id'=>$canvasId])->count()===1;
-            if (!$owned) throw new RuntimeException('Agent helper outside isolated browser fixture');
+            if (!$owned) throw new RuntimeException('Agent helper outside local browser fixture');
             if ($action==='agentComplete') {
                 $claim=ConversationExecution::claim(94011,95011,$run);
-                if (!$claim) throw new RuntimeException('Agent helper cannot claim isolated run');
+                if (!$claim) throw new RuntimeException('Agent helper cannot claim local run');
                 $result=ConversationExecution::complete(94011,95011,$run,$claim['token'],$claim['fence'],(string)($body['content']??''));
                 echo json_encode(['result'=>['completed'=>$result]]),PHP_EOL;
                 continue;
@@ -196,14 +196,14 @@ try {
                     $status=Db::name('aigc_short_drama_canvas_agent_run')->where(['id'=>$run,'tenant_id'=>94011,'user_id'=>95011,'canvas_id'=>$canvasId])->value('status');
                     $reply=Db::name('aigc_short_drama_canvas_agent_message')->where(['run_id'=>$run,'tenant_id'=>94011,'user_id'=>95011,'canvas_id'=>$canvasId,'role'=>'assistant'])->value('content_json');
                     if ($status!=='success' || (json_decode((string)$reply,true)['text']??null)!==(string)$body['content']) {
-                        throw new RuntimeException('Agent helper cannot replay isolated SSE run');
+                        throw new RuntimeException('Agent helper cannot replay local SSE run');
                     }
                 }
             }
             $url='http://127.0.0.1:19080/api/app.aigc_short_drama.canvas_agent/stream?tenant_id=94011';
             $streamBody=['canvas_id'=>$canvasId,'thread_id'=>$thread,'run_id'=>$run,'event_after'=>0,'message_after'=>0,'wait_seconds'=>0];
             $context=stream_context_create(['http'=>['method'=>'POST','timeout'=>10,'ignore_errors'=>true,
-                'header'=>"Content-Type: application/json\r\nAccept: text/event-stream\r\ntoken: isolated-browser-http\r\n",'content'=>json_encode($streamBody)]]);
+                'header'=>"Content-Type: application/json\r\nAccept: text/event-stream\r\ntoken: local-acceptance-browser-http\r\n",'content'=>json_encode($streamBody)]]);
             $stream=file_get_contents($url,false,$context);
             if (!is_string($stream)) throw new RuntimeException('Agent helper SSE response missing');
             echo json_encode(['result'=>$stream]),PHP_EOL;
@@ -232,7 +232,7 @@ try {
                 }
             }
         }
-        if (!$allowed || !in_array($method,['GET','POST'],true)) throw new RuntimeException('Request outside isolated browser fixture');
+        if (!$allowed || !in_array($method,['GET','POST'],true)) throw new RuntimeException('Request outside local browser fixture');
         $path=isset($agentActions[$action]) ? 'app.aigc_short_drama.canvas_agent/'.$agentActions[$action] : match ($action) {
             'assets'=>'app.aigc_short_drama.asset/lists',
             'assetRegister'=>'app.aigc_short_drama.asset/register',
@@ -245,11 +245,11 @@ try {
         $url='http://127.0.0.1:19080/api/'.$path.'?tenant_id=94011';
         if ($method==='GET') $url.='&'.http_build_query($body);
         $context=stream_context_create(['http'=>['method'=>$method,'timeout'=>10,'ignore_errors'=>true,
-            'header'=>"Content-Type: application/json\r\ntoken: isolated-browser-http\r\n",
+            'header'=>"Content-Type: application/json\r\ntoken: local-acceptance-browser-http\r\n",
             'content'=>$method==='POST'?json_encode($body):'',
         ]]);
         $raw=file_get_contents($url,false,$context);
-        if (!is_string($raw) || trim($raw)==='') throw new RuntimeException('Isolated API response missing for '.$action);
+        if (!is_string($raw) || trim($raw)==='') throw new RuntimeException('Local API response missing for '.$action);
         $result=json_decode($raw,true,512,JSON_THROW_ON_ERROR);
         echo json_encode(['result'=>$result]),PHP_EOL;
     }
