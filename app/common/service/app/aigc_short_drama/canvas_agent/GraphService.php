@@ -24,7 +24,7 @@ final class GraphService
     public static function appendAgentNodesLocked(array $document, array $proposals, array $sourceIds, bool $auto, array $settings=[], int $agentRunId=0, array $workflow=[]): array
     {
         $workflowStage=(string)($workflow['stage_state']['key']??'');
-        $maximum=$workflowStage==='video_nodes'?60:($workflowStage==='audio_plan'?1:4);
+        $maximum=match ($workflowStage) { 'video_nodes'=>60, 'audio_plan'=>1, 'script'=>3, 'art','video_plan'=>8, default=>4 };
         if (!$proposals || count($proposals) > $maximum) throw new RuntimeException('INVALID_AGENT_ACTION');
         $nodes = json_decode($document['nodes_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);
         $edges = json_decode($document['edges_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);
@@ -51,7 +51,10 @@ final class GraphService
             $type=(string)$proposal['type']; $title=trim((string)$proposal['title']); $prompt=trim((string)$proposal['prompt']);
             $id=(string)self::allocateNodeId($nodes,$removed);
             $size=$type==='text' ? [320,280] : [420,320];
-            $metadata=['prompt'=>$prompt,'content'=>'','status'=>'idle','progress'=>0,'error'=>'','content_revision'=>1,'layout_revision'=>1];
+            // Text artifacts are durable, readable workflow output.  Do not
+            // leave their content blank and rely on a prompt label: later
+            // stages and the user both consume exactly this projected text.
+            $metadata=['prompt'=>$prompt,'content'=>$type==='text'?$prompt:'','status'=>'idle','progress'=>0,'error'=>'','content_revision'=>1,'layout_revision'=>1];
             if ($workflowStage!=='') {
                 $metadata['workflow_source_stage']=$workflowStage;
                 $metadata['workflow_artifact']=(string)($proposal['artifact']??'');
@@ -360,10 +363,12 @@ final class GraphService
     /** Validate the model proposal again at the graph authority boundary. */
     private static function validateAgentProposals(array $proposals,string $workflowStage=''): void {
         $allowedTypes=match ($workflowStage) {
-            'assets','storyboard'=>['image'], 'video_nodes'=>['video'], 'audio_plan'=>['audio'], default=>['text','image','video'],
+            'script','art','video_plan'=>['text'], 'assets','storyboard'=>['image'], 'video_nodes'=>['video'], 'audio_plan'=>['audio'], default=>['text','image','video'],
         };
         $allowedArtifacts=match ($workflowStage) {
-            'assets'=>['subject','three_view'], 'storyboard'=>['scene','prop','storyboard'], 'video_nodes'=>['storyboard_video'], 'audio_plan'=>['audio_plan'], default=>[],
+            'script'=>['story_setting','episode_outline','storyboard_script'],
+            'art'=>['art_bible','character_asset_spec','scene_asset_spec','prop_asset_spec','subject_image_prompt','three_view_prompt','scene_image_prompt','storyboard_image_prompt'],
+            'assets'=>['subject','three_view'], 'storyboard'=>['scene','prop','storyboard'], 'video_plan'=>['video_prompt_plan'], 'video_nodes'=>['storyboard_video'], 'audio_plan'=>['audio_plan'], default=>[],
         };
         $keys=[];
         $keyArtifacts=[];
@@ -397,20 +402,31 @@ final class GraphService
                 $dependencies=(array)($proposal['depends_on']??[]);
                 if (!$dependencies || !array_intersect(array_map(static fn(string $key): string => (string)($keyArtifacts[$key]??''),$dependencies),['scene','prop'])) throw new RuntimeException('INVALID_AGENT_ACTION');
             }
+            if ($artifact==='episode_outline') {
+                $dependencies=(array)($proposal['depends_on']??[]);
+                if (count($dependencies)!==1 || ($keyArtifacts[$dependencies[0]]??'')!=='story_setting') throw new RuntimeException('INVALID_AGENT_ACTION');
+            }
+            if ($artifact==='storyboard_script') {
+                $dependencies=(array)($proposal['depends_on']??[]);
+                if (count($dependencies)!==1 || ($keyArtifacts[$dependencies[0]]??'')!=='episode_outline') throw new RuntimeException('INVALID_AGENT_ACTION');
+            }
         }
     }
-    /** @return list<string> image node IDs allowed as workflow-owned references for this stage. */
+    /** @return list<string> workflow-owned node IDs allowed as durable references for this stage. */
     private static function workflowReferenceSources(array $nodes,string $stage): array {
         $sourceStages=match ($stage) {
-            'storyboard'=>['assets'],
-            'video_nodes'=>['assets','storyboard'],
+            'assets'=>['script','art'],
+            'storyboard'=>['script','art','assets'],
+            'video_plan'=>['script','art','assets','storyboard'],
+            'video_nodes'=>['script','art','assets','storyboard','video_plan'],
+            'audio_plan'=>['script','storyboard','video_plan'],
             default=>[],
         };
         if (!$sourceStages) return [];
         $ids=[];
         foreach ($nodes as $node) {
             $metadata=(array)($node['metadata']??[]);
-            if ((string)($node['type']??'')!=='image' || !in_array((string)($metadata['workflow_source_stage']??''),$sourceStages,true)) continue;
+            if (!in_array((string)($node['type']??''),['text','image'],true) || !in_array((string)($metadata['workflow_source_stage']??''),$sourceStages,true)) continue;
             $id=(string)($node['id']??'');
             if (preg_match('/^[1-9][0-9]{0,15}$/D',$id)) $ids[]=$id;
         }

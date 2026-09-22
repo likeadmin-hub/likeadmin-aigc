@@ -64,9 +64,9 @@ final class ShortDramaBuiltinSkillCatalog
     {
         $specs = [
             ['short_drama_intake', '创作采集', '收集短剧题材、规模、时长、风格、受众、角色和结局，并只追问未确认的信息。', '用户提出短剧、微短剧、故事成片或分镜创作时，用于完成创作采集。', '只整理用户已经表达的想法，并逐项补齐故事类型、集数、单集时长、视觉风格、目标受众、核心角色和结局方向。信息不足时仅提问，不创建画布节点，也不提交任何媒体任务。', ['短剧创作', '微短剧', '故事成片', '剧集配置'], 990],
-            ['short_drama_script', '剧本创作', '把已确认的创作采集整理为可确认的故事设定、角色关系和分集剧情方案。', '创作采集完成后，用于短剧故事设定、角色弧光和分集大纲。', '基于冻结的创作采集输出故事梗概、角色关系、冲突、每集钩子和结局走向。内容只留在对话和工作流状态中，不能创建“故事设定”或“分集大纲”文本节点。', ['剧本', '故事设定', '分集大纲', '角色弧光'], 980],
+            ['short_drama_script', '剧本创作', '把已确认的创作采集整理为可确认的故事设定、角色关系和分集剧情方案。', '创作采集完成后，用于短剧故事设定、角色弧光和分集大纲。', '基于冻结的创作采集输出故事梗概、角色关系、冲突、每集钩子和结局走向。经服务器验证后，将故事设定、分集大纲和分镜脚本回填为可追溯的画布文本节点；不得自行写入节点 ID 或任意画布 JSON。', ['剧本', '故事设定', '分集大纲', '角色弧光'], 980],
             ['short_drama_character_design', '角色设定', '为短剧主角、配角和关系网络建立可用于后续主体图的一致角色设定。', '需要补全角色外形、身份、关系、性格或成长线时使用。', '输出角色名称、身份、外观锚点、服装、性格、关系和不可变识别点；为每个主体建立稳定名称，避免后续三视图、分镜图与视频引用发生角色漂移。', ['角色设定', '主角', '人物关系', '角色三视图'], 970],
-            ['short_drama_art_direction', '画风设计', '把剧情定位转换成可复用的色彩、光线、构图和镜头美术方向。', '需要确定短剧整体画风、时代质感或镜头基调时使用。', '输出统一的美术圣经：视觉类型、色板、光线、镜头语言、服装与场景质感，以及必须避免的风格漂移；该阶段只规划，不创建或提交媒体节点。', ['画风', '美术', '色彩', '镜头风格'], 960],
+            ['short_drama_art_direction', '画风设计', '把剧情定位转换成可复用的色彩、光线、构图和镜头美术方向。', '需要确定短剧整体画风、时代质感或镜头基调时使用。', '输出统一的美术圣经：视觉类型、色板、光线、镜头语言、服装与场景质感，以及必须避免的风格漂移；经服务器验证后，将美术圣经与后续生图提示词写入画布文本节点，不提交媒体任务。', ['画风', '美术', '色彩', '镜头风格'], 960],
             ['short_drama_subject_design', '主体设计', '将角色设定细化为主体图、服装锚点和三视图所需的视觉资产说明。', '需要规划角色主体图或三视图前使用。', '为每个需出镜主体定义正脸、侧脸、背面、服装、发型、年龄感和关键道具锚点。优先复用用户上传或画布内的角色参考，不能声称已经生成图片。', ['主体设计', '人物设计', '角色外观', '三视图'], 950],
             ['short_drama_scene_design', '场景设计', '把剧本事件拆成可复用的场景资产与空间连续性规则。', '需要规划室内外场景、时间氛围或场景图时使用。', '输出场景名称、时间、空间结构、关键陈设、色光、天气和连续性约束；场景图必须避免出现不受控人物，后续分镜只能引用已规划或已生成的场景资产。', ['场景设计', '场景图', '空间', '环境'], 940],
             ['short_drama_prop_design', '道具设计', '识别推动剧情的关键道具，并定义可复用的外观和镜头用途。', '剧情中存在关键物件、信物、产品或动作道具时使用。', '只规划剧情关键道具的名称、外观、材质、尺寸、所属角色和出现镜头；道具应服务剧情与连续性，不能把普通背景细节误做独立生成资产。', ['道具设计', '关键道具', '信物', '物件'], 930],
@@ -74,7 +74,7 @@ final class ShortDramaBuiltinSkillCatalog
             ['short_drama_three_view', '主体三视图', '为已有主体图生成正侧背一致的三视图参考。', '主体图已规划且需要角色三视图时使用。', '仅在受控主体资产阶段提出 three_view 图片节点，并且必须通过 depends_on 真实依赖同批 subject 节点。保持人物脸型、服装、配饰与比例一致，禁止脱离主体图单独生成。', ['主体三视图', '三视图', '角色设定图'], 910],
             ['short_drama_storyboard_design', '分镜设计', '将剧本拆为可拍摄的镜头表，明确单镜动作和资产引用。', '需要从剧情过渡到场景、道具、分镜图或视频规划时使用。', '逐镜输出镜号、时长、景别、机位、动作、情绪和对白/字幕意图。每个分镜只表达一个可见动作，并明确需要的主体、场景、道具引用，避免把多个镜头混在一张分镜图中。', ['分镜设计', '镜头表', '镜头脚本'], 900],
             ['short_drama_storyboard_image', '分镜图', '创建可供视频节点引用的场景、道具和分镜图片计划。', '需要把已确认的场景和剧情变为分镜图片节点时使用。', '仅在受控场景与分镜图阶段提出 scene、prop 或 storyboard 图片节点。每个 storyboard 必须通过 depends_on 真实依赖同批 scene 或 prop；提示词中保留主体、场景、道具与单一动作的一致性。', ['分镜图', '镜头图', '场景生成'], 890],
-            ['short_drama_video_plan', '分镜视频规划', '将已确认的分镜图组织成逐镜视频提示词与制作清单。', '分镜图片计划完成后，用于规划分镜视频节点。', '输出逐镜视频计划：镜号、时长、首尾画面、机位/运镜、动作顺序、引用主体、场景、道具和分镜图。只规划，不报价、不提交视频任务，也不声称视频已生成。', ['分镜视频规划', '视频分镜', '视频提示词'], 880],
+            ['short_drama_video_plan', '分镜视频规划', '将已确认的分镜图组织成逐镜视频提示词与制作清单。', '分镜图片计划完成后，用于规划分镜视频节点。', '输出逐镜视频计划：镜号、时长、首尾画面、机位/运镜、动作顺序、引用主体、场景、道具和分镜图。经服务器验证后，将每镜视频提示词写入文本节点；只规划，不报价、不提交视频任务，也不声称视频已生成。', ['分镜视频规划', '视频分镜', '视频提示词'], 880],
             ['short_drama_storyboard_video', '分镜视频', '一次性插入全部待生成的分镜视频节点，并保留对前序图像资产的真实依赖。', '视频规划确认后，用于插入分镜视频待生成节点。', '仅在受控分镜视频节点阶段提出 storyboard_video 节点。所有节点只能是待用户生成状态，绝不自动报价、自动提交或调用视频 Provider；每个节点需依赖对应分镜图及所需主体、场景、道具。', ['分镜视频', '视频节点', '镜头视频'], 870],
             ['short_drama_audio_plan', '音频规划', '规划旁白、对白、音效和配乐的镜头匹配关系，但不开放音频生成。', '需要在短剧流程末尾展示音频规划时使用。', '只输出音频规划节点的文字内容，包括对白、旁白、环境音、音效和音乐情绪。节点必须标明“暂未开放生成”，不得调用音频 Provider、生成音频或产生积分计费。', ['音频规划', '配音规划', '音效规划'], 860],
         ];
@@ -110,12 +110,31 @@ final class ShortDramaBuiltinSkillCatalog
                 'required_slots' => [],
                 'model_policy' => [],
                 'execution_policy' => [],
-                'output_policy' => ['required' => []],
+                'output_policy' => ['required' => self::outputFields($key)],
             ],
             'model_policy' => ['text_models' => [], 'image_models' => [], 'video_models' => [], 'audio_models' => [], 'allowed_ratios' => ['9:16', '16:9', '1:1'], 'default_ratio' => '9:16', 'min_duration' => '3', 'max_duration' => '30', 'allow_audio' => false],
             'execution_policy' => ['allow_auto_complete' => false, 'require_confirmation' => ['assets', 'storyboard']],
             'home_recommended' => 0,
             'sort' => $sort,
         ];
+    }
+
+    /** A Skill's prompt contract is descriptive only.  Graph IDs, routes,
+     * billing and task submission stay outside this tenant-editable payload. */
+    private static function outputFields(string $key): array
+    {
+        return match ($key) {
+            'short_drama_script' => ['project_title','logline','world_setting','character_profiles','episode_outline','scene_script','storyboard_script'],
+            'short_drama_character_design' => ['name','identity','appearance_anchors','costume','personality','relationships','consistency_rules'],
+            'short_drama_art_direction' => ['art_bible','palette','lighting','camera_language','texture_rules','avoid_rules'],
+            'short_drama_subject_design' => ['character_asset_spec','subject_image_prompt','three_view_prompt'],
+            'short_drama_scene_design' => ['scene_asset_spec','scene_image_prompt','continuity_rules'],
+            'short_drama_prop_design' => ['prop_asset_spec','prop_image_prompt'],
+            'short_drama_storyboard_design' => ['shot_number','shot_duration','camera','action','dialogue_or_caption','asset_references'],
+            'short_drama_storyboard_image' => ['shot_number','image_prompt','asset_references'],
+            'short_drama_video_plan','short_drama_storyboard_video' => ['shot_number','duration','first_frame','last_frame','camera_motion','action_sequence','video_prompt','asset_references'],
+            'short_drama_audio_plan' => ['shot_number','dialogue','voiceover','ambient_sound','sound_effect','music_mood'],
+            default => [],
+        };
     }
 }
