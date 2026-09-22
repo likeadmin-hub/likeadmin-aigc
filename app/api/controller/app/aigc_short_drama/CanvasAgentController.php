@@ -7,6 +7,7 @@ use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationService;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationPreferences;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationDocuments;
 use RuntimeException;
 
 /** Authenticated short-drama conversation API; send is persistence-only. */
@@ -62,6 +63,26 @@ final class CanvasAgentController extends BaseApiController
         $revision=self::number($p['expected_revision']??null,true);
         if (!is_array($p['preferences']??null)) throw new RuntimeException('INVALID_AGENT_PREFERENCES');
         return ConversationPreferences::save((int)$this->request->tenantId,$this->userId,$revision,$p['preferences']);
+    }); }
+
+    /** Quotes a registered PDF/Office attachment. Quote itself never submits a provider task. */
+    public function documentQuote() { return $this->respond(function () {
+        $p=$this->request->post();
+        if (array_diff(array_keys($p),['canvas_id','asset_id'])) throw new RuntimeException('UNSUPPORTED_MESSAGE_FIELD');
+        return ConversationDocuments::quote((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null),self::number($p['asset_id']??null));
+    }); }
+
+    /** Explicit user confirmation is required before an actual-usage document parser is submitted. */
+    public function confirmDocumentParse() { return $this->respond(function () {
+        $p=$this->request->post();
+        if (array_diff(array_keys($p),['canvas_id','asset_id','quote_hash']) || !is_string($p['quote_hash']??null)) throw new RuntimeException('UNSUPPORTED_MESSAGE_FIELD');
+        return ConversationDocuments::confirm((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null),self::number($p['asset_id']??null),$p['quote_hash']);
+    }); }
+
+    /** Safe polling projection: no raw source URL or provider diagnostics leave this endpoint. */
+    public function document() { return $this->respond(function () {
+        $p=$this->request->get();
+        return ConversationDocuments::detail((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null),self::number($p['asset_id']??null));
     }); }
 
     /**
@@ -139,7 +160,7 @@ final class CanvasAgentController extends BaseApiController
         try {return $this->success('success',$action());}
         catch (\Throwable $error) {
             $code=$error->getMessage();
-            $public=['CANVAS_NOT_FOUND','THREAD_NOT_FOUND','RUN_NOT_FOUND','CANVAS_AGENT_DISABLED','IDEMPOTENCY_CONFLICT','THREAD_BUSY','VERSION_CONFLICT','PREFERENCE_VERSION_CONFLICT','INVALID_PREFERENCE_REVISION','NODE_NOT_FOUND','INVALID_IDENTIFIER','INVALID_THREAD_REQUEST','INVALID_THREAD_TITLE','INVALID_REQUEST_KEY','INVALID_MESSAGE','INVALID_NODE_REFERENCES','INVALID_BASE_REVISION','UNSUPPORTED_MESSAGE_FIELD','CONTEXT_TOO_LARGE','INVALID_ATTACHMENTS','IMAGE_REFERENCE_UNAVAILABLE','TOO_MANY_IMAGE_REFERENCES','INVALID_AGENT_PREFERENCES','INVALID_GENERATION_MODE','INVALID_MODEL_SELECTION','REASONING_MODEL_UNAVAILABLE','IMAGE_MODEL_UNAVAILABLE','VIDEO_MODEL_UNAVAILABLE','INVALID_SKILL_SELECTION','SKILL_UNAVAILABLE','CONTENT_BLOCKED'];
+            $public=['CANVAS_NOT_FOUND','THREAD_NOT_FOUND','RUN_NOT_FOUND','CANVAS_AGENT_DISABLED','IDEMPOTENCY_CONFLICT','THREAD_BUSY','VERSION_CONFLICT','PREFERENCE_VERSION_CONFLICT','INVALID_PREFERENCE_REVISION','NODE_NOT_FOUND','INVALID_IDENTIFIER','INVALID_THREAD_REQUEST','INVALID_THREAD_TITLE','INVALID_REQUEST_KEY','INVALID_MESSAGE','INVALID_NODE_REFERENCES','INVALID_BASE_REVISION','UNSUPPORTED_MESSAGE_FIELD','CONTEXT_TOO_LARGE','INVALID_ATTACHMENTS','IMAGE_REFERENCE_UNAVAILABLE','TOO_MANY_IMAGE_REFERENCES','INVALID_AGENT_PREFERENCES','INVALID_GENERATION_MODE','INVALID_MODEL_SELECTION','REASONING_MODEL_UNAVAILABLE','IMAGE_MODEL_UNAVAILABLE','VIDEO_MODEL_UNAVAILABLE','INVALID_SKILL_SELECTION','SKILL_UNAVAILABLE','CONTENT_BLOCKED','DOCUMENT_NOT_FOUND','DOCUMENT_NOT_READY','DOCUMENT_INVALID_STATE','DOCUMENT_QUOTE_EXPIRED','DOCUMENT_URL_UNAVAILABLE','DOCUMENT_PARSE_SUBMIT_FAILED','DOCUMENT_PARSE_RECORD_MISSING'];
             return $this->fail(in_array($code,$public,true)?$code:'AGENT_REQUEST_FAILED');
         }
     }

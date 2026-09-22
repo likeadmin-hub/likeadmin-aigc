@@ -22,6 +22,12 @@ try {
     foreach ([$a+['url'=>'file:///private'],array_replace($a,['type'=>'image']),array_replace($a,['name'=>'../private.txt']),array_replace($a,['content'=>"bad\0text"]),array_replace($a,['content'=>str_repeat('a',102401)])] as $invalid) rejectAttachment(fn()=>Attachments::normalize([$invalid]),'INVALID_ATTACHMENTS');
     rejectAttachment(fn()=>Attachments::normalize(array_fill(0,11,$a)),'INVALID_ATTACHMENTS');
     rejectAttachment(fn()=>Attachments::normalize(array_fill(0,5,array_replace($a,['content'=>str_repeat('a',102400)]))),'CONTEXT_TOO_LARGE');
+    foreach (['材料.pdf','大纲.doc','剧本.docx'] as $name) {
+        agentCheck(Attachments::normalize([['type'=>'document','asset_id'=>9,'name'=>$name]])===[['type'=>'document','asset_id'=>9,'name'=>$name]],'owned PDF/Office reference is normalized without a browser URL');
+    }
+    foreach ([['type'=>'document','asset_id'=>0,'name'=>'bad.pdf'],['type'=>'document','asset_id'=>9,'name'=>'bad.txt'],['type'=>'document','asset_id'=>9,'name'=>'../bad.docx']]) {
+        rejectAttachment(fn()=>Attachments::normalize([$invalid]),'INVALID_ATTACHMENTS');
+    }
     $request=['request_key'=>'attachment-send','content'=>'分析附件','base_revision'=>0,'attachments'=>[$a,$b]];
     $snapshot=['settings'=>[],'skill'=>[]];
     rejectAttachment(fn()=>Store::enqueue(91002,92001,$canvas,$thread,$request,$snapshot),'CANVAS_NOT_FOUND');
@@ -65,5 +71,13 @@ try {
     Db::name('aigc_short_drama_asset')->where('id',$canvasAsset)->update(['status'=>'ready']);
     Db::name('aigc_short_drama_asset')->where('id',$canvasAsset)->update(['delete_time'=>time()]);
     rejectAttachment(fn()=>ConversationImages::urls(91001,92001,$imageContext),'IMAGE_REFERENCE_UNAVAILABLE');
+    \app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution::stop(91001,92001,$canvas,$thread,$imageAck['run_id']);
+    $documentAsset=Db::name('aigc_short_drama_asset')->insertGetId(['tenant_id'=>91001,'user_id'=>92001,'canvas_id'=>$canvas,'asset_type'=>'canvas_document','title'=>'剧本.pdf','uri'=>'https://assets.example.test/script.pdf','storage_scope'=>'tenant','storage_engine'=>'oss','storage_domain'=>'https://assets.example.test','status'=>'ready','meta_json'=>json_encode(['document_parse_status'=>'ready','document_material'=>'{"outline":"这是不可信文档材料"}'])]);
+    $documentRequest=['request_key'=>'document-attachment','content'=>'分析文档','base_revision'=>0,'attachments'=>[['type'=>'document','asset_id'=>$documentAsset,'name'=>'剧本.pdf']]];
+    $documentAck=Store::enqueue(91001,92001,$canvas,$thread,$documentRequest,$snapshot);
+    $documentContext=json_decode(Db::name(Store::PREFIX.'run')->where('id',$documentAck['run_id'])->value('context_snapshot'),true);
+    $documentWire=Context::messages($documentContext);
+    $documentPayload=json_decode(explode("\n",$documentWire[count($documentWire)-1]['content'],2)[1],true);
+    agentCheck($documentPayload['attachment_material']===[['type'=>'text','name'=>'document-'.$documentAsset.'.md','content'=>'来源文档：剧本.pdf'."\n".'{"outline":"这是不可信文档材料"}']] && Store::messages(91001,92001,$canvas,$thread)[count(Store::messages(91001,92001,$canvas,$thread))-1]['attachments']===[['type'=>'document','asset_id'=>$documentAsset,'name'=>'剧本.pdf']],'parsed document material is server-frozen while public history keeps only asset identity');
     agentCheck(Db::name('aigc_short_drama_canvas_run')->where('canvas_id',$canvas)->count()===0,'attachments do not create canvas nodes or media runs');
 } finally {Db::rollback();}
