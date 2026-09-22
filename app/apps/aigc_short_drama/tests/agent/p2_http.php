@@ -50,7 +50,8 @@ try {
     agentCheck(agentHttp('preferences','GET',['canvas_id'=>$canvas])['data']===['preferences'=>[],'revision'=>0],'HTTP preferences start at account revision zero');
     agentCheck(agentHttp('savePreferences','POST',['canvas_id'=>$canvas,'expected_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'auto'],'user_id'=>95002])['msg']==='UNSUPPORTED_MESSAGE_FIELD','preference body cannot forge actor identity');
     $savedPreferences=agentHttp('savePreferences','POST',['canvas_id'=>$canvas,'expected_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'auto']]);
-    agentCheck($savedPreferences['code']===1 && $savedPreferences['data']===['preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'auto'],'revision'=>1],'HTTP persists validated default model with CAS revision');
+    if (!($savedPreferences['code']===1 && $savedPreferences['data']===['preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'auto'],'revision'=>1])) throw new RuntimeException('HTTP preference persistence response: '.json_encode($savedPreferences,JSON_UNESCAPED_UNICODE));
+    agentCheck(true,'HTTP persists validated default model with CAS revision');
     agentCheck(agentHttp('preferences','GET',['canvas_id'=>$canvas])['data']===$savedPreferences['data'],'HTTP reads saved default model for same owner');
     agentCheck(agentHttp('savePreferences','POST',['canvas_id'=>$canvas,'expected_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product]])['msg']==='PREFERENCE_VERSION_CONFLICT','HTTP rejects stale preference update without overwrite');
     agentCheck(agentHttp('preferences','GET',['canvas_id'=>$canvas],'isolated-agent-other')['code']!==1,'preference read requires canvas owner');
