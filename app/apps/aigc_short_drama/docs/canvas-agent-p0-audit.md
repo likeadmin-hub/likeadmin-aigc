@@ -979,4 +979,16 @@ server `449e0346f` 将此前可执行的授权服务覆盖扩展到缺失的中�
 - PASS：模型、分辨率、参考集合、首尾帧角色或顺序变化不能复用相同 generation key，也不能覆盖已冻结请求快照或到达下游。
 - 结合第 51 节真实 Qwen 文本调用，canvas run、短剧历史、app task 与消费记录的实际生产映射已确认一条；本节补齐四类节点的服务级投影、资产版本和唯一 PointService 扣费行为。
 
-M12 仍标为**部分 PASS**：该套件的媒体 Adapter 是隔离替身，尚没有一条真实图片/视频/音频 Provider 成功且从浏览器完成的 app-task/consumption/asset 全链路证据。M14 的“报价后确认 hash 失效”尚未实现；现有 generation key 冲突只能保护重复提交，不能替代报价确认。P3 因 M09、M11、M12 完整媒体链路、M14、M16 等仍未整体放行，P4—P6 NOT_RUN；没有真实付费调用、迁移、部署或推送。
+M12 仍标为**部分 PASS**：该套件的媒体 Adapter 是隔离替身，尚没有一条真实图片/视频/音频 Provider 成功且从浏览器完成的 app-task/consumption/asset 全链路证据。M14 的“报价后确认 hash 失效”尚未实现；现有 generation key 冲突只能保护重复提交，不能替代报价确认。P3 因 M09、M11、M12 完整媒体链路、M14 等仍未整体放行，P4—P6 NOT_RUN；没有真实付费调用、迁移、部署或推送。
+
+## 56. P3 用户选定旧素材版本的下游引用（2026-09-22）
+
+发现素材库选择器已在前端元数据保存 `assetId`，但旧 `runPayload` 只发送 URL，服务端也未按该 ID 重新核验和解析。因此同一节点多版本并存时，浏览器 URL 可被篡改、旧版本也无法成为明确的权威输入。
+
+server `bcf2c4aa4` 与 web `b5a603b` 修复：图片/视频/音频素材库引用均向 payload 发送 `asset_id`；画布服务仅接受当前 tenant/user、当前画布或用户素材库、`ready` 且类型匹配的资产。服务端以资产的 URI/存储元数据重新经 FileService 解析当前 URL，并在 intent 快照与下游输入中保留该 asset ID；传入的浏览器 URL 不再是身份依据。
+
+- PASS：隔离 `p3_asset_version_reference.php` **5 PASS / 0 FAIL**。同一画布的旧/新图片版本并存时，用户明确选择旧资产后，run 快照和模拟 Video Provider 都收到旧 asset ID/URI；新版本不替换旧版本。
+- PASS：伪造 URL 或其他用户的 asset ID 在任何 Provider 调用前被拒绝 `CANVAS_REFERENCE_UNAVAILABLE`。
+- PASS：本地 web develop 的源码契约确认 image/video/audio 三类素材引用都将 asset ID 保留到 `reference_assets`。
+
+本项为服务端身份/快照与前端 payload 验证，尚未执行浏览器素材选择器到真实媒体 Provider 的付费闭环；M16 的“用户选定旧版本作为下游输入”服务边界通过，完整浏览器/真实 Provider 证据仍待补充。P3 仍受 M09、M11、M12 完整媒体链路、M14 等门槛限制，未整体放行；无真实付费调用、迁移、部署或推送。
