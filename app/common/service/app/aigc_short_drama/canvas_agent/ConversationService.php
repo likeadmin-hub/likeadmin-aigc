@@ -37,7 +37,12 @@ final class ConversationService
                 }
                 catch (\Throwable $error) {throw new RuntimeException('SKILL_UNAVAILABLE',0,$error);}
             }
-            $workflow=ConversationWorkflow::prepare($tenant,$conversation,$content,$selectedIds,$attachments,$preferences);
+            // Freeze server-resolved model identities, not mutable browser
+            // preference tokens.  The workflow snapshot contains no Provider
+            // credential, but it does make a later plan confirmation bound to
+            // the exact tenant-authorized model selection used for this run.
+            $workflowPreferences=array_replace($preferences,array_intersect_key($settings,array_flip(['generation_mode','reasoning_model','image_model','video_model'])));
+            $workflow=ConversationWorkflow::prepare($tenant,$conversation,$content,$selectedIds,$attachments,$workflowPreferences);
             return ['settings'=>$settings,'skill'=>$skill,'workflow'=>$workflow['workflow'],'thread_settings'=>$workflow['thread_settings']];
         },['preferences'=>$preferences,'skill_id'=>$skillId,'skill_version'=>$skillVersion]);
     }

@@ -120,6 +120,7 @@ try {
     $workflowArgs=['canvas_id'=>$canvas,'thread_id'=>$workflowThread];
     $workflowView=agentHttp('workflow','GET',$workflowArgs);
     agentCheck(($workflowView['data']['workflow']['stage_state']['key']??'')==='intake' && ($workflowView['data']['card']['slot']['key']??'')==='genre','HTTP reads the frozen workflow state and first server-owned intake card');
+    agentCheck((string)($workflowView['data']['workflow']['workflow_snapshot']['model_preferences']['reasoning_model']['id']??'')===(string)$product,'HTTP workflow snapshot freezes the server-resolved model identity instead of a browser token');
     agentCheck(agentHttp('answerWorkflow','POST',$workflowArgs+['expected_revision'=>(int)$workflowView['data']['workflow']['state_revision'],'slot'=>'genre','value'=>'悬疑反转'])['msg']==='THREAD_BUSY','HTTP workflow cards cannot bypass an active conversation run');
     $workflowStop=agentHttp('stop','POST',$workflowArgs+['run_id'=>$workflowSend['data']['run_id']]);
     agentCheck(($workflowStop['data']['status']??'')==='canceled','HTTP stops the route turn before allowing a card-only answer');
