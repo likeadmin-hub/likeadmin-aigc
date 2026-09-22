@@ -78,6 +78,15 @@ try {
             ]]),PHP_EOL;
             continue;
         }
+        if ($mockGeneration && $action==='generationEvidence') {
+            $intent=Db::name('aigc_short_drama_canvas_generation_intent')->where(['tenant_id'=>94011,'user_id'=>95011,'canvas_id'=>$canvasId])->order('id','desc')->find() ?: [];
+            $run=$intent ? Db::name('aigc_short_drama_canvas_run')->where('id',(int)$intent['canvas_run_id'])->find() : [];
+            echo json_encode(['result'=>[
+                'intent_state'=>(string)($intent['state']??''),'intent_error'=>(string)($intent['error_code']??''),
+                'run_status'=>(string)($run['status']??''),'run_error'=>(string)($run['error']??''),
+            ]]),PHP_EOL;
+            continue;
+        }
         if ($agentConversation && $action==='agentEvidence') {
             $scope=['tenant_id'=>94011,'user_id'=>95011,'canvas_id'=>$canvasId];
             echo json_encode(['result'=>[
