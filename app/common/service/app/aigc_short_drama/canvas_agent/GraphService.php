@@ -156,6 +156,7 @@ final class GraphService
             if (!$document) throw new RuntimeException('CANVAS_NOT_FOUND');
             $nodes=json_decode((string)($document['nodes_json']??'[]'),true,512,JSON_THROW_ON_ERROR);
             $edges=json_decode((string)($document['edges_json']??'[]'),true,512,JSON_THROW_ON_ERROR);
+            $originalEdges=$edges;
             $byId=[];$assetNodes=[];$artSources=[];
             foreach ($nodes as $node) {
                 $id=(string)($node['id']??'');$metadata=(array)($node['metadata']??[]);
@@ -216,6 +217,11 @@ final class GraphService
                 if ($changed) $normalized++;
             }
             unset($edge);
+            // Rebuilding the desired asset inputs is convenient for legacy
+            // recovery, but must not turn a no-op verification into another
+            // graph revision. A byte-equivalent normalized graph is already
+            // healthy, so report an idempotent no-op without writing it.
+            if (self::json($edges)===self::json($originalEdges)) return ['changed'=>false,'removed'=>0,'added'=>0,'normalized'=>0,'graph_revision'=>(int)($document['graph_revision']??0)];
             if (!$removed && !$added && !$normalized) return ['changed'=>false,'removed'=>0,'added'=>0,'normalized'=>0,'graph_revision'=>(int)($document['graph_revision']??0)];
             $updated=self::persistLockedDocument($document,['edges_json'=>self::json($edges),'schema_version'=>2,'update_time'=>time()]);
             return ['changed'=>true,'removed'=>$removed,'added'=>$added,'normalized'=>$normalized,'graph_revision'=>(int)($updated['graph_revision']??0)];
