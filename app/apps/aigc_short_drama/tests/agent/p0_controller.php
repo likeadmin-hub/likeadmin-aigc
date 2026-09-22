@@ -35,8 +35,11 @@ try {
         Db::name('user')->insert(['id' => $id, 'sn' => $id, 'account' => 'p0-' . $id, 'tenant_id' => $tenant]);
         Db::name('user_session')->insert(['tenant_id' => $tenant, 'user_id' => $id, 'token' => 'isolated-p0-' . $id, 'terminal' => 4, 'expire_time' => time() + 86400 * 365]);
     }
-    Db::name('app')->insert(['code' => 'aigc_short_drama', 'status' => 'installed']);
-    Db::name('app')->insert(['code' => 'aigc_canvas', 'status' => 'disabled']);
+    // App records are global installation state rather than per-tenant test
+    // fixtures.  A normal local installation already has them, so never turn
+    // that valid state into a duplicate-key failure before controller checks.
+    if (!Db::name('app')->where('code', 'aigc_short_drama')->find()) Db::name('app')->insert(['code' => 'aigc_short_drama', 'status' => 'installed']);
+    if (!Db::name('app')->where('code', 'aigc_canvas')->find()) Db::name('app')->insert(['code' => 'aigc_canvas', 'status' => 'disabled']);
     agentCheck(canvasRequest('lists', 91001, '')['code'] !== 1, 'login middleware rejects missing token');
     agentCheck(canvasRequest('lists', 91001, 'invalid-fixture-token')['code'] !== 1, 'login middleware rejects unknown token');
     agentCheck(canvasRequest('lists', 91002, 'isolated-p0-92001')['code'] !== 1, 'login middleware rejects tenant/token mismatch');
