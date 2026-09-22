@@ -76,7 +76,8 @@ try {
     $provider=new WorkflowAcceptanceProvider();
     $runStage=static function (string $requestKey,string $reply='这是本阶段的本地验收回复。') use ($tenant,$user,$canvas,$thread,$provider): array {
         $provider->content=$reply;
-        $ack=Store::enqueue($tenant,$user,$canvas,$thread,['request_key'=>$requestKey,'content'=>'继续当前创作阶段','base_revision'=>0],static function (array $conversation) use ($tenant): array {
+        $revision=(int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision');
+        $ack=Store::enqueue($tenant,$user,$canvas,$thread,['request_key'=>$requestKey,'content'=>'继续当前创作阶段','base_revision'=>$revision],static function (array $conversation) use ($tenant): array {
             $preferences=['generation_mode'=>'auto','reasoning_model'=>['id'=>'fixture-model'],'image_model'=>['id'=>'fixture-image','model_code'=>'fixture-image']];
             $prepared=Workflow::prepare($tenant,$conversation,'继续当前创作阶段',[],[],$preferences);
             return ['settings'=>$preferences,'skill'=>[],'workflow'=>$prepared['workflow'],'thread_settings'=>$prepared['thread_settings']];
