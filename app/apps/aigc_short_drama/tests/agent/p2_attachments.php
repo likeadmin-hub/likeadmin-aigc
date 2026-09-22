@@ -56,6 +56,13 @@ try {
     $imageWire=Context::messages($imageContext);
     $imagePayload=json_decode(explode("\n",$imageWire[2]['content'],2)[1],true);
     agentCheck($imagePayload['attachment_material'][0]['media_understanding_available']===true && !str_contains(json_encode($imagePayload),'assets.example'),'model text context identifies authorized image material without leaking URI');
+    Db::name('aigc_short_drama_asset')->where('id',$canvasAsset)->update(['status'=>'uploading']);
+    rejectAttachment(fn()=>ConversationImages::urls(91001,92001,$imageContext),'IMAGE_REFERENCE_UNAVAILABLE');
+    agentCheck(true,'uploading image is rejected again at execution instead of being sent to the Provider');
+    Db::name('aigc_short_drama_asset')->where('id',$canvasAsset)->update(['status'=>'transferring']);
+    rejectAttachment(fn()=>ConversationImages::urls(91001,92001,$imageContext),'IMAGE_REFERENCE_UNAVAILABLE');
+    agentCheck(true,'transferring image is rejected again at execution instead of being sent to the Provider');
+    Db::name('aigc_short_drama_asset')->where('id',$canvasAsset)->update(['status'=>'ready']);
     Db::name('aigc_short_drama_asset')->where('id',$canvasAsset)->update(['delete_time'=>time()]);
     rejectAttachment(fn()=>ConversationImages::urls(91001,92001,$imageContext),'IMAGE_REFERENCE_UNAVAILABLE');
     agentCheck(Db::name('aigc_short_drama_canvas_run')->where('canvas_id',$canvas)->count()===0,'attachments do not create canvas nodes or media runs');
