@@ -26,9 +26,14 @@ if (think\facade\Db::query('SELECT DATABASE() AS db')[0]['db'] !== 'short_drama_
 // The isolated database deliberately starts minimal. Apply this app-owned,
 // idempotent migration so each P2 behavior test exercises the live safety
 // boundary without relying on test order or any business database schema.
-if (!think\facade\Db::query("SHOW TABLES LIKE 'la_aigc_short_drama_canvas_agent_safety_audit'")) {
-    $sql=(string)file_get_contents(dirname(__DIR__,2).'/migrations/upgrade_20260921_canvas_agent_safety.sql');
-    think\facade\Db::execute($sql);
+foreach ([
+    'la_aigc_short_drama_canvas_agent_safety_audit' => 'upgrade_20260921_canvas_agent_safety.sql',
+    'la_aigc_short_drama_canvas_quote' => 'upgrade_20260922_canvas_quote_confirmation.sql',
+] as $table => $migration) {
+    if (!think\facade\Db::query("SHOW TABLES LIKE '" . $table . "'")) {
+        $sql=(string)file_get_contents(dirname(__DIR__,2).'/migrations/'.$migration);
+        think\facade\Db::execute($sql);
+    }
 }
 function agentCheck(bool $ok, string $name): void {
     if (!$ok) throw new RuntimeException('FAIL ' . $name);

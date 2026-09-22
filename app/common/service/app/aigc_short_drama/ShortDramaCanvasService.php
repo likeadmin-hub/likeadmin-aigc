@@ -26,6 +26,8 @@ class ShortDramaCanvasService
 {
     private const DOCUMENT_TABLE = 'aigc_short_drama_canvas';
     private const RUN_TABLE = 'aigc_short_drama_canvas_run';
+    private const QUOTE_TABLE = 'aigc_short_drama_canvas_quote';
+    private const QUOTE_TTL_SECONDS = 600;
 
     public static function current(int $tenantId, int $userId, int $id = 0): array
     {
@@ -321,6 +323,60 @@ class ShortDramaCanvasService
         return self::runDetail($tenantId, $userId, $runId);
     }
 
+    /**
+     * Price a video request without creating a task or reserving points.
+     * The durable quote binds the exact request key and server-normalized
+     * selection, so the browser cannot reuse a confirmation after changing a
+     * model, duration, resolution or an owned reference-asset version.
+     */
+    public static function quote(int $tenantId, int $userId, array $params): array
+    {
+        $document = self::ownedDocument($tenantId, $userId, (int)($params['canvas_id'] ?? 0));
+        $nodeId = trim((string)($params['node_id'] ?? ''));
+        $type = strtolower(trim((string)($params['type'] ?? '')));
+        if ($type !== 'video') throw new Exception('QUOTE_UNSUPPORTED_NODE_TYPE');
+        self::assertGenerationNode($document, $nodeId, $type);
+        $key = trim((string)($params['request_key'] ?? ''));
+        self::assertRequestKey($key);
+        $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id']);
+        $quote = AigcVideoService::estimate($tenantId, $payload);
+        $quoteInput = self::quoteInputForDocument($document, $nodeId, $payload);
+        $inputHash = hash('sha256', self::json($quoteInput));
+        $now = time();
+        $token = bin2hex(random_bytes(24));
+        $expiresAt = $now + self::QUOTE_TTL_SECONDS;
+        Db::name(self::QUOTE_TABLE)->insert([
+            'tenant_id' => $tenantId, 'user_id' => $userId, 'canvas_id' => (int)$document['id'], 'node_id' => $nodeId,
+            'request_key' => $key, 'quote_token' => $token, 'input_hash' => $inputHash,
+            'request_json' => self::json($quoteInput), 'quote_json' => self::json(self::publicQuote($quote)),
+            'status' => 'quoted', 'expires_at' => $expiresAt, 'confirmed_at' => 0, 'create_time' => $now, 'update_time' => $now,
+        ]);
+        return ['quote_token' => $token, 'status' => 'quoted', 'expires_at' => $expiresAt, 'quote' => self::publicQuote($quote)];
+    }
+
+    /** Explicit user acknowledgement only; it never submits a Provider task. */
+    public static function confirmQuote(int $tenantId, int $userId, array $params): array
+    {
+        $canvasId = (int)($params['canvas_id'] ?? 0);
+        $nodeId = trim((string)($params['node_id'] ?? ''));
+        $token = trim((string)($params['quote_token'] ?? ''));
+        if (!preg_match('/^[a-f0-9]{48}$/D', $token)) throw new Exception('INVALID_QUOTE_TOKEN');
+        self::ownedDocument($tenantId, $userId, $canvasId);
+        return Db::transaction(function () use ($tenantId, $userId, $canvasId, $nodeId, $token): array {
+            $row = Db::name(self::QUOTE_TABLE)->where([
+                'tenant_id' => $tenantId, 'user_id' => $userId, 'canvas_id' => $canvasId, 'node_id' => $nodeId, 'quote_token' => $token,
+            ])->lock(true)->find();
+            if (!$row) throw new Exception('QUOTE_NOT_FOUND');
+            if ((int)$row['expires_at'] < time()) throw new Exception('QUOTE_EXPIRED');
+            if (!in_array((string)$row['status'], ['quoted', 'confirmed'], true)) throw new Exception('QUOTE_CONFIRMATION_REQUIRED');
+            if ((string)$row['status'] === 'quoted') {
+                Db::name(self::QUOTE_TABLE)->where('id', (int)$row['id'])->update(['status' => 'confirmed', 'confirmed_at' => time(), 'update_time' => time()]);
+                $row['status'] = 'confirmed';
+            }
+            return ['quote_token' => (string)$row['quote_token'], 'status' => 'confirmed', 'expires_at' => (int)$row['expires_at'], 'quote' => self::decode((string)$row['quote_json'])];
+        });
+    }
+
     /** P1 integration boundary, deliberately not routed until recovery/UI gates pass. */
     public static function submitIdempotent(int $tenantId, int $userId, array $params): array
     {
@@ -333,6 +389,7 @@ class ShortDramaCanvasService
         $requestInput=$payload+['skill_id'=>(int)($params['skill_id']??0),'skill_version'=>(int)($params['skill_version']??0),'skill_inputs'=>(array)($params['skill_inputs']??[])];
         $intent=GenerationIntentService::lookup($tenantId,$userId,(int)$document['id'],$key,$nodeId,$type,$requestInput);
         if (!$intent) {
+            if ($type === 'video') self::assertConfirmedQuote($tenantId, $userId, $document, $nodeId, $key, $payload, (string)($params['quote_token'] ?? ''));
             if ((int)($params['skill_id']??0)>0) $payload=self::applyComposerSkill($type,$payload,$params,ShortDramaSkillService::resolveForTask($tenantId,$params));
             $intent=GenerationIntentService::reserve($tenantId,$userId,(int)$document['id'],$key,$nodeId,$type,$payload,$requestInput);
         }
@@ -647,6 +704,103 @@ class ShortDramaCanvasService
             if (isset($params[$key])) $payload[$key] = (string)$params[$key];
         }
         return array_filter($payload, static fn($value) => $value !== '' && $value !== 0 || is_array($value));
+    }
+
+    private static function assertGenerationNode(array $document, string $nodeId, string $type): void
+    {
+        if ($nodeId === '') throw new Exception('NODE_NOT_FOUND');
+        foreach (self::decode((string)($document['nodes_json'] ?? '[]')) as $node) {
+            if ((string)($node['id'] ?? '') !== $nodeId) continue;
+            if ((string)($node['type'] ?? '') !== $type) throw new Exception('NODE_TYPE_MISMATCH');
+            return;
+        }
+        throw new Exception('NODE_NOT_FOUND');
+    }
+
+    private static function assertRequestKey(string $key): void
+    {
+        if (!preg_match('/^[a-zA-Z0-9_.:-]{1,100}$/D', $key)) throw new Exception('INVALID_REQUEST_KEY');
+    }
+
+    /** The canonical quote input intentionally uses owned asset identity, not a transient signed URL. */
+    private static function quoteInput(string $nodeId, array $payload): array
+    {
+        $input = $payload;
+        $references = [];
+        foreach ((array)($payload['reference_assets'] ?? []) as $reference) {
+            if (!is_array($reference)) continue;
+            if ((int)($reference['asset_id'] ?? 0) > 0) {
+                $references[] = array_filter([
+                    'type' => (string)($reference['type'] ?? ''), 'role' => (string)($reference['role'] ?? ''),
+                    'asset_id' => (int)$reference['asset_id'], 'uri' => (string)($reference['uri'] ?? ''),
+                    'storage_scope' => (string)($reference['storage_scope'] ?? ''),
+                    'storage_engine' => (string)($reference['storage_engine'] ?? ''), 'storage_domain' => (string)($reference['storage_domain'] ?? ''),
+                ], static fn($value): bool => $value !== '');
+                continue;
+            }
+            $references[] = $reference;
+        }
+        $input['node_id'] = $nodeId;
+        $input['reference_assets'] = $references;
+        // reference_images is derived from reference_assets by the video
+        // adapter. Including it here would make a refreshed signed delivery
+        // URL look like a user edit.
+        if ($references !== []) unset($input['reference_images']);
+        return self::canonical($input);
+    }
+
+    private static function quoteInputForDocument(array $document, string $nodeId, array $payload): array
+    {
+        $input = self::quoteInput($nodeId, $payload);
+        $input['graph_revision'] = (int)($document['graph_revision'] ?? 0);
+        foreach (self::decode((string)($document['nodes_json'] ?? '[]')) as $node) {
+            if ((string)($node['id'] ?? '') === $nodeId) {
+                $input['node_content_revision'] = (int)($node['metadata']['content_revision'] ?? 0);
+                break;
+            }
+        }
+        return self::canonical($input);
+    }
+
+    private static function assertConfirmedQuote(int $tenantId, int $userId, array $document, string $nodeId, string $requestKey, array $payload, string $token): void
+    {
+        self::assertRequestKey($requestKey);
+        if (!preg_match('/^[a-f0-9]{48}$/D', $token)) throw new Exception('QUOTE_CONFIRMATION_REQUIRED');
+        $canvasId = (int)$document['id'];
+        Db::transaction(function () use ($tenantId, $userId, $canvasId, $document, $nodeId, $requestKey, $payload, $token): void {
+            $quote = Db::name(self::QUOTE_TABLE)->where([
+                'tenant_id' => $tenantId, 'user_id' => $userId, 'canvas_id' => $canvasId, 'node_id' => $nodeId, 'quote_token' => $token,
+            ])->lock(true)->find();
+            if (!$quote) throw new Exception('QUOTE_NOT_FOUND');
+            if ((int)$quote['expires_at'] < time()) throw new Exception('QUOTE_EXPIRED');
+            if ((string)$quote['status'] !== 'confirmed') throw new Exception('QUOTE_CONFIRMATION_REQUIRED');
+            if (!hash_equals((string)$quote['request_key'], $requestKey)) throw new Exception('QUOTE_REQUEST_MISMATCH');
+            if (!hash_equals((string)$quote['input_hash'], hash('sha256', self::json(self::quoteInputForDocument($document, $nodeId, $payload))))) throw new Exception('QUOTE_INPUT_CHANGED');
+        });
+    }
+
+    private static function publicQuote(array $quote): array
+    {
+        return [
+            'market_product_id' => (int)($quote['market_product_id'] ?? 0), 'market_sku_id' => (int)($quote['market_sku_id'] ?? 0),
+            'tenant_cost_points' => (float)($quote['tenant_cost_points'] ?? 0), 'user_charge_points' => (float)($quote['user_charge_points'] ?? 0),
+            'usage_unit' => (string)($quote['usage_unit'] ?? ''), 'settlement_mode' => (string)($quote['settlement_mode'] ?? ''),
+        ];
+    }
+
+    private static function canonical(mixed $value): mixed
+    {
+        if (!is_array($value)) return $value;
+        $list = array_keys($value) === range(0, count($value) - 1);
+        if ($list) return array_map(static fn($item) => self::canonical($item), $value);
+        ksort($value, SORT_STRING);
+        foreach ($value as $key => $item) $value[$key] = self::canonical($item);
+        return $value;
+    }
+
+    private static function json(array $value): string
+    {
+        return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     }
 
     /**
