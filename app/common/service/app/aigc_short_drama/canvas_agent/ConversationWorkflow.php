@@ -241,9 +241,11 @@ final class ConversationWorkflow
         $labels=[];
         foreach ((array)($workflow['workflow_snapshot']['stages']??[]) as $item) if (($item['key']??'')===$stage) $labels=(array)($item['skills']??[]);
         if ($stage==='intake') return "\n【短剧工作流】当前在创作采集阶段。只补问尚未确认的信息，不创建画布节点、不提交媒体任务。";
-        $suffix=in_array($stage,['assets','storyboard'],true)
-            ? '若建议生成节点，仍须使用受限 canvas-actions 格式；只引用已提供的画布素材，不能编造素材 ID、价格或任务状态。'
-            : (in_array($stage,['video_nodes','audio_plan'],true) ? '视频节点只能建议插入，绝不能自动提交；音频只可规划，不能建议生成。' : '只在对话中交付内容，不创建故事设定或分集大纲文本节点。');
+        $suffix=$stage==='assets'
+            ? '若建议生成节点，仍须使用受限 canvas-actions 格式；主体三视图必须真实依赖同批主体图；只引用已提供的画布素材，不能编造素材 ID、价格或任务状态。'
+            : ($stage==='storyboard'
+                ? '若建议生成节点，仍须使用受限 canvas-actions 格式；分镜图必须真实依赖同批场景或道具，系统会把前序主体资产写入参考连线；不能编造素材 ID、价格或任务状态。'
+            : (in_array($stage,['video_nodes','audio_plan'],true) ? '视频节点只能建议插入，绝不能自动提交；音频只可规划，不能建议生成。' : '只在对话中交付内容，不创建故事设定或分集大纲文本节点。'));
         return "\n【短剧工作流】当前阶段：{$stage}。读取技能指令：".implode('、',$labels)."。{$suffix}";
     }
 
