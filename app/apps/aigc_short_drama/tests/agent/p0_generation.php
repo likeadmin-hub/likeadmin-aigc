@@ -68,6 +68,22 @@ try {
         }
         Canvas::runDetail(91001,92001,$result['id']);
         Canvas::runDetail(91001,92001,$result['id']);
+        if ($node['type']==='text') {
+            $expected='Synthetic response Synthetic only';
+            agentCheck(!array_key_exists('status',$result['result']) && $result['result']['content']===$expected,'M13 fixture returns synchronous text content without a downstream status');
+            $fresh=Canvas::runDetail(91001,92001,$result['id']);
+            agentCheck($fresh['status']==='success' && $fresh['progress']===100 && $fresh['result']['content']===$expected,'M13 detail reads retain completed text and full progress');
+            $history=Db::name('aigc_short_drama_generation_task')->where('task_id','canvas_run_'.$result['id'])->find();
+            agentCheck($history['status']==='success' && (int)$history['progress']===100 && json_decode($history['result_json'],true)['content']===$expected,'M13 history retains synchronous text result without requiring async status');
+            if ($submitMethod==='submitIdempotent') {
+                $beforeRead=Canvas::current(91001,92001,$doc['id']);
+                Canvas::runDetail(91001,92001,$result['id']);
+                $afterRead=Canvas::current(91001,92001,$doc['id']);
+                $meta=$afterRead['nodes'][0]['metadata'];
+                agentCheck($meta['content']===$expected && $meta['status']==='success' && (int)$meta['projected_generation_id']===$result['id'],'M13 completed text is projected onto the original node');
+                agentCheck($beforeRead['nodes']===$afterRead['nodes'] && $beforeRead['graph_revision']===$afterRead['graph_revision'],'M13 repeated reads do not append content versions or mutate graph');
+            }
+        }
     }
     agentCheck(count(P0Provider::$received)===4,'B03 downstream accepted exactly four independent calls; polling accepts none');
     agentCheck((float)Db::name('tenant')->where('id',91001)->value('point_balance')===96.0,'B03 real tenant PointService charges once per mock call');
