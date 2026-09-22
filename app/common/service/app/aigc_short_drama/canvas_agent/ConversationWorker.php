@@ -26,7 +26,15 @@ final class ConversationWorker
                 'request_timeout_seconds'=>120,'automatic_retry'=>false,
             ];
             $responseFormat=ConversationActionPlan::responseFormat($workflowStage);
-            if ($responseFormat!==null) $request['response_format']=$responseFormat;
+            if ($responseFormat!==null) {
+                $request['response_format']=$responseFormat;
+                // A workflow artifact is a compact production record, not an
+                // open-ended reasoning transcript.  Bound the completion so
+                // an upstream stream that keeps emitting hidden reasoning
+                // cannot hold the durable run until its request timeout.
+                $request['max_tokens']=4096;
+                $request['enable_thinking']=false;
+            }
             $request['result_validator']=static function (array $result) use ($tenant,$user,$context,$claim,$run,$workflowStage): void {
                 $content=(string)($result['content']??'');
                 if ($content==='') throw new RuntimeException('EMPTY_MODEL_RESPONSE');
