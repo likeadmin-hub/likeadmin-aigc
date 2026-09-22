@@ -6,12 +6,9 @@ use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\GraphService as Graph;
 use think\facade\Db;
 
-$allowed=[
-    'text'=>['text','image','video','audio'],
-    'image'=>['text','image','video'],
-    'video'=>['text','video'],
-    'audio'=>['text','video','audio'],
-];
+$fixture=json_decode((string)file_get_contents(__DIR__.'/fixtures/p3_connection_matrix.json'),true,512,JSON_THROW_ON_ERROR);
+$allowed=$fixture['reference_edges'] ?? null;
+if (!is_array($allowed) || $allowed===[]) throw new RuntimeException('P3_CONNECTION_MATRIX_INVALID');
 Db::startTrans();
 try {
     foreach (array_keys($allowed) as $sourceType) foreach (array_keys($allowed) as $targetType) {
@@ -35,6 +32,6 @@ try {
         ['id'=>2,'type'=>'image','x'=>1,'y'=>1,'metadata'=>[]],
     ])]);
     $annotation=Graph::patch(91001,92001,$canvas,['request_key'=>'annotation','expected_revision'=>0,'operations'=>[['op'=>'add_edge','edge'=>['from'=>1,'to'=>2,'kind'=>'annotation']]]]);
-    agentCheck(count($annotation['edges'])===1,'annotation remains an unrestricted graph note, not a media reference');
+    agentCheck(($fixture['annotation_edges'] ?? null)==='unrestricted' && count($annotation['edges'])===1,'annotation remains an unrestricted graph note, not a media reference');
 } finally { Db::rollback(); }
 echo "NOT_RUN selected-model generation, browser drag/drop and real Provider media generation\n";
