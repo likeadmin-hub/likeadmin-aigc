@@ -706,7 +706,14 @@ class AigcShortDramaService
             // Provider credentials, model identities and prices always remain
             // server-owned. Safety is a short-drama tenant policy, not a
             // cross-app sensitive-word list.
+            // The workflow definition and its non-negotiable media policies
+            // remain platform-owned.  Tenant admin can only enable its use;
+            // it cannot replace stage order, billing, safety or video rules.
+            $workflow=(array)($agent['workflow']??($current['canvas_agent']['workflow']??[]));
+            $workflowEnabled=!array_key_exists('enabled',$workflow)
+                || in_array($workflow['enabled'],[true,1,'1','true'],true);
             $config['canvas_agent']=['enabled'=>$enabled,'execution_enabled'=>$executionEnabled,
+                'workflow'=>['enabled'=>$workflowEnabled,'enabled_workflows'=>[\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::KEY]],
                 'safety'=>FeatureGate::normalizeSafetyPolicy($agent['safety']??($current['canvas_agent']['safety']??[]))];
         }
         unset($config['script_plan_model_id'], $config['script_plan_model_selection']);
@@ -15658,7 +15665,7 @@ class AigcShortDramaService
             'multi_episode_script_prompt_template' => self::defaultMultiEpisodeScriptPromptTemplate(),
             'force_result_transfer' => false,
             'result_storage_engine' => '',
-            'canvas_agent' => ['enabled' => true, 'execution_enabled' => false, 'safety' => FeatureGate::defaultSafetyPolicy()],
+            'canvas_agent' => ['enabled' => true, 'execution_enabled' => false, 'workflow'=>['enabled'=>true,'enabled_workflows'=>[\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::KEY]], 'safety' => FeatureGate::defaultSafetyPolicy()],
             'models' => [
                 [
                     'id' => 'script-planner-default',
