@@ -100,6 +100,7 @@ class AigcShortDramaService
                 'creates_nodes' => !empty($stage['creates_nodes']),
             ], array_filter((array)($catalog['stages'] ?? []), 'is_array'))),
         ];
+        $config['canvas_agent']['workflow']['available_skills'] = ShortDramaSkillService::workflowEligible($tenantId);
         $config['script_prompt_defaults'] = self::scriptPromptDefaults();
         $config['prompt_config_defaults'] = self::runtimePromptDefaults();
         $config['prompt_config_values'] = self::promptConfigValues($config);
@@ -728,7 +729,11 @@ class AigcShortDramaService
             $workflow=(array)($agent['workflow']??($current['canvas_agent']['workflow']??[]));
             $workflowEnabled=!array_key_exists('enabled',$workflow)
                 || in_array($workflow['enabled'],[true,1,'1','true'],true);
-            $stageSkills=self::normalizeCanvasAgentStageSkills($workflow['stage_skills']??[]);
+            $stageSkills=self::normalizeCanvasAgentStageSkills($workflow['stage_skills']??($current['canvas_agent']['workflow']['stage_skills']??[]));
+            foreach ($stageSkills as $selections) foreach ($selections as $selection) {
+                $skill = ShortDramaSkillService::resolveForTask($tenantId, $selection);
+                \app\common\service\app\aigc_short_drama\canvas_agent\ConversationSkillPolicy::assertSafe($skill);
+            }
             $config['canvas_agent']=['enabled'=>$enabled,'execution_enabled'=>$executionEnabled,
                 'workflow'=>['enabled'=>$workflowEnabled,'enabled_workflows'=>[\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::KEY],'stage_skills'=>$stageSkills],
                 'safety'=>FeatureGate::normalizeSafetyPolicy($agent['safety']??($current['canvas_agent']['safety']??[]))];

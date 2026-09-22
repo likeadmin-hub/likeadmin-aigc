@@ -10,7 +10,6 @@ use Exception;
 class SkillController extends BaseAdminController
 {
     public function lists() { try { return $this->success('获取成功', ShortDramaSkillService::lists($this->tenantId, $this->request->get())); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
-    public function workflowEligible() { try { return $this->success('获取成功', ['lists' => ShortDramaSkillService::workflowEligible($this->tenantId)], 1, 1); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
     public function detail() { try { return $this->success('获取成功', ShortDramaSkillService::detail($this->tenantId, (int)$this->request->get('id', 0))); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
     public function create() { try { return $this->success('创建成功', ShortDramaSkillService::create($this->tenantId, $this->adminId, $this->request->post()), 1, 1); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
     public function update() { try { return $this->success('保存成功', ShortDramaSkillService::update($this->tenantId, $this->adminId, $this->request->post()), 1, 1); } catch (Exception $e) { return $this->fail($e->getMessage()); } }
