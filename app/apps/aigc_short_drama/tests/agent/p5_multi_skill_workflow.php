@@ -38,6 +38,7 @@ try {
     agentCheck(Execution::stop($tenant,$user,$canvas,$thread,$ack['run_id'])['status']==='canceled','workflow card actions wait for the active conversational run to finish');
     $view=Workflow::read($tenant,$user,$canvas,$thread);
     agentCheck(($view['card']['slot']['key']??'')==='genre','first card is the server-owned story-type slot');
+    agentCheck(($view['card']['stage_label']??'')==='创作采集' && ($view['card']['skills']??[])===['创作采集'],'workflow card projects the frozen stage and its actual platform Skill list');
     $answers=['genre'=>'悬疑反转','episode_count'=>'10集（微短剧）','episode_duration'=>'1分钟','visual_style'=>'电影写实','audience'=>'年轻女性','characters'=>'记者与失踪的姐姐','ending'=>'反转开放'];
     foreach ($answers as $slot=>$value) {
         $view=Workflow::read($tenant,$user,$canvas,$thread);
