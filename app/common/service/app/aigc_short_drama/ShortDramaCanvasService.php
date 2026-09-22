@@ -275,7 +275,7 @@ class ShortDramaCanvasService
         }
         if (!$savedNode) throw new Exception('NODE_NOT_FOUND: 请先保存节点，已删除的节点不能生成');
         if ((string)($savedNode['type'] ?? '') !== $type) throw new Exception('NODE_TYPE_MISMATCH: 节点类型已变化，请重新读取画布');
-        $payload = self::generationPayload($type, $params);
+        $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id']);
         // Resolve on the server so disabled, cross-tenant and stale Skills
         // cannot be submitted by replaying a saved composer selection.
         if ((int)($params['skill_id'] ?? 0) > 0) {
@@ -329,7 +329,7 @@ class ShortDramaCanvasService
         $type=strtolower(trim((string)($params['type']??'')));
         if (!in_array($type,['text','image','video','audio'],true)) throw new Exception('不支持的短剧画布节点类型');
         $key=(string)($params['request_key']??'');
-        $payload=self::generationPayload($type,$params);
+        $payload=self::generationPayload($type,$params,$tenantId,$userId,(int)$document['id']);
         $requestInput=$payload+['skill_id'=>(int)($params['skill_id']??0),'skill_version'=>(int)($params['skill_version']??0),'skill_inputs'=>(array)($params['skill_inputs']??[])];
         $intent=GenerationIntentService::lookup($tenantId,$userId,(int)$document['id'],$key,$nodeId,$type,$requestInput);
         if (!$intent) {
@@ -622,7 +622,7 @@ class ShortDramaCanvasService
         return $payload;
     }
 
-    private static function generationPayload(string $type, array $params): array
+    private static function generationPayload(string $type, array $params, int $tenantId, int $userId, int $canvasId): array
     {
         $prompt = trim((string)($params['prompt'] ?? $params['content'] ?? ''));
         if ($prompt === '') throw new Exception('请输入提示内容');
@@ -633,7 +633,7 @@ class ShortDramaCanvasService
             'quantity' => max(1, min(4, (int)($params['count'] ?? $params['quantity'] ?? 1))),
             'generation_method' => (string)($params['generation_method'] ?? $params['generationMethod'] ?? ''),
             'reference_images' => array_values((array)($params['reference_images'] ?? [])),
-            'reference_assets' => array_values((array)($params['reference_assets'] ?? [])),
+            'reference_assets' => self::resolveOwnedReferenceAssets($tenantId, $userId, $canvasId, (array)($params['reference_assets'] ?? [])),
             'source_app_code' => AigcShortDramaService::APP_CODE,
         ];
         if ($type === 'audio') $payload['lyrics'] = (string)($params['lyrics'] ?? '');
@@ -647,6 +647,41 @@ class ShortDramaCanvasService
             if (isset($params[$key])) $payload[$key] = (string)$params[$key];
         }
         return array_filter($payload, static fn($value) => $value !== '' && $value !== 0 || is_array($value));
+    }
+
+    /**
+     * An asset-library selection is an owned asset identity, not a browser URL.
+     * Resolve it at acceptance time so an old selected version remains stable
+     * while each new request receives the storage service's current URL.
+     */
+    private static function resolveOwnedReferenceAssets(int $tenantId, int $userId, int $canvasId, array $references): array
+    {
+        $resolved=[];
+        foreach (array_values($references) as $reference) {
+            if (!is_array($reference)) throw new Exception('CANVAS_REFERENCE_UNAVAILABLE');
+            $assetId=(int)($reference['asset_id'] ?? $reference['assetId'] ?? 0);
+            if ($assetId<=0) { $resolved[]=$reference; continue; }
+            $type=strtolower(trim((string)($reference['type'] ?? '')));
+            if (!in_array($type,['image','video','audio'],true)) throw new Exception('CANVAS_REFERENCE_UNAVAILABLE');
+            $asset=Db::name('aigc_short_drama_asset')->where([
+                'id'=>$assetId,'tenant_id'=>$tenantId,'user_id'=>$userId,'delete_time'=>0,'status'=>'ready',
+            ])->find();
+            $allowedTypes=[
+                'image'=>['reference_image','canvas_image','shot_image','character_image','scene_image','subject_image','three_view'],
+                'video'=>['canvas_video','shot_video'],
+                'audio'=>['canvas_audio','shot_audio','bgm_audio'],
+            ];
+            if (!$asset || !in_array((int)$asset['canvas_id'],[0,$canvasId],true) || !in_array((string)$asset['asset_type'],$allowedTypes[$type],true) || (string)$asset['uri']==='') throw new Exception('CANVAS_REFERENCE_UNAVAILABLE');
+            $url=FileService::getFileUrlByStorage((string)$asset['uri'],(string)$asset['storage_scope'],(string)$asset['storage_engine'],(string)$asset['storage_domain']);
+            if (!preg_match('#^https?://#i',$url)) throw new Exception('CANVAS_REFERENCE_UNAVAILABLE');
+            $resolved[]=array_replace($reference,[
+                'asset_id'=>(int)$asset['id'],'url'=>$url,'uri'=>(string)$asset['uri'],
+                'storage_scope'=>(string)$asset['storage_scope'],'storage_engine'=>(string)$asset['storage_engine'],'storage_domain'=>(string)$asset['storage_domain'],
+            ]);
+            $index=array_key_last($resolved);
+            unset($resolved[$index]['assetId']);
+        }
+        return $resolved;
     }
 
     private static function ownedDocument(int $tenantId, int $userId, int $id, bool $lock = false): array
