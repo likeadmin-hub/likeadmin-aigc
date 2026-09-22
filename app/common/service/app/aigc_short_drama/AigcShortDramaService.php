@@ -101,6 +101,12 @@ class AigcShortDramaService
             ], array_filter((array)($catalog['stages'] ?? []), 'is_array'))),
         ];
         $config['canvas_agent']['workflow']['available_skills'] = ShortDramaSkillService::workflowEligible($tenantId);
+        // Collection contract for the tenant workflow manager. Each future
+        // workflow needs its own registered executor before it can be listed.
+        $config['canvas_agent_workflows'] = [$config['canvas_agent']['workflow']['catalog'] + [
+            'enabled' => !in_array($config['canvas_agent']['workflow']['enabled'] ?? true, [false, 0, '0'], true),
+            'stage_skills' => $config['canvas_agent']['workflow']['stage_skills'] ?? [],
+        ]];
         $config['script_prompt_defaults'] = self::scriptPromptDefaults();
         $config['prompt_config_defaults'] = self::runtimePromptDefaults();
         $config['prompt_config_values'] = self::promptConfigValues($config);
@@ -718,8 +724,8 @@ class AigcShortDramaService
                 throw new Exception('Agent 配置格式不正确');
             }
             $agent=(array)$params['canvas_agent'];
-            $enabled=in_array($agent['enabled']??false,[true,1,'1','true'],true);
-            $executionEnabled=$enabled && in_array($agent['execution_enabled']??false,[true,1,'1','true'],true);
+            $enabled=in_array($agent['enabled']??($current['canvas_agent']['enabled']??true),[true,1,'1','true'],true);
+            $executionEnabled=$enabled && in_array($agent['execution_enabled']??($current['canvas_agent']['execution_enabled']??false),[true,1,'1','true'],true);
             // Provider credentials, model identities and prices always remain
             // server-owned. Safety is a short-drama tenant policy, not a
             // cross-app sensitive-word list.
@@ -727,10 +733,13 @@ class AigcShortDramaService
             // remain platform-owned.  Tenant admin can only enable its use;
             // it cannot replace stage order, billing, safety or video rules.
             $workflow=(array)($agent['workflow']??($current['canvas_agent']['workflow']??[]));
+            if (isset($workflow['key']) && $workflow['key'] !== \app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::KEY) {
+                throw new Exception('该工作流尚未开放配置');
+            }
             $workflowEnabled=!array_key_exists('enabled',$workflow)
                 || in_array($workflow['enabled'],[true,1,'1','true'],true);
             $stageSkills=self::normalizeCanvasAgentStageSkills($workflow['stage_skills']??($current['canvas_agent']['workflow']['stage_skills']??[]));
-            foreach ($stageSkills as $selections) foreach ($selections as $selection) {
+            foreach (array_key_exists('stage_skills', (array)($agent['workflow']??[])) ? $stageSkills : [] as $selections) foreach ($selections as $selection) {
                 $skill = ShortDramaSkillService::resolveForTask($tenantId, $selection);
                 \app\common\service\app\aigc_short_drama\canvas_agent\ConversationSkillPolicy::assertSafe($skill);
             }
