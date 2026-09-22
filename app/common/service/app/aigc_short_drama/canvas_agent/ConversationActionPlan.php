@@ -24,8 +24,16 @@ final class ConversationActionPlan
      */
     private const STRUCTURED_TEXT_STAGES=['script','art','video_plan'];
 
-    public static function instruction(string $mode,string $workflowStage=''): string
+    public static function instruction(string $mode,string $workflowStage='',bool $compact=false): string
     {
+        if ($compact) {
+            if ($workflowStage==='script') return self::structuredEnvelopeInstruction('剧本与角色设定', 'story_setting、episode_script', '必须恰好输出两项：story_setting 合并故事设定、角色关系及全剧/分集大纲；episode_script 是当前制作单集的完整场景、动作、对白与镜头意图。两个节点的 prompt 都必须是可阅读的真实内容，不能是模板或占位符。不得用 depends_on 连接两个文本节点；仅实际作为媒体输入的素材才需要画布连线。');
+            if ($workflowStage==='art') return self::structuredEnvelopeInstruction('画风与美术规划', 'art_bible、character_asset_spec、scene_asset_spec、prop_asset_spec、subject_image_prompt、three_view_prompt、scene_image_prompt、storyboard_image_prompt', '这些是真实的阶段规划，确认后只保存在对话工作流状态，不创建画布节点。按实际角色和场景分别输出明确、可用于后续生图的内容；不得输出模板或占位符。');
+            if ($workflowStage==='video_plan') return self::structuredEnvelopeInstruction('分镜视频规划', 'video_prompt_plan', '每镜包含 shot_number、duration、first_frame、last_frame、camera_motion、action_sequence、video_prompt、asset_references；确认后只保存在对话工作流状态，不创建画布文本节点。');
+            if ($workflowStage==='assets') return '当前为主体资产阶段。只输出 <canvas-actions>{"nodes":[...]}</canvas-actions>。节点只能为 image，artifact 为 subject 或 three_view；每个 three_view 必须 depends_on 同批对应 subject，且该主体图是唯一必须的三视图媒体输入。每个 prompt 应根据已确认的剧本与美术规划写成完整生图提示词。reference_keys 只选实际用于本节点的已生成媒体或用户选择的素材；不要把全部历史产物连接到每个节点。最多四项。';
+            if ($workflowStage==='storyboard') return '当前为场景与分镜图阶段。只输出 <canvas-actions>{"nodes":[...]}</canvas-actions>。节点只能为 image，artifact 为 scene 或 storyboard；每个 storyboard 必须 depends_on 同批对应 scene，且 reference_keys 只选择该镜头确实出镜或决定画面一致性的主体图/三视图。关键道具写入该镜头 prompt，不默认创建道具图。每个 prompt 须包含真实场景、角色、动作、构图和画风；最多四项。';
+            if ($workflowStage==='video_nodes') return '当前为分镜视频节点阶段。只输出 <canvas-actions>{"nodes":[...]}</canvas-actions>。节点只能为 video，artifact 为 storyboard_video；每项 reference_keys 必须包含对应分镜图，可额外选实际需要的主体/场景图片，不得连接无关节点或以 depends_on 串联视频。只插入待用户生成节点，不自动报价、提交或计费；最多六十项。';
+        }
         if ($workflowStage==='script') return self::structuredEnvelopeInstruction('剧本与角色设定', 'story_setting、episode_outline、storyboard_script', '每项 prompt 是可直接阅读的结构化正文，必须覆盖 project_title、logline、world_setting、character_profiles、episode_outline、scene_script 或 storyboard_script 中与该节点匹配的字段；三个 artifact 均须各创建一项，episode_outline 必须依赖 story_setting，storyboard_script 必须依赖 episode_outline。');
         if ($workflowStage==='art') return self::structuredEnvelopeInstruction('画风与美术规划', 'art_bible、character_asset_spec、scene_asset_spec、prop_asset_spec、subject_image_prompt、three_view_prompt、scene_image_prompt 或 storyboard_image_prompt', '每项 prompt 是可直接阅读的结构化正文，覆盖 art_bible、角色/场景/道具资产说明及后续生图提示词；按已确认的创作需要输出完整的资产计划。');
         if ($workflowStage==='video_nodes') return "当前为分镜视频节点阶段。只在答复末尾输出一次严格 JSON 包裹 <canvas-actions>{\"nodes\":[...]}</canvas-actions>；nodes 只能是 video，数量 1 至 60，artifact 必须是 storyboard_video，全部为待用户生成的分镜视频节点。每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys；reference_keys 只能选用阶段输入 workflow_reference_catalog 的 reference_key。不得声明价格、模型、URL、素材 ID 或任务状态。";
@@ -51,7 +59,7 @@ final class ConversationActionPlan
     }
 
     /** @return array{text:string,nodes:list<array{type:string,title:string,prompt:string,key?:string,depends_on?:list<string>}>} */
-    public static function parse(string $reply,string $workflowStage=''): array
+    public static function parse(string $reply,string $workflowStage='',bool $compact=false): array
     {
         [$text,$action]=self::extract($reply,$workflowStage);
         if ($action===null) return ['text'=>$text,'nodes'=>[]];
@@ -59,11 +67,11 @@ final class ConversationActionPlan
             'script','art','video_plan'=>['text'], 'assets','storyboard'=>['image'], 'video_nodes'=>['video'], 'audio_plan'=>['audio'], default=>['text','image','video'],
         };
         $allowedArtifacts=match ($workflowStage) {
-            'script'=>['story_setting','episode_outline','storyboard_script'],
+            'script'=>$compact?['story_setting','episode_script']:['story_setting','episode_outline','storyboard_script'],
             'art'=>['art_bible','character_asset_spec','scene_asset_spec','prop_asset_spec','subject_image_prompt','three_view_prompt','scene_image_prompt','storyboard_image_prompt'],
-            'assets'=>['subject','three_view'], 'storyboard'=>['scene','prop','storyboard'], 'video_plan'=>['video_prompt_plan'], 'video_nodes'=>['storyboard_video'], 'audio_plan'=>['audio_plan'], default=>[],
+            'assets'=>['subject','three_view'], 'storyboard'=>$compact?['scene','storyboard']:['scene','prop','storyboard'], 'video_plan'=>['video_prompt_plan'], 'video_nodes'=>['storyboard_video'], 'audio_plan'=>['audio_plan'], default=>[],
         };
-        $maximum=match ($workflowStage) { 'video_nodes'=>60, 'audio_plan'=>1, 'script'=>3, 'art','video_plan'=>8, default=>4 };
+        $maximum=match ($workflowStage) { 'video_nodes'=>60, 'audio_plan'=>1, 'script'=>$compact?2:3, 'art','video_plan'=>8, default=>4 };
         if (!is_array($action) || array_keys($action) !== ['nodes'] || !is_array($action['nodes']) || !array_is_list($action['nodes']) || !$action['nodes'] || count($action['nodes']) > $maximum) throw new RuntimeException('INVALID_AGENT_ACTION');
         $nodes = [];
         $keys = [];
@@ -111,11 +119,15 @@ final class ConversationActionPlan
                 $dependencies=(array)($proposal['depends_on']??[]);
                 if (count($dependencies)!==1 || ($keyArtifacts[$dependencies[0]]??'')!=='subject') throw new RuntimeException('INVALID_AGENT_ACTION');
             }
+            if ($compact && $workflowStage==='script' && !empty($proposal['depends_on'])) throw new RuntimeException('INVALID_AGENT_ACTION');
+            if ($compact && $workflowStage==='script' && !empty($proposal['reference_keys'])) throw new RuntimeException('INVALID_AGENT_ACTION');
+            if ($compact && $workflowStage==='video_nodes' && !empty($proposal['depends_on'])) throw new RuntimeException('INVALID_AGENT_ACTION');
+            if ($compact && $workflowStage==='video_nodes' && !array_filter((array)($proposal['reference_keys']??[]),static fn(string $key): bool=>str_starts_with($key,'storyboard:'))) throw new RuntimeException('INVALID_AGENT_ACTION');
             if (($proposal['artifact']??'')==='storyboard') {
                 $dependencies=(array)($proposal['depends_on']??[]);
                 $artifacts=[];
                 foreach ($dependencies as $dependency) $artifacts[]=$keyArtifacts[$dependency]??'';
-                if (!$dependencies || !array_intersect($artifacts,['scene','prop'])) throw new RuntimeException('INVALID_AGENT_ACTION');
+                if (!$dependencies || !array_intersect($artifacts,$compact?['scene']:['scene','prop'])) throw new RuntimeException('INVALID_AGENT_ACTION');
             }
             if (($proposal['artifact']??'')==='episode_outline') {
                 $dependencies=(array)($proposal['depends_on']??[]);
@@ -126,6 +138,10 @@ final class ConversationActionPlan
                 if (count($dependencies)!==1 || ($keyArtifacts[$dependencies[0]]??'')!=='episode_outline') throw new RuntimeException('INVALID_AGENT_ACTION');
             }
             $nodes[] = $proposal;
+        }
+        if ($compact && $workflowStage==='script') {
+            $artifacts=array_count_values(array_column($nodes,'artifact'));
+            if (count($nodes)!==2 || ($artifacts['story_setting']??0)!==1 || ($artifacts['episode_script']??0)!==1) throw new RuntimeException('INVALID_AGENT_ACTION');
         }
         return ['text' => $text === '' ? '已创建画布节点。' : $text, 'nodes' => $nodes];
     }

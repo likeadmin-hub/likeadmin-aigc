@@ -60,6 +60,12 @@ try {
     agentCheck(($snapshot['workflow']['workflow_snapshot']['stage_skill_versions']['script'][0]['skill_key']??'')==='workflow_script_fixture' && ($snapshot['workflow']['workflow_snapshot']['stage_skill_versions']['script'][0]['version']??0)===1,'workflow freezes the tenant-authorized published Skill version for its configured stage');
     agentCheck(($snapshot['workflow']['stage_state']['key']??'')==='intake','short drama route starts in collection without a canvas node');
     agentCheck(Execution::stop($tenant,$user,$canvas,$thread,$ack['run_id'])['status']==='canceled','workflow card actions wait for the active conversational run to finish');
+    // Preserve coverage for a conversation frozen on the previous catalog:
+    // its existing three-text-node contract must not silently change mid-run.
+    $legacyRow=Db::name(Store::PREFIX.'thread')->where('id',$thread)->find();
+    $legacySettings=json_decode((string)$legacyRow['settings_json'],true,512,JSON_THROW_ON_ERROR);
+    $legacySettings['workflow_state']['workflow_snapshot']['version']='2026-09-23.2';
+    Db::name(Store::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>json_encode($legacySettings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)]);
     $view=Workflow::read($tenant,$user,$canvas,$thread);
     agentCheck(($view['card']['slot']['key']??'')==='genre','first card is the server-owned story-type slot');
     agentCheck(($view['card']['stage_label']??'')==='创作采集' && ($view['card']['skills']??[])===['创作采集'],'workflow card projects the frozen stage and its actual platform Skill list');

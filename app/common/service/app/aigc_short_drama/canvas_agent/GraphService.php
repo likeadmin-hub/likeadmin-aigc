@@ -24,7 +24,8 @@ final class GraphService
     public static function appendAgentNodesLocked(array $document, array $proposals, array $sourceIds, bool $auto, array $settings=[], int $agentRunId=0, array $workflow=[]): array
     {
         $workflowStage=(string)($workflow['stage_state']['key']??'');
-        $maximum=match ($workflowStage) { 'video_nodes'=>60, 'audio_plan'=>1, 'script'=>3, 'art','video_plan'=>8, default=>4 };
+        $compact=ConversationWorkflow::compactOutput($workflow);
+        $maximum=match ($workflowStage) { 'video_nodes'=>60, 'audio_plan'=>1, 'script'=>$compact?2:3, 'art','video_plan'=>8, default=>4 };
         if (!$proposals || count($proposals) > $maximum) throw new RuntimeException('INVALID_AGENT_ACTION');
         $nodes = json_decode($document['nodes_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);
         $edges = json_decode($document['edges_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);
@@ -39,7 +40,7 @@ final class GraphService
         $liveSources=array_values(array_unique($liveSources));
         $maximumX=0.0; $maximumY=0.0;
         foreach ($nodes as $node) { $maximumX=max($maximumX,(float)($node['x']??0)); $maximumY=max($maximumY,(float)($node['y']??0)); }
-        self::validateAgentProposals($proposals,$workflowStage);
+        self::validateAgentProposals($proposals,$workflowStage,$compact);
         $created=[];
         $createdByKey=[];
         foreach ($proposals as $offset=>$proposal) {
@@ -89,16 +90,20 @@ final class GraphService
             // select from server-derived workflow keys, so it cannot forge a
             // node ID or turn every historic artifact into a noisy input.
             // Selected user material remains an independent agent_context.
-            $workflowSources=self::workflowReferenceSources($nodes,$workflowStage,$proposal);
+            $workflowSources=$compact
+                ? self::compactWorkflowReferenceSources($nodes,$workflowStage,$proposal,$workflow,$liveSources)
+                : self::workflowReferenceSources($nodes,$workflowStage,$proposal);
             $referenceSources=[];
             foreach ($workflowSources as $sourceId) $referenceSources[$sourceId]='workflow_reference';
-            foreach ($liveSources as $sourceId) $referenceSources[$sourceId]='agent_context';
+            if (!$compact) foreach ($liveSources as $sourceId) $referenceSources[$sourceId]='agent_context';
             foreach ($referenceSources as $sourceId=>$role) {
                 $sourceId=(string)$sourceId;
                 $sourceIndex=self::index($nodes,$sourceId);
-                if ($sourceIndex!==null && self::referenceConnectionAllowed(array_merge($nodes,[$node]),$sourceIndex,count($nodes))) {
-                    $edges[]=['from'=>(int)$sourceId,'to'=>(int)$id,'kind'=>'reference','role'=>$role,'order'=>count($edges)];
+                if ($sourceIndex===null || !self::referenceConnectionAllowed(array_merge($nodes,[$node]),$sourceIndex,count($nodes))) {
+                    if ($compact) throw new RuntimeException('EDGE_CAPABILITY_UNSUPPORTED');
+                    continue;
                 }
+                $edges[]=['from'=>(int)$sourceId,'to'=>(int)$id,'kind'=>'reference','role'=>$role,'order'=>count($edges)];
             }
             foreach ((array)($proposal['depends_on']??[]) as $order=>$dependencyKey) {
                 $sourceId=(string)($createdByKey[$dependencyKey]??'');
@@ -459,14 +464,14 @@ final class GraphService
         return [(string)($edge['from']??''),(string)($edge['to']??''),(string)($edge['kind']??'reference'),(string)($edge['role']??''),(string)($edge['order']??0)];
     }
     /** Validate the model proposal again at the graph authority boundary. */
-    private static function validateAgentProposals(array $proposals,string $workflowStage=''): void {
+    private static function validateAgentProposals(array $proposals,string $workflowStage='',bool $compact=false): void {
         $allowedTypes=match ($workflowStage) {
             'script','art','video_plan'=>['text'], 'assets','storyboard'=>['image'], 'video_nodes'=>['video'], 'audio_plan'=>['audio'], default=>['text','image','video'],
         };
         $allowedArtifacts=match ($workflowStage) {
-            'script'=>['story_setting','episode_outline','storyboard_script'],
+            'script'=>$compact?['story_setting','episode_script']:['story_setting','episode_outline','storyboard_script'],
             'art'=>['art_bible','character_asset_spec','scene_asset_spec','prop_asset_spec','subject_image_prompt','three_view_prompt','scene_image_prompt','storyboard_image_prompt'],
-            'assets'=>['subject','three_view'], 'storyboard'=>['scene','prop','storyboard'], 'video_plan'=>['video_prompt_plan'], 'video_nodes'=>['storyboard_video'], 'audio_plan'=>['audio_plan'], default=>[],
+            'assets'=>['subject','three_view'], 'storyboard'=>$compact?['scene','storyboard']:['scene','prop','storyboard'], 'video_plan'=>['video_prompt_plan'], 'video_nodes'=>['storyboard_video'], 'audio_plan'=>['audio_plan'], default=>[],
         };
         $keys=[];
         $keyArtifacts=[];
@@ -500,13 +505,15 @@ final class GraphService
                 $keyArtifacts[$key]=(string)($proposal['artifact']??'');
             }
             $artifact=(string)($proposal['artifact']??'');
+            if ($compact && in_array($workflowStage,['script','video_nodes'],true) && !empty($proposal['depends_on'])) throw new RuntimeException('INVALID_AGENT_ACTION');
+            if ($compact && $workflowStage==='script' && !empty($proposal['reference_keys'])) throw new RuntimeException('INVALID_AGENT_ACTION');
             if ($artifact==='three_view') {
                 $dependencies=(array)($proposal['depends_on']??[]);
                 if (count($dependencies)!==1 || ($keyArtifacts[$dependencies[0]]??'')!=='subject') throw new RuntimeException('INVALID_AGENT_ACTION');
             }
             if ($artifact==='storyboard') {
                 $dependencies=(array)($proposal['depends_on']??[]);
-                if (!$dependencies || !array_intersect(array_map(static fn(string $key): string => (string)($keyArtifacts[$key]??''),$dependencies),['scene','prop'])) throw new RuntimeException('INVALID_AGENT_ACTION');
+                if (!$dependencies || !array_intersect(array_map(static fn(string $key): string => (string)($keyArtifacts[$key]??''),$dependencies),$compact?['scene']:['scene','prop'])) throw new RuntimeException('INVALID_AGENT_ACTION');
             }
             if ($artifact==='episode_outline') {
                 $dependencies=(array)($proposal['depends_on']??[]);
@@ -517,6 +524,51 @@ final class GraphService
                 if (count($dependencies)!==1 || ($keyArtifacts[$dependencies[0]]??'')!=='episode_outline') throw new RuntimeException('INVALID_AGENT_ACTION');
             }
         }
+        if ($compact && $workflowStage==='script') {
+            $artifacts=array_count_values(array_map(static fn(array $proposal): string=>(string)($proposal['artifact']??''),$proposals));
+            if (count($proposals)!==2 || ($artifacts['story_setting']??0)!==1 || ($artifacts['episode_script']??0)!==1) throw new RuntimeException('INVALID_AGENT_ACTION');
+        }
+    }
+
+    /** New workflow versions resolve only explicitly named generation inputs.
+     * The frozen artifact ledger binds a reference key to one node ID, so a
+     * second workflow on the same canvas cannot steal the first one's key. */
+    private static function compactWorkflowReferenceSources(array $nodes,string $stage,array $proposal,array $workflow,array $selected): array
+    {
+        $allowed=match ($stage) {
+            'assets'=>[],
+            'storyboard'=>['assets'=>['subject','three_view']],
+            'video_nodes'=>['assets'=>['subject','three_view'],'storyboard'=>['scene','storyboard']],
+            default=>[],
+        };
+        $byId=[];
+        foreach ($nodes as $node) if (is_array($node)) $byId[(string)($node['id']??'')]=$node;
+        $memory=[];
+        foreach ((array)($workflow['artifact_memory']??[]) as $item) if (is_array($item)) {
+            $key=(string)($item['reference_key']??'');
+            if ($key!=='') $memory[$key]=$item;
+        }
+        $ids=[];$hasStoryboard=false;
+        foreach ((array)($proposal['reference_keys']??[]) as $key) {
+            $key=(string)$key;
+            if (preg_match('/^selected:node_([1-9][0-9]{0,15})$/D',$key,$match)) {
+                $id=$match[1];
+                if (!in_array($id,$selected,true) || !isset($byId[$id])) throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
+                $ids[$id]=true;
+                continue;
+            }
+            $item=$memory[$key]??null;
+            if (!is_array($item)) throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
+            $sourceStage=(string)($item['stage']??'');$artifact=(string)($item['artifact']??'');
+            if (!in_array($artifact,(array)($allowed[$sourceStage]??[]),true)) throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
+            $id=(string)($item['node_id']??'');$node=$byId[$id]??null;
+            $metadata=(array)($node['metadata']??[]);
+            if (!$node || (string)($node['type']??'')!=='image' || (string)($metadata['workflow_key']??'')!==$key || (string)($metadata['workflow_artifact']??'')!==$artifact) throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
+            $ids[$id]=true;
+            if ($sourceStage==='storyboard' && $artifact==='storyboard') $hasStoryboard=true;
+        }
+        if ($stage==='video_nodes' && !$hasStoryboard) throw new RuntimeException('WORKFLOW_STORYBOARD_REFERENCE_REQUIRED');
+        return array_keys($ids);
     }
     /** @return list<string> workflow-owned node IDs allowed as durable references for this exact proposed artifact. */
     private static function workflowReferenceSources(array $nodes,string $stage,array $proposal): array {
@@ -531,6 +583,7 @@ final class GraphService
         if (!$sourceStages) return [];
         $requested=array_values((array)($proposal['reference_keys']??[]));
         $requestedLookup=array_fill_keys($requested,true);
+        $hasRequested=$requested!==[];
         $fallbackArtifacts=match ($stage) {
             'assets'=>match ((string)($proposal['artifact']??'')) {
                 'subject'=>['character_asset_spec','subject_image_prompt'],
@@ -554,7 +607,7 @@ final class GraphService
             if (!in_array((string)($node['type']??''),['text','image'],true) || !in_array((string)($metadata['workflow_source_stage']??''),$sourceStages,true)) continue;
             $workflowKey=(string)($metadata['workflow_key']??'');
             $artifact=(string)($metadata['workflow_artifact']??'');
-            if ($requestedLookup) {
+            if ($hasRequested) {
                 if (!isset($requestedLookup[$workflowKey])) continue;
                 unset($requestedLookup[$workflowKey]);
             } elseif (!in_array($artifact,$fallbackArtifacts,true)) continue;

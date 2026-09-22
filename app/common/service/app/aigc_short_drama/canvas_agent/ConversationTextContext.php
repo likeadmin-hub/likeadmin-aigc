@@ -97,7 +97,7 @@ final class ConversationTextContext
                 'content'=>mb_substr($content,0,6000),
             ];
         }
-        foreach (array_slice((array)($workflow['artifact_memory']??[]),-12) as $item) {
+        foreach (array_slice((array)($workflow['artifact_memory']??[]),-32) as $item) {
             if (!is_array($item)) continue;
             $referenceKey=trim((string)($item['reference_key']??''));
             if ($referenceKey==='' || !preg_match('/^[a-z][a-z0-9_-]{0,47}:[a-z][a-z0-9_-]{0,31}$/D',$referenceKey)) continue;
@@ -118,6 +118,10 @@ final class ConversationTextContext
                 $material['prompt']=mb_substr((string)$node['prompt'],0,2000);
             } else $material['media_understanding_available']=$node['type']==='image' && !empty($node['image_asset']);
             $materials[]=$material;
+            if (ConversationWorkflow::compactOutput($workflow) && preg_match('/^[1-9][0-9]{0,15}$/D',(string)$node['id'])) {
+                $referenceKey='selected:node_'.(string)$node['id'];
+                $referenceCatalog[$referenceKey]=['reference_key'=>$referenceKey,'stage'=>'selected','artifact'=>(string)$node['type'],'title'=>'用户选择的'.(string)$node['type'].'节点'];
+            }
         }
         $payload=[
             'user_request'=>(string)$last['content'],

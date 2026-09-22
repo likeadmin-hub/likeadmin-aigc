@@ -18,7 +18,52 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-23.2';
+    public const VERSION = '2026-09-23.3';
+
+    /** Old frozen conversations retain their original canvas projection. */
+    public static function compactOutput(array $workflow): bool
+    {
+        return ($workflow['workflow_snapshot']['key']??'')===self::KEY
+            && version_compare((string)($workflow['workflow_snapshot']['version']??'0'),'2026-09-23.3','>=');
+    }
+
+    /** Confirmed text is prompt context, not a decorative media edge. Only
+     * explicitly selected stage artifacts are folded into the frozen media
+     * proposal, so quotation and eventual submission use the same prompt. */
+    public static function materializeTextReferences(array $workflow,array $proposals): array
+    {
+        if (!self::compactOutput($workflow)) return $proposals;
+        $memory=[];
+        foreach ((array)($workflow['artifact_memory']??[]) as $item) {
+            if (!is_array($item) || !in_array((string)($item['stage']??''),['script','art','video_plan'],true)) continue;
+            $key=(string)($item['reference_key']??'');
+            if ($key!=='') $memory[$key]=$item;
+        }
+        foreach ($proposals as &$proposal) {
+            if (!is_array($proposal) || !in_array((string)($proposal['type']??''),['image','video'],true)) continue;
+            $refs=[];$parts=[];
+            foreach ((array)($proposal['reference_keys']??[]) as $key) {
+                $key=(string)$key;
+                $stage=explode(':',$key,2)[0];
+                if (!in_array($stage,['script','art','video_plan'],true)) { $refs[]=$key; continue; }
+                $item=$memory[$key]??null;
+                if (!is_array($item)) throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
+                $content=trim((string)($item['content']??''));
+                if ($content==='') throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
+                $parts[]='【'.mb_substr((string)($item['title']??''),0,80).'】'."\n".mb_substr($content,0,3500);
+            }
+            $prompt=trim((string)($proposal['prompt']??''));
+            if ($parts) {
+                $prompt.="\n\n【已确认的相关创作规划】\n".implode("\n\n",$parts);
+                if (mb_strlen($prompt)>20000) throw new RuntimeException('INVALID_AGENT_ACTION');
+                $proposal['prompt']=$prompt;
+            }
+            if ($refs) $proposal['reference_keys']=$refs;
+            else unset($proposal['reference_keys']);
+        }
+        unset($proposal);
+        return $proposals;
+    }
 
     /** @return array<string,mixed> */
     public static function catalog(): array
@@ -39,10 +84,10 @@ final class ConversationWorkflow
             'stages'=>[
                 ['key'=>'intake','label'=>'创作采集','skills'=>['创作采集'],'creates_nodes'=>false],
                 ['key'=>'script','label'=>'剧本与角色设定','skills'=>['剧本创作','角色设定'],'creates_nodes'=>true],
-                ['key'=>'art','label'=>'画风与美术规划','skills'=>['画风设计','主体设计','场景设计','道具设计'],'creates_nodes'=>true],
+                ['key'=>'art','label'=>'画风与美术规划','skills'=>['画风设计','主体设计','场景设计','道具设计'],'creates_nodes'=>false],
                 ['key'=>'assets','label'=>'主体资产','skills'=>['主体图','主体三视图'],'creates_nodes'=>true,'auto_types'=>['image']],
                 ['key'=>'storyboard','label'=>'场景与分镜图','skills'=>['场景设计','道具设计','分镜设计','分镜图'],'creates_nodes'=>true,'auto_types'=>['image']],
-                ['key'=>'video_plan','label'=>'分镜视频规划','skills'=>['分镜视频规划'],'creates_nodes'=>true],
+                ['key'=>'video_plan','label'=>'分镜视频规划','skills'=>['分镜视频规划'],'creates_nodes'=>false],
                 ['key'=>'video_nodes','label'=>'分镜视频节点','skills'=>['分镜视频'],'creates_nodes'=>true,'manual_types'=>['video']],
                 ['key'=>'audio_plan','label'=>'音频规划','skills'=>['音频规划'],'creates_nodes'=>true,'disabled_types'=>['audio']],
             ],
@@ -180,9 +225,9 @@ final class ConversationWorkflow
             $frozenSettings=['generation_mode'=>'auto','image_model'=>(array)($state['workflow_snapshot']['model_preferences']['image_model']??[])];
             if (($frozenSettings['image_model']['id']??'')==='') throw new RuntimeException('WORKFLOW_IMAGE_MODEL_UNAVAILABLE');
             $state['plan_confirmation']=['status'=>'confirmed','confirmed_at'=>time(),'plan_hash'=>$planHash];
-            $effects=GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),true,$frozenSettings,(int)$plan['run_id'],self::publicState($state));
+            $effects=GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),true,$frozenSettings,(int)$plan['run_id'],$state);
             $effects['mode']='auto';
-            self::rememberArtifacts($state,$stage,(array)$plan['nodes']);
+            self::rememberArtifacts($state,$stage,(array)$plan['nodes'],$effects);
             $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$stage])));
             $state['stage_state']=['key'=>self::nextStage($stage),'status'=>'ready','completed'=>$completed];
             $state['state_revision']++;
@@ -209,16 +254,17 @@ final class ConversationWorkflow
             $stage=(string)($state['stage_state']['key']??'');$plan=(array)($state['stage_plan']??[]);
             if (!in_array($stage,['script','art','video_plan'],true) || ($state['stage_state']['status']??'')!=='awaiting_stage_confirmation' || !self::validStagePlan($plan,$stage)) throw new RuntimeException('WORKFLOW_STAGE_PLAN_STALE');
             self::assertPlanSources($document,$tenant,$user,$canvas,$plan);
-            $effects=GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),false,[],(int)$plan['run_id'],self::publicState($state));
-            $effects['mode']='manual';
-            self::rememberArtifacts($state,$stage,(array)$plan['nodes']);
+            $visible=!self::compactOutput($state) || $stage==='script';
+            $effects=$visible ? GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),false,[],(int)$plan['run_id'],$state) : [];
+            if ($effects) $effects['mode']='manual';
+            self::rememberArtifacts($state,$stage,(array)$plan['nodes'],$effects);
             $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$stage])));
             $state['stage_plan']=[];
             $state['stage_state']=['key'=>self::nextStage($stage),'status'=>'ready','completed'=>$completed];
             $state['state_revision']++;
             $settings['workflow_state']=$state;
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
-            return ['workflow'=>self::publicState($state),'card'=>self::card($state),'canvas_actions'=>$effects];
+            return ['workflow'=>self::publicState($state),'card'=>self::card($state)]+($effects?['canvas_actions'=>$effects]:[]);
         });
     }
 
@@ -294,7 +340,7 @@ final class ConversationWorkflow
     }
 
     /** Called only by ConversationExecution while it owns the thread lock. */
-    public static function advanceAfterReplyLocked(array $thread,array $workflow,array $settings,string $text,array $proposals=[]): ?array
+    public static function advanceAfterReplyLocked(array $thread,array $workflow,array $settings,string $text,array $proposals=[],array $effects=[]): ?array
     {
         if (($workflow['workflow_snapshot']['key']??'')!==self::KEY) return null;
         $state=self::stateFromSettings($settings); if ($state===[]) return null; self::assertState($state);
@@ -302,7 +348,7 @@ final class ConversationWorkflow
         $current=(string)$state['stage_state']['key'];
         $next=self::nextStage($current);
         if ($next==='') return null;
-        self::rememberArtifacts($state,$current,$proposals);
+        self::rememberArtifacts($state,$current,$proposals,$effects);
         $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$current])));
         $state['stage_state']=['key'=>$next,'status'=>'ready','completed'=>$completed];$state['state_revision']++;
         $settings['workflow_state']=$state;
@@ -350,7 +396,19 @@ final class ConversationWorkflow
         if ($configured) $labels=$configured;
         if ($stage==='intake') return "\n【短剧工作流】当前在创作采集阶段。只补问尚未确认的信息，不创建画布节点、不提交媒体任务。";
         $contract=self::outputContract($stage);
-        $contractText=$contract ? '本阶段结构化交付字段：'.implode('、',$contract).'。这些字段必须写入受控文本节点的内容；不能输出任意画布 JSON。' : '';
+        $contractText=$contract ? '本阶段结构化交付字段：'.implode('、',$contract).'。这些字段必须写入受控产物；不能输出任意画布 JSON。' : '';
+        if (self::compactOutput($workflow)) {
+            $suffix=match ($stage) {
+                'script'=>'只把故事设定与大纲、当前单集剧本写入画布；它们是独立可读内容，不创建文本之间的生成依赖。',
+                'art','video_plan'=>'本阶段规划保存在对话工作流状态中，不创建画布文本节点。后续生成提示词只引用相关规划，不把全部规划画成连线。',
+                'assets'=>'主体三视图必须依赖对应主体图；除用户明确选择的素材外，不连无关节点。',
+                'storyboard'=>'场景图只包含场景；分镜图只引用此镜头实际使用的主体图、三视图和场景图。',
+                'video_nodes'=>'每个视频节点引用对应分镜图及必要素材，始终由用户逐节点手动提交。',
+                default=>'按受控产物规则执行，不连接无关节点。',
+            };
+            if (in_array($stage,['script','art','video_plan'],true)) $suffix='必须输出唯一结构化结果对象。'.$suffix;
+            return "\n【短剧工作流】当前阶段：{$stage}。读取技能指令：".implode('、',$labels)."。{$contractText}{$suffix}";
+        }
         $suffix=$stage==='assets'
             ? '若建议生成节点，仍须使用受限 canvas-actions 格式；主体三视图必须真实依赖同批主体图；前序剧本和美术文本节点会被服务器建立为真实参考连线；只引用已提供的画布素材，不能编造素材 ID、价格或任务状态。'
             : ($stage==='storyboard'
@@ -452,7 +510,7 @@ final class ConversationWorkflow
         $stages=array_values(array_filter((array)($state['workflow_snapshot']['stages']??[]),'is_array'));
         $stageIndex=0;
         foreach ($stages as $index=>$item) if (($item['key']??'')===$stageKey) {$stageIndex=$index+1;break;}
-        $stageCard=['stage'=>$stageKey,'stage_label'=>(string)($definition['label']??'短剧创作'),'skills'=>$configured?:array_values((array)($definition['skills']??[])),
+        $stageCard=['stage'=>$stageKey,'stage_label'=>(string)($definition['label']??'短剧创作'),'skills'=>$configured?:array_values((array)($definition['skills']??[])),'creates_nodes'=>(bool)($definition['creates_nodes']??false),
             'stage_index'=>$stageIndex,'stage_total'=>count($stages),'completed'=>array_values(array_map('strval',(array)($stage['completed']??[]))),
             'output_fields'=>self::outputContract($stageKey)];
         if (($stage['key']??'')==='intake' && ($stage['status']??'')==='collecting') {
@@ -465,9 +523,10 @@ final class ConversationWorkflow
         }
         if (in_array(($stage['key']??''),['script','art','video_plan'],true) && ($stage['status']??'')==='awaiting_stage_confirmation') {
             $plan=(array)($state['stage_plan']??[]);
-            return $stageCard+['type'=>'stage_confirmation','title'=>'确认写入本阶段成果','body'=>'Agent 已完成本阶段的结构化内容。确认后才会把剧本、设定或分镜提示词写入画布；未确认前内容只保留在本次对话中。','plan'=>['node_count'=>count((array)($plan['nodes']??[]))]];
+            $internal=self::compactOutput($state) && in_array($stageKey,['art','video_plan'],true);
+            return $stageCard+['type'=>'stage_confirmation','title'=>$internal?'确认创作规划':'确认写入本阶段成果','body'=>$internal?'确认后，规划只保存在本次对话与工作流状态中，不会新增画布文本节点。':'Agent 已完成本阶段的结构化内容。确认后才会写入画布；未确认前内容只保留在本次对话中。','plan'=>['node_count'=>$internal?0:count((array)($plan['nodes']??[])),'artifact_count'=>count((array)($plan['nodes']??[]))],'action_label'=>$internal?'确认并继续':'确认并写入画布'];
         }
-        if (($stage['key']??'')==='script' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'创作采集已完成','body'=>'下一条消息会生成剧本设定、分集大纲和分镜脚本，并写回受控文本节点。'];
+        if (($stage['key']??'')==='script' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'创作采集已完成','body'=>self::compactOutput($state)?'下一条消息会生成故事设定与大纲、当前单集剧本；确认后只把这两项写入画布。':'下一条消息会生成剧本设定、分集大纲和分镜脚本，并写回受控文本节点。'];
         if (($stage['key']??'')==='video_nodes' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'准备插入分镜视频节点','body'=>'下一次受控对话会一次性插入全部分镜视频待生成节点；它们不会自动报价或提交。'];
         if (($stage['key']??'')==='audio_plan' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'准备音频规划','body'=>'音频规划节点只用于展示与后续衔接，当前没有生成入口。'];
         return $stageCard+['type'=>'stage','title'=>'工作流进行中','body'=>'当前阶段状态已冻结，等待下一次受控对话执行。'];
@@ -513,17 +572,17 @@ final class ConversationWorkflow
      * content can be long, so a later provider gets the latest six artifacts
      * capped to a predictable request size rather than an ever-growing chat.
      */
-    private static function rememberArtifacts(array &$state,string $stage,array $proposals): void {
+    private static function rememberArtifacts(array &$state,string $stage,array $proposals,array $effects=[]): void {
         $memory=array_values(array_filter((array)($state['artifact_memory']??[]),'is_array'));
-        foreach ($proposals as $proposal) {
+        foreach ($proposals as $index=>$proposal) {
             if (!is_array($proposal)) continue;
             $content=trim((string)($proposal['prompt']??''));
             $artifact=trim((string)($proposal['artifact']??''));
             if ($content==='' || $artifact==='') continue;
             $key=trim((string)($proposal['key']??''));
-            $memory[]=['stage'=>$stage,'artifact'=>$artifact,'key'=>$key,'reference_key'=>$key===''?'':$stage.':'.$key,'title'=>mb_substr(trim((string)($proposal['title']??'')),0,80),'content'=>mb_substr($content,0,6000)];
+            $memory[]=['stage'=>$stage,'artifact'=>$artifact,'key'=>$key,'reference_key'=>$key===''?'':$stage.':'.$key,'node_id'=>(string)($effects['nodes'][$index]['id']??''),'title'=>mb_substr(trim((string)($proposal['title']??'')),0,80),'content'=>mb_substr($content,0,6000)];
         }
-        $state['artifact_memory']=array_slice($memory,-12);
+        $state['artifact_memory']=array_slice($memory,-32);
     }
     private static function publicArtifacts(array $artifacts): array {
         $items=[];
