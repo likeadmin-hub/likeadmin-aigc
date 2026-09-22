@@ -1512,6 +1512,13 @@ class MarketVideoRuntimeService
             $count = count($items); if ($count === 0) continue;
             $limit = self::referenceLimit($product, $metadata, $type); $supported = self::supportedAssetTypes($product, $metadata);
             if (!in_array($type, $supported, true)) throw new Exception('selected video model does not support reference ' . self::assetLabel($type));
+            // A declared modality does not imply unlimited reference capacity.
+            // Explicit total limits and the validated one/two-frame contracts
+            // remain sufficient bounds when no per-modality limit is supplied.
+            if ($limit <= 0 && self::referenceAssetLimit($product, $metadata) <= 0
+                && !in_array($generationMethod, ['image_to_video', 'start_end'], true)) {
+                throw new Exception('selected video model reference limit is unavailable; refresh model capabilities before generating');
+            }
             if ($limit > 0 && $count > $limit) throw new Exception('selected video model supports at most ' . $limit . ' reference ' . self::assetLabel($type));
         }
         $totalLimit = self::referenceAssetLimit($product, $metadata);
