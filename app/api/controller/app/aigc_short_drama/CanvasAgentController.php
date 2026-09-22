@@ -8,6 +8,7 @@ use app\common\service\app\aigc_short_drama\canvas_agent\ConversationService;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationPreferences;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationDocuments;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow;
 use RuntimeException;
 
 /** Authenticated short-drama conversation API; send is persistence-only. */
@@ -63,6 +64,20 @@ final class CanvasAgentController extends BaseApiController
         $revision=self::number($p['expected_revision']??null,true);
         if (!is_array($p['preferences']??null)) throw new RuntimeException('INVALID_AGENT_PREFERENCES');
         return ConversationPreferences::save((int)$this->request->tenantId,$this->userId,$revision,$p['preferences']);
+    }); }
+
+    /** Platform-owned workflow definition plus this thread's frozen state. */
+    public function workflow() { return $this->respond(function () {
+        $p=$this->request->get();
+        return ConversationWorkflow::read((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null),self::number($p['thread_id']??null));
+    }); }
+
+    /** A structured answer card changes only the next frozen intake slot. */
+    public function answerWorkflow() { return $this->respond(function () {
+        $p=$this->request->post();
+        if (array_diff(array_keys($p),['canvas_id','thread_id','expected_revision','slot','value'])) throw new RuntimeException('UNSUPPORTED_MESSAGE_FIELD');
+        if (!is_string($p['slot']??null) || !is_string($p['value']??null)) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
+        return ConversationWorkflow::answer((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null),self::number($p['thread_id']??null),self::number($p['expected_revision']??null,true),$p['slot'],$p['value']);
     }); }
 
     /** Quotes a registered PDF/Office attachment. Quote itself never submits a provider task. */
@@ -160,7 +175,7 @@ final class CanvasAgentController extends BaseApiController
         try {return $this->success('success',$action());}
         catch (\Throwable $error) {
             $code=$error->getMessage();
-            $public=['CANVAS_NOT_FOUND','THREAD_NOT_FOUND','RUN_NOT_FOUND','CANVAS_AGENT_DISABLED','IDEMPOTENCY_CONFLICT','THREAD_BUSY','VERSION_CONFLICT','PREFERENCE_VERSION_CONFLICT','INVALID_PREFERENCE_REVISION','NODE_NOT_FOUND','INVALID_IDENTIFIER','INVALID_THREAD_REQUEST','INVALID_THREAD_TITLE','INVALID_REQUEST_KEY','INVALID_MESSAGE','INVALID_NODE_REFERENCES','INVALID_BASE_REVISION','UNSUPPORTED_MESSAGE_FIELD','CONTEXT_TOO_LARGE','INVALID_ATTACHMENTS','IMAGE_REFERENCE_UNAVAILABLE','TOO_MANY_IMAGE_REFERENCES','INVALID_AGENT_PREFERENCES','INVALID_GENERATION_MODE','INVALID_MODEL_SELECTION','REASONING_MODEL_UNAVAILABLE','IMAGE_MODEL_UNAVAILABLE','VIDEO_MODEL_UNAVAILABLE','INVALID_SKILL_SELECTION','SKILL_UNAVAILABLE','CONTENT_BLOCKED','DOCUMENT_NOT_FOUND','DOCUMENT_NOT_READY','DOCUMENT_INVALID_STATE','DOCUMENT_QUOTE_EXPIRED','DOCUMENT_URL_UNAVAILABLE','DOCUMENT_PARSE_SUBMIT_FAILED','DOCUMENT_PARSE_RECORD_MISSING'];
+            $public=['CANVAS_NOT_FOUND','THREAD_NOT_FOUND','RUN_NOT_FOUND','CANVAS_AGENT_DISABLED','IDEMPOTENCY_CONFLICT','THREAD_BUSY','VERSION_CONFLICT','PREFERENCE_VERSION_CONFLICT','INVALID_PREFERENCE_REVISION','NODE_NOT_FOUND','INVALID_IDENTIFIER','INVALID_THREAD_REQUEST','INVALID_THREAD_TITLE','INVALID_REQUEST_KEY','INVALID_MESSAGE','INVALID_NODE_REFERENCES','INVALID_BASE_REVISION','UNSUPPORTED_MESSAGE_FIELD','CONTEXT_TOO_LARGE','INVALID_ATTACHMENTS','IMAGE_REFERENCE_UNAVAILABLE','TOO_MANY_IMAGE_REFERENCES','INVALID_AGENT_PREFERENCES','INVALID_GENERATION_MODE','INVALID_MODEL_SELECTION','REASONING_MODEL_UNAVAILABLE','IMAGE_MODEL_UNAVAILABLE','VIDEO_MODEL_UNAVAILABLE','INVALID_SKILL_SELECTION','SKILL_UNAVAILABLE','CONTENT_BLOCKED','DOCUMENT_NOT_FOUND','DOCUMENT_NOT_READY','DOCUMENT_INVALID_STATE','DOCUMENT_QUOTE_EXPIRED','DOCUMENT_URL_UNAVAILABLE','DOCUMENT_PARSE_SUBMIT_FAILED','DOCUMENT_PARSE_RECORD_MISSING','WORKFLOW_NOT_ACTIVE','WORKFLOW_VERSION_CONFLICT','WORKFLOW_SLOT_OUT_OF_ORDER','WORKFLOW_STAGE_NOT_COLLECTING','INVALID_WORKFLOW_ANSWER'];
             return $this->fail(in_array($code,$public,true)?$code:'AGENT_REQUEST_FAILED');
         }
     }

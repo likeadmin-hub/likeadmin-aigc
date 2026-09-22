@@ -26,7 +26,8 @@ final class ConversationService
         if (!ConversationStore::hasRunRequestKey($tenant,$user,$canvas,$thread,$key)) {
             ConversationSafety::assertInput($tenant,$user,$canvas,$thread,$key,$content.($attachments ? "\n".json_encode($attachments,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR) : ''));
         }
-        return ConversationStore::enqueue($tenant,$user,$canvas,$thread,array_intersect_key($request,array_flip($messageKeys)),static function () use ($tenant,$preferences,$skillId,$skillVersion): array {
+        $selectedIds=(array)($request['selected_node_ids']??[]);
+        return ConversationStore::enqueue($tenant,$user,$canvas,$thread,array_intersect_key($request,array_flip($messageKeys)),static function (array $conversation) use ($tenant,$preferences,$skillId,$skillVersion,$key,$content,$selectedIds,$attachments): array {
             $settings=ConversationSettings::resolve($tenant,$preferences);
             $skill=[];
             if ($skillId>0) {
@@ -36,7 +37,8 @@ final class ConversationService
                 }
                 catch (\Throwable $error) {throw new RuntimeException('SKILL_UNAVAILABLE',0,$error);}
             }
-            return ['settings'=>$settings,'skill'=>$skill];
+            $workflow=ConversationWorkflow::prepare($tenant,$conversation,$content,$selectedIds,$attachments,$preferences);
+            return ['settings'=>$settings,'skill'=>$skill,'workflow'=>$workflow['workflow'],'thread_settings'=>$workflow['thread_settings']];
         },['preferences'=>$preferences,'skill_id'=>$skillId,'skill_version'=>$skillVersion]);
     }
 }

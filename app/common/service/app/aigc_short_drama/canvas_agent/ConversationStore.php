@@ -78,8 +78,8 @@ final class ConversationStore
             if ($candidates) return self::clarifyReference($scope,$conversation,$key,$hash,$revision,$content,$candidates);
             // Server-owned resolver performs local catalog reads only. Never
             // do provider I/O here; replay must not re-resolve changing defaults.
-            if ($resolvedSnapshot instanceof \Closure) $resolvedSnapshot=$resolvedSnapshot();
-            if (array_diff(array_keys($resolvedSnapshot),['settings','skill']) || !is_array($resolvedSnapshot['settings']??null) || !is_array($resolvedSnapshot['skill']??null)) throw new RuntimeException('INVALID_RESOLVED_SNAPSHOT');
+            if ($resolvedSnapshot instanceof \Closure) $resolvedSnapshot=$resolvedSnapshot($conversation);
+            if (array_diff(array_keys($resolvedSnapshot),['settings','skill','workflow','thread_settings']) || !is_array($resolvedSnapshot['settings']??null) || !is_array($resolvedSnapshot['skill']??null) || (array_key_exists('workflow',$resolvedSnapshot) && !is_array($resolvedSnapshot['workflow'])) || (array_key_exists('thread_settings',$resolvedSnapshot) && !is_array($resolvedSnapshot['thread_settings']))) throw new RuntimeException('INVALID_RESOLVED_SNAPSHOT');
             $selected=[];
             foreach ($nodes as $node) {
                 if (in_array((string)$node['id'],$ids,true)) {
@@ -112,6 +112,7 @@ final class ConversationStore
             foreach ($attachments as $attachment) if ($attachment['type']==='image') $attachmentImages[]=ConversationImages::freezeAsset($tenant,$user,$canvas,(int)$attachment['asset_id']);
             if (count(array_filter($selected,static fn(array $node)=>$node['type']==='image'))+count($attachmentImages)>4) throw new RuntimeException('TOO_MANY_IMAGE_REFERENCES');
             $context=['graph_revision'=>$revision,'selected_nodes'=>array_map(static fn($id)=>$selected[$id],$ids),'attachment_images'=>$attachmentImages,'material_trust'=>'untrusted','messages'=>$messages,'history_policy'=>'last_38_plus_current'];
+            if (!empty($resolvedSnapshot['workflow'])) $context['workflow']=$resolvedSnapshot['workflow'];
             $contextJson=self::json($context);
             $settings=self::json($resolvedSnapshot['settings']);$skill=self::json($resolvedSnapshot['skill']);
             if (strlen($contextJson)+strlen($settings)+strlen($skill)>1048576) throw new RuntimeException('CONTEXT_TOO_LARGE');
@@ -126,7 +127,9 @@ final class ConversationStore
             Db::name(self::PREFIX.'outbox')->insert($scope+['run_id'=>$run,'event_key'=>'run:'.$run,'available_at'=>$now,'create_time'=>$now,'update_time'=>$now]);
             $ack=['thread_id'=>$thread,'run_id'=>(int)$run,'status'=>'queued','event_cursor'=>(int)$cursor,'message_sequence'=>$sequence];
             Db::name(self::PREFIX.'run')->where('id',$run)->update(['ack_json'=>self::json($ack)]);
-            Db::name(self::PREFIX.'thread')->where('id',$thread)->update(['active_run_id'=>$run,'next_message_sequence'=>$sequence+1,'update_time'=>$now]);
+            $threadUpdate=['active_run_id'=>$run,'next_message_sequence'=>$sequence+1,'update_time'=>$now];
+            if (array_key_exists('thread_settings',$resolvedSnapshot)) $threadUpdate['settings_json']=self::json($resolvedSnapshot['thread_settings']);
+            Db::name(self::PREFIX.'thread')->where('id',$thread)->update($threadUpdate);
             return $ack;
         });
     }
