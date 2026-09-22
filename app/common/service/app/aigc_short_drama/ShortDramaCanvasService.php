@@ -384,6 +384,10 @@ class ShortDramaCanvasService
         $nodeId=trim((string)($params['node_id']??''));
         $type=strtolower(trim((string)($params['type']??'')));
         if (!in_array($type,['text','image','video','audio'],true)) throw new Exception('不支持的短剧画布节点类型');
+        // Validate the saved target before any video-specific confirmation
+        // policy. A stale/deleted node must never be reported as a pricing
+        // issue, nor cause a quote lookup.
+        self::assertGenerationNode($document, $nodeId, $type);
         $key=(string)($params['request_key']??'');
         $payload=self::generationPayload($type,$params,$tenantId,$userId,(int)$document['id']);
         $requestInput=$payload+['skill_id'=>(int)($params['skill_id']??0),'skill_version'=>(int)($params['skill_version']??0),'skill_inputs'=>(array)($params['skill_inputs']??[])];
