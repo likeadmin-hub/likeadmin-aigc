@@ -893,3 +893,11 @@ M10 新增测试 `b6e6b448a` 在实际市场 assertAssets 复现 FAIL：合成�
 从已合入本地 develop 运行：幂等入口 **53 PASS / 0 FAIL**，旧入口 **19 PASS / 0 FAIL**。保留四节点、重放十次、实际积分服务仅扣一次、未知结果不盲重提、乱序完成和删除不复活等既有回归。全部为 internal 网络/独立数据库的合成 Provider 测试，事务回滚，无真实扣费和业务库写入。
 
 M13 的画布服务边界已有直接行为证据，无需新增产品补丁。实际 LLM Provider、HTTP/浏览器生成未运行，不冒充完整真实链路；P3 其他门槛仍未完成，P4—P6 NOT_RUN。本轮仅 server 测试和文档，无 web/API/schema 变化，无常驻进程重载、部署或推送。
+
+## 47. P3 模型与参考变更的生成键冲突验证（2026-09-22）
+
+测试 `3c16cba43` 经实际 Canvas::submitIdempotent/generationPayload/GenerationIntentService 和隔离数据库，验证同一视频生成键在 model_code、resolution、参考集合、首尾帧 role、参考数组顺序分别变化后均返回 IDEMPOTENCY_CONFLICT，不再调用合成下游，且原 request_json 快照不被覆盖。不是只对私有 hash 函数做单测。
+
+本地 develop 集成后 p0_generation.php idempotent **59 PASS / 0 FAIL**，其中本轮新增 6 项；原四节点与计费/乱序/删除回归保留。依回归保护技能保留实际 Canvas 与 PointService，仅下游应用生成服务为测试替身；internal 网络、真实 .env 遮盖、独立数据库事务回滚，无业务数据或付费调用。
+
+重要边界：request_hash 是生成幂等校验，不是 quote_hash。本轮仅证明 M06/M14 的冻结输入与重复提交防护部分，报价变化后的确认失效机制仍未实现/验收，不能把这些 PASS 算成 M14 完整放行。仅 server 测试/文档修改，web/API/schema 不变，无进程重载、部署或推送。P3 未整体放行，P4—P6 NOT_RUN。
