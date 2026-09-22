@@ -106,6 +106,18 @@ try {
     agentCheck(!str_contains(json_encode($unknown),'private late evidence') && !str_contains(json_encode($unknown),$claim['token']),'run snapshot excludes late text and worker token');
     $sse=agentSse($args+['run_id'=>$second['run_id'],'event_after'=>0,'message_after'=>0,'wait_seconds'=>0]);
     agentCheck(!str_contains($sse,'private late evidence') && str_contains($sse,'needs_reconciliation'),'SSE excludes private late reply evidence');
+    $workflowThread=agentHttp('createThread','POST',['canvas_id'=>$canvas,'request_key'=>'workflow-thread'])['data']['id'];
+    $workflowSend=agentHttp('send','POST',['canvas_id'=>$canvas,'thread_id'=>$workflowThread,'request_key'=>'workflow-route','content'=>'我想创作一部悬疑短剧','base_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'manual']]);
+    agentCheck($workflowSend['code']===1,'HTTP accepts a semantic short-drama workflow route without invoking a Provider');
+    $workflowArgs=['canvas_id'=>$canvas,'thread_id'=>$workflowThread];
+    $workflowView=agentHttp('workflow','GET',$workflowArgs);
+    agentCheck(($workflowView['data']['workflow']['stage_state']['key']??'')==='intake' && ($workflowView['data']['card']['slot']['key']??'')==='genre','HTTP reads the frozen workflow state and first server-owned intake card');
+    agentCheck(agentHttp('answerWorkflow','POST',$workflowArgs+['expected_revision'=>(int)$workflowView['data']['workflow']['state_revision'],'slot'=>'genre','value'=>'悬疑反转'])['msg']==='THREAD_BUSY','HTTP workflow cards cannot bypass an active conversation run');
+    $workflowStop=agentHttp('stop','POST',$workflowArgs+['run_id'=>$workflowSend['data']['run_id']]);
+    agentCheck(($workflowStop['data']['status']??'')==='canceled','HTTP stops the route turn before allowing a card-only answer');
+    $workflowView=agentHttp('workflow','GET',$workflowArgs)['data'];
+    $workflowAnswer=agentHttp('answerWorkflow','POST',$workflowArgs+['expected_revision'=>(int)$workflowView['workflow']['state_revision'],'slot'=>'genre','value'=>'悬疑反转']);
+    agentCheck(($workflowAnswer['data']['card']['slot']['key']??'')==='episode_count','HTTP persists only the requested frozen workflow slot in order');
     $asset=Db::name('aigc_short_drama_asset')->insertGetId(['tenant_id'=>94001,'user_id'=>95001,'canvas_id'=>$canvas,'asset_type'=>'canvas_image','title'=>'HTTP 图片','uri'=>'https://assets.example.test/http-owned.png','storage_scope'=>'tenant','storage_engine'=>'oss','storage_domain'=>'https://assets.example.test','status'=>'ready']);$inserted[]=['aigc_short_drama_asset',$asset];
     $imageThread=agentHttp('createThread','POST',['canvas_id'=>$canvas,'request_key'=>'image-thread'])['data']['id'];
     $imageSend=agentHttp('send','POST',['canvas_id'=>$canvas,'thread_id'=>$imageThread,'request_key'=>'image-attachment','content'=>'分析图片','base_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product],'attachments'=>[['type'=>'image','asset_id'=>$asset,'name'=>'HTTP 图片','url'=>'https://forged.example/private.png']]]);
