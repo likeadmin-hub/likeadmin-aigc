@@ -288,6 +288,7 @@ class ShortDramaCanvasService
         }
         if (!$savedNode) throw new Exception('NODE_NOT_FOUND: 请先保存节点，已删除的节点不能生成');
         if ((string)($savedNode['type'] ?? '') !== $type) throw new Exception('NODE_TYPE_MISMATCH: 节点类型已变化，请重新读取画布');
+        $params=self::withGraphReferenceInputs($document,$nodeId,$params);
         $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id']);
         // Resolve on the server so disabled, cross-tenant and stale Skills
         // cannot be submitted by replaying a saved composer selection.
@@ -349,6 +350,7 @@ class ShortDramaCanvasService
         self::assertGenerationNode($document, $nodeId, $type);
         $key = trim((string)($params['request_key'] ?? ''));
         self::assertRequestKey($key);
+        $params=self::withGraphReferenceInputs($document,$nodeId,$params);
         $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id']);
         $quote = AigcVideoService::estimate($tenantId, $payload);
         $quoteInput = self::quoteInputForDocument($document, $nodeId, $payload);
@@ -407,10 +409,7 @@ class ShortDramaCanvasService
             }
         }
         $edges=self::decode((string)($document['edges_json']??'[]'));
-        $planDependency=self::agentPlanDependencyState($nodes,$edges,$nodeId);
-        if ($planDependency['state']==='blocked') throw new Exception('前序节点生成失败，请先重试前序节点');
-        if ($planDependency['state']!=='ready') throw new Exception('前序节点尚未生成完成，请稍后再试');
-        if ($planDependency['references']) $params['reference_assets']=self::mergeReferenceAssets((array)($params['reference_assets']??[]),$planDependency['references']);
+        $params=self::withGraphReferenceInputs($document,$nodeId,$params);
         $key=(string)($params['request_key']??'');
         $payload=self::generationPayload($type,$params,$tenantId,$userId,(int)$document['id']);
         $requestInput=$payload+['skill_id'=>(int)($params['skill_id']??0),'skill_version'=>(int)($params['skill_version']??0),'skill_inputs'=>(array)($params['skill_inputs']??[])];
@@ -825,10 +824,12 @@ class ShortDramaCanvasService
     public static function agentAutoDependencyState(array $nodes, array $edges, string $targetId): array
     {
         $plan=self::agentPlanDependencyState($nodes,$edges,$targetId);
-        if ($plan['state']!=='ready') return $plan;
+        if ($plan['state']!=='ready') return $plan+['text_context'=>[]];
         $byId=[];
         foreach ($nodes as $node) if (is_array($node) && isset($node['id'])) $byId[(string)$node['id']]=$node;
         $references=[];
+        $textContext=[];
+        $seenText=[];
         foreach ($edges as $edge) {
             if (!is_array($edge) || (string)($edge['to']??'')!==$targetId || (string)($edge['kind']??'reference')!=='reference') continue;
             if ((string)($edge['role']??'')==='agent_dependency') continue;
@@ -836,20 +837,59 @@ class ShortDramaCanvasService
             if (!$source) continue;
             $type=(string)($source['type']??'');
             $metadata=(array)($source['metadata']??[]);
+            if ($type==='text') {
+                $content=trim((string)($metadata['content']??$metadata['prompt']??''));
+                $identity=(string)($source['id']??'').'|'.$content;
+                if ($content!=='' && !isset($seenText[$identity])) {
+                    $seenText[$identity]=true;
+                    $textContext[]=['title'=>mb_substr(trim((string)($source['title']??'')),0,80),'content'=>mb_substr($content,0,6000)];
+                }
+                continue;
+            }
             $status=(string)($metadata['status']??'');
             if (!in_array($type,['image','video','audio'],true)) {
                 continue;
             }
-            if ($status!=='success') return ['state'=>'waiting','references'=>[]];
+            if (in_array($status,['failed','canceled'],true)) return ['state'=>'blocked','references'=>[],'text_context'=>[]];
+            if ($status!=='success') return ['state'=>'waiting','references'=>[],'text_context'=>[]];
             $assetId=(int)($metadata['asset_id']??0);
-            if ($assetId<=0) return ['state'=>'waiting','references'=>[]];
+            if ($assetId<=0) return ['state'=>'waiting','references'=>[],'text_context'=>[]];
             $references[]=[
                 'type'=>$type,'asset_id'=>$assetId,
                 'role'=>in_array((string)($edge['role']??''),['first_frame','last_frame','reference'],true)
                     ? (string)$edge['role'] : 'reference',
             ];
         }
-        return ['state'=>'ready','references'=>self::mergeReferenceAssets($plan['references'],$references)];
+        return ['state'=>'ready','references'=>self::mergeReferenceAssets($plan['references'],$references),'text_context'=>$textContext];
+    }
+
+    /** Resolve graph inputs once for quoting and every submit path. Linked
+     * text is passed as bounded prompt context; linked completed media is
+     * resolved as an owned asset. This makes a visible reference edge a real
+     * request input without allowing browser-supplied IDs or URLs. */
+    private static function withGraphReferenceInputs(array $document,string $nodeId,array $params): array
+    {
+        $nodes=self::decode((string)($document['nodes_json']??'[]'));
+        $edges=self::decode((string)($document['edges_json']??'[]'));
+        $context=self::agentAutoDependencyState($nodes,$edges,$nodeId);
+        if (($context['state']??'waiting')==='blocked') throw new Exception('前序或引用节点生成失败，请先重试前序节点');
+        if (($context['state']??'waiting')!=='ready') throw new Exception('前序或引用节点尚未生成完成，请稍后再试');
+        if (!empty($context['references'])) $params['reference_assets']=self::mergeReferenceAssets((array)($params['reference_assets']??[]),(array)$context['references']);
+        $parts=[];$remaining=12000;
+        foreach ((array)($context['text_context']??[]) as $item) {
+            if (!is_array($item) || $remaining<=0) break;
+            $content=trim((string)($item['content']??''));
+            if ($content==='') continue;
+            $title=trim((string)($item['title']??''));
+            $part=($title===''?'':"【{$title}】\n").mb_substr($content,0,$remaining);
+            $parts[]=$part;$remaining-=mb_strlen($part);
+        }
+        if ($parts) {
+            $prompt=trim((string)($params['prompt']??$params['content']??''));
+            $params['prompt']=$prompt."\n\n【画布已连接上下文】\n".implode("\n\n",$parts);
+            $params['content']=$params['prompt'];
+        }
+        return $params;
     }
 
     /** @return array{state:'ready'|'waiting'|'blocked',references:list<array<string,mixed>>} */
