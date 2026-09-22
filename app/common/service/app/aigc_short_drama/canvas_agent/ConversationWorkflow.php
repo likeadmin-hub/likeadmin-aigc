@@ -211,14 +211,22 @@ final class ConversationWorkflow
     }
     private static function card(array $state): ?array {
         $stage=(array)$state['stage_state'];
+        $definition=self::stageDefinition((array)$state['workflow_snapshot'],(string)($stage['key']??''));
+        $stageCard=['stage'=>(string)($stage['key']??''),'stage_label'=>(string)($definition['label']??'短剧创作'),'skills'=>array_values((array)($definition['skills']??[]))];
         if (($stage['key']??'')==='intake' && ($stage['status']??'')==='collecting') {
             $slot=self::nextSlot($state); if (!$slot) return null;
-            return ['type'=>'question','stage'=>'intake','title'=>'《短剧》剧集初始配置','step'=>count((array)$state['slot_values'])+1,'total'=>count((array)$state['workflow_snapshot']['slot_schema']),
+            return $stageCard+['type'=>'question','title'=>'《短剧》剧集初始配置','step'=>count((array)$state['slot_values'])+1,'total'=>count((array)$state['workflow_snapshot']['slot_schema']),
                 'slot'=>['key'=>$slot['key'],'label'=>$slot['label'],'ask'=>$slot['ask'],'options'=>$slot['options']]];
         }
-        if (($stage['key']??'')==='assets' && ($stage['status']??'')==='awaiting_plan_confirmation') return ['type'=>'confirmation','stage'=>'assets','title'=>'确认图片创作计划','body'=>'画风与美术计划已冻结。确认后，自动模式才会按既有节点任务链路生成图片；视频仍需逐节点确认。','plan_hash'=>$state['plan_hash']];
-        if (($stage['key']??'')==='script' && ($stage['status']??'')==='ready') return ['type'=>'stage','stage'=>'script','title'=>'创作采集已完成','body'=>'下一条消息将进入剧本与角色设定；设定与分集内容只保留在对话中。'];
-        return ['type'=>'stage','stage'=>(string)($stage['key']??''),'title'=>'工作流进行中','body'=>'当前阶段状态已冻结，等待下一次受控对话执行。'];
+        if (($stage['key']??'')==='assets' && ($stage['status']??'')==='awaiting_plan_confirmation') return $stageCard+['type'=>'confirmation','title'=>'确认图片创作计划','body'=>'画风与美术计划已冻结。确认后，自动模式才会按既有节点任务链路生成图片；视频仍需逐节点确认。','plan_hash'=>$state['plan_hash']];
+        if (($stage['key']??'')==='script' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'创作采集已完成','body'=>'下一条消息将进入剧本与角色设定；设定与分集内容只保留在对话中。'];
+        if (($stage['key']??'')==='video_nodes' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'准备插入分镜视频节点','body'=>'下一次受控对话会一次性插入全部分镜视频待生成节点；它们不会自动报价或提交。'];
+        if (($stage['key']??'')==='audio_plan' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'准备音频规划','body'=>'音频规划节点只用于展示与后续衔接，当前没有生成入口。'];
+        return $stageCard+['type'=>'stage','title'=>'工作流进行中','body'=>'当前阶段状态已冻结，等待下一次受控对话执行。'];
+    }
+    private static function stageDefinition(array $snapshot,string $key): array {
+        foreach ((array)($snapshot['stages']??[]) as $stage) if (is_array($stage) && ($stage['key']??'')===$key) return $stage;
+        return [];
     }
     private static function publicState(array $state): array { return ['workflow_snapshot'=>$state['workflow_snapshot'],'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'plan_hash'=>$state['plan_hash'],'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
     private static function assertState(array $state): void {
