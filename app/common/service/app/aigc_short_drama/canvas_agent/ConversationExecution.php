@@ -57,18 +57,22 @@ final class ConversationExecution
             }
             if ((int)$thread['active_run_id']!==$runId) throw new RuntimeException('RUN_SUPERSEDED');
             $effects=[];
+            $context=json_decode($run['context_snapshot'],true,512,JSON_THROW_ON_ERROR);
+            $settings=json_decode($run['settings_snapshot'],true,512,JSON_THROW_ON_ERROR);
+            $workflow=(array)($context['workflow']??[]);
             if ($proposals) {
-                $context=json_decode($run['context_snapshot'],true,512,JSON_THROW_ON_ERROR);
-                $settings=json_decode($run['settings_snapshot'],true,512,JSON_THROW_ON_ERROR);
                 $sourceIds=[];
                 foreach ((array)($context['selected_nodes']??[]) as $node) if (is_array($node) && is_scalar($node['id']??null)) $sourceIds[]=(string)$node['id'];
-                $effects=GraphService::appendAgentNodesLocked($document,$proposals,$sourceIds,($settings['generation_mode']??'manual')==='auto',$settings,$runId);
+                $auto=($settings['generation_mode']??'manual')==='auto' && ($workflow===[] || ConversationWorkflow::mayAutoSubmit($workflow));
+                $effects=GraphService::appendAgentNodesLocked($document,$proposals,$sourceIds,$auto,$settings,$runId);
                 $effects['mode']=($settings['generation_mode']??'manual')==='auto'?'auto':'manual';
             }
             $sequence=(int)$thread['next_message_sequence'];
             $content=['text'=>$text]; if ($effects) $content['canvas_actions']=$effects;
             Db::name(ConversationStore::PREFIX.'message')->insert(self::scope($run)+['thread_id'=>$run['thread_id'],'run_id'=>$runId,'sequence'=>$sequence,'role'=>'assistant','content_json'=>self::json($content),'attachments_json'=>'[]','create_time'=>time()]);
-            Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(['active_run_id'=>0,'next_message_sequence'=>$sequence+1,'update_time'=>time()]);
+            $threadUpdate=['active_run_id'=>0,'next_message_sequence'=>$sequence+1,'update_time'=>time()];
+            if ($nextSettings=ConversationWorkflow::advanceAfterReplyLocked($thread,$workflow,(array)json_decode((string)$thread['settings_json'],true,512,JSON_THROW_ON_ERROR),$text)) $threadUpdate['settings_json']=json_encode($nextSettings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+            Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update($threadUpdate);
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'done','lease_until'=>0,'update_time'=>time()]);
             self::state($run,'success');self::event($run,'run.succeeded',['status'=>'success','message_sequence'=>$sequence]+($effects?['canvas_actions'=>$effects]:[]));
             return true;

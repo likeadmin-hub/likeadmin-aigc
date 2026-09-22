@@ -4,9 +4,20 @@ require __DIR__.'/bootstrap.php';
 
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution as Execution;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationProviderInterface;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore as Store;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorker as Worker;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow as Workflow;
 use think\facade\Db;
+
+final class WorkflowAcceptanceProvider implements ConversationProviderInterface
+{
+    public function preflight(int $tenant,int $user,array $request): void {}
+    public function generate(int $tenant,int $user,array $request): array
+    {
+        return ['content'=>'这是本阶段的本地验收回复。','tool_calls'=>[],'safety_checked'=>true];
+    }
+}
 
 $tenant=91051;$user=92051;$config=0;$canvas=0;
 if (Db::name('aigc_short_drama_config')->where('tenant_id',$tenant)->count()) throw new RuntimeException('Existing fixture config');
@@ -35,6 +46,26 @@ try {
     $completed=Workflow::read($tenant,$user,$canvas,$thread);
     agentCheck(($completed['workflow']['stage_state']['key']??'')==='script','complete intake advances to the script conversation stage');
     agentCheck(($completed['card']['type']??'')==='stage','post-intake projection is a factual stage card');
+    $provider=new WorkflowAcceptanceProvider();
+    $runStage=static function (string $requestKey) use ($tenant,$user,$canvas,$thread,$provider): array {
+        $ack=Store::enqueue($tenant,$user,$canvas,$thread,['request_key'=>$requestKey,'content'=>'继续当前创作阶段','base_revision'=>0],static function (array $conversation) use ($tenant): array {
+            $prepared=Workflow::prepare($tenant,$conversation,'继续当前创作阶段',[],[],['generation_mode'=>'auto','reasoning_model'=>['id'=>'fixture-model']]);
+            return ['settings'=>['generation_mode'=>'auto','reasoning_model'=>['id'=>'fixture-model']],'skill'=>[],'workflow'=>$prepared['workflow'],'thread_settings'=>$prepared['thread_settings']];
+        });
+        agentCheck(Worker::process($tenant,$user,(int)$ack['run_id'],$provider)==='success','local Worker completes workflow stage '.$requestKey);
+        return Workflow::read($tenant,$user,$canvas,$thread);
+    };
+    $afterScript=$runStage('workflow-script-stage');
+    agentCheck(($afterScript['workflow']['stage_state']['key']??'')==='art' && ($afterScript['workflow']['stage_state']['status']??'')==='ready','script reply advances to art planning');
+    $afterArt=$runStage('workflow-art-stage');
+    agentCheck(($afterArt['workflow']['stage_state']['key']??'')==='assets' && ($afterArt['workflow']['stage_state']['status']??'')==='awaiting_plan_confirmation','art reply stops auto flow at the required image-plan confirmation');
+    agentCheck(preg_match('/^[a-f0-9]{64}$/D',(string)($afterArt['workflow']['plan_hash']??''))===1,'art plan receives a frozen integrity hash');
+    try {
+        Workflow::prepare($tenant,Db::name(Store::PREFIX.'thread')->where('id',$thread)->find(),'attempt to bypass plan confirmation',[],[],['generation_mode'=>'auto']);
+        throw new RuntimeException('workflow message bypassed plan confirmation');
+    } catch (RuntimeException $error) { agentCheck($error->getMessage()==='WORKFLOW_PLAN_CONFIRMATION_REQUIRED','unconfirmed auto plan blocks the next Agent request'); }
+    $confirmed=Workflow::confirmPlan($tenant,$user,$canvas,$thread,(int)$afterArt['workflow']['state_revision'],(string)$afterArt['workflow']['plan_hash']);
+    agentCheck(($confirmed['workflow']['plan_confirmation']['status']??'')==='confirmed' && Workflow::mayAutoSubmit($confirmed['workflow']),'confirmed plan is the only workflow state eligible for image auto-submit');
     try { Workflow::read($tenant+1,$user,$canvas,$thread); throw new RuntimeException('cross tenant workflow read passed'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='CANVAS_NOT_FOUND','workflow state cannot be read across tenants'); }
     $plain=Store::create($tenant,$user,$canvas,'plain-thread')['id'];

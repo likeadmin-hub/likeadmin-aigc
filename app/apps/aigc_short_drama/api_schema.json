@@ -1018,6 +1018,14 @@
       "need_role_permission": 0
     },
     {
+      "api_path": "app.aigc_short_drama.canvas_agent/confirmWorkflowPlan",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
       "api_path": "app.aigc_short_drama.canvas_agent/savePreferences",
       "api_method": "POST",
       "permission_key": "aigc_short_drama:canvas:use:user",
