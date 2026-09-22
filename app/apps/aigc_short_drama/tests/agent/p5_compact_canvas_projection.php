@@ -108,6 +108,13 @@ try {
         ['type'=>'image','artifact'=>'storyboard','title'=>'镜头一分镜图','prompt'=>'林夏在雨夜办公室拿起录音笔','key'=>'board_1','depends_on'=>['scene_1'],'reference_keys'=>['assets:subject']],
     ]],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR).'</canvas-actions>';
     $view=$runStage('compact-boards',$boards);
+    $originalNodesJson=(string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('nodes_json');
+    $changedNodes=json_decode($originalNodesJson,true,512,JSON_THROW_ON_ERROR);
+    $changedNodes[2]['metadata']['asset_id']=998;
+    Db::name(GraphService::TABLE)->where('id',$canvas)->update(['nodes_json'=>json_encode($changedNodes,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)]);
+    try { Workflow::confirmPlan($tenant,$user,$canvas,$thread,(int)$view['workflow']['state_revision'],(string)$view['workflow']['plan_hash']);throw new RuntimeException('changed subject image accepted under old quote'); }
+    catch (RuntimeException $error) { agentCheck($error->getMessage()==='WORKFLOW_PLAN_SOURCE_CHANGED','replaced referenced subject image invalidates the frozen storyboard quote'); }
+    Db::name(GraphService::TABLE)->where('id',$canvas)->update(['nodes_json'=>$originalNodesJson]);
     Workflow::confirmPlan($tenant,$user,$canvas,$thread,(int)$view['workflow']['state_revision'],(string)$view['workflow']['plan_hash']);
     [$nodes,$edges]=$graph($canvas);
     $board=$nodes[5];$boardInputs=$inputs((string)$board['id']);
