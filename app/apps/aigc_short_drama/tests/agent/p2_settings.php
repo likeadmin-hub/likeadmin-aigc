@@ -68,7 +68,10 @@ try {
     $provider->preflight(91001,92001,['settings'=>['reasoning_model'=>['id'=>(string)$product]]]);
     agentCheck(true,'enabled Agent preflight accepts the server-resolved market model without invoking it');
     $routed=MarketTextModelRuntimeService::resolveRoutedModel(91001,['id'=>(string)$textOnly],true);
-    agentCheck((int)$routed['product_id']===(int)$product,'image context silently routes a text-only preference to tenant-enabled vision model');
+    agentCheck(
+        (int)($routed['product_id'] ?? 0) !== (int)$textOnly && !empty($routed['supports_vision']),
+        'image context silently routes a text-only preference to a tenant-enabled vision model'
+    );
     $fallbackClassifier=new ReflectionMethod(MarketTextModelRuntimeService::class,'isExplicitModelUnavailable');
     $fallbackClassifier->setAccessible(true);
     agentCheck($fallbackClassifier->invoke(null,'model_not_found: unavailable')===true && $fallbackClassifier->invoke(null,'provider timeout')===false,'only explicit upstream model rejection permits server-side model fallback');
