@@ -94,7 +94,7 @@ final class ConversationWorkflow
                 // Keep only server-validated stage artifacts here.  This is
                 // the compact continuity ledger used by later Skills; it is
                 // intentionally not a copy of the full chat transcript.
-                'slot_values'=>[], 'artifact_memory'=>[], 'plan_hash'=>'', 'image_plan'=>[], 'plan_confirmation'=>['status'=>'not_required'],
+                'slot_values'=>[], 'artifact_memory'=>[], 'plan_hash'=>'', 'image_plan'=>[], 'stage_plan'=>[], 'plan_confirmation'=>['status'=>'not_required'],
                 'state_revision'=>1,
             ];
         } elseif (($state['stage_state']['status']??'')==='awaiting_plan_confirmation') {
@@ -193,6 +193,36 @@ final class ConversationWorkflow
     }
 
     /**
+     * Text stages are reviewed just like a paid image batch.  The provider's
+     * result is durable in the conversation, but it cannot mutate the graph
+     * until the owner confirms this frozen, server-validated proposal.
+     */
+    public static function confirmStagePlan(int $tenant,int $user,int $canvas,int $thread,int $expectedRevision): array
+    {
+        return Db::transaction(function () use ($tenant,$user,$canvas,$thread,$expectedRevision): array {
+            $document=Db::name(GraphService::TABLE)->where(['id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find();
+            if (!$document) throw new RuntimeException('CANVAS_NOT_FOUND');
+            $row=Db::name(ConversationStore::PREFIX.'thread')->where(['id'=>$thread,'tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas,'delete_time'=>0])->lock(true)->find();
+            if (!$row || (int)$row['active_run_id']!==0) throw new RuntimeException($row?'THREAD_BUSY':'THREAD_NOT_FOUND');
+            $settings=self::settings($row);$state=self::stateFromSettings($settings);self::assertState($state);
+            if ((int)$state['state_revision']!==$expectedRevision) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
+            $stage=(string)($state['stage_state']['key']??'');$plan=(array)($state['stage_plan']??[]);
+            if (!in_array($stage,['script','art','video_plan'],true) || ($state['stage_state']['status']??'')!=='awaiting_stage_confirmation' || !self::validStagePlan($plan,$stage)) throw new RuntimeException('WORKFLOW_STAGE_PLAN_STALE');
+            self::assertPlanSources($document,$tenant,$user,$canvas,$plan);
+            $effects=GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),false,[],(int)$plan['run_id'],self::publicState($state));
+            $effects['mode']='manual';
+            self::rememberArtifacts($state,$stage,(array)$plan['nodes']);
+            $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$stage])));
+            $state['stage_plan']=[];
+            $state['stage_state']=['key'=>self::nextStage($stage),'status'=>'ready','completed'=>$completed];
+            $state['state_revision']++;
+            $settings['workflow_state']=$state;
+            Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
+            return ['workflow'=>self::publicState($state),'card'=>self::card($state),'canvas_actions'=>$effects];
+        });
+    }
+
+    /**
      * Freeze a model's bounded image proposal before it reaches the graph.
      * The estimate is a local catalog/billing read only; no task, reservation
      * or Provider request happens on this path.
@@ -237,6 +267,27 @@ final class ConversationWorkflow
         $state['plan_hash']=$plan['hash'];
         $state['plan_confirmation']=['status'=>'required','plan_hash'=>$plan['hash']];
         $state['stage_state']['status']='awaiting_plan_confirmation';
+        $state['state_revision']++;
+        $threadSettings['workflow_state']=$state;
+        return $threadSettings;
+    }
+
+    /** Hold only non-billable, structured text artifacts for owner review. */
+    public static function freezeStagePlanLocked(array $workflow,array $context,array $proposals,int $runId,array $threadSettings): ?array
+    {
+        if (($workflow['workflow_snapshot']['key']??'')!==self::KEY) return null;
+        $stage=(string)($workflow['stage_state']['key']??'');
+        if (!in_array($stage,['script','art','video_plan'],true)) return null;
+        $state=self::stateFromSettings($threadSettings);if ($state===[]) return null;self::assertState($state);
+        if ((int)($state['state_revision']??0)!==(int)($workflow['state_revision']??0) || ($state['stage_state']['key']??'')!==$stage || ($state['stage_state']['status']??'')!=='running') return null;
+        if (!$proposals || count($proposals)>8 || array_filter($proposals,static fn($node): bool=>!is_array($node) || ($node['type']??'')!=='text')) throw new RuntimeException('WORKFLOW_STAGE_PLAN_REQUIRED');
+        $sources=[];
+        foreach ((array)($context['selected_nodes']??[]) as $node) {
+            if (!is_array($node) || !preg_match('/^[1-9][0-9]{0,15}$/D',(string)($node['id']??''))) continue;
+            $sources[]=['id'=>(string)$node['id'],'type'=>(string)($node['type']??''),'content_revision'=>(int)($node['content_revision']??0)];
+        }
+        $state['stage_plan']=['stage'=>$stage,'nodes'=>array_values($proposals),'sources'=>$sources,'run_id'=>$runId];
+        $state['stage_state']['status']='awaiting_stage_confirmation';
         $state['state_revision']++;
         $threadSettings['workflow_state']=$state;
         return $threadSettings;
@@ -384,6 +435,7 @@ final class ConversationWorkflow
         // them must remain safe; the field is populated only when a later
         // image phase actually produces a priced proposal.
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('image_plan',$state)) $state['image_plan']=[];
+        if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('stage_plan',$state)) $state['stage_plan']=[];
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('artifact_memory',$state)) $state['artifact_memory']=[];
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('stage_skill_versions',$state['workflow_snapshot'])) $state['workflow_snapshot']['stage_skill_versions']=[];
         return $state;
@@ -411,6 +463,10 @@ final class ConversationWorkflow
         if (in_array(($stage['key']??''),['assets','storyboard'],true) && ($stage['status']??'')==='awaiting_plan_confirmation') {
             return $stageCard+['type'=>'confirmation','title'=>'确认图片创作计划','body'=>'本批图片的模型、提示词、引用与预估积分已冻结。确认后才会插入画布并按既有任务链路生成；视频仍需逐节点报价确认。','plan_hash'=>$state['plan_hash'],'plan'=>self::publicImagePlan((array)($state['image_plan']??[]))];
         }
+        if (in_array(($stage['key']??''),['script','art','video_plan'],true) && ($stage['status']??'')==='awaiting_stage_confirmation') {
+            $plan=(array)($state['stage_plan']??[]);
+            return $stageCard+['type'=>'stage_confirmation','title'=>'确认写入本阶段成果','body'=>'Agent 已完成本阶段的结构化内容。确认后才会把剧本、设定或分镜提示词写入画布；未确认前内容只保留在本次对话中。','plan'=>['node_count'=>count((array)($plan['nodes']??[]))]];
+        }
         if (($stage['key']??'')==='script' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'创作采集已完成','body'=>'下一条消息会生成剧本设定、分集大纲和分镜脚本，并写回受控文本节点。'];
         if (($stage['key']??'')==='video_nodes' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'准备插入分镜视频节点','body'=>'下一次受控对话会一次性插入全部分镜视频待生成节点；它们不会自动报价或提交。'];
         if (($stage['key']??'')==='audio_plan' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'准备音频规划','body'=>'音频规划节点只用于展示与后续衔接，当前没有生成入口。'];
@@ -422,10 +478,10 @@ final class ConversationWorkflow
     }
     /** Complete frozen state used only inside the immutable run snapshot. */
     private static function runState(array $state): array { return $state; }
-    private static function publicState(array $state): array { return ['workflow_snapshot'=>self::publicWorkflowSnapshot((array)$state['workflow_snapshot']),'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'artifact_memory'=>self::publicArtifacts((array)($state['artifact_memory']??[])),'plan_hash'=>$state['plan_hash'],'image_plan'=>self::publicImagePlan((array)($state['image_plan']??[])),'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
+    private static function publicState(array $state): array { return ['workflow_snapshot'=>self::publicWorkflowSnapshot((array)$state['workflow_snapshot']),'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'artifact_memory'=>self::publicArtifacts((array)($state['artifact_memory']??[])),'plan_hash'=>$state['plan_hash'],'image_plan'=>self::publicImagePlan((array)($state['image_plan']??[])),'stage_plan'=>self::publicStagePlan((array)($state['stage_plan']??[])),'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
     private static function assertState(array $state): void {
         $snapshot=(array)($state['workflow_snapshot']??[]);$stage=(array)($state['stage_state']??[]);
-        if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_array($snapshot['stage_skill_versions']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_array($state['artifact_memory']??null) || !is_array($state['image_plan']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1 || !is_array($state['plan_confirmation']??null)) throw new RuntimeException('INVALID_WORKFLOW_STATE');
+        if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_array($snapshot['stage_skill_versions']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_array($state['artifact_memory']??null) || !is_array($state['image_plan']??null) || !is_array($state['stage_plan']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1 || !is_array($state['plan_confirmation']??null)) throw new RuntimeException('INVALID_WORKFLOW_STATE');
     }
     private static function nextStage(string $stage): string { return ['script'=>'art','art'=>'assets','assets'=>'storyboard','storyboard'=>'video_plan','video_plan'=>'video_nodes','video_nodes'=>'audio_plan','audio_plan'=>'complete'][$stage]??''; }
     /** Server-owned output contracts are frozen with the workflow snapshot and
@@ -448,6 +504,10 @@ final class ConversationWorkflow
     private static function publicImagePlan(array $plan): array {
         if (!self::validImagePlan($plan)) return [];
         return ['node_count'=>count((array)$plan['nodes']),'estimated_tenant_cost_points'=>array_sum(array_map(static fn(array $quote): float=>(float)($quote['tenant_cost_points']??0),(array)$plan['quotes'])),'estimated_user_charge_points'=>array_sum(array_map(static fn(array $quote): float=>(float)($quote['user_charge_points']??0),(array)$plan['quotes'])),'image_model'=>self::publicModel((array)$plan['image_model'])];
+    }
+    private static function publicStagePlan(array $plan): array {
+        if (!self::validStagePlan($plan,(string)($plan['stage']??''))) return [];
+        return ['stage'=>(string)$plan['stage'],'node_count'=>count((array)$plan['nodes'])];
     }
     /** Keep the cross-stage creative context bounded and durable. Text node
      * content can be long, so a later provider gets the latest six artifacts
@@ -473,6 +533,11 @@ final class ConversationWorkflow
     }
     private static function validImagePlan(array $plan): bool {
         return preg_match('/^[a-f0-9]{64}$/D',(string)($plan['hash']??''))===1 && is_array($plan['nodes']??null) && $plan['nodes']!==[] && count($plan['nodes'])<=4 && is_array($plan['sources']??null) && is_array($plan['attachment_images']??null) && (array)($plan['parameters']??[])===['quantity'=>1] && is_array($plan['quotes']??null) && count($plan['quotes'])===count($plan['nodes']) && (int)($plan['run_id']??0)>0;
+    }
+    private static function validStagePlan(array $plan,string $stage): bool {
+        if (!in_array($stage,['script','art','video_plan'],true) || (string)($plan['stage']??'')!==$stage || !is_array($plan['nodes']??null) || !$plan['nodes'] || count($plan['nodes'])>8 || !is_array($plan['sources']??null) || (int)($plan['run_id']??0)<=0) return false;
+        foreach ($plan['nodes'] as $node) if (!is_array($node) || ($node['type']??'')!=='text' || trim((string)($node['artifact']??''))==='') return false;
+        return true;
     }
     private static function assertPlanSources(array $document,int $tenant,int $user,int $canvas,array $plan): void {
         $live=[]; foreach (json_decode((string)($document['nodes_json']??'[]'),true,512,JSON_THROW_ON_ERROR) as $node) if (is_array($node)) $live[(string)($node['id']??'')]=$node;

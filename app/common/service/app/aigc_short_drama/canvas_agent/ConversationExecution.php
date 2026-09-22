@@ -62,10 +62,18 @@ final class ConversationExecution
             $workflow=(array)($context['workflow']??[]);
             $currentThreadSettings=(array)json_decode((string)$thread['settings_json'],true,512,JSON_THROW_ON_ERROR);
             $planSettings=ConversationWorkflow::freezeImagePlanLocked($tenant,$workflow,$settings,$context,$proposals,$runId,$currentThreadSettings);
+            $stagePlanSettings=$planSettings===null
+                ? ConversationWorkflow::freezeStagePlanLocked($workflow,$context,$proposals,$runId,$currentThreadSettings)
+                : null;
             if ($planSettings!==null) {
                 // The model's image proposal is now durable but intentionally
                 // absent from the graph. A confirmation API is the only path
                 // that can publish these priced, auto-submittable nodes.
+                $proposals=[];
+            } elseif ($stagePlanSettings!==null) {
+                // Text-stage artifacts are likewise visible in the durable
+                // conversation first. The owner must explicitly approve the
+                // exact server-validated plan before a canvas writer runs.
                 $proposals=[];
             } elseif ($proposals) {
                 $sourceIds=[];
@@ -82,6 +90,7 @@ final class ConversationExecution
             Db::name(ConversationStore::PREFIX.'message')->insert(self::scope($run)+['thread_id'=>$run['thread_id'],'run_id'=>$runId,'sequence'=>$sequence,'role'=>'assistant','content_json'=>self::json($content),'attachments_json'=>'[]','create_time'=>time()]);
             $threadUpdate=['active_run_id'=>0,'next_message_sequence'=>$sequence+1,'update_time'=>time()];
             if ($planSettings!==null) $threadUpdate['settings_json']=json_encode($planSettings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+            elseif ($stagePlanSettings!==null) $threadUpdate['settings_json']=json_encode($stagePlanSettings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
             elseif ($nextSettings=ConversationWorkflow::advanceAfterReplyLocked($thread,$workflow,$currentThreadSettings,$text,$proposals)) $threadUpdate['settings_json']=json_encode($nextSettings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update($threadUpdate);
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'done','lease_until'=>0,'update_time'=>time()]);
