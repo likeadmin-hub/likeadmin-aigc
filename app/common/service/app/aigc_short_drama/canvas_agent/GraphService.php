@@ -10,7 +10,7 @@ final class GraphService
 {
     public const TABLE = 'aigc_short_drama_canvas';
     public const RECEIPTS = 'aigc_short_drama_canvas_mutation_receipt';
-    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key'];
+    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_manual_submit'];
 
     /**
      * Server-only Agent writer.  ConversationExecution already owns the
@@ -46,7 +46,15 @@ final class GraphService
             $metadata=['prompt'=>$prompt,'content'=>'','status'=>'idle','progress'=>0,'error'=>'','content_revision'=>1,'layout_revision'=>1];
             if ($type==='text') $metadata['model_code']=(string)($settings['reasoning_model']['id']??'');
             else $metadata['channel']=(string)($settings[$type.'_model']['id']??'');
-            if ($auto) {
+            // Videos are deliberately never automatic Agent work.  A video
+            // proposal is a storyboard delivery: the graph is connected and
+            // durable, but the user must intentionally enter the normal
+            // node-level quote/submit flow.  Keeping this server-owned makes
+            // a stale browser, a worker restart or a forged save unable to
+            // turn an automatic image plan into a paid video submission.
+            $autoSubmit = $auto && $type !== 'video';
+            if ($type === 'video') $metadata['agent_manual_submit']=1;
+            if ($autoSubmit) {
                 if ($agentRunId <= 0) throw new RuntimeException('INVALID_AGENT_ACTION');
                 // This key is allocated by the server before the document is
                 // published.  Browser retries, a restarted worker and a
@@ -72,7 +80,7 @@ final class GraphService
             }
             $nodes[]=$node;
             if (isset($proposal['key'])) $createdByKey[(string)$proposal['key']]=$id;
-            $created[]=['id'=>$id,'type'=>$type,'auto_submit'=>$auto];
+            $created[]=['id'=>$id,'type'=>$type,'auto_submit'=>$autoSubmit];
         }
         $updated=self::persistLockedDocument($document,['nodes_json'=>self::json($nodes),'edges_json'=>self::json($edges),'removed_node_ids_json'=>self::json($removed),'schema_version'=>2,'update_time'=>time()]);
         return ['graph_revision'=>(int)($updated['graph_revision']??0),'nodes'=>$created];
