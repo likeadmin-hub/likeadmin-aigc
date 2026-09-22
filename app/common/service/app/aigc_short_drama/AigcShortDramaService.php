@@ -84,6 +84,22 @@ class AigcShortDramaService
     public static function config(int $tenantId): array
     {
         $config = self::publicConfig($tenantId);
+        // The creation workflow itself is platform-owned.  Expose only its
+        // display catalog here so tenant admin can select published Skills for
+        // an existing stage; saveConfig still accepts no tenant-defined stage
+        // order, generation policy, model identity or billing rule.
+        $catalog = \app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::catalog();
+        $config['canvas_agent']['workflow']['catalog'] = [
+            'key' => (string)($catalog['key'] ?? ''),
+            'version' => (string)($catalog['version'] ?? ''),
+            'name' => (string)($catalog['name'] ?? ''),
+            'stages' => array_values(array_map(static fn(array $stage): array => [
+                'key' => (string)($stage['key'] ?? ''),
+                'label' => (string)($stage['label'] ?? ''),
+                'skills' => array_values(array_map('strval', (array)($stage['skills'] ?? []))),
+                'creates_nodes' => !empty($stage['creates_nodes']),
+            ], array_filter((array)($catalog['stages'] ?? []), 'is_array'))),
+        ];
         $config['script_prompt_defaults'] = self::scriptPromptDefaults();
         $config['prompt_config_defaults'] = self::runtimePromptDefaults();
         $config['prompt_config_values'] = self::promptConfigValues($config);
