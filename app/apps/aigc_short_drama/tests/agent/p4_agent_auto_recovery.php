@@ -31,11 +31,12 @@ try {
     $document=Db::name('aigc_short_drama_canvas')->where('id',$canvas)->find();
     $nodes=json_decode((string)$document['nodes_json'],true);
     agentCheck(count($nodes)===3,'auto plan writes all proposed nodes');
-    foreach ($nodes as $node) {
+    foreach (array_slice($nodes,0,2) as $node) {
         $meta=(array)$node['metadata'];
         agentCheck(($meta['agent_auto_run_id']??0)===$ack['run_id'],'server owns auto node origin run');
         agentCheck(($meta['agent_auto_request_key']??'')==='agent.'.$ack['run_id'].'.'.$node['id'],'server allocates stable auto request key');
     }
+    agentCheck(empty($nodes[2]['metadata']['agent_auto_submit']) && !empty($nodes[2]['metadata']['agent_manual_submit']),'video has no automatic request key and remains manual');
     $eligible=AutoGenerationDispatcher::eligibleNodes($document);
     agentCheck(count($eligible)===2 && array_column($eligible,'id')===array_map(static fn(array $node): string => (string)$node['id'],array_slice($nodes,0,2)),'browser-independent dispatcher admits only text and image');
     $nodes[1]['metadata']['status']='queued';
