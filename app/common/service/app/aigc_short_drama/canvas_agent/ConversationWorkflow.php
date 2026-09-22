@@ -69,6 +69,13 @@ final class ConversationWorkflow
                 'slot_values'=>[], 'plan_hash'=>'', 'plan_confirmation'=>['status'=>'not_required'],
                 'state_revision'=>1,
             ];
+        } elseif (($state['stage_state']['status']??'')==='awaiting_plan_confirmation') {
+            throw new RuntimeException('WORKFLOW_PLAN_CONFIRMATION_REQUIRED');
+        } elseif (($state['stage_state']['status']??'')==='ready') {
+            // A normal conversation send is the only way to execute the next
+            // creative stage. Card clicks never impersonate an Agent reply.
+            $state['stage_state']['status']='running';
+            $state['state_revision']=(int)$state['state_revision']+1;
         }
         self::assertState($state);
         $settings['workflow_state']=$state;
@@ -119,6 +126,53 @@ final class ConversationWorkflow
         });
     }
 
+    /** Confirmation only unlocks the already frozen art plan for auto mode. */
+    public static function confirmPlan(int $tenant,int $user,int $canvas,int $thread,int $expectedRevision,string $planHash): array
+    {
+        if (!preg_match('/^[a-f0-9]{64}$/D',$planHash)) throw new RuntimeException('INVALID_WORKFLOW_PLAN');
+        return Db::transaction(function () use ($tenant,$user,$canvas,$thread,$expectedRevision,$planHash): array {
+            ConversationStore::assertThreadAccess($tenant,$user,$canvas,$thread);
+            $row=Db::name(ConversationStore::PREFIX.'thread')->where(['id'=>$thread,'tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas,'delete_time'=>0])->lock(true)->find();
+            if (!$row || (int)$row['active_run_id']!==0) throw new RuntimeException($row?'THREAD_BUSY':'THREAD_NOT_FOUND');
+            $settings=self::settings($row);$state=self::stateFromSettings($settings);self::assertState($state);
+            if ((int)$state['state_revision']!==$expectedRevision) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
+            if (($state['stage_state']['key']??'')!=='assets' || ($state['stage_state']['status']??'')!=='awaiting_plan_confirmation' || !hash_equals((string)$state['plan_hash'],$planHash)) throw new RuntimeException('WORKFLOW_PLAN_STALE');
+            $state['plan_confirmation']=['status'=>'confirmed','confirmed_at'=>time(),'plan_hash'=>$planHash];
+            $state['stage_state']['status']='ready';$state['state_revision']++;
+            $settings['workflow_state']=$state;
+            Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
+            return ['workflow'=>self::publicState($state),'card'=>self::card($state)];
+        });
+    }
+
+    /** Called only by ConversationExecution while it owns the thread lock. */
+    public static function advanceAfterReplyLocked(array $thread,array $workflow,array $settings,string $text): ?array
+    {
+        if (($workflow['workflow_snapshot']['key']??'')!==self::KEY) return null;
+        $state=self::stateFromSettings($settings); if ($state===[]) return null; self::assertState($state);
+        if ((int)$state['state_revision']!==(int)($workflow['state_revision']??0) || ($state['stage_state']['key']??'')!==($workflow['stage_state']['key']??'') || ($state['stage_state']['status']??'')!=='running') return null;
+        $current=(string)$state['stage_state']['key'];
+        $next=['script'=>'art','art'=>'assets','assets'=>'storyboard','storyboard'=>'video_plan','video_plan'=>'video_nodes','video_nodes'=>'audio_plan','audio_plan'=>'complete'][$current]??'';
+        if ($next==='') return null;
+        $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$current])));
+        $status='ready';
+        if ($current==='art' && (($state['workflow_snapshot']['model_preferences']['generation_mode']??'manual')==='auto')) {
+            $state['plan_hash']=hash('sha256',self::json(['workflow'=>$state['workflow_snapshot'],'art_reply'=>$text]));
+            $state['plan_confirmation']=['status'=>'required','plan_hash'=>$state['plan_hash']];
+            $status='awaiting_plan_confirmation';
+        }
+        $state['stage_state']=['key'=>$next,'status'=>$status,'completed'=>$completed];$state['state_revision']++;
+        $settings['workflow_state']=$state;
+        return $settings;
+    }
+
+    public static function mayAutoSubmit(array $workflow): bool
+    {
+        return (($workflow['workflow_snapshot']['key']??'')===self::KEY)
+            && in_array((string)($workflow['stage_state']['key']??''),['assets','storyboard'],true)
+            && (($workflow['plan_confirmation']['status']??'')==='confirmed');
+    }
+
     public static function instruction(array $workflow): string
     {
         if (($workflow['workflow_snapshot']['key']??'')!==self::KEY) return '';
@@ -162,13 +216,14 @@ final class ConversationWorkflow
             return ['type'=>'question','stage'=>'intake','title'=>'《短剧》剧集初始配置','step'=>count((array)$state['slot_values'])+1,'total'=>count((array)$state['workflow_snapshot']['slot_schema']),
                 'slot'=>['key'=>$slot['key'],'label'=>$slot['label'],'ask'=>$slot['ask'],'options'=>$slot['options']]];
         }
+        if (($stage['key']??'')==='assets' && ($stage['status']??'')==='awaiting_plan_confirmation') return ['type'=>'confirmation','stage'=>'assets','title'=>'确认图片创作计划','body'=>'画风与美术计划已冻结。确认后，自动模式才会按既有节点任务链路生成图片；视频仍需逐节点确认。','plan_hash'=>$state['plan_hash']];
         if (($stage['key']??'')==='script' && ($stage['status']??'')==='ready') return ['type'=>'stage','stage'=>'script','title'=>'创作采集已完成','body'=>'下一条消息将进入剧本与角色设定；设定与分集内容只保留在对话中。'];
         return ['type'=>'stage','stage'=>(string)($stage['key']??''),'title'=>'工作流进行中','body'=>'当前阶段状态已冻结，等待下一次受控对话执行。'];
     }
     private static function publicState(array $state): array { return ['workflow_snapshot'=>$state['workflow_snapshot'],'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'plan_hash'=>$state['plan_hash'],'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
     private static function assertState(array $state): void {
         $snapshot=(array)($state['workflow_snapshot']??[]);$stage=(array)($state['stage_state']??[]);
-        if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1) throw new RuntimeException('INVALID_WORKFLOW_STATE');
+        if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1 || !is_array($state['plan_confirmation']??null)) throw new RuntimeException('INVALID_WORKFLOW_STATE');
     }
     private static function json(array $value): string { return json_encode($value,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR); }
 }
