@@ -859,3 +859,13 @@ server `4c82ab6f8` 为 p3_preflight_rejection 增加 `real-app` 模式，禁用�
 server `18111ece0` 扩展同一预检失败套件：真实 Canvas::current 返回原 failed run 与原错误原因；连续读取不改变 graph_revision、run 投影或市场/积分记录；其他 tenant 或 user 均无法通过 runDetail 读取失败任务。现有 nodes metadata 不是本项的权威运行态断言，页面应消费 current.runs；没有把读取服务测试写成浏览器展示已通过。
 
 本地 develop、独立 internal 网络/测试库实测：real-app 模式 **13 PASS**，测试桥模式 **15 PASS**，全部退出 0、fixture 回滚。仅测试源码变化，无业务数据、付费调用、迁移、进程重载、推送或部署。当前失败持久化/刷新/隔离已有行为证据，HTTP/浏览器显示仍 NOT_RUN；P3 其他门槛不变，未整体放行。
+
+## 43. P3 浏览器预检失败展示（2026-09-22）
+
+web 新增 short-drama-preflight-failure-browser.cjs（最终测试修正 `72d720b`），使用独立 headless Chrome context、合成 tenant/user/canvas，拦截全部 API，拒绝外站与生成请求，不访问用户浏览器 profile 或业务数据库。已有本地代理配置保持不变。
+
+首次与诊断复跑均 FAIL/timeout：夹具只返回 current.runs，遗漏页面恢复时调用的 canvas/task，导致后者为空、节点保持旧 queued。诊断确认页面无 JS 异常；补齐 task 的权威失败响应后复测 **4 PASS**，未改产品代码掩盖失败。
+
+PASS：保存的 queued 节点恢复为“生成失败”；错误文字包含“租户积分不足，请联系管理员”；刷新仍显示失败；无生成请求、无未捕获页面异常。实际页面读取链路为 current 中定位 run ID，再 task 读取状态，不将 current.runs 单独返回视为足够浏览器证据。
+
+测试从已集成本地 develop 的 web 执行，退出 0；web 源码仅新增测试，server 仅本证据变化。没有付费请求、业务写入、迁移、重载、部署或推送。该浏览器测试为**合成 HTTP 响应的 UI 行为验证**，与第 41—42 节实际服务/数据库证据分别成立，不伪称浏览器→真实后端端到端已完成。P3 其他能力矩阵、资产和 Agent 工具门槛仍未完成，未整体放行。
