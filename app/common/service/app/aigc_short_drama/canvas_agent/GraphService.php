@@ -10,7 +10,7 @@ final class GraphService
 {
     public const TABLE = 'aigc_short_drama_canvas';
     public const RECEIPTS = 'aigc_short_drama_canvas_mutation_receipt';
-    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit'];
+    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key'];
 
     /**
      * Server-only Agent writer.  ConversationExecution already owns the
@@ -21,7 +21,7 @@ final class GraphService
      * @param list<string> $sourceIds frozen IDs from the accepted conversation
      * @return array{graph_revision:int,nodes:list<array{id:string,type:string,auto_submit:bool}>}
      */
-    public static function appendAgentNodesLocked(array $document, array $proposals, array $sourceIds, bool $auto, array $settings=[]): array
+    public static function appendAgentNodesLocked(array $document, array $proposals, array $sourceIds, bool $auto, array $settings=[], int $agentRunId=0): array
     {
         if (!$proposals || count($proposals) > 4) throw new RuntimeException('INVALID_AGENT_ACTION');
         $nodes = json_decode($document['nodes_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);
@@ -46,7 +46,17 @@ final class GraphService
             $metadata=['prompt'=>$prompt,'content'=>'','status'=>'idle','progress'=>0,'error'=>'','content_revision'=>1,'layout_revision'=>1];
             if ($type==='text') $metadata['model_code']=(string)($settings['reasoning_model']['id']??'');
             else $metadata['channel']=(string)($settings[$type.'_model']['id']??'');
-            if ($auto) $metadata['agent_auto_submit']=1;
+            if ($auto) {
+                if ($agentRunId <= 0) throw new RuntimeException('INVALID_AGENT_ACTION');
+                // This key is allocated by the server before the document is
+                // published.  Browser retries, a restarted worker and a
+                // manual retry all therefore converge on the same durable
+                // generation intent instead of creating another chargeable
+                // task.
+                $metadata['agent_auto_submit']=1;
+                $metadata['agent_auto_run_id']=$agentRunId;
+                $metadata['agent_auto_request_key']='agent.'.$agentRunId.'.'.$id;
+            }
             $node=['id'=>(int)$id,'type'=>$type,'title'=>$title,'x'=>$maximumX+420+($offset%2)*40,'y'=>$maximumY+($offset*360),'width'=>$size[0],'height'=>$size[1],'metadata'=>$metadata];
             foreach ($liveSources as $order=>$sourceId) {
                 $sourceIndex=self::index($nodes,$sourceId);

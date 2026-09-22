@@ -441,6 +441,46 @@ class ShortDramaCanvasService
         return self::runDetail($tenantId,$userId,$runId);
     }
 
+    /**
+     * Server-only continuation for an Agent node that was created in auto
+     * mode.  It intentionally does not accept a browser payload: model,
+     * prompt, source assets and the idempotency key all come from the owned
+     * graph.  Video never enters here because it requires a fresh explicit
+     * quote confirmation.
+     *
+     * @return 'submitted'|'waiting'
+     */
+    public static function submitAgentAutoNode(int $tenantId, int $userId, int $canvasId, string $nodeId): string
+    {
+        $document=self::ownedDocument($tenantId,$userId,$canvasId);
+        $nodes=self::decode((string)($document['nodes_json']??'[]'));
+        $edges=self::decode((string)($document['edges_json']??'[]'));
+        $target=null;
+        foreach ($nodes as $node) if ((string)($node['id']??'')===$nodeId) {$target=$node;break;}
+        if (!$target) throw new Exception('NODE_NOT_FOUND');
+        $metadata=(array)($target['metadata']??[]);
+        $type=(string)($target['type']??'');
+        if (empty($metadata['agent_auto_submit']) || !in_array($type,['text','image'],true)) throw new Exception('AGENT_AUTO_SUBMIT_FORBIDDEN');
+        if ((string)($metadata['status']??'idle')!=='idle') return 'waiting';
+        $key=(string)($metadata['agent_auto_request_key']??'');
+        self::assertRequestKey($key);
+        $references=self::agentAutoReferenceAssets($nodes,$edges,$nodeId);
+        if ($references === null) return 'waiting';
+        $params=[
+            'canvas_id'=>$canvasId,'node_id'=>$nodeId,'type'=>$type,
+            'prompt'=>(string)($metadata['prompt']??$metadata['content']??''),
+            'content'=>(string)($metadata['prompt']??$metadata['content']??''),
+            'model_code'=>(string)($metadata['model_code']??''),
+            'channel'=>(string)($metadata['channel']??''),
+            'model_id'=>(string)($metadata['model_id']??''),
+            'ratio'=>(string)($metadata['ratio']??''),'resolution'=>(string)($metadata['resolution']??''),
+            'quality'=>(string)($metadata['quality']??''),'count'=>(int)($metadata['count']??1),
+            'request_key'=>$key,'reference_assets'=>$references,
+        ];
+        self::submitIdempotent($tenantId,$userId,$params);
+        return 'submitted';
+    }
+
     private static function executeGenerationPayload(string $type,int $tenantId,int $userId,array $payload): array
     {
         return match ($type) {
@@ -743,6 +783,38 @@ class ShortDramaCanvasService
         $payload['content'] = $payload['prompt'];
         $payload['skill_snapshot'] = $skill;
         return $payload;
+    }
+
+    /**
+     * Resolve only durable assets from reference edges.  A queued/running
+     * source is a real dependency, not an empty reference which may be sent to
+     * a Provider.  Text sources already influenced the Agent plan and do not
+     * become fake media inputs.
+     *
+     * @return list<array<string,mixed>>|null null means wait for a source
+     */
+    private static function agentAutoReferenceAssets(array $nodes, array $edges, string $targetId): ?array
+    {
+        $byId=[];
+        foreach ($nodes as $node) if (is_array($node) && isset($node['id'])) $byId[(string)$node['id']]=$node;
+        $references=[];
+        foreach ($edges as $edge) {
+            if (!is_array($edge) || (string)($edge['to']??'')!==$targetId || (string)($edge['kind']??'reference')!=='reference') continue;
+            $source=$byId[(string)($edge['from']??'')]??null;
+            if (!$source) continue;
+            $type=(string)($source['type']??'');
+            if (!in_array($type,['image','video','audio'],true)) continue;
+            $metadata=(array)($source['metadata']??[]);
+            if ((string)($metadata['status']??'')!=='success') return null;
+            $assetId=(int)($metadata['asset_id']??0);
+            if ($assetId<=0) return null;
+            $references[]=[
+                'type'=>$type,'asset_id'=>$assetId,
+                'role'=>in_array((string)($edge['role']??''),['first_frame','last_frame','reference'],true)
+                    ? (string)$edge['role'] : 'reference',
+            ];
+        }
+        return $references;
     }
 
     private static function generationPayload(string $type, array $params, int $tenantId, int $userId, int $canvasId): array
