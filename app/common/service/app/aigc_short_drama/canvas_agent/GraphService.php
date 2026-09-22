@@ -10,7 +10,56 @@ final class GraphService
 {
     public const TABLE = 'aigc_short_drama_canvas';
     public const RECEIPTS = 'aigc_short_drama_canvas_mutation_receipt';
-    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision'];
+    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit'];
+
+    /**
+     * Server-only Agent writer.  ConversationExecution already owns the
+     * document lock when this method is called, so this shares the exact same
+     * CAS/revision path as manual saves and runtime projections.
+     *
+     * @param list<array{type:string,title:string,prompt:string}> $proposals
+     * @param list<string> $sourceIds frozen IDs from the accepted conversation
+     * @return array{graph_revision:int,nodes:list<array{id:string,type:string,auto_submit:bool}>}
+     */
+    public static function appendAgentNodesLocked(array $document, array $proposals, array $sourceIds, bool $auto, array $settings=[]): array
+    {
+        if (!$proposals || count($proposals) > 4) throw new RuntimeException('INVALID_AGENT_ACTION');
+        $nodes = json_decode($document['nodes_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+        $edges = json_decode($document['edges_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+        $removed = json_decode($document['removed_node_ids_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);
+        if (count($nodes) + count($proposals) > 200) throw new RuntimeException('CANVAS_CAPACITY_EXCEEDED');
+        $liveSources=[];
+        foreach ($sourceIds as $sourceId) {
+            if (!is_string($sourceId) || !preg_match('/^[1-9][0-9]{0,15}$/D', $sourceId)) continue;
+            $index=self::index($nodes,$sourceId);
+            if ($index!==null) $liveSources[]=$sourceId;
+        }
+        $maximumX=0.0; $maximumY=0.0;
+        foreach ($nodes as $node) { $maximumX=max($maximumX,(float)($node['x']??0)); $maximumY=max($maximumY,(float)($node['y']??0)); }
+        $created=[];
+        foreach ($proposals as $offset=>$proposal) {
+            if (!is_array($proposal) || array_keys($proposal)!==['type','title','prompt']) throw new RuntimeException('INVALID_AGENT_ACTION');
+            $type=(string)$proposal['type']; $title=trim((string)$proposal['title']); $prompt=trim((string)$proposal['prompt']);
+            if (!in_array($type,['text','image','video'],true) || $title==='' || mb_strlen($title)>80 || $prompt==='' || mb_strlen($prompt)>20000) throw new RuntimeException('INVALID_AGENT_ACTION');
+            $id=(string)self::allocateNodeId($nodes,$removed);
+            $size=$type==='text' ? [320,280] : [420,320];
+            $metadata=['prompt'=>$prompt,'content'=>'','status'=>'idle','progress'=>0,'error'=>'','content_revision'=>1,'layout_revision'=>1];
+            if ($type==='text') $metadata['model_code']=(string)($settings['reasoning_model']['id']??'');
+            else $metadata['channel']=(string)($settings[$type.'_model']['id']??'');
+            if ($auto) $metadata['agent_auto_submit']=1;
+            $node=['id'=>(int)$id,'type'=>$type,'title'=>$title,'x'=>$maximumX+420+($offset%2)*40,'y'=>$maximumY+($offset*360),'width'=>$size[0],'height'=>$size[1],'metadata'=>$metadata];
+            foreach ($liveSources as $order=>$sourceId) {
+                $sourceIndex=self::index($nodes,$sourceId);
+                if ($sourceIndex!==null && self::referenceConnectionAllowed(array_merge($nodes,[$node]),$sourceIndex,count($nodes))) {
+                    $edges[]=['from'=>(int)$sourceId,'to'=>(int)$id,'kind'=>'reference','role'=>'agent_context','order'=>$order];
+                }
+            }
+            $nodes[]=$node;
+            $created[]=['id'=>$id,'type'=>$type,'auto_submit'=>$auto];
+        }
+        $updated=self::persistLockedDocument($document,['nodes_json'=>self::json($nodes),'edges_json'=>self::json($edges),'removed_node_ids_json'=>self::json($removed),'schema_version'=>2,'update_time'=>time()]);
+        return ['graph_revision'=>(int)($updated['graph_revision']??0),'nodes'=>$created];
+    }
 
     /** Whole-document compatibility adapter for concurrency-enabled documents. */
     public static function sanitizeManualNodes(array $document,array $nodes): array

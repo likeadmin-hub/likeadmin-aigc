@@ -26,11 +26,15 @@ final class ConversationExecution
     }
 
     /** Return false when a valid but late reply is retained for reconciliation. */
-    public static function complete(int $tenant,int $user,int $runId,string $token,int $fence,string $text): bool
+    /**
+     * Complete a reply and its bounded graph proposal atomically.  The action
+     * is a server-validated proposal, not an arbitrary provider tool call.
+     */
+    public static function complete(int $tenant,int $user,int $runId,string $token,int $fence,string $text,array $proposals=[]): bool
     {
         if (trim($text)==='' || mb_strlen($text)>100000) throw new RuntimeException('INVALID_ASSISTANT_REPLY');
-        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$text): bool {
-            [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);
+        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$text,$proposals): bool {
+            [$run,$thread,$outbox,$document]=self::locked($tenant,$user,$runId);
             self::identity($outbox,$token,$fence);
             $hash=hash('sha256',$text);
             if ($run['status']==='success') {
@@ -52,11 +56,21 @@ final class ConversationExecution
                 return false;
             }
             if ((int)$thread['active_run_id']!==$runId) throw new RuntimeException('RUN_SUPERSEDED');
+            $effects=[];
+            if ($proposals) {
+                $context=json_decode($run['context_snapshot'],true,512,JSON_THROW_ON_ERROR);
+                $settings=json_decode($run['settings_snapshot'],true,512,JSON_THROW_ON_ERROR);
+                $sourceIds=[];
+                foreach ((array)($context['selected_nodes']??[]) as $node) if (is_array($node) && is_scalar($node['id']??null)) $sourceIds[]=(string)$node['id'];
+                $effects=GraphService::appendAgentNodesLocked($document,$proposals,$sourceIds,($settings['generation_mode']??'manual')==='auto',$settings);
+                $effects['mode']=($settings['generation_mode']??'manual')==='auto'?'auto':'manual';
+            }
             $sequence=(int)$thread['next_message_sequence'];
-            Db::name(ConversationStore::PREFIX.'message')->insert(self::scope($run)+['thread_id'=>$run['thread_id'],'run_id'=>$runId,'sequence'=>$sequence,'role'=>'assistant','content_json'=>self::json(['text'=>$text]),'attachments_json'=>'[]','create_time'=>time()]);
+            $content=['text'=>$text]; if ($effects) $content['canvas_actions']=$effects;
+            Db::name(ConversationStore::PREFIX.'message')->insert(self::scope($run)+['thread_id'=>$run['thread_id'],'run_id'=>$runId,'sequence'=>$sequence,'role'=>'assistant','content_json'=>self::json($content),'attachments_json'=>'[]','create_time'=>time()]);
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(['active_run_id'=>0,'next_message_sequence'=>$sequence+1,'update_time'=>time()]);
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'done','lease_until'=>0,'update_time'=>time()]);
-            self::state($run,'success');self::event($run,'run.succeeded',['status'=>'success','message_sequence'=>$sequence]);
+            self::state($run,'success');self::event($run,'run.succeeded',['status'=>'success','message_sequence'=>$sequence]+($effects?['canvas_actions'=>$effects]:[]));
             return true;
         });
     }
@@ -204,7 +218,7 @@ final class ConversationExecution
         $run=Db::name(ConversationStore::PREFIX.'run')->where('id',$runId)->lock(true)->find();
         $outbox=Db::name(ConversationStore::PREFIX.'outbox')->where(self::scope($identity)+['run_id'=>$runId])->lock(true)->find();
         if (!$outbox) throw new RuntimeException('OUTBOX_NOT_FOUND');
-        return [$run,$thread,$outbox];
+        return [$run,$thread,$outbox,$canvas];
     }
     private static function identity(array $outbox,string $token,int $fence): void {
         if ($token==='' || !hash_equals($outbox['lease_token'],$token) || (int)$outbox['fencing_version']!==$fence) throw new RuntimeException('STALE_WORKER');
