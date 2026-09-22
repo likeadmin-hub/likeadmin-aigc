@@ -28,6 +28,19 @@ try {
     agentCheck($before===[Db::name('ai_app_task')->count(),Db::name('ai_consumption_log')->count()],'successful and rejected quotes create no task or billing ledger');
     $balances=static fn():array=>[(float)Db::name('tenant')->where('id',91001)->value('point_balance'),(float)Db::name('user')->where('id',92001)->value('user_money')];
     $initial=$balances();
+    $knownPayload=Db::name('power_market_product')->where('id',$product)->value('source_payload');
+    Db::name('power_market_product')->where('id',$product)->update(['source_payload'=>json_encode(['market_metadata'=>['supported_asset_types'=>['image']]])]);
+    foreach (['quote','reserve'] as $entry) {
+        $rejected=false;
+        try {
+            $unknownRequest=['duration'=>5,'reference_assets'=>array_slice($assets,0,1)];
+            if ($entry==='quote') Runtime::quote(91001,$selection+$unknownRequest);
+            else Runtime::reserve(91001,92001,'aigc_short_drama','video','aigc_short_drama_generation_task','p3-unknown-capacity',$selection,$unknownRequest);
+        } catch (Exception $error) {$rejected=str_contains($error->getMessage(),'reference limit is unavailable');}
+        agentCheck($rejected,'M10 public '.$entry.' rejects model with unknown reference capacity');
+        agentCheck($balances()===$initial && $before===[Db::name('ai_app_task')->count(),Db::name('ai_consumption_log')->count()],'M10 rejected '.$entry.' creates no reservation or balance change');
+    }
+    Db::name('power_market_product')->where('id',$product)->update(['source_payload'=>$knownPayload]);
     foreach (['combined-limit'=>$assets,'unsupported-audio'=>[['type'=>'audio','url'=>'https://fixtures.invalid/voice.mp3']]] as $case=>$references) {
         $rejected=false;
         try {Runtime::reserve(91001,92001,'aigc_short_drama','video','aigc_short_drama_generation_task','p3-'.$case,$selection,['duration'=>5,'reference_assets'=>$references]);}
