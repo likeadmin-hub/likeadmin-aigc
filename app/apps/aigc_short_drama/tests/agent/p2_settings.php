@@ -7,6 +7,7 @@ use app\common\service\app\aigc_short_drama\canvas_agent\ConversationSettings as
 use app\common\service\app\aigc_short_drama\canvas_agent\FeatureGate;
 use app\common\service\app\aigc_short_drama\canvas_agent\MarketTextConversationProvider;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationPreferences;
+use app\common\service\power\MarketTextModelRuntimeService;
 function rejectsSettings(callable $action,string $code): void {
     try {$action();} catch (RuntimeException $error) {agentCheck($error->getMessage()===$code,$code);return;}
     throw new RuntimeException('Expected '.$code);
@@ -41,6 +42,8 @@ try {
     Db::name('aigc_short_drama_config')->insert(['tenant_id'=>91002,'config_json'=>'{"canvas_agent":{"enabled":true}}','status'=>1,'create_time'=>time(),'update_time'=>time()]);
     $product=Db::name('power_market_product')->insertGetId(['product_code'=>'isolated-agent-text','resource_type'=>'model','model_type'=>'text','name'=>'Isolated reasoning fixture','source_code'=>'isolated-agent-test','upstream_resource_key'=>'isolated-agent-text','upstream_model_code'=>'isolated-reasoning','upstream_channel_code'=>'isolated-channel','source_payload'=>json_encode(['market_metadata'=>['supports_vision'=>true]]),'status'=>1]);
     $sku=Db::name('power_market_sku')->insertGetId(['product_id'=>$product,'sku_key'=>'input','title'=>'Isolated input tokens','usage_unit'=>'token','sale_points'=>1,'status'=>1,'sale_status'=>1]);
+    $textOnly=Db::name('power_market_product')->insertGetId(['product_code'=>'isolated-agent-text-only','resource_type'=>'model','model_type'=>'text','name'=>'Isolated text-only fixture','source_code'=>'isolated-agent-test','upstream_resource_key'=>'isolated-agent-text-only','upstream_model_code'=>'isolated-text-only','upstream_channel_code'=>'isolated-channel','source_payload'=>json_encode(['market_metadata'=>['supports_vision'=>false]]),'status'=>1]);
+    Db::name('power_market_sku')->insert(['product_id'=>$textOnly,'sku_key'=>'input','title'=>'Isolated text-only input tokens','usage_unit'=>'token','sale_points'=>1,'status'=>1,'sale_status'=>1]);
     $real=Settings::resolve(91001,['reasoning_model'=>(string)$product]);
     agentCheck($real['reasoning_model']['id']===(string)$product && $real['reasoning_model']['model_code']==='isolated-reasoning','real database catalog resolves exact requested market identity');
     agentCheck($real['reasoning_model']['supports_vision']===true && $real['reasoning_model']['market_input_sku_id']===(int)$sku,'market capabilities and SKU resolved server-side');
@@ -59,6 +62,11 @@ try {
     agentCheck(FeatureGate::enabled(91001) && FeatureGate::executionEnabled(91001),'tenant configuration explicitly enables Agent model execution');
     $provider->preflight(91001,92001,['settings'=>['reasoning_model'=>['id'=>(string)$product]]]);
     agentCheck(true,'enabled Agent preflight accepts the server-resolved market model without invoking it');
+    $routed=MarketTextModelRuntimeService::resolveRoutedModel(91001,['id'=>(string)$textOnly],true);
+    agentCheck((int)$routed['product_id']===(int)$product,'image context silently routes a text-only preference to tenant-enabled vision model');
+    $fallbackClassifier=new ReflectionMethod(MarketTextModelRuntimeService::class,'isExplicitModelUnavailable');
+    $fallbackClassifier->setAccessible(true);
+    agentCheck($fallbackClassifier->invoke(null,'model_not_found: unavailable')===true && $fallbackClassifier->invoke(null,'provider timeout')===false,'only explicit upstream model rejection permits server-side model fallback');
     AigcShortDramaService::saveConfig(91001,['canvas_agent'=>['enabled'=>false,'execution_enabled'=>true]]);
     agentCheck(!FeatureGate::enabled(91001) && !FeatureGate::executionEnabled(91001),'turning off Agent also disables paid model execution');
     AigcShortDramaService::saveConfig(91001,['canvas_agent'=>['enabled'=>true,'execution_enabled'=>false]]);

@@ -25,6 +25,7 @@ class MarketTextModelRuntimeService
     private const REQUEST_TIMEOUT_SECONDS = 1200;
     private const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
     private const MAX_COMPATIBILITY_ATTEMPTS = 4;
+    private const MAX_MODEL_FALLBACK_ATTEMPTS = 3;
     /** @var array<int, string> */
     private const MARKET_CONTEXT_KEYS = [
         'market_product_id', 'market_sku_id', 'sku_id', 'market_sku_key', 'sku_key', 'pricing_sku_key',
@@ -74,6 +75,19 @@ class MarketTextModelRuntimeService
     }
 
     /**
+     * Resolve the effective server-side model without executing a provider
+     * request.  Callers use this for preflight so an attachment can silently
+     * move an incompatible saved preference onto a tenant-enabled vision
+     * model.  The browser receives neither the decision nor provider details.
+     *
+     * @return array<string,mixed>
+     */
+    public static function resolveRoutedModel(int $tenantId, $selection, bool $requiresVision = false): array
+    {
+        return self::routeModel($tenantId, $selection, $requiresVision);
+    }
+
+    /**
      * @param array<string, mixed> $params content, system_prompt, model_selection, action_code
      * @return array<string, mixed>
      */
@@ -89,7 +103,8 @@ class MarketTextModelRuntimeService
         if ($resultValidator!==null && !is_callable($resultValidator)) throw new Exception('文本结果校验器无效');
         $referenceImages = array_values(array_filter(array_map('strval', (array)($params['reference_images'] ?? []))));
         $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? []);
-        $model = self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $referenceImages !== [] || !empty($params['requires_vision']));
+        $requiresVision = $referenceImages !== [] || !empty($params['requires_vision']);
+        $model = self::resolveRoutedModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision);
         if ($tenantAdminConsumption) {
             // Persist zero retail price so delayed usage settlement has the same payer.
             $model['input']['tenant_price'] = 0;
@@ -190,8 +205,62 @@ class MarketTextModelRuntimeService
             ];
         } catch (\Throwable $e) {
             self::fail($context, $e->getMessage(), 'provider_error');
+            $fallback = self::fallbackModel($tenantId, $model, $requiresVision, (array)($params['_market_model_fallback_ids'] ?? []));
+            if ($fallback !== null && self::isExplicitModelUnavailable($e->getMessage())) {
+                // This response proves the selected model was never accepted.
+                // The failed consumption has already been settled/refunded above,
+                // so a new task for an enabled compatible model cannot duplicate
+                // a paid Provider request. Never apply this path to timeouts.
+                $params['model_selection'] = (string)$fallback['id'];
+                $params['_market_model_fallback_ids'] = array_values(array_unique(array_merge(
+                    array_map('strval', (array)($params['_market_model_fallback_ids'] ?? [])),
+                    [(string)$model['id']]
+                )));
+                return self::generate($tenantId, $userId, $params, $onEvent, $tenantAdminConsumption);
+            }
             throw $e instanceof Exception ? $e : new Exception('文本模型调用失败，请稍后重试');
         }
+    }
+
+    /**
+     * Uploaded images must never be sent to a text-only model. If a saved
+     * preference becomes incompatible, silently use the tenant's first enabled
+     * vision model rather than asking the browser to understand model routing.
+     *
+     * @return array<string,mixed>
+     */
+    private static function routeModel(int $tenantId, $selection, bool $requiresVision): array
+    {
+        if (!$requiresVision) return self::resolveModel($tenantId, $selection, false);
+        try {
+            return self::resolveModel($tenantId, $selection, true);
+        } catch (Exception) {
+            $options=self::options($tenantId,true);
+            if ($options===[]) throw new Exception('暂无可用的视觉文本模型');
+            return $options[0];
+        }
+    }
+
+    /** @param array<int,mixed> $excluded */
+    private static function fallbackModel(int $tenantId, array $current, bool $requiresVision, array $excluded): ?array
+    {
+        $excluded=array_values(array_unique(array_filter(array_map('strval',$excluded))));
+        $currentId=(string)($current['id']??'');
+        if ($currentId!=='') $excluded[]=$currentId;
+        if (count($excluded)>self::MAX_MODEL_FALLBACK_ATTEMPTS) return null;
+        foreach (self::options($tenantId,$requiresVision) as $candidate) {
+            if (!in_array((string)($candidate['id']??''),$excluded,true)) return $candidate;
+        }
+        return null;
+    }
+
+    private static function isExplicitModelUnavailable(string $message): bool
+    {
+        $message=strtolower(trim($message));
+        foreach (['model_not_found','model not found','invalid_model','invalid model','unsupported_model','unsupported model','model unavailable','模型不存在','模型不可用','模型已下架'] as $needle) {
+            if (str_contains($message,$needle)) return true;
+        }
+        return false;
     }
 
     public static function bindBusinessTask(int $appTaskId, string $table, int $businessId): void
