@@ -957,3 +957,15 @@ server `449e0346f` 将此前可执行的授权服务覆盖扩展到缺失的中�
 - PASS / 取消与账本终态：`p2_stop.php` **76 PASS / 0 FAIL**，`p2_reconciliation.php` **11 PASS / 0 FAIL**。排队/处理中停止可围栏 Provider 提交并幂等释放会话；已提交后只记录停止请求且不伪称上游已取消；失败退款、已结算的迟到结果和未知终态均经本地 app-task/消费账本对齐，不重复扣费、退款或改写权威账本。
 
 测试在 internal Docker 网络和独立 `short_drama_agent_test` 库执行，真实 `.env` 被遮盖、runtime 为 tmpfs；没有访问 tenant 1 业务数据或产生付费调用。**仍不能把取消/退款宣称为真实 Provider 上游操作 PASS**：当前接入的 Qwen 文本流协议没有可调用、可验证的取消 API 或 Provider 侧用量查询契约；真实 Agent 成功路径已在第 52 节通过，但其停止后的上游取消/退款仍为 `BLOCKED`，不能用本地围栏/账本测试替代。M09 私有签名刷新、M01 共享能力矩阵、M06/M14 报价确认失效、M11 Agent/手动同请求幂等和 M12 完整浏览器映射仍未满足，**P3 未整体放行，P4—P6 NOT_RUN**。
+
+## 54. P3 四节点引用矩阵的服务端写入边界（2026-09-22）
+
+此前浏览器已有 4×4 引用关系筛选，GraphService 只作端点结构校验，错误请求可绕过前端直接写入不应存在的 reference edge。server `1d6cb80b8` 将四节点的**基础、模型无关**引用矩阵写入 GraphService：`text → text/image/video/audio`、`image → text/image/video`、`video → text/video`、`audio → text/video/audio`；其余 reference 边明确返回 `EDGE_CAPABILITY_UNSUPPORTED`。annotation 仍作为无媒体含义的图注边保留，不受该矩阵阻断。
+
+模型专属能力没有被提前塞入图写入：替代模型可以让关联保持，真正提交继续由已选模型的市场目录、模式、容量、首尾帧和资产校验决定，避免破坏 M02 的“关联可保留、生成按当前模型拒绝”语义。
+
+- PASS：本地 develop 的隔离数据库运行新 `p3_connection_matrix.php`，服务端 4×4 **16 个组合**逐一验证允许保存或明确拒绝，另有 annotation 保留 **1 PASS**。
+- PASS：`p1_graph_operations.php` **10 PASS / 0 FAIL**，既有同一素材首/尾帧角色、精确移除、布局版本和重放收据保持通过。
+- PASS：本地 web develop 使用桌面受管 Node 运行生产 `connection-rules.ts` 行为测试 **27 PASS / 0 FAIL**；覆盖同一 16 组合以及 M02/M03/M04/M05/M10。
+
+这是前后端各自实际生产规则的对照与服务端强制边界，不把两个独立实现错误称为“同一共享源码”。浏览器拖放到真实 API、图片/视频真实 Provider 成功和 M09 私有签名刷新仍未运行；M06/M11/M12/M14/M16 也未完成，故 P3 仍**未整体放行**，P4—P6 NOT_RUN。没有业务数据库写入、付费请求、迁移、部署或推送。
