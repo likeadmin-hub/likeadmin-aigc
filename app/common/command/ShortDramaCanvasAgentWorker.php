@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace app\common\command;
 
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationQueue;
+use app\common\service\app\aigc_short_drama\canvas_agent\AutoGenerationDispatcher;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationSafety;
 use app\common\service\app\aigc_short_drama\canvas_agent\FeatureGate;
 use app\common\service\app\aigc_short_drama\canvas_agent\MarketTextConversationProvider;
@@ -44,6 +45,12 @@ final class ShortDramaCanvasAgentWorker extends Command
                 ConversationSafety::purgeExpired($tenant,100);
                 $result=ConversationQueue::tick($tenant,$provider,0,20);
                 $processed+=(int)($result['scanned']??0);
+                // Auto mode is durable even if the page which initiated the
+                // conversation is closed.  This only resumes text/image nodes
+                // already authorized by the server; videos continue through
+                // the user-visible quote-confirmation path.
+                $auto=AutoGenerationDispatcher::tick($tenant,20);
+                $processed+=(int)($auto['submitted']??0);
             }
             if ($input->getOption('once')) { $output->writeln('scanned='.$processed); return 0; }
             if ($processed===0 && $running) sleep($pause);

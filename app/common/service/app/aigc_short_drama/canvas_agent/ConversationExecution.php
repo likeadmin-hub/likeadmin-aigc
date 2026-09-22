@@ -62,7 +62,7 @@ final class ConversationExecution
                 $settings=json_decode($run['settings_snapshot'],true,512,JSON_THROW_ON_ERROR);
                 $sourceIds=[];
                 foreach ((array)($context['selected_nodes']??[]) as $node) if (is_array($node) && is_scalar($node['id']??null)) $sourceIds[]=(string)$node['id'];
-                $effects=GraphService::appendAgentNodesLocked($document,$proposals,$sourceIds,($settings['generation_mode']??'manual')==='auto',$settings);
+                $effects=GraphService::appendAgentNodesLocked($document,$proposals,$sourceIds,($settings['generation_mode']??'manual')==='auto',$settings,$runId);
                 $effects['mode']=($settings['generation_mode']??'manual')==='auto'?'auto':'manual';
             }
             $sequence=(int)$thread['next_message_sequence'];
