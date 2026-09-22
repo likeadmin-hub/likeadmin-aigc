@@ -71,6 +71,17 @@ final class FeatureGate
         return self::truthy($agent['enabled']??false)
             && self::truthy($agent['execution_enabled']??false);
     }
+    /** Platform catalogues are fixed in source.  A tenant may only opt in to
+     * an approved key, never upload a replacement workflow definition. */
+    public static function workflowEnabled(int $tenant,string $key): bool
+    {
+        if (!self::enabled($tenant) || $key!==ConversationWorkflow::KEY) return false;
+        $workflow=(array)((self::config($tenant)['canvas_agent']??[])['workflow']??[]);
+        if (array_key_exists('enabled',$workflow) && !self::truthy($workflow['enabled'])) return false;
+        $allowed=$workflow['enabled_workflows']??[];
+        if ($allowed===[] || $allowed===null) return true;
+        return is_array($allowed) && in_array($key,array_map('strval',$allowed),true);
+    }
     public static function assertEnabled(int $tenant): void
     {
         if (!self::enabled($tenant)) throw new RuntimeException('CANVAS_AGENT_DISABLED');
