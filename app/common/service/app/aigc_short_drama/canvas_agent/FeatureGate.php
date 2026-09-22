@@ -82,6 +82,32 @@ final class FeatureGate
         if ($allowed===[] || $allowed===null) return true;
         return is_array($allowed) && in_array($key,array_map('strval',$allowed),true);
     }
+
+    /**
+     * Tenant configuration may select published Skill versions for a
+     * platform-defined stage, but it cannot add stages or relax workflow
+     * rules. Resolution and policy validation happen again when a thread is
+     * created, before any snapshot is persisted.
+     *
+     * @return array<string,list<array{skill_id:int,skill_version:int}>>
+     */
+    public static function workflowStageSkillSelections(int $tenant): array
+    {
+        $raw=(array)(((array)((self::config($tenant)['canvas_agent']??[]))['workflow']??[])['stage_skills']??[]);
+        $result=[];
+        foreach ($raw as $stage=>$items) {
+            if (!is_string($stage) || !preg_match('/^[a-z_]{2,64}$/D',$stage) || !is_array($items) || !array_is_list($items)) continue;
+            $seen=[];
+            foreach (array_slice($items,0,4) as $item) {
+                if (!is_array($item)) continue;
+                $id=(int)($item['skill_id']??0);$version=(int)($item['skill_version']??0);
+                if ($id<=0 || $version<=0 || isset($seen[$id.':'.$version])) continue;
+                $seen[$id.':'.$version]=true;
+                $result[$stage][]=['skill_id'=>$id,'skill_version'=>$version];
+            }
+        }
+        return $result;
+    }
     public static function assertEnabled(int $tenant): void
     {
         if (!self::enabled($tenant)) throw new RuntimeException('CANVAS_AGENT_DISABLED');

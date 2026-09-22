@@ -36,6 +36,12 @@ final class ConversationService
                     ConversationSkillPolicy::assertSafe($skill);
                 }
                 catch (\Throwable $error) {throw new RuntimeException('SKILL_UNAVAILABLE',0,$error);}
+            } elseif (($skillKey=self::explicitSkillKey($content))!=='' && !ConversationWorkflow::isManualAlias($content)) {
+                try {
+                    $skill=ShortDramaSkillService::resolveForTaskByKey($tenant,$skillKey);
+                    if ($skill) ConversationSkillPolicy::assertSafe($skill);
+                }
+                catch (\Throwable $error) {throw new RuntimeException('SKILL_UNAVAILABLE',0,$error);}
             }
             // Freeze server-resolved model identities, not mutable browser
             // preference tokens.  The workflow snapshot contains no Provider
@@ -45,5 +51,13 @@ final class ConversationService
             $workflow=ConversationWorkflow::prepare($tenant,$conversation,$content,$selectedIds,$attachments,$workflowPreferences);
             return ['settings'=>$settings,'skill'=>$skill,'workflow'=>$workflow['workflow'],'thread_settings'=>$workflow['thread_settings']];
         },['preferences'=>$preferences,'skill_id'=>$skillId,'skill_version'=>$skillVersion]);
+    }
+
+    /** `/skill_key` is a convenience selector for a published, tenant-visible
+     * Skill. It never accepts an ID, version or any policy from the browser. */
+    private static function explicitSkillKey(string $content): string
+    {
+        if (!preg_match('/^\/([a-z][a-z0-9_]{1,79})(?:\s|$)/i',trim($content),$matches)) return '';
+        return strtolower($matches[1]);
     }
 }

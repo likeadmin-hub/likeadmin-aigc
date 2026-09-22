@@ -4,6 +4,7 @@ namespace app\common\service\app\aigc_short_drama\canvas_agent;
 
 use RuntimeException;
 use app\common\service\app\aigc_image\AigcImageService;
+use app\common\service\app\aigc_short_drama\ShortDramaSkillService;
 use think\facade\Db;
 
 /**
@@ -17,7 +18,7 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-22.1';
+    public const VERSION = '2026-09-22.2';
 
     /** @return array<string,mixed> */
     public static function catalog(): array
@@ -65,7 +66,7 @@ final class ConversationWorkflow
         if ($state===[]) {
             $catalog=self::catalog();
             $state=[
-                'workflow_snapshot'=>self::snapshot($catalog,$route,$selectedIds,$attachments,$preferences),
+                'workflow_snapshot'=>self::snapshot($tenant,$catalog,$route,$selectedIds,$attachments,$preferences),
                 'stage_state'=>['key'=>'intake','status'=>'collecting','completed'=>[]],
                 'slot_values'=>[], 'plan_hash'=>'', 'image_plan'=>[], 'plan_confirmation'=>['status'=>'not_required'],
                 'state_revision'=>1,
@@ -80,7 +81,9 @@ final class ConversationWorkflow
         }
         self::assertState($state);
         $settings['workflow_state']=$state;
-        return ['workflow'=>self::publicState($state),'thread_settings'=>$settings];
+        // The queued run needs the complete frozen Skill snapshots; browser
+        // reads receive the redacted state from read()/card actions instead.
+        return ['workflow'=>self::runState($state),'thread_settings'=>$settings];
     }
 
     /** Read current tenant-scoped workflow and a small card projection. */
@@ -240,6 +243,8 @@ final class ConversationWorkflow
         $stage=(string)($workflow['stage_state']['key']??'');
         $labels=[];
         foreach ((array)($workflow['workflow_snapshot']['stages']??[]) as $item) if (($item['key']??'')===$stage) $labels=(array)($item['skills']??[]);
+        $configured=self::stageSkillNames((array)$workflow['workflow_snapshot'],$stage);
+        if ($configured) $labels=$configured;
         if ($stage==='intake') return "\n【短剧工作流】当前在创作采集阶段。只补问尚未确认的信息，不创建画布节点、不提交媒体任务。";
         $suffix=$stage==='assets'
             ? '若建议生成节点，仍须使用受限 canvas-actions 格式；主体三视图必须真实依赖同批主体图；只引用已提供的画布素材，不能编造素材 ID、价格或任务状态。'
@@ -258,13 +263,63 @@ final class ConversationWorkflow
         $hits=0;foreach (self::catalog()['route_keywords'] as $keyword) if (mb_stripos($content,$keyword,0,'UTF-8')!==false) $hits++;
         return $hits>=1 ? 'semantic' : null;
     }
-    private static function snapshot(array $catalog,string $route,array $selectedIds,array $attachments,array $preferences): array
+    public static function isManualAlias(string $content): bool
+    {
+        $content=trim($content);
+        foreach (self::catalog()['manual_aliases'] as $alias) if (mb_stripos($content,$alias,0,'UTF-8')===0) return true;
+        return false;
+    }
+    private static function snapshot(int $tenant,array $catalog,string $route,array $selectedIds,array $attachments,array $preferences): array
     {
         $assetIds=[];foreach ($attachments as $item) if (is_array($item) && in_array($item['type']??'', ['image','document'],true) && (int)($item['asset_id']??0)>0) $assetIds[]=(int)$item['asset_id'];
         return ['key'=>$catalog['key'],'version'=>$catalog['version'],'name'=>$catalog['name'],'route'=>$route,'frozen_at'=>time(),
-            'stages'=>$catalog['stages'],'rules'=>$catalog['rules'],'slot_schema'=>$catalog['slots'],
+            'stages'=>$catalog['stages'],'rules'=>$catalog['rules'],'slot_schema'=>$catalog['slots'],'stage_skill_versions'=>self::stageSkillSnapshots($tenant,$catalog),
             'selected_node_ids'=>array_values(array_unique(array_map('strval',$selectedIds))),'attachment_asset_ids'=>array_values(array_unique($assetIds)),
             'model_preferences'=>array_intersect_key($preferences,array_flip(['generation_mode','reasoning_model','image_model','video_model']))];
+    }
+    /** Resolve only tenant-authorized, published Skill snapshots once, when
+     * the workflow begins. Later admin edits or releases cannot alter a run. */
+    private static function stageSkillSnapshots(int $tenant,array $catalog): array
+    {
+        $allowed=[];
+        foreach ((array)($catalog['stages']??[]) as $stage) if (is_array($stage) && is_string($stage['key']??null)) $allowed[$stage['key']]=true;
+        $snapshots=[];
+        foreach (FeatureGate::workflowStageSkillSelections($tenant) as $stage=>$selections) {
+            if (!isset($allowed[$stage])) continue;
+            foreach ($selections as $selection) {
+                try {
+                    $skill=ShortDramaSkillService::resolveForTask($tenant,['skill_id'=>(int)$selection['skill_id'],'skill_version'=>(int)$selection['skill_version'],'skill_source'=>'manual']);
+                    ConversationSkillPolicy::assertSafe($skill);
+                } catch (\Throwable $error) {
+                    throw new RuntimeException('WORKFLOW_SKILL_UNAVAILABLE',0,$error);
+                }
+                $snapshots[$stage][]=['id'=>(int)$skill['id'],'version'=>(int)$skill['version'],'name'=>(string)$skill['name'],'skill_key'=>(string)$skill['skill_key'],'definition'=>(array)$skill['definition']];
+            }
+        }
+        return $snapshots;
+    }
+    /** @return list<string> */
+    private static function stageSkillNames(array $snapshot,string $stage): array
+    {
+        $names=[];
+        foreach ((array)($snapshot['stage_skill_versions'][$stage]??[]) as $skill) {
+            if (!is_array($skill)) continue;
+            $name=trim((string)($skill['name']??''));
+            if ($name!=='') $names[$name]=true;
+        }
+        return array_keys($names);
+    }
+    private static function publicWorkflowSnapshot(array $snapshot): array
+    {
+        $stageSkills=[];
+        foreach ((array)($snapshot['stage_skill_versions']??[]) as $stage=>$skills) {
+            if (!is_string($stage)) continue;
+            foreach ((array)$skills as $skill) if (is_array($skill)) $stageSkills[$stage][]=[
+                'id'=>(int)($skill['id']??0),'version'=>(int)($skill['version']??0),'name'=>(string)($skill['name']??''),'skill_key'=>(string)($skill['skill_key']??''),
+            ];
+        }
+        $snapshot['stage_skill_versions']=$stageSkills;
+        return $snapshot;
     }
     private static function settings(array $thread): array { $value=json_decode((string)($thread['settings_json']??'{}'),true);return is_array($value)?$value:[]; }
     private static function stateFromSettings(array $settings): array {
@@ -274,6 +329,7 @@ final class ConversationWorkflow
         // them must remain safe; the field is populated only when a later
         // image phase actually produces a priced proposal.
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('image_plan',$state)) $state['image_plan']=[];
+        if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('stage_skill_versions',$state['workflow_snapshot'])) $state['workflow_snapshot']['stage_skill_versions']=[];
         return $state;
     }
     private static function nextSlot(array $state): ?array {
@@ -283,7 +339,9 @@ final class ConversationWorkflow
     private static function card(array $state): ?array {
         $stage=(array)$state['stage_state'];
         $definition=self::stageDefinition((array)$state['workflow_snapshot'],(string)($stage['key']??''));
-        $stageCard=['stage'=>(string)($stage['key']??''),'stage_label'=>(string)($definition['label']??'短剧创作'),'skills'=>array_values((array)($definition['skills']??[]))];
+        $stageKey=(string)($stage['key']??'');
+        $configured=self::stageSkillNames((array)$state['workflow_snapshot'],$stageKey);
+        $stageCard=['stage'=>$stageKey,'stage_label'=>(string)($definition['label']??'短剧创作'),'skills'=>$configured?:array_values((array)($definition['skills']??[]))];
         if (($stage['key']??'')==='intake' && ($stage['status']??'')==='collecting') {
             $slot=self::nextSlot($state); if (!$slot) return null;
             return $stageCard+['type'=>'question','title'=>'《短剧》剧集初始配置','step'=>count((array)$state['slot_values'])+1,'total'=>count((array)$state['workflow_snapshot']['slot_schema']),
@@ -301,10 +359,12 @@ final class ConversationWorkflow
         foreach ((array)($snapshot['stages']??[]) as $stage) if (is_array($stage) && ($stage['key']??'')===$key) return $stage;
         return [];
     }
-    private static function publicState(array $state): array { return ['workflow_snapshot'=>$state['workflow_snapshot'],'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'plan_hash'=>$state['plan_hash'],'image_plan'=>self::publicImagePlan((array)($state['image_plan']??[])),'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
+    /** Complete frozen state used only inside the immutable run snapshot. */
+    private static function runState(array $state): array { return $state; }
+    private static function publicState(array $state): array { return ['workflow_snapshot'=>self::publicWorkflowSnapshot((array)$state['workflow_snapshot']),'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'plan_hash'=>$state['plan_hash'],'image_plan'=>self::publicImagePlan((array)($state['image_plan']??[])),'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
     private static function assertState(array $state): void {
         $snapshot=(array)($state['workflow_snapshot']??[]);$stage=(array)($state['stage_state']??[]);
-        if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_array($state['image_plan']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1 || !is_array($state['plan_confirmation']??null)) throw new RuntimeException('INVALID_WORKFLOW_STATE');
+        if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_array($snapshot['stage_skill_versions']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_array($state['image_plan']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1 || !is_array($state['plan_confirmation']??null)) throw new RuntimeException('INVALID_WORKFLOW_STATE');
     }
     private static function nextStage(string $stage): string { return ['script'=>'art','art'=>'assets','assets'=>'storyboard','storyboard'=>'video_plan','video_plan'=>'video_nodes','video_nodes'=>'audio_plan','audio_plan'=>'complete'][$stage]??''; }
     private static function publicModel(array $model): array { return ['id'=>(string)($model['id']??''),'model_code'=>(string)($model['model_code']??''),'market_product_id'=>(int)($model['market_product_id']??0),'market_sku_id'=>(int)($model['market_sku_id']??0)]; }

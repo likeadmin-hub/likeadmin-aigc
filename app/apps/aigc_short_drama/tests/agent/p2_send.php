@@ -52,6 +52,10 @@ try {
     $frozen=json_decode($run['skill_snapshot'],true);
     agentCheck($frozen['id']===(int)$skill && $frozen['version']===1 && $frozen['definition']===$definition['definition'],'send freezes actual short-drama published Skill');
     agentCheck(!str_contains($run['skill_snapshot'],'INDEPENDENT_CANVAS_SHADOW_MUST_NOT_RUN'),'same-name same-ID independent canvas Skill cannot shadow short-drama selection');
+    $slashThread=Store::create(91001,92001,$canvas,'slash-skill-thread')['id'];
+    $slash=Service::send(91001,92001,$canvas,$slashThread,['request_key'=>'slash-skill','content'=>'/isolated_chat_skill 请按该 Skill 创作','base_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'manual']]);
+    $slashSnapshot=json_decode((string)Db::name(Store::PREFIX.'run')->where('id',$slash['run_id'])->value('skill_snapshot'),true);
+    agentCheck(($slashSnapshot['skill_key']??'')==='isolated_chat_skill' && ($slashSnapshot['version']??0)===1,'explicit /skill_key resolves the tenant-published short-drama Skill without a browser skill ID');
     $definitionV2=$definition;$definitionV2['definition']['instructions']='published v2 creative reference';
     Db::name('aigc_short_drama_skill_version')->insert(['tenant_id'=>91001,'skill_id'=>$skill,'version'=>2,'release_status'=>'active','snapshot_json'=>json_encode($definitionV2)]);
     Db::name('aigc_short_drama_skill')->where('id',$skill)->update(['version'=>2,'published_version'=>2]);
