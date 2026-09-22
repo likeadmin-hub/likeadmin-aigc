@@ -34,7 +34,7 @@ try {
     agentCheck((int)$stored['reference_assets'][0]['asset_id']===$old && str_contains((string)$stored['reference_assets'][0]['url'],'old-version.png') && !str_contains((string)$stored['reference_assets'][0]['url'],'forged.invalid'),'M16 request snapshot resolves selected old asset identity rather than browser URL');
     agentCheck((int)P3AssetVersionVideoProvider::$requests[0]['reference_assets'][0]['asset_id']===$old && str_contains((string)P3AssetVersionVideoProvider::$requests[0]['reference_assets'][0]['url'],'old-version.png'),'M16 Provider receives the user-selected old asset version');
     agentCheck(Db::name('aigc_short_drama_asset')->where(['id'=>$new,'delete_time'=>0,'status'=>'ready'])->count()===1,'M16 newer version remains separate and does not replace selected old asset');
-    $foreign=Db::name('aigc_short_drama_asset')->insertGetId($assetBase+['user_id'=>92002,'task_id'=>'foreign','uri'=>'https://fixtures.invalid/foreign.png']);
+    $foreign=Db::name('aigc_short_drama_asset')->insertGetId(array_replace($assetBase,['user_id'=>92002,'task_id'=>'foreign','uri'=>'https://fixtures.invalid/foreign.png']));
     $blocked=false;
     try { Canvas::submitIdempotent(91001,92001,array_replace($request,['request_key'=>'foreign-version','reference_assets'=>[['type'=>'image','asset_id'=>$foreign,'url'=>'https://forged.invalid/foreign.png']]])); }
     catch (\Exception $error) { $blocked=$error->getMessage()==='CANVAS_REFERENCE_UNAVAILABLE'; }
