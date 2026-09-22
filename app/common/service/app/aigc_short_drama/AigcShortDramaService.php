@@ -5640,7 +5640,7 @@ class AigcShortDramaService
             throw new Exception('画布不存在或无权访问');
         }
         $nodeType = strtolower(trim((string)($params['node_type'] ?? $params['type'] ?? 'image')));
-        if (!in_array($nodeType, ['text', 'image', 'video', 'audio'], true)) {
+        if (!in_array($nodeType, ['text', 'image', 'video', 'audio', 'document'], true)) {
             throw new Exception('不支持的画布资产类型');
         }
         $uri = FileService::setFileUrl((string)($params['uri'] ?? $params['url'] ?? ''));
@@ -5648,12 +5648,29 @@ class AigcShortDramaService
             throw new Exception('当前节点没有可保存的媒体');
         }
         $storedFile = $uri === '' ? [] : self::storageInfoForUploadedFile($tenantId, $uri);
+        if ($nodeType === 'document') {
+            $title = trim((string)($params['title'] ?? ''));
+            $size = (int)($params['file_size'] ?? 0);
+            if (!preg_match('/\.(pdf|doc|docx)$/iu', $title) || preg_match('/[\x00-\x1f\/\\\\]/u', $title)) {
+                throw new Exception('仅支持 PDF、DOC、DOCX 格式的文档');
+            }
+            if ($size <= 0 || $size > 10 * 1024 * 1024) {
+                throw new Exception('文档大小需在 10MB 以内');
+            }
+            if ($storedFile === []) {
+                throw new Exception('文档必须通过当前租户的本地上传入口添加');
+            }
+        }
         $meta = is_array($params['meta'] ?? null) ? $params['meta'] : [];
         $meta['source'] = 'short_drama_canvas';
         $meta['canvas_id'] = $canvasId;
         $meta['node_id'] = (string)($params['node_id'] ?? '');
         $meta['node_type'] = $nodeType;
         $meta['content'] = $nodeType === 'text' ? mb_substr((string)($params['content'] ?? ''), 0, 60000, 'UTF-8') : '';
+        if ($nodeType === 'document') {
+            $meta['document_parse_status'] = 'awaiting_confirmation';
+            $meta['document_error'] = '';
+        }
         $assetType = 'canvas_' . $nodeType;
         $time = time();
         $asset = AigcShortDramaAsset::create([
@@ -5668,7 +5685,7 @@ class AigcShortDramaService
             'mime_type' => mb_substr(trim((string)($params['mime_type'] ?? ($nodeType === 'text' ? 'text/plain' : ''))), 0, 120, 'UTF-8'),
             'file_size' => (int)($params['file_size'] ?? 0), 'width' => (int)($params['width'] ?? 0),
             'height' => (int)($params['height'] ?? 0), 'duration' => (float)($params['duration'] ?? 0),
-            'checksum' => '', 'meta_json' => self::jsonEncode($meta), 'status' => 'ready',
+            'checksum' => '', 'meta_json' => self::jsonEncode($meta), 'status' => $nodeType === 'document' ? 'uploaded' : 'ready',
             'create_time' => $time, 'update_time' => $time, 'delete_time' => 0,
         ]);
         return self::formatAsset($asset->toArray());

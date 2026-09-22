@@ -102,10 +102,12 @@ final class ConversationStore
                 if (!in_array($message['role'],['user','assistant'],true)) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
                 $messages[]=['role'=>$message['role'],'content'=>(string)(json_decode($message['content_json'],true,512,JSON_THROW_ON_ERROR)['text']??'')];
                 $prior=ConversationAttachments::normalize(json_decode($message['attachments_json']?:'[]',true,512,JSON_THROW_ON_ERROR));
+                $prior=self::contextAttachments($tenant,$user,$canvas,$prior);
                 if ($prior) $messages[count($messages)-1]['attachments']=$prior;
             }
             $messages[]=['role'=>'user','content'=>$content];
-            if ($attachments) $messages[count($messages)-1]['attachments']=$attachments;
+            $contextAttachments=self::contextAttachments($tenant,$user,$canvas,$attachments);
+            if ($contextAttachments) $messages[count($messages)-1]['attachments']=$contextAttachments;
             $attachmentImages=[];
             foreach ($attachments as $attachment) if ($attachment['type']==='image') $attachmentImages[]=ConversationImages::freezeAsset($tenant,$user,$canvas,(int)$attachment['asset_id']);
             if (count(array_filter($selected,static fn(array $node)=>$node['type']==='image'))+count($attachmentImages)>4) throw new RuntimeException('TOO_MANY_IMAGE_REFERENCES');
@@ -230,6 +232,19 @@ final class ConversationStore
         return $row;
     }
     private static function scope(int $tenant,int $user,int $canvas): array { return ['tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas]; }
+    /** Convert document references only after ownership and parser state have
+     * been checked server-side. The immutable context receives inert text,
+     * while the persisted message retains only the document asset reference. */
+    private static function contextAttachments(int $tenant,int $user,int $canvas,array $attachments): array
+    {
+        $result=[];
+        foreach ($attachments as $attachment) {
+            $result[]=$attachment['type']==='document'
+                ? ConversationDocuments::material($tenant,$user,$canvas,(int)$attachment['asset_id'],(string)$attachment['name'])
+                : $attachment;
+        }
+        return $result;
+    }
     /** Persist a no-cost clarification as a terminal local run. No outbox is
      * written, so a Worker can never submit it to a Provider. */
     private static function clarifyReference(array $scope,array $thread,string $key,string $hash,int $revision,string $content,array $candidates): array

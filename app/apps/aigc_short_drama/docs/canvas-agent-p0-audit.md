@@ -1062,3 +1062,14 @@ web `dbf5b64` 在 Composer 上传链补齐 P4 的首个可靠性切片：附件�
 - PASS / R17 前端状态边界：本地 web develop 运行 `short-drama-p4-attachments.test.cjs`，验证已移除附件不会被视为当前项、另一个仍保留的附件可继续使用。
 - PASS / R18 解析失败边界：同一测试逐项覆盖 `.pdf`、`.doc`、`.docx` 的明确拒绝文案及“未创建任务”语义；现有 Composer 回归与其合并运行，共 **19 PASS / 0 FAIL**。
 - 未宣称完整 PASS：浏览器对真正进行中的 HTTP 上传尚未具备取消/删除临时对象的服务端契约，因此本轮不把物理上传中断或临时文件清理伪称完成；P4 的 R17/R18 仍需该后端能力及端到端行为验收。没有 Provider 调用、付费扣费、业务库写入、迁移、部署或推送。
+
+## 63. P4 Agent PDF/DOC/DOCX 附件解析入口（待本地 develop 验证，2026-09-22）
+
+用户确认上游 `file_qa` 支持 PDF、DOC、DOCX，因此撤回第 62 节“明确拒绝 Office 文件”的临时边界；该拒绝不会作为产品能力保留。
+
+- 设计：浏览器先经既有租户上传入口保存文件，再登记为当前画布的 `canvas_document` 资产。文件必须是 PDF/DOC/DOCX、大小不超过 10MB、且能在当前 tenant 的受管文件记录中找到；不能用任意浏览器 URL 伪造文档。
+- 计费/授权：上传本身不调用 Provider。用户点击附件“解析”后，才读取市场实际用量 quote 并显示确认；确认令牌绑定 document asset 和当前 market SKU。旧 quote 或价格变动返回 `DOCUMENT_QUOTE_EXPIRED`，不会提交上游任务。
+- 解析/上下文：解析任务只经 `MarketFileQaAppRuntimeService` 提交与轮询，持久化在已归属的短剧资产元数据中；成功后只冻结上游返回的至多 100KB UTF-8 结果。会话历史和浏览器只保留 `{type: document, asset_id, name}`，不泄露 URI、签名 URL 或 Provider 诊断；服务端在创建不可变 run 快照时才把受控结果转换成不可信文本材料。
+- UI：附件状态为“上传中 → 待确认解析 → 解析中 → 可发送 / 失败”。待解析或解析中不能发送；PDF/DOC/DOCX 解析完成后与 TXT/Markdown、图片一起走同一 Agent 消息请求键，不会创建画布节点。
+
+本节仅记录实现范围，**尚未标记 PASS**：需要按分支规则合入本地 develop 后运行前端/隔离后端回归；真实上游解析仍要求用户看到具体 quote 后逐笔确认，不能用本次源码修改代替付费 Provider 验收。

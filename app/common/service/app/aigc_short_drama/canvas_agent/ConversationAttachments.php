@@ -19,6 +19,12 @@ final class ConversationAttachments
                 $result[]=['type'=>'image','asset_id'=>(int)$assetId,'name'=>$item['name']];
                 continue;
             }
+            if ($item['type']==='document') {
+                $assetId=$item['asset_id']??null;
+                if (array_diff(array_keys($item),['type','asset_id','name']) || (!is_int($assetId) && !is_string($assetId)) || !preg_match('/^[1-9][0-9]{0,15}$/D',(string)$assetId) || (float)$assetId>9007199254740991 || !is_string($item['name']??null) || mb_strlen($item['name'])>160 || !preg_match('/\.(pdf|doc|docx)$/iu',$item['name']) || preg_match('/[\x00-\x1f\/\\\\]/u',$item['name'])) throw new RuntimeException('INVALID_ATTACHMENTS');
+                $result[]=['type'=>'document','asset_id'=>(int)$assetId,'name'=>$item['name']];
+                continue;
+            }
             if (array_diff(array_keys($item),['type','name','content']) || $item['type']!=='text') throw new RuntimeException('INVALID_ATTACHMENTS');
             $name=$item['name']??null;$content=$item['content']??null;
             if (!is_string($name) || !mb_check_encoding($name,'UTF-8') || mb_strlen($name)>160 || !preg_match('/\.(txt|md|markdown)$/iu',$name) || preg_match('/[\x00-\x1f\/\\\\]/u',$name)) throw new RuntimeException('INVALID_ATTACHMENTS');
@@ -33,8 +39,8 @@ final class ConversationAttachments
     /** Browser-visible message data intentionally omits storage identity. */
     public static function public(array $items): array
     {
-        return array_map(static fn(array $item)=>$item['type']==='image'
-            ? ['type'=>'image','asset_id'=>$item['asset_id'],'name'=>$item['name']]
+        return array_map(static fn(array $item)=>in_array($item['type'],['image','document'],true)
+            ? ['type'=>$item['type'],'asset_id'=>$item['asset_id'],'name'=>$item['name']]
             : $item, $items);
     }
 }
