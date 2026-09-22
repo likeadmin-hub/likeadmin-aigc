@@ -39,6 +39,14 @@ class P0Music { public static function generate($t,$u,$p) { return P0Provider::s
 foreach (['P0Text' => 'aigc_llm\\AigcLlmService', 'P0Image' => 'aigc_image\\AigcImageService', 'P0Video' => 'aigc_video\\AigcVideoService', 'P0Music' => 'aigc_music\\AigcMusicService'] as $fixture => $service) {
     class_alias($fixture, 'app\\common\\service\\app\\' . $service);
 }
+function p0SubmitIdempotent(array $request): array {
+    if (($request['type'] ?? '') === 'video' && empty($request['quote_token'])) {
+        $quote=Canvas::quote(91001,92001,$request);
+        $confirmed=Canvas::confirmQuote(91001,92001,['canvas_id'=>$request['canvas_id'],'node_id'=>(string)$request['node_id'],'quote_token'=>$quote['quote_token']]);
+        $request['quote_token']=$confirmed['quote_token'];
+    }
+    return Canvas::submitIdempotent(91001,92001,$request);
+}
 Db::startTrans();
 try {
     $submitMethod=($argv[1]??'')==='idempotent'?'submitIdempotent':'submit';
@@ -139,7 +147,7 @@ try {
                 $current=Canvas::current(91001,92001,$deleted['id']);
                 Canvas::save(91001,92001,['id'=>$deleted['id'],'expected_revision'=>$current['graph_revision'],'nodes'=>[],'removed_node_ids'=>['1']]);
             };
-            $run=Canvas::submitIdempotent(91001,92001,['canvas_id'=>$deleted['id'],'node_id'=>'1','type'=>$type,'prompt'=>'Deleted fixture','request_key'=>'delete-during-submit']);
+            $run=p0SubmitIdempotent(['canvas_id'=>$deleted['id'],'node_id'=>'1','type'=>$type,'prompt'=>'Deleted fixture','request_key'=>'delete-during-submit']);
             agentCheck($run['status']==='success' && Canvas::current(91001,92001,$deleted['id'])['nodes']===[],$type.' completion after in-flight deletion never resurrects the node');
             agentCheck(Db::name('aigc_short_drama_generation_task')->where('canvas_id',$deleted['id'])->count()===1,$type.' deleted-node completion remains in actual short-drama history');
             if ($type!=='text') agentCheck(Db::name('aigc_short_drama_asset')->where('canvas_id',$deleted['id'])->count()===1,$type.' deleted-node completion retains owned media asset');
@@ -148,9 +156,9 @@ try {
             Canvas::save(91001,92001,['id'=>$race['id'],'expected_revision'=>0,'nodes'=>[['id'=>1,'type'=>$type,'metadata'=>[]]]]);
             $newRun=null;
             P0Provider::$beforeReturn=static function () use ($race,$type,&$newRun): void {
-                $newRun=Canvas::submitIdempotent(91001,92001,['canvas_id'=>$race['id'],'node_id'=>'1','type'=>$type,'prompt'=>'New fixture','request_key'=>'new-request']);
+                $newRun=p0SubmitIdempotent(['canvas_id'=>$race['id'],'node_id'=>'1','type'=>$type,'prompt'=>'New fixture','request_key'=>'new-request']);
             };
-            $oldRun=Canvas::submitIdempotent(91001,92001,['canvas_id'=>$race['id'],'node_id'=>'1','type'=>$type,'prompt'=>'Old fixture','request_key'=>'old-request']);
+            $oldRun=p0SubmitIdempotent(['canvas_id'=>$race['id'],'node_id'=>'1','type'=>$type,'prompt'=>'Old fixture','request_key'=>'old-request']);
             $current=Canvas::current(91001,92001,$race['id']);$meta=$current['nodes'][0]['metadata'];
             $actual=$type==='text'?$meta['content']:$meta['url'];
             $expected=$type==='text'?$newRun['result']['content']:$newRun['results'][0]['url'];
