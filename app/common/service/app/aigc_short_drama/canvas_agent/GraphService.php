@@ -17,7 +17,7 @@ final class GraphService
      * document lock when this method is called, so this shares the exact same
      * CAS/revision path as manual saves and runtime projections.
      *
-     * @param list<array{type:string,title:string,prompt:string}> $proposals
+     * @param list<array{type:string,title:string,prompt:string,key?:string,depends_on?:list<string>}> $proposals
      * @param list<string> $sourceIds frozen IDs from the accepted conversation
      * @return array{graph_revision:int,nodes:list<array{id:string,type:string,auto_submit:bool}>}
      */
@@ -36,11 +36,11 @@ final class GraphService
         }
         $maximumX=0.0; $maximumY=0.0;
         foreach ($nodes as $node) { $maximumX=max($maximumX,(float)($node['x']??0)); $maximumY=max($maximumY,(float)($node['y']??0)); }
+        self::validateAgentProposals($proposals);
         $created=[];
+        $createdByKey=[];
         foreach ($proposals as $offset=>$proposal) {
-            if (!is_array($proposal) || array_keys($proposal)!==['type','title','prompt']) throw new RuntimeException('INVALID_AGENT_ACTION');
             $type=(string)$proposal['type']; $title=trim((string)$proposal['title']); $prompt=trim((string)$proposal['prompt']);
-            if (!in_array($type,['text','image','video'],true) || $title==='' || mb_strlen($title)>80 || $prompt==='' || mb_strlen($prompt)>20000) throw new RuntimeException('INVALID_AGENT_ACTION');
             $id=(string)self::allocateNodeId($nodes,$removed);
             $size=$type==='text' ? [320,280] : [420,320];
             $metadata=['prompt'=>$prompt,'content'=>'','status'=>'idle','progress'=>0,'error'=>'','content_revision'=>1,'layout_revision'=>1];
@@ -64,11 +64,45 @@ final class GraphService
                     $edges[]=['from'=>(int)$sourceId,'to'=>(int)$id,'kind'=>'reference','role'=>'agent_context','order'=>$order];
                 }
             }
+            foreach ((array)($proposal['depends_on']??[]) as $order=>$dependencyKey) {
+                $sourceId=(string)($createdByKey[$dependencyKey]??'');
+                $sourceIndex=self::index($nodes,$sourceId);
+                if ($sourceIndex===null || !self::referenceConnectionAllowed(array_merge($nodes,[$node]),$sourceIndex,count($nodes))) throw new RuntimeException('EDGE_CAPABILITY_UNSUPPORTED');
+                $edges[]=['from'=>(int)$sourceId,'to'=>(int)$id,'kind'=>'reference','role'=>'agent_dependency','order'=>$order];
+            }
             $nodes[]=$node;
+            if (isset($proposal['key'])) $createdByKey[(string)$proposal['key']]=$id;
             $created[]=['id'=>$id,'type'=>$type,'auto_submit'=>$auto];
         }
         $updated=self::persistLockedDocument($document,['nodes_json'=>self::json($nodes),'edges_json'=>self::json($edges),'removed_node_ids_json'=>self::json($removed),'schema_version'=>2,'update_time'=>time()]);
         return ['graph_revision'=>(int)($updated['graph_revision']??0),'nodes'=>$created];
+    }
+
+    /**
+     * A terminal upstream dependency is a local graph fact. Mark only its
+     * still-idle automatic child failed; independent nodes remain eligible and
+     * a later explicit retry is still routed through the normal run boundary.
+     */
+    public static function blockAgentDependentNode(int $tenant, int $user, int $canvas, string $nodeId, string $message): bool
+    {
+        return Db::transaction(function () use ($tenant,$user,$canvas,$nodeId,$message): bool {
+            $document=Db::name(self::TABLE)->where(['id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find();
+            if (!$document) return false;
+            $nodes=json_decode((string)($document['nodes_json']??'[]'),true,512,JSON_THROW_ON_ERROR);
+            $changed=false;
+            foreach ($nodes as &$node) {
+                if ((string)($node['id']??'')!==$nodeId) continue;
+                $metadata=(array)($node['metadata']??[]);
+                if (empty($metadata['agent_auto_submit']) || (string)($metadata['status']??'idle')!=='idle') return false;
+                $node['metadata']=array_replace($metadata,['status'=>'failed','progress'=>0,'error'=>mb_substr($message,0,300)]);
+                $changed=true;
+                break;
+            }
+            unset($node);
+            if (!$changed) return false;
+            self::persistLockedDocument($document,['nodes_json'=>self::json($nodes),'update_time'=>time()]);
+            return true;
+        });
     }
 
     /** Whole-document compatibility adapter for concurrency-enabled documents. */
@@ -290,6 +324,27 @@ final class GraphService
     }
     private static function edgeIdentity(array $edge): array {
         return [(string)($edge['from']??''),(string)($edge['to']??''),(string)($edge['kind']??'reference'),(string)($edge['role']??''),(string)($edge['order']??0)];
+    }
+    /** Validate the model proposal again at the graph authority boundary. */
+    private static function validateAgentProposals(array $proposals): void {
+        $keys=[];
+        foreach ($proposals as $proposal) {
+            if (!is_array($proposal) || array_diff(array_keys($proposal),['type','title','prompt','key','depends_on'])) throw new RuntimeException('INVALID_AGENT_ACTION');
+            $type=(string)($proposal['type']??''); $title=trim((string)($proposal['title']??'')); $prompt=trim((string)($proposal['prompt']??''));
+            if (!in_array($type,['text','image','video'],true) || $title==='' || mb_strlen($title)>80 || $prompt==='' || mb_strlen($prompt)>20000) throw new RuntimeException('INVALID_AGENT_ACTION');
+            if (array_key_exists('key',$proposal) && !is_string($proposal['key'])) throw new RuntimeException('INVALID_AGENT_ACTION');
+            $key=trim((string)($proposal['key']??''));
+            if (array_key_exists('key',$proposal) && (!preg_match('/^[a-z][a-z0-9_-]{0,31}$/D',$key) || isset($keys[$key]))) throw new RuntimeException('INVALID_AGENT_ACTION');
+            if (array_key_exists('depends_on',$proposal)) {
+                if ($key==='' || !is_array($proposal['depends_on']) || !array_is_list($proposal['depends_on']) || count($proposal['depends_on'])>3) throw new RuntimeException('INVALID_AGENT_ACTION');
+                $dependencies=[];
+                foreach ($proposal['depends_on'] as $dependency) {
+                    if (!is_string($dependency) || !isset($keys[$dependency]) || isset($dependencies[$dependency])) throw new RuntimeException('INVALID_AGENT_ACTION');
+                    $dependencies[$dependency]=true;
+                }
+            }
+            if ($key!=='') $keys[$key]=true;
+        }
     }
     /**
      * The canvas graph stores only four node kinds. This is a deliberately

@@ -388,6 +388,12 @@ class ShortDramaCanvasService
         // policy. A stale/deleted node must never be reported as a pricing
         // issue, nor cause a quote lookup.
         self::assertGenerationNode($document, $nodeId, $type);
+        $nodes=self::decode((string)($document['nodes_json']??'[]'));
+        $edges=self::decode((string)($document['edges_json']??'[]'));
+        $planDependency=self::agentPlanDependencyState($nodes,$edges,$nodeId);
+        if ($planDependency['state']==='blocked') throw new Exception('前序节点生成失败，请先重试前序节点');
+        if ($planDependency['state']!=='ready') throw new Exception('前序节点尚未生成完成，请稍后再试');
+        if ($planDependency['references']) $params['reference_assets']=self::mergeReferenceAssets((array)($params['reference_assets']??[]),$planDependency['references']);
         $key=(string)($params['request_key']??'');
         $payload=self::generationPayload($type,$params,$tenantId,$userId,(int)$document['id']);
         $requestInput=$payload+['skill_id'=>(int)($params['skill_id']??0),'skill_version'=>(int)($params['skill_version']??0),'skill_inputs'=>(array)($params['skill_inputs']??[])];
@@ -448,7 +454,7 @@ class ShortDramaCanvasService
      * graph.  Video never enters here because it requires a fresh explicit
      * quote confirmation.
      *
-     * @return 'submitted'|'waiting'
+     * @return 'submitted'|'waiting'|'blocked'
      */
     public static function submitAgentAutoNode(int $tenantId, int $userId, int $canvasId, string $nodeId): string
     {
@@ -464,8 +470,12 @@ class ShortDramaCanvasService
         if ((string)($metadata['status']??'idle')!=='idle') return 'waiting';
         $key=(string)($metadata['agent_auto_request_key']??'');
         self::assertRequestKey($key);
-        $references=self::agentAutoReferenceAssets($nodes,$edges,$nodeId);
-        if ($references === null) return 'waiting';
+        $dependency=self::agentAutoDependencyState($nodes,$edges,$nodeId);
+        if ($dependency['state']==='blocked') {
+            GraphService::blockAgentDependentNode($tenantId,$userId,$canvasId,$nodeId,'前序节点生成失败，未提交此依赖节点');
+            return 'blocked';
+        }
+        if ($dependency['state']!=='ready') return 'waiting';
         $params=[
             'canvas_id'=>$canvasId,'node_id'=>$nodeId,'type'=>$type,
             'prompt'=>(string)($metadata['prompt']??$metadata['content']??''),
@@ -475,7 +485,7 @@ class ShortDramaCanvasService
             'model_id'=>(string)($metadata['model_id']??''),
             'ratio'=>(string)($metadata['ratio']??''),'resolution'=>(string)($metadata['resolution']??''),
             'quality'=>(string)($metadata['quality']??''),'count'=>(int)($metadata['count']??1),
-            'request_key'=>$key,'reference_assets'=>$references,
+            'request_key'=>$key,'reference_assets'=>$dependency['references'],
         ];
         self::submitIdempotent($tenantId,$userId,$params);
         return 'submitted';
@@ -786,35 +796,80 @@ class ShortDramaCanvasService
     }
 
     /**
-     * Resolve only durable assets from reference edges.  A queued/running
-     * source is a real dependency, not an empty reference which may be sent to
-     * a Provider.  Text sources already influenced the Agent plan and do not
-     * become fake media inputs.
+     * Resolve Agent-created dependency edges from the authoritative graph.
+     * This is deliberately a pure evaluator so both the existing Agent worker
+     * and the submit endpoint take the same readiness decision after a race or
+     * worker restart. Only an explicit same-plan dependency can become
+     * terminally blocked; ordinary selected context remains compatible with
+     * its previous wait-until-media-ready behavior.
      *
-     * @return list<array<string,mixed>>|null null means wait for a source
+     * @return array{state:'ready'|'waiting'|'blocked',references:list<array<string,mixed>>}
      */
-    private static function agentAutoReferenceAssets(array $nodes, array $edges, string $targetId): ?array
+    public static function agentAutoDependencyState(array $nodes, array $edges, string $targetId): array
     {
+        $plan=self::agentPlanDependencyState($nodes,$edges,$targetId);
+        if ($plan['state']!=='ready') return $plan;
         $byId=[];
         foreach ($nodes as $node) if (is_array($node) && isset($node['id'])) $byId[(string)$node['id']]=$node;
         $references=[];
         foreach ($edges as $edge) {
             if (!is_array($edge) || (string)($edge['to']??'')!==$targetId || (string)($edge['kind']??'reference')!=='reference') continue;
+            if ((string)($edge['role']??'')==='agent_dependency') continue;
             $source=$byId[(string)($edge['from']??'')]??null;
             if (!$source) continue;
             $type=(string)($source['type']??'');
-            if (!in_array($type,['image','video','audio'],true)) continue;
             $metadata=(array)($source['metadata']??[]);
-            if ((string)($metadata['status']??'')!=='success') return null;
+            $status=(string)($metadata['status']??'');
+            if (!in_array($type,['image','video','audio'],true)) {
+                continue;
+            }
+            if ($status!=='success') return ['state'=>'waiting','references'=>[]];
             $assetId=(int)($metadata['asset_id']??0);
-            if ($assetId<=0) return null;
+            if ($assetId<=0) return ['state'=>'waiting','references'=>[]];
             $references[]=[
                 'type'=>$type,'asset_id'=>$assetId,
                 'role'=>in_array((string)($edge['role']??''),['first_frame','last_frame','reference'],true)
                     ? (string)$edge['role'] : 'reference',
             ];
         }
-        return $references;
+        return ['state'=>'ready','references'=>self::mergeReferenceAssets($plan['references'],$references)];
+    }
+
+    /** @return array{state:'ready'|'waiting'|'blocked',references:list<array<string,mixed>>} */
+    public static function agentPlanDependencyState(array $nodes, array $edges, string $targetId): array
+    {
+        $byId=[];
+        foreach ($nodes as $node) if (is_array($node) && isset($node['id'])) $byId[(string)$node['id']]=$node;
+        $references=[];
+        foreach ($edges as $edge) {
+            if (!is_array($edge) || (string)($edge['to']??'')!==$targetId || (string)($edge['kind']??'reference')!=='reference' || (string)($edge['role']??'')!=='agent_dependency') continue;
+            $source=$byId[(string)($edge['from']??'')]??null;
+            if (!$source) return ['state'=>'blocked','references'=>[]];
+            $metadata=(array)($source['metadata']??[]);
+            $status=(string)($metadata['status']??'');
+            if (in_array($status,['failed','canceled'],true)) return ['state'=>'blocked','references'=>[]];
+            if ($status!=='success') return ['state'=>'waiting','references'=>[]];
+            $type=(string)($source['type']??'');
+            if (!in_array($type,['image','video','audio'],true)) continue;
+            $assetId=(int)($metadata['asset_id']??0);
+            if ($assetId<=0) return ['state'=>'waiting','references'=>[]];
+            $references[]=['type'=>$type,'asset_id'=>$assetId,'role'=>'reference'];
+        }
+        return ['state'=>'ready','references'=>$references];
+    }
+
+    /** @return list<array<string,mixed>> */
+    private static function mergeReferenceAssets(array $first, array $second): array
+    {
+        $merged=[]; $seen=[];
+        foreach (array_merge($first,$second) as $reference) {
+            if (!is_array($reference)) continue;
+            $identity=(string)($reference['type']??'').'|'.(string)($reference['asset_id']??'').'|'.(string)($reference['role']??'reference');
+            if ($identity==='||reference' || isset($seen[$identity])) continue;
+            $seen[$identity]=true;
+            $merged[]=$reference;
+        }
+        return $merged;
     }
 
     private static function generationPayload(string $type, array $params, int $tenantId, int $userId, int $canvasId): array

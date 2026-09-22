@@ -22,10 +22,10 @@ final class ConversationActionPlan
         $delivery = $mode === 'auto'
             ? '自动模式会在校验后创建节点；文本和图片节点会由页面自动提交，视频仍须完成平台既有报价确认。'
             : '手动模式只会创建待生成节点，用户必须在画布节点上点击生成。';
-        return "当且仅当用户明确要求创建或生成画布内容、且所需提示词已经足够时，你可以在正常答复末尾附加一个严格 JSON 包裹：<canvas-actions>{\"nodes\":[{\"type\":\"text|image|video\",\"title\":\"简短标题\",\"prompt\":\"生成提示词\"}]}</canvas-actions>。最多 4 个节点；不要包含模型、价格、URL、身份、工具调用、素材 ID 或任何其它字段。用户只是咨询、信息不足、要求修改正式业务内容或要求批量媒体时，不要输出该包裹，而是说明或补问。{$delivery}";
+        return "当且仅当用户明确要求创建或生成画布内容、且所需提示词已经足够时，你可以在正常答复末尾附加一个严格 JSON 包裹：<canvas-actions>{\"nodes\":[{\"type\":\"text|image|video\",\"title\":\"简短标题\",\"prompt\":\"生成提示词\",\"key\":\"step_1\"},{\"type\":\"image\",\"title\":\"后续图片\",\"prompt\":\"生成提示词\",\"key\":\"step_2\",\"depends_on\":[\"step_1\"]}]}</canvas-actions>。key 和 depends_on 仅在本次包裹中表达前序步骤依赖；depends_on 只能引用前面已出现的 key。最多 4 个节点；不要包含模型、价格、URL、身份、工具调用、素材 ID 或任何其它字段。用户只是咨询、信息不足、要求修改正式业务内容或要求批量媒体时，不要输出该包裹，而是说明或补问。{$delivery}";
     }
 
-    /** @return array{text:string,nodes:list<array{type:string,title:string,prompt:string}>} */
+    /** @return array{text:string,nodes:list<array{type:string,title:string,prompt:string,key?:string,depends_on?:list<string>}>} */
     public static function parse(string $reply): array
     {
         $start = strpos($reply, self::OPEN);
@@ -39,11 +39,29 @@ final class ConversationActionPlan
         catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_ACTION', 0, $error); }
         if (!is_array($action) || array_keys($action) !== ['nodes'] || !is_array($action['nodes']) || !array_is_list($action['nodes']) || !$action['nodes'] || count($action['nodes']) > 4) throw new RuntimeException('INVALID_AGENT_ACTION');
         $nodes = [];
+        $keys = [];
         foreach ($action['nodes'] as $node) {
-            if (!is_array($node) || array_diff(array_keys($node), ['type','title','prompt'])) throw new RuntimeException('INVALID_AGENT_ACTION');
+            if (!is_array($node) || array_diff(array_keys($node), ['type','title','prompt','key','depends_on'])) throw new RuntimeException('INVALID_AGENT_ACTION');
             $type = (string)($node['type'] ?? ''); $title = trim((string)($node['title'] ?? '')); $prompt = trim((string)($node['prompt'] ?? ''));
             if (!in_array($type, ['text','image','video'], true) || $title === '' || mb_strlen($title) > 80 || $prompt === '' || mb_strlen($prompt) > 20000) throw new RuntimeException('INVALID_AGENT_ACTION');
-            $nodes[] = ['type'=>$type, 'title'=>$title, 'prompt'=>$prompt];
+            $proposal = ['type'=>$type, 'title'=>$title, 'prompt'=>$prompt];
+            if (array_key_exists('key', $node) && !is_string($node['key'])) throw new RuntimeException('INVALID_AGENT_ACTION');
+            $key = trim((string)($node['key'] ?? ''));
+            if (array_key_exists('key', $node)) {
+                if (!preg_match('/^[a-z][a-z0-9_-]{0,31}$/D', $key) || isset($keys[$key])) throw new RuntimeException('INVALID_AGENT_ACTION');
+                $proposal['key'] = $key;
+            }
+            if (array_key_exists('depends_on', $node)) {
+                if ($key === '' || !is_array($node['depends_on']) || !array_is_list($node['depends_on']) || count($node['depends_on']) > 3) throw new RuntimeException('INVALID_AGENT_ACTION');
+                $dependencies=[];
+                foreach ($node['depends_on'] as $dependency) {
+                    if (!is_string($dependency) || !isset($keys[$dependency]) || isset($dependencies[$dependency])) throw new RuntimeException('INVALID_AGENT_ACTION');
+                    $dependencies[$dependency] = true;
+                }
+                $proposal['depends_on'] = array_keys($dependencies);
+            }
+            if ($key !== '') $keys[$key] = true;
+            $nodes[] = $proposal;
         }
         $text = trim(substr($reply, 0, $start) . substr($reply, $end + strlen(self::CLOSE)));
         return ['text' => $text === '' ? '已创建画布节点。' : $text, 'nodes' => $nodes];
