@@ -52,4 +52,25 @@ $rejected=false;
 try {$assertAssets->invoke(null,$unknown,['reference_assets'=>[$image]]);}
 catch (Exception $error) {$rejected=str_contains($error->getMessage(),'reference limit is unavailable');}
 agentCheck($rejected,'M10 declared modality without any known reference limit fails closed');
+$bounded=$unknown;
+$bounded['product']['source_payload']['market_metadata']['max_reference_assets']=2;
+$two=[['type'=>'image','uri'=>'https://fixtures.invalid/a.png'],['type'=>'image','uri'=>'https://fixtures.invalid/b.png']];
+$assertAssets->invoke(null,$bounded,['reference_assets'=>$two]);
+agentCheck(true,'explicit total capacity permits references without per-type capacity');
+$rejected=false;
+try {$assertAssets->invoke(null,$bounded,['reference_assets'=>array_merge($two,[$image])]);}
+catch (Exception $error) {$rejected=str_contains($error->getMessage(),'at most 2 reference assets');}
+agentCheck($rejected,'explicit total capacity remains enforced without per-type capacity');
+$fixed=$unknown;
+$fixed['product']['upstream_model_code']='wan3.0-video';
+$assertAssets->invoke(null,$fixed,['generation_method'=>'start_end','reference_assets'=>$frames]);
+agentCheck(true,'known two-frame contract remains usable without numeric catalogue limit');
+$assertAssets->invoke(null,$fixed,['generation_method'=>'image_to_video','reference_assets'=>[$frames[0]]]);
+agentCheck(true,'known single-frame contract remains usable without numeric catalogue limit');
+$rejected=false;
+try {$assertAssets->invoke(null,$fixed,['generation_method'=>'start_end','reference_assets'=>array_merge($frames,[$two[0]])]);}
+catch (Exception $error) {$rejected=str_contains($error->getMessage(),'requires both first and last frame images');}
+agentCheck($rejected,'fixed-frame exception does not permit extra reference images');
+$assertAssets->invoke(null,$unknown,[]);
+agentCheck(true,'reference-capacity guard does not reject a request with no references');
 echo "NOT_RUN ownership, public quote/reserve, billing and Provider submission; normalization and actual market validator only\n";
