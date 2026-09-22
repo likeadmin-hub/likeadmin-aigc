@@ -62,6 +62,17 @@ class OpenPlatformCredentialContractTest extends TestCase
         self::assertStringContainsString("\$relativeDir = 'mp-weixin'", $source);
     }
 
+    public function testManualUploadCanUseAVerifiedFormalArtifactWithoutARegistryRow(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
+
+        self::assertStringContainsString('Tenant uploads only need the signed', $source);
+        self::assertStringContainsString("return ['id' => 0, 'version' => \$version, 'dir' => 'mp-weixin'];", $source);
+        self::assertStringContainsString("(array)(\$formalMetadata['files'] ?? []) !== \$formalFiles", $source);
+        self::assertStringContainsString("(string)(\$formalMetadata['sha256'] ?? '') !== \$formalHash", $source);
+        self::assertStringContainsString("\$formalDirectory . '/config/runtime.js'", $source);
+    }
+
     public function testAuthorizationProfileAndTemplateDraftsHaveExplicitPersistenceContracts(): void
     {
         $service = file_get_contents(dirname(__DIR__, 2) . '/app/common/service/wechat/OpenPlatformService.php');
