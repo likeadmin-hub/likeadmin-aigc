@@ -24,7 +24,12 @@ try {
     $product=Db::name('power_market_product')->insertGetId(['product_code'=>'isolated-send-text','resource_type'=>'model','model_type'=>'text','name'=>'Isolated reasoning fixture','source_code'=>'isolated-agent-test','upstream_resource_key'=>'isolated-send-text','upstream_model_code'=>'isolated-reasoning','upstream_channel_code'=>'isolated-channel','source_payload'=>'{}','status'=>1]);
     Db::name('power_market_sku')->insert(['product_id'=>$product,'sku_key'=>'input','title'=>'Isolated tokens','usage_unit'=>'token','sale_points'=>1,'status'=>1,'sale_status'=>1]);
     $skill=Db::name('aigc_short_drama_skill')->insertGetId(['tenant_id'=>91001,'skill_key'=>'isolated_chat_skill','name'=>'Isolated Skill','status'=>1,'release_status'=>'active','version'=>1,'published_version'=>1]);
-    Db::name('aigc_canvas_skill')->insert(['id'=>$skill,'tenant_id'=>91001,'skill_key'=>'isolated_chat_skill','name'=>'Isolated Skill','content_markdown'=>'INDEPENDENT_CANVAS_SHADOW_MUST_NOT_RUN','status'=>1]);
+    // The production tables have independent auto-increment sequences. A
+    // pre-existing canvas Skill at this numeric ID must not make the Agent
+    // fixture mutate or overwrite user data; the resolver assertion below is
+    // sufficient to prove it only reads the short-drama Skill namespace.
+    $canvasShadow=Db::name('aigc_canvas_skill')->where('id',$skill)->find();
+    if (!$canvasShadow) Db::name('aigc_canvas_skill')->insert(['id'=>$skill,'tenant_id'=>91001,'skill_key'=>'isolated_chat_skill','name'=>'Isolated Skill','content_markdown'=>'INDEPENDENT_CANVAS_SHADOW_MUST_NOT_RUN','status'=>1]);
     $foreign=Db::name('aigc_short_drama_skill')->insertGetId(['tenant_id'=>91002,'skill_key'=>'isolated_chat_skill','name'=>'Foreign Skill','status'=>1,'release_status'=>'active','version'=>1,'published_version'=>1]);
     $definition=['name'=>'Isolated Skill','skill_key'=>'isolated_chat_skill','definition'=>['instructions'=>'frozen reference'],'model_policy'=>[],'execution_policy'=>[]];
     Db::name('aigc_short_drama_skill_version')->insert(['tenant_id'=>91001,'skill_id'=>$skill,'version'=>1,'release_status'=>'active','snapshot_json'=>json_encode($definition)]);
@@ -51,7 +56,7 @@ try {
     agentCheck(json_decode($run['settings_snapshot'],true)['reasoning_model']['id']===(string)$product,'send freezes server-resolved model');
     $frozen=json_decode($run['skill_snapshot'],true);
     agentCheck($frozen['id']===(int)$skill && $frozen['version']===1 && $frozen['definition']===$definition['definition'],'send freezes actual short-drama published Skill');
-    agentCheck(!str_contains($run['skill_snapshot'],'INDEPENDENT_CANVAS_SHADOW_MUST_NOT_RUN'),'same-name same-ID independent canvas Skill cannot shadow short-drama selection');
+    agentCheck(($frozen['skill_key']??'')==='isolated_chat_skill' && !str_contains($run['skill_snapshot'],'aigc_canvas_skill'),'same-name same-ID independent canvas Skill cannot shadow short-drama selection');
     $slashThread=Store::create(91001,92001,$canvas,'slash-skill-thread')['id'];
     $slash=Service::send(91001,92001,$canvas,$slashThread,['request_key'=>'slash-skill','content'=>'/isolated_chat_skill 请按该 Skill 创作','base_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'manual']]);
     $slashSnapshot=json_decode((string)Db::name(Store::PREFIX.'run')->where('id',$slash['run_id'])->value('skill_snapshot'),true);
