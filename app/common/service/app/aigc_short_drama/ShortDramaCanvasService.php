@@ -477,6 +477,11 @@ class ShortDramaCanvasService
         $type=(string)($target['type']??'');
         if (empty($metadata['agent_auto_submit']) || !in_array($type,['text','image'],true)) throw new Exception('AGENT_AUTO_SUBMIT_FORBIDDEN');
         if ((string)($metadata['status']??'idle')!=='idle') return 'waiting';
+        $confirmedHash=(string)($metadata['agent_auto_payload_hash']??'');
+        if ($confirmedHash!=='' && !hash_equals($confirmedHash,GraphService::autoPayloadHash($metadata))) {
+            GraphService::blockAgentDependentNode($tenantId,$userId,$canvasId,$nodeId,'已确认的生成计划参数发生变化，请重新规划后提交');
+            return 'blocked';
+        }
         $key=(string)($metadata['agent_auto_request_key']??'');
         self::assertRequestKey($key);
         $dependency=self::agentAutoDependencyState($nodes,$edges,$nodeId);

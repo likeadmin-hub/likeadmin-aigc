@@ -10,7 +10,7 @@ final class GraphService
 {
     public const TABLE = 'aigc_short_drama_canvas';
     public const RECEIPTS = 'aigc_short_drama_canvas_mutation_receipt';
-    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_manual_submit','workflow_source_stage','workflow_artifact','workflow_key','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash','workflow_formal_fields','workflow_formal_content_hash','workflow_prompt_run_id'];
+    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_auto_payload_hash','agent_manual_submit','workflow_source_stage','workflow_artifact','workflow_key','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash','workflow_formal_fields','workflow_formal_content_hash','workflow_prompt_run_id','workflow_style_id','workflow_style_name'];
 
     /**
      * Server-only Agent writer.  ConversationExecution already owns the
@@ -54,6 +54,10 @@ final class GraphService
             if ($workflowStage!=='') {
                 $metadata['workflow_source_stage']=$workflowStage;
                 $metadata['workflow_artifact']=(string)($proposal['artifact']??'');
+                $creative=(array)($workflow['creative_settings']??[]);
+                if (!empty($creative['aspect_ratio'])) $metadata['ratio']=(string)$creative['aspect_ratio'];
+                if (!empty($creative['style_id'])) $metadata['workflow_style_id']=(string)$creative['style_id'];
+                if (!empty($creative['style_name'])) $metadata['workflow_style_name']=(string)$creative['style_name'];
                 if (isset($proposal['key'])) $metadata['workflow_key']=$workflowStage.':'.(string)$proposal['key'];
                 $metadata['workflow_plan_hash']=(string)($workflow['plan_hash']??'');
                 // The run owns the frozen creative configuration. Store only
@@ -91,6 +95,7 @@ final class GraphService
                 $metadata['agent_auto_submit']=1;
                 $metadata['agent_auto_run_id']=$agentRunId;
                 $metadata['agent_auto_request_key']='agent.'.$agentRunId.'.'.$id;
+                $metadata['agent_auto_payload_hash']=self::autoPayloadHash($metadata);
             }
             $node=['id'=>(int)$id,'type'=>$type,'title'=>$title,'x'=>$maximumX+420+($offset%2)*40,'y'=>$maximumY+($offset*360),'width'=>$size[0],'height'=>$size[1],'metadata'=>$metadata];
             // Workflow references are durable graph facts. The model can only
@@ -502,6 +507,16 @@ final class GraphService
         if (array_intersect(array_keys($metadata),self::SERVER_FIELDS)) throw new RuntimeException('SERVER_FIELD_FORBIDDEN');
         // Explicit allowlist, not a blacklist that new authority fields could bypass.
         if (array_diff(array_keys($metadata),['content','prompt','groupId','agentGroupId','model_code','channel','ratio','resolution','duration','count','quality'])) throw new RuntimeException('INVALID_METADATA_FIELD');
+    }
+    /** Only the plan-confirmed, server-created base request may auto-submit.
+     * User edits to the prompt or ratio must not silently reuse its quote. */
+    public static function autoPayloadHash(array $metadata): string
+    {
+        $fields=[];
+        foreach (['prompt','model_code','channel','model_id','ratio','resolution','quality','count'] as $field) {
+            $fields[$field]=(string)($metadata[$field]??($field==='count'?1:''));
+        }
+        return hash('sha256',json_encode($fields,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR));
     }
     private static function edgeIdentity(array $edge): array {
         return [(string)($edge['from']??''),(string)($edge['to']??''),(string)($edge['kind']??'reference'),(string)($edge['role']??''),(string)($edge['order']??0)];
