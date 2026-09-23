@@ -19900,6 +19900,24 @@ class AigcShortDramaService
         ));
     }
 
+    /** Canvas Agent media uses the same effective submission template as the
+     * formal short-drama flow. The originating conversation snapshot, not a
+     * later tenant edit, is the authority for this generation request. */
+    public static function canvasAgentSubmissionPrompt(int $tenantId, array $snapshot, string $artifact, string $prompt, array $context = []): string
+    {
+        if ((int)($snapshot['tenant_id'] ?? -1) !== $tenantId) throw new Exception('PROMPT_SNAPSHOT_TENANT_MISMATCH');
+        $key = match ($artifact) {
+            'subject' => 'subject_image_prompt_template',
+            'three_view' => 'three_view_prompt_template',
+            'scene' => 'scene_image_prompt_template',
+            'storyboard' => 'shot_image_prompt_template',
+            'storyboard_video' => 'shot_video_prompt_template',
+            default => throw new Exception('UNSUPPORTED_WORKFLOW_PROMPT_TEMPLATE'),
+        };
+        return ShortDramaPromptCatalog::run($snapshot,
+            static fn(): string => self::applyConfiguredGenerationPromptTemplate($tenantId, $key, $prompt, $context));
+    }
+
     private static function ensureGenerationPromptTemplateContract(string $value, string $default = '{{prompt}}'): string
     {
         $value = self::normalizePromptTemplatePlaceholderSyntax(
