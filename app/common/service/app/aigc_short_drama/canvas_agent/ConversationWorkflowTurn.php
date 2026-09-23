@@ -23,7 +23,7 @@ final class ConversationWorkflowTurn
         }
         $stageInstruction=$stage==='intake'
             ? 'workflow_output 必须是 {"reply_markdown":"简短核对提示","intake":{"candidates":[],"questions":[]}}。'.ConversationIntakeDraft::instruction((array)($workflow['workflow_snapshot']['slot_schema']??[]))
-            : 'workflow_output 必须是 {"reply_markdown":"真实阶段回复","canvas_actions":{"nodes":[...]}}。'.ConversationWorkflow::instruction($workflow).' '.ConversationActionPlan::instruction($mode,$stage,ConversationWorkflow::compactOutput($workflow));
+            : 'workflow_output 必须是 {"reply_markdown":"真实阶段回复","canvas_actions":{"nodes":[...]}}。以下阶段说明仅约束 workflow_output 子对象：'.ConversationActionPlan::nestedInstruction($mode,$stage,ConversationWorkflow::compactOutput($workflow));
         return "\n【逐轮意图判断】当前已有短剧工作流，但历史阶段不是本轮用户的新指令。先只根据本轮请求、已确认的上下文和引用素材判断意图。"
             .'只输出一个 JSON 对象，字段恰好为 intent、confidence、skill_key、reply_markdown、workflow_output。'
             .'intent 只能是 continue、chat、creative_plan、image、video、short_drama、uncertain；continue 表示本轮明确在回答、修改或推进当前短剧工作流。'

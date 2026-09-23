@@ -151,6 +151,14 @@ try {
     $routing=(array)($chatContext['intent_routing']??[]);
     try { WorkflowTurn::parse('{"intent":"chat","confidence":1,"skill_key":"","reply_markdown":"已创建","workflow_output":{"canvas_actions":{"nodes":[]}}}',$routing); throw new RuntimeException('off-topic graph payload accepted'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_INTENT','off-topic model output cannot carry workflow actions'); }
+    agentCheck(!str_contains(ActionPlan::nestedInstruction('manual','art',true),'<canvas-actions>')
+        && str_contains(ActionPlan::nestedInstruction('manual','art',true),'workflow_output 子对象')
+        && !str_contains(ActionPlan::nestedInstruction('manual','assets',true),'<canvas-actions>'),
+        'nested workflow instructions do not contradict the one-response intent envelope');
+    $other=WorkflowTurn::parse(json_encode(['intent'=>'image','confidence'=>0.94,'skill_key'=>'',
+        'reply_markdown'=>'这是一项单独的图片需求。','workflow_output'=>null],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing);
+    agentCheck(!$other['continue'] && $other['nodes']===[] && $other['text']==='这是一项单独的图片需求。',
+        'a separate image intent does not enter the short-drama stage or create a graph proposal');
     $artReply='美术规划已完成。<canvas-actions>{"nodes":[{"type":"text","artifact":"art_bible","title":"美术圣经","prompt":"art_bible: 电影写实，冷蓝雨夜与暖黄室内对照。","key":"art"},{"type":"text","artifact":"character_asset_spec","title":"主体资产设定","prompt":"character_asset_spec: 林夏短发风衣、录音笔。\nsubject_image_prompt: 都市悬疑女记者，电影写实。","key":"character"},{"type":"text","artifact":"scene_asset_spec","title":"场景资产设定","prompt":"scene_asset_spec: 雨夜办公室与旧档案室。\nscene_image_prompt: 雨夜办公室，冷蓝霓虹。","key":"scene"},{"type":"text","artifact":"prop_asset_spec","title":"道具资产设定","prompt":"prop_asset_spec: 可录音的旧式金属录音笔。","key":"prop"},{"type":"text","artifact":"three_view_prompt","title":"主体三视图提示词","prompt":"three_view_prompt: 同一林夏正侧背三视图，保持风衣与录音笔一致。","key":"views"}]}</canvas-actions>';
     $artPlan=ActionPlan::parse($artReply,'art');
     $continueAck=$enqueueActive('workflow-art-resume','继续刚才的短剧美术规划');

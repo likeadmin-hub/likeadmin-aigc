@@ -53,6 +53,24 @@ final class ConversationActionPlan
         return in_array($workflowStage,self::STRUCTURED_TEXT_STAGES,true) ? ['type'=>'json_object'] : null;
     }
 
+    /** Keep stage semantics identical when an intent envelope owns the top
+     * level JSON shape. Legacy tag/standalone-JSON wording must not compete
+     * with the active-turn router's five-field response contract. */
+    public static function nestedInstruction(string $mode,string $workflowStage,bool $compact): string
+    {
+        $instruction=self::instruction($mode,$workflowStage,$compact);
+        $instruction=str_replace(
+            '只输出一个合法 JSON 对象，不要 Markdown 代码块、不要前后说明。对象只能有 reply_markdown 和 canvas_actions 两个字段：',
+            'workflow_output 子对象只能有 reply_markdown 和 canvas_actions 两个字段：',
+            $instruction
+        );
+        $instruction=preg_replace('/只输出 <canvas-actions>(.*?)<\/canvas-actions>。/u',
+            'workflow_output.canvas_actions 必须是 $1。',$instruction)??$instruction;
+        $instruction=preg_replace('/只在答复末尾输出(?:一次)?严格 JSON 包裹 <canvas-actions>(.*?)<\/canvas-actions>；/u',
+            'workflow_output.canvas_actions 必须是 $1；',$instruction)??$instruction;
+        return $instruction;
+    }
+
     private static function structuredEnvelopeInstruction(string $label,string $artifacts,string $requirements): string
     {
         return "当前为{$label}阶段。只输出一个合法 JSON 对象，不要 Markdown 代码块、不要前后说明。对象只能有 reply_markdown 和 canvas_actions 两个字段：reply_markdown 是要展示给用户的真实、完整短剧内容；canvas_actions 只能是 {\"nodes\":[...]}。nodes 只能是 text，artifact 只能是 {$artifacts}。{$requirements} 每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys；reference_keys 只能使用 workflow_reference_catalog 的 reference_key，且只选直接依赖的产物；不得输出模型、价格、URL、素材 ID、任务状态或任意画布 JSON。";
