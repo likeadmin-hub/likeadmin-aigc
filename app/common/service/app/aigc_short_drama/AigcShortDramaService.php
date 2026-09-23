@@ -134,6 +134,10 @@ class AigcShortDramaService
         $shot = ['shot_id' => '1', 'scene_ref_id' => 'l1', 'scene_name' => $scene['name'], 'subject_ref_ids' => !empty($params['empty_shot']) ? [] : ['s1'], 'shot_type' => !empty($params['empty_shot']) ? '空镜' : '中景', 'visual_description' => $input, 'recommended_duration_seconds' => $duration];
         $plan = ['subjects' => [$subject], 'locations' => [$scene], 'storyboard' => [$shot], 'story_outline' => $input, 'duration_stats' => ['estimated_total_seconds' => $duration]];
         $request = ['subject_id' => 's1', 'scene_id' => 'l1', 'subject_name' => $subject['name'], 'category' => $subject['category'], 'scene_name' => $scene['name'], 'duration' => $duration, 'model_id' => '', 'resolution' => '720p', 'ratio' => '9:16', 'target_duration_seconds' => $duration, 'episode_count' => 3];
+        // The synthetic media example has explicit user text. Without this
+        // field the assembler incorrectly previews "description missing"
+        // fallbacks even though the example input is visible in the editor.
+        if (in_array($stage, ['subject_image', 'three_view', 'scene_image', 'shot_image', 'shot_video'], true)) $request['prompt'] = $input;
         $references = ['reference_assets' => [], 'input_asset_ids' => [], 'reference_plan' => [], 'generation_method' => 'text_to_video'];
         $generateAudio = true;
         $recorded = [];

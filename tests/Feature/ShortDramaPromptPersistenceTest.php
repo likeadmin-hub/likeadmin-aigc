@@ -118,6 +118,24 @@ class ShortDramaPromptPersistenceTest extends TestCase
         self::assertSame([], Workspace::history($this->tenant));
     }
 
+    public function testMediaExamplePreviewDoesNotApplyMissingDescriptionFallback(): void
+    {
+        $before = Workspace::capture($this->tenant);
+        $body = "【适用：人物主体】\n人物实际要求\n【适用：人物描述缺失时】\n仅缺失时兜底";
+        $preview = AigcShortDramaService::previewPromptWorkspace($this->tenant, [
+            'format_version' => 3,
+            'fingerprint' => $before['fingerprint'],
+            'document_settings' => ['subject_views' => ['mode' => 'custom', 'body' => $body]],
+            'stage' => 'three_view',
+            'example_prompt' => '明确的人物三视图创作要求',
+        ]);
+        $prompt = (string)$preview['after']['request']['prompt'];
+        self::assertStringContainsString('明确的人物三视图创作要求', $prompt);
+        self::assertStringContainsString('人物实际要求', $prompt);
+        self::assertStringNotContainsString('仅缺失时兜底', $prompt);
+        self::assertSame($before, Workspace::capture($this->tenant));
+    }
+
     public function testFrozenRequestReplayMatchesAssemblerAndIsTenantIsolated(): void
     {
         $snapshot = Workspace::capture($this->tenant);
