@@ -25,7 +25,7 @@ final class GraphService
     {
         $workflowStage=(string)($workflow['stage_state']['key']??'');
         $compact=ConversationWorkflow::compactOutput($workflow);
-        $maximum=match ($workflowStage) { 'video_nodes'=>60, 'audio_plan'=>1, 'script'=>$compact?2:3, 'art','video_plan'=>8, default=>4 };
+        $maximum=ConversationActionPlan::maximumNodesForStage($workflowStage,$compact);
         if (!$proposals || count($proposals) > $maximum) throw new RuntimeException('INVALID_AGENT_ACTION');
         $nodes = json_decode($document['nodes_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);
         $edges = json_decode($document['edges_json'] ?: '[]', true, 512, JSON_THROW_ON_ERROR);

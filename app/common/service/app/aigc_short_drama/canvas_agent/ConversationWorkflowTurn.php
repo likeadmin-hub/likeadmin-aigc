@@ -46,7 +46,7 @@ final class ConversationWorkflowTurn
             if (array_keys($output)!==['reply_markdown','canvas_actions'] || !is_string($output['reply_markdown']??null)) return 'intent_stage_keys';
             $actions=$output['canvas_actions']??null;
             if (!is_array($actions) || array_keys($actions)!==['nodes'] || !is_array($actions['nodes']) || !array_is_list($actions['nodes']) || !$actions['nodes']) return 'intent_stage_nodes';
-            $max=match ($stage) { 'video_nodes'=>60,'audio_plan'=>1,'script'=>ConversationWorkflow::compactOutput($workflow)?2:3,'assets','storyboard'=>4,default=>8 };
+            $max=ConversationActionPlan::maximumNodesForStage($stage,ConversationWorkflow::compactOutput($workflow));
             if (count($actions['nodes'])>$max) return 'intent_stage_node_count';
             $types=match ($stage) { 'script','art','video_plan'=>['text'], 'assets','storyboard'=>['image'], 'video_nodes'=>['video'], 'audio_plan'=>['audio'], default=>[] };
             $artifacts=match ($stage) {
