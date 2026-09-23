@@ -13,8 +13,8 @@
   "sort": 846,
   "frontends": [
     "tenant",
-    "pc"
-  ],
+    "pc",
+    "uniapp"],
   "api_prefix": "/app/aigc_action_transfer",
   "menus": "menus/tenant.json",
   "permissions": "permissions/tenant.json",
@@ -37,6 +37,26 @@
       "icon": "resource/image/common/menu_generator.png",
       "sort": 82,
       "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_action_transfer",
+      "name": "动作迁移",
+      "path": "/apps/mobile_tools/pages/creator/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 846,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "创作首页",
+            "path": "/apps/mobile_tools/pages/creator/index",
+            "query": {
+              "app_code": "aigc_action_transfer"
+            }
+          }
+        ]
+      }
     }
   ]
 }
