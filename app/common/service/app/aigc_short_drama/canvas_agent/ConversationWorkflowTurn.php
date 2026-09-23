@@ -143,6 +143,15 @@ final class ConversationWorkflowTurn
                 || !in_array($value['speech_act']??'',['request','answer'],true)
                 || !is_string($stage) || !in_array($stage,(array)($routing['revision_allowed_stages']??[]),true)
                 || trim($reply)==='') throw new RuntimeException('INVALID_AGENT_INTENT');
+            // The revision is already an explicit user request. A model may
+            // still phrase its acknowledgement as a second "may I start?"
+            // question, even though the server will immediately reopen the
+            // stage. Replace only that contradictory acknowledgement; the
+            // generated stage content still requires its normal confirmation.
+            if (preg_match('/(?:请|需).{0,12}(?:确认|回复).{0,12}(?:开始|执行|重做|重新生成)|是否.{0,12}(?:开始|执行|重做|重新生成)/u',$reply)) {
+                $label=['script'=>'剧本与角色设定','art'=>'画风与美术规划','video_plan'=>'分镜视频规划'][$stage]??'当前阶段';
+                $reply='收到修改要求，正在从'.$label.'阶段重新生成。原有画布节点与已提交任务不会被覆盖；新内容完成后再请你确认。';
+            }
             return $value+['text'=>trim($reply),'nodes'=>[],'intake'=>[],'continue'=>false,'revision_stage'=>$stage];
         }
         if (!$resume) {
