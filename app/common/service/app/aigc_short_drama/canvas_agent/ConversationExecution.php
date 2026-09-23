@@ -174,7 +174,7 @@ final class ConversationExecution
             self::state($run,'failed','PRECHECK_FAILED');
             self::event($run,'run.failed',['status'=>'failed','code'=>'PRECHECK_FAILED']);
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'failed','lease_until'=>0,'update_time'=>time()]);
-            Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(['active_run_id'=>0,'update_time'=>time()]);
+            Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(self::terminalThreadUpdate($thread,$run));
             return 'failed';
         });
     }
@@ -193,7 +193,7 @@ final class ConversationExecution
             self::state($run,'failed','SAFETY_OUTPUT_BLOCKED');
             self::event($run,'run.failed',['status'=>'failed','code'=>'SAFETY_OUTPUT_BLOCKED']);
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'failed','lease_until'=>0,'update_time'=>time()]);
-            if ((int)$thread['active_run_id']===$runId) Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(['active_run_id'=>0,'update_time'=>time()]);
+            if ((int)$thread['active_run_id']===$runId) Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(self::terminalThreadUpdate($thread,$run));
             return 'failed';
         });
     }
@@ -207,7 +207,7 @@ final class ConversationExecution
         // Preserve a safe internal failure category without storing the
         // Provider reply, prompt, or exception trace in a user-facing event.
         if (!in_array($diagnosticCode,['UNSUPPORTED_MODEL_RESPONSE','INVALID_AGENT_ACTION','INVALID_AGENT_INTENT','INVALID_AGENT_INTAKE'],true)) $diagnosticCode='UNSUPPORTED_MODEL_RESPONSE';
-        if (!in_array($diagnosticDetail,['intent_not_json','intent_shape','intent_value','intent_skill','intent_unexpected_output','intent_noncontinue','intent_continue_reply','intent_continue_output','intent_stage_keys','intent_stage_nodes','intent_stage_node_count','intent_stage_node_fields','intent_stage_node_values','intent_stage_node_type','intent_stage_node_artifact','intent_stage_node_key','intent_stage_node_length','intent_stage_duplicate_key','intent_stage_node_links','intent_stage_contract','intent_consistency','post_settlement_projection'],true)) $diagnosticDetail='';
+        if (!in_array($diagnosticDetail,['intent_not_json','intent_shape','intent_value','intent_skill','intent_unexpected_output','intent_noncontinue','intent_continue_reply','intent_continue_output','intent_stage_keys','intent_stage_nodes','intent_stage_node_count','intent_stage_node_fields','intent_stage_node_values','intent_stage_node_type','intent_stage_node_artifact','intent_stage_node_key','intent_stage_node_length','intent_stage_duplicate_key','intent_stage_node_links','intent_stage_contract','intent_consistency','post_settlement_projection','action_not_json','action_envelope','action_nodes','action_count','action_node_fields','action_node_values','action_script_artifacts','action_contract'],true)) $diagnosticDetail='';
         return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$diagnosticCode,$diagnosticDetail): string {
             [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
             if ($run['status']==='failed' && $run['error_code']==='UNSUPPORTED_MODEL_RESPONSE') return 'failed';
@@ -217,7 +217,7 @@ final class ConversationExecution
             self::state($run,'failed','UNSUPPORTED_MODEL_RESPONSE');
             self::event($run,'run.failed',['status'=>'failed','code'=>'UNSUPPORTED_MODEL_RESPONSE','diagnostic_code'=>$diagnosticCode]+($diagnosticDetail!==''?['diagnostic_detail'=>$diagnosticDetail]:[]));
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'failed','lease_until'=>0,'update_time'=>time()]);
-            if ((int)$thread['active_run_id']===$runId) Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(['active_run_id'=>0,'update_time'=>time()]);
+            if ((int)$thread['active_run_id']===$runId) Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(self::terminalThreadUpdate($thread,$run));
             return 'failed';
         });
     }
@@ -282,7 +282,7 @@ final class ConversationExecution
                 self::state($run,'canceled','USER_STOPPED_BEFORE_SUBMIT');
                 self::event($run,'run.canceled',['status'=>'canceled','code'=>'USER_STOPPED_BEFORE_SUBMIT']);
                 Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'canceled','lease_until'=>0,'update_time'=>time()]);
-                if ((int)$thread['active_run_id']===$runId) Db::name(ConversationStore::PREFIX.'thread')->where('id',$threadId)->update(['active_run_id'=>0,'update_time'=>time()]);
+                if ((int)$thread['active_run_id']===$runId) Db::name(ConversationStore::PREFIX.'thread')->where('id',$threadId)->update(self::terminalThreadUpdate($thread,$run));
                 return ['run_id'=>$runId,'status'=>'canceled','cancellation_confirmed'=>true];
             }
             if (($status==='running' && $outbox['state']==='submitting') || $status==='needs_reconciliation') {
@@ -292,6 +292,16 @@ final class ConversationExecution
             }
             throw new RuntimeException('INVALID_RUN_STATE');
         });
+    }
+
+    private static function terminalThreadUpdate(array $thread,array $run): array
+    {
+        $update=['active_run_id'=>0,'update_time'=>time()];
+        $settings=json_decode((string)$thread['settings_json'],true,512,JSON_THROW_ON_ERROR);
+        $context=json_decode((string)$run['context_snapshot'],true,512,JSON_THROW_ON_ERROR);
+        $recovered=ConversationWorkflow::recoverTerminalStageFailure((array)$settings,(array)$context);
+        if ($recovered!==null) $update['settings_json']=self::json($recovered);
+        return $update;
     }
 
     private static function locked(int $tenant,int $user,int $runId): array

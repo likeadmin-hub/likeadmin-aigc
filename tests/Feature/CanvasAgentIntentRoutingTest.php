@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationIntentRouter;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationActionPlan;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflowTurn;
 use PHPUnit\Framework\TestCase;
@@ -215,6 +216,30 @@ class CanvasAgentIntentRoutingTest extends TestCase
         self::assertFalse(ConversationWorkflow::validAutoStageRequest($state,213,538,'as:213:538:18:script','请改变剧本结局'));
         $state['stage_state']['status']='awaiting_stage_confirmation';
         self::assertFalse(ConversationWorkflow::validAutoStageRequest($state,213,538,'as:213:538:18:script',$prompt));
+    }
+
+    public function testTerminalStageFailureBecomesExplicitlyRetryableWithoutLosingRevision(): void
+    {
+        $workflow=['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY],
+            'stage_state'=>['key'=>'script','status'=>'running','completed'=>['intake']],
+            'state_revision'=>18,'revision_request'=>['stage'=>'script','content'=>'改为喜剧']];
+        $settings=['workflow_state'=>$workflow];
+        $recovered=ConversationWorkflow::recoverTerminalStageFailure($settings,['workflow'=>$workflow]);
+        self::assertSame('ready',$recovered['workflow_state']['stage_state']['status']);
+        self::assertSame(19,$recovered['workflow_state']['state_revision']);
+        self::assertSame('改为喜剧',$recovered['workflow_state']['revision_request']['content']);
+        self::assertNull(ConversationWorkflow::recoverTerminalStageFailure($recovered,['workflow'=>$workflow]));
+        $stale=$workflow;$stale['state_revision']=17;
+        self::assertNull(ConversationWorkflow::recoverTerminalStageFailure($settings,['workflow'=>$stale]));
+    }
+
+    public function testStageFailureDiagnosticsNeverRetainModelContent(): void
+    {
+        $reply=json_encode(['reply_markdown'=>'秘密内容','canvas_actions'=>['nodes'=>[
+            ['type'=>'text','artifact'=>'story_setting','title'=>'故事','prompt'=>'私密剧本'],
+        ]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        self::assertSame('action_script_artifacts',ConversationActionPlan::failureCategory($reply,'script',true));
+        self::assertSame('action_not_json',ConversationActionPlan::failureCategory('私密剧本','script',true));
     }
 
     public function testFrozenLegacyRoutingShapeRemainsReadable(): void

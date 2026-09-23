@@ -62,6 +62,31 @@ final class ConversationActionPlan
         return in_array($workflowStage,self::STRUCTURED_TEXT_STAGES,true) ? ['type'=>'json_object'] : null;
     }
 
+    /** Shape-only diagnostics for a rejected Provider reply. Never retain
+     * the actual story, prompt or model output in an event. */
+    public static function failureCategory(string $reply,string $stage,bool $compact=false): string
+    {
+        try { $value=json_decode(trim($reply),true,32,JSON_THROW_ON_ERROR); }
+        catch (\Throwable $error) { return 'action_not_json'; }
+        if (!is_array($value) || array_keys($value)!==['reply_markdown','canvas_actions']
+            || !is_string($value['reply_markdown']??null)) return 'action_envelope';
+        $action=$value['canvas_actions']??null;
+        if (!is_array($action) || array_keys($action)!==['nodes'] || !is_array($action['nodes'])
+            || !array_is_list($action['nodes']) || !$action['nodes']) return 'action_nodes';
+        if (count($action['nodes'])>self::maximumNodesForStage($stage,$compact)) return 'action_count';
+        $artifacts=[];
+        foreach ($action['nodes'] as $node) {
+            if (!is_array($node) || array_diff(array_keys($node),['type','artifact','title','prompt','key','depends_on','reference_keys','formal_fields'])) return 'action_node_fields';
+            if (!is_string($node['type']??null) || !is_string($node['artifact']??null)
+                || !is_string($node['title']??null) || !is_string($node['prompt']??null)
+                || trim($node['prompt'])==='') return 'action_node_values';
+            $artifacts[$node['artifact']]=($artifacts[$node['artifact']]??0)+1;
+        }
+        if ($compact && $stage==='script' && (count($action['nodes'])!==2
+            || ($artifacts['story_setting']??0)!==1 || ($artifacts['episode_script']??0)!==1)) return 'action_script_artifacts';
+        return 'action_contract';
+    }
+
     /** Keep stage semantics identical when an intent envelope owns the top
      * level JSON shape. Legacy tag/standalone-JSON wording must not compete
      * with the active-turn router's five-field response contract. */

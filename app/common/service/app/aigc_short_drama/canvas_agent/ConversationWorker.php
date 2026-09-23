@@ -79,8 +79,13 @@ final class ConversationWorker
                 }
                 elseif ($intakeAnalysis) ConversationIntakeDraft::parseDirect($content,(array)($context['workflow']['workflow_snapshot']['slot_schema']??[]),$intakeSources);
                 else {
-                    $plan=ConversationActionPlan::parse($content,$workflowStage,$compact);
-                    if ($plan['nodes']) ConversationWorkflow::materializeTextReferences((array)($context['workflow']??[]),$plan['nodes']);
+                    try {
+                        $plan=ConversationActionPlan::parse($content,$workflowStage,$compact);
+                        if ($plan['nodes']) ConversationWorkflow::materializeTextReferences((array)($context['workflow']??[]),$plan['nodes']);
+                    } catch (RuntimeException $error) {
+                        $diagnosticDetail=ConversationActionPlan::failureCategory($content,$workflowStage,$compact);
+                        throw $error;
+                    }
                 }
             };
             $provider->preflight($tenant,$user,$request);
@@ -111,7 +116,11 @@ final class ConversationWorker
                 $draft=ConversationIntakeDraft::parseDirect($result['content'],(array)($context['workflow']['workflow_snapshot']['slot_schema']??[]),$intakeSources);
                 return ConversationExecution::complete($tenant,$user,$run,$claim['token'],$claim['fence'],$draft['reply_markdown'],[],[],$draft['intake'])?'success':'needs_reconciliation';
             }
-            $plan=ConversationActionPlan::parse($result['content'],$workflowStage,$compact);
+            try { $plan=ConversationActionPlan::parse($result['content'],$workflowStage,$compact); }
+            catch (RuntimeException $error) {
+                $diagnosticDetail=ConversationActionPlan::failureCategory($result['content'],$workflowStage,$compact);
+                throw $error;
+            }
             return ConversationExecution::complete($tenant,$user,$run,$claim['token'],$claim['fence'],$plan['text'],$plan['nodes'])?'success':'needs_reconciliation';
         } catch (ConversationSafetyViolation $error) {
             return ConversationExecution::rejectAfterSubmit($tenant,$user,$run,$claim['token'],$claim['fence']);
