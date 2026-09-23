@@ -33,6 +33,10 @@ Db::startTrans();
 try {
     Db::name('tenant')->insert(['id'=>$tenant,'sn'=>'shared-template-fixture','create_time'=>time(),'point_balance'=>100]);
     Db::name('user')->insert(['id'=>$user,'sn'=>$user,'account'=>'shared-template-fixture','tenant_id'=>$tenant,'user_money'=>100]);
+    Db::name('aigc_short_drama_config')->insert([
+        'tenant_id'=>$tenant,'config_json'=>json_encode(['canvas_agent'=>['enabled'=>true]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+        'status'=>1,'create_time'=>time(),'update_time'=>time(),
+    ]);
     $templates=[
         'three_view_prompt_template'=>'三视图统一模板 {{subject_name}}：{{prompt}}',
         'shot_image_prompt_template'=>'分镜图统一模板 {{shot_title}}：{{prompt}}',
