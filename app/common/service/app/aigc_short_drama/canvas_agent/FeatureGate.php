@@ -117,6 +117,27 @@ final class FeatureGate
         foreach (ShortDramaSkillService::workflowDefaultSelections($tenant) as $stage=>$defaults) {
             if (empty($result[$stage])) $result[$stage]=$defaults;
         }
+        // Packaged platform Skills may gain a newly published version after a
+        // tenant saved the stage picker. The ordinary task resolver accepts
+        // only the current published version; retaining the old built-in
+        // number would silently disable every *new* workflow conversation.
+        // Refresh only platform-owned selections in the effective view.
+        // Tenant-owned selections remain explicit and must be reviewed by
+        // their owner; existing conversation snapshots are never rewritten.
+        $ids=[];
+        foreach ($result as $items) foreach ($items as $item) $ids[]=(int)$item['skill_id'];
+        if ($ids) {
+            $rows=Db::name('aigc_short_drama_skill')->whereIn('id',array_values(array_unique($ids)))
+                ->where(['tenant_id'=>0,'status'=>1,'release_status'=>'active','delete_time'=>0])
+                ->field('id,published_version')->select()->toArray();
+            $published=[];
+            foreach ($rows as $row) if ((int)$row['published_version']>0) $published[(int)$row['id']]=(int)$row['published_version'];
+            foreach ($result as &$items) foreach ($items as &$item) {
+                $current=$published[(int)$item['skill_id']]??0;
+                if ($current>0) $item['skill_version']=$current;
+            }
+            unset($items,$item);
+        }
         return $result;
     }
     public static function assertEnabled(int $tenant): void
