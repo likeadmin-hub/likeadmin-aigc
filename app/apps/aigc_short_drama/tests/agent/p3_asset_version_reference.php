@@ -44,6 +44,8 @@ try {
     agentCheck($run['status']==='success' && count(P3AssetVersionVideoProvider::$requests)===1,'M16 selected old asset version submits one video run');
 agentCheck((int)$stored['reference_assets'][0]['asset_id']===$old && str_contains((string)$stored['reference_assets'][0]['url'],'old-version.png') && !str_contains((string)$stored['reference_assets'][0]['url'],'forged.invalid'),'M16 request snapshot resolves selected old asset identity rather than browser URL');
 agentCheck((int)P3AssetVersionVideoProvider::$requests[0]['reference_assets'][0]['asset_id']===$old && str_contains((string)P3AssetVersionVideoProvider::$requests[0]['reference_assets'][0]['url'],'old-version.png'),'M16 Provider receives the user-selected old asset version');
+agentCheck((P3AssetVersionVideoProvider::$requests[0]['reference_images']??[])===[] && (string)(P3AssetVersionVideoProvider::$requests[0]['reference_assets'][0]['role']??'')==='first_frame_image',
+    'video adapter receives one owned frame identity, not a duplicate signed-URL reference');
 $history=Db::name('aigc_short_drama_generation_task')->where(['tenant_id'=>91001,'user_id'=>92001,'task_id'=>'canvas_run_'.(int)$run['id']])->find();
 agentCheck($history && json_decode((string)$history['input_asset_ids'],true)===[(int)$old],'M16 task history records the linked input asset identity');
     agentCheck(Db::name('aigc_short_drama_asset')->where(['id'=>$new,'delete_time'=>0,'status'=>'ready'])->count()===1,'M16 newer version remains separate and does not replace selected old asset');

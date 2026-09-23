@@ -923,12 +923,24 @@ class ShortDramaCanvasService
         $prompt = trim((string)($params['prompt'] ?? $params['content'] ?? ''));
         if ($prompt === '') throw new Exception('请输入提示内容');
         $referenceAssets=self::resolveOwnedReferenceAssets($tenantId, $userId, $canvasId, (array)($params['reference_assets'] ?? []));
+        if ($type==='video') foreach ($referenceAssets as &$reference) {
+            $role=(string)($reference['role']??'');
+            $reference['role']=match ($role) {
+                'first_frame'=>'first_frame_image', 'last_frame'=>'last_frame_image',
+                'reference','workflow_reference','agent_dependency',''=>'reference_image',
+                default=>$role,
+            };
+        }
+        unset($reference);
         // Owned user uploads take precedence over transient URLs. Their signed
         // delivery URLs are resolved server-side and image references force the
         // shared text runtime onto a vision-capable tenant model.
         $referenceImages=[];
         foreach ($referenceAssets as $reference) {
-            if (is_array($reference) && strtolower((string)($reference['type'] ?? ''))==='image' && trim((string)($reference['url'] ?? ''))!=='') $referenceImages[]=(string)$reference['url'];
+            // The video runtime derives reference_images from reference_assets.
+            // Duplicating their signed URLs here (alongside stable storage
+            // URIs) counted the same connected frame twice at the Provider.
+            if ($type!=='video' && is_array($reference) && strtolower((string)($reference['type'] ?? ''))==='image' && trim((string)($reference['url'] ?? ''))!=='') $referenceImages[]=(string)$reference['url'];
         }
         foreach ((array)($params['reference_images'] ?? []) as $image) if (is_string($image) && trim($image)!=='') $referenceImages[]=trim($image);
         $payload = [

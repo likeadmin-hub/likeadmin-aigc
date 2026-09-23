@@ -5,6 +5,7 @@ namespace app\common\service\app\aigc_short_drama\canvas_agent;
 use RuntimeException;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\app\aigc_short_drama\ShortDramaSkillService;
+use app\common\service\app\aigc_short_drama\ShortDramaPromptWorkspace;
 use think\facade\Db;
 
 /**
@@ -18,7 +19,7 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-23.6';
+    public const VERSION = '2026-09-23.7';
 
     /** Old frozen conversations retain their original canvas projection. */
     public static function compactOutput(array $workflow): bool
@@ -529,6 +530,7 @@ final class ConversationWorkflow
         $assetIds=[];foreach ($attachments as $item) if (is_array($item) && in_array($item['type']??'', ['image','document'],true) && (int)($item['asset_id']??0)>0) $assetIds[]=(int)$item['asset_id'];
         return ['key'=>$catalog['key'],'version'=>$catalog['version'],'name'=>$catalog['name'],'route'=>$route,'frozen_at'=>time(),
             'stages'=>$catalog['stages'],'rules'=>$catalog['rules'],'slot_schema'=>$catalog['slots'],'stage_skill_versions'=>self::stageSkillSnapshots($tenant,$catalog),
+            'creative_prompt_snapshot'=>ShortDramaPromptWorkspace::capture($tenant),
             'selected_node_ids'=>array_values(array_unique(array_map('strval',$selectedIds))),'attachment_asset_ids'=>array_values(array_unique($assetIds)),
             'model_preferences'=>array_intersect_key($preferences,array_flip(['generation_mode','reasoning_model','image_model','video_model']))];
     }
@@ -566,6 +568,7 @@ final class ConversationWorkflow
     }
     private static function publicWorkflowSnapshot(array $snapshot): array
     {
+        unset($snapshot['creative_prompt_snapshot']);
         $stageSkills=[];
         foreach ((array)($snapshot['stage_skill_versions']??[]) as $stage=>$skills) {
             if (!is_string($stage)) continue;

@@ -3,7 +3,10 @@ declare(strict_types=1);
 require __DIR__.'/bootstrap.php';
 
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
+use app\common\service\app\aigc_short_drama\ShortDramaPromptCatalog;
+use app\common\service\app\aigc_short_drama\ShortDramaPromptWorkspace;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationActionPlan as ActionPlan;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationCreativePrompt;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution as Execution;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationProviderInterface;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore as Store;
@@ -15,7 +18,8 @@ use think\facade\Db;
 final class CompactProjectionProvider implements ConversationProviderInterface
 {
     public string $content='';
-    public function preflight(int $tenant,int $user,array $request): void {}
+    public array $request=[];
+    public function preflight(int $tenant,int $user,array $request): void {$this->request=$request;}
     public function generate(int $tenant,int $user,array $request): array
     {
         return ['content'=>$this->content,'tool_calls'=>[],'safety_checked'=>true];
@@ -40,6 +44,10 @@ $graph=static function (int $canvas): array {
 };
 try {
     $config=Db::name('aigc_short_drama_config')->insertGetId(['tenant_id'=>$tenant,'config_json'=>json_encode(['canvas_agent'=>['enabled'=>true,'workflow'=>['enabled'=>true,'enabled_workflows'=>[Workflow::KEY]]]],JSON_UNESCAPED_UNICODE),'status'=>1,'create_time'=>time(),'update_time'=>time()]);
+    $frozenPrompt=ShortDramaPromptWorkspace::resolve($tenant,['mode'=>'workspace','overrides'=>['subject.character'=>'测试：主体必须正面居中，服饰一致']],[]);
+    $sharedRules=ConversationCreativePrompt::forStage(['workflow_snapshot'=>['creative_prompt_snapshot'=>$frozenPrompt],'stage_state'=>['key'=>'assets']]);
+    agentCheck(str_contains($sharedRules,'测试：主体必须正面居中，服饰一致') && !str_contains($sharedRules,ShortDramaPromptCatalog::defaults()['subject.character']),
+        'Agent stage renders original short-drama prompt workspace overrides rather than a copied default');
     $canvas=Canvas::create($tenant,$user,['title'=>'Compact workflow projection'])['id'];
     $thread=Store::create($tenant,$user,$canvas,'compact-projection')['id'];
     $preferences=['generation_mode'=>'auto','reasoning_model'=>['id'=>'fixture-text'],'image_model'=>['id'=>'fixture-image','model_code'=>'fixture-image']];
@@ -106,6 +114,8 @@ try {
         ['type'=>'image','artifact'=>'three_view','title'=>'林夏三视图','prompt'=>'林夏正侧背三视图','key'=>'views','depends_on'=>['subject'],'reference_keys'=>['art:views']],
     ]],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR).'</canvas-actions>';
     $view=$runStage('compact-assets',$assets,[$storyId]);
+    agentCheck(str_contains((string)($provider->request['system_prompt']??''),ShortDramaPromptCatalog::defaults()['subject.character']),
+        'Agent asset creation reads the original short-drama creative prompt source');
     agentCheck(($view['card']['type']??'')==='confirmation','auto image plan is held for owner confirmation');
     Workflow::confirmPlan($tenant,$user,$canvas,$thread,(int)$view['workflow']['state_revision'],(string)$view['workflow']['plan_hash']);
     [$nodes,$edges]=$graph($canvas);
@@ -145,7 +155,25 @@ try {
     $runStage('compact-video-node',$video);
     [$nodes,$edges]=$graph($canvas);
     $videoNode=$nodes[6];$videoInputs=$inputs((string)$videoNode['id']);
-    agentCheck(count($videoInputs)===1 && (string)$videoInputs[0]['from']===(string)$board['id'] && !empty($videoNode['metadata']['agent_manual_submit']) && empty($videoNode['metadata']['agent_auto_submit']),'video keeps only its storyboard media edge and cannot auto-submit');
+    $videoSources=array_map(static fn(array $edge): string=>(string)$edge['from'],$videoInputs);
+    agentCheck($videoSources===[(string)$board['id'],(string)$threeView['id'],(string)$nodes[4]['id']]
+        && !empty($videoNode['metadata']['agent_manual_submit']) && empty($videoNode['metadata']['agent_auto_submit']),
+        'video links its own storyboard, preferred subject turnaround and bound scene without auto-submitting');
+    $readyNodes=$nodes;
+    foreach ([$board['id']=>997,$threeView['id']=>996,$nodes[4]['id']=>995] as $sourceId=>$assetId) {
+        foreach ($readyNodes as &$readyNode) if ((string)$readyNode['id']===(string)$sourceId) {
+            $readyNode['metadata']['status']='success';$readyNode['metadata']['asset_id']=$assetId;
+        }
+        unset($readyNode);
+    }
+    $videoDependency=Canvas::agentAutoDependencyState($readyNodes,$edges,(string)$videoNode['id']);
+    agentCheck(($videoDependency['state']??'')==='ready' && array_column($videoDependency['references'],'asset_id')===[997,996,995],
+        'video quote and submission resolve the exact three linked images as real input assets');
+    $legacyEdges=array_values(array_filter($edges,static fn(array $edge): bool=>(string)($edge['to']??'')!==(string)$videoNode['id'] || (string)($edge['from']??'')===(string)$board['id']));
+    Db::name(GraphService::TABLE)->where('id',$canvas)->update(['edges_json'=>json_encode($legacyEdges,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)]);
+    $repair=GraphService::repairAgentVideoReferences($tenant,$user,$canvas);
+    agentCheck($repair['changed'] && $repair['nodes']===1 && !GraphService::repairAgentVideoReferences($tenant,$user,$canvas)['changed'],
+        'idle legacy Agent video references are repaired once and repair is idempotent');
     try { ActionPlan::parse('<canvas-actions>{"nodes":[{"type":"image","artifact":"prop","title":"多余道具图","prompt":"道具","key":"prop"}]}</canvas-actions>','storyboard',true);throw new RuntimeException('extra prop canvas node accepted'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_ACTION','compact storyboard rejects unrequested prop image nodes'); }
     try { ActionPlan::parse('<canvas-actions>{"nodes":[{"type":"video","artifact":"storyboard_video","title":"孤立视频","prompt":"镜头","key":"video"}]}</canvas-actions>','video_nodes',true);throw new RuntimeException('video without storyboard accepted'); }
