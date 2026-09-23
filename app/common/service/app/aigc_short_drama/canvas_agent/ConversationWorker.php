@@ -38,7 +38,7 @@ final class ConversationWorker
                     ? ($activeRouting ? ConversationWorkflowTurn::instruction($intentRouting,(string)($claim['settings']['generation_mode']??'manual')) : ConversationIntentRouter::instruction($intentRouting))
                     : ConversationWorkflow::instruction((array)($context['workflow']??[])).($intakeAnalysis
                         ? '只输出一个 JSON 对象，字段恰好为 reply_markdown、intake；reply_markdown 是简短核对提示。'.ConversationIntakeDraft::instruction((array)($context['workflow']['workflow_snapshot']['slot_schema']??[]))
-                        : ConversationActionPlan::instruction((string)($claim['settings']['generation_mode']??'manual'),$workflowStage,$compact)))
+                        : ConversationActionPlan::instruction((string)($claim['settings']['generation_mode']??'manual'),$workflowStage,$compact,ConversationWorkflow::usesStageGenerationPrompts((array)($messageContext['workflow']??[])))))
                     .ConversationCreativePrompt::forStage((array)($messageContext['workflow']??[])),
                 'request_timeout_seconds'=>120,'automatic_retry'=>false,
             ];
@@ -61,7 +61,10 @@ final class ConversationWorker
                 // This keeps malformed structured output from becoming a
                 // charged, markdown-only false success.
                 if ($activeRouting) {
-                    try { ConversationWorkflowTurn::parse($content,$intentRouting,$intakeSources); }
+                    try {
+                        $decision=ConversationWorkflowTurn::parse($content,$intentRouting,$intakeSources);
+                        if ($decision['continue'] && $decision['nodes']) ConversationWorkflow::materializeTextReferences((array)($intentRouting['workflow_candidate']??[]),$decision['nodes']);
+                    }
                     catch (RuntimeException $error) {
                         $diagnosticDetail=ConversationWorkflowTurn::failureCategory($content,$intentRouting);
                         throw $error;
@@ -69,7 +72,10 @@ final class ConversationWorker
                 }
                 elseif ($intentRouting) ConversationIntentRouter::parse($content,$intentRouting,$intakeSources);
                 elseif ($intakeAnalysis) ConversationIntakeDraft::parseDirect($content,(array)($context['workflow']['workflow_snapshot']['slot_schema']??[]),$intakeSources);
-                else ConversationActionPlan::parse($content,$workflowStage,$compact);
+                else {
+                    $plan=ConversationActionPlan::parse($content,$workflowStage,$compact);
+                    if ($plan['nodes']) ConversationWorkflow::materializeTextReferences((array)($context['workflow']??[]),$plan['nodes']);
+                }
             };
             $provider->preflight($tenant,$user,$request);
         } catch (\Throwable $error) {

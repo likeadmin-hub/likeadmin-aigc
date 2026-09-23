@@ -19,7 +19,14 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-23.8';
+    public const VERSION = '2026-09-23.9';
+
+    /** Older in-flight plans keep their previously frozen prompt projection. */
+    public static function usesStageGenerationPrompts(array $workflow): bool
+    {
+        return self::compactOutput($workflow)
+            && version_compare((string)($workflow['workflow_snapshot']['version']??'0'),'2026-09-23.9','>=');
+    }
 
     /** Old frozen conversations retain their original canvas projection. */
     public static function compactOutput(array $workflow): bool
@@ -34,6 +41,7 @@ final class ConversationWorkflow
     public static function materializeTextReferences(array $workflow,array $proposals): array
     {
         if (!self::compactOutput($workflow)) return $proposals;
+        $generationPrompts=self::usesStageGenerationPrompts($workflow);
         $memory=[];
         foreach ((array)($workflow['artifact_memory']??[]) as $item) {
             if (!is_array($item) || !in_array((string)($item['stage']??''),['script','art','video_plan'],true)) continue;
@@ -42,7 +50,7 @@ final class ConversationWorkflow
         }
         foreach ($proposals as &$proposal) {
             if (!is_array($proposal) || !in_array((string)($proposal['type']??''),['image','video'],true)) continue;
-            $refs=[];$parts=[];
+            $refs=[];$parts=[];$promptSources=[];
             foreach ((array)($proposal['reference_keys']??[]) as $key) {
                 $key=(string)$key;
                 $stage=explode(':',$key,2)[0];
@@ -51,9 +59,29 @@ final class ConversationWorkflow
                 if (!is_array($item)) throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
                 $content=trim((string)($item['content']??''));
                 if ($content==='') throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
-                $parts[]='【'.mb_substr((string)($item['title']??''),0,80).'】'."\n".mb_substr($content,0,3500);
+                if ($generationPrompts) $promptSources[]=$item;
+                else $parts[]='【'.mb_substr((string)($item['title']??''),0,80).'】'."\n".mb_substr($content,0,3500);
             }
             $prompt=trim((string)($proposal['prompt']??''));
+            if ($generationPrompts) {
+                // The original short-drama plan returns separate prompt fields
+                // for each asset. Copy the confirmed field verbatim into the
+                // editable node instead of displaying a second model rewrite
+                // or appending the entire planning document to its prompt.
+                $expected=match ((string)($proposal['artifact']??'')) {
+                    'subject'=>'subject_image_prompt',
+                    'three_view'=>'three_view_prompt',
+                    'scene'=>'scene_image_prompt',
+                    default=>'',
+                };
+                if ($expected!=='') {
+                    $matching=array_values(array_filter($promptSources,static fn(array $item): bool=>(string)($item['stage']??'')==='art' && (string)($item['artifact']??'')===$expected));
+                    if (count($matching)!==1) throw new RuntimeException('INVALID_AGENT_ACTION');
+                    $prompt=trim((string)$matching[0]['content']);
+                }
+                if ($prompt==='' || mb_strlen($prompt)>20000) throw new RuntimeException('INVALID_AGENT_ACTION');
+                $proposal['prompt']=$prompt;
+            }
             if ($parts) {
                 $prompt.="\n\n【已确认的相关创作规划】\n".implode("\n\n",$parts);
                 if (mb_strlen($prompt)>20000) throw new RuntimeException('INVALID_AGENT_ACTION');
