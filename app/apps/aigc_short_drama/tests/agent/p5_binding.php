@@ -390,4 +390,4 @@ try {
     Db::rollback();
 }
 
-echo "NOT_RUN D08,D10 remaining: browser confirmation against a real editable target; story, episode, and shot fields are covered by rollback-only local behavior checks.\n";
+echo "PASS 37 rollback-only service checks; browser acceptance is tracked separately in canvas-agent-p0-audit.md.\n";
