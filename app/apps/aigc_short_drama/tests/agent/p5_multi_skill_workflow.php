@@ -168,6 +168,9 @@ try {
     agentCheck(!$other['continue'] && $other['nodes']===[] && $other['text']==='这是一项单独的图片需求。',
         'a separate image intent does not enter the short-drama stage or create a graph proposal');
     $artReply='美术规划已完成。<canvas-actions>{"nodes":[{"type":"text","artifact":"art_bible","title":"美术圣经","prompt":"art_bible: 电影写实，冷蓝雨夜与暖黄室内对照。","key":"art"},{"type":"text","artifact":"character_asset_spec","title":"主体资产设定","prompt":"character_asset_spec: 林夏短发风衣、录音笔。\nsubject_image_prompt: 都市悬疑女记者，电影写实。","key":"character"},{"type":"text","artifact":"scene_asset_spec","title":"场景资产设定","prompt":"scene_asset_spec: 雨夜办公室与旧档案室。\nscene_image_prompt: 雨夜办公室，冷蓝霓虹。","key":"scene"},{"type":"text","artifact":"prop_asset_spec","title":"道具资产设定","prompt":"prop_asset_spec: 可录音的旧式金属录音笔。","key":"prop"},{"type":"text","artifact":"three_view_prompt","title":"主体三视图提示词","prompt":"three_view_prompt: 同一林夏正侧背三视图，保持风衣与录音笔一致。","key":"views"}]}</canvas-actions>';
+    $emptyReferencePlan=ActionPlan::parse('{"reply_markdown":"美术规划","canvas_actions":{"nodes":[{"type":"text","artifact":"art_bible","title":"画风","prompt":"旧书店冷暖对比","key":"art","reference_keys":[]}]}}','art',true);
+    agentCheck(count($emptyReferencePlan['nodes'])===1 && !isset($emptyReferencePlan['nodes'][0]['reference_keys']),
+        'empty optional reference lists are normalized to no graph edge while nonempty references remain validated');
     $artPlan=ActionPlan::parse($artReply,'art');
     $continueAck=$enqueueActive('workflow-art-resume','继续刚才的短剧美术规划');
     $provider->content=json_encode(['intent'=>'continue','confidence'=>0.96,'skill_key'=>'','reply_markdown'=>'',

@@ -192,7 +192,7 @@ final class ConversationExecution
         // Preserve a safe internal failure category without storing the
         // Provider reply, prompt, or exception trace in a user-facing event.
         if (!in_array($diagnosticCode,['UNSUPPORTED_MODEL_RESPONSE','INVALID_AGENT_ACTION','INVALID_AGENT_INTENT','INVALID_AGENT_INTAKE'],true)) $diagnosticCode='UNSUPPORTED_MODEL_RESPONSE';
-        if (!in_array($diagnosticDetail,['intent_not_json','intent_shape','intent_value','intent_skill','intent_unexpected_output','intent_noncontinue','intent_continue_reply','intent_continue_output','intent_stage_keys','intent_stage_nodes','intent_stage_node_fields','intent_stage_node_values','intent_stage_node_links','intent_stage_contract','intent_consistency','post_settlement_projection'],true)) $diagnosticDetail='';
+        if (!in_array($diagnosticDetail,['intent_not_json','intent_shape','intent_value','intent_skill','intent_unexpected_output','intent_noncontinue','intent_continue_reply','intent_continue_output','intent_stage_keys','intent_stage_nodes','intent_stage_node_fields','intent_stage_node_values','intent_stage_node_type','intent_stage_node_artifact','intent_stage_node_key','intent_stage_node_links','intent_stage_contract','intent_consistency','post_settlement_projection'],true)) $diagnosticDetail='';
         return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$diagnosticCode,$diagnosticDetail): string {
             [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
             if ($run['status']==='failed' && $run['error_code']==='UNSUPPORTED_MODEL_RESPONSE') return 'failed';
