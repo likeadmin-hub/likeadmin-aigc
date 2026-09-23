@@ -143,6 +143,31 @@ final class ConversationStore
         return array_map([self::class,'threadView'],$query->order('id','desc')->limit(50)->select()->toArray());
     }
 
+    public static function renameThread(int $tenant,int $user,int $canvas,int $thread,string $title): array
+    {
+        $title=trim($title);
+        if ($title==='' || mb_strlen($title)>160) throw new RuntimeException('INVALID_THREAD_TITLE');
+        return Db::transaction(function () use ($tenant,$user,$canvas,$thread,$title): array {
+            self::canvas($tenant,$user,$canvas,true);
+            $row=self::thread(self::scope($tenant,$user,$canvas),$thread,true);
+            Db::name(self::PREFIX.'thread')->where('id',$thread)->update(['title'=>$title,'update_time'=>time()]);
+            $row['title']=$title;
+            return self::threadView($row);
+        });
+    }
+
+    /** Hide a conversation without removing messages, runs, billing evidence or graph assets. */
+    public static function deleteThread(int $tenant,int $user,int $canvas,int $thread): array
+    {
+        return Db::transaction(function () use ($tenant,$user,$canvas,$thread): array {
+            self::canvas($tenant,$user,$canvas,true);
+            $row=self::thread(self::scope($tenant,$user,$canvas),$thread,true);
+            if ((int)$row['active_run_id']!==0) throw new RuntimeException('THREAD_BUSY');
+            Db::name(self::PREFIX.'thread')->where('id',$thread)->update(['delete_time'=>time(),'update_time'=>time()]);
+            return ['id'=>$thread,'deleted'=>true];
+        });
+    }
+
     /** Shared ownership gate for account preferences reached from a canvas UI. */
     public static function assertCanvasAccess(int $tenant,int $user,int $canvas): void
     {

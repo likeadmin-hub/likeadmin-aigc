@@ -223,7 +223,7 @@ try {
         if (in_array($action,['assets','independentCanvas'],true)) $allowed=$method==='GET';
         if ($mockGeneration && $action==='run') $allowed=(int)($body['canvas_id']??0)===$canvasId;
         if ($mockGeneration && $action==='task') $allowed=Db::name('aigc_short_drama_canvas_run')->where(['id'=>(int)($body['id']??0),'canvas_id'=>$canvasId,'tenant_id'=>94011,'user_id'=>95011])->count()===1;
-        $agentActions=['agentThreads'=>'threads','agentPreferences'=>'preferences','agentSavePreferences'=>'savePreferences','agentCreateThread'=>'createThread','agentMessages'=>'messages','agentEvents'=>'events','agentSend'=>'send','agentRun'=>'run','agentStop'=>'stop'];
+        $agentActions=['agentThreads'=>'threads','agentPreferences'=>'preferences','agentSavePreferences'=>'savePreferences','agentCreateThread'=>'createThread','agentRenameThread'=>'renameThread','agentDeleteThread'=>'deleteThread','agentMessages'=>'messages','agentEvents'=>'events','agentSend'=>'send','agentRun'=>'run','agentStop'=>'stop'];
         if ($agentConversation && isset($agentActions[$action])) {
             $allowed=(int)($body['canvas_id']??0)===$canvasId;
             foreach (['thread_id','run_id'] as $key) {

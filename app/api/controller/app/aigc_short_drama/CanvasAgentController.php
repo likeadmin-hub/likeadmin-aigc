@@ -23,6 +23,16 @@ final class CanvasAgentController extends BaseApiController
         if (!is_string($p['request_key']??null) || !is_string($p['title']??'')) throw new RuntimeException('INVALID_THREAD_REQUEST');
         return ConversationStore::create((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null),$p['request_key'],$p['title']??'');
     }); }
+    public function renameThread() { return $this->respond(function () {
+        $p=$this->request->post();
+        if (array_diff(array_keys($p),['canvas_id','thread_id','title']) || !is_string($p['title']??null)) throw new RuntimeException('INVALID_THREAD_REQUEST');
+        return ConversationStore::renameThread((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null),self::number($p['thread_id']??null),$p['title']);
+    }); }
+    public function deleteThread() { return $this->respond(function () {
+        $p=$this->request->post();
+        if (array_diff(array_keys($p),['canvas_id','thread_id'])) throw new RuntimeException('INVALID_THREAD_REQUEST');
+        return ConversationStore::deleteThread((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null),self::number($p['thread_id']??null));
+    }); }
     public function messages() { return $this->respond(function () {
         $p=$this->request->get();
         return ConversationStore::messages((int)$this->request->tenantId,$this->userId,self::number($p['canvas_id']??null),self::number($p['thread_id']??null),self::number($p['after']??0,true));
