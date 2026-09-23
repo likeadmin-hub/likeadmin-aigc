@@ -11,6 +11,7 @@ final class ShortDramaCanvasWritebackService
 {
     private const TEXT_ARTIFACTS = ['story_setting', 'episode_script', 'episode_outline', 'storyboard_script'];
     private const STORY_FIELDS = ['title', 'type_judgement', 'core_theme', 'story_outline'];
+    private const EPISODE_FIELDS = ['title', 'story_outline'];
 
     public static function sources(int $tenantId, int $userId, int $canvasId): array
     {
@@ -177,6 +178,141 @@ final class ShortDramaCanvasWritebackService
                 'project_id' => $projectId, 'task_id' => $taskId,
                 'target_field' => $preview['target']['field'],
                 'draft_version' => (int)$save['draft_version']];
+            $receipts = array_values((array)($updatedRequest['_canvas_writeback_receipts'] ?? []));
+            $receipts[] = $receipt;
+            $updatedRequest['_canvas_writeback_receipts'] = array_slice($receipts, -20);
+            Db::name('aigc_short_drama_script_task')->where('id', $updated['id'])->update([
+                'request_json' => json_encode($updatedRequest, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                'update_time' => time(),
+            ]);
+            return $receipt;
+        });
+    }
+
+    /** A single owned episode-outline row, never the free-form episode script. */
+    public static function previewEpisode(int $tenantId, int $userId, array $params): array
+    {
+        $canvasId = (int)($params['canvas_id'] ?? 0);
+        $nodeId = (string)($params['source_node_id'] ?? '');
+        $field = (string)($params['target_field'] ?? '');
+        if ($canvasId <= 0 || !ctype_digit($nodeId) || (int)$nodeId <= 0
+            || !in_array($field, self::EPISODE_FIELDS, true)) throw new InvalidArgumentException('分集写回参数无效');
+        $binding = ShortDramaCanvasBindingService::current($tenantId, $userId, $canvasId);
+        if (!$binding['bound'] || (int)$binding['episode_id'] !== 0) throw new InvalidArgumentException('请先绑定故事项目');
+        $document = Db::name('aigc_short_drama_canvas')->where([
+            'id' => $canvasId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0,
+        ])->field('nodes_json,removed_node_ids_json')->find();
+        $nodes = json_decode((string)($document['nodes_json'] ?? '[]'), true);
+        $removed = json_decode((string)($document['removed_node_ids_json'] ?? '[]'), true);
+        if (is_array($removed) && in_array($nodeId, array_map('strval', $removed), true)) throw new InvalidArgumentException('来源节点已删除');
+        $source = null;
+        foreach (is_array($nodes) ? $nodes : [] as $node) {
+            if ((string)($node['id'] ?? '') !== $nodeId) continue;
+            $meta = (array)($node['metadata'] ?? []);
+            if (($node['type'] ?? '') !== 'text' || ($meta['workflow_source_stage'] ?? '') !== 'script'
+                || ($meta['workflow_artifact'] ?? '') !== 'episode_script') break;
+            $content = (string)($meta['content'] ?? '');
+            $fields = self::formalFields('episode_script', $meta, $content);
+            if (!isset($fields[$field])) break;
+            $source = ['node_id' => $nodeId, 'episode_number' => $fields['episode_number'],
+                'content' => $fields[$field], 'content_revision' => (int)($meta['content_revision'] ?? 0),
+                'content_hash' => hash('sha256', $content)];
+            break;
+        }
+        if (!$source) throw new InvalidArgumentException('分集来源不存在或不适合正式写回');
+        $projectId = (int)$binding['project_id'];
+        $project = Db::name('aigc_short_drama_project')->where([
+            'id' => $projectId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0,
+        ])->field('last_task_id,current_version_id')->find();
+        $taskId = (string)($project['last_task_id'] ?? '');
+        $task = Db::name('aigc_short_drama_script_task')->where([
+            'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
+            'task_id' => $taskId, 'delete_time' => 0,
+        ])->field('status,request_json,result_json')->find();
+        $request = ShortDramaEpisodeService::decode((string)($task['request_json'] ?? ''));
+        if (($task['status'] ?? '') !== 'success' || !ShortDramaStoryWorkflow::enabled($request)
+            || ShortDramaStoryDraft::stage($request) !== 'episodes'
+            || Db::name('aigc_short_drama_episode_task')->where([
+                'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId, 'delete_time' => 0,
+            ])->count()) throw new InvalidArgumentException('正式分集大纲当前不可编辑');
+        $result = ShortDramaStoryDraft::effective($request, ShortDramaEpisodeService::decode((string)$task['result_json']));
+        $targetContent = null;
+        foreach ((array)($result['episodes'] ?? []) as $episode) {
+            if ((int)($episode['episode_number'] ?? 0) !== $source['episode_number']) continue;
+            $targetContent = (string)($episode[$field] ?? '');
+            break;
+        }
+        if ($targetContent === null) throw new InvalidArgumentException('正式大纲中不存在对应集号');
+        $target = ['project_id' => $projectId, 'task_id' => $taskId,
+            'episode_number' => $source['episode_number'], 'field' => $field,
+            'project_version_id' => (int)($project['current_version_id'] ?? 0),
+            'draft_version' => ShortDramaStoryDraft::version($request),
+            'content' => $targetContent, 'content_hash' => hash('sha256', $targetContent)];
+        $fingerprint = [$canvasId, $binding['binding_revision'], $source['node_id'],
+            $source['content_revision'], $source['content_hash'], hash('sha256', $source['content']),
+            $target['project_id'], $target['task_id'], $target['episode_number'],
+            $target['project_version_id'], $target['draft_version'], $target['field'], $target['content_hash']];
+        return ['binding' => $binding, 'source' => $source, 'target' => $target,
+            'preview_hash' => hash('sha256', json_encode($fingerprint, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
+            'can_apply' => true];
+    }
+
+    public static function applyEpisode(int $tenantId, int $userId, array $params): array
+    {
+        $canvasId = (int)($params['canvas_id'] ?? 0);
+        $previewHash = (string)($params['preview_hash'] ?? '');
+        if ($canvasId <= 0 || ($params['confirm'] ?? null) !== '1'
+            || !preg_match('/^[a-f0-9]{64}$/D', $previewHash)) {
+            throw new InvalidArgumentException('请先预览差异并逐项确认写回');
+        }
+        return Db::transaction(function () use ($tenantId, $userId, $params, $canvasId, $previewHash): array {
+            $canvas = Db::name('aigc_short_drama_canvas')->where([
+                'id' => $canvasId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0,
+            ])->lock(true)->find();
+            if (!$canvas) throw new InvalidArgumentException('画布项目不存在或无权访问');
+            $binding = Db::name('aigc_short_drama_canvas_binding')->where([
+                'canvas_id' => $canvasId, 'tenant_id' => $tenantId, 'user_id' => $userId,
+            ])->lock(true)->find();
+            if (!$binding || (int)$binding['episode_id'] !== 0) throw new InvalidArgumentException('请先绑定故事项目');
+            $projectId = (int)$binding['project_id'];
+            $project = Db::name('aigc_short_drama_project')->where([
+                'id' => $projectId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0,
+            ])->lock(true)->find();
+            if (!$project) throw new InvalidArgumentException('正式项目不存在或无权访问');
+            $taskId = (string)($project['last_task_id'] ?? '');
+            $scope = ['tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
+                'task_id' => $taskId, 'delete_time' => 0];
+            $task = Db::name('aigc_short_drama_script_task')->where($scope)->lock(true)->find();
+            if (!$task) throw new InvalidArgumentException('正式分集任务不存在');
+            $request = ShortDramaEpisodeService::decode((string)$task['request_json']);
+            foreach ((array)($request['_canvas_writeback_receipts'] ?? []) as $receipt) {
+                if (($receipt['preview_hash'] ?? '') === $previewHash) return $receipt;
+            }
+            $preview = self::previewEpisode($tenantId, $userId, $params);
+            if (!hash_equals($preview['preview_hash'], $previewHash)) {
+                throw new InvalidArgumentException('VERSION_CONFLICT: 来源或正式大纲已变化，请重新预览');
+            }
+            $result = ShortDramaStoryDraft::effective($request, ShortDramaEpisodeService::decode((string)$task['result_json']));
+            $episodes = (array)($result['episodes'] ?? []);
+            $found = false;
+            foreach ($episodes as &$episode) {
+                if ((int)($episode['episode_number'] ?? 0) !== $preview['target']['episode_number']) continue;
+                $episode[$preview['target']['field']] = $preview['source']['content'];
+                $found = true;
+                break;
+            }
+            unset($episode);
+            if (!$found) throw new InvalidArgumentException('正式大纲中不存在对应集号');
+            $save = ShortDramaStoryDraft::save($tenantId, $userId, [
+                'task_id' => $taskId, 'draft_version' => $preview['target']['draft_version'],
+                'stage' => 'episodes', 'result' => ['episodes' => $episodes],
+            ]);
+            $updated = Db::name('aigc_short_drama_script_task')->where($scope)->lock(true)->find();
+            $updatedRequest = ShortDramaEpisodeService::decode((string)$updated['request_json']);
+            $receipt = ['applied' => true, 'preview_hash' => $previewHash,
+                'project_id' => $projectId, 'task_id' => $taskId,
+                'episode_number' => $preview['target']['episode_number'],
+                'target_field' => $preview['target']['field'], 'draft_version' => (int)$save['draft_version']];
             $receipts = array_values((array)($updatedRequest['_canvas_writeback_receipts'] ?? []));
             $receipts[] = $receipt;
             $updatedRequest['_canvas_writeback_receipts'] = array_slice($receipts, -20);
