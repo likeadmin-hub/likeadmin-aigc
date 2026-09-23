@@ -129,6 +129,9 @@ try {
     Workflow::confirmPlan($tenant,$user,$canvas,$thread,(int)$view['workflow']['state_revision'],(string)$view['workflow']['plan_hash']);
     [$nodes,$edges]=$graph($canvas);
     $subject=$nodes[2];$threeView=$nodes[3];
+    agentCheck((int)($subject['metadata']['workflow_prompt_run_id']??0)>0
+        && (int)($threeView['metadata']['workflow_prompt_run_id']??0)>0,
+        'new Agent media nodes bind the frozen prompt run without exposing its contents');
     $inputs=static function (string $id) use (&$edges): array { return array_values(array_filter($edges,static fn(array $edge): bool=>(string)($edge['to']??'')===$id)); };
     agentCheck(count($nodes)===4 && str_contains((string)$subject['metadata']['prompt'],'米色风衣') && str_contains((string)$threeView['metadata']['prompt'],'录音笔一致'),'only chosen confirmed art text is materialized into quoted media prompts');
     agentCheck(count($inputs((string)$subject['id']))===0 && count($inputs((string)$threeView['id']))===1 && (string)$inputs((string)$threeView['id'])[0]['from']===(string)$subject['id'],'subject has no broad selected-text link; three-view depends only on its own main image');
@@ -164,6 +167,8 @@ try {
     $runStage('compact-video-node',$video);
     [$nodes,$edges]=$graph($canvas);
     $videoNode=$nodes[6];$videoInputs=$inputs((string)$videoNode['id']);
+    agentCheck((int)($videoNode['metadata']['workflow_prompt_run_id']??0)>0,
+        'video node binds the same frozen original prompt configuration');
     $videoSources=array_map(static fn(array $edge): string=>(string)$edge['from'],$videoInputs);
     agentCheck($videoSources===[(string)$board['id'],(string)$threeView['id'],(string)$nodes[4]['id']]
         && !empty($videoNode['metadata']['agent_manual_submit']) && empty($videoNode['metadata']['agent_auto_submit']),

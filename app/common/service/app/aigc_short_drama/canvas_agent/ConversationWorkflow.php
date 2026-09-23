@@ -19,7 +19,7 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-23.7';
+    public const VERSION = '2026-09-23.8';
 
     /** Old frozen conversations retain their original canvas projection. */
     public static function compactOutput(array $workflow): bool

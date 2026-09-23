@@ -10,7 +10,7 @@ final class GraphService
 {
     public const TABLE = 'aigc_short_drama_canvas';
     public const RECEIPTS = 'aigc_short_drama_canvas_mutation_receipt';
-    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_manual_submit','workflow_source_stage','workflow_artifact','workflow_key','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash','workflow_formal_fields','workflow_formal_content_hash'];
+    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_manual_submit','workflow_source_stage','workflow_artifact','workflow_key','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash','workflow_formal_fields','workflow_formal_content_hash','workflow_prompt_run_id'];
 
     /**
      * Server-only Agent writer.  ConversationExecution already owns the
@@ -56,6 +56,13 @@ final class GraphService
                 $metadata['workflow_artifact']=(string)($proposal['artifact']??'');
                 if (isset($proposal['key'])) $metadata['workflow_key']=$workflowStage.':'.(string)$proposal['key'];
                 $metadata['workflow_plan_hash']=(string)($workflow['plan_hash']??'');
+                // The run owns the frozen creative configuration. Store only
+                // its scoped ID, never a copy of tenant prompt text on every
+                // public canvas node (up to sixty video nodes per plan).
+                if ($agentRunId>0 && in_array($type,['image','video'],true)
+                    && version_compare((string)($workflow['workflow_snapshot']['version']??'0'),'2026-09-23.8','>=')) {
+                    $metadata['workflow_prompt_run_id']=$agentRunId;
+                }
             }
             if ($type==='text') $metadata['model_code']=(string)($settings['reasoning_model']['id']??'');
             else $metadata['channel']=(string)($settings[$type.'_model']['id']??'');

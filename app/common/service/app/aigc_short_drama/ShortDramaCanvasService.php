@@ -10,6 +10,7 @@ use app\common\service\app\aigc_music\AigcMusicService;
 use app\common\service\app\aigc_video\AigcVideoService;
 use app\common\service\app\aigc_short_drama\canvas_agent\GraphService;
 use app\common\service\app\aigc_short_drama\canvas_agent\GenerationIntentService;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\FileService;
 use app\common\service\storage\StorageConfigService;
@@ -278,6 +279,7 @@ class ShortDramaCanvasService
         if (!$savedNode) throw new Exception('NODE_NOT_FOUND: 请先保存节点，已删除的节点不能生成');
         if ((string)($savedNode['type'] ?? '') !== $type) throw new Exception('NODE_TYPE_MISMATCH: 节点类型已变化，请重新读取画布');
         $params=self::withGraphReferenceInputs($document,$nodeId,$params);
+        $params=self::withAgentSubmissionTemplate($document,$nodeId,$type,$params,$tenantId,$userId);
         $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id']);
         // Resolve on the server so disabled, cross-tenant and stale Skills
         // cannot be submitted by replaying a saved composer selection.
@@ -340,6 +342,7 @@ class ShortDramaCanvasService
         $key = trim((string)($params['request_key'] ?? ''));
         self::assertRequestKey($key);
         $params=self::withGraphReferenceInputs($document,$nodeId,$params);
+        $params=self::withAgentSubmissionTemplate($document,$nodeId,$type,$params,$tenantId,$userId);
         $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id']);
         $quote = AigcVideoService::estimate($tenantId, $payload);
         $quoteInput = self::quoteInputForDocument($document, $nodeId, $payload);
@@ -399,6 +402,7 @@ class ShortDramaCanvasService
         }
         $edges=self::decode((string)($document['edges_json']??'[]'));
         $params=self::withGraphReferenceInputs($document,$nodeId,$params);
+        $params=self::withAgentSubmissionTemplate($document,$nodeId,$type,$params,$tenantId,$userId);
         $key=(string)($params['request_key']??'');
         $payload=self::generationPayload($type,$params,$tenantId,$userId,(int)$document['id']);
         $requestInput=$payload+['skill_id'=>(int)($params['skill_id']??0),'skill_version'=>(int)($params['skill_version']??0),'skill_inputs'=>(array)($params['skill_inputs']??[])];
@@ -878,6 +882,51 @@ class ShortDramaCanvasService
             $params['prompt']=$prompt."\n\n【画布已连接上下文】\n".implode("\n\n",$parts);
             $params['content']=$params['prompt'];
         }
+        return $params;
+    }
+
+    /** Render only Agent-created media through the formal short-drama submit
+     * template. The source run is scoped to this owner and carries the frozen
+     * prompt workspace, so a later admin edit cannot silently alter a quote
+     * or turn an idempotent retry into a different paid request. */
+    private static function withAgentSubmissionTemplate(array $document,string $nodeId,string $type,array $params,int $tenantId,int $userId): array
+    {
+        if (!in_array($type,['image','video'],true)) return $params;
+        $target=null;
+        foreach (self::decode((string)($document['nodes_json']??'[]')) as $node) {
+            if ((string)($node['id']??'')===$nodeId) {$target=$node;break;}
+        }
+        $metadata=(array)($target['metadata']??[]);
+        $runId=(int)($metadata['workflow_prompt_run_id']??0);
+        if ($runId<=0) return $params; // Older frozen workflows and ordinary nodes remain unchanged.
+        $artifact=(string)($metadata['workflow_artifact']??'');
+        $compatible=match ($type) {
+            'image'=>in_array($artifact,['subject','three_view','scene','storyboard'],true),
+            'video'=>$artifact==='storyboard_video',
+        };
+        if (!$compatible) throw new Exception('WORKFLOW_PROMPT_SNAPSHOT_UNAVAILABLE');
+        $raw=Db::name(ConversationStore::PREFIX.'run')->where([
+            'id'=>$runId,'tenant_id'=>$tenantId,'user_id'=>$userId,'canvas_id'=>(int)$document['id'],'delete_time'=>0,
+        ])->value('context_snapshot');
+        if (!is_string($raw) || $raw==='') throw new Exception('WORKFLOW_PROMPT_SNAPSHOT_UNAVAILABLE');
+        $context=self::decode($raw);
+        $workflow=(array)($context['intent_routing']['workflow_candidate']??$context['workflow']??[]);
+        if (version_compare((string)($workflow['workflow_snapshot']['version']??'0'),'2026-09-23.8','<')) throw new Exception('WORKFLOW_PROMPT_SNAPSHOT_UNAVAILABLE');
+        $snapshot=(array)($workflow['workflow_snapshot']['creative_prompt_snapshot']??[]);
+        if ((int)($snapshot['tenant_id']??-1)!==$tenantId) throw new Exception('WORKFLOW_PROMPT_SNAPSHOT_UNAVAILABLE');
+        $prompt=trim((string)($params['prompt']??$params['content']??''));
+        $title=trim((string)($target['title']??''));
+        $templateContext=[
+            'task_type'=>match ($artifact) {'subject'=>'subject_image','three_view'=>'three_view','scene'=>'scene_image','storyboard'=>'shot_image',default=>'shot_video'},
+            'subject_name'=>in_array($artifact,['subject','three_view'],true)?$title:'',
+            'scene_name'=>$artifact==='scene'?$title:'',
+            'shot_title'=>in_array($artifact,['storyboard','storyboard_video'],true)?$title:'',
+            'visual_description'=>$prompt,
+            'ratio'=>(string)($params['ratio']??$params['aspect_ratio']??''),
+            'duration'=>(string)($params['duration']??''),
+        ];
+        $params['prompt']=AigcShortDramaService::canvasAgentSubmissionPrompt($tenantId,$snapshot,$artifact,$prompt,$templateContext);
+        $params['content']=$params['prompt'];
         return $params;
     }
 
