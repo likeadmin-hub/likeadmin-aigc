@@ -28,7 +28,6 @@ final class ConversationService
         }
         $selectedIds=(array)($request['selected_node_ids']??[]);
         return ConversationStore::enqueue($tenant,$user,$canvas,$thread,array_intersect_key($request,array_flip($messageKeys)),static function (array $conversation) use ($tenant,$preferences,$skillId,$skillVersion,$key,$content,$selectedIds,$attachments): array {
-            $settings=ConversationSettings::resolve($tenant,$preferences);
             $skill=[];
             if ($skillId>0) {
                 try {
@@ -43,12 +42,18 @@ final class ConversationService
                 }
                 catch (\Throwable $error) {throw new RuntimeException('SKILL_UNAVAILABLE',0,$error);}
             }
-            // Freeze server-resolved model identities, not mutable browser
-            // preference tokens.  The workflow snapshot contains no Provider
-            // credential, but it does make a later plan confirmation bound to
-            // the exact tenant-authorized model selection used for this run.
-            $workflowPreferences=array_replace($preferences,array_intersect_key($settings,array_flip(['generation_mode','reasoning_model','image_model','video_model'])));
             $current=ConversationWorkflow::currentState($conversation);
+            if ($current!==[] && $skill===[] && FeatureGate::workflowEnabled($tenant,ConversationWorkflow::KEY)
+                && !ConversationWorkflow::isManualAlias($content)) {
+                // A continuing workflow keeps the models and auto/manual
+                // policy confirmed at its start. Resolve the frozen IDs again
+                // against the current tenant catalog before any Provider call.
+                $preferences=ConversationWorkflow::frozenPreferences($current,$preferences);
+            }
+            $settings=ConversationSettings::resolve($tenant,$preferences);
+            // Freeze server-resolved model identities, not mutable browser
+            // preference tokens. The snapshot contains no Provider credential.
+            $workflowPreferences=array_replace($preferences,array_intersect_key($settings,array_flip(['generation_mode','reasoning_model','image_model','video_model'])));
             if ($current!==[] && FeatureGate::workflowEnabled($tenant,ConversationWorkflow::KEY)
                 && !ConversationWorkflow::isManualAlias($content)) {
                 // A different explicit Skill has priority over the current
