@@ -24,12 +24,16 @@ final class ConversationActionPlan
      */
     private const STRUCTURED_TEXT_STAGES=['script','art','video_plan'];
 
-    public static function instruction(string $mode,string $workflowStage='',bool $compact=false): string
+    public static function instruction(string $mode,string $workflowStage='',bool $compact=false,bool $stageGenerationPrompts=false): string
     {
         if ($compact) {
             if ($workflowStage==='script') return self::structuredEnvelopeInstruction('剧本与角色设定', 'story_setting、episode_script', '必须恰好输出两项：story_setting 合并故事设定、角色关系及全剧/分集大纲；episode_script 是当前制作单集的完整场景、动作、对白与镜头意图。两个节点的 prompt 都必须是可阅读的真实内容，不能是模板或占位符。不得用 depends_on 连接两个文本节点；仅实际作为媒体输入的素材才需要画布连线。');
+            if ($stageGenerationPrompts && $workflowStage==='art') return self::structuredEnvelopeInstruction('画风与美术规划', 'art_bible、character_asset_spec、scene_asset_spec、prop_asset_spec、subject_image_prompt、three_view_prompt、scene_image_prompt、storyboard_image_prompt', '这些是真实的阶段规划，确认后只保存在对话工作流状态，不创建画布节点。优先为每个实际主体分别返回 subject_image_prompt 和 three_view_prompt，为每个实际场景分别返回 scene_image_prompt；每项 prompt 只写对应主体或场景的完整中文生图提示词，不把多个人或多个场景合并为一项。key 和 title 要能让后续阶段准确选到同一主体或场景。art_bible 和资产说明可作为额外规划，但不得取代上述独立提示词。不得输出模板或占位符。此阶段是纯文本规划，不需要 depends_on 或 reference_keys。');
             if ($workflowStage==='art') return self::structuredEnvelopeInstruction('画风与美术规划', 'art_bible、character_asset_spec、scene_asset_spec、prop_asset_spec、subject_image_prompt、three_view_prompt、scene_image_prompt、storyboard_image_prompt', '这些是真实的阶段规划，确认后只保存在对话工作流状态，不创建画布节点。按实际角色和场景分别输出明确、可用于后续生图的内容；不得输出模板或占位符。此阶段是纯文本规划，不需要 depends_on 或 reference_keys。');
             if ($workflowStage==='video_plan') return self::structuredEnvelopeInstruction('分镜视频规划', 'video_prompt_plan', '每镜包含 shot_number、duration、first_frame、last_frame、camera_motion、action_sequence、video_prompt、asset_references；确认后只保存在对话工作流状态，不创建画布文本节点。');
+            if ($stageGenerationPrompts && $workflowStage==='assets') return '当前为主体资产阶段。只输出 <canvas-actions>{"nodes":[...]}</canvas-actions>。节点只能为 image，artifact 为 subject 或 three_view；每个 three_view 必须 depends_on 同批对应 subject，且该主体图是必须连接的三视图媒体输入。每个 subject 的 reference_keys 必须且只能包含该主体对应的一项 art 阶段 subject_image_prompt；每个 three_view 必须且只能包含该主体对应的一项 art 阶段 three_view_prompt。服务端会把该已确认提示词原样放进节点输入框；不要重写为另一段提示词，也不要连接规划文本。prompt 字段同样填写该提示词。其他引用仅可选实际使用的已生成媒体或用户明确选中的素材；不要把全部历史产物连接到每个节点。最多四项。每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys；不得声明价格、模型、URL、素材 ID 或任务状态。';
+            if ($stageGenerationPrompts && $workflowStage==='storyboard') return '当前为场景与分镜图阶段。只输出 <canvas-actions>{"nodes":[...]}</canvas-actions>。节点只能为 image，artifact 为 scene 或 storyboard；每个 scene 的 reference_keys 必须且只能包含该场景对应的一项 art 阶段 scene_image_prompt；服务端会把这项已确认提示词原样放进场景图输入框，不要重写。每个 storyboard 必须 depends_on 同批对应 scene，reference_keys 只选该镜头确实出镜或决定画面一致性的主体图/三视图。storyboard 的 prompt 必须是这一镜头独立返回的中文 image_prompt，即实际提交的生图内容，只描述当前可见主体、动作、场景、构图、光线与画风，不要写策划说明或追加整份规划。关键道具写入该镜头 prompt，不默认创建道具图。最多四项。每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys；不得声明价格、模型、URL、素材 ID 或任务状态。';
+            if ($stageGenerationPrompts && $workflowStage==='video_nodes') return '当前为分镜视频节点阶段。只输出 <canvas-actions>{"nodes":[...]}</canvas-actions>。节点只能为 video，artifact 为 storyboard_video；每项 reference_keys 必须从 workflow_reference_catalog 选择唯一对应分镜图，可额外选实际需要的主体/场景图片，不得连接无关节点或以 depends_on 串联视频。每项 prompt 必须是该镜头独立返回的中文 video_prompt，直接显示在视频节点输入框；采用原短剧的六行导演稿：分镜编号与时间、景别、构图、运镜手法、画面内容、声音。不要写后端执行标签、英文生成描述或整份视频规划。只插入待用户生成节点，不自动报价、提交或计费；最多六十项。每项只允许 type、artifact、title、prompt、key、reference_keys；不得声明价格、模型、URL、素材 ID 或任务状态。';
             if ($workflowStage==='assets') return '当前为主体资产阶段。只输出 <canvas-actions>{"nodes":[...]}</canvas-actions>。节点只能为 image，artifact 为 subject 或 three_view；每个 three_view 必须 depends_on 同批对应 subject，且该主体图是唯一必须的三视图媒体输入。每个 prompt 应根据已确认的剧本与美术规划写成完整生图提示词。reference_keys 只能选 workflow_reference_catalog 中实际用于本节点的已生成媒体或用户选择的素材；不要把全部历史产物连接到每个节点。最多四项。每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys；不得声明价格、模型、URL、素材 ID 或任务状态。';
             if ($workflowStage==='storyboard') return '当前为场景与分镜图阶段。只输出 <canvas-actions>{"nodes":[...]}</canvas-actions>。节点只能为 image，artifact 为 scene 或 storyboard；每个 storyboard 必须 depends_on 同批对应 scene，且 reference_keys 只能从 workflow_reference_catalog 中选择该镜头确实出镜或决定画面一致性的主体图/三视图。关键道具写入该镜头 prompt，不默认创建道具图。每个 prompt 须包含真实场景、角色、动作、构图和画风；最多四项。每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys；不得声明价格、模型、URL、素材 ID 或任务状态。';
             if ($workflowStage==='video_nodes') return '当前为分镜视频节点阶段。只输出 <canvas-actions>{"nodes":[...]}</canvas-actions>。节点只能为 video，artifact 为 storyboard_video；每项 reference_keys 必须从 workflow_reference_catalog 选择对应分镜图，可额外选实际需要的主体/场景图片，不得连接无关节点或以 depends_on 串联视频。只插入待用户生成节点，不自动报价、提交或计费；最多六十项。每项只允许 type、artifact、title、prompt、key、reference_keys；不得声明价格、模型、URL、素材 ID 或任务状态。';
@@ -56,9 +60,9 @@ final class ConversationActionPlan
     /** Keep stage semantics identical when an intent envelope owns the top
      * level JSON shape. Legacy tag/standalone-JSON wording must not compete
      * with the active-turn router's five-field response contract. */
-    public static function nestedInstruction(string $mode,string $workflowStage,bool $compact): string
+    public static function nestedInstruction(string $mode,string $workflowStage,bool $compact,bool $stageGenerationPrompts=false): string
     {
-        $instruction=self::instruction($mode,$workflowStage,$compact);
+        $instruction=self::instruction($mode,$workflowStage,$compact,$stageGenerationPrompts);
         $instruction=str_replace(
             '只输出一个合法 JSON 对象，不要 Markdown 代码块、不要前后说明。对象只能有 reply_markdown 和 canvas_actions 两个字段：',
             'workflow_output 子对象只能有 reply_markdown 和 canvas_actions 两个字段：',

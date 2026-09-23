@@ -84,10 +84,31 @@ final class ConversationTextContext
         $last=$messages[count($messages)-1];
         $workflow=(array)($context['workflow']??[]);
         $state=(array)($workflow['stage_state']??[]);
+        $stage=(string)($state['key']??'');
+        $separatePrompts=ConversationWorkflow::usesStageGenerationPrompts($workflow)
+            && in_array($stage,['assets','storyboard','video_nodes'],true);
         $artifacts=[];
+        $generationPromptSources=[];
         $referenceCatalog=[];
+        if ($separatePrompts) {
+            $wanted=$stage==='video_nodes' ? ['video_prompt_plan'] : ['subject_image_prompt','three_view_prompt','scene_image_prompt','storyboard_image_prompt'];
+            foreach ((array)($workflow['artifact_memory']??[]) as $item) {
+                if (!is_array($item) || !in_array((string)($item['artifact']??''),$wanted,true)) continue;
+                $key=(string)($item['reference_key']??'');
+                $content=trim((string)($item['content']??''));
+                if ($key==='' || $content==='') continue;
+                $generationPromptSources[]=[
+                    'reference_key'=>$key,
+                    'artifact'=>(string)$item['artifact'],
+                    'title'=>mb_substr((string)($item['title']??''),0,80),
+                    'content'=>mb_substr($content,0,3500),
+                ];
+            }
+            $generationPromptSources=array_slice($generationPromptSources,-8);
+        }
         foreach (array_slice((array)($workflow['artifact_memory']??[]),-6) as $item) {
             if (!is_array($item)) continue;
+            if ($separatePrompts && in_array((string)($item['artifact']??''),$wanted,true)) continue;
             $content=trim((string)($item['content']??''));
             if ($content==='') continue;
             $artifacts[]=[
@@ -133,6 +154,7 @@ final class ConversationTextContext
             'workflow_stage_skills'=>$workflowSkills,
             'generation_mode'=>(($settings['generation_mode']??'manual')==='auto'?'auto':'manual'),
         ];
+        if ($generationPromptSources) $payload['generation_prompt_sources']=$generationPromptSources;
         $activeRouting=(($context['intent_routing']['kind']??'')==='active_workflow');
         if ($activeRouting) {
             $recent=[];
