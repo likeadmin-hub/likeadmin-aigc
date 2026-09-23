@@ -78,6 +78,11 @@ class CanvasAgentIntentRoutingTest extends TestCase
         self::assertSame('intent_shape',ConversationIntentRouter::failureCategory($response,$routing));
         $canonical=json_encode($parsed,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
         self::assertSame($parsed,ConversationIntentRouter::parse($canonical,$routing));
+        $emptyIntake=json_encode(['intent'=>'chat','confidence'=>0.9,'skill_key'=>'',
+            'reply_markdown'=>'可以继续完善耳机脚本。','intake'=>[],'speech_act'=>'answer',
+            'deliverable'=>'text','scope'=>'conversation'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        self::assertSame('可以继续完善耳机脚本。',
+            ConversationIntentRouter::parseConversation($emptyIntake,$routing)['reply_markdown']);
     }
 
     public function testRecoveryCannotActivateWorkflowOrAcceptUnownedActions(): void
