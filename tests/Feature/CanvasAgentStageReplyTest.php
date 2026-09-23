@@ -56,23 +56,23 @@ class CanvasAgentStageReplyTest extends TestCase
         self::assertSame('## 普通聊天',ConversationStageReply::present([], '## 普通聊天',[],false));
     }
 
-    public function testMultiSkillArtPlanDoesNotBreakAtEightPlanningArtifacts(): void
+    public function testMultiSkillArtPlanAcceptsAllBoundedDistinctArtifacts(): void
     {
         $nodes=[];
-        for ($index=1;$index<=12;$index++) $nodes[]=[
+        for ($index=1;$index<=40;$index++) $nodes[]=[
             'type'=>'text','artifact'=>'subject_image_prompt','title'=>'角色 '.$index,
             'prompt'=>'角色 '.$index.' 的真实生图提示词','key'=>'subject_'.$index,
         ];
         $output=['reply_markdown'=>'已完成角色画风与主体提示词，接下来请确认规划。','canvas_actions'=>['nodes'=>$nodes]];
         $encoded=json_encode($output,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
-        self::assertCount(12,ConversationActionPlan::parse($encoded,'art',true)['nodes']);
-        self::assertSame(24,ConversationActionPlan::maximumNodesForStage('art',true));
+        self::assertCount(40,ConversationActionPlan::parse($encoded,'art',true)['nodes']);
+        self::assertSame(64,ConversationActionPlan::maximumNodesForStage('art',true));
         self::assertSame(4,ConversationActionPlan::maximumNodesForStage('assets',true));
         $routing=['version'=>2,'kind'=>'active_workflow','skill_candidates'=>[],
             'workflow_candidate'=>['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY,'version'=>'2026-09-23.10'],
                 'stage_state'=>['key'=>'art']]];
         $turn=['intent'=>'continue','confidence'=>0.95,'skill_key'=>'','reply_markdown'=>'','workflow_output'=>$output];
-        self::assertCount(12,ConversationWorkflowTurn::parse(json_encode($turn,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing)['nodes']);
+        self::assertCount(40,ConversationWorkflowTurn::parse(json_encode($turn,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing)['nodes']);
     }
 
     public function testCompletedStageListsItsActualFrozenSkillInstructionsSeparately(): void
