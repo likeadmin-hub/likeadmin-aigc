@@ -75,6 +75,20 @@ try {
     $editedQuote=Canvas::quote($tenant,$user,$stale);
     agentCheck(SharedSubmissionVideoProvider::$quoted['prompt']==='分镜视频统一模板 镜头一 / 5秒：林夏转身离开','manual prompt edit is wrapped once by the same frozen template');
     agentCheck($editedQuote['quote_token']!==$quote['quote_token'],'changed prompt receives a distinct quote');
+    $custom=ShortDramaPromptWorkspace::resolve($tenant,['mode'=>'documents','document_settings'=>[
+        'shot_video'=>['mode'=>'custom','body'=>'视频人物一致性规则'],
+    ]],[]);
+    Db::name(ConversationStore::PREFIX.'run')->where('id',$run)->update([
+        'context_snapshot'=>json_encode(['workflow'=>['workflow_snapshot'=>['key'=>'short_drama_creation','version'=>'2026-09-23.8','creative_prompt_snapshot'=>$custom]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),
+    ]);
+    $customRequest=$request;$customRequest['request_key']='shared-template-custom';
+    $customQuote=Canvas::quote($tenant,$user,$customRequest);
+    agentCheck(substr_count((string)(SharedSubmissionVideoProvider::$quoted['prompt']??''),'视频人物一致性规则')===1,
+        'quote includes the frozen custom video document once');
+    Canvas::confirmQuote($tenant,$user,['canvas_id'=>$canvas,'node_id'=>'1','quote_token'=>$customQuote['quote_token']]);
+    Canvas::submitIdempotent($tenant,$user,$customRequest+['quote_token'=>$customQuote['quote_token']]);
+    agentCheck(SharedSubmissionVideoProvider::$submitted['prompt']===SharedSubmissionVideoProvider::$quoted['prompt'],
+        'custom document reaches the same final Provider payload as the confirmed quote');
     agentCheck((string)$row['nodes_json']==='[]','fixture starts with no preexisting Agent node');
 } finally {
     Db::rollback();

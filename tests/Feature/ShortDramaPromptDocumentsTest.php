@@ -137,6 +137,47 @@ class ShortDramaPromptDocumentsTest extends TestCase
         self::assertSame('人物三视图规则', Documents::renderSnapshot($snapshot, 'subject_views', ['prop' => false]));
         self::assertSame('物品多角度规则', Documents::renderSnapshot($snapshot, 'subject_views', ['prop' => true]));
     }
+    public function testAgentFinalSubmissionUsesTheSameCustomDocumentsAsFormalGeneration(): void
+    {
+        $settings = [
+            'subject_image' => ['mode' => 'custom', 'body' => "【适用：人物主体】\n人物主图规则\n【适用：物品主体】\n道具主图规则"],
+            'subject_views' => ['mode' => 'custom', 'body' => "【适用：人物主体】\n人物三视图规则\n【适用：物品主体】\n道具多角度规则"],
+            'scene_image' => ['mode' => 'custom', 'body' => '场景图规则'],
+            'shot_image' => ['mode' => 'custom', 'body' => "【适用：有人物的镜头】\n人物分镜规则\n【适用：空镜】\n空镜分镜规则"],
+            'shot_video' => ['mode' => 'custom', 'body' => "【适用：有人物的镜头】\n人物视频规则\n【适用：空镜】\n空镜视频规则\n【适用：人物镜头有首帧】\n人物首帧规则"],
+        ];
+        $snapshot = $this->snapshot($settings);
+        foreach ([
+            ['subject', [], '人物主图规则', '道具主图规则'],
+            ['prop', [], '道具主图规则', '人物主图规则'],
+            ['three_view', [], '人物三视图规则', '道具多角度规则'],
+            ['scene', [], '场景图规则', '人物主图规则'],
+            ['storyboard', ['subject_count' => 1], '人物分镜规则', '空镜分镜规则'],
+            ['storyboard', ['empty' => true], '空镜分镜规则', '人物分镜规则'],
+            ['storyboard_video', ['subject_count' => 1, 'first_frame' => true], '人物首帧规则', '空镜视频规则'],
+            ['storyboard_video', ['empty' => true], '空镜视频规则', '人物首帧规则'],
+        ] as [$artifact, $context, $expected, $excluded]) {
+            $result = Service::canvasAgentSubmissionPrompt(701, $snapshot, $artifact, '用户当前提示词', $context);
+            self::assertStringContainsString('用户当前提示词', $result, $artifact);
+            self::assertSame(1, substr_count($result, $expected), $artifact);
+            self::assertStringNotContainsString($excluded, $result, $artifact);
+        }
+        $formal = Catalog::run($snapshot, fn() => $this->call('shortDramaImageParamsScoped', 701,
+            ['shot_id' => '1', 'subject_ref_ids' => ['s1']], ['subject_name' => '青年', 'prompt' => '用户当前提示词'], 'three_view', []));
+        self::assertSame(1, substr_count($formal['prompt'], '人物三视图规则'));
+        self::assertNull(Catalog::snapshot());
+    }
+    public function testAgentFinalSubmissionAlsoUsesApplicationDocuments(): void
+    {
+        $snapshot = $this->snapshot();
+        foreach (['subject' => 'subject_image', 'three_view' => 'subject_views', 'scene' => 'scene_image',
+            'storyboard' => 'shot_image', 'storyboard_video' => 'shot_video'] as $artifact => $document) {
+            $expected = Documents::renderSnapshot($snapshot, $document, ['subject_count' => 1]);
+            $actual = Service::canvasAgentSubmissionPrompt(701, $snapshot, $artifact, '用户画面', ['subject_count' => 1]);
+            self::assertStringContainsString($expected, $actual, $artifact);
+            self::assertStringContainsString('用户画面', $actual, $artifact);
+        }
+    }
     public function testApplicationRestoreBypassesPlatformAndTasksKeepFrozenValues(): void
     {
         $platform = Workspace::resolve(0, ['mode' => 'documents', 'document_settings' => ['scene_image' => ['mode' => 'custom', 'body' => '平台场景']]], []);

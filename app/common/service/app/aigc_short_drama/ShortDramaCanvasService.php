@@ -901,7 +901,7 @@ class ShortDramaCanvasService
         if ($runId<=0) return $params; // Older frozen workflows and ordinary nodes remain unchanged.
         $artifact=(string)($metadata['workflow_artifact']??'');
         $compatible=match ($type) {
-            'image'=>in_array($artifact,['subject','three_view','scene','storyboard'],true),
+            'image'=>in_array($artifact,['subject','prop','three_view','scene','storyboard'],true),
             'video'=>$artifact==='storyboard_video',
         };
         if (!$compatible) throw new Exception('WORKFLOW_PROMPT_SNAPSHOT_UNAVAILABLE');
@@ -916,14 +916,31 @@ class ShortDramaCanvasService
         if ((int)($snapshot['tenant_id']??-1)!==$tenantId) throw new Exception('WORKFLOW_PROMPT_SNAPSHOT_UNAVAILABLE');
         $prompt=trim((string)($params['prompt']??$params['content']??''));
         $title=trim((string)($target['title']??''));
+        $nodesById=[];
+        foreach (self::decode((string)($document['nodes_json']??'[]')) as $node) $nodesById[(string)($node['id']??'')]=$node;
+        $subjects=[];
+        foreach (self::decode((string)($document['edges_json']??'[]')) as $edge) {
+            if ((string)($edge['to']??'')!==$nodeId || (string)($edge['kind']??'reference')!=='reference') continue;
+            $source=$nodesById[(string)($edge['from']??'')]??[];
+            if (!in_array((string)($source['metadata']['workflow_artifact']??''),['subject','three_view'],true)) continue;
+            $subjectTitle=trim((string)($source['title']??''));
+            $subjects[$subjectTitle!==''?$subjectTitle:(string)($source['id']??'')]=true;
+        }
+        $referenceRoles=array_column((array)($params['reference_assets']??[]),'role');
         $templateContext=[
-            'task_type'=>match ($artifact) {'subject'=>'subject_image','three_view'=>'three_view','scene'=>'scene_image','storyboard'=>'shot_image',default=>'shot_video'},
-            'subject_name'=>in_array($artifact,['subject','three_view'],true)?$title:'',
+            'task_type'=>match ($artifact) {'subject','prop'=>'subject_image','three_view'=>'three_view','scene'=>'scene_image','storyboard'=>'shot_image',default=>'shot_video'},
+            'subject_name'=>in_array($artifact,['subject','prop','three_view'],true)?$title:'',
             'scene_name'=>$artifact==='scene'?$title:'',
             'shot_title'=>in_array($artifact,['storyboard','storyboard_video'],true)?$title:'',
             'visual_description'=>$prompt,
             'ratio'=>(string)($params['ratio']??$params['aspect_ratio']??''),
             'duration'=>(string)($params['duration']??''),
+            'prop'=>$artifact==='prop',
+            'empty'=>in_array($artifact,['storyboard','storyboard_video'],true) && !$subjects,
+            'subject_count'=>count($subjects),
+            'first_frame'=>in_array('first_frame',$referenceRoles,true),
+            'last_frame'=>in_array('last_frame',$referenceRoles,true),
+            'missing'=>$prompt==='',
         ];
         $params['prompt']=AigcShortDramaService::canvasAgentSubmissionPrompt($tenantId,$snapshot,$artifact,$prompt,$templateContext);
         $params['content']=$params['prompt'];

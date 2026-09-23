@@ -19911,15 +19911,39 @@ class AigcShortDramaService
     {
         if ((int)($snapshot['tenant_id'] ?? -1) !== $tenantId) throw new Exception('PROMPT_SNAPSHOT_TENANT_MISMATCH');
         $key = match ($artifact) {
-            'subject' => 'subject_image_prompt_template',
+            'subject', 'prop' => 'subject_image_prompt_template',
             'three_view' => 'three_view_prompt_template',
             'scene' => 'scene_image_prompt_template',
             'storyboard' => 'shot_image_prompt_template',
             'storyboard_video' => 'shot_video_prompt_template',
             default => throw new Exception('UNSUPPORTED_WORKFLOW_PROMPT_TEMPLATE'),
         };
-        return ShortDramaPromptCatalog::run($snapshot,
-            static fn(): string => self::applyConfiguredGenerationPromptTemplate($tenantId, $key, $prompt, $context));
+        return ShortDramaPromptCatalog::run($snapshot, static function () use ($tenantId, $key, $artifact, $prompt, $context): string {
+            $document = match ($artifact) {
+                'subject', 'prop' => 'subject_image',
+                'three_view' => 'subject_views',
+                'scene' => 'scene_image',
+                'storyboard' => 'shot_image',
+                'storyboard_video' => 'shot_video',
+            };
+            if (ShortDramaPromptDocuments::enabled()) {
+                $conditions = [
+                    'prop' => $artifact === 'prop' || !empty($context['prop']),
+                    'empty' => !empty($context['empty']),
+                    'subject_count' => (int)($context['subject_count'] ?? 0),
+                    'first_frame' => !empty($context['first_frame']),
+                    'last_frame' => !empty($context['last_frame']),
+                    'missing' => !empty($context['missing']),
+                ];
+                $rules = ShortDramaPromptDocuments::render($document, $conditions, true);
+                return self::joinPromptParts([
+                    $prompt,
+                    $rules === '' || str_contains($prompt, $rules) ? '' : "创作要求：\n" . $rules,
+                    ShortDramaPromptCatalog::priority(),
+                ]);
+            }
+            return self::applyConfiguredGenerationPromptTemplate($tenantId, $key, $prompt, $context);
+        });
     }
 
     private static function ensureGenerationPromptTemplateContract(string $value, string $default = '{{prompt}}'): string
