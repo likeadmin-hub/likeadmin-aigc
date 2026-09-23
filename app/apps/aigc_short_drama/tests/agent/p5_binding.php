@@ -111,6 +111,57 @@ try {
     catch (Exception $e) { $sourcesRejected = $e->getMessage() === '画布项目不存在或无权访问'; }
     agentCheck($sourcesRejected, 'D02 foreign tenant cannot discover writeback sources');
 
+    $episodePreviewRejected = false;
+    try { ShortDramaCanvasWritebackService::previewStory($tenant, $owner, [
+        'canvas_id' => $canvas['id'], 'source_node_id' => 7101, 'target_field' => 'story_outline',
+    ]); }
+    catch (Exception $e) { $episodePreviewRejected = str_contains($e->getMessage(), '故事项目'); }
+    agentCheck($episodePreviewRejected, 'D04 story preview cannot use an episode production binding');
+
+    $previewProject = Db::name('aigc_short_drama_project')->insertGetId([
+        'tenant_id' => $tenant, 'user_id' => $owner, 'title' => 'P5 preview series',
+        'multi_episode' => 1, 'episode_count' => 2, 'status' => 'plan_review',
+        'last_task_id' => 'p5-preview-task', 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
+    ]);
+    Db::name('aigc_short_drama_script_task')->insert([
+        'tenant_id' => $tenant, 'user_id' => $owner, 'project_id' => $previewProject,
+        'task_id' => 'p5-preview-task', 'status' => 'success',
+        'request_json' => json_encode(['workflow_variant' => 'story_outline_v2', 'multi_episode' => 1,
+            'episode_count' => 2, 'multi_episode_stage' => 'story'], JSON_UNESCAPED_UNICODE),
+        'result_json' => json_encode(['title' => '旧剧名', 'story_outline' => '旧故事梗概'], JSON_UNESCAPED_UNICODE),
+        'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
+    ]);
+    ShortDramaCanvasBindingService::bind($tenant, $owner, [
+        'canvas_id' => $canvas['id'], 'project_id' => $previewProject,
+    ]);
+    $previewRequest = ['canvas_id' => $canvas['id'], 'source_node_id' => 7101,
+        'target_field' => 'story_outline'];
+    $preview = ShortDramaCanvasWritebackService::previewStory($tenant, $owner, $previewRequest);
+    agentCheck($preview['source']['content'] === '真实故事正文'
+        && $preview['target']['content'] === '旧故事梗概'
+        && $preview['target']['project_id'] === $previewProject
+        && $preview['can_apply'] === false,
+        'D04 story field preview shows actual owned source and current formal target without applying');
+    Db::name('aigc_short_drama_script_task')->where('task_id', 'p5-preview-task')->update([
+        'result_json' => json_encode(['title' => '旧剧名', 'story_outline' => '目标已经修改'], JSON_UNESCAPED_UNICODE),
+    ]);
+    $targetChanged = ShortDramaCanvasWritebackService::previewStory($tenant, $owner, $previewRequest);
+    agentCheck($targetChanged['preview_hash'] !== $preview['preview_hash'],
+        'D05 target text changes invalidate the preview fingerprint');
+    $story['metadata']['content'] = '来源也已修改';
+    $story['metadata']['content_revision'] = 4;
+    Db::name('aigc_short_drama_canvas')->where('id', $canvas['id'])->update([
+        'nodes_json' => json_encode([$story, $deleted, $unrelated], JSON_UNESCAPED_UNICODE),
+        'graph_revision' => 5,
+    ]);
+    $sourceChanged = ShortDramaCanvasWritebackService::previewStory($tenant, $owner, $previewRequest);
+    agentCheck($sourceChanged['preview_hash'] !== $targetChanged['preview_hash'],
+        'D05 source text and content revision changes invalidate the preview fingerprint');
+    $foreignPreviewRejected = false;
+    try { ShortDramaCanvasWritebackService::previewStory($otherTenant, $otherUser, $previewRequest); }
+    catch (Exception $e) { $foreignPreviewRejected = $e->getMessage() === '画布项目不存在或无权访问'; }
+    agentCheck($foreignPreviewRejected, 'D02 foreign tenant cannot preview formal writeback');
+
     $afterTask = Db::name('aigc_short_drama_generation_task')->where('id', $taskId)->field('project_id,canvas_id')->find();
     $afterAsset = Db::name('aigc_short_drama_asset')->where('id', $assetId)->field('project_id,canvas_id')->find();
     agentCheck($afterTask === $beforeTask && $afterAsset === $beforeAsset, 'D09 binding never rewrites free canvas task or asset history');
@@ -123,4 +174,4 @@ try {
     Db::rollback();
 }
 
-echo "NOT_RUN D04-D08,D10 formal apply: source discovery is covered; preview, field mapping, and confirmed writeback remain unimplemented.\n";
+echo "NOT_RUN D04-D08,D10 formal apply: a multi-episode story-field preview is covered; confirmed apply, episode mapping, and browser flow remain unimplemented.\n";
