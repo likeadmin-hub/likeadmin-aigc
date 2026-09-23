@@ -43,6 +43,7 @@ try {
     agentCheck($context['selected_nodes'][0]['id']==='1' && $context['selected_nodes'][0]['content']==='参考材料' && $context['material_trust']==='untrusted','references use ID with untrusted material');
     $messages=Store::messages(91001,92001,$canvas,$thread['id']);
     agentCheck(count($messages)===1 && $messages[0]['content']['text']===$request['content'],'reload reads persisted user message');
+    agentCheck(is_int($messages[0]['created_at']) && $messages[0]['created_at']>time()-60,'owned history includes the durable message time for hover metadata');
     agentCheck(Store::messages(91001,92001,$canvas,$thread['id'],1)===[],'message cursor does not replay old messages');
     $events=Store::events(91001,92001,$canvas,$thread['id']);
     agentCheck(count($events)===1 && $events[0]['cursor']===$ack['event_cursor'],'event cursor matches durable acknowledgement');
