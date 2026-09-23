@@ -126,10 +126,11 @@ try {
         return Store::enqueue($tenant,$user,$canvas,$thread,['request_key'=>$key,'content'=>$content,'base_revision'=>$revision],static function (array $conversation) use ($tenant,$content): array {
             $current=Workflow::currentState($conversation);
             $paused=in_array((string)($current['stage_state']['status']??''),['awaiting_plan_confirmation','awaiting_stage_confirmation','reviewing_intake'],true);
-            $candidate=$paused ? $current : Workflow::prepare($tenant,$conversation,$content,[],[],['generation_mode'=>'manual'])['workflow'];
+            $preferences=['generation_mode'=>'auto','reasoning_model'=>['id'=>'fixture-model'],'image_model'=>['id'=>'fixture-image','model_code'=>'fixture-image']];
+            $candidate=$paused ? $current : Workflow::prepare($tenant,$conversation,$content,[],[],$preferences)['workflow'];
             $routing=IntentRouter::snapshot($tenant)+['kind'=>'active_workflow','workflow_candidate'=>$candidate,
                 'base_workflow_revision'=>(int)$current['state_revision'],'workflow_paused'=>$paused];
-            return ['settings'=>['generation_mode'=>'manual'],'skill'=>[],'intent_routing'=>$routing];
+            return ['settings'=>$preferences,'skill'=>[],'intent_routing'=>$routing];
         });
     };
     $beforeChat=Workflow::read($tenant,$user,$canvas,$thread);
@@ -182,7 +183,12 @@ try {
     $artNodes=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('nodes_json'),true);
     agentCheck(count($artNodes)===8 && ($artNodes[3]['metadata']['workflow_artifact']??'')==='art_bible' && str_contains((string)($artNodes[3]['metadata']['content']??''),'电影写实'),'art stage writes durable art direction and image-prompt text nodes');
     $assetReply='主体资产计划已完成。<canvas-actions>{"nodes":[{"type":"image","artifact":"subject","title":"女主主体图","prompt":"都市悬疑女记者，电影写实","key":"subject","reference_keys":["art:character"]},{"type":"image","artifact":"three_view","title":"女主三视图","prompt":"同一女记者正侧背三视图，电影写实","key":"three_view","depends_on":["subject"],"reference_keys":["art:views"]}]}</canvas-actions>';
-    $afterAssets=$runStage('workflow-assets-stage',$assetReply);
+    $assetPlan=ActionPlan::parse($assetReply,'assets',true);
+    $assetAck=$enqueueActive('workflow-assets-resume','继续主体资产生图规划');
+    $provider->content=json_encode(['intent'=>'continue','confidence'=>0.96,'skill_key'=>'','reply_markdown'=>'',
+        'workflow_output'=>['reply_markdown'=>$assetPlan['text'],'canvas_actions'=>['nodes'=>$assetPlan['nodes']]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    agentCheck(Worker::process($tenant,$user,(int)$assetAck['run_id'],$provider)==='success','routed auto image stage reaches the existing quote-and-confirm boundary');
+    $afterAssets=Workflow::read($tenant,$user,$canvas,$thread);
     agentCheck(($afterAssets['workflow']['stage_state']['key']??'')==='assets' && ($afterAssets['workflow']['stage_state']['status']??'')==='awaiting_plan_confirmation','auto asset reply is held as a priced plan before graph creation');
     agentCheck(preg_match('/^[a-f0-9]{64}$/D',(string)($afterAssets['workflow']['plan_hash']??''))===1 && ($afterAssets['workflow']['image_plan']['node_count']??0)===2 && ($afterAssets['workflow']['image_plan']['estimated_user_charge_points']??0)===10.0,'plan hash binds the real bounded proposals and aggregate estimate');
     $beforeImageConfirmation=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('nodes_json'),true);
