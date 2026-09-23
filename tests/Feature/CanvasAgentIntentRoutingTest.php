@@ -182,6 +182,10 @@ class CanvasAgentIntentRoutingTest extends TestCase
         self::assertSame('script',$parsed['revision_stage']);
         self::assertFalse($parsed['continue']);
         self::assertSame([], $parsed['nodes']);
+        $value['reply_markdown']='已收到修改。请确认是否开始重新生成剧本？';
+        $accepted=ConversationWorkflowTurn::parse(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing);
+        self::assertStringContainsString('正在从剧本与角色设定阶段重新生成',$accepted['text']);
+        self::assertStringNotContainsString('是否开始',$accepted['text']);
         $reopened=ConversationWorkflow::reopenStage($state,$parsed['revision_stage'],'不要悲伤美学，改为喜剧无厘头');
         self::assertSame(['key'=>'script','status'=>'ready','completed'=>['intake']],$reopened['stage_state']);
         self::assertSame(8,$reopened['state_revision']);
