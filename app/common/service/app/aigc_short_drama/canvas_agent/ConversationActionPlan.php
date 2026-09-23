@@ -74,12 +74,41 @@ final class ConversationActionPlan
         if (!is_array($action) || array_keys($action)!==['nodes'] || !is_array($action['nodes'])
             || !array_is_list($action['nodes']) || !$action['nodes']) return 'action_nodes';
         if (count($action['nodes'])>self::maximumNodesForStage($stage,$compact)) return 'action_count';
-        $artifacts=[];
+        $artifacts=[];$seen=[];
         foreach ($action['nodes'] as $node) {
             if (!is_array($node) || array_diff(array_keys($node),['type','artifact','title','prompt','key','depends_on','reference_keys','formal_fields'])) return 'action_node_fields';
             if (!is_string($node['type']??null) || !is_string($node['artifact']??null)
                 || !is_string($node['title']??null) || !is_string($node['prompt']??null)
                 || trim($node['prompt'])==='') return 'action_node_values';
+            if (mb_strlen($node['title'])>80 || mb_strlen($node['prompt'])>20000) return 'action_node_length';
+            $type=match ($stage) { 'script','art','video_plan'=>'text','assets','storyboard'=>'image','video_nodes'=>'video','audio_plan'=>'audio',default=>'' };
+            if ($type!=='' && $node['type']!==$type) return 'action_node_type';
+            $allowed=match ($stage) {
+                'script'=>$compact?['story_setting','episode_script']:['story_setting','episode_outline','storyboard_script'],
+                'art'=>['art_bible','character_asset_spec','scene_asset_spec','prop_asset_spec','subject_image_prompt','three_view_prompt','scene_image_prompt','storyboard_image_prompt'],
+                'assets'=>['subject','three_view'],'storyboard'=>$compact?['scene','storyboard']:['scene','prop','storyboard'],
+                'video_plan'=>['video_prompt_plan'],'video_nodes'=>['storyboard_video'],'audio_plan'=>['audio_plan'],default=>[],
+            };
+            if ($allowed && !in_array($node['artifact'],$allowed,true)) return 'action_node_artifact';
+            $key=$node['key']??null;
+            if ($key!==null && (!is_string($key) || !preg_match('/^[a-z][a-z0-9_-]{0,31}$/D',$key) || isset($seen[$key]))) return 'action_node_key';
+            if (isset($node['depends_on'])) {
+                if (!is_array($node['depends_on']) || !array_is_list($node['depends_on']) || count($node['depends_on'])>3 || $key===null) return 'action_node_dependencies';
+                foreach ($node['depends_on'] as $dependency) if (!is_string($dependency) || !isset($seen[$dependency])) return 'action_node_dependency_order';
+            }
+            if (isset($node['reference_keys'])) {
+                if (!is_array($node['reference_keys']) || !array_is_list($node['reference_keys']) || count($node['reference_keys'])>6) return 'action_node_references';
+                foreach ($node['reference_keys'] as $reference) if (!is_string($reference) || !preg_match('/^[a-z][a-z0-9_-]{0,47}:[a-z][a-z0-9_-]{0,31}$/D',$reference)) return 'action_node_reference_format';
+            }
+            if ($node['artifact']==='three_view') {
+                $depends=(array)($node['depends_on']??[]);
+                if (count($depends)!==1 || ($seen[$depends[0]]??'')!=='subject') return 'action_three_view_dependency';
+            }
+            if ($node['artifact']==='storyboard') {
+                $depends=(array)($node['depends_on']??[]);
+                if (!$depends || !array_intersect(array_map(static fn($dependency): string=>$seen[$dependency]??'', $depends),$compact?['scene']:['scene','prop'])) return 'action_storyboard_dependency';
+            }
+            if ($key!==null) $seen[$key]=$node['artifact'];
             $artifacts[$node['artifact']]=($artifacts[$node['artifact']]??0)+1;
         }
         if ($compact && $stage==='script' && (count($action['nodes'])!==2

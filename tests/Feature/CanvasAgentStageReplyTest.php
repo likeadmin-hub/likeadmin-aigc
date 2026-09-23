@@ -105,4 +105,13 @@ class CanvasAgentStageReplyTest extends TestCase
         }
         self::assertNull(ConversationActionPlan::responseFormat(''));
     }
+
+    public function testRejectedMediaPlanReportsOnlySafeStructuralCategory(): void
+    {
+        $reply=json_encode(['reply_markdown'=>'准备了主体与三视图。','canvas_actions'=>['nodes'=>[
+            ['type'=>'image','artifact'=>'three_view','title'=>'三视图','prompt'=>'提示词','key'=>'view','depends_on'=>['subject']],
+            ['type'=>'image','artifact'=>'subject','title'=>'主体图','prompt'=>'提示词','key'=>'subject'],
+        ]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        self::assertSame('action_node_dependency_order',ConversationActionPlan::failureCategory($reply,'assets',true));
+    }
 }
