@@ -1286,3 +1286,5 @@ P5 仍为 **NOT_RUN / 未放行**：正式应用到故事设定、分集大纲�
 - **PASS / 真实浏览器局部**：现有 canvas 97 刷新后出现“写回正式项目”入口，项目列表从真实 tenant 1 API 返回。该画布中的旧版文本没有 `formal_fields`，页面正确显示不可安全写回提示，未绑定或修改任何用户项目。此项仅证明入口与安全降级，不证明浏览器确认写入。
 - **NOT_RUN / P5 整体未放行**：正式镜头/分镜 Adapter、指定镜头的版本化差异与确认、单集正式项目写回、真实浏览器在可编辑正式目标上完成确认写回，以及新版本真实文本 Provider 产生结构化字段的端到端验收仍缺。不能用本地回滚行为测试冒充这些门槛。P6 状态不因此改变。
 - **提交/边界**：server `c50a85679`、`29968a4e5`，web `a2a12d7`、`363793a` 已各自 `--no-ff` 合入本地 `develop` 后验证。未创建新环境、容器、Worker；未推送、部署、发布或执行生产迁移。
+- **补充回归**：`p5_binding.php` 最终 **29 PASS / 0 FAIL**（新增分集目标变化后的旧预览拒绝）；`p5_compact_canvas_projection.php`、旧冻结版 `p5_multi_skill_workflow.php`、`p0_controller.php`、`ShortDramaStoryWorkflowTest` 6/27 和 `ShortDramaOutlineValidationTest` 3/8 均通过。PC Agent 面板已支持搜索超过首屏 50 条之外的用户故事项目，相关 ESLint `--quiet` 0 error；web 提交 `f53ba48` 已合入本地 develop。
+- **本地注册**：仅在现有 Baota `x_cn` 中按 `api_schema.json` 补登 7 条缺失的 P5 画布用户 API（binding、bind、来源、故事/分集预览与确认），核对 7 条均为 `scene=user,status=1`。未运行应用重装或其他迁移，未改已有 API 注册项。这是本机运行配置，不是生产发布证据。
