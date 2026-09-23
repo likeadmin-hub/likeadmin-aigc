@@ -69,7 +69,7 @@ class CanvasAgentStageGenerationPromptTest extends TestCase
             'stage'=>'script', 'artifact'=>'episode_script', 'reference_key'=>'script:episode_1',
             'title'=>'第一集剧本', 'content'=>'林岚在办公室发现一封旧信。',
         ]);
-        for ($index=0;$index<6;$index++) $workflow['artifact_memory'][]=[
+        for ($index=0;$index<5;$index++) $workflow['artifact_memory'][]=[
             'stage'=>'art', 'artifact'=>'subject_image_prompt', 'reference_key'=>'art:extra_'.$index,
             'title'=>'角色'.$index, 'content'=>'角色'.$index.'的中文主图提示词',
         ];
