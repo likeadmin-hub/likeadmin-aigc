@@ -103,6 +103,10 @@ try {
     agentCheck(array_column(agentHttp('events','GET',$args)['data'],'kind')===['run.queued','run.running','run.succeeded'],'HTTP events expose ordered lifecycle');
     $sse=agentSse($args+['run_id'=>$ack['run_id'],'event_after'=>0,'message_after'=>0,'wait_seconds'=>0]);
     agentCheck(str_contains($sse,'event: ready') && str_contains($sse,'event: message') && str_contains($sse,'隔离测试回复') && str_contains($sse,'event: lifecycle') && str_contains($sse,'event: complete'),'SSE emits durable reply and lifecycle without provider dispatch');
+    preg_match_all('/event: message\ndata: ([^\n]+)/',$sse,$streamMessages);
+    $streamReply=json_decode((string)end($streamMessages[1]),true);
+    agentCheck(($streamReply['content']['text']??null)==='隔离测试回复' && isset($streamReply['attachments']) && !isset($streamReply['context_snapshot']),
+        'SSE reply uses the safe history projection without internal context');
     $second=agentHttp('send','POST',array_replace($send,['request_key'=>'second']))['data'];
     $claim=Execution::claim(94001,95001,$second['run_id']);
     Execution::unknown(94001,95001,$second['run_id'],$claim['token'],$claim['fence']);
