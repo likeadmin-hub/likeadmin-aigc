@@ -28,7 +28,9 @@ final class ConversationWorkflowTurn
         if ($value['skill_key']!=='' && !isset($allowed[$value['skill_key']])) return 'intent_skill';
         $resume=$intent==='continue' && $confidence>=0.7 && empty($routing['workflow_paused']);
         if (!$resume) return $value['workflow_output']!==null ? 'intent_unexpected_output' : 'intent_noncontinue';
-        if ($value['skill_key']!=='' || trim($value['reply_markdown'])!=='' || !is_array($value['workflow_output'])) return 'intent_continue_shape';
+        if ($value['skill_key']!=='') return 'intent_continue_skill';
+        if (trim($value['reply_markdown'])!=='') return 'intent_continue_reply';
+        if (!is_array($value['workflow_output'])) return 'intent_continue_output';
         $workflow=(array)($routing['workflow_candidate']??[]);
         $stage=(string)($workflow['stage_state']['key']??'');
         try {
