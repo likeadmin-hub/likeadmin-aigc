@@ -155,7 +155,7 @@ final class CanvasAgentController extends BaseApiController
                     // only its public fields. In particular the stored content
                     // may contain internal graph effects that must not be
                     // forwarded as an arbitrary JSON document.
-                    $payload=['id'=>(int)$message['id'],'run_id'=>(int)$message['run_id'],'sequence'=>(int)$message['sequence'],'role'=>(string)$message['role'],'content'=>['text'=>(string)($message['content']['text']??'')],'attachments'=>$message['attachments']];
+                    $payload=['id'=>(int)$message['id'],'run_id'=>(int)$message['run_id'],'sequence'=>(int)$message['sequence'],'role'=>(string)$message['role'],'created_at'=>(int)$message['created_at'],'content'=>['text'=>(string)($message['content']['text']??'')],'attachments'=>$message['attachments']];
                     foreach (['reference_candidates','text_references','canvas_actions','workflow_timeline'] as $field) {
                         if (isset($message[$field])) $payload[$field]=$message[$field];
                     }

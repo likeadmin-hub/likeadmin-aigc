@@ -182,7 +182,7 @@ final class ConversationStore
         return array_map(static function ($row) use ($scope,$thread) {
             $content=json_decode($row['content_json'],true,512,JSON_THROW_ON_ERROR);
             if (!is_array($content) || !is_string($content['text']??null)) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
-            $message=['id'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'role'=>$row['role'],'content'=>$content,'attachments'=>json_decode($row['attachments_json'],true,512,JSON_THROW_ON_ERROR)];
+            $message=['id'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'role'=>$row['role'],'created_at'=>(int)$row['create_time'],'content'=>$content,'attachments'=>json_decode($row['attachments_json'],true,512,JSON_THROW_ON_ERROR)];
             $actions=$content['canvas_actions']??null;
             if ($actions!==null) {
                 if ($row['role']!=='assistant' || !is_array($actions) || !in_array($actions['mode']??'', ['manual','auto'], true) || !is_int($actions['graph_revision']??null) || !is_array($actions['nodes']??null) || count($actions['nodes'])>60) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
