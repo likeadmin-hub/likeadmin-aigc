@@ -94,7 +94,9 @@ final class ConversationActionPlan
             if ($key!==null && (!is_string($key) || !preg_match('/^[a-z][a-z0-9_-]{0,31}$/D',$key))) return 'action_node_key_format';
             if ($key!==null && isset($seen[$key])) return 'action_node_key_duplicate';
             if (isset($node['depends_on'])) {
-                if (!is_array($node['depends_on']) || !array_is_list($node['depends_on']) || count($node['depends_on'])>3 || $key===null) return 'action_node_dependencies';
+                if ($key===null) return 'action_dependency_missing_key';
+                if (!is_array($node['depends_on']) || !array_is_list($node['depends_on'])) return 'action_dependency_shape';
+                if (count($node['depends_on'])>3) return 'action_dependency_count';
                 foreach ($node['depends_on'] as $dependency) if (!is_string($dependency) || !isset($seen[$dependency])) return 'action_node_dependency_order';
             }
             if (isset($node['reference_keys'])) {
@@ -145,7 +147,7 @@ final class ConversationActionPlan
     {
         $instruction=preg_replace('/只输出 <canvas-actions>.*?<\/canvas-actions>。/u','',$instruction)??$instruction;
         $instruction=preg_replace('/只在答复末尾输出(?:一次)?严格 JSON 包裹 <canvas-actions>.*?<\/canvas-actions>；/u','',$instruction)??$instruction;
-        return '只输出一个合法 JSON 对象，不要 Markdown 代码块或前后说明。对象字段恰好为 reply_markdown 和 canvas_actions，canvas_actions 的结构为 {"nodes":[...]}。每个节点的 key 必填且全批次唯一，格式为小写英文字母开头、后接小写字母/数字/下划线/短横线，最长 32 字符，例如 subject_chenyu、view_chenyu；不能写中文、空格、冒号或重复 key。depends_on 必须引用同批更早节点的 key；reference_keys 才使用 catalog 中带冒号的跨阶段 reference_key。reply_markdown 只用一句话概括已准备的内容与下一步，未确认写入前不得声称图片或视频已生成。'.$instruction;
+        return '只输出一个合法 JSON 对象，不要 Markdown 代码块或前后说明。对象字段恰好为 reply_markdown 和 canvas_actions，canvas_actions 的结构为 {"nodes":[...]}。每个节点的 key 必填且全批次唯一，格式为小写英文字母开头、后接小写字母/数字/下划线/短横线，最长 32 字符，例如 subject_chenyu、view_chenyu；不能写中文、空格、冒号或重复 key。depends_on 必须是 JSON 字符串数组，例如 ["subject_chenyu"]，只引用同批更早节点的 key，不能直接写字符串、null 或对象；没有依赖时省略此字段。reference_keys 才使用 catalog 中带冒号的跨阶段 reference_key。reply_markdown 只用一句话概括已准备的内容与下一步，未确认写入前不得声称图片或视频已生成。'.$instruction;
     }
 
     /** @return array{text:string,nodes:list<array{type:string,title:string,prompt:string,key?:string,depends_on?:list<string>}>} */
@@ -172,6 +174,12 @@ final class ConversationActionPlan
                 // the canvas graph. Model-proposed links cannot become media
                 // inputs here; later image stages select authorized sources.
                 unset($node['depends_on'],$node['reference_keys']);
+            }
+            // A single exact dependency key is unambiguous even if the
+            // Provider encodes it as a scalar. Unknown keys remain invalid.
+            if (in_array($workflowStage,['assets','storyboard'],true) && is_array($node)
+                && is_string($node['depends_on']??null) && $node['depends_on']!=='') {
+                $node['depends_on']=[$node['depends_on']];
             }
             $fields=$allowedArtifacts ? ['type','artifact','title','prompt','key','depends_on','reference_keys'] : ['type','title','prompt','key','depends_on'];
             // Older frozen replies may still carry this retired field. Ignore
