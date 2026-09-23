@@ -60,6 +60,49 @@ class CanvasAgentIntentRoutingTest extends TestCase
         self::assertFalse(ConversationIntentRouter::shouldActivateWorkflow($parsed,$routing));
     }
 
+    public function testOrdinaryProductScriptCanRecoverAnIncompleteAdvisoryEnvelope(): void
+    {
+        $routing=$this->routing();
+        // A real product-script reply needs neither a workflow intake draft
+        // nor executable media fields. The model may omit advisory axes or
+        // format confidence as a JSON string.
+        $response=json_encode(['intent'=>'creative_plan','confidence'=>'0.93',
+            'reply_markdown'=>'耳机宣传脚本：降噪场景切换到环绕立体音场景。',
+            'reasoning'=>'not an executable action'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        $parsed=ConversationIntentRouter::parseConversation($response,$routing);
+        self::assertSame('耳机宣传脚本：降噪场景切换到环绕立体音场景。',ConversationIntentRouter::reply($parsed,$routing));
+        self::assertSame('standalone',$parsed['scope']);
+        self::assertSame('text',$parsed['deliverable']);
+        self::assertFalse(ConversationIntentRouter::shouldActivateWorkflow($parsed,$routing));
+        self::assertSame(['candidates'=>[],'questions'=>[]],$parsed['intake']);
+        self::assertSame('intent_shape',ConversationIntentRouter::failureCategory($response,$routing));
+        $canonical=json_encode($parsed,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        self::assertSame($parsed,ConversationIntentRouter::parse($canonical,$routing));
+    }
+
+    public function testRecoveryCannotActivateWorkflowOrAcceptUnownedActions(): void
+    {
+        $routing=$this->routing();
+        foreach ([
+            ['intent'=>'short_drama','confidence'=>0.96,'reply_markdown'=>'开始完整短剧制作'],
+            ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'已完成','scope'=>'workflow'],
+            ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'已完成','deliverable'=>'full_drama'],
+            ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'已完成','skill_key'=>'unowned_skill'],
+            ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'已完成','intake'=>['candidates'=>[['key'=>'genre']],'questions'=>[]]],
+            ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'<canvas-actions>{}</canvas-actions>'],
+            ['intent'=>'creative_plan','confidence'=>0.96,'reply_markdown'=>'已完成','canvas_actions'=>['nodes'=>[]]],
+            ['intent'=>'image','confidence'=>0.96,'reply_markdown'=>'图片已经生成'],
+        ] as $value) {
+            try {
+                ConversationIntentRouter::parseConversation(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing);
+                self::fail('An incomplete workflow, media claim, or unowned action was accepted');
+            } catch (\RuntimeException $error) {
+                self::assertSame('INVALID_AGENT_INTENT',$error->getMessage());
+            }
+        }
+        self::assertSame('intent_not_json',ConversationIntentRouter::failureCategory('not-json',$routing));
+    }
+
     public function testNewRoutingRejectsMissingOrInventedAxes(): void
     {
         $routing=$this->routing();
