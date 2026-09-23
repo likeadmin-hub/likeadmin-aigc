@@ -48,6 +48,12 @@ try {
     $sharedRules=ConversationCreativePrompt::forStage(['workflow_snapshot'=>['creative_prompt_snapshot'=>$frozenPrompt],'stage_state'=>['key'=>'assets']]);
     agentCheck(str_contains($sharedRules,'测试：主体必须正面居中，服饰一致') && !str_contains($sharedRules,ShortDramaPromptCatalog::defaults()['subject.character']),
         'Agent stage renders original short-drama prompt workspace overrides rather than a copied default');
+    $documentPrompt=ShortDramaPromptWorkspace::resolve($tenant,['mode'=>'documents','document_settings'=>[
+        'subject_image'=>['mode'=>'custom','body'=>"【适用：人物主体】\n测试：沿用正式短剧的角色参考图要求"],
+    ]],[]);
+    $documentRules=ConversationCreativePrompt::forStage(['workflow_snapshot'=>['creative_prompt_snapshot'=>$documentPrompt],'stage_state'=>['key'=>'assets']]);
+    agentCheck(str_contains($documentRules,'测试：沿用正式短剧的角色参考图要求'),
+        'Agent stage renders the same tenant document prompt mode used by the original short-drama flow');
     $canvas=Canvas::create($tenant,$user,['title'=>'Compact workflow projection'])['id'];
     $thread=Store::create($tenant,$user,$canvas,'compact-projection')['id'];
     $preferences=['generation_mode'=>'auto','reasoning_model'=>['id'=>'fixture-text'],'image_model'=>['id'=>'fixture-image','model_code'=>'fixture-image']];
@@ -59,6 +65,9 @@ try {
         });
     };
     $start=$accept('compact-start','请创作悬疑短剧');
+    $publicStart=Workflow::read($tenant,$user,$canvas,$thread);
+    agentCheck(!isset($publicStart['workflow']['workflow_snapshot']['creative_prompt_snapshot']),
+        'frozen internal creative prompt configuration is not exposed in the public workflow snapshot');
     agentCheck(Execution::stop($tenant,$user,$canvas,$thread,(int)$start['run_id'])['status']==='canceled','compact fixture starts in collection without a media request');
     foreach (['genre'=>'悬疑反转','episode_count'=>'1集（短片）','episode_duration'=>'1分钟','visual_style'=>'电影写实','audience'=>'年轻女性','characters'=>'林夏与姐姐','ending'=>'反转开放'] as $slot=>$value) {
         $view=Workflow::read($tenant,$user,$canvas,$thread);
