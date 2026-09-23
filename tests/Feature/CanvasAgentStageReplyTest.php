@@ -125,4 +125,15 @@ class CanvasAgentStageReplyTest extends TestCase
         $nodes=ConversationActionPlan::parse($reply,'assets',true)['nodes'];
         self::assertSame(['subject'],$nodes[1]['depends_on']);
     }
+
+    public function testDisabledAudioPlanDiscardsProviderExecutionAnnotations(): void
+    {
+        $reply=json_encode(['reply_markdown'=>'已准备音频规划。','canvas_actions'=>['nodes'=>[
+            ['type'=>'audio','artifact'=>'audio_plan','title'=>'音频规划','prompt'=>'镜头一使用旁白与环境声。','key'=>'audio_plan','provider'=>'not_executed','status'=>'pending'],
+        ]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        $nodes=ConversationActionPlan::parse($reply,'audio_plan',true)['nodes'];
+        self::assertCount(1,$nodes);
+        self::assertArrayNotHasKey('provider',$nodes[0]);
+        self::assertArrayNotHasKey('status',$nodes[0]);
+    }
 }
