@@ -36,7 +36,7 @@ class CanvasAgentIntentRoutingTest extends TestCase
 
     public function testCompleteProductionRequiresMoreThanOneKeyword(): void
     {
-        foreach (['什么是短剧？','你能帮我生成一个视频脚本吗？','写一集短剧剧本','给我做一张人物图'] as $message) {
+        foreach (['什么是短剧？','你能帮我生成一个视频脚本吗？','写一集短剧剧本','给我做一张人物图','重生之我在天庭当人事的一天'] as $message) {
             self::assertFalse(ConversationIntentRouter::fullWorkflowSignal($message),$message);
         }
         foreach (['帮我制作一部短剧','我要做10集短剧','做一部完整短剧','从故事到角色分镜视频做成片'] as $message) {
