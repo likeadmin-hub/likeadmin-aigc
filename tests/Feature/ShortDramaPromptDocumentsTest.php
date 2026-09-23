@@ -5,6 +5,7 @@ use app\common\service\app\aigc_short_drama\AigcShortDramaService as Service;
 use app\common\service\app\aigc_short_drama\ShortDramaPromptCatalog as Catalog;
 use app\common\service\app\aigc_short_drama\ShortDramaPromptDocuments as Documents;
 use app\common\service\app\aigc_short_drama\ShortDramaPromptWorkspace as Workspace;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationCreativePrompt;
 use PHPUnit\Framework\TestCase;
 
 class ShortDramaPromptDocumentsTest extends TestCase
@@ -104,6 +105,37 @@ class ShortDramaPromptDocumentsTest extends TestCase
             self::assertSame("通用\n\n物品标记", Documents::render('subject_image', ['prop' => true]));
             self::assertStringContainsString('缺失标记', Documents::render('subject_image', ['prop' => true, 'missing' => true]));
         });
+    }
+    public function testDefaultDocumentGroupsSupplementalRulesUnderOneCondition(): void
+    {
+        $body = Documents::body('subject_views');
+        self::assertSame(1, substr_count($body, '【适用：人物主体】'));
+        self::assertSame(1, substr_count($body, '【适用：物品主体】'));
+        self::assertStringContainsString('基于主体主图生成角色三视图', $body);
+        self::assertStringContainsString('基于主体主图生成物体三视图', $body);
+    }
+
+    public function testAgentPlanningPreservesUnknownNodeConditionsWithoutMixingThem(): void
+    {
+        $snapshot = $this->snapshot([
+            'subject_views' => ['mode' => 'custom', 'body' => "【适用：人物主体】\n人物三视图规则\n【适用：物品主体】\n物品多角度规则"],
+            'shot_image' => ['mode' => 'custom', 'body' => "【适用：有人物的镜头】\n人物分镜规则\n【适用：空镜】\n空镜规则"],
+            'shot_video' => ['mode' => 'custom', 'body' => "【适用：多个主体】\n多人规则\n【适用：人物镜头有首帧】\n人物首帧规则\n【适用：空镜有首帧】\n空镜首帧规则\n【适用：有尾帧】\n尾帧规则"],
+        ]);
+        $workflow = ['workflow_snapshot' => ['creative_prompt_snapshot' => $snapshot], 'slot_values' => ['episode_count' => '2']];
+        $workflow['stage_state'] = ['key' => 'art'];
+        $art = ConversationCreativePrompt::forStage($workflow);
+        self::assertStringContainsString('【仅适用：人物主体】' . "\n" . '人物三视图规则', $art);
+        self::assertStringContainsString('【仅适用：物品主体】' . "\n" . '物品多角度规则', $art);
+        $workflow['stage_state'] = ['key' => 'storyboard'];
+        $storyboard = ConversationCreativePrompt::forStage($workflow);
+        self::assertStringContainsString('【仅适用：有人物的镜头】' . "\n" . '人物分镜规则', $storyboard);
+        self::assertStringContainsString('【仅适用：空镜】' . "\n" . '空镜规则', $storyboard);
+        $workflow['stage_state'] = ['key' => 'video_plan'];
+        $video = ConversationCreativePrompt::forStage($workflow);
+        foreach (['多人规则', '人物首帧规则', '空镜首帧规则', '尾帧规则'] as $rule) self::assertStringContainsString($rule, $video);
+        self::assertSame('人物三视图规则', Documents::renderSnapshot($snapshot, 'subject_views', ['prop' => false]));
+        self::assertSame('物品多角度规则', Documents::renderSnapshot($snapshot, 'subject_views', ['prop' => true]));
     }
     public function testApplicationRestoreBypassesPlatformAndTasksKeepFrozenValues(): void
     {
