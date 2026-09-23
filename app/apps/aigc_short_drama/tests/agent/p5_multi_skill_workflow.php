@@ -303,11 +303,24 @@ try {
     // A greeting stays chat. An explicit whole-production request then uses
     // the modern semantic router rather than a keyword shortcut.
     $intentThread=Store::create($tenant,$user,$canvas,'intent-thread')['id'];
-    agentCheck(!IntentRouter::shouldClassify($tenant,'你好',[],[]) && IntentRouter::shouldClassify($tenant,'重生之我在天庭当人事的一天',[],[]),'greeting remains ordinary chat while a bare story premise reaches semantic classification');
+    agentCheck(!IntentRouter::shouldClassify($tenant,'你好',[],[]) && IntentRouter::shouldClassify($tenant,'重生之我在天庭当人事的一天',[],[]),'greeting remains ordinary chat while a story premise reaches semantic classification');
     $revision=(int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision');
     $helloAck=Store::enqueue($tenant,$user,$canvas,$intentThread,['request_key'=>'intent-hello','content'=>'你好','base_revision'=>$revision],['settings'=>['generation_mode'=>'manual'],'skill'=>[]]);
     $provider->content='你好，请告诉我你的创作想法。';
     agentCheck(Worker::process($tenant,$user,(int)$helloAck['run_id'],$provider)==='success','ordinary greeting remains a normal Agent reply');
+    $questionAck=Store::enqueue($tenant,$user,$canvas,$intentThread,['request_key'=>'intent-video-script-question','content'=>'你能帮我生成一个视频脚本吗？','base_revision'=>$revision],static function (array $conversation) use ($tenant): array {
+        $candidate=Workflow::prepare($tenant,$conversation,'/short-drama',[],[],['generation_mode'=>'manual'])['workflow'];
+        $candidate['workflow_snapshot']['route']='semantic';
+        return ['settings'=>['generation_mode'=>'manual'],'skill'=>[],
+            'intent_routing'=>IntentRouter::snapshot($tenant)+['workflow_candidate'=>$candidate]];
+    });
+    $provider->content=json_encode(['intent'=>'chat','confidence'=>0.96,'skill_key'=>'',
+        'reply_markdown'=>'可以。你希望这个视频脚本讲什么主题？','intake'=>['candidates'=>[],'questions'=>[]],
+        'speech_act'=>'question','deliverable'=>'text','scope'=>'conversation'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    agentCheck(Worker::process($tenant,$user,(int)$questionAck['run_id'],$provider)==='success'
+        && Workflow::currentState(Db::name(Store::PREFIX.'thread')->where('id',$intentThread)->find())===[]
+        && (int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision')===$revision,
+        'video-script capability question answers in chat without starting the drama workflow or changing the graph');
     $story='请把重生之我在天庭当人事的一天制作成完整短剧';
     $routing=IntentRouter::snapshot($tenant);
     $intentAck=Store::enqueue($tenant,$user,$canvas,$intentThread,['request_key'=>'intent-story','content'=>$story,'base_revision'=>$revision],static function (array $conversation) use ($tenant,$routing): array {
