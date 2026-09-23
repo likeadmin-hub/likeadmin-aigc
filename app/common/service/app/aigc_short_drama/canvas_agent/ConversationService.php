@@ -16,8 +16,9 @@ final class ConversationService
         if (!is_array($preferences) || strlen(json_encode($preferences,JSON_THROW_ON_ERROR))>4096) throw new RuntimeException('INVALID_AGENT_PREFERENCES');
         $skillId=$request['skill_id']??0;$skillVersion=$request['skill_version']??0;
         if (!is_int($skillId) || !is_int($skillVersion) || $skillId<0 || $skillVersion<0 || ($skillId===0 && $skillVersion!==0) || ($skillId>0 && $skillVersion===0)) throw new RuntimeException('INVALID_SKILL_SELECTION');
-        $workflowAuto=$request['workflow_auto']??false;
-        if (!is_bool($workflowAuto)) throw new RuntimeException('INVALID_WORKFLOW_AUTO_REQUEST');
+        $workflowAutoValue=$request['workflow_auto']??false;
+        if (!in_array($workflowAutoValue,[true,false,1,0,'1','0','true','false'],true)) throw new RuntimeException('INVALID_WORKFLOW_AUTO_FLAG');
+        $workflowAuto=in_array($workflowAutoValue,[true,1,'1','true'],true);
         $key=$request['request_key']??null;$content=$request['content']??null;
         if (!is_string($key) || !preg_match('/^[a-zA-Z0-9_.:-]{1,100}$/D',$key)) throw new RuntimeException('INVALID_REQUEST_KEY');
         if (!is_string($content) || trim($content)==='' || mb_strlen($content)>20000) throw new RuntimeException('INVALID_MESSAGE');
@@ -45,8 +46,8 @@ final class ConversationService
                 catch (\Throwable $error) {throw new RuntimeException('SKILL_UNAVAILABLE',0,$error);}
             }
             $current=ConversationWorkflow::currentState($conversation);
-            if ($workflowAuto && ($skillId>0 || $attachments || $selectedIds
-                || !ConversationWorkflow::validAutoStageRequest($current,$canvas,$thread,$key,$content))) throw new RuntimeException('INVALID_WORKFLOW_AUTO_REQUEST');
+            if ($workflowAuto && ($skillId>0 || $attachments || $selectedIds)) throw new RuntimeException('INVALID_WORKFLOW_AUTO_CONTEXT');
+            if ($workflowAuto && !ConversationWorkflow::validAutoStageRequest($current,$canvas,$thread,$key,$content)) throw new RuntimeException('INVALID_WORKFLOW_AUTO_REQUEST');
             if ($current!==[] && $skill===[] && FeatureGate::workflowEnabled($tenant,ConversationWorkflow::KEY)
                 && !ConversationWorkflow::isManualAlias($content)) {
                 // A continuing workflow keeps the models and auto/manual
