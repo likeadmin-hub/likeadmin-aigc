@@ -119,7 +119,63 @@ final class ConversationWorkflow
             else unset($proposal['reference_keys']);
         }
         unset($proposal);
+        return self::supplementStoryboardAssetReferences($workflow,$proposals);
+    }
+
+    /** The model may omit optional reference_keys even when its shot prompt
+     * explicitly names a previously planned subject. Bind only that named
+     * subject's own turnaround (main-image fallback), never all assets. */
+    private static function supplementStoryboardAssetReferences(array $workflow,array $proposals): array
+    {
+        if (($workflow['stage_state']['key']??'')!=='storyboard') return $proposals;
+        self::assertStoryboardNumbers($workflow,$proposals);
+        $subjects=[];
+        foreach ((array)($workflow['artifact_memory']??[]) as $item) {
+            if (!is_array($item) || ($item['stage']??'')!=='assets'
+                || !in_array((string)($item['artifact']??''),['subject','three_view'],true)) continue;
+            $title=trim((string)($item['title']??''));
+            $name=trim((string)preg_replace('/^.*?[：:]/u','',$title));
+            $key=(string)($item['reference_key']??'');
+            if (mb_strlen($name)<2 || $key==='') continue;
+            $subjects[$name][(string)$item['artifact']]=$key;
+        }
+        foreach ($proposals as &$proposal) {
+            if (!is_array($proposal) || ($proposal['artifact']??'')!=='storyboard') continue;
+            $prompt=(string)($proposal['prompt']??'');
+            $references=array_values((array)($proposal['reference_keys']??[]));
+            foreach ($subjects as $name=>$forms) {
+                if (!str_contains($prompt,$name)) continue;
+                if (array_intersect($references,array_values($forms))) continue;
+                $key=(string)($forms['three_view']??$forms['subject']??'');
+                if ($key!=='') $references[]=$key;
+            }
+            if (count($references)>6) throw new RuntimeException('INVALID_AGENT_ACTION');
+            if ($references) $proposal['reference_keys']=$references;
+        }
+        unset($proposal);
         return $proposals;
+    }
+
+    /** Keep the confirmed episode's shot list authoritative. A stage reply
+     * may enrich a shot, but cannot silently invent or drop numbered shots. */
+    private static function assertStoryboardNumbers(array $workflow,array $proposals): void
+    {
+        $script='';
+        foreach ((array)($workflow['artifact_memory']??[]) as $item) {
+            if (is_array($item) && ($item['stage']??'')==='script' && ($item['artifact']??'')==='episode_script')
+                $script=(string)($item['content']??'');
+        }
+        if (!preg_match_all('/镜头\s*([1-9][0-9]{0,2})/u',$script,$matches)) return;
+        $expected=array_values(array_unique(array_map('intval',$matches[1])));
+        sort($expected);
+        $actual=[];
+        foreach ($proposals as $proposal) {
+            if (!is_array($proposal) || ($proposal['artifact']??'')!=='storyboard') continue;
+            if (!preg_match('/镜头\s*([1-9][0-9]{0,2})/u',(string)($proposal['title']??''),$match)) throw new RuntimeException('INVALID_AGENT_ACTION');
+            $actual[]=(int)$match[1];
+        }
+        sort($actual);
+        if ($actual!==$expected) throw new RuntimeException('INVALID_AGENT_ACTION');
     }
 
     /** @return array<string,mixed> */
