@@ -17,7 +17,10 @@ final class ConversationTextContext
         foreach (array_slice($messages,0,-1) as $message) {
             if (($message['role']??'')!=='user' || !is_string($message['content']??null)) continue;
             $content=trim($message['content']);
-            if (preg_match('/《[^《》]{1,80}》/u',$content)) $candidate=$content;
+            // The first titled request starts this creation. Later user turns
+            // may quote the same title while revising a stage (and may mention
+            // rejected story details); they must not replace the original brief.
+            if ($candidate==='' && preg_match('/《[^《》]{1,80}》/u',$content)) $candidate=$content;
         }
         return mb_substr($candidate,0,4000);
     }

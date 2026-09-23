@@ -76,9 +76,10 @@ try {
     $legacyBrief=TextContext::creativeBrief([], [
         ['role'=>'user','content'=>'请制作《耳机的秘密》，围绕耳机店的降噪误会。'],
         ['role'=>'assistant','content'=>'已进入流程。'],
+        ['role'=>'user','content'=>'请重做《耳机的秘密》，不要咖啡店剧情。'],
         ['role'=>'user','content'=>'请基于已确认的信息生成剧本。'],
     ]);
-    agentCheck(str_contains($legacyBrief,'耳机的秘密'),'legacy workflow recovers the original titled brief, not the automatic stage instruction');
+    agentCheck(str_contains($legacyBrief,'耳机店的降噪误会') && !str_contains($legacyBrief,'咖啡店'),'legacy workflow recovers the initiating titled brief rather than a later stage revision or automatic instruction');
     $anchored=$snapshot['workflow'];
     $anchored['stage_state']['key']='script';
     $anchored['creative_brief']=$legacyBrief;
