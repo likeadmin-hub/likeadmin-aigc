@@ -28,7 +28,6 @@ final class ConversationWorkflowTurn
         if ($value['skill_key']!=='' && !isset($allowed[$value['skill_key']])) return 'intent_skill';
         $resume=$intent==='continue' && $confidence>=0.7 && empty($routing['workflow_paused']);
         if (!$resume) return $value['workflow_output']!==null ? 'intent_unexpected_output' : 'intent_noncontinue';
-        if ($value['skill_key']!=='') return 'intent_continue_skill';
         if (trim($value['reply_markdown'])!=='') return 'intent_continue_reply';
         if (!is_array($value['workflow_output'])) return 'intent_continue_output';
         $workflow=(array)($routing['workflow_candidate']??[]);
@@ -37,7 +36,18 @@ final class ConversationWorkflowTurn
             $payload=json_encode($value['workflow_output'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
             if ($stage==='intake') ConversationIntakeDraft::parseDirect($payload,(array)($workflow['workflow_snapshot']['slot_schema']??[]),['message']);
             else ConversationActionPlan::parse($payload,$stage,ConversationWorkflow::compactOutput($workflow));
-        } catch (\Throwable $error) { return 'intent_stage_output'; }
+        } catch (\Throwable $error) {
+            $output=$value['workflow_output'];
+            if (array_keys($output)!==['reply_markdown','canvas_actions'] || !is_string($output['reply_markdown']??null)) return 'intent_stage_keys';
+            $actions=$output['canvas_actions']??null;
+            if (!is_array($actions) || array_keys($actions)!==['nodes'] || !is_array($actions['nodes']) || !array_is_list($actions['nodes']) || !$actions['nodes']) return 'intent_stage_nodes';
+            foreach ($actions['nodes'] as $node) {
+                if (!is_array($node) || array_diff(array_keys($node),['type','artifact','title','prompt','key','depends_on','reference_keys'])) return 'intent_stage_node_fields';
+                if (!is_string($node['type']??null) || !is_string($node['artifact']??null) || !is_string($node['title']??null) || !is_string($node['prompt']??null) || trim($node['prompt'])==='') return 'intent_stage_node_values';
+                if ((isset($node['depends_on']) && !is_array($node['depends_on'])) || (isset($node['reference_keys']) && !is_array($node['reference_keys']))) return 'intent_stage_node_links';
+            }
+            return 'intent_stage_contract';
+        }
         return 'intent_consistency';
     }
 

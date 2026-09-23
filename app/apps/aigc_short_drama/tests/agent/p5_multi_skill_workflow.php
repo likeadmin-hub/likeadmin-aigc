@@ -156,6 +156,9 @@ try {
         && WorkflowTurn::failureCategory('{"intent":"chat","confidence":1,"skill_key":"","reply_markdown":"已创建","workflow_output":{"canvas_actions":{"nodes":[]}}}',$routing)==='intent_unexpected_output'
         && WorkflowTurn::failureCategory('{"intent":"continue","confidence":0.9,"skill_key":"","reply_markdown":"摘要","workflow_output":{}}',$routing)==='intent_continue_reply',
         'rejected model output is classified by safe shape only, without storing the answer');
+    agentCheck(WorkflowTurn::failureCategory('{"intent":"continue","confidence":0.9,"skill_key":"","reply_markdown":"","workflow_output":{"reply_markdown":"美术规划","nodes":[]}}',$routing)==='intent_stage_keys'
+        && WorkflowTurn::failureCategory('{"intent":"continue","confidence":0.9,"skill_key":"","reply_markdown":"","workflow_output":{"reply_markdown":"美术规划","canvas_actions":{"nodes":[]}}}',$routing)==='intent_stage_nodes',
+        'workflow diagnostic distinguishes envelope and node-shape failures without persisting generated prose');
     agentCheck(!str_contains(ActionPlan::nestedInstruction('manual','art',true),'<canvas-actions>')
         && str_contains(ActionPlan::nestedInstruction('manual','art',true),'workflow_output 子对象')
         && !str_contains(ActionPlan::nestedInstruction('manual','assets',true),'<canvas-actions>'),
