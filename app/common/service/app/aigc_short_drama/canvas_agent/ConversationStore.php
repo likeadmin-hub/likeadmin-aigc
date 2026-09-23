@@ -220,7 +220,7 @@ final class ConversationStore
             }
             $timeline=$content['workflow_timeline']??null;
             if ($timeline!==null) {
-                if ($row['role']!=='assistant' || !is_array($timeline) || !array_is_list($timeline) || count($timeline)>3) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
+                if ($row['role']!=='assistant' || !is_array($timeline) || !array_is_list($timeline) || count($timeline)>8) throw new RuntimeException('INVALID_CONVERSATION_HISTORY');
                 $public=[];
                 foreach ($timeline as $item) {
                     if (!is_array($item) || !in_array($item['kind']??'', ['skill','tool'],true) || !is_string($item['label']??null) || !is_string($item['detail']??null)
