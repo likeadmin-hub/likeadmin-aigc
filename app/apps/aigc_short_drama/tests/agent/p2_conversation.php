@@ -21,6 +21,15 @@ try {
     rejectsConversation(fn()=>Store::threads(91002,92001,$canvas),'CANVAS_NOT_FOUND');
     rejectsConversation(fn()=>Store::threads(91001,92002,$canvas),'CANVAS_NOT_FOUND');
     rejectsConversation(fn()=>Store::messages(91001,92001,$other,$thread['id']),'THREAD_NOT_FOUND');
+    agentCheck(Store::renameThread(91001,92001,$canvas,$thread['id'],'  新标题  ')['title']==='新标题','owner renames thread without changing identity');
+    rejectsConversation(fn()=>Store::renameThread(91001,92001,$canvas,$thread['id'],'  '),'INVALID_THREAD_TITLE');
+    rejectsConversation(fn()=>Store::renameThread(91001,92001,$other,$thread['id'],'越权'),'THREAD_NOT_FOUND');
+    rejectsConversation(fn()=>Store::renameThread(91001,92002,$canvas,$thread['id'],'越权'),'CANVAS_NOT_FOUND');
+    $removed=Store::create(91001,92001,$canvas,'delete-me','待删除');
+    agentCheck(Store::deleteThread(91001,92001,$canvas,$removed['id'])===['id'=>$removed['id'],'deleted'=>true],'owner soft-deletes inactive thread');
+    agentCheck((int)Db::name(Store::PREFIX.'thread')->where('id',$removed['id'])->value('delete_time')>0,'soft-deleted row retained for audit');
+    rejectsConversation(fn()=>Store::messages(91001,92001,$canvas,$removed['id']),'THREAD_NOT_FOUND');
+    rejectsConversation(fn()=>Store::deleteThread(91001,92001,$canvas,$removed['id']),'THREAD_NOT_FOUND');
     Graph::patch(91001,92001,$canvas,['request_key'=>'add','expected_revision'=>0,'operations'=>[
         ['op'=>'add_node','node'=>['id'=>1,'type'=>'text','x'=>10,'y'=>20,'metadata'=>['content'=>'参考材料']]],
         // These image nodes intentionally overlap in the left position band.
@@ -32,6 +41,7 @@ try {
     $request=['request_key'=>'message','content'=>'分析这段文字，不要生成节点','selected_node_ids'=>['1'],'base_revision'=>1];
     $snapshot=['settings'=>['reasoning_model'=>'isolated-model','image_model'=>'isolated-image','video_model'=>'isolated-video'],'skill'=>['id'=>7,'version'=>2,'content'=>'frozen skill']];
     $ack=Store::enqueue(91001,92001,$canvas,$thread['id'],$request,$snapshot);
+    rejectsConversation(fn()=>Store::deleteThread(91001,92001,$canvas,$thread['id']),'THREAD_BUSY');
     for ($i=0;$i<10;$i++) agentCheck(Store::enqueue(91001,92001,$canvas,$thread['id'],$request,$snapshot)===$ack,'send stable replay '.$i);
     foreach (['run','message','event','outbox'] as $kind) agentCheck(Db::name(Store::PREFIX.$kind)->where('canvas_id',$canvas)->count()===1,'atomic one '.$kind);
     agentCheck(Db::name(Graph::TABLE)->where('id',$canvas)->find()===$before,'send does not mutate graph or revision');

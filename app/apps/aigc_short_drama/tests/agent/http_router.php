@@ -11,7 +11,7 @@ $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 // Defense in depth: this test server cannot reach any generation endpoint.
 $actions=defined('SHORT_DRAMA_BROWSER_MOCK_PROVIDER')?'current|create|save|lists|patch|run|task':'current|create|save|lists|patch';
 $resourceRead=$_SERVER['REQUEST_METHOD']==='GET' && in_array($path,['/api/app.aigc_short_drama.asset/lists','/api/app.aigc_canvas.project/lists'],true);
-$agentRoute=defined('SHORT_DRAMA_BROWSER_AGENT_CONVERSATION') && preg_match('#^/api/app\.aigc_short_drama\.canvas_agent/(threads|preferences|savePreferences|createThread|messages|events|send|stop|run|stream)$#D', (string)$path);
+$agentRoute=defined('SHORT_DRAMA_BROWSER_AGENT_CONVERSATION') && preg_match('#^/api/app\.aigc_short_drama\.canvas_agent/(threads|preferences|savePreferences|createThread|renameThread|deleteThread|messages|events|send|stop|run|stream)$#D', (string)$path);
 // The browser Agent fixture may register a just-uploaded image as a canvas
 // asset.  It deliberately exposes only this one write route; it still never
 // exposes any generation route or arbitrary asset mutation.
