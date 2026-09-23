@@ -13,8 +13,8 @@
   "sort": 851,
   "frontends": [
     "tenant",
-    "pc"
-  ],
+    "pc",
+    "uniapp"],
   "api_prefix": "/app/aigc_model_wear",
   "menus": "menus/tenant.json",
   "permissions": "permissions/tenant.json",
@@ -37,6 +37,26 @@
       "icon": "resource/image/common/menu_generator.png",
       "sort": 88,
       "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_model_wear",
+      "name": "模特穿戴",
+      "path": "/apps/mobile_tools/pages/creator/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 851,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "创作首页",
+            "path": "/apps/mobile_tools/pages/creator/index",
+            "query": {
+              "app_code": "aigc_model_wear"
+            }
+          }
+        ]
+      }
     }
   ],
   "dependencies": [

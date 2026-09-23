@@ -11,14 +11,34 @@
   "is_builtin": 1,
   "expire_policy": "allow",
   "sort": 849,
-  "frontends": ["tenant", "pc"],
+  "frontends": ["tenant", "pc", "uniapp"],
   "api_prefix": "/app/aigc_fashion_lookbook",
   "menus": "menus/tenant.json",
   "permissions": "permissions/tenant.json",
   "migrations": "migrations",
   "frontend_entries": [
     { "terminal": "tenant", "entry_key": "aigc_fashion_lookbook_admin", "name": "服饰套图", "path": "/app/aigc_fashion_lookbook", "icon": "el-icon-Picture", "sort": 91, "status": 1 },
-    { "terminal": "pc", "entry_key": "aigc_fashion_lookbook", "name": "服饰套图", "path": "/ai/tools/aigc_fashion_lookbook", "icon": "resource/image/common/menu_generator.png", "sort": 84, "status": 1 }
+    { "terminal": "pc", "entry_key": "aigc_fashion_lookbook", "name": "服饰套图", "path": "/ai/tools/aigc_fashion_lookbook", "icon": "resource/image/common/menu_generator.png", "sort": 84, "status": 1 },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_fashion_lookbook",
+      "name": "服饰套图",
+      "path": "/apps/mobile_tools/pages/creator/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 849,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "创作首页",
+            "path": "/apps/mobile_tools/pages/creator/index",
+            "query": {
+              "app_code": "aigc_fashion_lookbook"
+            }
+          }
+        ]
+      }
+    }
   ],
   "dependencies": [
     { "app_code": "aigc_image", "name": "AIGC生图", "required_for": "服饰套图生成" }
