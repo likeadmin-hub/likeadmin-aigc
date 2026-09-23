@@ -134,7 +134,7 @@ final class ConversationIntentRouter
             if (($decision['scope']??'')==='uncertain' || ($decision['intent']??'')==='uncertain')
                 return (string)$decision['reply_markdown'];
             if ((float)($decision['confidence']??0)<0.8 && ($decision['intent']??'')!=='chat')
-                return '我还不能确定你要的是单项创作，还是完整短剧制作。你希望我先做哪一种？';
+                return '我还不确定你希望得到什么结果。你是想咨询问题、单独创作一份内容，还是启动完整短剧制作？';
             if (($decision['intent']??'')==='short_drama' && ($decision['scope']??'')==='workflow'
                 && ($decision['deliverable']??'')==='full_drama' && in_array($decision['speech_act']??'',['request','answer','confirm'],true)) {
                 return '已识别出完整短剧创作需求，但当前工作流技能配置不可用。请在租户端检查短剧画布 Agent 的阶段技能后重试。';
