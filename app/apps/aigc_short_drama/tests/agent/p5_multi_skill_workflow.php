@@ -81,7 +81,7 @@ try {
     $view=Workflow::read($tenant,$user,$canvas,$thread);
     agentCheck(($view['card']['slot']['key']??'')==='genre','first card is the server-owned story-type slot');
     agentCheck(($view['card']['stage_label']??'')==='创作采集' && ($view['card']['skills']??[])===['创作采集'],'workflow card projects the frozen stage and its actual platform Skill list');
-    $answers=['genre'=>'悬疑反转','episode_count'=>'10集（微短剧）','episode_duration'=>'1分钟','visual_style'=>'电影写实','audience'=>'年轻女性','characters'=>'记者与失踪的姐姐','ending'=>'反转开放'];
+    $answers=['genre'=>'悬疑反转','episode_count'=>'10集（微短剧）','episode_duration'=>'1分钟','visual_style'=>'电影写实','aspect_ratio'=>'16:9','audience'=>'年轻女性','characters'=>'记者与失踪的姐姐','ending'=>'反转开放'];
     foreach ($answers as $slot=>$value) {
         $view=Workflow::read($tenant,$user,$canvas,$thread);
         agentCheck(($view['card']['slot']['key']??'')===$slot,'collection preserves the configured slot order: '.$slot);
@@ -393,7 +393,7 @@ try {
     $compactRow=Db::name(Store::PREFIX.'thread')->where('id',$compactThread)->find();
     $compactPrepared=Workflow::prepare($tenant,$compactRow,'/short-drama',[],[],['generation_mode'=>'manual'])['thread_settings'];
     Db::name(Store::PREFIX.'thread')->where('id',$compactThread)->update(['settings_json'=>json_encode($compactPrepared,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
-    foreach (['genre'=>'现代悬疑','episode_count'=>'1','episode_duration'=>'60秒','visual_style'=>'电影写实','audience'=>'成年观众','characters'=>'年轻修书师','ending'=>'发现童年留言'] as $slot=>$value) {
+    foreach (['genre'=>'现代悬疑','episode_count'=>'1','episode_duration'=>'60秒','visual_style'=>'电影写实','aspect_ratio'=>'16:9','audience'=>'成年观众','characters'=>'年轻修书师','ending'=>'发现童年留言'] as $slot=>$value) {
         $current=Workflow::read($tenant,$user,$canvas,$compactThread);
         Workflow::answer($tenant,$user,$canvas,$compactThread,(int)$current['workflow']['state_revision'],$slot,$value);
     }
