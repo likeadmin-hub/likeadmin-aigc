@@ -391,14 +391,18 @@ try {
             'base_workflow_revision'=>(int)$current['state_revision'],'workflow_paused'=>false];
         return ['settings'=>['generation_mode'=>'manual','reasoning_model'=>['id'=>'fixture-model']],'skill'=>[],'intent_routing'=>$routing];
     });
-    $provider->content=json_encode(['intent'=>'continue','confidence'=>0.96,'skill_key'=>'','reply_markdown'=>'',
+    $compactContext=json_decode((string)Db::name(Store::PREFIX.'run')->where('id',$compactAck['run_id'])->value('context_snapshot'),true);
+    $recommendedKey=(string)($compactContext['intent_routing']['skill_candidates'][0]['key']??'');
+    agentCheck($recommendedKey!=='','routed compact script freezes an authorized advisory Skill candidate');
+    $provider->content=json_encode(['intent'=>'continue','confidence'=>0.96,'skill_key'=>$recommendedKey,'reply_markdown'=>'',
         'workflow_output'=>['reply_markdown'=>'已完成旧书店短剧的故事设定与单集剧本。','canvas_actions'=>['nodes'=>[
             ['type'=>'text','artifact'=>'story_setting','title'=>'故事设定','prompt'=>'旧书店的修书师发现童年留言，逐步揭开家庭秘密。','key'=>'story'],
             ['type'=>'text','artifact'=>'episode_script','title'=>'单集剧本','prompt'=>'场景一：修书师进入旧书店；场景二：发现童年留言并揭示真相。','key'=>'episode'],
         ]]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
     agentCheck(Worker::process($tenant,$user,(int)$compactAck['run_id'],$provider)==='success'
-        && ($provider->lastRequest['response_format']['type']??'')==='json_object',
-        'current compact script resumes through one structured active-workflow Provider turn');
+        && ($provider->lastRequest['response_format']['type']??'')==='json_object'
+        && (string)Db::name(Store::PREFIX.'run')->where('id',$compactAck['run_id'])->value('skill_snapshot')==='[]',
+        'current compact script accepts an advisory Skill key without executing a model-selected Skill');
     $compactAfter=Workflow::read($tenant,$user,$canvas,$compactThread);
     agentCheck(($compactBefore['workflow']['stage_state']['status']??'')==='ready'
         && ($compactAfter['workflow']['stage_state']['status']??'')==='awaiting_stage_confirmation'
