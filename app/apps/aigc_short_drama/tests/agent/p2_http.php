@@ -114,6 +114,12 @@ try {
     agentCheck(!str_contains(json_encode($unknown),'private late evidence') && !str_contains(json_encode($unknown),$claim['token']),'run snapshot excludes late text and worker token');
     $sse=agentSse($args+['run_id'=>$second['run_id'],'event_after'=>0,'message_after'=>0,'wait_seconds'=>0]);
     agentCheck(!str_contains($sse,'private late evidence') && str_contains($sse,'needs_reconciliation'),'SSE excludes private late reply evidence');
+    $intentThread=agentHttp('createThread','POST',['canvas_id'=>$canvas,'request_key'=>'intent-thread'])['data']['id'];
+    $intentSend=agentHttp('send','POST',['canvas_id'=>$canvas,'thread_id'=>$intentThread,'request_key'=>'intent-title','content'=>'重生之我在天庭当人事的一天','base_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product]]);
+    if ($intentSend['code']!==1) throw new RuntimeException('Intent send failed: '.json_encode($intentSend,JSON_UNESCAPED_UNICODE));
+    $intentContext=json_decode((string)Db::name(Store::PREFIX.'run')->where('id',$intentSend['data']['run_id'])->value('context_snapshot'),true,512,JSON_THROW_ON_ERROR);
+    agentCheck(empty($intentContext['workflow']) && ($intentContext['intent_routing']['workflow_candidate']['workflow_snapshot']['key']??'')==='short_drama_creation','HTTP freezes a server-authorized semantic candidate for a bare story title without prematurely entering the workflow');
+    agentCheck((agentHttp('stop','POST',['canvas_id'=>$canvas,'thread_id'=>$intentThread,'run_id'=>$intentSend['data']['run_id']])['data']['status']??'')==='canceled','unclassified queued turn can be stopped without creating workflow or media nodes');
     $workflowThread=agentHttp('createThread','POST',['canvas_id'=>$canvas,'request_key'=>'workflow-thread'])['data']['id'];
     $workflowSend=agentHttp('send','POST',['canvas_id'=>$canvas,'thread_id'=>$workflowThread,'request_key'=>'workflow-route','content'=>'我想创作一部悬疑短剧','base_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'manual']]);
     if ($workflowSend['code']!==1) throw new RuntimeException('Workflow send failed: '.json_encode($workflowSend,JSON_UNESCAPED_UNICODE));

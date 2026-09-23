@@ -79,7 +79,7 @@ final class ConversationStore
             // Server-owned resolver performs local catalog reads only. Never
             // do provider I/O here; replay must not re-resolve changing defaults.
             if ($resolvedSnapshot instanceof \Closure) $resolvedSnapshot=$resolvedSnapshot($conversation);
-            if (array_diff(array_keys($resolvedSnapshot),['settings','skill','workflow','thread_settings']) || !is_array($resolvedSnapshot['settings']??null) || !is_array($resolvedSnapshot['skill']??null) || (array_key_exists('workflow',$resolvedSnapshot) && !is_array($resolvedSnapshot['workflow'])) || (array_key_exists('thread_settings',$resolvedSnapshot) && !is_array($resolvedSnapshot['thread_settings']))) throw new RuntimeException('INVALID_RESOLVED_SNAPSHOT');
+            if (array_diff(array_keys($resolvedSnapshot),['settings','skill','workflow','thread_settings','intent_routing']) || !is_array($resolvedSnapshot['settings']??null) || !is_array($resolvedSnapshot['skill']??null) || (array_key_exists('workflow',$resolvedSnapshot) && !is_array($resolvedSnapshot['workflow'])) || (array_key_exists('thread_settings',$resolvedSnapshot) && !is_array($resolvedSnapshot['thread_settings'])) || (array_key_exists('intent_routing',$resolvedSnapshot) && !is_array($resolvedSnapshot['intent_routing']))) throw new RuntimeException('INVALID_RESOLVED_SNAPSHOT');
             $selected=[];
             foreach ($nodes as $node) {
                 if (in_array((string)$node['id'],$ids,true)) {
@@ -113,6 +113,7 @@ final class ConversationStore
             if (count(array_filter($selected,static fn(array $node)=>$node['type']==='image'))+count($attachmentImages)>4) throw new RuntimeException('TOO_MANY_IMAGE_REFERENCES');
             $context=['graph_revision'=>$revision,'selected_nodes'=>array_map(static fn($id)=>$selected[$id],$ids),'attachment_images'=>$attachmentImages,'material_trust'=>'untrusted','messages'=>$messages,'history_policy'=>'last_38_plus_current'];
             if (!empty($resolvedSnapshot['workflow'])) $context['workflow']=$resolvedSnapshot['workflow'];
+            if (!empty($resolvedSnapshot['intent_routing'])) $context['intent_routing']=$resolvedSnapshot['intent_routing'];
             $contextJson=self::json($context);
             $settings=self::json($resolvedSnapshot['settings']);$skill=self::json($resolvedSnapshot['skill']);
             if (strlen($contextJson)+strlen($settings)+strlen($skill)>1048576) throw new RuntimeException('CONTEXT_TOO_LARGE');
