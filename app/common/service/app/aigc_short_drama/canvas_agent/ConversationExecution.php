@@ -38,8 +38,15 @@ final class ConversationExecution
             self::identity($outbox,$token,$fence);
             $hash=hash('sha256',$text);
             if ($run['status']==='success') {
-                $prior=Db::name(ConversationStore::PREFIX.'message')->where(['run_id'=>$runId,'role'=>'assistant'])->lock(true)->value('content_json');
-                if ($prior!==self::json(['text'=>$text])) throw new RuntimeException('REPLY_CONFLICT');
+                $success=Db::name(ConversationStore::PREFIX.'event')->where(['run_id'=>$runId,'kind'=>'run.succeeded'])->lock(true)->value('payload_json');
+                $successPayload=(array)json_decode((string)$success,true);
+                $priorHash=(string)($successPayload['reply_hash']??'');
+                if ($priorHash!=='' && $priorHash!==$hash) throw new RuntimeException('REPLY_CONFLICT');
+                if ($priorHash==='') {
+                    $prior=Db::name(ConversationStore::PREFIX.'message')->where(['run_id'=>$runId,'role'=>'assistant'])->lock(true)->value('content_json');
+                    $priorContent=(array)json_decode((string)$prior,true);
+                    if (($priorContent['text']??'')!==$text) throw new RuntimeException('REPLY_CONFLICT');
+                }
                 return true;
             }
             if (!in_array($run['status'],['running','needs_reconciliation'],true)) throw new RuntimeException('INVALID_RUN_STATE');
@@ -121,7 +128,11 @@ final class ConversationExecution
                 $effects['mode']=($settings['generation_mode']??'manual')==='auto'?'auto':'manual';
             }
             $sequence=(int)$thread['next_message_sequence'];
-            $content=['text'=>$text];
+            // The validated artifact bodies remain in the stage plan/graph.
+            // Only a bounded, user-facing account of the actual stage result
+            // belongs in chat; a model must not dump its internal fields here.
+            $displayText=ConversationStageReply::present($workflow,$text,$proposals ?: (array)($planSettings['workflow_state']['image_plan']['nodes'] ?? $stagePlanSettings['workflow_state']['stage_plan']['nodes'] ?? []),!empty($effects['nodes']));
+            $content=['text'=>$displayText];
             if ($effects) $content['canvas_actions']=$effects;
             $timeline=ConversationWorkflow::timeline($workflow,$proposals,$effects);
             if ($timeline) $content['workflow_timeline']=$timeline;
@@ -138,7 +149,7 @@ final class ConversationExecution
             }
             Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update($threadUpdate);
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'done','lease_until'=>0,'update_time'=>time()]);
-            self::state($run,'success');self::event($run,'run.succeeded',['status'=>'success','message_sequence'=>$sequence]+($effects?['canvas_actions'=>$effects]:[]));
+            self::state($run,'success');self::event($run,'run.succeeded',['status'=>'success','message_sequence'=>$sequence,'reply_hash'=>$hash]+($effects?['canvas_actions'=>$effects]:[]));
             return true;
         });
     }
