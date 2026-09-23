@@ -101,7 +101,6 @@ final class ConversationWorkflow
         return [
             'key'=>self::KEY, 'version'=>self::VERSION, 'name'=>'短剧成片制作',
             'manual_aliases'=>['/短剧成片制作','/短剧创作','/short-drama','/story-to-drama'],
-            'route_keywords'=>['短剧','微短剧','剧本','分集','分镜','角色设定','故事成片'],
             'slots'=>[
                 ['key'=>'genre','label'=>'故事类型','ask'=>'想创作什么类型的故事？','options'=>['都市情感','悬疑反转','古风奇幻','甜宠喜剧','科幻冒险']],
                 ['key'=>'episode_count','label'=>'集数规模','ask'=>'计划做多少集？','options'=>['1集（短片）','10集（微短剧）','30集（连载短剧）']],
@@ -563,9 +562,10 @@ final class ConversationWorkflow
         if ($state!==[]) return 'continue';
         $content=trim($content);
         foreach (self::catalog()['manual_aliases'] as $alias) if (mb_stripos($content,$alias,0,'UTF-8')===0) return 'manual';
-        if (str_starts_with($content,'/')) return null; // A different /Skill must not be stolen by this workflow.
-        $hits=0;foreach (self::catalog()['route_keywords'] as $keyword) if (mb_stripos($content,$keyword,0,'UTF-8')!==false) $hits++;
-        return $hits>=1 ? 'semantic' : null;
+        // Natural language always enters the per-turn semantic router first.
+        // A noun such as "短剧" or "剧本" is not evidence that the user
+        // requested the complete multi-stage production workflow.
+        return null;
     }
     public static function isManualAlias(string $content): bool
     {
