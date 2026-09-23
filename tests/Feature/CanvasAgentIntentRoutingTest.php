@@ -41,7 +41,7 @@ class CanvasAgentIntentRoutingTest extends TestCase
         self::assertFalse(ConversationIntentRouter::shouldActivateWorkflow($this->decision(['speech_act'=>'question']),$routing));
         self::assertFalse(ConversationIntentRouter::shouldActivateWorkflow($this->decision(['deliverable'=>'text','scope'=>'standalone']),$routing));
         self::assertFalse(ConversationIntentRouter::shouldActivateWorkflow($this->decision(['confidence'=>0.79]),$routing));
-        self::assertSame('我还不能确定你要的是单项创作，还是完整短剧制作。你希望我先做哪一种？',
+        self::assertSame('我还不确定你希望得到什么结果。你是想咨询问题、单独创作一份内容，还是启动完整短剧制作？',
             ConversationIntentRouter::reply($this->decision(['confidence'=>0.79]),$routing));
     }
 
