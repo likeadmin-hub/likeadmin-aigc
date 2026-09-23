@@ -198,24 +198,6 @@ final class ConversationWorkflow
         return $settings;
     }
 
-    /** A known terminal failure has no usable stage result. Reopen only the
-     * exact run-owned stage; an uncertain Provider outcome remains fenced and
-     * must never be replayed automatically. */
-    public static function recoverTerminalStageFailure(array $settings,array $runContext): ?array
-    {
-        $frozen=(array)($runContext['workflow']??[]);
-        $state=(array)($settings['workflow_state']??[]);
-        if (($frozen['workflow_snapshot']['key']??'')!==self::KEY
-            || ($state['workflow_snapshot']['key']??'')!==self::KEY
-            || ($state['stage_state']['status']??'')!=='running'
-            || ($state['stage_state']['key']??'')!==($frozen['stage_state']['key']??'')
-            || (int)($state['state_revision']??0)!==(int)($frozen['state_revision']??-1)) return null;
-        $state['stage_state']['status']='ready';
-        $state['state_revision']++;
-        $settings['workflow_state']=$state;
-        return $settings;
-    }
-
     /** Resolve a route and create/freeze state during the same thread lock as enqueue. */
     public static function prepare(int $tenant, array $thread, string $content, array $selectedIds, array $attachments, array $preferences): array
     {
