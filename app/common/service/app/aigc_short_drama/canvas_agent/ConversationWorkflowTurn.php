@@ -99,7 +99,11 @@ final class ConversationWorkflowTurn
             if (trim($reply)==='') throw new RuntimeException('INVALID_AGENT_INTENT');
             return $value+['text'=>trim($reply),'nodes'=>[],'intake'=>[],'continue'=>false];
         }
-        if ($skillKey!=='' || trim($reply)!=='' || !is_array($value['workflow_output'])) throw new RuntimeException('INVALID_AGENT_INTENT');
+        // A tenant-authorized Skill recommendation may accompany a workflow
+        // continuation. It is advisory only: the frozen stage Skills, not this
+        // model field, control execution. Rejecting it made a valid paid stage
+        // response disappear after the upstream call had already completed.
+        if (trim($reply)!=='' || !is_array($value['workflow_output'])) throw new RuntimeException('INVALID_AGENT_INTENT');
         $stage=(string)($workflow['stage_state']['key']??'');
         $payload=json_encode($value['workflow_output'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
         if ($stage==='intake') {
