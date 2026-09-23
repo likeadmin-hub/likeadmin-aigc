@@ -44,6 +44,16 @@ class CanvasAgentStageReplyTest extends TestCase
         self::assertStringNotContainsString('图片已生成',$visible);
     }
 
+    public function testWrittenManualStoryboardReplyDoesNotAskForNonexistentPlanCard(): void
+    {
+        $visible=ConversationStageReply::present($this->workflow('storyboard'),'已准备图片计划，请核对预计积分，确认后再生成图片。',[
+            ['title'=>'办公室场景','type'=>'image'],['title'=>'镜头一','type'=>'image'],
+        ],true);
+        self::assertStringContainsString('已在画布插入2个',$visible);
+        self::assertStringContainsString('逐个确认图片任务',$visible);
+        self::assertStringNotContainsString('预计积分',$visible);
+    }
+
     public function testUnconfirmedScriptCannotClaimNodesWereUpdated(): void
     {
         $visible=ConversationStageReply::present($this->workflow('script'),'故事设定节点已更新，单集剧本节点已重写。请确认内容。',[
