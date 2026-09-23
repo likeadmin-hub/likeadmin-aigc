@@ -102,6 +102,7 @@ class CanvasAgentStageReplyTest extends TestCase
             $instruction=ConversationActionPlan::instruction('manual',$stage,true,true);
             self::assertStringContainsString('canvas_actions',$instruction);
             self::assertStringNotContainsString('<canvas-actions>',$instruction);
+            if (in_array($stage,['assets','storyboard','video_nodes','audio_plan'],true)) self::assertStringContainsString('全批次唯一',$instruction);
         }
         self::assertNull(ConversationActionPlan::responseFormat(''));
     }
