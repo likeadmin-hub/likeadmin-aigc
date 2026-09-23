@@ -111,6 +111,82 @@ final class ConversationIntentRouter
             +($modern?array_intersect_key($value,array_flip(['speech_act','deliverable','scope'])):[]);
     }
 
+    /**
+     * A malformed advisory envelope must not turn an ordinary text turn into
+     * a failed media/workflow run. Recover only an unambiguous, non-executable
+     * reply; workflow activation still uses the exact frozen schema above.
+     */
+    public static function parseConversation(string $response,array $routing,array $availableSources=['message']): array
+    {
+        try { return self::parse($response,$routing,$availableSources); }
+        catch (RuntimeException $error) {
+            if ((int)($routing['version']??2)<3 || $error->getMessage()!=='INVALID_AGENT_INTENT') throw $error;
+        }
+        try { $value=json_decode(trim($response),true,16,JSON_THROW_ON_ERROR); }
+        catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTENT',0,$error); }
+        if (!is_array($value) || array_is_list($value)) throw new RuntimeException('INVALID_AGENT_INTENT');
+        $advisory=['intent','confidence','skill_key','reply_markdown','intake','speech_act','deliverable','scope','reasoning','explanation'];
+        if (array_diff(array_keys($value),$advisory)) throw new RuntimeException('INVALID_AGENT_INTENT');
+        $intent=$value['intent']??null;
+        // Neither an incomplete workflow decision nor a media-generation
+        // claim can be repaired by silently changing its meaning.
+        if (!in_array($intent,['chat','creative_plan','uncertain'],true)
+            || ($value['scope']??null)==='workflow' || ($value['deliverable']??null)==='full_drama') throw new RuntimeException('INVALID_AGENT_INTENT');
+        $reply=$value['reply_markdown']??null;
+        if (!is_string($reply) || trim($reply)==='' || mb_strlen($reply)>10000
+            || str_contains($reply,'<canvas-actions>') || str_contains($reply,'</canvas-actions>')) throw new RuntimeException('INVALID_AGENT_INTENT');
+        $confidence=$value['confidence']??null;
+        if (is_string($confidence) && preg_match('/^(?:0(?:\.\d+)?|1(?:\.0+)?)$/D',$confidence)) $confidence=(float)$confidence;
+        if ((!is_float($confidence) && !is_int($confidence)) || $confidence<0 || $confidence>1) throw new RuntimeException('INVALID_AGENT_INTENT');
+        $skillKey=$value['skill_key']??'';
+        if (!is_string($skillKey)) throw new RuntimeException('INVALID_AGENT_INTENT');
+        $allowed=[];
+        foreach ((array)($routing['skill_candidates']??[]) as $item) if (is_array($item) && is_string($item['key']??null)) $allowed[$item['key']]=true;
+        if ($skillKey!=='' && !isset($allowed[$skillKey])) throw new RuntimeException('INVALID_AGENT_INTENT');
+        $intake=$value['intake']??['candidates'=>[],'questions'=>[]];
+        if (!is_array($intake) || ($intake['candidates']??null)!==[] || ($intake['questions']??null)!==[]) throw new RuntimeException('INVALID_AGENT_INTENT');
+        $defaults=match ($intent) {
+            'chat'=>['speech_act'=>'chat','deliverable'=>'text','scope'=>'conversation'],
+            'creative_plan'=>['speech_act'=>'request','deliverable'=>'text','scope'=>'standalone'],
+            default=>['speech_act'=>'question','deliverable'=>'none','scope'=>'uncertain'],
+        };
+        $axes=[];
+        foreach ($defaults as $key=>$default) {
+            $candidate=$value[$key]??null;
+            $axes[$key]=is_string($candidate) && in_array($candidate,match ($key) {
+                'speech_act'=>self::SPEECH_ACTS,'deliverable'=>self::DELIVERABLES,default=>self::SCOPES,
+            },true) ? $candidate : $default;
+        }
+        if ($axes['scope']==='workflow' || $axes['deliverable']==='full_drama') throw new RuntimeException('INVALID_AGENT_INTENT');
+        // Canonicalize to the same eight-field contract that complete() checks
+        // under its transaction. Ignore unrelated model keys, never actions.
+        return self::parse(json_encode([
+            'intent'=>$intent,'confidence'=>$confidence,'skill_key'=>$skillKey,
+            'reply_markdown'=>trim($reply),'intake'=>['candidates'=>[],'questions'=>[]],
+        ]+$axes,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),$routing,$availableSources);
+    }
+
+    /** Safe shape-only diagnostics; never persist the model's answer. */
+    public static function failureCategory(string $response,array $routing): string
+    {
+        try { $value=json_decode(trim($response),true,16,JSON_THROW_ON_ERROR); }
+        catch (\Throwable $error) { return 'intent_not_json'; }
+        if (!is_array($value) || array_is_list($value)) return 'intent_shape';
+        $fields=(int)($routing['version']??2)>=3
+            ? ['intent','confidence','skill_key','reply_markdown','intake','speech_act','deliverable','scope']
+            : ['intent','confidence','skill_key','reply_markdown'];
+        if (array_diff($fields,array_keys($value)) || array_diff(array_keys($value),array_merge($fields,['intake']))) return 'intent_shape';
+        if (!is_string($value['intent']??null) || !in_array($value['intent'],self::INTENTS,true)
+            || !is_string($value['reply_markdown']??null) || trim($value['reply_markdown'])==='') return 'intent_value';
+        $allowed=[];
+        foreach ((array)($routing['skill_candidates']??[]) as $item) if (is_array($item) && is_string($item['key']??null)) $allowed[$item['key']]=true;
+        $key=$value['skill_key']??null;
+        if (!is_string($key) || ($key!=='' && !isset($allowed[$key]))) return 'intent_skill';
+        if (array_key_exists('intake',$value) && (($value['intake']['candidates']??null)!==[] || ($value['intake']['questions']??null)!==[])
+            && ($value['intent']??'')!=='short_drama') return 'intent_unexpected_output';
+        return 'intent_value';
+    }
+
     public static function shouldActivateWorkflow(array $decision,array $routing): bool
     {
         if (($decision['intent']??'')!=='short_drama'

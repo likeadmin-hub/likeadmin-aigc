@@ -70,7 +70,13 @@ final class ConversationWorker
                         throw $error;
                     }
                 }
-                elseif ($intentRouting) ConversationIntentRouter::parse($content,$intentRouting,$intakeSources);
+                elseif ($intentRouting) {
+                    try { ConversationIntentRouter::parseConversation($content,$intentRouting,$intakeSources); }
+                    catch (RuntimeException $error) {
+                        $diagnosticDetail=ConversationIntentRouter::failureCategory($content,$intentRouting);
+                        throw $error;
+                    }
+                }
                 elseif ($intakeAnalysis) ConversationIntakeDraft::parseDirect($content,(array)($context['workflow']['workflow_snapshot']['slot_schema']??[]),$intakeSources);
                 else {
                     $plan=ConversationActionPlan::parse($content,$workflowStage,$compact);
@@ -97,7 +103,7 @@ final class ConversationWorker
                 return ConversationExecution::complete($tenant,$user,$run,$claim['token'],$claim['fence'],$decision['text'],$decision['nodes'],[],$decision['intake'],$decision)?'success':'needs_reconciliation';
             }
             if ($intentRouting) {
-                $decision=ConversationIntentRouter::parse($result['content'],$intentRouting,$intakeSources);
+                $decision=ConversationIntentRouter::parseConversation($result['content'],$intentRouting,$intakeSources);
                 $text=ConversationIntentRouter::reply($decision,$intentRouting,$intakeSources);
                 return ConversationExecution::complete($tenant,$user,$run,$claim['token'],$claim['fence'],$text,[],$decision)?'success':'needs_reconciliation';
             }
