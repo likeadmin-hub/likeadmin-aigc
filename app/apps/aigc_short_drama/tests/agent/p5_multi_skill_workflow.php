@@ -152,6 +152,9 @@ try {
     $routing=(array)($chatContext['intent_routing']??[]);
     try { WorkflowTurn::parse('{"intent":"chat","confidence":1,"skill_key":"","reply_markdown":"已创建","workflow_output":{"canvas_actions":{"nodes":[]}}}',$routing); throw new RuntimeException('off-topic graph payload accepted'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_INTENT','off-topic model output cannot carry workflow actions'); }
+    agentCheck(WorkflowTurn::failureCategory('not json',$routing)==='intent_not_json'
+        && WorkflowTurn::failureCategory('{"intent":"chat","confidence":1,"skill_key":"","reply_markdown":"已创建","workflow_output":{"canvas_actions":{"nodes":[]}}}',$routing)==='intent_unexpected_output',
+        'rejected model output is classified by safe shape only, without storing the answer');
     agentCheck(!str_contains(ActionPlan::nestedInstruction('manual','art',true),'<canvas-actions>')
         && str_contains(ActionPlan::nestedInstruction('manual','art',true),'workflow_output 子对象')
         && !str_contains(ActionPlan::nestedInstruction('manual','assets',true),'<canvas-actions>'),
