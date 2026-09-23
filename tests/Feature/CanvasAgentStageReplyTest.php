@@ -94,4 +94,15 @@ class CanvasAgentStageReplyTest extends TestCase
         $items=ConversationWorkflow::timeline($workflow,[],[]);
         self::assertSame(['画风设计','主体设计','场景设计','道具设计'],array_column($items,'detail'));
     }
+
+    public function testEveryWorkflowStageRequestsOneValidatedJsonEnvelope(): void
+    {
+        foreach (['script','art','assets','storyboard','video_plan','video_nodes','audio_plan'] as $stage) {
+            self::assertSame(['type'=>'json_object'],ConversationActionPlan::responseFormat($stage));
+            $instruction=ConversationActionPlan::instruction('manual',$stage,true,true);
+            self::assertStringContainsString('canvas_actions',$instruction);
+            self::assertStringNotContainsString('<canvas-actions>',$instruction);
+        }
+        self::assertNull(ConversationActionPlan::responseFormat(''));
+    }
 }
