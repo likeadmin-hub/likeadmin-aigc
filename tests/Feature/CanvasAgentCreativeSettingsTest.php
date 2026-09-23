@@ -89,4 +89,20 @@ class CanvasAgentCreativeSettingsTest extends TestCase
         $metadata['prompt']='不同的主图';
         self::assertNotSame($original,GraphService::autoPayloadHash($metadata));
     }
+
+    public function testContinuingWorkflowUsesItsFrozenModelsAndMode(): void
+    {
+        $state=['workflow_snapshot'=>['model_preferences'=>[
+            'generation_mode'=>'manual',
+            'reasoning_model'=>['id'=>'text-original'],
+            'image_model'=>['id'=>'image-original'],
+            'video_model'=>['id'=>'video-original'],
+        ]]];
+        $settings=['generation_mode'=>'auto','reasoning_model'=>'text-new',
+            'image_model'=>'image-new','video_model'=>'video-new'];
+        self::assertSame([
+            'generation_mode'=>'manual','reasoning_model'=>'text-original',
+            'image_model'=>'image-original','video_model'=>'video-original',
+        ],ConversationWorkflow::frozenPreferences($state,$settings));
+    }
 }

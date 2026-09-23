@@ -199,6 +199,19 @@ final class ConversationWorkflow
         return $state;
     }
 
+    /** Keep the original selections, then reauthorize their IDs against the
+     * current tenant catalog. Browser model objects never enter a run. */
+    public static function frozenPreferences(array $state,array $preferences): array
+    {
+        $frozen=(array)($state['workflow_snapshot']['model_preferences']??[]);
+        if (in_array($frozen['generation_mode']??null,['auto','manual'],true)) $preferences['generation_mode']=$frozen['generation_mode'];
+        foreach (['reasoning_model','image_model','video_model'] as $field) {
+            $id=(string)($frozen[$field]['id']??'');
+            if ($id!=='') $preferences[$field]=$id;
+        }
+        return $preferences;
+    }
+
     /** Add an untrusted extraction draft to the immutable initial run result.
      * No extracted value becomes a confirmed slot until the owner reviews it. */
     public static function withIntakeDraft(array $workflow,mixed $raw,array $availableSources=['message']): array
