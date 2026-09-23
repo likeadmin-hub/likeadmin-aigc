@@ -73,17 +73,20 @@ try {
     Workflow::confirmStagePlan($tenant,$user,$canvas,$thread,(int)$view['workflow']['state_revision']);
     [$nodes,$edges]=$graph($canvas);
     agentCheck(count($nodes)===2 && count($edges)===0 && ($nodes[1]['metadata']['workflow_artifact']??'')==='episode_script','story/outline and episode script are the only text canvas nodes and have no decorative dependency edge');
-    agentCheck(($nodes[0]['metadata']['workflow_formal_fields']['story_outline']??'')==='林夏调查姐姐失踪，第一集在雨夜收到录音并追踪档案。'
-        && ($nodes[1]['metadata']['workflow_formal_fields']['episode_number']??0)===1,
-        'new workflow projection preserves validated formal fields without splitting free prose');
-    $invalidFormal=$reply([
-        ['type'=>'text','artifact'=>'story_setting','title'=>'不可写回的旧式自由正文','prompt'=>'林夏寻找姐姐','key'=>'bad'],
+    agentCheck(!isset($nodes[0]['metadata']['workflow_formal_fields']) && !isset($nodes[1]['metadata']['workflow_formal_fields']),
+        'retired formal-project fields are not projected to new canvas nodes');
+    $plainScript=$reply([
+        ['type'=>'text','artifact'=>'story_setting','title'=>'故事设定','prompt'=>'林夏寻找姐姐','key'=>'plain_story'],
         ['type'=>'text','artifact'=>'episode_script','title'=>'第一集','prompt'=>'林夏收到录音','key'=>'bad_episode'],
     ],'自由正文');
-    $formalRejected=false;
-    try { ActionPlan::parse($invalidFormal,'script',true,true); }
-    catch (RuntimeException $error) { $formalRejected=$error->getMessage()==='INVALID_AGENT_ACTION'; }
-    agentCheck($formalRejected,'new structured-writeback workflow rejects model output missing exact formal fields');
+    $parsed=ActionPlan::parse($plainScript,'script',true);
+    agentCheck(count($parsed['nodes'])===2 && !isset($parsed['nodes'][0]['formal_fields']),
+        'script stage accepts readable content without retired formal-project fields');
+    agentCheck(!str_contains(ActionPlan::instruction('manual','script',true), 'formal_fields'),
+        'new script stage no longer requests formal-project-only model fields');
+    $legacy=ActionPlan::parse($script,'script',true);
+    agentCheck(count($legacy['nodes'])===2 && !isset($legacy['nodes'][0]['formal_fields']),
+        'in-flight legacy Provider fields are accepted but discarded');
     $storyId=(string)$nodes[0]['id'];
 
     $art=$reply([

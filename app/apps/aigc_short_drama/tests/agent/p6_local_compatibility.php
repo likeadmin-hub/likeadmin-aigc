@@ -4,36 +4,23 @@ declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
 
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService;
-use app\common\service\database\SqlMigrationExecutor as Sql;
+use app\api\controller\app\aigc_short_drama\CanvasController;
 use think\facade\Db;
 
 /** P6 local-only source/install parity and backwards-read evidence. */
-function bindingDdl(string $path): string
-{
-    foreach (Sql::split((string)file_get_contents($path)) as $statement) {
-        if (str_starts_with($statement, 'CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_binding`')) return $statement;
-    }
-    throw new RuntimeException('canvas binding DDL missing from ' . $path);
+$bindingTable = 'la_aigc_short_drama_canvas_binding';
+foreach ([dirname(__DIR__, 2) . '/migrations/install.sql', root_path() . 'public/install/db/like.sql'] as $install) {
+    agentCheck(!str_contains((string)file_get_contents($install), $bindingTable), 'removed formal-project bridge is not provisioned by ' . basename($install));
 }
-function compactSql(string $statement): string
-{
-    return preg_replace('/\s+/', ' ', trim($statement)) ?: '';
+agentCheck(!method_exists(ShortDramaCanvasService::class, 'bindProject'), 'formal-project binding is absent from the canvas service');
+$schema = json_decode((string)file_get_contents(dirname(__DIR__, 2) . '/api_schema.json'), true, 512, JSON_THROW_ON_ERROR);
+$retired = ['binding', 'bind', 'writebackSources', 'previewStoryWriteback', 'applyStoryWriteback', 'previewEpisodeWriteback', 'applyEpisodeWriteback', 'previewShotWriteback', 'applyShotWriteback'];
+$registered = array_column((array)($schema['apis'] ?? []), 'api_path');
+foreach ($retired as $action) {
+    agentCheck(!method_exists(CanvasController::class, $action), 'formal-project controller action removed: ' . $action);
+    agentCheck(!in_array('app.aigc_short_drama.canvas/' . $action, $registered, true), 'formal-project API schema entry removed: ' . $action);
 }
-
-$appInstall = bindingDdl(dirname(__DIR__, 2) . '/migrations/install.sql');
-$fullInstall = bindingDdl(root_path() . 'public/install/db/like.sql');
-$upgrade = bindingDdl(dirname(__DIR__, 2) . '/migrations/upgrade_20260922_canvas_binding.sql');
-agentCheck(compactSql($appInstall) === compactSql($upgrade), 'O01 app install and upgrade binding schemas are identical');
-agentCheck(compactSql($fullInstall) === compactSql($upgrade), 'O01 full install snapshot and upgrade binding schemas are identical');
-
-// Re-run the exact source upgrade on the existing local schema. CREATE IF NOT
-// EXISTS is the upgrade's intended idempotence contract and changes no row.
-Db::execute($upgrade . ';');
-Db::execute($upgrade . ';');
-$columns = Db::query("SHOW COLUMNS FROM `la_aigc_short_drama_canvas_binding`");
-$indexes = Db::query("SHOW INDEX FROM `la_aigc_short_drama_canvas_binding`");
-agentCheck(count($columns) === 10, 'O02 repeated local binding migration preserves expected columns');
-agentCheck(count(array_filter($indexes, static fn(array $index): bool => $index['Key_name'] === 'uk_canvas')) === 3, 'O02 repeated local binding migration preserves scoped unique index');
+agentCheck(method_exists(CanvasController::class, 'save') && method_exists(CanvasController::class, 'quote'), 'ordinary canvas save and generation routes remain available');
 
 // A legacy graph row has no binding and must remain readable byte-for-byte at
 // the JSON document boundary. The fixture is rolled back after the read.
