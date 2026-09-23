@@ -465,7 +465,7 @@ final class ConversationWorkflow
         if (!in_array($stage,['script','art','video_plan'],true)) return null;
         $state=self::stateFromSettings($threadSettings);if ($state===[]) return null;self::assertState($state);
         if ((int)($state['state_revision']??0)!==(int)($workflow['state_revision']??0) || ($state['stage_state']['key']??'')!==$stage || ($state['stage_state']['status']??'')!=='running') return null;
-        if (!$proposals || count($proposals)>8 || array_filter($proposals,static fn($node): bool=>!is_array($node) || ($node['type']??'')!=='text')) throw new RuntimeException('WORKFLOW_STAGE_PLAN_REQUIRED');
+        if (!$proposals || count($proposals)>ConversationActionPlan::maximumNodesForStage($stage,self::compactOutput($workflow)) || array_filter($proposals,static fn($node): bool=>!is_array($node) || ($node['type']??'')!=='text')) throw new RuntimeException('WORKFLOW_STAGE_PLAN_REQUIRED');
         $sources=[];
         foreach ((array)($context['selected_nodes']??[]) as $node) {
             if (!is_array($node) || !preg_match('/^[1-9][0-9]{0,15}$/D',(string)($node['id']??''))) continue;
@@ -511,7 +511,7 @@ final class ConversationWorkflow
             $skills=array_values(array_filter((array)($definition['skills']??[]),'is_string'));
         }
         $items=[];
-        if ($skills) $items[]=['kind'=>'skill','label'=>'已调用技能','detail'=>implode('、',$skills)];
+        foreach ($skills as $skill) $items[]=['kind'=>'skill','label'=>'已使用技能','detail'=>$skill];
         $textNodes=count(array_filter($proposals,static fn($node): bool=>is_array($node) && ($node['type']??'')==='text'));
         if ($textNodes>0 && !empty($effects['nodes'])) $items[]=['kind'=>'tool','label'=>'已调用工具','detail'=>'文本节点创建 · '.$textNodes.' 项'];
         if (!empty($effects['nodes']) && !$textNodes) $items[]=['kind'=>'tool','label'=>'已调用工具','detail'=>'画布节点创建 · '.count((array)$effects['nodes']).' 项'];
@@ -771,7 +771,7 @@ final class ConversationWorkflow
             $key=trim((string)($proposal['key']??''));
             $memory[]=['stage'=>$stage,'artifact'=>$artifact,'key'=>$key,'reference_key'=>$key===''?'':$stage.':'.$key,'node_id'=>(string)($effects['nodes'][$index]['id']??''),'title'=>mb_substr(trim((string)($proposal['title']??'')),0,80),'content'=>mb_substr($content,0,6000)];
         }
-        $state['artifact_memory']=array_slice($memory,-32);
+        $state['artifact_memory']=array_slice($memory,-64);
     }
     private static function publicArtifacts(array $artifacts): array {
         $items=[];
@@ -785,7 +785,7 @@ final class ConversationWorkflow
         return preg_match('/^[a-f0-9]{64}$/D',(string)($plan['hash']??''))===1 && is_array($plan['nodes']??null) && $plan['nodes']!==[] && count($plan['nodes'])<=4 && is_array($plan['sources']??null) && is_array($plan['attachment_images']??null) && ($parameters===['quantity'=>1] || (count($parameters)===2 && ($parameters['quantity']??null)===1 && preg_match('/^[1-9][0-9]{0,3}:[1-9][0-9]{0,3}$/D',(string)($parameters['ratio']??''))===1)) && is_array($plan['quotes']??null) && count($plan['quotes'])===count($plan['nodes']) && (int)($plan['run_id']??0)>0;
     }
     private static function validStagePlan(array $plan,string $stage): bool {
-        if (!in_array($stage,['script','art','video_plan'],true) || (string)($plan['stage']??'')!==$stage || !is_array($plan['nodes']??null) || !$plan['nodes'] || count($plan['nodes'])>8 || !is_array($plan['sources']??null) || (int)($plan['run_id']??0)<=0) return false;
+        if (!in_array($stage,['script','art','video_plan'],true) || (string)($plan['stage']??'')!==$stage || !is_array($plan['nodes']??null) || !$plan['nodes'] || count($plan['nodes'])>ConversationActionPlan::maximumNodesForStage($stage) || !is_array($plan['sources']??null) || (int)($plan['run_id']??0)<=0) return false;
         foreach ($plan['nodes'] as $node) if (!is_array($node) || ($node['type']??'')!=='text' || trim((string)($node['artifact']??''))==='') return false;
         return true;
     }

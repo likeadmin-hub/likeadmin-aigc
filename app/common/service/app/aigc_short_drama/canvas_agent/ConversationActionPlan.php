@@ -24,6 +24,11 @@ final class ConversationActionPlan
      */
     private const STRUCTURED_TEXT_STAGES=['script','art','video_plan'];
 
+    public static function maximumNodesForStage(string $stage,bool $compact=false): int
+    {
+        return match ($stage) { 'video_nodes'=>60, 'audio_plan'=>1, 'script'=>$compact?2:3, 'art'=>24, 'video_plan'=>8, default=>4 };
+    }
+
     public static function instruction(string $mode,string $workflowStage='',bool $compact=false,bool $stageGenerationPrompts=false): string
     {
         if ($compact) {
@@ -93,7 +98,7 @@ final class ConversationActionPlan
             'art'=>['art_bible','character_asset_spec','scene_asset_spec','prop_asset_spec','subject_image_prompt','three_view_prompt','scene_image_prompt','storyboard_image_prompt'],
             'assets'=>['subject','three_view'], 'storyboard'=>$compact?['scene','storyboard']:['scene','prop','storyboard'], 'video_plan'=>['video_prompt_plan'], 'video_nodes'=>['storyboard_video'], 'audio_plan'=>['audio_plan'], default=>[],
         };
-        $maximum=match ($workflowStage) { 'video_nodes'=>60, 'audio_plan'=>1, 'script'=>$compact?2:3, 'art','video_plan'=>8, default=>4 };
+        $maximum=self::maximumNodesForStage($workflowStage,$compact);
         if (!is_array($action) || array_keys($action) !== ['nodes'] || !is_array($action['nodes']) || !array_is_list($action['nodes']) || !$action['nodes'] || count($action['nodes']) > $maximum) throw new RuntimeException('INVALID_AGENT_ACTION');
         $nodes = [];
         $keys = [];

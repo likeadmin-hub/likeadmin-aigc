@@ -91,7 +91,12 @@ final class ConversationTextContext
         $generationPromptSources=[];
         $referenceCatalog=[];
         if ($separatePrompts) {
-            $wanted=$stage==='video_nodes' ? ['video_prompt_plan'] : ['subject_image_prompt','three_view_prompt','scene_image_prompt','storyboard_image_prompt'];
+            $wanted=match ($stage) {
+                'assets'=>['subject_image_prompt','three_view_prompt'],
+                'storyboard'=>['scene_image_prompt','storyboard_image_prompt'],
+                'video_nodes'=>['video_prompt_plan'],
+                default=>[],
+            };
             foreach ((array)($workflow['artifact_memory']??[]) as $item) {
                 if (!is_array($item) || !in_array((string)($item['artifact']??''),$wanted,true)) continue;
                 $key=(string)($item['reference_key']??'');
@@ -104,7 +109,7 @@ final class ConversationTextContext
                     'content'=>mb_substr($content,0,3500),
                 ];
             }
-            $generationPromptSources=array_slice($generationPromptSources,-8);
+            $generationPromptSources=array_slice($generationPromptSources,-24);
         }
         $contextArtifacts=(array)($workflow['artifact_memory']??[]);
         if ($separatePrompts) {
@@ -124,7 +129,7 @@ final class ConversationTextContext
                 'content'=>mb_substr($content,0,6000),
             ];
         }
-        foreach (array_slice((array)($workflow['artifact_memory']??[]),-32) as $item) {
+        foreach (array_slice((array)($workflow['artifact_memory']??[]),-64) as $item) {
             if (!is_array($item)) continue;
             $referenceKey=trim((string)($item['reference_key']??''));
             if ($referenceKey==='' || !preg_match('/^[a-z][a-z0-9_-]{0,47}:[a-z][a-z0-9_-]{0,31}$/D',$referenceKey)) continue;
