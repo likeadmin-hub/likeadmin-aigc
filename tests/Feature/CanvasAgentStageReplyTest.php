@@ -117,6 +117,17 @@ class CanvasAgentStageReplyTest extends TestCase
         self::assertNull(ConversationActionPlan::responseFormat(''));
     }
 
+    public function testStoryboardInstructionPreservesEachConfirmedScriptShot(): void
+    {
+        foreach ([true,false] as $compact) {
+            $instruction=ConversationActionPlan::instruction('manual','storyboard',$compact,true);
+            self::assertStringContainsString('每个剧本镜头恰好对应一个同编号 storyboard',$instruction);
+            self::assertStringContainsString('可见动作',$instruction);
+            self::assertStringContainsString('结局',$instruction);
+            self::assertStringNotContainsString('办公室递交简历',$instruction);
+        }
+    }
+
     public function testRejectedMediaPlanReportsOnlySafeStructuralCategory(): void
     {
         $reply=json_encode(['reply_markdown'=>'准备了主体与三视图。','canvas_actions'=>['nodes'=>[
