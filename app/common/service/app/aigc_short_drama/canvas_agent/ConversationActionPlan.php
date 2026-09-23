@@ -28,7 +28,7 @@ final class ConversationActionPlan
     {
         if ($compact) {
             if ($workflowStage==='script') return self::structuredEnvelopeInstruction('剧本与角色设定', 'story_setting、episode_script', '必须恰好输出两项：story_setting 合并故事设定、角色关系及全剧/分集大纲；episode_script 是当前制作单集的完整场景、动作、对白与镜头意图。两个节点的 prompt 都必须是可阅读的真实内容，不能是模板或占位符。不得用 depends_on 连接两个文本节点；仅实际作为媒体输入的素材才需要画布连线。');
-            if ($workflowStage==='art') return self::structuredEnvelopeInstruction('画风与美术规划', 'art_bible、character_asset_spec、scene_asset_spec、prop_asset_spec、subject_image_prompt、three_view_prompt、scene_image_prompt、storyboard_image_prompt', '这些是真实的阶段规划，确认后只保存在对话工作流状态，不创建画布节点。按实际角色和场景分别输出明确、可用于后续生图的内容；不得输出模板或占位符。');
+            if ($workflowStage==='art') return self::structuredEnvelopeInstruction('画风与美术规划', 'art_bible、character_asset_spec、scene_asset_spec、prop_asset_spec、subject_image_prompt、three_view_prompt、scene_image_prompt、storyboard_image_prompt', '这些是真实的阶段规划，确认后只保存在对话工作流状态，不创建画布节点。按实际角色和场景分别输出明确、可用于后续生图的内容；不得输出模板或占位符。此阶段是纯文本规划，不需要 depends_on 或 reference_keys。');
             if ($workflowStage==='video_plan') return self::structuredEnvelopeInstruction('分镜视频规划', 'video_prompt_plan', '每镜包含 shot_number、duration、first_frame、last_frame、camera_motion、action_sequence、video_prompt、asset_references；确认后只保存在对话工作流状态，不创建画布文本节点。');
             if ($workflowStage==='assets') return '当前为主体资产阶段。只输出 <canvas-actions>{"nodes":[...]}</canvas-actions>。节点只能为 image，artifact 为 subject 或 three_view；每个 three_view 必须 depends_on 同批对应 subject，且该主体图是唯一必须的三视图媒体输入。每个 prompt 应根据已确认的剧本与美术规划写成完整生图提示词。reference_keys 只能选 workflow_reference_catalog 中实际用于本节点的已生成媒体或用户选择的素材；不要把全部历史产物连接到每个节点。最多四项。每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys；不得声明价格、模型、URL、素材 ID 或任务状态。';
             if ($workflowStage==='storyboard') return '当前为场景与分镜图阶段。只输出 <canvas-actions>{"nodes":[...]}</canvas-actions>。节点只能为 image，artifact 为 scene 或 storyboard；每个 storyboard 必须 depends_on 同批对应 scene，且 reference_keys 只能从 workflow_reference_catalog 中选择该镜头确实出镜或决定画面一致性的主体图/三视图。关键道具写入该镜头 prompt，不默认创建道具图。每个 prompt 须包含真实场景、角色、动作、构图和画风；最多四项。每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys；不得声明价格、模型、URL、素材 ID 或任务状态。';
@@ -95,6 +95,12 @@ final class ConversationActionPlan
         $keys = [];
         $keyArtifacts = [];
         foreach ($action['nodes'] as $node) {
+            if ($compact && in_array($workflowStage,['art','video_plan'],true) && is_array($node)) {
+                // Compact planning artifacts live in the conversation, not
+                // the canvas graph. Model-proposed links cannot become media
+                // inputs here; later image stages select authorized sources.
+                unset($node['depends_on'],$node['reference_keys']);
+            }
             $fields=$allowedArtifacts ? ['type','artifact','title','prompt','key','depends_on','reference_keys'] : ['type','title','prompt','key','depends_on'];
             // Older frozen replies may still carry this retired field. Ignore
             // it rather than failing an already-submitted Provider response.

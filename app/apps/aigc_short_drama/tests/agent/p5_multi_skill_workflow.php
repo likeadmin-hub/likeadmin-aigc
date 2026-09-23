@@ -171,6 +171,9 @@ try {
     $emptyReferencePlan=ActionPlan::parse('{"reply_markdown":"美术规划","canvas_actions":{"nodes":[{"type":"text","artifact":"art_bible","title":"画风","prompt":"旧书店冷暖对比","key":"art","reference_keys":[]}]}}','art',true);
     agentCheck(count($emptyReferencePlan['nodes'])===1 && !isset($emptyReferencePlan['nodes'][0]['reference_keys']),
         'empty optional reference lists are normalized to no graph edge while nonempty references remain validated');
+    $planningOnly=ActionPlan::parse('{"reply_markdown":"美术规划","canvas_actions":{"nodes":[{"type":"text","artifact":"art_bible","title":"画风","prompt":"旧书店冷暖对比","key":"art","depends_on":["story_setting"],"reference_keys":["story_setting"]}]}}','art',true);
+    agentCheck(count($planningOnly['nodes'])===1 && !isset($planningOnly['nodes'][0]['depends_on']) && !isset($planningOnly['nodes'][0]['reference_keys']),
+        'compact conversation-only art planning cannot create model-invented graph references');
     $artPlan=ActionPlan::parse($artReply,'art');
     $continueAck=$enqueueActive('workflow-art-resume','继续刚才的短剧美术规划');
     $provider->content=json_encode(['intent'=>'continue','confidence'=>0.96,'skill_key'=>'','reply_markdown'=>'',

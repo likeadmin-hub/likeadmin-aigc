@@ -41,6 +41,8 @@ final class ConversationWorkflowTurn
             if (array_keys($output)!==['reply_markdown','canvas_actions'] || !is_string($output['reply_markdown']??null)) return 'intent_stage_keys';
             $actions=$output['canvas_actions']??null;
             if (!is_array($actions) || array_keys($actions)!==['nodes'] || !is_array($actions['nodes']) || !array_is_list($actions['nodes']) || !$actions['nodes']) return 'intent_stage_nodes';
+            $max=match ($stage) { 'video_nodes'=>60,'audio_plan'=>1,'script'=>ConversationWorkflow::compactOutput($workflow)?2:3,'assets','storyboard'=>4,default=>8 };
+            if (count($actions['nodes'])>$max) return 'intent_stage_node_count';
             $types=match ($stage) { 'script','art','video_plan'=>['text'], 'assets','storyboard'=>['image'], 'video_nodes'=>['video'], 'audio_plan'=>['audio'], default=>[] };
             $artifacts=match ($stage) {
                 'script'=>ConversationWorkflow::compactOutput($workflow)?['story_setting','episode_script']:['story_setting','episode_outline','storyboard_script'],
@@ -48,12 +50,18 @@ final class ConversationWorkflowTurn
                 'assets'=>['subject','three_view'], 'storyboard'=>ConversationWorkflow::compactOutput($workflow)?['scene','storyboard']:['scene','prop','storyboard'], 'video_plan'=>['video_prompt_plan'],
                 'video_nodes'=>['storyboard_video'], 'audio_plan'=>['audio_plan'], default=>[],
             };
+            $seenKeys=[];
             foreach ($actions['nodes'] as $node) {
                 if (!is_array($node) || array_diff(array_keys($node),['type','artifact','title','prompt','key','depends_on','reference_keys'])) return 'intent_stage_node_fields';
                 if (!is_string($node['type']??null) || !is_string($node['artifact']??null) || !is_string($node['title']??null) || !is_string($node['prompt']??null) || trim($node['prompt'])==='') return 'intent_stage_node_values';
                 if ($types && !in_array($node['type'],$types,true)) return 'intent_stage_node_type';
                 if ($artifacts && !in_array($node['artifact'],$artifacts,true)) return 'intent_stage_node_artifact';
                 if (isset($node['key']) && (!is_string($node['key']) || !preg_match('/^[a-z][a-z0-9_-]{0,31}$/D',$node['key']))) return 'intent_stage_node_key';
+                if (mb_strlen($node['title'])>80 || mb_strlen($node['prompt'])>20000) return 'intent_stage_node_length';
+                if (isset($node['key'])) {
+                    if (isset($seenKeys[$node['key']])) return 'intent_stage_duplicate_key';
+                    $seenKeys[$node['key']]=true;
+                }
                 if ((isset($node['depends_on']) && !is_array($node['depends_on'])) || (isset($node['reference_keys']) && !is_array($node['reference_keys']))) return 'intent_stage_node_links';
             }
             return 'intent_stage_contract';
