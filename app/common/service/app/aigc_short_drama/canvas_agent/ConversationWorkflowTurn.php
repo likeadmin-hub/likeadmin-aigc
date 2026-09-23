@@ -89,9 +89,11 @@ final class ConversationWorkflowTurn
             if (!is_array($item)) continue;
             $skills[]=(string)($item['key']??'').'：'.(string)($item['name']??'').' '.(string)($item['description']??'');
         }
-        $stageInstruction=$stage==='intake'
+        $stageInstruction=$stage==='complete'
+            ? '工作流全部阶段已完成，不能选择 continue 或创建新节点；用户明确修改已完成的某个阶段才选择 revise，其余需求按普通聊天或独立创作判断，workflow_output 必须为 null。'
+            : ($stage==='intake'
             ? 'workflow_output 必须是 {"reply_markdown":"简短核对提示","intake":{"candidates":[],"questions":[]}}。'.ConversationIntakeDraft::instruction((array)($workflow['workflow_snapshot']['slot_schema']??[]))
-            : 'workflow_output 必须是 {"reply_markdown":"真实阶段回复","canvas_actions":{"nodes":[...]}}。以下阶段说明仅约束 workflow_output 子对象：'.ConversationActionPlan::nestedInstruction($mode,$stage,ConversationWorkflow::compactOutput($workflow),ConversationWorkflow::usesStageGenerationPrompts($workflow));
+            : 'workflow_output 必须是 {"reply_markdown":"真实阶段回复","canvas_actions":{"nodes":[...]}}。以下阶段说明仅约束 workflow_output 子对象：'.ConversationActionPlan::nestedInstruction($mode,$stage,ConversationWorkflow::compactOutput($workflow),ConversationWorkflow::usesStageGenerationPrompts($workflow)));
         $modern=(int)($routing['version']??2)>=3;
         $revisable=array_values(array_filter((array)($routing['revision_allowed_stages']??[]),static fn($stage): bool=>in_array($stage,['script','art','video_plan'],true)));
         return "\n【逐轮意图判断】当前已有短剧工作流，但历史阶段不是本轮用户的新指令。先只根据本轮请求、已确认的上下文和引用素材判断意图。"
@@ -106,9 +108,11 @@ final class ConversationWorkflowTurn
             .'除 revise 外，若 intent 不是 continue，workflow_output 必须为 null，reply_markdown 给出自然回复，不得声称已创建节点、提交任务或推进阶段。'
             .($revisable ? '唯一例外是用户明确要求修改当前短剧已完成或待确认的剧本、美术或视频规划，且应从相应阶段重新生成：选 intent=revise、scope=workflow、speech_act=request、confidence 不低于 0.8，workflow_output 只含 {"revision_stage":"阶段key"}，阶段key 只能是 '.implode('、',$revisable).'。reply_markdown 简短说明将从该阶段重做、产物完成后再请用户确认；这是用户已发出的修改指令，不要反问是否开始或要求再发一次确认。已有图片与视频节点及已付费结果会保留，新版本沿后续阶段重新生成；不得声称旧节点已被覆盖或媒体任务已提交。普通闲聊或当前阶段正常继续不得选 revise。' : '本轮没有可安全重做的已完成阶段；如用户要求修改已经生成的上游媒体，请说明需要另行确认版本，不要承诺覆盖。')
             .($modern?'如果本轮是独立的文本创作且信息足够，直接在 reply_markdown 交付真实文本；若只是能力提问，只回答并询问必要信息，不推进当前工作流。':'')
-            .($paused
+            .($stage==='complete'
+                ? '当前工作流已完成。用户仅说“继续”时，简短告知已完成，并请其指出要修改的阶段或提出新的独立需求；不要运行不存在的下一阶段。'
+                : ($paused
                 ? '当前工作流有待用户确认的卡片。即使本轮意图是 continue，workflow_output 也必须为 null；不能绕过确认卡。明确要求重新生成该内容时可按上述 revise 规则重开阶段。'
-                : '只有明确属于当前阶段且 confidence 不低于 '.($modern?'0.8':'0.7').' 时才能选 continue。'.($modern?'continue 还必须是 scope=workflow 且 speech_act 为 answer、request 或 confirm。':'').'选 continue 时 reply_markdown 为空字符串，'. $stageInstruction)
+                : '只有明确属于当前阶段且 confidence 不低于 '.($modern?'0.8':'0.7').' 时才能选 continue。'.($modern?'continue 还必须是 scope=workflow 且 speech_act 为 answer、request 或 confirm。':'').'选 continue 时 reply_markdown 为空字符串，'. $stageInstruction))
             .'已授权技能：'.implode('；',$skills);
     }
 
@@ -134,6 +138,13 @@ final class ConversationWorkflowTurn
         if ($skillKey!=='' && !isset($allowed[$skillKey])) throw new RuntimeException('INVALID_AGENT_INTENT');
         $workflow=(array)($routing['workflow_candidate']??[]);
         if (($routing['kind']??'')!=='active_workflow' || ($workflow['workflow_snapshot']['key']??'')!==ConversationWorkflow::KEY) throw new RuntimeException('INVALID_AGENT_INTENT');
+        if (($workflow['stage_state']['key']??'')==='complete' && $intent==='continue') {
+            // Never allow a model's stale "continue" classification to
+            // project content into a non-existent ninth stage.
+            $value['workflow_output']=null;
+            return $value+['text'=>'当前短剧创作规划已完成。你可以告诉我要修改哪个阶段，或提出一项新的独立创作需求。',
+                'nodes'=>[],'intake'=>[],'continue'=>false];
+        }
         $resume=$intent==='continue' && $confidence>=($modern?0.8:0.7) && empty($routing['workflow_paused'])
             && (!$modern || (($value['scope']??'')==='workflow' && in_array($value['speech_act']??'',['answer','request','confirm'],true)));
         if ($intent==='revise') {

@@ -228,6 +228,23 @@ class CanvasAgentIntentRoutingTest extends TestCase
         self::assertSame('旧主体图',$state['artifact_memory'][2]['content']);
     }
 
+    public function testCompleteWorkflowCannotInventAnotherStage(): void
+    {
+        $routing=['version'=>3,'kind'=>'active_workflow','workflow_paused'=>false,
+            'workflow_candidate'=>['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY],
+                'stage_state'=>['key'=>'complete','status'=>'ready']],
+            'revision_allowed_stages'=>['script','art','video_plan'],'skill_candidates'=>[]];
+        $value=['intent'=>'continue','confidence'=>0.95,'skill_key'=>'','reply_markdown'=>'',
+            'workflow_output'=>['reply_markdown'=>'错误地生成了第九阶段','canvas_actions'=>['nodes'=>[]]],
+            'speech_act'=>'request','deliverable'=>'full_drama','scope'=>'workflow'];
+        $parsed=ConversationWorkflowTurn::parse(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing);
+        self::assertFalse($parsed['continue']);
+        self::assertSame([],$parsed['nodes']);
+        self::assertNull($parsed['workflow_output']);
+        self::assertStringContainsString('已完成',$parsed['text']);
+        self::assertStringContainsString('不要运行不存在的下一阶段',ConversationWorkflowTurn::instruction($routing,'manual'));
+    }
+
     public function testOnlyExactReadyStageProtocolCanBypassSemanticClassification(): void
     {
         $state=['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY],
