@@ -104,7 +104,7 @@ final class ConversationWorkflowTurn
             .($modern?'如果对是否继续当前流程的信心低于 0.8，也选 uncertain，并针对本轮内容提问；不要把不相关内容当作阶段答案。':'')
             .'skill_key 只能是下面已授权候选的 key 或空字符串；它仅作推荐，绝不能自动执行 Skill。'
             .'除 revise 外，若 intent 不是 continue，workflow_output 必须为 null，reply_markdown 给出自然回复，不得声称已创建节点、提交任务或推进阶段。'
-            .($revisable ? '唯一例外是用户明确要求重做当前短剧已完成或待确认的剧本、美术或视频规划，且应从相应阶段重新生成：选 intent=revise、scope=workflow、speech_act=request、confidence 不低于 0.8，workflow_output 只含 {"revision_stage":"阶段key"}，阶段key 只能是 '.implode('、',$revisable).'。reply_markdown 简短说明会从该阶段重新生成、再次请用户确认，不得声称已经完成。普通闲聊或当前阶段正常继续不得选 revise。' : '本轮没有可安全重做的已完成阶段；如用户要求修改已经生成的上游媒体，请说明需要另行确认版本，不要承诺覆盖。')
+            .($revisable ? '唯一例外是用户明确要求修改当前短剧已完成或待确认的剧本、美术或视频规划，且应从相应阶段重新生成：选 intent=revise、scope=workflow、speech_act=request、confidence 不低于 0.8，workflow_output 只含 {"revision_stage":"阶段key"}，阶段key 只能是 '.implode('、',$revisable).'。reply_markdown 简短说明将从该阶段重做、产物完成后再请用户确认；这是用户已发出的修改指令，不要反问是否开始或要求再发一次确认。已有图片与视频节点及已付费结果会保留，新版本沿后续阶段重新生成；不得声称旧节点已被覆盖或媒体任务已提交。普通闲聊或当前阶段正常继续不得选 revise。' : '本轮没有可安全重做的已完成阶段；如用户要求修改已经生成的上游媒体，请说明需要另行确认版本，不要承诺覆盖。')
             .($modern?'如果本轮是独立的文本创作且信息足够，直接在 reply_markdown 交付真实文本；若只是能力提问，只回答并询问必要信息，不推进当前工作流。':'')
             .($paused
                 ? '当前工作流有待用户确认的卡片。即使本轮意图是 continue，workflow_output 也必须为 null；不能绕过确认卡。明确要求重新生成该内容时可按上述 revise 规则重开阶段。'
