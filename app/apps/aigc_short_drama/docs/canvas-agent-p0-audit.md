@@ -1250,3 +1250,12 @@ P5 仍为 **NOT_RUN / 未放行**：正式应用到故事设定、分集大纲�
 - **PASS / 现有本地环境**：`p5_multi_skill_workflow.php` 模拟 Provider 行为验收通过，覆盖语义及显式路由、待核对状态、修订/非法字段拒绝、上下文追问、已有答案去重、伪造文档来源拒绝，以及真实 Worker 合同中内联文档内容传入模型、模型归因后只显示核对卡且图谱不变。`p2_worker.php`、`p2_http.php` 回归通过；PC 对话/附件 30 项测试通过，Agent Vue SFC script/template 编译通过。所有数据库写入测试都在既有 Baota 容器与 `x_cn` 中运行并精确清理夹具；无新环境、Docker、数据库或独立 Worker。
 - **PASS / 运行态重载**：重启前只读核对 Agent Run 与现有通用结果、短剧剧本/剧集/画布预览、画布子任务均无运行中记录；随后仅重启宝塔 Supervisor 原有 `ai-task-worker:ai-task-worker_00` 进程组。状态为 RUNNING，统一脚本中的五个既有子 Worker 均重新启动，未增设守护项。
 - **NOT_RUN**：本轮没有通过真实浏览器发送新消息或调用真实文本/视觉 Provider，因此真实上传图片与 PDF/DOC/DOCX 的智能提问质量、页面核对卡交互尚不能记为端到端 PASS；不据此放行 P5/P6 其余门槛。未调用媒体 Provider、部署或推送。
+
+## 2026-09-23 · P6 O04 Agent 关闭后的历史只读边界
+
+- **实现**：会话列表、消息、事件、Run 状态和已冻结工作流的读取仅校验当前 tenant/user/canvas/thread 归属，不再要求 Agent 开关仍开启。新建、发送、卡片回答、图片计划确认和文本阶段确认仍受关闭开关拒绝。后两项此前能绕过开关写图，本轮补上服务端校验。已排队 Run 的所属用户仍可执行既有停止操作。
+- **实现**：PC 关闭态显示历史会话与只读提示，隐藏新建、输入框、引用选择、文本写回、工作流确认和媒体提交入口；历史读取不发布新的画布自动提交动作。普通画布四节点及原有生成入口未改。
+- **PASS / 现有本地 `x_cn`**：在已合入 feature 的本地 server `develop`，`p2_conversation.php`、`p2_http.php`、`p2_worker.php`、`p2_stop.php` 均通过。测试覆盖关开关后历史可读、跨用户/跨租户/跨画布拒绝、所有新工作流写入口拒绝、原有 Worker/停止语义不回退；HTTP 夹具按脚本清理，未调用真实 Provider 或创建媒体任务。容器的 `/usr/bin/php` 是指向不存在的 PHP 8.3 的失效链接，验收改用容器内现存 `/www/server/php/80/bin/php`，未修改或安装运行环境。
+- **PASS / PC 组件**：本地 web `develop` 的 `short-drama-canvas-composer.test.cjs` **22 PASS / 0 FAIL**，含 Vue SFC 编译与关闭态只读渲染契约。初跑 **21 PASS / 1 FAIL** 是旧静态断言仍要求无 `expectedSlot` 参数；改为核对现有跨卡片防误提交校验后复跑通过。
+- **NOT_RUN / O04 剩余**：真实浏览器切换租户 Agent 开关并刷新后，历史列表/详情、禁用按钮、SSE 重连的完整交互尚未手工或浏览器脚本验收。因此 O04 目前是服务端行为与 PC 组件 **PASS**、浏览器端到端 **NOT_RUN**，不得记为完整阶段放行。P5 正式项目写回合同及 P6 其余 O05–O10 仍未放行。
+- **提交**：server 功能 `63f011792`；web 功能 `f153745`、回归断言 `6961ebd`。各提交已分别 `--no-ff` 合入对应本地 `develop` 后验收；未推送、部署、发布或新增环境。文档证据提交另记本节提交历史。
