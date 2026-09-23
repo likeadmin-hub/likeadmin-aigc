@@ -76,6 +76,7 @@ final class ConversationService
             $intentRouting=ConversationIntentRouter::shouldClassify($tenant,$content,$skill,$workflow['workflow'])
                 ? ConversationIntentRouter::snapshot($tenant) : [];
             if ($intentRouting) {
+                $intentRouting['workflow_signal']=ConversationIntentRouter::fullWorkflowSignal($content);
                 // Freeze the same authorized workflow/Skill/model versions as a
                 // direct route before the text Provider crosses its I/O
                 // boundary. The classifier can only activate this snapshot.

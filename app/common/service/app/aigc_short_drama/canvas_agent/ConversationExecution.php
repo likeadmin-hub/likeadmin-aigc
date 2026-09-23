@@ -67,7 +67,7 @@ final class ConversationExecution
             if ($workflowTurn) {
                 $routing=(array)($context['intent_routing']??[]);
                 if ($workflow || $intentDecision || ($routing['kind']??'')!=='active_workflow') throw new RuntimeException('INVALID_AGENT_INTENT');
-                $decision=ConversationWorkflowTurn::parse(self::json(array_intersect_key($workflowTurn,array_flip(['intent','confidence','skill_key','reply_markdown','workflow_output']))),$routing,$intakeSources);
+                $decision=ConversationWorkflowTurn::parse(self::json(array_intersect_key($workflowTurn,array_flip(['intent','confidence','skill_key','reply_markdown','workflow_output','speech_act','deliverable','scope']))),$routing,$intakeSources);
                 if ($decision['text']!==$text || $decision['nodes']!==$proposals || $decision['intake']!==$intakeDraft) throw new RuntimeException('INVALID_AGENT_INTENT');
                 $candidate=(array)($routing['workflow_candidate']??[]);
                 $persisted=(array)($currentThreadSettings['workflow_state']??[]);
