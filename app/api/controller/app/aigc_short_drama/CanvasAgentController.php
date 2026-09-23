@@ -150,11 +150,14 @@ final class CanvasAgentController extends BaseApiController
                 $messages=ConversationStore::messages($tenant,$user,$canvas,$thread,$messageAfter);
                 foreach ($messages as $message) {
                     $messageAfter=max($messageAfter,(int)$message['sequence']);
-                    $payload=['id'=>(int)$message['id'],'run_id'=>(int)$message['run_id'],'sequence'=>(int)$message['sequence'],'role'=>(string)$message['role'],'text'=>(string)($message['content']['text']??'')];
-                    // Clarification cards are already ownership-filtered by
-                    // ConversationStore.  Forward only their small public
-                    // projection, never a graph snapshot or asset URI.
-                    if (!empty($message['reference_candidates']) && is_array($message['reference_candidates'])) $payload['reference_candidates']=$message['reference_candidates'];
+                    // Reuse the authenticated history projection, but expose
+                    // only its public fields. In particular the stored content
+                    // may contain internal graph effects that must not be
+                    // forwarded as an arbitrary JSON document.
+                    $payload=['id'=>(int)$message['id'],'run_id'=>(int)$message['run_id'],'sequence'=>(int)$message['sequence'],'role'=>(string)$message['role'],'content'=>['text'=>(string)($message['content']['text']??'')],'attachments'=>$message['attachments']];
+                    foreach (['reference_candidates','text_references','canvas_actions','workflow_timeline'] as $field) {
+                        if (isset($message[$field])) $payload[$field]=$message[$field];
+                    }
                     $this->emitStreamEvent('message',$payload);
                     $emitted=true;
                 }
