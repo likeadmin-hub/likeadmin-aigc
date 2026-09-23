@@ -5,6 +5,7 @@ use think\facade\Db;
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationService as Service;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore as Store;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow as Workflow;
 function rejectsSend(callable $action,string $code): void {
     try {$action();} catch (RuntimeException $error) {agentCheck($error->getMessage()===$code,$code);return;}
     throw new RuntimeException('Expected '.$code);
@@ -61,6 +62,27 @@ try {
     $slash=Service::send(91001,92001,$canvas,$slashThread,['request_key'=>'slash-skill','content'=>'/isolated_chat_skill 请按该 Skill 创作','base_revision'=>0,'preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'manual']]);
     $slashSnapshot=json_decode((string)Db::name(Store::PREFIX.'run')->where('id',$slash['run_id'])->value('skill_snapshot'),true);
     agentCheck(($slashSnapshot['skill_key']??'')==='isolated_chat_skill' && ($slashSnapshot['version']??0)===1,'explicit /skill_key resolves the tenant-published short-drama Skill without a browser skill ID');
+    $activeThread=Store::create(91001,92001,$canvas,'active-route-thread')['id'];
+    $activeRow=Db::name(Store::PREFIX.'thread')->where('id',$activeThread)->find();
+    $activeSettings=Workflow::prepare(91001,$activeRow,'/short-drama',[],[],['generation_mode'=>'manual'])['thread_settings'];
+    Db::name(Store::PREFIX.'thread')->where('id',$activeThread)->update(['settings_json'=>json_encode($activeSettings,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+    $activeRequest=['request_key'=>'active-unrelated','content'=>'你好，请解释一下蒙太奇','base_revision'=>0,
+        'preferences'=>['reasoning_model'=>(string)$product,'generation_mode'=>'manual']];
+    $activeAck=Service::send(91001,92001,$canvas,$activeThread,$activeRequest);
+    $activeContext=json_decode((string)Db::name(Store::PREFIX.'run')->where('id',$activeAck['run_id'])->value('context_snapshot'),true);
+    $activeStored=json_decode((string)Db::name(Store::PREFIX.'thread')->where('id',$activeThread)->value('settings_json'),true);
+    agentCheck(($activeContext['intent_routing']['kind']??'')==='active_workflow' && empty($activeContext['workflow'])
+        && ($activeStored['workflow_state']['state_revision']??0)===($activeSettings['workflow_state']['state_revision']??-1),
+        'service classifies every active workflow message without eagerly changing frozen workflow state');
+    $manualThread=Store::create(91001,92001,$canvas,'active-manual-override')['id'];
+    Db::name(Store::PREFIX.'thread')->where('id',$manualThread)->update(['settings_json'=>json_encode($activeSettings,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+    $manualAck=Service::send(91001,92001,$canvas,$manualThread,array_replace($activeRequest,
+        ['request_key'=>'active-slash-skill','content'=>'/isolated_chat_skill 请解释蒙太奇']));
+    $manualContext=json_decode((string)Db::name(Store::PREFIX.'run')->where('id',$manualAck['run_id'])->value('context_snapshot'),true);
+    $manualSkill=json_decode((string)Db::name(Store::PREFIX.'run')->where('id',$manualAck['run_id'])->value('skill_snapshot'),true);
+    agentCheck(empty($manualContext['intent_routing']) && empty($manualContext['workflow'])
+        && ($manualSkill['skill_key']??'')==='isolated_chat_skill',
+        'explicit /Skill overrides current workflow without advancing it');
     $definitionV2=$definition;$definitionV2['definition']['instructions']='published v2 creative reference';
     Db::name('aigc_short_drama_skill_version')->insert(['tenant_id'=>91001,'skill_id'=>$skill,'version'=>2,'release_status'=>'active','snapshot_json'=>json_encode($definitionV2)]);
     Db::name('aigc_short_drama_skill')->where('id',$skill)->update(['version'=>2,'published_version'=>2]);
