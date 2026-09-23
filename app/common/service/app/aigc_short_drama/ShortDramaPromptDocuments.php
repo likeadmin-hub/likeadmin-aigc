@@ -171,6 +171,21 @@ final class ShortDramaPromptDocuments
         return $text;
     }
 
+    /** Render the same configured creative document for a frozen Agent turn.
+     * Unlike render(), this also supports the older per-rule workspace mode
+     * without consulting mutable tenant settings after the workflow starts. */
+    public static function renderSnapshot(array $snapshot,string $id,array $context=[]): string
+    {
+        if (!isset(self::definition()['documents'][$id])) throw new InvalidArgumentException('未知创作文档：'.$id);
+        $body=(string)($snapshot['documents'][$id]['body']??'');
+        if ($body==='') $body=self::body($id,(array)($snapshot['values']??ShortDramaPromptCatalog::defaults()));
+        $parts=[];
+        foreach (self::sections($body) as $section) {
+            if ($section['text']!=='' && self::matches($section['condition'],$context)) $parts[]=$section['text'];
+        }
+        return implode("\n\n",array_values(array_unique($parts)));
+    }
+
     public static function append(string $prompt, string $id, array $context = []): string
     {
         $text = self::render($id, $context);

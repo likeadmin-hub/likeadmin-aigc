@@ -91,7 +91,7 @@ final class GraphService
             // node ID or turn every historic artifact into a noisy input.
             // Selected user material remains an independent agent_context.
             $workflowSources=$compact
-                ? self::compactWorkflowReferenceSources($nodes,$workflowStage,$proposal,$workflow,$liveSources)
+                ? self::compactWorkflowReferenceSources($nodes,$edges,$workflowStage,$proposal,$workflow,$liveSources)
                 : self::workflowReferenceSources($nodes,$workflowStage,$proposal);
             $referenceSources=[];
             foreach ($workflowSources as $sourceId) $referenceSources[$sourceId]='workflow_reference';
@@ -230,6 +230,42 @@ final class GraphService
             if (!$removed && !$added && !$normalized) return ['changed'=>false,'removed'=>0,'added'=>0,'normalized'=>0,'graph_revision'=>(int)($document['graph_revision']??0)];
             $updated=self::persistLockedDocument($document,['edges_json'=>self::json($edges),'schema_version'=>2,'update_time'=>time()]);
             return ['changed'=>true,'removed'=>$removed,'added'=>$added,'normalized'=>$normalized,'graph_revision'=>(int)($updated['graph_revision']??0)];
+        });
+    }
+
+    /** Reconcile only idle Agent-created video reference edges. User-drawn
+     * edges, submitted runs and other canvas content are never rewritten. */
+    public static function repairAgentVideoReferences(int $tenant,int $user,int $canvas): array
+    {
+        return Db::transaction(function () use ($tenant,$user,$canvas): array {
+            $document=Db::name(self::TABLE)->where(['id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find();
+            if (!$document) throw new RuntimeException('CANVAS_NOT_FOUND');
+            $nodes=json_decode((string)($document['nodes_json']??'[]'),true,512,JSON_THROW_ON_ERROR);
+            $edges=json_decode((string)($document['edges_json']??'[]'),true,512,JSON_THROW_ON_ERROR);
+            $original=self::json($edges);$repaired=0;
+            foreach ($nodes as $node) {
+                $meta=(array)($node['metadata']??[]);$id=(string)($node['id']??'');
+                if ((string)($node['type']??'')!=='video' || (string)($meta['workflow_source_stage']??'')!=='video_nodes'
+                    || (string)($meta['workflow_artifact']??'')!=='storyboard_video'
+                    || (string)($meta['status']??'idle')!=='idle' || !empty($meta['active_generation_id'])) continue;
+                $sources=[];
+                foreach ($edges as $edge) if ((string)($edge['to']??'')===$id && (string)($edge['role']??'')==='workflow_reference'
+                    && (string)($edge['kind']??'reference')==='reference') $sources[]=(string)($edge['from']??'');
+                if (!$sources) continue;
+                $desired=self::videoReferenceSources($nodes,$edges,array_values(array_unique($sources)));
+                if ($desired===$sources) continue;
+                $edges=array_values(array_filter($edges,static fn(array $edge): bool=>!((string)($edge['to']??'')===$id
+                    && (string)($edge['role']??'')==='workflow_reference' && (string)($edge['kind']??'reference')==='reference')));
+                foreach ($desired as $sourceId) {
+                    $sourceIndex=self::index($nodes,$sourceId);$targetIndex=self::index($nodes,$id);
+                    if ($sourceIndex===null || $targetIndex===null || !self::referenceConnectionAllowed($nodes,$sourceIndex,$targetIndex)) throw new RuntimeException('EDGE_CAPABILITY_UNSUPPORTED');
+                    $edges[]=['from'=>(int)$sourceId,'to'=>(int)$id,'kind'=>'reference','role'=>'workflow_reference','order'=>count($edges)];
+                }
+                $repaired++;
+            }
+            if (self::json($edges)===$original) return ['changed'=>false,'nodes'=>0,'graph_revision'=>(int)($document['graph_revision']??0)];
+            $updated=self::persistLockedDocument($document,['edges_json'=>self::json($edges),'schema_version'=>2,'update_time'=>time()]);
+            return ['changed'=>true,'nodes'=>$repaired,'graph_revision'=>(int)($updated['graph_revision']??0)];
         });
     }
 
@@ -533,7 +569,7 @@ final class GraphService
     /** New workflow versions resolve only explicitly named generation inputs.
      * The frozen artifact ledger binds a reference key to one node ID, so a
      * second workflow on the same canvas cannot steal the first one's key. */
-    private static function compactWorkflowReferenceSources(array $nodes,string $stage,array $proposal,array $workflow,array $selected): array
+    private static function compactWorkflowReferenceSources(array $nodes,array $edges,string $stage,array $proposal,array $workflow,array $selected): array
     {
         $allowed=match ($stage) {
             'assets'=>[],
@@ -548,7 +584,7 @@ final class GraphService
             $key=(string)($item['reference_key']??'');
             if ($key!=='') $memory[$key]=$item;
         }
-        $ids=[];$hasStoryboard=false;
+        $ids=[];$storyboardCount=0;
         foreach ((array)($proposal['reference_keys']??[]) as $key) {
             $key=(string)$key;
             if (preg_match('/^selected:node_([1-9][0-9]{0,15})$/D',$key,$match)) {
@@ -565,10 +601,58 @@ final class GraphService
             $metadata=(array)($node['metadata']??[]);
             if (!$node || (string)($node['type']??'')!=='image' || (string)($metadata['workflow_key']??'')!==$key || (string)($metadata['workflow_artifact']??'')!==$artifact) throw new RuntimeException('WORKFLOW_REFERENCE_UNAVAILABLE');
             $ids[$id]=true;
-            if ($sourceStage==='storyboard' && $artifact==='storyboard') $hasStoryboard=true;
+            if ($sourceStage==='storyboard' && $artifact==='storyboard') $storyboardCount++;
         }
-        if ($stage==='video_nodes' && !$hasStoryboard) throw new RuntimeException('WORKFLOW_STORYBOARD_REFERENCE_REQUIRED');
-        return array_keys($ids);
+        if ($stage==='video_nodes' && $storyboardCount!==1) throw new RuntimeException('WORKFLOW_STORYBOARD_REFERENCE_REQUIRED');
+        return $stage==='video_nodes' ? self::videoReferenceSources($nodes,$edges,array_keys($ids)) : array_keys($ids);
+    }
+
+    /** The original short-drama video request uses its current frame, then
+     * the bound subject turnaround (main image fallback), then its scene.
+     * Derive that binding from the storyboard graph, never from a model's
+     * optional list of extra references or similarly named historic nodes. */
+    private static function videoReferenceSources(array $nodes,array $edges,array $selectedIds): array
+    {
+        $byId=[];
+        foreach ($nodes as $node) if (is_array($node) && isset($node['id'])) $byId[(string)$node['id']]=$node;
+        $storyboards=[];$extras=[];
+        foreach ($selectedIds as $id) {
+            $node=$byId[$id]??[];
+            $artifact=(string)(($node['metadata']['workflow_artifact']??''));
+            if ($artifact==='storyboard' && (string)($node['type']??'')==='image') $storyboards[$id]=true;
+            else $extras[$id]=true;
+        }
+        $storyboardIds=array_keys($storyboards);
+        $ordered=$storyboardIds;
+        foreach ($storyboardIds as $boardId) {
+            $bound=[];
+            foreach ($edges as $edge) {
+                if ((string)($edge['to']??'')!==$boardId || (string)($edge['kind']??'reference')!=='reference') continue;
+                $sourceId=(string)($edge['from']??'');$source=$byId[$sourceId]??[];
+                if ((string)($source['type']??'')!=='image') continue;
+                $artifact=(string)($source['metadata']['workflow_artifact']??'');
+                if (in_array($artifact,['subject','three_view','scene'],true)) $bound[$sourceId]=$artifact;
+            }
+            // Prefer one turnaround per character, as the formal short-drama
+            // request does. The asset-stage edge identifies its own main.
+            foreach ($bound as $sourceId=>$artifact) {
+                if ($artifact!=='subject') continue;
+                foreach ($edges as $edge) {
+                    if ((string)($edge['from']??'')!==$sourceId || (string)($edge['kind']??'reference')!=='reference') continue;
+                    $viewId=(string)($edge['to']??'');$view=$byId[$viewId]??[];
+                    if ((string)($view['type']??'')!=='image' || (string)($view['metadata']['workflow_artifact']??'')!=='three_view') continue;
+                    if ((string)($view['metadata']['workflow_source_stage']??'')!=='assets') continue;
+                    unset($bound[$sourceId],$extras[$sourceId]);
+                    $bound[$viewId]='three_view';
+                    break;
+                }
+            }
+            foreach (['three_view','subject','scene'] as $type) foreach ($bound as $sourceId=>$artifact) {
+                if ($artifact===$type && !in_array($sourceId,$ordered,true)) $ordered[]=$sourceId;
+            }
+        }
+        foreach (array_keys($extras) as $id) if (!in_array($id,$ordered,true)) $ordered[]=$id;
+        return $ordered;
     }
     /** @return list<string> workflow-owned node IDs allowed as durable references for this exact proposed artifact. */
     private static function workflowReferenceSources(array $nodes,string $stage,array $proposal): array {
