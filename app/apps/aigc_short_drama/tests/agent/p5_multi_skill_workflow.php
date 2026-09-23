@@ -292,6 +292,22 @@ try {
         && ($directView['workflow']['slot_values']??[])===[]
         && (int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision')===$revision,
         'direct intake preserves review-before-accept and creates no canvas nodes');
+    $documentThread=Store::create($tenant,$user,$canvas,'document-intake-thread')['id'];
+    $documentAttachment=[['type'=>'text','name'=>'idea.txt','content'=>'主角是一位记者，追查失踪的姐姐。']];
+    $documentAck=Store::enqueue($tenant,$user,$canvas,$documentThread,['request_key'=>'document-intake','content'=>'/short-drama 按附件创作短剧','base_revision'=>$revision,'attachments'=>$documentAttachment],static function (array $conversation) use ($tenant,$documentAttachment): array {
+        $preferences=['generation_mode'=>'manual','reasoning_model'=>['id'=>'fixture-model']];
+        $prepared=Workflow::prepare($tenant,$conversation,'/short-drama 按附件创作短剧',[],$documentAttachment,$preferences);
+        return ['settings'=>$preferences,'skill'=>[],'workflow'=>$prepared['workflow'],'thread_settings'=>$prepared['thread_settings']];
+    });
+    $provider->content=json_encode(['reply_markdown'=>'我先核对附件中的角色信息。','intake'=>$documentDraft],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    agentCheck(Worker::process($tenant,$user,(int)$documentAck['run_id'],$provider)==='success'
+        && str_contains((string)($provider->lastRequest['messages'][0]['content']??''),'追查失踪的姐姐'),
+        'owned inline document text reaches the same real Worker contract as an inert attachment');
+    $documentView=Workflow::read($tenant,$user,$canvas,$documentThread);
+    agentCheck(($documentView['card']['candidates'][0]['source']??'')==='document'
+        && ($documentView['workflow']['slot_values']??[])===[]
+        && (int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision')===$revision,
+        'document-derived candidate appears only as a review card without graph mutation');
     try { IntentRouter::parse('{"intent":"delete_all","confidence":1,"skill_key":"","reply_markdown":"ok"}',$routing); throw new RuntimeException('untrusted model intent accepted'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_INTENT','model cannot invent a route or executable action'); }
     try { IntentRouter::parse('{"intent":"image","confidence":0.9,"skill_key":"tenant_other_skill","reply_markdown":"ok"}',$routing); throw new RuntimeException('unowned model skill accepted'); }
