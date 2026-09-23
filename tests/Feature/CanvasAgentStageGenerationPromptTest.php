@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationActionPlan;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationTextContext;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -59,6 +60,29 @@ class CanvasAgentStageGenerationPromptTest extends TestCase
         ConversationWorkflow::materializeTextReferences($this->workflow(), [
             ['type' => 'image', 'artifact' => 'three_view', 'prompt' => '三视图', 'reference_keys' => ['art:main_lan']],
         ]);
+    }
+
+    public function testMediaStageContextRetainsScriptAlongsidePerAssetPromptSources(): void
+    {
+        $workflow=$this->workflow();
+        array_unshift($workflow['artifact_memory'], [
+            'stage'=>'script', 'artifact'=>'episode_script', 'reference_key'=>'script:episode_1',
+            'title'=>'第一集剧本', 'content'=>'林岚在办公室发现一封旧信。',
+        ]);
+        for ($index=0;$index<6;$index++) $workflow['artifact_memory'][]=[
+            'stage'=>'art', 'artifact'=>'subject_image_prompt', 'reference_key'=>'art:extra_'.$index,
+            'title'=>'角色'.$index, 'content'=>'角色'.$index.'的中文主图提示词',
+        ];
+        $workflow['stage_state']=['key'=>'storyboard'];
+        $messages=ConversationTextContext::messages([
+            'workflow'=>$workflow,
+            'messages'=>[['role'=>'user','content'=>'继续分镜图']],
+            'selected_nodes'=>[],
+        ]);
+        $payload=json_decode(substr($messages[0]['content'],strpos($messages[0]['content'],"\n")+1),true,512,JSON_THROW_ON_ERROR);
+        self::assertSame('林岚在办公室发现一封旧信。',$payload['confirmed_artifacts'][0]['content']);
+        self::assertNotEmpty($payload['generation_prompt_sources']);
+        self::assertSame('subject_image_prompt',$payload['generation_prompt_sources'][0]['artifact']);
     }
 
     public function testEarlierFrozenWorkflowRetainsOriginalPlanningAppendAndInstruction(): void
