@@ -367,6 +367,39 @@ try {
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_INTENT','model cannot invent a route or executable action'); }
     try { IntentRouter::parse('{"intent":"image","confidence":0.9,"skill_key":"tenant_other_skill","reply_markdown":"ok"}',$routing); throw new RuntimeException('unowned model skill accepted'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_INTENT','model cannot recommend a skill absent from the tenant-visible snapshot'); }
+    // A current-version thread reaches the script stage through the same
+    // per-message router as the paid Provider. The older stage fixture above
+    // deliberately freezes a legacy version and cannot cover this boundary.
+    $compactThread=Store::create($tenant,$user,$canvas,'compact-active-script-thread')['id'];
+    $compactRow=Db::name(Store::PREFIX.'thread')->where('id',$compactThread)->find();
+    $compactPrepared=Workflow::prepare($tenant,$compactRow,'/short-drama',[],[],['generation_mode'=>'manual'])['thread_settings'];
+    Db::name(Store::PREFIX.'thread')->where('id',$compactThread)->update(['settings_json'=>json_encode($compactPrepared,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+    foreach (['genre'=>'现代悬疑','episode_count'=>'1','episode_duration'=>'60秒','visual_style'=>'电影写实','audience'=>'成年观众','characters'=>'年轻修书师','ending'=>'发现童年留言'] as $slot=>$value) {
+        $current=Workflow::read($tenant,$user,$canvas,$compactThread);
+        Workflow::answer($tenant,$user,$canvas,$compactThread,(int)$current['workflow']['state_revision'],$slot,$value);
+    }
+    $compactBefore=Workflow::read($tenant,$user,$canvas,$compactThread);
+    $compactRevision=(int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision');
+    $compactAck=Store::enqueue($tenant,$user,$canvas,$compactThread,['request_key'=>'compact-active-script','content'=>'继续刚才的剧本阶段','base_revision'=>$compactRevision],static function (array $conversation) use ($tenant): array {
+        $current=Workflow::currentState($conversation);
+        $candidate=Workflow::prepare($tenant,$conversation,'继续刚才的剧本阶段',[],[],['generation_mode'=>'manual'])['workflow'];
+        $routing=IntentRouter::snapshot($tenant)+['kind'=>'active_workflow','workflow_candidate'=>$candidate,
+            'base_workflow_revision'=>(int)$current['state_revision'],'workflow_paused'=>false];
+        return ['settings'=>['generation_mode'=>'manual','reasoning_model'=>['id'=>'fixture-model']],'skill'=>[],'intent_routing'=>$routing];
+    });
+    $provider->content=json_encode(['intent'=>'continue','confidence'=>0.96,'skill_key'=>'','reply_markdown'=>'',
+        'workflow_output'=>['reply_markdown'=>'已完成旧书店短剧的故事设定与单集剧本。','canvas_actions'=>['nodes'=>[
+            ['type'=>'text','artifact'=>'story_setting','title'=>'故事设定','prompt'=>'旧书店的修书师发现童年留言，逐步揭开家庭秘密。','key'=>'story'],
+            ['type'=>'text','artifact'=>'episode_script','title'=>'单集剧本','prompt'=>'场景一：修书师进入旧书店；场景二：发现童年留言并揭示真相。','key'=>'episode'],
+        ]]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    agentCheck(Worker::process($tenant,$user,(int)$compactAck['run_id'],$provider)==='success'
+        && ($provider->lastRequest['response_format']['type']??'')==='json_object',
+        'current compact script resumes through one structured active-workflow Provider turn');
+    $compactAfter=Workflow::read($tenant,$user,$canvas,$compactThread);
+    agentCheck(($compactBefore['workflow']['stage_state']['status']??'')==='ready'
+        && ($compactAfter['workflow']['stage_state']['status']??'')==='awaiting_stage_confirmation'
+        && (int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision')===$compactRevision,
+        'current compact script remains a confirmable plan without premature canvas writes');
     $plain=Store::create($tenant,$user,$canvas,'plain-thread')['id'];
     $prepared=Workflow::prepare($tenant,['settings_json'=>'{}'],'/other-skill 请写一段文案',[],[],[]);
     agentCheck($prepared['workflow']===[],'unrelated explicit slash Skill does not enter the short-drama workflow');
