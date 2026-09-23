@@ -25,7 +25,9 @@ class CanvasAgentCreativeSettingsTest extends TestCase
     public function testConfirmedRatioIsCanonicalAndTenantOptionBound(): void
     {
         $state=$this->ratioState();
-        (new ReflectionMethod(ConversationWorkflow::class,'recordCreativeAnswer'))->invokeArgs(null,[1,&$state,'aspect_ratio','9：16']);
+        $method=new ReflectionMethod(ConversationWorkflow::class,'recordCreativeAnswer');
+        $method->setAccessible(true);
+        $method->invokeArgs(null,[1,&$state,'aspect_ratio','9：16']);
         self::assertSame('9:16',$state['slot_values']['aspect_ratio']);
         self::assertSame('9:16',$state['creative_settings']['aspect_ratio']);
     }
@@ -33,8 +35,10 @@ class CanvasAgentCreativeSettingsTest extends TestCase
     public function testUnsupportedRatioDoesNotBecomeAWorkflowSetting(): void
     {
         $state=$this->ratioState();
+        $method=new ReflectionMethod(ConversationWorkflow::class,'recordCreativeAnswer');
+        $method->setAccessible(true);
         try {
-            (new ReflectionMethod(ConversationWorkflow::class,'recordCreativeAnswer'))->invokeArgs(null,[1,&$state,'aspect_ratio','1:1']);
+            $method->invokeArgs(null,[1,&$state,'aspect_ratio','1:1']);
             self::fail('The configured ratio must be enforced');
         } catch (RuntimeException $error) {
             self::assertSame('INVALID_WORKFLOW_ANSWER',$error->getMessage());
@@ -66,6 +70,7 @@ class CanvasAgentCreativeSettingsTest extends TestCase
             'attachment_images'=>[],'parameters'=>['quantity'=>1,'ratio'=>'9:16'],
             'quotes'=>[[]],'run_id'=>1];
         $method=new ReflectionMethod(ConversationWorkflow::class,'validImagePlan');
+        $method->setAccessible(true);
         self::assertTrue($method->invoke(null,$plan));
         $plan['parameters']['ratio']='invalid';
         self::assertFalse($method->invoke(null,$plan));
