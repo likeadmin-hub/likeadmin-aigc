@@ -91,12 +91,7 @@ final class ConversationTextContext
         $generationPromptSources=[];
         $referenceCatalog=[];
         if ($separatePrompts) {
-            $wanted=match ($stage) {
-                'assets'=>['subject_image_prompt','three_view_prompt'],
-                'storyboard'=>['scene_image_prompt','storyboard_image_prompt'],
-                'video_nodes'=>['video_prompt_plan'],
-                default=>[],
-            };
+            $wanted=$stage==='video_nodes' ? ['video_prompt_plan'] : ['subject_image_prompt','three_view_prompt','scene_image_prompt','storyboard_image_prompt'];
             foreach ((array)($workflow['artifact_memory']??[]) as $item) {
                 if (!is_array($item) || !in_array((string)($item['artifact']??''),$wanted,true)) continue;
                 $key=(string)($item['reference_key']??'');
