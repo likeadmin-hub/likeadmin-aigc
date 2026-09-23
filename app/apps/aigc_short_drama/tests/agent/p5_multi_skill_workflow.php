@@ -321,6 +321,20 @@ try {
         && Workflow::currentState(Db::name(Store::PREFIX.'thread')->where('id',$intentThread)->find())===[]
         && (int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision')===$revision,
         'video-script capability question answers in chat without starting the drama workflow or changing the graph');
+    $productAck=Store::enqueue($tenant,$user,$canvas,$intentThread,['request_key'=>'intent-product-script','content'=>'耳机，主要功能是降噪、环绕立体音','base_revision'=>$revision],static function (array $conversation) use ($tenant): array {
+        $candidate=Workflow::prepare($tenant,$conversation,'/short-drama',[],[],['generation_mode'=>'manual'])['workflow'];
+        $candidate['workflow_snapshot']['route']='semantic';
+        return ['settings'=>['generation_mode'=>'manual'],'skill'=>[],
+            'intent_routing'=>IntentRouter::snapshot($tenant)+['workflow_candidate'=>$candidate]];
+    });
+    $productReply='耳机宣传脚本：第一镜展示通勤降噪，第二镜呈现环绕立体音。';
+    $provider->content=json_encode(['intent'=>'creative_plan','confidence'=>'0.93',
+        'reply_markdown'=>$productReply,'reasoning'=>'standalone text request'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    agentCheck(Worker::process($tenant,$user,(int)$productAck['run_id'],$provider)==='success'
+        && (json_decode((string)Db::name(Store::PREFIX.'message')->where(['run_id'=>$productAck['run_id'],'role'=>'assistant'])->value('content_json'),true)['text']??'')===$productReply
+        && Workflow::currentState(Db::name(Store::PREFIX.'thread')->where('id',$intentThread)->find())===[]
+        && (int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision')===$revision,
+        'incomplete ordinary product-script envelope still publishes real text without workflow or graph effects');
     $story='请把重生之我在天庭当人事的一天制作成完整短剧';
     $routing=IntentRouter::snapshot($tenant);
     $intentAck=Store::enqueue($tenant,$user,$canvas,$intentThread,['request_key'=>'intent-story','content'=>$story,'base_revision'=>$revision],static function (array $conversation) use ($tenant,$routing): array {
