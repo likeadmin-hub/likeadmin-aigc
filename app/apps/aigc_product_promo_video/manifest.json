@@ -52,6 +52,20 @@
           {
             "name": "创作首页",
             "path": "/apps/aigc_product_promo_video/pages/creator/index"
+          },
+          {
+            "name": "任务记录",
+            "path": "/apps/aigc_product_promo_video/pages/tasks/index",
+            "query": {
+              "view": "tasks"
+            }
+          },
+          {
+            "name": "作品记录",
+            "path": "/apps/aigc_product_promo_video/pages/tasks/index",
+            "query": {
+              "view": "results"
+            }
           }
         ]
       }

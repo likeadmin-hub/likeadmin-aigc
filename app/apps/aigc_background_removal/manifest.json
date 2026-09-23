@@ -52,6 +52,20 @@
           {
             "name": "创作首页",
             "path": "/apps/aigc_background_removal/pages/creator/index"
+          },
+          {
+            "name": "任务记录",
+            "path": "/apps/aigc_background_removal/pages/tasks/index",
+            "query": {
+              "view": "tasks"
+            }
+          },
+          {
+            "name": "作品记录",
+            "path": "/apps/aigc_background_removal/pages/tasks/index",
+            "query": {
+              "view": "results"
+            }
           }
         ]
       }
