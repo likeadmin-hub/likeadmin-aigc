@@ -7526,23 +7526,6 @@ CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas` (
   PRIMARY KEY (`id`),
   KEY `idx_owner` (`tenant_id`,`user_id`,`delete_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI短剧画布';
--- Current explicit formal target for a free short-drama canvas. Historical
--- canvas tasks/assets remain project_id=0 after a user binds this target.
-CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_binding` (
-  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `tenant_id` int unsigned NOT NULL,
-  `user_id` int unsigned NOT NULL,
-  `canvas_id` int unsigned NOT NULL,
-  `project_id` int unsigned NOT NULL,
-  `episode_id` int unsigned NOT NULL DEFAULT 0,
-  `production_project_id` int unsigned NOT NULL DEFAULT 0,
-  `binding_revision` int unsigned NOT NULL DEFAULT 1,
-  `create_time` int unsigned NOT NULL DEFAULT 0,
-  `update_time` int unsigned NOT NULL DEFAULT 0,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_canvas` (`tenant_id`,`user_id`,`canvas_id`),
-  KEY `idx_project` (`tenant_id`,`user_id`,`project_id`,`episode_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='短剧画布正式项目绑定';
 -- Conversation-only persistence. No provider submission or graph mutation on message acceptance.
 CREATE TABLE IF NOT EXISTS `la_aigc_short_drama_canvas_agent_thread` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,

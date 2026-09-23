@@ -18,13 +18,7 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-23.5';
-
-    public static function structuredWriteback(array $workflow): bool
-    {
-        return self::compactOutput($workflow)
-            && version_compare((string)($workflow['workflow_snapshot']['version']??'0'),'2026-09-23.5','>=');
-    }
+    public const VERSION = '2026-09-23.6';
 
     /** Old frozen conversations retain their original canvas projection. */
     public static function compactOutput(array $workflow): bool
