@@ -12,8 +12,8 @@ const P5_TEXT_USER = 1;
 const P5_TEXT_PREFIX = '[P5T]';
 
 $action = (string)($argv[1] ?? '');
-if (!in_array($action, ['prepare', 'episodes', 'cleanup'], true)) {
-    throw new RuntimeException('Usage: p5_text_browser_fixture.php prepare|episodes|cleanup [canvas_id]');
+if (!in_array($action, ['prepare', 'episodes', 'change_target', 'cleanup'], true)) {
+    throw new RuntimeException('Usage: p5_text_browser_fixture.php prepare|episodes|change_target|cleanup [canvas_id]');
 }
 
 if ($action === 'prepare') {
@@ -85,6 +85,26 @@ $result = Db::transaction(static function () use ($action, $canvasId): array {
     }
     $projectId = (int)$project['id'];
     $taskId = (string)$project['last_task_id'];
+    if ($action === 'change_target') {
+        $task = Db::name('aigc_short_drama_script_task')->where($scope + [
+            'project_id' => $projectId, 'task_id' => $taskId,
+        ])->lock(true)->find();
+        if (!$task) throw new RuntimeException('Fixture task missing');
+        $request = json_decode((string)$task['request_json'], true);
+        if (($request['multi_episode_stage'] ?? '') !== 'story') {
+            throw new RuntimeException('Target change requires story stage');
+        }
+        $result = json_decode((string)$task['result_json'], true);
+        if (!is_array($result) || ($result['story_outline'] ?? '') !== '旧故事梗概') {
+            throw new RuntimeException('Refusing to modify unexpected target content');
+        }
+        $result['story_outline'] = '另一编辑者刚保存的新故事梗概';
+        Db::name('aigc_short_drama_script_task')->where('id', $task['id'])->update([
+            'result_json' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            'update_time' => time(),
+        ]);
+        return ['target_changed' => true, 'canvas_id' => $canvasId, 'project_id' => $projectId];
+    }
     if ($action === 'episodes') {
         $task = Db::name('aigc_short_drama_script_task')->where($scope + [
             'project_id' => $projectId, 'task_id' => $taskId,
