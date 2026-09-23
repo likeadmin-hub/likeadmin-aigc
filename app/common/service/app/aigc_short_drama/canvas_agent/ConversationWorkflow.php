@@ -535,7 +535,7 @@ final class ConversationWorkflow
         if ($configured) $labels=$configured;
         if ($stage==='intake') return "\n【短剧工作流】当前在创作采集阶段。只补问尚未确认的信息，不创建画布节点、不提交媒体任务。";
         $contract=self::outputContract($stage);
-        $contractText=$contract ? '本阶段结构化交付字段：'.implode('、',$contract).'。这些字段必须写入受控产物；不能输出任意画布 JSON。' : '';
+        $contractText=$contract ? '本阶段结构化交付字段：'.implode('、',$contract).'。这些字段只写入受控产物，不在给用户的阶段回复中逐项列出；不能输出任意画布 JSON。' : '';
         if (self::compactOutput($workflow)) {
             $suffix=match ($stage) {
                 'script'=>'只把故事设定与大纲、当前单集剧本写入画布；它们是独立可读内容，不创建文本之间的生成依赖。',
@@ -546,6 +546,7 @@ final class ConversationWorkflow
                 default=>'按受控产物规则执行，不连接无关节点。',
             };
             if (in_array($stage,['script','art','video_plan'],true)) $suffix='必须输出唯一结构化结果对象。'.$suffix;
+            $suffix.='用户回复只概括本阶段实际完成的内容、关键发现和下一步，不复制完整产物正文、提示词或程序字段。';
             return "\n【短剧工作流】当前阶段：{$stage}。读取技能指令：".implode('、',$labels)."。{$contractText}{$suffix}";
         }
         $suffix=$stage==='assets'
@@ -553,7 +554,7 @@ final class ConversationWorkflow
             : ($stage==='storyboard'
                 ? '若建议生成节点，仍须使用受限 canvas-actions 格式；分镜图必须真实依赖同批场景或道具，系统会把前序剧本、美术和主体资产写入参考连线；不能编造素材 ID、价格或任务状态。'
                 : (in_array($stage,['video_nodes','audio_plan'],true) ? '视频节点只能建议插入，绝不能自动提交；音频只可规划，不能建议生成。' : '按本阶段受控结构化交付规则输出，不能创建任意画布 JSON。'));
-        if (in_array($stage,['script','art','video_plan'],true)) $suffix='必须输出唯一的结构化结果对象，由 reply_markdown 展示正文、canvas_actions 写入受限文本节点；缺少任一项会被服务器拒绝。'.$suffix;
+        if (in_array($stage,['script','art','video_plan'],true)) $suffix='必须输出唯一的结构化结果对象，reply_markdown 仅写简短阶段摘要，canvas_actions 保存完整受限产物；缺少任一项会被服务器拒绝。'.$suffix;
         return "\n【短剧工作流】当前阶段：{$stage}。读取技能指令：".implode('、',$labels)."。{$contractText}{$suffix}";
     }
 
