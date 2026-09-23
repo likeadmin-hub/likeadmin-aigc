@@ -187,19 +187,20 @@ final class ConversationExecution
      * This is a known terminal result, unlike a transport timeout: retain no
      * reply and never retry it. Billing adapters remain responsible for their
      * own already-settled ledger records. */
-    public static function rejectInvalidResponse(int $tenant,int $user,int $runId,string $token,int $fence,string $diagnosticCode='UNSUPPORTED_MODEL_RESPONSE'): string
+    public static function rejectInvalidResponse(int $tenant,int $user,int $runId,string $token,int $fence,string $diagnosticCode='UNSUPPORTED_MODEL_RESPONSE',string $diagnosticDetail=''): string
     {
         // Preserve a safe internal failure category without storing the
         // Provider reply, prompt, or exception trace in a user-facing event.
         if (!in_array($diagnosticCode,['UNSUPPORTED_MODEL_RESPONSE','INVALID_AGENT_ACTION','INVALID_AGENT_INTENT','INVALID_AGENT_INTAKE'],true)) $diagnosticCode='UNSUPPORTED_MODEL_RESPONSE';
-        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$diagnosticCode): string {
+        if (!in_array($diagnosticDetail,['intent_not_json','intent_shape','intent_value','intent_skill','intent_unexpected_output','intent_noncontinue','intent_continue_shape','intent_stage_output','intent_consistency','post_settlement_projection'],true)) $diagnosticDetail='';
+        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$diagnosticCode,$diagnosticDetail): string {
             [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);self::identity($outbox,$token,$fence);
             if ($run['status']==='failed' && $run['error_code']==='UNSUPPORTED_MODEL_RESPONSE') return 'failed';
             if ($run['status']==='needs_reconciliation') return 'needs_reconciliation';
             if ($run['status']!=='running' || $outbox['state']!=='submitting') throw new RuntimeException('STALE_WORKER');
             if ((int)$outbox['lease_until']<=time()) { self::uncertain($run,$outbox,'WORKER_LEASE_EXPIRED');return 'needs_reconciliation'; }
             self::state($run,'failed','UNSUPPORTED_MODEL_RESPONSE');
-            self::event($run,'run.failed',['status'=>'failed','code'=>'UNSUPPORTED_MODEL_RESPONSE','diagnostic_code'=>$diagnosticCode]);
+            self::event($run,'run.failed',['status'=>'failed','code'=>'UNSUPPORTED_MODEL_RESPONSE','diagnostic_code'=>$diagnosticCode]+($diagnosticDetail!==''?['diagnostic_detail'=>$diagnosticDetail]:[]));
             Db::name(ConversationStore::PREFIX.'outbox')->where('id',$outbox['id'])->update(['state'=>'failed','lease_until'=>0,'update_time'=>time()]);
             if ((int)$thread['active_run_id']===$runId) Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread['id'])->update(['active_run_id'=>0,'update_time'=>time()]);
             return 'failed';

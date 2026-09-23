@@ -11,6 +11,34 @@ final class ConversationWorkflowTurn
 {
     private const INTENTS=['continue','chat','creative_plan','image','video','short_drama','uncertain'];
 
+    /** Safe shape-only diagnostics for a rejected Provider answer. Never
+     * persist the answer itself or arbitrary exception text. */
+    public static function failureCategory(string $response,array $routing): string
+    {
+        try { $value=json_decode(trim($response),true,32,JSON_THROW_ON_ERROR); }
+        catch (\Throwable $error) { return 'intent_not_json'; }
+        if (!is_array($value) || count($value)!==5
+            || array_diff(['intent','confidence','skill_key','reply_markdown','workflow_output'],array_keys($value))) return 'intent_shape';
+        $intent=$value['intent'];$confidence=$value['confidence'];
+        if (!is_string($intent) || !in_array($intent,self::INTENTS,true)
+            || (!is_int($confidence) && !is_float($confidence)) || $confidence<0 || $confidence>1
+            || !is_string($value['skill_key']) || !is_string($value['reply_markdown'])) return 'intent_value';
+        $allowed=[];
+        foreach ((array)($routing['skill_candidates']??[]) as $item) if (is_array($item) && is_string($item['key']??null)) $allowed[$item['key']]=true;
+        if ($value['skill_key']!=='' && !isset($allowed[$value['skill_key']])) return 'intent_skill';
+        $resume=$intent==='continue' && $confidence>=0.7 && empty($routing['workflow_paused']);
+        if (!$resume) return $value['workflow_output']!==null ? 'intent_unexpected_output' : 'intent_noncontinue';
+        if ($value['skill_key']!=='' || trim($value['reply_markdown'])!=='' || !is_array($value['workflow_output'])) return 'intent_continue_shape';
+        $workflow=(array)($routing['workflow_candidate']??[]);
+        $stage=(string)($workflow['stage_state']['key']??'');
+        try {
+            $payload=json_encode($value['workflow_output'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+            if ($stage==='intake') ConversationIntakeDraft::parseDirect($payload,(array)($workflow['workflow_snapshot']['slot_schema']??[]),['message']);
+            else ConversationActionPlan::parse($payload,$stage,ConversationWorkflow::compactOutput($workflow));
+        } catch (\Throwable $error) { return 'intent_stage_output'; }
+        return 'intent_consistency';
+    }
+
     public static function instruction(array $routing,string $mode): string
     {
         $workflow=(array)($routing['workflow_candidate']??[]);

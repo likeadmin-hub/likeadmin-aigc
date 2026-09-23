@@ -13,6 +13,7 @@ final class ConversationWorker
     {
         $claim=ConversationExecution::claim($tenant,$user,$run);
         if (!$claim) return 'not_claimed';
+        $diagnosticDetail='';
         try {
             $context=$claim['context'];
             $workflowStage=(string)($context['workflow']['stage_state']['key']??'');
@@ -50,7 +51,7 @@ final class ConversationWorker
                 $request['max_tokens']=$activeRouting ? ($workflowStage==='script' ? 8192 : ($workflowStage==='video_nodes' ? 8192 : 4096)) : ($intentRouting ? 1800 : ($intakeAnalysis ? 1500 : ($compact && $workflowStage==='script' ? 8192 : 4096)));
                 $request['enable_thinking']=false;
             }
-            $request['result_validator']=static function (array $result) use ($tenant,$user,$context,$claim,$run,$workflowStage,$compact,$intentRouting,$activeRouting,$intakeAnalysis,$intakeSources): void {
+            $request['result_validator']=static function (array $result) use ($tenant,$user,$context,$claim,$run,$workflowStage,$compact,$intentRouting,$activeRouting,$intakeAnalysis,$intakeSources,&$diagnosticDetail): void {
                 $content=(string)($result['content']??'');
                 if ($content==='') throw new RuntimeException('EMPTY_MODEL_RESPONSE');
                 ConversationSafety::assertOutput($tenant,$user,(int)$claim['canvas_id'],(int)$claim['thread_id'],$run,$content);
@@ -58,7 +59,13 @@ final class ConversationWorker
                 // projected to the controlled graph before usage settlement.
                 // This keeps malformed structured output from becoming a
                 // charged, markdown-only false success.
-                if ($activeRouting) ConversationWorkflowTurn::parse($content,$intentRouting,$intakeSources);
+                if ($activeRouting) {
+                    try { ConversationWorkflowTurn::parse($content,$intentRouting,$intakeSources); }
+                    catch (RuntimeException $error) {
+                        $diagnosticDetail=ConversationWorkflowTurn::failureCategory($content,$intentRouting);
+                        throw $error;
+                    }
+                }
                 elseif ($intentRouting) ConversationIntentRouter::parse($content,$intentRouting,$intakeSources);
                 elseif ($intakeAnalysis) ConversationIntakeDraft::parseDirect($content,(array)($context['workflow']['workflow_snapshot']['slot_schema']??[]),$intakeSources);
                 else ConversationActionPlan::parse($content,$workflowStage,$compact);
@@ -100,7 +107,7 @@ final class ConversationWorker
             // malformed/completion-with-tools response is therefore known bad
             // output, not an unknown upstream outcome requiring a resend.
             if (in_array($error->getMessage(),['UNSUPPORTED_MODEL_RESPONSE','INVALID_AGENT_ACTION','INVALID_AGENT_INTENT','INVALID_AGENT_INTAKE'],true)) {
-                return ConversationExecution::rejectInvalidResponse($tenant,$user,$run,$claim['token'],$claim['fence'],$error->getMessage());
+                return ConversationExecution::rejectInvalidResponse($tenant,$user,$run,$claim['token'],$claim['fence'],$error->getMessage(),$diagnosticDetail ?: ($activeRouting ? 'post_settlement_projection' : ''));
             }
             ConversationExecution::unknown($tenant,$user,$run,$claim['token'],$claim['fence']);
             return 'needs_reconciliation';
