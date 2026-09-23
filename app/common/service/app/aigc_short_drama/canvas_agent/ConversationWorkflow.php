@@ -606,6 +606,11 @@ final class ConversationWorkflow
         $stageCard=['stage'=>$stageKey,'stage_label'=>(string)($definition['label']??'短剧创作'),'skills'=>$configured?:array_values((array)($definition['skills']??[])),'creates_nodes'=>(bool)($definition['creates_nodes']??false),
             'stage_index'=>$stageIndex,'stage_total'=>count($stages),'completed'=>array_values(array_map('strval',(array)($stage['completed']??[]))),
             'output_fields'=>self::outputContract($stageKey)];
+        if ($stageKey==='complete') {
+            return array_replace($stageCard,['type'=>'complete','stage_label'=>'已完成','skills'=>[],
+                'stage_index'=>count($stages),'title'=>'短剧创作规划已完成',
+                'body'=>'故事与剧本、主体和分镜素材、分镜视频待生成节点均已规划到画布。视频仍需逐节点手动确认生成；音频仅展示规划，暂未开放生成。']);
+        }
         if ($stageKey==='intake' && ($stage['status']??'')==='reviewing_intake') {
             $candidates=[];
             foreach ((array)($state['workflow_snapshot']['slot_schema']??[]) as $slot) {
