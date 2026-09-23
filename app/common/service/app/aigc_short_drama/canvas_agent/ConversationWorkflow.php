@@ -196,7 +196,7 @@ final class ConversationWorkflow
     /** Read current tenant-scoped workflow and a small card projection. */
     public static function read(int $tenant,int $user,int $canvas,int $thread): array
     {
-        ConversationStore::assertThreadAccess($tenant,$user,$canvas,$thread);
+        ConversationStore::assertThreadReadAccess($tenant,$user,$canvas,$thread);
         $row=Db::name(ConversationStore::PREFIX.'thread')->where(['id'=>$thread,'tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas,'delete_time'=>0])->find();
         if (!$row) throw new RuntimeException('THREAD_NOT_FOUND');
         $state=self::stateFromSettings(self::settings($row));
@@ -269,6 +269,7 @@ final class ConversationWorkflow
             if (!$document) throw new RuntimeException('CANVAS_NOT_FOUND');
             $row=Db::name(ConversationStore::PREFIX.'thread')->where(['id'=>$thread,'tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas,'delete_time'=>0])->lock(true)->find();
             if (!$row || (int)$row['active_run_id']!==0) throw new RuntimeException($row?'THREAD_BUSY':'THREAD_NOT_FOUND');
+            FeatureGate::assertEnabled($tenant);
             $settings=self::settings($row);$state=self::stateFromSettings($settings);self::assertState($state);
             if ((int)$state['state_revision']!==$expectedRevision) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
             $stage=(string)($state['stage_state']['key']??'');
@@ -302,6 +303,7 @@ final class ConversationWorkflow
             if (!$document) throw new RuntimeException('CANVAS_NOT_FOUND');
             $row=Db::name(ConversationStore::PREFIX.'thread')->where(['id'=>$thread,'tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas,'delete_time'=>0])->lock(true)->find();
             if (!$row || (int)$row['active_run_id']!==0) throw new RuntimeException($row?'THREAD_BUSY':'THREAD_NOT_FOUND');
+            FeatureGate::assertEnabled($tenant);
             $settings=self::settings($row);$state=self::stateFromSettings($settings);self::assertState($state);
             if ((int)$state['state_revision']!==$expectedRevision) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
             $stage=(string)($state['stage_state']['key']??'');$plan=(array)($state['stage_plan']??[]);

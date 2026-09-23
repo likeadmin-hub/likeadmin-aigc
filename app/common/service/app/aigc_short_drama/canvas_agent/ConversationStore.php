@@ -137,7 +137,7 @@ final class ConversationStore
 
     public static function threads(int $tenant,int $user,int $canvas,int $before=0): array
     {
-        self::canvas($tenant,$user,$canvas);
+        self::canvas($tenant,$user,$canvas,false,true);
         $query=Db::name(self::PREFIX.'thread')->where(self::scope($tenant,$user,$canvas)+['delete_time'=>0]);
         if ($before>0) $query->where('id','<',$before);
         return array_map([self::class,'threadView'],$query->order('id','desc')->limit(50)->select()->toArray());
@@ -156,6 +156,13 @@ final class ConversationStore
         self::thread(self::scope($tenant,$user,$canvas),$thread);
     }
 
+    /** Disabling Agent stops new work, but never hides an owner's durable history. */
+    public static function assertThreadReadAccess(int $tenant,int $user,int $canvas,int $thread): void
+    {
+        self::canvas($tenant,$user,$canvas,false,true);
+        self::thread(self::scope($tenant,$user,$canvas),$thread);
+    }
+
     /** A replay is already a durable decision. Do not reinterpret it using a
      * policy changed after the original request; enqueue remains the final
      * request-hash and idempotency authority. */
@@ -169,7 +176,7 @@ final class ConversationStore
 
     public static function messages(int $tenant,int $user,int $canvas,int $thread,int $after=0): array
     {
-        self::canvas($tenant,$user,$canvas);
+        self::canvas($tenant,$user,$canvas,false,true);
         $scope=self::scope($tenant,$user,$canvas);self::thread($scope,$thread);
         $rows=Db::name(self::PREFIX.'message')->where($scope+['thread_id'=>$thread,'delete_time'=>0])->where('sequence','>',max(0,$after))->order('sequence')->limit(100)->select()->toArray();
         return array_map(static function ($row) use ($scope,$thread) {
@@ -211,7 +218,7 @@ final class ConversationStore
 
     public static function events(int $tenant,int $user,int $canvas,int $thread,int $after=0): array
     {
-        self::canvas($tenant,$user,$canvas);
+        self::canvas($tenant,$user,$canvas,false,true);
         $scope=self::scope($tenant,$user,$canvas);self::thread($scope,$thread);
         $rows=Db::name(self::PREFIX.'event')->where($scope+['thread_id'=>$thread])->where('id','>',max(0,$after))->order('id')->limit(100)->select()->toArray();
         return array_map(static fn($row)=>['cursor'=>(int)$row['id'],'run_id'=>(int)$row['run_id'],'sequence'=>(int)$row['sequence'],'kind'=>$row['kind'],'payload'=>json_decode($row['payload_json'],true,512,JSON_THROW_ON_ERROR)],$rows);
@@ -223,7 +230,7 @@ final class ConversationStore
      */
     public static function run(int $tenant,int $user,int $canvas,int $thread,int $run): array
     {
-        self::canvas($tenant,$user,$canvas);
+        self::canvas($tenant,$user,$canvas,false,true);
         $scope=self::scope($tenant,$user,$canvas);self::thread($scope,$thread);
         $row=Db::name(self::PREFIX.'run')->where($scope+['thread_id'=>$thread,'id'=>$run,'delete_time'=>0])->find();
         if (!$row) throw new RuntimeException('RUN_NOT_FOUND');
@@ -239,13 +246,13 @@ final class ConversationStore
             'create_time'=>(int)$row['create_time'],'update_time'=>(int)$row['update_time']];
     }
 
-    private static function canvas(int $tenant,int $user,int $canvas,bool $lock=false): array
+    private static function canvas(int $tenant,int $user,int $canvas,bool $lock=false,bool $readOnly=false): array
     {
         $query=Db::name(GraphService::TABLE)->where(['id'=>$canvas,'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0]);
         if ($lock) $query->lock(true);
         $row=$query->find();
         if ($tenant<=0 || $user<=0 || !$row) throw new RuntimeException('CANVAS_NOT_FOUND');
-        FeatureGate::assertEnabled($tenant);
+        if (!$readOnly) FeatureGate::assertEnabled($tenant);
         return $row;
     }
     private static function thread(array $scope,int $id,bool $lock=false): array

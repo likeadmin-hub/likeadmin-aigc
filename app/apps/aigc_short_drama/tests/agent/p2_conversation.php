@@ -83,6 +83,14 @@ try {
     $explicit=Store::enqueue(91001,92001,$canvas,$explicitThread['id'],array_replace($clarifyRequest,['request_key'=>'clarify-explicit-image','selected_node_ids'=>['2']]),$snapshot);
     agentCheck($explicit['status']==='queued','explicit candidate selection proceeds as a normal Agent request');
     Db::name('aigc_short_drama_config')->where('tenant_id',91001)->update(['config_json'=>'{}']);
-    rejectsConversation(fn()=>Store::messages(91001,92001,$canvas,$thread['id']),'CANVAS_AGENT_DISABLED');
+    agentCheck(count(Store::threads(91001,92001,$canvas))===4,'disabled Agent retains owned thread history');
+    agentCheck(Store::messages(91001,92001,$canvas,$thread['id'])===$messages,'disabled Agent retains owned messages');
+    agentCheck(Store::events(91001,92001,$canvas,$thread['id'])===$events,'disabled Agent retains owned events');
+    agentCheck(Store::run(91001,92001,$canvas,$thread['id'],$ack['run_id'])['status']==='queued','disabled Agent retains owned run status');
+    rejectsConversation(fn()=>Store::messages(91001,92002,$canvas,$thread['id']),'CANVAS_NOT_FOUND');
+    rejectsConversation(fn()=>Store::messages(91002,92001,$canvas,$thread['id']),'CANVAS_NOT_FOUND');
+    rejectsConversation(fn()=>Store::messages(91001,92001,$other,$thread['id']),'THREAD_NOT_FOUND');
+    rejectsConversation(fn()=>Store::create(91001,92001,$canvas,'disabled-new'),'CANVAS_AGENT_DISABLED');
+    rejectsConversation(fn()=>Store::enqueue(91001,92001,$canvas,$thread['id'],array_replace($request,['request_key'=>'disabled-send']),$snapshot),'CANVAS_AGENT_DISABLED');
 } finally {Db::rollback();}
 echo "NOT_RUN API authentication, concurrent processes, model/Skill resolution, attachments, worker, Provider, frontend conversation\n";
