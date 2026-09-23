@@ -143,6 +143,7 @@ final class CanvasAgentController extends BaseApiController
             $user=$this->userId;
             $deadline=microtime(true)+$wait;
             $lastVersion=-1;
+            $lastHeartbeat=microtime(true);
             $this->emitStreamEvent('ready',['run_id'=>$run,'event_after'=>$eventAfter,'message_after'=>$messageAfter]);
 
             do {
@@ -177,9 +178,15 @@ final class CanvasAgentController extends BaseApiController
                     $this->emitStreamEvent('complete',['run_id'=>$run,'status'=>$snapshot['status'],'event_after'=>$eventAfter,'message_after'=>$messageAfter]);
                     break;
                 }
-                if (!$emitted) $this->emitStreamEvent('ping',['run_id'=>$run]);
+                // A connection can stay open while a provider works. Poll the
+                // durable state once per second, but only send an idle frame
+                // occasionally so open canvases do not flood the proxy/UI.
+                if (!$emitted && microtime(true)-$lastHeartbeat>=10) {
+                    $this->emitStreamEvent('ping',['run_id'=>$run]);
+                    $lastHeartbeat=microtime(true);
+                } elseif ($emitted) $lastHeartbeat=microtime(true);
                 if ($wait===0 || connection_aborted()) break;
-                usleep(250000);
+                usleep(1000000);
             } while (microtime(true)<$deadline);
         } catch (\Throwable $error) {
             $this->emitStreamEvent('error',['code'=>$this->publicErrorCode($error)]);
