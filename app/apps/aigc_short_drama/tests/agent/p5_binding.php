@@ -215,6 +215,54 @@ try {
     try { ShortDramaCanvasWritebackService::previewStory($tenant, $owner, $previewRequest); }
     catch (Exception $e) { $editedProseRejected = str_contains($e->getMessage(), '不适合正式写回'); }
     agentCheck($editedProseRejected, 'D04 edited free prose cannot reuse stale structured formal fields');
+    $episodeSource = ['id' => 7104, 'type' => 'text', 'title' => '第一集剧本', 'metadata' => [
+        'content' => '第一集真实剧本', 'content_revision' => 1,
+        'workflow_source_stage' => 'script', 'workflow_artifact' => 'episode_script',
+        'workflow_formal_content_hash' => hash('sha256', '第一集真实剧本'),
+        'workflow_formal_fields' => ['episode_number' => 1, 'title' => '雨夜录音',
+            'story_outline' => '林夏在雨夜发现录音线索', 'scene_script' => '雨夜办公室，林夏播放录音。'],
+    ]];
+    Db::name('aigc_short_drama_canvas')->where('id', $canvas['id'])->update([
+        'nodes_json' => json_encode([$story, $episodeSource, $deleted, $unrelated], JSON_UNESCAPED_UNICODE),
+    ]);
+    $outlineProject = Db::name('aigc_short_drama_project')->insertGetId([
+        'tenant_id' => $tenant, 'user_id' => $owner, 'title' => 'P5 outline series',
+        'multi_episode' => 1, 'episode_count' => 2, 'status' => 'plan_review',
+        'last_task_id' => 'p5-outline-task', 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
+    ]);
+    Db::name('aigc_short_drama_script_task')->insert([
+        'tenant_id' => $tenant, 'user_id' => $owner, 'project_id' => $outlineProject,
+        'task_id' => 'p5-outline-task', 'status' => 'success',
+        'request_json' => json_encode(['workflow_variant' => 'story_outline_v2', 'multi_episode' => 1,
+            'episode_count' => 2, 'multi_episode_stage' => 'episodes'], JSON_UNESCAPED_UNICODE),
+        'result_json' => json_encode(['episodes' => [
+            ['episode_number' => 1, 'title' => '旧第一集', 'story_outline' => '旧第一集大纲', 'conflict_point' => '旧冲突', 'ending_hook' => '旧悬念'],
+            ['episode_number' => 2, 'title' => '旧第二集', 'story_outline' => '旧第二集大纲', 'conflict_point' => '旧冲突2', 'ending_hook' => '旧悬念2'],
+        ]], JSON_UNESCAPED_UNICODE),
+        'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
+    ]);
+    ShortDramaCanvasBindingService::bind($tenant, $owner, [
+        'canvas_id' => $canvas['id'], 'project_id' => $outlineProject,
+    ]);
+    $outlineRequest = ['canvas_id' => $canvas['id'], 'source_node_id' => 7104, 'target_field' => 'story_outline'];
+    $outlinePreview = ShortDramaCanvasWritebackService::previewEpisode($tenant, $owner, $outlineRequest);
+    agentCheck($outlinePreview['source']['episode_number'] === 1
+        && $outlinePreview['source']['content'] === '林夏在雨夜发现录音线索'
+        && $outlinePreview['target']['content'] === '旧第一集大纲',
+        'D04 episode preview maps exact source episode number and field');
+    $outlineApplied = ShortDramaCanvasWritebackService::applyEpisode($tenant, $owner, $outlineRequest + [
+        'preview_hash' => $outlinePreview['preview_hash'], 'confirm' => '1',
+    ]);
+    $outlineSaved = json_decode((string)Db::name('aigc_short_drama_script_task')->where('task_id', 'p5-outline-task')->value('request_json'), true);
+    agentCheck($outlineApplied['episode_number'] === 1 && $outlineApplied['draft_version'] === 1
+        && ($outlineSaved['_story_draft']['result']['episodes'][0]['story_outline'] ?? '') === '林夏在雨夜发现录音线索'
+        && ($outlineSaved['_story_draft']['result']['episodes'][1]['story_outline'] ?? '') === '旧第二集大纲',
+        'D04 episode apply updates only the chosen outline cell and retains other episode');
+    $outlineReplay = ShortDramaCanvasWritebackService::applyEpisode($tenant, $owner, $outlineRequest + [
+        'preview_hash' => $outlinePreview['preview_hash'], 'confirm' => '1',
+    ]);
+    agentCheck($outlineReplay === $outlineApplied,
+        'D09 repeated episode apply is idempotent');
     $foreignPreviewRejected = false;
     try { ShortDramaCanvasWritebackService::previewStory($otherTenant, $otherUser, $previewRequest); }
     catch (Exception $e) { $foreignPreviewRejected = $e->getMessage() === '画布项目不存在或无权访问'; }
@@ -232,4 +280,4 @@ try {
     Db::rollback();
 }
 
-echo "NOT_RUN D04-D08,D10 formal apply: a multi-episode story-field preview is covered; confirmed apply, episode mapping, and browser flow remain unimplemented.\n";
+echo "NOT_RUN D04-D08,D10 remaining: episode/shot adapters and their browser writeback flow remain unimplemented; story-field apply is covered by rollback-only local behavior checks.\n";

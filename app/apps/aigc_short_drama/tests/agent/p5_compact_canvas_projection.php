@@ -76,6 +76,14 @@ try {
     agentCheck(($nodes[0]['metadata']['workflow_formal_fields']['story_outline']??'')==='林夏调查姐姐失踪，第一集在雨夜收到录音并追踪档案。'
         && ($nodes[1]['metadata']['workflow_formal_fields']['episode_number']??0)===1,
         'new workflow projection preserves validated formal fields without splitting free prose');
+    $invalidFormal=$reply([
+        ['type'=>'text','artifact'=>'story_setting','title'=>'不可写回的旧式自由正文','prompt'=>'林夏寻找姐姐','key'=>'bad'],
+        ['type'=>'text','artifact'=>'episode_script','title'=>'第一集','prompt'=>'林夏收到录音','key'=>'bad_episode'],
+    ],'自由正文');
+    $formalRejected=false;
+    try { ActionPlan::parse($invalidFormal,'script',true,true); }
+    catch (RuntimeException $error) { $formalRejected=$error->getMessage()==='INVALID_AGENT_ACTION'; }
+    agentCheck($formalRejected,'new structured-writeback workflow rejects model output missing exact formal fields');
     $storyId=(string)$nodes[0]['id'];
 
     $art=$reply([
