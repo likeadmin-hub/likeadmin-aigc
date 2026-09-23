@@ -36,6 +36,33 @@ final class ConversationWorkflow
             && version_compare((string)($workflow['workflow_snapshot']['version']??'0'),'2026-09-23.3','>=');
     }
 
+    /** A quoted title is an exact user constraint, not a model suggestion.
+     * Reject a different story before a billable text result is settled or
+     * offered for canvas confirmation. Legacy briefs without a title remain
+     * valid and are governed by the full brief supplied in model context. */
+    public static function assertStoryAnchor(array $workflow,array $proposals): void
+    {
+        if (($workflow['workflow_snapshot']['key']??'')!==self::KEY
+            || ($workflow['stage_state']['key']??'')!=='script' || !$proposals) return;
+        $brief=trim((string)($workflow['creative_brief']??''));
+        if (!preg_match('/《([^《》]{1,80})》/u',$brief,$match)) return;
+        $title=trim($match[1]);
+        $revision=(string)($workflow['revision_request']['content']??'');
+        if (preg_match('/(?:改名|标题|片名|名称).{0,30}《([^《》]{1,80})》/u',$revision,$changed)) {
+            $title=trim($changed[1]);
+        } elseif (preg_match('/(?:改名|修改标题|更换片名)/u',$revision)) {
+            return; // A title change without a quoted replacement needs review.
+        }
+        if ($title==='') return;
+        foreach ($proposals as $proposal) {
+            if (!is_array($proposal) || ($proposal['artifact']??'')!=='story_setting') continue;
+            if (mb_strpos((string)($proposal['prompt']??''),$title)===false) {
+                throw new RuntimeException('INVALID_AGENT_ACTION');
+            }
+            return;
+        }
+    }
+
     /** Confirmed text is prompt context, not a decorative media edge. Only
      * explicitly selected stage artifacts are folded into the frozen media
      * proposal, so quotation and eventual submission use the same prompt. */
@@ -215,6 +242,7 @@ final class ConversationWorkflow
                 // the compact continuity ledger used by later Skills; it is
                 // intentionally not a copy of the full chat transcript.
                 'slot_values'=>[], 'creative_settings'=>[], 'intake_candidates'=>[], 'intake_questions'=>[], 'artifact_memory'=>[], 'plan_hash'=>'', 'image_plan'=>[], 'stage_plan'=>[], 'plan_confirmation'=>['status'=>'not_required'],
+                'creative_brief'=>mb_substr(trim($content),0,4000),
                 'state_revision'=>1,
             ];
         } elseif (($state['stage_state']['status']??'')==='awaiting_plan_confirmation') {

@@ -63,7 +63,12 @@ final class ConversationWorker
                 if ($activeRouting) {
                     try {
                         $decision=ConversationWorkflowTurn::parse($content,$intentRouting,$intakeSources);
-                        if ($decision['continue'] && $decision['nodes']) ConversationWorkflow::materializeTextReferences((array)($intentRouting['workflow_candidate']??[]),$decision['nodes']);
+                        if ($decision['continue'] && $decision['nodes']) {
+                            $candidate=(array)($intentRouting['workflow_candidate']??[]);
+                            $candidate['creative_brief']=ConversationTextContext::creativeBrief($candidate,(array)($context['messages']??[]));
+                            ConversationWorkflow::assertStoryAnchor($candidate,$decision['nodes']);
+                            ConversationWorkflow::materializeTextReferences($candidate,$decision['nodes']);
+                        }
                     }
                     catch (RuntimeException $error) {
                         $diagnosticDetail=ConversationWorkflowTurn::failureCategory($content,$intentRouting);
@@ -81,7 +86,12 @@ final class ConversationWorker
                 else {
                     try {
                         $plan=ConversationActionPlan::parse($content,$workflowStage,$compact);
-                        if ($plan['nodes']) ConversationWorkflow::materializeTextReferences((array)($context['workflow']??[]),$plan['nodes']);
+                        if ($plan['nodes']) {
+                            $candidate=(array)($context['workflow']??[]);
+                            $candidate['creative_brief']=ConversationTextContext::creativeBrief($candidate,(array)($context['messages']??[]));
+                            ConversationWorkflow::assertStoryAnchor($candidate,$plan['nodes']);
+                            ConversationWorkflow::materializeTextReferences($candidate,$plan['nodes']);
+                        }
                     } catch (RuntimeException $error) {
                         $diagnosticDetail=ConversationActionPlan::failureCategory($content,$workflowStage,$compact);
                         throw $error;
