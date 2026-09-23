@@ -310,7 +310,6 @@ try {
     agentCheck(Worker::process($tenant,$user,(int)$helloAck['run_id'],$provider)==='success','ordinary greeting remains a normal Agent reply');
     $story='请把重生之我在天庭当人事的一天制作成完整短剧';
     $routing=IntentRouter::snapshot($tenant);
-    $routing['workflow_signal']=IntentRouter::fullWorkflowSignal($story);
     $intentAck=Store::enqueue($tenant,$user,$canvas,$intentThread,['request_key'=>'intent-story','content'=>$story,'base_revision'=>$revision],static function (array $conversation) use ($tenant,$routing): array {
         $candidate=Workflow::prepare($tenant,$conversation,'/short-drama',[],[],['generation_mode'=>'manual'])['workflow'];
         $candidate['workflow_snapshot']['route']='semantic';

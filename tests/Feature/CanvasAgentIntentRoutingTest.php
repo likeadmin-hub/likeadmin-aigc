@@ -10,9 +10,9 @@ use ReflectionMethod;
 
 class CanvasAgentIntentRoutingTest extends TestCase
 {
-    private function routing(bool $signal=false): array
+    private function routing(): array
     {
-        return ['version'=>3,'workflow_signal'=>$signal,'skill_candidates'=>[],
+        return ['version'=>3,'skill_candidates'=>[],
             'workflow_candidate'=>['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY],
                 'stage_state'=>['key'=>'intake']]];
     }
@@ -34,31 +34,20 @@ class CanvasAgentIntentRoutingTest extends TestCase
         self::assertSame('manual',$method->invoke(null,[],'/short-drama 开始创作'));
     }
 
-    public function testCompleteProductionRequiresMoreThanOneKeyword(): void
+    public function testOnlySemanticallyClassifiedCompleteCreationCanActivate(): void
     {
-        foreach (['什么是短剧？','你能帮我生成一个视频脚本吗？','写一集短剧剧本','给我做一张人物图','重生之我在天庭当人事的一天'] as $message) {
-            self::assertFalse(ConversationIntentRouter::fullWorkflowSignal($message),$message);
-        }
-        foreach (['帮我制作一部短剧','我要做10集短剧','做一部完整短剧','从故事到角色分镜视频做成片'] as $message) {
-            self::assertTrue(ConversationIntentRouter::fullWorkflowSignal($message),$message);
-        }
-    }
-
-    public function testOnlyExplicitCompleteCreationCanActivate(): void
-    {
-        $routing=$this->routing(true);
+        $routing=$this->routing();
         self::assertTrue(ConversationIntentRouter::shouldActivateWorkflow($this->decision(),$routing));
-        self::assertFalse(ConversationIntentRouter::shouldActivateWorkflow($this->decision(),$this->routing(false)));
         self::assertFalse(ConversationIntentRouter::shouldActivateWorkflow($this->decision(['speech_act'=>'question']),$routing));
         self::assertFalse(ConversationIntentRouter::shouldActivateWorkflow($this->decision(['deliverable'=>'text','scope'=>'standalone']),$routing));
         self::assertFalse(ConversationIntentRouter::shouldActivateWorkflow($this->decision(['confidence'=>0.79]),$routing));
-        self::assertSame('你想启动完整短剧制作流程，还是先只完成一份剧本或素材？',
-            ConversationIntentRouter::reply($this->decision(),$this->routing(false)));
+        self::assertSame('我还不能确定你要的是单项创作，还是完整短剧制作。你希望我先做哪一种？',
+            ConversationIntentRouter::reply($this->decision(['confidence'=>0.79]),$routing));
     }
 
     public function testStandaloneTextAndAbilityQuestionStayInConversation(): void
     {
-        $routing=$this->routing(false);
+        $routing=$this->routing();
         $script=$this->decision(['intent'=>'creative_plan','deliverable'=>'text','scope'=>'standalone',
             'reply_markdown'=>'产品视频脚本：镜头一展示产品。']);
         $parsed=ConversationIntentRouter::parse(json_encode($script,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing);
@@ -73,7 +62,7 @@ class CanvasAgentIntentRoutingTest extends TestCase
 
     public function testNewRoutingRejectsMissingOrInventedAxes(): void
     {
-        $routing=$this->routing(true);
+        $routing=$this->routing();
         $missing=$this->decision();
         unset($missing['scope']);
         try {
@@ -93,7 +82,7 @@ class CanvasAgentIntentRoutingTest extends TestCase
 
     public function testClarificationUsesTheCurrentMessageInsteadOfAStockQuestion(): void
     {
-        $routing=$this->routing(false);
+        $routing=$this->routing();
         $value=$this->decision(['intent'=>'uncertain','speech_act'=>'request','deliverable'=>'none',
             'scope'=>'uncertain','reply_markdown'=>'你要的是产品宣传脚本，还是实际生成一段产品视频？']);
         $parsed=ConversationIntentRouter::parse(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing);
@@ -102,7 +91,7 @@ class CanvasAgentIntentRoutingTest extends TestCase
 
     public function testActiveWorkflowDoesNotConsumeUnrelatedCreation(): void
     {
-        $routing=$this->routing(true)+['kind'=>'active_workflow','workflow_paused'=>false];
+        $routing=$this->routing()+['kind'=>'active_workflow','workflow_paused'=>false];
         $value=['intent'=>'video','confidence'=>0.95,'skill_key'=>'',
             'reply_markdown'=>'这是一项独立视频创作，当前短剧进度保留。','workflow_output'=>null,
             'speech_act'=>'request','deliverable'=>'video','scope'=>'standalone'];
@@ -113,6 +102,12 @@ class CanvasAgentIntentRoutingTest extends TestCase
         $parsed=ConversationWorkflowTurn::parse(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing);
         self::assertFalse($parsed['continue']);
         self::assertSame([],$parsed['nodes']);
+        $value=['intent'=>'uncertain','confidence'=>0.5,'skill_key'=>'',
+            'reply_markdown'=>'你说的“换个主题”是修改这部短剧，还是开始一项独立创作？','workflow_output'=>null,
+            'speech_act'=>'request','deliverable'=>'none','scope'=>'uncertain'];
+        $parsed=ConversationWorkflowTurn::parse(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing);
+        self::assertFalse($parsed['continue']);
+        self::assertSame('你说的“换个主题”是修改这部短剧，还是开始一项独立创作？',$parsed['text']);
     }
 
     public function testFrozenLegacyRoutingShapeRemainsReadable(): void

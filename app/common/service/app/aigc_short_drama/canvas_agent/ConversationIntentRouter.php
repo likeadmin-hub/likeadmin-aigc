@@ -26,20 +26,6 @@ final class ConversationIntentRouter
             && !in_array($plain,['你好','您好','嗨','hi','hello','谢谢','再见'],true);
     }
 
-    /** A high-precision, server-owned signal for the complete production
-     * scope. A model label or self-reported confidence alone cannot turn a
-     * single script, image or video request into a multi-stage workflow. */
-    public static function fullWorkflowSignal(string $content): bool
-    {
-        $text=trim($content);
-        if ($text==='' || mb_strlen($text)>20000) return false;
-        if (preg_match('/(?:短剧|微短剧|剧集).{0,24}(?:完整|全流程|成片|全套|角色.{0,10}分镜|分镜.{0,10}视频)|(?:完整|全流程|成片|全套).{0,24}(?:短剧|微短剧|剧集)/u',$text)) return true;
-        if (preg_match('/(?:做|制作|创作|打造|拍成|生成|规划).{0,12}(?:一部|整部|系列).{0,6}(?:短剧|微短剧)/u',$text)
-            && !preg_match('/(?:短剧|微短剧)(?:视频)?(?:剧本|脚本|文案)/u',$text)) return true;
-        if (preg_match('/(?:[2-9]|[1-9][0-9]+|十|多)集.{0,10}(?:短剧|微短剧)|(?:短剧|微短剧).{0,10}(?:[2-9]|[1-9][0-9]+|十|多)集/u',$text)) return true;
-        return preg_match('/(?:故事|剧本).{0,40}(?:角色|场景|分镜).{0,40}(?:视频|成片)/u',$text)===1;
-    }
-
     /** The candidate list is frozen with the run, not fetched after LLM I/O. */
     public static function snapshot(int $tenant): array
     {
@@ -74,7 +60,7 @@ final class ConversationIntentRouter
                 .'intent 只能是 chat、creative_plan、image、video、short_drama、uncertain；speech_act 只能是 question、request、answer、confirm、chat；deliverable 只能是 none、text、image、video、full_drama；scope 只能是 conversation、standalone、workflow、uncertain。'
                 .'单纯询问能否创作或咨询概念，speech_act=question、scope=conversation，不启动工作流。请求单份脚本、文案、单集剧本或单张图/视频，scope=standalone；视频脚本是文本交付，不等于生成视频，更不等于完整短剧。'
                 .'仅当用户明确要制作包含剧本、角色、场景、分镜等连续阶段的完整短剧，或明确回答上一轮澄清要选择完整短剧时，才设置 intent=short_drama、deliverable=full_drama、scope=workflow、speech_act=request/answer/confirm。提到“短剧”但只要一份剧本，仍是 standalone。'
-                .'无法确认完整制作与单次创作的范围时，scope=uncertain、intent=uncertain，在 reply_markdown 只问一个区分范围的问题。不要默认为完整短剧。'
+                .'无法确认完整制作与单次创作的范围、或对创作意图的信心低于 0.8 时，scope=uncertain、intent=uncertain，在 reply_markdown 只问一个针对本轮内容的区分问题。不要默认为完整短剧。'
                 .'confidence 是 0 到 1 的数字。skill_key 只能从下列已授权候选中选一个或填空；推荐不等于自动执行。'
                 .'reply_markdown 始终为非空文本：完整短剧只写简短的准备提示，真正进入流程后的提示由服务端生成；普通请求给出真实答复。'
                 .'仅当 intent=short_drama 且 deliverable=full_drama 且 scope=workflow 时填写 intake，否则 intake 为 {"candidates":[],"questions":[]}。'
@@ -133,8 +119,7 @@ final class ConversationIntentRouter
         return (float)($decision['confidence']??0)>=0.8
             && in_array($decision['speech_act']??'',['request','answer','confirm'],true)
             && ($decision['deliverable']??'')==='full_drama'
-            && ($decision['scope']??'')==='workflow'
-            && !empty($routing['workflow_signal']);
+            && ($decision['scope']??'')==='workflow';
     }
 
     public static function reply(array $decision,array $routing,array $availableSources=['message']): string
@@ -148,10 +133,10 @@ final class ConversationIntentRouter
         if ((int)($routing['version']??2)>=3) {
             if (($decision['scope']??'')==='uncertain' || ($decision['intent']??'')==='uncertain')
                 return (string)$decision['reply_markdown'];
+            if ((float)($decision['confidence']??0)<0.8 && ($decision['intent']??'')!=='chat')
+                return '我还不能确定你要的是单项创作，还是完整短剧制作。你希望我先做哪一种？';
             if (($decision['intent']??'')==='short_drama' && ($decision['scope']??'')==='workflow'
                 && ($decision['deliverable']??'')==='full_drama' && in_array($decision['speech_act']??'',['request','answer','confirm'],true)) {
-                if ((float)($decision['confidence']??0)<0.8 || empty($routing['workflow_signal']))
-                    return '你想启动完整短剧制作流程，还是先只完成一份剧本或素材？';
                 return '已识别出完整短剧创作需求，但当前工作流技能配置不可用。请在租户端检查短剧画布 Agent 的阶段技能后重试。';
             }
             $reply=(string)$decision['reply_markdown'];
