@@ -91,7 +91,8 @@ final class ConversationActionPlan
             };
             if ($allowed && !in_array($node['artifact'],$allowed,true)) return 'action_node_artifact';
             $key=$node['key']??null;
-            if ($key!==null && (!is_string($key) || !preg_match('/^[a-z][a-z0-9_-]{0,31}$/D',$key) || isset($seen[$key]))) return 'action_node_key';
+            if ($key!==null && (!is_string($key) || !preg_match('/^[a-z][a-z0-9_-]{0,31}$/D',$key))) return 'action_node_key_format';
+            if ($key!==null && isset($seen[$key])) return 'action_node_key_duplicate';
             if (isset($node['depends_on'])) {
                 if (!is_array($node['depends_on']) || !array_is_list($node['depends_on']) || count($node['depends_on'])>3 || $key===null) return 'action_node_dependencies';
                 foreach ($node['depends_on'] as $dependency) if (!is_string($dependency) || !isset($seen[$dependency])) return 'action_node_dependency_order';
@@ -144,7 +145,7 @@ final class ConversationActionPlan
     {
         $instruction=preg_replace('/只输出 <canvas-actions>.*?<\/canvas-actions>。/u','',$instruction)??$instruction;
         $instruction=preg_replace('/只在答复末尾输出(?:一次)?严格 JSON 包裹 <canvas-actions>.*?<\/canvas-actions>；/u','',$instruction)??$instruction;
-        return '只输出一个合法 JSON 对象，不要 Markdown 代码块或前后说明。对象字段恰好为 reply_markdown 和 canvas_actions，canvas_actions 的结构为 {"nodes":[...]}。reply_markdown 只用一句话概括已准备的内容与下一步，未确认写入前不得声称图片或视频已生成。'.$instruction;
+        return '只输出一个合法 JSON 对象，不要 Markdown 代码块或前后说明。对象字段恰好为 reply_markdown 和 canvas_actions，canvas_actions 的结构为 {"nodes":[...]}。每个节点的 key 必填且全批次唯一，格式为小写英文字母开头、后接小写字母/数字/下划线/短横线，最长 32 字符，例如 subject_chenyu、view_chenyu；不能写中文、空格、冒号或重复 key。depends_on 必须引用同批更早节点的 key；reference_keys 才使用 catalog 中带冒号的跨阶段 reference_key。reply_markdown 只用一句话概括已准备的内容与下一步，未确认写入前不得声称图片或视频已生成。'.$instruction;
     }
 
     /** @return array{text:string,nodes:list<array{type:string,title:string,prompt:string,key?:string,depends_on?:list<string>}>} */
