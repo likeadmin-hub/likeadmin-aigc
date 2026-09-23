@@ -48,6 +48,25 @@ final class ConversationService
             // credential, but it does make a later plan confirmation bound to
             // the exact tenant-authorized model selection used for this run.
             $workflowPreferences=array_replace($preferences,array_intersect_key($settings,array_flip(['generation_mode','reasoning_model','image_model','video_model'])));
+            $current=ConversationWorkflow::currentState($conversation);
+            if ($current!==[] && FeatureGate::workflowEnabled($tenant,ConversationWorkflow::KEY)
+                && !ConversationWorkflow::isManualAlias($content)) {
+                // A different explicit Skill has priority over the current
+                // workflow. Neither the selected Skill nor unrelated chat may
+                // mutate its frozen stage while this run is being classified.
+                if ($skill!==[]) return ['settings'=>$settings,'skill'=>$skill];
+                $candidate=$current;
+                $status=(string)($current['stage_state']['status']??'');
+                if (!in_array($status,['awaiting_plan_confirmation','awaiting_stage_confirmation','reviewing_intake'],true)) {
+                    $candidate=ConversationWorkflow::prepare($tenant,$conversation,$content,$selectedIds,$attachments,$workflowPreferences)['workflow'];
+                }
+                $routing=ConversationIntentRouter::snapshot($tenant);
+                $routing['kind']='active_workflow';
+                $routing['workflow_candidate']=$candidate;
+                $routing['base_workflow_revision']=(int)$current['state_revision'];
+                $routing['workflow_paused']=in_array($status,['awaiting_plan_confirmation','awaiting_stage_confirmation','reviewing_intake'],true);
+                return ['settings'=>$settings,'skill'=>[],'intent_routing'=>$routing];
+            }
             $workflow=ConversationWorkflow::prepare($tenant,$conversation,$content,$selectedIds,$attachments,$workflowPreferences);
             $intentRouting=ConversationIntentRouter::shouldClassify($tenant,$content,$skill,$workflow['workflow'])
                 ? ConversationIntentRouter::snapshot($tenant) : [];

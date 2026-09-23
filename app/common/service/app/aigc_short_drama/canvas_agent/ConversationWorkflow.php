@@ -159,6 +159,15 @@ final class ConversationWorkflow
         return ['workflow'=>self::runState($state),'thread_settings'=>$settings];
     }
 
+    /** Server-only frozen state for deciding whether a new turn belongs to an
+     * existing workflow. Reading it does not advance the stage or revision. */
+    public static function currentState(array $thread): array
+    {
+        $state=self::stateFromSettings(self::settings($thread));
+        if ($state!==[]) self::assertState($state);
+        return $state;
+    }
+
     /** Add an untrusted extraction draft to the immutable initial run result.
      * No extracted value becomes a confirmed slot until the owner reviews it. */
     public static function withIntakeDraft(array $workflow,mixed $raw,array $availableSources=['message']): array

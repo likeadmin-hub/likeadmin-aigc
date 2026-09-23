@@ -6,6 +6,7 @@ use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationActionPlan as ActionPlan;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution as Execution;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationIntentRouter as IntentRouter;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflowTurn as WorkflowTurn;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationIntakeDraft as IntakeDraft;
 use app\common\service\app\aigc_short_drama\canvas_agent\FeatureGate;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationProviderInterface;
@@ -120,14 +121,54 @@ try {
     agentCheck(($jsonPlan['text']??'')==='# 真实剧本' && count($jsonPlan['nodes']??[])===3,'structured JSON keeps the visible reply separate from server-validated workflow nodes');
     try { ActionPlan::parse('# 只有排版正文','script'); throw new RuntimeException('plain stage reply accepted'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_ACTION','markdown-only workflow text reply is rejected instead of falsely completing a graph-writing stage'); }
+    $enqueueActive=static function (string $key,string $content) use ($tenant,$user,$canvas,$thread): array {
+        $revision=(int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision');
+        return Store::enqueue($tenant,$user,$canvas,$thread,['request_key'=>$key,'content'=>$content,'base_revision'=>$revision],static function (array $conversation) use ($tenant,$content): array {
+            $current=Workflow::currentState($conversation);
+            $paused=in_array((string)($current['stage_state']['status']??''),['awaiting_plan_confirmation','awaiting_stage_confirmation','reviewing_intake'],true);
+            $candidate=$paused ? $current : Workflow::prepare($tenant,$conversation,$content,[],[],['generation_mode'=>'manual'])['workflow'];
+            $routing=IntentRouter::snapshot($tenant)+['kind'=>'active_workflow','workflow_candidate'=>$candidate,
+                'base_workflow_revision'=>(int)$current['state_revision'],'workflow_paused'=>$paused];
+            return ['settings'=>['generation_mode'=>'manual'],'skill'=>[],'intent_routing'=>$routing];
+        });
+    };
+    $beforeChat=Workflow::read($tenant,$user,$canvas,$thread);
+    $beforeChatRevision=(int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision');
+    $chatAck=$enqueueActive('workflow-unrelated-chat','你好，解释一下什么是蒙太奇？');
+    $chatContext=json_decode((string)Db::name(Store::PREFIX.'run')->where('id',$chatAck['run_id'])->value('context_snapshot'),true);
+    agentCheck(empty($chatContext['workflow']) && ($chatContext['intent_routing']['kind']??'')==='active_workflow',
+        'active workflow turn is classified before its stage is committed');
+    $provider->content=json_encode(['intent'=>'chat','confidence'=>0.98,'skill_key'=>'','reply_markdown'=>'蒙太奇是通过镜头的组合表达时间、情绪或意义。','workflow_output'=>null],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    agentCheck(Worker::process($tenant,$user,(int)$chatAck['run_id'],$provider)==='success'
+        && ($provider->lastRequest['response_format']['type']??'')==='json_object'
+        && ($provider->lastRequest['enable_thinking']??true)===false,
+        'unrelated chat uses one structured text Provider turn without a second classification call');
+    $afterChat=Workflow::read($tenant,$user,$canvas,$thread);
+    agentCheck(($afterChat['workflow']['state_revision']??0)===($beforeChat['workflow']['state_revision']??-1)
+        && ($afterChat['workflow']['stage_state']??[])===($beforeChat['workflow']['stage_state']??[])
+        && (int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision')===$beforeChatRevision,
+        'off-topic chat preserves the frozen workflow and graph exactly');
+    $routing=(array)($chatContext['intent_routing']??[]);
+    try { WorkflowTurn::parse('{"intent":"chat","confidence":1,"skill_key":"","reply_markdown":"已创建","workflow_output":{"canvas_actions":{"nodes":[]}}}',$routing); throw new RuntimeException('off-topic graph payload accepted'); }
+    catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_INTENT','off-topic model output cannot carry workflow actions'); }
     $artReply='美术规划已完成。<canvas-actions>{"nodes":[{"type":"text","artifact":"art_bible","title":"美术圣经","prompt":"art_bible: 电影写实，冷蓝雨夜与暖黄室内对照。","key":"art"},{"type":"text","artifact":"character_asset_spec","title":"主体资产设定","prompt":"character_asset_spec: 林夏短发风衣、录音笔。\nsubject_image_prompt: 都市悬疑女记者，电影写实。","key":"character"},{"type":"text","artifact":"scene_asset_spec","title":"场景资产设定","prompt":"scene_asset_spec: 雨夜办公室与旧档案室。\nscene_image_prompt: 雨夜办公室，冷蓝霓虹。","key":"scene"},{"type":"text","artifact":"prop_asset_spec","title":"道具资产设定","prompt":"prop_asset_spec: 可录音的旧式金属录音笔。","key":"prop"},{"type":"text","artifact":"three_view_prompt","title":"主体三视图提示词","prompt":"three_view_prompt: 同一林夏正侧背三视图，保持风衣与录音笔一致。","key":"views"}]}</canvas-actions>';
-    $afterArt=$runStage('workflow-art-stage',$artReply);
+    $artPlan=ActionPlan::parse($artReply,'art');
+    $continueAck=$enqueueActive('workflow-art-resume','继续刚才的短剧美术规划');
+    $provider->content=json_encode(['intent'=>'continue','confidence'=>0.96,'skill_key'=>'','reply_markdown'=>'',
+        'workflow_output'=>['reply_markdown'=>$artPlan['text'],'canvas_actions'=>['nodes'=>$artPlan['nodes']]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    agentCheck(Worker::process($tenant,$user,(int)$continueAck['run_id'],$provider)==='success','a later related turn resumes and validates the original art-stage contract');
+    $afterArt=Workflow::read($tenant,$user,$canvas,$thread);
     agentCheck(($afterArt['workflow']['stage_state']['key']??'')==='art' && ($afterArt['workflow']['stage_state']['status']??'')==='awaiting_stage_confirmation','art reply remains reviewable until its structured asset plan is confirmed');
     $artContext=(string)($provider->lastRequest['messages'][0]['content']??'');
     agentCheck(str_contains($artContext,'confirmed_artifacts') && str_contains($artContext,'雨夜回音') && !str_contains($artContext,'这是本阶段的本地验收回复。'),'later Skills receive compact confirmed graph artifacts rather than replaying the full chat transcript');
     $history=Store::messages($tenant,$user,$canvas,$thread);
     $workflowMessages=array_values(array_filter($history,static fn(array $message): bool => ($message['role']??'')==='assistant' && !empty($message['workflow_timeline'])));
     agentCheck(count($workflowMessages)>=2 && ($workflowMessages[0]['workflow_timeline'][0]['kind']??'')==='skill','published assistant replies expose only server-derived Skill/tool timeline evidence');
+    $pausedAck=$enqueueActive('workflow-confirmation-chat','顺便解释一下什么是镜头语言');
+    $provider->content=json_encode(['intent'=>'chat','confidence'=>0.96,'skill_key'=>'','reply_markdown'=>'镜头语言是用景别、角度和运动表达叙事。','workflow_output'=>null],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    agentCheck(Worker::process($tenant,$user,(int)$pausedAck['run_id'],$provider)==='success'
+        && (Workflow::read($tenant,$user,$canvas,$thread)['workflow']['state_revision']??0)===($afterArt['workflow']['state_revision']??-1),
+        'ordinary chat remains available during confirmation without dismissing or advancing the card');
     $artConfirmed=Workflow::confirmStagePlan($tenant,$user,$canvas,$thread,(int)$afterArt['workflow']['state_revision']);
     agentCheck(($artConfirmed['workflow']['stage_state']['key']??'')==='assets' && ($artConfirmed['workflow']['stage_state']['status']??'')==='ready' && count($artConfirmed['canvas_actions']['nodes']??[])===5,'confirmed art plan writes its asset specifications before image planning');
     $artNodes=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('nodes_json'),true);

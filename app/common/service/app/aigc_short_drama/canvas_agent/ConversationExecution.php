@@ -30,10 +30,10 @@ final class ConversationExecution
      * Complete a reply and its bounded graph proposal atomically.  The action
      * is a server-validated proposal, not an arbitrary provider tool call.
      */
-    public static function complete(int $tenant,int $user,int $runId,string $token,int $fence,string $text,array $proposals=[],array $intentDecision=[],array $intakeDraft=[]): bool
+    public static function complete(int $tenant,int $user,int $runId,string $token,int $fence,string $text,array $proposals=[],array $intentDecision=[],array $intakeDraft=[],array $workflowTurn=[]): bool
     {
         if (trim($text)==='' || mb_strlen($text)>100000) throw new RuntimeException('INVALID_ASSISTANT_REPLY');
-        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$text,$proposals,$intentDecision,$intakeDraft): bool {
+        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$text,$proposals,$intentDecision,$intakeDraft,$workflowTurn): bool {
             [$run,$thread,$outbox,$document]=self::locked($tenant,$user,$runId);
             self::identity($outbox,$token,$fence);
             $hash=hash('sha256',$text);
@@ -63,6 +63,25 @@ final class ConversationExecution
             $workflow=(array)($context['workflow']??[]);
             $currentThreadSettings=(array)json_decode((string)$thread['settings_json'],true,512,JSON_THROW_ON_ERROR);
             $activatedWorkflow=[];
+            $workflowContinued=false;
+            if ($workflowTurn) {
+                $routing=(array)($context['intent_routing']??[]);
+                if ($workflow || $intentDecision || ($routing['kind']??'')!=='active_workflow') throw new RuntimeException('INVALID_AGENT_INTENT');
+                $decision=ConversationWorkflowTurn::parse(self::json(array_intersect_key($workflowTurn,array_flip(['intent','confidence','skill_key','reply_markdown','workflow_output']))),$routing,$intakeSources);
+                if ($decision['text']!==$text || $decision['nodes']!==$proposals || $decision['intake']!==$intakeDraft) throw new RuntimeException('INVALID_AGENT_INTENT');
+                $candidate=(array)($routing['workflow_candidate']??[]);
+                $persisted=(array)($currentThreadSettings['workflow_state']??[]);
+                if (($persisted['workflow_snapshot']['key']??'')!==ConversationWorkflow::KEY
+                    || (int)($persisted['state_revision']??-1)!==(int)($routing['base_workflow_revision']??-2)
+                    || !in_array((int)($candidate['state_revision']??-2)-(int)($persisted['state_revision']??-1),[0,1],true)
+                    || ($persisted['stage_state']['key']??'')!==($candidate['stage_state']['key']??'')) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
+                if ($decision['continue']) {
+                    $workflow=$candidate;
+                    $context['workflow']=$candidate;
+                    $currentThreadSettings['workflow_state']=$candidate;
+                    $workflowContinued=true;
+                }
+            }
             if ($intentDecision) {
                 $routing=(array)($context['intent_routing']??[]);
                 if (!$routing || $workflow || $proposals) throw new RuntimeException('INVALID_AGENT_INTENT');
@@ -112,6 +131,7 @@ final class ConversationExecution
             elseif ($stagePlanSettings!==null) $threadUpdate['settings_json']=json_encode($stagePlanSettings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
             elseif ($intakeSettings!==null) $threadUpdate['settings_json']=self::json($intakeSettings);
             elseif ($nextSettings=ConversationWorkflow::advanceAfterReplyLocked($thread,$workflow,$currentThreadSettings,$text,$proposals,$effects)) $threadUpdate['settings_json']=json_encode($nextSettings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+            elseif ($workflowContinued) $threadUpdate['settings_json']=self::json($currentThreadSettings);
             if ($activatedWorkflow) {
                 $currentThreadSettings['workflow_state']=$activatedWorkflow;
                 $threadUpdate['settings_json']=self::json($currentThreadSettings);
