@@ -64,6 +64,9 @@ try {
         agentCheck(count($messages)===($scenario==='success'?2:1),$scenario.' only validated success publishes assistant message');
         if (in_array($scenario,['malformed','tool'],true)) {
             agentCheck((string)Db::name(Store::PREFIX.'run')->where('id',$ack['run_id'])->value('error_code')==='UNSUPPORTED_MODEL_RESPONSE',$scenario.' is a clear bounded no-tool failure, not a retryable unknown');
+            $failed=array_values(array_filter($events,static fn(array $event): bool=>$event['kind']==='run.failed'));
+            agentCheck(($failed[0]['payload']['diagnostic_code']??'')==='UNSUPPORTED_MODEL_RESPONSE',
+                $scenario.' stores only an allowlisted internal failure category');
         }
         if ($scenario==='success') {
             $dto=$provider->requests[0];

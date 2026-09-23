@@ -100,7 +100,7 @@ final class ConversationWorker
             // malformed/completion-with-tools response is therefore known bad
             // output, not an unknown upstream outcome requiring a resend.
             if (in_array($error->getMessage(),['UNSUPPORTED_MODEL_RESPONSE','INVALID_AGENT_ACTION','INVALID_AGENT_INTENT','INVALID_AGENT_INTAKE'],true)) {
-                return ConversationExecution::rejectInvalidResponse($tenant,$user,$run,$claim['token'],$claim['fence']);
+                return ConversationExecution::rejectInvalidResponse($tenant,$user,$run,$claim['token'],$claim['fence'],$error->getMessage());
             }
             ConversationExecution::unknown($tenant,$user,$run,$claim['token'],$claim['fence']);
             return 'needs_reconciliation';
