@@ -24,7 +24,7 @@ if ($action === 'prepare') {
     $stamp = date('YmdHis') . '-' . bin2hex(random_bytes(3));
     $marker = P5_BROWSER_PREFIX . $stamp;
     $now = time();
-    $result = Db::transaction(static function () use ($marker, $now): array {
+    $result = Db::transaction(static function () use ($marker, $stamp, $now): array {
         $canvas = ShortDramaCanvasService::create(P5_BROWSER_TENANT, P5_BROWSER_USER, ['title' => $marker . ' 画布']);
         $canvasId = (int)$canvas['id'];
         $parentId = Db::name('aigc_short_drama_project')->insertGetId([
