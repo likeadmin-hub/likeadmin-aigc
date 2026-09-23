@@ -95,6 +95,7 @@ final class ConversationWorkflowTurn
             .'intent 只能是 continue、chat、creative_plan、image、video、short_drama、uncertain；continue 表示本轮明确在回答、修改或推进当前短剧工作流。'
             .'普通问候、解释性提问、与当前短剧无关的内容选 chat；单独作图或视频选 image/video；新的短剧项目选 short_drama，不要偷偷替换现有工作流。'
             .'不能判断时选 uncertain，reply_markdown 只问一个澄清问题。confidence 是 0 到 1 的数字。'
+            .($modern?'如果对是否继续当前流程的信心低于 0.8，也选 uncertain，并针对本轮内容提问；不要把不相关内容当作阶段答案。':'')
             .'skill_key 只能是下面已授权候选的 key 或空字符串；它仅作推荐，绝不能自动执行 Skill。'
             .'若 intent 不是 continue，workflow_output 必须为 null，reply_markdown 给出自然回复，不得声称已创建节点、提交任务或推进阶段。'
             .($modern?'如果本轮是独立的文本创作且信息足够，直接在 reply_markdown 交付真实文本；若只是能力提问，只回答并询问必要信息，不推进当前工作流。':'')
@@ -134,6 +135,8 @@ final class ConversationWorkflowTurn
                 $reply='当前短剧工作流有待确认的阶段卡片，请先确认或修改；你的这条消息没有改动工作流。';
             } elseif ($modern && ($value['scope']??'')==='uncertain') {
                 $reply=trim($reply);
+            } elseif ($modern && $confidence<0.8 && $intent!=='chat') {
+                $reply='我还不能确定这条消息是否要继续当前短剧流程。你希望继续当前阶段，还是单独创作？';
             } elseif ($intent==='continue' || (!$modern && $confidence<0.7 && $intent!=='chat')) {
                 $reply='这条消息是要继续当前短剧工作流，还是开始另一项创作？请说明后我再继续。';
             } elseif ($intent==='short_drama' && (!$modern || ($value['scope']??'')==='workflow')) {
