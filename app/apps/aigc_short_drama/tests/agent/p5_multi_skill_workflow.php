@@ -61,13 +61,13 @@ try {
     Db::name('aigc_short_drama_config')->where('id',$config)->update(['config_json'=>$originalConfig]);
     $canvas=Canvas::create($tenant,$user,['title'=>'P5 workflow fixture'])['id'];
     $thread=Store::create($tenant,$user,$canvas,'workflow-thread')['id'];
-    $ack=Store::enqueue($tenant,$user,$canvas,$thread,['request_key'=>'workflow-route','content'=>'我想创作一部悬疑短剧','base_revision'=>0],static function (array $conversation) use ($tenant): array {
+    $ack=Store::enqueue($tenant,$user,$canvas,$thread,['request_key'=>'workflow-route','content'=>'/short-drama 我想创作一部悬疑短剧','base_revision'=>0],static function (array $conversation) use ($tenant): array {
         $preferences=['generation_mode'=>'auto','reasoning_model'=>['id'=>'text-a'],'image_model'=>['id'=>'fixture-image','model_code'=>'fixture-image']];
-        $prepared=Workflow::prepare($tenant,$conversation,'我想创作一部悬疑短剧',[],[],$preferences);
+        $prepared=Workflow::prepare($tenant,$conversation,'/short-drama 我想创作一部悬疑短剧',[],[],$preferences);
         return ['settings'=>$preferences,'skill'=>[],'workflow'=>$prepared['workflow'],'thread_settings'=>$prepared['thread_settings']];
     });
     $snapshot=json_decode((string)Db::name(Store::PREFIX.'run')->where('id',$ack['run_id'])->value('context_snapshot'),true);
-    agentCheck(($snapshot['workflow']['workflow_snapshot']['key']??'')==='short_drama_creation','semantic route freezes the platform workflow key in the run');
+    agentCheck(($snapshot['workflow']['workflow_snapshot']['key']??'')==='short_drama_creation','explicit route freezes the platform workflow key in the run');
     agentCheck(($snapshot['workflow']['workflow_snapshot']['version']??'')===Workflow::VERSION,'workflow version is immutable in the accepted run');
     agentCheck(($snapshot['workflow']['workflow_snapshot']['stage_skill_versions']['script'][0]['skill_key']??'')==='workflow_script_fixture' && ($snapshot['workflow']['workflow_snapshot']['stage_skill_versions']['script'][0]['version']??0)===1,'workflow freezes the tenant-authorized published Skill version for its configured stage');
     agentCheck(($snapshot['workflow']['stage_state']['key']??'')==='intake','short drama route starts in collection without a canvas node');
@@ -128,7 +128,7 @@ try {
             $paused=in_array((string)($current['stage_state']['status']??''),['awaiting_plan_confirmation','awaiting_stage_confirmation','reviewing_intake'],true);
             $preferences=['generation_mode'=>'auto','reasoning_model'=>['id'=>'fixture-model'],'image_model'=>['id'=>'fixture-image','model_code'=>'fixture-image']];
             $candidate=$paused ? $current : Workflow::prepare($tenant,$conversation,$content,[],[],$preferences)['workflow'];
-            $routing=IntentRouter::snapshot($tenant)+['kind'=>'active_workflow','workflow_candidate'=>$candidate,
+            $routing=array_replace(IntentRouter::snapshot($tenant),['version'=>2])+['kind'=>'active_workflow','workflow_candidate'=>$candidate,
                 'base_workflow_revision'=>(int)$current['state_revision'],'workflow_paused'=>$paused];
             return ['settings'=>$preferences,'skill'=>[],'intent_routing'=>$routing];
         });
@@ -300,16 +300,17 @@ try {
     agentCheck(($completeCard['type']??'')==='complete' && ($completeCard['stage_index']??0)===($completeCard['stage_total']??-1),'finished workflow shows a complete 8/8 card instead of resetting to 0/8');
     try { Workflow::read($tenant+1,$user,$canvas,$thread); throw new RuntimeException('cross tenant workflow read passed'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='CANVAS_NOT_FOUND','workflow state cannot be read across tenants'); }
-    // Reproduce a live thread that first exchanged a greeting, then received
-    // only a story title without any of the old keyword-router terms.
+    // A greeting stays chat. An explicit whole-production request then uses
+    // the modern semantic router rather than a keyword shortcut.
     $intentThread=Store::create($tenant,$user,$canvas,'intent-thread')['id'];
     agentCheck(!IntentRouter::shouldClassify($tenant,'你好',[],[]) && IntentRouter::shouldClassify($tenant,'重生之我在天庭当人事的一天',[],[]),'greeting remains ordinary chat while a bare story premise reaches semantic classification');
     $revision=(int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision');
     $helloAck=Store::enqueue($tenant,$user,$canvas,$intentThread,['request_key'=>'intent-hello','content'=>'你好','base_revision'=>$revision],['settings'=>['generation_mode'=>'manual'],'skill'=>[]]);
     $provider->content='你好，请告诉我你的创作想法。';
     agentCheck(Worker::process($tenant,$user,(int)$helloAck['run_id'],$provider)==='success','ordinary greeting remains a normal Agent reply');
-    $story='重生之我在天庭当人事的一天';
+    $story='请把重生之我在天庭当人事的一天制作成完整短剧';
     $routing=IntentRouter::snapshot($tenant);
+    $routing['workflow_signal']=IntentRouter::fullWorkflowSignal($story);
     $intentAck=Store::enqueue($tenant,$user,$canvas,$intentThread,['request_key'=>'intent-story','content'=>$story,'base_revision'=>$revision],static function (array $conversation) use ($tenant,$routing): array {
         $candidate=Workflow::prepare($tenant,$conversation,'/short-drama',[],[],['generation_mode'=>'manual'])['workflow'];
         $candidate['workflow_snapshot']['route']='semantic';
@@ -320,7 +321,8 @@ try {
     ],'questions'=>[
         ['key'=>'episode_count','ask'=>'这段天庭职场故事希望拍成几集？','options'=>['1集短片','10集微短剧']],
     ]];
-    $provider->content=json_encode(['intent'=>'short_drama','confidence'=>0.94,'skill_key'=>'','reply_markdown'=>'这是一个天庭职场的故事创意。','intake'=>$intakeDraft],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    $provider->content=json_encode(['intent'=>'short_drama','confidence'=>0.94,'skill_key'=>'','reply_markdown'=>'这是一个天庭职场的故事创意。','intake'=>$intakeDraft,
+        'speech_act'=>'request','deliverable'=>'full_drama','scope'=>'workflow'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
     agentCheck(Worker::process($tenant,$user,(int)$intentAck['run_id'],$provider)==='success','one classified text run activates the frozen workflow without a second Provider call');
     $intentView=Workflow::read($tenant,$user,$canvas,$intentThread);
     agentCheck(($intentView['workflow']['workflow_snapshot']['route']??'')==='semantic'
@@ -330,7 +332,7 @@ try {
         && ($intentView['workflow']['slot_values']??[])===[],'semantic route projects an unconfirmed, source-labelled draft without auto-accepting its facts');
     agentCheck((int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision')===$revision
         && ($provider->lastRequest['response_format']['type']??'')==='json_object'
-        && ($provider->lastRequest['max_tokens']??0)===1800,'classification turn uses bounded structured output and does not mutate the graph');
+        && ($provider->lastRequest['max_tokens']??0)===4096,'classification turn uses bounded structured output and does not mutate the graph');
     try { Workflow::prepare($tenant,Db::name(Store::PREFIX.'thread')->where('id',$intentThread)->find(),'继续',[],[],[]); throw new RuntimeException('unreviewed draft bypassed'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='WORKFLOW_INTAKE_REVIEW_REQUIRED','unreviewed material cannot advance the workflow'); }
     try { Workflow::answer($tenant,$user,$canvas,$intentThread,(int)$intentView['workflow']['state_revision'],'intake_review','{"genre":"修订","audience":"任意"}'); throw new RuntimeException('undeclared candidate accepted'); }
@@ -412,7 +414,7 @@ try {
         'workflow_output'=>['reply_markdown'=>'已完成旧书店短剧的故事设定与单集剧本。','canvas_actions'=>['nodes'=>[
             ['type'=>'text','artifact'=>'story_setting','title'=>'故事设定','prompt'=>'旧书店的修书师发现童年留言，逐步揭开家庭秘密。','key'=>'story'],
             ['type'=>'text','artifact'=>'episode_script','title'=>'单集剧本','prompt'=>'场景一：修书师进入旧书店；场景二：发现童年留言并揭示真相。','key'=>'episode'],
-        ]]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        ]]],'speech_act'=>'request','deliverable'=>'full_drama','scope'=>'workflow'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
     agentCheck(Worker::process($tenant,$user,(int)$compactAck['run_id'],$provider)==='success'
         && ($provider->lastRequest['response_format']['type']??'')==='json_object'
         && (string)Db::name(Store::PREFIX.'run')->where('id',$compactAck['run_id'])->value('skill_snapshot')==='[]',
