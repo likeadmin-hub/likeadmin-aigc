@@ -10,7 +10,7 @@ final class GraphService
 {
     public const TABLE = 'aigc_short_drama_canvas';
     public const RECEIPTS = 'aigc_short_drama_canvas_mutation_receipt';
-    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_manual_submit','workflow_source_stage','workflow_artifact','workflow_key','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash'];
+    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_manual_submit','workflow_source_stage','workflow_artifact','workflow_key','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash','workflow_formal_fields','workflow_formal_content_hash'];
 
     /**
      * Server-only Agent writer.  ConversationExecution already owns the
@@ -40,7 +40,8 @@ final class GraphService
         $liveSources=array_values(array_unique($liveSources));
         $maximumX=0.0; $maximumY=0.0;
         foreach ($nodes as $node) { $maximumX=max($maximumX,(float)($node['x']??0)); $maximumY=max($maximumY,(float)($node['y']??0)); }
-        self::validateAgentProposals($proposals,$workflowStage,$compact);
+        $structuredWriteback=ConversationWorkflow::structuredWriteback($workflow);
+        self::validateAgentProposals($proposals,$workflowStage,$compact,$structuredWriteback);
         $created=[];
         $createdByKey=[];
         foreach ($proposals as $offset=>$proposal) {
@@ -56,6 +57,10 @@ final class GraphService
                 $metadata['workflow_artifact']=(string)($proposal['artifact']??'');
                 if (isset($proposal['key'])) $metadata['workflow_key']=$workflowStage.':'.(string)$proposal['key'];
                 $metadata['workflow_plan_hash']=(string)($workflow['plan_hash']??'');
+                if ($structuredWriteback && $workflowStage==='script') {
+                    $metadata['workflow_formal_fields']=$proposal['formal_fields'];
+                    $metadata['workflow_formal_content_hash']=hash('sha256',$prompt);
+                }
             }
             if ($type==='text') $metadata['model_code']=(string)($settings['reasoning_model']['id']??'');
             else $metadata['channel']=(string)($settings[$type.'_model']['id']??'');
@@ -464,7 +469,7 @@ final class GraphService
         return [(string)($edge['from']??''),(string)($edge['to']??''),(string)($edge['kind']??'reference'),(string)($edge['role']??''),(string)($edge['order']??0)];
     }
     /** Validate the model proposal again at the graph authority boundary. */
-    private static function validateAgentProposals(array $proposals,string $workflowStage='',bool $compact=false): void {
+    private static function validateAgentProposals(array $proposals,string $workflowStage='',bool $compact=false,bool $structuredWriteback=false): void {
         $allowedTypes=match ($workflowStage) {
             'script','art','video_plan'=>['text'], 'assets','storyboard'=>['image'], 'video_nodes'=>['video'], 'audio_plan'=>['audio'], default=>['text','image','video'],
         };
@@ -477,10 +482,12 @@ final class GraphService
         $keyArtifacts=[];
         foreach ($proposals as $proposal) {
             $fields=$allowedArtifacts ? ['type','artifact','title','prompt','key','depends_on','reference_keys'] : ['type','title','prompt','key','depends_on'];
+            if ($structuredWriteback && $workflowStage==='script') $fields[]='formal_fields';
             if (!is_array($proposal) || array_diff(array_keys($proposal),$fields)) throw new RuntimeException('INVALID_AGENT_ACTION');
             $type=(string)($proposal['type']??''); $title=trim((string)($proposal['title']??'')); $prompt=trim((string)($proposal['prompt']??''));
             if (!in_array($type,$allowedTypes,true) || $title==='' || mb_strlen($title)>80 || $prompt==='' || mb_strlen($prompt)>20000) throw new RuntimeException('INVALID_AGENT_ACTION');
             if ($allowedArtifacts && !in_array((string)($proposal['artifact']??''),$allowedArtifacts,true)) throw new RuntimeException('INVALID_AGENT_ACTION');
+            if ($structuredWriteback && $workflowStage==='script') ConversationActionPlan::formalFields((string)$proposal['artifact'],$proposal['formal_fields']??null);
             if (array_key_exists('key',$proposal) && !is_string($proposal['key'])) throw new RuntimeException('INVALID_AGENT_ACTION');
             $key=trim((string)($proposal['key']??''));
             if (array_key_exists('key',$proposal) && (!preg_match('/^[a-z][a-z0-9_-]{0,31}$/D',$key) || isset($keys[$key]))) throw new RuntimeException('INVALID_AGENT_ACTION');

@@ -65,14 +65,17 @@ try {
     };
 
     $script=$reply([
-        ['type'=>'text','artifact'=>'story_setting','title'=>'故事设定与大纲','prompt'=>'剧名：雨夜回音。林夏调查姐姐失踪。第一集：雨夜收到录音、追踪档案、结尾出现匿名短信。','key'=>'story'],
-        ['type'=>'text','artifact'=>'episode_script','title'=>'第一集剧本','prompt'=>'场景一：雨夜办公室。林夏播放录音；对白：姐姐，你在哪里？场景二：档案室，手机收到匿名短信。','key'=>'episode_1'],
+        ['type'=>'text','artifact'=>'story_setting','title'=>'故事设定与大纲','prompt'=>'剧名：雨夜回音。林夏调查姐姐失踪。第一集：雨夜收到录音、追踪档案、结尾出现匿名短信。','key'=>'story','formal_fields'=>['title'=>'雨夜回音','type_judgement'=>'悬疑短剧','core_theme'=>'亲情与真相','story_outline'=>'林夏调查姐姐失踪，第一集在雨夜收到录音并追踪档案。']],
+        ['type'=>'text','artifact'=>'episode_script','title'=>'第一集剧本','prompt'=>'场景一：雨夜办公室。林夏播放录音；对白：姐姐，你在哪里？场景二：档案室，手机收到匿名短信。','key'=>'episode_1','formal_fields'=>['episode_number'=>1,'title'=>'雨夜录音','story_outline'=>'林夏收到录音，追踪档案并收到匿名短信。','scene_script'=>'场景一：雨夜办公室。林夏播放录音；对白：姐姐，你在哪里？场景二：档案室，手机收到匿名短信。']],
     ],'真实的设定、分集大纲与当前单集剧本');
     $view=$runStage('compact-script',$script);
     agentCheck(($view['card']['plan']['node_count']??0)===2,'script card previews exactly two useful canvas outputs');
     Workflow::confirmStagePlan($tenant,$user,$canvas,$thread,(int)$view['workflow']['state_revision']);
     [$nodes,$edges]=$graph($canvas);
     agentCheck(count($nodes)===2 && count($edges)===0 && ($nodes[1]['metadata']['workflow_artifact']??'')==='episode_script','story/outline and episode script are the only text canvas nodes and have no decorative dependency edge');
+    agentCheck(($nodes[0]['metadata']['workflow_formal_fields']['story_outline']??'')==='林夏调查姐姐失踪，第一集在雨夜收到录音并追踪档案。'
+        && ($nodes[1]['metadata']['workflow_formal_fields']['episode_number']??0)===1,
+        'new workflow projection preserves validated formal fields without splitting free prose');
     $storyId=(string)$nodes[0]['id'];
 
     $art=$reply([

@@ -24,10 +24,10 @@ final class ConversationActionPlan
      */
     private const STRUCTURED_TEXT_STAGES=['script','art','video_plan'];
 
-    public static function instruction(string $mode,string $workflowStage='',bool $compact=false): string
+    public static function instruction(string $mode,string $workflowStage='',bool $compact=false,bool $structuredWriteback=false): string
     {
         if ($compact) {
-            if ($workflowStage==='script') return self::structuredEnvelopeInstruction('剧本与角色设定', 'story_setting、episode_script', '必须恰好输出两项：story_setting 合并故事设定、角色关系及全剧/分集大纲；episode_script 是当前制作单集的完整场景、动作、对白与镜头意图。两个节点的 prompt 都必须是可阅读的真实内容，不能是模板或占位符。不得用 depends_on 连接两个文本节点；仅实际作为媒体输入的素材才需要画布连线。');
+            if ($workflowStage==='script') return self::structuredEnvelopeInstruction('剧本与角色设定', 'story_setting、episode_script', '必须恰好输出两项：story_setting 合并故事设定、角色关系及全剧/分集大纲；episode_script 是当前制作单集的完整场景、动作、对白与镜头意图。两个节点的 prompt 都必须是可阅读的真实内容，不能是模板或占位符。不得用 depends_on 连接两个文本节点；仅实际作为媒体输入的素材才需要画布连线。'.($structuredWriteback?' 每个节点还必须有 formal_fields 对象：story_setting 恰好包含 title、type_judgement、core_theme、story_outline 四个非空字符串；episode_script 恰好包含 episode_number（1–500 整数）、title、story_outline、scene_script。它们是从当前真实创作内容提炼的正式项目字段，不能照抄模板或把整篇正文重复塞进每个字段。':''),$structuredWriteback);
             if ($workflowStage==='art') return self::structuredEnvelopeInstruction('画风与美术规划', 'art_bible、character_asset_spec、scene_asset_spec、prop_asset_spec、subject_image_prompt、three_view_prompt、scene_image_prompt、storyboard_image_prompt', '这些是真实的阶段规划，确认后只保存在对话工作流状态，不创建画布节点。按实际角色和场景分别输出明确、可用于后续生图的内容；不得输出模板或占位符。');
             if ($workflowStage==='video_plan') return self::structuredEnvelopeInstruction('分镜视频规划', 'video_prompt_plan', '每镜包含 shot_number、duration、first_frame、last_frame、camera_motion、action_sequence、video_prompt、asset_references；确认后只保存在对话工作流状态，不创建画布文本节点。');
             if ($workflowStage==='assets') return '当前为主体资产阶段。只输出 <canvas-actions>{"nodes":[...]}</canvas-actions>。节点只能为 image，artifact 为 subject 或 three_view；每个 three_view 必须 depends_on 同批对应 subject，且该主体图是唯一必须的三视图媒体输入。每个 prompt 应根据已确认的剧本与美术规划写成完整生图提示词。reference_keys 只能选 workflow_reference_catalog 中实际用于本节点的已生成媒体或用户选择的素材；不要把全部历史产物连接到每个节点。最多四项。每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys；不得声明价格、模型、URL、素材 ID 或任务状态。';
@@ -53,13 +53,13 @@ final class ConversationActionPlan
         return in_array($workflowStage,self::STRUCTURED_TEXT_STAGES,true) ? ['type'=>'json_object'] : null;
     }
 
-    private static function structuredEnvelopeInstruction(string $label,string $artifacts,string $requirements): string
+    private static function structuredEnvelopeInstruction(string $label,string $artifacts,string $requirements,bool $formalFields=false): string
     {
-        return "当前为{$label}阶段。只输出一个合法 JSON 对象，不要 Markdown 代码块、不要前后说明。对象只能有 reply_markdown 和 canvas_actions 两个字段：reply_markdown 是要展示给用户的真实、完整短剧内容；canvas_actions 只能是 {\"nodes\":[...]}。nodes 只能是 text，artifact 只能是 {$artifacts}。{$requirements} 每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys；reference_keys 只能使用 workflow_reference_catalog 的 reference_key，且只选直接依赖的产物；不得输出模型、价格、URL、素材 ID、任务状态或任意画布 JSON。";
+        return "当前为{$label}阶段。只输出一个合法 JSON 对象，不要 Markdown 代码块、不要前后说明。对象只能有 reply_markdown 和 canvas_actions 两个字段：reply_markdown 是要展示给用户的真实、完整短剧内容；canvas_actions 只能是 {\"nodes\":[...]}。nodes 只能是 text，artifact 只能是 {$artifacts}。{$requirements} 每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys".($formalFields?',formal_fields':'')."；reference_keys 只能使用 workflow_reference_catalog 的 reference_key，且只选直接依赖的产物；不得输出模型、价格、URL、素材 ID、任务状态或任意画布 JSON。";
     }
 
     /** @return array{text:string,nodes:list<array{type:string,title:string,prompt:string,key?:string,depends_on?:list<string>}>} */
-    public static function parse(string $reply,string $workflowStage='',bool $compact=false): array
+    public static function parse(string $reply,string $workflowStage='',bool $compact=false,bool $structuredWriteback=false): array
     {
         [$text,$action]=self::extract($reply,$workflowStage);
         if ($action===null) return ['text'=>$text,'nodes'=>[]];
@@ -78,6 +78,7 @@ final class ConversationActionPlan
         $keyArtifacts = [];
         foreach ($action['nodes'] as $node) {
             $fields=$allowedArtifacts ? ['type','artifact','title','prompt','key','depends_on','reference_keys'] : ['type','title','prompt','key','depends_on'];
+            if ($structuredWriteback && $compact && $workflowStage==='script') $fields[]='formal_fields';
             if (!is_array($node) || array_diff(array_keys($node), $fields)) throw new RuntimeException('INVALID_AGENT_ACTION');
             $type = (string)($node['type'] ?? ''); $title = trim((string)($node['title'] ?? '')); $prompt = trim((string)($node['prompt'] ?? ''));
             if (!in_array($type, $allowedTypes, true) || $title === '' || mb_strlen($title) > 80 || $prompt === '' || mb_strlen($prompt) > 20000) throw new RuntimeException('INVALID_AGENT_ACTION');
@@ -86,6 +87,9 @@ final class ConversationActionPlan
                 $artifact=(string)($node['artifact']??'');
                 if (!in_array($artifact,$allowedArtifacts,true)) throw new RuntimeException('INVALID_AGENT_ACTION');
                 $proposal['artifact']=$artifact;
+                if ($structuredWriteback && $compact && $workflowStage==='script') {
+                    $proposal['formal_fields']=self::formalFields($artifact,$node['formal_fields']??null);
+                }
             }
             if (array_key_exists('key', $node) && !is_string($node['key'])) throw new RuntimeException('INVALID_AGENT_ACTION');
             $key = trim((string)($node['key'] ?? ''));
@@ -144,6 +148,28 @@ final class ConversationActionPlan
             if (count($nodes)!==2 || ($artifacts['story_setting']??0)!==1 || ($artifacts['episode_script']??0)!==1) throw new RuntimeException('INVALID_AGENT_ACTION');
         }
         return ['text' => $text === '' ? '已创建画布节点。' : $text, 'nodes' => $nodes];
+    }
+
+    public static function formalFields(string $artifact,mixed $fields): array
+    {
+        $required=match ($artifact) {
+            'story_setting'=>['title','type_judgement','core_theme','story_outline'],
+            'episode_script'=>['episode_number','title','story_outline','scene_script'],
+            default=>[],
+        };
+        if (!$required || !is_array($fields) || count($fields)!==count($required)
+            || array_diff(array_keys($fields),$required) || array_diff($required,array_keys($fields))) {
+            throw new RuntimeException('INVALID_AGENT_ACTION');
+        }
+        foreach ($required as $key) {
+            $value=$fields[$key];
+            if ($key==='episode_number') {
+                if (!is_int($value) || $value<1 || $value>500) throw new RuntimeException('INVALID_AGENT_ACTION');
+            } elseif (!is_string($value) || trim($value)==='' || mb_strlen($value,'UTF-8')>20000) {
+                throw new RuntimeException('INVALID_AGENT_ACTION');
+            }
+        }
+        return $fields;
     }
 
     /** @return array{0:string,1:?array} */
