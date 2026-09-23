@@ -6,6 +6,7 @@ use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationActionPlan as ActionPlan;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution as Execution;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationIntentRouter as IntentRouter;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationIntakeDraft as IntakeDraft;
 use app\common\service\app\aigc_short_drama\canvas_agent\FeatureGate;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationProviderInterface;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore as Store;
@@ -241,15 +242,56 @@ try {
         $candidate['workflow_snapshot']['route']='semantic';
         return ['settings'=>['generation_mode'=>'manual'],'skill'=>[],'intent_routing'=>$routing+['workflow_candidate'=>$candidate]];
     });
-    $provider->content=json_encode(['intent'=>'short_drama','confidence'=>0.94,'skill_key'=>'','reply_markdown'=>'这是一个天庭职场的故事创意。'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    $intakeDraft=['candidates'=>[
+        ['key'=>'genre','value'=>'天庭职场奇幻喜剧','source'=>'message','evidence'=>'重生之我在天庭当人事的一天','confidence'=>0.96],
+    ],'questions'=>[
+        ['key'=>'episode_count','ask'=>'这段天庭职场故事希望拍成几集？','options'=>['1集短片','10集微短剧']],
+    ]];
+    $provider->content=json_encode(['intent'=>'short_drama','confidence'=>0.94,'skill_key'=>'','reply_markdown'=>'这是一个天庭职场的故事创意。','intake'=>$intakeDraft],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
     agentCheck(Worker::process($tenant,$user,(int)$intentAck['run_id'],$provider)==='success','one classified text run activates the frozen workflow without a second Provider call');
     $intentView=Workflow::read($tenant,$user,$canvas,$intentThread);
     agentCheck(($intentView['workflow']['workflow_snapshot']['route']??'')==='semantic'
         && ($intentView['workflow']['stage_state']['key']??'')==='intake'
-        && ($intentView['card']['slot']['key']??'')==='genre','bare story premise now receives the first server-owned short-drama question card');
+        && ($intentView['card']['type']??'')==='intake_review'
+        && ($intentView['card']['candidates'][0]['source']??'')==='message'
+        && ($intentView['workflow']['slot_values']??[])===[],'semantic route projects an unconfirmed, source-labelled draft without auto-accepting its facts');
     agentCheck((int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision')===$revision
         && ($provider->lastRequest['response_format']['type']??'')==='json_object'
-        && ($provider->lastRequest['max_tokens']??0)===600,'classification turn uses bounded structured output and does not mutate the graph');
+        && ($provider->lastRequest['max_tokens']??0)===1800,'classification turn uses bounded structured output and does not mutate the graph');
+    try { Workflow::prepare($tenant,Db::name(Store::PREFIX.'thread')->where('id',$intentThread)->find(),'继续',[],[],[]); throw new RuntimeException('unreviewed draft bypassed'); }
+    catch (RuntimeException $error) { agentCheck($error->getMessage()==='WORKFLOW_INTAKE_REVIEW_REQUIRED','unreviewed material cannot advance the workflow'); }
+    try { Workflow::answer($tenant,$user,$canvas,$intentThread,(int)$intentView['workflow']['state_revision'],'intake_review','{"genre":"修订","audience":"任意"}'); throw new RuntimeException('undeclared candidate accepted'); }
+    catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_WORKFLOW_ANSWER','review cannot confirm a slot that the model did not propose'); }
+    $intentView=Workflow::answer($tenant,$user,$canvas,$intentThread,(int)$intentView['workflow']['state_revision'],'intake_review','{"genre":"奇幻职场喜剧"}');
+    agentCheck(($intentView['workflow']['slot_values']['genre']??'')==='奇幻职场喜剧'
+        && ($intentView['card']['slot']['key']??'')==='episode_count'
+        && ($intentView['card']['slot']['ask']??'')==='这段天庭职场故事希望拍成几集？',
+        'owner correction persists and the next card asks only the missing, contextual question');
+    $currentState=$intentView['workflow'];
+    $repeat=Workflow::withIntakeDraft($currentState,$intakeDraft);
+    agentCheck(($repeat['stage_state']['status']??'')==='collecting' && ($repeat['intake_candidates']??[])===[],
+        'later extraction does not reopen an already confirmed slot');
+    $documentDraft=['candidates'=>[['key'=>'characters','value'=>'记者与失踪姐姐','source'=>'document','evidence'=>'记者追查姐姐','confidence'=>0.9]],'questions'=>[]];
+    try { IntakeDraft::parse($documentDraft,Workflow::catalog()['slots']); throw new RuntimeException('invented document provenance accepted'); }
+    catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_INTAKE','model cannot claim document extraction without an actual parsed document'); }
+    $inlineContext=['messages'=>[['role'=>'user','content'=>'请继续','attachments'=>[['type'=>'text','name'=>'idea.txt','content'=>'记者追查姐姐']]]]];
+    agentCheck(in_array('document',IntakeDraft::availableSources($inlineContext),true)
+        && (IntakeDraft::parse($documentDraft,Workflow::catalog()['slots'],IntakeDraft::availableSources($inlineContext))['candidates']['characters']['value']??'')==='记者与失踪姐姐',
+        'parsed user text enables a source-labelled draft while still requiring owner review');
+    $directThread=Store::create($tenant,$user,$canvas,'direct-intake-thread')['id'];
+    $directAck=Store::enqueue($tenant,$user,$canvas,$directThread,['request_key'=>'direct-intake','content'=>'/short-drama 我想拍天庭职场短剧','base_revision'=>$revision],static function (array $conversation) use ($tenant): array {
+        $preferences=['generation_mode'=>'manual','reasoning_model'=>['id'=>'fixture-model']];
+        $prepared=Workflow::prepare($tenant,$conversation,'/short-drama 我想拍天庭职场短剧',[],[],$preferences);
+        return ['settings'=>$preferences,'skill'=>[],'workflow'=>$prepared['workflow'],'thread_settings'=>$prepared['thread_settings']];
+    });
+    $provider->content=json_encode(['reply_markdown'=>'先核对我从描述里读出的设定。','intake'=>$intakeDraft],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    agentCheck(Worker::process($tenant,$user,(int)$directAck['run_id'],$provider)==='success'
+        && ($provider->lastRequest['max_tokens']??0)===1500,'direct /short-drama intake uses one bounded structured Provider turn');
+    $directView=Workflow::read($tenant,$user,$canvas,$directThread);
+    agentCheck(($directView['card']['type']??'')==='intake_review'
+        && ($directView['workflow']['slot_values']??[])===[]
+        && (int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision')===$revision,
+        'direct intake preserves review-before-accept and creates no canvas nodes');
     try { IntentRouter::parse('{"intent":"delete_all","confidence":1,"skill_key":"","reply_markdown":"ok"}',$routing); throw new RuntimeException('untrusted model intent accepted'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_INTENT','model cannot invent a route or executable action'); }
     try { IntentRouter::parse('{"intent":"image","confidence":0.9,"skill_key":"tenant_other_skill","reply_markdown":"ok"}',$routing); throw new RuntimeException('unowned model skill accepted'); }

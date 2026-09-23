@@ -30,10 +30,10 @@ final class ConversationExecution
      * Complete a reply and its bounded graph proposal atomically.  The action
      * is a server-validated proposal, not an arbitrary provider tool call.
      */
-    public static function complete(int $tenant,int $user,int $runId,string $token,int $fence,string $text,array $proposals=[],array $intentDecision=[]): bool
+    public static function complete(int $tenant,int $user,int $runId,string $token,int $fence,string $text,array $proposals=[],array $intentDecision=[],array $intakeDraft=[]): bool
     {
         if (trim($text)==='' || mb_strlen($text)>100000) throw new RuntimeException('INVALID_ASSISTANT_REPLY');
-        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$text,$proposals,$intentDecision): bool {
+        return Db::transaction(function () use ($tenant,$user,$runId,$token,$fence,$text,$proposals,$intentDecision,$intakeDraft): bool {
             [$run,$thread,$outbox,$document]=self::locked($tenant,$user,$runId);
             self::identity($outbox,$token,$fence);
             $hash=hash('sha256',$text);
@@ -58,6 +58,7 @@ final class ConversationExecution
             if ((int)$thread['active_run_id']!==$runId) throw new RuntimeException('RUN_SUPERSEDED');
             $effects=[];
             $context=json_decode($run['context_snapshot'],true,512,JSON_THROW_ON_ERROR);
+            $intakeSources=ConversationIntakeDraft::availableSources($context);
             $settings=json_decode($run['settings_snapshot'],true,512,JSON_THROW_ON_ERROR);
             $workflow=(array)($context['workflow']??[]);
             $currentThreadSettings=(array)json_decode((string)$thread['settings_json'],true,512,JSON_THROW_ON_ERROR);
@@ -65,20 +66,24 @@ final class ConversationExecution
             if ($intentDecision) {
                 $routing=(array)($context['intent_routing']??[]);
                 if (!$routing || $workflow || $proposals) throw new RuntimeException('INVALID_AGENT_INTENT');
-                $decision=ConversationIntentRouter::parse(self::json($intentDecision),$routing);
+                $decision=ConversationIntentRouter::parse(self::json($intentDecision),$routing,$intakeSources);
                 if (ConversationIntentRouter::shouldActivateWorkflow($decision,$routing)) {
                     $candidate=(array)($routing['workflow_candidate']??[]);
                     if (($candidate['workflow_snapshot']['key']??'')!==ConversationWorkflow::KEY
                         || ($candidate['stage_state']['key']??'')!=='intake'
                         || !empty($currentThreadSettings['workflow_state'])) throw new RuntimeException('INVALID_AGENT_INTENT');
-                    $activatedWorkflow=$candidate;
+                    $activatedWorkflow=isset($decision['intake'])
+                        ? ConversationWorkflow::withIntakeDraft($candidate,$decision['intake'],$intakeSources) : $candidate;
                 }
             }
+            if ($intakeDraft && ($intentDecision || $proposals)) throw new RuntimeException('INVALID_AGENT_INTAKE');
             $proposals=ConversationWorkflow::materializeTextReferences($workflow,$proposals);
             $planSettings=ConversationWorkflow::freezeImagePlanLocked($tenant,$workflow,$settings,$context,$proposals,$runId,$currentThreadSettings,$document);
             $stagePlanSettings=$planSettings===null
                 ? ConversationWorkflow::freezeStagePlanLocked($workflow,$context,$proposals,$runId,$currentThreadSettings)
                 : null;
+            $intakeSettings=$intakeDraft
+                ? ConversationWorkflow::applyIntakeDraftLocked($workflow,$currentThreadSettings,$intakeDraft,$intakeSources) : null;
             if ($planSettings!==null) {
                 // The model's image proposal is now durable but intentionally
                 // absent from the graph. A confirmation API is the only path
@@ -105,6 +110,7 @@ final class ConversationExecution
             $threadUpdate=['active_run_id'=>0,'next_message_sequence'=>$sequence+1,'update_time'=>time()];
             if ($planSettings!==null) $threadUpdate['settings_json']=json_encode($planSettings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
             elseif ($stagePlanSettings!==null) $threadUpdate['settings_json']=json_encode($stagePlanSettings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+            elseif ($intakeSettings!==null) $threadUpdate['settings_json']=self::json($intakeSettings);
             elseif ($nextSettings=ConversationWorkflow::advanceAfterReplyLocked($thread,$workflow,$currentThreadSettings,$text,$proposals,$effects)) $threadUpdate['settings_json']=json_encode($nextSettings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
             if ($activatedWorkflow) {
                 $currentThreadSettings['workflow_state']=$activatedWorkflow;

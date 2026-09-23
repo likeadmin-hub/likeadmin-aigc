@@ -18,7 +18,7 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-23.3';
+    public const VERSION = '2026-09-23.4';
 
     /** Old frozen conversations retain their original canvas projection. */
     public static function compactOutput(array $workflow): bool
@@ -139,11 +139,13 @@ final class ConversationWorkflow
                 // Keep only server-validated stage artifacts here.  This is
                 // the compact continuity ledger used by later Skills; it is
                 // intentionally not a copy of the full chat transcript.
-                'slot_values'=>[], 'artifact_memory'=>[], 'plan_hash'=>'', 'image_plan'=>[], 'stage_plan'=>[], 'plan_confirmation'=>['status'=>'not_required'],
+                'slot_values'=>[], 'intake_candidates'=>[], 'intake_questions'=>[], 'artifact_memory'=>[], 'plan_hash'=>'', 'image_plan'=>[], 'stage_plan'=>[], 'plan_confirmation'=>['status'=>'not_required'],
                 'state_revision'=>1,
             ];
         } elseif (($state['stage_state']['status']??'')==='awaiting_plan_confirmation') {
             throw new RuntimeException('WORKFLOW_PLAN_CONFIRMATION_REQUIRED');
+        } elseif (($state['stage_state']['status']??'')==='reviewing_intake') {
+            throw new RuntimeException('WORKFLOW_INTAKE_REVIEW_REQUIRED');
         } elseif (($state['stage_state']['status']??'')==='ready') {
             // A normal conversation send is the only way to execute the next
             // creative stage. Card clicks never impersonate an Agent reply.
@@ -155,6 +157,40 @@ final class ConversationWorkflow
         // The queued run needs the complete frozen Skill snapshots; browser
         // reads receive the redacted state from read()/card actions instead.
         return ['workflow'=>self::runState($state),'thread_settings'=>$settings];
+    }
+
+    /** Add an untrusted extraction draft to the immutable initial run result.
+     * No extracted value becomes a confirmed slot until the owner reviews it. */
+    public static function withIntakeDraft(array $workflow,mixed $raw,array $availableSources=['message']): array
+    {
+        if (($workflow['workflow_snapshot']['key']??'')!==self::KEY
+            || version_compare((string)($workflow['workflow_snapshot']['version']??'0'),self::VERSION,'<')
+            || ($workflow['stage_state']['key']??'')!=='intake') return $workflow;
+        $draft=ConversationIntakeDraft::parse($raw,(array)($workflow['workflow_snapshot']['slot_schema']??[]),$availableSources);
+        // A later intake turn may add context, but must not re-open answers
+        // already confirmed by the owner on an earlier card.
+        foreach (array_keys((array)($workflow['slot_values']??[])) as $key) {
+            unset($draft['candidates'][$key],$draft['questions'][$key]);
+        }
+        $workflow['intake_candidates']=$draft['candidates'];
+        $workflow['intake_questions']=$draft['questions'];
+        if ($draft['candidates']) $workflow['stage_state']['status']='reviewing_intake';
+        $workflow['state_revision']++;
+        return $workflow;
+    }
+
+    /** A direct /short-drama route uses its own single text turn for intake. */
+    public static function applyIntakeDraftLocked(array $workflow,array $threadSettings,mixed $raw,array $availableSources=['message']): ?array
+    {
+        if (($workflow['workflow_snapshot']['key']??'')!==self::KEY
+            || version_compare((string)($workflow['workflow_snapshot']['version']??'0'),self::VERSION,'<')
+            || ($workflow['stage_state']['key']??'')!=='intake') return null;
+        $state=self::stateFromSettings($threadSettings);
+        if (($state['stage_state']['status']??'')!=='collecting'
+            || (int)($state['state_revision']??0)!==(int)($workflow['state_revision']??-1)) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
+        $state=self::withIntakeDraft($state,$raw,$availableSources);
+        $threadSettings['workflow_state']=$state;
+        return $threadSettings;
     }
 
     /** Read current tenant-scoped workflow and a small card projection. */
@@ -177,7 +213,7 @@ final class ConversationWorkflow
     public static function answer(int $tenant,int $user,int $canvas,int $thread,int $expectedRevision,string $slot,string $value): array
     {
         $slot=trim($slot);$value=trim($value);
-        if (!preg_match('/^[a-z_]{2,64}$/D',$slot) || $value==='' || mb_strlen($value)>240) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
+        if (!preg_match('/^[a-z_]{2,64}$/D',$slot) || $value==='' || strlen($value)>($slot==='intake_review'?4096:960) || ($slot!=='intake_review' && mb_strlen($value)>240)) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
         return Db::transaction(function () use ($tenant,$user,$canvas,$thread,$expectedRevision,$slot,$value): array {
             ConversationStore::assertThreadAccess($tenant,$user,$canvas,$thread);
             $row=Db::name(ConversationStore::PREFIX.'thread')->where(['id'=>$thread,'tenant_id'=>$tenant,'user_id'=>$user,'canvas_id'=>$canvas,'delete_time'=>0])->lock(true)->find();
@@ -187,6 +223,23 @@ final class ConversationWorkflow
             if ($state===[]) throw new RuntimeException('WORKFLOW_NOT_ACTIVE');
             self::assertState($state);
             if ((int)$state['state_revision']!==$expectedRevision) throw new RuntimeException('WORKFLOW_VERSION_CONFLICT');
+            if ($slot==='intake_review') {
+                if (($state['stage_state']['key']??'')!=='intake' || ($state['stage_state']['status']??'')!=='reviewing_intake') throw new RuntimeException('WORKFLOW_STAGE_NOT_COLLECTING');
+                try { $values=json_decode($value,true,8,JSON_THROW_ON_ERROR); }
+                catch (\Throwable $error) { throw new RuntimeException('INVALID_WORKFLOW_ANSWER',0,$error); }
+                if (!is_array($values) || ($values && array_is_list($values)) || count($values)>7) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
+                foreach ($values as $key=>$answer) {
+                    if (!is_string($key) || !isset($state['intake_candidates'][$key]) || !is_string($answer) || mb_strlen($answer)>240) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
+                    if (trim($answer)!=='') $state['slot_values'][$key]=trim($answer);
+                }
+                $state['intake_candidates']=[];
+                $state['stage_state']['status']='collecting';
+                if (self::nextSlot($state)===null) $state['stage_state']=['key'=>'script','status'=>'ready','completed'=>['intake']];
+                $state['state_revision']++;
+                $settings['workflow_state']=$state;
+                Db::name(ConversationStore::PREFIX.'thread')->where('id',$thread)->update(['settings_json'=>self::json($settings),'update_time'=>time()]);
+                return ['workflow'=>self::publicState($state),'card'=>self::card($state)];
+            }
             if (($state['stage_state']['key']??'')!=='intake' || ($state['stage_state']['status']??'')!=='collecting') throw new RuntimeException('WORKFLOW_STAGE_NOT_COLLECTING');
             $next=self::nextSlot($state);
             if (!$next || $next['key']!==$slot) throw new RuntimeException('WORKFLOW_SLOT_OUT_OF_ORDER');
@@ -523,6 +576,8 @@ final class ConversationWorkflow
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('stage_plan',$state)) $state['stage_plan']=[];
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('artifact_memory',$state)) $state['artifact_memory']=[];
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('stage_skill_versions',$state['workflow_snapshot'])) $state['workflow_snapshot']['stage_skill_versions']=[];
+        if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('intake_candidates',$state)) $state['intake_candidates']=[];
+        if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('intake_questions',$state)) $state['intake_questions']=[];
         return $state;
     }
     private static function nextSlot(array $state): ?array {
@@ -540,10 +595,23 @@ final class ConversationWorkflow
         $stageCard=['stage'=>$stageKey,'stage_label'=>(string)($definition['label']??'短剧创作'),'skills'=>$configured?:array_values((array)($definition['skills']??[])),'creates_nodes'=>(bool)($definition['creates_nodes']??false),
             'stage_index'=>$stageIndex,'stage_total'=>count($stages),'completed'=>array_values(array_map('strval',(array)($stage['completed']??[]))),
             'output_fields'=>self::outputContract($stageKey)];
+        if ($stageKey==='intake' && ($stage['status']??'')==='reviewing_intake') {
+            $candidates=[];
+            foreach ((array)($state['workflow_snapshot']['slot_schema']??[]) as $slot) {
+                $key=(string)($slot['key']??'');$candidate=$state['intake_candidates'][$key]??null;
+                if (!is_array($candidate)) continue;
+                $candidates[]=['key'=>$key,'label'=>(string)($slot['label']??$key),'value'=>(string)$candidate['value'],
+                    'source'=>(string)$candidate['source'],'evidence'=>(string)$candidate['evidence']];
+            }
+            return $stageCard+['type'=>'intake_review','title'=>'核对已理解的创作设定',
+                'body'=>'以下内容由 Agent 从本轮描述或已授权素材中提取，均未作为最终设定。请修改、删除不准确的内容后确认；其余信息会继续追问。',
+                'candidates'=>$candidates];
+        }
         if (($stage['key']??'')==='intake' && ($stage['status']??'')==='collecting') {
             $slot=self::nextSlot($state); if (!$slot) return null;
+            $question=(array)($state['intake_questions'][$slot['key']]??[]);
             return $stageCard+['type'=>'question','title'=>'《短剧》剧集初始配置','step'=>count((array)$state['slot_values'])+1,'total'=>count((array)$state['workflow_snapshot']['slot_schema']),
-                'slot'=>['key'=>$slot['key'],'label'=>$slot['label'],'ask'=>$slot['ask'],'options'=>$slot['options']]];
+                'slot'=>['key'=>$slot['key'],'label'=>$slot['label'],'ask'=>$question['ask']??$slot['ask'],'options'=>!empty($question['options'])?$question['options']:$slot['options']]];
         }
         if (in_array(($stage['key']??''),['assets','storyboard'],true) && ($stage['status']??'')==='awaiting_plan_confirmation') {
             return $stageCard+['type'=>'confirmation','title'=>'确认图片创作计划','body'=>'本批图片的模型、提示词、引用与预估积分已冻结。确认后才会插入画布并按既有任务链路生成；视频仍需逐节点报价确认。','plan_hash'=>$state['plan_hash'],'plan'=>self::publicImagePlan((array)($state['image_plan']??[]))];
