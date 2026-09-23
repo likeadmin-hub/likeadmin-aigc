@@ -203,6 +203,20 @@ class CanvasAgentIntentRoutingTest extends TestCase
         self::assertSame([],ConversationWorkflow::revisableStages($state));
     }
 
+    public function testOnlyExactReadyStageProtocolCanBypassSemanticClassification(): void
+    {
+        $state=['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY],
+            'stage_state'=>['key'=>'script','status'=>'ready'],'state_revision'=>18];
+        $prompt=ConversationWorkflow::autoStagePrompt('script');
+        self::assertNotSame('',$prompt);
+        self::assertTrue(ConversationWorkflow::validAutoStageRequest($state,213,538,'as:213:538:18:script',$prompt));
+        self::assertFalse(ConversationWorkflow::validAutoStageRequest($state,213,538,'message:arbitrary',$prompt));
+        self::assertFalse(ConversationWorkflow::validAutoStageRequest($state,213,538,'as:213:538:17:script',$prompt));
+        self::assertFalse(ConversationWorkflow::validAutoStageRequest($state,213,538,'as:213:538:18:script','请改变剧本结局'));
+        $state['stage_state']['status']='awaiting_stage_confirmation';
+        self::assertFalse(ConversationWorkflow::validAutoStageRequest($state,213,538,'as:213:538:18:script',$prompt));
+    }
+
     public function testFrozenLegacyRoutingShapeRemainsReadable(): void
     {
         $routing=['version'=>2,'workflow_candidate'=>['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY]]];

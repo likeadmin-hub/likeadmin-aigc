@@ -153,6 +153,33 @@ final class ConversationWorkflow
         ];
     }
 
+    /** Exact UI-to-server protocol for an already-ready stage. This is not
+     * natural-language routing: ordinary user messages still go through the
+     * semantic classifier on every turn. */
+    public static function autoStagePrompt(string $stage): string
+    {
+        return match ($stage) {
+            'script'=>'请基于已确认的创作采集信息，生成本阶段真实的剧本与角色设定。输出结构化故事设定、角色小传、分场剧情、关键对白和分镜脚本，并按当前受控格式写回对应文本节点；不要输出提问模板。',
+            'art'=>'请基于已确认剧本与角色设定，生成本阶段真实的画风、美术、主体、场景与道具规划，以及后续生图提示词。规划只保存在对话与工作流状态中，不创建画布文本节点；不要提交媒体任务。',
+            'assets'=>'请基于已完成美术规划，生成主体图与主体三视图的受控资产计划。仅提出符合工作流依赖的图片节点；不得生成视频或音频任务。',
+            'storyboard'=>'请基于已确认主体资产与美术规划，生成场景、道具和分镜图的受控计划，并复用真实可用的前序素材引用。',
+            'video_plan'=>'请基于已完成分镜图计划，生成真实的分镜表和视频提示词规划。规划只保存在对话与工作流状态中，不创建画布文本节点，也不提交视频任务。',
+            'video_nodes'=>'请基于已确认分镜视频规划，一次性插入全部分镜视频待生成节点并连接所需引用。所有视频节点必须保持待用户手动生成状态。',
+            'audio_plan'=>'请基于已完成分镜视频规划生成音频规划节点。节点必须标记为暂未开放生成，不能调用音频生成通道或计费链路。',
+            default=>'',
+        };
+    }
+
+    public static function validAutoStageRequest(array $state,int $canvas,int $thread,string $key,string $content): bool
+    {
+        $stage=(string)($state['stage_state']['key']??'');
+        return ($state['workflow_snapshot']['key']??'')===self::KEY
+            && ($state['stage_state']['status']??'')==='ready'
+            && $canvas>0 && $thread>0 && (int)($state['state_revision']??0)>0
+            && hash_equals('as:'.$canvas.':'.$thread.':'.(int)$state['state_revision'].':'.$stage,$key)
+            && ($prompt=self::autoStagePrompt($stage))!=='' && hash_equals($prompt,$content);
+    }
+
     /** Resolve a route and create/freeze state during the same thread lock as enqueue. */
     public static function prepare(int $tenant, array $thread, string $content, array $selectedIds, array $attachments, array $preferences): array
     {
@@ -236,7 +263,9 @@ final class ConversationWorkflow
         // remain authoritative after script confirmation, including for art,
         // storyboard and video prompts. Do not mutate semantic slots with
         // guessed values: preserve the user's exact request instead.
-        $constraints=array_values(array_filter((array)($state['revision_constraints']??[]),'is_string'));
+        $constraints=array_values(array_filter((array)($state['revision_constraints']??[]),static fn($item): bool=>
+            is_string($item) && !in_array($item,array_map([self::class,'autoStagePrompt'],['script','art','assets','storyboard','video_plan','video_nodes','audio_plan']),true)
+        ));
         $constraints[]=$request;
         $state['revision_constraints']=array_slice(array_values(array_unique($constraints)),-3);
         $state['state_revision']=(int)$state['state_revision']+1;
