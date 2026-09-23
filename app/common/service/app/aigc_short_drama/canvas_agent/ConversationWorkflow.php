@@ -6,6 +6,7 @@ use RuntimeException;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\app\aigc_short_drama\ShortDramaSkillService;
 use app\common\service\app\aigc_short_drama\ShortDramaPromptWorkspace;
+use app\common\service\app\aigc_short_drama\AigcShortDramaService;
 use think\facade\Db;
 
 /**
@@ -19,7 +20,7 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-23.9';
+    public const VERSION = '2026-09-23.10';
 
     /** Older in-flight plans keep their previously frozen prompt projection. */
     public static function usesStageGenerationPrompts(array $workflow): bool
@@ -106,6 +107,7 @@ final class ConversationWorkflow
                 ['key'=>'episode_count','label'=>'集数规模','ask'=>'计划做多少集？','options'=>['1集（短片）','10集（微短剧）','30集（连载短剧）']],
                 ['key'=>'episode_duration','label'=>'单集时长','ask'=>'每集大约多长？','options'=>['30秒','1分钟','2分钟','3分钟以上']],
                 ['key'=>'visual_style','label'=>'视觉风格','ask'=>'希望整体是什么画风？','options'=>['电影写实','国风水墨','日系动画','都市时尚','奇幻史诗']],
+                ['key'=>'aspect_ratio','label'=>'画幅比例','ask'=>'整部短剧的图片与视频使用什么画幅比例？','options'=>[]],
                 ['key'=>'audience','label'=>'目标受众','ask'=>'主要给谁看？','options'=>['年轻女性','年轻男性','泛娱乐用户','亲子家庭','海外受众']],
                 ['key'=>'characters','label'=>'核心角色','ask'=>'请介绍主角及关键关系。','options'=>[]],
                 ['key'=>'ending','label'=>'结局方向','ask'=>'希望故事如何收束？','options'=>['圆满治愈','反转开放','悬念续集','悲剧美学']],
@@ -168,7 +170,7 @@ final class ConversationWorkflow
                 // Keep only server-validated stage artifacts here.  This is
                 // the compact continuity ledger used by later Skills; it is
                 // intentionally not a copy of the full chat transcript.
-                'slot_values'=>[], 'intake_candidates'=>[], 'intake_questions'=>[], 'artifact_memory'=>[], 'plan_hash'=>'', 'image_plan'=>[], 'stage_plan'=>[], 'plan_confirmation'=>['status'=>'not_required'],
+                'slot_values'=>[], 'creative_settings'=>[], 'intake_candidates'=>[], 'intake_questions'=>[], 'artifact_memory'=>[], 'plan_hash'=>'', 'image_plan'=>[], 'stage_plan'=>[], 'plan_confirmation'=>['status'=>'not_required'],
                 'state_revision'=>1,
             ];
         } elseif (($state['stage_state']['status']??'')==='awaiting_plan_confirmation') {
@@ -265,10 +267,10 @@ final class ConversationWorkflow
                 if (($state['stage_state']['key']??'')!=='intake' || ($state['stage_state']['status']??'')!=='reviewing_intake') throw new RuntimeException('WORKFLOW_STAGE_NOT_COLLECTING');
                 try { $values=json_decode($value,true,8,JSON_THROW_ON_ERROR); }
                 catch (\Throwable $error) { throw new RuntimeException('INVALID_WORKFLOW_ANSWER',0,$error); }
-                if (!is_array($values) || ($values && array_is_list($values)) || count($values)>7) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
+                if (!is_array($values) || ($values && array_is_list($values)) || count($values)>count((array)($state['workflow_snapshot']['slot_schema']??[]))) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
                 foreach ($values as $key=>$answer) {
                     if (!is_string($key) || !isset($state['intake_candidates'][$key]) || !is_string($answer) || mb_strlen($answer)>240) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
-                    if (trim($answer)!=='') $state['slot_values'][$key]=trim($answer);
+                    if (trim($answer)!=='') self::recordCreativeAnswer($tenant,$state,$key,trim($answer));
                 }
                 $state['intake_candidates']=[];
                 $state['stage_state']['status']='collecting';
@@ -281,7 +283,7 @@ final class ConversationWorkflow
             if (($state['stage_state']['key']??'')!=='intake' || ($state['stage_state']['status']??'')!=='collecting') throw new RuntimeException('WORKFLOW_STAGE_NOT_COLLECTING');
             $next=self::nextSlot($state);
             if (!$next || $next['key']!==$slot) throw new RuntimeException('WORKFLOW_SLOT_OUT_OF_ORDER');
-            $state['slot_values'][$slot]=$value;
+            self::recordCreativeAnswer($tenant,$state,$slot,$value);
             if (self::nextSlot($state)===null) {
                 $state['stage_state']=['key'=>'script','status'=>'ready','completed'=>['intake']];
             }
@@ -380,10 +382,12 @@ final class ConversationWorkflow
         foreach ($proposals as $proposal) {
             if (!is_array($proposal) || ($proposal['type']??'')!=='image') throw new RuntimeException('WORKFLOW_IMAGE_PLAN_REQUIRED');
             try {
-                $quote=AigcImageService::estimate($tenant,[
+                $quoteRequest=[
                     'channel'=>(string)$model['id'],'model_id'=>(string)$model['id'],'model_code'=>(string)($model['model_code']??''),
                     'prompt'=>(string)$proposal['prompt'],'quantity'=>1,
-                ]);
+                ];
+                if (!empty($workflow['creative_settings']['aspect_ratio'])) $quoteRequest['ratio']=(string)$workflow['creative_settings']['aspect_ratio'];
+                $quote=AigcImageService::estimate($tenant,$quoteRequest);
             } catch (\Throwable $error) {
                 // Cost must come from the tenant-authorized model. Never turn
                 // unavailable pricing into a fabricated zero-cost approval.
@@ -427,8 +431,11 @@ final class ConversationWorkflow
         $sources=array_values($sources);
         $attachments=[];
         foreach ((array)($context['attachment_images']??[]) as $asset) if (is_array($asset) && (int)($asset['id']??0)>0) $attachments[]=array_intersect_key($asset,array_flip(['id','uri','storage_scope','storage_engine','storage_domain']));
-        $plan=['nodes'=>array_values($proposals),'sources'=>$sources,'attachment_images'=>$attachments,'image_model'=>self::publicModel($model),'parameters'=>['quantity'=>1],'quotes'=>$quotes,'run_id'=>$runId];
-        $plan['hash']=hash('sha256',self::json(['workflow'=>$state['workflow_snapshot'],'stage'=>$stage,'nodes'=>$plan['nodes'],'sources'=>$sources,'attachment_images'=>$attachments,'image_model'=>$plan['image_model'],'parameters'=>$plan['parameters'],'quotes'=>$quotes]));
+        $ratio=(string)($workflow['creative_settings']['aspect_ratio']??'');
+        $parameters=['quantity'=>1];
+        if ($ratio!=='') $parameters['ratio']=$ratio;
+        $plan=['nodes'=>array_values($proposals),'sources'=>$sources,'attachment_images'=>$attachments,'image_model'=>self::publicModel($model),'parameters'=>$parameters,'quotes'=>$quotes,'run_id'=>$runId];
+        $plan['hash']=hash('sha256',self::json(['workflow'=>$state['workflow_snapshot'],'creative_settings'=>(array)($state['creative_settings']??[]),'stage'=>$stage,'nodes'=>$plan['nodes'],'sources'=>$sources,'attachment_images'=>$attachments,'image_model'=>$plan['image_model'],'parameters'=>$plan['parameters'],'quotes'=>$quotes]));
         $state['image_plan']=$plan;
         $state['plan_hash']=$plan['hash'];
         $state['plan_confirmation']=['status'=>'required','plan_hash'=>$plan['hash']];
@@ -556,11 +563,36 @@ final class ConversationWorkflow
     private static function snapshot(int $tenant,array $catalog,string $route,array $selectedIds,array $attachments,array $preferences): array
     {
         $assetIds=[];foreach ($attachments as $item) if (is_array($item) && in_array($item['type']??'', ['image','document'],true) && (int)($item['asset_id']??0)>0) $assetIds[]=(int)$item['asset_id'];
+        foreach ($catalog['slots'] as &$slot) if (($slot['key']??'')==='aspect_ratio') $slot['options']=AigcShortDramaService::canvasCreativeRatios($tenant);
+        unset($slot);
         return ['key'=>$catalog['key'],'version'=>$catalog['version'],'name'=>$catalog['name'],'route'=>$route,'frozen_at'=>time(),
             'stages'=>$catalog['stages'],'rules'=>$catalog['rules'],'slot_schema'=>$catalog['slots'],'stage_skill_versions'=>self::stageSkillSnapshots($tenant,$catalog),
             'creative_prompt_snapshot'=>ShortDramaPromptWorkspace::capture($tenant),
             'selected_node_ids'=>array_values(array_unique(array_map('strval',$selectedIds))),'attachment_asset_ids'=>array_values(array_unique($assetIds)),
             'model_preferences'=>array_intersect_key($preferences,array_flip(['generation_mode','reasoning_model','image_model','video_model']))];
+    }
+
+    /** Confirmed intake values are the authority for all later stages. Style
+     * prompts are resolved from the enabled tenant library and frozen once;
+     * ratio must be one of the original creation form's frozen options. */
+    private static function recordCreativeAnswer(int $tenant,array &$state,string $slot,string $value): void
+    {
+        if ($slot==='aspect_ratio') {
+            $value=str_replace('：',':',trim($value));
+            $options=[];
+            foreach ((array)($state['workflow_snapshot']['slot_schema']??[]) as $definition) {
+                if (($definition['key']??'')==='aspect_ratio') $options=(array)($definition['options']??[]);
+            }
+            if (!in_array($value,$options,true)) throw new RuntimeException('INVALID_WORKFLOW_ANSWER');
+            $state['creative_settings']['aspect_ratio']=$value;
+        } elseif ($slot==='visual_style') {
+            $style=AigcShortDramaService::canvasCreativeStyle($tenant,$value);
+            $state['creative_settings']['style_id']=(string)$style['id'];
+            $state['creative_settings']['style_name']=(string)$style['name'];
+            $state['creative_settings']['style_prompt']=(string)$style['prompt'];
+            $value=(string)$style['name'];
+        }
+        $state['slot_values'][$slot]=$value;
     }
     /** Resolve only tenant-authorized, published Skill snapshots once, when
      * the workflow begins. Later admin edits or releases cannot alter a run. */
@@ -620,6 +652,7 @@ final class ConversationWorkflow
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('stage_skill_versions',$state['workflow_snapshot'])) $state['workflow_snapshot']['stage_skill_versions']=[];
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('intake_candidates',$state)) $state['intake_candidates']=[];
         if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('intake_questions',$state)) $state['intake_questions']=[];
+        if (($state['workflow_snapshot']['key']??'')===self::KEY && !array_key_exists('creative_settings',$state)) $state['creative_settings']=[];
         return $state;
     }
     private static function nextSlot(array $state): ?array {
@@ -658,7 +691,7 @@ final class ConversationWorkflow
             $slot=self::nextSlot($state); if (!$slot) return null;
             $question=(array)($state['intake_questions'][$slot['key']]??[]);
             return $stageCard+['type'=>'question','title'=>'《短剧》剧集初始配置','step'=>count((array)$state['slot_values'])+1,'total'=>count((array)$state['workflow_snapshot']['slot_schema']),
-                'slot'=>['key'=>$slot['key'],'label'=>$slot['label'],'ask'=>$question['ask']??$slot['ask'],'options'=>!empty($question['options'])?$question['options']:$slot['options']]];
+                'slot'=>['key'=>$slot['key'],'label'=>$slot['label'],'ask'=>$question['ask']??$slot['ask'],'options'=>$slot['key']==='aspect_ratio'?$slot['options']:(!empty($question['options'])?$question['options']:$slot['options'])]];
         }
         if (in_array(($stage['key']??''),['assets','storyboard'],true) && ($stage['status']??'')==='awaiting_plan_confirmation') {
             return $stageCard+['type'=>'confirmation','title'=>'确认图片创作计划','body'=>'本批图片的模型、提示词、引用与预估积分已冻结。确认后才会插入画布并按既有任务链路生成；视频仍需逐节点报价确认。','plan_hash'=>$state['plan_hash'],'plan'=>self::publicImagePlan((array)($state['image_plan']??[]))];
@@ -679,10 +712,10 @@ final class ConversationWorkflow
     }
     /** Complete frozen state used only inside the immutable run snapshot. */
     private static function runState(array $state): array { return $state; }
-    private static function publicState(array $state): array { return ['workflow_snapshot'=>self::publicWorkflowSnapshot((array)$state['workflow_snapshot']),'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'artifact_memory'=>self::publicArtifacts((array)($state['artifact_memory']??[])),'plan_hash'=>$state['plan_hash'],'image_plan'=>self::publicImagePlan((array)($state['image_plan']??[])),'stage_plan'=>self::publicStagePlan((array)($state['stage_plan']??[])),'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
+    private static function publicState(array $state): array { return ['workflow_snapshot'=>self::publicWorkflowSnapshot((array)$state['workflow_snapshot']),'stage_state'=>$state['stage_state'],'slot_values'=>$state['slot_values'],'creative_settings'=>array_intersect_key((array)($state['creative_settings']??[]),array_flip(['style_id','style_name','aspect_ratio'])),'artifact_memory'=>self::publicArtifacts((array)($state['artifact_memory']??[])),'plan_hash'=>$state['plan_hash'],'image_plan'=>self::publicImagePlan((array)($state['image_plan']??[])),'stage_plan'=>self::publicStagePlan((array)($state['stage_plan']??[])),'plan_confirmation'=>$state['plan_confirmation'],'state_revision'=>$state['state_revision']]; }
     private static function assertState(array $state): void {
         $snapshot=(array)($state['workflow_snapshot']??[]);$stage=(array)($state['stage_state']??[]);
-        if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_array($snapshot['stage_skill_versions']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_array($state['artifact_memory']??null) || !is_array($state['image_plan']??null) || !is_array($state['stage_plan']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1 || !is_array($state['plan_confirmation']??null)) throw new RuntimeException('INVALID_WORKFLOW_STATE');
+        if (($snapshot['key']??'')!==self::KEY || !is_string($snapshot['version']??null) || !is_array($snapshot['stage_skill_versions']??null) || !is_string($stage['key']??null) || !is_string($stage['status']??null) || !is_array($state['slot_values']??null) || !is_array($state['creative_settings']??null) || !is_array($state['artifact_memory']??null) || !is_array($state['image_plan']??null) || !is_array($state['stage_plan']??null) || !is_int($state['state_revision']??null) || $state['state_revision']<1 || !is_array($state['plan_confirmation']??null)) throw new RuntimeException('INVALID_WORKFLOW_STATE');
     }
     private static function nextStage(string $stage): string { return ['script'=>'art','art'=>'assets','assets'=>'storyboard','storyboard'=>'video_plan','video_plan'=>'video_nodes','video_nodes'=>'audio_plan','audio_plan'=>'complete'][$stage]??''; }
     /** Server-owned output contracts are frozen with the workflow snapshot and
@@ -704,7 +737,7 @@ final class ConversationWorkflow
     private static function publicImageQuote(array $quote): array { return ['market_product_id'=>(int)($quote['market_product_id']??0),'market_sku_id'=>(int)($quote['market_sku_id']??0),'tenant_cost_points'=>(float)($quote['tenant_cost_points']??0),'user_charge_points'=>(float)($quote['user_charge_points']??0),'usage_unit'=>(string)($quote['usage_unit']??''),'settlement_mode'=>(string)($quote['settlement_mode']??'')]; }
     private static function publicImagePlan(array $plan): array {
         if (!self::validImagePlan($plan)) return [];
-        return ['node_count'=>count((array)$plan['nodes']),'estimated_tenant_cost_points'=>array_sum(array_map(static fn(array $quote): float=>(float)($quote['tenant_cost_points']??0),(array)$plan['quotes'])),'estimated_user_charge_points'=>array_sum(array_map(static fn(array $quote): float=>(float)($quote['user_charge_points']??0),(array)$plan['quotes'])),'image_model'=>self::publicModel((array)$plan['image_model'])];
+        return ['node_count'=>count((array)$plan['nodes']),'estimated_tenant_cost_points'=>array_sum(array_map(static fn(array $quote): float=>(float)($quote['tenant_cost_points']??0),(array)$plan['quotes'])),'estimated_user_charge_points'=>array_sum(array_map(static fn(array $quote): float=>(float)($quote['user_charge_points']??0),(array)$plan['quotes'])),'image_model'=>self::publicModel((array)$plan['image_model']),'ratio'=>(string)($plan['parameters']['ratio']??'')];
     }
     private static function publicStagePlan(array $plan): array {
         if (!self::validStagePlan($plan,(string)($plan['stage']??''))) return [];
@@ -734,7 +767,8 @@ final class ConversationWorkflow
         return $items;
     }
     private static function validImagePlan(array $plan): bool {
-        return preg_match('/^[a-f0-9]{64}$/D',(string)($plan['hash']??''))===1 && is_array($plan['nodes']??null) && $plan['nodes']!==[] && count($plan['nodes'])<=4 && is_array($plan['sources']??null) && is_array($plan['attachment_images']??null) && (array)($plan['parameters']??[])===['quantity'=>1] && is_array($plan['quotes']??null) && count($plan['quotes'])===count($plan['nodes']) && (int)($plan['run_id']??0)>0;
+        $parameters=(array)($plan['parameters']??[]);
+        return preg_match('/^[a-f0-9]{64}$/D',(string)($plan['hash']??''))===1 && is_array($plan['nodes']??null) && $plan['nodes']!==[] && count($plan['nodes'])<=4 && is_array($plan['sources']??null) && is_array($plan['attachment_images']??null) && ($parameters===['quantity'=>1] || (count($parameters)===2 && ($parameters['quantity']??null)===1 && preg_match('/^[1-9][0-9]{0,3}:[1-9][0-9]{0,3}$/D',(string)($parameters['ratio']??''))===1)) && is_array($plan['quotes']??null) && count($plan['quotes'])===count($plan['nodes']) && (int)($plan['run_id']??0)>0;
     }
     private static function validStagePlan(array $plan,string $stage): bool {
         if (!in_array($stage,['script','art','video_plan'],true) || (string)($plan['stage']??'')!==$stage || !is_array($plan['nodes']??null) || !$plan['nodes'] || count($plan['nodes'])>8 || !is_array($plan['sources']??null) || (int)($plan['run_id']??0)<=0) return false;

@@ -17211,6 +17211,38 @@ class AigcShortDramaService
         }, $uniqueRows);
     }
 
+    /** The canvas Agent must resolve a style against the same enabled tenant
+     * library as the original creation form, not trust a browser-supplied
+     * prompt or an identically named style from another tenant. */
+    public static function canvasCreativeStyle(int $tenantId, string $selection): array
+    {
+        $styleId='';
+        if (str_starts_with($selection,'style_id:')) {
+            $styleId=substr($selection,9);
+            if (!preg_match('/^[1-9][0-9]{0,15}$/D',$styleId)) throw new \RuntimeException('INVALID_WORKFLOW_ANSWER');
+        }
+        foreach (self::styleOptions($tenantId) as $style) {
+            if (($styleId!=='' && (string)$style['id']===$styleId) || ($styleId==='' && (string)$style['name']===$selection)) {
+                return ['id'=>(string)$style['id'], 'name'=>(string)$style['name'],
+                    'prompt'=>(string)($style['description'] ?? '')];
+            }
+        }
+        if ($styleId!=='') throw new \RuntimeException('WORKFLOW_STYLE_UNAVAILABLE');
+        return ['id'=>'', 'name'=>$selection, 'prompt'=>$selection];
+    }
+
+    /** Share the original creation form's tenant-configured aspect ratios. */
+    public static function canvasCreativeRatios(int $tenantId): array
+    {
+        $ratios=[];
+        foreach ((array)(self::publicConfig($tenantId)['ratios'] ?? []) as $option) {
+            if (!is_array($option)) continue;
+            $ratio=self::normalizeGenerationRatio((string)($option['label'] ?? ''));
+            if ($ratio!=='' && !in_array($ratio,$ratios,true)) $ratios[]=$ratio;
+        }
+        return $ratios;
+    }
+
     private static function normalizeEpisodeSettings(array $params): array
     {
         $requestedCount = (int)($params['episode_count'] ?? 0);
