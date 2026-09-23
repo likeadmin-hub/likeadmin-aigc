@@ -48,6 +48,15 @@ try {
     $defaultSkills=FeatureGate::workflowStageSkillSelections($tenant);
     agentCheck(count(Workflow::defaultSkillKeys())===8 && count($defaultSkills['intake']??[])===1 && count($defaultSkills['assets']??[])===2 && count($defaultSkills['storyboard']??[])===4,'platform workflow provides a complete executable multi-Skill baseline for every stage');
     agentCheck(($defaultSkills['script'][0]['skill_id']??0)===$stageSkill,'a tenant-persisted stage Skill overrides only that stage while untouched stages retain platform defaults');
+    $originalConfig=(string)Db::name('aigc_short_drama_config')->where('id',$config)->value('config_json');
+    $staleConfig=json_decode($originalConfig,true,512,JSON_THROW_ON_ERROR);
+    $artBuiltin=$defaultSkills['art'][0];
+    $staleConfig['canvas_agent']['workflow']['stage_skills']['art']=[['skill_id'=>$artBuiltin['skill_id'],'skill_version'=>$artBuiltin['skill_version']-1]];
+    Db::name('aigc_short_drama_config')->where('id',$config)->update(['config_json'=>json_encode($staleConfig,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
+    $effective=FeatureGate::workflowStageSkillSelections($tenant);
+    agentCheck(($effective['art'][0]['skill_version']??0)===$artBuiltin['skill_version']
+        && ($effective['script'][0]['skill_id']??0)===$stageSkill,'stale platform Skill selections resolve to the current published version without replacing tenant-owned stage Skills');
+    Db::name('aigc_short_drama_config')->where('id',$config)->update(['config_json'=>$originalConfig]);
     $canvas=Canvas::create($tenant,$user,['title'=>'P5 workflow fixture'])['id'];
     $thread=Store::create($tenant,$user,$canvas,'workflow-thread')['id'];
     $ack=Store::enqueue($tenant,$user,$canvas,$thread,['request_key'=>'workflow-route','content'=>'我想创作一部悬疑短剧','base_revision'=>0],static function (array $conversation) use ($tenant): array {
