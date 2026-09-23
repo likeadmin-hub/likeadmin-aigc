@@ -1234,3 +1234,11 @@ P5 仍为 **NOT_RUN / 未放行**：正式应用到故事设定、分集大纲�
 - **PASS**：现有 Baota 容器、现有本地 `x_cn` 的 `p5_compact_canvas_projection.php` 完成采集→剧本→美术→主体→分镜→视频规划→视频节点的模拟 Provider 行为验收；验证仅两项剧本文本在画布、美术/视频规划不新增节点、三视图真实消费主体图、分镜只接对应场景和角色、视频仅接对应分镜并保持手动、素材替换使报价失效。夹具数据在同一脚本 finally 精确清理，没有新建运行环境或数据库。
 - **PASS**：`p5_multi_skill_workflow.php` 旧冻结版本回归；`p4_agent_auto_recovery.php` 与 `p4_agent_dependency_scheduler.php` 回归；PC `short-drama-canvas-composer.test.cjs` 与 `short-drama-canvas-idempotent-run.test.cjs` 共 31 PASS / 0 FAIL，含 Vue SFC 编译。两项 P4 初测失败源于旧断言分别错误要求视频自动请求键和旧等待文案，修正断言后复测通过，没有修改任务实现。
 - **NOT_RUN**：新工作流的真实浏览器从对话到画布端到端、真实图像 Provider 付费结果、实际多集批处理、视频 Provider 与音频生成；这些不能由模拟 Provider 或静态 Vue 测试冒充。既有 P5/P6 其他未放行项不因本次收敛自动通过。
+
+## 2026-09-23 · 自由输入语义路由与内置 Skill 版本漂移修复
+
+- **原因**：画布 97 的作品标题未命中原关键词路由，只进入普通 Agent 对话。新增受控意图分类后，首次真实文本 Provider 调用虽识别为短剧，但 tenant 1 已保存的内置阶段 Skill 版本落后于当前发布版本，工作流冻结返回 `WORKFLOW_SKILL_UNAVAILABLE`。
+- **实现**：未显式指定 Skill、未命中既有工作流的普通输入，由同一文本模型调用输出受限的 `chat/creative_plan/image/video/short_drama/uncertain` 分类。仅高置信短剧意图激活预先冻结、租户授权的工作流快照；不允许分类结果直接创建节点或提交媒体任务。平台内置 Skill 的有效阶段版本读取时跟随当前发布版本，租户自建 Skill 和已有对话的冻结版本不改写，也未变更租户配置记录。
+- **PASS / 本地 develop**：`p5_multi_skill_workflow.php`、`p2_http.php`、`p2_settings.php`、`p5_compact_canvas_projection.php` 均通过，覆盖路由边界、Skill 版本更新、HTTP 权限/快照及紧凑画布投影；FeatureGate 语法检查通过。
+- **PASS / 真实文本 Provider + 现有统一 Worker**：tenant 1、canvas 97、测试对话 207、run 323 使用原作品标题，经当前租户文本模型完成，运行状态 `success`，工作流进入 `intake/collecting`，首张问题卡为 `genre`；画布 `graph_revision` 前后均为 7，未创建媒体节点或媒体任务。浏览器刷新后真实展示“已进入短剧成片制作流程”及“故事类型”选项卡。统一 Supervisor Worker 已从原有 `ai-task-worker:ai-task-worker_00` 重启并确认 RUNNING；未新建进程守护或环境。
+- **NOT_RUN / 未放行**：图片、视频、普通创意规划意图目前仅安全分类/推荐相应已授权 Skill，尚未具备各自独立的缺槽追问、计划确认及媒体提交工作流；短剧完整多阶段真实浏览器/付费图片链路未由本次首卡验收覆盖。不得将本次语义入口修复记作 P5/P6 全部完成。
