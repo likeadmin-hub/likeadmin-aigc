@@ -302,11 +302,17 @@ try {
         'subject_ref_ids' => '[]', 'sort' => 1, 'create_time' => $now,
         'update_time' => $now, 'delete_time' => 0,
     ]);
+    Db::name('aigc_short_drama_storyboard')->insert([
+        'tenant_id' => $tenant, 'user_id' => $owner, 'project_id' => $production,
+        'task_id' => 'p5-shot-task', 'shot_id' => 'shot-2', 'title' => '相邻镜头',
+        'visual_description' => '相邻镜头保持不变', 'subject_ref_ids' => '[]', 'sort' => 2,
+        'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
+    ]);
     ShortDramaCanvasBindingService::bind($tenant, $owner, [
         'canvas_id' => $canvas['id'], 'project_id' => $parent, 'episode_id' => $episode,
     ]);
     $shotSources = ShortDramaCanvasWritebackService::sources($tenant, $owner, (int)$canvas['id']);
-    agentCheck(count($shotSources['shot_targets']) === 1
+    agentCheck(count($shotSources['shot_targets']) === 2
         && $shotSources['shot_targets'][0]['shot_id'] === 'shot-1'
         && count(array_filter($shotSources['sources'], static fn(array $source): bool =>
             $source['node_id'] === '7105' && $source['writeback_fields'] === ['visual_description'])) === 1,
@@ -324,6 +330,22 @@ try {
     ]); }
     catch (Exception $e) { $shotConfirmRejected = str_contains($e->getMessage(), '逐镜确认'); }
     agentCheck($shotConfirmRejected, 'D06 shot writeback requires explicit confirmation');
+    $shotSource['metadata']['prompt'] = '来源提示词被修改';
+    $shotSource['metadata']['content_revision'] = 3;
+    Db::name('aigc_short_drama_canvas')->where('id', $canvas['id'])->update([
+        'nodes_json' => json_encode([$story, $episodeSource, $shotSource, $deleted, $unrelated], JSON_UNESCAPED_UNICODE),
+    ]);
+    $shotSourceStale = false;
+    try { ShortDramaCanvasWritebackService::applyShot($tenant, $owner, $shotRequest + [
+        'preview_hash' => $shotPreview['preview_hash'], 'confirm' => '1',
+    ]); }
+    catch (Exception $e) { $shotSourceStale = str_contains($e->getMessage(), 'VERSION_CONFLICT'); }
+    agentCheck($shotSourceStale, 'D07 changed canvas storyboard prompt rejects stale preview');
+    $shotSource['metadata']['prompt'] = '雨夜办公室，林夏查看一盘旧录音带。';
+    $shotSource['metadata']['content_revision'] = 2;
+    Db::name('aigc_short_drama_canvas')->where('id', $canvas['id'])->update([
+        'nodes_json' => json_encode([$story, $episodeSource, $shotSource, $deleted, $unrelated], JSON_UNESCAPED_UNICODE),
+    ]);
     Db::name('aigc_short_drama_storyboard')->where('project_id', $production)->where('shot_id', 'shot-1')
         ->update(['visual_description' => '目标镜头已修改']);
     $shotStaleRejected = false;
@@ -338,14 +360,19 @@ try {
         'preview_hash' => $shotPreview['preview_hash'], 'confirm' => '1',
     ]);
     $savedShot = Db::name('aigc_short_drama_storyboard')->where('project_id', $production)->where('shot_id', 'shot-1')->find();
+    $adjacentShot = Db::name('aigc_short_drama_storyboard')->where('project_id', $production)->where('shot_id', 'shot-2')->find();
     agentCheck($shotApplied['applied'] === true && $savedShot['visual_description'] === '雨夜办公室，林夏查看一盘旧录音带。'
         && $savedShot['composition'] === '远景' && $savedShot['image_prompt'] !== ''
-        && $savedShot['video_prompt'] !== '',
+        && $savedShot['video_prompt'] !== '' && $adjacentShot['visual_description'] === '相邻镜头保持不变',
         'D06 selected visual description is saved and prompts are rebuilt without clearing other shot fields');
     $shotReplay = ShortDramaCanvasWritebackService::applyShot($tenant, $owner, $shotRequest + [
         'preview_hash' => $shotPreview['preview_hash'], 'confirm' => '1',
     ]);
     agentCheck($shotReplay === $shotApplied, 'D09 repeated shot apply returns original receipt');
+    $foreignShotRejected = false;
+    try { ShortDramaCanvasWritebackService::previewShot($otherTenant, $otherUser, $shotRequest); }
+    catch (Exception $e) { $foreignShotRejected = $e->getMessage() === '画布项目不存在或无权访问'; }
+    agentCheck($foreignShotRejected, 'D02 foreign tenant cannot preview a formal shot writeback');
     $foreignPreviewRejected = false;
     try { ShortDramaCanvasWritebackService::previewStory($otherTenant, $otherUser, $previewRequest); }
     catch (Exception $e) { $foreignPreviewRejected = $e->getMessage() === '画布项目不存在或无权访问'; }
@@ -363,4 +390,4 @@ try {
     Db::rollback();
 }
 
-echo "NOT_RUN D06-D08,D10 remaining: shot adapter and browser confirmation against a real editable target; story and episode fields are covered by rollback-only local behavior checks.\n";
+echo "NOT_RUN D08,D10 remaining: browser confirmation against a real editable target; story, episode, and shot fields are covered by rollback-only local behavior checks.\n";
