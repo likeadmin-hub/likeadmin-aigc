@@ -120,7 +120,8 @@ final class ConversationIntentRouter
     {
         try { return self::parse($response,$routing,$availableSources); }
         catch (RuntimeException $error) {
-            if ((int)($routing['version']??2)<3 || $error->getMessage()!=='INVALID_AGENT_INTENT') throw $error;
+            if ((int)($routing['version']??2)<3
+                || !in_array($error->getMessage(),['INVALID_AGENT_INTENT','INVALID_AGENT_INTAKE'],true)) throw $error;
         }
         try { $value=json_decode(trim($response),true,16,JSON_THROW_ON_ERROR); }
         catch (\Throwable $error) { throw new RuntimeException('INVALID_AGENT_INTENT',0,$error); }
@@ -143,8 +144,9 @@ final class ConversationIntentRouter
         $allowed=[];
         foreach ((array)($routing['skill_candidates']??[]) as $item) if (is_array($item) && is_string($item['key']??null)) $allowed[$item['key']]=true;
         if ($skillKey!=='' && !isset($allowed[$skillKey])) throw new RuntimeException('INVALID_AGENT_INTENT');
-        $intake=$value['intake']??['candidates'=>[],'questions'=>[]];
-        if (!is_array($intake) || ($intake['candidates']??null)!==[] || ($intake['questions']??null)!==[]) throw new RuntimeException('INVALID_AGENT_INTENT');
+        $intake=$value['intake']??[];
+        if (!is_array($intake) || array_diff(array_keys($intake),['candidates','questions'])
+            || ($intake['candidates']??[])!==[] || ($intake['questions']??[])!==[]) throw new RuntimeException('INVALID_AGENT_INTENT');
         $defaults=match ($intent) {
             'chat'=>['speech_act'=>'chat','deliverable'=>'text','scope'=>'conversation'],
             'creative_plan'=>['speech_act'=>'request','deliverable'=>'text','scope'=>'standalone'],
