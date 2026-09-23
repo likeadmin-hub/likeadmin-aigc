@@ -1,10 +1,10 @@
 {
   "code": "image_human",
   "name": "全驱数字人",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "require_core": ">=1.0.0",
   "description": "基于人物图片和参考音频生成全驱数字人视频，首版提供PC端创作、任务轮询和作品展示。",
-  "changelog": "全驱数字人选择克隆音色和输入文案时，先异步合成音频再提交视频任务，并补齐任务阶段迁移。",
+  "changelog": "1. 新增全驱数字人移动端创作、素材选择与作品管理入口。\n2. 支持移动端查看合成进度、预览作品和再次创作。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",
@@ -14,7 +14,8 @@
   "frontends": [
     "platform",
     "tenant",
-    "pc"
+    "pc",
+    "uniapp"
   ],
   "api_prefix": "/app/image_human",
   "platform_menus": "menus/platform.json",
@@ -48,6 +49,39 @@
       "icon": "resource/image/common/menu_generator.png",
       "sort": 98,
       "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "image_human",
+      "name": "全驱数字人",
+      "path": "/apps/image_human/pages/index/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 98,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "全驱数字人创作",
+            "path": "/apps/image_human/pages/index/index"
+          },
+          {
+            "name": "人物形象",
+            "path": "/apps/image_human/pages/avatar/avatar"
+          },
+          {
+            "name": "声音素材",
+            "path": "/apps/image_human/pages/voice/voice"
+          },
+          {
+            "name": "合成任务",
+            "path": "/apps/image_human/pages/tasks/tasks"
+          },
+          {
+            "name": "创作记录",
+            "path": "/apps/image_human/pages/results/results"
+          }
+        ]
+      }
     }
   ]
 }
