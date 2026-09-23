@@ -87,6 +87,10 @@ final class ConversationExecution
                     $context['workflow']=$candidate;
                     $currentThreadSettings['workflow_state']=$candidate;
                     $workflowContinued=true;
+                } elseif (isset($decision['revision_stage'])) {
+                    $request=(string)($context['messages'][count($context['messages'])-1]['content']??'');
+                    $currentThreadSettings['workflow_state']=ConversationWorkflow::reopenStage($persisted,(string)$decision['revision_stage'],$request);
+                    $workflowContinued=true;
                 }
             }
             if ($intentDecision) {

@@ -158,6 +158,51 @@ class CanvasAgentIntentRoutingTest extends TestCase
         self::assertSame('你说的“换个主题”是修改这部短剧，还是开始一项独立创作？',$parsed['text']);
     }
 
+    public function testPausedArtPlanCanSemanticallyReopenScriptWithoutWritingMedia(): void
+    {
+        $state=['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY,'version'=>'2026-09-23.10','stage_skill_versions'=>[]],
+            'stage_state'=>['key'=>'art','status'=>'awaiting_stage_confirmation','completed'=>['intake','script']],
+            'slot_values'=>['ending'=>'悲剧'],'creative_settings'=>[],
+            'artifact_memory'=>[
+                ['stage'=>'script','artifact'=>'story_setting','node_id'=>'123','content'=>'旧的悲剧故事设定'],
+                ['stage'=>'script','artifact'=>'episode_script','node_id'=>'124','content'=>'旧的悲剧单集剧本'],
+                ['stage'=>'art','artifact'=>'art_bible','content'=>'旧的悲剧美术规划'],
+            ],
+            'image_plan'=>[],'stage_plan'=>['stage'=>'art','nodes'=>[['type'=>'text']]],
+            'plan_hash'=>'old-hash','plan_confirmation'=>['status'=>'required'],'state_revision'=>7];
+        self::assertSame(['script','art'],ConversationWorkflow::revisableStages($state));
+        $routing=['version'=>3,'kind'=>'active_workflow','workflow_paused'=>true,
+            'workflow_candidate'=>$state,'revision_allowed_stages'=>['script','art'],'skill_candidates'=>[]];
+        $value=['intent'=>'revise','confidence'=>0.95,'skill_key'=>'',
+            'reply_markdown'=>'我会从剧本重新生成，修订后请你确认。',
+            'workflow_output'=>['revision_stage'=>'script'],'speech_act'=>'request',
+            'deliverable'=>'full_drama','scope'=>'workflow'];
+        $parsed=ConversationWorkflowTurn::parse(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing);
+        self::assertSame('script',$parsed['revision_stage']);
+        self::assertFalse($parsed['continue']);
+        self::assertSame([], $parsed['nodes']);
+        $reopened=ConversationWorkflow::reopenStage($state,$parsed['revision_stage'],'不要悲伤美学，改为喜剧无厘头');
+        self::assertSame(['key'=>'script','status'=>'ready','completed'=>['intake']],$reopened['stage_state']);
+        self::assertSame(8,$reopened['state_revision']);
+        self::assertSame([],$reopened['stage_plan']);
+        self::assertSame([],$reopened['image_plan']);
+        self::assertSame('',$reopened['plan_hash']);
+        self::assertCount(2,$reopened['artifact_memory']);
+        self::assertSame('不要悲伤美学，改为喜剧无厘头',$reopened['revision_request']['content']);
+        self::assertSame(['不要悲伤美学，改为喜剧无厘头'],$reopened['revision_constraints']);
+        self::assertSame('悲剧',$reopened['slot_values']['ending']);
+        $value['workflow_output']=['revision_stage'=>'video_plan'];
+        $this->expectExceptionMessage('INVALID_AGENT_INTENT');
+        ConversationWorkflowTurn::parse(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing);
+    }
+
+    public function testRevisionStopsOncePaidMediaStageHasCompleted(): void
+    {
+        $state=['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY],
+            'stage_state'=>['key'=>'storyboard','status'=>'ready','completed'=>['intake','script','art','assets']]];
+        self::assertSame([],ConversationWorkflow::revisableStages($state));
+    }
+
     public function testFrozenLegacyRoutingShapeRemainsReadable(): void
     {
         $routing=['version'=>2,'workflow_candidate'=>['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY]]];
