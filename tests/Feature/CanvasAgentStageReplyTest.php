@@ -44,6 +44,16 @@ class CanvasAgentStageReplyTest extends TestCase
         self::assertStringNotContainsString('图片已生成',$visible);
     }
 
+    public function testUnconfirmedScriptCannotClaimNodesWereUpdated(): void
+    {
+        $visible=ConversationStageReply::present($this->workflow('script'),'故事设定节点已更新，单集剧本节点已重写。请确认内容。',[
+            ['title'=>'故事设定','type'=>'text'],['title'=>'单集剧本','type'=>'text'],
+        ],false);
+        self::assertStringNotContainsString('节点已更新',$visible);
+        self::assertStringNotContainsString('节点已重写',$visible);
+        self::assertStringContainsString('请确认',$visible);
+    }
+
     public function testVideoNodesAlwaysDescribeManualSubmission(): void
     {
         $visible=ConversationStageReply::present($this->workflow('video_nodes'),'已创建画布节点。',[['title'=>'雨夜车站·镜头一','type'=>'video']],true);
@@ -67,7 +77,8 @@ class CanvasAgentStageReplyTest extends TestCase
         $encoded=json_encode($output,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
         self::assertCount(40,ConversationActionPlan::parse($encoded,'art',true)['nodes']);
         self::assertSame(64,ConversationActionPlan::maximumNodesForStage('art',true));
-        self::assertSame(4,ConversationActionPlan::maximumNodesForStage('assets',true));
+        self::assertSame(16,ConversationActionPlan::maximumNodesForStage('assets',true));
+        self::assertSame(24,ConversationActionPlan::maximumNodesForStage('storyboard',true));
         $routing=['version'=>2,'kind'=>'active_workflow','skill_candidates'=>[],
             'workflow_candidate'=>['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY,'version'=>'2026-09-23.10'],
                 'stage_state'=>['key'=>'art']]];
