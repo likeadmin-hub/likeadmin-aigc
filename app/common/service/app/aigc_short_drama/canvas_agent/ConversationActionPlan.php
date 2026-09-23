@@ -26,14 +26,14 @@ final class ConversationActionPlan
 
     public static function maximumNodesForStage(string $stage,bool $compact=false): int
     {
-        return match ($stage) { 'video_nodes'=>60, 'audio_plan'=>1, 'script'=>$compact?2:3, 'art'=>24, 'video_plan'=>8, default=>4 };
+        return match ($stage) { 'video_nodes'=>60, 'audio_plan'=>1, 'script'=>$compact?2:3, 'art'=>64, 'video_plan'=>8, default=>4 };
     }
 
     public static function instruction(string $mode,string $workflowStage='',bool $compact=false,bool $stageGenerationPrompts=false): string
     {
         if ($compact) {
             if ($workflowStage==='script') return self::structuredEnvelopeInstruction('剧本与角色设定', 'story_setting、episode_script', '必须恰好输出两项：story_setting 合并故事设定、角色关系及全剧/分集大纲；episode_script 是当前制作单集的完整场景、动作、对白与镜头意图。两个节点的 prompt 都必须是可阅读的真实内容，不能是模板或占位符。不得用 depends_on 连接两个文本节点；仅实际作为媒体输入的素材才需要画布连线。');
-            if ($stageGenerationPrompts && $workflowStage==='art') return self::structuredEnvelopeInstruction('画风与美术规划', 'art_bible、character_asset_spec、scene_asset_spec、prop_asset_spec、subject_image_prompt、three_view_prompt、scene_image_prompt、storyboard_image_prompt', '这些是真实的阶段规划，确认后只保存在对话工作流状态，不创建画布节点。优先为每个实际主体分别返回 subject_image_prompt 和 three_view_prompt，为每个实际场景分别返回 scene_image_prompt；每项 prompt 只写对应主体或场景的完整中文生图提示词，不把多个人或多个场景合并为一项。key 和 title 要能让后续阶段准确选到同一主体或场景。art_bible 和资产说明可作为额外规划，但不得取代上述独立提示词。不得输出模板或占位符。此阶段是纯文本规划，不需要 depends_on 或 reference_keys。');
+            if ($stageGenerationPrompts && $workflowStage==='art') return self::structuredEnvelopeInstruction('画风与美术规划', 'art_bible、character_asset_spec、scene_asset_spec、prop_asset_spec、subject_image_prompt、three_view_prompt、scene_image_prompt、storyboard_image_prompt', '这些是真实的阶段规划，确认后只保存在对话工作流状态，不创建画布节点。优先为每个实际主体分别返回 subject_image_prompt 和 three_view_prompt，为每个实际场景分别返回 scene_image_prompt；每项 prompt 只写对应主体或场景的完整中文生图提示词，不把多个人或多个场景合并为一项。key 和 title 要能让后续阶段准确选到同一主体或场景。art_bible 和资产说明可作为额外规划，但不得取代上述独立提示词。相同主体或场景不得重复规划，不必为同一场景的每个分镜分别再建场景提示词。节点总数最多六十四项。不得输出模板或占位符。此阶段是纯文本规划，不需要 depends_on 或 reference_keys。');
             if ($workflowStage==='art') return self::structuredEnvelopeInstruction('画风与美术规划', 'art_bible、character_asset_spec、scene_asset_spec、prop_asset_spec、subject_image_prompt、three_view_prompt、scene_image_prompt、storyboard_image_prompt', '这些是真实的阶段规划，确认后只保存在对话工作流状态，不创建画布节点。按实际角色和场景分别输出明确、可用于后续生图的内容；不得输出模板或占位符。此阶段是纯文本规划，不需要 depends_on 或 reference_keys。');
             if ($workflowStage==='video_plan') return self::structuredEnvelopeInstruction('分镜视频规划', 'video_prompt_plan', '每镜包含 shot_number、duration、first_frame、last_frame、camera_motion、action_sequence、video_prompt、asset_references；确认后只保存在对话工作流状态，不创建画布文本节点。');
             if ($stageGenerationPrompts && $workflowStage==='assets') return '当前为主体资产阶段。只输出 <canvas-actions>{"nodes":[...]}</canvas-actions>。节点只能为 image，artifact 为 subject 或 three_view；每个 three_view 必须 depends_on 同批对应 subject，且该主体图是必须连接的三视图媒体输入。每个 subject 的 reference_keys 必须且只能包含该主体对应的一项 art 阶段 subject_image_prompt；每个 three_view 必须且只能包含该主体对应的一项 art 阶段 three_view_prompt。服务端会把该已确认提示词原样放进节点输入框；不要重写为另一段提示词，也不要连接规划文本。prompt 字段同样填写该提示词。其他引用仅可选实际使用的已生成媒体或用户明确选中的素材；不要把全部历史产物连接到每个节点。最多四项。每项只允许 type、artifact、title、prompt、key、depends_on、reference_keys；不得声明价格、模型、URL、素材 ID 或任务状态。';

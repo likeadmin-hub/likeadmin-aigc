@@ -771,7 +771,7 @@ final class ConversationWorkflow
             $key=trim((string)($proposal['key']??''));
             $memory[]=['stage'=>$stage,'artifact'=>$artifact,'key'=>$key,'reference_key'=>$key===''?'':$stage.':'.$key,'node_id'=>(string)($effects['nodes'][$index]['id']??''),'title'=>mb_substr(trim((string)($proposal['title']??'')),0,80),'content'=>mb_substr($content,0,6000)];
         }
-        $state['artifact_memory']=array_slice($memory,-64);
+        $state['artifact_memory']=array_slice($memory,-96);
     }
     private static function publicArtifacts(array $artifacts): array {
         $items=[];
