@@ -278,6 +278,74 @@ try {
     ]);
     agentCheck($outlineReplay === $outlineApplied,
         'D09 repeated episode apply is idempotent');
+
+    $shotSource = ['id' => 7105, 'type' => 'image', 'title' => '第一镜分镜图', 'metadata' => [
+        'prompt' => '雨夜办公室，林夏查看一盘旧录音带。', 'content_revision' => 2,
+        'workflow_source_stage' => 'storyboard', 'workflow_artifact' => 'storyboard',
+    ]];
+    Db::name('aigc_short_drama_canvas')->where('id', $canvas['id'])->update([
+        'nodes_json' => json_encode([$story, $episodeSource, $shotSource, $deleted, $unrelated], JSON_UNESCAPED_UNICODE),
+    ]);
+    Db::name('aigc_short_drama_project')->where('id', $production)->update(['last_task_id' => 'p5-shot-task']);
+    Db::name('aigc_short_drama_script_task')->insert([
+        'tenant_id' => $tenant, 'user_id' => $owner, 'project_id' => $production,
+        'task_id' => 'p5-shot-task', 'status' => 'success', 'request_json' => '{}',
+        'result_json' => json_encode(['title' => '第一集', 'storyboard' => [
+            ['shot_id' => 'shot-1', 'title' => '旧镜头', 'visual_description' => '旧画面描述'],
+        ]], JSON_UNESCAPED_UNICODE),
+        'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
+    ]);
+    Db::name('aigc_short_drama_storyboard')->insert([
+        'tenant_id' => $tenant, 'user_id' => $owner, 'project_id' => $production,
+        'task_id' => 'p5-shot-task', 'shot_id' => 'shot-1', 'title' => '旧镜头',
+        'visual_description' => '旧画面描述', 'composition' => '远景',
+        'subject_ref_ids' => '[]', 'sort' => 1, 'create_time' => $now,
+        'update_time' => $now, 'delete_time' => 0,
+    ]);
+    ShortDramaCanvasBindingService::bind($tenant, $owner, [
+        'canvas_id' => $canvas['id'], 'project_id' => $parent, 'episode_id' => $episode,
+    ]);
+    $shotSources = ShortDramaCanvasWritebackService::sources($tenant, $owner, (int)$canvas['id']);
+    agentCheck(count($shotSources['shot_targets']) === 1
+        && $shotSources['shot_targets'][0]['shot_id'] === 'shot-1'
+        && count(array_filter($shotSources['sources'], static fn(array $source): bool =>
+            $source['node_id'] === '7105' && $source['writeback_fields'] === ['visual_description'])) === 1,
+        'D06 real storyboard source and owned formal shot are discoverable after episode binding');
+    $shotRequest = ['canvas_id' => $canvas['id'], 'source_node_id' => 7105, 'target_shot_id' => 'shot-1'];
+    $shotPreview = ShortDramaCanvasWritebackService::previewShot($tenant, $owner, $shotRequest);
+    agentCheck($shotPreview['source']['content'] === '雨夜办公室，林夏查看一盘旧录音带。'
+        && $shotPreview['target']['content'] === '旧画面描述'
+        && $shotPreview['target']['project_id'] === $production
+        && $shotPreview['prompt_policy'] === 'rebuild_from_shot_fields',
+        'D06 shot preview compares selected source with selected formal visual description');
+    $shotConfirmRejected = false;
+    try { ShortDramaCanvasWritebackService::applyShot($tenant, $owner, $shotRequest + [
+        'preview_hash' => $shotPreview['preview_hash'],
+    ]); }
+    catch (Exception $e) { $shotConfirmRejected = str_contains($e->getMessage(), '逐镜确认'); }
+    agentCheck($shotConfirmRejected, 'D06 shot writeback requires explicit confirmation');
+    Db::name('aigc_short_drama_storyboard')->where('project_id', $production)->where('shot_id', 'shot-1')
+        ->update(['visual_description' => '目标镜头已修改']);
+    $shotStaleRejected = false;
+    try { ShortDramaCanvasWritebackService::applyShot($tenant, $owner, $shotRequest + [
+        'preview_hash' => $shotPreview['preview_hash'], 'confirm' => '1',
+    ]); }
+    catch (Exception $e) { $shotStaleRejected = str_contains($e->getMessage(), 'VERSION_CONFLICT'); }
+    agentCheck($shotStaleRejected, 'D07 changed formal shot rejects stale preview');
+    Db::name('aigc_short_drama_storyboard')->where('project_id', $production)->where('shot_id', 'shot-1')
+        ->update(['visual_description' => '旧画面描述']);
+    $shotApplied = ShortDramaCanvasWritebackService::applyShot($tenant, $owner, $shotRequest + [
+        'preview_hash' => $shotPreview['preview_hash'], 'confirm' => '1',
+    ]);
+    $savedShot = Db::name('aigc_short_drama_storyboard')->where('project_id', $production)->where('shot_id', 'shot-1')->find();
+    agentCheck($shotApplied['applied'] === true && $savedShot['visual_description'] === '雨夜办公室，林夏查看一盘旧录音带。'
+        && $savedShot['composition'] === '远景' && $savedShot['image_prompt'] !== ''
+        && $savedShot['video_prompt'] !== '',
+        'D06 selected visual description is saved and prompts are rebuilt without clearing other shot fields');
+    $shotReplay = ShortDramaCanvasWritebackService::applyShot($tenant, $owner, $shotRequest + [
+        'preview_hash' => $shotPreview['preview_hash'], 'confirm' => '1',
+    ]);
+    agentCheck($shotReplay === $shotApplied, 'D09 repeated shot apply returns original receipt');
     $foreignPreviewRejected = false;
     try { ShortDramaCanvasWritebackService::previewStory($otherTenant, $otherUser, $previewRequest); }
     catch (Exception $e) { $foreignPreviewRejected = $e->getMessage() === '画布项目不存在或无权访问'; }
