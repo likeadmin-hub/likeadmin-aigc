@@ -106,9 +106,15 @@ final class ConversationTextContext
             }
             $generationPromptSources=array_slice($generationPromptSources,-8);
         }
-        foreach (array_slice((array)($workflow['artifact_memory']??[]),-6) as $item) {
+        $contextArtifacts=(array)($workflow['artifact_memory']??[]);
+        if ($separatePrompts) {
+            // Select six actual narrative/planning records, not the last six
+            // ledger entries: per-asset prompt records otherwise crowd the
+            // confirmed screenplay out of the storyboard stage input.
+            $contextArtifacts=array_values(array_filter($contextArtifacts,static fn($item): bool=>is_array($item) && !in_array((string)($item['artifact']??''),$wanted,true)));
+        }
+        foreach (array_slice($contextArtifacts,-6) as $item) {
             if (!is_array($item)) continue;
-            if ($separatePrompts && in_array((string)($item['artifact']??''),$wanted,true)) continue;
             $content=trim((string)($item['content']??''));
             if ($content==='') continue;
             $artifacts[]=[
