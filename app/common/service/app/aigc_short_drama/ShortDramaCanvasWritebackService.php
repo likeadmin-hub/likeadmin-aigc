@@ -3,9 +3,10 @@
 namespace app\common\service\app\aigc_short_drama;
 
 use InvalidArgumentException;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationActionPlan;
 use think\facade\Db;
 
-/** Read-only source discovery for an explicitly confirmed formal writeback. */
+/** Scoped, version-checked source discovery and confirmed formal writeback. */
 final class ShortDramaCanvasWritebackService
 {
     private const TEXT_ARTIFACTS = ['story_setting', 'episode_script', 'episode_outline', 'storyboard_script'];
@@ -34,12 +35,14 @@ final class ShortDramaCanvasWritebackService
             if (!in_array($artifact, self::TEXT_ARTIFACTS, true)) continue;
             $content = (string)($meta['content'] ?? '');
             if (trim($content) === '') continue;
+            $formalFields = self::formalFields($artifact, $meta, $content);
             $sources[] = [
                 'node_id' => $id,
                 'artifact' => $artifact,
                 'title' => (string)($node['title'] ?? ''),
                 'content_revision' => (int)($meta['content_revision'] ?? 0),
                 'content_hash' => hash('sha256', $content),
+                'writeback_fields' => array_keys($formalFields),
             ];
         }
         return ['binding' => $binding, 'graph_revision' => (int)($document['graph_revision'] ?? 0), 'sources' => $sources];
@@ -79,8 +82,9 @@ final class ShortDramaCanvasWritebackService
                 || (string)($meta['workflow_source_stage'] ?? '') !== 'script'
                 || (string)($meta['workflow_artifact'] ?? '') !== 'story_setting') break;
             $content = (string)($meta['content'] ?? '');
-            if (trim($content) === '' || mb_strlen($content, 'UTF-8') > 60000) break;
-            $source = ['node_id' => $nodeId, 'content' => $content,
+            $formalFields = self::formalFields('story_setting', $meta, $content);
+            if (!isset($formalFields[$field])) break;
+            $source = ['node_id' => $nodeId, 'content' => $formalFields[$field],
                 'content_revision' => (int)($meta['content_revision'] ?? 0),
                 'content_hash' => hash('sha256', $content)];
             break;
@@ -113,11 +117,85 @@ final class ShortDramaCanvasWritebackService
             'content' => $targetContent, 'content_hash' => hash('sha256', $targetContent)];
         $fingerprint = [
             $canvasId, $binding['binding_revision'], $source['node_id'], $source['content_revision'],
-            $source['content_hash'], $target['project_id'], $target['task_id'], $target['project_version_id'],
+            $source['content_hash'], hash('sha256', $source['content']), $target['project_id'], $target['task_id'], $target['project_version_id'],
             $target['draft_version'], $target['field'], $target['content_hash'],
         ];
         return ['binding' => $binding, 'source' => $source, 'target' => $target,
             'preview_hash' => hash('sha256', json_encode($fingerprint, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
-            'can_apply' => false];
+            'can_apply' => true];
+    }
+
+    /** Apply exactly the reviewed field. Replays return the original receipt. */
+    public static function applyStory(int $tenantId, int $userId, array $params): array
+    {
+        $canvasId = (int)($params['canvas_id'] ?? 0);
+        $previewHash = (string)($params['preview_hash'] ?? '');
+        if ($canvasId <= 0 || ($params['confirm'] ?? null) !== '1'
+            || !preg_match('/^[a-f0-9]{64}$/D', $previewHash)) {
+            throw new InvalidArgumentException('请先预览差异并逐项确认写回');
+        }
+        return Db::transaction(function () use ($tenantId, $userId, $params, $canvasId, $previewHash): array {
+            $canvas = Db::name('aigc_short_drama_canvas')->where([
+                'id' => $canvasId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0,
+            ])->lock(true)->find();
+            if (!$canvas) throw new InvalidArgumentException('画布项目不存在或无权访问');
+            $bindingRow = Db::name('aigc_short_drama_canvas_binding')->where([
+                'canvas_id' => $canvasId, 'tenant_id' => $tenantId, 'user_id' => $userId,
+            ])->lock(true)->find();
+            if (!$bindingRow || (int)$bindingRow['episode_id'] !== 0) {
+                throw new InvalidArgumentException('请先绑定故事项目');
+            }
+            $projectId = (int)$bindingRow['project_id'];
+            $project = Db::name('aigc_short_drama_project')->where([
+                'id' => $projectId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0,
+            ])->lock(true)->find();
+            if (!$project) throw new InvalidArgumentException('正式项目不存在或无权访问');
+            $taskId = (string)($project['last_task_id'] ?? '');
+            $task = Db::name('aigc_short_drama_script_task')->where([
+                'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
+                'task_id' => $taskId, 'delete_time' => 0,
+            ])->lock(true)->find();
+            if (!$task) throw new InvalidArgumentException('正式故事任务不存在');
+            $request = ShortDramaEpisodeService::decode((string)$task['request_json']);
+            foreach ((array)($request['_canvas_writeback_receipts'] ?? []) as $receipt) {
+                if (($receipt['preview_hash'] ?? '') === $previewHash) return $receipt;
+            }
+            $preview = self::previewStory($tenantId, $userId, $params);
+            if (!hash_equals($preview['preview_hash'], $previewHash)) {
+                throw new InvalidArgumentException('VERSION_CONFLICT: 来源或正式项目已变化，请重新预览');
+            }
+            $save = ShortDramaStoryDraft::save($tenantId, $userId, [
+                'task_id' => $taskId, 'draft_version' => $preview['target']['draft_version'],
+                'stage' => 'story', 'result' => [$preview['target']['field'] => $preview['source']['content']],
+            ]);
+            $updated = Db::name('aigc_short_drama_script_task')->where([
+                'tenant_id' => $tenantId, 'user_id' => $userId, 'project_id' => $projectId,
+                'task_id' => $taskId, 'delete_time' => 0,
+            ])->lock(true)->find();
+            $updatedRequest = ShortDramaEpisodeService::decode((string)$updated['request_json']);
+            $receipt = ['applied' => true, 'preview_hash' => $previewHash,
+                'project_id' => $projectId, 'task_id' => $taskId,
+                'target_field' => $preview['target']['field'],
+                'draft_version' => (int)$save['draft_version']];
+            $receipts = array_values((array)($updatedRequest['_canvas_writeback_receipts'] ?? []));
+            $receipts[] = $receipt;
+            $updatedRequest['_canvas_writeback_receipts'] = array_slice($receipts, -20);
+            Db::name('aigc_short_drama_script_task')->where('id', $updated['id'])->update([
+                'request_json' => json_encode($updatedRequest, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                'update_time' => time(),
+            ]);
+            return $receipt;
+        });
+    }
+
+    /** Legacy prose and manually edited prose are deliberately not guessed into formal fields. */
+    private static function formalFields(string $artifact, array $meta, string $content): array
+    {
+        if ((string)($meta['workflow_formal_content_hash'] ?? '') !== hash('sha256', $content)) return [];
+        try {
+            return ConversationActionPlan::formalFields($artifact, $meta['workflow_formal_fields'] ?? null);
+        } catch (\RuntimeException) {
+            return [];
+        }
     }
 }

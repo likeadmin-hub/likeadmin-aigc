@@ -90,6 +90,9 @@ try {
     $story = ['id' => 7101, 'type' => 'text', 'title' => '故事设定与大纲', 'metadata' => [
         'content' => '真实故事正文', 'content_revision' => 3,
         'workflow_source_stage' => 'script', 'workflow_artifact' => 'story_setting',
+        'workflow_formal_content_hash' => hash('sha256', '真实故事正文'),
+        'workflow_formal_fields' => ['title' => '新剧名', 'type_judgement' => '悬疑',
+            'core_theme' => '亲情与真相', 'story_outline' => '新故事梗概'],
     ]];
     $deleted = ['id' => 7102, 'type' => 'text', 'title' => '旧单集剧本', 'metadata' => [
         'content' => '已删除正文', 'content_revision' => 1,
@@ -104,7 +107,8 @@ try {
     agentCheck($available['binding']['binding_revision'] === 2 && $available['graph_revision'] === 4
         && count($available['sources']) === 1 && $available['sources'][0]['node_id'] === '7101'
         && $available['sources'][0]['content_revision'] === 3
-        && $available['sources'][0]['content_hash'] === hash('sha256', '真实故事正文'),
+        && $available['sources'][0]['content_hash'] === hash('sha256', '真实故事正文')
+        && count($available['sources'][0]['writeback_fields']) === 4,
         'D04 writeback source discovery is owner scoped, versioned, and excludes removed or unrelated nodes');
     $sourcesRejected = false;
     try { ShortDramaCanvasWritebackService::sources($otherTenant, $otherUser, (int)$canvas['id']); }
@@ -137,10 +141,10 @@ try {
     $previewRequest = ['canvas_id' => $canvas['id'], 'source_node_id' => 7101,
         'target_field' => 'story_outline'];
     $preview = ShortDramaCanvasWritebackService::previewStory($tenant, $owner, $previewRequest);
-    agentCheck($preview['source']['content'] === '真实故事正文'
+    agentCheck($preview['source']['content'] === '新故事梗概'
         && $preview['target']['content'] === '旧故事梗概'
         && $preview['target']['project_id'] === $previewProject
-        && $preview['can_apply'] === false,
+        && $preview['can_apply'] === true,
         'D04 story field preview shows actual owned source and current formal target without applying');
     Db::name('aigc_short_drama_script_task')->where('task_id', 'p5-preview-task')->update([
         'result_json' => json_encode(['title' => '旧剧名', 'story_outline' => '目标已经修改'], JSON_UNESCAPED_UNICODE),
@@ -148,8 +152,16 @@ try {
     $targetChanged = ShortDramaCanvasWritebackService::previewStory($tenant, $owner, $previewRequest);
     agentCheck($targetChanged['preview_hash'] !== $preview['preview_hash'],
         'D05 target text changes invalidate the preview fingerprint');
+    $staleRejected = false;
+    try { ShortDramaCanvasWritebackService::applyStory($tenant, $owner, $previewRequest + [
+        'preview_hash' => $preview['preview_hash'], 'confirm' => '1',
+    ]); }
+    catch (Exception $e) { $staleRejected = str_contains($e->getMessage(), 'VERSION_CONFLICT'); }
+    agentCheck($staleRejected, 'D05 stale target preview cannot overwrite formal story');
     $story['metadata']['content'] = '来源也已修改';
     $story['metadata']['content_revision'] = 4;
+    $story['metadata']['workflow_formal_content_hash'] = hash('sha256', '来源也已修改');
+    $story['metadata']['workflow_formal_fields']['story_outline'] = '新修订故事梗概';
     Db::name('aigc_short_drama_canvas')->where('id', $canvas['id'])->update([
         'nodes_json' => json_encode([$story, $deleted, $unrelated], JSON_UNESCAPED_UNICODE),
         'graph_revision' => 5,
@@ -172,6 +184,37 @@ try {
     agentCheck($rebound['preview_hash'] !== $versionChanged['preview_hash']
         && $rebound['binding']['binding_revision'] > $versionChanged['binding']['binding_revision'],
         'D05 rebinding invalidates an earlier preview even if the final target is unchanged');
+    $withoutConfirm = false;
+    try { ShortDramaCanvasWritebackService::applyStory($tenant, $owner, $previewRequest + [
+        'preview_hash' => $rebound['preview_hash'],
+    ]); }
+    catch (Exception $e) { $withoutConfirm = str_contains($e->getMessage(), '逐项确认'); }
+    agentCheck($withoutConfirm, 'D04 writeback requires explicit confirmation after preview');
+    $applied = ShortDramaCanvasWritebackService::applyStory($tenant, $owner, $previewRequest + [
+        'preview_hash' => $rebound['preview_hash'], 'confirm' => '1',
+    ]);
+    $savedRequest = json_decode((string)Db::name('aigc_short_drama_script_task')->where('task_id', 'p5-preview-task')->value('request_json'), true);
+    agentCheck($applied['applied'] === true && $applied['draft_version'] === 1
+        && ($savedRequest['_story_draft']['result']['story_outline'] ?? '') === '新修订故事梗概'
+        && ($savedRequest['_story_draft']['result']['title'] ?? '') === '旧剧名',
+        'D04 confirmed story field writes only the selected field into existing formal draft');
+    $replayed = ShortDramaCanvasWritebackService::applyStory($tenant, $owner, $previewRequest + [
+        'preview_hash' => $rebound['preview_hash'], 'confirm' => '1',
+    ]);
+    $replayRequest = json_decode((string)Db::name('aigc_short_drama_script_task')->where('task_id', 'p5-preview-task')->value('request_json'), true);
+    agentCheck($replayed === $applied && ($replayRequest['_story_draft']['version'] ?? 0) === 1,
+        'D09 replayed apply returns original receipt without a second draft mutation');
+    $postApplyPreview = ShortDramaCanvasWritebackService::previewStory($tenant, $owner, $previewRequest);
+    agentCheck($postApplyPreview['preview_hash'] !== $rebound['preview_hash'],
+        'D05 draft version increment invalidates the pre-apply preview');
+    $story['metadata']['content'] = '手工改过但未重新生成正式字段';
+    Db::name('aigc_short_drama_canvas')->where('id', $canvas['id'])->update([
+        'nodes_json' => json_encode([$story, $deleted, $unrelated], JSON_UNESCAPED_UNICODE),
+    ]);
+    $editedProseRejected = false;
+    try { ShortDramaCanvasWritebackService::previewStory($tenant, $owner, $previewRequest); }
+    catch (Exception $e) { $editedProseRejected = str_contains($e->getMessage(), '不适合正式写回'); }
+    agentCheck($editedProseRejected, 'D04 edited free prose cannot reuse stale structured formal fields');
     $foreignPreviewRejected = false;
     try { ShortDramaCanvasWritebackService::previewStory($otherTenant, $otherUser, $previewRequest); }
     catch (Exception $e) { $foreignPreviewRejected = $e->getMessage() === '画布项目不存在或无权访问'; }

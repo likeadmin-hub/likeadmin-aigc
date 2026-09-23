@@ -18,7 +18,13 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-23.4';
+    public const VERSION = '2026-09-23.5';
+
+    public static function structuredWriteback(array $workflow): bool
+    {
+        return self::compactOutput($workflow)
+            && version_compare((string)($workflow['workflow_snapshot']['version']??'0'),'2026-09-23.5','>=');
+    }
 
     /** Old frozen conversations retain their original canvas projection. */
     public static function compactOutput(array $workflow): bool
@@ -164,7 +170,7 @@ final class ConversationWorkflow
     public static function withIntakeDraft(array $workflow,mixed $raw,array $availableSources=['message']): array
     {
         if (($workflow['workflow_snapshot']['key']??'')!==self::KEY
-            || version_compare((string)($workflow['workflow_snapshot']['version']??'0'),self::VERSION,'<')
+            || version_compare((string)($workflow['workflow_snapshot']['version']??'0'),'2026-09-23.4','<')
             || ($workflow['stage_state']['key']??'')!=='intake') return $workflow;
         $draft=ConversationIntakeDraft::parse($raw,(array)($workflow['workflow_snapshot']['slot_schema']??[]),$availableSources);
         // A later intake turn may add context, but must not re-open answers
@@ -183,7 +189,7 @@ final class ConversationWorkflow
     public static function applyIntakeDraftLocked(array $workflow,array $threadSettings,mixed $raw,array $availableSources=['message']): ?array
     {
         if (($workflow['workflow_snapshot']['key']??'')!==self::KEY
-            || version_compare((string)($workflow['workflow_snapshot']['version']??'0'),self::VERSION,'<')
+            || version_compare((string)($workflow['workflow_snapshot']['version']??'0'),'2026-09-23.4','<')
             || ($workflow['stage_state']['key']??'')!=='intake') return null;
         $state=self::stateFromSettings($threadSettings);
         if (($state['stage_state']['status']??'')!=='collecting'
