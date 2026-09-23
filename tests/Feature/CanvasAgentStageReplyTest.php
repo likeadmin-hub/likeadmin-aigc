@@ -115,4 +115,14 @@ class CanvasAgentStageReplyTest extends TestCase
         ]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
         self::assertSame('action_node_dependency_order',ConversationActionPlan::failureCategory($reply,'assets',true));
     }
+
+    public function testSingleExactMediaDependencyCanBeCanonicalized(): void
+    {
+        $reply=json_encode(['reply_markdown'=>'主体资产已准备好。','canvas_actions'=>['nodes'=>[
+            ['type'=>'image','artifact'=>'subject','title'=>'主体图','prompt'=>'主体生图提示词','key'=>'subject'],
+            ['type'=>'image','artifact'=>'three_view','title'=>'三视图','prompt'=>'三视图生图提示词','key'=>'view','depends_on'=>'subject'],
+        ]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        $nodes=ConversationActionPlan::parse($reply,'assets',true)['nodes'];
+        self::assertSame(['subject'],$nodes[1]['depends_on']);
+    }
 }
