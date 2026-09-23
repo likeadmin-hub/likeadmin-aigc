@@ -104,10 +104,19 @@ final class ConversationExecution
                         || !empty($currentThreadSettings['workflow_state'])) throw new RuntimeException('INVALID_AGENT_INTENT');
                     $activatedWorkflow=isset($decision['intake'])
                         ? ConversationWorkflow::withIntakeDraft($candidate,$decision['intake'],$intakeSources) : $candidate;
+                    // The eight intake slots describe production settings, not the
+                    // story itself. Keep the initiating brief across compact stage
+                    // handoffs so later Skills cannot replace its plot or title.
+                    $activatedWorkflow['creative_brief']=mb_substr(trim((string)($context['messages'][count($context['messages'])-1]['content']??'')),0,4000);
                 }
             }
             if ($intakeDraft && ($intentDecision || $proposals)) throw new RuntimeException('INVALID_AGENT_INTAKE');
+            if ($workflow && empty($workflow['creative_brief'])) {
+                $workflow['creative_brief']=ConversationTextContext::creativeBrief($workflow,(array)($context['messages']??[]));
+                if ($workflow['creative_brief']!=='') $currentThreadSettings['workflow_state']['creative_brief']=$workflow['creative_brief'];
+            }
             $proposals=ConversationWorkflow::materializeTextReferences($workflow,$proposals);
+            ConversationWorkflow::assertStoryAnchor($workflow,$proposals);
             $planSettings=ConversationWorkflow::freezeImagePlanLocked($tenant,$workflow,$settings,$context,$proposals,$runId,$currentThreadSettings,$document);
             $stagePlanSettings=$planSettings===null
                 ? ConversationWorkflow::freezeStagePlanLocked($workflow,$context,$proposals,$runId,$currentThreadSettings)

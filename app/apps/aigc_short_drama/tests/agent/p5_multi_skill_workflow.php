@@ -6,6 +6,7 @@ use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationActionPlan as ActionPlan;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution as Execution;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationIntentRouter as IntentRouter;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationTextContext as TextContext;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflowTurn as WorkflowTurn;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationIntakeDraft as IntakeDraft;
 use app\common\service\app\aigc_short_drama\canvas_agent\FeatureGate;
@@ -71,6 +72,19 @@ try {
     agentCheck(($snapshot['workflow']['workflow_snapshot']['version']??'')===Workflow::VERSION,'workflow version is immutable in the accepted run');
     agentCheck(($snapshot['workflow']['workflow_snapshot']['stage_skill_versions']['script'][0]['skill_key']??'')==='workflow_script_fixture' && ($snapshot['workflow']['workflow_snapshot']['stage_skill_versions']['script'][0]['version']??0)===1,'workflow freezes the tenant-authorized published Skill version for its configured stage');
     agentCheck(($snapshot['workflow']['stage_state']['key']??'')==='intake','short drama route starts in collection without a canvas node');
+    agentCheck(($snapshot['workflow']['creative_brief']??'')==='/short-drama 我想创作一部悬疑短剧','manual route preserves the initiating story brief across later compact stage handoffs');
+    $legacyBrief=TextContext::creativeBrief([], [
+        ['role'=>'user','content'=>'请制作《耳机的秘密》，围绕耳机店的降噪误会。'],
+        ['role'=>'assistant','content'=>'已进入流程。'],
+        ['role'=>'user','content'=>'请基于已确认的信息生成剧本。'],
+    ]);
+    agentCheck(str_contains($legacyBrief,'耳机的秘密'),'legacy workflow recovers the original titled brief, not the automatic stage instruction');
+    $anchored=$snapshot['workflow'];
+    $anchored['stage_state']['key']='script';
+    $anchored['creative_brief']=$legacyBrief;
+    Workflow::assertStoryAnchor($anchored,[['artifact'=>'story_setting','prompt'=>'项目标题：耳机的秘密；小禾在耳机店化解误会。']]);
+    try { Workflow::assertStoryAnchor($anchored,[['artifact'=>'story_setting','prompt'=>'项目标题：误会一杯咖啡；小禾在咖啡店。']]); throw new RuntimeException('unrelated screenplay accepted'); }
+    catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_ACTION','a different project title is rejected before stage publication'); }
     agentCheck(Execution::stop($tenant,$user,$canvas,$thread,$ack['run_id'])['status']==='canceled','workflow card actions wait for the active conversational run to finish');
     // Preserve coverage for a conversation frozen on the previous catalog:
     // its existing three-text-node contract must not silently change mid-run.
@@ -115,6 +129,7 @@ try {
     $scriptEdges=json_decode((string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('edges_json'),true);
     agentCheck(count(array_filter($scriptEdges,static fn(array $edge): bool => ($edge['role']??'')==='agent_dependency'))===2,'structured script artifacts retain their story-to-outline-to-storyboard dependency edges');
     agentCheck(str_contains((string)($provider->lastRequest['messages'][count($provider->lastRequest['messages'])-1]['content']??''),'workflow_stage_skills') && str_contains((string)($provider->lastRequest['messages'][count($provider->lastRequest['messages'])-1]['content']??''),'workflow_script_fixture'),'Worker receives only the frozen configured stage Skill in its structured conversation context');
+    agentCheck(str_contains((string)($provider->lastRequest['messages'][0]['content']??''),'workflow_creative_brief') && str_contains((string)($provider->lastRequest['messages'][0]['content']??''),'我想创作一部悬疑短剧'),'script stage keeps the originating story request, not only the eight production slots');
     agentCheck(($provider->lastRequest['response_format']['type']??'')==='json_object','workflow text stages request a provider-native structured JSON object instead of relying on decorative markdown tags');
     agentCheck(($provider->lastRequest['max_tokens']??0)===4096 && ($provider->lastRequest['enable_thinking']??true)===false,'workflow projection limits model output and disables expanded reasoning before a durable stage run');
     $jsonPlan=ActionPlan::parse('{"reply_markdown":"# 真实剧本","canvas_actions":{"nodes":[{"type":"text","artifact":"story_setting","title":"故事设定","prompt":"project_title: 雨夜回音\nlogline: 追查姐姐。","key":"story"},{"type":"text","artifact":"episode_outline","title":"分集大纲","prompt":"episode_outline: 第一集。\nscene_script: 雨夜公寓。","key":"outline","depends_on":["story"]},{"type":"text","artifact":"storyboard_script","title":"分镜脚本","prompt":"storyboard_script: 镜头01。","key":"boards","depends_on":["outline"]}]}}','script');
