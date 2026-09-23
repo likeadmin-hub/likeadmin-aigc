@@ -39,7 +39,8 @@ final class ShortDramaCanvasWritebackService
                 || (string)($meta['workflow_source_stage'] ?? '') !== 'script'
                 || !in_array($artifact, self::TEXT_ARTIFACTS, true))) continue;
             $content = (string)($meta[$isShot ? 'prompt' : 'content'] ?? '');
-            if (trim($content) === '') continue;
+            if ($isShot) $content = trim($content);
+            if ($content === '' || ($isShot && mb_strlen($content, 'UTF-8') > 2000)) continue;
             $formalFields = $isShot ? ['visual_description' => $content] : self::formalFields($artifact, $meta, $content);
             $sources[] = [
                 'node_id' => $id,

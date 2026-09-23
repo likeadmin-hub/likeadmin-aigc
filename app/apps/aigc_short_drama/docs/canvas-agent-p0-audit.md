@@ -1288,3 +1288,12 @@ P5 仍为 **NOT_RUN / 未放行**：正式应用到故事设定、分集大纲�
 - **提交/边界**：server `c50a85679`、`29968a4e5`，web `a2a12d7`、`363793a` 已各自 `--no-ff` 合入本地 `develop` 后验证。未创建新环境、容器、Worker；未推送、部署、发布或执行生产迁移。
 - **补充回归**：`p5_binding.php` 最终 **29 PASS / 0 FAIL**（新增分集目标变化后的旧预览拒绝）；`p5_compact_canvas_projection.php`、旧冻结版 `p5_multi_skill_workflow.php`、`p0_controller.php`、`ShortDramaStoryWorkflowTest` 6/27 和 `ShortDramaOutlineValidationTest` 3/8 均通过。PC Agent 面板已支持搜索超过首屏 50 条之外的用户故事项目，相关 ESLint `--quiet` 0 error；web 提交 `f53ba48` 已合入本地 develop。
 - **本地注册**：仅在现有 Baota `x_cn` 中按 `api_schema.json` 补登 7 条缺失的 P5 画布用户 API（binding、bind、来源、故事/分集预览与确认），核对 7 条均为 `scene=user,status=1`。未运行应用重装或其他迁移，未改已有 API 注册项。这是本机运行配置，不是生产发布证据。
+
+## 2026-09-23 · P5 正式分镜画面描述写回（行为验收，整体未放行）
+
+- **已确认映射**：用户选择画布 Agent 分镜图节点与正式剧集的指定镜头，先预览差异，逐镜确认后只把该节点的提示词写入正式镜头 `visual_description`；调用现有 `saveStoryboard` 保留镜头其余编辑字段，并依照短剧现行规则重建 `image_prompt`、`video_prompt`。不直接保留画布提示词为正式媒体提示词，不自动提交图片/视频任务，也不改扣费链路。
+- **服务端约束**：仅使用未删除、当前用户拥有、`workflow_source_stage=storyboard` 且 `workflow_artifact=storyboard` 的图片节点；来源长度不超过正式字段上限。绑定必须指向当前用户拥有且已成功的剧集制作项目，目标必须是其当前任务的指定镜头。预览指纹覆盖来源版本/正文、绑定版本、剧集、目标镜头完整记录和正式项目版本；确认时锁内重读，变动即 `VERSION_CONFLICT`，重复确认只返回原回执。
+- **PASS / 现有本地 `x_cn` 回滚式行为测试**：`p5_binding.php` **37 PASS / 0 FAIL**，新增来源及目标镜头发现、真实差异、无确认拒绝、来源修改拒绝、目标修改拒绝、仅选中镜头写入、相邻镜头不变、旧字段保留、正式提示词重建、幂等重放和跨租户拒绝；全部写入在同一测试事务内回滚。另有 PHP 语法、`ShortDramaContinuityTest` 10/33 和 PC 相关 ESLint `--quiet` 0 error 通过。
+- **PASS / 真实浏览器局部**：画布 97 的正式写回面板能读取当前 tenant 1 项目；选择已有制作剧集的故事项目后，显示第 1、2 集候选。该画布仍是旧版自由节点，没有符合条件的 Agent 分镜来源，页面正确提示并阻止预览/写入。未把此项当作浏览器确认写回通过。
+- **本地配置**：按 `api_schema.json` 仅向现有 Baota `x_cn` 补登两条分镜预览/确认用户 API，核对 `scene=user,status=1,need_login=1`。没有新增环境、容器、Worker、迁移或生产变更。
+- **NOT_RUN / P5 整体仍未放行**：真实浏览器在安全的可编辑正式目标上完成预览→确认→刷新后核对、单集正式项目的文本写回、以及新版本真实 Provider 产生结构化剧本字段的端到端验收仍缺。不得把回滚式服务测试或旧画布的安全降级冒充这些结果；P6 状态不变。
