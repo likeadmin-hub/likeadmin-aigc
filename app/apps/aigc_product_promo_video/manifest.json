@@ -11,19 +11,39 @@
   "is_builtin": 1,
   "expire_policy": "allow",
   "sort": 847,
-  "frontends": ["tenant", "pc", "uniapp"],
+  "frontends": [
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
   "api_prefix": "/app/aigc_product_promo_video",
   "menus": "menus/tenant.json",
   "permissions": "permissions/tenant.json",
   "migrations": "migrations",
   "frontend_entries": [
-    { "terminal": "tenant", "entry_key": "aigc_product_promo_video_admin", "name": "产品宣传视频", "path": "/app/aigc_product_promo_video", "icon": "el-icon-VideoCamera", "sort": 91, "status": 1 },
-    { "terminal": "pc", "entry_key": "aigc_product_promo_video", "name": "产品宣传视频", "path": "/ai/tools/aigc_product_promo_video", "icon": "resource/image/common/menu_generator.png", "sort": 83, "status": 1 },
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_product_promo_video_admin",
+      "name": "产品宣传视频",
+      "path": "/app/aigc_product_promo_video",
+      "icon": "el-icon-VideoCamera",
+      "sort": 91,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_product_promo_video",
+      "name": "产品宣传视频",
+      "path": "/ai/tools/aigc_product_promo_video",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 83,
+      "status": 1
+    },
     {
       "terminal": "uniapp",
       "entry_key": "aigc_product_promo_video",
       "name": "产品宣传视频",
-      "path": "/apps/mobile_tools/pages/creator/index",
+      "path": "/apps/aigc_product_promo_video/pages/creator/index",
       "icon": "resource/image/common/menu_generator.png",
       "sort": 847,
       "status": 1,
@@ -31,17 +51,22 @@
         "pages": [
           {
             "name": "创作首页",
-            "path": "/apps/mobile_tools/pages/creator/index",
-            "query": {
-              "app_code": "aigc_product_promo_video"
-            }
+            "path": "/apps/aigc_product_promo_video/pages/creator/index"
           }
         ]
       }
     }
   ],
   "dependencies": [
-    { "app_code": "aigc_video", "name": "AIGC生视频", "required_for": "产品宣传视频生成" },
-    { "app_code": "aigc_llm", "name": "AIGC对话", "required_for": "描述词AI帮写和优化" }
+    {
+      "app_code": "aigc_video",
+      "name": "AIGC生视频",
+      "required_for": "产品宣传视频生成"
+    },
+    {
+      "app_code": "aigc_llm",
+      "name": "AIGC对话",
+      "required_for": "描述词AI帮写和优化"
+    }
   ]
 }
