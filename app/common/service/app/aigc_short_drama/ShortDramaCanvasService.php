@@ -927,6 +927,11 @@ class ShortDramaCanvasService
             $subjects[$subjectTitle!==''?$subjectTitle:(string)($source['id']??'')]=true;
         }
         $referenceRoles=array_column((array)($params['reference_assets']??[]),'role');
+        // A video may only link its storyboard image even when that image
+        // depicts a person. Missing direct subject edges are not proof of an
+        // empty shot; require an explicit empty-shot label or description.
+        $explicitEmpty=in_array($artifact,['storyboard','storyboard_video'],true)
+            && preg_match('/(?:^|[\s【（(])(?:空镜|无人镜头|无人物镜头)/u', $title.' '.mb_substr($prompt,0,160))===1;
         $templateContext=[
             'task_type'=>match ($artifact) {'subject','prop'=>'subject_image','three_view'=>'three_view','scene'=>'scene_image','storyboard'=>'shot_image',default=>'shot_video'},
             'subject_name'=>in_array($artifact,['subject','prop','three_view'],true)?$title:'',
@@ -936,8 +941,8 @@ class ShortDramaCanvasService
             'ratio'=>(string)($params['ratio']??$params['aspect_ratio']??''),
             'duration'=>(string)($params['duration']??''),
             'prop'=>$artifact==='prop',
-            'empty'=>in_array($artifact,['storyboard','storyboard_video'],true) && !$subjects,
-            'subject_count'=>count($subjects),
+            'empty'=>$explicitEmpty,
+            'subject_count'=>$explicitEmpty?0:max(1,count($subjects)),
             'first_frame'=>in_array('first_frame',$referenceRoles,true),
             'last_frame'=>in_array('last_frame',$referenceRoles,true),
             'missing'=>$prompt==='',
