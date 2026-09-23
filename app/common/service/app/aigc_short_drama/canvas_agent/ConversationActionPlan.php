@@ -124,13 +124,17 @@ final class ConversationActionPlan
                 $proposal['depends_on'] = array_keys($dependencies);
             }
             if (array_key_exists('reference_keys',$node)) {
-                if (!is_array($node['reference_keys']) || !array_is_list($node['reference_keys']) || !$node['reference_keys'] || count($node['reference_keys'])>6) throw new RuntimeException('INVALID_AGENT_ACTION');
+                if (!is_array($node['reference_keys']) || !array_is_list($node['reference_keys']) || count($node['reference_keys'])>6) throw new RuntimeException('INVALID_AGENT_ACTION');
                 $references=[];
                 foreach ($node['reference_keys'] as $reference) {
                     if (!is_string($reference) || !preg_match('/^[a-z][a-z0-9_-]{0,47}:[a-z][a-z0-9_-]{0,31}$/D',$reference) || isset($references[$reference])) throw new RuntimeException('INVALID_AGENT_ACTION');
                     $references[$reference]=true;
                 }
-                $proposal['reference_keys']=array_keys($references);
+                // Structured JSON models commonly emit an empty array for an
+                // optional reference field. It means no graph input, not an
+                // invalid or implicit reference; all nonempty keys still pass
+                // the strict catalog/type checks downstream.
+                if ($references) $proposal['reference_keys']=array_keys($references);
             }
             if ($key !== '') {
                 $keys[$key] = true;
