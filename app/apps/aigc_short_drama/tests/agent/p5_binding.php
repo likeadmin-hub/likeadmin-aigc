@@ -157,6 +157,21 @@ try {
     $sourceChanged = ShortDramaCanvasWritebackService::previewStory($tenant, $owner, $previewRequest);
     agentCheck($sourceChanged['preview_hash'] !== $targetChanged['preview_hash'],
         'D05 source text and content revision changes invalidate the preview fingerprint');
+    Db::name('aigc_short_drama_project')->where('id', $previewProject)->update(['current_version_id' => 7]);
+    $versionChanged = ShortDramaCanvasWritebackService::previewStory($tenant, $owner, $previewRequest);
+    agentCheck($versionChanged['preview_hash'] !== $sourceChanged['preview_hash']
+        && $versionChanged['target']['project_version_id'] === 7,
+        'D05 formal project version changes invalidate the preview fingerprint');
+    ShortDramaCanvasBindingService::bind($tenant, $owner, [
+        'canvas_id' => $canvas['id'], 'project_id' => $parent,
+    ]);
+    ShortDramaCanvasBindingService::bind($tenant, $owner, [
+        'canvas_id' => $canvas['id'], 'project_id' => $previewProject,
+    ]);
+    $rebound = ShortDramaCanvasWritebackService::previewStory($tenant, $owner, $previewRequest);
+    agentCheck($rebound['preview_hash'] !== $versionChanged['preview_hash']
+        && $rebound['binding']['binding_revision'] > $versionChanged['binding']['binding_revision'],
+        'D05 rebinding invalidates an earlier preview even if the final target is unchanged');
     $foreignPreviewRejected = false;
     try { ShortDramaCanvasWritebackService::previewStory($otherTenant, $otherUser, $previewRequest); }
     catch (Exception $e) { $foreignPreviewRejected = $e->getMessage() === '画布项目不存在或无权访问'; }

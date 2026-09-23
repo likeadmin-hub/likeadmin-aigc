@@ -90,7 +90,7 @@ final class ShortDramaCanvasWritebackService
         $projectId = (int)$binding['project_id'];
         $project = Db::name('aigc_short_drama_project')->where([
             'id' => $projectId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0,
-        ])->field('last_task_id')->find();
+        ])->field('last_task_id,current_version_id')->find();
         $taskId = (string)($project['last_task_id'] ?? '');
         if ($taskId === '') throw new InvalidArgumentException('正式故事项目尚无可编辑的当前剧本');
         $task = Db::name('aigc_short_drama_script_task')->where([
@@ -108,11 +108,12 @@ final class ShortDramaCanvasWritebackService
         $result = ShortDramaStoryDraft::effective($request, ShortDramaEpisodeService::decode((string)$task['result_json']));
         $targetContent = (string)($result[$field] ?? '');
         $target = ['project_id' => $projectId, 'task_id' => $taskId,
+            'project_version_id' => (int)($project['current_version_id'] ?? 0),
             'draft_version' => ShortDramaStoryDraft::version($request), 'field' => $field,
             'content' => $targetContent, 'content_hash' => hash('sha256', $targetContent)];
         $fingerprint = [
             $canvasId, $binding['binding_revision'], $source['node_id'], $source['content_revision'],
-            $source['content_hash'], $target['project_id'], $target['task_id'],
+            $source['content_hash'], $target['project_id'], $target['task_id'], $target['project_version_id'],
             $target['draft_version'], $target['field'], $target['content_hash'],
         ];
         return ['binding' => $binding, 'source' => $source, 'target' => $target,
