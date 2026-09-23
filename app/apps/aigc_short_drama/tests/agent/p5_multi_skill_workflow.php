@@ -293,6 +293,10 @@ try {
     agentCheck(!empty($audioNode['metadata']['workflow_audio_disabled']) && ($audioNode['metadata']['workflow_submission_policy']??'')==='disabled','audio planning node is server-marked as not generatable');
     try { Canvas::submitIdempotent($tenant,$user,['canvas_id'=>$canvas,'node_id'=>$audioNodeId,'type'=>'audio']); throw new RuntimeException('disabled audio task reached provider boundary'); }
     catch (Throwable $error) { agentCheck($error->getMessage()==='WORKFLOW_AUDIO_GENERATION_UNAVAILABLE','audio planning node cannot enter Provider or billing submission'); }
+    $completeState=$confirmed['workflow'];
+    $completeState['stage_state']=['key'=>'complete','status'=>'ready','completed'=>['intake','script','art','assets','storyboard','video_plan','video_nodes','audio_plan']];
+    $completeCard=(new ReflectionMethod(Workflow::class,'card'))->invoke(null,$completeState);
+    agentCheck(($completeCard['type']??'')==='complete' && ($completeCard['stage_index']??0)===($completeCard['stage_total']??-1),'finished workflow shows a complete 8/8 card instead of resetting to 0/8');
     try { Workflow::read($tenant+1,$user,$canvas,$thread); throw new RuntimeException('cross tenant workflow read passed'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='CANVAS_NOT_FOUND','workflow state cannot be read across tenants'); }
     // Reproduce a live thread that first exchanged a greeting, then received
