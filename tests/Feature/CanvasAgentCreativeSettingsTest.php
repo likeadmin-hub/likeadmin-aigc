@@ -78,6 +78,20 @@ class CanvasAgentCreativeSettingsTest extends TestCase
         self::assertTrue($method->invoke(null,$plan));
     }
 
+    public function testStoryboardPlanCanContainSixShotsAndSharedScenes(): void
+    {
+        $nodes=array_fill(0,9,['type'=>'image']);
+        $plan=['hash'=>str_repeat('b',64),'nodes'=>$nodes,'sources'=>[],
+            'attachment_images'=>[],'parameters'=>['quantity'=>1],
+            'quotes'=>array_fill(0,9,[]),'run_id'=>2];
+        $method=new ReflectionMethod(ConversationWorkflow::class,'validImagePlan');
+        $method->setAccessible(true);
+        self::assertTrue($method->invoke(null,$plan));
+        $plan['nodes']=array_fill(0,25,['type'=>'image']);
+        $plan['quotes']=array_fill(0,25,[]);
+        self::assertFalse($method->invoke(null,$plan));
+    }
+
     public function testAutoImageRequestHashChangesWhenConfirmedRatioOrPromptChanges(): void
     {
         $metadata=['prompt'=>'林岚主图','channel'=>'image-model','ratio'=>'9:16','count'=>1];

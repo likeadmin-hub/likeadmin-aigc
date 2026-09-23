@@ -486,7 +486,7 @@ final class ConversationWorkflow
         if (!in_array($stage,['assets','storyboard'],true)) return null;
         $state=self::stateFromSettings($threadSettings); if ($state===[]) return null; self::assertState($state);
         if ((int)($state['state_revision']??0)!==(int)($workflow['state_revision']??0) || ($state['stage_state']['key']??'')!==$stage || ($state['stage_state']['status']??'')!=='running') return null;
-        if (!$proposals || count($proposals)>4) throw new RuntimeException('WORKFLOW_IMAGE_PLAN_REQUIRED');
+        if (!$proposals || count($proposals)>ConversationActionPlan::maximumNodesForStage($stage,self::compactOutput($workflow))) throw new RuntimeException('WORKFLOW_IMAGE_PLAN_REQUIRED');
         $model=(array)($workflow['workflow_snapshot']['model_preferences']['image_model']??$settings['image_model']??[]);
         if (($model['id']??'')==='') throw new RuntimeException('WORKFLOW_IMAGE_MODEL_UNAVAILABLE');
         $quotes=[];
@@ -881,7 +881,7 @@ final class ConversationWorkflow
     }
     private static function validImagePlan(array $plan): bool {
         $parameters=(array)($plan['parameters']??[]);
-        return preg_match('/^[a-f0-9]{64}$/D',(string)($plan['hash']??''))===1 && is_array($plan['nodes']??null) && $plan['nodes']!==[] && count($plan['nodes'])<=4 && is_array($plan['sources']??null) && is_array($plan['attachment_images']??null) && ($parameters===['quantity'=>1] || (count($parameters)===2 && ($parameters['quantity']??null)===1 && preg_match('/^[1-9][0-9]{0,3}:[1-9][0-9]{0,3}$/D',(string)($parameters['ratio']??''))===1)) && is_array($plan['quotes']??null) && count($plan['quotes'])===count($plan['nodes']) && (int)($plan['run_id']??0)>0;
+        return preg_match('/^[a-f0-9]{64}$/D',(string)($plan['hash']??''))===1 && is_array($plan['nodes']??null) && $plan['nodes']!==[] && count($plan['nodes'])<=ConversationActionPlan::maximumNodesForStage('storyboard') && is_array($plan['sources']??null) && is_array($plan['attachment_images']??null) && ($parameters===['quantity'=>1] || (count($parameters)===2 && ($parameters['quantity']??null)===1 && preg_match('/^[1-9][0-9]{0,3}:[1-9][0-9]{0,3}$/D',(string)($parameters['ratio']??''))===1)) && is_array($plan['quotes']??null) && count($plan['quotes'])===count($plan['nodes']) && (int)($plan['run_id']??0)>0;
     }
     private static function validStagePlan(array $plan,string $stage): bool {
         if (!in_array($stage,['script','art','video_plan'],true) || (string)($plan['stage']??'')!==$stage || !is_array($plan['nodes']??null) || !$plan['nodes'] || count($plan['nodes'])>ConversationActionPlan::maximumNodesForStage($stage) || !is_array($plan['sources']??null) || (int)($plan['run_id']??0)<=0) return false;

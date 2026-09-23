@@ -14,7 +14,7 @@ final class ConversationStageReply
         $reply=trim(preg_replace('/\s+/u', ' ', $reply) ?? $reply);
         $looksLikeArtifact=mb_strlen($reply)>260
             || preg_match('/(?:[`#*_{}\[\]]|<canvas-actions>|\|\s*[-:]|(?:^|\s)(?:project_title|logline|world_setting|character_profiles|episode_outline|scene_script|storyboard_script|image_prompt|video_prompt|reference_keys|shot_number|asset_references)(?:\s|[:：])|(?:生成|正面|负面)提示词[:：])/iu', $reply)
-            || (!$written && preg_match('/已(?:写入|插入|创建)(?:到|在)?画布|图片已生成|视频已生成/u', $reply));
+            || (!$written && preg_match('/已(?:写入|插入|创建)(?:到|在)?画布|(?:画布)?(?:故事设定|剧本|文本|图片|视频|音频|分镜|主体|场景|节点)(?:节点)?已(?:更新|重写|替换)|图片已生成|视频已生成/u', $reply));
         if (mb_strlen($reply)>=20 && !$looksLikeArtifact) {
             if (!preg_match('/请确认|接下来|下一步|继续|逐个/u',$reply)) $reply.=' '.self::nextStep($stage);
             return $reply;

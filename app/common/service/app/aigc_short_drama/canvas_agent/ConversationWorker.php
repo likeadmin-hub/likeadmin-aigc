@@ -49,7 +49,7 @@ final class ConversationWorker
                 // open-ended reasoning transcript.  Bound the completion so
                 // an upstream stream that keeps emitting hidden reasoning
                 // cannot hold the durable run until its request timeout.
-                $request['max_tokens']=$activeRouting ? (in_array($workflowStage,['script','art','video_nodes'],true) ? 8192 : 4096) : ($intentRouting ? ((int)($intentRouting['version']??2)>=3 ? 4096 : 1800) : ($intakeAnalysis ? 1500 : ($compact && in_array($workflowStage,['script','art'],true) ? 8192 : 4096)));
+                $request['max_tokens']=$activeRouting ? (in_array($workflowStage,['script','art','assets','storyboard','video_plan','video_nodes'],true) ? 8192 : 4096) : ($intentRouting ? ((int)($intentRouting['version']??2)>=3 ? 4096 : 1800) : ($intakeAnalysis ? 1500 : ($compact && in_array($workflowStage,['script','art','assets','storyboard','video_plan'],true) ? 8192 : 4096)));
                 $request['enable_thinking']=false;
             }
             $request['result_validator']=static function (array $result) use ($tenant,$user,$context,$claim,$run,$workflowStage,$compact,$intentRouting,$activeRouting,$intakeAnalysis,$intakeSources,&$diagnosticDetail): void {
