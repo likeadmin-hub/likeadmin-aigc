@@ -250,6 +250,21 @@ try {
         && $outlinePreview['source']['content'] === '林夏在雨夜发现录音线索'
         && $outlinePreview['target']['content'] === '旧第一集大纲',
         'D04 episode preview maps exact source episode number and field');
+    $originalOutlineResult = (string)Db::name('aigc_short_drama_script_task')->where('task_id', 'p5-outline-task')->value('result_json');
+    $changedOutlineResult = json_decode($originalOutlineResult, true);
+    $changedOutlineResult['episodes'][0]['story_outline'] = '目标大纲已经变化';
+    Db::name('aigc_short_drama_script_task')->where('task_id', 'p5-outline-task')->update([
+        'result_json' => json_encode($changedOutlineResult, JSON_UNESCAPED_UNICODE),
+    ]);
+    $outlineConflict = false;
+    try { ShortDramaCanvasWritebackService::applyEpisode($tenant, $owner, $outlineRequest + [
+        'preview_hash' => $outlinePreview['preview_hash'], 'confirm' => '1',
+    ]); }
+    catch (Exception $e) { $outlineConflict = str_contains($e->getMessage(), 'VERSION_CONFLICT'); }
+    agentCheck($outlineConflict, 'D05 episode target change rejects stale preview before write');
+    Db::name('aigc_short_drama_script_task')->where('task_id', 'p5-outline-task')->update([
+        'result_json' => $originalOutlineResult,
+    ]);
     $outlineApplied = ShortDramaCanvasWritebackService::applyEpisode($tenant, $owner, $outlineRequest + [
         'preview_hash' => $outlinePreview['preview_hash'], 'confirm' => '1',
     ]);
@@ -280,4 +295,4 @@ try {
     Db::rollback();
 }
 
-echo "NOT_RUN D04-D08,D10 remaining: episode/shot adapters and their browser writeback flow remain unimplemented; story-field apply is covered by rollback-only local behavior checks.\n";
+echo "NOT_RUN D06-D08,D10 remaining: shot adapter and browser confirmation against a real editable target; story and episode fields are covered by rollback-only local behavior checks.\n";
