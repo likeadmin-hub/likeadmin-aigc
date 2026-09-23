@@ -5,6 +5,7 @@ require __DIR__ . '/bootstrap.php';
 
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasBindingService;
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService;
+use app\common\service\app\aigc_short_drama\ShortDramaCanvasWritebackService;
 use think\facade\Db;
 
 /**
@@ -86,6 +87,30 @@ try {
     $replay = ShortDramaCanvasBindingService::bind($tenant, $owner, ['canvas_id' => $canvas['id'], 'project_id' => $parent, 'episode_id' => $episode]);
     agentCheck($replay['binding_revision'] === 2, 'D09 identical binding is idempotent');
 
+    $story = ['id' => 7101, 'type' => 'text', 'title' => '故事设定与大纲', 'metadata' => [
+        'content' => '真实故事正文', 'content_revision' => 3,
+        'workflow_source_stage' => 'script', 'workflow_artifact' => 'story_setting',
+    ]];
+    $deleted = ['id' => 7102, 'type' => 'text', 'title' => '旧单集剧本', 'metadata' => [
+        'content' => '已删除正文', 'content_revision' => 1,
+        'workflow_source_stage' => 'script', 'workflow_artifact' => 'episode_script',
+    ]];
+    $unrelated = ['id' => 7103, 'type' => 'text', 'title' => '普通文本', 'metadata' => ['content' => '不应写回']];
+    Db::name('aigc_short_drama_canvas')->where('id', $canvas['id'])->update([
+        'nodes_json' => json_encode([$story, $deleted, $unrelated], JSON_UNESCAPED_UNICODE),
+        'removed_node_ids_json' => '[7102]', 'graph_revision' => 4,
+    ]);
+    $available = ShortDramaCanvasWritebackService::sources($tenant, $owner, (int)$canvas['id']);
+    agentCheck($available['binding']['binding_revision'] === 2 && $available['graph_revision'] === 4
+        && count($available['sources']) === 1 && $available['sources'][0]['node_id'] === '7101'
+        && $available['sources'][0]['content_revision'] === 3
+        && $available['sources'][0]['content_hash'] === hash('sha256', '真实故事正文'),
+        'D04 writeback source discovery is owner scoped, versioned, and excludes removed or unrelated nodes');
+    $sourcesRejected = false;
+    try { ShortDramaCanvasWritebackService::sources($otherTenant, $otherUser, (int)$canvas['id']); }
+    catch (Exception $e) { $sourcesRejected = $e->getMessage() === '画布项目不存在或无权访问'; }
+    agentCheck($sourcesRejected, 'D02 foreign tenant cannot discover writeback sources');
+
     $afterTask = Db::name('aigc_short_drama_generation_task')->where('id', $taskId)->field('project_id,canvas_id')->find();
     $afterAsset = Db::name('aigc_short_drama_asset')->where('id', $assetId)->field('project_id,canvas_id')->find();
     agentCheck($afterTask === $beforeTask && $afterAsset === $beforeAsset, 'D09 binding never rewrites free canvas task or asset history');
@@ -98,4 +123,4 @@ try {
     Db::rollback();
 }
 
-echo "NOT_RUN D04-D08,D10 formal apply: current binding is covered; story projection and formal shot apply require their explicit user-facing apply contract.\n";
+echo "NOT_RUN D04-D08,D10 formal apply: source discovery is covered; preview, field mapping, and confirmed writeback remain unimplemented.\n";
