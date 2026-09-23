@@ -49,7 +49,23 @@ final class ConversationService
             // the exact tenant-authorized model selection used for this run.
             $workflowPreferences=array_replace($preferences,array_intersect_key($settings,array_flip(['generation_mode','reasoning_model','image_model','video_model'])));
             $workflow=ConversationWorkflow::prepare($tenant,$conversation,$content,$selectedIds,$attachments,$workflowPreferences);
-            return ['settings'=>$settings,'skill'=>$skill,'workflow'=>$workflow['workflow'],'thread_settings'=>$workflow['thread_settings']];
+            $intentRouting=ConversationIntentRouter::shouldClassify($tenant,$content,$skill,$workflow['workflow'])
+                ? ConversationIntentRouter::snapshot($tenant) : [];
+            if ($intentRouting) {
+                // Freeze the same authorized workflow/Skill/model versions as a
+                // direct route before the text Provider crosses its I/O
+                // boundary. The classifier can only activate this snapshot.
+                try {
+                    $candidate=ConversationWorkflow::prepare($tenant,$conversation,'/short-drama',$selectedIds,$attachments,$workflowPreferences)['workflow'];
+                    $candidate['workflow_snapshot']['route']='semantic';
+                    $intentRouting['workflow_candidate']=$candidate;
+                } catch (\Throwable $error) {
+                    // A broken stage Skill must not prevent unrelated chat.
+                    $intentRouting['workflow_unavailable']=true;
+                }
+            }
+            return ['settings'=>$settings,'skill'=>$skill,'workflow'=>$workflow['workflow'],
+                'thread_settings'=>$workflow['thread_settings'],'intent_routing'=>$intentRouting];
         },['preferences'=>$preferences,'skill_id'=>$skillId,'skill_version'=>$skillVersion]);
     }
 

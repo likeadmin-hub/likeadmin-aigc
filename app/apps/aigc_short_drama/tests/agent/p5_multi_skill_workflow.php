@@ -5,6 +5,7 @@ require __DIR__.'/bootstrap.php';
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationActionPlan as ActionPlan;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution as Execution;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationIntentRouter as IntentRouter;
 use app\common\service\app\aigc_short_drama\canvas_agent\FeatureGate;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationProviderInterface;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore as Store;
@@ -216,6 +217,34 @@ try {
     catch (Throwable $error) { agentCheck($error->getMessage()==='WORKFLOW_AUDIO_GENERATION_UNAVAILABLE','audio planning node cannot enter Provider or billing submission'); }
     try { Workflow::read($tenant+1,$user,$canvas,$thread); throw new RuntimeException('cross tenant workflow read passed'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='CANVAS_NOT_FOUND','workflow state cannot be read across tenants'); }
+    // Reproduce a live thread that first exchanged a greeting, then received
+    // only a story title without any of the old keyword-router terms.
+    $intentThread=Store::create($tenant,$user,$canvas,'intent-thread')['id'];
+    agentCheck(!IntentRouter::shouldClassify($tenant,'你好',[],[]) && IntentRouter::shouldClassify($tenant,'重生之我在天庭当人事的一天',[],[]),'greeting remains ordinary chat while a bare story premise reaches semantic classification');
+    $revision=(int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision');
+    $helloAck=Store::enqueue($tenant,$user,$canvas,$intentThread,['request_key'=>'intent-hello','content'=>'你好','base_revision'=>$revision],['settings'=>['generation_mode'=>'manual'],'skill'=>[]]);
+    $provider->content='你好，请告诉我你的创作想法。';
+    agentCheck(Worker::process($tenant,$user,(int)$helloAck['run_id'],$provider)==='success','ordinary greeting remains a normal Agent reply');
+    $story='重生之我在天庭当人事的一天';
+    $routing=IntentRouter::snapshot($tenant);
+    $intentAck=Store::enqueue($tenant,$user,$canvas,$intentThread,['request_key'=>'intent-story','content'=>$story,'base_revision'=>$revision],static function (array $conversation) use ($tenant,$routing): array {
+        $candidate=Workflow::prepare($tenant,$conversation,'/short-drama',[],[],['generation_mode'=>'manual'])['workflow'];
+        $candidate['workflow_snapshot']['route']='semantic';
+        return ['settings'=>['generation_mode'=>'manual'],'skill'=>[],'intent_routing'=>$routing+['workflow_candidate'=>$candidate]];
+    });
+    $provider->content=json_encode(['intent'=>'short_drama','confidence'=>0.94,'skill_key'=>'','reply_markdown'=>'这是一个天庭职场的故事创意。'],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+    agentCheck(Worker::process($tenant,$user,(int)$intentAck['run_id'],$provider)==='success','one classified text run activates the frozen workflow without a second Provider call');
+    $intentView=Workflow::read($tenant,$user,$canvas,$intentThread);
+    agentCheck(($intentView['workflow']['workflow_snapshot']['route']??'')==='semantic'
+        && ($intentView['workflow']['stage_state']['key']??'')==='intake'
+        && ($intentView['card']['slot']['key']??'')==='genre','bare story premise now receives the first server-owned short-drama question card');
+    agentCheck((int)Db::name(GraphService::TABLE)->where('id',$canvas)->value('graph_revision')===$revision
+        && ($provider->lastRequest['response_format']['type']??'')==='json_object'
+        && ($provider->lastRequest['max_tokens']??0)===600,'classification turn uses bounded structured output and does not mutate the graph');
+    try { IntentRouter::parse('{"intent":"delete_all","confidence":1,"skill_key":"","reply_markdown":"ok"}',$routing); throw new RuntimeException('untrusted model intent accepted'); }
+    catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_INTENT','model cannot invent a route or executable action'); }
+    try { IntentRouter::parse('{"intent":"image","confidence":0.9,"skill_key":"tenant_other_skill","reply_markdown":"ok"}',$routing); throw new RuntimeException('unowned model skill accepted'); }
+    catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_INTENT','model cannot recommend a skill absent from the tenant-visible snapshot'); }
     $plain=Store::create($tenant,$user,$canvas,'plain-thread')['id'];
     $prepared=Workflow::prepare($tenant,['settings_json'=>'{}'],'/other-skill 请写一段文案',[],[],[]);
     agentCheck($prepared['workflow']===[],'unrelated explicit slash Skill does not enter the short-drama workflow');
