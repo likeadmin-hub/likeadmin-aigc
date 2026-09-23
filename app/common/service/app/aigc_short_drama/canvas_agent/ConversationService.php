@@ -70,6 +70,7 @@ final class ConversationService
                 $routing['workflow_candidate']=$candidate;
                 $routing['base_workflow_revision']=(int)$current['state_revision'];
                 $routing['workflow_paused']=in_array($status,['awaiting_plan_confirmation','awaiting_stage_confirmation','reviewing_intake'],true);
+                $routing['revision_allowed_stages']=ConversationWorkflow::revisableStages($current);
                 return ['settings'=>$settings,'skill'=>[],'intent_routing'=>$routing];
             }
             $workflow=ConversationWorkflow::prepare($tenant,$conversation,$content,$selectedIds,$attachments,$workflowPreferences);

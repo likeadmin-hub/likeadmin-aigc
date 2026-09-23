@@ -9,7 +9,7 @@ use RuntimeException;
  * validated by the existing intake/action-plan contracts. */
 final class ConversationWorkflowTurn
 {
-    private const INTENTS=['continue','chat','creative_plan','image','video','short_drama','uncertain'];
+    private const INTENTS=['continue','revise','chat','creative_plan','image','video','short_drama','uncertain'];
 
     /** Safe shape-only diagnostics for a rejected Provider answer. Never
      * persist the answer itself or arbitrary exception text. */
@@ -32,7 +32,12 @@ final class ConversationWorkflowTurn
         if ($value['skill_key']!=='' && !isset($allowed[$value['skill_key']])) return 'intent_skill';
         $resume=$intent==='continue' && $confidence>=($modern?0.8:0.7) && empty($routing['workflow_paused'])
             && (!$modern || (($value['scope']??'')==='workflow' && in_array($value['speech_act']??'',['answer','request','confirm'],true)));
-        if (!$resume) return $value['workflow_output']!==null ? 'intent_unexpected_output' : 'intent_noncontinue';
+        if (!$resume) {
+            if ($intent==='revise' && is_array($value['workflow_output'])
+                && array_keys($value['workflow_output'])===['revision_stage']
+                && in_array($value['workflow_output']['revision_stage']??null,(array)($routing['revision_allowed_stages']??[]),true)) return 'intent_consistency';
+            return $value['workflow_output']!==null ? 'intent_unexpected_output' : 'intent_noncontinue';
+        }
         if (trim($value['reply_markdown'])!=='') return 'intent_continue_reply';
         if (!is_array($value['workflow_output'])) return 'intent_continue_output';
         $workflow=(array)($routing['workflow_candidate']??[]);
@@ -88,19 +93,21 @@ final class ConversationWorkflowTurn
             ? 'workflow_output 必须是 {"reply_markdown":"简短核对提示","intake":{"candidates":[],"questions":[]}}。'.ConversationIntakeDraft::instruction((array)($workflow['workflow_snapshot']['slot_schema']??[]))
             : 'workflow_output 必须是 {"reply_markdown":"真实阶段回复","canvas_actions":{"nodes":[...]}}。以下阶段说明仅约束 workflow_output 子对象：'.ConversationActionPlan::nestedInstruction($mode,$stage,ConversationWorkflow::compactOutput($workflow),ConversationWorkflow::usesStageGenerationPrompts($workflow));
         $modern=(int)($routing['version']??2)>=3;
+        $revisable=array_values(array_filter((array)($routing['revision_allowed_stages']??[]),static fn($stage): bool=>in_array($stage,['script','art','video_plan'],true)));
         return "\n【逐轮意图判断】当前已有短剧工作流，但历史阶段不是本轮用户的新指令。先只根据本轮请求、已确认的上下文和引用素材判断意图。"
             .($modern
                 ? '只输出一个 JSON 对象，字段恰好为 intent、confidence、skill_key、reply_markdown、workflow_output、speech_act、deliverable、scope。speech_act 只能是 question、request、answer、confirm、chat；deliverable 只能是 none、text、image、video、full_drama；scope 只能是 conversation、standalone、workflow、uncertain。只有本轮明确回答当前问题卡、修改当前阶段或要求继续时才用 scope=workflow；单独索取一份脚本、图片或视频时用 standalone；咨询能力或概念用 conversation。'
                 : '只输出一个 JSON 对象，字段恰好为 intent、confidence、skill_key、reply_markdown、workflow_output。')
-            .'intent 只能是 continue、chat、creative_plan、image、video、short_drama、uncertain；continue 表示本轮明确在回答、修改或推进当前短剧工作流。'
+            .'intent 只能是 continue、revise、chat、creative_plan、image、video、short_drama、uncertain；continue 表示本轮明确在回答或推进当前阶段。'
             .'普通问候、解释性提问、与当前短剧无关的内容选 chat；单独作图或视频选 image/video；新的短剧项目选 short_drama，不要偷偷替换现有工作流。'
             .'不能判断时选 uncertain，reply_markdown 只问一个澄清问题。confidence 是 0 到 1 的数字。'
             .($modern?'如果对是否继续当前流程的信心低于 0.8，也选 uncertain，并针对本轮内容提问；不要把不相关内容当作阶段答案。':'')
             .'skill_key 只能是下面已授权候选的 key 或空字符串；它仅作推荐，绝不能自动执行 Skill。'
-            .'若 intent 不是 continue，workflow_output 必须为 null，reply_markdown 给出自然回复，不得声称已创建节点、提交任务或推进阶段。'
+            .'除 revise 外，若 intent 不是 continue，workflow_output 必须为 null，reply_markdown 给出自然回复，不得声称已创建节点、提交任务或推进阶段。'
+            .($revisable ? '唯一例外是用户明确要求重做当前短剧已完成或待确认的剧本、美术或视频规划，且应从相应阶段重新生成：选 intent=revise、scope=workflow、speech_act=request、confidence 不低于 0.8，workflow_output 只含 {"revision_stage":"阶段key"}，阶段key 只能是 '.implode('、',$revisable).'。reply_markdown 简短说明会从该阶段重新生成、再次请用户确认，不得声称已经完成。普通闲聊或当前阶段正常继续不得选 revise。' : '本轮没有可安全重做的已完成阶段；如用户要求修改已经生成的上游媒体，请说明需要另行确认版本，不要承诺覆盖。')
             .($modern?'如果本轮是独立的文本创作且信息足够，直接在 reply_markdown 交付真实文本；若只是能力提问，只回答并询问必要信息，不推进当前工作流。':'')
             .($paused
-                ? '当前工作流有待用户确认的卡片。即使本轮意图是 continue，workflow_output 也必须为 null；不能绕过确认卡。'
+                ? '当前工作流有待用户确认的卡片。即使本轮意图是 continue，workflow_output 也必须为 null；不能绕过确认卡。明确要求重新生成该内容时可按上述 revise 规则重开阶段。'
                 : '只有明确属于当前阶段且 confidence 不低于 '.($modern?'0.8':'0.7').' 时才能选 continue。'.($modern?'continue 还必须是 scope=workflow 且 speech_act 为 answer、request 或 confirm。':'').'选 continue 时 reply_markdown 为空字符串，'. $stageInstruction)
             .'已授权技能：'.implode('；',$skills);
     }
@@ -129,6 +136,15 @@ final class ConversationWorkflowTurn
         if (($routing['kind']??'')!=='active_workflow' || ($workflow['workflow_snapshot']['key']??'')!==ConversationWorkflow::KEY) throw new RuntimeException('INVALID_AGENT_INTENT');
         $resume=$intent==='continue' && $confidence>=($modern?0.8:0.7) && empty($routing['workflow_paused'])
             && (!$modern || (($value['scope']??'')==='workflow' && in_array($value['speech_act']??'',['answer','request','confirm'],true)));
+        if ($intent==='revise') {
+            $output=$value['workflow_output'];
+            $stage=is_array($output) && array_keys($output)===['revision_stage'] ? $output['revision_stage'] : null;
+            if (!$modern || $confidence<0.8 || ($value['scope']??'')!=='workflow'
+                || !in_array($value['speech_act']??'',['request','answer'],true)
+                || !is_string($stage) || !in_array($stage,(array)($routing['revision_allowed_stages']??[]),true)
+                || trim($reply)==='') throw new RuntimeException('INVALID_AGENT_INTENT');
+            return $value+['text'=>trim($reply),'nodes'=>[],'intake'=>[],'continue'=>false,'revision_stage'=>$stage];
+        }
         if (!$resume) {
             if ($value['workflow_output']!==null) throw new RuntimeException('INVALID_AGENT_INTENT');
             if ($intent==='continue' && !empty($routing['workflow_paused'])) {

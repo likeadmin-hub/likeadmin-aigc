@@ -198,6 +198,52 @@ final class ConversationWorkflow
         return $state;
     }
 
+    /** Only uncommitted downstream plans can be discarded automatically.
+     * Once dependent media nodes exist, a revision needs an explicit new
+     * versioning decision rather than silently overwriting paid work. */
+    public static function revisableStages(array $state): array
+    {
+        if (($state['workflow_snapshot']['key']??'')!==self::KEY) return [];
+        $current=(string)($state['stage_state']['key']??'');
+        $completed=(array)($state['stage_state']['completed']??[]);
+        $allowed=[];
+        if (in_array($current,['script','art','assets'],true) && !in_array('assets',$completed,true)) {
+            if (in_array('script',$completed,true) || $current==='script') $allowed[]='script';
+            if (in_array('art',$completed,true) || $current==='art') $allowed[]='art';
+        }
+        if (in_array($current,['video_plan','video_nodes'],true) && !in_array('video_nodes',$completed,true)) $allowed[]='video_plan';
+        return $allowed;
+    }
+
+    /** Reopen a frozen text stage after a semantic revision request. Nothing
+     * touches the graph here: the new content must pass its own confirmation
+     * before replacing the exact old text nodes. */
+    public static function reopenStage(array $state,string $target,string $request): array
+    {
+        if (!in_array($target,self::revisableStages($state),true) || trim($request)==='') throw new RuntimeException('WORKFLOW_REVISION_UNAVAILABLE');
+        $order=['intake'=>0,'script'=>1,'art'=>2,'assets'=>3,'storyboard'=>4,'video_plan'=>5,'video_nodes'=>6,'audio_plan'=>7,'complete'=>8];
+        $state['stage_state']=['key'=>$target,'status'=>'ready','completed'=>array_values(array_filter(
+            (array)($state['stage_state']['completed']??[]),static fn($stage): bool=>is_string($stage) && ($order[$stage]??99)<$order[$target]
+        ))];
+        $state['artifact_memory']=array_values(array_filter((array)($state['artifact_memory']??[]),static fn($item): bool=>
+            is_array($item) && ($order[(string)($item['stage']??'')]??99)<=$order[$target]
+        ));
+        $state['stage_plan']=[];$state['image_plan']=[];$state['plan_hash']='';
+        $state['plan_confirmation']=['status'=>'not_required'];
+        $request=mb_substr(trim($request),0,4000);
+        $state['revision_request']=['stage'=>$target,'content'=>$request];
+        // A correction such as "change the tragic ending to comedy" must
+        // remain authoritative after script confirmation, including for art,
+        // storyboard and video prompts. Do not mutate semantic slots with
+        // guessed values: preserve the user's exact request instead.
+        $constraints=array_values(array_filter((array)($state['revision_constraints']??[]),'is_string'));
+        $constraints[]=$request;
+        $state['revision_constraints']=array_slice(array_values(array_unique($constraints)),-3);
+        $state['state_revision']=(int)$state['state_revision']+1;
+        self::assertState($state);
+        return $state;
+    }
+
     /** Keep the original selections, then reauthorize their IDs against the
      * current tenant catalog. Browser model objects never enter a run. */
     public static function frozenPreferences(array $state,array $preferences): array
@@ -362,9 +408,15 @@ final class ConversationWorkflow
             if (!in_array($stage,['script','art','video_plan'],true) || ($state['stage_state']['status']??'')!=='awaiting_stage_confirmation' || !self::validStagePlan($plan,$stage)) throw new RuntimeException('WORKFLOW_STAGE_PLAN_STALE');
             self::assertPlanSources($document,$tenant,$user,$canvas,$plan);
             $visible=!self::compactOutput($state) || $stage==='script';
-            $effects=$visible ? GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),false,[],(int)$plan['run_id'],$state) : [];
+            $revising=(string)($state['revision_request']['stage']??'')===$stage;
+            $existingScript=$revising && $stage==='script' && count(array_filter((array)$state['artifact_memory'],static fn($item): bool=>is_array($item) && ($item['stage']??'')==='script' && (string)($item['node_id']??'')!==''))>0;
+            $effects=$existingScript
+                ? GraphService::replaceWorkflowScriptLocked($document,(array)$plan['nodes'],(array)$state['artifact_memory'])
+                : ($visible ? GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),false,[],(int)$plan['run_id'],$state) : []);
             if ($effects) $effects['mode']='manual';
+            if ($revising) $state['artifact_memory']=array_values(array_filter((array)$state['artifact_memory'],static fn($item): bool=>!is_array($item) || ($item['stage']??'')!==$stage));
             self::rememberArtifacts($state,$stage,(array)$plan['nodes'],$effects);
+            if ($revising) unset($state['revision_request']);
             $completed=array_values(array_unique(array_merge((array)($state['stage_state']['completed']??[]),[$stage])));
             $state['stage_plan']=[];
             $state['stage_state']=['key'=>self::nextStage($stage),'status'=>'ready','completed'=>$completed];
