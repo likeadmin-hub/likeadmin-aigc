@@ -7,6 +7,7 @@ use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 Db::startTrans();
 try {
     $doc = Canvas::create(91001, 92001, ['title' => 'Read recovery race fixture']);
+    agentCheck(($doc['tenant_id'] ?? 0) === 91001, 'owned canvas response identifies its tenant for Agent history');
     $stale = Db::name('aigc_short_drama_canvas')->where('id', $doc['id'])->find();
     $node = ['id' => 1, 'type' => 'text', 'x' => 777, 'y' => 888, 'metadata' => ['content' => 'Concurrent user edit']];
     Db::name('aigc_short_drama_canvas')->where('id', $doc['id'])->update(['nodes_json' => json_encode([$node])]);
