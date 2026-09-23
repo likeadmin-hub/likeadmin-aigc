@@ -80,6 +80,27 @@ try {
         ['role'=>'user','content'=>'请基于已确认的信息生成剧本。'],
     ]);
     agentCheck(str_contains($legacyBrief,'耳机店的降噪误会') && !str_contains($legacyBrief,'咖啡店'),'legacy workflow recovers the initiating titled brief rather than a later stage revision or automatic instruction');
+    $shotWorkflow=$snapshot['workflow'];
+    $shotWorkflow['stage_state']['key']='storyboard';
+    $shotWorkflow['artifact_memory']=[
+        ['stage'=>'assets','artifact'=>'subject','title'=>'主体参考图：小禾','reference_key'=>'assets:subject_xiaohe','node_id'=>'3'],
+        ['stage'=>'assets','artifact'=>'three_view','title'=>'三视图：小禾','reference_key'=>'assets:view_xiaohe','node_id'=>'4'],
+        ['stage'=>'assets','artifact'=>'subject','title'=>'主体参考图：阿岚','reference_key'=>'assets:subject_alan','node_id'=>'5'],
+        ['stage'=>'assets','artifact'=>'three_view','title'=>'三视图：阿岚','reference_key'=>'assets:view_alan','node_id'=>'6'],
+        ['stage'=>'assets','artifact'=>'subject','title'=>'主体参考图：无线耳机','reference_key'=>'assets:subject_earbud','node_id'=>'7'],
+    ];
+    $inferredShot=Workflow::materializeTextReferences($shotWorkflow,[['type'=>'image','artifact'=>'storyboard','title'=>'镜头1','prompt'=>'小禾与阿岚在店内争执，柜台上的无线耳机清晰可见。','key'=>'shot_1']]);
+    agentCheck(($inferredShot[0]['reference_keys']??[])===['assets:view_xiaohe','assets:view_alan','assets:subject_earbud'],'storyboard binds only subjects explicitly visible in its own prompt and prefers each turnaround over its main image');
+    $numberedWorkflow=$shotWorkflow;
+    $numberedWorkflow['artifact_memory'][]=['stage'=>'script','artifact'=>'episode_script','content'=>'镜头1：争执。镜头2：发现降噪。'];
+    try {
+        Workflow::materializeTextReferences($numberedWorkflow,[
+            ['type'=>'image','artifact'=>'storyboard','title'=>'镜头1：争执','prompt'=>'小禾争执','key'=>'shot_1'],
+            ['type'=>'image','artifact'=>'storyboard','title'=>'镜头2：发现降噪','prompt'=>'阿岚发现降噪','key'=>'shot_2'],
+            ['type'=>'image','artifact'=>'storyboard','title'=>'镜头3：另加结尾','prompt'=>'两人离开','key'=>'shot_3'],
+        ]);
+        throw new RuntimeException('extra storyboard shot accepted');
+    } catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_ACTION','storyboard cannot invent an extra shot beyond the confirmed episode'); }
     $anchored=$snapshot['workflow'];
     $anchored['stage_state']['key']='script';
     $anchored['creative_brief']=$legacyBrief;
