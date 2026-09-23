@@ -190,6 +190,7 @@ class CanvasAgentIntentRoutingTest extends TestCase
         self::assertSame('',$reopened['plan_hash']);
         self::assertCount(2,$reopened['artifact_memory']);
         self::assertSame('不要悲伤美学，改为喜剧无厘头',$reopened['revision_request']['content']);
+        self::assertSame('replace',$reopened['revision_request']['mode']);
         self::assertSame(['不要悲伤美学，改为喜剧无厘头'],$reopened['revision_constraints']);
         self::assertSame('悲剧',$reopened['slot_values']['ending']);
         $value['workflow_output']=['revision_stage'=>'video_plan'];
@@ -197,11 +198,30 @@ class CanvasAgentIntentRoutingTest extends TestCase
         ConversationWorkflowTurn::parse(json_encode($value,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing);
     }
 
-    public function testRevisionStopsOncePaidMediaStageHasCompleted(): void
+    public function testRevisionAfterMediaForksWithoutDiscardingPaidGraphNodes(): void
     {
-        $state=['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY],
-            'stage_state'=>['key'=>'storyboard','status'=>'ready','completed'=>['intake','script','art','assets']]];
-        self::assertSame([],ConversationWorkflow::revisableStages($state));
+        $state=['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY,'version'=>'2026-09-23.10','stage_skill_versions'=>[]],
+            'stage_state'=>['key'=>'complete','status'=>'ready','completed'=>['intake','script','art','assets','storyboard','video_plan','video_nodes','audio_plan']],
+            'slot_values'=>[],'creative_settings'=>[],
+            'artifact_memory'=>[
+                ['stage'=>'script','artifact'=>'story_setting','node_id'=>'1','content'=>'旧设定'],
+                ['stage'=>'script','artifact'=>'episode_script','node_id'=>'2','content'=>'旧剧本'],
+                ['stage'=>'assets','artifact'=>'subject','node_id'=>'3','content'=>'旧主体图'],
+            ],
+            'image_plan'=>[],'stage_plan'=>[],'plan_hash'=>'',
+            'plan_confirmation'=>['status'=>'not_required'],'state_revision'=>21,
+            'revision_constraints'=>['旧结局必须悲剧']];
+        self::assertSame(['script','art','video_plan'],ConversationWorkflow::revisableStages($state));
+        $instruction=ConversationWorkflowTurn::instruction(['version'=>3,'workflow_candidate'=>$state,
+            'revision_allowed_stages'=>ConversationWorkflow::revisableStages($state)],'manual');
+        self::assertStringContainsString('不要反问是否开始',$instruction);
+        self::assertStringContainsString('已有图片与视频节点及已付费结果会保留',$instruction);
+        $reopened=ConversationWorkflow::reopenStage($state,'script','改成无厘头喜剧结局');
+        self::assertSame('fork',$reopened['revision_request']['mode']);
+        self::assertSame(['key'=>'script','status'=>'ready','completed'=>['intake']],$reopened['stage_state']);
+        self::assertSame(['改成无厘头喜剧结局'],$reopened['revision_constraints']);
+        self::assertSame(['1','2'],array_column($reopened['artifact_memory'],'node_id'));
+        self::assertSame('旧主体图',$state['artifact_memory'][2]['content']);
     }
 
     public function testOnlyExactReadyStageProtocolCanBypassSemanticClassification(): void

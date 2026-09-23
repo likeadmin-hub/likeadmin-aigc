@@ -243,30 +243,30 @@ final class ConversationWorkflow
         return $state;
     }
 
-    /** Only uncommitted downstream plans can be discarded automatically.
-     * Once dependent media nodes exist, a revision needs an explicit new
-     * versioning decision rather than silently overwriting paid work. */
+    /** A revision may restart at a confirmed text stage. Existing media is
+     * never overwritten: reopenStage marks a script revision for a new graph
+     * branch once downstream media nodes may already have been submitted. */
     public static function revisableStages(array $state): array
     {
         if (($state['workflow_snapshot']['key']??'')!==self::KEY) return [];
         $current=(string)($state['stage_state']['key']??'');
         $completed=(array)($state['stage_state']['completed']??[]);
         $allowed=[];
-        if (in_array($current,['script','art','assets'],true) && !in_array('assets',$completed,true)) {
-            if (in_array('script',$completed,true) || $current==='script') $allowed[]='script';
-            if (in_array('art',$completed,true) || $current==='art') $allowed[]='art';
-        }
-        if (in_array($current,['video_plan','video_nodes'],true) && !in_array('video_nodes',$completed,true)) $allowed[]='video_plan';
+        if (in_array('script',$completed,true) || $current==='script') $allowed[]='script';
+        if (in_array('art',$completed,true) || $current==='art') $allowed[]='art';
+        if (in_array('video_plan',$completed,true) || $current==='video_plan') $allowed[]='video_plan';
         return $allowed;
     }
 
     /** Reopen a frozen text stage after a semantic revision request. Nothing
-     * touches the graph here: the new content must pass its own confirmation
-     * before replacing the exact old text nodes. */
+     * touches the graph here: new content must pass its own confirmation, and
+     * prior media remains intact when a new branch is required. */
     public static function reopenStage(array $state,string $target,string $request): array
     {
         if (!in_array($target,self::revisableStages($state),true) || trim($request)==='') throw new RuntimeException('WORKFLOW_REVISION_UNAVAILABLE');
         $order=['intake'=>0,'script'=>1,'art'=>2,'assets'=>3,'storyboard'=>4,'video_plan'=>5,'video_nodes'=>6,'audio_plan'=>7,'complete'=>8];
+        $downstreamMedia=in_array('assets',(array)($state['stage_state']['completed']??[]),true)
+            || in_array((string)($state['stage_state']['key']??''),['storyboard','video_plan','video_nodes','audio_plan','complete'],true);
         $state['stage_state']=['key'=>$target,'status'=>'ready','completed'=>array_values(array_filter(
             (array)($state['stage_state']['completed']??[]),static fn($stage): bool=>is_string($stage) && ($order[$stage]??99)<$order[$target]
         ))];
@@ -276,16 +276,16 @@ final class ConversationWorkflow
         $state['stage_plan']=[];$state['image_plan']=[];$state['plan_hash']='';
         $state['plan_confirmation']=['status'=>'not_required'];
         $request=mb_substr(trim($request),0,4000);
-        $state['revision_request']=['stage'=>$target,'content'=>$request];
+        $state['revision_request']=['stage'=>$target,'content'=>$request,
+            'mode'=>$target==='script' && $downstreamMedia?'fork':'replace'];
         // A correction such as "change the tragic ending to comedy" must
         // remain authoritative after script confirmation, including for art,
         // storyboard and video prompts. Do not mutate semantic slots with
         // guessed values: preserve the user's exact request instead.
-        $constraints=array_values(array_filter((array)($state['revision_constraints']??[]),static fn($item): bool=>
-            is_string($item) && !in_array($item,array_map([self::class,'autoStagePrompt'],['script','art','assets','storyboard','video_plan','video_nodes','audio_plan']),true)
-        ));
-        $constraints[]=$request;
-        $state['revision_constraints']=array_slice(array_values(array_unique($constraints)),-3);
+        // The confirmed stage artifacts already carry older corrections.
+        // Keeping a second, contradictory instruction here can override a
+        // user's latest change (for example, changing a comedy back to drama).
+        $state['revision_constraints']=[$request];
         $state['state_revision']=(int)$state['state_revision']+1;
         self::assertState($state);
         return $state;
@@ -456,7 +456,9 @@ final class ConversationWorkflow
             self::assertPlanSources($document,$tenant,$user,$canvas,$plan);
             $visible=!self::compactOutput($state) || $stage==='script';
             $revising=(string)($state['revision_request']['stage']??'')===$stage;
-            $existingScript=$revising && $stage==='script' && count(array_filter((array)$state['artifact_memory'],static fn($item): bool=>is_array($item) && ($item['stage']??'')==='script' && (string)($item['node_id']??'')!==''))>0;
+            $existingScript=$revising && $stage==='script'
+                && ($state['revision_request']['mode']??'replace')!=='fork'
+                && count(array_filter((array)$state['artifact_memory'],static fn($item): bool=>is_array($item) && ($item['stage']??'')==='script' && (string)($item['node_id']??'')!==''))>0;
             $effects=$existingScript
                 ? GraphService::replaceWorkflowScriptLocked($document,(array)$plan['nodes'],(array)$state['artifact_memory'])
                 : ($visible ? GraphService::appendAgentNodesLocked($document,(array)$plan['nodes'],array_column((array)$plan['sources'],'id'),false,[],(int)$plan['run_id'],$state) : []);
