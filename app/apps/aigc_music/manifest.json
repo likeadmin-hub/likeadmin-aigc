@@ -15,7 +15,8 @@
     "platform",
     "tenant",
     "pc",
-    "uniapp"],
+    "uniapp"
+  ],
   "api_prefix": "/app/aigc_music",
   "platform_menus": "menus/platform.json",
   "menus": "menus/tenant.json",
@@ -44,7 +45,7 @@
       "terminal": "uniapp",
       "entry_key": "aigc_music",
       "name": "AI音乐生成",
-      "path": "/apps/mobile_tools/pages/creator/index",
+      "path": "/apps/aigc_music/pages/creator/index",
       "icon": "resource/image/common/menu_generator.png",
       "sort": 880,
       "status": 1,
@@ -52,10 +53,7 @@
         "pages": [
           {
             "name": "创作首页",
-            "path": "/apps/mobile_tools/pages/creator/index",
-            "query": {
-              "app_code": "aigc_music"
-            }
+            "path": "/apps/aigc_music/pages/creator/index"
           }
         ]
       }
