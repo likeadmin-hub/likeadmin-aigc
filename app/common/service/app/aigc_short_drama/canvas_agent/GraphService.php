@@ -622,7 +622,7 @@ final class GraphService
             if ($artifact==='storyboard' && (string)($node['type']??'')==='image') $storyboards[$id]=true;
             else $extras[$id]=true;
         }
-        $storyboardIds=array_keys($storyboards);
+        $storyboardIds=array_map('strval',array_keys($storyboards));
         $ordered=$storyboardIds;
         foreach ($storyboardIds as $boardId) {
             $bound=[];
@@ -636,6 +636,7 @@ final class GraphService
             // Prefer one turnaround per character, as the formal short-drama
             // request does. The asset-stage edge identifies its own main.
             foreach ($bound as $sourceId=>$artifact) {
+                $sourceId=(string)$sourceId;
                 if ($artifact!=='subject') continue;
                 foreach ($edges as $edge) {
                     if ((string)($edge['from']??'')!==$sourceId || (string)($edge['kind']??'reference')!=='reference') continue;
@@ -648,10 +649,14 @@ final class GraphService
                 }
             }
             foreach (['three_view','subject','scene'] as $type) foreach ($bound as $sourceId=>$artifact) {
+                $sourceId=(string)$sourceId;
                 if ($artifact===$type && !in_array($sourceId,$ordered,true)) $ordered[]=$sourceId;
             }
         }
-        foreach (array_keys($extras) as $id) if (!in_array($id,$ordered,true)) $ordered[]=$id;
+        foreach (array_keys($extras) as $id) {
+            $id=(string)$id;
+            if (!in_array($id,$ordered,true)) $ordered[]=$id;
+        }
         return $ordered;
     }
     /** @return list<string> workflow-owned node IDs allowed as durable references for this exact proposed artifact. */
