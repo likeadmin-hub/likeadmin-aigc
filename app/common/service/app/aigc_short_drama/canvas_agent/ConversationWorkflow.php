@@ -898,9 +898,9 @@ final class ConversationWorkflow
         if (in_array(($stage['key']??''),['script','art','video_plan'],true) && ($stage['status']??'')==='awaiting_stage_confirmation') {
             $plan=(array)($state['stage_plan']??[]);
             $internal=self::compactOutput($state) && in_array($stageKey,['art','video_plan'],true);
-            return $stageCard+['type'=>'stage_confirmation','title'=>$internal?'确认创作规划':'确认写入本阶段成果','body'=>$internal?'确认后，规划只保存在本次对话与工作流状态中，不会新增画布文本节点。':'Agent 已完成本阶段的结构化内容。确认后才会写入画布；未确认前内容只保留在本次对话中。','plan'=>['node_count'=>$internal?0:count((array)($plan['nodes']??[])),'artifact_count'=>count((array)($plan['nodes']??[]))],'action_label'=>$internal?'确认并继续':'确认并写入画布'];
+            return $stageCard+['type'=>'stage_confirmation','title'=>'正在保存阶段成果','body'=>$internal?'系统会自动把规划保存到对话与工作流状态，不新增画布文本节点。':'系统会自动安全写入本阶段的结构化内容，随后继续下一阶段。','plan'=>['node_count'=>$internal?0:count((array)($plan['nodes']??[])),'artifact_count'=>count((array)($plan['nodes']??[]))],'action_label'=>'保存并继续'];
         }
-        if (($stage['key']??'')==='script' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'创作采集已完成','body'=>self::compactOutput($state)?'下一条消息会生成故事设定与大纲、当前单集剧本；确认后只把这两项写入画布。':'下一条消息会生成剧本设定、分集大纲和分镜脚本，并写回受控文本节点。'];
+        if (($stage['key']??'')==='script' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'创作采集已完成','body'=>self::compactOutput($state)?'系统将自动生成故事设定与大纲、当前单集剧本，并把这两项写入画布。':'系统将自动生成剧本设定、分集大纲和分镜脚本，并写回受控文本节点。'];
         if (($stage['key']??'')==='video_nodes' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'准备插入分镜视频节点','body'=>'下一次受控对话会一次性插入全部分镜视频待生成节点；它们不会自动报价或提交。'];
         if (($stage['key']??'')==='audio_plan' && ($stage['status']??'')==='ready') return $stageCard+['type'=>'stage','title'=>'准备音频规划','body'=>'音频规划节点只用于展示与后续衔接，当前没有生成入口。'];
         return $stageCard+['type'=>'stage','title'=>'工作流进行中','body'=>'当前阶段状态已冻结，等待下一次受控对话执行。'];
