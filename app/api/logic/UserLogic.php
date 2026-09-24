@@ -21,6 +21,7 @@ use app\common\logic\BaseLogic;
 use app\common\model\user\User;
 use app\common\model\user\UserAuth;
 use app\common\service\FileService;
+use app\common\service\ConfigService;
 use app\common\service\membership\MembershipService;
 use app\common\service\sms\SmsDriver;
 use app\common\service\wechat\WeChatMnpService;
@@ -221,6 +222,9 @@ class UserLogic extends BaseLogic
     public static function getMobileByMnp(array $params)
     {
         try {
+            if ((int)ConfigService::get('login', 'mnp_phone_auth', config('project.login.mnp_phone_auth')) !== 1) {
+                throw new \Exception('当前小程序未开启微信手机号授权，请使用短信验证码绑定');
+            }
             $response = (new WeChatMnpService())->getUserPhoneNumber($params['code']);
             $phoneNumber = $response['phone_info']['purePhoneNumber'] ?? '';
             if (empty($phoneNumber)) {

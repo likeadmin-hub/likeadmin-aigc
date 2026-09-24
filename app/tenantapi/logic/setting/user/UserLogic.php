@@ -75,6 +75,7 @@ class UserLogic
             'third_auth' => ConfigService::get('login', 'third_auth', config('project.login.third_auth')),
             // 微信授权登录
             'wechat_auth' => ConfigService::get('login', 'wechat_auth', config('project.login.wechat_auth')),
+            'mnp_phone_auth' => (int)ConfigService::get('login', 'mnp_phone_auth', config('project.login.mnp_phone_auth')),
             // qq授权登录
             'qq_auth' => ConfigService::get('login', 'qq_auth', config('project.login.qq_auth')),
             // 新用户注册赠送开关
@@ -105,6 +106,9 @@ class UserLogic
         ConfigService::set('login', 'third_auth', $params['third_auth']);
         // 微信授权登录
         ConfigService::set('login', 'wechat_auth', $params['wechat_auth']);
+        if (array_key_exists('mnp_phone_auth', $params)) {
+            ConfigService::set('login', 'mnp_phone_auth', (int)$params['mnp_phone_auth']);
+        }
         // qq登录
         ConfigService::set('login', 'qq_auth', $params['qq_auth']);
         // 新用户注册赠送
