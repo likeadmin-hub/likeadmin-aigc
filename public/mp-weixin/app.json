@@ -218,6 +218,14 @@
       ]
     },
     {
+      "root": "apps/smart_clip",
+      "pages": [
+        "pages/index/index",
+        "pages/tasks/tasks",
+        "pages/results/results"
+      ]
+    },
+    {
       "root": "apps/aigc_watermark_removal",
       "pages": [
         "pages/creator/index",

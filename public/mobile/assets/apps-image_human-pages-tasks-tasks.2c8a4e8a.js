@@ -1,0 +1,1 @@
+import{g as s,o,c as a}from"./index-6ff5a95b.js";import{u as e}from"./useToolTheme.83f6e0f5.js";import{I as m}from"./ImageHumanRecords.c787598f.js";import"./ImageHumanNav.f57e6694.js";import"./u-icon.f1ef588f.js";import"./_plugin-vue_export-helper.1b428a4d.js";const r=s({__name:"tasks",setup:s=>(e(!0),(s,e)=>(o(),a(m,{"record-kind":"tasks"})))});export{r as default};

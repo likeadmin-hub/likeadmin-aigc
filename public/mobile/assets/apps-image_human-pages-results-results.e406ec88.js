@@ -1,1 +1,0 @@
-import{g as s,o as e,c as r}from"./index-5c226d02.js";import{I as o}from"./ImageHumanRecords.a743d6ce.js";import"./ImageHumanNav.89962dc9.js";import"./u-icon.4c2013d6.js";import"./_plugin-vue_export-helper.1b428a4d.js";const a=s({__name:"results",setup:s=>(s,a)=>(e(),r(o,{"record-kind":"results"}))});export{a as default};

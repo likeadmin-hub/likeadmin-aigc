@@ -1,6 +1,6 @@
 {
   "navigationStyle": "custom",
-  "navigationBarTextStyle": "white",
+  "navigationBarTextStyle": "black",
   "navigationBarTitleText": "AI创作",
   "enablePullDownRefresh": false,
   "usingComponents": {

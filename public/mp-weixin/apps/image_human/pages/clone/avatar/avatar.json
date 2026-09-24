@@ -1,6 +1,6 @@
 {
   "navigationStyle": "custom",
-  "navigationBarTextStyle": "white",
+  "navigationBarTextStyle": "black",
   "navigationBarTitleText": "创建人物形象",
   "usingComponents": {
     "image-human-nav": "../../../components/ImageHumanNav"

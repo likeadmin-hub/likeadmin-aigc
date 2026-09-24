@@ -1,6 +1,6 @@
 {
   "navigationStyle": "custom",
-  "navigationBarTextStyle": "white",
+  "navigationBarTextStyle": "black",
   "navigationBarTitleText": "作品详情",
   "usingComponents": {
     "image-human-detail": "../../components/ImageHumanDetail"

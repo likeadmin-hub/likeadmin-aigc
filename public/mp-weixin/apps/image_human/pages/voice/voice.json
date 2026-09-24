@@ -1,6 +1,6 @@
 {
   "navigationStyle": "custom",
-  "navigationBarTextStyle": "white",
+  "navigationBarTextStyle": "black",
   "navigationBarTitleText": "声音素材",
   "usingComponents": {
     "image-human-assets": "../../components/ImageHumanAssets"

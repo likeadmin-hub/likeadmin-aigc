@@ -1,6 +1,6 @@
 {
   "navigationStyle": "custom",
-  "navigationBarTextStyle": "white",
+  "navigationBarTextStyle": "black",
   "navigationBarTitleText": "创作记录",
   "usingComponents": {
     "image-human-records": "../../components/ImageHumanRecords"

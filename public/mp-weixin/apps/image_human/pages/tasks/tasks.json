@@ -1,6 +1,6 @@
 {
   "navigationStyle": "custom",
-  "navigationBarTextStyle": "white",
+  "navigationBarTextStyle": "black",
   "navigationBarTitleText": "合成任务",
   "usingComponents": {
     "image-human-records": "../../components/ImageHumanRecords"
