@@ -1011,6 +1011,7 @@ class ShortDramaCanvasService
             };
         }
         unset($reference);
+        if ($type==='video') $referenceAssets=self::canonicalVideoReferenceAssets($referenceAssets);
         // Owned user uploads take precedence over transient URLs. Their signed
         // delivery URLs are resolved server-side and image references force the
         // shared text runtime onto a vision-capable tenant model.
@@ -1021,7 +1022,19 @@ class ShortDramaCanvasService
             // URIs) counted the same connected frame twice at the Provider.
             if ($type!=='video' && is_array($reference) && strtolower((string)($reference['type'] ?? ''))==='image' && trim((string)($reference['url'] ?? ''))!=='') $referenceImages[]=(string)$reference['url'];
         }
-        foreach ((array)($params['reference_images'] ?? []) as $image) if (is_string($image) && trim($image)!=='') $referenceImages[]=trim($image);
+        $representedImages=[];
+        if ($type==='video') foreach ($referenceAssets as $reference) {
+            if ((string)($reference['type']??'')!=='image') continue;
+            foreach (['url','uri'] as $field) {
+                $value=trim((string)($reference[$field]??''));
+                if ($value!=='') $representedImages[$value]=true;
+            }
+        }
+        foreach ((array)($params['reference_images'] ?? []) as $image) {
+            if (!is_string($image)) continue;
+            $image=trim($image);
+            if ($image!=='' && !isset($representedImages[$image])) $referenceImages[]=$image;
+        }
         $payload = [
             'prompt' => $prompt, 'content' => $prompt, 'channel' => (string)($params['channel'] ?? ''),
             'model_code' => (string)($params['model_code'] ?? ''), 'model_id' => (string)($params['model_id'] ?? ''),
@@ -1043,6 +1056,51 @@ class ShortDramaCanvasService
             if (isset($params[$key])) $payload[$key] = (string)$params[$key];
         }
         return array_filter($payload, static fn($value) => $value !== '' && $value !== 0 || is_array($value));
+    }
+
+    /**
+     * A linked canvas asset is also present in the browser's composer state.
+     * Both may resolve to the same public URL even though the browser uses the
+     * URL as its URI and the graph uses a storage URI. Keep one media use per
+     * role, preferring the owned graph record; first/last frames remain two
+     * distinct semantic slots even when they intentionally share a file.
+     */
+    private static function canonicalVideoReferenceAssets(array $references): array
+    {
+        $canonical=[];$slots=[];
+        foreach ($references as $reference) {
+            if (!is_array($reference)) continue;
+            $type=strtolower(trim((string)($reference['type']??'')));
+            $url=trim((string)($reference['url']??$reference['uri']??''));
+            if ($type==='' || $url==='') continue;
+            $mediaKey=$type.'|'.$url;
+            $role=(string)($reference['role']??'');
+            $slot=$type==='image' && in_array($role,['first_frame_image','last_frame_image'],true)
+                ? $role : 'reference';
+            if (isset($slots[$mediaKey][$slot])) {
+                $index=$slots[$mediaKey][$slot];
+                if ((int)($reference['asset_id']??0)>0 && (int)($canonical[$index]['asset_id']??0)<=0) {
+                    $canonical[$index]=$reference;
+                }
+                continue;
+            }
+            $slots[$mediaKey][$slot]=count($canonical);
+            $canonical[]=$reference;
+        }
+        foreach ($slots as $positions) {
+            if (!isset($positions['reference']) ||
+                (!isset($positions['first_frame_image']) && !isset($positions['last_frame_image']))) continue;
+            $duplicate=$canonical[$positions['reference']];
+            foreach (['first_frame_image','last_frame_image'] as $role) {
+                if (!isset($positions[$role])) continue;
+                $index=$positions[$role];
+                if ((int)($duplicate['asset_id']??0)>0 && (int)($canonical[$index]['asset_id']??0)<=0) {
+                    $canonical[$index]=array_replace($canonical[$index],$duplicate,['role'=>$role]);
+                }
+            }
+            unset($canonical[$positions['reference']]);
+        }
+        return array_values($canonical);
     }
 
     private static function assertGenerationNode(array $document, string $nodeId, string $type): void
