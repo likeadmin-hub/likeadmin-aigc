@@ -144,10 +144,16 @@ class DecorateTemplateService
                 // Validate every page before changing any published value. A bad
                 // page therefore cannot leave the template partially published.
                 try {
+                    $draftData = (string)($page['draft_data'] ?: $page['data'] ?: '[]');
+                    $draftMeta = (string)($page['draft_meta'] ?: $page['meta'] ?: '');
+                    $repairedData = self::repairExtraClosingBracket($draftData, $draftMeta);
                     self::validatePagePayload(
-                        (string)($page['draft_data'] ?: $page['data'] ?: '[]'),
-                        (string)($page['draft_meta'] ?: $page['meta'] ?: '')
+                        $repairedData,
+                        $draftMeta
                     );
+                    if ($repairedData !== $draftData) {
+                        $page->save(['draft_data' => $repairedData]);
+                    }
                 } catch (RuntimeException $e) {
                     throw new RuntimeException(sprintf(
                         '页面「%s」（ID %d）发布失败：%s',
@@ -261,6 +267,7 @@ class DecorateTemplateService
 
         $draftData = (string)($params['data'] ?? $params['draft_data'] ?? '[]');
         $draftMeta = (string)($params['meta'] ?? $params['draft_meta'] ?? '');
+        $draftData = self::repairExtraClosingBracket($draftData, $draftMeta);
         self::validatePagePayload($draftData, $draftMeta);
         self::assertExpectedUpdateTime($page, $params);
 
@@ -1429,6 +1436,33 @@ class DecorateTemplateService
             }
         }
         return true;
+    }
+
+    /**
+     * Some old drafts have one stray closing bracket after otherwise valid
+     * widget JSON. Only remove that single character when the complete page
+     * passes the same validation as an ordinary save or publish.
+     */
+    private static function repairExtraClosingBracket(string $dataJson, string $metaJson): string
+    {
+        if (strlen($dataJson) > 5 * 1024 * 1024) {
+            return $dataJson;
+        }
+        json_decode($dataJson, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            return $dataJson;
+        }
+        $trimmed = rtrim($dataJson);
+        if ($trimmed === '' || !in_array(substr($trimmed, -1), [']', '}', ')'], true)) {
+            return $dataJson;
+        }
+        $candidate = rtrim(substr($trimmed, 0, -1));
+        try {
+            self::validatePagePayload($candidate, $metaJson);
+            return $candidate;
+        } catch (RuntimeException $e) {
+            return $dataJson;
+        }
     }
 
     /**
