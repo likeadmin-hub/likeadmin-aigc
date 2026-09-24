@@ -25,14 +25,22 @@ $process = null;
 $canvasIds = [];
 try {
     // Explicit ownership: never take over or delete pre-existing fixture rows.
-    if (Db::name('tenant')->where('id', 94001)->count() || Db::name('user')->where('id', 95001)->count() || Db::name('app')->where('code', 'aigc_short_drama')->count()) {
+    if (Db::name('tenant')->where('id', 94001)->count() || Db::name('user')->where('id', 95001)->count()
+        || Db::name('user_session')->where('tenant_id', 94001)->count()
+        || Db::name('tenant_app')->where('tenant_id', 94001)->count()) {
         throw new RuntimeException('HTTP fixture scope is not empty');
+    }
+    $installedApp = Db::name('app')->where('code', 'aigc_short_drama')->find();
+    if ($installedApp && (string)$installedApp['status'] !== 'installed') {
+        throw new RuntimeException('Existing short-drama app is not installed');
+    }
+    if (!$installedApp) {
+        $inserted[] = ['app', Db::name('app')->insertGetId(['code' => 'aigc_short_drama', 'status' => 'installed'])];
     }
     foreach ([
         ['tenant', ['id' => 94001, 'sn' => 'http-fixture', 'name' => 'Isolated HTTP', 'create_time' => time(), 'delete_time' => null]],
         ['user', ['id' => 95001, 'sn' => 95001, 'account' => 'http-fixture', 'tenant_id' => 94001]],
         ['user_session', ['tenant_id' => 94001, 'user_id' => 95001, 'token' => 'isolated-http-fixture', 'terminal' => 4, 'expire_time' => time() + 86400 * 365]],
-        ['app', ['code' => 'aigc_short_drama', 'status' => 'installed']],
         ['tenant_app', ['tenant_id' => 94001, 'app_code' => 'aigc_short_drama', 'buy_status' => 'paid', 'enable_status' => 'enabled', 'shelf_status' => 'on', 'expire_time' => time() + 3600]],
     ] as [$table, $row]) $inserted[] = [$table, Db::name($table)->insertGetId($row)];
     $process = proc_open([PHP_BINARY, '-S', '127.0.0.1:19080', '-t', app()->getRootPath() . 'public', __DIR__ . '/http_router.php'], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
