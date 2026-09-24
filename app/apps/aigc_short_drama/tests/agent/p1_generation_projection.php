@@ -62,11 +62,20 @@ try {
     $runId=(int)$claim['canvas_run_id'];
     $before=Canvas::current(91001,92001,$id);
     agentCheck(($before['nodes'][0]['metadata']['status']??'')==='queued','unknown run starts with a stale graph status before projection');
-    agentCheck(Intent::projectStatus(91001,92001,$runId),'unknown status projects to active graph node');
+    agentCheck((Canvas::runDetail(91001,92001,$runId)['status']??'')==='needs_reconciliation','run detail retains the unknown submission state');
     $after=Canvas::current(91001,92001,$id);
     agentCheck(($after['nodes'][0]['metadata']['status']??'')==='needs_reconciliation' && ($after['nodes'][0]['metadata']['error']??'')!=='','unknown run is visibly held without resubmission');
     agentCheck(!Intent::projectStatus(91001,92001,$runId) && Canvas::current(91001,92001,$id)['graph_revision']===$after['graph_revision'],'duplicate status projection does not change graph revision');
     $next=Intent::reserve(91001,92001,$id,'newer','1','video',['prompt'=>'newer']);
     agentCheck(!Intent::projectStatus(91001,92001,$runId) && (int)Canvas::current(91001,92001,$id)['nodes'][0]['metadata']['active_generation_id']===(int)$next['canvas_run_id'],'older unknown status cannot replace newer generation');
+    $id=Canvas::create(91001,92001,['title'=>'P1 failed provider status'])['id'];
+    Canvas::save(91001,92001,['id'=>$id,'nodes'=>[['id'=>1,'type'=>'video','metadata'=>['prompt'=>'fixture']]]]);
+    $intent=Intent::reserve(91001,92001,$id,'failed','1','video',['prompt'=>'fixture']);
+    $claim=Intent::claim(91001,92001,(int)$intent['id']);
+    Intent::accepted(91001,92001,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],'fixture-task',[],false);
+    Db::name('aigc_short_drama_canvas_run')->where('id',$claim['canvas_run_id'])->update(['status'=>'failed','progress'=>0,'error'=>'provider fixture failure']);
+    Canvas::runDetail(91001,92001,(int)$claim['canvas_run_id']);
+    $failed=Canvas::current(91001,92001,$id)['nodes'][0]['metadata'];
+    agentCheck(($failed['status']??'')==='failed' && ($failed['error']??'')==='provider fixture failure','failed provider task status projects to active graph node');
 } finally {Db::rollback();}
 echo "NOT_RUN real callbacks, asset version selection and browser generation UI; persisted run/projector behavior only\n";

@@ -66,6 +66,7 @@ class MarketVideoRuntimeService
                 continue;
             }
             $metadata = self::metadata($product);
+            $sellableModes = self::sellableGenerationModes($product, $metadata, $validSkus);
             $category = $resourceType === PowerMarketService::TYPE_APP_API
                 ? PowerMarketService::appCategory($product)
                 : ['id' => 0, 'code' => 'video', 'name' => '视频生成'];
@@ -164,7 +165,7 @@ class MarketVideoRuntimeService
                 'max_reference_assets' => self::advertisedReferenceAssetLimit($product, $metadata),
                 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $metadata),
                 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $metadata),
-                'generation_modes' => self::generationModes($product, $metadata),
+                'generation_modes' => $sellableModes,
                 'supports_first_last_frame' => self::supportsFirstLastFrame($product, $metadata),
                 'skus' => $validSkus,
                 'default_resolution' => (string)($resolutions[0] ?? ''),
@@ -209,8 +210,12 @@ class MarketVideoRuntimeService
         $market = self::resolve($tenantId, $selection);
         $product = (array)$market['product'];
         $metadata = self::metadata($product);
+        $sellableSkus = array_map(
+            static fn(array $row): array => self::formatSku($row, $product),
+            self::availableSkus($tenantId, (int)$product['id'])
+        );
         return [
-            'generation_modes' => self::generationModes($product, $metadata),
+            'generation_modes' => self::sellableGenerationModes($product, $metadata, $sellableSkus),
             'supports_first_last_frame' => self::supportsFirstLastFrame($product, $metadata),
             'supported_asset_types' => self::supportedAssetTypes($product, $metadata),
             'max_reference_images' => self::advertisedReferenceLimit($product, $metadata, 'image'),
@@ -2821,6 +2826,28 @@ class MarketVideoRuntimeService
             && (string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_MODEL
             && trim((string)($locked['model'] ?? '')) === '') return true;
         return $skuMode === $requestedMode;
+    }
+    /** Do not advertise a provider capability that no currently sellable SKU can price. */
+    private static function sellableGenerationModes(array $product, array $metadata, array $skus): array
+    {
+        $inputModes = [
+            'text_to_video'=>['text_to_video'],
+            'image_to_video'=>['image_reference'],
+            'start_end'=>['image_reference'],
+            'image_reference'=>['image_reference'],
+            'multi_frame'=>['image_reference'],
+            'video_edit'=>['video_edit'],
+            'audio_reference'=>['audio_reference'],
+            'omni_reference'=>['image_reference','video_edit','audio_reference'],
+        ];
+        return array_values(array_filter(self::generationModes($product,$metadata), static function (string $mode) use ($product,$skus,$inputModes): bool {
+            foreach ($skus as $sku) {
+                foreach ($inputModes[$mode]??[] as $inputMode) {
+                    if (self::skuSupportsInputMode((string)($sku['input_mode']??''),$inputMode,$product,(array)($sku['locked_params']??[]))) return true;
+                }
+            }
+            return false;
+        }));
     }
     private static function selectionKey(array $market): string { return (string)$market['product']['id'] . ':' . (string)$market['sku']['id']; }
     private static function metadata(array $product): array
