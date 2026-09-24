@@ -1493,7 +1493,7 @@ class DecorateTemplateService
             if (isset($widget['styles']) && !is_array($widget['styles'])) {
                 throw new RuntimeException('组件样式格式无效');
             }
-            foreach (['item_gap', 'padding_top', 'padding_bottom', 'padding_horizontal', 'radius_top', 'radius_right', 'radius_bottom', 'radius_left', 'opacity'] as $styleField) {
+            foreach (['item_gap', 'padding_top', 'padding_bottom', 'padding_horizontal', 'margin_top', 'margin_bottom', 'margin_horizontal', 'radius_top', 'radius_right', 'radius_bottom', 'radius_left', 'opacity'] as $styleField) {
                 if (isset($widget['styles'][$styleField]) && (!is_numeric($widget['styles'][$styleField]) || (float)$widget['styles'][$styleField] < 0 || (float)$widget['styles'][$styleField] > 999)) {
                     throw new RuntimeException('组件样式数值无效');
                 }
