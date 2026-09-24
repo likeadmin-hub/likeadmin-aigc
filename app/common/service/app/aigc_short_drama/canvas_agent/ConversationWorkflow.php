@@ -823,7 +823,7 @@ final class ConversationWorkflow
             if (!isset($allowed[$stage])) continue;
             foreach ($selections as $selection) {
                 try {
-                    $skill=ShortDramaSkillService::resolveForTask($tenant,['skill_id'=>(int)$selection['skill_id'],'skill_version'=>(int)$selection['skill_version'],'skill_source'=>'manual']);
+                    $skill=ShortDramaSkillService::resolveForTask($tenant,['skill_id'=>(int)$selection['skill_id'],'skill_version'=>(int)$selection['skill_version'],'skill_source'=>'manual','_workflow_internal'=>true]);
                     ConversationSkillPolicy::assertSafe($skill);
                 } catch (\Throwable $error) {
                     throw new RuntimeException('WORKFLOW_SKILL_UNAVAILABLE',0,$error);

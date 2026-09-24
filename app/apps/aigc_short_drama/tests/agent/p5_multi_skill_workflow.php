@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/bootstrap.php';
 
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
+use app\common\service\app\aigc_short_drama\ShortDramaSkillService;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationActionPlan as ActionPlan;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationExecution as Execution;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationIntentRouter as IntentRouter;
@@ -60,6 +61,15 @@ try {
     agentCheck(($effective['art'][0]['skill_version']??0)===$artBuiltin['skill_version']
         && ($effective['script'][0]['skill_id']??0)===$stageSkill,'stale platform Skill selections resolve to the current published version without replacing tenant-owned stage Skills');
     Db::name('aigc_short_drama_config')->where('id',$config)->update(['config_json'=>$originalConfig]);
+    $visibleSkillKeys=array_column(ShortDramaSkillService::featured($tenant,['limit'=>100])['lists'],'skill_key');
+    agentCheck(in_array('product_promo_short',$visibleSkillKeys,true)
+        && in_array('workflow_script_fixture',$visibleSkillKeys,true)
+        && !in_array('short_drama_script',$visibleSkillKeys,true),'the public catalogue keeps platform default and tenant-configured Skills callable while hiding platform workflow-only Skills');
+    agentCheck((ShortDramaSkillService::resolveForTask($tenant,['skill_id'=>$stageSkill,'skill_version'=>1])['id']??0)===$stageSkill,'a tenant-configured Skill remains manually callable even when the workflow also selects it');
+    $workflowSkillBlocked=false;
+    try { ShortDramaSkillService::resolveForTask($tenant,['skill_id'=>(int)$defaultSkills['intake'][0]['skill_id'],'skill_version'=>(int)$defaultSkills['intake'][0]['skill_version']]); }
+    catch (\Throwable) { $workflowSkillBlocked=true; }
+    agentCheck($workflowSkillBlocked,'a platform workflow-only Skill rejects direct user submission and remains reserved for workflow execution');
     $canvas=Canvas::create($tenant,$user,['title'=>'P5 workflow fixture'])['id'];
     $thread=Store::create($tenant,$user,$canvas,'workflow-thread')['id'];
     $ack=Store::enqueue($tenant,$user,$canvas,$thread,['request_key'=>'workflow-route','content'=>'/short-drama 我想创作一部悬疑短剧','base_revision'=>0],static function (array $conversation) use ($tenant): array {
