@@ -1003,6 +1003,11 @@ class ShortDramaCanvasService
         if ($prompt === '') throw new Exception('请输入提示内容');
         $referenceAssets=self::resolveOwnedReferenceAssets($tenantId, $userId, $canvasId, (array)($params['reference_assets'] ?? []));
         if ($type==='video') foreach ($referenceAssets as &$reference) {
+            $mediaType=strtolower(trim((string)($reference['type']??'')));
+            if ($mediaType==='video' || $mediaType==='audio') {
+                $reference['role']=$mediaType==='video' ? 'reference_video' : 'reference_audio';
+                continue;
+            }
             $role=(string)($reference['role']??'');
             $reference['role']=match ($role) {
                 'first_frame'=>'first_frame_image', 'last_frame'=>'last_frame_image',
