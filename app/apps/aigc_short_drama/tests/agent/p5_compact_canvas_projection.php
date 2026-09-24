@@ -77,7 +77,9 @@ try {
     $runStage=static function (string $key,string $content,array $selected=[]) use ($provider,$accept,$tenant,$user,$canvas,$thread): array {
         $provider->content=$content;
         $ack=$accept($key,'继续当前创作阶段',$selected);
-        agentCheck(Worker::process($tenant,$user,(int)$ack['run_id'],$provider)==='success','compact workflow Worker accepts '.$key);
+        $state=Worker::process($tenant,$user,(int)$ack['run_id'],$provider);
+        $errorCode=Db::name(Store::PREFIX.'run')->where('id',(int)$ack['run_id'])->value('error_code');
+        agentCheck($state==='success','compact workflow Worker accepts '.$key.' (state='.$state.', error_code='.$errorCode.')');
         return Workflow::read($tenant,$user,$canvas,$thread);
     };
 
