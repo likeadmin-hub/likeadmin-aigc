@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "详情",
+  "usingComponents": {
+    "u-parse": "../../uni_modules/vk-uview-ui/components/u-parse/u-parse",
+    "u-icon": "../../uni_modules/vk-uview-ui/components/u-icon/u-icon"
+  }
+}
