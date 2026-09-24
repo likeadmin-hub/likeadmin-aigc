@@ -54,5 +54,19 @@ try {
     $jobs=Db::name('aigc_short_drama_canvas_poster_job')->where(['canvas_id'=>$id,'tenant_id'=>91001,'user_id'=>92001])->select()->toArray();
     agentCheck(count($jobs)===1 && $jobs[0]['status']==='pending','intent video projection queues exactly one existing asynchronous poster job');
     agentCheck($jobs[0]['video_uri']==='uploads/fixture/video.mp4' && $jobs[0]['storage_scope']==='tenant','poster job retains source URI and tenant storage metadata');
+    $id=Canvas::create(91001,92001,['title'=>'P1 status projection'])['id'];
+    Canvas::save(91001,92001,['id'=>$id,'nodes'=>[['id'=>1,'type'=>'video','x'=>10,'metadata'=>['prompt'=>'fixture']]]]);
+    $intent=Intent::reserve(91001,92001,$id,'status','1','video',['prompt'=>'fixture']);
+    $claim=Intent::claim(91001,92001,(int)$intent['id']);
+    Intent::unknown(91001,92001,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version']);
+    $runId=(int)$claim['canvas_run_id'];
+    $before=Canvas::current(91001,92001,$id);
+    agentCheck(($before['nodes'][0]['metadata']['status']??'')==='queued','unknown run starts with a stale graph status before projection');
+    agentCheck(Intent::projectStatus(91001,92001,$runId),'unknown status projects to active graph node');
+    $after=Canvas::current(91001,92001,$id);
+    agentCheck(($after['nodes'][0]['metadata']['status']??'')==='needs_reconciliation' && ($after['nodes'][0]['metadata']['error']??'')!=='','unknown run is visibly held without resubmission');
+    agentCheck(!Intent::projectStatus(91001,92001,$runId) && Canvas::current(91001,92001,$id)['graph_revision']===$after['graph_revision'],'duplicate status projection does not change graph revision');
+    $next=Intent::reserve(91001,92001,$id,'newer','1','video',['prompt'=>'newer']);
+    agentCheck(!Intent::projectStatus(91001,92001,$runId) && (int)Canvas::current(91001,92001,$id)['nodes'][0]['metadata']['active_generation_id']===(int)$next['canvas_run_id'],'older unknown status cannot replace newer generation');
 } finally {Db::rollback();}
 echo "NOT_RUN real callbacks, asset version selection and browser generation UI; persisted run/projector behavior only\n";

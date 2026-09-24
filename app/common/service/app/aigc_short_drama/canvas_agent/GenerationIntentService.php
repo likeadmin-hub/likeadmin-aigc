@@ -237,6 +237,34 @@ final class GenerationIntentService
             return false;
         });
     }
+
+    /** Mirror an active, non-successful intent run without changing its input or result. */
+    public static function projectStatus(int $tenant,int $user,int $runId): bool
+    {
+        return Db::transaction(function () use ($tenant,$user,$runId): bool {
+            $identity=Db::name(self::RUNS)->where(['id'=>$runId,'tenant_id'=>$tenant,'user_id'=>$user])->find();
+            if (!$identity) return false;
+            // Keep the reserve/claim lock order: canvas, intent, then run.
+            $document=Db::name(GraphService::TABLE)->where(['id'=>$identity['canvas_id'],'tenant_id'=>$tenant,'user_id'=>$user,'delete_time'=>0])->lock(true)->find();
+            if (!$document) return false;
+            $intent=Db::name(self::TABLE)->where(['canvas_run_id'=>$runId,'canvas_id'=>$document['id'],'tenant_id'=>$tenant,'user_id'=>$user])->lock(true)->find();
+            if (!$intent) return false;
+            $run=Db::name(self::RUNS)->where('id',$runId)->lock(true)->find();
+            if (!$run || $run['status']==='success') return false;
+            $nodes=json_decode($document['nodes_json']?:'[]',true,512,JSON_THROW_ON_ERROR);
+            foreach ($nodes as &$node) {
+                if ((string)($node['id']??'')!==(string)$intent['node_id']) continue;
+                $metadata=(array)($node['metadata']??[]);
+                if ((int)($metadata['active_generation_id']??0)!==$runId || (int)($metadata['canvasRunId']??0)!==$runId) return false;
+                $changes=['status'=>(string)$run['status'],'progress'=>(int)$run['progress'],'error'=>(string)$run['error']];
+                if (array_intersect_assoc($changes,$metadata)===$changes) return false;
+                $node['metadata']=array_replace($metadata,$changes);
+                GraphService::persistLockedDocument($document,['nodes_json'=>self::json($nodes),'update_time'=>time()]);
+                return true;
+            }
+            return false;
+        });
+    }
     private static function owned(int $tenant,int $user,int $id): array {
         $row=Db::name(self::TABLE)->where(['id'=>$id,'tenant_id'=>$tenant,'user_id'=>$user])->lock(true)->find();
         if (!$row) throw new RuntimeException('GENERATION_INTENT_NOT_FOUND');
