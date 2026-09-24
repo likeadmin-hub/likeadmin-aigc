@@ -54,6 +54,21 @@ try {
     checkToolbar(($savedNode['metadata']['poster_status'] ?? '') === 'failed', 'stale browser save cannot reactivate a dead poster job');
     checkToolbar(Db::name('aigc_short_drama_canvas_poster_job')->where('id', (int)$posterJob['id'])->value('status') === 'dead', 'dead poster job is not resubmitted');
     checkToolbar(Jobs::posterProjection(2, 1, $id, '5', 'uploads/test-poster-status.mp4') === [], 'poster status remains tenant-isolated');
+    $completedRunId = Db::name('aigc_short_drama_canvas_run')->insertGetId([
+        'tenant_id' => 1, 'user_id' => 1, 'canvas_id' => $id, 'node_id' => '6',
+        'node_type' => 'video', 'status' => 'success', 'progress' => 100,
+        'request_json' => '{}', 'result_json' => json_encode(['results' => [['url' => 'uploads/test-completed-video.mp4']]]),
+    ]);
+    $staleVideo = ['id' => '6', 'type' => 'video', 'x' => 0, 'y' => 0, 'metadata' => [
+        'canvasRunId' => $completedRunId, 'status' => 'running', 'progress' => 25, 'pending' => true,
+    ]];
+    Canvas::save(1, 1, ['id' => $id, 'nodes' => [$staleVideo]]);
+    $completedRead = Canvas::current(1, 1, $id);
+    $completedNode = current(array_values(array_filter($completedRead['nodes'], static fn($item): bool => (string)$item['id'] === '6')));
+    checkToolbar(($completedNode['metadata']['status'] ?? '') === 'success' && ($completedNode['metadata']['pending'] ?? true) === false, 'completed run supersedes stale generating snapshot on re-entry');
+    checkToolbar(($completedNode['metadata']['video_url'] ?? '') === 'uploads/test-completed-video.mp4', 'completed run restores playable video URL on re-entry');
+    $persisted = json_decode((string)Db::name('aigc_short_drama_canvas')->where('id', $id)->value('nodes_json'), true);
+    checkToolbar(($persisted[0]['metadata']['status'] ?? '') === 'running', 'read-time projection does not rewrite saved document');
 } finally {
     Db::rollback();
 }
