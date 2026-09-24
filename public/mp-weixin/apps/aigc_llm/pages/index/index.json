@@ -2,5 +2,7 @@
   "navigationStyle": "custom",
   "navigationBarTextStyle": "white",
   "navigationBarTitleText": "AIGC对话",
-  "usingComponents": {}
+  "usingComponents": {
+    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
+  }
 }

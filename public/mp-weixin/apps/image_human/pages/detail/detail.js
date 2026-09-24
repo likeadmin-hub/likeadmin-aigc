@@ -1,0 +1,1 @@
+"use strict";const e=require("../../../../common/vendor.js");Math||n();const n=()=>"../../components/ImageHumanDetail.js",t=e.defineComponent({__name:"detail",setup(n){const t=e.ref(0);return e.onLoad(e=>{t.value=Number((null==e?void 0:e.task_id)||(null==e?void 0:e.id)||0)}),(n,a)=>({a:e.p({"task-id":t.value})})}});wx.createPage(t);

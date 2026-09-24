@@ -1,0 +1,1 @@
+"use strict";const e=require("../../../../common/vendor.js");Math||a();const a=()=>"../../components/ImageHumanAssets.js",s=e.defineComponent({__name:"avatar",setup:a=>(a,s)=>({a:e.p({"asset-kind":"avatar"})})});wx.createPage(s);

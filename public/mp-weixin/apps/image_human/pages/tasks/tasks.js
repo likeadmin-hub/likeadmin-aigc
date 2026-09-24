@@ -1,0 +1,1 @@
+"use strict";const e=require("../../../../common/vendor.js");Math||s();const s=()=>"../../components/ImageHumanRecords.js",n=e.defineComponent({__name:"tasks",setup:s=>(s,n)=>({a:e.p({"record-kind":"tasks"})})});wx.createPage(n);

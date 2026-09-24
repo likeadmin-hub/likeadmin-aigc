@@ -1,0 +1,1 @@
+<image-human-detail wx:if="{{a}}" u-i="f26372cc-0" bind:__l="__l" u-p="{{a}}"/>

@@ -77,6 +77,152 @@
         "pages/results/results",
         "pages/results/detail/detail"
       ]
+    },
+    {
+      "root": "apps/image_human",
+      "pages": [
+        "pages/index/index",
+        "pages/avatar/avatar",
+        "pages/voice/voice",
+        "pages/clone/avatar/avatar",
+        "pages/clone/voice/voice",
+        "pages/tasks/tasks",
+        "pages/results/results",
+        "pages/detail/detail"
+      ]
+    },
+    {
+      "root": "apps/aigc_action_transfer",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_background_removal",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_fashion_lookbook",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_fitting",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_hairstyle",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_image_translate",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_local_redraw",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_model_wear",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_music",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_one_click_cleanup",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_outpaint",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_person_replacement",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_photo_restore",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_product_image",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_product_multi_angle",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_product_promo_video",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_product_suite",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_style_transfer",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
+    },
+    {
+      "root": "apps/aigc_watermark_removal",
+      "pages": [
+        "pages/creator/index",
+        "pages/tasks/index"
+      ]
     }
   ],
   "window": {
