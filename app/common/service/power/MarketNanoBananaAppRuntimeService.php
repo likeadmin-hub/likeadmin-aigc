@@ -103,7 +103,7 @@ class MarketNanoBananaAppRuntimeService
                     'developer_doc_slug' => (string)($metadata['developer_doc_slug'] ?? ''),
                     'api_doc' => (string)($metadata['api_doc'] ?? ''),
                     'max_reference_images' => max(0, (int)($capabilities['max_reference_images'] ?? 0)),
-                    'supports_reference_images' => !empty($capabilities['supports_vision']),
+                    'supports_reference_images' => max(0, (int)($capabilities['max_reference_images'] ?? 0)) > 0,
                     'reference_input_field' => 'image_urls',
                     'platform_unit_cost' => min(array_column($skus, 'platform_unit_cost')),
                     'tenant_unit_price' => min(array_column($skus, 'tenant_unit_price')),
@@ -257,7 +257,7 @@ class MarketNanoBananaAppRuntimeService
         if ((string)$consumption['run_status'] !== 'reserved') return self::response($consumption->toArray());
         $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
         try {
-            $response = self::request('POST', self::endpoint((string)$snapshot['app_code'], self::SUBMIT_API_CODE), self::payload($snapshot, $request, (string)$consumption['consume_no']));
+            $response = self::request('POST', self::endpoint((string)$snapshot['app_code'], self::SUBMIT_API_CODE), self::payload($snapshot, $request, (string)$consumption['consume_no'], (int)$consumption['tenant_id']));
             $images = self::images($response, (int)$consumption['tenant_id'], (int)$consumption['user_id']);
             $taskId = self::taskId($response);
             $requestId = self::requestId($response);
@@ -511,10 +511,10 @@ class MarketNanoBananaAppRuntimeService
         ];
     }
 
-    private static function payload(array $snapshot, array $request, string $idempotencyKey): array
+    private static function payload(array $snapshot, array $request, string $idempotencyKey, int $tenantId = 0): array
     {
         $locked = self::arrayValue($snapshot['locked_params'] ?? []);
-        $references = array_values(array_filter((array)($request['reference_images'] ?? [])));
+        $references = MarketImageReferenceUrlService::resolve((array)($request['reference_images'] ?? []), $tenantId);
         $payload = array_merge($locked, self::marketContext($snapshot), [
             'action' => $references === [] ? 'generate' : 'edit', 'prompt' => (string)($request['prompt'] ?? ''), 'image_urls' => $references,
             'idempotency_key' => $idempotencyKey,
