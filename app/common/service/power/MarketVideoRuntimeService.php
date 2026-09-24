@@ -924,7 +924,8 @@ class MarketVideoRuntimeService
         }
         if (self::schemaDeclaresParameter($schema, 'generation_type')) {
             $generationType = self::isVeoThreeSnapshot($snapshot)
-                ? self::generationTypeForSchema($snapshot, $request, $assets)
+                ? (self::generationTypeForSchema($snapshot, $request, $assets)
+                    ?: self::value($request, ['generation_type', 'generationType']))
                 : (self::value($request, ['generation_type', 'generationType'])
                     ?: self::generationTypeForSchema($snapshot, $request, $assets));
             if ($generationType !== '') {
