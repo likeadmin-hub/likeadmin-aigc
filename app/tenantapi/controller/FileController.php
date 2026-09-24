@@ -105,7 +105,7 @@ class FileController extends BaseAdminController
     public function addCate()
     {
         $params = (new FileValidate())->post()->goCheck('addCate');
-        FileLogic::addCate($params);
+        FileLogic::addCate($params, $this->tenantId);
         return $this->success('添加成功', [], 1, 1);
     }
 
