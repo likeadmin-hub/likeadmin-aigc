@@ -150,11 +150,22 @@ class CanvasAgentStageReplyTest extends TestCase
     public function testDisabledAudioPlanDiscardsProviderExecutionAnnotations(): void
     {
         $reply=json_encode(['reply_markdown'=>'已准备音频规划。','canvas_actions'=>['nodes'=>[
-            ['type'=>'audio','artifact'=>'audio_plan','title'=>'音频规划','prompt'=>'镜头一使用旁白与环境声。','key'=>'audio_plan','provider'=>'not_executed','status'=>'pending'],
+            ['type'=>'audio','artifact'=>'audio_plan','title'=>'背景音乐','prompt'=>'轻喜剧纯器乐配乐，96 BPM，以电钢琴和轻打击乐推进误会与和解，约 30 秒，可无缝循环；不要歌词和人声。','key'=>'audio_plan','provider'=>'not_executed','status'=>'pending'],
         ]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
         $nodes=ConversationActionPlan::parse($reply,'audio_plan',true)['nodes'];
         self::assertCount(1,$nodes);
         self::assertArrayNotHasKey('provider',$nodes[0]);
         self::assertArrayNotHasKey('status',$nodes[0]);
+    }
+
+    public function testAudioAndVideoStageInstructionsKeepSpeechOutOfMusicNode(): void
+    {
+        $audio=ConversationActionPlan::instruction('manual','audio_plan',true,true);
+        $video=ConversationActionPlan::instruction('manual','video_nodes',true,true);
+        self::assertStringContainsString('纯背景音乐', $audio);
+        self::assertStringContainsString('不得包含逐镜对白', $audio);
+        self::assertStringContainsString('说话主体', $video);
+        self::assertStringContainsString('对白原文', $video);
+        self::assertSame(['music_prompt','music_style','mood_curve','bpm','instruments','duration','looping'], ConversationWorkflow::outputContract('audio_plan'));
     }
 }

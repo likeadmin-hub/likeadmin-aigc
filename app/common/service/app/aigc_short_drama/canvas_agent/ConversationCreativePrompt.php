@@ -22,6 +22,7 @@ final class ConversationCreativePrompt
             'assets'=>['subject_image','subject_views'],
             'storyboard'=>['scene_image','shot_image','storyboard'],
             'video_plan','video_nodes'=>['shot_video'],
+            'audio_plan'=>['music'],
             default=>[],
         };
         if (!$documents) return '';
@@ -34,6 +35,7 @@ final class ConversationCreativePrompt
                 'scene_image'=>['missing'],
                 'shot_image'=>['has_subject','empty'],
                 'shot_video'=>['has_subject','empty','multi_subject','first_character','first_empty','last','missing','missing_subject','missing_empty','character'],
+                'music'=>['missing'],
                 default=>[],
             };
             $text=trim(ShortDramaPromptDocuments::renderSnapshotGuidance($snapshot,$id,$conditions));
