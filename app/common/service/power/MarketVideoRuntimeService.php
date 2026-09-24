@@ -1333,7 +1333,14 @@ class MarketVideoRuntimeService
 
     private static function appPayload(array $snapshot, array $request, string $idempotency): array
     {
-        $app = (string)$snapshot['app_code']; $locked = self::arrayValue($snapshot['locked_params'] ?? []); $assets = self::assets($request); $duration = self::duration($locked) ?: (int)($request['duration'] ?? 0); $resolution = self::resolution($locked) ?: self::value($request, ['resolution', 'quality']);
+        $app = (string)$snapshot['app_code'];
+        $locked = self::arrayValue($snapshot['locked_params'] ?? []);
+        $assets = self::assets($request);
+        $duration = self::duration($locked) ?: (int)($request['duration'] ?? 0);
+        $resolution = self::resolution($locked) ?: self::value($request, ['resolution', 'quality']);
+        // Pricing variants choose the local SKU only; they are not provider parameters.
+        $locked = array_filter($locked, static fn($key): bool => is_string($key)
+            && !str_starts_with($key, '_') && $key !== 'pricing_variant', ARRAY_FILTER_USE_KEY);
         if ($app === 'full_video') {
             $prompt = trim((string)($request['prompt'] ?? ''));
             if ($prompt === '') {
@@ -1358,19 +1365,13 @@ class MarketVideoRuntimeService
             ]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'happy_horse') {
-            $model = trim((string)($locked['model'] ?? ''));
-            if ($model === '') {
-                $method = strtolower(trim((string)($request['generation_method'] ?? $request['generationMethod'] ?? '')));
-                $model = $assets['video'] !== [] ? 'happyhorse-1.0-video-edit'
-                    : ($assets['image'] === [] ? 'happyhorse-1.1-t2v'
-                    : (count($assets['image']) === 1 && $method !== 'image_reference'
-                        ? 'happyhorse-1.1-i2v' : 'happyhorse-1.1-r2v'));
-            }
+            $method = strtolower(trim((string)($request['generation_method'] ?? $request['generationMethod'] ?? '')));
+            $model = self::happyHorseModel($locked, $assets, $method);
             $media = array_merge(
                 array_map(static fn(string $url): array => ['url' => $url, 'type' => 'video'], $assets['video']),
                 array_map(static fn(string $url): array => ['url' => $url, 'type' => 'image'], $assets['image'])
             );
-            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => $model === 'happyhorse-1.1-i2v' ? null : (string)($request['ratio'] ?? ''), 'media' => $media, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), self::appRequestOptions($request, ['seed', 'watermark', 'audio_setting', 'callback_url']), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => in_array($model, ['happyhorse-1.1-i2v', 'happyhorse-1.0-video-edit'], true) ? null : (string)($request['ratio'] ?? ''), 'media' => $media, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'seedance') {
             $content = self::seedanceContent($request);
@@ -1378,7 +1379,7 @@ class MarketVideoRuntimeService
             foreach (['image_urls', 'video_urls', 'audio_urls', 'content'] as $key) {
                 unset($locked[$key]);
             }
-            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => (string)($locked['model'] ?? ($hasVideo ? 'seedance-2-video-2-video' : 'seedance-2-text-2-video')), 'content' => $content, 'ratio' => (string)($request['ratio'] ?? ''), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'generate_audio' => $request['generate_audio'] ?? null, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), self::appRequestOptions($request, ['seed', 'draft', 'frames', 'watermark', 'camera_fixed', 'service_tier', 'tools', 'callback_url']), ['model' => (string)($locked['model'] ?? ($hasVideo ? 'seedance-2-video-2-video' : 'seedance-2-text-2-video')), 'content' => $content, 'ratio' => (string)($request['ratio'] ?? ''), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'generate_audio' => $request['generate_audio'] ?? null, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'grok_video') {
             $model = trim((string)($locked['model'] ?? $snapshot['model_code'] ?? 'grok-video'));
@@ -1394,7 +1395,7 @@ class MarketVideoRuntimeService
         foreach (['image_urls', 'image_with_roles', 'video_urls', 'audio_urls', 'audio_url'] as $key) {
             unset($locked[$key]);
         }
-        $payload = array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), [
+        $payload = array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), self::appRequestOptions($request, ['seed', 'watermark', 'negative_prompt', 'prompt_extend', 'metadata', 'callback_url']), [
             'model' => $model,
             'prompt' => trim((string)($request['prompt'] ?? '')),
             'resolution' => $resolution,
@@ -1407,9 +1408,27 @@ class MarketVideoRuntimeService
         } elseif ($model === 'wan2.7-videoedit') {
             $payload['image_urls'] = $assets['image'];
             $payload['video_urls'] = $assets['video'];
+        } elseif ($model === 'wan2.7') {
+            $payload['image_urls'] = $assets['image'];
         }
         $payload['audio_url'] = $assets['audio'][0] ?? null;
         return array_filter($payload, static fn($value) => $value !== '' && $value !== [] && $value !== null);
+    }
+
+    private static function appRequestOptions(array $request, array $allowed): array
+    {
+        return array_intersect_key($request, array_flip($allowed));
+    }
+
+    private static function happyHorseModel(array $locked, array $assets, string $method): string
+    {
+        $model = trim((string)($locked['model'] ?? ''));
+        if ($model !== '') return $model;
+        if ($assets['video'] !== []) return 'happyhorse-1.0-video-edit';
+        if ($assets['image'] === []) return 'happyhorse-1.1-t2v';
+        return count($assets['image']) === 1
+            && !in_array($method, ['image_reference', 'omni_reference', 'multi_frame'], true)
+            ? 'happyhorse-1.1-i2v' : 'happyhorse-1.1-r2v';
     }
 
     /** Seedance accepts multimodal media in content, not top-level URL arrays. */
@@ -1538,6 +1557,8 @@ class MarketVideoRuntimeService
                 self::assertWanAppAssets($market, $assets);
             } elseif ($app === 'seedance') {
                 AigcVideoReferenceAssetService::assertSeedanceSupported($referenceAssets);
+            } elseif ($app === 'happy_horse') {
+                self::assertHappyHorseAssets($market, $assets, $generationMethod);
             }
         }
         if (self::isFullVideoProduct($product) && (string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API) {
@@ -1654,6 +1675,30 @@ class MarketVideoRuntimeService
         }
         if ($model === 'wan2.7' && ($assets['video'] !== [] || count($assets['image']) > 2)) {
             throw new Exception('Wan 2.7 text mode accepts at most two images and no video');
+        }
+    }
+
+    private static function assertHappyHorseAssets(array $market, array $assets, string $generationMethod): void
+    {
+        $model = self::happyHorseModel(
+            self::arrayValue($market['sku']['locked_params'] ?? []),
+            $assets,
+            $generationMethod
+        );
+        $images = count($assets['image']);
+        $videos = count($assets['video']);
+        if ($assets['audio'] !== []) throw new Exception('Happy Horse does not accept reference audio');
+        if ($model === 'happyhorse-1.1-t2v' && ($images !== 0 || $videos !== 0)) {
+            throw new Exception('Happy Horse text mode does not accept reference media');
+        }
+        if ($model === 'happyhorse-1.1-i2v' && ($images !== 1 || $videos !== 0)) {
+            throw new Exception('Happy Horse i2v requires exactly one image');
+        }
+        if ($model === 'happyhorse-1.1-r2v' && ($images < 1 || $images > 9 || $videos !== 0)) {
+            throw new Exception('Happy Horse r2v requires one to nine images and no video');
+        }
+        if ($model === 'happyhorse-1.0-video-edit' && ($videos !== 1 || $images > 5)) {
+            throw new Exception('Happy Horse video edit requires one video and at most five images');
         }
     }
 
