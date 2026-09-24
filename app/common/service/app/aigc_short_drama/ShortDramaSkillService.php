@@ -152,6 +152,66 @@ final class ShortDramaSkillService
         return ['categories' => self::categories($tenantId), 'lists' => array_slice($published, 0, $limit), 'count' => count($published)];
     }
 
+    /**
+     * Tenant-admin workflow configuration only needs safe identity/version
+     * choices.  Do not return a full Skill definition here: stage instructions
+     * are frozen later by the worker-side resolver after authorization is
+     * checked again.
+     *
+     * @return list<array{id:int,version:int,name:string,skill_key:string,description:string}>
+     */
+    public static function workflowEligible(int $tenantId): array
+    {
+        // Tenant workflow configuration is also the first page that a tenant
+        // admin opens after an application update.  Synchronize packaged,
+        // read-only Skills here so the workflow never renders dangling stage
+        // names before its selectable versions exist.
+        self::syncBuiltinSkills();
+        $published = Db::name('aigc_short_drama_skill')->alias('s')
+            ->join('aigc_short_drama_skill_version v', 'v.skill_id = s.id AND v.tenant_id = s.tenant_id AND v.version = s.published_version')
+            ->whereIn('s.tenant_id', [0, $tenantId])
+            ->where(['s.status'=>1, 's.release_status'=>self::ACTIVE, 's.delete_time'=>0, 'v.release_status'=>self::ACTIVE, 'v.delete_time'=>0])
+            ->field('s.id,s.skill_key,s.name,s.description,s.published_version,v.snapshot_json')
+            ->order('s.id', 'asc')->select()->toArray();
+        return array_values(array_map(static function (array $skill): array {
+            $snapshot = self::decode($skill['snapshot_json'] ?? '');
+            return [
+                'id' => (int)($skill['id'] ?? 0),
+                'version' => (int)($skill['published_version'] ?? $skill['version'] ?? 0),
+                'name' => (string)($snapshot['name'] ?? $skill['name'] ?? ''),
+                'skill_key' => (string)($skill['skill_key'] ?? ''),
+                'description' => (string)($skill['description'] ?? ''),
+            ];
+        }, $published));
+    }
+
+    /**
+     * Platform supplies a usable, versioned short-drama baseline.  A tenant
+     * may persist a different published Skill for a stage, but an untouched
+     * tenant immediately gets the safe product defaults rather than an empty
+     * workflow snapshot.
+     *
+     * @return array<string,list<array{skill_id:int,skill_version:int}>>
+     */
+    public static function workflowDefaultSelections(int $tenantId): array
+    {
+        self::syncBuiltinSkills();
+        $mapping = \app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::defaultSkillKeys();
+        $keys = [];
+        foreach ($mapping as $stageKeys) foreach ($stageKeys as $key) $keys[(string)$key] = true;
+        if (!$keys) return [];
+        $rows = AigcShortDramaSkill::where(['tenant_id' => 0, 'status' => 1, 'release_status' => self::ACTIVE, 'delete_time' => 0])
+            ->whereIn('skill_key', array_keys($keys))->where('published_version', '>', 0)
+            ->field('id,skill_key,published_version')->select()->toArray();
+        $byKey = [];
+        foreach ($rows as $row) $byKey[(string)$row['skill_key']] = ['skill_id' => (int)$row['id'], 'skill_version' => (int)$row['published_version']];
+        $result = [];
+        foreach ($mapping as $stage => $stageKeys) {
+            foreach ($stageKeys as $key) if (isset($byKey[$key])) $result[$stage][] = $byKey[$key];
+        }
+        return $result;
+    }
+
     public static function mine(int $tenantId, int $userId): array
     {
         self::syncBuiltinSkills();
@@ -203,10 +263,24 @@ final class ShortDramaSkillService
         $skill = self::find($tenantId, $id);
         if ((int)$skill['status'] !== 1 || (string)$skill['release_status'] !== self::ACTIVE || (int)$skill['published_version'] <= 0) throw new Exception('所选 Skill 当前不可用，请重新选择');
         if ((int)($params['skill_version'] ?? 0) > 0 && (int)$params['skill_version'] !== (int)$skill['published_version']) throw new Exception('Skill 已更新，请重新选择并确认新版本');
-        $version = Db::name('aigc_short_drama_skill_version')->where(['tenant_id' => (int)$skill['tenant_id'], 'skill_id' => $id, 'version' => (int)$skill['published_version']])->find();
+        $version = Db::name('aigc_short_drama_skill_version')->where(['tenant_id' => (int)$skill['tenant_id'], 'skill_id' => $id, 'version' => (int)$skill['published_version'], 'release_status' => self::ACTIVE, 'delete_time' => 0])->find();
         if (!$version) throw new Exception('Skill 已发布版本不存在'); $snapshot = self::decode($version['snapshot_json'] ?? []);
         return ['id' => $id, 'version' => (int)$version['version'], 'source' => in_array(($params['skill_source'] ?? ''), ['manual', 'recommended'], true) ? $params['skill_source'] : 'manual',
             'name' => (string)($snapshot['name'] ?? ''), 'skill_key' => (string)($snapshot['skill_key'] ?? ''), 'definition' => (array)($snapshot['definition'] ?? []), 'model_policy' => (array)($snapshot['model_policy'] ?? []), 'execution_policy' => (array)($snapshot['execution_policy'] ?? [])];
+    }
+
+    /** Resolve an explicit /skill_key without trusting a browser-supplied ID.
+     * Built-in rows win a same-key tenant row, matching the visible catalogue. */
+    public static function resolveForTaskByKey(int $tenantId, string $skillKey): array
+    {
+        self::syncBuiltinSkills();
+        $skillKey=strtolower(trim($skillKey));
+        if (!preg_match('/^[a-z][a-z0-9_]{1,79}$/D',$skillKey)) return [];
+        $where=['skill_key'=>$skillKey,'status'=>1,'release_status'=>self::ACTIVE,'delete_time'=>0];
+        $skill=AigcShortDramaSkill::where(['tenant_id'=>0]+$where)->where('published_version','>',0)->findOrEmpty();
+        if ($skill->isEmpty()) $skill=AigcShortDramaSkill::where(['tenant_id'=>$tenantId]+$where)->where('published_version','>',0)->findOrEmpty();
+        if ($skill->isEmpty()) return [];
+        return self::resolveForTask($tenantId,['skill_id'=>(int)$skill['id'],'skill_version'=>(int)$skill['published_version'],'skill_source'=>'manual']);
     }
 
     public static function recordUsage(int $tenantId, int $userId, int $projectId, string $taskId, array $snapshot, string $status = 'submitted'): void

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "reference_edges": {
+    "text": ["text", "image", "video", "audio"],
+    "image": ["text", "image", "video"],
+    "video": ["text", "video"],
+    "audio": ["text", "video", "audio"]
+  },
+  "annotation_edges": "unrestricted"
+}

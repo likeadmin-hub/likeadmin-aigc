@@ -930,6 +930,30 @@
       "need_role_permission": 0
     },
     {
+      "api_path": "app.aigc_short_drama.canvas/patch",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas/quote",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas/confirmQuote",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
       "api_path": "app.aigc_short_drama.canvas/run",
       "api_method": "POST",
       "permission_key": "aigc_short_drama:canvas:use:user",
@@ -940,6 +964,158 @@
     {
       "api_path": "app.aigc_short_drama.canvas/task",
       "api_method": "GET",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/threads",
+      "api_method": "GET",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/preferences",
+      "api_method": "GET",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/workflow",
+      "api_method": "GET",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/answerWorkflow",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/confirmWorkflowPlan",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/confirmWorkflowStage",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/savePreferences",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/createThread",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/renameThread",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/deleteThread",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/messages",
+      "api_method": "GET",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/events",
+      "api_method": "GET",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/send",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/stop",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/run",
+      "api_method": "GET",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/documentQuote",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/confirmDocumentParse",
+      "api_method": "POST",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/document",
+      "api_method": "GET",
+      "permission_key": "aigc_short_drama:canvas:use:user",
+      "scene": "user",
+      "need_login": 1,
+      "need_role_permission": 0
+    },
+    {
+      "api_path": "app.aigc_short_drama.canvas_agent/stream",
+      "api_method": "POST",
       "permission_key": "aigc_short_drama:canvas:use:user",
       "scene": "user",
       "need_login": 1,

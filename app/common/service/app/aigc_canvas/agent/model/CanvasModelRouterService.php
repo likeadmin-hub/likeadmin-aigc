@@ -29,7 +29,8 @@ class CanvasModelRouterService
     {
         try {
             if ($toolCode === 'generate_image') {
-                $params = self::applyImageMarketSelection($tenantId, $params + ['quantity' => 1]);
+                $params['quantity'] = max(1, (int)($params['quantity'] ?? $params['count'] ?? 1));
+                $params = self::applyImageMarketSelection($tenantId, $params);
                 $selection = self::marketSelectionFromParams($params);
                 $quote = MarketNanoBananaAppRuntimeService::isSelection($selection)
                     ? MarketNanoBananaAppRuntimeService::quote($tenantId, $selection, (int)($params['quantity'] ?? 1))

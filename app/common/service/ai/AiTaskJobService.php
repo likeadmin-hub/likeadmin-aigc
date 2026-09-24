@@ -324,12 +324,13 @@ class AiTaskJobService
 
     private static function rescheduleDelay(array $job, int $delay): int
     {
-        if ((string)($job['job_type'] ?? '') !== self::TYPE_QUERY_RESULT) {
+        if (!in_array((string)($job['job_type'] ?? ''), [self::TYPE_QUERY_RESULT, self::TYPE_PROCESS_RESULT], true)) {
             return max(1, $delay);
         }
 
         // Keep early result polls responsive, then reduce pressure from tasks
-        // that remain pending while the provider or its query endpoint is slow.
+        // that remain pending while the provider, result transfer or business
+        // binding is slow. Waiting does not imply failure or authorize refund.
         $attempts = max(1, (int)($job['attempts'] ?? 1));
         return min(60, max(5, $delay, 5 * (int)ceil($attempts / 10)));
     }

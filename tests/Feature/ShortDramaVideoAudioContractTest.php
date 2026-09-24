@@ -51,6 +51,19 @@ class ShortDramaVideoAudioContractTest extends TestCase
         self::assertTrue($this->invokeRuntime('supportsAudioGeneration', [], ['params_schema' => ['generate_audio' => ['type' => 'boolean']]]));
     }
 
+    public function testSeedanceReceivesItsAudioChoiceWithoutLeakingItToFullVideo(): void
+    {
+        $request = ['prompt' => 'Synthetic video', 'duration' => 4, 'generate_audio' => false];
+        $seedance = $this->invokeRuntime('appPayload', ['app_code' => 'seedance', 'locked_params' => []], $request, 'audio-test');
+        $fullVideo = $this->invokeRuntime('appPayload', [
+            'app_code' => 'full_video', 'model_code' => 'full-video', 'locked_params' => ['resolution' => '480P'],
+        ], $request, 'audio-test');
+
+        self::assertFalse($seedance['generate_audio']);
+        self::assertArrayNotHasKey('generate_audio', $fullVideo);
+        self::assertArrayNotHasKey('audio', $fullVideo);
+    }
+
     public function testEveryVideoRuntimeFacadeExposesTheAudioCapabilityContract(): void
     {
         foreach ([MarketVideoModelRuntimeService::class, MarketVideoAppRuntimeService::class] as $runtime) {

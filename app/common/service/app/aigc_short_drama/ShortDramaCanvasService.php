@@ -8,6 +8,9 @@ use app\common\service\app\aigc_local_redraw\AigcLocalRedrawService;
 use app\common\service\app\aigc_llm\AigcLlmService;
 use app\common\service\app\aigc_music\AigcMusicService;
 use app\common\service\app\aigc_video\AigcVideoService;
+use app\common\service\app\aigc_short_drama\canvas_agent\GraphService;
+use app\common\service\app\aigc_short_drama\canvas_agent\GenerationIntentService;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStore;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\FileService;
 use app\common\service\storage\StorageConfigService;
@@ -24,6 +27,8 @@ class ShortDramaCanvasService
 {
     private const DOCUMENT_TABLE = 'aigc_short_drama_canvas';
     private const RUN_TABLE = 'aigc_short_drama_canvas_run';
+    private const QUOTE_TABLE = 'aigc_short_drama_canvas_quote';
+    private const QUOTE_TTL_SECONDS = 600;
 
     public static function current(int $tenantId, int $userId, int $id = 0): array
     {
@@ -68,8 +73,26 @@ class ShortDramaCanvasService
 
     public static function save(int $tenantId, int $userId, array $params): array
     {
-        $document = self::ownedDocument($tenantId, $userId, (int)($params['id'] ?? 0));
-        $nodes = self::normalizeNodes((array)($params['nodes'] ?? []));
+        return Db::transaction(function () use ($tenantId, $userId, $params): array {
+        // Poster/video projectors already lock this row. Acquire the same lock
+        // before reading, merging and saving so a completed poster cannot be
+        // overwritten between the read and the document update.
+        $document = self::ownedDocument($tenantId, $userId, (int)($params['id'] ?? 0), true);
+        GraphService::validateSaveRevision($document, $params);
+        // Transitional CAS for the deployed schema. This detects every JSON
+        // writer without requiring a live migration. Legacy callers remain
+        // compatible until the versioned graph contract is fully rolled out.
+        if (array_key_exists('expected_document_token', $params)) {
+            $expected = (string)$params['expected_document_token'];
+            if (!preg_match('/^[a-f0-9]{64}$/D', $expected) || !hash_equals(self::documentToken($document), $expected)) {
+                throw new Exception('VERSION_CONFLICT: 云端画布已变化，本地修改已保留，请重新读取后再编辑');
+            }
+        }
+        $rawNodes=(array)($params['nodes']??[]);
+        // Validate before legacy normalization can discard malformed entries.
+        $nodes=((int)($document['schema_version']??1)>=2 || array_key_exists('expected_revision',$params))
+            ? GraphService::sanitizeManualNodes($document,$rawNodes) : $rawNodes;
+        $nodes = self::normalizeNodes($nodes);
         $removed = array_unique(array_merge(
             self::decode((string)($document['removed_node_ids_json'] ?? '[]')),
             array_map('strval', (array)($params['removed_node_ids'] ?? []))
@@ -83,15 +106,16 @@ class ShortDramaCanvasService
         self::queueVideoPosters($tenantId, $userId, (int)$document['id'], $nodes, false);
         $title = trim((string)($params['title'] ?? $document['title']));
         $title = mb_substr($title ?: '无标题空间', 0, 40);
-        Db::name(self::DOCUMENT_TABLE)->where('id', $document['id'])->update([
+        GraphService::persistLockedDocument($document, [
             'title' => $title, 'nodes_json' => json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'edges_json' => json_encode($edges, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'removed_node_ids_json' => json_encode($removed),
             'viewport_json' => json_encode((array)($params['viewport'] ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
             'update_time' => time(),
-        ]);
+        ] + (array_key_exists('expected_revision', $params) ? ['schema_version'=>2] : []));
         self::queueVideoPosters($tenantId, $userId, (int)$document['id'], $nodes);
         return self::currentById($tenantId, $userId, (int)$document['id']);
+        });
     }
 
     /**
@@ -248,7 +272,15 @@ class ShortDramaCanvasService
         $type = strtolower(trim((string)($params['type'] ?? '')));
         if (!in_array($type, ['text', 'image', 'video', 'audio'], true)) throw new Exception('不支持的短剧画布节点类型');
         if ($nodeId === '') throw new Exception('缺少画布节点');
-        $payload = self::generationPayload($type, $params);
+        $savedNode = null;
+        foreach (self::decode((string)($document['nodes_json'] ?? '[]')) as $candidate) {
+            if ((string)($candidate['id'] ?? '') === $nodeId) { $savedNode = $candidate; break; }
+        }
+        if (!$savedNode) throw new Exception('NODE_NOT_FOUND: 请先保存节点，已删除的节点不能生成');
+        if ((string)($savedNode['type'] ?? '') !== $type) throw new Exception('NODE_TYPE_MISMATCH: 节点类型已变化，请重新读取画布');
+        $params=self::withGraphReferenceInputs($document,$nodeId,$params);
+        $params=self::withAgentSubmissionTemplate($document,$nodeId,$type,$params,$tenantId,$userId);
+        $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id']);
         // Resolve on the server so disabled, cross-tenant and stale Skills
         // cannot be submitted by replaying a saved composer selection.
         if ((int)($params['skill_id'] ?? 0) > 0) {
@@ -263,14 +295,7 @@ class ShortDramaCanvasService
             'result_json' => '{}', 'error' => '', 'create_time' => $now, 'update_time' => $now, 'delete_time' => 0,
         ]);
         try {
-            $result = match ($type) {
-                'text' => AigcLlmService::generateText($tenantId, $userId, $payload),
-                'image' => ($payload['operation'] ?? '') === 'local_redraw'
-                    ? AigcLocalRedrawService::generate($tenantId, $userId, $payload)
-                    : AigcImageService::generate($tenantId, $userId, $payload),
-                'video' => AigcVideoService::generate($tenantId, $userId, $payload),
-                'audio' => AigcMusicService::generate($tenantId, $userId, $payload),
-            };
+            $result = self::executeGenerationPayload($type, $tenantId, $userId, $payload);
             // Text generation is a synchronous market request. Its successful
             // response carries content rather than an asynchronous task status,
             // so treating an omitted status as "running" leaves the canvas node
@@ -301,17 +326,242 @@ class ShortDramaCanvasService
         return self::runDetail($tenantId, $userId, $runId);
     }
 
+    /**
+     * Price a generation request without creating a task or reserving points.
+     * The durable quote binds the exact request key and server-normalized
+     * selection, so the browser cannot reuse a confirmation after changing a
+     * model, duration, resolution or an owned reference-asset version.
+     */
+    public static function quote(int $tenantId, int $userId, array $params): array
+    {
+        $document = self::ownedDocument($tenantId, $userId, (int)($params['canvas_id'] ?? 0));
+        $nodeId = trim((string)($params['node_id'] ?? ''));
+        $type = strtolower(trim((string)($params['type'] ?? '')));
+        $previewOnly = filter_var($params['preview_only'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($type !== 'video' && (!$previewOnly || !in_array($type, ['image', 'audio'], true))) {
+            throw new Exception('QUOTE_UNSUPPORTED_NODE_TYPE');
+        }
+        self::assertGenerationNode($document, $nodeId, $type);
+        $key = trim((string)($params['request_key'] ?? ''));
+        if (!$previewOnly) self::assertRequestKey($key);
+        $params=self::withGraphReferenceInputs($document,$nodeId,$params);
+        $params=self::withAgentSubmissionTemplate($document,$nodeId,$type,$params,$tenantId,$userId);
+        $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id']);
+        $quote = match ($type) {
+            'video' => AigcVideoService::estimate($tenantId, $payload),
+            'audio' => AigcMusicService::estimate($tenantId, $payload),
+            'image' => ($payload['operation'] ?? '') === 'local_redraw'
+                ? AigcLocalRedrawService::estimate($tenantId, $payload)
+                : AigcImageService::estimate($tenantId, $payload),
+        };
+        if ($previewOnly) return ['status' => 'preview', 'quote' => self::publicQuote($quote)];
+        $quoteInput = self::quoteInputForDocument($document, $nodeId, $payload);
+        $inputHash = hash('sha256', self::json($quoteInput));
+        $now = time();
+        $token = bin2hex(random_bytes(24));
+        $expiresAt = $now + self::QUOTE_TTL_SECONDS;
+        Db::name(self::QUOTE_TABLE)->insert([
+            'tenant_id' => $tenantId, 'user_id' => $userId, 'canvas_id' => (int)$document['id'], 'node_id' => $nodeId,
+            'request_key' => $key, 'quote_token' => $token, 'input_hash' => $inputHash,
+            'request_json' => self::json($quoteInput), 'quote_json' => self::json(self::publicQuote($quote)),
+            'status' => 'quoted', 'expires_at' => $expiresAt, 'confirmed_at' => 0, 'create_time' => $now, 'update_time' => $now,
+        ]);
+        return ['quote_token' => $token, 'status' => 'quoted', 'expires_at' => $expiresAt, 'quote' => self::publicQuote($quote)];
+    }
+
+    /** Explicit user acknowledgement only; it never submits a Provider task. */
+    public static function confirmQuote(int $tenantId, int $userId, array $params): array
+    {
+        $canvasId = (int)($params['canvas_id'] ?? 0);
+        $nodeId = trim((string)($params['node_id'] ?? ''));
+        $token = trim((string)($params['quote_token'] ?? ''));
+        if (!preg_match('/^[a-f0-9]{48}$/D', $token)) throw new Exception('INVALID_QUOTE_TOKEN');
+        self::ownedDocument($tenantId, $userId, $canvasId);
+        return Db::transaction(function () use ($tenantId, $userId, $canvasId, $nodeId, $token): array {
+            $row = Db::name(self::QUOTE_TABLE)->where([
+                'tenant_id' => $tenantId, 'user_id' => $userId, 'canvas_id' => $canvasId, 'node_id' => $nodeId, 'quote_token' => $token,
+            ])->lock(true)->find();
+            if (!$row) throw new Exception('QUOTE_NOT_FOUND');
+            if ((int)$row['expires_at'] < time()) throw new Exception('QUOTE_EXPIRED');
+            if (!in_array((string)$row['status'], ['quoted', 'confirmed'], true)) throw new Exception('QUOTE_CONFIRMATION_REQUIRED');
+            if ((string)$row['status'] === 'quoted') {
+                Db::name(self::QUOTE_TABLE)->where('id', (int)$row['id'])->update(['status' => 'confirmed', 'confirmed_at' => time(), 'update_time' => time()]);
+                $row['status'] = 'confirmed';
+            }
+            return ['quote_token' => (string)$row['quote_token'], 'status' => 'confirmed', 'expires_at' => (int)$row['expires_at'], 'quote' => self::decode((string)$row['quote_json'])];
+        });
+    }
+
+    /** P1 integration boundary, deliberately not routed until recovery/UI gates pass. */
+    public static function submitIdempotent(int $tenantId, int $userId, array $params): array
+    {
+        $document=self::ownedDocument($tenantId,$userId,(int)($params['canvas_id']??0));
+        $nodeId=trim((string)($params['node_id']??''));
+        $type=strtolower(trim((string)($params['type']??'')));
+        if (!in_array($type,['text','image','video','audio'],true)) throw new Exception('不支持的短剧画布节点类型');
+        // Validate the saved target before any video-specific confirmation
+        // policy. A stale/deleted node must never be reported as a pricing
+        // issue, nor cause a quote lookup.
+        self::assertGenerationNode($document, $nodeId, $type);
+        $nodes=self::decode((string)($document['nodes_json']??'[]'));
+        foreach ($nodes as $node) {
+            $metadata=is_array($node['metadata']??null)?$node['metadata']:[];
+            if ((string)($node['id']??'')===$nodeId && !empty($metadata['workflow_audio_disabled'])) {
+                throw new Exception('WORKFLOW_AUDIO_GENERATION_UNAVAILABLE');
+            }
+        }
+        $edges=self::decode((string)($document['edges_json']??'[]'));
+        $params=self::withGraphReferenceInputs($document,$nodeId,$params);
+        $params=self::withAgentSubmissionTemplate($document,$nodeId,$type,$params,$tenantId,$userId);
+        $key=(string)($params['request_key']??'');
+        $payload=self::generationPayload($type,$params,$tenantId,$userId,(int)$document['id']);
+        $requestInput=$payload+['skill_id'=>(int)($params['skill_id']??0),'skill_version'=>(int)($params['skill_version']??0),'skill_inputs'=>(array)($params['skill_inputs']??[])];
+        $intent=GenerationIntentService::lookup($tenantId,$userId,(int)$document['id'],$key,$nodeId,$type,$requestInput);
+        if (!$intent) {
+            if ($type === 'video') self::assertConfirmedQuote($tenantId, $userId, $document, $nodeId, $key, $payload, (string)($params['quote_token'] ?? ''));
+            if ((int)($params['skill_id']??0)>0) $payload=self::applyComposerSkill($type,$payload,$params,ShortDramaSkillService::resolveForTask($tenantId,$params));
+            $intent=GenerationIntentService::reserve($tenantId,$userId,(int)$document['id'],$key,$nodeId,$type,$payload,$requestInput);
+        }
+        $runId=(int)$intent['canvas_run_id'];
+        $claim=GenerationIntentService::claim($tenantId,$userId,(int)$intent['id']);
+        if (!$claim) return self::runDetail($tenantId,$userId,$runId);
+        // Use the winner's persisted snapshot, never the losing request's newly
+        // resolved Skill/model input. Provider I/O is outside intent transactions.
+        $snapshot=json_decode($claim['snapshot_json'],true,512,JSON_THROW_ON_ERROR);
+        $executionInput=$snapshot['input'];
+        if ($type==='text') {
+            // Persist the canvas-run ownership before a synchronous text call.
+            // This makes a failed initial model and any server-routed fallback
+            // auditable without relying on browser state.
+            $executionInput['business_table']=self::RUN_TABLE;
+            $executionInput['business_id']=$runId;
+        }
+        try {
+            $result=self::executeGenerationPayload($type,$tenantId,$userId,$executionInput);
+        } catch (\app\common\service\ai\PreSubmissionRejected $error) {
+            GenerationIntentService::rejected($tenantId,$userId,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],$error);
+            self::syncShortDramaTask($runId);
+            return self::runDetail($tenantId,$userId,$runId);
+        } catch (\Throwable $error) {
+            if (self::isConfirmedModelUnavailable($error)) {
+                // The text market has already recorded/refunded this specific
+                // request without an upstream receipt. It is safe to expose a
+                // terminal failure and allow a new request key after switching
+                // models; it must not be presented as an ambiguous paid submit.
+                GenerationIntentService::failed($tenantId,$userId,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],
+                    'UPSTREAM_MODEL_UNAVAILABLE','当前选择的模型暂不可用，请切换模型后重新提交');
+            } else {
+                // Lower services remain billing authorities. An unclassified
+                // error cannot prove that no external task was accepted or that
+                // a refund ran, so it is never automatically resubmitted.
+                GenerationIntentService::unknown($tenantId,$userId,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version']);
+            }
+            self::syncShortDramaTask($runId);
+            return self::runDetail($tenantId,$userId,$runId);
+        }
+        GenerationIntentService::accepted($tenantId,$userId,(int)$claim['id'],$claim['claim_token'],(int)$claim['fencing_version'],
+            (string)($result['image_task_id']??$result['task_id']??$result['id']??''),$result,$type==='text');
+        if ($type==='text') MarketTextModelRuntimeService::bindBusinessTask((int)($result['app_task_id']??0),self::RUN_TABLE,$runId);
+        self::syncShortDramaTask($runId);
+        return self::runDetail($tenantId,$userId,$runId);
+    }
+
+    /**
+     * Server-only continuation for an Agent node that was created in auto
+     * mode.  It intentionally does not accept a browser payload: model,
+     * prompt, source assets and the idempotency key all come from the owned
+     * graph.  Video never enters here because it requires a fresh explicit
+     * quote confirmation.
+     *
+     * @return 'submitted'|'waiting'|'blocked'
+     */
+    public static function submitAgentAutoNode(int $tenantId, int $userId, int $canvasId, string $nodeId): string
+    {
+        $document=self::ownedDocument($tenantId,$userId,$canvasId);
+        $nodes=self::decode((string)($document['nodes_json']??'[]'));
+        $edges=self::decode((string)($document['edges_json']??'[]'));
+        $target=null;
+        foreach ($nodes as $node) if ((string)($node['id']??'')===$nodeId) {$target=$node;break;}
+        if (!$target) throw new Exception('NODE_NOT_FOUND');
+        $metadata=(array)($target['metadata']??[]);
+        $type=(string)($target['type']??'');
+        if (empty($metadata['agent_auto_submit']) || !in_array($type,['text','image'],true)) throw new Exception('AGENT_AUTO_SUBMIT_FORBIDDEN');
+        if ((string)($metadata['status']??'idle')!=='idle') return 'waiting';
+        $confirmedHash=(string)($metadata['agent_auto_payload_hash']??'');
+        if ($confirmedHash!=='' && !hash_equals($confirmedHash,GraphService::autoPayloadHash($metadata))) {
+            GraphService::blockAgentDependentNode($tenantId,$userId,$canvasId,$nodeId,'已确认的生成计划参数发生变化，请重新规划后提交');
+            return 'blocked';
+        }
+        $key=(string)($metadata['agent_auto_request_key']??'');
+        self::assertRequestKey($key);
+        $dependency=self::agentAutoDependencyState($nodes,$edges,$nodeId);
+        if ($dependency['state']==='blocked') {
+            GraphService::blockAgentDependentNode($tenantId,$userId,$canvasId,$nodeId,'前序节点生成失败，未提交此依赖节点');
+            return 'blocked';
+        }
+        if ($dependency['state']!=='ready') return 'waiting';
+        $params=[
+            'canvas_id'=>$canvasId,'node_id'=>$nodeId,'type'=>$type,
+            'prompt'=>(string)($metadata['prompt']??$metadata['content']??''),
+            'content'=>(string)($metadata['prompt']??$metadata['content']??''),
+            'model_code'=>(string)($metadata['model_code']??''),
+            'channel'=>(string)($metadata['channel']??''),
+            'model_id'=>(string)($metadata['model_id']??''),
+            'ratio'=>(string)($metadata['ratio']??''),'resolution'=>(string)($metadata['resolution']??''),
+            'quality'=>(string)($metadata['quality']??''),'count'=>(int)($metadata['count']??1),
+            'request_key'=>$key,'reference_assets'=>$dependency['references'],
+        ];
+        self::submitIdempotent($tenantId,$userId,$params);
+        return 'submitted';
+    }
+
+    private static function executeGenerationPayload(string $type,int $tenantId,int $userId,array $payload): array
+    {
+        return match ($type) {
+            'text'=>AigcLlmService::generateText($tenantId,$userId,$payload),
+            'image'=>($payload['operation']??'')==='local_redraw'
+                ? AigcLocalRedrawService::generate($tenantId,$userId,$payload)
+                : AigcImageService::generate($tenantId,$userId,$payload),
+            'video'=>AigcVideoService::generate($tenantId,$userId,$payload),
+            'audio'=>AigcMusicService::generate($tenantId,$userId,$payload),
+        };
+    }
+
+    /**
+     * Only classify a response as terminal when the Provider explicitly says
+     * the requested model does not exist or is not sellable. Timeouts, 5xx and
+     * connection failures remain ambiguous because they may follow acceptance.
+     */
+    private static function isConfirmedModelUnavailable(\Throwable $error): bool
+    {
+        $message=mb_strtolower(trim($error->getMessage()),'UTF-8');
+        foreach ([
+            'model_not_found','model not found','invalid_model','invalid model',
+            'unsupported_model','unsupported model','所选文本模型未上架',
+            '所选文本模型已不可用','当前模型已下架','当前模型不可用',
+        ] as $needle) {
+            if (str_contains($message,$needle)) return true;
+        }
+        return false;
+    }
+
     public static function runDetail(int $tenantId, int $userId, int $runId): array
     {
         $run = Db::name(self::RUN_TABLE)->where(['id' => $runId, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])->find();
         if (!$run) throw new Exception('画布任务不存在或无权访问');
         self::refreshRun($run);
         $run = Db::name(self::RUN_TABLE)->where('id', $runId)->find();
+        if (!empty(self::decode((string)$run['request_json'])['__canvas_intent_version'])) {
+            GenerationIntentService::projectStatus($tenantId,$userId,$runId);
+        }
         return self::formatRun($run);
     }
 
     private static function refreshRun(array $run): void
     {
+        // A retained late receipt is evidence, not permission for ordinary
+        // polling to settle an unresolved submission or invoke provider sync.
+        if ((string)$run['status']==='needs_reconciliation') return;
         // Successful runs are reconciled again on detail reads. This repairs an
         // expired/raw provider URI into a storage-authorized delivery URL and
         // backfills short-drama history if a browser closed before polling.
@@ -320,7 +570,12 @@ class ShortDramaCanvasService
             return;
         }
         $externalId = (int)($run['provider_task_id'] ?? 0);
-        if ($externalId <= 0 || (string)$run['node_type'] === 'text') return;
+        $intentRun=!empty(self::decode((string)$run['request_json'])['__canvas_intent_version']);
+        if ((string)$run['node_type'] === 'text') {
+            if ($intentRun) GenerationIntentService::projectResult((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
+            return;
+        }
+        if ($externalId <= 0) return;
         $type = (string)$run['node_type'];
         // Image-market tasks expose an explicit reconciliation hook. Video and
         // music runtimes publish their status through their own callback flows,
@@ -355,10 +610,15 @@ class ShortDramaCanvasService
             'error' => (string)($task['error'] ?? $task['error_msg'] ?? ''),
             'result_json' => json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'update_time' => time(),
         ]);
-        if ($type === 'video' && $status === 'success' && $urls) {
+        // Asset registration enriches the immutable run result with the
+        // canvas-owned asset id. Do it before intent projection: downstream
+        // nodes must receive an identity that survives a signed URL refresh.
+        self::syncShortDramaTask((int)$run['id']);
+        $run = Db::name(self::RUN_TABLE)->where('id', $run['id'])->find() ?: $run;
+        if (!$intentRun && $type === 'video' && $status === 'success' && $urls) {
             self::projectVideoRunToCanvas($run, $urls[0]);
         }
-        self::syncShortDramaTask((int)$run['id']);
+        if ($intentRun) GenerationIntentService::projectResult((int)$run['tenant_id'],(int)$run['user_id'],(int)$run['id']);
     }
 
     /** Persist completed video metadata even when the browser closes before its next poll. */
@@ -379,16 +639,24 @@ class ShortDramaCanvasService
                 if ((string)($node['id'] ?? '') !== $nodeId) continue;
                 $metadata = is_array($node['metadata'] ?? null) ? $node['metadata'] : [];
                 if ((int)($metadata['canvasRunId'] ?? 0) !== (int)$run['id']) continue;
+                $previousMetadata = $metadata;
+                $posterUrl = (string)($result['poster_url'] ?? '');
+                $posterUri = (string)($result['poster_uri'] ?? '');
+                if ($posterUrl === '' && $posterUri === '' && self::canvasStoredUri((string)($metadata['video_url'] ?? $metadata['url'] ?? '')) === $uri) {
+                    $posterUrl = (string)($metadata['poster_url'] ?? '');
+                    $posterUri = (string)($metadata['poster_uri'] ?? '');
+                }
                 $metadata = array_merge($metadata, [
                     'url' => (string)$result['url'], 'video_url' => (string)$result['url'],
                     'storage_scope' => (string)($result['storage_scope'] ?? ''),
                     'storage_engine' => (string)($result['storage_engine'] ?? ''),
                     'storage_domain' => (string)($result['storage_domain'] ?? ''),
-                    'poster_url' => (string)($result['poster_url'] ?? ''),
-                    'poster_uri' => (string)($result['poster_uri'] ?? ''),
-                    'poster_status' => !empty($result['poster_url']) ? 'ready' : 'pending',
+                    'poster_url' => $posterUrl,
+                    'poster_uri' => $posterUri,
+                    'poster_status' => $posterUrl !== '' || $posterUri !== '' ? 'ready' : 'pending',
                     'status' => 'success', 'progress' => 100, 'error' => '',
                 ]);
+                if ($metadata === $previousMetadata) break;
                 $node['metadata'] = $metadata;
                 $changed = true;
                 break;
@@ -396,16 +664,21 @@ class ShortDramaCanvasService
             unset($node);
             if (!$changed) return;
             self::queueVideoPosters((int)$run['tenant_id'], (int)$run['user_id'], $canvasId, $nodes);
-            Db::name(self::DOCUMENT_TABLE)->where('id', $canvasId)->update([
+            GraphService::persistLockedDocument($document, [
                 'nodes_json' => json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'update_time' => time(),
             ]);
         });
     }
 
     /** Mirror canvas-owned work into the short-drama task/asset history without sharing another canvas app. */
-    private static function syncShortDramaTask(int $runId): void
+    private static function syncShortDramaTask(int $runId, bool $locked=false): void
     {
-        $run = Db::name(self::RUN_TABLE)->where('id', $runId)->find();
+        if (!$locked) {
+            Db::transaction(static function () use ($runId): void { self::syncShortDramaTask($runId,true); });
+            return;
+        }
+        // Serialize history/asset upserts for concurrent retries and polling.
+        $run = Db::name(self::RUN_TABLE)->where('id', $runId)->lock(true)->find();
         if (!$run) return;
         $canvas = Db::name(self::DOCUMENT_TABLE)->where([
             'id' => (int)$run['canvas_id'], 'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'delete_time' => 0,
@@ -419,6 +692,10 @@ class ShortDramaCanvasService
         }
         $now = time();
         $request = self::decode((string)$run['request_json']);
+        $inputAssetIds = array_values(array_unique(array_filter(array_map(
+            static fn($reference): int => is_array($reference) ? (int)($reference['asset_id'] ?? 0) : 0,
+            (array)($request['reference_assets'] ?? [])
+        ))));
         $skill = (array)($request['skill_snapshot'] ?? []);
         $data = [
             'tenant_id' => (int)$run['tenant_id'], 'user_id' => (int)$run['user_id'], 'project_id' => 0, 'canvas_id' => (int)$run['canvas_id'], 'shot_id' => '',
@@ -430,7 +707,7 @@ class ShortDramaCanvasService
             'market_product_id' => (int)($source['market_product_id'] ?? 0), 'market_sku_id' => (int)($source['market_sku_id'] ?? 0),
             'status' => $status, 'progress' => (int)$run['progress'], 'provider' => (string)($source['provider'] ?? 'canvas'), 'provider_task_id' => (string)($source['provider_task_id'] ?? ''),
             'provider_request_id' => (string)($source['provider_request_id'] ?? ''), 'model_json' => json_encode((array)($source['model'] ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'request_json' => (string)$run['request_json'],
-            'result_json' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'input_asset_ids' => '[]',
+            'result_json' => json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'input_asset_ids' => json_encode($inputAssetIds),
             'pricing_snapshot' => json_encode((array)($source['pricing'] ?? []), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'billing_status' => (string)($source['billing_status'] ?? 'delegated'), 'tenant_cost_points' => (float)($source['tenant_cost_points'] ?? 0), 'user_charge_points' => (float)($source['user_charge_points'] ?? 0),
             'idempotency_key' => sha1((int)$run['tenant_id'] . '|' . (int)$run['user_id'] . '|' . $taskId), 'retry_count' => 0,
             'error_code' => $status === 'failed' ? 'canvas_generation_failed' : '', 'error_msg' => (string)$run['error'],
@@ -447,6 +724,7 @@ class ShortDramaCanvasService
         $providerTaskId = (int)$run['provider_task_id'];
         if ($providerTaskId <= 0) return;
         $assetIds = [];
+        $assetIdsByUri = [];
         foreach (Db::name($resultTable)->where(['tenant_id' => (int)$run['tenant_id'], 'task_id' => $providerTaskId, 'delete_time' => 0])->select()->toArray() as $index => $item) {
             $uri = (string)($item[$column] ?? '');
             if ($uri === '') continue;
@@ -461,8 +739,25 @@ class ShortDramaCanvasService
                 ]);
             } else $assetId = (int)$asset['id'];
             $assetIds[] = $assetId;
+            $assetIdsByUri[$uri] = $assetId;
         }
-        if ($assetIds) Db::name('aigc_short_drama_generation_task')->where(['tenant_id' => (int)$run['tenant_id'], 'task_id' => $taskId])->update(['output_asset_ids' => json_encode($assetIds), 'update_time' => time()]);
+        if (!$assetIds) return;
+        // Keep the task history and the canvas run in sync. The run is what
+        // Graph projection and browser polling consume, so it must expose the
+        // same durable output identity as the asset library.
+        $resultItems = (array)($result['results'] ?? $result['images'] ?? $result['videos'] ?? []);
+        foreach ($resultItems as &$item) {
+            if (!is_array($item)) continue;
+            $uri = self::canvasStoredUri((string)($item['uri'] ?? $item['url'] ?? ''));
+            if ($uri !== '' && isset($assetIdsByUri[$uri])) $item['asset_id'] = $assetIdsByUri[$uri];
+        }
+        unset($item);
+        $result['results'] = $resultItems;
+        $encodedResult = json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        Db::name(self::RUN_TABLE)->where('id', (int)$run['id'])->update(['result_json' => $encodedResult, 'update_time' => time()]);
+        Db::name('aigc_short_drama_generation_task')->where(['tenant_id' => (int)$run['tenant_id'], 'task_id' => $taskId])->update([
+            'output_asset_ids' => json_encode($assetIds), 'result_json' => $encodedResult, 'update_time' => time(),
+        ]);
     }
 
     /** Read only the auditable fields from the task created by the delegated runtime. */
@@ -527,20 +822,261 @@ class ShortDramaCanvasService
         return $payload;
     }
 
-    private static function generationPayload(string $type, array $params): array
+    /**
+     * Resolve Agent-created dependency edges from the authoritative graph.
+     * This is deliberately a pure evaluator so both the existing Agent worker
+     * and the submit endpoint take the same readiness decision after a race or
+     * worker restart. Only an explicit same-plan dependency can become
+     * terminally blocked; ordinary selected context remains compatible with
+     * its previous wait-until-media-ready behavior.
+     *
+     * @return array{state:'ready'|'waiting'|'blocked',references:list<array<string,mixed>>}
+     */
+    public static function agentAutoDependencyState(array $nodes, array $edges, string $targetId): array
+    {
+        $plan=self::agentPlanDependencyState($nodes,$edges,$targetId);
+        if ($plan['state']!=='ready') return $plan+['text_context'=>[]];
+        $byId=[];
+        foreach ($nodes as $node) if (is_array($node) && isset($node['id'])) $byId[(string)$node['id']]=$node;
+        $references=[];
+        $textContext=[];
+        $seenText=[];
+        foreach ($edges as $edge) {
+            if (!is_array($edge) || (string)($edge['to']??'')!==$targetId || (string)($edge['kind']??'reference')!=='reference') continue;
+            if ((string)($edge['role']??'')==='agent_dependency') continue;
+            $source=$byId[(string)($edge['from']??'')]??null;
+            if (!$source) continue;
+            $type=(string)($source['type']??'');
+            $metadata=(array)($source['metadata']??[]);
+            if ($type==='text') {
+                $content=trim((string)($metadata['content']??$metadata['prompt']??''));
+                $identity=(string)($source['id']??'').'|'.$content;
+                if ($content!=='' && !isset($seenText[$identity])) {
+                    $seenText[$identity]=true;
+                    $textContext[]=['title'=>mb_substr(trim((string)($source['title']??'')),0,80),'content'=>mb_substr($content,0,6000)];
+                }
+                continue;
+            }
+            $status=(string)($metadata['status']??'');
+            if (!in_array($type,['image','video','audio'],true)) {
+                continue;
+            }
+            if (in_array($status,['failed','canceled'],true)) return ['state'=>'blocked','references'=>[],'text_context'=>[]];
+            if ($status!=='success') return ['state'=>'waiting','references'=>[],'text_context'=>[]];
+            $assetId=(int)($metadata['asset_id']??0);
+            if ($assetId<=0) return ['state'=>'waiting','references'=>[],'text_context'=>[]];
+            $references[]=[
+                'type'=>$type,'asset_id'=>$assetId,
+                'role'=>in_array((string)($edge['role']??''),['first_frame','last_frame','reference'],true)
+                    ? (string)$edge['role'] : 'reference',
+            ];
+        }
+        return ['state'=>'ready','references'=>self::mergeReferenceAssets($plan['references'],$references),'text_context'=>$textContext];
+    }
+
+    /** Resolve graph inputs once for quoting and every submit path. Linked
+     * text is passed as bounded prompt context; linked completed media is
+     * resolved as an owned asset. This makes a visible reference edge a real
+     * request input without allowing browser-supplied IDs or URLs. */
+    private static function withGraphReferenceInputs(array $document,string $nodeId,array $params): array
+    {
+        $nodes=self::decode((string)($document['nodes_json']??'[]'));
+        $edges=self::decode((string)($document['edges_json']??'[]'));
+        $context=self::agentAutoDependencyState($nodes,$edges,$nodeId);
+        if (($context['state']??'waiting')==='blocked') throw new Exception('前序或引用节点生成失败，请先重试前序节点');
+        if (($context['state']??'waiting')!=='ready') throw new Exception('前序或引用节点尚未生成完成，请稍后再试');
+        if (!empty($context['references'])) $params['reference_assets']=self::mergeReferenceAssets((array)($params['reference_assets']??[]),(array)$context['references']);
+        $parts=[];$remaining=12000;
+        foreach ((array)($context['text_context']??[]) as $item) {
+            if (!is_array($item) || $remaining<=0) break;
+            $content=trim((string)($item['content']??''));
+            if ($content==='') continue;
+            $title=trim((string)($item['title']??''));
+            $part=($title===''?'':"【{$title}】\n").mb_substr($content,0,$remaining);
+            $parts[]=$part;$remaining-=mb_strlen($part);
+        }
+        if ($parts) {
+            $prompt=trim((string)($params['prompt']??$params['content']??''));
+            $params['prompt']=$prompt."\n\n【画布已连接上下文】\n".implode("\n\n",$parts);
+            $params['content']=$params['prompt'];
+        }
+        return $params;
+    }
+
+    /** Render only Agent-created media through the formal short-drama submit
+     * template. The source run is scoped to this owner and carries the frozen
+     * prompt workspace, so a later admin edit cannot silently alter a quote
+     * or turn an idempotent retry into a different paid request. */
+    private static function withAgentSubmissionTemplate(array $document,string $nodeId,string $type,array $params,int $tenantId,int $userId): array
+    {
+        if (!in_array($type,['image','video'],true)) return $params;
+        $target=null;
+        foreach (self::decode((string)($document['nodes_json']??'[]')) as $node) {
+            if ((string)($node['id']??'')===$nodeId) {$target=$node;break;}
+        }
+        $metadata=(array)($target['metadata']??[]);
+        $runId=(int)($metadata['workflow_prompt_run_id']??0);
+        if ($runId<=0) return $params; // Older frozen workflows and ordinary nodes remain unchanged.
+        $artifact=(string)($metadata['workflow_artifact']??'');
+        $compatible=match ($type) {
+            'image'=>in_array($artifact,['subject','prop','three_view','scene','storyboard'],true),
+            'video'=>$artifact==='storyboard_video',
+        };
+        if (!$compatible) throw new Exception('WORKFLOW_PROMPT_SNAPSHOT_UNAVAILABLE');
+        $raw=Db::name(ConversationStore::PREFIX.'run')->where([
+            'id'=>$runId,'tenant_id'=>$tenantId,'user_id'=>$userId,'canvas_id'=>(int)$document['id'],'delete_time'=>0,
+        ])->value('context_snapshot');
+        if (!is_string($raw) || $raw==='') throw new Exception('WORKFLOW_PROMPT_SNAPSHOT_UNAVAILABLE');
+        $context=self::decode($raw);
+        $workflow=(array)($context['intent_routing']['workflow_candidate']??$context['workflow']??[]);
+        if (version_compare((string)($workflow['workflow_snapshot']['version']??'0'),'2026-09-23.8','<')) throw new Exception('WORKFLOW_PROMPT_SNAPSHOT_UNAVAILABLE');
+        $snapshot=(array)($workflow['workflow_snapshot']['creative_prompt_snapshot']??[]);
+        if ((int)($snapshot['tenant_id']??-1)!==$tenantId) throw new Exception('WORKFLOW_PROMPT_SNAPSHOT_UNAVAILABLE');
+        $prompt=trim((string)($params['prompt']??$params['content']??''));
+        $title=trim((string)($target['title']??''));
+        $nodesById=[];
+        foreach (self::decode((string)($document['nodes_json']??'[]')) as $node) $nodesById[(string)($node['id']??'')]=$node;
+        $subjects=[];
+        foreach (self::decode((string)($document['edges_json']??'[]')) as $edge) {
+            if ((string)($edge['to']??'')!==$nodeId || (string)($edge['kind']??'reference')!=='reference') continue;
+            $source=$nodesById[(string)($edge['from']??'')]??[];
+            if (!in_array((string)($source['metadata']['workflow_artifact']??''),['subject','three_view'],true)) continue;
+            $subjectTitle=trim((string)($source['title']??''));
+            $subjects[$subjectTitle!==''?$subjectTitle:(string)($source['id']??'')]=true;
+        }
+        $referenceRoles=array_column((array)($params['reference_assets']??[]),'role');
+        // A video may only link its storyboard image even when that image
+        // depicts a person. Missing direct subject edges are not proof of an
+        // empty shot; require an explicit empty-shot label or description.
+        $explicitEmpty=in_array($artifact,['storyboard','storyboard_video'],true)
+            && preg_match('/(?:^|[\s【（(])(?:空镜|无人镜头|无人物镜头)/u', $title.' '.mb_substr($prompt,0,160))===1;
+        $templateContext=[
+            'task_type'=>match ($artifact) {'subject','prop'=>'subject_image','three_view'=>'three_view','scene'=>'scene_image','storyboard'=>'shot_image',default=>'shot_video'},
+            'subject_name'=>in_array($artifact,['subject','prop','three_view'],true)?$title:'',
+            'scene_name'=>$artifact==='scene'?$title:'',
+            'shot_title'=>in_array($artifact,['storyboard','storyboard_video'],true)?$title:'',
+            'visual_description'=>$prompt,
+            'ratio'=>(string)($params['ratio']??$params['aspect_ratio']??''),
+            'duration'=>(string)($params['duration']??''),
+            'prop'=>$artifact==='prop',
+            'empty'=>$explicitEmpty,
+            'subject_count'=>$explicitEmpty?0:max(1,count($subjects)),
+            'first_frame'=>in_array('first_frame',$referenceRoles,true),
+            'last_frame'=>in_array('last_frame',$referenceRoles,true),
+            'missing'=>$prompt==='',
+        ];
+        $params['prompt']=AigcShortDramaService::canvasAgentSubmissionPrompt($tenantId,$snapshot,$artifact,$prompt,$templateContext);
+        $params['content']=$params['prompt'];
+        return $params;
+    }
+
+    /** @return array{state:'ready'|'waiting'|'blocked',references:list<array<string,mixed>>} */
+    public static function agentPlanDependencyState(array $nodes, array $edges, string $targetId): array
+    {
+        $byId=[];
+        foreach ($nodes as $node) if (is_array($node) && isset($node['id'])) $byId[(string)$node['id']]=$node;
+        $references=[];
+        foreach ($edges as $edge) {
+            if (!is_array($edge) || (string)($edge['to']??'')!==$targetId || (string)($edge['kind']??'reference')!=='reference' || (string)($edge['role']??'')!=='agent_dependency') continue;
+            $source=$byId[(string)($edge['from']??'')]??null;
+            if (!$source) return ['state'=>'blocked','references'=>[]];
+            $metadata=(array)($source['metadata']??[]);
+            $status=(string)($metadata['status']??'');
+            if (in_array($status,['failed','canceled'],true)) return ['state'=>'blocked','references'=>[]];
+            if ($status!=='success') return ['state'=>'waiting','references'=>[]];
+            $type=(string)($source['type']??'');
+            if (!in_array($type,['image','video','audio'],true)) continue;
+            $assetId=(int)($metadata['asset_id']??0);
+            if ($assetId<=0) return ['state'=>'waiting','references'=>[]];
+            $references[]=['type'=>$type,'asset_id'=>$assetId,'role'=>'reference'];
+        }
+        return ['state'=>'ready','references'=>$references];
+    }
+
+    /** @return list<array<string,mixed>> */
+    private static function mergeReferenceAssets(array $first, array $second): array
+    {
+        $merged=[]; $seen=[];
+        foreach (array_merge($first,$second) as $reference) {
+            if (!is_array($reference)) continue;
+            $identity=(string)($reference['type']??'').'|'.(string)($reference['asset_id']??'').'|'.(string)($reference['role']??'reference');
+            if ($identity==='||reference' || isset($seen[$identity])) continue;
+            $seen[$identity]=true;
+            $merged[]=$reference;
+        }
+        return $merged;
+    }
+
+    private static function generationPayload(string $type, array $params, int $tenantId, int $userId, int $canvasId): array
     {
         $prompt = trim((string)($params['prompt'] ?? $params['content'] ?? ''));
         if ($prompt === '') throw new Exception('请输入提示内容');
+        $referenceAssets=self::resolveOwnedReferenceAssets($tenantId, $userId, $canvasId, (array)($params['reference_assets'] ?? []));
+        if ($type==='video') foreach ($referenceAssets as &$reference) {
+            $mediaType=strtolower(trim((string)($reference['type']??'')));
+            if ($mediaType==='video' || $mediaType==='audio') {
+                $reference['role']=$mediaType==='video' ? 'reference_video' : 'reference_audio';
+                continue;
+            }
+            $role=(string)($reference['role']??'');
+            $reference['role']=match ($role) {
+                'first_frame'=>'first_frame_image', 'last_frame'=>'last_frame_image',
+                'reference','workflow_reference','agent_dependency',''=>'reference_image',
+                default=>$role,
+            };
+        }
+        unset($reference);
+        if ($type==='video') $referenceAssets=self::canonicalVideoReferenceAssets($referenceAssets);
+        // Owned user uploads take precedence over transient URLs. Their signed
+        // delivery URLs are resolved server-side and image references force the
+        // shared text runtime onto a vision-capable tenant model.
+        $referenceImages=[];
+        foreach ($referenceAssets as $reference) {
+            // The video runtime derives reference_images from reference_assets.
+            // Duplicating their signed URLs here (alongside stable storage
+            // URIs) counted the same connected frame twice at the Provider.
+            if ($type!=='video' && is_array($reference) && strtolower((string)($reference['type'] ?? ''))==='image' && trim((string)($reference['url'] ?? ''))!=='') $referenceImages[]=(string)$reference['url'];
+        }
+        // The canvas browser mirrors every selected image into this legacy
+        // field. Once reference_assets exists it is the sole video source:
+        // a renewed signed URL must not reintroduce the same image as a
+        // second, stale reference. Preserve legacy-only callers as a fallback.
+        if ($type!=='video' || $referenceAssets===[]) {
+            foreach ((array)($params['reference_images'] ?? []) as $image) {
+                if (is_string($image) && trim($image)!=='') $referenceImages[]=trim($image);
+            }
+        }
         $payload = [
             'prompt' => $prompt, 'content' => $prompt, 'channel' => (string)($params['channel'] ?? ''),
             'model_code' => (string)($params['model_code'] ?? ''), 'model_id' => (string)($params['model_id'] ?? ''),
             'ratio' => (string)($params['ratio'] ?? $params['aspect_ratio'] ?? ''), 'duration' => (int)($params['duration'] ?? 0),
             'quantity' => max(1, min(4, (int)($params['count'] ?? $params['quantity'] ?? 1))),
             'generation_method' => (string)($params['generation_method'] ?? $params['generationMethod'] ?? ''),
-            'reference_images' => array_values((array)($params['reference_images'] ?? [])),
-            'reference_assets' => array_values((array)($params['reference_assets'] ?? [])),
+            'reference_images' => array_values(array_unique($referenceImages)),
+            'reference_assets' => $referenceAssets,
             'source_app_code' => AigcShortDramaService::APP_CODE,
         ];
+        if ($type === 'video') {
+            if (array_key_exists('generate_audio', $params)) {
+                $payload['generate_audio'] = filter_var($params['generate_audio'], FILTER_VALIDATE_BOOLEAN);
+            }
+            $payload['selected_mentions'] = array_values(array_filter(
+                (array)($params['selected_mentions'] ?? []),
+                static function ($mention) use ($referenceAssets): bool {
+                    if (!is_array($mention) || trim((string)($mention['name'] ?? '')) === '') return false;
+                    $url = trim((string)($mention['url'] ?? ''));
+                    $assetId = (int)($mention['asset_id'] ?? 0);
+                    foreach ($referenceAssets as $reference) {
+                        if ($assetId > 0 && $assetId === (int)($reference['asset_id'] ?? 0)) return true;
+                        if ($url !== '' && $url === (string)($reference['url'] ?? '')) return true;
+                    }
+                    return false;
+                }
+            ));
+            // Canvas users explicitly place @ references in their prompt.
+            // Do not append every attached image as another spoken instruction.
+            $payload['append_reference_list'] = false;
+        }
         if ($type === 'audio') $payload['lyrics'] = (string)($params['lyrics'] ?? '');
         if ($type === 'image' && ($params['operation'] ?? '') === 'local_redraw') {
             $payload['operation'] = 'local_redraw';
@@ -554,15 +1090,209 @@ class ShortDramaCanvasService
         return array_filter($payload, static fn($value) => $value !== '' && $value !== 0 || is_array($value));
     }
 
-    private static function ownedDocument(int $tenantId, int $userId, int $id): array
+    /**
+     * A linked canvas asset is also present in the browser's composer state.
+     * Both may resolve to the same public URL even though the browser uses the
+     * URL as its URI and the graph uses a storage URI. Keep one media use per
+     * role, preferring the owned graph record; first/last frames remain two
+     * distinct semantic slots even when they intentionally share a file.
+     */
+    private static function canonicalVideoReferenceAssets(array $references): array
     {
-        if ($id <= 0) return self::current($tenantId, $userId);
-        $row = Db::name(self::DOCUMENT_TABLE)->where(['id' => $id, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])->find();
+        $canonical=[];$slots=[];
+        foreach ($references as $reference) {
+            if (!is_array($reference)) continue;
+            $type=strtolower(trim((string)($reference['type']??'')));
+            $url=trim((string)($reference['url']??$reference['uri']??''));
+            if ($type==='' || $url==='') continue;
+            $mediaKey=$type.'|'.$url;
+            $role=(string)($reference['role']??'');
+            $slot=$type==='image' && in_array($role,['first_frame_image','last_frame_image'],true)
+                ? $role : 'reference';
+            if (isset($slots[$mediaKey][$slot])) {
+                $index=$slots[$mediaKey][$slot];
+                if ((int)($reference['asset_id']??0)>0 && (int)($canonical[$index]['asset_id']??0)<=0) {
+                    $canonical[$index]=$reference;
+                }
+                continue;
+            }
+            $slots[$mediaKey][$slot]=count($canonical);
+            $canonical[]=$reference;
+        }
+        foreach ($slots as $positions) {
+            if (!isset($positions['reference']) ||
+                (!isset($positions['first_frame_image']) && !isset($positions['last_frame_image']))) continue;
+            $duplicate=$canonical[$positions['reference']];
+            foreach (['first_frame_image','last_frame_image'] as $role) {
+                if (!isset($positions[$role])) continue;
+                $index=$positions[$role];
+                if ((int)($duplicate['asset_id']??0)>0 && (int)($canonical[$index]['asset_id']??0)<=0) {
+                    $canonical[$index]=array_replace($canonical[$index],$duplicate,['role'=>$role]);
+                }
+            }
+            unset($canonical[$positions['reference']]);
+        }
+        return array_values($canonical);
+    }
+
+    private static function assertGenerationNode(array $document, string $nodeId, string $type): void
+    {
+        if ($nodeId === '') throw new Exception('NODE_NOT_FOUND');
+        foreach (self::decode((string)($document['nodes_json'] ?? '[]')) as $node) {
+            if ((string)($node['id'] ?? '') !== $nodeId) continue;
+            if ((string)($node['type'] ?? '') !== $type) throw new Exception('NODE_TYPE_MISMATCH');
+            return;
+        }
+        throw new Exception('NODE_NOT_FOUND');
+    }
+
+    private static function assertRequestKey(string $key): void
+    {
+        if (!preg_match('/^[a-zA-Z0-9_.:-]{1,100}$/D', $key)) throw new Exception('INVALID_REQUEST_KEY');
+    }
+
+    /** The canonical quote input intentionally uses owned asset identity, not a transient signed URL. */
+    private static function quoteInput(string $nodeId, array $payload): array
+    {
+        $input = $payload;
+        $references = [];
+        foreach ((array)($payload['reference_assets'] ?? []) as $reference) {
+            if (!is_array($reference)) continue;
+            if ((int)($reference['asset_id'] ?? 0) > 0) {
+                $references[] = array_filter([
+                    'type' => (string)($reference['type'] ?? ''), 'role' => (string)($reference['role'] ?? ''),
+                    'asset_id' => (int)$reference['asset_id'], 'uri' => (string)($reference['uri'] ?? ''),
+                    'storage_scope' => (string)($reference['storage_scope'] ?? ''),
+                    'storage_engine' => (string)($reference['storage_engine'] ?? ''), 'storage_domain' => (string)($reference['storage_domain'] ?? ''),
+                ], static fn($value): bool => $value !== '');
+                continue;
+            }
+            $references[] = $reference;
+        }
+        $input['node_id'] = $nodeId;
+        $input['reference_assets'] = $references;
+        // reference_images is derived from reference_assets by the video
+        // adapter. Including it here would make a refreshed signed delivery
+        // URL look like a user edit.
+        if ($references !== []) unset($input['reference_images']);
+        return self::canonical($input);
+    }
+
+    private static function quoteInputForDocument(array $document, string $nodeId, array $payload): array
+    {
+        $input = self::quoteInput($nodeId, $payload);
+        foreach (self::decode((string)($document['nodes_json'] ?? '[]')) as $node) {
+            if ((string)($node['id'] ?? '') === $nodeId) {
+                // A graph revision also advances for server-owned runtime state
+                // (queued/running/failed progress) and for unrelated nodes.  It
+                // must not invalidate a price confirmation while the browser is
+                // waiting on its confirmation dialog.  The canonical request
+                // already covers every billable option; retain the target
+                // content revision as the document-side stale-edit guard.
+                $input['node_content_revision'] = (int)($node['metadata']['content_revision'] ?? 0);
+                break;
+            }
+        }
+        return self::canonical($input);
+    }
+
+    private static function assertConfirmedQuote(int $tenantId, int $userId, array $document, string $nodeId, string $requestKey, array $payload, string $token): void
+    {
+        self::assertRequestKey($requestKey);
+        if (!preg_match('/^[a-f0-9]{48}$/D', $token)) throw new Exception('QUOTE_CONFIRMATION_REQUIRED');
+        $canvasId = (int)$document['id'];
+        Db::transaction(function () use ($tenantId, $userId, $canvasId, $document, $nodeId, $requestKey, $payload, $token): void {
+            $quote = Db::name(self::QUOTE_TABLE)->where([
+                'tenant_id' => $tenantId, 'user_id' => $userId, 'canvas_id' => $canvasId, 'node_id' => $nodeId, 'quote_token' => $token,
+            ])->lock(true)->find();
+            if (!$quote) throw new Exception('QUOTE_NOT_FOUND');
+            if ((int)$quote['expires_at'] < time()) throw new Exception('QUOTE_EXPIRED');
+            if ((string)$quote['status'] !== 'confirmed') throw new Exception('QUOTE_CONFIRMATION_REQUIRED');
+            if (!hash_equals((string)$quote['request_key'], $requestKey)) throw new Exception('QUOTE_REQUEST_MISMATCH');
+            if (!hash_equals((string)$quote['input_hash'], hash('sha256', self::json(self::quoteInputForDocument($document, $nodeId, $payload))))) throw new Exception('QUOTE_INPUT_CHANGED');
+        });
+    }
+
+    private static function publicQuote(array $quote): array
+    {
+        return [
+            'market_product_id' => (int)($quote['market_product_id'] ?? 0), 'market_sku_id' => (int)($quote['market_sku_id'] ?? 0),
+            'tenant_cost_points' => (float)($quote['tenant_cost_points'] ?? 0), 'user_charge_points' => (float)($quote['user_charge_points'] ?? 0),
+            'usage_unit' => (string)($quote['usage_unit'] ?? ''), 'settlement_mode' => (string)($quote['settlement_mode'] ?? ''),
+        ];
+    }
+
+    private static function canonical(mixed $value): mixed
+    {
+        if (!is_array($value)) return $value;
+        $list = array_keys($value) === range(0, count($value) - 1);
+        if ($list) return array_map(static fn($item) => self::canonical($item), $value);
+        ksort($value, SORT_STRING);
+        foreach ($value as $key => $item) $value[$key] = self::canonical($item);
+        return $value;
+    }
+
+    private static function json(array $value): string
+    {
+        return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * An asset-library selection is an owned asset identity, not a browser URL.
+     * Resolve it at acceptance time so an old selected version remains stable
+     * while each new request receives the storage service's current URL.
+     */
+    private static function resolveOwnedReferenceAssets(int $tenantId, int $userId, int $canvasId, array $references): array
+    {
+        $resolved=[];
+        foreach (array_values($references) as $reference) {
+            if (!is_array($reference)) throw new Exception('CANVAS_REFERENCE_UNAVAILABLE');
+            $assetId=(int)($reference['asset_id'] ?? $reference['assetId'] ?? 0);
+            if ($assetId<=0) { $resolved[]=$reference; continue; }
+            $type=strtolower(trim((string)($reference['type'] ?? '')));
+            if (!in_array($type,['image','video','audio'],true)) throw new Exception('CANVAS_REFERENCE_UNAVAILABLE');
+            $asset=Db::name('aigc_short_drama_asset')->where([
+                'id'=>$assetId,'tenant_id'=>$tenantId,'user_id'=>$userId,'delete_time'=>0,'status'=>'ready',
+            ])->find();
+            $allowedTypes=[
+                'image'=>['reference_image','canvas_image','shot_image','character_image','scene_image','subject_image','three_view'],
+                'video'=>['canvas_video','shot_video'],
+                'audio'=>['canvas_audio','shot_audio','bgm_audio'],
+            ];
+            if (!$asset || !in_array((int)$asset['canvas_id'],[0,$canvasId],true) || !in_array((string)$asset['asset_type'],$allowedTypes[$type],true) || (string)$asset['uri']==='') throw new Exception('CANVAS_REFERENCE_UNAVAILABLE');
+            $url=FileService::getFileUrlByStorage((string)$asset['uri'],(string)$asset['storage_scope'],(string)$asset['storage_engine'],(string)$asset['storage_domain']);
+            if (!preg_match('#^https?://#i',$url)) throw new Exception('CANVAS_REFERENCE_UNAVAILABLE');
+            $resolved[]=array_replace($reference,[
+                'asset_id'=>(int)$asset['id'],'url'=>$url,'uri'=>(string)$asset['uri'],
+                'storage_scope'=>(string)$asset['storage_scope'],'storage_engine'=>(string)$asset['storage_engine'],'storage_domain'=>(string)$asset['storage_domain'],
+            ]);
+            $index=array_key_last($resolved);
+            unset($resolved[$index]['assetId']);
+        }
+        return $resolved;
+    }
+
+    private static function ownedDocument(int $tenantId, int $userId, int $id, bool $lock = false): array
+    {
+        if ($id <= 0) {
+            $current = self::current($tenantId, $userId);
+            if (!$lock) return $current;
+            $id = (int)$current['id'];
+        }
+        $row = Db::name(self::DOCUMENT_TABLE)->where(['id' => $id, 'tenant_id' => $tenantId, 'user_id' => $userId, 'delete_time' => 0])->lock($lock)->find();
         if (!$row) throw new Exception('画布不存在或无权访问');
         return $row;
     }
     private static function currentById(int $tenantId, int $userId, int $id): array { return self::formatDocument(self::ownedDocument($tenantId, $userId, $id), true); }
-    private static function normalizeNodes(array $nodes): array { return array_values(array_slice(array_filter($nodes, static fn($node) => is_array($node) && isset($node['id']) && isset($node['type'])), 0, 200)); }
+    private static function normalizeNodes(array $nodes): array
+    {
+        // Reject before poster jobs or document writes. Never silently remove
+        // existing nodes when an oversized snapshot is submitted.
+        if (count($nodes) > 200) {
+            throw new Exception('CANVAS_CAPACITY_EXCEEDED: 画布最多支持 200 个节点，请减少节点后重试');
+        }
+        return array_values(array_filter($nodes, static fn($node) => is_array($node) && isset($node['id']) && isset($node['type'])));
+    }
     /** Keep a completed poster when an older browser snapshot saves unrelated canvas changes. */
     private static function mergePersistedVideoPosters(array $nodes, array $persisted): array
     {
@@ -570,12 +1300,11 @@ class ShortDramaCanvasService
         foreach ($persisted as $node) $persistedById[(string)($node['id'] ?? '')] = $node;
         foreach ($nodes as &$node) {
             $metadata = is_array($node['metadata'] ?? null) ? $node['metadata'] : [];
-            if (!empty($metadata['poster_url']) || !empty($metadata['poster_uri'])) continue;
             $saved = $persistedById[(string)($node['id'] ?? '')] ?? null;
             $savedMetadata = is_array($saved['metadata'] ?? null) ? $saved['metadata'] : [];
             $source = self::canvasStoredUri((string)($metadata['video_url'] ?? $metadata['url'] ?? ''));
             $sameVideo = $source !== '' && $source === self::canvasStoredUri((string)($savedMetadata['video_url'] ?? $savedMetadata['url'] ?? ''));
-            if ($sameVideo && (!empty($savedMetadata['poster_url']) || !empty($savedMetadata['poster_uri']))) {
+            if ($sameVideo && (!empty($savedMetadata['poster_url']) || !empty($savedMetadata['poster_uri']) || ($savedMetadata['poster_status'] ?? '') === 'failed')) {
                 foreach (['poster_url', 'poster_uri', 'poster_status'] as $key) if (isset($savedMetadata[$key])) $metadata[$key] = $savedMetadata[$key];
                 $node['metadata'] = $metadata;
             }
@@ -598,6 +1327,12 @@ class ShortDramaCanvasService
             if ($uri === '') {
                 continue;
             }
+            $projection = ShortDramaCanvasPosterJobService::posterProjection($tenantId, $userId, $canvasId, (string)$node['id'], $uri);
+            if ($projection) {
+                $metadata = array_replace($metadata, $projection);
+                $node['metadata'] = $metadata;
+            }
+            if (in_array((string)($metadata['poster_status'] ?? ''), ['ready', 'failed'], true)) continue;
             $metadata['poster_status'] = 'pending';
             $node['metadata'] = $metadata;
             if ($enqueue) {
@@ -627,20 +1362,37 @@ class ShortDramaCanvasService
     private static function normalizeEdges(array $edges, array $nodes): array { $ids = array_flip(array_map(static fn($node) => (string)$node['id'], $nodes)); return array_values(array_filter($edges, static fn($edge) => is_array($edge) && isset($ids[(string)($edge['from'] ?? '')], $ids[(string)($edge['to'] ?? '')]) && (string)$edge['from'] !== (string)$edge['to'])); }
     private static function decode(string $json): array { $decoded = json_decode($json, true); return is_array($decoded) ? $decoded : []; }
     private static function normalizeStatus(string $status): string { return in_array($status, ['success', 'failed', 'canceled'], true) ? $status : 'running'; }
-    private static function formatDocument(array $row, bool $includeRuns = false): array
+    private static function formatDocument(array $row, bool $includeRuns = false, bool $locked = false): array
     {
+        if ($includeRuns && !$locked) {
+            // This legacy read path can recover nodes from run history. Re-read
+            // under the same document lock as save/projectors before merging;
+            // the caller's earlier row may already be stale.
+            return Db::transaction(function () use ($row): array {
+                $current = self::ownedDocument((int)$row['tenant_id'], (int)$row['user_id'], (int)$row['id'], true);
+                return self::formatDocument($current, true, true);
+            });
+        }
         $nodes = self::decode((string)$row['nodes_json']);
+        if ($includeRuns) self::queueVideoPosters((int)$row['tenant_id'], (int)$row['user_id'], (int)$row['id'], $nodes, false);
         $createTime = (int)($row['create_time'] ?? 0);
         $data = [
             'id' => (int)$row['id'],
+            'tenant_id' => (int)$row['tenant_id'],
+            'agent_enabled' => \app\common\service\app\aigc_short_drama\canvas_agent\FeatureGate::enabled((int)$row['tenant_id']),
             'title' => (string)$row['title'],
             'nodes' => $nodes,
-            'removed_node_ids' => self::decode((string)($row['removed_node_ids_json'] ?? '[]')),
+            'removed_node_ids' => array_map('strval', self::decode((string)($row['removed_node_ids_json'] ?? '[]'))),
             'edges' => self::decode((string)$row['edges_json']),
             'viewport' => self::decode((string)$row['viewport_json']),
             'created_at' => $createTime > 0 ? date('Y-m-d H:i:s', $createTime) : '',
             'update_time' => (int)$row['update_time'],
+            'document_token' => self::documentToken($row),
         ];
+        if (array_key_exists('graph_revision', $row)) {
+            $data['graph_revision'] = (int)$row['graph_revision'];
+            $data['schema_version'] = (int)($row['schema_version'] ?? 1);
+        }
         if (!$includeRuns) return $data;
         // A browser can be refreshed after the backend creates a run but before
         // its debounce save writes canvasRunId into nodes_json. Recreate only the
@@ -651,29 +1403,75 @@ class ShortDramaCanvasService
         ])->order('id', 'asc')->select()->toArray();
         $nodeIds = array_fill_keys(array_map(static fn(array $node): string => (string)($node['id'] ?? ''), $nodes), true);
         $recovered = false;
+        $pendingRecovery = [];
         foreach ($runs as $index => $run) {
             $nodeId = trim((string)$run['node_id']);
             if ($nodeId === '' || isset($nodeIds[$nodeId]) || in_array($nodeId, $data['removed_node_ids'], true)) continue;
+            // Do not turn a valid full canvas into an unsaveable 201+ node
+            // document on GET. Keep all run history and report deferred IDs.
+            if (count($nodes) >= 200) { $pendingRecovery[$nodeId] = $nodeId; continue; }
             $nodes[] = self::recoveredNode($run, count($nodes));
             $nodeIds[$nodeId] = true;
             $recovered = true;
         }
         if ($recovered) {
             $now = time();
-            Db::name(self::DOCUMENT_TABLE)->where('id', (int)$row['id'])->update([
+            $row = GraphService::persistLockedDocument($row, [
                 'nodes_json' => json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 'update_time' => $now,
             ]);
             $data['nodes'] = $nodes;
             $data['update_time'] = $now;
+            $row['nodes_json'] = json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $data['document_token'] = self::documentToken($row);
+            if (array_key_exists('graph_revision', $row)) $data['graph_revision'] = (int)$row['graph_revision'];
         }
         $latest = [];
         foreach (array_reverse($runs) as $run) {
             $nodeId = (string)$run['node_id'];
             if ($nodeId !== '' && !in_array($nodeId, $data['removed_node_ids'], true) && !isset($latest[$nodeId])) $latest[$nodeId] = self::formatRun($run);
         }
+        // A task may finish after the browser has saved its earlier running
+        // snapshot. The run row is authoritative for that exact generation;
+        // project terminal state on reads so a reopened canvas never displays
+        // a completed video as "generating". Do not rewrite nodes_json here.
+        foreach ($data['nodes'] as &$node) {
+            if ((string)($node['type'] ?? '') !== 'video') continue;
+            $run = $latest[(string)($node['id'] ?? '')] ?? null;
+            $metadata = (array)($node['metadata'] ?? []);
+            if (!$run || (int)($metadata['canvasRunId'] ?? 0) !== (int)$run['id']) continue;
+            if (!in_array((string)$run['status'], ['success', 'failed', 'canceled'], true)) continue;
+            $metadata['status'] = $run['status'];
+            $metadata['progress'] = $run['progress'];
+            $metadata['error'] = $run['error'];
+            $metadata['pending'] = false;
+            $result = $run['results'][0] ?? null;
+            if (is_array($result)) {
+                $url = (string)($result['url'] ?? $result['video_url'] ?? '');
+                if ($url !== '') {
+                    $metadata['url'] = $url;
+                    $metadata['video_url'] = $url;
+                    foreach (['uri', 'storage_scope', 'storage_engine', 'storage_domain', 'asset_id'] as $key) {
+                        if (!empty($result[$key])) $metadata[$key] = $result[$key];
+                    }
+                }
+            }
+            $node['metadata'] = $metadata;
+        }
+        unset($node);
         $data['runs'] = array_values($latest);
+        $data['recovery_pending_node_ids'] = array_values($pendingRecovery);
         return $data;
+    }
+
+    /** Opaque content token, not a graph revision or a mutation receipt. */
+    private static function documentToken(array $row): string
+    {
+        $fields = [];
+        foreach (['id', 'tenant_id', 'user_id', 'title', 'nodes_json', 'edges_json', 'viewport_json', 'removed_node_ids_json', 'delete_time'] as $field) {
+            $fields[$field] = (string)($row[$field] ?? '');
+        }
+        return hash('sha256', json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
     /** Build a durable canvas node for an already-owned generation run. */

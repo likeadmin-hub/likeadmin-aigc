@@ -90,6 +90,7 @@ class StorageController extends BaseAdminController
                 'access_key' => $params['access_key'] ?? '',
                 'secret_key' => $params['secret_key'] ?? '',
                 'domain' => $params['domain'] ?? '',
+                'private_access' => !empty($params['private_access']),
             ]);
         }
         StorageConfigService::clearCache($this->tenantId);

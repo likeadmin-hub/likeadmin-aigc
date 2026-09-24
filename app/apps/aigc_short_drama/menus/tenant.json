@@ -77,6 +77,15 @@
         "component": "apps/aigc_short_drama/skill"
       },
       {
+        "source_menu_key": "aigc_short_drama_agent",
+        "type": "C",
+        "name": "短剧画布 Agent",
+        "sort": 11,
+        "perms": "app.aigc_short_drama.config/detail",
+        "paths": "agent",
+        "component": "apps/aigc_short_drama/agent"
+      },
+      {
         "source_menu_key": "aigc_short_drama_inspiration",
         "type": "C",
         "name": "灵感素材",

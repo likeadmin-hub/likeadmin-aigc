@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "groups": {
     "script": "剧本创作",
     "subject": "主体创作",
@@ -35,21 +35,25 @@
     "pc_three_character": {
       "document": "subject_views",
       "condition": "character",
+      "trigger_note": "人物三视图补充规则：原短剧流程仅在新版主体图片输入中启用；Agent 规划时按人物主体条件参考。",
       "text": "基于主体主图生成角色三视图，保持身份、五官、发型、服装和比例一致，输出正面、侧面、背面，干净背景。"
     },
     "pc_three_prop": {
       "document": "subject_views",
       "condition": "prop",
+      "trigger_note": "物品三视图补充规则：原短剧流程仅在新版主体图片输入中启用；Agent 规划时按物品主体条件参考。",
       "text": "基于主体主图生成物体三视图，保持材质、结构、颜色和比例一致，输出正面、侧面、背面，干净背景。"
     },
     "music_instruments": {
       "document": "music",
       "condition": "missing",
+      "trigger_note": "乐器预设仅在乐器列表缺失时补充；音频生成目前未开放。",
       "text": "钢琴、低频弦乐、轻打击乐、氛围合成"
     },
     "timeline_image": {
       "document": "shot_image",
       "condition": "missing",
+      "trigger_note": "分镜图补充要求还会用于原短剧的自动修复路径，并非只有整段内容缺失才使用。",
       "text": "保持主体和场景统一，无文字水印"
     },
     "script_plot": {

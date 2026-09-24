@@ -66,6 +66,7 @@ class MarketVideoRuntimeService
                 continue;
             }
             $metadata = self::metadata($product);
+            $sellableModes = self::sellableGenerationModes($product, $metadata, $validSkus);
             $category = $resourceType === PowerMarketService::TYPE_APP_API
                 ? PowerMarketService::appCategory($product)
                 : ['id' => 0, 'code' => 'video', 'name' => '视频生成'];
@@ -164,7 +165,7 @@ class MarketVideoRuntimeService
                 'max_reference_assets' => self::advertisedReferenceAssetLimit($product, $metadata),
                 'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $metadata),
                 'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $metadata),
-                'generation_modes' => self::generationModes($product, $metadata),
+                'generation_modes' => $sellableModes,
                 'supports_first_last_frame' => self::supportsFirstLastFrame($product, $metadata),
                 'skus' => $validSkus,
                 'default_resolution' => (string)($resolutions[0] ?? ''),
@@ -191,6 +192,10 @@ class MarketVideoRuntimeService
         );
         $selection = array_replace($selection, $normalized);
         $market = self::resolve($tenantId, $selection);
+        // Quote the same validated reference set that reserve will submit.
+        // Otherwise an impossible request can receive a misleading price.
+        self::assertAssets($market, $selection);
+        self::assertTextToVideoRatio($market, $selection);
         $quantity = self::quantity($market, $selection);
         return self::quoteMarket($market, $quantity);
     }
@@ -205,8 +210,12 @@ class MarketVideoRuntimeService
         $market = self::resolve($tenantId, $selection);
         $product = (array)$market['product'];
         $metadata = self::metadata($product);
+        $sellableSkus = array_map(
+            static fn(array $row): array => self::formatSku($row, $product),
+            self::availableSkus($tenantId, (int)$product['id'])
+        );
         return [
-            'generation_modes' => self::generationModes($product, $metadata),
+            'generation_modes' => self::sellableGenerationModes($product, $metadata, $sellableSkus),
             'supports_first_last_frame' => self::supportsFirstLastFrame($product, $metadata),
             'supported_asset_types' => self::supportedAssetTypes($product, $metadata),
             'max_reference_images' => self::advertisedReferenceLimit($product, $metadata, 'image'),
@@ -216,6 +225,23 @@ class MarketVideoRuntimeService
             'reference_audio_requires_visual' => self::referenceAudioRequiresVisual($product, $metadata),
             'frame_and_reference_mutually_exclusive' => self::frameAndReferenceMutuallyExclusive($product, $metadata),
         ];
+    }
+
+    public static function supportsGenerateAudio(int $tenantId, array $selection): bool
+    {
+        $market = self::resolve($tenantId, $selection);
+        return self::supportsAudioGeneration((array)$market['product'], self::metadata((array)$market['product']));
+    }
+
+    private static function supportsAudioGeneration(array $product, array $metadata): bool
+    {
+        if (strtolower((string)($product['upstream_app_code'] ?? '')) === 'seedance'
+            || strtolower((string)($product['upstream_model_code'] ?? '')) === 'wan3.0-video') {
+            return true;
+        }
+        $schema = self::arrayValue($metadata['params_schema'] ?? []);
+        return self::schemaDeclaresParameter($schema, 'generate_audio')
+            || self::schemaDeclaresParameter($schema, 'audio');
     }
 
     /** A locked SKU wins; configurable SKUs use the caller's requested duration. */
@@ -330,7 +356,14 @@ class MarketVideoRuntimeService
             throw new Exception('按应用售价结算暂不支持按实际用量计费的视频 SKU');
         }
         if (!$deferredUsage) {
-            PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$quote['tenant_cost_points'], (float)$quote['user_charge_points']);
+            try {
+                PointService::assertCanConsumeAmounts($tenantId, $userId, (float)$quote['tenant_cost_points'], (float)$quote['user_charge_points']);
+            } catch (\RuntimeException $error) {
+                // This read-only check precedes the reservation transaction and
+                // Provider I/O. Callers can safely distinguish it from a lost
+                // response after a paid submission. Do not classify later errors.
+                throw new \app\common\service\ai\PreSubmissionRejected($error->getMessage(), 0, $error);
+            }
         }
         return Db::transaction(function () use ($tenantId, $userId, $appCode, $action, $businessTable, $businessTaskId, $request, $market, $quantity, $quote, $deferredUsage, $billingOverride, $idempotencyKey) {
             $existing = self::existingReservation($tenantId, $idempotencyKey, true);
@@ -890,8 +923,11 @@ class MarketVideoRuntimeService
             $payload['audio_urls'] = $assets['audio'];
         }
         if (self::schemaDeclaresParameter($schema, 'generation_type')) {
-            $generationType = self::value($request, ['generation_type', 'generationType'])
-                ?: self::generationTypeForSchema($snapshot, $request, $assets);
+            $generationType = self::isVeoThreeSnapshot($snapshot)
+                ? (self::generationTypeForSchema($snapshot, $request, $assets)
+                    ?: self::value($request, ['generation_type', 'generationType']))
+                : (self::value($request, ['generation_type', 'generationType'])
+                    ?: self::generationTypeForSchema($snapshot, $request, $assets));
             if ($generationType !== '') {
                 $payload['generation_type'] = $generationType;
             }
@@ -989,7 +1025,8 @@ class MarketVideoRuntimeService
         $parameters = array_merge($providerParams, $locked, $parameters);
 
         if ($prompt !== '') {
-            $input['prompt'] = $prompt;
+            $input['prompt'] = strtolower((string)($snapshot['model_code'] ?? '')) === 'wan3.0-video'
+                ? self::wanThreeReferencePrompt($prompt) : $prompt;
         }
         $media = self::structuredModelMedia($request);
         if ($media !== []) {
@@ -1012,6 +1049,11 @@ class MarketVideoRuntimeService
                 $parameters[$key] = $request[$key];
             }
         }
+        if (!array_key_exists('audio', $request) && array_key_exists('generate_audio', $request)
+            && (strtolower((string)($snapshot['model_code'] ?? '')) === 'wan3.0-video'
+                || self::schemaDeclaresParameter(self::arrayValue($snapshot['params_schema'] ?? []), 'audio'))) {
+            $parameters['audio'] = filter_var($request['generate_audio'], FILTER_VALIDATE_BOOLEAN);
+        }
 
         $payload = array_merge(self::marketContext($snapshot, 'power_market_video'), [
             'model' => (string)$snapshot['model_code'],
@@ -1025,6 +1067,16 @@ class MarketVideoRuntimeService
             $payload['callback_url'] = $callback;
         }
         return self::filterEmptyPayload($payload);
+    }
+
+    /** Wan's documented media references are 图1 / 视频1 / 音频1, not the canvas chip labels. */
+    private static function wanThreeReferencePrompt(string $prompt): string
+    {
+        return (string)preg_replace_callback(
+            '/@(图片|视频|音频)([1-9]\d*)/u',
+            static fn(array $match): string => ($match[1] === '图片' ? '图' : $match[1]) . $match[2],
+            $prompt
+        );
     }
 
     private static function providerParamsForStructuredModelPayload(array $params): array
@@ -1046,8 +1098,10 @@ class MarketVideoRuntimeService
         $allowed = array_map('strtoupper', self::schemaOptionValues($schema, 'generation_type'));
         $default = trim((string)self::schemaDefaultValue($schema, 'generation_type', ''));
         $method = strtolower(trim((string)($request['generation_method'] ?? $request['generationMethod'] ?? '')));
-        if ($method === 'start_end'
-            || ($assets['image'] !== [] && self::hasFirstAndLastFrameAssets($request))) {
+        $roles = array_column(AigcVideoReferenceAssetService::normalize($request), 'role');
+        if (in_array($method, ['image_to_video', 'start_end'], true)
+            || in_array('first_frame_image', $roles, true)
+            || in_array('last_frame_image', $roles, true)) {
             return in_array('FIRST&LAST', $allowed, true) ? 'FIRST&LAST' : ($default !== '' ? $default : '');
         }
         if ($assets['image'] !== []) {
@@ -1056,10 +1110,9 @@ class MarketVideoRuntimeService
         return in_array('TEXT', $allowed, true) ? 'TEXT' : $default;
     }
 
-    private static function hasFirstAndLastFrameAssets(array $request): bool
+    private static function isVeoThreeSnapshot(array $snapshot): bool
     {
-        $roles = array_column(AigcVideoReferenceAssetService::normalize($request), 'role');
-        return in_array('first_frame_image', $roles, true) && in_array('last_frame_image', $roles, true);
+        return str_starts_with(strtolower((string)($snapshot['model_code'] ?? '')), 'veo3.1-');
     }
 
     private static function structuredModelMedia(array $request): array
@@ -1280,7 +1333,14 @@ class MarketVideoRuntimeService
 
     private static function appPayload(array $snapshot, array $request, string $idempotency): array
     {
-        $app = (string)$snapshot['app_code']; $locked = self::arrayValue($snapshot['locked_params'] ?? []); $assets = self::assets($request); $duration = self::duration($locked) ?: (int)($request['duration'] ?? 0); $resolution = self::resolution($locked) ?: self::value($request, ['resolution', 'quality']);
+        $app = (string)$snapshot['app_code'];
+        $locked = self::arrayValue($snapshot['locked_params'] ?? []);
+        $assets = self::assets($request);
+        $duration = self::duration($locked) ?: (int)($request['duration'] ?? 0);
+        $resolution = self::resolution($locked) ?: self::value($request, ['resolution', 'quality']);
+        // Pricing variants choose the local SKU only; they are not provider parameters.
+        $locked = array_filter($locked, static fn($key): bool => is_string($key)
+            && !str_starts_with($key, '_') && $key !== 'pricing_variant', ARRAY_FILTER_USE_KEY);
         if ($app === 'full_video') {
             $prompt = trim((string)($request['prompt'] ?? ''));
             if ($prompt === '') {
@@ -1305,15 +1365,21 @@ class MarketVideoRuntimeService
             ]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'happy_horse') {
-            $model = trim((string)($locked['model'] ?? ''));
-            if ($model === '') {
-                $model = $assets['image'] === [] ? 'happyhorse-1.0-t2v' : (count($assets['image']) === 1 ? 'happyhorse-1.0-i2v' : 'happyhorse-1.0-r2v');
-            }
-            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => (string)($request['ratio'] ?? ''), 'media' => array_map(static fn(string $url): array => ['url' => $url, 'type' => 'image'], $assets['image']), 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+            $method = strtolower(trim((string)($request['generation_method'] ?? $request['generationMethod'] ?? '')));
+            $model = self::happyHorseModel($locked, $assets, $method);
+            $media = array_merge(
+                array_map(static fn(string $url): array => ['url' => $url, 'type' => 'video'], $assets['video']),
+                array_map(static fn(string $url): array => ['url' => $url, 'type' => 'image'], $assets['image'])
+            );
+            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), self::appRequestOptions($request, ['seed', 'watermark', 'audio_setting', 'callback_url']), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => in_array($model, ['happyhorse-1.1-i2v', 'happyhorse-1.0-video-edit'], true) ? null : (string)($request['ratio'] ?? ''), 'media' => $media, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'seedance') {
-            $assetIds = self::seedanceAssetReferences($request);
-            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => (string)($locked['model'] ?? ($assetIds['video'] === [] ? 'seedance-2-text-2-video' : 'seedance-2-video-2-video')), 'content' => [['type' => 'text', 'text' => trim((string)($request['prompt'] ?? ''))]], 'ratio' => (string)($request['ratio'] ?? ''), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'image_urls' => $assetIds['image'], 'video_urls' => $assetIds['video'], 'audio_urls' => $assetIds['audio'], 'generate_audio' => $request['generate_audio'] ?? null, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+            $content = self::seedanceContent($request);
+            $hasVideo = in_array('video_url', array_column($content, 'type'), true);
+            foreach (['image_urls', 'video_urls', 'audio_urls', 'content'] as $key) {
+                unset($locked[$key]);
+            }
+            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), self::appRequestOptions($request, ['seed', 'draft', 'frames', 'watermark', 'camera_fixed', 'service_tier', 'tools', 'callback_url']), ['model' => (string)($locked['model'] ?? ($hasVideo ? 'seedance-2-video-2-video' : 'seedance-2-text-2-video')), 'content' => $content, 'ratio' => (string)($request['ratio'] ?? ''), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'generate_audio' => $request['generate_audio'] ?? null, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'grok_video') {
             $model = trim((string)($locked['model'] ?? $snapshot['model_code'] ?? 'grok-video'));
@@ -1326,7 +1392,88 @@ class MarketVideoRuntimeService
         if ($model === '') {
             $model = $assets['video'] !== [] ? 'wan2.7-videoedit' : ($assets['image'] !== [] ? 'wan2.7-r2v' : 'wan2.7');
         }
-        return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'size' => (string)($request['ratio'] ?? ''), 'image_urls' => $assets['image'], 'video_urls' => $assets['video'], 'audio_urls' => $assets['audio'], 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+        foreach (['image_urls', 'image_with_roles', 'video_urls', 'audio_urls', 'audio_url'] as $key) {
+            unset($locked[$key]);
+        }
+        $payload = array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), self::appRequestOptions($request, ['seed', 'watermark', 'negative_prompt', 'prompt_extend', 'metadata', 'callback_url']), [
+            'model' => $model,
+            'prompt' => trim((string)($request['prompt'] ?? '')),
+            'resolution' => $resolution,
+            'duration' => $duration > 0 ? $duration : null,
+            'size' => (string)($request['ratio'] ?? ''),
+            'idempotency_key' => $idempotency,
+        ]);
+        if ($model === 'wan2.7-r2v') {
+            $payload['image_with_roles'] = self::wanImageWithRoles($request);
+        } elseif ($model === 'wan2.7-videoedit') {
+            $payload['image_urls'] = $assets['image'];
+            $payload['video_urls'] = $assets['video'];
+        } elseif ($model === 'wan2.7') {
+            $payload['image_urls'] = $assets['image'];
+        }
+        $payload['audio_url'] = $assets['audio'][0] ?? null;
+        return array_filter($payload, static fn($value) => $value !== '' && $value !== [] && $value !== null);
+    }
+
+    private static function appRequestOptions(array $request, array $allowed): array
+    {
+        return array_intersect_key($request, array_flip($allowed));
+    }
+
+    private static function happyHorseModel(array $locked, array $assets, string $method): string
+    {
+        $model = trim((string)($locked['model'] ?? ''));
+        if ($model !== '') return $model;
+        if ($assets['video'] !== []) return 'happyhorse-1.0-video-edit';
+        if ($assets['image'] === []) return 'happyhorse-1.1-t2v';
+        return count($assets['image']) === 1
+            && !in_array($method, ['image_reference', 'omni_reference', 'multi_frame'], true)
+            ? 'happyhorse-1.1-i2v' : 'happyhorse-1.1-r2v';
+    }
+
+    /** Seedance accepts multimodal media in content, not top-level URL arrays. */
+    private static function seedanceContent(array $request): array
+    {
+        $content = [['type' => 'text', 'text' => trim((string)($request['prompt'] ?? ''))]];
+        foreach (AigcVideoReferenceAssetService::normalize($request) as $asset) {
+            $type = (string)($asset['type'] ?? '');
+            $url = trim((string)($asset['url'] ?? $asset['uri'] ?? ''));
+            if ($url === '') continue;
+            if (!str_starts_with($url, 'asset://')) {
+                $url = AigcVideoReferenceAssetService::publicUrl($asset);
+            }
+            if ($type === 'image') {
+                $role = match ((string)($asset['role'] ?? '')) {
+                    'first_frame_image' => 'first_frame',
+                    'last_frame_image' => 'last_frame',
+                    default => 'reference_image',
+                };
+                $content[] = ['type' => 'image_url', 'role' => $role, 'image_url' => ['url' => $url]];
+            } elseif ($type === 'video') {
+                $content[] = ['type' => 'video_url', 'role' => 'reference_video', 'video_url' => ['url' => $url]];
+            } elseif ($type === 'audio') {
+                $content[] = ['type' => 'audio_url', 'role' => 'reference_audio', 'audio_url' => ['url' => $url]];
+            }
+        }
+        return $content;
+    }
+
+    /** Wan 2.7 r2v requires typed image roles, unlike videoedit's image_urls. */
+    private static function wanImageWithRoles(array $request): array
+    {
+        $images = [];
+        foreach (AigcVideoReferenceAssetService::normalize($request) as $asset) {
+            if (($asset['type'] ?? '') !== 'image') continue;
+            $url = AigcVideoReferenceAssetService::publicUrl($asset);
+            if ($url === '') continue;
+            $role = match ((string)($asset['role'] ?? '')) {
+                'first_frame_image' => 'first_frame',
+                'last_frame_image' => 'last_frame',
+                default => 'reference_image',
+            };
+            $images[] = ['url' => $url, 'role' => $role];
+        }
+        return $images;
     }
 
     private static function seedanceAssets(array &$request, int $consumptionId): void
@@ -1378,30 +1525,12 @@ class MarketVideoRuntimeService
         self::event($consumptionId, 'asset_upload', 'success', ['group_id' => $groupId, 'asset_count' => count($uploaded['image']) + count($uploaded['video']) + count($uploaded['audio'])]);
     }
 
-    /** @return array{image: array<int, string>, video: array<int, string>, audio: array<int, string>} */
-    private static function seedanceAssetReferences(array $request): array
-    {
-        $references = ['image' => [], 'video' => [], 'audio' => []];
-        foreach (self::arrayValue($request['seedance_asset_references'] ?? []) as $type => $values) {
-            if (!isset($references[$type])) continue;
-            foreach ((array)$values as $value) {
-                $reference = trim((string)$value);
-                if ($reference !== '' && str_starts_with($reference, 'asset://') && !in_array($reference, $references[$type], true)) {
-                    $references[$type][] = $reference;
-                }
-            }
-        }
-        if ($references['image'] !== [] || $references['video'] !== [] || $references['audio'] !== []) return $references;
-        foreach (self::assets($request) as $type => $values) {
-            $references[$type] = array_values(array_filter($values, static fn(string $value): bool => str_starts_with($value, 'asset://')));
-        }
-        return $references;
-    }
-
     private static function assets(array $request): array
     {
         $assets = AigcVideoReferenceAssetService::normalize($request); $result = ['image' => [], 'video' => [], 'audio' => []];
-        foreach ($assets as $asset) { $type = (string)($asset['type'] ?? ''); if (!isset($result[$type])) continue; $raw = trim((string)($asset['url'] ?? $asset['uri'] ?? '')); $url = str_starts_with($raw, 'asset://') ? $raw : AigcVideoReferenceAssetService::publicUrl($asset); if ($url !== '' && !in_array($url, $result[$type], true)) $result[$type][] = $url; }
+        // normalize already deduplicates by media identity AND semantic role.
+        // URL-only dedup here would collapse identical first/last frame slots.
+        foreach ($assets as $asset) { $type = (string)($asset['type'] ?? ''); if (!isset($result[$type])) continue; $raw = trim((string)($asset['url'] ?? $asset['uri'] ?? '')); $url = str_starts_with($raw, 'asset://') ? $raw : AigcVideoReferenceAssetService::publicUrl($asset); if ($url !== '') $result[$type][] = $url; }
         return $result;
     }
 
@@ -1419,6 +1548,19 @@ class MarketVideoRuntimeService
             throw new Exception('selected video model does not support this generation method');
         }
         $assetCount = count($assets['image']) + count($assets['video']) + count($assets['audio']);
+        if (str_starts_with(strtolower((string)($product['upstream_model_code'] ?? '')), 'veo3.1-')) {
+            self::assertVeoThreeAssets($market, $request, $assets, $generationMethod);
+        }
+        if ((string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API) {
+            $app = strtolower((string)($product['upstream_app_code'] ?? ''));
+            if ($app === 'wan') {
+                self::assertWanAppAssets($market, $assets);
+            } elseif ($app === 'seedance') {
+                AigcVideoReferenceAssetService::assertSeedanceSupported($referenceAssets);
+            } elseif ($app === 'happy_horse') {
+                self::assertHappyHorseAssets($market, $assets, $generationMethod);
+            }
+        }
         if (self::isFullVideoProduct($product) && (string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API) {
             self::assertFullVideoAssets($referenceAssets, $assets, $assetCount, $generationMethod);
             return;
@@ -1499,11 +1641,86 @@ class MarketVideoRuntimeService
             $count = count($items); if ($count === 0) continue;
             $limit = self::referenceLimit($product, $metadata, $type); $supported = self::supportedAssetTypes($product, $metadata);
             if (!in_array($type, $supported, true)) throw new Exception('selected video model does not support reference ' . self::assetLabel($type));
+            // A declared modality does not imply unlimited reference capacity.
+            // Explicit total limits and the validated one/two-frame contracts
+            // remain sufficient bounds when no per-modality limit is supplied.
+            if ($limit <= 0 && self::referenceAssetLimit($product, $metadata) <= 0
+                && !in_array($generationMethod, ['image_to_video', 'start_end'], true)) {
+                throw new Exception('selected video model reference limit is unavailable; refresh model capabilities before generating');
+            }
             if ($limit > 0 && $count > $limit) throw new Exception('selected video model supports at most ' . $limit . ' reference ' . self::assetLabel($type));
         }
         $totalLimit = self::referenceAssetLimit($product, $metadata);
         if ($totalLimit > 0 && $assetCount > $totalLimit) {
             throw new Exception('selected video model supports at most ' . $totalLimit . ' reference assets');
+        }
+    }
+
+    private static function assertWanAppAssets(array $market, array $assets): void
+    {
+        $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
+        $model = trim((string)($locked['model'] ?? ''));
+        if ($model === '') {
+            $model = $assets['video'] !== [] ? 'wan2.7-videoedit'
+                : ($assets['image'] !== [] ? 'wan2.7-r2v' : 'wan2.7');
+        }
+        if (count($assets['audio']) > 1) {
+            throw new Exception('Wan 2.7 supports only one reference audio');
+        }
+        if ($model === 'wan2.7-r2v' && (count($assets['image']) < 1 || count($assets['image']) > 2 || $assets['video'] !== [])) {
+            throw new Exception('Wan 2.7 r2v requires one or two reference images and no video');
+        }
+        if ($model === 'wan2.7-videoedit' && (count($assets['video']) !== 1 || count($assets['image']) > 4)) {
+            throw new Exception('Wan 2.7 videoedit requires one video and at most four reference images');
+        }
+        if ($model === 'wan2.7' && ($assets['video'] !== [] || count($assets['image']) > 2)) {
+            throw new Exception('Wan 2.7 text mode accepts at most two images and no video');
+        }
+    }
+
+    private static function assertHappyHorseAssets(array $market, array $assets, string $generationMethod): void
+    {
+        $model = self::happyHorseModel(
+            self::arrayValue($market['sku']['locked_params'] ?? []),
+            $assets,
+            $generationMethod
+        );
+        $images = count($assets['image']);
+        $videos = count($assets['video']);
+        if ($assets['audio'] !== []) throw new Exception('Happy Horse does not accept reference audio');
+        if ($model === 'happyhorse-1.1-t2v' && ($images !== 0 || $videos !== 0)) {
+            throw new Exception('Happy Horse text mode does not accept reference media');
+        }
+        if ($model === 'happyhorse-1.1-i2v' && ($images !== 1 || $videos !== 0)) {
+            throw new Exception('Happy Horse i2v requires exactly one image');
+        }
+        if ($model === 'happyhorse-1.1-r2v' && ($images < 1 || $images > 9 || $videos !== 0)) {
+            throw new Exception('Happy Horse r2v requires one to nine images and no video');
+        }
+        if ($model === 'happyhorse-1.0-video-edit' && ($videos !== 1 || $images > 5)) {
+            throw new Exception('Happy Horse video edit requires one video and at most five images');
+        }
+    }
+
+    private static function assertVeoThreeAssets(array $market, array $request, array $assets, string $generationMethod): void
+    {
+        if ($assets['video'] !== [] || $assets['audio'] !== []) {
+            throw new Exception('Veo 3.1 accepts image references only');
+        }
+        $roles = array_column(AigcVideoReferenceAssetService::normalize($request), 'role');
+        $frameMode = in_array($generationMethod, ['image_to_video', 'start_end'], true)
+            || in_array('first_frame_image', $roles, true)
+            || in_array('last_frame_image', $roles, true);
+        if ($frameMode && count($assets['image']) > 2) {
+            throw new Exception('Veo 3.1 first/last frame mode supports at most two images');
+        }
+        if (!$frameMode && count($assets['image']) > 3) {
+            throw new Exception('Veo 3.1 reference mode supports at most three images');
+        }
+        $ratio = self::value(self::arrayValue($market['sku']['locked_params'] ?? []), ['ratio', 'aspect_ratio', 'size'])
+            ?: self::value($request, ['ratio', 'aspect_ratio', 'size']);
+        if (!$frameMode && $assets['image'] !== [] && $ratio !== '' && $ratio !== '16:9') {
+            throw new Exception('Veo 3.1 reference mode requires 16:9 aspect ratio');
         }
     }
 
@@ -1693,6 +1910,11 @@ class MarketVideoRuntimeService
     }
     private static function referenceLimit(array $product, array $meta, string $type): int
     {
+        if ((string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API) {
+            $app = strtolower((string)($product['upstream_app_code'] ?? ''));
+            if ($app === 'wan') return ['image' => 4, 'video' => 1, 'audio' => 1][$type] ?? 0;
+            if ($app === 'seedance') return ['image' => 9, 'video' => 3, 'audio' => 3][$type] ?? 0;
+        }
         $configured = self::capabilityLimit($meta, $type);
         if ($configured > 0) {
             return $configured;
@@ -2157,7 +2379,12 @@ class MarketVideoRuntimeService
     /** H3 and Wan 3.0 accept an image pair as the first and last frame. */
     private static function supportsStartEndFrames(array $product): bool
     {
-        return self::isH3Product($product) || self::isWanThreeProduct($product);
+        if (self::isH3Product($product) || self::isWanThreeProduct($product)) return true;
+        $model = strtolower((string)($product['upstream_model_code'] ?? $product['model_code'] ?? ''));
+        if (str_starts_with($model, 'veo3.1-')) return true;
+        return (string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API
+            && in_array(strtolower((string)($product['upstream_app_code'] ?? '')),
+                ['full_video', 'seedance', 'wan'], true);
     }
 
     private static function isWanThreeProduct(array $product): bool
@@ -2755,6 +2982,7 @@ class MarketVideoRuntimeService
         if ($method === 'omni_reference') {
             if ($assets['video'] !== []) return 'video_edit';
             if ($assets['image'] !== []) return 'image_reference';
+            if ($assets['audio'] !== []) return 'audio_reference';
             return 'text_to_video';
         }
         if (in_array($method, ['image_to_video', 'image_reference', 'start_end', 'multi_frame'], true)) {
@@ -2784,6 +3012,12 @@ class MarketVideoRuntimeService
         if (self::isH3Product($product)) {
             return in_array($requestedMode, self::generationModes($product, self::metadata($product)), true);
         }
+        // Wan 3.0's model API prices by resolution and duration, not by
+        // reference modality. Its market SKUs are labelled text-to-video,
+        // while the same SKU accepts image, video and audio reference media.
+        if (self::isWanThreeProduct($product)) {
+            return in_array($requestedMode, ['text_to_video', 'image_reference', 'video_edit', 'audio_reference'], true);
+        }
         $app = strtolower((string)($product['upstream_app_code'] ?? ''));
         if (in_array($app, ['happy_horse', 'grok_video', 'full_video', 'seedance2_pro'], true)) {
             $modes = self::generationModes($product, self::metadata($product));
@@ -2801,6 +3035,28 @@ class MarketVideoRuntimeService
             && (string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_MODEL
             && trim((string)($locked['model'] ?? '')) === '') return true;
         return $skuMode === $requestedMode;
+    }
+    /** Do not advertise a provider capability that no currently sellable SKU can price. */
+    private static function sellableGenerationModes(array $product, array $metadata, array $skus): array
+    {
+        $inputModes = [
+            'text_to_video'=>['text_to_video'],
+            'image_to_video'=>['image_reference'],
+            'start_end'=>['image_reference'],
+            'image_reference'=>['image_reference'],
+            'multi_frame'=>['image_reference'],
+            'video_edit'=>['video_edit'],
+            'audio_reference'=>['audio_reference'],
+            'omni_reference'=>['image_reference','video_edit','audio_reference'],
+        ];
+        return array_values(array_filter(self::generationModes($product,$metadata), static function (string $mode) use ($product,$skus,$inputModes): bool {
+            foreach ($skus as $sku) {
+                foreach ($inputModes[$mode]??[] as $inputMode) {
+                    if (self::skuSupportsInputMode((string)($sku['input_mode']??''),$inputMode,$product,(array)($sku['locked_params']??[]))) return true;
+                }
+            }
+            return false;
+        }));
     }
     private static function selectionKey(array $market): string { return (string)$market['product']['id'] . ':' . (string)$market['sku']['id']; }
     private static function metadata(array $product): array

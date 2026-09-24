@@ -436,7 +436,7 @@ docker compose --env-file .env.docker ps -a
 
 ## AI 任务结果 Worker 守护
 
-图片、视频、音频等异步生成任务由后台结果 Worker 查询上游状态、保存结果、按租户配置转存资源，并完成结算或退款。用户提交任务后会立即返回本地任务号，前端只读取本地任务状态；不要将结果查询依赖于用户停留在页面上。
+图片、视频、音频等异步生成任务由后台结果 Worker 查询上游状态、保存结果、按租户配置转存资源，并完成结算或退款。短剧分集、规划、短剧画布 Agent 对话和画布子 Agent 任务也由同一启动入口托管。用户提交任务后会立即返回本地任务号，前端只读取本地任务状态；不要将结果查询依赖于用户停留在页面上。
 
 首次启用前，请先完成当前系统版本的升级 SQL，再配置 Worker。Worker 命令为：
 
@@ -450,7 +450,7 @@ php think ai:task-worker --worker=result --sleep=1 --lease=90 --batch=20
 /www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh
 ```
 
-脚本每次启动都会停止同一项目遗留的结果 Worker，再以当前 PHP 进程启动新的 Worker，避免重复领取任务。默认 PHP 路径为 `/www/server/php/80/bin/php`；若服务器使用其他 PHP 版本，请在宝塔守护命令前设置 `PHP_BIN`，例如：
+脚本每次启动都会停止同一项目遗留的 Worker，再以当前 PHP 进程统一启动结果、短剧分集、规划、短剧画布 Agent 和画布子 Agent 队列，避免重复领取任务。宝塔中只配置这一条守护命令，不要为任一子 Worker 再建额外守护项。默认 PHP 路径为 `/www/server/php/80/bin/php`；若服务器使用其他 PHP 版本，请在宝塔守护命令前设置 `PHP_BIN`，例如：
 
 ```bash
 PHP_BIN=/www/server/php/81/bin/php /www/wwwroot/likeadmin_aigc_saas/server/scripts/start-ai-task-worker.sh

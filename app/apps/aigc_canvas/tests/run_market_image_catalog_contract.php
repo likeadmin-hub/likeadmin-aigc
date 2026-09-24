@@ -1,0 +1,210 @@
+<?php
+
+declare(strict_types=1);
+
+$root = dirname(__DIR__, 4);
+require $root . '/vendor/autoload.php';
+(new \think\App())->initialize();
+
+use app\common\service\app\aigc_canvas\AigcCanvasService;
+use app\common\service\power\MarketImageModelRuntimeService;
+use app\common\service\power\MarketImageReferenceUrlService;
+use app\common\service\power\MarketNanoBananaAppRuntimeService;
+
+$tenantId = (int)($argv[1] ?? 1);
+$failures = [];
+$checked = [];
+$checkedSpecs = 0;
+$imagePayload = new ReflectionMethod(MarketImageModelRuntimeService::class, 'payload');
+$imagePayload->setAccessible(true);
+$nanoPayload = new ReflectionMethod(MarketNanoBananaAppRuntimeService::class, 'payload');
+$nanoPayload->setAccessible(true);
+$normalizeCanvasImage = new ReflectionMethod(AigcCanvasService::class, 'normalizeImageParams');
+$normalizeCanvasImage->setAccessible(true);
+$referenceUrl = 'https://example.com/reference.png';
+
+foreach (MarketImageModelRuntimeService::options($tenantId) as $option) {
+    if (empty($option['enabled'])) {
+        continue;
+    }
+    $id = (string)$option['id'];
+    $selection = [
+        'model_id' => $id,
+        'market_product_id' => (int)$option['market_product_id'],
+        'market_sku_id' => (int)($option['skus'][0]['market_sku_id'] ?? 0),
+        'quality' => (string)$option['default_quality'],
+        'ratio' => (string)$option['default_ratio'],
+    ];
+    try {
+        $quote = MarketImageModelRuntimeService::quote($tenantId, $selection);
+        $payload = $imagePayload->invoke(null, $quote['market_snapshot'], [
+            'prompt' => 'dry-run catalog contract',
+            'reference_images' => [$referenceUrl, $referenceUrl],
+            'quality' => $selection['quality'],
+            'ratio' => $selection['ratio'],
+            'quantity' => 1,
+            'provider_params' => [
+                'duration' => 5,
+                'image_urls' => ['https://example.com/stale-reference.png'],
+                'input' => ['messages' => [['role' => 'user', 'content' => [['text' => 'stale prompt']]]]],
+                'parameters' => ['duration' => 5, 'seed' => 123],
+            ],
+        ], 'dry-run', 0);
+        $checked[] = $id;
+        if (($payload['model'] ?? '') !== $option['model_code']) {
+            $failures[] = "$id submitted another model";
+        }
+        if (str_starts_with((string)$option['model_code'], 'qwen-image-3.0')) {
+            $content = $payload['input']['messages'][0]['content'] ?? [];
+            if (count($content) !== 2 || ($content[0]['image'] ?? '') !== $referenceUrl
+                || ($content[1]['text'] ?? '') !== 'dry-run catalog contract'
+                || ($payload['parameters']['n'] ?? 0) !== 1
+                || empty($payload['parameters']['size'])) {
+                $failures[] = "$id structured reference, prompt, count or size is wrong";
+            }
+        } else {
+            $field = (string)$option['reference_input_field'];
+            if (($payload[$field] ?? []) !== [$referenceUrl]) {
+                $failures[] = "$id reference image was missing or duplicated";
+            }
+            $schema = (array)($option['params_schema'] ?? []);
+            foreach (['resolution', 'image_size'] as $qualityField) {
+                if (isset($schema[$qualityField]) && empty($payload[$qualityField])) {
+                    $failures[] = "$id omitted documented $qualityField";
+                }
+                if (!isset($schema[$qualityField]) && isset($payload[$qualityField])) {
+                    $failures[] = "$id sent unsupported $qualityField";
+                }
+            }
+        }
+        if (isset($payload['task_query']) || isset($payload['_pricing_variant'])) {
+            $failures[] = "$id leaked an internal routing field";
+        }
+        if (isset($payload['duration']) || isset($payload['parameters']['duration'])) {
+            $failures[] = "$id leaked another model's duration parameter";
+        }
+        if (in_array((string)$option['model_code'], ['qwen-image-3.0', 'qwen-image-3.0-pro', 'gpt-image-2-pro'], true)) {
+            try {
+                MarketImageModelRuntimeService::quote($tenantId, $selection, 2);
+                $failures[] = "$id accepted two images although its contract allows one";
+            } catch (Exception $error) {
+                if (!str_contains($error->getMessage(), '仅支持生成 1 张')) {
+                    $failures[] = "$id rejected quantity for an unrelated reason: {$error->getMessage()}";
+                }
+            }
+        }
+    } catch (Throwable $error) {
+        $failures[] = "$id failed catalog preflight: {$error->getMessage()}";
+    }
+    foreach ((array)($option['skus'] ?? []) as $sku) {
+        $ratios = (array)($sku['ratio_options'] ?? $option['ratio_options'] ?? []);
+        foreach ($ratios !== [] ? $ratios : [''] as $ratio) {
+            $ratio = is_array($ratio) ? (string)($ratio['value'] ?? '') : (string)$ratio;
+            $spec = [
+                'model_id' => $id,
+                'market_sku_id' => (int)$sku['market_sku_id'],
+                'quality' => (string)($sku['quality'] ?? ''),
+                'ratio' => $ratio,
+            ];
+            try {
+                $quote = MarketImageModelRuntimeService::quote($tenantId, $spec);
+                $payload = $imagePayload->invoke(null, $quote['market_snapshot'], [
+                    'prompt' => 'dry-run text to image', 'quality' => $spec['quality'],
+                    'ratio' => $ratio, 'quantity' => 1,
+                ], 'dry-run', 0);
+                $checkedSpecs++;
+                if ((int)$quote['market_sku_id'] !== $spec['market_sku_id']) {
+                    $failures[] = "$id selected a different SKU for {$spec['quality']} $ratio";
+                }
+                if (str_starts_with((string)$option['model_code'], 'qwen-image-3.0')) {
+                    if (empty($payload['parameters']['size']) || count((array)($payload['input']['messages'][0]['content'] ?? [])) !== 1) {
+                        $failures[] = "$id failed text-to-image for {$spec['quality']} $ratio";
+                    }
+                } elseif (!empty($payload[(string)$option['reference_input_field']])) {
+                    $failures[] = "$id leaked a reference into text-to-image for {$spec['quality']} $ratio";
+                }
+            } catch (Throwable $error) {
+                $failures[] = "$id failed {$spec['quality']} $ratio: {$error->getMessage()}";
+            }
+        }
+    }
+}
+
+foreach (MarketNanoBananaAppRuntimeService::options($tenantId) as $option) {
+    if (empty($option['enabled'])) {
+        continue;
+    }
+    $id = (string)$option['id'];
+    try {
+        $quote = MarketNanoBananaAppRuntimeService::quote($tenantId, [
+            'model_id' => $id,
+            'quality' => (string)$option['default_quality'],
+            'ratio' => (string)$option['default_ratio'],
+        ]);
+        $payload = $nanoPayload->invoke(null, $quote['market_snapshot'], [
+            'prompt' => 'dry-run catalog contract',
+            'reference_images' => [$referenceUrl, $referenceUrl],
+            'ratio' => (string)$option['default_ratio'],
+        ], 'dry-run', 0);
+        $checked[] = $id;
+        if (empty($option['supports_reference_images']) || (int)$option['max_reference_images'] <= 0
+            || ($payload['image_urls'] ?? []) !== [$referenceUrl]
+            || ($payload['action'] ?? '') !== 'edit'
+            || ($payload['model'] ?? '') !== $option['model_code']) {
+            $failures[] = "$id reference image capability or edit payload is wrong";
+        }
+        $localPayload = $nanoPayload->invoke(null, $quote['market_snapshot'], [
+            'prompt' => 'dry-run local reference',
+            'reference_images' => ['uploads/catalog-dry-run.png'],
+        ], 'dry-run', 0);
+        if (preg_match('#^https?://#', (string)($localPayload['image_urls'][0] ?? '')) !== 1) {
+            $failures[] = "$id sent a stored path instead of a provider URL";
+        }
+    } catch (Throwable $error) {
+        $failures[] = "$id failed catalog preflight: {$error->getMessage()}";
+    }
+    foreach ((array)($option['skus'] ?? []) as $sku) {
+        foreach ((array)($option['ratio_options'] ?? []) as $ratio) {
+            $ratio = is_array($ratio) ? (string)($ratio['value'] ?? '') : (string)$ratio;
+            try {
+                $quote = MarketNanoBananaAppRuntimeService::quote($tenantId, [
+                    'model_id' => $id,
+                    'market_sku_id' => (int)$sku['market_sku_id'],
+                    'quality' => (string)($sku['quality'] ?? ''),
+                    'ratio' => $ratio,
+                ]);
+                $payload = $nanoPayload->invoke(null, $quote['market_snapshot'], [
+                    'prompt' => 'dry-run text to image', 'ratio' => $ratio,
+                ], 'dry-run', 0);
+                $checkedSpecs++;
+                if ((int)$quote['market_sku_id'] !== (int)$sku['market_sku_id']
+                    || ($payload['action'] ?? '') !== 'generate'
+                    || !empty($payload['image_urls'])) {
+                    $failures[] = "$id failed text-to-image for {$sku['quality']} $ratio";
+                }
+            } catch (Throwable $error) {
+                $failures[] = "$id failed {$sku['quality']} $ratio: {$error->getMessage()}";
+            }
+        }
+    }
+}
+
+$canvasRequest = $normalizeCanvasImage->invoke(null, ['prompt' => 'dry run', 'count' => 2], $tenantId, 0);
+if (($canvasRequest['quantity'] ?? 0) !== 2) {
+    $failures[] = 'canvas image count did not reach runtime quantity';
+}
+$localReference = MarketImageReferenceUrlService::resolve(['uploads/catalog-dry-run.png'], 0);
+if (count($localReference) !== 1 || preg_match('#^https?://#', $localReference[0]) !== 1) {
+    $failures[] = 'a stored relative reference did not become a provider URL';
+}
+
+echo json_encode([
+    'passed' => $failures === [],
+    'checked_count' => count($checked),
+    'checked_spec_count' => $checkedSpecs,
+    'checked_models' => $checked,
+    'failures' => $failures,
+    'paid_requests' => 0,
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) . PHP_EOL;
+
+exit($failures === [] ? 0 : 1);
