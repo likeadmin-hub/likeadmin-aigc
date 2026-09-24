@@ -71,7 +71,8 @@ final class ConversationWorker
                         }
                     }
                     catch (RuntimeException $error) {
-                        $diagnosticDetail=ConversationWorkflowTurn::failureCategory($content,$intentRouting);
+                        $diagnosticDetail=$error instanceof ConversationWorkflowValidationException
+                            ? $error->category() : ConversationWorkflowTurn::failureCategory($content,$intentRouting);
                         throw $error;
                     }
                 }
@@ -93,7 +94,8 @@ final class ConversationWorker
                             ConversationWorkflow::materializeTextReferences($candidate,$plan['nodes']);
                         }
                     } catch (RuntimeException $error) {
-                        $diagnosticDetail=ConversationActionPlan::failureCategory($content,$workflowStage,$compact);
+                        $diagnosticDetail=$error instanceof ConversationWorkflowValidationException
+                            ? $error->category() : ConversationActionPlan::failureCategory($content,$workflowStage,$compact);
                         throw $error;
                     }
                 }

@@ -6,6 +6,7 @@ use app\common\service\app\aigc_short_drama\canvas_agent\ConversationStageReply;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationActionPlan;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow;
 use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflowTurn;
+use app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflowValidationException;
 use PHPUnit\Framework\TestCase;
 
 class CanvasAgentStageReplyTest extends TestCase
@@ -137,6 +138,67 @@ class CanvasAgentStageReplyTest extends TestCase
             ['type'=>'image','artifact'=>'subject','title'=>'主体图','prompt'=>'提示词','key'=>'subject'],
         ]]],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
         self::assertSame('action_node_dependency_order',ConversationActionPlan::failureCategory($reply,'assets',true));
+    }
+
+    public function testUniqueConfirmedScenePromptCanFillAnOmittedReference(): void
+    {
+        $workflow=['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY,'version'=>ConversationWorkflow::VERSION],
+            'stage_state'=>['key'=>'storyboard'],'artifact_memory'=>[
+                ['stage'=>'art','artifact'=>'scene_image_prompt','reference_key'=>'art:scene_shop','content'=>'已确认的耳机店场景生图提示词'],
+            ]];
+        $nodes=ConversationWorkflow::materializeTextReferences($workflow,[
+            ['type'=>'image','artifact'=>'scene','title'=>'耳机店场景','prompt'=>'模型自写提示词','key'=>'scene_shop'],
+        ]);
+        self::assertSame('已确认的耳机店场景生图提示词',$nodes[0]['prompt']);
+        self::assertArrayNotHasKey('reference_keys',$nodes[0]);
+    }
+
+    public function testMultipleScenePromptsAreNeverGuessed(): void
+    {
+        $workflow=['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY,'version'=>ConversationWorkflow::VERSION],
+            'stage_state'=>['key'=>'storyboard'],'artifact_memory'=>[
+                ['stage'=>'art','artifact'=>'scene_image_prompt','reference_key'=>'art:scene_shop','content'=>'耳机店'],
+                ['stage'=>'art','artifact'=>'scene_image_prompt','reference_key'=>'art:scene_street','content'=>'街道'],
+            ]];
+        try {
+            ConversationWorkflow::materializeTextReferences($workflow,[
+                ['type'=>'image','artifact'=>'scene','title'=>'场景','prompt'=>'模型自写提示词','key'=>'scene'],
+            ]);
+            self::fail('Ambiguous scene selection must fail');
+        } catch (ConversationWorkflowValidationException $error) {
+            self::assertSame('INVALID_AGENT_ACTION',$error->getMessage());
+            self::assertSame('action_generation_prompt_reference',$error->category());
+        }
+    }
+
+    public function testStoryboardShotCoverageReportsAStableDiagnosticWithoutLeakingScript(): void
+    {
+        $workflow=['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY,'version'=>ConversationWorkflow::VERSION],
+            'stage_state'=>['key'=>'storyboard'],'artifact_memory'=>[
+                ['stage'=>'script','artifact'=>'episode_script','reference_key'=>'script:episode','content'=>'镜头1：小禾进店。镜头2：店长解释。'],
+            ]];
+        try {
+            ConversationWorkflow::materializeTextReferences($workflow,[
+                ['type'=>'image','artifact'=>'storyboard','title'=>'镜头1','prompt'=>'小禾进店','key'=>'shot_one'],
+            ]);
+            self::fail('Missing confirmed shot must fail');
+        } catch (ConversationWorkflowValidationException $error) {
+            self::assertSame('action_storyboard_shot_coverage',$error->category());
+            self::assertStringNotContainsString('小禾',$error->getMessage());
+        }
+    }
+
+    public function testExplicitAlternativeShotLabelsRetainConfirmedCoverage(): void
+    {
+        $workflow=['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY,'version'=>ConversationWorkflow::VERSION],
+            'stage_state'=>['key'=>'storyboard'],'artifact_memory'=>[
+                ['stage'=>'script','artifact'=>'episode_script','reference_key'=>'script:episode','content'=>'镜头01：进店。第2镜：解释。'],
+            ]];
+        $nodes=ConversationWorkflow::materializeTextReferences($workflow,[
+            ['type'=>'image','artifact'=>'storyboard','title'=>'分镜图 1','prompt'=>'进店','key'=>'shot_one'],
+            ['type'=>'image','artifact'=>'storyboard','title'=>'镜头：02','prompt'=>'解释','key'=>'shot_two'],
+        ]);
+        self::assertCount(2,$nodes);
     }
 
     public function testSingleExactMediaDependencyCanBeCanonicalized(): void
