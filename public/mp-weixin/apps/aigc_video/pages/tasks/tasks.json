@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "视频任务",
-  "usingComponents": {}
+  "usingComponents": {
+    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
+  }
 }

@@ -290,7 +290,11 @@ final class GenerationIntentService
     }
     private static function nodeInputSignature(array $node): string {
         $metadata=(array)($node['metadata']??[]);
-        foreach (['status','progress','error','errorDetails','canvasRunId','active_generation_id','projected_generation_id','layout_revision','groupId','agentGroupId','poster_url','poster_uri','poster_status','poster'] as $field) unset($metadata[$field]);
+        $ignored=['status','progress','error','errorDetails','canvasRunId','active_generation_id','projected_generation_id','layout_revision','groupId','agentGroupId','poster_url','poster_uri','poster_status','poster'];
+        // Video reads may overlay completed results before a layout-only save.
+        // The result fields do not change the video request or its references.
+        if (($node['type']??'')==='video') $ignored=array_merge($ignored,['pending','url','video_url','uri','asset_id','storage_scope','storage_engine','storage_domain']);
+        foreach ($ignored as $field) unset($metadata[$field]);
         // Layout and progress do not authorize a different generation input.
         return hash('sha256',self::json(self::canonical(['type'=>$node['type']??'','title'=>$node['title']??'','metadata'=>$metadata])));
     }

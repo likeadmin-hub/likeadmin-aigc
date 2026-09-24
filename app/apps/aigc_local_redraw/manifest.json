@@ -13,7 +13,8 @@
   "sort": 853,
   "frontends": [
     "tenant",
-    "pc"
+    "pc",
+    "uniapp"
   ],
   "api_prefix": "/app/aigc_local_redraw",
   "menus": "menus/tenant.json",
@@ -37,6 +38,37 @@
       "icon": "resource/image/common/menu_generator.png",
       "sort": 88,
       "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_local_redraw",
+      "name": "局部重绘",
+      "path": "/apps/aigc_local_redraw/pages/creator/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 853,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "创作首页",
+            "path": "/apps/aigc_local_redraw/pages/creator/index"
+          },
+          {
+            "name": "任务记录",
+            "path": "/apps/aigc_local_redraw/pages/tasks/index",
+            "query": {
+              "view": "tasks"
+            }
+          },
+          {
+            "name": "作品记录",
+            "path": "/apps/aigc_local_redraw/pages/tasks/index",
+            "query": {
+              "view": "results"
+            }
+          }
+        ]
+      }
     }
   ],
   "dependencies": [

@@ -1,6 +1,6 @@
 {
   "navigationStyle": "custom",
-  "navigationBarTextStyle": "white",
+  "navigationBarTextStyle": "black",
   "navigationBarTitleText": "AIGC视频",
   "usingComponents": {
     "u-icon": "../../../../uni_modules/vk-uview-ui/components/u-icon/u-icon",

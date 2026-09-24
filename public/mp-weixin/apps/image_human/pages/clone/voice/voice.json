@@ -1,0 +1,8 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
+  "navigationBarTitleText": "创建克隆音色",
+  "usingComponents": {
+    "image-human-nav": "../../../components/ImageHumanNav"
+  }
+}

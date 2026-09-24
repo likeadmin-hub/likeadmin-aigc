@@ -1,1 +1,1 @@
-"use strict";const e=require("../../common/vendor.js");require("balanced-match"),require("color"),require("debug");const r={};const c=e._export_sfc(r,[["render",function(e,r){return{}}]]);wx.createPage(c);
+"use strict";const e={};const r=require("../../common/vendor.js")._export_sfc(e,[["render",function(e,r){return{}}]]);wx.createPage(r);

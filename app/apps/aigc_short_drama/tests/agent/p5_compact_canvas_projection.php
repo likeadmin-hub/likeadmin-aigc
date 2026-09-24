@@ -64,7 +64,7 @@ try {
             return ['settings'=>$preferences,'skill'=>[],'workflow'=>$prepared['workflow'],'thread_settings'=>$prepared['thread_settings']];
         });
     };
-    $start=$accept('compact-start','请创作悬疑短剧');
+    $start=$accept('compact-start','/short-drama 请创作悬疑短剧');
     $publicStart=Workflow::read($tenant,$user,$canvas,$thread);
     agentCheck(!isset($publicStart['workflow']['workflow_snapshot']['creative_prompt_snapshot']),
         'frozen internal creative prompt configuration is not exposed in the public workflow snapshot');
@@ -77,7 +77,10 @@ try {
     $runStage=static function (string $key,string $content,array $selected=[]) use ($provider,$accept,$tenant,$user,$canvas,$thread): array {
         $provider->content=$content;
         $ack=$accept($key,'继续当前创作阶段',$selected);
-        agentCheck(Worker::process($tenant,$user,(int)$ack['run_id'],$provider)==='success','compact workflow Worker accepts '.$key);
+        $state=Worker::process($tenant,$user,(int)$ack['run_id'],$provider);
+        $errorCode=Db::name(Store::PREFIX.'run')->where('id',(int)$ack['run_id'])->value('error_code');
+        $failure=Db::name(Store::PREFIX.'event')->where(['run_id'=>(int)$ack['run_id'],'kind'=>'run.failed'])->order('id','desc')->value('payload_json');
+        agentCheck($state==='success','compact workflow Worker accepts '.$key.' (state='.$state.', error_code='.$errorCode.', detail='.$failure.')');
         return Workflow::read($tenant,$user,$canvas,$thread);
     };
 
@@ -108,9 +111,9 @@ try {
 
     $art=$reply([
         ['type'=>'text','artifact'=>'art_bible','title'=>'画风规划','prompt'=>'电影写实，雨夜冷蓝、室内暖黄，避免角色外貌漂移。','key'=>'style'],
-        ['type'=>'text','artifact'=>'character_asset_spec','title'=>'林夏形象','prompt'=>'林夏短发、米色风衣、胸前别着录音笔，面容稳定。','key'=>'character'],
+        ['type'=>'text','artifact'=>'subject_image_prompt','title'=>'林夏主体图提示词','prompt'=>'林夏短发、米色风衣、胸前别着录音笔，面容稳定。','key'=>'subject_prompt'],
         ['type'=>'text','artifact'=>'three_view_prompt','title'=>'林夏三视图规划','prompt'=>'同一林夏的正面、侧面、背面，米色风衣和录音笔一致。','key'=>'views'],
-        ['type'=>'text','artifact'=>'scene_asset_spec','title'=>'雨夜办公室','prompt'=>'雨夜办公室，窗外冷蓝霓虹，桌灯暖黄。','key'=>'scene'],
+        ['type'=>'text','artifact'=>'scene_image_prompt','title'=>'雨夜办公室场景图提示词','prompt'=>'雨夜办公室，窗外冷蓝霓虹，桌灯暖黄。','key'=>'scene_prompt'],
     ],'已在对话中规划画风、角色与场景');
     $view=$runStage('compact-art',$art);
     agentCheck(($view['card']['plan']['node_count']??-1)===0 && ($view['card']['plan']['artifact_count']??0)===4,'art planning is reviewable but creates no canvas text nodes');
@@ -118,10 +121,10 @@ try {
     [$nodes,$edges]=$graph($canvas);
     agentCheck(count($nodes)===2 && !isset($result['canvas_actions']) && count($result['workflow']['artifact_memory']??[])>=4,'confirmed art remains durable in workflow memory without graph mutation');
 
-    $assets='<canvas-actions>'.json_encode(['nodes'=>[
-        ['type'=>'image','artifact'=>'subject','title'=>'林夏主体图','prompt'=>'林夏，电影写实，正面半身，纯净背景','key'=>'subject','reference_keys'=>['art:character']],
+    $assets=$reply([
+        ['type'=>'image','artifact'=>'subject','title'=>'林夏主体图','prompt'=>'林夏，电影写实，正面半身，纯净背景','key'=>'subject','reference_keys'=>['art:subject_prompt']],
         ['type'=>'image','artifact'=>'three_view','title'=>'林夏三视图','prompt'=>'林夏正侧背三视图','key'=>'views','depends_on'=>['subject'],'reference_keys'=>['art:views']],
-    ]],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR).'</canvas-actions>';
+    ],'主体与三视图素材规划');
     $view=$runStage('compact-assets',$assets,[$storyId]);
     agentCheck(str_contains((string)($provider->request['system_prompt']??''),ShortDramaPromptCatalog::defaults()['subject.character']),
         'Agent asset creation reads the original short-drama creative prompt source');
@@ -139,10 +142,10 @@ try {
     $dependency=Canvas::agentAutoDependencyState($checkNodes,$edges,(string)$threeView['id']);
     agentCheck(($dependency['state']??'')==='ready' && ($dependency['references'][0]['asset_id']??0)===991,'three-view submits the completed subject image as a real generation reference');
 
-    $boards='<canvas-actions>'.json_encode(['nodes'=>[
-        ['type'=>'image','artifact'=>'scene','title'=>'雨夜办公室场景图','prompt'=>'雨夜办公室，不出现人物','key'=>'scene_1','reference_keys'=>['art:scene']],
+    $boards=$reply([
+        ['type'=>'image','artifact'=>'scene','title'=>'雨夜办公室场景图','prompt'=>'雨夜办公室，不出现人物','key'=>'scene_1','reference_keys'=>['art:scene_prompt']],
         ['type'=>'image','artifact'=>'storyboard','title'=>'镜头一分镜图','prompt'=>'林夏在雨夜办公室拿起录音笔','key'=>'board_1','depends_on'=>['scene_1'],'reference_keys'=>['assets:subject']],
-    ]],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR).'</canvas-actions>';
+    ],'场景与分镜素材规划');
     $view=$runStage('compact-boards',$boards);
     $originalNodesJson=(string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('nodes_json');
     $changedNodes=json_decode($originalNodesJson,true,512,JSON_THROW_ON_ERROR);
@@ -163,7 +166,7 @@ try {
     Workflow::confirmStagePlan($tenant,$user,$canvas,$thread,(int)$view['workflow']['state_revision']);
     [$nodes,$edges]=$graph($canvas);
     agentCheck(count($nodes)===6,'video prompt planning stays in dialogue, not a canvas text node');
-    $video='<canvas-actions>'.json_encode(['nodes'=>[['type'=>'video','artifact'=>'storyboard_video','title'=>'镜头一视频','prompt'=>'林夏播放录音','key'=>'video_1','reference_keys'=>['storyboard:board_1','video_plan:video_1']]]],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR).'</canvas-actions>';
+    $video=$reply([['type'=>'video','artifact'=>'storyboard_video','title'=>'镜头一视频','prompt'=>'林夏播放录音','key'=>'video_1','reference_keys'=>['storyboard:board_1','video_plan:video_1']]],'分镜视频规划');
     $runStage('compact-video-node',$video);
     [$nodes,$edges]=$graph($canvas);
     $videoNode=$nodes[6];$videoInputs=$inputs((string)$videoNode['id']);

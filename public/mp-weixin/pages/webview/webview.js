@@ -1,1 +1,1 @@
-"use strict";const e=require("../../common/vendor.js");require("balanced-match"),require("color"),require("debug");const r=e.defineComponent({__name:"webview",setup(r){const o=e.ref("");return e.onLoad(e=>{o.value=decodeURIComponent(e.url)}),(e,r)=>({a:o.value})}});wx.createPage(r);
+"use strict";const e=require("../../common/vendor.js"),n=e.defineComponent({__name:"webview",setup(n){const o=e.ref("");return e.onLoad(e=>{o.value=decodeURIComponent(e.url)}),(e,n)=>({a:o.value})}});wx.createPage(n);

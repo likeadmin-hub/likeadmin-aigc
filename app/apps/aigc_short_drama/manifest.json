@@ -1,10 +1,10 @@
 {
   "code": "aigc_short_drama",
   "name": "AI短剧",
-  "version": "1.0.24",
+  "version": "1.0.25",
   "require_core": ">=1.0.272 <2.0.0",
   "description": "短剧设定与大纲确认、分段剧本生成、跨集连续性复核与独立分集制作。",
-  "changelog": "1. 画布创作输入框支持上传附件、选择素材、模型和技能。\n2. 新增手动确认与自动生成模式，生成进度和结果可在画布查看。\n3. 技能创作要求应用到生成内容，并保留所用技能记录。",
+  "changelog": "1. 新增画布智能创作助手，支持连续对话与创作规划。\n2. 支持在画布中确认生成方案并查看执行进度。\n3. 优化素材引用、生成结果和任务恢复体验。",
   "icon": "resource/image/common/menu_generator.png",
   "category": "aigc",
   "cover": "",

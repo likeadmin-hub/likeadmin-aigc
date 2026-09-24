@@ -1,0 +1,13 @@
+{
+  "navigationStyle": "custom",
+  "disableScroll": true,
+  "usingComponents": {
+    "u-navbar": "../../uni_modules/vk-uview-ui/components/u-navbar/u-navbar",
+    "u-sticky": "../../uni_modules/vk-uview-ui/components/u-sticky/u-sticky",
+    "u-search": "../../uni_modules/vk-uview-ui/components/u-search/u-search",
+    "tab": "../../components/tab/tab",
+    "tabs": "../../components/tabs/tabs",
+    "tabbar": "../../components/tabbar/tabbar",
+    "news-list": "./component/news-list"
+  }
+}

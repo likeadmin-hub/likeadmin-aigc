@@ -512,11 +512,11 @@ class AppRegistryService
 
     private static function mergeManifestFrontendEntries(array $entries, array $appCodes, string $terminal): array
     {
-        $existing = [];
-        foreach ($entries as $entry) {
+        $entryIndexes = [];
+        foreach ($entries as $index => $entry) {
             $key = (string)($entry['app_code'] ?? '') . ':' . (string)($entry['entry_key'] ?? '');
             if ($key !== ':') {
-                $existing[$key] = true;
+                $entryIndexes[$key] = $index;
             }
         }
 
@@ -530,16 +530,16 @@ class AppRegistryService
                 continue;
             }
             foreach (($manifest['frontend_entries'] ?? []) as $entry) {
-                if (($entry['terminal'] ?? '') !== $terminal || (int)($entry['status'] ?? 1) !== 1) {
+                if (($entry['terminal'] ?? '') !== $terminal) {
                     continue;
                 }
                 $entryKey = (string)($entry['entry_key'] ?? '');
                 $key = $appCode . ':' . $entryKey;
-                if ($entryKey === '' || isset($existing[$key])) {
+                if ($entryKey === '') {
                     continue;
                 }
-                $entries[] = [
-                    'id' => 0,
+
+                $manifestEntry = [
                     'app_code' => $appCode,
                     'terminal' => $terminal,
                     'entry_key' => $entryKey,
@@ -547,15 +547,30 @@ class AppRegistryService
                     'path' => $entry['path'] ?? '',
                     'icon' => $entry['icon'] ?? '',
                     'sort' => (int)($entry['sort'] ?? 0),
-                    'status' => 1,
+                    'status' => (int)($entry['status'] ?? 1),
                     'meta' => $entry['meta'] ?? [],
+                ];
+                if (isset($entryIndexes[$key])) {
+                    // Manifests are the route source of truth. Overlay current routes on
+                    // installed rows so existing tenants see newly registered pages
+                    // before an app package upgrade rewrites the database record.
+                    $index = $entryIndexes[$key];
+                    $entries[$index] = array_merge($entries[$index], $manifestEntry);
+                    continue;
+                }
+                if ($manifestEntry['status'] !== 1) {
+                    continue;
+                }
+                $entries[] = array_merge($manifestEntry, [
+                    'id' => 0,
                     'create_time' => 0,
                     'update_time' => 0,
-                ];
-                $existing[$key] = true;
+                ]);
+                $entryIndexes[$key] = array_key_last($entries);
             }
         }
 
+        $entries = array_values(array_filter($entries, static fn(array $entry): bool => (int)($entry['status'] ?? 1) === 1));
         usort($entries, function ($left, $right) {
             $sortCompare = (int)($right['sort'] ?? 0) <=> (int)($left['sort'] ?? 0);
             if ($sortCompare !== 0) {
@@ -563,7 +578,7 @@ class AppRegistryService
             }
             return (int)($left['id'] ?? 0) <=> (int)($right['id'] ?? 0);
         });
-        return array_values($entries);
+        return $entries;
     }
 
     private static function runLocalMigrations(string $appCode, string $version): array

@@ -1,11 +1,12 @@
 # 短剧画布 Agent 本地验收
 
-所有验收均复用现有本地 Baota 服务、已配置的 `x_cn` 数据库和现有 Worker。不得创建 Docker 测试网络、测试数据库、测试镜像、额外容器或独立进程守护。
+所有验收均复用现有本地 Baota 服务、应用当前配置的本地数据库和现有 Worker。不得创建 Docker 测试网络、测试数据库、测试镜像、额外容器或独立进程守护。
 
 ## 前置条件
 
 - `baota` 容器、MySQL、PHP 和既有 `short-drama-canvas-agent` Worker 均为运行态。
 - 应用已有的短剧画布迁移必须先由正常本地升级流程应用；测试不会自动执行迁移，也不会补建表。
+- 并发与崩溃测试需要测试专用的 `la_aigc_short_drama_test_provider_receipt` 表。若当前本地库缺少此表，先核对目标库，再手动执行 `fixtures/provider_receipt.sql`；不要在生产库执行。
 - 所有会写入夹具的脚本必须显式传入 `SHORT_DRAMA_AGENT_TEST=local-existing`；未传入时会在任何写入前退出。
 - 脚本只使用固定的本地验收夹具范围并在结束时回滚或按精确 ID 清理。若发现夹具范围已被占用，必须停止，不得清空业务表或覆盖用户画布。
 - 默认不调用真实 Provider。涉及付费模型、真实素材或取消/退款的验收，必须遵循当次用户授权的积分上限与材料范围。
@@ -15,15 +16,15 @@
 从 `server` 本地 `develop`（已合入对应 feature 且工作区干净）执行。以下命令只进入当前 Baota 容器，不会创建新容器：
 
 ```sh
-docker exec -e SHORT_DRAMA_AGENT_TEST=local-existing -w /www/wwwroot/likeadmin-aigc/server baota \
+docker exec -e SHORT_DRAMA_AGENT_TEST=local-existing -w /www/wwwroot/likeadmin_aigc_saas/server bt \
   php app/apps/aigc_short_drama/tests/agent/p0_baseline.php
 ```
 
 按阶段串行运行其他脚本，任一失败立即停止；不要并行运行共享夹具：
 
 ```sh
-for test_file in p0_generation p0_controller p0_http p1_graph p1_graph_wire p1_graph_operations p1_concurrency p1_poster_save p1_save_cas p1_read_recovery p1_revision_integration p1_migrations p1_generation_intent p1_generation_projection p1_manual_authority p1_generation_crash p2_migrations p2_conversation p2_conversation_concurrency p2_execution p2_settings p2_send p2_http p2_worker p2_queue_crash p2_stop p2_stop_race p2_recovery p2_attachments p2_safety p2_reconciliation p3_asset_version_reference p3_connection_matrix p3_preflight_rejection p3_private_signed_url p3_quote p3_quote_confirmation p3_reference_assets p5_binding p6_local_compatibility; do
-  docker exec -e SHORT_DRAMA_AGENT_TEST=local-existing -w /www/wwwroot/likeadmin-aigc/server baota \
+for test_file in p0_generation p0_controller p0_http p1_graph p1_graph_wire p1_graph_operations p1_concurrency p1_poster_save p1_save_cas p1_read_recovery p1_revision_integration p1_migrations p1_generation_intent p1_generation_projection p1_manual_authority p1_generation_crash p2_migrations p2_conversation p2_conversation_concurrency p2_execution p2_settings p2_send p2_http p2_worker p2_queue_crash p2_stop p2_stop_race p2_recovery p2_attachments p2_safety p2_reconciliation p3_asset_version_reference p3_connection_matrix p3_preflight_rejection p3_private_signed_url p3_quote p3_quote_confirmation p3_reference_assets p4_agent_auto_recovery p4_agent_dependency_scheduler p4_agent_generation_mode p5_agent_node_layout p5_compact_canvas_projection p5_multi_skill_workflow p5_shared_submission_templates p6_local_compatibility; do
+  docker exec -e SHORT_DRAMA_AGENT_TEST=local-existing -w /www/wwwroot/likeadmin_aigc_saas/server bt \
     php "app/apps/aigc_short_drama/tests/agent/${test_file}.php" || exit 1
 done
 ```

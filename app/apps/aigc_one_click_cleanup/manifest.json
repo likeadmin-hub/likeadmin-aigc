@@ -11,16 +11,71 @@
   "is_builtin": 1,
   "expire_policy": "allow",
   "sort": 849,
-  "frontends": ["tenant", "pc"],
+  "frontends": [
+    "tenant",
+    "pc",
+    "uniapp"
+  ],
   "api_prefix": "/app/aigc_one_click_cleanup",
   "menus": "menus/tenant.json",
   "permissions": "permissions/tenant.json",
   "migrations": "migrations",
   "frontend_entries": [
-    { "terminal": "tenant", "entry_key": "aigc_one_click_cleanup_admin", "name": "一键消除", "path": "/app/aigc_one_click_cleanup", "icon": "el-icon-Picture", "sort": 91, "status": 1 },
-    { "terminal": "pc", "entry_key": "aigc_one_click_cleanup", "name": "一键消除", "path": "/ai/tools/aigc_one_click_cleanup", "icon": "resource/image/common/menu_generator.png", "sort": 84, "status": 1 }
+    {
+      "terminal": "tenant",
+      "entry_key": "aigc_one_click_cleanup_admin",
+      "name": "一键消除",
+      "path": "/app/aigc_one_click_cleanup",
+      "icon": "el-icon-Picture",
+      "sort": 91,
+      "status": 1
+    },
+    {
+      "terminal": "pc",
+      "entry_key": "aigc_one_click_cleanup",
+      "name": "一键消除",
+      "path": "/ai/tools/aigc_one_click_cleanup",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 84,
+      "status": 1
+    },
+    {
+      "terminal": "uniapp",
+      "entry_key": "aigc_one_click_cleanup",
+      "name": "一键消除",
+      "path": "/apps/aigc_one_click_cleanup/pages/creator/index",
+      "icon": "resource/image/common/menu_generator.png",
+      "sort": 849,
+      "status": 1,
+      "meta": {
+        "pages": [
+          {
+            "name": "创作首页",
+            "path": "/apps/aigc_one_click_cleanup/pages/creator/index"
+          },
+          {
+            "name": "任务记录",
+            "path": "/apps/aigc_one_click_cleanup/pages/tasks/index",
+            "query": {
+              "view": "tasks"
+            }
+          },
+          {
+            "name": "作品记录",
+            "path": "/apps/aigc_one_click_cleanup/pages/tasks/index",
+            "query": {
+              "view": "results"
+            }
+          }
+        ]
+      }
+    }
   ],
   "dependencies": [
-    { "app_code": "aigc_image", "name": "AIGC生图", "required_for": "一键消除生成" }
+    {
+      "app_code": "aigc_image",
+      "name": "AIGC生图",
+      "required_for": "一键消除生成"
+    }
   ]
 }
