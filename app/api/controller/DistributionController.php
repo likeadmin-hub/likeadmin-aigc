@@ -7,6 +7,15 @@ use Exception;
 
 class DistributionController extends BaseApiController
 {
+    public array $notNeedLogin = ['availability'];
+
+    public function availability()
+    {
+        return $this->success('获取成功', [
+            'enabled' => DistributionService::isEnabled((int)$this->request->tenantId) ? 1 : 0,
+        ]);
+    }
+
     public function center()
     {
         try {

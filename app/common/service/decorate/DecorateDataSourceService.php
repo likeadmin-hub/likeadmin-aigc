@@ -9,6 +9,7 @@ use app\common\service\app\AppDisplayConfigService;
 use app\common\service\app\AppFrontendManifestService;
 use app\common\service\case_gallery\CaseGalleryService;
 use app\common\service\membership\MembershipService;
+use app\common\service\distribution\DistributionService;
 
 class DecorateDataSourceService
 {
@@ -63,6 +64,11 @@ class DecorateDataSourceService
 
         $page['data'] = self::encodeJson($filtered);
         $page['resolved_sources'] = self::resolveRefs((int)($context['tenant_id'] ?? 0), array_values($refs), $context);
+        if (($page['page_code'] ?? '') === 'user' && ($page['terminal'] ?? '') === 'mobile') {
+            $page['resolved_sources']['__features'] = [
+                'distribution_enabled' => DistributionService::isEnabled((int)($context['tenant_id'] ?? 0)) ? 1 : 0,
+            ];
+        }
         return $page;
     }
 
@@ -150,6 +156,17 @@ class DecorateDataSourceService
     private static function filterWidget(array $widget, array $context): array
     {
         $widget = self::normalizeWidgetRuntime($widget);
+        if (($widget['name'] ?? '') === 'commerce-entries') {
+            $tenantId = (int)($context['tenant_id'] ?? 0);
+            $enabled = $tenantId > 0 && DistributionService::isEnabled($tenantId);
+            $widget['content']['data'] = array_values(array_filter(
+                (array)($widget['content']['data'] ?? []),
+                static fn($row): bool => is_array($row) && ($enabled || (
+                    ($row['key'] ?? '') !== 'distribution'
+                    && !in_array((string)($row['link']['path'] ?? ''), ['/pages/distribution/distribution', '/pages/distribution/withdrawal'], true)
+                ))
+            ));
+        }
         if (!isset($widget['children']) || !is_array($widget['children'])) {
             return $widget;
         }
@@ -330,7 +347,9 @@ class DecorateDataSourceService
             'title' => (string)($membership['membership_plan'] ?: '普通用户'),
             'sub_title' => (string)($membership['member_status_text'] ?? ''),
             'tag' => (int)($membership['is_member'] ?? 0) === 1 ? '会员' : '',
-            'expire_time' => (string)($membership['member_expire_time_text'] ?? ''),
+            'expire_time' => (int)($membership['member_expire_time'] ?? 0) >= 4294967295
+                ? '永久有效' : (string)($membership['member_expire_time_text'] ?? ''),
+            'action_text' => ($membership['member_status'] ?? '') === MembershipService::MEMBER_ACTIVE ? '立即续费' : '立即开通',
         ]];
     }
 
