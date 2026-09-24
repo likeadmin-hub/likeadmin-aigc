@@ -148,6 +148,6 @@ class DistributionController extends BaseApiController
 
     private static function inviteUrl(int $tenantId, string $inviteCode): string
     {
-        return rtrim((string)request()->domain(), '/') . '/?invite_code=' . rawurlencode($inviteCode);
+        return rtrim((string)request()->domain(), '/') . '/?tenant_id=' . $tenantId . '&invite_code=' . rawurlencode($inviteCode);
     }
 }
