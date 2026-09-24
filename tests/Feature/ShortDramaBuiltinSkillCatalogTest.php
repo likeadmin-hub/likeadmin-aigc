@@ -11,7 +11,7 @@ class ShortDramaBuiltinSkillCatalogTest extends TestCase
     public function testProductPromoSkillIsPackagedWithoutTenantMaterialReferences(): void
     {
         $skills = ShortDramaBuiltinSkillCatalog::all();
-        self::assertCount(1, $skills);
+        self::assertGreaterThan(1, count($skills));
 
         $skill = $skills[0];
         self::assertSame('product_promo_short', $skill['skill_key']);
@@ -32,5 +32,14 @@ class ShortDramaBuiltinSkillCatalogTest extends TestCase
             self::assertNotSame('', trim((string)$definition['stages'][$stage]), $label . ' must be defined');
         }
         self::assertSame(['剧本', '主体设定', '场景设定', '分镜', '图像', '视频', '音频'], $definition['output_policy']['required']);
+    }
+
+    public function testAudioWorkflowSkillOnlyRequestsBackgroundMusicPrompt(): void
+    {
+        $skills = ShortDramaBuiltinSkillCatalog::all();
+        $audio = array_values(array_filter($skills, static fn(array $skill): bool => ($skill['skill_key'] ?? '') === 'short_drama_audio_plan'));
+        self::assertCount(1, $audio);
+        self::assertStringContainsString('纯背景音乐生成提示词', $audio[0]['description']);
+        self::assertStringContainsString('不包含角色说话、对白、旁白', $audio[0]['definition']['stages']['workflow']);
     }
 }
