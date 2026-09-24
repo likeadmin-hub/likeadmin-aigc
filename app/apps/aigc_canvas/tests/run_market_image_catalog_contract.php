@@ -42,6 +42,12 @@ foreach (MarketImageModelRuntimeService::options($tenantId) as $option) {
             'quality' => $selection['quality'],
             'ratio' => $selection['ratio'],
             'quantity' => 1,
+            'provider_params' => [
+                'duration' => 5,
+                'image_urls' => ['https://example.com/stale-reference.png'],
+                'input' => ['messages' => [['role' => 'user', 'content' => [['text' => 'stale prompt']]]]],
+                'parameters' => ['duration' => 5, 'seed' => 123],
+            ],
         ], 'dry-run', 0);
         $checked[] = $id;
         if (($payload['model'] ?? '') !== $option['model_code']) {
@@ -72,6 +78,9 @@ foreach (MarketImageModelRuntimeService::options($tenantId) as $option) {
         }
         if (isset($payload['task_query']) || isset($payload['_pricing_variant'])) {
             $failures[] = "$id leaked an internal routing field";
+        }
+        if (isset($payload['duration']) || isset($payload['parameters']['duration'])) {
+            $failures[] = "$id leaked another model's duration parameter";
         }
         if (in_array((string)$option['model_code'], ['qwen-image-3.0', 'qwen-image-3.0-pro', 'gpt-image-2-pro'], true)) {
             try {
