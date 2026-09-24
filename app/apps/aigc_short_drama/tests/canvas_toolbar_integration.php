@@ -13,6 +13,18 @@ Db::startTrans();
 try {
     $doc = Canvas::create(1, 1, ['title' => 'transactional toolbar test']);
     $id = $doc['id'];
+    $generationPayload = new ReflectionMethod(Canvas::class, 'generationPayload');
+    $mediaPayload = $generationPayload->invoke(null, 'video', [
+        'prompt' => 'test Wan mixed references',
+        'reference_assets' => [
+            ['type' => 'image', 'url' => 'https://example.com/image.png', 'role' => 'reference'],
+            ['type' => 'video', 'url' => 'https://example.com/video.mp4', 'role' => 'reference_image'],
+            ['type' => 'audio', 'url' => 'https://example.com/audio.mp3', 'role' => 'reference'],
+        ],
+    ], 1, 1, $id);
+    checkToolbar(array_column($mediaPayload['reference_assets'], 'role') === [
+        'reference_image', 'reference_video', 'reference_audio',
+    ], 'canvas video payload preserves image, video, and audio reference roles');
     $nodes = [];
     foreach (['text', 'image', 'video', 'audio'] as $index => $type) {
         $nodeId = (string)($index + 1);
