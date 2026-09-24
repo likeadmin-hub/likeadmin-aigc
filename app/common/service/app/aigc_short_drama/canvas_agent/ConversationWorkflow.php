@@ -104,10 +104,18 @@ final class ConversationWorkflow
                 };
                 if ($expected!=='') {
                     $matching=array_values(array_filter($promptSources,static fn(array $item): bool=>(string)($item['stage']??'')==='art' && (string)($item['artifact']??'')===$expected));
-                    if (count($matching)!==1) throw new RuntimeException('INVALID_AGENT_ACTION');
+                    // A single confirmed scene prompt is unambiguous even if
+                    // the model omitted its optional reference key. Never
+                    // infer among multiple scenes or override an explicit
+                    // (possibly incorrect) reference selection.
+                    if ($expected==='scene_image_prompt' && !$promptSources && !$matching) {
+                        $candidates=array_values(array_filter($memory,static fn(array $item): bool=>(string)($item['stage']??'')==='art' && (string)($item['artifact']??'')===$expected && trim((string)($item['content']??''))!==''));
+                        if (count($candidates)===1) $matching=$candidates;
+                    }
+                    if (count($matching)!==1) throw new ConversationWorkflowValidationException('action_generation_prompt_reference');
                     $prompt=trim((string)$matching[0]['content']);
                 }
-                if ($prompt==='' || mb_strlen($prompt)>20000) throw new RuntimeException('INVALID_AGENT_ACTION');
+                if ($prompt==='' || mb_strlen($prompt)>20000) throw new ConversationWorkflowValidationException('action_generation_prompt_length');
                 $proposal['prompt']=$prompt;
             }
             if ($parts) {
@@ -149,7 +157,7 @@ final class ConversationWorkflow
                 $key=(string)($forms['three_view']??$forms['subject']??'');
                 if ($key!=='') $references[]=$key;
             }
-            if (count($references)>6) throw new RuntimeException('INVALID_AGENT_ACTION');
+            if (count($references)>6) throw new ConversationWorkflowValidationException('action_storyboard_reference_overflow');
             if ($references) $proposal['reference_keys']=$references;
         }
         unset($proposal);
@@ -165,17 +173,25 @@ final class ConversationWorkflow
             if (is_array($item) && ($item['stage']??'')==='script' && ($item['artifact']??'')==='episode_script')
                 $script=(string)($item['content']??'');
         }
-        if (!preg_match_all('/镜头\s*([1-9][0-9]{0,2})/u',$script,$matches)) return;
-        $expected=array_values(array_unique(array_map('intval',$matches[1])));
+        $expected=array_values(array_unique(self::shotNumbers($script)));
+        if (!$expected) return;
         sort($expected);
         $actual=[];
         foreach ($proposals as $proposal) {
             if (!is_array($proposal) || ($proposal['artifact']??'')!=='storyboard') continue;
-            if (!preg_match('/镜头\s*([1-9][0-9]{0,2})/u',(string)($proposal['title']??''),$match)) throw new RuntimeException('INVALID_AGENT_ACTION');
-            $actual[]=(int)$match[1];
+            $numbers=self::shotNumbers((string)($proposal['title']??''));
+            if (count($numbers)!==1) throw new ConversationWorkflowValidationException('action_storyboard_shot_title');
+            $actual[]=$numbers[0];
         }
         sort($actual);
-        if ($actual!==$expected) throw new RuntimeException('INVALID_AGENT_ACTION');
+        if ($actual!==$expected) throw new ConversationWorkflowValidationException('action_storyboard_shot_coverage');
+    }
+
+    /** Accept common explicit numeric shot labels without guessing shot order. */
+    private static function shotNumbers(string $text): array
+    {
+        preg_match_all('/(?:镜头|分镜(?:图)?)\s*[#＃:：]?\s*0*([1-9][0-9]{0,2})(?![0-9])|第\s*0*([1-9][0-9]{0,2})\s*镜/u',$text,$matches,PREG_SET_ORDER);
+        return array_map(static fn(array $match): int=>(int)(($match[1]??'')!==''?$match[1]:($match[2]??0)),$matches);
     }
 
     /** @return array<string,mixed> */
