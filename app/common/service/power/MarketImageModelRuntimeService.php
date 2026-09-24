@@ -783,7 +783,7 @@ class MarketImageModelRuntimeService
         foreach (['aspect_ratio', 'ratio', 'quality', 'resolution', 'image_size', 'size'] as $key) {
             unset($params[$key]);
         }
-        $params = self::providerParamsForFlatPayload($params);
+        $params = self::providerParamsForFlatPayload($params, $schema);
         $referenceImages = MarketImageReferenceUrlService::resolve((array)($request['reference_images'] ?? []), $tenantId);
         if (self::usesStructuredTaskPayload($snapshot)) {
             return self::structuredTaskPayload($snapshot, $request, $params, $referenceImages, $ratio, $outputQuality, $imageSize, $idempotencyKey);
@@ -832,13 +832,15 @@ class MarketImageModelRuntimeService
         return array_filter(array_merge($params, $payload), static fn($v) => $v !== '' && $v !== [] && $v !== null);
     }
 
-    private static function providerParamsForFlatPayload(array $params): array
+    private static function providerParamsForFlatPayload(array $params, array $schema): array
     {
         foreach (['omit_resolution', 'task_query'] as $key) {
             unset($params[$key]);
         }
         foreach (array_keys($params) as $key) {
-            if (is_string($key) && str_starts_with($key, '_')) {
+            if (is_string($key) && (str_starts_with($key, '_')
+                || in_array($key, ['urls', 'image_urls', 'images', 'reference_images'], true)
+                || ($schema !== [] && !array_key_exists($key, $schema)))) {
                 unset($params[$key]);
             }
         }
@@ -869,10 +871,13 @@ class MarketImageModelRuntimeService
         string $imageSize,
         string $idempotencyKey
     ): array {
-        $structuredInput = self::arrayValue($params['input'] ?? []);
+        $structuredInput = self::isQwenImage($snapshot) ? [] : self::arrayValue($params['input'] ?? []);
         $structuredParameters = self::arrayValue($params['parameters'] ?? []);
+        if (self::isQwenImage($snapshot)) {
+            $structuredParameters = self::qwenDocumentedParameters($structuredParameters);
+        }
         unset($params['input'], $params['parameters']);
-        $params = self::providerParamsForStructuredPayload($params);
+        $params = self::providerParamsForStructuredPayload($params, $snapshot);
 
         $content = [];
         foreach ($referenceImages as $url) {
@@ -924,17 +929,25 @@ class MarketImageModelRuntimeService
         return self::filterEmptyPayload($payload);
     }
 
-    private static function providerParamsForStructuredPayload(array $params): array
+    private static function providerParamsForStructuredPayload(array $params, array $snapshot): array
     {
         foreach (['omit_resolution', 'resolution', 'image_size', 'aspect_ratio', 'ratio'] as $key) {
             unset($params[$key]);
         }
         foreach (array_keys($params) as $key) {
-            if (is_string($key) && str_starts_with($key, '_')) {
+            if (is_string($key) && (str_starts_with($key, '_') || $key === 'task_query')) {
                 unset($params[$key]);
             }
         }
-        return $params;
+        return self::isQwenImage($snapshot) ? self::qwenDocumentedParameters($params) : $params;
+    }
+
+    private static function qwenDocumentedParameters(array $params): array
+    {
+        return array_intersect_key($params, array_flip([
+            'n', 'size', 'prompt_extend', 'prompt_extend_mode',
+            'negative_prompt', 'seed', 'watermark',
+        ]));
     }
 
     private static function isQwenImage(array $snapshot): bool
