@@ -749,7 +749,7 @@ class AigcShortDramaService
                 || in_array($workflow['enabled'],[true,1,'1','true'],true);
             $stageSkills=self::normalizeCanvasAgentStageSkills($workflow['stage_skills']??($current['canvas_agent']['workflow']['stage_skills']??[]));
             foreach (array_key_exists('stage_skills', (array)($agent['workflow']??[])) ? $stageSkills : [] as $selections) foreach ($selections as $selection) {
-                $skill = ShortDramaSkillService::resolveForTask($tenantId, $selection);
+                $skill = ShortDramaSkillService::resolveForTask($tenantId, $selection + ['_workflow_internal' => true]);
                 \app\common\service\app\aigc_short_drama\canvas_agent\ConversationSkillPolicy::assertSafe($skill);
             }
             $config['canvas_agent']=['enabled'=>$enabled,'execution_enabled'=>$executionEnabled,
