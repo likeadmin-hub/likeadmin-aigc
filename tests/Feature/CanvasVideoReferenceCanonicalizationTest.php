@@ -127,6 +127,28 @@ class CanvasVideoReferenceCanonicalizationTest extends TestCase
         self::assertSame([61, 62], array_column($references, 'asset_id'));
     }
 
+    public function testStaleLegacyImageUrlDoesNotReintroduceAnOwnedCanvasReference(): void
+    {
+        $freshUrl = 'https://fixtures.invalid/canvas-image.png?signature=fresh';
+        $payload = $this->canvasVideoPayload('image_to_video', [[
+            'type' => 'image', 'uri' => 'uploads/canvas-image.png',
+            'url' => $freshUrl, 'role' => 'first_frame_image',
+        ]], [self::IMAGE_URL]);
+
+        self::assertSame([], $payload['reference_images']);
+        self::assertSame([$freshUrl], array_column($payload['reference_assets'], 'url'));
+        self::assertCount(1, AigcVideoReferenceAssetService::normalize($payload));
+    }
+
+    public function testLegacyOnlyVideoRequestStillKeepsItsImage(): void
+    {
+        $payload = $this->canvasVideoPayload('image_reference', [], [self::IMAGE_URL]);
+
+        self::assertSame([], $payload['reference_assets']);
+        self::assertSame([self::IMAGE_URL], $payload['reference_images']);
+        self::assertCount(1, AigcVideoReferenceAssetService::normalize($payload));
+    }
+
     private function browserImage(string $role): array
     {
         return ['type' => 'image', 'uri' => self::IMAGE_URL, 'url' => self::IMAGE_URL, 'role' => $role];
