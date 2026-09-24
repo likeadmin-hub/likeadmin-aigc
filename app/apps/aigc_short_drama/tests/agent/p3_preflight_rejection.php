@@ -12,6 +12,9 @@ class P3PreflightVideo {
     public static int $sku=0;
     public static int $calls=0;
     public static bool $unknown=false;
+    public static function estimate(int $tenant,array $payload): array {
+        return Market::quote($tenant,['market_sku_id'=>self::$sku]+$payload);
+    }
     public static function generate($tenant,$user,$payload): array {
         self::$calls++;
         if (self::$unknown) throw new RuntimeException('simulated response lost after submit');
@@ -32,7 +35,9 @@ try {
     Canvas::save(91001,92001,['id'=>$canvas,'nodes'=>[['id'=>1,'type'=>'video','metadata'=>[]]]]);
     $counts=static fn():array=>[Db::name('ai_app_task')->count(),Db::name('ai_consumption_log')->count(),Db::name('tenant_point_log')->where('tenant_id',91001)->count(),Db::name('user_account_log')->where('user_id',92001)->count()];
     $before=$counts();
-    $params=['canvas_id'=>$canvas,'node_id'=>'1','type'=>'video','prompt'=>'Synthetic only','request_key'=>'p3-shortage','model_id'=>'market_video_model:'.$product,'duration'=>5];
+    $params=['canvas_id'=>$canvas,'node_id'=>'1','type'=>'video','prompt'=>'Synthetic only','request_key'=>'p3-shortage','model_id'=>'market_video_model:'.$product,'resolution'=>'720p','duration'=>5];
+    $quote=Canvas::quote(91001,92001,$params);
+    $params['quote_token']=Canvas::confirmQuote(91001,92001,['canvas_id'=>$canvas,'node_id'=>'1','quote_token'=>$quote['quote_token']])['quote_token'];
     $result=Canvas::submitIdempotent(91001,92001,$params);
     agentCheck($result['status']==='failed' && str_contains($result['error'],'租户') && str_contains($result['error'],'不足'),'M15 canvas exposes explicit failed status and tenant shortage');
     $intent=Db::name(Intent::TABLE)->where(['canvas_id'=>$canvas,'request_key'=>'p3-shortage'])->find();
@@ -63,6 +68,9 @@ try {
     if (!$realApp) {
     P3PreflightVideo::$unknown=true;
     $params['request_key']='p3-unknown';
+    unset($params['quote_token']);
+    $quote=Canvas::quote(91001,92001,$params);
+    $params['quote_token']=Canvas::confirmQuote(91001,92001,['canvas_id'=>$canvas,'node_id'=>'1','quote_token'=>$quote['quote_token']])['quote_token'];
     $unknown=Canvas::submitIdempotent(91001,92001,$params);
     agentCheck($unknown['status']==='needs_reconciliation','unclassified error still retains unknown outcome');
     agentCheck($before===$counts(),'unknown mock does not invent debit or refund');
