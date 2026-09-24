@@ -227,6 +227,23 @@ class MarketVideoRuntimeService
         ];
     }
 
+    public static function supportsGenerateAudio(int $tenantId, array $selection): bool
+    {
+        $market = self::resolve($tenantId, $selection);
+        return self::supportsAudioGeneration((array)$market['product'], self::metadata((array)$market['product']));
+    }
+
+    private static function supportsAudioGeneration(array $product, array $metadata): bool
+    {
+        if (strtolower((string)($product['upstream_app_code'] ?? '')) === 'seedance'
+            || strtolower((string)($product['upstream_model_code'] ?? '')) === 'wan3.0-video') {
+            return true;
+        }
+        $schema = self::arrayValue($metadata['params_schema'] ?? []);
+        return self::schemaDeclaresParameter($schema, 'generate_audio')
+            || self::schemaDeclaresParameter($schema, 'audio');
+    }
+
     /** A locked SKU wins; configurable SKUs use the caller's requested duration. */
     public static function effectiveDuration(int $tenantId, array $selection, int $fallback = 0): int
     {
