@@ -1,0 +1,1 @@
+"use strict";exports.getDiyNavigationColors=o=>{var r;const t=(null==(r=null==o?void 0:o[0])?void 0:r.content)||{};return{frontColor:"1"===String(t.text_color)?"#ffffff":"#000000",backgroundColor:t.nav_bg_color||t.navigation_bg_color||t.bg_color||"#ffffff"}};
