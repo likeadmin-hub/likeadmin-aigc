@@ -38,6 +38,22 @@ try {
         try { Jobs::frameStatus($tenant, $user, $id, '3', $job); } catch (Exception $e) { $denied = true; }
         checkToolbar($denied, 'capture poll rejects other tenant/user');
     }
+    $video = ['id' => '5', 'type' => 'video', 'x' => 0, 'y' => 0, 'metadata' => [
+        'url' => 'uploads/test-poster-status.mp4', 'video_url' => 'uploads/test-poster-status.mp4',
+        'status' => 'success', 'poster_status' => 'pending',
+    ]];
+    Canvas::save(1, 1, ['id' => $id, 'nodes' => [$video]]);
+    $posterJob = Db::name('aigc_short_drama_canvas_poster_job')->where(['canvas_id' => $id, 'node_id' => '5', 'job_kind' => 'poster'])->find();
+    checkToolbar((int)($posterJob['id'] ?? 0) > 0, 'video save queues one poster job');
+    Db::name('aigc_short_drama_canvas_poster_job')->where('id', (int)$posterJob['id'])->update(['status' => 'dead', 'attempts' => 4]);
+    $read = Canvas::current(1, 1, $id);
+    $readNode = current(array_values(array_filter($read['nodes'], static fn($item): bool => (string)$item['id'] === '5')));
+    checkToolbar(($readNode['metadata']['poster_status'] ?? '') === 'failed', 're-entry reads terminal poster failure instead of pending');
+    $saved = Canvas::save(1, 1, ['id' => $id, 'nodes' => [$video]]);
+    $savedNode = current(array_values(array_filter($saved['nodes'], static fn($item): bool => (string)$item['id'] === '5')));
+    checkToolbar(($savedNode['metadata']['poster_status'] ?? '') === 'failed', 'stale browser save cannot reactivate a dead poster job');
+    checkToolbar(Db::name('aigc_short_drama_canvas_poster_job')->where('id', (int)$posterJob['id'])->value('status') === 'dead', 'dead poster job is not resubmitted');
+    checkToolbar(Jobs::posterProjection(2, 1, $id, '5', 'uploads/test-poster-status.mp4') === [], 'poster status remains tenant-isolated');
 } finally {
     Db::rollback();
 }
