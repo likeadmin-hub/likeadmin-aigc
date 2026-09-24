@@ -1063,7 +1063,7 @@ class DecorateTemplateService
     {
         $map = [
             1 => ['home', self::TERMINAL_MOBILE, 'mobile_home', '/pages/index/index', 1, 1, '系统首页', ['search', 'banner', 'nav', 'news']],
-            2 => ['user', self::TERMINAL_MOBILE, 'mobile_user', '/pages/user/user', 0, 1, '个人中心', ['user-info', 'my-service', 'user-banner']],
+            2 => ['user', self::TERMINAL_MOBILE, 'mobile_user', '/pages/user/user', 0, 1, '个人中心', ['user-info', 'membership-card', 'commerce-entries', 'my-service', 'user-banner']],
             3 => ['service', self::TERMINAL_MOBILE, 'mobile_service', '/pages/customer_service/customer_service', 0, 1, '客服设置', ['customer-service']],
             4 => ['pc_home', self::TERMINAL_PC, 'pc_home', '/', 1, 1, 'PC首页', ['pc-sidebar', 'pc-home-hero-grid', 'pc-tool-carousel', 'pc-case-feed']],
         ];
@@ -1230,6 +1230,9 @@ class DecorateTemplateService
 
     private static function ensurePageWidgets(DecoratePage $page, array $widgetNames): void
     {
+        if ((string)$page['page_code'] === 'user' && (string)$page['terminal'] === self::TERMINAL_MOBILE) {
+            self::ensureUserCommerceWidgets($page);
+        }
         $updates = [];
         // Normalization belongs to the editable draft. The published snapshot
         // must remain immutable until an explicit template publish operation.
@@ -1262,6 +1265,47 @@ class DecorateTemplateService
         }
     }
 
+    private static function ensureUserCommerceWidgets(DecoratePage $page): void
+    {
+        $meta = self::decodeJson((string)($page['published_meta'] ?: $page['meta'] ?: ''), []);
+        if (!is_array($meta) || !isset($meta[0]) || !is_array($meta[0])) {
+            return;
+        }
+        if (!empty($meta[0]['content']['commerce_entries_v1'])) {
+            return;
+        }
+        $updates = [];
+        foreach (['draft_data', 'published_data', 'data'] as $field) {
+            $widgets = self::decodeJson((string)($page[$field] ?: $page['data'] ?: '[]'), []);
+            if (!is_array($widgets) || !self::isListArray($widgets)) {
+                continue;
+            }
+            $names = array_column($widgets, 'name');
+            $insert = [];
+            foreach (['membership-card', 'commerce-entries'] as $name) {
+                if (!in_array($name, $names, true)) {
+                    $insert[] = self::defaultWidgetData($name);
+                }
+            }
+            if ($insert) {
+                $userIndex = array_search('user-info', $names, true);
+                array_splice($widgets, $userIndex === false ? 0 : $userIndex + 1, 0, $insert);
+                $updates[$field] = self::encodeJson($widgets);
+            }
+        }
+        foreach (['draft_meta', 'published_meta', 'meta'] as $field) {
+            $value = self::decodeJson((string)($page[$field] ?: $page['meta'] ?: ''), []);
+            if (!is_array($value) || !isset($value[0]) || !is_array($value[0])) {
+                continue;
+            }
+            $value[0]['content']['commerce_entries_v1'] = 1;
+            $updates[$field] = self::encodeJson($value);
+        }
+        if ($updates) {
+            $page->save($updates);
+        }
+    }
+
     private static function defaultWidgetData(string $name): array
     {
         $widget = [
@@ -1271,6 +1315,20 @@ class DecorateTemplateService
             'content' => ['enabled' => 1],
             'styles' => [],
         ];
+
+        if ($name === 'membership-card') {
+            $widget['title'] = '会员权益';
+            $widget['content'] = ['enabled' => 1, 'source_key' => 'membership_summary', 'data_mode' => 'source', 'link' => ['path' => '/packages/pages/membership/membership']];
+            $widget['styles'] = ['background' => '#1c2541', 'color' => '#ffffff', 'padding' => 16, 'border_radius' => 12];
+        }
+        if ($name === 'commerce-entries') {
+            $widget['title'] = '购买入口';
+            $widget['content'] = ['enabled' => 1, 'data' => [
+                ['key' => 'credits', 'title' => '算力套餐', 'sub_title' => '购买算力，继续创作', 'icon' => '✦', 'link' => ['path' => '/packages/pages/recharge/recharge']],
+                ['key' => 'distribution', 'title' => '推广中心', 'sub_title' => '邀请好友，共享收益', 'icon' => '↗', 'link' => ['path' => '/pages/distribution/distribution']],
+            ]];
+            $widget['styles'] = ['background' => 'transparent', 'color' => '#ffffff', 'padding' => 12, 'border_radius' => 12];
+        }
 
         if ($name === 'pc-banner') {
             $widget['title'] = '首页轮播图';
@@ -1394,7 +1452,7 @@ class DecorateTemplateService
             'section', 'grid', 'stack', 'horizontal-scroll', 'masonry', 'card',
             'image-nav', 'magic-grid', 'tutorial-carousel', 'case-feed', 'app-collection',
             'creation-entry-grid', 'recent-tasks', 'media-card', 'user-hero', 'membership-card',
-            'user-stats', 'account-quota', 'asset-entries', 'service-grid',
+            'user-stats', 'account-quota', 'asset-entries', 'service-grid', 'commerce-entries',
         ];
     }
 
