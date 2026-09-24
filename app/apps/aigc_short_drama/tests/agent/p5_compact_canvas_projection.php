@@ -64,7 +64,7 @@ try {
             return ['settings'=>$preferences,'skill'=>[],'workflow'=>$prepared['workflow'],'thread_settings'=>$prepared['thread_settings']];
         });
     };
-    $start=$accept('compact-start','请创作悬疑短剧');
+    $start=$accept('compact-start','/short-drama 请创作悬疑短剧');
     $publicStart=Workflow::read($tenant,$user,$canvas,$thread);
     agentCheck(!isset($publicStart['workflow']['workflow_snapshot']['creative_prompt_snapshot']),
         'frozen internal creative prompt configuration is not exposed in the public workflow snapshot');
