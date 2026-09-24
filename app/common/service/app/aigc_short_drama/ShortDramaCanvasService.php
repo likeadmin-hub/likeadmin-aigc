@@ -1395,6 +1395,34 @@ class ShortDramaCanvasService
             $nodeId = (string)$run['node_id'];
             if ($nodeId !== '' && !in_array($nodeId, $data['removed_node_ids'], true) && !isset($latest[$nodeId])) $latest[$nodeId] = self::formatRun($run);
         }
+        // A task may finish after the browser has saved its earlier running
+        // snapshot. The run row is authoritative for that exact generation;
+        // project terminal state on reads so a reopened canvas never displays
+        // a completed video as "generating". Do not rewrite nodes_json here.
+        foreach ($data['nodes'] as &$node) {
+            if ((string)($node['type'] ?? '') !== 'video') continue;
+            $run = $latest[(string)($node['id'] ?? '')] ?? null;
+            $metadata = (array)($node['metadata'] ?? []);
+            if (!$run || (int)($metadata['canvasRunId'] ?? 0) !== (int)$run['id']) continue;
+            if (!in_array((string)$run['status'], ['success', 'failed', 'canceled'], true)) continue;
+            $metadata['status'] = $run['status'];
+            $metadata['progress'] = $run['progress'];
+            $metadata['error'] = $run['error'];
+            $metadata['pending'] = false;
+            $result = $run['results'][0] ?? null;
+            if (is_array($result)) {
+                $url = (string)($result['url'] ?? $result['video_url'] ?? '');
+                if ($url !== '') {
+                    $metadata['url'] = $url;
+                    $metadata['video_url'] = $url;
+                    foreach (['uri', 'storage_scope', 'storage_engine', 'storage_domain', 'asset_id'] as $key) {
+                        if (!empty($result[$key])) $metadata[$key] = $result[$key];
+                    }
+                }
+            }
+            $node['metadata'] = $metadata;
+        }
+        unset($node);
         $data['runs'] = array_values($latest);
         $data['recovery_pending_node_ids'] = array_values($pendingRecovery);
         return $data;
