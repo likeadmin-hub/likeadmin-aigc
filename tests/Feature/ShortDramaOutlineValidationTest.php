@@ -8,15 +8,20 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaOutlineValidationTest extends TestCase
 {
-    public function testMissingEpisodeCannotBeFilledByCopyingAnotherEpisode(): void
+    public function testMissingEpisodeIsDiagnosedWithoutInventingOutlineContent(): void
     {
         $method = new \ReflectionMethod(AigcShortDramaService::class, 'normalizeGeneratedPlanResult');
         $method->setAccessible(true);
-        $this->expectException(\Exception::class);
-        $method->invoke(null, ['title' => '测试', 'type_judgement' => '悬疑', 'core_theme' => '真相', 'story_outline' => '测试剧情',
+        $result = $method->invoke(null, ['title' => '测试', 'type_judgement' => '悬疑', 'core_theme' => '真相', 'story_outline' => '测试剧情',
             'subjects' => [['name' => '主角']], 'locations' => [['name' => '车站']],
             'episodes' => [['episode_number' => 1, 'title' => '第一集', 'story_outline' => '剧情', 'conflict_point' => '冲突', 'ending_hook' => '钩子']]],
             '测试', ['multi_episode' => true, 'episode_count' => 3, 'multi_episode_stage' => 'episodes', 'episode_workflow' => 'outline_queue'], '测试');
+
+        self::assertContains('outline.episode.missing', array_column($result['outline_validation_issues'], 'code'));
+        self::assertSame([], $result['storyboard']);
+        self::assertSame([], $result['duration_stats']);
+        self::assertSame([], $result['episodes'][1]['scenes']);
+        self::assertArrayNotHasKey('shots', $result['episodes'][1]);
     }
 
     public function testMissingShotsAreNotClonedIntoOtherEpisodes(): void

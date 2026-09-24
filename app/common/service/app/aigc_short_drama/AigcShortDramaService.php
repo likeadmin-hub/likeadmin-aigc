@@ -24,6 +24,7 @@ use app\common\service\app\aigc_image\AigcImageChannelService;
 use app\common\service\app\aigc_image\AigcImageService;
 use app\common\service\app\aigc_music\AigcMusicService;
 use app\common\service\app\aigc_digital_human\AigcDigitalHumanService;
+use app\common\service\app\aigc_short_drama\canvas_agent\FeatureGate;
 use app\common\service\power\MarketTextModelRuntimeService;
 use app\common\service\power\MarketFileQaAppRuntimeService;
 use app\common\service\power\MarketImageModelRuntimeService;
@@ -83,6 +84,34 @@ class AigcShortDramaService
     public static function config(int $tenantId): array
     {
         $config = self::publicConfig($tenantId);
+        // The creation workflow itself is platform-owned.  Expose only its
+        // display catalog here so tenant admin can select published Skills for
+        // an existing stage; saveConfig still accepts no tenant-defined stage
+        // order, generation policy, model identity or billing rule.
+        $catalog = \app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::catalog();
+        $config['canvas_agent']['workflow']['catalog'] = [
+            'key' => (string)($catalog['key'] ?? ''),
+            'version' => (string)($catalog['version'] ?? ''),
+            'name' => (string)($catalog['name'] ?? ''),
+            'stages' => array_values(array_map(static fn(array $stage): array => [
+                'key' => (string)($stage['key'] ?? ''),
+                'label' => (string)($stage['label'] ?? ''),
+                'skills' => array_values(array_map('strval', (array)($stage['skills'] ?? []))),
+                'creates_nodes' => !empty($stage['creates_nodes']),
+                'output_fields' => \app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::outputContract((string)($stage['key'] ?? '')),
+            ], array_filter((array)($catalog['stages'] ?? []), 'is_array'))),
+        ];
+        $config['canvas_agent']['workflow']['available_skills'] = ShortDramaSkillService::workflowEligible($tenantId);
+        // Return the effective stage selection, including platform defaults,
+        // so the tenant workflow manager shows a usable configuration on the
+        // first visit and can persist it as an explicit tenant choice.
+        $config['canvas_agent']['workflow']['stage_skills'] = FeatureGate::workflowStageSkillSelections($tenantId);
+        // Collection contract for the tenant workflow manager. Each future
+        // workflow needs its own registered executor before it can be listed.
+        $config['canvas_agent_workflows'] = [$config['canvas_agent']['workflow']['catalog'] + [
+            'enabled' => !in_array($config['canvas_agent']['workflow']['enabled'] ?? true, [false, 0, '0'], true),
+            'stage_skills' => $config['canvas_agent']['workflow']['stage_skills'],
+        ]];
         $config['script_prompt_defaults'] = self::scriptPromptDefaults();
         $config['prompt_config_defaults'] = self::runtimePromptDefaults();
         $config['prompt_config_values'] = self::promptConfigValues($config);
@@ -105,6 +134,10 @@ class AigcShortDramaService
         $shot = ['shot_id' => '1', 'scene_ref_id' => 'l1', 'scene_name' => $scene['name'], 'subject_ref_ids' => !empty($params['empty_shot']) ? [] : ['s1'], 'shot_type' => !empty($params['empty_shot']) ? '空镜' : '中景', 'visual_description' => $input, 'recommended_duration_seconds' => $duration];
         $plan = ['subjects' => [$subject], 'locations' => [$scene], 'storyboard' => [$shot], 'story_outline' => $input, 'duration_stats' => ['estimated_total_seconds' => $duration]];
         $request = ['subject_id' => 's1', 'scene_id' => 'l1', 'subject_name' => $subject['name'], 'category' => $subject['category'], 'scene_name' => $scene['name'], 'duration' => $duration, 'model_id' => '', 'resolution' => '720p', 'ratio' => '9:16', 'target_duration_seconds' => $duration, 'episode_count' => 3];
+        // The synthetic media example has explicit user text. Without this
+        // field the assembler incorrectly previews "description missing"
+        // fallbacks even though the example input is visible in the editor.
+        if (in_array($stage, ['subject_image', 'three_view', 'scene_image', 'shot_image', 'shot_video'], true)) $request['prompt'] = $input;
         $references = ['reference_assets' => [], 'input_asset_ids' => [], 'reference_plan' => [], 'generation_method' => 'text_to_video'];
         $generateAudio = true;
         $recorded = [];
@@ -694,6 +727,34 @@ class AigcShortDramaService
             } else {
                 $config['result_storage_engine'] = '';
             }
+        }
+        if (array_key_exists('canvas_agent', $params)) {
+            if (!is_array($params['canvas_agent'])) {
+                throw new Exception('Agent 配置格式不正确');
+            }
+            $agent=(array)$params['canvas_agent'];
+            $enabled=in_array($agent['enabled']??($current['canvas_agent']['enabled']??true),[true,1,'1','true'],true);
+            $executionEnabled=$enabled && in_array($agent['execution_enabled']??($current['canvas_agent']['execution_enabled']??false),[true,1,'1','true'],true);
+            // Provider credentials, model identities and prices always remain
+            // server-owned. Safety is a short-drama tenant policy, not a
+            // cross-app sensitive-word list.
+            // The workflow definition and its non-negotiable media policies
+            // remain platform-owned.  Tenant admin can only enable its use;
+            // it cannot replace stage order, billing, safety or video rules.
+            $workflow=(array)($agent['workflow']??($current['canvas_agent']['workflow']??[]));
+            if (isset($workflow['key']) && $workflow['key'] !== \app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::KEY) {
+                throw new Exception('该工作流尚未开放配置');
+            }
+            $workflowEnabled=!array_key_exists('enabled',$workflow)
+                || in_array($workflow['enabled'],[true,1,'1','true'],true);
+            $stageSkills=self::normalizeCanvasAgentStageSkills($workflow['stage_skills']??($current['canvas_agent']['workflow']['stage_skills']??[]));
+            foreach (array_key_exists('stage_skills', (array)($agent['workflow']??[])) ? $stageSkills : [] as $selections) foreach ($selections as $selection) {
+                $skill = ShortDramaSkillService::resolveForTask($tenantId, $selection);
+                \app\common\service\app\aigc_short_drama\canvas_agent\ConversationSkillPolicy::assertSafe($skill);
+            }
+            $config['canvas_agent']=['enabled'=>$enabled,'execution_enabled'=>$executionEnabled,
+                'workflow'=>['enabled'=>$workflowEnabled,'enabled_workflows'=>[\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::KEY],'stage_skills'=>$stageSkills],
+                'safety'=>FeatureGate::normalizeSafetyPolicy($agent['safety']??($current['canvas_agent']['safety']??[]))];
         }
         unset($config['script_plan_model_id'], $config['script_plan_model_selection']);
         $defaultTextKey = array_key_exists('default_text_model_id', $params)
@@ -1750,9 +1811,13 @@ class AigcShortDramaService
             'title' => mb_substr(trim((string)($params['title'] ?? $subject['name'] ?? '')), 0, 120, 'UTF-8'),
             'uri' => $uri,
             'cover_uri' => FileService::setFileUrl((string)($params['cover_uri'] ?? $params['cover_url'] ?? '')),
-            'storage_scope' => (string)($params['storage_scope'] ?? $storedFile['storage_scope'] ?? 'tenant'),
-            'storage_engine' => (string)($params['storage_engine'] ?? $storedFile['storage_engine'] ?? 'local'),
-            'storage_domain' => (string)($params['storage_domain'] ?? $storedFile['storage_domain'] ?? ''),
+            // Browser upload endpoints in older clients may omit storage
+            // metadata or send empty strings.  An empty client value must not
+            // erase the authoritative tenant_file storage record, otherwise
+            // an owned OSS upload is later treated as a local file.
+            'storage_scope' => self::assetStorageValue($params, 'storage_scope', $storedFile, 'tenant'),
+            'storage_engine' => self::assetStorageValue($params, 'storage_engine', $storedFile, 'local'),
+            'storage_domain' => self::assetStorageValue($params, 'storage_domain', $storedFile, ''),
             'mime_type' => mb_substr(trim((string)($params['mime_type'] ?? 'image/png')), 0, 120, 'UTF-8'),
             'file_size' => (int)($params['file_size'] ?? 0),
             'width' => (int)($params['width'] ?? 0),
@@ -2020,6 +2085,17 @@ class AigcShortDramaService
             ];
         }
         AigcShortDramaStyle::insertAll($seedRows);
+    }
+
+    /** Read the same model directory as the canvas without loading user projects/assets. */
+    public static function canvasModelGroups(int $tenantId): array
+    {
+        $config = self::publicConfig($tenantId);
+        if ((int)($config['status'] ?? 1) !== 1) return [];
+        return self::sanitizeUtf8Payload(array_merge(
+            self::userScriptModelGroups((array)($config['model_groups'] ?? []), (array)($config['models'] ?? [])),
+            self::userCreationModelGroups((array)($config['model_groups'] ?? []), (array)($config['models'] ?? []))
+        ));
     }
 
     public static function home(int $tenantId, int $userId): array
@@ -5581,9 +5657,9 @@ class AigcShortDramaService
             'title' => mb_substr(trim((string)($params['title'] ?? '')), 0, 120, 'UTF-8'),
             'uri' => $uri,
             'cover_uri' => FileService::setFileUrl((string)($params['cover_uri'] ?? $params['cover_url'] ?? '')),
-            'storage_scope' => (string)($params['storage_scope'] ?? $storedFile['storage_scope'] ?? 'tenant'),
-            'storage_engine' => (string)($params['storage_engine'] ?? $storedFile['storage_engine'] ?? 'local'),
-            'storage_domain' => (string)($params['storage_domain'] ?? $storedFile['storage_domain'] ?? ''),
+            'storage_scope' => self::assetStorageValue($params, 'storage_scope', $storedFile, 'tenant'),
+            'storage_engine' => self::assetStorageValue($params, 'storage_engine', $storedFile, 'local'),
+            'storage_domain' => self::assetStorageValue($params, 'storage_domain', $storedFile, ''),
             'mime_type' => mb_substr(trim((string)($params['mime_type'] ?? '')), 0, 120, 'UTF-8'),
             'file_size' => (int)($params['file_size'] ?? 0),
             'width' => (int)($params['width'] ?? 0),
@@ -5611,7 +5687,7 @@ class AigcShortDramaService
             throw new Exception('画布不存在或无权访问');
         }
         $nodeType = strtolower(trim((string)($params['node_type'] ?? $params['type'] ?? 'image')));
-        if (!in_array($nodeType, ['text', 'image', 'video', 'audio'], true)) {
+        if (!in_array($nodeType, ['text', 'image', 'video', 'audio', 'document'], true)) {
             throw new Exception('不支持的画布资产类型');
         }
         $uri = FileService::setFileUrl((string)($params['uri'] ?? $params['url'] ?? ''));
@@ -5619,12 +5695,29 @@ class AigcShortDramaService
             throw new Exception('当前节点没有可保存的媒体');
         }
         $storedFile = $uri === '' ? [] : self::storageInfoForUploadedFile($tenantId, $uri);
+        if ($nodeType === 'document') {
+            $title = trim((string)($params['title'] ?? ''));
+            $size = (int)($params['file_size'] ?? 0);
+            if (!preg_match('/\.(pdf|doc|docx)$/iu', $title) || preg_match('/[\x00-\x1f\/\\\\]/u', $title)) {
+                throw new Exception('仅支持 PDF、DOC、DOCX 格式的文档');
+            }
+            if ($size <= 0 || $size > 10 * 1024 * 1024) {
+                throw new Exception('文档大小需在 10MB 以内');
+            }
+            if ($storedFile === []) {
+                throw new Exception('文档必须通过当前租户的本地上传入口添加');
+            }
+        }
         $meta = is_array($params['meta'] ?? null) ? $params['meta'] : [];
         $meta['source'] = 'short_drama_canvas';
         $meta['canvas_id'] = $canvasId;
         $meta['node_id'] = (string)($params['node_id'] ?? '');
         $meta['node_type'] = $nodeType;
         $meta['content'] = $nodeType === 'text' ? mb_substr((string)($params['content'] ?? ''), 0, 60000, 'UTF-8') : '';
+        if ($nodeType === 'document') {
+            $meta['document_parse_status'] = 'awaiting_confirmation';
+            $meta['document_error'] = '';
+        }
         $assetType = 'canvas_' . $nodeType;
         $time = time();
         $asset = AigcShortDramaAsset::create([
@@ -5639,7 +5732,7 @@ class AigcShortDramaService
             'mime_type' => mb_substr(trim((string)($params['mime_type'] ?? ($nodeType === 'text' ? 'text/plain' : ''))), 0, 120, 'UTF-8'),
             'file_size' => (int)($params['file_size'] ?? 0), 'width' => (int)($params['width'] ?? 0),
             'height' => (int)($params['height'] ?? 0), 'duration' => (float)($params['duration'] ?? 0),
-            'checksum' => '', 'meta_json' => self::jsonEncode($meta), 'status' => 'ready',
+            'checksum' => '', 'meta_json' => self::jsonEncode($meta), 'status' => $nodeType === 'document' ? 'uploaded' : 'ready',
             'create_time' => $time, 'update_time' => $time, 'delete_time' => 0,
         ]);
         return self::formatAsset($asset->toArray());
@@ -5859,6 +5952,21 @@ class AigcShortDramaService
             ];
         }
         return [];
+    }
+
+    /**
+     * Uploaded-file metadata is authoritative when a browser leaves an
+     * optional storage field blank.  Explicit non-empty values remain
+     * supported for imports whose source is not represented by tenant_file.
+     */
+    private static function assetStorageValue(array $params, string $key, array $storedFile, string $fallback): string
+    {
+        $value = trim((string)($params[$key] ?? ''));
+        if ($value !== '') {
+            return $value;
+        }
+        $stored = trim((string)($storedFile[$key] ?? ''));
+        return $stored !== '' ? $stored : $fallback;
     }
 
     /**
@@ -7787,6 +7895,10 @@ class AigcShortDramaService
         } catch (\Throwable $e) {
             $current = self::findGenerationTask($tenantId, $userId, $taskId)->toArray();
             $consumptionId = (int)($current['consumption_id'] ?? 0);
+            if (self::marketImageSubmissionAccepted($consumptionId)) {
+                Log::warning('Short drama accepted market image task awaits recovery: task=' . $taskId . ' error=' . $e->getMessage());
+                return;
+            }
             if ($consumptionId > 0) {
                 MarketImageModelRuntimeService::fail($consumptionId, $e->getMessage(), 'short_drama_image_failed');
             }
@@ -7812,9 +7924,24 @@ class AigcShortDramaService
             self::persistMarketImageTaskResult($tenantId, $userId, $taskId, $result, $imageParams);
         } catch (\Throwable $e) {
             $current = self::findGenerationTask($tenantId, $userId, $taskId)->toArray();
+            if (self::marketImageSubmissionAccepted((int)($current['consumption_id'] ?? 0))) {
+                Log::warning('Short drama accepted nano-banana task awaits recovery: task=' . $taskId . ' error=' . $e->getMessage());
+                return;
+            }
             if ((int)($current['consumption_id'] ?? 0) > 0) MarketNanoBananaAppRuntimeService::fail((int)$current['consumption_id'], $e->getMessage(), 'short_drama_nano_banana_failed');
             self::failMarketImageGenerationTask($tenantId, $userId, $current, $e);
         }
+    }
+
+    private static function marketImageSubmissionAccepted(int $consumptionId): bool
+    {
+        if ($consumptionId <= 0) {
+            return false;
+        }
+        $consumption = AiConsumptionLog::where('id', $consumptionId)->findOrEmpty();
+        return !$consumption->isEmpty()
+            && in_array((string)$consumption['run_status'], ['running', 'success'], true)
+            && in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage', 'settled'], true);
     }
 
     private static function syncMarketNanoBananaGenerationTask(int $tenantId, int $userId, array $generation): void
@@ -15597,6 +15724,7 @@ class AigcShortDramaService
             'multi_episode_script_prompt_template' => self::defaultMultiEpisodeScriptPromptTemplate(),
             'force_result_transfer' => false,
             'result_storage_engine' => '',
+            'canvas_agent' => ['enabled' => true, 'execution_enabled' => false, 'workflow'=>['enabled'=>true,'enabled_workflows'=>[\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::KEY],'stage_skills'=>[]], 'safety' => FeatureGate::defaultSafetyPolicy()],
             'models' => [
                 [
                     'id' => 'script-planner-default',
@@ -17100,6 +17228,38 @@ class AigcShortDramaService
                 'sort' => (int)$row['sort'],
             ];
         }, $uniqueRows);
+    }
+
+    /** The canvas Agent must resolve a style against the same enabled tenant
+     * library as the original creation form, not trust a browser-supplied
+     * prompt or an identically named style from another tenant. */
+    public static function canvasCreativeStyle(int $tenantId, string $selection): array
+    {
+        $styleId='';
+        if (str_starts_with($selection,'style_id:')) {
+            $styleId=substr($selection,9);
+            if (!preg_match('/^[1-9][0-9]{0,15}$/D',$styleId)) throw new \RuntimeException('INVALID_WORKFLOW_ANSWER');
+        }
+        foreach (self::styleOptions($tenantId) as $style) {
+            if (($styleId!=='' && (string)$style['id']===$styleId) || ($styleId==='' && (string)$style['name']===$selection)) {
+                return ['id'=>(string)$style['id'], 'name'=>(string)$style['name'],
+                    'prompt'=>(string)($style['description'] ?? '')];
+            }
+        }
+        if ($styleId!=='') throw new \RuntimeException('WORKFLOW_STYLE_UNAVAILABLE');
+        return ['id'=>'', 'name'=>$selection, 'prompt'=>$selection];
+    }
+
+    /** Share the original creation form's tenant-configured aspect ratios. */
+    public static function canvasCreativeRatios(int $tenantId): array
+    {
+        $ratios=[];
+        foreach ((array)(self::publicConfig($tenantId)['ratios'] ?? []) as $option) {
+            if (!is_array($option)) continue;
+            $ratio=self::normalizeGenerationRatio((string)($option['label'] ?? ''));
+            if ($ratio!=='' && !in_array($ratio,$ratios,true)) $ratios[]=$ratio;
+        }
+        return $ratios;
     }
 
     private static function normalizeEpisodeSettings(array $params): array
@@ -19793,6 +19953,48 @@ class AigcShortDramaService
             $context,
             (string)($runtimeConfig['global_system_prompt'] ?? '')
         ));
+    }
+
+    /** Canvas Agent media uses the same effective submission template as the
+     * formal short-drama flow. The originating conversation snapshot, not a
+     * later tenant edit, is the authority for this generation request. */
+    public static function canvasAgentSubmissionPrompt(int $tenantId, array $snapshot, string $artifact, string $prompt, array $context = []): string
+    {
+        if ((int)($snapshot['tenant_id'] ?? -1) !== $tenantId) throw new Exception('PROMPT_SNAPSHOT_TENANT_MISMATCH');
+        $key = match ($artifact) {
+            'subject', 'prop' => 'subject_image_prompt_template',
+            'three_view' => 'three_view_prompt_template',
+            'scene' => 'scene_image_prompt_template',
+            'storyboard' => 'shot_image_prompt_template',
+            'storyboard_video' => 'shot_video_prompt_template',
+            default => throw new Exception('UNSUPPORTED_WORKFLOW_PROMPT_TEMPLATE'),
+        };
+        return ShortDramaPromptCatalog::run($snapshot, static function () use ($tenantId, $key, $artifact, $prompt, $context): string {
+            $document = match ($artifact) {
+                'subject', 'prop' => 'subject_image',
+                'three_view' => 'subject_views',
+                'scene' => 'scene_image',
+                'storyboard' => 'shot_image',
+                'storyboard_video' => 'shot_video',
+            };
+            if (ShortDramaPromptDocuments::enabled()) {
+                $conditions = [
+                    'prop' => $artifact === 'prop' || !empty($context['prop']),
+                    'empty' => !empty($context['empty']),
+                    'subject_count' => (int)($context['subject_count'] ?? 0),
+                    'first_frame' => !empty($context['first_frame']),
+                    'last_frame' => !empty($context['last_frame']),
+                    'missing' => !empty($context['missing']),
+                ];
+                $rules = ShortDramaPromptDocuments::render($document, $conditions, true);
+                return self::joinPromptParts([
+                    $prompt,
+                    $rules === '' || str_contains($prompt, $rules) ? '' : "创作要求：\n" . $rules,
+                    ShortDramaPromptCatalog::priority(),
+                ]);
+            }
+            return self::applyConfiguredGenerationPromptTemplate($tenantId, $key, $prompt, $context);
+        });
     }
 
     private static function ensureGenerationPromptTemplateContract(string $value, string $default = '{{prompt}}'): string
@@ -25935,6 +26137,32 @@ class AigcShortDramaService
         }
         $data = json_decode($json, true);
         return is_array($data) ? $data : [];
+    }
+
+    /** Keep tenant workflow configuration to an authorization selection only.
+     * Stage order, node policy, billing and safety remain in the platform
+     * catalog; a tenant can merely select up to four published Skill versions
+     * per known stage. Availability is rechecked on conversation start. */
+    private static function normalizeCanvasAgentStageSkills(mixed $value): array
+    {
+        if (!is_array($value)) return [];
+        $allowed=[];
+        foreach (\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::catalog()['stages'] as $stage) {
+            if (is_array($stage) && is_string($stage['key']??null)) $allowed[$stage['key']]=true;
+        }
+        $result=[];
+        foreach ($value as $stage=>$items) {
+            if (!is_string($stage) || !isset($allowed[$stage]) || !is_array($items) || !array_is_list($items)) continue;
+            $seen=[];
+            foreach (array_slice($items,0,4) as $item) {
+                if (!is_array($item)) continue;
+                $id=(int)($item['skill_id']??0);$version=(int)($item['skill_version']??0);
+                if ($id<=0 || $version<=0 || isset($seen[$id.':'.$version])) continue;
+                $seen[$id.':'.$version]=true;
+                $result[$stage][]=['skill_id'=>$id,'skill_version'=>$version];
+            }
+        }
+        return $result;
     }
 
     private static function jsonEncode(array $data): string

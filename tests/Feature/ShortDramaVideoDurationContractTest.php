@@ -94,6 +94,14 @@ class ShortDramaVideoDurationContractTest extends TestCase
         self::assertStringContainsString('duration: shotDuration,', $source);
     }
 
+    public function testMarketVideoTaskStoresTheSameNegotiatedDurationItSubmitsAndBills(): void
+    {
+        $source = (string)file_get_contents(dirname(__DIR__, 2) . '/app/common/service/app/aigc_video/AigcVideoService.php');
+        self::assertStringContainsString('normalizeDurationSelection($tenantId, $selection, (int)($params[\'duration\'] ?? 0))', $source);
+        self::assertStringContainsString("\$params['duration'] = (int)\$normalizedDuration['duration'];", $source);
+        self::assertStringContainsString("'duration' => max(1, (int)(\$params['duration'] ?? 0))", $source);
+    }
+
     private function invokeConfigurableDuration(array $metadata, int $requestedDuration): int
     {
         $method = new ReflectionMethod(MarketVideoRuntimeService::class, 'configurableDuration');

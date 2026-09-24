@@ -3,6 +3,7 @@
 namespace app\common\service\app\aigc_short_drama;
 
 use app\common\service\app\aigc_video\AigcVideoPosterService;
+use app\common\service\app\aigc_short_drama\canvas_agent\GraphService;
 use app\common\service\FileService;
 use app\common\service\storage\StorageConfigService;
 use think\facade\Db;
@@ -12,6 +13,29 @@ class ShortDramaCanvasPosterJobService
 {
     private const TABLE = 'aigc_short_drama_canvas_poster_job';
     private const MAX_ATTEMPTS = 4;
+
+    /** Read an existing poster outcome without requeueing a terminal job. */
+    public static function posterProjection(int $tenantId, int $userId, int $canvasId, string $nodeId, string $videoUri): array
+    {
+        $videoUri = self::canonicalUri($videoUri);
+        if ($videoUri === '') return [];
+        $key = sha1(implode('|', [$tenantId, $userId, $canvasId, $nodeId, $videoUri]));
+        $job = Db::name(self::TABLE)->where([
+            'tenant_id' => $tenantId, 'user_id' => $userId, 'canvas_id' => $canvasId,
+            'node_id' => $nodeId, 'idempotency_key' => $key, 'job_kind' => 'poster',
+        ])->find();
+        if (!$job) return [];
+        if ((string)$job['status'] === 'dead') return ['poster_status' => 'failed'];
+        $posterUri = (string)($job['poster_uri'] ?? '');
+        if ((string)$job['status'] !== 'success' || $posterUri === '') return [];
+        return [
+            'poster_uri' => $posterUri,
+            'poster_url' => FileService::getFileUrlByStorage(
+                $posterUri, (string)$job['poster_scope'], (string)$job['poster_engine'], (string)$job['poster_domain']
+            ),
+            'poster_status' => 'ready',
+        ];
+    }
 
     public static function enqueue(
         int $tenantId,
@@ -191,7 +215,7 @@ class ShortDramaCanvasPosterJobService
             }
             unset($node);
             if ($changed) {
-                Db::name('aigc_short_drama_canvas')->where('id', (int)$document['id'])->update([
+                GraphService::persistLockedDocument($document, [
                     'nodes_json' => json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                     'update_time' => time(),
                 ]);
@@ -227,7 +251,7 @@ class ShortDramaCanvasPosterJobService
             }
             unset($node);
             if ($changed) {
-                Db::name('aigc_short_drama_canvas')->where('id', (int)$document['id'])->update([
+                GraphService::persistLockedDocument($document, [
                     'nodes_json' => json_encode($nodes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                     'update_time' => time(),
                 ]);

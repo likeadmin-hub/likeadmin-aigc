@@ -56,13 +56,17 @@ final class ShortDramaPromptDocuments
     {
         $values ??= ShortDramaPromptCatalog::defaults();
         $spec = self::definition();
-        $parts = [];
+        $sections = [];
         foreach ($spec['documents'][$id]['sections'] as $condition => $keys) {
             $texts = array_values(array_filter(array_map(static fn(string $key): string => (string)($values[$key] ?? ''), $keys), static fn(string $v): bool => trim($v) !== ''));
-            if ($texts !== []) $parts[] = '【适用：' . $spec['conditions'][$condition] . "】\n" . implode("\n\n", $texts);
+            foreach ($texts as $text) $sections[$condition][] = $text;
         }
         foreach (self::definition()['extra_defaults'] ?? [] as $extra) {
-            if ($extra['document'] === $id) $parts[] = '【适用：' . $spec['conditions'][$extra['condition']] . "】\n" . $extra['text'];
+            if ($extra['document'] === $id) $sections[$extra['condition']][] = $extra['text'];
+        }
+        $parts = [];
+        foreach ($sections as $condition => $texts) {
+            $parts[] = '【适用：' . $spec['conditions'][$condition] . "】\n" . implode("\n\n", array_unique($texts));
         }
         return implode("\n\n", $parts);
     }
@@ -171,6 +175,42 @@ final class ShortDramaPromptDocuments
         return $text;
     }
 
+    /** Render the same configured creative document for a frozen Agent turn.
+     * Unlike render(), this also supports the older per-rule workspace mode
+     * without consulting mutable tenant settings after the workflow starts. */
+    public static function renderSnapshot(array $snapshot,string $id,array $context=[]): string
+    {
+        if (!isset(self::definition()['documents'][$id])) throw new InvalidArgumentException('未知创作文档：'.$id);
+        $body=(string)($snapshot['documents'][$id]['body']??'');
+        if ($body==='') $body=self::body($id,(array)($snapshot['values']??ShortDramaPromptCatalog::defaults()));
+        $parts=[];
+        foreach (self::sections($body) as $section) {
+            if ($section['text']!=='' && self::matches($section['condition'],$context)) $parts[]=$section['text'];
+        }
+        return implode("\n\n",array_values(array_unique($parts)));
+    }
+
+    /** Planning has no per-node subject/shot flags yet. Preserve each rule's
+     * applicability instead of silently treating every future node as a
+     * character shot with a first frame. Final submission still uses render(). */
+    public static function renderSnapshotGuidance(array $snapshot, string $id, array $conditions): string
+    {
+        if (!isset(self::definition()['documents'][$id])) throw new InvalidArgumentException('未知创作文档：' . $id);
+        $body = (string)($snapshot['documents'][$id]['body'] ?? '');
+        if ($body === '') $body = self::body($id, (array)($snapshot['values'] ?? ShortDramaPromptCatalog::defaults()));
+        $labels = self::definition()['conditions'];
+        $allowed = array_fill_keys(array_merge(['always'], $conditions), true);
+        $parts = [];
+        foreach (self::sections($body) as $section) {
+            $condition = $section['condition'];
+            $content = $section['text'];
+            if ($content === '' || !isset($allowed[$condition])) continue;
+            $part = $condition === 'always' ? $content : '【仅适用：' . $labels[$condition] . "】\n" . $content;
+            $parts[$part] = true;
+        }
+        return implode("\n\n", array_keys($parts));
+    }
+
     public static function append(string $prompt, string $id, array $context = []): string
     {
         $text = self::render($id, $context);
@@ -242,7 +282,11 @@ final class ShortDramaPromptDocuments
         foreach (self::definition()['groups'] as $id => $label) {
             $items = [];
             foreach (self::definition()['documents'] as $key => $doc) if ($doc['group'] === $id) {
-                $items[] = ['key' => $key, 'label' => $doc['label'], 'used_at' => $doc['used_at'], 'help' => $doc['help'], 'stage' => $doc['stage'], 'default' => self::body($key)] + $effective['documents'][$key];
+                $specialTriggers = [];
+                foreach (self::definition()['extra_defaults'] as $extra) {
+                    if ($extra['document'] === $key && !empty($extra['trigger_note'])) $specialTriggers[] = $extra['trigger_note'];
+                }
+                $items[] = ['key' => $key, 'label' => $doc['label'], 'used_at' => $doc['used_at'], 'help' => $doc['help'], 'stage' => $doc['stage'], 'default' => self::body($key), 'special_triggers' => array_values(array_unique($specialTriggers))] + $effective['documents'][$key];
             }
             $groups[] = ['key' => $id, 'label' => $label, 'auxiliary' => $id === 'auxiliary', 'items' => $items];
         }

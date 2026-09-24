@@ -8,6 +8,50 @@ use ReflectionMethod;
 
 class MarketVideoModelPayloadContractTest extends TestCase
 {
+    public function testIdenticalFrameImageRetainsBothRolesInProviderPayload(): void
+    {
+        $uri = 'https://fixtures.invalid/shared.png';
+        $payload = $this->invokeModelPayload(['model_code'=>'wan3.0-video','channel_code'=>'isolated'], [
+            'prompt'=>'Synthetic frame test', 'generation_method'=>'start_end',
+            'reference_assets'=>[
+                ['type'=>'image','url'=>$uri,'role'=>'first_frame_image'],
+                ['type'=>'image','url'=>$uri,'role'=>'last_frame_image'],
+            ],
+            'reference_images'=>[$uri],
+        ]);
+        self::assertSame([
+            ['type'=>'first_frame','url'=>$uri], ['type'=>'last_frame','url'=>$uri],
+        ], $payload['input']['media']);
+        self::assertSame('idem-video-1', $payload['idempotency_key']);
+    }
+
+    public function testSwappingFrameAssignmentsChangesRolesWithoutLosingOrder(): void
+    {
+        $snapshot=['model_code'=>'wan3.0-video','channel_code'=>'isolated'];
+        $request=['prompt'=>'Synthetic frame test','generation_method'=>'start_end','reference_assets'=>[
+            ['type'=>'image','url'=>'https://fixtures.invalid/a.png','role'=>'first_frame_image'],
+            ['type'=>'image','url'=>'https://fixtures.invalid/b.png','role'=>'last_frame_image'],
+        ]];
+        $before=$this->invokeModelPayload($snapshot,$request);
+        $request['reference_assets'][0]['role']='last_frame_image';
+        $request['reference_assets'][1]['role']='first_frame_image';
+        $after=$this->invokeModelPayload($snapshot,$request);
+        self::assertSame(['first_frame','last_frame'],array_column($before['input']['media'],'type'));
+        self::assertSame(['last_frame','first_frame'],array_column($after['input']['media'],'type'));
+        self::assertSame(array_column($before['input']['media'],'url'),array_column($after['input']['media'],'url'));
+        self::assertNotSame($before['input']['media'],$after['input']['media']);
+    }
+
+    public function testSameUseUploadAndNodeReferenceReachProviderPayloadOnlyOnce(): void
+    {
+        $reference=['type'=>'image','url'=>'https://fixtures.invalid/one.png','role'=>'reference_image'];
+        $payload=$this->invokeModelPayload(['model_code'=>'wan3.0-video','channel_code'=>'isolated'],[
+            'prompt'=>'Synthetic reference test',
+            'reference_assets'=>[$reference,$reference], 'reference_images'=>[$reference['url']],
+        ]);
+        self::assertSame([['type'=>'reference_image','url'=>$reference['url']]],$payload['input']['media']);
+    }
+
     public function testWanVideoModelUsesDocumentedInputAndParametersPayload(): void
     {
         $payload = $this->invokeModelPayload([
@@ -50,6 +94,44 @@ class MarketVideoModelPayloadContractTest extends TestCase
         self::assertArrayNotHasKey('prompt', $payload);
         self::assertArrayNotHasKey('image_urls', $payload);
         self::assertArrayNotHasKey('quality', $payload);
+    }
+
+    public function testWanCanvasReferencesAndTwoSecondAudioChoiceReachTheDocumentedFields(): void
+    {
+        $payload = $this->invokeModelPayload([
+            'model_code' => 'wan3.0-video',
+            'channel_code' => 'dashscope_compatible',
+            'params_schema' => ['input' => ['type' => 'object'], 'parameters' => ['type' => 'object']],
+            'locked_params' => ['resolution' => '480P'],
+        ], [
+            'prompt' => '@图片1 用@音频1 对@图片3说话',
+            'duration' => 2,
+            'generate_audio' => false,
+            'reference_assets' => [
+                ['type' => 'image', 'url' => 'https://example.test/hero.png', 'role' => 'reference_image'],
+                ['type' => 'image', 'url' => 'https://example.test/setting.png', 'role' => 'reference_image'],
+                ['type' => 'image', 'url' => 'https://example.test/partner.png', 'role' => 'reference_image'],
+                ['type' => 'audio', 'url' => 'https://example.test/voice.mp3', 'role' => 'reference_audio'],
+            ],
+        ]);
+
+        self::assertSame('图1 用音频1 对图3说话', $payload['input']['prompt']);
+        self::assertSame(2, $payload['parameters']['duration']);
+        self::assertFalse($payload['parameters']['audio']);
+        self::assertSame(['reference_image', 'reference_image', 'reference_image', 'reference_audio'], array_column($payload['input']['media'], 'type'));
+    }
+
+    public function testAnotherStructuredModelDoesNotInheritWanAudioOrReferenceSyntax(): void
+    {
+        $payload = $this->invokeModelPayload([
+            'model_code' => 'another-structured-video',
+            'channel_code' => 'isolated',
+            'params_schema' => ['input' => ['type' => 'object'], 'parameters' => ['type' => 'object']],
+        ], ['prompt' => '@图片1移动', 'duration' => 4, 'generate_audio' => false]);
+
+        self::assertSame('@图片1移动', $payload['input']['prompt']);
+        self::assertSame(4, $payload['parameters']['duration']);
+        self::assertArrayNotHasKey('audio', $payload['parameters']);
     }
 
     public function testWanThreeExposesItsNativeTwoToThirtySecondRange(): void
@@ -268,6 +350,38 @@ class MarketVideoModelPayloadContractTest extends TestCase
         self::assertArrayNotHasKey('negative_prompt', $payload);
         self::assertArrayNotHasKey('video_urls', $payload);
         self::assertArrayNotHasKey('audio_urls', $payload);
+    }
+
+    public function testVeoSingleFirstFrameUsesFirstLastRatherThanReferenceMode(): void
+    {
+        $payload = $this->invokeModelPayload([
+            'model_code' => 'veo3.1-fast', 'channel_code' => 'test',
+            'params_schema' => [
+                'prompt' => ['type' => 'string'],
+                'image_urls' => ['type' => 'array'],
+                'aspect_ratio' => ['type' => 'string'],
+                'generation_type' => ['type' => 'string', 'options' => 'TEXT / FIRST&LAST / REFERENCE'],
+            ],
+        ], [
+            'prompt' => 'Animate this frame', 'ratio' => '9:16',
+            'generation_method' => 'image_to_video',
+            'generation_type' => 'REFERENCE',
+            'reference_assets' => [[
+                'type' => 'image', 'url' => 'https://fixtures.invalid/first.png', 'role' => 'first_frame_image',
+            ]],
+        ]);
+
+        self::assertSame('FIRST&LAST', $payload['generation_type']);
+        self::assertSame(['https://fixtures.invalid/first.png'], $payload['image_urls']);
+        $this->expectExceptionMessage('requires 16:9');
+        $this->invokePrivate('assertVeoThreeAssets',
+            ['sku' => ['locked_params' => []]],
+            ['ratio' => '9:16', 'reference_assets' => [[
+                'type' => 'image', 'url' => 'https://fixtures.invalid/person.png', 'role' => 'reference_image',
+            ]]],
+            ['image' => ['https://fixtures.invalid/person.png'], 'video' => [], 'audio' => []],
+            'image_reference'
+        );
     }
 
     public function testVideoSkuLockedResolutionWinsOverRequestResolution(): void

@@ -25,6 +25,13 @@ class AigcVideoReferenceAssetService
         }
 
         foreach (self::legacyImageAssets($params) as $asset) {
+            if (($asset['role'] ?? '') === 'reference_image' && array_filter($assets, static fn(array $existing): bool =>
+                ($existing['type'] ?? '') === self::TYPE_IMAGE
+                && ($existing['uri'] ?? '') === ($asset['uri'] ?? '')
+                && in_array($existing['role'] ?? '', ['first_frame_image', 'last_frame_image'], true)
+            )) {
+                continue;
+            }
             $normalized = self::normalizeItem($asset);
             if (!empty($normalized)) {
                 $assets[] = $normalized;
@@ -44,7 +51,11 @@ class AigcVideoReferenceAssetService
             }
         }
 
-        return array_slice(self::unique($assets), 0, $max);
+        $assets = self::unique($assets);
+        if (count($assets) > max(0, $max)) {
+            throw new Exception('参考素材数量超出限制');
+        }
+        return $assets;
     }
 
     public static function images(array $assets): array
@@ -257,9 +268,25 @@ class AigcVideoReferenceAssetService
     {
         $unique = [];
         $seen = [];
+        $frameSources = [];
+        foreach ($assets as $asset) {
+            if (in_array($asset['role'] ?? '', ['first_frame_image', 'last_frame_image'], true)) {
+                $frameSources[($asset['type'] ?? '') . '|' . trim((string)($asset['uri'] ?? $asset['url'] ?? ''))] = true;
+            }
+        }
         foreach ($assets as $asset) {
             $signature = ($asset['type'] ?? '')
                 . '|' . trim((string)($asset['uri'] ?? $asset['url'] ?? ''));
+            $role = (string)($asset['role'] ?? '');
+            if (in_array($role, ['first_frame_image', 'last_frame_image'], true)) {
+                // Same source can occupy two semantic slots. Keep order and
+                // only deduplicate repeated references within the same slot.
+                $signature .= '|' . $role;
+            } elseif (isset($frameSources[$signature]) && $role === '') {
+                // Legacy reference_images carries no role and is often a
+                // projection of reference_assets, not a third use of the file.
+                continue;
+            }
             if ($signature === '|' || isset($seen[$signature])) {
                 if (isset($seen[$signature])) {
                     $index = $seen[$signature];

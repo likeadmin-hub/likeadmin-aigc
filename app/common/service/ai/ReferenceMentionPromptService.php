@@ -55,7 +55,8 @@ class ReferenceMentionPromptService
         $tokens = array_values(array_unique(array_column($compiled, 'token')));
         $providerPrompt = self::replaceBareReferenceMarks($providerPrompt, $tokens);
         $hasReferenceMention = self::containsReferenceToken($providerPrompt);
-        if ($hasReferenceMention && $tokens !== [] && !str_contains($providerPrompt, '参考素材：')) {
+        if ($hasReferenceMention && $tokens !== [] && ($params['append_reference_list'] ?? true)
+            && !str_contains($providerPrompt, '参考素材：')) {
             $providerPrompt = trim($providerPrompt . "\n参考素材：" . implode(' ', $tokens));
         }
 
