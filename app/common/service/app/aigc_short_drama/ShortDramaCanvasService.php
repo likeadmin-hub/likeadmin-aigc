@@ -1046,6 +1046,27 @@ class ShortDramaCanvasService
             'reference_assets' => $referenceAssets,
             'source_app_code' => AigcShortDramaService::APP_CODE,
         ];
+        if ($type === 'video') {
+            if (array_key_exists('generate_audio', $params)) {
+                $payload['generate_audio'] = filter_var($params['generate_audio'], FILTER_VALIDATE_BOOLEAN);
+            }
+            $payload['selected_mentions'] = array_values(array_filter(
+                (array)($params['selected_mentions'] ?? []),
+                static function ($mention) use ($referenceAssets): bool {
+                    if (!is_array($mention) || trim((string)($mention['name'] ?? '')) === '') return false;
+                    $url = trim((string)($mention['url'] ?? ''));
+                    $assetId = (int)($mention['asset_id'] ?? 0);
+                    foreach ($referenceAssets as $reference) {
+                        if ($assetId > 0 && $assetId === (int)($reference['asset_id'] ?? 0)) return true;
+                        if ($url !== '' && $url === (string)($reference['url'] ?? '')) return true;
+                    }
+                    return false;
+                }
+            ));
+            // Canvas users explicitly place @ references in their prompt.
+            // Do not append every attached image as another spoken instruction.
+            $payload['append_reference_list'] = false;
+        }
         if ($type === 'audio') $payload['lyrics'] = (string)($params['lyrics'] ?? '');
         if ($type === 'image' && ($params['operation'] ?? '') === 'local_redraw') {
             $payload['operation'] = 'local_redraw';

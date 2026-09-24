@@ -50,4 +50,26 @@ class ReferenceMentionPromptServiceTest extends TestCase
 
         self::assertSame($params, ReferenceMentionPromptService::compile($params));
     }
+
+    public function testCanvasMentionsBindByUrlWithoutAddingEveryAttachedImageToThePrompt(): void
+    {
+        $compiled = ReferenceMentionPromptService::compile([
+            'prompt' => '@主角 用@配音 对@配角说话',
+            'reference_assets' => [
+                ['type' => 'image', 'url' => 'https://example.test/hero.png'],
+                ['type' => 'image', 'url' => 'https://example.test/setting.png'],
+                ['type' => 'image', 'url' => 'https://example.test/partner.png'],
+                ['type' => 'audio', 'url' => 'https://example.test/voice.mp3'],
+            ],
+            'selected_mentions' => [
+                ['name' => '主角', 'type' => 'image', 'url' => 'https://example.test/hero.png'],
+                ['name' => '配角', 'type' => 'image', 'url' => 'https://example.test/partner.png'],
+                ['name' => '配音', 'type' => 'audio', 'url' => 'https://example.test/voice.mp3'],
+            ],
+            'append_reference_list' => false,
+        ]);
+
+        self::assertSame('@图片1 用@音频1 对@图片3说话', $compiled['prompt']);
+        self::assertCount(4, $compiled['reference_mentions']);
+    }
 }

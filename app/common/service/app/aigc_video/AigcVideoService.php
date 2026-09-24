@@ -107,6 +107,10 @@ class AigcVideoService
         $params['reference_assets'] = $referenceAssets;
         $params['reference_images'] = AigcVideoReferenceAssetService::images($referenceAssets);
         $selection = self::marketSelection($params);
+        $runtime = self::marketRuntime($selection);
+        $normalizedDuration = $runtime::normalizeDurationSelection($tenantId, $selection, (int)($params['duration'] ?? 0));
+        $params['duration'] = (int)$normalizedDuration['duration'];
+        $selection = array_replace($selection, $normalizedDuration);
         $quote = self::applyMarketBillingOverride(self::marketQuote($tenantId, $selection + $params), $billingOverride);
         $duplicate = self::findRecentMarketDuplicateTask($tenantId, $userId, $prompt, $selection, $params);
         if ($duplicate !== null) {
@@ -129,7 +133,6 @@ class AigcVideoService
             'create_time' => $now, 'update_time' => $now, 'finish_time' => 0, 'delete_time' => 0,
         ]);
         try {
-            $runtime = self::marketRuntime($selection);
             $idempotencyKey = trim((string)($params['idempotency_key'] ?? ''));
             $businessTaskId = $idempotencyKey !== '' ? $idempotencyKey : (string)$task['id'];
             $reserve = $runtime::reserve($tenantId, $userId, $marketAppCode, 'video_generate', 'aigc_video_task', $businessTaskId, $selection, $params, $billingOverride);

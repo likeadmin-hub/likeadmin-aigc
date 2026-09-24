@@ -149,6 +149,29 @@ class CanvasVideoReferenceCanonicalizationTest extends TestCase
         self::assertCount(1, AigcVideoReferenceAssetService::normalize($payload));
     }
 
+    public function testCanvasVideoKeepsSelectedDurationAudioAndOnlyOwnedMentions(): void
+    {
+        $payload = $this->invoke(ShortDramaCanvasService::class, 'generationPayload', 'video', [
+            'prompt' => '@图片1 对 @图片2 说话',
+            'duration' => 2,
+            'generate_audio' => false,
+            'reference_assets' => [
+                $this->browserImage('reference_image'),
+                ['type' => 'image', 'url' => 'https://fixtures.invalid/second.png', 'role' => 'reference_image'],
+            ],
+            'selected_mentions' => [
+                ['name' => '图片1', 'type' => 'image', 'url' => self::IMAGE_URL],
+                ['name' => '图片2', 'type' => 'image', 'url' => 'https://fixtures.invalid/second.png'],
+                ['name' => '外部', 'type' => 'image', 'url' => 'https://elsewhere.invalid/unowned.png'],
+            ],
+        ], 1, 1, 1);
+
+        self::assertSame(2, $payload['duration']);
+        self::assertFalse($payload['generate_audio']);
+        self::assertFalse($payload['append_reference_list']);
+        self::assertSame(['图片1', '图片2'], array_column($payload['selected_mentions'], 'name'));
+    }
+
     private function browserImage(string $role): array
     {
         return ['type' => 'image', 'uri' => self::IMAGE_URL, 'url' => self::IMAGE_URL, 'role' => $role];
