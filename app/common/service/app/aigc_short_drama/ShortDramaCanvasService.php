@@ -1268,7 +1268,7 @@ class ShortDramaCanvasService
             $savedMetadata = is_array($saved['metadata'] ?? null) ? $saved['metadata'] : [];
             $source = self::canvasStoredUri((string)($metadata['video_url'] ?? $metadata['url'] ?? ''));
             $sameVideo = $source !== '' && $source === self::canvasStoredUri((string)($savedMetadata['video_url'] ?? $savedMetadata['url'] ?? ''));
-            if ($sameVideo && (!empty($savedMetadata['poster_url']) || !empty($savedMetadata['poster_uri']))) {
+            if ($sameVideo && (!empty($savedMetadata['poster_url']) || !empty($savedMetadata['poster_uri']) || ($savedMetadata['poster_status'] ?? '') === 'failed')) {
                 foreach (['poster_url', 'poster_uri', 'poster_status'] as $key) if (isset($savedMetadata[$key])) $metadata[$key] = $savedMetadata[$key];
                 $node['metadata'] = $metadata;
             }
@@ -1291,6 +1291,12 @@ class ShortDramaCanvasService
             if ($uri === '') {
                 continue;
             }
+            $projection = ShortDramaCanvasPosterJobService::posterProjection($tenantId, $userId, $canvasId, (string)$node['id'], $uri);
+            if ($projection) {
+                $metadata = array_replace($metadata, $projection);
+                $node['metadata'] = $metadata;
+            }
+            if (in_array((string)($metadata['poster_status'] ?? ''), ['ready', 'failed'], true)) continue;
             $metadata['poster_status'] = 'pending';
             $node['metadata'] = $metadata;
             if ($enqueue) {
@@ -1332,6 +1338,7 @@ class ShortDramaCanvasService
             });
         }
         $nodes = self::decode((string)$row['nodes_json']);
+        if ($includeRuns) self::queueVideoPosters((int)$row['tenant_id'], (int)$row['user_id'], (int)$row['id'], $nodes, false);
         $createTime = (int)($row['create_time'] ?? 0);
         $data = [
             'id' => (int)$row['id'],
