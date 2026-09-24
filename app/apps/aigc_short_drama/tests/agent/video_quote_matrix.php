@@ -27,6 +27,7 @@ $options=array_values(array_filter((array)($catalog['channels']??[]),static fn(a
 $checked=0;$errors=[];
 foreach ($options as $option) {
     $modes=array_values(array_unique((array)($option['generation_modes']??[])));
+    agentCheck($modes!==[],(string)$option['name'].' exposes at least one priced generation mode');
     foreach ($modes as $mode) {
         $params=[
             'model_id'=>(string)$option['id'],
