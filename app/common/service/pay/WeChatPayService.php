@@ -513,14 +513,11 @@ class WeChatPayService extends BasePayService
 
     private function getPaymentAppId(array $channelConfig): string
     {
-        $appId = $this->usePlatformPay
-            ? ($this->config['app_id'] ?? '')
-            : ($channelConfig['app_id'] ?? '');
-        $appId = trim((string)$appId);
+        // The payer enters through this tenant's channel even when the
+        // merchant account belongs to the platform (power/brand orders).
+        $appId = trim((string)($channelConfig['app_id'] ?? ''));
         if ($appId === '') {
-            throw new \Exception($this->usePlatformPay
-                ? '平台算力商城微信支付未配置微信公众号 AppID'
-                : '微信支付未配置 AppID');
+            throw new \Exception('当前租户微信渠道未配置 AppID');
         }
         return $appId;
     }
