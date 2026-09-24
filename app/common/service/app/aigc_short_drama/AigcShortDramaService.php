@@ -7895,6 +7895,10 @@ class AigcShortDramaService
         } catch (\Throwable $e) {
             $current = self::findGenerationTask($tenantId, $userId, $taskId)->toArray();
             $consumptionId = (int)($current['consumption_id'] ?? 0);
+            if (self::marketImageSubmissionAccepted($consumptionId)) {
+                Log::warning('Short drama accepted market image task awaits recovery: task=' . $taskId . ' error=' . $e->getMessage());
+                return;
+            }
             if ($consumptionId > 0) {
                 MarketImageModelRuntimeService::fail($consumptionId, $e->getMessage(), 'short_drama_image_failed');
             }
@@ -7920,9 +7924,24 @@ class AigcShortDramaService
             self::persistMarketImageTaskResult($tenantId, $userId, $taskId, $result, $imageParams);
         } catch (\Throwable $e) {
             $current = self::findGenerationTask($tenantId, $userId, $taskId)->toArray();
+            if (self::marketImageSubmissionAccepted((int)($current['consumption_id'] ?? 0))) {
+                Log::warning('Short drama accepted nano-banana task awaits recovery: task=' . $taskId . ' error=' . $e->getMessage());
+                return;
+            }
             if ((int)($current['consumption_id'] ?? 0) > 0) MarketNanoBananaAppRuntimeService::fail((int)$current['consumption_id'], $e->getMessage(), 'short_drama_nano_banana_failed');
             self::failMarketImageGenerationTask($tenantId, $userId, $current, $e);
         }
+    }
+
+    private static function marketImageSubmissionAccepted(int $consumptionId): bool
+    {
+        if ($consumptionId <= 0) {
+            return false;
+        }
+        $consumption = AiConsumptionLog::where('id', $consumptionId)->findOrEmpty();
+        return !$consumption->isEmpty()
+            && in_array((string)$consumption['run_status'], ['running', 'success'], true)
+            && in_array((string)$consumption['billing_status'], ['reserved', 'pending_usage', 'settled'], true);
     }
 
     private static function syncMarketNanoBananaGenerationTask(int $tenantId, int $userId, array $generation): void

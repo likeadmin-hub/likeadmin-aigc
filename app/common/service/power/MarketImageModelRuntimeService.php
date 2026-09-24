@@ -283,6 +283,7 @@ class MarketImageModelRuntimeService
         try {
             $submission = self::submitWithTransientRetry($consumptionId, self::origin() . self::SUBMIT_PATH, $payload);
             $response = $submission['response'];
+            $upstreamAccepted = true;
             $submitAttempts = $submission['attempts'];
             $taskId = self::taskId($response);
             $images = self::images($response, (int)$consumption['tenant_id'], (int)$consumption['user_id']);
@@ -290,9 +291,8 @@ class MarketImageModelRuntimeService
             if ($taskId === '' && $images === []) {
                 throw new Exception('图片模型未返回任务 ID 或结果');
             }
-            // From here the supplier has accepted work. A later local persistence
-            // or queue error must never refund it or expose it as an upstream failure.
-            $upstreamAccepted = true;
+            // The supplier accepted the request before local image persistence.
+            // Any later local error must not release the reservation.
             Db::transaction(function () use ($consumptionId, $taskId, $images, $requestId, $response, $started, $submitAttempts) {
                 $ctx = self::context($consumptionId, true); if ($ctx === null) return;
                 $c = $ctx['consumption'];
