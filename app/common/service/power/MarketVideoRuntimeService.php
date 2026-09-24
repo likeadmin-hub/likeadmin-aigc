@@ -2379,7 +2379,12 @@ class MarketVideoRuntimeService
     /** H3 and Wan 3.0 accept an image pair as the first and last frame. */
     private static function supportsStartEndFrames(array $product): bool
     {
-        return self::isH3Product($product) || self::isWanThreeProduct($product);
+        if (self::isH3Product($product) || self::isWanThreeProduct($product)) return true;
+        $model = strtolower((string)($product['upstream_model_code'] ?? $product['model_code'] ?? ''));
+        if (str_starts_with($model, 'veo3.1-')) return true;
+        return (string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API
+            && in_array(strtolower((string)($product['upstream_app_code'] ?? '')),
+                ['full_video', 'seedance', 'wan'], true);
     }
 
     private static function isWanThreeProduct(array $product): bool

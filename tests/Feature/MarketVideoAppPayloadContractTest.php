@@ -151,6 +151,21 @@ class MarketVideoAppPayloadContractTest extends TestCase
         ], 'video_edit');
     }
 
+    public function testFirstLastModeIsExposedOnlyForDocumentedProviders(): void
+    {
+        foreach ([
+            ['resource_type' => 'model', 'upstream_model_code' => 'veo3.1-fast'],
+            ['resource_type' => 'app_api', 'upstream_app_code' => 'full_video'],
+            ['resource_type' => 'app_api', 'upstream_app_code' => 'seedance'],
+            ['resource_type' => 'app_api', 'upstream_app_code' => 'wan'],
+        ] as $product) {
+            self::assertTrue($this->invoke('supportsStartEndFrames', $product));
+        }
+        self::assertFalse($this->invoke('supportsStartEndFrames', [
+            'resource_type' => 'app_api', 'upstream_app_code' => 'happy_horse',
+        ]));
+    }
+
     private function invoke(string $method, mixed ...$arguments): mixed
     {
         $reflection = new ReflectionMethod(MarketVideoRuntimeService::class, $method);
