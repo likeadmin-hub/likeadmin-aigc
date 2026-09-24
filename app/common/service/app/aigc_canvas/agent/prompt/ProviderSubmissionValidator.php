@@ -3,6 +3,7 @@
 namespace app\common\service\app\aigc_canvas\agent\prompt;
 
 use app\common\service\app\aigc_canvas\agent\model\CanvasModelRouterService;
+use app\common\service\power\MarketNanoBananaAppRuntimeService;
 
 /** Deterministic, no-charge checks before a power-market image request is submitted. */
 final class ProviderSubmissionValidator
@@ -22,6 +23,9 @@ final class ProviderSubmissionValidator
         }
         $overview = CanvasModelRouterService::marketOverview($tenantId);
         $option = self::option((array)($overview['image']['options'] ?? []), $input);
+        if ($option === [] && MarketNanoBananaAppRuntimeService::isSelection($input)) {
+            $option = self::option(MarketNanoBananaAppRuntimeService::options($tenantId), $input);
+        }
         if ($option !== []) {
             $limit = max(0, (int)($option['max_reference_images'] ?? 0));
             if (count($references) > $limit) {

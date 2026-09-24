@@ -12,7 +12,6 @@ use app\common\service\ai\AiTaskLifecycleEventService;
 use app\common\service\ai\AiTaskJobService;
 use app\common\service\ai\UpstreamErrorMessageService;
 use app\common\service\app\aigc_image\AigcImageAssetService;
-use app\common\service\FileService;
 use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
@@ -182,6 +181,7 @@ class MarketImageModelRuntimeService
     {
         $market = self::resolve($tenantId, $selection);
         $quantity = max(1, $quantity);
+        self::assertImageQuantity($market, $quantity);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
         $quote = [
             'billing_unit' => (string)$market['sku']['usage_unit'],
@@ -216,6 +216,7 @@ class MarketImageModelRuntimeService
         CanvasImagePromptSubmissionGuard::assertPrepared($appCode, $selection);
         $market = self::resolve($tenantId, $selection);
         $quantity = max(1, $quantity);
+        self::assertImageQuantity($market, $quantity);
         self::assertReferenceImagesAllowed($market, $request);
         $deferredUsage = MarketUsageSettlementService::isActualUsageSku($market['sku']);
         if ($deferredUsage && $billingOverride !== []) {
@@ -702,6 +703,21 @@ class MarketImageModelRuntimeService
         return self::marketRow($tenantId, $product, (array)$matches[0]['sku']);
     }
 
+    private static function assertImageQuantity(array $market, int $quantity): void
+    {
+        if ($quantity <= 1) {
+            return;
+        }
+        $modelCode = strtolower(trim((string)($market['product']['upstream_model_code'] ?? '')));
+        $schema = self::arrayValue(self::metadata($market['product'])['params_schema'] ?? []);
+        $nDescription = (string)($schema['n']['description'] ?? '');
+        $singleImage = in_array($modelCode, ['qwen-image-3.0', 'qwen-image-3.0-pro'], true)
+            || preg_match('/(?:仅支持|固定为|only supports|fixed to)\s*1\b/ui', $nDescription) === 1;
+        if ($singleImage) {
+            throw new Exception('当前图片模型每次任务仅支持生成 1 张图片');
+        }
+    }
+
     /** @return array<int,array{sku:array<string,mixed>,tenant_price:float}> */
     private static function availableSkus(int $tenantId, int $productId): array
     {
@@ -768,7 +784,7 @@ class MarketImageModelRuntimeService
             unset($params[$key]);
         }
         $params = self::providerParamsForFlatPayload($params);
-        $referenceImages = self::providerReferenceUrls((array)($request['reference_images'] ?? []), $tenantId);
+        $referenceImages = MarketImageReferenceUrlService::resolve((array)($request['reference_images'] ?? []), $tenantId);
         if (self::usesStructuredTaskPayload($snapshot)) {
             return self::structuredTaskPayload($snapshot, $request, $params, $referenceImages, $ratio, $outputQuality, $imageSize, $idempotencyKey);
         }
@@ -871,11 +887,9 @@ class MarketImageModelRuntimeService
         ], $structuredInput);
 
         $parameters = array_merge($params, $structuredParameters);
-        // Structured image APIs support batched output through `n`. Keep it
-        // aligned with the quantity used by the reservation and pricing
-        // snapshot so selecting multiple images produces and charges the same
-        // number of images.
-        $parameters['n'] = max(1, (int)($request['quantity'] ?? 1));
+        // Qwen 3.0 documents n=1 only. The reservation rejects a larger
+        // quantity before billing; other structured models may use n>1.
+        $parameters['n'] = self::isQwenImage($snapshot) ? 1 : max(1, (int)($request['quantity'] ?? 1));
         $size = self::structuredSize($snapshot, $request, $parameters, $ratio, $quality, $imageSize);
         if ($size !== '') {
             $parameters['size'] = $size;
@@ -1244,24 +1258,6 @@ class MarketImageModelRuntimeService
             }
         }
         return [];
-    }
-
-    private static function providerReferenceUrls(array $references, int $tenantId): array
-    {
-        $urls = [];
-        foreach ($references as $reference) {
-            $url = trim((string)$reference);
-            if ($url === '') continue;
-            if (preg_match('/^(https?:\/\/|data:image\/)/i', $url) !== 1) {
-                $uri = ltrim($url, '/');
-                $file = $tenantId > 0 ? Db::name('tenant_file')->where(['tenant_id' => $tenantId, 'uri' => $uri])->order('id', 'desc')->find() : null;
-                $url = !empty($file)
-                    ? FileService::getFileUrlByStorage($uri, (string)($file['storage_scope'] ?? ''), (string)($file['storage_engine'] ?? ''), (string)($file['storage_domain'] ?? ''))
-                    : FileService::getFileUrl($uri);
-            }
-            if ($url !== '' && !in_array($url, $urls, true)) $urls[] = $url;
-        }
-        return $urls;
     }
 
     private static function origin(): string
