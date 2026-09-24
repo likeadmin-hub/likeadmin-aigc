@@ -1022,18 +1022,14 @@ class ShortDramaCanvasService
             // URIs) counted the same connected frame twice at the Provider.
             if ($type!=='video' && is_array($reference) && strtolower((string)($reference['type'] ?? ''))==='image' && trim((string)($reference['url'] ?? ''))!=='') $referenceImages[]=(string)$reference['url'];
         }
-        $representedImages=[];
-        if ($type==='video') foreach ($referenceAssets as $reference) {
-            if ((string)($reference['type']??'')!=='image') continue;
-            foreach (['url','uri'] as $field) {
-                $value=trim((string)($reference[$field]??''));
-                if ($value!=='') $representedImages[$value]=true;
+        // The canvas browser mirrors every selected image into this legacy
+        // field. Once reference_assets exists it is the sole video source:
+        // a renewed signed URL must not reintroduce the same image as a
+        // second, stale reference. Preserve legacy-only callers as a fallback.
+        if ($type!=='video' || $referenceAssets===[]) {
+            foreach ((array)($params['reference_images'] ?? []) as $image) {
+                if (is_string($image) && trim($image)!=='') $referenceImages[]=trim($image);
             }
-        }
-        foreach ((array)($params['reference_images'] ?? []) as $image) {
-            if (!is_string($image)) continue;
-            $image=trim($image);
-            if ($image!=='' && !isset($representedImages[$image])) $referenceImages[]=$image;
         }
         $payload = [
             'prompt' => $prompt, 'content' => $prompt, 'channel' => (string)($params['channel'] ?? ''),
