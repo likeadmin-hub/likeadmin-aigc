@@ -125,6 +125,7 @@ class MarketVideoModelPayloadContractTest extends TestCase
     {
         $payload = $this->invokeModelPayload([
             'model_code' => 'another-structured-video',
+            'channel_code' => 'isolated',
             'params_schema' => ['input' => ['type' => 'object'], 'parameters' => ['type' => 'object']],
         ], ['prompt' => '@图片1移动', 'duration' => 4, 'generate_audio' => false]);
 
