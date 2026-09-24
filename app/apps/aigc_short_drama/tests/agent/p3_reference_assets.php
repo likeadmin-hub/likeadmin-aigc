@@ -43,6 +43,23 @@ agentCheck(count($slots['image'])===1,'M04 market runtime still deduplicates sam
 $market['product']['upstream_model_code']='wan3.0-video';
 $assertAssets->invoke(null,$market,['generation_method'=>'start_end','reference_assets'=>$frames]);
 agentCheck(true,'M05 selected start/end-capable model accepts identical image in both slots');
+$wan=['product'=>['resource_type'=>'model','upstream_model_code'=>'wan3.0-video','source_payload'=>['market_metadata'=>[
+    'capabilities'=>['max_reference_images'=>10,'max_reference_videos'=>5,'max_reference_audios'=>5],
+]]]];
+$assertAssets->invoke(null,$wan,['generation_method'=>'omni_reference','reference_assets'=>$mixed]);
+agentCheck(true,'Wan 3.0 accepts mixed image, video and audio references within documented limits');
+$skuSupportsInputMode=new ReflectionMethod(app\common\service\power\MarketVideoRuntimeService::class,'skuSupportsInputMode');
+$skuSupportsInputMode->setAccessible(true);
+foreach (['image_reference','video_edit','audio_reference'] as $mode) {
+    agentCheck($skuSupportsInputMode->invoke(null,'text_to_video',$mode,$wan['product'],[])===true,'Wan 3.0 text-labelled SKU prices '.$mode);
+}
+agentCheck($skuSupportsInputMode->invoke(null,'text_to_video','video_edit',['resource_type'=>'model','upstream_model_code'=>'unrelated-model'],[])===false,'other model SKU mode remains restricted');
+$inputMode=new ReflectionMethod(app\common\service\power\MarketVideoRuntimeService::class,'inputMode');
+$inputMode->setAccessible(true);
+agentCheck($inputMode->invoke(null,['generation_method'=>'omni_reference','reference_assets'=>[$mixed[2]]])==='audio_reference','audio-only omni reference uses audio SKU mode');
+$structuredMedia=new ReflectionMethod(app\common\service\power\MarketVideoRuntimeService::class,'structuredModelMedia');
+$structuredMedia->setAccessible(true);
+agentCheck(array_column($structuredMedia->invoke(null,['reference_assets'=>$mixed]),'type')===['reference_image','reference_video','reference_audio'],'Wan 3.0 payload retains all three reference media types');
 $rejected=false;
 try {$assertAssets->invoke(null,$market,['generation_method'=>'image_to_video','reference_assets'=>$frames]);}
 catch (Exception $error) {$rejected=str_contains($error->getMessage(),'exactly one first-frame image');}

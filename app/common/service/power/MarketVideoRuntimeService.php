@@ -2786,6 +2786,7 @@ class MarketVideoRuntimeService
         if ($method === 'omni_reference') {
             if ($assets['video'] !== []) return 'video_edit';
             if ($assets['image'] !== []) return 'image_reference';
+            if ($assets['audio'] !== []) return 'audio_reference';
             return 'text_to_video';
         }
         if (in_array($method, ['image_to_video', 'image_reference', 'start_end', 'multi_frame'], true)) {
@@ -2814,6 +2815,12 @@ class MarketVideoRuntimeService
     {
         if (self::isH3Product($product)) {
             return in_array($requestedMode, self::generationModes($product, self::metadata($product)), true);
+        }
+        // Wan 3.0's model API prices by resolution and duration, not by
+        // reference modality. Its market SKUs are labelled text-to-video,
+        // while the same SKU accepts image, video and audio reference media.
+        if (self::isWanThreeProduct($product)) {
+            return in_array($requestedMode, ['text_to_video', 'image_reference', 'video_edit', 'audio_reference'], true);
         }
         $app = strtolower((string)($product['upstream_app_code'] ?? ''));
         if (in_array($app, ['happy_horse', 'grok_video', 'full_video', 'seedance2_pro'], true)) {
