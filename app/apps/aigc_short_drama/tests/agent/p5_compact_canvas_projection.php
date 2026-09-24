@@ -111,9 +111,9 @@ try {
 
     $art=$reply([
         ['type'=>'text','artifact'=>'art_bible','title'=>'画风规划','prompt'=>'电影写实，雨夜冷蓝、室内暖黄，避免角色外貌漂移。','key'=>'style'],
-        ['type'=>'text','artifact'=>'character_asset_spec','title'=>'林夏形象','prompt'=>'林夏短发、米色风衣、胸前别着录音笔，面容稳定。','key'=>'character'],
+        ['type'=>'text','artifact'=>'subject_image_prompt','title'=>'林夏主体图提示词','prompt'=>'林夏短发、米色风衣、胸前别着录音笔，面容稳定。','key'=>'subject_prompt'],
         ['type'=>'text','artifact'=>'three_view_prompt','title'=>'林夏三视图规划','prompt'=>'同一林夏的正面、侧面、背面，米色风衣和录音笔一致。','key'=>'views'],
-        ['type'=>'text','artifact'=>'scene_asset_spec','title'=>'雨夜办公室','prompt'=>'雨夜办公室，窗外冷蓝霓虹，桌灯暖黄。','key'=>'scene'],
+        ['type'=>'text','artifact'=>'scene_image_prompt','title'=>'雨夜办公室场景图提示词','prompt'=>'雨夜办公室，窗外冷蓝霓虹，桌灯暖黄。','key'=>'scene_prompt'],
     ],'已在对话中规划画风、角色与场景');
     $view=$runStage('compact-art',$art);
     agentCheck(($view['card']['plan']['node_count']??-1)===0 && ($view['card']['plan']['artifact_count']??0)===4,'art planning is reviewable but creates no canvas text nodes');
@@ -122,7 +122,7 @@ try {
     agentCheck(count($nodes)===2 && !isset($result['canvas_actions']) && count($result['workflow']['artifact_memory']??[])>=4,'confirmed art remains durable in workflow memory without graph mutation');
 
     $assets=$reply([
-        ['type'=>'image','artifact'=>'subject','title'=>'林夏主体图','prompt'=>'林夏，电影写实，正面半身，纯净背景','key'=>'subject','reference_keys'=>['art:character']],
+        ['type'=>'image','artifact'=>'subject','title'=>'林夏主体图','prompt'=>'林夏，电影写实，正面半身，纯净背景','key'=>'subject','reference_keys'=>['art:subject_prompt']],
         ['type'=>'image','artifact'=>'three_view','title'=>'林夏三视图','prompt'=>'林夏正侧背三视图','key'=>'views','depends_on'=>['subject'],'reference_keys'=>['art:views']],
     ],'主体与三视图素材规划');
     $view=$runStage('compact-assets',$assets,[$storyId]);
@@ -143,7 +143,7 @@ try {
     agentCheck(($dependency['state']??'')==='ready' && ($dependency['references'][0]['asset_id']??0)===991,'three-view submits the completed subject image as a real generation reference');
 
     $boards=$reply([
-        ['type'=>'image','artifact'=>'scene','title'=>'雨夜办公室场景图','prompt'=>'雨夜办公室，不出现人物','key'=>'scene_1','reference_keys'=>['art:scene']],
+        ['type'=>'image','artifact'=>'scene','title'=>'雨夜办公室场景图','prompt'=>'雨夜办公室，不出现人物','key'=>'scene_1','reference_keys'=>['art:scene_prompt']],
         ['type'=>'image','artifact'=>'storyboard','title'=>'镜头一分镜图','prompt'=>'林夏在雨夜办公室拿起录音笔','key'=>'board_1','depends_on'=>['scene_1'],'reference_keys'=>['assets:subject']],
     ],'场景与分镜素材规划');
     $view=$runStage('compact-boards',$boards);
