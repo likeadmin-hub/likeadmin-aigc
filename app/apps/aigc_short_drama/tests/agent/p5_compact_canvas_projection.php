@@ -79,7 +79,8 @@ try {
         $ack=$accept($key,'继续当前创作阶段',$selected);
         $state=Worker::process($tenant,$user,(int)$ack['run_id'],$provider);
         $errorCode=Db::name(Store::PREFIX.'run')->where('id',(int)$ack['run_id'])->value('error_code');
-        agentCheck($state==='success','compact workflow Worker accepts '.$key.' (state='.$state.', error_code='.$errorCode.')');
+        $failure=Db::name(Store::PREFIX.'event')->where(['run_id'=>(int)$ack['run_id'],'kind'=>'run.failed'])->order('id','desc')->value('payload_json');
+        agentCheck($state==='success','compact workflow Worker accepts '.$key.' (state='.$state.', error_code='.$errorCode.', detail='.$failure.')');
         return Workflow::read($tenant,$user,$canvas,$thread);
     };
 
