@@ -1005,7 +1005,8 @@ class MarketVideoRuntimeService
         $parameters = array_merge($providerParams, $locked, $parameters);
 
         if ($prompt !== '') {
-            $input['prompt'] = $prompt;
+            $input['prompt'] = strtolower((string)($snapshot['model_code'] ?? '')) === 'wan3.0-video'
+                ? self::wanThreeReferencePrompt($prompt) : $prompt;
         }
         $media = self::structuredModelMedia($request);
         if ($media !== []) {
@@ -1028,6 +1029,11 @@ class MarketVideoRuntimeService
                 $parameters[$key] = $request[$key];
             }
         }
+        if (!array_key_exists('audio', $request) && array_key_exists('generate_audio', $request)
+            && (strtolower((string)($snapshot['model_code'] ?? '')) === 'wan3.0-video'
+                || self::schemaDeclaresParameter(self::arrayValue($snapshot['params_schema'] ?? []), 'audio'))) {
+            $parameters['audio'] = filter_var($request['generate_audio'], FILTER_VALIDATE_BOOLEAN);
+        }
 
         $payload = array_merge(self::marketContext($snapshot, 'power_market_video'), [
             'model' => (string)$snapshot['model_code'],
@@ -1041,6 +1047,16 @@ class MarketVideoRuntimeService
             $payload['callback_url'] = $callback;
         }
         return self::filterEmptyPayload($payload);
+    }
+
+    /** Wan's documented media references are 图1 / 视频1 / 音频1, not the canvas chip labels. */
+    private static function wanThreeReferencePrompt(string $prompt): string
+    {
+        return (string)preg_replace_callback(
+            '/@(图片|视频|音频)([1-9]\d*)/u',
+            static fn(array $match): string => ($match[1] === '图片' ? '图' : $match[1]) . $match[2],
+            $prompt
+        );
     }
 
     private static function providerParamsForStructuredModelPayload(array $params): array

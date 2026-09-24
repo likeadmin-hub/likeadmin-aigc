@@ -96,6 +96,43 @@ class MarketVideoModelPayloadContractTest extends TestCase
         self::assertArrayNotHasKey('quality', $payload);
     }
 
+    public function testWanCanvasReferencesAndTwoSecondAudioChoiceReachTheDocumentedFields(): void
+    {
+        $payload = $this->invokeModelPayload([
+            'model_code' => 'wan3.0-video',
+            'channel_code' => 'dashscope_compatible',
+            'params_schema' => ['input' => ['type' => 'object'], 'parameters' => ['type' => 'object']],
+            'locked_params' => ['resolution' => '480P'],
+        ], [
+            'prompt' => '@图片1 用@音频1 对@图片3说话',
+            'duration' => 2,
+            'generate_audio' => false,
+            'reference_assets' => [
+                ['type' => 'image', 'url' => 'https://example.test/hero.png', 'role' => 'reference_image'],
+                ['type' => 'image', 'url' => 'https://example.test/setting.png', 'role' => 'reference_image'],
+                ['type' => 'image', 'url' => 'https://example.test/partner.png', 'role' => 'reference_image'],
+                ['type' => 'audio', 'url' => 'https://example.test/voice.mp3', 'role' => 'reference_audio'],
+            ],
+        ]);
+
+        self::assertSame('图1 用音频1 对图3说话', $payload['input']['prompt']);
+        self::assertSame(2, $payload['parameters']['duration']);
+        self::assertFalse($payload['parameters']['audio']);
+        self::assertSame(['reference_image', 'reference_image', 'reference_image', 'reference_audio'], array_column($payload['input']['media'], 'type'));
+    }
+
+    public function testAnotherStructuredModelDoesNotInheritWanAudioOrReferenceSyntax(): void
+    {
+        $payload = $this->invokeModelPayload([
+            'model_code' => 'another-structured-video',
+            'params_schema' => ['input' => ['type' => 'object'], 'parameters' => ['type' => 'object']],
+        ], ['prompt' => '@图片1移动', 'duration' => 4, 'generate_audio' => false]);
+
+        self::assertSame('@图片1移动', $payload['input']['prompt']);
+        self::assertSame(4, $payload['parameters']['duration']);
+        self::assertArrayNotHasKey('audio', $payload['parameters']);
+    }
+
     public function testWanThreeExposesItsNativeTwoToThirtySecondRange(): void
     {
         $metadata = [
