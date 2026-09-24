@@ -21,10 +21,9 @@ $layout=$layoutMethod->invoke(null,
 agentCheck(count($layout)===4,'Agent layout retains every proposal');
 agentCheck($layout[0]['x']===430.0 && $layout[0]['y']===0.0,'new batch clears the right edge of existing nodes');
 agentCheck($layout[0]['width']===250 && $layout[0]['height']===444,'9:16 preview matches selected portrait ratio');
-agentCheck($layout[0]['x']===$layout[2]['x'] && $layout[1]['x']===$layout[3]['x'],'same artifact kind shares one aligned column');
-agentCheck($layout[0]['y']<$layout[2]['y'] && $layout[1]['y']<$layout[3]['y'],'nodes advance vertically within each column');
-agentCheck($layout[1]['x'] >= $layout[0]['x']+$layout[0]['width']+120,'artifact columns do not overlap');
-agentCheck($layout[2]['y'] >= $layout[0]['y']+$layout[0]['height']+80,'generated nodes have a consistent vertical gap');
+agentCheck(count(array_unique(array_column($layout,'x')))===1,'all generated artifacts align in one column');
+agentCheck($layout[1]['y'] >= $layout[0]['y']+$layout[0]['height']+80,'generation queue follows proposal order without overlap');
+agentCheck($layout[2]['y'] >= $layout[1]['y']+$layout[1]['height']+80,'generated nodes have a consistent vertical gap');
 
 $textLayout=$layoutMethod->invoke(null,[],[
     ['type'=>'text','artifact'=>'story'],['type'=>'text','artifact'=>'episode'],
@@ -35,4 +34,4 @@ $landscape=$sizeMethod->invoke(null,'video','16:9');
 agentCheck($landscape===[444,250],'video preview matches selected landscape ratio');
 agentCheck($sizeMethod->invoke(null,'text','9:16')===[320,280],'story text remains readable and ratio-free');
 agentCheck($sizeMethod->invoke(null,'image','invalid')===[420,320],'unknown ratio keeps legacy fallback');
-echo "OK Agent node columns and aspect-ratio geometry\n";
+echo "OK Agent node queue and aspect-ratio geometry\n";
