@@ -221,7 +221,7 @@ final class ShortDramaSkillService
         $defaults = Db::name('aigc_short_drama_user_skill')->where(['tenant_id' => $tenantId, 'user_id' => $userId, 'enabled' => 1, 'delete_time' => 0])->column('skill_id');
         $skills = $defaults ? AigcShortDramaSkill::whereIn('id', $defaults)->whereIn('tenant_id', [$tenantId, 0])->where('delete_time', 0)->where('published_version', '>', 0)->select()->toArray() : [];
         $workflowOnlyIds = self::workflowOnlySkillIds($tenantId);
-        if ($workflowOnlyIds) $skills = array_values(array_filter($skills, static fn(array $skill): bool => !isset($workflowOnlyIds[(int)$skill['id']]));
+        if ($workflowOnlyIds) $skills = array_values(array_filter($skills, static fn(array $skill): bool => !isset($workflowOnlyIds[(int)$skill['id']])));
         return ['defaults' => array_map(static function ($skill): array {
             return self::published($skill) + ['available' => (int)$skill['status'] === 1 && $skill['release_status'] === self::ACTIVE];
         }, $skills), 'history' => self::history($tenantId, $userId)['lists']];
