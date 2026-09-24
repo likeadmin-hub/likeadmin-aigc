@@ -14,6 +14,7 @@ use app\common\service\power\MarketNanoBananaAppRuntimeService;
 $tenantId = (int)($argv[1] ?? 1);
 $failures = [];
 $checked = [];
+$checkedSpecs = 0;
 $imagePayload = new ReflectionMethod(MarketImageModelRuntimeService::class, 'payload');
 $imagePayload->setAccessible(true);
 $nanoPayload = new ReflectionMethod(MarketNanoBananaAppRuntimeService::class, 'payload');
@@ -95,6 +96,38 @@ foreach (MarketImageModelRuntimeService::options($tenantId) as $option) {
     } catch (Throwable $error) {
         $failures[] = "$id failed catalog preflight: {$error->getMessage()}";
     }
+    foreach ((array)($option['skus'] ?? []) as $sku) {
+        $ratios = (array)($sku['ratio_options'] ?? $option['ratio_options'] ?? []);
+        foreach ($ratios !== [] ? $ratios : [''] as $ratio) {
+            $ratio = is_array($ratio) ? (string)($ratio['value'] ?? '') : (string)$ratio;
+            $spec = [
+                'model_id' => $id,
+                'market_sku_id' => (int)$sku['market_sku_id'],
+                'quality' => (string)($sku['quality'] ?? ''),
+                'ratio' => $ratio,
+            ];
+            try {
+                $quote = MarketImageModelRuntimeService::quote($tenantId, $spec);
+                $payload = $imagePayload->invoke(null, $quote['market_snapshot'], [
+                    'prompt' => 'dry-run text to image', 'quality' => $spec['quality'],
+                    'ratio' => $ratio, 'quantity' => 1,
+                ], 'dry-run', 0);
+                $checkedSpecs++;
+                if ((int)$quote['market_sku_id'] !== $spec['market_sku_id']) {
+                    $failures[] = "$id selected a different SKU for {$spec['quality']} $ratio";
+                }
+                if (str_starts_with((string)$option['model_code'], 'qwen-image-3.0')) {
+                    if (empty($payload['parameters']['size']) || count((array)($payload['input']['messages'][0]['content'] ?? [])) !== 1) {
+                        $failures[] = "$id failed text-to-image for {$spec['quality']} $ratio";
+                    }
+                } elseif (!empty($payload[(string)$option['reference_input_field']])) {
+                    $failures[] = "$id leaked a reference into text-to-image for {$spec['quality']} $ratio";
+                }
+            } catch (Throwable $error) {
+                $failures[] = "$id failed {$spec['quality']} $ratio: {$error->getMessage()}";
+            }
+        }
+    }
 }
 
 foreach (MarketNanoBananaAppRuntimeService::options($tenantId) as $option) {
@@ -130,6 +163,30 @@ foreach (MarketNanoBananaAppRuntimeService::options($tenantId) as $option) {
     } catch (Throwable $error) {
         $failures[] = "$id failed catalog preflight: {$error->getMessage()}";
     }
+    foreach ((array)($option['skus'] ?? []) as $sku) {
+        foreach ((array)($option['ratio_options'] ?? []) as $ratio) {
+            $ratio = is_array($ratio) ? (string)($ratio['value'] ?? '') : (string)$ratio;
+            try {
+                $quote = MarketNanoBananaAppRuntimeService::quote($tenantId, [
+                    'model_id' => $id,
+                    'market_sku_id' => (int)$sku['market_sku_id'],
+                    'quality' => (string)($sku['quality'] ?? ''),
+                    'ratio' => $ratio,
+                ]);
+                $payload = $nanoPayload->invoke(null, $quote['market_snapshot'], [
+                    'prompt' => 'dry-run text to image', 'ratio' => $ratio,
+                ], 'dry-run', 0);
+                $checkedSpecs++;
+                if ((int)$quote['market_sku_id'] !== (int)$sku['market_sku_id']
+                    || ($payload['action'] ?? '') !== 'generate'
+                    || !empty($payload['image_urls'])) {
+                    $failures[] = "$id failed text-to-image for {$sku['quality']} $ratio";
+                }
+            } catch (Throwable $error) {
+                $failures[] = "$id failed {$sku['quality']} $ratio: {$error->getMessage()}";
+            }
+        }
+    }
 }
 
 $canvasRequest = $normalizeCanvasImage->invoke(null, ['prompt' => 'dry run', 'count' => 2], $tenantId, 0);
@@ -144,6 +201,7 @@ if (count($localReference) !== 1 || preg_match('#^https?://#', $localReference[0
 echo json_encode([
     'passed' => $failures === [],
     'checked_count' => count($checked),
+    'checked_spec_count' => $checkedSpecs,
     'checked_models' => $checked,
     'failures' => $failures,
     'paid_requests' => 0,
