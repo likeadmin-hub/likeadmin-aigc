@@ -327,7 +327,7 @@ class ShortDramaCanvasService
     }
 
     /**
-     * Price a video request without creating a task or reserving points.
+     * Price a generation request without creating a task or reserving points.
      * The durable quote binds the exact request key and server-normalized
      * selection, so the browser cannot reuse a confirmation after changing a
      * model, duration, resolution or an owned reference-asset version.
@@ -337,14 +337,24 @@ class ShortDramaCanvasService
         $document = self::ownedDocument($tenantId, $userId, (int)($params['canvas_id'] ?? 0));
         $nodeId = trim((string)($params['node_id'] ?? ''));
         $type = strtolower(trim((string)($params['type'] ?? '')));
-        if ($type !== 'video') throw new Exception('QUOTE_UNSUPPORTED_NODE_TYPE');
+        $previewOnly = filter_var($params['preview_only'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($type !== 'video' && (!$previewOnly || !in_array($type, ['image', 'audio'], true))) {
+            throw new Exception('QUOTE_UNSUPPORTED_NODE_TYPE');
+        }
         self::assertGenerationNode($document, $nodeId, $type);
         $key = trim((string)($params['request_key'] ?? ''));
-        self::assertRequestKey($key);
+        if (!$previewOnly) self::assertRequestKey($key);
         $params=self::withGraphReferenceInputs($document,$nodeId,$params);
         $params=self::withAgentSubmissionTemplate($document,$nodeId,$type,$params,$tenantId,$userId);
         $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id']);
-        $quote = AigcVideoService::estimate($tenantId, $payload);
+        $quote = match ($type) {
+            'video' => AigcVideoService::estimate($tenantId, $payload),
+            'audio' => AigcMusicService::estimate($tenantId, $payload),
+            'image' => ($payload['operation'] ?? '') === 'local_redraw'
+                ? AigcLocalRedrawService::estimate($tenantId, $payload)
+                : AigcImageService::estimate($tenantId, $payload),
+        };
+        if ($previewOnly) return ['status' => 'preview', 'quote' => self::publicQuote($quote)];
         $quoteInput = self::quoteInputForDocument($document, $nodeId, $payload);
         $inputHash = hash('sha256', self::json($quoteInput));
         $now = time();
