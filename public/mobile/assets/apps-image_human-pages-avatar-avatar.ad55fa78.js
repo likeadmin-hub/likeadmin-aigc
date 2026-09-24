@@ -1,1 +1,0 @@
-import{g as a,o as s,c as e}from"./index-1ee33657.js";import{u as o}from"./useToolTheme.0b89eadf.js";import{I as m}from"./ImageHumanAssets.f8b53d68.js";import"./ImageHumanNav.86655920.js";import"./u-icon.20079be9.js";import"./_plugin-vue_export-helper.1b428a4d.js";const t=a({__name:"avatar",setup:a=>(o(!0),(a,o)=>(s(),e(m,{"asset-kind":"avatar"})))});export{t as default};
