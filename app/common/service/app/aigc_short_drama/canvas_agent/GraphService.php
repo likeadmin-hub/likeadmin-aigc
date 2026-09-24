@@ -130,8 +130,9 @@ final class GraphService
         return ['graph_revision'=>(int)($updated['graph_revision']??0),'nodes'=>$created];
     }
 
-    /** Preserve proposal order for dependency edges while laying artifact kinds
-     * out in aligned, non-overlapping rows to the right of existing content. */
+    /** Preserve proposal order for dependency edges while laying each artifact
+     * kind out as an aligned vertical generation queue. Different kinds occupy
+     * separate columns to the right of existing content. */
     private static function agentNodeLayout(array $nodes, array $proposals, string $ratio): array
     {
         $rightEdge=0.0; $topEdge=0.0;
@@ -139,21 +140,32 @@ final class GraphService
             $rightEdge=max($rightEdge,(float)($node['x']??0)+max(0.0,(float)($node['width']??0)));
             $topEdge=min($topEdge,(float)($node['y']??0));
         }
-        $kinds=[]; $rowHeights=[]; $sizes=[];
+        // Story/script text cards keep the established row layout. Only
+        // generation batches use the vertical queue shown in the canvas.
+        if (!array_filter($proposals,static fn(array $proposal): bool=>($proposal['type']??'')!=='text')) {
+            $nextY=$topEdge; $layout=[];
+            foreach ($proposals as $offset=>$proposal) {
+                $size=self::agentNodeSize('text',$ratio);
+                $layout[$offset]=['x'=>$rightEdge+120,'y'=>$nextY,'width'=>$size[0],'height'=>$size[1]];
+                $nextY+=$size[1]+120;
+            }
+            return $layout;
+        }
+        $kinds=[]; $columnWidths=[]; $sizes=[];
         foreach ($proposals as $offset=>$proposal) {
             $kind=trim((string)($proposal['artifact']??'')) ?: (string)$proposal['type'];
             $size=self::agentNodeSize((string)$proposal['type'],$ratio);
             if (!array_key_exists($kind,$kinds)) $kinds[$kind]=count($kinds);
-            $rowHeights[$kind]=max((int)($rowHeights[$kind]??0),$size[1]);
+            $columnWidths[$kind]=max((int)($columnWidths[$kind]??0),$size[0]);
             $sizes[$offset]=[$kind,$size];
         }
-        $rowY=[]; $nextY=$topEdge;
-        foreach ($kinds as $kind=>$_index) { $rowY[$kind]=$nextY; $nextY+=$rowHeights[$kind]+120; }
-        $nextX=[]; $layout=[];
+        $columnX=[]; $nextX=$rightEdge+120;
+        foreach ($kinds as $kind=>$_index) { $columnX[$kind]=$nextX; $nextX+=$columnWidths[$kind]+120; }
+        $nextY=[]; $layout=[];
         foreach ($sizes as $offset=>[$kind,$size]) {
-            $x=$nextX[$kind]??($rightEdge+120);
-            $layout[$offset]=['x'=>$x,'y'=>$rowY[$kind],'width'=>$size[0],'height'=>$size[1]];
-            $nextX[$kind]=$x+$size[0]+80;
+            $y=$nextY[$kind]??$topEdge;
+            $layout[$offset]=['x'=>$columnX[$kind],'y'=>$y,'width'=>$size[0],'height'=>$size[1]];
+            $nextY[$kind]=$y+$size[1]+80;
         }
         return $layout;
     }
