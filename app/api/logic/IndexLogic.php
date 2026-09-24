@@ -144,6 +144,7 @@ class IndexLogic extends BaseLogic
             'third_auth' => ConfigService::get('login', 'third_auth', config('project.login.third_auth')),
             // 微信授权登录
             'wechat_auth' => ConfigService::get('login', 'wechat_auth', config('project.login.wechat_auth')),
+            'mnp_phone_auth' => (int)ConfigService::get('login', 'mnp_phone_auth', config('project.login.mnp_phone_auth')),
             // qq授权登录
             'qq_auth' => ConfigService::get('login', 'qq_auth', config('project.login.qq_auth')),
         ];

@@ -31,8 +31,15 @@ class WeChatMnpService
 
     protected $config;
 
-    public function __construct()
+    protected int $tenantId;
+
+    protected bool $useOpenPlatform = false;
+
+    public function __construct(?int $tenantId = null)
     {
+        $this->tenantId = max(0, $tenantId ?? (int)(request()->tenantId ?? 0));
+        $this->useOpenPlatform = OpenPlatformService::hasAuthorizedMiniprogram($this->tenantId);
+        if ($this->useOpenPlatform) return;
         $this->config = $this->getConfig();
         $this->app = new Application($this->config);
     }
@@ -72,6 +79,9 @@ class WeChatMnpService
      */
     public function getMnpResByCode(string $code)
     {
+        if ($this->useOpenPlatform) {
+            return OpenPlatformService::authorizedMnpSessionByCode($this->tenantId, $code);
+        }
         $utils = $this->app->getUtils();
         $response = $utils->codeToSession($code);
 
@@ -93,6 +103,9 @@ class WeChatMnpService
      */
     public function getUserPhoneNumber(string $code)
     {
+        if ($this->useOpenPlatform) {
+            return OpenPlatformService::authorizedMnpPhoneNumber($this->tenantId, $code);
+        }
         return $this->app->getClient()->postJson('wxa/business/getuserphonenumber', [
             'code' => $code,
         ]);

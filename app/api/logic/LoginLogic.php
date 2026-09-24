@@ -22,6 +22,7 @@ use app\common\model\user\User;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
 use app\common\service\user\RegisterBonusService;
+use app\common\service\membership\MembershipService;
 use app\common\service\wechat\WeChatConfigService;
 use app\common\service\wechat\WeChatOaService;
 use app\common\service\wechat\WeChatRequestService;
@@ -67,6 +68,7 @@ class LoginLogic extends BaseLogic
                 'is_new_user' => YesNoEnum::YES,
             ]);
             RegisterBonusService::grantIfEnabled((int)$user['id']);
+            MembershipService::grantDefaultFreeMembership((int)$user['tenant_id'], (int)$user['id']);
 
             return true;
         } catch (\Exception $e) {

@@ -131,9 +131,10 @@ class FileLogic extends BaseLogic
      * @author 张无忌
      * @date 2021/7/28 11:32
      */
-    public static function addCate($params)
+    public static function addCate($params, int $tenantId)
     {
         TenantFileCate::create([
+            'tenant_id' => $tenantId,
             'type' => $params['type'],
             'pid' => $params['pid'],
             'name' => $params['name']

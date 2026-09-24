@@ -1,0 +1,8 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
+  "navigationBarTitleText": "人物形象",
+  "usingComponents": {
+    "image-human-assets": "../../components/ImageHumanAssets"
+  }
+}

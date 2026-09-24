@@ -16,8 +16,10 @@ set_exception_handler(static function (Throwable $error): void {
 // A missing table is a deployment/configuration error, not a reason for a
 // test to mutate the local schema.  Local acceptance only verifies already
 // applied source migrations and exits before any fixture write otherwise.
-if (think\facade\Db::query('SELECT DATABASE() AS db')[0]['db'] !== 'x_cn') {
-    throw new RuntimeException('Local acceptance must use the configured x_cn database');
+$configuredDatabase = config('database.connections.mysql.database');
+$activeDatabase = think\facade\Db::query('SELECT DATABASE() AS db')[0]['db'] ?? null;
+if (!is_string($configuredDatabase) || $configuredDatabase === '' || $activeDatabase !== $configuredDatabase) {
+    throw new RuntimeException('Local acceptance must use the application-configured database');
 }
 foreach ([
     'la_aigc_short_drama_canvas_agent_safety_audit',

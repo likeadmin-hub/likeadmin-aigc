@@ -7,6 +7,10 @@ use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\GraphService as Graph;
 use app\common\service\app\aigc_short_drama\canvas_agent\GenerationIntentService as Intent;
 
+if (!Db::query("SHOW TABLES LIKE 'la_aigc_short_drama_test_provider_receipt'")) {
+    throw new RuntimeException('Concurrency fixture table is not installed; refusing to create test canvases');
+}
+
 function posterRaceNode(): array
 {
     return ['id' => 1, 'type' => 'video', 'x' => 10, 'y' => 20, 'metadata' => [

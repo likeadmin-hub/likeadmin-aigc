@@ -1,0 +1,8 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
+  "navigationBarTitleText": "全驱动数字人",
+  "usingComponents": {
+    "image-human-home": "../../components/ImageHumanHome"
+  }
+}

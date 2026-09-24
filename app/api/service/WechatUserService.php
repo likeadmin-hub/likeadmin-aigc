@@ -18,6 +18,7 @@ namespace app\api\service;
 use app\common\enum\YesNoEnum;
 use app\common\model\user\User;
 use app\common\service\user\RegisterBonusService;
+use app\common\service\membership\MembershipService;
 use app\common\service\storage\Driver as StorageDriver;
 use think\db\exception\DataNotFoundException;
 use think\db\exception\DbException;
@@ -155,6 +156,7 @@ class WechatUserService
         $this->user->avatar = $avatar;
         $this->user->channel = $this->terminal;
         $this->user->is_new_user = YesNoEnum::YES;
+        $this->user->tenant_id = (int)request()->tenantId;
 
         if ($this->terminal != UserTerminalEnum::WECHAT_MMP && !empty($this->nickname)) {
             $this->user->nickname = $this->nickname;
@@ -162,6 +164,7 @@ class WechatUserService
 
         $this->user->save();
         RegisterBonusService::grantIfEnabled((int)$this->user->id);
+        MembershipService::grantDefaultFreeMembership((int)$this->user->tenant_id, (int)$this->user->id);
 
         UserAuth::create([
             'user_id' => $this->user->id,

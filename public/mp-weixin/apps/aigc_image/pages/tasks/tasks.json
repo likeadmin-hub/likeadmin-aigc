@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "生图任务",
-  "usingComponents": {}
+  "usingComponents": {
+    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
+  }
 }
