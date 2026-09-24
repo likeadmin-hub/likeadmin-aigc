@@ -1367,8 +1367,12 @@ class MarketVideoRuntimeService
             return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => (string)($request['ratio'] ?? ''), 'media' => $media, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'seedance') {
-            $assetIds = self::seedanceAssetReferences($request);
-            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => (string)($locked['model'] ?? ($assetIds['video'] === [] ? 'seedance-2-text-2-video' : 'seedance-2-video-2-video')), 'content' => [['type' => 'text', 'text' => trim((string)($request['prompt'] ?? ''))]], 'ratio' => (string)($request['ratio'] ?? ''), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'image_urls' => $assetIds['image'], 'video_urls' => $assetIds['video'], 'audio_urls' => $assetIds['audio'], 'generate_audio' => $request['generate_audio'] ?? null, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+            $content = self::seedanceContent($request);
+            $hasVideo = in_array('video_url', array_column($content, 'type'), true);
+            foreach (['image_urls', 'video_urls', 'audio_urls', 'content'] as $key) {
+                unset($locked[$key]);
+            }
+            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => (string)($locked['model'] ?? ($hasVideo ? 'seedance-2-video-2-video' : 'seedance-2-text-2-video')), 'content' => $content, 'ratio' => (string)($request['ratio'] ?? ''), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'generate_audio' => $request['generate_audio'] ?? null, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'grok_video') {
             $model = trim((string)($locked['model'] ?? $snapshot['model_code'] ?? 'grok-video'));
@@ -1381,7 +1385,70 @@ class MarketVideoRuntimeService
         if ($model === '') {
             $model = $assets['video'] !== [] ? 'wan2.7-videoedit' : ($assets['image'] !== [] ? 'wan2.7-r2v' : 'wan2.7');
         }
-        return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => $resolution, 'duration' => $duration > 0 ? $duration : null, 'size' => (string)($request['ratio'] ?? ''), 'image_urls' => $assets['image'], 'video_urls' => $assets['video'], 'audio_urls' => $assets['audio'], 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+        foreach (['image_urls', 'image_with_roles', 'video_urls', 'audio_urls', 'audio_url'] as $key) {
+            unset($locked[$key]);
+        }
+        $payload = array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), [
+            'model' => $model,
+            'prompt' => trim((string)($request['prompt'] ?? '')),
+            'resolution' => $resolution,
+            'duration' => $duration > 0 ? $duration : null,
+            'size' => (string)($request['ratio'] ?? ''),
+            'idempotency_key' => $idempotency,
+        ]);
+        if ($model === 'wan2.7-r2v') {
+            $payload['image_with_roles'] = self::wanImageWithRoles($request);
+        } elseif ($model === 'wan2.7-videoedit') {
+            $payload['image_urls'] = $assets['image'];
+            $payload['video_urls'] = $assets['video'];
+        }
+        $payload['audio_url'] = $assets['audio'][0] ?? null;
+        return array_filter($payload, static fn($value) => $value !== '' && $value !== [] && $value !== null);
+    }
+
+    /** Seedance accepts multimodal media in content, not top-level URL arrays. */
+    private static function seedanceContent(array $request): array
+    {
+        $content = [['type' => 'text', 'text' => trim((string)($request['prompt'] ?? ''))]];
+        foreach (AigcVideoReferenceAssetService::normalize($request) as $asset) {
+            $type = (string)($asset['type'] ?? '');
+            $url = trim((string)($asset['url'] ?? $asset['uri'] ?? ''));
+            if ($url === '') continue;
+            if (!str_starts_with($url, 'asset://')) {
+                $url = AigcVideoReferenceAssetService::publicUrl($asset);
+            }
+            if ($type === 'image') {
+                $role = match ((string)($asset['role'] ?? '')) {
+                    'first_frame_image' => 'first_frame',
+                    'last_frame_image' => 'last_frame',
+                    default => 'reference_image',
+                };
+                $content[] = ['type' => 'image_url', 'role' => $role, 'image_url' => ['url' => $url]];
+            } elseif ($type === 'video') {
+                $content[] = ['type' => 'video_url', 'role' => 'reference_video', 'video_url' => ['url' => $url]];
+            } elseif ($type === 'audio') {
+                $content[] = ['type' => 'audio_url', 'role' => 'reference_audio', 'audio_url' => ['url' => $url]];
+            }
+        }
+        return $content;
+    }
+
+    /** Wan 2.7 r2v requires typed image roles, unlike videoedit's image_urls. */
+    private static function wanImageWithRoles(array $request): array
+    {
+        $images = [];
+        foreach (AigcVideoReferenceAssetService::normalize($request) as $asset) {
+            if (($asset['type'] ?? '') !== 'image') continue;
+            $url = AigcVideoReferenceAssetService::publicUrl($asset);
+            if ($url === '') continue;
+            $role = match ((string)($asset['role'] ?? '')) {
+                'first_frame_image' => 'first_frame',
+                'last_frame_image' => 'last_frame',
+                default => 'reference_image',
+            };
+            $images[] = ['url' => $url, 'role' => $role];
+        }
+        return $images;
     }
 
     private static function seedanceAssets(array &$request, int $consumptionId): void
@@ -1433,26 +1500,6 @@ class MarketVideoRuntimeService
         self::event($consumptionId, 'asset_upload', 'success', ['group_id' => $groupId, 'asset_count' => count($uploaded['image']) + count($uploaded['video']) + count($uploaded['audio'])]);
     }
 
-    /** @return array{image: array<int, string>, video: array<int, string>, audio: array<int, string>} */
-    private static function seedanceAssetReferences(array $request): array
-    {
-        $references = ['image' => [], 'video' => [], 'audio' => []];
-        foreach (self::arrayValue($request['seedance_asset_references'] ?? []) as $type => $values) {
-            if (!isset($references[$type])) continue;
-            foreach ((array)$values as $value) {
-                $reference = trim((string)$value);
-                if ($reference !== '' && str_starts_with($reference, 'asset://') && !in_array($reference, $references[$type], true)) {
-                    $references[$type][] = $reference;
-                }
-            }
-        }
-        if ($references['image'] !== [] || $references['video'] !== [] || $references['audio'] !== []) return $references;
-        foreach (self::assets($request) as $type => $values) {
-            $references[$type] = array_values(array_filter($values, static fn(string $value): bool => str_starts_with($value, 'asset://')));
-        }
-        return $references;
-    }
-
     private static function assets(array $request): array
     {
         $assets = AigcVideoReferenceAssetService::normalize($request); $result = ['image' => [], 'video' => [], 'audio' => []];
@@ -1476,6 +1523,14 @@ class MarketVideoRuntimeService
             throw new Exception('selected video model does not support this generation method');
         }
         $assetCount = count($assets['image']) + count($assets['video']) + count($assets['audio']);
+        if ((string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API) {
+            $app = strtolower((string)($product['upstream_app_code'] ?? ''));
+            if ($app === 'wan') {
+                self::assertWanAppAssets($market, $assets);
+            } elseif ($app === 'seedance') {
+                AigcVideoReferenceAssetService::assertSeedanceSupported($referenceAssets);
+            }
+        }
         if (self::isFullVideoProduct($product) && (string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API) {
             self::assertFullVideoAssets($referenceAssets, $assets, $assetCount, $generationMethod);
             return;
@@ -1568,6 +1623,28 @@ class MarketVideoRuntimeService
         $totalLimit = self::referenceAssetLimit($product, $metadata);
         if ($totalLimit > 0 && $assetCount > $totalLimit) {
             throw new Exception('selected video model supports at most ' . $totalLimit . ' reference assets');
+        }
+    }
+
+    private static function assertWanAppAssets(array $market, array $assets): void
+    {
+        $locked = self::arrayValue($market['sku']['locked_params'] ?? []);
+        $model = trim((string)($locked['model'] ?? ''));
+        if ($model === '') {
+            $model = $assets['video'] !== [] ? 'wan2.7-videoedit'
+                : ($assets['image'] !== [] ? 'wan2.7-r2v' : 'wan2.7');
+        }
+        if (count($assets['audio']) > 1) {
+            throw new Exception('Wan 2.7 supports only one reference audio');
+        }
+        if ($model === 'wan2.7-r2v' && (count($assets['image']) < 1 || count($assets['image']) > 2 || $assets['video'] !== [])) {
+            throw new Exception('Wan 2.7 r2v requires one or two reference images and no video');
+        }
+        if ($model === 'wan2.7-videoedit' && (count($assets['video']) !== 1 || count($assets['image']) > 4)) {
+            throw new Exception('Wan 2.7 videoedit requires one video and at most four reference images');
+        }
+        if ($model === 'wan2.7' && ($assets['video'] !== [] || count($assets['image']) > 2)) {
+            throw new Exception('Wan 2.7 text mode accepts at most two images and no video');
         }
     }
 
@@ -1757,6 +1834,11 @@ class MarketVideoRuntimeService
     }
     private static function referenceLimit(array $product, array $meta, string $type): int
     {
+        if ((string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API) {
+            $app = strtolower((string)($product['upstream_app_code'] ?? ''));
+            if ($app === 'wan') return ['image' => 4, 'video' => 1, 'audio' => 1][$type] ?? 0;
+            if ($app === 'seedance') return ['image' => 9, 'video' => 3, 'audio' => 3][$type] ?? 0;
+        }
         $configured = self::capabilityLimit($meta, $type);
         if ($configured > 0) {
             return $configured;
