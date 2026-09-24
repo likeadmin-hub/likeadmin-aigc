@@ -121,10 +121,10 @@ try {
     [$nodes,$edges]=$graph($canvas);
     agentCheck(count($nodes)===2 && !isset($result['canvas_actions']) && count($result['workflow']['artifact_memory']??[])>=4,'confirmed art remains durable in workflow memory without graph mutation');
 
-    $assets='<canvas-actions>'.json_encode(['nodes'=>[
+    $assets=$reply([
         ['type'=>'image','artifact'=>'subject','title'=>'林夏主体图','prompt'=>'林夏，电影写实，正面半身，纯净背景','key'=>'subject','reference_keys'=>['art:character']],
         ['type'=>'image','artifact'=>'three_view','title'=>'林夏三视图','prompt'=>'林夏正侧背三视图','key'=>'views','depends_on'=>['subject'],'reference_keys'=>['art:views']],
-    ]],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR).'</canvas-actions>';
+    ],'主体与三视图素材规划');
     $view=$runStage('compact-assets',$assets,[$storyId]);
     agentCheck(str_contains((string)($provider->request['system_prompt']??''),ShortDramaPromptCatalog::defaults()['subject.character']),
         'Agent asset creation reads the original short-drama creative prompt source');
@@ -142,10 +142,10 @@ try {
     $dependency=Canvas::agentAutoDependencyState($checkNodes,$edges,(string)$threeView['id']);
     agentCheck(($dependency['state']??'')==='ready' && ($dependency['references'][0]['asset_id']??0)===991,'three-view submits the completed subject image as a real generation reference');
 
-    $boards='<canvas-actions>'.json_encode(['nodes'=>[
+    $boards=$reply([
         ['type'=>'image','artifact'=>'scene','title'=>'雨夜办公室场景图','prompt'=>'雨夜办公室，不出现人物','key'=>'scene_1','reference_keys'=>['art:scene']],
         ['type'=>'image','artifact'=>'storyboard','title'=>'镜头一分镜图','prompt'=>'林夏在雨夜办公室拿起录音笔','key'=>'board_1','depends_on'=>['scene_1'],'reference_keys'=>['assets:subject']],
-    ]],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR).'</canvas-actions>';
+    ],'场景与分镜素材规划');
     $view=$runStage('compact-boards',$boards);
     $originalNodesJson=(string)Db::name(GraphService::TABLE)->where('id',$canvas)->value('nodes_json');
     $changedNodes=json_decode($originalNodesJson,true,512,JSON_THROW_ON_ERROR);
@@ -166,7 +166,7 @@ try {
     Workflow::confirmStagePlan($tenant,$user,$canvas,$thread,(int)$view['workflow']['state_revision']);
     [$nodes,$edges]=$graph($canvas);
     agentCheck(count($nodes)===6,'video prompt planning stays in dialogue, not a canvas text node');
-    $video='<canvas-actions>'.json_encode(['nodes'=>[['type'=>'video','artifact'=>'storyboard_video','title'=>'镜头一视频','prompt'=>'林夏播放录音','key'=>'video_1','reference_keys'=>['storyboard:board_1','video_plan:video_1']]]],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR).'</canvas-actions>';
+    $video=$reply([['type'=>'video','artifact'=>'storyboard_video','title'=>'镜头一视频','prompt'=>'林夏播放录音','key'=>'video_1','reference_keys'=>['storyboard:board_1','video_plan:video_1']]],'分镜视频规划');
     $runStage('compact-video-node',$video);
     [$nodes,$edges]=$graph($canvas);
     $videoNode=$nodes[6];$videoInputs=$inputs((string)$videoNode['id']);
