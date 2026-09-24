@@ -5,6 +5,10 @@ use think\facade\Db;
 use app\common\service\app\aigc_short_drama\ShortDramaCanvasService as Canvas;
 use app\common\service\app\aigc_short_drama\canvas_agent\GenerationIntentService as Intent;
 
+if (!Db::query("SHOW TABLES LIKE 'la_aigc_short_drama_test_provider_receipt'")) {
+    throw new RuntimeException('Crash fixture table is not installed; refusing to create test canvases');
+}
+
 // Kill only the exact synthetic child process created by this test, never a
 // live Worker. Independent connections make committed boundaries observable.
 function crashBarrier(string $phase,string $wanted): void {
