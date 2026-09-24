@@ -64,12 +64,12 @@ try {
             return ['settings'=>$preferences,'skill'=>[],'workflow'=>$prepared['workflow'],'thread_settings'=>$prepared['thread_settings']];
         });
     };
-    $start=$accept('compact-start','/short-drama 请创作悬疑短剧');
+    $start=$accept('compact-start','请创作悬疑短剧');
     $publicStart=Workflow::read($tenant,$user,$canvas,$thread);
     agentCheck(!isset($publicStart['workflow']['workflow_snapshot']['creative_prompt_snapshot']),
         'frozen internal creative prompt configuration is not exposed in the public workflow snapshot');
     agentCheck(Execution::stop($tenant,$user,$canvas,$thread,(int)$start['run_id'])['status']==='canceled','compact fixture starts in collection without a media request');
-    foreach (['genre'=>'悬疑反转','episode_count'=>'1集（短片）','episode_duration'=>'1分钟','visual_style'=>'电影写实','aspect_ratio'=>'9:16','audience'=>'年轻女性','characters'=>'林夏与姐姐','ending'=>'反转开放'] as $slot=>$value) {
+    foreach (['genre'=>'悬疑反转','episode_count'=>'1集（短片）','episode_duration'=>'1分钟','visual_style'=>'电影写实','audience'=>'年轻女性','characters'=>'林夏与姐姐','ending'=>'反转开放'] as $slot=>$value) {
         $view=Workflow::read($tenant,$user,$canvas,$thread);
         Workflow::answer($tenant,$user,$canvas,$thread,(int)$view['workflow']['state_revision'],$slot,$value);
     }
