@@ -1324,8 +1324,8 @@ class DecorateTemplateService
         if ($name === 'commerce-entries') {
             $widget['title'] = '购买入口';
             $widget['content'] = ['enabled' => 1, 'data' => [
-                ['key' => 'credits', 'title' => '算力套餐', 'sub_title' => '购买算力，继续创作', 'icon' => '✦', 'link' => ['path' => '/packages/pages/recharge/recharge']],
-                ['key' => 'distribution', 'title' => '推广中心', 'sub_title' => '邀请好友，共享收益', 'icon' => '↗', 'link' => ['path' => '/pages/distribution/distribution']],
+                ['key' => 'credits', 'title' => '算力套餐', 'sub_title' => '购买算力，继续创作', 'icon' => '✦', 'image' => '', 'link' => ['path' => '/packages/pages/recharge/recharge']],
+                ['key' => 'distribution', 'title' => '推广中心', 'sub_title' => '邀请好友，共享收益', 'icon' => '↗', 'image' => '', 'link' => ['path' => '/pages/distribution/distribution']],
             ]];
             $widget['styles'] = ['background' => 'transparent', 'color' => '#ffffff', 'padding' => 12, 'border_radius' => 12];
         }
