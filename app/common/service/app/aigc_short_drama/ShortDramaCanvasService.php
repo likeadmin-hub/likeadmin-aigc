@@ -541,6 +541,9 @@ class ShortDramaCanvasService
         if (!$run) throw new Exception('画布任务不存在或无权访问');
         self::refreshRun($run);
         $run = Db::name(self::RUN_TABLE)->where('id', $runId)->find();
+        if (!empty(self::decode((string)$run['request_json'])['__canvas_intent_version'])) {
+            GenerationIntentService::projectStatus($tenantId,$userId,$runId);
+        }
         return self::formatRun($run);
     }
 
