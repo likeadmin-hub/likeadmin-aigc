@@ -88,6 +88,12 @@ class AppAccessService
             return JsonService::fail('应用未购买、未上架或已过期', [], 0, 1);
         }
         if (!MembershipService::userCanUseApp($tenantId, $userId, $appCode)) {
+            if ($userId <= 0) {
+                return JsonService::fail('该应用需登录后使用', [
+                    'need_login' => 1,
+                    'app_code' => $appCode,
+                ], 0, 1);
+            }
             return JsonService::fail('该应用需开通会员后使用', [
                 'need_membership' => 1,
                 'app_code' => $appCode,

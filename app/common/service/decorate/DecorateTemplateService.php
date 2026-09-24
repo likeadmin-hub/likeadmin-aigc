@@ -143,10 +143,19 @@ class DecorateTemplateService
                 }
                 // Validate every page before changing any published value. A bad
                 // page therefore cannot leave the template partially published.
-                self::validatePagePayload(
-                    (string)($page['draft_data'] ?: $page['data'] ?: '[]'),
-                    (string)($page['draft_meta'] ?: $page['meta'] ?: '')
-                );
+                try {
+                    self::validatePagePayload(
+                        (string)($page['draft_data'] ?: $page['data'] ?: '[]'),
+                        (string)($page['draft_meta'] ?: $page['meta'] ?: '')
+                    );
+                } catch (RuntimeException $e) {
+                    throw new RuntimeException(sprintf(
+                        '页面「%s」（ID %d）发布失败：%s',
+                        (string)$page['name'],
+                        (int)$page['id'],
+                        $e->getMessage()
+                    ), 0, $e);
+                }
             }
 
             $history = self::publishedHistoryPayload($template);
