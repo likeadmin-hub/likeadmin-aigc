@@ -1,1 +1,1 @@
-<navigator wx:if="{{a}}" url="/pages/search/search" class="block" style="{{'opacity:' + c}}" hover-class="none"><u-search wx:if="{{b}}" u-i="33001b57-0" bind:__l="__l" u-p="{{b}}"></u-search></navigator>
+<navigator wx:if="{{a}}" url="/pages/search/search" class="block" style="{{'opacity:' + c}}" hover-class="none"><u-search wx:if="{{b}}" u-i="55ab9302-0" bind:__l="__l" u-p="{{b}}"></u-search></navigator>
