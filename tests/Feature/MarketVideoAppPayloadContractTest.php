@@ -51,6 +51,22 @@ class MarketVideoAppPayloadContractTest extends TestCase
         self::assertSame('asset://same-id', $payload['content'][2]['image_url']['url']);
     }
 
+    public function testSeedanceKeepsPricingVariantLocalAndPassesOnlyDocumentedOptions(): void
+    {
+        $payload = $this->invoke('appPayload', [
+            'app_code' => 'seedance',
+            'locked_params' => ['resolution' => '720p', '_pricing_variant' => 'without_video'],
+        ], [
+            'prompt' => 'A quiet scene', 'duration' => 5, 'seed' => 42,
+            'watermark' => false, 'unrelated_model_option' => 'must-not-leak',
+        ], 'seedance-options');
+
+        self::assertSame(42, $payload['seed']);
+        self::assertFalse($payload['watermark']);
+        self::assertArrayNotHasKey('_pricing_variant', $payload);
+        self::assertArrayNotHasKey('unrelated_model_option', $payload);
+    }
+
     public function testWanReferenceVariantUsesImageWithRolesAndSingleAudioUrl(): void
     {
         $payload = $this->invoke('appPayload', [
@@ -113,11 +129,26 @@ class MarketVideoAppPayloadContractTest extends TestCase
             'prompt' => 'Animate the first frame', 'generation_method' => 'image_to_video',
             'ratio' => '9:16', 'reference_assets' => [array_merge($image, ['role' => 'first_frame_image'])],
         ], 'happy-first-frame');
+        $omniReference = $this->invoke('appPayload', $snapshot, [
+            'prompt' => 'Keep the character', 'generation_method' => 'omni_reference',
+            'reference_assets' => [$image],
+        ], 'happy-omni-reference');
 
         self::assertSame('happyhorse-1.1-r2v', $reference['model']);
         self::assertSame('9:16', $reference['ratio']);
         self::assertSame('happyhorse-1.1-i2v', $firstFrame['model']);
         self::assertArrayNotHasKey('ratio', $firstFrame);
+        self::assertSame('happyhorse-1.1-r2v', $omniReference['model']);
+    }
+
+    public function testHappyHorseVideoEditRejectsSixthReferenceImageBeforeBilling(): void
+    {
+        $this->expectExceptionMessage('at most five images');
+        $this->invoke('assertHappyHorseAssets', ['sku' => ['locked_params' => []]], [
+            'image' => array_fill(0, 6, 'https://fixtures.invalid/reference.png'),
+            'video' => ['https://fixtures.invalid/input.mp4'],
+            'audio' => [],
+        ], 'video_edit');
     }
 
     private function invoke(string $method, mixed ...$arguments): mixed
