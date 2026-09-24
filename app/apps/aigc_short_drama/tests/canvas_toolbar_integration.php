@@ -14,6 +14,7 @@ try {
     $doc = Canvas::create(1, 1, ['title' => 'transactional toolbar test']);
     $id = $doc['id'];
     $generationPayload = new ReflectionMethod(Canvas::class, 'generationPayload');
+    $generationPayload->setAccessible(true);
     $mediaPayload = $generationPayload->invoke(null, 'video', [
         'prompt' => 'test Wan mixed references',
         'reference_assets' => [
