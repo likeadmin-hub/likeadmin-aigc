@@ -538,7 +538,9 @@ class OpenPlatformService
     {
         $row = WechatMnpVersion::withoutGlobalScope()->where(['id' => $id, 'tenant_id' => $tenantId])->findOrEmpty(); if ($row->isEmpty()) throw new \RuntimeException('版本不存在');
         if ((string)$row['upload_mode'] !== 'template' || (int)$row['authorizer_id'] <= 0) throw new \RuntimeException('手动配置版本请使用代码上传，不能执行开放平台发布操作');
-        $authorizer = WechatAuthorizer::withoutGlobalScope()->where(['id' => $row['authorizer_id'], 'tenant_id' => $tenantId, 'authorization_status' => 1])->findOrEmpty(); if ($authorizer->isEmpty()) throw new \RuntimeException('授权小程序不存在'); return [$row, $authorizer];
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        if ((int)$row['authorizer_id'] !== (int)$authorizer['id']) throw new \RuntimeException('此版本属于旧授权小程序，请为当前小程序创建新版本');
+        return [$row, $authorizer];
     }
     public static function submitExperience(int $tenantId, int $id): array
     {
@@ -1904,7 +1906,7 @@ class OpenPlatformService
             'authorized' => $account,
             'manual_configured' => $hasManual,
             'upload_key_configured' => $hasKey,
-            'upload_mode' => $credentials['upload_mode'] ?? ($authorized->isEmpty() ? 'key' : 'template'),
+            'upload_mode' => $authorized->isEmpty() ? 'key' : 'template',
             'message' => $authorized->isEmpty() ? ($hasManual ? '当前使用手动配置，小程序代码需使用上传密钥在开发者工具上传。' : '请先完成小程序配置或授权绑定。') : '当前使用开放平台授权，版本提交使用平台模板，无需单独填写小程序密钥。',
         ];
     }
@@ -2112,12 +2114,25 @@ class OpenPlatformService
         if ($safeProfile) $payload['profile_json'] = json_encode($safeProfile, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         return $payload;
     }
-    public static function unbindAuthorizer(int $tenantId, int $id): bool { $row = WechatAuthorizer::withoutGlobalScope()->where(['id' => $id, 'tenant_id' => $tenantId])->findOrEmpty(); if ($row->isEmpty()) throw new \RuntimeException('授权账号不存在'); $row->save(['authorization_status' => 0, 'unbind_time' => time(), 'update_time' => time()]); return true; }
+    public static function unbindAuthorizer(int $tenantId, int $id): bool
+    {
+        $row = WechatAuthorizer::withoutGlobalScope()->where(['id' => $id, 'tenant_id' => $tenantId, 'authorization_status' => 1])->findOrEmpty();
+        if ($row->isEmpty()) throw new \RuntimeException('当前授权账号不存在或已解绑');
+        $row->save([
+            'authorization_status' => 0,
+            'access_token_ciphertext' => '',
+            'access_token_expire_time' => 0,
+            'authorizer_refresh_token_ciphertext' => '',
+            'unbind_time' => time(),
+            'update_time' => time(),
+        ]);
+        return true;
+    }
     public static function createVersion(int $tenantId, array $data): array
     {
         foreach (['authorizer_id', 'template_id'] as $key) if (empty($data[$key])) throw new \InvalidArgumentException('缺少' . $key);
-        $authorizer = WechatAuthorizer::withoutGlobalScope()->where(['id' => (int)$data['authorizer_id'], 'tenant_id' => $tenantId, 'authorizer_type' => 'miniprogram', 'authorization_status' => 1])->findOrEmpty();
-        if ($authorizer->isEmpty()) throw new \RuntimeException('授权小程序不存在');
+        $authorizer = self::effectiveMiniprogramAuthorizer($tenantId);
+        if ((int)$data['authorizer_id'] !== (int)$authorizer['id']) throw new \RuntimeException('请选择当前授权的小程序');
         $template = WechatTemplate::withoutGlobalScope()->where(['id' => (int)$data['template_id'], 'upload_status' => 'success'])->findOrEmpty();
         if ($template->isEmpty() || (string)$template['template_id'] === '') throw new \RuntimeException('模板不存在或未上传成功');
         $version = trim((string)$template['template_version']);
@@ -2137,13 +2152,21 @@ class OpenPlatformService
     public static function versions(int $tenantId): array
     {
         $query = WechatMnpVersion::withoutGlobalScope()->where('tenant_id', $tenantId);
-        if ($tenantId > 0) $query->where('upload_mode', 'template');
+        if ($tenantId > 0) {
+            $authorized = WechatAuthorizer::withoutGlobalScope()->where(['tenant_id' => $tenantId, 'authorizer_type' => 'miniprogram', 'authorization_status' => 1])->order('id desc')->findOrEmpty();
+            if ($authorized->isEmpty()) $query->where('upload_mode', 'key');
+            else $query->where(['upload_mode' => 'template', 'authorizer_id' => (int)$authorized['id']]);
+        }
         return array_map(static fn(array $row) => self::formatVersion($row), $query->order('id desc')->select()->toArray());
     }
     public static function reviews(int $tenantId): array
     {
         $query = WechatMnpVersion::withoutGlobalScope()->where('tenant_id', $tenantId);
-        if ($tenantId > 0) $query->where('upload_mode', 'template');
+        if ($tenantId > 0) {
+            $authorized = WechatAuthorizer::withoutGlobalScope()->where(['tenant_id' => $tenantId, 'authorizer_type' => 'miniprogram', 'authorization_status' => 1])->order('id desc')->findOrEmpty();
+            if ($authorized->isEmpty()) $query->where('upload_mode', 'key');
+            else $query->where(['upload_mode' => 'template', 'authorizer_id' => (int)$authorized['id']]);
+        }
         $versions = $query->field('id,version')->select()->toArray();
         if (!$versions) return [];
         $versionMap = array_column($versions, 'version', 'id');
