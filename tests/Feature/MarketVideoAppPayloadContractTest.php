@@ -101,6 +101,25 @@ class MarketVideoAppPayloadContractTest extends TestCase
         ]);
     }
 
+    public function testHappyHorseDistinguishesOneImageReferenceFromFirstFrame(): void
+    {
+        $snapshot = ['app_code' => 'happy_horse', 'locked_params' => ['resolution' => '720p']];
+        $image = ['type' => 'image', 'url' => 'https://fixtures.invalid/person.png'];
+        $reference = $this->invoke('appPayload', $snapshot, [
+            'prompt' => 'Keep the character', 'generation_method' => 'image_reference',
+            'ratio' => '9:16', 'reference_assets' => [$image],
+        ], 'happy-reference');
+        $firstFrame = $this->invoke('appPayload', $snapshot, [
+            'prompt' => 'Animate the first frame', 'generation_method' => 'image_to_video',
+            'ratio' => '9:16', 'reference_assets' => [array_merge($image, ['role' => 'first_frame_image'])],
+        ], 'happy-first-frame');
+
+        self::assertSame('happyhorse-1.1-r2v', $reference['model']);
+        self::assertSame('9:16', $reference['ratio']);
+        self::assertSame('happyhorse-1.1-i2v', $firstFrame['model']);
+        self::assertArrayNotHasKey('ratio', $firstFrame);
+    }
+
     private function invoke(string $method, mixed ...$arguments): mixed
     {
         $reflection = new ReflectionMethod(MarketVideoRuntimeService::class, $method);

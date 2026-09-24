@@ -923,8 +923,10 @@ class MarketVideoRuntimeService
             $payload['audio_urls'] = $assets['audio'];
         }
         if (self::schemaDeclaresParameter($schema, 'generation_type')) {
-            $generationType = self::value($request, ['generation_type', 'generationType'])
-                ?: self::generationTypeForSchema($snapshot, $request, $assets);
+            $generationType = self::isVeoThreeSnapshot($snapshot)
+                ? self::generationTypeForSchema($snapshot, $request, $assets)
+                : (self::value($request, ['generation_type', 'generationType'])
+                    ?: self::generationTypeForSchema($snapshot, $request, $assets));
             if ($generationType !== '') {
                 $payload['generation_type'] = $generationType;
             }
@@ -1095,8 +1097,10 @@ class MarketVideoRuntimeService
         $allowed = array_map('strtoupper', self::schemaOptionValues($schema, 'generation_type'));
         $default = trim((string)self::schemaDefaultValue($schema, 'generation_type', ''));
         $method = strtolower(trim((string)($request['generation_method'] ?? $request['generationMethod'] ?? '')));
-        if ($method === 'start_end'
-            || ($assets['image'] !== [] && self::hasFirstAndLastFrameAssets($request))) {
+        $roles = array_column(AigcVideoReferenceAssetService::normalize($request), 'role');
+        if (in_array($method, ['image_to_video', 'start_end'], true)
+            || in_array('first_frame_image', $roles, true)
+            || in_array('last_frame_image', $roles, true)) {
             return in_array('FIRST&LAST', $allowed, true) ? 'FIRST&LAST' : ($default !== '' ? $default : '');
         }
         if ($assets['image'] !== []) {
@@ -1105,10 +1109,9 @@ class MarketVideoRuntimeService
         return in_array('TEXT', $allowed, true) ? 'TEXT' : $default;
     }
 
-    private static function hasFirstAndLastFrameAssets(array $request): bool
+    private static function isVeoThreeSnapshot(array $snapshot): bool
     {
-        $roles = array_column(AigcVideoReferenceAssetService::normalize($request), 'role');
-        return in_array('first_frame_image', $roles, true) && in_array('last_frame_image', $roles, true);
+        return str_starts_with(strtolower((string)($snapshot['model_code'] ?? '')), 'veo3.1-');
     }
 
     private static function structuredModelMedia(array $request): array
@@ -1356,15 +1359,17 @@ class MarketVideoRuntimeService
         if ($app === 'happy_horse') {
             $model = trim((string)($locked['model'] ?? ''));
             if ($model === '') {
+                $method = strtolower(trim((string)($request['generation_method'] ?? $request['generationMethod'] ?? '')));
                 $model = $assets['video'] !== [] ? 'happyhorse-1.0-video-edit'
                     : ($assets['image'] === [] ? 'happyhorse-1.1-t2v'
-                    : (count($assets['image']) === 1 ? 'happyhorse-1.1-i2v' : 'happyhorse-1.1-r2v'));
+                    : (count($assets['image']) === 1 && $method !== 'image_reference'
+                        ? 'happyhorse-1.1-i2v' : 'happyhorse-1.1-r2v'));
             }
             $media = array_merge(
                 array_map(static fn(string $url): array => ['url' => $url, 'type' => 'video'], $assets['video']),
                 array_map(static fn(string $url): array => ['url' => $url, 'type' => 'image'], $assets['image'])
             );
-            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => (string)($request['ratio'] ?? ''), 'media' => $media, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => $model === 'happyhorse-1.1-i2v' ? null : (string)($request['ratio'] ?? ''), 'media' => $media, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'seedance') {
             $content = self::seedanceContent($request);
@@ -1523,6 +1528,9 @@ class MarketVideoRuntimeService
             throw new Exception('selected video model does not support this generation method');
         }
         $assetCount = count($assets['image']) + count($assets['video']) + count($assets['audio']);
+        if (str_starts_with(strtolower((string)($product['upstream_model_code'] ?? '')), 'veo3.1-')) {
+            self::assertVeoThreeAssets($market, $request, $assets, $generationMethod);
+        }
         if ((string)($product['resource_type'] ?? '') === PowerMarketService::TYPE_APP_API) {
             $app = strtolower((string)($product['upstream_app_code'] ?? ''));
             if ($app === 'wan') {
@@ -1645,6 +1653,28 @@ class MarketVideoRuntimeService
         }
         if ($model === 'wan2.7' && ($assets['video'] !== [] || count($assets['image']) > 2)) {
             throw new Exception('Wan 2.7 text mode accepts at most two images and no video');
+        }
+    }
+
+    private static function assertVeoThreeAssets(array $market, array $request, array $assets, string $generationMethod): void
+    {
+        if ($assets['video'] !== [] || $assets['audio'] !== []) {
+            throw new Exception('Veo 3.1 accepts image references only');
+        }
+        $roles = array_column(AigcVideoReferenceAssetService::normalize($request), 'role');
+        $frameMode = in_array($generationMethod, ['image_to_video', 'start_end'], true)
+            || in_array('first_frame_image', $roles, true)
+            || in_array('last_frame_image', $roles, true);
+        if ($frameMode && count($assets['image']) > 2) {
+            throw new Exception('Veo 3.1 first/last frame mode supports at most two images');
+        }
+        if (!$frameMode && count($assets['image']) > 3) {
+            throw new Exception('Veo 3.1 reference mode supports at most three images');
+        }
+        $ratio = self::value(self::arrayValue($market['sku']['locked_params'] ?? []), ['ratio', 'aspect_ratio', 'size'])
+            ?: self::value($request, ['ratio', 'aspect_ratio', 'size']);
+        if (!$frameMode && $assets['image'] !== [] && $ratio !== '' && $ratio !== '16:9') {
+            throw new Exception('Veo 3.1 reference mode requires 16:9 aspect ratio');
         }
     }
 

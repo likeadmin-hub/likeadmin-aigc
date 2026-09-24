@@ -352,6 +352,38 @@ class MarketVideoModelPayloadContractTest extends TestCase
         self::assertArrayNotHasKey('audio_urls', $payload);
     }
 
+    public function testVeoSingleFirstFrameUsesFirstLastRatherThanReferenceMode(): void
+    {
+        $payload = $this->invokeModelPayload([
+            'model_code' => 'veo3.1-fast', 'channel_code' => 'test',
+            'params_schema' => [
+                'prompt' => ['type' => 'string'],
+                'image_urls' => ['type' => 'array'],
+                'aspect_ratio' => ['type' => 'string'],
+                'generation_type' => ['type' => 'string', 'options' => 'TEXT / FIRST&LAST / REFERENCE'],
+            ],
+        ], [
+            'prompt' => 'Animate this frame', 'ratio' => '9:16',
+            'generation_method' => 'image_to_video',
+            'generation_type' => 'REFERENCE',
+            'reference_assets' => [[
+                'type' => 'image', 'url' => 'https://fixtures.invalid/first.png', 'role' => 'first_frame_image',
+            ]],
+        ]);
+
+        self::assertSame('FIRST&LAST', $payload['generation_type']);
+        self::assertSame(['https://fixtures.invalid/first.png'], $payload['image_urls']);
+        $this->expectExceptionMessage('requires 16:9');
+        $this->invokePrivate('assertVeoThreeAssets',
+            ['sku' => ['locked_params' => []]],
+            ['ratio' => '9:16', 'reference_assets' => [[
+                'type' => 'image', 'url' => 'https://fixtures.invalid/person.png', 'role' => 'reference_image',
+            ]]],
+            ['image' => ['https://fixtures.invalid/person.png'], 'video' => [], 'audio' => []],
+            'image_reference'
+        );
+    }
+
     public function testVideoSkuLockedResolutionWinsOverRequestResolution(): void
     {
         $payload = $this->invokeModelPayload([
