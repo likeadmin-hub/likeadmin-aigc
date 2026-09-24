@@ -73,6 +73,16 @@ foreach (MarketImageModelRuntimeService::options($tenantId) as $option) {
         if (isset($payload['task_query']) || isset($payload['_pricing_variant'])) {
             $failures[] = "$id leaked an internal routing field";
         }
+        if (in_array((string)$option['model_code'], ['qwen-image-3.0', 'qwen-image-3.0-pro', 'gpt-image-2-pro'], true)) {
+            try {
+                MarketImageModelRuntimeService::quote($tenantId, $selection, 2);
+                $failures[] = "$id accepted two images although its contract allows one";
+            } catch (Exception $error) {
+                if (!str_contains($error->getMessage(), '仅支持生成 1 张')) {
+                    $failures[] = "$id rejected quantity for an unrelated reason: {$error->getMessage()}";
+                }
+            }
+        }
     } catch (Throwable $error) {
         $failures[] = "$id failed catalog preflight: {$error->getMessage()}";
     }
@@ -100,6 +110,13 @@ foreach (MarketNanoBananaAppRuntimeService::options($tenantId) as $option) {
             || ($payload['action'] ?? '') !== 'edit'
             || ($payload['model'] ?? '') !== $option['model_code']) {
             $failures[] = "$id reference image capability or edit payload is wrong";
+        }
+        $localPayload = $nanoPayload->invoke(null, $quote['market_snapshot'], [
+            'prompt' => 'dry-run local reference',
+            'reference_images' => ['uploads/catalog-dry-run.png'],
+        ], 'dry-run', 0);
+        if (preg_match('#^https?://#', (string)($localPayload['image_urls'][0] ?? '')) !== 1) {
+            $failures[] = "$id sent a stored path instead of a provider URL";
         }
     } catch (Throwable $error) {
         $failures[] = "$id failed catalog preflight: {$error->getMessage()}";

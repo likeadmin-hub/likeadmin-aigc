@@ -17,6 +17,7 @@ use app\common\service\point\PointService;
 use app\common\service\update\UpdateSourceClient;
 use Exception;
 use think\facade\Db;
+use think\facade\Log;
 
 /** Executes the nano_banana image application API sold through the power market. */
 class MarketNanoBananaAppRuntimeService
@@ -256,11 +257,15 @@ class MarketNanoBananaAppRuntimeService
         $consumption = $context['consumption'];
         if ((string)$consumption['run_status'] !== 'reserved') return self::response($consumption->toArray());
         $snapshot = self::arrayValue($consumption['price_snapshot'] ?? []);
+        $upstreamAccepted = false;
+        $taskId = '';
+        $requestId = '';
         try {
             $response = self::request('POST', self::endpoint((string)$snapshot['app_code'], self::SUBMIT_API_CODE), self::payload($snapshot, $request, (string)$consumption['consume_no'], (int)$consumption['tenant_id']));
-            $images = self::images($response, (int)$consumption['tenant_id'], (int)$consumption['user_id']);
+            $upstreamAccepted = true;
             $taskId = self::taskId($response);
             $requestId = self::requestId($response);
+            $images = self::images($response, (int)$consumption['tenant_id'], (int)$consumption['user_id']);
             Db::transaction(function () use ($consumptionId, $images, $taskId, $requestId) {
                 $ctx = self::context($consumptionId, true); if ($ctx === null) return;
                 $c = $ctx['consumption']; if (!in_array((string)$c['billing_status'], ['reserved', 'pending_usage'], true)) return;
@@ -275,8 +280,38 @@ class MarketNanoBananaAppRuntimeService
             if ($images === [] && $taskId === '') throw new Exception('nano-banana 应用 API 未返回任务 ID');
             return ['status' => $images === [] ? 'running' : 'success', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => $images];
         } catch (\Throwable $e) {
+            if ($upstreamAccepted) {
+                self::recordAcceptedSubmissionFailure($consumptionId, $taskId, $requestId, $e);
+                $current = self::context($consumptionId, false);
+                return $current !== null ? self::response($current['consumption']->toArray()) : [
+                    'status' => 'running', 'provider_task_id' => $taskId, 'provider_request_id' => $requestId, 'images' => [],
+                ];
+            }
             self::fail($consumptionId, $e->getMessage(), 'submit_failed');
             throw $e instanceof Exception ? $e : new Exception('nano-banana 生图提交失败');
+        }
+    }
+
+    /** A local persistence/queue error cannot cancel a supplier-accepted task. */
+    private static function recordAcceptedSubmissionFailure(int $consumptionId, string $taskId, string $requestId, \Throwable $error): void
+    {
+        try {
+            AiConsumptionLog::where('id', $consumptionId)->whereIn('billing_status', ['reserved', 'pending_usage'])->update([
+                'run_status' => 'running',
+                'upstream_task_id' => $taskId,
+                'upstream_request_id' => $requestId,
+                'error_code' => '',
+                'error_message' => '',
+                'finish_time' => 0,
+                'update_time' => time(),
+            ]);
+            AiTaskLifecycleEventService::record($consumptionId, 'post_submit_local_error', 'pending', [
+                'upstream_task_id' => $taskId,
+                'reason' => mb_substr($error->getMessage(), 0, 300),
+            ]);
+            AiTaskJobService::enqueueQueryResult($consumptionId);
+        } catch (\Throwable $recoveryError) {
+            Log::warning('Nano-banana accepted submission recovery failed: consumption=' . $consumptionId . ' error=' . $recoveryError->getMessage());
         }
     }
 
