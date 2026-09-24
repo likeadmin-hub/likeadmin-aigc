@@ -1323,9 +1323,15 @@ class MarketVideoRuntimeService
         if ($app === 'happy_horse') {
             $model = trim((string)($locked['model'] ?? ''));
             if ($model === '') {
-                $model = $assets['image'] === [] ? 'happyhorse-1.0-t2v' : (count($assets['image']) === 1 ? 'happyhorse-1.0-i2v' : 'happyhorse-1.0-r2v');
+                $model = $assets['video'] !== [] ? 'happyhorse-1.0-video-edit'
+                    : ($assets['image'] === [] ? 'happyhorse-1.1-t2v'
+                    : (count($assets['image']) === 1 ? 'happyhorse-1.1-i2v' : 'happyhorse-1.1-r2v'));
             }
-            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => (string)($request['ratio'] ?? ''), 'media' => array_map(static fn(string $url): array => ['url' => $url, 'type' => 'image'], $assets['image']), 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
+            $media = array_merge(
+                array_map(static fn(string $url): array => ['url' => $url, 'type' => 'video'], $assets['video']),
+                array_map(static fn(string $url): array => ['url' => $url, 'type' => 'image'], $assets['image'])
+            );
+            return array_filter(array_merge($locked, self::marketContext($snapshot, 'power_market_app_api'), ['model' => $model, 'prompt' => trim((string)($request['prompt'] ?? '')), 'resolution' => strtoupper($resolution), 'duration' => $duration > 0 ? $duration : null, 'ratio' => (string)($request['ratio'] ?? ''), 'media' => $media, 'idempotency_key' => $idempotency]), static fn($value) => $value !== '' && $value !== [] && $value !== null);
         }
         if ($app === 'seedance') {
             $assetIds = self::seedanceAssetReferences($request);

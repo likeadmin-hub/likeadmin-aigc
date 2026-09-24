@@ -321,6 +321,26 @@ class ShortDramaVideoReferenceContractTest extends TestCase
         self::assertSame(['reference_image', 'reference_image', 'reference_image'], array_column(array_slice($content, 1), 'role'));
     }
 
+    public function testHappyHorseVideoEditPayloadIncludesVideoAndUsesAdvertisedModel(): void
+    {
+        $snapshot = ['app_code' => 'happy_horse', 'model_code' => '', 'locked_params' => ['resolution' => '720p']];
+        $payload = $this->invoke(MarketVideoRuntimeService::class, 'appPayload', $snapshot, [
+            'prompt' => 'Edit the scene', 'duration' => 5,
+            'reference_assets' => [
+                ['type' => 'video', 'url' => 'https://example.test/input.mp4', 'role' => 'reference_video'],
+                ['type' => 'image', 'url' => 'https://example.test/look.png', 'role' => 'reference_image'],
+            ],
+        ], 'fixture-key');
+        self::assertSame('happyhorse-1.0-video-edit', $payload['model']);
+        self::assertSame([
+            ['url' => 'https://example.test/input.mp4', 'type' => 'video'],
+            ['url' => 'https://example.test/look.png', 'type' => 'image'],
+        ], $payload['media']);
+        self::assertSame('fixture-key', $payload['idempotency_key']);
+        $text = $this->invoke(MarketVideoRuntimeService::class, 'appPayload', $snapshot, ['prompt' => 'A new scene'], 'text-key');
+        self::assertSame('happyhorse-1.1-t2v', $text['model']);
+    }
+
     public function testFfmpegCandidatesCoverWindowsLinuxAndMacos(): void
     {
         $windows = $this->invoke(AigcShortDramaService::class, 'ffmpegPlatformCandidates', 'Windows');
