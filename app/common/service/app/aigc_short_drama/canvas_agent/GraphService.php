@@ -38,15 +38,15 @@ final class GraphService
             if ($index!==null) $liveSources[]=$sourceId;
         }
         $liveSources=array_values(array_unique($liveSources));
-        $maximumX=0.0; $maximumY=0.0;
-        foreach ($nodes as $node) { $maximumX=max($maximumX,(float)($node['x']??0)); $maximumY=max($maximumY,(float)($node['y']??0)); }
         self::validateAgentProposals($proposals,$workflowStage,$compact);
+        $creative=(array)($workflow['creative_settings']??[]);
+        $layout=self::agentNodeLayout($nodes,$proposals,(string)($creative['aspect_ratio']??''));
         $created=[];
         $createdByKey=[];
         foreach ($proposals as $offset=>$proposal) {
             $type=(string)$proposal['type']; $title=trim((string)$proposal['title']); $prompt=trim((string)$proposal['prompt']);
             $id=(string)self::allocateNodeId($nodes,$removed);
-            $size=$type==='text' ? [320,280] : [420,320];
+            $geometry=$layout[$offset];
             // Text artifacts are durable, readable workflow output.  Do not
             // leave their content blank and rely on a prompt label: later
             // stages and the user both consume exactly this projected text.
@@ -54,7 +54,6 @@ final class GraphService
             if ($workflowStage!=='') {
                 $metadata['workflow_source_stage']=$workflowStage;
                 $metadata['workflow_artifact']=(string)($proposal['artifact']??'');
-                $creative=(array)($workflow['creative_settings']??[]);
                 if (!empty($creative['aspect_ratio'])) $metadata['ratio']=(string)$creative['aspect_ratio'];
                 if (!empty($creative['style_id'])) $metadata['workflow_style_id']=(string)$creative['style_id'];
                 if (!empty($creative['style_name'])) $metadata['workflow_style_name']=(string)$creative['style_name'];
@@ -97,7 +96,7 @@ final class GraphService
                 $metadata['agent_auto_request_key']='agent.'.$agentRunId.'.'.$id;
                 $metadata['agent_auto_payload_hash']=self::autoPayloadHash($metadata);
             }
-            $node=['id'=>(int)$id,'type'=>$type,'title'=>$title,'x'=>$maximumX+420+($offset%2)*40,'y'=>$maximumY+($offset*360),'width'=>$size[0],'height'=>$size[1],'metadata'=>$metadata];
+            $node=['id'=>(int)$id,'type'=>$type,'title'=>$title,'x'=>$geometry['x'],'y'=>$geometry['y'],'width'=>$geometry['width'],'height'=>$geometry['height'],'metadata'=>$metadata];
             // Workflow references are durable graph facts. The model can only
             // select from server-derived workflow keys, so it cannot forge a
             // node ID or turn every historic artifact into a noisy input.
@@ -129,6 +128,48 @@ final class GraphService
         }
         $updated=self::persistLockedDocument($document,['nodes_json'=>self::json($nodes),'edges_json'=>self::json($edges),'removed_node_ids_json'=>self::json($removed),'schema_version'=>2,'update_time'=>time()]);
         return ['graph_revision'=>(int)($updated['graph_revision']??0),'nodes'=>$created];
+    }
+
+    /** Preserve proposal order for dependency edges while laying artifact kinds
+     * out in aligned, non-overlapping rows to the right of existing content. */
+    private static function agentNodeLayout(array $nodes, array $proposals, string $ratio): array
+    {
+        $rightEdge=0.0; $topEdge=0.0;
+        foreach ($nodes as $node) {
+            $rightEdge=max($rightEdge,(float)($node['x']??0)+max(0.0,(float)($node['width']??0)));
+            $topEdge=min($topEdge,(float)($node['y']??0));
+        }
+        $kinds=[]; $rowHeights=[]; $sizes=[];
+        foreach ($proposals as $offset=>$proposal) {
+            $kind=trim((string)($proposal['artifact']??'')) ?: (string)$proposal['type'];
+            $size=self::agentNodeSize((string)$proposal['type'],$ratio);
+            if (!array_key_exists($kind,$kinds)) $kinds[$kind]=count($kinds);
+            $rowHeights[$kind]=max((int)($rowHeights[$kind]??0),$size[1]);
+            $sizes[$offset]=[$kind,$size];
+        }
+        $rowY=[]; $nextY=$topEdge;
+        foreach ($kinds as $kind=>$_index) { $rowY[$kind]=$nextY; $nextY+=$rowHeights[$kind]+120; }
+        $nextX=[]; $layout=[];
+        foreach ($sizes as $offset=>[$kind,$size]) {
+            $x=$nextX[$kind]??($rightEdge+120);
+            $layout[$offset]=['x'=>$x,'y'=>$rowY[$kind],'width'=>$size[0],'height'=>$size[1]];
+            $nextX[$kind]=$x+$size[0]+80;
+        }
+        return $layout;
+    }
+
+    /** Match the canvas editor's native ratio geometry for media previews. */
+    private static function agentNodeSize(string $type, string $ratio): array
+    {
+        if ($type==='text') return [320,280];
+        if (!in_array($type,['image','video'],true)) return [420,320];
+        if (!preg_match('/^(\d+(?:\.\d+)?)\s*[:\/xX]\s*(\d+(?:\.\d+)?)$/D',trim($ratio),$match)) return [420,320];
+        $width=(float)$match[1]; $height=(float)$match[2];
+        if ($width<=0 || $height<=0) return [420,320];
+        $value=$width/$height;
+        return $value>=1
+            ? [max(250,min(622,(int)round(250*$value))),250]
+            : [250,max(250,min(622,(int)round(250/max(0.01,$value))))];
     }
 
     /** Replace only the exact text nodes remembered by this thread's last
