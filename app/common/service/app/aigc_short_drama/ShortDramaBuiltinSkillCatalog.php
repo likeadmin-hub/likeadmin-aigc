@@ -76,7 +76,7 @@ final class ShortDramaBuiltinSkillCatalog
             ['short_drama_storyboard_image', '分镜图', '创建可供视频节点引用的场景和分镜图片计划。', '需要把已确认的场景和剧情变为分镜图片节点时使用。', '仅在受控场景与分镜图阶段提出 scene 或 storyboard 图片节点。每个 storyboard 必须真实依赖对应场景；只引用镜头实际需要的主体图或三视图。关键道具先写入提示词，不默认创建独立道具图片节点。', ['分镜图', '镜头图', '场景生成'], 890],
             ['short_drama_video_plan', '分镜视频规划', '将已确认的分镜图组织成逐镜视频提示词与制作清单。', '分镜图片计划完成后，用于规划分镜视频节点。', '输出逐镜视频计划：镜号、时长、首尾画面、机位/运镜、动作顺序、引用主体、场景、道具和分镜图。经服务器验证后保存在对话工作流状态；不单独创建提示词文本节点，不报价、不提交视频任务。', ['分镜视频规划', '视频分镜', '视频提示词'], 880],
             ['short_drama_storyboard_video', '分镜视频', '一次性插入全部待生成的分镜视频节点，并保留对前序图像资产的真实依赖。', '视频规划确认后，用于插入分镜视频待生成节点。', '仅在受控分镜视频节点阶段提出 storyboard_video 节点。所有节点只能是待用户生成状态，绝不自动报价、自动提交或调用视频 Provider；每个节点需依赖对应分镜图及所需主体、场景、道具。', ['分镜视频', '视频节点', '镜头视频'], 870],
-            ['short_drama_audio_plan', '音频规划', '规划旁白、对白、音效和配乐的镜头匹配关系，但不开放音频生成。', '需要在短剧流程末尾展示音频规划时使用。', '只输出音频规划节点的文字内容，包括对白、旁白、环境音、音效和音乐情绪。节点必须标明“暂未开放生成”，不得调用音频 Provider、生成音频或产生积分计费。', ['音频规划', '配音规划', '音效规划'], 860],
+            ['short_drama_audio_plan', '音频规划', '为整部短剧规划纯背景音乐生成提示词，但不开放音频生成。', '需要在短剧流程末尾展示背景音乐提示词时使用。', '只输出一个完整的纯背景音乐生成提示词，包含风格、情绪曲线、节奏、乐器、时长和衔接要求；不包含角色说话、对白、旁白、配音、环境音或音效，这些内容属于对应分镜视频节点。节点必须标明“暂未开放生成”，不得调用音频 Provider、生成音频或产生积分计费。', ['音频规划', '背景音乐', '配乐规划'], 860],
         ];
         return array_map(static fn(array $spec): array => self::shortDramaWorkflowSkill(...$spec), $specs);
     }
@@ -133,7 +133,7 @@ final class ShortDramaBuiltinSkillCatalog
             'short_drama_storyboard_design' => ['shot_number','shot_duration','camera','action','dialogue_or_caption','asset_references'],
             'short_drama_storyboard_image' => ['shot_number','image_prompt','asset_references'],
             'short_drama_video_plan','short_drama_storyboard_video' => ['shot_number','duration','first_frame','last_frame','camera_motion','action_sequence','video_prompt','asset_references'],
-            'short_drama_audio_plan' => ['shot_number','dialogue','voiceover','ambient_sound','sound_effect','music_mood'],
+            'short_drama_audio_plan' => ['music_prompt','music_style','mood_curve','bpm','instruments','duration','looping'],
             default => [],
         };
     }

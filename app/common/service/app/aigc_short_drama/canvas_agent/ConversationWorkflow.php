@@ -248,7 +248,7 @@ final class ConversationWorkflow
             'storyboard'=>'请基于已确认主体资产与美术规划，生成场景、道具和分镜图的受控计划，并复用真实可用的前序素材引用。',
             'video_plan'=>'请基于已完成分镜图计划，生成真实的分镜表和视频提示词规划。规划只保存在对话与工作流状态中，不创建画布文本节点，也不提交视频任务。',
             'video_nodes'=>'请基于已确认分镜视频规划，一次性插入全部分镜视频待生成节点并连接所需引用。所有视频节点必须保持待用户手动生成状态。',
-            'audio_plan'=>'请基于已完成分镜视频规划生成音频规划节点。节点必须标记为暂未开放生成，不能调用音频生成通道或计费链路。',
+            'audio_plan'=>'请基于已完成的剧情和分镜视频规划，生成整部短剧纯背景音乐的中文生成提示词，并写入唯一音频规划节点。对白、角色说话、旁白和镜头音效属于对应分镜视频提示词，不得放入音频节点。节点必须标记为暂未开放生成，不能调用音频生成通道或计费链路。',
             default=>'',
         };
     }
@@ -928,7 +928,7 @@ final class ConversationWorkflow
             'storyboard'=>['shot_number','shot_duration','camera','action','dialogue_or_caption','image_prompt','asset_references'],
             'video_plan'=>['shot_number','duration','first_frame','last_frame','camera_motion','action_sequence','video_prompt','asset_references'],
             'video_nodes'=>['video_prompt','asset_references'],
-            'audio_plan'=>['shot_number','dialogue','voiceover','ambient_sound','sound_effect','music_mood'],
+            'audio_plan'=>['music_prompt','music_style','mood_curve','bpm','instruments','duration','looping'],
             default=>[],
         };
     }
