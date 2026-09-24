@@ -130,9 +130,8 @@ final class GraphService
         return ['graph_revision'=>(int)($updated['graph_revision']??0),'nodes'=>$created];
     }
 
-    /** Preserve proposal order for dependency edges while laying each artifact
-     * kind out as an aligned vertical generation queue. Different kinds occupy
-     * separate columns to the right of existing content. */
+    /** Preserve proposal/dependency order and align a generation batch as one
+     * vertical queue to the right of existing content. */
     private static function agentNodeLayout(array $nodes, array $proposals, string $ratio): array
     {
         $rightEdge=0.0; $topEdge=0.0;
@@ -151,21 +150,11 @@ final class GraphService
             }
             return $layout;
         }
-        $kinds=[]; $columnWidths=[]; $sizes=[];
+        $nextY=$topEdge; $layout=[];
         foreach ($proposals as $offset=>$proposal) {
-            $kind=trim((string)($proposal['artifact']??'')) ?: (string)$proposal['type'];
             $size=self::agentNodeSize((string)$proposal['type'],$ratio);
-            if (!array_key_exists($kind,$kinds)) $kinds[$kind]=count($kinds);
-            $columnWidths[$kind]=max((int)($columnWidths[$kind]??0),$size[0]);
-            $sizes[$offset]=[$kind,$size];
-        }
-        $columnX=[]; $nextX=$rightEdge+120;
-        foreach ($kinds as $kind=>$_index) { $columnX[$kind]=$nextX; $nextX+=$columnWidths[$kind]+120; }
-        $nextY=[]; $layout=[];
-        foreach ($sizes as $offset=>[$kind,$size]) {
-            $y=$nextY[$kind]??$topEdge;
-            $layout[$offset]=['x'=>$columnX[$kind],'y'=>$y,'width'=>$size[0],'height'=>$size[1]];
-            $nextY[$kind]=$y+$size[1]+80;
+            $layout[$offset]=['x'=>$rightEdge+120,'y'=>$nextY,'width'=>$size[0],'height'=>$size[1]];
+            $nextY+=$size[1]+80;
         }
         return $layout;
     }
