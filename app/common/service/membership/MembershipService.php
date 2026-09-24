@@ -31,6 +31,56 @@ class MembershipService
     public const MEMBER_EXPIRED = 'expired';
     public const MEMBER_NONE = 'none';
 
+    public static function grantDefaultFreeMembership(int $tenantId, int $userId): void
+    {
+        if ($tenantId <= 0 || $userId <= 0) {
+            return;
+        }
+
+        Db::transaction(function () use ($tenantId, $userId) {
+            // Lock the user so concurrent login and registration requests cannot
+            // create two memberships for the same account.
+            $user = User::where(['tenant_id' => $tenantId, 'id' => $userId])
+                ->lock(true)->findOrEmpty();
+            if ($user->isEmpty()) {
+                return;
+            }
+            $existing = UserMembership::where(['tenant_id' => $tenantId, 'user_id' => $userId])
+                ->findOrEmpty();
+            if (!$existing->isEmpty()) {
+                return;
+            }
+            $plan = MembershipPlan::where([
+                'tenant_id' => $tenantId,
+                'name' => '免费会员',
+                'status' => self::STATUS_ENABLED,
+            ])->whereNull('delete_time')->order('id', 'asc')->findOrEmpty();
+            if ($plan->isEmpty() || (float)$plan['monthly_price'] > 0 || (float)$plan['yearly_price'] > 0) {
+                return;
+            }
+
+            $appCodes = MembershipPlanApp::where([
+                'tenant_id' => $tenantId,
+                'plan_id' => (int)$plan['id'],
+            ])->column('app_code');
+            $now = time();
+            UserMembership::create([
+                'tenant_id' => $tenantId,
+                'user_id' => $userId,
+                'plan_id' => (int)$plan['id'],
+                'plan_name' => (string)$plan['name'],
+                'app_codes' => array_values(array_unique($appCodes)),
+                'features' => (array)($plan['features'] ?? []),
+                'start_time' => $now,
+                'expire_time' => 4294967295,
+                'status' => self::STATUS_ENABLED,
+                'source_order_sn' => 'register_free_' . $tenantId . '_' . $userId,
+                'create_time' => $now,
+                'update_time' => $now,
+            ]);
+        });
+    }
+
     public static function plans(int $tenantId, bool $onlyEnabled = true): array
     {
         $query = MembershipPlan::where('tenant_id', $tenantId)->order(['sort' => 'desc', 'id' => 'asc']);
@@ -345,6 +395,11 @@ class MembershipService
     public static function status(int $tenantId, int $userId): array
     {
         $current = self::currentMembership($tenantId, $userId);
+        if (empty($current) && $tenantId > 0 && $userId > 0) {
+            // Restore the default entitlement for accounts created before this fix.
+            self::grantDefaultFreeMembership($tenantId, $userId);
+            $current = self::currentMembership($tenantId, $userId);
+        }
         if (empty($current)) {
             return [
                 'is_member' => 0,
