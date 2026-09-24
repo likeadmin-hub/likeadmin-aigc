@@ -6,6 +6,7 @@
 
 - `baota` 容器、MySQL、PHP 和既有 `short-drama-canvas-agent` Worker 均为运行态。
 - 应用已有的短剧画布迁移必须先由正常本地升级流程应用；测试不会自动执行迁移，也不会补建表。
+- 并发与崩溃测试需要测试专用的 `la_aigc_short_drama_test_provider_receipt` 表。若当前本地库缺少此表，先核对目标库，再手动执行 `fixtures/provider_receipt.sql`；不要在生产库执行。
 - 所有会写入夹具的脚本必须显式传入 `SHORT_DRAMA_AGENT_TEST=local-existing`；未传入时会在任何写入前退出。
 - 脚本只使用固定的本地验收夹具范围并在结束时回滚或按精确 ID 清理。若发现夹具范围已被占用，必须停止，不得清空业务表或覆盖用户画布。
 - 默认不调用真实 Provider。涉及付费模型、真实素材或取消/退款的验收，必须遵循当次用户授权的积分上限与材料范围。
