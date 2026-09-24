@@ -349,7 +349,9 @@ class DecorateDataSourceService
             'tag' => (int)($membership['is_member'] ?? 0) === 1 ? '会员' : '',
             'expire_time' => (int)($membership['member_expire_time'] ?? 0) >= 4294967295
                 ? '永久有效' : (string)($membership['member_expire_time_text'] ?? ''),
-            'action_text' => ($membership['member_status'] ?? '') === MembershipService::MEMBER_ACTIVE ? '立即续费' : '立即开通',
+            'action_text' => (int)($membership['member_expire_time'] ?? 0) >= 4294967295
+                ? '查看套餐'
+                : (($membership['member_status'] ?? '') === MembershipService::MEMBER_ACTIVE ? '立即续费' : '立即开通'),
         ]];
     }
 
