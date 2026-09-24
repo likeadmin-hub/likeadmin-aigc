@@ -696,7 +696,10 @@ final class ConversationWorkflow
             $skills=array_values(array_filter((array)($definition['skills']??[]),'is_string'));
         }
         $items=[];
-        foreach ($skills as $skill) $items[]=['kind'=>'skill','label'=>'已使用技能','detail'=>$skill];
+        // These instructions are consumed by one stage-level model call, not
+        // four independently completed Skill executions. Publish one honest
+        // completion record for the stage instead of a burst of fake steps.
+        if ($skills) $items[]=['kind'=>'skill','label'=>'本阶段使用技能','detail'=>mb_substr(implode('、',$skills),0,240)];
         $textNodes=count(array_filter($proposals,static fn($node): bool=>is_array($node) && ($node['type']??'')==='text'));
         if ($textNodes>0 && !empty($effects['nodes'])) $items[]=['kind'=>'tool','label'=>'已调用工具','detail'=>'文本节点创建 · '.$textNodes.' 项'];
         if (!empty($effects['nodes']) && !$textNodes) $items[]=['kind'=>'tool','label'=>'已调用工具','detail'=>'画布节点创建 · '.count((array)$effects['nodes']).' 项'];

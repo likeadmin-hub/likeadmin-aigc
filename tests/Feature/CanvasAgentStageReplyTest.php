@@ -96,13 +96,15 @@ class CanvasAgentStageReplyTest extends TestCase
         self::assertCount(40,ConversationWorkflowTurn::parse(json_encode($turn,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$routing)['nodes']);
     }
 
-    public function testCompletedStageListsItsActualFrozenSkillInstructionsSeparately(): void
+    public function testCompletedStageReportsItsActualFrozenSkillsAsOneStageAction(): void
     {
         $workflow=['workflow_snapshot'=>['key'=>ConversationWorkflow::KEY,'stage_skill_versions'=>[
             'art'=>[['name'=>'画风设计'],['name'=>'主体设计'],['name'=>'场景设计'],['name'=>'道具设计']],
         ]],'stage_state'=>['key'=>'art']];
         $items=ConversationWorkflow::timeline($workflow,[],[]);
-        self::assertSame(['画风设计','主体设计','场景设计','道具设计'],array_column($items,'detail'));
+        self::assertCount(1,$items);
+        self::assertSame('本阶段使用技能',$items[0]['label']);
+        self::assertSame('画风设计、主体设计、场景设计、道具设计',$items[0]['detail']);
     }
 
     public function testEveryWorkflowStageRequestsOneValidatedJsonEnvelope(): void
