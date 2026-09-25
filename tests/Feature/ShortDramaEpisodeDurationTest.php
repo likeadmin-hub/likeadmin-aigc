@@ -1,7 +1,7 @@
 <?php
 namespace Tests\Feature;
 
-use app\common\service\app\aigc_short_drama\{AigcShortDramaService, ShortDramaEpisodeDuration, ShortDramaTimedScriptGeneration, ShortDramaScriptGeneration, ShortDramaShotDuration, ShortDramaStoryGeneration};
+use app\common\service\app\aigc_short_drama\{AigcShortDramaService, ShortDramaCanvasService, ShortDramaEpisodeDuration, ShortDramaTimedScriptGeneration, ShortDramaScriptGeneration, ShortDramaShotDuration, ShortDramaStoryGeneration};
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
@@ -40,6 +40,33 @@ class ShortDramaEpisodeDurationTest extends TestCase
             }
         }
         self::assertSame([], $this->invoke('storyboardTargetRule', '故事', $request));
+    }
+
+    public function testModelPromptsOmitBlankShotSeedAndAutomaticTarget(): void
+    {
+        self::assertSame(['min_seconds' => 4, 'max_seconds' => 15], ShortDramaShotDuration::modelRule());
+        $instruction = ShortDramaShotDuration::instruction();
+        self::assertStringNotContainsString('默认 5 秒', $instruction);
+        self::assertStringContainsString('不得沿用空白分镜的初始时长', $instruction);
+        $automatic = ShortDramaEpisodeDuration::instruction($this->request());
+        self::assertStringNotContainsString('"target_seconds"', $automatic);
+        self::assertStringNotContainsString('"min_seconds"', $automatic);
+        self::assertStringContainsString('不补时长', $automatic);
+        $explicit = ShortDramaEpisodeDuration::instruction($this->request(80));
+        self::assertStringContainsString('"target_seconds":80', $explicit);
+    }
+
+    public function testCanvasVideoQuoteGuardRejectsModelDurationFallback(): void
+    {
+        $guard = new ReflectionMethod(ShortDramaCanvasService::class, 'assertWorkflowVideoDuration');
+        $guard->setAccessible(true);
+        $document = ['nodes_json' => json_encode([['id' => 7, 'type' => 'video',
+            'metadata' => ['workflow_planned_duration_seconds' => 8]]], JSON_THROW_ON_ERROR)];
+        $guard->invoke(null, $document, '7', 'video', ['duration' => 8], 1, static fn() => 8);
+        $guard->invoke(null, $document, '7', 'image', ['duration' => 5], 1);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('当前视频模型不支持分镜要求的8秒');
+        $guard->invoke(null, $document, '7', 'video', ['duration' => 8], 1, static fn() => 5);
     }
 
     public function testExplicitTimingRemainsExact(): void

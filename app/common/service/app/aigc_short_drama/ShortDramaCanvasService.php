@@ -349,6 +349,7 @@ class ShortDramaCanvasService
         // A price preview describes the selected SKU, not the yet-to-be-written
         // prompt. Keep the prompt requirement on every actual submission.
         $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id'], $previewOnly);
+        self::assertWorkflowVideoDuration($document, $nodeId, $type, $payload, $tenantId);
         $quote = match ($type) {
             'video' => AigcVideoService::estimate($tenantId, $payload),
             'audio' => AigcMusicService::estimate($tenantId, $payload),
@@ -417,6 +418,7 @@ class ShortDramaCanvasService
         $params=self::withAgentSubmissionTemplate($document,$nodeId,$type,$params,$tenantId,$userId);
         $key=(string)($params['request_key']??'');
         $payload=self::generationPayload($type,$params,$tenantId,$userId,(int)$document['id']);
+        self::assertWorkflowVideoDuration($document,$nodeId,$type,$payload,$tenantId);
         $requestInput=$payload+['skill_id'=>(int)($params['skill_id']??0),'skill_version'=>(int)($params['skill_version']??0),'skill_inputs'=>(array)($params['skill_inputs']??[])];
         $intent=GenerationIntentService::lookup($tenantId,$userId,(int)$document['id'],$key,$nodeId,$type,$requestInput);
         if (!$intent) {
@@ -1146,6 +1148,23 @@ class ShortDramaCanvasService
             return;
         }
         throw new Exception('NODE_NOT_FOUND');
+    }
+
+    /** Enforce confirmed storyboard timing before quoting or reserving a paid run. */
+    private static function assertWorkflowVideoDuration(array $document, string $nodeId, string $type, array $payload, int $tenantId, ?callable $effectiveDuration = null): void
+    {
+        if ($type !== 'video') return;
+        foreach (self::decode((string)($document['nodes_json'] ?? '[]')) as $node) {
+            if ((string)($node['id'] ?? '') !== $nodeId) continue;
+            $planned = (float)($node['metadata']['workflow_planned_duration_seconds'] ?? 0);
+            if ($planned > 0) {
+                $requested = (float)($payload['duration'] ?? 0);
+                ShortDramaEpisodeDuration::assertRenderableDuration($planned, $requested);
+                $effective = $effectiveDuration ? $effectiveDuration($tenantId, $payload) : AigcVideoService::effectiveMarketDuration($tenantId, $payload);
+                ShortDramaEpisodeDuration::assertRenderableDuration($planned, (float)$effective);
+            }
+            return;
+        }
     }
 
     private static function assertRequestKey(string $key): void

@@ -20,7 +20,7 @@ use think\facade\Db;
 final class ConversationWorkflow
 {
     public const KEY = 'short_drama_creation';
-    public const VERSION = '2026-09-23.10';
+    public const VERSION = '2026-09-23.11';
 
     /** Older in-flight plans keep their previously frozen prompt projection. */
     public static function usesStageGenerationPrompts(array $workflow): bool
