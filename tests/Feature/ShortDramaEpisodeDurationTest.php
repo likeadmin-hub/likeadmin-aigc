@@ -361,7 +361,8 @@ class ShortDramaEpisodeDurationTest extends TestCase
     {
         $request = $this->request() + ['workflow_variant' => 'story_outline_v2', 'multi_episode' => true, 'episode_count' => 2, 'multi_episode_stage' => 'story'];
         $instruction = \app\common\service\app\aigc_short_drama\ShortDramaStoryWorkflow::scopeInstruction($request);
-        self::assertStringContainsString('每集时长目标120秒', $instruction);
+        self::assertStringContainsString('未指定目标时长', $instruction);
+        self::assertStringNotContainsString('目标120秒', $instruction);
         self::assertStringContainsString('不补长、不重试', $instruction);
         self::assertStringNotContainsString('否则保持时长开放', $instruction);
     }
