@@ -23,6 +23,7 @@ use app\common\model\user\UserAuth;
 use app\common\service\FileService;
 use app\common\service\ConfigService;
 use app\common\service\membership\MembershipService;
+use app\common\service\distribution\DistributionService;
 use app\common\service\sms\SmsDriver;
 use app\common\service\wechat\WeChatMnpService;
 use app\common\{enum\YesNoEnum};
@@ -64,6 +65,11 @@ class UserLogic extends BaseLogic
         foreach ($membership as $key => $value) {
             $user[$key] = $value;
         }
+        $tenantId = (int)($userInfo['tenant_id'] ?? 0);
+        $user['distribution_enabled'] = DistributionService::isEnabled($tenantId) ? 1 : 0;
+        $user['distribution_invite_code'] = $user['distribution_enabled']
+            ? (string)DistributionService::ensurePromoter($tenantId, (int)$userInfo['user_id'])['invite_code']
+            : '';
         $user->hidden(['password']);
         return $user->toArray();
     }

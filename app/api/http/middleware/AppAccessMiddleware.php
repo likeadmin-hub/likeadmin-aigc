@@ -14,12 +14,21 @@ class AppAccessMiddleware
             return $next($request);
         }
         if ($appCode) {
-            $response = AppAccessService::assertTenantCanUse((int)$request->tenantId, $appCode, (int)($request->userId ?? 0));
+            $checkMembership = !$this->isPublicConfigDetail($request, $appCode);
+            $response = AppAccessService::assertTenantCanUse((int)$request->tenantId, $appCode, (int)($request->userId ?? 0), $checkMembership);
             if ($response) {
                 return $response;
             }
         }
         return $next($request);
+    }
+
+    private function isPublicConfigDetail($request, string $appCode): bool
+    {
+        return in_array($appCode, ['aigc_canvas', 'aigc_image', 'aigc_video'], true)
+            && strtolower($request->controller()) === 'app.' . $appCode . '.config'
+            && strtolower($request->action()) === 'detail'
+            && strtoupper($request->method()) === 'GET';
     }
 
     private function resolveAppCode(string $controller): string
