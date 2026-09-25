@@ -346,7 +346,9 @@ class ShortDramaCanvasService
         if (!$previewOnly) self::assertRequestKey($key);
         $params=self::withGraphReferenceInputs($document,$nodeId,$params);
         $params=self::withAgentSubmissionTemplate($document,$nodeId,$type,$params,$tenantId,$userId);
-        $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id']);
+        // A price preview describes the selected SKU, not the yet-to-be-written
+        // prompt. Keep the prompt requirement on every actual submission.
+        $payload = self::generationPayload($type, $params, $tenantId, $userId, (int)$document['id'], $previewOnly);
         $quote = match ($type) {
             'video' => AigcVideoService::estimate($tenantId, $payload),
             'audio' => AigcMusicService::estimate($tenantId, $payload),
@@ -1007,10 +1009,10 @@ class ShortDramaCanvasService
         return $merged;
     }
 
-    private static function generationPayload(string $type, array $params, int $tenantId, int $userId, int $canvasId): array
+    private static function generationPayload(string $type, array $params, int $tenantId, int $userId, int $canvasId, bool $allowEmptyPrompt = false): array
     {
         $prompt = trim((string)($params['prompt'] ?? $params['content'] ?? ''));
-        if ($prompt === '') throw new Exception('请输入提示内容');
+        if ($prompt === '' && !$allowEmptyPrompt) throw new Exception('请输入提示内容');
         $referenceAssets=self::resolveOwnedReferenceAssets($tenantId, $userId, $canvasId, (array)($params['reference_assets'] ?? []));
         if ($type==='video') foreach ($referenceAssets as &$reference) {
             $mediaType=strtolower(trim((string)($reference['type']??'')));
