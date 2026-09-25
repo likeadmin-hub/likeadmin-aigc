@@ -1,1 +1,1 @@
-"use strict";const e=require("./theme.js");exports.setupMixin=function(t){t.mixin(e.theme)};
+"use strict";const e=require("./theme.js"),i=require("./share.js");exports.setupMixin=function(s){s.mixin(e.theme),s.mixin(i.share)};

@@ -53,6 +53,15 @@ class AigcVideoService
         return self::marketQuote($tenantId, $params);
     }
 
+    /** Resolve the duration the chosen SKU would actually submit, without quoting or charging. */
+    public static function effectiveMarketDuration(int $tenantId, array $params): int
+    {
+        $selection = self::marketSelection($params);
+        $runtime = self::marketRuntime($selection);
+        $normalized = $runtime::normalizeDurationSelection($tenantId, $selection, (int)($params['duration'] ?? 0));
+        return (int)$normalized['duration'];
+    }
+
     public static function saveConfig(int $tenantId, array $params): void
     {
         AppDisplayConfigService::saveFromConfigPayload($tenantId, self::APP_CODE, $params);

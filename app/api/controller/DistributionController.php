@@ -7,6 +7,15 @@ use Exception;
 
 class DistributionController extends BaseApiController
 {
+    public array $notNeedLogin = ['availability'];
+
+    public function availability()
+    {
+        return $this->success('获取成功', [
+            'enabled' => DistributionService::isEnabled((int)$this->request->tenantId) ? 1 : 0,
+        ]);
+    }
+
     public function center()
     {
         try {
@@ -139,6 +148,6 @@ class DistributionController extends BaseApiController
 
     private static function inviteUrl(int $tenantId, string $inviteCode): string
     {
-        return rtrim((string)request()->domain(), '/') . '/?invite_code=' . rawurlencode($inviteCode);
+        return rtrim((string)request()->domain(), '/') . '/?tenant_id=' . $tenantId . '&invite_code=' . rawurlencode($inviteCode);
     }
 }

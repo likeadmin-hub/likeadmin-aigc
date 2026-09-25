@@ -1,0 +1,1 @@
+"use strict";const t=require("../common/vendor.js");exports.saveImageToPhotosAlbum=async function(e){if(!e)return t.index.$u.toast("图片错误");try{const o=await t.index.downloadFile({url:e,timeout:1e4});await t.index.saveImageToPhotosAlbum({filePath:o.tempFilePath}),t.index.showToast({title:"保存成功",icon:"success"})}catch(o){t.index.$u.toast(o.errMsg||"保存失败")}};

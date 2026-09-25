@@ -1,6 +1,4 @@
 {
   "navigationBarTitleText": "推广中心",
-  "usingComponents": {
-    "u-tabs": "../../uni_modules/vk-uview-ui/components/u-tabs/u-tabs"
-  }
+  "usingComponents": {}
 }

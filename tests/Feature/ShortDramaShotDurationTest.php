@@ -27,6 +27,14 @@ class ShortDramaShotDurationTest extends TestCase
         self::assertSame(5.0, Duration::normalize(INF));
     }
 
+    public function testTimedGenerationNeverFillsMissingDurationWithBlankShotSeed(): void
+    {
+        $shot = ['shot_id' => 'a', 'visual_description' => '甲拿起信件'];
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('分镜缺少有效时长');
+        $this->call('normalizeGeneratedStoryboard', [$shot], Duration::defaultRule(), true);
+    }
+
     public function testReviewAndRepairDoNotTruncateLongValidShots(): void
     {
         foreach ([4, 8, 15] as $seconds) {

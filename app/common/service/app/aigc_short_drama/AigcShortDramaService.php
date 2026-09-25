@@ -18478,7 +18478,7 @@ class AigcShortDramaService
             'title_hint' => $title,
             'user_prompt' => $prompt,
             'revision_message' => (string)($request['revision_message'] ?? ''),
-            'episode_duration_policy' => ShortDramaEpisodeDuration::policy($request),
+            'episode_duration_policy' => ShortDramaEpisodeDuration::modelPolicy($request),
             'same_scene_cut_policy' => (array)($request['same_scene_cut_policy'] ?? []),
             'pacing_references' => ShortDramaEpisodeDuration::active($request) ? array_map(static fn($rule) => array_intersect_key($rule, array_flip(['label', 'description'])), self::storyboardRulesFromRequest($request)) : [],
             'revision_target' => (array)($request['revision_target'] ?? []),
@@ -18489,8 +18489,8 @@ class AigcShortDramaService
                 : [],
             'selected_style_name' => (string)($styleDetail['name'] ?? ''),
             'selected_style_prompt' => mb_substr((string)($styleDetail['prompt'] ?? ''), 0, 300, 'UTF-8'),
-            'target_duration_seconds' => $targetDurationSeconds,
-            'shot_duration_rule' => $durationRule,
+            'target_duration_seconds' => ($request['episode_duration_policy']['source'] ?? '') === 'default' ? 0 : $targetDurationSeconds,
+            'shot_duration_rule' => ShortDramaShotDuration::modelRule($durationRule),
             'multi_episode' => $multiEpisode,
             'multi_episode_stage' => $multiEpisodeStage,
             'episode_count' => $episodeCount,
@@ -18527,7 +18527,7 @@ class AigcShortDramaService
             'dialogue' => 'Chinese dialogue or empty string',
             'voice_role' => 'actual speaking character name; use a subjects name when visible, retain an explicitly supplied off-screen role name, empty only for narration or silence',
             'speech_type' => 'character|narration|none',
-            'recommended_duration_seconds' => $durationRule['default_seconds'],
+            'recommended_duration_seconds' => '根据本镜动作、对白和运镜估算的数字秒数',
         ];
         $schema = [
             'title' => 'short Chinese title',
@@ -19562,12 +19562,12 @@ class AigcShortDramaService
                     'voice_role' => '',
                     'dialogue' => '',
                     'frame_type' => 'normal',
-                    'recommended_duration_seconds' => ShortDramaShotDuration::DEFAULT,
+                    'recommended_duration_seconds' => '根据本镜内容估算的数字秒数',
                     'scene_ref_id' => 'location_1',
                     'subject_ref_ids' => ['subject_1'],
                     'image_prompt' => '80-180字中文画面生图指令，必须包含可见主体、动作表情、绑定场景、构图景别、光线氛围、风格质感；禁止包含“本镜头、推动剧情、情绪升级、视觉任务、下一拍、分镜、镜头编号、参考已提供”等策划话术；只描述当前画面可见内容，不写英文',
                     'image_negative_prompt' => '中文分镜图负向词。有主体时不要禁止人物、脸、身体、肖像；空镜 subject_ref_ids 为空时必须禁止人物、角色、脸、身体、肖像、文字、水印',
-                    'video_prompt' => '前端可见的栏目化单分镜导演提示词，必须按固定6行输出：分镜{shot_id}｜0:00-00:05\n景别：{shot_type}\n构图：{composition}\n运镜手法：{camera_movement}\n画面内容：{visual_description + action + result}\n声音：{dialogue / voice_role / sound_effect / silence_rule}。禁止写 <location>、<role>、<duration-ms> 等后端执行标签；禁止包含“情绪升级、推动剧情、视觉任务、本镜头、下一拍、做出反应、生成视频片段”等策划话术；不写英文',
+                    'video_prompt' => '前端可见的栏目化单分镜导演提示词，必须按固定6行输出：分镜{shot_id}｜{本镜开始时间}-{本镜结束时间}\n景别：{shot_type}\n构图：{composition}\n运镜手法：{camera_movement}\n画面内容：{visual_description + action + result}\n声音：{dialogue / voice_role / sound_effect / silence_rule}。时间范围必须与recommended_duration_seconds一致；禁止写 <location>、<role>、<duration-ms> 等后端执行标签；禁止包含“情绪升级、推动剧情、视觉任务、本镜头、下一拍、做出反应、生成视频片段”等策划话术；不写英文',
                     'video_negative_prompt' => '中文分镜视频负向词。有主体时禁止闪烁、脸部漂移、服装变化、场景漂移、多余角色、文字、水印，但绝不能写不要人物、不要角色、不要脸、不要身体、不要肖像；空镜 subject_ref_ids 为空时可以禁止人物、角色、脸、身体、肖像',
                     'bgm_prompt' => '中文分镜背景音乐提示，承接全局音乐方案',
                     'sound_effect' => '中文音效提示',
@@ -20776,7 +20776,7 @@ class AigcShortDramaService
             ? $episodeStoryboardItems
             : $topLevelStoryboardItems);
         $hasNestedEpisodeProduction = $multiEpisode && !empty($episodeStoryboardItems);
-        $storyboard = self::normalizeGeneratedStoryboard($storyboardItems, ShortDramaShotDuration::rule($request));
+        $storyboard = self::normalizeGeneratedStoryboard($storyboardItems, ShortDramaShotDuration::rule($request), ShortDramaEpisodeDuration::active($request));
         $styleMeta = self::scriptPlanPriorityMeta($prompt, $request);
         $storyboardRepair = $multiEpisodeStage !== self::MULTI_EPISODE_STAGE_PRODUCTION
             ? ['storyboard' => [], 'issues_fixed' => []]
@@ -21934,7 +21934,7 @@ class AigcShortDramaService
         ];
     }
 
-    private static function normalizeGeneratedStoryboard(array $items, array $durationRule = []): array
+    private static function normalizeGeneratedStoryboard(array $items, array $durationRule = [], bool $requireDuration = false): array
     {
         $result = [];
         $elapsedSeconds = 0.0;
@@ -21965,6 +21965,9 @@ class AigcShortDramaService
             $soundEffect = trim((string)($item['sound_effect'] ?? ''));
             if ($soundEffect === '') {
                 $soundEffect = ShortDramaPromptCatalog::text('fill.sound');
+            }
+            if ($requireDuration && !ShortDramaShotDuration::contains($item['recommended_duration_seconds'] ?? null, $durationRule)) {
+                throw new \RuntimeException('分镜缺少有效时长或超出允许范围', 422);
             }
             $durationSeconds = ShortDramaShotDuration::normalize($item['recommended_duration_seconds'] ?? null, $durationRule);
             $shot = [

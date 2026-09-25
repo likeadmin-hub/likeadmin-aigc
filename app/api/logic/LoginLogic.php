@@ -23,6 +23,7 @@ use app\common\service\ConfigService;
 use app\common\service\FileService;
 use app\common\service\user\RegisterBonusService;
 use app\common\service\membership\MembershipService;
+use app\common\service\distribution\DistributionService;
 use app\common\service\wechat\WeChatConfigService;
 use app\common\service\wechat\WeChatOaService;
 use app\common\service\wechat\WeChatRequestService;
@@ -57,18 +58,24 @@ class LoginLogic extends BaseLogic
             $password = create_password($params['password'], $passwordSalt);
             $avatar = ConfigService::get('default_image', 'user_avatar');
 
-            $user = User::create([
-                'sn' => $userSn,
-                'tenant_id' => request()->tenantId,
-                'avatar' => $avatar,
-                'nickname' => '用户' . $userSn,
-                'account' => $params['account'],
-                'password' => $password,
-                'channel' => $params['channel'],
-                'is_new_user' => YesNoEnum::YES,
-            ]);
-            RegisterBonusService::grantIfEnabled((int)$user['id']);
-            MembershipService::grantDefaultFreeMembership((int)$user['tenant_id'], (int)$user['id']);
+            Db::transaction(function () use ($params, $userSn, $avatar, $password) {
+                $user = User::create([
+                    'sn' => $userSn,
+                    'tenant_id' => request()->tenantId,
+                    'avatar' => $avatar,
+                    'nickname' => '用户' . $userSn,
+                    'account' => $params['account'],
+                    'password' => $password,
+                    'channel' => $params['channel'],
+                    'is_new_user' => YesNoEnum::YES,
+                ]);
+                RegisterBonusService::grantIfEnabled((int)$user['id']);
+                MembershipService::grantDefaultFreeMembership((int)$user['tenant_id'], (int)$user['id']);
+                $inviteCode = trim((string)($params['invite_code'] ?? ''));
+                if ($inviteCode !== '' && DistributionService::isEnabled((int)$user['tenant_id'])) {
+                    DistributionService::bindInviteCode((int)$user['tenant_id'], (int)$user['id'], $inviteCode, 'register');
+                }
+            });
 
             return true;
         } catch (\Exception $e) {

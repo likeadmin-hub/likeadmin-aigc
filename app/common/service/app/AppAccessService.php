@@ -82,12 +82,12 @@ class AppAccessService
         return null;
     }
 
-    public static function assertTenantCanUse(int $tenantId, string $appCode, int $userId = 0): ?Response
+    public static function assertTenantCanUse(int $tenantId, string $appCode, int $userId = 0, bool $checkMembership = true): ?Response
     {
         if (!self::tenantCanUse($tenantId, $appCode)) {
             return JsonService::fail('应用未购买、未上架或已过期', [], 0, 1);
         }
-        if (!MembershipService::userCanUseApp($tenantId, $userId, $appCode)) {
+        if ($checkMembership && !MembershipService::userCanUseApp($tenantId, $userId, $appCode)) {
             if ($userId <= 0) {
                 return JsonService::fail('该应用需登录后使用', [
                     'need_login' => 1,

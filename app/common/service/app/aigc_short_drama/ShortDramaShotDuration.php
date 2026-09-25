@@ -9,12 +9,19 @@ final class ShortDramaShotDuration
     public const MIN = 4;
     public const MAX = 15;
     public const DEFAULT = 5;
-    public const INSTRUCTION = '分镜时长系统约束：每个新建或重新生成的分镜为 4-15 秒，按动作、对白和情绪需要分配，不固定为 5 秒；超过 15 秒的内容拆成连续镜头，保留完整剧情和对白。此范围优先于旧模板、历史任务及素材中冲突的分镜时长规则。不得改动本次修改范围以外的历史镜头。实际视频生成仍须遵守所选模型能力。';
+    public const INSTRUCTION = '分镜时长系统约束：每个新建或重新生成的分镜为 4-15 秒，先确定本镜实际可见动作、对白、运镜及必要停顿，再按完成这些内容所需的时间分配；不得沿用空白分镜的初始时长，也不得为凑总时长拉长静止或单一动作。超过 15 秒的内容拆成连续镜头，保留完整剧情和对白。此范围优先于旧模板、历史任务及素材中冲突的分镜时长规则。不得改动本次修改范围以外的历史镜头。实际视频生成仍须遵守所选模型能力。';
 
     /** Tenant-configurable policy. The broad bounds prevent broken task data. */
     public static function defaultRule(): array
     {
         return ['min_seconds' => self::MIN, 'max_seconds' => self::MAX, 'default_seconds' => self::DEFAULT];
+    }
+
+    /** The blank-editor seed is never a creative instruction for the model. */
+    public static function modelRule(array $rule = []): array
+    {
+        $policy = self::normalizeRule($rule);
+        return ['min_seconds' => $policy['min_seconds'], 'max_seconds' => $policy['max_seconds']];
     }
 
     public static function normalizeRule(array $rule): array
@@ -57,7 +64,7 @@ final class ShortDramaShotDuration
     {
         $policy = self::normalizeRule($rule);
         return '分镜时长系统约束：每个新建或重新生成的分镜为 ' . $policy['min_seconds'] . '-' . $policy['max_seconds']
-            . ' 秒，按动作、对白和情绪需要分配，不固定为 ' . $policy['default_seconds'] . ' 秒；超过 ' . $policy['max_seconds']
+            . ' 秒，先确定本镜实际可见动作、对白、运镜及必要停顿，再按完成这些内容所需的时间分配；不得沿用空白分镜的初始时长，也不得为凑总时长拉长静止或单一动作。超过 ' . $policy['max_seconds']
             . ' 秒的内容拆成连续镜头，保留完整剧情和对白。此范围优先于旧模板、历史任务及素材中冲突的分镜时长规则。不得改动本次修改范围以外的历史镜头。实际视频生成仍须遵守所选模型能力。';
     }
 

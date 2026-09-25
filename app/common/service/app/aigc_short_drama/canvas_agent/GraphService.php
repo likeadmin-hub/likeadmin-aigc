@@ -10,7 +10,7 @@ final class GraphService
 {
     public const TABLE = 'aigc_short_drama_canvas';
     public const RECEIPTS = 'aigc_short_drama_canvas_mutation_receipt';
-    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_auto_payload_hash','agent_manual_submit','workflow_source_stage','workflow_artifact','workflow_key','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash','workflow_formal_fields','workflow_formal_content_hash','workflow_prompt_run_id','workflow_style_id','workflow_style_name'];
+    private const SERVER_FIELDS = ['status','progress','error','canvasRunId','active_generation_id','projected_generation_id','asset_id','asset_version','asset_owner','tenant_id','user_id','owner_app','business_binding','cost','cost_points','billing_status','content_revision','layout_revision','agent_auto_submit','agent_auto_run_id','agent_auto_request_key','agent_auto_payload_hash','agent_manual_submit','workflow_source_stage','workflow_artifact','workflow_key','workflow_submission_policy','workflow_audio_disabled','workflow_plan_hash','workflow_formal_fields','workflow_formal_content_hash','workflow_prompt_run_id','workflow_style_id','workflow_style_name','workflow_planned_duration_seconds'];
 
     /**
      * Server-only Agent writer.  ConversationExecution already owns the
@@ -39,6 +39,11 @@ final class GraphService
         }
         $liveSources=array_values(array_unique($liveSources));
         self::validateAgentProposals($proposals,$workflowStage,$compact);
+        if ($workflowStage==='video_nodes' && version_compare((string)($workflow['workflow_snapshot']['version']??'0'),'2026-09-23.11','>=')) {
+            foreach ($proposals as $proposal) {
+                if (!isset($proposal['duration_seconds'])) throw new RuntimeException('INVALID_AGENT_ACTION');
+            }
+        }
         $creative=(array)($workflow['creative_settings']??[]);
         $layout=self::agentNodeLayout($nodes,$proposals,(string)($creative['aspect_ratio']??''));
         $created=[];
@@ -79,6 +84,10 @@ final class GraphService
             if ($type === 'video') {
                 $metadata['agent_manual_submit']=1;
                 $metadata['workflow_submission_policy']='manual_quote_confirmed';
+                if (isset($proposal['duration_seconds'])) {
+                    $metadata['duration']=(float)$proposal['duration_seconds'];
+                    $metadata['workflow_planned_duration_seconds']=(float)$proposal['duration_seconds'];
+                }
             }
             if ($type === 'audio') {
                 $metadata['workflow_audio_disabled']=1;
@@ -614,9 +623,11 @@ final class GraphService
         $keyArtifacts=[];
         foreach ($proposals as $proposal) {
             $fields=$allowedArtifacts ? ['type','artifact','title','prompt','key','depends_on','reference_keys'] : ['type','title','prompt','key','depends_on'];
+            if ($workflowStage==='video_nodes') $fields[]='duration_seconds';
             if (!is_array($proposal) || array_diff(array_keys($proposal),$fields)) throw new RuntimeException('INVALID_AGENT_ACTION');
             $type=(string)($proposal['type']??''); $title=trim((string)($proposal['title']??'')); $prompt=trim((string)($proposal['prompt']??''));
             if (!in_array($type,$allowedTypes,true) || $title==='' || mb_strlen($title)>80 || $prompt==='' || mb_strlen($prompt)>20000) throw new RuntimeException('INVALID_AGENT_ACTION');
+            if (isset($proposal['duration_seconds']) && ($workflowStage!=='video_nodes' || !is_numeric($proposal['duration_seconds']) || !is_finite((float)$proposal['duration_seconds']) || (float)$proposal['duration_seconds']<=0 || (float)$proposal['duration_seconds']>60)) throw new RuntimeException('INVALID_AGENT_ACTION');
             if ($allowedArtifacts && !in_array((string)($proposal['artifact']??''),$allowedArtifacts,true)) throw new RuntimeException('INVALID_AGENT_ACTION');
             if (array_key_exists('key',$proposal) && !is_string($proposal['key'])) throw new RuntimeException('INVALID_AGENT_ACTION');
             $key=trim((string)($proposal['key']??''));

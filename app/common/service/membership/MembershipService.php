@@ -19,6 +19,7 @@ use think\facade\Db;
 
 class MembershipService
 {
+    private const PERMANENT_EXPIRE_TIME = 4294967295;
     public const EXCLUDED_PLAN_APP_CODES = ['system_default'];
     public const STATUS_ENABLED = 1;
     public const STATUS_DISABLED = 0;
@@ -72,7 +73,7 @@ class MembershipService
                 'app_codes' => array_values(array_unique($appCodes)),
                 'features' => (array)($plan['features'] ?? []),
                 'start_time' => $now,
-                'expire_time' => 4294967295,
+                'expire_time' => self::PERMANENT_EXPIRE_TIME,
                 'status' => self::STATUS_ENABLED,
                 'source_order_sn' => 'register_free_' . $tenantId . '_' . $userId,
                 'create_time' => $now,
@@ -606,9 +607,13 @@ class MembershipService
 
     private static function calcExpire(int $beforeExpireTime, int $durationMonths): int
     {
-        $baseTime = max($beforeExpireTime, time());
+        // The free membership is permanent, but a purchased plan starts now.
+        // Extending its sentinel timestamp would exceed the unsigned INT column.
+        $baseTime = $beforeExpireTime >= self::PERMANENT_EXPIRE_TIME
+            ? time()
+            : max($beforeExpireTime, time());
         $afterExpireTime = strtotime('+' . $durationMonths . ' months', $baseTime);
-        if (!$afterExpireTime) {
+        if (!$afterExpireTime || $afterExpireTime > self::PERMANENT_EXPIRE_TIME) {
             throw new RuntimeException('会员有效期计算失败');
         }
         return $afterExpireTime;
