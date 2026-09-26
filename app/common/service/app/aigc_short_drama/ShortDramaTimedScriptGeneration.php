@@ -106,6 +106,8 @@ final class ShortDramaTimedScriptGeneration
                 $part = [];
                 for ($attempt = 0; $attempt < 2; $attempt++) {
                     try {
+                        // A failed attempt must not change the next attempt's locked input.
+                        $validationDurations = $partDurations;
                         $part = $call('timed_scene_' . ($sceneIndex + 1) . '_' . ($offset + 1) . $splitKey . ($attempt ? '_repair' : ''), $input, 1800 + count($ids) * 750);
                         if (ShortDramaInputContract::current($request)) {
                             $originalPart = $part;
@@ -113,10 +115,10 @@ final class ShortDramaTimedScriptGeneration
                             foreach ((array)($part['storyboard'] ?? []) as $index => $shot) {
                                 $before = $originalPart['storyboard'][$index]['recommended_duration_seconds'] ?? null;
                                 if (isset($partDurations[$index]) && is_numeric($before) && (float)$before === (float)$partDurations[$index]
-                                    && ($shot['recommended_duration_seconds'] ?? null) !== $before) $partDurations[$index] = $shot['recommended_duration_seconds'];
+                                    && ($shot['recommended_duration_seconds'] ?? null) !== $before) $validationDurations[$index] = $shot['recommended_duration_seconds'];
                             }
                         }
-                        self::assertPart($part, $skeleton, $beat, $ids, $partDurations);
+                        self::assertPart($part, $skeleton, $beat, $ids, $validationDurations);
                         foreach ($part['storyboard'] as $shot) ShortDramaSameSceneCuts::assertShot($shot, $skeleton, $request);
                         break;
                     } catch (RuntimeException $e) {
