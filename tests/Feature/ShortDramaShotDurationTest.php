@@ -84,7 +84,9 @@ class ShortDramaShotDurationTest extends TestCase
             foreach ($result['storyboard'] as $shot) self::assertTrue(Duration::contains($shot['recommended_duration_seconds']));
         }
         $rule = $this->call('storyboardTargetRule', '甲出门', ['target_duration_seconds' => 60]);
-        self::assertSame(4, $rule['min_shots']); self::assertSame(15, $rule['max_shots']);
+        self::assertSame([], $rule);
+        self::assertStringContainsString('4-15 shots based on target duration',
+            $this->call('recommendedStoryboardCountHint', '甲出门', ['target_duration_seconds' => 60]));
     }
 
     public function testSavedInstructionsCannotRestoreTheOldRange(): void

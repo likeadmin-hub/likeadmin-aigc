@@ -19429,6 +19429,7 @@ class AigcShortDramaService
 
     private static function buildScriptPlanPrompt(string $prompt, array $request, string $title): string
     {
+        $durationRule = ShortDramaShotDuration::rule($request);
         $styleDetail = self::styleDetail((string)($request['style_id'] ?? ''));
         $selectedStyleName = (string)($styleDetail['name'] ?? '');
         $selectedStylePrompt = (string)($styleDetail['prompt'] ?? '');

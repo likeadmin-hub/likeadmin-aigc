@@ -250,16 +250,6 @@
       "used_at": "剧本生成后 → LLM 自动质检修复",
       "trigger": "系统判定内容需要 LLM 修复时使用，与原剧本、用户灵感和结构保护要求合并。"
     },
-    "repair.expansion": {
-      "group": "repair",
-      "label": "分镜数量不足时的细拆要求",
-      "description": "修改后替换本条默认创作要求。具体适用位置和触发条件见下方，不影响未列出的环节。",
-      "default": "新增分镜只能细拆原有剧情、动作、反应、线索、转场和反转，不得增加新的故事主线、人物关系或结局",
-      "variables": [],
-      "source_method": "repairScriptPlanResultWithLlm",
-      "used_at": "剧本生成后 → LLM 自动质检修复",
-      "trigger": "质检修复请求中的分镜细拆要求；要求在原内容内部补细节，不是独立的加镜头按钮。"
-    },
     "script.role": {
       "group": "script",
       "label": "策划角色与职责",

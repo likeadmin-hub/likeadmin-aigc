@@ -16,7 +16,6 @@
     "production": "正文与分镜",
     "revision": "修改剧本",
     "repair": "自动质检修复",
-    "repair_under": "质检发现分镜数量不足",
     "character": "人物主体",
     "prop": "物品主体",
     "empty": "空镜",
@@ -142,9 +141,6 @@
           "fill.timeline_atmosphere",
           "fill.timeline_music",
           "fill.timeline_sound"
-        ],
-        "repair_under": [
-          "repair.expansion"
         ]
       }
     },

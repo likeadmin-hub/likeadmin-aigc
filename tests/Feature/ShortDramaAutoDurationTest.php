@@ -22,8 +22,7 @@ class ShortDramaAutoDurationTest extends TestCase
         self::assertSame('auto', $request['duration_source']);
         self::assertSame(0, $this->call('planningTargetDurationSeconds', '女孩找回丢失的猫', $request));
         $rule = $this->call('storyboardTargetRule', '女孩找回丢失的猫', $request);
-        self::assertSame(1, $rule['min_shots']);
-        self::assertSame(0, $rule['max_shots']);
+        self::assertSame([], $rule);
         self::assertSame(1, $this->call('minimumStoryboardShotCount', '女孩找回丢失的猫', $request, 8));
     }
 
