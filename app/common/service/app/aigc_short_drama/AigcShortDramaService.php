@@ -3827,6 +3827,11 @@ class AigcShortDramaService
             throw new Exception('任务不存在');
         }
         $task = self::findTask($tenantId, $userId, $taskId, $projectId);
+        if (self::isMarketFileQaParseRequest(self::jsonDecode((string)$task['request_json']))) {
+            $result = self::scriptPlanDetail($tenantId, $userId, $taskId, $projectId);
+            $emit(($result['status'] ?? '') === self::STATUS_SUCCESS ? 'done' : 'task', $result);
+            return $result;
+        }
         if (ShortDramaStoryWorkflow::workerOwned(self::jsonDecode((string)$task['request_json']))) {
             // Subscribe only: the durable worker owns generation and billing.
             $deadline = microtime(true) + 25;
@@ -5397,6 +5402,7 @@ class AigcShortDramaService
         $request['revision_message'] = $message;
         // An explicit edit is an LLM revision, not another file parser poll.
         if (self::isMarketFileQaParseRequest($request)) $request['source'] = 'revision';
+        if (($request['submission']['type'] ?? '') === 'script_upload') $request['submission']['type'] = 'script_revision';
         $request['revision_base_task_id'] = $taskId;
         $request['revision_base_result'] = $revisionBaseResult;
         // A generated revision owns a fresh draft; never carry the parent's editable overlay.
