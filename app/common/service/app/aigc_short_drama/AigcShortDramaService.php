@@ -15308,7 +15308,7 @@ class AigcShortDramaService
     private static function stripPromptDiagnostics(array $value): array
     {
         foreach ($value as $key => $item) {
-            if (is_string($key) && str_starts_with($key, '_prompt_')) unset($value[$key]);
+            if (is_string($key) && (str_starts_with($key, '_prompt_') || $key === '_imported_outline_snapshot')) unset($value[$key]);
             elseif (is_array($item)) $value[$key] = self::stripPromptDiagnostics($item);
         }
         return $value;
