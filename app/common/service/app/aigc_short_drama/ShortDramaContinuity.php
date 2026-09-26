@@ -408,6 +408,15 @@ final class ShortDramaContinuity
         $changedInEpisode = [];
         foreach ($review['changes'] as $item) {
             self::evidence($item, $shots);
+            // JSON scalar spelling is lossless; PHP's generic string cast is
+            // not (false becomes empty and true becomes 1). Keep null as the
+            // absent-before sentinel and reject objects/arrays as before.
+            foreach (['before', 'after'] as $field) {
+                $value = $item[$field] ?? null;
+                if (is_bool($value) || is_int($value) || (is_float($value) && is_finite($value))) {
+                    $item[$field] = json_encode($value, JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR);
+                }
+            }
             if (!in_array($item['entity_id'] ?? '', $ids, true) || !is_string($item['field'] ?? null)
                 || !preg_match('~^[a-zA-Z0-9_/\x{4e00}-\x{9fff}-]{1,80}$~u', $item['field'])
                 || !is_string($item['after'] ?? null) || mb_strlen($item['after']) > 1200) throw new RuntimeException('剧情状态标识或内容无效', 422);

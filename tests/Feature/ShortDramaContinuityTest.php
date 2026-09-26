@@ -9,6 +9,23 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaContinuityTest extends TestCase
 {
+    public function testScalarStateValuesRetainJsonMeaningAndChainValidation(): void
+    {
+        $review = ['summary' => '拿走钥匙', 'changes' => [], 'hooks' => [], 'warnings' => []];
+        foreach ([true, false, 0, 2.5] as $i => $value) {
+            $review['changes'][] = ['entity_id' => 'p1', 'field' => 'state' . $i, 'before' => null, 'after' => $value,
+                'shot_id' => 's1', 'quote' => '甲拿走钥匙。'];
+        }
+        $ledger = Continuity::ledger($review, $this->plan(), [], 1);
+        self::assertSame(['p1:state0' => 'true', 'p1:state1' => 'false', 'p1:state2' => '0', 'p1:state3' => '2.5'], $ledger['state']);
+        foreach ($review['changes'] as &$item) $item['before'] = $item['after'];
+        unset($item);
+        self::assertSame($ledger['state'], Continuity::ledger($review, $this->plan(), ['continuity' => $ledger], 2)['state']);
+        $review['changes'][0]['before'] = false;
+        $this->expectExceptionCode(409);
+        Continuity::ledger($review, $this->plan(), ['continuity' => $ledger], 2);
+    }
+
     public function testEpisodeCostumeChangeKeepsStoryFingerprintAndVisualText(): void
     {
         $before = $this->plan(); $changed = $before;
