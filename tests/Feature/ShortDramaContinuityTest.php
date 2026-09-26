@@ -116,19 +116,42 @@ class ShortDramaContinuityTest extends TestCase
     }
     public function testCorrectionCannotDeleteFactsRewriteMeaningOrDropWarnings(): void
     {
-        foreach (['delete', 'rewrite', 'warning', 'valid_evidence'] as $mutation) {
+        foreach (['delete', 'rewrite', 'warning'] as $mutation) {
             $bad = $this->review(); $bad['changes'][0]['before'] = '推测值'; $bad['warnings'] = ['保留疑点'];
             $fixed = $bad; $fixed['changes'][0]['before'] = null;
             if ($mutation === 'delete') $fixed['changes'] = [];
             if ($mutation === 'rewrite') $fixed['changes'][0]['after'] = '别的物品';
             if ($mutation === 'warning') $fixed['warnings'] = [];
-            if ($mutation === 'valid_evidence') $fixed['changes'][0]['quote'] = '钥匙';
             $calls = 0;
             try {
                 Continuity::review($this->plan(), [], 1, static function () use (&$calls, $bad, $fixed) { return ++$calls === 1 ? $bad : $fixed; });
                 self::fail($mutation . ' must not be accepted');
             } catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); self::assertSame(2, $calls); }
         }
+    }
+    public function testRepairLocksVerifiedEvidenceAndStillRepairsInvalidEvidence(): void
+    {
+        $plan = $this->plan();
+        $bad = $this->review();
+        $bad['hooks'] = [['id' => 'door', 'description' => '门已开启', 'status' => 'open', 'shot_id' => 's1', 'quote' => '门...开了']];
+        $bad['warnings'] = ['保留疑点'];
+        $fixed = $bad;
+        $fixed['changes'][0]['quote'] = '甲拿走钥匙。';
+        $fixed['hooks'][0]['quote'] = '门终于开了。';
+        $method = new \ReflectionMethod(Continuity::class, 'preserveRepairFacts');
+        $method->setAccessible(true);
+        $merged = $method->invoke(null, $bad, $fixed, $plan);
+        self::assertSame($bad['changes'][0], $merged['changes'][0]);
+        self::assertSame($fixed['hooks'][0], $merged['hooks'][0]);
+        self::assertSame('甲拿走钥匙。', $fixed['changes'][0]['quote']);
+        $calls = 0;
+        $ledger = Continuity::review($plan, [], 1, static function () use (&$calls, $bad, $fixed) {
+            return ++$calls === 1 ? $bad : $fixed;
+        });
+        self::assertSame(2, $calls);
+        self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
+        self::assertSame('门已开启', $ledger['open_hooks']['door']);
+        self::assertSame($bad['warnings'], $ledger['warnings']);
     }
     public function testProviderTimeoutTruncationAndCancellationAreNotFormatRetries(): void
     {

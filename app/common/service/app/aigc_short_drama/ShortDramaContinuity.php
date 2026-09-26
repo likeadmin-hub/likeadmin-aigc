@@ -90,7 +90,7 @@ final class ShortDramaContinuity
         for ($attempt = 0; $attempt < 2; $attempt++) {
             try {
                 $review = $call($input);
-                if ($attempt) self::assertRepairPreservesFacts($originalReview, $review, $plan);
+                if ($attempt) $review = self::preserveRepairFacts($originalReview, $review, $plan);
                 return self::ledger($review, $plan, $context, $episode) + ['review_repairs' => $attempt];
             } catch (RuntimeException $error) {
                 if ($error->getCode() !== 422) throw $error;
@@ -127,16 +127,18 @@ final class ShortDramaContinuity
         return $issues;
     }
 
-    private static function assertRepairPreservesFacts(array $original, array $repaired, array $plan): void
+    private static function preserveRepairFacts(array $original, array $repaired, array $plan): array
     {
         $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
         foreach (['changes' => ['entity_id', 'field', 'after'], 'hooks' => ['id', 'description', 'status']] as $group => $keys) {
             if (!is_array($original[$group] ?? null)) continue;
             $rows = $repaired[$group] ?? null;
             if (!is_array($rows) || count($original[$group]) !== count($rows)) throw new RuntimeException('审校纠错不得删除或新增事实记录', 422);
+            $repaired[$group] = array_values($rows);
             foreach (array_values($original[$group]) as $index => $item) {
                 if (!is_array($item)) continue;
                 $next = array_values($rows)[$index];
+                if (!is_array($next)) throw new RuntimeException('审校纠错事实记录格式无效', 422);
                 foreach ($keys as $key) {
                     if (is_string($item[$key] ?? null) && ($next[$key] ?? null) !== $item[$key]) {
                         throw new RuntimeException('审校纠错不得改写事实或伏笔含义', 422);
@@ -144,9 +146,13 @@ final class ShortDramaContinuity
                 }
                 try { self::evidence($item, $shots); }
                 catch (RuntimeException $error) { continue; }
-                if (($next['shot_id'] ?? null) !== ($item['shot_id'] ?? null) || ($next['quote'] ?? null) !== ($item['quote'] ?? null)) {
-                    throw new RuntimeException('审校纠错不得改写已验证的原文证据', 422);
-                }
+                // The server owns verified evidence. A repair may expand a
+                // correct quote; keep the original verbatim instead of making
+                // the entire task fail. Identity/meaning checks above still
+                // reject reordered or changed facts, and ledger validates all
+                // repaired evidence and before-state values afterwards.
+                $repaired[$group][$index]['shot_id'] = $item['shot_id'];
+                $repaired[$group][$index]['quote'] = $item['quote'];
             }
         }
         foreach (is_array($original['warnings'] ?? null) ? $original['warnings'] : [] as $warning) {
@@ -154,6 +160,7 @@ final class ShortDramaContinuity
                 throw new RuntimeException('审校纠错不得删除已有连续性疑点', 422);
             }
         }
+        return $repaired;
     }
 
     public static function ledger(array $review, array $plan, array $context, int $episode): array
