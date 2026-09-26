@@ -13,7 +13,8 @@ class ShortDramaImportedScriptTest extends TestCase
             'subjects' => [['id' => 's1', 'name' => '调查员', 'description' => '寻找失踪者的调查员', 'category' => 'character']],
             'locations' => [['id' => 'l1', 'name' => '书房', 'description' => '堆满旧信的书房']], 'episodes' => []];
         for ($i = 1; $i <= 2; $i++) $payload['episodes'][] = ['episode_number' => $i, 'title' => '旧信线索' . $i,
-            'story_outline' => '调查员寻找旧信，发现新的署名。', 'conflict_point' => '署名与记忆矛盾。', 'ending_hook' => '信中还有一个地址。',
+            'story_outline' => $i === 1 ? '调查员寻找旧信，发现新的署名。' : '调查员赶往信中地址，遇见失踪者的妹妹。',
+            'conflict_point' => $i === 1 ? '署名与记忆矛盾。' : '妹妹拒绝透露失踪者的去向。', 'ending_hook' => $i === 1 ? '信中还有一个地址。' : '妹妹交出失踪者的日记。',
             'source_content' => $original, 'source_range' => ['start_line' => 1, 'end_line' => 5001]];
         $method = new \ReflectionMethod(\app\common\service\app\aigc_short_drama\AigcShortDramaService::class, 'fileQaParsePlan');
         $method->setAccessible(true);
