@@ -82,7 +82,7 @@ final class ShortDramaContinuity
     }
 
     /** At most two reference corrections, never rewrite or relax the script. */
-    public static function review(array $plan, array $context, int $episode, callable $call): array
+    public static function review(array $plan, array $context, int $episode, callable $call, ?callable $verifyMeaning = null): array
     {
         $input = self::messages($plan, $context);
         $review = [];
@@ -94,7 +94,9 @@ final class ShortDramaContinuity
                 if ($attempt) $review = isset($review['evidence_patches'])
                     ? self::applyEvidencePatches($patchBase, $review, $plan)
                     : self::preserveRepairFacts($originalReview, $review, $plan);
-                return self::ledger($review, $plan, $context, $episode) + ['review_repairs' => $attempt];
+                $ledger = self::ledger($review, $plan, $context, $episode);
+                if ($verifyMeaning) $verifyMeaning($review, $plan);
+                return $ledger + ['review_repairs' => $attempt];
             } catch (RuntimeException $error) {
                 if ($error->getCode() !== 422) throw $error;
                 // A repaired evidence reference can reveal a later within-

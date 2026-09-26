@@ -17035,7 +17035,7 @@ class AigcShortDramaService
         }
         if ((int)($request['_generation_version'] ?? 0) >= 3) $params['_disable_transient_retry'] = true;
         if ((int)($request['_generation_version'] ?? 0) >= 3 && empty($request['_repair_unit_claimed'])
-            && in_array($stage, ['repair', 'dialogue_repair', 'continuity_review', 'continuity_patch'], true)) {
+            && in_array($stage, ['repair', 'dialogue_repair', 'continuity_review', 'continuity_patch', 'continuity_evidence'], true)) {
             $params['_planning_count'] = 1;
             $params['_planning_public'] = false;
             $params['_planning_stage'] = 'script';
@@ -17976,15 +17976,28 @@ class AigcShortDramaService
             // Automatic and explicit duration use the same bounded audit repair.
             // Keep the first audit input unchanged so existing paid receipts are
             // reused; the correction has its own deterministic receipt key.
+            $verifyMeaning = static function (array $review, array $plan) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult, &$originalAudit): void {
+                $originalAudit = $review;
+                $receipt = self::generateScriptPlanLlmWithFallback($tenantId, $userId, ShortDramaContinuityPatch::meaningMessages($plan, $review) + [
+                    'model_config' => ['max_tokens' => 4096, 'enable_thinking' => false],
+                    'source_app_code' => self::APP_CODE, 'source_type' => 'script_plan',
+                    'action_code' => 'script_plan_continuity', 'parent_app_task_id' => (int)($llmResult['app_task_id'] ?? 0),
+                ], $model, $request, 'continuity_evidence', $onEvent === null ? null : static function ($event, $data) use ($onEvent) {
+                    if ($event !== 'delta') $onEvent($event, $data);
+                });
+                $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $receipt['result']])));
+                ShortDramaContinuityPatch::assertMeaning($review, ShortDramaStructuredResponse::decode((array)$receipt['result']));
+            };
             try {
                 $result['_continuity'] = ShortDramaContinuity::review(
-                    $result, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit
+                    $result, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit, $verifyMeaning
                 );
             } catch (\RuntimeException $auditError) {
                 // Only a failed evidence audit may request one additive content
                 // patch. Never expand an explicit user revision's accepted scope.
-                if ($auditError->getCode() !== 422 || !$originalAudit || !empty($request['revision_target'])
-                    || !str_contains($auditError->getMessage(), '镜头证据不匹配')) throw $auditError;
+                if (!$originalAudit || !empty($request['revision_target'])
+                    || !($auditError->getCode() === 460 || ($auditError->getCode() === 422
+                        && str_contains($auditError->getMessage(), '镜头证据不匹配')))) throw $auditError;
                 if ($onEvent) $onEvent('stage', ['status' => 'running', 'progress' => 97, 'current_step' => '局部补齐原文遗漏分镜并复核连续性']);
                 $patchInput = ShortDramaContinuityPatch::messages($result, $request['series_context'], $originalAudit,
                     $auditError->getMessage(), ShortDramaShotDuration::rule($request));
@@ -18017,7 +18030,7 @@ class AigcShortDramaService
                 $candidate = ShortDramaDialogueContract::review($dialogue['payload'], $dialogue['issues']);
                 if ((int)($candidate['review_report']['blocking_count'] ?? 0) > 0) throw new \RuntimeException('局部连续性补丁质检未通过，原结果已保留', 422);
                 self::assertStoryboardBudgetSatisfied($candidate, $request, $prompt);
-                $candidate['_continuity'] = ShortDramaContinuity::review($candidate, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit);
+                $candidate['_continuity'] = ShortDramaContinuity::review($candidate, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit, $verifyMeaning);
                 $candidate['_continuity_patch'] = ['version' => 1, 'base_digest' => ShortDramaContinuity::fingerprint($result), 'patch' => $patch];
                 $result = $candidate;
             }

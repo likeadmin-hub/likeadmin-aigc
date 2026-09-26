@@ -6,6 +6,36 @@ use RuntimeException;
 /** Additive narrative repair. Existing prose, media and shot identities are immutable. */
 final class ShortDramaContinuityPatch
 {
+    public static function meaningMessages(array $plan, array $review): array
+    {
+        return ['system_prompt' => '你是证据核对员，只返回JSON。核对事实含义，不创作、不改写。原文出现不等于支持所声称的事实。',
+            'content' => json_encode(['instructions' => [
+                '逐条检查changes的after或hooks的description是否由指定镜头及其实际上下文支持。只用storyboard作为已发生的可视剧情证据。',
+                '禁止用无关的真实引用证明事实，例如泼酒不能证明否认婚约，站在商铺不能证明获封郡主。复合状态的全部关键含义都须得到支持。',
+                'script_lines仅用于指出遗漏情节，不可替代镜头证据。若镜头未展示但script_lines明确记载，请在reason引用该原文，供局部补镜。',
+                '每条changes和hooks都必须返回一个检查项，index为零基索引。不要省略、重复或新增检查项。',
+            ], 'storyboard' => $plan['storyboard'] ?? [], 'script_lines' => $plan['script_lines'] ?? [],
+                'review' => $review, 'response_contract' => ['checks' => [['collection' => 'changes或hooks', 'index' => 0, 'supported' => true, 'reason' => '证据与事实的对应关系或缺失原因']]]], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)];
+    }
+
+    public static function assertMeaning(array $review, array $response): void
+    {
+        if (!is_array($response['checks'] ?? null) || !array_is_list($response['checks'])) throw new RuntimeException('连续性语义核对回包不完整', 422);
+        $expected = [];
+        foreach (['changes', 'hooks'] as $group) foreach ($review[$group] ?? [] as $index => $item) $expected[$group . ':' . $index] = true;
+        $failures = [];
+        foreach ($response['checks'] as $item) {
+            if (!is_array($item) || !is_string($item['collection'] ?? null) || !is_int($item['index'] ?? null)
+                || !is_bool($item['supported'] ?? null) || !is_string($item['reason'] ?? null)) throw new RuntimeException('连续性语义核对格式无效', 422);
+            $key = $item['collection'] . ':' . $item['index'];
+            if (!isset($expected[$key])) throw new RuntimeException('连续性语义核对索引重复或越界', 422);
+            unset($expected[$key]);
+            if (!$item['supported']) $failures[] = $item;
+        }
+        if ($expected) throw new RuntimeException('连续性语义核对遗漏事实', 422);
+        if ($failures) throw new RuntimeException('连续性事实缺少匹配含义的镜头证据：' . json_encode($failures, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 460);
+    }
+
     public static function messages(array $plan, array $context, array $audit, string $error, array $rule): array
     {
         return ['system_prompt' => '你是短剧局部一致性修复器，只返回JSON。不能整集重写，不能删除内容，不能根据审校猜测添加原文没有的剧情。',
