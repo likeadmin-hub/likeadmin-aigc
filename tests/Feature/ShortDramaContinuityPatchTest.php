@@ -6,6 +6,33 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaContinuityPatchTest extends TestCase
 {
+    public function testMalformedAuditPreservesScriptButDoesNotClaimVerifiedFacts(): void
+    {
+        $plan = $this->plan();
+        $context = ['continuity' => ['state' => ['p1:status' => 'alive'], 'open_hooks' => ['h1' => '尚未解决']]];
+        $ledger = \app\common\service\app\aigc_short_drama\ShortDramaContinuity::review($plan, $context, 1,
+            static function () { throw new \RuntimeException('模型输出不是完整 JSON，已保存返回内容', 422); },
+            static function () { self::fail('Malformed audit cannot be verified'); });
+        self::assertSame('pending_review', $ledger['audit_status']);
+        self::assertSame($context['continuity']['state'], $ledger['state']);
+        self::assertSame($context['continuity']['open_hooks'], $ledger['open_hooks']);
+        self::assertSame($this->plan(), $plan);
+    }
+
+    public function testAuditSafetyRefusalCannotBecomePendingReview(): void
+    {
+        $this->expectExceptionCode(403);
+        \app\common\service\app\aigc_short_drama\ShortDramaContinuity::review($this->plan(), [], 1,
+            static function () { throw new \RuntimeException('内容拒绝', 403); }, static fn ($r) => $r);
+    }
+
+    public function testMalformedReviewCannotApproveAddedScriptContent(): void
+    {
+        $plan = $this->plan(); $plan['_continuity_source_patch'] = ['shot_insertions' => [[]]];
+        $this->expectExceptionCode(422);
+        \app\common\service\app\aigc_short_drama\ShortDramaContinuity::review($plan, [], 1,
+            static function () { throw new \RuntimeException('模型输出不是完整 JSON，已保存返回内容', 422); }, static fn ($r) => $r);
+    }
     public function testUnsupportedOpenHookDoesNotBlockOrPolluteLedger(): void
     {
         $review = ['summary' => '本集', 'changes' => [], 'hooks' => [
