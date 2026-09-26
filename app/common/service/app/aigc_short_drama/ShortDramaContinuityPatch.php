@@ -126,6 +126,7 @@ final class ShortDramaContinuityPatch
             foreach ($insertions[(string)$shot['shot_id']] ?? [] as $addedShot) $shots[] = $addedShot;
         }
         $plan['storyboard'] = $shots;
+        if (array_key_exists('scenes', $plan)) $plan['scenes'] = $plan['locations'];
         return ['plan' => $plan, 'added_ids' => array_keys($added), 'changed' => (bool)($added || $patch['entity_id_remaps'])];
     }
 }

@@ -18018,13 +18018,18 @@ class AigcShortDramaService
                     // prompts or media with a newly normalized whole script.
                     $normalized = self::enhancePlanResult(self::normalizeGeneratedPlanResult($candidate, $prompt, $request, $title));
                     if (count($normalized['storyboard']) !== count($candidate['storyboard'])) throw new \RuntimeException('局部补镜归一化改变了镜头数量，原结果已保留', 422);
+                    $normalizedShots = array_column($normalized['storyboard'], null, 'shot_id');
                     foreach ($candidate['storyboard'] as $index => &$shot) {
                         if (in_array($shot['shot_id'], $applied['added_ids'], true)) {
-                            $id = $shot['shot_id']; $shot = $normalized['storyboard'][$index]; $shot['shot_id'] = $id;
+                            $id = $shot['shot_id'];
+                            if (!isset($normalizedShots[$id])) throw new \RuntimeException('局部补镜归一化改变了镜头标识，原结果已保留', 422);
+                            $shot = $normalizedShots[$id];
                         }
                     }
                     unset($shot);
                 }
+                $candidate['scenes'] = $candidate['locations'];
+                $candidate['duration_stats'] = self::durationStats($candidate['storyboard'], count($candidate['locations']));
                 $candidate = self::reviewAndRepairPlanResult($candidate, false, true);
                 $dialogue = ShortDramaDialogueContract::prepare($candidate);
                 $candidate = ShortDramaDialogueContract::review($dialogue['payload'], $dialogue['issues']);

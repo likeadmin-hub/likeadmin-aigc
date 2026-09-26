@@ -64,6 +64,15 @@ class ShortDramaContinuityTest extends TestCase
         });
         self::assertSame(2, $calls); self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
     }
+    public function testEchoedAfterCannotRewriteTheOriginalFact(): void
+    {
+        $bad = $this->review(); $bad['changes'][0]['quote'] = '错误引用'; $calls = 0;
+        $ledger = Continuity::review($this->plan(), [], 1, static function () use (&$calls, $bad) {
+            return ++$calls === 1 ? $bad : ['evidence_patches' => [['collection' => 'changes', 'index' => 0,
+                'after' => '禁止改写的值', 'shot_id' => 's1', 'quote' => '甲拿走钥匙']]];
+        });
+        self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
+    }
     public function testEvidenceCorrectionAlsoReceivesAllHiddenStateErrors(): void
     {
         $bad = $this->review(); $bad['changes'][0]['quote'] = '甲...钥匙';
