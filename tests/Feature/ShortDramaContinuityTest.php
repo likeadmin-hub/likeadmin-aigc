@@ -52,6 +52,18 @@ class ShortDramaContinuityTest extends TestCase
         self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
         self::assertSame($bad['warnings'], $ledger['warnings']);
     }
+    public function testMultipleShotProofsDoNotRequireSplittingTheFact(): void
+    {
+        $plan = $this->plan(); $plan['storyboard'][] = ['shot_id' => 's2', 'visual_description' => '甲走进旧宅。', 'dialogue' => ''];
+        $bad = $this->review(); $bad['changes'][0]['quote'] = '甲...走进旧宅'; $calls = 0;
+        $ledger = Continuity::review($plan, [], 1, static function () use (&$calls, $bad) {
+            if (++$calls === 1) return $bad;
+            return ['evidence_patches' => [
+                ['collection' => 'changes', 'index' => 0, 'shot_id' => 's1', 'quote' => '甲拿走钥匙'],
+                ['collection' => 'changes', 'index' => 0, 'shot_id' => 's2', 'quote' => '甲走进旧宅']]];
+        });
+        self::assertSame(2, $calls); self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
+    }
     public function testEvidenceCorrectionAlsoReceivesAllHiddenStateErrors(): void
     {
         $bad = $this->review(); $bad['changes'][0]['quote'] = '甲...钥匙';

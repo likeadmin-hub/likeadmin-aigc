@@ -65,7 +65,7 @@ class ShortDramaContinuityPatchTest extends TestCase
                     ['collection' => 'changes', 'index' => 0, 'supported' => false, 'reason' => '画面没有开门']]]); });
             self::fail('A literal but unrelated quote must not pass');
         } catch (\RuntimeException $error) {
-            self::assertSame(460, $error->getCode()); self::assertSame(1, $calls);
+            self::assertSame(460, $error->getCode()); self::assertSame(3, $calls);
         }
     }
     public function testMeaningChecksMustCoverEveryFactExactlyOnce(): void
