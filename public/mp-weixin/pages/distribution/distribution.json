@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "推广中心",
-  "usingComponents": {}
+  "usingComponents": {
+    "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup"
+  }
 }

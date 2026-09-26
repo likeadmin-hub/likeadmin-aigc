@@ -152,12 +152,35 @@ class UserController extends BaseApiController
     public function unbindWechat()
     {
         $params = (new UserValidate())->post()->goCheck('unbindWechat');
+        if ((int)($params['terminal'] ?? 0) === 4) {
+            try {
+                (new \app\api\service\PcWechatService())->unbind($this->userInfo);
+                return $this->success('解绑成功');
+            } catch (\Throwable $e) {
+                return $this->fail($e instanceof \RuntimeException && !str_contains($e->getMessage(), 'SQLSTATE') ? $e->getMessage() : '解绑失败，请联系管理员');
+            }
+        }
         $params['user_id'] = $this->userId;
         $result = UserLogic::unbindWechat($params);
         if ($result) {
             return $this->success('解绑成功', [], 1, 1);
         }
         return $this->fail(UserLogic::getError());
+    }
+
+    public function wechatPcBindAuthorize() { return $this->pcWechatBindAction(false); }
+    public function wechatPcBind() { return $this->pcWechatBindAction(true); }
+
+    private function pcWechatBindAction(bool $complete)
+    {
+        if (!$this->request->isPost()) return $this->fail('请从本站重新发起微信授权');
+        try {
+            $service = new \app\api\service\PcWechatService();
+            $params = $this->request->post();
+            return $this->data($complete ? $service->complete('bind', $params, $this->userInfo) : $service->authorize('bind', $params, $this->userInfo));
+        } catch (\Throwable $e) {
+            return $this->fail($e instanceof \RuntimeException && !str_contains($e->getMessage(), 'SQLSTATE') ? $e->getMessage() : '微信绑定暂不可用，请联系管理员');
+        }
     }
 
 }

@@ -48,7 +48,11 @@ class OpenSettingController extends BaseAdminController
     public function setConfig()
     {
         $params = (new OpenSettingValidate())->post()->goCheck();
-        OpenSettingLogic::setConfig($params);
+        try {
+            OpenSettingLogic::setConfig($params);
+        } catch (\InvalidArgumentException $e) {
+            return $this->fail($e->getMessage());
+        }
         return $this->success('操作成功', [], 1, 1);
     }
 }

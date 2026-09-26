@@ -23,6 +23,7 @@ use app\common\service\AgreementService;
 use app\common\service\decorate\DecorateTemplateService;
 use app\common\service\ConfigService;
 use app\common\service\FileService;
+use app\common\service\wechat\WeChatOaService;
 use app\common\service\PointUnitService;
 
 
@@ -144,6 +145,7 @@ class IndexLogic extends BaseLogic
             'third_auth' => ConfigService::get('login', 'third_auth', config('project.login.third_auth')),
             // 微信授权登录
             'wechat_auth' => ConfigService::get('login', 'wechat_auth', config('project.login.wechat_auth')),
+            'oa_configured' => WeChatOaService::isConfigured($tenantId),
             'mnp_phone_auth' => (int)ConfigService::get('login', 'mnp_phone_auth', config('project.login.mnp_phone_auth')),
             // qq授权登录
             'qq_auth' => ConfigService::get('login', 'qq_auth', config('project.login.qq_auth')),

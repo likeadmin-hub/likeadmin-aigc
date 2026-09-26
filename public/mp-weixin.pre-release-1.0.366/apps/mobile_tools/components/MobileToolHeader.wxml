@@ -1,0 +1,1 @@
+<view class="mobile-tool-topbar data-v-78044300" style="{{e + ';' + f}}"><view class="mobile-tool-nav data-v-78044300" style="{{b}}"><view class="back-hit data-v-78044300" bindtap="{{a}}"><view class="back-icon data-v-78044300"/></view></view><view class="title data-v-78044300" style="{{d}}">{{c}}</view></view>

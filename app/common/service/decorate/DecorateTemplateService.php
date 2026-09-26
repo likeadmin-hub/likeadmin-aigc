@@ -1497,9 +1497,10 @@ class DecorateTemplateService
     }
 
     /**
-     * Some old drafts have one stray closing bracket after otherwise valid
-     * widget JSON. Only remove that single character when the complete page
-     * passes the same validation as an ordinary save or publish.
+     * Legacy PC seeds contain one stray closing brace between widgets; some
+     * old drafts have one after the JSON. Find an unmatched closing bracket
+     * outside strings and remove only that character, only if the complete
+     * candidate passes the ordinary page validation. Never discard widgets.
      */
     private static function repairExtraClosingBracket(string $dataJson, string $metaJson): string
     {
@@ -1510,17 +1511,42 @@ class DecorateTemplateService
         if (json_last_error() === JSON_ERROR_NONE) {
             return $dataJson;
         }
-        $trimmed = rtrim($dataJson);
-        if ($trimmed === '' || !in_array(substr($trimmed, -1), [']', '}', ')'], true)) {
-            return $dataJson;
+        $stack = [];
+        $inString = false;
+        $escaped = false;
+        $length = strlen($dataJson);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $dataJson[$i];
+            if ($inString) {
+                if ($escaped) {
+                    $escaped = false;
+                } elseif ($char === '\\') {
+                    $escaped = true;
+                } elseif ($char === '"') {
+                    $inString = false;
+                }
+                continue;
+            }
+            if ($char === '"') {
+                $inString = true;
+            } elseif ($char === '[' || $char === '{') {
+                $stack[] = $char;
+            } elseif (in_array($char, [']', '}', ')'], true)) {
+                $expected = $char === ']' ? '[' : ($char === '}' ? '{' : null);
+                if ($expected !== null && !empty($stack) && end($stack) === $expected) {
+                    array_pop($stack);
+                    continue;
+                }
+                $candidate = substr($dataJson, 0, $i) . substr($dataJson, $i + 1);
+                try {
+                    self::validatePagePayload($candidate, $metaJson);
+                    return $candidate;
+                } catch (RuntimeException $e) {
+                    return $dataJson;
+                }
+            }
         }
-        $candidate = rtrim(substr($trimmed, 0, -1));
-        try {
-            self::validatePagePayload($candidate, $metaJson);
-            return $candidate;
-        } catch (RuntimeException $e) {
-            return $dataJson;
-        }
+        return $dataJson;
     }
 
     /**

@@ -73,6 +73,7 @@
         "pages/assets/voice/voice",
         "pages/clone/avatar/avatar",
         "pages/clone/voice/voice",
+        "pages/clone/record/record",
         "pages/tasks/tasks",
         "pages/results/results",
         "pages/results/detail/detail"

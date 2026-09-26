@@ -1,0 +1,11 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "news-card": "../../components/news-card/news-card",
+    "u-back-top": "../../uni_modules/vk-uview-ui/components/u-back-top/u-back-top",
+    "tabbar": "../../components/tabbar/tabbar",
+    "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup",
+    "diy-page-nav": "../../components/diy/diy-page-nav",
+    "diy-render": "../../components/diy/diy-render"
+  }
+}

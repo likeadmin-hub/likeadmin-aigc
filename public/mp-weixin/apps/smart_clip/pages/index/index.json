@@ -3,6 +3,7 @@
   "navigationBarTextStyle": "black",
   "navigationBarTitleText": "AI视频剪辑",
   "usingComponents": {
+    "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
     "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
   }
 }

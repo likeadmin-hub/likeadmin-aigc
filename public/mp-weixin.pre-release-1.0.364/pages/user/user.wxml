@@ -1,0 +1,1 @@
+<page-meta page-style="{{c}}"><navigation-bar front-color="{{a}}" background-color="{{b}}"/></page-meta><view class="user"><diy-page-nav wx:if="{{d}}" u-i="33e69082-0" bind:__l="__l" u-p="{{d}}"/><diy-render wx:if="{{e}}" u-i="33e69082-1" bind:__l="__l" u-p="{{e}}"/><tabbar u-i="33e69082-2" bind:__l="__l"/></view>

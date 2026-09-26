@@ -4,6 +4,7 @@
   "navigationBarTitleText": "剪辑作品",
   "enablePullDownRefresh": true,
   "usingComponents": {
+    "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
     "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
   }
 }

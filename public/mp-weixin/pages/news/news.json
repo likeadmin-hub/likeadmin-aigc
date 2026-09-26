@@ -8,6 +8,7 @@
     "tab": "../../components/tab/tab",
     "tabs": "../../components/tabs/tabs",
     "tabbar": "../../components/tabbar/tabbar",
+    "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup",
     "news-list": "./component/news-list"
   }
 }

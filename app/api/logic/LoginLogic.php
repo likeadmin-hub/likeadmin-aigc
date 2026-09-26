@@ -28,6 +28,7 @@ use app\common\service\wechat\WeChatConfigService;
 use app\common\service\wechat\WeChatOaService;
 use app\common\service\wechat\WeChatRequestService;
 use app\api\service\{UserTokenService, WechatUserService};
+use app\api\service\WechatAccountService;
 use app\common\enum\{YesNoEnum};
 use app\common\service\{
     wechat\WeChatMnpService
@@ -180,7 +181,9 @@ class LoginLogic extends BaseLogic
     {
         Db::startTrans();
         try {
-            self::assertWechatEnabled();
+            if (!WeChatOaService::isConfigured((int)request()->tenantId)) {
+                throw new \Exception('请先设置公众号配置');
+            }
             //通过code获取微信 openid
             $response = (new WeChatOaService())->getOaResByCode($params['code']);
             $userServer = new WechatUserService($response, UserTerminalEnum::WECHAT_OA);
@@ -273,10 +276,9 @@ class LoginLogic extends BaseLogic
         }
 
         $time = time();
-        $user->login_time = $time;
-        $user->login_ip = request()->ip();
-        $user->update_time = $time;
-        $user->save();
+        User::where(['id' => $userId, 'tenant_id' => $user->tenant_id])->update([
+            'login_time' => $time, 'login_ip' => request()->ip(), 'update_time' => $time,
+        ]);
     }
 
 
@@ -390,11 +392,7 @@ class LoginLogic extends BaseLogic
 
     private static function isMergeableWechatShadow(User $user): bool
     {
-        return !$user->isEmpty()
-            && empty($user->mobile)
-            && empty($user->password)
-            && (int)$user->is_new_user === YesNoEnum::YES
-            && str_starts_with((string)$user->account, 'u');
+        return WechatAccountService::isMergeableShadow($user);
     }
 
     private static function assertWechatEnabled(): void
@@ -414,23 +412,8 @@ class LoginLogic extends BaseLogic
      */
     public static function getScanCode($redirectUri)
     {
-        try {
-            $config = WeChatConfigService::getOpConfig();
-            $appId = $config['app_id'];
-            $redirectUri = UrlEncode($redirectUri);
-
-            // 设置有效时间标记状态, 超时扫码不可登录
-            $state = MD5(time().rand(10000, 99999));
-            (new WebScanLoginCache())->setScanLoginState($state);
-
-            // 扫码地址
-            $url = WeChatRequestService::getScanCodeUrl($appId, $redirectUri, $state);
-            return ['url' => $url];
-
-        } catch (\Exception $e) {
-            self::$error = $e->getMessage();
-            return false;
-        }
+        self::$error = '请使用新版 PC 微信授权入口';
+        return false;
     }
 
 
@@ -443,33 +426,8 @@ class LoginLogic extends BaseLogic
      */
     public static function scanLogin($params)
     {
-        Db::startTrans();
-        try {
-            // 通过code 获取 access_token,openid,unionid等信息
-            $userAuth = WeChatRequestService::getUserAuthByCode($params['code']);
-
-            if (empty($userAuth['openid']) || empty($userAuth['access_token'])) {
-                throw new \Exception('获取用户授权信息失败');
-            }
-
-            // 获取微信用户信息
-            $response = WeChatRequestService::getUserInfoByAuth($userAuth['access_token'], $userAuth['openid']);
-
-            // 生成用户或更新用户信息
-            $userServer = new WechatUserService($response, UserTerminalEnum::PC);
-            $userInfo = $userServer->getResopnseByUserInfo()->authUserLogin()->getUserInfo();
-
-            // 更新登录信息
-            self::updateLoginInfo($userInfo['id']);
-
-            Db::commit();
-            return $userInfo;
-
-        } catch (\Exception $e) {
-            Db::rollback();
-            self::$error = $e->getMessage();
-            return false;
-        }
+        self::$error = '请使用新版 PC 微信授权入口';
+        return false;
     }
 
 

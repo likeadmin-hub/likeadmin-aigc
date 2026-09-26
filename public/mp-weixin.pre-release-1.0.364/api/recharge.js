@@ -1,0 +1,1 @@
+"use strict";const e=require("../utils/request/index.js");exports.recharge=function(r){return e.request.post({url:"/recharge/recharge",data:r},{isAuth:!0})},exports.rechargeConfig=function(){return e.request.get({url:"/recharge/config"},{isAuth:!0})},exports.rechargeRecord=function(r){return e.request.get({url:"/recharge/lists",data:r},{isAuth:!0})};

@@ -1,0 +1,9 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "tabbar": "../../components/tabbar/tabbar",
+    "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup",
+    "diy-page-nav": "../../components/diy/diy-page-nav",
+    "diy-render": "../../components/diy/diy-render"
+  }
+}

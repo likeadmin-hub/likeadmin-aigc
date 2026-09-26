@@ -1,0 +1,1 @@
+<u-tabbar wx:if="{{a}}" bindchange="{{b}}" u-i="5a5b1312-0" bind:__l="__l" u-p="{{c}}"></u-tabbar>

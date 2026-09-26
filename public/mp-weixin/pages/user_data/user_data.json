@@ -7,6 +7,7 @@
     "u-form-item": "../../uni_modules/vk-uview-ui/components/u-form-item/u-form-item",
     "u-popup": "../../uni_modules/vk-uview-ui/components/u-popup/u-popup",
     "u-input": "../../uni_modules/vk-uview-ui/components/u-input/u-input",
-    "u-verification-code": "../../uni_modules/vk-uview-ui/components/u-verification-code/u-verification-code"
+    "u-verification-code": "../../uni_modules/vk-uview-ui/components/u-verification-code/u-verification-code",
+    "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup"
   }
 }

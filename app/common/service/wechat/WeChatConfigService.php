@@ -77,7 +77,7 @@ class WeChatConfigService
     {
         return [
             'app_id' => ConfigService::get('open_platform', 'app_id'),
-            'secret' => ConfigService::get('open_platform', 'app_secret'),
+            'secret' => PcWechatConfigService::raw()['app_secret'],
             'response_type' => 'array',
             'log' => [
                 'level' => 'debug',

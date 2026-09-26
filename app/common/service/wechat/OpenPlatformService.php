@@ -411,6 +411,112 @@ class OpenPlatformService
         ])->findOrEmpty()->isEmpty();
     }
 
+    public static function hasAuthorizedOfficialAccount(int $tenantId): bool
+    {
+        if ($tenantId <= 0) return false;
+        return !WechatAuthorizer::withoutGlobalScope()->where([
+            'tenant_id' => $tenantId,
+            'authorizer_type' => 'official',
+            'authorization_status' => 1,
+        ])->findOrEmpty()->isEmpty();
+    }
+
+    private static function officialAuthorizer(int $tenantId): WechatAuthorizer
+    {
+        $authorizer = WechatAuthorizer::withoutGlobalScope()->where([
+            'tenant_id' => $tenantId,
+            'authorizer_type' => 'official',
+            'authorization_status' => 1,
+        ])->findOrEmpty();
+        if ($authorizer->isEmpty()) throw new \RuntimeException('当前租户未授权公众号');
+        return $authorizer;
+    }
+
+    public static function authorizedOfficialCodeUrl(int $tenantId, string $redirectUrl): string
+    {
+        $authorizer = self::officialAuthorizer($tenantId);
+        $config = self::rawConfig();
+        self::requireConfig($config, ['app_id']);
+        $query = http_build_query([
+            'appid' => (string)$authorizer['authorizer_appid'],
+            'redirect_uri' => $redirectUrl,
+            'response_type' => 'code',
+            'scope' => 'snsapi_userinfo',
+            'state' => bin2hex(random_bytes(12)),
+            'component_appid' => (string)$config['app_id'],
+        ]);
+        return 'https://open.weixin.qq.com/connect/oauth2/authorize?' . $query . '#wechat_redirect';
+    }
+
+    public static function authorizedOfficialUserByCode(int $tenantId, string $code): array
+    {
+        $authorizer = self::officialAuthorizer($tenantId);
+        $config = self::rawConfig();
+        self::requireConfig($config, ['app_id']);
+        if (trim($code) === '') throw new \InvalidArgumentException('公众号登录 code 不能为空');
+        $session = self::officialOauthGet('sns/oauth2/component/access_token', [
+            'appid' => (string)$authorizer['authorizer_appid'],
+            'code' => $code,
+            'grant_type' => 'authorization_code',
+            'component_appid' => (string)$config['app_id'],
+            'component_access_token' => self::componentAccessToken(),
+        ]);
+        if (empty($session['access_token']) || empty($session['openid'])) {
+            throw new \RuntimeException('公众号登录凭证获取失败');
+        }
+        $user = self::officialOauthGet('sns/userinfo', [
+            'access_token' => $session['access_token'],
+            'openid' => $session['openid'],
+            'lang' => 'zh_CN',
+        ]);
+        if (empty($user['openid']) || $user['openid'] !== $session['openid']) {
+            throw new \RuntimeException('公众号用户信息获取失败');
+        }
+        return $user;
+    }
+
+    private static function officialOauthGet(string $path, array $query): array
+    {
+        // OAuth access tokens and one-time codes must never enter API audit logs.
+        $url = self::API . $path . '?' . http_build_query($query);
+        $response = Requests::get($url, [], ['timeout' => 15]);
+        $data = json_decode((string)$response->body, true);
+        if (!is_array($data)) throw new \RuntimeException('公众号授权响应格式错误');
+        if (!empty($data['errcode'])) {
+            throw new \RuntimeException('公众号授权失败：' . (string)($data['errmsg'] ?? $data['errcode']));
+        }
+        return $data;
+    }
+
+    public static function authorizedOfficialJsConfig(int $tenantId, string $url, array $jsApiList, array $openTagList = [], bool $debug = false): array
+    {
+        $authorizer = self::officialAuthorizer($tenantId);
+        $cacheKey = 'wechat.open_platform.official.jsapi_ticket.' . (int)$authorizer['id'];
+        $ticket = (string)Cache::get($cacheKey, '');
+        if ($ticket === '') {
+            $result = self::request('cgi-bin/ticket/getticket', [], 'official.jsapi.ticket', [
+                'access_token' => self::authorizerToken((int)$authorizer['id']),
+                'type' => 'jsapi',
+            ], $tenantId, (int)$authorizer['id'], 'GET');
+            $ticket = (string)($result['ticket'] ?? '');
+            if ($ticket === '') throw new \RuntimeException('公众号 JSAPI 凭证获取失败');
+            Cache::set($cacheKey, $ticket, max(60, (int)($result['expires_in'] ?? 7200) - 300));
+        }
+        $nonce = bin2hex(random_bytes(12));
+        $timestamp = time();
+        $url = explode('#', $url, 2)[0];
+        $signature = sha1('jsapi_ticket=' . $ticket . '&noncestr=' . $nonce . '&timestamp=' . $timestamp . '&url=' . $url);
+        return [
+            'appId' => (string)$authorizer['authorizer_appid'],
+            'timestamp' => $timestamp,
+            'nonceStr' => $nonce,
+            'signature' => $signature,
+            'jsApiList' => $jsApiList,
+            'openTagList' => $openTagList,
+            'debug' => $debug,
+        ];
+    }
+
     /** Exchange a tenant-authorized mini-program login code through component mode. */
     public static function authorizedMnpSessionByCode(int $tenantId, string $code): array
     {

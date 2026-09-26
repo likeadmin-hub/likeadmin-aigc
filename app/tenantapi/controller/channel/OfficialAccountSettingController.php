@@ -25,6 +25,26 @@ use app\tenantapi\validate\channel\OfficialAccountSettingValidate;
  */
 class OfficialAccountSettingController extends BaseAdminController
 {
+    /** 生成表单候选值，不修改已保存的公众号配置。 */
+    public function generateCredential()
+    {
+        if (!$this->request->isPost()) {
+            return $this->fail('请使用POST请求');
+        }
+        $type = $this->request->post('type', '');
+        if ($type === 'token') {
+            $value = bin2hex(random_bytes(16));
+        } elseif ($type === 'encoding_aes_key') {
+            // 32字节密钥去除Base64填充后为43位，排除微信不接受的符号。
+            do {
+                $value = rtrim(base64_encode(random_bytes(32)), '=');
+            } while (!preg_match('/^[A-Za-z0-9]{43}$/D', $value));
+        } else {
+            return $this->fail('不支持的凭证类型');
+        }
+        return $this->data(['value' => $value]);
+    }
+
     /**
      * @notes 获取公众号配置
      * @return \think\response\Json

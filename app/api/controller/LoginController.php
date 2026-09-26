@@ -25,7 +25,7 @@ use app\api\logic\LoginLogic;
 class LoginController extends BaseApiController
 {
 
-    public array $notNeedLogin = ['register', 'account', 'logout', 'codeUrl', 'oaLogin', 'mnpLogin', 'silentLogin', 'getScanCode', 'scanLogin'];
+    public array $notNeedLogin = ['register', 'account', 'logout', 'codeUrl', 'oaLogin', 'mnpLogin', 'silentLogin', 'getScanCode', 'scanLogin', 'wechatPcAuthorize', 'wechatPcLogin'];
 
 
     /**
@@ -186,12 +186,7 @@ class LoginController extends BaseApiController
      */
     public function getScanCode()
     {
-        $redirectUri = $this->request->get('url/s');
-        $result = LoginLogic::getScanCode($redirectUri);
-        if (false === $result) {
-            return $this->fail(LoginLogic::getError() ?? '未知错误');
-        }
-        return $this->success('', $result);
+        return $this->wechatPcAuthorize();
     }
 
 
@@ -203,12 +198,7 @@ class LoginController extends BaseApiController
      */
     public function scanLogin()
     {
-        $params = (new WebScanLoginValidate())->post()->goCheck();
-        $result = LoginLogic::scanLogin($params);
-        if (false === $result) {
-            return $this->fail(LoginLogic::getError() ?? '登录失败');
-        }
-        return $this->success('', $result);
+        return $this->wechatPcLogin();
     }
 
 
@@ -225,5 +215,27 @@ class LoginController extends BaseApiController
         return $this->success('操作成功', [], 1, 1);
     }
 
+
+    public function wechatPcAuthorize()
+    {
+        return $this->pcWechatAction(false);
+    }
+
+    public function wechatPcLogin()
+    {
+        return $this->pcWechatAction(true);
+    }
+
+    private function pcWechatAction(bool $complete)
+    {
+        if (!$this->request->isPost()) return $this->fail('请从本站重新发起微信授权');
+        try {
+            $service = new \app\api\service\PcWechatService();
+            $params = $this->request->post();
+            return $this->data($complete ? $service->complete('login', $params) : $service->authorize('login', $params));
+        } catch (\Throwable $e) {
+            return $this->fail($e instanceof \RuntimeException && !str_contains($e->getMessage(), 'SQLSTATE') ? $e->getMessage() : '微信登录暂不可用，请联系管理员');
+        }
+    }
 
 }

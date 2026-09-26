@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "关于我们",
+  "usingComponents": {
+    "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup"
+  }
+}

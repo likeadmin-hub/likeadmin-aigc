@@ -3,6 +3,7 @@
   "usingComponents": {
     "u-input": "../../uni_modules/vk-uview-ui/components/u-input/u-input",
     "u-verification-code": "../../uni_modules/vk-uview-ui/components/u-verification-code/u-verification-code",
-    "u-button": "../../uni_modules/vk-uview-ui/components/u-button/u-button"
+    "u-button": "../../uni_modules/vk-uview-ui/components/u-button/u-button",
+    "mp-privacy-popup": "../../components/mp-privacy-popup/mp-privacy-popup"
   }
 }

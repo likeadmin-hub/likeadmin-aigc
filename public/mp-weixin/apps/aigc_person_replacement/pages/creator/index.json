@@ -4,6 +4,7 @@
   "navigationBarTitleText": "AI创作",
   "enablePullDownRefresh": false,
   "usingComponents": {
+    "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup",
     "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
   }
 }

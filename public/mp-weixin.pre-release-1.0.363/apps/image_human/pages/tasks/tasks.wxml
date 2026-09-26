@@ -1,0 +1,1 @@
+<image-human-records wx:if="{{a}}" u-i="7539ae58-0" bind:__l="__l" u-p="{{a}}"/>

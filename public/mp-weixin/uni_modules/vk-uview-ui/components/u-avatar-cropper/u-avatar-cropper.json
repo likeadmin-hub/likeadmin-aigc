@@ -1,5 +1,7 @@
 {
   "navigationBarTitleText": "头像裁剪",
   "navigationBarBackgroundColor": "#000000",
-  "usingComponents": {}
+  "usingComponents": {
+    "mp-privacy-popup": "../../../../components/mp-privacy-popup/mp-privacy-popup"
+  }
 }

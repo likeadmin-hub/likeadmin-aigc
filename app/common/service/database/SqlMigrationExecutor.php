@@ -18,6 +18,10 @@ class SqlMigrationExecutor
         bool $ignoreDuplicateColumn = true,
         string $prefixStyle = 'mysql'
     ): void {
+        if (preg_match('/^-- likeadmin:migrate-pc-wechat-bindings-v1\s*$/m', $content)) {
+            PcWechatMigration::run($prefix, $connection);
+            return;
+        }
         foreach (self::split($content) as $sql) {
             $statement = self::applyPrefix($sql, $prefix, $prefixStyle) . ';';
             try {

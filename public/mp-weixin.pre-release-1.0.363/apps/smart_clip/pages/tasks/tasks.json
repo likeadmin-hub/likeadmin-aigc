@@ -1,0 +1,9 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTextStyle": "black",
+  "navigationBarTitleText": "剪辑任务",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "mobile-tool-header": "../../../mobile_tools/components/MobileToolHeader"
+  }
+}
