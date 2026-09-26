@@ -40,6 +40,17 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
         self::assertTrue(Unit::retryableBeforeSubmission('cURL error 6: Could not resolve host'));
         self::assertTrue(Unit::retryableBeforeSubmission('Network is unreachable'));
     }
+    public function testLegacyUnsignedReceiptChecksOriginalInputBeforeReuse(): void
+    {
+        $scope = ['tenant_id' => 2000000719, 'user_id' => 7, 'task_id' => $this->task, 'unit_key' => 'legacy_audit'];
+        $receipt = ['result' => ['content' => '{"ok":true}']];
+        Db::name('aigc_short_drama_planning_unit')->insert($scope + ['status' => 'received', 'attempt' => 1,
+            'request_json' => json_encode(['content' => '原剧本']), 'result_json' => json_encode($receipt)]);
+        $provider = static function () { self::fail('A stored receipt must never trigger a new paid call'); };
+        self::assertSame($receipt, Unit::call(2000000719, 7, $this->task, 'legacy_audit', ['content' => '原剧本'], $provider));
+        $this->expectExceptionCode(409);
+        Unit::call(2000000719, 7, $this->task, 'legacy_audit', ['content' => '已修改剧本'], $provider);
+    }
     public function testConnectionEstablishmentFailureBacksOffBeforeRetry(): void
     {
         try { Unit::call(2000000719, 7, $this->task, 'v3_script', [], static function () { throw new \RuntimeException('Connection refused'); }); }

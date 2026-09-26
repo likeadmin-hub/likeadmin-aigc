@@ -50,7 +50,8 @@ final class ShortDramaPlanningUnit
             $saved = $row ? json_decode((string)$row['request_json'], true) : [];
             // Old receipts retain their original raw signature. Compare the
             // canonical saved request too, without rewriting or resubmitting it.
-            if (isset($saved['_unit_signature']) && !hash_equals($saved['_unit_signature'], $signature)
+            if ($row && is_array($saved) && $saved !== []
+                && !hash_equals((string)($saved['_unit_signature'] ?? ''), $signature)
                 && !hash_equals(self::requestSignature($saved), $signature)) {
                 throw new RuntimeException('生成上下文已变化，请新建版本；原有结果已保留', 409);
             }
