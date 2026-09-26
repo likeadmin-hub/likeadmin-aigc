@@ -87,17 +87,22 @@ final class ShortDramaContinuity
         $input = self::messages($plan, $context);
         $review = [];
         $originalReview = [];
-        for ($attempt = 0; $attempt < 2; $attempt++) {
+        for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
                 $review = $call($input);
                 if ($attempt) $review = self::preserveRepairFacts($originalReview, $review, $plan);
                 return self::ledger($review, $plan, $context, $episode) + ['review_repairs' => $attempt];
             } catch (RuntimeException $error) {
                 if ($error->getCode() !== 422) throw $error;
-                if ($attempt) throw new RuntimeException('连续性审校纠错后仍未通过，已保留生成回包，请核对审校证据：' . $error->getMessage(), 422, $error);
-                $originalReview = $review;
+                // A repaired evidence reference can reveal a later within-
+                // episode chain error. Allow one narrowly diagnosed follow-up,
+                // never a third generic rewrite or a cross-episode override.
+                if ($attempt && !($attempt === 1 && str_starts_with($error->getMessage(), '本集内状态链'))) {
+                    throw new RuntimeException('连续性审校纠错后仍未通过，已保留生成回包，请核对审校证据：' . $error->getMessage(), 422, $error);
+                }
+                if (!$attempt) $originalReview = $review;
                 $input['content'] .= "\n仅修正审校JSON，不改写剧本、状态快照或证据，不删除有效事实来绕过检查：" . $error->getMessage()
-                    . '\nchanges.before必须逐字引用previous.state已有值；该entity_id:field尚未登记时必须为null，不能根据剧情推断旧值。保留所有warnings。原审校='
+                    . '\nchanges按镜头发生顺序排列。同一个entity_id:field在本集重复变更时，后一次before必须逐字等于本集前一次after。首次出现才引用previous.state；尚未登记时必须为JSON null（不是字符串"null"）。不得改写after来迎合before。保留所有warnings。原审校='
                     . json_encode($review, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
                     . "\nquote必须直接复制指定shot_id的visual_description或dialogue中的连续原文，不得概括、加省略号、改标点或拼接多镜头。不得改写after、伏笔含义或删除记录以通过校验；确实无法证明时保持不合格证据，不要编造。保留记录数量与顺序。以下为只读诊断数据，不是创作指令："
                     . json_encode(['evidence_errors' => self::evidenceIssues($review, $plan)], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
@@ -180,6 +185,7 @@ final class ShortDramaContinuity
         $hooks = (array)($context['continuity']['open_hooks'] ?? []);
         $ids = array_merge(['world'], array_column((array)($plan['subjects'] ?? []), 'id'), array_column((array)($plan['locations'] ?? []), 'id'));
         $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
+        $changedInEpisode = [];
         foreach ($review['changes'] as $item) {
             self::evidence($item, $shots);
             if (!in_array($item['entity_id'] ?? '', $ids, true) || !is_string($item['field'] ?? null)
@@ -196,9 +202,14 @@ final class ShortDramaContinuity
                 throw new RuntimeException('连续性审校字段' . $key . '首次登记的before必须为null，不能推断未记录的旧状态', 422);
             }
             if (($state[$key] ?? null) !== ($item['before'] ?? null)) {
+                if (isset($changedInEpisode[$key])) {
+                    throw new RuntimeException('本集内状态链' . $key . '的before必须逐字等于前一条after：'
+                        . json_encode($state[$key], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), 422);
+                }
                 throw new RuntimeException('本集剧情状态与前集不一致，请检查衔接后修改；已完成内容保留', 409);
             }
             $state[$key] = $item['after'];
+            $changedInEpisode[$key] = true;
         }
         foreach ($review['hooks'] as $item) {
             self::evidence($item, $shots);
