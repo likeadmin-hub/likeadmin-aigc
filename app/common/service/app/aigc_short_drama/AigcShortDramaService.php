@@ -4635,6 +4635,18 @@ class AigcShortDramaService
             throw new Exception('剧本计划不存在');
         }
 
+        $visualNarrativeBase = $result;
+        // Older visual edits predate appearance/story separation. Use only a
+        // verified, tenant-owned episode snapshot as their narrative baseline.
+        if (empty($result['_subject_visual_overrides']) && !empty($result['_continuity']['digest'])) {
+            $episodeSnapshot = Db::name('aigc_short_drama_episode_task')->where([
+                'tenant_id' => $tenantId, 'user_id' => $userId, 'task_id' => $taskId, 'delete_time' => 0,
+            ])->value('result_json');
+            $confirmed = self::jsonDecode((string)$episodeSnapshot);
+            if ($confirmed && ShortDramaContinuity::fingerprint($confirmed) === $result['_continuity']['digest']) {
+                $visualNarrativeBase = $confirmed;
+            }
+        }
         $previousSubjectIds = self::planItemIds((array)($result['subjects'] ?? []));
         $previousLocationIds = self::planItemIds((array)($result['locations'] ?? $result['scenes'] ?? []));
         $subjects = self::normalizeEditablePlanItems((array)($params['subjects'] ?? $result['subjects'] ?? []), 'subject');
@@ -4673,6 +4685,7 @@ class AigcShortDramaService
             self::enhancePlanResult($result),
             self::lockedSubjectReferences($request)
         ));
+        $result = ShortDramaContinuity::preserveVisualSubjectNarrative($result, $visualNarrativeBase);
 
         Db::startTrans();
         try {

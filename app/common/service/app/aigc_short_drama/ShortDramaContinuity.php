@@ -6,6 +6,27 @@ use RuntimeException;
 /** Versioned narrative facts, not media/runtime fields. Unknown is never invented. */
 final class ShortDramaContinuity
 {
+    /** Called only by the visual-editor save boundary, never from client metadata. */
+    public static function preserveVisualSubjectNarrative(array $plan, array $before): array
+    {
+        $originals = array_column((array)($before['subjects'] ?? []), null, 'id');
+        $overrides = (array)($before['_subject_visual_overrides'] ?? []);
+        $kept = [];
+        foreach ((array)($plan['subjects'] ?? []) as $subject) {
+            $id = (string)($subject['id'] ?? ''); $old = $originals[$id] ?? [];
+            if (!$old || ($subject['name'] ?? '') !== ($old['name'] ?? '')
+                || ($subject['category'] ?? '') !== ($old['category'] ?? '')) continue;
+            $narrative = $old['description'] ?? '';
+            if (isset($overrides[$id]) && $narrative === ($overrides[$id]['visual_description'] ?? null)) {
+                $narrative = $overrides[$id]['narrative_description'];
+            }
+            $visual = $subject['description'] ?? '';
+            if ($visual !== $narrative) $kept[$id] = ['narrative_description' => $narrative, 'visual_description' => $visual];
+        }
+        $plan['_subject_visual_overrides'] = $kept;
+        return $plan;
+    }
+
     public static function fingerprint(array $plan): string
     {
         return hash('sha256', json_encode(self::narrative($plan), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
@@ -18,6 +39,17 @@ final class ShortDramaContinuity
             $value[$key] = array_map(static fn($item) => array_intersect_key((array)$item,
                 array_flip(['id', 'name', 'category', 'description', 'age', 'role', 'background', 'motivation', 'arc'])), (array)($plan[$key] ?? []));
         }
+        foreach ($value['subjects'] as &$subject) {
+            $override = $plan['_subject_visual_overrides'][$subject['id'] ?? ''] ?? [];
+            if ($override && ($subject['description'] ?? null) === ($override['visual_description'] ?? null)) {
+                $subject['description'] = $override['narrative_description'];
+            }
+        }
+        unset($subject);
+        // The visual editor adds this fixed UI discriminator to locations.
+        // It conveys no story change and is absent in generated location rows.
+        foreach ($value['locations'] as &$location) if (($location['category'] ?? '') === 'scene') unset($location['category']);
+        unset($location);
         $value['storyboard'] = array_map(static fn($shot) => array_intersect_key((array)$shot,
             array_flip(['shot_id', 'scene_ref_id', 'subject_ref_ids', 'visual_description', 'dialogue', 'voice_role', 'speech_type'])), (array)($plan['storyboard'] ?? []));
         // Normalization may reorder object keys without changing the story.
