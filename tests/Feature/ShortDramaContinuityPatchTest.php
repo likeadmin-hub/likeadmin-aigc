@@ -101,4 +101,15 @@ class ShortDramaContinuityPatchTest extends TestCase
             catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); }
         }
     }
+    public function testUnsupportedResolutionPreservesOpenHookAndAuditTrail(): void
+    {
+        $review = ['summary' => '本集', 'changes' => [], 'hooks' => [
+            ['id' => 'mystery', 'status' => 'resolved', 'description' => '危机结束', 'shot_id' => '1', 'quote' => '原画面']], 'warnings' => []];
+        $context = ['continuity' => ['open_hooks' => ['mystery' => '危机尚未解释']]];
+        $verified = Patch::verifiedReview($review, ['checks' => [['collection' => 'hooks', 'index' => 0, 'supported' => false, 'reason' => '没有解除危机证据']]], $context);
+        $ledger = \app\common\service\app\aigc_short_drama\ShortDramaContinuity::ledger($verified, $this->plan(), $context, 1);
+        self::assertSame($context['continuity']['open_hooks'], $ledger['open_hooks']);
+        self::assertCount(1, $ledger['warnings']); self::assertSame($review['hooks'][0], $ledger['unverified_hook_resolutions'][0]['claim']);
+        self::assertSame('resolved', $review['hooks'][0]['status']);
+    }
 }

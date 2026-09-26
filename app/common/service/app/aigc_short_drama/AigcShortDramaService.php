@@ -17976,7 +17976,7 @@ class AigcShortDramaService
             // Automatic and explicit duration use the same bounded audit repair.
             // Keep the first audit input unchanged so existing paid receipts are
             // reused; the correction has its own deterministic receipt key.
-            $verifyMeaning = static function (array $review, array $plan) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult, &$originalAudit): void {
+            $verifyMeaning = static function (array $review, array $plan) use ($tenantId, $userId, $model, $request, $onEvent, $llmResult, &$repairLlmResult, &$originalAudit): array {
                 $originalAudit = $review;
                 $receipt = self::generateScriptPlanLlmWithFallback($tenantId, $userId, ShortDramaContinuityPatch::meaningMessages($plan, $review, $request['series_context']) + [
                     'model_config' => ['max_tokens' => 4096, 'enable_thinking' => false],
@@ -17986,7 +17986,8 @@ class AigcShortDramaService
                     if ($event !== 'delta') $onEvent($event, $data);
                 });
                 $repairLlmResult = self::mergeScriptPlanLlmResults(array_values(array_filter([$repairLlmResult, $receipt['result']])));
-                ShortDramaContinuityPatch::assertMeaning($review, ShortDramaStructuredResponse::decode((array)$receipt['result']), (array)($plan['_continuity_source_patch'] ?? []));
+                return ShortDramaContinuityPatch::verifiedReview($review, ShortDramaStructuredResponse::decode((array)$receipt['result']),
+                    $request['series_context'], (array)($plan['_continuity_source_patch'] ?? []));
             };
             try {
                 $result['_continuity'] = ShortDramaContinuity::review(
