@@ -26,10 +26,11 @@ class ShortDramaContinuityPatchTest extends TestCase
         $ledger = \app\common\service\app\aigc_short_drama\ShortDramaContinuity::review($plan, [], 1,
             static function () use ($review, &$calls) { $calls++; return $review; },
             static fn ($filtered) => Patch::verifiedReview($filtered, ['checks' => []], []));
-        self::assertSame(1, $calls);
+        self::assertSame(3, $calls);
         self::assertSame([], $ledger['open_hooks']);
         self::assertCount(1, $ledger['unverified_claims']);
         self::assertSame($this->plan(), $plan);
+        self::assertSame(implode("\n", $plan['script_lines']), $ledger['summary']);
     }
 
     public function testUnsupportedStateDoesNotOverwritePreviousState(): void

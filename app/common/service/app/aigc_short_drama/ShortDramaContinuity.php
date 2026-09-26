@@ -128,7 +128,7 @@ final class ShortDramaContinuity
                     ? self::applyEvidencePatches($patchBase, $review, $plan, $mutableEvidence)
                     : self::preserveRepairFacts($originalReview, $review, $plan);
                 if ($verifyMeaning) {
-                    $review = self::isolateInvalidEvidence($review, $plan);
+                    $review = self::isolateInvalidEvidence($review, $plan, $attempt >= 2);
                     $verified = $verifyMeaning($review, $plan);
                     if (is_array($verified)) $review = $verified;
                 }
@@ -171,7 +171,7 @@ final class ShortDramaContinuity
     }
 
     /** Repair only references, never delegate ownership of facts to a correction. */
-    private static function isolateInvalidEvidence(array $review, array $plan): array
+    private static function isolateInvalidEvidence(array $review, array $plan, bool $exhausted): array
     {
         foreach (['changes', 'hooks', 'warnings'] as $key) {
             if (!is_array($review[$key] ?? null) || !array_is_list($review[$key])) {
@@ -185,6 +185,7 @@ final class ShortDramaContinuity
                     self::evidence($claim, $shots);
                 } catch (RuntimeException $error) {
                     if ($error->getCode() !== 422) throw $error;
+                    if (!$exhausted) throw $error;
                     $review['unverified_claims'][] = compact('collection', 'index', 'claim') + ['reason' => $error->getMessage()];
                     $review['warnings'][] = '审校引用无效，未写入连续性记录，待复核：' . $error->getMessage();
                     unset($review[$collection][$index]);
@@ -408,7 +409,14 @@ final class ShortDramaContinuity
             if (!is_string($warning) || mb_strlen($warning) > 1500) throw new RuntimeException('连续性提示格式无效', 422);
             if (trim($warning) !== '') $warnings[] = trim($warning);
         }
-        return ['version' => 1, 'episode_number' => $episode, 'summary' => $review['summary'], 'state' => $state, 'open_hooks' => $hooks,
+        // Once an audit has unsupported claims, do not forward its unverified
+        // summary to the next episode. Use existing narrative text verbatim.
+        $summary = $review['summary'];
+        if (!empty($review['unverified_claims'])) {
+            $summary = implode("\n", array_filter((array)($plan['script_lines'] ?? []), 'is_string'));
+            if (trim($summary) === '') $summary = implode("\n", array_column((array)($plan['storyboard'] ?? []), 'visual_description'));
+        }
+        return ['version' => 1, 'episode_number' => $episode, 'summary' => $summary, 'state' => $state, 'open_hooks' => $hooks,
             'digest' => self::fingerprint($plan), 'previous_digest' => (string)($context['continuity']['previous_digest'] ?? ''), 'warnings' => $warnings,
             'unverified_claims' => (array)($review['unverified_claims'] ?? []),
             'unverified_hook_resolutions' => (array)($review['unverified_hook_resolutions'] ?? [])];
