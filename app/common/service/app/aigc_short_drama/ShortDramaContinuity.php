@@ -88,21 +88,27 @@ final class ShortDramaContinuity
         $review = [];
         $originalReview = [];
         $patchBase = [];
+        $mutableEvidence = [];
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
                 $review = $call($input);
                 if ($attempt) $review = isset($review['evidence_patches'])
-                    ? self::applyEvidencePatches($patchBase, $review, $plan)
+                    ? self::applyEvidencePatches($patchBase, $review, $plan, $mutableEvidence)
                     : self::preserveRepairFacts($originalReview, $review, $plan);
                 $ledger = self::ledger($review, $plan, $context, $episode);
                 if ($verifyMeaning) $verifyMeaning($review, $plan);
                 return $ledger + ['review_repairs' => $attempt];
             } catch (RuntimeException $error) {
-                if ($error->getCode() !== 422) throw $error;
+                if (!in_array($error->getCode(), [422, 460], true)) throw $error;
+                if ($error->getCode() === 460) {
+                    if ($attempt >= 2) throw $error;
+                    $diagnostics = json_decode(substr($error->getMessage(), strpos($error->getMessage(), '[')), true) ?: [];
+                    foreach ($diagnostics as $issue) $mutableEvidence[$issue['collection'] . ':' . $issue['index']] = true;
+                }
                 // A repaired evidence reference can reveal a later within-
                 // episode chain error or leave an invalid quote. Allow one narrowly diagnosed follow-up,
                 // never a third generic rewrite or a cross-episode override.
-                $repairableReference = str_starts_with($error->getMessage(), '本集内状态链')
+                $repairableReference = $error->getCode() === 460 || str_starts_with($error->getMessage(), '本集内状态链')
                     || in_array($error->getMessage(), ['连续性事实的镜头证据不匹配', '连续性事实缺少正文证据', '连续性事实缺少有效镜头标识'], true);
                 if ($attempt && !($attempt === 1 && $repairableReference)) {
                     throw new RuntimeException('连续性审校纠错后仍未通过，已保留生成回包，请核对审校证据：' . $error->getMessage(), 422, $error);
@@ -118,6 +124,7 @@ final class ShortDramaContinuity
                 $input['content'] .= '\n本轮只返回补丁JSON，不返回完整审校，不拆分或合并记录：'
                     . '{"evidence_patches":[{"collection":"changes或hooks","index":0,"shot_id":"正文镜头ID","quote":"该镜头连续原文"}]}。'
                     . 'index是原审校对应数组的零基索引。changes补丁可额外返回before以修正旧状态类型或状态链；'
+                    . '一个事实需要多个镜头共同证明时，可在同一补丁中使用evidence数组，每项为shot_id和quote；不要用逗号拼接镜头ID。'
                     . '不得返回entity_id、field、after、description、status、summary、warnings。仅提交需要修正的记录。'
                     . '事实内容、数量、顺序和warnings由服务端保留。必须依据完整script寻找证据，不能拼接或概括。';
             }
@@ -126,20 +133,35 @@ final class ShortDramaContinuity
     }
 
     /** Repair only references, never delegate ownership of facts to a correction. */
-    private static function applyEvidencePatches(array $original, array $response, array $plan): array
+    private static function applyEvidencePatches(array $original, array $response, array $plan, array $mutableEvidence = []): array
     {
         if (array_keys($response) !== ['evidence_patches'] || !is_array($response['evidence_patches'])
             || !array_is_list($response['evidence_patches'])) throw new RuntimeException('审校证据补丁格式无效', 422);
         $seen = [];
-        $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
+        // One fact may span several shots. Coalesce repeated index entries
+        // into explicit evidence, but never choose between conflicting states.
+        $patches = [];
         foreach ($response['evidence_patches'] as $patch) {
+            if (!is_array($patch) || !is_string($patch['collection'] ?? null) || !is_int($patch['index'] ?? null)) throw new RuntimeException('审校证据补丁必须为有效对象', 422);
+            $key = $patch['collection'] . ':' . $patch['index'];
+            if (!isset($patches[$key])) { $patches[$key] = $patch; continue; }
+            $previous = $patches[$key];
+            if (array_key_exists('before', $previous) && array_key_exists('before', $patch) && $previous['before'] !== $patch['before']) throw new RuntimeException('同一事实的旧状态补丁冲突', 422);
+            if (array_diff(array_keys($patch), ['collection', 'index', 'shot_id', 'quote', 'before'])) throw new RuntimeException('审校证据补丁字段越界', 422);
+            $evidence = $previous['evidence'] ?? [['shot_id' => $previous['shot_id'] ?? '', 'quote' => $previous['quote'] ?? '']];
+            $evidence[] = ['shot_id' => $patch['shot_id'] ?? '', 'quote' => $patch['quote'] ?? ''];
+            $patches[$key]['evidence'] = $evidence;
+            if (array_key_exists('before', $patch)) $patches[$key]['before'] = $patch['before'];
+        }
+        $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
+        foreach ($patches as $patch) {
             if (!is_array($patch)) throw new RuntimeException('审校证据补丁必须为对象', 422);
             $group = $patch['collection'] ?? ''; $index = $patch['index'] ?? null;
             if (!in_array($group, ['changes', 'hooks'], true) || !is_int($index) || $index < 0
                 || !isset($original[$group][$index]) || !is_array($original[$group][$index])) {
                 throw new RuntimeException('审校证据补丁引用不存在的记录', 422);
             }
-            $allowed = ['collection', 'index', 'shot_id', 'quote'];
+            $allowed = ['collection', 'index', 'shot_id', 'quote', 'evidence'];
             if ($group === 'changes') $allowed[] = 'before';
             if (array_diff(array_keys($patch), $allowed) || isset($seen[$group . ':' . $index])) {
                 throw new RuntimeException('审校证据补丁字段越界或索引重复', 422);
@@ -148,7 +170,9 @@ final class ShortDramaContinuity
             $verified = true;
             try { self::evidence($original[$group][$index], $shots); }
             catch (RuntimeException $error) { $verified = false; }
-            foreach (['shot_id', 'quote', 'before'] as $key) {
+            if (isset($mutableEvidence[$group . ':' . $index])) $verified = false;
+            if (!$verified && !isset($patch['evidence']) && isset($patch['shot_id'], $patch['quote'])) unset($original[$group][$index]['evidence']);
+            foreach (['shot_id', 'quote', 'before', 'evidence'] as $key) {
                 if ($verified && $key !== 'before') continue;
                 if (array_key_exists($key, $patch)) $original[$group][$index][$key] = $patch[$key];
             }
@@ -299,6 +323,14 @@ final class ShortDramaContinuity
 
     private static function evidence($item, array $shots): void
     {
+        if (is_array($item) && array_key_exists('evidence', $item)) {
+            if (!is_array($item['evidence']) || !array_is_list($item['evidence']) || !$item['evidence'] || count($item['evidence']) > 20) throw new RuntimeException('连续性事实多镜头证据格式无效', 422);
+            foreach ($item['evidence'] as $proof) {
+                if (!is_array($proof) || array_diff(array_keys($proof), ['shot_id', 'quote'])) throw new RuntimeException('连续性事实多镜头证据字段无效', 422);
+                self::evidence($proof, $shots);
+            }
+            return;
+        }
         if (!is_array($item) || !is_string($item['quote'] ?? null) || trim($item['quote']) === '') throw new RuntimeException('连续性事实缺少正文证据', 422);
         if (!is_scalar($item['shot_id'] ?? null)) throw new RuntimeException('连续性事实缺少有效镜头标识', 422);
         $shot = $shots[(string)$item['shot_id']] ?? [];
