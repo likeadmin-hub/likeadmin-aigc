@@ -143,6 +143,9 @@ final class ShortDramaContinuity
         $patches = [];
         foreach ($response['evidence_patches'] as $patch) {
             if (!is_array($patch) || !is_string($patch['collection'] ?? null) || !is_int($patch['index'] ?? null)) throw new RuntimeException('审校证据补丁必须为有效对象', 422);
+            // Models sometimes echo a reworded state. The correction does not
+            // own it; retain the original assertion and verify its meaning.
+            if ($patch['collection'] === 'changes') unset($patch['after']);
             $key = $patch['collection'] . ':' . $patch['index'];
             if (!isset($patches[$key])) { $patches[$key] = $patch; continue; }
             $previous = $patches[$key];
