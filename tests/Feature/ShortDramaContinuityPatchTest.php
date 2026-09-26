@@ -6,6 +6,20 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaContinuityPatchTest extends TestCase
 {
+    public function testDiagnosticAliasDoesNotChangeRejectedVerdict(): void
+    {
+        $this->expectExceptionCode(460);
+        Patch::assertMeaning(['changes' => [[]]], ['checks' => [[
+            'collection' => 'changes', 'index' => 0, 'supported' => false, 'description' => '镜头未展示此事实',
+        ]]]);
+    }
+    public function testDiagnosticAliasStillRejectsNonBooleanVerdict(): void
+    {
+        $this->expectExceptionCode(422);
+        Patch::assertMeaning(['changes' => [[]]], ['checks' => [[
+            'collection' => 'changes', 'index' => 0, 'supported' => 'true', 'description' => '说明',
+        ]]]);
+    }
     private function plan(): array
     {
         return ['script_lines' => ['甲否认婚约。'], 'subjects' => [['id' => 'p1', 'name' => '玉佩']],
