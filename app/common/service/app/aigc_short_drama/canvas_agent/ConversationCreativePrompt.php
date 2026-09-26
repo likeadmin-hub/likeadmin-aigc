@@ -44,6 +44,7 @@ final class ConversationCreativePrompt
         if (!$parts) return '';
         return "\n【共用创作提示词】仅当本轮意图已判定为继续当前短剧阶段时使用；普通聊天或其他意图不得引用这些规则推进工作流。以下内容直接来自本工作流开始时冻结的原短剧创作配置；只用于内容创作，不改变上面的 JSON 输出、画布操作、计费和安全边界。带有“仅适用”标签的段落只用于符合该条件的主体或镜头；不能把人物、物品、空镜、多人、首帧、尾帧和内容缺失规则混用于同一个不符合条件的节点。条件以实际素材和节点内容为准，未确定时不要擅自假定。\n"
             .implode("\n\n",$parts)."\n".ShortDramaPromptCatalog::priority()
-            ."\n".\app\common\service\app\aigc_short_drama\ShortDramaShotPolicy::INSTRUCTION;
+            .(in_array($stage, ['script', 'storyboard'], true)
+                ? "\n".\app\common\service\app\aigc_short_drama\ShortDramaShotPolicy::INSTRUCTION : '');
     }
 }

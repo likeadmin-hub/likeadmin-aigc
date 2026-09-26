@@ -35,11 +35,9 @@ final class ShortDramaShotPolicy
             throw new RuntimeException('原生成请求尚未获得完整回包，已保留原状态；请核实后新建版本，不能自动重复提交', 409);
         }
         $receipt = json_decode((string)$row['result_json'], true, 512, JSON_THROW_ON_ERROR);
-        // Never reuse a truncated/invalid response as a complete script.
-        $plan = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []));
-        foreach ($key === 'v3_script' ? ['title', 'story_outline', 'subjects', 'locations', 'storyboard'] : [] as $field) {
-            if (empty($plan[$field])) throw new RuntimeException('原剧本回包内容不完整，已保留原结果；请新建版本', 422);
-        }
+        // Return the original receipt to the owning stage. That stage decodes
+        // and validates its own schema (revision patches, skeletons and scene
+        // chunks are not full scripts), including its bounded repair path.
         return $receipt;
     }
 }

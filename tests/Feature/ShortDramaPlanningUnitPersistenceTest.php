@@ -94,8 +94,26 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
     }
     public static function retiredPolicyUnsafeReceipts(): array
     {
-        return [['running','',409], ['failed','',409], ['waiting','',409],
-            ['received','length',413], ['received','stop',422]];
+        return [['running','',409], ['failed','',409], ['waiting','',409]];
+    }
+    public function testLegacyRevisionAndSceneReceiptsKeepTheirStageSpecificShapes(): void
+    {
+        $request = ['prompt'=>'原剧情','revision_target'=>['type'=>'shot_fields','id'=>'1'], '_prompt_task_id'=>$this->task];
+        Db::name('aigc_short_drama_script_task')->insert(['tenant_id'=>2000000719,'user_id'=>7,
+            'task_id'=>$this->task,'status'=>'running','request_json'=>json_encode($request)]);
+        foreach (['v3_script'=>['storyboard'=>[['shot_id'=>'1','dialogue'=>'你好']]],
+            'v3_skeleton'=>['scene_beats'=>[['scene_ref_id'=>'l','shot_count'=>1]]],
+            'v3_scene_1_1_1'=>['storyboard'=>[['shot_id'=>'s1_1']]]] as $key=>$payload) {
+            $receipt=['result'=>['content'=>json_encode($payload),'finish_reason'=>'stop']];
+            Unit::call(2000000719,7,$this->task,$key,[],static fn()=>$receipt);
+            self::assertSame($receipt, \app\common\service\app\aigc_short_drama\ShortDramaShotPolicy::legacyReceipt(2000000719,7,$request,$key));
+        }
+        $receipt=['result'=>['content'=>'{"storyboard":[','finish_reason'=>'length']];
+        Unit::call(2000000719,7,$this->task,'v3_format_repair',[],static fn()=>$receipt);
+        $cached=\app\common\service\app\aigc_short_drama\ShortDramaShotPolicy::legacyReceipt(2000000719,7,$request,'v3_format_repair');
+        self::assertSame($receipt,$cached);
+        $this->expectExceptionCode(413);
+        \app\common\service\app\aigc_short_drama\ShortDramaStructuredResponse::decode($cached['result']);
     }
     private function assertAuditReceiptReplay(bool $canRepair): void
     {

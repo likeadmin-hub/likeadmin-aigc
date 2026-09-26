@@ -17702,9 +17702,8 @@ class AigcShortDramaService
         $v3Generation = null;
         if ((int)($request['_generation_version'] ?? 0) >= ShortDramaScriptGeneration::VERSION && !$episodeSettings['multi_episode']) {
             $model['_planning_fallback'] = (array)\think\facade\Config::get('short_drama', []);
-            $legacyReceipt = ShortDramaShotPolicy::legacyReceipt($tenantId, $userId, $request);
             $v3Generation = ShortDramaScriptGeneration::generate($request, $model, $messages,
-                static function (string $key, array $input, array $budget, array $selection) use ($tenantId, $userId, $request, $title, $onEvent, $legacyReceipt): array {
+                static function (string $key, array $input, array $budget, array $selection) use ($tenantId, $userId, $request, $title, $onEvent): array {
                     if ($onEvent) $onEvent('heartbeat', []);
                     if ($onEvent) $onEvent('script_preview_start', ['unit' => $key]);
                     $params = $input + ['model_selection' => $selection, 'source_app_code' => self::APP_CODE,
@@ -17722,8 +17721,8 @@ class AigcShortDramaService
                         }
                         $onEvent($event, $data);
                     };
-                    $receipt = $key === 'v3_script' && $legacyReceipt !== null ? $legacyReceipt
-                        : ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), 'v3_policy2_' . substr($key, 3),
+                    $receipt = ShortDramaShotPolicy::legacyReceipt($tenantId, $userId, $request, $key)
+                        ?? ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), 'v3_policy2_' . substr($key, 3),
                             $params, static fn(): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $params, $selection, $request, $key, $events));
                     if ($onEvent) $onEvent('script_preview_complete', ['unit' => $key,
                         'content' => (string)($receipt['result']['content'] ?? '')]);
@@ -18320,7 +18319,6 @@ class AigcShortDramaService
     {
         ShortDramaPromptCatalog::rememberContext(['plan' => $plan, 'prompt' => $prompt]);
         $reviewReport = (array)($plan['review_report'] ?? []);
-        $underShotRange = false;
         $outlineIncomplete = false;
         $durationMismatch = false;
         foreach ((array)($reviewReport['issues'] ?? []) as $issue) {
@@ -18356,7 +18354,7 @@ class AigcShortDramaService
         foreach ((array)($plan['storyboard'] ?? []) as $shot) {
             if (trim((string)($shot['visual_description'] ?? '')) === '' || trim((string)($shot['composition'] ?? '')) === '' || trim((string)($shot['camera_movement'] ?? '')) === '') $missingCreativeContent = true;
         }
-        foreach (['script', 'storyboard'] as $id) $repairPrompt = ShortDramaPromptDocuments::append($repairPrompt, $id, ['stage' => 'repair', 'under_count' => $underShotRange, 'multi' => !empty($plan['episodes']), 'missing' => $missingCreativeContent]);
+        foreach (['script', 'storyboard'] as $id) $repairPrompt = ShortDramaPromptDocuments::append($repairPrompt, $id, ['stage' => 'repair', 'multi' => !empty($plan['episodes']), 'missing' => $missingCreativeContent]);
         return ['content' => $repairPrompt, 'system_prompt' => '你是短剧计划 JSON 质检修复器。只返回合法 JSON，不要 Markdown，不要解释'];
     }
 

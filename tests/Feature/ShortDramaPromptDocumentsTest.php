@@ -137,6 +137,22 @@ class ShortDramaPromptDocumentsTest extends TestCase
         self::assertSame('人物三视图规则', Documents::renderSnapshot($snapshot, 'subject_views', ['prop' => false]));
         self::assertSame('物品多角度规则', Documents::renderSnapshot($snapshot, 'subject_views', ['prop' => true]));
     }
+    public function testRetiredQuotaSectionsRemainReadableButNeverExecute(): void
+    {
+        $snapshot = $this->snapshot(['storyboard'=>['mode'=>'custom',
+            'body'=>"【适用：全部任务】\n保留人物关系\n【适用：质检发现分镜数量不足】\n旧补镜要求不得出现"]]);
+        foreach (['script','storyboard','art','assets','video_plan','audio_plan'] as $stage) {
+            $text=ConversationCreativePrompt::forStage(['workflow_snapshot'=>['creative_prompt_snapshot'=>$snapshot],
+                'stage_state'=>['key'=>$stage]]);
+            self::assertStringNotContainsString('旧补镜要求不得出现',$text);
+            $policy=\app\common\service\app\aigc_short_drama\ShortDramaShotPolicy::INSTRUCTION;
+            if (in_array($stage,['script','storyboard'],true)) self::assertStringContainsString($policy,$text);
+            else self::assertStringNotContainsString($policy,$text);
+        }
+        $legacy=Workspace::resolve(701,['mode'=>'workspace','overrides'=>[]],[]);
+        $legacy['values']['repair.expansion']='旧补镜要求';
+        self::assertIsArray(Documents::migration($legacy));
+    }
     public function testAgentFinalSubmissionUsesTheSameCustomDocumentsAsFormalGeneration(): void
     {
         $settings = [
