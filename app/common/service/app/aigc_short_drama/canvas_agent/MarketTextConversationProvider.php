@@ -4,6 +4,7 @@ namespace app\common\service\app\aigc_short_drama\canvas_agent;
 
 use RuntimeException;
 use app\common\service\power\MarketTextModelRuntimeService;
+use app\common\service\app\aigc_short_drama\ShortDramaPlanningBudget;
 
 /**
  * Short-drama's server-only bridge to the existing metered text-model
@@ -24,7 +25,18 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         // image-incompatible browser preference intentionally resolves to an
         // enabled tenant model here; model routing is server-owned.
         $images=ConversationImages::urls($tenant,$user,(array)($request['context']??[]));
-        MarketTextModelRuntimeService::resolveRoutedModel($tenant,$selection,$images!==[]);
+        if (!empty($request['context']['_input_contract_version'])) {
+            $model=MarketTextModelRuntimeService::resolveModel($tenant,$selection,$images!==[]);
+            self::outputBudget($request,$model,count($images));
+        } else MarketTextModelRuntimeService::resolveRoutedModel($tenant,$selection,$images!==[]);
+    }
+
+    public static function outputBudget(array $request,array $model,int $images=0): int
+    {
+        $text=(string)($request['system_prompt']??'')."\n".json_encode($request['messages']??[],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        // Reserve conservative image overhead without pretending to know actual token usage.
+        if ($images) $text.=str_repeat('图',2048*$images);
+        return ShortDramaPlanningBudget::stage($text,$model,'script',(int)($request['max_tokens']??8192))['max_tokens'];
     }
 
     public function generate(int $tenant,int $user,array $request): array
@@ -59,6 +71,12 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
             // settlement, so a blocked reply is never published.
             '_result_validator'=>$validator,
         ];
+        if (!empty($request['context']['_input_contract_version'])) {
+            $runtimeRequest['_require_final_content']=true;
+            $runtimeRequest['_disable_model_fallback']=true;
+            $model=MarketTextModelRuntimeService::resolveModel($tenant,(array)($settings['reasoning_model']??[]),$images!==[]);
+            $request['max_tokens']=self::outputBudget($request,$model,count($images));
+        }
         // The worker owns the workflow output budget.  Forward it to the
         // shared runtime instead of merely storing it on the local request;
         // otherwise a structured stage can stream an unbounded completion.

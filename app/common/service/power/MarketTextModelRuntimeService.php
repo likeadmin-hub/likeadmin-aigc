@@ -104,7 +104,9 @@ class MarketTextModelRuntimeService
         $referenceImages = array_values(array_filter(array_map('strval', (array)($params['reference_images'] ?? []))));
         $messages = self::normalizeMessages($content, $referenceImages, $params['messages'] ?? []);
         $requiresVision = $referenceImages !== [] || !empty($params['requires_vision']);
-        $model = self::resolveRoutedModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision);
+        $model = !empty($params['_disable_model_fallback'])
+            ? self::resolveModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision)
+            : self::resolveRoutedModel($tenantId, $params['model_selection'] ?? $params['model_id'] ?? '', $requiresVision);
         if ($tenantAdminConsumption) {
             // Persist zero retail price so delayed usage settlement has the same payer.
             $model['input']['tenant_price'] = 0;
@@ -153,6 +155,9 @@ class MarketTextModelRuntimeService
             while (true) {
                 try {
                     $result = self::request($model, $messages, (string)($params['system_prompt'] ?? ''), $maxTokens, $generationParams, $onEvent, $requestTimeout, $transportOptions);
+                    if (!empty($params['_require_final_content']) && ($result['content_source'] ?? 'content') !== 'content') {
+                        throw new Exception('文本模型未返回最终正文，请检查模型输出配置后重试');
+                    }
                     if ($resultValidator!==null) $resultValidator($result);
                     break;
                 } catch (\Throwable $initialError) {
@@ -206,7 +211,7 @@ class MarketTextModelRuntimeService
         } catch (\Throwable $e) {
             self::fail($context, $e->getMessage(), 'provider_error');
             $fallback = self::fallbackModel($tenantId, $model, $requiresVision, (array)($params['_market_model_fallback_ids'] ?? []));
-            if ($fallback !== null && self::isExplicitModelUnavailable($e->getMessage())) {
+            if (empty($params['_disable_model_fallback']) && $fallback !== null && self::isExplicitModelUnavailable($e->getMessage())) {
                 // This response proves the selected model was never accepted.
                 // The failed consumption has already been settled/refunded above,
                 // so a new task for an enabled compatible model cannot duplicate
@@ -1128,7 +1133,9 @@ class MarketTextModelRuntimeService
         // Some OpenAI-compatible reasoning models emit their only textual output
         // under reasoning_content. Preserve it as a last-resort response instead
         // of treating a completed provider request as an empty result.
+        $contentSource = 'content';
         if (trim((string)$state['content']) === '' && trim((string)$state['reasoning']) !== '') {
+            $contentSource = 'reasoning';
             $state['content'] = $state['reasoning'];
         }
         if (!$receivedEvent || (trim((string)$state['content']) === '' && empty($state['tool_calls']))) {
@@ -1136,6 +1143,7 @@ class MarketTextModelRuntimeService
         }
         return [
             'content' => $state['content'],
+            'content_source' => $contentSource,
             'usage' => $state['usage'],
             'provider_request_id' => $state['request_id'],
             'tool_calls' => $state['tool_calls'],

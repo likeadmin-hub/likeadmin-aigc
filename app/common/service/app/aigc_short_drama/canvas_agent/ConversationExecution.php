@@ -107,7 +107,8 @@ final class ConversationExecution
                     // The eight intake slots describe production settings, not the
                     // story itself. Keep the initiating brief across compact stage
                     // handoffs so later Skills cannot replace its plot or title.
-                    $activatedWorkflow['creative_brief']=mb_substr(trim((string)($context['messages'][count($context['messages'])-1]['content']??'')),0,4000);
+                    $brief=trim((string)($context['messages'][count($context['messages'])-1]['content']??''));
+                    $activatedWorkflow['creative_brief']=ConversationWorkflow::preservesInput($activatedWorkflow) ? $brief : mb_substr($brief,0,4000);
                 }
             }
             if ($intakeDraft && ($intentDecision || $proposals)) throw new RuntimeException('INVALID_AGENT_INTAKE');

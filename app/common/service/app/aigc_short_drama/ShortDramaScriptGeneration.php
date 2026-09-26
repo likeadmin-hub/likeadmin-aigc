@@ -55,6 +55,7 @@ final class ShortDramaScriptGeneration
                 if (!in_array($error->getCode(), [413, 422], true)) throw $error;
                 if ($revision) {
                     $repair = $messages;
+                    if (ShortDramaInputContract::current($request)) $repair = ShortDramaInputContract::formatRepair($repair, (array)($receipts['script'] ?? []));
                     $repair['content'] .= "\n上次输出结构不完整。只返回当前 revision_target 所需的有效 JSON 字段，不得扩大修改范围。";
                     return self::result($call('revision_format_repair', $repair, 12000), $receipts, $model);
                 }
@@ -62,6 +63,7 @@ final class ShortDramaScriptGeneration
                 // failure goes straight to smaller, independently durable units.
                 if ($error->getCode() === 422) {
                     $repair = $messages;
+                    if (ShortDramaInputContract::current($request)) $repair = ShortDramaInputContract::formatRepair($repair, (array)($receipts['script'] ?? []));
                     $repair['content'] .= "\n上次结果缺失或格式不正确：" . $error->getMessage() . '。仅返回完整 JSON，不要说明或 Markdown。';
                     try {
                         $payload = $call('format_repair', $repair, 12000);

@@ -2598,7 +2598,11 @@ class AigcShortDramaService
         // This service owns the conventional script flow, not canvas Skills.
         // Internal episode retries preserve the originating execution version.
         $params = ShortDramaInputContract::withoutSkills($params);
-        if ($existingProjectId > 0) return self::createScriptPlanOnce($tenantId, $userId, $params, $existingProjectId, $internalContext);
+        if ($existingProjectId > 0) {
+            // A child/replanned task is a new intent, not the parent's HTTP submission.
+            unset($internalContext['_submission_key'], $internalContext['_submission_hash'], $internalContext['submission_key']);
+            return self::createScriptPlanOnce($tenantId, $userId, $params, $existingProjectId, $internalContext);
+        }
         return ShortDramaSubmission::run($tenantId, $userId, 'create', $params,
             static fn(array $submission): array => self::createScriptPlanOnce($tenantId, $userId, $params, 0,
                 array_replace(ShortDramaInputContract::begin($internalContext), $submission)));
@@ -5297,7 +5301,7 @@ class AigcShortDramaService
         // episode-level editing flow create its revision task instead of
         // rejecting a valid edit before the model can apply it.
         if ($isEpisodeProduction && !$fullPlanRevision && !$revisionTarget) {
-            $fullPlanRevision = true;
+            throw new Exception('请明确要修改的分镜或场景；如需整集调整，请明确输入“重写本集剧本”。原剧本保持不变');
         }
         $request['revision_message'] = $message;
         $request['revision_base_task_id'] = $taskId;
@@ -17022,6 +17026,10 @@ class AigcShortDramaService
      */
     private static function generateScriptPlanLlmWithFallback(int $tenantId, int $userId, array $params, array $model, array $request, string $stage, ?callable $onEvent = null): array
     {
+        if (ShortDramaInputContract::current($request)) {
+            $params['_require_final_content'] = true;
+            $params['_disable_model_fallback'] = true;
+        }
         if (isset($request['_execution_attempt']) && !empty($request['_prompt_task_id'])) {
             $active = AigcShortDramaScriptTask::where(['tenant_id' => $tenantId, 'user_id' => $userId,
                 'task_id' => $request['_prompt_task_id'], 'status' => self::STATUS_RUNNING,
@@ -17039,7 +17047,7 @@ class AigcShortDramaService
                 static fn(): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $params, $model,
                     array_replace($request, ['_repair_unit_claimed' => true]), $stage, $onEvent));
         }
-        $candidates = self::scriptPlanModelCandidates($tenantId, $model);
+        $candidates = ShortDramaInputContract::current($request) ? ($model ? [$model] : []) : self::scriptPlanModelCandidates($tenantId, $model);
         if ($candidates === []) {
             throw new Exception('暂无可用的剧本策划模型，请在算力市场上架文本模型');
         }
