@@ -134,13 +134,13 @@ class ShortDramaScriptTimelineContractTest extends TestCase
         self::assertSame(12, count($result['storyboard']));
     }
 
-    public function testSelectedDurationUsesItsOwnShotCountRule(): void
+    public function testSelectedDurationKeepsTimingGuidanceWithoutGenreQuota(): void
     {
         $rule = $this->invoke('storyboardTargetRule', '测试故事', ['target_duration_seconds' => 60], [['id' => 'location_1']]);
 
-        self::assertSame('selected_duration', $rule['code']);
-        self::assertSame(4, $rule['min_shots']);
-        self::assertSame(15, $rule['max_shots']);
+        self::assertSame([], $rule);
+        $hint = $this->invoke('recommendedStoryboardCountHint', '测试故事', ['target_duration_seconds' => 60]);
+        self::assertStringContainsString('based on target duration', $hint);
     }
 
     public function testAutoDurationIgnoresRetiredTenantStoryboardRules(): void
