@@ -129,7 +129,9 @@ final class ShortDramaContinuity
                     . 'index是原审校对应数组的零基索引。changes补丁可额外返回before以修正旧状态类型或状态链；'
                     . '一个事实需要多个镜头共同证明时，可在同一补丁中使用evidence数组，每项为shot_id和quote；不要用逗号拼接镜头ID。'
                     . '不得返回entity_id、field、after、description、status、summary、warnings。仅提交需要修正的记录。'
-                    . '事实内容、数量、顺序和warnings由服务端保留。必须依据完整script寻找证据，不能拼接或概括。';
+                    . '事实内容、数量、顺序和warnings由服务端保留。必须依据完整script寻找证据，不能拼接或概括。'
+                    . '\n优先避免重新抄写quote：使用evidence_refs:[{"shot_id":"实际镜头ID","field":"visual_description或dialogue"}]，由服务器读取该字段完整原文，再独立检查是否证明原事实。'
+                    . '只能选择storyboard字段，不能选择script_lines或大纲。引用不存在、空字段或无关内容仍不通过。不要同时返回quote/evidence和evidence_refs。';
             }
         }
         throw new RuntimeException('连续性审校未完成', 422);
@@ -141,11 +143,29 @@ final class ShortDramaContinuity
         if (array_keys($response) !== ['evidence_patches'] || !is_array($response['evidence_patches'])
             || !array_is_list($response['evidence_patches'])) throw new RuntimeException('审校证据补丁格式无效', 422);
         $seen = [];
+        $shots = array_column((array)($plan['storyboard'] ?? []), null, 'shot_id');
         // One fact may span several shots. Coalesce repeated index entries
         // into explicit evidence, but never choose between conflicting states.
         $patches = [];
         foreach ($response['evidence_patches'] as $patch) {
             if (!is_array($patch) || !is_string($patch['collection'] ?? null) || !is_int($patch['index'] ?? null)) throw new RuntimeException('审校证据补丁必须为有效对象', 422);
+            if (array_key_exists('evidence_refs', $patch)) {
+                if (isset($patch['quote']) || isset($patch['evidence']) || !is_array($patch['evidence_refs'])
+                    || !array_is_list($patch['evidence_refs']) || !$patch['evidence_refs'] || count($patch['evidence_refs']) > 20) {
+                    throw new RuntimeException('审校证据引用格式无效', 422);
+                }
+                $patch['evidence'] = [];
+                foreach ($patch['evidence_refs'] as $ref) {
+                    if (!is_array($ref) || array_diff(array_keys($ref), ['shot_id', 'field'])
+                        || !is_string($ref['shot_id'] ?? null) || !in_array($ref['field'] ?? null, ['visual_description', 'dialogue'], true)
+                        || !isset($shots[$ref['shot_id']]) || !is_string($shots[$ref['shot_id']][$ref['field']] ?? null)
+                        || trim($shots[$ref['shot_id']][$ref['field']]) === '') {
+                        throw new RuntimeException('审校证据引用不存在或为空', 422);
+                    }
+                    $patch['evidence'][] = ['shot_id' => $ref['shot_id'], 'quote' => $shots[$ref['shot_id']][$ref['field']]];
+                }
+                unset($patch['evidence_refs']);
+            }
             // Models sometimes echo a reworded state. The correction does not
             // own it; retain the original assertion and verify its meaning.
             if ($patch['collection'] === 'changes') unset($patch['after']);
