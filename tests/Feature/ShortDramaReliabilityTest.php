@@ -78,4 +78,26 @@ class ShortDramaReliabilityTest extends TestCase
         $this->expectExceptionCode(413);
         MarketTextConversationProvider::outputBudget($request,['max_input_tokens'=>1000,'context_window'=>32768]);
     }
+
+    public function testStructuralRetryDoesNotInheritPreviousTimingAdjustment(): void
+    {
+        $request = ShortDramaInputContract::begin(['episode_duration_policy' =>
+            \app\common\service\app\aigc_short_drama\ShortDramaEpisodeDuration::snapshot([], 0)]);
+        $skeleton = ['title' => '测试', 'story_outline' => '甲在房间说完台词', 'script_lines' => ['保留台词'],
+            'subjects' => [['id' => 'p1', 'name' => '甲']], 'locations' => [['id' => 'l1', 'name' => '房间']],
+            'scene_beats' => [['scene_ref_id' => 'l1', 'goal' => '说明', 'entry' => '进入', 'exit' => '离开',
+                'key_events' => ['完整台词'], 'duration_seconds' => 5, 'shot_durations' => [5]]]];
+        $calls = [];
+        $result = ShortDramaTimedScriptGeneration::generate($request, ['system_prompt' => '创作', 'content' => '保留原文'],
+            static function ($key) use ($skeleton, &$calls) {
+                $calls[] = $key;
+                if (str_contains($key, 'skeleton')) return $skeleton;
+                return ['storyboard' => [['shot_id' => 's1_1', 'scene_ref_id' => 'l1', 'subject_ref_ids' => ['p1'],
+                    'visual_description' => str_contains($key, 'repair') ? '甲说完台词' : '',
+                    'dialogue' => str_repeat('字', 48), 'recommended_duration_seconds' => 5]]];
+            }, null);
+        self::assertSame(['timed_skeleton_0', 'timed_scene_1_1', 'timed_scene_1_1_repair'], $calls);
+        self::assertSame(str_repeat('字', 48), $result['storyboard'][0]['dialogue']);
+        self::assertEquals(9, $result['storyboard'][0]['recommended_duration_seconds']);
+    }
 }
