@@ -61,6 +61,9 @@ final class ShortDramaDialogueSplit
                     $segments = self::validate($shot, $reply, $rule, $locked);
                     break;
                 } catch (RuntimeException $error) {
+                    // Do not let the outer generator mistake a truncated split for a
+                    // truncated original scene and regenerate already accepted content.
+                    if ($error->getCode() === 413) throw new RuntimeException('拆镜返回不完整，原文和已返回结果保留，请缩小处理范围后继续', 409, $error);
                     if (!in_array($error->getCode(), [409, 422], true)) throw $error;
                     if ($attempt) throw new RuntimeException('拆镜未通过完整性校验，原文保留，请调整后重试', 409, $error);
                     $input['content'] .= "\n上次分段未通过：" . $error->getMessage()

@@ -79,6 +79,12 @@ class ShortDramaDialogueSplitTest extends TestCase
         Split::validate($shot,$this->reply($shot),['min_seconds'=>4,'max_seconds'=>15],false);
     }
 
+    public function testTruncatedSplitDoesNotRestartWholeScene(): void {
+        $calls=0;
+        try {Split::adapt(['storyboard'=>[$this->shot()]],$this->request(),static function()use(&$calls){$calls++;throw new \RuntimeException('截断',413);},'test');self::fail('Must reject incomplete output');}
+        catch(\RuntimeException $error){self::assertSame(409,$error->getCode());self::assertSame(1,$calls);}
+    }
+
     public function testOuterEngineRetainsBothPaidReceiptsAndOnlySplitsTheFailedShot(): void {
         $shot=$this->shot();$keys=[];
         $request=['_input_contract_version'=>2];
