@@ -66,8 +66,12 @@ final class ShortDramaContinuity
     {
         $last = $previous ? $previous[count($previous) - 1] : [];
         return ['version' => 1, 'state' => (array)($last['state'] ?? []), 'open_hooks' => (array)($last['open_hooks'] ?? []),
+            'audit_status' => (string)($last['audit_status'] ?? 'verified'),
+            'warnings' => (array)($last['warnings'] ?? []),
+            'state_note' => ($last['audit_status'] ?? '') === 'pending_review'
+                ? '状态表仅为此前已验证记录，可能未反映上一集最新事件；衔接以recent_episodes正文为准，勿为迎合旧状态改写剧情。' : '',
             'previous_digest' => (string)($last['digest'] ?? ''),
-            'recent_episodes' => array_map(static fn($item) => array_intersect_key($item, array_flip(['episode_number', 'summary', 'digest'])), array_slice($previous, -2))];
+            'recent_episodes' => array_map(static fn($item) => array_intersect_key($item, array_flip(['episode_number', 'summary', 'digest', 'audit_status', 'warnings'])), array_slice($previous, -2))];
     }
 
     public static function dependencyStatus(array $rows, array $current): array
@@ -114,7 +118,7 @@ final class ShortDramaContinuity
     }
 
     /** At most two reference corrections, never rewrite or relax the script. */
-    public static function review(array $plan, array $context, int $episode, callable $call, ?callable $verifyMeaning = null): array
+    public static function review(array $plan, array $context, int $episode, callable $call, ?callable $verifyMeaning = null, bool $advisory = false): array
     {
         $input = self::messages($plan, $context);
         $review = [];
@@ -133,7 +137,23 @@ final class ShortDramaContinuity
                     if (is_array($verified)) $review = $verified;
                     $review = self::isolateUncertainStateChains($review);
                 }
-                $ledger = self::ledger($review, $plan, $context, $episode);
+                try {
+                    $ledger = self::ledger($review, $plan, $context, $episode);
+                } catch (RuntimeException $ledgerError) {
+                    // Only local audit-data errors are advisory. Provider errors,
+                    // capacity limits and unverified source insertions stay hard failures.
+                    if (!$advisory || !empty($plan['_continuity_source_patch'])
+                        || !in_array($ledgerError->getCode(), [409, 422], true)) throw $ledgerError;
+                    $warnings = array_values(array_filter((array)($review['warnings'] ?? []),
+                        static fn($warning) => is_string($warning) && mb_strlen($warning) <= 1500));
+                    $warnings[] = '剧本已生成，连续性记录待复核；本轮未更新事实状态：'
+                        . mb_substr($ledgerError->getMessage(), 0, 900);
+                    $ledger = self::ledger(['summary' => '以本集正文为准', 'changes' => [], 'hooks' => [],
+                        'warnings' => $warnings, 'unverified_claims' => [[
+                            'collection' => 'audit', 'claim' => $review, 'reason' => $ledgerError->getMessage(),
+                        ]]], $plan, $context, $episode);
+                    $ledger['audit_status'] = 'pending_review';
+                }
                 return $ledger + ['review_repairs' => $attempt];
             } catch (RuntimeException $error) {
                 // Audit transport/data validation is not a verdict about the

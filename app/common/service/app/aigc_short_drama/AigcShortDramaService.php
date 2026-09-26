@@ -18084,7 +18084,7 @@ class AigcShortDramaService
             };
             try {
                 $result['_continuity'] = ShortDramaContinuity::review(
-                    $result, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit, $verifyMeaning
+                    $result, $request['series_context'], (int)($request['episode_number'] ?? 1), $audit, $verifyMeaning, true
                 );
             } catch (\RuntimeException $auditError) {
                 // Only a failed evidence audit may request one additive content

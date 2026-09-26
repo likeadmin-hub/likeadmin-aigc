@@ -161,15 +161,18 @@ try {
     sort($boardSources);$expected=[(string)$subject['id'],(string)$nodes[4]['id']];sort($expected);
     agentCheck(count($nodes)===6 && $boardSources===$expected,'storyboard links exactly its scene and relevant subject, not all earlier nodes');
 
-    $videoPlanning=$reply([['type'=>'text','artifact'=>'video_prompt_plan','title'=>'镜头一视频规划','prompt'=>'镜号1；首帧：林夏持录音笔；尾帧：手机亮起；运镜：缓慢推进。','key'=>'video_1']],'已规划对应镜头视频');
+    $videoPlanning=$reply([['type'=>'text','artifact'=>'video_prompt_plan','title'=>'镜头一视频规划','prompt'=>'镜号1，0–6秒；首帧：林夏持录音笔；尾帧：手机亮起；运镜：缓慢推进。','key'=>'video_1']],'已规划对应镜头视频');
     $view=$runStage('compact-video-plan',$videoPlanning);
     Workflow::confirmStagePlan($tenant,$user,$canvas,$thread,(int)$view['workflow']['state_revision']);
     [$nodes,$edges]=$graph($canvas);
     agentCheck(count($nodes)===6,'video prompt planning stays in dialogue, not a canvas text node');
-    $video=$reply([['type'=>'video','artifact'=>'storyboard_video','title'=>'镜头一视频','prompt'=>'林夏播放录音','key'=>'video_1','reference_keys'=>['storyboard:board_1','video_plan:video_1']]],'分镜视频规划');
+    $video=$reply([['type'=>'video','artifact'=>'storyboard_video','title'=>'镜头一视频','prompt'=>'镜号1，0–6秒；林夏播放录音','duration_seconds'=>6,'key'=>'video_1','reference_keys'=>['storyboard:board_1','video_plan:video_1']]],'分镜视频规划');
     $runStage('compact-video-node',$video);
     [$nodes,$edges]=$graph($canvas);
     $videoNode=$nodes[6];$videoInputs=$inputs((string)$videoNode['id']);
+    agentCheck((float)($videoNode['metadata']['duration']??0)===6.0
+        && (float)($videoNode['metadata']['workflow_planned_duration_seconds']??0)===6.0,
+        'video node preserves its planned duration rather than a blank-node default');
     agentCheck((int)($videoNode['metadata']['workflow_prompt_run_id']??0)>0,
         'video node binds the same frozen original prompt configuration');
     $videoSources=array_map(static fn(array $edge): string=>(string)$edge['from'],$videoInputs);
@@ -193,7 +196,7 @@ try {
         'idle legacy Agent video references are repaired once and repair is idempotent');
     try { ActionPlan::parse('<canvas-actions>{"nodes":[{"type":"image","artifact":"prop","title":"多余道具图","prompt":"道具","key":"prop"}]}</canvas-actions>','storyboard',true);throw new RuntimeException('extra prop canvas node accepted'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_ACTION','compact storyboard rejects unrequested prop image nodes'); }
-    try { ActionPlan::parse('<canvas-actions>{"nodes":[{"type":"video","artifact":"storyboard_video","title":"孤立视频","prompt":"镜头","key":"video"}]}</canvas-actions>','video_nodes',true);throw new RuntimeException('video without storyboard accepted'); }
+    try { ActionPlan::parse('<canvas-actions>{"nodes":[{"type":"video","artifact":"storyboard_video","title":"孤立视频","prompt":"镜头","duration_seconds":6,"key":"video"}]}</canvas-actions>','video_nodes',true);throw new RuntimeException('video without storyboard accepted'); }
     catch (RuntimeException $error) { agentCheck($error->getMessage()==='INVALID_AGENT_ACTION','video proposal requires a matching storyboard reference before submission'); }
 } finally {
     if ($canvas) {
