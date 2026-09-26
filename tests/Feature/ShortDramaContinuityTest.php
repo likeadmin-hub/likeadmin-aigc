@@ -68,8 +68,36 @@ class ShortDramaContinuityTest extends TestCase
     {
         $review = $this->review(); $review['changes'][0]['before'] = 'null';
         $review['changes'][] = $review['changes'][0];
-        $this->expectExceptionCode(409);
+        $this->expectExceptionCode(422);
         Continuity::ledger($review, $this->plan(), [], 1);
+    }
+    public function testEvidenceRepairCanRevealAndThenRepairLocalChainWithoutChangingFacts(): void
+    {
+        $bad = $this->review();
+        $bad['changes'][] = $bad['changes'][0];
+        $bad['changes'][1]['before'] = '简写的旧状态';
+        $bad['changes'][1]['after'] = '保管钥匙';
+        $bad['changes'][0]['quote'] = '甲...钥匙';
+        $fixedEvidence = $bad; $fixedEvidence['changes'][0]['quote'] = '甲拿走钥匙';
+        $fixedChain = $fixedEvidence; $fixedChain['changes'][1]['before'] = '钥匙';
+        $calls = 0;
+        $ledger = Continuity::review($this->plan(), [], 1, static function ($input) use (&$calls, $bad, $fixedEvidence, $fixedChain) {
+            $calls++;
+            if ($calls === 3) self::assertStringContainsString('本集内状态链', $input['content']);
+            return [$bad, $fixedEvidence, $fixedChain][$calls - 1];
+        });
+        self::assertSame(3, $calls);
+        self::assertSame('保管钥匙', $ledger['state']['p1:item_owner']);
+        $calls = 0;
+        try {
+            Continuity::review($this->plan(), [], 1, static function () use (&$calls, $bad, $fixedEvidence) {
+                return ++$calls === 1 ? $bad : $fixedEvidence;
+            });
+            self::fail('Unfixed chain must not pass');
+        } catch (\RuntimeException $error) {
+            self::assertSame(422, $error->getCode());
+            self::assertSame(3, $calls);
+        }
     }
     public function testBeforeStateMustMatchAndUnknownHookCannotResolve(): void
     {
