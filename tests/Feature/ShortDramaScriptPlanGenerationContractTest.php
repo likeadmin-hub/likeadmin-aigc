@@ -52,7 +52,12 @@ class ShortDramaScriptPlanGenerationContractTest extends TestCase
             $generated = $this->generate($request);
             self::assertCount(12, $generated['result']['storyboard']);
             self::assertSame(0, $generated['result']['review_report']['blocking_count']);
-            self::assertCount($episode ? 2 : 1, \app\common\service\power\MarketTextModelRuntimeService::$requests);
+            self::assertCount($episode ? 3 : 1, \app\common\service\power\MarketTextModelRuntimeService::$requests);
+            if ($episode) {
+                $evidenceInput = json_decode(\app\common\service\power\MarketTextModelRuntimeService::$requests[2]['content'], true);
+                self::assertArrayHasKey('checks', $evidenceInput['response_contract']);
+                self::assertCount(12, $evidenceInput['storyboard']);
+            }
             if ($episode) self::assertSame('previous', $generated['result']['_continuity']['previous_digest']);
             else self::assertArrayNotHasKey('_continuity', $generated['result']);
             self::assertTrue(\app\common\service\power\MarketTextModelRuntimeService::$requests[0]['_disable_transient_retry']);
