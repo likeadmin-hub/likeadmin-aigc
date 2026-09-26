@@ -55,10 +55,13 @@ class UserLogic extends BaseLogic
             ->field('id,sn,sex,account,nickname,real_name,avatar,mobile,create_time,is_new_user,user_money,password')
             ->findOrEmpty();
 
-        if (in_array($userInfo['terminal'], [UserTerminalEnum::WECHAT_MMP, UserTerminalEnum::WECHAT_OA])) {
-            $auth = UserAuth::where(['user_id' => $userInfo['user_id'], 'terminal' => $userInfo['terminal']])->find();
-            $user['is_auth'] = $auth ? YesNoEnum::YES : YesNoEnum::NO;
-        }
+        $wechatStatus = self::wechatBindingStatus((int)$userInfo['user_id']);
+        foreach ($wechatStatus as $key => $value) $user[$key] = $value;
+        $user['is_auth'] = (int)match ((int)($userInfo['terminal'] ?? 0)) {
+            UserTerminalEnum::WECHAT_OA => $wechatStatus['has_oa_auth'],
+            UserTerminalEnum::WECHAT_MMP => $wechatStatus['has_mnp_auth'],
+            default => false,
+        };
 
         $user['has_password'] = !empty($user['password']);
         foreach ((new \app\api\service\PcWechatService())->bindingStatus((int)$userInfo['user_id']) as $key => $value) $user[$key] = $value;
@@ -90,6 +93,7 @@ class UserLogic extends BaseLogic
             ->findOrEmpty();
         $user['has_password'] = !empty($user['password']);
         $user['has_auth'] = self::hasWechatAuth($userId);
+        foreach (self::wechatBindingStatus($userId) as $key => $value) $user[$key] = $value;
         foreach ((new \app\api\service\PcWechatService())->bindingStatus($userId) as $key => $value) $user[$key] = $value;
         $user['version'] = config('project.version');
         $user->hidden(['password']);
@@ -129,6 +133,18 @@ class UserLogic extends BaseLogic
      * @author 段誉
      * @date 2022/9/20 19:36
      */
+    public static function wechatBindingStatus(int $userId): array
+    {
+        $terminals = UserAuth::where('user_id', $userId)
+            ->whereIn('terminal', [UserTerminalEnum::WECHAT_OA, UserTerminalEnum::WECHAT_MMP])
+            ->column('terminal');
+        $terminals = array_map('intval', $terminals);
+        return [
+            'has_oa_auth' => in_array(UserTerminalEnum::WECHAT_OA, $terminals, true),
+            'has_mnp_auth' => in_array(UserTerminalEnum::WECHAT_MMP, $terminals, true),
+        ];
+    }
+
     public static function hasWechatAuth(int $userId)
     {
         //是否有微信授权登录
