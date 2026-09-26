@@ -796,9 +796,7 @@ class AigcShortDramaService
             $config[$field] = self::modelOptionIdentity($selectedModel);
             $config[$definition['selection']] = self::creationModelSnapshot($selectedModel);
         }
-        if (isset($params['storyboard_rules']) && is_array($params['storyboard_rules'])) {
-            $config['storyboard_rules'] = self::normalizeStoryboardRules($params['storyboard_rules']);
-        }
+        unset($config['storyboard_rules']); // Retired config cannot be restored by older clients.
         if (isset($params['shot_duration_rule']) && is_array($params['shot_duration_rule'])) {
             $config['shot_duration_rule'] = ShortDramaShotDuration::normalizeRule($params['shot_duration_rule']);
         }
@@ -2698,6 +2696,7 @@ class AigcShortDramaService
             $request['_generation_version'] = max(3, (int)$request['_generation_version']);
             $request['duration_source'] = ShortDramaEpisodeDuration::policy($request)['source'];
         }
+        $request['_shot_policy_version'] = ShortDramaShotPolicy::VERSION;
         $request['script_source'] = $uploadedScript !== '' ? 'upload' : (string)($request['script_source'] ?? 'manual');
         $request['script_file_name'] = trim((string)($params['script_file_name'] ?? ''));
         $request['storyboard_rules'] = self::normalizeStoryboardRules((array)($config['storyboard_rules'] ?? []));
@@ -14587,36 +14586,6 @@ class AigcShortDramaService
                 $issues[] = self::planReviewIssue('shot.empty_negative.missing_people_block', 'warning', $path, '空镜缺少人物负向约束');
             }
         }
-        if (!empty($storyboard) && empty($storyboardDiagnostics['timeline_override'])) {
-            $actualShotCount = (int)($storyboardDiagnostics['actual_shot_count'] ?? count($storyboard));
-            $targetMinShots = (int)($storyboardDiagnostics['target_min_shots'] ?? 0);
-            $targetMaxShots = (int)($storyboardDiagnostics['target_max_shots'] ?? 0);
-            if ($targetMinShots > 0 && $actualShotCount < $targetMinShots) {
-                $issues[] = self::planReviewIssue(
-                    'storyboard.shot_count_under_range',
-                    'blocking',
-                    'storyboard',
-                    '实际分镜数量低于命中档位最小范'
-                );
-            }
-            if ($targetMaxShots > 0 && $actualShotCount > $targetMaxShots) {
-                $issues[] = self::planReviewIssue('storyboard.shot_count_over_range', 'blocking', 'storyboard', '实际分镜数量高于命中档位允许范围');
-            }
-            $intensityLevel = (string)($storyboardDiagnostics['intensity_level'] ?? '');
-            $missingEstablishing = self::missingEstablishingSceneIds($storyboard, $locations);
-            if (!empty($missingEstablishing)) {
-                $issues[] = self::planReviewIssue('storyboard.missing_establishing_shot', 'warning', 'storyboard', '存在场景缺少建立镜头');
-            }
-            if (in_array($intensityLevel, ['standard', 'detailed', 'cinematic_detailed'], true) && !self::storyboardHasShotKind($storyboard, 'reaction')) {
-                $issues[] = self::planReviewIssue('storyboard.missing_reaction_shot', 'warning', 'storyboard', '标准或精细拆镜缺少明显反应镜');
-            }
-            if (count($locations) > 1 && in_array($intensityLevel, ['standard', 'detailed', 'cinematic_detailed'], true) && !self::storyboardHasShotKind($storyboard, 'transition')) {
-                $issues[] = self::planReviewIssue('storyboard.missing_transition_shot', 'warning', 'storyboard', '多场景拆镜缺少明显转场镜');
-            }
-            if (in_array($intensityLevel, ['detailed', 'cinematic_detailed'], true) && !self::storyboardHasShotKind($storyboard, 'closeup')) {
-                $issues[] = self::planReviewIssue('storyboard.missing_key_closeup', 'warning', 'storyboard', '精细拆镜缺少关键特写或细节镜');
-            }
-        }
 
         $targetDuration = (float)($plan['generation_settings']['target_duration_seconds'] ?? 0);
         if (ShortDramaEpisodeDuration::active($plan) && !empty($storyboard) && empty($plan['generation_settings']['local_timing_revision'])) {
@@ -17594,6 +17563,7 @@ class AigcShortDramaService
         if (ShortDramaEpisodeDuration::active($request)) {
             $messages['system_prompt'] .= "\n" . ShortDramaEpisodeDuration::instruction($request);
         }
+        $messages['system_prompt'] .= "\n" . ShortDramaShotPolicy::INSTRUCTION;
         return $messages;
     }
 
@@ -17702,7 +17672,8 @@ class AigcShortDramaService
                         '_planning_count' => $budget['count'], '_planning_public' => str_starts_with($key, 'story'),
                         '_planning_stage' => $budget['stage'] ?? '',
                         '_planning_repair' => str_contains($key, '_repair')];
-                    $receipt = ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $key,
+                    $receipt = ShortDramaShotPolicy::legacyReceipt($tenantId, $userId, $request, $key)
+                        ?? ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), 'v3_policy2_' . $key,
                         $params + ['budget' => $budget], static fn(): array => self::generateScriptPlanLlmWithFallback(
                             $tenantId, $userId, $params, $selection, $request, $key, $onEvent));
                     if ($onEvent) $onEvent('story_preview_received', ['content' => (string)($receipt['result']['content'] ?? '')]);
@@ -17731,8 +17702,9 @@ class AigcShortDramaService
         $v3Generation = null;
         if ((int)($request['_generation_version'] ?? 0) >= ShortDramaScriptGeneration::VERSION && !$episodeSettings['multi_episode']) {
             $model['_planning_fallback'] = (array)\think\facade\Config::get('short_drama', []);
+            $legacyReceipt = ShortDramaShotPolicy::legacyReceipt($tenantId, $userId, $request);
             $v3Generation = ShortDramaScriptGeneration::generate($request, $model, $messages,
-                static function (string $key, array $input, array $budget, array $selection) use ($tenantId, $userId, $request, $title, $onEvent): array {
+                static function (string $key, array $input, array $budget, array $selection) use ($tenantId, $userId, $request, $title, $onEvent, $legacyReceipt): array {
                     if ($onEvent) $onEvent('heartbeat', []);
                     if ($onEvent) $onEvent('script_preview_start', ['unit' => $key]);
                     $params = $input + ['model_selection' => $selection, 'source_app_code' => self::APP_CODE,
@@ -17750,8 +17722,9 @@ class AigcShortDramaService
                         }
                         $onEvent($event, $data);
                     };
-                    $receipt = ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), $key,
-                        $params, static fn(): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $params, $selection, $request, $key, $events));
+                    $receipt = $key === 'v3_script' && $legacyReceipt !== null ? $legacyReceipt
+                        : ShortDramaPlanningUnit::call($tenantId, $userId, (string)($request['_prompt_task_id'] ?? ''), 'v3_policy2_' . substr($key, 3),
+                            $params, static fn(): array => self::generateScriptPlanLlmWithFallback($tenantId, $userId, $params, $selection, $request, $key, $events));
                     if ($onEvent) $onEvent('script_preview_complete', ['unit' => $key,
                         'content' => (string)($receipt['result']['content'] ?? '')]);
                     return $receipt;
@@ -18347,14 +18320,7 @@ class AigcShortDramaService
     {
         ShortDramaPromptCatalog::rememberContext(['plan' => $plan, 'prompt' => $prompt]);
         $reviewReport = (array)($plan['review_report'] ?? []);
-        $diagnostics = (array)($reviewReport['storyboard_breaking_diagnostics'] ?? $plan['storyboard_breaking_diagnostics'] ?? []);
         $underShotRange = false;
-        foreach ((array)($reviewReport['issues'] ?? []) as $issue) {
-            if (is_array($issue) && (string)($issue['code'] ?? '') === 'storyboard.shot_count_under_range') {
-                $underShotRange = true;
-                break;
-            }
-        }
         $outlineIncomplete = false;
         $durationMismatch = false;
         foreach ((array)($reviewReport['issues'] ?? []) as $issue) {
@@ -18365,16 +18331,7 @@ class AigcShortDramaService
             $outlineIncomplete = $outlineIncomplete || str_starts_with($code, 'outline.');
             $durationMismatch = $durationMismatch || $code === 'storyboard.duration.mismatch';
         }
-        $storyboardRepairRule = $underShotRange
-            ? self::joinPromptParts([
-                '本次阻断原因是分镜数量低于命中档位最小范围，允许并且必须新增分镜',
-                '命中档位' . (string)($diagnostics['matched_rule_label'] ?? ''),
-                '目标分镜数量：至少 ' . (int)($diagnostics['target_min_shots'] ?? 0)
-                    . (((int)($diagnostics['target_max_shots'] ?? 0) > 0) ? ('，最多 ' . (int)$diagnostics['target_max_shots']) : '，不设上限'),
-                ShortDramaPromptCatalog::text('repair.expansion'),
-                '返回 storyboard 必须是补足后的完整数组，不是增量补丁；shot_id 从 1 开始重新顺序编号',
-            ])
-            : '非分镜数量不足的问题，不要重排或扩写分镜，只修复质检指出的字段';
+        $storyboardRepairRule = '不要重排或扩写分镜，只修复质检指出的字段；禁止按题材数量档位补镜或删镜';
         $repairPrompt = self::joinPromptParts([
             '请只修复下面短剧计划 JSON 的质检问题，返回一个完整 JSON 对象',
             ShortDramaPromptCatalog::text('repair.preserve'),
@@ -18525,7 +18482,6 @@ class AigcShortDramaService
         $durationRule = ShortDramaShotDuration::rule($request);
         $durationRangeText = $durationRule['min_seconds'] . '-' . $durationRule['max_seconds'];
         $styleDetail = self::styleDetail((string)($request['style_id'] ?? ''));
-        $storyboardRule = self::storyboardTargetRule($prompt, $request);
         $episodeSettings = self::normalizeEpisodeSettings($request);
         $multiEpisode = $episodeSettings['multi_episode'];
         $episodeCount = $episodeSettings['episode_count'];
@@ -18548,7 +18504,6 @@ class AigcShortDramaService
             'revision_message' => (string)($request['revision_message'] ?? ''),
             'episode_duration_policy' => ShortDramaEpisodeDuration::modelPolicy($request),
             'same_scene_cut_policy' => (array)($request['same_scene_cut_policy'] ?? []),
-            'pacing_references' => ShortDramaEpisodeDuration::active($request) ? array_map(static fn($rule) => array_intersect_key($rule, array_flip(['label', 'description'])), self::storyboardRulesFromRequest($request)) : [],
             'revision_target' => (array)($request['revision_target'] ?? []),
             'revision_policy' => (array)($request['revision_policy'] ?? []),
             'series_context' => (array)($request['series_context'] ?? []),
@@ -18568,10 +18523,6 @@ class AigcShortDramaService
             'episode_batch_context' => $batchContext,
             'subject_mentions' => array_values(array_slice((array)($request['subject_mentions'] ?? []), 0, 12)),
             'subject_references' => $planningContext['subject_references'] ?? self::scriptSubjectReferenceContext($request),
-            'storyboard_rule' => [
-                'min_shots' => (int)($storyboardRule['min_shots'] ?? 0),
-                'max_shots' => (int)($storyboardRule['max_shots'] ?? 0),
-            ],
         ];
         $unconfirmedStory = ShortDramaStoryWorkflow::unconfirmedStory($request);
         if ($unconfirmedStory) {
@@ -19488,12 +19439,9 @@ class AigcShortDramaService
         $timelineSegments = self::extractTimelineSegments($prompt);
         $targetDurationSeconds = self::planningTargetDurationSeconds($prompt, $request);
         $recommendedCountHint = self::recommendedStoryboardCountHint($prompt, $request);
-        $storyboardRules = self::storyboardRulesFromRequest($request);
-        $storyboardTargetRule = self::storyboardTargetRule($prompt, $request);
         // User-authored timecode controls the story order and the duration of
         // every segment, even when the form also contains a total duration.
         $timelineOverride = !empty($timelineSegments);
-        $breakingIntensityInstruction = self::storyboardBreakingIntensityInstruction($storyboardRules, $timelineOverride);
         $styleSource = $selectedStyleName !== '' || $selectedStylePrompt !== ''
             ? 'selected'
             : ($userTextStyleHint !== '' ? 'user_text' : 'default');
@@ -19520,16 +19468,10 @@ class AigcShortDramaService
             'duration_source' => $durationSource,
             'style_priority_rule' => 'selected style config overrides conflicting style words in user_prompt; user_prompt style/time/duration hints are used only when selected config is empty; aspect ratio is not part of script planning.',
             'recommended_storyboard_count_hint' => $recommendedCountHint,
-            'storyboard_complexity_rules' => $storyboardRules,
-            'storyboard_target_rule' => $storyboardTargetRule,
-            'storyboard_complexity_instruction' => 'When there is no explicit target duration or timeline, determine shot count and duration from the complete user story. Complexity rules are advisory, not a fixed count requirement. Never pad or shorten the story to meet them.',
-            'storyboard_breaking_intensity_instruction' => $breakingIntensityInstruction,
             'storyboard_quality_gate' => [
                 'must_cover_every_location' => true,
                 'minimum_shots_per_location' => $timelineOverride ? 1 : ($targetDurationSeconds > 0 ? 3 : 1),
                 'minimum_total_shots' => self::minimumStoryboardShotCount($prompt, $request, 0),
-                'target_rule_min_shots' => (int)($storyboardTargetRule['min_shots'] ?? 0),
-                'target_rule_max_shots' => (int)($storyboardTargetRule['max_shots'] ?? 0),
                 'duration_rule' => $timelineOverride
                     ? 'Follow timeline_segments strictly. Total storyboard duration must equal timeline_total_seconds exactly.'
                     : 'Every shot is 4-15 seconds. Total storyboard duration should approach effective_target_duration_seconds when it is greater than 0.',
@@ -19662,7 +19604,7 @@ class AigcShortDramaService
             . "12. Do not pack complex actions into one shot. If one plot sentence contains multiple actions, split them into consecutive shots. For example, 'she opens the door, sees the monster, turns and runs' must become separate shots: hand touches doorknob, door slowly opens, monster appears behind door, protagonist terrified close-up, protagonist turns and runs.\n"
             . "13. Important emotions and reversals must be decomposed into multiple short shots. Climax, truth reveal, key prop appearance, breakdown, relationship change, and reversal nodes must not be summarized in one shot.\n"
             . "14. recommended_duration_seconds must be between " . $durationRule['min_seconds'] . " and " . $durationRule['max_seconds'] . " seconds. Choose the duration to fit visible action, dialogue and emotion; do not force every shot to the default duration.\n"
-            . "15. There is no fixed storyboard count by text length. Never use 8 as the default answer. If target duration or timeline exists, follow the duration/timeline rule. Otherwise storyboard_target_rule is authoritative: storyboard.length must be at least storyboard_target_rule.min_shots and must not exceed storyboard_target_rule.max_shots when max_shots is greater than 0. Judge the story complexity first, then apply storyboard_complexity_rules and storyboard_breaking_intensity_instruction: simple talking-head/advertising/single-scene content uses light splitting, ordinary short films use standard splitting, complex dream/suspense/reversal films use detailed splitting, and complex multi-scene plots use cinematic detailed splitting. Do not compress key shots just to keep the output short, and do not split meaningless filler shots just to pad count. Use recommended_storyboard_count_hint only as a pacing reference.\n"
+            . "15. Determine shot count from complete plot, dialogue, action and emotional beats. Preserve user timing and timecodes. Never apply genre ranges, pad shots or drop key events.\n"
             . "16. Each shot expresses one visible action or one visual information task and binds exactly one scene_ref_id from locations. subject_ref_ids must include only subjects visible in the current image frame; never include characters, props, animals, symbols, or locations that do not appear on screen. image_prompt must not mention any off-screen character, prop, object, or location, and each image_prompt may describe only one core visible action.\n"
             . "16A. Storyboard quality gate: every location in locations must appear in storyboard at least once, and normally at least 2-4 shots per location. If effective_target_duration_seconds is set, distribute shots across all ordered locations until the total duration is close to that target. Never stop after only the first one or two locations when later locations exist.\n"
             . "16B. If timeline_segments is not empty and selected_duration_hint is empty, the user has provided a finished timecoded script. Storyboard must strictly follow timeline_segments: use one storyboard item per time segment by default; split a segment only when it is longer than " . $durationRule['max_seconds'] . " seconds; segments shorter than " . $durationRule['min_seconds'] . " seconds must be adjusted by the user before generation; the sum of recommended_duration_seconds must equal timeline_total_seconds exactly; do not expand a 30-second timecoded script into a longer film.\n"
@@ -25223,565 +25165,58 @@ class AigcShortDramaService
 
     private static function defaultStoryboardRules(): array
     {
-        return [
-            [
-                'code' => 'simple_single_scene',
-                'label' => '简单口播 / 广告 / 单场景内容',
-                'description' => '口播、产品演示、教程讲解、单一空间或单一动作链，剧情结构简单。',
-                'keywords' => ['口播', '广告', '产品', '带货', '开箱', '讲解', '教程', '演示', '单场景'],
-                'min_shots' => 8, 'max_shots' => 18, 'sort' => 10, 'enabled' => true,
-            ],
-            [
-                'code' => 'daily_comedy',
-                'label' => '日常 / 喜剧 / 治愈短片',
-                'description' => '日常生活、轻喜剧、萌宠、亲子、校园或治愈情绪，以轻量情节推进。',
-                'keywords' => ['日常', '喜剧', '搞笑', '治愈', '生活', '萌宠', '亲子', '校园'],
-                'min_shots' => 12, 'max_shots' => 24, 'sort' => 20, 'enabled' => true,
-            ],
-            [
-                'code' => 'romance_emotion',
-                'label' => '情感 / 爱情 / 家庭短片',
-                'description' => '爱情、甜宠、虐恋、亲情、友情、重逢或离别，需要兼顾人物关系和情绪变化。',
-                'keywords' => ['爱情', '恋爱', '甜宠', '虐恋', '表白', '婚姻', '重逢', '离别', '亲情', '友情'],
-                'min_shots' => 18, 'max_shots' => 32, 'sort' => 30, 'enabled' => true,
-            ],
-            [
-                'code' => 'ordinary_short',
-                'label' => '常规剧情短片',
-                'description' => '都市、职场、成长、家庭等常规剧情，有完整起承转合但复杂度不高。',
-                'keywords' => ['剧情', '成长', '职场', '家庭', '都市', '乡村', '励志'],
-                'min_shots' => 20,
-                'max_shots' => 35,
-                'sort' => 40,
-                'enabled' => true,
-            ],
-            [
-                'code' => 'suspense_twist_dream',
-                'label' => '复杂梦境 / 悬疑 / 反转短片',
-                'description' => '包含梦境、悬疑铺垫、误导、真相揭露、强反转或高密度情绪变化',
-                'keywords' => ['悬疑', '反转', '梦境', '谜团', '线索', '真相', '误导', '惊悚', '恐怖', '推理'],
-                'min_shots' => 30,
-                'max_shots' => 40,
-                'sort' => 50,
-                'enabled' => true,
-            ],
-            [
-                'code' => 'action_adventure',
-                'label' => '动作 / 冒险 / 武侠短片',
-                'description' => '追逐、打斗、逃亡、冒险、战争、武侠、警匪或救援，动作节点密集。',
-                'keywords' => ['动作', '追逐', '打斗', '逃亡', '冒险', '战争', '武侠', '警匪', '救援'],
-                'min_shots' => 30, 'max_shots' => 45, 'sort' => 60,
-                'enabled' => true,
-            ],
-            [
-                'code' => 'fantasy_period',
-                'label' => '古装 / 奇幻 / 科幻短片',
-                'description' => '古装、仙侠、玄幻、奇幻、科幻、穿越、末世或神话，世界观和视觉信息较多。',
-                'keywords' => ['古装', '仙侠', '玄幻', '奇幻', '科幻', '穿越', '末世', '魔法', '神话'],
-                'min_shots' => 32, 'max_shots' => 48, 'sort' => 70,
-                'enabled' => true,
-            ],
-            [
-                'code' => 'complex_multi_scene',
-                'label' => '复杂多场景 / 群像短片',
-                'description' => '跨多个地点或时空，角色关系、动作链、情绪转折和关键线索较多。',
-                'keywords' => ['多场景', '多地', '跨城', '跨时空', '群像', '史诗', '长线', '多角色'],
-                'min_shots' => 40, 'max_shots' => 0, 'sort' => 80,
-                'enabled' => true,
-            ],
-        ];
+        return []; // Genre shot quotas have been retired.
     }
 
     private static function normalizeStoryboardRules(array $rules): array
     {
-        $defaults = self::defaultStoryboardRules();
-        if (empty($rules)) {
-            return $defaults;
-        }
-
-        $defaultMap = [];
-        foreach ($defaults as $default) {
-            $defaultMap[(string)$default['code']] = $default;
-        }
-
-        $normalized = [];
-        foreach ($rules as $index => $item) {
-            if (!is_array($item)) {
-                continue;
-            }
-            $code = trim((string)($item['code'] ?? ''));
-            if ($code === '') {
-                $code = 'custom_' . ($index + 1);
-            }
-            $base = $defaultMap[$code] ?? [];
-            $label = mb_substr(trim((string)($item['label'] ?? $base['label'] ?? $code)), 0, 60, 'UTF-8');
-            if ($label === '') {
-                $label = $code;
-            }
-            $minShots = max(1, min(300, (int)($item['min_shots'] ?? $base['min_shots'] ?? 1)));
-            $maxShots = max(0, min(500, (int)($item['max_shots'] ?? $base['max_shots'] ?? 0)));
-            if ($maxShots > 0 && $maxShots < $minShots) {
-                $maxShots = $minShots;
-            }
-            $normalized[$code] = [
-                'code' => $code,
-                'label' => $label,
-                'description' => mb_substr(trim((string)($item['description'] ?? $base['description'] ?? '')), 0, 500, 'UTF-8'),
-                'keywords' => self::normalizeStoryboardRuleKeywords($item['keywords'] ?? $base['keywords'] ?? []),
-                'min_shots' => $minShots,
-                'max_shots' => $maxShots,
-                'sort' => (int)($item['sort'] ?? $base['sort'] ?? (($index + 1) * 10)),
-                'enabled' => (bool)($item['enabled'] ?? $base['enabled'] ?? true),
-            ];
-        }
-
-        foreach ($defaults as $default) {
-            $code = (string)$default['code'];
-            if (!isset($normalized[$code])) {
-                $normalized[$code] = $default;
-            }
-        }
-        $normalized = array_values(array_filter($normalized, static fn(array $item): bool => !empty($item['enabled'])));
-        if (empty($normalized)) {
-            $normalized = $defaults;
-        }
-        usort($normalized, static fn(array $a, array $b): int => ((int)($a['sort'] ?? 0) <=> (int)($b['sort'] ?? 0)));
-        return $normalized;
+        return []; // Genre shot quotas have been retired.
     }
 
-    private static function normalizeStoryboardRuleKeywords(mixed $keywords): array
-    {
-        $items = is_array($keywords) ? $keywords : preg_split('/[，,、|\/\n]+/u', (string)$keywords);
-        $normalized = [];
-        foreach ((array)$items as $item) {
-            $word = mb_substr(trim((string)$item), 0, 30, 'UTF-8');
-            if ($word !== '') $normalized[$word] = $word;
-            if (count($normalized) >= 30) break;
-        }
-        return array_values($normalized);
-    }
 
-    private static function storyboardRulesFromRequest(array $request): array
-    {
-        return self::normalizeStoryboardRules((array)($request['storyboard_rules'] ?? []));
-    }
 
     private static function storyboardTargetRule(string $prompt, array $request, array $locations = []): array
     {
-        if (ShortDramaEpisodeDuration::active($request)) return [];
-        if (!empty(self::extractTimelineSegments($prompt))) {
-            return [];
-        }
-        $targetDuration = self::planningTargetDurationSeconds($prompt, $request);
-        if ($targetDuration > 0 && empty($request['multi_episode']) && (int)($request['episode_count'] ?? 1) <= 1) {
-            $durationRule = ShortDramaShotDuration::rule($request);
-            $minimum = self::minimumStoryboardShotCount($prompt, $request, count($locations));
-            return [
-                'code' => 'selected_duration',
-                'label' => '用户选择的 ' . $targetDuration . ' 秒时长',
-                'description' => '按每个镜头 ' . $durationRule['min_seconds'] . '-' . $durationRule['max_seconds'] . ' 秒拆分，并使分镜时长总和精确等于用户选择的时长',
-                'min_shots' => $minimum,
-                'max_shots' => max($minimum, (int)floor($targetDuration / $durationRule['min_seconds'])),
-                'sort' => 0,
-                'enabled' => true,
-            ];
-        }
-        if (!empty($request['multi_episode']) || (int)($request['episode_count'] ?? 1) > 1) {
-            return [];
-        }
-
-        $stored = is_array($request['storyboard_target_rule'] ?? null) ? (array)$request['storyboard_target_rule'] : [];
-        if ((int)($stored['min_shots'] ?? 0) > 0) {
-            return [
-                'code' => (string)($stored['code'] ?? ''),
-                'label' => (string)($stored['label'] ?? ''),
-                'description' => (string)($stored['description'] ?? ''),
-                'min_shots' => max(1, (int)($stored['min_shots'] ?? 1)),
-                'max_shots' => max(0, (int)($stored['max_shots'] ?? 0)),
-                'sort' => (int)($stored['sort'] ?? 0),
-                'enabled' => true,
-            ];
-        }
-
-        $rules = self::storyboardRulesFromRequest($request);
-        return self::storyboardMatchedRule($rules, [], $locations, $prompt);
+        return []; // Genre shot quotas have been retired.
     }
 
-    /**
-     * A short user brief cannot reliably tell us how many locations, event
-     * turns, or visual beats the finished story contains. V3 therefore calls
-     * this only after the skeleton exists, using model-produced story facts
-     * instead of the raw user prompt to select a tenant's storyboard policy.
-     */
+    /** Legacy call-site adapter: never choose a genre quota. */
     private static function storyboardTargetRuleForSkeleton(array $skeleton, array $request, string $prompt): array
     {
-        if (!empty($request['multi_episode']) || (int)($request['episode_count'] ?? 1) > 1) {
-            return [];
-        }
-        // A user-supplied timeline is authoritative; it must not be expanded
-        // or compressed to fit a generic complexity range.
-        if (!empty(self::extractTimelineSegments($prompt))) {
-            return [];
-        }
-        // Explicit selected or textual total duration remains a hard pacing
-        // target and intentionally takes precedence over story complexity.
-        if (self::planningTargetDurationSeconds($prompt, $request) > 0) {
-            return self::storyboardTargetRule($prompt, $request, (array)($skeleton['locations'] ?? []));
-        }
-
-        $profile = self::jsonEncode([
-            'type_judgement' => (string)($skeleton['type_judgement'] ?? ''),
-            'core_theme' => (string)($skeleton['core_theme'] ?? ''),
-            'story_outline' => (string)($skeleton['story_outline'] ?? ''),
-            'locations' => array_map(static fn(array $item): array => array_intersect_key($item, array_flip(['name', 'description'])), array_values(array_filter((array)($skeleton['locations'] ?? []), 'is_array'))),
-            'scene_beats' => array_map(static fn(array $item): array => array_intersect_key($item, array_flip(['goal', 'entry', 'exit'])), array_values(array_filter((array)($skeleton['scene_beats'] ?? []), 'is_array'))),
-        ]);
-        return self::storyboardMatchedRule(
-            self::storyboardRulesFromRequest($request),
-            [],
-            (array)($skeleton['locations'] ?? []),
-            $profile
-        );
+        return []; // Genre shot quotas have been retired.
     }
 
-    /**
-     * Convert the skeleton's relative per-scene density into a fixed total
-     * budget before any scene chunks are sent to the provider. This prevents
-     * independent scene calls from each choosing a valid local count but
-     * producing an invalid film-wide total.
-     */
+    /** Keep the model's actual scene plan unchanged. */
     private static function applyStoryboardBudgetToSkeleton(array $skeleton, array $targetRule): array
     {
-        $beats = array_values(array_filter((array)($skeleton['scene_beats'] ?? []), 'is_array'));
-        if ($beats === [] || $targetRule === []) {
-            return $skeleton;
-        }
-        $minimum = max(1, (int)($targetRule['min_shots'] ?? 1));
-        $maximum = max(0, (int)($targetRule['max_shots'] ?? 0));
-        if ($maximum > 0 && count($beats) > $maximum) {
-            throw new Exception('故事骨架场景数超过当前分镜预算上限，请缩小剧情范围或调整后台规则');
-        }
-
-        $originalCounts = array_map(static fn(array $beat): int => max(1, (int)($beat['shot_count'] ?? 1)), $beats);
-        $originalTotal = array_sum($originalCounts);
-        $targetTotal = max($minimum, $originalTotal);
-        if ($maximum > 0) {
-            $targetTotal = min($targetTotal, $maximum);
-        }
-        $targetTotal = max($targetTotal, count($beats));
-
-        $allocated = array_fill(0, count($beats), 1);
-        $remaining = $targetTotal - count($beats);
-        if ($remaining > 0) {
-            $weightTotal = max(1, array_sum($originalCounts));
-            $fractions = [];
-            foreach ($originalCounts as $index => $count) {
-                $weighted = ($count / $weightTotal) * $remaining;
-                $extra = (int)floor($weighted);
-                $allocated[$index] += $extra;
-                $fractions[$index] = $weighted - $extra;
-            }
-            $unassigned = $targetTotal - array_sum($allocated);
-            arsort($fractions, SORT_NUMERIC);
-            foreach (array_keys($fractions) as $index) {
-                if ($unassigned <= 0) {
-                    break;
-                }
-                $allocated[$index]++;
-                $unassigned--;
-            }
-        }
-
-        foreach ($beats as $index => $beat) {
-            $beats[$index]['shot_count'] = $allocated[$index];
-        }
-        $skeleton['scene_beats'] = $beats;
         return $skeleton;
     }
 
     /** A final guard: never mark a V3 plan successful outside its accepted budget. */
     private static function assertStoryboardBudgetSatisfied(array $plan, array $request, string $prompt): void
     {
-        if (ShortDramaEpisodeDuration::active($request)) {
-            ShortDramaEpisodeDuration::assertPlan($plan, $request);
-            return;
-        }
-        $rule = self::storyboardTargetRule($prompt, $request, (array)($plan['locations'] ?? $plan['scenes'] ?? []));
-        if ($rule === []) {
-            return;
-        }
-        $actual = count(array_filter((array)($plan['storyboard'] ?? []), 'is_array'));
-        $minimum = max(1, (int)($rule['min_shots'] ?? 1));
-        $maximum = max(0, (int)($rule['max_shots'] ?? 0));
-        if ($actual < $minimum || ($maximum > 0 && $actual > $maximum)) {
-            throw new Exception('分镜数量未满足剧情骨架预算，请重试');
-        }
+        ShortDramaEpisodeDuration::assertPlan($plan, $request);
     }
 
-    private static function storyboardRuleRangeLabel(array $rule): string
-    {
-        $min = max(1, (int)($rule['min_shots'] ?? 1));
-        $max = max(0, (int)($rule['max_shots'] ?? 0));
-        if ($max <= 0) {
-            return $min . '+ shots';
-        }
-        if ($max === $min) {
-            return $min . ' shots';
-        }
-        return $min . '-' . $max . ' shots';
-    }
 
-    private static function storyboardBreakingIntensityInstruction(array $rules, bool $timelineOverride = false): array
-    {
-        $items = [];
-        foreach ($rules as $rule) {
-            $level = self::storyboardRuleIntensityLevel($rule);
-            $items[] = [
-                'code' => (string)($rule['code'] ?? ''),
-                'label' => (string)($rule['label'] ?? ''),
-                'range' => self::storyboardRuleRangeLabel($rule),
-                'intensity_level' => $level,
-                'instruction' => self::storyboardIntensityInstructionText($level),
-            ];
-        }
-        return [
-            'timeline_override' => $timelineOverride,
-            'timeline_priority_rule' => $timelineOverride
-                ? 'Timeline segments are authoritative. Do not expand the total duration or add extra shots just to satisfy a complexity range.'
-                : 'When no authoritative timeline is provided, judge story complexity first, then choose one matching storyboard rule and split shots by its intensity.',
-            'output_contract' => 'Keep the top-level storyboard[] for legacy clients. For multi-episode plans, also keep the authoritative episodes[].scenes[].shots[] structure.',
-            'global_rule' => 'Do not add new plot or change character relationships. Each storyboard item expresses one core visible action or one visual information task.',
-            'rules' => $items,
-        ];
-    }
 
-    private static function storyboardRuleIntensityLevel(array $rule): string
-    {
-        $code = (string)($rule['code'] ?? '');
-        $label = (string)($rule['label'] ?? '');
-        $haystack = strtolower($code . ' ' . $label);
-        $min = (int)($rule['min_shots'] ?? 0);
-        $max = (int)($rule['max_shots'] ?? 0);
-        if (str_contains($haystack, 'simple') || str_contains($haystack, 'single') || str_contains($label, '口播') || str_contains($label, '广告')) {
-            return 'lightweight';
-        }
-        if (str_contains($haystack, 'suspense') || str_contains($haystack, 'twist') || str_contains($haystack, 'dream') || str_contains($label, '悬疑') || str_contains($label, '反转') || str_contains($label, '梦境')) {
-            return 'detailed';
-        }
-        if (str_contains($haystack, 'complex') || str_contains($haystack, 'multi') || str_contains($label, '多场') || $min >= 40 || $max === 0) {
-            return 'cinematic_detailed';
-        }
-        if ($min >= 30) {
-            return 'detailed';
-        }
-        if ($min >= 20) {
-            return 'standard';
-        }
-        return 'lightweight';
-    }
 
-    private static function storyboardIntensityInstructionText(string $level): string
-    {
-        $map = [
-            'lightweight' => 'Light split. Use one establishing shot per scene, make only key information points independent shots, merge dialogue and reaction when appropriate, and do not force a reaction shot for every line.',
-            'standard' => 'Standard split. Key actions become independent shots, important dialogue includes speaking and reaction shots, emotion changes use close-up or medium close-up, and scene endings use a transition or emotional hold.',
-            'detailed' => 'Detailed split. Key props, clues, misdirection, reveal-before/reveal-after beats, and character reactions must be separated; important emotions should use consecutive close-up/detail shots.',
-            'cinematic_detailed' => 'Cinematic detailed split. Each location needs an establishing shot, location changes need transition shots, relationship changes need reaction shots, and climax/ending should be split into consecutive shot groups.',
-        ];
-        return $map[$level] ?? $map['standard'];
-    }
 
     private static function storyboardBreakingDiagnostics(array $storyboard, array $locations = [], array $request = [], string $prompt = '', array $existing = []): array
     {
-        if (ShortDramaEpisodeDuration::active($request) || ($existing['policy'] ?? '') === 'episode_timing') {
-            return ['policy' => 'episode_timing', 'target_min_shots' => 0, 'target_max_shots' => 0,
-                'actual_shot_count' => count($storyboard), 'range_status' => 'advisory'];
-        }
-        $rules = self::storyboardRulesFromRequest($request);
-        $timelineOverride = !empty(self::extractTimelineSegments($prompt));
-        if (array_key_exists('timeline_override', $existing)) {
-            $timelineOverride = (bool)$existing['timeline_override'];
-        }
-        $targetRule = self::storyboardTargetRule($prompt, $request, $locations);
-        $ruleHint = !empty($targetRule) ? [
-            'matched_rule_code' => (string)($targetRule['code'] ?? ''),
-            'matched_rule_label' => (string)($targetRule['label'] ?? ''),
-            'target_min_shots' => (int)($targetRule['min_shots'] ?? 0),
-            'target_max_shots' => (int)($targetRule['max_shots'] ?? 0),
-        ] : [];
-        $rule = self::storyboardMatchedRule($rules, $storyboard, $locations, $prompt, array_merge($ruleHint, $existing));
-        $actual = count(array_filter($storyboard, 'is_array'));
-        $min = max(1, (int)($rule['min_shots'] ?? 1));
-        $max = max(0, (int)($rule['max_shots'] ?? 0));
-        return [
-            'matched_rule_code' => (string)($rule['code'] ?? ''),
-            'matched_rule_label' => (string)($rule['label'] ?? ''),
-            'target_min_shots' => $min,
-            'target_max_shots' => $max,
-            'actual_shot_count' => $actual,
-            'intensity_level' => self::storyboardRuleIntensityLevel($rule),
-            'timeline_override' => $timelineOverride,
-            'range_status' => self::storyboardRangeStatus($actual, $min, $max, $timelineOverride),
-        ];
+        return ['policy_version' => ShortDramaShotPolicy::VERSION,
+            'actual_shot_count' => count(array_filter($storyboard, 'is_array')),
+            'timeline_override' => ShortDramaEpisodeDuration::active($request) || !empty(self::extractTimelineSegments($prompt)),
+            'range_status' => 'not_applicable'];
     }
 
-    private static function storyboardMatchedRule(array $rules, array $storyboard, array $locations = [], string $prompt = '', array $existing = []): array
-    {
-        $existingCode = (string)($existing['matched_rule_code'] ?? '');
-        if ($existingCode !== '') {
-            if ((int)($existing['target_min_shots'] ?? 0) > 0) {
-                return [
-                    'code' => $existingCode,
-                    'label' => (string)($existing['matched_rule_label'] ?? $existingCode),
-                    'min_shots' => (int)($existing['target_min_shots'] ?? 1),
-                    'max_shots' => (int)($existing['target_max_shots'] ?? 0),
-                    'sort' => 0,
-                    'enabled' => true,
-                ];
-            }
-            foreach ($rules as $rule) {
-                if ((string)($rule['code'] ?? '') === $existingCode) {
-                    return $rule;
-                }
-            }
-        }
-        $promptText = mb_strtolower($prompt, 'UTF-8');
-        if ($promptText !== '') {
-            $bestRule = [];
-            $bestScore = 0;
-            foreach ($rules as $rule) {
-                $score = 0;
-                foreach (self::normalizeStoryboardRuleKeywords($rule['keywords'] ?? []) as $keyword) {
-                    if (mb_stripos($promptText, mb_strtolower($keyword, 'UTF-8'), 0, 'UTF-8') !== false) $score++;
-                }
-                if ($score > $bestScore) {
-                    $bestRule = $rule;
-                    $bestScore = $score;
-                }
-            }
-            if ($bestRule !== []) return $bestRule;
-        }
-        $level = self::inferStoryboardIntensityLevel($prompt, $locations);
-        foreach ($rules as $rule) {
-            if (self::storyboardRuleIntensityLevel($rule) === $level) {
-                return $rule;
-            }
-        }
-        $actual = count(array_filter($storyboard, 'is_array'));
-        if ($actual > 0 && $prompt === '' && empty($locations)) {
-            foreach ($rules as $rule) {
-                $min = max(1, (int)($rule['min_shots'] ?? 1));
-                $max = max(0, (int)($rule['max_shots'] ?? 0));
-                if ($actual >= $min && ($max <= 0 || $actual <= $max)) {
-                    return $rule;
-                }
-            }
-        }
-        return $rules[0] ?? [
-            'code' => 'ordinary_short',
-            'label' => '普通短',
-            'min_shots' => 20,
-            'max_shots' => 35,
-            'sort' => 20,
-            'enabled' => true,
-        ];
-    }
 
-    private static function inferStoryboardIntensityLevel(string $prompt, array $locations = []): string
-    {
-        $text = mb_strtolower($prompt, 'UTF-8');
-        $locationCount = count(array_filter($locations, 'is_array'));
-        if ($locationCount >= 4 || self::containsAnyKeyword($text, ['多场', '跨时', '多地', '追', '群像', '史诗'])) {
-            return 'cinematic_detailed';
-        }
-        if (self::containsAnyKeyword($text, ['悬疑', '反转', '梦境', '线索', '误导', '真相', '惊悚', '谜团'])) {
-            return 'detailed';
-        }
-        if (self::containsAnyKeyword($text, ['口播', '广告', '产品', '单场', '介绍', '讲解'])) {
-            return 'lightweight';
-        }
-        return 'standard';
-    }
 
-    private static function storyboardRangeStatus(int $actual, int $min, int $max, bool $timelineOverride): string
-    {
-        if ($timelineOverride) {
-            return 'timeline_override';
-        }
-        if ($actual < $min) {
-            return 'under_range';
-        }
-        if ($max > 0 && $actual > $max) {
-            return 'over_range';
-        }
-        return 'in_range';
-    }
 
-    private static function storyboardShotCountUnderRangeSeverity(int $actual, int $min, array $storyboard, array $locations): string
-    {
-        $locationCount = count(array_filter($locations, 'is_array'));
-        $viableMinimum = max(20, $locationCount > 0 ? $locationCount * 2 : 0);
-        if ($min > 30 && $actual >= $viableMinimum && self::storyboardCoversEveryLocation($storyboard, $locations)) {
-            return 'warning';
-        }
-        return 'blocking';
-    }
 
-    private static function storyboardCoversEveryLocation(array $storyboard, array $locations): bool
-    {
-        $sceneIds = array_values(array_filter(array_map(static fn($item): string => is_array($item) ? (string)($item['id'] ?? '') : '', $locations)));
-        if (empty($sceneIds)) {
-            return true;
-        }
-        $covered = [];
-        foreach ($storyboard as $shot) {
-            if (!is_array($shot)) {
-                continue;
-            }
-            $sceneRef = (string)($shot['scene_ref_id'] ?? '');
-            if ($sceneRef !== '') {
-                $covered[$sceneRef] = true;
-            }
-        }
-        foreach ($sceneIds as $sceneId) {
-            if (empty($covered[$sceneId])) {
-                return false;
-            }
-        }
-        return true;
-    }
 
-    private static function storyboardHasShotKind(array $storyboard, string $kind): bool
-    {
-        foreach ($storyboard as $shot) {
-            if (!is_array($shot)) {
-                continue;
-            }
-            if (self::shotMatchesKind($shot, $kind)) {
-                return true;
-            }
-        }
-        return false;
-    }
 
-    private static function missingEstablishingSceneIds(array $storyboard, array $locations): array
-    {
-        $sceneIds = array_values(array_filter(array_map(static fn($item): string => is_array($item) ? (string)($item['id'] ?? '') : '', $locations)));
-        if (empty($sceneIds)) {
-            return [];
-        }
-        $hasEstablishing = array_fill_keys($sceneIds, false);
-        foreach ($storyboard as $shot) {
-            if (!is_array($shot)) {
-                continue;
-            }
-            $sceneRef = (string)($shot['scene_ref_id'] ?? '');
-            if ($sceneRef !== '' && isset($hasEstablishing[$sceneRef]) && self::shotMatchesKind($shot, 'establishing')) {
-                $hasEstablishing[$sceneRef] = true;
-            }
-        }
-        return array_keys(array_filter($hasEstablishing, static fn(bool $exists): bool => !$exists));
-    }
+
 
     private static function shotMatchesKind(array $shot, string $kind): bool
     {
@@ -25863,21 +25298,7 @@ class AigcShortDramaService
             return 'multi-episode story: split by episode sections and ordered scenes. Use AI video granularity: 4-15 seconds per shot, one visual task per shot, and no single fixed total count.';
         }
 
-        $targetRule = self::storyboardTargetRule($prompt, $request);
-        if (!empty($targetRule)) {
-            return 'no explicit duration or timeline: selected complexity rule is '
-                . (string)($targetRule['label'] ?? $targetRule['code'] ?? 'story')
-                . ', required storyboard range is ' . self::storyboardRuleRangeLabel($targetRule)
-                . '. storyboard.length must be at least ' . (int)($targetRule['min_shots'] ?? 1)
-                . (((int)($targetRule['max_shots'] ?? 0) > 0) ? (' and no more than ' . (int)$targetRule['max_shots']) : ' with no upper limit')
-                . '. Split by plot complexity and one visible task per shot. Do not use text length as the deciding factor.';
-        }
-
-        $parts = [];
-        foreach (self::storyboardRulesFromRequest($request) as $rule) {
-            $parts[] = (string)($rule['label'] ?? $rule['code'] ?? 'story') . ': ' . self::storyboardRuleRangeLabel($rule) . '. ' . (string)($rule['description'] ?? '');
-        }
-        return 'no explicit duration or timeline: judge plot complexity first, then choose one matching range from storyboard_complexity_rules. ' . implode(' ', $parts) . ' Split ordinary actions into 2-3 second shots, emotional close-ups into 3-4 second shots, establishing shots into 3-5 second shots, and climax/reveal shots into 4-5 second shots. Do not use text length as the deciding factor.';
+        return 'Cover the complete story with executable actions, dialogue and emotional beats. No genre shot quotas or filler shots.';
     }
 
     private static function extractTimelineSegments(string $prompt): array

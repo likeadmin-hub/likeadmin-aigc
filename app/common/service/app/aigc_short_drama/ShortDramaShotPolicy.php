@@ -1,0 +1,42 @@
+<?php
+namespace app\common\service\app\aigc_short_drama;
+
+use think\facade\Db;
+use RuntimeException;
+
+/** Retires genre quotas without rewriting historical paid requests or artifacts. */
+final class ShortDramaShotPolicy
+{
+    public const VERSION = 2;
+    public const INSTRUCTION = '分镜由完整剧情、实际动作、对白和情绪决定，不使用后台题材档位、关键词匹配或旧模板的镜头数量上下限，不按档位补镜、删镜或凑时长。保留用户明确的镜头要求、时长、时间码、关键事件、人物关系及结局；镜头时长必须能承载画面和对白。';
+
+    /** Read an original artifact, not a cache hit for a changed provider request.
+     * Called only for the same durable task; revisions create a separate task.
+     * All normal generation/adaptation/quality/continuity guards still run.
+     */
+    public static function legacyReceipt(int $tenant, int $user, array $request, string $key = 'v3_script'): ?array
+    {
+        if (($request['_shot_policy_version'] ?? 0) >= self::VERSION || empty($request['_prompt_task_id'])) return null;
+        $scope = ['tenant_id' => $tenant, 'user_id' => $user, 'task_id' => $request['_prompt_task_id']];
+        $task = Db::name('aigc_short_drama_script_task')->where($scope)->where('delete_time', 0)->find();
+        if (!$task || !in_array($task['status'], ['pending', 'queued', 'running'], true)) return null;
+        $saved = json_decode((string)$task['request_json'], true, 512, JSON_THROW_ON_ERROR);
+        if (($saved['_shot_policy_version'] ?? 0) >= self::VERSION) return null;
+        // Runtime may refresh model display metadata, never creative inputs.
+        foreach (['prompt', 'series_context', 'revision_message', 'revision_target', 'revision_base_result',
+            'episode_id', 'episode_number', 'episode_duration_policy', 'locked_subject_references'] as $field) {
+            if (($saved[$field] ?? null) !== ($request[$field] ?? null)) throw new RuntimeException('生成上下文已变化，请新建版本；原有结果已保留', 409);
+        }
+        $row = Db::name('aigc_short_drama_planning_unit')->where($scope)->where('unit_key', $key)->where('status', 'received')->find();
+        if (!$row) return null;
+        $receipt = json_decode((string)$row['result_json'], true, 512, JSON_THROW_ON_ERROR);
+        // Never reuse a truncated/invalid response as a complete script.
+        try {
+            $plan = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []));
+            foreach ($key === 'v3_script' ? ['title', 'story_outline', 'subjects', 'locations', 'storyboard'] : [] as $field) {
+                if (empty($plan[$field])) return null;
+            }
+        } catch (RuntimeException $error) { return null; }
+        return $receipt;
+    }
+}

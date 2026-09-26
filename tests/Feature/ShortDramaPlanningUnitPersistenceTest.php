@@ -52,6 +52,24 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
     {
         $this->assertAuditReceiptReplay(true);
     }
+    public function testRetiredQuotaResumeReadsOriginalReceiptWithoutMutatingIt(): void
+    {
+        $request = ['prompt'=>'原始剧情','series_context'=>['episode'=>1], '_prompt_task_id'=>$this->task];
+        Db::name('aigc_short_drama_script_task')->insert(['tenant_id'=>2000000719,'user_id'=>7,
+            'task_id'=>$this->task,'status'=>'running','request_json'=>json_encode($request)]);
+        $receipt = ['result'=>['content'=>json_encode(['title'=>'故事','story_outline'=>'完整剧情',
+            'subjects'=>[['id'=>'p']], 'locations'=>[['id'=>'l']], 'storyboard'=>[['shot_id'=>'1']]])]];
+        Unit::call(2000000719,7,$this->task,'v3_script',['content'=>'不可重写的原始请求'],static fn()=>$receipt);
+        $before = Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->find();
+        for ($i=0;$i<2;$i++) self::assertSame($receipt,
+            \app\common\service\app\aigc_short_drama\ShortDramaShotPolicy::legacyReceipt(2000000719,7,$request));
+        self::assertNull(\app\common\service\app\aigc_short_drama\ShortDramaShotPolicy::legacyReceipt(2000000719,8,$request));
+        self::assertNull(\app\common\service\app\aigc_short_drama\ShortDramaShotPolicy::legacyReceipt(2000000720,7,$request));
+        self::assertSame($before, Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->find());
+        $request['prompt']='改变剧情';
+        $this->expectExceptionCode(409);
+        \app\common\service\app\aigc_short_drama\ShortDramaShotPolicy::legacyReceipt(2000000719,7,$request);
+    }
     public function testFailedCorrectionIsRetainedAndNeverResubmittedOnRepeatedRetry(): void
     {
         $this->assertAuditReceiptReplay(false);
