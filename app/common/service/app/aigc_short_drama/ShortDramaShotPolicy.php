@@ -10,6 +10,12 @@ final class ShortDramaShotPolicy
     public const VERSION = 2;
     public const INSTRUCTION = '分镜由完整剧情、实际动作、对白和情绪决定，不使用后台题材档位、关键词匹配或旧模板的镜头数量上下限，不按档位补镜、删镜或凑时长。保留用户明确的镜头要求、时长、时间码、关键事件、人物关系及结局；镜头时长必须能承载画面和对白。';
 
+    /** Remove only the verbatim retired application paragraph from frozen templates. */
+    public static function upgradeInstructions(string $text): string
+    {
+        return str_replace('There is no fixed storyboard count by text length; never use 8 as the default. When no target duration or timeline exists, judge story complexity and follow the tenant-configured storyboard complexity rules and storyboard breaking intensity from context: light for simple talking-head/advertising/single-scene content, standard for ordinary short films, detailed for complex dream/suspense/reversal films, and cinematic detailed for complex multi-scene plots. Timeline segments without selected duration override storyboard intensity ranges and must not be expanded.', self::INSTRUCTION, $text);
+    }
+
     /** Read an original artifact, not a cache hit for a changed provider request.
      * Called only for the same durable task; revisions create a separate task.
      * All normal generation/adaptation/quality/continuity guards still run.

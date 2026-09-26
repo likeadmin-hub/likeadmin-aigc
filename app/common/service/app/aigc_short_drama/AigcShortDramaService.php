@@ -14759,7 +14759,7 @@ class AigcShortDramaService
 
     private static function stripPlanRuntimeFields(array $plan): array
     {
-        unset($plan['agents'], $plan['workflow_steps'], $plan['review_report'], $plan['export_plan'], $plan['outline_validation_issues']);
+        unset($plan['agents'], $plan['workflow_steps'], $plan['review_report'], $plan['export_plan'], $plan['outline_validation_issues'], $plan['storyboard_breaking_diagnostics']);
         return $plan;
     }
 

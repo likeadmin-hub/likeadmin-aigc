@@ -9,7 +9,7 @@ Date: 2026-09-26. Branch: `feature/short-drama-enhancement` in both source repos
 - PC frontend, separate first commit `1361a6b`: progressive preview follows form section order, storyboard follows chronological order, complete repairs replace obsolete previews, Unicode typing remains safe.
 - Canvas creative prompt shares the no-genre-quota instruction. Frozen custom creative instructions and historical task records are not rewritten.
 - No changes to route/permission/menu, charging, provider adapters, app lifecycle, or tenant identity contracts. Historical paid request signatures remain unchanged.
-- Legacy complete script receipts are read only within the same tenant/user/task and unchanged creative inputs, then run through normal generation normalization/quality/continuity checks. Unsafe or incomplete receipts do not fall through into a new paid submission. Such tasks may require a new version after checking the prior request.
+- Legacy receipts are read only within the same tenant/user/task and unchanged creative inputs, then passed to their owning stage for normal decoding, bounded repair, normalization, quality and continuity checks. This covers local patches, skeletons and individual scene chunks as well as complete scripts. Non-received ambiguous units cannot fall through into a new paid submission and require checking the prior request.
 
 ## Verified
 
@@ -35,3 +35,12 @@ The wider `ShortDrama` filter ran 423 tests / 6,734 assertions: 12 errors, 4 fai
 The app migration `upgrade_20260926_retire_storyboard_rules.sql` removes only the active `storyboard_rules` key and archives it as `_retired_storyboard_rules_v1`. Restoring the old behavior requires a deliberate source rollback plus copying that backup back into the active field; never replay old paid tasks or rewrite their signatures as part of rollback. No historical script, task, asset, billing or result row is deleted.
 
 Local develop integration only; push feature branches only. Source-only delivery excludes runtime files, compiled frontend assets and machine-local Vite proxy settings. No remote production migration, deployment or release publishing is performed by this task.
+
+## Follow-up residual and impact review
+
+- Corrected full-script validation being applied prematurely to historical local patches. Every received unit now retains its original stage-specific schema; truncated receipts still fail the normal decoder and enter the existing bounded recovery flow.
+- Reuse historical skeleton and scene receipts by unit key, avoiding repeat generation of completed units.
+- Recognize retired custom-document condition headings without executing them; ignore removed catalog keys during legacy document migration.
+- Strip the exact retired built-in genre paragraph from frozen system templates when assembling requests, and omit old count diagnostics from model-facing plan payloads. Stored snapshots and original results remain intact.
+- Apply the no-genre-quota Agent instruction only to script/storyboard stages. Asset, video and music stages retain their own prompts.
+- Remaining rule names are empty API adapters, historical audit fields, migration backup identifiers and compatibility readers. No active tenant genre rules remain in the local database.
