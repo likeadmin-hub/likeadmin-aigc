@@ -67,7 +67,8 @@ final class MarketTextConversationProvider implements ConversationProviderInterf
         if (isset($request['max_tokens']) && is_int($request['max_tokens']) && $request['max_tokens']>0) $modelConfig['max_tokens']=$request['max_tokens'];
         if (array_key_exists('enable_thinking',$request) && is_bool($request['enable_thinking'])) $modelConfig['enable_thinking']=$request['enable_thinking'];
         if ($modelConfig) $runtimeRequest['model_config']=$modelConfig;
-        $result=MarketTextModelRuntimeService::generate($tenant,$user,$runtimeRequest);
+        $onEvent=is_callable($request['on_event']??null)?$request['on_event']:null;
+        $result=MarketTextModelRuntimeService::generate($tenant,$user,$runtimeRequest,$onEvent);
         $answer=trim((string)($result['content']??''));
         if ($answer==='') throw new RuntimeException('EMPTY_MODEL_RESPONSE');
         return ['content'=>$answer,'tool_calls'=>[],'safety_checked'=>$validator!==null];
