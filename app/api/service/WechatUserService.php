@@ -79,21 +79,23 @@ class WechatUserService
      */
     public function getResopnseByUserInfo(): self
     {
-        $openid = $this->openid;
-        $unionid = $this->unionid;
-
-        $user = User::alias('u')
-            ->field('u.id,u.sn,u.mobile,u.nickname,u.avatar,u.mobile,u.is_disable,u.is_new_user')
-            ->join('user_auth au', 'au.user_id = u.id')
-            ->where(function ($query) use ($openid, $unionid) {
-                $query->whereOr(['au.openid' => $openid]);
-                if (isset($unionid) && $unionid) {
-                    $query->whereOr(['au.unionid' => $unionid]);
-                }
-            })
+        // Resolve each model through its own tenant scope; a raw join bypasses
+        // the auth table's tenant filter/shard and drops user.tenant_id.
+        $auth = UserAuth::where(['openid' => $this->openid, 'terminal' => $this->terminal])->findOrEmpty();
+        $userId = $auth->isEmpty() ? 0 : (int)$auth->user_id;
+        if (!$userId && $this->unionid !== '') {
+            $owners = array_unique(array_map('intval', UserAuth::where('unionid', $this->unionid)->column('user_id')));
+            if (count($owners) > 1) {
+                throw new Exception('微信身份关联多个账号，请使用手机号登录后联系客服处理');
+            }
+            $userId = $owners ? (int)reset($owners) : 0;
+        }
+        $this->user = User::where('id', $userId)
+            ->field('id,tenant_id,sn,mobile,nickname,avatar,is_disable,is_new_user')
             ->findOrEmpty();
-
-        $this->user = $user;
+        if ($userId && $this->user->isEmpty()) {
+            throw new Exception('微信关联账号已不可用，请使用其他方式登录');
+        }
         return $this;
     }
 
@@ -190,25 +192,28 @@ class WechatUserService
     private function updateUser(): void
     {
         // 无头像需要更新头像
-        if (empty($this->user->avatar)) {
+        if (empty($this->user->avatar) && !empty($this->headimgurl)) {
             $this->user->avatar = $this->getAvatarByWechat();
-            $this->user->save();
+            User::where(['id' => $this->user->id, 'tenant_id' => $this->user->tenant_id])
+                ->update(['avatar' => $this->user->getData('avatar')]);
         }
 
-        $userAuth = UserAuth::where(['user_id' => $this->user->id, 'openid' => $this->openid])
+        $userAuth = UserAuth::where(['user_id' => $this->user->id, 'openid' => $this->openid, 'terminal' => $this->terminal])
             ->findOrEmpty();
 
         // 无该端授权信息，新增一条
         if ($userAuth->isEmpty()) {
-            $userAuth->user_id = $this->user->id;
-            $userAuth->openid = $this->openid;
-            $userAuth->unionid = $this->unionid;
-            $userAuth->terminal = $this->terminal;
-            $userAuth->save();
+            UserAuth::create([
+                'tenant_id' => $this->user->tenant_id,
+                'user_id' => $this->user->id,
+                'openid' => $this->openid,
+                'unionid' => $this->unionid,
+                'terminal' => $this->terminal,
+            ]);
         } else {
             if (empty($userAuth['unionid']) && !empty($this->unionid)) {
-                $userAuth->unionid = $this->unionid;
-                $userAuth->save();
+                UserAuth::where(['id' => $userAuth->id, 'user_id' => $this->user->id])
+                    ->update(['unionid' => $this->unionid]);
             }
         }
     }
