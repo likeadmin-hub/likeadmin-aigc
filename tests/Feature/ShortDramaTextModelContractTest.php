@@ -48,19 +48,18 @@ class ShortDramaTextModelContractTest extends TestCase
         self::assertSame('901', $matched['id']);
     }
 
-    public function testUnknownExplicitScriptModelDoesNotSilentlyFallback(): void
+    public function testUnavailableExplicitScriptModelUsesAvailableConfiguredDefault(): void
     {
-        $this->expectException(Exception::class);
-        $this->expectExceptionMessage('所选剧本策划模型已下架或不可用');
-
-        $this->invoke('resolveSelectedModels', 0, [
+        $selected = $this->invoke('resolveSelectedModels', 0, [
             'model_selections' => ['script_plan' => ['id' => 'missing-model']],
         ], [
             'model_groups' => [[
                 'key' => 'script_plan',
-                'options' => [['id' => '901', 'model_code' => 'glm-5.2']],
+                'default' => '902',
+                'options' => [['id' => '901', 'model_code' => 'glm-5.2'], ['id' => '902', 'model_code' => 'default-model']],
             ]],
         ]);
+        self::assertSame('902', $selected['script_plan']['id']);
     }
 
     public function testConfiguredDefaultKeepsEveryTextModelSelectable(): void
