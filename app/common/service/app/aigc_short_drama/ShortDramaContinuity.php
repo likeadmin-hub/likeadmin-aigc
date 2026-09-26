@@ -131,6 +131,7 @@ final class ShortDramaContinuity
                     $review = self::isolateInvalidEvidence($review, $plan, $attempt >= 2);
                     $verified = $verifyMeaning($review, $plan);
                     if (is_array($verified)) $review = $verified;
+                    $review = self::isolateUncertainStateChains($review);
                 }
                 $ledger = self::ledger($review, $plan, $context, $episode);
                 return $ledger + ['review_repairs' => $attempt];
@@ -170,7 +171,28 @@ final class ShortDramaContinuity
         throw new RuntimeException('连续性审校未完成', 422);
     }
 
-    /** Repair only references, never delegate ownership of facts to a correction. */
+    /** A removed transition cannot remain the assumed basis for a later one. */
+    private static function isolateUncertainStateChains(array $review): array
+    {
+        $uncertain = [];
+        foreach ($review['unverified_claims'] ?? [] as $entry) {
+            $claim = $entry['claim'] ?? [];
+            if (($entry['collection'] ?? '') === 'changes' && is_string($claim['entity_id'] ?? null) && is_string($claim['field'] ?? null)) {
+                $uncertain[$claim['entity_id'] . ':' . $claim['field']] = true;
+            }
+        }
+        foreach ($review['changes'] as $index => $claim) {
+            if (!isset($uncertain[($claim['entity_id'] ?? '') . ':' . ($claim['field'] ?? '')])) continue;
+            $review['unverified_claims'][] = ['collection' => 'changes', 'index' => $index, 'claim' => $claim,
+                'reason' => '同一状态链包含未验证的变更，不能据此更新后续状态'];
+            $review['warnings'][] = '连续性状态链待复核，已保留前集状态：' . $claim['entity_id'] . ':' . $claim['field'];
+            unset($review['changes'][$index]);
+        }
+        $review['changes'] = array_values($review['changes']);
+        return $review;
+    }
+
+    /** Invalid references are isolated only after the bounded repair budget. */
     private static function isolateInvalidEvidence(array $review, array $plan, bool $exhausted): array
     {
         foreach (['changes', 'hooks', 'warnings'] as $key) {
