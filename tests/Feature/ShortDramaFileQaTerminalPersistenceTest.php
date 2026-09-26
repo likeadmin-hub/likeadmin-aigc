@@ -18,7 +18,7 @@ class ShortDramaFileQaTerminalPersistenceTest extends TestCase
 
     public static function terminals(): array
     {
-        return [['canceled', 'failed'], ['success', 'failed'], ['canceled', 'success'], ['success', 'success'], ['canceled', 'malformed'], ['success', 'malformed']];
+        return [['canceled', 'failed'], ['success', 'failed'], ['canceled', 'success'], ['success', 'success'], ['canceled', 'malformed'], ['success', 'malformed'], ['running', 'success']];
     }
 
     /** @dataProvider terminals */
@@ -43,6 +43,19 @@ class ShortDramaFileQaTerminalPersistenceTest extends TestCase
         $stale = $before; $stale['status'] = 'running';
         $method = new \ReflectionMethod(AigcShortDramaService::class, 'syncMarketFileQaScriptTask');
         $method->setAccessible(true); $method->invoke(null, $stale);
+        if ($terminal === 'running') {
+            $saved = Db::name('aigc_short_drama_script_task')->where('id', $id)->find();
+            $request = json_decode($saved['request_json'], true);
+            self::assertSame('success', $saved['status']);
+            self::assertSame('story_outline_v2', $request['workflow_variant']);
+            self::assertSame('story', $request['multi_episode_stage']);
+            self::assertCount(2, $request['_imported_outline_snapshot']['episodes']);
+            self::assertSame([], json_decode($saved['result_json'], true)['episodes']);
+            $detail = AigcShortDramaService::scriptPlanDetail($scope['tenant_id'], $scope['user_id'], $taskId, $projectId);
+            self::assertSame('story', $detail['story_workspace']['stage']);
+            self::assertTrue($detail['story_workspace']['can_confirm']);
+            return;
+        }
         self::assertSame($before, Db::name('aigc_short_drama_script_task')->where('id', $id)->find());
     }
 }
