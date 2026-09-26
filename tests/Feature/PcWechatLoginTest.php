@@ -209,7 +209,7 @@ final class PcWechatLoginTest extends TestCase
     }
     public function testSplitTenantBindingUsesShardAndDoesNotTouchBaseIdentity(): void
     {
-        foreach (['user', 'user_auth', 'user_session'] as $name) {
+        foreach (['user', 'user_auth', 'user_session', 'tenant_config'] as $name) {
             $schema = Db::query("SELECT sql FROM sqlite_master WHERE name=?", ['la_' . $name])[0]['sql'];
             Db::execute(str_replace('CREATE TABLE la_' . $name . ' ', 'CREATE TABLE la_' . $name . '_one ', $schema));
             Db::execute('INSERT INTO la_' . $name . '_one SELECT * FROM la_' . $name);
