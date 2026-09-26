@@ -82,6 +82,37 @@ class ShortDramaContinuityTest extends TestCase
             } catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); }
         }
     }
+    public function testPartialEvidenceRepairAccumulatesWithoutOverwritingVerifiedQuotes(): void
+    {
+        $bad = $this->review();
+        $bad['changes'][0]['quote'] = '错误引用';
+        $bad['changes'][] = array_replace($bad['changes'][0], ['field' => 'location']);
+        $calls = 0;
+        $ledger = Continuity::review($this->plan(), [], 1, static function () use (&$calls, $bad) {
+            if (++$calls === 1) return $bad;
+            if ($calls === 2) return ['evidence_patches' => [
+                ['collection' => 'changes', 'index' => 0, 'quote' => '甲拿走钥匙']]];
+            return ['evidence_patches' => [
+                ['collection' => 'changes', 'index' => 0, 'quote' => '不得覆盖的错误引用'],
+                ['collection' => 'changes', 'index' => 1, 'quote' => '甲拿走钥匙']]];
+        });
+        self::assertSame(3, $calls);
+        self::assertSame(2, $ledger['review_repairs']);
+        self::assertCount(2, $ledger['state']);
+    }
+    public function testUnrepairableEvidenceStopsAfterTwoCorrections(): void
+    {
+        $bad = $this->review(); $bad['changes'][0]['quote'] = '不存在'; $calls = 0;
+        try {
+            Continuity::review($this->plan(), [], 1, static function () use (&$calls, $bad) {
+                return ++$calls === 1 ? $bad : ['evidence_patches' => []];
+            });
+            self::fail('Unproven evidence must not pass');
+        } catch (\RuntimeException $error) {
+            self::assertSame(422, $error->getCode());
+            self::assertSame(3, $calls);
+        }
+    }
     public function testStringNullForNewStateDoesNotNeedPaidRepair(): void
     {
         $review = $this->review(); $review['changes'][0]['before'] = 'null'; $calls = 0;
