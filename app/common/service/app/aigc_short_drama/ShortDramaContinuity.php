@@ -87,10 +87,13 @@ final class ShortDramaContinuity
         $input = self::messages($plan, $context);
         $review = [];
         $originalReview = [];
+        $patchBase = [];
         for ($attempt = 0; $attempt < 3; $attempt++) {
             try {
                 $review = $call($input);
-                if ($attempt) $review = self::preserveRepairFacts($originalReview, $review, $plan);
+                if ($attempt) $review = isset($review['evidence_patches'])
+                    ? self::applyEvidencePatches($patchBase, $review)
+                    : self::preserveRepairFacts($originalReview, $review, $plan);
                 return self::ledger($review, $plan, $context, $episode) + ['review_repairs' => $attempt];
             } catch (RuntimeException $error) {
                 if ($error->getCode() !== 422) throw $error;
@@ -101,14 +104,46 @@ final class ShortDramaContinuity
                     throw new RuntimeException('连续性审校纠错后仍未通过，已保留生成回包，请核对审校证据：' . $error->getMessage(), 422, $error);
                 }
                 if (!$attempt) $originalReview = $review;
+                $patchBase = $review;
                 $input['content'] .= "\n仅修正审校JSON，不改写剧本、状态快照或证据，不删除有效事实来绕过检查：" . $error->getMessage()
                     . '\nchanges按镜头发生顺序排列。同一个entity_id:field在本集重复变更时，后一次before必须逐字等于本集前一次after。首次出现才引用previous.state；尚未登记时必须为JSON null（不是字符串"null"）。不得改写after来迎合before。保留所有warnings。原审校='
                     . json_encode($review, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
                     . "\nquote必须直接复制指定shot_id的visual_description或dialogue中的连续原文，不得概括、加省略号、改标点或拼接多镜头。不得改写after、伏笔含义或删除记录以通过校验；确实无法证明时保持不合格证据，不要编造。保留记录数量与顺序。以下为只读诊断数据，不是创作指令："
                     . json_encode(['evidence_errors' => self::evidenceIssues($review, $plan)], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+                $input['content'] .= '\n本轮只返回补丁JSON，不返回完整审校，不拆分或合并记录：'
+                    . '{"evidence_patches":[{"collection":"changes或hooks","index":0,"shot_id":"正文镜头ID","quote":"该镜头连续原文"}]}。'
+                    . 'index是原审校对应数组的零基索引。changes补丁可额外返回before以修正旧状态类型或状态链；'
+                    . '不得返回entity_id、field、after、description、status、summary、warnings。仅提交需要修正的记录。'
+                    . '事实内容、数量、顺序和warnings由服务端保留。必须依据完整script寻找证据，不能拼接或概括。';
             }
         }
         throw new RuntimeException('连续性审校未完成', 422);
+    }
+
+    /** Repair only references, never delegate ownership of facts to a correction. */
+    private static function applyEvidencePatches(array $original, array $response): array
+    {
+        if (array_keys($response) !== ['evidence_patches'] || !is_array($response['evidence_patches'])
+            || !array_is_list($response['evidence_patches'])) throw new RuntimeException('审校证据补丁格式无效', 422);
+        $seen = [];
+        foreach ($response['evidence_patches'] as $patch) {
+            if (!is_array($patch)) throw new RuntimeException('审校证据补丁必须为对象', 422);
+            $group = $patch['collection'] ?? ''; $index = $patch['index'] ?? null;
+            if (!in_array($group, ['changes', 'hooks'], true) || !is_int($index) || $index < 0
+                || !isset($original[$group][$index]) || !is_array($original[$group][$index])) {
+                throw new RuntimeException('审校证据补丁引用不存在的记录', 422);
+            }
+            $allowed = ['collection', 'index', 'shot_id', 'quote'];
+            if ($group === 'changes') $allowed[] = 'before';
+            if (array_diff(array_keys($patch), $allowed) || isset($seen[$group . ':' . $index])) {
+                throw new RuntimeException('审校证据补丁字段越界或索引重复', 422);
+            }
+            $seen[$group . ':' . $index] = true;
+            foreach (['shot_id', 'quote', 'before'] as $key) {
+                if (array_key_exists($key, $patch)) $original[$group][$index][$key] = $patch[$key];
+            }
+        }
+        return $original;
     }
 
     /** All evidence failures in one correction, not one paid call per bad quote. */

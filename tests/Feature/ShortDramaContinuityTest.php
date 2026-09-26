@@ -40,6 +40,31 @@ class ShortDramaContinuityTest extends TestCase
         $this->expectExceptionCode(422);
         Continuity::ledger($review, $this->plan(), [], 1);
     }
+    public function testEvidencePatchPreservesFactsAndWarnings(): void
+    {
+        $bad = $this->review(); $bad['changes'][0]['quote'] = '甲...钥匙';
+        $bad['warnings'] = ['需要人工复核']; $calls = 0;
+        $ledger = Continuity::review($this->plan(), [], 1, static function ($input) use (&$calls, $bad) {
+            if (++$calls === 1) return $bad;
+            self::assertStringContainsString('evidence_patches', $input['content']);
+            return ['evidence_patches' => [['collection' => 'changes', 'index' => 0, 'shot_id' => 's1', 'quote' => '甲拿走钥匙']]];
+        });
+        self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
+        self::assertSame($bad['warnings'], $ledger['warnings']);
+    }
+    public function testEvidencePatchCannotChangeFactValuesOrAddRows(): void
+    {
+        foreach ([['collection' => 'changes', 'index' => 0, 'after' => '改写'],
+            ['collection' => 'changes', 'index' => 10, 'quote' => '甲拿走钥匙']] as $patch) {
+            $bad = $this->review(); $bad['changes'][0]['quote'] = '甲...钥匙'; $calls = 0;
+            try {
+                Continuity::review($this->plan(), [], 1, static function () use (&$calls, $bad, $patch) {
+                    return ++$calls === 1 ? $bad : ['evidence_patches' => [$patch]];
+                });
+                self::fail('Invalid patch must not pass');
+            } catch (\RuntimeException $error) { self::assertSame(422, $error->getCode()); }
+        }
+    }
     public function testStringNullForNewStateDoesNotNeedPaidRepair(): void
     {
         $review = $this->review(); $review['changes'][0]['before'] = 'null'; $calls = 0;
