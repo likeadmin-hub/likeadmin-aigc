@@ -2904,6 +2904,29 @@ class AigcShortDramaService
      */
     public static function parseUploadedScript(int $tenantId, int $userId, array $params): array
     {
+        $params = ShortDramaInputContract::withoutSkills($params);
+        if ((int)($params['submission_version'] ?? 0) === 2) {
+            $file = request()->file('file');
+            $path = $file && method_exists($file, 'getRealPath') ? $file->getRealPath() : '';
+            if (!$path || !is_readable($path) || $file->getSize() <= 0 || $file->getSize() > self::SCRIPT_UPLOAD_MAX_BYTES) {
+                throw new Exception('剧本文件读取失败或超过10MB');
+            }
+            if (empty($params['submission_key'])) throw new Exception('剧本提交标识无效，请重新提交');
+            // Server-computed bytes bind a key to the actual upload, not its filename.
+            $identityParams = array_replace($params, ['_file_sha256' => hash_file('sha256', $path), '_file_name' => $file->getOriginalName()]);
+            $created = ShortDramaSubmission::run($tenantId, $userId, 'script_upload', $identityParams,
+                static fn(array $receipt): array => self::createUploadedScriptTask($tenantId, $userId, $params, $receipt));
+        } else {
+            $created = self::createUploadedScriptTask($tenantId, $userId, $params);
+        }
+        // The local creation lock has ended before reserve/submit crosses the provider boundary.
+        if (!isset($created['_dispatch_request'])) return $created;
+        return self::dispatchUploadedScriptTask($tenantId, $userId, (int)$created['project_id'],
+            (string)$created['task_id'], $created['_dispatch_request']);
+    }
+
+    private static function createUploadedScriptTask(int $tenantId, int $userId, array $params, array $receipt = []): array
+    {
         $projectId = (int)($params['project_id'] ?? 0);
         $sourceTaskId = trim((string)($params['task_id'] ?? ''));
         $isHomeSubmission = $projectId <= 0
@@ -2941,7 +2964,7 @@ class AigcShortDramaService
                 'idempotency_key' => $idempotencyKey,
                 'delete_time' => 0,
             ])->order('id', 'desc')->findOrEmpty();
-            if (!$existing->isEmpty()) {
+            if (!$receipt && !$existing->isEmpty()) {
                 return [
                     'project_id' => (int)$existing['project_id'],
                     'task_id' => (string)$existing['task_id'],
@@ -3008,6 +3031,10 @@ class AigcShortDramaService
             $sourceRequest = self::jsonDecode((string)$sourceTask['request_json']);
             $idempotencyKey = '';
         }
+        $sourceRequest = ShortDramaInputContract::begin($sourceRequest);
+        unset($sourceRequest['_submission_key'], $sourceRequest['_submission_hash']);
+        $sourceRequest = array_replace($sourceRequest, $receipt);
+        if ($receipt) $idempotencyKey = $receipt['_submission_key'];
 
         // UploadService selects the tenant-effective storage engine and stores
         // ownership metadata; the market API receives only its resolved URL.
@@ -3090,6 +3117,11 @@ class AigcShortDramaService
             ]);
         });
 
+        return ['project_id' => $projectId, 'task_id' => $parseTaskId, 'status' => self::STATUS_PENDING, '_dispatch_request' => $request];
+    }
+
+    private static function dispatchUploadedScriptTask(int $tenantId, int $userId, int $projectId, string $parseTaskId, array $request): array
+    {
         try {
             $selection = ['upstream_app_code' => 'file_qa'];
             $reserve = MarketFileQaAppRuntimeService::reserve($tenantId, $userId, 'script_parse', $parseTaskId, $selection, $request);

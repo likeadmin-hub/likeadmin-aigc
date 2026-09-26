@@ -4,11 +4,11 @@ namespace app\common\service\app\aigc_short_drama;
 /** New requests opt in; already queued requests retain their frozen contract. */
 final class ShortDramaInputContract
 {
-    public const VERSION = 1;
+    public const VERSION = 2;
 
     public static function current(array $request): bool
     {
-        return (int)($request['_input_contract_version'] ?? 0) >= self::VERSION;
+        return (int)($request['_input_contract_version'] ?? 0) >= 1;
     }
 
     public static function withoutSkills(array $request): array
