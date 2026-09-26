@@ -303,6 +303,22 @@ final class ConversationExecution
         });
     }
 
+    /** Progress is provisional, never a message, graph mutation or state transition. */
+    public static function streamProgress(int $tenant,int $user,int $runId,string $token,int $fence,string $kind,array $payload): void
+    {
+        if ($kind==='reply.progress' && is_string($payload['text']??null)) $payload=['text'=>mb_substr($payload['text'],0,16000,'UTF-8')];
+        elseif ($kind==='provider.heartbeat' && is_int($payload['elapsed_ms']??null)) $payload=['elapsed_ms'=>max(0,$payload['elapsed_ms'])];
+        else throw new RuntimeException('INVALID_STREAM_EVENT');
+        Db::transaction(static function () use ($tenant,$user,$runId,$token,$fence,$kind,$payload): void {
+            [$run,$thread,$outbox]=self::locked($tenant,$user,$runId);
+            // Old leases and canceled/reconciled runs must not publish late
+            // text, nor turn a best-effort progress frame into a paid retry.
+            if (!hash_equals((string)$outbox['lease_token'],$token) || (int)$outbox['fencing_version']!==$fence
+                || $run['status']!=='running' || (int)$thread['active_run_id']!==$runId) return;
+            self::event($run,$kind,$payload);
+        });
+    }
+
     private static function terminalThreadUpdate(array $thread,array $run): array
     {
         $update=['active_run_id'=>0,'update_time'=>time()];

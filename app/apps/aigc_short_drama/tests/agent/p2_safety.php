@@ -12,7 +12,11 @@ use app\common\service\app\aigc_short_drama\canvas_agent\ConversationSafety;
 final class SafetyProvider implements ConversationProviderInterface {
     public int $calls=0;
     public function preflight(int $tenant,int $user,array $request): void {}
-    public function generate(int $tenant,int $user,array $request): array { $this->calls++; return ['content'=>'拒绝输出标记','tool_calls'=>[]]; }
+    public function generate(int $tenant,int $user,array $request): array {
+        $this->calls++;
+        ($request['on_event'])('delta',['delta'=>'{"reply_markdown":"拒绝输出标记"}']);
+        return ['content'=>'拒绝输出标记','tool_calls'=>[]];
+    }
 }
 if (Db::name('aigc_short_drama_config')->whereIn('tenant_id',[91031,91032])->count()) throw new RuntimeException('Existing safety fixture config');
 $canvas=0;$config=[];$product=0;
@@ -41,6 +45,7 @@ try {
     $run=Store::run(91031,92031,$canvas,$thread,$ack['run_id']);
     agentCheck($run['status']==='failed' && $run['error_code']==='CONTENT_BLOCKED','output rejection is a safe terminal run state');
     agentCheck(count(Store::messages(91031,92031,$canvas,$thread))===1,'blocked output is never published as an assistant message');
+    agentCheck(Db::name(Store::PREFIX.'event')->where(['run_id'=>$ack['run_id'],'kind'=>'reply.progress'])->count()===0,'blocked streaming text is never published as a progress event');
     $outputAudit=Db::name(ConversationSafety::TABLE)->where(['tenant_id'=>91031,'canvas_id'=>$canvas,'run_id'=>$ack['run_id'],'direction'=>'output'])->find();
     agentCheck((string)$outputAudit['decision']==='blocked' && (int)$outputAudit['provider_submitted']===1 && !str_contains(json_encode($outputAudit,JSON_UNESCAPED_UNICODE),'拒绝输出标记'),'output audit is redacted and marks the submitted boundary');
     ConversationSafety::assertInput(91032,92032,7,8,'tenant-two','独立内容');

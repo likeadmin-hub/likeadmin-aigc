@@ -30,6 +30,16 @@ final class ConversationSafety
         if ($decision['state']==='blocked') throw new ConversationSafetyViolation();
     }
 
+    /** Moderate provisional public text without recording a premature final pass. */
+    public static function assertStreamOutput(int $tenant,int $user,int $canvas,int $thread,int $run,string $content): void
+    {
+        $decision=self::decision($tenant,$content);
+        if ($decision['state']!=='blocked') return;
+        // Passing a fragment must not occupy the unique final-output audit.
+        self::audit($tenant,$user,$canvas,$thread,$run,'','output',$content,$decision,true);
+        throw new ConversationSafetyViolation();
+    }
+
     /** Bounded cleanup is safe to call from the long-running Agent worker. */
     public static function purgeExpired(int $tenant,int $limit=100): int
     {

@@ -109,6 +109,11 @@ final class ConversationWorker
         $authorization=ConversationExecution::authorizeSubmission($tenant,$user,$run,$claim['token'],$claim['fence'],$request['request_timeout_seconds']);
         if ($authorization!=='authorized') return $authorization;
         try {
+            $stream=new ConversationReplyStream(static function (string $kind,array $payload) use ($tenant,$user,$run,$claim): void {
+                if ($kind==='reply.progress') ConversationSafety::assertStreamOutput($tenant,$user,(int)$claim['canvas_id'],(int)$claim['thread_id'],$run,$payload['text']);
+                ConversationExecution::streamProgress($tenant,$user,$run,$claim['token'],$claim['fence'],$kind,$payload);
+            },$responseFormat!==null,(bool)$intentRouting || $workflowStage==='');
+            $request['on_event']=[$stream,'receive'];
             // Database transaction ended before crossing this boundary.
             $result=$provider->generate($tenant,$user,$request);
             if (!is_string($result['content']??null) || trim($result['content'])==='' || mb_strlen($result['content'])>100000 || !is_array($result['tool_calls']??[]) || ($result['tool_calls']??[])!==[]) throw new RuntimeException('UNSUPPORTED_MODEL_RESPONSE');
