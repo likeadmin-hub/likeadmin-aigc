@@ -263,6 +263,16 @@ final class ShortDramaContinuity
             // Models sometimes echo a reworded state. The correction does not
             // own it; retain the original assertion and verify its meaning.
             if ($patch['collection'] === 'changes') unset($patch['after']);
+            // A correction may echo immutable metadata. Accept only exact
+            // echoes; never apply a new identity, hook meaning or status.
+            $base = $original[$patch['collection']][$patch['index']] ?? [];
+            foreach (['entity_id', 'field', 'id', 'description', 'status'] as $protected) {
+                if (!array_key_exists($protected, $patch)) continue;
+                if (!array_key_exists($protected, $base) || $patch[$protected] !== $base[$protected]) {
+                    throw new RuntimeException('审校纠错不得改写事实标识或伏笔含义', 422);
+                }
+                unset($patch[$protected]);
+            }
             $key = $patch['collection'] . ':' . $patch['index'];
             if (!isset($patches[$key])) { $patches[$key] = $patch; continue; }
             $previous = $patches[$key];

@@ -6,6 +6,21 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaContinuityPatchTest extends TestCase
 {
+    public function testCorrectionMayEchoButCannotChangeHookStatus(): void
+    {
+        $review = ['summary' => '本集', 'changes' => [], 'hooks' => [
+            ['id' => 'h', 'description' => '发现线索', 'status' => 'open', 'shot_id' => '1-2', 'quote' => '概括']], 'warnings' => []];
+        $method = new \ReflectionMethod(\app\common\service\app\aigc_short_drama\ShortDramaContinuity::class, 'applyEvidencePatches');
+        $method->setAccessible(true);
+        $patch = ['collection' => 'hooks', 'index' => 0, 'status' => 'open', 'id' => 'h', 'description' => '发现线索',
+            'evidence_refs' => [['shot_id' => '1', 'field' => 'visual_description']]];
+        $fixed = $method->invoke(null, $review, ['evidence_patches' => [$patch]], $this->plan());
+        self::assertSame('open', $fixed['hooks'][0]['status']);
+        self::assertSame([['shot_id' => '1', 'quote' => '原画面']], $fixed['hooks'][0]['evidence']);
+        $patch['status'] = 'resolved';
+        $this->expectExceptionCode(422);
+        $method->invoke(null, $review, ['evidence_patches' => [$patch]], $this->plan());
+    }
     public function testMalformedAuditPreservesScriptButDoesNotClaimVerifiedFacts(): void
     {
         $plan = $this->plan();
