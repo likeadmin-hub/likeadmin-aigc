@@ -26,8 +26,8 @@ use app\common\service\membership\MembershipService;
 use app\common\service\distribution\DistributionService;
 use app\common\service\sms\SmsDriver;
 use app\common\service\wechat\WeChatMnpService;
-use app\common\{enum\YesNoEnum};
 use app\api\service\UserTokenService;
+use app\api\service\WechatAccountService;
 use think\facade\Db;
 use think\facade\Config;
 
@@ -323,11 +323,7 @@ class UserLogic extends BaseLogic
     private static function isMergeableWechatShadow(int $userId): bool
     {
         $user = User::where('id', $userId)->findOrEmpty();
-        return !$user->isEmpty()
-            && empty($user->mobile)
-            && empty($user->password)
-            && (int)$user->is_new_user === YesNoEnum::YES
-            && str_starts_with((string)$user->account, 'u');
+        return WechatAccountService::isMergeableShadow($user);
     }
 
     /**
@@ -336,6 +332,9 @@ class UserLogic extends BaseLogic
     private static function mergeWechatShadow(int $shadowUserId, User $targetUser, int $terminal): array
     {
         return Db::transaction(function () use ($shadowUserId, $targetUser, $terminal) {
+            if (!empty($targetUser->is_disable)) {
+                throw new \Exception('您的账号异常，请联系客服。');
+            }
             $authRows = UserAuth::where('user_id', $shadowUserId)->select();
             foreach ($authRows as $auth) {
                 $sameOpenid = UserAuth::where('openid', $auth->openid)

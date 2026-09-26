@@ -28,6 +28,7 @@ use app\common\service\wechat\WeChatConfigService;
 use app\common\service\wechat\WeChatOaService;
 use app\common\service\wechat\WeChatRequestService;
 use app\api\service\{UserTokenService, WechatUserService};
+use app\api\service\WechatAccountService;
 use app\common\enum\{YesNoEnum};
 use app\common\service\{
     wechat\WeChatMnpService
@@ -392,11 +393,7 @@ class LoginLogic extends BaseLogic
 
     private static function isMergeableWechatShadow(User $user): bool
     {
-        return !$user->isEmpty()
-            && empty($user->mobile)
-            && empty($user->password)
-            && (int)$user->is_new_user === YesNoEnum::YES
-            && str_starts_with((string)$user->account, 'u');
+        return WechatAccountService::isMergeableShadow($user);
     }
 
     private static function assertWechatEnabled(): void
