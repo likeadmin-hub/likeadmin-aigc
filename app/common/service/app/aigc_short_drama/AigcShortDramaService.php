@@ -16303,6 +16303,26 @@ class AigcShortDramaService
     private static function prepareShortDramaVideoReferenceParams(int $tenantId, int $userId, int $projectId, array $shot, array $params): array
     {
         $contract = self::shortDramaVideoReferenceContract($tenantId, $userId, $projectId, $shot, $params);
+        return self::applyShortDramaVideoReferenceContract($params, $contract);
+    }
+
+    private static function applyShortDramaVideoReferenceContract(array $params, array $contract): array
+    {
+        // Market quotes validate actual media, not short-drama asset IDs.
+        // Replace browser aliases with the same server-owned media contract
+        // used by generation so pricing cannot see missing or extra images.
+        foreach (['image', 'image_urls', 'video_urls', 'audio_urls'] as $key) {
+            unset($params[$key]);
+            if (is_array($params['params'] ?? null)) {
+                unset($params['params'][$key]);
+            }
+        }
+        foreach (['reference_assets', 'reference_images', 'first_frame_image', 'last_frame_image'] as $key) {
+            $params[$key] = $contract[$key];
+            if (is_array($params['params'] ?? null)) {
+                $params['params'][$key] = $params[$key];
+            }
+        }
         $params['generation_method'] = (string)$contract['generation_method'];
         $params['input_asset_ids'] = (array)$contract['input_asset_ids'];
         $params['reference_asset_ids'] = (string)$contract['generation_method'] === 'start_end'
