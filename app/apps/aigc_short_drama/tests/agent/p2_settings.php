@@ -60,7 +60,9 @@ try {
     agentCheck(ConversationPreferences::save(91001,92002,0,['reasoning_model'=>(string)$product])['revision']===1,'different users have independent default model preferences');
     rejectsSettings(fn()=>ConversationPreferences::save(91001,92001,1,['reasoning_model'=>'unknown']),'REASONING_MODEL_UNAVAILABLE');
     rejectsSettings(fn()=>ConversationPreferences::save(91001,92001,1,['reasoning_model'=>(string)$product,'provider_url'=>'forged']),'INVALID_AGENT_PREFERENCES');
-    agentCheck(!FeatureGate::executionEnabled(91001),'Agent model execution remains opt-in when only the conversation panel is enabled');
+    agentCheck(FeatureGate::executionEnabled(91001),'Agent model execution defaults on when only the conversation panel is configured');
+    AigcShortDramaService::saveConfig(91001,['canvas_agent'=>['enabled'=>true,'execution_enabled'=>false]]);
+    agentCheck(!FeatureGate::executionEnabled(91001),'explicit tenant execution disable remains effective');
     $provider=new MarketTextConversationProvider();
     rejectsSettings(fn()=>$provider->preflight(91001,92001,['settings'=>['reasoning_model'=>['id'=>(string)$product]]]),'CANVAS_AGENT_EXECUTION_DISABLED');
     AigcShortDramaService::saveConfig(91001,['canvas_agent'=>['enabled'=>true,'execution_enabled'=>true]]);

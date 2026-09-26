@@ -734,7 +734,7 @@ class AigcShortDramaService
             }
             $agent=(array)$params['canvas_agent'];
             $enabled=in_array($agent['enabled']??($current['canvas_agent']['enabled']??true),[true,1,'1','true'],true);
-            $executionEnabled=$enabled && in_array($agent['execution_enabled']??($current['canvas_agent']['execution_enabled']??false),[true,1,'1','true'],true);
+            $executionEnabled=$enabled && in_array($agent['execution_enabled']??($current['canvas_agent']['execution_enabled']??true),[true,1,'1','true'],true);
             // Provider credentials, model identities and prices always remain
             // server-owned. Safety is a short-drama tenant policy, not a
             // cross-app sensitive-word list.
@@ -15834,7 +15834,7 @@ class AigcShortDramaService
             'multi_episode_script_prompt_template' => self::defaultMultiEpisodeScriptPromptTemplate(),
             'force_result_transfer' => false,
             'result_storage_engine' => '',
-            'canvas_agent' => ['enabled' => true, 'execution_enabled' => false, 'workflow'=>['enabled'=>true,'enabled_workflows'=>[\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::KEY],'stage_skills'=>[]], 'safety' => FeatureGate::defaultSafetyPolicy()],
+            'canvas_agent' => ['enabled' => true, 'execution_enabled' => true, 'workflow'=>['enabled'=>true,'enabled_workflows'=>[\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflow::KEY],'stage_skills'=>[]], 'safety' => FeatureGate::defaultSafetyPolicy()],
             'models' => [
                 [
                     'id' => 'script-planner-default',
