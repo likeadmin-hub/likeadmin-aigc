@@ -133,6 +133,16 @@ class ShortDramaTextModelContractTest extends TestCase
         );
     }
 
+    public function testLongContinuityDiagnosticsCannotOverflowTaskErrorColumns(): void
+    {
+        $message = '连续性事实缺少匹配含义的镜头证据：[' . str_repeat('审校证据', 1000) . ']';
+        $safe = $this->invoke('scriptPlanProviderError', $message);
+        self::assertSame('连续性事实缺少匹配含义的镜头证据（完整审校证据已保留）', $safe);
+        self::assertLessThanOrEqual(200, mb_strlen($safe));
+        self::assertSame(str_repeat('错', 200), $this->invoke('scriptPlanProviderError', str_repeat('错', 1000)));
+        self::assertSame('普通任务失败', $this->invoke('scriptPlanProviderError', '普通任务失败'));
+    }
+
     private function planPayload(): array
     {
         return [

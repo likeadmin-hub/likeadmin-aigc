@@ -18506,6 +18506,13 @@ class AigcShortDramaService
         if (str_contains($lower, 'sqlstate') || str_contains($lower, 'integrity constraint') || str_contains($lower, 'duplicate entry')) {
             return self::SAFE_ERROR;
         }
+        // Detailed continuity evidence lives in planning receipts and the full
+        // exception log. Never put its JSON payload into bounded task columns:
+        // an overflow here would prevent the failure transition itself.
+        if (str_contains($message, '连续性')) {
+            $summary = explode('：[', $message, 2)[0];
+            return mb_substr($summary, 0, 180) . '（完整审校证据已保留）';
+        }
         if (str_contains($lower, 'unsupported parameter')
             || str_contains($lower, 'unknown parameter')
             || str_contains($lower, 'invalid parameter')
@@ -18521,7 +18528,7 @@ class AigcShortDramaService
         if (str_contains($lower, 'api key') || str_contains($lower, 'invalid') || str_contains($lower, 'disabled')) {
             return '文本模型调用异常，请检查算力市场模型状态';
         }
-        return $message !== '' ? $message : self::SAFE_ERROR;
+        return $message !== '' ? mb_substr($message, 0, 200) : self::SAFE_ERROR;
     }
 
     /**
