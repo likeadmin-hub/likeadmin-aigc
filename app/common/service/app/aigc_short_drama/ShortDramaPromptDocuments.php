@@ -122,6 +122,9 @@ final class ShortDramaPromptDocuments
     private static function sections(string $body): array
     {
         $labels = array_flip(ShortDramaPromptCatalog::snapshot()['document_conditions'] ?? self::definition()['conditions']);
+        // Historical custom documents may still contain this retired section.
+        // Recognize it without exposing it in the editor or activating it.
+        $labels['质检发现分镜数量不足'] = 'retired_quota';
         $parts = preg_split('/^【适用：([^】]+)】\s*$/mu', $body, -1, PREG_SPLIT_DELIM_CAPTURE);
         $sections = [['condition' => 'always', 'text' => trim((string)array_shift($parts))]];
         for ($i = 0; $i < count($parts); $i += 2) {
@@ -251,7 +254,7 @@ final class ShortDramaPromptDocuments
     public static function migration(array $snapshot): array
     {
         if (($snapshot['mode'] ?? '') === 'documents') return ['settings' => $snapshot['document_settings'], 'issues' => [], 'required' => false];
-        $values = $snapshot['values'];
+        $values = array_intersect_key($snapshot['values'], ShortDramaPromptCatalog::defaults());
         $legacy = $snapshot['legacy_config'] ?? [];
         $old = (array)($legacy['prompt_config'] ?? []);
         $overrides = array_replace(array_filter($values, static fn($v, $k) => $v !== ShortDramaPromptCatalog::defaults()[$k], ARRAY_FILTER_USE_BOTH), array_intersect_key($old, $values));
