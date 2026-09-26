@@ -6,6 +6,56 @@ use PHPUnit\Framework\TestCase;
 
 class ShortDramaContinuityPatchTest extends TestCase
 {
+    public function testUnsupportedOpenHookDoesNotBlockOrPolluteLedger(): void
+    {
+        $review = ['summary' => '本集', 'changes' => [], 'hooks' => [
+            ['id' => 'invented', 'status' => 'open', 'description' => '正文没有的婚事', 'shot_id' => '1', 'quote' => '原画面']], 'warnings' => []];
+        $verified = Patch::verifiedReview($review, ['checks' => [['collection' => 'hooks', 'index' => 0, 'supported' => false, 'reason' => '正文未出现']]], []);
+        $ledger = \app\common\service\app\aigc_short_drama\ShortDramaContinuity::ledger($verified, $this->plan(), [], 1);
+        self::assertSame([], $ledger['open_hooks']);
+        self::assertSame($review['hooks'][0], $ledger['unverified_claims'][0]['claim']);
+        self::assertNotEmpty($ledger['warnings']);
+    }
+
+    public function testInvalidReferenceIsQuarantinedWithoutRewritingScript(): void
+    {
+        $plan = $this->plan();
+        $review = ['summary' => '本集', 'changes' => [], 'hooks' => [
+            ['id' => 'invented', 'status' => 'open', 'description' => '不存在', 'shot_id' => null, 'quote' => null]], 'warnings' => []];
+        $calls = 0;
+        $ledger = \app\common\service\app\aigc_short_drama\ShortDramaContinuity::review($plan, [], 1,
+            static function () use ($review, &$calls) { $calls++; return $review; },
+            static fn ($filtered) => Patch::verifiedReview($filtered, ['checks' => []], []));
+        self::assertSame(1, $calls);
+        self::assertSame([], $ledger['open_hooks']);
+        self::assertCount(1, $ledger['unverified_claims']);
+        self::assertSame($this->plan(), $plan);
+    }
+
+    public function testUnsupportedStateDoesNotOverwritePreviousState(): void
+    {
+        $review = ['summary' => '本集', 'changes' => [['entity_id' => 'p1', 'field' => 'status', 'before' => 'alive', 'after' => 'dead', 'shot_id' => '1', 'quote' => '原画面']], 'hooks' => [], 'warnings' => []];
+        $context = ['continuity' => ['state' => ['p1:status' => 'alive']]];
+        $verified = Patch::verifiedReview($review, ['checks' => [['collection' => 'changes', 'index' => 0, 'supported' => false, 'reason' => '没有死亡证据']]], $context);
+        $ledger = \app\common\service\app\aigc_short_drama\ShortDramaContinuity::ledger($verified, $this->plan(), $context, 1);
+        self::assertSame($context['continuity']['state'], $ledger['state']);
+    }
+
+    public function testQuarantineStillRejectsIncompleteVerifier(): void
+    {
+        $this->expectExceptionCode(422);
+        Patch::verifiedReview(['changes' => [[]], 'hooks' => [[]]], ['checks' => [
+            ['collection' => 'hooks', 'index' => 0, 'supported' => false, 'reason' => '无依据']]], []);
+    }
+
+    public function testUnsupportedScriptInsertionStillBlocks(): void
+    {
+        $this->expectExceptionCode(460);
+        Patch::verifiedReview(['changes' => [], 'hooks' => [[]]], ['checks' => [
+            ['collection' => 'hooks', 'index' => 0, 'supported' => false, 'reason' => '无依据'],
+            ['collection' => 'insertions', 'index' => 0, 'supported' => false, 'reason' => '改写了剧情']]], [], ['shot_insertions' => [[]]]);
+    }
+
     public function testDiagnosticAliasDoesNotChangeRejectedVerdict(): void
     {
         $this->expectExceptionCode(460);
