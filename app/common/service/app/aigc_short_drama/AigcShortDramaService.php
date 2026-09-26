@@ -17459,9 +17459,11 @@ class AigcShortDramaService
             'multi_episode' => $episodeSettings['multi_episode'],
             'episode_count' => $episodeSettings['episode_count'],
             'multi_episode_stage' => $episodeSettings['multi_episode']
-                ? (ShortDramaStoryWorkflow::enabled(array_replace($params, $episodeSettings)) ? self::MULTI_EPISODE_STAGE_STORY : self::MULTI_EPISODE_STAGE_OUTLINE)
+                ? self::MULTI_EPISODE_STAGE_STORY
                 : self::MULTI_EPISODE_STAGE_PRODUCTION,
-            'workflow_variant' => ShortDramaStoryWorkflow::enabled(array_replace($params, $episodeSettings)) ? ShortDramaStoryWorkflow::VARIANT : '',
+            // New submissions always use staged confirmation. Historical reads
+            // and internal episode execution retain their persisted contract.
+            'workflow_variant' => $episodeSettings['multi_episode'] ? ShortDramaStoryWorkflow::VARIANT : '',
             'episode_workflow' => $episodeSettings['multi_episode'] ? 'outline_queue' : '',
             'target_duration_seconds' => $targetDurationSeconds,
             'duration_source' => $durationSource,
