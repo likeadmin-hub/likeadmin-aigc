@@ -276,10 +276,9 @@ class LoginLogic extends BaseLogic
         }
 
         $time = time();
-        $user->login_time = $time;
-        $user->login_ip = request()->ip();
-        $user->update_time = $time;
-        $user->save();
+        User::where(['id' => $userId, 'tenant_id' => $user->tenant_id])->update([
+            'login_time' => $time, 'login_ip' => request()->ip(), 'update_time' => $time,
+        ]);
     }
 
 

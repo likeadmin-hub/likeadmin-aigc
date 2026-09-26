@@ -145,9 +145,9 @@ class PcWechatService
         $legacy = $this->authQuery('')->where('openid', $identity['openid'])->findOrEmpty();
         if (!$legacy->isEmpty() && (int)$legacy->user_id !== $userId) throw new \RuntimeException('该微信存在其他账号的历史绑定，请先联系原账号处理');
         if (!$legacy->isEmpty()) {
-            $legacy->appid = $config['app_id'];
-            $legacy->unionid = $identity['unionid'];
-            $legacy->save();
+            $this->authQuery('')->where(['id' => $legacy->id, 'user_id' => $userId])->update([
+                'appid' => $config['app_id'], 'unionid' => $identity['unionid'],
+            ]);
         } else {
             UserAuth::create(['tenant_id' => $this->tenant(), 'user_id' => $userId, 'terminal' => 4,
                 'appid' => $config['app_id'], 'openid' => $identity['openid'], 'unionid' => $identity['unionid']]);

@@ -219,7 +219,11 @@ final class PcWechatLoginTest extends TestCase
         self::assertSame(0, Db::name('user_auth')->count());
         self::assertSame(1, Db::name('user_auth_one')->count());
         self::assertSame('bound', $this->service->bindingStatus(10)['pc_wechat_bind_status']);
+        $baseSession = Db::name('user_session')->where('user_id', 10)->value('token');
         $login = $this->complete($this->start('login'), 'login');
+        self::assertSame($baseSession, Db::name('user_session')->where('user_id', 10)->value('token'));
+        self::assertNull(Db::name('user')->where('id',10)->value('login_time'));
+        self::assertGreaterThan(0, Db::name('user_one')->where('id',10)->value('login_time'));
         self::assertSame(10, (int)(new UserTokenCache())->getUserInfo($login['token'])['user_id']);
         self::assertSame($login['token'], Db::name('user_session_one')->where('user_id', 10)->value('token'));
     }

@@ -53,7 +53,9 @@ class UserTokenService
             $userSession->tenant_id = $user->tenant_id;
             $userSession->expire_time = $expireTime;
             $userSession->update_time = $time;
-            $userSession->save();
+            UserSession::where(['id' => $userSession->id, 'tenant_id' => $user->tenant_id])->update([
+                'token' => $userSession->token, 'expire_time' => $expireTime, 'update_time' => $time,
+            ]);
         } else {
             //找不到在该终端的token记录，创建token记录
             $userSession = UserSession::create([
@@ -89,7 +91,9 @@ class UserTokenService
         //延长token过期时间
         $userSession->expire_time = $time + Config::get('project.user_token.expire_duration');
         $userSession->update_time = $time;
-        $userSession->save();
+        UserSession::where(['id' => $userSession->id, 'tenant_id' => $userSession->tenant_id])->update([
+            'expire_time' => $userSession->expire_time, 'update_time' => $time,
+        ]);
 
         return (new UserTokenCache())->setUserInfo($userSession->token);
     }
@@ -116,7 +120,9 @@ class UserTokenService
         $time = time();
         $userSession->expire_time = $time;
         $userSession->update_time = $time;
-        $userSession->save();
+        UserSession::where(['id' => $userSession->id, 'tenant_id' => $userSession->tenant_id])->update([
+            'expire_time' => $userSession->expire_time, 'update_time' => $time,
+        ]);
 
         return (new  UserTokenCache())->deleteUserInfo($token);
     }
