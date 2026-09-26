@@ -86,7 +86,8 @@ final class ConversationReplyStream
             return '';
         }
         if ($structured || str_starts_with($raw,'[')) return '';
-        return mb_check_encoding($raw,'UTF-8') ? self::publicText($raw) : '';
+        $text=self::publicText($raw);
+        return mb_check_encoding($text,'UTF-8') ? $text : '';
     }
 
     private static function publicText(string $text): string
