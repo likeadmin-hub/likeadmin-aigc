@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 class ShortDramaDialogueSplitTest extends TestCase
 {
     private function request(): array { return ['_input_contract_version'=>2, 'episode_duration_policy'=>Timing::snapshot([],0,0,[])]; }
-    private function shot(int $length=120): array { return ['shot_id'=>'s1','dialogue'=>str_repeat('字',$length),'scene_ref_id'=>'room','subject_ref_ids'=>['a'], 'voice_role'=>'甲','speech_type'=>'character','visual_description'=>'甲说完前半段，起身说完后半段','recommended_duration_seconds'=>5,'video_prompt'=>'旧完整视频提示词']; }
+    private function shot(int $length=120): array { return ['shot_id'=>'s1','dialogue'=>$length>84 ? str_repeat('字',intdiv($length,2)).'。'.str_repeat('字',$length-intdiv($length,2)).'。' : str_repeat('字',$length),'scene_ref_id'=>'room','subject_ref_ids'=>['a'], 'voice_role'=>'甲','speech_type'=>'character','visual_description'=>'甲说完前半段，起身说完后半段','recommended_duration_seconds'=>5,'video_prompt'=>'旧完整视频提示词']; }
     private function reply(array $shot): array {
         $text=$shot['dialogue'];$half=intdiv(mb_strlen($text),2);
         return ['segments'=>array_map(static fn($text)=>['dialogue'=>$text,'visual_description'=>'甲继续说话，承接上一动作','recommended_duration_seconds'=>Split::requiredSeconds($text)], [mb_substr($text,0,$half),mb_substr($text,$half)])];
@@ -71,5 +71,28 @@ class ShortDramaDialogueSplitTest extends TestCase
         ConversationShotTiming::assertProposals($old,[['artifact'=>'storyboard_video','duration_seconds'=>20]]);
         $this->expectException(\app\common\service\app\aigc_short_drama\canvas_agent\ConversationWorkflowValidationException::class);
         ConversationShotTiming::assertProposals($workflow,[['artifact'=>'storyboard_video','duration_seconds'=>13]]);
+    }
+
+    public function testSplittingInMiddleOfOriginalSentenceIsRejected(): void {
+        $shot=$this->shot();$shot['dialogue']=str_repeat('字',120);
+        $this->expectExceptionCode(409);
+        Split::validate($shot,$this->reply($shot),['min_seconds'=>4,'max_seconds'=>15],false);
+    }
+
+    public function testOuterEngineRetainsBothPaidReceiptsAndOnlySplitsTheFailedShot(): void {
+        $shot=$this->shot();$keys=[];
+        $request=['_input_contract_version'=>2];
+        $result=\app\common\service\app\aigc_short_drama\ShortDramaScriptGeneration::generate($request,
+            ['context_window'=>32768,'max_output_tokens'=>12000],['system_prompt'=>'保留质量','content'=>'原文'],
+            function($key,$input,$budget,$model)use(&$keys,$shot){
+                $keys[]=$key;
+                $payload=str_contains($key,'dialogue_split')?$this->reply($shot):[
+                    'title'=>'测试','story_outline'=>'甲说话','subjects'=>[['id'=>'a','name'=>'甲']],
+                    'locations'=>[['id'=>'room','name'=>'房间']],'storyboard'=>[$shot]];
+                return ['model'=>$model,'result'=>['content'=>json_encode($payload,JSON_UNESCAPED_UNICODE),'finish_reason'=>'stop']];
+            });
+        self::assertCount(2,$keys);self::assertSame('v3_script',$keys[0]);self::assertStringContainsString('dialogue_split',$keys[1]);
+        self::assertCount(2,$result['receipts']);self::assertCount(2,$result['payload']['storyboard']);
+        self::assertSame($shot['dialogue'],implode('',array_column($result['payload']['storyboard'],'dialogue')));
     }
 }
