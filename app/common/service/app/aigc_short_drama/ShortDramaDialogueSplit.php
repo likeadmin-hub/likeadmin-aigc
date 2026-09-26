@@ -87,12 +87,16 @@ final class ShortDramaDialogueSplit
         $parts = $reply['segments'] ?? null;
         if (!is_array($parts) || !array_is_list($parts) || count($parts) < 2 || count($parts) > 8) throw new RuntimeException('拆镜须返回2至8个连续镜头', 409);
         $dialogue = ''; $total = 0;
-        foreach ($parts as $part) {
+        foreach ($parts as $index => $part) {
             if (!is_array($part) || array_diff(array_keys($part), ['dialogue','visual_description','composition','camera_movement','recommended_duration_seconds'])
                 || !is_string($part['dialogue'] ?? null) || !is_string($part['visual_description'] ?? null) || trim($part['visual_description']) === ''
                 || !is_string($part['composition'] ?? '') || !is_string($part['camera_movement'] ?? '')
                 || !ShortDramaShotDuration::contains($part['recommended_duration_seconds'] ?? null, $rule)) throw new RuntimeException('拆镜字段或时长不合法', 409);
             if (self::requiredSeconds($part['dialogue']) > (float)$part['recommended_duration_seconds']) throw new RuntimeException('拆分后的完整台词仍超过片段时长', 409);
+            if ($index < count($parts) - 1 && trim($part['dialogue']) !== ''
+                && !preg_match('/[。！？!?；;，,：:\n][”’"\x27）)】\]]*\s*$/u', $part['dialogue'])) {
+                throw new RuntimeException('请在原台词的句末或分句停顿处分镜，不能从词语中间切开', 409);
+            }
             $dialogue .= $part['dialogue']; $total += (float)$part['recommended_duration_seconds'];
         }
         if ($dialogue !== (string)($shot['dialogue'] ?? '')) throw new RuntimeException('拆镜必须逐字保留全部台词和顺序', 409);
