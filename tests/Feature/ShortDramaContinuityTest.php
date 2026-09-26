@@ -40,6 +40,37 @@ class ShortDramaContinuityTest extends TestCase
         $this->expectExceptionCode(422);
         Continuity::ledger($review, $this->plan(), [], 1);
     }
+    public function testStringNullForNewStateDoesNotNeedPaidRepair(): void
+    {
+        $review = $this->review(); $review['changes'][0]['before'] = 'null'; $calls = 0;
+        $ledger = Continuity::review($this->plan(), [], 1, static function () use ($review, &$calls) {
+            $calls++; return $review;
+        });
+        self::assertSame(1, $calls);
+        self::assertSame(0, $ledger['review_repairs']);
+        self::assertSame('钥匙', $ledger['state']['p1:item_owner']);
+        self::assertSame('null', $review['changes'][0]['before']);
+    }
+    public function testStringNullCannotOverwriteKnownState(): void
+    {
+        $review = $this->review(); $review['changes'][0]['before'] = 'null';
+        $this->expectExceptionCode(409);
+        Continuity::ledger($review, $this->plan(), ['continuity' => ['state' => ['p1:item_owner' => '地图']]], 2);
+    }
+    public function testStringNullStillRequiresRealEvidence(): void
+    {
+        $review = $this->review(); $review['changes'][0]['before'] = 'null';
+        $review['changes'][0]['quote'] = '不存在的证据';
+        $this->expectExceptionCode(422);
+        Continuity::ledger($review, $this->plan(), [], 1);
+    }
+    public function testSecondChangeCannotReuseFirstRegistrationSentinel(): void
+    {
+        $review = $this->review(); $review['changes'][0]['before'] = 'null';
+        $review['changes'][] = $review['changes'][0];
+        $this->expectExceptionCode(409);
+        Continuity::ledger($review, $this->plan(), [], 1);
+    }
     public function testBeforeStateMustMatchAndUnknownHookCannotResolve(): void
     {
         $this->expectExceptionCode(409);

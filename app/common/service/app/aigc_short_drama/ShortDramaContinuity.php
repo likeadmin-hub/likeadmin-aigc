@@ -179,6 +179,12 @@ final class ShortDramaContinuity
                 || !preg_match('/^[a-zA-Z0-9_\x{4e00}-\x{9fff}]{1,80}$/u', $item['field'])
                 || !is_string($item['after'] ?? null) || mb_strlen($item['after']) > 1200) throw new RuntimeException('剧情状态标识或内容无效', 422);
             $key = $item['entity_id'] . ':' . $item['field'];
+            // Some providers serialize the first-registration sentinel as a
+            // string. Normalize only this exact token for an absent key;
+            // never erase an existing state or infer an unrecorded old value.
+            if (!array_key_exists($key, $state) && ($item['before'] ?? null) === 'null') {
+                $item['before'] = null;
+            }
             if (!array_key_exists($key, $state) && ($item['before'] ?? null) !== null) {
                 throw new RuntimeException('连续性审校字段' . $key . '首次登记的before必须为null，不能推断未记录的旧状态', 422);
             }
