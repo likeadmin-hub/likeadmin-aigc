@@ -194,6 +194,14 @@ class ShortDramaContinuityTest extends TestCase
         $review = $this->review(); $review['hooks'] = [['id' => 'missing', 'description' => '钥匙', 'status' => 'resolved', 'shot_id' => 's1', 'quote' => '钥匙']];
         $this->expectExceptionCode(409); Continuity::ledger($review, $this->plan(), [], 1);
     }
+    public function testResolvedSuffixOnlyMapsToAnExistingHook(): void
+    {
+        $review = $this->review(); $review['hooks'] = [['id' => 'key_resolved', 'description' => '找到钥匙', 'status' => 'resolved', 'shot_id' => 's1', 'quote' => '钥匙']];
+        $ledger = Continuity::ledger($review, $this->plan(), ['continuity' => ['open_hooks' => ['key' => '寻找钥匙', 'other' => '其他伏笔']]], 2);
+        self::assertSame(['other' => '其他伏笔'], $ledger['open_hooks']);
+        $this->expectExceptionCode(409);
+        Continuity::ledger($review, $this->plan(), [], 2);
+    }
     public function testNewFieldAuditCanRepairOnceWithoutChangingTheScript(): void
     {
         $plan = $this->plan(); $review = $this->review(); $calls = 0;

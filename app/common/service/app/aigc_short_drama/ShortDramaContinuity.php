@@ -306,6 +306,13 @@ final class ShortDramaContinuity
             if (!is_string($item['id'] ?? null) || trim($item['id']) === '' || mb_strlen($item['id']) > 100
                 || !is_string($item['description'] ?? null) || !in_array($item['status'] ?? '', ['open', 'resolved'], true)) throw new RuntimeException('伏笔记录格式无效', 422);
             if ($item['status'] === 'resolved') {
+                // Some models append the status to an otherwise exact hook
+                // identifier. Resolve only an existing, unique base ID; never
+                // guess from descriptions or accept an unknown hook.
+                if (!isset($hooks[$item['id']]) && str_ends_with($item['id'], '_resolved')) {
+                    $baseId = substr($item['id'], 0, -strlen('_resolved'));
+                    if (isset($hooks[$baseId])) $item['id'] = $baseId;
+                }
                 if (!isset($hooks[$item['id']])) throw new RuntimeException('回收了未记录的伏笔，请检查剧情衔接', 409);
                 unset($hooks[$item['id']]);
             } else $hooks[$item['id']] = $item['description'];
