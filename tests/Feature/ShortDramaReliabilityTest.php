@@ -82,7 +82,7 @@ class ShortDramaReliabilityTest extends TestCase
     public function testStructuralRetryDoesNotInheritPreviousTimingAdjustment(): void
     {
         $request = ShortDramaInputContract::begin(['episode_duration_policy' =>
-            \app\common\service\app\aigc_short_drama\ShortDramaEpisodeDuration::snapshot([], 0)]);
+            \app\common\service\app\aigc_short_drama\ShortDramaEpisodeDuration::snapshot([], 0, 0, [])]);
         $skeleton = ['title' => '测试', 'story_outline' => '甲在房间说完台词', 'script_lines' => ['保留台词'],
             'subjects' => [['id' => 'p1', 'name' => '甲']], 'locations' => [['id' => 'l1', 'name' => '房间']],
             'scene_beats' => [['scene_ref_id' => 'l1', 'goal' => '说明', 'entry' => '进入', 'exit' => '离开',
