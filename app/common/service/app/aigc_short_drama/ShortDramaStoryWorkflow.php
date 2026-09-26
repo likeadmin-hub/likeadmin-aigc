@@ -17,6 +17,7 @@ final class ShortDramaStoryWorkflow
 
     public static function workerOwned(array $request): bool
     {
+        if (($request['source'] ?? '') === 'market_file_qa_parse') return false;
         // Episode production has its own ordered worker and must not race it.
         return empty($request['episode_id']) && (self::enabled($request)
             || ((int)($request['_generation_version'] ?? 0) >= 3 && empty($request['multi_episode'])));

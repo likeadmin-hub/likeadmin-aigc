@@ -37,6 +37,16 @@ class ShortDramaStoryWorkflowTest extends TestCase
         ShortDramaStoryWorkflow::nextStage('episodes', true);
     }
 
+    public function testUploadedStoryWorkspaceNeverDispatchesAnotherStoryLlm(): void
+    {
+        $request = ['workflow_variant' => ShortDramaStoryWorkflow::VARIANT, 'multi_episode' => true,
+            'episode_count' => 10, '_generation_version' => 3, 'source' => 'market_file_qa_parse'];
+        self::assertTrue(ShortDramaStoryWorkflow::enabled($request));
+        self::assertFalse(ShortDramaStoryWorkflow::workerOwned($request));
+        $request['source'] = 'revision';
+        self::assertTrue(ShortDramaStoryWorkflow::workerOwned($request));
+    }
+
     public function testIncompleteStoryReportsMissingFields(): void
     {
         $issues = ShortDramaStoryWorkflow::issues(['title' => ''], 'story', 10);
