@@ -74,6 +74,29 @@ class ShortDramaPlanningUnitPersistenceTest extends TestCase
     {
         $this->assertAuditReceiptReplay(false);
     }
+    /** @dataProvider retiredPolicyUnsafeReceipts */
+    public function testPolicyChangeCannotBypassAnUnsafeOriginalUnit(string $status, string $finish, int $error): void
+    {
+        $request = ['prompt'=>'原剧情', '_prompt_task_id'=>$this->task];
+        Db::name('aigc_short_drama_script_task')->insert(['tenant_id'=>2000000719,'user_id'=>7,
+            'task_id'=>$this->task,'status'=>'running','request_json'=>json_encode($request)]);
+        Db::name('aigc_short_drama_planning_unit')->insert(['tenant_id'=>2000000719,'user_id'=>7,
+            'task_id'=>$this->task,'unit_key'=>'v3_script','status'=>$status,'attempt'=>3,
+            'result_json'=>json_encode(['result'=>['content'=>'{}','finish_reason'=>$finish]])]);
+        $before = Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->find();
+        try {
+            \app\common\service\app\aigc_short_drama\ShortDramaShotPolicy::legacyReceipt(2000000719,7,$request);
+            self::fail('Unsafe receipt must not fall through to a new paid request');
+        } catch (\RuntimeException $exception) {
+            self::assertSame($error, $exception->getCode());
+        }
+        self::assertSame($before, Db::name('aigc_short_drama_planning_unit')->where('task_id',$this->task)->find());
+    }
+    public static function retiredPolicyUnsafeReceipts(): array
+    {
+        return [['running','',409], ['failed','',409], ['waiting','',409],
+            ['received','length',413], ['received','stop',422]];
+    }
     private function assertAuditReceiptReplay(bool $canRepair): void
     {
         $plan = ['subjects' => [['id' => 'p1']], 'locations' => [],

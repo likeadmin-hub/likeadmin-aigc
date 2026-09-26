@@ -27,16 +27,19 @@ final class ShortDramaShotPolicy
             'episode_id', 'episode_number', 'episode_duration_policy', 'locked_subject_references'] as $field) {
             if (($saved[$field] ?? null) !== ($request[$field] ?? null)) throw new RuntimeException('生成上下文已变化，请新建版本；原有结果已保留', 409);
         }
-        $row = Db::name('aigc_short_drama_planning_unit')->where($scope)->where('unit_key', $key)->where('status', 'received')->find();
+        $row = Db::name('aigc_short_drama_planning_unit')->where($scope)->where('unit_key', $key)->find();
         if (!$row) return null;
+        // A policy namespace change must never bypass an ambiguous paid call,
+        // a failed unit or its retry budget. Preserve the original unit untouched.
+        if ($row['status'] !== 'received') {
+            throw new RuntimeException('原生成请求尚未获得完整回包，已保留原状态；请核实后新建版本，不能自动重复提交', 409);
+        }
         $receipt = json_decode((string)$row['result_json'], true, 512, JSON_THROW_ON_ERROR);
         // Never reuse a truncated/invalid response as a complete script.
-        try {
-            $plan = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []));
-            foreach ($key === 'v3_script' ? ['title', 'story_outline', 'subjects', 'locations', 'storyboard'] : [] as $field) {
-                if (empty($plan[$field])) return null;
-            }
-        } catch (RuntimeException $error) { return null; }
+        $plan = ShortDramaStructuredResponse::decode((array)($receipt['result'] ?? []));
+        foreach ($key === 'v3_script' ? ['title', 'story_outline', 'subjects', 'locations', 'storyboard'] : [] as $field) {
+            if (empty($plan[$field])) throw new RuntimeException('原剧本回包内容不完整，已保留原结果；请新建版本', 422);
+        }
         return $receipt;
     }
 }
